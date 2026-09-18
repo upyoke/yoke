@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from yoke_contracts.ui_browser_origin import ui_browser_origin_active
 from yoke_core.domain.actors import is_human_actor
 from yoke_core.domain.steering_scope_coverage import covering_claims
 from yoke_core.domain.steering_scope_membership import item_coverage_target
@@ -110,13 +111,25 @@ def require_clearance_authority(
             f"session tells them apart. {_RECOVERY}",
         )
     if not caller:
+        # An empty session id is what a browser call looks like -- and also
+        # what any agent can type. Origin is therefore taken from the mark
+        # this machine's UI server sets around its own dispatch, which no
+        # envelope carries and no wire delivers, never from the envelope.
+        if not ui_browser_origin_active():
+            raise MergeCandidateReviewAuthorityError(
+                UNAUTHORIZED_CODE,
+                f"{UNAUTHORIZED_CODE}: this call names no harness session, "
+                "and a session-less answer is accepted only from a person "
+                "at this machine's Yoke UI. A call on a machine API token "
+                f"cannot {action} by omitting its session. {_RECOVERY}",
+            )
         if actor_id is not None and is_human_actor(conn, int(actor_id)):
             return
         raise MergeCandidateReviewAuthorityError(
             UNAUTHORIZED_CODE,
-            f"{UNAUTHORIZED_CODE}: a call carrying no harness session may "
-            f"{action} only as a person acting through the web Inbox, and "
-            f"this one carries no human actor. {_RECOVERY}",
+            f"{UNAUTHORIZED_CODE}: the UI resolved no human operator actor, "
+            f"so nobody is on record as having taken this decision; it may "
+            f"not {action}. {_RECOVERY}",
         )
     if _seat_covers(conn, item_id=int(item_id), session_id=caller):
         return

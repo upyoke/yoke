@@ -25,6 +25,7 @@ from yoke_core.domain.actor_permissions import (
     grant_actor_project_role,
     seed_roles_and_permissions,
 )
+from yoke_contracts.ui_browser_origin import ui_browser_origin
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.decision_request_resolution import resolve_decision_request
 from yoke_core.domain.item_posture_amend import amend_item_posture
@@ -154,16 +155,18 @@ def test_the_covering_steering_seat_clears_it() -> None:
 
 
 def test_a_person_in_the_web_inbox_clears_it_with_no_harness_session() -> None:
+    """Session-less is accepted only under the UI server's own origin mark."""
     with test_database() as conn:
         _item_id, _project_id_, request_id = _world(conn)
-        row = resolve_decision_request(
-            conn,
-            request_id,
-            actor_id=REVIEWER,
-            action="approve",
-            note="answered in the Inbox",
-            session_id="",
-        )
+        with ui_browser_origin():
+            row = resolve_decision_request(
+                conn,
+                request_id,
+                actor_id=REVIEWER,
+                action="approve",
+                note="answered in the Inbox",
+                session_id="",
+            )
         assert row["status"] == "resolved"
         assert row["resolution_action"] == "approve"
 
@@ -237,15 +240,16 @@ def test_selecting_the_posture_needs_no_special_authority() -> None:
         _human_reviewer(conn, project_id)
         seed_session(conn, WORKER_SESSION, project_id)
         _hold_item(conn, WORKER_SESSION, item_id)
-        amend_item_posture(
-            conn,
-            item_id=item_id,
-            key=POSTURE_KEY,
-            clear=True,
-            reason="seat removes it",
-            actor_id=REVIEWER,
-            session_id="",
-        )
+        with ui_browser_origin():
+            amend_item_posture(
+                conn,
+                item_id=item_id,
+                key=POSTURE_KEY,
+                clear=True,
+                reason="seat removes it",
+                actor_id=REVIEWER,
+                session_id="",
+            )
         result = amend_item_posture(
             conn,
             item_id=item_id,

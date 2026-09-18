@@ -18,6 +18,7 @@ from yoke_core.domain.actor_permissions import (
     grant_actor_project_role,
     seed_roles_and_permissions,
 )
+from yoke_contracts.ui_browser_origin import ui_browser_origin
 from yoke_core.domain.decision_request_resolution import (
     resolve_decision_request,
 )
@@ -136,7 +137,7 @@ def test_clearing_the_posture_refuses_while_a_review_is_open() -> None:
         item_id = _dash(conn, item_id=2863, posture={POSTURE_KEY: True})
         _ensure_human_owner(conn, _project_id(conn, item_id))
         verdict = _raise_review(conn, item_id)
-        with pytest.raises(ItemPostureAmendError) as caught:
+        with pytest.raises(ItemPostureAmendError) as caught, ui_browser_origin():
             amend_item_posture(
                 conn,
                 item_id=item_id,
@@ -158,21 +159,23 @@ def test_clearing_the_posture_succeeds_once_the_review_is_settled() -> None:
         item_id = _dash(conn, item_id=2864, posture={POSTURE_KEY: True})
         _ensure_human_owner(conn, _project_id(conn, item_id))
         verdict = _raise_review(conn, item_id)
-        resolve_decision_request(
-            conn,
-            verdict.request_id,
-            actor_id=REVIEWER,
-            action="approve",
-            note="read the diff",
-        )
-        result = amend_item_posture(
-            conn,
-            item_id=item_id,
-            key=POSTURE_KEY,
-            clear=True,
-            reason="no further review needed on this item",
-            actor_id=REVIEWER,
-            session_id="",
-        )
+        with ui_browser_origin():
+            resolve_decision_request(
+                conn,
+                verdict.request_id,
+                actor_id=REVIEWER,
+                action="approve",
+                note="read the diff",
+            )
+        with ui_browser_origin():
+            result = amend_item_posture(
+                conn,
+                item_id=item_id,
+                key=POSTURE_KEY,
+                clear=True,
+                reason="no further review needed on this item",
+                actor_id=REVIEWER,
+                session_id="",
+            )
         assert result["changed"] is True
         assert POSTURE_KEY not in result["after"]

@@ -389,9 +389,22 @@ claim is refused by name however privileged its actor — on a workstation
 every agent carries the operator's own actor, so the session is the only
 thing that tells a worker from its reviewer. The answer comes from the
 session holding the steering seat that covers the item, or from a person in
-the web Inbox with no harness session at all. The same rule guards clearing
-the posture key: turning the requirement off is the same decision as
-answering it, so a worker cannot do that either.
+the web Inbox. The same rule guards clearing the posture key: turning the
+requirement off is the same decision as answering it, so a worker cannot do
+that either. Every answer records the session that gave it, beside the
+actor, because here the actor tells you nothing.
+
+**Know what this gate is.** It stops the ordinary mistake — a worker landing
+its own item before you have read it — and leaves an audit trail. It is not
+a security boundary and cannot be one on this machine: the server derives
+only the actor from the credential, so a session id is asserted rather than
+proved, and every surface here shares one operator credential. Three layers
+make evasion deliberate rather than accidental: the hook denies a foreign
+`--session-id` on these commands before they run, the session-less branch
+needs an origin mark only this machine's UI server can set, and the
+answering session is recorded. A caller determined to get past all three
+still can. Full reasoning and the residual outside Yoke:
+`docs/archive/decisions/merge-candidate-review.md`.
 
 The clearance is bound to that commit. Any commit made after it — a review
 fix, a rebase that rewrites the head — is a different candidate and asks

@@ -9,6 +9,7 @@ import pytest
 from runtime.api.domain.decision_request_test_support import (
     decision_request_connection,
 )
+from yoke_contracts.ui_browser_origin import ui_browser_origin
 from yoke_core.domain.decision_request_resolution import (
     resolve_decision_request,
 )
@@ -39,6 +40,22 @@ def _file_item(conn, *, posture: str) -> int:
     )
     conn.commit()
     return 3100
+
+
+def _settle(conn, request_id: int, action: str, note: str):
+    """Answer as a person at the UI: no harness session, origin marked.
+
+    The session-less branch is accepted only under the mark this machine's
+    UI server sets around its own dispatch; spoofing cases live next door.
+    """
+    with ui_browser_origin():
+        return resolve_decision_request(
+            conn,
+            request_id,
+            actor_id=OWNER_ACTOR,
+            action=action,
+            note=note,
+        )
 
 
 def _evaluate(conn, item_id: int, head: str):
@@ -94,13 +111,7 @@ def test_re_evaluating_the_same_head_reuses_the_open_review(conn):
 def test_a_cleared_head_lands(conn):
     item_id = _file_item(conn, posture='{"merge_candidate_review": true}')
     raised = _evaluate(conn, item_id, FIRST_HEAD)
-    resolve_decision_request(
-        conn,
-        raised.request_id,
-        actor_id=OWNER_ACTOR,
-        action="approve",
-        note="read the diff",
-    )
+    _settle(conn, raised.request_id, "approve", "read the diff")
     cleared = _evaluate(conn, item_id, FIRST_HEAD)
     assert cleared.required is True
     assert cleared.satisfied is True
@@ -111,13 +122,7 @@ def test_a_new_commit_after_a_clearance_is_a_new_candidate(conn):
     """The property the whole gate exists for: approval never travels."""
     item_id = _file_item(conn, posture='{"merge_candidate_review": true}')
     raised = _evaluate(conn, item_id, FIRST_HEAD)
-    resolve_decision_request(
-        conn,
-        raised.request_id,
-        actor_id=OWNER_ACTOR,
-        action="approve",
-        note="read the diff",
-    )
+    _settle(conn, raised.request_id, "approve", "read the diff")
     moved = _evaluate(conn, item_id, SECOND_HEAD)
     assert moved.required is True
     assert moved.satisfied is False
@@ -149,12 +154,8 @@ def test_a_newer_head_retires_the_review_of_the_head_it_replaced(conn):
 def test_a_rejected_candidate_stays_rejected_until_a_new_commit(conn):
     item_id = _file_item(conn, posture='{"merge_candidate_review": true}')
     raised = _evaluate(conn, item_id, FIRST_HEAD)
-    resolve_decision_request(
-        conn,
-        raised.request_id,
-        actor_id=OWNER_ACTOR,
-        action="reject",
-        note="the migration is not idempotent",
+    _settle(
+        conn, raised.request_id, "reject", "the migration is not idempotent"
     )
     again = _evaluate(conn, item_id, FIRST_HEAD)
     assert again.satisfied is False

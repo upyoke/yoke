@@ -179,6 +179,7 @@ def resolve_decision_request(
         action=action,
         note=note,
         decided_at=stamp,
+        session_id=session_id,
     )
     progress = evaluate_decisions(conn, _request_row(conn, request_id))
     append_decision_event(
