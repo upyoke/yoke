@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import merge_engine_internal_ops as _ops
 from yoke_core.domain.handlers import merge_engine_post_rebase_ci as _ci
+from yoke_core.domain.handlers import merge_engine_queue_receipt_read as _receipt
 from yoke_core.domain.handlers import merge_lock_ops as _lock
 
 _LOCK_MODULE = "yoke_core.domain.handlers.merge_lock_ops"
@@ -93,6 +94,20 @@ def register(registry) -> None:
         target_kinds=["item"],
         side_effects=["qa_requirements_insert", "qa_runs_insert"],
         emitted_event_names=["YokeFunctionCalled", "QARunCompleted"],
+        guardrails=[],
+        adapter_status="internal",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "merge.tests.recorded_queue_receipt",
+        _receipt.handle_recorded_queue_receipt,
+        _receipt.RecordedQueueReceiptRequest,
+        _receipt.RecordedQueueReceiptResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.merge_engine_queue_receipt_read",
+        target_kinds=["item"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         adapter_status="internal",
         claim_required_kind=None,

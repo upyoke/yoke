@@ -33,6 +33,14 @@ Nothing here unwinds a landed merge. Identity and file-recovery failures stay
 warnings because refusing them cannot undo it. Missing CI proof is different:
 the terminal gate would otherwise call a queue landing ``merged_locally``, so
 the caller keeps the item open and retries this bookkeeping instead.
+
+The CI proof comes off a ladder, recorded rung first. This runs once when the
+train lands and again at the deployment wake, and only the first of those is
+close enough to the train for GitHub's ``merge_group`` runs to be the easy
+answer. So the second reads the receipt the first recorded. Deriving it again
+from the provider is the fallback, not the default: it can only agree with
+the item's own landing or fail, and members whose proof was sitting in their
+own QA rows were stranded for the difference.
 """
 
 from __future__ import annotations
@@ -44,6 +52,7 @@ from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.close_out_control_plane_authority import (
     record_merge_queue_ci_evidence as record_batch_evidence,
+    recorded_merge_queue_ci_evidence as read_recorded_batch,
 )
 from yoke_core.domain.merge_queue_batch_receipt import (
     BatchReceipt,
@@ -63,17 +72,35 @@ class QueueCloseOut:
     touched_files: tuple[str, ...] = field(default=())
     batch: Optional[BatchReceipt] = None
     ci_evidence_error: str = ""
+    # Whether running this same close-out again could reach a different
+    # answer. A failure that cannot is the one a blanket "re-run it" turns
+    # into an unbounded loop, so the refusal reads this rather than assuming.
+    ci_evidence_retryable: bool = True
+    ci_evidence_recovery: str = ""
     warnings: tuple[str, ...] = field(default=())
 
     def ci_evidence_refusal(self, pr_num: str, resume_command: str = "") -> str:
-        """Teach the retry that records proof for an irreversible landing."""
+        """Name the recovery for a landing whose proof was not recorded."""
         if not self.ci_evidence_error:
             return ""
-        recovery = resume_command or "the same yoke merge item command"
-        return (
+        preamble = (
             f"pull request {pr_num} landed, but merge-group CI evidence was "
-            f"not recorded: {self.ci_evidence_error}. Re-run {recovery}; the "
-            "landing is durable and the retry only closes it out"
+            f"not recorded: {self.ci_evidence_error}"
+        )
+        if not self.ci_evidence_retryable:
+            detail = (
+                f". {self.ci_evidence_recovery}" if self.ci_evidence_recovery else ""
+            )
+            return (
+                f"{preamble}{detail} The landing is durable; running this "
+                "close-out again reaches the same answer, so it is not the "
+                "recovery"
+            )
+        recovery = resume_command or "the same yoke merge item command"
+        detail = f" {self.ci_evidence_recovery}" if self.ci_evidence_recovery else ""
+        return (
+            f"{preamble}.{detail} Re-run {recovery}; the landing is durable "
+            "and the retry only closes it out"
         )
 
 
@@ -110,30 +137,48 @@ def record_landing(
     if stamp_error:
         warnings.append(f"merged_at not recorded: {stamp_error}")
 
-    batch, batch_warning = observe_batch(
-        ctx,
-        pr_num=pr_num,
-        member_snapshot=member_snapshot,
-        drift_check=drift_check,
-    )
-    if batch_warning:
-        warnings.append(batch_warning)
-    merge_sha = batch.merge_sha if batch is not None else ""
+    batch = read_recorded_batch(item_id, pr_num=pr_num)
     ci_evidence_error = ""
-    if batch is None:
-        ci_evidence_error = batch_warning or (
-            f"merge-group CI receipt for pull request {pr_num} was not resolved"
-        )
-    elif not batch.head_sha or not batch.run_url:
-        ci_evidence_error = batch_warning or (
-            f"merge-group CI receipt for pull request {pr_num} omitted its "
-            "verified head or run URL"
-        )
+    ci_evidence_retryable = True
+    ci_evidence_recovery = ""
+    if batch is not None:
+        # The proof is already where the terminal gate reads it. Recording it
+        # again would only add a duplicate row, and re-deriving it could only
+        # disagree with the item's own landing.
+        merge_sha = batch.merge_sha
     else:
-        evidence_error = record_batch_evidence(item_id, batch)
-        if evidence_error:
-            ci_evidence_error = evidence_error
-            warnings.append(f"batch evidence not recorded: {evidence_error}")
+        batch, batch_failure = observe_batch(
+            ctx,
+            pr_num=pr_num,
+            member_snapshot=member_snapshot,
+            drift_check=drift_check,
+        )
+        if batch_failure is not None:
+            warnings.append(batch_failure.reason)
+            ci_evidence_retryable = batch_failure.retryable
+            ci_evidence_recovery = batch_failure.recovery
+        merge_sha = batch.merge_sha if batch is not None else ""
+        if batch is None:
+            ci_evidence_error = (
+                batch_failure.reason
+                if batch_failure is not None
+                else f"merge-group CI receipt for pull request {pr_num} was "
+                "not resolved"
+            )
+        elif not batch.head_sha or not batch.run_url:
+            ci_evidence_error = (
+                batch_failure.reason
+                if batch_failure is not None
+                else f"merge-group CI receipt for pull request {pr_num} "
+                "omitted its verified head or run URL"
+            )
+        else:
+            evidence_error = record_batch_evidence(item_id, batch)
+            if evidence_error:
+                ci_evidence_error = evidence_error
+                ci_evidence_retryable = True
+                ci_evidence_recovery = ""
+                warnings.append(f"batch evidence not recorded: {evidence_error}")
 
     touched, files_error = read_pr_changed_files(ctx, pr_num)
     if files_error:
@@ -173,6 +218,8 @@ def record_landing(
         touched_files=touched_files,
         batch=batch,
         ci_evidence_error=ci_evidence_error,
+        ci_evidence_retryable=ci_evidence_retryable,
+        ci_evidence_recovery=ci_evidence_recovery,
         warnings=tuple(warnings),
     )
 
