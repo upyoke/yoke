@@ -11,8 +11,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from runtime.api.fixtures.backlog_inserts import insert_deployment_run
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import release_delivery_summary as summary_module
