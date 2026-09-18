@@ -104,12 +104,28 @@ PRODUCT_CLI_BOUNDARY_TESTS = (
     "runtime/api/cli/test_yoke_product_boundary_import_edges.py",
     "runtime/api/cli/test_yoke_product_boundary_inventory.py",
     "runtime/api/cli/test_yoke_product_boundary_qa_browser.py",
-    "runtime/api/test_installer_package_boundaries.py",
     "runtime/api/test_parity_db_router_item_list.py",
     "runtime/api/test_parity_render.py",
     "runtime/api/test_service_client_item_list.py",
     "runtime/api/test_service_client_items.py",
+)
+
+CLIENT_PACKAGE_BOUNDARY_TESTS = (
+    # Both scan the source tree rather than importing what they check, so
+    # reachability can never link them to the file that breaks them. They
+    # rode in the product-CLI family, whose trigger is the CLI's own source
+    # -- so an import added under yoke-harness reached a green selection and
+    # a red suite, which is exactly the boundary they exist to catch.
+    "runtime/api/test_installer_package_boundaries.py",
     "tests/import_graph/test_skeletons_importable.py",
+)
+
+CLIENT_PACKAGE_SOURCE_PREFIXES = (
+    # Every package that must not reach into yoke-core, named here rather
+    # than inferred: the rule is about which package the file lives in.
+    "packages/yoke-cli/src/yoke_cli/",
+    "packages/yoke-contracts/src/yoke_contracts/",
+    "packages/yoke-harness/src/yoke_harness/",
 )
 
 PRODUCT_CLI_SOURCE_PREFIXES = (
@@ -195,6 +211,11 @@ PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] 
         PRODUCT_CLI_BOUNDARY_TESTS,
     ),
     (
+        "client_package_boundary_contract",
+        CLIENT_PACKAGE_SOURCE_PREFIXES,
+        CLIENT_PACKAGE_BOUNDARY_TESTS,
+    ),
+    (
         "universe_ui_contract",
         UNIVERSE_UI_SOURCE_PREFIXES,
         UNIVERSE_UI_CONTRACT_TESTS,
@@ -259,6 +280,8 @@ __all__ = [
     "MIGRATION_HISTORY_CONTRACT_TESTS",
     "MIGRATION_HISTORY_SOURCE_PREFIXES",
     "PREFIX_CONTRACT_TESTS",
+    "CLIENT_PACKAGE_BOUNDARY_TESTS",
+    "CLIENT_PACKAGE_SOURCE_PREFIXES",
     "PRODUCT_CLI_BOUNDARY_TESTS",
     "PRODUCT_CLI_SOURCE_PREFIXES",
     "SOURCE_RECIPE_CONTRACT_TESTS",

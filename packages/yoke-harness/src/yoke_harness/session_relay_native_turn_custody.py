@@ -50,7 +50,10 @@ from typing import Any, Callable, Iterator, Mapping
 
 from yoke_contracts.process_ancestry import process_start_time
 from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
-from yoke_harness.session_relay_native_capture_format import parse_capture
+from yoke_harness.session_relay_native_capture_format import (
+    parse_capture,
+    stamp_seconds,
+)
 from yoke_harness import session_launch_handles
 from yoke_harness.session_launch_containment import supervised_records
 from yoke_harness.session_relay_process_liveness import LAUNCH_HANDLE_SOURCE
@@ -135,14 +138,12 @@ def _silent_for_seconds(
     except OSError:
         return None
     capture = parse_capture(payload)
-    if capture is None or not capture.last_output_at:
+    if capture is None:
         return None
-    from yoke_core.domain.session_message_types import parse_timestamp
-
-    spoke = parse_timestamp(capture.last_output_at)
+    spoke = stamp_seconds(capture.last_output_at)
     if spoke is None:
         return None
-    return max(0, int(now() - spoke.timestamp()))
+    return max(0, int(now() - spoke))
 
 
 def _running(

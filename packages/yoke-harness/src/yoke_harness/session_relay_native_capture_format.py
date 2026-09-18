@@ -71,9 +71,30 @@ class NativeCapture:
         return capture_tail(self.stderr) or capture_tail(self.stdout)
 
 
+#: The one stamp shape this envelope writes and reads back.
+_STAMP_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
+
 def utc_stamp(now: float) -> str:
     """Render one capture timestamp in the stamp shape evidence carries."""
-    return datetime.fromtimestamp(now, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.fromtimestamp(now, timezone.utc).strftime(_STAMP_FORMAT)
+
+
+def stamp_seconds(value: str | None) -> float | None:
+    """Read one of this envelope's own stamps back, or ``None``.
+
+    The inverse of :func:`utc_stamp` lives beside it because this module owns
+    the shape; a reader that wants the difference between a capture's clock
+    and now would otherwise reimplement the format, or reach across a package
+    boundary for a parser that answers a different question.
+    """
+    if not value:
+        return None
+    try:
+        parsed = datetime.strptime(value.strip(), _STAMP_FORMAT)
+    except (TypeError, ValueError):
+        return None
+    return parsed.replace(tzinfo=timezone.utc).timestamp()
 
 
 def capture_tail(stream: bytes) -> str:
@@ -180,5 +201,6 @@ __all__ = [
     "elision_notice",
     "compose_capture",
     "parse_capture",
+    "stamp_seconds",
     "utc_stamp",
 ]
