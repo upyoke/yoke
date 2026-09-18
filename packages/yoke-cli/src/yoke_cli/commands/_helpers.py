@@ -19,10 +19,6 @@ from typing import Any, Callable, Dict, List, Optional, TextIO
 from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.read_detail import DETAIL_FULL, DETAIL_SUMMARY
-
-#: Re-exported so an adapter that always wants the whole record names it
-#: from the same place it takes ``--full`` and ``detail_of``.
-FULL_DETAIL = DETAIL_FULL
 from yoke_cli.commands.local_dispatch_preload import ensure_handlers_loaded
 from yoke_cli.transport.dispatcher import (
     build_actor,
@@ -30,6 +26,9 @@ from yoke_cli.transport.dispatcher import (
     emit_response,
 )
 
+#: Re-exported so an adapter that always wants the whole record names it
+#: from the same place it takes ``--full`` and ``detail_of``.
+FULL_DETAIL = DETAIL_FULL
 
 __all__ = [
     "ensure_handlers_loaded",
