@@ -37,9 +37,9 @@ yoke qa requirement add --deployment-run run-YYYYMMDD-NNN \
 A run case is authorized by the run's own project scope — the `qa_subject`
 claim policy the rest of QA already writes under — and carries no workflow
 transition, because its delivery run owns that context. It must name a method
-(`--method-id`): what distinguishes a case from a bookkeeping row is that
-something can execute it, and the plan-materialized acceptance kinds are
-written by the run's own pipeline.
+(`--method-id`) and a bindable target: the frozen QA stage (so run/stage
+authority can stamp `execution_target_json` / `execution_target_digest`) or
+`--target-env` for a registered environment of the run's project.
 
 The command refuses, by name and with the recovery:
 
@@ -50,14 +50,16 @@ The command refuses, by name and with the recovery:
 - a member the run does not carry, naming the ones it does — run composition
   is frozen at start and is not widened by attaching a case;
 - a member named without a stage, which storage models as a check *at* a
-  stage and the subject constraint rejects half-named.
+  stage and the subject constraint rejects half-named;
+- a case with no bindable target — name `--deployment-stage` after the QA
+  stage's source receipt is ready, or `--target-env`.
 
-A hand-authored run case never carries `execution_target_json` /
-`execution_target_digest`, which is what a stage's own gate matches on. It is
-therefore additional evidence recorded against the run, never a silent gate on
-a materialized admission it was never part of. Execute and read it back with
-the same `yoke qa case run` and `yoke qa activity list` surfaces an item case
-uses.
+A hand-authored run/stage/member case carries the same execution-target
+fields plan materialization writes, so it is executable on that frozen
+destination. Existing unbound rows recover on `yoke qa case run
+--requirement-id N` — do not add the member to the run and do not attach a
+plan. When the flow lists no cases, those direct member cases are the
+selection; materialize does not copy them into a plan.
 
 Epic-task attachment remains operator-debug only, through
 `python3 -m yoke_core.domain.qa requirement-add --epic-id E --task-num K

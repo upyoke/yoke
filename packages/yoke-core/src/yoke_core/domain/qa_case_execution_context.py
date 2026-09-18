@@ -288,11 +288,20 @@ def get_case_execution_context(
                 raise QaCaseExecutionError(str(exc)) from exc
         context["execution_target"] = execution_target
         context["execution_target_digest"] = str(row["execution_target_digest"])
-    elif plan_id is not None or row["deployment_stage"] is not None:
+    elif plan_id is not None:
         raise QaCaseExecutionError(
             "materialized QA case has no execution target; rematerialize "
             "it after binding the plan target"
         )
+    elif row["deployment_stage"] is not None:
+        from yoke_core.domain.deployment_qa_direct_case_target import (
+            restore_missing_deployment_case_target,
+        )
+
+        try:
+            restore_missing_deployment_case_target(conn, row, context)
+        except (LookupError, TypeError, ValueError) as exc:
+            raise QaCaseExecutionError(str(exc)) from exc
     elif str(row["target_env"] or "").strip():
         # A draft --target-env label that was not an authorized environment
         # at authoring time stays unbound on the row. Resolve it here when

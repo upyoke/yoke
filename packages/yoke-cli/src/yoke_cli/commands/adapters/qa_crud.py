@@ -55,11 +55,12 @@ Insert one qa_requirements row against the subject you name.
                           one --deployment-member-item the run carries.
                           A run that has already finished is refused: its
                           evidence is closed. The case must name a method
-                          (--method-id), and it never enters a stage's
-                          materialized admission — it is evidence recorded
-                          against the run, executed and read back through
-                          the same `yoke qa case run` / `qa activity list`
-                          surfaces an item case uses.
+                          (--method-id) and a bindable target
+                          (--deployment-stage for frozen run/stage
+                          authority, or --target-env). Existing unbound
+                          member cases recover on `yoke qa case run
+                          --requirement-id N`; do not add-item onto a
+                          frozen run and do not attach a plan.
 
 Worked examples:
 

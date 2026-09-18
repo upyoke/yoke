@@ -1,0 +1,204 @@
+"""Direct run/stage/member QA cases bind the frozen destination and execute.
+
+A hand-authored member case used to land without execution_target_* so
+``yoke qa case run`` told the holder to rematerialize a plan. Membership
+changes on an executing run stay refused. Recovery is the case-run surface
+the member holder already has.
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from runtime.api.domain.test_deployment_qa_stage_execution import _seed_run
+from runtime.api.fixtures.backlog_inserts import insert_item
+from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
+from yoke_core.domain.deployment_runs_crud_mutate import cmd_add_item
+from yoke_core.domain.handlers import qa_requirement_create
+from yoke_core.domain.qa_case_execution_context import get_case_execution_context
+from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
+from yoke_core.domain.deployment_qa_stage_materialization import (
+    materialize_deployment_qa_stage,
+)
+from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+
+
+COMMAND_CASE = {
+    "method_id": "command",
+    "qa_phase": "post_deploy",
+    "instructions": "run the member smoke command",
+    "expected_outcome": "the command passes",
+    "method_config": {"command": "true"},
+}
+
+
+def _qa_stages() -> list[dict]:
+    return [
+        {
+            "name": "deploy",
+            "step_runner": "auto",
+            "stage_kind": "execution",
+            "scope": "run",
+        },
+        {
+            "name": "item-qa",
+            "step_runner": "qa",
+            "stage_kind": "qa",
+            "scope": "item",
+            "target": {
+                "kind": "persistent_environment",
+                "environment": "stage",
+                "source_stage": "deploy",
+            },
+            "verdict": {"mode": "agent_only"},
+        },
+    ]
+
+
+def _add(run_id: str, payload: dict) -> FunctionCallRequest:
+    return FunctionCallRequest(
+        function="qa.requirement.add",
+        actor=ActorContext(actor_id="op", session_id="s-1"),
+        target=TargetRef(kind="deployment_run", deployment_run_id=run_id),
+        payload=payload,
+    )
+
+
+def test_create_binds_frozen_stage_target(test_db) -> None:
+    _seed_run(
+        test_db,
+        run_id="run-direct-bind",
+        stages=_qa_stages(),
+        members=(9810,),
+    )
+    outcome = qa_requirement_create.handle_qa_requirement_add(
+        _add(
+            "run-direct-bind",
+            {
+                **COMMAND_CASE,
+                "deployment_stage": "item-qa",
+                "deployment_member_item": "YOK-9810",
+            },
+        )
+    )
+    assert outcome.primary_success, outcome.error
+    row = test_db.execute(
+        "SELECT execution_target_json, execution_target_digest, "
+        "deployment_member_item_id FROM qa_requirements WHERE id=%s",
+        (outcome.result_payload["requirement_id"],),
+    ).fetchone()
+    target = json.loads(row["execution_target_json"])
+    assert int(row["deployment_member_item_id"]) == 9810
+    assert target["environment"]["name"] == "stage"
+    assert target["deployment"]["run_id"] == "run-direct-bind"
+    assert target["deployment"]["member_item_id"] == 9810
+    assert row["execution_target_digest"]
+
+
+def test_unbound_existing_member_case_recovers_on_case_run(test_db) -> None:
+    _seed_run(
+        test_db,
+        run_id="run-direct-recover",
+        stages=_qa_stages(),
+        members=(9811,),
+    )
+    row = insert_qa_requirement(
+        test_db,
+        item_id=None,
+        deployment_run_id="run-direct-recover",
+        deployment_stage="item-qa",
+        deployment_member_item_id=9811,
+        qa_kind="method_case",
+        qa_phase="post_deploy",
+        method_id="command",
+        method_name="Command",
+        runner_id="worktree_run",
+        verdict_path="automatic",
+        capability_requirements="[]",
+        instructions="run the member smoke command",
+        expected_outcome="the command passes",
+        method_config=json.dumps({"command": "true"}),
+        target_env="prod",
+    )
+    context = get_case_execution_context(test_db, requirement_id=int(row["id"]))
+    assert context["execution_target"]["deployment"]["run_id"] == "run-direct-recover"
+    assert context["execution_target"]["deployment"]["member_item_id"] == 9811
+    stored = test_db.execute(
+        "SELECT execution_target_digest FROM qa_requirements WHERE id=%s",
+        (int(row["id"]),),
+    ).fetchone()
+    assert stored["execution_target_digest"]
+
+
+def test_flow_without_cases_materializes_direct_member_case(test_db) -> None:
+    _seed_run(
+        test_db,
+        run_id="run-direct-empty-flow",
+        stages=_qa_stages(),
+        members=(9812,),
+    )
+    created = qa_requirement_create.handle_qa_requirement_add(
+        _add(
+            "run-direct-empty-flow",
+            {
+                **COMMAND_CASE,
+                "deployment_stage": "item-qa",
+                "deployment_member_item": "YOK-9812",
+            },
+        )
+    )
+    assert created.primary_success, created.error
+    result = materialize_deployment_qa_stage(
+        test_db,
+        deployment_run_id="run-direct-empty-flow",
+        deployment_stage="item-qa",
+        deployment_member_item_id=9812,
+    )
+    assert created.result_payload["requirement_id"] in result["existing_requirement_ids"]
+    execution = begin_plan_execution(
+        test_db,
+        deployment_run_id="run-direct-empty-flow",
+        deployment_stage="item-qa",
+        deployment_member_item_id=9812,
+        actor_id="2",
+        session_id="direct-qa",
+    )
+    assert execution["roster"][0]["requirement_id"] == created.result_payload[
+        "requirement_id"
+    ]
+
+
+def test_frozen_membership_stays_refused_while_existing_member_recovers(
+    test_db,
+) -> None:
+    _seed_run(
+        test_db,
+        run_id="run-direct-frozen",
+        stages=_qa_stages(),
+        members=(9813,),
+    )
+    insert_item(test_db, id=9814, project_sequence=9814, title="Late", status="release")
+    test_db.commit()
+    with pytest.raises(ValueError, match="executing"):
+        cmd_add_item("run-direct-frozen", 9814)
+    row = insert_qa_requirement(
+        test_db,
+        item_id=None,
+        deployment_run_id="run-direct-frozen",
+        deployment_stage="item-qa",
+        deployment_member_item_id=9813,
+        qa_kind="method_case",
+        qa_phase="post_deploy",
+        method_id="command",
+        method_name="Command",
+        runner_id="worktree_run",
+        verdict_path="automatic",
+        capability_requirements="[]",
+        instructions="run the member smoke command",
+        expected_outcome="the command passes",
+        method_config=json.dumps({"command": "true"}),
+    )
+    context = get_case_execution_context(test_db, requirement_id=int(row["id"]))
+    assert context["execution_target"]["environment"]["name"] == "stage"

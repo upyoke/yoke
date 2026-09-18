@@ -19,11 +19,14 @@ What it refuses, and why each refusal names its recovery:
 * a member the run does not carry, named back with the ones it does;
 * a case with no method — what distinguishes a case from a bookkeeping row
   is that something can execute it, and only the run's own pipeline writes
-  the materialized acceptance kinds.
+  the materialized acceptance kinds;
+* a case with no bindable target — name the frozen QA stage (and wait for
+  its source-stage receipt) or a registered ``--target-env``, because an
+  unbound row cannot execute and is not a silent admission.
 
-It never writes the execution-target fields the pipeline's stage gate
-matches on, so a hand-authored case is additional evidence and never a
-silent gate on a stage nobody admitted it to.
+It writes the same execution-target fields plan materialization writes, so
+a hand-authored run/stage/member case is executable against that frozen
+destination rather than an inert row the executor cannot repair.
 """
 
 from __future__ import annotations
@@ -220,6 +223,23 @@ def handle_deployment_run_requirement_add(
         invalid = validate_method_requirement(conn, row, "$.payload")
         if invalid is not None:
             return invalid
+        from yoke_core.domain.deployment_qa_direct_case_target import (
+            bind_authored_deployment_requirement,
+        )
+
+        refused = bind_authored_deployment_requirement(
+            conn,
+            run_id=run_id,
+            stage=subject.deployment_stage,
+            member_item_id=subject.deployment_member_item_id,
+            row=row,
+        )
+        if refused:
+            return _error(
+                "payload_invalid",
+                refused,
+                jsonpath="$.payload.deployment_stage",
+            )
         cur = conn.execute(
             INSERT_SQL.format(p=_p(conn)),
             insert_params(subject, row, iso8601_now()),
