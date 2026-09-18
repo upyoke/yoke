@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import item_worktree_create as _item_worktree_create
+from yoke_core.domain.handlers import item_worktree_inventory as _item_worktree_inventory
 from yoke_core.domain.handlers import item_worktree_paths as _item_worktree_paths
 from yoke_core.domain.handlers import item_worktrees as _item_worktrees
 
@@ -39,6 +40,20 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.item_worktree_paths",
         target_kinds=["item"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "item_worktrees.inventory",
+        _item_worktree_inventory.handle_inventory,
+        _item_worktree_inventory.ItemWorktreeInventoryRequest,
+        _item_worktree_inventory.ItemWorktreeInventoryResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.item_worktree_inventory",
+        target_kinds=["global"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],

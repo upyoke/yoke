@@ -35,6 +35,7 @@ USAGE_BY_FUNCTION_ID = {
     "workflows.version.list": workflows_read.WORKFLOWS_VERSION_LIST_USAGE,
     "item_worktrees.create": (item_worktree_create.ITEM_WORKTREES_CREATE_USAGE),
     "item_worktrees.get": item_worktrees.ITEM_WORKTREES_GET_USAGE,
+    "item_worktrees.inventory": item_worktrees.ITEM_WORKTREES_INVENTORY_USAGE,
     "item_worktrees.list": item_worktrees.ITEM_WORKTREES_LIST_USAGE,
     "item_worktrees.path_record": (item_worktrees.ITEM_WORKTREES_PATH_RECORD_USAGE),
     "item_worktrees.release": item_worktrees.ITEM_WORKTREES_RELEASE_USAGE,

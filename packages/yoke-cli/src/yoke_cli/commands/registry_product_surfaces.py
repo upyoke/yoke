@@ -146,6 +146,10 @@ ITEM_WORKTREE_SUBCOMMAND_REGISTRY = {
         "item_worktrees.get",
         item_worktrees.item_worktrees_get,
     ),
+    ("item-worktrees", "inventory"): (
+        "item_worktrees.inventory",
+        item_worktrees.item_worktrees_inventory,
+    ),
     ("item-worktrees", "list"): (
         "item_worktrees.list",
         item_worktrees.item_worktrees_list,

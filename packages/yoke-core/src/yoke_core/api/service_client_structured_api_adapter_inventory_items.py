@@ -37,6 +37,19 @@ ITEMS_ADAPTERS = [
         ),
     ),
     read_entry(
+        function_id="item_worktrees.inventory",
+        cli_invocation=(
+            "yoke item-worktrees inventory --project P "
+            "[--session-id S] [--json]"
+        ),
+        notes=(
+            "Every registered lane in a project, released ones included, with "
+            "its owning item's public ref, status, target branch and lane "
+            "state; lets a checkout-holding machine decide lane hygiene over "
+            "any transport."
+        ),
+    ),
+    read_entry(
         function_id="item_worktrees.list",
         cli_invocation=(
             "yoke item-worktrees list <PREFIX-N> "

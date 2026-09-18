@@ -24,6 +24,7 @@ WRAPPED_ROWS = (
     _w("yoke items get", "items.read"),
     _w("yoke item-worktrees create", "item_worktrees"),
     _w("yoke item-worktrees get", "item_worktrees"),
+    _w("yoke item-worktrees inventory", "item_worktrees"),
     _w("yoke item-worktrees list", "item_worktrees"),
     _w("yoke item-worktrees path-record", "item_worktrees"),
     _w("yoke item-worktrees release", "item_worktrees"),
