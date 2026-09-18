@@ -257,6 +257,9 @@ QA_COMMANDS: list[dict] = [
             "browser-check decides automatically; "
             "browser-inspection attaches evidence before an undetermined verdict, "
             "which halts the item and creates an owner/operator review request. "
+            "A local-preview capture is reviewed with `yoke qa run record-verdict "
+            "--requirement-id N --performed-by agent --verdict pass "
+            "--verdict-reason TEXT` (not qa.plan_execution.begin / hosts.app). "
             "A case that did not run records blocked_on_precondition instead. "
             "Item-backed cases "
             "require the active item "
@@ -266,7 +269,16 @@ QA_COMMANDS: list[dict] = [
             "(target_env, frozen snapshot, run, or run-member stage) proves "
             "freshness against that host's identity path, not a branch "
             "preview; --expected-branch/--expected-sha still name the "
-            "revision to compare."
+            "revision to compare. A Command case exports `--base-url` as "
+            "`BASE_URL` even when method_config omits requires_base_url, "
+            "including a direct run-attached row. `method_config.command` "
+            "is a `/bin/sh -c` line, not a Python body — wrap as "
+            "`python3 -c '...'` or a checkout file (a leading `import` is "
+            "ImageMagick import(1)). `python3`/`python`/"
+            "`yoke` resolve to the product interpreter running the case "
+            "runner (`YOKE_PYTHON`); do not use `yoke dev run`. A leftover "
+            "QA_HOST claim is released by its holder with `yoke claims "
+            "coordination-claim release --claim-id N --reason TEXT`."
         ),
     },
     {

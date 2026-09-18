@@ -29,7 +29,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.handlers import qa_browser_writes
+from yoke_core.domain.handlers import qa_browser_writes, qa_run
 from yoke_core.domain.qa_browser_evidence_check import (
     check_browser_evidence_present,
 )
@@ -190,6 +190,58 @@ class TestAgentReviewedCaptureOutcome(unittest.TestCase):
             self.assertIn(
                 "no linked substrate-and-verdict proof", "\n".join(result.errors)
             )
+            self.assertIn("yoke qa run record-verdict", "\n".join(result.errors))
+
+
+    def test_record_verdict_links_a_local_preview_inspection_for_the_gate(self):
+        with test_database() as conn:
+            _seed_case(
+                conn,
+                requirement_id=8404,
+                method_id="browser-inspection",
+                verdict_path="agent",
+            )
+            _capture(conn, 8404)
+            with patch("yoke_core.domain.qa_events.emit_qa_run_event"):
+                outcome = qa_run.handle_qa_run_record_verdict(
+                    _request(
+                        "qa.run.record_verdict",
+                        8404,
+                        {
+                            "performed_by": "agent",
+                            "verdict": "pass",
+                            "verdict_reason": "local preview matches the capture",
+                        },
+                    )
+                )
+            assert outcome.primary_success, outcome.error
+            self.assertIsNone(_gate(conn))
+
+    def test_record_verdict_names_capture_recovery_without_a_capture(self):
+        with test_database() as conn:
+            _seed_case(
+                conn,
+                requirement_id=8405,
+                method_id="browser-inspection",
+                verdict_path="agent",
+            )
+            with patch("yoke_core.domain.qa_events.emit_qa_run_event"):
+                outcome = qa_run.handle_qa_run_record_verdict(
+                    _request(
+                        "qa.run.record_verdict",
+                        8405,
+                        {
+                            "performed_by": "agent",
+                            "verdict": "pass",
+                            "verdict_reason": "no capture yet",
+                        },
+                    )
+                )
+            self.assertFalse(outcome.primary_success)
+            self.assertEqual(outcome.error.code, "policy_violation")
+            self.assertIn("record-verdict", outcome.error.message)
+            self.assertIn("hosts.app", outcome.error.message)
+
 
     def test_a_capture_decided_by_its_own_steps_keeps_its_verdict_outcome(self):
         with test_database() as conn:

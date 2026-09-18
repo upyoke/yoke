@@ -77,13 +77,21 @@ def run(args: List[str]) -> int:
         prog="yoke qa case run",
         description=(
             "Execute one materialized test-plan case through its declared "
-            "registered runner."
+            "registered runner. A Command case's method_config.command is a "
+            "/bin/sh -c line, not a Python module body."
         ),
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--requirement-id", type=int, required=True)
-    parser.add_argument("--base-url", default="")
+    parser.add_argument(
+        "--base-url",
+        default="",
+        help=(
+            "HTTP(S) URL exported to the Command as BASE_URL, including a "
+            "direct run-attached row that omits method_config.requires_base_url"
+        ),
+    )
     parser.add_argument("--expected-branch")
     parser.add_argument("--expected-sha")
     parser.add_argument("--timeout-seconds", type=int)

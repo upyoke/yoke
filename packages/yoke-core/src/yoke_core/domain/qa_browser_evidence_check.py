@@ -137,6 +137,9 @@ def check_browser_evidence_present(
         "  Browser check requires a passing browser_substrate run with an artifact.",
         "  Browser inspection requires a captured browser_substrate artifact linked",
         "  to its completed passing agent-review verdict.",
+        "  Record that review with `yoke qa run record-verdict --requirement-id <id> "
+        "--performed-by agent --verdict pass --verdict-reason TEXT` after the capture.",
+        "  Do not begin a plan against hosts.app to attach a local-preview review.",
         f"  Remediation (harness skill): `/yoke advance {name} {transition_name}` runs browser QA automatically before the status change.",
         "  Remediation (terminal CLI): `yoke qa case run --requirement-id <id>` records the case; `/yoke advance` is not a CLI command.",
     ]

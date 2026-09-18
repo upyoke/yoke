@@ -153,7 +153,8 @@ def persistable_named_environment_target(
             f"QA case names environment {name!r}, which belongs to project "
             f"{others}, not project {project_id}. Name an environment "
             "registered to this project, or omit --target-env until that "
-            "binding exists."
+            "binding exists. "
+            + _captured_inspection_review_recovery()
         )
     return resolve_named_environment_execution_target(
         conn,
@@ -239,9 +240,18 @@ def resolve_named_environment_execution_target(
         raise QaExecutionTargetError(
             f"environment {environment_name!r} declares no reviewable URL, so a "
             "QA case bound to it could not be observed there. Record the "
-            "address in that environment's settings under hosts.app first"
+            "address in that environment's settings under hosts.app first. "
+            + _captured_inspection_review_recovery()
         )
     return target
+
+
+def _captured_inspection_review_recovery() -> str:
+    from yoke_core.domain.qa_captured_inspection_review import (
+        CAPTURED_INSPECTION_REVIEW_RECOVERY,
+    )
+
+    return CAPTURED_INSPECTION_REVIEW_RECOVERY
 
 
 def _origin(url: str) -> str:

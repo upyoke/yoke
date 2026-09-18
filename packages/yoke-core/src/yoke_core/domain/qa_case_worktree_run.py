@@ -31,6 +31,10 @@ from yoke_core.domain import verification_tree_binding_pytest_startup
 from yoke_core.domain import qa_case_execution
 from yoke_core.domain import qa_case_tree_binding_scope
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
+from yoke_core.domain.qa_method_config_validation import (
+    COMMAND_SHELL_CONTRACT,
+    looks_like_python_command_body,
+)
 
 #: Surface name carried by this runner's tree-binding refusal.
 _TREE_BINDING_SURFACE = "qa case run"
@@ -48,6 +52,8 @@ def execute_worktree_case(
     """Run the case's command in its worktree and record the verdict."""
     config = case["method_config"]
     command = qa_case_execution.required_case_command(case)
+    if looks_like_python_command_body(command):
+        raise QaCaseExecutionError(COMMAND_SHELL_CONTRACT)
     budget = qa_case_budget.resolve_command_case_budget(
         config,
         explicit_override=timeout_seconds,
@@ -101,9 +107,15 @@ def execute_worktree_case(
     command_env = verification_tree_binding_pytest_startup.with_binding_evaluated(
         os.environ
     )
-    if config.get("requires_base_url"):
-        if not base_url:
-            raise QaCaseExecutionError("this Command case requires --base-url")
+    if config.get("requires_base_url") and not base_url:
+        raise QaCaseExecutionError(
+            "this Command case requires --base-url. Pass "
+            "`yoke qa case run --requirement-id N --base-url URL` "
+            "(or the matching plan-run flag); the runner exports it as "
+            "BASE_URL for the command, including a direct run-attached "
+            "row that never went through a plan execution target."
+        )
+    if base_url:
         command_env["BASE_URL"] = base_url
     process_timeout = qa_gate_timeout.process_timeout_for_command(
         command, timeout, command_env

@@ -18,6 +18,7 @@ reaping when it times out or is interrupted.
 
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,6 +27,28 @@ from typing import Mapping, Optional, TextIO
 #: Capture-file and banner label. Names the surface an agent is reading,
 #: matching the ``watch_<kind>`` banners the wrappers already emit.
 CAPTURE_KIND = "qa_case"
+
+
+def product_command_environment(env: Mapping[str, str]) -> dict[str, str]:
+    """Bind a Command case onto the interpreter running this runner.
+
+    ``/bin/sh -c`` otherwise resolves ``python3`` from the process PATH —
+    typically the system interpreter, which does not import ``yoke_cli``.
+    The installed ``yoke`` launcher's directory has no sibling interpreter,
+    and ``yoke dev run`` is source-dev only. Prepend this process's
+    ``sys.executable`` directory so ``python3``, ``python``, and the product
+    ``yoke`` console script are that same environment. ``YOKE_PYTHON`` names
+    the interpreter for scripts that want it explicitly.
+
+    Do not ``Path.resolve()`` the executable: a venv ``python`` is often a
+    symlink onto the base interpreter, and that base has no product packages.
+    """
+    out = dict(env)
+    python_bin = str(Path(sys.executable).parent)
+    existing = out.get("PATH", "")
+    out["PATH"] = python_bin + ((os.pathsep + existing) if existing else "")
+    out["YOKE_PYTHON"] = sys.executable
+    return out
 
 
 @dataclass(frozen=True)
@@ -81,7 +104,7 @@ def stream_command(
         progress_capture=progress_capture,
         kind=CAPTURE_KIND,
         cwd=cwd,
-        env=dict(env),
+        env=product_command_environment(env),
         stdout_stream=sys.stderr if stream is None else stream,
         timeout_seconds=timeout_seconds,
     )
@@ -101,4 +124,9 @@ def stream_command(
     )
 
 
-__all__ = ["CAPTURE_KIND", "StreamedCommand", "stream_command"]
+__all__ = [
+    "CAPTURE_KIND",
+    "StreamedCommand",
+    "product_command_environment",
+    "stream_command",
+]
