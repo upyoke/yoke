@@ -225,32 +225,34 @@ class TestQaArtifactAdd(unittest.TestCase):
             def _caller(index: int) -> None:
                 try:
                     barrier.wait(timeout=10)
-                    with patch(
-                        "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
-                        return_value=("prod", "yoke-prod-artifacts", None),
-                    ):
-                        outcomes[index] = qa_browser_writes.handle_qa_artifact_add(
-                            _request(
-                                "qa.artifact.add",
-                                TargetRef(
-                                    kind="qa_requirement",
-                                    qa_requirement_id=10,
-                                ),
-                                payload=payload,
+                    outcomes[index] = qa_browser_writes.handle_qa_artifact_add(
+                        _request(
+                            "qa.artifact.add",
+                            TargetRef(
+                                kind="qa_requirement",
+                                qa_requirement_id=10,
                             ),
-                        )
+                            payload=payload,
+                        ),
+                    )
                 except Exception as exc:  # noqa: BLE001 - collected
                     errors.append(exc)
 
-            threads = [
-                threading.Thread(target=_caller, args=(index,))
-                for index in (0, 1)
-            ]
-            for thread in threads:
-                thread.start()
-            for thread in threads:
-                thread.join(timeout=15)
+            with patch(
+                "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+                return_value=("prod", "yoke-prod-artifacts", None),
+            ):
+                threads = [
+                    threading.Thread(target=_caller, args=(index,))
+                    for index in (0, 1)
+                ]
+                for thread in threads:
+                    thread.start()
+                for thread in threads:
+                    thread.join(timeout=15)
             self.assertEqual(errors, [])
+            self.assertIsNotNone(outcomes[0])
+            self.assertIsNotNone(outcomes[1])
             self.assertTrue(outcomes[0].primary_success, outcomes[0].error)
             self.assertTrue(outcomes[1].primary_success, outcomes[1].error)
             self.assertEqual(
