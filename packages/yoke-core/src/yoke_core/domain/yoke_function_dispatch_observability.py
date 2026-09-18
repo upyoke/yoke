@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any, Dict, Iterator
 
 from yoke_contracts.api.function_call import (
@@ -21,6 +22,12 @@ from yoke_core.api.observability import (
 _DISPATCH_DEBUG_LOG = logging.getLogger("yoke.api.dispatch")
 
 _METRIC_SPAN_KEYS = ("yoke.function", "yoke.function_version")
+
+#: Handler duration of the dispatch running in this context, for the caller
+#: that wants the dispatcher's overhead rather than the handler's own time.
+_HANDLER_DURATION_MS: ContextVar[int | None] = ContextVar(
+    "yoke_dispatch_handler_duration_ms", default=None
+)
 
 
 def _read_monotonic() -> float:
@@ -45,9 +52,28 @@ def elapsed_duration_ms(started: float | None) -> int | None:
     return max(0, int((finished - started) * 1000))
 
 
+def note_handler_duration(duration_ms: int | None) -> None:
+    """Publish the handler's own duration for the dispatch running here."""
+    _HANDLER_DURATION_MS.set(duration_ms)
+
+
+def handler_duration_ms() -> int | None:
+    """Return the handler duration of the dispatch that just returned here.
+
+    ``YokeFunctionCalled`` reports only the handler, so a caller that timed
+    the whole dispatch subtracts this to see the dispatcher's own overhead —
+    envelope coercion, registry lookup, permission and claim checks, and
+    response building — as a number instead of an unexplained remainder.
+    """
+    return _HANDLER_DURATION_MS.get()
+
+
 @contextmanager
 def dispatch_observation(request: Any) -> Iterator[Any]:
     started = start_duration_measurement()
+    # Clear first: an unmeasured or short-circuited dispatch must not let the
+    # previous call's handler duration be read as this one's.
+    note_handler_duration(None)
     span_attributes = _span_attributes(request)
     state = {"outcome": "exception"}
 

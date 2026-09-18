@@ -49,6 +49,7 @@ from yoke_core.domain.yoke_function_dispatch_events import (
 from yoke_core.domain.yoke_function_dispatch_observability import (
     dispatch_observation,
     elapsed_duration_ms,
+    note_handler_duration,
     start_duration_measurement,
 )
 from yoke_core.domain.yoke_function_dispatch_idempotency import (
@@ -283,6 +284,7 @@ def _dispatch_impl(
         handler_started = start_duration_measurement()
         outcome = invoke_resolved_handler(entry.handler, typed_request)
         handler_duration_ms = elapsed_duration_ms(handler_started)
+        note_handler_duration(handler_duration_ms)
         if not isinstance(outcome, HandlerOutcome):
             return _error_response(
                 typed_request,

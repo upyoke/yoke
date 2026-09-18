@@ -38,6 +38,9 @@ from yoke_core.api.observability_otel import (
 REQUEST_ID_HEADER = "x-request-id"
 REQUEST_ID_STATE_ATTR = "yoke_request_id"
 
+#: Request-state attribute holding this request's per-phase durations.
+REQUEST_PHASES_STATE_ATTR = "yoke_request_phases"
+
 _JSON_HANDLER_MARKER = "_yoke_json_log_handler"
 _DEBUG_FILTER_MARKER = "_yoke_debug_capture_filter"
 
@@ -224,6 +227,43 @@ def now_ms(start: float) -> int:
     return max(0, int((time.perf_counter() - start) * 1000))
 
 
+def record_request_phase(request: Any, phase: str, duration_ms: Optional[int]) -> None:
+    """Attribute ``duration_ms`` to one named phase of ``request``.
+
+    The completed-request log reports the total wall time only, which cannot
+    distinguish a slow handler from a slow credential check or a saturated
+    worker pool. Callers time their own phase and record it here; the request
+    log emits each as ``<phase>_duration_ms``. ``None`` records nothing, so an
+    unmeasurable phase stays absent instead of reporting a fabricated zero.
+    """
+    if duration_ms is None:
+        return
+    phases = getattr(request.state, REQUEST_PHASES_STATE_ATTR, None)
+    if not isinstance(phases, dict):
+        phases = {}
+        setattr(request.state, REQUEST_PHASES_STATE_ATTR, phases)
+    phases[phase] = max(0, int(duration_ms))
+
+
+def request_phases(request: Any) -> dict[str, int]:
+    """Return the phase durations recorded for ``request``, possibly empty."""
+    phases = getattr(getattr(request, "state", None), REQUEST_PHASES_STATE_ATTR, None)
+    return dict(phases) if isinstance(phases, dict) else {}
+
+
+def request_id_for(request: Any) -> Optional[str]:
+    """Return this request's id — the one the auth middleware already minted.
+
+    Falls back to the caller-supplied header for a request that never passed
+    through the middleware, so audit rows written off the HTTP path still
+    carry whatever identity the caller offered.
+    """
+    minted = getattr(getattr(request, "state", None), REQUEST_ID_STATE_ATTR, None)
+    if isinstance(minted, str) and minted:
+        return minted
+    return request.headers.get(REQUEST_ID_HEADER)
+
+
 def request_log_extra(
     *,
     request_id: str,
@@ -235,6 +275,7 @@ def request_log_extra(
     actor_id: Optional[int] = None,
     token_id: Optional[int] = None,
     outcome: str = "completed",
+    phases: Optional[Mapping[str, int]] = None,
 ) -> dict[str, Any]:
     context = {
         "method": method,
@@ -243,6 +284,8 @@ def request_log_extra(
         "duration_ms": duration_ms,
         "outcome": outcome,
     }
+    for phase, phase_duration_ms in (phases or {}).items():
+        context[f"{phase}_duration_ms"] = phase_duration_ms
     if token_id is not None:
         context["api_token_id"] = token_id
     extra: dict[str, Any] = {
@@ -266,6 +309,7 @@ __all__ = [
     "ObservabilitySetup",
     "REQUEST_ID_HEADER",
     "REQUEST_ID_STATE_ATTR",
+    "REQUEST_PHASES_STATE_ATTR",
     "configure_observability",
     "configure_otel",
     "configure_structured_logging",
@@ -277,7 +321,10 @@ __all__ = [
     "parse_debug_campaign",
     "record_counter",
     "record_histogram",
+    "record_request_phase",
+    "request_id_for",
     "request_log_extra",
+    "request_phases",
     "service_name",
     "trace_context",
 ]

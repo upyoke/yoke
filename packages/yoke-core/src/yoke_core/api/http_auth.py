@@ -16,6 +16,7 @@ from typing import Any, Optional
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
+from yoke_core.api.observability import request_id_for
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.api_tokens import (
     TokenExpired,
@@ -293,7 +294,7 @@ def _request_metadata(request: Request) -> dict[str, Any]:
     return {
         "method": request.method,
         "path": request.url.path,
-        "request_id": request.headers.get("x-request-id"),
+        "request_id": request_id_for(request),
     }
 
 

@@ -10,9 +10,12 @@ import logging
 import os
 import time
 from contextlib import asynccontextmanager
+from typing import Any
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
+from starlette.concurrency import run_in_threadpool
 
 from yoke_contracts.engine_version import (
     ENGINE_VERSION_HEADER,
@@ -37,7 +40,9 @@ from yoke_core.api.observability import (
     now_ms,
     record_counter,
     record_histogram,
+    record_request_phase,
     request_log_extra,
+    request_phases,
     service_name,
 )
 
@@ -117,34 +122,15 @@ def create_app() -> FastAPI:
         response = None
         outcome = "completed"
         try:
-            web_auth = (
-                authenticate_web_session(request)
-                if is_web_session_get_path(request.method, request.url.path)
-                else None
-            )
-            if is_public_path(request.url.path):
-                response = await call_next(request)
-            elif web_auth is not None:
-                # Browser web-session cookie: read-only allowlisted GET
-                # surfaces only (see http_auth.WEB_SESSION_GET_PATHS for
-                # the CSRF rationale). Writes always take the bearer path.
-                auth_context = web_auth
-                setattr(request.state, WEB_AUTH_STATE_ATTR, web_auth)
-                response = await call_next(request)
-            elif request.method == "GET" and request.url.path == LANDING_PATH:
-                # Anonymous landing page: renders the signed-out shell.
-                # Invalid and absent cookies land here identically, so a
-                # probing client learns nothing about session existence.
-                response = await call_next(request)
+            auth_started = time.perf_counter()
+            auth_context, denial = await _authenticate(request)
+            record_request_phase(request, "auth", now_ms(auth_started))
+            if denial is not None:
+                response = denial
+                outcome = "denied"
             else:
-                auth = authenticate_request(request)
-                if not hasattr(auth, "actor_id"):
-                    response = auth
-                    outcome = "denied"
-                else:
-                    auth_context = auth
-                    setattr(request.state, AUTH_STATE_ATTR, auth)
-                    response = await call_next(request)
+                setattr(request.state, ADMISSION_STATE_ATTR, time.perf_counter())
+                response = await call_next(request)
             response.headers[REQUEST_ID_HEADER] = request_id
             if engine_version:
                 response.headers[ENGINE_VERSION_HEADER] = engine_version
@@ -166,6 +152,59 @@ def create_app() -> FastAPI:
     return _include_routes(application)
 
 
+#: Request-state attribute holding the moment the middleware handed the
+#: request downstream, so the route can report how long admission waited.
+ADMISSION_STATE_ATTR = "yoke_request_admitted_at"
+
+
+async def _authenticate(request) -> tuple[Any, JSONResponse | None]:
+    """Resolve the request's credential, or return the denial to send back.
+
+    Every branch that reaches a database runs in the same worker-thread pool
+    FastAPI already uses for synchronous route handlers. Verification opens a
+    connection and writes token-use and audit rows, so calling it inline would
+    block the single event loop for the whole round trip and stall every
+    other in-flight request behind one slow credential check.
+
+    Returns the verified context (``None`` when the path needs no credential)
+    and a denial response, never both.
+    """
+    path = request.url.path
+    if is_public_path(path):
+        return None, None
+    if is_web_session_get_path(request.method, path):
+        # Browser web-session cookie: read-only allowlisted GET surfaces
+        # only (see http_auth.WEB_SESSION_GET_PATHS for the CSRF
+        # rationale). Writes always take the bearer path.
+        web_auth = await run_in_threadpool(authenticate_web_session, request)
+        if web_auth is not None:
+            setattr(request.state, WEB_AUTH_STATE_ATTR, web_auth)
+            return web_auth, None
+    if request.method == "GET" and path == LANDING_PATH:
+        # Anonymous landing page: renders the signed-out shell. Invalid and
+        # absent cookies land here identically, so a probing client learns
+        # nothing about session existence.
+        return None, None
+    auth = await run_in_threadpool(authenticate_request, request)
+    if not hasattr(auth, "actor_id"):
+        return None, auth
+    setattr(request.state, AUTH_STATE_ATTR, auth)
+    return auth, None
+
+
+def mark_request_admission(request: Request) -> None:
+    """Record how long the request waited between middleware and its route.
+
+    Registered as a router dependency, so it is scheduled exactly like the
+    synchronous endpoints it precedes: a rising ``admission_duration_ms``
+    means requests are queueing for a worker thread, which no handler-scoped
+    timing can show.
+    """
+    admitted_at = getattr(request.state, ADMISSION_STATE_ATTR, None)
+    if isinstance(admitted_at, float):
+        record_request_phase(request, "admission", now_ms(admitted_at))
+
+
 def _log_request(
     request,
     *,
@@ -176,6 +215,7 @@ def _log_request(
     outcome: str,
 ) -> None:
     try:
+        phases = request_phases(request)
         extra = request_log_extra(
             request_id=request_id,
             method=request.method,
@@ -186,6 +226,7 @@ def _log_request(
             actor_id=getattr(auth_context, "actor_id", None),
             token_id=getattr(auth_context, "token_id", None),
             outcome=outcome,
+            phases=phases,
         )
         level = logging.ERROR if status_code >= 500 else logging.INFO
         _http_logger.log(level, "http_request", extra=extra)
@@ -201,6 +242,12 @@ def _log_request(
             duration_ms,
             attributes=attributes,
         )
+        for phase, phase_duration_ms in phases.items():
+            record_histogram(
+                f"yoke.http.request.{phase}.duration_ms",
+                phase_duration_ms,
+                attributes=attributes,
+            )
     except Exception:
         return
 
@@ -208,7 +255,8 @@ def _log_request(
 def _include_routes(application: FastAPI) -> FastAPI:
     """Attach API routers to ``application``."""
 
-    v1_router = APIRouter(prefix="/v1")
+    admission = [Depends(mark_request_admission)]
+    v1_router = APIRouter(prefix="/v1", dependencies=admission)
 
     # Import route modules and include their routers
     from yoke_core.api.routes.items import router as items_router
@@ -246,5 +294,5 @@ def _include_routes(application: FastAPI) -> FastAPI:
 
     application.include_router(v1_router)
     # The signed-in landing page lives at the site root, outside /v1.
-    application.include_router(web_landing_router)
+    application.include_router(web_landing_router, dependencies=admission)
     return application
