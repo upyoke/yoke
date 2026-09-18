@@ -110,7 +110,7 @@ class QueueCloseOut:
 
 
 def _files_from_merge_commit(
-    ctx: MergeContext, commit_sha: str
+    ctx: MergeContext, commit_sha: str, state: dict
 ) -> tuple[str, ...]:
     """What the merge carrying ``commit_sha`` brought into the base branch.
 
@@ -121,10 +121,36 @@ def _files_from_merge_commit(
     undoes. It reads ``origin/<target>`` rather than the local base branch,
     because the merge happened on GitHub and this checkout need not have it.
     """
-    git.fetch_target(ctx.repo_root, ctx.args.target)
+    _fetch_once(ctx, state)
     return receipts.touched_files_from_merge_commit(
         ctx.repo_root, f"origin/{ctx.args.target}", commit_sha,
     )
+
+
+def _fetch_once(ctx: MergeContext, state: dict) -> None:
+    """Refresh ``origin/<target>`` at most once per close-out."""
+    if state.get("fetched"):
+        return
+    state["fetched"] = True
+    git.fetch_target(ctx.repo_root, ctx.args.target)
+
+
+def _landing_merge(ctx: MergeContext, commit_sha: str, state: dict) -> str:
+    """The merge that carried ``commit_sha`` into the base branch.
+
+    The pointer an item records names the pull request it last armed, which
+    a re-arm can move to one that never merges. This is the fact that does
+    not drift: whatever merge the base actually holds this work under.
+    """
+    if not ctx.repo_root or not commit_sha:
+        return ""
+    try:
+        _fetch_once(ctx, state)
+        return receipts.landing_merge_commit(
+            ctx.repo_root, f"origin/{ctx.args.target}", commit_sha,
+        )
+    except Exception:  # noqa: BLE001 - an unread merge is simply unknown here
+        return ""
 
 
 def record_landing(
@@ -135,17 +161,10 @@ def record_landing(
     pr_num: str,
     member_snapshot: tuple[str, ...] = (),
     drift_check: Optional[Mapping[str, str]] = None,
-    landed_merge_sha: str = "",
 ) -> QueueCloseOut:
-    """Record everything the item owes after its train landed.
-
-    ``landed_merge_sha`` is the merge the base actually holds this lane's
-    work under. It matters when the item's own pull request never merged —
-    a lane whose commits reached the base under a companion item's train —
-    because the train to attribute is then that merge's, not this pull
-    request's.
-    """
+    """Record everything the item owes after its train landed."""
     warnings: list[str] = []
+    fetch_state: dict = {}
     stamp_error = stamp_merged_at(item_id)
     if stamp_error:
         warnings.append(f"merged_at not recorded: {stamp_error}")
@@ -165,7 +184,10 @@ def record_landing(
             pr_num=pr_num,
             member_snapshot=member_snapshot,
             drift_check=drift_check,
-            landed_merge_sha=landed_merge_sha,
+            # The merge the base actually holds this lane under, needed when
+            # the item's own pull request never merged. Derived here rather
+            # than passed in, so the caller keeps one landing question.
+            landed_merge_sha=_landing_merge(ctx, commit_sha, fetch_state),
         )
         if batch_failure is not None:
             warnings.append(batch_failure.reason)
@@ -203,7 +225,7 @@ def record_landing(
         )
     touched_files = tuple(touched or ())
     if not touched_files and ctx.repo_root and commit_sha:
-        touched_files = _files_from_merge_commit(ctx, commit_sha)
+        touched_files = _files_from_merge_commit(ctx, commit_sha, fetch_state)
         if touched_files:
             warnings.append(
                 f"touched files read from the merge that landed {commit_sha[:12]} "
