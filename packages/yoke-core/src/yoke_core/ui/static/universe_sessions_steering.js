@@ -258,26 +258,24 @@ export function isSteeredWorker(row) {
   return String(group) !== String(row?.session_id || "");
 }
 
-// The one mark a covered worker carries: a compact filled label in its
-// group's own color, with the same steering symbol the seat's box uses, so
-// the group reads at a glance without tinting the whole card — a tint
-// competed with the card's own status colors, which say something else
-// entirely. The seat itself carries no label; its steering box already
-// names it, and a worker that looks like a seat is the confusion this
-// avoids.
-/**
- * The row a covered worker carries above its own work.
- *
- * A shallow full-width row rather than a badge tucked into a usage line: it
- * says one thing — this session is steered, and from which document — and it
- * says it directly above the work that is being steered, where a reader is
- * already looking. It carries the seat's own mark and the seat's own
- * document, so the worker is not asserting a scope it does not hold; a
- * covering seat that names no single document leaves the slug off rather
- * than guessing at one.
- */
+// Compact steered row: same covering-claim label the holder card uses.
+function coveringWorkerScope(group) {
+  const blank = { project: "", wide: false, docs: "" };
+  if (!group || typeof group !== "object") return blank;
+  if (!Object.prototype.hasOwnProperty.call(group, "scope")) return blank;
+  const scope = group.scope;
+  if (scope == null || typeof scope !== "object" || scope.project_id == null) {
+    return blank;
+  }
+  const labeled = steeringScope(group, []);
+  const project = String(group.project || "").trim();
+  labeled.project = project || (
+    labeled.project === "unknown project" ? "" : labeled.project
+  );
+  return labeled;
+}
+
 export function steeringWorkerRow(documentNode, row) {
-  const scope = row?.steering_group_scope;
   const line = el(
     documentNode, "div", "session-steering-lead session-steered-row",
   );
@@ -287,16 +285,19 @@ export function steeringWorkerRow(documentNode, row) {
   line.appendChild(el(
     documentNode, "span", "session-steering-lead-label", "Steered",
   ));
-  const documents = [...new Set(
-    (Array.isArray(scope?.strategy_docs) ? scope.strategy_docs : [])
-      .map((slug) => String(slug || "")).filter(Boolean),
-  )];
-  const named = documents.length === 1
-    ? documents[0]
-    : (scope?.project ? `${scope.project} · project-wide` : "");
-  if (named) {
+  const labeled = coveringWorkerScope(row?.steering_group_scope);
+  if (labeled.project && (labeled.wide || labeled.docs)) {
     line.appendChild(el(
-      documentNode, "span", "session-steering-docs", named,
+      documentNode, "span", "session-steering-project", labeled.project,
+    ));
+  }
+  if (labeled.wide) {
+    line.appendChild(el(
+      documentNode, "span", "session-steering-wide", "Project-wide",
+    ));
+  } else if (labeled.docs) {
+    line.appendChild(el(
+      documentNode, "span", "session-steering-docs", labeled.docs,
     ));
   }
   return line;
