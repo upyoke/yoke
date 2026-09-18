@@ -87,6 +87,52 @@ def test_read_train_run_never_substitutes_another_trains_run(monkeypatch):
     assert "https://runs/7" not in note
 
 
+def test_read_train_run_matches_sibling_by_combined_head_sha(monkeypatch):
+    """GitHub names a batch train after one member; siblings share its head."""
+    combined = "c" * 40
+    _wire_runs(
+        monkeypatch,
+        [
+            {
+                "path": ".github/workflows/yoke-ci.yml",
+                "head_branch": "gh-readonly-queue/main/pr-7-abc",
+                "conclusion": "success",
+                "status": "completed",
+                "head_sha": combined,
+                "html_url": "https://runs/7",
+            },
+        ],
+    )
+    run, note = train_run_mod.read_train_run(
+        _ctx(), "42", covering_sha=combined,
+    )
+    assert note is None
+    assert run.head_sha == combined
+    assert run.url == "https://runs/7"
+
+
+def test_read_train_run_covering_sha_does_not_adopt_a_different_head(monkeypatch):
+    _wire_runs(
+        monkeypatch,
+        [
+            {
+                "path": ".github/workflows/yoke-ci.yml",
+                "head_branch": "gh-readonly-queue/main/pr-7-abc",
+                "conclusion": "success",
+                "status": "completed",
+                "head_sha": "a" * 40,
+                "html_url": "https://runs/7",
+            },
+        ],
+    )
+    run, note = train_run_mod.read_train_run(
+        _ctx(), "42", covering_sha="b" * 40,
+    )
+    assert run is None
+    assert "no merge_group workflow run identified" in note
+    assert "combined head" in note
+
+
 def test_read_train_run_without_any_run_is_named(monkeypatch):
     _wire_runs(monkeypatch, [])
     run, note = train_run_mod.read_train_run(_ctx(), "42")

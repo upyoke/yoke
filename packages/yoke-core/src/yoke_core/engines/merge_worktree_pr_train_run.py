@@ -26,8 +26,9 @@ from yoke_core.engines.merge_worktree_pr_queue import resolve_auth_detail
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
-# Every branch the queue builds a train on is named under this prefix, and
-# each carries a ``pr-<number>-`` marker naming its members.
+# Every branch the queue builds a train on is named under this prefix.
+# GitHub names the ref after one member (``pr-<number>-``); the rest of
+# a batch share that train's combined-head SHA, not that marker.
 _QUEUE_REF_PREFIX = "gh-readonly-queue/"
 
 
@@ -42,13 +43,15 @@ class TrainRun:
 
 
 def read_train_run(
-    ctx: MergeContext, pr_num: str
+    ctx: MergeContext, pr_num: str, *, covering_sha: str = ""
 ) -> tuple[Optional[TrainRun], Optional[str]]:
     """The merge_group run covering ``pr_num``'s train.
 
-    Identified by both the queue ref's ``pr-<number>-`` marker and the
-    project's declared CI workflow. Returns ``(None, reason)`` rather than
-    substituting another workflow or train.
+    Identified by the project's declared CI workflow plus either the
+    queue ref's ``pr-<number>-`` marker or an exact combined-head SHA
+    match (``covering_sha``, typically this pull request's merge commit).
+    Returns ``(None, reason)`` rather than substituting another workflow
+    or a run whose head is a different revision.
     """
     auth, auth_err = resolve_auth_detail(ctx, ACTIONS_READ)
     if auth_err or auth is None:
@@ -74,6 +77,7 @@ def read_train_run(
     workflow_path = f".github/workflows/{workflow}"
     body = response.body if isinstance(response.body, dict) else {}
     marker = f"pr-{pr_num}-"
+    covering = covering_sha.strip()
     for run in body.get("workflow_runs") or []:
         if not isinstance(run, dict):
             continue
@@ -82,19 +86,26 @@ def read_train_run(
         head_branch = str(run.get("head_branch") or "")
         if not head_branch.startswith(_QUEUE_REF_PREFIX):
             continue
-        if marker in head_branch:
+        head_sha = str(run.get("head_sha") or "")
+        if marker in head_branch or (covering and head_sha == covering):
             return (
                 TrainRun(
                     status=str(run.get("status") or ""),
                     conclusion=str(run.get("conclusion") or ""),
-                    head_sha=str(run.get("head_sha") or ""),
+                    head_sha=head_sha,
                     url=str(run.get("html_url") or ""),
                 ),
                 None,
             )
+    covering_clause = (
+        f" and no run head matches combined head {covering}"
+        if covering
+        else ""
+    )
     return None, (
         f"no merge_group workflow run identified for pull request {pr_num}: "
         f"no recent {workflow!r} queue ref carries the marker {marker!r}"
+        f"{covering_clause}"
     )
 
 
