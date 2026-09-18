@@ -171,9 +171,13 @@ def push_lane(
     the merge queue is still holding is refused here
     (:mod:`yoke_core.domain.merge_queue_push_safety`) rather than pushed out
     from under the landing that already took its head.
+
+    Being that one place is also why the published head is recorded here
+    (:mod:`yoke_core.domain.lane_head_record`): a rebase moves HEAD with no
+    commit, so nothing else records the candidate CI was handed.
     """
     from yoke_core.domain.qa_case_ci_authority import machine_github_user_authority
-    from yoke_core.domain import merge_queue_push_safety
+    from yoke_core.domain import lane_head_record, merge_queue_push_safety
 
     with machine_github_user_authority():
         merge_queue_push_safety.require_publishable_lane(
@@ -192,6 +196,9 @@ def push_lane(
         f"{source_ref}:refs/heads/{branch}",
         what=f"pushing lane branch {branch!r} to origin",
         timeout=600,
+    )
+    lane_head_record.record_published_lane_head(
+        project, str(checkout), source_ref=source_ref,
     )
 
 
