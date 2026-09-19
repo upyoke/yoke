@@ -61,6 +61,7 @@ def test_a_distinct_pinned_target_within_one_run_gets_its_own_fresh_notice(
         item_id=item_id,
         project_id=PROJECT_YOKE,
         reasons="target 1 evidence still missing",
+        names_cases=True,
         target_digest="digest-1",
     )
     notify_item_scoped_qa_wait(
@@ -70,6 +71,7 @@ def test_a_distinct_pinned_target_within_one_run_gets_its_own_fresh_notice(
         item_id=item_id,
         project_id=PROJECT_YOKE,
         reasons="target 2 evidence still missing",
+        names_cases=True,
         target_digest="digest-2",
     )
 

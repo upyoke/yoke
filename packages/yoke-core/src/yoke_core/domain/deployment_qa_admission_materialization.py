@@ -68,11 +68,22 @@ def materialize_admitted_requirement(
     *,
     subject: Mapping[str, Any],
     requirement: Mapping[str, Any],
-    position: int,
     target: Mapping[str, Any],
     now: str,
 ) -> tuple[int, bool]:
-    """Copy one frozen obligation without importing its former item subject."""
+    """Copy one frozen obligation without importing its former item subject.
+
+    The copy belongs to no plan, so it stores no ``case_position`` and no
+    ``baseline_position``. Only a plan assigns those, and the roster
+    selection (:func:`qa_plan_execution_roster.ordered_plan_requirements`)
+    gives a plan-less case its order at selection time. Writing numbers
+    here would make the row claim an ordering authority nothing declared,
+    and the drift check that every execution begin runs
+    (:func:`machine_qa_plan_case_snapshot.case_positions`) reads such a
+    number as "this requirement joined a plan after the roster froze" and
+    refuses the case for good -- a rebuilt roster reads the same row, so
+    abort-and-restart cannot clear it either.
+    """
     source_id = int(requirement.get("id") or 0)
     if source_id < 1:
         raise QaPlanError("frozen member QA requirement has no source identity")
@@ -184,8 +195,8 @@ def materialize_admitted_requirement(
         _stored_json(requirement.get("capability_requirements"), default=[]),
         requirement.get("suite_id"),
         case_key,
-        int(position),
-        1,
+        None,
+        None,
         method_id,
         requirement.get("method_name"),
         requirement.get("runner_id"),

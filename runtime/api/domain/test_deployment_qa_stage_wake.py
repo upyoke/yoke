@@ -44,6 +44,7 @@ def test_item_message_names_the_run_stage_target_revision_item_and_reasons():
         revision="a" * 40,
         reasons="awaiting agent verdict",
         route=HOLDER,
+        names_cases=False,
     )
 
     assert "run-1" in body
@@ -64,6 +65,7 @@ def test_item_message_names_steering_when_the_route_is_steering():
         revision="",
         reasons="awaiting agent verdict",
         route=STEERING,
+        names_cases=False,
     )
 
     assert "steering seat" in body
@@ -78,6 +80,7 @@ def test_run_message_names_the_run_stage_target_revision_and_reasons():
         revision="b" * 40,
         reasons="awaiting agent verdict",
         route=DRIVER,
+        names_cases=False,
     )
 
     assert "run-9" in body
@@ -96,6 +99,7 @@ def test_run_message_names_steering_when_the_route_is_steering():
         revision="",
         reasons="awaiting agent verdict",
         route=STEERING,
+        names_cases=False,
     )
 
     assert "steering seat" in body
@@ -111,6 +115,7 @@ def test_item_message_names_the_stage_and_member_bound_invocation():
         revision="a" * 40,
         reasons="awaiting agent verdict",
         route=HOLDER,
+        names_cases=False,
     )
 
     assert (
@@ -128,10 +133,49 @@ def test_run_message_names_the_stage_bound_invocation_without_a_member():
         revision="b" * 40,
         reasons="awaiting agent verdict",
         route=DRIVER,
+        names_cases=False,
     )
 
     assert (
         "yoke qa plan run --deployment-run-id run-9 --stage run-qa "
         "--plan PLAN --project PROJECT" in body
     )
+    assert "--member" not in body
+
+
+def test_a_stage_that_already_names_cases_gets_a_recipe_without_a_plan():
+    body = stage_wait_message(
+        run_id="run-1",
+        stage_name="item-qa",
+        item_ref="EXT-541",
+        target_tier="persistent",
+        revision="a" * 40,
+        reasons="awaiting agent verdict",
+        route=HOLDER,
+        names_cases=True,
+    )
+
+    assert (
+        "yoke qa plan run --deployment-run-id run-1 --stage item-qa "
+        "--member EXT-541 --project PROJECT" in body
+    )
+    assert "--plan" not in body
+
+
+def test_a_run_scoped_stage_that_already_names_cases_omits_the_plan_too():
+    body = run_stage_wait_message(
+        run_id="run-9",
+        stage_name="run-qa",
+        target_tier="ephemeral",
+        revision="b" * 40,
+        reasons="awaiting agent verdict",
+        route=DRIVER,
+        names_cases=True,
+    )
+
+    assert (
+        "yoke qa plan run --deployment-run-id run-9 --stage run-qa "
+        "--project PROJECT" in body
+    )
+    assert "--plan" not in body
     assert "--member" not in body

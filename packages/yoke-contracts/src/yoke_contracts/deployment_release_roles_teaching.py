@@ -32,7 +32,11 @@ Item-bound batch release — who runs what:
   that stage by naming the stage AND itself, because a stage credits only the
   requirements bound to its own name:
     yoke qa plan run --deployment-run-id RUN-ID --stage STAGE --member PREFIX-N \\
-      --plan PLAN --project P
+      --project P
+  `--plan PLAN` goes on that line only for a stage the wake says names no
+  cases; a stage already naming its own refuses it, because a plan there
+  materializes a second, duplicate set of obligations beside the ones the
+  stage credits.
   Then it finishes with the one agent-facing close-out:
     yoke merge item PREFIX-N --result "..." --verification "..."
 

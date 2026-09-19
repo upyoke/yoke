@@ -43,7 +43,10 @@ requirements bound to its own name, and an item-scoped stage needs the member
 too, so the run-wide form is refused rather than recording a pass the stage
 ignores:
 
-  yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --plan PLAN --project P
+  yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
+
+Add `--plan PLAN` only when the wake says the stage names no cases; a stage
+already naming its own refuses it.
 
 Then re-run this exact command with `--result` and `--verification` to finish
 the close-out. Never poll GitHub or the run instead of the wake.
