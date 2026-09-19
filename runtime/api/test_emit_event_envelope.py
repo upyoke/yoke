@@ -115,7 +115,12 @@ def test_emit_escapes_single_quote_in_event_name(events_db):
 
 
 def test_emit_default_values_match_documented_contract(events_db):
-    """Section 29: default severity=INFO, service=cli, project=yoke."""
+    """Defaults: severity=INFO, service=cli, and no project invented.
+
+    An emitter that resolves no project from the item, the argument, or
+    the checkout indexes the event as global. Naming one instead files
+    another project's telemetry under this installation's own.
+    """
     rc = emit_event.main(
         [
             "--name", "DefaultsTest",
@@ -129,15 +134,14 @@ def test_emit_default_values_match_documented_contract(events_db):
     assert rc == 0
 
     conn = connect_test_db(events_db)
-    severity, service, project = conn.execute(
-        "SELECT e.severity, e.service, p.slug "
-        "FROM events e JOIN projects p ON p.id = e.project_id "
+    severity, service, project_id = conn.execute(
+        "SELECT severity, service, project_id FROM events "
         "WHERE event_id='evt-defaults'"
     ).fetchone()
     conn.close()
     assert severity == "INFO"
     assert service == "cli"
-    assert project == "yoke"
+    assert project_id is None
 
 
 @pytest.mark.parametrize("event_type", sorted(SESSION_SCOPED_EVENT_TYPES))

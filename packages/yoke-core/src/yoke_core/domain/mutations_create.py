@@ -52,13 +52,6 @@ def prepare_create(
         CreateResult with success=True and field_writes on valid input,
         or success=False with error details.
     """
-    if not resolved_project(project):
-        return CreateResult(
-            success=False,
-            error="name the project this work belongs to",
-            error_code="PROJECT_REQUIRED",
-        )
-
     # Validate title
     err = validate_title(title, project=project, limit=title_max_length)
     if err:
@@ -80,6 +73,16 @@ def prepare_create(
                 ),
                 error_code="VALIDATION_ERROR",
             )
+
+    # Attribution last: a request whose own shape is wrong hears about
+    # that first, and every shape error above is about this create rather
+    # than about which backlog it lands on.
+    if not resolved_project(project):
+        return CreateResult(
+            success=False,
+            error="name the project this work belongs to",
+            error_code="PROJECT_REQUIRED",
+        )
 
     effective_status = status or workflow.stage_ids[0]
     if not workflow.accepts_stage(effective_status):
