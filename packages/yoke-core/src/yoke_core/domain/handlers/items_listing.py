@@ -183,8 +183,9 @@ def handle_items_list(request: FunctionCallRequest) -> HandlerOutcome:
                     where_clause, params, scoped,
                 )
                 if payload.get("relevance") == "overview":
-                    from yoke_core.domain.item_overview_read import append_overview_window
-                    where_clause, params = append_overview_window(where_clause, params)
+                    from yoke_core.domain import item_overview_read as overview
+                    where_clause, params = overview.append_overview_window(
+                        conn, where_clause, params)
                 sql = (
                     f"SELECT {select_cols} FROM items i{join} "
                     f"{where_clause} ORDER BY i.id"

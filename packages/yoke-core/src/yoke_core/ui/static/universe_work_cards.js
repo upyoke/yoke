@@ -31,7 +31,6 @@ export const CARRIED_ITEMS_SHOWN = 3;
 // A run in one of these states is over; nothing it waits on can still
 // apply to it.
 const TERMINAL_RUN_STATUSES = new Set(["succeeded", "failed", "cancelled"]);
-const TERMINAL_ITEM_STATES = new Set(["done", "cancelled", "stopped"]);
 
 function itemReference(row) {
   return String(row.public_ref || row.item_id || row.id || "Item");
@@ -101,10 +100,10 @@ export function workItemCard(documentNode, row, scope, options = {}) {
     card.appendChild(progress);
   }
 
-  if (
-    options.flag
-    && !TERMINAL_ITEM_STATES.has(String(row.status || "").toLowerCase())
-  ) {
+  // `terminal` is resolved by the feed from the item's pinned workflow
+  // definition. A red exception disclosure on work that is over made cancelled
+  // and stopped items look active again.
+  if (options.flag && !row.terminal) {
     card.appendChild(itemStatusDisclosure(documentNode, options.flag));
   }
 

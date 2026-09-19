@@ -179,10 +179,10 @@ when an active skill binding says so.
 | `polishing-implementation` | Finishing pass is in progress |
 | `implemented` | Implementation complete; ready for usher/merge/deploy handoff |
 | `release` | Deployment run is actively executing |
-| `done` | Delivery complete |
+| `done` | Delivery complete. When an item finished is the `item_status_transitions` row that put it here, not `merged_at`, which dates the code landing that close-out can trail by a day |
 | `cancelled` | Item was intentionally abandoned |
 | ~~`blocked`~~ | **Not a lifecycle status for items.** Items use an orthogonal blocked flag that preserves lifecycle status (cross-reference: see your `items` packet stanza). Epic-task `blocked` is a status. |
-| `stopped` | Work halted unexpectedly or intentionally paused |
+| `stopped` | Work halted unexpectedly or intentionally paused. Terminal for resource release, so claims and lanes are freed, but a pause is not an ending: it never counts as finished work and stays out of Done counts and "finished" card text |
 | `failed` | Work concluded in failure and needs intervention |
 
 ## QA And Lifecycle

@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend, db_helpers
+from yoke_core.domain.item_finished_times import (
+    FINISHED_WINDOW,
+    finished_times_in_window,
+    finished_window_clause,
+    is_finished,
+)
 from yoke_core.domain.item_page_claims import active_item_claims
+from yoke_core.domain.item_terminal_resources import terminal_stage_ids
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
-OVERVIEW_TERMINAL_STATUSES = ("done", "cancelled", "stopped")
-OVERVIEW_DONE_WINDOW = timedelta(hours=24)
+#: Kept as the roster's own name for the window it selects; the window itself
+#: and what counts as finished both live in ``item_finished_times``.
+OVERVIEW_DONE_WINDOW = FINISHED_WINDOW
 
 
 def _p(conn: Any) -> str:
@@ -29,24 +36,21 @@ def _dict_rows(cursor: Any) -> list[dict[str, Any]]:
 
 
 def append_overview_window(
+    conn: Any,
     where_clause: str,
     params: list[Any],
 ) -> tuple[str, list[Any]]:
-    """Keep every non-terminal item plus terminals finished in the last 24h."""
-    cutoff = (
-        datetime.now(timezone.utc) - OVERVIEW_DONE_WINDOW
-    ).strftime("%Y-%m-%dT%H:%M:%SZ")
-    statuses = ", ".join("%s" for _ in OVERVIEW_TERMINAL_STATUSES)
-    finished = (
-        "COALESCE(NULLIF(i.merged_at, ''), NULLIF(i.updated_at, ''), "
-        "i.created_at)"
-    )
-    clause = f"(i.status NOT IN ({statuses}) OR {finished} >= %s)"
+    """Keep every unfinished item plus items finished in the last 24h.
+
+    Dated by the transition that put the item into the status it holds, not by
+    ``merged_at``: an item merges when its code lands and finishes when
+    close-out ends, and close-out routinely trails the merge by a day or more
+    through release waits and item QA. Dating the window by the merge dropped
+    exactly the items that had just finished.
+    """
+    clause, clause_params = finished_window_clause(conn)
     prefix = " AND " if where_clause else "WHERE "
-    return (
-        where_clause + prefix + clause,
-        [*params, *OVERVIEW_TERMINAL_STATUSES, cutoff],
-    )
+    return (where_clause + prefix + clause, [*params, *clause_params])
 
 
 #: The fields the Items roster actually renders. A compact enrichment emits
@@ -64,6 +68,29 @@ COMPACT_ROSTER_FIELDS = (
     "claimed_by",
     "qa_attention",
 )
+
+
+def _resolve_finished_facts(
+    conn: Any,
+    base_rows: list[dict[str, Any]],
+    runtimes: dict[int, Any],
+) -> None:
+    """Put each row's terminal-ness, finished-ness, and finishing time on it.
+
+    Both questions are answered from the item's own pinned definition, so no
+    reader downstream — the delivery read here, the Frontier bands, the card
+    text — needs a status list of its own to re-derive them from.
+    """
+    finished_times = finished_times_in_window(conn)
+    for row in base_rows:
+        runtime = runtimes[int(row["workflow_version_id"])]
+        status = str(row["status"])
+        finished = is_finished(runtime, status)
+        row["terminal"] = status in terminal_stage_ids(runtime)
+        row["finished"] = finished
+        row["finished_at"] = (
+            finished_times.get(int(row["internal_id"])) if finished else None
+        )
 
 
 def enrich_item_overview_rows(
@@ -172,6 +199,8 @@ def enrich_item_overview_rows(
             int(version["workflow_version_id"]): workflow_runtime_from_row(version)
             for version in _dict_rows(version_cursor)
         }
+        if not compact:
+            _resolve_finished_facts(conn, base_rows, runtimes)
         delivery = _card_delivery(conn, base_rows, facts, compact=compact)
     finally:
         conn.close()
@@ -209,29 +238,16 @@ def enrich_item_overview_rows(
 RELEASE_STATUS = "release"
 
 
-def _drawn_finished(row: dict[str, Any]) -> bool:
-    """Whether a terminal row is recent enough that a Done card draws it."""
-    cutoff = datetime.now(timezone.utc) - OVERVIEW_DONE_WINDOW
-    stamp = str(
-        row.get("merged_at") or row.get("updated_at") or row.get("created_at") or ""
-    ).strip()
-    if not stamp:
-        return False
-    try:
-        finished = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
-    except ValueError:
-        return False
-    if finished.tzinfo is None:
-        finished = finished.replace(tzinfo=timezone.utc)
-    return finished >= cutoff
-
-
 def _delivery_drawn(row: dict[str, Any]) -> bool:
-    """Whether a Frontier card for this row carries a delivery box."""
-    status = str(row.get("status") or "").strip().lower()
-    if status == RELEASE_STATUS:
+    """Whether a Frontier card for this row carries a delivery box.
+
+    Reads the resolved facts the enrichment already put on the row, so the
+    delivery read and the Done band agree on which items finished and when
+    rather than each deciding for itself.
+    """
+    if str(row.get("status") or "").strip().lower() == RELEASE_STATUS:
         return True
-    return status in OVERVIEW_TERMINAL_STATUSES and _drawn_finished(row)
+    return bool(row.get("finished")) and bool(row.get("finished_at"))
 
 
 def _card_delivery(

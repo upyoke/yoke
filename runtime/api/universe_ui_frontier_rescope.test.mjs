@@ -169,9 +169,13 @@ function overflowingDoneClient() {
     project_sequence: 100 + index,
     workflow_id: "issue",
     status: "done",
-    merged_at: new Date(Date.now() - (index + 1) * 60 * 1000).toISOString(),
     created_at: new Date(Date.now() - 86400000).toISOString(),
     updated_at: new Date(Date.now() - 60000).toISOString(),
+    // As the feed resolves them: terminal-ness and the finishing instant come
+    // from the item's own pinned workflow definition, not from merged_at.
+    terminal: true,
+    finished: true,
+    finished_at: new Date(Date.now() - (index + 1) * 60 * 1000).toISOString(),
   }));
   return {
     requests: base.requests,

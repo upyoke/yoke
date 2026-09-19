@@ -31,10 +31,8 @@ import { appendItemDelivery } from "./universe_item_deployment.js";
 import { workItemCard } from "./universe_work_cards.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
 
-const TERMINAL_STATES = new Set(["done", "cancelled", "stopped"]);
 const RELEASE_STATE = "release";
 const LIVE_SESSION_STATES = new Set(["active", "stale"]);
-const DONE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function reference(row) {
   return String(row.public_ref || row.item_id || row.id || "");
@@ -98,14 +96,19 @@ const UNAVAILABLE_OWNER = {
   },
 };
 
-function completedAt(row) {
-  return row.merged_at || row.updated_at || row.created_at;
+// When the item finished, as opposed to when its code landed. The feed dates
+// this from the lifecycle transition that put the item into the status it
+// holds, and leaves it absent for anything that has not finished — so there is
+// nothing to fall back to and nothing here to re-decide.
+function finishedAt(row) {
+  return row.finished_at || "";
 }
 
-function recentlyDone(row, now = Date.now()) {
-  if (!TERMINAL_STATES.has(status(row))) return false;
-  const timestamp = new Date(completedAt(row)).getTime();
-  return Number.isFinite(timestamp) && now - timestamp <= DONE_WINDOW_MS;
+// The feed resolves both facts against the item's own pinned workflow
+// definition. The band asking again from a status list of its own is how it
+// came to count a paused item as done and to date a finish by its merge.
+function recentlyDone(row) {
+  return Boolean(row.finished) && Boolean(finishedAt(row));
 }
 
 function mergeItemFacts(row, itemsByRef) {
@@ -202,7 +205,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
       ));
     const releasingRefs = new Set(releasing.map(reference));
     const live = items.filter((row) => (
-      !TERMINAL_STATES.has(status(row)) && !releasingRefs.has(reference(row))
+      !row.terminal && !releasingRefs.has(reference(row))
     ));
     // Active first, because being worked on is the stronger fact: a blocked
     // item somebody is actively unblocking belongs where the work is, with
@@ -296,15 +299,13 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
 
     const done = items
       .filter((row) => recentlyDone(row))
-      .sort((left, right) => String(completedAt(right)).localeCompare(
-        String(completedAt(left)),
-      ));
+      .sort((left, right) => finishedAt(right).localeCompare(finishedAt(left)));
     const visible = done.slice(0, BAND_CARD_LIMIT).map((row) => {
       // Terminal status already belongs in the card head. A red exception
       // disclosure made cancelled and stopped work look active again.
       const card = workItemCard(documentNode, row, scope, {
         tone: "done",
-        timestamp: completedAt(row),
+        timestamp: finishedAt(row),
         timeLabel: "finished",
       });
       appendItemDelivery(documentNode, card, row, options.deployments);

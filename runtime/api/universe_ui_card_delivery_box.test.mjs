@@ -33,7 +33,13 @@ const BANDS = [
   {
     key: "done",
     itemId: 460,
-    item: { public_ref: "YOK-60", status: "done", merged_at: ago(1) },
+    item: {
+      public_ref: "YOK-60",
+      status: "done",
+      terminal: true,
+      finished: true,
+      finished_at: ago(1),
+    },
   },
 ];
 
