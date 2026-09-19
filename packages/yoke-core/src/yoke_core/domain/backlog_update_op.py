@@ -36,6 +36,7 @@ from yoke_core.domain.deployment_flow_validator import (
 )
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def _execute_update_once(
@@ -191,8 +192,10 @@ def _execute_update_once(
 
         # Deployed-to validation
         if field == "deployed_to" and value:
-            item_project = item_dict.get("project") or "yoke"
-            gate.valid_deploy_envs = _resolve_deploy_envs(conn, item_project)
+            item_project = resolved_project(item_dict.get("project"))
+            gate.valid_deploy_envs = (
+                _resolve_deploy_envs(conn, item_project) if item_project else []
+            )
 
         # Call mutation layer
         mutation_result = mutations.prepare_update(

@@ -13,6 +13,7 @@ from yoke_core.domain.workflow_runtime import (
     WorkflowRuntime,
     load_item_workflow_runtime,
 )
+from yoke_core.domain.project_attribution import resolved_project
 
 
 @dataclass(frozen=True)
@@ -49,7 +50,7 @@ def load_done_item_context(
         title=str(row["title"]),
         stage_id=str(row["status"] or ""),
         lane_branch=str(row["lane_branch"] or ""),
-        project=str(row["project"] or "yoke"),
+        project=resolved_project(row["project"]),
         public_ref=render_item_ref(conn, item_id),
         workflow=load_item_workflow_runtime(conn, item_id),
     )
@@ -92,7 +93,7 @@ def load_done_item_context_over_transport(
         title=str(data.get("title") or ""),
         stage_id=str(data.get("stage_id") or ""),
         lane_branch=str(data.get("lane_branch") or ""),
-        project=str(data.get("project") or "yoke"),
+        project=resolved_project(data.get("project")),
         public_ref=str(data.get("public_ref") or ""),
         workflow=WorkflowRuntime(
             workflow_id=str(wf["workflow_id"]),

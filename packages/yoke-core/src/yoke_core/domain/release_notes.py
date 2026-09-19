@@ -78,7 +78,7 @@ def _resolve_item_project(conn, item_id: int) -> str:
         f"WHERE i.id={_p(conn)}",
         (item_id,),
     )
-    return row if row else "yoke"
+    return str(row) if row else ""
 
 
 # --- Domain functions ---

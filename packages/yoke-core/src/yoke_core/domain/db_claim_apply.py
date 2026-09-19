@@ -36,6 +36,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain import db_helpers
 from yoke_core.domain import db_mutation_profile as dmp
 from yoke_core.domain.events_bounded_emit import emit_bounded
+from yoke_core.domain.project_attribution import resolved_project
 
 
 class DbClaimAmendmentError(ValueError):
@@ -138,7 +139,7 @@ def _apply(
         _emit_amended_event(
             conn=conn,
             item_id=item_id,
-            project=str(project or "yoke"),
+            project=resolved_project(project),
             session_id=_resolve_session_id(session_id),
             context={
                 "previous_profile": previous_profile,

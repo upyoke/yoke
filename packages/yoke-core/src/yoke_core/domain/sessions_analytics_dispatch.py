@@ -21,7 +21,7 @@ def emit_next_action_chosen(
     reason: str,
     correlation_id: str,
     *,
-    project: str = "yoke",
+    project: str = "",
     chainable: bool = False,
     step: int = 1,
     supported_paths: Optional[List[str]] = None,
@@ -113,7 +113,7 @@ def emit_drift_review_completed(
 def emit_lane_routing_decision(
     session_id: str,
     *,
-    project: str = "yoke",
+    project: str = "",
     actual_lane: str,
     selected_item: Optional[str] = None,
     next_step: Optional[str] = None,
@@ -154,7 +154,7 @@ def emit_lane_routing_decision(
 def emit_adapter_dispatch_chosen(
     session_id: str,
     *,
-    project: str = "yoke",
+    project: str = "",
     action: str,
     item_id: Optional[str] = None,
     adapter: Optional[str] = None,

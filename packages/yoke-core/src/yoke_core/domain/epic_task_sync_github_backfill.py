@@ -36,6 +36,7 @@ from yoke_core.domain.projects_github_sync_mode import (
     github_sync_disabled_notice,
     github_sync_enabled,
 )
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def _is_dry_run() -> bool:
@@ -85,7 +86,7 @@ def backfill_task_titles(
             print(f"No tasks with GitHub issues found for epic {epic_name}", file=stdout)
             return 0
 
-        gh_project = project or "yoke"
+        gh_project = resolved_project(project)
         if not github_sync_enabled(gh_project, conn=conn):
             print(
                 github_sync_disabled_notice(gh_project, "backfill-task-titles"),
@@ -197,7 +198,7 @@ def backfill_task_labels(
             print(f"No tasks with GitHub issues found for epic {epic_name}", file=stdout)
             return 0
 
-        gh_project = project or "yoke"
+        gh_project = resolved_project(project)
         if not github_sync_enabled(gh_project, conn=conn):
             print(
                 github_sync_disabled_notice(gh_project, "backfill-task-labels"),

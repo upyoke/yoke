@@ -117,9 +117,9 @@ def hc_undeployed_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         if deployed and deployed != "null":
             continue
         # Check if project has deployment envs (simplified: skip projects without flows)
-        project = row["project"] or "yoke"
+        project = row["project"] or ""
         if project == "null":
-            project = "yoke"
+            project = ""
         # For Python version, we check if deployment_flows exist for this project
         flow_count = query_scalar(
             conn,

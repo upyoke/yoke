@@ -64,7 +64,7 @@ def insert_item(
     created_at: Optional[str] = None,
     updated_at: Optional[str] = None,
     source: str = DEFAULT_ITEM_ACTOR_ID,
-    project: Optional[str] = "yoke",
+    project: Optional[str] = "",
     project_sequence: Optional[int] = None,
     deployment_flow: Optional[str] = None,
     db_path: Optional[str] = None,

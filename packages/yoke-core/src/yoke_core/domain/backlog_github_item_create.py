@@ -117,7 +117,7 @@ def sync_item(
             print(f"Error: Item {public_ref} not found", file=stderr)
             return 1
         _, project, repo = context
-        gh_project = project or "yoke"
+        gh_project = project or ""
 
         # Disabled projects never mirror to GitHub: logged skip,
         # not an auth error. Gated before auth so a disabled project

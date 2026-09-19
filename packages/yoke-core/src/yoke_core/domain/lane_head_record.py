@@ -30,19 +30,33 @@ from __future__ import annotations
 
 import sys
 from typing import TextIO
+from yoke_core.domain.project_attribution import UnattributedProjectError, required_project
 
 
 def record_lane_head(project: str, checkout_path: str) -> str:
     """Record ``checkout_path``'s HEAD as its lane candidate.
 
-    Returns why the recording did not happen, or ``""`` when it did.
+    Returns why the recording did not happen, or ``""`` when it did. An
+    unnamed project is one such reason rather than a default: recording
+    another project's lane against this installation's own is a row that
+    reads exactly like a deliberate write and is wrong in a way no later
+    reader can detect.
     """
     from yoke_cli.commands.adapters.project_snapshot import (
         sync_local_snapshot_for_write,
     )
 
+    try:
+        resolved = required_project(
+            project,
+            operation="recording this lane's head",
+            checkout=checkout_path,
+        )
+    except UnattributedProjectError as exc:
+        return str(exc)
+
     result = sync_local_snapshot_for_write(
-        project=project or "yoke",
+        project=resolved,
         repo_root=str(checkout_path),
         integration_target=None,
         session_id=None,

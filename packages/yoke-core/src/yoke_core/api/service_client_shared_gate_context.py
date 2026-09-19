@@ -19,6 +19,7 @@ from yoke_core.domain import mutations
 from yoke_core.domain.project_identity import render_item_ref, resolve_project
 from yoke_core.domain.schema_common import _table_exists as _schema_table_exists
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def _load_item_state(conn: Any, item_id: int) -> mutations.ItemState | None:
@@ -171,8 +172,11 @@ def _load_gate_context(
         gate.flow_project = flow_project
 
     if deployed_to_value:
-        project = item_dict.get("project") or "yoke"
-        resolved_envs = _resolve_deploy_envs(conn, project)
+        # An item naming no project has no environment list of its own,
+        # and this installation's would accept values that mean nothing
+        # for the project the item actually belongs to.
+        project = resolved_project(item_dict.get("project"))
+        resolved_envs = _resolve_deploy_envs(conn, project) if project else None
         gate.valid_deploy_envs = resolved_envs if resolved_envs is not None else []
 
     return gate

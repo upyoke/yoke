@@ -9,9 +9,8 @@ module focuses on local sync orchestration (DB reads, color resolution,
 idempotency).
 
 The private helpers ``_get_issue_labels`` / ``_get_issue_state`` /
-``_repo_labels`` / ``_ensure_label`` / ``_reconcile_category`` remain
-exported for the other sync siblings; each is a thin wrapper around the
-canonical REST helper resolved through the project's GitHub App auth.
+``_repo_labels`` / ``_ensure_label`` / ``_reconcile_category`` stay
+exported for the sync siblings, each wrapping the canonical REST helper.
 """
 
 from __future__ import annotations
@@ -54,6 +53,7 @@ from yoke_core.domain.github_constraints import (
 from yoke_core.domain.project_github_auth import (
     resolve_project_github_auth,
 )
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def _get_issue_labels(issue_num: str, repo: str, project: str) -> list[str]:
@@ -106,7 +106,7 @@ def _reconcile_category(
 
 def update_repo_labels(
     *,
-    project: str = "yoke",
+    project: str = "",
     dry_run: Optional[bool] = None,
     stdout: Optional[TextIO] = None,
     stderr: Optional[TextIO] = None,
@@ -156,7 +156,7 @@ def sync_labels(
         if not issue_num_str or issue_num_str == "null":
             return 0
         issue_num = int(issue_num_str)
-        gh_project = project or "yoke"
+        gh_project = resolved_project(project)
         if _bgs()._github_sync_skip(gh_project, "sync-labels", conn=conn, out=stdout):
             return 0
         if not _bgs()._github_auth_available(gh_project):

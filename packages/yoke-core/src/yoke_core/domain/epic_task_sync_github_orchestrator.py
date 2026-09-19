@@ -31,6 +31,7 @@ from yoke_core.domain.epic_task_sync_github_orchestrator_setup import (
 )
 from yoke_core.domain.project_github_auth import resolve_project_github_auth
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def sync_epic_tasks(
@@ -62,7 +63,7 @@ def sync_epic_tasks(
             return 1
 
         project = _epic_project(epic_name, conn=conn)
-        gh_project = project or "yoke"
+        gh_project = resolved_project(project)
         preflight_result = preflight_sync(
             conn,
             epic_name=epic_name,

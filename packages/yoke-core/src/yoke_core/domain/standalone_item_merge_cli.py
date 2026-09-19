@@ -43,6 +43,7 @@ from yoke_core.domain.standalone_item_merge_lane import (
     merge_source_lane,
 )
 from yoke_core.domain.terminal_lane_cleanup import record_terminal_lane_close_out
+from yoke_core.domain.project_attribution import resolved_project
 
 # Workflows whose terminal transition requires an execution-evidence record.
 EVIDENCE_WORKFLOWS = frozenset({"dash"})
@@ -145,7 +146,7 @@ def run(argv: List[str]) -> int:
     except RuntimeError as exc:
         return fail(f"{public_ref}: {exc}")
     _ensure_usable_cwd(repo_root, lane_path(item))
-    project = str((item.get("project") or {}).get("slug") or "yoke")
+    project = resolved_project((item.get("project") or {}).get("slug"))
     recorded_head = str((merge_source_lane(item) or {}).get("commit_sha") or "")
     stale = landed.stale_unlanded_work(
         item_id=item_id,

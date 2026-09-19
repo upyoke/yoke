@@ -180,7 +180,7 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
 
         # Resolve only the owning project's inspected checkout. Never use the
         # current/default repository for a different project's item.
-        project_slug = proj if proj and proj != "null" else "yoke"
+        project_slug = proj if proj and proj != "null" else ""
         context = remote_caches.get(project_slug)
         if context is None:
             continue

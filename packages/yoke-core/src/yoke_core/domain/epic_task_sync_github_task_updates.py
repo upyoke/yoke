@@ -33,6 +33,7 @@ from yoke_core.domain.projects_github_sync_mode import (
     github_sync_disabled_notice,
     github_sync_enabled,
 )
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def _etsg():
@@ -72,7 +73,7 @@ def sync_task_label(
         return 0
     issue_num = int(issue_num_str)
 
-    gh_project = project or "yoke"
+    gh_project = resolved_project(project)
     if not github_sync_enabled(gh_project, conn=conn):
         print(github_sync_disabled_notice(gh_project, "task-label-sync"), file=stderr)
         return 0
@@ -157,7 +158,7 @@ def sync_task_body(
         return 0
     issue_num = int(issue_num_str)
 
-    gh_project = project or "yoke"
+    gh_project = resolved_project(project)
     if not github_sync_enabled(gh_project, conn=conn):
         print(
             github_sync_disabled_notice(gh_project, "task-body-sync"),

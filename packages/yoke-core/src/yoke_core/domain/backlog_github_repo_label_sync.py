@@ -21,7 +21,7 @@ from yoke_core.domain.project_github_auth import (
 
 def update_repo_labels(
     *,
-    project: str = "yoke",
+    project: str = "",
     dry_run: Optional[bool] = None,
     stdout: Optional[TextIO] = None,
     stderr: Optional[TextIO] = None,

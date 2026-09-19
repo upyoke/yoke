@@ -60,7 +60,7 @@ def _collect_daemon_diagnostics() -> Dict[str, Any]:
 def _ensure_daemon_running(
     *,
     subject: int | str | None = None,
-    project: str = "yoke",
+    project: str = "",
 ) -> Optional[str]:
     """Ensure browser daemon is running. Returns error message or None.
 
@@ -175,7 +175,7 @@ def _emit_daemon_startup_failed_event(
     diagnostics: Dict[str, Any],
     *,
     subject: int | str | None = None,
-    project: str = "yoke",
+    project: str = "",
 ) -> None:
     """Emit a BrowserDaemonStartupFailed event via the runtime event platform."""
     from yoke_core.domain.events import emit_event as _native_emit

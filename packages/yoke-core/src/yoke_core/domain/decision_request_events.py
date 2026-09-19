@@ -25,7 +25,9 @@ def append_decision_event(
     created_at: str,
 ) -> str:
     """Append an event and return its id without committing."""
-    project = "yoke"
+    # An event whose request names no project says so; naming one at
+    # random makes a row that reads like a deliberate attribution.
+    project = ""
     if project_id is not None:
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         row = conn.execute(

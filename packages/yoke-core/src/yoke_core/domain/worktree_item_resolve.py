@@ -115,8 +115,11 @@ def resolve_item_worktree(
             if project_row
             else None
         )
+        # No project, no project checkout: the resolution below falls
+        # through to this process's own root rather than resolving some
+        # other project's item against this installation's checkout.
         if not item_project or item_project == "null":
-            item_project = "yoke"
+            item_project = ""
 
         checkout = checkout_for_project(conn, item_project)
         repo_root = str(checkout) if checkout is not None else None

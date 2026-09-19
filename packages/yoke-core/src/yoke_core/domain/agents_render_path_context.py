@@ -75,7 +75,7 @@ def set_render_relationship(
     target_path: str,
     source_paths: Sequence[str],
     recorded_event_id: str,
-    project_id: str | int = "yoke",
+    project_id: str | int = "",
     target_id_by_path: Mapping[str, int] | None = None,
 ) -> Optional[int]:
     """Record ``target_path`` as a render target with ``source_paths`` as seeds.
@@ -168,7 +168,7 @@ def _tracked_file_paths(conn: Any, project_id: str | int) -> List[str]:
 def record_render_relationships(
     conn: Any,
     *,
-    project_id: str | int = "yoke",
+    project_id: str | int = "",
     session_id: str = "",
 ) -> int:
     """Write every render relationship row and emit one batch event.
@@ -231,7 +231,7 @@ def record_render_relationships(
 def record_render_relationships_to_canonical_db(
     *,
     db_path: Optional[str] = None,
-    project_id: str | int = "yoke",
+    project_id: str | int = "",
     session_id: str = "",
 ) -> int:
     """Register relationships on the active local or relayed control plane.

@@ -185,7 +185,7 @@ def run(args: MergeArgs) -> int:
         # same project. ctx.project is None for the Yoke control repo itself,
         # which is that project's own slug.
         scope = merge_lock.LockScope(
-            project_slug=ctx.project or "yoke",
+            project_slug=ctx.project or "",
             target_branch=args.target,
         )
         block_msg = _pre_acquire_check_with_retry(lambda: merge_lock.check(scope=scope))

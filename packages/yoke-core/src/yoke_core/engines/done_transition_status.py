@@ -26,6 +26,7 @@ from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
 )
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def _parent():
@@ -196,7 +197,9 @@ def _batch_github_sync_tasks(
     ``public_ref`` is the caller's already-resolved public ref, used for the
     summary comment without opening a local connection on this path.
     """
-    item_project = _parent()._query_item_field(item_id, "project") or "yoke"
+    item_project = resolved_project(
+        _parent()._query_item_field(item_id, "project")
+    )
 
     try:
         auth = resolve_project_github_auth(

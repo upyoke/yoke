@@ -24,6 +24,7 @@ Four event names cover the materialization state machine:
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
+from yoke_core.domain.project_attribution import resolved_project
 
 
 _EVENT_KIND = "lifecycle"
@@ -66,7 +67,7 @@ def _emit(
             session_id=_resolve_session_id(session_id),
             severity=severity,
             outcome=outcome,
-            project=project or "yoke",
+            project=resolved_project(project),
             item_id=item_id,
             context=context,
             conn=conn,

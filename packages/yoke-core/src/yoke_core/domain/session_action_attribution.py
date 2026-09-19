@@ -28,6 +28,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
 )
+from yoke_core.domain.project_attribution import resolved_project
 
 
 EVENT_SESSION_ACTION_PERFORMED = "SessionActionPerformed"
@@ -161,7 +162,7 @@ def _emit(
             severity="INFO",
             outcome="completed" if succeeded else "failed",
             request_id=request_id,
-            project=project or "yoke",
+            project=resolved_project(project),
             auth_context=auth_context_from_actor(performed_by_actor),
             context={
                 "action": label,

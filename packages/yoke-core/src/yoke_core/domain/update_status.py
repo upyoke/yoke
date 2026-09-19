@@ -71,6 +71,7 @@ from yoke_core.domain.update_status_github_sync import (  # noqa: F401
     _github_comment_post,
     _github_label_sync,
 )
+from yoke_core.domain.project_attribution import resolved_project
 
 __all__ = [
     "RETRY_DELAYS",
@@ -269,7 +270,7 @@ def update_task_status(
         return 0
 
     repo_a = _repo_args(repo)
-    gh_project = project or "yoke"
+    gh_project = resolved_project(project)
 
     _github_label_sync(issue_num, new_status, repo_a, gh_project, stderr=stderr)
     _github_comment_post(issue_num, old_status, new_status, note, repo_a, gh_project, stderr=stderr)

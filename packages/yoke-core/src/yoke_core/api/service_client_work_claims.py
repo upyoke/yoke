@@ -38,8 +38,7 @@ from yoke_core.api.service_client_work_claims_identity import (
     check_self_only_session_identity,
 )
 from yoke_core.domain.yok_n_parser import parse_item_argument
-
-DEFAULT_PROCESS_PROJECT = "yoke"
+from yoke_core.domain.project_attribution import required_project
 
 CLAIM_EXIT_OK = 0
 CLAIM_EXIT_USAGE = 2
@@ -121,7 +120,10 @@ def _resolve_target(parsed: argparse.Namespace) -> WorkClaimTarget:
         )
     # process — make_process_target raises UnknownProcessError with known keys
     return make_process_target(
-        parsed.process, parsed.project or DEFAULT_PROCESS_PROJECT
+        parsed.process,
+        required_project(
+            parsed.project, operation="claiming a process"
+        ),
     )
 
 
@@ -327,7 +329,6 @@ WORK_CLAIM_COMMANDS = {
 
 
 __all__ = [
-    "DEFAULT_PROCESS_PROJECT",
     "WORK_CLAIM_COMMANDS",
     "cmd_claim_work",
     "cmd_release_work_claim",

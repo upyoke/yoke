@@ -24,6 +24,7 @@ from yoke_core.domain import (  # noqa: F401 - re-exported for tests
 from yoke_core.domain.db_helpers import connect  # noqa: F401 - re-exported for legacy callers
 from yoke_core.domain.project_github_auth import resolve_project_github_auth
 from yoke_core.engines.resync_detect import DriftRecord, PairedItem
+from yoke_core.domain.project_attribution import resolved_project
 
 
 # sync_item announces title-match reuse with one of these markers; the
@@ -84,7 +85,7 @@ def _repair_local_orphan_backlog(
     existing" using ``reused``. :class:`ProjectGithubAuthError`
     propagates to the engine boundary.
     """
-    resolve_project_github_auth(project or "yoke")
+    resolve_project_github_auth(resolved_project(project))
     captured = io.StringIO()
     try:
         rc = _parent().backlog_github_sync.sync_item(
@@ -138,7 +139,7 @@ def _edit_issue_title_via_rest(
     """
     try:
         github_rest.update_issue(
-            project=project or "yoke", number=int(number), title=title,
+            project=resolved_project(project), number=int(number), title=title,
         )
     except github_rest.RateLimitedError as exc:
         print(f"  reason: rate-limited on title edit: {exc}", file=sys.stderr)
@@ -161,7 +162,7 @@ def _set_issue_state_via_rest(
     """Open or close the GitHub issue via typed REST."""
     try:
         github_rest.set_issue_state(
-            project=project or "yoke", number=int(number), state=state,
+            project=resolved_project(project), number=int(number), state=state,
         )
     except github_rest.RateLimitedError as exc:
         print(f"  reason: rate-limited on issue {state}: {exc}", file=sys.stderr)
@@ -233,7 +234,7 @@ def _repair_drift(
             return True
 
         return _edit_issue_title_via_rest(
-            project=paired_item.project or "yoke",
+            project=resolved_project(paired_item.project),
             number=int(paired_item.gh_num),
             title=repair_title,
         )
@@ -243,7 +244,7 @@ def _repair_drift(
             return call_domain_sync_fn(
                 _parent().backlog_github_sync.sync_body,
                 num,
-                project=paired_item.project if paired_item else "yoke",
+                project=resolved_project(paired_item.project if paired_item else None),
             )
         elif is_epic_task:
             return (
@@ -265,7 +266,7 @@ def _repair_drift(
             return call_domain_sync_fn(
                 _parent().backlog_github_sync.sync_labels,
                 num,
-                project=paired_item.project if paired_item else "yoke",
+                project=resolved_project(paired_item.project if paired_item else None),
             )
         return False
 
@@ -285,7 +286,7 @@ def _repair_drift(
                 sync_fn,
                 num,
                 local_value,
-                project=paired_item.project if paired_item else "yoke",
+                project=resolved_project(paired_item.project if paired_item else None),
             )
         return False
 
@@ -295,12 +296,12 @@ def _repair_drift(
                 return call_domain_sync_fn(
                     _parent().backlog_github_sync.close_issue,
                     num,
-                    project=paired_item.project if paired_item else "yoke",
+                    project=resolved_project(paired_item.project if paired_item else None),
                 )
             return call_domain_sync_fn(
                 _parent().backlog_github_sync.reopen_issue,
                 num,
-                project=paired_item.project if paired_item else "yoke",
+                project=resolved_project(paired_item.project if paired_item else None),
             )
         elif paired_item:
             if is_dry_run_fn():
@@ -308,7 +309,7 @@ def _repair_drift(
                 return True
             new_state = "closed" if drift.local == "CLOSED" else "open"
             return _set_issue_state_via_rest(
-                project=paired_item.project or "yoke",
+                project=resolved_project(paired_item.project),
                 number=int(paired_item.gh_num),
                 state=new_state,
             )
@@ -322,7 +323,7 @@ def _repair_drift(
                 num,
                 "unknown",
                 cur_status,
-                project=paired_item.project if paired_item else "yoke",
+                project=resolved_project(paired_item.project if paired_item else None),
             )
         return False
 

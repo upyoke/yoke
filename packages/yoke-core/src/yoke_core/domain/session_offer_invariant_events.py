@@ -78,7 +78,7 @@ def emit_session_offer_invariant_failed(
     invariant_message: str,
     surface: str,
     release_outcome: Optional[Dict[str, Any]] = None,
-    project: str = "yoke",
+    project: str = "",
 ) -> None:
     """Emit SessionOfferInvariantFailed for an aborted charge offer.
 

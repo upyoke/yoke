@@ -68,7 +68,7 @@ def emit_scheduler_offer_skipped(
     session_id: str,
     skip_reason: str,
     chain_step: int,
-    project: str = "yoke",
+    project: str = "",
     item_id: Optional[str] = None,
     process_key: Optional[str] = None,
     recommended_action: Optional[str] = None,
@@ -130,7 +130,7 @@ def emit_chain_decline_overridden(
     checkpoint_step: int,
     max_chain_steps: int,
     rationale: str,
-    project: str = "yoke",
+    project: str = "",
     action: Optional[str] = None,
     item_id: Optional[str] = None,
     override_flag: str = "force_chain_end",
@@ -169,7 +169,7 @@ def emit_chain_end_deferred(
     max_chain_steps: int,
     handler_outcome: Optional[str],
     chainable: bool,
-    project: str = "yoke",
+    project: str = "",
     action: Optional[str] = None,
     item_id: Optional[str] = None,
     last_release_at: Optional[str] = None,
@@ -233,7 +233,7 @@ def emit_session_reactivation_reacquired_claims(
     reacquired_count: int,
     conflict_count: int,
     claim_details: list[Mapping[str, Any]],
-    project: str = "yoke",
+    project: str = "",
 ) -> None:
     """Emit ``SessionReactivationReacquiredClaims`` after auto-reacquire."""
     try:
@@ -264,7 +264,7 @@ def emit_harness_session_resume_block_shown(
     reactivation_event_id: Optional[int],
     reacquired: bool,
     advisory_only: bool,
-    project: str = "yoke",
+    project: str = "",
 ) -> None:
     """Emit the once-per-reactivation marker the slim resume block consumed."""
     try:
@@ -297,7 +297,7 @@ def emit_chain_budget_unused(
     remaining_budget: int,
     terminal_reason: str,
     candidate_trail: Optional[list[Mapping[str, Any]]] = None,
-    project: str = "yoke",
+    project: str = "",
 ) -> None:
     """Emit ``ChainBudgetUnused`` on a terminal /yoke do checkpoint with budget remaining.
 

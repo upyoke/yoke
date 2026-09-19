@@ -34,6 +34,7 @@ from yoke_core.domain.project_github_auth import (
     resolve_project_github_auth,
 )
 from yoke_core.domain import backlog_github_compact_pending_flag as _compact_flag
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def sync_body(
@@ -82,7 +83,7 @@ def sync_body(
         if not issue_num or issue_num == "null":
             return 0
 
-        gh_project = project or "yoke"
+        gh_project = resolved_project(project)
         if _bgs()._github_sync_skip(gh_project, "sync-body", conn=conn, out=stdout):
             return 0
         if not _bgs()._github_auth_available(gh_project):
@@ -192,7 +193,7 @@ def sync_title(
         if not issue_num or issue_num == "null":
             return 0
 
-        gh_project = project or "yoke"
+        gh_project = resolved_project(project)
         if _bgs()._github_sync_skip(gh_project, "sync-title", conn=conn, out=stdout):
             return 0
         if not _bgs()._github_auth_available(gh_project):

@@ -57,6 +57,7 @@ from yoke_core.domain.project_github_auth import (
     resolve_project_github_auth,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector, _resolve_repo_root
+from yoke_core.domain.project_attribution import resolved_project
 
 
 CHECK_ID = "branch-protection-required-check"
@@ -153,7 +154,7 @@ def hc_branch_protection_required_check(
     conn, args: DoctorArgs, rec: RecordCollector,
 ) -> None:
     """HC-branch-protection-required-check (project-scoped, --full only)."""
-    project = args.project or "yoke"
+    project = resolved_project(args.project)
 
     try:
         auth = resolve_project_github_auth(

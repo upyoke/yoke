@@ -135,7 +135,7 @@ def emit_session_resumed(
     reacquired_claims: Sequence[Mapping[str, Any]],
     conflicts: Sequence[Mapping[str, Any]],
     prior_release_reason: str = "session_ended",
-    project: str = "yoke",
+    project: str = "",
 ) -> Optional[str]:
     """Emit ``HarnessSessionResumed`` for a resumed-episode register pass.
 

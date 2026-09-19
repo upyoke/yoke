@@ -236,7 +236,7 @@ def _fetch_gh_issues_per_project(projects: Iterable[str]) -> Dict[str, Dict]:
 
 def _graphql_batch_fetch(
     nums: List[int],
-    project: str = "yoke",
+    project: str = "",
     batch_size: int = 50,
     *,
     auth: ProjectGithubAuth | None = None,

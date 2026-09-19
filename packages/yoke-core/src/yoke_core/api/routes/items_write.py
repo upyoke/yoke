@@ -25,6 +25,7 @@ from yoke_core.api.routes.item_delivery_binding_update import (
 
 # Module-level import so test patches against ``yoke_core.api.main.*`` take effect.
 import yoke_core.api.main as _main
+from yoke_core.domain.project_attribution import required_project
 
 router = APIRouter()
 
@@ -43,9 +44,12 @@ def _item_read_sql(conn) -> str:
 
 
 def _translate_project_write(conn, writes: Dict[str, Any]) -> None:
+    """Translate a project write to its id, refusing to invent one."""
     if "project" not in writes:
         return
-    project = writes.pop("project") or "yoke"
+    project = required_project(
+        writes.pop("project"), operation="setting an item's project"
+    )
     writes["project_id"] = resolve_project_id(conn, project)
 
 
@@ -135,8 +139,6 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
         )
 
     field_writes = dict(result.field_writes)
-    if field_writes.get("project") is None:
-        field_writes["project"] = "yoke"
 
     conn = _main.get_db_readwrite()
     try:

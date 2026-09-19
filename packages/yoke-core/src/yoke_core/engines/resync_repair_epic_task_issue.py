@@ -23,6 +23,7 @@ from yoke_core.domain import backlog_github_body_budget as _budget
 from yoke_core.domain import backlog_github_body_writer as _writer
 from yoke_core.domain import github_rest
 from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
+from yoke_core.domain.project_attribution import resolved_project
 
 
 @dataclass(frozen=True)
@@ -124,7 +125,7 @@ def _select_body_for_create(
     selected, mode = _budget.select_body_for_github(
         body, item_fields={
             "title": title, "status": status, "subject_kind": "task",
-            "project": project or "yoke",
+            "project": resolved_project(project),
             "identity": _writer.epic_task_identity(epic_ref, et_tnum),
             "body_command": _writer.epic_task_body_command(et_slug, et_tnum),
             "next_actions": _writer.epic_task_next_actions(epic_ref),
@@ -218,7 +219,7 @@ def repair_local_orphan_epic_task_typed(
 
     try:
         issue = github_rest.create_issue(
-            project=project or "yoke",
+            project=resolved_project(project),
             title=issue_title, body=selected_body, labels=label_list,
         )
     except github_rest.RateLimitedError as exc:
@@ -243,7 +244,9 @@ def repair_local_orphan_epic_task_typed(
     if et_status in TASK_TERMINAL_SUCCESS or et_status == "cancelled":
         try:
             github_rest.set_issue_state(
-                project=project or "yoke", number=issue_num, state="closed",
+                project=resolved_project(project),
+                number=issue_num,
+                state="closed",
             )
         except github_rest.RestTransportError:
             # Best-effort terminal-state close — the issue exists; a
