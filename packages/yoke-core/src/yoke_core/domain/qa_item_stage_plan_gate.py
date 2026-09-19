@@ -29,6 +29,7 @@ plane would be missing.
 from __future__ import annotations
 
 import json
+import sys
 from collections.abc import Mapping
 from typing import Any, Iterable
 
@@ -134,14 +135,14 @@ def attachment_transition(item: Mapping[str, Any]) -> str:
 
 
 def flow_stages(flow_id: str) -> tuple[Any, str]:
-    """Relay one flow's stage definitions. Returns ``(stages, error)``."""
+    """Relay one flow's stage definitions. Returns ``(stages, notice)``."""
     result, error = _relay(
         "deployment_flows.stages", {"flow_id": str(flow_id)}
     )
     if error:
         return None, (
             f"could not read the stages of delivery flow {flow_id!r}, so "
-            "whether this item owes its own QA plan cannot be established: "
+            "whether this item owes its own QA plan was not established: "
             f"{error}"
         )
     return (result or {}).get("stages"), ""
@@ -164,9 +165,15 @@ def missing_item_qa_plan_refusal(
     )
     if not project_slug:
         return ""
-    stages, error = flow_stages(flow_id)
-    if error:
-        return error
+    stages, notice = flow_stages(flow_id)
+    if notice:
+        # Whether the named flow resolves at all belongs to delivery
+        # clearance, which refuses an unresolvable one with its own reason.
+        # Refusing here too would turn one fault into a second, worse-placed
+        # merge blocker -- but a question this could not answer is never
+        # passed off as a clear answer either.
+        print(f"{public_ref}: {notice}", file=sys.stderr, flush=True)
+        return ""
     if not stages_declare_item_scoped_qa(stages):
         return ""
     if has_attached_member_plan(item.get("qa_plan_attachments") or []):

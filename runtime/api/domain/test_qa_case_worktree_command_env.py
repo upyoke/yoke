@@ -10,7 +10,10 @@ from unittest.mock import patch
 
 import pytest
 
-from yoke_core.domain import qa_constants
+from yoke_contracts.qa_case_environment import (
+    COMMAND_CASE_DEPLOYMENT_MEMBER_ENV,
+    COMMAND_CASE_DEPLOYMENT_RUN_ENV,
+)
 from yoke_core.domain.qa_case_command_stream import product_command_environment
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.domain.qa_case_worktree_run import execute_worktree_case
@@ -208,8 +211,8 @@ def test_a_run_bound_command_reads_its_run_and_member_from_the_environment(
         method_config={
             "command": (
                 "printf 'subject:%s/%s' "
-                f'"${qa_constants.COMMAND_CASE_DEPLOYMENT_RUN_ENV}" '
-                f'"${qa_constants.COMMAND_CASE_DEPLOYMENT_MEMBER_ENV}"'
+                f'"${COMMAND_CASE_DEPLOYMENT_RUN_ENV}" '
+                f'"${COMMAND_CASE_DEPLOYMENT_MEMBER_ENV}"'
             ),
         },
     )
@@ -231,7 +234,7 @@ def test_an_item_case_is_handed_no_deployment_subject(
 ) -> None:
     """An empty variable would read as a run named '' rather than as absent."""
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
-    monkeypatch.delenv(qa_constants.COMMAND_CASE_DEPLOYMENT_RUN_ENV, raising=False)
+    monkeypatch.delenv(COMMAND_CASE_DEPLOYMENT_RUN_ENV, raising=False)
     head = _repository(tmp_path)
     case = _run_attached_case(
         candidate=head,
@@ -240,7 +243,7 @@ def test_an_item_case_is_handed_no_deployment_subject(
         method_config={
             "command": (
                 "printf 'subject:[%s]' "
-                f'"${qa_constants.COMMAND_CASE_DEPLOYMENT_RUN_ENV}"'
+                f'"${COMMAND_CASE_DEPLOYMENT_RUN_ENV}"'
             ),
         },
     )

@@ -5,7 +5,7 @@ from __future__ import annotations
 from yoke_cli.commands.adapters.workflows_item_posture import (
     WORKFLOWS_ITEM_POSTURE_AMEND_RECIPE,
 )
-from yoke_core.domain.qa_constants import (
+from yoke_contracts.qa_case_environment import (
     COMMAND_CASE_BASE_URL_ENV,
     COMMAND_CASE_DEPLOYMENT_MEMBER_ENV,
     COMMAND_CASE_DEPLOYMENT_RUN_ENV,

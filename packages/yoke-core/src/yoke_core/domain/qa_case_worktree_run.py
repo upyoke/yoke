@@ -21,6 +21,11 @@ from pathlib import Path
 from typing import Optional
 
 from yoke_contracts.api.function_call import ActorContext
+from yoke_contracts.qa_case_environment import (
+    COMMAND_CASE_BASE_URL_ENV,
+    COMMAND_CASE_DEPLOYMENT_MEMBER_ENV,
+    COMMAND_CASE_DEPLOYMENT_RUN_ENV,
+)
 
 from yoke_core.domain import qa_case_command_stream
 from yoke_core.domain import qa_case_budget
@@ -116,18 +121,18 @@ def execute_worktree_case(
             "row that never went through a plan execution target."
         )
     if base_url:
-        command_env[qa_constants.COMMAND_CASE_BASE_URL_ENV] = base_url
+        command_env[COMMAND_CASE_BASE_URL_ENV] = base_url
     # A run-bound case is materialized per run, so a command that names its
     # run or member as a literal is correct exactly once and silently reports
     # on the wrong subject after that. Hand it the pair the row already
     # carries instead.
     for name, value in (
         (
-            qa_constants.COMMAND_CASE_DEPLOYMENT_RUN_ENV,
+            COMMAND_CASE_DEPLOYMENT_RUN_ENV,
             case.get("deployment_run_id"),
         ),
         (
-            qa_constants.COMMAND_CASE_DEPLOYMENT_MEMBER_ENV,
+            COMMAND_CASE_DEPLOYMENT_MEMBER_ENV,
             case.get("deployment_member_ref"),
         ),
     ):

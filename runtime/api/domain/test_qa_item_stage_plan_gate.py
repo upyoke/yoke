@@ -134,8 +134,13 @@ def test_an_unreadable_workflow_falls_back_to_the_terminal_stage(
     assert gate.attachment_transition({}) == gate.DEFAULT_ATTACHMENT_TRANSITION
 
 
-def test_an_unreadable_flow_refuses_rather_than_clearing(monkeypatch) -> None:
+def test_an_unreadable_flow_says_so_without_blocking_the_landing(
+    monkeypatch, capsys
+) -> None:
+    """Flow resolution is delivery clearance's refusal to make, not this one's."""
     refusal = _refusal(
-        monkeypatch, _item(), None, error="deployment_flows.stages read failed"
+        monkeypatch, _item(), None, error="deployment flow 'x' not found"
     )
-    assert "read failed" in refusal
+    assert refusal == ""
+    # Not answered is never passed off as answered clear.
+    assert "deployment flow 'x' not found" in capsys.readouterr().err
