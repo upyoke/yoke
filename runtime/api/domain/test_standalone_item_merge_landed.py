@@ -13,21 +13,16 @@ from yoke_core.domain import standalone_item_merge_converge as converging
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
-from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
-
-LANE_SHA = "1" * 40
-MERGE_SHA = "2" * 40
-RECEIPT = receipts.MergeReceipt(
-    branch="ITEM-1",
-    target="main",
-    commit_sha=LANE_SHA,
-    merge_sha=MERGE_SHA,
-    touched_files=("feature.py",),
+from runtime.api.domain.landed_lane_test_support import (
+    LANE_SHA,
+    LOOK,
+    MERGE_SHA,
+    RECEIPT,
+    lane as _lane,
+    probe as _probe,
 )
-_LOOK = dict(item_id=7, branch="ITEM-1", target="main", repo_root="/repo")
-
 
 @pytest.fixture(autouse=True)
 def _enter_release_wait_on_close_out(monkeypatch):
@@ -39,47 +34,6 @@ def _enter_release_wait_on_close_out(monkeypatch):
             "",
         ),
     )
-
-
-def _probe(
-    monkeypatch,
-    *,
-    branch_exists: bool,
-    head: str,
-    contains: tuple[str, ...],
-    unlanded: tuple[str, ...] | None = ("9" * 40,),
-    adds_nothing: bool | None = None,
-):
-    """Answer every read of the checkout, so no test reaches a real repo.
-
-    ``unlanded`` is the patch-identity answer: a lane still carrying a commit
-    of its own by default, which is what keeps these cases about shas.
-    ``adds_nothing`` is the tree answer, unreadable by default for the same
-    reason.
-    """
-    monkeypatch.setattr(landed.git, "lane_adds_nothing", lambda *_a: adds_nothing)
-    # The refusal reads its own module-level git and receipts, so the probe
-    # answers for both modules or the two disagree about one lane.
-    monkeypatch.setattr(stale_lane, "git", landed.git)
-    monkeypatch.setattr(stale_lane, "receipts", landed.receipts)
-    monkeypatch.setattr(landed.git, "branch_exists", lambda *_a: branch_exists)
-    monkeypatch.setattr(landed.git, "head_of", lambda *_a: head)
-    monkeypatch.setattr(landed.git, "current_base_ref", lambda _repo, target: target)
-    monkeypatch.setattr(landed.git, "unlanded_commits", lambda *_a: unlanded)
-    monkeypatch.setattr(
-        landed.git,
-        "containing_ref",
-        lambda _repo, commit, target: target if commit in contains else "",
-    )
-    monkeypatch.setattr(
-        landed.git,
-        "is_ancestor",
-        lambda _repo, commit, _ref: commit in contains,
-    )
-
-
-def _lane(**kw):
-    return landed.landed_lane(**_LOOK, project="yoke", **kw)
 
 
 def _item(**extra):
@@ -145,7 +99,7 @@ def test_a_lane_carrying_new_commits_has_not_landed(monkeypatch):
     )
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
     assert _lane() is None
-    refusal = stale_lane.stale_unlanded_work(**_LOOK)
+    refusal = stale_lane.stale_unlanded_work(**LOOK)
     assert "closed out" in refusal
     assert "preserves the lane" in refusal
     assert "reset the lane" not in refusal.lower()
@@ -165,7 +119,7 @@ def test_reached_release_defaults_true_and_keeps_the_existing_refusal(monkeypatc
         contains=(LANE_SHA, MERGE_SHA),
     )
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
-    refusal = stale_lane.stale_unlanded_work(**_LOOK, stale_mismatch_is_foreign=True)
+    refusal = stale_lane.stale_unlanded_work(**LOOK, stale_mismatch_is_foreign=True)
     assert "closed out" in refusal
     assert "preserves the lane" in refusal
     assert "reset the lane" not in refusal.lower()
@@ -187,7 +141,7 @@ def test_an_item_that_has_not_reached_release_gets_its_own_mismatch_through(
     )
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
     assert stale_lane.stale_unlanded_work(
-        **_LOOK, stale_mismatch_is_foreign=False
+        **LOOK, stale_mismatch_is_foreign=False
     ) == ""
 
 
@@ -196,7 +150,7 @@ def test_a_squashed_head_matching_the_receipt_has_landed(monkeypatch):
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
     lane = _lane()
     assert lane is not None and lane.commit_sha == LANE_SHA
-    assert stale_lane.stale_unlanded_work(**_LOOK) == ""
+    assert stale_lane.stale_unlanded_work(**LOOK) == ""
 
 
 def test_a_lane_fast_forwarded_onto_the_base_still_reports_the_receipt_head(
@@ -318,24 +272,3 @@ def test_containing_ref_names_the_remote_when_only_the_remote_has_it(monkeypatch
     monkeypatch.setattr(git, "git_out", lambda _repo_root, *_a: "origin")
     assert git.containing_ref("/repo", LANE_SHA, "main") == "origin/main"
     assert ["fetch", "origin", "main"] in commands
-
-
-def test_a_relanded_lane_names_its_candidate_beside_the_recorded_identity(
-    monkeypatch,
-):
-    """Evidence keeps the recorded commit; the landing question gets the new one."""
-    relanded = "7" * 40
-    _probe(
-        monkeypatch,
-        branch_exists=True,
-        head=relanded,
-        contains=(relanded, LANE_SHA, MERGE_SHA),
-    )
-    monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
-    monkeypatch.setattr(
-        landed.receipts, "resolve_touched_files", lambda **_k: ("feature.py",)
-    )
-    lane = _lane()
-    assert lane is not None
-    assert lane.commit_sha == LANE_SHA
-    assert lane.candidate_sha == relanded

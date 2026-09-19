@@ -63,12 +63,9 @@ class LandedLane:
     touched_files: tuple[str, ...] = field(default=())
     source: str = ""
     # The commit THIS close-out is converging, before the receipt
-    # substitution below replaces it for evidence purposes. A lane that
-    # landed twice has an older recorded commit that is equally on the
-    # base, so asking which merge carried it answers for the landing this
-    # close-out already replaced. Anything resolving a merge for the work
-    # in hand -- the landing carrier the marker is repointed at -- reads
-    # this rather than ``commit_sha``.
+    # substitution replaces it for evidence purposes. Anything resolving a
+    # merge for the work in hand -- the landing carrier the marker is
+    # repointed at -- reads this rather than ``commit_sha``.
     candidate_sha: str = ""
 
 
@@ -151,6 +148,37 @@ def base_holds(
     return bool(replayed_base_ref(repo_root, candidate, target, receipt))
 
 
+def _recorded_describes(
+    repo_root: str,
+    containing: str,
+    recorded: Optional[receipts.MergeReceipt],
+    candidate_merge: str,
+) -> bool:
+    """Whether the recorded receipt speaks for the landing in hand.
+
+    The receipt is preferred because a lane fast-forwarded onto the base
+    points at the merge commit rather than at the work, and a rebased copy
+    holds shas the base never saw; in both the candidate names no landing
+    merge of its own and the receipt is the only identity there is.
+
+    A lane that landed twice is what that preference gets wrong: the
+    superseded candidate is equally on the base under a merge of its own,
+    so the receipt describes a landing this close-out already replaced.
+    A candidate that names a merge therefore keeps the receipt only when
+    the receipt landed under that same merge.
+    """
+    if recorded is None or not recorded.commit_sha:
+        return False
+    if not git.is_ancestor(repo_root, recorded.commit_sha, containing):
+        return False
+    if not candidate_merge:
+        return True
+    return (
+        receipts.landing_merge_commit(repo_root, containing, recorded.commit_sha)
+        == candidate_merge
+    )
+
+
 def _describe(
     *,
     item_id: int,
@@ -165,16 +193,18 @@ def _describe(
     """Name the commit, merge, and files this landing is answerable for.
 
     ``landed_sha`` is the candidate in hand and rides out untouched as
-    ``candidate_sha``; ``commit_sha`` is the identity the evidence carries,
-    which prefers the recorded receipt's commit.
+    ``candidate_sha``; everything else describes the landing that carried
+    it, which is the recorded receipt only while that receipt speaks for
+    the same landing.
     """
     recorded = receipts.load(item_id, branch, target)
+    candidate_merge = receipts.landing_merge_commit(
+        repo_root, containing, landed_sha
+    )
+    if not _recorded_describes(repo_root, containing, recorded, candidate_merge):
+        recorded = None
     commit_sha = landed_sha
-    if (
-        recorded is not None
-        and recorded.commit_sha
-        and git.is_ancestor(repo_root, recorded.commit_sha, containing)
-    ):
+    if recorded is not None and recorded.commit_sha:
         commit_sha = recorded.commit_sha
     recorded_merge_sha = recorded.merge_sha if recorded is not None else ""
     if recorded_merge_sha and not git.is_ancestor(
@@ -183,9 +213,7 @@ def _describe(
         containing,
     ):
         recorded_merge_sha = ""
-    merge_sha = recorded_merge_sha or (
-        receipts.landing_merge_commit(repo_root, containing, commit_sha)
-    )
+    merge_sha = recorded_merge_sha or candidate_merge
     return LandedLane(
         branch=branch,
         target=target,
