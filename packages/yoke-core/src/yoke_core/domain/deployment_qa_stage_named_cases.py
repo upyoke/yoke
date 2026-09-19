@@ -20,6 +20,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_core.domain.deployment_qa_direct_case_target import (
+    list_direct_deployment_method_cases,
+)
+
 
 AGENT_PLAN_ALREADY_NAMED_REFUSAL = (
     "this deployment QA stage already names its cases, so an "
@@ -42,11 +46,14 @@ def stage_names_cases(
     *frozen_plans* is what the flow, the run snapshot, or the member
     attachment already selected; *admitted* is the member's own frozen
     post-deploy obligations. Both are read by the caller anyway, so they
-    are passed in rather than re-derived. The query covers what neither
-    names: cases authored directly onto the stage, and the rows an earlier
-    selection already materialized -- a stage whose plan was chosen once
-    names cases from then on, and a second --plan there (the same slug
-    included) is the duplicate set this refusal exists to stop.
+    are passed in rather than re-derived. Only the directly authored
+    cases need a query of their own.
+
+    Rows an earlier agent selection materialized are deliberately NOT
+    counted. Re-supplying the same plan is how a corrected plan case
+    reaches a subject that already has rows
+    (:mod:`qa_deployment_case_content_refresh`), so refusing there would
+    take away the repair rather than the duplicate.
     """
     if isinstance(subject["stage"].get("cases"), Mapping):
         return True
@@ -54,17 +61,14 @@ def stage_names_cases(
         return True
     if any(requirement.get("method_id") for requirement in admitted):
         return True
-    row = conn.execute(
-        "SELECT 1 FROM qa_requirements WHERE deployment_run_id=%s "
-        "AND deployment_stage=%s AND COALESCE(deployment_member_item_id,0)=%s "
-        "AND method_id IS NOT NULL AND waived_at IS NULL LIMIT 1",
-        (
-            str(subject["id"]),
-            str(subject["stage"]["name"]),
-            subject.get("member_item_id") or 0,
-        ),
-    ).fetchone()
-    return row is not None
+    return bool(
+        list_direct_deployment_method_cases(
+            conn,
+            run_id=str(subject["id"]),
+            stage=str(subject["stage"]["name"]),
+            member_item_id=subject.get("member_item_id"),
+        )
+    )
 
 
 __all__ = [

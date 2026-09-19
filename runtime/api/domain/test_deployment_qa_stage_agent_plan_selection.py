@@ -108,9 +108,8 @@ def test_a_stage_that_names_no_cases_still_takes_the_agent_selected_plan(
     assert result["created_requirement_ids"]
 
 
-def test_a_second_selection_is_refused_once_the_first_materialized_its_cases(
-    test_db,
-) -> None:
+def test_re_supplying_a_plan_stays_open_for_a_corrected_case(test_db) -> None:
+    """The refusal targets a duplicate set, not the content-refresh repair."""
     item_id = 9724
     _member(
         test_db,
@@ -119,21 +118,21 @@ def test_a_second_selection_is_refused_once_the_first_materialized_its_cases(
         sequence=724,
         method_id=None,
     )
-    first = _plan(test_db, "first-selection")
-    second = _plan(test_db, "second-selection")
+    plan_id = _plan(test_db, "first-selection")
     materialize_deployment_qa_stage(
         test_db,
         deployment_run_id="run-plan-twice",
         deployment_stage=STAGE,
         deployment_member_item_id=item_id,
-        agent_plan=str(first),
+        agent_plan=str(plan_id),
     )
 
-    with pytest.raises(QaPlanError, match="already names its cases"):
-        materialize_deployment_qa_stage(
-            test_db,
-            deployment_run_id="run-plan-twice",
-            deployment_stage=STAGE,
-            deployment_member_item_id=item_id,
-            agent_plan=str(second),
-        )
+    again = materialize_deployment_qa_stage(
+        test_db,
+        deployment_run_id="run-plan-twice",
+        deployment_stage=STAGE,
+        deployment_member_item_id=item_id,
+        agent_plan=str(plan_id),
+    )
+
+    assert again["created_requirement_ids"] == []
