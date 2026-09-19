@@ -5,7 +5,9 @@ import { createProjectSelection, resolveProjectSelection } from "../../packages/
 import { navEntry, scopeForEntry } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_navigation.js";
 import { FakeDocument, allNodes, byClass, response, settle } from "./universe_ui_dom_test_support.mjs";
 import { createSelectionNavigation, selectionRoute } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_selection_routes.js";
-import { itemsCalls, scopeChips, twoProjectClient } from "./universe_ui_read_views_test_support.mjs";
+import {
+  itemsCalls, scopeChips, threeProjectClient, twoProjectClient,
+} from "./universe_ui_read_views_test_support.mjs";
 
 const projects = [{ id: 1 }, { id: 2 }, { id: 3 }];
 
@@ -14,8 +16,8 @@ const projects = [{ id: 1 }, { id: 2 }, { id: 3 }];
 // second `preferenceClient(...)` call simulates the SAME actor's state
 // surviving a reload, remount, or second tab; a fresh call with no
 // argument simulates a different actor with nothing saved yet.
-function preferenceClient(initialViews = {}) {
-  const base = twoProjectClient();
+function preferenceClient(initialViews = {}, universeClient = twoProjectClient) {
+  const base = universeClient();
   const state = { views: { ...initialViews } };
   return {
     requests: base.requests,
@@ -219,8 +221,8 @@ function selected(root) {
 
 test("each screen's own remembered selection renders in its own chip state and survives the round trip", async (t) => {
   const client = preferenceClient();
-  const { root, windowNode, navigate } = await mountAt(t, "#/items?project=1,2", client);
-  assert.deepEqual(selected(root), ["ALP", "BET"]);
+  const { root, windowNode, navigate } = await mountAt(t, "#/items?project=1", client);
+  assert.deepEqual(selected(root), ["ALP"]);
 
   await navigate("#/workflows");
   // Unscoped chrome hides the picker; Items' remembered pair is untouched.
@@ -229,8 +231,8 @@ test("each screen's own remembered selection renders in its own chip state and s
   assert.equal(windowNode.location.hash, "#/workflows?project=all");
 
   await navigate("#/items");
-  assert.deepEqual(selected(root), ["ALP", "BET"]);
-  assert.deepEqual(itemsCalls(client).at(-1).payload.projects, ["1", "2"]);
+  assert.deepEqual(selected(root), ["ALP"]);
+  assert.deepEqual(itemsCalls(client).at(-1).payload.projects, ["1"]);
 
   await navigate("#/projects");
   assert.equal(byClass(root, "header-project-context")[0].hidden, true);
@@ -251,14 +253,14 @@ test("history restores explicit All and selection without adding history entries
 
 test("reload and host remount restore each view's own saved selection; a fresh actor starts independently", async (t) => {
   const client = preferenceClient();
-  const first = await mountAt(t, "#/items?project=1,2", client);
-  assert.deepEqual(client.state.views.items?.selection, ["1", "2"]);
+  const first = await mountAt(t, "#/items?project=1", client);
+  assert.deepEqual(client.state.views.items?.selection, ["1"]);
   first.mounted.unmount();
 
   // Same server-backed state (the same actor, a reload or a second tab),
   // same view: the remembered selection survives.
   const next = await mountAt(t, "#/items", client);
-  assert.deepEqual(selected(next.root), ["ALP", "BET"]);
+  assert.deepEqual(selected(next.root), ["ALP"]);
   next.mounted.unmount();
 
   // Events was never touched, even under the same persisted state: it
@@ -323,7 +325,11 @@ test("an unsuccessful initial read never lets a default clobber the server's rea
 });
 
 test("detail focus preserves multi-selection and inaccessible focus never reads another project", async (t) => {
-  const { root, client, navigate } = await mountAt(t, "#/strategy/PLAN-1?project=1&selection=1,2");
+  // Three projects, so `selection=1,2` is a genuine multi-member scope the
+  // detail has to keep separate from its own `project=1` focus.
+  const { root, client, navigate } = await mountAt(
+    t, "#/strategy/PLAN-1?project=1&selection=1,2", preferenceClient({}, threeProjectClient),
+  );
   assert.deepEqual(selected(root), ["ALP", "BET"]);
   assert.equal(byClass(root, "breadcrumb-parent")[0].href, "#/strategy?project=1,2");
   const before = client.requests.length;

@@ -108,3 +108,30 @@ export function itemsCalls(client) {
     (request) => request.function === "items.overview.list",
   );
 }
+
+// The same universe with one more project on the roster, and no items in it.
+// A scope test needs a roster big enough that a two-member selection is a
+// genuine subset: on a two-project roster selecting both IS All, which is a
+// different assertion than "a set of several projects".
+export function threeProjectClient() {
+  const base = twoProjectClient();
+  return {
+    requests: base.requests,
+    async call(request) {
+      const callResult = await base.call(request);
+      if (request.function !== "projects.list") return callResult;
+      return {
+        ...callResult,
+        envelope: {
+          ...callResult.envelope,
+          result: {
+            rows: [
+              ...callResult.envelope.result.rows,
+              { id: 3, slug: "gamma", name: "Gamma", public_item_prefix: "GAM" },
+            ],
+          },
+        },
+      };
+    },
+  };
+}
