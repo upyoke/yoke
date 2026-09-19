@@ -155,7 +155,12 @@ def record_done_evidence_rungs(
     merge_recorded: bool,
     agent_attested: bool,
 ) -> tuple[Dict[str, Any], ...]:
-    """Stamp the done obligations represented by one evidence write."""
+    """Stamp the done obligations one evidence write can answer for.
+
+    Merge evidence is answered by the merge itself and must resolve here.
+    Delivery evidence is stamped opportunistically, because for an item
+    delivering through a release it is not yet answerable at merge time.
+    """
     observed = {
         OBSERVED_MERGE_RECORDED: (
             bool(merge_recorded),
@@ -170,31 +175,49 @@ def record_done_evidence_rungs(
             else "the close-out records an implementation merge",
         ),
     }
-    obligations = [OBLIGATION_DONE_MERGE_EVIDENCE]
-    if merge_recorded:
-        obligations.append(OBLIGATION_DELIVERY_EVIDENCE)
-    outcomes = tuple(
-        resolve_and_record_item_rung(
+    def _stamp(obligation: str) -> Dict[str, Any]:
+        return resolve_and_record_item_rung(
             conn,
             item_id=item_id,
             obligation=obligation,
             observed=observed,
             target_status="done",
         )
-        for obligation in obligations
+
+    merge_evidence = _stamp(OBLIGATION_DONE_MERGE_EVIDENCE)
+    if not merge_evidence.get("satisfied"):
+        raise ValueError(str(merge_evidence.get("refusal") or "").strip())
+    _require_stamp(merge_evidence)
+    outcomes = [merge_evidence]
+    if merge_recorded:
+        # Delivery is stamped here when the merge already answers for it --
+        # a project with no deployment target delivers by landing. When it
+        # does not, this write must not refuse: an item whose flow names a
+        # real target delivers through a release, and the release wait it
+        # sits in IS that pending delivery. Refusing here would make
+        # recording a merge depend on the delivery that wait exists to
+        # await, which a second landing on such an item can never satisfy.
+        # The obligation still binds where it belongs: the done gate reads
+        # the stamp back through `missing_done_evidence_rungs`, and no item
+        # reaches a terminal stage without it.
+        delivery = _stamp(OBLIGATION_DELIVERY_EVIDENCE)
+        if delivery.get("satisfied"):
+            _require_stamp(delivery)
+            outcomes.append(delivery)
+    return tuple(outcomes)
+
+
+def _require_stamp(outcome: Dict[str, Any]) -> None:
+    """Refuse a resolved obligation whose durable row did not land."""
+    if outcome.get("stamp_recorded"):
+        return
+    raise ValueError(
+        f"obligation {outcome['obligation']!r} resolved to rung "
+        f"{outcome.get('rung_id')!r}, but its durable "
+        "item_gate_satisfactions row could not be recorded. Restart "
+        "the server to converge the control-plane schema, then retry "
+        "the close-out; an unstamped success is refused."
     )
-    for outcome in outcomes:
-        if not outcome.get("satisfied"):
-            raise ValueError(str(outcome.get("refusal") or "").strip())
-        if not outcome.get("stamp_recorded"):
-            raise ValueError(
-                f"obligation {outcome['obligation']!r} resolved to rung "
-                f"{outcome.get('rung_id')!r}, but its durable "
-                "item_gate_satisfactions row could not be recorded. Restart "
-                "the server to converge the control-plane schema, then retry "
-                "the close-out; an unstamped success is refused."
-            )
-    return outcomes
 
 
 def missing_done_evidence_rungs(
