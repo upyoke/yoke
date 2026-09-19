@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.deployment_run_bound_sources import record_bound_sources
 from yoke_core.domain.deployment_run_carried_work import record_carried_work
 from yoke_core.domain.deployment_runs_schema import _run_field_available
 from yoke_core.domain.deployment_flow_policy import RELEASE_POLICY_SCHEMA_VERSION
@@ -241,6 +242,10 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
         project_id=int(_cell(row, "project_id", 3)),
         stages=stages,
     )
+    # Bound source commits before carried work: the comparison that decides
+    # what this release carried asks one commit per project, and a project
+    # whose commit is not recorded yet would answer for nobody.
+    record_bound_sources(conn, run_id)
     carried_work = record_carried_work(conn, run_id)
     # Freeze verifies membership; it never completes it. The driver read its
     # members before reaching here and seeds QA and stamps release against

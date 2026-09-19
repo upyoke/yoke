@@ -107,10 +107,16 @@ def _selected_plans(
             "this deployment QA stage pins its cases; omit the agent-selected plan"
         )
     if agent_plan is not None:
+        # An item-scoped stage selects from the MEMBER's project: a run that
+        # ships a bound project's code carries members whose QA plans live in
+        # that project, not in the run's own.
+        plan_project_id = int(
+            subject.get("member_project_id") or subject["project_id"]
+        )
         row = conn.execute(
             "SELECT id FROM qa_plans WHERE project_id=%s "
             "AND (slug=%s OR CAST(id AS TEXT)=%s) AND retired_at IS NULL",
-            (int(subject["project_id"]), str(agent_plan), str(agent_plan)),
+            (plan_project_id, str(agent_plan), str(agent_plan)),
         ).fetchone()
         if row is None:
             raise QaPlanError(
@@ -118,11 +124,7 @@ def _selected_plans(
             )
         agent_plan_id = int(row["id"] if hasattr(row, "keys") else row[0])
         frozen.append(
-            _plan_snapshot(
-                conn,
-                int(agent_plan_id),
-                project_id=int(subject["project_id"]),
-            )
+            _plan_snapshot(conn, int(agent_plan_id), project_id=plan_project_id)
         )
     unique: dict[tuple[int, tuple[str, ...]], dict[str, Any]] = {}
     for snapshot in frozen:

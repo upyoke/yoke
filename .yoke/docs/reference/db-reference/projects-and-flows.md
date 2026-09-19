@@ -289,6 +289,8 @@ still waiting on; it never approves. Recording an answer stays on
 
 **`github-actions-workflow` step runner:** Triggers a GitHub Actions workflow and polls for completion. Stage fields: `workflow` (workflow filename, e.g., `deploy.yml`), `watch_for` (state to wait for, e.g., `"completed"`), `on_failure` (`"halt"`). Used by external projects where GitHub Actions owns the pipeline. Python owners: `yoke_core.domain.github_actions` + `yoke_core.domain.deploy_pipeline`.
 
+A stage may also declare `input_bindings`, a map from a workflow input name to another registered project's branch — `{"consumer_sha": {"project": "other", "branch": "main"}}` — so the dispatched build ships that project's code beside this run's own candidate. The branch resolves exactly once, when the run starts, and the commit is recorded in `deployment_runs.bound_sources`; the stage substitutes the recorded commit rather than asking the branch again, and a branch that cannot be reached refuses the start. Because the run then durably says which commit it shipped for that project, start-time enrollment admits the bound project's delivery-ready items as ordinary members and delivery for them is judged against that recorded commit. Two bindings naming the same project with different branches are refused: a run holds one source commit per project. Python owners: `yoke_core.domain.deployment_run_bound_sources` (the record) + `yoke_core.domain.deployment_run_project_sources` (the reads).
+
 **`warm-up` step runner:** Issues one heavy relayed function call against the
 environment the run just rolled, so the pipeline pays the server cold start
 (engine imports, connection pool, caches) instead of whoever calls first — a

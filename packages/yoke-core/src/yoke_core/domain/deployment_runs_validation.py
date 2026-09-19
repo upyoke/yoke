@@ -14,6 +14,8 @@ from typing import List, Optional, Sequence, Tuple
 
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
 from yoke_core.domain.dependency_satisfaction import unsatisfied_dependency_pairs
+from yoke_core.domain.deployment_run_bound_sources import record_bound_sources
+from yoke_core.domain.deployment_run_project_sources import carried_project_ids
 from yoke_core.domain.deployment_run_carried_membership import (
     carried_membership_refusal,
     describe_enrollment,
@@ -116,6 +118,10 @@ def cmd_validate_composition(
         # checks judge the run that will actually execute. Enrolling after
         # them would validate a composition the start no longer has.
         try:
+            # The run's source commit per project is resolved and recorded
+            # before anything reads it, so enrollment and every check below
+            # judge the commits this run will actually ship.
+            record_bound_sources(conn, run_id)
             enrolled = enroll_carried_members(conn, run_id)
             conn.commit()
         except (LookupError, ValueError) as exc:
@@ -126,21 +132,30 @@ def cmd_validate_composition(
 
         errors: List[str] = []
 
-        # Check 1: All items share the run's project
+        # Check 1: every item belongs to a project this run ships source for
+        carried_projects = carried_project_ids(conn, run_id)
+        placeholders = ", ".join("%s" for _ in carried_projects)
         wrong_project = query_rows(
             conn,
             "SELECT i.id, p.slug "
             "FROM deployment_run_items dri "
             "JOIN items i ON dri.item_id = i.id "
             "JOIN projects p ON p.id = i.project_id "
-            "WHERE dri.run_id=%s AND i.project_id <> %s",
-            (run_id, run_project_id),
+            f"WHERE dri.run_id=%s AND i.project_id NOT IN ({placeholders})",
+            (run_id, *carried_projects),
         )
         if wrong_project:
             items_str = ", ".join(
                 _item_label(conn, row[0], f"project={row[1]}") for row in wrong_project
             )
-            errors.append(f"Project mismatch (run expects {run_project}): {items_str}")
+            carried_labels = ", ".join(
+                resolve_project_slug(conn, project_id)
+                for project_id in carried_projects
+            )
+            errors.append(
+                f"Project mismatch (run {run_project} ships source for "
+                f"{carried_labels}): {items_str}"
+            )
 
         # Check 2: Every item is delivery-ready for its pinned workflow.
         delivery_candidates = query_rows(

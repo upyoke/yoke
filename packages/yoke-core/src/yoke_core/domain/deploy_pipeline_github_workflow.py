@@ -9,12 +9,9 @@ from __future__ import annotations
 
 import sys
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 from yoke_core.domain.deploy_pipeline_gates import _check_ci_gate
-from yoke_core.domain.deploy_pipeline_github_workflow_bindings import (
-    resolve_declared_input_bindings,
-)
 from yoke_core.domain.deploy_pipeline_github_workflow_lineage import (
     resolve_publish_sha as _lineage_resolve_publish_sha,
     resolve_release_lineage_sha as _lineage_resolve_release_lineage_sha,
@@ -27,7 +24,6 @@ from yoke_core.domain.deploy_pipeline_github_workflow_reconciliation import (
     _found_run_id,
     narrate_sha_only_search_skip,
     run_correlated_or_oneshot_trigger,
-    trigger_with_binding_collision_retry,
 )
 from yoke_core.domain.deploy_pipeline_github_workflow_dispatch import (
     trigger_with_recovery_retries,
@@ -67,6 +63,7 @@ def _dispatch_github_actions_workflow(
     product_repo_path: str = "",
     image_tag: str = "",
     environment_name: str = "",
+    bound_inputs: Optional[Mapping[str, str]] = None,
     preview_slug: str = "",
     sd: Optional[str] = None,
 ) -> tuple[int, str]:
@@ -156,29 +153,25 @@ def _dispatch_github_actions_workflow(
             return 1, sha_error
 
     # Declared external input bindings (e.g. a hosted consumer's trunk sha)
-    # resolve before the reconciliation block below, which reads
-    # workflow_inputs' truthiness. A `--fresh` retrigger mints its own
-    # request id (nothing durable to recover yet); every other call
-    # recovers a prior bound pair before resolving fresh.
-    input_bindings = config.get("input_bindings") or {}
-    bound_inputs: Dict[str, str] = {}
-    binding_request_id = (
-        _workflow_dispatch_request_id(project, run_id, name)
-        if correlation_input and not fresh
-        else ""
-    )
-    if input_bindings:
-        bound_inputs, binding_error = resolve_declared_input_bindings(
-            input_bindings, request_id=binding_request_id,
+    # were resolved once when the run started and recorded on it. Reading
+    # that record here is what makes a retry, a fresh retrigger and the
+    # delivery record agree: the branch is never consulted again, so two
+    # dispatches of one run cannot ship two different consumer commits.
+    resolved_bindings = dict(bound_inputs or {})
+    missing = sorted(set(config.get("input_bindings") or {}) - set(resolved_bindings))
+    if missing:
+        diagnostic = (
+            f"stage {name!r} declares input binding(s) {missing} that "
+            f"deployment run {run_id} recorded no source commit for; start "
+            "the run again so it resolves and records them before dispatch"
         )
-        if binding_error:
-            print(f"Error: {binding_error}", file=sys.stderr)
-            return 1, binding_error
+        print(f"Error: {diagnostic}", file=sys.stderr)
+        return 1, diagnostic
 
     workflow_inputs = _resolve_workflow_inputs(
         raw_workflow_inputs, head_sha=head_sha, run_id=run_id,
         target_environment=environment_name, preview_slug=preview_slug,
-        bound=bound_inputs,
+        bound=resolved_bindings,
     )
 
     ga_run_id = ""
@@ -228,22 +221,7 @@ def _dispatch_github_actions_workflow(
                 timeout_sec=timeout_sec,
             )
 
-        r, ga_run_id, _dispatched, workflow_inputs, binding_error = (
-            trigger_with_binding_collision_retry(
-                _trigger, workflow_inputs,
-                input_bindings=input_bindings,
-                binding_request_id=binding_request_id,
-                resolve_bindings=resolve_declared_input_bindings,
-                resolve_workflow_inputs=_resolve_workflow_inputs,
-                raw_workflow_inputs=raw_workflow_inputs,
-                head_sha=head_sha, run_id=run_id,
-                target_environment=environment_name,
-                preview_slug=preview_slug,
-            )
-        )
-        if binding_error:
-            print(f"Error: {binding_error}", file=sys.stderr)
-            return 1, binding_error
+        r, ga_run_id, _dispatched = _trigger(workflow_inputs)
         if not ga_run_id or r.returncode != 0:
             if not reconcile_by_head_sha or not head_sha or workflow_inputs:
                 diagnostic = (r.stderr or r.stdout or "").strip()

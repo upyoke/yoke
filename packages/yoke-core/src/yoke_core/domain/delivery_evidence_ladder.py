@@ -1,4 +1,4 @@
-"""Whether an item's selected delivery flow has actually delivered it.
+"""Whether a release has actually delivered one item.
 
 One question, one answer, two readers. The terminal done engine and the
 Dash completion gate both decide whether an item's delivery obligation is
@@ -13,11 +13,16 @@ while the identical release closed its neighbour out. Enrolment is
 bookkeeping about how a run was requested; it is not the fact the gate
 means.
 
-Containment is what answers when membership does not: does a succeeded run
-of this item's selected flow ship a revision that already contains this
-item's merge? That holds for every member of a batch rather than only the
-one that happens to be the tip, and it holds whether or not anyone
-remembered to enrol it.
+Containment is what answers when membership does not: does a succeeded
+release ship a revision that already contains this item's merge? That holds
+for every member of a batch rather than only the one that happens to be the
+tip, and it holds whether or not anyone remembered to enrol it.
+
+"A succeeded release" is wider than this item's own flow. A run of another
+project can bind this project's source, record the commit it resolved, and
+ship it; the commit it recorded for THIS project is then the candidate to
+ask about, and the run's own lineage — which names nothing in this
+repository — is not.
 
 So the ladder is membership first — it is cheap, local, and the common case
 — then containment. An unreadable containment source is ``undetermined``,
@@ -28,8 +33,9 @@ provider is unwell.
 This answers "has delivery happened", and nothing stricter. A caller may
 have a stricter question — Dash completion posture additionally requires the
 deployed candidate to contain the item's merge and its live lane head — so
-the verdict carries the run's own candidate for that caller to judge, rather
-than folding two different questions into one answer.
+the verdict carries the candidate the run recorded for this item's project,
+for that caller to judge, rather than folding two different questions into
+one answer.
 """
 
 from __future__ import annotations
@@ -47,6 +53,9 @@ from yoke_core.domain.deployment_qa_source_obligation import (
 from yoke_core.domain.deployment_run_candidate_containment import (
     UNDETERMINED,
     candidate_contains_commit,
+)
+from yoke_core.domain.deployment_run_project_sources import (
+    carrying_runs_for_project,
 )
 from yoke_core.domain.schema_common import _table_exists
 
@@ -70,10 +79,11 @@ class DeliveryEvidence:
     source: str = ""
     reason: str = ""
     recovery: str = ""
-    # The run's own candidate and project, so a caller with a STRICTER
-    # question than "did delivery happen" can ask it of the same run. The
-    # Dash completion posture is that caller: it additionally requires the
-    # deployed candidate to contain the item's merge and live lane head.
+    # The candidate this run recorded for the item's own project, plus that
+    # project, so a caller with a STRICTER question than "did delivery
+    # happen" can ask it of the same release. The Dash completion posture is
+    # that caller: it additionally requires the deployed candidate to
+    # contain the item's merge and live lane head.
     release_lineage: str = ""
     project_id: Optional[int] = None
 
@@ -113,7 +123,12 @@ def _project_id(conn: Any, item_id: int) -> Optional[int]:
 def _succeeded_flow_runs(
     conn: Any, *, project_id: int, flow: str, limit: int = 10
 ) -> list[dict[str, Any]]:
-    """Recent succeeded runs of this flow, newest first.
+    """Recent succeeded releases that shipped this project, newest first.
+
+    Two kinds ship it: runs of the item's own selected flow, and runs of
+    another project that bound this project's source and recorded the commit
+    they resolved. Each row carries the commit that release holds for THIS
+    project, so the containment walk asks one question of one repository.
 
     Newest first because the newest release contains the most merges, so the
     first rung of the containment walk answers almost every item. The limit
@@ -121,24 +136,36 @@ def _succeeded_flow_runs(
     """
     marker = _marker(conn)
     rows = conn.execute(
-        "SELECT id, COALESCE(release_lineage, '') AS release_lineage "
+        "SELECT id, COALESCE(release_lineage, '') AS release_lineage, "
+        "COALESCE(completed_at, '') AS completed_at "
         "FROM deployment_runs "
         f"WHERE project_id = {marker} AND flow = {marker} "
         "AND status = 'succeeded' "
-        f"ORDER BY created_at DESC, id DESC LIMIT {int(limit)}",
+        f"ORDER BY completed_at DESC, created_at DESC, id DESC LIMIT {int(limit)}",
         (int(project_id), flow),
     ).fetchall()
-    return [
+    releases = [
         {
             "id": str(_cell(row, "id", 0) or ""),
             "release_lineage": str(_cell(row, "release_lineage", 1) or ""),
+            "completed_at": str(_cell(row, "completed_at", 2) or ""),
         }
         for row in rows
     ]
+    releases.extend(
+        {
+            "id": run["id"],
+            "release_lineage": run["source_sha"],
+            "completed_at": run["completed_at"],
+        }
+        for run in carrying_runs_for_project(conn, int(project_id))
+    )
+    releases.sort(key=lambda release: release["completed_at"], reverse=True)
+    return releases[: int(limit)]
 
 
 def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
-    """Whether the item's selected flow has delivered it, and on what."""
+    """Whether a succeeded release has delivered this item, and on what."""
     required = ("deployment_runs", "deployment_run_items")
     if not all(_table_exists(conn, table) for table in required):
         return DeliveryEvidence(
@@ -221,7 +248,7 @@ def _member_shaped_answer(member: Optional[dict[str, Any]]) -> DeliveryEvidence:
     if member is None:
         return DeliveryEvidence(
             NOT_DISCHARGED,
-            reason="no succeeded run of the selected flow contains this merge",
+            reason="no succeeded release that ships this project contains this merge",
             recovery="Run the selected project delivery flow to completion.",
         )
     status = str(member["status"])

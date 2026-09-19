@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.deployment_run_bound_sources import parse_bound_sources
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 from yoke_core.domain.deployment_run_gates import run_gates
 from yoke_core.domain.deployment_runs_schema import _run_named_columns
@@ -171,6 +172,10 @@ def present_deployment_runs(
                     ],
                 }
             row["carried_work"] = carried
+        if "bound_sources" in row:
+            # What this run pinned for every project it ships but does not
+            # own. Run detail reads the same record delivery is judged on.
+            row["bound_sources"] = parse_bound_sources(row.get("bound_sources"))
         stage_names = _stage_names(row.pop("stages", None))
         stages, stage_index = _stage_rows(
             stage_names,

@@ -8,6 +8,41 @@ The rules file every session loads carries the short normative form of each rule
 - **Disable definitions; retain history.** `yoke deployment-flows set-status <flow-id> disabled` prevents new assignments and runs without deleting the definition or any historical run. A definition referenced by a run is immutable and cannot be deleted.
 - **Schema/env shape:** `deployment_runs` has no `item_id`; `deployment_run_items` may be empty for started environment runs. The HTTPS product/API environment is the normal relayed authority, and it drives ordinary delivery end to end — create, start-for-item, execute, watch, retry, close-out — over whichever connection holds the run row. A local-Postgres `*-db-admin` environment is direct database write authority for sanctioned source-dev/admin work and audited break-glass SQL; a deployment needs it only when the run replaces that control plane's own serving API, and the executor refuses that one case by name and says which connection to use. Never go looking for control-plane database credentials to deploy a project: they are not the project's application database credentials, and a project whose control plane someone else operates has none to obtain.
 
+## Binding-based multi-project delivery
+
+A `github-actions-workflow` stage may declare `input_bindings`, naming another
+registered project's branch: `{"consumer_sha": {"project": "other", "branch":
+"main"}}`. The build that stage dispatches ships that project's code alongside
+the run's own candidate, so the run delivers two projects, not one.
+
+- **The branch resolves once, at start.** The run records the exact commit it
+  resolved for each bound project in `deployment_runs.bound_sources`, beside
+  its own `release_lineage`. Every later reader — the stage that substitutes
+  the placeholder, enrollment, composition validation, run detail, the
+  Frontier delivery box — reads that record. Nothing re-resolves a branch
+  afterwards, so a retry cannot ship a commit the first attempt did not. Read
+  it with `yoke deployment-runs get RUN-ID bound_sources`, and read what a
+  flow binds with `yoke deployment-flows stages FLOW-ID`.
+- **A branch that cannot be reached refuses the start by name.** It is
+  resolved from the bound project's registered checkout, or through that
+  project's own authorized repository binding when this host holds no
+  checkout; neither answering names both repairs rather than dispatching an
+  unrecorded binding.
+- **Membership follows the source.** Start-time enrollment runs once per
+  project the run ships — its own plus every bound one — against that
+  project's recorded commit, so a bound project's delivery-ready items become
+  ordinary members. They get a membership row, a requirement snapshot, and the
+  item-scoped QA wake, exactly like own-project members. An item whose project
+  the run ships no source for is still refused.
+- **Delivery is judged per project.** An item counts as delivered by a
+  succeeded run whose recorded commit *for that item's project* contains its
+  merge. That is why a bound-project item needs no second run on its own flow
+  to record a delivery the carrying run already made — and why a run that
+  carried nothing for a project delivers nothing for it, however recent.
+- **One commit per project per run.** Two bindings naming the same project
+  with different branches are refused: delivery could not then say which
+  commit the release shipped for that project.
+
 ## Release-time roles
 
 A run that carries members is acted on by two different sessions, and neither

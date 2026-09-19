@@ -36,11 +36,11 @@ def normalize_snapshot(raw: Mapping[str, Any]) -> dict[str, str | None]:
         value = raw[field]
         if value is None or value == "":
             normalized[field] = None
-        elif field == "carried_work":
+        elif field in ("carried_work", "bound_sources"):
             parsed = parse_carried_work(value)
             if parsed is None:
                 raise DeploymentRunProjectionError(
-                    "snapshot carried_work must be a JSON object"
+                    f"snapshot {field} must be a JSON object"
                 )
             normalized[field] = dumps_compact(parsed)
         else:
@@ -152,9 +152,10 @@ def project_snapshot(
                 "id,project_id,flow,target_tier,target_environment_id,"
                 "release_lineage,status,"
                 "current_stage,created_at,started_at,completed_at,created_by,"
-                "carried_work,artifact_identity,composition_resolution,"
+                "carried_work,bound_sources,artifact_identity,"
+                "composition_resolution,"
                 "composition_frozen_at,requirement_snapshot) VALUES ("
-                "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (
                     snapshot["id"],
                     project_id,
@@ -169,6 +170,7 @@ def project_snapshot(
                     snapshot["completed_at"],
                     snapshot["created_by"],
                     snapshot["carried_work"],
+                    snapshot["bound_sources"],
                     snapshot["artifact_identity"],
                     snapshot["composition_resolution"],
                     snapshot["composition_frozen_at"],
@@ -178,7 +180,13 @@ def project_snapshot(
             outcome = "created"
             changed = list(RUN_FIELDS)
         else:
-            for field in ("project", "flow", "release_lineage", "artifact_identity"):
+            for field in (
+                "project",
+                "flow",
+                "release_lineage",
+                "bound_sources",
+                "artifact_identity",
+            ):
                 if existing[field] != snapshot[field]:
                     raise DeploymentRunProjectionCollision(
                         f"deployment run projection collides on {field}"

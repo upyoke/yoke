@@ -22,8 +22,10 @@ from yoke_core.domain.deployment_qa_stage_contract import (
     DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
     deployment_qa_stage_subject,
 )
+from yoke_core.domain.deployment_run_bound_sources import BOUND_SOURCES_FIELD
+from yoke_core.domain.deployment_run_project_sources import recorded_source_sha
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 # A post_deploy row that already passed once is not re-runnable into
 # satisfaction, so "execute the case" is the wrong instruction and
@@ -40,11 +42,18 @@ POST_DEPLOY_RECOVERY = (
 
 
 def latest_completion_run(conn: Any, item_id: int) -> dict[str, Any] | None:
-    """Newest membership on the item's selected completion flow, or none.
+    """Newest membership that can close this item, or none.
 
-    Freshness is still ``created_at`` (then ``id``) — only the flow filter
-    is added, so a later retry of the selected flow still wins, and a later
-    carrying run of a different flow does not.
+    Two memberships can: a run of the item's own selected completion flow,
+    and a run of another project that ships this project's source — the
+    carrier resolved this project's commit at start, so it delivers the
+    item's merge as surely as the item's own flow would. A later carrying
+    run of an unrelated flow in this project still does not.
+
+    Freshness is still ``created_at`` (then ``id``). ``release_lineage`` and
+    ``project_id`` name the candidate to ask containment about: the commit
+    the run recorded for THIS item's project, which for an own-project run
+    is the run's own lineage and for a carrier is the bound commit.
     """
     required = ("deployment_runs", "deployment_run_items")
     if not all(_table_exists(conn, table) for table in required):
@@ -53,29 +62,52 @@ def latest_completion_run(conn: Any, item_id: int) -> dict[str, Any] | None:
     if not flow:
         return None
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
+    rows = conn.execute(
         "SELECT dr.id, dr.status, dr.current_stage, dr.project_id, "
-        "COALESCE(dr.release_lineage, '') AS release_lineage, dr.flow "
+        "COALESCE(dr.release_lineage, '') AS release_lineage, dr.flow, "
+        "i.project_id AS item_project_id, "
+        f"{_bound_sources_column(conn)} "
         "FROM deployment_runs dr "
         "JOIN deployment_run_items dri ON dr.id = dri.run_id "
-        f"WHERE dri.item_id = {marker} AND dr.flow = {marker} "
-        "ORDER BY dr.created_at DESC, dr.id DESC LIMIT 1",
-        (int(item_id), flow),
-    ).fetchone()
-    if not row:
-        return None
-    return {
-        "id": str((row["id"] if hasattr(row, "keys") else row[0]) or ""),
-        "status": str((row["status"] if hasattr(row, "keys") else row[1]) or ""),
-        "current_stage": str(
-            (row["current_stage"] if hasattr(row, "keys") else row[2]) or ""
-        ),
-        "project_id": row["project_id"] if hasattr(row, "keys") else row[3],
-        "release_lineage": str(
-            (row["release_lineage"] if hasattr(row, "keys") else row[4]) or ""
-        ),
-        "flow": str((row["flow"] if hasattr(row, "keys") else row[5]) or ""),
-    }
+        "JOIN items i ON i.id = dri.item_id "
+        f"WHERE dri.item_id = {marker} "
+        "ORDER BY dr.created_at DESC, dr.id DESC",
+        (int(item_id),),
+    ).fetchall()
+    for row in rows:
+        item_project = int(_row_value(row, "item_project_id", 6))
+        source_sha = recorded_source_sha(
+            {
+                "project_id": _row_value(row, "project_id", 3),
+                "release_lineage": _row_value(row, "release_lineage", 4),
+                BOUND_SOURCES_FIELD: _row_value(row, BOUND_SOURCES_FIELD, 7),
+            },
+            item_project,
+        )
+        run_flow = str(_row_value(row, "flow", 5) or "")
+        carried = int(_row_value(row, "project_id", 3)) != item_project
+        if run_flow != flow and not (carried and source_sha):
+            continue
+        return {
+            "id": str(_row_value(row, "id", 0) or ""),
+            "status": str(_row_value(row, "status", 1) or ""),
+            "current_stage": str(_row_value(row, "current_stage", 2) or ""),
+            "project_id": item_project,
+            "release_lineage": source_sha,
+            "flow": run_flow,
+        }
+    return None
+
+
+def _row_value(row: Any, key: str, position: int) -> Any:
+    return row[key] if hasattr(row, "keys") else row[position]
+
+
+def _bound_sources_column(conn: Any) -> str:
+    """Select the recorded bound sources, or empty on an unconverged plane."""
+    if _column_exists(conn, "deployment_runs", BOUND_SOURCES_FIELD):
+        return f"COALESCE(dr.{BOUND_SOURCES_FIELD}, '') AS {BOUND_SOURCES_FIELD}"
+    return f"'' AS {BOUND_SOURCES_FIELD}"
 
 
 def latest_deployment_run_for_item(conn: Any, item_id: int) -> dict[str, str]:

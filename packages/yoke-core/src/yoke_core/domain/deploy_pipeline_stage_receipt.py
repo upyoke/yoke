@@ -113,6 +113,7 @@ def dispatch_step_runner_with_receipt(
     release_lineage: str,
     run_artifact_identity: str = "",
     target_identity: Optional[Mapping[str, Any]] = None,
+    bound_inputs: Optional[Mapping[str, str]] = None,
     product_repo_path: str = "",
     sd: Optional[str] = None,
 ) -> tuple[int, str]:
@@ -138,6 +139,7 @@ def dispatch_step_runner_with_receipt(
             fresh=fresh,
             image_tag=image_tag,
             environment_name=dispatch_environment,
+            bound_inputs=bound_inputs,
             gate_branch=gate_branch,
             release_lineage=release_lineage,
             product_repo_path=product_repo_path,

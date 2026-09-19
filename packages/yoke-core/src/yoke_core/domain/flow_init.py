@@ -101,6 +101,7 @@ def _ensure_flow_schema(conn) -> None:
         )
         _add_column_if_not_exists(conn, "deployment_runs", "carried_work", "TEXT")
         for column in (
+            "bound_sources",
             "artifact_identity",
             "composition_resolution",
             "composition_frozen_at",

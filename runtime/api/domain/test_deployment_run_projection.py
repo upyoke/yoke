@@ -47,7 +47,8 @@ def _snapshot(**overrides: Any) -> dict[str, Any]:
         "started_at": "2026-07-30T00:02:00Z",
         "completed_at": "2026-07-30T00:03:00Z",
         "created_by": "release-control-plane",
-        "carried_work": {"schema": 1, "items": [], "commits": []},
+        "carried_work": {"schema": 2, "items": [], "commits": []},
+        "bound_sources": {"schema": 1, "projects": [], "inputs": {}},
         "artifact_identity": '{"digest":"sha256:abc"}',
         "composition_resolution": "first governed release baseline",
         "composition_frozen_at": "2026-07-30T00:01:30Z",
@@ -94,10 +95,12 @@ def test_projection_inserts_and_exact_replay_is_unchanged(test_db: Any) -> None:
         "release-control-plane",
     )
     carried = test_db.execute(
-        "SELECT carried_work FROM deployment_runs WHERE id=%s",
+        "SELECT carried_work,bound_sources FROM deployment_runs WHERE id=%s",
         (RUN_ID,),
     ).fetchone()
-    assert '"schema":1' in carried["carried_work"]
+    assert '"schema":2' in carried["carried_work"]
+    # The commits a run pinned for other projects project alongside its own.
+    assert '"projects":[]' in carried["bound_sources"]
 
 
 def test_projection_repairs_same_identity_with_destination_digest(

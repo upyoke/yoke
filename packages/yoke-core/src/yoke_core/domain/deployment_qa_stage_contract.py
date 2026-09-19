@@ -16,6 +16,7 @@ from yoke_core.domain.deployment_qa_stage_prerequisites import (
     DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
     require_prior_stage_acceptance,
 )
+from yoke_core.domain.deployment_run_project_sources import carried_project_ids
 from yoke_core.domain.project_identity import render_item_ref
 
 
@@ -148,6 +149,7 @@ def deployment_qa_stage_subject(
         )
     run["member_item_id"] = None
     run["member_snapshot"] = None
+    run["member_project_id"] = None
     if member_item_id is not None:
         cursor = conn.execute(
             "SELECT dri.requirement_snapshot,i.project_id "
@@ -160,8 +162,12 @@ def deployment_qa_stage_subject(
             raise ValueError(
                 f"{render_item_ref(conn, member_item_id)} is not an attached member of run {run_id!r}"
             )
-        if int(member["project_id"]) != int(run["project_id"]):
-            raise ValueError("deployment member belongs to another project")
+        member_project_id = int(member["project_id"])
+        if member_project_id not in carried_project_ids(conn, str(run_id)):
+            raise ValueError(
+                "deployment member belongs to a project this run ships no "
+                "source for"
+            )
         snapshot = _object(
             member.get("requirement_snapshot"),
             subject=f"member {member_item_id} requirement snapshot",
@@ -172,6 +178,9 @@ def deployment_qa_stage_subject(
             )
         run["member_item_id"] = int(member_item_id)
         run["member_snapshot"] = snapshot
+        # QA plans are project-scoped, and a member brings its own project's
+        # plans whether or not the run belongs to that project.
+        run["member_project_id"] = member_project_id
     return run
 
 

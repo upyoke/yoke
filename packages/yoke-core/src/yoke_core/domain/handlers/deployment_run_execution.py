@@ -68,6 +68,28 @@ def _require_execution_lock(
     return None
 
 
+def _record_bound_sources(run_id_value: str) -> HandlerOutcome | None:
+    """Pin every project's source commit before anything reads one.
+
+    A stage that binds another project's branch substitutes the commit the
+    run recorded, and delivery credits the items that commit contains, so
+    the resolution happens once here rather than per stage. A branch that
+    cannot be reached refuses the start by name: dispatching an unrecorded
+    binding would ship a commit nothing can later account for.
+    """
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.deployment_run_bound_sources import record_bound_sources
+
+    with connect() as conn:
+        try:
+            record_bound_sources(conn, run_id_value)
+        except (LookupError, ValueError) as exc:
+            conn.rollback()
+            return error("bound_source_unresolved", str(exc))
+        conn.commit()
+        return None
+
+
 def _enroll_carried_items(run_id_value: str) -> List[str] | HandlerOutcome:
     """Complete membership from the candidate before the driver reads it.
 
@@ -136,6 +158,8 @@ def handle_deployment_execution_context(
     if isinstance(resolved_run_id, HandlerOutcome):
         return resolved_run_id
     if refusal := _require_execution_lock(request, resolved_run_id):
+        return refusal
+    if refusal := _record_bound_sources(resolved_run_id):
         return refusal
     enrolled_carried_items = _enroll_carried_items(resolved_run_id)
     if isinstance(enrolled_carried_items, HandlerOutcome):
@@ -215,6 +239,7 @@ __all__ = [
     "DeploymentExecutionContextResponse",
     "DeploymentExecutionUpdateRequest",
     "DeploymentExecutionUpdateResponse",
+    "_record_bound_sources",
     "_require_execution_lock",
     "handle_deployment_execution_context",
     "handle_deployment_execution_update",

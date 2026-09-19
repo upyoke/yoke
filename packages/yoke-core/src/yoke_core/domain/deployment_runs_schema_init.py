@@ -39,6 +39,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 completed_at TEXT,
                 created_by TEXT DEFAULT 'operator',
                 carried_work TEXT,
+                bound_sources TEXT,
                 artifact_identity TEXT,
                 composition_resolution TEXT,
                 composition_frozen_at TEXT,
