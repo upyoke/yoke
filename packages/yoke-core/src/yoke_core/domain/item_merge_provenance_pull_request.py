@@ -113,6 +113,9 @@ def _verify_merged_pull_request(
         split_repo,
     )
     from yoke_core.domain.gh_rest_transport_errors import RestTransportError
+    from yoke_contracts.github_app_installation_permissions import (
+        GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS,
+    )
     from yoke_core.domain.project_github_auth import (
         ProjectGithubAuthError,
         resolve_project_github_auth,
@@ -128,7 +131,11 @@ def _verify_merged_pull_request(
         raise MergedAtCorrectionError(ITEM_NOT_FOUND)
     slug = resolve_project_slug(conn, int(row_value(row, "project_id", 0)))
     try:
-        auth = resolve_project_github_auth(slug, conn=conn)
+        auth = resolve_project_github_auth(
+            slug,
+            conn=conn,
+            required_permissions=GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS,
+        )
     except ProjectGithubAuthError as exc:
         raise MergedAtCorrectionError(
             f"this correction is verified against GitHub, and {slug}'s "
