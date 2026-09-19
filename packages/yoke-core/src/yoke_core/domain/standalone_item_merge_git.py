@@ -17,6 +17,7 @@ one so no caller can converge on a landing the checkout never confirmed.
 from __future__ import annotations
 
 import subprocess
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -240,6 +241,28 @@ def changed_files(repo_root: str, branch: str, target: str) -> tuple[str, ...]:
     return tuple(line.strip() for line in listing.splitlines() if line.strip())
 
 
+def commit_time(repo_root: str, commit: str) -> str:
+    """When ``commit`` was committed, in the stored merge-provenance shape.
+
+    A landing has a time of its own, and it is not the moment close-out got
+    around to reading it: close-out can run minutes or hours later, and a
+    re-entered one much later still. Asked as epoch seconds so no locale or
+    timezone rendering can drift between the machine that merges and the
+    control plane that stores the answer. Empty when the commit cannot be
+    read, which leaves the caller to fall back rather than invent a time.
+    """
+    from yoke_core.domain.item_merge_provenance_operator import MERGED_AT_FORMAT
+
+    if not commit:
+        return ""
+    epoch = git_out(repo_root, "show", "-s", "--format=%ct", commit)
+    try:
+        seconds = int(epoch)
+    except (TypeError, ValueError):
+        return ""
+    return datetime.fromtimestamp(seconds, timezone.utc).strftime(MERGED_AT_FORMAT)
+
+
 def has_remote(repo_root: str) -> bool:
     return bool(git_out(repo_root, "remote"))
 
@@ -258,6 +281,7 @@ def publish(repo_root: str, target: str) -> tuple[bool, str]:
 __all__ = [
     "branch_exists",
     "changed_files",
+    "commit_time",
     "containing_ref",
     "current_base_ref",
     "fetch_target",

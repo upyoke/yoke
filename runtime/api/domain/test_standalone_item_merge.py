@@ -35,7 +35,7 @@ class TestMergeBoundary:
     def test_missing_branch_refuses_without_touching_the_checkout(
         self, repo: Path, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)
+        monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
         outcome = sim.merge_standalone_branch(
             project="yoke", item_id=1, branch="ITEM-404", target="main", repo_root=str(repo),
         )
@@ -48,7 +48,7 @@ class TestMergeBoundary:
         """A refused merge must not record the item as merged."""
         stamped: list[int] = []
         monkeypatch.setattr(
-            sim, "stamp_merged_at", lambda item_id: stamped.append(item_id),
+            sim, "stamp_merged_at", lambda item_id, **_kwargs: stamped.append(item_id),
         )
         monkeypatch.setattr(
             sim, "_run_merge_engine",
@@ -62,7 +62,7 @@ class TestMergeBoundary:
     def test_merge_lock_contention_is_reported_as_retryable(
         self, repo: Path, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)
+        monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
         monkeypatch.setattr(
             sim, "_run_merge_engine",
             lambda **_kwargs: (sim.RECOVERABLE_MERGE_LOCK_EXIT_CODE, ""),
@@ -78,7 +78,7 @@ class TestMergeBoundary:
         _git(repo, "merge", "--no-edit", "ITEM-1")
         stamped: list[int] = []
         monkeypatch.setattr(
-            sim, "stamp_merged_at", lambda item_id: stamped.append(item_id),
+            sim, "stamp_merged_at", lambda item_id, **_kwargs: stamped.append(item_id),
         )
         monkeypatch.setattr(
             sim, "_run_merge_engine",
@@ -92,7 +92,7 @@ class TestMergeBoundary:
     def test_touched_files_come_from_the_branch_itself(
         self, repo: Path, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)
+        monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
         monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
         outcome = _merge(repo)
         assert outcome.touched_files == ("feature.txt",)
@@ -102,7 +102,7 @@ class TestMergeBoundary:
         self, repo: Path, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """External projects without a remote still complete the merge."""
-        monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)
+        monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
         monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
         outcome = _merge(repo)
         assert outcome.ok
@@ -113,7 +113,7 @@ class TestMergeBoundary:
         self, repo: Path, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setattr(
-            sim, "stamp_merged_at", lambda item_id: "control plane refused",
+            sim, "stamp_merged_at", lambda item_id, **_kwargs: "control plane refused",
         )
         monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
         outcome = _merge(repo)
@@ -238,7 +238,7 @@ class TestCloseOutOrdering:
         monkeypatch.setattr(
             sim, "sync_item_to_github", lambda item_id: calls.append("sync"),
         )
-        monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)
+        monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
         monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
 
         assert sim_cli.run(["ITEM-1", "--skip-status"]) == 0
@@ -275,7 +275,7 @@ class TestCloseOutOrdering:
             lambda **_k: ("", "deployment run has not succeeded"),
         )
         monkeypatch.setattr(sim, "sync_item_to_github", lambda item_id: None)
-        monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)
+        monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
         monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
 
         exit_code = sim_cli.run(

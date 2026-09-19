@@ -62,6 +62,7 @@ class FinalizeLocalSideEffectsResponse(BaseModel):
 
 class PopulateMergedAtRequest(BaseModel):
     merged_at: str = Field(..., min_length=1)
+    supersedes_prior_landing: bool = False
 
 
 class PopulateMergedAtResponse(BaseModel):
@@ -168,6 +169,13 @@ def handle_populate_merged_at(request: FunctionCallRequest) -> HandlerOutcome:
     landing time already on the item: close-out can run minutes or hours
     after the merge, and the report that names a landing nobody closed out
     measures its age from this column.
+
+    ``supersedes_prior_landing`` is how the merge boundary says it is not
+    guessing: it read the landing merge commit's own time, which answers for
+    a specific landing rather than for whenever this ran. Keeping the earlier
+    value would then be wrong rather than kind: an item that lands a second
+    time would go on reporting the first landing's date forever, and its
+    close-out would report a merge identity the item record never took.
     """
     item_id = _require_item_id(request)
     if item_id is None:
@@ -180,8 +188,12 @@ def handle_populate_merged_at(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         with _connect_rw() as conn:
             p = _placeholder(conn)
+            assignment = (
+                f"{p}" if body.supersedes_prior_landing
+                else f"COALESCE(merged_at, {p})"
+            )
             conn.execute(
-                f"UPDATE items SET merged_at = COALESCE(merged_at, {p}) WHERE id = {p}",
+                f"UPDATE items SET merged_at = {assignment} WHERE id = {p}",
                 (body.merged_at, item_id),
             )
             row = conn.execute(

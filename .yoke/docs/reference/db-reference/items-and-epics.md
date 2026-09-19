@@ -30,7 +30,7 @@ frozen INTEGER DEFAULT 0
 github_issue TEXT
 deployed_to TEXT
 body TEXT
-merged_at TEXT
+merged_at TEXT -- the landing merge commit's own time; a second landing replaces it
 created_at TEXT NOT NULL
 updated_at TEXT NOT NULL
 source TEXT NOT NULL DEFAULT '2' -- stringified actors.id for who/what originated the item

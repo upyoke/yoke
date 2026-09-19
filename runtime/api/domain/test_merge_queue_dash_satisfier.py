@@ -74,7 +74,7 @@ def test_no_posture_queue_handoff_stamps_ci_backed_merge(test_db, monkeypatch):
         head_sha=COMBINED_SHA,
         run_url="https://github.test/runs/42",
     )
-    monkeypatch.setattr(queue_close_out, "stamp_merged_at", lambda _item: None)
+    monkeypatch.setattr(queue_close_out, "stamp_merged_at", lambda _item, **_kwargs: None)
     monkeypatch.setattr(
         queue_close_out,
         "observe_batch",

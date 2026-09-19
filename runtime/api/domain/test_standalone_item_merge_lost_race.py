@@ -113,7 +113,7 @@ def _close_out_racing(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         lambda **_k: ("", CLAIM_REFUSAL),
     )
     monkeypatch.setattr(sim, "sync_item_to_github", lambda item_id: None)
-    monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)
+    monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
     monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
 
 

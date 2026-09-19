@@ -28,7 +28,7 @@ def _wire_complete(monkeypatch, verdict):
     monkeypatch.setattr(post_push.git, "git_out", lambda *_a: MERGE_SHA)
     monkeypatch.setattr(post_push.git, "publish", lambda *_a: (True, ""))
     monkeypatch.setattr(post_push.git, "has_remote", lambda *_a: True)
-    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda _item: None)
+    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda _item, **_kwargs: None)
     monkeypatch.setattr(
         post_push.receipts,
         "record",
@@ -117,7 +117,7 @@ def test_failed_push_stays_unresolved_in_output(monkeypatch) -> None:
         lambda *_a: (False, "merge landed locally but publishing 'main' failed: denied"),
     )
     monkeypatch.setattr(post_push.git, "has_remote", lambda *_a: True)
-    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda _item: None)
+    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda _item, **_kwargs: None)
     monkeypatch.setattr(post_push.receipts, "record", lambda *_a, **_k: "")
     monkeypatch.setattr(
         post_push, "fast_forward_main_checkout", lambda *_a: "",
@@ -136,7 +136,7 @@ def test_no_remote_publication_stays_local_only(monkeypatch) -> None:
     monkeypatch.setattr(post_push.git, "git_out", lambda *_a: MERGE_SHA)
     monkeypatch.setattr(post_push.git, "publish", lambda *_a: (False, ""))
     monkeypatch.setattr(post_push.git, "has_remote", lambda *_a: False)
-    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda _item: None)
+    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda _item, **_kwargs: None)
     monkeypatch.setattr(post_push.receipts, "record", lambda *_a, **_k: "")
 
     outcome = _complete()

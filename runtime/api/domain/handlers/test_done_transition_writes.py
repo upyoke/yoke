@@ -235,3 +235,41 @@ class TestPopulateMergedAt:
             _scalar(db, "SELECT merged_at FROM items WHERE id = %s", (item_id,))
             == "2026-09-03T15:05:46Z"
         )
+
+    def test_a_resolved_landing_time_replaces_a_prior_landings(self, db):
+        """A second landing must stop the item reporting the first one's date.
+
+        The merge boundary reads the landing merge commit's own time, so it
+        is answering for a specific landing rather than guessing from when
+        close-out ran. Keeping the earlier value would leave an item that
+        landed twice reporting a merge identity its record never took.
+        """
+        item_id = 9514
+        conn = connect_test_db(db)
+        try:
+            insert_item(conn, id=item_id, source=str(seed_human_actor(conn)))
+            conn.execute(
+                "UPDATE items SET merged_at = %s WHERE id = %s",
+                ("2026-09-03T15:05:46Z", item_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        outcome = writes.handle_populate_merged_at(
+            _item_envelope(
+                "done_transition.populate_merged_at",
+                item_id=item_id,
+                payload={
+                    "merged_at": "2026-09-19T04:08:11Z",
+                    "supersedes_prior_landing": True,
+                },
+            )
+        )
+
+        assert outcome.primary_success, outcome.error
+        assert outcome.result_payload["merged_at"] == "2026-09-19T04:08:11Z"
+        assert (
+            _scalar(db, "SELECT merged_at FROM items WHERE id = %s", (item_id,))
+            == "2026-09-19T04:08:11Z"
+        )

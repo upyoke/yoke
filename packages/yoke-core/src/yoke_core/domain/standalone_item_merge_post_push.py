@@ -282,7 +282,7 @@ def complete(
     pushed, push_warning = git.publish(repo_root, target)
     if push_warning:
         notes.append(push_warning)
-    stamp_error = stamp_merged_at(item_id)
+    stamp_error = stamp_merged_at(item_id, repo_root=repo_root, merge_sha=merge_sha)
     if stamp_error:
         notes.append(f"merged_at not recorded: {stamp_error}")
 

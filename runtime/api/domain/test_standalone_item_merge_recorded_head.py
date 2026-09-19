@@ -50,7 +50,7 @@ def test_stale_same_named_ref_merges_the_recorded_head(
     _git(repo, "branch", "-f", "lane", "main")
     monkeypatch.setattr(merge_boundary.receipts, "load", lambda *_a, **_k: None)
     monkeypatch.setattr(merge_boundary.receipts, "record", lambda *_a, **_k: None)
-    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda *_a: None)
+    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda *_a, **_kwargs: None)
     monkeypatch.setattr(merge_boundary.git, "publish", lambda *_a: (False, ""))
 
     def merge_recorded(**kwargs):
@@ -174,7 +174,7 @@ def test_merge_keeps_the_resolved_commit_sha_as_the_tested_identity(
     _git(repo, "checkout", "-q", "lane")
     monkeypatch.setattr(merge_boundary.receipts, "load", lambda *_a, **_k: None)
     monkeypatch.setattr(merge_boundary.receipts, "record", lambda *_a, **_k: None)
-    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda *_a: None)
+    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda *_a, **_kwargs: None)
     monkeypatch.setattr(merge_boundary.git, "publish", lambda *_a: (False, ""))
 
     def merge_folds_target_in(**kwargs):
@@ -209,7 +209,7 @@ def test_unrecorded_head_falls_back_to_the_branch(
     _git(repo, "checkout", "-q", "main")
     monkeypatch.setattr(merge_boundary.receipts, "load", lambda *_a, **_k: None)
     monkeypatch.setattr(merge_boundary.receipts, "record", lambda *_a, **_k: None)
-    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda *_a: None)
+    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda *_a, **_kwargs: None)
     monkeypatch.setattr(merge_boundary.git, "publish", lambda *_a: (False, ""))
 
     def merge_derived(**kwargs):
@@ -240,7 +240,7 @@ def test_unrecorded_head_says_the_value_was_derived(
     """Silently substituting a weaker guarantee would be the worse failure."""
     monkeypatch.setattr(merge_boundary.receipts, "load", lambda *_a, **_k: None)
     monkeypatch.setattr(merge_boundary.receipts, "record", lambda *_a, **_k: None)
-    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda *_a: None)
+    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda *_a, **_kwargs: None)
     monkeypatch.setattr(merge_boundary.git, "publish", lambda *_a: (False, ""))
     monkeypatch.setattr(merge_boundary, "_run_merge_engine", lambda **_k: (0, ""))
 
