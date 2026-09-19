@@ -166,6 +166,7 @@ def check_verification_gate(
                 params=params,
                 latest_code=latest_code,
                 qa_phase="verification",
+                item_id=target.item_id,
             )
             if stale_rows:
                 return GateResult(
@@ -274,6 +275,7 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
                 params=params,
                 latest_code=latest_code,
                 qa_phase=None,
+                item_id=target.item_id,
             )
             if stale_rows:
                 return GateResult(
