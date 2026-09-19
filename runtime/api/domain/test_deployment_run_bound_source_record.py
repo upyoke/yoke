@@ -120,8 +120,6 @@ def test_a_retry_ships_the_commit_its_candidate_pinned(
         "UPDATE deployment_runs SET status='failed' WHERE id='run-candidate'"
     )
     test_db.commit()
-    from yoke_core.domain.deployment_run_bound_sources import copy_bound_sources
-
     insert_run(
         test_db, "run-retry", lineage=release["consumer_tip"], status="created",
         flow=CARRIER_FLOW,

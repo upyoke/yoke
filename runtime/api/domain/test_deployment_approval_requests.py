@@ -117,16 +117,14 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
                 "1 item(s) ship to prod under release lineage release-proof-lineage."
             ),
         },
-        # What the release actually carries. This run has no predecessor,
-        # the snapshot says exactly that rather than implying an empty
-        # release.
+        # What the release carries. This run has no predecessor, and the
+        # snapshot says so rather than implying an empty release.
         "stage_position": {"index": 0, "total": 2, "remaining": ["release"]},
         "carried": {
-            "schema": 1,
+            "schema": 2,
             "derivation": {
-                # No predecessor means the comparison could not run, which
-                # is a different fact from a release that carries nothing, so
-                # the status the approver reads says so outright.
+                # No predecessor means the comparison could not run, a
+                # different fact from a release that carries nothing.
                 "status": "unknown",
                 "contents_known": False,
                 "source": "none",
@@ -142,6 +140,8 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
             "items": [],
             "commits": [],
             "warnings": [],
+            # Binding no other project is an empty list, not a missing key.
+            "bound_projects": [],
         },
         # Every stage of this flow runs an allowlisted runner, so nothing in
         # it deploys — yet it declares prod. Neither answer is proven, and the
