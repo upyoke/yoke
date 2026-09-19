@@ -25,6 +25,9 @@ DIVERGED_STATUSES = frozenset({"behind", "diverged"})
 #: ``status`` read from the base's side: the head is behind the base, or the
 #: two are the same commit, exactly when the base contains the head.
 BASE_CONTAINING_STATUSES = frozenset({"behind", "identical"})
+#: ``status`` read from the base's side when the head carries commits the
+#: base does not and the base carries none the head lacks.
+STRICTLY_AHEAD_STATUS = "ahead"
 FULL_SHA_LENGTH = 40
 
 
@@ -40,6 +43,18 @@ def relation(status: str) -> str:
     if status in CONTAINING_STATUSES:
         return RELATION_AHEAD
     return RELATION_DIVERGED
+
+
+def head_adds_commits(status: str) -> bool:
+    """Whether the head is strictly ahead of the base, read from the base.
+
+    The base is then an ancestor of the head, so merging the head into it
+    fast-forwards to the head's own tree. That makes "does this add
+    anything" answerable from the status alone — no blob has to be priced —
+    which is what keeps an ordinary older release a definite exclusion
+    rather than an unreadable one.
+    """
+    return status == STRICTLY_AHEAD_STATUS
 
 
 def base_contains_head(status: str) -> bool:
@@ -148,7 +163,9 @@ __all__ = [
     "BASE_CONTAINING_STATUSES",
     "CONTAINING_STATUSES",
     "DIVERGED_STATUSES",
+    "STRICTLY_AHEAD_STATUS",
     "base_contains_head",
+    "head_adds_commits",
     "incomplete",
     "is_hex",
     "recorded_commit",

@@ -84,6 +84,13 @@ class DeliveryEvidence:
     # happen" can ask it of the same release. The Dash completion posture is
     # that caller: it additionally requires the deployed candidate to
     # contain the item's merge and live lane head.
+    #
+    # Carried on every answer that names a run, not only on a discharged
+    # one. A client standing in the lane answers containment for a control
+    # plane that cannot, and it can only do that against a candidate it was
+    # told about — so withholding the candidate from the unread and
+    # not-yet-delivered answers made that relay unreachable in exactly the
+    # cases it exists for.
     release_lineage: str = ""
     project_id: Optional[int] = None
 
@@ -237,6 +244,8 @@ def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
                     f"could not be determined ({verdict.reason})"
                 ),
                 recovery=verdict.recovery,
+                release_lineage=lineage,
+                project_id=int(project_id),
             )
     if undetermined is not None:
         return undetermined
@@ -263,6 +272,8 @@ def _member_shaped_answer(member: Optional[dict[str, Any]]) -> DeliveryEvidence:
             if status in {"created", "executing"}
             else "Run the selected project delivery flow to completion."
         ),
+        release_lineage=str(member.get("release_lineage") or ""),
+        project_id=member.get("project_id"),
     )
 
 
