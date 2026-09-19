@@ -26,9 +26,12 @@ from yoke_core.domain.deployment_run_carried_work_source import (
 from yoke_core.domain.deployment_run_carried_work_sources import (
     resolve_carried_items,
 )
+from yoke_core.domain.deployment_run_release_output import (
+    release_output_runs,
+)
 
 
-CARRIED_WORK_SCHEMA = 2
+CARRIED_WORK_SCHEMA = 3
 # An answer nobody could compute is not an empty release. Readers key on the
 # status, so it is derived from the one flag that says whether the comparison
 # actually ran rather than set by hand at each exit.
@@ -78,6 +81,7 @@ def empty_carried_work(
         "derivation": derivation,
         "items": [],
         "commits": [],
+        "release_output": [],
         "warnings": [dict(warning) for warning in warnings],
     }
 
@@ -210,6 +214,26 @@ def derive_project_carried_work(
             bare_commits.append(commit)
         for item_id in item_ids:
             item_commits.setdefault(item_id, []).append(commit)
+    # A commit no item claimed may still have an owner: the release whose own
+    # automation wrote it. That record is consulted here and nowhere earlier,
+    # so an item always wins the same commit and a recorded claim can only
+    # ever explain what attribution had already given up on.
+    release_output: list[dict[str, str]] = []
+    produced = release_output_runs(conn, int(project_id)) if bare_commits else {}
+    unattributed: list[str] = []
+    for commit in bare_commits:
+        recorded = produced.get(commit.lower())
+        if recorded is None:
+            unattributed.append(commit)
+            continue
+        release_output.append(
+            {
+                "commit_sha": commit,
+                "run_id": recorded["run_id"],
+                "reason": recorded["reason"],
+            }
+        )
+    bare_commits = unattributed
     return {
         "schema": CARRIED_WORK_SCHEMA,
         "derivation": {
@@ -236,6 +260,7 @@ def derive_project_carried_work(
             for item_id, shas in item_commits.items()
         ],
         "commits": bare_commits,
+        "release_output": release_output,
         "warnings": warnings,
     }
 

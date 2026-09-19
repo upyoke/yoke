@@ -284,3 +284,26 @@ jobs:
             --pin "$VERSION")"
           test -n "$receipt"
           echo "Desired release pin receipt: $receipt"
+
+      # Promotion pushed the pin materialization onto the consumer's bound
+      # branch, so this release produced a commit no backlog item authored.
+      # Recording it against this run is what lets the NEXT release attribute
+      # it instead of refusing it as unattributed carried work. The commit is
+      # resolved server-side from the branch this run already bound, so no
+      # repository ref is named here; every refusal is its own named reason,
+      # including the one that says the promotion pushed nothing.
+      - name: Record the pin commit this release produced
+        env:
+          DEPLOYMENT_RUN_ID: ${{ inputs.deployment_run_id }}
+        run: |
+          output="$RUNNER_TEMP/release-output-record.txt"
+          if yoke deployment-runs release-output record "$DEPLOYMENT_RUN_ID" \
+            --project platform >"$output" 2>&1; then
+            cat "$output"
+          else
+            cat "$output" >&2
+            echo "release_output_unrecorded: this release's pin commit was not \
+attributed, so the next release will refuse it as unattributed carried work \
+until it is recorded with the command above" >&2
+            exit 1
+          fi
