@@ -585,7 +585,7 @@ _Compact depth. Per-table and per-command notes for this topic — the caveats a
 - **`project_structure`** — `id, project_id, family, attachment_value, attachment_kind, entry_key, payload`
 - **`deployment_flows`** — `id, project_id, name, description, stages, on_failure, created_at, target_tier, target_environment_id, done_description, status, definition_schema_version, supersedes_flow_id`
 - **`deployment_runs`** — `id, project_id, flow, target_tier, target_environment_id, release_lineage, status, current_stage, created_at, started_at, completed_at, created_by, carried_work, bound_sources, artifact_identity, composition_resolution, composition_frozen_at, requirement_snapshot`
-- **`deployment_run_items`** — `run_id, item_id, added_at, delivery_intent, requirement_selection, requirement_snapshot`
+- **`deployment_run_items`** — `run_id, item_id, added_at, delivery_intent, requirement_selection, requirement_snapshot, containment_attestation`
 - **`path_snapshots`** — `id, project_id, commit_sha, built_at`
 - **`project_capabilities`** — `id, project_id, type, verified_at, created_at, settings`
 - **`capability_secrets`** — `id, project_id, type, key, value, source, created_at`
