@@ -27,13 +27,14 @@ check the terminal status depends on being true.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_recovery as recovery
+from yoke_core.domain.lane_containment_attestation import lane_containment
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
 
 TERMINAL_STATUS = evidence.CLOSED_OUT_STATUS
@@ -51,6 +52,7 @@ def _execute(
     target_status: str,
     *,
     done_nonce_verified: bool = False,
+    containment_attestations: tuple[dict[str, Any], ...] = (),
 ) -> str:
     response = call_dispatcher(
         function_id="lifecycle.transition.execute",
@@ -60,6 +62,7 @@ def _execute(
             "target_status": target_status,
             "reason": TRANSITION_REASON,
             "done_nonce_verified": done_nonce_verified,
+            "containment_attestations": list(containment_attestations),
         },
     )
     if response.success:
@@ -76,6 +79,7 @@ def transition_to_done(
     session_id: str = "",
     stages: tuple[str, ...] = (TERMINAL_STATUS,),
     delivery_discharged: bool = False,
+    release_lineage: str = "",
 ) -> tuple[str, str]:
     """Close the item out, or land it at its pinned release wait.
 
@@ -88,6 +92,12 @@ def transition_to_done(
     actually declared, rather than trying ``done`` and reinterpreting any
     refusal (an approval gate, a transport failure, a stale precondition)
     as license to try a different one.
+
+    ``release_lineage`` is the candidate the item's delivery was recorded
+    against, when the caller resolved one. This lane holds a real checkout of
+    the project and the control plane deciding the done gate may not, so
+    containment against that candidate is answered here and relayed with the
+    transition rather than left for a reader that cannot look.
 
     ``delivery_discharged`` says the merge that just landed was the whole
     of this item's delivery, so this boundary asserts the done-transition
@@ -130,6 +140,7 @@ def transition_to_done(
                 f"the merge is landed but close-out authority could not be "
                 f"recovered to finish it: {recovery_error}"
             )
+    attestations = _lane_verdicts(repo_root, release_lineage, lane)
     reached = source_status
     for target in stages:
         refusal = _execute(
@@ -137,11 +148,36 @@ def transition_to_done(
             reached,
             target,
             done_nonce_verified=delivery_discharged and target == TERMINAL_STATUS,
+            containment_attestations=attestations,
         )
         if refusal:
             return "", refusal
         reached = target
     return reached, ""
+
+
+def _lane_verdicts(
+    repo_root: str, release_lineage: str, lane: LandedLane
+) -> tuple[dict[str, Any], ...]:
+    """Answer, from this lane, what the control plane may not be able to see.
+
+    The done gate asks containment of two commits against the delivered
+    candidate — the recorded merge identity and the live lane head — so both
+    are answered here while the checkout that can answer them still exists.
+    A host holding its own sources ignores all of this.
+    """
+    if not release_lineage:
+        return ()
+    answered: dict[str, dict[str, Any]] = {}
+    for commit in (lane.merge_sha, lane.commit_sha):
+        if not commit or commit in answered:
+            continue
+        verdict: Optional[dict[str, Any]] = lane_containment(
+            str(repo_root), candidate=release_lineage, commit_sha=commit
+        )
+        if verdict is not None:
+            answered[commit] = verdict
+    return tuple(answered.values())
 
 
 __all__ = ["TERMINAL_STATUS", "TRANSITION_REASON", "transition_to_done"]

@@ -40,6 +40,9 @@ class DeliveryDischarge:
     state: str
     detail: str = ""
     recovery: str = ""
+    # The candidate the release recorded for this item's project, so the
+    # close-out can answer containment against it from the lane it stands in.
+    release_lineage: str = ""
 
     @property
     def discharged(self) -> bool:
@@ -87,8 +90,9 @@ def delivery_discharge(
         return _unread(f"the delivery-evidence read was refused: {named}")
     result = getattr(response, "result", None) or {}
     state = str(result.get("state") or "")
+    lineage = str(result.get("release_lineage") or "")
     if state == DISCHARGED:
-        return DeliveryDischarge(DISCHARGED)
+        return DeliveryDischarge(DISCHARGED, release_lineage=lineage)
     if not state:
         return _unread("the delivery-evidence read returned no verdict")
     # The ladder's own "undetermined" is the same unread fact, already
@@ -103,6 +107,7 @@ def delivery_discharge(
         NOT_DISCHARGED,
         detail=str(result.get("reason") or ""),
         recovery=str(result.get("recovery") or ""),
+        release_lineage=lineage,
     )
 
 

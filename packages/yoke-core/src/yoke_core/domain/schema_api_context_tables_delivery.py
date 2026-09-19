@@ -159,6 +159,7 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("delivery_intent", "TEXT"),
             ("requirement_selection", "TEXT"),
             ("requirement_snapshot", "TEXT"),
+            ("containment_attestation", "TEXT"),
         ],
         "notes": (
             "Many-to-many linkage between deployment_runs and items. "
@@ -172,7 +173,10 @@ DELIVERY_TABLES: dict[str, dict] = {
             "`created`. For schema-v2 releases, `delivery_intent` is "
             "`progress` or `final`; the explicit requirement selection and "
             "the full selected requirement/plan/case content are frozen when "
-            "the run starts."
+            "the run starts. `containment_attestation` is the JSON evidence "
+            "for a containment verdict a lane checkout answered when this "
+            "control plane's own repository sources could not: both compared "
+            "commits, which test decided, and when it was recorded."
         ),
     },
     "ephemeral_environments": {

@@ -34,9 +34,16 @@ from yoke_core.domain.deployment_run_compare_response import (
     require_total,
 )
 from yoke_core.domain.function_target_row_project import slug_for_project_id
-from yoke_core.domain.gh_rest_failure_diagnosis import diagnose
 from yoke_core.domain.gh_rest_transport import RestRequest, request_with_retry
-from yoke_core.domain.gh_rest_transport_errors import RestTransportError
+from yoke_core.domain.gh_rest_transport_errors import (
+    RestNotFoundError,
+    RestTransportError,
+)
+from yoke_core.domain.repository_provider_refusal import (
+    head_unpublished,
+    read_failed,
+    unreadable_body,
+)
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
@@ -238,6 +245,8 @@ class RepositoryProviderSource:
 
         Containment asks one page two questions — ancestry from its status,
         content from its file listing — so the cache keeps that one read.
+
+        Refusals are named in :mod:`repository_provider_refusal`.
         """
         cached = self._compare_pages.get((base, head, page))
         if cached is not None:
@@ -249,22 +258,16 @@ class RepositoryProviderSource:
         )
         try:
             response = request_with_retry(request, token=self._token)
+        except RestNotFoundError as exc:
+            # The provider answered: it does not hold one of these commits.
+            raise head_unpublished(self._repo, base, head) from exc
         except RestTransportError as exc:
             # One summary code cannot separate a rate limit from a revoked
-            # permission from a 502, and those need three different actions.
-            # The transport already classified this, so say which it was.
-            diagnosis = diagnose(exc, subject="read repository contents")
-            raise CarriedWorkSourceUnavailable(
-                "repository_provider_read_failed",
-                f"{diagnosis.detail}. {diagnosis.recovery}",
-            ) from exc
+            # permission from a 502; the transport already classified it.
+            raise read_failed(exc) from exc
         body = response.body
         if not isinstance(body, Mapping):
-            raise CarriedWorkSourceUnavailable(
-                "repository_provider_read_failed",
-                "The repository comparison returned no object; retry the "
-                "derivation once the provider is healthy.",
-            )
+            raise unreadable_body()
         self._compare_pages[(base, head, page)] = body
         return body
 

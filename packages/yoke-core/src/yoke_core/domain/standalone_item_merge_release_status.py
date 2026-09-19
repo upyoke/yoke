@@ -52,6 +52,11 @@ class CloseOutRoute:
     stages: tuple[str, ...] = ()
     delivery_discharged: bool = False
     error: str = ""
+    #: The candidate the delivery read named, when it named one. The done
+    #: gate asks whether that revision contains this item's merge, and a
+    #: control plane with no checkout of the project may be unable to look --
+    #: so the close-out answers it from the lane and relays the verdict.
+    release_lineage: str = ""
 
 
 def close_out_route(
@@ -125,6 +130,7 @@ def close_out_route(
         return CloseOutRoute(
             stages=(CLOSED_OUT_STATUS,),
             delivery_discharged=discharge.discharged,
+            release_lineage=discharge.release_lineage,
         )
     if not declares_transition(workflow, status, release_stage_id):
         return CloseOutRoute()
