@@ -1,4 +1,4 @@
-"""Whether an item's selected delivery flow has actually delivered it.
+"""Whether a release has actually delivered one item.
 
 One question, one answer, two readers. The terminal done engine and the
 Dash completion gate both decide whether an item's delivery obligation is
@@ -13,11 +13,16 @@ while the identical release closed its neighbour out. Enrolment is
 bookkeeping about how a run was requested; it is not the fact the gate
 means.
 
-Containment is what answers when membership does not: does a succeeded run
-of this item's selected flow ship a revision that already contains this
-item's merge? That holds for every member of a batch rather than only the
-one that happens to be the tip, and it holds whether or not anyone
-remembered to enrol it.
+Containment is what answers when membership does not: does a succeeded
+release ship a revision that already contains this item's merge? That holds
+for every member of a batch rather than only the one that happens to be the
+tip, and it holds whether or not anyone remembered to enrol it.
+
+"A succeeded release" is wider than this item's own flow. A run of another
+project can bind this project's source, record the commit it resolved, and
+ship it; the commit it recorded for THIS project is then the candidate to
+ask about, and the run's own lineage — which names nothing in this
+repository — is not.
 
 So the ladder is membership first — it is cheap, local, and the common case
 — then containment. An unreadable containment source is ``undetermined``,
@@ -28,8 +33,9 @@ provider is unwell.
 This answers "has delivery happened", and nothing stricter. A caller may
 have a stricter question — Dash completion posture additionally requires the
 deployed candidate to contain the item's merge and its live lane head — so
-the verdict carries the run's own candidate for that caller to judge, rather
-than folding two different questions into one answer.
+the verdict carries the candidate the run recorded for this item's project,
+for that caller to judge, rather than folding two different questions into
+one answer.
 """
 
 from __future__ import annotations
@@ -73,10 +79,11 @@ class DeliveryEvidence:
     source: str = ""
     reason: str = ""
     recovery: str = ""
-    # The run's own candidate and project, so a caller with a STRICTER
-    # question than "did delivery happen" can ask it of the same run. The
-    # Dash completion posture is that caller: it additionally requires the
-    # deployed candidate to contain the item's merge and live lane head.
+    # The candidate this run recorded for the item's own project, plus that
+    # project, so a caller with a STRICTER question than "did delivery
+    # happen" can ask it of the same release. The Dash completion posture is
+    # that caller: it additionally requires the deployed candidate to
+    # contain the item's merge and live lane head.
     release_lineage: str = ""
     project_id: Optional[int] = None
 
@@ -158,7 +165,7 @@ def _succeeded_flow_runs(
 
 
 def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
-    """Whether the item's selected flow has delivered it, and on what."""
+    """Whether a succeeded release has delivered this item, and on what."""
     required = ("deployment_runs", "deployment_run_items")
     if not all(_table_exists(conn, table) for table in required):
         return DeliveryEvidence(
@@ -241,7 +248,7 @@ def _member_shaped_answer(member: Optional[dict[str, Any]]) -> DeliveryEvidence:
     if member is None:
         return DeliveryEvidence(
             NOT_DISCHARGED,
-            reason="no succeeded run of the selected flow contains this merge",
+            reason="no succeeded release that ships this project contains this merge",
             recovery="Run the selected project delivery flow to completion.",
         )
     status = str(member["status"])
