@@ -13,7 +13,6 @@ takes, because the failure this guards against is a `psycopg`
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +20,6 @@ import pytest
 
 from runtime.api.fixtures.bound_source_release import (
     CONSUMER_ITEM_ID,
-    CONSUMER_PROJECT,
     two_project_release,
 )
 from yoke_core.domain.deployment_run_bound_sources import (
