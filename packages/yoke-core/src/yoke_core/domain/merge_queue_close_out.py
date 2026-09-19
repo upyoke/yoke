@@ -165,10 +165,6 @@ def record_landing(
     """Record everything the item owes after its train landed."""
     warnings: list[str] = []
     fetch_state: dict = {}
-    stamp_error = stamp_merged_at(item_id)
-    if stamp_error:
-        warnings.append(f"merged_at not recorded: {stamp_error}")
-
     batch = read_recorded_batch(item_id, pr_num=pr_num)
     ci_evidence_error = ""
     ci_evidence_retryable = True
@@ -215,6 +211,17 @@ def record_landing(
                 ci_evidence_retryable = True
                 ci_evidence_recovery = ""
                 warnings.append(f"batch evidence not recorded: {evidence_error}")
+
+    # Stamped here rather than on entry, because the landing's own merge
+    # commit is what dates it and that is only known now. Stamping first
+    # recorded the moment close-out ran, which for a re-entered close-out is
+    # hours after the merge and for an item landing a second time is a date
+    # belonging to the landing it just replaced.
+    stamp_error = stamp_merged_at(
+        item_id, repo_root=ctx.repo_root or "", merge_sha=merge_sha
+    )
+    if stamp_error:
+        warnings.append(f"merged_at not recorded: {stamp_error}")
 
     touched, files_error = read_pr_changed_files(ctx, pr_num)
     if files_error:
