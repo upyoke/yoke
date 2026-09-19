@@ -233,7 +233,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
       documentNode,
       row,
       scope,
-      { flag: reason.flag, meta: "waiting", timestamp: row.created_at, timeLabel: "filed" },
+      { flag: reason.flag, timestamp: row.created_at, timeLabel: "filed" },
     )), "Nothing is stopped.");
 
     bands.active.setCount(activeRows.length);

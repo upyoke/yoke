@@ -163,6 +163,30 @@ test("Active membership follows live claims, not lifecycle status", async (t) =>
   mounted.unmount();
 });
 
+test("a Waiting card ends at its reason chip; Ready keeps its next step", async (t) => {
+  stubFetch(t);
+  const { mounted, root } = await mountAt("#/frontier?project=1", workbenchClient());
+
+  // The band heading and the card's own reason chip both already say the
+  // card is waiting, so a meta line under them repeated the word and spent
+  // its own top padding saying nothing.
+  const waiting = byClass(root, "work-band-waiting")[0];
+  assert.deepEqual(
+    byClass(waiting, "work-item-card-ref").map((node) => node.textContent),
+    ["YOK-7"],
+  );
+  assert.equal(byClass(waiting, "work-item-card-meta").length, 0);
+
+  // Ready's meta is the item's real next step, which is why that band keeps
+  // one: it tells the reader something the chip above it does not.
+  const ready = byClass(root, "work-band-ready")[0];
+  assert.deepEqual(
+    byClass(ready, "work-item-card-meta").map((node) => node.textContent),
+    ["yoke advance YOK-9"],
+  );
+  mounted.unmount();
+});
+
 test("the overflow tile says See more... and fills the row it sits in", async (t) => {
   stubFetch(t);
   const hour = 60 * 60 * 1000;

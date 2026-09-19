@@ -186,7 +186,9 @@ def test_a_refused_clearance_re_parks_the_owner_it_leaves_waiting(
     [re_parked] = retained
     assert re_parked["item_id"] == 7
     assert re_parked["public_ref"] == "ITEM-7"
-    assert retirements == []
+    # The owner keeps the item and the wait; the landed lane is still swept,
+    # because nothing downstream of a release wait can retire it later.
+    assert [call[1]["landing_recorded"] for call in retirements] == [True]
 
 
 def test_a_refusal_short_of_the_release_wait_parks_nobody(
@@ -273,7 +275,12 @@ def test_a_refused_step_stops_the_walk_and_reports_the_refusal(
     assert exit_code == 1
     assert envelope["ok"] is False
     assert "blocking QA requirement unsatisfied" in envelope["error"]
-    assert retirements == []
+    # The landing still authorizes retiring the lane. Lane release is
+    # otherwise reachable only from the review stage, so leaving it here
+    # strands the item at its release wait holding a lane nothing can
+    # retire — and each lane still proves itself merged before anything
+    # is removed, so unshipped work is preserved regardless.
+    assert [call[1]["landing_recorded"] for call in retirements] == [True]
     assert cleared == []
 
 def test_an_unresolved_delivery_clearance_refuses_rather_than_guesses(

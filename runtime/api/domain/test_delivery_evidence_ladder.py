@@ -207,3 +207,44 @@ def test_the_verdict_carries_the_run_candidate_for_a_stricter_caller(monkeypatch
     assert verdict.discharged
     assert verdict.release_lineage == LINEAGE
     assert verdict.project_id == 7
+
+
+def test_a_not_yet_delivered_answer_still_names_its_candidate(monkeypatch):
+    """The relay that answers for a blind control plane needs this.
+
+    A client standing in the lane can settle containment for a host whose
+    repository sources cannot, but only against a candidate it was told
+    about. Handing the candidate back only on success made that relay
+    unreachable in exactly the cases it exists for.
+    """
+    _wire(
+        monkeypatch,
+        member={
+            "id": "run-9",
+            "status": "executing",
+            "release_lineage": LINEAGE,
+            "project_id": 7,
+        },
+        runs=[],
+    )
+    verdict = ladder.delivery_evidence(object(), 1)
+
+    assert verdict.state == ladder.NOT_DISCHARGED
+    assert verdict.release_lineage == LINEAGE
+    assert verdict.project_id == 7
+
+
+def test_an_unreadable_answer_still_names_the_candidate_it_could_not_read(
+    monkeypatch,
+):
+    _wire(
+        monkeypatch,
+        member=None,
+        runs=[{"id": "run-4", "release_lineage": LINEAGE}],
+        verdict=ContainmentVerdict(UNDETERMINED, "provider_unwell", "Retry."),
+    )
+    verdict = ladder.delivery_evidence(object(), 1)
+
+    assert verdict.state == ladder.UNDETERMINED_DELIVERY
+    assert verdict.release_lineage == LINEAGE
+    assert verdict.project_id == 1

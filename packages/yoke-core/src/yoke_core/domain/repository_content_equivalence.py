@@ -14,8 +14,10 @@ the incoming side changed. When every such path already holds the incoming
 side's exact blob — and every path it deleted is already absent — merging
 produces the base's own tree, which is precisely "adds nothing".
 
-This reader answers ``True`` or ``None``, and never ``False``. Everything it
-cannot see is unknown — a listing the provider truncated, a path count past
+This reader answers ``False`` only where the comparison's own status proves
+it: a head strictly ahead of the candidate merges as a fast-forward, so any
+change at all is a change to the candidate's tree. It never answers ``False``
+from comparing blobs. Everything else it cannot see is unknown — a listing the provider truncated, a path count past
 the budget, a blob it would not serve — and so is a blob that simply differs,
 because two opposite stories produce that one shape: the head still carries
 work the candidate lacks, or the candidate took that work and then moved the
@@ -29,6 +31,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Mapping, Optional
 
+from yoke_core.domain.deployment_run_compare_response import head_adds_commits
 from yoke_core.domain.gh_rest_transport import RestRequest, request_with_retry
 from yoke_core.domain.gh_rest_transport_errors import (
     RestNotFoundError,
@@ -86,14 +89,23 @@ def content_already_present(
     its ``files`` are exactly the paths the head changed since the two
     diverged. ``read_blob`` answers what the candidate holds at one path.
 
-    ``True`` or ``None`` only: see the module docstring for why a differing
-    blob is unknown rather than a definite "still adds something".
+    ``False`` only where the comparison's own status proves it — a head
+    strictly ahead of the candidate — never from a blob; see the module
+    docstring for why a differing blob is unknown instead.
     """
     files = body.get("files")
     if not isinstance(files, list):
         return None
     if not files:
         return True
+    if head_adds_commits(str(body.get("status") or "")):
+        # The candidate is a strict ancestor of the head, so merging is a
+        # fast-forward to the head's own tree, and a non-empty listing says
+        # that tree differs. That is a definite "adds something" read from
+        # the status alone — which is what an ordinary older release looks
+        # like, and pricing its blobs would answer unknown on nothing but
+        # its size.
+        return False
     if len(files) > COMPARED_PATH_BUDGET or len(files) >= PROVIDER_FILE_LISTING_CAP:
         return None
     for entry in files:

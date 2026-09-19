@@ -68,6 +68,12 @@ def _wire(
         lambda ctx, pr_num: (touched, files_error),
     )
 
+    def stamp(item_id, **kwargs):
+        recorded.update(stamped={"item_id": item_id, **kwargs})
+        return None
+
+    monkeypatch.setattr(close_out_mod, "stamp_merged_at", stamp)
+
     def record(item_id, receipt: MergeReceipt) -> str:
         recorded.update(item_id=item_id, receipt=receipt)
         return ""
@@ -337,3 +343,4 @@ def test_a_search_that_cannot_succeed_does_not_prescribe_a_re_run(monkeypatch):
     assert "Re-run" not in refusal
     assert "reaches the same answer" in refusal
     assert "Confirm the queue ran that workflow" in refusal
+
