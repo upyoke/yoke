@@ -75,6 +75,10 @@ def test_plan_browser_method_selects_its_declared_verdict_path(
             browser_qa, "_validate_reachability", return_value=None,
         ),
         mock.patch.object(
+            browser_qa, "open_owned_page", return_value="page-under-test",
+        ),
+        mock.patch.object(browser_qa, "close_owned_page", return_value=None),
+        mock.patch.object(
             browser_qa, "_ensure_daemon_running", return_value=None,
         ),
         mock.patch.object(browser_qa, "_record_run", return_value=7),
@@ -129,6 +133,10 @@ def test_browser_check_records_failed_assertion_on_canonical_runner() -> None:
         mock.patch.object(
             browser_qa, "_validate_reachability", return_value=None,
         ),
+        mock.patch.object(
+            browser_qa, "open_owned_page", return_value="page-under-test",
+        ),
+        mock.patch.object(browser_qa, "close_owned_page", return_value=None),
         mock.patch.object(
             browser_qa, "_ensure_daemon_running", return_value=None,
         ),
