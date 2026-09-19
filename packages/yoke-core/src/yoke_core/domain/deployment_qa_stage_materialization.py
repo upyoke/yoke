@@ -17,6 +17,10 @@ from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
 )
 from yoke_core.domain.deployment_qa_stage_contract import deployment_qa_stage_subject
+from yoke_core.domain.deployment_qa_stage_named_cases import (
+    AGENT_PLAN_ALREADY_NAMED_REFUSAL,
+    stage_names_cases,
+)
 from yoke_core.domain.deployment_qa_admission_materialization import (
     materialize_admitted_requirement,
     member_requirements,
@@ -94,6 +98,7 @@ def _selected_plans(
     *,
     agent_plan: str | None,
     target: Mapping[str, Any],
+    admitted: list[dict[str, Any]],
     allow_empty: bool = False,
 ) -> list[dict[str, Any]]:
     frozen = [*_flow_plan(subject), *_member_plans(subject, target=target)]
@@ -101,11 +106,10 @@ def _selected_plans(
         # Nothing pinned or frozen selected cases, so the member's own
         # attached plan answers before any --plan choice is needed.
         frozen = attached_member_plans(conn, subject, target=target)
-    configured = isinstance(subject["stage"].get("cases"), Mapping)
-    if configured and agent_plan is not None:
-        raise QaPlanError(
-            "this deployment QA stage pins its cases; omit the agent-selected plan"
-        )
+    if agent_plan is not None and stage_names_cases(
+        conn, subject, frozen_plans=frozen, admitted=admitted
+    ):
+        raise QaPlanError(AGENT_PLAN_ALREADY_NAMED_REFUSAL)
     if agent_plan is not None:
         # An item-scoped stage selects from the MEMBER's project: a run that
         # ships a bound project's code carries members whose QA plans live in
@@ -197,6 +201,7 @@ def materialize_deployment_qa_stage(
         subject,
         agent_plan=agent_plan,
         target=target,
+        admitted=admitted,
         allow_empty=True,
     )
     created: list[int] = []
@@ -224,12 +229,11 @@ def materialize_deployment_qa_stage(
                 "PREFIX-N] --plan PLAN --project P`"
             )
         existing.extend(bound_direct)
-        for position, requirement in enumerate(admitted, start=1):
+        for requirement in admitted:
             requirement_id, was_created = materialize_admitted_requirement(
                 conn,
                 subject=subject,
                 requirement=requirement,
-                position=position,
                 target=target,
                 now=now,
             )

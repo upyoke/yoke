@@ -64,6 +64,7 @@ def _notify_stage_wait(
     item_scoped: bool,
     project_id: int,
     reasons: str,
+    names_cases: bool,
     target_tier: str,
     revision: str,
     target_digest: str,
@@ -75,6 +76,10 @@ def _notify_stage_wait(
     still waiting either way, so a notification hiccup degrades to "not
     woken" rather than aborting the dispatch and losing the wait result
     already computed.
+
+    ``names_cases`` decides whether the recipe the notice prints carries
+    ``--plan``: only the subject that materialized nothing is being asked
+    to select cases, and the two waits below are exactly that distinction.
     """
     if item_scoped and member is not None:
         no_recipient = "no live claim holder and no covering project steering seat"
@@ -85,6 +90,7 @@ def _notify_stage_wait(
             item_id=member,
             project_id=project_id,
             reasons=reasons,
+            names_cases=names_cases,
             target_tier=target_tier,
             revision=revision,
             target_digest=target_digest,
@@ -97,6 +103,7 @@ def _notify_stage_wait(
             stage_name=stage_name,
             project_id=project_id,
             reasons=reasons,
+            names_cases=names_cases,
             target_tier=target_tier,
             revision=revision,
             target_digest=target_digest,
@@ -242,6 +249,7 @@ def materialize_and_gate_deployment_qa_stage(
                     item_scoped=stage.get("scope") == "item",
                     project_id=project_id,
                     reasons=str(exc),
+                    names_cases=False,
                     target_tier=target_tier,
                     revision=revision,
                     target_digest="",
@@ -277,6 +285,7 @@ def materialize_and_gate_deployment_qa_stage(
                     item_scoped=stage.get("scope") == "item",
                     project_id=project_id,
                     reasons="; ".join(status["reasons"]),
+                    names_cases=True,
                     target_tier=target_tier,
                     revision=revision,
                     target_digest=str(status.get("target_digest") or ""),

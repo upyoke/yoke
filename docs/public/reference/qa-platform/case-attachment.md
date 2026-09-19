@@ -135,8 +135,14 @@ run whose flow pins no QA stage keeps it:
 
 ```text
 yoke qa plan run --deployment-run-id <run-id> --stage <stage-name> \
-  --member <PREFIX-N> --plan <plan-slug> --project <project>
+  --member <PREFIX-N> --project <project>
 ```
+
+`--plan <plan-slug>` joins that line only for a stage that names no cases. One
+already naming its own — pinned, frozen, attached, admitted, directly
+authored, or materialized by an earlier selection — refuses `--plan`, because
+a plan there materializes a second set of obligations beside the ones the
+stage credits.
 
 `yoke qa plan materialize` takes the same `--stage` / `--member` pair when
 only the requirement rows are wanted. A run-scoped stage takes `--stage`

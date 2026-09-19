@@ -54,7 +54,9 @@ unshipped change.
 
 A stage that wants your evidence is run by naming that stage AND your item.
 When you attached an item QA plan at verify, the stage has already resolved it
-and `--plan` is unnecessary; name one only to select a different plan:
+and `--plan` is refused there — a plan on a stage that already names its cases
+materializes a second, duplicate set beside the ones it credits. `--plan`
+belongs only to the wake that says the stage names no cases:
 
 ```text
 yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P

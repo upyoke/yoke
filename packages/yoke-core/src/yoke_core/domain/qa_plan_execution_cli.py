@@ -201,7 +201,12 @@ it. `yoke qa case run --requirement-id N` has the same problem at release time
 -- it credits the requirement's existing binding, never a stage.
 
 When the stage names no concrete cases, --plan records the executor's
-project-owned selection. Materialization stamps the run's own deployed target
+project-owned selection -- and only then. A stage already naming its own cases
+(pinned, frozen, member-attached, admitted, or directly authored) refuses
+--plan by name: a plan there materializes a second, duplicate set of
+obligations beside the ones the stage credits. The wake asking for a selection
+prints --plan; every other wake omits it.
+Materialization stamps the run's own deployed target
 onto the cases, so a plan authored before this release still verifies it. A
 deployment case is bound to the candidate the run deployed, not to your lane:
 run it from a checkout at that revision, or pass --allow-tree-mismatch to

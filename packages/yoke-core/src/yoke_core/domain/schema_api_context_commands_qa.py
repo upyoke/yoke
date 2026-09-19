@@ -225,12 +225,12 @@ QA_COMMANDS: list[dict] = [
             "run-wide form is refused on an item-scoped stage rather than "
             "recording a pass that stage ignores. Dropping --stage or --member "
             "is the failure that looks like success -- cases pass while the "
-            "stage stays unsatisfied. Named flow cases and "
-            "member admission requirements come from frozen run snapshots. When "
-            "the stage names no concrete cases, --plan records the executor's "
-            "project-owned selection. Every case and verdict remains on the "
-            "existing qa_requirements/qa_runs/qa_artifacts authority, bound to "
-            "the resolved deployed target and release_lineage."
+            "stage stays unsatisfied. Named flow cases and member admission "
+            "requirements come from frozen run snapshots. --plan records the "
+            "executor's selection for a stage naming no concrete cases, and "
+            "only then -- one already naming its own refuses it. Every case "
+            "and verdict stays on the existing qa_requirements/qa_runs/"
+            "qa_artifacts authority, bound to the deployed target and lineage."
         ),
     },
     {

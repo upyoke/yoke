@@ -47,6 +47,7 @@ def test_run_scoped_wake_reaches_the_deploy_lock_driver(test_db: Any) -> None:
         stage_name="run-qa",
         project_id=PROJECT_YOKE,
         reasons="awaiting agent verdict",
+        names_cases=True,
         target_tier="ephemeral",
         revision="b" * 40,
     )
@@ -77,6 +78,7 @@ def test_run_scoped_wake_falls_back_to_the_plain_project_steering_seat(
         stage_name="run-qa",
         project_id=PROJECT_YOKE,
         reasons="awaiting agent verdict",
+        names_cases=True,
     )
 
     assert result in ("delivered", "undelivered")
@@ -106,6 +108,7 @@ def test_run_scoped_wake_does_not_guess_among_document_scoped_seats(
         stage_name="run-qa",
         project_id=PROJECT_YOKE,
         reasons="awaiting agent verdict",
+        names_cases=True,
     )
 
     assert result == ""

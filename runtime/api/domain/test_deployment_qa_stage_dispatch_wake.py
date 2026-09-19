@@ -227,3 +227,59 @@ def test_a_wake_failure_degrades_without_losing_the_wait_result(
     out = capsys.readouterr().out
     assert "could not wake a recipient for run" in out
     assert "member 9604" in out
+
+
+def test_a_stage_with_materialized_cases_is_woken_without_a_plan_recipe(
+    test_db: Any,
+) -> None:
+    """Materialization succeeded, so this wait wants evidence, not a plan."""
+    _run(test_db, "run-wake-5")
+    _member(test_db, "run-wake-5", 9605)
+    stage = {"name": "item-qa", "scope": "item"}
+
+    with (
+        mock.patch(
+            "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status",
+            return_value=_WAITING,
+        ),
+        mock.patch(
+            "yoke_core.domain.deployment_qa_stage_materialization."
+            "materialize_deployment_qa_stage"
+        ),
+        mock.patch.object(
+            dispatch_mod, "notify_item_scoped_qa_wait", return_value="delivered"
+        ) as notify,
+    ):
+        materialize_and_gate_deployment_qa_stage(test_db, stage, run_id="run-wake-5")
+
+    assert notify.call_args.kwargs["names_cases"] is True
+
+
+def test_a_stage_that_selected_nothing_is_woken_with_the_plan_recipe(
+    test_db: Any,
+) -> None:
+    """The one wait that IS asking its owner to choose a project QA plan."""
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        QaCasesNotSelectedError,
+    )
+
+    _run(test_db, "run-wake-6")
+    _member(test_db, "run-wake-6", 9606)
+    stage = {"name": "item-qa", "scope": "item"}
+
+    with (
+        mock.patch(
+            "yoke_core.domain.deployment_qa_stage_materialization."
+            "materialize_deployment_qa_stage",
+            side_effect=QaCasesNotSelectedError("stage has no pinned cases"),
+        ),
+        mock.patch.object(
+            dispatch_mod, "notify_item_scoped_qa_wait", return_value="delivered"
+        ) as notify,
+    ):
+        rc, _diag = materialize_and_gate_deployment_qa_stage(
+            test_db, stage, run_id="run-wake-6"
+        )
+
+    assert rc == -4
+    assert notify.call_args.kwargs["names_cases"] is False

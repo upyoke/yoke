@@ -65,7 +65,11 @@ stage needs the member named too, so reach for the stage-scoped plan run
 instead; running cases one id at a time can pass every case while the stage
 still reads unsatisfied:
 
-  yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --plan PLAN --project P
+  yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
+
+Add `--plan PLAN` only for a stage that names no cases; a stage already naming
+its own refuses it, because a plan there materializes a second, duplicate set
+of obligations beside the ones the stage credits.
 
 See `yoke qa plan run --help` for the full subject/scope matrix, and
 `yoke merge item --help` for the close-out that follows a credited stage.

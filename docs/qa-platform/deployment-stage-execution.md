@@ -24,6 +24,21 @@ admission snapshots. If no concrete method case was admitted or configured,
 the executor supplies `--plan`; its frozen cases are materialized separately
 from admitted aggregate obligations, so evidence retains both identities.
 
+`--plan` is only for that empty stage. A subject already naming cases —
+pinned in the stage config, frozen into the run or member snapshot, attached
+to the member, admitted from the member's own post-deploy obligations,
+authored directly onto the stage, or materialized by an earlier selection —
+refuses `--plan` by name, because a plan there materializes a second set of
+obligations beside the ones the stage credits and the stage then waits on
+both. The wake that wants a selection prints `--plan` in its recipe; every
+other wake omits it. Correcting an already-materialized selection is
+`yoke qa plan rematerialize` below, not a second run.
+
+An admitted copy belongs to no plan, so it stores no `case_position` and no
+`baseline_position`. The roster selection assigns a plan-less case its order
+when it builds, and a position stored on such a row is read by every
+execution begin as "this requirement joined a plan after the roster froze".
+
 Every requirement and execution carries `deployment_stage`; item scope also
 carries `deployment_member_item_id`. Legacy deployment-run rows keep both NULL.
 Each QA target names `source_stage`, an earlier non-QA stage whose executor

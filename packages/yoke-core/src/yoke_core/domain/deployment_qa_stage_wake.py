@@ -67,6 +67,18 @@ def _execution_context(*, target_tier: str, revision: str) -> str:
     return f"{target} at {rev}"
 
 
+def _plan_selection(names_cases: bool) -> str:
+    """The ``--plan`` fragment a wake's run recipe may or may not carry.
+
+    ``--plan`` selects cases for a stage that names none. A stage that
+    already names its own -- pinned, frozen, attached, admitted, or
+    directly authored -- would materialize a second, duplicate set of
+    obligations beside the ones it credits, so its recipe omits the flag
+    entirely rather than printing one the command now refuses.
+    """
+    return "" if names_cases else " --plan PLAN"
+
+
 def stage_wait_message(
     *,
     run_id: str,
@@ -76,6 +88,7 @@ def stage_wait_message(
     revision: str,
     reasons: str,
     route: str,
+    names_cases: bool,
 ) -> str:
     """Name the run, stage, target/revision, item, and who this reaches.
 
@@ -96,7 +109,8 @@ def stage_wait_message(
         f"supply this stage's evidence/verdict ({reasons}). Run its cases "
         "naming BOTH the stage and the member, which is what this stage "
         f"credits: 'yoke qa plan run --deployment-run-id {run_id} --stage "
-        f"{stage_name} --member {item_ref} --plan PLAN --project PROJECT'. "
+        f"{stage_name} --member {item_ref}{_plan_selection(names_cases)} "
+        "--project PROJECT'. "
         "Omitting them materializes requirements this stage never counts, so "
         "the verdict would discharge nothing. The stage binds the run's own "
         "deployed target, so a plan authored before this release still "
@@ -113,6 +127,7 @@ def run_stage_wait_message(
     revision: str,
     reasons: str,
     route: str,
+    names_cases: bool,
 ) -> str:
     """The run-scoped counterpart to :func:`stage_wait_message`."""
     context = _execution_context(target_tier=target_tier, revision=revision)
@@ -126,7 +141,8 @@ def run_stage_wait_message(
         f"for {context}. Reaching {addressed}: the stage still needs "
         f"evidence/verdict ({reasons}). Run its cases naming the stage, "
         "which is what this stage credits: 'yoke qa plan run "
-        f"--deployment-run-id {run_id} --stage {stage_name} --plan PLAN "
+        f"--deployment-run-id {run_id} --stage {stage_name}"
+        f"{_plan_selection(names_cases)} "
         f"--project PROJECT'. Check 'yoke deployment-runs get {run_id}' for "
         "the current state."
     )
@@ -140,6 +156,7 @@ def notify_item_scoped_qa_wait(
     item_id: int,
     project_id: int,
     reasons: str,
+    names_cases: bool,
     target_tier: str = "",
     revision: str = "",
     target_digest: str = "",
@@ -171,6 +188,7 @@ def notify_item_scoped_qa_wait(
             revision=revision,
             reasons=reasons,
             route=route,
+            names_cases=names_cases,
         ),
         idempotency_key=stage_wait_idempotency_key(
             run_id, stage_name, item_id, target_digest
@@ -279,6 +297,7 @@ def notify_run_scoped_qa_wait(
     stage_name: str,
     project_id: int,
     reasons: str,
+    names_cases: bool,
     target_tier: str = "",
     revision: str = "",
     target_digest: str = "",
@@ -299,6 +318,7 @@ def notify_run_scoped_qa_wait(
             revision=revision,
             reasons=reasons,
             route=route,
+            names_cases=names_cases,
         ),
         idempotency_key=run_stage_wait_idempotency_key(
             run_id, stage_name, target_digest

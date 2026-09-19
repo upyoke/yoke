@@ -123,6 +123,7 @@ def test_item_holder_receives_a_real_message(test_db: Any) -> None:
         item_id=item_id,
         project_id=PROJECT_YOKE,
         reasons="awaiting agent verdict",
+        names_cases=True,
         target_tier="persistent",
         revision="a" * 40,
     )
@@ -152,6 +153,7 @@ def test_no_holder_and_no_steering_addresses_nobody(test_db: Any) -> None:
         item_id=item_id,
         project_id=PROJECT_YOKE,
         reasons="awaiting agent verdict",
+        names_cases=True,
     )
 
     assert result == ""
@@ -185,6 +187,7 @@ def test_a_later_holder_change_does_not_get_a_second_notice(test_db: Any) -> Non
             item_id=item_id,
             project_id=PROJECT_YOKE,
             reasons="awaiting agent verdict",
+            names_cases=True,
         )
         == ""
     )
@@ -204,6 +207,7 @@ def test_a_later_holder_change_does_not_get_a_second_notice(test_db: Any) -> Non
         item_id=item_id,
         project_id=PROJECT_YOKE,
         reasons="awaiting agent verdict",
+        names_cases=True,
     )
     assert _recipients(test_db, key) == [HOLDER_A]
 
@@ -226,6 +230,7 @@ def test_a_later_holder_change_does_not_get_a_second_notice(test_db: Any) -> Non
         item_id=item_id,
         project_id=PROJECT_YOKE,
         reasons="different reasons now",
+        names_cases=True,
     )
 
     assert _recipients(test_db, key) == [HOLDER_A]
@@ -257,6 +262,7 @@ def test_repeat_dispatch_after_reasons_change_does_not_collide(test_db: Any) -> 
         item_id=item_id,
         project_id=PROJECT_YOKE,
         reasons="2 of 3 requirements outstanding",
+        names_cases=True,
     )
     # Does not raise even though the text below differs from the first call.
     notify_item_scoped_qa_wait(
@@ -266,6 +272,7 @@ def test_repeat_dispatch_after_reasons_change_does_not_collide(test_db: Any) -> 
         item_id=item_id,
         project_id=PROJECT_YOKE,
         reasons="1 of 3 requirements outstanding",
+        names_cases=True,
     )
 
     assert _recipients(test_db, key) == [HOLDER_A]
@@ -299,6 +306,7 @@ def test_a_later_deployment_attempt_gets_its_own_fresh_notice(test_db: Any) -> N
         item_id=item_id,
         project_id=PROJECT_YOKE,
         reasons="first attempt's evidence still missing",
+        names_cases=True,
     )
     notify_item_scoped_qa_wait(
         test_db,
@@ -307,6 +315,7 @@ def test_a_later_deployment_attempt_gets_its_own_fresh_notice(test_db: Any) -> N
         item_id=item_id,
         project_id=PROJECT_YOKE,
         reasons="second attempt's evidence still missing",
+        names_cases=True,
     )
 
     assert _recipients(test_db, first_key) == [HOLDER_A]
