@@ -59,6 +59,12 @@ test("a thumbnail still being read says so instead of showing blank space", asyn
   assert.equal(
     byClass(shot, "review-shot-state")[0].textContent, "Loading evidence…",
   );
+  // The state box lives INSIDE the picture, so it is the tile's frame while
+  // there is no picture to be one. Rendered as a sibling it floated over a
+  // hidden image that was still holding its own space open, which pushed the
+  // caption a full tile below the box it names.
+  const picture = byClass(shot, "review-shot-open")[0];
+  assert.equal(byClass(picture, "review-shot-state").length, 1);
 
   release({
     status: 200,

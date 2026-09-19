@@ -103,10 +103,14 @@ function screenshot(context, artifact, stepCaptionsOnly) {
   const image = el(documentNode, "img", "review-shot-image");
   image.alt = caption;
   picture.appendChild(image);
-  figure.appendChild(picture);
   figure.classList.add("is-pending");
+  // Inside the picture, not beside it: the state box IS this tile's frame
+  // while there is no picture to be one, so the caption that follows sits
+  // against the tile it names instead of below the space a hidden image
+  // was holding open.
   const state = el(documentNode, "span", "review-shot-state", PENDING_STATE);
-  figure.appendChild(state);
+  picture.appendChild(state);
+  figure.appendChild(picture);
   const label = shotLabel(artifact, stepCaptionsOnly);
   const step = label
     ? el(documentNode, "a", "review-shot-step", label) : null;
@@ -122,7 +126,7 @@ function screenshot(context, artifact, stepCaptionsOnly) {
       markUnavailable(figure, state, outcome);
       return;
     }
-    figure.removeChild(state);
+    picture.removeChild(state);
     figure.classList.remove("is-pending");
     image.src = outcome.source;
     figure.classList.add("is-ready");

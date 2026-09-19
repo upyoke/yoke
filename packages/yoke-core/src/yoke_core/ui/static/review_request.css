@@ -167,13 +167,20 @@
   object-fit: cover;
   object-position: top;
 }
+/* No picture, no box: the image stops holding space open so the state box
+   below is the only thing giving this tile its height, and the caption that
+   follows sits against the tile rather than under an invisible one. */
 .universe-app-root .review-shot:not(.is-ready) .review-shot-image {
-  visibility: hidden;
+  display: none;
 }
+/* The frame, whenever there is no picture to be one. It fills a slot that
+   states its own height — the Inbox sizes its anchors — and otherwise takes
+   the thumbnail's shape, so it is never taller than the tile it stands in
+   for. */
 .universe-app-root .review-shot-state {
-  position: absolute;
-  inset: 0 0 auto 0;
   display: grid;
+  width: 100%;
+  height: 100%;
   aspect-ratio: 16 / 10;
   place-items: center;
   border: 1px dashed var(--yoke-border);
