@@ -162,6 +162,7 @@ def two_project_release(
         flow=CARRIER_FLOW,
     )
     return {
+        "carrier_repo": carrier_repo,
         "carrier_ref": carrier_ref,
         "consumer_ref": consumer_ref,
         "consumer_id": consumer_id,
