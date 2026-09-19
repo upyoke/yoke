@@ -310,9 +310,6 @@ jobs:
             cat "$output"
           else
             cat "$output" >&2
-            echo "::error title=release_output_unrecorded::This release shipped, \
-and is not failed by this. Its pin commit went unattributed, so the next \
-release will refuse it as unattributed carried work until someone runs: yoke \
-deployment-runs release-output record $DEPLOYMENT_RUN_ID --project platform \
---commit <the pin commit this promotion pushed>"
+            recovery="yoke deployment-runs release-output record $DEPLOYMENT_RUN_ID --project platform --commit <the pin commit this promotion pushed>"
+            echo "::error title=release_output_unrecorded::This release shipped and is not failed by this. Its pin commit went unattributed, so the next release will refuse it as unattributed carried work until someone runs: $recovery"
           fi

@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+import yaml
 from yoke_core.tools._impacted_contract_tests import (
     HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS,
     contract_selection_for,
@@ -224,7 +225,6 @@ def test_a_failed_release_output_record_annotates_rather_than_fails_release() ->
     produced = _step("- name: Record the pin commit this release produced")
 
     assert "::error title=release_output_unrecorded::" in produced
-    assert "yoke \ndeployment-runs release-output record" not in produced
     assert "deployment-runs release-output record $DEPLOYMENT_RUN_ID" in produced
     # Nothing in this step may end the job: not an explicit failure, and not a
     # bare command whose own status would.
@@ -259,3 +259,30 @@ def test_cross_repo_workflows_have_one_narrow_release_pin_writer() -> None:
         "YOKE_DEPLOY_API_TOKEN",
     ):
         assert forbidden not in platform_workflow
+
+
+def test_the_bridge_is_parseable_yaml_with_intact_step_bodies() -> None:
+    """A workflow that stopped being YAML is broken before any step runs.
+
+    Every other check here reads the file as text, which a shell continuation
+    left flush against the margin passes happily — while YAML has already
+    ended the step's block scalar at that line and started reading the
+    remainder as top-level keys. Parsing it here puts the failure in the suite
+    that owns this workflow, rather than in whichever unrelated shard happens
+    to load it next.
+    """
+    document = yaml.safe_load(_text())
+    steps = next(iter(document["jobs"].values()))["steps"]
+    named = {str(step.get("name") or ""): step for step in steps}
+
+    assert "Record the pin commit this release produced" in named
+    for name, step in named.items():
+        body = step.get("run")
+        if body is None:
+            continue
+        # A continuation whose next line is unindented is the exact break YAML
+        # cannot see coming, so the parsed body is what gets asserted on.
+        assert not any(
+            line.startswith(("::", "--")) and not line.startswith("--project")
+            for line in body.splitlines()
+        ), f"step {name!r} has a run line that reads as a severed continuation"
