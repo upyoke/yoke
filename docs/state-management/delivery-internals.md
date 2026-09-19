@@ -162,6 +162,43 @@ still containing every merge that revision contains, so completion asks the
 containment question directly instead of reasoning across earlier runs.
 ```
 
+## Answering "did this release contain that merge"
+
+Completion asks containment of a specific pair: the candidate a succeeded
+run shipped, and the item's merge (then its live lane head). It is two
+questions in order. Ancestry answers almost every case. Content answers the
+rest, because a lane whose commits reached the base under other identities —
+a companion item's landing, a rebase — adds nothing to the candidate while
+failing every ancestry test.
+
+Every source this host can offer is asked, because they fail for unrelated
+reasons. A source answers "not contained" only when it answered BOTH
+questions and both said no; one that could not run the content question has
+excluded nothing, so it is undetermined for that source and the walk moves
+on. That distinction is load-bearing. A checkout answers content by merging
+the lane into the candidate in memory and comparing trees, and a merge that
+conflicts is a merge that changes the candidate, so a conflict stays a
+definite "adds something". The repository provider cannot merge anything: it
+compares the blob at each changed path, and a blob that differs has two
+opposite readings — the head still carries work, or the candidate took that
+work and moved the same path further on — so it answers unknown rather than
+guessing either.
+
+That honesty leaves a control plane with no checkout unable to answer
+questions the lane can answer trivially. So it does not have to: at
+close-out the client resolves containment with the merge boundary's own
+ancestry and lane-adds-nothing tests and relays the verdicts with its
+terminal transition. The server consults a relayed verdict only where its
+own sources came back undetermined, matches it against the exact pair of
+commits it names, and records the evidence on the item's delivery record
+(`deployment_run_items.containment_attestation`). This is the trust boundary
+the client-written `item_worktrees.commit_sha` already sits on.
+
+A comparison the provider answered with 404 is not a failed read: the remote
+does not carry that commit, which is almost always a lane head recorded
+locally and never published. It refuses by its own name and says to publish
+or land the lane, or re-record the head.
+
 ## Retrying a failed candidate
 
 `deployment_runs.create --retry-of RUN-ID` re-runs one candidate that already

@@ -202,15 +202,14 @@ registered in `deploy_pipeline_stage_receipt_producers.RECEIPT_PRODUCERS`.
 Each producer takes one `ProducerContext` (the stage, its QA target, the
 run and stage names, the project, the dispatch correlation id and the
 dispatch callable) and returns a `StageObservation`: target name,
-observed release lineage, optionally an observed URL and artifact
-identity. The step runner's diagnostic travels to `executor_receipt`
-instead, so a producer that reads a served URL and commit back reports
-them structurally rather than encoding them in one string. An empty
-observed-identity column is not a gap to fill with whatever string is at
-hand — the store compares observed against pinned, so an invented value
-refuses the receipt, and a run pinning an artifact identity no producer
-reads back is refused before the stage dispatches. The registry's key
-set *is* the supported-target-kind list.
+observed release lineage, optionally an observed URL and artifact identity. The
+step runner's diagnostic travels to `executor_receipt` instead, so a producer
+that reads a served URL and commit back reports them structurally rather than
+encoding them in one string. An empty observed-identity column is not a gap to
+fill with whatever string is at hand — the store compares observed against
+pinned, so an invented value refuses the receipt, and a run pinning an artifact
+identity no producer reads back is refused before the stage dispatches. The
+registry's key set *is* the supported-target-kind list.
 
 Release verification and notices — how release-to-done reads both QA
 authorities, who observes a stage receipt, and the verdict and owner
@@ -227,10 +226,11 @@ added_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" 
 delivery_intent TEXT -- progress | final
 requirement_selection TEXT -- explicit member requirement/plan IDs selected for admission
 requirement_snapshot TEXT -- full selected requirement, plan, case, and attachment content
+containment_attestation TEXT -- JSON: a lane checkout's containment verdict, recorded when this host could not answer
 PRIMARY KEY (run_id, item_id)
 ```
 
-Item-bound delivery starts from `/yoke usher PREFIX-N` or `yoke deployment-runs start-for-item`, which creates the run and inserts membership rows. For repeated continuous-slice delivery, intent is `progress` until the workflow's final predecessor and `final` at that final delivery posture. Member admission accepts explicit repeated `--requirement-id` and `--plan-id` selections and uses them verbatim. Where none is supplied — automatic enrollment, or `add-item` with no selection — it derives one from the item's outstanding post-deploy obligations: the unwaived, unsuperseded, run-unbound `qa_phase='post_deploy'` rows, plan-backed and ad-hoc alike, whose `target_env` a QA stage on the run's pinned flow targets (an undeclared `target_env` takes whichever target the stage observes). It derives nothing else: pre-merge `verification` rows are never rolled into a release. A post_deploy row is answered only by this run's admitted copy, so an empty selection would ship the code while leaving the item unable to reach `done`. An obligation no QA stage on the run targets is not a composition error — a stage run legitimately carries an item whose production acceptance belongs to the production run — but it is never silent: `validate_composition` and `add_item` name the row, its declared environment, and the stage targets the run does have. Membership is participation, not completion: a same-project item may ride a run whose flow is not its selected (or project-default) completion flow, and that run still enforces its own QA and approvals. Item completion, Dash deploy-after-merge, done-transition evidence, and the delivery-evidence fact read only the newest run on that selected flow. An empty unresolved flow is merge-only — no completion run exists.
+Item-bound delivery starts from `/yoke usher PREFIX-N` or `yoke deployment-runs start-for-item`, which creates the run and inserts membership rows. `containment_attestation` is written later by the completion gate rather than by enrolment, and only where this host could not answer containment for itself — a lane checkout answered instead, and this is the evidence it relayed; the walk itself is in the delivery internals doc. For repeated continuous-slice delivery, intent is `progress` until the workflow's final predecessor and `final` at that final delivery posture. Member admission accepts explicit repeated `--requirement-id` and `--plan-id` selections and uses them verbatim. Where none is supplied — automatic enrollment, or `add-item` with no selection — it derives one from the item's outstanding post-deploy obligations: the unwaived, unsuperseded, run-unbound `qa_phase='post_deploy'` rows, plan-backed and ad-hoc alike, whose `target_env` a QA stage on the run's pinned flow targets (an undeclared `target_env` takes whichever target the stage observes). It derives nothing else: pre-merge `verification` rows are never rolled into a release. A post_deploy row is answered only by this run's admitted copy, so an empty selection would ship the code while leaving the item unable to reach `done`. An obligation no QA stage on the run targets is not a composition error — a stage run legitimately carries an item whose production acceptance belongs to the production run — but it is never silent: `validate_composition` and `add_item` name the row, its declared environment, and the stage targets the run does have. Membership is participation, not completion: a same-project item may ride a run whose flow is not its selected (or project-default) completion flow, and that run still enforces its own QA and approvals. Item completion, Dash deploy-after-merge, done-transition evidence, and the delivery-evidence fact read only the newest run on that selected flow. An empty unresolved flow is merge-only — no completion run exists.
 
 ### The deploy lock gates create and execute
 
