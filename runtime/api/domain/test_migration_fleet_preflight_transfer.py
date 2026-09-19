@@ -10,10 +10,17 @@ import pytest
 from yoke_core.domain import migration_fleet_preflight_transfer as transfer
 
 
+ADMIN_ENV = "prod-db-admin"
+
+#: Captured before the autouse fixture stubs the module attribute, so the one
+#: test that exercises the real healer can still reach it.
+REAL_RESTORE_SOURCE_PATH = transfer.restore_source_path
+
+
 @pytest.fixture(autouse=True)
 def _no_real_forward_recovery(monkeypatch):
     """Retries must never reach the machine's real connected env in tests."""
-    monkeypatch.setattr(transfer, "restore_source_path", lambda: None)
+    monkeypatch.setattr(transfer, "restore_source_path", lambda _env: None)
 
 
 def test_ssl_eof_is_transient() -> None:
@@ -80,7 +87,12 @@ def test_dump_retries_ssl_eof_then_succeeds(monkeypatch, tmp_path) -> None:
         transfer.postgres_cluster, "binary", lambda _spec, name: f"/bin/{name}"
     )
     dump = tmp_path / "tenant.dump"
-    transfer.dump_database(SimpleNamespace(), "host=db password=secret", dump)
+    transfer.dump_database(
+        SimpleNamespace(),
+        "host=db password=secret",
+        dump,
+        source_environment=ADMIN_ENV,
+    )
 
     assert len(calls) == 2
     assert "--compress=1" in calls[0][0]
@@ -99,7 +111,10 @@ def test_dump_does_not_retry_non_transient(monkeypatch, tmp_path) -> None:
     )
     with pytest.raises(RuntimeError, match="permission denied"):
         transfer.dump_database(
-            SimpleNamespace(), "host=db", tmp_path / "tenant.dump"
+            SimpleNamespace(),
+            "host=db",
+            tmp_path / "tenant.dump",
+            source_environment=ADMIN_ENV,
         )
 
 
@@ -115,7 +130,9 @@ def test_dump_restores_the_forward_before_copying_again(monkeypatch, tmp_path) -
 
     monkeypatch.setattr(transfer, "run_transfer", _fake_run)
     monkeypatch.setattr(
-        transfer, "restore_source_path", lambda: events.append("restore")
+        transfer,
+        "restore_source_path",
+        lambda env: events.append(f"restore:{env}"),
     )
     monkeypatch.setattr(
         transfer.postgres_cluster, "binary", lambda _spec, name: f"/bin/{name}"
@@ -126,10 +143,13 @@ def test_dump_restores_the_forward_before_copying_again(monkeypatch, tmp_path) -
         SimpleNamespace(),
         "host=127.0.0.1",
         tmp_path / "tenant.dump",
+        source_environment=ADMIN_ENV,
         emit=notices.append,
     )
 
-    assert events == ["copy", "restore", "copy"]
+    # The forward reopened is the one the copies run through -- the selected
+    # admin connection, not whichever control plane is ambient.
+    assert events == ["copy", f"restore:{ADMIN_ENV}", "copy"]
     assert notices and "restoring it and copying again" in notices[0]
 
 
@@ -138,7 +158,7 @@ def test_dump_names_both_failures_when_the_forward_stays_down(
     def _fake_run(*_args, **_kwargs):
         raise RuntimeError("pg_dump failed (1): Connection refused")
 
-    def _cannot_heal():
+    def _cannot_heal(_env):
         raise RuntimeError("ssh tunnel start failed (rc=255)")
 
     monkeypatch.setattr(transfer, "run_transfer", _fake_run)
@@ -149,13 +169,37 @@ def test_dump_names_both_failures_when_the_forward_stays_down(
 
     with pytest.raises(RuntimeError) as excinfo:
         transfer.dump_database(
-            SimpleNamespace(), "host=127.0.0.1", tmp_path / "tenant.dump"
+            SimpleNamespace(),
+            "host=127.0.0.1",
+            tmp_path / "tenant.dump",
+            source_environment=ADMIN_ENV,
         )
 
     message = str(excinfo.value)
     assert "Connection refused" in message
     assert "could not be restored" in message
     assert "rc=255" in message
+
+
+def test_restore_source_path_reopens_the_named_connection(monkeypatch) -> None:
+    """Heal the connection the copies use, not whichever one is ambient.
+
+    A rehearsal selects its admin connection explicitly; the session running
+    it usually has a different control plane active. Healing that ambient one
+    reports "nothing to do" and leaves the dead forward exactly as dead.
+    """
+    from yoke_core.domain import connected_env_selected_readiness
+
+    reopened: list[str] = []
+    monkeypatch.setattr(
+        connected_env_selected_readiness,
+        "activate_selected_postgres",
+        lambda environment: reopened.append(environment),
+    )
+
+    REAL_RESTORE_SOURCE_PATH(ADMIN_ENV)
+
+    assert reopened == [ADMIN_ENV]
 
 
 #: A ``pg_restore -l`` listing of the fleet's shape, headers and all.

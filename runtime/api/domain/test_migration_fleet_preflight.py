@@ -153,6 +153,7 @@ def test_fleet_rehearsal_uses_only_the_callers_declared_databases(
         plan=REHEARSAL_PLAN,
         spec=local_universe.cluster_spec(root=tmp_path),
         work_dir=tmp_path / "work",
+        source_environment="prod-db-admin",
         emit=emitted.append,
     )
 
@@ -184,6 +185,7 @@ class TestUnreachableSource:
             plan=REHEARSAL_PLAN,
             spec=local_universe.cluster_spec(root=tmp_path),
             work_dir=tmp_path / "work",
+            source_environment="prod-db-admin",
         )
 
         assert not verdict.passed

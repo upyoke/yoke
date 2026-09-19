@@ -34,6 +34,10 @@ from yoke_core.domain.postgres_cluster import ClusterSpec
 
 STATISTICS_EXTENSION = "pg_stat_statements"
 
+#: The scratch cluster is reached over its own socket, so no forward can
+#: drop mid-copy here; the copy still has to name where its source lives.
+LOCAL_CLUSTER_ENV = "local-scratch-cluster"
+
 #: Where prod and stage keep the extension, and the objects that depend on it.
 EXTENSION_SCHEMA = "statement_statistics"
 READER_FUNCTION = f"{EXTENSION_SCHEMA}.current_database_statements_read"
@@ -190,7 +194,9 @@ def test_a_view_over_the_extension_rowtype_restores_at_the_source_version(
     _build_source(spec, "source_tenant", older_version)
     dump = spec.root / "source_tenant.dump"
     source_dsn = postgres_cluster.dsn(spec, "source_tenant")
-    transfer.dump_database(spec, source_dsn, dump)
+    transfer.dump_database(
+        spec, source_dsn, dump, source_environment=LOCAL_CLUSTER_ENV
+    )
 
     # Unpinned is the reported failure: the dump installs the cluster default
     # and the view's alias list resolves a name twice.

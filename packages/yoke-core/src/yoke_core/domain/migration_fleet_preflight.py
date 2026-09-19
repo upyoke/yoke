@@ -174,6 +174,7 @@ def rehearse(
     plan: RehearsalPlan,
     spec: ClusterSpec,
     work_dir: Path,
+    source_environment: str,
     emit: Optional[Callable[[str], None]] = None,
 ) -> Verdict:
     """Converge a throwaway copy of one database and report what happened.
@@ -215,7 +216,11 @@ def rehearse(
 
     try:
         migration_fleet_preflight_transfer.dump_database(
-            spec, source_dsn, dump, emit=_database_emit(emit, database),
+            spec,
+            source_dsn,
+            dump,
+            source_environment=source_environment,
+            emit=_database_emit(emit, database),
         )
     except Exception as exc:  # noqa: BLE001 — a verdict, not a crash
         return Verdict(database, False, f"could not copy: {exc}")
@@ -302,9 +307,15 @@ def rehearse_fleet(
     plan: RehearsalPlan,
     spec: ClusterSpec,
     work_dir: Path,
+    source_environment: str,
     emit: Optional[Callable[[str], None]] = None,
 ) -> List[Verdict]:
-    """Rehearse the caller-declared databases with its migration plan."""
+    """Rehearse the caller-declared databases with its migration plan.
+
+    ``source_environment`` names the connection the source DSNs are reached
+    through, so a copy that loses a managed forward can reopen that exact one
+    before trying again.
+    """
     verdicts: List[Verdict] = []
     for name in databases:
         if emit is not None:
@@ -315,6 +326,7 @@ def rehearse_fleet(
             plan=plan,
             spec=spec,
             work_dir=work_dir,
+            source_environment=source_environment,
             emit=emit,
         )
         verdicts.append(verdict)
