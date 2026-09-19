@@ -23,6 +23,16 @@ the run's own candidate, so the run delivers two projects, not one.
   afterwards, so a retry cannot ship a commit the first attempt did not. Read
   it with `yoke deployment-runs get RUN-ID bound_sources`, and read what a
   flow binds with `yoke deployment-flows stages FLOW-ID`.
+- **A release attributes the commits it wrote itself.** A promotion that
+  rewrites a version pin pushes a commit no backlog item authored, into the
+  range the next release reads. The producing run records it — `yoke
+  deployment-runs release-output record RUN-ID --project P`, stored as
+  `outputs` on that project's `bound_sources` entry — and carried-work
+  attribution reads that record only for a commit no item claimed, so the
+  item always wins and unexplained real code still refuses. Omit `--commit`
+  and the branch the run itself bound names the commit. Recording is refused
+  by name for a commit an item already owns, one the run merely pinned, and
+  one that does not descend from that pinned source.
 - **The record waits for its own column; the release does not.** The column
   is additive, so it arrives on the boot converge of a build carrying it —
   and that build is deployed by a run this same code drives, against the

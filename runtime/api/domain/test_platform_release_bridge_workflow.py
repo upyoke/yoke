@@ -22,6 +22,22 @@ def _text() -> str:
     return WORKFLOW.read_text(encoding="utf-8")
 
 
+def _step(marker: str) -> str:
+    """One named step's own body, not everything that follows it.
+
+    The next step begins at its own ``- name:`` or at the comment block
+    introducing it, so both are boundaries — cutting only at ``- name:``
+    would read the following step's rationale as part of this one.
+    """
+    body = _text().split(marker, 1)[1]
+    ends = [
+        offset
+        for offset in (body.find("\n      - name: "), body.find("\n\n      # "))
+        if offset >= 0
+    ]
+    return body[: min(ends)] if ends else body
+
+
 def test_bridge_is_project_local_and_correlation_visible() -> None:
     text = _text()
 
@@ -130,9 +146,7 @@ def test_bridge_hands_yoke_surfaces_the_registered_environment_name() -> None:
     preflight = text.split(
         "- name: Verify release migration history before tag", 1
     )[1].split("      - name: ", 1)[0]
-    record = text.split(
-        "- name: Record desired pin after successful Platform release", 1
-    )[1]
+    record = _step("- name: Record desired pin after successful Platform release")
 
     for step in (preflight, record):
         assert "TARGET_ENVIRONMENT: ${{ inputs.target_environment }}" in step
@@ -156,7 +170,7 @@ def test_bridge_records_pin_only_after_terminal_platform_success() -> None:
     text = _text()
     authority_marker = "- name: Switch to scoped Platform promotion authority"
     record_marker = "- name: Record desired pin after successful Platform release"
-    record = text.split(record_marker, 1)[1]
+    record = _step(record_marker)
 
     assert text.index(authority_marker) < text.index(record_marker)
     assert text.rindex("yoke github-actions wait-run") < text.index(record_marker)
@@ -168,13 +182,41 @@ def test_bridge_records_pin_only_after_terminal_platform_success() -> None:
     assert '--pin "$VERSION"' in record
     assert 'test -n "$receipt"' in record
     assert "continue-on-error" not in record
-    assert text.rstrip().endswith('echo "Desired release pin receipt: $receipt"')
+    assert record.rstrip().endswith('echo "Desired release pin receipt: $receipt"')
+
+
+def test_bridge_records_the_pin_commit_its_own_promotion_produced() -> None:
+    """The commit this release wrote is attributed by the run that wrote it.
+
+    Promotion pushes the pin materialization onto the consumer's bound
+    branch, and nothing else ever will: skip the record and the next release
+    reads an unattributed commit and refuses to compose. The commit itself is
+    resolved server-side from the branch the run already bound, so the bridge
+    names a project and never a repository ref.
+    """
+    text = _text()
+    record_marker = "- name: Record the pin commit this release produced"
+    produced = _step(record_marker)
+
+    assert text.index(
+        "- name: Record desired pin after successful Platform release"
+    ) < text.index(record_marker)
+    assert "DEPLOYMENT_RUN_ID: ${{ inputs.deployment_run_id }}" in produced
+    assert "yoke deployment-runs release-output record" in produced
+    assert '"$DEPLOYMENT_RUN_ID"' in produced
+    assert "--project platform" in produced
+    # The branch is the control plane's own recorded binding, not a literal.
+    assert "--commit" not in produced
+    assert "--ref" not in produced
+    # A release whose pin commit went unrecorded fails loudly and names the
+    # consequence, because the refusal it causes lands on the NEXT release.
+    assert "release_output_unrecorded" in produced
+    assert "exit 1" in produced
+    assert "continue-on-error" not in produced
 
 
 def test_bridge_writer_accepts_no_environment_id_or_settings_path() -> None:
-    record = _text().split(
-        "- name: Record desired pin after successful Platform release", 1
-    )[1]
+    record = _step("- name: Record desired pin after successful Platform release")
 
     assert "environment-settings merge" not in record
     assert "--environment-id" not in record
