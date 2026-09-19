@@ -101,8 +101,14 @@ def two_project_release(
     *,
     consumer_status: str = "implementing",
     stages: str | None = None,
+    consumer_names_item: bool = True,
 ) -> dict[str, Any]:
-    """A carrier run whose flow binds a consumer project's trunk."""
+    """A carrier run whose flow binds a consumer project's trunk.
+
+    ``consumer_names_item=False`` gives the consumer's landing commit a
+    message that attributes nothing, so a test can prove which recorded
+    evidence rung carries the attribution on the bound path.
+    """
     stage_environment(conn)
     ensure_project_id(conn, CONSUMER_PROJECT, ts=SEEDED_AT)
     conn.commit()
@@ -131,7 +137,7 @@ def two_project_release(
         tmp_path, "carrier", carrier_ref
     )
     consumer_repo, consumer_base, consumer_tip = bound_source_repository(
-        tmp_path, "consumer", consumer_ref
+        tmp_path, "consumer", consumer_ref, names_item=consumer_names_item
     )
     serve_repositories(monkeypatch, {1: carrier_repo, consumer_id: consumer_repo})
     insert_run(

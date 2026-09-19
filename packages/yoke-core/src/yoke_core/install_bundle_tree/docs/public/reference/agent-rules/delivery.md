@@ -66,10 +66,15 @@ A run that carries members is acted on by two different sessions, and neither
 learns the other's part from its own skill. The split is the whole rule:
 
 - **The seat driving delivery owns the run.** It holds `DEPLOY:<project>` for
-  the whole pair, pins one source SHA for stage and production, enrolls each
-  member with `yoke deployment-runs add-item`, accepts membership with
-  `validate-composition`, and drives it with `yoke watch deploy`. It does not
-  run a member's item QA and does not close a member out.
+  the whole pair, pins one source SHA, creates the stage and production runs
+  from that SHA, and starts each one with `yoke --env CONTROL-PLANE watch
+  deploy -- RUN-ID`. The start enrolls every carried, delivery-ready item and
+  applies the composition check itself, so membership needs no separate step:
+  `yoke deployment-runs add-item RUN-ID PREFIX-N` is for the other case, an
+  item whose code the candidate does not carry but which the run should still
+  deliver, and `validate-composition` is an optional preview of what a start
+  will enroll and refuse. The driving seat does not run a member's item QA and
+  does not close a member out.
 - **The member owner owns its own item.** Its merge parked it at the flow's
   release wait holding its work claim; the deployment wake re-enters it for its
   QA stage and again when delivery clears.

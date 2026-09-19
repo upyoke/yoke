@@ -31,10 +31,12 @@ from yoke_core.domain.deployment_run_carried_membership import (
     carried_membership_refusal,
     enroll_carried_members,
 )
+from yoke_core.domain.deployment_run_carried_work import derive_carried_work
 from yoke_core.domain.deployment_run_composition_freeze import (
     freeze_run_composition,
 )
 from yoke_core.domain.delivery_evidence_ladder import DISCHARGED, delivery_evidence
+from yoke_core.domain.item_merge_receipt_document import record_entry
 from yoke_core.domain.workflow_delivery_binding_validation import (
     validate_deployment_run_item,
 )
@@ -55,6 +57,45 @@ def test_a_bound_projects_landed_item_is_enrolled_by_the_carrying_run(
     assert release["carrier_ref"] in enrolled
     # The invariant enrollment exists to satisfy holds for both projects.
     assert carried_membership_refusal(test_db, "run-candidate") is None
+
+
+def test_a_bound_projects_single_commit_landing_attributes_by_its_receipt(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A landing with no merge commit is still the item's, and says so.
+
+    A fast-forward or squash puts the item's work on the trunk as one commit
+    and records that same sha as both the work and the landing. Nothing in
+    the range then names the item — no merge commit, and a message that
+    attributes nothing — so the merge receipt is the only evidence, and a
+    release that could not read it would refuse the item's own landing as an
+    unattributed carried commit.
+    """
+    release = two_project_release(
+        test_db, tmp_path, monkeypatch, consumer_names_item=False
+    )
+    record_entry(
+        test_db,
+        item_id=CONSUMER_ITEM_ID,
+        branch=release["consumer_ref"],
+        target="main",
+        commit_sha=release["consumer_tip"],
+        merge_sha=release["consumer_tip"],
+    )
+    test_db.commit()
+    record_bound_sources(test_db, "run-candidate")
+
+    carried = derive_carried_work(test_db, "run-candidate")
+
+    bound = {entry["project"]: entry for entry in carried["bound_projects"]}
+    assert bound[CONSUMER_PROJECT]["items"] == [
+        {
+            "item_id": CONSUMER_ITEM_ID,
+            "ref": release["consumer_ref"],
+            "commit_shas": [release["consumer_tip"]],
+        }
+    ]
+    assert bound[CONSUMER_PROJECT]["commits"] == []
 
 
 def test_an_item_the_bound_commit_predates_is_not_enrolled(

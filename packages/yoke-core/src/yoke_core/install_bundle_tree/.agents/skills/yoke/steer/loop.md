@@ -306,16 +306,17 @@ Pin one source SHA and use that same SHA for stage and production:
 
 ```text
 yoke --env <cp> deployment-runs create {_project} {FLOW} --environment {ENV} --project-repo-path {CHECKOUT} --source-ref {PINNED_SHA}
-yoke --env <cp> deployment-runs add-item {RUN_ID} PREFIX-N
-yoke --env <cp> deployment-runs validate-composition {RUN_ID}
 yoke --env <cp> watch deploy -- {RUN_ID}
 ```
 
-Repeat `add-item` once for every item in the batch, using its public reference.
-Do not start execution unless `validate-composition` accepts the complete
-membership. These commands preserve the same deploy lock and refuse items from
-another project, incompatible flow bindings, or enrollment after the run has
-left `created`.
+The start enrolls every carried, delivery-ready item and applies the
+composition check itself, so a batch already in the candidate needs no
+membership step. `yoke --env <cp> deployment-runs add-item {RUN_ID} PREFIX-N`
+is for the other case — an item whose code the candidate does not carry but
+which the run should still deliver — and `... validate-composition {RUN_ID}`
+previews what a start will enroll and refuse. Both hold the same deploy lock
+and refuse an item whose project the run ships no source for, an incompatible
+flow binding, or enrollment after the run has left `created`.
 
 **A run can deploy a second project's code without carrying its items.** A
 `github-actions-workflow` stage may declare an `input_bindings` map, resolving
@@ -327,13 +328,12 @@ stated, so read it before planning either project's release:
 yoke deployment-flows stages {FLOW}
 ```
 
-Membership does not follow that code — `add-item` refuses a foreign-project
-item — so the bound project's items get no membership row and no deployment
-wake from the run that actually deployed them. They stay at their release wait
-until a run on their OWN flow closes them out, and that run re-deploys a
-revision already serving. Plan it as the delivery record rather than as the
-thing that ships the code, do not read its absence or failure as proof that
-code is undeployed, and check the ordering: work merged after the binding
+Membership follows that code: the run resolves each bound branch once at
+start and records the commit, so the bound project's delivery-ready items are
+enrolled against that exact commit and closed out by the run that actually
+shipped them. An item whose project the run ships no source for is still
+refused, and stays at its release wait until a run that does ship its code
+carries it. Check the ordering either way: work merged after the binding
 resolved did not ride, and genuinely needs its own run.
 
 Retry from the recorded run instead of silently creating unrelated lineage:

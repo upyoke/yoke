@@ -1,10 +1,15 @@
 """A real repository and run pair for carried-work tests.
 
 Carried-work behaviour is only meaningful against an actual comparison, so
-these helpers build one: a baseline release commit, a second commit whose
-message attributes it to an item, and two runs pinned to those two lineages.
-Tests that stubbed the deriver instead would pass while the comparison that
-feeds enrollment and its refusals quietly stopped being readable.
+these helpers build one: a baseline release commit, a second commit for the
+landing, and two runs pinned to those two lineages. Tests that stubbed the
+deriver instead would pass while the comparison that feeds enrollment and its
+refusals quietly stopped being readable.
+
+The landing commit names its item in the message by default. A caller that is
+testing a different attribution rung — a receipt, a lane head — passes
+``names_item=False`` so the message attributes nothing and only that rung can
+answer.
 """
 
 from __future__ import annotations
@@ -30,9 +35,19 @@ def git(repo: Path, *args: str) -> str:
 
 
 def release_repository(
-    tmp_path: Path, item_ref: str, *, name: str = "release-project"
+    tmp_path: Path,
+    item_ref: str,
+    *,
+    name: str = "release-project",
+    names_item: bool = True,
 ) -> tuple[Path, str, str]:
-    """One baseline release and one landed item, attributable by message."""
+    """One baseline release and one landed item.
+
+    With ``names_item`` the landing commit message carries the item
+    reference, which is the message rung attribution reads first among the
+    commit-text sources. Without it the message attributes nothing, leaving
+    the recorded evidence rungs to answer alone.
+    """
     repo = tmp_path / name
     repo.mkdir(parents=True)
     subprocess.run(
@@ -48,12 +63,15 @@ def release_repository(
     git(repo, "commit", "-m", "Release baseline")
     baseline = git(repo, "rev-parse", "HEAD")
     (repo / "release.txt").write_text("landed\n", encoding="utf-8")
-    git(repo, "commit", "-am", f"Land {item_ref} product changes")
+    subject = (
+        f"Land {item_ref} product changes" if names_item else "Land product changes"
+    )
+    git(repo, "commit", "-am", subject)
     return repo, baseline, git(repo, "rev-parse", "HEAD")
 
 
 def bound_source_repository(
-    tmp_path: Path, name: str, item_ref: str
+    tmp_path: Path, name: str, item_ref: str, *, names_item: bool = True
 ) -> tuple[Path, str, str]:
     """A second project's repository, reachable as its own ``origin``.
 
@@ -61,7 +79,9 @@ def bound_source_repository(
     asking the checkout's remote what the branch names now — so the fixture
     gives the repository a real origin instead of stubbing the read.
     """
-    repo, baseline, tip = release_repository(tmp_path, item_ref, name=name)
+    repo, baseline, tip = release_repository(
+        tmp_path, item_ref, name=name, names_item=names_item
+    )
     git(repo, "remote", "add", "origin", str(repo))
     return repo, baseline, tip
 
