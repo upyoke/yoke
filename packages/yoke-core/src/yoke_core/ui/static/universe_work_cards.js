@@ -149,7 +149,14 @@ export function appendCarried(context, host, row, options = {}) {
   // Which requests these member rows took responsibility for, so a caller
   // drawing the release's gates beside them does not draw one of them twice.
   const drawnRequests = new Set();
-  if (!items.length) return { node: null, requestIds: drawnRequests };
+  // Whether any member drew evidence of its own. A caller that also has a
+  // run-wide strip to fall back on needs to know, because run-wide evidence
+  // carries no item: the same "step 2" tile under two different members
+  // reads as one unattributed pair.
+  let drewEvidence = false;
+  if (!items.length) {
+    return { node: null, requestIds: drawnRequests, drewEvidence };
+  }
   const batch = el(documentNode, "div", "release-batch");
   batch.appendChild(el(
     documentNode,
@@ -168,6 +175,7 @@ export function appendCarried(context, host, row, options = {}) {
       onDecide: options.onDecide,
     });
     for (const id of drawn?.requestIds || []) drawnRequests.add(id);
+    if (drawn) drewEvidence = true;
     return member;
   };
   for (const item of items.slice(0, CARRIED_ITEMS_SHOWN)) {
@@ -192,7 +200,7 @@ export function appendCarried(context, host, row, options = {}) {
     });
   }
   host.appendChild(batch);
-  return { node: batch, requestIds: drawnRequests };
+  return { node: batch, requestIds: drawnRequests, drewEvidence };
 }
 
 // A run card takes the whole view context rather than just its document:
@@ -295,9 +303,14 @@ export function shippingRunCard(context, row, scope, options = {}) {
   appendRunGates(context, card, row.gates, options.onGateAction, {
     drawnRequestIds: carried.requestIds,
   });
-  // The request folded in above already shows the evidence it rests on; a
-  // run with no open request shows what its QA checks captured instead.
-  if (!runGates(row).length) {
+  // The request folded in above already shows the evidence it rests on, and
+  // so does each carried member that drew its own. This run-wide strip is
+  // the last resort for a run whose evidence nothing else has shown — an
+  // environment run carrying no items, or members whose checks it does not
+  // hold. Drawn beside per-member evidence it repeated the same tiles with
+  // their item stripped off, so one release showed "step 2" and "step 5"
+  // twice with nothing saying whose they were.
+  if (!runGates(row).length && !carried.drewEvidence) {
     const artifacts = runEvidence(options.facts, row.id || row.run_id).artifacts;
     const strip = evidenceStrip(
       context, artifacts, { compact: true, stepCaptionsOnly: true },

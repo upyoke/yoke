@@ -173,3 +173,53 @@ test("a capture with no step keeps its own name for a caption", async () => {
     "Desktop approval request",
   );
 });
+
+// A release card has two places evidence can appear: under each carried
+// member, and a run-wide strip. Drawn together the strip repeated the same
+// tiles with their item stripped off, so one release read "step 2" and
+// "step 5" twice with nothing saying whose they were. The strip is the last
+// resort now, not a second copy.
+test("a run-wide strip stands down when its members show their own evidence", async () => {
+  const documentNode = new FakeDocument();
+  const artifacts = [screenshotArtifact()];
+  const context = readingContext(documentNode, artifacts);
+  const row = {
+    ...runRow(),
+    carried_work: { items: [{ ref: "YOK-1", item_id: 41, title: "Carried" }] },
+  };
+  const card = shippingRunCard(context, row, ["1"], {
+    facts: {
+      evidence: new Map([["run-20260910-006", { checks: [], artifacts }]]),
+      flowNames: new Map([["yoke-hosted-stage-typed-target", "Stage"]]),
+      failed: null,
+    },
+    itemFacts: {
+      byItem: new Map([["41", [{
+        requirement_id: 21583,
+        deployment_run_id: "run-20260910-006",
+        outcome: "passed",
+        artifacts,
+      }]]]),
+      pendingByRequirement: new Map(),
+      pendingByItem: new Map(),
+      truncatedGroups: new Set(),
+      perGroupLimit: 20,
+      failed: null,
+    },
+  });
+  await settle();
+
+  // The member drew its own, so the run-wide strip is absent entirely.
+  assert.equal(byClass(card, "carried-item-evidence").length, 1);
+  assert.equal(byClass(card, "shipping-run-evidence").length, 0);
+});
+
+test("a run carrying nothing still shows what its checks captured", async () => {
+  const documentNode = new FakeDocument();
+  const card = runCard(documentNode, [screenshotArtifact()]);
+  await settle();
+
+  // No members to attribute tiles to, so the run-wide strip is the only
+  // place this evidence could be shown, and it is shown.
+  assert.equal(byClass(card, "shipping-run-evidence").length, 1);
+});
