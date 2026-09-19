@@ -18,6 +18,9 @@ from yoke_core.domain.qa_plan_requirement_snapshot import (
     require_existing_target,
     require_requirement_id_target,
 )
+from yoke_core.domain.qa_deployment_member_attached_plans import (
+    attachments_still_owed,
+)
 from yoke_core.domain.qa_plan_attachment_validation import (
     require_plan_cases,
     validate_attached_item_transition,
@@ -146,6 +149,19 @@ def _attached_plans(
     return dict(sorted(attachments.items()))
 
 
+def _owed_attachments(
+    conn: Any, item_id: int, transition_id: str
+) -> tuple[dict[int, dict], bool]:
+    """This transition's attachments, minus any a delivery already answered."""
+    return attachments_still_owed(
+        conn,
+        member_item_id=int(item_id),
+        attachments=_attached_plans(
+            conn, item_id=int(item_id), transition_id=str(transition_id)
+        ),
+    )
+
+
 def has_attached_plans(
     conn: Any,
     *,
@@ -153,13 +169,8 @@ def has_attached_plans(
     transition_id: str,
 ) -> bool:
     """Whether materialization has any effective work for this transition."""
-    return bool(
-        _attached_plans(
-            conn,
-            item_id=int(item_id),
-            transition_id=str(transition_id),
-        )
-    )
+    owed, _answered = _owed_attachments(conn, item_id, transition_id)
+    return bool(owed)
 
 
 @rollback_workflow_binding_write_errors
@@ -173,11 +184,11 @@ def materialize_for_item(
     """Snapshot every attached case into idempotent QA requirements."""
     lock_item_workflow_bindings(conn, (int(item_id),))
     transition_id = str(transition_id or "").strip()
-    attachments = _attached_plans(
-        conn,
-        item_id=item_id,
-        transition_id=transition_id,
-    )
+    attachments, answered = _owed_attachments(conn, item_id, transition_id)
+    if not attachments and answered:
+        # Nothing left to bind: return before validating a binding this is
+        # declining to make.
+        return _materialized(int(item_id), transition_id, {}, [], [])
     transition_id = validate_attached_item_transition(
         conn,
         item_id=int(item_id),
@@ -275,6 +286,18 @@ def materialize_for_item(
                     )
     if commit:
         conn.commit()
+    return _materialized(
+        int(item_id), transition_id, attachments, created, existing
+    )
+
+
+def _materialized(
+    item_id: int,
+    transition_id: str,
+    attachments: dict[int, dict],
+    created: list[int],
+    existing: list[int],
+) -> dict:
     return {
         "item_id": int(item_id),
         "transition_id": transition_id,
