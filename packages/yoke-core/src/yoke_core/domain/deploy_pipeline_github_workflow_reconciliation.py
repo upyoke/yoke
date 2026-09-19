@@ -9,10 +9,6 @@ from yoke_contracts.github_workflow_dispatch import (
     WORKFLOW_DISPATCH_DISPATCHED_MARKER,
     WORKFLOW_DISPATCH_RECOVERED_MARKER,
 )
-from yoke_core.domain.deploy_pipeline_github_workflow_dispatch import (
-    is_idempotency_key_collision,
-)
-
 FRESH_DISPATCH_CLAIM = "No existing run found, triggering workflow_dispatch..."
 RECOVERED_RUN_NARRATION = "Recovered existing workflow run by correlation token"
 DISPATCHED_RUN_NARRATION = "Dispatched new workflow run"
@@ -101,59 +97,6 @@ def run_correlated_or_oneshot_trigger(
     run_id, dispatched = decode_trigger_result(result)
     narrate_trigger_result(run_id, dispatched, correlated=bool(correlation_input))
     return result, run_id, dispatched
-
-
-def trigger_with_binding_collision_retry(
-    trigger: Callable[[Dict[str, str]], "tuple[Any, str, Optional[bool]]"],
-    workflow_inputs: Dict[str, str],
-    *,
-    input_bindings: Dict[str, Any],
-    binding_request_id: str,
-    resolve_bindings: Callable[..., "tuple[Dict[str, str], str]"],
-    resolve_workflow_inputs: Callable[..., Dict[str, str]],
-    raw_workflow_inputs: Dict[str, str],
-    head_sha: str,
-    run_id: str,
-    target_environment: str,
-    preview_slug: str = "",
-) -> "tuple[Any, str, Optional[bool], Dict[str, str], str]":
-    """Trigger once; recover and retry once on a declared-binding collision.
-
-    A concurrent resolver for the identical logical request can win the
-    underlying claim with a different (also freshly-resolved) bound pair —
-    e.g. the declared branch moved between two independent reads. That
-    surfaces as ``idempotency_key_collision``, which a bare retry with the
-    same args can never heal. Recovering the now-durable winning intent's
-    bound inputs and retrying once turns a lost race into a success instead
-    of a permanent failure; a caller with no declared bindings, or a second
-    collision after recovery, is returned unchanged for the caller's own
-    failure handling. Returns ``(result, run_id, dispatched, workflow_inputs,
-    binding_error)`` — ``workflow_inputs`` reflects whichever attempt ran,
-    and ``binding_error`` is non-empty only when recovery itself failed.
-    """
-    result, run_id_out, dispatched = trigger(workflow_inputs)
-    if (
-        (not run_id_out or result.returncode != 0)
-        and input_bindings
-        and is_idempotency_key_collision(result)
-    ):
-        print(
-            "  Workflow dispatch collided with a concurrent resolver for "
-            "the same logical request; recovering its bound inputs and "
-            "retrying once"
-        )
-        bound_inputs, binding_error = resolve_bindings(
-            input_bindings, request_id=binding_request_id,
-        )
-        if binding_error:
-            return result, run_id_out, dispatched, workflow_inputs, binding_error
-        workflow_inputs = resolve_workflow_inputs(
-            raw_workflow_inputs, head_sha=head_sha, run_id=run_id,
-            target_environment=target_environment, preview_slug=preview_slug,
-            bound=bound_inputs,
-        )
-        result, run_id_out, dispatched = trigger(workflow_inputs)
-    return result, run_id_out, dispatched, workflow_inputs, ""
 
 
 def _trigger_args(
@@ -298,5 +241,4 @@ __all__ = [
     "narrate_sha_only_search_skip",
     "narrate_trigger_result",
     "run_correlated_or_oneshot_trigger",
-    "trigger_with_binding_collision_retry",
 ]

@@ -54,7 +54,7 @@ JSONB_COLUMNS: Mapping[str, Tuple[str, ...]] = {
     "qa_runs": ("raw_result",),
     "qa_artifacts": ("metadata",),
     "deployment_flows": ("stages",),
-    "deployment_runs": ("carried_work",),
+    "deployment_runs": ("carried_work", "bound_sources"),
     "migration_audit": ("baseline_verify_result", "author_verify_result"),
     "path_context_values": ("value",),
     "function_call_ledger": ("result",),

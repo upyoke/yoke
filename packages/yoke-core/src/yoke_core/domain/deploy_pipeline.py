@@ -28,6 +28,10 @@ from yoke_core.domain.deploy_pipeline_run_context import (
 )
 from yoke_core.domain import deploy_pipeline_stage_checks as stage_checks
 from yoke_core.domain.deployment_item_stamp import transition_member_to_release
+from yoke_core.domain.deployment_run_bound_sources import (
+    bound_input_values,
+    parse_bound_sources,
+)
 from yoke_core.domain.deployment_run_carried_membership import describe_enrollment
 from yoke_core.domain.deploy_product_source import (
     DeployProductSourceError,
@@ -76,6 +80,9 @@ def run_pipeline(
     project = str(run.get("project") or "")
     flow_id = str(run.get("flow") or "")
     release_lineage = str(run.get("release_lineage") or "")
+    # Resolved once at start and recorded on the run; a stage substitutes
+    # these rather than asking a branch what it names now.
+    bound_inputs = bound_input_values(parse_bound_sources(run.get("bound_sources")))
     qa_result = (
         json.dumps({"verification_tree": {"head_sha": release_lineage}})
         if release_lineage
@@ -268,6 +275,7 @@ def run_pipeline(
             release_lineage=release_lineage,
             run_artifact_identity=str(run.get("artifact_identity") or ""),
             target_identity=context.get("target_identity") or {},
+            bound_inputs=bound_inputs,
             sd=sd,
         )
 

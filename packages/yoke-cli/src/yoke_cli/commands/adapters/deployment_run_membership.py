@@ -24,22 +24,21 @@ VALIDATE_COMPOSITION_USAGE = (
     "yoke deployment-runs validate-composition RUN-ID [--session-id S] [--json]"
 )
 
-# Deploying another project's code and carrying its items are separate facts,
-# and the gap between them is invisible from the run: a reader sees only the
-# members. Name it where the refusal lands.
+# A run ships code for more than its own project, and the membership rule
+# follows the code. Name where the boundary now is, at the refusal.
 CROSS_PROJECT_MEMBERSHIP_NOTE = """\
-Membership is same-project only:
-  An item whose project differs from the run's is refused. That holds even
-  when the run deploys that project's code: a github-actions-workflow stage
-  may declare `input_bindings`, resolving another registered project's branch
-  tip at dispatch and shipping that commit alongside this run's own candidate.
-  Check with `yoke deployment-flows stages FLOW-ID`.
+Membership follows the source the run ships:
+  An item may join a run whose project owns it, or whose flow binds that
+  item's project through a stage `input_bindings`. The run resolves each
+  bound branch once at start and records the commit, so a bound project's
+  delivery-ready items are enrolled against that exact commit and closed out
+  by the run that actually shipped them. Check what a flow binds with
+  `yoke deployment-flows stages FLOW-ID`, and what a run recorded with
+  `yoke deployment-runs get RUN-ID`.
 
-  The bound project's items get no membership row, no requirement snapshot,
-  and no deployment wake here — they stay at their release wait until a run on
-  their own flow closes them out, which re-deploys a revision already serving.
-  Plan that run as the delivery record, not as the thing that ships the code,
-  and do not read its absence as proof the code is undeployed.
+  An item whose project the run ships no source for is refused: no membership
+  row, no requirement snapshot, no deployment wake. It stays at its release
+  wait until a run that does ship its code carries it.
 """
 
 

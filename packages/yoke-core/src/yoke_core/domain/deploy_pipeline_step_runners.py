@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 from yoke_core.domain import deploy_pipeline_schema_rehearsal
 from yoke_core.domain.deploy_preview_dispatch_boundary import (
@@ -40,6 +40,7 @@ def _dispatch_step_runner(
     fresh: bool,
     image_tag: str = "",
     environment_name: str = "",
+    bound_inputs: Optional[Mapping[str, str]] = None,
     gate_branch: str,
     release_lineage: str,
     product_repo_path: str = "",
@@ -177,6 +178,7 @@ def _dispatch_step_runner(
             product_repo_path=product_repo_path,
             image_tag=str(config.get("image_tag", "") or image_tag or ""),
             environment_name=environment_name,
+            bound_inputs=bound_inputs,
             preview_slug=release_identity,
         )
 

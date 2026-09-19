@@ -48,6 +48,9 @@ from yoke_core.domain.deployment_run_candidate_containment import (
     UNDETERMINED,
     candidate_contains_commit,
 )
+from yoke_core.domain.deployment_run_project_sources import (
+    carrying_runs_for_project,
+)
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -113,7 +116,12 @@ def _project_id(conn: Any, item_id: int) -> Optional[int]:
 def _succeeded_flow_runs(
     conn: Any, *, project_id: int, flow: str, limit: int = 10
 ) -> list[dict[str, Any]]:
-    """Recent succeeded runs of this flow, newest first.
+    """Recent succeeded releases that shipped this project, newest first.
+
+    Two kinds ship it: runs of the item's own selected flow, and runs of
+    another project that bound this project's source and recorded the commit
+    they resolved. Each row carries the commit that release holds for THIS
+    project, so the containment walk asks one question of one repository.
 
     Newest first because the newest release contains the most merges, so the
     first rung of the containment walk answers almost every item. The limit
@@ -121,20 +129,32 @@ def _succeeded_flow_runs(
     """
     marker = _marker(conn)
     rows = conn.execute(
-        "SELECT id, COALESCE(release_lineage, '') AS release_lineage "
+        "SELECT id, COALESCE(release_lineage, '') AS release_lineage, "
+        "COALESCE(completed_at, '') AS completed_at "
         "FROM deployment_runs "
         f"WHERE project_id = {marker} AND flow = {marker} "
         "AND status = 'succeeded' "
-        f"ORDER BY created_at DESC, id DESC LIMIT {int(limit)}",
+        f"ORDER BY completed_at DESC, created_at DESC, id DESC LIMIT {int(limit)}",
         (int(project_id), flow),
     ).fetchall()
-    return [
+    releases = [
         {
             "id": str(_cell(row, "id", 0) or ""),
             "release_lineage": str(_cell(row, "release_lineage", 1) or ""),
+            "completed_at": str(_cell(row, "completed_at", 2) or ""),
         }
         for row in rows
     ]
+    releases.extend(
+        {
+            "id": run["id"],
+            "release_lineage": run["source_sha"],
+            "completed_at": run["completed_at"],
+        }
+        for run in carrying_runs_for_project(conn, int(project_id))
+    )
+    releases.sort(key=lambda release: release["completed_at"], reverse=True)
+    return releases[: int(limit)]
 
 
 def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:

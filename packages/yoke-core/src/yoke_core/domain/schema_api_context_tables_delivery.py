@@ -72,6 +72,7 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("completed_at", "TEXT"),
             ("created_by", "TEXT"),
             ("carried_work", "TEXT"),
+            ("bound_sources", "TEXT"),
             ("artifact_identity", "TEXT"),
             ("composition_resolution", "TEXT"),
             ("composition_frozen_at", "TEXT"),
@@ -98,7 +99,11 @@ DELIVERY_TABLES: dict[str, dict] = {
             "`carried_work` JSON object: `items` are attribution matches, "
             "`commits` are unresolved bare SHAs, and `derivation.reason` "
             "names an explicit empty result. It is independent of member "
-            "lifecycle. To "
+            "lifecycle. A run that binds another project's source through a "
+            "stage `input_bindings` records the commit it resolved for that "
+            "project in the `bound_sources` JSON object, so membership, "
+            "delivery and run detail all read one recorded commit per "
+            "project instead of re-resolving a branch. To "
             "approve an executing run whose current flow stage uses the "
             "`human-approval` executor, use `yoke deployment-runs approve "
             "RUN-ID [--note TEXT]`; the run stage is authoritative and Yoke "

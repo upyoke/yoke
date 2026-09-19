@@ -16,6 +16,7 @@ from typing import Optional
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, iso8601_now
 from yoke_core.domain.deployment_flow_state import require_flow_for_new_run
+from yoke_core.domain.deployment_run_bound_sources import copy_bound_sources
 from yoke_core.domain.deployment_run_insert import insert_run
 from yoke_core.domain.deployment_run_retry_membership import copy_frozen_members
 from yoke_core.domain.project_identity import resolve_project_id
@@ -126,6 +127,11 @@ def cmd_create_run(
             raise RuntimeError(f"deployment run ID {run_id} was claimed concurrently")
         if inherit_members_from:
             copy_frozen_members(conn, inherit_members_from, run_id)
+            # A retry is the same candidate, which includes every project's
+            # source commit and not only its own lineage. Re-resolving the
+            # bound branches here would let a retry ship a consumer revision
+            # the run it retries never carried.
+            copy_bound_sources(conn, inherit_members_from, run_id)
         conn.commit()
         return run_id
     finally:

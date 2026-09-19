@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.deployment_run_project_sources import carried_project_ids
 from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
 )
@@ -54,21 +55,26 @@ def _validate_deployment_run_item_state(
         return
     runtime, status = state
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    run = conn.execute(
-        f"SELECT project_id FROM deployment_runs WHERE id = {marker}",
-        (run_id,),
-    ).fetchone()
-    if run is None:
-        raise WorkflowItemBindingError(f"deployment run {run_id!r} not found")
     item = conn.execute(
         f"SELECT project_id FROM items WHERE id = {marker}",
         (int(item_id),),
     ).fetchone()
-    run_project = int(run["project_id"] if hasattr(run, "keys") else run[0])
     item_project = int(item["project_id"] if hasattr(item, "keys") else item[0])
-    if item_project != run_project:
+    # Membership follows the code, not the run's own project row: a run that
+    # binds another project's source ships that project's merges too, and the
+    # items inside them are delivered by this run or by nothing.
+    try:
+        carried = carried_project_ids(conn, run_id)
+    except LookupError as exc:
         raise WorkflowItemBindingError(
-            f"{render_item_ref(conn, item_id)} project does not match deployment run {run_id}"
+            f"deployment run {run_id!r} not found"
+        ) from exc
+    if item_project not in carried:
+        raise WorkflowItemBindingError(
+            f"{render_item_ref(conn, item_id)} belongs to a project deployment "
+            f"run {run_id} ships no source for; the run records a source commit "
+            "only for its own project and the projects its flow stages bind "
+            "through input_bindings"
         )
     if allow_completed and status == COMPLETED_ITEM_STAGE_ID:
         return

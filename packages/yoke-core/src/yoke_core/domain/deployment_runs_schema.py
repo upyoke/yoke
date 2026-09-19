@@ -44,6 +44,7 @@ RUN_FIELDS = (
     "completed_at",
     "created_by",
     "carried_work",
+    "bound_sources",
     "artifact_identity",
     "composition_resolution",
     "composition_frozen_at",
@@ -82,6 +83,7 @@ _RUN_OPTIONAL_FIELD_COLUMNS = {
     "completed_at": "completed_at",
     "created_by": "created_by",
     "carried_work": "carried_work",
+    "bound_sources": "bound_sources",
     "artifact_identity": "artifact_identity",
     "composition_resolution": "composition_resolution",
     "composition_frozen_at": "composition_frozen_at",
@@ -99,6 +101,7 @@ def _compose_run_select(
     completed_at: str,
     created_by: str,
     carried_work: str,
+    bound_sources: str,
     artifact_identity: str,
     composition_resolution: str,
     composition_frozen_at: str,
@@ -111,7 +114,8 @@ def _compose_run_select(
         f"{release_lineage}, "
         f"status, {current_stage}, created_at, "
         f"{started_at}, {completed_at}, "
-        f"{created_by}, {carried_work}, {artifact_identity}, "
+        f"{created_by}, {carried_work}, {bound_sources}, "
+        f"{artifact_identity}, "
         f"{composition_resolution}, {composition_frozen_at}, {requirement_snapshot}"
     )
 
@@ -131,6 +135,7 @@ _RUN_SELECT = _compose_run_select(
     completed_at="COALESCE(completed_at,'')",
     created_by="COALESCE(created_by,'')",
     carried_work="COALESCE(carried_work,'')",
+    bound_sources="COALESCE(bound_sources,'')",
     artifact_identity="COALESCE(artifact_identity,'')",
     composition_resolution="COALESCE(composition_resolution,'')",
     composition_frozen_at="COALESCE(composition_frozen_at,'')",
@@ -171,6 +176,9 @@ def _run_select(conn: Any) -> str:
         completed_at=_run_column_sql(conn, "completed_at", "COALESCE(completed_at,'')"),
         created_by=_run_column_sql(conn, "created_by", "COALESCE(created_by,'')"),
         carried_work=_run_column_sql(conn, "carried_work", "COALESCE(carried_work,'')"),
+        bound_sources=_run_column_sql(
+            conn, "bound_sources", "COALESCE(bound_sources,'')"
+        ),
         artifact_identity=_run_column_sql(
             conn, "artifact_identity", "COALESCE(artifact_identity,'')"
         ),
@@ -219,6 +227,7 @@ def _run_named_columns(conn: Any, alias: str = "dr") -> tuple[str, str]:
             col("completed_at"),
             col("created_by"),
             col("carried_work"),
+            col("bound_sources"),
             col("artifact_identity"),
             col("composition_resolution"),
             col("composition_frozen_at"),

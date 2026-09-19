@@ -16,6 +16,12 @@ share: validated project/flow/stage binding, validated delivery intent, an
 encoded requirement selection, and the membership row. ``cmd_add_item`` is the
 operator-facing adapter around it.
 
+Enrollment runs once per project the run ships code for — its own, plus
+every project a flow stage binds — each against that project's own recorded
+commit. Membership still names one item, and each item still belongs to
+exactly one project; what widens is which projects a run can close out, not
+what a membership row means.
+
 Two things enrollment deliberately does not do. It never invents attribution:
 an underivable carried set or an unattributed commit stays a refusal, because
 enrolling from a set nobody could compute would waive coverage silently. And
@@ -102,6 +108,17 @@ def admit_run_item(
     return render_item_ref(conn, int(item_id))
 
 
+def project_carried_sets(payload: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
+    """Every project answer inside one carried-work record, own project first.
+
+    Callers ask the same three questions of each — was it derivable, which
+    items did it carry, which commits stayed unattributed — so the shape is
+    walked rather than special-cased per project.
+    """
+    bound = payload.get("bound_projects") or []
+    return (payload, *(entry for entry in bound if isinstance(entry, Mapping)))
+
+
 def carried_enrollment_blocked(conn: Any, run_id: str) -> str:
     """Name why this run enrolls nothing, or ``''`` when it may enroll."""
     if not requires_release_admission(conn, run_id):
@@ -140,12 +157,14 @@ def enroll_carried_members(
     if not str(row[0] or "").strip():
         return ()
     payload = dict(carried_work or derive_carried_work_safely(conn, run_id))
-    derivation = payload.get("derivation") or {}
-    if not bool(derivation.get("contents_known")):
+    carried = sorted({
+        int(entry["item_id"])
+        for project_set in project_carried_sets(payload)
         # An underivable carried set names no items to enroll. The refusal
         # owner reports it, so silence here is deferral, not a waiver.
-        return ()
-    carried = sorted({int(entry["item_id"]) for entry in payload.get("items") or []})
+        if bool((project_set.get("derivation") or {}).get("contents_known"))
+        for entry in project_set.get("items") or []
+    })
     if not carried:
         return ()
     # Item workflow bindings first, then the run row: the same order
@@ -217,33 +236,37 @@ def carried_membership_refusal(
     if not lineage:
         return None
     payload = dict(carried_work or derive_carried_work_safely(conn, run_id))
-    derivation = payload.get("derivation") or {}
-    reason = str(derivation.get("reason") or "unknown")
-    if not bool(derivation.get("contents_known")):
-        if resolution:
-            return None
-        return (
-            f"deployment run {run_id!r} carried-code membership is {reason}; "
-            "repair attribution or record composition_resolution before execution"
-        )
-    bare = [str(value) for value in payload.get("commits") or []]
-    if bare and not resolution:
-        return (
-            f"deployment run {run_id!r} has {len(bare)} unattributed carried commit(s); "
-            "record composition_resolution explaining their membership treatment"
-        )
+    project_sets = project_carried_sets(payload)
+    if not resolution:
+        for project_set in project_sets:
+            derivation = project_set.get("derivation") or {}
+            reason = str(derivation.get("reason") or "unknown")
+            if not bool(derivation.get("contents_known")):
+                return (
+                    f"deployment run {run_id!r} carried-code membership is "
+                    f"{reason}; repair attribution or record "
+                    "composition_resolution before execution"
+                )
+            bare = [str(value) for value in project_set.get("commits") or []]
+            if bare:
+                return (
+                    f"deployment run {run_id!r} has {len(bare)} unattributed "
+                    "carried commit(s); record composition_resolution "
+                    "explaining their membership treatment"
+                )
     if inherited_frozen_membership(conn, run_id):
         # A retry delivers exactly what its predecessor froze. Re-scanning
         # against a baseline that has moved since would name items this
         # candidate never promised, so the inherited answer stands.
         return None
     members = set(member_ids(conn, run_id))
-    omitted = sorted(
+    omitted = sorted({
         int(entry["item_id"])
-        for entry in payload.get("items") or []
+        for project_set in project_sets
+        for entry in project_set.get("items") or []
         if int(entry["item_id"]) not in members
         and item_requires_release_membership(conn, int(entry["item_id"]))
-    )
+    })
     if not omitted:
         return None
     labels = ", ".join(
@@ -264,6 +287,7 @@ def carried_membership_refusal(
 
 __all__ = [
     "admit_run_item",
+    "project_carried_sets",
     "carried_enrollment_blocked",
     "carried_membership_refusal",
     "describe_enrollment",
