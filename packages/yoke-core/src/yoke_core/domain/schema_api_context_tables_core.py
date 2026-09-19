@@ -205,7 +205,12 @@ CORE_TABLES: dict[str, dict] = {
             "DESC LIMIT 10`. Python writer/reader: "
             "yoke_core.domain.item_status_transitions "
             "(record_item_transition / record_task_transition / "
-            "latest_transition)."
+            "latest_transition). It is also where an item's FINISHING "
+            "moment comes from — the transition whose to_status is the "
+            "status the item still holds — because items has no "
+            "finished-at column and merged_at dates the code landing, "
+            "not the close-out that can trail it by a day: "
+            "yoke_core.domain.item_finished_times."
         ),
     },
     "item_activity_days": {

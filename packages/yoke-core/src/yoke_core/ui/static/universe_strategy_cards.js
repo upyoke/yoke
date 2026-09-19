@@ -24,7 +24,6 @@ export const STANDING_DOC_ORDER = [
 
 const STANDING_DOCS = new Set(STANDING_DOC_ORDER);
 const DRAWN_STATES = new Set(["locked", "deferred", "reference"]);
-const TERMINAL_ITEM_STATES = new Set(["done", "cancelled", "stopped"]);
 const DAY_MS = 86_400_000;
 
 export function isStandingDoc(doc) {
@@ -47,12 +46,9 @@ function staleTone(updatedAt, now = Date.now()) {
 export function liveDocumentClaim(doc) {
   const kind = String(doc.execution_owner_kind || "");
   if (!kind) return null;
-  if (
-    kind === "item"
-    && TERMINAL_ITEM_STATES.has(
-      String(doc.execution_item_status || "").toLowerCase(),
-    )
-  ) return null;
+  // An item that is over is not still executing this doc. The surface read
+  // resolves that against the item's own pinned workflow definition.
+  if (kind === "item" && doc.execution_item_terminal) return null;
   return { kind, doc };
 }
 

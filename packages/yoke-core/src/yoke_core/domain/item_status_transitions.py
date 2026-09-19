@@ -47,6 +47,14 @@ _INDEX_DDL = (
     "ON item_status_transitions(item_id, created_at)"
 )
 
+#: One item's history reads by item; "what finished lately" reads the other
+#: way round — every item, one recent slice of time — and the composite index
+#: above cannot serve that without scanning the table.
+_WINDOW_INDEX_DDL = (
+    "CREATE INDEX IF NOT EXISTS idx_item_status_transitions_created "
+    "ON item_status_transitions(created_at)"
+)
+
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -61,6 +69,7 @@ def ensure_schema(conn: Any) -> None:
     ddl = _TABLE_DDL_POSTGRES if db_backend.connection_is_postgres(conn) else _TABLE_DDL
     conn.execute(ddl)
     conn.execute(_INDEX_DDL)
+    conn.execute(_WINDOW_INDEX_DDL)
     conn.commit()
 
 

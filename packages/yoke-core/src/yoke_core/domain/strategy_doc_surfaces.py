@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.actor_render import render_actor_name
+from yoke_core.domain.item_terminal_resources import item_is_terminal
 from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain.strategy_doc_history import list_doc_revisions
 from yoke_core.domain.strategy_doc_presentation import summary_from_row
@@ -115,6 +116,11 @@ def list_strategy_surfaces(conn: Any, project_id: int) -> list[dict[str, Any]]:
             "execution_item_id": values["execution_item_id"],
             "execution_item_title": values["execution_item_title"],
             "execution_item_status": values["execution_item_status"],
+            # Resolved here, from the item's own pinned definition, so the
+            # card does not carry a terminal-status list of its own.
+            "execution_item_terminal": bool(
+                item_is_terminal(conn, int(values["execution_item_id"]))
+            ) if values["execution_item_id"] is not None else False,
             "execution_item_ref": (
                 format_item_ref(
                     values["project_slug"],
