@@ -36,7 +36,7 @@ from yoke_core.domain.deploy_pipeline_environment import watch_deploy_command
 from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
 )
-from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.schema_common import _table_exists
 
 
 def approval_policy_for_posture(
