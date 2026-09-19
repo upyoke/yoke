@@ -101,7 +101,7 @@ created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline
 started_at TEXT -- when execution actually began
 completed_at TEXT
 created_by TEXT -- 'operator' or 'system'
-carried_work TEXT -- → JSONB on Postgres; resolved items and unresolved commit SHAs
+carried_work TEXT -- → JSONB on Postgres; resolved items, release output, and unresolved commit SHAs
 artifact_identity TEXT -- optional immutable build artifact identity, distinct from release_lineage
 composition_resolution TEXT -- explicit first-baseline attribution resolution
 composition_frozen_at TEXT -- immutable admission-freeze timestamp
@@ -110,13 +110,9 @@ requirement_snapshot TEXT -- full flow-level QA plan/case content frozen at star
 
 A run copies the internal `target_tier` and `target_environment_id` from its flow. Operators select or override a persistent target only with `--environment <registered-name>`; numeric keys are never accepted or emitted by the operator surface. Setting `status=succeeded` stamps `environments.last_deployed_at` on the referenced row.
 
-Successful completion also compares this run's immutable `release_lineage`
-with the previous succeeded run for the same project and target environment.
-The resulting `carried_work` object keeps item matches under `items` and
-unresolved first-parent commits as bare SHAs under `commits`. Recording it
-changes no lifecycle state; historical runs remain unset and recording is
-forward-only. The record is evidence, not membership — enrolling from it is a
-separate step, described under release admission below.
+Successful completion also compares this run's immutable `release_lineage` with the previous succeeded run for the same project and target environment. The resulting `carried_work` object keeps item matches under `items`, commits a release's own automation wrote under `release_output`, and genuinely unattributed first-parent commits as bare SHAs under `commits`. Recording it changes no lifecycle state; historical runs remain unset and recording is forward-only. The record is evidence, not membership — enrolling from it is a separate step, described under release admission below.
+
+**A release writes commits as well as shipping them.** A promotion that rewrites a version pin pushes a real commit no backlog item authored, and it lands in the range the next release reads. The run that produced it records it — `deployment_runs.release_output.record` (CLI: `yoke deployment-runs release-output record RUN-ID --project P [--commit REF]`), stored per project inside that run's own `bound_sources` — and attribution reads that record instead of guessing from an author name or a file path. Item attribution is tried first and always wins; the record is consulted only for a commit no item claimed, and each `release_output` entry names the producing `run_id` and the recorded `reason`. So a range whose only unexplained commit is recorded release output composes with no `composition_resolution`, while a real-code commit nobody attributed refuses exactly as before.
 
 The comparison runs wherever the completion does. A machine holding the
 project's registered checkout reads git directly; anywhere else — including a

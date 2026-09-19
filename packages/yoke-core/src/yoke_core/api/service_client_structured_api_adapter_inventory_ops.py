@@ -74,6 +74,12 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke deployment-runs carried-work repair RUN-ID",
     ),
     AdapterEntry(
+        function_id="deployment_runs.release_output.record",
+        cli_invocation=(
+            "yoke deployment-runs release-output record RUN-ID --project P"
+        ),
+    ),
+    AdapterEntry(
         function_id="deployment_runs.create",
         cli_invocation="yoke deployment-runs create",
     ),

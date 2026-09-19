@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+import yaml
 from yoke_core.tools._impacted_contract_tests import (
     HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS,
     contract_selection_for,
@@ -20,6 +21,22 @@ def _platform_workflow() -> Path:
 
 def _text() -> str:
     return WORKFLOW.read_text(encoding="utf-8")
+
+
+def _step(marker: str) -> str:
+    """One named step's own body, not everything that follows it.
+
+    The next step begins at its own ``- name:`` or at the comment block
+    introducing it, so both are boundaries — cutting only at ``- name:``
+    would read the following step's rationale as part of this one.
+    """
+    body = _text().split(marker, 1)[1]
+    ends = [
+        offset
+        for offset in (body.find("\n      - name: "), body.find("\n\n      # "))
+        if offset >= 0
+    ]
+    return body[: min(ends)] if ends else body
 
 
 def test_bridge_is_project_local_and_correlation_visible() -> None:
@@ -130,9 +147,7 @@ def test_bridge_hands_yoke_surfaces_the_registered_environment_name() -> None:
     preflight = text.split(
         "- name: Verify release migration history before tag", 1
     )[1].split("      - name: ", 1)[0]
-    record = text.split(
-        "- name: Record desired pin after successful Platform release", 1
-    )[1]
+    record = _step("- name: Record desired pin after successful Platform release")
 
     for step in (preflight, record):
         assert "TARGET_ENVIRONMENT: ${{ inputs.target_environment }}" in step
@@ -156,7 +171,7 @@ def test_bridge_records_pin_only_after_terminal_platform_success() -> None:
     text = _text()
     authority_marker = "- name: Switch to scoped Platform promotion authority"
     record_marker = "- name: Record desired pin after successful Platform release"
-    record = text.split(record_marker, 1)[1]
+    record = _step(record_marker)
 
     assert text.index(authority_marker) < text.index(record_marker)
     assert text.rindex("yoke github-actions wait-run") < text.index(record_marker)
@@ -168,13 +183,57 @@ def test_bridge_records_pin_only_after_terminal_platform_success() -> None:
     assert '--pin "$VERSION"' in record
     assert 'test -n "$receipt"' in record
     assert "continue-on-error" not in record
-    assert text.rstrip().endswith('echo "Desired release pin receipt: $receipt"')
+    assert record.rstrip().endswith('echo "Desired release pin receipt: $receipt"')
+
+
+def test_bridge_records_the_pin_commit_its_own_promotion_produced() -> None:
+    """The commit this release wrote is attributed by the run that wrote it.
+
+    Promotion pushes the pin materialization onto the consumer's bound
+    branch, and nothing else ever will: skip the record and the next release
+    reads an unattributed commit and refuses to compose. The commit itself is
+    resolved server-side from the branch the run already bound, so the bridge
+    names a project and never a repository ref.
+    """
+    text = _text()
+    record_marker = "- name: Record the pin commit this release produced"
+    produced = _step(record_marker)
+
+    assert text.index(
+        "- name: Record desired pin after successful Platform release"
+    ) < text.index(record_marker)
+    assert "DEPLOYMENT_RUN_ID: ${{ inputs.deployment_run_id }}" in produced
+    assert "yoke deployment-runs release-output record" in produced
+    assert '"$DEPLOYMENT_RUN_ID"' in produced
+    assert "--project platform" in produced
+    # The branch is the control plane's own recorded binding, not a literal.
+    assert "--ref" not in produced
+    assert "--commit <the pin commit" in produced  # recovery text only
+    assert "--commit $" not in produced
+
+
+def test_a_failed_release_output_record_annotates_rather_than_fails_release() -> None:
+    """Bookkeeping that runs after shipping must not fail a shipped release.
+
+    This step executes once promotion has already delivered. Failing it would
+    report a release that genuinely shipped as failed and invite a re-run of a
+    completed production deploy — worse than the gap it would be reporting,
+    and unnecessary, because the next release's composition check refuses by
+    name anyway. So the failure is an annotation a person reads, carrying the
+    recovery command, and the step leaves the release succeeding.
+    """
+    produced = _step("- name: Record the pin commit this release produced")
+
+    assert "::error title=release_output_unrecorded::" in produced
+    assert "deployment-runs release-output record $DEPLOYMENT_RUN_ID" in produced
+    # Nothing in this step may end the job: not an explicit failure, and not a
+    # bare command whose own status would.
+    assert "exit 1" not in produced
+    assert "continue-on-error" not in produced
 
 
 def test_bridge_writer_accepts_no_environment_id_or_settings_path() -> None:
-    record = _text().split(
-        "- name: Record desired pin after successful Platform release", 1
-    )[1]
+    record = _step("- name: Record desired pin after successful Platform release")
 
     assert "environment-settings merge" not in record
     assert "--environment-id" not in record
@@ -200,3 +259,30 @@ def test_cross_repo_workflows_have_one_narrow_release_pin_writer() -> None:
         "YOKE_DEPLOY_API_TOKEN",
     ):
         assert forbidden not in platform_workflow
+
+
+def test_the_bridge_is_parseable_yaml_with_intact_step_bodies() -> None:
+    """A workflow that stopped being YAML is broken before any step runs.
+
+    Every other check here reads the file as text, which a shell continuation
+    left flush against the margin passes happily — while YAML has already
+    ended the step's block scalar at that line and started reading the
+    remainder as top-level keys. Parsing it here puts the failure in the suite
+    that owns this workflow, rather than in whichever unrelated shard happens
+    to load it next.
+    """
+    document = yaml.safe_load(_text())
+    steps = next(iter(document["jobs"].values()))["steps"]
+    named = {str(step.get("name") or ""): step for step in steps}
+
+    assert "Record the pin commit this release produced" in named
+    for name, step in named.items():
+        body = step.get("run")
+        if body is None:
+            continue
+        # A continuation whose next line is unindented is the exact break YAML
+        # cannot see coming, so the parsed body is what gets asserted on.
+        assert not any(
+            line.startswith(("::", "--")) and not line.startswith("--project")
+            for line in body.splitlines()
+        ), f"step {name!r} has a run line that reads as a severed continuation"

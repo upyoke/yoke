@@ -22,6 +22,9 @@ from yoke_cli.commands.adapters.deployment_composed import (
 from yoke_cli.commands.adapters.deployment_run_carried_work_repair import (
     DEPLOYMENT_RUNS_CARRIED_WORK_REPAIR_USAGE,
 )
+from yoke_cli.commands.adapters.deployment_run_release_output import (
+    DEPLOYMENT_RUNS_RELEASE_OUTPUT_RECORD_USAGE,
+)
 from yoke_cli.commands.adapters.deployment_run_create import (
     DEPLOYMENT_RUNS_CREATE_USAGE,
 )
@@ -51,6 +54,9 @@ DEPLOYMENT_USAGE = {
     "deployment_flows.stages": DEPLOYMENT_FLOWS_STAGES_USAGE,
     "deployment_runs.carried_work.repair": (
         DEPLOYMENT_RUNS_CARRIED_WORK_REPAIR_USAGE
+    ),
+    "deployment_runs.release_output.record": (
+        DEPLOYMENT_RUNS_RELEASE_OUTPUT_RECORD_USAGE
     ),
     "deployment_runs.create": DEPLOYMENT_RUNS_CREATE_USAGE,
     "deployment_runs.add_item": ADD_ITEM_USAGE,

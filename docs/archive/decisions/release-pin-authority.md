@@ -41,7 +41,16 @@ fix look like a pin merge conflict.
    and neither identity receives generic project-settings administration. The
    outer job remains failed until the record command returns a non-empty
    receipt; Platform's inner promotion contains no control-plane writer.
-4. `yoke release-pin verify` compares the desired-pin leaf to the
+4. Promotion's materialization push is a commit the release itself wrote,
+   and it lands in the range the *next* release's composition validation
+   reads. Nothing else can attribute it, so the bridge records it against the
+   run that produced it — `yoke deployment-runs release-output record
+   <run-id> --project platform` — immediately after the pin receipt. The
+   commit is resolved server-side from the branch that run already bound, so
+   no repository ref is named in the workflow. Skip this and every following
+   release refuses to compose until somebody records a
+   `composition_resolution` by hand.
+5. `yoke release-pin verify` compares the desired-pin leaf to the
    environment's configured health probe without deploying. Platform owns the
    two verification coordinates in its capability: `probe_url_path` is
    `release.health_probe_url`, and `served_pin_response_path` is

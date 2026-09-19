@@ -5,6 +5,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from yoke_core.tools import _impacted_ci_only_contract_floor as _ci_only
+from yoke_core.tools._impacted_contract_tests_hosted_release import (
+    HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS,
+    HOSTED_RELEASE_WORKFLOW_PATHS,
+)
 from yoke_core.tools._impacted_contract_tests_path_claims import PATH_CLAIM_CONTRACTS
 from yoke_core.tools._impacted_contract_prefix_families import (
     AGENT_SKILL_CONTRACT_TESTS,
@@ -160,11 +164,6 @@ HOOK_GUARD_POLICY_SOURCE_PATHS = frozenset(
 
 HOOK_GUARD_POLICY_TESTS = ("runtime/api/domain/test_lint_config.py",)
 
-HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS = (
-    "runtime/api/domain/test_platform_release_bridge_workflow.py",
-    "runtime/api/domain/test_release_notes_workflow.py",
-)
-
 CURSOR_SESSION_IDENTITY_DISPATCH_TESTS = (
     "runtime/harness/cursor/test_session_dispatch_cursor.py",
 )
@@ -178,12 +177,7 @@ PATH_CONTRACT_TESTS = (
     ),
     (
         "hosted_release_workflow_contract",
-        frozenset(
-            {
-                ".github/workflows/platform-release-bridge.yml",
-                ".github/workflows/yoke-release.yml",
-            }
-        ),
+        HOSTED_RELEASE_WORKFLOW_PATHS,
         HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS,
     ),
     (

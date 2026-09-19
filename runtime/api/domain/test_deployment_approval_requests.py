@@ -113,15 +113,13 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
         "shipping": {
             "release_lineage": "release-proof-lineage",
             "target_environment": "prod",
-            "summary": (
-                "1 item(s) ship to prod under release lineage release-proof-lineage."
-            ),
+            "summary": "1 item(s) ship to prod under release lineage release-proof-lineage.",
         },
         # What the release carries. This run has no predecessor, and the
         # snapshot says so rather than implying an empty release.
         "stage_position": {"index": 0, "total": 2, "remaining": ["release"]},
         "carried": {
-            "schema": 2,
+            "schema": 3,
             "derivation": {
                 # No predecessor means the comparison could not run, a
                 # different fact from a release that carries nothing.
@@ -139,8 +137,10 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
             },
             "items": [],
             "commits": [],
+            # Each empty list is an answer, never a missing key: no release
+            # output was attributed, and no other project was bound.
+            "release_output": [],
             "warnings": [],
-            # Binding no other project is an empty list, not a missing key.
             "bound_projects": [],
         },
         # Every stage of this flow runs an allowlisted runner, so nothing in
