@@ -144,11 +144,10 @@ still failed.
 Completion gates ask whether the deployed candidate **contains** an item's recorded
 merge, not whether it equals it — a batch has one tip, so equality could only ever
 complete a single-item release. Two questions in order: ancestry, read from the
-candidate's own side so a long history still costs one small page, then content,
-since work that reached the base under other commit ids adds nothing while failing
-every ancestry test (the merge boundary's own "this lane adds nothing", asked of
-the same source). Both run against every source the host offers; an unreadable
-comparison names each.
+candidate's own side so a long history still costs one small page, then content, since
+work that reached the base under other commit ids adds nothing while failing every
+ancestry test (the merge boundary's own "this lane adds nothing", asked of the same
+source). Both run against every source the host offers; an unreadable one names each.
 
 Definition-schema-v2 runs freeze admission before execution. The candidate
 `release_lineage` must be a full commit SHA; every nonterminal delivery-ready
