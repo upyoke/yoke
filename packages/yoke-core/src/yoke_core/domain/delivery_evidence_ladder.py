@@ -24,6 +24,17 @@ ship it; the commit it recorded for THIS project is then the candidate to
 ask about, and the run's own lineage — which names nothing in this
 repository — is not.
 
+An item may also store no flow at all. Some workflows never record one, and
+they offer no registered way to set one after filing, so a flow read is not
+a question that item can ever answer — yet a release in its own project may
+already have carried its merge to a persistent environment. Reading "no
+stored flow" as "not delivered" strands that item at its release wait with
+no way out. So the containment walk stands in for the flow: a succeeded run
+of this item's own project, targeting a persistent environment, whose
+candidate contains the merge, delivers it. A run preview does not — nothing
+persists after it — and neither does a release of some other project, which
+is a different project's delivery however it resolved this source.
+
 So the ladder is membership first — it is cheap, local, and the common case
 — then containment. An unreadable containment source is ``undetermined``,
 never ``not delivered``: a reader that could not look has learned nothing,
@@ -57,8 +68,12 @@ from yoke_core.domain.deployment_run_candidate_containment import (
 from yoke_core.domain.deployment_run_project_sources import (
     carrying_runs_for_project,
 )
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 
+
+#: The ``deployment_runs.target_tier`` that outlives the run. Its counterpart,
+#: ``ephemeral``, is a per-run preview that delivers nothing durable.
+PERSISTENT_TARGET_TIER = "persistent"
 
 DISCHARGED = "discharged"
 NOT_DISCHARGED = "not_discharged"
@@ -164,6 +179,37 @@ def _succeeded_flow_runs(
     return releases[: int(limit)]
 
 
+def _succeeded_persistent_runs(
+    conn: Any, *, project_id: int, limit: int = 10
+) -> list[dict[str, Any]]:
+    """Recent succeeded releases of this project to a persistent environment.
+
+    What a flow-less item's containment walk asks instead of "runs of the
+    selected flow": any flow of the item's own project qualifies, so long as
+    the run reached a destination that still exists after it.
+    """
+    if not _column_exists(conn, "deployment_runs", "target_tier"):
+        return []
+    marker = _marker(conn)
+    rows = conn.execute(
+        "SELECT id, COALESCE(release_lineage, '') AS release_lineage, "
+        "COALESCE(completed_at, '') AS completed_at "
+        "FROM deployment_runs "
+        f"WHERE project_id = {marker} AND status = 'succeeded' "
+        f"AND target_tier = {marker} "
+        f"ORDER BY completed_at DESC, created_at DESC, id DESC LIMIT {int(limit)}",
+        (int(project_id), PERSISTENT_TARGET_TIER),
+    ).fetchall()
+    return [
+        {
+            "id": str(_cell(row, "id", 0) or ""),
+            "release_lineage": str(_cell(row, "release_lineage", 1) or ""),
+            "completed_at": str(_cell(row, "completed_at", 2) or ""),
+        }
+        for row in rows
+    ]
+
+
 def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
     """Whether a succeeded release has delivered this item, and on what."""
     required = ("deployment_runs", "deployment_run_items")
@@ -173,16 +219,10 @@ def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
             reason="this control plane records no deployment runs",
             recovery="Run the selected project delivery flow to completion.",
         )
+    # An item with no stored flow has no membership rung to stand on —
+    # ``latest_completion_run`` keys off that same flow — so its answer comes
+    # from the containment walk below.
     flow = item_completion_flow(conn, int(item_id))
-    if not flow:
-        return DeliveryEvidence(
-            NOT_DISCHARGED,
-            reason="the item selects no completion deployment flow",
-            recovery=(
-                "Set the item's deployment flow, or close it out through the "
-                "merge-only delivery rung."
-            ),
-        )
 
     member = latest_completion_run(conn, int(item_id))
     if member is not None and str(member["status"]) == "succeeded":
@@ -202,10 +242,15 @@ def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
     merge_sha = item_merge_identity(conn, int(item_id))
     project_id = _project_id(conn, int(item_id))
     if not merge_sha or project_id is None:
-        return _member_shaped_answer(member)
+        return _member_shaped_answer(member, flow=flow)
 
+    releases = (
+        _succeeded_flow_runs(conn, project_id=project_id, flow=flow)
+        if flow
+        else _succeeded_persistent_runs(conn, project_id=project_id)
+    )
     undetermined: Optional[DeliveryEvidence] = None
-    for run in _succeeded_flow_runs(conn, project_id=project_id, flow=flow):
+    for run in releases:
         lineage = run["release_lineage"]
         if not lineage:
             continue
@@ -240,11 +285,29 @@ def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
             )
     if undetermined is not None:
         return undetermined
-    return _member_shaped_answer(member)
+    return _member_shaped_answer(member, flow=flow)
 
 
-def _member_shaped_answer(member: Optional[dict[str, Any]]) -> DeliveryEvidence:
+def _member_shaped_answer(
+    member: Optional[dict[str, Any]],
+    *,
+    flow: str = "",
+) -> DeliveryEvidence:
     """The honest answer when no release contains this item's merge."""
+    if member is None and not flow:
+        # Say which question was asked, so the refusal is not read as the
+        # old dead end of "this item selects no flow, and never will".
+        return DeliveryEvidence(
+            NOT_DISCHARGED,
+            reason=(
+                "this item stores no deployment flow, and no succeeded run of "
+                "its project to a persistent environment carries this merge"
+            ),
+            recovery=(
+                "Deliver this merge through a run of this project to a "
+                "persistent environment; any flow's run counts."
+            ),
+        )
     if member is None:
         return DeliveryEvidence(
             NOT_DISCHARGED,
@@ -269,6 +332,7 @@ def _member_shaped_answer(member: Optional[dict[str, Any]]) -> DeliveryEvidence:
 __all__ = [
     "DISCHARGED",
     "NOT_DISCHARGED",
+    "PERSISTENT_TARGET_TIER",
     "SOURCE_CONTAINMENT",
     "SOURCE_MEMBERSHIP",
     "UNDETERMINED_DELIVERY",

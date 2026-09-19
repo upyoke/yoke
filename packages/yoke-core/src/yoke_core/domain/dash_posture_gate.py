@@ -260,8 +260,12 @@ def _deployment_gate(
             (
                 f"Prepared deployment run {row['id']} has not been executed."
                 if prepared
-                else f"No succeeded run of the selected flow delivers this "
-                f"item ({evidence_verdict.reason})."
+                # The reason names which rung was read — the selected flow's
+                # runs, or, for an item that stores no flow, its project's
+                # persistent-environment runs — so the headline does not
+                # claim a flow the item may not have.
+                else f"No succeeded run delivers this item "
+                f"({evidence_verdict.reason})."
             ),
             (
                 f"Execute it: {watch_deploy_command(str(row['id']))}"
