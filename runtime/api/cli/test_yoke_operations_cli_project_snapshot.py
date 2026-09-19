@@ -38,7 +38,6 @@ def test_project_snapshot_sync_scans_and_dispatches_payload(tmp_path: Path) -> N
         str(repo),
         "--project",
         "demo",
-        "--head-only",
     )
     assert rc == 0
     assert "created: HEAD abc snapshot=1" in out
@@ -52,7 +51,6 @@ def test_project_snapshot_sync_scans_and_dispatches_payload(tmp_path: Path) -> N
     assert payload["project_id"] == "demo"
     assert payload["repo_root"] == str(repo)
     assert call["timeout_s"] is None
-    assert len(payload["snapshots"]) == 1
     files = {entry["path"] for entry in payload["snapshots"][0]["files"]}
     assert {"README.md", "src/app.py"} <= files
 

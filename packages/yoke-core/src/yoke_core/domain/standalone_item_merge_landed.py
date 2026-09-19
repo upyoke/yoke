@@ -64,22 +64,22 @@ class LandedLane:
     source: str = ""
 
 
-def _norm(sha: str) -> str:
+def norm(sha: str) -> str:
     return sha.strip().lower()
 
 
-def _recorded_landing(
+def recorded_landing(
     receipt: Optional[receipts.MergeReceipt],
     repo_root: str,
     target: str,
 ) -> tuple[set[str], str]:
     if receipt is None or not receipt.merge_sha:
         return set(), ""
-    merge_sha = _norm(receipt.merge_sha)
+    merge_sha = norm(receipt.merge_sha)
     containing = git.containing_ref(repo_root, merge_sha, target)
     if not containing:
         return set(), ""
-    return {sha for sha in (_norm(receipt.commit_sha), merge_sha) if sha}, containing
+    return {sha for sha in (norm(receipt.commit_sha), merge_sha) if sha}, containing
 
 
 def current_candidate(repo_root: str, branch: str, recorded_head: str = "") -> str:
@@ -89,7 +89,7 @@ def current_candidate(repo_root: str, branch: str, recorded_head: str = "") -> s
     return (recorded_head or "").strip()
 
 
-def _replayed_base_ref(
+def replayed_base_ref(
     repo_root: str,
     head: str,
     target: str,
@@ -134,81 +134,13 @@ def _replayed_base_ref(
     return base if git.unlanded_commits(repo_root, head, base) == () else ""
 
 
-def stale_unlanded_work(
-    *,
-    item_id: int,
-    branch: str,
-    target: str,
-    repo_root: str,
-    recorded_head: str = "",
-    stale_mismatch_is_foreign: bool = True,
-) -> str:
-    """Why this close-out must not run, or empty when the landing still matches.
-
-    A target-contained receipt merge SHA proves the landing. Its source commit
-    can match squash re-entry; any other uncontained head is new work.
-
-    ``stale_mismatch_is_foreign`` selects whether a mismatch is close-out's
-    foreign/stale refusal. ``True`` is the safe default — including when no
-    release stage is declared, when the definition could not be read, and
-    when the item is already closed out — and every close-out caller that
-    omits it keeps that existing refusal. A caller that has already
-    confirmed THIS same item still owns a declared release wait (the item's
-    own next merge, including while it waits at that stage) passes
-    ``False`` so that mismatch is not read as someone else's foreign work
-    on a reused branch name. It never changes what counts as a match; it
-    only lets a genuine mismatch pass when the item's own state already
-    accounts for it.
-    """
-    current = current_candidate(repo_root, branch, recorded_head)
-    receipt = receipts.load(item_id, branch, target)
-    identities, _ = _recorded_landing(receipt, repo_root, target)
-    if not current or not identities:
-        return ""
-    if _norm(current) in identities:
-        return ""
-    if git.containing_ref(repo_root, current, target):
-        return ""
-    if _replayed_base_ref(repo_root, current, target, receipt):
-        return ""
-    if not stale_mismatch_is_foreign:
-        return ""
-    named = ", ".join(sorted(sha[:12] for sha in identities))
-    return (
-        f"branch {branch!r} head {current[:12]} is past its recorded landing "
-        f"({named})"
-        f"{_conflict_clause(repo_root, current, target)}. Same-item "
-        "correction continues through a declared "
-        "release wait on the same item and lane; this refusal preserves "
-        "the lane when the item is already closed out, or when the pinned "
-        "workflow declares no release wait. Do not prescribe a stage "
-        "change or reset unlanded corrections. Close-out will not declare "
-        "them delivered or clean this lane"
-    )
-
-
-def _conflict_clause(repo_root: str, head: str, target: str) -> str:
-    """Name the paths that stop this lane converging, when that is why.
-
-    Without it the refusal says only that the head is not the landing,
-    which reads as bookkeeping drift and invites a retry. The lane may
-    instead carry a version of a file the base has since moved past, and
-    that is a rebase, not a convergence — so say which files, because the
-    owner cannot see it from the shas.
-    """
-    base = git.current_base_ref(repo_root, target)
-    if not base:
-        return ""
-    paths = git.lane_merge_conflicts(repo_root, head, base)
-    if not paths:
-        return ""
-    shown = ", ".join(paths[:5])
-    more = f" (and {len(paths) - 5} more)" if len(paths) > 5 else ""
-    return (
-        f", and merging it into {base} conflicts in {shown}{more} — the base "
-        "moved past this lane there, so it needs a rebase rather than a "
-        "convergence"
-    )
+def base_holds(
+    repo_root: str, candidate: str, target: str, receipt: Optional[receipts.MergeReceipt]
+) -> bool:
+    """Whether the base already carries ``candidate``, by sha or by content."""
+    if git.containing_ref(repo_root, candidate, target):
+        return True
+    return bool(replayed_base_ref(repo_root, candidate, target, receipt))
 
 
 def _describe(
@@ -270,18 +202,34 @@ def landed_lane(
 
     The live branch is authoritative unless a target-contained receipt proves
     its matching squash landing, or the base branch already carries every
-    patch the branch holds. Once the branch is gone, the recorded head and
-    receipt answer from the same target-containment proof.
+    patch the branch holds. Once the branch is gone, the recorded lane head
+    answers in its place under the same rule — and answers alone: only when
+    no candidate was ever recorded does the receipt's own shas decide, and
+    that is a lane with nothing else to be asked about.
+
+    A recorded candidate the base does not contain, by sha or by content,
+    means this lane still has work to land whatever an earlier landing on
+    the same branch name recorded.
     """
     receipt = receipts.load(item_id, branch, target)
-    identities, receipt_ref = _recorded_landing(receipt, repo_root, target)
+    identities, receipt_ref = recorded_landing(receipt, repo_root, target)
+    recorded = str(recorded_head or "").strip()
+    if recorded and not base_holds(repo_root, recorded, target, receipt):
+        # The control plane's own candidate -- what the gate verified and
+        # what was published -- is not on the base by sha or by content, so
+        # this lane still has something to land. Asked before the local
+        # branch, because a branch NAME outlives the landing it had: a stale
+        # local ref sitting on an earlier merge of the same name otherwise
+        # matched the recorded identities and converged the new candidate
+        # onto an older merge that never carried it.
+        return None
     if git.branch_exists(repo_root, branch):
         head = git.head_of(repo_root, branch)
         containing = git.containing_ref(repo_root, head, target)
         replayed = (
-            "" if containing else _replayed_base_ref(repo_root, head, target, receipt)
+            "" if containing else replayed_base_ref(repo_root, head, target, receipt)
         )
-        if not containing and not replayed and _norm(head) not in identities:
+        if not containing and not replayed and norm(head) not in identities:
             return None
         return _describe(
             item_id=item_id,
@@ -299,11 +247,40 @@ def landed_lane(
                 else "merge receipt"
             ),
         )
-    candidates = [(recorded_head, "recorded lane head")]
-    if receipt is not None:
-        candidates.append((receipt.commit_sha, "merge receipt"))
-        candidates.append((receipt.merge_sha, "merge receipt"))
-    for candidate, source in candidates:
+    head = str(recorded_head or "").strip()
+    if head:
+        # The recorded candidate answers on its own, exactly as the live
+        # branch does. Falling past it to the receipt's older shas is what
+        # let a branch name that had landed before report a NEW candidate as
+        # already merged: the item then carried an evidence record naming a
+        # merge that predates the work it describes, and advanced on a
+        # candidate nothing had landed.
+        containing = git.containing_ref(repo_root, head, target)
+        replayed = (
+            "" if containing else replayed_base_ref(repo_root, head, target, receipt)
+        )
+        if not containing and not replayed:
+            return None
+        return _describe(
+            item_id=item_id,
+            branch=branch,
+            target=target,
+            repo_root=repo_root,
+            project=project,
+            landed_sha=head,
+            containing=containing or replayed,
+            source=(
+                "recorded lane head"
+                if containing
+                else "rebased copy of the landed lane"
+            ),
+        )
+    if receipt is None:
+        return None
+    for candidate, source in (
+        (receipt.commit_sha, "merge receipt"),
+        (receipt.merge_sha, "merge receipt"),
+    ):
         containing = git.containing_ref(repo_root, candidate, target)
         if containing:
             return _describe(
@@ -321,7 +298,10 @@ def landed_lane(
 
 __all__ = [
     "LandedLane",
+    "base_holds",
+    "norm",
     "current_candidate",
     "landed_lane",
-    "stale_unlanded_work",
+    "recorded_landing",
+    "replayed_base_ref",
 ]

@@ -18,6 +18,7 @@ from yoke_core.domain import standalone_item_merge_close_out_report as report
 from yoke_core.domain import standalone_item_merge_converge as converge
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
+from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain import standalone_item_merge_release_continuation as release_flow
 from yoke_core.domain.merge_review_readiness import review_readiness_refusal
@@ -153,7 +154,7 @@ def run(argv: List[str]) -> int:
     _ensure_usable_cwd(repo_root, lane_path(item))
     project = str((item.get("project") or {}).get("slug") or "yoke")
     recorded_head = str((merge_source_lane(item) or {}).get("commit_sha") or "")
-    stale = landed.stale_unlanded_work(
+    stale = stale_lane.stale_unlanded_work(
         item_id=item_id,
         branch=branch,
         target=target,

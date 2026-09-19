@@ -38,6 +38,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain import backlog_update_op
 from yoke_core.domain import item_merge_receipt_document as receipt_doc
 from yoke_core.domain import standalone_item_merge_landed as landed
+from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
 from yoke_core.domain.conflict_survey import (
     record_conflict_survey,
     survey_conflicts,
@@ -259,7 +260,7 @@ def test_merge_a_then_real_qa_rejection_then_merge_b(
     b_commit = _git(repo, "rev-parse", BRANCH)
 
     # This item's own next merge attempt is not foreign or stale work.
-    assert landed.stale_unlanded_work(
+    assert stale_lane.stale_unlanded_work(
         item_id=ITEM_ID, branch=BRANCH, target=TARGET, repo_root=str(repo),
         recorded_head="", stale_mismatch_is_foreign=False,
     ) == ""
