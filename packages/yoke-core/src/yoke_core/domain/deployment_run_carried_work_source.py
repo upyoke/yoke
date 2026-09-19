@@ -93,9 +93,11 @@ class CarriedWorkSource(Protocol):
     def adds_nothing(self, candidate: str, commit: str) -> Optional[bool]:
         """Whether merging ``commit`` into ``candidate`` would change it.
 
-        ``None`` when this source cannot say. Work that reached the base
-        under other commit ids is contained in content while failing every
-        ancestry test, so containment asks this once ancestry says no.
+        ``None`` when this source cannot say, which containment reads as
+        this source having no answer at all rather than as a no. Work that
+        reached the base under other commit ids is contained in content
+        while failing every ancestry test, so containment asks this once
+        ancestry says no.
         """
 
     def warnings(self) -> list[dict[str, str]]:
@@ -149,7 +151,16 @@ class LocalCheckoutSource:
 
     def adds_nothing(self, candidate: str, commit: str) -> Optional[bool]:
         # The merge boundary's own definition, called rather than restated.
-        return git.lane_adds_nothing(self._repo_root, commit, candidate)
+        adds_nothing = git.lane_adds_nothing(self._repo_root, commit, candidate)
+        if adds_nothing is not None:
+            return adds_nothing
+        # That answers ``None`` for a conflict and for a git it could not
+        # run, and those are not the same fact: a merge that conflicts is a
+        # merge that changes the base, which is the definition of adding
+        # something. Separating them here keeps a genuinely excluded
+        # candidate a definite refusal instead of an unreadable one.
+        conflicts = git.lane_merge_conflicts(self._repo_root, commit, candidate)
+        return False if conflicts else None
 
     def carrying_commit(
         self,

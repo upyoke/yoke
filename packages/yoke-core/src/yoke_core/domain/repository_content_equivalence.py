@@ -14,10 +14,15 @@ the incoming side changed. When every such path already holds the incoming
 side's exact blob — and every path it deleted is already absent — merging
 produces the base's own tree, which is precisely "adds nothing".
 
-Everything this reader cannot see is ``None``, never ``False``: a listing the
-provider truncated, a path count past the budget, a blob it would not serve.
-An unread answer keeps the caller on its other rungs; a wrong ``True`` would
-close an item out against work that never shipped.
+This reader answers ``True`` or ``None``, and never ``False``. Everything it
+cannot see is unknown — a listing the provider truncated, a path count past
+the budget, a blob it would not serve — and so is a blob that simply differs,
+because two opposite stories produce that one shape: the head still carries
+work the candidate lacks, or the candidate took that work and then moved the
+same path further on. Only merging the trees separates them, which is exactly
+what this reader cannot do. An unread answer keeps the caller on its other
+rungs; a wrong ``True`` would close an item out against work that never
+shipped, and a wrong ``False`` refuses a release that did ship it.
 """
 
 from __future__ import annotations
@@ -80,6 +85,9 @@ def content_already_present(
     ``body`` is one comparison page whose BASE is the candidate revision, so
     its ``files`` are exactly the paths the head changed since the two
     diverged. ``read_blob`` answers what the candidate holds at one path.
+
+    ``True`` or ``None`` only: see the module docstring for why a differing
+    blob is unknown rather than a definite "still adds something".
     """
     files = body.get("files")
     if not isinstance(files, list):
@@ -112,7 +120,10 @@ def _path_already_present(
     if actual is None:
         return None
     if actual != expected:
-        return False
+        # Not "the candidate lacks this" — "this reader cannot tell". The
+        # candidate may hold a later revision of a path whose content it
+        # already took from this head, which reads exactly the same here.
+        return None
     if status != "renamed":
         return True
     # A rename also deletes where the path came from, so the candidate has
@@ -121,7 +132,7 @@ def _path_already_present(
     if not previous:
         return None
     vacated = read_blob(previous)
-    return None if vacated is None else vacated == ABSENT
+    return True if vacated == ABSENT else None
 
 
 __all__ = [

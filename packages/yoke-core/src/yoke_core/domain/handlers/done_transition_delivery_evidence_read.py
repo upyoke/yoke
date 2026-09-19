@@ -35,6 +35,9 @@ class DeliveryEvidenceResponse(BaseModel):
     source: str = ""
     reason: str = ""
     recovery: str = ""
+    # The commit this release holds for the item's own project. A client
+    # standing in the lane needs it to answer containment where it can see.
+    release_lineage: str = ""
 
 
 def _err(code: str, message: str) -> HandlerOutcome:
@@ -81,6 +84,7 @@ def handle_delivery_evidence(request: FunctionCallRequest) -> HandlerOutcome:
             "source": verdict.source,
             "reason": verdict.reason,
             "recovery": verdict.recovery,
+            "release_lineage": verdict.release_lineage,
         },
         primary_success=True,
     )

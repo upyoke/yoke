@@ -19,6 +19,12 @@ provider holds it, and a provider read can time out on a range a checkout
 answers instantly. Only when no source answers is the verdict undetermined,
 and then it names every reason it collected.
 
+A source answers "not contained" only when it answered BOTH questions and
+both said no. One that could not run the content question has not excluded
+anything — the very case it exists to catch is a lane the candidate already
+carries under other commit ids — so it is undetermined for that source and
+the walk moves on to the next.
+
 Carried work answers a different question — what one run added over the run
 before it — so it is not this answer: a run pinned to the same revision as its
 predecessor legitimately carries nothing while still containing every merge
@@ -132,7 +138,12 @@ def _ask_source(
             reason="the commit adds nothing the candidate does not have",
             source=source.origin,
         )
-    if contained is None and adds_nothing is None:
+    if adds_nothing is None:
+        # Ancestry said no, and the content question — the one that catches a
+        # lane whose work reached the base under other commit ids — went
+        # unanswered. That is this source not knowing, not this source
+        # excluding the merge, and a caller told "not contained" on it would
+        # send an owner to redeploy work the release already shipped.
         return None
     return ContainmentVerdict(NOT_CONTAINED, source=source.origin)
 

@@ -146,6 +146,7 @@ def transition_to_done(
     session_id: str = "",
     stages: tuple[str, ...] = (terminal.TERMINAL_STATUS,),
     delivery_discharged: bool = False,
+    release_lineage: str = "",
 ) -> tuple[str, str]:
     """Close the item out, or land it at its pinned release wait.
 
@@ -161,6 +162,7 @@ def transition_to_done(
             session_id=session_id,
             stages=stages,
             delivery_discharged=delivery_discharged,
+            release_lineage=release_lineage,
         )
 
 

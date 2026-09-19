@@ -24,6 +24,9 @@ from yoke_core.domain.dash_posture_read import (
     posture as _posture,
 )
 from yoke_core.domain.dash_posture_verification_gate import verification_gate
+from yoke_core.domain.relayed_containment_attestation import (
+    take_relayed_verdict,
+)
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.deploy_pipeline_environment import watch_deploy_command
 from yoke_core.domain.qa_workflow_binding_validation import (
@@ -140,6 +143,8 @@ def _lineage_covers(
     *,
     lineage: str,
     commit_sha: str,
+    item_id: int = 0,
+    run_id: str = "",
 ) -> Optional[dict[str, Any]]:
     verdict = candidate_contains_commit(
         conn,
@@ -147,6 +152,18 @@ def _lineage_covers(
         candidate_lineage=lineage,
         commit_sha=commit_sha,
     )
+    if verdict.state == _CONTAINMENT_UNDETERMINED:
+        # This host could not look. The client that merged the item was
+        # standing in the lane and could, so its relayed answer is consulted
+        # here and nowhere else -- a host with its own answer keeps it.
+        verdict = take_relayed_verdict(
+            verdict,
+            conn,
+            item_id=int(item_id),
+            run_id=run_id,
+            candidate=lineage,
+            commit_sha=commit_sha,
+        )
     if verdict.state == _CONTAINMENT_UNDETERMINED:
         return _failure(
             "GATE_DASH_DEPLOYMENT_CONTAINMENT_UNDETERMINED",
@@ -189,6 +206,8 @@ def _stale_completion_run_gate(
         int(row["project_id"]),
         lineage=str(row.get("release_lineage") or ""),
         commit_sha=head,
+        item_id=int(item_id),
+        run_id=str(row["id"]),
     )
 
 
@@ -259,6 +278,8 @@ def _deployment_gate(
         int(evidence_verdict.project_id or 0),
         lineage=evidence_verdict.release_lineage,
         commit_sha=merge_sha,
+        item_id=int(item_id),
+        run_id=evidence_verdict.run_id,
     )
     if blocked is not None:
         return blocked

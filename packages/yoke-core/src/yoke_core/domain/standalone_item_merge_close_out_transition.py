@@ -93,6 +93,7 @@ def run_terminal_transition(
         session_id=session_id,
         stages=route.stages,
         delivery_discharged=route.delivery_discharged,
+        release_lineage=route.release_lineage,
     )
     if transition_error:
         # A transition refused on an item another close-out has already

@@ -7,6 +7,12 @@ claim verification, the authoritative status gate, the QA gates, the
 epic-task cascade, and GitHub-sync side effects fire once regardless of
 which canonical adapter the operator chose.
 
+``containment_attestations`` is the one field a caller supplies about the
+world rather than about the item: containment verdicts its own checkout
+answered, for a control plane that holds none. They are bound for the
+duration of the write and read only by a gate that could not answer for
+itself (:mod:`yoke_core.domain.relayed_containment_attestation`).
+
 The ``source_status`` field is a precondition: when supplied, the
 handler verifies it matches the live ``items.status`` before issuing
 the write. A mismatch returns ``error.code="precondition_failed"`` so
@@ -22,12 +28,15 @@ path.
 from __future__ import annotations
 
 import io
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 from pydantic import BaseModel, Field
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.handlers.items_scalar import _map_error_code
+from yoke_core.domain.handlers.items_scalar import (
+    _map_error_code,
+    gate_failure_message,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -68,6 +77,15 @@ class LifecycleTransitionRequest(BaseModel):
     done_nonce_verified: bool = False
     force: bool = False
     qa_bypass: bool = False
+    containment_attestations: Optional[Sequence[Mapping[str, Any]]] = Field(
+        None,
+        description=(
+            "Containment verdicts the caller's own checkout answered, for "
+            "gates on a control plane that holds none. Consulted only where "
+            "this host's repository sources could not answer, and only for "
+            "the exact pair of commits each one names."
+        ),
+    )
 
 
 class LifecycleTransitionResponse(BaseModel):
@@ -196,9 +214,14 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
         if reason_error:
             return _error_outcome("invalid_payload", reason_error)
 
+    from yoke_core.domain.relayed_containment_attestation import (
+        relayed_attestations_bound,
+    )
+
     captured = io.StringIO()
     with (
         acting_item_ref_bound(target.public_ref),
+        relayed_attestations_bound(payload.containment_attestations),
         capture_db_mutation_gate_warnings() as gate_warnings,
     ):
         result = backlog.execute_update(
@@ -229,7 +252,7 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
             )
         return _error_outcome(
             _map_error_code(legacy_code),
-            str(result.get("error") or "lifecycle transition failed"),
+            gate_failure_message(result, "lifecycle transition failed"),
         )
 
     response = LifecycleTransitionResponse(

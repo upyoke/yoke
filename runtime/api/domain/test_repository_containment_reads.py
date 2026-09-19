@@ -99,9 +99,15 @@ def test_content_already_on_the_candidate_adds_nothing(
     assert "/repos/owner/repo/contents/feature.py" in recorder.paths
 
 
-def test_content_the_candidate_lacks_still_adds_something(
+def test_a_differing_blob_is_unknown_rather_than_a_definite_no(
     monkeypatch: pytest.MonkeyPatch,
 ):
+    """Two opposite stories make one shape, and blobs cannot separate them.
+
+    Either the head still carries work the candidate lacks, or the candidate
+    already took that work and then moved the same path further on. Only
+    merging the trees tells them apart, and this reader cannot merge.
+    """
     source, _ = _source(
         monkeypatch,
         {
@@ -113,7 +119,7 @@ def test_content_the_candidate_lacks_still_adds_something(
         },
     )
 
-    assert source.adds_nothing(CANDIDATE, COMMIT) is False
+    assert source.adds_nothing(CANDIDATE, COMMIT) is None
 
 
 def test_a_deletion_the_candidate_already_made_adds_nothing(
@@ -134,9 +140,10 @@ def test_a_deletion_the_candidate_already_made_adds_nothing(
     assert source.adds_nothing(CANDIDATE, COMMIT) is True
 
 
-def test_a_deletion_the_candidate_has_not_made_adds_something(
+def test_a_deletion_the_candidate_still_has_is_unknown_too(
     monkeypatch: pytest.MonkeyPatch,
 ):
+    """Same ambiguity: the lane deletes it, or the base re-added it after."""
     source, _ = _source(
         monkeypatch,
         {
@@ -147,7 +154,7 @@ def test_a_deletion_the_candidate_has_not_made_adds_something(
         },
     )
 
-    assert source.adds_nothing(CANDIDATE, COMMIT) is False
+    assert source.adds_nothing(CANDIDATE, COMMIT) is None
 
 
 def test_a_listing_past_the_budget_is_unread_rather_than_guessed(
@@ -172,3 +179,42 @@ def test_both_containment_questions_share_one_comparison_read(
     assert source.contains_commit(CANDIDATE, COMMIT) is False
     assert source.adds_nothing(CANDIDATE, COMMIT) is True
     assert recorder.paths == [_COMPARE_PATH]
+
+
+def test_a_base_that_moved_past_the_lane_never_reads_as_not_contained(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The live failure this reader's honesty exists to stop.
+
+    The lane changed a file; the base took that change and then moved the
+    same file further on. Ancestry says no because the lane's commits were
+    rewritten, and the blob differs because the base is ahead — which used to
+    combine into a definite "the deployed release does not contain this
+    item", against a release that shipped it.
+    """
+    from yoke_core.domain.deployment_run_candidate_containment import (
+        UNDETERMINED,
+        candidate_contains_commit,
+    )
+
+    source, _ = _source(
+        monkeypatch,
+        {
+            _COMPARE_PATH: _compare(
+                "diverged",
+                [{"filename": "moved.py", "status": "modified", "sha": "f" * 40}],
+            ),
+            "/repos/owner/repo/contents/moved.py": {"sha": "0" * 40},
+        },
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_run_candidate_containment."
+        "carried_work_sources",
+        lambda conn, project_id: (lambda: source,),
+    )
+
+    verdict = candidate_contains_commit(
+        None, 1, candidate_lineage=CANDIDATE, commit_sha=COMMIT
+    )
+
+    assert verdict.state == UNDETERMINED

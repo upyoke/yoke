@@ -78,6 +78,32 @@ def test_a_permission_failure_does_not_prescribe_a_retry(
     assert "Retrying will not change that" in raised.value.recovery
 
 
+def test_an_unpublished_head_is_named_rather_than_called_a_read_failure(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A 404 is the provider answering, not the provider failing.
+
+    The lane head was recorded locally and never pushed. Reporting that as
+    "the repository read failed" sends an owner to inspect a binding that is
+    working perfectly, and no amount of retrying publishes the commit.
+    """
+    from yoke_core.domain.gh_rest_transport_errors import RestNotFoundError
+    from yoke_core.domain.repository_provider_refusal import HEAD_UNPUBLISHED
+
+    source = _source(
+        monkeypatch,
+        [RestNotFoundError("404 not found", status=404)],
+    )
+
+    with pytest.raises(CarriedWorkSourceUnavailable) as raised:
+        source.commit_range(BASE, TIP)
+
+    assert raised.value.reason == HEAD_UNPUBLISHED
+    assert TIP in raised.value.recovery
+    assert "never published to this remote" in raised.value.recovery
+    assert "Publish or land the lane" in raised.value.recovery
+
+
 def test_a_rate_limit_says_so_rather_than_blaming_the_binding(
     monkeypatch: pytest.MonkeyPatch,
 ):

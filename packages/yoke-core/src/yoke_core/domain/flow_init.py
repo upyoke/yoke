@@ -119,6 +119,7 @@ def _ensure_flow_schema(conn) -> None:
         for column in (
             "requirement_selection",
             "requirement_snapshot",
+            "containment_attestation",
         ):
             _add_column_if_not_exists(conn, "deployment_run_items", column, "TEXT")
 

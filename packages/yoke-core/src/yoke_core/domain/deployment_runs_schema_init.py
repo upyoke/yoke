@@ -61,6 +61,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 delivery_intent {DELIVERY_INTENT_COLUMN_SQL},
                 requirement_selection TEXT,
                 requirement_snapshot TEXT,
+                containment_attestation TEXT,
                 PRIMARY KEY (run_id, item_id)
             )
             """,
@@ -106,6 +107,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
             ("delivery_intent", DELIVERY_INTENT_COLUMN_SQL),
             ("requirement_selection", "TEXT"),
             ("requirement_snapshot", "TEXT"),
+            ("containment_attestation", "TEXT"),
         ):
             _add_column_if_not_exists(conn, "deployment_run_items", column, declaration)
         if not _column_exists(conn, "deployment_preview_environments", "env_type"):
