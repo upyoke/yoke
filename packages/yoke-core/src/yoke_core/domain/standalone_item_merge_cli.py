@@ -18,9 +18,9 @@ from yoke_core.domain import standalone_item_merge_close_out_report as report
 from yoke_core.domain import standalone_item_merge_converge as converge
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
-from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain import standalone_item_merge_release_continuation as release_flow
+from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
 from yoke_core.domain.merge_review_readiness import review_readiness_refusal
 from yoke_core.domain.standalone_item_merge_close_out_transition import (
     run_terminal_transition,
