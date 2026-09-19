@@ -102,19 +102,28 @@ def admit_run_item(
     run's admitted copy and by nothing else: an empty selection would ship
     the code while leaving the obligation unanswerable. An explicit
     selection is a deliberate operator choice and is used verbatim.
+
+    A derived list is validated here but not stored: it answers "what does
+    this item still owe", and an obligation minted between this row and the
+    composition freeze belongs in it. The column is therefore left null,
+    which is what tells the freeze to derive again. An explicit selection is
+    stored as given, and the freeze takes it as given.
     """
     validate_deployment_run_item(conn, run_id=run_id, item_id=int(item_id))
     freeze_item_completion_flow(conn, int(item_id))
     intent = validate_delivery_intent_for_item(conn, int(item_id), delivery_intent)
     selected_requirements = tuple(requirement_ids)
     selected_plans = tuple(plan_ids)
-    if not selected_requirements and not selected_plans:
+    derived = not selected_requirements and not selected_plans
+    if derived:
         selected_requirements = admissible_post_deploy_requirement_ids(
             conn, run_id=run_id, item_id=int(item_id)
         )
     selection = requirement_selection(
         requirement_ids=selected_requirements, plan_ids=selected_plans
     )
+    # Validated now so an unusable obligation refuses here rather than at the
+    # freeze, even though a derived list is not what gets stored.
     snapshot_member_requirements(
         conn, run_id=run_id, item_id=int(item_id), selection_json=selection
     )
@@ -122,7 +131,8 @@ def admit_run_item(
         "INSERT INTO deployment_run_items "
         "(run_id, item_id, added_at, delivery_intent, requirement_selection) "
         "VALUES (%s, %s, %s, %s, %s)",
-        (run_id, int(item_id), iso8601_now(), intent, selection),
+        (run_id, int(item_id), iso8601_now(), intent,
+         None if derived else selection),
     )
     return render_item_ref(conn, int(item_id))
 

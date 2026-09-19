@@ -1,4 +1,19 @@
-"""Freeze release candidate membership immediately before run execution."""
+"""Freeze release candidate membership immediately before run execution.
+
+A membership row with no stored requirement selection is one admission
+derived and deliberately did not keep: the answer to "what does this item
+still owe" can change between that admission and this freeze -- a window
+that has run to twenty minutes in practice -- so the list is derived here
+instead, and written back concrete. An operator's stored selection is
+frozen exactly as given.
+
+Writing the derived list back is what keeps a retry honest. A retry copies
+its predecessor's member rows verbatim, so once a run has frozen, every one
+of its rows carries a concrete list and the retry's own freeze takes it as
+given and reproduces the same snapshot. The only retry that inherits no
+list is a retry of a run that never froze, which has no acceptance contract
+to preserve.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +29,7 @@ from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
 )
 from yoke_core.domain.deployment_requirement_snapshots import (
+    requirement_selection,
     snapshot_flow_requirements,
     snapshot_member_requirements,
 )
@@ -277,6 +293,10 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
             f"QA requirement {requirement_id} "
             + UNBOUND_BEFORE_START_REPAIR.format(requirement_id=requirement_id)
         )
+    from yoke_core.domain.deployment_member_post_deploy_admission import (
+        admissible_post_deploy_requirement_ids,
+    )
+
     for item_id in member_ids(conn, run_id):
         member = conn.execute(
             f"SELECT delivery_intent,requirement_selection "
@@ -289,17 +309,30 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
         # freeze is not a second admission against mutable item status.
         intent = normalize_delivery_intent(_cell(member, "delivery_intent", 0))
         intent = intent or _default_delivery_intent(conn, item_id)
+        selection = _cell(member, "requirement_selection", 1)
+        if not str(selection or "").strip():
+            # No stored list means admission derived one and deliberately
+            # did not keep it, because an obligation can be minted between
+            # that admission and this freeze. Deriving again is what stops
+            # the window losing one. A stored list is either an operator's
+            # choice or a previous freeze's concrete answer, and neither is
+            # widened underneath its owner.
+            selection = requirement_selection(
+                requirement_ids=admissible_post_deploy_requirement_ids(
+                    conn, run_id=run_id, item_id=item_id
+                )
+            )
         snapshot = snapshot_member_requirements(
             conn,
             run_id=run_id,
             item_id=item_id,
-            selection_json=_cell(member, "requirement_selection", 1),
+            selection_json=selection,
         )
         conn.execute(
             f"UPDATE deployment_run_items SET delivery_intent={marker},"
-            f"requirement_snapshot={marker} "
+            f"requirement_selection={marker},requirement_snapshot={marker} "
             f"WHERE run_id={marker} AND item_id={marker}",
-            (intent, snapshot, run_id, item_id),
+            (intent, selection, snapshot, run_id, item_id),
         )
     from yoke_core.domain.db_helpers import iso8601_now
 
