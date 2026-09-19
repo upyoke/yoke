@@ -200,6 +200,23 @@ def landing_shas(conn: Any, item_id: int) -> list[str]:
     return [commit_sha, merge_sha]
 
 
+def merge_shas(conn: Any, item_id: int) -> list[str]:
+    """Every merge commit this item's receipts recorded, newest write first.
+
+    :func:`landing_shas` answers "what did this item's newest landing name",
+    which is the identity a gate compares. Counting landings is a different
+    question: an item that merged more than once merged more than once, and
+    an entry still carrying only its pre-merge commit has not landed at all,
+    so it is not one of them.
+    """
+    shas: list[str] = []
+    for entry in newest_first(read_entries(conn, item_id)):
+        sha = str(entry.get("merge_sha") or "").strip()
+        if sha and sha not in shas:
+            shas.append(sha)
+    return shas
+
+
 def _documents_for(
     conn: Any, sql: str, params: Sequence[Any],
 ) -> list[tuple[int, dict[str, dict[str, Any]]]]:
@@ -277,6 +294,7 @@ __all__ = [
     "find_entry",
     "landing_shas",
     "merge_identities",
+    "merge_shas",
     "newest_first",
     "read_entries",
     "record_entry",

@@ -118,7 +118,8 @@ def carrying_runs_for_project(
         f"{BOUND_SOURCES_FIELD},COALESCE(dr.release_lineage,'') AS release_lineage,"
         "COALESCE(dr.completed_at,'') AS completed_at,"
         "COALESCE(dr.carried_work,'') AS carried_work,"
-        "COALESCE(e.name,'') AS environment_name "
+        "COALESCE(e.name,'') AS environment_name,"
+        "COALESCE(dr.flow,'') AS flow "
         "FROM deployment_runs dr "
         "LEFT JOIN environments e ON e.id=dr.target_environment_id "
         f"WHERE dr.status='succeeded' AND dr.project_id<>{marker} "
@@ -149,6 +150,9 @@ def carrying_runs_for_project(
                 "source_sha": sha,
                 "completed_at": str(_cell(row, "completed_at", 4) or ""),
                 "carried_work": _cell(row, "carried_work", 5),
+                # The flow that ran, so a reader with no flow of its own can
+                # still name the one that shipped it.
+                "flow": str(_cell(row, "flow", 7) or ""),
             }
         )
     return carrying

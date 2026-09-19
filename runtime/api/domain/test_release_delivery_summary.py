@@ -1,10 +1,13 @@
 """A releasing item's merge counts, and what makes one of them deployed.
 
 Both halves read records the control plane already keeps: the landings the
-item itself recorded, and the succeeded runs to its environment. The case
-worth naming is the merge that reached the base branch under a *different*
-item's landing — no run ever lists it for this item, yet it is deployed, and
-only ancestry says so.
+item itself recorded, and the succeeded runs that could have shipped them.
+Three cases are worth naming. A merge that reached the base branch under a
+*different* item's landing — no run ever lists it for this item, yet it is
+deployed, and only ancestry says so. A project that merges without a queue,
+whose landing is a merge receipt rather than a batch block. And an item that
+stores no flow, which is asked about its own project's persistent releases
+and names the one that carried it.
 """
 
 from __future__ import annotations
@@ -19,8 +22,10 @@ from yoke_core.domain.deployment_run_candidate_containment import (
     NOT_CONTAINED,
     ContainmentVerdict,
 )
+from yoke_core.domain.item_merge_receipt_document import record_entry
 from yoke_core.domain.release_delivery_summary import delivery_summary
 
+FLOW = "yoke-hosted-production"
 ITEM_ID = 4201
 PROJECT_ID = 1
 ENVIRONMENT_ID = 7
@@ -57,13 +62,32 @@ def _record_landing(conn, merge_sha: str, requirement_id: int, run_id: int) -> N
     )
 
 
-def _succeeded_run(conn, run_id: str, *, carried: list[str]) -> None:
+def _record_standalone_landing(conn, merge_sha: str, *, branch: str) -> None:
+    """Write the merge receipt a landing outside a merge queue records.
+
+    No batch block: there was no train to validate, so the item's own receipt
+    is the whole record that this merge happened.
+    """
+    record_entry(
+        conn,
+        item_id=ITEM_ID,
+        branch=branch,
+        target="main",
+        commit_sha=merge_sha,
+        merge_sha=merge_sha,
+    )
+
+
+def _succeeded_run(
+    conn, run_id: str, *, carried: list[str], flow: str = FLOW
+) -> None:
     """A succeeded release to this item's environment, carrying ``carried``."""
     insert_deployment_run(
         conn,
         id=run_id,
         project_id=PROJECT_ID,
         status="succeeded",
+        flow=flow,
         # The schema pairs a persistent tier with a named environment.
         target_tier="persistent",
         release_lineage=LINEAGE,
@@ -81,6 +105,18 @@ def _summary(conn):
         item_id=ITEM_ID,
         project_id=PROJECT_ID,
         environment_id=ENVIRONMENT_ID,
+        flow=FLOW,
+    )
+
+
+def _flow_less_summary(conn):
+    """What a card asks for an item that stores no deployment flow."""
+    return delivery_summary(
+        conn,
+        item_id=ITEM_ID,
+        project_id=PROJECT_ID,
+        environment_id=None,
+        flow="",
     )
 
 
@@ -178,7 +214,11 @@ def test_an_item_with_no_resolvable_environment_reports_nothing_deployed(
         conn.commit()
 
         result = delivery_summary(
-            conn, item_id=ITEM_ID, project_id=PROJECT_ID, environment_id=None
+            conn,
+            item_id=ITEM_ID,
+            project_id=PROJECT_ID,
+            environment_id=None,
+            flow=FLOW,
         )
 
     assert (result.merges, result.deployed, result.not_deployed) == (1, 0, 1)
@@ -210,3 +250,77 @@ def test_only_the_newest_release_lineage_is_asked(monkeypatch) -> None:
     assert result.deployed == 1
     # One question, against the newest lineage — not one per run.
     assert asked == [newest]
+
+
+def test_a_standalone_landing_counts_as_a_merge(monkeypatch) -> None:
+    """A merge outside a queue writes a receipt, and it is still a merge."""
+    monkeypatch.setattr(
+        summary_module,
+        "candidate_contains_commit",
+        lambda *a, **k: ContainmentVerdict(state=NOT_CONTAINED),
+    )
+    with test_database() as conn:
+        _record_standalone_landing(conn, OWN_MERGE, branch="PLAT-1")
+        _succeeded_run(conn, "run-1", carried=[OWN_MERGE])
+        conn.commit()
+
+        result = _summary(conn)
+
+    assert (result.merges, result.deployed, result.not_deployed) == (1, 1, 0)
+
+
+def test_a_queue_landing_and_its_receipt_are_one_merge(monkeypatch) -> None:
+    """Both records describe the same commit, so it is counted once."""
+    monkeypatch.setattr(
+        summary_module,
+        "candidate_contains_commit",
+        lambda *a, **k: ContainmentVerdict(state=NOT_CONTAINED),
+    )
+    with test_database() as conn:
+        _record_landing(conn, OWN_MERGE, 1, 1)
+        _record_standalone_landing(conn, OWN_MERGE, branch="YOK-1")
+        _succeeded_run(conn, "run-1", carried=[OWN_MERGE])
+        conn.commit()
+
+        result = _summary(conn)
+
+    assert (result.merges, result.deployed, result.not_deployed) == (1, 1, 0)
+
+
+def test_a_flow_less_item_is_credited_by_its_projects_carrying_run(
+    monkeypatch,
+) -> None:
+    """No stored flow is not "no delivery": a persistent run carried it."""
+    monkeypatch.setattr(
+        summary_module,
+        "candidate_contains_commit",
+        lambda *a, **k: ContainmentVerdict(state=NOT_CONTAINED),
+    )
+    with test_database() as conn:
+        _record_standalone_landing(conn, OWN_MERGE, branch="PLAT-1")
+        _succeeded_run(conn, "run-1", carried=[OWN_MERGE])
+        conn.commit()
+
+        result = _flow_less_summary(conn)
+
+    assert (result.merges, result.deployed, result.not_deployed) == (1, 1, 0)
+    # What the card names where a stored flow would otherwise go.
+    assert result.flow == FLOW
+
+
+def test_a_flow_less_item_no_release_carried_names_no_flow(monkeypatch) -> None:
+    """Landed and still waiting: there is no carrying flow to name yet."""
+    monkeypatch.setattr(
+        summary_module,
+        "candidate_contains_commit",
+        lambda *a, **k: ContainmentVerdict(state=NOT_CONTAINED),
+    )
+    with test_database() as conn:
+        _record_standalone_landing(conn, UNSHIPPED_MERGE, branch="PLAT-1")
+        _succeeded_run(conn, "run-1", carried=[OWN_MERGE])
+        conn.commit()
+
+        result = _flow_less_summary(conn)
+
+    assert (result.merges, result.deployed, result.not_deployed) == (1, 0, 1)
+    assert result.flow == ""

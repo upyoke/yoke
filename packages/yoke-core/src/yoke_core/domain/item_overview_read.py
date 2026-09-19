@@ -256,7 +256,7 @@ def _card_delivery(
     facts: dict[int, Any],
     *,
     compact: bool,
-) -> dict[int, dict[str, int]]:
+) -> dict[int, dict[str, Any]]:
     """Merge counts for the rows that draw a delivery box, and no others.
 
     Release and the last day of finished work are the two bands whose cards
@@ -293,21 +293,24 @@ def _card_delivery(
             str(flow["id"]): flow["target_environment_id"]
             for flow in _dict_rows(flow_cursor)
         }
-    summaries: dict[int, dict[str, int]] = {}
+    summaries: dict[int, dict[str, Any]] = {}
     for row in drawn:
         item_id = int(row["internal_id"])
+        flow = str(row.get("deployment_flow") or "").strip()
         summary = delivery_summary(
             conn,
             item_id=item_id,
             project_id=int(facts[item_id]["project_id"]),
-            environment_id=environment_by_flow.get(
-                str(row.get("deployment_flow") or "").strip()
-            ),
+            environment_id=environment_by_flow.get(flow),
+            flow=flow,
         )
         summaries[item_id] = {
             "merges": summary.merges,
             "deployed": summary.deployed,
             "not_deployed": summary.not_deployed,
+            # The flow of the release that carried a merge, which is what a
+            # card with no flow of its own has to name instead.
+            "flow": summary.flow,
         }
     return summaries
 
