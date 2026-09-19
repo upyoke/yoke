@@ -10,7 +10,7 @@ then walked out of that graph rather than approximated.
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
@@ -24,6 +24,7 @@ from yoke_core.domain.deployment_run_carried_work_source import (
 )
 from yoke_core.domain.deployment_run_compare_response import (
     FULL_SHA_LENGTH,
+    base_contains_head,
     incomplete,
     is_hex,
     recorded_commit,
@@ -39,6 +40,10 @@ from yoke_core.domain.gh_rest_transport_errors import RestTransportError
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
+)
+from yoke_core.domain.repository_content_equivalence import (
+    blob_sha,
+    content_already_present,
 )
 
 
@@ -62,6 +67,7 @@ class RepositoryProviderSource:
         self._warnings: list[dict[str, str]] = []
         self._resolved_refs: dict[str, str] = {}
         self._compare_statuses: dict[tuple[str, str], str] = {}
+        self._compare_pages: dict[tuple[str, str, int], Mapping[str, Any]] = {}
         self._lookups = 0
         self._unresolvable_refs = 0
 
@@ -117,6 +123,19 @@ class RepositoryProviderSource:
         exactly the long-lived repositories that need it most.
         """
         return relation(self._compare_status(base, head))
+
+    def contains_commit(self, candidate: str, commit: str) -> Optional[bool]:
+        """Read ancestry from the candidate's own, cheap side of the compare."""
+        return base_contains_head(
+            require_status(self._compare_page(candidate, commit, 1))
+        )
+
+    def adds_nothing(self, candidate: str, commit: str) -> Optional[bool]:
+        """Answer the merge boundary's content question over the provider."""
+        return content_already_present(
+            self._compare_page(candidate, commit, 1),
+            lambda path: blob_sha(self._repo, self._token, path, candidate),
+        )
 
     def commit_range(self, base: str, head: str) -> CommitRange:
         status = self._load_graph(base, head)
@@ -215,6 +234,14 @@ class RepositoryProviderSource:
         return status
 
     def _compare_page(self, base: str, head: str, page: int) -> Mapping[str, Any]:
+        """Read one comparison page, serving a page already read.
+
+        Containment asks one page two questions — ancestry from its status,
+        content from its file listing — so the cache keeps that one read.
+        """
+        cached = self._compare_pages.get((base, head, page))
+        if cached is not None:
+            return cached
         request = RestRequest(
             method="GET",
             path=f"/repos/{self._repo}/compare/{base}...{head}",
@@ -238,6 +265,7 @@ class RepositoryProviderSource:
                 "The repository comparison returned no object; retry the "
                 "derivation once the provider is healthy.",
             )
+        self._compare_pages[(base, head, page)] = body
         return body
 
     def _first_parent_chain(self, base: str, head: str) -> tuple[str, ...]:

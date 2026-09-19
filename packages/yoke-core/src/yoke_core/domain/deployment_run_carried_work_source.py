@@ -8,19 +8,21 @@ an empty release. The repository provider answers the same questions over the
 project's own authorized binding, so the same exact commit comparison runs
 wherever the deriver happens to execute.
 
-Every source answers the same four questions, and each answers them exactly:
+Every source answers the same questions, and each answers them exactly:
 resolve a lineage to a commit, list the first-parent range between two
-commits, read one commit's message and time, and say which range commit
-carries a given lane commit. A source that cannot answer raises
-:class:`CarriedWorkSourceUnavailable` with the reason and the recovery rather
-than returning a confident empty.
+commits, read one commit's message and time, say which range commit carries a
+given lane commit, and answer the two containment questions — is this commit
+in that revision's history, and would merging it change that revision at all.
+A source that cannot answer raises :class:`CarriedWorkSourceUnavailable` with
+the reason and the recovery, or answers ``None`` where the caller has another
+rung, rather than returning a confident empty.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol, Sequence
+from typing import Any, Callable, Optional, Protocol, Sequence
 
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
@@ -80,6 +82,22 @@ class CarriedWorkSource(Protocol):
     ) -> str:
         """Return the range commit that contains ``lane_commit``, or ``""``."""
 
+    def contains_commit(self, candidate: str, commit: str) -> Optional[bool]:
+        """Whether ``candidate``'s history already holds ``commit``.
+
+        The same ancestry :meth:`lineage_relation` answers, asked the way
+        containment means it and answered without listing the range between
+        the two — a release-sized listing is megabytes, and this is one bit.
+        """
+
+    def adds_nothing(self, candidate: str, commit: str) -> Optional[bool]:
+        """Whether merging ``commit`` into ``candidate`` would change it.
+
+        ``None`` when this source cannot say. Work that reached the base
+        under other commit ids is contained in content while failing every
+        ancestry test, so containment asks this once ancestry says no.
+        """
+
     def warnings(self) -> list[dict[str, str]]:
         """Return degraded-source notes accumulated while answering."""
 
@@ -126,6 +144,13 @@ class LocalCheckoutSource:
     def commit_time(self, sha: str) -> str:
         return git.git_out(self._repo_root, "show", "-s", "--format=%cI", sha)
 
+    def contains_commit(self, candidate: str, commit: str) -> Optional[bool]:
+        return git.is_ancestor(self._repo_root, commit, candidate)
+
+    def adds_nothing(self, candidate: str, commit: str) -> Optional[bool]:
+        # The merge boundary's own definition, called rather than restated.
+        return git.lane_adds_nothing(self._repo_root, commit, candidate)
+
     def carrying_commit(
         self,
         lane_commit: str,
@@ -147,6 +172,44 @@ class LocalCheckoutSource:
         return []
 
 
+def carried_work_sources(
+    conn: Any,
+    project_id: int,
+    *,
+    repo_root: str | Path | None = None,
+) -> tuple[Callable[[], CarriedWorkSource], ...]:
+    """Every source this host can try for one project, strongest first.
+
+    A checkout the caller already named, then this machine's registered
+    checkout, then the project's own repository provider. Returned as openers
+    rather than sources because opening the provider itself can fail, and a
+    caller walking the list needs that failure as one more reason it could
+    not answer rather than as the end of the walk.
+
+    Order is preference, not exclusivity: a caller that cannot get its answer
+    from one source asks the next, because these sources fail for unrelated
+    reasons — a checkout missing a commit it never fetched, a provider read
+    that timed out — and either can hold the answer the other lacks.
+    """
+    openers: list[Callable[[], CarriedWorkSource]] = []
+    named = str(repo_root) if repo_root else ""
+    if named:
+        openers.append(lambda: LocalCheckoutSource(named))
+    checkout = checkout_for_project_id(project_id)
+    if checkout is not None and str(checkout) != named:
+        openers.append(lambda: LocalCheckoutSource(str(checkout)))
+
+    def _provider() -> CarriedWorkSource:
+        from yoke_core.domain.deployment_run_carried_work_repository import (
+            open_repository_provider_source,
+        )
+
+        return open_repository_provider_source(conn, project_id)
+
+    openers.append(_provider)
+    return tuple(openers)
+
+
 def open_carried_work_source(
     conn: Any,
     project_id: int,
@@ -155,21 +218,22 @@ def open_carried_work_source(
 ) -> CarriedWorkSource:
     """Return the strongest source this host can use for one project.
 
-    A checkout the caller already named wins, then this machine's registered
-    checkout, then the project's own repository provider. When none of them
-    can answer, the raised reason names which authority is missing rather than
-    letting the caller record an empty release.
+    The derivation reads a whole commit range from one source, so it takes
+    the first that opens. When none of them can answer, the raised reason
+    names which authority is missing rather than letting the caller record an
+    empty release.
     """
-    if repo_root:
-        return LocalCheckoutSource(str(repo_root))
-    checkout = checkout_for_project_id(project_id)
-    if checkout is not None:
-        return LocalCheckoutSource(str(checkout))
-    from yoke_core.domain.deployment_run_carried_work_repository import (
-        open_repository_provider_source,
+    openers = carried_work_sources(conn, project_id, repo_root=repo_root)
+    for index, opener in enumerate(openers):
+        try:
+            return opener()
+        except CarriedWorkSourceUnavailable:
+            if index == len(openers) - 1:
+                raise
+    raise CarriedWorkSourceUnavailable(
+        "project_source_unavailable",
+        "This host offers no source for the project's commit comparison.",
     )
-
-    return open_repository_provider_source(conn, project_id)
 
 
 __all__ = [
@@ -181,5 +245,6 @@ __all__ = [
     "CarriedWorkSourceUnavailable",
     "CommitRange",
     "LocalCheckoutSource",
+    "carried_work_sources",
     "open_carried_work_source",
 ]

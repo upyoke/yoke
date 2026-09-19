@@ -22,6 +22,9 @@ from yoke_core.domain.deployment_run_carried_work_source import (
 # older lineage: a head carrying it is ahead of it, or identical to it.
 CONTAINING_STATUSES = frozenset({"ahead", "identical"})
 DIVERGED_STATUSES = frozenset({"behind", "diverged"})
+#: ``status`` read from the base's side: the head is behind the base, or the
+#: two are the same commit, exactly when the base contains the head.
+BASE_CONTAINING_STATUSES = frozenset({"behind", "identical"})
 FULL_SHA_LENGTH = 40
 
 
@@ -37,6 +40,19 @@ def relation(status: str) -> str:
     if status in CONTAINING_STATUSES:
         return RELATION_AHEAD
     return RELATION_DIVERGED
+
+
+def base_contains_head(status: str) -> bool:
+    """Whether the comparison's BASE already holds everything its head does.
+
+    The mirror of :func:`relation`, for the one question containment asks:
+    a base that the head is ``behind``, or that is ``identical`` to it, has
+    the head's history. Asked in this direction on purpose — comparing the
+    older commit as the base lists every commit and file between the two,
+    which is megabytes for a release-sized range, while the same question
+    asked of the newer commit as the base lists nothing at all.
+    """
+    return status in BASE_CONTAINING_STATUSES
 
 
 def require_status(body: Mapping[str, Any]) -> str:
@@ -129,8 +145,10 @@ def is_hex(value: str) -> bool:
 
 
 __all__ = [
+    "BASE_CONTAINING_STATUSES",
     "CONTAINING_STATUSES",
     "DIVERGED_STATUSES",
+    "base_contains_head",
     "incomplete",
     "is_hex",
     "recorded_commit",
