@@ -194,10 +194,9 @@ def _validated_cases(cases: list[dict]) -> list[dict]:
         if not isinstance(raw, dict):
             raise QaPlanError("each plan case must be a JSON object")
         key = str(raw.get("case_key") or "")
-        # Writing the cases in order already states the position; renumbering
-        # it by hand only adds an off-by-one refusal.
-        stated = raw.get("position")
-        position = index if stated is None else int(stated)
+        # Array order already states the position; renumbering by hand only
+        # adds an off-by-one refusal. An explicit value still wins.
+        position = index if raw.get("position") is None else int(raw["position"])
         method_id = str(raw.get("method_id") or "")
         if not _SLUG_RE.fullmatch(key):
             raise QaPlanError(f"invalid case key {key!r}")

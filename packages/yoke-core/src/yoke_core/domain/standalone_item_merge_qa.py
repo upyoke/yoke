@@ -34,12 +34,18 @@ def item_for_merge_phase(
 ) -> dict[str, Any]:
     """Return the QA view applicable to this merge lifecycle phase.
 
-    Pre-merge admission evaluates ``verification`` rows only. Post-deployment
-    acceptance stays out of the landing preflight whether or not
-    ``--skip-status`` postpones terminal close-out. Requirements and attached
-    plans bound to the terminal ``done`` transition are additionally deferred
-    when the merge itself will not walk that close-out; unbound, review-bound,
-    and unknown transition verification rows remain fail-closed.
+    Pre-merge admission evaluates ``verification`` rows only -- attachments
+    as well as requirements. An attachment is what makes admission demand
+    evidence at all, so reading a post-deploy one as pre-merge asked an item
+    to produce, before it landed, the proof its deployment exists to collect:
+    the refusal names a transition that plan cannot legally bind to, and
+    every item that attached the post-deploy plan its flow asks for is
+    refused. Post-deployment acceptance stays out of the landing preflight
+    whether or not ``--skip-status`` postpones terminal close-out.
+    Requirements and attached plans bound to the terminal ``done`` transition
+    are additionally deferred when the merge itself will not walk that
+    close-out; unbound, review-bound, and unknown transition verification
+    rows remain fail-closed.
     """
 
     def before_done(
@@ -56,7 +62,11 @@ def item_for_merge_phase(
         for row in list(item.get("qa_requirements") or [])
         if applies_at_pre_merge(row)
     ]
-    attachments = list(item.get("qa_plan_attachments") or [])
+    attachments = [
+        row
+        for row in list(item.get("qa_plan_attachments") or [])
+        if applies_at_pre_merge(row)
+    ]
     if leaves_status_unchanged:
         requirements = before_done(requirements, "workflow_transition_id")
         attachments = before_done(attachments, "transition_id")
