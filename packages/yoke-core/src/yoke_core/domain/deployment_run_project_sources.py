@@ -15,6 +15,7 @@ from typing import Any, Mapping
 from yoke_core.domain.deployment_run_bound_sources import (
     BOUND_SOURCES_FIELD,
     bound_project_shas,
+    bound_sources_recorded,
     parse_bound_sources,
 )
 
@@ -27,6 +28,14 @@ def _p(conn: Any) -> str:
 
 def _cell(row: Any, key: str, index: int) -> Any:
     return row[key] if hasattr(row, "keys") else row[index]
+
+
+def _stored_column(conn: Any, alias: str = "") -> str:
+    """Select the stored record, or a constant empty one before converge."""
+    prefix = f"{alias}." if alias else ""
+    if bound_sources_recorded(conn):
+        return f"COALESCE({prefix}{BOUND_SOURCES_FIELD},'')"
+    return "''"
 
 
 def recorded_source_sha(run: Mapping[str, Any], project_id: int) -> str:
@@ -47,7 +56,7 @@ def run_source_sha(conn: Any, run_id: str, project_id: int) -> str:
     marker = _p(conn)
     row = conn.execute(
         f"SELECT project_id,COALESCE(release_lineage,'') AS release_lineage,"
-        f"COALESCE({BOUND_SOURCES_FIELD},'') AS {BOUND_SOURCES_FIELD} "
+        f"{_stored_column(conn)} AS {BOUND_SOURCES_FIELD} "
         f"FROM deployment_runs WHERE id={marker}",
         (run_id,),
     ).fetchone()
@@ -67,7 +76,7 @@ def carried_project_ids(conn: Any, run_id: str) -> tuple[int, ...]:
     """Every project this run ships code for: its own, then each bound one."""
     marker = _p(conn)
     row = conn.execute(
-        f"SELECT project_id,COALESCE({BOUND_SOURCES_FIELD},'') AS "
+        f"SELECT project_id,{_stored_column(conn)} AS "
         f"{BOUND_SOURCES_FIELD} FROM deployment_runs WHERE id={marker}",
         (run_id,),
     ).fetchone()
@@ -99,9 +108,8 @@ def carrying_runs_for_project(
     """
     from yoke_core.domain.schema_common import _column_exists
 
-    if not all(
-        _column_exists(conn, "deployment_runs", column)
-        for column in (BOUND_SOURCES_FIELD, "target_environment_id")
+    if not bound_sources_recorded(conn) or not _column_exists(
+        conn, "deployment_runs", "target_environment_id"
     ):
         return []
     marker = _p(conn)

@@ -7,6 +7,7 @@ import json
 from typing import Any, Mapping
 
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.deployment_run_bound_sources import bound_sources_recorded
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 from yoke_core.domain.deployment_runs_schema import (
     RUN_FIELDS,
@@ -147,15 +148,23 @@ def project_snapshot(
             outcome = "unchanged"
             changed: list[str] = []
         elif existing is None:
+            # A destination that has not converged the bound-source column
+            # takes every other field rather than refusing the projection.
+            records_bound = bound_sources_recorded(authority)
+            bound_column = "bound_sources," if records_bound else ""
+            bound_value = "%s," if records_bound else ""
+            bound_parameter = (
+                (snapshot["bound_sources"],) if records_bound else ()
+            )
             authority.execute(
                 "INSERT INTO deployment_runs("
                 "id,project_id,flow,target_tier,target_environment_id,"
                 "release_lineage,status,"
                 "current_stage,created_at,started_at,completed_at,created_by,"
-                "carried_work,bound_sources,artifact_identity,"
+                f"carried_work,{bound_column}artifact_identity,"
                 "composition_resolution,"
                 "composition_frozen_at,requirement_snapshot) VALUES ("
-                "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                f"%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,{bound_value}%s,%s,%s,%s)",
                 (
                     snapshot["id"],
                     project_id,
@@ -170,7 +179,7 @@ def project_snapshot(
                     snapshot["completed_at"],
                     snapshot["created_by"],
                     snapshot["carried_work"],
-                    snapshot["bound_sources"],
+                    *bound_parameter,
                     snapshot["artifact_identity"],
                     snapshot["composition_resolution"],
                     snapshot["composition_frozen_at"],

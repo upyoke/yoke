@@ -23,6 +23,13 @@ the run's own candidate, so the run delivers two projects, not one.
   afterwards, so a retry cannot ship a commit the first attempt did not. Read
   it with `yoke deployment-runs get RUN-ID bound_sources`, and read what a
   flow binds with `yoke deployment-flows stages FLOW-ID`.
+- **The record waits for its own column; the release does not.** The column
+  is additive, so it arrives on the boot converge of a build carrying it —
+  and that build is deployed by a run this same code drives, against the
+  database as it stands before that converge. During that one window the
+  branch still resolves and the bound stage still dispatches the resolved
+  commit; only the durable record waits. Delivery credit for bound-project
+  items begins with the first run started after the converge.
 - **A branch that cannot be reached refuses the start by name.** It is
   resolved from the bound project's registered checkout, or through that
   project's own authorized repository binding when this host holds no

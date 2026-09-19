@@ -68,7 +68,9 @@ def _require_execution_lock(
     return None
 
 
-def _record_bound_sources(run_id_value: str) -> HandlerOutcome | None:
+def _record_bound_sources(
+    run_id_value: str,
+) -> Dict[str, Any] | HandlerOutcome:
     """Pin every project's source commit before anything reads one.
 
     A stage that binds another project's branch substitutes the commit the
@@ -76,18 +78,24 @@ def _record_bound_sources(run_id_value: str) -> HandlerOutcome | None:
     the resolution happens once here rather than per stage. A branch that
     cannot be reached refuses the start by name: dispatching an unrecorded
     binding would ship a commit nothing can later account for.
+
+    The payload travels back to the driver rather than being left for it to
+    re-read, because a database that has not yet converged the column has
+    nowhere to store it — and the release carrying that converge is driven
+    by this very call, with a bound stage that still has to dispatch a real
+    commit.
     """
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.deployment_run_bound_sources import record_bound_sources
 
     with connect() as conn:
         try:
-            record_bound_sources(conn, run_id_value)
+            recorded = record_bound_sources(conn, run_id_value)
         except (LookupError, ValueError) as exc:
             conn.rollback()
             return error("bound_source_unresolved", str(exc))
         conn.commit()
-        return None
+        return recorded
 
 
 def _enroll_carried_items(run_id_value: str) -> List[str] | HandlerOutcome:
@@ -159,8 +167,9 @@ def handle_deployment_execution_context(
         return resolved_run_id
     if refusal := _require_execution_lock(request, resolved_run_id):
         return refusal
-    if refusal := _record_bound_sources(resolved_run_id):
-        return refusal
+    bound_sources = _record_bound_sources(resolved_run_id)
+    if isinstance(bound_sources, HandlerOutcome):
+        return bound_sources
     enrolled_carried_items = _enroll_carried_items(resolved_run_id)
     if isinstance(enrolled_carried_items, HandlerOutcome):
         return enrolled_carried_items
@@ -177,6 +186,9 @@ def handle_deployment_execution_context(
         return error("not_found", f"deployment run {resolved_run_id!r} not found")
     run = pipe_to_dict(raw, RUN_FIELDS)
     run["carried_work"] = parse_carried_work(run.get("carried_work"))
+    # The resolution above is authoritative for this execution, converged
+    # column or not; the row read would project an empty string before it.
+    run["bound_sources"] = bound_sources
     try:
         with connect() as conn:
             stages = json.loads(cmd_stages(conn, str(run["flow"])))
