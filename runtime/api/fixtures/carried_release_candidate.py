@@ -29,10 +29,12 @@ def git(repo: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
-def release_repository(tmp_path: Path, item_ref: str) -> tuple[Path, str, str]:
+def release_repository(
+    tmp_path: Path, item_ref: str, *, name: str = "release-project"
+) -> tuple[Path, str, str]:
     """One baseline release and one landed item, attributable by message."""
-    repo = tmp_path / "release-project"
-    repo.mkdir()
+    repo = tmp_path / name
+    repo.mkdir(parents=True)
     subprocess.run(
         ["git", "init", "-b", "main", str(repo)],
         check=True,
@@ -48,6 +50,37 @@ def release_repository(tmp_path: Path, item_ref: str) -> tuple[Path, str, str]:
     (repo / "release.txt").write_text("landed\n", encoding="utf-8")
     git(repo, "commit", "-am", f"Land {item_ref} product changes")
     return repo, baseline, git(repo, "rev-parse", "HEAD")
+
+
+def bound_source_repository(
+    tmp_path: Path, name: str, item_ref: str
+) -> tuple[Path, str, str]:
+    """A second project's repository, reachable as its own ``origin``.
+
+    A bound branch is resolved the way the deploy driver resolves it — by
+    asking the checkout's remote what the branch names now — so the fixture
+    gives the repository a real origin instead of stubbing the read.
+    """
+    repo, baseline, tip = release_repository(tmp_path, item_ref, name=name)
+    git(repo, "remote", "add", "origin", str(repo))
+    return repo, baseline, tip
+
+
+def serve_repositories(
+    monkeypatch: pytest.MonkeyPatch, repos: dict[int, Path]
+) -> None:
+    """Map each project id to the checkout this machine holds for it."""
+    from yoke_core.domain import project_checkout_locations
+
+    def lookup(project_id: Any, **_kwargs: Any) -> Path | None:
+        return repos.get(int(project_id)) if project_id is not None else None
+
+    monkeypatch.setattr(
+        deployment_run_carried_work_source, "checkout_for_project_id", lookup
+    )
+    monkeypatch.setattr(
+        project_checkout_locations, "checkout_for_project_id", lookup
+    )
 
 
 def serve_repository(
@@ -68,14 +101,22 @@ def insert_run(
     lineage: str,
     status: str,
     flow: str,
+    project_id: int = 1,
+    bound_sources: str | None = None,
+    completed_at: str = "2026-09-14T01:00:00Z",
 ) -> None:
-    """Insert one deployment run pinned to ``lineage``."""
+    """Insert one deployment run pinned to ``lineage``.
+
+    ``bound_sources`` is the record a started run writes for every project it
+    ships but does not own; a test that needs a predecessor to have carried
+    such a project supplies it directly rather than starting a whole run.
+    """
     conn.execute(
         "INSERT INTO deployment_runs("
-        "id,project_id,flow,release_lineage,status,created_at,completed_at) "
-        "VALUES (%s,1,%s,%s,%s,%s,%s)",
-        (run_id, flow, lineage, status, "2026-09-14T00:00:00Z",
-         "2026-09-14T01:00:00Z"),
+        "id,project_id,flow,release_lineage,bound_sources,status,created_at,"
+        "completed_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+        (run_id, project_id, flow, lineage, bound_sources, status,
+         "2026-09-14T00:00:00Z", completed_at),
     )
     conn.commit()
 

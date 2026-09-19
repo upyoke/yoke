@@ -14,7 +14,7 @@ reason, the recovery, and the flag readers key on.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from yoke_core.domain.deployment_run_project_sources import recorded_source_sha
 from yoke_core.domain.deployment_run_carried_work_source import (
