@@ -43,13 +43,13 @@ from yoke_core.domain.lint_shell_target_tokens import (
     shell_variable_bindings,
 )
 from yoke_core.domain.lint_session_cwd_home import expand_machine_home
-from yoke_core.domain.lint_session_cwd_path_authority import is_dev_family_path
 from yoke_core.domain.lint_session_cwd_read_only_signatures import git_write_targets
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     FLAG_BINARY,
     FLAG_EQUALS_PREFIXES,
     REDIRECT_OPERATORS,
     extract_command_targets,
+    is_file_redirect_operand,
     strip_env_prefixes,
     strip_heredoc_syntax,
 )
@@ -66,7 +66,6 @@ SHELL_WRITE_COMMAND_BASES = (
     _ALL_POSITIONAL_WRITE_COMMANDS | _LAST_POSITIONAL_WRITE_COMMANDS | {"patch"}
 )
 _GLUED_REDIRECT_RE = re.compile(r"^(?:[012]?>>?|&>>?)(.+)$")
-_FD_DUP_REDIRECT_TARGET_RE = re.compile(r"^&\d+$")
 _APP_CONTAINER_ROOT = Path("/app")
 
 
@@ -79,11 +78,7 @@ def glued_file_redirect_target(token: str) -> str | None:
     if match is None:
         return None
     target = match.group(1).rstrip(";&")
-    if _FD_DUP_REDIRECT_TARGET_RE.match(target):
-        return None
-    if is_dev_family_path(target):
-        return None
-    return target
+    return target if is_file_redirect_operand(target) else None
 
 
 def _tool_input(payload: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -294,7 +289,7 @@ def _split_redirect_targets(tokens: List[str]) -> Tuple[List[str], List[str]]:
     while i < len(tokens):
         token = tokens[i]
         if token in REDIRECT_OPERATORS:
-            if i + 1 < len(tokens) and not is_dev_family_path(tokens[i + 1]):
+            if i + 1 < len(tokens) and is_file_redirect_operand(tokens[i + 1]):
                 targets += [tokens[i + 1]]
             i += 2
             continue
