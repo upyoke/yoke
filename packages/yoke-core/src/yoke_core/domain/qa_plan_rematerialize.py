@@ -13,6 +13,9 @@ from yoke_core.domain.qa_execution_environment_target import (
 from yoke_core.domain.qa_plan_attachment_validation import (
     validate_attached_item_transition,
 )
+from yoke_core.domain.qa_deployment_member_attached_plans import (
+    attachments_still_owed,
+)
 from yoke_core.domain.qa_plan_attachments import _attached_plans
 from yoke_core.domain.qa_plan_execution_target_snapshot import (
     rebind_unresolvable_targets,
@@ -45,11 +48,24 @@ def rematerialize_for_item(
     """Refresh current plan snapshots and waive cases no longer in the plan."""
     lock_item_workflow_bindings(conn, (int(item_id),))
     transition_id = str(transition_id or "").strip()
-    attachments = _attached_plans(
+    attachments, answered = attachments_still_owed(
         conn,
-        item_id=int(item_id),
-        transition_id=transition_id,
+        member_item_id=int(item_id),
+        attachments=_attached_plans(
+            conn, item_id=int(item_id), transition_id=transition_id
+        ),
     )
+    if not attachments and answered:
+        # A delivery already answered every attachment here; refreshing a
+        # snapshot of it would author the same unanswerable obligation.
+        return {
+            "item_id": int(item_id),
+            "transition_id": transition_id,
+            "plan_ids": [],
+            "created_requirement_ids": [],
+            "refreshed_requirement_ids": [],
+            "waived_requirement_ids": [],
+        }
     transition_id = validate_attached_item_transition(
         conn,
         item_id=int(item_id),
