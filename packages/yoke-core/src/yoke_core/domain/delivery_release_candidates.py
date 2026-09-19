@@ -36,10 +36,14 @@ from yoke_core.domain.schema_common import _column_exists
 #: ``ephemeral``, is a per-run preview that delivers nothing durable.
 PERSISTENT_TARGET_TIER = "persistent"
 
-#: Both walks select these three, in this order, so one row reader serves both.
+#: Both walks select these, in this order, so one row reader serves both.
+#: ``flow`` and ``carried_work`` are what a caller needs to say which release
+#: shipped a merge and under which flow — the containment walk reads neither,
+#: while a card that has no flow of its own has nowhere else to read them.
 _RELEASE_COLUMNS = (
     "SELECT id, COALESCE(release_lineage, '') AS release_lineage, "
-    "COALESCE(completed_at, '') AS completed_at FROM deployment_runs "
+    "COALESCE(completed_at, '') AS completed_at, COALESCE(flow, '') AS flow, "
+    "COALESCE(carried_work, '') AS carried_work FROM deployment_runs "
 )
 _NEWEST_FIRST = "ORDER BY completed_at DESC, created_at DESC, id DESC LIMIT "
 
@@ -60,6 +64,8 @@ def _releases(rows: Any) -> list[dict[str, Any]]:
             "id": str(row_cell(row, "id", 0) or ""),
             "release_lineage": str(row_cell(row, "release_lineage", 1) or ""),
             "completed_at": str(row_cell(row, "completed_at", 2) or ""),
+            "flow": str(row_cell(row, "flow", 3) or ""),
+            "carried_work": row_cell(row, "carried_work", 4),
         }
         for row in rows
     ]
@@ -90,6 +96,11 @@ def succeeded_flow_runs(
             "id": run["id"],
             "release_lineage": run["source_sha"],
             "completed_at": run["completed_at"],
+            "flow": run["flow"],
+            "carried_work": run["carried_work"],
+            # The carrier answers for several projects, so a reader of its
+            # carried work has to be told which slice belongs to this one.
+            "bound_project_id": int(project_id),
         }
         for run in carrying_runs_for_project(conn, int(project_id))
     )

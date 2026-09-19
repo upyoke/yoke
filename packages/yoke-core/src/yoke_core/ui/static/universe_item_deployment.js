@@ -121,6 +121,21 @@ export function mergesPhrase(delivery) {
 }
 
 /**
+ * Which flow the box names as shipping this item.
+ *
+ * The item's own stored flow when it has one. When it stores none, the flow
+ * of the release that actually carried a merge — a flow-less item is still
+ * delivered by whatever run picked it up, and "no flow" said about shipped
+ * work reported a missing field as a missing delivery. Only an item that
+ * stores no flow and whose merges no release has carried says "no flow".
+ */
+export function deliveryFlowLabel(row) {
+  const stored = String(row.deployment_flow || "");
+  if (stored) return stored;
+  return String(row.delivery?.flow || "") || "no flow";
+}
+
+/**
  * One run's sub-card: the truck, what the run is doing, and when.
  *
  * `row` is the item the card belongs to, which supplies both the project the
@@ -148,7 +163,7 @@ function deliveryRunCard(documentNode, run, row) {
   // The flow only when it is not the item's own: repeating the line above on
   // every sub-card says nothing, while a differing flow is the whole point.
   const flow = String(run.flow || "");
-  if (flow && flow !== String(row.deployment_flow || "")) {
+  if (flow && flow !== deliveryFlowLabel(row)) {
     card.appendChild(el(
       documentNode, "small", "item-deployment-flow", flow,
     ));
@@ -219,7 +234,7 @@ export function appendItemDelivery(documentNode, card, row, deployments) {
     documentNode,
     "span",
     "item-delivery-flow",
-    String(row.deployment_flow || "") || "no flow",
+    deliveryFlowLabel(row),
   ));
   head.appendChild(el(
     documentNode, "span", "item-delivery-merges", mergesPhrase(row.delivery),

@@ -228,6 +228,46 @@ for (const band of BANDS) {
     mounted.unmount();
   });
 
+  test(`${band.key}: an item with no stored flow names the one that shipped it`, async (t) => {
+    stubFetch(t);
+    // Platform items store no flow, yet a run of their own project carried
+    // and shipped the merge. "no flow" there reported a missing field as a
+    // missing delivery.
+    const { mounted, box } = await mountBand(
+      band,
+      (itemId) => [run("run-1", itemId)],
+      {
+        deployment_flow: "",
+        delivery: { merges: 1, deployed: 1, not_deployed: 0, flow: FLOW },
+      },
+    );
+
+    assert.equal(byClass(box, "item-delivery-flow")[0].textContent, FLOW);
+    assert.equal(
+      byClass(box, "item-delivery-merges")[0].textContent,
+      "1 merge · 1 deployed · 0 not deployed",
+    );
+    // The head already names that flow, so the sub-card repeating it says
+    // nothing — the same rule an item with its own flow gets.
+    assert.equal(byClass(box, "item-deployment-flow").length, 0);
+    mounted.unmount();
+  });
+
+  test(`${band.key}: no stored flow and nothing shipped still says "no flow"`, async (t) => {
+    stubFetch(t);
+    const { mounted, box } = await mountBand(band, () => [], {
+      deployment_flow: "",
+      delivery: { merges: 1, deployed: 0, not_deployed: 1, flow: "" },
+    });
+
+    assert.equal(byClass(box, "item-delivery-flow")[0].textContent, "no flow");
+    assert.equal(
+      byClass(box, "item-delivery-merges")[0].textContent,
+      "1 merge · 0 deployed · 1 not deployed",
+    );
+    mounted.unmount();
+  });
+
   test(`${band.key}: the flat-line rendering is gone`, async (t) => {
     stubFetch(t);
     const { mounted, root } = await mountBand(band, (itemId) => [run("run-1", itemId)]);
