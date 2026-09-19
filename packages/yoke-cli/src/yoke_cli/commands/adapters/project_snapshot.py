@@ -55,7 +55,15 @@ def project_snapshot_sync(args: List[str]) -> int:
     parser.add_argument("repo_root", nargs="?", default=None)
     add_project_arg(parser)
     parser.add_argument("--integration-target", default=None)
-    parser.add_argument("--head-only", action="store_true")
+    parser.add_argument(
+        "--head-only",
+        action="store_true",
+        help=(
+            "Record this checkout's HEAD identity only: no integration "
+            "target, no file-content scan. The fast re-stamp for a lane "
+            "whose recorded head went stale."
+        ),
+    )
     parser.add_argument(
         "--hook",
         dest="hook_mode",
@@ -77,7 +85,11 @@ def project_snapshot_sync(args: List[str]) -> int:
             integration_target=parsed.integration_target,
             head_only=parsed.head_only,
             hook_mode=parsed.hook_mode,
-            include_contents=not parsed.hook_mode,
+            # --head-only asks for HEAD's identity, which is the whole of
+            # what the stale-lane-head recovery needs. Scanning every blob
+            # anyway made the fast recovery a full upload that outran the
+            # relay's time limit and reported the recorded head as failed.
+            include_contents=not (parsed.hook_mode or parsed.head_only),
         )
     except ProjectSnapshotScanError as exc:
         label = "warning" if parsed.hook_mode else "error"

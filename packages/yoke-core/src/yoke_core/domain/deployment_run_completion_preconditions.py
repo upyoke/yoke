@@ -18,6 +18,11 @@ else is unresolved, and that deliberately includes ``failed``: a failed
 blocking check is the strongest reason not to call a run succeeded, and
 reading it as resolved because it is no longer pending is the shape this
 module exists to prevent.
+
+A plan case is settled by the shared rule in
+:mod:`yoke_core.domain.qa_obligation_settlement`, the same one the stage
+acceptance check applies, so the end of a release never re-opens an
+obligation a stage already accepted as discharged.
 """
 
 from __future__ import annotations
@@ -26,6 +31,7 @@ import json
 from typing import Any, List, Optional
 
 from yoke_core.domain.db_helpers import query_rows, query_scalar
+from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 from yoke_core.domain.schema_common import _table_exists
 
 #: Flow-derived ``deployment_run_qa`` statuses that settle a blocking check.
@@ -75,18 +81,23 @@ def _unresolved_flow_checks(conn: Any, run_id: str) -> List[str]:
 
 
 def _unresolved_plan_cases(conn: Any, run_id: str) -> List[str]:
-    """Run-bound ``qa_requirements`` rows with no passing run and no waiver."""
+    """Run-bound ``qa_requirements`` rows with no passing run, still owed.
+
+    "Still owed" is the shared settlement rule, so a row a passing
+    replacement superseded reads the same here as it does at the stage that
+    accepted the supersession in the first place.
+    """
     if not (
         _table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")
     ):
         return []
     rows = query_rows(
         conn,
-        """
+        f"""
         SELECT r.id, r.qa_kind FROM qa_requirements r
         WHERE r.deployment_run_id = %s
           AND r.blocking_mode = 'blocking'
-          AND r.waived_at IS NULL
+          AND NOT {settled_obligation_sql("r")}
           AND NOT EXISTS (
             SELECT 1 FROM qa_runs qr
             WHERE qr.qa_requirement_id = r.id

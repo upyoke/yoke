@@ -132,8 +132,12 @@ def observe_batch(
                 recovery=(
                     "This lane's content reached the base under some other "
                     f"landing, so pull request {pr_num} has no merge_group "
-                    "run to attribute. Resolve the merge that carried it, or "
-                    "treat this as an operator decision rather than a retry."
+                    "run to attribute. Find the pull request whose merge the "
+                    "base actually holds and repoint this item at it: `yoke "
+                    "items merge-provenance operator-correct <PREFIX-N> "
+                    "--pr-number <N> --reason ...`, which verifies that "
+                    "pull request merged before it writes. Retrying this "
+                    "command unchanged asks the same open pull request again."
                 ),
                 retryable=False,
             )

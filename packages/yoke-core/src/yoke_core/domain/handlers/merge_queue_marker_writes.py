@@ -6,6 +6,10 @@ the landing, and the notification. Three writes own them — the pull request
 is recorded when it is opened, the queue admission after either landing route
 arms it, and the whole marker is cleared at close-out.
 
+The columns themselves are written by
+:func:`yoke_core.domain.merge_queue_landing_marker.point_item_at_pull_request`,
+shared with the operator repoint so the two can never disagree.
+
 They are separate calls because the moments are separate and only the first
 is common to both landing routes. Recording the pull request at open time is
 what lets the control-plane landing observer
@@ -28,6 +32,9 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
+)
+from yoke_core.domain.merge_queue_landing_marker import (
+    point_item_at_pull_request,
 )
 from yoke_core.domain.merge_queue_landing_record import delete_landing_record
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
@@ -99,56 +106,18 @@ def _write_landing_marker(
     enqueued_at: str,
     failure_code: str,
 ) -> HandlerOutcome:
-    """Point the item at ``pr_number`` and return the four landing facts.
-
-    Every landing stamp belongs to one pull request, so a number that
-    supersedes the recorded one drops its predecessor's queue admission and
-    landing stamps instead of carrying them onto the replacement. Re-writing
-    the same number is idempotent: an admission already recorded survives a
-    later caller that has none to declare.
-    """
+    """Point the item at ``pr_number`` and return the four landing facts."""
     try:
         with _connect_rw() as conn:
-            p = _placeholder(conn)
-            row = conn.execute(
-                "SELECT merge_queue_pr_number, merge_queue_enqueued_at, "
-                "merge_queue_landed_at, merge_queue_notified_at FROM items "
-                f"WHERE id = {p}",
-                (item_id,),
-            ).fetchone()
-            if row is None:
-                return _err("target_not_found", ITEM_NOT_FOUND)
-            same_pr = str(row[0] or "") == pr_number
-            recorded_enqueued_at = str(row[1]) if same_pr and row[1] else enqueued_at
-            landed_at = str(row[2] or "") if same_pr else ""
-            notified_at = str(row[3] or "") if same_pr else ""
-            reset_observation = not same_pr or bool(enqueued_at and not row[1])
-            conn.execute(
-                "UPDATE items SET merge_queue_pr_number = {0}, "
-                "merge_queue_enqueued_at = {0}, merge_queue_landed_at = {0}, "
-                "merge_queue_notified_at = {0} WHERE id = {0}".format(p),
-                (
-                    pr_number,
-                    recorded_enqueued_at or None,
-                    landed_at or None,
-                    notified_at or None,
-                    item_id,
-                ),
+            marker = point_item_at_pull_request(
+                conn, item_id, pr_number, enqueued_at=enqueued_at
             )
-            if reset_observation:
-                delete_landing_record(conn, item_id)
-            conn.commit()
     except Exception as exc:  # noqa: BLE001 - surfaced to the merge boundary
         return _err(failure_code, str(exc))
-
+    if marker is None:
+        return _err("target_not_found", ITEM_NOT_FOUND)
     return HandlerOutcome(
-        result_payload={
-            "item_id": item_id,
-            "pr_number": pr_number,
-            "enqueued_at": recorded_enqueued_at,
-            "landed_at": landed_at,
-            "notified_at": notified_at,
-        },
+        result_payload={"item_id": item_id, **marker},
         primary_success=True,
     )
 

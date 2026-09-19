@@ -8,6 +8,10 @@ examined again now. Refusal is evidence, not a reason to unwind the committed
 terminal transition: each preserved lane of the item's own is named on the
 returned warnings and recorded as a ``LandedLanePreserved`` event, so the
 refusal outlives the terminal output that first showed it.
+
+The two phases report separately. A warning naming the closing item is about
+that item's own lane; one naming the machine-wide sweep is about lanes other
+items own, which the closing item never resolved a path for.
 """
 
 from __future__ import annotations
@@ -178,7 +182,18 @@ def _cleanup_terminal_item_lanes(
             if refused:
                 warnings.append(refused)
 
-    swept = sweep(repo_root=str(root), target=target, emit=emit)
+    # The machine-wide sweep examines lanes belonging to OTHER items, so its
+    # failures are reported as its own. Folding them into the item's warning
+    # made one close-out appear to have tried to remove a sibling item's lane.
+    try:
+        swept = sweep(repo_root=str(root), target=target, emit=emit)
+    except Exception as exc:  # noqa: BLE001 - the item's own lanes are done
+        warnings.append(
+            f"machine-wide merged-lane sweep stopped after an unexpected "
+            f"refusal: {exc}. {public_ref}'s own lanes were handled above; "
+            "the next landing boundary runs the sweep again."
+        )
+        return TerminalLaneCloseOut(tuple(warnings))
     return TerminalLaneCloseOut(tuple(warnings), swept.payload())
 
 

@@ -7,13 +7,13 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.qa_obligation_settlement import obligation_settled
 
 
-#: The blocking cases pinned to one stage/member subject, with both ways an
-#: obligation can already be discharged. Waiver and supersession are read
-#: together because the gate treats them the same way -- as an obligation it
-#: no longer has to see evidence for -- while the records stay distinct so a
-#: reader can always tell which one happened.
+#: The blocking cases pinned to one stage/member subject, carrying both
+#: discharge records so :func:`obligation_settled` can read them. That rule
+#: is shared with the run-completing stage, so one boundary never re-opens
+#: an obligation the other accepted as settled.
 _SCOPED_CASES_SQL = (
     "SELECT id,plan_case_key,waived_at,superseded_by_requirement_id "
     "FROM qa_requirements "
@@ -22,11 +22,6 @@ _SCOPED_CASES_SQL = (
     "AND method_id IS NOT NULL AND blocking_mode='blocking' "
     "AND execution_target_digest=%s ORDER BY id"
 )
-
-
-def _discharged(row: Mapping[str, Any]) -> bool:
-    """True when this case's obligation is already settled without evidence."""
-    return bool(row["waived_at"]) or bool(row["superseded_by_requirement_id"])
 
 
 def scoped_cases(
@@ -69,7 +64,7 @@ def obligations_fully_discharged(
         member_item_id=member_item_id,
         execution_target_digest=execution_target_digest,
     )
-    return bool(rows) and all(_discharged(row) for row in rows)
+    return bool(rows) and all(obligation_settled(row) for row in rows)
 
 
 #: A case's evidence, found through any completed execution of this same
@@ -151,7 +146,7 @@ def case_failures(
         return ["no concrete QA cases are materialized"]
     failures: list[str] = []
     for row in rows:
-        if _discharged(row):
+        if obligation_settled(row):
             # A superseded row is skipped rather than graded, but the case
             # that discharged it is in this same result set and is graded on
             # its own evidence. Supersession therefore moves an obligation

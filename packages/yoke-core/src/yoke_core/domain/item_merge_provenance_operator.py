@@ -8,6 +8,11 @@ one provenance field a merge outside the merge boundary can leave unset --
 ``items.merged_at`` -- gets a single narrow human-only correction surface
 instead of a general terminal write path.
 
+Its sibling :mod:`yoke_core.domain.item_merge_provenance_pull_request`
+repairs the other half of the same provenance — which pull request carried
+the landing — behind the same registered surface, and reuses the human-only
+context check and ledger-first emitter defined here.
+
 Sibling of :mod:`yoke_core.domain.coordination_claims_operator`, sharing
 its recovery properties: the surface refuses a hook context, demands a
 non-empty operator reason, and emits its WARN event BEFORE the mutation
@@ -43,20 +48,20 @@ MERGED_AT_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 
 class MergedAtCorrectionError(RuntimeError):
-    """A merge-timestamp correction was refused."""
+    """A merge-provenance correction was refused."""
 
 
 class MergedAtCorrectionHookContextError(MergedAtCorrectionError):
     """The correction was attempted from a hook context."""
 
 
-def _placeholder(conn: Any) -> str:
+def sql_placeholder(conn: Any) -> str:
     from yoke_core.domain import db_backend
 
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _row_value(row: Any, key: str, position: int) -> Any:
+def row_value(row: Any, key: str, position: int) -> Any:
     return row[key] if hasattr(row, "keys") else row[position]
 
 
@@ -82,7 +87,7 @@ def _parse_merged_at(merged_at: str, *, now: Optional[datetime]) -> str:
 
 
 def _item_state(conn: Any, item_id: int) -> tuple[str, str]:
-    placeholder = _placeholder(conn)
+    placeholder = sql_placeholder(conn)
     row = conn.execute(
         f"SELECT status, merged_at FROM items WHERE id = {placeholder}",
         (int(item_id),),
@@ -90,8 +95,8 @@ def _item_state(conn: Any, item_id: int) -> tuple[str, str]:
     if row is None:
         raise MergedAtCorrectionError(ITEM_NOT_FOUND)
     return (
-        str(_row_value(row, "status", 0) or ""),
-        str(_row_value(row, "merged_at", 1) or ""),
+        str(row_value(row, "status", 0) or ""),
+        str(row_value(row, "merged_at", 1) or ""),
     )
 
 
@@ -129,12 +134,7 @@ def operator_correct_merged_at(
     Returns a summary dict describing the corrected item; raises
     :class:`MergedAtCorrectionError` when any guardrail refuses.
     """
-    hook_event = os.environ.get("YOKE_HOOK_EVENT")
-    if hook_event:
-        raise MergedAtCorrectionHookContextError(
-            "Merge-timestamp correction cannot be invoked from a hook context "
-            f"(YOKE_HOOK_EVENT={hook_event}). This command is human-only."
-        )
+    require_human_context("Merge-timestamp correction")
 
     if not operator_reason or not operator_reason.strip():
         raise MergedAtCorrectionError("operator_reason must be a non-empty string")
@@ -158,13 +158,14 @@ def operator_correct_merged_at(
         "merged_at": resolved_merged_at,
         "operator_reason": operator_reason,
     }
-    _emit_merged_at_correction(
+    emit_correction(
+        MERGED_AT_CORRECTION_EVENT,
         session_id=session_id or "",
         item_id=int(item_id),
         context=context,
     )
 
-    placeholder = _placeholder(conn)
+    placeholder = sql_placeholder(conn)
     conn.execute(
         f"UPDATE items SET merged_at = {placeholder} WHERE id = {placeholder}",
         (resolved_merged_at, int(item_id)),
@@ -182,18 +183,29 @@ def operator_correct_merged_at(
     }
 
 
-def _emit_merged_at_correction(
+def require_human_context(subject: str) -> None:
+    """Refuse a correction invoked from a hook context."""
+    hook_event = os.environ.get("YOKE_HOOK_EVENT")
+    if hook_event:
+        raise MergedAtCorrectionHookContextError(
+            f"{subject} cannot be invoked from a hook context "
+            f"(YOKE_HOOK_EVENT={hook_event}). This command is human-only."
+        )
+
+
+def emit_correction(
+    name: str,
     *,
     session_id: str,
     item_id: int,
     context: Dict[str, Any],
 ) -> None:
-    """Fire the WARN correction event via the shared emitter."""
+    """Fire one WARN correction event via the shared emitter."""
     try:
         from yoke_core.domain.events import emit_event as _emit
 
         _emit(
-            MERGED_AT_CORRECTION_EVENT,
+            name,
             event_kind="system",
             event_type="item_lifecycle",
             source_type="api",
@@ -214,5 +226,9 @@ __all__ = [
     "MERGED_AT_FORMAT",
     "MergedAtCorrectionError",
     "MergedAtCorrectionHookContextError",
+    "emit_correction",
+    "sql_placeholder",
+    "row_value",
     "operator_correct_merged_at",
+    "require_human_context",
 ]

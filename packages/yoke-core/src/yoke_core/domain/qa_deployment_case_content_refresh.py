@@ -30,6 +30,7 @@ import json
 from typing import Any, Mapping
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.qa_obligation_settlement import obligation_settled
 
 
 #: The fields that decide what a runner will actually do. Anything outside
@@ -84,7 +85,7 @@ def refreshed_case_key(plan_case_key: str, digest: str) -> str:
 
 def _discharged_or_failed(conn: Any, row: Mapping[str, Any]) -> bool:
     """True when this row no longer answers for its case."""
-    if row.get("waived_at") or row.get("superseded_by_requirement_id"):
+    if obligation_settled(row):
         return True
     verdict = query_rows(
         conn,
