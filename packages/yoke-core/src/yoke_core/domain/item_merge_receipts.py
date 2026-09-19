@@ -183,12 +183,16 @@ def landing_merge_commit(repo_root: str, target: str, commit_sha: str) -> str:
     answer.
 
     Containment along a first-parent chain is monotonic: once a commit on it
-    holds ``commit_sha``, every newer one does. So the landing is the boundary
-    between the two, found by bisecting rather than by testing each commit.
-    That boundary also replaces the old "first parent must not already hold
-    it" guard, which exists to stop a neighbour's merge being answered: the
-    commit before the boundary is by construction the newest one that does
-    not contain ``commit_sha``.
+    holds ``commit_sha``, every newer one does. So the boundary between the
+    two is found by bisecting rather than by testing each commit.
+
+    The boundary narrows the search; it does not answer the question. A
+    branch that never advanced past the trunk commit it forked from has a
+    ``commit_sha`` already ON the chain, so every commit after it holds one
+    the trunk always had, and the boundary is simply whatever landed next --
+    a neighbour's merge. The candidate's own first parent is what tells them
+    apart: when it already holds ``commit_sha``, the candidate carried
+    nothing in and this branch has no landing merge of its own.
 
     A fast-forward leaves no merge commit behind and resolves to nothing --
     that case needs the receipt.
@@ -211,6 +215,8 @@ def landing_merge_commit(repo_root: str, target: str, commit_sha: str) -> str:
         else:
             high = middle - 1
     if not landed or not _is_merge(repo_root, landed):
+        return ""
+    if git.is_ancestor(repo_root, commit_sha, f"{landed}^1"):
         return ""
     return landed
 
