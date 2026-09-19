@@ -39,6 +39,16 @@ const UNAVAILABLE_STATES = {
   unavailable: () => "Image unavailable",
 };
 
+// A tile has three states, not two. `is-ready` and `is-unavailable` are the
+// settled pair; between mount and settle the bytes are still being read, and
+// that window is not brief — a strip reads one artifact per tile, and a
+// release card carrying several runs reads them all at once. The window has
+// to draw something, because the picture carries this slot's frame and
+// background and stays hidden until it has a source: with nothing in its
+// place a reader gets a caption under blank space and cannot tell a tile
+// that is still loading from one whose bytes never arrived.
+const PENDING_STATE = "Loading evidence…";
+
 function isImage(artifact) {
   return String(artifact.content_type || "").startsWith("image/")
     || artifact.artifact_type.toLowerCase().includes("screenshot");
@@ -153,11 +163,13 @@ function readOutcome(response) {
   return { ready: false, state: "Evidence unavailable" };
 }
 
-function markUnavailable(documentNode, figure, outcome) {
+// The pending box says why it is empty instead of the reason the read
+// failed; the node itself is the same one either way, so a tile never shows
+// two states at once and never loses its frame between them.
+function markUnavailable(figure, state, outcome) {
+  figure.classList.remove("is-pending");
   figure.classList.add("is-unavailable");
-  figure.appendChild(el(
-    documentNode, "span", "review-shot-state", outcome.state,
-  ));
+  state.textContent = outcome.state;
   if (outcome.detail) figure.title = outcome.detail;
 }
 
@@ -179,6 +191,9 @@ function screenshot(context, artifact, stepCaptionsOnly) {
   image.alt = caption;
   picture.appendChild(image);
   figure.appendChild(picture);
+  figure.classList.add("is-pending");
+  const state = el(documentNode, "span", "review-shot-state", PENDING_STATE);
+  figure.appendChild(state);
   const label = shotLabel(artifact, stepCaptionsOnly);
   const step = label
     ? el(documentNode, "a", "review-shot-step", label) : null;
@@ -191,9 +206,11 @@ function screenshot(context, artifact, stepCaptionsOnly) {
     if (context.isMounted && !context.isMounted()) return;
     const outcome = readOutcome(response);
     if (!outcome.ready) {
-      markUnavailable(documentNode, figure, outcome);
+      markUnavailable(figure, state, outcome);
       return;
     }
+    figure.removeChild(state);
+    figure.classList.remove("is-pending");
     image.src = outcome.source;
     figure.classList.add("is-ready");
     const open = (event) => {
