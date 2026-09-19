@@ -77,39 +77,29 @@ test("a waiting run names the project deploy lock holding it", async (t) => {
   assert.equal(locks.length, 1);
   assert.match(
     byClass(locks[0], "shipping-run-lock-label")[0].textContent,
-    /Deploy lock · yoke · project-wide/,
+    /holds deploy lock \(yoke, project-wide\)/,
   );
-  assert.equal(byClass(locks[0], "item-claimant-mini").length, 1);
-  // The lock is a box, not a line of card copy: acceptance on the served
-  // build rejected it as plain text on the card fill. It wears the hue rule,
-  // wash, padding and radius a session card's holding group wears, so the
-  // two reads of "something is held" look like one another.
+  // The session owns the lock, not the other way round: the lock reads
+  // inside the holding session's own chip, after its status.
+  const mini = byClass(root, "item-claimant-mini");
+  assert.equal(mini.length, 1);
+  assert.equal(byClass(mini[0], "shipping-run-lock").length, 1);
+  assert.match(
+    mini[0].textContent,
+    /claude-cli.*active.*holds deploy lock \(yoke, project-wide\)/,
+  );
+  // The box is gone, but the weight acceptance asked for is not: that
+  // verdict rejected the lock for reading as one more line of card copy,
+  // which is about its weight and not about which element contains it. The
+  // label keeps the warn hue and the heavier stroke inside the chip.
   const signals = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_item_signals.css",
     import.meta.url,
   ), "utf8");
-  const lockRule = signals.slice(
-    signals.indexOf(".shipping-run-lock {"),
-  );
-  const lockBody = lockRule.slice(0, lockRule.indexOf("}"));
-  assert.match(lockBody, /border-left: 3px solid var\(--yoke-warn\)/);
-  assert.match(
-    lockBody,
-    /background: color-mix\(in srgb, var\(--yoke-warn\) 8%, transparent\)/,
-  );
-  const holdings = readFileSync(new URL(
-    "../../packages/yoke-core/src/yoke_core/ui/static/"
-      + "universe_sessions_holdings.css",
-    import.meta.url,
-  ), "utf8");
-  for (const shape of ["padding: 7px 9px", "border-radius: 4px"]) {
-    assert.match(lockBody, new RegExp(shape));
-    assert.match(
-      holdings,
-      new RegExp(shape),
-      `${shape} is the session holding box's own shape`,
-    );
-  }
+  const labelRule = signals.slice(signals.indexOf(".shipping-run-lock-label {"));
+  const labelBody = labelRule.slice(0, labelRule.indexOf("}"));
+  assert.match(labelBody, /color: var\(--yoke-warn\)/);
+  assert.match(labelBody, /font-weight: 650/);
   mounted.unmount();
 });
 

@@ -11,7 +11,10 @@ import { deliveryStageBar, workflowBadge } from "./universe_secondary_primitives
 import { relativeAgePhrase } from "./universe_time.js";
 import { appendRunGates, runGateStatus, runGates } from "./universe_run_gates.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
-import { appendCarriedItemEvidence } from "./universe_carried_item_evidence.js";
+import {
+  appendCarriedItemEvidence,
+  carriedItemId,
+} from "./universe_carried_item_evidence.js";
 import { runEvidence, runFlowName } from "./universe_run_evidence.js";
 import { itemClaimantControl } from "./universe_item_claimant.js";
 import { navIcon } from "./universe_nav_sidebar.js";
@@ -149,7 +152,14 @@ export function appendCarried(context, host, row, options = {}) {
   // Which requests these member rows took responsibility for, so a caller
   // drawing the release's gates beside them does not draw one of them twice.
   const drawnRequests = new Set();
-  if (!items.length) return { node: null, requestIds: drawnRequests };
+  // Whether any member drew evidence of its own. A caller that also has a
+  // run-wide strip to fall back on needs to know, because run-wide evidence
+  // carries no item: the same "step 2" tile under two different members
+  // reads as one unattributed pair.
+  let drewEvidence = false;
+  if (!items.length) {
+    return { node: null, requestIds: drawnRequests, drewEvidence };
+  }
   const batch = el(documentNode, "div", "release-batch");
   batch.appendChild(el(
     documentNode,
@@ -168,6 +178,7 @@ export function appendCarried(context, host, row, options = {}) {
       onDecide: options.onDecide,
     });
     for (const id of drawn?.requestIds || []) drawnRequests.add(id);
+    if (drawn) drewEvidence = true;
     return member;
   };
   for (const item of items.slice(0, CARRIED_ITEMS_SHOWN)) {
@@ -192,7 +203,7 @@ export function appendCarried(context, host, row, options = {}) {
     });
   }
   host.appendChild(batch);
-  return { node: batch, requestIds: drawnRequests };
+  return { node: batch, requestIds: drawnRequests, drewEvidence };
 }
 
 // A run card takes the whole view context rather than just its document:
@@ -239,20 +250,26 @@ export function shippingRunCard(context, row, scope, options = {}) {
   // deploy in that project and may have started none of them.
   const lock = TERMINAL_RUN_STATUSES.has(status)
     ? null : options.deployLocks?.get(String(row.project || ""));
+  // The lock reads as something the session holds, so it renders inside that
+  // session's own chip rather than as a box the session sits in. Filed the
+  // other way round it said the session belonged to the lock and the lock
+  // belonged to this run, and neither is true.
   if (lock && options.renderFullSession) {
-    const lockRow = el(documentNode, "div", "shipping-run-lock");
+    const lockNote = el(documentNode, "span", "shipping-run-lock");
     const lockIcon = el(documentNode, "span", "shipping-run-lock-icon", "🔒");
     lockIcon.setAttribute("aria-hidden", "true");
-    lockRow.appendChild(lockIcon);
-    lockRow.appendChild(el(
+    lockNote.appendChild(lockIcon);
+    lockNote.appendChild(el(
       documentNode,
       "span",
       "shipping-run-lock-label",
-      `Deploy lock · ${row.project} · project-wide`,
+      `holds deploy lock (${row.project}, project-wide)`,
     ));
+    const lockRow = el(documentNode, "div", "shipping-run-lock-row");
     lockRow.appendChild(itemClaimantControl(documentNode, lock, {
       renderFullSession: options.renderFullSession,
       label: `Show the session holding the ${row.project} deploy lock`,
+      note: lockNote,
     }));
     card.appendChild(lockRow);
   }
@@ -289,10 +306,24 @@ export function shippingRunCard(context, row, scope, options = {}) {
   appendRunGates(context, card, row.gates, options.onGateAction, {
     drawnRequestIds: carried.requestIds,
   });
-  // The request folded in above already shows the evidence it rests on; a
-  // run with no open request shows what its QA checks captured instead.
-  if (!runGates(row).length) {
-    const artifacts = runEvidence(options.facts, row.id || row.run_id).artifacts;
+  // The request folded in above already shows the evidence it rests on, and
+  // so does each carried member that drew its own. This run-wide strip is
+  // the last resort for a run whose evidence nothing else has shown — an
+  // environment run carrying no items, or members whose checks it does not
+  // hold. Drawn beside per-member evidence it repeated the same tiles with
+  // their item stripped off, so one release showed "step 2" and "step 5"
+  // twice with nothing saying whose they were.
+  if (!runGates(row).length && !carried.drewEvidence) {
+    // Attributed on the way in: this strip gathers several members' captures
+    // into one grid, so each tile leads with the item whose check took it.
+    const refById = new Map(carriedItems(row).map(
+      (item) => [String(carriedItemId(item)), carriedReference(item)],
+    ));
+    const artifacts = runEvidence(options.facts, row.id || row.run_id)
+      .artifacts.map((artifact) => {
+        const ref = refById.get(String(artifact.member_item_id ?? ""));
+        return ref ? { ...artifact, owner_ref: ref } : artifact;
+      });
     const strip = evidenceStrip(
       context, artifacts, { compact: true, stepCaptionsOnly: true },
     );

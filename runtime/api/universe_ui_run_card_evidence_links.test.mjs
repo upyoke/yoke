@@ -173,3 +173,90 @@ test("a capture with no step keeps its own name for a caption", async () => {
     "Desktop approval request",
   );
 });
+
+// A release card has two places evidence can appear: under each carried
+// member, and a run-wide strip. Drawn together the strip repeated the same
+// tiles with their item stripped off, so one release read "step 2" and
+// "step 5" twice with nothing saying whose they were. The strip is the last
+// resort now, not a second copy.
+test("a run-wide strip stands down when its members show their own evidence", async () => {
+  const documentNode = new FakeDocument();
+  const artifacts = [screenshotArtifact()];
+  const context = readingContext(documentNode, artifacts);
+  const row = {
+    ...runRow(),
+    carried_work: { items: [{ ref: "YOK-1", item_id: 41, title: "Carried" }] },
+  };
+  const card = shippingRunCard(context, row, ["1"], {
+    facts: {
+      evidence: new Map([["run-20260910-006", { checks: [], artifacts }]]),
+      flowNames: new Map([["yoke-hosted-stage-typed-target", "Stage"]]),
+      failed: null,
+    },
+    itemFacts: {
+      byItem: new Map([["41", [{
+        requirement_id: 21583,
+        deployment_run_id: "run-20260910-006",
+        outcome: "passed",
+        artifacts,
+      }]]]),
+      pendingByRequirement: new Map(),
+      pendingByItem: new Map(),
+      truncatedGroups: new Set(),
+      perGroupLimit: 20,
+      failed: null,
+    },
+  });
+  await settle();
+
+  // The member drew its own, so the run-wide strip is absent entirely.
+  assert.equal(byClass(card, "carried-item-evidence").length, 1);
+  assert.equal(byClass(card, "shipping-run-evidence").length, 0);
+});
+
+test("a run carrying nothing still shows what its checks captured", async () => {
+  const documentNode = new FakeDocument();
+  const card = runCard(documentNode, [screenshotArtifact()]);
+  await settle();
+
+  // No members to attribute tiles to, so the run-wide strip is the only
+  // place this evidence could be shown, and it is shown.
+  assert.equal(byClass(card, "shipping-run-evidence").length, 1);
+});
+
+// When the run-wide strip does draw, its tiles come from several members at
+// once, so "step 2" alone belongs to nobody — and two members' step 2 sit
+// side by side. Each caption leads with the item whose check took it.
+test("a run-wide tile names the carried item whose check took it", async () => {
+  const documentNode = new FakeDocument();
+  const artifacts = [
+    screenshotArtifact({ id: 77, deployment_member_item_id: 41 }),
+    screenshotArtifact({ id: 78, deployment_member_item_id: 42 }),
+  ];
+  const context = readingContext(documentNode, artifacts);
+  const row = {
+    ...runRow(),
+    member_items: [
+      { id: 41, ref: "YOK-1", project_id: 1, title: "First" },
+      { id: 42, ref: "YOK-2", project_id: 1, title: "Second" },
+    ],
+  };
+  const card = shippingRunCard(context, row, ["1"], {
+    facts: {
+      evidence: new Map([["run-20260910-006", {
+        checks: [],
+        artifacts: artifacts.map((artifact) => ({
+          ...artifact,
+          member_item_id: artifact.deployment_member_item_id,
+        })),
+      }]]),
+      flowNames: new Map([["yoke-hosted-stage-typed-target", "Stage"]]),
+      failed: null,
+    },
+  });
+  await settle();
+
+  const captions = byClass(card, "review-shot-caption")
+    .map((node) => node.textContent);
+  assert.deepEqual(captions, ["YOK-1 · step 21", "YOK-2 · step 21"]);
+});
