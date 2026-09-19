@@ -35,6 +35,15 @@ IDENTITY_PROOF_MALFORMED = "identity_proof_malformed"
 #: then pointed at a different one. Evidence collected there would carry a
 #: freshness claim nothing proved about it.
 EXECUTION_TARGET_UNAUTHORIZED = "execution_target_unauthorized"
+#: A deployment run names no commit it was pinned to deliver, so its
+#: evidence has nothing to be bound to. Distinct from a deployment that
+#: cannot prove itself: here it is the expectation that is missing, not the
+#: answer.
+DEPLOYMENT_SOURCE_UNPINNED = "deployment_source_unpinned"
+#: A caller named a commit for a run-bound case that is not the commit the
+#: run was pinned to deliver. The run is authority over what it shipped, so
+#: the contradiction refuses rather than picking one.
+DEPLOYMENT_SOURCE_CONTRADICTED = "deployment_source_contradicted"
 #: The project's identity configuration could not be read — denied,
 #: unavailable, or malformed. Distinct from configuring none, because a
 #: project that could not be asked never declined anything.
@@ -57,6 +66,8 @@ class FreshnessFailure:
 
 __all__ = [
     "DEPLOYED_SHA_UNKNOWN",
+    "DEPLOYMENT_SOURCE_CONTRADICTED",
+    "DEPLOYMENT_SOURCE_UNPINNED",
     "DEPLOYMENT_TARGET_UNRESOLVED",
     "EXECUTION_TARGET_UNAUTHORIZED",
     "IDENTITY_CONFIG_UNREADABLE",

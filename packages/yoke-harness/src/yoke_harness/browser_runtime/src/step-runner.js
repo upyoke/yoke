@@ -6,7 +6,7 @@
  * Maps scenario step schema objects to Playwright API calls.
  *
  * Exports:
- *   executeStep(page, step, options) -> { success, duration_ms, error?, artifacts? }
+ *   executeStep(page, step, options) -> { success, duration_ms, viewport, url, error?, artifacts? }
  *   resolveUrl(route, baseUrl) -> string
  *
  * Supported actions: navigate, click, fill_form, wait_for, delay, assert,
@@ -22,6 +22,35 @@ const capture = require('./step-actions/capture');
 // resolveUrl is owned by the navigation sibling and re-exported here so the
 // public module surface (executeStep, resolveUrl) stays stable.
 const { resolveUrl } = nav;
+
+/**
+ * What the page actually was when the step finished.
+ *
+ * Every step reports this, pass or fail, because it is the only first-hand
+ * account of the screen the step ran against: the route a case asked for and
+ * the width it asked for are requests, and evidence that records the request
+ * can never disagree with it. Reading either can throw on a page that closed
+ * under the step, which is itself part of the account rather than a second
+ * failure.
+ *
+ * @param {import('playwright').Page} page
+ * @returns {{ viewport: ?{width: number, height: number}, url: string }}
+ */
+function observedState(page) {
+  let viewport = null;
+  let url = '';
+  try {
+    viewport = page.viewportSize();
+  } catch (_) {
+    viewport = null;
+  }
+  try {
+    url = page.url();
+  } catch (_) {
+    url = '';
+  }
+  return { viewport, url };
+}
 
 /**
  * Execute a single browser scenario step.
@@ -156,6 +185,7 @@ async function executeStep(page, step, options) {
     return {
       success: true,
       duration_ms,
+      ...observedState(page),
       ...(result.artifacts ? { artifacts: result.artifacts } : {}),
     };
   } catch (err) {
@@ -163,6 +193,7 @@ async function executeStep(page, step, options) {
     return {
       success: false,
       duration_ms,
+      ...observedState(page),
       error: err.message || String(err),
     };
   }

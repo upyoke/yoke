@@ -9,15 +9,15 @@ from typing import Any, Dict, List, Optional
 from yoke_contracts.browser_qa_contract import (
     BROWSER_CHECK_METHOD,
     BROWSER_INSPECTION_METHOD,
+    BrowserMethodContractViolation,
     browser_method_contract_violation,
+    case_viewport,
     is_browser_assertion,
 )
 from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain.browser_qa_results import RequirementOutcome, RunResult
-from yoke_core.domain.qa_artifacts import (
-    artifact_directory,
-    build_metadata,
-)
+from yoke_core.domain.browser_qa_step_artifacts import record_step_artifacts
+from yoke_core.domain.qa_artifacts import artifact_directory
 from yoke_core.domain.qa_constants import INVALID_BROWSER_METHOD_LABEL
 
 
@@ -55,6 +55,7 @@ def _process_requirement(
 
     # Parse the materialized method configuration.
     steps = []
+    method_config: Dict[str, Any] = {}
     if method_config_raw:
         try:
             method_config = json.loads(method_config_raw)
@@ -62,22 +63,24 @@ def _process_requirement(
         except json.JSONDecodeError:
             pass
 
+    # The size this case is authored at. It is resolved before anything opens
+    # a page, because a page is sized when it is created rather than adjusted
+    # once a case is already looking at it.
+    viewport = case_viewport(method_config)
     violation = (
         browser_method_contract_violation(str(method_id or ""), steps)
         if steps else None
     )
+    if violation is None and isinstance(viewport, BrowserMethodContractViolation):
+        violation = viewport
     if not steps or violation is not None:
         error_code = violation.code if violation else "missing_steps"
-        note = (
-            violation.message
-            if violation else "method_config missing 'steps' array"
-        )
+        note = violation.message if violation else "method_config has no 'steps'"
         error = f"malformed_method_config:{error_code}"
         _bqa._log(
             f"WARNING: Invalid method_config for requirement {req_id}: {note}"
         )
 
-        # Record error run
         run_id = _bqa._record_run(
             req_id, qa_kind, "error",
             _bqa._build_run_payload(
@@ -103,7 +106,6 @@ def _process_requirement(
 
     _bqa._log(f"Found {len(steps)} steps for requirement {req_id}")
 
-    # Create qa_run
     run_id = _bqa._record_run(
         req_id,
         qa_kind,
@@ -126,6 +128,18 @@ def _process_requirement(
     # failures (so the failure is visible in gates that filter verdict='fail').
     # Successful captures land with verdict=NULL until screenshot inspection
     # sets it via a later yoke qa run complete call.
+    # This case's own page, open for exactly as long as the case runs. Every
+    # step addresses it by id, so no other run is ever handed this screen and
+    # this case never inherits one: the route and the width it establishes are
+    # its own from its first step to its last.
+    page_id = ""
+    page_open_error = ""
+    try:
+        page_id = _bqa.open_owned_page(viewport)
+    except RuntimeError as exc:
+        page_open_error = str(exc)
+        steps = []
+
     run_execution_status = "captured"
     run_verdict: Optional[str] = None
     run_artifacts: List[str] = []
@@ -144,6 +158,14 @@ def _process_requirement(
         run_verdict = "fail"
         step_errors += reason
 
+    if page_open_error:
+        _bqa._log(
+            f"ERROR: this case could not open its own browser page: "
+            f"{page_open_error}"
+        )
+        _mark_capture_failed(f"page_open_failure:{page_open_error};")
+        env_failure = True
+
     for step_idx, step in enumerate(steps):
         assertion_expected = is_browser_assertion(step)
         if assertion_expected:
@@ -160,10 +182,7 @@ def _process_requirement(
 
         _bqa._log(f"  Step {step_idx}: executing...")
 
-        response = _bqa._execute_step(
-            step, base_url, artifact_dir, run_id,
-            project, current_route, step_idx,
-        )
+        response = _bqa._execute_step(step, base_url, artifact_dir, page_id)
 
         if response.get("exit_code") == 2:
             _bqa._log(
@@ -214,57 +233,47 @@ def _process_requirement(
             _mark_capture_failed(f"step_{step_idx}:no_screenshot_artifact;")
             continue
 
-        step_had_valid_artifact = False
-        step_had_artifact_failure = False
-        for apath in artifacts_raw:
-            if not os.path.isfile(str(apath)):
-                if screenshot_expected:
-                    # Screenshot artifact paths must exist on disk.
-                    _bqa._log(
-                        f"  Step {step_idx}: FAILED -- artifact not on disk: {apath}"
-                    )
-                    _mark_capture_failed(f"step_{step_idx}:artifact_not_on_disk;")
-                    step_had_artifact_failure = True
-                else:
-                    _bqa._log(f"  SKIPPED artifact (not on disk): {apath}")
-                continue
-
-            metadata = build_metadata(step_idx, qa_kind, subject, current_route, step.get("label"))
-            try:
-                art_id = _bqa._record_artifact_file(
-                    run_id, req_id, str(apath), "image/png", "screenshot",
-                    json.dumps(metadata),
-                    actor=actor,
-                )
-            except _bqa.QaArtifactWriteError as exc:
-                _bqa._log(
-                    f"  Step {step_idx}: FAILED -- durable artifact storage: {exc}"
-                )
-                _mark_capture_failed(
-                    f"step_{step_idx}:artifact_storage_failed:{exc};"
-                )
-                step_had_artifact_failure = True
-                continue
-            if art_id:
-                # Capture scratch remains available for in-session inspection;
-                # the recorded evidence already lives in durable storage, and
-                # the registered id is the only handle a later reviewer can
-                # turn back into readable bytes.
-                run_artifacts.append(os.path.abspath(str(apath)))
-                run_artifact_ids.append(int(art_id))
-                step_had_valid_artifact = True
+        # The step's own account of the page it ran on travels with every
+        # capture it produced.
+        step_artifacts = record_step_artifacts(
+            artifact_paths=list(artifacts_raw),
+            step_index=step_idx,
+            screenshot_expected=screenshot_expected,
+            run_id=run_id,
+            requirement_id=req_id,
+            qa_kind=qa_kind,
+            subject=subject,
+            route=current_route,
+            label=step.get("label"),
+            viewport=data.get("viewport") if isinstance(data, dict) else None,
+            observed_url=str(data.get("url") or "") if isinstance(data, dict) else "",
+            actor=actor,
+        )
+        run_artifacts.extend(step_artifacts.paths)
+        run_artifact_ids.extend(step_artifacts.artifact_ids)
+        if step_artifacts.failures:
+            _mark_capture_failed(step_artifacts.failures)
 
         if (
             screenshot_expected
-            and step_had_valid_artifact
-            and not step_had_artifact_failure
+            and step_artifacts.recorded
+            and not step_artifacts.failures
         ):
             recorded_screenshots += 1
 
-        if not step_had_artifact_failure:
+        if not step_artifacts.failures:
             _bqa._log(f"  Step {step_idx}: OK")
             if assertion_expected:
                 passed_assertions += 1
+
+    # The case is over, so its page goes with it. Leaving it open would leave
+    # a signed-in screen around for nothing to inherit, which is exactly the
+    # state this ownership exists to end.
+    if page_id:
+        try:
+            _bqa.close_owned_page(page_id)
+        except RuntimeError as exc:
+            _bqa._log(f"Warning: this case's browser page did not close: {exc}")
 
     # Completeness check: expected vs. recorded screenshots.
     if (

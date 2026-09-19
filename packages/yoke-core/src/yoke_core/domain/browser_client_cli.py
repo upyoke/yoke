@@ -23,6 +23,14 @@ from __future__ import annotations
 import argparse
 import json
 
+from yoke_contracts.browser_qa_contract import DEFAULT_BROWSER_VIEWPORT
+
+
+#: The page these diagnostic commands share. Naming it is what lets one
+#: command navigate and the next one act on what it found, while keeping that
+#: screen apart from any QA case running on the same daemon.
+DIAGNOSTIC_PAGE_ID = "diagnostic"
+
 
 def _cli_daemon(args: argparse.Namespace) -> int:
     """Handle ``daemon`` subcommand."""
@@ -115,7 +123,17 @@ def _cli_exec(args: argparse.Namespace) -> int:
 
     try:
         step = json.loads(args.step_json)
-        result = _bc.execute_step(step, args.base_url, output_dir=getattr(args, "output_dir", None))
+        # One diagnostic session, one page: successive commands act on the
+        # screen the previous one left, and no QA case is ever handed it.
+        page_id = _bc.open_owned_page(
+            DEFAULT_BROWSER_VIEWPORT,
+            getattr(args, "page_id", None) or DIAGNOSTIC_PAGE_ID,
+        )
+        result = _bc.execute_step(
+            step, args.base_url,
+            output_dir=getattr(args, "output_dir", None),
+            page_id=page_id,
+        )
         print(json.dumps(result))
         return 0
     except json.JSONDecodeError as e:

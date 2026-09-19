@@ -13,6 +13,9 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.browser_qa_deployment_identity import (
+    resolve_run_pinned_source,
+)
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
@@ -78,6 +81,52 @@ def seed_ephemeral_env(
     return env_id
 
 
+def seed_deployment_run(
+    db_path: str,
+    run_id: str,
+    *,
+    project_id: int = 100,
+    release_lineage: str = "",
+    default_branch: str = "main",
+) -> None:
+    """Seed one deployment run pinned (or deliberately not pinned) to a commit.
+
+    Only the two columns the browser-QA read needs are modelled here, without
+    the flow and environment foreign keys a real run carries: what this suite
+    is about is which commit the run names, not how runs are built. The
+    project's own ``default_branch`` is part of the applied schema already, so
+    it is set rather than added.
+    """
+    ensure_ephemeral_table(db_path)
+    conn = connect_test_db(db_path)
+    p = _placeholder(conn)
+    execute_schema_script(conn, """
+        CREATE TABLE IF NOT EXISTS deployment_runs (
+            id TEXT PRIMARY KEY,
+            project_id INTEGER NOT NULL,
+            flow TEXT NOT NULL,
+            release_lineage TEXT,
+            status TEXT NOT NULL DEFAULT 'created',
+            created_at TEXT NOT NULL
+        );
+    """)
+    conn.execute(
+        f"UPDATE projects SET default_branch = {p} WHERE id = {p}",
+        (default_branch, project_id),
+    )
+    conn.execute(
+        f"""
+        INSERT INTO deployment_runs
+            (id, project_id, flow, release_lineage, status, created_at)
+        VALUES ({p}, {p}, 'test-flow', {p}, 'running', {p})
+        ON CONFLICT(id) DO NOTHING
+        """,
+        (run_id, project_id, release_lineage, "2026-01-01T00:00:00Z"),
+    )
+    conn.commit()
+    conn.close()
+
+
 def _fetch_context_from_test_db(
     project: str,
     requirement_id: int,
@@ -118,6 +167,11 @@ def _fetch_context_from_test_db(
             }
             for r in rows
         ]
+        run_source = None
+        if deployment_run_id is not None:
+            # Mirrors the handler: a run case is judged against the commit
+            # the run was pinned to deliver.
+            run_source = resolve_run_pinned_source(conn, str(deployment_run_id))
         deployed_sha = None
         deployment_recorded = False
         ephemeral_url = None
@@ -154,4 +208,5 @@ def _fetch_context_from_test_db(
         "deployed_sha": deployed_sha,
         "deployment_recorded": deployment_recorded,
         "ephemeral_url": ephemeral_url,
+        "run_source": run_source,
     }

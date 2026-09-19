@@ -110,14 +110,10 @@ class TestHappyPath:
             _step: Dict[str, Any],
             _base_url: str,
             artifact_dir: str,
-            run_id: int,
-            project: str,
-            _route: str,
-            _step_idx: int,
+            page_id: str,
         ) -> Dict[str, Any]:
             captured["artifact_dir"] = artifact_dir
-            captured["run_id"] = run_id
-            captured["project"] = project
+            captured["page_id"] = page_id
             if _step.get("action") != "screenshot":
                 return {"success": True, "artifacts": []}
             shot = Path(artifact_dir) / "home.png"
@@ -143,6 +139,10 @@ class TestHappyPath:
                 "_record_artifact_file",
                 side_effect=recorder.record_artifact_file,
             ),
+            mock.patch.object(
+                browser_qa, "open_owned_page", return_value="page-under-test",
+            ),
+            mock.patch.object(browser_qa, "close_owned_page", return_value=None),
             mock.patch.object(browser_qa, "_execute_step", side_effect=_fake_step),
         ]
 
@@ -161,7 +161,10 @@ class TestHappyPath:
 
         assert result.verdict == "pass"
         assert result.executed == 1
-        assert captured["project"] == "testproj"
+        assert captured["page_id"] == "page-under-test"
+        # The scratch directory the steps wrote into names the run, so the run
+        # it belongs to is read back from the directory itself.
+        captured["run_id"] = int(Path(captured["artifact_dir"]).name)
         expected_dir = qa_artifacts.artifact_directory(
             "testproj", 100, captured["run_id"], create=False
         )

@@ -55,5 +55,9 @@ def build_parser() -> argparse.ArgumentParser:
     es.add_argument("step_json")
     es.add_argument("--base-url", required=True, dest="base_url")
     es.add_argument("--output-dir", dest="output_dir")
+    es.add_argument(
+        "--page-id", dest="page_id",
+        help="Page to act on (default: the shared diagnostic page).",
+    )
 
     return parser

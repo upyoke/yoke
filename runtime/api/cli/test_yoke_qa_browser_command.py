@@ -135,13 +135,19 @@ class TestStepAdapter:
     def test_step_passes_agent_selected_payload_and_prints_json(self):
         captured = {}
 
-        def fake_execute(step, base_url, *, output_dir):
-            captured.update(step=step, base_url=base_url, output_dir=output_dir)
+        def fake_execute(step, base_url, *, output_dir, page_id):
+            captured.update(
+                step=step, base_url=base_url, output_dir=output_dir,
+                page_id=page_id,
+            )
             return {"ok": True, "url": base_url}
 
         with patch(
             "yoke_harness.browser_qa_daemon.ensure_daemon_running",
             return_value=None,
+        ), patch(
+            "yoke_harness.browser_client.ensure_page",
+            return_value="exploratory",
         ), patch(
             "yoke_harness.browser_client.execute_step",
             side_effect=fake_execute,
@@ -156,6 +162,9 @@ class TestStepAdapter:
             "step": {"action": "click", "selector": "#continue"},
             "base_url": "https://x.example",
             "output_dir": "/tmp/browser-proof",
+            # The walker submits one step per command, so every one of them
+            # lands on the page it has been working on.
+            "page_id": "exploratory",
         }
         assert json.loads(out) == {"ok": True, "url": "https://x.example"}
 

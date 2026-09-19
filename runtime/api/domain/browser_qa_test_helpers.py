@@ -197,17 +197,43 @@ class _FakeRunRecorder:
 
 
 
+#: The page id a patched daemon hands a scenario under test.
+FAKE_PAGE_ID = "page-under-test"
+
+
 def _patch_external_deps(
     db_path: str,
     *,
     reachable: bool = True,
     daemon_ok: bool = True,
     execute_step_responses: List[Dict[str, Any]] | None = None,
+    opened_pages: List[Dict[str, int]] | None = None,
+    closed_pages: List[str] | None = None,
+    open_page_error: str | None = None,
 ):
-    """Return a list of active mock.patch context managers."""
+    """Return a list of active mock.patch context managers.
+
+    ``opened_pages`` and ``closed_pages``, when supplied, collect the
+    viewports the scenario opened its page at and the pages it closed, so a
+    test can assert on the page a case owned without a live daemon.
+    ``open_page_error`` makes the daemon refuse to open one.
+    """
     recorder = _FakeRunRecorder(db_path)
 
+    def _open_page(viewport):
+        if opened_pages is not None:
+            opened_pages.append(dict(viewport))
+        if open_page_error:
+            raise RuntimeError(open_page_error)
+        return FAKE_PAGE_ID
+
+    def _close_page(page_id):
+        if closed_pages is not None:
+            closed_pages.append(str(page_id))
+
     patches = [
+        mock.patch.object(browser_qa, "open_owned_page", side_effect=_open_page),
+        mock.patch.object(browser_qa, "close_owned_page", side_effect=_close_page),
         mock.patch.object(
             browser_qa,
             "_fetch_browser_context",

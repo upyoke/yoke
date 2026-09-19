@@ -283,6 +283,10 @@ class TestScenarioRecordsUploadedHandles:
             mock.patch.object(
                 browser_qa, "_upload_artifact", side_effect=_fake_upload,
             ),
+            mock.patch.object(
+                browser_qa, "open_owned_page", return_value="page-under-test",
+            ),
+            mock.patch.object(browser_qa, "close_owned_page", return_value=None),
             mock.patch.object(browser_qa, "_execute_step", side_effect=_fake_step),
         ]
         for p in patches:

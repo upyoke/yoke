@@ -16,6 +16,8 @@ Implementation is split across sibling modules under
 - ``browser_qa_steps``    — per-step dispatch and qa_run/qa_artifact
                             recording delegates.
 - ``browser_qa_requirement`` — per-``qa_requirement`` step-loop owner.
+- ``browser_qa_step_artifacts`` — durable submission of one step's captures,
+                            stamped with the page state that step observed.
 - ``browser_qa_scenario`` — top-level driver (``execute_scenario``) plus
                             the ``qa.browser_context.get`` fetch.
 
@@ -57,6 +59,10 @@ from yoke_core.domain.browser_qa_freshness import (
 from yoke_core.domain.browser_qa_run_payload import (
     _build_code_identity,
     _build_run_payload,
+)
+from yoke_core.domain.browser_client_owned_page import (
+    close_owned_page,
+    open_owned_page,
 )
 from yoke_core.domain.browser_qa_steps import (
     _SCREENSHOT_ACTIONS,
@@ -102,5 +108,7 @@ __all__ = [
     "QaArtifactWriteError",
     "_execute_step",
     "_is_screenshot_step",
+    "close_owned_page",
+    "open_owned_page",
     "_collect_daemon_diagnostics",
 ]

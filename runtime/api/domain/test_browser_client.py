@@ -199,18 +199,28 @@ class TestExecuteStep:
     def test_calls_daemon(self):
         with mock.patch("yoke_core.domain.browser_client.daemon_request") as mock_req:
             mock_req.return_value = {"success": True, "screenshot": "/path/to/img.png"}
-            result = execute_step({"action": "navigate", "route": "/"}, "http://localhost:3000")
+            result = execute_step(
+                {"action": "navigate", "route": "/"},
+                "http://localhost:3000",
+                page_id="page-1",
+            )
             assert result["success"] is True
             mock_req.assert_called_once()
             call_args = mock_req.call_args
             assert call_args[0][0] == "/api/exec/step"
             body = call_args[0][1]
             assert body["baseUrl"] == "http://localhost:3000"
+            # A step names the page it runs on; the daemon refuses one that
+            # does not, rather than choosing a page for it.
+            assert body["pageId"] == "page-1"
 
     def test_with_output_dir(self):
         with mock.patch("yoke_core.domain.browser_client.daemon_request") as mock_req:
             mock_req.return_value = {}
-            execute_step({"action": "click"}, "http://x", output_dir="/tmp/out")
+            execute_step(
+                {"action": "click"}, "http://x", output_dir="/tmp/out",
+                page_id="page-1",
+            )
             body = mock_req.call_args[0][1]
             assert body["outputDir"] == "/tmp/out"
 

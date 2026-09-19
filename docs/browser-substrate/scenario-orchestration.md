@@ -29,6 +29,14 @@ yoke qa case run \
 delivery flows. They bind the evidence to the deployed code identity; do not
 omit them to bypass freshness validation.
 
+A case attached to a deployment run takes that expectation from the run
+instead, and the arguments are unnecessary: the run records the commit it was
+pinned to deliver, and that is what its evidence is judged against. Naming a
+different commit for such a case refuses (`deployment_source_contradicted`)
+rather than choosing one, and a run pinned to no commit refuses too
+(`deployment_source_unpinned`) — there would be nothing for the environment's
+own answer to be compared with.
+
 Which deployment is asked comes from the case's own subject, never from the
 branch alone. An item case is about that branch's preview, and is answered by
 the recorded ephemeral environment or, when none exists, by the preview
@@ -73,14 +81,18 @@ Advance flows must not refine or replace it after materialization.
    off-origin-redirect refusals still fail closed; probe errors never echo
    tokens or cookies.
 4. Ensures the machine Browser substrate is ready and starts its daemon.
-5. Executes each declared `method_config.steps` entry in order.
-6. Records a run through `qa.run.add` and `qa.run.complete`.
-7. Records screenshot or trace evidence through `qa.artifact.add`; durable
+5. Opens the page this case owns, sized to `method_config.viewport` or to the
+   default 1440x900, and closes it when the case ends. Every step names that
+   page, so a case can neither inherit another case's route and width nor
+   leave its own behind.
+6. Executes each declared `method_config.steps` entry in order.
+7. Records a run through `qa.run.add` and `qa.run.complete`.
+8. Records screenshot or trace evidence through `qa.artifact.add`; durable
    storage uses `qa.artifact.presign` with direct S3 or the hosted tenant broker
    when either is configured. A client that already holds the bytes can pass them
    inline (`content_base64` plus `filename`) instead of a machine-local
    handle the server cannot read.
-8. Prints a JSON result for the named requirement, including its verdict, run
+9. Prints a JSON result for the named requirement, including its verdict, run
    identity, execution status, and artifact paths.
 
 The runner owns those run and artifact writes. Callers must not create a
@@ -156,4 +168,8 @@ Hosted `YOKE_QA_ARTIFACT_*` settings carry the broker URL, read-only token file,
 bucket, and immutable tenant prefix; the container receives no AWS credentials.
 
 Artifact metadata includes the step index, requirement identity, route, item
-identity, project, viewport, and timestamp.
+identity, project, and timestamp, plus what the page reported about itself
+when the capture was taken: its effective `viewport` and its `observed_url`.
+Those two are first-hand; `route` is the route the case asked for, so a
+capture that drifted can be seen to have drifted rather than being described
+by the request.

@@ -45,13 +45,13 @@ All JS paths below are the packaged sources; the daemon runs from their material
 |-----------|----------|---------|
 | Browser daemon | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/daemon.js` | Node.js process managing Playwright browser lifecycle |
 | HTTP server | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/server.js` | Express server with bearer auth, routes for all primitives |
-| Browser manager | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/browser-manager.js` | Playwright browser launch, page management, close |
+| Browser manager | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/browser-manager.js` | Playwright launch, the interactive page, the pages runs own, close |
 | Snapshot engine | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/snapshot.js` | Accessibility tree extraction with ref annotation |
 | Screenshot engine | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/screenshot.js` | Annotated screenshots with numbered ref badges |
 | Diff engine | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/diff.js` | Pixel-level image comparison via pixelmatch |
 | Step runner | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-runner.js` | Scenario step execution |
 | Snapshot routes | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/routes/snapshot-routes.js` | HTTP routes for snapshot/screenshot/diff |
-| Exec routes | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/routes/exec-routes.js` | HTTP routes for step execution |
+| Exec routes | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/routes/exec-routes.js` | HTTP routes: open/close the page a run owns, run one step on it |
 | `yoke_harness.browser_runtime_home` | `packages/yoke-harness/src/yoke_harness/browser_runtime_home.py` | Single machine-runtime and hash-gated materialization owner |
 | `yoke_core.domain.browser_client` | `packages/yoke-core/src/yoke_core/domain/browser_client.py` | Python daemon client: state, HTTP, lifecycle, exec, snapshot |
 | `yoke_core.domain.browser_qa` | `packages/yoke-core/src/yoke_core/domain/browser_qa.py` | Internal per-requirement Browser scenario orchestration used by the shared case runner |
@@ -131,7 +131,7 @@ The ref system assigns integer IDs to interactive and semantically significant D
 Executes a single scenario step.
 
 ```sh
-python3 -m yoke_core.domain.browser_client exec step '<step-json>' --base-url <url> [--output-dir <dir>]
+python3 -m yoke_core.domain.browser_client exec step '<step-json>' --base-url <url> [--output-dir <dir>] [--page-id <id>]
 ```
 
 ### Supported Actions
@@ -251,8 +251,9 @@ All artifacts include metadata JSON with:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `viewport` | Yes | Viewport dimensions (e.g., `1280x720`) |
-| `route` | Yes | Route path (e.g., `/dashboard`) |
+| `viewport` | Yes | Width and height the page reported when captured |
+| `observed_url` | Yes | The url the page was on when captured |
+| `route` | Yes | Route the case navigated to (e.g., `/dashboard`) |
 | `timestamp` | Yes | ISO 8601 UTC timestamp |
 | `project` | Yes | Project name |
 | `browser` | Optional | Browser type (default: `chromium`) |
@@ -260,8 +261,7 @@ All artifacts include metadata JSON with:
 
 ### Standalone Mode
 
-Browser-client snapshot and exec commands are interactive diagnostics only;
-they record no run, artifact, or verdict. Use `yoke qa case run` for evidence.
+Browser-client snapshot and exec commands are interactive diagnostics sharing one named page; they record no run, artifact, or verdict. Use `yoke qa case run` for evidence.
 
 ## Event Catalog
 

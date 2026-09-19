@@ -309,9 +309,9 @@ yoke qa case run \
   --expected-sha <commit>
 ```
 
-`yoke qa browser setup`, `status`, `screenshot`, and `step` remain low-level
-machine-substrate utilities; diagnostic capture creates no parallel verdict.
-For agent-chosen cross-substrate cases, see [Exploratory QA Missions](exploratory-qa.md).
+A case attached to a deployment run needs neither flag: it is judged against the commit that run was pinned to deliver, and refuses by name when the run pins none, when a different commit is named for it, or when the environment cannot prove what it serves.
+
+`yoke qa browser setup`, `status`, `screenshot`, and `step` remain low-level machine-substrate utilities; diagnostic capture creates no parallel verdict. For agent-chosen cross-substrate cases, see [Exploratory QA Missions](exploratory-qa.md).
 
 ## AC-Derived Requirements and Suite Graduation
 

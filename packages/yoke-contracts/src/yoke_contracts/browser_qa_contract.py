@@ -6,6 +6,14 @@ from dataclasses import dataclass
 from typing import Any, Optional, Sequence
 
 
+#: The width and height a browser page is opened at when nothing states one.
+#: It is a stated default, not an inherited size: every page the substrate
+#: opens is sized before anything loads into it, so no run can be measured at
+#: whatever width the run before it happened to leave behind. A case that is
+#: about another width says so — ``method_config.viewport`` for the case, or
+#: ``step.viewport`` for one step of it.
+DEFAULT_BROWSER_VIEWPORT = {"width": 1440, "height": 900}
+
 BROWSER_CHECK_METHOD = "browser-check"
 BROWSER_INSPECTION_METHOD = "browser-inspection"
 BROWSER_METHODS = frozenset(
@@ -132,17 +140,51 @@ def browser_method_contract_violation(
     return None
 
 
+def case_viewport(method_config: Any) -> Any:
+    """Return the viewport a case is authored at, or its contract violation.
+
+    Returns a ``{"width": int, "height": int}`` mapping, or a
+    :class:`BrowserMethodContractViolation` when the case states a viewport it
+    cannot be run at. A case that states none is run at
+    :data:`DEFAULT_BROWSER_VIEWPORT`.
+    """
+    declared = (
+        method_config.get("viewport") if isinstance(method_config, dict) else None
+    )
+    if declared is None:
+        return dict(DEFAULT_BROWSER_VIEWPORT)
+    if not isinstance(declared, dict):
+        return BrowserMethodContractViolation(
+            "case_viewport_invalid",
+            "method_config.viewport must be an object with numeric width "
+            f"and height, got {declared!r}",
+        )
+    size = {}
+    for edge in ("width", "height"):
+        value = declared.get(edge)
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            return BrowserMethodContractViolation(
+                "case_viewport_invalid",
+                f"method_config.viewport needs a positive integer {edge}, "
+                f"got {value!r}",
+            )
+        size[edge] = value
+    return size
+
+
 def is_browser_assertion(step: Any) -> bool:
     """Return whether a validated step contributes to an automatic verdict."""
     return isinstance(step, dict) and step.get("action") == "assert"
 
 
 __all__ = [
+    "DEFAULT_BROWSER_VIEWPORT",
     "BROWSER_CHECK_METHOD",
     "BROWSER_INSPECTION_METHOD",
     "BROWSER_METHODS",
     "BrowserMethodContractViolation",
     "SUPPORTED_ASSERTION_CHECKS",
     "browser_method_contract_violation",
+    "case_viewport",
     "is_browser_assertion",
 ]

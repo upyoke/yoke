@@ -208,9 +208,16 @@ class TestFetchBrowserContextSeam:
                     {"base_url": "http://localhost:9", "steps": [{}]},
                 ),
             }],
+            # A run case is judged against the commit its run was pinned to
+            # deliver, so the context carries one.
+            "run_source": {"sha": "a" * 40, "branch": "main"},
         }
         with mock.patch.object(
             browser_qa, "_fetch_browser_context", return_value=context,
+        ), mock.patch.object(
+            browser_qa,
+            "_establish_deployment_freshness",
+            return_value=(None, "http://localhost:9", "a" * 40),
         ), mock.patch.object(
             browser_qa, "_validate_reachability", return_value=None,
         ), mock.patch.object(

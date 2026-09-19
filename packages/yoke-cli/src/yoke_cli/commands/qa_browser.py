@@ -153,10 +153,15 @@ def qa_browser_step(args: List[str]) -> int:
         )
         return 2
     try:
+        # One exploratory agent, one page: the steps it submits across
+        # separate commands land on the same screen, and an authored QA case
+        # running beside it never sees that screen.
+        page_id = browser_client.ensure_page()
         result = browser_client.execute_step(
             step,
             parsed.base_url,
             output_dir=parsed.output_dir,
+            page_id=page_id,
         )
     except RuntimeError as exc:
         print(f"yoke qa browser step: {exc}", file=sys.stderr)
