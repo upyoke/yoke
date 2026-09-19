@@ -15,15 +15,19 @@ RELEASE_ROLE_RECIPE = """\
 Item-bound batch release — who runs what:
 
   Steering (the seat driving delivery) owns the run and nothing else. It holds
-  the project deploy lock for the whole pair, pins ONE source SHA for stage and
-  production, enrolls every member, and validates membership before executing:
+  the project deploy lock for the whole pair, pins ONE source SHA, creates the
+  stage and production runs from that SHA, and starts each one. The start
+  enrolls every carried, delivery-ready item and applies the composition check
+  itself, so membership needs no separate step:
     yoke claims coordination-claim acquire --project P --key DEPLOY:P --reason R
     yoke --env CONTROL-PLANE deployment-runs create P FLOW --environment ENV \\
       --project-repo-path /path/to/checkout --source-ref PINNED_SHA
-    yoke --env CONTROL-PLANE deployment-runs add-item RUN-ID PREFIX-N   # per member
-    yoke --env CONTROL-PLANE deployment-runs validate-composition RUN-ID
     yoke --env CONTROL-PLANE watch deploy -- RUN-ID
     yoke claims coordination-claim release --project P --key DEPLOY:P --reason R
+  `deployment-runs add-item RUN-ID PREFIX-N` is for the other case: an item
+  whose code the candidate does not carry but which the run should still
+  deliver. `deployment-runs validate-composition RUN-ID` is an optional preview
+  of what a start will enroll and refuse.
   Steering does not run a member's item QA and does not close a member out. A
   run-wide pass does not credit a member's item-scoped stage.
 

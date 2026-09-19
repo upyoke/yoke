@@ -125,19 +125,22 @@ Create and start-for-item use the selected control-plane transport. Ordinary
 external delivery is supported over HTTPS. A serving-API self-deploy requires
 the paired local `*-db-admin` env named by the executor's refusal.
 
-For every remaining item in the `(project, flow)` group, attach its public
-reference through the guarded membership command, then validate the complete
-batch before execution:
+Remaining items in the `(project, flow)` group need no membership step: the
+start enrolls every carried, delivery-ready item and applies the composition
+check itself. Attach an item only for the other case — its code is not in the
+candidate, and the run should still deliver it:
 
 ```bash
 yoke --env {control-plane} deployment-runs add-item {run-id} PREFIX-N
-yoke --env {control-plane} deployment-runs validate-composition {run-id}
 ```
 
-Both commands require the same project deploy lock. Enrollment resolves the
+That command requires the same project deploy lock. Enrollment resolves the
 public item reference through the registered item target and refuses a run
-that has left `created`, a different project, or an incompatible workflow
-binding. Composition refusal halts the batch; do not execute a partial run.
+that has left `created`, an item whose project the run ships no source for, or
+an incompatible workflow binding. `yoke --env {control-plane} deployment-runs
+validate-composition {run-id}` is an optional preview of what a start will
+enroll and refuse. A composition refusal halts the batch; do not execute a
+partial run.
 
 Multiple resolvable environments → `AskUserQuestion` for selection, then re-run with `--environment`. Validation failure → halt.
 

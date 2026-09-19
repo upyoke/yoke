@@ -33,10 +33,14 @@ DEPLOYMENT_RUN_QUERY_HINT = (
 #: an item unclosed.
 RELEASE_ROLE_HINT = (
     "**Release-time commands by role:** the seat driving delivery "
-    "holds `DEPLOY:<project>` for the whole pair and owns "
-    "`deployment-runs create` / `add-item` / "
-    "`validate-composition` / `watch deploy` -- it never runs a "
-    "member's item QA and never closes a member out. The member "
+    "holds `DEPLOY:<project>` for the whole pair, pins one source "
+    "SHA, and owns `deployment-runs create` plus `watch deploy` for "
+    "each run -- the start enrolls every carried, delivery-ready "
+    "item and applies the composition check itself. `add-item` is "
+    "for an item whose code the candidate does not carry but which "
+    "the run should still deliver; `validate-composition` is an "
+    "optional preview of what a start will enroll. That seat never "
+    "runs a member's item QA and never closes a member out. The member "
     "owner stays parked at its release wait holding its own claim; "
     "when the deployment wake asks for its stage it credits that "
     "stage with `yoke qa plan run --deployment-run-id RUN --stage "
