@@ -24,7 +24,6 @@ from runtime.api.domain.browser_qa_test_helpers import (
     _browser_check_steps,
     _patch_external_deps,
     _placeholder,
-    _seed_requirement,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
