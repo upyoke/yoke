@@ -23,7 +23,15 @@ from yoke_core.domain.gate_satisfier_ladder_catalog import (
     OBLIGATION_DELIVERY_EVIDENCE,
     OBLIGATION_DONE_MERGE_EVIDENCE,
 )
-from yoke_core.domain.gate_satisfier_resolution import missing_done_evidence_rungs
+from yoke_core.domain.dash_execution import evaluate_dash_evidence
+from yoke_core.domain.gate_satisfier_facts import (
+    OBSERVED_MERGE_RECORDED,
+    OBSERVED_NO_IMPLEMENTATION_BRANCH,
+)
+from yoke_core.domain.gate_satisfier_resolution import (
+    missing_done_evidence_rungs,
+    resolve_and_record_item_rung,
+)
 from yoke_core.domain.handlers.direct_workflow_execution import (
     handle_dash_evidence,
 )
@@ -151,3 +159,72 @@ def test_the_delivery_obligation_stays_owed_at_the_done_gate(
     assert OBLIGATION_DELIVERY_EVIDENCE in missing_done_evidence_rungs(
         test_db, item_id=item_id, merge_recorded=True, agent_attested=False
     )
+
+
+def test_the_release_stage_is_reachable_because_the_gate_is_on_done(
+    test_db, monkeypatch
+) -> None:
+    """The readback that owes delivery guards done, not the release wait.
+
+    A close-out lands into the release stage, so a gate that owed delivery
+    there would refuse for the delivery that stage exists to wait for.
+    """
+    from yoke_core.domain.builtin_direct_workflow_definitions import (
+        DASH_WORKFLOW_DEFINITION,
+    )
+    from yoke_core.domain.workflow_gate_catalog import GATE_DASH_EVIDENCE
+
+    carried = {
+        stage["id"]: [gate["id"] for gate in stage["gates"]]
+        for stage in DASH_WORKFLOW_DEFINITION["definition"]["stages"]
+    }
+    assert GATE_DASH_EVIDENCE not in carried["reviewing-implementation"]
+    assert GATE_DASH_EVIDENCE not in carried["release"]
+    assert GATE_DASH_EVIDENCE in carried["done"]
+
+
+def test_a_succeeded_run_stamps_delivery_and_satisfies_the_done_gate(
+    test_db, monkeypatch
+) -> None:
+    """The obligation is owed at done, and the release is what answers it.
+
+    The done transition resolves this same rung through
+    ``gate_satisfier.rung.resolve`` at its satisfier step, before the status
+    update runs the evidence gate that reads the stamp back.
+    """
+    from runtime.api.fixtures.backlog_inserts import insert_deployment_run
+
+    item_id = 27412
+    _item_delivering_through_a_release(test_db, item_id=item_id)
+    monkeypatch.setattr(db_helpers, "connect", lambda: nullcontext(test_db))
+    assert _record(item_id, SECOND_MERGE).primary_success is True
+    assert evaluate_dash_evidence(test_db, item_id).satisfied is False
+
+    insert_deployment_run(
+        test_db, id="run-20260101-001", flow=FLOW, status="succeeded"
+    )
+    test_db.execute(
+        "INSERT INTO deployment_run_items (run_id, item_id, added_at) "
+        "VALUES (%s, %s, %s)",
+        ("run-20260101-001", item_id, "2026-01-01T00:00:00Z"),
+    )
+    test_db.commit()
+
+    delivery = resolve_and_record_item_rung(
+        test_db,
+        item_id=item_id,
+        obligation=OBLIGATION_DELIVERY_EVIDENCE,
+        observed={
+            OBSERVED_MERGE_RECORDED: (True, "the close-out recorded a merge"),
+            OBSERVED_NO_IMPLEMENTATION_BRANCH: (
+                False,
+                "the close-out records an implementation merge",
+            ),
+        },
+        target_status="done",
+    )
+
+    assert delivery["satisfied"] is True
+    assert delivery["stamp_recorded"] is True
+    assert OBLIGATION_DELIVERY_EVIDENCE in _stamped(test_db, item_id)
+    assert evaluate_dash_evidence(test_db, item_id).satisfied is True
