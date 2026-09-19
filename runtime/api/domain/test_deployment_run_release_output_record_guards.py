@@ -14,11 +14,10 @@ from typing import Any
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
-from runtime.api.fixtures.release_output_source import (  # noqa: F401
+from runtime.api.fixtures.release_output_source import (
     git,
     insert_flow,
     insert_run,
-    release_source,
 )
 from yoke_core.domain.deployment_run_release_output_record import (
     OUTCOME_NOTHING_PRODUCED,
@@ -28,6 +27,9 @@ from yoke_core.domain.deployment_run_release_output_record import (
 )
 
 ITEM_REF = "YOK-9601"
+
+
+pytest_plugins = ("runtime.api.fixtures.release_output_fixture",)
 
 
 def test_recording_refuses_a_commit_a_backlog_item_already_owns(

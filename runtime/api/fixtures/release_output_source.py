@@ -1,4 +1,4 @@
-"""A repository, a flow, and the run whose promotion wrote a version pin.
+"""A repository, flow and run helpers for release-output checks.
 
 Release-output behaviour is only meaningful against a real comparison — the
 guards ask git whether one commit descends from another, and attribution asks
@@ -13,9 +13,6 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-import pytest
-
-from yoke_core.domain import deployment_run_carried_work_source
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 
 
@@ -113,35 +110,6 @@ def carried_work_of(conn: Any, run_id: str) -> dict[str, Any]:
     return parsed
 
 
-@pytest.fixture
-def release_source(test_db: Any, tmp_path: Path, monkeypatch) -> dict[str, Any]:
-    """One repository, one flow, and the run whose promotion wrote the pin."""
-    repo, baseline, pin, maintenance = release_output_repository(tmp_path)
-    insert_flow(test_db, "release-output-flow")
-    insert_run(
-        test_db,
-        "run-release-output-001",
-        baseline,
-        flow_id="release-output-flow",
-        status="succeeded",
-        created_at="2026-09-19T00:01:00Z",
-        completed_at="2026-09-19T00:02:00Z",
-    )
-    monkeypatch.setattr(
-        deployment_run_carried_work_source,
-        "checkout_for_project_id",
-        lambda _project_id: repo,
-    )
-    return {
-        "repo": repo,
-        "baseline": baseline,
-        "pin": pin,
-        "maintenance": maintenance,
-        "producer": "run-release-output-001",
-        "project": project_slug(test_db),
-    }
-
-
 __all__ = [
     "EMPTY_SOURCES",
     "carried_work_of",
@@ -150,5 +118,4 @@ __all__ = [
     "insert_run",
     "project_slug",
     "release_output_repository",
-    "release_source",
 ]

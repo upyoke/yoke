@@ -14,10 +14,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from runtime.api.fixtures.release_output_source import (  # noqa: F401
+from runtime.api.fixtures.release_output_source import (
     carried_work_of,
     insert_run,
-    release_source,
 )
 from yoke_core.domain import deployment_runs
 from yoke_core.domain.deployment_run_carried_membership import (
@@ -27,6 +26,9 @@ from yoke_core.domain.deployment_run_release_output_record import (
     OUTCOME_RECORDED,
     record_release_output,
 )
+
+
+pytest_plugins = ("runtime.api.fixtures.release_output_fixture",)
 
 
 def test_a_recorded_pin_commit_composes_without_a_hand_written_resolution(
