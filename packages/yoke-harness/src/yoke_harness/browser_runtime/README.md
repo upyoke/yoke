@@ -60,7 +60,8 @@ changes, including pull-request and merge-queue trees.
 - `src/screenshot.js`: annotated screenshots
 - `src/diff.js`: pixel comparison
 - `src/step-runner.js`: browser scenario step execution
-- `src/routes/*.js`: snapshot and step execution HTTP routes
+- `src/routes/*.js`: snapshot routes, and the exec routes that open, close,
+  and run steps on the page a caller owns
 
 The daemon writes `~/.yoke/browser-runtime/.daemon-state.json` with the local
 endpoint, PID, bearer token, browser type, health state, and the persistent

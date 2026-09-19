@@ -16,11 +16,13 @@ exists only when a plan attachment or explicit requirement declares it.
 
 `method_config` must be a JSON object with a non-empty `steps` array. An
 optional `base_url` may provide the default target; the execution command can
-override it.
+override it. An optional `viewport` states the width and height the case is
+about.
 
 ```json
 {
   "base_url": "https://example.test",
+  "viewport": {"width": 1440, "height": 900},
   "steps": [
     {
       "action": "navigate",
@@ -63,6 +65,27 @@ There is no translation layer.
 Shared optional fields include `timeout_ms`, `source_ac`, and `refined`.
 Authored plan cases should use verified selectors and set `refined: true` when
 they include that field.
+
+## Viewport
+
+Declare the size a case is about, in one of two places:
+
+- `method_config.viewport` — the size the whole case runs at. Write it
+  whenever the case is about a particular width: a desktop layout, a sidebar
+  that collapses, a table that reflows.
+- `step.viewport` — the size one step and the steps after it run at, for a
+  case that walks down the widths. Responsive behavior is only provable by
+  resizing the real viewport, so a step that is about a phone says so.
+
+```json
+{"action": "screenshot", "capture": true, "viewport": {"width": 375, "height": 812}}
+```
+
+A case that declares neither runs at 1440x900. That default is stated, not
+inherited: the runner opens a page for each case and sizes it before anything
+loads, so no size, route, or signed-in screen carries over from the case
+before it. Each capture records the viewport and url the page reported when
+it was taken, beside the route the case navigated to.
 
 ## Assertion checks
 
