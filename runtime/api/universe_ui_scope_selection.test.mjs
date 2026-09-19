@@ -24,7 +24,7 @@ import {
 
 // A two-project universe whose items are distinguishable per project, for
 import {
-  itemsCalls, scopeChips, twoProjectClient,
+  itemsCalls, scopeChips, threeProjectClient, twoProjectClient,
 } from "./universe_ui_read_views_test_support.mjs";
 
 test("a multi view defaults to the whole universe: All chip on, unfiltered read", async (t) => {
@@ -63,7 +63,9 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
   const documentNode = new FakeDocument();
   documentNode.defaultView.location.hash = "#/items";
   const root = documentNode.createElement("div");
-  const client = twoProjectClient();
+  // Three projects, so a two-member selection is a genuine subset rather
+  // than the whole roster under another name.
+  const client = threeProjectClient();
   const mounted = mountUniverseApp(root, { client });
   await settle();
 
@@ -82,7 +84,7 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
   assert.deepEqual(narrowed.map((request) => request.payload.projects), [["1"]]);
   assert.deepEqual(
     scopeChips(root).map((chip) => chip.classList.contains("on")),
-    [false, true, false],
+    [false, true, false, false],
   );
   // Exactly one project needs no project column.
   assert.ok(!allNodes(root).some(
@@ -130,7 +132,7 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
   );
   assert.deepEqual(
     scopeChips(root).map((chip) => chip.classList.contains("on")),
-    [true, false, false],
+    [true, false, false, false],
   );
   mounted.unmount();
 });

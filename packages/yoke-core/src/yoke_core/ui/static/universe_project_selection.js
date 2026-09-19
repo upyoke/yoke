@@ -10,12 +10,31 @@ export function knownProjectId(projects, candidate) {
     ? String(candidate) : null;
 }
 
+// The one canonical form of a resolved member list. A set covering the whole
+// roster is the same scope as All, so it is stored, routed and rendered as
+// "all" rather than as a second representation beside it: that second form
+// leaves the All chip unhighlighted and makes the chip row subtractive —
+// clicking a project turns it OFF, where from every other "everything" state
+// the same click narrows to that project, so the scope an operator aims at
+// is unreachable and the row keeps landing back on every chip selected.
+//
+// A roster of one is left alone. There is no set there to disagree about and
+// no subtractive trap to fall into — its single chip already toggles cleanly
+// between All and that project — so collapsing it would only make the chip
+// inert and widen every scoped read on that universe to unfiltered.
+//
+// `members` must already be roster-filtered, in roster order.
+export function canonicalSelection(projects, members) {
+  if (!members.length) return "all";
+  return projects.length > 1 && members.length === projects.length ? "all" : members;
+}
+
 export function projectSelection(projects, candidate) {
   if (candidate === "all") return "all";
   const ids = new Set(Array.isArray(candidate)
     ? candidate.map(String) : String(candidate || "").split(",").map((id) => id.trim()));
   const known = projects.map((row) => String(row.id)).filter((id) => ids.has(id));
-  return known.length ? known : "all";
+  return canonicalSelection(projects, known);
 }
 
 export function selectionParam(selection) {

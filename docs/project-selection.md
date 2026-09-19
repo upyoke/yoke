@@ -28,6 +28,17 @@ notice next to the scope picker — rather than silently looking saved. All
 selection and focus IDs are revalidated against the accessible project
 roster on every render.
 
+**All and "every project" are one scope, in one form.** A member list covering
+the whole roster is resolved, stored, routed and rendered as All — the All chip
+lights and no project chip does. Two forms of that scope let the stored value,
+the route and the chip row disagree: the All chip stays dark, and the chip row
+turns subtractive, so clicking a project removes it instead of narrowing to it
+and the selector keeps landing back on every chip selected. The comparison is
+against the live accessible roster, never a fixed count, so it holds for any
+universe. A roster of one is left alone: its single chip already toggles
+cleanly between All and that project, and collapsing it would make the chip
+inert and widen that universe's scoped reads to unfiltered.
+
 Routes use `project=all` or comma-separated project IDs for selection on list
 and global destinations. On detail and single-project destinations, `project`
 addresses the resource/focus and `selection` carries the remembered selection:

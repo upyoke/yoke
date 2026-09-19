@@ -94,17 +94,20 @@ test("prefix chips repaint the held scope in place", async (t) => {
     (node) => [node.textContent, node.classList.contains("on")],
   );
 
+  // Adding the only other project covers this universe's whole roster,
+  // which is the All scope — the page repaints to it from held data.
   chip("BET").dispatchEvent(new Event("click"));
   await settle();
   assert.equal(contentRequestCount(client), before);
   assert.deepEqual(activeRefs(root).sort(), ["BET-20", "YOK-9"]);
-  assert.deepEqual(chipState(), [["All", false], ["YOK", true], ["BET", true]]);
+  assert.deepEqual(chipState(), [["All", true], ["YOK", false], ["BET", false]]);
+  assert.equal(documentNode.defaultView.location.hash, "#/frontier?project=all");
 
   chip("YOK").dispatchEvent(new Event("click"));
   await settle();
   assert.equal(contentRequestCount(client), before);
-  assert.deepEqual(activeRefs(root), ["BET-20"]);
-  assert.equal(documentNode.defaultView.location.hash, "#/frontier?project=2");
+  assert.deepEqual(activeRefs(root), ["YOK-9"]);
+  assert.equal(documentNode.defaultView.location.hash, "#/frontier?project=1");
   mounted.unmount();
 });
 
@@ -148,5 +151,56 @@ test("a failed project document read does not poison another scope", async (t) =
   await navigate(windowNode, "#/strategy?project=1");
   assert.equal(byClass(root, "work-band-error").length, 0);
   assert.deepEqual(docSlugs(root), ["MISSION"]);
+  mounted.unmount();
+});
+
+// A band that overflows offers one "See more..." card, and that card encodes
+// the page's CURRENT scope into the Items route. A scope covering the whole
+// roster has to reach it as All: anything else writes a second form of the
+// same scope into another screen's remembered selection.
+function overflowingDoneClient() {
+  const base = multiProjectWorkbenchClient();
+  const done = Array.from({ length: 9 }, (_, index) => ({
+    public_ref: `YOK-${100 + index}`,
+    internal_id: 900 + index,
+    title: `finished ${index}`,
+    project: "yoke",
+    project_id: 1,
+    project_sequence: 100 + index,
+    workflow_id: "issue",
+    status: "done",
+    merged_at: new Date(Date.now() - (index + 1) * 60 * 1000).toISOString(),
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+    updated_at: new Date(Date.now() - 60000).toISOString(),
+  }));
+  return {
+    requests: base.requests,
+    async call(request) {
+      const callResult = await base.call(request);
+      if (request.function !== "items.overview.list") return callResult;
+      return {
+        ...callResult,
+        envelope: {
+          ...callResult.envelope,
+          result: { rows: [...callResult.envelope.result.rows, ...done] },
+        },
+      };
+    },
+  };
+}
+
+test("a full-roster scope reaches the Items see-more link as All", async (t) => {
+  stubFetch(t);
+  const documentNode = new FakeDocument();
+  const client = overflowingDoneClient();
+  const { root, mounted } = await mountAt(
+    documentNode, "#/frontier?project=1,2", client,
+  );
+  const seeMore = byClass(root, "see-more-card")[0];
+  assert.ok(seeMore, "the Done band should overflow into a see-more card");
+  // All is the absent parameter in an authored route; the shell's own link
+  // rewrite spells it `project=all` when it resolves the click. What must
+  // never appear here is a member list naming the roster.
+  assert.equal(seeMore.href, "#/items");
   mounted.unmount();
 });

@@ -6,7 +6,8 @@ import {
   SCOPE_SINGLE,
 } from "./universe_destinations.js";
 import {
-  knownProjectId, resolveProjectSelection, selectionParam,
+  canonicalSelection, knownProjectId, projectSelection, resolveProjectSelection,
+  selectionParam,
 } from "./universe_project_selection.js";
 export { knownProjectId } from "./universe_project_selection.js";
 
@@ -144,9 +145,12 @@ export function scopeForEntry(entry, routeProject, projects, selections, routeSe
 }
 
 // Each destination carries its OWN remembered selection, including global
-// screens — never another screen's.
+// screens — never another screen's. Resolved against the live roster so a
+// destination this mount has not rendered yet still writes the canonical
+// form of what it remembers, and a stored value and the route encoding of
+// it can never disagree.
 export function rememberedScopeParam(entry, projects, selections) {
-  return selectionParam(selections.selectionFor(entry.id));
+  return selectionParam(projectSelection(projects, selections.selectionFor(entry.id)));
 }
 
 function el(documentNode, tag, className, text) {
@@ -183,15 +187,17 @@ export function renderStubView(context, main, summary) {
 
 // Toggle one project inside a multi view's scope: from "all" the set starts
 // empty, so the first click narrows to that one project; removing the last
-// member widens back to "all". Members keep roster order so the route
-// encoding of the same set is always the same string.
+// member widens back to "all", and so does adding the last one — selecting
+// every project IS All. Members keep roster order so the route encoding of
+// the same set is always the same string.
 function toggledScope(scope, projectId, projects) {
   const members = new Set(scope === "all" ? [] : scope);
   if (members.has(projectId)) members.delete(projectId);
   else members.add(projectId);
-  if (members.size === 0) return "all";
-  return projects.map((row) => String(row.id))
-    .filter((rosterId) => members.has(rosterId));
+  return canonicalSelection(
+    projects,
+    projects.map((row) => String(row.id)).filter((rosterId) => members.has(rosterId)),
+  );
 }
 
 // The scope control above a live scoped view: a row of chips. A multi view

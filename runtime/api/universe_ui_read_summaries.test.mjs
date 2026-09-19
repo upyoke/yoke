@@ -280,9 +280,13 @@ test("the items count is the served match total — never rows.length", async (t
           envelope: {
             success: true,
             result: {
+              // Three projects, so the scope under test is a genuine pair
+              // rather than the whole roster, which is the All scope and
+              // reads unfiltered.
               rows: [
                 { id: 1, slug: "alpha", name: "Alpha" },
                 { id: 2, slug: "beta", name: "Beta" },
+                { id: 3, slug: "gamma", name: "Gamma" },
               ],
             },
           },
