@@ -18,22 +18,12 @@ release ship a revision that already contains this item's merge? That holds
 for every member of a batch rather than only the one that happens to be the
 tip, and it holds whether or not anyone remembered to enrol it.
 
-"A succeeded release" is wider than this item's own flow. A run of another
-project can bind this project's source, record the commit it resolved, and
-ship it; the commit it recorded for THIS project is then the candidate to
-ask about, and the run's own lineage — which names nothing in this
-repository — is not.
-
-An item may also store no flow at all. Some workflows never record one, and
-they offer no registered way to set one after filing, so a flow read is not
-a question that item can ever answer — yet a release in its own project may
-already have carried its merge to a persistent environment. Reading "no
-stored flow" as "not delivered" strands that item at its release wait with
-no way out. So the containment walk stands in for the flow: a succeeded run
-of this item's own project, targeting a persistent environment, whose
-candidate contains the merge, delivers it. A run preview does not — nothing
-persists after it — and neither does a release of some other project, which
-is a different project's delivery however it resolved this source.
+"A succeeded release" is wider than this item's own flow, and wider still
+for an item that stores no flow at all — one some workflow never recorded
+and offers no way to set afterwards, which read as "not delivered" and
+stranded it at its release wait even after a release in its own project had
+carried its merge. Which releases each of those two may be asked about is
+its own decision, and :mod:`delivery_release_candidates` owns it.
 
 So the ladder is membership first — it is cheap, local, and the common case
 — then containment. An unreadable containment source is ``undetermined``,
@@ -54,7 +44,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from yoke_core.domain import db_backend
+from yoke_core.domain.delivery_release_candidates import (
+    row_cell as _cell,
+    sql_marker as _marker,
+    succeeded_flow_runs,
+    succeeded_persistent_runs,
+)
 from yoke_core.domain.deployment_item_flow_resolution import (
     item_completion_flow,
 )
@@ -65,15 +60,8 @@ from yoke_core.domain.deployment_run_candidate_containment import (
     UNDETERMINED,
     candidate_contains_commit,
 )
-from yoke_core.domain.deployment_run_project_sources import (
-    carrying_runs_for_project,
-)
-from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.schema_common import _table_exists
 
-
-#: The ``deployment_runs.target_tier`` that outlives the run. Its counterpart,
-#: ``ephemeral``, is a per-run preview that delivers nothing durable.
-PERSISTENT_TARGET_TIER = "persistent"
 
 DISCHARGED = "discharged"
 NOT_DISCHARGED = "not_discharged"
@@ -107,14 +95,6 @@ class DeliveryEvidence:
         return self.state == DISCHARGED
 
 
-def _marker(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _cell(row: Any, key: str, position: int) -> Any:
-    return row[key] if hasattr(row, "keys") else row[position]
-
-
 def item_merge_identity(conn: Any, item_id: int) -> str:
     """The merge commit this item's landing recorded, if it has one."""
     from yoke_core.domain.item_merge_receipt_document import landing_shas
@@ -133,81 +113,6 @@ def _project_id(conn: Any, item_id: int) -> Optional[int]:
         (int(item_id),),
     ).fetchone()
     return int(_cell(row, "project_id", 0)) if row is not None else None
-
-
-def _succeeded_flow_runs(
-    conn: Any, *, project_id: int, flow: str, limit: int = 10
-) -> list[dict[str, Any]]:
-    """Recent succeeded releases that shipped this project, newest first.
-
-    Two kinds ship it: runs of the item's own selected flow, and runs of
-    another project that bound this project's source and recorded the commit
-    they resolved. Each row carries the commit that release holds for THIS
-    project, so the containment walk asks one question of one repository.
-
-    Newest first because the newest release contains the most merges, so the
-    first rung of the containment walk answers almost every item. The limit
-    only bounds how far back an unusually old landing is chased.
-    """
-    marker = _marker(conn)
-    rows = conn.execute(
-        "SELECT id, COALESCE(release_lineage, '') AS release_lineage, "
-        "COALESCE(completed_at, '') AS completed_at "
-        "FROM deployment_runs "
-        f"WHERE project_id = {marker} AND flow = {marker} "
-        "AND status = 'succeeded' "
-        f"ORDER BY completed_at DESC, created_at DESC, id DESC LIMIT {int(limit)}",
-        (int(project_id), flow),
-    ).fetchall()
-    releases = [
-        {
-            "id": str(_cell(row, "id", 0) or ""),
-            "release_lineage": str(_cell(row, "release_lineage", 1) or ""),
-            "completed_at": str(_cell(row, "completed_at", 2) or ""),
-        }
-        for row in rows
-    ]
-    releases.extend(
-        {
-            "id": run["id"],
-            "release_lineage": run["source_sha"],
-            "completed_at": run["completed_at"],
-        }
-        for run in carrying_runs_for_project(conn, int(project_id))
-    )
-    releases.sort(key=lambda release: release["completed_at"], reverse=True)
-    return releases[: int(limit)]
-
-
-def _succeeded_persistent_runs(
-    conn: Any, *, project_id: int, limit: int = 10
-) -> list[dict[str, Any]]:
-    """Recent succeeded releases of this project to a persistent environment.
-
-    What a flow-less item's containment walk asks instead of "runs of the
-    selected flow": any flow of the item's own project qualifies, so long as
-    the run reached a destination that still exists after it.
-    """
-    if not _column_exists(conn, "deployment_runs", "target_tier"):
-        return []
-    marker = _marker(conn)
-    rows = conn.execute(
-        "SELECT id, COALESCE(release_lineage, '') AS release_lineage, "
-        "COALESCE(completed_at, '') AS completed_at "
-        "FROM deployment_runs "
-        f"WHERE project_id = {marker} AND status = 'succeeded' "
-        f"AND target_tier = {marker} "
-        f"ORDER BY completed_at DESC, created_at DESC, id DESC LIMIT {int(limit)}",
-        (int(project_id), PERSISTENT_TARGET_TIER),
-    ).fetchall()
-    return [
-        {
-            "id": str(_cell(row, "id", 0) or ""),
-            "release_lineage": str(_cell(row, "release_lineage", 1) or ""),
-            "completed_at": str(_cell(row, "completed_at", 2) or ""),
-        }
-        for row in rows
-    ]
 
 
 def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
@@ -245,9 +150,9 @@ def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
         return _member_shaped_answer(member, flow=flow)
 
     releases = (
-        _succeeded_flow_runs(conn, project_id=project_id, flow=flow)
+        succeeded_flow_runs(conn, project_id=project_id, flow=flow)
         if flow
-        else _succeeded_persistent_runs(conn, project_id=project_id)
+        else succeeded_persistent_runs(conn, project_id=project_id)
     )
     undetermined: Optional[DeliveryEvidence] = None
     for run in releases:
@@ -332,7 +237,6 @@ def _member_shaped_answer(
 __all__ = [
     "DISCHARGED",
     "NOT_DISCHARGED",
-    "PERSISTENT_TARGET_TIER",
     "SOURCE_CONTAINMENT",
     "SOURCE_MEMBERSHIP",
     "UNDETERMINED_DELIVERY",

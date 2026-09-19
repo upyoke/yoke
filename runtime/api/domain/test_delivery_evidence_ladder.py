@@ -35,10 +35,10 @@ def _wire(
     monkeypatch.setattr(ladder, "item_merge_identity", lambda _c, _i: merge_sha)
     monkeypatch.setattr(ladder, "_project_id", lambda _c, _i: 1)
     monkeypatch.setattr(
-        ladder, "_succeeded_flow_runs", lambda _c, **_kw: list(runs)
+        ladder, "succeeded_flow_runs", lambda _c, **_kw: list(runs)
     )
     monkeypatch.setattr(
-        ladder, "_succeeded_persistent_runs", lambda _c, **_kw: list(persistent_runs)
+        ladder, "succeeded_persistent_runs", lambda _c, **_kw: list(persistent_runs)
     )
     if verdict is not None:
         monkeypatch.setattr(
@@ -181,7 +181,7 @@ def test_an_item_with_no_flow_never_asks_the_selected_flow_rung(monkeypatch):
         persistent_runs=[],
         verdict=ContainmentVerdict(NOT_CONTAINED),
     )
-    monkeypatch.setattr(ladder, "_succeeded_flow_runs", _refuse)
+    monkeypatch.setattr(ladder, "succeeded_flow_runs", _refuse)
     verdict = ladder.delivery_evidence(object(), 1)
     assert verdict.state == ladder.NOT_DISCHARGED
 

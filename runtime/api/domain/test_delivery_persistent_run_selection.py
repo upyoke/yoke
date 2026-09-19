@@ -17,7 +17,9 @@ from runtime.api.fixtures.backlog_inserts import (
     insert_deployment_run,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from yoke_core.domain.delivery_evidence_ladder import _succeeded_persistent_runs
+from yoke_core.domain.delivery_release_candidates import (
+    succeeded_persistent_runs,
+)
 
 
 def _apply_deploy_schema() -> None:
@@ -99,7 +101,7 @@ def test_only_succeeded_persistent_runs_of_this_project_are_asked(db):
             environment_id=elsewhere,
         )
         conn.commit()
-        releases = _succeeded_persistent_runs(conn, project_id=project_id)
+        releases = succeeded_persistent_runs(conn, project_id=project_id)
     finally:
         conn.close()
     assert [release["id"] for release in releases] == ["run-carrier"]
@@ -121,7 +123,7 @@ def test_any_flow_of_this_project_qualifies(db):
             completed_at="2026-01-03T00:00:00Z",
         )
         conn.commit()
-        releases = _succeeded_persistent_runs(conn, project_id=project_id)
+        releases = succeeded_persistent_runs(conn, project_id=project_id)
     finally:
         conn.close()
     # Newest first: the newest release contains the most merges.
