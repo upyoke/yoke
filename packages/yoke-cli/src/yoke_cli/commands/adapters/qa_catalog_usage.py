@@ -2,6 +2,48 @@
 
 from __future__ import annotations
 
+from yoke_cli.commands.adapters.workflows_item_posture import (
+    WORKFLOWS_ITEM_POSTURE_AMEND_RECIPE,
+)
+from yoke_contracts.qa_case_environment import (
+    COMMAND_CASE_BASE_URL_ENV,
+    COMMAND_CASE_DEPLOYMENT_MEMBER_ENV,
+    COMMAND_CASE_DEPLOYMENT_RUN_ENV,
+)
+
+
+#: Read as ``yoke qa item-plan attach --help``.
+ITEM_PLAN_ATTACH_EPILOG = (
+    "Attaching creates a blocking case row at --transition, and there "
+    "is no detach. On a workflow whose QA policy is optional item "
+    "attachment, attach accepts only the plan or method already "
+    "selected in workflow_posture.verification; select it first "
+    f"with `{WORKFLOWS_ITEM_POSTURE_AMEND_RECIPE}`, then attach and "
+    "`yoke qa plan materialize`."
+)
+
+#: Read as ``yoke qa plan-cases replace --help``. What an author has to know
+#: to write the case array, and what their command is handed when it runs.
+PLAN_CASES_REPLACE_EPILOG = f"""\
+The case array
+--------------
+Each case is a JSON object: case_key, method_id, instructions,
+expected_outcome, and the method's own method_config. `position` is optional
+-- omit it and each case takes its place in the array, which is the order you
+wrote them in. Supply it only to state an order the array does not.
+
+What a Command case's shell is handed
+-------------------------------------
+{COMMAND_CASE_BASE_URL_ENV}: the target the case runs against.
+{COMMAND_CASE_DEPLOYMENT_RUN_ENV}: the deployment run this case answers for.
+{COMMAND_CASE_DEPLOYMENT_MEMBER_ENV}: the member that run is proving, as PREFIX-N.
+
+The last two are set only for a case bound to a deployment run and member,
+and they are how such a case names its own subject. A command that writes a
+run id or a member ref as a literal is correct for exactly one run and then
+reports on the wrong one; read these instead, and the same plan keeps working
+on every release.
+"""
 
 USAGE_BY_FUNCTION_ID = {
     "qa.method.list": "yoke qa method list --project P",
@@ -53,4 +95,8 @@ USAGE_BY_FUNCTION_ID = {
 }
 
 
-__all__ = ["USAGE_BY_FUNCTION_ID"]
+__all__ = [
+    "ITEM_PLAN_ATTACH_EPILOG",
+    "PLAN_CASES_REPLACE_EPILOG",
+    "USAGE_BY_FUNCTION_ID",
+]

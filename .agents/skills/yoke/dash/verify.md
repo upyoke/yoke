@@ -133,18 +133,25 @@ yoke qa item-plan attach --item ITEM --project P --plan-id <id> \
 ```
 
 Its cases test **this item's** acceptance criteria — not another item's, and
-not the release's in general. Then dry-run it once against your own candidate,
-before merging, while a defect still costs an edit:
+not the release's in general. A Command case reads its own subject from the
+environment the runner exports — `BASE_URL`, plus `DEPLOYMENT_RUN_ID` and
+`DEPLOYMENT_MEMBER_REF` once the case is bound to a run and member — so never
+write a run id or a member ref into the command as a literal: it would be
+right for one release and quietly wrong for every one after. Then dry-run the
+plan once against your own candidate, before merging, while a defect still
+costs an edit:
 
 ```text
 yoke qa plan run --item ITEM --transition release \
   --base-url <your candidate>
 ```
 
-An item whose flow has no item-scoped QA stage needs none of this. The
-deployment stage picks the attached plan up on its own, so nothing has to be
-chosen at the wake — which is the point: a probe first executed against
-production, after its case has frozen, can only be waived or superseded.
+`yoke merge item` refuses an item whose flow has an item-scoped QA stage and
+no attached plan, and names this recipe. An item whose flow has no such stage
+is unaffected and needs none of this. The deployment stage picks the attached
+plan up on its own, so nothing has to be chosen at the wake — which is the
+point: a probe first executed against production, after its case has frozen,
+can only be waived or superseded.
 
 ## Posture knobs
 

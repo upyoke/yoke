@@ -1,4 +1,4 @@
-"""Command-case BASE_URL and product-interpreter binding."""
+"""What a Command case's shell is handed, and which interpreter runs it."""
 
 from __future__ import annotations
 
@@ -10,6 +10,10 @@ from unittest.mock import patch
 
 import pytest
 
+from yoke_contracts.qa_case_environment import (
+    COMMAND_CASE_DEPLOYMENT_MEMBER_ENV,
+    COMMAND_CASE_DEPLOYMENT_RUN_ENV,
+)
 from yoke_core.domain.qa_case_command_stream import product_command_environment
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.domain.qa_case_worktree_run import execute_worktree_case
@@ -192,3 +196,65 @@ def test_runner_refuses_python_module_body_before_shell() -> None:
     with pytest.raises(QaCaseExecutionError) as refused:
         execute_worktree_case(case, checkout_path="/does-not-need-to-exist")
     assert str(refused.value) == COMMAND_SHELL_CONTRACT
+
+
+def test_a_run_bound_command_reads_its_run_and_member_from_the_environment(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """The subject travels with the case, so no case has to hardcode a run."""
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
+    head = _repository(tmp_path)
+    case = _run_attached_case(
+        candidate=head,
+        deployment_member_ref="YOK-1927",
+        method_config={
+            "command": (
+                "printf 'subject:%s/%s' "
+                f'"${COMMAND_CASE_DEPLOYMENT_RUN_ENV}" '
+                f'"${COMMAND_CASE_DEPLOYMENT_MEMBER_ENV}"'
+            ),
+        },
+    )
+
+    with patch(
+        "yoke_core.domain.qa_case_execution.record_command_run",
+        return_value=(1, None),
+    ):
+        result = execute_worktree_case(case, checkout_path=tmp_path)
+
+    assert result["verdict"] == "pass"
+    capture = Path(result["output_capture"]).read_text(encoding="utf-8")
+    assert f"subject:{RUN_ID}/YOK-1927" in capture
+
+
+def test_an_item_case_is_handed_no_deployment_subject(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """An empty variable would read as a run named '' rather than as absent."""
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
+    monkeypatch.delenv(COMMAND_CASE_DEPLOYMENT_RUN_ENV, raising=False)
+    head = _repository(tmp_path)
+    case = _run_attached_case(
+        candidate=head,
+        deployment_run_id=None,
+        deployment_member_ref=None,
+        method_config={
+            "command": (
+                "printf 'subject:[%s]' "
+                f'"${COMMAND_CASE_DEPLOYMENT_RUN_ENV}"'
+            ),
+        },
+    )
+
+    with patch(
+        "yoke_core.domain.qa_case_execution.record_command_run",
+        return_value=(1, None),
+    ):
+        result = execute_worktree_case(
+            case, checkout_path=tmp_path, allow_tree_mismatch=True
+        )
+
+    capture = Path(result["output_capture"]).read_text(encoding="utf-8")
+    assert "subject:[]" in capture

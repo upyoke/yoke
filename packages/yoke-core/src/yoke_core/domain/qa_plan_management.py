@@ -190,11 +190,13 @@ def _validated_cases(cases: list[dict]) -> list[dict]:
     keys: set[str] = set()
     positions: set[int] = set()
     result = []
-    for raw in cases:
+    for index, raw in enumerate(cases, start=1):
         if not isinstance(raw, dict):
             raise QaPlanError("each plan case must be a JSON object")
         key = str(raw.get("case_key") or "")
-        position = int(raw.get("position") or 0)
+        # Array order already states the position; renumbering by hand only
+        # adds an off-by-one refusal. An explicit value still wins.
+        position = index if raw.get("position") is None else int(raw["position"])
         method_id = str(raw.get("method_id") or "")
         if not _SLUG_RE.fullmatch(key):
             raise QaPlanError(f"invalid case key {key!r}")

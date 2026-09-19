@@ -70,6 +70,7 @@ class MachineQaCaseContract(BaseModel):
     deployment_run_id: str | None = None
     deployment_stage: str | None = None
     deployment_member_item_id: int | None = Field(default=None, ge=1)
+    deployment_member_ref: str | None = None
     plan_id: int | None
     case_key: str
     method_id: str
