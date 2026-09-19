@@ -60,7 +60,6 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 added_at TEXT NOT NULL,
                 delivery_intent {DELIVERY_INTENT_COLUMN_SQL},
                 requirement_selection TEXT,
-                requirement_selection_source TEXT,
                 requirement_snapshot TEXT,
                 containment_attestation TEXT,
                 PRIMARY KEY (run_id, item_id)
@@ -107,7 +106,6 @@ def cmd_init(db_path: Optional[str] = None) -> None:
         for column, declaration in (
             ("delivery_intent", DELIVERY_INTENT_COLUMN_SQL),
             ("requirement_selection", "TEXT"),
-            ("requirement_selection_source", "TEXT"),
             ("requirement_snapshot", "TEXT"),
             ("containment_attestation", "TEXT"),
         ):

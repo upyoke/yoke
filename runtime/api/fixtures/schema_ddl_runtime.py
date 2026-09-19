@@ -95,7 +95,6 @@ CREATE TABLE IF NOT EXISTS deployment_run_items (
     added_at TEXT NOT NULL,
     delivery_intent TEXT CHECK(delivery_intent IN ('progress','final')),
     requirement_selection TEXT,
-    requirement_selection_source TEXT,
     requirement_snapshot TEXT,
     PRIMARY KEY (run_id, item_id)
 );

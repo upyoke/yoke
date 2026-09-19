@@ -165,7 +165,6 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("added_at", "TEXT"),
             ("delivery_intent", "TEXT"),
             ("requirement_selection", "TEXT"),
-            ("requirement_selection_source", "TEXT"),
             ("requirement_snapshot", "TEXT"),
             ("containment_attestation", "TEXT"),
         ],

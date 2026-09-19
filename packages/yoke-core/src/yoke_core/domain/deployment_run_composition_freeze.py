@@ -1,11 +1,18 @@
 """Freeze release candidate membership immediately before run execution.
 
-A derived requirement selection is recomputed here rather than replayed. It
-answers "what does this item still owe", and an obligation can be minted
-between the admission that derived it and this freeze -- a window that has
-run to twenty minutes in practice -- so replaying the stored answer silently
-drops one. An explicit operator selection is a list somebody chose and is
+A membership row with no stored requirement selection is one admission
+derived and deliberately did not keep: the answer to "what does this item
+still owe" can change between that admission and this freeze -- a window
+that has run to twenty minutes in practice -- so the list is derived here
+instead, and written back concrete. An operator's stored selection is
 frozen exactly as given.
+
+Writing the derived list back is what keeps a retry honest. A retry copies
+its predecessor's member rows verbatim, so once a run has frozen, every one
+of its rows carries a concrete list and the retry's own freeze takes it as
+given and reproduces the same snapshot. The only retry that inherits no
+list is a retry of a run that never froze, which has no acceptance contract
+to preserve.
 """
 
 from __future__ import annotations
@@ -203,7 +210,6 @@ def _require_schema(conn: Any) -> None:
     for column in (
         "delivery_intent",
         "requirement_selection",
-        "requirement_selection_source",
         "requirement_snapshot",
     ):
         if not _column_exists(conn, "deployment_run_items", column):
@@ -289,13 +295,12 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
         )
     from yoke_core.domain.deployment_member_post_deploy_admission import (
         admissible_post_deploy_requirement_ids,
-        selection_is_derived,
     )
 
     for item_id in member_ids(conn, run_id):
         member = conn.execute(
-            f"SELECT delivery_intent,requirement_selection,"
-            f"requirement_selection_source FROM deployment_run_items "
+            f"SELECT delivery_intent,requirement_selection "
+            f"FROM deployment_run_items "
             f"WHERE run_id={marker} AND item_id={marker}",
             (run_id, item_id),
         ).fetchone()
@@ -305,12 +310,13 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
         intent = normalize_delivery_intent(_cell(member, "delivery_intent", 0))
         intent = intent or _default_delivery_intent(conn, item_id)
         selection = _cell(member, "requirement_selection", 1)
-        if selection_is_derived(_cell(member, "requirement_selection_source", 2)):
-            # A derived selection answers "what does this item still owe",
-            # and an obligation can be minted between the admission that
-            # derived it and this freeze. Re-deriving is what stops that
-            # window losing one. An explicit selection is a list somebody
-            # chose and is never widened underneath them.
+        if not str(selection or "").strip():
+            # No stored list means admission derived one and deliberately
+            # did not keep it, because an obligation can be minted between
+            # that admission and this freeze. Deriving again is what stops
+            # the window losing one. A stored list is either an operator's
+            # choice or a previous freeze's concrete answer, and neither is
+            # widened underneath its owner.
             selection = requirement_selection(
                 requirement_ids=admissible_post_deploy_requirement_ids(
                     conn, run_id=run_id, item_id=item_id

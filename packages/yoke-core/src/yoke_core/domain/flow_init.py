@@ -118,7 +118,6 @@ def _ensure_flow_schema(conn) -> None:
         )
         for column in (
             "requirement_selection",
-            "requirement_selection_source",
             "requirement_snapshot",
             "containment_attestation",
         ):
