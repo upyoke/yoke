@@ -239,20 +239,26 @@ export function shippingRunCard(context, row, scope, options = {}) {
   // deploy in that project and may have started none of them.
   const lock = TERMINAL_RUN_STATUSES.has(status)
     ? null : options.deployLocks?.get(String(row.project || ""));
+  // The lock reads as something the session holds, so it renders inside that
+  // session's own chip rather than as a box the session sits in. Filed the
+  // other way round it said the session belonged to the lock and the lock
+  // belonged to this run, and neither is true.
   if (lock && options.renderFullSession) {
-    const lockRow = el(documentNode, "div", "shipping-run-lock");
+    const lockNote = el(documentNode, "span", "shipping-run-lock");
     const lockIcon = el(documentNode, "span", "shipping-run-lock-icon", "🔒");
     lockIcon.setAttribute("aria-hidden", "true");
-    lockRow.appendChild(lockIcon);
-    lockRow.appendChild(el(
+    lockNote.appendChild(lockIcon);
+    lockNote.appendChild(el(
       documentNode,
       "span",
       "shipping-run-lock-label",
-      `Deploy lock · ${row.project} · project-wide`,
+      `holds deploy lock (${row.project}, project-wide)`,
     ));
+    const lockRow = el(documentNode, "div", "shipping-run-lock-row");
     lockRow.appendChild(itemClaimantControl(documentNode, lock, {
       renderFullSession: options.renderFullSession,
       label: `Show the session holding the ${row.project} deploy lock`,
+      note: lockNote,
     }));
     card.appendChild(lockRow);
   }
