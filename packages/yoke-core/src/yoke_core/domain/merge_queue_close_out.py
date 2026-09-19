@@ -24,6 +24,13 @@ the first-parent diff of the merge that carried the lane head into the base
 branch. GitHub being unreachable is not a reason to strand an item behind a
 merge that has already landed.
 
+Which pull request the item points at is settled here too. The marker names
+the pull request the item last armed, and a lane whose commits reached the
+base under a sibling one leaves its own open forever; close-out knows the
+merge the base actually holds, so it repoints the marker at the pull request
+that merge carried (:mod:`yoke_core.domain.merge_queue_landing_carrier`). An
+ordinary landing finds the marker already right and writes nothing.
+
 Physical lane retirement waits for the caller's successful terminal status
 transition. A queue landing records the proof that makes the later shared
 cleanup safe, but it does not remove the retry lane while evidence or status
@@ -57,6 +64,9 @@ from yoke_core.domain.close_out_control_plane_authority import (
 from yoke_core.domain.merge_queue_batch_receipt import (
     BatchReceipt,
     observe_batch,
+)
+from yoke_core.domain.merge_queue_landing_carrier import (
+    repoint_to_landing_carrier,
 )
 from yoke_core.domain.standalone_item_merge import stamp_merged_at
 from yoke_core.engines.main_checkout_sync import fast_forward_main_checkout
@@ -166,6 +176,11 @@ def record_landing(
     warnings: list[str] = []
     fetch_state: dict = {}
     batch = read_recorded_batch(item_id, pr_num=pr_num)
+    # The merge the base actually holds this lane's work under. Resolved
+    # before the receipt because both the receipt and the marker repoint
+    # below ask about that merge rather than about the pull request the
+    # item last armed, which a re-arm can move to one that never lands.
+    landing_sha = _landing_merge(ctx, commit_sha, fetch_state)
     ci_evidence_error = ""
     ci_evidence_retryable = True
     ci_evidence_recovery = ""
@@ -180,10 +195,10 @@ def record_landing(
             pr_num=pr_num,
             member_snapshot=member_snapshot,
             drift_check=drift_check,
-            # The merge the base actually holds this lane under, needed when
-            # the item's own pull request never merged. Derived here rather
-            # than passed in, so the caller keeps one landing question.
-            landed_merge_sha=_landing_merge(ctx, commit_sha, fetch_state),
+            # Needed when the item's own pull request never merged:
+            # that landing has a merge_group run only under the pull
+            # request whose merge the base actually holds.
+            landed_merge_sha=landing_sha,
         )
         if batch_failure is not None:
             warnings.append(batch_failure.reason)
@@ -211,6 +226,19 @@ def record_landing(
                 ci_evidence_retryable = True
                 ci_evidence_recovery = ""
                 warnings.append(f"batch evidence not recorded: {evidence_error}")
+
+    # Repointed before the stamp, because every landing fact belongs to one
+    # pull request: a marker naming a pull request that never merged would
+    # otherwise date this landing from its predecessor's stamps and send the
+    # next close-out back to the same open pull request.
+    repoint_note = repoint_to_landing_carrier(
+        ctx,
+        item_id=item_id,
+        recorded_pr_number=pr_num,
+        merge_sha=landing_sha,
+    )
+    if repoint_note:
+        warnings.append(repoint_note)
 
     # Stamped here rather than on entry, because the landing's own merge
     # commit is what dates it and that is only known now. Stamping first
