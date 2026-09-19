@@ -149,13 +149,13 @@ test("Done says its lifecycle once and names where the work went", async (t) => 
   mounted.unmount();
 });
 
-test("Done names the selected-flow release, not a newer ancillary success", async (t) => {
+test("Done lists where the work landed, naming a flow only when it differs", async (t) => {
   stubFetch(t);
   const { root, mounted } = await mountAt(
     "#/frontier?project=1",
     workbenchClient({
       "deployment_runs.list": { rows: [{
-        id: "run-stage",
+        id: "run-preview",
         project: "yoke",
         flow: "yoke-hosted-preview",
         target_environment: "preview",
@@ -178,10 +178,17 @@ test("Done names the selected-flow release, not a newer ancillary success", asyn
     }),
   );
 
-  const deployment = byClass(band(root, "done"), "item-deployment")[0];
-  assert.ok(deployment);
-  assert.equal(deployment.href, "#/deployments/runs/run-0?project=1");
-  assert.doesNotMatch(descendantText(deployment), /preview/);
+  // Both environments are where this item actually is, so the card names
+  // both — and a run shipped by a flow that is not the item's own says so.
+  const box = byClass(band(root, "done"), "item-delivery")[0];
+  assert.deepEqual(
+    byClass(box, "item-deployment-run").map((node) => node.textContent),
+    ["run-preview", "run-0"],
+  );
+  assert.deepEqual(
+    byClass(box, "item-deployment-flow").map((node) => node.textContent),
+    ["yoke-hosted-preview"],
+  );
   mounted.unmount();
 });
 

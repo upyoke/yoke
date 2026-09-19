@@ -1,4 +1,10 @@
-// Where a finished item actually went.
+// The delivery box every Frontier card carries: where this item is going,
+// and where it has already landed.
+//
+// One component draws it for every band that shows delivery — an item
+// waiting to ship and one already finished are the same question asked at
+// two moments, so they get the same box rather than two renderings that
+// drift apart.
 //
 // Membership is the recorded carried work of a deployment run — the run's own
 // member rows joined on the item's internal id — never a guess from matching
@@ -6,10 +12,9 @@
 // moment the deployment finished, rather than when the item was merged or
 // when the run row was last touched.
 //
-// A run that failed, was cancelled, or is still executing is reported as what
-// it is. Only a succeeded run is allowed to say the item was deployed, and an
-// item whose carrying run never recorded a completion says the time is
-// unavailable instead of borrowing one.
+// A run still moving says so in the present tense. Only a succeeded run is
+// allowed to say the item was deployed, and an item whose carrying run never
+// recorded a completion says the time is unavailable instead of borrowing one.
 
 import { deploymentRunHref } from "./universe_navigation.js";
 import { NO_ENVIRONMENT_LABEL } from "./deployment_environment_copy.js";
@@ -53,45 +58,6 @@ export function deploymentsByItemId(runs) {
     ));
   }
   return index;
-}
-
-function deploymentCard(documentNode, run, projectId) {
-  const status = String(run.status || "unknown");
-  const card = el(documentNode, "a", "item-deployment");
-  const icon = navIcon(documentNode, "shipping");
-  icon.classList.add("item-deployment-icon");
-  card.appendChild(icon);
-  // The run and the item it carries are the same project by membership,
-  // so the item's own project scopes the link.
-  card.href = deploymentRunHref(projectId ?? null, run.id || run.run_id);
-  const pill = statePill(documentNode, status, status);
-  if (pill) card.appendChild(pill);
-  card.appendChild(el(
-    documentNode,
-    "strong",
-    "item-deployment-environment",
-    run.target_environment || run.target_tier || NO_ENVIRONMENT_LABEL,
-  ));
-  const completed = String(run.completed_at || "");
-  if (status === SUCCEEDED && completed) {
-    const when = el(documentNode, "time", "item-deployment-time");
-    when.setAttribute("datetime", completed);
-    when.textContent = `Deployed ${relativeAgePhrase(completed)}`;
-    card.appendChild(when);
-  } else if (status === SUCCEEDED) {
-    card.appendChild(el(
-      documentNode,
-      "span",
-      "item-deployment-time is-unavailable",
-      "deployment time unavailable",
-    ));
-  }
-  // A run that has not succeeded says so through its own state chip and run
-  // id; a sentence repeating the chip read as a defect rather than a status.
-  card.appendChild(el(
-    documentNode, "small", "item-deployment-run", String(run.id || run.run_id || ""),
-  ));
-  return card;
 }
 
 //: A run still moving. Anything else has recorded its outcome.
@@ -142,70 +108,128 @@ export function shownDeliveryRuns(carried) {
  *
  * The counts come from the projection, which reads the item's own recorded
  * landings: a merge that landed after the last run is still one of them, and
- * saying so is the point of the line.
+ * saying so is the point of the line. One merge is "1 merge" — a card that
+ * said "1 merges" at a reader undid the care the rest of the box takes.
  */
 export function mergesPhrase(delivery) {
   const merges = Number(delivery?.merges || 0);
   if (!merges) return "no merges";
   const deployed = Number(delivery?.deployed || 0);
   const notDeployed = Number(delivery?.not_deployed ?? merges - deployed);
-  return `${merges} merges · ${deployed} deployed · ${notDeployed} not deployed`;
+  const noun = merges === 1 ? "merge" : "merges";
+  return `${merges} ${noun} · ${deployed} deployed · ${notDeployed} not deployed`;
 }
 
+/**
+ * One run's sub-card: the truck, what the run is doing, and when.
+ *
+ * `row` is the item the card belongs to, which supplies both the project the
+ * run link is scoped by and the flow a differing run flow is measured
+ * against.
+ */
 function deliveryRunCard(documentNode, run, row) {
   const status = String(run.status || "unknown");
-  const card = el(documentNode, "a", "release-delivery-run");
+  const card = el(documentNode, "a", "item-deployment");
+  const icon = navIcon(documentNode, "shipping");
+  icon.classList.add("item-deployment-icon");
+  card.appendChild(icon);
+  // The run and the item it carries are the same project by membership,
+  // so the item's own project scopes the link.
   card.href = deploymentRunHref(row.project_id ?? null, run.id || run.run_id);
-  card.appendChild(el(
-    documentNode,
-    "small",
-    "release-delivery-run-id",
-    String(run.id || run.run_id || ""),
-  ));
+  const pill = statePill(documentNode, status, status);
+  if (pill) card.appendChild(pill);
   card.appendChild(el(
     documentNode,
     "strong",
-    "release-delivery-run-environment",
+    "item-deployment-environment",
     runEnvironment(run) || NO_ENVIRONMENT_LABEL,
   ));
-  const pill = statePill(documentNode, status, status);
-  if (pill) card.appendChild(pill);
-  // The flow only when it is not the item's own: repeating the line above
+  card.appendChild(runTiming(documentNode, run, status));
+  // The flow only when it is not the item's own: repeating the line above on
   // every sub-card says nothing, while a differing flow is the whole point.
   const flow = String(run.flow || "");
   if (flow && flow !== String(row.deployment_flow || "")) {
     card.appendChild(el(
-      documentNode, "small", "release-delivery-run-flow", flow,
+      documentNode, "small", "item-deployment-flow", flow,
     ));
   }
+  card.appendChild(el(
+    documentNode, "small", "item-deployment-run", String(run.id || run.run_id || ""),
+  ));
   return card;
 }
 
+// When the run did the thing the card claims. A finished deployment is past
+// tense from its completion; a run still moving is present tense from when it
+// started, because "Deployed" about a run that has not landed is a lie the
+// state chip beside it would contradict.
+function runTiming(documentNode, run, status) {
+  const completed = String(run.completed_at || "");
+  if (status === SUCCEEDED) {
+    if (!completed) {
+      return el(
+        documentNode,
+        "span",
+        "item-deployment-time is-unavailable",
+        "deployment time unavailable",
+      );
+    }
+    return timeNode(documentNode, completed, `Deployed ${relativeAgePhrase(completed)}`);
+  }
+  const started = String(run.started_at || run.created_at || "");
+  if (!started) {
+    return el(documentNode, "span", "item-deployment-time", "Deploying now");
+  }
+  return timeNode(
+    documentNode, started, `Deploying since ${relativeAgePhrase(started)}`,
+  );
+}
+
+function timeNode(documentNode, stamp, text) {
+  const when = el(documentNode, "time", "item-deployment-time", text);
+  when.setAttribute("datetime", stamp);
+  return when;
+}
+
+// No run has picked the item up. The truck is still the subject of the box,
+// drawn muted rather than absent, so the empty state reads as the same thing
+// in an earlier moment instead of as a different kind of card.
+function noRunYet(documentNode) {
+  const row = el(documentNode, "div", "item-delivery-empty");
+  const icon = navIcon(documentNode, "shipping");
+  icon.classList.add("item-deployment-icon");
+  icon.classList.add("is-muted");
+  row.appendChild(icon);
+  row.appendChild(el(documentNode, "span", null, "Not in a run yet"));
+  return row;
+}
+
 /**
- * Append the delivery box a Release-band card always carries.
+ * Append the delivery box for `row` to its card.
  *
- * Unlike the Done band's box, this one is drawn even when no run has picked
- * the item up: "waiting to ship, in no run yet" is the state the band exists
- * to show, and an absent box would read as nothing to say.
+ * Drawn for every card that shows delivery, whether or not a run has picked
+ * the item up: "merged, in no run yet" is a state a reader is waiting on, and
+ * an absent box would read as nothing to say rather than as nothing yet done.
+ * `deployments` is the index built above.
  */
-export function appendReleaseDelivery(documentNode, card, row, deployments) {
-  const box = el(documentNode, "div", "release-delivery");
-  box.appendChild(el(
+export function appendItemDelivery(documentNode, card, row, deployments) {
+  const box = el(documentNode, "div", "item-delivery");
+  const head = el(documentNode, "div", "item-delivery-head");
+  head.appendChild(el(
     documentNode,
     "span",
-    "release-delivery-flow",
+    "item-delivery-flow",
     String(row.deployment_flow || "") || "no flow",
   ));
-  box.appendChild(el(
-    documentNode, "span", "release-delivery-merges", mergesPhrase(row.delivery),
+  head.appendChild(el(
+    documentNode, "span", "item-delivery-merges", mergesPhrase(row.delivery),
   ));
+  box.appendChild(head);
   const itemId = row.internal_id ?? row.item_id ?? row.id;
   const carried = deployments?.get(String(itemId)) || [];
   const runs = shownDeliveryRuns(carried);
   if (!runs.length) {
-    box.appendChild(el(
-      documentNode, "p", "release-delivery-empty", "Not in a run yet",
-    ));
+    box.appendChild(noRunYet(documentNode));
   } else {
     for (const run of runs) {
       box.appendChild(deliveryRunCard(documentNode, run, row));
@@ -213,34 +237,4 @@ export function appendReleaseDelivery(documentNode, card, row, deployments) {
   }
   card.appendChild(box);
   return box;
-}
-
-
-/**
- * Append the selected-flow deployment that carried `row`, when one did.
- *
- * `deployments` is the index built above. An item no selected-flow run
- * carries gets nothing — silence is correct there, because an ancillary
- * Stage success is participation, not this item's release.
- */
-export function appendItemDeployment(documentNode, card, row, deployments) {
-  if (!deployments) return null;
-  const itemId = row.internal_id ?? row.item_id ?? row.id;
-  const carried = deployments.get(String(itemId)) || [];
-  if (!carried.length) return null;
-  const selectedFlow = String(row.deployment_flow || "");
-  const matching = selectedFlow
-    ? carried.filter((run) => String(run.flow || "") === selectedFlow)
-    : [];
-  if (!matching.length) return null;
-  matching.sort((left, right) => (
-    Number(String(right.status || "") === SUCCEEDED)
-    - Number(String(left.status || "") === SUCCEEDED)
-    || String(right.completed_at || "").localeCompare(
-      String(left.completed_at || ""),
-    )
-  ));
-  const node = deploymentCard(documentNode, matching[0], row.project_id);
-  card.appendChild(node);
-  return node;
 }

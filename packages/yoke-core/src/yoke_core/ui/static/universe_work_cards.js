@@ -66,9 +66,10 @@ export function workItemCard(documentNode, row, scope, options = {}) {
     row.stage_label || row.status,
   );
   if (status) top.appendChild(status);
-  // The age rides the end of the head row rather than owning a line of its
-  // own: it is the least of what the card says, and the head already wraps,
-  // so a narrow card drops it to a second line instead of truncating it.
+  // The age follows the status chip inline rather than owning a line of its
+  // own or being pushed to the card's right edge: it qualifies the chip, and
+  // the head already wraps, so a narrow card drops it to a second line
+  // instead of truncating it.
   const timestamp = options.timestamp || row.updated_at || row.created_at;
   if (timestamp) {
     const when = el(

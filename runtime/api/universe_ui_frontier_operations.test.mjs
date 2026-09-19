@@ -192,7 +192,7 @@ test("the overflow tile says See more... and fills the row it sits in", async (t
   mounted.unmount();
 });
 
-test("a card's age sits at the end of its head row, not on a line of its own", async (t) => {
+test("a card's age follows its status chip inline, not on a line of its own", async (t) => {
   stubFetch(t);
   const { mounted, root } = await mountAt("#/frontier?project=1", workbenchClient());
 
@@ -200,7 +200,11 @@ test("a card's age sits at the end of its head row, not on a line of its own", a
   const head = byClass(card, "work-item-card-head")[0];
   const when = byClass(head, "work-item-card-when");
   assert.equal(when.length, 1);
-  // Last in the head, after the status chip, and machine-readable.
+  // Immediately after the status chip it qualifies, and machine-readable.
+  // Its left alignment there is a style contract, pinned by
+  // universe_ui_work_card_styles.test.mjs.
+  const chips = byClass(head, "pill");
+  assert.equal(head.children.indexOf(when[0]), head.children.indexOf(chips.at(-1)) + 1);
   assert.equal(head.children.at(-1), when[0]);
   // The label is the band's ("filed", "updated", "finished"); what moved is
   // where the phrase sits, not what it says.

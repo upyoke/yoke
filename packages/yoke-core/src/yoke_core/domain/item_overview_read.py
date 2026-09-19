@@ -172,7 +172,7 @@ def enrich_item_overview_rows(
             int(version["workflow_version_id"]): workflow_runtime_from_row(version)
             for version in _dict_rows(version_cursor)
         }
-        delivery = _release_delivery(conn, base_rows, facts, compact=compact)
+        delivery = _card_delivery(conn, base_rows, facts, compact=compact)
     finally:
         conn.close()
 
@@ -205,36 +205,63 @@ def enrich_item_overview_rows(
     return result
 
 
-#: The one stage whose cards ask how much of the item has actually shipped.
+#: The stage whose cards ask how much of the item has actually shipped.
 RELEASE_STATUS = "release"
 
 
-def _release_delivery(
+def _drawn_finished(row: dict[str, Any]) -> bool:
+    """Whether a terminal row is recent enough that a Done card draws it."""
+    cutoff = datetime.now(timezone.utc) - OVERVIEW_DONE_WINDOW
+    stamp = str(
+        row.get("merged_at") or row.get("updated_at") or row.get("created_at") or ""
+    ).strip()
+    if not stamp:
+        return False
+    try:
+        finished = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if finished.tzinfo is None:
+        finished = finished.replace(tzinfo=timezone.utc)
+    return finished >= cutoff
+
+
+def _delivery_drawn(row: dict[str, Any]) -> bool:
+    """Whether a Frontier card for this row carries a delivery box."""
+    status = str(row.get("status") or "").strip().lower()
+    if status == RELEASE_STATUS:
+        return True
+    return status in OVERVIEW_TERMINAL_STATUSES and _drawn_finished(row)
+
+
+def _card_delivery(
     conn: Any,
     base_rows: list[dict[str, Any]],
     facts: dict[int, Any],
     *,
     compact: bool,
 ) -> dict[int, dict[str, int]]:
-    """Merge counts for the rows a Release band will draw, and no others.
+    """Merge counts for the rows that draw a delivery box, and no others.
 
-    Every other band answers a question this costs nothing to leave
+    Release and the last day of finished work are the two bands whose cards
+    show delivery, and they share one rendering, so they share this read.
+    Every other row answers a question this costs nothing to leave
     unanswered, and the ancestry reads behind it are per item — so the
-    roster pays for them only where a card will show the result.
+    roster pays for them only where a card will show the result. The same
+    24-hour window :func:`append_overview_window` selects on bounds the
+    finished side here, so a caller that did not apply that window cannot
+    turn this into an unbounded scan of every terminal item.
     """
     if compact:
         return {}
-    releasing = [
-        row for row in base_rows
-        if str(row.get("status") or "").strip().lower() == RELEASE_STATUS
-    ]
-    if not releasing:
+    drawn = [row for row in base_rows if _delivery_drawn(row)]
+    if not drawn:
         return {}
     from yoke_core.domain.release_delivery_summary import delivery_summary
 
     flows = sorted({
         str(row.get("deployment_flow") or "").strip()
-        for row in releasing
+        for row in drawn
         if str(row.get("deployment_flow") or "").strip()
     })
     environment_by_flow: dict[str, Any] = {}
@@ -251,7 +278,7 @@ def _release_delivery(
             for flow in _dict_rows(flow_cursor)
         }
     summaries: dict[int, dict[str, int]] = {}
-    for row in releasing:
+    for row in drawn:
         item_id = int(row["internal_id"])
         summary = delivery_summary(
             conn,
