@@ -151,6 +151,12 @@ def _landing_merge(ctx: MergeContext, commit_sha: str, state: dict) -> str:
     The pointer an item records names the pull request it last armed, which
     a re-arm can move to one that never merges. This is the fact that does
     not drift: whatever merge the base actually holds this work under.
+
+    Feed it the candidate being closed out, never an older commit the item
+    also carries. Everything on the base has a merge that carried it, so an
+    earlier candidate answers accurately for an earlier landing — and a
+    correction relanded on the same lane would be pointed back at the
+    landing it replaced.
     """
     if not ctx.repo_root or not commit_sha:
         return ""
@@ -169,18 +175,30 @@ def record_landing(
     item_id: int,
     commit_sha: str,
     pr_num: str,
+    candidate_sha: str = "",
     member_snapshot: tuple[str, ...] = (),
     drift_check: Optional[Mapping[str, str]] = None,
 ) -> QueueCloseOut:
-    """Record everything the item owes after its train landed."""
+    """Record everything the item owes after its train landed.
+
+    ``commit_sha`` is the identity this landing is answerable for, which a
+    converging close-out takes from the recorded receipt. ``candidate_sha``
+    is the commit actually being closed out, and defaults to it. They differ
+    for a lane that landed twice: both are on the base, and only the
+    candidate's own merge belongs to the landing in hand.
+    """
     warnings: list[str] = []
     fetch_state: dict = {}
     batch = read_recorded_batch(item_id, pr_num=pr_num)
-    # The merge the base actually holds this lane's work under. Resolved
-    # before the receipt because both the receipt and the marker repoint
-    # below ask about that merge rather than about the pull request the
-    # item last armed, which a re-arm can move to one that never lands.
-    landing_sha = _landing_merge(ctx, commit_sha, fetch_state)
+    # The merge the base actually holds this landing's candidate under.
+    # Resolved before the receipt because both the receipt and the marker
+    # repoint below ask about that merge rather than about the pull request
+    # the item last armed, which a re-arm can move to one that never lands.
+    # Asked of the candidate rather than of ``commit_sha``: a lane that
+    # landed twice carries an older recorded commit whose merge is an
+    # ancestor of this one, and answering with it repoints a corrected item
+    # back at the landing it superseded.
+    landing_sha = _landing_merge(ctx, candidate_sha or commit_sha, fetch_state)
     ci_evidence_error = ""
     ci_evidence_retryable = True
     ci_evidence_recovery = ""

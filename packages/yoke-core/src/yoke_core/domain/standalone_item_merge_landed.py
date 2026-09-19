@@ -62,6 +62,14 @@ class LandedLane:
     merge_sha: str = ""
     touched_files: tuple[str, ...] = field(default=())
     source: str = ""
+    # The commit THIS close-out is converging, before the receipt
+    # substitution below replaces it for evidence purposes. A lane that
+    # landed twice has an older recorded commit that is equally on the
+    # base, so asking which merge carried it answers for the landing this
+    # close-out already replaced. Anything resolving a merge for the work
+    # in hand -- the landing carrier the marker is repointed at -- reads
+    # this rather than ``commit_sha``.
+    candidate_sha: str = ""
 
 
 def norm(sha: str) -> str:
@@ -154,7 +162,12 @@ def _describe(
     containing: str,
     source: str,
 ) -> LandedLane:
-    """Name the commit, merge, and files this landing is answerable for."""
+    """Name the commit, merge, and files this landing is answerable for.
+
+    ``landed_sha`` is the candidate in hand and rides out untouched as
+    ``candidate_sha``; ``commit_sha`` is the identity the evidence carries,
+    which prefers the recorded receipt's commit.
+    """
     recorded = receipts.load(item_id, branch, target)
     commit_sha = landed_sha
     if (
@@ -177,6 +190,7 @@ def _describe(
         branch=branch,
         target=target,
         commit_sha=commit_sha,
+        candidate_sha=landed_sha,
         merge_sha=merge_sha,
         touched_files=receipts.resolve_touched_files(
             repo_root=repo_root,

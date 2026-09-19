@@ -318,3 +318,24 @@ def test_containing_ref_names_the_remote_when_only_the_remote_has_it(monkeypatch
     monkeypatch.setattr(git, "git_out", lambda _repo_root, *_a: "origin")
     assert git.containing_ref("/repo", LANE_SHA, "main") == "origin/main"
     assert ["fetch", "origin", "main"] in commands
+
+
+def test_a_relanded_lane_names_its_candidate_beside_the_recorded_identity(
+    monkeypatch,
+):
+    """Evidence keeps the recorded commit; the landing question gets the new one."""
+    relanded = "7" * 40
+    _probe(
+        monkeypatch,
+        branch_exists=True,
+        head=relanded,
+        contains=(relanded, LANE_SHA, MERGE_SHA),
+    )
+    monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
+    monkeypatch.setattr(
+        landed.receipts, "resolve_touched_files", lambda **_k: ("feature.py",)
+    )
+    lane = _lane()
+    assert lane is not None
+    assert lane.commit_sha == LANE_SHA
+    assert lane.candidate_sha == relanded
