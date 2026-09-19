@@ -190,8 +190,12 @@ def test_a_failed_repoint_write_names_the_carrier_it_could_not_record(
     assert CARRIER_PR in note
 
 
-def _wire_close_out(monkeypatch, *, landing_sha: str):
-    """Everything close-out reaches outside the repoint under test."""
+def _wire_close_out(monkeypatch, *, landing_sha: str, merges=None):
+    """Everything close-out reaches outside the repoint under test.
+
+    ``merges`` maps a commit to the merge that carried it, so a test can
+    say which commit the resolver was asked about.
+    """
     batch = BatchReceipt(
         pr_num=OWN_PR,
         merge_sha=landing_sha,
@@ -202,10 +206,13 @@ def _wire_close_out(monkeypatch, *, landing_sha: str):
         close_out_mod, "read_recorded_batch", lambda item_id, *, pr_num: batch
     )
     monkeypatch.setattr(close_out_mod.git, "fetch_target", lambda *_a: None)
+    carried = dict(merges or {})
     monkeypatch.setattr(
         close_out_mod.receipts,
         "landing_merge_commit",
-        lambda *_a: landing_sha,
+        lambda _root, _target, commit_sha: (
+            carried[commit_sha] if carried else landing_sha
+        ),
     )
     monkeypatch.setattr(
         close_out_mod, "stamp_merged_at", lambda item_id, **_kw: None
@@ -248,3 +255,80 @@ def test_close_out_leaves_a_marker_that_already_names_the_landing(monkeypatch):
 
     assert written == []
     assert outcome.warnings == ()
+
+
+def test_a_lane_that_landed_twice_repoints_at_the_landing_in_hand(monkeypatch):
+    """A relanded correction must never be sent back to its first landing.
+
+    The evidence identity a converging close-out carries is the recorded
+    receipt's commit, which for a lane that landed twice is the superseded
+    candidate — still on the base, and still carried by a merge of its own.
+    Asking that commit which merge holds it answers for the landing this
+    close-out replaced, which is how the marker of a corrected item was
+    moved back to the pull request it had already superseded.
+    """
+    superseded_sha = "9" * 40
+    superseded_merge = "e" * 40
+    _wire_close_out(
+        monkeypatch,
+        landing_sha=LANDING_SHA,
+        merges={superseded_sha: superseded_merge, LANE_SHA: LANDING_SHA},
+    )
+    written = _wire_carrier(monkeypatch, listing=_sibling_listing())
+
+    outcome = close_out_mod.record_landing(
+        _ctx(),
+        item_id=7,
+        # What the first landing recorded, which the evidence still carries.
+        commit_sha=superseded_sha,
+        candidate_sha=LANE_SHA,
+        pr_num=OWN_PR,
+    )
+
+    assert written == [(7, CARRIER_PR)]
+    assert not any(str(superseded_merge[:12]) in w for w in outcome.warnings)
+
+
+def test_the_candidate_defaults_to_the_recorded_identity(monkeypatch):
+    """One landing has one commit, and the caller need not say it twice."""
+    _wire_close_out(monkeypatch, landing_sha=LANDING_SHA, merges={LANE_SHA: LANDING_SHA})
+    written = _wire_carrier(monkeypatch, listing=_sibling_listing())
+
+    close_out_mod.record_landing(
+        _ctx(), item_id=7, commit_sha=LANE_SHA, pr_num=OWN_PR,
+    )
+
+    assert written == [(7, CARRIER_PR)]
+
+
+def test_converge_asks_the_candidate_which_merge_carried_it(monkeypatch):
+    """The converging caller is where the two commits part company."""
+    from yoke_core.domain import standalone_item_merge_converge as converging
+    from yoke_core.domain.standalone_item_merge_landed import LandedLane
+
+    superseded_sha = "9" * 40
+    seen: dict = {}
+
+    def record_landing(_ctx, **kwargs):
+        seen.update(kwargs)
+        return close_out_mod.QueueCloseOut(merge_sha=LANDING_SHA)
+
+    monkeypatch.setattr(converging, "stale_unlanded_work", lambda **_k: "")
+    monkeypatch.setattr(close_out_mod, "record_landing", record_landing)
+
+    converging.converge(
+        item_id=7,
+        project="yoke",
+        repo_root="/repo",
+        lane=LandedLane(
+            branch="YOK-3203",
+            target="main",
+            commit_sha=superseded_sha,
+            candidate_sha=LANE_SHA,
+        ),
+        queue_pr_number=OWN_PR,
+        public_ref="YOK-3203",
+    )
+
+    assert seen["candidate_sha"] == LANE_SHA
+    assert seen["commit_sha"] == superseded_sha

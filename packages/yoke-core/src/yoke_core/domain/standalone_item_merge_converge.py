@@ -44,6 +44,11 @@ def _converge_queue_landing(
         ),
         item_id=item_id,
         commit_sha=lane.commit_sha,
+        # Which merge carried this lane must be asked of the candidate in
+        # hand, never of the older commit the receipt may still name: a
+        # lane that landed twice has both on the base, and the recorded
+        # one answers for the landing this close-out already replaced.
+        candidate_sha=lane.candidate_sha or lane.commit_sha,
         pr_num=queue_pr_number,
         member_snapshot=(public_ref,) if public_ref else (),
     )
