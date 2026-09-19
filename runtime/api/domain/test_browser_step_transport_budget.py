@@ -22,7 +22,7 @@ def _timeout_for(step, monkeypatch) -> int:
         return {"success": True}
 
     monkeypatch.setattr(browser_client, "daemon_request", _capture)
-    browser_client.execute_step(step, "http://127.0.0.1:1/")
+    browser_client.execute_step(step, "http://127.0.0.1:1/", page_id="page-1")
     assert seen["path"] == "/api/exec/step"
     return seen["timeout"]
 

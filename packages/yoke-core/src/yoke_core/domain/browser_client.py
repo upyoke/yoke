@@ -13,6 +13,9 @@ The implementation is split across this parent and three sibling modules:
 
 - ``browser_client_lifecycle`` — ``daemon_start`` / ``daemon_stop`` (the
   npm/playwright/chromium auto-bootstrap and process-launch logic).
+- ``browser_client_owned_page`` — ``open_owned_page`` /
+  ``close_owned_page`` (the page a multi-step run owns from first step to
+  last).
 - ``browser_client_snapshot`` — ``snapshot_accessibility`` /
   ``snapshot_screenshot`` / ``snapshot_diff``.
 - ``browser_client_cli`` — ``_cli_daemon`` / ``_cli_snapshot`` /
@@ -73,11 +76,16 @@ from yoke_cli.transport.bounded_json_http import (
     request_json,
 )
 from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
+from yoke_contracts.browser_daemon_api import EXEC_STEP_PATH
 from yoke_harness import browser_runtime_home
 from yoke_core.domain.browser_client_cli import _cli_daemon, _cli_exec, _cli_snapshot
 from yoke_core.domain.browser_client_lifecycle import (  # noqa: F401
     daemon_start,
     daemon_stop,
+)
+from yoke_core.domain.browser_client_owned_page import (
+    close_owned_page,  # noqa: F401
+    open_owned_page,  # noqa: F401
 )
 from yoke_core.domain.browser_client_snapshot import (
     snapshot_accessibility,  # noqa: F401
@@ -259,15 +267,24 @@ def execute_step(
     step_json: Dict[str, Any],
     base_url: str,
     output_dir: Optional[str] = None,
+    *,
+    page_id: str,
 ) -> Dict[str, Any]:
-    """Execute a single scenario step via the daemon API.
+    """Execute a single scenario step on the run's own page.
+
+    ``page_id`` comes from ``open_owned_page``; the daemon refuses a step
+    without one rather than running it on whatever page it still holds.
 
     Returns the parsed daemon response. The request waits longer than the
     step it carries: a step that declares sixty seconds and a transport that
     gives up at thirty is a case that can never report what the step found,
     only that the transport stopped listening.
     """
-    body: Dict[str, Any] = {"step": step_json, "baseUrl": base_url}
+    body: Dict[str, Any] = {
+        "step": step_json,
+        "baseUrl": base_url,
+        "pageId": str(page_id),
+    }
     if output_dir:
         body["outputDir"] = output_dir
     declared_ms = step_json.get("timeout_ms")
@@ -277,7 +294,7 @@ def execute_step(
             timeout,
             int(declared_ms / 1000) + STEP_RESPONSE_HEADROOM_SECONDS,
         )
-    return daemon_request("/api/exec/step", body, timeout=timeout)
+    return daemon_request(EXEC_STEP_PATH, body, timeout=timeout)
 
 
 # ---------------------------------------------------------------------------

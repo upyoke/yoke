@@ -203,8 +203,16 @@ def build_metadata(
     label: Any = None,
     viewport: Optional[Dict[str, int]] = None,
     browser: str = "chromium",
+    observed_url: str = "",
 ) -> Dict[str, Any]:
-    """Build artifact metadata dict."""
+    """Build artifact metadata dict.
+
+    ``route`` is the route the case navigated to; ``viewport`` and
+    ``observed_url`` are what the page reported about itself when the capture
+    was taken. Recording both is what lets a reviewer see that a screenshot
+    is of the screen and the width that were asked for, instead of taking it
+    on trust.
+    """
     meta: Dict[str, Any] = {
         "step_index": step_index,
         "qa_kind": qa_kind,
@@ -215,6 +223,8 @@ def build_metadata(
         meta["label"] = str(label).strip()
     if viewport:
         meta["viewport"] = viewport
+    if observed_url:
+        meta["observed_url"] = observed_url
     if browser:
         meta["browser"] = browser
     return meta

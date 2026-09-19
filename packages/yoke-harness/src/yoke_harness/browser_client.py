@@ -138,6 +138,8 @@ from yoke_harness.browser_client_health import (  # noqa: E402
     probe_daemon_health as _probe_daemon_health,  # noqa: F401
 )
 from yoke_harness.browser_client_actions import (  # noqa: E402
+    EXPLORATORY_PAGE_ID,
+    ensure_page,
     execute_step,
     parse_viewport,
     snapshot_screenshot,
@@ -332,12 +334,14 @@ def daemon_stop() -> str:
 
 __all__ = [
     "DaemonState",
+    "EXPLORATORY_PAGE_ID",
     "daemon_health",
     "daemon_request",
     "daemon_running",
     "daemon_start",
     "daemon_status",
     "daemon_stop",
+    "ensure_page",
     "execute_step",
     "parse_viewport",
     "snapshot_screenshot",

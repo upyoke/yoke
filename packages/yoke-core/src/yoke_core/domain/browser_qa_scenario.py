@@ -1,7 +1,8 @@
 """Scenario-level orchestration for Browser QA.
 
 Owns ``execute_scenario`` — the internal driver for one materialized Browser
-case. It validates freshness/reachability/daemon state and delegates step
+case. The requirement-scoped context read it starts from lives in
+``browser_qa_context_fetch``. It validates freshness/reachability/daemon state and delegates step
 execution to ``_process_requirement`` in
 ``browser_qa_requirement``.
 
@@ -21,78 +22,21 @@ take effect against this caller without rebinding sibling-local names.
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from yoke_contracts.api.function_call import ActorContext
+from yoke_core.domain.browser_qa_context_fetch import _fetch_browser_context  # noqa: F401
 from yoke_core.domain.browser_qa_freshness_outcome import (
     EXECUTION_TARGET_UNAUTHORIZED,
 )
 from yoke_core.domain.browser_qa_requirement import _process_requirement
+from yoke_core.domain.browser_qa_run_source import run_bound_identity
 from yoke_core.domain.browser_qa_results import ScenarioResult
 from yoke_core.domain.qa_artifacts import case_artifact_subject
 from yoke_core.domain.project_identity_item_ref import item_subject_ref
 from yoke_core.domain.browser_qa_case_target_identity import (
     credential_free_origin,
 )
-
-
-def _fetch_browser_context(
-    project: str,
-    requirement_id: int,
-    *,
-    item_id: int | str | None = None,
-    deployment_run_id: str | None = None,
-    expected_branch: Optional[str] = None,
-    actor: Optional[ActorContext] = None,
-) -> Dict[str, Any]:
-    """Fetch the scenario's DB context through the dispatcher.
-
-    One requirement-scoped read: the named Browser method case plus (when
-    ``expected_branch`` is given) the latest deployed_sha for the freshness
-    gate. Exactly one subject is named — ``item_id`` (the numeric id or a
-    public ref ``PREFIX-N`` / bare project-local number, resolved
-    server-side via ``target.public_ref``) or ``deployment_run_id``. The
-    result payload echoes the resolved subject. Raises ``RuntimeError``
-    with the transport/handler error message on failure.
-    """
-    from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.domain.qa_composed_dispatch import (
-        call_qa_function,
-    )
-
-    if deployment_run_id is not None:
-        target = TargetRef(
-            kind="deployment_run",
-            deployment_run_id=str(deployment_run_id),
-            project_id=project,
-        )
-    else:
-        try:
-            target = TargetRef(kind="item", item_id=int(item_id))
-        except (TypeError, ValueError):
-            target = TargetRef(
-                kind="item",
-                public_ref=str(item_id).strip(),
-                project_id=project,
-            )
-
-    payload: Dict[str, Any] = {
-        "project": project,
-        "requirement_id": int(requirement_id),
-    }
-    if expected_branch:
-        payload["expected_branch"] = expected_branch
-    response = call_qa_function(
-        function_id="qa.browser_context.get",
-        target=target,
-        payload=payload,
-        actor=actor,
-    )
-    if not response.success:
-        code = response.error.code if response.error else "unknown"
-        message = response.error.message if response.error else ""
-        raise RuntimeError(f"qa.browser_context.get failed ({code}): {message}")
-    return response.result or {}
 
 
 def _base_url_from_requirements(req_rows: list) -> str:
@@ -135,7 +79,9 @@ def execute_scenario(
         deployment_run_id: The deployment run this case verifies, for a
             case materialized against a run rather than an item.
         expected_branch: Optional branch name for deployment freshness
-            validation. Must be provided together with expected_sha.
+            validation. Must be provided together with expected_sha. A
+            run-bound case takes both from the run instead, and refuses a
+            supplied commit that contradicts what the run shipped.
         expected_sha: Optional HEAD SHA for deployment freshness validation.
             Must be provided together with expected_branch.
     """
@@ -150,7 +96,10 @@ def execute_scenario(
     # the target. A run that recorded the requested commit here would be
     # asserting the very thing the check exists to establish.
     code_identity: Dict[str, str] = {}
-    freshness_validated = bool(expected_branch and expected_sha)
+    # True only once a source has answered for the target. It used to mean
+    # "the caller passed both arguments", which said nothing about whether
+    # anything had been proved.
+    freshness_validated = False
 
     if (item_id is None) == (deployment_run_id is None):
         _bqa._log(
@@ -215,6 +164,23 @@ def execute_scenario(
 
     _bqa._log("Found browser requirements")
 
+    # A case that hangs off a deployment run is judged against what that run
+    # was pinned to deliver. The deployment stage passes no expectation of its
+    # own -- it is certifying a run, and the run already knows its commit.
+    if deployment_run_id is not None:
+        identity_failure, expected_branch, expected_sha = run_bound_identity(
+            str(deployment_run_id),
+            context,
+            expected_branch=expected_branch,
+            expected_sha=expected_sha,
+        )
+        if identity_failure is not None:
+            _bqa._log(f"ERROR: {identity_failure.message}")
+            result.verdict = "error"
+            result.note = identity_failure.reason
+            print(result.to_json())
+            return result
+
     # Step 2: Resolve base_url. It is resolved before freshness because one
     # source of freshness is the target itself, and a target cannot be asked
     # what it serves until it is known which target the case names.
@@ -253,6 +219,7 @@ def execute_scenario(
             print(result.to_json())
             return result
         code_identity = _bqa._build_code_identity(expected_branch, verified_sha)
+        freshness_validated = True
 
     # Freshness was established about one deployment, and covers no other.
     # Browsing somewhere else would attach "serving the expected commit" to

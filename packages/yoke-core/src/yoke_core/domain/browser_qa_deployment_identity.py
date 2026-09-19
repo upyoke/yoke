@@ -155,6 +155,37 @@ def resolve_deployment_under_test(conn: Any, run_id: str) -> DeploymentUnderTest
     )
 
 
+def resolve_run_pinned_source(conn: Any, run_id: str) -> dict[str, str]:
+    """Return the commit *run_id* was pinned to deliver, and its branch.
+
+    This is what the deployment under test is supposed to be serving, and it
+    is the only expectation a run-bound Browser case may be judged against:
+    an expectation supplied on the command line describes whatever the caller
+    believed, while the run records what was actually frozen and shipped.
+
+    ``sha`` is empty when the run pins no commit — a fact the caller refuses
+    on, because there is then nothing for the environment's own answer to be
+    compared with.
+    """
+    marker = _p(conn)
+    row = conn.execute(
+        "SELECT release_lineage,project_id FROM deployment_runs "
+        f"WHERE id={marker}",
+        (str(run_id),),
+    ).fetchone()
+    if row is None:
+        return {"sha": "", "branch": ""}
+    branch_row = conn.execute(
+        f"SELECT default_branch FROM projects WHERE id={marker}",
+        (int(_scalar(row, 1, "project_id") or 0),),
+    ).fetchone()
+    return {
+        "sha": str(_scalar(row, 0, "release_lineage") or "").strip(),
+        # The branch labels the commit for a reader; the commit is the proof.
+        "branch": str(_scalar(branch_row, 0, "default_branch") or "").strip(),
+    }
+
+
 def validate_deployment_identity(
     expected_sha: str,
     *,
@@ -245,5 +276,6 @@ def validate_deployment_identity(
 __all__ = [
     "DeploymentUnderTest",
     "resolve_deployment_under_test",
+    "resolve_run_pinned_source",
     "validate_deployment_identity",
 ]

@@ -4,7 +4,7 @@ Owns:
 
 - ``_SCREENSHOT_ACTIONS`` and ``_is_screenshot_step`` — vocabulary for
   artifact-producing screenshot steps (kept colocated with the predicate).
-- ``_execute_step`` — single-step dispatch through the browser daemon.
+- ``_execute_step`` — single-step dispatch onto the case's own daemon page.
 - ``_record_run`` / ``_complete_run`` / ``_record_artifact`` — dispatcher
   delegates (``qa.run.add`` / ``qa.run.complete`` / ``qa.artifact.add``)
   so the writes work over both transports; failures degrade to ``None`` /
@@ -55,12 +55,12 @@ def _execute_step(
     step_json: Dict[str, Any],
     base_url: str,
     artifact_dir: str,
-    run_id: int,
-    project: str,
-    route: str,
-    step_index: int,
+    page_id: str,
 ) -> Dict[str, Any]:
-    """Execute a single scenario step via ``browser_client``.
+    """Execute a single scenario step on the case's own page.
+
+    ``page_id`` is the page this case opened for itself, so every step of the
+    case observes the same screen and no other run can be handed it.
 
     Returns the parsed JSON response from the daemon, or an error dict.
     """
@@ -70,7 +70,9 @@ def _execute_step(
         return {"success": False, "error": "env_setup_failure", "exit_code": 2}
 
     try:
-        return execute_step(step_json, base_url, output_dir=artifact_dir)
+        return execute_step(
+            step_json, base_url, output_dir=artifact_dir, page_id=page_id,
+        )
     except RuntimeError as e:
         return {"success": False, "error": str(e)}
 
