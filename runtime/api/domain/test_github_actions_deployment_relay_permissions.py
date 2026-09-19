@@ -21,6 +21,7 @@ from yoke_core.domain.actor_permissions import (
     PERM_PROJECT_ADMIN,
     PERM_PROJECT_INSTALL,
     PERM_PROJECT_RENDER_READ,
+    PERM_RELEASE_OUTPUT_RECORD,
     PERM_RELEASE_PIN_RECORD,
     ROLE_ADMIN,
     ROLE_DEPLOYMENT_CI,
@@ -122,6 +123,7 @@ def test_deployment_ci_role_carries_only_required_ci_permissions() -> None:
             PERM_GITHUB_ACTIONS_VARIABLE_READ,
             PERM_GITHUB_RELEASE_CREATE,
             PERM_RELEASE_PIN_RECORD,
+            PERM_RELEASE_OUTPUT_RECORD,
         }
         assert _role_permission_keys(conn, ROLE_DEPLOYMENT_CI) == relay_permissions
         assert relay_permissions <= _role_permission_keys(conn, ROLE_OWNER)
@@ -220,6 +222,7 @@ def test_relay_can_dispatch_and_read_only_deploy_reporting_surfaces() -> None:
             "github_actions.variable.get": False,
             "github.release.create_next_tag": True,
             "release_pin.record": True,
+            "deployment_runs.release_output.record": True,
         }
         for function_id, write in allowed.items():
             decision = check_dispatch_permission(

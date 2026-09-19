@@ -31,10 +31,6 @@ from yoke_core.domain.actor_permissions import (
     PERM_DB_READ_RAW,
     PERM_EVENTS_READ,
     PERM_EVENTS_WRITE,
-    PERM_GITHUB_ACTIONS_RUN_READ,
-    PERM_GITHUB_ACTIONS_VARIABLE_READ,
-    PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
-    PERM_GITHUB_RELEASE_CREATE,
     PERM_HOOKS_EVALUATE,
     PERM_ITEMS_READ,
     PERM_ITEMS_WRITE,
@@ -43,7 +39,6 @@ from yoke_core.domain.actor_permissions import (
     PERM_PROJECT_CREATE,
     PERM_PROJECT_INSTALL,
     PERM_PROJECT_RENDER_READ,
-    PERM_RELEASE_PIN_RECORD,
 )
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.function_authz_product_scopes import PRODUCT_AUTHZ_BY_ID
@@ -54,6 +49,7 @@ from yoke_core.domain.function_authz_scope_control_plane import (
     CONTROL_PLANE_AUTHZ_BY_ID,
 )
 from yoke_core.domain.function_authz_scope_prefixes import AUTHZ_BY_PREFIX
+from yoke_core.domain.function_authz_scope_release_ci import RELEASE_CI_AUTHZ_BY_ID
 from yoke_core.domain.function_authz_types import (
     ACTOR_SESSION,
     CLIENT_LOCAL,
@@ -69,6 +65,7 @@ from yoke_core.domain.yoke_function_registry import RegistryEntry
 # permission_key_for and need no entry here.
 _BY_ID: dict[str, AuthzSpec] = {
     **PRODUCT_AUTHZ_BY_ID,
+    **RELEASE_CI_AUTHZ_BY_ID,
     **CONTROL_PLANE_AUTHZ_BY_ID,
     # Actor-visible item inventory. The handlers filter rows to the actor's
     # org/project grants; local source-dev calls without a numeric actor remain
@@ -113,7 +110,6 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.environment_settings.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.infrastructure.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.environment_settings.merge": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
-    "release_pin.record": AuthzSpec(PROJECT, PERM_RELEASE_PIN_RECORD),
     "projects.pulumi_state.migrate": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "projects.pulumi_state.checkpoint_import": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     # Site/environment registration: the install grant, like onboard.checklist.*.
@@ -156,49 +152,6 @@ _BY_ID: dict[str, AuthzSpec] = {
     "github.merge_queue.apply": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "github.merge_queue.hold": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "github.merge_queue.readiness": AuthzSpec(PROJECT, PERM_ITEMS_READ),
-    "github.release.create_next_tag": AuthzSpec(
-        PROJECT,
-        PERM_GITHUB_RELEASE_CREATE,
-    ),
-    # Hosted deploy runners may trigger and observe the project's deployment
-    # workflows without receiving project administration. Every other
-    # github_actions.* function keeps the project-admin prefix default below.
-    "github_actions.workflow.dispatch": AuthzSpec(
-        PROJECT,
-        PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
-    ),
-    "github_actions.workflow.dispatch_once": AuthzSpec(
-        PROJECT,
-        PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
-    ),
-    "github_actions.workflow.find_run": AuthzSpec(
-        PROJECT,
-        PERM_GITHUB_ACTIONS_RUN_READ,
-    ),
-    "github_actions.run.jobs_count": AuthzSpec(
-        PROJECT,
-        PERM_GITHUB_ACTIONS_RUN_READ,
-    ),
-    "github_actions.wait_run": AuthzSpec(
-        PROJECT,
-        PERM_GITHUB_ACTIONS_RUN_READ,
-    ),
-    "github_actions.check_ci": AuthzSpec(
-        PROJECT,
-        PERM_GITHUB_ACTIONS_RUN_READ,
-    ),
-    "github_actions.failed_log": AuthzSpec(
-        PROJECT,
-        PERM_GITHUB_ACTIONS_RUN_READ,
-    ),
-    "deployment_runs.failure_trace": AuthzSpec(
-        PROJECT,
-        PERM_GITHUB_ACTIONS_RUN_READ,
-    ),
-    "github_actions.variable.get": AuthzSpec(
-        PROJECT,
-        PERM_GITHUB_ACTIONS_VARIABLE_READ,
-    ),
     "conduct.epic_task.update_status": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "conduct.epic.proceed_triage_handoff": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "onboard.checklist.init": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
