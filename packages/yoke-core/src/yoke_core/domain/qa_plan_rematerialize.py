@@ -54,7 +54,7 @@ def rematerialize_for_item(
         conn,
         item_id=int(item_id),
         transition_id=transition_id,
-        plan_ids=attachments,
+        attachments=attachments,
     )
     marker = _placeholder(conn)
     rows = query_rows(

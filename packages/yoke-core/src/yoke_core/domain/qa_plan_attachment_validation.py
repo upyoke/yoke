@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_one
@@ -61,23 +61,31 @@ def validate_attached_item_transition(
     *,
     item_id: int,
     transition_id: Any,
-    plan_ids: Iterable[int],
+    attachments: Mapping[int, Mapping[str, Any]],
 ) -> str:
-    """Validate a transition and every attached plan's enforcement identity."""
-    selected = tuple(int(plan_id) for plan_id in plan_ids)
-    if not selected:
+    """Validate a transition and every attached plan's enforcement identity.
+
+    Each attachment is judged under the ``qa_phase`` it was stored with.
+    Reading them all as verification re-asked a post-deploy plan for a
+    pre-merge gate it was never bound to, so an item that attached one at
+    its release wait could attach it but never materialize it: the same
+    transition the attach accepted came back with "no reachable
+    qa_verification gate".
+    """
+    if not attachments:
         return validate_item_transition(
             conn,
             item_id=int(item_id),
             transition_id=transition_id,
         )
     transition = transition_id
-    for plan_id in selected:
+    for plan_id, attachment in attachments.items():
         transition = validate_item_transition(
             conn,
             item_id=int(item_id),
             transition_id=transition,
-            plan_id=plan_id,
+            plan_id=int(plan_id),
+            qa_phase=(attachment or {}).get("qa_phase"),
         )
     return transition
 
