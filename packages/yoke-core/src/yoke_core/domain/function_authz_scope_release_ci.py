@@ -76,7 +76,8 @@ RELEASE_CI_AUTHZ_BY_ID = {
     "github_actions.variable.get": AuthzSpec(
         PROJECT,
         PERM_GITHUB_ACTIONS_VARIABLE_READ,
-    ),}
+    ),
+}
 
 
 __all__ = ["RELEASE_CI_AUTHZ_BY_ID"]
