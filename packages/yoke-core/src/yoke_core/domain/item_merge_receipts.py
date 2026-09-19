@@ -171,33 +171,54 @@ def _clean_check_runs(value: Any) -> tuple[dict[str, str], ...]:
 
 
 def landing_merge_commit(repo_root: str, target: str, commit_sha: str) -> str:
-    """The merge commit that first carried ``commit_sha`` into ``target``.
+    """The merge on ``target``'s trunk that first carried ``commit_sha``.
 
-    The last merge commit on the ancestry path is the oldest one that contains
-    ``commit_sha``, so it is the candidate for the merge that landed the
-    branch. A fast-forward leaves no merge commit behind and resolves to
-    nothing — that case needs the receipt.
+    Resolved on ``target``'s own first-parent chain, because that chain is
+    what the base actually took. A branch can become an ancestor of
+    ``target`` without its own merge ever joining that chain: a later "merge
+    origin/main into <branch>" absorbs the earlier merge as a second parent,
+    and some other commit lands the result. Walking plain ancestry answered
+    with that absorbed merge, which dated the item to a landing the trunk
+    never took -- an item whose branch landed twice kept the first, superseded
+    answer.
 
-    A candidate only counts when its first parent does *not* already contain
-    ``commit_sha``: carrying the commit in is what makes a merge the landing
-    merge. A branch that never advanced past the base it forked from has a
-    commit the target already contained, so every merge on the walk is
-    somebody else's — answering with the oldest of them would attribute a
-    neighbour's merge, and its whole diff, to this item.
+    Containment along a first-parent chain is monotonic: once a commit on it
+    holds ``commit_sha``, every newer one does. So the landing is the boundary
+    between the two, found by bisecting rather than by testing each commit.
+    That boundary also replaces the old "first parent must not already hold
+    it" guard, which exists to stop a neighbour's merge being answered: the
+    commit before the boundary is by construction the newest one that does
+    not contain ``commit_sha``.
+
+    A fast-forward leaves no merge commit behind and resolves to nothing --
+    that case needs the receipt.
     """
     if not commit_sha:
         return ""
     listing = git.git_out(
-        repo_root,
-        "rev-list", "--ancestry-path", "--merges", f"{commit_sha}..{target}",
+        repo_root, "rev-list", "--first-parent", f"{commit_sha}..{target}",
     )
-    merges = [line.strip() for line in listing.splitlines() if line.strip()]
-    if not merges:
+    chain = [line.strip() for line in listing.splitlines() if line.strip()]
+    if not chain:
         return ""
-    landed = merges[-1]
-    if git.is_ancestor(repo_root, commit_sha, f"{landed}^1"):
+    # chain runs newest to oldest; bisect for the oldest commit holding it.
+    low, high, landed = 0, len(chain) - 1, ""
+    while low <= high:
+        middle = (low + high) // 2
+        if git.is_ancestor(repo_root, commit_sha, chain[middle]):
+            landed = chain[middle]
+            low = middle + 1
+        else:
+            high = middle - 1
+    if not landed or not _is_merge(repo_root, landed):
         return ""
     return landed
+
+
+def _is_merge(repo_root: str, commit: str) -> bool:
+    """Whether ``commit`` has more than one parent."""
+    parents = git.git_out(repo_root, "rev-list", "-1", "--parents", commit)
+    return len(parents.split()) > 2
 
 
 def touched_files_from_merge_commit(
