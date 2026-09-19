@@ -21,6 +21,7 @@ from yoke_core.domain.actor_permissions import (
     PERM_GITHUB_RELEASE_CREATE,
     PERM_ITEMS_READ,
     PERM_MIGRATION_CONTENT_IDENTITY_VERIFY,
+    PERM_RELEASE_OUTPUT_RECORD,
     PERM_RELEASE_PIN_RECORD,
     ROLE_DEPLOYMENT_CI,
     ROLE_MIGRATION_VERIFICATION_CI,
@@ -115,6 +116,7 @@ def test_release_roles_keep_project_and_control_plane_authority_separate() -> No
             PERM_GITHUB_ACTIONS_VARIABLE_READ,
             PERM_GITHUB_RELEASE_CREATE,
             PERM_RELEASE_PIN_RECORD,
+            PERM_RELEASE_OUTPUT_RECORD,
         }
         assert _role_permissions(conn, ROLE_DEPLOYMENT_CI) == deployment_permissions
         assert _role_permissions(conn, ROLE_MIGRATION_VERIFICATION_CI) == {
