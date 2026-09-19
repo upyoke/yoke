@@ -27,14 +27,20 @@ def _rows_by_title(outcome) -> dict:
     return {row["title"]: row for row in outcome.result_payload["rows"]}
 
 
-def _finished(conn, item_id: int, status: str, hours_ago: int) -> None:
-    """Record the lifecycle transition that put an item into *status*."""
+def _finished(conn, item_id: int, status: str, hours_ago: int) -> str:
+    """Record the lifecycle transition that put an item into *status*.
+
+    Returns the stamp it wrote, because reading the clock a second time to
+    name the same instant fails whenever the two reads straddle a second.
+    """
+    stamp = _iso(hours_ago)
     conn.execute(
         "INSERT INTO item_status_transitions "
         "(item_id, task_num, from_status, to_status, source, created_at) "
         "VALUES (%s, NULL, 'implementing', %s, 'test', %s)",
-        (item_id, status, _iso(hours_ago)),
+        (item_id, status, stamp),
     )
+    return stamp
 
 
 def test_overview_keeps_live_and_recent_terminals(test_db):
@@ -155,7 +161,7 @@ def test_finished_facts_carry_the_transition_time(test_db):
         test_db, id=612, title="still-going", status="implementing",
         created_at=old, updated_at=_iso(1),
     )
-    _finished(test_db, 611, "done", 3)
+    finished_at = _finished(test_db, 611, "done", 3)
     test_db.commit()
 
     overview = item_page_reads.handle_items_overview_list(
@@ -165,7 +171,7 @@ def test_finished_facts_carry_the_transition_time(test_db):
     rows = _rows_by_title(overview)
     assert rows["closed"]["finished"] is True
     assert rows["closed"]["terminal"] is True
-    assert rows["closed"]["finished_at"] == _iso(3)
+    assert rows["closed"]["finished_at"] == finished_at
     # Not the merge, which is the whole point.
     assert rows["closed"]["finished_at"] != rows["closed"]["merged_at"]
     assert rows["still-going"]["finished"] is False
