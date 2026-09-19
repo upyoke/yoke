@@ -25,6 +25,12 @@ precedes a `qa_verification` gate (Dash review: `reviewing-implementation`).
 `post_deploy` and `manual_acceptance` bind to the pinned release wait or
 `done` — authoring refuses those phases on the review transition and names
 `--workflow-transition release` (or `--deployment-run`) as the recovery.
+A row already recorded against a pre-release stage rebinds in place rather
+than being replaced: `yoke qa requirement update --requirement-id N --field
+workflow_transition_id --value release` revalidates the new binding exactly
+as a fresh attachment would, so a rebind can only land where a create could.
+Until it does, no deployment run can admit the row, and the item's `done`
+transition keeps blocking on it.
 Do not guess the phase from a URL or environment name.
 
 ```text

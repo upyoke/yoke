@@ -32,7 +32,7 @@ def test_converging_records_the_merge_identity_a_retry_reads(monkeypatch):
     stamped: list[int] = []
     monkeypatch.setattr(
         "yoke_core.domain.standalone_item_merge.stamp_merged_at",
-        lambda item_id: stamped.append(item_id) or None,
+        lambda item_id, **_kwargs: stamped.append(item_id) or None,
     )
     outcome = converging.converge(
         item_id=7,
@@ -61,7 +61,7 @@ def test_converge_refuses_new_commits_without_recording(monkeypatch):
     )
     monkeypatch.setattr(
         "yoke_core.domain.standalone_item_merge.stamp_merged_at",
-        lambda item_id: stamped.append(item_id),
+        lambda item_id, **_kwargs: stamped.append(item_id),
     )
     outcome = converging.converge(
         item_id=7,
@@ -93,7 +93,7 @@ def test_converging_publishes_a_landing_that_never_reached_origin(monkeypatch):
     monkeypatch.setattr(landed.receipts, "record", lambda *_a, **_k: "")
     monkeypatch.setattr(
         "yoke_core.domain.standalone_item_merge.stamp_merged_at",
-        lambda _i: None,
+        lambda _i, **_kwargs: None,
     )
     outcome = converging.converge(
         item_id=7,

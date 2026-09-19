@@ -54,7 +54,9 @@ def qa_requirement_update(args: List[str]) -> int:
         required=True,
         help=(
             "Updatable field: success_policy, blocking_mode, target_env, "
-            "capability_requirements, suite_id, qa_phase, method_config."
+            "capability_requirements, suite_id, qa_phase, "
+            "workflow_transition_id, method_config. A field outside the set "
+            "is refused by name with the allowlist the engine holds."
         ),
     )
     value_group = parser.add_mutually_exclusive_group(required=True)

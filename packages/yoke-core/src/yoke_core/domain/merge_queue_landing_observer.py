@@ -280,9 +280,14 @@ def observe_pending_landings(
             landed_at = (state.merged_at if state is not None else "") or current_text
             merge_commit = state.merge_commit_sha if state is not None else ""
             if not str(row.get("merge_queue_landed_at") or ""):
+                # merged_at is assigned, not coalesced: the guard below fires
+                # this once per landing, so the only value it could preserve
+                # belongs to a landing this item has already replaced -- an
+                # item repointed at a second pull request would otherwise go
+                # on reporting the first one's merge time forever.
                 cursor = conn.execute(
                     f"UPDATE items SET merge_queue_landed_at={marker}, "
-                    f"merged_at=COALESCE(merged_at, {marker}) "
+                    f"merged_at={marker} "
                     f"WHERE id={marker} AND merge_queue_pr_number={marker} "
                     "AND merge_queue_landed_at IS NULL",
                     (landed_at, landed_at, item_id, pr_number),

@@ -36,7 +36,7 @@ def _wire(
     files_error=None,
 ):
     recorded: dict = {}
-    monkeypatch.setattr(close_out_mod, "stamp_merged_at", lambda item_id: None)
+    monkeypatch.setattr(close_out_mod, "stamp_merged_at", lambda item_id, **_kwargs: None)
     # No receipt recorded yet, so every case here exercises the derivation.
     monkeypatch.setattr(
         close_out_mod, "read_recorded_batch",
@@ -259,7 +259,7 @@ def test_ci_recording_failure_keeps_close_out_retriable(monkeypatch):
     )
     _wire(monkeypatch, batch=batch)
     monkeypatch.setattr(
-        close_out_mod, "stamp_merged_at", lambda item_id: "control plane down",
+        close_out_mod, "stamp_merged_at", lambda item_id, **_kwargs: "control plane down",
     )
     monkeypatch.setattr(
         close_out_mod, "record_batch_evidence",

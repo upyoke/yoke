@@ -16,6 +16,9 @@ from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
 from yoke_core.domain.dependency_satisfaction import unsatisfied_dependency_pairs
 from yoke_core.domain.deployment_run_bound_sources import record_bound_sources
 from yoke_core.domain.deployment_run_project_sources import carried_project_ids
+from yoke_core.domain.deployment_member_post_deploy_admission import (
+    unadmitted_post_deploy_notice,
+)
 from yoke_core.domain.deployment_run_carried_membership import (
     carried_membership_refusal,
     describe_enrollment,
@@ -195,12 +198,19 @@ def cmd_validate_composition(
         if carried_refusal:
             errors.append(carried_refusal)
 
+        # An obligation no stage on this run targets is not a composition
+        # error -- a stage run legitimately carries an item whose prod
+        # acceptance belongs to the production run -- but it is never
+        # silent either, because it is exactly what will block that item's
+        # done transition once this run succeeds.
+        unadmitted = unadmitted_post_deploy_notice(conn, run_id)
+
         if errors:
-            error_text = "\n".join(errors)
+            error_text = "\n".join(errors + ([unadmitted] if unadmitted else []))
             return False, f"FAIL: Composition validation failed:\n{error_text}"
 
-        enrollment = describe_enrollment(enrolled)
-        return True, f"OK; {enrollment}" if enrollment else "OK"
+        notes = [note for note in (describe_enrollment(enrolled), unadmitted) if note]
+        return True, ("OK; " + "; ".join(notes)) if notes else "OK"
     finally:
         conn.close()
 

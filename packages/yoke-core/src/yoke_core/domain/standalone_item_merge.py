@@ -3,7 +3,8 @@
 Every standalone item branch — Dash, Blitz, and any Issue whose workflow
 generates no task graph — lands on its project base branch through
 :func:`merge_standalone_branch`. The function owns the merge itself and the
-bookkeeping the merge produces (identity resolution, the ``merged_at`` stamp,
+bookkeeping the merge produces (identity resolution, the ``merged_at`` stamp
+carrying the landing merge commit's own time,
 publishing the base branch, the durable receipt a retry converges from,
 telemetry). Item bookkeeping that differs by workflow — execution evidence,
 GitHub sync, the lifecycle status flip — stays with the caller so it runs
@@ -56,13 +57,31 @@ class StandaloneMergeOutcome:
     warnings: tuple[str, ...] = field(default=())
 
 
-def stamp_merged_at(item_id: int) -> Optional[str]:
-    """Record when the branch landed. Returns an error string on failure."""
+def stamp_merged_at(
+    item_id: int, *, repo_root: str = "", merge_sha: str = ""
+) -> Optional[str]:
+    """Record when the branch landed. Returns an error string on failure.
+
+    The landing merge commit has a time of its own, read here from the
+    checkout that just merged it. That is a fact about the landing rather
+    than the moment close-out reached this line, so it supersedes whatever
+    the item recorded: an item that lands a second time must stop reporting
+    the first landing's date, and a close-out re-entered hours later must
+    write the same answer rather than a fresher, falser one.
+
+    A landing with no readable merge commit -- a fast-forward, or a checkout
+    that cannot answer -- falls back to now and keeps any earlier answer,
+    because "now" is only ever an approximation of a landing nobody timed.
+    """
+    landed_at = git.commit_time(repo_root, merge_sha) if repo_root else ""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     response = call_dispatcher(
         function_id="done_transition.populate_merged_at",
         target=TargetRef(kind="item", item_id=int(item_id)),
-        payload={"merged_at": now},
+        payload={
+            "merged_at": landed_at or now,
+            "supersedes_prior_landing": bool(landed_at),
+        },
     )
     if response.success:
         return None

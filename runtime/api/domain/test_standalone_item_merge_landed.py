@@ -246,7 +246,7 @@ def test_a_landed_lane_never_reaches_the_verification_gate_or_the_queue(
     monkeypatch.setattr(landed.receipts, "record", lambda *_a, **_k: "")
     monkeypatch.setattr(
         "yoke_core.domain.standalone_item_merge.stamp_merged_at",
-        lambda _i: None,
+        lambda _i, **_kwargs: None,
     )
     assert merge_cli.run(["ITEM-1", "--skip-status", "--json"]) == 0
     envelope = capsys.readouterr().out

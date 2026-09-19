@@ -73,8 +73,19 @@ def cmd_add_item(
             requirement_ids=requirement_ids,
             plan_ids=plan_ids,
         )
+        from yoke_core.domain.deployment_member_post_deploy_admission import (
+            unadmitted_post_deploy_notice,
+        )
+
+        # Said before the commit returns, because an obligation this run
+        # cannot discharge is what will block the item's done transition
+        # long after the add looked like it succeeded.
+        unadmitted = unadmitted_post_deploy_notice(
+            conn, run_id, item_ids=(int(item_id),)
+        )
         conn.commit()
-        return f"Added {ref} to run {run_id}"
+        added = f"Added {ref} to run {run_id}"
+        return f"{added}. {unadmitted}" if unadmitted else added
     finally:
         conn.close()
 

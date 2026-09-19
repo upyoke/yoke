@@ -183,7 +183,7 @@ def test_the_lane_head_is_what_declines_a_stale_merged_pull_request(
 def _wire_close_out(monkeypatch, *, pr_files) -> dict:
     """Wire one close-out; return what its receipt recorded."""
     recorded: dict = {}
-    monkeypatch.setattr(close_out_mod, "stamp_merged_at", lambda _item: None)
+    monkeypatch.setattr(close_out_mod, "stamp_merged_at", lambda _item, **_kwargs: None)
     monkeypatch.setattr(
         close_out_mod,
         "observe_batch",

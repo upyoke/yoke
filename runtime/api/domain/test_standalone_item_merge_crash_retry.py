@@ -86,7 +86,7 @@ def ledger(monkeypatch: pytest.MonkeyPatch) -> _ReceiptStore:
     store = _ReceiptStore()
     monkeypatch.setattr(receipts, "record", store.record)
     monkeypatch.setattr(receipts, "load", store.load)
-    monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)
+    monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
     return store
 
 
@@ -257,7 +257,7 @@ class TestInterruptedMergeConverges:
         self, repo: Path, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """A merge that landed before any receipt existed still resolves."""
-        monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)
+        monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id, **_kwargs: None)
         monkeypatch.setattr(receipts, "record", lambda *_a, **_k: "")
         monkeypatch.setattr(receipts, "load", lambda *_a, **_k: None)
         _land(repo)

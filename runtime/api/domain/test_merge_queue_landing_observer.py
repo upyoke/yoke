@@ -129,6 +129,32 @@ def test_a_landing_with_no_queue_admission_is_still_recorded():
     assert MERGE_COMMIT[:12] in body
 
 
+def test_a_second_landing_replaces_the_first_ones_merge_time():
+    """A repointed item must stop reporting its predecessor's merge time.
+
+    The repoint drops the landing stamps that belonged to the number it
+    superseded, so this observation is the first for the replacement pull
+    request. Preserving the older merged_at would leave the item dated to a
+    merge its record no longer names.
+    """
+    conn = observer_connection()
+    observe_pending_landings(conn, [1], now=NOW, read_state=merged)
+    conn.execute(
+        "UPDATE items SET merge_queue_pr_number='43', "
+        "merge_queue_landed_at=NULL, merge_queue_notified_at=NULL WHERE id=101"
+    )
+    conn.commit()
+
+    again = observe_pending_landings(conn, [1], now=INJECTED_AT, read_state=merged)
+
+    assert again["landed"] == 1
+    landed_at, merged_at = conn.execute(
+        "SELECT merge_queue_landed_at,merged_at FROM items WHERE id=101"
+    ).fetchone()
+    assert landed_at == GITHUB_MERGED_AT
+    assert merged_at == GITHUB_MERGED_AT
+
+
 def test_a_second_poll_over_a_recorded_landing_changes_nothing():
     conn = never_armed(observer_connection())
     observe_pending_landings(conn, [1], now=NOW, read_state=merged)

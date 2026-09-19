@@ -259,7 +259,7 @@ def wire_happy_path(
         return (states.pop(0) if states else states_last[0]), None
 
     monkeypatch.setattr(route_mod, "read_pr_landing_state", landing)
-    monkeypatch.setattr(close_out_mod, "stamp_merged_at", lambda item_id: None)
+    monkeypatch.setattr(close_out_mod, "stamp_merged_at", lambda item_id, **_kwargs: None)
     receipt = BatchReceipt(
         pr_num="42",
         merge_sha="m" * 40,

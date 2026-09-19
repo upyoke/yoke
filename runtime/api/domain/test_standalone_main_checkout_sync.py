@@ -13,7 +13,7 @@ def test_completed_standalone_landing_fast_forwards_main(monkeypatch):
     monkeypatch.setattr(merge.git, "git_out", lambda *_a: "m" * 40)
     monkeypatch.setattr(merge.git, "publish", lambda *_a: (True, ""))
     monkeypatch.setattr(merge.git, "has_remote", lambda *_a: True)
-    monkeypatch.setattr(merge, "stamp_merged_at", lambda *_a: None)
+    monkeypatch.setattr(merge, "stamp_merged_at", lambda *_a, **_kwargs: None)
     monkeypatch.setattr(merge.receipts, "record", lambda *_a, **_k: "")
     monkeypatch.setattr(
         post_push, "await_post_push_checks",
