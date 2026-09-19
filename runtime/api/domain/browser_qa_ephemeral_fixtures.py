@@ -93,7 +93,9 @@ def seed_deployment_run(
 
     Only the two columns the browser-QA read needs are modelled here, without
     the flow and environment foreign keys a real run carries: what this suite
-    is about is which commit the run names, not how runs are built.
+    is about is which commit the run names, not how runs are built. The
+    project's own ``default_branch`` is part of the applied schema already, so
+    it is set rather than added.
     """
     ensure_ephemeral_table(db_path)
     conn = connect_test_db(db_path)
@@ -107,8 +109,6 @@ def seed_deployment_run(
             status TEXT NOT NULL DEFAULT 'created',
             created_at TEXT NOT NULL
         );
-        ALTER TABLE projects
-            ADD COLUMN IF NOT EXISTS default_branch TEXT DEFAULT 'main';
     """)
     conn.execute(
         f"UPDATE projects SET default_branch = {p} WHERE id = {p}",
