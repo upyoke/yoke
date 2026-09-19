@@ -274,3 +274,77 @@ class TestLandedMergeIdentity:
             item_id=ITEM_ID, branch=BRANCH, target=TARGET,
             repo_root="/repo", already=True, commit_sha="a" * 40,
         ) == ""
+
+
+class TestAnAbsorbedMergeIsNeverTheLanding:
+    """A branch's own merge can be an ancestor without ever landing.
+
+    When a sidecar branch merges the branch in and that sidecar is what
+    reaches the base, the branch's own merge is an ancestor of the base
+    while sitting off its first-parent chain entirely. Walking plain
+    ancestry answered with that absorbed merge, which dated an item to a
+    landing the trunk never took -- the shape a branch that lands twice
+    produces, where the first merge is absorbed and a later one lands the
+    result.
+    """
+
+    @staticmethod
+    def _repo(tmp_path):
+        import subprocess
+
+        root = tmp_path / "absorbed"
+        root.mkdir()
+
+        def git(*args: str) -> str:
+            return subprocess.run(
+                ["git", "-C", str(root), *args],
+                check=True, capture_output=True, text=True,
+            ).stdout.strip()
+
+        git("init", "-b", "main")
+        git("config", "user.email", "test@test.com")
+        git("config", "user.name", "Test")
+        (root / "base.txt").write_text("base\n")
+        git("add", "base.txt")
+        git("commit", "-m", "base")
+
+        git("checkout", "-b", "feature")
+        (root / "feature.txt").write_text("feature\n")
+        git("add", "feature.txt")
+        git("commit", "-m", "feature work")
+        feature_head = git("rev-parse", "HEAD")
+
+        # The sidecar takes the feature branch in. This merge carries the
+        # feature commit but never joins main's first-parent chain.
+        git("checkout", "-b", "sidecar", "main")
+        (root / "sidecar.txt").write_text("sidecar\n")
+        git("add", "sidecar.txt")
+        git("commit", "-m", "sidecar work")
+        git("merge", "--no-ff", "--no-edit", "feature")
+        absorbed = git("rev-parse", "HEAD")
+
+        git("checkout", "main")
+        git("merge", "--no-ff", "--no-edit", "sidecar")
+        landing = git("rev-parse", "HEAD")
+        return root, feature_head, absorbed, landing
+
+    def test_the_trunk_merge_is_answered_not_the_absorbed_one(
+        self, tmp_path,
+    ) -> None:
+        root, feature_head, absorbed, landing = self._repo(tmp_path)
+
+        resolved = receipts.landing_merge_commit(
+            str(root), "main", feature_head,
+        )
+
+        assert resolved == landing
+        assert resolved != absorbed
+
+    def test_the_absorbed_merge_is_an_ancestor_all_the_same(
+        self, tmp_path,
+    ) -> None:
+        """The absorbed merge is reachable -- which is why ancestry misled."""
+        root, feature_head, absorbed, _landing = self._repo(tmp_path)
+
+        assert receipts.git.is_ancestor(str(root), absorbed, "main")
+        assert receipts.git.is_ancestor(str(root), feature_head, absorbed)
