@@ -157,6 +157,64 @@ def test_a_deletion_the_candidate_still_has_is_unknown_too(
     assert source.adds_nothing(CANDIDATE, COMMIT) is None
 
 
+def test_a_head_strictly_ahead_adds_something_without_pricing_a_blob(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The ordinary older release, and it must stay a definite exclusion.
+
+    The candidate is a strict ancestor of the head, so merging is a
+    fast-forward to the head's own tree — any change at all is a change to
+    the candidate. Answering that from the status is what keeps a release
+    that predates a merge from reading as unreadable merely because the
+    range is wide, which would strand every close-out behind it.
+    """
+    files = [
+        {"filename": f"file{index}.py", "status": "modified", "sha": "f" * 40}
+        for index in range(equivalence.COMPARED_PATH_BUDGET + 50)
+    ]
+    source, recorder = _source(monkeypatch, {_COMPARE_PATH: _compare("ahead", files)})
+
+    assert source.adds_nothing(CANDIDATE, COMMIT) is False
+    # No blob was priced: the status already answered.
+    assert recorder.paths == [_COMPARE_PATH]
+
+
+def test_a_strictly_ahead_candidate_is_definitely_not_contained(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """So the containment walk moves on instead of reporting it unreadable."""
+    from yoke_core.domain.deployment_run_candidate_containment import (
+        NOT_CONTAINED,
+        candidate_contains_commit,
+    )
+
+    files = [
+        {"filename": f"file{index}.py", "status": "modified", "sha": "f" * 40}
+        for index in range(equivalence.COMPARED_PATH_BUDGET + 50)
+    ]
+    source, _ = _source(monkeypatch, {_COMPARE_PATH: _compare("ahead", files)})
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_run_candidate_containment."
+        "carried_work_sources",
+        lambda conn, project_id: (lambda: source,),
+    )
+
+    verdict = candidate_contains_commit(
+        None, 1, candidate_lineage=CANDIDATE, commit_sha=COMMIT
+    )
+
+    assert verdict.state == NOT_CONTAINED
+
+
+def test_an_empty_listing_adds_nothing_even_when_strictly_ahead(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Commits that change no file leave the candidate's tree identical."""
+    source, _ = _source(monkeypatch, {_COMPARE_PATH: _compare("ahead")})
+
+    assert source.adds_nothing(CANDIDATE, COMMIT) is True
+
+
 def test_a_listing_past_the_budget_is_unread_rather_than_guessed(
     monkeypatch: pytest.MonkeyPatch,
 ):

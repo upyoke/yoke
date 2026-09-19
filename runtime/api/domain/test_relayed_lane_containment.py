@@ -267,3 +267,63 @@ def test_a_gate_refusal_carries_what_to_do_about_it():
     assert "repository_head_unpublished" in message
     assert "Publish or land the lane" in message
     assert gate_failure_message({}, "fallback") == "fallback"
+
+
+def test_a_lane_head_a_rebase_orphaned_is_not_undeployed_work(
+    dash_db_path: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The pointer, not the work, is what went missing.
+
+    ``item_worktrees.commit_sha`` tracks the lane, and a rebase rewrites the
+    lane — so the commit it named stops existing anywhere and no source can
+    place it. Read literally that is an undetermined containment and the gate
+    refuses, stranding an item whose merge the release demonstrably carries.
+    """
+    from runtime.api.domain.test_dash_posture_deployment_containment import (
+        _bind_lane_head,
+        _release_history,
+    )
+
+    repo, merge, tip, _fork = _release_history(tmp_path)
+    monkeypatch.setattr(sources, "checkout_for_project_id", lambda _pid: repo)
+    conn = connect_test_db(dash_db_path)
+    try:
+        _deploy_posture_item(conn, item_id=2601, merge_sha=merge, lineage=tip)
+        # A commit no source holds: the rewrite left nothing behind.
+        _bind_lane_head(conn, item_id=2601, commit_sha="e" * 40)
+    finally:
+        conn.close()
+
+    from yoke_core.domain.dash_posture_gate import evaluate
+
+    assert evaluate(
+        item_id=2601, target_status="done", db_path=dash_db_path
+    ) is None
+
+
+def test_an_unplaceable_head_still_refuses_when_the_merge_is_unaccounted_for(
+    dash_db_path: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Nothing has established that this lane's work shipped at all."""
+    from runtime.api.domain.test_dash_posture_deployment_containment import (
+        _bind_lane_head,
+        _release_history,
+    )
+
+    repo, merge, _tip, fork = _release_history(tmp_path)
+    monkeypatch.setattr(sources, "checkout_for_project_id", lambda _pid: repo)
+    conn = connect_test_db(dash_db_path)
+    try:
+        _deploy_posture_item(conn, item_id=2602, merge_sha=merge, lineage=fork)
+        _bind_lane_head(conn, item_id=2602, commit_sha="e" * 40)
+    finally:
+        conn.close()
+
+    from yoke_core.domain.dash_posture_gate import evaluate
+
+    refusal = evaluate(item_id=2602, target_status="done", db_path=dash_db_path)
+    assert refusal is not None

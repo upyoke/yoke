@@ -63,6 +63,7 @@ def run_terminal_transition(
     of them still reaches this call.
     """
     announce("terminal transition")
+    _refresh_lane_head(item, repo_root)
     route = close_out_route(item, status, postpone_terminal=postpone_terminal)
     waiting = {
         "item": item,
@@ -76,6 +77,15 @@ def run_terminal_transition(
         envelope["error"] = (
             f"merge landed and evidence recorded, but delivery clearance "
             f"could not be resolved: {route.error}"
+        )
+        _sweep_landed_lane(
+            item,
+            envelope,
+            record_terminal_lane_close_out,
+            status=status,
+            session_id=session_id,
+            repo_root=repo_root,
+            target=target,
         )
         retain_if_waiting(envelope, **waiting)
         return 1
@@ -119,6 +129,15 @@ def run_terminal_transition(
             f"merge landed and evidence recorded, but the terminal "
             f"transition was refused: {transition_error}"
         )
+        _sweep_landed_lane(
+            item,
+            envelope,
+            record_terminal_lane_close_out,
+            status=status,
+            session_id=session_id,
+            repo_root=repo_root,
+            target=target,
+        )
         retain_if_waiting(envelope, **waiting)
         return 1
     envelope["status"] = new_status
@@ -147,6 +166,65 @@ def run_terminal_transition(
         session_id=session_id,
     )
     return None
+
+
+def _refresh_lane_head(item: dict[str, Any], repo_root: Any) -> None:
+    """Re-point the recorded lane head at the commit that actually landed.
+
+    ``item_worktrees.commit_sha`` is written when the lane's HEAD advances,
+    and the verification gate's rebase advances it again on the way to the
+    landing. A pointer left at the pre-rebase commit names an object no
+    remote ever received, which every later reader has to treat as an
+    unplaceable head. Refreshing it here, before the transition that reads
+    it, keeps the pointer describing work instead of describing a rewrite.
+
+    Best-effort, like every other writer of this row: a merge that landed is
+    not unwound because a pointer could not be refreshed.
+    """
+    from yoke_core.domain import lane_head_record
+
+    project = str((item.get("project") or {}).get("slug") or "")
+    if not project or not repo_root:
+        return
+    try:
+        lane_head_record.record_lane_head(project, str(repo_root))
+    except Exception:  # noqa: BLE001 - the landing is already complete
+        return
+
+
+def _sweep_landed_lane(
+    item: dict[str, Any],
+    envelope: dict[str, Any],
+    record_terminal_lane_close_out: Callable[..., Any],
+    *,
+    status: str,
+    session_id: str,
+    repo_root: Any,
+    target: str,
+) -> None:
+    """Retire the lane of a landing whose terminal transition did not take.
+
+    Lane release is otherwise reachable only from the review stage, so an
+    item that recorded its evidence and then refused here would sit at its
+    release wait holding a lane nothing could retire. The landing is the
+    authority for sweeping it; each lane still proves itself clean and
+    merged before anything is removed, so work that has not shipped is
+    preserved exactly as before.
+    """
+    try:
+        record_terminal_lane_close_out(
+            item,
+            envelope,
+            target_status=status,
+            session_id=session_id,
+            repo_root=repo_root,
+            target_branch=target,
+            landing_recorded=True,
+        )
+    except Exception as exc:  # noqa: BLE001 - the refusal is the real outcome
+        envelope.setdefault("warnings", []).append(
+            f"landed lane not swept after the refused transition: {exc}"
+        )
 
 
 __all__ = ["run_terminal_transition"]
