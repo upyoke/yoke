@@ -99,7 +99,8 @@ def test_combined_project_and_flow_patch_rejects_mismatched_pair(client, test_db
     assert tuple(row) == ("yoke", None)
 
 
-def test_explicit_empty_project_validates_the_writer_default(client, test_db):
+def test_an_empty_project_leaves_an_external_item_where_it_is(client, test_db):
+    """Naming no project is not naming this installation's own."""
     conn = connect_test_db(test_db["db_path"])
     _clone_flow_for_project(conn, "external-empty-project-flow", "externalwebapp")
     conn.close()
@@ -118,7 +119,7 @@ def test_explicit_empty_project_validates_the_writer_default(client, test_db):
     )
 
     assert response.status_code == 422
-    assert "prospective item project is 'yoke'" in (response.json()["error"]["message"])
+    assert "names no project" in response.json()["error"]["message"]
     conn = connect_test_db(test_db["db_path"])
     row = conn.execute(
         "SELECT p.slug, i.deployment_flow FROM items i "
@@ -131,7 +132,8 @@ def test_explicit_empty_project_validates_the_writer_default(client, test_db):
     )
 
 
-def test_explicit_empty_project_and_default_project_flow_succeed(client, test_db):
+def test_an_empty_project_refuses_the_whole_patch(client, test_db):
+    """The flow beside it does not land either: one refusal, no partial write."""
     moved = client.patch(
         "/v1/items/1",
         json={"project": "externalwebapp"},
@@ -142,6 +144,23 @@ def test_explicit_empty_project_and_default_project_flow_succeed(client, test_db
         "/v1/items/1",
         json={
             "project": "",
+            "deployment_flow": "test-approval-flow",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "names no project" in response.json()["error"]["message"]
+    current = client.get("/v1/items/1")
+    assert current.json()["project"] == "externalwebapp"
+    assert current.json()["deployment_flow"] is None
+
+
+def test_naming_a_project_still_moves_the_item(client, test_db):
+    """The refusal is about the empty value, not about project writes."""
+    response = client.patch(
+        "/v1/items/1",
+        json={
+            "project": "yoke",
             "deployment_flow": "test-approval-flow",
         },
     )

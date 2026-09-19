@@ -44,6 +44,7 @@ class TestCreateParity:
             "title": "Parity create test",
             "workflow": "dash",
             "priority": "high",
+            "project": "yoke",
         })
         assert api_resp.status_code == 201
         api_item = api_resp.json()
@@ -78,6 +79,7 @@ class TestCreateParity:
         api_resp = client.post("/v1/items", json={
             "title": long_title,
             "workflow": "dash",
+            "project": "yoke",
         })
         assert api_resp.status_code == 422
 
@@ -102,6 +104,7 @@ class TestCreateParity:
         api_resp = client.post("/v1/items", json={
             "title": "Bad workflow",
             "workflow": "not-a-workflow",
+            "project": "yoke",
         })
         assert api_resp.status_code == 422
 
@@ -137,6 +140,7 @@ class TestCreateParity:
             "title": "Bad priority",
             "workflow": "dash",
             "priority": "critical",
+            "project": "yoke",
         })
         assert api_resp.status_code == 422
 
@@ -189,6 +193,7 @@ class TestCreateParity:
             "title": "Retired parent ref",
             "workflow": "dash",
             "epic": 11,
+            "project": "yoke",
         })
         assert api_resp.status_code == 422
 

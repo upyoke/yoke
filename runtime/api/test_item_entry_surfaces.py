@@ -192,7 +192,7 @@ class TestCreateAdapters:
     def test_web_form_rejects_issue_workflow(self, client):
         response = client.post(
             "/v1/items",
-            json={"title": "Web issue", "workflow": "issue"},
+            json={"title": "Web issue", "workflow": "issue", "project": "yoke"},
         )
         assert response.status_code == 403
         assert response.json()["error"]["code"] == "ENTRY_SURFACE_DENIED"
@@ -200,7 +200,7 @@ class TestCreateAdapters:
     def test_web_form_allows_dash_workflow(self, client):
         response = client.post(
             "/v1/items",
-            json={"title": "Web dash", "workflow": "dash"},
+            json={"title": "Web dash", "workflow": "dash", "project": "yoke"},
         )
         assert response.status_code == 201
         assert response.json()["workflow_id"] == "dash"

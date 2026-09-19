@@ -94,7 +94,9 @@ def test_unreadable_settings_json_fails_closed(monkeypatch):
     assert module.declared_disposable_roots_for_project("yoke") == frozenset()
 
 
-def test_none_project_falls_back_to_default_slug(monkeypatch):
+def test_an_unnamed_project_declares_nothing_and_asks_nobody(monkeypatch):
+    """Reading this installation's policy for an unnamed project answers
+    the wrong question: those declarations are not the caller's."""
     seen = {}
 
     def _capture(**kwargs):
@@ -103,6 +105,5 @@ def test_none_project_falls_back_to_default_slug(monkeypatch):
 
     _patch_dispatcher(monkeypatch, _capture)
 
-    module.declared_disposable_roots_for_project(None)
-
-    assert seen["project"] == module.DEFAULT_PROJECT_SLUG
+    assert module.declared_disposable_roots_for_project(None) == frozenset()
+    assert seen == {}

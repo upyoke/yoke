@@ -36,6 +36,7 @@ class TestCreateItem:
             "title": "New idea",
             "workflow": "dash",
             "priority": "medium",
+            "project": "yoke",
         })
 
         assert resp.status_code == 201
@@ -44,8 +45,22 @@ class TestCreateItem:
         assert data["workflow_id"] == "dash"
         assert data["status"] == "idea"
         assert data["priority"] == "medium"
-        assert data["project"] == "yoke"  # default project
+        assert data["project"] == "yoke"
         assert "id" in data
+
+    def test_create_item_without_a_project_is_refused(self, client, test_db):
+        """The server stands in no checkout, so only the caller can say.
+
+        Filing under this installation's own project instead puts another
+        project's work on a backlog nobody chose.
+        """
+        resp = client.post("/v1/items", json={
+            "title": "Unattributed idea",
+            "workflow": "dash",
+        })
+
+        assert resp.status_code == 422
+        assert resp.json()["error"]["code"] == "PROJECT_REQUIRED"
 
     def test_create_item_with_project(self, client, test_db):
         """POST /v1/items accepts optional project field."""
@@ -75,6 +90,7 @@ class TestCreateItem:
         resp = client.post("/v1/items", json={
             "title": "Retired parent ref",
             "workflow": "dash",
+            "project": "yoke",
             "epic": 3,
         })
         assert resp.status_code == 422
@@ -85,6 +101,7 @@ class TestCreateItem:
         resp = client.post("/v1/items", json={
             "title": "",
             "workflow": "dash",
+            "project": "yoke",
         })
         assert resp.status_code == 422
         data = resp.json()
@@ -101,6 +118,7 @@ class TestCreateItem:
         resp = client.post("/v1/items", json={
             "title": "x" * (title_max_length() + 1),
             "workflow": "dash",
+            "project": "yoke",
         })
         assert resp.status_code == 422
         data = resp.json()
@@ -111,6 +129,7 @@ class TestCreateItem:
         resp = client.post("/v1/items", json={
             "title": "x" * title_max_length(),
             "workflow": "dash",
+            "project": "yoke",
         })
         assert resp.status_code == 201
 
@@ -118,6 +137,7 @@ class TestCreateItem:
         resp = client.post("/v1/items", json={
             "title": "Valid title",
             "workflow": "not-a-workflow",
+            "project": "yoke",
         })
         assert resp.status_code == 422
         data = resp.json()
@@ -129,6 +149,7 @@ class TestCreateItem:
             "title": "Valid title",
             "workflow": "dash",
             "priority": "urgent",
+            "project": "yoke",
         })
         assert resp.status_code == 422
         data = resp.json()
@@ -140,6 +161,7 @@ class TestCreateItem:
         resp = client.post("/v1/items", json={
             "title": "Another idea",
             "workflow": "dash",
+            "project": "yoke",
         })
         assert resp.status_code == 201
         data = resp.json()
@@ -210,6 +232,7 @@ class TestCreateItem:
             resp = client.post("/v1/items", json={
                 "title": "Direct create",
                 "workflow": "dash",
+                "project": "yoke",
             })
         assert resp.status_code == 201
         non_git_calls = []

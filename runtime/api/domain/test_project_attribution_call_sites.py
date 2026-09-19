@@ -8,6 +8,14 @@ a deliberate write.
 
 The scan is the test because the pattern is what regressed: one module
 grew it back by copying a sibling, and the next ten copied that one.
+
+What it deliberately does not cover: ``DEFAULT_PROJECT_SLUG`` in
+``yoke_contracts.project_defaults``. That is the installer's seeded slug
+for a runner standing nowhere in particular, declared as a compatibility
+fact with its own rationale, and the checks that ask "is THIS project the
+one this installation owns" read it legitimately. The pattern here is the
+different one: a project-shaped value that answers with a slug instead of
+saying it has no answer.
 """
 
 from __future__ import annotations

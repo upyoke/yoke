@@ -32,7 +32,18 @@ def _ensure_snapshot_for_project(ctx: MergeContext) -> None:
     try:
         import subprocess
 
-        project = resolved_project(ctx.project)
+        # The merge's own checkout answers when the caller named no
+        # project. Nothing else does: writing this snapshot under the
+        # installation's own project would record another project's merge
+        # against it.
+        project = resolved_project(ctx.project, checkout=ctx.repo_root)
+        if not project:
+            _parent()._print(
+                "  Note: ensure_snapshot_at advisory: this merge names no "
+                "project and none is bound to its checkout, so no snapshot "
+                "was recorded"
+            )
+            return
         # Resolve the freshly-merged HEAD from the local checkout, then relay
         # the path-snapshot write so it lands on the connected control plane
         # (in-process against local Postgres, or over https server-side)
