@@ -206,12 +206,29 @@ def test_bridge_records_the_pin_commit_its_own_promotion_produced() -> None:
     assert '"$DEPLOYMENT_RUN_ID"' in produced
     assert "--project platform" in produced
     # The branch is the control plane's own recorded binding, not a literal.
-    assert "--commit" not in produced
     assert "--ref" not in produced
-    # A release whose pin commit went unrecorded fails loudly and names the
-    # consequence, because the refusal it causes lands on the NEXT release.
-    assert "release_output_unrecorded" in produced
-    assert "exit 1" in produced
+    assert "--commit <the pin commit" in produced  # recovery text only
+    assert "--commit $" not in produced
+
+
+def test_a_failed_release_output_record_annotates_rather_than_fails_release() -> None:
+    """Bookkeeping that runs after shipping must not fail a shipped release.
+
+    This step executes once promotion has already delivered. Failing it would
+    report a release that genuinely shipped as failed and invite a re-run of a
+    completed production deploy — worse than the gap it would be reporting,
+    and unnecessary, because the next release's composition check refuses by
+    name anyway. So the failure is an annotation a person reads, carrying the
+    recovery command, and the step leaves the release succeeding.
+    """
+    produced = _step("- name: Record the pin commit this release produced")
+
+    assert "::error title=release_output_unrecorded::" in produced
+    assert "yoke \ndeployment-runs release-output record" not in produced
+    assert "deployment-runs release-output record $DEPLOYMENT_RUN_ID" in produced
+    # Nothing in this step may end the job: not an explicit failure, and not a
+    # bare command whose own status would.
+    assert "exit 1" not in produced
     assert "continue-on-error" not in produced
 
 

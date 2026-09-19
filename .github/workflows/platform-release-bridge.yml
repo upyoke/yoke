@@ -292,6 +292,14 @@ jobs:
       # resolved server-side from the branch this run already bound, so no
       # repository ref is named here; every refusal is its own named reason,
       # including the one that says the promotion pushed nothing.
+      #
+      # This step cannot fail the release, deliberately. It runs after
+      # promotion has already shipped, so failing here would mark a release
+      # that genuinely delivered as failed and invite a re-run of a completed
+      # production deploy — far worse than the bookkeeping gap it would be
+      # reporting. And that gap is not silent: the next release's composition
+      # check refuses by name and prints the recovery command. So a failure
+      # surfaces as a run annotation somebody reads, and the step exits 0.
       - name: Record the pin commit this release produced
         env:
           DEPLOYMENT_RUN_ID: ${{ inputs.deployment_run_id }}
@@ -302,8 +310,9 @@ jobs:
             cat "$output"
           else
             cat "$output" >&2
-            echo "release_output_unrecorded: this release's pin commit was not \
-attributed, so the next release will refuse it as unattributed carried work \
-until it is recorded with the command above" >&2
-            exit 1
+            echo "::error title=release_output_unrecorded::This release shipped, \
+and is not failed by this. Its pin commit went unattributed, so the next \
+release will refuse it as unattributed carried work until someone runs: yoke \
+deployment-runs release-output record $DEPLOYMENT_RUN_ID --project platform \
+--commit <the pin commit this promotion pushed>"
           fi
