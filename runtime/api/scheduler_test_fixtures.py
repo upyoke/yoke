@@ -41,6 +41,8 @@ CREATE TABLE harness_sessions (
     recent_item_id TEXT DEFAULT NULL,
     recent_item_status TEXT DEFAULT NULL,
     recent_item_recorded_at TEXT DEFAULT NULL,
+    native_process_gone_at TEXT DEFAULT NULL,
+    native_process_gone_evidence TEXT DEFAULT NULL,
     actor_id INTEGER DEFAULT NULL
 );
 """

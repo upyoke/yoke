@@ -97,3 +97,92 @@ def test_twenty_five_minute_claim_is_stale_and_selectable(scheduler_db):
     result = compute_schedule(conn, project_scope=["yoke"])
     assert result.selected_step is not None
     assert result.selected_step.item_id == top_item
+
+
+def _park(conn, session_id: str) -> None:
+    conn.execute(
+        "UPDATE harness_sessions SET mode = 'parked' WHERE session_id = %s",
+        (session_id,),
+    )
+    conn.commit()
+
+
+def test_parked_holder_past_ttl_stays_live(scheduler_db):
+    """A worker parked on purpose keeps its claim however long it waits."""
+    conn = scheduler_db["conn"]
+    top_item = _claim_top_item(
+        conn,
+        session_id="parked-owner",
+        executor="claude-code",
+        minutes_ago=240,
+    )
+    _park(conn, "parked-owner")
+
+    claims = _evaluate_claim_states(conn, [top_item])
+    assert claims[top_item] == ClaimState.CLAIMED_BY_OTHER_LIVE
+
+    result = compute_schedule(conn, project_scope=["yoke"])
+    if result.selected_step is not None:
+        assert result.selected_step.item_id != top_item
+
+
+def test_ended_parked_holder_is_stale(scheduler_db):
+    """The park protects a wait, not a session that is over."""
+    conn = scheduler_db["conn"]
+    top_item = _claim_top_item(
+        conn,
+        session_id="parked-ended",
+        executor="claude-code",
+        minutes_ago=240,
+    )
+    _park(conn, "parked-ended")
+    conn.execute(
+        "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
+        (_iso(30), "parked-ended"),
+    )
+    conn.commit()
+
+    claims = _evaluate_claim_states(conn, [top_item])
+    assert claims[top_item] == ClaimState.CLAIMED_BY_STALE
+
+
+def test_parked_holder_with_dead_native_is_stale(scheduler_db):
+    """A native that crashed under the park is a death, not a wait."""
+    conn = scheduler_db["conn"]
+    top_item = _claim_top_item(
+        conn,
+        session_id="parked-crashed",
+        executor="claude-code",
+        minutes_ago=240,
+    )
+    _park(conn, "parked-crashed")
+    conn.execute(
+        "UPDATE harness_sessions SET native_process_gone_at = %s, "
+        "native_process_gone_evidence = %s WHERE session_id = %s",
+        (_iso(60), '{"pids": [4242], "exit_code": 137}', "parked-crashed"),
+    )
+    conn.commit()
+
+    claims = _evaluate_claim_states(conn, [top_item])
+    assert claims[top_item] == ClaimState.CLAIMED_BY_STALE
+
+
+def test_parked_holder_whose_native_finished_cleanly_stays_live(scheduler_db):
+    """A headless command that exited 0 under a park ended its turn, not the wait."""
+    conn = scheduler_db["conn"]
+    top_item = _claim_top_item(
+        conn,
+        session_id="parked-finished",
+        executor="claude-code",
+        minutes_ago=240,
+    )
+    _park(conn, "parked-finished")
+    conn.execute(
+        "UPDATE harness_sessions SET native_process_gone_at = %s, "
+        "native_process_gone_evidence = %s WHERE session_id = %s",
+        (_iso(60), '{"pids": [4243], "exit_code": 0}', "parked-finished"),
+    )
+    conn.commit()
+
+    claims = _evaluate_claim_states(conn, [top_item])
+    assert claims[top_item] == ClaimState.CLAIMED_BY_OTHER_LIVE

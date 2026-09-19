@@ -25,6 +25,7 @@ def _wire(
     flow="yoke-prod-release",
     member=None,
     runs=(),
+    persistent_runs=(),
     verdict=None,
     merge_sha=MERGE,
 ):
@@ -34,7 +35,10 @@ def _wire(
     monkeypatch.setattr(ladder, "item_merge_identity", lambda _c, _i: merge_sha)
     monkeypatch.setattr(ladder, "_project_id", lambda _c, _i: 1)
     monkeypatch.setattr(
-        ladder, "_succeeded_flow_runs", lambda _c, **_kw: list(runs)
+        ladder, "succeeded_flow_runs", lambda _c, **_kw: list(runs)
+    )
+    monkeypatch.setattr(
+        ladder, "succeeded_persistent_runs", lambda _c, **_kw: list(persistent_runs)
     )
     if verdict is not None:
         monkeypatch.setattr(
@@ -138,11 +142,48 @@ def test_a_prepared_run_is_named_rather_than_reported_missing(monkeypatch):
     assert "run-7" in verdict.recovery
 
 
-def test_no_selected_flow_is_not_a_containment_question(monkeypatch):
-    _wire(monkeypatch, flow="")
+def test_an_item_with_no_flow_closes_on_the_run_that_carried_it(monkeypatch):
+    """A flow it can never store is not a reason to strand a delivered item."""
+    _wire(
+        monkeypatch,
+        flow="",
+        persistent_runs=[{"id": "run-14", "release_lineage": LINEAGE}],
+        verdict=ContainmentVerdict(CONTAINED),
+    )
+    verdict = ladder.delivery_evidence(object(), 1)
+    assert verdict.discharged
+    assert verdict.run_id == "run-14"
+    assert verdict.source == ladder.SOURCE_CONTAINMENT
+
+
+def test_an_item_with_no_flow_is_not_closed_by_an_unrelated_run(monkeypatch):
+    """Standing in for the flow widens which runs are asked, not the answer."""
+    _wire(
+        monkeypatch,
+        flow="",
+        persistent_runs=[{"id": "run-15", "release_lineage": LINEAGE}],
+        verdict=ContainmentVerdict(NOT_CONTAINED),
+    )
     verdict = ladder.delivery_evidence(object(), 1)
     assert verdict.state == ladder.NOT_DISCHARGED
-    assert "no completion deployment flow" in verdict.reason
+    assert "stores no deployment flow" in verdict.reason
+    assert "persistent environment" in verdict.recovery
+
+
+def test_an_item_with_no_flow_never_asks_the_selected_flow_rung(monkeypatch):
+    """There is no flow to ask about, so the walk reads the project's runs."""
+    def _refuse(*_args, **_kwargs):
+        raise AssertionError("a flow-less item has no selected-flow runs")
+
+    _wire(
+        monkeypatch,
+        flow="",
+        persistent_runs=[],
+        verdict=ContainmentVerdict(NOT_CONTAINED),
+    )
+    monkeypatch.setattr(ladder, "succeeded_flow_runs", _refuse)
+    verdict = ladder.delivery_evidence(object(), 1)
+    assert verdict.state == ladder.NOT_DISCHARGED
 
 
 def test_the_verdict_carries_the_run_candidate_for_a_stricter_caller(monkeypatch):

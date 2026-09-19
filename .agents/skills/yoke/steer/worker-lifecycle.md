@@ -466,9 +466,12 @@ That write persists until the worker stamps a working mode
 wait, or knowing its reason, is not the state change and does not unpark
 — only the mode stamp does, and control-plane reads never unpark either.
 
-Parking also shields what the worker holds. A QA plan execution whose owner
-is parked is not reaped as stale, so a walker told to hold keeps its mission
-rather than losing it to the sweep. That shield lasts as long as the session
+Parking also shields what the worker holds. Its work claim stops reading as
+stale on inactivity alone, so the item keeps a live holder on the board
+rather than appearing available to staff, and neither the offer sweep nor a
+competing acquisition can reclaim it. A QA plan execution whose owner is
+parked is not reaped as stale either, so a walker told to hold keeps its
+mission rather than losing it to the sweep. That shield lasts as long as the session
 does: if the park outlives the session — a sleep, a reload, an end — the
 sweep settles the execution and stamps its capture with an error verdict.
 The Test Machine still holds the walk's state, and the walker re-enters with

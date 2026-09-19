@@ -158,7 +158,7 @@ expires_at TEXT NOT NULL
 
 ## Table: harness_sessions
 
-Tracks active harness sessions offering themselves to Yoke for work assignment. Identity fields align with the session-offer contract. Sessions with `ended_at IS NULL` are considered active. The stale-session sweep uses activity recency plus the session's active holdings to select its reclaim threshold.
+Tracks active harness sessions offering themselves to Yoke for work assignment. Identity fields align with the session-offer contract. Sessions with `ended_at IS NULL` are considered active. The stale-session sweep uses activity recency plus the session's active holdings to select its reclaim threshold. Whether a *claim* reads reclaimable is a separate question from those sweep tiers, and one shared predicate answers it (`yoke_core.domain.claim_holder_staleness`): a holder whose session stamped `mode='parked'` is exempt from inactivity staleness however long the wait runs, so the scheduler's claim state stays `claimed_by_other_live`, the fleet report keeps its item off the available list, offer candidates do not treat it as assignable, and neither reclaim path releases the row — that abort is recorded as `parked_holder`. The exemption covers the wait, not the session: an ended session and a confirmed-gone native process still read stale, which is what a worker parked at a release wait needs and what the idle-holder alarm reports on its own.
 
 **Stale-session thresholds (canonical reference).** The reclaim windows are config-tunable, not code literals. The sweep first selects an occupancy tier:
 
