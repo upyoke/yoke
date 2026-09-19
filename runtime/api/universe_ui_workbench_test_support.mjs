@@ -28,6 +28,10 @@ function item(ref, project, projectId, facts = {}) {
     status: "planned",
     created_at: recentIso(12),
     updated_at: recentIso(1),
+    // The feed resolves these against the item's pinned workflow definition.
+    terminal: false,
+    finished: false,
+    finished_at: null,
     ...facts,
   };
 }
@@ -59,7 +63,13 @@ export function multiProjectWorkbenchClient({ failProject } = {}) {
     item("YOK-9", "yoke", 1),
     item("YOK-8", "yoke", 1, { frozen: true }),
     item("BET-20", "beta", 2),
-    item("BET-19", "beta", 2, { status: "done", merged_at: recentIso(2) }),
+    item("BET-19", "beta", 2, {
+      status: "done",
+      merged_at: recentIso(2),
+      terminal: true,
+      finished: true,
+      finished_at: recentIso(2),
+    }),
   ];
   const universe = {
     "items.overview.list": { rows: items },
@@ -160,10 +170,16 @@ export function workbenchClient(overrides = {}) {
   const ready = item("YOK-9", "yoke", 1, {
     title: "Ship typed workflows",
   });
+  // Merged a day and a half before it finished, which is the ordinary shape
+  // once a release wait sits between the two: the card dates it by the
+  // finish.
   const done = item("YOK-6", "yoke", 1, {
     title: "Land the release",
     status: "done",
-    merged_at: recentIso(2),
+    merged_at: recentIso(36),
+    terminal: true,
+    finished: true,
+    finished_at: recentIso(2),
     deployed_to: "stage",
     deployment_flow: "yoke-hosted-stage",
   });

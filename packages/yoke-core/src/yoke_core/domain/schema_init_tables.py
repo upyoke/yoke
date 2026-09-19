@@ -125,6 +125,10 @@ def create_core_tables(conn: Any) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_item_status_transitions_item_created
           ON item_status_transitions(item_id, created_at);
+        -- "what finished lately" reads every item across one recent slice of
+        -- time, which the composite index above cannot serve.
+        CREATE INDEX IF NOT EXISTS idx_item_status_transitions_created
+          ON item_status_transitions(created_at);
         -- board activity rollup: one row per (project, item, UTC day) of
         -- real domain mutation (yoke_core.domain.item_activity);
         -- MAX(id) is the board cache's monotonic invalidation watermark.

@@ -203,7 +203,9 @@ test("the overflow tile says See more... and fills the row it sits in", async (t
     status: "done",
     created_at: new Date(Date.now() - 6 * hour).toISOString(),
     updated_at: new Date(Date.now() - 2 * hour).toISOString(),
-    merged_at: new Date(Date.now() - (index + 1) * hour).toISOString(),
+    terminal: true,
+    finished: true,
+    finished_at: new Date(Date.now() - (index + 1) * hour).toISOString(),
   }));
   const { mounted, root } = await mountAt("#/frontier?project=1", workbenchClient({
     "items.overview.list": { rows: finished },
