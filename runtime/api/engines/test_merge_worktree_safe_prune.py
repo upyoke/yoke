@@ -11,6 +11,7 @@ verdict instead of opening a bare ``parent._connect()``.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from runtime.api.engines._merge_prune_test_helpers import (
@@ -195,3 +196,47 @@ def test_unavailable_db_authority_skips_all_pruning(monkeypatch, tmp_path: Path)
     assert branch in _git(repo, "branch", "--list", branch).stdout
     assert any("DB authority unavailable" in line for line in lines)
     assert sweep.payload()["skipped"] == "DB authority unavailable"
+
+
+def test_an_absent_lane_directory_counts_as_swept(monkeypatch, tmp_path: Path):
+    """A lane that is already gone is the state the sweep aims at.
+
+    Git still registers a worktree whose directory was removed by hand, and
+    reading that registration as a refusal ended the whole sweep on its
+    first stale entry — every reclaimable lane behind it stayed on disk, and
+    every later landing reported the same ENOENT under the closing item's
+    own name.
+    """
+    repo, worktree, branch = _repo(tmp_path)
+    shutil.rmtree(worktree)
+    git_io, lines = _install(monkeypatch, repo, _Conn(branch))
+
+    sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
+
+    assert sweep.skipped == ""
+    assert sweep.preserved == ()
+    assert sweep.removed == (str(worktree.resolve()),)
+    assert any("absent worktree" in line for line in lines)
+    # The registration went with it, so the branch rejoins the branch pass
+    # and is retired there on its own landing proof.
+    assert _git(repo, "branch", "--list", branch).stdout.strip() == ""
+
+
+def test_an_absent_lane_does_not_stop_the_lanes_behind_it(
+    monkeypatch, tmp_path: Path
+):
+    repo, worktree, branch = _repo(tmp_path)
+    second = repo / ".worktrees" / "second"
+    _git(repo, "worktree", "add", "-b", "second-lane", str(second), "main")
+    shutil.rmtree(worktree)
+    git_io, _lines = _install(monkeypatch, repo, _Conn("second-lane"))
+
+    sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
+
+    # The absent registration is examined and passed over — its item is not
+    # terminal, so it was never this sweep's to reclaim — and the lane
+    # behind it is still examined and reclaimed on its own proofs.
+    assert sweep.skipped == ""
+    assert sweep.removed == (str(second.resolve()),)
+    assert not second.exists()
+    assert worktree.exists() is False

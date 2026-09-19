@@ -135,18 +135,19 @@ suppresses both automatic enrollment and the omitted-delivery-ready-member scan
 at composition freeze, because a set nobody computed can neither be admitted
 nor cleared. Attribution is repaired, never guessed.
 
-A record is written once and then frozen, which is right for a comparison that
-ran and wrong for one that could not. `deployment_runs.carried_work.repair`
-(CLI: `yoke deployment-runs carried-work repair RUN-ID`) replaces exactly that
-case: it refuses a record that was derived, refuses to write a second
-unanswerable derivation, and names the reason the retry still failed.
+A record is written once and then frozen, which is right for a comparison that ran
+and wrong for one that could not. `deployment_runs.carried_work.repair` (CLI: `yoke
+deployment-runs carried-work repair RUN-ID`) replaces exactly that case: it refuses
+a derived record, refuses a second unanswerable derivation, and names why the retry
+still failed.
 
-Completion gates ask whether the deployed candidate **contains** an item's
-recorded merge, not whether it equals it — a batch has one tip, so equality
-could only ever complete a single-item release. That ancestry read uses the
-same comparison source and needs no commit listing, so a history longer than
-the reader pages still answers truthfully. An unreadable comparison refuses by
-its own name rather than reporting the merge absent.
+Completion gates ask whether the deployed candidate **contains** an item's recorded
+merge, not whether it equals it — a batch has one tip, so equality could only ever
+complete a single-item release. Two questions in order: ancestry, read from the
+candidate's own side so a long history still costs one small page, then content, since
+work that reached the base under other commit ids adds nothing while failing every
+ancestry test (the merge boundary's own "this lane adds nothing", asked of the same
+source). Both run against every source the host offers; an unreadable one names each.
 
 Definition-schema-v2 runs freeze admission before execution. The candidate
 `release_lineage` must be a full commit SHA; every nonterminal delivery-ready
@@ -266,20 +267,20 @@ PRIMARY KEY (run_id, check_name)
 
 ### Blocking QA holds the succeeded stamp
 
-A run does not reach `status='succeeded'` while any blocking QA
-obligation is unresolved. `deployment_runs.cmd_update` is the boundary
-that enforces it, so every route into a succeeded stamp — including the
-pipeline's own finalization — is covered by one check.
+A run does not reach `status='succeeded'` while any blocking QA obligation is
+unresolved. `deployment_runs.cmd_update` is the boundary that enforces it, so
+every route into a succeeded stamp — the pipeline's own finalization included —
+is covered by one check. Two tables carry those obligations, and both are read:
 
-Two tables carry those obligations, and both are read:
-
-- `deployment_run_qa`, the flow-derived checks. Only `passed` and
-  `waived` resolve one. `failed` does not: a failed blocking check is
-  the strongest reason not to call the run succeeded.
-- `qa_requirements` rows keyed by `deployment_run_id`, the run's plan
-  cases. One resolves on a `qa_runs` row with `verdict='pass'`, or on a
-  waiver. A case whose latest run is `undetermined` and awaits human
-  evidence review is named with that pending review and its authorities.
+- `deployment_run_qa`, the flow-derived checks. Only `passed` and `waived`
+  resolve one; `failed` does not, being the strongest reason not to call the
+  run succeeded.
+- `qa_requirements` rows keyed by `deployment_run_id`, the run's plan cases. One
+  resolves on a `qa_runs` row with `verdict='pass'`, or on being settled without
+  evidence — waived, or superseded by a replacement graded on its own evidence.
+  That rule is shared with the stage acceptance check, so the end of a release
+  never re-opens what a stage already accepted. A case whose latest run is
+  `undetermined` and awaits human review is named with it and its authorities.
 
 Non-blocking checks never hold a run, and `force=True` overrides the
 hold exactly as it overrides the stage checks beside it.

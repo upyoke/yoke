@@ -14,6 +14,7 @@ from pathlib import Path
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_landed as landed
+from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
 
 BRANCH = "ITEM-1"
 
@@ -133,7 +134,7 @@ def test_a_copied_lane_closes_out_on_the_merge_identity_it_already_has(
     assert lane.source == "rebased copy of the landed lane"
     assert (lane.commit_sha, lane.merge_sha) == (lane_head, merge_commit)
     assert lane.commit_sha != _git(repo, "rev-parse", BRANCH)
-    assert landed.stale_unlanded_work(**_look(repo)) == ""
+    assert stale_lane.stale_unlanded_work(**_look(repo)) == ""
 
 
 def test_the_copied_lane_is_the_one_whose_diff_would_revert_later_merges(
@@ -172,7 +173,7 @@ def test_a_lane_with_a_commit_of_its_own_still_has_work_to_land(
 
     assert git.unlanded_commits(str(repo), _git(repo, "rev-parse", BRANCH), "main")
     assert landed.landed_lane(**_look(repo), project="yoke") is None
-    assert "preserves the lane" in landed.stale_unlanded_work(**_look(repo))
+    assert "preserves the lane" in stale_lane.stale_unlanded_work(**_look(repo))
 
 
 def test_a_lane_whose_merge_carries_the_only_new_content_is_not_a_copy(
@@ -215,7 +216,7 @@ def test_a_lane_whose_merge_carries_the_only_new_content_is_not_a_copy(
     )
     assert git.unlanded_commits(str(repo), lane, "main")
     assert landed.landed_lane(**_look(repo), project="yoke") is None
-    assert "preserves the lane" in landed.stale_unlanded_work(**_look(repo))
+    assert "preserves the lane" in stale_lane.stale_unlanded_work(**_look(repo))
 
 
 def test_a_receipt_the_base_does_not_contain_converges_nothing(

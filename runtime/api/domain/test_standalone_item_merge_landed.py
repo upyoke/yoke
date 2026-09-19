@@ -12,6 +12,7 @@ from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_converge as converging
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_landed as landed
+from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
@@ -57,6 +58,10 @@ def _probe(
     reason.
     """
     monkeypatch.setattr(landed.git, "lane_adds_nothing", lambda *_a: adds_nothing)
+    # The refusal reads its own module-level git and receipts, so the probe
+    # answers for both modules or the two disagree about one lane.
+    monkeypatch.setattr(stale_lane, "git", landed.git)
+    monkeypatch.setattr(stale_lane, "receipts", landed.receipts)
     monkeypatch.setattr(landed.git, "branch_exists", lambda *_a: branch_exists)
     monkeypatch.setattr(landed.git, "head_of", lambda *_a: head)
     monkeypatch.setattr(landed.git, "current_base_ref", lambda _repo, target: target)
@@ -98,7 +103,7 @@ def _wire_cli(monkeypatch, item, *, stale=""):
         "_resolve_checkout",
         lambda *_a: (Path("/repo"), "main"),
     )
-    monkeypatch.setattr(merge_cli.landed, "stale_unlanded_work", lambda **_k: stale)
+    monkeypatch.setattr(merge_cli.stale_lane, "stale_unlanded_work", lambda **_k: stale)
     monkeypatch.setattr(
         merge_cli.landed,
         "landed_lane",
@@ -140,7 +145,7 @@ def test_a_lane_carrying_new_commits_has_not_landed(monkeypatch):
     )
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
     assert _lane() is None
-    refusal = landed.stale_unlanded_work(**_LOOK)
+    refusal = stale_lane.stale_unlanded_work(**_LOOK)
     assert "closed out" in refusal
     assert "preserves the lane" in refusal
     assert "reset the lane" not in refusal.lower()
@@ -160,7 +165,7 @@ def test_reached_release_defaults_true_and_keeps_the_existing_refusal(monkeypatc
         contains=(LANE_SHA, MERGE_SHA),
     )
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
-    refusal = landed.stale_unlanded_work(**_LOOK, stale_mismatch_is_foreign=True)
+    refusal = stale_lane.stale_unlanded_work(**_LOOK, stale_mismatch_is_foreign=True)
     assert "closed out" in refusal
     assert "preserves the lane" in refusal
     assert "reset the lane" not in refusal.lower()
@@ -181,7 +186,7 @@ def test_an_item_that_has_not_reached_release_gets_its_own_mismatch_through(
         contains=(LANE_SHA, MERGE_SHA),
     )
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
-    assert landed.stale_unlanded_work(
+    assert stale_lane.stale_unlanded_work(
         **_LOOK, stale_mismatch_is_foreign=False
     ) == ""
 
@@ -191,7 +196,7 @@ def test_a_squashed_head_matching_the_receipt_has_landed(monkeypatch):
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
     lane = _lane()
     assert lane is not None and lane.commit_sha == LANE_SHA
-    assert landed.stale_unlanded_work(**_LOOK) == ""
+    assert stale_lane.stale_unlanded_work(**_LOOK) == ""
 
 
 def test_a_lane_fast_forwarded_onto_the_base_still_reports_the_receipt_head(

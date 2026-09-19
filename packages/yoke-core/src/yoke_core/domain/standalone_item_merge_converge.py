@@ -17,10 +17,8 @@ from __future__ import annotations
 
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import item_merge_receipts as receipts
-from yoke_core.domain.standalone_item_merge_landed import (
-    LandedLane,
-    stale_unlanded_work,
-)
+from yoke_core.domain.standalone_item_merge_landed import LandedLane
+from yoke_core.domain.standalone_item_merge_stale_lane import stale_unlanded_work
 from yoke_core.engines.main_checkout_sync import fast_forward_main_checkout
 
 

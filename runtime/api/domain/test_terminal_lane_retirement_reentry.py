@@ -99,7 +99,7 @@ def test_the_retirement_reads_the_checkout_the_merge_resolved(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "release")
     )
     monkeypatch.setattr(merge_cli, "_ensure_usable_cwd", lambda *_a: None)
-    monkeypatch.setattr(merge_cli.landed, "stale_unlanded_work", lambda **_k: "")
+    monkeypatch.setattr(merge_cli.stale_lane, "stale_unlanded_work", lambda **_k: "")
     monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_k: None)
     monkeypatch.setattr(merge_cli.recovery, "branch_needs_receipt", lambda *_a: False)
     monkeypatch.setattr(

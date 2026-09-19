@@ -202,6 +202,11 @@ def prune_managed_worktrees(
     local. Unreachable DB authority skips pruning. Incomplete remote cleanup
     preserves the local retry lane. Every kept lane is named with its reason
     on the returned sweep as well as on ``emit``.
+
+    A lane whose directory is already gone is swept, not refused: the sweep
+    still walks the whole registry, and the reclaimable lanes behind the
+    absent one are still reclaimed. Its branch rejoins the branch pass
+    below, so an unlanded branch is still no one's to delete.
     """
     git = run_git or _runtime_git()
     say = emit or _runtime_emit()
@@ -242,6 +247,17 @@ def prune_managed_worktrees(
                 entry.path,
                 f"worktree is locked ({entry.lock_reason or 'no reason recorded'})",
             )
+            continue
+        if not entry.path.is_dir():
+            # An absent lane directory is the state this sweep is trying to
+            # reach, so it counts as swept. Reading it as a refusal aborted
+            # the whole sweep on the first stale registration git still
+            # listed, leaving every other reclaimable lane behind and
+            # repeating the same warning on the next landing.
+            say(f"Pruned registration for an absent worktree: {entry.path}")
+            git(["worktree", "prune"], cwd=repo_root, capture=True)
+            removed.append(str(entry.path))
+            checked_out.discard(entry.branch)
             continue
         landed = _landed(git, repo_root, entry.branch, base)
         if not landed.landed:

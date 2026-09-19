@@ -50,6 +50,7 @@ def _add_plan_case(
     *,
     blocking_mode: str = "blocking",
     waived: bool = False,
+    superseded_by: int | None = None,
     verdict: str | None = None,
 ) -> None:
     """Insert one run-bound plan requirement and its latest run, if any."""
@@ -63,7 +64,8 @@ def _add_plan_case(
                 qa_kind TEXT NOT NULL,
                 qa_phase TEXT NOT NULL,
                 blocking_mode TEXT NOT NULL DEFAULT 'blocking',
-                waived_at TEXT
+                waived_at TEXT,
+                superseded_by_requirement_id INTEGER
             )
             """
         )
@@ -81,13 +83,15 @@ def _add_plan_case(
         )
         conn.execute(
             "INSERT INTO qa_requirements "
-            "(id, deployment_run_id, qa_kind, qa_phase, blocking_mode, waived_at) "
-            "VALUES (%s, %s, 'smoke', 'post_deploy', %s, %s)",
+            "(id, deployment_run_id, qa_kind, qa_phase, blocking_mode, "
+            "waived_at, superseded_by_requirement_id) "
+            "VALUES (%s, %s, 'smoke', 'post_deploy', %s, %s, %s)",
             (
                 requirement_id,
                 run_id,
                 blocking_mode,
                 "2026-09-09T00:00:00Z" if waived else None,
+                superseded_by,
             ),
         )
         if verdict is not None:
@@ -209,6 +213,34 @@ class TestRunBoundPlanCases:
         _add_plan_case(db_path, run_id, 4103, waived=True)
 
         assert dr.cmd_update(run_id, "status", "succeeded", db_path=db_path) is None
+
+    def test_superseded_case_completes(self, db_path):
+        """The stage that accepted the supersession and the end agree.
+
+        A replacement requirement carries the obligation and is graded on
+        its own evidence; the row it replaced has nothing left to show. The
+        final stage counting it as "no passing run" forced a waiver on a row
+        nobody needed to waive.
+        """
+        run_id = _run_on_final_stage(db_path)
+        _add_plan_case(db_path, run_id, 4106, verdict="pass")
+        _add_plan_case(db_path, run_id, 4105, superseded_by=4106)
+
+        assert dr.cmd_update(run_id, "status", "succeeded", db_path=db_path) is None
+
+    def test_a_supersession_moves_the_obligation_rather_than_dropping_it(
+        self, db_path
+    ):
+        """The replacement is still graded, so the run still waits on it."""
+        run_id = _run_on_final_stage(db_path)
+        _add_plan_case(db_path, run_id, 4108, verdict="fail")
+        _add_plan_case(db_path, run_id, 4107, superseded_by=4108)
+
+        err = dr.cmd_update(run_id, "status", "succeeded", db_path=db_path)
+
+        assert err is not None
+        assert "#4108" in err
+        assert "#4107" not in err
 
     def test_non_blocking_case_completes(self, db_path):
         run_id = _run_on_final_stage(db_path)

@@ -38,10 +38,13 @@ def _https_connection():
 
 def test_https_payload_too_large_uses_chunked_dispatch(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
+    # One snapshot carrying file entries: the append chunk is made of them,
+    # and `--head-only` deliberately produces none. Naming an integration
+    # target this repository does not have keeps the payload to HEAD alone.
     with _force_https_chunking(), _https_connection():
         rc, out, err = run_cli(
             "project", "snapshot", "sync", str(repo), "--project", "demo",
-            "--head-only",
+            "--integration-target", "no-such-branch",
         )
     assert rc == 0
     assert "created: HEAD abc snapshot=1" in out
@@ -80,7 +83,7 @@ def test_chunked_dispatch_skips_upload_when_begin_reuses_snapshot(
     with _force_https_chunking(), _https_connection():
         rc, out, err = run_cli(
             "project", "snapshot", "sync", str(repo), "--project", "demo",
-            "--head-only",
+            "--integration-target", "no-such-branch",
             responses=[begin_reused],
         )
 
@@ -152,7 +155,7 @@ def test_chunked_dispatch_aborts_after_append_failure(tmp_path: Path) -> None:
     with _force_https_chunking(), _https_connection():
         rc, out, err = run_cli(
             "project", "snapshot", "sync", str(repo), "--project", "demo",
-            "--head-only",
+            "--integration-target", "no-such-branch",
             responses=[success, failure, success],
         )
 
@@ -267,7 +270,7 @@ def test_chunked_dispatch_restarts_once_when_staging_went_missing(
     with _force_https_chunking(), _https_connection():
         rc, out, err = run_cli(
             "project", "snapshot", "sync", str(repo), "--project", "demo",
-            "--head-only",
+            "--integration-target", "no-such-branch",
             responses=[
                 success, missing, success, success, success, finalized,
             ],
@@ -307,7 +310,7 @@ def test_chunked_dispatch_restarts_only_once(tmp_path: Path) -> None:
     with _force_https_chunking(), _https_connection():
         rc, out, err = run_cli(
             "project", "snapshot", "sync", str(repo), "--project", "demo",
-            "--head-only",
+            "--integration-target", "no-such-branch",
             responses=[success, missing, success, success, missing, success],
         )
 

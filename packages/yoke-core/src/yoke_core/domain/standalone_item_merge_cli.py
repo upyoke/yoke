@@ -20,6 +20,7 @@ from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain import standalone_item_merge_release_continuation as release_flow
+from yoke_core.domain import standalone_item_merge_stale_lane as stale_lane
 from yoke_core.domain.merge_review_readiness import review_readiness_refusal
 from yoke_core.domain.standalone_item_merge_close_out_transition import (
     run_terminal_transition,
@@ -96,13 +97,19 @@ def run(argv: List[str]) -> int:
     announce = report.bind(session_id=str(args.session_id), dispatch=call_dispatcher)
     workflow_id = str((item.get("workflow") or {}).get("id") or "")
     status = str(item.get("status") or "")
-    needs_evidence = workflow_id in EVIDENCE_WORKFLOWS and not args.skip_status
+    evidence_workflow = workflow_id in EVIDENCE_WORKFLOWS
+    # The close-out that will transition needs the summaries up front. The
+    # write itself is owed by the merge, not by the transition: evidence
+    # describes the landing, so a caller that supplied it gets it recorded
+    # even when the status change is postponed to a later command.
+    close_out_gated = evidence_workflow and not args.skip_status
+    record_evidence = evidence_workflow and bool(args.result and args.verification)
 
     unready = review_readiness_refusal(item, public_ref=public_ref)
     if unready:
         return fail(unready)
 
-    if needs_evidence and not (args.result and args.verification):
+    if close_out_gated and not (args.result and args.verification):
         return fail(
             f"{public_ref} uses the {workflow_id} workflow, whose terminal "
             "transition is evidence-gated: pass --result and --verification "
@@ -147,7 +154,7 @@ def run(argv: List[str]) -> int:
     _ensure_usable_cwd(repo_root, lane_path(item))
     project = str((item.get("project") or {}).get("slug") or "yoke")
     recorded_head = str((merge_source_lane(item) or {}).get("commit_sha") or "")
-    stale = landed.stale_unlanded_work(
+    stale = stale_lane.stale_unlanded_work(
         item_id=item_id,
         branch=branch,
         target=target,
@@ -262,7 +269,7 @@ def run(argv: List[str]) -> int:
         "warnings": list(outcome.warnings),
     }
 
-    if needs_evidence:
+    if record_evidence:
         _announce_close_out("recording evidence")
         write_error, write_warning = close_out.record_execution_evidence(
             item_id=item_id,

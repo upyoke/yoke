@@ -242,24 +242,25 @@ it is banned by the governed-mutation contract.
 
 A branch that lands outside the merge boundary — a hand merge outside Yoke,
 for example — leaves `items.merged_at` unset, and the item can then reach a
-terminal stage with no record of when it merged. Because terminal records
-are immutable, nothing could repair that afterward.
-
-One narrow human-only surface exists for exactly that gap:
+terminal stage with no record of when it merged; terminal records being
+immutable, nothing could repair that afterward. One narrow human-only
+surface exists for exactly that gap:
 
 ```bash
 yoke items merge-provenance operator-correct PREFIX-N --merged-at YYYY-MM-DDTHH:MM:SSZ --reason TEXT
 ```
 
-It fills an unset value on an already-terminal item and does nothing else.
-It refuses a hook context (human-only), a non-terminal item, an item whose
-`merged_at` is already set, and a timestamp that fails to parse or lies in
-the future. Every accepted correction emits a WARN
-`OperatorMergedAtCorrection` event carrying the operator reason, written
-before the update lands, so the ledger records the action even if the write
-then fails. Run `yoke items merge-provenance operator-correct --help` for
-the recovery workflow, including how to read the real timestamp off the
-merge commit.
+It fills an unset value on an already-terminal item and nothing else, refusing
+a hook context (human-only), a non-terminal item, an item whose `merged_at` is
+already set, and a timestamp that fails to parse or lies in the future.
+`--pr-number N` repairs the same provenance's other half — which pull request
+carried the landing — for a lane whose commits reached the base under a sibling
+pull request while its own stayed open; that replacement is verified merged
+against GitHub first, and the predecessor's stamps drop with it. Each accepted
+correction emits its WARN event (`OperatorMergedAtCorrection`,
+`OperatorLandingPullRequestCorrection`) carrying the operator reason before the
+write lands, so the ledger records the action even if that write then fails.
+`yoke items merge-provenance operator-correct --help` has both workflows.
 
 A live item never needs this: `yoke merge item PREFIX-N` is the merge boundary
 and stamps `merged_at` itself, and on a merge-queue project it need not be the process that sees the merge — the pull request number is recorded when that pull request opens, and the control-plane observer stamps `merged_at` and the merge-queue landing columns from GitHub's own merge time. A worker whose wait died therefore leaves a recorded landing rather than an untouched-looking item: the fleet report reports it as landed without close-out, and re-entering `yoke merge item PREFIX-N` closes out from those recorded facts only when the current candidate is already on the base. Recording a landing never advances the stage; close-out stays a claim-holding step.

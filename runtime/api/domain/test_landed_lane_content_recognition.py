@@ -83,7 +83,7 @@ def test_content_equivalence_alone_is_still_not_a_landing(monkeypatch):
     anyway would close an item out against a merge nobody made.
     """
     _probe(monkeypatch, contains=(), adds_nothing=True, recorded=None)
-    assert landed._replayed_base_ref("/repo", LANE_HEAD, "main", None) == ""
+    assert landed.replayed_base_ref("/repo", LANE_HEAD, "main", None) == ""
     assert _lane() is None
 
 

@@ -181,7 +181,7 @@ def test_uncontained_candidate_from_release_does_not_advance_status(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main")
     )
     monkeypatch.setattr(
-        merge_cli.landed, "stale_unlanded_work", lambda **_k: "stale at release"
+        merge_cli.stale_lane, "stale_unlanded_work", lambda **_k: "stale at release"
     )
     monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_k: None)
     _cover(monkeypatch, "unlanded")
