@@ -19,6 +19,7 @@ from yoke_core.domain.qa_method_capabilities import (
 from yoke_core.domain.qa_requirement_pass_currency import (
     METHOD_CONFIG_REVISION_KEY,
 )
+from yoke_contracts.public_ref import format_item_ref
 from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_CAPABILITY,
 )
@@ -93,10 +94,14 @@ def get_case_execution_context(
         f"{recorded_item_worktree_value_sql('i.id', 'commit_sha')} "
         "AS lane_commit_sha, "
         "p.id AS project_id, "
-        "p.slug AS project "
+        "p.slug AS project, "
+        "mp.public_item_prefix AS member_prefix, "
+        "m.project_sequence AS member_sequence "
         "FROM qa_requirements q "
         "LEFT JOIN items i ON i.id=q.item_id "
         "LEFT JOIN deployment_runs dr ON dr.id=q.deployment_run_id "
+        "LEFT JOIN items m ON m.id=q.deployment_member_item_id "
+        "LEFT JOIN projects mp ON mp.id=m.project_id "
         "JOIN projects p ON p.id=COALESCE(i.project_id, dr.project_id) "
         f"WHERE q.id={marker} AND q.waived_at IS NULL",
         (int(requirement_id),),
@@ -211,6 +216,12 @@ def get_case_execution_context(
         "deployment_member_item_id": (
             int(row["deployment_member_item_id"])
             if row["deployment_member_item_id"] is not None
+            else None
+        ),
+        # The ref, not the internal id: that is what --member takes.
+        "deployment_member_ref": (
+            format_item_ref(None, row["member_prefix"], row["member_sequence"])
+            if row["member_sequence"] is not None
             else None
         ),
         "plan_id": plan_id,

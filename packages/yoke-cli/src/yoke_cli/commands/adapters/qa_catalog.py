@@ -23,10 +23,9 @@ from yoke_cli.commands.adapters.qa_execution_subjects import (
     qa_plan_materialize_for_item,
     qa_plan_rematerialize,
 )
+from yoke_cli.commands.adapters.qa_catalog_usage import ITEM_PLAN_ATTACH_EPILOG
+from yoke_cli.commands.adapters.qa_catalog_usage import PLAN_CASES_REPLACE_EPILOG
 from yoke_cli.commands.adapters.qa_catalog_usage import USAGE_BY_FUNCTION_ID
-from yoke_cli.commands.adapters.workflows_item_posture import (
-    WORKFLOWS_ITEM_POSTURE_AMEND_RECIPE,
-)
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -256,6 +255,8 @@ def qa_plan_create(args: List[str]) -> int:
 
 
 def _configure_case_replace(parser: argparse.ArgumentParser) -> None:
+    parser.epilog = PLAN_CASES_REPLACE_EPILOG
+    parser.formatter_class = argparse.RawDescriptionHelpFormatter
     parser.add_argument("--plan-id", type=int, required=True)
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--cases-file")
@@ -299,14 +300,7 @@ def qa_plan_item_attach(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa item-plan attach",
         description=usage,
-        epilog=(
-            "Attaching creates a blocking case row at --transition, and there "
-            "is no detach. On a workflow whose QA policy is optional item "
-            "attachment, attach accepts only the plan or method already "
-            "selected in workflow_posture.verification; select it first "
-            f"with `{WORKFLOWS_ITEM_POSTURE_AMEND_RECIPE}`, then attach and "
-            "`yoke qa plan materialize`."
-        ),
+        epilog=ITEM_PLAN_ATTACH_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--item", required=True)

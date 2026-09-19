@@ -32,6 +32,14 @@ INVALID_BROWSER_METHOD_LABEL = "invalid Browser method"
 AGENT_VERDICT_PATH = "agent"
 NEEDS_REVIEW_OUTCOME = "needs_review"
 
+#: What a Command case's shell is handed about its own subject. ``BASE_URL``
+#: names the target; the deployment pair names the run and member a run-bound
+#: case answers for, so its command can address them instead of hardcoding
+#: ids that name a run which has already happened.
+COMMAND_CASE_BASE_URL_ENV = "BASE_URL"
+COMMAND_CASE_DEPLOYMENT_RUN_ENV = "DEPLOYMENT_RUN_ID"
+COMMAND_CASE_DEPLOYMENT_MEMBER_ENV = "DEPLOYMENT_MEMBER_REF"
+
 #: Ceiling on the timeout a registered Command case may declare, in
 #: seconds. No single gate run may be in flight longer than this, so it
 #: also bounds how long a run's start-bound recording authority lives.

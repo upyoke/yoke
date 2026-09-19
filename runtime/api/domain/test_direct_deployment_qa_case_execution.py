@@ -126,6 +126,9 @@ def test_unbound_existing_member_case_recovers_on_case_run(test_db) -> None:
     context = get_case_execution_context(test_db, requirement_id=int(row["id"]))
     assert context["execution_target"]["deployment"]["run_id"] == "run-direct-recover"
     assert context["execution_target"]["deployment"]["member_item_id"] == 9811
+    # The contract carries the member as a ref, so the case's own command can
+    # name its subject instead of hardcoding a run that already happened.
+    assert context["deployment_member_ref"] == "YOK-9811"
     stored = test_db.execute(
         "SELECT execution_target_digest FROM qa_requirements WHERE id=%s",
         (int(row["id"]),),
