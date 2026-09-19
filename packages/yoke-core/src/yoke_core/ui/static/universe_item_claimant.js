@@ -54,7 +54,7 @@ export function claimantsByItemRef(sessionRows) {
   return index;
 }
 
-function miniSessionCard(documentNode, row) {
+function miniSessionCard(documentNode, row, note) {
   const button = el(documentNode, "button", "item-claimant-mini");
   button.type = "button";
   const harness = harnessIdentity(row);
@@ -68,6 +68,10 @@ function miniSessionCard(documentNode, row) {
     documentNode, "span", "session-executor", harness.label,
   ));
   appendSessionPrimaryStatus(documentNode, button, row);
+  // Anything else this session holds reads after its status, inside the same
+  // chip, because it is a property of the session and not a thing the
+  // session is filed under.
+  if (note) button.appendChild(note);
   return button;
 }
 
@@ -76,12 +80,17 @@ function miniSessionCard(documentNode, row) {
  *
  * `renderFullSession` is the Sessions card renderer, passed in rather than
  * imported so this module stays free of the roster view's dependency tree.
+ *
+ * `note` is an optional node the caller builds and this chip carries inline:
+ * one more fact about this session, in the caller's own vocabulary, so a
+ * surface can say what its session holds without this module learning the
+ * word for it.
  */
 export function itemClaimantControl(
-  documentNode, row, { renderFullSession, label },
+  documentNode, row, { renderFullSession, label, note },
 ) {
   const host = el(documentNode, "div", "item-claimant reveal-host");
-  const trigger = miniSessionCard(documentNode, row);
+  const trigger = miniSessionCard(documentNode, row, note);
   trigger.setAttribute("aria-label", label);
   const panel = el(documentNode, "div", "item-claimant-preview");
   claimantPanelSequence += 1;

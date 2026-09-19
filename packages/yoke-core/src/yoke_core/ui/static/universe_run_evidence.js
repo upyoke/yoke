@@ -19,7 +19,11 @@ function groupByRun(rows) {
     const entry = byRun.get(String(runId)) || { checks: [], artifacts: [] };
     entry.checks.push(row);
     for (const artifact of Array.isArray(row.artifacts) ? row.artifacts : []) {
-      entry.artifacts.push({ ...artifact, requirement_id: row.requirement_id });
+      entry.artifacts.push({
+        ...artifact,
+        requirement_id: row.requirement_id,
+        member_item_id: row.deployment_member_item_id ?? null,
+      });
     }
     byRun.set(String(runId), entry);
   }

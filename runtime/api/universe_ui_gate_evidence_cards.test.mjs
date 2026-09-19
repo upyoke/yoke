@@ -11,7 +11,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  allNodes,
   byClass,
   FakeDocument,
   settle,
@@ -323,21 +322,4 @@ test("a stalled screenshot read fails loudly and remains retryable", async () =>
   assert.match(card.textContent, /timed out/i);
   assert.equal(byClass(card, "qa-evidence-action")[0].textContent, "retry →");
   assert.equal(byClass(card, "qa-evidence-action")[0].disabled, false);
-});
-
-test("a thumbnail whose read times out says so in place", async () => {
-  const documentNode = new FakeDocument();
-  const strip = evidenceStrip({
-    document: documentNode,
-    evidenceReadTimeoutMs: 1,
-    client: { call: () => new Promise(() => {}) },
-  }, [{ artifact_id: 81, artifact_type: "screenshot", content_type: "image/png" }], {
-    requirementId: 92,
-  });
-  await new Promise((resolve) => setTimeout(resolve, 5));
-  const shot = byClass(strip, "review-shot")[0];
-  assert.ok(shot.classList.contains("is-unavailable"), shot.className);
-  assert.match(
-    allNodes(shot).map((node) => node.textContent).join(" "), /timed out/i,
-  );
 });

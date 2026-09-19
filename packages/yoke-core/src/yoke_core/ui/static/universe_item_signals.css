@@ -248,40 +248,39 @@
   font-style: italic;
 }
 
-/* The project-wide deploy lock a waiting run is serialized behind.
+/* The project-wide deploy lock a waiting run is serialized behind. It is a
+ * property of the session that holds it, so it renders inside that session's
+ * own chip, after the status, rather than as a box wrapped around it.
  *
- * Boxed exactly like a session card's holding group — a 3px hue rule on the
- * leading edge, an 8% wash of the same hue, and that group's padding and
- * radius — because both say the same thing: something is held, and that hold
- * is why nothing is moving. Left as plain text on the card fill it read as
- * one more line of card copy, which is what post-deploy acceptance rejected.
- * The hue is the warn token the lock glyph already wore; no new color. */
-.universe-app-root .shipping-run-lock {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+ * It keeps the warn hue it wore as a box. Acceptance rejected this lock once
+ * for reading as one more line of card copy, and that verdict was about the
+ * lock's weight, not about which element contained it: inside the chip it
+ * still has to say "something is held, and that hold is why nothing is
+ * moving". The hue is the warn token the lock glyph already wore; no new
+ * color, and no box. */
+.universe-app-root .shipping-run-lock-row {
   margin: 4px 0 10px;
-  padding: 7px 9px;
-  border-left: 3px solid var(--yoke-warn);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--yoke-warn) 8%, transparent);
+}
+.universe-app-root .shipping-run-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--yoke-muted);
   font-size: 11px;
 }
 .universe-app-root .shipping-run-lock-icon {
   flex: 0 0 auto;
   color: var(--yoke-warn);
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1;
 }
-/* The box states a condition, so its subject carries the hue the box is
-   drawn in rather than sitting at the muted weight of supporting copy. */
+/* The lock states a condition, so its subject keeps the hue rather than
+   sitting at the muted weight of the supporting copy around it. */
 .universe-app-root .shipping-run-lock-label {
   color: var(--yoke-warn);
   font-weight: 650;
 }
-.universe-app-root .shipping-run-lock .item-claimant-row {
+.universe-app-root .shipping-run-lock-row .item-claimant-row {
   margin: 0;
 }
 
