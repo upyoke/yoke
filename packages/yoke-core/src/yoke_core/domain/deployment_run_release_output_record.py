@@ -59,7 +59,10 @@ def _attributed_item(conn: Any, source: Any, project_id: int, sha: str) -> str:
 
     Asked of the same resolver carried-work derivation uses, over a range of
     exactly this one commit, so the guard and the consumer can never disagree
-    about who owns it.
+    about who owns it. The range runs from the commit's own parent rather
+    than from itself: a range whose base equals its head contains the commit
+    by name but excludes it from every ancestry question, which would blind
+    the lane-commit pass to the one commit being asked about.
     """
     from yoke_core.domain.deployment_run_carried_work_sources import (
         resolve_carried_items,
@@ -69,7 +72,7 @@ def _attributed_item(conn: Any, source: Any, project_id: int, sha: str) -> str:
         conn,
         project_id=int(project_id),
         source=source,
-        base=sha,
+        base=str(source.resolve_commit(f"{sha}^") or sha),
         head=sha,
         commits=(sha,),
     )
