@@ -141,10 +141,12 @@ yoke qa plan run --item ITEM --transition release \
   --base-url <your candidate>
 ```
 
-An item whose flow has no item-scoped QA stage needs none of this. The
-deployment stage picks the attached plan up on its own, so nothing has to be
-chosen at the wake — which is the point: a probe first executed against
-production, after its case has frozen, can only be waived or superseded.
+`yoke merge item` refuses an item whose flow has an item-scoped QA stage and
+no attached plan, and names this recipe. An item whose flow has no such stage
+is unaffected and needs none of this. The deployment stage picks the attached
+plan up on its own, so nothing has to be chosen at the wake — which is the
+point: a probe first executed against production, after its case has frozen,
+can only be waived or superseded.
 
 ## Posture knobs
 
