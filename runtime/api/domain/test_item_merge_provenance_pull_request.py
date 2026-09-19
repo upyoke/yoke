@@ -29,6 +29,8 @@ from yoke_core.domain.merge_queue_landing_record_schema import (
 ITEM_ID = 4301
 REASON = "PR 1259 never merged; 1276 carried these commits"
 MERGE_SHA = "9" * 40
+MERGED_AT = "2026-09-18T04:11:07Z"
+STALE_MERGED_AT = "2026-09-17T01:02:03Z"
 
 
 class _Auth:
@@ -48,6 +50,22 @@ def _seed(conn, *, pr_number: str = "1259") -> None:
         status="release",
     )
     point_item_at_pull_request(conn, ITEM_ID, pr_number, enqueued_at="2026-09-18T00:00:00Z")
+
+
+def _merged_body(**overrides) -> dict:
+    return {
+        "merged": True,
+        "merge_commit_sha": MERGE_SHA,
+        "merged_at": MERGED_AT,
+        **overrides,
+    }
+
+
+def _stored_merged_at(conn) -> str:
+    row = conn.execute(
+        "SELECT merged_at FROM items WHERE id = %s", (ITEM_ID,)
+    ).fetchone()
+    return str((row["merged_at"] if hasattr(row, "keys") else row[0]) or "")
 
 
 def _github(monkeypatch, body: dict | Exception) -> list[str]:
@@ -74,7 +92,7 @@ def test_repointing_at_the_merged_carrier_replaces_the_marker(
     test_db, monkeypatch
 ):
     _seed(test_db)
-    paths = _github(monkeypatch, {"merged": True, "merge_commit_sha": MERGE_SHA})
+    paths = _github(monkeypatch, _merged_body())
 
     result = repair.operator_correct_landing_pull_request(
         test_db, ITEM_ID, "1276", REASON
@@ -93,7 +111,7 @@ def test_the_predecessors_queue_admission_does_not_follow_the_repoint(
 ):
     """Stamps belong to the pull request that earned them."""
     _seed(test_db)
-    _github(monkeypatch, {"merged": True, "merge_commit_sha": MERGE_SHA})
+    _github(monkeypatch, _merged_body())
 
     repair.operator_correct_landing_pull_request(test_db, ITEM_ID, "1276", REASON)
 
@@ -117,7 +135,7 @@ def test_an_unmerged_pull_request_is_refused_by_name(test_db, monkeypatch):
 
 def test_a_reason_is_required(test_db, monkeypatch):
     _seed(test_db)
-    _github(monkeypatch, {"merged": True, "merge_commit_sha": MERGE_SHA})
+    _github(monkeypatch, _merged_body())
 
     with pytest.raises(MergedAtCorrectionError):
         repair.operator_correct_landing_pull_request(test_db, ITEM_ID, "1276", "  ")
@@ -142,3 +160,42 @@ def test_a_number_that_is_not_a_pull_request_is_refused(test_db):
         )
 
     assert "pull request number" in str(refusal.value)
+
+
+def test_the_repoint_stores_the_carriers_own_merge_time(test_db, monkeypatch):
+    """The reported correction and the stored row are one fact.
+
+    The predecessor's landing time belongs to a merge the replacement never
+    performed, so leaving it in place would answer "when did this land?"
+    with the wrong carrier's answer forever.
+    """
+    _seed(test_db)
+    test_db.execute(  # lint:no-lifecycle-mutation-check
+        "UPDATE items SET merged_at = %s WHERE id = %s",
+        (STALE_MERGED_AT, ITEM_ID),
+    )
+    test_db.commit()
+    _github(monkeypatch, _merged_body())
+
+    result = repair.operator_correct_landing_pull_request(
+        test_db, ITEM_ID, "1276", REASON
+    )
+
+    assert result["merged_at"] == MERGED_AT
+    assert _stored_merged_at(test_db) == MERGED_AT
+
+
+def test_an_unparseable_provider_merge_time_is_refused_by_name(
+    test_db, monkeypatch
+):
+    _seed(test_db)
+    _github(monkeypatch, _merged_body(merged_at="18 September 2026"))
+
+    with pytest.raises(MergedAtCorrectionError) as refusal:
+        repair.operator_correct_landing_pull_request(
+            test_db, ITEM_ID, "1276", REASON
+        )
+
+    assert "not the stored" in str(refusal.value)
+    assert read_landing_marker(test_db, ITEM_ID)["pr_number"] == "1259"
+    assert _stored_merged_at(test_db) == ""

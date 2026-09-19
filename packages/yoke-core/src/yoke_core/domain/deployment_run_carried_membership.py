@@ -13,8 +13,12 @@ could not resolve still stops the run, so nothing is waived by silence.
 
 :func:`admit_run_item` is the single connection-scoped write both entrances
 share: validated project/flow/stage binding, validated delivery intent, an
-encoded requirement selection, and the membership row. ``cmd_add_item`` is the
-operator-facing adapter around it.
+encoded requirement selection, and the membership row. Where no selection was
+supplied it derives one from the item's outstanding post-deploy obligations
+(:mod:`yoke_core.domain.deployment_member_post_deploy_admission`), so the
+silence that used to mean "deliver nothing provable" now means "deliver what
+this item still owes". ``cmd_add_item`` is the operator-facing adapter
+around it.
 
 Enrollment runs once per project the run ships code for — its own, plus
 every project a flow stage binds — each against that project's own recorded
@@ -42,6 +46,9 @@ from yoke_core.domain.deployment_item_flow_resolution import (
 )
 from yoke_core.domain.deployment_run_carried_work import (
     derive_carried_work_safely,
+)
+from yoke_core.domain.deployment_member_post_deploy_admission import (
+    admissible_post_deploy_requirement_ids,
 )
 from yoke_core.domain.deployment_run_composition_freeze import (
     inherited_frozen_membership,
@@ -89,12 +96,24 @@ def admit_run_item(
 
     The caller owns the commit, which is what lets enrollment land inside the
     same transaction that freezes the composition it just completed.
+
+    A membership with nothing selected takes on the item's outstanding
+    post-deploy obligations, because a post_deploy row is answered by this
+    run's admitted copy and by nothing else: an empty selection would ship
+    the code while leaving the obligation unanswerable. An explicit
+    selection is a deliberate operator choice and is used verbatim.
     """
     validate_deployment_run_item(conn, run_id=run_id, item_id=int(item_id))
     freeze_item_completion_flow(conn, int(item_id))
     intent = validate_delivery_intent_for_item(conn, int(item_id), delivery_intent)
+    selected_requirements = tuple(requirement_ids)
+    selected_plans = tuple(plan_ids)
+    if not selected_requirements and not selected_plans:
+        selected_requirements = admissible_post_deploy_requirement_ids(
+            conn, run_id=run_id, item_id=int(item_id)
+        )
     selection = requirement_selection(
-        requirement_ids=requirement_ids, plan_ids=plan_ids
+        requirement_ids=selected_requirements, plan_ids=selected_plans
     )
     snapshot_member_requirements(
         conn, run_id=run_id, item_id=int(item_id), selection_json=selection

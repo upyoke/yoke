@@ -64,7 +64,10 @@ def post_merge_binding_refusal(
         f"{attach_at!r}: yoke qa requirement add --item PREFIX-N "
         f"--qa-phase {phase} --workflow-transition {attach_at} ... "
         "(or attach the case to the deployment run: yoke qa requirement add "
-        "--deployment-run RUN-ID --qa-phase post_deploy ...). Existing "
+        "--deployment-run RUN-ID --qa-phase post_deploy ...). A row already "
+        "recorded against a pre-release stage rebinds in place rather than "
+        "being replaced: yoke qa requirement update --requirement-id N "
+        f"--field workflow_transition_id --value {attach_at}. Existing "
         "verification-phase checks against a live production environment stay "
         "on the review transition."
     )

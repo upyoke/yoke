@@ -12,6 +12,10 @@ The repair is verified, not asserted: GitHub must report the named pull
 request merged, on this project's own repository. Its predecessor's queue
 admission, landing stamp and observation row are dropped with the number
 they belonged to, through the shared marker writer the merge boundary uses.
+``items.merged_at`` goes with them: it records when this item's work landed,
+so a repoint that left the predecessor's time in place would date the new
+carrier's landing to a merge it never performed, and every reader asking
+when the item landed would get that wrong answer back.
 
 Human-only, reason-required, ledger-first — the same accountability the
 merged_at correction carries, from
@@ -20,9 +24,11 @@ merged_at correction carries, from
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from yoke_core.domain.item_merge_provenance_operator import (
+    MERGED_AT_FORMAT,
     MergedAtCorrectionError,
     emit_correction,
     sql_placeholder,
@@ -53,7 +59,9 @@ def operator_correct_landing_pull_request(
 
     So the replacement is verified rather than asserted: GitHub must report
     it merged, on this project's own repository. Its predecessor's queue and
-    landing stamps go with the number they belonged to.
+    landing stamps go with the number they belonged to, ``items.merged_at``
+    included -- the replacement carrier's own merge time is written, so the
+    reported correction and the stored row are the same fact.
     """
     require_human_context("Landing pull-request correction")
     if not operator_reason or not operator_reason.strip():
@@ -87,6 +95,13 @@ def operator_correct_landing_pull_request(
         session_id=session_id or "",
         item_id=int(item_id),
         context=context,
+    )
+    # Written before the marker call, which owns the commit, so the
+    # timestamp and the number it belongs to land together.
+    placeholder = sql_placeholder(conn)
+    conn.execute(
+        f"UPDATE items SET merged_at = {placeholder} WHERE id = {placeholder}",
+        (merged_at, int(item_id)),
     )
     marker = point_item_at_pull_request(conn, int(item_id), replacement)
     return {
@@ -154,9 +169,10 @@ def _verify_merged_pull_request(
             "the provider is reachable."
         ) from exc
     body = response.body if isinstance(response.body, dict) else {}
+    merged_at = str(body.get("merged_at") or "").strip()
     # An open pull request still reports a merge_commit_sha -- GitHub's own
     # test-merge -- so the merged flag is what says this one landed.
-    if not bool(body.get("merged") or body.get("merged_at")):
+    if not (bool(body.get("merged")) or merged_at):
         raise MergedAtCorrectionError(
             f"pull request {pr_number} on {auth.repo} has not merged, so it "
             "cannot be the carrier of this item's landing. Name the pull "
@@ -164,8 +180,28 @@ def _verify_merged_pull_request(
         )
     return (
         str(body.get("merge_commit_sha") or ""),
-        str(body.get("merged_at") or ""),
+        _stored_merged_at(merged_at, pr_number=pr_number, repo=auth.repo),
     )
+
+
+def _stored_merged_at(merged_at: str, *, pr_number: str, repo: str) -> str:
+    """The landing time in the shape every merged_at reader expects.
+
+    The correction writes this value, so a provider answer that is missing
+    or in another shape has to refuse here rather than store something no
+    downstream reader can parse.
+    """
+    try:
+        datetime.strptime(merged_at, MERGED_AT_FORMAT)
+    except ValueError as exc:
+        raise MergedAtCorrectionError(
+            f"pull request {pr_number} on {repo} reports merged_at "
+            f"{merged_at or '(absent)'!r}, which is not the stored "
+            f"{MERGED_AT_FORMAT} shape. This correction records the landing "
+            "time it verifies, so it refuses rather than storing a value no "
+            "reader can parse; report the provider response as a defect."
+        ) from exc
+    return merged_at
 
 
 __all__ = [

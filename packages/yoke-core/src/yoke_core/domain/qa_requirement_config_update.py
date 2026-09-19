@@ -3,6 +3,11 @@
 Frozen deployment-run rows and historical ``qa_runs`` stay immutable. An
 in-place ``method_config`` change records a revision marker; a later green
 satisfies only when it recorded that live executable config at run start.
+
+Two fields need more than a validated write and live in sibling modules:
+``target_env`` resolves an environment name into an immutable endpoint
+snapshot, and ``workflow_transition_id`` revalidates the lifecycle binding
+exactly as a fresh attachment would.
 """
 
 from __future__ import annotations
@@ -33,6 +38,9 @@ from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
 from yoke_core.domain.qa_requirement_target_env_update import (
     _prepare_target_env,
 )
+from yoke_core.domain.qa_requirement_transition_update import (
+    _prepare_workflow_transition,
+)
 from yoke_core.domain.qa_plan_execution_store import canonical
 from yoke_core.domain.qa_requirement_pass_currency import (
     METHOD_CONFIG_FIELD,
@@ -54,6 +62,7 @@ UPDATABLE_REQUIREMENT_FIELDS: tuple[str, ...] = (
     "capability_requirements",
     "suite_id",
     "qa_phase",
+    "workflow_transition_id",
     METHOD_CONFIG_FIELD,
 )
 
@@ -212,7 +221,7 @@ def apply_requirement_update(
     existing = query_one(
         conn,
         "SELECT id, qa_kind, qa_phase, item_id, epic_id, task_num, "
-        f"deployment_run_id, method_id, method_config{digest_col} "
+        f"deployment_run_id, plan_id, method_id, method_config{digest_col} "
         f"FROM qa_requirements WHERE id = {marker}",
         (int(req_id),),
     )
@@ -239,6 +248,19 @@ def apply_requirement_update(
                 jsonpath="$.payload.value",
             )
         value = bind_correction_identity(existing["method_config"], prepared)
+    if field == "workflow_transition_id":
+        prepared_transition, error = _prepare_workflow_transition(
+            conn, existing, value
+        )
+        if error:
+            return _fail(
+                code="payload_invalid",
+                message=error,
+                req_id=req_id,
+                field=field,
+                jsonpath="$.payload.value",
+            )
+        value = prepared_transition
     if field == "target_env":
         prepared, error = _prepare_target_env(conn, existing, value)
         if error:
