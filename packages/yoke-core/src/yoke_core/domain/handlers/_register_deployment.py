@@ -120,6 +120,11 @@ def register(registry) -> None:
         guardrails=["unattributed_commits_only"],
         adapter_status="live",
         claim_required_kind=None,
+        # The release bridge runs on a CI runner, which has no harness
+        # session and never will; the identity that authorizes this write is
+        # its scoped project token. release_pin.record, called from the same
+        # job, is declared the same way.
+        ambient_session_required=False,
     )
     registry.register(
         "deployment_runs.add_item",

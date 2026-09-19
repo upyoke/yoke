@@ -50,6 +50,18 @@ fix look like a pin merge conflict.
    no repository ref is named in the workflow. Skip this and every following
    release refuses to compose until somebody records a
    `composition_resolution` by hand.
+
+   That call is made from a CI runner, which has no harness session and holds
+   only a scoped project token, so the write declares both facts explicitly:
+   `ambient_session_required=False`, and a by-id authorization carve-out out
+   of the `deployment_runs.*` org-admin prefix onto its own narrow
+   `deployment_runs.release_output.record` permission — the same shape
+   `release_pin.record` uses, and for the same reason. That permission is
+   granted to the `deployment_ci` role and to the project owner, and to
+   nothing else; the release identity still reaches no other
+   `deployment_runs.*` write. Both halves are required: the session opt-out
+   without the carve-out leaves the bridge refused, which is exactly how the
+   first attempt shipped.
 5. `yoke release-pin verify` compares the desired-pin leaf to the
    environment's configured health probe without deploying. Platform owns the
    two verification coordinates in its capability: `probe_url_path` is

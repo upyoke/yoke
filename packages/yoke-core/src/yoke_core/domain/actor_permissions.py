@@ -41,6 +41,7 @@ PERM_GITHUB_ACTIONS_RUN_READ = "github_actions.run.read"
 PERM_GITHUB_ACTIONS_VARIABLE_READ = "github_actions.variable.read"
 PERM_GITHUB_RELEASE_CREATE = "github.release.create"
 PERM_RELEASE_PIN_RECORD = "release_pin.record"
+PERM_RELEASE_OUTPUT_RECORD = "deployment_runs.release_output.record"
 # Org-scoped permissions (never carried by a project role).
 PERM_ORG_ADMIN = "org.admin"  # renamed from "system.admin"
 PERM_PROJECT_CREATE = "project.create"
@@ -108,6 +109,9 @@ PERMISSION_DESCRIPTIONS = {
         "Create the next immutable annotated release tag for the project."
     ),
     PERM_RELEASE_PIN_RECORD: "Record a pin at the configured environment and path.",
+    PERM_RELEASE_OUTPUT_RECORD: (
+        "Record a commit this deployment run's own release automation produced."
+    ),
     PERM_ORG_ADMIN: "Administer the org and all of its projects.",
     PERM_PROJECT_CREATE: "Create new projects in the org.",
 }
@@ -131,6 +135,7 @@ _PROJECT_OWNER_PERMS = (
     PERM_GITHUB_ACTIONS_VARIABLE_READ,
     PERM_GITHUB_RELEASE_CREATE,
     PERM_RELEASE_PIN_RECORD,
+    PERM_RELEASE_OUTPUT_RECORD,
 )
 
 ROLE_PERMISSION_KEYS = {
@@ -159,6 +164,10 @@ ROLE_PERMISSION_KEYS = {
         PERM_GITHUB_ACTIONS_VARIABLE_READ,
         PERM_GITHUB_RELEASE_CREATE,
         PERM_RELEASE_PIN_RECORD,
+        # The release bridge attributes the pin commit its own promotion
+        # pushed. Narrow on purpose: it authorizes that one write and reaches
+        # no other deployment_runs.* mutation, which stays org-admin.
+        PERM_RELEASE_OUTPUT_RECORD,
     ),
     ROLE_INFRASTRUCTURE_CI: (PERM_PROJECT_RENDER_READ,),
     ROLE_MIGRATION_VERIFICATION_CI: (PERM_MIGRATION_CONTENT_IDENTITY_VERIFY,),
