@@ -76,7 +76,7 @@ def _query_item_status(item_id: str) -> Optional[str]:
     return data.get("status")
 
 
-def _call_domain_sync(func, *args, project: str = "yoke", **kwargs) -> bool:
+def _call_domain_sync(func, *args, project: str = "", **kwargs) -> bool:
     """Invoke a :mod:`yoke_core.domain.backlog_github_sync` function in-process.
 
     Resolve auth up front so a missing binding remains a typed failure. Domain

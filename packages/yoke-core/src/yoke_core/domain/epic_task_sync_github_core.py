@@ -31,6 +31,7 @@ from yoke_core.domain.projects_github_sync_mode import (
     github_sync_disabled_notice,
     github_sync_enabled,
 )
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def sync_progress_notes(
@@ -82,7 +83,7 @@ def sync_progress_notes(
             return 0
 
         project = _epic_project(epic_name, conn=conn)
-        gh_project = project or "yoke"
+        gh_project = resolved_project(project)
         if not github_sync_enabled(gh_project, conn=conn):
             print(
                 github_sync_disabled_notice(gh_project, "progress-note-sync"),

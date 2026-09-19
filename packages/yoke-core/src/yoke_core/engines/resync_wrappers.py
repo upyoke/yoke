@@ -22,7 +22,7 @@ def _fetch_gh_issues_per_project(projects):
     return _fn(projects)
 
 
-def _graphql_batch_fetch(nums, project="yoke", batch_size=50, *, auth=None):
+def _graphql_batch_fetch(nums, project="", batch_size=50, *, auth=None):
     """Wrapper: GraphQL batch fetch via REST."""
     from yoke_core.engines.resync_detect import _graphql_batch_fetch as _fn
     return _fn(nums, project=project, batch_size=batch_size, auth=auth)
@@ -52,7 +52,7 @@ def stage1_5_heavy_fetch(paired, gh_by_project):
     import yoke_core.engines.resync as _self
 
     # Pass graphql_fn so that test patches of resync._graphql_batch_fetch are honoured.
-    def _graphql_fn(nums, project="yoke", *, auth=None):
+    def _graphql_fn(nums, project="", *, auth=None):
         return _self._graphql_batch_fetch(nums, project=project, auth=auth)
 
     return _stage1_5(paired, gh_by_project, graphql_fn=_graphql_fn)

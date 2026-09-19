@@ -14,6 +14,10 @@ from yoke_contracts.turn_end_evidence import (
 )
 from yoke_contracts.session_control import stop_denial_continuation_supported
 from yoke_core.domain.session_relay_launch_context import session_was_relay_launched
+from yoke_core.domain.turn_end_session_state import (
+    monitor_waiter_armed,
+    session_parked,
+)
 from yoke_core.domain.turn_end_unfinished_work import (
     DIRECTIVE,
     recovery_for,
@@ -33,6 +37,7 @@ REASON_REINJECTED = "promised_work_reinjected"
 REASON_CAP_REACHED = "reinjection_cap_reached"
 REASON_MONITOR_ARMED = "monitor_waiter_live"
 REASON_CONTINUATION_UNSUPPORTED = "stop_denial_continuation_unsupported"
+REASON_SESSION_PARKED = "session_parked"
 EVIDENCE_UNAVAILABLE_REASON = "turn-evidence-unavailable"
 MONITOR_DIRECTIVE = (
     "A Monitor waiter is still armed. Do not end this turn. "
@@ -114,37 +119,6 @@ def _live_claim(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
         "merge_queue_landed_at": row["merge_queue_landed_at"],
         "merge_queue_enqueued_at": row["merge_queue_enqueued_at"],
     }
-
-
-def _armed_monitor_blocks_stop(conn: Any, session_id: str) -> bool:
-    """Whether this session's last finished call was a ``Monitor`` arming.
-
-    Read from the session's own tool-call rows rather than the telemetry
-    ledger. Both carry the same fact, but telemetry expires, and an
-    expired row here does not read as "no waiter is armed" — it reads as
-    permission to end a turn that is holding one, which kills the waiter
-    with no wake. A `parked` session has declared it wants to be quiet
-    and keeps its documented escape hatch.
-    """
-    from yoke_core.domain import db_backend
-    from yoke_core.domain.session_tool_call_projections import (
-        LAST_COMPLETED_TOOL_COLUMN,
-        MONITOR_TOOL_NAME,
-        last_completed_tool_select,
-    )
-
-    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        "SELECT hs.mode"
-        f"{last_completed_tool_select(conn, session_alias='hs')} "
-        f"FROM harness_sessions hs WHERE hs.session_id={p}",
-        (session_id,),
-    ).fetchone()
-    if row is None:
-        return False
-    if str(row["mode"] or "") == "parked":
-        return False
-    return str(row[LAST_COMPLETED_TOOL_COLUMN] or "") == MONITOR_TOOL_NAME
 
 
 def _reinjection_history(
@@ -265,6 +239,23 @@ def evaluate(record: HookContext) -> HookDecision:
             return _allow()
         if stop_is_legitimate(claim):
             return _allow()
+        try:
+            parked = session_parked(conn, session_id)
+        except Exception:
+            parked = False
+        if parked:
+            # The declared escape hatch, honored before every hold: a
+            # parked session is quiet on purpose, and no reinjected
+            # directive it cannot act on changes that.
+            _emit_deferred(
+                conn=conn,
+                session_id=session_id,
+                item_id=claim["item_id"],
+                reason=REASON_SESSION_PARKED,
+                cap_reached=False,
+                claim=claim,
+            )
+            return _allow()
         surface = record.payload.get("entrypoint") if record.payload else None
         if not stop_denial_continuation_supported(
             record.executor_family,
@@ -281,7 +272,7 @@ def evaluate(record: HookContext) -> HookDecision:
             )
             return _allow()
         try:
-            monitor_armed = _armed_monitor_blocks_stop(conn, session_id)
+            monitor_armed = monitor_waiter_armed(conn, session_id)
         except Exception:
             monitor_armed = False
         if monitor_armed:
@@ -325,5 +316,5 @@ def evaluate(record: HookContext) -> HookDecision:
 __all__ = (
     "CHECK_ID DIRECTIVE EVIDENCE_UNAVAILABLE_REASON MONITOR_DIRECTIVE "
     "REASON_CAP_REACHED REASON_CONTINUATION_UNSUPPORTED REASON_MONITOR_ARMED "
-    "REASON_REINJECTED evaluate"
+    "REASON_REINJECTED REASON_SESSION_PARKED evaluate"
 ).split()

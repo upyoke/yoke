@@ -82,7 +82,8 @@ def test_relay_launched_claude_cli_holds_its_unfinished_work(monkeypatch) -> Non
     """
     emitted: list[dict] = []
     _patch_live_claim(monkeypatch, emitted, relay_launched=True)
-    monkeypatch.setattr(gate, "_armed_monitor_blocks_stop", lambda *_args: False)
+    monkeypatch.setattr(gate, "monitor_waiter_armed", lambda *_args: False)
+    monkeypatch.setattr(gate, "session_parked", lambda *_args: False)
     monkeypatch.setattr(gate, "_at_reinjection_cap", lambda *_args: False)
 
     decision = gate.evaluate(_context("claude", "cli"))
@@ -137,7 +138,8 @@ def test_relay_launched_claude_cli_stops_holding_at_the_cap(monkeypatch) -> None
     """The reinjection cap still bounds the hold on a relay worker."""
     emitted: list[dict] = []
     _patch_live_claim(monkeypatch, emitted, relay_launched=True)
-    monkeypatch.setattr(gate, "_armed_monitor_blocks_stop", lambda *_args: False)
+    monkeypatch.setattr(gate, "monitor_waiter_armed", lambda *_args: False)
+    monkeypatch.setattr(gate, "session_parked", lambda *_args: False)
     monkeypatch.setattr(gate, "_at_reinjection_cap", lambda *_args: True)
 
     decision = gate.evaluate(_context("claude", "cli"))
@@ -190,7 +192,8 @@ def test_operator_opened_cli_still_denies_with_actual_check_identity(
 ) -> None:
     emitted: list[dict] = []
     _patch_live_claim(monkeypatch, emitted)
-    monkeypatch.setattr(gate, "_armed_monitor_blocks_stop", lambda *_args: False)
+    monkeypatch.setattr(gate, "monitor_waiter_armed", lambda *_args: False)
+    monkeypatch.setattr(gate, "session_parked", lambda *_args: False)
     monkeypatch.setattr(gate, "_at_reinjection_cap", lambda *_args: False)
 
     decision = gate.evaluate(_context(executor, entrypoint))

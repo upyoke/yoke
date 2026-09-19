@@ -55,7 +55,7 @@ def emit_run_event(
     context: Dict[str, Any],
     *,
     member_items: List[str],
-    project: str = "yoke",
+    project: str = "",
     sd: Optional[str] = None,
 ) -> None:
     """Emit stage events per item and one canonical terminal run event."""

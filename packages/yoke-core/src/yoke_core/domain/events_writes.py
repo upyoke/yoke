@@ -183,7 +183,7 @@ def cmd_insert(
     actor_id: Optional[int] = None,
     environment: Optional[str] = None,
     service: str = "cli",
-    project: str = "yoke",
+    project: str = "",
     item_id: Optional[str] = None,
     task_num: Optional[int] = None,
     agent: Optional[str] = None,

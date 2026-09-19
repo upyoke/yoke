@@ -230,11 +230,13 @@ def emit(args: argparse.Namespace) -> int:
                 project=item_argument_project(args.project),
             )
             args.item_id = str(resolved_item_id)
+    # No source left to ask means the event carries no project, which
+    # is readable as "nobody said" in a way no slug ever is.
     project = (
         _resolve_item_project(resolved_item_id)
         or args.project
         or item_argument_project()
-        or "yoke"
+        or ""
     )
     project = str(project)
     envelope = _build_envelope(

@@ -23,6 +23,7 @@ from yoke_core.domain.yok_n_parser import parse_item_argument
 from yoke_core.domain.work_claim_targets import scope_int_sql
 from yoke_core.domain.project_identity_item_ref import item_subject_ref
 from yoke_core.domain import backlog_github_compact_pending_flag as _compact_flag
+from yoke_core.domain.project_attribution import resolved_project
 
 
 _MUTATING_MODES = {
@@ -251,7 +252,7 @@ def backfill_oversized_bodies(
 
             # Auth precedence. Catch typed errors per-item and log.
             context = _item_context(item_id, conn=conn)
-            project = (context[1] if context else "") or "yoke"
+            project = resolved_project(context[1] if context else "")
             try:
                 resolve_project_github_auth(project)
             except ProjectGithubAuthError as exc:

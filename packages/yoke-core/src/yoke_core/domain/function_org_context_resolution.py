@@ -33,13 +33,12 @@ def resolve_org_context(conn: Any, request: FunctionCallRequest) -> int | None:
         or request.payload.get("project_id")
         or request.payload.get("project")
     )
-    ref = str(explicit) if explicit else "yoke"
-    try:
-        project_id = resolve_project_id(conn, ref)
-    except Exception:
-        if explicit:
-            return None
+    if not explicit:
         return _identity_card_org(conn)
+    try:
+        project_id = resolve_project_id(conn, str(explicit))
+    except Exception:
+        return None
     row = conn.execute(
         f"SELECT org_id FROM projects WHERE id = {_placeholder(conn)}",
         (project_id,),

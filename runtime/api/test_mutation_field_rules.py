@@ -118,13 +118,22 @@ class TestValidateFrozen:
 # ===========================================================================
 
 
+def _issue_create(**overrides):
+    """A create of the shape these rules are about.
+
+    Names its project, which is no longer defaulted, and the issue
+    workflow unless a case passes its own.
+    """
+    overrides.setdefault("project", "yoke")
+    overrides.setdefault("workflow", builtin_workflow_runtime("issue"))
+    return prepare_create(**overrides)
+
+
 class TestPrepareCreate:
     def test_successful_create(self):
-        result = prepare_create(
+        result = _issue_create(
             title="New issue",
-            workflow=builtin_workflow_runtime("issue"),
             priority="high",
-            project="yoke",
         )
         assert result.success is True
         assert result.error is None
@@ -137,60 +146,51 @@ class TestPrepareCreate:
         assert any(e.kind == MutationEventKind.CREATED for e in result.events)
 
     def test_default_priority(self):
-        result = prepare_create(
+        result = _issue_create(
             title="Test",
-            workflow=builtin_workflow_runtime("issue"),
         )
         assert result.success is True
         assert result.field_writes["priority"] == "medium"
 
     def test_invalid_title_too_long(self):
-        result = prepare_create(
+        result = _issue_create(
             title="x" * (title_max_length() + 1),
-            workflow=builtin_workflow_runtime("issue"),
         )
         assert result.success is False
         assert result.error_code == "VALIDATION_ERROR"
 
     def test_empty_title(self):
-        result = prepare_create(
+        result = _issue_create(
             title="",
-            workflow=builtin_workflow_runtime("issue"),
         )
         assert result.success is False
 
     def test_invalid_stage(self):
-        result = prepare_create(
+        result = _issue_create(
             title="Test",
-            workflow=builtin_workflow_runtime("issue"),
             status="planning",
         )
         assert result.success is False
         assert result.error_code == "VALIDATION_ERROR"
 
     def test_invalid_priority(self):
-        result = prepare_create(
+        result = _issue_create(
             title="Test",
-            workflow=builtin_workflow_runtime("issue"),
             priority="critical",
         )
         assert result.success is False
 
     def test_create_only_emits_created_event(self):
         """Create mutations should only emit the canonical created event."""
-        result = prepare_create(
+        result = _issue_create(
             title="My issue",
-            workflow=builtin_workflow_runtime("issue"),
-            project="yoke",
         )
         assert result.success is True
         assert [e.kind for e in result.events] == [MutationEventKind.CREATED]
 
     def test_flow_project_mismatch(self):
-        result = prepare_create(
+        result = _issue_create(
             title="Test",
-            workflow=builtin_workflow_runtime("issue"),
-            project="yoke",
             deployment_flow="externalwebapp-flow",
             flow_project="externalwebapp",
         )
@@ -198,10 +198,8 @@ class TestPrepareCreate:
         assert "externalwebapp" in result.error
 
     def test_flow_project_match(self):
-        result = prepare_create(
+        result = _issue_create(
             title="Test",
-            workflow=builtin_workflow_runtime("issue"),
-            project="yoke",
             deployment_flow="yoke-flow",
             flow_project="yoke",
         )
@@ -211,9 +209,8 @@ class TestPrepareCreate:
 
     def test_create_with_valid_issue_status_override(self):
         """valid issue status override sets status in field_writes."""
-        result = prepare_create(
+        result = _issue_create(
             title="Imported item",
-            workflow=builtin_workflow_runtime("issue"),
             status="implementing",
         )
         assert result.success is True
@@ -221,18 +218,16 @@ class TestPrepareCreate:
 
     def test_create_with_default_status(self):
         """omitting status defaults to idea."""
-        result = prepare_create(
+        result = _issue_create(
             title="Normal item",
-            workflow=builtin_workflow_runtime("issue"),
         )
         assert result.success is True
         assert result.field_writes["status"] == "idea"
 
     def test_create_with_invalid_issue_status_rejects(self):
         """invalid status for issue type is rejected."""
-        result = prepare_create(
+        result = _issue_create(
             title="Bad status",
-            workflow=builtin_workflow_runtime("issue"),
             status="planning",
         )
         assert result.success is False
@@ -241,7 +236,7 @@ class TestPrepareCreate:
 
     def test_create_with_valid_epic_status_override(self):
         """valid epic status override sets status in field_writes."""
-        result = prepare_create(
+        result = _issue_create(
             title="Planned epic",
             workflow=builtin_workflow_runtime("epic"),
             status="planning",
@@ -251,7 +246,7 @@ class TestPrepareCreate:
 
     def test_create_with_invalid_epic_status_rejects(self):
         """invalid status for epic type is rejected."""
-        result = prepare_create(
+        result = _issue_create(
             title="Bad epic",
             workflow=builtin_workflow_runtime("epic"),
             status="bogus",
@@ -261,9 +256,8 @@ class TestPrepareCreate:
 
     def test_create_with_idea_status_is_noop(self):
         """explicit status=idea behaves identically to default."""
-        result = prepare_create(
+        result = _issue_create(
             title="Explicit idea",
-            workflow=builtin_workflow_runtime("issue"),
             status="idea",
         )
         assert result.success is True

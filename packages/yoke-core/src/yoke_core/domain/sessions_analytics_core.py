@@ -273,7 +273,7 @@ def _emit_event(
             event_type=event_type,
             source_type=source_type,
             session_id=session_id,
-            project=project or "yoke",
+            project=project or "",
             severity=severity,
             outcome=outcome,
             item_id=item_id,

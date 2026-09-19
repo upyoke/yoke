@@ -36,6 +36,7 @@ from yoke_core.domain.project_github_auth import (
     repair_command_hint,
     resolve_project_github_auth,
 )
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def post_comment(
@@ -87,7 +88,7 @@ def post_comment(
             return 0
         issue_num = int(issue_num_str)
 
-        gh_project = project or "yoke"
+        gh_project = resolved_project(project)
         if _bgs()._github_sync_skip(gh_project, "post-comment", conn=conn, out=stdout):
             return 0
         if not _bgs()._github_auth_available(gh_project):

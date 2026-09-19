@@ -65,7 +65,11 @@ class TestSnapshotEnsureRelays:
         )
         _no_bare_db(monkeypatch)
 
-        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), repo_root="/repo")
+        ctx = MergeContext(
+            args=MergeArgs(branch=TEST_ITEM_REF),
+            repo_root="/repo",
+            project="yoke",
+        )
         post_local._ensure_snapshot_for_project(ctx)
 
         assert len(calls) == 1
@@ -73,6 +77,33 @@ class TestSnapshotEnsureRelays:
         assert calls[0]["target"].kind == "global"
         assert calls[0]["payload"]["commit_sha"] == "abc123"
         assert calls[0]["payload"]["project"] == "yoke"
+
+    def test_an_unnamed_project_records_nothing_and_says_so(self, monkeypatch):
+        """A snapshot under the wrong project is worse than none at all."""
+        calls = []
+        notes = []
+        monkeypatch.setattr(
+            post_local, "call_dispatcher",
+            lambda **k: calls.append(k) or _resp("project.snapshot.ensure_at"),
+        )
+        monkeypatch.setattr(
+            subprocess, "run",
+            lambda *_a, **_k: SimpleNamespace(returncode=0, stdout="abc123\n"),
+        )
+        monkeypatch.setattr(
+            post_local, "_parent",
+            lambda: SimpleNamespace(_print=notes.append),
+        )
+        _no_bare_db(monkeypatch)
+
+        ctx = MergeContext(
+            args=MergeArgs(branch=TEST_ITEM_REF),
+            repo_root="/nobody/knows/this/checkout",
+        )
+        post_local._ensure_snapshot_for_project(ctx)
+
+        assert calls == []
+        assert notes and "names no project" in notes[0]
 
     def test_cross_project_uses_resolved_checkout_and_project(self, monkeypatch):
         calls = []

@@ -24,6 +24,18 @@ class ProjectGithubAuthError(Exception):
         self.project = project
 
 
+class UnnamedProject(ProjectGithubAuthError):
+    """No project was named, so there is no binding to resolve.
+
+    Distinct from a project whose binding is missing: nothing was asked
+    about. It exists as its own refusal because the alternative -- one
+    compiled-in slug standing in -- relays another project's work through
+    this installation's credentials, which no later reader can detect.
+    """
+
+    code = "unnamed_project"
+
+
 class MissingCapability(ProjectGithubAuthError):
     code = "missing_capability"
 

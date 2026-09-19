@@ -39,6 +39,7 @@ from yoke_core.domain.path_context import (
 from yoke_core.domain.render_relationship_inventory import (
     render_relationship_map,
 )
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def _latest_target_ids(
@@ -75,7 +76,7 @@ def set_render_relationship(
     target_path: str,
     source_paths: Sequence[str],
     recorded_event_id: str,
-    project_id: str | int = "yoke",
+    project_id: str | int | None = None,
     target_id_by_path: Mapping[str, int] | None = None,
 ) -> Optional[int]:
     """Record ``target_path`` as a render target with ``source_paths`` as seeds.
@@ -168,7 +169,7 @@ def _tracked_file_paths(conn: Any, project_id: str | int) -> List[str]:
 def record_render_relationships(
     conn: Any,
     *,
-    project_id: str | int = "yoke",
+    project_id: str | int | None = None,
     session_id: str = "",
 ) -> int:
     """Write every render relationship row and emit one batch event.
@@ -218,7 +219,7 @@ def record_render_relationships(
         event_type="path_context",
         source_type="backend",
         session_id=session_id,
-        project=project_id,
+        project=resolved_project(project_id),
         context={
             "render_target_count": len(relationships),
             "operation_id": operation_id,
@@ -231,7 +232,7 @@ def record_render_relationships(
 def record_render_relationships_to_canonical_db(
     *,
     db_path: Optional[str] = None,
-    project_id: str | int = "yoke",
+    project_id: str | int | None = None,
     session_id: str = "",
 ) -> int:
     """Register relationships on the active local or relayed control plane.

@@ -61,6 +61,7 @@ from yoke_core.domain.projects_seed_ci_workflow import (
 )
 from yoke_core.engines.doctor_context import resolve_context
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.domain.project_attribution import resolved_project
 
 CHECK_ID = "merge-queue-binding"
 CHECK_NAME = "Merge queue binding"
@@ -185,7 +186,7 @@ def hc_merge_queue_binding(
     conn, args: DoctorArgs, rec: RecordCollector,
 ) -> None:
     """HC-merge-queue-binding (project-scoped, GitHub-dependent)."""
-    project = args.project or "yoke"
+    project = resolved_project(args.project)
     project_id, default_branch = _project_row(conn, project)
     if project_id is None:
         rec.record(

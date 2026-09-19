@@ -16,6 +16,7 @@ import sys
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.item_entry_surface import enforce_item_entry_allowed
+from yoke_core.domain.project_identity import checkout_project_context
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.api.service_client_shared import (
     _get_db_path,
@@ -150,7 +151,7 @@ def cmd_create_item(args: list[str]) -> int:
         title=title,
         workflow=workflow,
         priority=priority,
-        project=project,
+        project=project or checkout_project_context(),
         deployment_flow=deployment_flow,
         flow_project=flow_project,
         status=status,

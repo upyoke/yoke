@@ -19,6 +19,7 @@ from yoke_core.engines.resync_detect_models import (
 )
 from yoke_core.engines.resync_detect_fetch import _project_unavailable
 from yoke_core.domain.workflow_runtime import ENGINE_TERMINAL_STAGE_IDS
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def _drift(item: PairedItem, field: str, local: str, github: str) -> DriftRecord:
@@ -67,7 +68,7 @@ def stage2_compare(
     drifts: List[DriftRecord] = []
 
     for item in paired:
-        proj = item.project or "yoke"
+        proj = resolved_project(item.project)
         if _project_unavailable(heavy_by_project.get(proj)):
             # A partial GraphQL read cannot safely support drift repair. Keep
             # the entire project out of comparison until the read succeeds.

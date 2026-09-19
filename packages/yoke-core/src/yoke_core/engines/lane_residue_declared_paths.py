@@ -21,12 +21,10 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.project_contract.disposable_generated_paths_policy import (
     parsed_disposable_generated_paths,
 )
-from yoke_contracts.project_defaults import (
-    DEFAULT_PROJECT_SLUG,
-    default_project_for_directory,
-)
+from yoke_contracts.project_defaults import default_project_for_directory
 
 from yoke_core.domain import json_helper
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def declared_disposable_roots_for_project(
@@ -35,12 +33,15 @@ def declared_disposable_roots_for_project(
     """*project*'s declared additional disposable path roots."""
     from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
+    named = resolved_project(project)
+    if not named:
+        return frozenset()
     try:
         response = call_dispatcher(
             function_id="projects.capability_settings.get",
             target=TargetRef(kind="global"),
             payload={
-                "project": project or DEFAULT_PROJECT_SLUG,
+                "project": named,
                 "cap_type": "project-policy",
             },
         )

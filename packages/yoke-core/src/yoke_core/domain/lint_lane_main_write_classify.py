@@ -14,6 +14,7 @@ from yoke_core.domain.lint_lane_main_write_messages import (
     ESCAPE_TOKEN,
     SUPPRESSION_TOKEN,
 )
+from yoke_core.domain.lint_lane_main_write_ignored import is_ignored_path
 from yoke_core.domain.lint_lane_main_write_lanes import matching_claim_for_main_target
 from yoke_core.domain.lint_session_cwd_path_authority import (
     is_free_path,
@@ -289,7 +290,12 @@ def collect_main_write_targets(
         if claim is None:
             continue
         root = repo_root_from_worktree_path(claim.worktree_path) or ""
-        if root and is_generated_view_write(target, root):
+        if root and (
+            is_generated_view_write(target, root) or is_ignored_path(target, root)
+        ):
+            # A generated view or an ignored path is not the tracked
+            # source this guard protects, and both are written on main by
+            # documented recipes.
             continue
         display = resolve_for_display(target)
         if display in seen:

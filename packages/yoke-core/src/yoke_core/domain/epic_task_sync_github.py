@@ -48,6 +48,7 @@ from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
 )
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def _is_dry_run() -> bool:
@@ -128,7 +129,7 @@ def _validate_issue_in_repo(
     """
     try:
         repo = resolve_project_github_auth(
-            project or "yoke",
+            resolved_project(project),
             required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
         ).repo
     except ProjectGithubAuthError as exc:
@@ -140,7 +141,7 @@ def _validate_issue_in_repo(
 
     try:
         issue = github_rest.get_issue(
-            project=project or "yoke",
+            project=resolved_project(project),
             number=int(issue_num),
             **_github_budget_kwargs(timeout_seconds, max_attempts),
         )

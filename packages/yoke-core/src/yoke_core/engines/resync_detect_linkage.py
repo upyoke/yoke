@@ -34,6 +34,7 @@ from yoke_core.engines.resync_detect_models import (
     LocalOrphan,
     PairedItem,
 )
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def _project_out_of_scope(per_project_value: Dict) -> bool:
@@ -128,7 +129,7 @@ def stage1_linkage(
 
     for row in backlog_rows:
         item_id_num, gh_ref, item_project, ref_prefix, ref_sequence = row
-        item_project = item_project or "yoke"
+        item_project = resolved_project(item_project)
         item_pk = int(item_id_num)
         # The public display ref renders from prefix+sequence; identity
         # stays the internal ``items.id`` on the typed field.
@@ -181,7 +182,7 @@ def stage1_linkage(
 
     # Epic tasks (rows from the relayed read above; classification here).
     for slug, tnum, ttitle, gh_ref, project in task_rows:
-        project = project or "yoke"
+        project = resolved_project(project)
         task_ref = f"{slug}/task-{tnum:03d}"
         full_path = f"epic_tasks:{slug}/{tnum}"
         orphan = LocalOrphan(
@@ -256,7 +257,7 @@ def stage1_5_heavy_fetch(
     """Stage 1.5: heavy fetch for paired items (backlog + epic_task)."""
     nums_by_project: Dict[str, List[int]] = {}
     for item in paired:
-        proj = item.project or "yoke"
+        proj = resolved_project(item.project)
         nums_by_project.setdefault(proj, []).append(item.gh_num)
 
     if not nums_by_project:
@@ -265,7 +266,7 @@ def stage1_5_heavy_fetch(
     heavy_by_project: Dict[str, Dict[int, Dict]] = {}
 
     for proj, nums in nums_by_project.items():
-        project = proj or "yoke"
+        project = resolved_project(proj)
         light_state = gh_by_project.get(project)
         if _project_out_of_scope(light_state):
             continue

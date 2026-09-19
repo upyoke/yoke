@@ -52,6 +52,7 @@ from yoke_core.domain.yoke_function_dispatch_failure_context import (
     error_event_context,
 )
 from yoke_core.domain.yoke_function_registry import RegistryEntry
+from yoke_core.domain.project_attribution import resolved_project
 
 
 _KIND = "lifecycle"
@@ -204,7 +205,7 @@ def emit_called(
         request_id=request.request_id,
         item_id=_item_id_str(request),
         task_num=request.target.task_num,
-        project=project or "yoke",
+        project=resolved_project(project),
         duration_ms=duration_ms,
         auth_context=auth_context_from_actor(
             request.actor.actor_id,
@@ -242,7 +243,7 @@ def emit_idempotency_replay(
         outcome="completed",
         request_id=request.request_id,
         item_id=_item_id_str(request),
-        project=project or "yoke",
+        project=resolved_project(project),
         auth_context=auth_context_from_actor(
             request.actor.actor_id,
             permission_key=permission_key,
@@ -280,7 +281,7 @@ def emit_downstream_degraded(
         outcome="degraded",
         request_id=request.request_id,
         item_id=_item_id_str(request),
-        project=project or "yoke",
+        project=resolved_project(project),
         auth_context=auth_context_from_actor(
             request.actor.actor_id,
             permission_key=permission_key,
@@ -318,7 +319,7 @@ def emit_permission_denied(
         request_id=request.request_id,
         item_id=_item_id_str(request),
         task_num=request.target.task_num,
-        project=project or "yoke",
+        project=resolved_project(project),
         auth_context=auth_context_from_actor(
             request.actor.actor_id,
             permission_key=permission_key,

@@ -6,6 +6,7 @@ import logging
 from typing import Dict, List, Optional
 
 from .dependency_planning_results import BlockerDetail
+from yoke_core.domain.project_attribution import resolved_project
 
 _logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ def emit_batch_gate_evaluated(
             event_type="dependency_gate",
             source_type="backend",
             session_id=session_id or "",
-            project=project or "yoke",
+            project=resolved_project(project),
             context={
                 "gate_point": gate_point,
                 "total_rows_evaluated": total_rows,

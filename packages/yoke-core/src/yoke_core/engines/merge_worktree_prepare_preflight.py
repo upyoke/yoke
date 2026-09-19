@@ -12,6 +12,7 @@ from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.classify_dirty_files import is_yoke_managed_pattern
 from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+from yoke_core.domain.project_attribution import resolved_project
 
 if TYPE_CHECKING:  # the cycle-free half of the prepare<->preflight pair
     from yoke_core.engines.merge_worktree_prepare import MergeContext
@@ -260,7 +261,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
             migration_merge_applicable,
         )
 
-        project = ctx.project or "yoke"
+        project = resolved_project(ctx.project)
         try:
             items_resp = call_dispatcher(
                 function_id="items.list.run",

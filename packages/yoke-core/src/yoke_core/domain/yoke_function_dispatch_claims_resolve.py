@@ -17,6 +17,7 @@ from yoke_core.domain.work_claim_targets import (
     make_item_target,
     make_process_target,
 )
+from yoke_core.domain.project_attribution import required_project
 
 
 def _placeholder(conn: Any) -> str:
@@ -71,7 +72,10 @@ def session_claim_id_for_target(
             if process_key:
                 claim_target = make_process_target(
                     str(process_key).strip().upper(),
-                    (project or "yoke").strip() or "yoke",
+                    required_project(
+                        project,
+                        operation="resolving a process claim",
+                    ),
                 )
             elif target.kind == "item" and target.item_id is not None:
                 claim_target = make_item_target(int(target.item_id))

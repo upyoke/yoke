@@ -97,7 +97,7 @@ def emit_post_decision_telemetry(
     reason: str,
     actual_lane: str,
     context: Optional[Dict[str, Any]] = None,
-    project: str = "yoke",
+    project: str = "",
 ) -> None:
     """Emit shared post-decision telemetry for both CLI and HTTP adapters."""
     ctx = context or {}

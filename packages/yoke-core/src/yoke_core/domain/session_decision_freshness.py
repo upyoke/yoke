@@ -20,6 +20,7 @@ from .session_workflow_routing import (
     live_next_step as compute_live_next_step,
     read_item_project_and_workflow,
 )
+from yoke_core.domain.project_attribution import resolved_project
 _logger = logging.getLogger(__name__)
 
 # Every routable next_step is serviceable in principle; supported_paths and
@@ -259,7 +260,7 @@ def evaluate_freshness(
                 outcome=FreshnessOutcome.UNCHANGED, current_status=current_status)
 
         project, workflow = read_item_project_and_workflow(conn, item_id)
-        project = project or "yoke"
+        project = resolved_project(project)
         if workflow is None:
             return _unavailable(
                 session_id=session_id,

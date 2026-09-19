@@ -64,7 +64,7 @@ def insert_item(
     created_at: Optional[str] = None,
     updated_at: Optional[str] = None,
     source: str = DEFAULT_ITEM_ACTOR_ID,
-    project: Optional[str] = "yoke",
+    project: Optional[str] = None,
     project_sequence: Optional[int] = None,
     deployment_flow: Optional[str] = None,
     db_path: Optional[str] = None,
@@ -74,6 +74,11 @@ def insert_item(
     Uses parameterised INSERT to safely handle multi-line content. The ``body``
     parameter is accepted by the API but ignored because ``items.body`` is a
     rendered projection of structured fields.
+
+    ``project`` names the project the item belongs to. Unnamed, it is
+    resolved from the checkout this call is standing in, and refuses when
+    that answers nothing -- never this installation's own project, which
+    would file the work on a backlog nobody chose.
 
     Raises the active database driver's error on failure.
     """
@@ -90,7 +95,7 @@ def insert_item(
     conn = connect(db_path)
     try:
         require_flow_for_item_binding(conn, deployment_flow, project)
-        project_identity = resolve_project(conn, project)
+        project_identity = resolve_project(conn, project or None)
         assert project_identity is not None
         from yoke_core.domain.workflow_registry import (
             resolve_current_workflow_pin,

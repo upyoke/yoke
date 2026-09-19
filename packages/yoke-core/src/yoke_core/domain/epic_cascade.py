@@ -70,21 +70,27 @@ def _resolve_session_id() -> str:
 
 
 def _cascade_project(conn, epic_id: str) -> str:
+    """The epic's project, or the empty string when the row names none.
+
+    Same rule as the session id above: a cascade that cannot name its
+    project records nothing rather than this installation's own slug,
+    which would attribute another project's cascade to it.
+    """
     try:
         numeric_epic_id = int(epic_id)
     except (TypeError, ValueError):
-        return "yoke"
+        return ""
 
     row = query_one(
         conn,
-        "SELECT COALESCE(p.slug, 'yoke') AS project "
+        "SELECT p.slug AS project "
         "FROM items i LEFT JOIN projects p ON p.id = i.project_id "
         f"WHERE i.id = {_placeholder(conn)} LIMIT 1",
         (numeric_epic_id,),
     )
     if row is None:
-        return "yoke"
-    return row["project"] or "yoke"
+        return ""
+    return row["project"] or ""
 
 
 def _emit_task_status_changed(

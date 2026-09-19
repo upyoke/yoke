@@ -9,9 +9,16 @@ from yoke_core.domain.deployment_flow_validator import (
     normalize_deployment_flow_value,
     validate_and_lookup_flow_project,
 )
-from yoke_core.domain.project_identity import DEFAULT_PROJECT_SLUG
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
+)
+
+#: What an update naming an empty project is told. It used to move the
+#: item to whichever project the installation owns, which is a write the
+#: caller did not ask for and could not see afterwards.
+EMPTY_PROJECT_REFUSAL = (
+    "this update names no project; name the project the item belongs to, "
+    "or omit the field to leave it where it is"
 )
 
 
@@ -19,10 +26,10 @@ def prospective_project_for_update(
     updates: dict[str, Any],
     item: dict[str, Any],
 ) -> str:
-    """Mirror the write adapter's explicit-empty-to-default normalization."""
+    """The project this update would leave the item in, or ``""``."""
     if "project" in updates:
-        return str(updates["project"] or DEFAULT_PROJECT_SLUG)
-    return str(item.get("project") or DEFAULT_PROJECT_SLUG)
+        return str(updates["project"] or "")
+    return str(item.get("project") or "")
 
 
 def lock_and_validate_delivery_binding(
@@ -34,6 +41,8 @@ def lock_and_validate_delivery_binding(
     read_item: Callable[[Any, int], Any],
 ) -> tuple[Any, str | None, str | None]:
     """Lock and validate the prospective item project/flow pair."""
+    if "project" in updates and not str(updates["project"] or "").strip():
+        return initial_row, None, EMPTY_PROJECT_REFUSAL
     if "deployment_flow" in updates:
         updates["deployment_flow"] = normalize_deployment_flow_value(
             updates["deployment_flow"]
@@ -88,6 +97,7 @@ def lock_and_validate_delivery_binding(
 
 
 __all__ = [
+    "EMPTY_PROJECT_REFUSAL",
     "lock_and_validate_delivery_binding",
     "prospective_project_for_update",
 ]

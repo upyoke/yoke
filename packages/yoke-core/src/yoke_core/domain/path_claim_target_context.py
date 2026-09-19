@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
+from yoke_core.domain.project_attribution import resolved_project
 
 
 @dataclass(frozen=True)
@@ -23,7 +24,7 @@ class ClaimContext:
     worktree_path: Optional[str]
     covered_target_kinds: Tuple[Tuple[str, str], ...] = ()
     project_repo_path: Optional[str] = None
-    project: str = "yoke"
+    project: str = ""
     public_ref: Optional[str] = None
     task_lanes: bool = False
     chain_worktrees: Tuple[Tuple[str, str], ...] = ()
@@ -49,7 +50,7 @@ class ClaimContext:
             covered_target_kinds=target_kinds,
             worktree_path=claim.get("worktree_path"),
             project_repo_path=claim.get("project_repo_path"),
-            project=str(claim.get("project") or "yoke"),
+            project=resolved_project(claim.get("project")),
             public_ref=(str(claim["public_ref"]).strip() or None)
             if claim.get("public_ref") is not None
             else None,

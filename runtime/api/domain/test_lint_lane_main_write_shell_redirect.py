@@ -1,9 +1,12 @@
-"""Regression: shell-heredoc redirects to main are lane-main-write denials.
+"""Which shell redirects to main are lane-main-write denials.
 
 A ``cat > <relative path> <<PY`` write whose body contains an apostrophe
 used to pass PreToolUse while the equivalent python-heredoc write was
 caught: ``shlex.split`` of the unsanitized command failed, so the
 classifier never treated the redirect as a write.
+
+The opposite miss is here too: a descriptor redirect writes no file, and
+one resolved as a path denied a read-only inspection outright.
 """
 
 from __future__ import annotations
@@ -159,3 +162,48 @@ class TestShellHeredocRedirectToMain:
         assert verdict.allow is True
         assert verdict.escape_used is True
         emit.assert_called_once()
+
+
+#: Descriptor moves, not files. The substitution form is the reported
+#: one: its operand arrives as ``&1)``, which resolved to a phantom
+#: ``<checkout>/&1)`` write target and denied a read.
+FD_REDIRECT_READS = (
+    "out=$(git -C {repo} status --porcelain 2>&1)",
+    "git -C {repo} log -1 --format=%H 2>&1",
+    "git -C {repo} log -1 --format=%H >&2",
+    "git -C {repo} log -1 --format=%H 2>&-",
+)
+
+
+@pytest.mark.parametrize("template", FD_REDIRECT_READS)
+def test_a_descriptor_redirect_is_not_a_write(template: str) -> None:
+    command = template.format(repo="/Users/someone/checkout")
+
+    assert not is_write_operation("Bash", {"tool_input": {"command": command}})
+
+
+@pytest.mark.parametrize("template", FD_REDIRECT_READS)
+def test_a_read_with_a_descriptor_redirect_is_allowed_on_main(
+    conn, repo, template: str
+) -> None:
+    _seed_lane(conn, repo)
+
+    verdict = lint_lane_main_write.evaluate_pre_tool_use(
+        _bash(template.format(repo=repo), cwd=str(repo))
+    )
+
+    assert verdict.allow is True
+
+
+def test_a_real_file_redirect_beside_one_is_still_a_write(conn, repo) -> None:
+    """Only the descriptor operand is exempt, not the command around it."""
+    worktree = _seed_lane(conn, repo)
+    command = f"git -C {repo} log -1 > {repo / _CAT_HEREDOC_RELATIVE} 2>&1"
+
+    with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(
+            _bash(command, cwd=str(repo))
+        )
+
+    assert verdict.allow is False
+    assert str(worktree / _CAT_HEREDOC_RELATIVE) in verdict.reason

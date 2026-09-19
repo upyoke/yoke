@@ -124,6 +124,31 @@ def _remote_resource_indexes(command_base: str, tokens: List[str]) -> set[int]:
 
 _SED_SCRIPT_FLAGS = ("-e", "-f", "--expression", "--file")
 REDIRECT_OPERATORS = frozenset({">", ">>", "1>", "1>>", "2>", "2>>", "&>", "&>>"})
+#: The operand of a descriptor duplication or close -- ``2>&1``, ``>&2``,
+#: ``2>&-``. Trailing shell punctuation is part of the match because a
+#: redirect ending a substitution arrives glued to it (``$(... 2>&1)``).
+_FD_DUP_OPERAND_RE = re.compile(r"^&(?:\d+|-)[);&]*$")
+
+
+def is_fd_duplication_target(token: str) -> bool:
+    """True when *token* duplicates or closes a descriptor, not a file.
+
+    ``2>&1``, ``>&2`` and ``2>&-`` move a descriptor and write nothing,
+    whether the operand arrives glued to the operator or separated from
+    it. Either way it must never be resolved as a path: one that was
+    became a phantom write target under the checkout root, denying a
+    read-only inspection whose only redirect was ``2>&1``.
+    """
+    return bool(_FD_DUP_OPERAND_RE.match(token))
+
+
+def is_file_redirect_operand(token: str) -> bool:
+    """True when a redirect operand names a file the shell would write."""
+    from yoke_core.domain.lint_session_cwd_path_authority import (
+        is_dev_family_path,
+    )
+
+    return not is_dev_family_path(token) and not is_fd_duplication_target(token)
 
 
 def _segment_command_base(tokens: List[str]) -> str:

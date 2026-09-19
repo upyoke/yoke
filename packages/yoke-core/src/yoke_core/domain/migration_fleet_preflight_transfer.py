@@ -78,16 +78,23 @@ def run_transfer(
     raise RuntimeError(f"{Path(argv[0]).name} failed ({result.returncode}): {stderr}")
 
 
-def restore_source_path() -> None:
-    """Re-establish the managed forward before another copy attempt.
+def restore_source_path(environment: str) -> None:
+    """Re-establish *environment*'s managed forward before another attempt.
 
     A dropped forward is what most transient copy failures are, and the next
     attempt would reach the same dead local port unless it comes back first.
-    A noop when this machine reaches the source directly.
-    """
-    from yoke_core.domain import connected_env_readiness
 
-    connected_env_readiness.ensure_ready(force=True)
+    The environment is named rather than inherited because a fleet rehearsal
+    copies through a connection it selected explicitly (``prod-db-admin``),
+    not through the session's ambient control plane. Healing the ambient one
+    reports "nothing to do" while the forward the copies actually use stays
+    dead -- which is how three copy attempts in a row met the same refused
+    local port. Re-activating the named connection is also a noop when this
+    machine reaches that environment directly.
+    """
+    from yoke_core.domain import connected_env_selected_readiness
+
+    connected_env_selected_readiness.activate_selected_postgres(environment)
 
 
 def dump_database(
@@ -95,6 +102,7 @@ def dump_database(
     source_dsn: str,
     dump: Path,
     *,
+    source_environment: str,
     emit: Optional[Callable[[str], None]] = None,
 ) -> None:
     argv = [
@@ -128,7 +136,7 @@ def dump_database(
                     f"connection ({exc}); restoring it and copying again"
                 )
             try:
-                restore_source_path()
+                restore_source_path(source_environment)
             except Exception as heal_exc:  # noqa: BLE001 -- name both failures
                 raise RuntimeError(
                     f"{exc}; and the path to the source could not be restored "

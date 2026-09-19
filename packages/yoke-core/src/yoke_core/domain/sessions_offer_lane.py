@@ -35,6 +35,7 @@ from yoke_harness.hooks.identity import is_codex
 
 from . import sessions_analytics as _sa
 from .sessions_lifecycle_canonicalize import canonicalize_executor
+from yoke_core.domain.project_attribution import resolved_project
 
 LANE_OVERRIDE_APPLIED_EVENT_NAME = "SessionOfferLaneOverrideApplied"
 
@@ -189,7 +190,7 @@ def emit_lane_override_applied_event(
         event_type="session_offer_lane_override_applied",
         source_type="backend",
         session_id=session_id,
-        project=project or "yoke",
+        project=resolved_project(project),
         context=dict(payload),
         outcome="completed",
         severity="INFO",

@@ -39,6 +39,7 @@ from yoke_core.domain.validate_epic_context import (
     _result,
     _terminal_success_placeholders,
 )
+from yoke_core.domain.project_attribution import UnattributedProjectError, required_project
 
 
 def _run(
@@ -178,18 +179,25 @@ def run_validation(repo_root: Path, epic_ref: str, *, out: TextIO, err: TextIO) 
         check3_skipped = False
         rest_token: Optional[str] = None
         project = conn.execute(
-            "SELECT COALESCE(p.slug, 'yoke') FROM items i "
+            "SELECT p.slug FROM items i "
             "LEFT JOIN projects p ON p.id = i.project_id "
             f"WHERE i.id={_p(conn)} LIMIT 1",
             (canonical_epic_id,),
         ).fetchone()
-        project_id = str(project[0] or "yoke") if project else "yoke"
+        project_id = str(project[0] or "") if project else ""
         try:
             auth = resolve_project_github_auth(
-                project_id,
+                required_project(
+                    project_id,
+                    operation="reading this epic's GitHub issues",
+                ),
                 conn=conn,
                 required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
             )
+        except UnattributedProjectError as exc:
+            _result(out, "🚨", f"GitHub checks: skipped ({exc})")
+            warnings += 1
+            check3_skipped = True
         except ProjectGithubAuthError as exc:
             _result(out, "🚨", f"GitHub checks: skipped ({exc.code})")
             warnings += 1

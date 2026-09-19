@@ -70,6 +70,9 @@ def db_path(tmp_path: Path):
 def _insert_event(db_path: str, **overrides) -> None:
     """Insert a test event with sensible defaults."""
     defaults = dict(
+        # Seeded under a named project because the listings under test
+        # filter by one; the emitter no longer supplies a default.
+        project="yoke",
         event_id="evt-001",
         source_type="agent",
         session_id="sess-001",

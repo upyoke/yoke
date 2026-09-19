@@ -53,7 +53,7 @@ _DELEGATED_SYNC_HCS = [
 ]
 
 
-def _github_auth_configured(project: str = "yoke", db_path=None) -> bool:
+def _github_auth_configured(project: str = "", db_path=None) -> bool:
     """Return True when the project GitHub App auth resolves successfully.
 
     GitHub doctor HCs SKIP via

@@ -152,7 +152,7 @@ def run(argv: List[str]) -> int:
     except RuntimeError as exc:
         return fail(f"{public_ref}: {exc}")
     _ensure_usable_cwd(repo_root, lane_path(item))
-    project = str((item.get("project") or {}).get("slug") or "yoke")
+    project = str((item.get("project") or {}).get("slug") or "")
     recorded_head = str((merge_source_lane(item) or {}).get("commit_sha") or "")
     stale = stale_lane.stale_unlanded_work(
         item_id=item_id,

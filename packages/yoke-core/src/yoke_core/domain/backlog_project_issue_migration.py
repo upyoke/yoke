@@ -9,7 +9,8 @@ from __future__ import annotations
 from typing import Any, Optional, TextIO
 
 from yoke_core.domain import backlog_rendering as _rendering
-from yoke_core.domain.project_identity import DEFAULT_PROJECT_SLUG, render_item_ref
+from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def _maybe_migrate_project_issue(
@@ -23,7 +24,9 @@ def _maybe_migrate_project_issue(
     if not github_issue or github_issue == "null":
         return True, None
 
-    old_project = item_dict.get("project") or DEFAULT_PROJECT_SLUG
+    old_project = resolved_project(item_dict.get("project"))
+    if not old_project:
+        return True, None
     old_repo = _rendering._resolve_project_github_repo(conn, old_project)
     new_repo = _rendering._resolve_project_github_repo(conn, target_project)
 

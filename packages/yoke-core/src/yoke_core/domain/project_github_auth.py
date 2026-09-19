@@ -40,6 +40,7 @@ from yoke_core.domain.project_github_auth_models import (
     TokenMintFailed,
     TokenMinter,
     TransportFailure,
+    UnnamedProject,
     UserAuthorizationTransient,
     UserAuthorizationUnavailable,
 )
@@ -93,6 +94,12 @@ def resolve_project_github_auth(
     that read is the route back, and a missing service private key is expected
     there.
     """
+    if not str(project or "").strip():
+        raise UnnamedProject(
+            "",
+            "no project was named for this GitHub operation, so there is no "
+            "repository binding to resolve. Pass the project explicitly.",
+        )
     state = read_github_state(project, db_path, conn=conn)
     if not state.has_capability:
         raise MissingCapability(
@@ -303,6 +310,7 @@ __all__ = [
     "ProjectGithubAuthError",
     "TokenMintFailed",
     "TransportFailure",
+    "UnnamedProject",
     "UserAuthorizationTransient",
     "UserAuthorizationUnavailable",
     "bind_local_github_user_token_provider",

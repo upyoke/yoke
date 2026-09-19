@@ -84,7 +84,7 @@ def handle_charge_invariant(
     new_claim: Optional[Dict[str, Any]],
     ownership: Optional[Dict[str, Any]],
     surface: str,
-    project: str = "yoke",
+    project: str = "",
 ) -> Tuple[bool, Optional[str]]:
     """Validate the charge claim invariant; on failure release + emit.
 

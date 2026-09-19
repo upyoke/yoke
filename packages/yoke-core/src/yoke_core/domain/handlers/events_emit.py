@@ -20,7 +20,7 @@ class EventsEmitRequest(BaseModel):
     source_type: str
     severity: str = "INFO"
     outcome: Optional[str] = "completed"
-    project: str = "yoke"
+    project: str = ""
     item_id: Optional[str] = None
     task_num: Optional[int] = None
     org_id: Optional[str] = None

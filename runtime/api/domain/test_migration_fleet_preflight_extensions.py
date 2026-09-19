@@ -260,6 +260,7 @@ def _rehearse_tenant(tmp_path: Path, source_dsn: str):
         plan=UNREACHED_PLAN,
         spec=ClusterSpec(root=tmp_path / "cluster", superuser="rehearsal"),
         work_dir=tmp_path / "work",
+        source_environment="prod-db-admin",
     )
 
 

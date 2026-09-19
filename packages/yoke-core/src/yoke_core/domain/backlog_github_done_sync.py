@@ -46,6 +46,7 @@ from yoke_core.domain.project_github_auth import resolve_project_github_auth
 from yoke_core.domain import project_label_policy
 from yoke_core.domain.project_identity_item_ref import item_subject_ref
 from yoke_core.domain import backlog_github_compact_pending_flag as _compact_flag
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def _issue_snapshot(issue_num: int, repo: str, project: str) -> tuple[list[str], str]:
@@ -149,7 +150,7 @@ def sync_done_item(
             return 0
         issue_num = int(issue_num_str)
 
-        gh_project = project or "yoke"
+        gh_project = resolved_project(project)
         if _bgs()._github_sync_skip(gh_project, "sync-done-item", conn=conn, out=stdout):
             return 0
         try:

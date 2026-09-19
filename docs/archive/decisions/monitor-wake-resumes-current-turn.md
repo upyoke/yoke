@@ -21,6 +21,14 @@ completed tool is `Monitor`, and does not spend the reinjection cap on
 that hold. A parked session is the escape: park first, then Stop is
 allowed. Teaching no longer says that waiting *is* ending the turn.
 
+The park is read **before every hold**, not only before the Monitor one.
+Reading it only there left the escape half-built: a parked session
+cleared the Monitor branch and was then held by the ordinary
+promised-work reinjection instead, which is the loop a steering wait
+actually hit — blocked Stop, re-arm, blocked Stop, with nothing the
+reinjected directive could accomplish. A session that has declared it is
+quiet on purpose is allowed out, and spends no hold doing it.
+
 ## Specimens
 
 Session `02fbeca8-41bb-4eea-8bab-ebf5cadabe71` (`claude-cli` 2.1.251,

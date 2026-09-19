@@ -295,6 +295,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 plan=plan,
                 spec=spec,
                 work_dir=Path(work),
+                source_environment=admin_env,
                 emit=print,
             )
 

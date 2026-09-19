@@ -13,6 +13,7 @@ from .mutation_fields import (
     validate_title,
 )
 from .workflow_runtime import WorkflowRuntime
+from yoke_core.domain.project_attribution import resolved_project
 
 
 def prepare_create(
@@ -36,7 +37,9 @@ def prepare_create(
         title: Item title; length validated against the project's policy.
         workflow: Immutable workflow version selected for the new item.
         priority: 'high', 'medium', or 'low'.
-        project: Project ID. Defaults to adapter-resolved default.
+        project: Project the work belongs to. Required: a create that
+            names none would be filed under whichever project this
+            installation happens to own.
         deployment_flow: Optional deployment flow ID.
         flow_project: Project the deployment flow belongs to (for
             cross-project validation).
@@ -70,6 +73,16 @@ def prepare_create(
                 ),
                 error_code="VALIDATION_ERROR",
             )
+
+    # Attribution last: a request whose own shape is wrong hears about
+    # that first, and every shape error above is about this create rather
+    # than about which backlog it lands on.
+    if not resolved_project(project):
+        return CreateResult(
+            success=False,
+            error="name the project this work belongs to",
+            error_code="PROJECT_REQUIRED",
+        )
 
     effective_status = status or workflow.stage_ids[0]
     if not workflow.accepts_stage(effective_status):
