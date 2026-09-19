@@ -42,6 +42,20 @@ def _cell(row: Any, key: str, index: int) -> Any:
     return row[key] if hasattr(row, "keys") else row[index]
 
 
+def bound_sources_recorded(conn: Any) -> bool:
+    """Whether this database can yet hold a run's bound source record.
+
+    The column is additive and arrives on the boot converge of a build that
+    carries it — and that build is deployed by a run this very code drives,
+    against the database as it stands *before* that converge. So every read
+    and write of the column asks this first: a slice that refuses to run
+    until its own column exists can never ship the converge that creates it.
+    """
+    from yoke_core.domain.schema_common import _column_exists
+
+    return _column_exists(conn, "deployment_runs", BOUND_SOURCES_FIELD)
+
+
 def declared_bindings(stages: Iterable[Mapping[str, Any]]) -> dict[str, dict[str, str]]:
     """Every ``input_bindings`` entry a flow's stages declare, by input name.
 
@@ -175,9 +189,7 @@ def copy_bound_sources(conn: Any, source_run_id: str, run_id: str) -> None:
     retry resolve its own would quietly turn a retry into a different
     release the moment a bound branch had moved.
     """
-    from yoke_core.domain.schema_common import _column_exists
-
-    if not _column_exists(conn, "deployment_runs", BOUND_SOURCES_FIELD):
+    if not bound_sources_recorded(conn):
         return
     marker = _p(conn)
     conn.execute(
@@ -189,17 +201,28 @@ def copy_bound_sources(conn: Any, source_run_id: str, run_id: str) -> None:
 
 
 def record_bound_sources(conn: Any, run_id: str) -> dict[str, Any]:
-    """Resolve and store this run's bound source commits, once and forever.
+    """Resolve this run's bound source commits, and store them where it can.
 
     Forward-only in the caller's transaction, exactly like the run's own
     lineage: a second start, a retry, or a later reader gets the commit the
     first resolution chose rather than wherever the branch has moved since.
+
+    On a database that has not converged the column, the resolution still
+    happens and the answer is still returned — it simply is not persisted.
+    That window is exactly the release that carries the converge, and its
+    own bound stage still has to dispatch a real commit; returning the
+    payload rather than refusing is what lets the slice ship the schema it
+    then starts recording into.
     """
     from yoke_core.domain.project_identity import resolve_project_id
 
+    recorded = bound_sources_recorded(conn)
     marker = _p(conn)
+    stored_column = (
+        f"COALESCE(dr.{BOUND_SOURCES_FIELD},'')" if recorded else "''"
+    )
     row = conn.execute(
-        f"SELECT COALESCE(dr.{BOUND_SOURCES_FIELD},'') AS {BOUND_SOURCES_FIELD},"
+        f"SELECT {stored_column} AS {BOUND_SOURCES_FIELD},"
         f"df.stages FROM deployment_runs dr "
         f"JOIN deployment_flows df ON df.id=dr.flow WHERE dr.id={marker}",
         (run_id,),
@@ -235,10 +258,12 @@ def record_bound_sources(conn: Any, run_id: str) -> dict[str, Any]:
         "projects": [projects[name] for name in sorted(projects)],
         "inputs": inputs,
     }
-    conn.execute(
-        f"UPDATE deployment_runs SET {BOUND_SOURCES_FIELD}={marker} WHERE id={marker}",
-        (dumps_compact(payload), run_id),
-    )
+    if recorded:
+        conn.execute(
+            f"UPDATE deployment_runs SET {BOUND_SOURCES_FIELD}={marker} "
+            f"WHERE id={marker}",
+            (dumps_compact(payload), run_id),
+        )
     return payload
 
 
@@ -247,6 +272,7 @@ __all__ = [
     "BOUND_SOURCES_SCHEMA",
     "bound_input_values",
     "bound_project_shas",
+    "bound_sources_recorded",
     "copy_bound_sources",
     "declared_bindings",
     "parse_bound_sources",

@@ -18,7 +18,9 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_core.domain.deployment_run_bound_sources import (
+    BOUND_SOURCES_FIELD,
     bound_project_shas,
+    bound_sources_recorded,
     parse_bound_sources,
 )
 from yoke_core.domain.deployment_run_project_carried_work import (
@@ -50,9 +52,17 @@ def _cell(row: Any, key: str, index: int) -> Any:
     return row[key] if hasattr(row, "keys") else row[index]
 
 
+def _bound_sources_column(conn: Any) -> str:
+    """Name the stored record, or a constant empty one before converge."""
+    if bound_sources_recorded(conn):
+        return BOUND_SOURCES_FIELD
+    return f"'' AS {BOUND_SOURCES_FIELD}"
+
+
 def _previous_run(conn: Any, run_id: str, project_id: int, environment_id: Any):
     return conn.execute(
-        "SELECT id,project_id,release_lineage,bound_sources,completed_at "
+        f"SELECT id,project_id,release_lineage,{_bound_sources_column(conn)},"
+        "completed_at "
         "FROM deployment_runs "
         "WHERE project_id=%s AND status='succeeded' AND id<>%s "
         "AND target_environment_id IS NOT DISTINCT FROM %s "
@@ -69,8 +79,8 @@ def derive_carried_work(
 ) -> dict[str, Any]:
     """Derive every project's carried set for one run, own project first."""
     row = conn.execute(
-        "SELECT project_id,target_environment_id,release_lineage,bound_sources "
-        "FROM deployment_runs WHERE id=%s",
+        "SELECT project_id,target_environment_id,release_lineage,"
+        f"{_bound_sources_column(conn)} FROM deployment_runs WHERE id=%s",
         (run_id,),
     ).fetchone()
     if row is None:
@@ -87,7 +97,9 @@ def derive_carried_work(
         previous=previous,
         repo_root=repo_root,
     )
-    bound = bound_project_shas(parse_bound_sources(_cell(row, "bound_sources", 3)))
+    bound = bound_project_shas(
+        parse_bound_sources(_cell(row, BOUND_SOURCES_FIELD, 3))
+    )
     payload["bound_projects"] = [
         dict(
             derive_project_carried_work(
