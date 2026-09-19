@@ -91,6 +91,20 @@ def _map_error_code(legacy_code: Optional[str]) -> str:
     return "invalid_payload"
 
 
+def gate_failure_message(result: dict, fallback: str) -> str:
+    """The refusal AND what to do about it, which are two different facts.
+
+    A gate that diagnosed a failure puts the diagnosis in ``error`` and the
+    step that clears it in ``remediation_hint``. Relaying only the first
+    hands back a name — a rate limit, a revoked permission and a 502 all
+    arrive as one provider code — and leaves the reader no way to tell
+    whether retrying is even the right move. So both travel.
+    """
+    message = str(result.get("error") or fallback)
+    hint = str(result.get("remediation_hint") or "").strip()
+    return f"{message} {hint}" if hint else message
+
+
 def _error_outcome(code: str, message: str) -> HandlerOutcome:
     return HandlerOutcome(
         result_payload={},
@@ -188,7 +202,7 @@ def handle_scalar_update(request: FunctionCallRequest) -> HandlerOutcome:
         legacy_code = result.get("error_code")
         return _error_outcome(
             _map_error_code(legacy_code),
-            str(result.get("error") or "scalar update failed"),
+            gate_failure_message(result, "scalar update failed"),
         )
 
     response = ScalarUpdateResponse(

@@ -243,3 +243,27 @@ def test_a_lane_that_never_fetched_the_candidate_attests_nothing(
     )
 
     assert lane_containment(str(repo), candidate=CANDIDATE, commit_sha=MERGE) is None
+
+
+def test_a_gate_refusal_carries_what_to_do_about_it():
+    """A diagnosed refusal is two facts, and only relaying one strands a reader.
+
+    The containment refusal names a provider code. A rate limit, a revoked
+    permission and a 502 all arrive under that one code and need three
+    different actions, so the step that clears it has to travel with it.
+    """
+    from yoke_core.domain.handlers.items_scalar import gate_failure_message
+
+    refused = {
+        "success": False,
+        "error_code": "GATE_DASH_DEPLOYMENT_CONTAINMENT_UNDETERMINED",
+        "error": "Whether the deployed candidate contains the current work "
+        "could not be determined (repository_head_unpublished).",
+        "remediation_hint": "Publish or land the lane, then retry.",
+    }
+
+    message = gate_failure_message(refused, "lifecycle transition failed")
+
+    assert "repository_head_unpublished" in message
+    assert "Publish or land the lane" in message
+    assert gate_failure_message({}, "fallback") == "fallback"

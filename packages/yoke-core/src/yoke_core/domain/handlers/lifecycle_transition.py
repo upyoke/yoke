@@ -33,7 +33,10 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence
 from pydantic import BaseModel, Field
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.handlers.items_scalar import _map_error_code
+from yoke_core.domain.handlers.items_scalar import (
+    _map_error_code,
+    gate_failure_message,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -249,7 +252,7 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
             )
         return _error_outcome(
             _map_error_code(legacy_code),
-            str(result.get("error") or "lifecycle transition failed"),
+            gate_failure_message(result, "lifecycle transition failed"),
         )
 
     response = LifecycleTransitionResponse(
