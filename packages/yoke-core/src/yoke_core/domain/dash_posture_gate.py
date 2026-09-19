@@ -23,6 +23,10 @@ from yoke_core.domain.dash_posture_read import (
     item_row as _item,
     posture as _posture,
 )
+from yoke_core.domain.dash_lane_head_staleness import (
+    active_lane_head as _active_lane_head,
+    head_is_stale_bookkeeping,
+)
 from yoke_core.domain.dash_posture_verification_gate import verification_gate
 from yoke_core.domain.relayed_containment_attestation import (
     take_relayed_verdict,
@@ -64,6 +68,10 @@ def approval_policy_for_transition(
         posture=_posture(item),
         target_status=target_status,
     )
+
+
+#: The one gate code whose two readings the stale-head decision separates.
+_CONTAINMENT_UNDETERMINED_GATE = "GATE_DASH_DEPLOYMENT_CONTAINMENT_UNDETERMINED"
 
 
 def _evidence(conn: Any, item_id: int) -> Optional[dict[str, Any]]:
@@ -113,28 +121,6 @@ def _approval_gate(
         "Approval-on-done is waiting for a project owner decision.",
         "Resolve the lifecycle decision request through the Inbox.",
     )
-
-
-def _active_lane_head(conn: Any, item_id: int) -> str:
-    if not (
-        _table_exists(conn, "item_worktrees")
-        and _column_exists(conn, "item_worktrees", "commit_sha")
-    ):
-        return ""
-    from yoke_core.domain import db_backend
-
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        "SELECT commit_sha FROM item_worktrees "
-        f"WHERE item_id = {marker} AND state = 'active' "
-        "AND commit_sha IS NOT NULL "
-        "ORDER BY id DESC LIMIT 1",
-        (int(item_id),),
-    ).fetchone()
-    if row is None:
-        return ""
-    value = row["commit_sha"] if hasattr(row, "keys") else row[0]
-    return str(value or "").strip()
 
 
 def _lineage_covers(
@@ -194,6 +180,10 @@ def _stale_completion_run_gate(
     contains the recorded merge. This narrower check runs even when that
     posture is off: a first-landing run must not close the item while a
     newer same-item head is unmerged or undeployed.
+
+    The head is a pointer, not an identity, so an unplaceable one is only a
+    refusal while the item's own merge is also unaccounted for
+    (:mod:`dash_lane_head_staleness`).
     """
     head = _active_lane_head(conn, item_id)
     if not head:
@@ -201,14 +191,29 @@ def _stale_completion_run_gate(
     row = latest_completion_run(conn, int(item_id))
     if row is None or str(row["status"]) != "succeeded":
         return None
-    return _lineage_covers(
+    lineage = str(row.get("release_lineage") or "")
+    blocked = _lineage_covers(
         conn,
         int(row["project_id"]),
-        lineage=str(row.get("release_lineage") or ""),
+        lineage=lineage,
         commit_sha=head,
         item_id=int(item_id),
         run_id=str(row["id"]),
     )
+    if blocked is None or blocked["error_code"] != _CONTAINMENT_UNDETERMINED_GATE:
+        return blocked
+    # No source could place this head. Either it is unshipped work, or a
+    # rebase orphaned the pointer while the commit that actually landed
+    # shipped — and the item's own merge being contained settles which.
+    if head_is_stale_bookkeeping(
+        conn,
+        item_id=int(item_id),
+        project_id=int(row["project_id"]),
+        lineage=lineage,
+        merge_sha=str((_evidence(conn, item_id) or {}).get("merge_sha") or ""),
+    ):
+        return None
+    return blocked
 
 
 def _deployment_gate(

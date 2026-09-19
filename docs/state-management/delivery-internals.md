@@ -194,6 +194,25 @@ commits it names, and records the evidence on the item's delivery record
 (`deployment_run_items.containment_attestation`). This is the trust boundary
 the client-written `item_worktrees.commit_sha` already sits on.
 
+Completion asks one further question: is there a NEWER head on the item's own
+lane that the release does not carry? It asks it of
+`item_worktrees.commit_sha`, which is a pointer the lane keeps current — and
+a rebase rewrites the lane, so the commit that pointer named can stop existing
+anywhere. An unplaceable head is therefore only a refusal while the item's own
+merge is ALSO unaccounted for; an unplaceable head beside a contained merge is
+a pointer a rebase orphaned, and the work it used to name shipped under the
+commit that actually landed. The close-out re-records the pointer at the
+landed commit before the transition that reads it, so it stops going stale in
+the first place.
+
+A close-out whose merge landed and whose evidence is written, but whose
+terminal transition then refused, still retires its lane. Lane release is
+otherwise reachable only from the review stage, so such an item would sit at
+its release wait holding a lane nothing could retire, and every later terminal
+refusal on a delivery-bearing workflow would reproduce that. The landing is
+the authority; each lane still proves itself clean and merged before anything
+is removed, so work that has not shipped is preserved exactly as before.
+
 A comparison the provider answered with 404 is not a failed read: the remote
 does not carry that commit, which is almost always a lane head recorded
 locally and never published. It refuses by its own name and says to publish

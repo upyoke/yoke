@@ -126,11 +126,24 @@ def _cleanup_terminal_item_lanes(
     repo_root: str | Path | None = None,
     target_branch: str = "",
     emit: Optional[Callable[..., Any]] = None,
+    landing_recorded: bool = False,
     prune: Callable[..., tuple[str, ...]] = prune_landed_lane,
     sweep: Callable[..., WorktreeSweep] = prune_managed_worktrees,
 ) -> TerminalLaneCloseOut:
-    """Retire every surviving lane, then sweep lanes earlier landings kept."""
-    if not _terminal_status(item, target_status):
+    """Retire every surviving lane, then sweep lanes earlier landings kept.
+
+    ``landing_recorded`` admits the one case a terminal status cannot cover:
+    a close-out whose merge landed and whose evidence is written, but whose
+    terminal transition refused. Lane release is otherwise reachable only
+    from the review stage, so such an item sits at its release wait holding a
+    lane nothing can retire — and every later terminal refusal on a
+    delivery-bearing workflow reproduces that deadlock.
+
+    It widens nothing about safety. Each lane still has to prove itself clean
+    and merged to :func:`prune_landed_lane` before anything is removed, so a
+    lane still carrying work is preserved here exactly as it always was.
+    """
+    if not _terminal_status(item, target_status) and not landing_recorded:
         return TerminalLaneCloseOut()
     public_ref = str(item.get("public_ref") or item.get("id") or "item")
     project = item.get("project") or {}
@@ -205,6 +218,7 @@ def cleanup_terminal_item_lanes(
     repo_root: str | Path | None = None,
     target_branch: str = "",
     emit: Optional[Callable[..., Any]] = None,
+    landing_recorded: bool = False,
     prune: Callable[..., tuple[str, ...]] = prune_landed_lane,
     sweep: Callable[..., WorktreeSweep] = prune_managed_worktrees,
 ) -> TerminalLaneCloseOut:
@@ -217,6 +231,7 @@ def cleanup_terminal_item_lanes(
             repo_root=repo_root,
             target_branch=target_branch,
             emit=emit,
+            landing_recorded=landing_recorded,
             prune=prune,
             sweep=sweep,
         )
@@ -238,6 +253,7 @@ def record_terminal_lane_close_out(
     session_id: str = "",
     repo_root: str | Path | None = None,
     target_branch: str = "",
+    landing_recorded: bool = False,
 ) -> None:
     """Retire the item's lanes and report the outcome on a result envelope.
 
@@ -252,6 +268,7 @@ def record_terminal_lane_close_out(
         session_id=session_id,
         repo_root=repo_root,
         target_branch=target_branch,
+        landing_recorded=landing_recorded,
         emit=lambda message, **_kw: print(message, file=sys.stderr, flush=True),
     )
     envelope.setdefault("warnings", []).extend(close.warnings)
