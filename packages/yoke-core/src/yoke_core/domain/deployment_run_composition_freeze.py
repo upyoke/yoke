@@ -1,4 +1,12 @@
-"""Freeze release candidate membership immediately before run execution."""
+"""Freeze release candidate membership immediately before run execution.
+
+A derived requirement selection is recomputed here rather than replayed. It
+answers "what does this item still owe", and an obligation can be minted
+between the admission that derived it and this freeze -- a window that has
+run to twenty minutes in practice -- so replaying the stored answer silently
+drops one. An explicit operator selection is a list somebody chose and is
+frozen exactly as given.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +22,7 @@ from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
 )
 from yoke_core.domain.deployment_requirement_snapshots import (
+    requirement_selection,
     snapshot_flow_requirements,
     snapshot_member_requirements,
 )
@@ -194,6 +203,7 @@ def _require_schema(conn: Any) -> None:
     for column in (
         "delivery_intent",
         "requirement_selection",
+        "requirement_selection_source",
         "requirement_snapshot",
     ):
         if not _column_exists(conn, "deployment_run_items", column):
@@ -277,10 +287,15 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
             f"QA requirement {requirement_id} "
             + UNBOUND_BEFORE_START_REPAIR.format(requirement_id=requirement_id)
         )
+    from yoke_core.domain.deployment_member_post_deploy_admission import (
+        admissible_post_deploy_requirement_ids,
+        selection_is_derived,
+    )
+
     for item_id in member_ids(conn, run_id):
         member = conn.execute(
-            f"SELECT delivery_intent,requirement_selection "
-            f"FROM deployment_run_items "
+            f"SELECT delivery_intent,requirement_selection,"
+            f"requirement_selection_source FROM deployment_run_items "
             f"WHERE run_id={marker} AND item_id={marker}",
             (run_id, item_id),
         ).fetchone()
@@ -289,17 +304,29 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
         # freeze is not a second admission against mutable item status.
         intent = normalize_delivery_intent(_cell(member, "delivery_intent", 0))
         intent = intent or _default_delivery_intent(conn, item_id)
+        selection = _cell(member, "requirement_selection", 1)
+        if selection_is_derived(_cell(member, "requirement_selection_source", 2)):
+            # A derived selection answers "what does this item still owe",
+            # and an obligation can be minted between the admission that
+            # derived it and this freeze. Re-deriving is what stops that
+            # window losing one. An explicit selection is a list somebody
+            # chose and is never widened underneath them.
+            selection = requirement_selection(
+                requirement_ids=admissible_post_deploy_requirement_ids(
+                    conn, run_id=run_id, item_id=item_id
+                )
+            )
         snapshot = snapshot_member_requirements(
             conn,
             run_id=run_id,
             item_id=item_id,
-            selection_json=_cell(member, "requirement_selection", 1),
+            selection_json=selection,
         )
         conn.execute(
             f"UPDATE deployment_run_items SET delivery_intent={marker},"
-            f"requirement_snapshot={marker} "
+            f"requirement_selection={marker},requirement_snapshot={marker} "
             f"WHERE run_id={marker} AND item_id={marker}",
-            (intent, snapshot, run_id, item_id),
+            (intent, selection, snapshot, run_id, item_id),
         )
     from yoke_core.domain.db_helpers import iso8601_now
 

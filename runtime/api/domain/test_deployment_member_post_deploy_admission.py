@@ -239,3 +239,46 @@ def test_a_rebind_back_to_a_pre_release_stage_is_refused(test_db):
 
     assert result.ok is False
     assert "post-deployment acceptance" in result.message
+
+
+def test_an_obligation_minted_before_the_freeze_is_still_admitted(test_db):
+    """Admission derives once; the freeze is where the answer is settled.
+
+    An obligation can be minted after the membership row is written and
+    before the composition freezes. Replaying the stored answer drops it,
+    and the item then owes a post-deploy row no run ever admitted.
+    """
+    _run(test_db)
+    at_admission = _obligation(test_db, target_env=TARGET_ENVIRONMENT)
+    admit_run_item(test_db, run_id=RUN_ID, item_id=ITEM_ID)
+    assert _selection(test_db)["requirement_ids"] == [at_admission]
+
+    after_admission = _obligation(test_db, target_env=TARGET_ENVIRONMENT)
+    freeze_run_composition(test_db, RUN_ID)
+
+    assert _selection(test_db)["requirement_ids"] == sorted(
+        [at_admission, after_admission]
+    )
+    row = test_db.execute(
+        "SELECT requirement_snapshot FROM deployment_run_items "
+        "WHERE run_id=%s AND item_id=%s",
+        (RUN_ID, ITEM_ID),
+    ).fetchone()
+    snapshot = json.loads(str(row[0]))
+    assert [int(entry["id"]) for entry in snapshot["requirements"]] == sorted(
+        [at_admission, after_admission]
+    )
+
+
+def test_an_explicit_selection_is_not_widened_by_the_freeze(test_db):
+    """A list somebody chose stays the list they chose."""
+    _run(test_db)
+    chosen = _obligation(test_db, target_env=TARGET_ENVIRONMENT)
+    admit_run_item(
+        test_db, run_id=RUN_ID, item_id=ITEM_ID, requirement_ids=(chosen,)
+    )
+    _obligation(test_db, target_env=TARGET_ENVIRONMENT)
+
+    freeze_run_composition(test_db, RUN_ID)
+
+    assert _selection(test_db)["requirement_ids"] == [chosen]

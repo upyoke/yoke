@@ -42,6 +42,21 @@ from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 POST_DEPLOY_PHASE = "post_deploy"
 
+#: How a membership row's stored selection came to be. A derived selection is
+#: this module's answer to "what does the item still owe", and stays answerable
+#: to that question: composition freeze recomputes it, because an obligation
+#: can be minted between the admission that derived it and the freeze that
+#: acts on it. An explicit one is an operator's deliberate list and is never
+#: recomputed. A row predating this column reads as derived, which is what it
+#: was unless someone passed ids by hand.
+SELECTION_DERIVED = "derived"
+SELECTION_EXPLICIT = "explicit"
+
+
+def selection_is_derived(source: Any) -> bool:
+    """Whether a stored selection may be recomputed at composition freeze."""
+    return str(source or SELECTION_DERIVED) != SELECTION_EXPLICIT
+
 UNADMITTED_RECOVERY = (
     "No QA stage on this run targets them, so the run will freeze no "
     "admitted copy and the item's done transition keeps blocking. Correct "
@@ -207,6 +222,9 @@ def unadmitted_post_deploy_notice(
 
 __all__ = [
     "POST_DEPLOY_PHASE",
+    "SELECTION_DERIVED",
+    "SELECTION_EXPLICIT",
+    "selection_is_derived",
     "UNADMITTED_RECOVERY",
     "admissible_post_deploy_requirement_ids",
     "outstanding_post_deploy_requirements",

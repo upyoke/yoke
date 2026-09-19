@@ -48,6 +48,8 @@ from yoke_core.domain.deployment_run_carried_work import (
     derive_carried_work_safely,
 )
 from yoke_core.domain.deployment_member_post_deploy_admission import (
+    SELECTION_DERIVED,
+    SELECTION_EXPLICIT,
     admissible_post_deploy_requirement_ids,
 )
 from yoke_core.domain.deployment_run_composition_freeze import (
@@ -102,13 +104,21 @@ def admit_run_item(
     run's admitted copy and by nothing else: an empty selection would ship
     the code while leaving the obligation unanswerable. An explicit
     selection is a deliberate operator choice and is used verbatim.
+
+    Which of the two it was is recorded, because the answer has a shelf
+    life: an obligation minted after this row is written and before the
+    composition freezes belongs in a derived selection and would otherwise
+    be lost. Freeze recomputes a derived selection for exactly that reason,
+    and leaves an explicit one alone.
     """
     validate_deployment_run_item(conn, run_id=run_id, item_id=int(item_id))
     freeze_item_completion_flow(conn, int(item_id))
     intent = validate_delivery_intent_for_item(conn, int(item_id), delivery_intent)
     selected_requirements = tuple(requirement_ids)
     selected_plans = tuple(plan_ids)
+    source = SELECTION_EXPLICIT
     if not selected_requirements and not selected_plans:
+        source = SELECTION_DERIVED
         selected_requirements = admissible_post_deploy_requirement_ids(
             conn, run_id=run_id, item_id=int(item_id)
         )
@@ -120,9 +130,10 @@ def admit_run_item(
     )
     conn.execute(
         "INSERT INTO deployment_run_items "
-        "(run_id, item_id, added_at, delivery_intent, requirement_selection) "
-        "VALUES (%s, %s, %s, %s, %s)",
-        (run_id, int(item_id), iso8601_now(), intent, selection),
+        "(run_id, item_id, added_at, delivery_intent, requirement_selection,"
+        " requirement_selection_source) "
+        "VALUES (%s, %s, %s, %s, %s, %s)",
+        (run_id, int(item_id), iso8601_now(), intent, selection, source),
     )
     return render_item_ref(conn, int(item_id))
 
