@@ -26,10 +26,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, FrozenSet, List, Tuple
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.frontier_workflow_versions import (
     FrontierWorkflowVersions,
     load_frontier_workflow_versions,
 )
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_runtime import WorkflowRuntime
 
 #: ``cancelled`` ends an item; the engine's other terminal stage, ``stopped``,
@@ -47,9 +49,24 @@ _FINISHING_TRANSITION_SQL = (
     "FROM item_status_transitions t "
     "JOIN items i ON i.id = t.item_id "
     "WHERE t.task_num IS NULL AND t.to_status = i.status "
-    "AND t.created_at >= %s "
+    "AND t.created_at >= {marker} "
     "GROUP BY t.item_id"
 )
+
+
+def _marker(conn: Any) -> str:
+    return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def _history_present(conn: Any) -> bool:
+    """Whether this connection carries the transition history at all.
+
+    Every real universe does — ``create_core_tables`` builds it. A partial
+    fixture may not, and there the honest answer is that nothing has a
+    recorded finish, which is what an absent history actually means rather
+    than a failure being swallowed.
+    """
+    return _table_exists(conn, "item_status_transitions")
 
 
 def finished_stage_ids(runtime: WorkflowRuntime) -> FrozenSet[str]:
@@ -104,7 +121,7 @@ def finished_status_clause(
 
 def finished_window_clause(
     conn: Any,
-    marker: str = "%s",
+    marker: str | None = None,
     window: timedelta = FINISHED_WINDOW,
 ) -> Tuple[str, List[Any]]:
     """Render the predicate keeping unfinished rows and recent finishers.
@@ -114,8 +131,11 @@ def finished_window_clause(
     fact for every item back to the table's first row and storing it twice
     would only invite drift.
     """
+    marker = marker or _marker(conn)
     versions = load_frontier_workflow_versions(conn)
     finished_sql, finished_params = finished_status_clause(versions, marker)
+    if not _history_present(conn):
+        return f"NOT ({finished_sql})", finished_params
     clause = (
         f"(NOT ({finished_sql}) OR EXISTS ("
         "SELECT 1 FROM item_status_transitions t "
@@ -136,7 +156,12 @@ def finished_times_in_window(
     changed stage recently are returned too and cost nothing; the caller
     resolves finished-ness against each item's own definition.
     """
-    cursor = conn.execute(_FINISHING_TRANSITION_SQL, (window_cutoff(window),))
+    if not _history_present(conn):
+        return {}
+    cursor = conn.execute(
+        _FINISHING_TRANSITION_SQL.format(marker=_marker(conn)),
+        (window_cutoff(window),),
+    )
     times: Dict[int, str] = {}
     for row in cursor.fetchall():
         values = dict(row) if hasattr(row, "keys") else None
