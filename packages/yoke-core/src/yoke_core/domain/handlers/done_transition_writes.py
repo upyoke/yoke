@@ -176,6 +176,17 @@ def handle_populate_merged_at(request: FunctionCallRequest) -> HandlerOutcome:
     value would then be wrong rather than kind: an item that lands a second
     time would go on reporting the first landing's date forever, and its
     close-out would report a merge identity the item record never took.
+
+    A landing this control plane observed for itself still outranks that,
+    which is why the supersede writes ``merge_queue_landed_at`` when one is
+    recorded. A queue merge commit is created when the queue forms its group
+    and merged minutes later, so its committer time is genuinely earlier than
+    the landing, while the observer holds GitHub's own merge moment. The
+    column is safe to prefer because ``point_item_at_pull_request`` clears it
+    whenever the recorded pull request changes, so it never survives from a
+    landing this item has already superseded. An item with no queue landing
+    -- every standalone merge -- has nothing there and takes the resolved
+    commit time, which for that boundary IS the landing time.
     """
     item_id = _require_item_id(request)
     if item_id is None:
@@ -189,7 +200,8 @@ def handle_populate_merged_at(request: FunctionCallRequest) -> HandlerOutcome:
         with _connect_rw() as conn:
             p = _placeholder(conn)
             assignment = (
-                f"{p}" if body.supersedes_prior_landing
+                f"COALESCE(merge_queue_landed_at, {p})"
+                if body.supersedes_prior_landing
                 else f"COALESCE(merged_at, {p})"
             )
             conn.execute(

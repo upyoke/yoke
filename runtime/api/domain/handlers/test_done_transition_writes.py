@@ -273,3 +273,73 @@ class TestPopulateMergedAt:
             _scalar(db, "SELECT merged_at FROM items WHERE id = %s", (item_id,))
             == "2026-09-19T04:08:11Z"
         )
+
+    def test_an_observed_queue_landing_outranks_the_commits_own_time(self, db):
+        """A queue merge commit is made when the group forms, not when it lands.
+
+        GitHub creates the merge commit as it builds the train and merges it
+        minutes later, so the committer time is genuinely earlier than the
+        landing. The observer holds GitHub's own merge moment, so a supersede
+        must not replace it with the commit's.
+        """
+        item_id = 9515
+        landed_at = "2026-09-19T13:39:45Z"
+        conn = connect_test_db(db)
+        try:
+            insert_item(conn, id=item_id, source=str(seed_human_actor(conn)))
+            conn.execute(
+                "UPDATE items SET merged_at = %s, merge_queue_pr_number = %s, "
+                "merge_queue_landed_at = %s WHERE id = %s",
+                ("2026-09-17T15:25:31Z", "1323", landed_at, item_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        outcome = writes.handle_populate_merged_at(
+            _item_envelope(
+                "done_transition.populate_merged_at",
+                item_id=item_id,
+                payload={
+                    "merged_at": "2026-09-19T13:26:50Z",
+                    "supersedes_prior_landing": True,
+                },
+            )
+        )
+
+        assert outcome.primary_success, outcome.error
+        assert outcome.result_payload["merged_at"] == landed_at
+        assert (
+            _scalar(db, "SELECT merged_at FROM items WHERE id = %s", (item_id,))
+            == landed_at
+        )
+
+    def test_without_an_observed_landing_the_resolved_time_still_supersedes(
+        self, db
+    ):
+        """A standalone merge has no queue landing, and its commit time is the landing."""
+        item_id = 9516
+        conn = connect_test_db(db)
+        try:
+            insert_item(conn, id=item_id, source=str(seed_human_actor(conn)))
+            conn.execute(
+                "UPDATE items SET merged_at = %s WHERE id = %s",
+                ("2026-09-17T18:32:44Z", item_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        outcome = writes.handle_populate_merged_at(
+            _item_envelope(
+                "done_transition.populate_merged_at",
+                item_id=item_id,
+                payload={
+                    "merged_at": "2026-09-19T04:08:11Z",
+                    "supersedes_prior_landing": True,
+                },
+            )
+        )
+
+        assert outcome.primary_success, outcome.error
+        assert outcome.result_payload["merged_at"] == "2026-09-19T04:08:11Z"
