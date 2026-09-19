@@ -223,3 +223,40 @@ test("a run carrying nothing still shows what its checks captured", async () => 
   // place this evidence could be shown, and it is shown.
   assert.equal(byClass(card, "shipping-run-evidence").length, 1);
 });
+
+// When the run-wide strip does draw, its tiles come from several members at
+// once, so "step 2" alone belongs to nobody — and two members' step 2 sit
+// side by side. Each caption leads with the item whose check took it.
+test("a run-wide tile names the carried item whose check took it", async () => {
+  const documentNode = new FakeDocument();
+  const artifacts = [
+    screenshotArtifact({ id: 77, deployment_member_item_id: 41 }),
+    screenshotArtifact({ id: 78, deployment_member_item_id: 42 }),
+  ];
+  const context = readingContext(documentNode, artifacts);
+  const row = {
+    ...runRow(),
+    member_items: [
+      { id: 41, ref: "YOK-1", project_id: 1, title: "First" },
+      { id: 42, ref: "YOK-2", project_id: 1, title: "Second" },
+    ],
+  };
+  const card = shippingRunCard(context, row, ["1"], {
+    facts: {
+      evidence: new Map([["run-20260910-006", {
+        checks: [],
+        artifacts: artifacts.map((artifact) => ({
+          ...artifact,
+          member_item_id: artifact.deployment_member_item_id,
+        })),
+      }]]),
+      flowNames: new Map([["yoke-hosted-stage-typed-target", "Stage"]]),
+      failed: null,
+    },
+  });
+  await settle();
+
+  const captions = byClass(card, "review-shot-caption")
+    .map((node) => node.textContent);
+  assert.deepEqual(captions, ["YOK-1 · step 21", "YOK-2 · step 21"]);
+});

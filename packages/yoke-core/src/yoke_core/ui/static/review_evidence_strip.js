@@ -72,8 +72,12 @@ function captionOf(artifact) {
 // viewer. A surface whose subject IS the artifact keeps the name.
 function shotLabel(artifact, stepCaptionsOnly) {
   const step = artifactStepLabel(artifact);
-  if (step) return step;
-  return stepCaptionsOnly ? "" : artifactLabel(artifact);
+  const named = step || (stepCaptionsOnly ? "" : artifactLabel(artifact));
+  if (!named) return "";
+  // Run-wide evidence gathers several items' captures into one strip, where
+  // "step 2" alone belongs to nobody — and two members' step 2 sit side by
+  // side. The owning item leads the caption wherever the caller knows it.
+  return artifact.owner_ref ? `${artifact.owner_ref} · ${named}` : named;
 }
 
 // The pending box says why it is empty instead of the reason the read

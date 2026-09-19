@@ -11,7 +11,10 @@ import { deliveryStageBar, workflowBadge } from "./universe_secondary_primitives
 import { relativeAgePhrase } from "./universe_time.js";
 import { appendRunGates, runGateStatus, runGates } from "./universe_run_gates.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
-import { appendCarriedItemEvidence } from "./universe_carried_item_evidence.js";
+import {
+  appendCarriedItemEvidence,
+  carriedItemId,
+} from "./universe_carried_item_evidence.js";
 import { runEvidence, runFlowName } from "./universe_run_evidence.js";
 import { itemClaimantControl } from "./universe_item_claimant.js";
 import { navIcon } from "./universe_nav_sidebar.js";
@@ -311,7 +314,16 @@ export function shippingRunCard(context, row, scope, options = {}) {
   // their item stripped off, so one release showed "step 2" and "step 5"
   // twice with nothing saying whose they were.
   if (!runGates(row).length && !carried.drewEvidence) {
-    const artifacts = runEvidence(options.facts, row.id || row.run_id).artifacts;
+    // Attributed on the way in: this strip gathers several members' captures
+    // into one grid, so each tile leads with the item whose check took it.
+    const refById = new Map(carriedItems(row).map(
+      (item) => [String(carriedItemId(item)), carriedReference(item)],
+    ));
+    const artifacts = runEvidence(options.facts, row.id || row.run_id)
+      .artifacts.map((artifact) => {
+        const ref = refById.get(String(artifact.member_item_id ?? ""));
+        return ref ? { ...artifact, owner_ref: ref } : artifact;
+      });
     const strip = evidenceStrip(
       context, artifacts, { compact: true, stepCaptionsOnly: true },
     );

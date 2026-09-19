@@ -29,6 +29,10 @@ export function normalizeArtifact(raw, requirementId = null) {
     artifact_handle: raw.artifact_handle ?? null,
     metadata: raw.metadata ?? null,
     requirement_id: Number(raw.requirement_id ?? requirementId),
+    // Which carried item's check produced this, where a caller knows. Only
+    // run-wide evidence needs it: a tile drawn under its own member is
+    // already attributed by where it sits.
+    owner_ref: raw.owner_ref ?? null,
   };
 }
 
