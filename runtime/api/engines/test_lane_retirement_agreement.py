@@ -132,6 +132,94 @@ def test_a_lane_with_unique_work_survives_both_boundaries(
     assert (rebased_lane.worktree / "unique.txt").exists()
 
 
+@pytest.fixture()
+def lane_whose_remote_kept_work(rebased_lane, tmp_path: Path):
+    """A landed, clean lane whose origin branch holds work that never landed.
+
+    This is the shape a post-merge push leaves: the local side is finished
+    and provably retained by the target, while the remote carries commits
+    only a person can dispose of.
+    """
+    scratch = tmp_path / "scratch"
+    _git(rebased_lane.repo, "worktree", "add", "--detach", str(scratch),
+         rebased_lane.branch)
+    (scratch / "remote_only.txt").write_text("remote only\n", encoding="utf-8")
+    _git(scratch, "add", "remote_only.txt")
+    _git(scratch, "commit", "-m", "pushed after the merge, never landed")
+    _git(scratch, "push", "origin", f"HEAD:refs/heads/{rebased_lane.branch}")
+    _git(rebased_lane.repo, "worktree", "remove", str(scratch))
+    return rebased_lane
+
+
+def test_the_landing_boundary_retires_a_lane_whose_remote_kept_work(
+    lane_whose_remote_kept_work,
+):
+    """A remote nobody can delete must not pin a finished local lane.
+
+    Retrying cannot turn unmerged remote work into merged work, so treating
+    it as a retry left a clean, landed directory on disk for as long as the
+    remote existed, re-refusing on every landing.
+    """
+    lane = lane_whose_remote_kept_work
+
+    preserved = prune_landed_lane(
+        repo_root=str(lane.repo),
+        branch=lane.branch,
+        target="main",
+        run_git=_run_git,
+        emit=lambda *_a, **_kw: None,
+    )
+
+    assert not lane.worktree.exists()
+    assert _git(lane.repo, "branch", "--list", lane.branch).stdout == ""
+    assert f"refs/heads/{lane.branch}" in _remote_branches(lane.repo)
+    assert len(preserved) == 1
+    assert f"origin/{lane.branch} kept after its local lane retired" in preserved[0]
+    assert f"land origin/{lane.branch} or delete it" in preserved[0]
+
+
+def test_the_machine_sweep_retires_that_same_lane(
+    lane_whose_remote_kept_work, monkeypatch
+):
+    """The sweep must not keep what the landing boundary retires."""
+    lane = lane_whose_remote_kept_work
+    git_io, lines = _install(monkeypatch, lane.repo, _Conn(lane.branch))
+
+    sweep = prune_managed_worktrees(
+        **git_io, repo_root=str(lane.repo), target="main"
+    )
+
+    assert sweep.preserved == ()
+    assert sweep.removed == (str(lane.worktree.resolve()),)
+    assert not lane.worktree.exists()
+    assert f"refs/heads/{lane.branch}" in _remote_branches(lane.repo)
+    assert any(
+        f"origin/{lane.branch} kept after its local lane retired" in line
+        for line in lines
+    )
+
+
+def test_a_remote_that_may_yet_delete_still_preserves_the_whole_lane(rebased_lane):
+    """An unproven remote is a genuine retry, so the lane stays put.
+
+    The distinction that matters is whether running again could reach a
+    different answer. A refused delete could; unmerged work could not.
+    """
+    _git(rebased_lane.repo.parent / "origin.git", "config", "receive.denyDeletes",
+         "true")
+
+    preserved = prune_landed_lane(
+        repo_root=str(rebased_lane.repo),
+        branch=rebased_lane.branch,
+        target="main",
+        run_git=_run_git,
+        emit=lambda *_a, **_kw: None,
+    )
+
+    assert rebased_lane.worktree.exists()
+    assert "preserved so remote cleanup can be retried" in preserved[0]
+
+
 def test_named_caches_are_disposable_to_both_boundaries(rebased_lane):
     """The landing removes the same residue the sweep would have removed."""
     cache = rebased_lane.worktree / "webapp" / "node_modules" / "pkg" / "index.js"

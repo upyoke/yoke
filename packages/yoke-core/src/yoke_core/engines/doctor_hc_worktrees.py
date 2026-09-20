@@ -129,19 +129,33 @@ def hc_uncaptured_discoveries(conn, args: DoctorArgs, rec: RecordCollector) -> N
 
 
 def hc_orphaned_stashes(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-orphaned-stashes: Orphaned pre-merge stashes."""
+    """HC-orphaned-stashes: Stashes nothing will reclaim.
+
+    A stash outlives every lane: it lives in the repository's shared ref
+    namespace, so removing the worktree it was taken in leaves it behind.
+    Nothing deletes one except the merge path dropping its own
+    ``yoke-pre-rebase-`` safety stash, which means every other stash — the
+    ones an agent or a person parked by hand — has no owner at all. Reporting
+    only Yoke's own made exactly those invisible, so this reads the whole
+    list and dates each entry.
+    """
     issues: List[str] = []
-    r = _base._run(["git", "stash", "list"])
+    r = _base._run(
+        ["git", "stash", "list", "--date=short", "--format=%gd | %cd | %gs"]
+    )
     if r.returncode == 0 and r.stdout.strip():
-        for line in r.stdout.strip().splitlines():
-            if "yoke-pre-rebase-" in line:
-                issues.append(f"- {line}")
+        issues = [f"- {line}" for line in r.stdout.strip().splitlines()]
 
     if issues:
-        detail = "Orphaned pre-merge stashes found:\n" + "\n".join(issues)
-        rec.record("HC-orphaned-stashes", "Orphaned pre-merge stashes", "WARN", detail)
+        detail = (
+            "Stashes present; nothing reclaims these automatically:\n"
+            + "\n".join(issues)
+            + "\n\nInspect one with `git stash show -p <ref>`, then `git stash "
+            "pop <ref>` to restore it or `git stash drop <ref>` to discard it."
+        )
+        rec.record("HC-orphaned-stashes", "Unreclaimed stashes", "WARN", detail)
     else:
-        rec.record("HC-orphaned-stashes", "Orphaned pre-merge stashes", "PASS", "")
+        rec.record("HC-orphaned-stashes", "Unreclaimed stashes", "PASS", "")
 
 
 

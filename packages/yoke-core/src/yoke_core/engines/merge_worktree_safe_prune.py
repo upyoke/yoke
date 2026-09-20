@@ -9,9 +9,12 @@ control plane must name a terminal owner with no live authority
 (``merge.prune.authority_verdict`` over the active transport), the tree must
 hold nothing but named caches once those are gone, ``origin/<target>`` must
 retain every change the branch carries, and the remote branch goes before
-any local ref. The residue and landing proofs are the shared ones the
-per-lane retirement applies, so the two boundaries never disagree about the
-same lane.
+any local ref. The one thing that ordering does not do is hold the local
+side hostage: a remote proven to carry unmerged work will never become
+deletable by sweeping again, so the local worktree and branch retire on
+their own proof and the remote is named as a leftover for a person. The
+residue and landing proofs are the shared ones the per-lane retirement
+applies, so the two boundaries never disagree about the same lane.
 Unreachable authority skips everything. What was removed and what was kept,
 each with its reason, comes back as a :class:`WorktreeSweep` so the landing
 that ran the sweep can show it instead of burying it in progress output.
@@ -30,16 +33,17 @@ from yoke_core.engines.branch_landed_evidence import (
     assess_branch_landed,
     delete_landed_branch,
 )
+from yoke_core.engines.git_worktree_registry import (
+    first_output_line,
+    is_managed_worktree_path,
+    registered_worktrees,
+)
 from yoke_core.engines.lane_residue_declared_paths import declared_disposable_roots
 from yoke_core.engines.merge_worktree_cleanliness import clear_lane_residue
-
-
-@dataclass(frozen=True)
-class _Worktree:
-    path: Path
-    branch: str
-    # Git's lock note; ``None`` when the worktree is not locked.
-    lock_reason: str | None = None
+from yoke_core.engines.remote_branch_cleanup import (
+    delete_remote_branch_if_merged,
+    unmerged_remote_note,
+)
 
 
 @dataclass(frozen=True)
@@ -74,47 +78,6 @@ def _runtime_emit() -> Callable[..., Any]:
     from yoke_core.engines._merge_worktree_runtime import _print
 
     return _print
-
-
-def first_output_line(result: Any) -> str:
-    """The first meaningful line git wrote, or its exit code."""
-    detail = (result.stderr or result.stdout or "").strip()
-    return detail.splitlines()[0] if detail else f"exit {result.returncode}"
-
-
-def registered_worktrees(
-    run_git: Callable[..., Any], repo_root: str
-) -> list[_Worktree] | None:
-    """Every branch-bearing worktree git registers, or ``None`` when it cannot say."""
-    result = run_git(["worktree", "list", "--porcelain"], cwd=repo_root, capture=True)
-    if result.returncode != 0:
-        return None
-    entries: list[_Worktree] = []
-    block: dict[str, str] = {}
-    for line in [*result.stdout.splitlines(), ""]:
-        if not line:
-            if "branch" in block:
-                entries.append(
-                    _Worktree(
-                        Path(block["worktree"]).resolve(),
-                        block["branch"],
-                        block.get("locked"),
-                    )
-                )
-            block = {}
-        elif line.startswith("worktree "):
-            block["worktree"] = line.removeprefix("worktree ")
-        elif line.startswith("branch refs/heads/"):
-            block["branch"] = line.removeprefix("branch refs/heads/")
-        elif line == "locked" or line.startswith("locked "):
-            block["locked"] = line.removeprefix("locked").strip()
-    return entries
-
-
-def is_managed_worktree_path(path: Path, repo_root: Path) -> bool:
-    """Whether ``path`` sits under a root Yoke creates lanes in."""
-    roots = (repo_root / ".worktrees", repo_root / ".claude" / "worktrees")
-    return any(path != root and path.is_relative_to(root) for root in roots)
 
 
 def _landed(
@@ -165,8 +128,6 @@ def _delete_remote_before_local(
     target: str,
 ) -> Any:
     """Prove and delete ``origin/<branch>`` before discarding local refs."""
-    from yoke_core.engines.remote_branch_cleanup import delete_remote_branch_if_merged
-
     result = delete_remote_branch_if_merged(
         run_git=lambda command: run_git(command, cwd=repo_root, capture=True),
         branch=branch,
@@ -274,9 +235,11 @@ def prune_managed_worktrees(
             branch=entry.branch,
             target=target,
         )
-        if not remote.cleanup_complete:
+        if remote.retryable:
             keep(entry.path, f"remote cleanup incomplete: {remote.reason}")
             continue
+        if not remote.cleanup_complete:
+            say(f"WARNING: {unmerged_remote_note(entry.branch, remote.reason)}", err=True)
         removal = git(
             ["worktree", "remove", str(entry.path)],
             cwd=repo_root,
@@ -319,14 +282,17 @@ def prune_managed_worktrees(
         landed = _landed(git, repo_root, branch, base)
         if not landed.landed:
             continue
-        if not _delete_remote_before_local(
+        remote = _delete_remote_before_local(
             run_git=git,
             emit=say,
             repo_root=repo_root,
             branch=branch,
             target=target,
-        ).cleanup_complete:
+        )
+        if remote.retryable:
             continue
+        if not remote.cleanup_complete:
+            say(f"WARNING: {unmerged_remote_note(branch, remote.reason)}", err=True)
         if not delete_landed_branch(
             lambda command: git(command, cwd=repo_root, capture=True),
             branch=branch,
@@ -339,8 +305,5 @@ def prune_managed_worktrees(
 __all__ = [
     "PreservedLane",
     "WorktreeSweep",
-    "first_output_line",
-    "is_managed_worktree_path",
     "prune_managed_worktrees",
-    "registered_worktrees",
 ]

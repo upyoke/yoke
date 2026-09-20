@@ -192,6 +192,6 @@ The merge pipeline for external projects differs from Yoke-internal items in the
 
 ## Orphaned Stash Detection
 
-`/yoke doctor` (HC-orphaned-stashes) detects orphaned `yoke-pre-rebase-` stashes via `git stash list`. These indicate a merge that was interrupted and never recovered. Reported as WARN with the stash name so the operator can investigate.
+`/yoke doctor` (HC-orphaned-stashes) reports every entry in `git stash list`, with its date. A stash lives in the repository's shared ref namespace rather than in any one worktree, so retiring a lane never removes one, and the only stash anything deletes automatically is the merge path dropping its own `yoke-pre-rebase-` safety stash. Every other stash — parked by an agent or by hand — has no owner, which is why the check reports the whole list rather than Yoke's own prefix. Reported as WARN so the operator can investigate.
 
 Recovery: inspect the stash contents with `git stash show -p <ref>`, then either `git stash pop <ref>` to restore or `git stash drop <ref>` to discard.

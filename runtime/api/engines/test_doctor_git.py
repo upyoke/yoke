@@ -1,8 +1,9 @@
 """Tests for the doctor engine: core git-state HCs.
 
 Worktree, filesystem, and stale-remote-branch HCs live in
-test_doctor_git_worktrees.py. GitHub-dependent HCs and registration tests
-live in test_doctor_git_github.py.
+test_doctor_git_worktrees.py. The stash HC lives in test_doctor_stashes.py.
+GitHub-dependent HCs and registration tests live in
+test_doctor_git_github.py.
 
 Tests use mock subprocess to avoid real git calls.
 """
@@ -26,7 +27,6 @@ from yoke_core.engines.doctor import (
     hc_branch_divergence,
     hc_cross_project_commits,
     hc_main_checkout,
-    hc_orphaned_stashes,
     hc_uncaptured_discoveries,
 )
 
@@ -262,33 +262,6 @@ class TestHcUncapturedDiscoveries:
             stdout="abc1234 YOK-99: fix broken thing\n"
         )
         rec = _run_hc(hc_uncaptured_discoveries)
-        assert rec.results[0].result == "PASS"
-
-
-class TestHcOrphanedStashes:
-    """Tests for hc_orphaned_stashes."""
-
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_no_stashes_passes(self, mock_run):
-        mock_run.return_value = _make_completed(stdout="")
-        rec = _run_hc(hc_orphaned_stashes)
-        assert rec.results[0].result == "PASS"
-
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_orphaned_stash_warns(self, mock_run):
-        mock_run.return_value = _make_completed(
-            stdout="stash@{0}: On main: yoke-pre-rebase-YOK-9999\n"
-        )
-        rec = _run_hc(hc_orphaned_stashes)
-        assert rec.results[0].result == "WARN"
-        assert "yoke-pre-rebase-" in rec.results[0].detail
-
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_normal_stash_passes(self, mock_run):
-        mock_run.return_value = _make_completed(
-            stdout="stash@{0}: On main: WIP on feature\n"
-        )
-        rec = _run_hc(hc_orphaned_stashes)
         assert rec.results[0].result == "PASS"
 
 

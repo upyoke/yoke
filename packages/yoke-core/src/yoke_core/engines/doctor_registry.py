@@ -282,7 +282,7 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("worktree-health", "Worktree health", hc_worktree_health),
     HealthCheck("branch-divergence", "Local/remote branch divergence", hc_branch_divergence),
     HealthCheck("uncaptured-discoveries", "Uncaptured discoveries", hc_uncaptured_discoveries),
-    HealthCheck("orphaned-stashes", "Orphaned pre-merge stashes", hc_orphaned_stashes),
+    HealthCheck("orphaned-stashes", "Unreclaimed stashes", hc_orphaned_stashes),
     HealthCheck("cross-project-commits", "Cross-project commit contamination", hc_cross_project_commits),
     HealthCheck("path-confabulation", "Path confabulation", hc_path_confabulation),
     HealthCheck("orphaned-temp-files", "Orphaned temp files", hc_orphaned_temp_files),
