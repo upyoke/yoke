@@ -26,7 +26,7 @@ function filerRow(overrides = {}) {
     current_item_status: "idea",
     owns_current_item: false,
     work_role: null,
-    current_item_holder_session_id: null,
+    current_item_held_by_other_session_id: null,
     holdings: { current: [], previous: [], previous_remainder: 0 },
     ...overrides,
   };
@@ -60,7 +60,7 @@ test("a filed item nobody holds stays on the card under its own label", () => {
 test("a filed item another live session holds leaves this card entirely", () => {
   // The observed defect: a steering seat filed the item, a launched worker
   // claimed it moments later, and the seat's card went on advertising it.
-  const row = filerRow({ current_item_holder_session_id: "worker-9" });
+  const row = filerRow({ current_item_held_by_other_session_id: "worker-9" });
   assert.equal(focusAttribution(row), null);
   const body = bodyFor(row);
   assert.equal(byClass(body, "session-attached").length, 0);
@@ -77,7 +77,7 @@ test("a worktree lane on another session's item is untouched by the rule", () =>
   // other session must not take the lane row off this card.
   const row = filerRow({
     work_role: "implementation",
-    current_item_holder_session_id: "worker-9",
+    current_item_held_by_other_session_id: "worker-9",
   });
   assert.equal(focusAttribution(row), "lane");
   const body = bodyFor(row);

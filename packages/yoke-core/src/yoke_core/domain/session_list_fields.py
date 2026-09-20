@@ -56,7 +56,7 @@ SESSION_LIST_FIELDS = (
     "current_item_workflow_version_id",
     "work_role",
     "owns_current_item",
-    "current_item_holder_session_id",
+    "current_item_held_by_other_session_id",
     "claim_started_at",
     "claims",
     "holdings",

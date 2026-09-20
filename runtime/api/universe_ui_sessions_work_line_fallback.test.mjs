@@ -23,7 +23,7 @@ function row(holdings, overrides = {}) {
     current_item_title: null,
     owns_current_item: false,
     work_role: null,
-    current_item_holder_session_id: null,
+    current_item_held_by_other_session_id: null,
     holdings: { current: [], previous: [], previous_remainder: 0, ...holdings },
     ...overrides,
   };
