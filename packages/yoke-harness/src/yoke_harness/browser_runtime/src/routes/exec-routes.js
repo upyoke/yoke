@@ -57,7 +57,8 @@ function registerExecRoutes(app, browserManager) {
 
   // POST /api/exec/step
   // Request body: { step: object, baseUrl: string, pageId: string, outputDir?: string }
-  // Response: { success: true, data: { success, duration_ms, viewport, url, error?, artifacts? } }
+  // Response: { success: true, data: { success, duration_ms, viewport, url,
+  //   error?, artifacts?, vacuous_absence? } }
   app.post('/api/exec/step', async (req, res) => {
     try {
       const { step, baseUrl, outputDir, pageId } = req.body || {};

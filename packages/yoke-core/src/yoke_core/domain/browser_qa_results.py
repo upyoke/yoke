@@ -29,6 +29,7 @@ class RunResult:
     errors: str = ""
     expected_screenshots: int = 0
     recorded_screenshots: int = 0
+    vacuous_absences: List[Dict[str, Any]] = field(default_factory=list)
     code_identity: Dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -55,6 +56,8 @@ class RunResult:
         if self.expected_screenshots > 0:
             d["expected_screenshots"] = self.expected_screenshots
             d["recorded_screenshots"] = self.recorded_screenshots
+        if self.vacuous_absences:
+            d["vacuous_absences"] = self.vacuous_absences
         if self.code_identity:
             d["code_identity"] = self.code_identity
         return d

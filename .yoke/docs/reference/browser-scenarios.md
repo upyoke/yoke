@@ -101,6 +101,30 @@ it was taken, beside the route the case navigated to.
 The runner rejects aliases such as `url` for `route`, `selector` for
 `target`, and `wait` for `delay` or `wait_for`.
 
+### Absence assertions and what they observed
+
+`hidden`, `count_eq` of 0, and `count_gte` of 0 are all satisfied by a page
+holding no matching element at all — Playwright reports a detached locator as
+hidden, and a locator matching nothing counts zero. The runner therefore reads
+the match count where it resolves the assertion and, when an absence-shaped
+check passed against zero elements, reports it as `vacuous_absence` on the
+step result. Every other check fails against a zero-match locator, so none of
+them can pass this way.
+
+Asserting absence is often exactly right, so nothing is refused at authoring
+time and a `hidden` assertion against a present element means precisely what
+it always did. The rule is about the case: if *no* assertion in a case ever
+matched an element, the case never saw the page and proved nothing, so a
+`browser-check` in that state fails with `assertion_vacuous_absence` instead
+of passing, naming the commands that correct and re-run it. A case that also
+asserts something the page does show has observed a rendered screen, so the
+absence it asserts beside it is a real finding and stays a pass.
+
+Either way the zero-match guards are recorded — on the run's `raw_result` as
+`vacuous_absences`, and in the metadata of every capture taken after them, so
+a reviewer judging a bundle can see that the guard meant to settle a screen
+matched no element on it.
+
 ## Authoring
 
 Prefer a project-owned QA plan when the same Browser behavior should run for

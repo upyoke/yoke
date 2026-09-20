@@ -5,9 +5,10 @@
  *
  * Run: node tests/step-runner-assertions.test.js
  *
- * Covers: assert with check ∈ {visible, hidden, text_contains, count_gte}
- * for non-body targets. Body-target visible-text + hydration semantics
- * live in ``step-runner-body-text.test.js``.
+ * Covers: assert with check ∈ {visible, hidden, text_contains, count_gte,
+ * count_eq} for non-body targets, and the match count an absence-shaped
+ * check reports about itself. Body-target visible-text + hydration
+ * semantics live in ``step-runner-body-text.test.js``.
  */
 
 const fs = require('fs');
@@ -76,7 +77,6 @@ async function testAssertVisible() {
   const page = await context.newPage();
   await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
 
-  // AC-6: assert visible
   const result = await executeStep(page, {
     route: '',
     action: 'assert',
@@ -94,7 +94,6 @@ async function testAssertHidden() {
   const page = await context.newPage();
   await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
 
-  // AC-6: assert hidden on non-existent element
   const result = await executeStep(page, {
     route: '',
     action: 'assert',
@@ -113,7 +112,6 @@ async function testAssertTextContains() {
   const page = await context.newPage();
   await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
 
-  // AC-6: text_contains with matching text
   const result = await executeStep(page, {
     route: '',
     action: 'assert',
@@ -168,7 +166,7 @@ async function testAssertCountGte() {
   const page = await context.newPage();
   await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
 
-  // AC-6: count_gte with known element count (at least 2 links in nav)
+  // At least 2 links in the fixture's nav.
   const result = await executeStep(page, {
     route: '',
     action: 'assert',
@@ -194,6 +192,86 @@ async function testAssertCountGte() {
   await page.close();
 }
 
+async function testAbsenceMatchCount() {
+  console.log('\n## Test: absence-shaped checks report what they matched');
+  const page = await context.newPage();
+  await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
+
+  // Nothing on the page is a #hidden-element, so this assertion could not
+  // have failed: Playwright reports a detached locator as hidden.
+  const detached = await executeStep(page, {
+    route: '',
+    action: 'assert',
+    target: '#hidden-element',
+    check: 'hidden',
+    timeout_ms: 1000,
+  }, { baseUrl: baseUrl() });
+
+  assertEqual(detached.success, true, 'hidden on a detached locator still succeeds');
+  assertEqual(
+    detached.vacuous_absence && detached.vacuous_absence.matched_elements,
+    0,
+    'hidden on a detached locator reports matching zero elements',
+  );
+  assertEqual(
+    detached.vacuous_absence && detached.vacuous_absence.target,
+    '#hidden-element',
+    'the report names the locator that matched nothing',
+  );
+
+  // The element is on the page and genuinely hidden, so the same check is a
+  // real observation and carries no report.
+  await page.setContent(
+    '<!doctype html><html><body><p id="banner" style="display:none">Hi</p>'
+    + '<p class="card">One</p><p class="card">Two</p></body></html>'
+  );
+  const present = await executeStep(page, {
+    route: '',
+    action: 'assert',
+    target: '#banner',
+    check: 'hidden',
+    timeout_ms: 1000,
+  }, { baseUrl: baseUrl() });
+
+  assertEqual(present.success, true, 'hidden on a present hidden element succeeds');
+  assertEqual(
+    present.vacuous_absence,
+    undefined,
+    'hidden on a present element reports nothing vacuous',
+  );
+
+  const countZero = await executeStep(page, {
+    route: '',
+    action: 'assert',
+    target: '.absent-card',
+    check: 'count_eq',
+    expected: 0,
+  }, { baseUrl: baseUrl() });
+
+  assertEqual(countZero.success, true, 'count_eq 0 on a zero-match locator succeeds');
+  assertEqual(
+    countZero.vacuous_absence && countZero.vacuous_absence.check,
+    'count_eq',
+    'count_eq 0 reports itself as an absence that matched nothing',
+  );
+
+  const countTwo = await executeStep(page, {
+    route: '',
+    action: 'assert',
+    target: '.card',
+    check: 'count_eq',
+    expected: 2,
+  }, { baseUrl: baseUrl() });
+
+  assertEqual(
+    countTwo.vacuous_absence,
+    undefined,
+    'a count check that matched elements reports nothing vacuous',
+  );
+
+  await page.close();
+}
+
 async function run() {
   console.log('=== Step Runner Tests: Assertions ===');
   await setup();
@@ -202,6 +280,7 @@ async function run() {
     await testAssertHidden();
     await testAssertTextContains();
     await testAssertCountGte();
+    await testAbsenceMatchCount();
   } catch (err) {
     console.error('\nUnexpected error:', err);
     failCount++;

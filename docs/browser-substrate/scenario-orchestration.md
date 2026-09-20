@@ -61,6 +61,10 @@ named requirement.
 Browser cases use one of two method IDs:
 
 - `browser-check` runs declared assertions and produces an automatic verdict.
+  A check whose assertions never matched an element — every one of them an
+  absence-shaped check against a zero-match locator — observed no page at all
+  and fails as `assertion_vacuous_absence` rather than passing. See
+  [browser scenarios](../public/reference/browser-scenarios.md).
 - `browser-inspection` captures linked evidence and can produce an undetermined
   verdict with a reason naming what could not be established and why. That
   halts the item until a project owner/operator resolves its review request.
@@ -93,7 +97,8 @@ Advance flows must not refine or replace it after materialization.
    inline (`content_base64` plus `filename`) instead of a machine-local
    handle the server cannot read.
 9. Prints a JSON result for the named requirement, including its verdict, run
-   identity, execution status, and artifact paths.
+   identity, execution status, artifact paths, and any `vacuous_absences` —
+   absence assertions that passed against a locator matching zero elements.
 
 The runner owns those run and artifact writes. Callers must not create a
 parallel run or self-report Browser evidence as an agent verdict.
