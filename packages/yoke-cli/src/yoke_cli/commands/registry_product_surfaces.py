@@ -11,6 +11,7 @@ from yoke_cli.commands.adapters import (
     overview,
     qa_catalog,
     qa_catalog_defaults,
+    qa_item_plan_retract,
     qa_plan_edit,
     test_machine,
 )
@@ -76,6 +77,10 @@ QA_CATALOG_SUBCOMMAND_REGISTRY = {
     ("qa", "item-plan", "attach"): (
         "qa.item_plan.attach",
         qa_catalog.qa_plan_item_attach,
+    ),
+    ("qa", "item-plan", "retract"): (
+        "qa.item_plan.retract",
+        qa_item_plan_retract.qa_plan_item_retract,
     ),
     ("qa", "plan", "materialize"): (
         "qa.plan.materialize",

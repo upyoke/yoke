@@ -105,6 +105,12 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "yoke qa item-plan attach --item YOK-N --project P --plan-id N --transition T",
     ),
     AdapterEntry(
+        "qa.item_plan.retract",
+        "yoke qa item-plan retract --item PREFIX-N --project P --plan-id N "
+        "--transition T (--reason TEXT | --content-file PATH | --stdin) "
+        "[--source operator|agent] [--session-id S] [--json]",
+    ),
+    AdapterEntry(
         "qa.plan.materialize",
         "yoke qa plan materialize --deployment-run-id RUN --plan PLAN --project P",
     ),

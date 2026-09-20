@@ -9,9 +9,10 @@ floors on registered entries; the registry tests bind the two.
 
 from __future__ import annotations
 
-#: function_id -> minimum serving version. Empty until an id that needs a
-#: floor is added; do not copy already-served ids here.
-FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {}
+#: function_id -> minimum serving version. Do not copy already-served ids here.
+FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
+    "qa.item_plan.retract": "next-release",
+}
 
 
 def declared_minimum_serving_version(function_id: str) -> str:

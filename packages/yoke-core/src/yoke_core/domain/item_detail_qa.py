@@ -88,6 +88,7 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         "q.success_policy",
         "q.waived_at",
         requirement_column("waiver_rationale"),
+        requirement_column("retracted_at"),
         "q.created_at",
         requirement_column("plan_id"),
         requirement_column("plan_case_key"),
@@ -227,9 +228,13 @@ def qa_plan_attachments(
             row["source"] = "project default"
             attachments[(int(row["plan_id"]), str(row["transition_id"]))] = row
     if _table_exists(conn, "qa_plan_item_attachments"):
+        retract_cols = ""
+        if _column_exists(conn, "qa_plan_item_attachments", "retracted_at"):
+            retract_cols = ", a.retracted_at, a.retraction_rationale"
         rows = _dict_rows(
             conn.execute(
-                "SELECT a.plan_id, a.transition_id, a.qa_phase, a.attached_at, "
+                "SELECT a.plan_id, a.transition_id, a.qa_phase, a.attached_at"
+                f"{retract_cols}, "
                 "p.slug AS plan_slug, p.name AS plan_name "
                 "FROM qa_plan_item_attachments a "
                 "JOIN qa_plans p ON p.id = a.plan_id "

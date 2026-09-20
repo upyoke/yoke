@@ -150,6 +150,7 @@
 | PreviewEnvOverwritten | lifecycle | preview_env | deployment-runs-db | Occupied preview environment was overwritten by a new run lane claim. | INFO | active |
 | QAArtifactAttached | lifecycle | qa_lifecycle | qa-db | QA artifact attached to a run (screenshot, log, trace) | DEBUG | deprecated |
 | QARequirementCreated | lifecycle | qa_lifecycle | qa-db | QA requirement created and attached to item, task, or deployment run | INFO | active |
+| QARequirementRetracted | lifecycle | qa_lifecycle | qa-db | QA requirement retired because its item plan attachment was retracted | STATUS | active |
 | QARequirementUpdated | lifecycle | qa_lifecycle | qa-db | QA requirement field updated via qa requirement-update | INFO | active |
 | QARequirementWaived | lifecycle | qa_lifecycle | qa-db | QA requirement waived with rationale | STATUS | active |
 | QARunCaptured | lifecycle | qa_execution | yoke_core.domain.qa_execution | QA run captured with only an execution_status set (no verdict yet); sibling of QARunCompleted. Stamped with the resolved acting session and actor; when no session exists, session_id and actor_id stay empty. | INFO | active |

@@ -116,6 +116,7 @@ def requirement_set_result(
         optional_unattached_qa_permits_empty,
     )
     from yoke_core.domain import db_backend
+    from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
 
     item_id = (
         int(target.item_id) if target.item_id is not None else int(target.epic_id)
@@ -127,7 +128,7 @@ def requirement_set_result(
             attached = query_scalar(
                 conn,
                 "SELECT COUNT(*) FROM qa_plan_item_attachments "
-                f"WHERE item_id = {marker}",
+                f"WHERE item_id = {marker} AND {live_item_attachment_sql(conn)}",
                 (item_id,),
             )
         if not attached:

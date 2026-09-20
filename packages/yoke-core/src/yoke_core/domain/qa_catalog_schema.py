@@ -105,6 +105,10 @@ CREATE TABLE IF NOT EXISTS qa_plan_item_attachments (
     plan_id INTEGER NOT NULL REFERENCES qa_plans(id),
     attached_at TEXT NOT NULL,
     attached_by_actor_id INTEGER,
+    retracted_at TEXT,
+    retraction_rationale TEXT,
+    retraction_source TEXT,
+    retracted_by_actor_id INTEGER,
     PRIMARY KEY(item_id, transition_id, plan_id)
 );
 
@@ -144,6 +148,16 @@ _REQUIREMENT_COLUMNS = (
     ("superseded_at", "TEXT"),
     ("supersession_rationale", "TEXT"),
     ("supersession_source", "TEXT"),
+    ("retracted_at", "TEXT"),
+    ("retraction_rationale", "TEXT"),
+    ("retraction_source", "TEXT"),
+)
+
+_ATTACHMENT_RETRACT_COLUMNS = (
+    ("retracted_at", "TEXT"),
+    ("retraction_rationale", "TEXT"),
+    ("retraction_source", "TEXT"),
+    ("retracted_by_actor_id", "INTEGER"),
 )
 
 _RUN_COLUMNS = (
@@ -294,6 +308,10 @@ def create_qa_catalog_tables(
             "TEXT NOT NULL DEFAULT 'verification' "
             "CHECK(qa_phase IN "
             "('verification','post_deploy','manual_acceptance'))",
+        )
+    for column, definition in _ATTACHMENT_RETRACT_COLUMNS:
+        _add_column_if_not_exists(
+            conn, "qa_plan_item_attachments", column, definition
         )
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS "

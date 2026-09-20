@@ -17,6 +17,7 @@ Topic-scoped siblings (added 2026-05-14 to keep this module under the
   CRUD / widen / conflicts, coordination-decision helper.
 - :mod:`schema_api_context_commands_qa` — QA requirement / run reads,
   verdict recording, gate preview / summary, events read.
+- :mod:`schema_api_context_commands_qa_item_plan` — item plan retraction.
 - :mod:`schema_api_context_commands_project` — project test-command
   read / list helpers.
 - :mod:`schema_api_context_commands_watchers` — watcher / Monitor /
@@ -49,18 +50,30 @@ from yoke_core.domain.schema_api_context_commands_project import (
 from yoke_core.domain.schema_api_context_commands_qa import (
     QA_COMMANDS,
 )
+from yoke_core.domain.schema_api_context_commands_qa_item_plan import (
+    QA_ITEM_PLAN_COMMANDS,
+)
 from yoke_core.domain.schema_api_context_commands_watchers import (
     WATCHERS_COMMANDS,
 )
 
 
-WRAPPER_COMMANDS: list[dict] = (
+WRAPPER_COMMANDS: list[dict] = []
+for _row in (
     CORE_COMMANDS
     + CLAIMS_COMMANDS
     + QA_COMMANDS
     + PROJECT_COMMANDS
     + WATCHERS_COMMANDS
-)
+):
+    if str(_row.get("recipe", "")).startswith("yoke qa plan materialize"):
+        _retract = QA_ITEM_PLAN_COMMANDS[0]
+        _row = {
+            **_row,
+            "recipe": f"{str(_row['recipe']).rstrip()}\n{_retract['recipe']}",
+            "notes": f"{_row.get('notes', '')} {_retract['notes']}",
+        }
+    WRAPPER_COMMANDS.append(_row)
 
 
 __all__ = ["WRAPPER_COMMANDS"]

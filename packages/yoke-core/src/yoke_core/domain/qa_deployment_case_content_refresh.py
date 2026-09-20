@@ -30,7 +30,10 @@ import json
 from typing import Any, Mapping
 
 from yoke_core.domain.db_helpers import query_rows
-from yoke_core.domain.qa_obligation_settlement import obligation_settled
+from yoke_core.domain.qa_obligation_settlement import (
+    obligation_settled,
+    requirement_retracted_at_select,
+)
 
 
 #: The fields that decide what a runner will actually do. Anything outside
@@ -114,7 +117,7 @@ def refreshed_case_keys(
     rows = query_rows(
         conn,
         "SELECT id,plan_case_key,method_id,method_config,instructions,"
-        "expected_outcome,waived_at,superseded_by_requirement_id "
+        f"expected_outcome,waived_at,superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage=%s "
         "AND COALESCE(deployment_member_item_id,0)=%s AND plan_id=%s "
         "AND execution_target_digest=%s ORDER BY id",

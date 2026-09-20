@@ -21,11 +21,13 @@ from yoke_core.domain.qa_plan_requirement_snapshot import (
 from yoke_core.domain.qa_deployment_member_attached_plans import (
     attachments_still_owed,
 )
+from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
 from yoke_core.domain.qa_plan_attachment_validation import (
     require_plan_cases,
     validate_attached_item_transition,
     validate_item_transition,
 )
+from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.qa_deployment_plan_materialization import (
     materialize_deployment_plan,
 )
@@ -90,6 +92,19 @@ def attach_plan_to_item(
         qa_phase=qa_phase,
     )
     now = iso8601_now()
+    if _column_exists(conn, "qa_plan_item_attachments", "retracted_at"):
+        existing = query_one(
+            conn,
+            "SELECT retracted_at FROM qa_plan_item_attachments "
+            f"WHERE item_id={marker} AND transition_id={marker} "
+            f"AND plan_id={marker}",
+            (item_id, transition_id, plan_id),
+        )
+        if existing is not None and existing.get("retracted_at"):
+            raise QaPlanError(
+                f"plan {plan_id} was retracted for this item at {transition_id}; "
+                "attach a different plan or record that no post-deploy obligation exists"
+            )
     try:
         conn.execute(
             "INSERT INTO qa_plan_item_attachments("
@@ -142,7 +157,8 @@ def _attached_plans(
     for row in query_rows(
         conn,
         "SELECT plan_id, qa_phase FROM qa_plan_item_attachments "
-        f"WHERE item_id={marker} AND transition_id={marker} ORDER BY plan_id",
+        f"WHERE item_id={marker} AND transition_id={marker} "
+        f"AND {live_item_attachment_sql(conn)} ORDER BY plan_id",
         (item_id, transition_id),
     ):
         attachments[int(row["plan_id"])] = dict(row)
@@ -184,10 +200,10 @@ def materialize_for_item(
     """Snapshot every attached case into idempotent QA requirements."""
     lock_item_workflow_bindings(conn, (int(item_id),))
     transition_id = str(transition_id or "").strip()
-    attachments, answered = _owed_attachments(conn, item_id, transition_id)
-    if not attachments and answered:
-        # Nothing left to bind: return before validating a binding this is
-        # declining to make.
+    attachments = _owed_attachments(conn, item_id, transition_id)[0]
+    if not attachments:
+        # Nothing live to snapshot — a retracted post-deploy attachment
+        # included. Do not re-ask a verification gate for an empty bind.
         return _materialized(int(item_id), transition_id, {}, [], [])
     transition_id = validate_attached_item_transition(
         conn,

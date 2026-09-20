@@ -57,6 +57,7 @@ _SCHEMA_API_CONTEXT_SOURCES: Sequence[str] = (
     f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands_core_operational.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands_project.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands_qa.py",
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands_qa_item_plan.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands_watchers.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_json_schemas.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_render.py",

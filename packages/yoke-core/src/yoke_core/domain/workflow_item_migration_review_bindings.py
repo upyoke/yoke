@@ -155,7 +155,7 @@ def _qa_stage_bindings(conn: Any, item_id: int) -> list[tuple[str, Any, Any]]:
             conn.execute(
                 "SELECT plan_id AS id, transition_id "
                 "FROM qa_plan_item_attachments "
-                f"WHERE item_id = {bind} ORDER BY plan_id",
+                f"WHERE item_id = {bind} AND {('retracted_at IS NULL' if _column_exists(conn, 'qa_plan_item_attachments', 'retracted_at') else 'TRUE')} ORDER BY plan_id",
                 (item_id,),
             )
         )

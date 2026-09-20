@@ -38,6 +38,7 @@ from yoke_core.domain.deployment_qa_source_obligation import (
 )
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.qa_done_gate_refusal import done_gate_refusal_errors
+from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
 from yoke_core.domain.qa_gate_helpers import (  # noqa: F401
     _browser_freshness_errors,
     _browser_run_is_fresh,
@@ -54,7 +55,6 @@ from yoke_core.domain.qa_gate_helpers import (  # noqa: F401
 # ---------------------------------------------------------------------------
 # Gate checks
 # ---------------------------------------------------------------------------
-
 
 def check_verification_entry(target: GateTarget, db_path: str) -> GateResult:
     """Verify at least one qa_requirements row exists for the target."""
@@ -96,9 +96,9 @@ def check_verification_gate(
             f"""
             SELECT r.id, r.qa_kind FROM qa_requirements r
             WHERE {where}
-              AND r.qa_phase = 'verification'
               AND r.blocking_mode = 'blocking'
-              AND r.waived_at IS NULL
+              AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")}
+              AND r.qa_phase = 'verification'
             """,
             params,
         )
@@ -222,7 +222,7 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
             FROM qa_requirements r
             WHERE {where}
               AND r.blocking_mode = 'blocking'
-              AND r.waived_at IS NULL
+              AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")}
             """,
             params,
         )

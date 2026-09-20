@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import qa_catalog_reads as _reads
 from yoke_core.domain.handlers import qa_plan_edit as _edit
+from yoke_core.domain.handlers import qa_item_plan_retract as _retract
 from yoke_core.domain.handlers import qa_plan_writes as _writes
 from yoke_core.domain.handlers import (
     qa_no_tests_posture_writes as _no_tests_posture,
@@ -239,6 +240,21 @@ def register(registry) -> None:
         guardrails=["same_project", "claim_required"],
         adapter_status="live",
         claim_required_kind="item",
+    )
+    registry.register(
+        "qa.item_plan.retract",
+        _retract.handle_item_retract,
+        _retract.ItemRetractRequest,
+        _retract.ItemRetractResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.qa_item_plan_retract",
+        target_kinds=["item"],
+        side_effects=["qa_plan_item_attachments_update", "qa_requirements_update"],
+        emitted_event_names=["YokeFunctionCalled", "QARequirementRetracted"],
+        guardrails=["same_project", "claim_required"],
+        adapter_status="live",
+        claim_required_kind="item",
+        minimum_serving_version="next-release",
     )
     registry.register(
         "qa.plan.materialize",

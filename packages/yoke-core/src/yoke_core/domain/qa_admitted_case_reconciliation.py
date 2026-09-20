@@ -113,7 +113,7 @@ def admitted_copies_in_flight(
         "q.deployment_member_item_id FROM qa_requirements q "
         "JOIN deployment_runs dr ON dr.id=q.deployment_run_id "
         f"WHERE q.plan_case_key={placeholder} AND q.plan_id IS NULL "
-        f"AND NOT {settled_obligation_sql('q')} "
+        f"AND NOT {settled_obligation_sql(conn, 'q')} "
         f"AND dr.status IN ({statuses}) "
         "ORDER BY q.id",
         (

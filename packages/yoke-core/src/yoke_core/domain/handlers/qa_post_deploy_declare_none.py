@@ -146,8 +146,9 @@ def handle_qa_post_deploy_declare_none(
                 "this item already has post-deploy verification to do, so it "
                 "cannot declare that it has none. Retire what it owes first: "
                 "`yoke qa requirement waive --requirement-id N --rationale "
-                "TEXT` records the same decision per case, and a plan it no "
-                "longer needs is detached rather than declared away.",
+                "TEXT` records the same decision per case, and a "
+                "mis-specified standing plan is withdrawn with "
+                "`yoke qa item-plan retract` rather than declared away.",
             )
         row = {
             "qa_kind": DECLARATION_QA_KIND,

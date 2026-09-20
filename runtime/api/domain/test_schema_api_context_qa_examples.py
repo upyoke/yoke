@@ -125,6 +125,10 @@ def test_qa_packet_carries_plan_case_materialization_example() -> None:
     assert (
         "yoke qa plan materialize --item PREFIX-N --transition reviewed-implementation"
     ) in body
+    assert (
+        "yoke qa item-plan retract --item PREFIX-N --project P "
+        "--plan-id N --transition T --reason TEXT"
+    ) in body
     for field in (
         "method_id",
         "expected_outcome",
