@@ -552,7 +552,7 @@ Health checks:
 - HC-undeployed-done: Undeployed done items. (YOK-1131, YOK-1154) Evaluates per-project: resolves deployment environments from DB (`environments` via `sites` + `deployment_flows.target_env` + `project_capabilities`). No config-file fallback. Items whose project has no resolved environments are skipped. Configurable threshold via `deploy_warn_days`.
 - HC-frontmatter-schema: Backlog frontmatter schema validation (type, status, priority, github_issue format, flow, rework_count; DB schema enforces valid columns)
 - HC-claudemd-drift: CLAUDE.md semantic drift (stale convention claims, health check count)
-- HC-orphaned-stashes: Orphaned pre-merge stashes (`yoke-pre-rebase-` entries in `git stash list`)
+- HC-orphaned-stashes: Unreclaimed stashes (every entry in `git stash list`, dated; nothing reclaims a stash automatically except the merge path dropping its own `yoke-pre-rebase-` safety stash)
 - HC-stale-sessions: Stale session files (`.session` files older than 4 hours in `yoke/sessions/`; gated by `session_registry_enabled` config flag)
 - HC-untracked-bug-language: Untracked bug language in working notes (scans strategy/PAD.md, backlog item bodies, unreviewed ouroboros log entries for bug-adjacent keywords without YOK-N references; suppresses done items, frontmatter, reviewed entries, and lines with YOK-N)
 - HC-size-bloat: Size/bloat monitor (checks backlog item and ouroboros log file sizes against configurable thresholds; warns on large files that may indicate unbounded growth)

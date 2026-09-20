@@ -23,6 +23,12 @@ Every step fails toward preserving. A branch the target does not retain, a
 lane holding anything but named caches, an ambiguous remote, or a refused
 deletion leaves the lane in place with the reason named, because a preserved
 lane costs an operator one sweep while a wrongly deleted one costs the work.
+
+A remote proven to carry unmerged work is the one exception, because it is
+not a retry: nothing can turn that answer around, so treating it as one
+pinned landed, empty lanes on disk for as long as the remote existed. The
+local worktree and branch retire on their own proof, and the remote is
+reported as a leftover that needs a person rather than another sweep.
 """
 
 from __future__ import annotations
@@ -43,13 +49,14 @@ from yoke_core.engines.merge_worktree_cleanliness import (
     assess_lane_residue,
     clear_lane_residue,
 )
-from yoke_core.engines.merge_worktree_safe_prune import (
+from yoke_core.engines.git_worktree_registry import (
     first_output_line,
     is_managed_worktree_path,
     registered_worktrees,
 )
 from yoke_core.engines.remote_branch_cleanup import (
     delete_remote_branch_if_merged,
+    unmerged_remote_note,
 )
 
 
@@ -252,6 +259,7 @@ def prune_landed_lane(
     if not assessment.safe:
         return (assessment.reason,)
 
+    notes: tuple[str, ...] = ()
     if assessment.has_remote:
         remote = delete_remote_branch_if_merged(
             run_git=lambda command: git(command, cwd=repo_root, capture=True),
@@ -260,11 +268,15 @@ def prune_landed_lane(
         )
         if remote.status == "deleted":
             say(f"Deleted merged remote branch: origin/{branch}")
-        if not remote.cleanup_complete:
+        if remote.retryable:
             return (
                 f"lane {branch} preserved so remote cleanup can be retried: "
                 f"{remote.reason}",
             )
+        if not remote.cleanup_complete:
+            note = unmerged_remote_note(branch, remote.reason)
+            say(f"WARNING: {note}", err=True)
+            notes += (note,)
 
     worktree_path = assessment.worktree_path
     if worktree_path is not None:
@@ -291,7 +303,8 @@ def prune_landed_lane(
         _remove_empty_parent(worktree_path)
 
     row_warning = release_lane_row(item_id, branch, emit=say)
-    notes = (row_warning,) if row_warning else ()
+    if row_warning:
+        notes += (row_warning,)
 
     refusal = delete_landed_branch(
         lambda command: git(command, cwd=repo_root, capture=True),

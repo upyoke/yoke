@@ -24,11 +24,25 @@ class RemoteBranchDeleteResult:
 
     status: RemoteBranchDeleteStatus
     reason: str
+    # True only when the proof succeeded and said the remote still holds work
+    # the target lacks. Every other preserve means the proof itself did not
+    # complete, so a later attempt may still delete the branch.
+    unmerged: bool = False
 
     @property
     def cleanup_complete(self) -> bool:
         """Whether callers may discard retry metadata and local refs."""
         return self.status in {"absent", "deleted"}
+
+    @property
+    def retryable(self) -> bool:
+        """Whether running this cleanup again could reach a different answer.
+
+        An unmerged remote is settled: no number of retries turns work the
+        target does not have into work it does. Landing the branch or
+        discarding it is the only thing that moves it.
+        """
+        return not self.cleanup_complete and not self.unmerged
 
 
 def _preserved(reason: str) -> RemoteBranchDeleteResult:
@@ -142,7 +156,9 @@ def delete_remote_branch_if_merged(
             return _preserved("refreshed target branch could not be resolved")
         landed = assess_branch_landed(run_git, branch=resolved_sha, base=target_sha)
     if not landed.landed:
-        return _preserved(f"remote branch {landed.reason}")
+        return RemoteBranchDeleteResult(
+            "preserved", f"remote branch {landed.reason}", unmerged=True
+        )
 
     deleted = run_git(
         [
@@ -157,7 +173,21 @@ def delete_remote_branch_if_merged(
     return RemoteBranchDeleteResult("deleted", "remote branch was deleted")
 
 
+def unmerged_remote_note(branch: str, reason: str) -> str:
+    """Name a remote branch that outlived the local lane it belonged to.
+
+    Both retirement boundaries emit this, so they describe the same leftover
+    the same way. The worktree and local branch are already gone by the time
+    anyone reads it, so it has to carry what is left and how to finish it.
+    """
+    return (
+        f"remote branch origin/{branch} kept after its local lane retired: "
+        f"{reason}. No sweep revisits it — land origin/{branch} or delete it."
+    )
+
+
 __all__ = [
     "RemoteBranchDeleteResult",
     "delete_remote_branch_if_merged",
+    "unmerged_remote_note",
 ]
