@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_core.domain import fleet_delta_probe
-from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN
+from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
 from yoke_core.tools import _watch_digest, _watch_runner
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
@@ -38,13 +38,40 @@ PROCESS_FAILURE_RE = re.compile(
 )
 
 
+class FleetLineClassifier:
+    """Promote a changed-report block, not only its opening marker."""
+
+    def __init__(self) -> None:
+        self._in_report = False
+
+    def __call__(self, line: str) -> Classification:
+        stripped = line.rstrip()
+        if PROCESS_FAILURE_RE.search(line):
+            return Classification(LineClass.URGENT)
+        if stripped == REPORT_BEGIN:
+            self._in_report = True
+            return Classification(LineClass.URGENT)
+        if stripped == REPORT_END:
+            self._in_report = False
+            return Classification(LineClass.URGENT)
+        if self._in_report:
+            if stripped.startswith("fleet "):
+                self._in_report = False
+            else:
+                return Classification(LineClass.URGENT)
+        if fleet_delta_probe.delta_wake_tier(line) == fleet_delta_probe.WAKE_NOW:
+            return Classification(LineClass.URGENT)
+        return Classification(LineClass.NOISE)
+
+
+def make_fleet_classifier() -> FleetLineClassifier:
+    """One classifier per wrapper run, so a report block stays open."""
+    return FleetLineClassifier()
+
+
 def classify_fleet_line(line: str) -> Classification:
-    """Classify one fleet-delta probe output line."""
-    if PROCESS_FAILURE_RE.search(line) or line.rstrip() == REPORT_BEGIN:
-        return Classification(LineClass.URGENT)
-    if fleet_delta_probe.delta_wake_tier(line) == fleet_delta_probe.WAKE_NOW:
-        return Classification(LineClass.URGENT)
-    return Classification(LineClass.NOISE)
+    """Classify one fleet-delta probe output line with no prior block state."""
+    return FleetLineClassifier()(line)
 
 
 def _probe_argv(args: Sequence[str]) -> list[str]:
@@ -70,11 +97,12 @@ continuously past 15, an envelope undelivered past 10.
 The steerer's session id comes from ambient harness identity, so the same
 command survives handoff. Every delta remains in the raw capture. The wake
 stream emits worker messages, alarms, abnormal session ends, blocked item
-transitions, newly available work, read failures, and one marker for a changed
-rate-limited report. Report checks run on quiet passes too, covering every held
+transitions, newly available work, read failures, and a changed report's hook
+digest — actionable sections, the decisions it does not serve, and the closing
+marker. Report checks run on quiet passes too, covering every held
 project/document seat; a timer-only finding needs no delta to be noticed.
 Healthy item transitions, claim churn, registrations, clean ends, and alarm
-clears stay silent at delta time and surface through the next report. Pull its
+clears stay silent at delta time and surface through the next report. Pull the
 full body with `yoke steering report get`.
 
 examples:
@@ -187,7 +215,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
 
     return _watch_runner.run_watcher(
         argv=_probe_argv(passthrough),
-        classifier=classify_fleet_line,
+        classifier=make_fleet_classifier(),
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,

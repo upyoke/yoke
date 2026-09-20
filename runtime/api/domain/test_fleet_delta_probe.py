@@ -30,6 +30,12 @@ from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_E
 
 NOW = datetime(2026, 8, 28, 17, 0, tzinfo=timezone.utc)
 REPORT_BODY = f"{REPORT_BEGIN}\nproject 1\n  one composed picture\n{REPORT_END}"
+REPORT_DIGEST = (
+    f"{REPORT_BEGIN}\n"
+    "composed 2026-08-28T17:00:00Z · 1 held scopes · hook digest\n"
+    "one composed picture\n"
+    f"{REPORT_END}"
+)
 
 
 def _ok(result: dict[str, Any]) -> SimpleNamespace:
@@ -54,8 +60,10 @@ def _policy(interval_minutes: int = 2) -> SimpleNamespace:
     )
 
 
-def _report(fingerprint: str = "fleet-a", body: str = REPORT_BODY) -> SimpleNamespace:
-    return _ok({"fingerprint": fingerprint, "body": body})
+def _report(
+    fingerprint: str = "fleet-a", digest: str = REPORT_DIGEST
+) -> SimpleNamespace:
+    return _ok({"fingerprint": fingerprint, "digest": digest, "body": REPORT_BODY})
 
 
 class _Clock:
@@ -113,7 +121,8 @@ def test_one_pass_reads_the_three_registered_functions() -> None:
         PROJECT_POLICY_FUNCTION,
         STEERING_REPORT_FUNCTION,
     ]
-    assert output == REPORT_BODY + "\n"
+    assert output == REPORT_DIGEST + "\n"
+    assert "project 1" not in output
 
 
 def test_heartbeat_only_passes_keep_the_report_cooldown() -> None:
@@ -125,7 +134,7 @@ def test_heartbeat_only_passes_keep_the_report_cooldown() -> None:
         duration=90,
     )
     assert code == 0
-    assert output == REPORT_BODY + "\n"
+    assert output == REPORT_DIGEST + "\n"
     assert calls.count(STEERING_REPORT_FUNCTION) == 1
 
 
@@ -181,35 +190,37 @@ def test_a_status_change_during_cooldown_keeps_the_raw_delta() -> None:
         duration=90,
     )
     assert code == 0
-    assert output == (f"{REPORT_BODY}\nfleet item YOK-1 status idea -> implementing\n")
+    assert output == (f"{REPORT_DIGEST}\nfleet item YOK-1 status idea -> implementing\n")
 
 
 @pytest.mark.parametrize("changed", [False, True])
 def test_report_due_after_cooldown_is_checked_when_the_fleet_goes_quiet(changed):
     before = _ok({"ranked_steps": [{"item_id": "work", "status": "idea"}]})
     after = _ok({"ranked_steps": [{"item_id": "work", "status": "implementing"}]})
-    next_body = REPORT_BODY.replace("one composed picture", "changed picture")
+    next_digest = REPORT_DIGEST.replace("one composed picture", "changed picture")
     code, output, calls = _drive(
         [_ok({}), before, _ok({}), _ok({}), after, _ok({}), _ok({}), after, _ok({})],
-        reports=[_report(), _report("fleet-b", next_body) if changed else _report()],
+        reports=[_report(), _report("fleet-b", next_digest) if changed else _report()],
         duration=180,
     )
     assert code == 0
     assert calls.count(STEERING_REPORT_FUNCTION) == 2
-    assert output.count(REPORT_BODY) == 1
-    assert (next_body in output) is changed
+    assert output.count(REPORT_DIGEST) == 1
+    assert (next_digest in output) is changed
 
 
 def test_timer_only_finding_is_reported_without_any_delta():
-    timer_body = REPORT_BODY.replace("one composed picture", "launch deadline expired")
+    timer_digest = REPORT_DIGEST.replace(
+        "one composed picture", "launch deadline expired"
+    )
     code, output, calls = _drive(
         [],
-        reports=[_report(), _report("timer", timer_body)],
+        reports=[_report(), _report("timer", timer_digest)],
         duration=180,
     )
     assert code == 0
     assert calls.count(STEERING_REPORT_FUNCTION) == 2
-    assert timer_body in output
+    assert timer_digest in output
     assert "fleet item" not in output
 
 
@@ -232,6 +243,17 @@ def test_dependency_clearance_is_urgent_without_status_or_claim_change():
     assert delta_wake_tier(available) == WAKE_NOW
     assert "status planned ->" not in output
     assert "claim unclaimed ->" not in output
+
+
+def test_a_report_without_digest_is_a_named_read_failure() -> None:
+    code, output, _ = _drive(
+        [],
+        reports=[_ok({"fingerprint": "fleet-a", "body": REPORT_BODY})],
+        duration=1,
+    )
+    assert code == 0
+    assert "omitted fingerprint or digest" in output
+    assert "one composed picture" not in output
 
 
 def test_a_transient_read_failure_is_named_and_the_loop_continues() -> None:
@@ -313,4 +335,4 @@ def test_the_session_id_is_resolved_from_ambient_identity(monkeypatch: Any) -> N
     seen.append(out.getvalue())
     # Only the envelope addressed to the resolved session is reported, and
     # the second pass is what compares it against the first.
-    assert seen[0] == (f"fleet inbox m state=pending from=w\n{REPORT_BODY}\n")
+    assert seen[0] == (f"fleet inbox m state=pending from=w\n{REPORT_DIGEST}\n")

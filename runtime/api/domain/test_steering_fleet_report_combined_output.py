@@ -17,6 +17,7 @@ from yoke_core.domain.steering_fleet_report_compose import (
     combined_body,
     combined_dict,
 )
+from yoke_core.domain.steering_fleet_report_hook_digest import combined_hook_digest
 from yoke_core.domain.steering_fleet_report_inbox import UnackedInjectedMessage
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 from yoke_core.domain.steering_fleet_report_render import (
@@ -134,24 +135,27 @@ def test_combined_fingerprint_is_the_per_scope_hashes_not_the_body() -> None:
 
 
 def test_combined_dict_keeps_machine_facts_on_each_scope() -> None:
-    payload = combined_dict(
-        _combined(
-            ScopedFleetReport(
-                "alpha",
-                _report(
-                    1,
-                    NOW,
-                    launchable=(_ready("machine-a"),),
-                    plan_limits=(_limit("machine-a"),),
-                ),
-            )
+    combined = _combined(
+        ScopedFleetReport(
+            "alpha",
+            _report(
+                1,
+                NOW,
+                launchable=(_ready("machine-a"),),
+                plan_limits=(_limit("machine-a"),),
+            ),
         )
     )
+    payload = combined_dict(combined)
     assert payload["unacked_injected"] == []
     assert payload["scopes"][0]["launchable"] == [
         {"machine_id": "machine-a", "surface": "codex-cli"}
     ]
     assert payload["scopes"][0]["plan_limits"]
+    assert payload["digest"] == combined_hook_digest(combined)
+    assert "hook digest" in payload["digest"]
+    assert PLAN_LIMIT_HEADING not in payload["digest"]
+    assert PLAN_LIMIT_HEADING in payload["body"]
 
 
 def test_unacked_injected_makes_a_quiet_combined_report_actionable() -> None:
