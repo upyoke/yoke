@@ -133,7 +133,10 @@ class TestValidateComposition:
 
         ok, msg = dr.cmd_validate_composition(run_id, db_path=db_path)
         assert ok
-        assert msg == "OK"
+        # Composition still accepts a member whose own completion flow is
+        # another one; the run just says it cannot close this member.
+        assert msg.startswith("OK; ")
+        assert "cannot close the item, whose completion flow is 'flow-preview'" in msg
 
 
 class TestCheckBatchCompatibility:

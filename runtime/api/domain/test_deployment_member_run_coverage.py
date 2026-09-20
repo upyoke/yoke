@@ -191,17 +191,28 @@ def test_a_stage_run_that_can_check_but_not_close_is_not_warned_about(
     assert "counts as held by a release" not in notice
 
 
-def test_an_unresolved_completion_flow_is_named_as_its_own_reason(
+def test_an_unresolved_completion_flow_is_stated_but_left_to_its_owner(
     test_db: Any,
 ) -> None:
+    """Nothing could close such an item, so this is not the wrong run.
+
+    That fault is delivery clearance's to refuse with its own reason, so the
+    attach states it and stops: no custody consequence, no recovery naming a
+    different run, and nothing on the run-wide preview.
+    """
     _flow(test_db, "unresolved-stage", RUN_SCOPED_STAGES)
     _run(test_db, "run-unresolved", "unresolved-stage")
     _item(test_db, 9406)
     test_db.commit()
 
+    coverage = member_run_coverage(test_db, run_id="run-unresolved", item_id=9406)
+    assert not coverage.closes
+    assert not coverage.inert
+
     notice = member_coverage_notice(test_db, run_id="run-unresolved", item_id=9406)
     assert "the item resolves no completion flow at all" in notice
-    assert "--field deployment_flow" in notice
+    assert "counts as held by a release" not in notice
+    assert inert_membership_notice(test_db, "run-unresolved", item_ids=(9406,)) == ""
 
 
 def test_the_attach_warns_without_refusing(test_db: Any) -> None:

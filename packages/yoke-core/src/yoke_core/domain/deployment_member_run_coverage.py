@@ -77,8 +77,15 @@ class MemberRunCoverage:
 
     @property
     def inert(self) -> bool:
-        """Whether this run can neither check the member nor close it."""
-        return not self.checks and not self.closes
+        """Whether this run can neither check the member nor close it.
+
+        An item that resolves no completion flow at all is deliberately not
+        inert here. Nothing could close it on any run, so this is not the
+        wrong run — it is the already-owned fault that delivery clearance
+        refuses with its own reason, and claiming it here would turn one
+        fault into a second, worse-placed warning naming the wrong repair.
+        """
+        return bool(self.completion_flow) and not self.checks and not self.closes
 
 
 def member_run_coverage(
@@ -141,6 +148,8 @@ def _close_clause(coverage: MemberRunCoverage) -> str:
             "carries this item's project source, so it can close the item"
         )
     if not coverage.completion_flow:
+        # Said plainly, without this notice's recovery: a flow that resolves
+        # nowhere is delivery clearance's refusal to name, not this one's.
         return (
             "cannot close the item, because the item resolves no completion "
             "flow at all"
@@ -153,20 +162,6 @@ def _close_clause(coverage: MemberRunCoverage) -> str:
 
 def _inert_consequence(coverage: MemberRunCoverage) -> str:
     """Name what an achieves-nothing membership still does, and the way out."""
-    if not coverage.completion_flow:
-        return (
-            "This membership therefore achieves nothing, and it is not free: "
-            "while this run is live or succeeded and its candidate carries "
-            f"the item's merge, {coverage.item_ref} counts as held by a "
-            "release and no start will enroll it. Resolve the completion flow "
-            "first — pin it with yoke items scalar update "
-            f"{coverage.item_ref} --field deployment_flow --value FLOW, or "
-            "declare the project's delivery default — then attach the item to "
-            "a run of that flow. If this run is not one you need, yoke "
-            f"deployment-runs terminalize {coverage.run_id} --disposition "
-            "cancelled --reason REASON releases the hold; a cancelled run "
-            "holds no landing."
-        )
     return (
         "This membership therefore achieves nothing, and it is not free: "
         "while this run is live or succeeded and its candidate carries the "
