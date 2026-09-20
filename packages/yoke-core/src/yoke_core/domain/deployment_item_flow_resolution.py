@@ -58,6 +58,33 @@ def item_completion_flow(conn: Any, item_id: int) -> str:
     return str(default or "")
 
 
+def membership_closes_item(
+    *,
+    run_flow: str,
+    completion_flow: str,
+    run_project_id: int,
+    item_project_id: int,
+    source_sha: str,
+) -> bool:
+    """Whether a membership on this run is completion authority for the item.
+
+    Two memberships are. A run of the item's own completion flow, and a run
+    of another project that recorded a commit for the item's project — that
+    carrier resolved this project's source, so it delivers the item's merge
+    as surely as the item's own flow would. A same-project run of any other
+    flow is not, whatever its candidate happens to contain.
+
+    Pure on purpose: the done-transition evidence read and the attach-time
+    coverage notice both ask this, and two copies of it is how one of them
+    ends up right and the other quietly wrong.
+    """
+    if not completion_flow:
+        return False
+    if run_flow == completion_flow:
+        return True
+    return int(run_project_id) != int(item_project_id) and bool(source_sha)
+
+
 def freeze_item_completion_flow(conn: Any, item_id: int) -> str:
     """Pin the live default onto the item if it has no explicit flow.
 
@@ -162,4 +189,5 @@ __all__ = [
     "freeze_item_completion_flow",
     "item_completion_flow",
     "lookup_item_project_and_flow",
+    "membership_closes_item",
 ]
