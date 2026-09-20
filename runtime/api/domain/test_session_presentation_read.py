@@ -8,17 +8,11 @@ from yoke_core.domain.session_presentation_read import session_presentation
 from yoke_core.domain.sessions_list_query import build_sessions_query
 
 
-class _Conn:
-    def execute(self, *_args, **_kwargs):
-        return self
-
-    def fetchone(self):
-        return None
-
-
 def test_roster_keeps_execution_and_observed_presentation_independent():
+    # The page's lane settings are resolved once by the roster read and
+    # handed in; a row whose project names none renders the same as one
+    # whose project declares an empty routing capability.
     result = session_presentation(
-        _Conn(),
         {
             "executor": "claude-code",
             "executor_surface": "claude-cli",
@@ -29,6 +23,7 @@ def test_roster_keeps_execution_and_observed_presentation_independent():
             "presentation_source": "claude-job-state",
             "presentation_observed_at": "2026-08-28T18:00:00Z",
         },
+        lane_settings={},
     )
 
     assert result["presentation_surface"] == "remote-control"

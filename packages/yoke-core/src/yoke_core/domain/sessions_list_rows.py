@@ -82,7 +82,7 @@ def render_session_roster_rows(
     costs one statement per distinct question rather than one per row.
     """
     page = [dict(raw) for raw in rows]
-    actor_labels = render_actor_names(conn, (row.get("actor_id") for row in page))
+    actor_names = render_actor_names(conn, (row.get("actor_id") for row in page))
     lane_settings = lane_settings_by_project(
         conn, (row.get("project_id") for row in page),
     )
@@ -160,7 +160,7 @@ def render_session_roster_rows(
                 "actor_id": row.get("actor_id"),
                 "actor_kind": row.get("actor_kind"),
                 "actor_label": (
-                    actor_labels.get(int(row["actor_id"]))
+                    actor_names.get(int(row["actor_id"]))
                     if row.get("actor_id") is not None
                     else None
                 ),
