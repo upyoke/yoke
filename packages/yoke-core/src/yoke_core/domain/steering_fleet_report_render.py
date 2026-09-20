@@ -141,6 +141,7 @@ def _run_lines(report: FleetReport) -> list[str]:
             f"{_stage_age(run)}  {run.outstanding} of {run.total_blocking} "
             f"outstanding, {len(run.red)} red"
         )
+        lines.extend(f"      {detail}" for detail in run.unresolved)
         if run.red:
             lines.append(f"      red: {', '.join(r.describe() for r in run.red)}")
         answered = run.answered_decision

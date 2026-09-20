@@ -96,6 +96,7 @@ def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
                 entry.stage,
                 entry.outstanding,
                 entry.total_blocking,
+                tuple(entry.unresolved),
                 tuple(sorted(red.requirement_id for red in entry.red)),
                 (
                     (
