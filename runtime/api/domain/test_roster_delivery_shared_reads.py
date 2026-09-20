@@ -17,6 +17,7 @@ from yoke_core.domain import release_delivery_summary as summary_module
 from yoke_core.domain.deployment_run_candidate_containment import (
     NOT_CONTAINED,
     CandidateContainment,
+    ContainmentVerdict,
 )
 from yoke_core.domain.item_merge_receipt_document import record_entry
 from yoke_core.domain.release_delivery_summary import (
@@ -238,7 +239,53 @@ def test_a_candidate_with_no_lineage_answers_without_opening_anything() -> None:
             environment_id=ENVIRONMENT_ID,
             flow=FLOW,
         )
-        assert candidates.contains("a" * 40) is False
+        assert candidates.carrier_for("a" * 40) is None
+
+
+def test_the_carrier_of_a_carried_commit_names_its_run_and_flow() -> None:
+    """Carried work answers first, and names the release, not just the flow."""
+    sha = "a" * 40
+    with test_database() as conn:
+        _succeeded_run(conn, "run-1", carried=[sha])
+        conn.commit()
+        candidates = ReleaseCandidates(
+            conn,
+            project_id=PROJECT_ID,
+            environment_id=ENVIRONMENT_ID,
+            flow=FLOW,
+        )
+        assert candidates.carrier_for(sha) == {"run_id": "run-1", "flow": FLOW}
+        # A commit no run carried and no lineage contains has no carrier.
+        assert candidates.carrier_for("b" * 40) is None
+
+
+def test_a_commit_only_ancestry_knows_is_carried_by_the_newest_release(
+    monkeypatch,
+) -> None:
+    """Landed under another item's merge: no run lists it, ancestry does."""
+    from yoke_core.domain.deployment_run_candidate_containment import CONTAINED
+
+    class _Walk:
+        def __init__(self, conn, project_id, *, candidate_lineage): pass
+
+        def contains(self, commit_sha):
+            return ContainmentVerdict(state=CONTAINED)
+
+    monkeypatch.setattr(summary_module, "CandidateContainment", _Walk)
+    with test_database() as conn:
+        _succeeded_run(conn, "run-1", carried=["e" * 40])
+        conn.commit()
+        candidates = ReleaseCandidates(
+            conn,
+            project_id=PROJECT_ID,
+            environment_id=ENVIRONMENT_ID,
+            flow=FLOW,
+        )
+        # Named by the newest pinned lineage's own run, the same shape the
+        # carried-work answer returns.
+        assert candidates.carrier_for("c" * 40) == {
+            "run_id": "run-1", "flow": FLOW,
+        }
 
 
 def _version_id(conn, item_id: int) -> int:

@@ -216,19 +216,26 @@ def candidate_runs(
     return succeeded_persistent_runs(conn, project_id=int(project_id))
 
 
-def _carried_by_flow(runs: list[dict[str, Any]]) -> dict[str, str]:
-    """Each commit these releases carried, against the flow that shipped it.
+def _carriage_by_sha(
+    runs: list[dict[str, Any]],
+) -> dict[str, dict[str, str]]:
+    """Each commit these releases carried, against the release that shipped it.
 
     Newest first, so a commit shipped more than once is named by the most
-    recent release that carried it.
+    recent release that carried it. The run is named as well as its flow,
+    because a reader showing where the work went links the release itself.
     """
-    carried: dict[str, str] = {}
+    carried: dict[str, dict[str, str]] = {}
     for run in runs:
+        carrier = {
+            "run_id": str(run.get("id") or ""),
+            "flow": str(run.get("flow") or ""),
+        }
         for sha in _carried_shas(
             run.get("carried_work"),
             bound_project_id=run.get("bound_project_id"),
         ):
-            carried.setdefault(sha, str(run.get("flow") or ""))
+            carried.setdefault(sha, carrier)
     return carried
 
 
@@ -259,7 +266,7 @@ class ReleaseCandidates:
             environment_id=environment_id,
             flow=flow,
         )
-        self._carried = _carried_by_flow(runs)
+        self._carriage = _carriage_by_sha(runs)
         # Releases advance, so a commit an older release contained is
         # contained by the newest one too. Asking every lineage would spend
         # one repository resolution per run to re-derive an answer the first
@@ -269,32 +276,37 @@ class ReleaseCandidates:
             {},
         )
         self._newest_lineage = str(newest.get("release_lineage") or "").strip()
-        self._newest_flow = str(newest.get("flow") or "")
+        self._newest_carrier = {
+            "run_id": str(newest.get("id") or ""),
+            "flow": str(newest.get("flow") or ""),
+        }
         self._containment: CandidateContainment | None = None
 
-    def carrying_flow(self, sha: str) -> str | None:
-        """The flow of the release that named ``sha``, or ``None``."""
-        return self._carried.get(sha)
+    def carrier_for(self, sha: str) -> dict[str, str] | None:
+        """The release that delivered ``sha``, or ``None`` if none has.
 
-    def contains(self, sha: str) -> bool:
-        """Whether the newest release already carries ``sha`` by ancestry.
-
-        Asked only once carried work has said no, and answered through one
-        containment walk per triple rather than one per commit.
+        The one answer to "what shipped this commit", asked the two ways a
+        commit reaches a release. Usually a run names it in its own carried
+        work. Otherwise it may have reached the base branch under another
+        item's landing, which ancestry against the newest pinned lineage — not
+        carried work — is the record of. Both answers name the run and its
+        flow, so a count of delivered merges and a card linking the release
+        that delivered one are reading the same fact rather than two.
         """
+        carried = self._carriage.get(sha)
+        if carried is not None:
+            return dict(carried)
         if not self._newest_lineage:
-            return False
+            return None
         if self._containment is None:
             self._containment = CandidateContainment(
                 self._conn,
                 self._project_id,
                 candidate_lineage=self._newest_lineage,
             )
-        return self._containment.contains(sha).contained
-
-    @property
-    def newest_flow(self) -> str:
-        return self._newest_flow
+        if self._containment.contains(sha).contained:
+            return dict(self._newest_carrier)
+        return None
 
 
 def delivery_summary(
@@ -313,17 +325,11 @@ def delivery_summary(
     deployed = 0
     carrying_flow = ""
     for sha in merges:
-        carried_flow = candidates.carrying_flow(sha)
-        if carried_flow is not None:
-            deployed += 1
-            carrying_flow = carrying_flow or carried_flow
+        carrier = candidates.carrier_for(sha)
+        if carrier is None:
             continue
-        # Not named by any run: it may still have reached the base branch
-        # under another item's landing, which ancestry — not carried work —
-        # is the record of.
-        if candidates.contains(sha):
-            deployed += 1
-            carrying_flow = carrying_flow or candidates.newest_flow
+        deployed += 1
+        carrying_flow = carrying_flow or carrier["flow"]
     return DeliverySummary(
         merges=len(merges), deployed=deployed, flow=carrying_flow
     )
