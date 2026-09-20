@@ -109,16 +109,25 @@ def read_project_facts(
     now: str,
     registered_names: Mapping[str, str],
 ) -> ProjectFleetFacts:
-    """Read every project-wide fact one report scope is composed from."""
+    """Read every project-wide fact one report scope is composed from.
+
+    The claim holders are read once and handed on. The landed section needs
+    the same answer — close-out is a claim-holding step — and when it asked
+    the database itself it got a narrower one that knew nothing about who was
+    parked, which is how a healthy wait came to print a close-out command.
+    """
+    holders = claim_holders(conn, project_id=project_id, now=now)
     return ProjectFleetFacts(
         available=scope_candidates(conn, project_id=project_id, session_id=session_id),
-        holders=claim_holders(conn, project_id=project_id, now=now),
+        holders=holders,
         undelivered=undelivered_messages(conn, project_id=project_id, now=now),
         unregistered_launches=unregistered_launches(
             conn, project_id=project_id, now=now
         ),
         abandoned_launches=abandoned_launches(conn, project_id=project_id, now=now),
-        landed_open=landed_without_closeout(conn, project_id=project_id, now=now),
+        landed_open=landed_without_closeout(
+            conn, project_id=project_id, now=now, holders=holders
+        ),
         deployment_runs=run_progress(conn, project_id=project_id, now=now),
         vendor_errors=vendor_error_sessions(conn, project_id=project_id, now=now),
         launchable=launchable_surfaces(conn, project_id=project_id, now=now),

@@ -184,11 +184,10 @@ def test_a_row_carries_the_marks_that_decide_what_to_do_with_it():
     assert not fresh_row.lstrip().startswith("!")
     assert " stopped " in fresh_row
     assert "still reviewing-implementation" in landed_row
-    assert "do not wait on status" in landed_row
-    assert "yoke merge item YOK-4" in landed_row
-    # Who can run close-out is on the row, because with a live holder the
-    # recovery is a message to that session and with none it is staffing.
-    assert "holder-session" in landed_row
+    # A live holder owns its own close-out, so the row names who has it and
+    # stops there. The command belongs to the rows nobody holds.
+    assert "held by holder-session, working" in landed_row
+    assert "yoke merge item" not in landed_row
     launch_row = next(line for line in body.splitlines() if "launch-1" in line)
     assert "identity parse failed" in launch_row
     assert "instruction not delivered" in launch_row
@@ -206,15 +205,44 @@ def test_a_row_carries_the_marks_that_decide_what_to_do_with_it():
     assert "yoke say --item YOK-3 --stdin" in waiter_row
 
 
-def test_a_landed_item_nobody_holds_says_so_instead_of_naming_a_session():
-    """With no holder the recovery is staffing, so the row must not read empty."""
+def test_a_landed_item_nobody_holds_carries_the_command_that_runs_for_it():
+    """With no holder the close-out is the seat's, so the row hands it over.
+
+    The command is composed from the item's own workflow: an evidence-gated
+    terminal transition refuses the bare form, and a row that printed it
+    anyway sent every reader through a denial to find the real one.
+    """
     report = _populated_report()
-    unheld = dataclasses.replace(report.landed_open[0], holder_session_id=None)
+    unheld = dataclasses.replace(
+        report.landed_open[0], holder_session_id=None, workflow_id="dash"
+    )
 
     body = report_body(dataclasses.replace(report, landed_open=(unheld,)))
 
     landed_row = next(line for line in body.splitlines() if "YOK-4" in line)
     assert "no live holder" in landed_row
+    assert "do not wait on status" in landed_row
+    assert '--result "<what landed>"' in landed_row
+    assert '--verification "<how it was verified>"' in landed_row
+
+
+def test_a_landed_item_its_parked_holder_waits_on_reads_as_a_wait():
+    """A landing whose holder is parked is healthy and must read that way."""
+    report = _populated_report()
+    waiting = dataclasses.replace(
+        report.landed_open[0],
+        holder_parked=True,
+        holder_quiet_reason="awaiting YOK-4 delivery",
+        custody_state=HELD,
+        custody_run_id="run-20260919-020",
+    )
+
+    body = report_body(dataclasses.replace(report, landed_open=(waiting,)))
+
+    landed_row = next(line for line in body.splitlines() if "YOK-4" in line)
+    assert "parked — awaiting YOK-4 delivery" in landed_row
+    assert "delivering in run-20260919-020" in landed_row
+    assert "yoke merge item" not in landed_row
 
 
 def test_a_landed_row_names_the_release_holding_it_or_says_none_does():

@@ -19,6 +19,7 @@ from yoke_core.domain.steering_fleet_report_deployment_runs import (
 )
 from yoke_core.domain.steering_fleet_report_landed_open import (
     custody_phrase,
+    holder_phrase,
     landed_recovery,
 )
 from yoke_core.domain.steering_fleet_report_render_launches import (
@@ -102,14 +103,25 @@ def _holder_lines(
 
 
 def _landed_lines(report: FleetReport) -> list[str]:
-    lines = [
-        f"  {entry.public_ref}  still {entry.status}  "
-        f"landed {minutes(entry.landed_seconds)} ago  "
-        f"{entry.holder_session_id or 'no live holder'}  "
-        f"{custody_phrase(entry)}  "
-        f"{landed_recovery(entry.public_ref)}"
-        for entry in report.landed_open[:SECTION_LIMIT]
-    ]
+    """One line per landing: what it is, then an action only if there is one.
+
+    State is always said and the recovery is conditional, because the two
+    answer different questions. A row whose holder is parked on its delivery
+    is reporting health, and a command printed beside it reads as work the
+    seat owes — which is how nine healthy waits came to look like nine
+    outstanding close-outs.
+    """
+    lines = []
+    for entry in report.landed_open[:SECTION_LIMIT]:
+        line = (
+            f"  {entry.public_ref}  still {entry.status}  "
+            f"landed {minutes(entry.landed_seconds)} ago  "
+            f"{holder_phrase(entry)}  {custody_phrase(entry)}"
+        )
+        recovery = landed_recovery(entry)
+        if recovery:
+            line += f"  {recovery}"
+        lines.append(line)
     return capped(lines, len(report.landed_open))
 
 

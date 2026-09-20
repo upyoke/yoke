@@ -5,23 +5,36 @@ project delivers through releases it owes a delivery first — so this section
 exists to name the gap between "the code is on the base branch" and "the item
 is done".
 
-Two facts decide what the seat does about one row, and the section used to
-carry only the first:
+Three facts decide what the seat does about one row:
 
-* **Who holds the item.** Close-out is a claim-holding step, so a landing with
-  a live holder is a message away from finished and one with none needs
-  staffing.
+* **Who holds the item, and whether they are waiting.** Close-out is a
+  claim-holding step, so a seat can only run it on a landing no live session
+  holds — against a live holder the command is refused by name. A holder that
+  is parked is waiting on the delivery its own close-out needs, and that row
+  is healthy.
 * **Which release holds the landing.** A row waiting on a delivery that is
   actually coming needs nothing from anybody. A row no release is carrying
   needs a release, and nothing will produce one on its own. Until these read
   differently the two were indistinguishable, and three items sat stranded for
   a day because the only way to tell them apart was a person noticing that the
   rows had not changed.
+* **Which workflow the item pins.** An evidence-gated terminal transition
+  refuses the bare close-out command, so a row that recommends one names the
+  flags it needs.
 
 The custody answer comes from :mod:`delivery_landing_custody`, which run
 enrollment reads too. That sharing is the point: what the report calls
 stranded is exactly what the next release start will enroll, so the seat is
 never told to chase something the product was about to do by itself.
+
+The holder answer comes from :mod:`steering_fleet_report_holders`, for the
+same reason and after the same failure. This section used to run its own
+narrower claim query one line after the report had already built the full
+holder facts, and that second reader knew only the session id — so park state
+was not omitted by choice, it was unreachable, and every landed row printed a
+close-out command whether or not anybody needed one. A second reader that
+knows less than the first and wins anyway is the shape of the defect; the
+repair is to stop asking a question that was already answered better.
 """
 
 from __future__ import annotations
@@ -29,6 +42,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Sequence
 
+from yoke_core.domain.close_out_evidence_gate import close_out_command
 from yoke_core.domain.delivery_landing_custody import (
     ENROLLABLE_CUSTODY_STATES,
     HELD,
@@ -40,8 +54,8 @@ from yoke_core.domain.delivery_landing_custody import (
     merged_open_items,
 )
 from yoke_core.domain.item_ref_render import render_item_refs
-from yoke_core.domain.steering_fleet_report_detectors import age_seconds, marker
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.steering_fleet_report_detectors import age_seconds
+from yoke_core.domain.steering_fleet_report_holders import ClaimHolder
 
 
 @dataclass(frozen=True)
@@ -55,8 +69,17 @@ class LandedItem:
     landed_seconds: int
     #: The live session holding the item's claim, empty when none does.
     #: Close-out is a claim-holding step, so this is the difference between
-    #: a landing someone can be told to finish and one that needs staffing.
+    #: a landing its holder will finish and one that needs staffing.
     holder_session_id: str = ""
+    #: Whether that holder is parked. A parked holder is waiting on the
+    #: delivery its close-out needs, so the row is healthy and wants no
+    #: command: a recovery offered where none is needed reads as work.
+    holder_parked: bool = False
+    #: The parked holder's own words for what it waits on, when it left any.
+    holder_quiet_reason: str = ""
+    #: The workflow the item pins, because close-out is composed from it: an
+    #: evidence-gated terminal transition refuses the bare command.
+    workflow_id: str = ""
     #: Which release holds THIS landing, from :mod:`delivery_landing_custody`.
     #: Without it every landed row read alike, and an item stranded by a
     #: cancelled run looked exactly like one mid-delivery — which is why it
@@ -72,13 +95,40 @@ class LandedItem:
         return self.custody_state in ENROLLABLE_CUSTODY_STATES
 
 
+def holder_phrase(entry: LandedItem) -> str:
+    """Who holds the item, and whether they are waiting or working.
+
+    A bare session id said only that somebody was there. Whether that somebody
+    is parked decides whether the row needs anything at all, so the row says
+    it rather than leaving a reader to go and look.
+    """
+    if not entry.holder_session_id:
+        return "no live holder"
+    held = f"held by {entry.holder_session_id}"
+    if not entry.holder_parked:
+        return f"{held}, working"
+    return f"{held}, parked — {entry.holder_quiet_reason or 'waiting on delivery'}"
 
 
-def landed_recovery(public_ref: str) -> str:
-    """The close-out recipe both the text and the machine projection print."""
-    return (
-        f"finish close-out with `yoke merge item {public_ref}`; do not wait on status"
-    )
+def landed_recovery(entry: LandedItem) -> str:
+    """What a seat does about this row, or ``""`` when it needs nothing.
+
+    Close-out is a claim-holding step, so a seat can only run it on a landing
+    no live session holds; against a live holder the command is refused by
+    name, and against a parked one there is nothing to recover from — it is
+    waiting on the delivery its close-out needs. Both get silence, because a
+    correct command offered for a situation that needs no command is still
+    noise, and it costs every reader the time it takes to try.
+
+    Where a seat can act, the command is composed for the item's own workflow.
+    An evidence-gated terminal transition refuses the bare form, so the row
+    names the flags rather than leaving them to be discovered through the
+    denial.
+    """
+    if entry.holder_session_id:
+        return ""
+    command = close_out_command(entry.public_ref, workflow_id=entry.workflow_id)
+    return f"finish close-out with `{command}`; do not wait on status"
 
 
 def custody_phrase(entry: LandedItem) -> str:
@@ -97,38 +147,12 @@ def custody_phrase(entry: LandedItem) -> str:
     return "no release holds it"
 
 
-def _live_item_holders(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
-    """Which of ``item_ids`` a live session still holds the claim on.
-
-    Only sessions that have neither ended nor terminated count: an ended
-    session cannot be asked to run close-out, so reporting it as the holder
-    would name a recovery path that does not exist.
-    """
-    if not item_ids:
-        return {}
-    p = marker(conn)
-    scope = scope_int_sql(conn, "wc.scope", "item_id")
-    holes = ", ".join(p for _ in item_ids)
-    rows = conn.execute(
-        f"""SELECT {scope} AS item_id, wc.session_id
-              FROM work_claims wc
-              JOIN harness_sessions hs ON hs.session_id = wc.session_id
-             WHERE wc.target_kind = 'item'
-               AND wc.released_at IS NULL
-               AND hs.ended_at IS NULL
-               AND hs.terminated_at IS NULL
-               AND {scope} IN ({holes})
-             ORDER BY wc.id""",
-        tuple(int(value) for value in item_ids),
-    ).fetchall()
-    return {int(row[0]): str(row[1]) for row in rows}
-
-
 def landed_without_closeout(
     conn: Any,
     *,
     project_id: int,
     now: str,
+    holders: Sequence[ClaimHolder],
 ) -> tuple[LandedItem, ...]:
     """Items whose branch landed while the item never reached a terminal status.
 
@@ -138,13 +162,15 @@ def landed_without_closeout(
     control-plane landing observer rather than from a worker that waited, so
     this row fires for a landing whose waiting process died.
 
-    Each row carries whoever still holds the item, because close-out is a
-    claim-holding step: a landing with a live holder is a message away from
-    finished, and one with none needs a seat. It also carries which release
-    holds the landing, because a holder can only finish a close-out the
-    delivery has reached: an item nobody is delivering is a different
-    finding from one waiting normally, and until the two were told apart the
-    stranded ones were found by accident.
+    ``holders`` is the report's own :func:`claim_holders` answer, passed in
+    rather than asked again. Each row carries whoever still holds the item and
+    whether they are parked, because close-out is a claim-holding step: a
+    landing a live session holds is that session's to finish, a parked holder
+    is waiting on its delivery, and only a landing nobody holds needs a seat.
+    It also carries which release holds the landing, because a holder can only
+    finish a close-out the delivery has reached: an item nobody is delivering
+    is a different finding from one waiting normally, and until the two were
+    told apart the stranded ones were found by accident.
 
     Which items are even in this conversation is
     :func:`delivery_landing_custody.merged_open_items`, shared with run
@@ -154,7 +180,7 @@ def landed_without_closeout(
     records = list(merged_open_items(conn, int(project_id)))
     item_ids = [int(record["id"]) for record in records]
     refs = render_item_refs(conn, item_ids)
-    holders = _live_item_holders(conn, item_ids)
+    held_by = {holder.item_id: holder for holder in holders}
     custody = landing_custody(conn, project_id=int(project_id), item_ids=item_ids)
     landed = []
     for record in records:
@@ -163,6 +189,7 @@ def landed_without_closeout(
             continue
         item_id = int(record["id"])
         held = custody[item_id]
+        holder = held_by.get(item_id)
         landed.append(
             LandedItem(
                 item_id=item_id,
@@ -170,7 +197,10 @@ def landed_without_closeout(
                 status=str(record.get("status") or ""),
                 landed_at=stamp,
                 landed_seconds=age_seconds(stamp, now) or 0,
-                holder_session_id=holders.get(item_id, ""),
+                holder_session_id=holder.session_id if holder else "",
+                holder_parked=bool(holder and holder.parked),
+                holder_quiet_reason=holder.quiet_reason if holder else "",
+                workflow_id=str(record.get("workflow_id") or ""),
                 custody_state=held.state,
                 custody_run_id=held.run_id,
             )
@@ -183,6 +213,7 @@ def landed_without_closeout(
 __all__ = [
     "LandedItem",
     "custody_phrase",
+    "holder_phrase",
     "landed_recovery",
     "landed_without_closeout",
 ]
