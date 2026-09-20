@@ -30,7 +30,9 @@ def _connection() -> sqlite3.Connection:
             terminated_at TEXT,
             turn_posture TEXT,
             turn_posture_at TEXT,
-            offer_envelope TEXT
+            offer_envelope TEXT,
+            model TEXT,
+            requested_model TEXT
         );
         CREATE TABLE session_relays (
             relay_id TEXT PRIMARY KEY,
@@ -93,7 +95,7 @@ def _add_session(
     envelope: dict | None = None,
 ) -> None:
     conn.execute(
-        "INSERT INTO harness_sessions VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO harness_sessions VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             session_id,
             1,
@@ -107,6 +109,8 @@ def _add_session(
             "waiting",
             "2026-08-22T12:00:00Z",
             json.dumps(envelope) if envelope else None,
+            None,
+            None,
         ),
     )
 
