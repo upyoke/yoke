@@ -39,6 +39,20 @@ Membership follows the source the run ships:
   An item whose project the run ships no source for is refused: no membership
   row, no requirement snapshot, no deployment wake. It stays at its release
   wait until a run that does ship its code carries it.
+
+What the run can do for the member, named on every add:
+  Two independent capabilities, and a run can have either, both, or neither.
+  It CHECKS a member only through an item-scoped QA stage — that is what runs
+  a case against it, freezes its requirement snapshot, and collects its
+  evidence. It CLOSES a member only as that item's completion flow, or as
+  another project's run carrying this project's source.
+
+  A flow with no item-scoped stage is not a mistake: most delivery runs check
+  nothing and close everything they carry. But a run that can do NEITHER
+  gives the member nothing and is not free — membership is what holds the
+  landing, so while this run is live or succeeded the next start on the
+  item's completion flow will not enroll it. The add names that case, the
+  flow that can close the item, and how to get there; it does not refuse.
 """
 
 

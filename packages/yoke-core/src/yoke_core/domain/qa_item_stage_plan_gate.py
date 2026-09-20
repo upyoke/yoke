@@ -56,13 +56,24 @@ def _stages(raw: Any) -> list[Mapping[str, Any]]:
     return [stage for stage in decoded if isinstance(stage, Mapping)]
 
 
+def item_scoped_qa_stage_names(raw: Any) -> tuple[str, ...]:
+    """Name every stage here that asks one member to answer for itself.
+
+    Stage kinds are only ``execution`` or ``qa``, and an execution stage
+    answers for the release, so an item-scoped QA stage is the whole of what
+    a run can do about a single member.
+    """
+    return tuple(
+        str(stage.get("name") or "")
+        for stage in _stages(raw)
+        if str(stage.get("stage_kind") or "") == "qa"
+        and str(stage.get("scope") or "") == "item"
+    )
+
+
 def stages_declare_item_scoped_qa(raw: Any) -> bool:
     """True when these stages ask each member to answer for itself."""
-    return any(
-        str(stage.get("stage_kind") or "") == "qa"
-        and str(stage.get("scope") or "") == "item"
-        for stage in _stages(raw)
-    )
+    return bool(item_scoped_qa_stage_names(raw))
 
 
 def has_attached_member_plan(attachments: Iterable[Any]) -> bool:
@@ -210,6 +221,7 @@ __all__ = [
     "attachment_transition",
     "flow_stages",
     "has_attached_member_plan",
+    "item_scoped_qa_stage_names",
     "missing_item_qa_plan_refusal",
     "stages_declare_item_scoped_qa",
 ]

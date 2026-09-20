@@ -6,7 +6,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow
+from yoke_core.domain.deployment_item_flow_resolution import (
+    item_completion_flow,
+    membership_closes_item,
+)
 from yoke_core.domain.deployment_qa_admission_materialization import (
     admitted_requirement_case_key,
 )
@@ -62,11 +65,8 @@ POST_DEPLOY_RECOVERY = (
 def latest_completion_run(conn: Any, item_id: int) -> dict[str, Any] | None:
     """Newest membership that can close this item, or none.
 
-    Two memberships can: a run of the item's own selected completion flow,
-    and a run of another project that ships this project's source — the
-    carrier resolved this project's commit at start, so it delivers the
-    item's merge as surely as the item's own flow would. A later carrying
-    run of an unrelated flow in this project still does not.
+    Which memberships can is :func:`membership_closes_item`; this walks the
+    item's memberships newest first and returns the first one that is.
 
     Freshness is still ``created_at`` (then ``id``). ``release_lineage`` and
     ``project_id`` name the candidate to ask containment about: the commit
@@ -103,8 +103,13 @@ def latest_completion_run(conn: Any, item_id: int) -> dict[str, Any] | None:
             item_project,
         )
         run_flow = str(_row_value(row, "flow", 5) or "")
-        carried = int(_row_value(row, "project_id", 3)) != item_project
-        if run_flow != flow and not (carried and source_sha):
+        if not membership_closes_item(
+            run_flow=run_flow,
+            completion_flow=flow,
+            run_project_id=int(_row_value(row, "project_id", 3)),
+            item_project_id=item_project,
+            source_sha=source_sha,
+        ):
             continue
         return {
             "id": str(_row_value(row, "id", 0) or ""),

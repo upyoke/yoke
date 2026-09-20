@@ -19,6 +19,9 @@ from yoke_core.domain.deployment_run_project_sources import carried_project_ids
 from yoke_core.domain.deployment_member_post_deploy_admission import (
     unadmitted_post_deploy_notice,
 )
+from yoke_core.domain.deployment_member_run_coverage import (
+    inert_membership_notice,
+)
 from yoke_core.domain.deployment_run_carried_membership import (
     carried_membership_refusal,
     describe_enrollment,
@@ -205,11 +208,21 @@ def cmd_validate_composition(
         # done transition once this run succeeds.
         unadmitted = unadmitted_post_deploy_notice(conn, run_id)
 
+        # Only the members this run can neither check nor close: one it can
+        # close is the ordinary case, and restating that per member would
+        # bury the membership that will receive nothing.
+        inert = inert_membership_notice(conn, run_id)
+
         if errors:
-            error_text = "\n".join(errors + ([unadmitted] if unadmitted else []))
+            trailing = [note for note in (inert, unadmitted) if note]
+            error_text = "\n".join(errors + trailing)
             return False, f"FAIL: Composition validation failed:\n{error_text}"
 
-        notes = [note for note in (describe_enrollment(enrolled), unadmitted) if note]
+        notes = [
+            note
+            for note in (describe_enrollment(enrolled), inert, unadmitted)
+            if note
+        ]
         return True, ("OK; " + "; ".join(notes)) if notes else "OK"
     finally:
         conn.close()

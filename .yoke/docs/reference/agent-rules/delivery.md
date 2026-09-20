@@ -79,6 +79,16 @@ learns the other's part from its own skill. The split is the whole rule:
   no attaching, and `yoke steering report get` names any landed item no
   release holds so nobody has to notice one going stale. The driving seat does not run a member's item QA and
   does not close a member out.
+- **The attach says what the run can do for the member.** Two independent
+  capabilities: a run **checks** a member only through an item-scoped QA
+  stage, and **closes** one only as that item's completion flow or as another
+  project's run carrying this project's source. Most delivery flows check
+  nothing and close everything they carry, so a missing item-scoped stage is
+  no reason to refuse an attach — but a run that can do neither gives the
+  member nothing, and membership still holds the landing, so the next start on
+  the item's completion flow will not enroll it. `add-item` names that case
+  with the flow that can close the item; `validate-composition` names any
+  member already in it.
 - **The member owner owns its own item.** Its merge parked it at the flow's
   release wait holding its work claim; the deployment wake re-enters it for its
   QA stage and again when delivery clears.

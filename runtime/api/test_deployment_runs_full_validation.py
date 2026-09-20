@@ -114,7 +114,10 @@ class TestValidateComposition:
 
         ok, msg = dr.cmd_validate_composition(rid, db_path=db_path)
         assert ok is True
-        assert msg == "OK"
+        # Accepted, and said out loud: this run is not the flow that closes
+        # this member, and it has no item-scoped stage to check it either.
+        assert msg.startswith("OK; ")
+        assert "cannot close the item, whose completion flow is 'other-flow'" in msg
 
     def test_item_not_at_implemented(self, db_path):
         rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
