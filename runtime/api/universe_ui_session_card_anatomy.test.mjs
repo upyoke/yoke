@@ -109,13 +109,15 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   });
   await settle();
 
-  // Steering-color boot+view refreshes bracket the scoped load and usage read.
+  // One roster, and it is this page's own. The steering-color boot and view
+  // refreshes bracket it, but they ask which groups are live rather than
+  // fetching a second complete roster to read one field off every row.
   assert.deepEqual(
-    requests.filter((request) => request.function === "sessions.list"),
+    requests.filter((request) => String(request.function).startsWith("sessions.")),
     [
-      { function: "sessions.list", payload: { open: true, per_project: true } },
+      { function: "sessions.steering_groups.list", payload: {} },
       { function: "sessions.list", payload: { open: true, projects: ["1"] } },
-      { function: "sessions.list", payload: { open: true, per_project: true } },
+      { function: "sessions.steering_groups.list", payload: {} },
       { function: "sessions.list", payload: { usage_last_24h: true, projects: ["1"] } },
     ],
   );
@@ -250,9 +252,9 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   assert.equal(reclaim.disabled, false);
   reclaim.dispatchEvent(new Event("click"));
   await settle();
-  assert.equal( // 4 from mount (see above) plus 1 from reclaim's own reload.
+  assert.equal( // 2 from mount (see above) plus 1 from reclaim's own reload.
     requests.filter((request) => request.function === "sessions.list").length,
-    5,
+    3,
   );
   assert.equal(byClass(root, "session-card").length, 1);
   assert.deepEqual(

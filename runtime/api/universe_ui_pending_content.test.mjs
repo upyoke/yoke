@@ -107,15 +107,15 @@ test("a failed roster read replaces the line with its error, never leaves it spi
 
 test("a stuck steering-color read no longer holds the first content paint", async (t) => {
   stubFetch(t);
-  // `sessions.list` here is the steering-group roster, which only tints
-  // cards. It never resolves, and the screen still paints.
-  const client = mountClient({ pending: ["sessions.list"] });
+  // The steering-group read only tints cards. It never resolves, and the
+  // screen still paints.
+  const client = mountClient({ pending: ["sessions.steering_groups.list"] });
   const { root, mounted } = await mountAt("#/projects", client);
   await settle();
   await settle();
 
   assert.equal(byClass(root, "route-loading").length, 0);
   assert.equal(byClass(root, "panel").length > 0, true);
-  assert.ok(client.requests.includes("sessions.list"));
+  assert.ok(client.requests.includes("sessions.steering_groups.list"));
   mounted.unmount();
 });

@@ -93,6 +93,7 @@ export function multiProjectWorkbenchClient({ failProject } = {}) {
         { ...session("s-nil", null, null), project: null, project_id: null },
       ],
     },
+    "sessions.steering_groups.list": { rows: [] },
     "overview.activation.get": { dismiss_available: false, modules: [] },
     "ui_preferences.nav_group.list": { groups: {} },
   };
@@ -250,6 +251,7 @@ export function workbenchClient(overrides = {}) {
       stages: [{ name: "deploy", state: "complete" }],
       member_items: [{ id: 106, ref: "YOK-6", title: "Land the release" }],
     }] },
+    "sessions.steering_groups.list": { rows: [] },
     "overview.activation.get": { dismiss_available: false, modules: [] },
     "ui_preferences.nav_group.list": { groups: {} },
     ...overrides,

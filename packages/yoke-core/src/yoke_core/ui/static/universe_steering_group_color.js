@@ -31,9 +31,8 @@ function paletteColorAt(rank) {
 // Sessions, and the detail view each fetch their own rows (Sessions scopes to
 // one project, Overview does not), so ranking by position within a single
 // call's rows gave the same group different colors on different pages. The
-// fix is feeding this one function the same complete, app-wide roster on
-// every call (mountUniverseApp fetches it once, like context.projects()) —
-// a page-local subset never reaches this function at all.
+// fix is feeding this one function the same complete, app-wide set of groups
+// on every call — a page-local subset never reaches this function at all.
 export function computeSteeringGroupColors(rows) {
   const distinctIds = [...new Set(
     (Array.isArray(rows) ? rows : [])
@@ -46,11 +45,15 @@ export function computeSteeringGroupColors(rows) {
   return colors;
 }
 
-// The roster the colors are ranked from, held where the ranking lives. The
-// read is decoration — it tints cards — so it must never gate a screen's
-// first paint; `refresh()` is fire-and-forget and a failure leaves the last
-// ranking standing. Overview and Sessions call it again to catch a group
-// that started mid-session.
+// The group set the colors are ranked from, held where the ranking lives.
+// `refresh()` asks which steering groups are live, which is all the ranking
+// consumes; the session roster carries the same identity on every row, but
+// reading it there costs a complete roster — claims, holdings, delivery,
+// presentation — for one repeated field, once per mount that wants a tint.
+// The read is decoration, so it must never gate a screen's first paint:
+// `refresh()` is fire-and-forget and a failure leaves the last ranking
+// standing. Overview and Sessions call it again to catch a group that
+// started mid-session.
 export function createSteeringGroupColors(client, isMounted) {
   let colors = new Map();
   return {
@@ -64,7 +67,7 @@ export function createSteeringGroupColors(client, isMounted) {
       colors = computeSteeringGroupColors(rows);
     },
     refresh: () => Promise.resolve().then(() => callFunction(
-      client, "sessions.list", { per_project: true, open: true },
+      client, "sessions.steering_groups.list", {},
     )).then((callResult) => {
       if (!isMounted()) return;
       const envelope = callResult.envelope;

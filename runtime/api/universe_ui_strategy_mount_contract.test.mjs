@@ -38,7 +38,7 @@ test("strategy cards carry the corpus facts from one read", async (t) => {
           },
         };
       }
-      if (request.function === "sessions.list") {
+      if (request.function === "sessions.steering_groups.list") {
         return {
           status: 200,
           envelope: {
