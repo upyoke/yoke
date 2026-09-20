@@ -36,12 +36,11 @@ def test_the_read_asks_the_registered_environment_settings_projection(monkeypatc
 
     store.read_coverage(
         project="yoke",
-        environment="prod-db-admin",
+        environment="prod",
         paths=[receipt.entry_coverage_path("0001_a")],
     )
 
     assert calls[0]["function_id"] == store.COVERAGE_FUNCTION_ID
-    # The admin connection names a cluster; coverage is keyed by environment.
     assert calls[0]["payload"] == {
         "project": "yoke",
         "environment": "prod",

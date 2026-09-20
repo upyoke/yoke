@@ -28,9 +28,6 @@ def read_coverage(
 ) -> Tuple[Dict[str, Any], str]:
     """Coverage leaves for one environment, or why they could not be read."""
     from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-    from yoke_core.domain.migration_preflight_receipt import (
-        target_environment_for_admin_env,
-    )
 
     wanted = [str(path).strip() for path in paths if str(path or "").strip()]
     if not wanted:
@@ -43,7 +40,7 @@ def read_coverage(
             target=TargetRef(kind="global"),
             payload={
                 "project": project,
-                "environment": target_environment_for_admin_env(environment),
+                "environment": str(environment or "").strip(),
                 "paths": wanted,
             },
         )
@@ -63,4 +60,35 @@ def read_coverage(
     return dict(values), ""
 
 
-__all__ = ["COVERAGE_FUNCTION_ID", "read_coverage"]
+def read_declared_admin_connection(
+    *, project: str, environment: str
+) -> Tuple[str, str]:
+    """The environment's declared admin connection, or why it could not be read."""
+    from yoke_core.domain.environment_declared_facts import (
+        ADMIN_CONNECTION_PATH,
+        MissingEnvironmentFact,
+        admin_connection_for_environment,
+        settings_from_projection,
+    )
+
+    values, error = read_coverage(
+        project=project, environment=environment, paths=[ADMIN_CONNECTION_PATH]
+    )
+    if error:
+        return "", error
+    try:
+        return (
+            admin_connection_for_environment(
+                environment, settings_from_projection(values)
+            ),
+            "",
+        )
+    except MissingEnvironmentFact as exc:
+        return "", str(exc)
+
+
+__all__ = [
+    "COVERAGE_FUNCTION_ID",
+    "read_coverage",
+    "read_declared_admin_connection",
+]

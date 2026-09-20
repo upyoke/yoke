@@ -80,15 +80,15 @@ def _preflight_argv(args: Sequence[str]) -> list[str]:
 
 
 HELP_EPILOG = """\
-The positional names the fleet to rehearse: the registered environment
-(``stage``, ``prod``) or its paired admin connection (``stage-db-admin``,
-``prod-db-admin``). Both select the same fleet. ``--receipt-env`` names the
-control plane that records the receipt. ``--record-receipt`` writes the
-receipt the release gate reads for the environment whose fleet the
-positional named — one environment's receipt never satisfies another, so
-rehearse each environment a release targets. The receipt lands on that
-environment's own settings document under ``release.fleet_rehearsal``, so
-coverage is durable state rather than telemetry that can expire.
+The positional names the registered environment whose fleet to rehearse.
+The paired admin connection is that environment's
+``release.admin_connection`` setting, not a name suffix. ``--receipt-env``
+names the control plane that records the receipt. ``--record-receipt``
+writes the receipt the release gate reads for that environment.
+one environment's receipt never satisfies another, so rehearse each
+environment a release targets. The receipt lands on that environment's
+own settings document under ``release.fleet_rehearsal``, so coverage is
+durable state rather than telemetry that can expire.
 
 Ordinary pre-release rehearsal uses the source tree (no ``--engine-wheel``).
 The release wheel does not exist until after tag allocation.
@@ -101,13 +101,7 @@ examples:
   yoke watch preflight -- prod --record-receipt \\
       --product-sha SHA --receipt-env <control-plane>
 
-  yoke watch preflight -- <admin-connection-for-one-env> --record-receipt \\
-      --product-sha SHA --receipt-env <control-plane>
-
-  yoke watch preflight -- <admin-connection-for-another-env> --record-receipt \\
-      --product-sha SHA --receipt-env <control-plane>
-
-  yoke watch preflight -- stage-db-admin \\
+  yoke watch preflight -- stage \\
       --engine-wheel /path/to/yoke_core-release.whl --record-receipt \\
       --product-sha SHA --receipt-env <control-plane>
 

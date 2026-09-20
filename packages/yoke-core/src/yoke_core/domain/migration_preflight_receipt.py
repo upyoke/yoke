@@ -52,31 +52,29 @@ SCHEMA_SHAPE_PREFIX = f"{SETTINGS_ROOT}.schema_shape"
 #: Identity of each rehearsal run the coverage leaves point at.
 RUN_PREFIX = f"{SETTINGS_ROOT}.run"
 
-#: Suffix on the admin connection the preflight runs against. The connection
-#: names a cluster; a receipt names the environment a release targets, and
-#: both use the environment's registered name, so the two vocabularies are
-#: one suffix apart.
-_ADMIN_SUFFIX = "-db-admin"
-
-
 class ReceiptPathError(ValueError):
     """A coverage key cannot be addressed as one settings leaf."""
 
 
 def target_environment_for_admin_env(admin_env: str) -> str:
-    """The environment name an admin connection rehearses."""
-    name = admin_env.strip()
-    if name.endswith(_ADMIN_SUFFIX):
-        name = name[: -len(_ADMIN_SUFFIX)]
-    return name
+    """Treat *admin_env* as an environment name the operator already chose.
+
+    The paired admin connection is declared on the environment
+    (``release.admin_connection``). This helper does not invent that pair
+    from a suffix: pass the environment name, not a derived connection.
+    """
+    return admin_env.strip()
 
 
-def admin_connection_for_environment(environment: str) -> str:
-    """The admin connection name a fleet adapter runs against for *environment*."""
-    admin_env = environment.strip()
-    if admin_env.endswith(_ADMIN_SUFFIX):
-        return admin_env
-    return f"{admin_env}{_ADMIN_SUFFIX}"
+def admin_connection_for_environment(
+    environment: str, settings: Mapping[str, Any] | None = None
+) -> str:
+    """The admin connection the environment declares, or a named refusal."""
+    from yoke_core.domain.environment_declared_facts import (
+        admin_connection_for_environment as declared_admin_connection,
+    )
+
+    return declared_admin_connection(environment, settings)
 
 
 def rehearsed_build_description(
@@ -215,15 +213,10 @@ def receipt_assignments(
     return run, assignments
 
 
-#: Registered environments a Yoke hosted release can target. Coverage is
-#: per environment, so a receipt for one is not evidence for another.
-RELEASE_ENVIRONMENTS = ("stage", "prod")
-
-
 def coverage_by_environment(
     history: Sequence[str],
     values_by_environment: Mapping[str, Mapping[str, Any]],
-    environments: Sequence[str] = RELEASE_ENVIRONMENTS,
+    environments: Sequence[str],
 ) -> Dict[str, Tuple[str, ...]]:
     """Uncovered entries for each environment, in history order."""
     coverage: Dict[str, Tuple[str, ...]] = {}

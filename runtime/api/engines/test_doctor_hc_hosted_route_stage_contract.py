@@ -116,9 +116,8 @@ def test_fails_when_the_route_warms_before_it_rolls(monkeypatch) -> None:
     assert "warms before it rolls" in result.detail
 
 
-def test_fails_when_the_warm_up_names_no_connection(monkeypatch) -> None:
+def test_omitted_warm_up_connection_follows_the_run_target(monkeypatch) -> None:
     warm = {"name": "warm-up", "step_runner": "warm-up"}
     result = _run(monkeypatch, {"acme-prod": _route(_dispatch_stage(), warm)})
 
-    assert result.result == "FAIL"
-    assert "names no connection_env" in result.detail
+    assert result.result == "PASS"

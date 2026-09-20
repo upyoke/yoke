@@ -5,23 +5,19 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.environment_declared_facts import (
+    decode_settings,
+    is_hosted_runtime,
+)
 
 
 CANONICAL_RUNTIME_SITE_NAME = "Yoke API"
 CONSUMER_PROJECT_SLUG = "yoke"
 HOST_PROJECT_SLUG = "platform"
-#: The hosted runtimes, named exactly as their environment rows are. A value
-#: that is not one of these is not a hosted runtime; it is not translated.
-HOSTED_RUNTIME_NAMES = frozenset({"prod", "stage"})
 
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def normalize_runtime(value: Any) -> str | None:
-    selected = str(value or "").strip().lower()
-    return selected if selected in HOSTED_RUNTIME_NAMES else None
 
 
 def _row_dict(cursor: Any, row: Any) -> dict[str, Any]:
@@ -43,9 +39,9 @@ def _shared_runtime_allowed(row: Mapping[str, Any]) -> bool:
 def _environment_allowed(row: Mapping[str, Any]) -> bool:
     if int(row["plan_project_id"]) == int(row["owner_project_id"]):
         return True
-    return _shared_runtime_allowed(row) and normalize_runtime(
-        row["environment_name"]
-    ) is not None
+    return _shared_runtime_allowed(row) and is_hosted_runtime(
+        decode_settings(row.get("settings"))
+    )
 
 
 def require_plan_environment_access(
@@ -60,7 +56,8 @@ def require_plan_environment_access(
         "SELECT plan.id AS plan_project_id,plan.slug AS plan_project_slug,"
         "plan.org_id AS plan_org_id,owner.id AS owner_project_id,"
         "owner.slug AS owner_project_slug,owner.org_id AS owner_org_id,"
-        "s.name AS site_name,e.id AS environment_id,e.name AS environment_name "
+        "s.name AS site_name,e.id AS environment_id,e.name AS environment_name,"
+        "e.settings "
         "FROM projects plan JOIN environments e ON e.id="
         f"{marker} JOIN sites s ON s.id=e.site "
         "JOIN projects owner ON owner.id=s.project_id "
@@ -90,7 +87,8 @@ def eligible_plan_environment_rows(
         "SELECT plan.id AS plan_project_id,plan.slug AS plan_project_slug,"
         "plan.org_id AS plan_org_id,owner.id AS owner_project_id,"
         "owner.slug AS owner_project_slug,owner.org_id AS owner_org_id,"
-        "s.name AS site_name,e.id AS environment_id,e.name AS environment_name "
+        "s.name AS site_name,e.id AS environment_id,e.name AS environment_name,"
+        "e.settings "
         "FROM projects plan JOIN sites s ON "
         f"(s.project_id=plan.id OR s.name={marker}) "
         "JOIN environments e ON e.site=s.id "
@@ -120,7 +118,7 @@ def _default_environment_site(rows: list[dict[str, Any]]) -> str | None:
 
     A project reaching the shared hosted runtime resolves there, because that
     runtime is what its QA executes against, while its own site holds deploy
-    targets under the same ``prod``/``stage`` names. Any other project resolves
+    targets that may reuse the same names. Any other project resolves
     within its single site, and one owning several needs an explicit reference.
     """
     for row in rows:
@@ -207,9 +205,7 @@ def require_runtime_site_owner(
 
 __all__ = [
     "CANONICAL_RUNTIME_SITE_NAME",
-    "HOSTED_RUNTIME_NAMES",
     "eligible_plan_environment_rows",
-    "normalize_runtime",
     "resolve_plan_environment_reference",
     "require_plan_environment_access",
     "require_runtime_site_owner",

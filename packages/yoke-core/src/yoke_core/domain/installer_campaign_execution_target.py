@@ -12,13 +12,13 @@ from yoke_contracts.api_urls import (
 from yoke_core.domain.installer_campaign_current_text_cases import (
     CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
 )
+from yoke_core.domain.environment_declared_facts import target_is_production
 from yoke_core.domain.qa_execution_environment_target import require_case_target
 
 
 def _replace_text(value: str, target: Mapping[str, Any]) -> str:
     endpoints = target["endpoints"]
-    environment = str(target["environment"]["name"]).lower()
-    production = environment == "prod"
+    production = target_is_production(target)
     release_channel = str(endpoints["release_channel"])
     replacements = (
         (DISTRIBUTION_STAGE_URL, str(endpoints["installer_base_url"])),

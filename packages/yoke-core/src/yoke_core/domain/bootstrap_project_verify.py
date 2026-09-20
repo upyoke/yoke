@@ -249,35 +249,36 @@ def run_verify(
     envs_resp = _rest_get(f"/repos/{repo}/environments")
     env_names: list[str] = []
     prod_has_reviewers = False
+    production_env_name = ""
     if envs_resp is not None and isinstance(envs_resp.body, dict):
         for entry in envs_resp.body.get("environments", []) or []:
             if isinstance(entry, dict):
                 name = entry.get("name")
                 if isinstance(name, str):
                     env_names.append(name)
-                if name == "prod":
-                    rules = entry.get("protection_rules") or []
-                    for rule in rules:
-                        if (
-                            isinstance(rule, dict)
-                            and rule.get("type") == "required_reviewers"
-                        ):
-                            prod_has_reviewers = True
-                            break
-    if "prod" in env_names:
+                rules = entry.get("protection_rules") or []
+                if any(
+                    isinstance(rule, dict)
+                    and rule.get("type") == "required_reviewers"
+                    for rule in rules
+                ):
+                    prod_has_reviewers = True
+                    production_env_name = name
+    if env_names:
         verify_pass += 1
-        print("[PASS] Environment: prod")
+        shown = production_env_name or env_names[0]
+        print(f"[PASS] Environment: {shown}")
         if prod_has_reviewers:
             verify_pass += 1
-            print("[PASS] Environment: prod has required reviewers")
+            print(f"[PASS] Environment: {shown} has required reviewers")
         else:
             _warn(
-                "Environment: prod has no required reviewers; configure "
+                f"Environment: {shown} has no required reviewers; configure "
                 "an approval gate in GitHub settings when required."
             )
     else:
         verify_fail += 1
-        print("[FAIL] Environment: prod (not found)")
+        print("[FAIL] Environment: none registered")
 
     total = verify_pass + verify_fail
     print()

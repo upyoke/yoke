@@ -96,7 +96,7 @@ def test_uncovered_release_rehearses_records_then_dispatches(monkeypatch) -> Non
     def run_preflight(args: list[str]) -> int:
         events.append("rehearsal")
         assert args == [
-            "prod-db-admin",
+            "prod",
             "--record-receipt",
             "--product-sha",
             _RELEASE_SHA,
@@ -198,7 +198,7 @@ def test_entry_covered_for_one_environment_rehearses_only_the_other(
 
     assert _dispatch(_stage(), environment="prod") == (0, "")
     assert _dispatch(_stage(), environment="stage") == (0, "")
-    assert rehearsed == ["stage-db-admin"]
+    assert rehearsed == ["stage"]
 
 
 def test_rehearsal_failure_stops_before_workflow_dispatch(monkeypatch) -> None:

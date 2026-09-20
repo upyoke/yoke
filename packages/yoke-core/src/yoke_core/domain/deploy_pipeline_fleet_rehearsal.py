@@ -85,14 +85,13 @@ def ensure_before_dispatch(
     receipt_environment = deploy_pipeline_environment.release_control_plane_env()
     if not receipt_environment or receipt_environment == "unbound":
         return 1, "hosted release fleet rehearsal has no release control plane"
-    admin_environment = receipt.admin_connection_for_environment(environment)
     print(
         f"  Fleet rehearsal: uncovered for {target} ({missing}); "
         "running before dispatch"
     )
     rc = _run_preflight(
         [
-            admin_environment,
+            environment,
             "--record-receipt",
             "--product-sha",
             release_sha,

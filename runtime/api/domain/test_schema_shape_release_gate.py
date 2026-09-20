@@ -117,7 +117,7 @@ class TestReleaseGateSchemaShape:
         assert "release unsafe before tag" in refusal
         assert "schema-shape" in refusal
         assert _DIGEST in refusal
-        assert "yoke watch preflight -- prod-db-admin" in refusal
+        assert "yoke watch preflight -- prod" in refusal
 
     def test_matching_schema_shape_and_history_pass(self, monkeypatch, capsys) -> None:
         _history(monkeypatch, "0005_x")

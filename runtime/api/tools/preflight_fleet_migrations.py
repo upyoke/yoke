@@ -27,19 +27,13 @@ the wheel will package. ``--engine-wheel`` pins an already-built artifact.
 
 Usage::
 
-    yoke watch preflight -- stage --record-receipt --receipt-env prod
-    yoke watch preflight -- prod --record-receipt --receipt-env prod
-
-    yoke watch preflight -- <environment-or-admin> [db ...]
+    yoke watch preflight -- <environment> [db ...]
         [--record-receipt [--product-sha SHA] [--receipt-env NAME]]
         [--engine-wheel PATH]
 
-    yoke watch preflight -- <admin-connection-for-one-env> --record-receipt --receipt-env <control-plane>
-    yoke watch preflight -- <admin-connection-for-another-env> --record-receipt --receipt-env <control-plane>
-
-The positional names the fleet to rehearse: the registered environment
-(``stage``, ``prod``) or its paired admin connection (``stage-db-admin``,
-``prod-db-admin``). Both select the same fleet. ``--receipt-env`` names the
+The positional names the registered environment whose fleet to rehearse.
+The paired admin connection is that environment's ``release.admin_connection``
+setting, not a name suffix. ``--receipt-env`` names the
 control plane that records the receipt. Naming databases limits the run
 to those; the default is every tenant database on that cluster.
 
@@ -204,15 +198,21 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
     if not positional:
         print(
-            "name the fleet to rehearse: a registered environment (stage, prod) "
-            "or its paired admin connection (stage-db-admin, prod-db-admin)",
+            "name the registered environment whose fleet to rehearse",
             file=sys.stderr,
         )
         return 2
     from yoke_core.domain import migration_preflight_receipt as receipt
+    from yoke_core.domain.migration_preflight_receipt_store import (
+        read_declared_admin_connection,
+    )
 
-    admin_env = receipt.admin_connection_for_environment(positional[0])
     covered_env = receipt.target_environment_for_admin_env(positional[0])
+    admin_env, admin_error = read_declared_admin_connection(
+        project="yoke", environment=covered_env)
+    if admin_error:
+        print(admin_error, file=sys.stderr)
+        return 2
     # Read before selecting admin readiness so the receipt remains explicitly
     # bound to the caller's control plane rather than the admin cluster.
     receipt_env = receipt_env or os.environ.get("YOKE_ENV", "")
@@ -236,7 +236,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         if receipt_env != release_gate_env:
             print(
                 "--record-receipt must write to the prod release-gate control "
-                f"plane. Retry: yoke watch preflight -- {admin_env} "
+                f"plane. Retry: yoke watch preflight -- {covered_env} "
                 "[db ...] --record-receipt --product-sha <sha> "
                 f"--receipt-env {release_gate_env}",
                 file=sys.stderr,
@@ -262,7 +262,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(
             f"fleet rehearsal needs the local-postgres admin connection for "
             f"{covered_env}, which is {admin_env!r}. {exc} "
-            f"Retry: yoke watch preflight -- {admin_env}",
+            f"Retry: yoke watch preflight -- {covered_env}",
             file=sys.stderr,
         )
         return 2

@@ -41,8 +41,9 @@ ADVANCED_STAGES = json.dumps(
 
 def _environment(conn: Any) -> None:
     conn.execute(
-        "INSERT INTO environments(site,project_id,name,created_at) "
-        "SELECT id,1,'stage','2026-09-14T00:00:00Z' FROM sites "
+        "INSERT INTO environments(site,project_id,name,url,created_at) "
+        "SELECT id,1,'stage','https://stage.example.test',"
+        "'2026-09-14T00:00:00Z' FROM sites "
         "WHERE project_id=1 ORDER BY id LIMIT 1 "
         "ON CONFLICT(project_id,name) DO NOTHING"
     )

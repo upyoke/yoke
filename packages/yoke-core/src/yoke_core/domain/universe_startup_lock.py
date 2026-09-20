@@ -15,11 +15,11 @@ from yoke_core.domain import db_backend
 # Stable signed-bigint advisory-lock namespace for the one-universe database.
 UNIVERSE_STARTUP_LOCK_ID = 0x596F6B65496D7074
 
-# Existing hosted-container env contract (compose injects all four).
+# Existing hosted-container env contract (compose injects the DSN path
+# and bind). The environment name is not part of the proof.
 HOSTED_TENANT_DSN_FILE = "/run/yoke/dsn"
 HOSTED_TENANT_API_HOST = "0.0.0.0"
 HOSTED_TENANT_API_PORT = "8000"
-HOSTED_TENANT_ENVIRONMENTS = frozenset({"stage", "prod"})
 
 
 class UniverseStartupBusy(RuntimeError):
@@ -35,7 +35,6 @@ def hosted_tenant_container_process(
         source.get("YOKE_PG_DSN_FILE") == HOSTED_TENANT_DSN_FILE
         and source.get("YOKE_API_HOST") == HOSTED_TENANT_API_HOST
         and source.get("YOKE_API_PORT") == HOSTED_TENANT_API_PORT
-        and source.get("YOKE_ENVIRONMENT") in HOSTED_TENANT_ENVIRONMENTS
     )
 
 
@@ -93,7 +92,6 @@ __all__ = [
     "HOSTED_TENANT_API_HOST",
     "HOSTED_TENANT_API_PORT",
     "HOSTED_TENANT_DSN_FILE",
-    "HOSTED_TENANT_ENVIRONMENTS",
     "UNIVERSE_STARTUP_LOCK_ID",
     "UniverseStartupBusy",
     "exclusive_import_guard",
