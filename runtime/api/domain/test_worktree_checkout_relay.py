@@ -58,6 +58,16 @@ def test_checkout_for_project_slug_none_when_relay_refuses(monkeypatch):
     assert pcl.checkout_for_project_slug("nope") is None
 
 
+def test_checkout_for_project_slug_none_when_relay_raises(monkeypatch):
+    from yoke_core.api import service_client_structured_api_adapter as facade
+
+    def boom(**_kwargs):
+        raise AttributeError("'_Connection' object has no attribute 'execute'")
+
+    monkeypatch.setattr(facade, "call_dispatcher", boom)
+    assert pcl.checkout_for_project_slug("yoke") is None
+
+
 def test_create_worktree_project_branch_uses_transport_relay(monkeypatch):
     """The ``project``-scoped repo-root branch resolves the checkout through
     the transport-aware relay helper, not a bare local connection."""

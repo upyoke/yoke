@@ -74,11 +74,14 @@ def checkout_for_project_slug(
         call_dispatcher,
     )
 
-    response = call_dispatcher(
-        function_id="projects.get",
-        target=TargetRef(kind="global"),
-        payload={"project": str(project), "field": "id"},
-    )
+    try:
+        response = call_dispatcher(
+            function_id="projects.get",
+            target=TargetRef(kind="global"),
+            payload={"project": str(project), "field": "id"},
+        )
+    except Exception:
+        return None
     if not response.success:
         return None
     value = (response.result or {}).get("value")
