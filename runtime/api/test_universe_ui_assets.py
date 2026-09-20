@@ -230,10 +230,11 @@ def test_page_module_wires_the_workbench_shell():
     shell_support = static_root.joinpath("universe_app_shell_support.js").read_text()
     assert "projects.list" in shell_support
 
-    # Steering-group colors are decoration, so their roster read lives with
-    # the ranking it feeds and never in the gate above.
+    # Steering-group colors are decoration, so the read that ranks them lives
+    # with the ranking it feeds and never in the gate above. It asks which
+    # groups are live rather than reading a roster to find out.
     group_colors = static_root.joinpath("universe_steering_group_color.js").read_text()
-    assert "sessions.list" in group_colors
+    assert "sessions.steering_groups.list" in group_colors
     assert "sessions.list" not in shell
 
     # Universe search reads all six domains it advertises. The reads live
