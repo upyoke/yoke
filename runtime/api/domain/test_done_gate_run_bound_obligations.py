@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """The done gate sees run-bound obligations scoped to an item as member."""
 
 from __future__ import annotations
@@ -11,7 +12,7 @@ from runtime.api.backlog_mutations_test_helpers import (
     _item_field,
     _patch_externals,
     _seed_item,
-    tmp_db,  # noqa: F401,F811
+    tmp_db,  # noqa: F401
 )
 from runtime.api.domain.qa_gate_test_support import qa_db  # noqa: F401
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
