@@ -7,7 +7,11 @@ import {
 } from "./universe_navigation.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import { NO_ENVIRONMENT_LABEL } from "./deployment_environment_copy.js";
-import { deliveryStageBar, workflowBadge } from "./universe_secondary_primitives.js";
+import {
+  deliveryStageBar,
+  landingChurnBadge,
+  workflowBadge,
+} from "./universe_secondary_primitives.js";
 import { relativeAgePhrase } from "./universe_time.js";
 import { appendRunGates, runGateStatus, runGates } from "./universe_run_gates.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
@@ -68,6 +72,10 @@ export function workItemCard(documentNode, row, scope, options = {}) {
     row.stage_label || row.status,
   );
   if (status) top.appendChild(status);
+  // Before the age, not after it: when the head wraps, the age is the part
+  // designed to drop to a second line, and churn is the stronger fact.
+  const churn = landingChurnBadge(documentNode, row.landing_count);
+  if (churn) top.appendChild(churn);
   // The age follows the status chip inline rather than owning a line of its
   // own or being pushed to the card's right edge: it qualifies the chip, and
   // the head already wraps, so a narrow card drops it to a second line

@@ -20,6 +20,7 @@ import {
 } from "./workflow_view_primitives.js";
 import { itemClaimantPanel } from "./item_view_claimant.js";
 import { itemDeliveryPanel } from "./item_view_delivery.js";
+import { itemLandingsPanel } from "./item_view_landings.js";
 
 const LANE_STATE_PRESENTATION = {
   active: { tone: "running", label: "active" },
@@ -288,6 +289,7 @@ function renderBlitzBody(context, main, item) {
     [
       blitzFactsPanel(documentNode, item),
       ...(claimant ? [claimant] : []),
+      itemLandingsPanel(context, item),
       itemDeliveryPanel(context, item),
       blitzPosturePanel(documentNode, item),
       commandPanel(documentNode, item),

@@ -23,6 +23,7 @@ import {
 import { workflowPanel } from "./workflow_view_primitives.js";
 import { itemClaimantPanel } from "./item_view_claimant.js";
 import { itemDeliveryPanel } from "./item_view_delivery.js";
+import { itemLandingsPanel } from "./item_view_landings.js";
 
 // Who holds an item is a fact about the item, not about one workflow, so
 // every detail shape carries the holder's own session card when a live claim
@@ -58,6 +59,7 @@ function issuePanels(context, documentNode, item) {
       factsPanel(documentNode, item),
       ...claimantPanels(context, item),
       verificationPanel(context, item),
+      itemLandingsPanel(context, item),
       itemDeliveryPanel(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
@@ -131,6 +133,7 @@ function epicPanels(context, documentNode, item) {
       factsPanel(documentNode, item),
       ...claimantPanels(context, item),
       verificationPanel(context, item),
+      itemLandingsPanel(context, item),
       itemDeliveryPanel(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
@@ -184,6 +187,7 @@ function dashPanels(context, documentNode, item) {
       factsPanel(documentNode, item),
       ...claimantPanels(context, item),
       ...(origin ? [origin] : []),
+      itemLandingsPanel(context, item),
       itemDeliveryPanel(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
@@ -234,6 +238,7 @@ function fallbackPanels(context, documentNode, item) {
       factsPanel(documentNode, item),
       ...claimantPanels(context, item),
       verificationPanel(context, item),
+      itemLandingsPanel(context, item),
       itemDeliveryPanel(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),

@@ -319,3 +319,26 @@
   color: var(--yoke-ink);
   font-weight: 600;
 }
+/* One landing per row: the merge, how it got there, and where it went. A
+   row wraps rather than truncates, so the rule is what keeps a wrapped
+   landing readable as one landing instead of running into the next. */
+.universe-app-root .item-landing {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12px;
+}
+.universe-app-root .item-landing + .item-landing {
+  border-top: 1px solid var(--yoke-border);
+}
+.universe-app-root .item-landing-ordinal {
+  color: var(--yoke-muted);
+  font-variant-numeric: tabular-nums;
+}
+.universe-app-root .item-landing-merge { font-weight: 600; }
+.universe-app-root .item-landing-pr,
+.universe-app-root .item-landing-route,
+.universe-app-root .item-landing-when { color: var(--yoke-muted); }
+.universe-app-root .item-landing-undelivered { color: var(--yoke-muted); }

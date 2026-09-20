@@ -26,6 +26,20 @@ export function workflowBadge(documentNode, workflow, version = null) {
   );
 }
 
+// Re-landing churn, for a card that has some. An item that landed once
+// carries nothing: a chip on every merged item would stop meaning anything,
+// and the operator asked for churn to be visible while scanning, not for a
+// merge counter. Returns null when there is nothing to report.
+export function landingChurnBadge(documentNode, count) {
+  const landings = Number(count || 0);
+  if (landings <= 1) return null;
+  const badge = el(
+    documentNode, "span", "work-item-card-landings", `${landings} landings`,
+  );
+  badge.title = `This item has landed on its base branch ${landings} times.`;
+  return badge;
+}
+
 export function stageProgress(
   documentNode,
   index,
