@@ -181,3 +181,75 @@ def test_an_unreadable_pool_names_its_reason_instead_of_a_number() -> None:
     )
 
     assert "Cursor Models: unreadable" in rendered
+
+
+def test_preview_names_headroom_on_the_surfaces_not_requested() -> None:
+    """The surface is an input, so the act is where an alternative is learned."""
+    output = io.StringIO()
+
+    write_launch_preview(
+        {
+            "outcome": "assigned",
+            "requested_surface": "cursor-cli",
+            "selected_surface": "cursor-cli",
+            "launchable": True,
+            "eligible_relays": [],
+            "unrequested_surface_headroom": [
+                {
+                    "machine_id": "m1",
+                    "surface": "claude-cli",
+                    "headroom_percent": 125.0,
+                    "headroom_window": "weekly plan",
+                },
+            ],
+        },
+        output,
+    )
+
+    rendered = output.getvalue()
+    assert "Headroom on other surfaces" in rendered
+    assert "claude-cli" in rendered
+    assert "125%" in rendered
+    assert "weekly plan" in rendered
+
+
+def test_create_receipt_carries_the_readings_from_its_own_placement() -> None:
+    """A composer may never run preview, so the receipt has to carry it too."""
+    output = io.StringIO()
+
+    write_launch_result(
+        {
+            "launch": {
+                "launch_id": "launch-1",
+                "requested_surface": "cursor-cli",
+                "selected_surface": "cursor-cli",
+            },
+            "preview": {
+                "unrequested_surface_headroom": [
+                    {
+                        "machine_id": "m1",
+                        "surface": "claude-cli",
+                        "headroom_percent": 125.0,
+                        "headroom_window": "weekly plan",
+                    },
+                ],
+            },
+        },
+        output,
+    )
+
+    rendered = output.getvalue()
+    assert "Headroom on other surfaces" in rendered
+    assert "claude-cli 125% (weekly plan)" in rendered
+
+
+def test_a_stored_launch_read_does_not_restate_a_stale_reading() -> None:
+    """A read minutes later has no placement of its own to report."""
+    output = io.StringIO()
+
+    write_launch_result(
+        {"launch": {"launch_id": "launch-1", "requested_surface": "cursor-cli"}},
+        output,
+    )
+
+    assert "Headroom on other surfaces" not in output.getvalue()

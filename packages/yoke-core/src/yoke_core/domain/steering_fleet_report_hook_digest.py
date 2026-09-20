@@ -17,10 +17,26 @@ from yoke_core.domain.steering_fleet_report_render import (
 )
 
 
+#: The decisions the digest does not serve, named as decisions rather than
+#: as section headings. A reader weighs whether to pull by what they are
+#: about to decide, not by what a heading is called, and the launch
+#: allocation these sections carry is decided while composing a launch —
+#: nowhere near the report.
+WITHHELD_DECISIONS: tuple[str, ...] = (
+    "which machine and surface to launch on",
+    "how much plan headroom each surface has left",
+    "how many sessions each surface is already running",
+    "whether a relay is healthy enough to launch on",
+    "which model each surface is serving",
+)
+
 DIGEST_PREAMBLE = (
-    "Hook digest of control-plane state. Pull the rest with "
-    "`yoke steering report get` (covers every steering claim this session "
-    "holds; pass `--project P` only to filter to one scope)."
+    "Hook digest of control-plane state: quiet detectors, available work, and "
+    "this session's unacked inbox. It does not answer "
+    + "; ".join(WITHHELD_DECISIONS)
+    + " — `yoke steering report get` answers those (covers every steering "
+    "claim this session holds; pass `--project P` only to filter to one "
+    "scope)."
 )
 
 

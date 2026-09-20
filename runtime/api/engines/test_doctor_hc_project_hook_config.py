@@ -62,6 +62,74 @@ def test_valid_external_project_configs_pass(
     assert result.result == "PASS"
 
 
+def _seed_codex(root: Path, payload: dict) -> Path:
+    config = root / ".codex/hooks.json"
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(json.dumps(payload), encoding="utf-8")
+    return config
+
+
+def test_a_checkout_without_codex_wired_is_not_a_defect(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No Codex config means no Codex here, not a config with a bad shape."""
+    _seed(tmp_path)
+
+    result = _run(tmp_path, monkeypatch)
+
+    assert result.result == "PASS"
+    assert ".codex/hooks.json" not in result.detail
+
+
+def test_a_valid_codex_config_is_checked_and_named(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed(tmp_path)
+    _seed_codex(tmp_path, _CLAUDE)
+
+    result = _run(tmp_path, monkeypatch)
+
+    assert result.result == "PASS"
+    assert ".codex/hooks.json" in result.detail
+
+
+def test_a_flat_codex_hook_entry_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The flat form costs a harness every hook in the file, silently."""
+    _seed(tmp_path)
+    _seed_codex(
+        tmp_path,
+        {"hooks": {"Stop": [{"type": "command", "command": "echo stopped"}]}},
+    )
+
+    result = _run(tmp_path, monkeypatch)
+
+    assert result.result == "FAIL"
+    assert ".codex/hooks.json hooks.Stop" in result.detail
+
+
+def test_a_symlinked_codex_config_is_allowed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Yoke's own checkout links this file into runtime/harness/codex/."""
+    _seed(tmp_path)
+    real = tmp_path / "harness-codex-hooks.json"
+    real.write_text(json.dumps(_CLAUDE), encoding="utf-8")
+    config = tmp_path / ".codex/hooks.json"
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.symlink_to(Path("..") / real.name)
+
+    result = _run(tmp_path, monkeypatch)
+
+    assert result.result == "PASS"
+    assert ".codex/hooks.json" in result.detail
+
+
 @pytest.mark.parametrize(
     ("parent_rel", "config_rel"),
     [
