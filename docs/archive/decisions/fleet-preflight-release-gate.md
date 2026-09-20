@@ -149,6 +149,34 @@ not again until the shape changes. An environment whose document records no
 current digest is uncovered, which is the bootstrap for the obligation — one
 passing preflight per environment clears it.
 
+## A data-only entry moves no schema shape
+
+The hosted release dispatch runs the rehearsal itself when the target
+environment has never covered what the release carries, so that a release does
+not have to wait on an operator remembering. It first asked only whether the
+schema-shape digest was covered, which reads as the cheap version of the same
+question — and is not.
+
+A pure-additive schema change self-propagates on the boot converge and is the
+low-risk case. A history entry that transforms rows is the high-risk one: it
+must be idempotent against its own output already existing, and one rewriting
+rows under a digest or immutability guarantee must use its readers' canonical
+serializer or it manufactures drift indistinguishable from corruption. Those
+failures are exactly what rehearsal against a throwaway copy of every live
+database catches, and such an entry alters no table, column or index — so the
+digest is unchanged, already covered, and the dispatch skipped the rehearsal
+for precisely the entries that needed it.
+
+Coverage is therefore decided from what the release commit carries on both
+axes: its ordered history entry names and its schema-shape digest, each read
+against that environment's own coverage document. This is the same predicate
+the pre-tag gate already applied, so the two cannot disagree about whether a
+build is rehearsed. What makes a receipt stale is now stated once: an entry
+name or a digest this release carries that the environment has never recorded.
+Nothing else changed — the receipt stays per environment, coverage stays the
+union the document already is, and the rehearsal still runs over throwaway
+copies.
+
 ## What a pre-release receipt proves
 
 The release gate refuses before allocating its tag. The release wheel is

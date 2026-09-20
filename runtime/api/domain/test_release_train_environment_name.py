@@ -78,7 +78,7 @@ def test_prod_flow_dispatches_the_registered_environment_name() -> None:
             "_emit_run_event",
         ),
         mock.patch.object(
-            deploy_pipeline_step_runners.deploy_pipeline_schema_rehearsal,
+            deploy_pipeline_step_runners.deploy_pipeline_fleet_rehearsal,
             "ensure_before_dispatch",
             return_value=(0, ""),
         ),
