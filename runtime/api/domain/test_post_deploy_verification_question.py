@@ -193,7 +193,8 @@ def test_the_stage_refusal_names_the_answers_that_belong_to_the_item(
     # The run-scoped recovery, which is all this surface can offer now.
     assert "yoke qa plan run" in message
     # And where the durable answers were supposed to be given instead.
-    assert "qa post-deploy declare-none" in message
+    assert "qa post-deploy record-no-obligation" in message
+    assert "not a waiver" in message
     assert "qa item-plan attach" in message
     assert "before it merges" in message
 

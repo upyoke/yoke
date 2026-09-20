@@ -226,9 +226,9 @@ def _settle_stage_status(
             # is waived or superseded has nothing left to run, so the missing
             # execution is the expected end state rather than a blocker.
             return discharged()
-        if member_post_deploy_answer(conn, subject).declared_none:
+        if member_post_deploy_answer(conn, subject).discharges_without_cases:
             # The other way a subject can have nothing left to run: the member
-            # RECORDED, before its deploy, that it needs no post-deploy check.
+            # recorded, before its deploy, that it owes no post-deploy check.
             # An empty case set alone is never enough -- that is a member
             # nobody asked, which stays held.
             return discharged()

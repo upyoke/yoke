@@ -38,6 +38,10 @@ QA_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "qa.post_deploy.declare_none",
         _qa_post_deploy.qa_post_deploy_declare_none,
     ),
+    ("qa", "post-deploy", "record-no-obligation"): (
+        "qa.post_deploy.record_no_obligation",
+        _qa_post_deploy.qa_post_deploy_record_no_obligation,
+    ),
     ("qa", "run", "record-verdict"): (
         "qa.run.record_verdict",
         _qa.qa_run_record_verdict,

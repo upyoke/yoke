@@ -126,17 +126,19 @@ answer — the resolved flow being the one that will close the item, so an item
 that never pinned a flow is still asked through its project's delivery default.
 
 Two answers are durable and they are different. If there is genuinely nothing
-to check once this item is live, record that and why, and merge:
+to check once this item is live, record that no post-deploy obligation
+exists, and why, and merge:
 
 ```text
-yoke qa post-deploy declare-none --item ITEM --reason "why nothing needs checking"
+yoke qa post-deploy record-no-obligation --item ITEM --reason "why nothing is observable once deployed"
 ```
 
-That is an answer, not a bypass: it writes the item's post-deploy requirement
-waived with your reason, the deployment QA stage discharges on it, and a
-reader can tell it from an item nobody asked. Do not reach for it to get past
-the refusal — an item with something to verify and no plan is the case this
-whole gate exists for.
+That is an answer, not a bypass and not a waiver: it writes the item's
+no-obligation fact, the deployment QA stage discharges on it, and a reader
+listing waivers will not see it. `yoke qa post-deploy declare-none` remains
+the waiver for declining a check that might have been done. Do not reach
+for either to get past the refusal when the item has something to verify
+and no plan — that is the case this whole gate exists for.
 
 Otherwise author that plan here, while its cases are still editable, and
 attach it at the item's release stage, which is where post-deploy
