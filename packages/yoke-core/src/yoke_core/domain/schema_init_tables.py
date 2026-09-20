@@ -22,7 +22,10 @@ from yoke_core.domain.item_worktree_schema import (
     ensure_epic_item_worktree_references,
     ensure_item_worktree_schema,
 )
-from yoke_core.domain.item_landings_schema import ITEM_LANDINGS_CREATE_SQL
+from yoke_core.domain.item_landings_schema import (
+    ITEM_LANDINGS_CREATE_SQL,
+    ensure_item_landings_schema,
+)
 from yoke_core.domain.merge_queue_landing_record_schema import (
     MERGE_QUEUE_LANDING_RECORDS_CREATE_SQL,
 )
@@ -309,6 +312,7 @@ def create_core_tables(conn: Any) -> None:
     """,
     )
     ensure_item_worktree_schema(conn)
+    ensure_item_landings_schema(conn)
     ensure_epic_item_worktree_references(conn)
     create_session_tables(conn)
 

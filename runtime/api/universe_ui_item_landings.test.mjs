@@ -181,6 +181,23 @@ test("a card reports landing churn only when there is churn to report", () => {
   }
 });
 
+test("a reconstructed landing names that its timestamp is approximate", async () => {
+  const reconstructed = {
+    ...LANDINGS[1],
+    origin: "reconstructed",
+  };
+  const root = await renderLandings([LANDINGS[0], reconstructed]);
+
+  assert.deepEqual(
+    byClass(root, "item-landing-origin").map((node) => node.textContent),
+    ["reconstructed"],
+  );
+  assert.equal(
+    byClass(root, "item-landing-when")[1].title,
+    "git committer time; minutes early of a merge-queue landing",
+  );
+});
+
 test("a delivery the read could not resolve is unknown, not undelivered", async () => {
   // The landings are still the audit record; what failed is the second
   // question over release state. Reporting it as "nothing shipped this" would

@@ -77,11 +77,20 @@ function landingRow(documentNode, item, landing, ordinal, unreadable) {
     ));
   }
   if (landing.landed_at) {
-    row.appendChild(el(
+    const when = el(
       documentNode,
       "span",
       "item-landing-when",
       relativeAgePhrase(landing.landed_at),
+    );
+    if (String(landing.origin || "") === "reconstructed") {
+      when.title = "git committer time; minutes early of a merge-queue landing";
+    }
+    row.appendChild(when);
+  }
+  if (String(landing.origin || "") === "reconstructed") {
+    row.appendChild(el(
+      documentNode, "span", "item-landing-origin", "reconstructed",
     ));
   }
   row.appendChild(deliveryNode(documentNode, item, landing, unreadable));

@@ -18,6 +18,8 @@ from yoke_core.domain.item_landings import (
     landings_for_item,
 )
 from yoke_core.domain.item_landings_schema import (
+    ORIGIN_RECONSTRUCTED,
+    ORIGIN_RECORDED,
     ROUTE_FAST_FORWARD,
     ROUTE_MERGE_QUEUE,
     ROUTE_STANDALONE,
@@ -200,3 +202,37 @@ def test_an_item_that_never_landed_is_absent_from_the_counts(test_db):
     test_db.commit()
 
     assert landing_counts(test_db, [9107, 9108]) == {9108: 1}
+
+
+def test_close_out_rows_default_to_recorded_origin(test_db):
+    """Live appends are observed landings, not git reconstructions."""
+    _seed(test_db, item_id=9109)
+    append_landing(
+        test_db,
+        _landing(9109, merge=FIRST_MERGE, candidate=FIRST_CANDIDATE),
+    )
+    test_db.commit()
+
+    rows = landings_for_item(test_db, 9109)
+
+    assert rows[0].origin == ORIGIN_RECORDED
+
+
+def test_a_reconstructed_origin_survives_a_read(test_db):
+    _seed(test_db, item_id=9110)
+    append_landing(
+        test_db,
+        _landing(
+            9110,
+            merge=FIRST_MERGE,
+            candidate=FIRST_CANDIDATE,
+            origin=ORIGIN_RECONSTRUCTED,
+        ),
+    )
+    test_db.commit()
+
+    rows = landings_for_item(test_db, 9110)
+
+    assert rows[0].origin == ORIGIN_RECONSTRUCTED
+    assert rows[0].payload()["origin"] == ORIGIN_RECONSTRUCTED
+
