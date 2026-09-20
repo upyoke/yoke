@@ -62,10 +62,15 @@ class TestQaRequirementUpdate(unittest.TestCase):
         class _Conn:
             def execute(self, sql, params):
                 executed_sql.append((sql, params))
+                # A stub plane carries no deployment tables, so the
+                # admitted-copy reconciliation probe answers "absent" and
+                # this update stays the plain item-row write it is testing.
+                absent_table = "to_regclass" in sql
+                row = {"exists": False} if absent_table else existing
 
                 class _R:
                     def fetchone(self_inner):
-                        return existing
+                        return row
 
                 return _R()
 
