@@ -146,6 +146,10 @@ def merged_open_items(conn: Any, project_id: int) -> tuple[dict[str, Any], ...]:
     The one definition of "merged but still open", shared by the steering
     report's landed section and by run enrollment, so the two can never
     disagree about which items are even in the conversation.
+
+    Each row carries the workflow the item pins, because what close-out
+    requires is a property of that workflow: a reader recommending the
+    command has to know whether its terminal transition is evidence-gated.
     """
     columns = landing_stamp_columns(conn)
     if not columns:
@@ -155,7 +159,7 @@ def merged_open_items(conn: Any, project_id: int) -> tuple[dict[str, Any], ...]:
     holes = ", ".join(marker for _ in terminal)
     present = " OR ".join(f"{column} IS NOT NULL" for column in columns)
     rows = conn.execute(
-        f"SELECT id, status, {', '.join(columns)} FROM items "
+        f"SELECT id, status, workflow_id, {', '.join(columns)} FROM items "
         f"WHERE project_id = {marker} AND status NOT IN ({holes}) "
         f"AND ({present})",
         (int(project_id), *terminal),

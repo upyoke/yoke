@@ -103,10 +103,17 @@ def _landed_dict(entry: LandedItem) -> dict[str, Any]:
         "landed_at": entry.landed_at,
         "landed_seconds": entry.landed_seconds,
         "holder_session_id": entry.holder_session_id,
+        "holder_parked": entry.holder_parked,
+        "holder_quiet_reason": entry.holder_quiet_reason,
+        "workflow_id": entry.workflow_id,
         "custody_state": entry.custody_state,
         "custody_run_id": entry.custody_run_id,
         "stranded": entry.stranded,
-        "recovery": landed_recovery(entry.public_ref),
+        # Empty when the row needs nothing: a live holder owns its own
+        # close-out, and a parked one is waiting on the delivery that
+        # close-out needs. A consumer that prints this unconditionally is
+        # reproducing the defect the empty string exists to end.
+        "recovery": landed_recovery(entry),
     }
 
 

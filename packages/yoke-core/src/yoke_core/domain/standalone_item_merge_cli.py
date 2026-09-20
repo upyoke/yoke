@@ -13,6 +13,9 @@ from yoke_core.domain.merge_preflight_github_lock_retry import (
     call_with_machine_lock_retry,
 )
 from yoke_core.domain import close_out_control_plane_authority as close_out
+from yoke_core.domain.close_out_evidence_gate import (
+    terminal_transition_is_evidence_gated,
+)
 from yoke_core.domain import standalone_item_merge as merge_domain
 from yoke_core.domain import standalone_item_merge_close_out_report as report
 from yoke_core.domain import standalone_item_merge_converge as converge
@@ -44,9 +47,6 @@ from yoke_core.domain.standalone_item_merge_lane import (
     merge_source_lane,
 )
 from yoke_core.domain.terminal_lane_cleanup import record_terminal_lane_close_out
-
-# Workflows whose terminal transition requires an execution-evidence record.
-EVIDENCE_WORKFLOWS = frozenset({"dash"})
 
 
 def _fail(message: str, *, as_json: bool, public_ref: str = "", **extra: Any) -> int:
@@ -97,7 +97,7 @@ def run(argv: List[str]) -> int:
     announce = report.bind(session_id=str(args.session_id), dispatch=call_dispatcher)
     workflow_id = str((item.get("workflow") or {}).get("id") or "")
     status = str(item.get("status") or "")
-    evidence_workflow = workflow_id in EVIDENCE_WORKFLOWS
+    evidence_workflow = terminal_transition_is_evidence_gated(workflow_id)
     # The close-out that will transition needs the summaries up front. The
     # write itself is owed by the merge, not by the transition: evidence
     # describes the landing, so a caller that supplied it gets it recorded
@@ -343,7 +343,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return run(list(sys.argv[1:] if argv is None else argv))
 
 
-__all__ = ["EVIDENCE_WORKFLOWS", "main", "run"]
+__all__ = ["main", "run"]
 
 
 if __name__ == "__main__":  # pragma: no cover - module adapter
