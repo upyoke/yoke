@@ -31,6 +31,9 @@ from yoke_contracts.project_contract.strategy_docs_header import (
 from yoke_contracts.project_contract.strategy_docs_paths import (
     is_strategy_view_path,
 )
+from yoke_contracts.project_contract.changed_path_scope import (
+    changed_scope_for_check,
+)
 from yoke_contracts.project_contract.file_line_git_scope import (
     resolve_file_line_git_scope,
 )
@@ -199,21 +202,6 @@ def head_exists(repo_root: pathlib.Path) -> bool:
     )
 
 
-def collect_changed_paths(
-    *, repo_root: pathlib.Path, base: Optional[str], staged: bool
-) -> list[str]:
-    args = (
-        ["diff", "--cached", "--name-only", "--diff-filter=ACMR"]
-        if staged
-        else ["diff", "--name-only", "--diff-filter=ACMR", base or "main"]
-    )
-    result = run_git(args, repo_root=repo_root)
-    if result.returncode != 0:
-        detail = result.stderr.strip() or result.stdout.strip()
-        raise RuntimeError(f"git diff failed: {detail}")
-    return [p.strip() for p in result.stdout.splitlines() if p.strip()]
-
-
 def staged_new_count(path: str, *, repo_root: pathlib.Path) -> int:
     result = run_git(["show", f":{path}"], repo_root=repo_root)
     return count_lines(result.stdout) if result.returncode == 0 else line_count_file(repo_root / path)
@@ -263,9 +251,10 @@ def changed_files_check(
             repo_root, integration_target,
         )
         effective_base = base if staged else scope.item_base_sha
-        paths = collect_changed_paths(
-            repo_root=repo_root, base=effective_base, staged=staged,
+        changed = changed_scope_for_check(
+            repo_root, effective_base, staged=staged,
         )
+        paths = list(changed.paths)
     except (FileNotFoundError, RuntimeError):
         return CheckVerdict(False, [], [], "not a git working tree or base ref unknown")
     policy = resolved_policy(repo_root)
@@ -305,6 +294,8 @@ def changed_files_check(
         summary = f"ok: no authored file violations across {len(paths)} changed paths"
     if pre_existing:
         summary += f", {len(pre_existing)} pre-existing over-limit file(s)"
+    if not staged:
+        summary += f"; {changed.coverage_sentence()}"
     return CheckVerdict(
         not hard_fails, hard_fails, warnings, summary, pre_existing,
     )

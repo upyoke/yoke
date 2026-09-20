@@ -8,6 +8,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.project_contract.changed_path_scope import (
+    WorkingTreeChangedPaths,
+)
 from yoke_core.tools import ruff_changed
 
 
@@ -59,7 +62,7 @@ def test_changed_paths_use_the_rename_destination(tmp_path: Path) -> None:
     assert ruff_changed.changed_python_paths(base, repo) == ("nested/renamed.py",)
 
 
-def test_changed_paths_include_committed_staged_and_unstaged_edits(
+def test_changed_paths_cover_every_edit_a_commit_would_carry(
     tmp_path: Path,
 ) -> None:
     repo, base = _repo_with_baseline(
@@ -76,11 +79,13 @@ def test_changed_paths_include_committed_staged_and_unstaged_edits(
     (repo / "staged.py").write_text("value = 2\n", encoding="utf-8")
     _git(repo, "add", "staged.py")
     (repo / "unstaged.py").write_text("value = 2\n", encoding="utf-8")
+    (repo / "untracked.py").write_text("value = 1\n", encoding="utf-8")
 
     assert ruff_changed.changed_python_paths(base, repo) == (
         "committed.py",
         "staged.py",
         "unstaged.py",
+        "untracked.py",
     )
 
 
@@ -113,7 +118,7 @@ def test_empty_changed_set_passes_without_invoking_ruff(
     assert "no changed Python files" in output
     assert f"base SHA {base}" in output
     assert f"HEAD {head}" in output
-    assert "staged + unstaged working tree" in output
+    assert "working tree" in output
 
 
 def test_format_check_runs_after_lint(
@@ -127,6 +132,7 @@ def test_format_check_runs_after_lint(
             ("module.py",),
             "base-sha",
             "head-sha",
+            WorkingTreeChangedPaths(tracked=("module.py",), untracked=()),
         ),
     )
     phases: list[tuple[str, ...]] = []

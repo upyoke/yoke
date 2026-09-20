@@ -7,6 +7,11 @@ the caller means — and a branch diff taken against the wrong tree is
 empty, which this command would otherwise report as a clean pass.
 The tree comes from an explicit ``--workdir`` or from the session's
 claimed lane, and every line it prints names the tree it used.
+
+The file set is the shared working-tree changed-path scope, so an
+authored-but-not-yet-added file is linted here exactly as the required
+CI contract will lint it once committed. Every result names that scope's
+composition, so a green can be read for what it actually covered.
 """
 
 from __future__ import annotations
@@ -19,15 +24,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
+from yoke_contracts.project_contract.changed_path_scope import (
+    ChangedPathError,
+    WorkingTreeChangedPaths,
+    tracked_changed_paths,
+    untracked_paths,
+)
 from yoke_core.tools import source_dev_run
-
-
-class ChangedPathError(RuntimeError):
-    """Raised when Git cannot resolve the changed-path set."""
-
-    def __init__(self, returncode: int, detail: str) -> None:
-        super().__init__(detail)
-        self.returncode = returncode
 
 
 @dataclass(frozen=True)
@@ -37,6 +40,7 @@ class ChangedPythonSelection:
     paths: tuple[str, ...]
     base_sha: str
     head_sha: str
+    scope: WorkingTreeChangedPaths
 
 
 def _git_output(root: Path, arguments: Sequence[str]) -> bytes:
@@ -53,31 +57,29 @@ def _git_output(root: Path, arguments: Sequence[str]) -> bytes:
     return completed.stdout
 
 
-def select_changed_python_paths(base: str, root: Path) -> ChangedPythonSelection:
-    """Select committed, staged, and unstaged Python changes from ``base``."""
-    head_sha = os.fsdecode(_git_output(root, ("rev-parse", "--verify", "HEAD"))).strip()
-    base_sha = os.fsdecode(_git_output(root, ("merge-base", base, head_sha))).strip()
-    changed = _git_output(
-        root,
-        (
-            "diff",
-            "--name-only",
-            "-z",
-            "--diff-filter=ACMRT",
-            base_sha,
-            "--",
-        ),
+def _existing_python(root: Path, paths: Sequence[str]) -> tuple[str, ...]:
+    """Keep the Python files Ruff can actually open, in the order given."""
+    return tuple(
+        relative
+        for relative in paths
+        if (root / relative).suffix == ".py" and (root / relative).is_file()
     )
 
-    paths: list[str] = []
-    for raw_path in changed.split(b"\0"):
-        if not raw_path:
-            continue
-        relative = os.fsdecode(raw_path)
-        candidate = root / relative
-        if candidate.suffix == ".py" and candidate.is_file():
-            paths.append(relative)
-    return ChangedPythonSelection(tuple(paths), base_sha, head_sha)
+
+def select_changed_python_paths(base: str, root: Path) -> ChangedPythonSelection:
+    """Select every Python change a commit of this tree would carry from ``base``.
+
+    That is committed, staged, and unstaged tracked edits plus the untracked
+    files Git would add — the same set the required CI contract derives for
+    this work once it is committed.
+    """
+    head_sha = os.fsdecode(_git_output(root, ("rev-parse", "--verify", "HEAD"))).strip()
+    base_sha = os.fsdecode(_git_output(root, ("merge-base", base, head_sha))).strip()
+    scope = WorkingTreeChangedPaths(
+        tracked=_existing_python(root, tracked_changed_paths(root, base_sha)),
+        untracked=_existing_python(root, untracked_paths(root)),
+    )
+    return ChangedPythonSelection(scope.paths, base_sha, head_sha, scope)
 
 
 def changed_python_paths(base: str, root: Path) -> tuple[str, ...]:
@@ -124,12 +126,14 @@ def run(base: str, *, format_check: bool = False, root: Path) -> int:
 
     paths = selection.paths
     count = len(paths)
+    coverage = selection.scope.coverage_sentence(noun="Python file")
     if not paths:
         print(
             "ruff-changed: no changed Python files after comparing "
             f"base SHA {selection.base_sha}, HEAD {selection.head_sha}, and the "
-            f"staged + unstaged working tree in {checkout}; passing"
+            f"working tree in {checkout}; passing"
         )
+        print(f"ruff-changed: {coverage}")
         return 0
 
     noun = "file" if count == 1 else "files"
@@ -137,6 +141,7 @@ def run(base: str, *, format_check: bool = False, root: Path) -> int:
         f"ruff-changed: checking {count} changed Python {noun} against "
         f"{base} in {checkout}"
     )
+    print(f"ruff-changed: {coverage}")
     check_status = _run_ruff(checkout, ("check",), paths)
     if check_status:
         print(
@@ -163,9 +168,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke dev ruff-changed",
         description=(
-            "Run Ruff on committed, staged, and unstaged existing Python "
-            "changes in an explicitly named Yoke source checkout, defaulting "
-            "to the current session's claimed lane."
+            "Run Ruff on every existing Python change a commit of the tree "
+            "would carry (committed, staged, unstaged, and untracked) in an "
+            "explicitly named Yoke source checkout, defaulting to the "
+            "current session's claimed lane."
         ),
     )
     parser.add_argument(
@@ -173,8 +179,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         required=True,
         metavar="REF",
         help=(
-            "Compare the merge-base of REF and HEAD with HEAD plus staged "
-            "and unstaged working-tree changes."
+            "Compare the merge-base of REF and HEAD with the working tree: "
+            "staged, unstaged, and untracked non-ignored changes."
         ),
     )
     parser.add_argument(

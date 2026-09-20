@@ -68,8 +68,9 @@ is not covered by a wrapper:
 yoke dev run -- python3 -m pytest path/to/test_file.py
 ```
 
-Ruff is a locked development dependency. Lint committed, staged, and unstaged
-existing Python changes from the session's claimed source checkout with:
+Ruff is a locked development dependency. Lint every existing Python change a
+commit of the tree would carry — committed, staged, unstaged, and untracked —
+from the session's claimed source checkout with:
 
 ```bash
 yoke dev ruff-changed --base <ref>
@@ -77,11 +78,26 @@ yoke dev ruff-changed --base <ref>
 
 Add `--format-check` to also run `ruff format --check`. The command resolves the
 merge-base and HEAD SHAs, reads a NUL-delimited diff from that base through the
-current staged and unstaged working tree, excludes deleted or otherwise
-nonexistent paths, and runs the locked Ruff version without shell path
-expansion. An empty result names both SHAs, the working tree, and the checkout
-it compared. Do not call a checkout-local `.venv/bin/ruff` path or rely on an
-ambient Homebrew install.
+current working tree, adds the untracked non-ignored paths Git would commit,
+excludes deleted or otherwise nonexistent paths, and runs the locked Ruff
+version without shell path expansion. An empty result names both SHAs, the
+working tree, and the checkout it compared. Do not call a checkout-local
+`.venv/bin/ruff` path or rely on an ambient Homebrew install.
+
+Including untracked work is what makes the local result mean something: the
+required CI contract lints the committed tree, so a file authored but not yet
+added would otherwise be checked for the first time on CI — and a new file is
+the likeliest place for a fresh violation. Every result names its scope, the
+tracked and untracked counts alongside each other, so a green states what it
+covered rather than implying it. Ignored paths and deletions stay out of both
+sides, so their absence is agreement with CI rather than a gap in the mirror.
+The only residual difference runs the safe way: an untracked file that never
+gets committed makes the local set a superset of CI's, which can cost a local
+red but never a local green that CI fails.
+
+`yoke check file-line --base <ref>` resolves its changed set the same way, for
+the same reason — the authored-file limit is a required CI contract too, and a
+fresh over-limit file is exactly the case that would otherwise slip past.
 
 The checkout it reads is never the working directory. A harness re-applies a
 previous `cd` between tool calls, so a cwd-derived tree can be a different

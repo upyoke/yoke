@@ -50,7 +50,10 @@ yoke watch pytest -- runtime/api/ runtime/harness/ tests/
   `yoke dev ruff-changed --base <ref>` from a session that owns a source lane;
   add `--format-check` to verify formatting too. It lints the claimed lane or
   an explicit `--workdir <checkout>`, never the working directory, and names
-  the tree it read in every line.
+  the tree it read in every line. Its file set is everything a commit of the
+  tree would carry — untracked new files included — so a green predicts the
+  required CI check; each result names that scope's tracked and untracked
+  counts.
 - The suite starts its own disposable Postgres cluster on first use; no
   database setup is required beyond having the Postgres server binaries
   (`initdb`, `pg_ctl`) on `PATH` — e.g. `brew install postgresql@17` on
