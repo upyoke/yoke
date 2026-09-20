@@ -243,6 +243,75 @@ export function classifyMemberQa(rows, { runId } = {}) {
   };
 }
 
+const SATISFIED_RAW = new Set(["pass", "passed", "waived", "succeeded"]);
+
+const DISCHARGED = new Set([
+  QA_STATE.SUPERSEDED,
+  QA_STATE.WAIVED,
+  QA_STATE.NO_OBLIGATION,
+  QA_STATE.RUN_MACHINERY,
+]);
+
+const PROVED = new Set([
+  QA_STATE.VERIFIED_RUN,
+  QA_STATE.VERIFIED_ITEM,
+  QA_STATE.ADMITTED_COPY,
+]);
+
+function rawUnionLabel(row) {
+  const outcome = outcomeOf(row);
+  if (outcome === "pass") return "passed";
+  if (outcome === "fail" || outcome === "error") return "failed";
+  if (outcome === "undetermined") return "needs review";
+  return outcome || "queued";
+}
+
+function unionEntry(row, rows) {
+  const classified = classifyQaRow(row, rows);
+  if (!classified) {
+    const label = rawUnionLabel(row);
+    return { label, outstanding: !SATISFIED_RAW.has(label) };
+  }
+  if (
+    DISCHARGED.has(classified.id)
+    || (
+      classified.id === QA_STATE.STANDING_SOURCE
+      && /Open is expected/.test(classified.detail)
+    )
+  ) {
+    return { label: classified.label, outstanding: false };
+  }
+  if (classified.id === QA_STATE.ADMITTED_COPY) {
+    return { label: classified.label, outstanding: !passed(row) };
+  }
+  if (PROVED.has(classified.id)) {
+    return { label: classified.label, outstanding: false };
+  }
+  return { label: classified.label, outstanding: true };
+}
+
+function tally(entries, pick) {
+  const counts = new Map();
+  for (const entry of entries) {
+    if (pick && !pick(entry)) continue;
+    counts.set(entry.label, Number(counts.get(entry.label) || 0) + 1);
+  }
+  return [...counts.entries()].map(([label, n]) => `${n} ${label}`).join(" · ");
+}
+
+// The line an operator reads first on item Verification. A superseded case
+// is discharged by its replacement; an open standing source beside its
+// admitted copy is expected. Outstanding means the union still blocks.
+export function summarizeQaUnion(rows) {
+  const entries = (rows || []).map((row) => unionEntry(row, rows));
+  const outstanding = entries.filter((entry) => entry.outstanding);
+  return {
+    counts: tally(entries),
+    outstandingPhrase: tally(outstanding),
+    satisfied: outstanding.length === 0,
+  };
+}
+
 export function memberQaCaption(memberState) {
   const label = memberState?.label || LABELS[QA_STATE.NEVER_ASKED];
   const detail = memberState?.detail;

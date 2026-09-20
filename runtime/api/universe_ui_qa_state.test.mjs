@@ -7,6 +7,7 @@ import {
   classifyMemberQa,
   classifyQaRow,
   memberQaCaption,
+  summarizeQaUnion,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_state.js";
 
 const RUN = "run-20260920-005";
@@ -108,4 +109,56 @@ test("pre-merge CI does not count as this release's post-deploy answer", () => {
     outcome: "passed",
   }], { runId: RUN });
   assert.equal(member.id, QA_STATE.NEVER_ASKED);
+});
+
+test("union discharges superseded and expected standing, and names what still blocks", () => {
+  const superseded = summarizeQaUnion([
+    {
+      id: 1,
+      deployment_run_id: RUN,
+      qa_kind: "plan_case",
+      qa_phase: "post_deploy",
+      outcome: "failed",
+      superseded_by_requirement_id: 2,
+    },
+    {
+      id: 2,
+      deployment_run_id: RUN,
+      qa_kind: "method_case",
+      qa_phase: "post_deploy",
+      outcome: "passed",
+    },
+  ]);
+  assert.equal(superseded.satisfied, true);
+  assert.match(superseded.counts, /superseded/);
+  assert.equal(superseded.outstandingPhrase, "");
+
+  const standing = summarizeQaUnion([
+    {
+      id: 10,
+      item_id: 100,
+      qa_kind: "plan_case",
+      qa_phase: "post_deploy",
+      plan_case_key: "plan-currency-readable",
+      outcome: "queued",
+    },
+    {
+      id: 11,
+      deployment_member_item_id: 100,
+      deployment_run_id: RUN,
+      qa_kind: "plan_case",
+      qa_phase: "post_deploy",
+      plan_case_key: "admitted-requirement-10",
+      outcome: "passed",
+    },
+  ]);
+  assert.equal(standing.satisfied, true);
+  assert.match(standing.counts, /standing check/);
+
+  const blocked = summarizeQaUnion([
+    { outcome: "passed", run_id: 1 },
+    { outcome: "failed", run_id: 2, deployment_run_id: RUN, qa_phase: "post_deploy" },
+  ]);
+  assert.equal(blocked.satisfied, false);
+  assert.equal(blocked.outstandingPhrase, "1 failed");
 });

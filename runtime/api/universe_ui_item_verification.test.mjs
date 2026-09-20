@@ -197,8 +197,94 @@ test("Issue union names the gated transition and counts canonical outcomes", asy
   assert.match(rendered, /ui-tests.*running in the item worktree/);
   assert.match(
     rendered,
-    /2 passed · 1 running; reviewed-implementation waits until every case passes or is waived/,
+    /2 passed · 1 running; reviewed-implementation waits on 1 running/,
   );
+  assert.match(itemText(byClass(root, "item-proof-union")[0]), /not satisfied yet/);
+});
+
+test("Issue union does not count a superseded failure as outstanding", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const item = detailItem("issue");
+  item.qa_plan_attachments = [];
+  item.qa_requirements = [
+    {
+      id: 28807,
+      deployment_member_item_id: 3444,
+      deployment_run_id: "run-20260920-005",
+      qa_kind: "plan_case",
+      qa_phase: "post_deploy",
+      plan_case_key: "board-recognises-the-release-that-shipped-this-item",
+      method_name: "Command",
+      outcome: "failed",
+      superseded_by_requirement_id: 28820,
+      superseded_at: "2026-09-20T07:05:32Z",
+      workflow_transition_id: "done",
+    },
+    {
+      id: 28820,
+      deployment_member_item_id: 3444,
+      deployment_run_id: "run-20260920-005",
+      qa_kind: "method_case",
+      qa_phase: "post_deploy",
+      method_name: "Command",
+      outcome: "passed",
+      workflow_transition_id: "done",
+    },
+  ];
+  renderItemDetailView(itemContext(documentNode, async () => ({
+    status: 200,
+    envelope: { success: true, result: { item } },
+  })), root, "7", "ACM-22");
+  await settle();
+
+  const union = itemText(byClass(root, "item-proof-union")[0]);
+  assert.match(union, /1 superseded · 1 verified this release/);
+  assert.match(union, /done is satisfied/);
+  assert.doesNotMatch(union, /not satisfied yet/);
+  assert.doesNotMatch(union, /1 failed/);
+});
+
+test("Issue union treats an open standing source beside its admitted copy as expected", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const item = detailItem("issue");
+  item.qa_plan_attachments = [];
+  item.qa_requirements = [
+    {
+      id: 28759,
+      item_id: 3449,
+      qa_kind: "plan_case",
+      qa_phase: "post_deploy",
+      plan_case_key: "plan-currency-readable",
+      method_name: "Command",
+      outcome: "queued",
+      workflow_transition_id: "done",
+    },
+    {
+      id: 28801,
+      item_id: null,
+      deployment_member_item_id: 3449,
+      deployment_run_id: "run-20260920-005",
+      qa_kind: "plan_case",
+      qa_phase: "post_deploy",
+      plan_case_key: "admitted-requirement-28759",
+      method_name: "Command",
+      outcome: "passed",
+      workflow_transition_id: "done",
+    },
+  ];
+  renderItemDetailView(itemContext(documentNode, async () => ({
+    status: 200,
+    envelope: { success: true, result: { item } },
+  })), root, "7", "ACM-22");
+  await settle();
+
+  const union = itemText(byClass(root, "item-proof-union")[0]);
+  assert.match(union, /1 standing check · 1 this release/);
+  assert.match(union, /done is satisfied/);
+  assert.doesNotMatch(union, /not satisfied yet/);
+  assert.doesNotMatch(union, /1 queued/);
 });
 
 test("item detail exposes a unified-read failure without a legacy retry", async () => {

@@ -341,4 +341,5 @@ export {
   classifyQaRow,
   memberQaCaption,
   qaStatePill,
+  summarizeQaUnion,
 } from "./qa_state.js";

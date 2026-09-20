@@ -9,6 +9,7 @@ import test from "node:test";
 import { FakeDocument, byClass, settle } from "./universe_ui_dom_test_support.mjs";
 import { member } from "./universe_ui_carried_item_test_support.mjs";
 import { loadDelivery } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_shipping_runs.js";
+import { CARRIED_ITEMS_SHOWN } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_work_cards.js";
 import { QA_KIND } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_state.js";
 
 const RUN_ID = "run-20260920-005";
@@ -46,7 +47,9 @@ function activityFor(itemId, overrides = {}) {
   };
 }
 
-function shippingClient(rows) {
+function shippingClient(rows, options = {}) {
+  const roster = options.members || MEMBERS;
+  const runId = options.runId || RUN_ID;
   const requests = [];
   return {
     requests,
@@ -59,13 +62,13 @@ function shippingClient(rows) {
             success: true,
             result: {
               rows: [{
-                id: RUN_ID,
+                id: runId,
                 project: "yoke",
                 status: "succeeded",
                 flow: "yoke-hosted-production-release-qa",
                 target_environment: "prod",
                 created_at: "2026-09-20T05:49:22Z",
-                member_items: MEMBERS,
+                member_items: roster,
                 gates: [],
               }],
             },
@@ -209,4 +212,45 @@ test("run-20260920-005 shape distinguishes verified, waived, no-obligation, neve
   assert.match(byRef["YOK-3290"], /never asked/);
   assert.notEqual(byRef["YOK-3294"], byRef["YOK-3297"]);
   assert.notEqual(byRef["YOK-3297"], byRef["YOK-3290"]);
+});
+
+function ancestorHidden(node) {
+  for (let current = node; current; current = current.parentNode) {
+    if (current.hidden) return true;
+  }
+  return false;
+}
+
+function membersWithQa(host, visibleOnly) {
+  return byClass(host, "release-member").filter((node) => {
+    if (visibleOnly && ancestorHidden(node)) return false;
+    return byClass(node, "carried-item-evidence-caption").length > 0;
+  });
+}
+
+test("collapsed and expanded shipping cards agree on how many members carry QA", async () => {
+  const runId = "run-collapse-eight";
+  const roster = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => member(4100 + n, `MEM-${n}`));
+  const rows = roster.map((item) => activityFor(item.id, { deployment_run_id: runId }));
+  const documentNode = new FakeDocument();
+  const host = documentNode.createElement("div");
+  await loadDelivery(
+    shippingContext(documentNode, shippingClient(rows, { members: roster, runId })),
+    host,
+    () => ["1"],
+  );
+  await settle();
+
+  assert.equal(byClass(host, "release-member").length, roster.length);
+  const collapsedAll = membersWithQa(host, false).length;
+  const collapsedVisible = membersWithQa(host, true).length;
+  assert.equal(collapsedVisible, CARRIED_ITEMS_SHOWN);
+  assert.equal(collapsedAll, roster.length);
+
+  const more = byClass(host, "release-member-more")[0];
+  assert.ok(more, "the card must offer expand when it hides members");
+  more.dispatchEvent(new Event("click"));
+
+  assert.equal(membersWithQa(host, false).length, collapsedAll);
+  assert.equal(membersWithQa(host, true).length, roster.length);
 });
