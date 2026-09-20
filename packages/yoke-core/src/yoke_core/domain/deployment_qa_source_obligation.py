@@ -34,18 +34,8 @@ from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_ru
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 # A post_deploy row that already passed once is not re-runnable into
-# satisfaction, so "execute the case" is the wrong instruction and
-# "permanently blocked" is wrong too: there are three real ways out, and
-# none of them is another run of the intake row.
-#
-# Each exit states its own condition and all three print every time. The
-# supersede exit is the narrow one -- this refusal is printed while the run
-# is already succeeded, and a finished run refuses a new run-bound case, so
-# it is open only to a reader who already authored the corrected case.
-# Naming exits conditionally instead, by reading per case, is deliberately
-# NOT the fix: absence would then be ambiguous in the same way, and the read
-# would be paid on every refusal for a benefit on some. Both halves are
-# pinned, with the reasoning, in
+# satisfaction. POST_DEPLOY_RECOVERY names three exits, each with its
+# condition; the wording is pinned in
 # runtime/api/domain/test_post_deploy_recovery_exit_conditions.py.
 POST_DEPLOY_RECOVERY = (
     "A post_deploy obligation is satisfied by the completion run's admitted "
@@ -59,9 +49,12 @@ POST_DEPLOY_RECOVERY = (
     "same run, stage, member and execution target has ALREADY recorded a "
     "passing verdict, record that case in its place with yoke qa requirement "
     "supersede; a finished run refuses a new run-bound case, so this exit is "
-    "closed unless that corrected case already exists. If neither condition "
-    "holds, waive the requirement through the registered waiver surface with "
-    "explicit authorization."
+    "closed unless that corrected case already exists. If several admitted "
+    "copies of this source exist, they satisfy it when every copy is "
+    "accepted; re-delivery does not remove a duplicate, so an unsettled "
+    "copy is superseded or waived. If none of those conditions hold, waive the "
+    "requirement through the registered waiver surface with explicit "
+    "authorization."
 )
 
 
@@ -150,7 +143,11 @@ def latest_deployment_run_for_item(conn: Any, item_id: int) -> dict[str, str]:
 def source_obligation_consumed(
     conn: Any, *, item_id: int, source_requirement_id: int
 ) -> bool:
-    """True when this intake row's admitted copy is accepted on the completion run.
+    """True when every admitted copy of this intake on the completion run is accepted.
+
+    Zero copies is unmet. Several accepted copies are met: duplication is
+    materialization bookkeeping, not a missing proof. An unsettled copy still
+    holds ``done``.
 
     "Accepted" is the stage's own answer plus the copy's own discharge state,
     and both discharge records count: a waiver and a supersession each settle
@@ -181,18 +178,12 @@ def source_obligation_consumed(
         "ORDER BY id",
         (run_id, case_key),
     ).fetchall()
-    if len(rows) != 1:
+    if not rows:
         return False
     row = rows[0]
-    copy_id = int(_row_value(row, "id", 0))
     stage_name = str(_row_value(row, "deployment_stage", 1) or "")
     member = _row_value(row, "deployment_member_item_id", 2)
     member_item_id = int(member) if member not in (None, 0) else None
-    settled = obligation_settled({
-        "waived_at": _row_value(row, "waived_at", 3),
-        "superseded_by_requirement_id": _row_value(row, "superseded_by_requirement_id", 4),
-        "retracted_at": _row_value(row, "retracted_at", 5),
-    })
     try:
         subject = deployment_qa_stage_subject(
             conn,
@@ -212,9 +203,18 @@ def source_obligation_consumed(
         return False
     if blockers:
         return False
-    if settled:
-        return True
-    return latest_verdict(conn, copy_id) == "pass"
+    for row in rows:
+        copy_id = int(_row_value(row, "id", 0))
+        settled = obligation_settled({
+            "waived_at": _row_value(row, "waived_at", 3),
+            "superseded_by_requirement_id": _row_value(
+                row, "superseded_by_requirement_id", 4
+            ),
+            "retracted_at": _row_value(row, "retracted_at", 5),
+        })
+        if not settled and latest_verdict(conn, copy_id) != "pass":
+            return False
+    return True
 
 
 def blocking_row_unsatisfied_at_done(
@@ -233,8 +233,8 @@ def blocking_row_unsatisfied_at_done(
     deployed when it ran, so honouring it here would let a prior candidate's
     proof close out the release actually being delivered, which is the exact
     substitution frozen admission exists to prevent. An item with no succeeded
-    completion run, or whose admitted copy is missing, rejected, or stale, has
-    no such proof and keeps blocking.
+    completion run, or whose admitted copies are missing or not all
+    accepted, has no such proof and keeps blocking.
 
     Every other phase keeps its established meaning, where the original row's
     own passing run is the satisfaction: pre-merge verification proves the
