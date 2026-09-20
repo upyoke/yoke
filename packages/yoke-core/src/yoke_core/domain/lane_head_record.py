@@ -24,19 +24,48 @@ after the work it describes has already happened, so a failure here has
 nothing to unwind and must never be turned into one. It is reported rather
 than swallowed, because a lane whose head went unrecorded is exactly the
 state that is invisible until a merge refuses days later.
+
+Best-effort is not the same as hurried. The snapshot surface defaults its
+relay deadline to the git post-commit hook's, which is short so a hook can
+never leave a developer waiting on ``git commit``. Nothing waits on a
+recording taken after a publish or a rebase, so that budget buys nothing
+here and costs the whole write: the deadline expired mid-response and left
+the row holding a commit the lane had moved off. Every caller in this module
+therefore asks for the relay's ordinary deadline instead.
 """
 
 from __future__ import annotations
 
+import shlex
 import sys
 from typing import TextIO
 from yoke_core.domain.project_attribution import UnattributedProjectError, required_project
 
 
+def rerecord_command(project: str, checkout_path: str) -> str:
+    """The command that records ``checkout_path``'s HEAD on its own.
+
+    ``--head-only`` asks the snapshot surface for HEAD's identity and
+    nothing else, so it moves the candidate without anything being
+    committed. That is what makes it the recovery a lane whose work is
+    finished can actually perform -- unlike waiting for a next commit,
+    which such a lane has no reason to make.
+    """
+    return shlex.join(
+        [
+            "yoke", "project", "snapshot", "sync", str(checkout_path),
+            "--project", str(project), "--head-only",
+        ]
+    )
+
+
 def record_lane_head(project: str, checkout_path: str) -> str:
     """Record ``checkout_path``'s HEAD as its lane candidate.
 
-    Returns why the recording did not happen, or ``""`` when it did. An
+    Returns why the recording did not happen and what records it after all,
+    or ``""`` when it did. The two travel together because every reader of
+    this string prints it to whoever is standing in the lane, and a named
+    gap they cannot close is the failure mode this exists to prevent. An
     unnamed project is one such reason rather than a default: recording
     another project's lane against this installation's own is a row that
     reads exactly like a deliberate write and is wrong in a way no later
@@ -55,20 +84,30 @@ def record_lane_head(project: str, checkout_path: str) -> str:
     except UnattributedProjectError as exc:
         return str(exc)
 
+    rerecord = rerecord_command(resolved, str(checkout_path))
     result = sync_local_snapshot_for_write(
         project=resolved,
         repo_root=str(checkout_path),
         integration_target=None,
         session_id=None,
         head_only=True,
+        # The hook's deadline is the surface default; this is not a hook.
+        timeout_s=None,
+        retry_command=rerecord,
     )
     # ``deferred`` is a recording the surface accepted and will complete;
     # it is not a failure to report.
     if result.get("status") in ("ok", "deferred"):
         return ""
-    return str(
+    detail = str(
         result.get("message") or result.get("status") or "snapshot sync failed"
     )
+    # The surface withholds a repair where retrying cannot be the answer --
+    # an authorization refusal answers the same way however often it is
+    # asked. Naming the re-record anyway is still honest there: it is what
+    # takes the stamp once the named reason is dealt with.
+    repair = str(result.get("repair_command") or "") or rerecord
+    return f"{detail}; record it with `{repair}`, which needs no commit"
 
 
 def record_published_lane_head(
@@ -97,10 +136,10 @@ def record_published_lane_head(
     if detail:
         print(
             f"warning: published lane head at {checkout_path} was not "
-            f"recorded as its candidate ({detail}); a merge may refuse this "
-            f"lane as stale until the next commit records it",
+            f"recorded as its candidate; a merge may refuse this lane as "
+            f"stale until it is: {detail}",
             file=stream or sys.stderr,
         )
 
 
-__all__ = ["record_lane_head", "record_published_lane_head"]
+__all__ = ["record_lane_head", "record_published_lane_head", "rerecord_command"]
