@@ -174,7 +174,7 @@ def refresh_requirement(
     baseline: Optional[str],
     baseline_position: int,
     execution_target: dict[str, Any],
-) -> None:
+) -> dict[str, Any]:
     """Refresh a materialized case without severing its run history.
 
     This is the one write that brings a live row back to its plan's current
@@ -200,6 +200,10 @@ def refresh_requirement(
         f"WHERE id={marker}",
         (*definition.values(), int(requirement_id)),
     )
+    # Returned so the caller can carry the same derivation onward — an
+    # admitted copy of this row needs the body that was just written, not a
+    # second derivation of it.
+    return definition
 
 
 def existing_requirement_id(

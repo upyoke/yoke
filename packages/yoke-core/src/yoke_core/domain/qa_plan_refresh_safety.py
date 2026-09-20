@@ -130,9 +130,49 @@ def require_reachable_admitted_copies(
         raise QaPlanError(" ".join(refusals))
 
 
+def correct_admitted_copies(
+    conn: Any, *, source_requirement_id: int, definition: dict[str, Any]
+) -> list[int]:
+    """Carry a just-written refresh onto the copies frozen from this row.
+
+    Refusing an unreachable copy is only half the answer. A copy that IS
+    reachable would otherwise be left holding the pre-refresh body, and the
+    stage walking it would then refuse as superseded — so the safe operation
+    would have stranded the run it was meant to keep honest.
+
+    The reconciliation module decides, per field and per copy, what may be
+    written; this only hands it the fields the refresh actually changed.
+    Anything admission rewrites for itself is outside that set by design.
+    """
+    from yoke_core.domain.qa_admitted_case_currency import DEFINITION_COLUMNS
+    from yoke_core.domain.qa_admitted_case_reconciliation import (
+        reconcile_admitted_copies,
+    )
+    from yoke_core.domain.qa_plan_management import QaPlanError
+
+    corrected: set[int] = set()
+    for field in DEFINITION_COLUMNS:
+        if field not in definition:
+            continue
+        reached, refusal = reconcile_admitted_copies(
+            conn,
+            source_requirement_id=int(source_requirement_id),
+            field=field,
+            value=definition[field],
+        )
+        if refusal:
+            # The pre-pass cleared every copy before the first write, so a
+            # refusal here means one answered or froze in between. Raising
+            # keeps the caller's rollback the single outcome.
+            raise QaPlanError(refusal)
+        corrected.update(reached)
+    return sorted(corrected)
+
+
 __all__ = [
     "LIVE_EXECUTION_CODE",
     "LIVE_EXECUTION_MESSAGE",
+    "correct_admitted_copies",
     "require_no_live_execution",
     "require_reachable_admitted_copies",
 ]

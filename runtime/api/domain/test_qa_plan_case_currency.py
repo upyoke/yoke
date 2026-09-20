@@ -16,7 +16,14 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
+from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement, insert_qa_run
 from runtime.api.fixtures.pg_testdb import test_database
+from yoke_core.domain.deployment_qa_admission_materialization import (
+    admitted_requirement_case_key,
+)
+from yoke_core.domain.qa_admitted_case_reconciliation import (
+    ADMITTED_COPY_IN_FLIGHT_CODE,
+)
 from yoke_core.domain.qa_plan_attachments import (
     materialize_for_item,
     set_project_default,
@@ -205,3 +212,78 @@ def test_a_row_from_no_plan_is_left_alone_by_the_reader() -> None:
         rows = annotate_plan_currency(conn, [{"id": 1, "plan_id": None}])
 
     assert "plan_currency" not in rows[0]
+
+
+def _admitted_copy(conn, *, source_id: int, run_id: str, item_id: int) -> int:
+    """One executing run holding a frozen copy of a materialized row."""
+    conn.execute(
+        "INSERT INTO deployment_flows(id,project_id,name,description,stages,"
+        "created_at,status,definition_schema_version) VALUES "
+        "(%s,1,'Currency flow','','[]','2026-09-20T00:00:00Z','disabled',2)",
+        (f"flow-{run_id}",),
+    )
+    conn.execute(
+        "INSERT INTO deployment_runs(id,project_id,flow,status,created_at) "
+        "VALUES (%s,1,%s,'executing','2026-09-20T00:00:00Z')",
+        (run_id, f"flow-{run_id}"),
+    )
+    conn.commit()
+    source = conn.execute(
+        "SELECT method_id,method_name,runner_id,verdict_path,instructions,"
+        "expected_outcome,method_config FROM qa_requirements WHERE id=%s",
+        (int(source_id),),
+    ).fetchone()
+    copy = insert_qa_requirement(
+        conn,
+        item_id=None,
+        deployment_run_id=run_id,
+        deployment_stage="item-qa",
+        deployment_member_item_id=item_id,
+        qa_kind="release_qa",
+        qa_phase="post_deploy",
+        requirement_source="flow_derived",
+        plan_case_key=admitted_requirement_case_key(int(source_id)),
+        **{key: source[key] for key in source.keys()},
+    )
+    return int(copy["id"])
+
+
+def test_a_refresh_carries_the_correction_onto_a_reachable_copy() -> None:
+    """Refusing an unreachable copy is only half; a reachable one is reached."""
+    with test_database() as conn:
+        plan_id, requirement_id = _materialized(conn, item_id=8608)
+        copy_id = _admitted_copy(
+            conn, source_id=requirement_id, run_id="run-reachable", item_id=8608
+        )
+        _correct_the_case(conn, plan_id)
+
+        result = rematerialize_for_item(conn, item_id=8608, transition_id=TRANSITION)
+
+        # Both the row and the copy frozen from it now carry the correction,
+        # so the stage walking that copy runs the corrected body rather than
+        # refusing it as superseded.
+        assert _instructions(conn, requirement_id) == CORRECTED_INSTRUCTIONS
+        assert _instructions(conn, copy_id) == CORRECTED_INSTRUCTIONS
+        assert result["corrected_admitted_copy_ids"] == [copy_id]
+
+
+def test_a_refresh_refuses_when_an_admitted_copy_has_already_answered() -> None:
+    """An acceptance record is not a draft, so the refresh never writes."""
+    with test_database() as conn:
+        plan_id, requirement_id = _materialized(conn, item_id=8609)
+        copy_id = _admitted_copy(
+            conn, source_id=requirement_id, run_id="run-answered", item_id=8609
+        )
+        insert_qa_run(conn, qa_requirement_id=copy_id, verdict="fail")
+        conn.commit()
+        _correct_the_case(conn, plan_id)
+
+        with pytest.raises(QaPlanError) as excinfo:
+            rematerialize_for_item(conn, item_id=8609, transition_id=TRANSITION)
+        message = str(excinfo.value)
+
+        assert _instructions(conn, requirement_id) == ORIGINAL_INSTRUCTIONS
+
+    assert ADMITTED_COPY_IN_FLIGHT_CODE in message
+    assert f"admitted case {copy_id}" in message
+    assert "yoke qa requirement supersede" in message

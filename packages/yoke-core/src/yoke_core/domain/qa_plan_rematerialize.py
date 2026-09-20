@@ -31,6 +31,7 @@ from yoke_core.domain.qa_plan_execution_target_snapshot import (
 from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder, _plan_row
 from yoke_core.domain.qa_plan_refresh_safety import (
+    correct_admitted_copies,
     require_no_live_execution,
     require_reachable_admitted_copies,
 )
@@ -106,6 +107,7 @@ def rematerialize_for_item(
         rows_by_plan.setdefault(int(row["plan_id"]), []).append(row)
     created_requirement_ids: list[int] = []
     refreshed_requirement_ids: list[int] = []
+    corrected_admitted_copy_ids: list[int] = []
     retained_requirement_ids: set[int] = set()
     now = iso8601_now()
     for plan_id, attachment in attachments.items():
@@ -173,7 +175,7 @@ def rematerialize_for_item(
                             subject=subject,
                         )
                 else:
-                    refresh_requirement(
+                    definition = refresh_requirement(
                         conn,
                         requirement_id=requirement_id,
                         transition_id=transition_id,
@@ -185,6 +187,13 @@ def rematerialize_for_item(
                         execution_target=execution_target,
                     )
                     refreshed_requirement_ids.append(requirement_id)
+                    corrected_admitted_copy_ids.extend(
+                        correct_admitted_copies(
+                            conn,
+                            source_requirement_id=requirement_id,
+                            definition=definition,
+                        )
+                    )
                 retained_requirement_ids.add(requirement_id)
     waived_requirement_ids = [
         int(row["id"])
@@ -206,6 +215,7 @@ def rematerialize_for_item(
         "plan_ids": list(attachments),
         "created_requirement_ids": created_requirement_ids,
         "refreshed_requirement_ids": refreshed_requirement_ids,
+        "corrected_admitted_copy_ids": sorted(set(corrected_admitted_copy_ids)),
         "waived_requirement_ids": waived_requirement_ids,
     }
 
