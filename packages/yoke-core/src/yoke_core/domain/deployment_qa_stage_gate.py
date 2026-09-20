@@ -34,7 +34,6 @@ from yoke_core.domain.deployment_qa_stage_contract import (
 )
 from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
-    validate_deployment_execution_target,
 )
 from yoke_core.domain.deployment_qa_admission_materialization import (
     fulfill_admitted_obligations,
@@ -56,26 +55,20 @@ def _completed_execution(
     member_item_id: int | None,
     execution_target_digest: str,
 ) -> dict[str, Any] | None:
-    """The shared read, plus the active stage's own target re-validation.
+    """The completed execution recorded against this frozen target.
 
-    Settling stands on the run's active stage, so it can and does assert
-    the execution still belongs to the live subject. The read-only
-    counterpart in :mod:`deployment_qa_stage_acceptance` deliberately
-    omits that assertion: it runs after the run left the stage, where
-    there is no active subject to compare against, and the digest
-    predicate already proves the target identity.
+    Settling must not re-validate against a live environment snapshot:
+    URL and settings can move while the run is still on the stage, and
+    that recompute is what orphaned a recorded pass. Result writes still
+    go through :func:`validate_deployment_execution_target`.
     """
-    execution = completed_execution(
+    return completed_execution(
         conn,
         run_id=run_id,
         stage_name=stage_name,
         member_item_id=member_item_id,
         execution_target_digest=execution_target_digest,
     )
-    if execution is None:
-        return None
-    validate_deployment_execution_target(conn, execution)
-    return execution
 
 
 def _acceptance_requirement(

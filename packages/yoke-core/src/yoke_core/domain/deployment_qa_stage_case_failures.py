@@ -227,6 +227,37 @@ def case_failures(
         execution_target_digest=execution_target_digest,
     )
     if not rows:
+        recorded = [
+            dict(row)
+            for row in query_rows(
+                conn,
+                "SELECT id,plan_case_key FROM qa_requirements "
+                "WHERE deployment_run_id=%s AND deployment_stage=%s "
+                "AND COALESCE(deployment_member_item_id,0)=%s "
+                "AND method_id IS NOT NULL AND blocking_mode='blocking' "
+                "AND COALESCE(execution_target_digest,'')<>'' "
+                "ORDER BY id",
+                (run_id, stage_name, member_item_id or 0),
+            )
+        ]
+        if recorded:
+            named = ", ".join(
+                f"#{row['id']} ({row['plan_case_key']})" for row in recorded
+            )
+            return [
+                CaseFailure(
+                    requirement_id=int(recorded[0]["id"]),
+                    plan_case_key=str(recorded[0]["plan_case_key"] or ""),
+                    kind=FAILURE_UNRUN,
+                    detail=(
+                        f"member {member_item_id}: recorded requirement {named} "
+                        "is out of scope under the current execution target "
+                        f"{execution_target_digest}; its execution remains bound "
+                        "to the target it was materialized against. Reuse that "
+                        "requirement — do not rematerialize a second copy."
+                    ),
+                )
+            ]
         return [NO_CASES_FAILURE]
     # The accepted verdict, the execution results behind it, and which runs
     # carry artifacts are all questions about a requirement, and the subject's

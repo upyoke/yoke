@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -75,6 +76,71 @@ def _preview_target(receipt: Mapping[str, Any]) -> dict:
     }
 
 
+def _decode_stored_target(raw: Any) -> dict[str, Any] | None:
+    if isinstance(raw, Mapping):
+        return dict(raw)
+    try:
+        decoded = json.loads(str(raw or ""))
+    except (TypeError, ValueError):
+        return None
+    return dict(decoded) if isinstance(decoded, dict) else None
+
+
+def first_materialized_execution_target(
+    conn: Any,
+    *,
+    run_id: str,
+    stage_name: str,
+    member_item_id: int | None,
+) -> dict[str, Any] | None:
+    """The target stamped onto this subject at first materialization.
+
+    Environment URL and settings remain live tables, so recomputing the
+    snapshot mid-run re-keys ``execution_target_digest`` and drops already
+    recorded cases out of scope. The first materialized row is the freeze
+    while that subject's producer receipt is unchanged. A newer ready
+    attempt is a new identity and must not reuse this snapshot.
+    """
+    cursor = conn.execute(
+        "SELECT execution_target_json FROM qa_requirements "
+        f"WHERE deployment_run_id={_p(conn)} AND deployment_stage={_p(conn)} "
+        f"AND COALESCE(deployment_member_item_id,0)={_p(conn)} "
+        "AND execution_target_json IS NOT NULL ORDER BY "
+        "CASE WHEN method_id IS NOT NULL THEN 0 ELSE 1 END, id LIMIT 1",
+        (str(run_id), str(stage_name), int(member_item_id or 0)),
+    )
+    row = _row(cursor, cursor.fetchone())
+    if row is None:
+        return None
+    frozen = _decode_stored_target(row["execution_target_json"])
+    if frozen is None:
+        raise ValueError(
+            f"deployment run {run_id!r} stage {stage_name!r} member "
+            f"{member_item_id!r} has an unreadable frozen execution target"
+        )
+    return frozen
+
+
+def _latest_ready_receipt_id(
+    conn: Any, *, run_id: str, source_stage: str
+) -> int | None:
+    cursor = conn.execute(
+        f"SELECT id FROM deployment_stage_receipts WHERE run_id={_p(conn)} "
+        f"AND stage_name={_p(conn)} AND status='ready' "
+        "ORDER BY attempt_number DESC LIMIT 1",
+        (str(run_id), str(source_stage)),
+    )
+    row = _row(cursor, cursor.fetchone())
+    return int(row["id"]) if row is not None else None
+
+
+def _frozen_producer_receipt_id(target: Mapping[str, Any]) -> int | None:
+    observation = target.get("observation")
+    if not isinstance(observation, Mapping) or observation.get("receipt_id") is None:
+        return None
+    return int(observation["receipt_id"])
+
+
 def _require_receipt_source(subject: Mapping[str, Any], source_stage: str) -> None:
     stages = subject["stages"]
     qa_name = str(subject["stage"]["name"])
@@ -99,7 +165,45 @@ def deployment_qa_execution_target(
     *,
     receipt_id: int | None = None,
 ) -> dict:
-    """Resolve configured destination plus the newest observed stage receipt."""
+    """Resolve configured destination plus the newest observed stage receipt.
+
+    After this subject has materialized at least one case, later reads
+    reuse that snapshot while the producer receipt is unchanged, so a live
+    environment edit cannot move the digest mid-stage. A newer ready
+    receipt is a new identity and is resolved live. Passing ``receipt_id``
+    also skips the freeze: result-write validation still compares against
+    the live subject, including a replaced candidate on the same run row.
+    """
+    if receipt_id is None:
+        frozen = first_materialized_execution_target(
+            conn,
+            run_id=str(subject["id"]),
+            stage_name=str(subject["stage"]["name"]),
+            member_item_id=subject.get("member_item_id"),
+        )
+        pinned = subject["stage"].get("target")
+        source_stage = (
+            str(pinned.get("source_stage") or "").strip()
+            if isinstance(pinned, Mapping)
+            else ""
+        )
+        latest_receipt = (
+            _latest_ready_receipt_id(
+                conn, run_id=str(subject["id"]), source_stage=source_stage
+            )
+            if source_stage
+            else None
+        )
+        frozen_receipt = (
+            _frozen_producer_receipt_id(frozen) if frozen is not None else None
+        )
+        if (
+            frozen is not None
+            and latest_receipt is not None
+            and frozen_receipt is not None
+            and latest_receipt == frozen_receipt
+        ):
+            return frozen
     target = subject["stage"].get("target")
     if not isinstance(target, Mapping):
         raise ValueError("deployment QA stage has no pinned target")
@@ -218,6 +322,7 @@ __all__ = [
     "DEPLOYMENT_TARGET_KIND",
     "DEPLOYMENT_TARGET_SCHEMA",
     "deployment_qa_execution_target",
+    "first_materialized_execution_target",
     "is_deployment_execution_target",
     "validate_deployment_execution_target",
 ]
