@@ -240,6 +240,42 @@ def _mktemp_path(inner: str) -> Optional[str]:
 # catches the operators that survive it, notably a backgrounding ``&``.
 SEGMENT_SEPARATORS = frozenset({"&&", "||", "|", "|&", ";", ";;", "&"})
 
+# Reserved words that open or punctuate a compound statement. None of them
+# is the command being run, so a segment starting with one hides the real
+# command name behind it — and with it every per-command operand rule. That
+# is how ``do curl -sS -w "%{http_code}" URL`` lost curl's write-out format
+# to the ``-w`` worktree-path flag, and how a copy in a loop body reached
+# the write walk as ``do`` and named no destination at all.
+COMPOUND_STATEMENT_KEYWORDS = frozenset({
+    "!", "(", ")", "{", "}",
+    "case", "coproc", "do", "done", "elif", "else", "esac", "fi",
+    "then", "time", "until", "while",
+})
+
+# ``for NAME in <words>`` and ``select NAME in <words>``. The words are the
+# loop variable's VALUES, carried for the body to consume — not operands any
+# command receives. Whether one of them names a path is decided by the body
+# that dereferences the variable, so the header itself names no target: a
+# loop over URL path components had every component read as an absolute
+# filesystem path the session held no claim on.
+WORD_LIST_KEYWORDS = frozenset({"for", "select"})
+
+
+def command_operand_tokens(tokens: List[str]) -> List[str]:
+    """Return the tokens a command actually receives, or ``[]`` for none.
+
+    Leading reserved words are dropped so the command name is the first
+    token, and a word-list header yields nothing because it invokes no
+    command. An empty result means this segment names no operands, which
+    every caller already reads as "no targets here".
+    """
+    out = list(tokens)
+    while out and out[0] in COMPOUND_STATEMENT_KEYWORDS:
+        out = out[1:]
+    if out and out[0] in WORD_LIST_KEYWORDS:
+        return []
+    return out
+
 
 def shell_command_segments(command: str) -> List[List[str]]:
     """Return each command invocation in ``command`` as its own tokens.
@@ -282,7 +318,10 @@ def _safe_split(text: str) -> List[str]:
 
 
 __all__ = [
+    "COMPOUND_STATEMENT_KEYWORDS",
     "SEGMENT_SEPARATORS",
+    "WORD_LIST_KEYWORDS",
+    "command_operand_tokens",
     "expand_variables",
     "is_path_like",
     "path_target_from_token",

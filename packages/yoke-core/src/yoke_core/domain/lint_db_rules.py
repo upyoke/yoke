@@ -15,6 +15,9 @@ from __future__ import annotations
 from yoke_core.domain.lint_db_rules_columns import (
     RULE_TEXT_COLUMNS,
 )
+from yoke_core.domain.lint_db_rules_executed_sql import (
+    RULE_TEXT_EXECUTED_SQL,
+)
 from yoke_core.domain.lint_db_rules_guards import (
     RULE_TEXT_BODY_BANS,
     RULE_TEXT_GUARDS_CLI,
@@ -51,6 +54,7 @@ HOOK_POLICY_SOURCE: str = (
     + RULE_TEXT_DONE
     + RULE_TEXT_BODY_BANS
     + RULE_TEXT_ADD_PROJECT
+    + RULE_TEXT_EXECUTED_SQL
     + RULE_TEXT_LIFECYCLE
     + RULE_TEXT_DDL_GATE
     + RULE_TEXT_COLUMNS

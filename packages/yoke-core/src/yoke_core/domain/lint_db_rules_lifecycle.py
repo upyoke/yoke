@@ -232,29 +232,16 @@ if uses_raw_query_escape_hatch(command) and "# lint:no-lifecycle-mutation-check"
 for py_code in extract_python_payloads(original_command):
     if "# lint:no-lifecycle-mutation-check" in original_command:
         break
-    # SQL text embedded in a generated test/fixture file is data, not an
-    # executed lifecycle mutation.  Require an execution-capable DB call in
-    # the inline program before inspecting its SQL strings.
-    _py_db_execution = re.search(
-        r"\b(?:sqlite3\s*\.\s*connect|psycopg\w*\s*\.\s*connect|"
-        r"(?:execute|executemany|executescript)\s*\()",
-        py_code,
-        re.IGNORECASE,
-    )
-    if not _py_db_execution:
+    _executed = executed_sql_strings(py_code)
+    if _executed == []:
+        # Nothing in this program reaches a database.
         continue
-    # A self-contained SQLite in-memory rehearsal cannot reach Yoke's
-    # control-plane authority.  Keep real file/DSN connections guarded.
-    _memory_sqlite = re.search(
-        r"sqlite3\s*\.\s*connect\s*\(\s*[rubfRUBF]*[\"'](?::memory:|file::memory:[^\"']*)[\"']",
-        py_code,
-        re.IGNORECASE,
-    )
-    if _memory_sqlite:
+    if sqlite_memory_only(py_code):
         continue
-    _py_upper = py_code.upper()
+    # ``None`` keeps the conservative whole-payload scan.
+    _sql_text = py_code if _executed is None else "\n".join(_executed)
     for _lt_table in list(_LIFECYCLE_TABLES.keys()) + [_EVENT_TABLE]:
-        if re.search(r"\b(UPDATE\s+" + _lt_table + r"|INSERT\s+INTO\s+" + _lt_table + r"|DELETE\s+FROM\s+" + _lt_table + r")\b", py_code, re.IGNORECASE):
+        if re.search(r"\b(UPDATE\s+" + _lt_table + r"|INSERT\s+INTO\s+" + _lt_table + r"|DELETE\s+FROM\s+" + _lt_table + r")\b", _sql_text, re.IGNORECASE):
             result = {
                 "hookSpecificOutput": {
                     "hookEventName": "PreToolUse",

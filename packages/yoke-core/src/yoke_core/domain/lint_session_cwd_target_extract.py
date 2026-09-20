@@ -39,6 +39,7 @@ from yoke_core.domain.lint_python_write_target_extract import (
     analyze_python_heredoc_writes,
 )
 from yoke_core.domain.lint_shell_target_tokens import (
+    command_operand_tokens,
     resolve_path_operands,
     shell_variable_bindings,
 )
@@ -253,12 +254,13 @@ def _extract_shell_write_targets(command: str) -> Tuple[List[str], bool]:
     unresolved = False
     for segment in split_pipeline(strip_heredoc_syntax(command)):
         try:
-            tokens = strip_env_prefixes(shlex.split(segment))
+            split = shlex.split(segment)
         except ValueError:
             continue
-        if not tokens:
-            continue
-        clean, redirects = _split_redirect_targets(tokens)
+        # Redirects are read before the reserved words are dropped: a
+        # word-list header carries no operands but can still redirect.
+        clean, redirects = _split_redirect_targets(split)
+        clean = strip_env_prefixes(command_operand_tokens(clean))
         resolved, segment_unresolved = resolve_path_operands(redirects, bindings)
         out.extend(resolved)
         unresolved = unresolved or segment_unresolved
