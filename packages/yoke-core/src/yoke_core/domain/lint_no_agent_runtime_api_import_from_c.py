@@ -47,6 +47,7 @@ from yoke_core.domain.lint_no_agent_runtime_api_import_from_c_readonly import (
     is_read_only_import_probe,
 )
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 CHECK_ID = "lint-no-agent-runtime-api-import-from-c"
 HOOK_NAME = "lint-no-agent-runtime-api-import-from-c"
@@ -87,20 +88,8 @@ def _is_registered_source_run(tokens: List[str], python_index: int) -> bool:
         return False
     return (
         os.path.basename(tokens[start]) == "yoke"
-        and tokens[start + 1: python_index] == _SOURCE_RUN_PREFIX
+        and tokens[start + 1 : python_index] == _SOURCE_RUN_PREFIX
     )
-
-
-def _extract_command(payload: dict) -> str:
-    for k in ("tool_input", "toolInput", "input"):
-        ti = payload.get(k)
-        if isinstance(ti, dict):
-            for ck in ("command", "cmd"):
-                v = ti.get(ck)
-                if isinstance(v, str) and v:
-                    return v
-    v = payload.get("command")
-    return v if isinstance(v, str) else ""
 
 
 def _extract_tool_name(payload: dict) -> str:
@@ -172,7 +161,7 @@ def _matched_import(body: str) -> str:
     match = _FORBIDDEN_IMPORT_RE.search(body)
     if match is None:
         return ""
-    tail = body[match.start():].lstrip("; \t\n")
+    tail = body[match.start() :].lstrip("; \t\n")
     return tail.splitlines()[0].strip() if tail else ""
 
 

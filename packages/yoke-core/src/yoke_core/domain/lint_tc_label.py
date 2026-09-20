@@ -30,6 +30,7 @@ import sys
 from typing import Iterator, Optional, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
@@ -50,7 +51,13 @@ NUMERIC_HC_COPY_RE = re.compile(r"(?:cp|mv)\s+\S+\s+\S*test-doctor-hc\d+\.sh")
 
 _SQ = chr(39)
 HEREDOC_START_RE = re.compile(
-    r"(?P<prefix><<(?P<dash>-?)[ \t]*)[" + _SQ + r"\"" + r"]?(?P<delim>\w+)[" + _SQ + r"\"" + r"]?(?P<suffix>[^\n]*\n)"
+    r"(?P<prefix><<(?P<dash>-?)[ \t]*)["
+    + _SQ
+    + r"\""
+    + r"]?(?P<delim>\w+)["
+    + _SQ
+    + r"\""
+    + r"]?(?P<suffix>[^\n]*\n)"
 )
 
 
@@ -125,10 +132,7 @@ def writes_test_file(text: str) -> bool:
 def _heredoc_close_pattern(dash: str, delim: str) -> "re.Pattern[str]":
     """Return (and cache) the closing-line regex for a heredoc delimiter."""
     return re.compile(
-        r"(?m)^"
-        + (r"\t*" if dash == "-" else "")
-        + re.escape(delim)
-        + r"\b"
+        r"(?m)^" + (r"\t*" if dash == "-" else "") + re.escape(delim) + r"\b"
     )
 
 
@@ -147,7 +151,7 @@ def iter_heredocs(text: str) -> Iterator[Tuple[str, str]]:
         line_end = text.find("\n", opener.end())
         if line_end == -1:
             line_end = len(text)
-        yield text[line_start:line_end], text[opener.end():closer.start()]
+        yield text[line_start:line_end], text[opener.end() : closer.start()]
         pos = closer.end()
 
 
@@ -165,11 +169,9 @@ def strip_heredoc_bodies(text: str) -> str:
         if closer is None:
             parts.append(text[pos:])
             return "".join(parts)
-        parts.append(text[pos:opener.start()])
+        parts.append(text[pos : opener.start()])
         parts.append(
-            opener.group("prefix")
-            + "HEREDOC_STRIPPED"
-            + opener.group("suffix")
+            opener.group("prefix") + "HEREDOC_STRIPPED" + opener.group("suffix")
         )
         pos = closer.end()
 
@@ -196,8 +198,8 @@ def evaluate_payload(payload: dict) -> Optional[str]:
     tool_input = _extract_tool_input(payload)
 
     if tool_name == "Bash":
-        command = tool_input.get("command", "")
-        if not isinstance(command, str) or command == "":
+        command = extract_command(payload)
+        if not command:
             return None
         if "# lint:no-tc-label-check" in command:
             return None
@@ -205,7 +207,9 @@ def evaluate_payload(payload: dict) -> Optional[str]:
         stripped = strip_heredoc_bodies(command)
 
         if NUMERIC_HC_ANY_RE.search(stripped):
-            if NUMERIC_HC_WRITE_RE.search(stripped) or NUMERIC_HC_COPY_RE.search(stripped):
+            if NUMERIC_HC_WRITE_RE.search(stripped) or NUMERIC_HC_COPY_RE.search(
+                stripped
+            ):
                 return DENY_NUMERIC_HC
 
         if writes_test_file(stripped) and is_sequential_tc(stripped):
@@ -257,9 +261,7 @@ def _emit_denial(payload: dict, reason: str) -> None:
     # Bash deniers surface the command; Write deniers surface the file_path.
     command_snippet = ""
     if tool == "Bash":
-        cmd = tool_input.get("command") or tool_input.get("cmd")
-        if isinstance(cmd, str):
-            command_snippet = cmd
+        command_snippet = extract_command(payload)
     else:
         fp = tool_input.get("file_path")
         if isinstance(fp, str):
@@ -300,15 +302,13 @@ def evaluate(record: HookContext) -> HookDecision:
 def _build_context_from_payload(payload: dict) -> HookContext:
     """Build a minimal :class:`HookContext` for the legacy stdin entry."""
     cwd, sid = payload.get("cwd"), payload.get("session_id")
-    tool_input = _extract_tool_input(payload)
-    raw_cmd = tool_input.get("command")
     return HookContext(
         event_name="PreToolUse",
         executor_family="claude",
         executor_surface="claude",
         payload=payload,
         tool_name=_tool_name(payload) or None,
-        command_body=raw_cmd if isinstance(raw_cmd, str) else None,
+        command_body=extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=sid if isinstance(sid, str) else None,
     )

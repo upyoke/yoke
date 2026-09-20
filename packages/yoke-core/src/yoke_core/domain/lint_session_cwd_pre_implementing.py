@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.domain.lint_session_cwd_emit import (
     emit_pre_implementing_status,
 )
@@ -28,17 +29,6 @@ from yoke_core.domain.lint_session_cwd_status import (
     read_mode,
 )
 from yoke_core.domain.lint_session_cwd_validate import ValidationVerdict
-
-
-def _extract_bash_command(payload: Mapping[str, Any]) -> str:
-    """Return the Bash command text from ``payload`` (empty when absent)."""
-    tool_input = payload.get("tool_input") or payload.get("toolInput") or {}
-    if not isinstance(tool_input, Mapping):
-        return ""
-    cmd = tool_input.get("command") or tool_input.get("cmd")
-    if isinstance(cmd, str):
-        return cmd
-    return ""
 
 
 def build_pre_implementing_verdict(
@@ -61,7 +51,7 @@ def build_pre_implementing_verdict(
     from yoke_core.domain.lint_session_cwd import Verdict
 
     mode = read_mode()
-    command = _extract_bash_command(payload)
+    command = extract_command(payload)
     suppressed = command_has_suppression_token(command)
     item = outcome.matched_claim
     item_id = item.item_id if item is not None else 0

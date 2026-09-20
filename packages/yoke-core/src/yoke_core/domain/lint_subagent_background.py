@@ -87,6 +87,7 @@ from yoke_core.hooks.types import (
     Next,
     Outcome,
 )
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 # Strips fd-duplication patterns (`2>&1`, `>&2`, `<&3`, etc.) and the `&&`
 # logical-AND operator so the residual `&` is the real backgrounding token.
@@ -133,9 +134,7 @@ def _agent_type_from_payload(payload: dict) -> Optional[str]:
     return None
 
 
-def _detect_agent_type(
-    payload: dict, cli_agent_type: Optional[str]
-) -> Optional[str]:
+def _detect_agent_type(payload: dict, cli_agent_type: Optional[str]) -> Optional[str]:
     if cli_agent_type and cli_agent_type.strip():
         return cli_agent_type.strip()
     env_value = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
@@ -147,15 +146,6 @@ def _detect_agent_type(
 def _extract_tool_name(payload: dict) -> str:
     name = payload.get("tool_name")
     return name if isinstance(name, str) else ""
-
-
-def _extract_command(payload: dict) -> str:
-    tool_input = payload.get("tool_input")
-    if isinstance(tool_input, dict):
-        command = tool_input.get("command")
-        if isinstance(command, str):
-            return command
-    return ""
 
 
 def _extract_run_in_background(payload: dict) -> bool:
@@ -191,7 +181,9 @@ def _has_suppression(payload: dict) -> bool:
 
 
 def evaluate_payload(
-    payload: dict, *, agent_type: Optional[str] = None,
+    payload: dict,
+    *,
+    agent_type: Optional[str] = None,
 ) -> Optional[tuple[str, str, str, str]]:
     """Return ``(mode, reason, tool_name, outcome)`` when the rule fires.
 
@@ -251,7 +243,11 @@ def evaluate(record: HookContext) -> HookDecision:
         return _allow_decision()
     mode, reason, tool_name, outcome = verdict
     emit_audit_event(
-        payload, tool_name, reason, mode, outcome,
+        payload,
+        tool_name,
+        reason,
+        mode,
+        outcome,
         command=_extract_command(payload),
     )
     audit_fields = {
@@ -318,7 +314,11 @@ def main() -> int:
         return 0
     mode, reason, tool_name, outcome = verdict
     emit_audit_event(
-        payload, tool_name, reason, mode, outcome,
+        payload,
+        tool_name,
+        reason,
+        mode,
+        outcome,
         command=_extract_command(payload),
     )
     if mode == "deny":

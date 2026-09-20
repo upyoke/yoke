@@ -17,6 +17,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.domain.observe_normalization import (
     TOOL_KIND_BASH,
     ToolEventRecord,
@@ -178,15 +179,7 @@ def _coerce_record(payload: Any) -> Optional[ToolEventRecord]:
     if not isinstance(payload, dict):
         return None
     tool_input = payload.get("tool_input") or payload.get("toolInput") or {}
-    command = ""
-    if isinstance(tool_input, dict):
-        cmd = tool_input.get("command") or tool_input.get("cmd")
-        if isinstance(cmd, str):
-            command = cmd
-    if not command:
-        top = payload.get("command")
-        if isinstance(top, str):
-            command = top
+    command = extract_command(payload)
     cwd = str(payload.get("cwd") or "") or (
         str(tool_input.get("cwd") or "") if isinstance(tool_input, dict) else ""
     )

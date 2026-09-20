@@ -38,24 +38,13 @@ from typing import Optional, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 CHECK_ID = "lint-no-agent-session-end"
 HOOK_NAME = "lint-no-agent-session-end"
 SUPPRESSION_TOKEN = "# lint:no-agent-session-end-check"
 
 _BANNED_SUBCOMMANDS = ("session-end", "session-end-if-empty")
-
-
-def _extract_command(payload: dict) -> str:
-    for k in ("tool_input", "toolInput", "input"):
-        ti = payload.get(k)
-        if isinstance(ti, dict):
-            for ck in ("command", "cmd"):
-                v = ti.get(ck)
-                if isinstance(v, str) and v:
-                    return v
-    v = payload.get("command")
-    return v if isinstance(v, str) else ""
 
 
 def _extract_tool_name(payload: dict) -> str:
@@ -147,10 +136,9 @@ def _format_reason(suppression_seen: bool, mode: str) -> str:
         body = body + "\n\n[mode=warn] this hook would block in deny mode."
     elif suppression_seen:
         body = (
-            body
-            + f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded "
-              "as audit evidence (outcome=suppression_attempted) but does "
-              "NOT unblock."
+            body + f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded "
+            "as audit evidence (outcome=suppression_attempted) but does "
+            "NOT unblock."
         )
     return attach_check_id(body, check_id=CHECK_ID)
 
@@ -175,7 +163,10 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
 
 
 def _emit_audit_event(
-    payload: dict, reason: str, mode: str, outcome: str,
+    payload: dict,
+    reason: str,
+    mode: str,
+    outcome: str,
 ) -> None:
     try:
         from yoke_core.hooks.telemetry import emit_denial_event
@@ -187,11 +178,15 @@ def _emit_audit_event(
     audit_reason = f"[mode={mode}] {reason}" if mode == "warn" else reason
     try:
         emit_denial_event(
-            hook=HOOK_NAME, tool="Bash", check_id=CHECK_ID, reason=audit_reason,
+            hook=HOOK_NAME,
+            tool="Bash",
+            check_id=CHECK_ID,
+            reason=audit_reason,
             session_id=sid if isinstance(sid, str) else "",
             tool_use_id=tu if isinstance(tu, str) else "",
             turn_id=turn if isinstance(turn, str) else "",
-            command_snippet=_extract_command(payload), outcome=outcome,
+            command_snippet=_extract_command(payload),
+            outcome=outcome,
         )
     except Exception:
         pass
@@ -207,14 +202,21 @@ def evaluate(record: HookContext) -> HookDecision:
     _emit_audit_event(payload, reason, mode, outcome)
     audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
     if mode == "deny":
-        envelope = json.dumps({"hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }})
+        envelope = json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason,
+                }
+            }
+        )
         return HookDecision(
-            outcome=Outcome.DENY, message=envelope,
-            audit_fields=audit, block=True, next=Next.STOP,
+            outcome=Outcome.DENY,
+            message=envelope,
+            audit_fields=audit,
+            block=True,
+            next=Next.STOP,
         )
     return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
 
@@ -222,8 +224,10 @@ def evaluate(record: HookContext) -> HookDecision:
 def _build_context_from_payload(payload: dict) -> HookContext:
     cwd, sid = payload.get("cwd"), payload.get("session_id")
     return HookContext(
-        event_name="PreToolUse", executor_family="claude",
-        executor_surface="claude", payload=payload,
+        event_name="PreToolUse",
+        executor_family="claude",
+        executor_surface="claude",
+        payload=payload,
         tool_name=_extract_tool_name(payload) or None,
         command_body=_extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,

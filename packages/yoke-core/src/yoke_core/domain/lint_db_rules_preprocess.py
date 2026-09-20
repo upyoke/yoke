@@ -18,6 +18,8 @@ import sqlite3
 import ast
 import shlex
 
+from yoke_core.domain.lint_command_extract import extract_command
+
 try:
     data = json.load(sys.stdin)
 except Exception as exc:
@@ -26,24 +28,8 @@ except Exception as exc:
 
 # Claude payload shape is usually:
 #   {"tool_name":"Bash","tool_input":{"command":"..."}}
-# But subagent payloads may vary by SDK/runtime version. Try known variants
-# before treating the command as missing.
-tool_input = data.get("tool_input")
-if not isinstance(tool_input, dict):
-    tool_input = data.get("toolInput")
-if not isinstance(tool_input, dict):
-    tool_input = data.get("input")
-if not isinstance(tool_input, dict):
-    tool_input = {}
-
-command = tool_input.get("command")
-if not isinstance(command, str) or command == "":
-    if isinstance(tool_input.get("cmd"), str):
-        command = tool_input.get("cmd")
-    elif isinstance(data.get("command"), str):
-        command = data.get("command")
-    else:
-        command = ""
+# Subagent payloads vary; the shared extractor tries the known keys.
+command = extract_command(data)
 
 if command == "":
     print("lint-db-cmd: WARN PreToolUse payload missing command field (allowing by default)", file=sys.stderr)

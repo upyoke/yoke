@@ -20,6 +20,7 @@ from yoke_core.domain.lint_main_commit_client_facts import (
 )
 from yoke_core.domain.lint_staged_union import effective_staged_set
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 
 def _extract_tool_input(payload: dict) -> dict:
@@ -29,21 +30,6 @@ def _extract_tool_input(payload: dict) -> dict:
         if isinstance(value, dict):
             return value
     return {}
-
-
-def _extract_command(payload: dict) -> str:
-    """Return the Bash command string from a PreToolUse payload."""
-    tool_input = _extract_tool_input(payload)
-    command = tool_input.get("command")
-    if isinstance(command, str) and command:
-        return command
-    cmd_alt = tool_input.get("cmd")
-    if isinstance(cmd_alt, str) and cmd_alt:
-        return cmd_alt
-    top_cmd = payload.get("command")
-    if isinstance(top_cmd, str) and top_cmd:
-        return top_cmd
-    return ""
 
 
 def is_bookkeeping(filepath: str) -> bool:
@@ -151,9 +137,7 @@ def evaluate_payload(payload: dict) -> Optional[str]:
         return None
 
     facts = client_facts(payload)
-    branch = (
-        facts.get("branch") if facts is not None else _current_branch()
-    )
+    branch = facts.get("branch") if facts is not None else _current_branch()
     if branch is None or branch not in ("main", "master"):
         return None
 

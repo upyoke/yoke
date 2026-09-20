@@ -9,6 +9,7 @@ from typing import Optional, Tuple
 
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 CHECK_ID = "lint-shell-backtick-search"
 HOOK_NAME = "lint-shell-backtick-search"
@@ -18,18 +19,6 @@ _GREP_LIKE_RE = re.compile(
     r"(?:^|[;&|]\s*)(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*"
     r"(?:\S*/)?(?:rg|grep|egrep|fgrep)\b"
 )
-
-
-def _extract_command(payload: dict) -> str:
-    for key in ("tool_input", "toolInput", "input"):
-        tool_input = payload.get(key)
-        if isinstance(tool_input, dict):
-            for command_key in ("command", "cmd"):
-                value = tool_input.get(command_key)
-                if isinstance(value, str) and value:
-                    return value
-    value = payload.get("command")
-    return value if isinstance(value, str) else ""
 
 
 def _extract_tool_name(payload: dict) -> str:
@@ -44,7 +33,8 @@ def _read_mode(payload: object | None = None) -> str:
     from yoke_core.domain import lint_config
 
     return lint_config.resolve_mode_for_payload(
-        "lint_shell_backtick_search", payload,
+        "lint_shell_backtick_search",
+        payload,
     )
 
 
@@ -119,7 +109,7 @@ def _segment_until_shell_separator(text: str) -> str:
 
 def _grep_like_backtick_span(command: str) -> Optional[str]:
     for match in _GREP_LIKE_RE.finditer(command):
-        rest = command[match.end():]
+        rest = command[match.end() :]
         segment = _segment_until_shell_separator(rest)
         for span in _double_quoted_spans(segment):
             if _has_unescaped_backtick(span):

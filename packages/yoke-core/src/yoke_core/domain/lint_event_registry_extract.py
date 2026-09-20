@@ -18,6 +18,8 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
+from yoke_core.domain.lint_command_extract import extract_command
+
 
 # ``--name`` argument parsing. Double-quoted, single-quoted, and unquoted
 # variants are all accepted, matching the pre-Pythonization shell behavior.
@@ -51,30 +53,6 @@ def parse_payload(raw: str) -> Optional[dict]:
     if not isinstance(data, dict):
         return None
     return data
-
-
-def extract_command(data: dict) -> str:
-    """Extract the Bash command string from a PreToolUse payload.
-
-    Mirrors the same fallback chain as ``lint_db_cmd._extract_command``:
-    ``tool_input.command`` → ``toolInput.command`` → ``input.command``
-    → ``tool_input.cmd`` → top-level ``command``. Returns ``""`` when no
-    command can be recovered.
-    """
-    for key in ("tool_input", "toolInput", "input"):
-        sub = data.get(key)
-        if isinstance(sub, dict):
-            cmd = sub.get("command")
-            if isinstance(cmd, str) and cmd != "":
-                return cmd
-            cmd = sub.get("cmd")
-            if isinstance(cmd, str) and cmd != "":
-                return cmd
-
-    cmd = data.get("command")
-    if isinstance(cmd, str):
-        return cmd
-    return ""
 
 
 def extract_event_name(command: str) -> Optional[str]:

@@ -38,6 +38,10 @@ from typing import List, Optional, Tuple
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_core.domain.lint_command_extract import (
+    extract_command as _extract_command,
+    is_unresolved_command_token,
+)
 from yoke_core.domain.path_claim_bash_splitter import iter_pipeline_groups
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
@@ -69,18 +73,6 @@ _TRUNCATORS = frozenset({"tail", "head"})
 
 # Instant metadata/help modes do not start the long-running operation.
 _INSTANT_EXEMPTIONS = frozenset({"--print-streaming-pair", "--help", "-h"})
-
-
-def _extract_command(payload: dict) -> str:
-    for k in ("tool_input", "toolInput", "input"):
-        ti = payload.get(k)
-        if isinstance(ti, dict):
-            for ck in ("command", "cmd"):
-                v = ti.get(ck)
-                if isinstance(v, str) and v:
-                    return v
-    v = payload.get("command")
-    return v if isinstance(v, str) else ""
 
 
 def _extract_tool_name(payload: dict) -> str:
@@ -134,7 +126,7 @@ def _stage_is_long_command(stage: str) -> Optional[str]:
             if module_id in _LONG_MODULE_IDS:
                 return module_id
     for prefix in _LONG_CLI_TOKEN_PREFIXES:
-        if tuple(tokens[:len(prefix)]) == prefix:
+        if tuple(tokens[: len(prefix)]) == prefix:
             return " ".join(prefix)
     return None
 
@@ -143,7 +135,8 @@ def _stage_is_truncator(stage: str) -> bool:
     tokens = _stage_tokens(stage)
     if not tokens:
         return False
-    return tokens[0].rsplit("/", 1)[-1] in _TRUNCATORS
+    first = tokens[0].rsplit("/", 1)[-1]
+    return first in _TRUNCATORS or is_unresolved_command_token(first)
 
 
 def _find_pipe_to_truncator(command: str) -> Optional[Tuple[str, str]]:
@@ -160,13 +153,15 @@ def _find_pipe_to_truncator(command: str) -> Optional[Tuple[str, str]]:
             label = _stage_is_long_command(stage)
             if label is None:
                 continue
-            for later in stages[idx + 1:]:
+            for later in stages[idx + 1 :]:
                 if _stage_is_truncator(later):
                     return (label, later.strip())
     return None
 
 
-def _format_reason(label: str, truncator: str, suppression_seen: bool, mode: str) -> str:
+def _format_reason(
+    label: str, truncator: str, suppression_seen: bool, mode: str
+) -> str:
     body = (
         "BLOCKED: live long command piped into a truncator "
         f"(`{label}` ... | `{truncator}`).\n\n"
@@ -180,20 +175,19 @@ def _format_reason(label: str, truncator: str, suppression_seen: bool, mode: str
         "  tail -80 <raw-capture>   # separate command, AFTER completion\n"
         "  # other long commands use capture-first:\n"
         "  _tmp=$(mktemp /tmp/yoke-cmd.XXXXXX)\n"
-        "  <command> >\"$_tmp\" 2>&1; _rc=$?\n"
-        "  tail -80 \"$_tmp\" # inspect captured output\n"
-        "  grep -E \"FAIL|ERROR|error\" \"$_tmp\" || true # extract failures\n"
-        "  exit \"$_rc\"\n"
+        '  <command> >"$_tmp" 2>&1; _rc=$?\n'
+        '  tail -80 "$_tmp" # inspect captured output\n'
+        '  grep -E "FAIL|ERROR|error" "$_tmp" || true # extract failures\n'
+        '  exit "$_rc"\n'
         "Doctrine: AGENTS.md `## Command Output — Hard Rule`"
     )
     if mode == "warn":
         body = body + "\n\n[mode=warn] this hook would block in deny mode."
     elif suppression_seen:
         body = (
-            body
-            + f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
-              "evidence (outcome=suppression_attempted) but does NOT unblock — the "
-              "rule still denies. Use the capture-first shape and retry."
+            body + f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
+            "evidence (outcome=suppression_attempted) but does NOT unblock — the "
+            "rule still denies. Use the capture-first shape and retry."
         )
     return attach_check_id(body, check_id=CHECK_ID)
 
@@ -230,11 +224,16 @@ def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> No
     audit_reason = f"[mode={mode}] {reason}" if mode == "warn" else reason
     try:
         emit_denial_event(
-            hook=HOOK_NAME, tool="Bash", check_id=CHECK_ID, reason=audit_reason,
+            hook=HOOK_NAME,
+            tool="Bash",
+            check_id=CHECK_ID,
+            reason=audit_reason,
             session_id=sid if isinstance(sid, str) else "",
             tool_use_id=tu if isinstance(tu, str) else "",
             turn_id=turn if isinstance(turn, str) else "",
-            command_snippet=_extract_command(payload), outcome=outcome)
+            command_snippet=_extract_command(payload),
+            outcome=outcome,
+        )
     except Exception:
         pass
 
@@ -249,21 +248,37 @@ def evaluate(record: HookContext) -> HookDecision:
     _emit_audit_event(payload, reason, mode, outcome)
     audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
     if mode == "deny":
-        envelope = json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse",
-            "permissionDecision": "deny", "permissionDecisionReason": reason}})
-        return HookDecision(outcome=Outcome.DENY, message=envelope,
-            audit_fields=audit, block=True, next=Next.STOP)
+        envelope = json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason,
+                }
+            }
+        )
+        return HookDecision(
+            outcome=Outcome.DENY,
+            message=envelope,
+            audit_fields=audit,
+            block=True,
+            next=Next.STOP,
+        )
     return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     cwd, sid = payload.get("cwd"), payload.get("session_id")
-    return HookContext(event_name="PreToolUse", executor_family="claude",
-        executor_surface="claude", payload=payload,
+    return HookContext(
+        event_name="PreToolUse",
+        executor_family="claude",
+        executor_surface="claude",
+        payload=payload,
         tool_name=_extract_tool_name(payload) or None,
         command_body=_extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
-        session_id=sid if isinstance(sid, str) else None)
+        session_id=sid if isinstance(sid, str) else None,
+    )
 
 
 def main() -> int:

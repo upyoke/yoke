@@ -40,6 +40,7 @@ from yoke_core.domain.lint_structured_field_transform_shell_messages import (
     REMEDIATION_TEXT,
 )
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 
 _BYPASS_TOKEN = "# lint:no-structured-transform-check"
@@ -126,20 +127,6 @@ def _extract_tool_input(payload: dict) -> dict:
     return {}
 
 
-def _extract_command(payload: dict) -> str:
-    tool_input = _extract_tool_input(payload)
-    command = tool_input.get("command")
-    if isinstance(command, str) and command:
-        return command
-    cmd_alt = tool_input.get("cmd")
-    if isinstance(cmd_alt, str) and cmd_alt:
-        return cmd_alt
-    top_cmd = payload.get("command")
-    if isinstance(top_cmd, str) and top_cmd:
-        return top_cmd
-    return ""
-
-
 def _is_helper_invocation(command: str) -> bool:
     """Allow direct invocations of the safe helper."""
     return "yoke_core.domain.item_field_transform" in command
@@ -213,8 +200,13 @@ def evaluate_payload(payload: dict) -> Optional[str]:
 
 
 def _build_deny_response(reason: str) -> dict:
-    return {"hookSpecificOutput": {"hookEventName": "PreToolUse",
-        "permissionDecision": "deny", "permissionDecisionReason": reason}}
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }
 
 
 def _emit_denial(payload: dict, reason: str, *, outcome: str = "denied") -> None:
@@ -228,12 +220,16 @@ def _emit_denial(payload: dict, reason: str, *, outcome: str = "denied") -> None
     turn = payload.get("turn_id") or payload.get("message_id") or ""
     try:
         emit_denial_event(
-            hook="lint-structured-field-transform-shell", tool="Bash",
-            check_id="structured_field_transform_choreography", reason=reason,
+            hook="lint-structured-field-transform-shell",
+            tool="Bash",
+            check_id="structured_field_transform_choreography",
+            reason=reason,
             session_id=sid if isinstance(sid, str) else "",
             tool_use_id=tu if isinstance(tu, str) else "",
             turn_id=turn if isinstance(turn, str) else "",
-            command_snippet=_extract_command(payload), outcome=outcome)
+            command_snippet=_extract_command(payload),
+            outcome=outcome,
+        )
     except Exception:
         pass
 
@@ -246,23 +242,32 @@ def evaluate(record: HookContext) -> HookDecision:
     reason = evaluate_command(command)
     if reason is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    outcome = ("suppression_attempted" if _BYPASS_TOKEN in command else "denied")
+    outcome = "suppression_attempted" if _BYPASS_TOKEN in command else "denied"
     reason = attach_check_id(reason, check_id="lint-structured-field-transform-shell")
     envelope = json.dumps(_build_deny_response(reason))
     _emit_denial(payload, reason, outcome=outcome)
-    return HookDecision(outcome=Outcome.DENY, message=envelope,
+    return HookDecision(
+        outcome=Outcome.DENY,
+        message=envelope,
         audit_fields={"reason": reason, "audit_outcome": outcome},
-        block=True, next=Next.STOP)
+        block=True,
+        next=Next.STOP,
+    )
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     """Build a minimal :class:`HookContext` for the legacy stdin entry."""
     cwd, sid = payload.get("cwd"), payload.get("session_id")
-    return HookContext(event_name="PreToolUse", executor_family="claude",
-        executor_surface="claude", payload=payload, tool_name="Bash",
+    return HookContext(
+        event_name="PreToolUse",
+        executor_family="claude",
+        executor_surface="claude",
+        payload=payload,
+        tool_name="Bash",
         command_body=_extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
-        session_id=sid if isinstance(sid, str) else None)
+        session_id=sid if isinstance(sid, str) else None,
+    )
 
 
 def main() -> int:

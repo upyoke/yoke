@@ -126,12 +126,15 @@ def evaluate(record: HookContext) -> HookDecision:
     reason = attach_check_id(reason, check_id="lint-long-command-polling")
     tool_name = _extract_tool_name(payload) or "Bash"
     outcome_label = (
-        context.get("outcome", "denied")
-        if isinstance(context, dict)
-        else "denied"
+        context.get("outcome", "denied") if isinstance(context, dict) else "denied"
     )
     _emit_audit_event(
-        payload, tool_name, reason, mode, context, outcome=outcome_label,
+        payload,
+        tool_name,
+        reason,
+        mode,
+        context,
+        outcome=outcome_label,
     )
 
     audit_fields = {
@@ -166,12 +169,7 @@ def _build_context_from_payload(payload: dict) -> HookContext:
     Claude shell hook invokes this module directly we need to construct
     one ourselves so ``evaluate`` sees the same shape it would in-runner.
     """
-    tool_input = payload.get("tool_input")
-    command_body = None
-    if isinstance(tool_input, dict):
-        raw = tool_input.get("command")
-        if isinstance(raw, str):
-            command_body = raw
+    command_body = _extract_command(payload) or None
     tool_name = payload.get("tool_name")
     session_id = payload.get("session_id")
     cwd = payload.get("cwd")

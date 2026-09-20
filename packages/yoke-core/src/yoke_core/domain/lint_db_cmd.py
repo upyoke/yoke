@@ -28,6 +28,7 @@ from yoke_contracts.hook_runner.lint_policy import (
     spec_for,
 )
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 # Historical event rows and field-note attribution use this stable id. It is a
 # telemetry compatibility contract, not an importable module alias.
@@ -62,28 +63,6 @@ def _parse_payload(raw: str) -> Dict[str, Any]:
     if not isinstance(data, dict):
         return {}
     return data
-
-
-def _extract_command(payload: Dict[str, Any]) -> str:
-    """Extract the Bash command string from various payload shapes."""
-    tool_input = payload.get("tool_input")
-    if not isinstance(tool_input, dict):
-        tool_input = payload.get("toolInput")
-    if not isinstance(tool_input, dict):
-        tool_input = payload.get("input")
-    if not isinstance(tool_input, dict):
-        tool_input = {}
-
-    command = tool_input.get("command")
-    if isinstance(command, str) and command:
-        return command
-    cmd = tool_input.get("cmd")
-    if isinstance(cmd, str) and cmd:
-        return cmd
-    top_cmd = payload.get("command")
-    if isinstance(top_cmd, str) and top_cmd:
-        return top_cmd
-    return ""
 
 
 def _deny_reason_from_output(output: str) -> Tuple[bool, str, str]:

@@ -14,13 +14,22 @@ from yoke_contracts.hook_runner.denial_identity import attach_check_id
 RULE_ID = "lint-destructive-git"
 SUPPRESSION_TOKEN = "# lint:no-uncommitted-wipe-check"
 
-DEFAULT_REMEDIATION = "Stash or commit work before retrying."
+DEFAULT_REMEDIATION = "Preserve the work, then have the operator run the command."
 
 # shape -> (operator-facing label, remediation sentence)
 SHAPES = {
-    "reset_hard": ("git reset --hard", "Stash or commit first (`git stash push -u`), or use `git reset --soft` to only move the branch tip."),
-    "checkout_path_discard": ("git checkout -- <path>", "Stash the path edits (`git stash push -- <path>`) or commit before discarding."),
-    "checkout_force_branch": ("git checkout -f <branch>", "Stash or commit first; checking out without `-f` lets git surface the conflict."),
+    "reset_hard": (
+        "git reset --hard",
+        "Stash or commit first (`git stash push -u`), or use `git reset --soft` to only move the branch tip.",
+    ),
+    "checkout_path_discard": (
+        "git checkout -- <path>",
+        "Stash the path edits (`git stash push -- <path>`) or commit before discarding.",
+    ),
+    "checkout_force_branch": (
+        "git checkout -f <branch>",
+        "Stash or commit first; checking out without `-f` lets git surface the conflict.",
+    ),
     "restore_worktree_path": (
         "git restore --worktree <path>",
         "Inspect the exact damage with `git diff -- <path>`, then use "
@@ -28,20 +37,42 @@ SHAPES = {
         "before a whole-file restore; `git restore --staged <path>` remains "
         "safe when the intent is only to unstage.",
     ),
-    "clean_force": ("git clean -f", "Review with `git clean -n`; .gitignore or stash relevant files before cleaning."),
-    "worktree_remove": ("git worktree remove <path>", "Verify the worktree is clean including ignored files, has no active claim, and preserve or commit any work before removing it."),
-    "rm_rf_worktree": ("rm -rf .worktrees/<path>", "Use `git worktree remove <path>` after verifying clean status, ignored files, and active claims."),
-    "stash_drop": ("git stash drop", "Inspect with `git stash show -p stash@{N}`; pop or apply what you need first."),
-    "stash_clear": ("git stash clear", "Inspect each stash (`git stash list`); drop only the entries you actually want gone."),
+    "clean_force": (
+        "git clean -f",
+        "Review with `git clean -n`; .gitignore or stash relevant files before cleaning.",
+    ),
+    "worktree_remove": (
+        "git worktree remove <path>",
+        "Verify the worktree is clean including ignored files, has no active claim, and preserve or commit any work before removing it.",
+    ),
+    "rm_rf_worktree": (
+        "rm -rf .worktrees/<path>",
+        "Use `git worktree remove <path>` after verifying clean status, ignored files, and active claims.",
+    ),
+    "stash_drop": (
+        "git stash drop",
+        "Preserve the patch with `git stash show -p <stash>` "
+        "(or `git stash apply` if you still need it), then have the operator "
+        "run `git stash drop`.",
+    ),
+    "stash_clear": (
+        "git stash clear",
+        "Preserve each patch with `git stash show -p` / `git stash apply`, "
+        "then have the operator run `git stash clear`.",
+    ),
 }
 
 
 def _threat_block(shape: str, threatened: list[str]) -> str:
-    if shape in ("stash_drop", "stash_clear"):
-        return f"Stashes that would be discarded: {threatened[0]}"
     listed = "\n  ".join(threatened[:10]) + (
-        f"\n  ... and {len(threatened) - 10} more" if len(threatened) > 10 else "")
-    return f"Files at risk:\n  {listed}"
+        f"\n  ... and {len(threatened) - 10} more" if len(threatened) > 10 else ""
+    )
+    heading = (
+        "Stashes that would be discarded"
+        if shape in ("stash_drop", "stash_clear")
+        else "Files at risk"
+    )
+    return f"{heading}:\n  {listed}"
 
 
 def _suffix(suppression_seen: bool, mode: str) -> str:
@@ -49,9 +80,10 @@ def _suffix(suppression_seen: bool, mode: str) -> str:
         return "\n\n[mode=warn] this hook would block in deny mode."
     if suppression_seen:
         return (
-            f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
-            "evidence (outcome=suppression_attempted) but does NOT unblock — the rule "
-            "still denies. Stop, stash/commit, then retry.")
+            f"\n\nThis check cannot be suppressed. Token `{SUPPRESSION_TOKEN}` "
+            "is recorded as audit evidence (outcome=suppression_attempted) but "
+            "does NOT unblock — the rule still denies."
+        )
     return ""
 
 
@@ -76,4 +108,5 @@ def format_reason(
         f"Remediation: {remediation}\n"
         f"Doctrine: AGENTS.md `## Destructive Operation Discipline`"
         f"{config_line}{_suffix(suppression_seen, mode)}",
-        check_id=RULE_ID)
+        check_id=RULE_ID,
+    )

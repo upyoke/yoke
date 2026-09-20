@@ -16,24 +16,13 @@ from typing import Optional, Tuple
 from yoke_core.domain import lint_destructive_git_commands as command_checks
 from yoke_core.domain import lint_destructive_git_messages as messages
 from yoke_core.domain import lint_destructive_git_worktrees as worktree_checks
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-destructive-git"
 HOOK_NAME = "lint-destructive-git"
 GUARD_KEY = "lint_destructive_git"
 SUPPRESSION_TOKEN = messages.SUPPRESSION_TOKEN
-
-
-def _extract_command(payload: dict) -> str:
-    for k in ("tool_input", "toolInput", "input"):
-        ti = payload.get(k)
-        if isinstance(ti, dict):
-            for ck in ("command", "cmd"):
-                v = ti.get(ck)
-                if isinstance(v, str) and v:
-                    return v
-    v = payload.get("command")
-    return v if isinstance(v, str) else ""
 
 
 def _extract_tool_name(payload: dict) -> str:
@@ -82,45 +71,11 @@ def _parse_git_invocations(command: str) -> list[Tuple[list[str], str]]:
 
 
 def _pathspec_like(token: str, worktree: str = "") -> bool:
-    """Bare checkout args that name working-tree paths rather than refs."""
-    if token in (".", "..") or token.startswith(("./", "../")) or token.endswith("/"):
-        return True
-    return os.path.exists(os.path.join(worktree, token) if worktree else token)
+    return command_checks.pathspec_like(token, worktree)
 
 
 def _classify_shape(args: list[str], worktree: str = "") -> Optional[str]:
-    if not args:
-        return None
-    verb, rest = args[0], args[1:]
-    if verb == "reset":
-        return "reset_hard" if "--hard" in rest else None
-    if verb == "clean":
-        for a in rest:
-            if a == "--force":
-                return "clean_force"
-            if a.startswith("-") and not a.startswith("--") and "n" not in a[1:] and "f" in a[1:]:
-                return "clean_force"
-        return None
-    if verb == "stash":
-        return f"stash_{rest[0]}" if rest and rest[0] in ("drop", "clear") else None
-    if verb == "checkout":
-        if "--" in rest:
-            return "checkout_path_discard"
-        if any(a in ("-f", "--force") for a in rest):
-            return "checkout_force_branch"
-        if any(_pathspec_like(a, worktree) for a in rest if not a.startswith("-")):
-            return "checkout_path_discard"
-        return None
-    if verb == "worktree" and rest and rest[0] == "remove":
-        return "worktree_remove"
-    if verb == "restore":
-        has_wt = "--worktree" in rest or "-W" in rest
-        has_st = "--staged" in rest or "-S" in rest
-        if has_st and not has_wt:
-            return None
-        if any(not a.startswith("-") for a in rest) or has_wt:
-            return "restore_worktree_path"
-    return None
+    return command_checks.classify_shape(args, worktree)
 
 
 def _claimed_worktree_threats(targets) -> list[str]:
@@ -151,13 +106,9 @@ def _porcelain(worktree: str) -> Optional[Tuple[list[str], list[str]]]:
         if len(line) < 4:
             continue
         (untracked if line[:2] == "??" else modified).append(
-            line[3:] if line[:2] == "??" else line[3:].split(" -> ")[-1])
+            line[3:] if line[:2] == "??" else line[3:].split(" -> ")[-1]
+        )
     return modified, untracked
-
-
-def _stash_count(worktree: str) -> Optional[int]:
-    r = _git(worktree, "stash", "list")
-    return sum(1 for ln in r.stdout.splitlines() if ln.strip()) if r and r.returncode == 0 else None
 
 
 def _path_args(args: list[str]) -> list[str]:
@@ -202,22 +153,32 @@ def _check_threat(shape: str, worktree: str, args: list[str]) -> Optional[list[s
         threatened = [m for p in paths for m in modified if _pathspec_covers(p, m)]
         return threatened or None
     if shape == "clean_force":
-        dry_args = ["--dry-run" if a == "--force"
+        dry_args = [
+            "--dry-run"
+            if a == "--force"
             else ("-" + a[1:].replace("f", "n"))
             if a.startswith("-") and not a.startswith("--") and "f" in a[1:]
-            else a for a in args[1:]]
+            else a
+            for a in args[1:]
+        ]
         r = _git(worktree, "clean", *dry_args)
         if not r or r.returncode != 0:
             return None
         prefix = "Would remove "
-        threatened = [ln.removeprefix(prefix).rstrip()
-            for ln in r.stdout.splitlines() if ln.startswith(prefix)]
+        threatened = [
+            ln.removeprefix(prefix).rstrip()
+            for ln in r.stdout.splitlines()
+            if ln.startswith(prefix)
+        ]
         return threatened or None
     if shape in ("stash_drop", "stash_clear"):
-        count = _stash_count(worktree)
-        if not count:
-            return None
-        return [f"{count} stash entr{'y' if count == 1 else 'ies'}"]
+        listing = _git(worktree, "stash", "list")
+        return command_checks.stash_threatened_refs(
+            shape,
+            args,
+            repo_ok=_is_git_repo(worktree),
+            stash_list=listing.stdout if listing and listing.returncode == 0 else None,
+        )
     if shape == "worktree_remove":
         targets = worktree_checks.worktree_remove_targets(args, worktree)
         threatened = [
@@ -251,8 +212,12 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
             continue
         mode = _read_mode(payload, root=worktree)
         reason = messages.format_reason(
-            shape, threatened, suppression_seen, mode,
-            config_note=_config_note(mode, root=worktree))
+            shape,
+            threatened,
+            suppression_seen,
+            mode,
+            config_note=_config_note(mode, root=worktree),
+        )
         outcome = "suppression_attempted" if suppression_seen else "denied"
         return (mode, reason, outcome)
     cwd = _resolve_worktree("", payload)
@@ -276,8 +241,12 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
             continue
         mode = _read_mode(payload, root=cwd)
         reason = messages.format_reason(
-            "rm_rf_worktree", threatened, suppression_seen, mode,
-            config_note=_config_note(mode, root=cwd))
+            "rm_rf_worktree",
+            threatened,
+            suppression_seen,
+            mode,
+            config_note=_config_note(mode, root=cwd),
+        )
         outcome = "suppression_attempted" if suppression_seen else "denied"
         return (mode, reason, outcome)
     return None
@@ -294,11 +263,16 @@ def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> No
     audit_reason = f"[mode={mode}] {reason}" if mode == "warn" else reason
     try:
         emit_denial_event(
-            hook=HOOK_NAME, tool="Bash", check_id=CHECK_ID, reason=audit_reason,
+            hook=HOOK_NAME,
+            tool="Bash",
+            check_id=CHECK_ID,
+            reason=audit_reason,
             session_id=sid if isinstance(sid, str) else "",
             tool_use_id=tu if isinstance(tu, str) else "",
             turn_id=turn if isinstance(turn, str) else "",
-            command_snippet=_extract_command(payload), outcome=outcome)
+            command_snippet=_extract_command(payload),
+            outcome=outcome,
+        )
     except Exception:
         pass
 
@@ -313,22 +287,38 @@ def evaluate(record: HookContext) -> HookDecision:
     _emit_audit_event(payload, reason, mode, outcome)
     audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
     if mode == "deny":
-        envelope = json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse",
-            "permissionDecision": "deny", "permissionDecisionReason": reason}})
-        return HookDecision(outcome=Outcome.DENY, message=envelope,
-            audit_fields=audit, block=True, next=Next.STOP)
+        envelope = json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason,
+                }
+            }
+        )
+        return HookDecision(
+            outcome=Outcome.DENY,
+            message=envelope,
+            audit_fields=audit,
+            block=True,
+            next=Next.STOP,
+        )
     return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     """Build a minimal :class:`HookContext` for the legacy stdin entry."""
     cwd, sid = payload.get("cwd"), payload.get("session_id")
-    return HookContext(event_name="PreToolUse", executor_family="claude",
-        executor_surface="claude", payload=payload,
+    return HookContext(
+        event_name="PreToolUse",
+        executor_family="claude",
+        executor_surface="claude",
+        payload=payload,
         tool_name=_extract_tool_name(payload) or None,
         command_body=_extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
-        session_id=sid if isinstance(sid, str) else None)
+        session_id=sid if isinstance(sid, str) else None,
+    )
 
 
 def main() -> int:
