@@ -152,3 +152,32 @@ def test_packaged_facts_are_unique_on_sequence_and_merge() -> None:
     keys = [(fact.project_sequence, fact.merge_sha) for fact in facts]
     assert facts, "the frozen git walk must ship with the entry"
     assert len(keys) == len(set(keys))
+
+
+class _TupleCursor:
+    def __init__(self, fetchone=None, fetchall=None):
+        self._fetchone = fetchone
+        self._fetchall = fetchall
+
+    def fetchone(self):
+        return self._fetchone
+
+    def fetchall(self):
+        return self._fetchall
+
+
+class _TupleConn:
+    def __init__(self, fetchone=None, fetchall=None):
+        self._cursor = _TupleCursor(fetchone=fetchone, fetchall=fetchall)
+
+    def execute(self, *_args, **_kwargs):
+        return self._cursor
+
+
+def test_project_and_sequence_lookups_accept_tuple_rows(monkeypatch) -> None:
+    monkeypatch.setattr(MIGRATION, "_table_exists", lambda *_args, **_kwargs: True)
+    assert MIGRATION._yoke_project_id(_TupleConn(fetchone=(1,))) == 1
+    assert MIGRATION._sequence_to_item_id(
+        _TupleConn(fetchall=[(10, 3307), (11, None)]),
+        1,
+    ) == {3307: 10}

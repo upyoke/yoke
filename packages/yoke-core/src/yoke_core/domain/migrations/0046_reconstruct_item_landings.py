@@ -30,7 +30,6 @@ from yoke_core.domain.item_landings_reconstruct import (
 )
 from yoke_core.domain.item_landings_schema import ORIGIN_RECONSTRUCTED
 from yoke_core.domain.schema_common import _column_exists, _table_exists
-from yoke_core.domain.session_message_types import row_dict
 
 FACTS_RESOURCE = "0046_reconstruct_item_landings.json"
 PROJECTS_TABLE = "projects"
@@ -42,6 +41,11 @@ def _p(conn: Any) -> str:
     from yoke_core.domain import db_backend
 
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def _cell(row: Any, index: int, key: str) -> Any:
+    """Boot converge may hand tuple rows; named test connections hand mappings."""
+    return row[key] if hasattr(row, "keys") else row[index]
 
 
 def load_packaged_facts() -> tuple[LandingFact, ...]:
@@ -64,7 +68,7 @@ def _yoke_project_id(conn: Any) -> Optional[int]:
     ).fetchone()
     if row is None:
         return None
-    return int(row_dict(row)["id"])
+    return int(_cell(row, 0, "id"))
 
 
 def _sequence_to_item_id(conn: Any, project_id: int) -> dict[int, int]:
@@ -77,11 +81,10 @@ def _sequence_to_item_id(conn: Any, project_id: int) -> dict[int, int]:
     ).fetchall()
     mapping: dict[int, int] = {}
     for row in rows:
-        value = row_dict(row)
-        sequence = value.get("project_sequence")
+        sequence = _cell(row, 1, "project_sequence")
         if sequence is None:
             continue
-        mapping[int(sequence)] = int(value["id"])
+        mapping[int(sequence)] = int(_cell(row, 0, "id"))
     return mapping
 
 
