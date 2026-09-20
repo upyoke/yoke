@@ -1,11 +1,12 @@
 """Which connection may be served as a local universe view, and by what.
 
-Both halves of ``yoke ui`` need this: the operator-facing commands gate
-on it before starting a daemon, and the serving child re-checks it in
-the process that actually opens the universe. The check belongs to the
-process that serves, not only to the command that asked — a launch agent
-brought back at login has to refuse a connection that became hosted or
-prod-flagged since it was registered.
+The operator-facing ``yoke ui`` commands gate on this before starting a
+daemon, so the refusal arrives in the terminal that asked. It is a
+preflight, not the enforcement: the view server refuses the same
+connection itself, which is what covers a launch agent brought back at
+login against a binding that became hosted or prod-flagged since it was
+registered, and any caller that reaches the server without this command.
+Both read one contract rule so they cannot disagree.
 
 The engine imports here are dynamic on purpose: the client packages hold
 no static import authority over the engine, and local mode is the one
@@ -20,11 +21,9 @@ from typing import Optional, Tuple
 
 from yoke_cli.config import machine_config
 from yoke_cli.config.local_universe_setup import ENGINE_MISSING_MESSAGE
-from yoke_contracts.machine_config.schema import (
-    MachineConfigContractError,
-    POSTGRES_TRANSPORTS,
-    TRANSPORT_HTTPS,
-    connection_is_prod,
+from yoke_contracts.machine_config.schema import MachineConfigContractError
+from yoke_contracts.machine_config.served_view_connection import (
+    view_serving_refusal,
 )
 
 class UniverseUiError(RuntimeError):
@@ -60,10 +59,11 @@ def converge_universe_schema() -> None:
 def servable_connection() -> Tuple[str, Optional[str]]:
     """Return ``(env name, refusal)`` for the connection the UI would serve.
 
-    Allowlist, not denylist: only a non-prod local-postgres connection is
-    served. Every other mode — https, prod-flagged Postgres, or any
-    transport this adapter does not recognize — refuses in mode language,
-    so new connection modes fail closed until deliberately admitted.
+    Which connection modes may be served is the contract's answer
+    (:func:`view_serving_refusal`), so this preflight and the re-check
+    inside the serving process cannot drift apart. What belongs here is
+    only what the operator running the command can act on: a machine
+    config that is missing or unusable before any connection resolves.
     """
     config_file = machine_config.config_path()
     try:
@@ -79,32 +79,14 @@ def servable_connection() -> Tuple[str, Optional[str]]:
             "no active connection is configured on this machine; "
             "`yoke init --local` creates a local universe to view"
         )
+    try:
+        payload = machine_config.load_config()
+    except (machine_config.MachineConfigError, MachineConfigContractError):
+        # Only the recipe's env inventory degrades; a connection that may
+        # not be served is still refused, and for the same reason.
+        payload = None
     env_label = str(connection.get("env") or "<env>")
-    transport = str(connection.get("transport") or "").strip()
-    if transport in POSTGRES_TRANSPORTS and not connection_is_prod(connection):
-        return env_label, None
-    if transport == TRANSPORT_HTTPS:
-        return env_label, (
-            f"the active connection {env_label!r} is https-transport "
-            "(hosted/self-host mode): `yoke ui` serves the machine-local "
-            "universe only, and the hosted/self-host web surfaces arrive "
-            "with the platform. To view a machine-local universe, switch "
-            "to its env (`yoke env use local`) or create one "
-            "(`yoke init --local`)."
-        )
-    if transport in POSTGRES_TRANSPORTS:
-        return env_label, (
-            f"the active connection {env_label!r} is a prod-flagged "
-            "Postgres connection: direct prod authority is operator-only, "
-            "so `yoke ui` refuses to serve it."
-        )
-    return env_label, (
-        f"the active connection {env_label!r} (transport "
-        f"{transport or '<unset>'!r}) is not a mode `yoke ui` recognizes: "
-        "only a non-prod local-postgres connection serves the "
-        "machine-local universe. Switch to one (`yoke env use <env>`) or "
-        "create one (`yoke init --local`)."
-    )
+    return env_label, view_serving_refusal(connection, payload=payload)
 
 
 __all__ = [

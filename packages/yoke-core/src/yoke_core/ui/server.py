@@ -10,6 +10,10 @@ in-process through :func:`yoke_core.domain.yoke_function_dispatch.dispatch`
 Security model:
 
 * Binds ``127.0.0.1`` only; nothing is reachable off-machine.
+* Serves only a connection this machine reads directly
+  (:mod:`yoke_core.ui.served_universe_connection`); an https or
+  prod-flagged binding refuses at startup rather than answering from a
+  universe the page does not name.
 * One random session token per run (:func:`mint_session_token`). Every
   route — the app shell, static assets, the served-build identity path,
   and the function proxy — requires it. The token arrives as a ``?token=`` query parameter on the first hit;
@@ -45,6 +49,10 @@ from yoke_core.ui.function_proxy import (
 from yoke_core.ui.served_source_identity import (
     served_build_identity,
     served_install,
+)
+from yoke_core.ui.served_universe_connection import (
+    environment_display_label,
+    serving_connection,
 )
 
 #: Default bind host and TCP port for the UI server (loopback only).
@@ -138,7 +146,7 @@ def _asset_bytes(asset_name: str) -> bytes:
     return files(__package__).joinpath("static", asset_name).read_bytes()
 
 
-def _local_host_identity_json() -> str:
+def _local_host_identity_json(environment: str) -> str:
     """Serialize mount fields from the canonical runtime-identity packet."""
     import json
 
@@ -152,6 +160,7 @@ def _local_host_identity_json() -> str:
         portability_mode=PORTABILITY_LOCAL,
         install=served_install(),
         build=served_build_identity(),
+        environment_label=environment_display_label(environment),
     )
     fields = mount_fields(packet)
     from yoke_core.ui.local_operator_actor import resolve_local_operator_actor
@@ -172,7 +181,7 @@ def _local_host_identity_json() -> str:
     return json.dumps(fields, separators=(",", ":"))
 
 
-def _inject_host_identity(html: str) -> str:
+def _inject_host_identity(html: str, environment: str) -> str:
     """Replace the shell's host-identity marker with the live packet JSON."""
     start = html.find(_HOST_IDENTITY_MARKER)
     if start < 0:
@@ -181,7 +190,11 @@ def _inject_host_identity(html: str) -> str:
     end = html.find(_HOST_IDENTITY_MARKER, content_start)
     if end < 0:
         return html
-    return html[:content_start] + _local_host_identity_json() + html[end:]
+    return (
+        html[:content_start]
+        + _local_host_identity_json(environment)
+        + html[end:]
+    )
 
 
 def create_ui_app(token: str):
@@ -196,6 +209,12 @@ def create_ui_app(token: str):
 
     if not token:
         raise UiServerError("a non-empty session token is required")
+    # Checked here rather than only in the command that starts a daemon:
+    # importing this module is enough to serve a view, so a guard the
+    # caller can skip is a guard that will be skipped.
+    environment, refusal = serving_connection()
+    if refusal is not None:
+        raise UiServerError(refusal)
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -245,6 +264,7 @@ def create_ui_app(token: str):
         # the request through the gate; serve the shell directly.
         shell = _inject_host_identity(
             _asset_bytes("index.html").decode("utf-8"),
+            environment,
         )
         return HTMLResponse(
             shell,
