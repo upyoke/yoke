@@ -18,6 +18,7 @@ from yoke_core.domain.environment_declared_facts import (
     MissingEnvironmentFact,
     endpoint_declaration_state,
     hosted_endpoints,
+    is_hosted_runtime,
     is_production,
     load_environment_settings,
 )
@@ -68,10 +69,14 @@ def environment_execution_target(
     settings = _decode(identity["settings"])
     environment_name = str(identity["environment_name"])
     endpoints = _generic_endpoints(identity, settings)
-    if (
+    hosted = (
         str(identity["project_slug"]) == "yoke"
-        and endpoint_declaration_state(settings) != "unstated"
-    ):
+        and (
+            endpoint_declaration_state(settings) == "complete"
+            or is_hosted_runtime(settings)
+        )
+    )
+    if hosted:
         try:
             endpoints = hosted_endpoints(environment_name, settings)
         except MissingEnvironmentFact as exc:

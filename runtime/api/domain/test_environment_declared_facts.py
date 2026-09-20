@@ -91,6 +91,8 @@ def test_undeclared_environment_refuses_endpoints_by_name() -> None:
         _yoke_endpoints("blah")
     with pytest.raises(MissingEnvironmentFact, match=HOSTS_APP_PATH):
         hosted_endpoints("blah", {})
+    with pytest.raises(MissingEnvironmentFact, match=HOSTS_APP_PATH):
+        hosted_endpoints("blah", {"qa": {"hosted_runtime": True}})
 
 
 def test_undeclared_runtime_does_not_inherit_production_qa_gating() -> None:
