@@ -41,6 +41,7 @@ from typing import Any
 
 from yoke_core.domain.verification_tree_binding_messages import (
     ALLOW_TREE_MISMATCH_FLAG,
+    CHECKOUT_PATH_FLAG,
 )
 
 #: How much of a revision a refusal prints. Full SHAs make the two sides
@@ -146,10 +147,16 @@ def evaluate_deployment_binding(
             f"{surface} TREE-BINDING REFUSAL: {divergence}. A command that "
             "reads the repository would report on code this run never "
             "deployed.\n"
-            "To verify the candidate, run from a checkout at that revision:\n"
-            f'  git -C "{tree}" fetch origin {candidate}\n'
-            f'  git -C "{tree}" checkout {candidate}\n'
-            f"or pass {ALLOW_TREE_MISMATCH_FLAG} when this case reads nothing "
+            "To verify the candidate, materialize a separate checkout pinned "
+            f"to that revision and pass {CHECKOUT_PATH_FLAG} to "
+            "`yoke qa plan run` or `yoke qa case run`. Do not mutate a shared "
+            "project checkout other sessions depend on. Example against a "
+            "disposable tree:\n"
+            f'  git -C "/path/to/candidate-checkout" fetch origin {candidate}\n'
+            f'  git -C "/path/to/candidate-checkout" checkout {candidate}\n'
+            f"  yoke qa plan run ... {CHECKOUT_PATH_FLAG} "
+            f"/path/to/candidate-checkout\n"
+            f"Or pass {ALLOW_TREE_MISMATCH_FLAG} when this case reads nothing "
             "from the checkout, such as a probe against the deployed endpoint."
         )
     )

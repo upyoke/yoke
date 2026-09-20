@@ -108,7 +108,10 @@ def test_a_checkout_off_the_candidate_is_refused_naming_both_revisions() -> None
     assert binding.notice == ""
     assert CANDIDATE[:12] in binding.refusal
     assert OTHER_REVISION[:12] in binding.refusal
-    assert f"git -C \"/checkout\" checkout {CANDIDATE}" in binding.refusal
+    assert "--checkout-path" in binding.refusal
+    assert "separate checkout" in binding.refusal
+    assert 'git -C "/checkout"' not in binding.refusal
+    assert "/path/to/candidate-checkout" in binding.refusal
     assert "--allow-tree-mismatch" in binding.refusal
 
 
@@ -191,6 +194,10 @@ def test_a_tree_dependent_deployment_case_refuses_a_checkout_off_candidate(
     assert head[:12] in message
     assert CANDIDATE[:12] in message
     assert "would report on code this run never deployed" in message
+    assert "--checkout-path" in message
+    assert "separate checkout" in message
+    assert f'git -C "{tmp_path}"' not in message
+    assert "/path/to/candidate-checkout" in message
 
 
 def test_a_deployment_case_runs_when_the_checkout_is_the_candidate(

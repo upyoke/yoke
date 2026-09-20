@@ -100,6 +100,13 @@ def run(args: List[str]) -> int:
     parser.add_argument("--expected-sha")
     parser.add_argument("--timeout-seconds", type=int)
     parser.add_argument(
+        "--checkout-path",
+        help=(
+            "Execute the case in this checkout instead of the default tree. "
+            "For a deployment candidate, pin a separate tree to that revision."
+        ),
+    )
+    parser.add_argument(
         "--allow-tree-mismatch",
         action="store_true",
         help=(
@@ -122,6 +129,7 @@ def run(args: List[str]) -> int:
             expected_branch=parsed.expected_branch,
             expected_sha=parsed.expected_sha,
             timeout_seconds=parsed.timeout_seconds,
+            checkout_path=parsed.checkout_path,
             allow_tree_mismatch=parsed.allow_tree_mismatch,
             actor=actor,
         )
