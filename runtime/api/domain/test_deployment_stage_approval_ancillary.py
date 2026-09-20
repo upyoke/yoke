@@ -1,8 +1,8 @@
 """Human approval is per run stage, including ancillary carrying runs.
 
 An already-done member riding another flow still waits at that run's own
-gate. Rejecting it does not reopen the item. A later ancillary run is a
-new ``run_id:stage`` subject and needs a fresh decision.
+gate. Rejecting it closes that run and does not reopen the item. A later
+ancillary run is a new ``run_id:stage`` subject and needs a fresh decision.
 """
 
 from __future__ import annotations
@@ -74,6 +74,23 @@ def _item_status(test_db, item_id):
     )
 
 
+def _run_status(test_db, run_id):
+    return str(
+        test_db.execute(
+            "SELECT status FROM deployment_runs WHERE id = %s", (run_id,)
+        ).fetchone()[0]
+    )
+
+
+def _resolution(test_db, request_id):
+    return str(
+        test_db.execute(
+            "SELECT resolution_action FROM decision_requests WHERE id = %s",
+            (request_id,),
+        ).fetchone()[0]
+    )
+
+
 def _selected_and_ancillary(test_db, *, selected_flow, selected_run, ancillary_flow,
                             ancillary_run):
     create_decision_request_tables(test_db)
@@ -141,11 +158,11 @@ def test_rejecting_an_ancillary_gate_does_not_reopen_a_done_item(
         session_id="gate-session",
     )
     test_db.commit()
-    rejected = _evaluate(
-        test_db, monkeypatch, "run-gate-ancillary-reject", "approve-prod",
-    )
-    assert rejected.result_payload["satisfied"] is False
-    assert rejected.result_payload["resolution_action"] == "reject"
+    # The rejection closes the carrying run, because a rejected stage has
+    # nothing left to advance. The member it carried is somebody else's
+    # completed work and is left exactly as it was.
+    assert _run_status(test_db, "run-gate-ancillary-reject") == "failed"
+    assert _resolution(test_db, pending.result_payload["request_id"]) == "reject"
     assert _item_status(test_db, 9621) == "done"
 
 
