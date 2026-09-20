@@ -64,13 +64,16 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # columns are the pair it is keyed by plus how often that pair has been held
 # and when it last was, and the deployment-stage receipt table, whose complete
 # row is allocated before dispatch and settled with observed target evidence.
+# It also adds the item-landing history table (item_landings), one append-only
+# row per landing an item made, net-new and pure-additive, so every column is
+# born with it.
 # The current value also drops the actor label
 # projection, whose every column was born with it and which an ordered
 # history entry retires in favour of one actors.name column; that name
 # column is NOT here, because it lands on an existing table and therefore
 # restores through boot convergence like any other additive column.
 _BORN_WITH_COLUMN_DIGEST = (
-    "b69d962864af633cfb4542e910ab5438d1ae2bd75c8d2ed05378638818b3804e"
+    "b1c09e40f072f8151141a9b561a2250c77f46fa77032b7cc19541726abc3c3ba"
 )
 
 

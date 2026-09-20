@@ -37,7 +37,7 @@ branch pass through, so the record cannot drift from what close-out believes
 it landed. The append is idempotent on `(item_id, merge_sha)`: a close-out
 re-entered after a dead wait converges on the landing it already recorded.
 
-Read them with `yoke items landings list PREFIX-N`, which also names the
+Read them with `yoke item-landings list PREFIX-N`, which also names the
 release that delivered each landing, or that none has.
 
 Back to [items-and-epics.md](items-and-epics.md).

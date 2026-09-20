@@ -11,6 +11,8 @@ from __future__ import annotations
 
 #: function_id -> minimum serving version. Do not copy already-served ids here.
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
+    "item_landings.list": "next-release",
+    "item_landings.record": "next-release",
     "qa.item_plan.retract": "next-release",
 }
 

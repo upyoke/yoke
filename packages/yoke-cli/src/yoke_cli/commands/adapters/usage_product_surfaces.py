@@ -4,6 +4,7 @@ from yoke_cli.commands.adapters import (
     direct_workflow_usage,
     harness_machine_report,
     inbox_decisions,
+    item_landings,
     merge_review,
     machine,
     models,
@@ -24,6 +25,7 @@ from yoke_cli.commands.adapters import (
 
 
 USAGE_BY_FUNCTION_ID = {
+    "item_landings.list": item_landings.ITEM_LANDINGS_LIST_USAGE,
     "workflows.current.set": workflows_read.WORKFLOWS_CURRENT_SET_USAGE,
     "workflows.definition.get": workflows_read.WORKFLOWS_DEFINITION_GET_USAGE,
     "workflows.item.get": workflows_read.WORKFLOWS_ITEM_GET_USAGE,

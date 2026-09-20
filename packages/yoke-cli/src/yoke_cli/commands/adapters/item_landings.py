@@ -1,4 +1,4 @@
-"""``yoke items landings ...`` flag adapters.
+"""``yoke item-landings ...`` flag adapters.
 
 The audit the single-valued item columns could not serve: which landings an
 item actually made, in order, each naming the merge it landed under and the
@@ -19,7 +19,7 @@ from yoke_cli.commands._helpers import (
 )
 
 ITEM_LANDINGS_LIST_USAGE = (
-    "yoke items landings list <PREFIX-N> [--project P] [--session-id S] [--json]"
+    "yoke item-landings list <PREFIX-N> [--project P] [--session-id S] [--json]"
 )
 
 #: How much of a commit sha the human listing shows. Long enough to name a
@@ -39,7 +39,7 @@ def _delivery_label(landing: dict) -> str:
 def item_landings_list(args: List[str]) -> int:
     """Read every landing an item has made, oldest first."""
     parser = argparse.ArgumentParser(
-        prog="yoke items landings list",
+        prog="yoke item-landings list",
         description=ITEM_LANDINGS_LIST_USAGE,
     )
     parser.add_argument(

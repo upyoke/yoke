@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Tuple
 
-from yoke_cli.commands.adapters import item_landings, item_pages
+from yoke_cli.commands.adapters import item_pages
 
 
 AdapterFn = Callable[[List[str]], int]
@@ -18,10 +18,6 @@ ITEM_PAGE_SUBCOMMAND_REGISTRY: Dict[
     ("items", "detail", "get"): (
         "items.detail.get",
         item_pages.items_detail_get,
-    ),
-    ("items", "landings", "list"): (
-        "item_landings.list",
-        item_landings.item_landings_list,
     ),
     ("items", "public-ref", "lookup"): (
         "items.public_ref.lookup",

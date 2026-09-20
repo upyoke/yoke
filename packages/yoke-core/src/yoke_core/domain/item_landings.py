@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import Any, Iterable
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_message_types import row_dict
 
 #: Columns in the order every read and write below names them.
@@ -122,9 +123,15 @@ def landing_counts(conn: Any, item_ids: Iterable[int]) -> dict[int, int]:
 
     Items with no landing are absent rather than zero, so a caller can tell
     "never landed" from "landed once" without a second read.
+
+    A database that has not yet converged this table answers the same way, and
+    deliberately: the roster this feeds is read by every universe on every
+    build, and a release is live before every database has taken its boot
+    converge. No landing is recorded there yet either, so "absent" is the true
+    answer rather than a swallowed failure.
     """
     ids = [int(item_id) for item_id in item_ids]
-    if not ids:
+    if not ids or not _table_exists(conn, "item_landings"):
         return {}
     p = _p(conn)
     placeholders = ",".join(p for _ in ids)
