@@ -35,6 +35,7 @@ CREATE TABLE qa_requirements (
     deployment_run_id TEXT,
     deployment_stage TEXT,
     deployment_member_item_id INTEGER,
+    plan_case_key TEXT,
     qa_kind TEXT NOT NULL,
     qa_phase TEXT NOT NULL,
     blocking_mode TEXT NOT NULL DEFAULT 'blocking',

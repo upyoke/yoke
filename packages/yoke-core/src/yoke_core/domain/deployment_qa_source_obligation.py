@@ -250,15 +250,15 @@ def blocking_row_unsatisfied_at_done(
 def row_unsatisfied_at_done(conn: Any, row: Any, *, item_id: int) -> bool:
     """:func:`blocking_row_unsatisfied_at_done` over a queried requirement row.
 
-    The row carries ``id``, ``qa_phase``, and ``passed`` -- the last being
-    whether the ORIGINAL requirement has any passing run. Callers select it
-    rather than filtering on it in SQL, because a ``post_deploy`` row filtered
-    out for having passed once is a row this predicate never gets to refuse.
+    Callers select the original row's own pass rather than filtering on it
+    in SQL, so a ``post_deploy`` row that already passed is still judged.
     """
     if hasattr(row, "keys"):
         phase = str(row["qa_phase"] or "")
         source_id = int(row["id"])
         passed = bool(row["passed"])
+        if row.get("item_id") is None:
+            phase = ""
     else:
         phase = str(row[1] or "")
         source_id = int(row[0])
@@ -291,15 +291,13 @@ def unsatisfied_blocking(
 ) -> UnsatisfiedBlocking:
     """Which of the item's blocking requirements are still unsatisfied.
 
-    At ``done`` each row is answered by :func:`row_unsatisfied_at_done`, so a
-    ``post_deploy`` row is judged on its completion-run admitted copy. At every
-    other target the original row's own passing run is the answer.
-
-    Item-bound rows and run-bound rows that name this item as
-    ``deployment_member_item_id`` share :meth:`GateTarget.where_clause`.
+    At ``done`` each row is answered by :func:`row_unsatisfied_at_done`.
+    Item-bound and member-scoped run-bound rows share
+    :meth:`GateTarget.where_clause`; admitted copies are not independent.
     """
     from yoke_core.domain.qa_gate_definitions import (
         GateTarget,
+        independent_item_obligation,
         status_settles_blocking_qa,
     )
 
@@ -308,7 +306,8 @@ def unsatisfied_blocking(
     if marker != "%s":
         where = where.replace("%s", marker)
     fetched = conn.execute(
-        "SELECT qr.id, qr.qa_kind, qr.qa_phase, qr.deployment_run_id "
+        "SELECT qr.id, qr.qa_kind, qr.qa_phase, qr.deployment_run_id, "
+        "qr.item_id, qr.plan_case_key "
         "FROM qa_requirements qr "
         f"WHERE {where} AND qr.blocking_mode = 'blocking' "
         "AND qr.waived_at IS NULL",
@@ -317,6 +316,8 @@ def unsatisfied_blocking(
     scored = []
     for row in fetched:
         item = dict(row)
+        if not independent_item_obligation(item):
+            continue
         item["passed"] = has_current_passing_run(conn, int(item["id"]))
         scored.append(item)
     if status_settles_blocking_qa(target_status):

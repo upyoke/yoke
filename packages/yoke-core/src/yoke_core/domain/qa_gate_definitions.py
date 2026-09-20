@@ -23,6 +23,29 @@ def status_settles_blocking_qa(status: str) -> bool:
     return status in QA_SETTLING_TERMINAL_STATUSES
 
 
+def independent_item_obligation(row: Any) -> bool:
+    """False for an admitted copy or a stage-acceptance row."""
+    try:
+        kind = str(row["qa_kind"] or "")
+    except (KeyError, IndexError, TypeError):
+        kind = ""
+    from yoke_core.domain.deployment_qa_stage_prerequisites import (
+        DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
+    )
+
+    if kind == DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND:
+        return False
+    try:
+        key = row["plan_case_key"]
+    except (KeyError, IndexError, TypeError):
+        return True
+    from yoke_core.domain.deployment_qa_admission_materialization import (
+        admitted_source_requirement_id,
+    )
+
+    return admitted_source_requirement_id(key) is None
+
+
 @dataclass
 class GateTarget:
     """Parsed gate-check target: either an item ID or epic_id:task_num."""
@@ -48,9 +71,10 @@ class GateTarget:
         """Return (SQL fragment, params) for this target's obligations.
 
         An item carries item-bound rows (``item_id``) and run-bound rows that
-        name it as ``deployment_member_item_id``. Run-scoped rows with no
-        member belong to the run's completion gate, so a member with nothing
-        of its own to verify is not blocked by another member's cases.
+        name it as ``deployment_member_item_id``. Admitted copies settle a
+        source rather than binding twice. Run-scoped rows with no member
+        belong to the run's completion gate, so a member with nothing of its
+        own to verify is not blocked by another member's cases.
         """
         if self.item_id is not None:
             return (

@@ -1,15 +1,11 @@
 """QA gate-check logic for status transitions.
 
-Reusable gating functions called during item/task status transitions to
-verify QA requirements are satisfied before advancing. Sub-checks for
-browser-evidence presence and artifact-disk existence live in
-``qa_browser_evidence_check``; the integration simulation gate lives in
-``qa_simulation_gate`` and is re-exported here so existing import paths
-continue to work.
+Reusable gating during item/task status transitions. Browser-evidence
+sub-checks live in ``qa_browser_evidence_check``; simulation lives in
+``qa_simulation_gate`` and is re-exported so existing imports continue.
 
-CLI usage: ``python3 -m yoke_core.domain.qa_gates <subcmd> [args...]``.
-Subcommands include verification entry/review, done, and epic simulation. Target: item ID
-(``42``) or epic task (``833:5``). Exit codes: 0 pass, 1 fail, 2 usage.
+CLI: ``python3 -m yoke_core.domain.qa_gates <subcmd> [args...]``.
+Target: item ID (``42``) or epic task (``833:5``). Exit 0/1/2.
 """
 
 from __future__ import annotations
@@ -27,6 +23,7 @@ from yoke_core.domain.qa_gate_definitions import (  # noqa: F401
     GateTarget,
     GateResult,
     LatestCodeRef,
+    independent_item_obligation,
 )
 from yoke_core.domain.qa_gate_preconditions import (
     target_gate_precondition_result,
@@ -220,7 +217,8 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
         rows = query_rows(
             conn,
             f"""
-            SELECT r.id, r.qa_kind, r.qa_phase, r.deployment_run_id
+            SELECT r.id, r.qa_kind, r.qa_phase, r.deployment_run_id,
+                   r.item_id, r.plan_case_key
             FROM qa_requirements r
             WHERE {where}
               AND r.blocking_mode = 'blocking'
@@ -238,12 +236,17 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
             # An epic-task target owns no item-bound deployment run, so the
             # completion-run reading has nothing to resolve against and the
             # original row's own pass stays the answer for every phase.
-            rows = [row for row in rows if not row["passed"]]
+            rows = [
+                row
+                for row in rows
+                if independent_item_obligation(row) and not row["passed"]
+            ]
         else:
             rows = [
                 row
                 for row in rows
-                if row_unsatisfied_at_done(conn, row, item_id=int(target.item_id))
+                if independent_item_obligation(row)
+                and row_unsatisfied_at_done(conn, row, item_id=int(target.item_id))
             ]
         if rows:
             return GateResult(
