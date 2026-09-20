@@ -15,7 +15,9 @@ from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     record_case_verdict,
     seed_member_qa_case,
 )
+from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.qa_plan_management import QaPlanError
+from yoke_core.domain.qa_plan_refresh_safety import LIVE_EXECUTION_CODE
 from yoke_core.domain.qa_plan_rematerialize_deployment import (
     rematerialize_for_deployment_stage,
 )
@@ -94,3 +96,47 @@ def test_rematerialize_refuses_a_subject_with_no_materialized_cases(test_db) -> 
             deployment_stage=STAGE,
             deployment_member_item_id=MEMBER,
         )
+
+
+def test_rematerialize_refuses_while_a_live_execution_walks_the_stage(
+    test_db,
+) -> None:
+    """A walk in progress froze these rows; the refresh refuses before writing."""
+    run_id = "run-rematerialize-walking"
+    requirement_id = _seed(test_db, run_id)
+    plan_id = int(
+        test_db.execute(
+            "SELECT plan_id FROM qa_requirements WHERE id=%s", (requirement_id,)
+        ).fetchone()["plan_id"]
+    )
+    test_db.execute(
+        "UPDATE qa_plan_cases SET instructions=%s WHERE plan_id=%s",
+        ("run the corrected smoke command", plan_id),
+    )
+    test_db.commit()
+    execution = begin_plan_execution(
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage=STAGE,
+        deployment_member_item_id=MEMBER,
+        actor_id="op",
+        session_id="session-walking",
+    )
+
+    with pytest.raises(QaPlanError) as excinfo:
+        rematerialize_for_deployment_stage(
+            test_db,
+            deployment_run_id=run_id,
+            deployment_stage=STAGE,
+            deployment_member_item_id=MEMBER,
+        )
+
+    message = str(excinfo.value)
+    assert LIVE_EXECUTION_CODE in message
+    assert f"--execution-id {execution['id']}" in message
+    assert "yoke qa plan abort --deployment-run-id" in message
+    # Refused before any write: the frozen body is exactly as the walk saw it.
+    row = test_db.execute(
+        "SELECT instructions FROM qa_requirements WHERE id=%s", (requirement_id,)
+    ).fetchone()
+    assert str(row["instructions"]) == "run the frozen smoke command"

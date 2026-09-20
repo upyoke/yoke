@@ -31,9 +31,36 @@ LIVE_EXECUTION_MESSAGE = (
     "{code}: {subject} is being walked by live QA plan execution "
     "{execution_id}, whose roster was frozen from these rows. Refreshing them "
     "now would move the definitions underneath a walk already in progress. "
-    "Abort that execution with `yoke qa plan abort`, refresh, and start it "
+    "Abort that execution with `{abort}`, then refresh and start the walk "
     "again — the abort is what makes the refresh reachable."
 )
+
+
+def _abort_command(
+    conn: Any,
+    *,
+    execution_id: str,
+    item_id: Optional[int],
+    deployment_run_id: Optional[str],
+) -> str:
+    """The abort invocation that actually reaches THIS execution.
+
+    ``yoke qa plan abort`` takes a subject, the execution id and a reason, and
+    refuses without all three. Naming the bare command would hand the reader a
+    usage error instead of the recovery, so the subject is chosen from the
+    same arguments the refusal was raised for.
+    """
+    from yoke_core.domain.project_identity import render_item_ref
+
+    subject_flag = (
+        f"--item {render_item_ref(conn, int(item_id))}"
+        if item_id is not None
+        else f"--deployment-run-id {deployment_run_id}"
+    )
+    return (
+        f"yoke qa plan abort {subject_flag} --execution-id {execution_id} "
+        '--reason "<why>"'
+    )
 
 
 def require_no_live_execution(
@@ -67,6 +94,12 @@ def require_no_live_execution(
             code=LIVE_EXECUTION_CODE,
             subject=subject,
             execution_id=execution_id,
+            abort=_abort_command(
+                conn,
+                execution_id=execution_id,
+                item_id=item_id,
+                deployment_run_id=deployment_run_id,
+            ),
         )
     )
 
