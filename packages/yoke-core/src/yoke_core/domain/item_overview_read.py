@@ -168,9 +168,7 @@ def enrich_item_overview_rows(
             for lane in _dict_rows(lane_cursor):
                 worktrees.setdefault(int(lane["item_id"]), []).append(lane)
         claims = active_item_claims(conn, ids)
-        # How many times each item has landed. Cards report it only
-        # where it is more than one, so re-landing churn is visible
-        # while scanning without adding noise to ordinary work.
+        # One grouped count for the whole roster; no card reports it compact.
         landings = {} if compact else landing_counts(conn, ids)
         qa_attention: dict[int, dict[str, str]] = {}
         if (
