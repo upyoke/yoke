@@ -124,6 +124,7 @@ def _connection() -> sqlite3.Connection:
           created_at TEXT,
           plan_id INTEGER,
           plan_case_key TEXT,
+          deployment_member_item_id INTEGER,
           method_id TEXT,
           workflow_transition_id TEXT,
           instructions TEXT,
@@ -133,9 +134,12 @@ def _connection() -> sqlite3.Connection:
         CREATE TABLE qa_runs (
           id INTEGER PRIMARY KEY,
           qa_requirement_id INTEGER,
+          performed_by TEXT,
           verdict TEXT,
+          verdict_reason TEXT,
           execution_status TEXT,
           completed_at TEXT,
+          created_at TEXT,
           case_outcome TEXT,
           capture_degraded_reason TEXT,
           raw_result TEXT

@@ -84,7 +84,12 @@ _SCHEMA_DDL = """
         task_num INTEGER,
         qa_kind TEXT NOT NULL,
         qa_phase TEXT NOT NULL DEFAULT 'verification',
-        success_policy TEXT NOT NULL DEFAULT 'blocking'
+        deployment_run_id TEXT,
+        blocking_mode TEXT NOT NULL DEFAULT 'blocking',
+        waived_at TEXT,
+        success_policy TEXT NOT NULL DEFAULT 'blocking',
+        plan_case_key TEXT,
+        deployment_member_item_id INTEGER
     );
 
     CREATE TABLE qa_runs (
@@ -92,7 +97,9 @@ _SCHEMA_DDL = """
         qa_requirement_id INTEGER NOT NULL,
         performed_by TEXT,
         verdict TEXT,
-        raw_result TEXT
+        verdict_reason TEXT,
+        raw_result TEXT,
+        created_at TEXT
     );
 
     CREATE TABLE deployment_runs (

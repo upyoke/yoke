@@ -22,6 +22,14 @@ def _phase(row: Any) -> str:
     return str(row["qa_phase"] or "")
 
 
+def _run_id(row: Any) -> str:
+    try:
+        value = row["deployment_run_id"]
+    except (KeyError, IndexError, TypeError):
+        return ""
+    return str(value or "").strip()
+
+
 def done_gate_refusal_errors(
     conn: Any, rows: Sequence[Any], *, name: str
 ) -> list[str]:
@@ -43,13 +51,28 @@ def done_gate_refusal_errors(
             if _phase(row) == POST_DEPLOY_PHASE
             else "no passing run"
         )
+        run = _run_id(row)
+        bound = f", run={run}" if run else ""
         errors.append(
             f"  - Requirement #{row['id']} ({row['qa_kind']}, "
-            f"phase={row['qa_phase']}): {reason}"
+            f"phase={row['qa_phase']}{bound}): {reason}"
         )
     if any(_phase(row) == POST_DEPLOY_PHASE for row in rows):
         errors.append(f"  {POST_DEPLOY_RECOVERY}")
     return errors
 
 
-__all__ = ["done_gate_refusal_errors"]
+def done_gate_refusal_text(
+    conn: Any, rows: Sequence[Any], *, item_id: int
+) -> str:
+    """Render :func:`done_gate_refusal_errors` for one item id."""
+    from yoke_core.domain.project_identity import render_item_ref
+
+    return "\n".join(
+        done_gate_refusal_errors(
+            conn, rows, name=render_item_ref(conn, int(item_id))
+        )
+    )
+
+
+__all__ = ["done_gate_refusal_errors", "done_gate_refusal_text"]

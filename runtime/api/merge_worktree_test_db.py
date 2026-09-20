@@ -206,14 +206,15 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
             qa_phase TEXT NOT NULL, target_env TEXT,
             blocking_mode TEXT NOT NULL DEFAULT 'blocking',
             requirement_source TEXT NOT NULL DEFAULT 'explicit',
-            success_policy TEXT, created_at TEXT NOT NULL
+            success_policy TEXT, created_at TEXT NOT NULL,
+            plan_case_key TEXT, deployment_member_item_id INTEGER
         );
         CREATE TABLE IF NOT EXISTS qa_runs (
             id INTEGER PRIMARY KEY,
             qa_requirement_id INTEGER NOT NULL,
             performed_by TEXT,
             qa_kind TEXT,
-            verdict TEXT, raw_result TEXT,
+            verdict TEXT, verdict_reason TEXT, raw_result TEXT,
             created_at TEXT NOT NULL,
             started_at TEXT, completed_at TEXT
         );

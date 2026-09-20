@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+from yoke_core.domain.qa_gate_definitions import independent_item_obligation
 from yoke_core.domain.qa_gates import GateTarget
 
 TEST_ITEM_ID = 42
@@ -34,7 +35,23 @@ class TestGateTarget:
         target = GateTarget(item_id=42)
         sql, params = target.where_clause()
         assert "item_id" in sql
-        assert params == (42,)
+        assert "deployment_member_item_id" in sql
+        assert "deployment_run_id" not in sql
+        assert params == (42, 42)
+
+    def test_admitted_copy_is_not_an_independent_obligation(self):
+        assert not independent_item_obligation(
+            {"plan_case_key": "admitted-requirement-9"}
+        )
+        assert independent_item_obligation({"plan_case_key": "flow-case"})
+        assert independent_item_obligation({})
+        from yoke_core.domain.deployment_qa_stage_prerequisites import (
+            DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
+        )
+
+        assert not independent_item_obligation(
+            {"qa_kind": DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND}
+        )
 
     def test_where_clause_epic(self):
         target = GateTarget(epic_id=833, task_num=5)

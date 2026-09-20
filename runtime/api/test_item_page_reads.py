@@ -9,8 +9,6 @@ from runtime.api.item_page_reads_test_support import _connection
 
 def test_overview_enrichment_keeps_owner_and_live_claim_distinct(monkeypatch):
     conn = _connection()
-    conn.execute("ALTER TABLE qa_runs ADD COLUMN performed_by TEXT")
-    conn.execute("ALTER TABLE qa_runs ADD COLUMN verdict_reason TEXT")
     conn.execute(
         "UPDATE qa_runs SET performed_by='agent', verdict='undetermined', "
         "verdict_reason='The footer screenshot omits the mobile breakpoint.' "
@@ -51,7 +49,6 @@ def test_overview_enrichment_keeps_owner_and_live_claim_distinct(monkeypatch):
 
 def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
     conn = _connection()
-    conn.execute("ALTER TABLE qa_runs ADD COLUMN verdict_reason TEXT")
     conn.execute(
         "UPDATE qa_runs SET verdict='undetermined', "
         "verdict_reason='The screenshot omits the mobile breakpoint.' WHERE id=8"

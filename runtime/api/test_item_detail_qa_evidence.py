@@ -13,7 +13,6 @@ from runtime.api.item_page_reads_test_support import _connection
 
 def test_detail_qa_resolves_agent_review_evidence_to_capture_run(monkeypatch):
     conn = _connection()
-    conn.execute("ALTER TABLE qa_runs ADD COLUMN performed_by TEXT")
     conn.execute(
         "INSERT INTO qa_requirements "
         "(id, item_id, qa_kind, requirement_source, success_policy, "
@@ -49,8 +48,6 @@ def test_detail_qa_resolves_human_review_evidence_through_prior_agent_run(
     monkeypatch,
 ):
     conn = _connection()
-    conn.execute("ALTER TABLE qa_runs ADD COLUMN performed_by TEXT")
-    conn.execute("ALTER TABLE qa_runs ADD COLUMN verdict_reason TEXT")
     conn.execute(
         "INSERT INTO qa_requirements "
         "(id, item_id, qa_kind, requirement_source, success_policy, "
@@ -89,8 +86,6 @@ def test_detail_qa_resolves_human_review_evidence_to_self_capturing_agent_run(
     monkeypatch,
 ):
     conn = _connection()
-    conn.execute("ALTER TABLE qa_runs ADD COLUMN performed_by TEXT")
-    conn.execute("ALTER TABLE qa_runs ADD COLUMN verdict_reason TEXT")
     conn.execute(
         "INSERT INTO qa_requirements "
         "(id, item_id, qa_kind, requirement_source, success_policy, "

@@ -67,7 +67,11 @@ WRITE_PARITY_SCHEMA_EXTRAS = """
         deployment_run_id TEXT,
         qa_kind TEXT NOT NULL,
         qa_phase TEXT NOT NULL DEFAULT 'verification',
-        success_policy TEXT NOT NULL DEFAULT 'blocking'
+        blocking_mode TEXT NOT NULL DEFAULT 'blocking',
+        waived_at TEXT,
+        success_policy TEXT NOT NULL DEFAULT 'blocking',
+        plan_case_key TEXT,
+        deployment_member_item_id INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_qa_requirements_deployment ON qa_requirements(deployment_run_id);
 
@@ -76,7 +80,9 @@ WRITE_PARITY_SCHEMA_EXTRAS = """
         qa_requirement_id INTEGER NOT NULL,
         performed_by TEXT,
         verdict TEXT,
-        raw_result TEXT
+        verdict_reason TEXT,
+        raw_result TEXT,
+        created_at TEXT
     );
 """
 
