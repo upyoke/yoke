@@ -63,6 +63,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         # runtime before offering to write it.
         "deployment_flows.validate",
         "sessions.list",
+        "sessions.steering_groups.list",
         "machine.list",
         "machine.detail",
         "session_control.message.preview",

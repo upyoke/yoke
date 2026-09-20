@@ -103,7 +103,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     // The roster the scope pickers already hold, so a view that only lists
     // projects costs no second call.
     projects: () => projects,
-    // Ranked from the app-wide roster below, never each page's own rows.
+    // Ranked from the app-wide group set below, never each page's own rows.
     steeringGroupColors: () => steeringColors.colors(),
     refreshSteeringGroupColors: () => steeringColors.refresh(),
     // A view already holding that roster ranks from its rows, not a re-read.
@@ -327,7 +327,7 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   // Steering-group colors are decoration and tint cards a render at a time,
   // so they are started here but never waited on: gating the first content
-  // paint on them held every screen behind a roster read it did not need.
+  // paint on them held every screen behind a read it did not need.
   // Projects and remembered selections stay in the gate — routing resolves
   // against the project roster, and a screen that paints before its saved
   // selection arrives paints once and then jumps.

@@ -38,14 +38,16 @@ test("the screen's own roster read also ranks its steering tints", async (t) => 
   const client = workbenchClient();
   await mountFrontier(client);
 
-  // Two open-roster reads reach the server on this route, and only two: the
-  // app-wide tint refresh every route starts at mount, and the one this
+  // One open-roster read reaches the server on this route: the one this
   // screen needs to tell which work is in flight. The screen ranks its tints
-  // from the rows it already holds rather than asking a third time.
+  // from the rows it already holds rather than asking again, and the
+  // app-wide tint refresh asks which groups are live instead of paying for a
+  // second complete roster nothing waits on.
   const open = named(client, "sessions.list").filter((request) => (
-    request.payload?.per_project === true && request.payload?.open === true
+    request.payload?.open === true
   ));
-  assert.equal(open.length, 2);
+  assert.equal(open.length, 1);
+  assert.equal(named(client, "sessions.steering_groups.list").length, 1);
 });
 
 test("the item reads do not wait for the release roster", async (t) => {

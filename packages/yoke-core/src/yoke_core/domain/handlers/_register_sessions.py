@@ -10,6 +10,7 @@ from yoke_core.domain.handlers import sessions_reclaim as _sr
 from yoke_core.domain.handlers import sessions_closeout as _sc
 from yoke_core.domain.handlers import sessions_identity as _si
 from yoke_core.domain.handlers import sessions_hook_overhead as _sho
+from yoke_core.domain.handlers import sessions_steering_groups as _ssg
 
 
 def register(registry) -> None:
@@ -52,6 +53,20 @@ def register(registry) -> None:
         _sl.SessionsListResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.sessions_list",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "sessions.steering_groups.list",
+        _ssg.handle_sessions_steering_groups_list,
+        _ssg.SteeringGroupsListRequest,
+        _ssg.SteeringGroupsListResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.sessions_steering_groups",
         target_kinds=["global"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],

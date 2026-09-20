@@ -25,6 +25,10 @@ SESSIONS_LIST_USAGE = (
     "[--limit N] [--session S] [--session-id S] [--json]"
 )
 
+SESSIONS_STEERING_GROUPS_LIST_USAGE = (
+    "yoke sessions steering-groups list [--session-id S] [--json]"
+)
+
 
 def _cell(row: Dict[str, Any], field: str) -> str:
     value = row.get(field)
@@ -84,4 +88,40 @@ def sessions_list(args: List[str]) -> int:
     )
 
 
-__all__ = ["SESSIONS_LIST_USAGE", "sessions_list"]
+def sessions_steering_groups_list(args: List[str]) -> int:
+    """Which steering groups are live — the seats, not the sessions in them."""
+    parser = argparse.ArgumentParser(
+        prog="yoke sessions steering-groups list",
+        description=(
+            "List the session id of every live steering seat visible to you. "
+            "One row per group; the roster carries the same identity as "
+            "steering_group_session_id on every session it covers."
+        ),
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, SESSIONS_STEERING_GROUPS_LIST_USAGE)
+    if parsed is None:
+        return 2
+
+    def _human_writer(response, stdout, stderr) -> None:
+        for row in (response.result or {}).get("rows") or []:
+            print(row.get("steering_group_session_id") or "", file=stdout)
+        return None
+
+    return dispatch_and_emit(
+        function_id="sessions.steering_groups.list",
+        target=TargetRef(kind="global"),
+        payload={},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+        human_writer=_human_writer,
+    )
+
+
+__all__ = [
+    "SESSIONS_LIST_USAGE",
+    "SESSIONS_STEERING_GROUPS_LIST_USAGE",
+    "sessions_list",
+    "sessions_steering_groups_list",
+]

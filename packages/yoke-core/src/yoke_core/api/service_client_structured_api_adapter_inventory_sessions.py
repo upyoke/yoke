@@ -56,6 +56,10 @@ SESSION_ADAPTERS = [
         ),
     ),
     _read_entry(
+        function_id="sessions.steering_groups.list",
+        cli_invocation="yoke sessions steering-groups list",
+    ),
+    _read_entry(
         function_id="sessions.hook_overhead",
         cli_invocation="yoke sessions hook-overhead [--hours N] [--json]",
     ),

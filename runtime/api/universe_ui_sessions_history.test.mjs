@@ -60,8 +60,10 @@ async function mountHistory(t, handler) {
       if (request.function === "profile.get") return failed();
       if (request.function === "ui_preferences.screen_selection.list") return ok({ views: {} });
       if (request.function === "ui_preferences.screen_selection.set") return ok({});
-      // Shell reads, not roster reads: the sidebar's remembered drawer state
-      // and the onboarding marker beside it.
+      // Shell reads, not roster reads: the sidebar's remembered drawer state,
+      // the onboarding marker beside it, and the app-wide steering tint,
+      // which asks which groups are live rather than for a roster.
+      if (request.function === "sessions.steering_groups.list") return ok({ rows: [] });
       if (request.function === "ui_preferences.nav_group.list") return ok({ groups: {} });
       if (request.function === "overview.activation.get") return ok({ modules: [] });
       return handler(request);
@@ -92,12 +94,6 @@ const cardIds = (root) => byClass(root, "session-card").map(
 test("ended history is lazy, cursor-paged, and excluded from bulk audiences", async (t) => {
   const open = [row("open-active", "active"), row("open-stale", "stale")];
   const { root, requests, mounted } = await mountHistory(t, (request) => {
-    // The app-wide steering-color roster (context.refreshSteeringGroupColors)
-    // also calls sessions.list, distinguished by per_project rather than a
-    // project scope; it does not affect this view's own open/history rows.
-    if (request.function === "sessions.list" && request.payload.per_project) {
-      return ok({ rows: [] });
-    }
     if (request.function === "sessions.list" && request.payload.open) return ok({ rows: open });
     if (request.function === "sessions.list" && request.payload.history) {
       return request.payload.history.cursor
@@ -109,13 +105,11 @@ test("ended history is lazy, cursor-paged, and excluded from bulk audiences", as
     }
     throw new Error(`unexpected function ${request.function}`);
   });
-  // The app-wide roster refreshes once at boot and once again alongside
-  // this view's own scoped load; the page's own durable 24h spend read
-  // fires beside them.
+  // One roster read, this view's own scoped load; the page's durable 24h
+  // spend read fires beside it, and the steering tint asks its own question
+  // rather than a second complete roster.
   assert.deepEqual(requests.filter((request) => request.function === "sessions.list"), [
-    { function: "sessions.list", payload: { open: true, per_project: true } },
     { function: "sessions.list", payload: { open: true, projects: ["1"] } },
-    { function: "sessions.list", payload: { open: true, per_project: true } },
     { function: "sessions.list", payload: { usage_last_24h: true, projects: ["1"] } },
   ]);
   assert.deepEqual(cardIds(root), ["open-active", "open-stale"]);
@@ -151,11 +145,6 @@ test("ended history is lazy, cursor-paged, and excluded from bulk audiences", as
 test("reclaim refreshes open rows without resetting loaded history", async (t) => {
   let openReads = 0;
   const { root, requests, mounted } = await mountHistory(t, (request) => {
-    // Distinguished from this view's own scoped open reads below; the
-    // app-wide steering-color roster does not touch openReads.
-    if (request.function === "sessions.list" && request.payload.per_project) {
-      return ok({ rows: [] });
-    }
     if (request.function === "sessions.list" && request.payload.open) {
       openReads += 1;
       return ok({ rows: openReads === 1 ? [row("stale", "stale")] : [] });
@@ -172,7 +161,7 @@ test("reclaim refreshes open rows without resetting loaded history", async (t) =
   await settle();
   assert.deepEqual(cardIds(root), ["ended"]);
   assert.equal(requests.filter((request) => request.payload?.history).length, 1);
-  assert.equal(requests.filter((request) => request.payload?.open).length, 4);
+  assert.equal(requests.filter((request) => request.payload?.open).length, 2);
   assert.equal(button(root, "Load more").hidden, false);
   mounted.unmount();
 });
@@ -180,11 +169,6 @@ test("reclaim refreshes open rows without resetting loaded history", async (t) =
 test("a failed reclaim refresh preserves rows and reports recovery", async (t) => {
   let openReads = 0;
   const { root, mounted } = await mountHistory(t, (request) => {
-    // Distinguished from this view's own scoped open reads below; the
-    // app-wide steering-color roster does not touch openReads.
-    if (request.function === "sessions.list" && request.payload.per_project) {
-      return ok({ rows: [] });
-    }
     if (request.function === "sessions.list" && request.payload.open) {
       openReads += 1;
       return openReads === 1 ? ok({ rows: [row("stale", "stale")] })

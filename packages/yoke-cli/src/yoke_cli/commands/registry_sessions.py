@@ -8,6 +8,7 @@ from yoke_cli.commands.adapters.sessions_maintenance import (
     sessions_reclaim_stale,
 )
 from yoke_cli.commands.adapters.sessions_hook_overhead import sessions_hook_overhead
+from yoke_cli.commands.adapters.sessions_read import sessions_steering_groups_list
 
 
 SESSIONS_SUBCOMMAND_REGISTRY = {
@@ -17,6 +18,10 @@ SESSIONS_SUBCOMMAND_REGISTRY = {
         _adapters.sessions_identity,
     ),
     ("sessions", "list"): ("sessions.list", _adapters.sessions_list),
+    ("sessions", "steering-groups", "list"): (
+        "sessions.steering_groups.list",
+        sessions_steering_groups_list,
+    ),
     ("sessions", "hook-overhead"): (
         "sessions.hook_overhead",
         sessions_hook_overhead,
