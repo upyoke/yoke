@@ -8,7 +8,11 @@ from yoke_contracts.session_control.launch_registration import (
     LAUNCH_DELIVERY_PENDING_STATUS,
     NATIVE_LAUNCH_WORKSPACE_FIELD,
 )
-from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.schema_common import (
+    _column_exists,
+    _get_columns,
+    _table_exists,
+)
 from yoke_core.domain.session_launch_registration_candidate import (
     REGISTRATION_CANDIDATE_STATES,
     registration_binding_window,
@@ -46,9 +50,12 @@ def _schema_available(conn: Any) -> bool:
             "ended_at",
         },
     }
+    # One column read per table, not one per column: the question is "does
+    # this schema carry the launch vocabulary", and a table answers all of
+    # its own columns in a single catalog statement.
     return all(
         _table_exists(conn, table)
-        and all(_column_exists(conn, table, column) for column in columns)
+        and columns <= set(_get_columns(conn, table))
         for table, columns in required.items()
     )
 
