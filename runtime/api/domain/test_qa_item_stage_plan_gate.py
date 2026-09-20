@@ -35,12 +35,23 @@ def _run_scoped_stages() -> list[dict]:
 def _item(
     *,
     flow_id: str = "flow-item-scoped",
+    pinned_flow: str = "",
     attachments: list[dict] | None = None,
+    requirements: list[dict] | None = None,
 ) -> dict[str, Any]:
+    """An item as the merge holds it, just before its branch lands.
+
+    ``deployment_flow`` defaults to empty because that is the truth at this
+    moment: the project default is not written onto the item until the run
+    admits it, which is after the merge. ``completion_flow`` is the resolved
+    answer the detail read supplies.
+    """
     return {
-        "deployment_flow": flow_id,
+        "deployment_flow": pinned_flow,
+        "completion_flow": flow_id,
         "project": {"slug": "yoke"},
         "qa_plan_attachments": attachments or [],
+        "qa_requirements": requirements or [],
         "workflow": {"id": "dash", "version": 9, "version_id": 663},
     }
 
@@ -100,6 +111,64 @@ def test_a_flow_without_an_item_scoped_stage_never_asks(monkeypatch) -> None:
 
 def test_an_item_with_no_flow_is_unaffected(monkeypatch) -> None:
     assert _refusal(monkeypatch, _item(flow_id=""), ITEM_SCOPED_STAGES) == ""
+
+
+def test_the_unpinned_project_default_is_still_this_items_flow(
+    monkeypatch,
+) -> None:
+    """The gate asked almost nobody while it read the pinned column alone.
+
+    ``items.deployment_flow`` is only written when a run admits the item,
+    which happens after the merge, so at this moment it is empty for
+    essentially every item. Resolving the flow from that column therefore
+    skipped the question for exactly the items that needed it asked.
+    """
+    item = _item(flow_id="flow-item-scoped", pinned_flow="")
+    assert item["deployment_flow"] == ""
+    assert _refusal(monkeypatch, item, ITEM_SCOPED_STAGES) != ""
+
+
+def test_an_explicit_pin_still_answers_when_nothing_resolved_it(
+    monkeypatch,
+) -> None:
+    pinned = {**_item(flow_id="", pinned_flow="flow-item-scoped")}
+    assert gate.completion_flow(pinned) == "flow-item-scoped"
+    assert _refusal(monkeypatch, pinned, ITEM_SCOPED_STAGES) != ""
+
+
+def test_the_refusal_names_declaring_none_as_its_own_answer(
+    monkeypatch,
+) -> None:
+    """Demanding a plan would make "nothing to verify" unrepresentable."""
+    refusal = _refusal(monkeypatch, _item(), ITEM_SCOPED_STAGES)
+    assert f"yoke qa post-deploy declare-none --item {PUBLIC_REF}" in refusal
+    # And the run-scoped choice is named as the different thing it is,
+    # rather than silently defaulted to or left out.
+    assert "--plan" in refusal
+    assert "writes nothing the item keeps" in refusal
+
+
+def test_a_recorded_declaration_clears_the_landing(monkeypatch) -> None:
+    item = _item(
+        requirements=[
+            {
+                "qa_phase": "post_deploy",
+                "waived_at": "2026-09-20T00:00:00Z",
+                "waiver_rationale": "internal refactor, no runtime surface",
+            }
+        ]
+    )
+    assert _refusal(monkeypatch, item, ITEM_SCOPED_STAGES) == ""
+
+
+def test_an_unwaived_post_deploy_requirement_is_already_an_answer(
+    monkeypatch,
+) -> None:
+    """An ad-hoc post-deploy case is verification, even with no plan attached."""
+    item = _item(
+        requirements=[{"qa_phase": "post_deploy", "waived_at": None}]
+    )
+    assert _refusal(monkeypatch, item, ITEM_SCOPED_STAGES) == ""
 
 
 def test_the_attach_transition_comes_from_the_pinned_workflow(

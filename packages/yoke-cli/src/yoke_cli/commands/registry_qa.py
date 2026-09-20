@@ -12,6 +12,7 @@ from typing import Callable, Dict, List, Tuple
 from yoke_cli.commands.adapters import qa as _qa
 from yoke_cli.commands.adapters import qa_browser as _qa_browser
 from yoke_cli.commands.adapters import qa_crud as _qa_crud
+from yoke_cli.commands.adapters import qa_post_deploy as _qa_post_deploy
 from yoke_cli.commands.adapters import qa_crud_batch as _qa_crud_batch
 from yoke_cli.commands.adapters import qa_read as _qa_read
 from yoke_cli.commands.adapters import (
@@ -32,6 +33,10 @@ QA_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("qa", "requirement", "waive"): (
         "qa.requirement.waive",
         _qa.qa_requirement_waive,
+    ),
+    ("qa", "post-deploy", "declare-none"): (
+        "qa.post_deploy.declare_none",
+        _qa_post_deploy.qa_post_deploy_declare_none,
     ),
     ("qa", "run", "record-verdict"): (
         "qa.run.record_verdict",

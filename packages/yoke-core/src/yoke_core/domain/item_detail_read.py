@@ -16,6 +16,7 @@ from typing import Any, Sequence
 from yoke_contracts.public_ref import format_item_ref
 from yoke_contracts.merge_queue_status import render_merge_queue_status
 from yoke_core.domain import db_backend, db_helpers
+from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow
 from yoke_core.domain.file_budget_paths import extract_file_budget_paths
 from yoke_core.domain.field_note_dash_promotion import (
     source_field_note_for_dash,
@@ -218,6 +219,7 @@ def get_item_detail(
             "created_at": row.get("created_at"),
             "updated_at": row.get("updated_at"),
             "deployment_flow": row.get("deployment_flow"),
+            "completion_flow": item_completion_flow(conn, item_id),
             "merge_queue": {
                 "pr_number": str(row.get("merge_queue_pr_number") or ""),
                 "enqueued_at": str(row.get("merge_queue_enqueued_at") or ""),

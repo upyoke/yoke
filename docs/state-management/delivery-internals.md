@@ -25,6 +25,49 @@ Those names are definition-owned, not a universal item progression.
 
 **The `deploy_stage` column** on the `items` table is retained as a read cache during the transition period, kept in sync with the run's `current_stage`. New code should read stage from the run, not from the item. See `packages/yoke-core/src/yoke_core/domain/approval.py` constants `STAGE_AUTHORITY_FIELD` (`current_stage`) and `STAGE_CACHE_FIELD` (`deploy_stage`) for the canonical machine-readable distinction.
 
+## Post-Deploy Verification Is Asked At The Release Wait
+
+An item-scoped QA stage runs after the deploy, so it is far too late to be
+the first surface that asks a member what it wants verified once the code is
+live. `qa_phase_boundary` already names the release wait as the first stage a
+`post_deploy` row may bind to, so that wait is where the question belongs —
+and it is the last moment the owner is still present, holding the claim and
+the lane.
+
+The merge close-out asks it there. When an item reaches (or re-enters) its
+release wait with no post-deploy record at all, `release_wait_park` puts a
+`post_deploy_verification: unanswered` block and a `post_deploy_prompt` on
+the envelope, and the close-out report prints it beside what the owner is
+waiting on. The prompt names three different things rather than defaulting
+between them:
+
+- **Standing** — `yoke qa item-plan attach ... --qa-phase post_deploy` writes
+  a per-item attachment every future deployment resolves.
+- **Nothing to verify** — `yoke qa post-deploy declare-none --item PREFIX-N
+  --reason TEXT` records the decision and the reason.
+- **Run-scoped** — `--plan` on a running deployment stage binds cases to that
+  one run and writes nothing durable. It needs a run, so it is named at the
+  close-out as unavailable rather than omitted.
+
+`post_deploy_verification_answer` is the single classifier both surfaces
+read, so the prompt and the gate cannot disagree about one item. It answers
+`answered` (a live post-deploy attachment or requirement), `declared_none`
+(only waived post-deploy rows, carrying their recorded reasons), or
+`unanswered` (no post-deploy record of any kind).
+
+The deployment QA stage honours the difference. A member that recorded a
+declaration materializes no cases and its stage reports `discharged`; a
+member nobody asked keeps the `QaCasesNotSelectedError` wait exactly as
+before. An empty case set on its own is still never enough — silence is not
+a declaration.
+
+The declaration needs no storage of its own: it is the item's `post_deploy`
+requirement waived with its reason, so `waived_at`, `waiver_rationale` and
+`waiver_source` carry it and the done gate already reads a waiver as a
+cleared post-deploy blocker. `yoke qa post-deploy declare-none` exists so
+that is one named act rather than adding an obligation in order to decline
+it.
+
 ## Halt States
 
 > **Vocabulary note:** Halt states (`awaiting-approval`,

@@ -39,6 +39,9 @@ from yoke_core.domain.deployment_qa_execution_target import (
 from yoke_core.domain.deployment_qa_admission_materialization import (
     fulfill_admitted_obligations,
 )
+from yoke_core.domain.post_deploy_verification_answer import (
+    member_post_deploy_answer,
+)
 from yoke_core.domain import qa_execution_environment_target as target_authority
 
 
@@ -222,6 +225,12 @@ def _settle_stage_status(
             # See deployment_qa_stage_acceptance: a subject whose every case
             # is waived or superseded has nothing left to run, so the missing
             # execution is the expected end state rather than a blocker.
+            return discharged()
+        if member_post_deploy_answer(conn, subject).declared_none:
+            # The other way a subject can have nothing left to run: the member
+            # RECORDED, before its deploy, that it needs no post-deploy check.
+            # An empty case set alone is never enough -- that is a member
+            # nobody asked, which stays held.
             return discharged()
         reasons.insert(0, "no completed scoped QA execution exists")
     if reasons:

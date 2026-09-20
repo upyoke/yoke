@@ -34,9 +34,10 @@ from yoke_core.domain.deployment_qa_case_failure_kinds import (
 OUTCOME_PASSED = "passed"
 OUTCOME_REJECTED = "rejected"
 OUTCOME_WAITING = "waiting"
-#: Nothing was left to execute because every case was waived or superseded.
-#: Accepted for gating, named separately so a discharge never reads back as
-#: a result that passed.
+#: Nothing was left to execute: every case was waived or superseded, or the
+#: member recorded before its deploy that it needs no post-deploy check at
+#: all. Accepted for gating, named separately so a discharge never reads
+#: back as a result that passed.
 OUTCOME_DISCHARGED = "discharged"
 #: At least one scoped case holds a determinate failing verdict, so this
 #: stage cannot finish as it stands. Not acceptable -- exactly as unacceptable

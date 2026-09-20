@@ -1,21 +1,36 @@
-"""Require a member's own item QA plan before its branch lands.
+"""Ask an item what it wants verified after its deploy, before it lands.
 
 An item whose delivery flow carries an item-scoped QA stage will be asked,
 after deployment, to prove its own behaviour on the deployed candidate. If
-it reaches that wake with no plan of its own, the only moves left are bad
+it reaches that wake having never been asked, the only moves left are bad
 ones: borrow another item's plan and inherit criteria that were never about
 this change, or author a probe under time pressure whose first execution is
 against production, after the case has frozen. From there a defect can only
 be waived or superseded.
 
-The plan is cheap to write while the item is still in hand, and its cases
-are editable right up to the moment one answers. So this refuses the landing
+Answering is cheap while the item is still in hand, and its cases are
+editable right up to the moment one answers. So this refuses the landing
 instead, where correcting it costs nothing.
 
+The question has more than one right answer, so the refusal names each as
+itself rather than demanding a plan: a standing attachment every future
+deployment resolves, or a recorded declaration that this item needs nothing
+verified once it is live. :mod:`post_deploy_verification_answer` is the
+classifier both this gate and the deployment QA stage read, so an item
+cannot be refused here as unanswered and then read there as declared.
+
 The check reads the flow definition rather than any project's conventions:
-an item is only asked for a plan when its own resolved flow declares a QA
-stage scoped to items. A flow with no such stage, or none at all, is
-unaffected.
+an item is only asked when its own resolved flow declares a QA stage scoped
+to items. A flow with no such stage, or none at all, is unaffected.
+
+**The flow is the one that will close the item, not the column.**
+``items.deployment_flow`` holds an explicit pin, and
+:func:`yoke_core.domain.deployment_item_flow_resolution.freeze_item_completion_flow`
+does not write the project default into it until the item is admitted to a
+run — which happens after the merge. Reading that column here therefore
+asked the question of almost nobody. The resolved answer travels on the item
+detail payload as ``completion_flow``, the same explicit-pin-else-default
+resolution every other delivery consumer uses.
 
 Both facts it needs already travel over the serving control plane -- the
 flow's stages through the ``deployment_flows.stages`` read, and the item's
@@ -35,6 +50,12 @@ from typing import Any, Iterable
 
 from yoke_core.domain.qa_deployment_member_attached_plans import (
     DEPLOYMENT_ATTACHMENT_PHASE,
+)
+from yoke_core.domain.post_deploy_verification_answer import (
+    RUN_SCOPED_NOTE,
+    answer_from_item_detail,
+    attach_standing_recipe,
+    declare_none_recipe,
 )
 
 #: Where post-deploy acceptance binds when the workflow declares no
@@ -159,13 +180,23 @@ def flow_stages(flow_id: str) -> tuple[Any, str]:
     return (result or {}).get("stages"), ""
 
 
+def completion_flow(item: Mapping[str, Any]) -> str:
+    """The flow that will close this item, as the detail read resolved it.
+
+    ``deployment_flow`` is only the explicit pin and is empty on almost every
+    item before it merges, so it is the fallback rather than the answer.
+    """
+    resolved = str(item.get("completion_flow") or "").strip()
+    return resolved or str(item.get("deployment_flow") or "").strip()
+
+
 def missing_item_qa_plan_refusal(
     item: Mapping[str, Any],
     *,
     public_ref: str,
 ) -> str:
     """Empty when this item may land, else why it may not and what to do."""
-    flow_id = str(item.get("deployment_flow") or "").strip()
+    flow_id = completion_flow(item)
     if not flow_id:
         return ""
     project = item.get("project")
@@ -187,38 +218,44 @@ def missing_item_qa_plan_refusal(
         return ""
     if not stages_declare_item_scoped_qa(stages):
         return ""
-    if has_attached_member_plan(item.get("qa_plan_attachments") or []):
+    if not answer_from_item_detail(item).unanswered:
         return ""
     transition = attachment_transition(item)
     return (
         f"merge refused before the branch landed:\n"
         f"  {public_ref}'s delivery flow {flow_id!r} has an item-scoped QA "
-        "stage, so after deployment this item must prove its own behaviour on "
-        "the deployed candidate -- but it has no QA plan of its own attached.\n"
-        "  Attaching one now, while its cases are still editable, is what "
-        "keeps that proof from being written under pressure against "
-        "production.\n"
-        "  Author a plan whose cases test this item's acceptance criteria, "
-        "attach it, and dry-run it once against your own candidate:\n"
+        "stage, so after deployment this item will be asked to prove its own "
+        "behaviour on the deployed candidate -- and it has not said what that "
+        "proof is, or that it needs none.\n"
+        "  Answer it here, while the cases are still editable and the "
+        "candidate is still yours. Asked any later, the question arrives with "
+        "production already serving the code it was meant to check.\n"
+        "  If this item has something to verify once it is live, author a "
+        "plan whose cases test this item's acceptance criteria, attach it, "
+        "and dry-run it once against your own candidate:\n"
         f"    yoke qa plan create <slug> --project {project_slug} "
         "--environment <env>\n"
         f"    yoke qa plan-cases replace --project {project_slug} "
         "--plan-id <id> --stdin\n"
-        f"    yoke qa item-plan attach --item {public_ref} "
-        f"--project {project_slug} --plan-id <id> "
-        f"--transition {transition} "
-        f"--qa-phase {DEPLOYMENT_ATTACHMENT_PHASE}\n"
+        f"    {attach_standing_recipe(public_ref, project=project_slug, transition=transition)}\n"
         f"    yoke qa plan run --item {public_ref} "
         f"--transition {transition} "
         "--base-url <your candidate>\n"
-        "  The deployment stage then picks that plan up on its own; no plan "
-        "choice is needed at the wake."
+        "  That attachment is standing: every future deployment of this item "
+        "resolves it, and the deployment stage picks it up on its own, so no "
+        "plan choice is needed at the wake.\n"
+        "  If it genuinely has nothing to verify once it is live, record that "
+        "and why -- a declared 'none' is an answer, an unanswered item is "
+        "not:\n"
+        f"    {declare_none_recipe(public_ref)}\n"
+        f"  {RUN_SCOPED_NOTE}"
     )
 
 
 __all__ = [
     "DEFAULT_ATTACHMENT_TRANSITION",
     "attachment_transition",
+    "completion_flow",
     "flow_stages",
     "has_attached_member_plan",
     "item_scoped_qa_stage_names",
