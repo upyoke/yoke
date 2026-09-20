@@ -105,6 +105,11 @@ def handle_plan_execution_begin(
     assert isinstance(parsed, PlanExecutionBeginRequest)
 
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.qa_plan_empty_roster import (
+        DISCHARGED_BEGIN_CODE,
+        QaPlanRosterDischarged,
+    )
+    from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
     from yoke_core.domain.qa_plan_execution_state import (
         QaPlanExecutionStateError,
         begin_plan_execution,
@@ -135,7 +140,10 @@ def handle_plan_execution_begin(
             session_id=request.actor.session_id,
         )
         result = plan_execution_view(conn, execution)
-    except (QaPlanExecutionStateError, ValueError) as exc:
+    except QaPlanRosterDischarged as exc:
+        conn.rollback()
+        return _error(DISCHARGED_BEGIN_CODE, str(exc), "$.payload")
+    except (QaPlanExecutionStateError, ValueError, QaPlanExecutionError) as exc:
         conn.rollback()
         return _error("plan_execution_begin_failed", str(exc), "$.payload")
     finally:

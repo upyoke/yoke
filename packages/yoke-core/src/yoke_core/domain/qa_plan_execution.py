@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any, Optional
 
@@ -73,12 +74,21 @@ def execute_plan(
     for key, value in (("machine", machine), ("continue_mission", continue_mission)):
         if value:
             begin_payload[key] = value
-    execution = _call_plan_function(
-        function_id="qa.plan_execution.begin",
-        target=target,
-        payload=begin_payload,
-        actor=resolved_actor,
-    )
+    try:
+        execution = _call_plan_function(
+            function_id="qa.plan_execution.begin",
+            target=target,
+            payload=begin_payload,
+            actor=resolved_actor,
+        )
+    except QaPlanExecutionError as exc:
+        from yoke_core.domain.qa_plan_empty_roster import as_discharged_plan_result
+
+        discharged = as_discharged_plan_result(exc)
+        if discharged is None:
+            raise
+        print(f"yoke qa plan run: {discharged['message']}", file=sys.stderr)
+        return discharged
     requirements = execution.get("requirements")
     if not isinstance(requirements, list) or any(
         not isinstance(row, dict) for row in requirements
