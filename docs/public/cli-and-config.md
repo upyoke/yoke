@@ -236,6 +236,20 @@ server as a machine daemon rather than a terminal job: closing the window
 leaves it serving, and on macOS a launch agent brings it back after a
 reboot until you run `yoke ui down`.
 
+The view serves a database this machine holds — a non-prod local-postgres
+connection — and names the environment that answered in the page footer.
+Point it at a particular one by naming that env on the command:
+
+```bash
+YOKE_ENV=local-dev yoke ui up   # serve that universe; the daemon keeps the env
+yoke env list                   # the connections this machine has
+```
+
+That is the recipe to use when rendering a view for review: the footer
+label travels into a screenshot, so the capture says which universe
+produced it. Any connection the server would answer from somewhere else
+refuses at startup and names the env to switch to.
+
 The URL carries a session token — treat it like a password. The token is
 stable per machine, so the URL you bookmark keeps working across up/down
 cycles. The server binds loopback only and refuses remote-facing hosts.
