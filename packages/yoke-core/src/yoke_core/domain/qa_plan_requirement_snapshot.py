@@ -1,4 +1,11 @@
-"""Idempotent QA requirement writes for materialized plan cases."""
+"""Idempotent QA requirement writes for materialized plan cases.
+
+What a plan case becomes is :mod:`qa_plan_case_definition`; this module is
+only the two ways it reaches a row. Keeping the derivation there is what lets
+:mod:`qa_plan_case_currency` answer whether a row is still current without
+re-deriving the transform by hand, and it is why an insert and a refresh can
+never drift apart in what they write.
+"""
 
 from __future__ import annotations
 
@@ -6,14 +13,16 @@ import json
 from typing import Any, Iterable, Mapping, Optional
 
 from yoke_core.domain.db_helpers import query_one
-from yoke_core.domain.qa_plan_management import QaPlanError, _json, _placeholder
+from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder
 from yoke_core.domain.qa_events import emit_qa_requirement_event
-from yoke_core.domain.qa_method_capabilities import encoded_capability_kinds
-from yoke_core.domain.machine_qa_case_machine import materialized_capability_kinds
 from yoke_core.domain.qa_execution_environment_target import (
     canonical_target,
     require_case_target,
     target_digest,
+)
+from yoke_core.domain.qa_plan_case_definition import (
+    case_target_subject,
+    materialized_definition,
 )
 
 
@@ -86,28 +95,6 @@ def require_requirement_id_target(
     )[0]
 
 
-def require_runnable_case(case: Any) -> dict:
-    """Return the case config, refusing one its method could never run.
-
-    Plan-case authoring validates the same contract, so this is the second
-    reader of it — and the one that matters, because materialization is
-    what mints the executable requirement. A row written around authoring
-    would otherwise become a requirement whose only possible outcome is a
-    runner refusing it at gate time.
-    """
-    from yoke_core.domain.qa_method_config_validation import (
-        QaMethodConfigError,
-        validate_method_config,
-    )
-
-    raw_config = case["method_config"] or {}
-    config = dict(raw_config) if isinstance(raw_config, Mapping) else json.loads(str(raw_config))
-    try:
-        return validate_method_config(str(case["config_contract_id"]), config)
-    except QaMethodConfigError as exc:
-        raise QaPlanError(f"case {str(case['case_key'])!r}: {exc}") from exc
-
-
 def insert_requirement(
     conn: Any,
     *,
@@ -126,69 +113,29 @@ def insert_requirement(
 ) -> Optional[int]:
     """Insert one immutable plan-case snapshot, returning its new id."""
     marker = _placeholder(conn)
-    policy_id = case["success_policy_id"] or plan["success_policy_id"]
-    raw_params = case["success_policy_params"]
-    if raw_params is None:
-        raw_params = plan["success_policy_params"]
-    params = dict(raw_params) if isinstance(raw_params, Mapping) else json.loads(str(raw_params))
-    method_config = require_runnable_case(case)
-    require_case_target(
-        {
-            "method_id": case["method_id"],
-            "instructions": case["instructions"],
-            "expected_outcome": case["expected_outcome"],
-            "method_config": method_config,
-            "entry_surface": case["entry_surface"],
-        },
-        execution_target,
+    definition = materialized_definition(
+        plan=plan,
+        case=case,
+        qa_phase=str(attachment["qa_phase"]),
+        baseline=baseline,
+        baseline_position=baseline_position,
+        transition_id=transition_id,
+        execution_target=execution_target,
     )
+    require_case_target(case_target_subject(case, definition), execution_target)
+    subject = {
+        "item_id": item_id,
+        "deployment_run_id": deployment_run_id,
+        "deployment_stage": deployment_stage,
+        "deployment_member_item_id": deployment_member_item_id,
+    }
+    columns = (*subject, *definition, "created_at")
+    values = (*subject.values(), *definition.values(), now)
     row = conn.execute(
-        "INSERT INTO qa_requirements("
-        "item_id, deployment_run_id, deployment_stage, "
-        "deployment_member_item_id, qa_kind, qa_phase, blocking_mode, "
-        "requirement_source, success_policy, capability_requirements, "
-        "plan_id, plan_case_key, case_position, baseline_position, "
-        "method_id, method_name, runner_id, verdict_path, host_baseline, "
-        "entry_surface, required_completion, "
-        "workflow_transition_id, instructions, expected_outcome, "
-        "method_config, execution_target_json, execution_target_digest, created_at"
-        f") VALUES ({', '.join([marker] * 28)}) "
+        f"INSERT INTO qa_requirements({', '.join(columns)}) "
+        f"VALUES ({', '.join([marker] * len(values))}) "
         "ON CONFLICT DO NOTHING RETURNING id",
-        (
-            item_id,
-            deployment_run_id,
-            deployment_stage,
-            deployment_member_item_id,
-            "plan_case",
-            str(attachment["qa_phase"]),
-            "blocking",
-            "flow_derived",
-            _json({"id": policy_id, "params": params}),
-            encoded_capability_kinds(
-                materialized_capability_kinds(
-                    case["required_capability_kinds"], method_config
-                ),
-                subject=f"plan case {case['case_key']!r}",
-            ),
-            int(plan["id"]),
-            str(case["case_key"]),
-            int(case["position"]),
-            int(baseline_position),
-            str(case["method_id"]),
-            str(case["method_name"]),
-            str(case["runner_id"]),
-            str(case["verdict_path"]),
-            baseline,
-            case["entry_surface"],
-            case["required_completion"],
-            transition_id,
-            str(case["instructions"]),
-            str(case["expected_outcome"]),
-            _json(method_config),
-            canonical_target(execution_target),
-            target_digest(execution_target),
-            now,
-        ),
+        values,
     ).fetchone()
     if row is None:
         return None
@@ -228,66 +175,30 @@ def refresh_requirement(
     baseline_position: int,
     execution_target: dict[str, Any],
 ) -> None:
-    """Refresh a materialized case without severing its run history."""
+    """Refresh a materialized case without severing its run history.
+
+    This is the one write that brings a live row back to its plan's current
+    text, and it reaches every executable column — instructions and
+    expected_outcome included — because it writes the derivation whole rather
+    than going through the narrow ``qa.requirement.update`` allowlist.
+    """
     marker = _placeholder(conn)
-    policy_id = case["success_policy_id"] or plan["success_policy_id"]
-    raw_params = case["success_policy_params"]
-    if raw_params is None:
-        raw_params = plan["success_policy_params"]
-    params = dict(raw_params) if isinstance(raw_params, Mapping) else json.loads(str(raw_params))
-    method_config = require_runnable_case(case)
-    require_case_target(
-        {
-            "method_id": case["method_id"],
-            "instructions": case["instructions"],
-            "expected_outcome": case["expected_outcome"],
-            "method_config": method_config,
-            "entry_surface": case["entry_surface"],
-        },
-        execution_target,
+    definition = materialized_definition(
+        plan=plan,
+        case=case,
+        qa_phase=str(attachment["qa_phase"]),
+        baseline=baseline,
+        baseline_position=baseline_position,
+        transition_id=transition_id,
+        execution_target=execution_target,
     )
+    require_case_target(case_target_subject(case, definition), execution_target)
+    assignments = ", ".join(f"{column}={marker}" for column in definition)
     conn.execute(
-        "UPDATE qa_requirements SET qa_kind='plan_case', "
-        f"qa_phase={marker}, blocking_mode='blocking', "
-        "requirement_source='flow_derived', "
-        f"success_policy={marker}, capability_requirements={marker}, "
-        f"plan_id={marker}, plan_case_key={marker}, case_position={marker}, "
-        f"baseline_position={marker}, method_id={marker}, method_name={marker}, "
-        f"runner_id={marker}, verdict_path={marker}, "
-        f"host_baseline={marker}, entry_surface={marker}, "
-        f"required_completion={marker}, workflow_transition_id={marker}, "
-        f"instructions={marker}, expected_outcome={marker}, method_config={marker}, "
-        f"execution_target_json={marker}, execution_target_digest={marker}, "
+        f"UPDATE qa_requirements SET {assignments}, "
         "waived_at=NULL, waiver_rationale=NULL, waiver_source=NULL "
         f"WHERE id={marker}",
-        (
-            str(attachment["qa_phase"]),
-            _json({"id": policy_id, "params": params}),
-            encoded_capability_kinds(
-                materialized_capability_kinds(
-                    case["required_capability_kinds"], method_config
-                ),
-                subject=f"plan case {case['case_key']!r}",
-            ),
-            int(plan["id"]),
-            str(case["case_key"]),
-            int(case["position"]),
-            int(baseline_position),
-            str(case["method_id"]),
-            str(case["method_name"]),
-            str(case["runner_id"]),
-            str(case["verdict_path"]),
-            baseline,
-            case["entry_surface"],
-            case["required_completion"],
-            transition_id,
-            str(case["instructions"]),
-            str(case["expected_outcome"]),
-            _json(method_config),
-            canonical_target(execution_target),
-            target_digest(execution_target),
-            int(requirement_id),
-        ),
+        (*definition.values(), int(requirement_id)),
     )
 
 
@@ -343,7 +254,6 @@ __all__ = [
     "existing_requirement_id",
     "insert_requirement",
     "refresh_requirement",
-    "require_runnable_case",
     "require_existing_target",
     "require_requirement_id_target",
 ]

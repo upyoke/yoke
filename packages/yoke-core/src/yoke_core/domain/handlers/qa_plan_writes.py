@@ -69,6 +69,10 @@ class PlanCasesReplaceRequest(BaseModel):
 class PlanCasesReplaceResponse(BaseModel):
     plan_id: int
     case_count: int
+    #: Rows already materialized from this plan that the replacement did not
+    #: reach, each with the refresh command that does.
+    requirements_behind_plan: List[Dict[str, Any]] = []
+    requirements_behind_plan_count: int = 0
 
 
 class ProjectDefaultSetRequest(BaseModel):
@@ -194,6 +198,7 @@ def handle_plan_cases_replace(
     if error is not None:
         return error
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.qa_plan_case_currency import plan_drift_report
     from yoke_core.domain.qa_plan_management import (
         QaPlanError,
         replace_plan_cases,
@@ -211,6 +216,9 @@ def handle_plan_cases_replace(
                 plan_id=payload.plan_id,
                 cases=payload.cases,
             )
+            # The replacement writes the plan and nothing else by design;
+            # naming the rows it left behind is what keeps that honest.
+            result.update(plan_drift_report(conn, int(result["plan_id"])))
     except QaPlanError as exc:
         return _error("incompatible", str(exc), "$.payload")
     return HandlerOutcome(result_payload=result, primary_success=True)

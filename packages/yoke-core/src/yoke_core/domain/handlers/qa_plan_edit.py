@@ -51,6 +51,11 @@ class PlanEditResponse(BaseModel):
     case_count: int
     updated_at: str
     unchanged: bool
+    #: Rows already materialized from this plan that the edit did not reach,
+    #: each with the refresh command that does. An empty list is the whole
+    #: answer: nothing is behind this plan.
+    requirements_behind_plan: List[Dict[str, Any]] = []
+    requirements_behind_plan_count: int = 0
 
 
 def _error(code: str, message: str, jsonpath: str) -> HandlerOutcome:
@@ -73,6 +78,7 @@ def handle_plan_edit(request: FunctionCallRequest) -> HandlerOutcome:
         return _error("payload_invalid", str(exc), "$.payload")
 
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.qa_plan_case_currency import plan_drift_report
     from yoke_core.domain.qa_plan_edit import (
         QaPlanConflictError,
         edit_plan,
@@ -85,6 +91,9 @@ def handle_plan_edit(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 **payload.model_dump(mode="python"),
             )
+            # Read after the write commits, so the report names what is
+            # behind the plan as it now stands rather than as it was read.
+            result.update(plan_drift_report(conn, int(result["plan_id"])))
     except QaPlanConflictError as exc:
         return _error("conflict", str(exc), "$.payload.base_updated_at")
     except QaPlanError as exc:
