@@ -27,7 +27,9 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.actors import actor_display_labels, is_human_actor
+from yoke_core.domain.actor_render import actor_display_labels
+from yoke_core.domain.decision_answers import actor_decision, list_decisions
+from yoke_core.domain.actors import is_human_actor
 from yoke_core.domain.approval_policy import (
     APPROVAL_MODE_ALL,
     APPROVAL_ROLE_LABELS,
@@ -79,42 +81,6 @@ class ApprovalProgress:
             "action": self.action,
             "summary": self.summary,
         }
-
-
-def list_decisions(conn: Any, request_id: int) -> list[dict[str, Any]]:
-    """Return one request's answers in the order they were given."""
-    p = _p(conn)
-    rows = conn.execute(
-        "SELECT id, actor_id, action, note, decided_at, decided_session_id "
-        f"FROM decision_request_decisions WHERE request_id = {p} "
-        "ORDER BY decided_at, id",
-        (int(request_id),),
-    ).fetchall()
-    return [
-        {
-            "id": int(row[0]),
-            "actor_id": int(row[1]),
-            "action": str(row[2]),
-            "note": row[3],
-            "decided_at": str(row[4]),
-            # Which surface answered. Empty for a decision recorded before
-            # the session was stored, and for one taken with no session.
-            "decided_session_id": str(row[5] or ""),
-        }
-        for row in rows
-    ]
-
-
-def actor_decision(
-    conn: Any,
-    request_id: int,
-    actor_id: int,
-) -> Optional[dict[str, Any]]:
-    """Return this actor's own answer, when they have already given one."""
-    for decision in list_decisions(conn, request_id):
-        if decision["actor_id"] == int(actor_id):
-            return decision
-    return None
 
 
 def record_decision(
@@ -241,11 +207,21 @@ def _box_label(
     return str(box["label"])
 
 
-def evaluate_decisions(conn: Any, request: dict[str, Any]) -> ApprovalProgress:
-    """Derive one request's resolution from its answers against its policy."""
+def evaluate_decisions(
+    conn: Any,
+    request: dict[str, Any],
+    *,
+    decisions: Optional[list[dict[str, Any]]] = None,
+) -> ApprovalProgress:
+    """Derive one request's resolution from its answers against its policy.
+
+    *decisions* is the request's already-read answer list; passing it keeps
+    a caller that composed the request from reading the same answers twice.
+    """
     mode = str(request.get("approval_mode") or DEFAULT_APPROVAL_MODE)
     boxes = _boxes(request)
-    decisions = list_decisions(conn, int(request["id"]))
+    if decisions is None:
+        decisions = list_decisions(conn, int(request["id"]))
     if request.get("status") == "pending":
         boxes = [
             box
@@ -302,9 +278,7 @@ def evaluate_decisions(conn: Any, request: dict[str, Any]) -> ApprovalProgress:
 __all__ = [
     "ApprovalProgress",
     "REJECTING_ACTIONS",
-    "actor_decision",
     "actor_display_label",
     "evaluate_decisions",
-    "list_decisions",
     "record_decision",
 ]

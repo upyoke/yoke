@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -10,6 +10,10 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
+)
+from yoke_core.domain.sessions_visible_roster import (
+    open_roster_rows,
+    resolve_project_ids,
 )
 
 
@@ -66,27 +70,6 @@ def _incompatible_keys(payload: Dict[str, Any], *extra: str) -> List[str]:
     ]
 
 
-def _resolve_project_ids(
-    conn: Any, project_refs: Sequence[str], visible: Optional[set[int]]
-) -> Optional[set[int]]:
-    """Named refs resolved against visibility, or ``visible`` unscoped when
-    none are named. An unresolvable ref yields the empty set (matches
-    nothing) rather than silently widening back to every visible project."""
-    from yoke_core.domain.project_identity import resolve_project
-
-    if not project_refs:
-        return visible
-    project_ids: set[int] = set()
-    for project in project_refs:
-        ident = resolve_project(
-            conn, project, required=False, visible_project_ids=visible
-        )
-        if ident is None:
-            return set()
-        project_ids.add(ident.id)
-    return project_ids
-
-
 def _history_error(exc: ValidationError) -> HandlerOutcome:
     issue = exc.errors()[0]
     path = ".".join(str(part) for part in issue.get("loc", ()))
@@ -112,7 +95,7 @@ def _history_result(
     try:
         actor = request.actor.actor_id if request.actor else None
         visible = actor_visible_project_ids(conn, numeric_actor_id(actor))
-        project_ids = _resolve_project_ids(conn, history.projects, visible)
+        project_ids = resolve_project_ids(conn, history.projects, visible)
         result = read_ended_session_history(
             conn,
             project_ids=project_ids,
@@ -149,43 +132,11 @@ def _recent_usage_result(
     try:
         actor = request.actor.actor_id if request.actor else None
         visible = actor_visible_project_ids(conn, numeric_actor_id(actor))
-        project_ids = _resolve_project_ids(conn, project_refs, visible)
+        project_ids = resolve_project_ids(conn, project_refs, visible)
         result = read_recent_session_usage_by_machine(conn, project_ids=project_ids)
     finally:
         conn.close()
     return HandlerOutcome(result_payload=result, primary_success=True)
-
-
-def _open_rows(
-    request: FunctionCallRequest,
-    project_refs: List[str],
-    limit: int,
-) -> List[Dict[str, Any]]:
-    from yoke_core.domain import db_helpers
-    from yoke_core.domain.actor_project_visibility import (
-        actor_visible_project_ids,
-        numeric_actor_id,
-    )
-    from yoke_core.domain.sessions_list_read import list_sessions
-
-    conn = db_helpers.connect()
-    try:
-        actor = request.actor.actor_id if request.actor else None
-        visible = actor_visible_project_ids(conn, numeric_actor_id(actor))
-        project_ids = _resolve_project_ids(conn, project_refs, visible)
-    finally:
-        conn.close()
-    if project_ids is None:
-        return list_sessions(open=True, limit=limit)
-    # A session's live steering claim can name a project other than its own
-    # home project, so the same session now legitimately matches more than
-    # one project's per-project fetch below; keep its first appearance and
-    # drop the repeat rather than showing one session twice in the roster.
-    by_session_id: Dict[str, Dict[str, Any]] = {}
-    for project_id in sorted(project_ids):
-        for row in list_sessions(project=str(project_id), open=True, limit=limit):
-            by_session_id.setdefault(str(row.get("session_id") or ""), row)
-    return list(by_session_id.values())
 
 
 def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
@@ -311,7 +262,7 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
         )
         effective_limit = limit if limit is not None else default_limit
         if open_only:
-            rows = _open_rows(
+            rows = open_roster_rows(
                 request, projects or ([project] if project else []), effective_limit
             )
         else:

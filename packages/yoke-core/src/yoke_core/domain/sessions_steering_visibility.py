@@ -22,7 +22,10 @@ from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.session_message_routing import session_liveness
 from yoke_core.domain.sessions_holdings_claim_facts import steered_document_slugs
 from yoke_core.domain.steering_scope_coverage import covering_seat, live_steering_claims
-from yoke_core.domain.steering_scope_membership import item_coverage_target
+from yoke_core.domain.steering_scope_membership import (
+    item_coverage_target,
+    item_document_links,
+)
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
@@ -202,6 +205,12 @@ def steering_visibility(
     )
     holders = {str(claim["session_id"]) for claim in claims}
     held_items = _held_item_ids(conn, session_ids)
+    # Every covered worker's target names the document its held item is
+    # linked to. Asking per row made the read one link query per session; the
+    # page's items are known here, so the whole set resolves in one.
+    document_links = item_document_links(
+        conn, (item_id for item_id, _project_id in held_items.values()),
+    )
     projected = {
         session_id: {field: None for field in _OUTPUT_FIELDS}
         for session_id in session_ids
@@ -222,7 +231,10 @@ def steering_visibility(
         seat = covering_seat(
             conn,
             item_coverage_target(
-                conn, project_id=item_project_id, item_id=item_id
+                conn,
+                project_id=item_project_id,
+                item_id=item_id,
+                links=document_links,
             ),
             claims=claims,
         )

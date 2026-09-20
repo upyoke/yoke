@@ -20,6 +20,7 @@ from yoke_core.domain.deployment_qa_case_failure_kinds import (
     FAILURE_UNRUN,
     classify_verdict,
 )
+from yoke_core.domain.qa_execution_proof import qa_artifact_counts_by_run
 from yoke_core.domain.qa_obligation_settlement import obligation_settled
 
 
@@ -89,47 +90,71 @@ def obligations_fully_discharged(
 #: run. The digest predicate still carries the target-identity guarantee, so
 #: evidence recorded against a replaced target is no more visible than before.
 _CASE_EVIDENCE_SQL = (
-    "SELECT r.result_json FROM qa_plan_execution_results r "
+    "SELECT r.requirement_id,r.result_json FROM qa_plan_execution_results r "
     "JOIN qa_plan_executions e ON e.id=r.execution_id "
-    "WHERE r.requirement_id=%s AND e.deployment_run_id=%s "
+    "WHERE r.requirement_id IN ({placeholders}) AND e.deployment_run_id=%s "
     "AND e.deployment_stage=%s "
     "AND COALESCE(e.deployment_member_item_id,0)=%s "
     "AND e.execution_target_digest=%s AND e.state='completed' "
-    "ORDER BY r.completed_at DESC,r.ordinal DESC"
+    "ORDER BY r.requirement_id,r.completed_at DESC,r.ordinal DESC"
+)
+
+#: Each case's accepted verdict and the run that carries it, for the whole
+#: case set at once. A subject's cases are known before any of them is
+#: graded, so this is one statement per subject rather than one per case.
+_LATEST_VERDICTS_SQL = (
+    "SELECT DISTINCT ON (qa_requirement_id) qa_requirement_id,id,verdict "
+    "FROM qa_runs WHERE qa_requirement_id IN ({placeholders}) "
+    "ORDER BY qa_requirement_id,created_at DESC,id DESC"
 )
 
 
-def _artifact_count(conn: Any, qa_run_id: int) -> int:
-    return int(
-        conn.execute(
-            "SELECT COUNT(*) FROM qa_artifacts WHERE qa_run_id=%s",
-            (int(qa_run_id),),
-        ).fetchone()[0]
+def _placeholders(values: tuple[int, ...]) -> str:
+    return ",".join("%s" for _ in values)
+
+
+def _latest_verdicts(
+    conn: Any, requirement_ids: tuple[int, ...]
+) -> dict[int, tuple[int, str]]:
+    """Each case's accepted run id and verdict, in one statement for the set."""
+    if not requirement_ids:
+        return {}
+    rows = query_rows(
+        conn,
+        _LATEST_VERDICTS_SQL.format(placeholders=_placeholders(requirement_ids)),
+        requirement_ids,
     )
+    return {
+        int(row["qa_requirement_id"]): (int(row["id"]), str(row["verdict"] or ""))
+        for row in rows
+    }
 
 
 def _execution_evidence_runs(
     conn: Any,
+    requirement_ids: tuple[int, ...],
     *,
-    requirement_id: int,
     run_id: str,
     stage_name: str,
     member_item_id: int | None,
     execution_target_digest: str,
-) -> list[int]:
-    """The run ids this subject's completed execution results name."""
-    runs: list[int] = []
-    for row in query_rows(
+) -> dict[int, list[int]]:
+    """Per case, the run ids its completed execution results name, in order."""
+    if not requirement_ids:
+        return {}
+    rows = query_rows(
         conn,
-        _CASE_EVIDENCE_SQL,
+        _CASE_EVIDENCE_SQL.format(placeholders=_placeholders(requirement_ids)),
         (
-            int(requirement_id),
+            *requirement_ids,
             run_id,
             stage_name,
             member_item_id or 0,
             execution_target_digest,
         ),
-    ):
+    )
+    grouped: dict[int, list[int]] = {}
+    for row in rows:
         raw_result = row["result_json"]
         result = (
             dict(raw_result)
@@ -138,19 +163,15 @@ def _execution_evidence_runs(
         )
         evidence_run_id = result.get("qa_run_id") or result.get("run_id")
         if evidence_run_id is not None:
-            runs.append(int(evidence_run_id))
-    return runs
+            grouped.setdefault(int(row["requirement_id"]), []).append(
+                int(evidence_run_id)
+            )
+    return grouped
 
 
 def _inspect_evidence(
-    conn: Any,
-    *,
-    verdict_run_id: int,
-    requirement_id: int,
-    run_id: str,
-    stage_name: str,
-    member_item_id: int | None,
-    execution_target_digest: str,
+    candidates: list[int],
+    runs_with_artifacts: set[int],
 ) -> tuple[bool, list[int]]:
     """Whether any candidate run carries artifacts, and the runs inspected.
 
@@ -164,23 +185,12 @@ def _inspect_evidence(
 
     The inspected ids are returned so a refusal can say where it looked.
     """
-    candidates = [
-        verdict_run_id,
-        *_execution_evidence_runs(
-            conn,
-            requirement_id=requirement_id,
-            run_id=run_id,
-            stage_name=stage_name,
-            member_item_id=member_item_id,
-            execution_target_digest=execution_target_digest,
-        ),
-    ]
     inspected: list[int] = []
     for candidate in candidates:
         if candidate in inspected:
             continue
         inspected.append(candidate)
-        if _artifact_count(conn, candidate):
+        if candidate in runs_with_artifacts:
             return True, inspected
     return False, inspected
 
@@ -213,6 +223,39 @@ def case_failures(
     )
     if not rows:
         return [NO_CASES_FAILURE]
+    # The accepted verdict, the execution results behind it, and which runs
+    # carry artifacts are all questions about a requirement, and the subject's
+    # requirements are already in hand — so each is asked once for the whole
+    # case set rather than once per case.
+    graded = tuple(int(row["id"]) for row in rows if not obligation_settled(row))
+    verdicts = _latest_verdicts(conn, graded)
+    evidence = _execution_evidence_runs(
+        conn,
+        graded,
+        run_id=run_id,
+        stage_name=stage_name,
+        member_item_id=member_item_id,
+        execution_target_digest=execution_target_digest,
+    )
+    runs_with_artifacts = {
+        qa_run_id
+        for qa_run_id, counts in qa_artifact_counts_by_run(
+            conn,
+            {
+                candidate
+                for requirement_id in graded
+                for candidate in (
+                    *(
+                        (verdicts[requirement_id][0],)
+                        if requirement_id in verdicts
+                        else ()
+                    ),
+                    *evidence.get(requirement_id, []),
+                )
+            },
+        ).items()
+        if sum(counts.values())
+    }
     failures: list[CaseFailure] = []
     for row in rows:
         if obligation_settled(row):
@@ -221,12 +264,8 @@ def case_failures(
             # its own evidence. Supersession therefore moves an obligation
             # onto a named row; it never removes one from the gate.
             continue
-        latest = conn.execute(
-            "SELECT id,verdict FROM qa_runs WHERE qa_requirement_id=%s "
-            "ORDER BY created_at DESC,id DESC LIMIT 1",
-            (int(row["id"]),),
-        ).fetchone()
-        verdict = str(latest["verdict"] if latest is not None else "")
+        latest = verdicts.get(int(row["id"]))
+        verdict = latest[1] if latest is not None else ""
         if verdict != "pass":
             failures.append(
                 CaseFailure(
@@ -240,15 +279,10 @@ def case_failures(
                 )
             )
             continue
-        accepted_run_id = int(latest["id"])
+        accepted_run_id = latest[0]
         found, inspected = _inspect_evidence(
-            conn,
-            verdict_run_id=accepted_run_id,
-            requirement_id=int(row["id"]),
-            run_id=run_id,
-            stage_name=stage_name,
-            member_item_id=member_item_id,
-            execution_target_digest=execution_target_digest,
+            [accepted_run_id, *evidence.get(int(row["id"]), [])],
+            runs_with_artifacts,
         )
         if not found:
             looked = ", ".join(f"#{candidate}" for candidate in inspected)

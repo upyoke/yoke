@@ -115,6 +115,12 @@ def _pinned_stages(conn: Any, run_id: str) -> list[dict[str, Any]]:
     return [dict(stage) for stage in stages if isinstance(stage, Mapping)]
 
 
+def pinned_stages(conn: Any, run_id: str) -> list[dict[str, Any]]:
+    """Every stage the run pinned, for a caller that answers for several of
+    its members and passes the result back into :func:`current_item_qa`."""
+    return _pinned_stages(conn, str(run_id))
+
+
 def _pinned_qa_stages(conn: Any, run_id: str) -> list[dict[str, Any]]:
     """The run's own pinned QA stages, or ``[]`` for a legacy definition."""
     return [stage for stage in _pinned_stages(conn, run_id) if _is_qa_stage(stage)]
@@ -173,10 +179,21 @@ def _applicable_item_stage(
 
 
 def current_item_qa(
-    conn: Any, *, run_id: str, item_id: int, current_stage: str
+    conn: Any,
+    *,
+    run_id: str,
+    item_id: int,
+    current_stage: str,
+    stages: list[dict[str, Any]] | None = None,
 ) -> ItemStageQa | None:
-    """This member's standing at the item QA stage now answering for it."""
-    stage = _applicable_item_stage(_pinned_stages(conn, str(run_id)), current_stage)
+    """This member's standing at the item QA stage now answering for it.
+
+    *stages* is this run's already-read :func:`pinned_stages`. A caller
+    answering for several members of one release passes it so the run's own
+    definition is read once for the set instead of once per member.
+    """
+    pinned = _pinned_stages(conn, str(run_id)) if stages is None else stages
+    stage = _applicable_item_stage(pinned, current_stage)
     if stage is None:
         return None
     stage_name = str(stage.get("name") or "")
@@ -242,4 +259,9 @@ def _stage_blockers(
     return blockers
 
 
-__all__ = ["ItemStageQa", "current_item_qa", "item_qa_acceptance_blockers"]
+__all__ = [
+    "ItemStageQa",
+    "current_item_qa",
+    "item_qa_acceptance_blockers",
+    "pinned_stages",
+]

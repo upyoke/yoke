@@ -8,10 +8,6 @@ from typing import Any, Iterable, Mapping, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.actors import is_human_actor
-from yoke_core.domain.approval_decisions import (
-    evaluate_decisions,
-    list_decisions,
-)
 from yoke_core.domain.approval_policy import (
     APPROVAL_MODES,
     DEFAULT_APPROVAL_MODE,
@@ -23,7 +19,7 @@ from yoke_core.domain.decision_request_contract import (
     REQUEST_CREATED_EVENT,
 )
 from yoke_core.domain.decision_request_events import append_decision_event
-from yoke_core.domain.decision_request_live_evidence import live_evidence
+from yoke_core.domain.decision_request_rows import request_row
 from yoke_core.domain.decision_request_subject_context import validate_subject_context
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
@@ -43,50 +39,12 @@ def _p(conn: Any) -> str:
 
 
 def _request_row(conn: Any, request_id: int) -> dict[str, Any]:
-    p = _p(conn)
-    row = conn.execute(
-        f"SELECT * FROM decision_requests WHERE id = {p}",
-        (request_id,),
-    ).fetchone()
-    if row is None:
-        raise LookupError(f"decision request {request_id} does not exist")
-    result = dict(row)
-    try:
-        result["subject_context"] = json.loads(result["subject_context"] or "{}")
-    except (TypeError, json.JSONDecodeError):
-        result["subject_context"] = {}
-    if result["status"] == "pending":
-        live = live_evidence(
-            conn,
-            result["kind"],
-            result["subject_context"],
-            subject_key=result["subject_key"],
-            project_id=result.get("project_id"),
-        )
-        if live is not None:
-            result["subject_context"].update(live)
-    result["actions"] = list(DECISION_KINDS[result["kind"]].actions)
-    result["role_authorities"] = [
-        dict(value)
-        for value in conn.execute(
-            "SELECT scope_kind, scope_id, role_name "
-            "FROM decision_request_role_authorities "
-            f"WHERE request_id = {p} ORDER BY role_name, scope_id",
-            (request_id,),
-        ).fetchall()
-    ]
-    result["named_actor_ids"] = [
-        int(value[0])
-        for value in conn.execute(
-            "SELECT actor_id FROM decision_request_actor_authorities "
-            f"WHERE request_id = {p} ORDER BY actor_id",
-            (request_id,),
-        ).fetchall()
-    ]
-    result["approval_mode"] = str(result.get("approval_mode") or DEFAULT_APPROVAL_MODE)
-    result["decisions"] = list_decisions(conn, request_id)
-    result["approval_progress"] = evaluate_decisions(conn, result).as_dict()
-    return result
+    """One composed decision-request row.
+
+    Retained as the write paths' entry point; the composition itself lives
+    in :mod:`decision_request_rows`, whose set form is what page reads use.
+    """
+    return request_row(conn, request_id)
 
 
 def _validate_scope(

@@ -34,7 +34,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow
+from yoke_core.domain.deployment_item_flow_resolution import item_completion_flows
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_item_stage_states import primary_item_ids
 
@@ -107,13 +107,25 @@ def _member_qa(
     work. Within that stage, history stays history — a case that failed and
     was rerun to a pass is accepted.
     """
-    from yoke_core.domain.deployment_qa_run_acceptance import current_item_qa
+    from yoke_core.domain.deployment_qa_run_acceptance import (
+        current_item_qa,
+        pinned_stages,
+    )
 
+    # The stages a run pinned are a fact about the run, not about the member,
+    # so two members riding one release ask it once between them.
+    stages_by_run: dict[str, list[dict[str, Any]]] = {}
     standing: dict[tuple[str, int], dict[str, Any]] = {}
     for run_id, item_id, current_stage in subjects:
         try:
+            if run_id not in stages_by_run:
+                stages_by_run[run_id] = pinned_stages(conn, run_id)
             answer = current_item_qa(
-                conn, run_id=run_id, item_id=item_id, current_stage=current_stage
+                conn,
+                run_id=run_id,
+                item_id=item_id,
+                current_stage=current_stage,
+                stages=stages_by_run[run_id],
             )
         except (LookupError, ValueError):
             # An unreadable gate is not a passing one; the card says nothing
@@ -136,10 +148,11 @@ def primary_item_delivery_by_session(
     selected = primary_item_ids(conn, rows)
     item_ids = tuple(dict.fromkeys(selected.values()))
     by_item = _member_runs(conn, item_ids)
+    completion_flows = item_completion_flows(conn, by_item.keys())
     chosen = {}
     for item_id, runs in by_item.items():
         run = _chosen_run(
-            runs, completion_flow=item_completion_flow(conn, item_id),
+            runs, completion_flow=completion_flows.get(item_id, ""),
         )
         if run is not None:
             chosen[item_id] = run

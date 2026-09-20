@@ -28,7 +28,7 @@ from yoke_core.domain.decision_request_contract import (
 )
 from yoke_core.domain.decision_requests import _request_row
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.approval_decisions import actor_decision
+from yoke_core.domain.decision_answers import actor_decision
 
 
 def _p(conn: Any) -> str:

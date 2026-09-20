@@ -9,51 +9,81 @@ offers a person and what their decision satisfies never disagree.
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Optional
+from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.actors import actor_display_labels
-from yoke_core.domain.approval_decisions import actor_decision
-from yoke_core.domain.decision_requests import _request_row
+from yoke_core.domain.actor_render import actor_display_labels
 
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+def _role_boxes(
+    conn: Any,
+    request_id: int,
+    request: Optional[Mapping[str, Any]],
+) -> list[tuple[str, int, str]]:
+    """This request's role boxes, from the composed row when the caller has
+    one and from its own read when it does not."""
+    if request is not None:
+        return [
+            (
+                str(authority["scope_kind"]),
+                int(authority["scope_id"]),
+                str(authority["role_name"]),
+            )
+            for authority in sorted(
+                request.get("role_authorities") or [],
+                key=lambda value: str(value["role_name"]),
+            )
+        ]
+    rows = conn.execute(
+        "SELECT scope_kind, scope_id, role_name "
+        "FROM decision_request_role_authorities "
+        f"WHERE request_id = {_p(conn)} ORDER BY role_name",
+        (request_id,),
+    ).fetchall()
+    return [(str(row[0]), int(row[1]), str(row[2])) for row in rows]
+
+
 def authority_reason(
     conn: Any,
     request_id: int,
     actor_id: int,
+    *,
+    request: Optional[Mapping[str, Any]] = None,
 ) -> Optional[str]:
-    """Return why this actor may answer this request, or ``None`` if they may not."""
+    """Return why this actor may answer this request, or ``None`` if they may not.
+
+    *request* is the already-composed row; passing it keeps a page from
+    re-reading the authorities it already holds for every gate it shows.
+    """
     p = _p(conn)
-    named = conn.execute(
-        "SELECT 1 FROM decision_request_actor_authorities dra "
-        "JOIN actors a ON a.id = dra.actor_id AND a.kind = 'human' "
-        f"WHERE dra.request_id = {p} AND dra.actor_id = {p}",
-        (request_id, actor_id),
-    ).fetchone()
-    if named is not None:
-        return "asked of you"
-    rows = conn.execute(
-        "SELECT scope_kind, scope_id, role_name "
-        "FROM decision_request_role_authorities "
-        f"WHERE request_id = {p} ORDER BY role_name",
-        (request_id,),
-    ).fetchall()
-    for row in rows:
-        table = "actor_org_roles" if row[0] == "org" else "actor_project_roles"
-        scope_column = "org_id" if row[0] == "org" else "project_id"
+    named_ids = None if request is None else request.get("named_actor_ids")
+    # Being named is only standing if the named actor is a person, so the
+    # membership check still runs — but only for an actor the request names.
+    if named_ids is None or int(actor_id) in {int(one) for one in named_ids}:
+        named = conn.execute(
+            "SELECT 1 FROM decision_request_actor_authorities dra "
+            "JOIN actors a ON a.id = dra.actor_id AND a.kind = 'human' "
+            f"WHERE dra.request_id = {p} AND dra.actor_id = {p}",
+            (request_id, actor_id),
+        ).fetchone()
+        if named is not None:
+            return "asked of you"
+    for scope_kind, scope_id, role_name in _role_boxes(conn, request_id, request):
+        table = "actor_org_roles" if scope_kind == "org" else "actor_project_roles"
+        scope_column = "org_id" if scope_kind == "org" else "project_id"
         match = conn.execute(
             f"SELECT 1 FROM {table} ar JOIN actors a ON a.id = ar.actor_id "
             "AND a.kind = 'human' JOIN roles r ON r.id = ar.role_id "
             f"WHERE ar.actor_id = {p} AND ar.{scope_column} = {p} "
             f"AND r.name = {p} LIMIT 1",
-            (actor_id, int(row[1]), str(row[2])),
+            (actor_id, scope_id, role_name),
         ).fetchone()
         if match is not None:
-            return f"{row[0]} {str(row[2]).replace('_', ' ')}"
+            return f"{scope_kind} {role_name.replace('_', ' ')}"
     return None
 
 
@@ -65,6 +95,8 @@ def request_deciders(
     conn: Any,
     request_id: int,
     viewer_actor_id: Optional[int] = None,
+    *,
+    request: Optional[Mapping[str, Any]] = None,
 ) -> list[dict[str, Any]]:
     """Name everyone who may answer this request now, and how they qualify.
 
@@ -88,22 +120,38 @@ def request_deciders(
             "actor_id": actor_id,
             "via": "named",
         }
-    roles = conn.execute(
-        "SELECT scope_kind, scope_id, role_name "
-        "FROM decision_request_role_authorities "
-        f"WHERE request_id = {p} ORDER BY role_name, scope_id",
-        (request_id,),
-    ).fetchall()
-    for role in roles:
-        table = "actor_org_roles" if role[0] == "org" else "actor_project_roles"
-        scope_column = "org_id" if role[0] == "org" else "project_id"
+    if request is not None:
+        roles = [
+            (
+                str(authority["scope_kind"]),
+                int(authority["scope_id"]),
+                str(authority["role_name"]),
+            )
+            for authority in sorted(
+                request.get("role_authorities") or [],
+                key=lambda value: (str(value["role_name"]), int(value["scope_id"])),
+            )
+        ]
+    else:
+        roles = [
+            (str(row[0]), int(row[1]), str(row[2]))
+            for row in conn.execute(
+                "SELECT scope_kind, scope_id, role_name "
+                "FROM decision_request_role_authorities "
+                f"WHERE request_id = {p} ORDER BY role_name, scope_id",
+                (request_id,),
+            ).fetchall()
+        ]
+    for scope_kind, scope_id, role_name in roles:
+        table = "actor_org_roles" if scope_kind == "org" else "actor_project_roles"
+        scope_column = "org_id" if scope_kind == "org" else "project_id"
         for holder in conn.execute(
             f"SELECT ar.actor_id FROM {table} ar "
             "JOIN actors a ON a.id = ar.actor_id AND a.kind = 'human' "
             "JOIN roles r ON r.id = ar.role_id "
             f"WHERE ar.{scope_column} = {p} AND r.name = {p} "
             "ORDER BY ar.actor_id",
-            (int(role[1]), str(role[2])),
+            (scope_id, role_name),
         ).fetchall():
             actor_id = int(holder[0])
             # A person named directly keeps that standing: being asked by
@@ -113,7 +161,7 @@ def request_deciders(
                 continue
             deciders[actor_id] = {
                 "actor_id": actor_id,
-                "via": _role_label(role[0], role[2]),
+                "via": _role_label(scope_kind, role_name),
             }
     labels = actor_display_labels(conn, deciders)
     for actor_id, decider in deciders.items():
@@ -159,110 +207,6 @@ def decision_request_authority_actor_ids(
         ).fetchall()
         actor_ids.update(int(row[0]) for row in rows)
     return tuple(sorted(actor_ids))
-
-
-# How many of an actor's own settled requests the Inbox keeps beside what
-# still waits on them. The answers themselves are permanent rows in
-# ``decision_request_decisions``; this bounds only how far back one reader
-# sees their own recent history.
-RECENTLY_DECIDED_SHOWN = 10
-
-
-def pending_requests_for_actor(
-    conn: Any,
-    actor_id: int,
-    *,
-    project_ids: Optional[Iterable[int]] = None,
-) -> list[dict[str, Any]]:
-    """List what still waits on this actor, and what they have already answered.
-
-    A request the actor already decided stays in their list rather than
-    vanishing: under ``all`` it is still open, still theirs to watch, and the
-    honest thing to show them is that their own part is done and who the gate
-    is now waiting on.
-    """
-    allowed_projects = (
-        {int(value) for value in project_ids} if project_ids is not None else None
-    )
-    rows = conn.execute(
-        "SELECT id FROM decision_requests WHERE status = 'pending' "
-        "ORDER BY created_at DESC, id DESC"
-    ).fetchall()
-    result = []
-    for row in rows:
-        request = _request_row(conn, int(row[0]))
-        if (
-            allowed_projects is not None
-            and request["project_id"] is not None
-            and int(request["project_id"]) not in allowed_projects
-        ):
-            continue
-        reason = authority_reason(conn, request["id"], actor_id)
-        if reason is None:
-            continue
-        decision = actor_decision(conn, request["id"], actor_id)
-        request["asked_of_you"] = reason == "asked of you"
-        request["authority_reason"] = reason
-        request["your_decision"] = decision
-        request["decided_by_you"] = decision is not None
-        request["deciders"] = request_deciders(conn, request["id"], actor_id)
-        result.append(request)
-    result.sort(key=lambda value: (value["decided_by_you"], not value["asked_of_you"]))
-    return result
-
-
-def recently_decided_requests_for_actor(
-    conn: Any,
-    actor_id: int,
-    *,
-    project_ids: Optional[Iterable[int]] = None,
-    limit: int = RECENTLY_DECIDED_SHOWN,
-) -> list[dict[str, Any]]:
-    """List the settled requests this actor answered, most recent answer first.
-
-    A request the actor answered stays in ``pending_requests_for_actor`` only
-    while the gate itself is still pending. The moment the gate settles the
-    request leaves that list, so a reader who had just answered four of them
-    reloaded onto an empty history and lost the way back to what they decided.
-    Their answers are durable rows, so the settled request is read back through
-    the actor's own decision rather than remembered by the page that drew it.
-
-    A settled request offers no actions and cannot be answered again, so it
-    carries none: what it still carries is its subject, its evidence, and the
-    answer this actor gave it.
-    """
-    p = _p(conn)
-    allowed_projects = (
-        {int(value) for value in project_ids} if project_ids is not None else None
-    )
-    rows = conn.execute(
-        "SELECT d.request_id FROM decision_request_decisions d "
-        "JOIN decision_requests r ON r.id = d.request_id "
-        f"WHERE d.actor_id = {p} AND r.status <> 'pending' "
-        "ORDER BY d.decided_at DESC, d.request_id DESC",
-        (int(actor_id),),
-    ).fetchall()
-    result: list[dict[str, Any]] = []
-    for row in rows:
-        if len(result) >= int(limit):
-            break
-        request = _request_row(conn, int(row[0]))
-        if (
-            allowed_projects is not None
-            and request["project_id"] is not None
-            and int(request["project_id"]) not in allowed_projects
-        ):
-            continue
-        reason = authority_reason(conn, request["id"], actor_id)
-        request["asked_of_you"] = reason == "asked of you"
-        request["authority_reason"] = reason
-        request["your_decision"] = actor_decision(conn, request["id"], actor_id)
-        request["decided_by_you"] = True
-        request["deciders"] = request_deciders(conn, request["id"], actor_id)
-        request["actions"] = []
-        request["can_act"] = False
-        result.append(request)
-    return result
 
 
 def human_role_holders(
@@ -334,12 +278,9 @@ def unauthorized_resolution_message(
 
 
 __all__ = [
-    "RECENTLY_DECIDED_SHOWN",
     "authority_reason",
     "decision_request_authority_actor_ids",
     "human_role_holders",
-    "pending_requests_for_actor",
-    "recently_decided_requests_for_actor",
     "request_deciders",
     "unauthorized_resolution_message",
 ]

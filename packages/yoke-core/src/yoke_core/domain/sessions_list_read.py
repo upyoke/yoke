@@ -25,7 +25,7 @@ registered, did nothing and ended is excluded by the shared predicate in
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 from yoke_contracts.session_control.liveness import (
     ENDED_CAUSES,
@@ -66,6 +66,7 @@ PER_PROJECT_SESSIONS_LIST_CAP = 20
 def list_sessions(
     *,
     project: Optional[str] = None,
+    project_ids: Optional[Sequence[int]] = None,
     liveness: Optional[str] = None,
     ended_cause: Optional[str] = None,
     limit: int = DEFAULT_SESSIONS_LIST_LIMIT,
@@ -96,6 +97,12 @@ def list_sessions(
     (``project=None``): the fetch window becomes each project's own
     newest-:data:`PER_PROJECT_SESSIONS_LIST_CAP` slice.
 
+    ``project_ids`` is the same filter over an already-resolved set of
+    internal project ids, for a caller showing several projects at once. It
+    answers in one pass: the roster read is the same question for every
+    project it covers, so running the whole pipeline once per project would
+    re-ask every enrichment the answer shares.
+
     ``session_id`` selects exactly one session through the same row renderer
     and enrichment pipeline.
     """
@@ -124,26 +131,36 @@ def list_sessions(
     bounded_limit = (
         1 if normalized_session_id else max(1, min(int(limit), MAX_SESSIONS_LIST_LIMIT))
     )
-    windowed = per_project and not project and not normalized_session_id
+    windowed = (
+        per_project
+        and not project
+        and not project_ids
+        and not normalized_session_id
+    )
 
     conn = db_helpers.connect()
     try:
         clauses: List[str] = []
         where_params: List[Any] = []
+        scoped_ids: tuple[int, ...] = ()
         if project:
-            project_id = resolve_project_id(conn, project)
+            scoped_ids = (resolve_project_id(conn, project),)
+        elif project_ids:
+            scoped_ids = tuple(dict.fromkeys(int(value) for value in project_ids))
+        if scoped_ids:
+            placeholders = ", ".join("%s" for _ in scoped_ids)
             steering_project = scope_int_sql(conn, "wc.scope", "project_id")
             clauses.append(
-                "(s.project_id = %s OR EXISTS ("
+                f"(s.project_id IN ({placeholders}) OR EXISTS ("
                 "SELECT 1 FROM work_claims wc "
                 "WHERE wc.session_id = s.session_id "
                 "AND wc.target_kind = 'steering' "
                 "AND wc.released_at IS NULL "
                 f"AND {live_session_sql('s')} "
-                f"AND {steering_project} = %s))"
+                f"AND {steering_project} IN ({placeholders})))"
             )
-            where_params.append(project_id)
-            where_params.append(project_id)
+            where_params.extend(scoped_ids)
+            where_params.extend(scoped_ids)
         if normalized_session_id:
             clauses.append("s.session_id = %s")
             where_params.append(normalized_session_id)

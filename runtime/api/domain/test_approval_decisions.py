@@ -7,10 +7,8 @@ import pytest
 from runtime.api.domain.decision_request_test_support import (
     decision_request_connection,
 )
-from yoke_core.domain.approval_decisions import list_decisions
-from yoke_core.domain.decision_request_authority import (
-    pending_requests_for_actor,
-)
+from yoke_core.domain.decision_answers import list_decisions
+from yoke_core.domain.actor_decision_queue import pending_requests_for_actor
 from yoke_core.domain.decision_request_resolution import (
     resolve_decision_request,
 )

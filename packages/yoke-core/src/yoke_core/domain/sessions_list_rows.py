@@ -12,7 +12,7 @@ from yoke_contracts.session_control.liveness import (
     LIVENESS_ENDED,
     LIVENESS_STALE,
 )
-from yoke_core.domain.actor_render import render_actor_name
+from yoke_core.domain.actor_render import render_actor_names
 from yoke_core.domain.session_focus_attribution import focus_attribution
 from yoke_core.domain.session_list_fields import usage_fields
 from yoke_core.domain.session_native_process_observation import (
@@ -21,9 +21,13 @@ from yoke_core.domain.session_native_process_observation import (
 from yoke_core.domain.sessions_holdings_claim_facts import (
     ITEM_AWAITING_LANDING_KEY,
 )
-from yoke_core.domain.session_presentation_read import session_presentation
+from yoke_core.domain.item_ref_render import render_item_ref_lookup
+from yoke_core.domain.session_presentation_read import (
+    lane_settings_by_project,
+    session_presentation,
+)
 from yoke_core.domain.session_staleness import activity_is_stale
-from yoke_core.domain.sessions_queries_base import display_claim_item_id
+from yoke_core.domain.sessions_queries_base import normalize_claim_item_id
 
 
 def _parse_timestamp(value: Any) -> Optional[datetime]:
@@ -59,20 +63,6 @@ def _latest_activity(
     return str(raw), parsed
 
 
-def _actor_label(
-    conn: Any,
-    cache: Dict[int, Optional[str]],
-    actor_id: Any,
-) -> Optional[str]:
-    """One roster cell per actor, resolved once and omitted when absent."""
-    if actor_id is None:
-        return None
-    key = int(actor_id)
-    if key not in cache:
-        cache[key] = render_actor_name(conn, key)
-    return cache[key]
-
-
 def render_session_roster_rows(
     conn: Any,
     rows: List[Any],
@@ -84,8 +74,26 @@ def render_session_roster_rows(
     holdings_by_session: Dict[str, Dict[str, Any]],
     blitz_lanes_by_session: Dict[str, List[int]],
 ) -> List[Dict[str, Any]]:
-    """Classify liveness and attach holdings for already-fetched roster rows."""
-    label_cache: Dict[int, Optional[str]] = {}
+    """Classify liveness and attach holdings for already-fetched roster rows.
+
+    Every question the per-row projection needs that is shared across rows —
+    an actor's display name, a project's lane settings, an item's public ref —
+    is resolved here for the whole page before the loop starts, so the read
+    costs one statement per distinct question rather than one per row.
+    """
+    page = [dict(raw) for raw in rows]
+    actor_names = render_actor_names(conn, (row.get("actor_id") for row in page))
+    lane_settings = lane_settings_by_project(
+        conn, (row.get("project_id") for row in page),
+    )
+    item_refs = render_item_ref_lookup(
+        conn,
+        (
+            normalize_claim_item_id(str(row["current_item_id"]))
+            for row in page
+            if row.get("current_item_id")
+        ),
+    )
     result: List[Dict[str, Any]] = []
     empty_holdings = {
         "current": [],
@@ -93,8 +101,7 @@ def render_session_roster_rows(
         "previous_remainder": 0,
         "steered": False,
     }
-    for raw in rows:
-        row = dict(raw)
+    for row in page:
         activity_at, _parsed = _latest_activity(
             row.get("last_heartbeat"),
             row.get("last_tool_call_at"),
@@ -115,7 +122,9 @@ def render_session_roster_rows(
         session_id = str(row["session_id"])
         current_item = row.get("current_item_id")
         current_item_display = (
-            display_claim_item_id(str(current_item), conn) if current_item else None
+            item_refs(normalize_claim_item_id(str(current_item)))
+            if current_item
+            else None
         )
         claims = claims_by_session.get(session_id, [])
         focus = focus_attribution(
@@ -126,7 +135,7 @@ def render_session_roster_rows(
             roles=roles_by_session.get(session_id, []),
             item_holders=item_holders,
         )
-        presentation = session_presentation(conn, row)
+        presentation = session_presentation(row, lane_settings=lane_settings)
         holdings = holdings_by_session.get(session_id) or empty_holdings
         landing_wait = any(
             entry.get(ITEM_AWAITING_LANDING_KEY) for entry in holdings["current"]
@@ -150,7 +159,11 @@ def render_session_roster_rows(
                 "keepalive_reason": row.get("keepalive_reason"),
                 "actor_id": row.get("actor_id"),
                 "actor_kind": row.get("actor_kind"),
-                "actor_label": _actor_label(conn, label_cache, row.get("actor_id")),
+                "actor_label": (
+                    actor_names.get(int(row["actor_id"]))
+                    if row.get("actor_id") is not None
+                    else None
+                ),
                 "project_id": row.get("project_id"),
                 "project": row.get("project"),
                 "executor": row.get("executor"),

@@ -1,6 +1,6 @@
 """Resolve an item's project and effective delivery flow."""
 
-from typing import Any
+from typing import Any, Iterable
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import db_helpers
@@ -13,49 +13,75 @@ from yoke_core.domain.workflow_project_defaults import WorkflowProjectDefaultErr
 NO_FLOW_HEAD = "has no deployment_flow; cannot start deploy run"
 
 
+def item_completion_flows(conn: Any, item_ids: Iterable[int]) -> dict[int, str]:
+    """The closing flow for a whole set of items, keyed by internal id.
+
+    The set form exists because the callers that need this need it for every
+    item on a page. Asking per item re-probed the schema and re-resolved the
+    same project default once per row; here the schema question is asked
+    once, the item rows come back in one statement, and a project default is
+    resolved once per distinct project-and-workflow pair.
+
+    An item with no closing flow maps to ``""``, the same answer
+    :func:`item_completion_flow` gives.
+    """
+    ids = tuple(dict.fromkeys(int(value) for value in item_ids))
+    if not ids or not _column_exists(conn, "items", "deployment_flow"):
+        return {}
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    has_workflow = _column_exists(conn, "items", "workflow_id")
+    columns = "i.id, i.deployment_flow, p.slug"
+    if has_workflow:
+        columns += ", i.workflow_id"
+    rows = conn.execute(
+        f"SELECT {columns} "
+        "FROM items i LEFT JOIN projects p ON p.id = i.project_id "
+        f"WHERE i.id IN ({','.join(marker for _ in ids)})",
+        ids,
+    ).fetchall()
+    flows: dict[int, str] = {}
+    unresolved: dict[int, tuple[str, str]] = {}
+    for raw in rows:
+        row = dict(raw)
+        item_id = int(row["id"])
+        pinned = str(row["deployment_flow"] or "").strip()
+        if pinned:
+            flows[item_id] = pinned
+            continue
+        flows[item_id] = ""
+        if not has_workflow:
+            continue
+        project = str(row["slug"] or "")
+        workflow_id = str(row["workflow_id"] or "")
+        if project and workflow_id:
+            unresolved[item_id] = (project, workflow_id)
+    if not unresolved or not _table_exists(conn, "project_structure"):
+        return flows
+    defaults: dict[tuple[str, str], str] = {}
+    for item_id, key in unresolved.items():
+        if key not in defaults:
+            try:
+                resolved = workflow_project_defaults.get_delivery_default(
+                    conn, project=key[0], workflow_id=key[1],
+                )
+            except WorkflowProjectDefaultError:
+                resolved = None
+            defaults[key] = str(resolved or "")
+        flows[item_id] = defaults[key]
+    return flows
+
+
 def item_completion_flow(conn: Any, item_id: int) -> str:
     """The flow that may close this item: explicit pin, else project default.
 
     Membership can carry the item on another same-project run. Completion,
     QA source obligations, and done-transition evidence all key off this
     flow — never the newest carrying run of any flow.
+
+    The one-element case of :func:`item_completion_flows`; a caller resolving
+    a set of items uses that entry point instead.
     """
-    if not _column_exists(conn, "items", "deployment_flow"):
-        return ""
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    has_workflow = _column_exists(conn, "items", "workflow_id")
-    columns = "i.deployment_flow, p.slug"
-    if has_workflow:
-        columns += ", i.workflow_id"
-    row = conn.execute(
-        f"SELECT {columns} "
-        "FROM items i LEFT JOIN projects p ON p.id = i.project_id "
-        f"WHERE i.id = {marker}",
-        (int(item_id),),
-    ).fetchone()
-    if row is None:
-        return ""
-    explicit = row["deployment_flow"] if hasattr(row, "keys") else row[0]
-    pinned = str(explicit or "").strip()
-    if pinned:
-        return pinned
-    if not has_workflow:
-        return ""
-    project = str((row["slug"] if hasattr(row, "keys") else row[1]) or "")
-    workflow_id = str(
-        (row["workflow_id"] if hasattr(row, "keys") else row[2]) or ""
-    )
-    if not project or not workflow_id:
-        return ""
-    if not _table_exists(conn, "project_structure"):
-        return ""
-    try:
-        default = workflow_project_defaults.get_delivery_default(
-            conn, project=project, workflow_id=workflow_id,
-        )
-    except WorkflowProjectDefaultError:
-        return ""
-    return str(default or "")
+    return item_completion_flows(conn, (int(item_id),)).get(int(item_id), "")
 
 
 def freeze_item_completion_flow(conn: Any, item_id: int) -> str:
@@ -161,5 +187,6 @@ __all__ = [
     "describe_missing_flow",
     "freeze_item_completion_flow",
     "item_completion_flow",
+    "item_completion_flows",
     "lookup_item_project_and_flow",
 ]
