@@ -170,7 +170,7 @@ def _inert_consequence(coverage: MemberRunCoverage) -> str:
         f"Attach the item to a run of {coverage.completion_flow!r} instead, "
         "or leave it out and let that flow's next start enroll it from its "
         "own candidate — yoke deployment-runs validate-composition RUN-ID "
-        "previews what a start will take. If this run is not one you need, "
+        "composes that run now. If this run is not one you need, "
         f"yoke deployment-runs terminalize {coverage.run_id} --disposition "
         "cancelled --reason REASON releases the hold; a cancelled run holds "
         "no landing."

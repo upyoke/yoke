@@ -314,7 +314,7 @@ or succeeded release holds, a landing behind the last release included, and
 applies the composition check itself. `yoke --env <cp> deployment-runs add-item {RUN_ID} PREFIX-N`
 is for the other case — an item whose code the candidate does not carry but
 which the run should still deliver — and `... validate-composition {RUN_ID}`
-previews what a start will enroll and refuse. Both hold the same deploy lock
+composes the run now. Both hold the same deploy lock
 and refuse an item whose project the run ships no source for, an incompatible
 flow binding, or enrollment after the run has left `created`.
 

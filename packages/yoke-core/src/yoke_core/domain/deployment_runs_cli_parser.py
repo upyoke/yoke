@@ -32,7 +32,10 @@ def build_parser() -> argparse.ArgumentParser:
     cr.add_argument("--release-lineage", default=None)
     cr.add_argument("--created-by", default="operator")
 
-    ai = sub.add_parser("add-item", help="Add item to run")
+    ai = sub.add_parser(
+        "add-item",
+        help="Attach an item the candidate does not carry",
+    )
     ai.add_argument("run_id")
     ai.add_argument("item_id", type=int)
 
@@ -84,7 +87,10 @@ def build_parser() -> argparse.ArgumentParser:
     qu.add_argument("check_name")
     qu.add_argument("status")
 
-    vc = sub.add_parser("validate-composition", help="Validate run composition")
+    vc = sub.add_parser(
+        "validate-composition",
+        help="Compose the run now and report enrolled members or the refusal",
+    )
     vc.add_argument("run_id")
 
     cb = sub.add_parser("check-batch-compatibility", help="Validate proposed batch")
@@ -127,10 +133,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sfi = sub.add_parser(
         "start-for-item",
-        help=(
-            "Compose resolve-target + create-run + add-item + "
-            "validate-composition for an item, return a structured run handle."
-        ),
+        help="Open a delivery run for one named item",
     )
     sfi.add_argument("item_id", type=int)
     sfi.add_argument("--project", default=None)

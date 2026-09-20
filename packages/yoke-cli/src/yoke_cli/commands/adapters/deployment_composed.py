@@ -129,9 +129,9 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs start-for-item",
         description=(
-            "Compose target resolution, run creation, item membership, "
-            "and composition validation for one item on the selected "
-            "control-plane transport."
+            "Open a delivery run for one named item on the selected "
+            "control-plane transport. The start fills membership from "
+            "the candidate."
         ),
     )
     parser.add_argument("item")

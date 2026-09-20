@@ -74,8 +74,8 @@ learns the other's part from its own skill. The split is the whole rule:
   check itself, so membership needs no separate step:
   `yoke deployment-runs add-item RUN-ID PREFIX-N` is for the other case, an
   item whose code the candidate does not carry but which the run should still
-  deliver, and `validate-composition` is an optional preview of what a start
-  will enroll and refuse. An item a cancelled run left behind therefore needs
+  deliver, and `validate-composition` composes the run now and reports what
+  it enrolled or why it refused. An item a cancelled run left behind therefore needs
   no attaching, and `yoke steering report get` names any landed item no
   release holds so nobody has to notice one going stale. The driving seat does not run a member's item QA and
   does not close a member out.

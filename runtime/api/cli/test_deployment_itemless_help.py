@@ -60,7 +60,8 @@ def test_create_help_teaches_itemless_release_recipe() -> None:
     rc, out, err = _help("deployment-runs", "create", "--help")
     assert rc == 0, err
     assert "yoke watch deploy" in out
-    assert "zero-member environment deployment run" in out
+    assert "fills it at the start" in out
+    assert "start-for-item" not in out
     _assert_itemless_recipe(out)
 
 

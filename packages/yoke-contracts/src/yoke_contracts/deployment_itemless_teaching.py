@@ -1,12 +1,13 @@
 """CLI teaching for the supported itemless environment-release path.
 
 Operators discover the path through ``--help`` on resolve-target,
-create, the deployment-runs group, and watch deploy. Keep wording
-project-generic. The resolved environment is the deploy destination; the
-selected ``--env`` connection at execute time is the control plane that owns
-the run row — verify the resolved destination rather than assuming the two
-names match. Only a deployment targeting that control plane's own serving API
-needs its paired local ``*-db-admin`` connection.
+create, the deployment-runs group, and watch deploy. ``create`` is shared
+with the item-bound batch path; the start fills membership from the
+candidate. Keep wording project-generic. The resolved environment is the
+deploy destination; the selected ``--env`` connection at execute time is the
+control plane that owns the run row — verify the resolved destination rather
+than assuming the two names match. Only a deployment targeting that control
+plane's own serving API needs its paired local ``*-db-admin`` connection.
 """
 
 from __future__ import annotations
@@ -64,25 +65,31 @@ RESOLVE_TARGET_DESCRIPTION = (
 )
 
 CREATE_DESCRIPTION = (
-    "Create a zero-member environment deployment run. Item-bound "
-    "delivery uses `yoke usher` / `yoke deployment-runs start-for-item` instead. "
-    "Uses the selected control-plane transport, including HTTPS for ordinary "
-    "external delivery. Creation does not "
-    "execute: the run stays 'created' until an operator drives it through "
-    "the same control-plane connection with `yoke watch deploy`. A true "
-    "self-deploy of that connection's serving API requires its paired local "
-    "`*-db-admin` connection; the CLI identifies it when refusing HTTPS."
+    "Create a deployment run from a flow and candidate. Membership stays "
+    "empty while the run is 'created'; `yoke watch deploy` fills it at the "
+    "start from that candidate — every delivery-ready item the candidate "
+    "carries that no live or succeeded release already holds. The same "
+    "create-then-watch path serves an environment release and an item-bound "
+    "batch; the run reports which items it enrolled. Uses the selected "
+    "control-plane transport, including HTTPS for ordinary external "
+    "delivery. Creation does not execute: the run stays 'created' until an "
+    "operator drives it through the same control-plane connection with "
+    "`yoke watch deploy`. A true self-deploy of that connection's serving "
+    "API requires its paired local `*-db-admin` connection; the CLI "
+    "identifies it when refusing HTTPS."
 )
 
 WATCH_DEPLOY_DESCRIPTION = (
     "Run a Yoke deployment pipeline under a shared raw+progress "
-    "watcher. For an itemless environment release, resolve the flow's "
-    "target, create the run with --project-repo-path and --source-ref, "
-    "then drive it here through the same control-plane connection. "
-    "Verify the resolved environment rather than assuming it matches the "
-    "--env connection name. Re-driving the same run recovers an interrupted "
-    "driver by correlation token instead of dispatching a second release. "
-    "Only serving-API self-deploys require the paired local db-admin env."
+    "watcher. For an environment release or an item-bound batch, "
+    "resolve the flow's target, create the run with "
+    "--project-repo-path and --source-ref, then drive it here through "
+    "the same control-plane connection. The start fills membership from "
+    "the candidate. Verify the resolved environment rather than assuming "
+    "it matches the --env connection name. Re-driving the same run "
+    "recovers an interrupted driver by correlation token instead of "
+    "dispatching a second release. Only serving-API self-deploys require "
+    "the paired local db-admin env."
 )
 
 
