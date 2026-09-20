@@ -317,7 +317,14 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
     }));
   }
   host.appendChild(wrap);
-  return { node: wrap, requestIds: drawnRequests };
+  // A caption is this member's QA state, not its pictures. The run-wide
+  // strip stands down only when this wrap already showed tiles or a review
+  // that would otherwise repeat there.
+  return {
+    node: wrap,
+    requestIds: drawnRequests,
+    drewEvidence: Boolean(strip) || reviews.length > 0,
+  };
 }
 
 export const universeCarriedItemEvidence = {
