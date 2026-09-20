@@ -218,6 +218,7 @@ class DeploymentRunApproveResponse(BaseModel):
     note: Optional[str] = None
     member_item_ids: List[int]
     event_id: Optional[str] = None
+    drive_recipe: Optional[str] = None
 
 
 class DeploymentStageApprovalEvaluateRequest(BaseModel):

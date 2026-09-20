@@ -219,6 +219,7 @@ def handle_deployment_run_approve(request: FunctionCallRequest) -> HandlerOutcom
         approve_run,
         emit_run_approval,
     )
+    from yoke_core.domain.deployment_stage_decision_effect import drive_recipe
 
     try:
         actor_id = request.actor.actor_id
@@ -257,6 +258,15 @@ def handle_deployment_run_approve(request: FunctionCallRequest) -> HandlerOutcom
             "stage_approved": approval.stage_approved,
             "approval_progress": approval.approval_progress,
             "event_id": event_id,
+            # Only a cleared stage has a run to re-enter; one still collecting
+            # decisions would be teaching a command that refuses.
+            "drive_recipe": (
+                drive_recipe(
+                    approval.run_id, approval.project, holds_lock=False
+                )
+                if approval.stage_approved
+                else None
+            ),
         },
         primary_success=True,
     )

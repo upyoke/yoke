@@ -6,7 +6,11 @@ caller's decision and reports what the stage is still waiting on; the stage
 resolves only when the recorded decisions satisfy that policy.
 
 The deployment runner consumes the resolved decision and remains the only
-surface that advances run and member-item deployment state.
+surface that advances run and member-item deployment state. Recording an
+answer therefore never moves the run itself; it hands the answer to
+:mod:`yoke_core.domain.deployment_stage_decision_effect`, which wakes the
+project's deploy-lock driver to re-enter the runner on an approve, and closes
+the run on a rejection, which has nothing left to advance.
 """
 
 from __future__ import annotations

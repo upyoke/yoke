@@ -88,6 +88,21 @@ waiting on, and a person records an answer through `deployment_runs.approve`
 or the Inbox. A run standing at a different stage than the one named is
 refused rather than evaluated.
 
+**What recording the answer does.** `deployment_stage_decision_effect`, reached
+by kind from `decision_request_subject_effect` — the registry both this and the
+QA review verdict resolve through. An approve wakes the project's deploy-lock
+driver, or its steering seat when no session holds the lock, with the
+acquire/drive/release commands that re-enter the runner, rendered by
+`deploy_lock` and `deploy_pipeline_environment` so the recipe cannot drift from
+what those surfaces accept. Nothing about the run moves there: the runner
+remains the only surface that advances run and member-item deployment state. A
+rejection takes the other path and closes the run as `failed` through
+`deployment_run_terminalization`, because a rejected stage has nothing left to
+advance and a run left `executing` behind a recorded refusal presents as a
+release in flight. `failed` rather than `cancelled` matches what
+`fail_pipeline_stage` records for the same input, so resolving and re-driving
+give one answer.
+
 ## Step Runner Dispatch
 
 The Python pipeline owner is `yoke_core.domain.deploy_pipeline`. The pipeline dispatches each stage by `step_runner` (or by `kind` for governed migration stages). Known current types:
