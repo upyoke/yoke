@@ -310,9 +310,8 @@ yoke --env <cp> watch deploy -- {RUN_ID}
 ```
 
 The start enrolls every delivery-ready item the candidate carries that no live
-or succeeded release already holds — a landing behind the last release
-included — and applies the composition check itself, so a batch already in the
-candidate needs no membership step. `yoke --env <cp> deployment-runs add-item {RUN_ID} PREFIX-N`
+or succeeded release holds, a landing behind the last release included, and
+applies the composition check itself. `yoke --env <cp> deployment-runs add-item {RUN_ID} PREFIX-N`
 is for the other case — an item whose code the candidate does not carry but
 which the run should still deliver — and `... validate-composition {RUN_ID}`
 previews what a start will enroll and refuse. Both hold the same deploy lock
