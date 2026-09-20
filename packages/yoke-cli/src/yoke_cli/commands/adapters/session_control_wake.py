@@ -67,7 +67,12 @@ def session_wake(args: List[str]) -> int:
             "`fleet.wake_ack_grace_seconds` this command cancels it as "
             "superseded, reports it under RELEASED, and takes its own "
             "route decision — so a queued receipt nothing will deliver "
-            "can no longer block every later wake for that session."
+            "can no longer block every later wake for that session. A "
+            "session whose pinned model would spend a published meter "
+            "that is already at zero is refused as `meter_exhausted`, "
+            "naming the meter, remaining quota, reset time, and that "
+            "recovery is a relaunch on a surface with headroom; the "
+            "wake is not dispatched."
         ),
     )
     parser.add_argument("target_session_id", metavar="SESSION-ID", nargs="?")

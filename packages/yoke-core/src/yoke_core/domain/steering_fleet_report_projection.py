@@ -25,6 +25,7 @@ from yoke_core.domain.steering_fleet_report_landed_open import (
     landed_recovery,
 )
 from yoke_core.domain.steering_fleet_report_vendor_errors import VendorErrorSession
+from yoke_core.domain.steering_fleet_report_stranded import stranded_dicts
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
 from yoke_core.domain import steering_fleet_report_in_flight as _in_flight
 
@@ -234,6 +235,7 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
             _run_dict(entry) for entry in report.runs_needing_action()
         ],
         "vendor_errors": [_vendor_error_dict(entry) for entry in report.vendor_errors],
+        "stranded": stranded_dicts(report.stranded),
         "launchable": [
             {"machine_id": ready.machine_id, "surface": ready.surface}
             for ready in report.launchable

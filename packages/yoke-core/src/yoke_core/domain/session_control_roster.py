@@ -33,6 +33,7 @@ from yoke_core.domain.session_relay_machine_versions import (
 )
 from yoke_core.domain.session_relay_types import WakeMode
 from yoke_core.domain.session_relay_versions import wake_candidate_supported
+from yoke_core.domain.session_wake_meter import overlay_resume_state
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
@@ -295,7 +296,12 @@ def session_control_roster_result(
                 connected_relays=connected,
                 machine_names=names,
                 worktree=worktrees.get(str(row.get("session_id") or "")),
-                resume_state=resume_states.get(str(row.get("session_id") or "")),
+                resume_state=overlay_resume_state(
+                    conn,
+                    str(row.get("session_id") or ""),
+                    resume_states.get(str(row.get("session_id") or "")),
+                    now,
+                ),
                 diagnostics=diagnostics.get(str(row.get("session_id") or ""), {}),
                 health=health.get(str(row.get("session_id") or ""), {}),
                 steering=steering.get(str(row.get("session_id") or ""), {}),

@@ -52,6 +52,7 @@ from yoke_core.domain.session_wake_idempotency import (
     recent_wake_blocker,
     stale_queued_wakes,
 )
+from yoke_core.domain.session_wake_meter import refuse_exhausted_wake
 
 
 SESSION_WAKE_RESULT_WAIT_SECONDS = 10.0
@@ -244,6 +245,9 @@ def request_session_wake(
         ]
         target = session_control_target(conn, recipient.session_id)
         routing = _stopped_route(conn, recipient, target, now=current)
+        exhausted = refuse_exhausted_wake(conn, recipient.session_id, current)
+        if exhausted:
+            raise exhausted
         # A wake the plane was owed and never attempted is not in flight, and
         # leaving it to refuse this request is the deadlock: the receipt that
         # cannot be delivered would block the only move that recovers the
