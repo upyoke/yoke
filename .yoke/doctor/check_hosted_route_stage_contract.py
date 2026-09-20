@@ -100,10 +100,8 @@ def _route_violations(flow_id: str, stages: List[Any]) -> List[str]:
         problems.append("route never warms the box it rolls")
     elif runners.index(WARM_UP_RUNNER) < runners.index(DISPATCH_RUNNER):
         problems.append("route warms before it rolls")
-    else:
-        warm = stages[runners.index(WARM_UP_RUNNER)]
-        if not warm.get("connection_env"):
-            problems.append("warm-up stage names no connection_env to warm")
+    # Omitted warm-up connection_env follows the run target's declared
+    # deploy.serving_connection; an explicit value still works.
     return [f"- `{flow_id}` {problem}" for problem in problems]
 
 

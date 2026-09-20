@@ -63,11 +63,10 @@ def test_help_epilog_teaches_read_then_converge_or_remove() -> None:
 
 def test_help_epilog_teaches_per_environment_receipts() -> None:
     epilog = watch_preflight.HELP_EPILOG
-    assert "positional names the fleet to rehearse" in epilog
+    assert "positional names the registered environment" in epilog
     assert "--receipt-env" in epilog
     assert "one environment's receipt never satisfies another" in epilog
-    assert "<admin-connection-for-one-env>" in epilog
-    assert "<admin-connection-for-another-env>" in epilog
+    assert "release.admin_connection" in epilog
     assert "--receipt-env <control-plane>" in epilog
     assert "yoke watch preflight -- stage --record-receipt" in epilog
     assert "Ordinary pre-release rehearsal uses the source tree" in epilog

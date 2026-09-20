@@ -14,13 +14,20 @@ from urllib.parse import urlsplit
 
 from yoke_contracts.machine_qa_case_target import ENVIRONMENT_TARGET_SCHEMA
 from yoke_core.domain import db_backend, qa_hosted_runtime_identity as hosted_identity
+from yoke_core.domain.environment_declared_facts import (
+    MissingEnvironmentFact,
+    endpoint_declaration_state,
+    hosted_endpoints,
+    is_production,
+    load_environment_settings,
+)
 from yoke_core.domain.qa_execution_environment_target import (
     QaExecutionTargetError,
     _decode,
     _generic_endpoints,
     _mapping_rows,
-    _yoke_endpoints,
     require_runtime_target,
+    runtime_environment_name,
 )
 
 
@@ -60,15 +67,15 @@ def environment_execution_target(
         raise QaExecutionTargetError(str(exc)) from exc
     settings = _decode(identity["settings"])
     environment_name = str(identity["environment_name"])
-    # Yoke's own hosted tiers are addressed by the release constants. Every
-    # other environment of that project -- a workstation's own view of its
-    # universe -- is described by its row alone, which is the only place its
-    # address can come from.
-    endpoints = (
-        _yoke_endpoints(environment_name, str(identity["tenant_slug"]))
-        if str(identity["project_slug"]) == "yoke"
-        else {}
-    ) or _generic_endpoints(identity, settings)
+    endpoints = _generic_endpoints(identity, settings)
+    if (
+        str(identity["project_slug"]) == "yoke"
+        and endpoint_declaration_state(settings) != "unstated"
+    ):
+        try:
+            endpoints = hosted_endpoints(environment_name, settings)
+        except MissingEnvironmentFact as exc:
+            raise QaExecutionTargetError(str(exc)) from exc
     target = {
         "schema": ENVIRONMENT_TARGET_SCHEMA,
         "tenant": {
@@ -84,9 +91,13 @@ def environment_execution_target(
         "site": {"name": str(identity["site_name"])},
         "environment": {"name": environment_name},
         "endpoints": endpoints,
+        "role": {"production": is_production(settings)},
     }
     if require_runtime_match:
-        require_runtime_target(target)
+        runtime_settings = load_environment_settings(
+            conn, int(identity["project_id"]), runtime_environment_name()
+        )
+        require_runtime_target(target, runtime_settings=runtime_settings)
     return target
 
 

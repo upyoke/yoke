@@ -112,7 +112,7 @@ def test_otel_export_mode_resolves_configured_sink() -> None:
     assert mode({}) == "none"
     assert mode({"OTEL_EXPORTER_OTLP_ENDPOINT": "http://collector:4318"}) == "otlp"
     assert mode({"YOKE_OTEL_CONSOLE_EXPORT": "1"}) == "console"
-    assert mode({"YOKE_ENVIRONMENT": "prod"}) == "log"
+    assert mode({"YOKE_ENVIRONMENT": "prod"}) == "none"
     assert mode({"YOKE_ENVIRONMENT": "prod", "YOKE_OTEL_LOG_METRICS": "0"}) == "none"
     assert mode({"YOKE_OTEL_LOG_METRICS": "1"}) == "log"
     # Blank endpoint is not a sink.
@@ -195,11 +195,11 @@ def test_request_log_extra_uses_canonical_envelope_fields() -> None:
     assert extra["context"]["api_token_id"] == 4
 
 
-def test_hosted_environment_enables_log_metric_export(
+def test_explicit_log_metrics_flag_enables_log_metric_export(
     owned_meter_providers: list[Any],
 ) -> None:
     enabled, reason = observability.configure_otel(
-        None, env={"YOKE_ENVIRONMENT": "prod"}
+        None, env={"YOKE_OTEL_LOG_METRICS": "1"}
     )
     if reason.startswith("missing_dependency"):
         assert enabled is False

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from runtime.api.fixtures.pg_testdb import test_database
@@ -29,12 +31,16 @@ def _two_sites_named_prod(conn) -> None:
         "INSERT INTO sites(project_id,name,created_at) "
         "VALUES (3,'Yoke API','2026-01-01T00:00:00Z')"
     )
-    for project_id, site_name in ((3, "Yoke API"), (1, "yoke")):
+    hosted = json.dumps({"qa": {"hosted_runtime": True}})
+    for project_id, site_name, settings in (
+        (3, "Yoke API", hosted),
+        (1, "yoke", "{}"),
+    ):
         conn.execute(
-            "INSERT INTO environments(site,project_id,name,created_at) "
-            "SELECT id,%s,'prod','2026-01-01T00:00:00Z' FROM sites "
+            "INSERT INTO environments(site,project_id,name,settings,created_at) "
+            "SELECT id,%s,'prod',%s,'2026-01-01T00:00:00Z' FROM sites "
             "WHERE project_id=%s AND name=%s",
-            (project_id, project_id, site_name),
+            (project_id, settings, project_id, site_name),
         )
 
 

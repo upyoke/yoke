@@ -157,7 +157,9 @@ def _validate_target(
         environment = target.get("environment")
         if extra:
             raise ValueError(f"{path} has unknown fields: {sorted(extra)}")
-        if not isinstance(environment, str) or not environment.strip():
+        if environment is not None and not (
+            isinstance(environment, str) and environment.strip()
+        ):
             raise ValueError(f"{path}.environment must be a non-empty name")
         source_stage = target.get("source_stage")
         if stage_kind == STAGE_KIND_QA:

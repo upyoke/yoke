@@ -57,8 +57,7 @@
         },
         {
           "name": "warm-up",
-          "step_runner": "warm-up",
-          "connection_env": "prod"
+          "step_runner": "warm-up"
         },
         {
           "name": "complete",
@@ -97,8 +96,7 @@
         },
         {
           "name": "warm-up",
-          "step_runner": "warm-up",
-          "connection_env": "stage"
+          "step_runner": "warm-up"
         },
         {
           "name": "complete",

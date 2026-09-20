@@ -18,19 +18,12 @@ def _covered(entries=(), *, digest: str = "", run: str = "20260101T000000Z") -> 
 
 
 class TestEnvironmentNaming:
-    def test_an_admin_connection_names_the_environment_it_rehearses(self):
-        assert receipt.target_environment_for_admin_env("prod-db-admin") == "prod"
-        assert receipt.target_environment_for_admin_env("stage-db-admin") == "stage"
-
-    def test_an_environment_name_is_already_itself(self):
+    def test_the_operator_token_is_the_environment_name(self):
         assert receipt.target_environment_for_admin_env("prod") == "prod"
-        assert receipt.target_environment_for_admin_env("stage") == "stage"
+        assert receipt.target_environment_for_admin_env("blah") == "blah"
 
     def test_surrounding_whitespace_does_not_make_a_new_environment(self):
         assert receipt.target_environment_for_admin_env("  stage  ") == "stage"
-
-    def test_an_unknown_environment_passes_through_rather_than_guessing(self):
-        assert receipt.target_environment_for_admin_env("sandbox") == "sandbox"
 
 
 class TestCoveragePaths:
@@ -198,31 +191,31 @@ class TestCoverageByEnvironment:
         coverage = receipt.coverage_by_environment(
             ["0001_a", "0002_b"],
             {"stage": _covered(["0001_a", "0002_b"]), "prod": _covered(["0001_a"])},
+            ("stage", "prod"),
         )
         assert coverage == {"stage": (), "prod": ("0002_b",)}
 
     def test_an_environment_with_no_document_is_wholly_uncovered(self):
-        coverage = receipt.coverage_by_environment(["0001_a"], {})
-        assert coverage == {"stage": ("0001_a",), "prod": ("0001_a",)}
+        coverage = receipt.coverage_by_environment(["0001_a"], {}, ("blah",))
+        assert coverage == {"blah": ("0001_a",)}
 
-    def test_an_admin_connection_name_answers_under_its_environment(self):
+    def test_the_named_environment_is_the_coverage_key(self):
         coverage = receipt.coverage_by_environment(
-            ["0001_a"], {"prod": _covered(["0001_a"])}, ["prod-db-admin"]
+            ["0001_a"], {"prod": _covered(["0001_a"])}, ["prod"]
         )
         assert coverage == {"prod": ()}
 
 
 class TestAdminConnectionForEnvironment:
-    def test_an_admin_connection_is_already_itself(self):
+    def test_the_declared_admin_connection_is_used(self):
+        settings = {"release": {"admin_connection": "custom-admin"}}
         assert (
-            receipt.admin_connection_for_environment("prod-db-admin") == "prod-db-admin"
+            receipt.admin_connection_for_environment("blah", settings) == "custom-admin"
         )
 
-    def test_prod_resolves_to_the_admin_connection(self):
-        assert receipt.admin_connection_for_environment("prod") == "prod-db-admin"
-
-    def test_stage_resolves_to_the_admin_connection(self):
-        assert receipt.admin_connection_for_environment("stage") == "stage-db-admin"
+    def test_an_undeclared_pairing_refuses_by_name(self):
+        with pytest.raises(Exception, match="release.admin_connection"):
+            receipt.admin_connection_for_environment("prod")
 
 
 class TestRehearsedBuildDescription:

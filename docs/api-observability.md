@@ -25,8 +25,9 @@ those deltas; do not treat OTel attribute cardinality as CloudWatch
 dimension cardinality.
 
 Disable the log sink with `YOKE_OTEL_LOG_METRICS=0`. Force it on
-(including local/self-host) with `YOKE_OTEL_LOG_METRICS=1`. Hosted
-`prod`/`stage` enable it by default.
+(including local/self-host) with `YOKE_OTEL_LOG_METRICS=1`. The
+environment's `observability.emit_log_metrics` setting is the durable
+declaration; the process flag is the runtime override.
 
 ## Targeted diagnostics
 
@@ -93,7 +94,7 @@ export spans.
 
 | Flag | Effect |
 | --- | --- |
-| `YOKE_ENVIRONMENT` / `APP_ENV` | Resource environment; hosted `prod`/`stage` enable EMF |
+| `YOKE_ENVIRONMENT` / `APP_ENV` | Resource environment name (identity only) |
 | `YOKE_OTEL_LOG_METRICS` | `1`/`0` override for the EMF sink |
 | `YOKE_OTEL_DISABLED` | Skip OTel entirely |
 | `YOKE_OTEL_CONSOLE_EXPORT` | Local console traces/metrics |

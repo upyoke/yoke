@@ -17,6 +17,12 @@ from yoke_contracts.api_urls import (
 )
 from yoke_core.domain import db_backend, qa_hosted_runtime_identity as hosted_identity
 from yoke_core.domain import qa_case_environment_coherence as case_coherence
+from yoke_core.domain.environment_declared_facts import (
+    MissingEnvironmentFact,
+    hosted_endpoints,
+    load_environment_settings,
+    restricts_qa_to_self,
+)
 from yoke_core.domain.qa_project_execution_target import (
     is_project_execution_target,
     require_project_target_case,
@@ -80,8 +86,12 @@ def runtime_environment_name() -> str:
     return str(selected or "development").strip().lower()
 
 
-def require_runtime_target(target: Mapping[str, Any]) -> None:
-    """Refuse cross-environment dispatch in hosted Stage and Production."""
+def require_runtime_target(
+    target: Mapping[str, Any],
+    *,
+    runtime_settings: Mapping[str, Any] | None = None,
+) -> None:
+    """Refuse cross-environment dispatch when the runtime declares it must."""
     if is_project_execution_target(target):
         return
     from yoke_core.domain.deployment_qa_execution_target import (
@@ -99,32 +109,22 @@ def require_runtime_target(target: Mapping[str, Any]) -> None:
     selected = str(environment.get("name") or "").strip().lower()
     if not selected:
         raise QaExecutionTargetError("QA execution target has no environment name")
-    if runtime in {"prod", "stage"} and selected != runtime:
+    if restricts_qa_to_self(runtime_settings) and selected != runtime:
         raise QaExecutionTargetError(
             f"runtime environment {runtime!r} cannot execute QA target {selected!r}"
         )
 
 
-def _yoke_endpoints(environment: str, tenant_slug: str) -> dict[str, Any]:
-    selected = environment.lower()
-    if selected not in {"prod", "stage"}:
-        return {}
-    app_url = HOSTED_STAGE_PLATFORM_URL if selected == "stage" else HOSTED_PLATFORM_URL
-    installer_base = (
-        DISTRIBUTION_STAGE_URL if selected == "stage" else DISTRIBUTION_PROD_URL
-    )
-    release_channel = "latest" if selected == "stage" else "stable"
-    return {
-        "api_url": f"{app_url}/api/orgs/{tenant_slug}",
-        "app_url": app_url,
-        "installer_base_url": installer_base,
-        "installer_url": f"{installer_base}/install",
-        "release_channel": release_channel,
-        "capability_endpoints": {
-            "browser_authorization": app_url,
-            "distribution": installer_base,
-        },
-    }
+def _yoke_endpoints(
+    environment: str,
+    tenant_slug: str = "",
+    settings: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    del tenant_slug
+    try:
+        return hosted_endpoints(environment, settings)
+    except MissingEnvironmentFact as exc:
+        raise QaExecutionTargetError(str(exc)) from exc
 
 
 def _generic_endpoints(row: Mapping[str, Any], settings: Mapping[str, Any]) -> dict:
@@ -231,7 +231,12 @@ def validate_plan_target_environment(
     except ValueError as exc:
         raise QaExecutionTargetError(str(exc)) from exc
     environment_name = target["environment_name"]
-    require_runtime_target({"environment": {"name": environment_name}})
+    require_runtime_target(
+        {"environment": {"name": environment_name}},
+        runtime_settings=load_environment_settings(
+            conn, int(project_id), runtime_environment_name()
+        ),
+    )
 
 
 def _known_yoke_hosts() -> set[str]:
@@ -292,7 +297,7 @@ def require_case_target(
             value, str
         ):
             normalized = value.lower()
-            if normalized in {"prod", "stage"} and normalized != environment:
+            if normalized and normalized != environment:
                 raise QaExecutionTargetError(
                     f"mixed-environment QA case value at {path}: {value!r}"
                 )

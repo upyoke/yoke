@@ -41,7 +41,7 @@ def test_shared_server_lock_refuses_import_until_every_server_releases():
         ({}, False),
         ({**_HOSTED, "YOKE_SERVER_MODE": "self-host"}, True),
         ({**_HOSTED, "YOKE_ENVIRONMENT": "prod"}, True),
-        ({**_HOSTED, "YOKE_ENVIRONMENT": "ephemeral-acme"}, False),
+        ({**_HOSTED, "YOKE_ENVIRONMENT": "ephemeral-acme"}, True),
         ({**_HOSTED, "YOKE_API_PORT": "8765"}, False),
         (
             {

@@ -187,8 +187,7 @@ def log_metrics_requested(env: Any) -> bool:
         return False
     if flag in {"1", "true", "yes"}:
         return True
-    environment = env.get("YOKE_ENVIRONMENT") or env.get("APP_ENV") or ""
-    return environment in {"prod", "stage"}
+    return False
 
 
 __all__ = [

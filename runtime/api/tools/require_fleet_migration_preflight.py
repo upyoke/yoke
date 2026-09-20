@@ -11,13 +11,12 @@ Usage::
         <target-environment> [product-sha]
 
 *target-environment* is the registered name of the environment the release is
-bound for (``stage`` / ``prod``) — the same name receipts are keyed by, which
-the release train resolves from the deployment run's typed environment
-reference. An admin connection name is also accepted and normalized. The
-optional *product-sha* only enriches the refusal.
+bound for — the same name receipts are keyed by, which the release train
+resolves from the deployment run's typed environment reference. The optional
+*product-sha* only enriches the refusal.
 
 This submits the checked-out name/digest set to the connected control plane's
-semantic identity verifier, reads each release environment's own fleet
+semantic identity verifier, reads that target environment's own fleet
 rehearsal coverage, and reads the checked-out history plus schema-shape
 sources. It does not accept SQL or expose ledger digests. It does not rehearse
 anything, so it runs anywhere the control plane is reachable — which is what
@@ -50,16 +49,13 @@ _BUILD_ARTIFACTS_WORKFLOW = "yoke-build-artifacts.yml"
 
 def _yoke_fleet_rehearse_command(environment: str, receipt_connection: str = "") -> str:
     """Yoke source-dev fleet adapter recipe for the refusal unblock line."""
-    from yoke_core.domain import migration_preflight_receipt as receipt
-
-    admin_env = receipt.admin_connection_for_environment(environment)
     receipt_env = receipt_connection.strip()
     receipt_env_arg = (
         shlex.quote(receipt_env) if receipt_env else "<control-plane-connection>"
     )
     return (
         "yoke watch preflight -- "
-        f"{admin_env} --record-receipt --product-sha <sha> "
+        f"{environment} --record-receipt --product-sha <sha> "
         f"--receipt-env {receipt_env_arg}"
     )
 
@@ -225,7 +221,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     # Target first, so an unreadable store names the environment this
     # release is actually bound for rather than whichever sibling came first.
-    environments = tuple(dict.fromkeys((environment, *receipt.RELEASE_ENVIRONMENTS)))
+    environments = (environment,)
     coverage, unreadable_environment, unreadable = _read_coverage(
         project, environments, history, schema_digest
     )

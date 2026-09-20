@@ -72,6 +72,7 @@ def _dispatch_step_runner(
             run_id=run_id,
             member_items=member_items,
             project=project,
+            environment_name=environment_name,
         )
     if step_runner == "environment-activate":
         from yoke_core.domain.deploy_environment_activate import (
@@ -186,12 +187,49 @@ def _dispatch_step_runner(
     return 1, ""
 
 
+def _resolve_warm_up_connection(config: Mapping[str, Any], project: str, environment_name: str) -> str:
+    declared = str(config.get("connection_env", "") or "").strip()
+    if declared:
+        return declared
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.domain.environment_declared_facts import (
+        MissingEnvironmentFact,
+        SERVING_CONNECTION_PATH,
+        serving_connection_for_environment,
+        settings_from_projection,
+    )
+
+    name = str(environment_name or "").strip()
+    if not name:
+        return ""
+    try:
+        response = call_dispatcher(
+            function_id="projects.environment_settings.get",
+            target=TargetRef(kind="global"),
+            payload={
+                "project": project,
+                "environment": name,
+                "paths": [SERVING_CONNECTION_PATH],
+            },
+        )
+    except Exception as exc:  # noqa: BLE001 - named refusal, not a silent fallback
+        raise MissingEnvironmentFact(name, SERVING_CONNECTION_PATH) from exc
+    if not response.success:
+        raise MissingEnvironmentFact(name, SERVING_CONNECTION_PATH)
+    values = response.result.get("values") if isinstance(response.result, Mapping) else {}
+    return serving_connection_for_environment(
+        name, settings_from_projection(values if isinstance(values, Mapping) else {})
+    )
+
+
 def _dispatch_warm_up(
     config: Dict[str, Any],
     *,
     run_id: str,
     member_items: List[str],
     project: str,
+    environment_name: str = "",
 ) -> tuple[int, str]:
     """Pay the rolled environment's cold start before the run reports success.
 
@@ -206,9 +244,17 @@ def _dispatch_warm_up(
         DEFAULT_WARM_UP_TIMEOUT_S,
         warm_up_environment,
     )
+    from yoke_core.domain.environment_declared_facts import MissingEnvironmentFact
+
+    try:
+        connection_env = _resolve_warm_up_connection(
+            config, project, environment_name
+        )
+    except MissingEnvironmentFact as exc:
+        return 1, str(exc)
 
     outcome = warm_up_environment(
-        str(config.get("connection_env", "") or ""),
+        connection_env,
         function_id=str(config.get("function", "") or DEFAULT_WARM_UP_FUNCTION),
         timeout_s=float(config.get("timeout_s", 0) or DEFAULT_WARM_UP_TIMEOUT_S),
     )

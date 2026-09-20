@@ -27,6 +27,22 @@ from yoke_core.tools import yoke_migration_fleet as fleet_selector
 SELECTED_DSN = "host=selected.example user=admin dbname=postgres"
 
 
+def _declare_admin(
+    monkeypatch: pytest.MonkeyPatch, mapping: dict[str, str]
+) -> None:
+    def read(*, project: str, environment: str) -> tuple[str, str]:
+        del project
+        admin = mapping.get(environment, "")
+        if not admin:
+            return "", f"environment {environment!r} does not declare release.admin_connection"
+        return admin, ""
+
+    monkeypatch.setattr(
+        "yoke_core.domain.migration_preflight_receipt_store.read_declared_admin_connection",
+        read,
+    )
+
+
 def _authority(environment: str) -> SimpleNamespace:
     return SimpleNamespace(environment=environment, dsn=SELECTED_DSN)
 
@@ -112,6 +128,7 @@ def test_preflight_keeps_receipt_on_preexisting_control_plane(
         return [SimpleNamespace(passed=True, line="yoke_alpha: PASS")]
 
     monkeypatch.setenv("YOKE_ENV", "release")
+    _declare_admin(monkeypatch, {"prod": "prod-db-admin"})
     monkeypatch.setattr(
         preflight.machine_config,
         "load_config",
@@ -143,7 +160,7 @@ def test_preflight_keeps_receipt_on_preexisting_control_plane(
 
     assert (
         preflight.main(
-            ["prod-db-admin", "yoke_alpha", "--record-receipt", "--product-sha", "abc"]
+            ["prod", "yoke_alpha", "--record-receipt", "--product-sha", "abc"]
         )
         == 0
     )
@@ -166,6 +183,7 @@ def test_preflight_resolves_an_environment_name_to_the_admin_connection(
         return [SimpleNamespace(passed=True, line="yoke_alpha: PASS")]
 
     monkeypatch.setenv("YOKE_ENV", "release")
+    _declare_admin(monkeypatch, {"stage": "stage-db-admin"})
     monkeypatch.setattr(
         preflight.machine_config,
         "load_config",
@@ -201,14 +219,15 @@ def test_preflight_refuses_receipt_on_test_control_plane(
         "load_config",
         lambda: _machine_config("release"),
     )
+    _declare_admin(monkeypatch, {"stage": "stage-db-admin"})
 
     assert (
-        preflight.main(["stage-db-admin", "--record-receipt", "--receipt-env", "stage"])
+        preflight.main(["stage", "--record-receipt", "--receipt-env", "stage"])
         == 2
     )
 
     refusal = capsys.readouterr().err
-    assert "yoke watch preflight -- stage-db-admin" in refusal
+    assert "yoke watch preflight -- stage" in refusal
     assert "--receipt-env release" in refusal
 
 
@@ -218,18 +237,12 @@ def test_preflight_help_teaches_both_receipt_coverage_shapes(
     assert preflight.main(["--help"]) == 0
 
     help_text = capsys.readouterr().out
-    assert (
-        "<admin-connection-for-one-env> --record-receipt --receipt-env <control-plane>"
-    ) in help_text
-    assert (
-        "<admin-connection-for-another-env> --record-receipt "
-        "--receipt-env <control-plane>"
-    ) in help_text
-    assert "The positional names the fleet to rehearse" in help_text
+    assert "yoke watch preflight -- <environment> [db ...]" in help_text
+    assert "The positional names the registered environment" in help_text
+    assert "release.admin_connection" in help_text
     assert "--receipt-env`` names the" in help_text
     assert "control plane that records the receipt" in help_text
     assert "one environment's receipt never satisfies another" in help_text
     assert "Receipts always write to the release-gate control plane" in help_text
-    assert "yoke watch preflight -- stage --record-receipt" in help_text
     assert "Ordinary pre-release rehearsal uses the source tree" in help_text
     assert "--engine-wheel`` pins an already-built artifact" in help_text
