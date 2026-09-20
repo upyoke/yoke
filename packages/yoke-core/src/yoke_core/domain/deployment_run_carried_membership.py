@@ -271,10 +271,20 @@ def carried_membership_refusal(
             derivation = project_set.get("derivation") or {}
             reason = str(derivation.get("reason") or "unknown")
             if not bool(derivation.get("contents_known")):
+                # A comparison that could not look is not an attribution
+                # failure, and handing it attribution's remedy sends the
+                # reader to repair something that is not broken. The
+                # derivation already carries the repair its own reason
+                # earned, so it is the one quoted here.
+                recovery = str(derivation.get("recovery") or "").strip()
                 return (
                     f"deployment run {run_id!r} carried-code membership is "
-                    f"{reason}; repair attribution or record "
-                    "composition_resolution before execution"
+                    f"{reason}. "
+                    + (
+                        recovery
+                        or "Repair attribution or record composition_resolution "
+                        "before execution."
+                    )
                 )
             bare = [str(value) for value in project_set.get("commits") or []]
             if bare:

@@ -68,7 +68,7 @@ class RepositoryProviderSource:
     origin = SOURCE_REPOSITORY_PROVIDER
 
     def __init__(self, repo_slug: str, token: str) -> None:
-        self._repo = repo_slug
+        self.location = repo_slug
         self._token = token
         self._graph: dict[str, dict[str, Any]] = {}
         self._warnings: list[dict[str, str]] = []
@@ -109,7 +109,7 @@ class RepositoryProviderSource:
         """Ask the provider for one ref's commit, answering "" when it has none."""
         request = RestRequest(
             method="GET",
-            path=f"/repos/{self._repo}/commits/{ref}",
+            path=f"/repos/{self.location}/commits/{ref}",
         )
         try:
             response = request_with_retry(request, token=self._token)
@@ -141,7 +141,7 @@ class RepositoryProviderSource:
         """Answer the merge boundary's content question over the provider."""
         return content_already_present(
             self._compare_page(candidate, commit, 1),
-            lambda path: blob_sha(self._repo, self._token, path, candidate),
+            lambda path: blob_sha(self.location, self._token, path, candidate),
         )
 
     def commit_range(self, base: str, head: str) -> CommitRange:
@@ -253,14 +253,14 @@ class RepositoryProviderSource:
             return cached
         request = RestRequest(
             method="GET",
-            path=f"/repos/{self._repo}/compare/{base}...{head}",
+            path=f"/repos/{self.location}/compare/{base}...{head}",
             query={"per_page": str(COMPARE_PAGE_SIZE), "page": str(page)},
         )
         try:
             response = request_with_retry(request, token=self._token)
         except RestNotFoundError as exc:
             # The provider answered: it does not hold one of these commits.
-            raise head_unpublished(self._repo, base, head) from exc
+            raise head_unpublished(self.location, base, head) from exc
         except RestTransportError as exc:
             # One summary code cannot separate a rate limit from a revoked
             # permission from a 502; the transport already classified it.

@@ -19,6 +19,7 @@ from typing import Any, Mapping, Sequence
 from yoke_core.domain.deployment_run_project_sources import recorded_source_sha
 from yoke_core.domain.deployment_run_carried_work_source import (
     RELATION_DIVERGED,
+    SOURCE_CHECKOUT,
     CarriedWorkSource,
     CarriedWorkSourceUnavailable,
     open_carried_work_source,
@@ -29,6 +30,7 @@ from yoke_core.domain.deployment_run_carried_work_sources import (
 from yoke_core.domain.deployment_run_release_output import (
     release_output_runs,
 )
+from yoke_core.domain.function_target_row_project import slug_for_project_id
 
 
 CARRIED_WORK_SCHEMA = 3
@@ -43,6 +45,35 @@ SOURCE_NONE = "none"
 
 def _cell(row: Any, key: str, index: int) -> Any:
     return row[key] if hasattr(row, "keys") else row[index]
+
+
+def unreachable_lineage_recovery(
+    source: CarriedWorkSource,
+    *,
+    project: str,
+    commits: Sequence[str],
+) -> str:
+    """Name the project, the commits, and the place that could not read them.
+
+    A recorded lineage the comparison cannot resolve is not an attribution
+    problem, so it does not get attribution's recovery. The reader needs the
+    three facts the generic wording withheld — which project, which commit,
+    and which source was asked — plus the one repair that applies to the
+    source that was actually consulted.
+    """
+    shas = ", ".join(commits)
+    if source.origin == SOURCE_CHECKOUT:
+        return (
+            f"Project {project} commit {shas} is not in checkout "
+            f"{source.location}. Make it readable there — refresh that "
+            "checkout from a remote carrying the commit, or publish the "
+            "commit to the remote it already tracks — then retry."
+        )
+    return (
+        f"Project {project} commit {shas} is not readable through repository "
+        f"{source.location}. Publish that commit there, or record a lineage "
+        "that binding can read, then retry."
+    )
 
 
 def empty_carried_work(
@@ -154,15 +185,27 @@ def derive_project_carried_work(
             if not base
             else "current_release_lineage_unreachable"
         )
+        unreadable = [
+            lineage
+            for lineage, resolved in (
+                (previous_lineage, base),
+                (release_lineage, head),
+            )
+            if not resolved
+        ]
         return empty_carried_work(
             reason,
-            "Make both recorded lineages readable from the comparison source, "
-            "then retry.",
+            unreachable_lineage_recovery(
+                source,
+                project=slug_for_project_id(conn, int(project_id)),
+                commits=unreadable,
+            ),
             run_id=run_id,
             previous_run_id=previous_run_id,
             previous_lineage=previous_lineage,
             release_lineage=release_lineage,
             source=source.origin,
+            warnings=source.warnings(),
         )
     try:
         commit_range = source.commit_range(base, head)
@@ -273,4 +316,5 @@ __all__ = [
     "STATUS_UNKNOWN",
     "derive_project_carried_work",
     "empty_carried_work",
+    "unreachable_lineage_recovery",
 ]

@@ -56,6 +56,10 @@ class CarriedWorkSource(Protocol):
     """The commit facts carried-work derivation needs, from any host."""
 
     origin: str
+    #: Where this source reads — a checkout path, or the repository binding.
+    #: A refusal that cannot name the place it looked sends its reader
+    #: hunting for one, so every source says which place answered it.
+    location: str
 
     def resolve_commit(self, ref: str) -> str:
         """Return the full commit sha for ``ref``, or ``""`` when unresolvable."""
@@ -111,10 +115,75 @@ class LocalCheckoutSource:
 
     def __init__(self, repo_root: str) -> None:
         self._repo_root = repo_root
+        self.location = repo_root
+        self._fetched = False
+        self._warnings: list[dict[str, str]] = []
 
     def resolve_commit(self, ref: str) -> str:
+        resolved = self._rev_parse(ref)
+        if resolved:
+            return resolved
+        # A checkout holds only the commits it has already fetched, so a pin
+        # recorded after its last fetch is indistinguishable from a commit
+        # that never existed. Ask the remote once before answering that it is
+        # unreachable; a run whose pins are already present never gets here,
+        # so the comparison that can answer still costs no network at all.
+        if self._fetch():
+            return self._rev_parse(ref)
+        return ""
+
+    def _rev_parse(self, ref: str) -> str:
         return git.git_out(
             self._repo_root, "rev-parse", "--verify", f"{ref}^{{commit}}"
+        )
+
+    def _fetch(self) -> bool:
+        """Refresh this checkout's remote-tracking refs, at most once.
+
+        Opportunistic, never required: refreshing is something a checkout
+        may be able to do, not something the comparison depends on. The
+        remote, the credential, and the network bound are the ones lane
+        preparation already fetches through, and only remote-tracking refs
+        move — no local branch, ref, or working tree is touched. A checkout
+        with no configured remote, no credential for it, or no network keeps
+        answering from the refs it already holds and records why, so a later
+        refusal is the ordinary named one rather than a new failure mode.
+        """
+        if self._fetched:
+            return False
+        self._fetched = True
+        from yoke_cli.config import repo_upstream_git
+
+        remote, _configured = repo_upstream_git.resolve_remote(self._repo_root)
+        if not remote:
+            self._note_unfetched("no remote is configured for this checkout")
+            return False
+        fetched = repo_upstream_git.git(
+            self._repo_root,
+            "fetch",
+            "--no-tags",
+            remote,
+            timeout=repo_upstream_git.network_timeout_seconds(),
+        )
+        if fetched.returncode != 0:
+            self._note_unfetched(
+                f"fetching {remote} failed: "
+                f"{repo_upstream_git.reason(fetched)}"
+            )
+            return False
+        return True
+
+    def _note_unfetched(self, detail: str) -> None:
+        self._warnings.append(
+            {
+                "reason": "checkout_not_refreshed",
+                "recovery": (
+                    f"Checkout {self._repo_root} answered from the refs it "
+                    f"already held ({detail}); a commit recorded after its "
+                    "last fetch reads as unreachable."
+                ),
+                "error_type": "",
+            }
         )
 
     def lineage_relation(self, base: str, head: str) -> str:
@@ -180,7 +249,7 @@ class LocalCheckoutSource:
         return ""
 
     def warnings(self) -> list[dict[str, str]]:
-        return []
+        return list(self._warnings)
 
 
 def carried_work_sources(
