@@ -323,7 +323,9 @@ def _card_delivery(
                     conn, project_id=line[0], environment_id=line[1], flow=flow,
                 )
             summary = delivery_summary(
-                merges=merges, candidates=by_release_line[line],
+                merges=merges,
+                candidates=by_release_line[line],
+                item_id=item_id,
             )
         summaries[item_id] = {
             "merges": summary.merges,
