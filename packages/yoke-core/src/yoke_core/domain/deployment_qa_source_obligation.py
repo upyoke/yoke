@@ -31,16 +31,31 @@ from yoke_core.domain.schema_common import _column_exists, _table_exists
 # satisfaction, so "execute the case" is the wrong instruction and
 # "permanently blocked" is wrong too: there are three real ways out, and
 # none of them is another run of the intake row.
+#
+# Each exit states its own condition and all three print every time. The
+# supersede exit is the narrow one -- this refusal is printed while the run
+# is already succeeded, and a finished run refuses a new run-bound case, so
+# it is open only to a reader who already authored the corrected case.
+# Naming exits conditionally instead, by reading per case, is deliberately
+# NOT the fix: absence would then be ambiguous in the same way, and the read
+# would be paid on every refusal for a benefit on some. Both halves are
+# pinned, with the reasoning, in
+# runtime/api/domain/test_post_deploy_recovery_exit_conditions.py.
 POST_DEPLOY_RECOVERY = (
     "A post_deploy obligation is satisfied by the completion run's admitted "
-    "copy, so re-running the intake row cannot clear it. Deliver the item "
-    "through a flow whose stage target matches the requirement's target_env "
-    "so the run admits and accepts it, correcting whichever of the two is "
-    "wrong when they disagree; or, when the admitted copy was itself "
-    "defective and already recorded a verdict, record a corrected case that "
-    "passed in its place with yoke qa requirement supersede; or waive the "
-    "requirement through the registered waiver surface with explicit "
-    "authorization."
+    "copy, so re-running the intake row cannot clear it. Three exits exist, "
+    "each with its own condition. If no admitted copy was ever accepted -- "
+    "there is no completion run, or that run did not succeed, or the flow's "
+    "QA stage target and the requirement's target_env disagree so nothing "
+    "was frozen -- deliver the item through a flow whose stage target "
+    "matches target_env, correcting whichever of the two is wrong. If the "
+    "admitted copy was itself defective and a corrected case bound to the "
+    "same run, stage, member and execution target has ALREADY recorded a "
+    "passing verdict, record that case in its place with yoke qa requirement "
+    "supersede; a finished run refuses a new run-bound case, so this exit is "
+    "closed unless that corrected case already exists. If neither condition "
+    "holds, waive the requirement through the registered waiver surface with "
+    "explicit authorization."
 )
 
 
