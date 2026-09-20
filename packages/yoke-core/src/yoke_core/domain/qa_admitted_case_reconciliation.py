@@ -31,8 +31,9 @@ from yoke_core.domain.deployment_qa_admission_materialization import (
     ADMITTED_REQUIREMENT_CASE_PREFIX,
 )
 from yoke_core.domain.qa_admitted_case_currency import (
+    ANSWERED_COPY_RECOVERY,
     DEFINITION_COLUMNS,
-    STALE_ADMITTED_CASE_RECOVERY,
+    REACHABLE_FIELD_RECOVERY,
 )
 from yoke_core.domain.qa_deployment_case_correction_window import (
     determinate_verdict,
@@ -56,6 +57,10 @@ class AdmittedCopy:
     stage: str
     member_item_id: int | None
     blocked_reason: str
+    #: What to do about this copy instead. It differs by reason: an aborted
+    #: execution can be re-walked against a corrected copy, while a copy that
+    #: already answered is frozen for good and only supersession discharges it.
+    recovery: str = ""
 
     @property
     def reachable(self) -> bool:
@@ -114,13 +119,15 @@ def admitted_copies_in_flight(
                 f"it has already recorded a {verdict} verdict, so its "
                 "acceptance snapshot is frozen"
             )
+            recovery = ANSWERED_COPY_RECOVERY.format(copy_id=copy_id)
         elif _live_execution_holds(conn, row):
             reason = (
                 "a live QA execution has already frozen it into the roster it "
                 "is being walked against"
             )
+            recovery = REACHABLE_FIELD_RECOVERY
         else:
-            reason = ""
+            reason, recovery = "", ""
         member = row["deployment_member_item_id"]
         copies.append(
             AdmittedCopy(
@@ -129,6 +136,7 @@ def admitted_copies_in_flight(
                 stage=str(row["deployment_stage"] or ""),
                 member_item_id=int(member) if member is not None else None,
                 blocked_reason=reason,
+                recovery=recovery,
             )
         )
     return copies
@@ -144,16 +152,15 @@ def unreachable_copy_refusal(
     detail = "; ".join(
         f"admitted case {copy.requirement_id} on deployment run "
         f"{copy.run_id} stage {copy.stage!r} cannot be corrected because "
-        f"{copy.blocked_reason}"
+        f"{copy.blocked_reason} -- {copy.recovery}"
         for copy in blocked
     )
     return (
         f"{ADMITTED_COPY_IN_FLIGHT_CODE}: requirement "
         f"{int(source_requirement_id)} has been admitted to a deployment run "
-        f"that is still executing, and {detail}. Amending the item row alone "
+        f"that is still executing, and {detail} Amending the item row alone "
         "would leave that run certifying a definition this item has already "
-        "superseded. "
-        + STALE_ADMITTED_CASE_RECOVERY.format(copy_id=blocked[0].requirement_id)
+        "superseded."
     )
 
 

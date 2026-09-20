@@ -127,6 +127,19 @@ and every case begin check the copy against its live source and raise
 moved. A stage that cannot run the current definition says so by name; it
 never quietly runs the old one.
 
+That refusal names the recovery that exists, which depends on what moved.
+Reconciliation can only reach a field `yoke qa requirement update` accepts, so
+a divergence confined to those is repaired by aborting the execution and
+re-applying the amendment. `instructions` and `expected_outcome` are not on
+that allowlist, and `yoke qa plan rematerialize` refreshes the source row
+rather than a run's plan-less admitted copy — so a copy whose prose moved
+cannot be corrected by any path, and telling an operator to refresh it would
+teach an action nobody can perform. For that divergence the refusal says so
+and names the three remedies that do exist: supersede the copy with a
+corrected case bound to the same run, stage, member and target; waive it
+through the registered waiver surface with explicit authorization; or deliver
+the item on a new run, whose admission freezes the corrected body.
+
 `yoke qa requirement list --deployment-run-id <run-id>` reports
 `source_currency` (`current` or `stale`), `source_requirement_id`, and
 `source_diverging_fields` for every admitted copy, so whether a running case

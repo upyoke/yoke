@@ -25,6 +25,7 @@ from yoke_core.domain.qa_admitted_case_currency import (
     admitted_case_divergence,
     admitted_source_requirement_id,
     annotate_admitted_currency,
+    reachable_in_place_fields,
     require_current_admitted_case,
 )
 from yoke_core.domain.qa_admitted_case_reconciliation import (
@@ -211,7 +212,10 @@ class TestAmendmentRefusesByName:
         result = _amend(test_db, source_id)
         assert not result.ok
         assert result.error_code == ADMITTED_COPY_IN_FLIGHT_CODE
+        # An aborted execution can be re-walked, so the abort recovery is
+        # the one that works here -- not supersession.
         assert "yoke qa plan abort" in result.message
+        assert "yoke qa requirement supersede" not in result.message
         assert _method_config(test_db, copy_id) == RETRACTED
 
 
@@ -271,3 +275,68 @@ class TestRunCaseListNamesCurrency:
         assert marked["source_currency"] == "stale"
         assert marked["source_requirement_id"] == source_id
         assert marked["source_diverging_fields"] == ["instructions"]
+
+
+class TestTheRefusalNamesARealRecovery:
+    """A refusal must not teach a refresh nobody can perform.
+
+    ``instructions`` and ``expected_outcome`` are absent from the requirement
+    update allowlist, and plan rematerialization rewrites the source row
+    rather than a run's plan-less admitted copy. So a divergence in those
+    fields has no refresh route at all, and saying "re-apply the amendment"
+    there would send an operator after an action that does not exist.
+    """
+
+    def test_instructions_are_not_reachable_in_place(self) -> None:
+        reachable = reachable_in_place_fields()
+        assert "instructions" not in reachable
+        assert "expected_outcome" not in reachable
+        assert "method_config" in reachable
+
+    def _diverge(self, conn: Any, source_id: int, column: str, value: str) -> None:
+        conn.execute(
+            f"UPDATE qa_requirements SET {column}=%s WHERE id=%s",
+            (value, source_id),
+        )
+        conn.commit()
+
+    def test_an_unreachable_field_names_the_three_remedies_that_exist(
+        self, test_db: Any
+    ) -> None:
+        source_id, copy_id = _seed(test_db)
+        self._diverge(test_db, source_id, "instructions", "walk it differently")
+        with pytest.raises(StaleAdmittedCaseError) as refusal:
+            require_current_admitted_case(test_db, copy_id)
+        message = str(refusal.value)
+        assert "cannot be written on a requirement at all" in message
+        assert "not an available remedy" in message
+        assert "yoke qa requirement supersede" in message
+        assert "waive" in message
+        assert "new run" in message
+        # The reachable-field promise must not appear for this divergence.
+        assert "which then reaches the admitted copy" not in message
+
+    def test_a_reachable_field_still_promises_the_refresh_that_works(
+        self, test_db: Any
+    ) -> None:
+        source_id, copy_id = _seed(test_db)
+        self._diverge(
+            test_db, source_id, "method_config", json.dumps(CORRECTED)
+        )
+        with pytest.raises(StaleAdmittedCaseError) as refusal:
+            require_current_admitted_case(test_db, copy_id)
+        message = str(refusal.value)
+        assert "which then reaches the admitted copy" in message
+        assert "not an available remedy" not in message
+
+    def test_a_mixed_divergence_takes_the_unreachable_answer(
+        self, test_db: Any
+    ) -> None:
+        source_id, copy_id = _seed(test_db)
+        self._diverge(test_db, source_id, "instructions", "walk it differently")
+        self._diverge(
+            test_db, source_id, "method_config", json.dumps(CORRECTED)
+        )
+        message = str(admitted_case_divergence(test_db, copy_id).message())
+        assert "not an available remedy" in message
+        assert "which then reaches the admitted copy" not in message

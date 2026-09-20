@@ -59,16 +59,57 @@ DEFINITION_COLUMNS: tuple[str, ...] = (
 
 STALE_ADMITTED_CASE_CODE = "admitted_case_superseded"
 
-#: Recovery for a copy that can no longer be reached in place. Re-running the
-#: amendment is what reaches it, so the abort has to come first.
-STALE_ADMITTED_CASE_RECOVERY = (
+#: Recovery when re-applying the amendment would actually reach the copy.
+#: The abort comes first because a live roster is what blocks the write.
+REACHABLE_FIELD_RECOVERY = (
     "Abort the stage execution with `yoke qa plan abort`, re-apply the "
-    "amendment (which then reaches the admitted copy), and start the stage "
-    "again. If the copy has already recorded its own verdict, record a "
-    "corrected case in its place instead: `yoke qa requirement supersede "
+    "amendment -- which then reaches the admitted copy -- and start the "
+    "stage again."
+)
+
+#: Recovery for a copy that CANNOT be corrected, by any path. Telling an
+#: operator to refresh it would teach an action nobody can take: the
+#: requirement update allowlist does not carry these fields, and
+#: `yoke qa plan rematerialize` rewrites the source row rather than a run's
+#: plan-less admitted copy. So the honest answer names the three remedies
+#: that do exist rather than one that does not.
+UNREACHABLE_FIELD_RECOVERY = (
+    "{fields} cannot be written on a requirement at all -- the updatable "
+    "fields are {allowed}, and `yoke qa plan rematerialize` refreshes the "
+    "source row, not a run's plan-less admitted copy. Refreshing this copy "
+    "is therefore not an available remedy, and it will certify against the "
+    "superseded body for as long as it exists. Take one that is available: "
+    "record a corrected case bound to this same run, stage, member and "
+    "execution target and supersede this one (`yoke qa requirement supersede "
+    "--requirement-id {copy_id} --superseded-by-requirement-id <corrected-id> "
+    "--rationale '<why>'`); waive this copy through the registered waiver "
+    "surface with explicit authorization; or deliver the item on a new run, "
+    "whose admission freezes the corrected body."
+)
+
+#: Recovery for a copy that has already answered. Its acceptance snapshot is
+#: frozen whatever the field was, so re-applying can never reach it.
+ANSWERED_COPY_RECOVERY = (
+    "Record a corrected case in its place: `yoke qa requirement supersede "
     "--requirement-id {copy_id} --superseded-by-requirement-id <corrected-id> "
     "--rationale '<why>'`"
 )
+
+
+def reachable_in_place_fields() -> frozenset[str]:
+    """Definition fields an in-place requirement write can still reach.
+
+    Imported at call time because :mod:`qa_requirement_config_update` reaches
+    this module through the reconciliation path; a module-level import would
+    close that cycle. The allowlist stays its owner's rather than becoming a
+    second copy here, so a field added there is reachable here in the same
+    change.
+    """
+    from yoke_core.domain.qa_requirement_config_update import (
+        UPDATABLE_REQUIREMENT_FIELDS,
+    )
+
+    return frozenset(DEFINITION_COLUMNS) & frozenset(UPDATABLE_REQUIREMENT_FIELDS)
 
 
 class StaleAdmittedCaseError(ValueError):
@@ -84,14 +125,31 @@ class AdmittedCaseDivergence:
     fields: tuple[str, ...]
 
     def message(self) -> str:
-        """The named refusal, with the fields that moved and the recovery."""
+        """The named refusal, with the fields that moved and a real recovery.
+
+        Which recovery is true depends on what moved. Only a field the
+        requirement update allowlist carries can be written onto the copy at
+        all, so a divergence in any other field has no refresh route and the
+        refusal says so instead of promising one.
+        """
+        reachable = reachable_in_place_fields()
+        unreachable = tuple(
+            field for field in self.fields if field not in reachable
+        )
+        if unreachable:
+            recovery = UNREACHABLE_FIELD_RECOVERY.format(
+                fields=", ".join(unreachable),
+                allowed=", ".join(sorted(reachable)),
+                copy_id=self.requirement_id,
+            )
+        else:
+            recovery = REACHABLE_FIELD_RECOVERY
         return (
             f"{STALE_ADMITTED_CASE_CODE}: admitted QA case "
             f"{self.requirement_id} was copied from item requirement "
             f"{self.source_requirement_id}, which has since been amended "
             f"({', '.join(self.fields)}). Running it would certify against a "
-            "definition the item has already superseded. "
-            + STALE_ADMITTED_CASE_RECOVERY.format(copy_id=self.requirement_id)
+            "definition the item has already superseded. " + recovery
         )
 
 
@@ -219,15 +277,18 @@ def annotate_admitted_currency(
 
 
 __all__ = [
+    "ANSWERED_COPY_RECOVERY",
     "AdmittedCaseDivergence",
     "DEFINITION_COLUMNS",
+    "REACHABLE_FIELD_RECOVERY",
     "STALE_ADMITTED_CASE_CODE",
-    "STALE_ADMITTED_CASE_RECOVERY",
     "StaleAdmittedCaseError",
+    "UNREACHABLE_FIELD_RECOVERY",
     "admitted_case_divergence",
-    "annotate_admitted_currency",
     "admitted_source_requirement_id",
+    "annotate_admitted_currency",
     "definition_snapshot",
     "diverging_fields",
+    "reachable_in_place_fields",
     "require_current_admitted_case",
 ]
