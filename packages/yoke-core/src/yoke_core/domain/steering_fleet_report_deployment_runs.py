@@ -6,14 +6,15 @@ four hours, and is any of it red" — so the only remedy anyone reached for
 was to cancel the run, which strands its members and discards re-authored
 waivers.
 
-The facts were already readable. ``unresolved_blocking_qa`` and
+The facts were already readable. A run sitting at a scoped QA stage
+asks :func:`qa_stage_outstanding` — the same walk a drive uses, without
+writing — so the outstanding count cannot disagree with the stage gate.
+Off that stage, ``unresolved_blocking_qa`` and
 ``blocking_obligation_total`` in
-:mod:`deployment_run_completion_preconditions` are plain connection reads
-with no execution lock between them and a caller, and they produce exactly
-the sentences an operator needs; their only consumer was a driver-side
-print behind the lock. This detector reads them from the report side, adds
-the stage age and the red requirements with the members they belong to,
-and renders one row per live run.
+:mod:`deployment_run_completion_preconditions` still answer the
+completion-boundary question. This detector adds the stage age and the
+red requirements with the members they belong to, and renders one row
+per live run.
 
 It decides nothing. There is no timeout and no auto-cancel here on
 purpose: a run that has been at a stage for hours is *reported*, and a
@@ -30,6 +31,7 @@ from typing import Any, Optional
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.deployment_qa_case_failure_kinds import RED_VERDICTS
+from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
 from yoke_core.domain.deployment_run_completion_preconditions import (
     blocking_obligation_total,
     redrive_recovery,
@@ -251,7 +253,15 @@ def run_progress(
     for run in _live_runs(conn, project_id=project_id):
         run_id = str(run["id"])
         stage = str(run["current_stage"])
-        unresolved = tuple(unresolved_blocking_qa(conn, run_id))
+        qa = qa_stage_outstanding(conn, run_id=run_id, stage_name=stage)
+        if qa is not None:
+            unresolved = qa.lines
+            outstanding = qa.waiting
+            total_blocking = qa.subjects
+        else:
+            unresolved = tuple(unresolved_blocking_qa(conn, run_id))
+            outstanding = len(unresolved)
+            total_blocking = blocking_obligation_total(conn, run_id)
         entered = _stage_entered_at(conn, run_id=run_id, stage=stage) or str(
             run.get("started_at") or run.get("created_at") or ""
         )
@@ -262,8 +272,8 @@ def run_progress(
                 status=str(run["status"] or ""),
                 stage=stage or "unstarted",
                 stage_seconds=age_seconds(entered, now),
-                outstanding=len(unresolved),
-                total_blocking=blocking_obligation_total(conn, run_id),
+                outstanding=outstanding,
+                total_blocking=total_blocking,
                 unresolved=unresolved,
                 red=_red_requirements(conn, run_id=run_id),
                 answered_decision=_answered_decision(
