@@ -58,14 +58,22 @@ from yoke_core.domain.schema_api_context_commands_watchers import (
 )
 
 
-WRAPPER_COMMANDS: list[dict] = (
+WRAPPER_COMMANDS: list[dict] = []
+for _row in (
     CORE_COMMANDS
     + CLAIMS_COMMANDS
     + QA_COMMANDS
-    + QA_ITEM_PLAN_COMMANDS
     + PROJECT_COMMANDS
     + WATCHERS_COMMANDS
-)
+):
+    if str(_row.get("recipe", "")).startswith("yoke qa plan materialize"):
+        _retract = QA_ITEM_PLAN_COMMANDS[0]
+        _row = {
+            **_row,
+            "recipe": f"{str(_row['recipe']).rstrip()}\n{_retract['recipe']}",
+            "notes": f"{_row.get('notes', '')} {_retract['notes']}",
+        }
+    WRAPPER_COMMANDS.append(_row)
 
 
 __all__ = ["WRAPPER_COMMANDS"]
