@@ -1,9 +1,13 @@
-"""How the close-out route treats a delivery answer it could not read.
+"""How the close-out route treats what the delivery read told it.
 
 Split from the route-resolution suite, which covers the stage graph and the
-flow clearance. These cover one axis: an unread delivery must refuse by name
-rather than pass for "not delivered", because the route that walks on
-without the ceremony hands the owner a refusal nothing can act on.
+flow clearance. These cover one axis: the three delivery answers reaching
+this boundary have three outcomes. An unread delivery must refuse by name
+rather than pass for "not delivered"; a delivery that definitely has not
+happened must hold the item at its release wait and name the run it waits
+on; only a delivery that happened may walk to the terminal stage. Either of
+the first two walking on without the ceremony hands the owner a
+"missing done-transition ceremony nonce" refusal nothing can act on.
 """
 
 from __future__ import annotations
@@ -61,23 +65,19 @@ def _discharged(monkeypatch, answer: bool) -> None:
         DeliveryDischarge,
     )
 
-    monkeypatch.setattr(
-        release_status,
-        "delivery_discharge",
-        lambda _item: DeliveryDischarge(DISCHARGED if answer else NOT_DISCHARGED),
+    verdict = (
+        DeliveryDischarge(DISCHARGED)
+        if answer
+        else DeliveryDischarge(
+            NOT_DISCHARGED,
+            detail="the selected flow's latest run is at status 'executing'",
+            recovery="Execute or retry deployment run run-20260919-020.",
+            run_id="run-20260919-020",
+            run_status="executing",
+        )
     )
-
-
-def _unread_delivery(monkeypatch) -> None:
-    """A delivery answer the control plane could not produce."""
-    from yoke_core.domain.delivery_discharge_read import UNREAD, DeliveryDischarge
-
     monkeypatch.setattr(
-        release_status,
-        "delivery_discharge",
-        lambda _item: DeliveryDischarge(
-            UNREAD, detail="the relay refused", recovery="Restore it, then retry.",
-        ),
+        release_status, "delivery_discharge", lambda _item: verdict,
     )
 
 
@@ -146,9 +146,16 @@ def test_a_merge_only_item_never_asks_the_delivery_authority(monkeypatch) -> Non
     assert route.delivery_discharged is True
 
 
-def test_a_deploying_flow_still_awaiting_its_delivery_is_not_discharged(
+def test_an_undelivered_item_is_held_at_its_wait_with_the_run_named(
     monkeypatch,
 ) -> None:
+    """The definite "not delivered" case is an answer, not a failed read.
+
+    Walking to the terminal stage here spent the transition on a ceremony
+    only a deploy can perform, and the engine refused with the missing
+    done-transition nonce — which told the owner to re-run the command that
+    had just run, and said nothing about the run they were waiting on.
+    """
     _serve(monkeypatch, "dash")
     _clearance(
         monkeypatch,
@@ -163,8 +170,60 @@ def test_a_deploying_flow_still_awaiting_its_delivery_is_not_discharged(
         "release",
     )
 
-    assert route.stages == ("done",)
+    assert route.stages == ()
     assert route.delivery_discharged is False
+    # Not an error: the clearance resolved, and it resolved to "not yet".
+    assert route.error == ""
+    assert DEPLOYING_FLOW in route.delivery_pending
+    assert "run-20260919-020" in route.delivery_pending
+    assert "executing" in route.delivery_pending
+    assert "Execute or retry deployment run run-20260919-020." in (
+        route.delivery_pending
+    )
+    assert "nonce" not in route.delivery_pending
+
+
+def test_an_undelivered_item_with_no_run_still_names_what_it_waits_on(
+    monkeypatch,
+) -> None:
+    """No run carries the merge yet, so the ladder's own reason leads."""
+    from yoke_core.domain.delivery_discharge_read import (
+        NOT_DISCHARGED,
+        DeliveryDischarge,
+    )
+
+    _serve(monkeypatch, "dash")
+    _clearance(
+        monkeypatch,
+        DeliveryClearance(merge_only=False, resolved_flow=DEPLOYING_FLOW),
+    )
+    monkeypatch.setattr(
+        release_status,
+        "delivery_discharge",
+        lambda _item: DeliveryDischarge(
+            NOT_DISCHARGED,
+            detail=(
+                "no succeeded release that ships this project contains this "
+                "merge"
+            ),
+            recovery="Run the selected project delivery flow to completion.",
+        ),
+    )
+
+    route = release_status.close_out_route(
+        _item(
+            workflow_id="dash", status="release", deployment_flow=DEPLOYING_FLOW,
+        ),
+        "release",
+    )
+
+    assert route.stages == ()
+    assert route.error == ""
+    assert "no succeeded release" in route.delivery_pending
+    assert "deployment run" not in route.delivery_pending
+    assert "Run the selected project delivery flow to completion." in (
+        route.delivery_pending
+    )
 
 
 def test_a_deploying_flow_whose_delivery_succeeded_is_discharged(
@@ -193,3 +252,4 @@ def test_a_deploying_flow_whose_delivery_succeeded_is_discharged(
 
     assert route.stages == ("done",)
     assert route.delivery_discharged is True
+    assert route.delivery_pending == ""

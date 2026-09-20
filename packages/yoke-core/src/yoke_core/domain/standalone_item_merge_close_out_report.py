@@ -88,11 +88,17 @@ def _awaiting_delivery_lines(
     says so out loud because the worker reading it has been told everywhere
     else to report and end. An unconfirmed park is named rather than
     softened: a wait nothing recorded is one the stale sweep will reclaim.
+
+    ``delivery_pending`` leads when the close-out knows which delivery is
+    outstanding, so a re-entry that found the deploy still unfinished says
+    which run it is waiting on instead of reading as a bare "not closed".
     """
     block = record.get("release_wait")
     block = block if isinstance(block, Mapping) else {}
     parked = str(block.get("parked") or "")
+    pending = str(record.get("delivery_pending") or "")
     lines = [
+        *([f"waiting on: {pending}"] if pending else []),
         "work claim and lane: retained through delivery — do not release, "
         "do not end this session",
         f"session parked: {parked or 'not attempted'}"

@@ -223,3 +223,36 @@ on the way through is the point.
 - A step that refuses mid-route stops the walk and reports that refusal; the
   item stands at the last stage it legally reached, and re-running the same
   merge command resumes from there.
+
+## Reporting the wait as a wait
+
+The nonce gate holding a delivery-required item at its release stage was doing
+its job, but the owner never learned that. A close-out re-entered at the
+release wait read the delivery evidence, and three different answers reached
+one line of code: delivered, definitely not delivered, and could-not-read. The
+unread answer refused by name. The other two both routed to the terminal
+stage, so an item whose deploy had not happened walked into the done ceremony
+it could not perform and came back with "missing done-transition ceremony
+nonce. Close it out through /yoke dash PREFIX-N" — naming the command that had
+just run, about a delivery nobody had mentioned. Two workers were sent hunting
+a defect that was not there.
+
+Every fact the owner needed was already in hand at that decision: the flow the
+clearance resolved, the run the evidence ladder had just read and the status it
+sits at, and the ladder's own reason and recovery. The route was discarding
+them and substituting a ceremony error.
+
+**A definite "not delivered" is an answer, not a failed read.** It keeps the
+item where it stands, carries the named wait, and re-parks the owner, exactly
+as entering that wait the first time does. It is deliberately not reported
+through the unread branch's refusal: the clearance did resolve — to "not yet" —
+and reusing "delivery clearance could not be resolved" for it would be the same
+trade the nonce error made, a convenient refusal in place of the honest one.
+
+- A close-out that finds its delivery still outstanding exits 0 as a completed
+  merge and an unfinished item, names the flow and the run it is waiting on,
+  keeps the lane and the claim, and re-stamps the park the wake had cleared.
+- The delivery-evidence read carries the run it read on its not-delivered
+  answer, so a run in any status — not only one worth retrying — is named.
+- A delivery that could not be read still refuses by name, and a delivery that
+  happened still walks the declared stages to `done`.
