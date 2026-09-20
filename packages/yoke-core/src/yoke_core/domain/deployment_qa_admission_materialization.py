@@ -23,6 +23,24 @@ def admitted_requirement_case_key(source_id: int) -> str:
     return f"{ADMITTED_REQUIREMENT_CASE_PREFIX}{int(source_id)}"
 
 
+def admitted_source_requirement_id(case_key: Any) -> int | None:
+    """The intake requirement an admitted case key names, or ``None``.
+
+    The inverse of :func:`admitted_requirement_case_key`, and its neighbour
+    on purpose: the key is the only link an admitted copy keeps back to the
+    row it was frozen from, so both directions live in one place. Every
+    other case key -- a plan's own, or ``ad-hoc-`` -- names no source row.
+    """
+    key = str(case_key or "")
+    if not key.startswith(ADMITTED_REQUIREMENT_CASE_PREFIX):
+        return None
+    tail = key[len(ADMITTED_REQUIREMENT_CASE_PREFIX) :]
+    if not tail.isdigit():
+        return None
+    source_id = int(tail)
+    return source_id if source_id > 0 else None
+
+
 def _target_environment(target: Mapping[str, Any]) -> str:
     environment = target.get("environment")
     if not isinstance(environment, Mapping):
@@ -322,6 +340,7 @@ def fulfill_admitted_obligations(
 __all__ = [
     "ADMITTED_REQUIREMENT_CASE_PREFIX",
     "admitted_requirement_case_key",
+    "admitted_source_requirement_id",
     "fulfill_admitted_obligations",
     "materialize_admitted_requirement",
     "member_requirements",

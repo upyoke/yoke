@@ -19,11 +19,11 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement, insert_qa_run
 from yoke_core.domain.deployment_qa_admission_materialization import (
     admitted_requirement_case_key,
+    admitted_source_requirement_id,
 )
 from yoke_core.domain.qa_admitted_case_currency import (
     StaleAdmittedCaseError,
     admitted_case_divergence,
-    admitted_source_requirement_id,
     annotate_admitted_currency,
     reachable_in_place_fields,
     require_current_admitted_case,

@@ -42,7 +42,11 @@ _EPILOG = (
     "A run-bound case that has not yet recorded a "
     "determinate verdict is still correctable in place with "
     "'yoke qa requirement update' -- supersession is for one that has already "
-    "answered."
+    "answered. Supersession is run-local: when the discharged case was "
+    "admitted from an item requirement, that source row is untouched and "
+    "still outstanding, so the next release admits the same body again. The "
+    "receipt names that row and the command that corrects it whenever there "
+    "is one."
 )
 
 
@@ -59,6 +63,12 @@ def _write_supersede_result(
             f"(source={result['supersession_source']})",
             file=stdout,
         )
+        # Printed here rather than left in the envelope: this is the only
+        # moment the operator holds the corrected configuration, and the
+        # source row is the only thing that makes the correction stick.
+        notice = result.get("next_admission_notice")
+        if notice:
+            print(f"Next release: {notice}", file=stdout)
     else:
         print(json.dumps(result, sort_keys=True), file=stdout)
 
