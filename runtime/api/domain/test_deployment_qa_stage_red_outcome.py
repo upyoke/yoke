@@ -79,7 +79,7 @@ def test_a_failed_case_reports_blocked_and_names_its_requirement(test_db) -> Non
     assert _kinds(status) == [FAILURE_RED]
     assert status["case_failures"][0]["requirement_id"] == requirement_id
     assert any(
-        f"cannot finish as it stands" in reason and f"#{requirement_id}" in reason
+        "cannot finish as it stands" in reason and f"#{requirement_id}" in reason
         for reason in status["reasons"]
     )
 
