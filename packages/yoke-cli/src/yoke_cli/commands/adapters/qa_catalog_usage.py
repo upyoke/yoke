@@ -63,7 +63,10 @@ matching rows in place, retains their QA run history, creates cases the plan
 has gained, and waives cases it has lost. It reaches every executable column,
 instructions and expected_outcome included -- which `yoke qa requirement
 update` cannot write at all -- because it rewrites the derivation whole rather
-than one allowlisted field.
+than one allowlisted field. It also carries that body onto every admitted
+deployment-stage copy frozen from a refreshed row that can still be reached,
+reported as corrected_admitted_copy_ids -- otherwise the copy would keep the
+old body and its stage would refuse the case as superseded.
 
 A deployment subject refreshes only cases that have not recorded a
 determinate verdict; one that has already answered is an acceptance record,
