@@ -36,7 +36,7 @@ The rules file every session loads carries the short normative form of each rule
 - **Ask the narrow question.** A registered `yoke` command serves its answer whole and prints a refusal with its named reason and recovery step, so the shape that returns part of an answer is a narrower request rather than a narrower view of the same one. `lint-yoke-adapter-stderr-visibility` (guard key `lint_yoke_adapter_stderr_visibility`, default `deny`) keeps both halves of adapter output intact — stderr visible on a mutating adapter, stdout whole on every invocation — and names the shape to run for the command it caught; `--help` is out of scope. The catalog below is the deep home for the three-line recipe that rides every `yoke <command> --help`, and `yoke --help` prints it in full. A long run's whole output is kept by capturing it (`_tmp=$(mktemp /tmp/yoke-cmd.XXXXXX); <command> >"$_tmp" 2>&1; _rc=$?`) and reading the file.
 
 <!-- BEGIN GENERATED: read-recipe -->
-Want part of an answer? Ask the narrow question — every registered read has a shape that serves just that part.
+Want part of an answer? Ask the narrow question — every read has a shape that serves it.
 
 | What you want | The shape that serves it |
 | --- | --- |

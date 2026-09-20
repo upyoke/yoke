@@ -31,7 +31,7 @@ from typing import NamedTuple
 
 DIRECTIVE: str = (
     "Want part of an answer? Ask the narrow question — "
-    "every registered read has a shape that serves just that part."
+    "every read has a shape that serves it."
 )
 
 
@@ -55,18 +55,9 @@ class ReadRecipe(NamedTuple):
 #: bottom of every ``--help`` block and the startup packet, which is the
 #: point: the caller reads them while deciding how to invoke, not after.
 COMPACT_RECIPES: tuple[tuple[str, str], ...] = (
-    (
-        "yoke <command> <arguments>",
-        "the routine answer; every read is already scoped",
-    ),
-    (
-        "yoke items get PREFIX-N status",
-        "name fields and a read serves those fields",
-    ),
-    (
-        "tail -80 <raw-capture>",
-        "the path a watcher prints; read it once the run exits",
-    ),
+    ("yoke <command> <arguments>", "the routine answer, already scoped"),
+    ("yoke items get PREFIX-N status", "the fields you name"),
+    ("tail -80 <raw-capture>", "the capture a watcher prints, once it exits"),
 )
 
 
@@ -82,12 +73,11 @@ FOOTER: str = _render_compact()
 
 
 #: One line for a startup block that can afford a pointer but not a stanza.
+#: Every byte here rides every session start on every harness, so it names
+#: the two shapes and sends the reader to the catalog for the rest.
 STARTUP_READ_LINE: str = (
-    "- Part of a command's answer — ask the narrow question: "
-    "`yoke <command> <arguments>` serves the routine answer already scoped, "
-    "`yoke items get PREFIX-N status` serves named fields, and a watcher "
-    "prints the capture path to read once its run exits. "
-    "The catalog is `yoke --help`."
+    "- Part of an answer — `yoke items get PREFIX-N status`; "
+    "catalog `yoke --help`."
 )
 
 

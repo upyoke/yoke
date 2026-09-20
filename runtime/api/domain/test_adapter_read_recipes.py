@@ -126,7 +126,6 @@ def test_launch_sentence_names_the_message_read() -> None:
     [
         "AGENTS.md",
         "docs/public/reference/agent-rules/code-and-cli.md",
-        "runtime/harness/claude/rules/session.md",
         "runtime/agents/engineer/large-output.md",
     ],
 )

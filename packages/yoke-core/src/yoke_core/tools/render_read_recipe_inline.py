@@ -62,7 +62,6 @@ _CATALOG_PATH: str = "docs/public/reference/agent-rules/code-and-cli.md"
 INVENTORY: tuple[str, ...] = (
     "AGENTS.md",
     "docs/public/reference/agent-rules/code-and-cli.md",
-    "runtime/harness/claude/rules/session.md",
     "runtime/agents/engineer/large-output.md",
 )
 

@@ -287,12 +287,18 @@ def test_attach_help_trailer_appends_canonical_footer() -> None:
     assert parser.epilog.endswith(FOOTER)
 
 
-def test_attach_help_trailer_skips_when_description_already_has_footer() -> None:
+def test_attach_help_trailer_does_not_repeat_a_stanza_the_parser_carries() -> None:
+    """A parser composing the footer itself keeps its one copy.
+
+    The read recipe is still attached: the two stanzas answer different
+    questions, so carrying one is not a reason to withhold the other.
+    """
     from yoke_cli.commands._helpers import (
         attach_help_trailer,
     )
+    from yoke_contracts.adapter_read_recipes import FOOTER as READ_FOOTER
     from yoke_contracts.field_note_text import FOOTER
 
     parser = argparse.ArgumentParser(prog="test", description=f"Body\n\n{FOOTER}")
     attach_help_trailer(parser)
-    assert parser.epilog is None
+    assert parser.epilog == READ_FOOTER

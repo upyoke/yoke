@@ -35,12 +35,12 @@ Reference content for the Engineer prompt. Read this file when running test suit
 - **Ask the narrow question.** A registered `yoke` command serves its answer whole, and every read has a shape that returns the part you want.
 
 <!-- BEGIN GENERATED: read-recipe -->
-Want part of an answer? Ask the narrow question — every registered read has a shape that serves just that part.
+Want part of an answer? Ask the narrow question — every read has a shape that serves it.
 
 ```text
-yoke <command> <arguments>      # the routine answer; every read is already scoped
-yoke items get PREFIX-N status  # name fields and a read serves those fields
-tail -80 <raw-capture>          # the path a watcher prints; read it once the run exits
+yoke <command> <arguments>      # the routine answer, already scoped
+yoke items get PREFIX-N status  # the fields you name
+tail -80 <raw-capture>          # the capture a watcher prints, once it exits
 ```
 <!-- END GENERATED: read-recipe -->
 

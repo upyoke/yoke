@@ -37,7 +37,7 @@ class TestDivergedWarningStillAdvisory(unittest.TestCase):
     #: case under test overrides one.
     _GATES = (
         "_run_file_line_check_or_block",
-        "_run_field_note_render_or_block",
+        "_run_generated_block_renders_or_block",
         "_run_harness_capability_render_or_block",
         "_run_agent_render_check_or_block",
         "_run_worktree_status_check_or_block",

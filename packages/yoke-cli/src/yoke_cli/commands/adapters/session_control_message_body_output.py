@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, Callable, TextIO
 
-from yoke_core.domain.session_message_projection import (
+from yoke_contracts.session_control.message_projection import (
     ATTEMPTS_WITHHELD_KEY,
     ATTEMPTS_WITHHELD_READ_KEY,
 )

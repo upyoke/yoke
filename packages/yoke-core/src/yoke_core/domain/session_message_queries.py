@@ -109,7 +109,7 @@ def get_message(
     fields: Sequence[str] = (),
     detail: str = "",
 ) -> dict[str, Any]:
-    from yoke_core.domain.session_message_projection import (
+    from yoke_contracts.session_control.message_projection import (
         project_message,
         unknown_message_fields,
     )

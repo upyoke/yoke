@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from yoke_contracts.read_detail import DETAIL_FULL, DETAIL_SUMMARY
-from yoke_core.domain.session_message_projection import (
+from yoke_contracts.session_control.message_projection import (
     ATTEMPTS_WITHHELD_KEY,
     ATTEMPTS_WITHHELD_READ_KEY,
     ROUTINE_ATTEMPT_ROWS,

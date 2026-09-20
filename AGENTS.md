@@ -49,16 +49,16 @@ Read `lanes-and-claims.md` before resolving any overlap — accepted remediation
 
 ## Command Output — Hard Rule
 <!-- BEGIN GENERATED: read-recipe -->
-Want part of an answer? Ask the narrow question — every registered read has a shape that serves just that part.
+Want part of an answer? Ask the narrow question — every read has a shape that serves it.
 
 ```text
-yoke <command> <arguments>      # the routine answer; every read is already scoped
-yoke items get PREFIX-N status  # name fields and a read serves those fields
-tail -80 <raw-capture>          # the path a watcher prints; read it once the run exits
+yoke <command> <arguments>      # the routine answer, already scoped
+yoke items get PREFIX-N status  # the fields you name
+tail -80 <raw-capture>          # the capture a watcher prints, once it exits
 ```
 <!-- END GENERATED: read-recipe -->
-- **Capture-first: any non-trivial command is captured to a temp file, and the file then answers every question you have.** Applies wherever output matters on failure (roughly >5s): tests, merges, deploys, syncs, QA, renders, installs, builds, git. Use `_tmp=$(mktemp /tmp/yoke-cmd.XXXXXX); <command> >"$_tmp" 2>&1; _rc=$?`, inspect the file, exit `$_rc`.
-- **Yoke's own adapters run bare.** Registry-covered commands (`yoke <subcommand>`, `db_router`, `service_client`) print short answers: run them bare, and add `--json` when you want the envelope's structure. **A read serves the routine answer and names what it withheld** — never by size, never quietly. The `--full` reads: `code-and-cli.md`. One field of one mutation that restates state you did not ask it to change (today only `sessions.touch`'s `session` row) prints as `<not printed: N bytes …>` named on stderr; everything else, `--json`, and refusals print in full. A receipt prints after the command ran, so `--json` is a flag on an invocation, never a reason to repeat a write.
+- **Capture-first: any non-trivial command is captured to a temp file, which then answers every question.** Applies wherever output matters on failure (roughly >5s): tests, merges, deploys, syncs, QA, renders, installs, builds, git. Use `_tmp=$(mktemp /tmp/yoke-cmd.XXXXXX); <command> >"$_tmp" 2>&1; _rc=$?`, inspect the file, exit `$_rc`.
+- **A read serves the routine answer and names what it withheld** — never by size, never quietly. The `--full` reads: `code-and-cli.md`. One field of one mutation that restates state you did not ask it to change (today only `sessions.touch`'s `session` row) prints as `<not printed: N bytes …>` named on stderr; everything else, `--json`, and refusals print in full. A receipt prints after the command ran, so `--json` is a flag on an invocation, never a reason to repeat a write.
 - **Stream long commands through the watcher wrappers** (`yoke watch pytest | merge | deploy | fleet | preflight | qa-case | doctor`), which capture internally. Doctor has one shape: `yoke watch doctor -- (--quick | --full | --only <slugs>)`.
 - **A command that outlives its yield is still running — continue it, never relaunch it.** Every harness hands a long command back before it finishes; no such handoff is an interruption, and a quiet watcher is not a dead one. Re-run only once the process is verifiably gone: a relaunch beside a live invocation spends the shared resource twice and can cancel work the first was about to finish. Taught exception, for an overlong *local* check only: interrupt past a minute, keep the capture, commit, continue on CI.
 - **Do not manually poll a running long command** — the streaming surface is the progress signal. Subagents run them foreground in one tool call. Filters, exit statuses, anti-patterns: `verification.md`.

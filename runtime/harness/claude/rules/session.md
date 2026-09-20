@@ -42,18 +42,7 @@ Two tiers with different authority. Apply only the one matching your session tie
 - If the turn budget cannot fit the foreground run, the orchestrator fans out tighter dispatches. Growing the budget to fit a self-armed background pattern is not a workaround.
 
 **Both tiers:**
-- **Do not manually poll a running long command.** In `background-wake` the one armed subscription is the progress surface; in `in-turn` the original foreground call is the waiter. The minted `yoke watch tail <progress-capture>` is the only sanctioned Monitor shape — it exits on the completion sentinel and a re-arm resumes rather than replays, while bare `tail -f` on a watcher capture is denied. One post-completion `tail -80 <raw-capture>` is fine.
-- **A watcher's own output is the run; its capture is the record.** Relay the streamed progress line, and once the run exits read the raw capture the wrapper printed for everything else. For any other command's answer:
-
-<!-- BEGIN GENERATED: read-recipe -->
-Want part of an answer? Ask the narrow question — every registered read has a shape that serves just that part.
-
-```text
-yoke <command> <arguments>      # the routine answer; every read is already scoped
-yoke items get PREFIX-N status  # name fields and a read serves those fields
-tail -80 <raw-capture>          # the path a watcher prints; read it once the run exits
-```
-<!-- END GENERATED: read-recipe -->
+- **Do not manually poll a running long command.** In `background-wake` the one armed subscription is the progress surface; in `in-turn` the original foreground call is the waiter. The minted `yoke watch tail <progress-capture>` is the only sanctioned Monitor shape — it exits on the completion sentinel and a re-arm resumes rather than replays, while bare `tail -f` on a watcher capture is denied. One post-completion `tail -80 <raw-capture>` is fine. Any other command's answer: AGENTS.md `## Command Output`.
 - **Prefer the wrappers over a hand-authored filter,** and confirm no wrapper covers the command before falling back: a command may be a *subcommand* of one (`yoke merge item` → `yoke watch merge merge-item`). The wrappers are `yoke watch pytest | merge | deploy | fleet | preflight | qa-case | doctor`; the inventory, filters, and exit statuses are in the deep home. `--local` on the pytest wrapper is only a small targeted check expected to finish in about one minute, and is not justified by an uncommitted tree.
 - **On Monitor wakes, relay the matched line into your own output.** That line IS the update the operator wants — emit it verbatim or as a tight one-line paraphrase preserving the concrete signal. Never substitute filler like "Still waiting." A `# watch_<kind> digest …` line is one wake covering everything in it: relay it whole, including any `(suppressed N ticks)` suffix.
 - **Relay is your own visible output and nothing else.** It never authorizes mailing a watcher line to another session. A worker must not `yoke say` progress upward — a percentage, an elapsed poll, a "still green" note costs the recipient an inbox row and changes nothing it would do. Ending a turn sends no Fleet message; send terminal and actionable reports deliberately with `yoke say --steering`. Message another session only for something it would act on: a red gate and what failed, a blocker, a conflict with your instruction, a defect outside your scope, a terminal item state, or a decision you need.
