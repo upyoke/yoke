@@ -213,31 +213,39 @@ def test_the_recovery_the_done_refusal_prints_actually_clears_the_item(
     assert evaluate(item_id=item_id, target_status="done", db_path=db_path) is None
 
 
-def test_superseding_an_admitted_copy_leaves_the_next_release_admitting_it(
+def test_supersession_leaves_the_next_release_admitting_it_and_says_so(
     test_db,
 ) -> None:
-    """Evidence for the sibling defect: the correction does not reach intake.
+    """Supersession still does not reach intake -- but no longer in silence.
 
-    Supersession is run-local by design -- it discharges one frozen copy and
+    Supersession is run-local by design: it discharges one frozen copy and
     leaves the intake row it was frozen from exactly as it was. That row is
-    still outstanding, so the next run admits a fresh copy carrying the same
-    defective body, and its owner is asked to run the same doomed case. This
-    pins the behaviour rather than endorsing it: correcting it belongs to the
-    supersede surface, the only place that knows the upstream, and blanking
-    the intake row from here would silently drop a real obligation forever.
+    still outstanding, so a run that follows admits a fresh copy carrying the
+    same body. Blanking it from here would silently drop a real obligation
+    forever, so none of that changes and every assertion below still holds.
+
+    What changed is that the receipt names the row. The defect was never the
+    run-local scope; it was that nothing told the operator their correction
+    reached one run only, at the one moment they held the corrected
+    configuration. Both halves are pinned together because either alone is
+    the bug: reaching intake automatically would drop the obligation, and
+    saying nothing leaves the next owner running the same doomed case.
     """
     item_id = 2344
     _insert_dash(test_db, item_id=item_id, status="release")
     intake_id, broken_id, corrected_id = deliver_with_failing_admitted_copy(
         test_db, item_id=item_id, run_id="run-supersede-first", corrected=True
     )
-    supersede_requirement(
+    receipt = supersede_requirement(
         test_db,
         requirement_id=broken_id,
         superseded_by_requirement_id=corrected_id,
         rationale="corrected case passed against the deployed target",
         source="operator",
     )
+    assert receipt["admitted_from_requirement_id"] == intake_id
+    assert str(intake_id) in receipt["next_admission_notice"]
+    assert "yoke qa requirement update" in receipt["next_admission_notice"]
     succeed_run(test_db, "run-supersede-first")
     broken_config = test_db.execute(
         "SELECT method_config FROM qa_requirements WHERE id=%s", (broken_id,)
@@ -261,3 +269,12 @@ def test_superseding_an_admitted_copy_leaves_the_next_release_admitting_it(
     assert str(next_row["plan_case_key"]) == admitted_requirement_case_key(intake_id)
     assert next_row["method_config"] == broken_config
     assert next_row["superseded_by_requirement_id"] is None
+    # Naming the intake row is all the receipt does to it: the obligation is
+    # still outstanding, which is why a future release admits it at all.
+    intake_row = test_db.execute(
+        "SELECT waived_at,superseded_by_requirement_id "
+        "FROM qa_requirements WHERE id=%s",
+        (intake_id,),
+    ).fetchone()
+    assert intake_row["waived_at"] is None
+    assert intake_row["superseded_by_requirement_id"] is None
