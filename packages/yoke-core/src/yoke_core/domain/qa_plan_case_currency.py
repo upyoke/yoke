@@ -35,6 +35,7 @@ from yoke_core.domain.qa_plan_case_definition import (
     plan_cases,
 )
 from yoke_core.domain.qa_plan_execution_store import canonical, marker
+from yoke_core.domain.qa_plan_refresh_safety import refresh_recovery
 from yoke_core.domain.qa_plan_management import QaPlanError, _plan_row
 
 #: The executable columns a refresh would rewrite from the plan. Everything
@@ -143,38 +144,6 @@ def _comparable(value: Any) -> str:
     return canonical(value)
 
 
-def _refresh_command(conn: Any, row: Any) -> str:
-    """The one command that can actually refresh this row, by its subject.
-
-    An item row and a deployment row are refreshed by different subjects of
-    the same operation, so naming one recipe for both would send half of all
-    callers to a command that refuses them.
-    """
-    from yoke_core.domain.project_identity import render_item_ref
-
-    if row["deployment_run_id"]:
-        member = row["deployment_member_item_id"]
-        member_arg = (
-            f" --member {render_item_ref(conn, int(member))}" if member else ""
-        )
-        return (
-            "Refresh it from the plan with `yoke qa plan rematerialize "
-            f"--deployment-run-id {row['deployment_run_id']} "
-            f"--stage {row['deployment_stage']}{member_arg}`."
-        )
-    if row["item_id"]:
-        return (
-            "Refresh it from the plan with `yoke qa plan rematerialize "
-            f"--item {render_item_ref(conn, int(row['item_id']))} "
-            f"--transition {row['workflow_transition_id']}`."
-        )
-    return (
-        "This row names neither an item nor a deployment run, so no refresh "
-        "subject reaches it; supersede it with `yoke qa requirement supersede` "
-        "or waive it through the registered waiver surface."
-    )
-
-
 def _row(conn: Any, requirement_id: int) -> Any:
     columns = ",".join((*_SUBJECT_COLUMNS, *PLAN_DEFINITION_COLUMNS))
     return query_one(
@@ -196,7 +165,7 @@ def _divergence_for_row(conn: Any, row: Any) -> Optional[PlanCaseDivergence]:
         "plan_id": plan_id,
         "case_key": case_key,
         "host_baseline": baseline,
-        "refresh_command": _refresh_command(conn, row),
+        "refresh_command": refresh_recovery(conn, row),
     }
     try:
         plan = _plan_row(conn, plan_id)

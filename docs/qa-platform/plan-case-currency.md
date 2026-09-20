@@ -36,6 +36,12 @@ executable column — `instructions` and `expected_outcome` included, which
 `yoke qa requirement update` cannot write at all — because it rewrites the
 materialization derivation whole rather than one allowlisted field.
 
+A refresh also carries its just-written body onto every admitted
+deployment-stage copy frozen from a refreshed row that can still be reached,
+and reports them as `corrected_admitted_copy_ids`. Without that, the safe
+correction would strand the run: the copy would keep the pre-refresh body and
+the stage walking it would refuse the case as superseded.
+
 The two subjects are not interchangeable. An item row is refreshed by its item
 and transition; a row materialized onto a deployment stage is refreshed by its
 run, stage and member. Each reported `recovery` names the one that fits the row
@@ -51,7 +57,7 @@ afterwards, and it is the state that made the original defect invisible.
 | Refusal | When | Recovery it names |
 |---|---|---|
 | `plan_execution_in_flight` | A live QA plan execution is walking a roster built from these rows | The full `yoke qa plan abort` invocation for that execution, then refresh and start the walk again |
-| `admitted_copy_in_flight` | An admitted deployment-stage copy of a row is on a run that is still executing and cannot be corrected | The remedy available for that copy — see [Deployment QA Stage Execution](deployment-stage-execution.md) |
+| `admitted_copy_in_flight` | An admitted deployment-stage copy of a row has answered, or a live execution froze it into the roster it is being walked against | The remedy available for that copy — see [Deployment QA Stage Execution](deployment-stage-execution.md) |
 | answered deployment case | A deployment-stage row has already recorded a determinate verdict | `yoke qa requirement supersede`, because an answered case is an acceptance record |
 
 Each refusal names a command that is actually reachable for the case that

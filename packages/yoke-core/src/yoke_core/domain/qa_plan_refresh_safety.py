@@ -23,7 +23,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_core.domain.qa_plan_execution_store import live_plan_execution_id
+from yoke_core.domain.db_helpers import query_one
+from yoke_core.domain.qa_plan_execution_store import live_plan_execution_id, marker
 
 LIVE_EXECUTION_CODE = "plan_execution_in_flight"
 
@@ -34,6 +35,69 @@ LIVE_EXECUTION_MESSAGE = (
     "Abort that execution with `{abort}`, then refresh and start the walk "
     "again — the abort is what makes the refresh reachable."
 )
+
+
+#: Subject columns that decide which refresh invocation reaches a row.
+_REFRESH_SUBJECT_SQL = (
+    "SELECT item_id,deployment_run_id,deployment_stage,"
+    "deployment_member_item_id,plan_id,workflow_transition_id "
+    "FROM qa_requirements WHERE id="
+)
+
+
+def refresh_invocation(conn: Any, row: Any) -> str:
+    """The one refresh command that reaches this row, by its own subject.
+
+    An item row and a deployment row are refreshed by different subjects of
+    the same operation, so naming one recipe for both would send half of all
+    callers to a command that refuses them.
+    """
+    from yoke_core.domain.project_identity import render_item_ref
+
+    if row["deployment_run_id"]:
+        member = row["deployment_member_item_id"]
+        member_arg = (
+            f" --member {render_item_ref(conn, int(member))}" if member else ""
+        )
+        return (
+            "yoke qa plan rematerialize --deployment-run-id "
+            f"{row['deployment_run_id']} --stage {row['deployment_stage']}"
+            f"{member_arg}"
+        )
+    if row["item_id"]:
+        return (
+            "yoke qa plan rematerialize --item "
+            f"{render_item_ref(conn, int(row['item_id']))} "
+            f"--transition {row['workflow_transition_id']}"
+        )
+    return ""
+
+
+def refresh_recovery(conn: Any, row: Any) -> str:
+    """The refresh sentence for a reader, or what to do when none reaches it."""
+    invocation = refresh_invocation(conn, row)
+    if invocation:
+        return f"Refresh it from the plan with `{invocation}`."
+    return (
+        "This row names neither an item nor a deployment run, so no refresh "
+        "subject reaches it; supersede it with `yoke qa requirement supersede` "
+        "or waive it through the registered waiver surface."
+    )
+
+
+def plan_refresh_invocation(conn: Any, requirement_id: int) -> str:
+    """The refresh that reaches this row from its plan, or ``""`` if none does.
+
+    A row materialized from no plan has no plan to be refreshed from, so an
+    empty answer is the honest one — naming a command that would refuse is
+    exactly the failure this module exists to avoid.
+    """
+    row = query_one(
+        conn, f"{_REFRESH_SUBJECT_SQL}{marker(conn)}", (int(requirement_id),)
+    )
+    if row is None or row["plan_id"] is None:
+        return ""
+    return refresh_invocation(conn, row)
 
 
 def _abort_command(
@@ -173,6 +237,9 @@ __all__ = [
     "LIVE_EXECUTION_CODE",
     "LIVE_EXECUTION_MESSAGE",
     "correct_admitted_copies",
+    "plan_refresh_invocation",
+    "refresh_invocation",
+    "refresh_recovery",
     "require_no_live_execution",
     "require_reachable_admitted_copies",
 ]

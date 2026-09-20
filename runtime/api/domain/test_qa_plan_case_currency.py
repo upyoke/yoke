@@ -21,6 +21,7 @@ from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.deployment_qa_admission_materialization import (
     admitted_requirement_case_key,
 )
+from yoke_core.domain.qa_admitted_case_currency import admitted_case_divergence
 from yoke_core.domain.qa_admitted_case_reconciliation import (
     ADMITTED_COPY_IN_FLIGHT_CODE,
 )
@@ -287,3 +288,41 @@ def test_a_refresh_refuses_when_an_admitted_copy_has_already_answered() -> None:
     assert ADMITTED_COPY_IN_FLIGHT_CODE in message
     assert f"admitted case {copy_id}" in message
     assert "yoke qa requirement supersede" in message
+
+
+def test_a_stale_copy_of_a_plan_row_names_the_refresh_that_reaches_it() -> None:
+    """The remedy names a plan refresh only when a plan really stands behind it.
+
+    The prose fields are on no requirement-update allowlist, so a copy whose
+    instructions moved used to be told refreshing was not available at all.
+    For a plan-materialized source it now is, and the refusal names the exact
+    invocation — which this then runs, because a named remedy that does not
+    work is the failure mode this whole item exists to end.
+    """
+    with test_database() as conn:
+        plan_id, requirement_id = _materialized(conn, item_id=8610)
+        copy_id = _admitted_copy(
+            conn, source_id=requirement_id, run_id="run-named", item_id=8610
+        )
+        # The source moves ahead of its copy, exactly as a refresh leaves it
+        # when the copy was frozen before the correction.
+        _correct_the_case(conn, plan_id)
+        conn.execute(
+            "UPDATE qa_requirements SET instructions=%s WHERE id=%s",
+            (CORRECTED_INSTRUCTIONS, requirement_id),
+        )
+        conn.commit()
+
+        divergence = admitted_case_divergence(conn, copy_id)
+        message = divergence.message()
+        assert "instructions" in divergence.fields
+        assert "not an available remedy" not in message
+        expected = (
+            f"yoke qa plan rematerialize --item YOK-8610 --transition {TRANSITION}"
+        )
+        assert expected in message
+
+        rematerialize_for_item(conn, item_id=8610, transition_id=TRANSITION)
+
+        assert admitted_case_divergence(conn, copy_id) is None
+        assert _instructions(conn, copy_id) == CORRECTED_INSTRUCTIONS
