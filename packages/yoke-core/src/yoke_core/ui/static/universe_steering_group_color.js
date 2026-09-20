@@ -55,6 +55,14 @@ export function createSteeringGroupColors(client, isMounted) {
   let colors = new Map();
   return {
     colors: () => colors,
+    // For a screen that already holds the same open roster. It is the very
+    // rows `refresh()` would go and read, so asking for them again is one
+    // more copy of the slowest read on the page for an answer already in
+    // hand.
+    adopt: (rows) => {
+      if (!isMounted()) return;
+      colors = computeSteeringGroupColors(rows);
+    },
     refresh: () => Promise.resolve().then(() => callFunction(
       client, "sessions.list", { per_project: true, open: true },
     )).then((callResult) => {

@@ -70,6 +70,102 @@ class ContainmentVerdict:
         return self.state == CONTAINED
 
 
+class CandidateContainment:
+    """Ask one candidate lineage about many commits, opening sources once.
+
+    Containment is asked per commit, but the sources that answer it are per
+    project and per candidate: the same checkout, and the same resolution of
+    the same candidate revision, serve every commit in the batch. Opening
+    them per commit re-forked one ``rev-parse`` of the identical candidate
+    for every card on a roster, which is the cost this exists to stop paying.
+
+    A source is opened at most once. One that refuses to open keeps its named
+    refusal and contributes it to every commit's undetermined verdict, so a
+    batched walk collects exactly the reasons a per-commit walk did.
+    """
+
+    def __init__(
+        self, conn: Any, project_id: int, *, candidate_lineage: str,
+    ) -> None:
+        self._candidate = str(candidate_lineage or "").strip()
+        self._openers = carried_work_sources(conn, project_id)
+        self._opened: Optional[list[_OpenedSource]] = None
+
+    def _sources(self) -> list["_OpenedSource"]:
+        """Open every source once, keeping each refusal as its own answer."""
+        if self._opened is None:
+            opened: list[_OpenedSource] = []
+            for opener in self._openers:
+                try:
+                    source = opener()
+                except CarriedWorkSourceUnavailable as exc:
+                    opened.append(_OpenedSource(None, (exc.reason, exc.recovery)))
+                    continue
+                opened.append(_OpenedSource(source, None))
+            self._opened = opened
+        return self._opened
+
+    def contains(self, commit_sha: str) -> ContainmentVerdict:
+        """Return whether the candidate already carries ``commit_sha``."""
+        merge = str(commit_sha or "").strip()
+        if not self._candidate or not merge:
+            return _operands_missing()
+        refusals: list[tuple[str, str]] = []
+        excluded: Optional[ContainmentVerdict] = None
+        for entry in self._sources():
+            if entry.source is None:
+                refusals.append(entry.refusal or ("", ""))
+                continue
+            verdict = _ask_source(
+                entry.source, entry.resolved_candidate(self._candidate), merge,
+            )
+            if verdict is None:
+                refusals.append(
+                    (COMMIT_UNREACHABLE, COMMIT_UNREACHABLE_RECOVERY),
+                )
+                continue
+            if verdict.contained:
+                return verdict
+            # A definite exclusion is an answer, but a weaker one than a yes: a
+            # source that cannot merge trees answers "not contained" for work
+            # another source recognises as already present. So keep the answer
+            # and keep asking.
+            excluded = excluded or verdict
+        if excluded is not None:
+            return excluded
+        return _undetermined(refusals)
+
+
+@dataclass
+class _OpenedSource:
+    """One source's open outcome, plus the candidate resolution it caches.
+
+    The candidate is the same revision for every commit in the batch, so its
+    resolution is asked of each source once and reused. A source that cannot
+    resolve it keeps the empty answer, which ``_ask_source`` reads as this
+    source having no answer exactly as a per-commit walk did.
+    """
+
+    source: Optional[CarriedWorkSource]
+    refusal: Optional[tuple[str, str]]
+    _candidate_sha: Optional[str] = None
+
+    def resolved_candidate(self, candidate: str) -> str:
+        if self._candidate_sha is None:
+            assert self.source is not None
+            self._candidate_sha = self.source.resolve_commit(candidate)
+        return self._candidate_sha
+
+
+def _operands_missing() -> ContainmentVerdict:
+    return ContainmentVerdict(
+        UNDETERMINED,
+        "containment_operands_missing",
+        "Record both the deployed release lineage and the item's merge "
+        "identity before asking whether one contains the other.",
+    )
+
+
 def candidate_contains_commit(
     conn: Any,
     project_id: int,
@@ -86,46 +182,26 @@ def candidate_contains_commit(
     recovery, never ``NOT_CONTAINED``: a caller that cannot look has not
     learned that the candidate excludes the merge, and a gate that treats the
     two alike refuses correct releases for as long as the source is missing.
+
+    Asking about several commits against one candidate is
+    :class:`CandidateContainment`, which opens the sources once instead of
+    once per commit.
     """
-    candidate = str(candidate_lineage or "").strip()
-    merge = str(commit_sha or "").strip()
-    if not candidate or not merge:
-        return ContainmentVerdict(
-            UNDETERMINED,
-            "containment_operands_missing",
-            "Record both the deployed release lineage and the item's merge "
-            "identity before asking whether one contains the other.",
-        )
-    refusals: list[tuple[str, str]] = []
-    excluded: Optional[ContainmentVerdict] = None
-    for opener in carried_work_sources(conn, project_id):
-        try:
-            source = opener()
-            verdict = _ask_source(source, candidate, merge)
-        except CarriedWorkSourceUnavailable as exc:
-            refusals.append((exc.reason, exc.recovery))
-            continue
-        if verdict is None:
-            refusals.append((COMMIT_UNREACHABLE, COMMIT_UNREACHABLE_RECOVERY))
-            continue
-        if verdict.contained:
-            return verdict
-        # A definite exclusion is an answer, but a weaker one than a yes: a
-        # source that cannot merge trees answers "not contained" for work
-        # another source recognises as already present. So keep the answer
-        # and keep asking.
-        excluded = excluded or verdict
-    if excluded is not None:
-        return excluded
-    return _undetermined(refusals)
+    return CandidateContainment(
+        conn, project_id, candidate_lineage=candidate_lineage,
+    ).contains(commit_sha)
 
 
 def _ask_source(
-    source: CarriedWorkSource, candidate: str, merge: str
+    source: CarriedWorkSource, resolved_candidate: str, merge: str
 ) -> Optional[ContainmentVerdict]:
-    """Ask one source both containment questions, or ``None`` if it cannot."""
+    """Ask one source both containment questions, or ``None`` if it cannot.
+
+    The candidate arrives already resolved because it is the same revision
+    for every commit the caller asks about; the merge is this question's own
+    and is resolved here.
+    """
     resolved_merge = source.resolve_commit(merge)
-    resolved_candidate = source.resolve_commit(candidate)
     if not resolved_merge or not resolved_candidate:
         return None
     contained = source.contains_commit(resolved_candidate, resolved_merge)
@@ -172,6 +248,7 @@ __all__ = [
     "CONTAINED",
     "NOT_CONTAINED",
     "UNDETERMINED",
+    "CandidateContainment",
     "ContainmentVerdict",
     "candidate_contains_commit",
 ]

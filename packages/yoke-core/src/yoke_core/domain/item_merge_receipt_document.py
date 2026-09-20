@@ -261,6 +261,38 @@ def current_failures(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
     return failures
 
 
+def merge_shas_for_items(
+    conn: Any, item_ids: Sequence[int],
+) -> dict[int, list[str]]:
+    """:func:`merge_shas` for many items, in one read.
+
+    A roster asks this of every card it draws, and the receipts all live in
+    one table, so asking per item spent a round trip and a schema probe each
+    to assemble what a single statement returns. Items with no receipt are
+    absent, which every caller already reads as no recorded merge.
+    """
+    if not item_ids or not _table_exists(conn, "item_sections"):
+        return {}
+    marker = _placeholder(conn)
+    sql = (
+        "SELECT item_id,content FROM item_sections "
+        "WHERE section_name = " + marker + " AND item_id IN ("
+        + ",".join(marker for _ in item_ids)
+        + ")"
+    )
+    by_item: dict[int, list[str]] = {}
+    for item_id, entries in _documents_for(
+        conn, sql, (MERGE_RECEIPTS_SECTION, *(int(i) for i in item_ids))
+    ):
+        shas: list[str] = []
+        for entry in newest_first(entries):
+            sha = str(entry.get("merge_sha") or "").strip()
+            if sha and sha not in shas:
+                shas.append(sha)
+        by_item[item_id] = shas
+    return by_item
+
+
 def merge_identities(
     conn: Any, project_id: int,
 ) -> Iterable[tuple[int, str]]:
@@ -295,6 +327,7 @@ __all__ = [
     "landing_shas",
     "merge_identities",
     "merge_shas",
+    "merge_shas_for_items",
     "newest_first",
     "read_entries",
     "record_entry",

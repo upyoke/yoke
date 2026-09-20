@@ -23,7 +23,11 @@ from yoke_core.domain.deployment_run_candidate_containment import (
     ContainmentVerdict,
 )
 from yoke_core.domain.item_merge_receipt_document import record_entry
-from yoke_core.domain.release_delivery_summary import delivery_summary
+from yoke_core.domain.release_delivery_summary import (
+    ReleaseCandidates,
+    delivery_summary,
+    recorded_merge_shas_for_items,
+)
 
 FLOW = "yoke-hosted-production"
 ITEM_ID = 4201
@@ -99,25 +103,42 @@ def _succeeded_run(
     )
 
 
-def _summary(conn):
+def _summary(conn, *, environment_id=ENVIRONMENT_ID, flow=FLOW):
+    """One card's delivery box: the item's merges against its project's runs."""
+    merges = recorded_merge_shas_for_items(conn, [ITEM_ID]).get(ITEM_ID, ())
     return delivery_summary(
-        conn,
-        item_id=ITEM_ID,
-        project_id=PROJECT_ID,
-        environment_id=ENVIRONMENT_ID,
-        flow=FLOW,
+        merges=merges,
+        candidates=ReleaseCandidates(
+            conn,
+            project_id=PROJECT_ID,
+            environment_id=environment_id,
+            flow=flow,
+        ),
     )
 
 
 def _flow_less_summary(conn):
     """What a card asks for an item that stores no deployment flow."""
-    return delivery_summary(
-        conn,
-        item_id=ITEM_ID,
-        project_id=PROJECT_ID,
-        environment_id=None,
-        flow="",
-    )
+    return _summary(conn, environment_id=None, flow="")
+
+
+def _containment(answer, *, asked=None):
+    """Stand in for the containment walk the candidates open once.
+
+    ``answer`` is called with the commit being asked about; ``asked``, when
+    given, collects the candidate lineage each walk was opened against, which
+    is how a test proves only the newest one is consulted.
+    """
+
+    class _Walk:
+        def __init__(self, conn, project_id, *, candidate_lineage):
+            if asked is not None:
+                asked.append(candidate_lineage)
+
+        def contains(self, commit_sha):
+            return answer(commit_sha)
+
+    return _Walk
 
 
 def test_an_item_with_no_recorded_landing_has_no_merges() -> None:
@@ -142,8 +163,8 @@ def test_a_merge_no_run_has_carried_yet_is_not_deployed(monkeypatch) -> None:
     """The state the line exists to surface: landed, still waiting."""
     monkeypatch.setattr(
         summary_module,
-        "candidate_contains_commit",
-        lambda *a, **k: ContainmentVerdict(state=NOT_CONTAINED),
+        "CandidateContainment",
+        _containment(lambda sha: ContainmentVerdict(state=NOT_CONTAINED)),
     )
     with test_database() as conn:
         _record_landing(conn, UNSHIPPED_MERGE, 1, 1)
@@ -161,13 +182,15 @@ def test_a_merge_carried_under_another_items_landing_counts_as_deployed(
     """No run names it for this item, but the release contains it."""
     seen: list[str] = []
 
-    def _contains(conn, project_id, *, candidate_lineage, commit_sha):
+    def _contains(commit_sha):
         seen.append(commit_sha)
         return ContainmentVerdict(
             state=CONTAINED if commit_sha == CROSS_ITEM_MERGE else NOT_CONTAINED,
         )
 
-    monkeypatch.setattr(summary_module, "candidate_contains_commit", _contains)
+    monkeypatch.setattr(
+        summary_module, "CandidateContainment", _containment(_contains),
+    )
     with test_database() as conn:
         _record_landing(conn, CROSS_ITEM_MERGE, 1, 1)
         # The run carries somebody else's commits, never this item's.
@@ -183,8 +206,8 @@ def test_a_merge_carried_under_another_items_landing_counts_as_deployed(
 def test_counts_cover_every_distinct_recorded_landing(monkeypatch) -> None:
     monkeypatch.setattr(
         summary_module,
-        "candidate_contains_commit",
-        lambda *a, **k: ContainmentVerdict(state=NOT_CONTAINED),
+        "CandidateContainment",
+        _containment(lambda sha: ContainmentVerdict(state=NOT_CONTAINED)),
     )
     with test_database() as conn:
         _record_landing(conn, OWN_MERGE, 1, 1)
@@ -205,21 +228,15 @@ def test_an_item_with_no_resolvable_environment_reports_nothing_deployed(
     """A flow with no target environment cannot say a merge shipped."""
     monkeypatch.setattr(
         summary_module,
-        "candidate_contains_commit",
-        lambda *a, **k: ContainmentVerdict(state=NOT_CONTAINED),
+        "CandidateContainment",
+        _containment(lambda sha: ContainmentVerdict(state=NOT_CONTAINED)),
     )
     with test_database() as conn:
         _record_landing(conn, OWN_MERGE, 1, 1)
         _succeeded_run(conn, "run-1", carried=[OWN_MERGE])
         conn.commit()
 
-        result = delivery_summary(
-            conn,
-            item_id=ITEM_ID,
-            project_id=PROJECT_ID,
-            environment_id=None,
-            flow=FLOW,
-        )
+        result = _summary(conn, environment_id=None)
 
     assert (result.merges, result.deployed, result.not_deployed) == (1, 0, 1)
 
@@ -228,11 +245,13 @@ def test_only_the_newest_release_lineage_is_asked(monkeypatch) -> None:
     """Containment carries forward, so older runs add cost and no answer."""
     asked: list[str] = []
 
-    def _contains(conn, project_id, *, candidate_lineage, commit_sha):
-        asked.append(candidate_lineage)
-        return ContainmentVerdict(state=CONTAINED)
-
-    monkeypatch.setattr(summary_module, "candidate_contains_commit", _contains)
+    monkeypatch.setattr(
+        summary_module,
+        "CandidateContainment",
+        _containment(
+            lambda sha: ContainmentVerdict(state=CONTAINED), asked=asked,
+        ),
+    )
     newest = "1" * 40
     with test_database() as conn:
         _record_landing(conn, CROSS_ITEM_MERGE, 1, 1)
@@ -256,8 +275,8 @@ def test_a_standalone_landing_counts_as_a_merge(monkeypatch) -> None:
     """A merge outside a queue writes a receipt, and it is still a merge."""
     monkeypatch.setattr(
         summary_module,
-        "candidate_contains_commit",
-        lambda *a, **k: ContainmentVerdict(state=NOT_CONTAINED),
+        "CandidateContainment",
+        _containment(lambda sha: ContainmentVerdict(state=NOT_CONTAINED)),
     )
     with test_database() as conn:
         _record_standalone_landing(conn, OWN_MERGE, branch="PLAT-1")
@@ -273,8 +292,8 @@ def test_a_queue_landing_and_its_receipt_are_one_merge(monkeypatch) -> None:
     """Both records describe the same commit, so it is counted once."""
     monkeypatch.setattr(
         summary_module,
-        "candidate_contains_commit",
-        lambda *a, **k: ContainmentVerdict(state=NOT_CONTAINED),
+        "CandidateContainment",
+        _containment(lambda sha: ContainmentVerdict(state=NOT_CONTAINED)),
     )
     with test_database() as conn:
         _record_landing(conn, OWN_MERGE, 1, 1)
@@ -293,8 +312,8 @@ def test_a_flow_less_item_is_credited_by_its_projects_carrying_run(
     """No stored flow is not "no delivery": a persistent run carried it."""
     monkeypatch.setattr(
         summary_module,
-        "candidate_contains_commit",
-        lambda *a, **k: ContainmentVerdict(state=NOT_CONTAINED),
+        "CandidateContainment",
+        _containment(lambda sha: ContainmentVerdict(state=NOT_CONTAINED)),
     )
     with test_database() as conn:
         _record_standalone_landing(conn, OWN_MERGE, branch="PLAT-1")
@@ -312,8 +331,8 @@ def test_a_flow_less_item_no_release_carried_names_no_flow(monkeypatch) -> None:
     """Landed and still waiting: there is no carrying flow to name yet."""
     monkeypatch.setattr(
         summary_module,
-        "candidate_contains_commit",
-        lambda *a, **k: ContainmentVerdict(state=NOT_CONTAINED),
+        "CandidateContainment",
+        _containment(lambda sha: ContainmentVerdict(state=NOT_CONTAINED)),
     )
     with test_database() as conn:
         _record_standalone_landing(conn, UNSHIPPED_MERGE, branch="PLAT-1")

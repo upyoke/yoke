@@ -133,6 +133,44 @@ def recorded_batch_blocks(conn: Any, item_id: int) -> tuple[dict[str, Any], ...]
     )
 
 
+def recorded_batch_blocks_for_items(
+    conn: Any, item_ids: Sequence[int],
+) -> dict[int, tuple[dict[str, Any], ...]]:
+    """:func:`recorded_batch_blocks` for many items, in one read.
+
+    A roster asks this of every card it draws. The per-item read spent a
+    round trip and two schema probes each to assemble rows that all live in
+    the same two tables, so the same newest-first lookback is taken per item
+    inside one statement instead. Items with no passing ``ci_run`` row are
+    absent, which reads as no recorded block exactly as the empty tuple did.
+    """
+    if not item_ids or not (
+        _table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")
+    ):
+        return {}
+    ids = sorted({int(item_id) for item_id in item_ids})
+    placeholder = _placeholder(conn)
+    id_marks = ", ".join(placeholder for _ in ids)
+    rows = conn.execute(
+        "SELECT item_id, raw_result FROM ("
+        "SELECT q.item_id AS item_id, r.raw_result AS raw_result, "
+        "ROW_NUMBER() OVER (PARTITION BY q.item_id ORDER BY r.id DESC) "
+        "AS run_rank "
+        "FROM qa_runs r JOIN qa_requirements q ON q.id = r.qa_requirement_id "
+        f"WHERE q.item_id IN ({id_marks}) AND r.performed_by = 'ci_run' "
+        "AND r.verdict = 'pass'"
+        f") ranked WHERE run_rank <= {_CI_RUN_LOOKBACK} "
+        "ORDER BY item_id, run_rank",
+        tuple(ids),
+    ).fetchall()
+    by_item: dict[int, list[dict[str, Any]]] = {}
+    for row in rows:
+        block = _batch_block(_row_value(row, "raw_result", 1))
+        if block:
+            by_item.setdefault(int(_row_value(row, "item_id", 0)), []).append(block)
+    return {item_id: tuple(blocks) for item_id, blocks in by_item.items()}
+
+
 def _evidence_sha(conn: Any, item_id: int) -> str:
     from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
     from yoke_core.domain.item_json_sections import read_json_section
@@ -230,6 +268,7 @@ def accepted_merging_shas(
 __all__ = [
     "accepted_merging_shas",
     "recorded_batch_blocks",
+    "recorded_batch_blocks_for_items",
     "ci_run_identity_shas",
     "queue_batch_covers_receipt",
     "recorded_head_sha",
