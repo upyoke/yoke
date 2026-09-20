@@ -26,6 +26,7 @@ def unlisted_holders(report: FleetReport) -> tuple[ClaimHolder, ...]:
     named = {h.session_id for h in report.idle}
     named.update(h.session_id for h in report.suspected_orphaned_waiters)
     named.update(call.session_id for call in report.in_flight)
+    named.update(entry.session_id for entry in report.stranded)
     return tuple(h for h in report.holders if h.session_id not in named)
 
 

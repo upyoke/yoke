@@ -67,6 +67,10 @@ from yoke_core.domain.steering_fleet_report_relay_health import (
     RelayHealthCondition,
     relay_health_conditions,
 )
+from yoke_core.domain.steering_fleet_report_stranded import (
+    StrandedSession,
+    stranded_sessions,
+)
 from yoke_core.domain.steering_fleet_report_undelivered import (
     UndeliveredMessages,
     undelivered_messages,
@@ -91,6 +95,7 @@ class ProjectFleetFacts:
     #: rather than an item, so no scope narrows it.
     deployment_runs: tuple[DeploymentRunProgress, ...]
     vendor_errors: tuple[VendorErrorSession, ...]
+    stranded: tuple[StrandedSession, ...]
     launchable: tuple[SurfaceReadiness, ...]
     session_counts: tuple[SessionCount, ...]
     origin_counts: tuple[tuple[str, int], ...]
@@ -117,6 +122,9 @@ def read_project_facts(
     parked, which is how a healthy wait came to print a close-out command.
     """
     holders = claim_holders(conn, project_id=project_id, now=now)
+    plan_limits = load_plan_limits(
+        conn, project_id=project_id, now=now, registered_names=registered_names
+    )
     return ProjectFleetFacts(
         available=scope_candidates(conn, project_id=project_id, session_id=session_id),
         holders=holders,
@@ -130,12 +138,13 @@ def read_project_facts(
         ),
         deployment_runs=run_progress(conn, project_id=project_id, now=now),
         vendor_errors=vendor_error_sessions(conn, project_id=project_id, now=now),
+        stranded=stranded_sessions(
+            conn, project_id=project_id, now=now, limits=plan_limits
+        ),
         launchable=launchable_surfaces(conn, project_id=project_id, now=now),
         session_counts=live_session_counts(conn, project_id=project_id),
         origin_counts=live_launch_origin_counts(conn, project_id=project_id),
-        plan_limits=load_plan_limits(
-            conn, project_id=project_id, now=now, registered_names=registered_names
-        ),
+        plan_limits=plan_limits,
         native_models=load_native_models(
             conn, project_id=project_id, now=now, registered_names=registered_names
         ),

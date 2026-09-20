@@ -24,6 +24,7 @@ from yoke_core.domain.session_message_types import (
     utc_now,
 )
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
+from yoke_core.domain.session_wake_meter import skip_exhausted_wake
 from yoke_core.domain.session_relay_evidence import redacted_evidence
 from yoke_core.domain.session_relay_storage import (
     marker,
@@ -157,6 +158,9 @@ def _reserve_candidate(
         ).fetchone()
         if broker is None or target is None:
             conn.rollback()
+            return None
+        if skip_exhausted_wake(conn, candidate, now):
+            conn.commit()
             return None
         if str(candidate["session_id"]) == broker_session_id:
             conn.rollback()

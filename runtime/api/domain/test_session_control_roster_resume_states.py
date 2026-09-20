@@ -29,7 +29,9 @@ def _conn() -> sqlite3.Connection:
             terminated_at TEXT,
             turn_posture TEXT,
             turn_posture_at TEXT,
-            offer_envelope TEXT
+            offer_envelope TEXT,
+            model TEXT,
+            requested_model TEXT
         );
         CREATE TABLE session_relays (
             relay_id TEXT PRIMARY KEY,
@@ -80,7 +82,7 @@ def _conn() -> sqlite3.Connection:
         INSERT INTO harness_sessions VALUES (
             'session-1',10,'claude-desktop','1.0','machine-1',
             '2026-08-22T12:00:00Z','2026-08-22T12:00:00Z',
-            NULL,NULL,'running','2026-08-22T12:00:00Z',NULL
+            NULL,NULL,'running','2026-08-22T12:00:00Z',NULL,NULL,NULL
         );
         """
     )

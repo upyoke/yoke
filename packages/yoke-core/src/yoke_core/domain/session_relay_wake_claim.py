@@ -14,6 +14,7 @@ from yoke_core.domain.session_relay_evidence import redacted_evidence
 from yoke_core.domain.session_relay_storage import marker, shifted
 from yoke_core.domain.session_relay_types import WAKE_LEASE_SECONDS, WakeMode
 from yoke_core.domain.session_turn_posture import TURN_POSTURES
+from yoke_core.domain.session_wake_meter import skip_exhausted_wake
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,8 @@ def claim_wake_attempt(
     try:
         wake_mode = WakeMode(str(candidate.get("wake_mode") or ""))
     except ValueError:
+        return None
+    if skip_exhausted_wake(conn, candidate, now):
         return None
     if expected_state not in {"pending", "injected"}:
         return None

@@ -90,6 +90,7 @@ from yoke_core.domain.steering_fleet_report_scope import (
     seat_members,
     sessions_only,
 )
+from yoke_core.domain.steering_fleet_report_stranded import StrandedSession
 from yoke_core.domain.steering_fleet_report_undelivered import UndeliveredMessages
 from yoke_core.domain.steering_fleet_report_vendor_errors import VendorErrorSession
 from yoke_core.domain.steering_message_recipients import awaiting_seat_count
@@ -130,6 +131,10 @@ class FleetReport:
     #: Live sessions whose last turn the model provider ended. Every other
     #: detector reads one of these as a worker quietly thinking.
     vendor_errors: tuple[VendorErrorSession, ...] = ()
+    #: Live sessions pinned to an exhausted, removed, or no-longer-selected
+    #: model. A wake cannot return them; the seat relaunches on a surface
+    #: with headroom.
+    stranded: tuple[StrandedSession, ...] = ()
     relay_health: tuple[RelayHealthCondition, ...] = ()
     #: Role-addressed messages in this scope that no live seat is acting on.
     #: Unowned work used to be invisible precisely here: a report addressed
@@ -200,6 +205,7 @@ class FleetReport:
             or self.suspected_orphaned_waiters
             or self.dead_waits
             or self.vendor_errors_needing_action()
+            or self.stranded
             or self.landings_needing_action()
             or self.runs_needing_action()
             or self.relay_health
@@ -249,7 +255,14 @@ def compose_report(
         or (not holder.parked and holder.idle_seconds >= int(idle_after_seconds))
     )
     split = partition_quiet(conn, quiet=quiet, now=now)
-    alive_idle = split.alive_idle
+    stranded = facts.stranded
+    stranded_ids = {entry.session_id for entry in stranded}
+    idle = tuple(
+        holder for holder in split.idle if holder.session_id not in stranded_ids
+    )
+    alive_idle = tuple(
+        holder for holder in split.alive_idle if holder.session_id not in stranded_ids
+    )
     return FleetReport(
         project_id=int(project_id),
         composed_at=now,
@@ -257,7 +270,7 @@ def compose_report(
         idle_after_seconds=int(idle_after_seconds),
         available=members_only(facts.available, members),
         holders=holders,
-        idle=split.idle,
+        idle=idle,
         undelivered=sessions_only(
             facts.undelivered,
             session_ids=(holder.session_id for holder in holders),
@@ -271,6 +284,7 @@ def compose_report(
         in_flight=split.in_flight,
         dead_waits=dead_waits(conn, idle=alive_idle, now=now),
         vendor_errors=facts.vendor_errors,
+        stranded=stranded,
         launchable=facts.launchable,
         session_counts=facts.session_counts,
         origin_counts=facts.origin_counts,
@@ -301,6 +315,7 @@ __all__ = [
     "FleetReport",
     "FrontierEntry",
     "SurfaceReadiness",
+    "StrandedSession",
     "VendorErrorSession",
     "compose_report",
 ]

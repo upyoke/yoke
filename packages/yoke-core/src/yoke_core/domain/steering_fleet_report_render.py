@@ -41,6 +41,7 @@ from yoke_core.domain.steering_fleet_report_render_vendor_errors import (
 from yoke_core.domain import steering_fleet_plan_capacity as _plan_limits
 from yoke_core.domain.steering_fleet_report_native_models import native_model_lines
 from yoke_core.domain import steering_fleet_report_in_flight as _in_flight
+from yoke_core.domain import steering_fleet_report_stranded as _stranded
 from yoke_core.domain.steering_fleet_report_landings import landing_lines
 from yoke_core.domain.steering_fleet_report_sections import (
     CLAIMS_HEADING,
@@ -91,9 +92,7 @@ def _holder_lines(
             # Not a worker that went quiet: its own machine ended it. Saying
             # "idle" here sent a seat looking for a stalled agent when the
             # finding was that containment had reaped a claim-holding one.
-            line += (
-                f"  contained by sweep: {holder.contained_reason}, claims held"
-            )
+            line += f"  contained by sweep: {holder.contained_reason}, claims held"
         elif holder.native_process_gone:
             line += "  process gone, claims held — terminate deliberately if dead"
         elif with_wake:
@@ -247,6 +246,7 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
             "by the worker; the relay resumes what a retry can move",
             vendor_error_lines(report),
         ),
+        *_stranded.stranded_section(report),
         *_section(
             "unregistered launches — launch/session binding absent",
             unregistered_launch_lines(report.unregistered_launches),

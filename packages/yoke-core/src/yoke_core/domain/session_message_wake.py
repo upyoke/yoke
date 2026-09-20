@@ -22,6 +22,7 @@ from yoke_core.domain.session_message_delivery import (
     _expire_rows,
 )
 from yoke_core.domain.session_message_wake_skip import record_wake_skip
+from yoke_core.domain.session_wake_meter import skip_exhausted_wake
 from yoke_core.domain.session_operator_wake_notice import notify_operator_to_wake
 from yoke_core.domain.session_message_routing import (
     latest_observed_activity,
@@ -200,9 +201,7 @@ def wake_eligible_recipients(
             row = row_dict(raw)
             policy = project_policy(conn, int(row["project_id"]))
             liveness = session_liveness(row, now=current)
-            explicit_wake = explicit_stopped_wake_requested(
-                row.get("routing_snapshot")
-            )
+            explicit_wake = explicit_stopped_wake_requested(row.get("routing_snapshot"))
             attempt_count = int(row["wake_attempt_count"] or 0)
             at_limit = attempt_count >= policy.max_wake_attempts
             adopting_final_attempt = bool(
@@ -303,6 +302,8 @@ def wake_eligible_recipients(
                     liveness=liveness,
                     now=current,
                 )
+                continue
+            if skip_exhausted_wake(conn, row, current):
                 continue
             eligible.append(
                 {
