@@ -1,4 +1,9 @@
-"""PreToolUse Bash lint: refuse yoke args the shell would substitute."""
+"""PreToolUse Bash lint: refuse yoke text the shell would substitute.
+
+Only text the shell actually expands is a finding, so the recovery this guard
+prints stays reachable for the case that triggered it: free text moved onto
+--stdin behind a quoted heredoc delimiter is literal, and passes.
+"""
 
 from __future__ import annotations
 
@@ -7,12 +12,10 @@ import re
 import sys
 from typing import Optional, Tuple
 
+from yoke_core.domain import shell_expansion_scan
 from yoke_core.domain.lint_shell_backtick_search import (
-    _double_quoted_spans,
     _extract_command,
     _extract_tool_name,
-    _has_unescaped_backtick,
-    _segment_until_shell_separator,
 )
 from yoke_core.domain.lint_yoke_quoted_shell_substitution_messages import (
     CHECK_ID,
@@ -24,10 +27,8 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 # Command token is exactly ``yoke`` (optional path prefix), not ``yoke-cli``.
 _YOKE_CMD_RE = re.compile(
-    r"(?:^|[;&|]\s*)(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*"
-    r"(?:\S*/)?yoke(?=\s|$)"
+    r"^\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*(?:\S*/)?yoke(?=\s|$)"
 )
-_HEREDOC_RE = re.compile(r"<<-?\s*['\"]?\w+")
 
 
 def _read_mode(payload: object | None = None) -> str:
@@ -38,40 +39,29 @@ def _read_mode(payload: object | None = None) -> str:
     )
 
 
-def _has_unescaped_dollar_paren(span: str) -> bool:
-    escaped = False
-    index = 0
-    while index < len(span):
-        char = span[index]
-        if escaped:
-            escaped = False
-            index += 1
+def _yoke_substitution_finding(command: str) -> Optional[Tuple[str, str]]:
+    """Find the first text a ``yoke`` command would receive already substituted.
+
+    Returns the finding kind — ``"argument"`` for a double-quoted argument,
+    ``"heredoc"`` for a heredoc the shell expands — beside the offending text.
+    A quoted heredoc delimiter makes its whole body literal, so that body is
+    never a finding; that is what keeps the refusal's own recovery usable.
+    """
+    scanned = shell_expansion_scan.scan(command)
+    for start, segment in shell_expansion_scan.command_segments(scanned.code):
+        if _YOKE_CMD_RE.match(segment) is None:
             continue
-        if char == "\\":
-            escaped = True
-            index += 1
-            continue
-        if char == "$" and index + 1 < len(span) and span[index + 1] == "(":
-            return True
-        index += 1
-    return False
-
-
-def _strip_heredoc(segment: str) -> str:
-    match = _HEREDOC_RE.search(segment)
-    if match is None:
-        return segment
-    return segment[: match.start()]
-
-
-def _yoke_substituted_span(command: str) -> Optional[str]:
-    for match in _YOKE_CMD_RE.finditer(command):
-        segment = _strip_heredoc(
-            _segment_until_shell_separator(command[match.end() :])
-        )
-        for span in _double_quoted_spans(segment):
-            if _has_unescaped_backtick(span) or _has_unescaped_dollar_paren(span):
-                return span
+        for span in shell_expansion_scan.double_quoted_spans(segment):
+            if shell_expansion_scan.has_substitution(span):
+                return "argument", span
+        end = start + len(segment)
+        for heredoc in scanned.heredocs:
+            if not heredoc.expands:
+                continue
+            if not start <= heredoc.operator_offset < end:
+                continue
+            if shell_expansion_scan.has_substitution(heredoc.body):
+                return "heredoc", heredoc.body
     return None
 
 
@@ -84,12 +74,13 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     command = _extract_command(payload)
     if not command:
         return None
-    span = _yoke_substituted_span(command)
-    if span is None:
+    finding = _yoke_substitution_finding(command)
+    if finding is None:
         return None
+    kind, text = finding
     suppression_seen = SUPPRESSION_TOKEN in command
     mode = _read_mode(payload)
-    reason = format_reason(span, suppression_seen, mode)
+    reason = format_reason(kind, text, suppression_seen, mode)
     outcome = "suppression_attempted" if suppression_seen else "denied"
     return mode, reason, outcome
 
