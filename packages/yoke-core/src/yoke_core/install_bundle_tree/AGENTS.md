@@ -116,6 +116,10 @@ Applies to any project declaring a `migration_model` capability. Before any sche
 - **Rehearsal against the validation surface proves nothing about the universes that need the entry.** Before releasing a build carrying an unapplied entry, run the fleet migration preflight over a throwaway copy of every live database and record its receipt; the release refuses when an entry has no receipt for that environment.
 - **Client-side code reaches control-plane rows by relaying, never by connecting.** Over https there is no local database; `db_backend.connect()` refuses with `RemoteControlPlaneConnectionError`, deliberately outside the `Exception` hierarchy. Genuine local authority declares `local_authority_exempt()` at the call site.
 
+## Serving Floor — Function Ids and Response Fields
+- **A new function id declares `minimum_serving_version` on the registry** (`"next-release"` until a release carries it). The registry refuses an id absent from the previous serving set that omits the floor. A client call to an environment below that floor fails with the floor named; it does not advise waiting on a deploy that itself needs the missing function. An operator who holds the control plane uses the paired `*-db-admin` connection (`yoke env list`).
+- **A client read of a server-composed response field tolerates absence** — degrade to the previous behaviour, or refuse with a stated floor. Raising because an older server omitted a newer field is the wrong failure. Migration `MINIMUM_SERVING_VERSION` does not cover function ids or response fields. Depth: `code-and-cli.md`.
+
 ## Architecture Model
 A project may declare an `architecture_model` Project Structure family: the one policy document carrying the layer map, area patterns, dependency rules, cross-cutting gateways, exemptions, and the `package_roots` mapping.
 - **Read the authoritative mapping from the payload, never from prose,** and read `architecture-model.md` before changing the model or adding a cross-cutting dependency. **Cross-cutting concerns enter through the entrypoints the payload names.**
