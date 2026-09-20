@@ -86,6 +86,15 @@ _MONITOR_CAPTURE_RE = re.compile(
 )
 
 
+def _extract_tool_input(payload: dict) -> dict:
+    """Return ``tool_input`` accepting any of the known payload shapes."""
+    for key in ("tool_input", "toolInput", "input"):
+        value = payload.get(key)
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
 def _extract_tool_name(payload: dict) -> str:
     """Return the invoked tool name (``Bash``, ``ScheduleWakeup``, etc.)."""
     for key in ("tool_name", "toolName"):

@@ -42,6 +42,19 @@ def test_unresolved_command_token_detects_dollar_argv0() -> None:
     assert not extract.is_unresolved_command_token("head")
 
 
+def test_polling_extract_still_exports_tool_input_for_waiter() -> None:
+    from yoke_core.domain.lint_long_command_polling_extract import (
+        _extract_tool_input,
+    )
+    from yoke_core.domain.lint_long_command_polling_waiter import (
+        evaluate_bg_waiter,
+    )
+
+    payload = {"toolInput": {"run_in_background": True}}
+    assert _extract_tool_input(payload)["run_in_background"] is True
+    assert callable(evaluate_bg_waiter)
+
+
 def test_lint_modules_do_not_define_private_command_extractors() -> None:
     root = Path(domain_pkg.__file__).resolve().parent
     offenders: list[str] = []
