@@ -49,6 +49,36 @@ def _emit_digest(
     emit_immediate(carried)
 
 
+def _emit_classifier_held(
+    classifier: object,
+    *,
+    now: float,
+    digest: ProgressDigest,
+    progress_watch: ProgressEmitWatch,
+    emit_immediate: Callable[[str], None],
+    partial: bool,
+) -> None:
+    """Flush a classifier-held block as one progress write, if it has one.
+
+    Fleet reports buffer until they close; other classifiers omit
+    ``flush_held`` and this is a no-op.
+    """
+    flush = getattr(classifier, "flush_held", None)
+    if not callable(flush):
+        return
+    held = flush(partial=partial)
+    if not held:
+        return
+    _emit_digest(
+        digest.flush(),
+        now=now,
+        progress_watch=progress_watch,
+        emit_immediate=emit_immediate,
+    )
+    progress_watch.note_progress_emit(now)
+    emit_immediate(held)
+
+
 def _route_line(
     line: str,
     *,
@@ -68,6 +98,14 @@ def _route_line(
     raw_f.write(line)
     progress_watch.note_output(now)
     classification = classifier(line)
+    _emit_classifier_held(
+        classifier,
+        now=now,
+        digest=digest,
+        progress_watch=progress_watch,
+        emit_immediate=emit_immediate,
+        partial=False,
+    )
     cls = classification.cls
     if cls is LineClass.NOISE:
         return None
@@ -177,6 +215,14 @@ def drain_watched_child(
                 if deadline is not None and now >= deadline:
                     process_group_reaping.terminate_process_group(proc)
                     timed_out = True
+                    _emit_classifier_held(
+                        classifier,
+                        now=now,
+                        digest=digest,
+                        progress_watch=progress_watch,
+                        emit_immediate=emit_immediate,
+                        partial=True,
+                    )
                     timeout_line = (
                         f"# watch_{kind} timed out after "
                         f"{timeout_seconds:g} seconds; "
@@ -198,6 +244,14 @@ def drain_watched_child(
                     stall_abort_exit=stall_abort_exit,
                 )
                 if abort_exit is not None:
+                    _emit_classifier_held(
+                        classifier,
+                        now=now,
+                        digest=digest,
+                        progress_watch=progress_watch,
+                        emit_immediate=emit_immediate,
+                        partial=True,
+                    )
                     return abort_exit, last_summary, False
             else:
                 line = proc.stdout.readline()
@@ -219,7 +273,23 @@ def drain_watched_child(
                     last_summary = summary
             stall_line = progress_watch.report_if_stalled(now)
             if stall_line is not None:
+                _emit_classifier_held(
+                    classifier,
+                    now=now,
+                    digest=digest,
+                    progress_watch=progress_watch,
+                    emit_immediate=emit_immediate,
+                    partial=True,
+                )
                 emit_immediate(stall_line)
+    _emit_classifier_held(
+        classifier,
+        now=clock(),
+        digest=digest,
+        progress_watch=progress_watch,
+        emit_immediate=emit_immediate,
+        partial=True,
+    )
     # Timeout stays in-band so the runner can write the normal summary +
     # exit footer; only nested-deadlock abort returns an early exit code
     # (handle_quiet_period already wrote that footer).

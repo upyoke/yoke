@@ -11,7 +11,9 @@ sentinel — leaves its paired follower running after the command stops.
 This wrapper runs :mod:`yoke_core.domain.fleet_delta_probe` under the shared
 raw + progress contract. Its central tier table sends actionable deltas to
 the follower immediately, keeps routine churn raw until the next report
-wake, and always ends with the follower's sentinel.
+wake, holds a changed report until it closes so the follower sees one
+complete block rather than a delimiter then a body, and always ends with
+the follower's sentinel.
 """
 
 from __future__ import annotations
@@ -37,28 +39,69 @@ PROCESS_FAILURE_RE = re.compile(
     r"|^Traceback \(most recent call last\):"
 )
 
+PARTIAL_REPORT_NOTE = (
+    "# watch_fleet report_partial: the probe ended before the closing marker\n"
+)
+
+
+def _as_line(line: str) -> str:
+    """Keep held text in the same newline shape the child wrote."""
+    return line if line.endswith("\n") else f"{line}\n"
+
 
 class FleetLineClassifier:
-    """Promote a changed-report block, not only its opening marker."""
+    """Hold a changed-report block and emit it as one urgent wake."""
 
     def __init__(self) -> None:
         self._in_report = False
+        self._held: list[str] = []
+        self._ready: str | None = None
+
+    def _stage_ready(self, *, partial: bool) -> None:
+        if not self._held:
+            return
+        text = "".join(self._held)
+        if partial:
+            text += PARTIAL_REPORT_NOTE
+        self._ready = text
+        self._held = []
+        self._in_report = False
+
+    def flush_held(self, *, partial: bool = False) -> str | None:
+        """Return a closed or abandoned report block as one progress write.
+
+        ``partial=False`` only releases a block already staged by
+        :meth:`__call__` (the closing marker, or a traceback that
+        preempted). ``partial=True`` also stages whatever is still open,
+        which is the process-exit and quiet-bound path.
+        """
+        if partial:
+            self._stage_ready(partial=True)
+        ready, self._ready = self._ready, None
+        return ready
 
     def __call__(self, line: str) -> Classification:
-        stripped = line.rstrip()
+        stripped = line.rstrip("\n")
         if PROCESS_FAILURE_RE.search(line):
+            self._stage_ready(partial=True)
             return Classification(LineClass.URGENT)
         if stripped == REPORT_BEGIN:
+            if self._held:
+                self._stage_ready(partial=True)
             self._in_report = True
-            return Classification(LineClass.URGENT)
+            self._held = [_as_line(line)]
+            return Classification(LineClass.NOISE)
         if stripped == REPORT_END:
-            self._in_report = False
-            return Classification(LineClass.URGENT)
+            if self._in_report:
+                self._held.append(_as_line(line))
+                self._stage_ready(partial=False)
+            return Classification(LineClass.NOISE)
         if self._in_report:
             if stripped.startswith("fleet "):
-                self._in_report = False
+                self._stage_ready(partial=True)
             else:
-                return Classification(LineClass.URGENT)
+                self._held.append(_as_line(line))
+                return Classification(LineClass.NOISE)
         if fleet_delta_probe.delta_wake_tier(line) == fleet_delta_probe.WAKE_NOW:
             return Classification(LineClass.URGENT)
         return Classification(LineClass.NOISE)
@@ -97,10 +140,12 @@ continuously past 15, an envelope undelivered past 10.
 The steerer's session id comes from ambient harness identity, so the same
 command survives handoff. Every delta remains in the raw capture. The wake
 stream emits worker messages, alarms, abnormal session ends, blocked item
-transitions, newly available work, read failures, and a changed report's hook
-digest — actionable sections, the decisions it does not serve, and the closing
-marker. Report checks run on quiet passes too, covering every held
-project/document seat; a timer-only finding needs no delta to be noticed.
+transitions, newly available work, read failures, and a changed report as
+one block — opening marker, hook digest, and closing marker together. A
+delimiter never wakes on its own. A report truncated by a dead or quiet
+probe still reaches the follower, marked partial. Report checks run on
+quiet passes too, covering every held project/document seat; a timer-only
+finding needs no delta to be noticed.
 Healthy item transitions, claim churn, registrations, clean ends, and alarm
 clears stay silent at delta time and surface through the next report. Pull the
 full body with `yoke steering report get`.

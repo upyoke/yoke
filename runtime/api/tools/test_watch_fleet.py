@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import io
 import sys
+import threading
+import time
 from pathlib import Path
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
@@ -12,6 +14,24 @@ from yoke_core.tools import watch_fleet
 from yoke_core.tools._watch_throttle import LineClass
 from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
 from yoke_core.tools.watch_inventory import EXCLUDE_PATHS, FALLBACK_TOKENS
+
+
+class _RecordingStream:
+    """Capture each write so a report's one-wake contract is observable."""
+
+    def __init__(self) -> None:
+        self.writes: list[str] = []
+        self._buf = io.StringIO()
+
+    def write(self, s: str) -> int:
+        self.writes.append(s)
+        return self._buf.write(s)
+
+    def flush(self) -> None:
+        self._buf.flush()
+
+    def getvalue(self) -> str:
+        return self._buf.getvalue()
 
 
 def test_the_wrapper_is_registered_on_every_roster() -> None:
@@ -60,8 +80,8 @@ def test_routine_deltas_are_silent_until_a_report_wake() -> None:
     ):
         assert watch_fleet.classify_fleet_line(line).cls is LineClass.NOISE
 
-    assert watch_fleet.classify_fleet_line(REPORT_BEGIN).cls is LineClass.URGENT
-    assert watch_fleet.classify_fleet_line(REPORT_END).cls is LineClass.URGENT
+    assert watch_fleet.classify_fleet_line(REPORT_BEGIN).cls is LineClass.NOISE
+    assert watch_fleet.classify_fleet_line(REPORT_END).cls is LineClass.NOISE
 
 
 def test_unrecognized_output_is_noise() -> None:
@@ -69,21 +89,55 @@ def test_unrecognized_output_is_noise() -> None:
     assert classified.cls is LineClass.NOISE
 
 
-def test_a_report_block_travels_with_its_header_and_closing_marker() -> None:
+def test_a_report_block_is_one_wake_when_it_closes() -> None:
     classify = watch_fleet.make_fleet_classifier()
-    assert classify(REPORT_BEGIN).cls is LineClass.URGENT
-    assert classify("composed now · 1 held scopes · hook digest").cls is LineClass.URGENT
-    assert classify("how much plan headroom each surface has left").cls is LineClass.URGENT
-    assert classify(REPORT_END).cls is LineClass.URGENT
+    assert classify(REPORT_BEGIN).cls is LineClass.NOISE
+    assert classify.flush_held() is None
+    assert classify("composed now · 1 held scopes · hook digest").cls is LineClass.NOISE
+    assert classify("how much plan headroom each surface has left").cls is LineClass.NOISE
+    assert classify(REPORT_END).cls is LineClass.NOISE
+    held = classify.flush_held()
+    assert held is not None
+    assert REPORT_BEGIN in held
+    assert "hook digest" in held
+    assert "plan headroom" in held
+    assert REPORT_END in held
     assert classify("some incidental chatter").cls is LineClass.NOISE
+    assert classify.flush_held() is None
 
 
-def test_the_follower_receives_digest_content_not_a_bare_header(
-    tmp_path: Path,
-) -> None:
-    """A wake that only promotes REPORT_BEGIN leaves the follower empty."""
+def test_a_traceback_inside_a_report_preempts_and_marks_the_partial() -> None:
+    classify = watch_fleet.make_fleet_classifier()
+    classify(REPORT_BEGIN)
+    classify("composed now · 1 held scopes · hook digest")
+    assert classify("Traceback (most recent call last):").cls is LineClass.URGENT
+    held = classify.flush_held()
+    assert held is not None
+    assert REPORT_BEGIN in held
+    assert "hook digest" in held
+    assert watch_fleet.PARTIAL_REPORT_NOTE.strip() in held
+    assert REPORT_END not in held
+
+
+def _run_probe_script(tmp_path: Path, source: str, stdout: _RecordingStream) -> int:
     from yoke_core.tools import _watch_runner
 
+    script = tmp_path / "emit.py"
+    script.write_text(source, encoding="utf-8")
+    return _watch_runner.run_watcher(
+        argv=[sys.executable, str(script)],
+        classifier=watch_fleet.make_fleet_classifier(),
+        raw_capture=tmp_path / "raw.log",
+        progress_capture=tmp_path / "progress.log",
+        kind="fleet",
+        stdout_stream=stdout,
+    )
+
+
+def test_the_follower_receives_the_whole_report_in_one_wake(
+    tmp_path: Path,
+) -> None:
+    stdout = _RecordingStream()
     lines = [
         REPORT_BEGIN,
         "composed now · 1 held scopes · hook digest",
@@ -91,31 +145,112 @@ def test_the_follower_receives_digest_content_not_a_bare_header(
         REPORT_END,
         "fleet item YOK-1 status idea -> implementing",
     ]
-    script = tmp_path / "emit.py"
-    script.write_text(
-        "import sys\n"
-        f"for line in {lines!r}:\n"
-        "    print(line)\n",
-        encoding="utf-8",
-    )
-    raw = tmp_path / "raw.log"
-    progress = tmp_path / "progress.log"
-    rc = _watch_runner.run_watcher(
-        argv=[sys.executable, str(script)],
-        classifier=watch_fleet.make_fleet_classifier(),
-        raw_capture=raw,
-        progress_capture=progress,
-        kind="fleet",
-        stdout_stream=io.StringIO(),
+    rc = _run_probe_script(
+        tmp_path,
+        f"for line in {lines!r}:\n    print(line)\n",
+        stdout,
     )
     assert rc == 0
-    progress_text = progress.read_text(encoding="utf-8")
-    assert REPORT_BEGIN in progress_text
-    assert "hook digest" in progress_text
-    assert "plan headroom" in progress_text
-    assert REPORT_END in progress_text
+    report_writes = [chunk for chunk in stdout.writes if REPORT_BEGIN in chunk]
+    assert len(report_writes) == 1
+    assert "hook digest" in report_writes[0]
+    assert "plan headroom" in report_writes[0]
+    assert REPORT_END in report_writes[0]
+    progress_text = (tmp_path / "progress.log").read_text(encoding="utf-8")
     assert "idea -> implementing" not in progress_text
-    assert "idea -> implementing" in raw.read_text(encoding="utf-8")
+    assert "idea -> implementing" in (tmp_path / "raw.log").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_a_delayed_report_body_arrives_in_the_same_wake_as_its_header(
+    tmp_path: Path,
+) -> None:
+    from yoke_core.tools import _watch_runner
+
+    go = tmp_path / "go"
+    script = tmp_path / "emit.py"
+    raw = tmp_path / "raw.log"
+    progress = tmp_path / "progress.log"
+    script.write_text(
+        "import time\n"
+        "from pathlib import Path\n"
+        f"print({REPORT_BEGIN!r}, flush=True)\n"
+        f"go = Path({str(go)!r})\n"
+        "while not go.exists():\n"
+        "    time.sleep(0.05)\n"
+        "print('composed now · 1 held scopes · hook digest')\n"
+        f"print({REPORT_END!r})\n",
+        encoding="utf-8",
+    )
+    stdout = _RecordingStream()
+    result: dict[str, int] = {}
+
+    def _run() -> None:
+        result["rc"] = _watch_runner.run_watcher(
+            argv=[sys.executable, str(script)],
+            classifier=watch_fleet.make_fleet_classifier(),
+            raw_capture=raw,
+            progress_capture=progress,
+            kind="fleet",
+            stdout_stream=stdout,
+        )
+
+    thread = threading.Thread(target=_run)
+    thread.start()
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        if raw.exists() and REPORT_BEGIN in raw.read_text(encoding="utf-8"):
+            break
+        time.sleep(0.05)
+    else:
+        raise AssertionError("probe never wrote the opening marker")
+    mid = progress.read_text(encoding="utf-8") if progress.exists() else ""
+    assert REPORT_BEGIN not in mid
+    go.write_text("ok", encoding="utf-8")
+    thread.join(timeout=10)
+    assert result.get("rc") == 0
+    report_writes = [chunk for chunk in stdout.writes if REPORT_BEGIN in chunk]
+    assert len(report_writes) == 1
+    assert "hook digest" in report_writes[0]
+    assert REPORT_END in report_writes[0]
+
+
+def test_an_unclosed_report_reaches_the_follower_marked_partial(
+    tmp_path: Path,
+) -> None:
+    stdout = _RecordingStream()
+    rc = _run_probe_script(
+        tmp_path,
+        f"print({REPORT_BEGIN!r})\n"
+        "print('composed now · 1 held scopes · hook digest')\n",
+        stdout,
+    )
+    assert rc == 0
+    text = stdout.getvalue()
+    assert REPORT_BEGIN in text
+    assert "hook digest" in text
+    assert watch_fleet.PARTIAL_REPORT_NOTE.strip() in text
+    assert REPORT_END not in text
+
+
+def test_a_traceback_inside_a_watched_report_still_preempts(
+    tmp_path: Path,
+) -> None:
+    stdout = _RecordingStream()
+    rc = _run_probe_script(
+        tmp_path,
+        f"print({REPORT_BEGIN!r})\n"
+        "print('composed now · 1 held scopes · hook digest')\n"
+        "print('Traceback (most recent call last):')\n"
+        "print('RuntimeError: boom')\n",
+        stdout,
+    )
+    assert rc == 0
+    report_writes = [chunk for chunk in stdout.writes if REPORT_BEGIN in chunk]
+    assert len(report_writes) == 1
+    assert watch_fleet.PARTIAL_REPORT_NOTE.strip() in report_writes[0]
+    assert any("Traceback (most recent call last):" in chunk for chunk in stdout.writes)
 
 
 def test_the_probe_argv_targets_the_fleet_delta_probe() -> None:
