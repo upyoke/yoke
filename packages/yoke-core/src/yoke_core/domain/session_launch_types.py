@@ -8,6 +8,7 @@ from typing import Any, Protocol
 from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGIN_OPERATOR
 from yoke_core.domain.session_launch_capacity import MachineCapacity
+from yoke_core.domain.session_launch_surface_readings import SurfaceHeadroomReading
 
 
 MAX_LAUNCH_LEASE_SECONDS = 300
@@ -142,6 +143,10 @@ class LaunchPreview:
     placement_reason: str | None = None
     machine_candidates: tuple[MachineCandidate, ...] = ()
     rejection_details: tuple[str, ...] = ()
+    #: Headroom on the surfaces this launch did not ask about. Empty when no
+    #: machine was weighed, because the readings come from the same meter load
+    #: that ranks candidates rather than from a query of their own.
+    unrequested_surface_headroom: tuple[SurfaceHeadroomReading, ...] = ()
 
     @property
     def launchable(self) -> bool:
@@ -172,6 +177,9 @@ class LaunchPreview:
                 candidate.to_dict() for candidate in self.machine_candidates
             ],
             "rejection_details": list(self.rejection_details),
+            "unrequested_surface_headroom": [
+                reading.to_dict() for reading in self.unrequested_surface_headroom
+            ],
             "eligible_relays": [relay.to_dict() for relay in self.eligible_relays],
             "selected_relay": (
                 self.selected_relay.to_dict() if self.selected_relay else None

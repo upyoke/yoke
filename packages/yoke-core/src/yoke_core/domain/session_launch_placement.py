@@ -35,6 +35,9 @@ from yoke_core.domain.steering_fleet_plan_capacity import (
     compute_plan_limit,
     window_label,
 )
+from yoke_core.domain.session_launch_surface_readings import (
+    unrequested_surface_readings,
+)
 from yoke_core.domain.steering_fleet_report_limits import load_plan_limits
 
 
@@ -119,7 +122,14 @@ def _candidates(
     now: str,
     snapshot_capacity: Sequence[Any] = (),
     model: str | None = None,
-) -> list[tuple[EligibleRelay, MachineCandidate]]:
+) -> tuple[
+    list[tuple[EligibleRelay, MachineCandidate]],
+    dict[tuple[str, str], tuple[float, str]],
+]:
+    """Weigh each relay, and hand back the meter map the weighing read.
+
+    That map spans every surface, so naming the alternatives costs no reload.
+    """
     access = machine_access(
         conn,
         actor_id=actor_id,
@@ -152,7 +162,7 @@ def _candidates(
                 ),
             )
         )
-    return weighed
+    return weighed, headroom
 
 
 def _comparable_band(
@@ -241,7 +251,7 @@ def place_launch(
             machine_capacity=snapshot.machine_capacity,
             rejection_details=snapshot.rejection_details,
         )
-    weighed = _candidates(
+    weighed, headroom = _candidates(
         conn,
         relays=relays,
         actor_id=actor_id,
@@ -250,6 +260,7 @@ def place_launch(
         snapshot_capacity=snapshot.machine_capacity,
         model=model,
     )
+    elsewhere = unrequested_surface_readings(headroom, requested_surface=surface)
     usable = [pair for pair in weighed if pair[1].may_use]
     if not usable:
         denials = ", ".join(
@@ -268,6 +279,7 @@ def place_launch(
                 f"no eligible machine is usable by this actor ({denials})"
             ),
             machine_candidates=tuple(candidate for _relay, candidate in weighed),
+            unrequested_surface_headroom=elsewhere,
         )
     if machine_id and len(usable) > 1:
         return LaunchPreview(
@@ -283,6 +295,7 @@ def place_launch(
                 "name one relay or retry"
             ),
             machine_candidates=tuple(candidate for _relay, candidate in weighed),
+            unrequested_surface_headroom=elsewhere,
         )
     band = _comparable_band(usable)
     relay, chosen = min(
@@ -322,6 +335,7 @@ def place_launch(
         rejection_details=snapshot.rejection_details,
         placement_reason=reason,
         machine_candidates=candidates,
+        unrequested_surface_headroom=elsewhere,
     )
 
 

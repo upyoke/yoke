@@ -160,7 +160,7 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
     ),
     HealthCheck(
         "project-hook-config-validity",
-        "Project Cursor-scanned hook configs are regular and schema-valid",
+        "Project hook configs are regular and schema-valid",
         hc_project_hook_config_validity,
     ),
     HealthCheck(

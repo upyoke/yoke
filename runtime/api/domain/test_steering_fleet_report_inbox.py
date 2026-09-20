@@ -5,6 +5,7 @@ from __future__ import annotations
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.steering_fleet_report_hook_digest import (
     DIGEST_PREAMBLE,
+    WITHHELD_DECISIONS,
     combined_hook_digest,
 )
 from yoke_core.domain.steering_fleet_report_compose import CombinedFleetReport
@@ -103,3 +104,18 @@ def test_hook_digest_carries_the_inbox_and_the_pull_command() -> None:
     assert "hook digest" in body
     assert f"yoke messages acknowledge {MESSAGE_ID}" in body
     assert combined.actionable
+
+
+def test_digest_names_the_decisions_it_does_not_answer() -> None:
+    """A reader decides whether to pull by the decision, not by a heading."""
+    for decision in WITHHELD_DECISIONS:
+        assert decision in DIGEST_PREAMBLE
+    assert "which machine and surface to launch on" in DIGEST_PREAMBLE
+    assert "yoke steering report get" in DIGEST_PREAMBLE
+
+
+def test_withheld_decisions_are_phrased_as_decisions_not_section_names() -> None:
+    """A renderer's identifier tells a reader nothing about what they lose."""
+    for decision in WITHHELD_DECISIONS:
+        assert "_lines" not in decision
+        assert decision == decision.lower()

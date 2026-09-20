@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from yoke_core.domain.session_launch_placement import surface_headroom
+from yoke_core.domain.session_launch_surface_readings import (
+    unrequested_surface_readings,
+)
 from yoke_core.domain.session_launch_surface_selection import preview_launch
 
 from runtime.api.domain.session_launch_test_support import (
@@ -112,3 +115,51 @@ def test_a_candidate_carries_its_requested_model_pool_reading() -> None:
         "exhausted": True,
         "reason": None,
     }
+
+
+def test_readings_drop_the_surface_the_caller_asked_for() -> None:
+    """The requested surface is already ranked; these rows are the rest."""
+    readings = unrequested_surface_readings(
+        {
+            ("m1", CURSOR_SURFACE): (12.0, "weekly plan"),
+            ("m1", "claude-cli"): (125.0, "weekly plan"),
+        },
+        requested_surface=CURSOR_SURFACE,
+    )
+
+    assert [reading.surface for reading in readings] == ["claude-cli"]
+    assert readings[0].headroom_percent == 125.0
+    assert readings[0].headroom_window == "weekly plan"
+
+
+def test_readings_put_the_roomiest_surface_first() -> None:
+    """The only question these rows answer is whether somewhere had more room."""
+    readings = unrequested_surface_readings(
+        {
+            ("m1", "claude-cli"): (40.0, "weekly plan"),
+            ("m1", "codex-cli"): (125.0, "weekly plan"),
+            ("m2", "codex-cli"): (80.0, "weekly plan"),
+        },
+        requested_surface=CURSOR_SURFACE,
+    )
+
+    assert [reading.headroom_percent for reading in readings] == [125.0, 80.0, 40.0]
+
+
+def test_a_preview_names_the_surfaces_it_was_not_asked_about() -> None:
+    """Placement ranks within a surface, so the act has to carry the rest."""
+    conn = launch_connection()
+    _relay(conn, cursor_models=62.0, other_models=3.0)
+
+    preview = preview_launch(
+        conn,
+        auth=authorization(actor_id=1),
+        project_id=10,
+        surface=CURSOR_SURFACE,
+        now=NOW,
+    )
+
+    assert CURSOR_SURFACE not in {
+        reading.surface for reading in preview.unrequested_surface_headroom
+    }
+    assert "unrequested_surface_headroom" in preview.to_dict()

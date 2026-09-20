@@ -9,7 +9,7 @@ Harness-neutral rules are in the repo rules file, not here.
 
 ## Hook schema
 
-- **Hook schema is all-or-nothing.** If any hook entry in `settings.json` has an invalid schema, ALL hooks are silently disabled. Every hook entry — including `UserPromptSubmit`, `SessionEnd`, etc. — must use the nested `{hooks: [{type, command}]}` format. The flat `{type, command}` format breaks the entire file. If hooks seem dead, check `claude` CLI startup for "Settings Error".
+- **Hook schema is all-or-nothing.** Every hook entry in `settings.json` — `UserPromptSubmit`, `SessionEnd`, and the rest — carries the nested `{hooks: [{type, command}]}` form, because a harness that rejects one entry's shape silently disables every hook in the file. Two surfaces catch that before a session pays for it: `yoke_cli.project_install.hook_schema.validate_hooks_subtree` refuses the shape before any checkout mutation, so no install or refresh can write it, and `HC-project-hook-config-validity` FAILs an installed config that drifted afterwards, covering Claude's, Codex's, and Cursor's files. Run `yoke watch doctor -- --only project-hook-config-validity` when hooks seem dead, and read `claude` CLI startup for "Settings Error".
 
 ## Session end, revival, and reactivation
 

@@ -1,4 +1,9 @@
-"""Validate Cursor-scanned hook configs in any checkout Yoke manages."""
+"""Validate every harness hook config in any checkout Yoke manages.
+
+A flat ``{type, command}`` entry where the nested ``{hooks: [...]}`` form
+belongs costs a harness every hook in the file, silently, so the shape is
+checked per config rather than trusted because Yoke rendered it.
+"""
 
 from __future__ import annotations
 
@@ -16,26 +21,47 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
 _HC_NAME = "HC-project-hook-config-validity"
-_HC_DESC = "Project Cursor-scanned hook configs are regular and schema-valid"
+_HC_DESC = "Project hook configs are regular and schema-valid"
 _CONFIG_PATHS = (
     Path(".claude/settings.json"),
+    Path(".codex/hooks.json"),
     Path(".cursor/hooks.json"),
 )
 _CURSOR_CONFIG = Path(".cursor/hooks.json")
+
+#: Cursor refuses a hook config reached through a symlink, and it scans both
+#: its own file and Claude's, so for these two a symlink is a real defect that
+#: silently costs the project its hooks. Codex reads its own file directly and
+#: accepts a link, which is how Yoke's own checkout ships it — `.codex/hooks.json`
+#: points into `runtime/harness/codex/`. Applying Cursor's constraint to the
+#: Codex path would fail every checkout that follows Yoke's own layout, so the
+#: rejection stays scoped to the scanners that have it.
+_CURSOR_SCANNED_CONFIGS = frozenset({Path(".claude/settings.json"), _CURSOR_CONFIG})
+
+#: Configs whose absence is a harness this project does not wire rather than a
+#: defect. Yoke writes `.codex/hooks.json` only where Codex is in use, so a
+#: checkout without one has no shape to be wrong; the other two keep the
+#: presence expectations they already had, because relaxing those would drop a
+#: protection this check did not set out to change.
+_OPTIONAL_CONFIGS = frozenset({Path(".codex/hooks.json")})
 _UNREADABLE = object()
 
 
 def _load_payload(root: Path, relative: Path, issues: list[str]) -> Any:
     path = root / relative
-    symlink = first_symlink_component(root, path, include_leaf=True)
-    if symlink is not None:
-        issues.append(
-            f"- {relative} crosses symlink component "
-            f"{symlink.relative_to(root)}; Cursor refuses this config path"
-        )
-        return _UNREADABLE
+    if relative in _CURSOR_SCANNED_CONFIGS:
+        symlink = first_symlink_component(root, path, include_leaf=True)
+        if symlink is not None:
+            issues.append(
+                f"- {relative} crosses symlink component "
+                f"{symlink.relative_to(root)}; Cursor refuses this config path"
+            )
+            return _UNREADABLE
+    # Resolve through a link rather than describing it: the Cursor-scanned
+    # configs already proved they cross no symlink, so this agrees with their
+    # own lstat, and the Codex path is expected to be a link to a regular file.
     try:
-        info = path.lstat()
+        info = path.stat()
     except OSError as exc:
         issues.append(f"- {relative} is unreadable: {exc}")
         return _UNREADABLE
@@ -80,7 +106,7 @@ def hc_project_hook_config_validity(
     args: DoctorArgs,
     rec: RecordCollector,
 ) -> None:
-    """Check installed Claude/Cursor config shape without canonical comparison."""
+    """Check installed hook-config shape without canonical comparison."""
     root = resolve_context(conn, args).source_checkout
     if root is None:
         rec.record(
@@ -92,7 +118,11 @@ def hc_project_hook_config_validity(
         return
     selected = Path(root)
     issues: list[str] = []
+    checked: list[str] = []
     for relative in _CONFIG_PATHS:
+        if relative in _OPTIONAL_CONFIGS and not (selected / relative).exists():
+            continue
+        checked.append(str(relative))
         _validate_payload(
             relative,
             _load_payload(selected, relative, issues),
@@ -105,7 +135,10 @@ def hc_project_hook_config_validity(
         _HC_NAME,
         _HC_DESC,
         "PASS",
-        "Claude and Cursor project hook configs are regular and schema-valid",
+        # Name the files rather than the harnesses: an optional config this
+        # checkout does not carry is absent from the list, so a reader can see
+        # what was examined instead of inferring it from a PASS.
+        "regular and schema-valid: " + ", ".join(checked),
     )
 
 

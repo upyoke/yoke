@@ -5,6 +5,8 @@ This file is the Codex-facing entry point for Yoke. It references the shared boo
 
 For the full project rules, read `AGENTS.md` — the harness-neutral shared doctrine file, and the one Codex loads. `CLAUDE.md` carries the same Yoke-managed block for Claude, which reads that file and does not fall back to `AGENTS.md`. In this repo the two are one file behind a symlink; in a managed project they are two real files, so anything written outside the managed markers has to be added to both or one harness never sees it. Everything in `AGENTS.md` applies to Codex sessions unless noted otherwise below.
 
+Each standing rule in `AGENTS.md` names a deep home under `.yoke/docs/reference/agent-rules/` carrying the reasoning, recovery paths, and worked failure modes behind it; `AGENTS.md` lists which file covers which operation. Read the one that governs an operation before performing it, and read an operation's own `--help` for its variants and flags.
+
 The `## Simplify — three-axis doctrine` section in `AGENTS.md` defines the shared **reuse / quality / efficiency** vocabulary, future-concept pull-forward lens, and stage weights used by every authoring step (idea, refine, advance, shepherd, conduct, polish). Codex sessions read it from `AGENTS.md`; this file does not duplicate it. The doctrine is Yoke-owned and harness-neutral — do not treat any Claude-only built-in as a dependency.
 
 ## Bootstrap

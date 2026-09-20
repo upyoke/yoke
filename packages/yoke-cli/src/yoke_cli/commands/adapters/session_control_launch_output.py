@@ -15,6 +15,8 @@ from yoke_cli.commands.adapters.session_control_human_output import (
     write_table,
 )
 from yoke_cli.commands.adapters.session_control_launch_preview_output import (
+    other_surface_rows,
+    readings_from_preview,
     write_launch_preview,
 )
 from yoke_cli.commands.adapters.session_control_native_diagnostic_output import (
@@ -99,6 +101,7 @@ def _write_launch_detail(
     stdout: TextIO,
     *,
     deduplicated: Any = None,
+    surface_readings: Any = None,
 ) -> None:
     fields: list[tuple[str, Any]] = [
         ("Launch ID", launch.get("launch_id")),
@@ -117,6 +120,7 @@ def _write_launch_detail(
         ("Requested machine", launch.get("requested_machine_id")),
         ("Assigned machine", launch.get("assigned_machine_id")),
         ("Placement", launch.get("placement_reason")),
+        *other_surface_rows(surface_readings),
         ("Requested model", launch.get("requested_model")),
         ("Requested effort", launch.get("requested_reasoning_effort")),
         (
@@ -199,7 +203,12 @@ def write_launch_result(result: Mapping[str, Any], stdout: TextIO) -> None:
         return
     launch = result.get("launch")
     if isinstance(launch, Mapping):
-        _write_launch_detail(launch, stdout, deduplicated=result.get("deduplicated"))
+        _write_launch_detail(
+            launch,
+            stdout,
+            deduplicated=result.get("deduplicated"),
+            surface_readings=readings_from_preview(result),
+        )
         return
     if "outcome" in result or "eligible_relays" in result:
         write_launch_preview(result, stdout)

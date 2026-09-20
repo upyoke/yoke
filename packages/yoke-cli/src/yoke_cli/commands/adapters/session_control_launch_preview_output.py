@@ -32,6 +32,54 @@ def _machine_capacity(result: Mapping[str, Any]) -> str | None:
     return "; ".join(parts) or None
 
 
+def headroom_on_other_surfaces(readings: Any) -> str | None:
+    """Name what the surfaces this launch did not ask about are reading.
+
+    The surface is an input, so nothing in a launch ranks it; without this the
+    only way to learn another surface was idle is to have read a report before
+    composing. Rendered on the preview and on the launch receipt both, because
+    a launch composed straight from ``create`` never sees a preview.
+    """
+    if not isinstance(readings, list) or not readings:
+        return None
+    parts = []
+    for reading in readings:
+        if not isinstance(reading, Mapping):
+            continue
+        percent = reading.get("headroom_percent")
+        if percent is None:
+            continue
+        parts.append(
+            f"{reading.get('machine_id')} {reading.get('surface')} "
+            f"{int(round(float(percent)))}% ({reading.get('headroom_window')})"
+        )
+    return "; ".join(parts) or None
+
+
+def other_surface_rows(readings: Any) -> list[tuple[str, Any]]:
+    """The headroom row, or nothing when there is no alternative to name.
+
+    A single-surface fleet and a later read of a stored launch both have
+    nothing to say here, and a permanent empty row would train readers to
+    skip the line on the fleets where it does carry a number.
+    """
+    rendered = headroom_on_other_surfaces(readings)
+    return [("Headroom on other surfaces", rendered)] if rendered else []
+
+
+def readings_from_preview(result: Mapping[str, Any]) -> Any:
+    """Pull the surface readings a create carries beside its stored record.
+
+    A create answers with the placement it just made. A later read of a stored
+    launch has no placement of its own, and must not restate a meter reading
+    from minutes ago as though it were current -- so it gets nothing here.
+    """
+    preview = result.get("preview")
+    if not isinstance(preview, Mapping):
+        return None
+    return preview.get("unrequested_surface_headroom")
+
+
 def _headroom_cell(row: Mapping[str, Any]) -> str:
     """Name the reading and the meter that produced it, or say it is missing."""
     headroom = row.get("headroom_percent")
@@ -129,6 +177,7 @@ def write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
             ("Selected machine", selected_row.get("machine_id")),
             ("Machine capacity", _machine_capacity(result)),
             ("Placement", result.get("placement_reason")),
+            *other_surface_rows(result.get("unrequested_surface_headroom")),
         ],
         stdout,
     )
