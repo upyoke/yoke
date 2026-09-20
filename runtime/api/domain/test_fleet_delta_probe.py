@@ -245,15 +245,15 @@ def test_dependency_clearance_is_urgent_without_status_or_claim_change():
     assert "claim unclaimed ->" not in output
 
 
-def test_a_report_without_digest_is_a_named_read_failure() -> None:
+def test_a_report_without_digest_uses_the_full_body() -> None:
     code, output, _ = _drive(
         [],
         reports=[_ok({"fingerprint": "fleet-a", "body": REPORT_BODY})],
         duration=1,
     )
     assert code == 0
-    assert "omitted fingerprint or digest" in output
-    assert "one composed picture" not in output
+    assert output == REPORT_BODY + "\n"
+    assert "omitted fingerprint" not in output
 
 
 def test_a_transient_read_failure_is_named_and_the_loop_continues() -> None:
