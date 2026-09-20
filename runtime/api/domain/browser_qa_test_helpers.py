@@ -207,11 +207,17 @@ def _patch_external_deps(
     reachable: bool = True,
     daemon_ok: bool = True,
     execute_step_responses: List[Dict[str, Any]] | None = None,
+    assertion_responses: Dict[str, Dict[str, Any]] | None = None,
     opened_pages: List[Dict[str, int]] | None = None,
     closed_pages: List[str] | None = None,
     open_page_error: str | None = None,
 ):
     """Return a list of active mock.patch context managers.
+
+    ``assertion_responses`` maps an assert step's target to the runner
+    response for it, so a test can state what the assertion resolved
+    against — a match count of zero included. Targets it does not name
+    behave as an ordinary pass.
 
     ``opened_pages`` and ``closed_pages``, when supplied, collect the
     viewports the scenario opened its page at and the pages it closed, so a
@@ -261,14 +267,17 @@ def _patch_external_deps(
         ),
     ]
 
-    if execute_step_responses is not None:
+    if execute_step_responses is not None or assertion_responses is not None:
         # Each step yields the next response in the list, cycling the last one
         # if more steps are executed than responses provided.
         def _fake_step(step, *_args, **_kwargs):
+            default = {"success": True, "artifacts": []}
             if step.get("action") == "assert":
-                return {"success": True, "artifacts": []}
+                if assertion_responses is None:
+                    return default
+                return assertion_responses.get(str(step.get("target")), default)
             if not execute_step_responses:
-                return {"success": True, "artifacts": []}
+                return default
             if len(execute_step_responses) > 1:
                 return execute_step_responses.pop(0)
             return execute_step_responses[0]

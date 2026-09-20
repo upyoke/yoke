@@ -6,7 +6,7 @@
  * Maps scenario step schema objects to Playwright API calls.
  *
  * Exports:
- *   executeStep(page, step, options) -> { success, duration_ms, viewport, url, error?, artifacts? }
+ *   executeStep(page, step, options) -> { success, duration_ms, viewport, url, error?, artifacts?, vacuous_absence? }
  *   resolveUrl(route, baseUrl) -> string
  *
  * Supported actions: navigate, click, fill_form, wait_for, delay, assert,
@@ -72,7 +72,7 @@ function observedState(page) {
  * @param {string} options.baseUrl - Base URL to prepend to relative routes
  * @param {number} [options.timeout] - Default timeout
  * @param {string} [options.outputDir] - Output directory for artifacts
- * @returns {Promise<{ success: boolean, duration_ms: number, error?: string, artifacts?: string[] }>}
+ * @returns {Promise<{ success: boolean, duration_ms: number, error?: string, artifacts?: string[], vacuous_absence?: Object }>}
  */
 async function executeStep(page, step, options) {
   const startTime = Date.now();
@@ -187,6 +187,13 @@ async function executeStep(page, step, options) {
       duration_ms,
       ...observedState(page),
       ...(result.artifacts ? { artifacts: result.artifacts } : {}),
+      // An assertion that passed without observing anything says so here.
+      // Every action-specific fact has to be forwarded by name, which is
+      // why nothing the assertion handler knew could reach its caller
+      // before this field existed.
+      ...(result.vacuous_absence
+        ? { vacuous_absence: result.vacuous_absence }
+        : {}),
     };
   } catch (err) {
     const duration_ms = Date.now() - startTime;

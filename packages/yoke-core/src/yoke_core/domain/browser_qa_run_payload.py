@@ -47,6 +47,7 @@ def _build_run_payload(
     artifact_ids: Optional[List[int]] = None,
     expected_screenshots: int = 0,
     recorded_screenshots: int = 0,
+    vacuous_absences: Optional[List[Dict[str, Any]]] = None,
     note: Optional[str] = None,
 ) -> str:
     """Build the structured raw_result payload for browser QA runs."""
@@ -77,6 +78,11 @@ def _build_run_payload(
     if expected_screenshots > 0:
         payload["expected_screenshots"] = expected_screenshots
         payload["recorded_screenshots"] = recorded_screenshots
+    if vacuous_absences:
+        # Assertions that passed against a locator matching nothing. They are
+        # recorded whatever the verdict, because an inspection's verdict is
+        # settled later by a reviewer who has only this record to read.
+        payload["vacuous_absences"] = list(vacuous_absences)
     if note:
         payload["note"] = note
     return json.dumps(payload, sort_keys=True)

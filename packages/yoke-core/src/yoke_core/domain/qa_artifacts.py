@@ -14,7 +14,7 @@ handle's address comes from ``qa_artifact_handle.handle_address``.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from yoke_contracts.free_paths import free_temp_root, private_free_path
 from yoke_core.domain import machine_config, project_scratch_dir
@@ -204,6 +204,7 @@ def build_metadata(
     viewport: Optional[Dict[str, int]] = None,
     browser: str = "chromium",
     observed_url: str = "",
+    vacuous_absences: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Build artifact metadata dict.
 
@@ -212,6 +213,12 @@ def build_metadata(
     was taken. Recording both is what lets a reviewer see that a screenshot
     is of the screen and the width that were asked for, instead of taking it
     on trust.
+
+    ``vacuous_absences`` names the absence assertions that had already
+    resolved against a locator matching zero elements when this capture was
+    taken — settle guards that could not have failed. A capture carrying any
+    of them is a capture whose screen may simply never have rendered, which
+    a reviewer can only weigh if the evidence says so.
     """
     meta: Dict[str, Any] = {
         "step_index": step_index,
@@ -227,6 +234,8 @@ def build_metadata(
         meta["observed_url"] = observed_url
     if browser:
         meta["browser"] = browser
+    if vacuous_absences:
+        meta["vacuous_absences"] = list(vacuous_absences)
     return meta
 
 

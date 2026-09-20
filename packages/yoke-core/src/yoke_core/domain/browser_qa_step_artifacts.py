@@ -6,6 +6,12 @@ and the url it was actually on — travels with the bytes, because the route
 and the viewport the case *asked for* are requests: metadata rebuilt from the
 request can never disagree with it, and a capture of the wrong screen then
 reads as a product defect rather than a harness one.
+
+The absence guards that had already resolved against nothing when the shot
+was taken travel with it for the same reason. A reviewer looking at an empty
+screen needs to see that the guard meant to settle it matched no element,
+because otherwise the emptiest possible capture and a correct one look
+identical.
 """
 
 from __future__ import annotations
@@ -42,6 +48,7 @@ def record_step_artifacts(
     label: Any,
     viewport: Optional[Dict[str, int]],
     observed_url: str,
+    vacuous_absences: Optional[List[Dict[str, Any]]] = None,
     actor: Optional[ActorContext] = None,
 ) -> StepArtifacts:
     """Submit each capture of one step durably and describe the outcome."""
@@ -70,6 +77,7 @@ def record_step_artifacts(
             label,
             viewport=viewport,
             observed_url=observed_url,
+            vacuous_absences=vacuous_absences,
         )
         try:
             artifact_id = _bqa._record_artifact_file(

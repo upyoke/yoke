@@ -15,6 +15,7 @@ from yoke_contracts.browser_qa_contract import (
     is_browser_assertion,
 )
 from yoke_contracts.api.function_call import ActorContext
+from yoke_core.domain.browser_qa_assertion_evidence import CaseAssertions
 from yoke_core.domain.browser_qa_results import RequirementOutcome, RunResult
 from yoke_core.domain.browser_qa_step_artifacts import record_step_artifacts
 from yoke_core.domain.qa_artifacts import artifact_directory
@@ -148,8 +149,7 @@ def _process_requirement(
     current_route = "/"
     expected_screenshots = 0
     recorded_screenshots = 0
-    expected_assertions = 0
-    passed_assertions = 0
+    assertions = CaseAssertions()
     env_failure = False
 
     def _mark_capture_failed(reason: str) -> None:
@@ -169,7 +169,7 @@ def _process_requirement(
     for step_idx, step in enumerate(steps):
         assertion_expected = is_browser_assertion(step)
         if assertion_expected:
-            expected_assertions += 1
+            assertions.declare()
         # Update current route from navigate steps
         if isinstance(step, dict) and step.get("action") == "navigate":
             route = step.get("route", "")
@@ -245,6 +245,7 @@ def _process_requirement(
             subject=subject,
             route=current_route,
             label=step.get("label"),
+            vacuous_absences=list(assertions.vacuous),
             viewport=data.get("viewport") if isinstance(data, dict) else None,
             observed_url=str(data.get("url") or "") if isinstance(data, dict) else "",
             actor=actor,
@@ -264,7 +265,7 @@ def _process_requirement(
         if not step_artifacts.failures:
             _bqa._log(f"  Step {step_idx}: OK")
             if assertion_expected:
-                passed_assertions += 1
+                assertions.record_pass(data)
 
     # The case is over, so its page goes with it. Leaving it open would leave
     # a signed-in screen around for nothing to inherit, which is exactly the
@@ -289,16 +290,12 @@ def _process_requirement(
             f"screenshot_completeness:expected={expected_screenshots},"
             f"recorded={recorded_screenshots};"
         )
-    # Browser checks decide automatically when every declared step succeeds.
-    # Browser inspections remain verdict-less until the plan's batch reviewer.
     if run_verdict is None and method_id == BROWSER_CHECK_METHOD:
-        if passed_assertions == expected_assertions:
+        verdict_failure = assertions.verdict_failure(req_id)
+        if verdict_failure is None:
             run_verdict = "pass"
         else:
-            _mark_capture_failed(
-                "assertion_completeness:"
-                f"expected={expected_assertions},passed={passed_assertions};"
-            )
+            _mark_capture_failed(verdict_failure)
     _bqa._complete_run(
         run_id,
         req_id,
@@ -317,6 +314,7 @@ def _process_requirement(
             artifact_ids=run_artifact_ids,
             expected_screenshots=expected_screenshots,
             recorded_screenshots=recorded_screenshots,
+            vacuous_absences=assertions.vacuous,
         ),
         actor=actor,
     )
@@ -340,6 +338,7 @@ def _process_requirement(
         errors=step_errors,
         expected_screenshots=expected_screenshots,
         recorded_screenshots=recorded_screenshots,
+        vacuous_absences=assertions.vacuous,
         code_identity=dict(code_identity),
     )
     return RequirementOutcome(

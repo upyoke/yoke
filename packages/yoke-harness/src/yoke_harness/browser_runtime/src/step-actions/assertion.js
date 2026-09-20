@@ -6,6 +6,11 @@
  * executeAssert(page, step, options, refMap) -> { success: true } or throws.
  *
  * Supports checks: visible, hidden, text_contains, text_equals, count_gte, count_eq.
+ *
+ * A passing assertion also reports whether it could have failed. Three of
+ * those checks are satisfied by a page holding no matching element at all,
+ * so the match count is read at the one place that already resolved the
+ * locator and travels with the result as `vacuous_absence`.
  */
 
 const {
@@ -17,6 +22,58 @@ const {
 
 // Default timeout for scenario assertion actions.
 const DEFAULT_TIMEOUT_MS = 5000;
+
+/**
+ * Whether a check is satisfied by a page that holds no matching element.
+ *
+ * Playwright reports a detached locator as hidden, and a locator matching
+ * nothing counts zero, so `hidden`, `count_eq` of 0 and `count_gte` of 0 all
+ * pass on a screen the assertion never observed. The rest of the vocabulary
+ * -- `visible`, `text_contains`, `text_equals`, and `count_gte` of one or
+ * more -- fails on a zero-match locator, so none of it can pass vacuously.
+ *
+ * @param {Object} step
+ * @returns {boolean}
+ */
+function isAbsenceShaped(step) {
+  switch (step.check) {
+    case 'hidden':
+      return true;
+    case 'count_eq':
+      return Number(step.expected) === 0;
+    case 'count_gte':
+      return Number(step.min_count) === 0;
+    default:
+      return false;
+  }
+}
+
+/**
+ * The result of an assertion that passed, saying whether it proved anything.
+ *
+ * An absence-shaped assertion that resolved against zero elements observed
+ * nothing: there was no element on the page for it to be wrong about, so it
+ * could not have failed. Recording that here, beside the count the check was
+ * decided on, is what lets every later reader tell it apart from a real
+ * observation of an element that was present and hidden.
+ *
+ * @param {Object} step
+ * @param {number} matched - Elements the step's locator resolved to
+ * @returns {{ success: true, vacuous_absence?: Object }}
+ */
+function assertionResult(step, matched) {
+  if (matched > 0 || !isAbsenceShaped(step)) {
+    return { success: true };
+  }
+  return {
+    success: true,
+    vacuous_absence: {
+      check: step.check,
+      target: String(step.target || ''),
+      matched_elements: matched,
+    },
+  };
+}
 
 /**
  * Execute an assert action.
@@ -34,7 +91,7 @@ async function executeAssert(page, step, options, refMap) {
 
     case 'hidden': {
       await locator.waitFor({ state: 'hidden', timeout });
-      return { success: true };
+      return assertionResult(step, await locator.count());
     }
 
     case 'text_contains': {
@@ -83,7 +140,7 @@ async function executeAssert(page, step, options, refMap) {
           `Expected at least ${step.min_count} elements, found ${count}`
         );
       }
-      return { success: true };
+      return assertionResult(step, count);
     }
 
     case 'count_eq': {
@@ -93,7 +150,7 @@ async function executeAssert(page, step, options, refMap) {
           `Expected exactly ${step.expected} elements, found ${count}`
         );
       }
-      return { success: true };
+      return assertionResult(step, count);
     }
 
     default:
