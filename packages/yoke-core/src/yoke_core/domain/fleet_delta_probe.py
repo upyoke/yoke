@@ -192,16 +192,16 @@ def _append_steering_reports(
             call(STEERING_REPORT_FUNCTION, {}), STEERING_REPORT_FUNCTION
         )
         fingerprint = str(result.get("fingerprint") or "").strip()
-        digest = str(result.get("digest") or "").strip()
-        if not fingerprint or not digest:
+        payload = str(result.get("digest") or "").strip() or str(result.get("body") or "").strip()
+        if not fingerprint or not payload:
             raise FleetReadError(
                 STEERING_REPORT_FUNCTION,
-                "held-scope response omitted fingerprint or digest",
+                "held-scope response omitted fingerprint or body",
             )
         state.checked_at = observed_at
         if state.fingerprint != fingerprint:
             state.fingerprint = fingerprint
-            _write(stream, digest)
+            _write(stream, payload)
     except FleetReadError as failure:
         _write(
             stream,
