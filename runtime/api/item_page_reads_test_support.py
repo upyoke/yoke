@@ -134,6 +134,7 @@ def _connection() -> sqlite3.Connection:
         CREATE TABLE qa_runs (
           id INTEGER PRIMARY KEY,
           qa_requirement_id INTEGER,
+          performed_by TEXT,
           verdict TEXT,
           verdict_reason TEXT,
           execution_status TEXT,
