@@ -116,13 +116,25 @@ test("a pending review is offered on its own member's row only", async (t) => {
   );
   assert.equal(approvals.length, 1);
 
-  // The evidence sections are per member and in member order; only the
-  // second one carries the decision.
+  // Every member names its QA state; only the second carries the decision.
   const sections = byClass(root, "carried-item-evidence");
-  assert.equal(sections.length, 1, "only the answering member draws a section");
-  const drawn = allNodes(sections[0]).map((node) => node.textContent || "").join(" ");
+  assert.equal(sections.length, MEMBERS.length, "every member names its QA state");
+  assert.equal(
+    allNodes(sections[0]).filter(
+      (node) => node.tagName === "BUTTON" && node.textContent === "Approve",
+    ).length,
+    0,
+    "the silent member does not offer the other member's decision",
+  );
+  const drawn = allNodes(sections[1]).map((node) => node.textContent || "").join(" ");
   assert.match(drawn, /YOK-2229|authorized acceptance/);
   assert.doesNotMatch(drawn, /YOK-2228/);
+  assert.equal(
+    allNodes(sections[1]).filter(
+      (node) => node.tagName === "BUTTON" && node.textContent === "Approve",
+    ).length,
+    1,
+  );
   mounted.unmount();
 });
 
@@ -145,13 +157,20 @@ test("a Shipping card offers a member's review once as well", async (t) => {
 
   // The member row drew it, so the release-level gate block had to skip it.
   const sections = byClass(root, "carried-item-evidence");
-  assert.equal(sections.length, 1, "the answering member drew its own review");
+  assert.equal(sections.length, MEMBERS.length, "every member names its QA state");
   const approvals = allNodes(root).filter(
     (node) => node.tagName === "BUTTON" && node.textContent === "Approve",
   );
   assert.equal(approvals.length, 1, "one decision, one Approve control");
   assert.equal(
     allNodes(sections[0]).filter(
+      (node) => node.tagName === "BUTTON" && node.textContent === "Approve",
+    ).length,
+    0,
+    "the silent member does not offer the other member's decision",
+  );
+  assert.equal(
+    allNodes(sections[1]).filter(
       (node) => node.tagName === "BUTTON" && node.textContent === "Approve",
     ).length,
     1,

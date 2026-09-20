@@ -185,7 +185,10 @@ export function appendCarried(context, host, row, options = {}) {
       onDecide: options.onDecide,
     });
     for (const id of drawn?.requestIds || []) drawnRequests.add(id);
-    if (drawn) drewEvidence = true;
+    // A QA-state caption is not the member's own pictures. Treating it as
+    // evidence hid the run-wide strip that still has to name whose capture
+    // each tile is.
+    if (drawn?.drewEvidence) drewEvidence = true;
     return member;
   };
   for (const item of items.slice(0, CARRIED_ITEMS_SHOWN)) {

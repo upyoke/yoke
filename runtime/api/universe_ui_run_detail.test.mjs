@@ -191,10 +191,10 @@ test("the run page reads the run by id and draws it in the page's shape", async 
   // The decision: what the run carries, and the request folded in.
   const decision = byClass(root, "run-work")[0];
   assert.ok(decision.textContent.includes("Waiting for approval"), decision.textContent);
-  assert.deepEqual(
-    byClass(decision, "run-items")[0].children.map((node) => node.textContent),
-    ["YOK-2228", "Ship the release"],
-  );
+  const items = byClass(decision, "run-items")[0].children;
+  assert.equal(items[0].textContent, "YOK-2228");
+  assert.equal(items[1].textContent, "Ship the release");
+  assert.match(items[2].textContent, /never asked/);
   assert.equal(byClass(decision, "run-request-kind")[0].textContent, "Release approval");
   assert.deepEqual(
     byClass(decision, "review-action").map((node) => node.textContent),

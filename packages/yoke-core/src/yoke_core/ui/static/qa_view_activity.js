@@ -8,6 +8,7 @@ import { evidenceStrip } from "./review_evidence_strip.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
 import {
+  classifyQaRow,
   loadProjectCalls,
   outcomeNode,
   qaRoute,
@@ -128,7 +129,7 @@ function planCell(context, documentNode, row) {
 // what it executes, and to its own id when even that is absent.
 function caseLabelOf(row) {
   const name = row.case_key || row.method_name || row.method_id
-    || `case ${row.requirement_id}`;
+    || row.qa_kind || `case ${row.requirement_id}`;
   return row.host_baseline ? `${name} @${row.host_baseline}` : name;
 }
 
@@ -217,8 +218,13 @@ function renderActivityTable(context, body, rows, scope, pending) {
       documentNode, "td", null, row.method_name || row.method_id || "—",
     ));
     const outcome = el(documentNode, "td");
+    const classified = classifyQaRow(row, rows);
     outcome.appendChild(outcomeNode(
-      documentNode, row.outcome, row.capture_degraded_reason,
+      documentNode,
+      row.outcome,
+      row.capture_degraded_reason,
+      classified?.label,
+      classified?.detail,
     ));
     tr.appendChild(outcome);
     tr.appendChild(evidenceCell(context, documentNode, row));

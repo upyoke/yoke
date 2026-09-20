@@ -11,6 +11,11 @@
 import { attachTooltip } from "./universe_tooltip.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
+import {
+  QA_STATE,
+  classifyQaRow,
+  qaStatePill,
+} from "./qa_state.js";
 import { el, statePill } from "./universe_view_support.js";
 
 function qaOutcome(row) {
@@ -132,8 +137,10 @@ function requirementLinks(documentNode, item, row) {
   return links;
 }
 
-function requirementCard(context, item, row, workflowId) {
+function requirementCard(context, item, row, workflowId, rows = []) {
   const documentNode = context.document;
+  const classified = classifyQaRow(row, rows);
+  if (classified?.id === QA_STATE.RUN_MACHINERY) return null;
   const linked = ["blitz", "dash"].includes(workflowId);
   const card = el(documentNode, "div", "item-proof-row");
   card.setAttribute("data-requirement-id", String(row.id));
@@ -179,6 +186,11 @@ function requirementCard(context, item, row, workflowId) {
       ? `${row.method_name || row.method_id || row.qa_kind} — ${proof}`
       : proof,
   ));
+  if (classified && classified.id !== QA_STATE.QUEUED) {
+    copy.appendChild(el(
+      documentNode, "span", "item-proof-role", classified.detail || classified.label,
+    ));
+  }
   // The revision the verdict covers, beside the verdict. Without it a passing
   // proof says nothing about whether it still describes the current tree.
   if (row.recorded_head_sha) {
@@ -192,7 +204,9 @@ function requirementCard(context, item, row, workflowId) {
   requirementEvidence(context, copy, row);
   copy.appendChild(requirementLinks(documentNode, item, row));
   card.appendChild(copy);
-  const pill = qaOutcomePill(documentNode, row, workflowId);
+  const pill = classified
+    ? qaStatePill(documentNode, classified)
+    : qaOutcomePill(documentNode, row, workflowId);
   if (pill) card.appendChild(pill);
   return card;
 }

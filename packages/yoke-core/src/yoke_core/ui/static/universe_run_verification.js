@@ -2,6 +2,7 @@
 // the stage rail it is moving along, and the checks it recorded.
 
 import { evidenceStrip } from "./review_evidence_strip.js";
+import { classifyQaRow } from "./qa_state.js";
 import { el } from "./universe_view_support.js";
 
 const STEP_MARKS = {
@@ -30,8 +31,12 @@ export function appendSteps(documentNode, host, stages) {
   host.appendChild(steps);
 }
 
-export function outcomeOf(check) {
+function rawOutcome(check) {
   return String(check.outcome || "queued").replaceAll("_", " ");
+}
+
+export function outcomeOf(check) {
+  return classifyQaRow(check)?.label || rawOutcome(check);
 }
 
 // What the run's checks found, and the pictures each of them took.
@@ -60,7 +65,7 @@ export function verificationCard(context, checks) {
     ));
   }
   for (const check of checks) {
-    const line = el(documentNode, "div", `run-check is-${outcomeOf(check).replace(/ /g, "-")}`);
+    const line = el(documentNode, "div", `run-check is-${rawOutcome(check).replace(/ /g, "-")}`);
     line.appendChild(el(documentNode, "i", null, check.outcome === "passed" ? "✓" : "✕"));
     line.appendChild(el(
       documentNode, "b", null, [check.case_key, check.method_name].filter(Boolean).join(" · "),

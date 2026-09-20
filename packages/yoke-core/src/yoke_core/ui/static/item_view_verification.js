@@ -1,7 +1,8 @@
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { relativeTime } from "./universe_time.js";
 import { el, statePill } from "./universe_view_support.js";
-import { qaOutcome, requirementCard } from "./item_view_requirement_card.js";
+import { requirementCard } from "./item_view_requirement_card.js";
+import { summarizeQaUnion } from "./qa_state.js";
 import { workflowPanel } from "./workflow_view_primitives.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
 function derivedPlanAttachments(rows) {
@@ -92,22 +93,16 @@ function planCard(documentNode, item, attachment, workflowId) {
   return plan;
 }
 function unionCard(documentNode, rows) {
-  const outcomes = rows.map(qaOutcome);
-  const unsatisfied = outcomes.filter(
-    (value) => !["pass", "passed", "waived", "succeeded"].includes(
-      String(value).toLowerCase(),
-    ),
-  ).length;
-  const counts = new Map();
-  for (const outcome of outcomes) {
-    counts.set(outcome, Number(counts.get(outcome) || 0) + 1);
-  }
+  const summary = summarizeQaUnion(rows);
   const transitions = [...new Set(rows.map(
     (row) => row.workflow_transition_id,
   ).filter(Boolean))];
   const transition = transitions.length === 1
     ? transitions[0]
     : "the transition";
+  const wait = summary.satisfied
+    ? `${transition} is satisfied`
+    : `${transition} waits on ${summary.outstandingPhrase}`;
   const union = el(documentNode, "div", "item-proof-union");
   const copy = el(documentNode, "span", "item-proof-copy");
   copy.appendChild(el(
@@ -120,12 +115,10 @@ function unionCard(documentNode, rows) {
     documentNode,
     "span",
     "item-muted",
-    `${[...counts.entries()].map(
-      ([outcome, count]) => `${count} ${outcome}`,
-    ).join(" · ")}; ${transition} waits until every case passes or is waived`,
+    `${summary.counts}; ${wait}`,
   ));
   union.appendChild(copy);
-  const verdict = unsatisfied ? "not satisfied yet" : "satisfied";
+  const verdict = summary.satisfied ? "satisfied" : "not satisfied yet";
   const pill = statePill(documentNode, verdict);
   if (pill) union.appendChild(pill);
   return union;
@@ -213,13 +206,15 @@ export function verificationPanel(context, item) {
         row.workflow_transition_id !== attachment.transition_id
       ) continue;
       renderedRows.add(row.id);
-      body.appendChild(requirementCard(context, item, row, workflowId));
+      const card = requirementCard(context, item, row, workflowId, rows);
+      if (card) body.appendChild(card);
     }
   }
   for (const row of rows) {
     if (renderedRows.has(row.id)) continue;
     renderedRows.add(row.id);
-    body.appendChild(requirementCard(context, item, row, workflowId));
+    const card = requirementCard(context, item, row, workflowId, rows);
+    if (card) body.appendChild(card);
   }
   if (rows.length && workflowId === "issue") {
     body.appendChild(unionCard(documentNode, rows));

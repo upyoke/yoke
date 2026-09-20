@@ -154,6 +154,21 @@ def _list_activity(
                     if row["plan_case_key"] is not None
                     else None
                 ),
+                "qa_kind": (
+                    str(row["qa_kind"]) if row["qa_kind"] is not None else None
+                ),
+                "qa_phase": (
+                    str(row["qa_phase"]) if row["qa_phase"] is not None else None
+                ),
+                "waived_at": row["waived_at"],
+                "waiver_rationale": row["waiver_rationale"],
+                "instructions": row["instructions"],
+                "superseded_by_requirement_id": (
+                    int(row["superseded_by_requirement_id"])
+                    if row["superseded_by_requirement_id"] is not None
+                    else None
+                ),
+                "superseded_at": row["superseded_at"],
                 "host_baseline": row["host_baseline"],
                 "method_id": row["method_id"],
                 "method_name": row["method_name"],
