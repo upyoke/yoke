@@ -286,3 +286,36 @@ def test_the_bridge_is_parseable_yaml_with_intact_step_bodies() -> None:
             line.startswith(("::", "--")) and not line.startswith("--project")
             for line in body.splitlines()
         ), f"step {name!r} has a run line that reads as a severed continuation"
+
+
+def test_the_release_output_write_runs_under_this_run_own_project_authority() -> None:
+    """Two writes in a row, two different projects, two different identities.
+
+    The pin receipt writes Platform's environment settings and authorizes
+    against Platform, so it runs under the scoped Platform identity the step
+    before it installed. The release-output write does not: its data is this
+    deployment run, which belongs to Yoke, so it authorizes against Yoke. A
+    Platform-scoped token asked for a permission on Yoke is refused — which
+    is how this was found — so the authority is restored in between, and the
+    order is asserted rather than left to whoever edits next.
+    """
+    text = _text()
+    platform_authority = "- name: Switch to scoped Platform promotion authority"
+    pin_receipt = "- name: Record desired pin after successful Platform release"
+    restore = "- name: Restore Yoke release authority for this run's own project"
+    record = "- name: Record the pin commit this release produced"
+
+    assert (
+        text.index(platform_authority)
+        < text.index(pin_receipt)
+        < text.index(restore)
+        < text.index(record)
+    )
+    restore_step = _step(restore)
+    assert "YOKE_RELEASE_API_TOKEN" in restore_step
+    assert "YOKE_PLATFORM_RELEASE_API_TOKEN" not in restore_step
+    assert "yoke connection set prod" in restore_step
+    # The record step names the project whose SOURCE holds the commit, which
+    # is not the project the write authorizes against; that distinction is
+    # what the restore above exists for.
+    assert "--project platform" in _step(record)

@@ -285,6 +285,21 @@ jobs:
           test -n "$receipt"
           echo "Desired release pin receipt: $receipt"
 
+      # The pin receipt above writes Platform's own environment settings, so
+      # it authorizes against Platform and runs under the scoped Platform
+      # identity. The release-output write below does not: its data is THIS
+      # deployment run, which belongs to the Yoke project, so it authorizes
+      # against Yoke and needs Yoke's release identity. Restore it here —
+      # after the pin receipt, before the record — because a Platform-scoped
+      # token asked for a permission on Yoke is refused, and rightly.
+      - name: Restore Yoke release authority for this run's own project
+        run: |
+          printf '%s' "$YOKE_RELEASE_API_TOKEN" | yoke connection set prod \
+            --transport https \
+            --prod \
+            --api-url "$YOKE_API_BASE" \
+            --token-stdin >/dev/null
+
       # Promotion pushed the pin materialization onto the consumer's bound
       # branch, so this release produced a commit no backlog item authored.
       # Recording it against this run is what lets the NEXT release attribute
