@@ -7,7 +7,7 @@ from typing import Any
 from yoke_core.domain.actors import actor_name
 from yoke_core.domain.actors import ActorError
 from yoke_core.domain.actor_message_recipients import inbox_actor_messages
-from yoke_core.domain.decision_request_authority import (
+from yoke_core.domain.actor_decision_queue import (
     pending_requests_for_actor,
     recently_decided_requests_for_actor,
 )

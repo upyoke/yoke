@@ -7,9 +7,7 @@ import json
 from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
 )
-from yoke_core.domain.decision_request_authority import (
-    pending_requests_for_actor,
-)
+from yoke_core.domain.actor_decision_queue import pending_requests_for_actor
 from yoke_core.domain.decision_requests import (
     RoleAuthority,
     create_decision_request,
