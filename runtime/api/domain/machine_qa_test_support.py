@@ -307,7 +307,6 @@ def make_conn() -> sqlite3.Connection:
         VALUES(1,'yoke','Yoke','YOK');
         """
     )
-    # Receipts, which the boot converge creates and serving reads no longer do.
     ensure_test_machine_schema(conn)
     return conn
 
