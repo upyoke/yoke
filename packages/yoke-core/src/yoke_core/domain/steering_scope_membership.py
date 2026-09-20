@@ -20,7 +20,7 @@ it now, which is the whole point of addressing a seat by role.
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Optional
+from typing import Any, Iterable, Mapping, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
@@ -44,19 +44,43 @@ def scope_document(scope: Mapping[str, Any]) -> Optional[str]:
     return str(value) if value else None
 
 
+def item_document_links(
+    conn: Any,
+    item_ids: Iterable[int],
+) -> dict[int, tuple[int, str]]:
+    """Owning project plus slug per linked item, for a whole set, in one read.
+
+    A roster or coverage pass asks this of every item on the page, so the
+    read is sized by the page rather than by its rows. Items with no link are
+    absent from the result, which is the same answer
+    :func:`item_document_link` gives as ``None``.
+    """
+    ids = tuple(dict.fromkeys(int(value) for value in item_ids))
+    if not ids or not _table_exists(conn, LINK_TABLE):
+        return {}
+    marker = _marker(conn)
+    rows = conn.execute(
+        f"SELECT item_id, project_id, strategy_doc_slug FROM {LINK_TABLE} "
+        f"WHERE item_id IN ({','.join(marker for _ in ids)})",
+        ids,
+    ).fetchall()
+    links: dict[int, tuple[int, str]] = {}
+    for row in rows:
+        record = dict(row)
+        links[int(record["item_id"])] = (
+            int(record["project_id"]),
+            str(record["strategy_doc_slug"]),
+        )
+    return links
+
+
 def item_document_link(conn: Any, item_id: int) -> Optional[tuple[int, str]]:
-    """Owning project plus slug of the document one item is linked to."""
-    if not _table_exists(conn, LINK_TABLE):
-        return None
-    row = conn.execute(
-        f"SELECT project_id, strategy_doc_slug FROM {LINK_TABLE} "
-        f"WHERE item_id = {_marker(conn)}",
-        (int(item_id),),
-    ).fetchone()
-    if row is None:
-        return None
-    record = dict(row)
-    return int(record["project_id"]), str(record["strategy_doc_slug"])
+    """Owning project plus slug of the document one item is linked to.
+
+    The one-element case of :func:`item_document_links`; a caller resolving a
+    set of items uses that entry point so the read stays one statement.
+    """
+    return item_document_links(conn, (int(item_id),)).get(int(item_id))
 
 
 def item_document_slug(conn: Any, item_id: int) -> Optional[str]:
@@ -71,10 +95,23 @@ def item_document_slug(conn: Any, item_id: int) -> Optional[str]:
 
 
 def apply_item_document(
-    conn: Any, target: dict[str, Any], item_id: int
+    conn: Any,
+    target: dict[str, Any],
+    item_id: int,
+    *,
+    links: Optional[Mapping[int, tuple[int, str]]] = None,
 ) -> dict[str, Any]:
-    """Add live document identity onto a coverage target, if the item is linked."""
-    link = item_document_link(conn, int(item_id))
+    """Add live document identity onto a coverage target, if the item is linked.
+
+    *links* is an already-resolved :func:`item_document_links` map; pass it
+    when describing several items so the link read happens once for the set
+    rather than once per target.
+    """
+    link = (
+        links.get(int(item_id))
+        if links is not None
+        else item_document_link(conn, int(item_id))
+    )
     if link is None:
         return target
     target[DOCUMENT_PROJECT_KEY] = link[0]
@@ -87,6 +124,7 @@ def item_coverage_target(
     *,
     project_id: int,
     item_id: Optional[int],
+    links: Optional[Mapping[int, tuple[int, str]]] = None,
 ) -> dict[str, Any]:
     """Describe one piece of work the way the coverage rule reads it.
 
@@ -99,7 +137,7 @@ def item_coverage_target(
     if item_id is None:
         return target
     target["item_id"] = int(item_id)
-    return apply_item_document(conn, target, int(item_id))
+    return apply_item_document(conn, target, int(item_id), links=links)
 
 
 def project_coverage_item_ids(conn: Any, project_id: int) -> Optional[set[int]]:
@@ -171,6 +209,7 @@ __all__ = [
     "document_member_item_ids",
     "item_coverage_target",
     "item_document_link",
+    "item_document_links",
     "item_document_slug",
     "project_coverage_item_ids",
     "scope_document",
