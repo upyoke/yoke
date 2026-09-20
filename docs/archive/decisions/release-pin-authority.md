@@ -62,6 +62,17 @@ fix look like a pin merge conflict.
    `deployment_runs.*` write. Both halves are required: the session opt-out
    without the carve-out leaves the bridge refused, which is exactly how the
    first attempt shipped.
+
+   A third fact is easy to miss and refused the second attempt: these two
+   writes authorize against *different projects*. The pin receipt writes
+   Platform's environment settings, so it authorizes against Platform and is
+   correctly made under the scoped Platform identity. The release-output
+   write's data is the deployment run, which belongs to Yoke, so it
+   authorizes against Yoke and needs Yoke's release identity — the Platform
+   token holds `deployment_ci` on Platform only, by design. The bridge
+   therefore restores Yoke authority between the two, and `--project
+   platform` on the record command names whose *source* holds the commit,
+   never the project the write authorizes against.
 5. `yoke release-pin verify` compares the desired-pin leaf to the
    environment's configured health probe without deploying. Platform owns the
    two verification coordinates in its capability: `probe_url_path` is
