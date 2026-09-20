@@ -179,3 +179,28 @@ def test_a_run_scoped_stage_that_already_names_cases_omits_the_plan_too():
     )
     assert "--plan" not in body
     assert "--member" not in body
+
+
+def test_item_message_for_a_discharged_member_does_not_hand_plan_run():
+    statement = (
+        "This member's stage is already satisfied: requirement #17 "
+        "records post_deploy_no_obligation, which discharges the stage "
+        "without cases. Steering re-drives the run and the stage gate "
+        "reads that discharge. Do not run anything else; there is "
+        "nothing for this member to run."
+    )
+    body = stage_wait_message(
+        run_id="run-1",
+        stage_name="item-qa",
+        item_ref="EXT-541",
+        target_tier="persistent",
+        revision="a" * 40,
+        reasons="no completed scoped QA execution exists",
+        route=HOLDER,
+        names_cases=False,
+        discharge=statement,
+    )
+
+    assert statement in body
+    assert "yoke qa plan run" not in body
+    assert "still needs to" not in body

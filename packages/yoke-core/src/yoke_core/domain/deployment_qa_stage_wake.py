@@ -82,6 +82,7 @@ def stage_wait_message(
     reasons: str,
     route: str,
     names_cases: bool,
+    discharge: str | None = None,
 ) -> str:
     """Name the run, stage, target/revision, item, and who this reaches.
 
@@ -89,6 +90,10 @@ def stage_wait_message(
     (later checks reuse the same idempotency key), so the surrounding
     sentence stays true on its own even if ``reasons`` reads stale by the
     time it is read; the status lookup command covers the rest.
+
+    ``discharge`` is the recorded no-obligation (or waiver-backed none)
+    statement. When it is set, this member has nothing to run, so the
+    body names that fact instead of handing ``yoke qa plan run``.
     """
     context = _execution_context(target_tier=target_tier, revision=revision)
     addressed = (
@@ -96,6 +101,13 @@ def stage_wait_message(
         if route == HOLDER
         else f"{item_ref}'s project steering seat (its claim holder is gone)"
     )
+    if discharge:
+        return (
+            f"Deployment run {run_id} reached item-scoped QA stage "
+            f"{stage_name!r} for {context}. Reaching {addressed}: "
+            f"{discharge} Check 'yoke deployment-runs get {run_id}' for "
+            "the current state."
+        )
     return (
         f"Deployment run {run_id} reached item-scoped QA stage {stage_name!r} "
         f"for {context}. Reaching {addressed}: {item_ref} still needs to "
@@ -167,8 +179,10 @@ def notify_item_scoped_qa_wait(
     ``target_digest``) is always a fresh key.
     """
     from yoke_core.domain.project_identity import render_item_ref
+    from yoke_core.domain.qa_plan_empty_roster import member_discharge_statement
 
     item_ref = render_item_ref(conn, int(item_id))
+    discharge = member_discharge_statement(conn, int(item_id))
     return push_notice(
         conn,
         item_id=item_id,
@@ -182,6 +196,7 @@ def notify_item_scoped_qa_wait(
             reasons=reasons,
             route=route,
             names_cases=names_cases,
+            discharge=discharge,
         ),
         idempotency_key=stage_wait_idempotency_key(
             run_id, stage_name, item_id, target_digest

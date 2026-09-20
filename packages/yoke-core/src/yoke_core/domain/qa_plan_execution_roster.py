@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.qa_plan_empty_roster import refuse_empty_roster
 from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
@@ -48,6 +49,16 @@ def ordered_plan_requirements(
                     f"WHERE {where} AND method_id IS NOT NULL",
                     params,
                 ).fetchall()
+                if not target_rows:
+                    refuse_empty_roster(
+                        conn,
+                        deployment_member_item_id=deployment_member_item_id,
+                        subject=(
+                            f"deployment run {deployment_run_id!r} stage "
+                            f"{deployment_stage!r} member "
+                            f"{deployment_member_item_id!r}"
+                        ),
+                    )
                 if len(target_rows) != 1 or not target_rows[0][0]:
                     raise QaPlanExecutionError(
                         "scoped deployment QA roster has ambiguous target history; "
@@ -77,7 +88,11 @@ def ordered_plan_requirements(
         for row in cursor.fetchall()
     ]
     if not requirements:
-        raise QaPlanExecutionError(f"{subject} has no materialized QA cases")
+        refuse_empty_roster(
+            conn,
+            deployment_member_item_id=deployment_member_item_id,
+            subject=subject,
+        )
     for rank, row in enumerate(requirements, start=1):
         requirement_id = int(row["requirement_id"])
         plan_id = int(row["plan_id"]) if row["plan_id"] is not None else None
