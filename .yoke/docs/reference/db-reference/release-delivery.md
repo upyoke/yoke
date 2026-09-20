@@ -146,6 +146,30 @@ Owners: `yoke_core.engines.done_transition_run_qa_gates` (the guard),
 `yoke_core.domain.deployment_qa_stage_acceptance` (the shared
 read-only acceptance ladder the active-stage gate settles).
 
+## An accepted item-scoped QA wakes that member
+
+The gate above already answers for one item, not the batch. What was
+missing was a wake: the only deployment wake was run-scoped and
+addressed to the driver, so a member whose own item-scoped QA was
+accepted sat at its release wait until the whole run finished.
+
+When an item-scoped stage subject becomes accepted, and
+`deployment_qa_run_acceptance.item_qa_acceptance_blockers` is empty for
+that member, the member's release-wait owner is woken on the same
+delivery contract `deployment_run_driver_notice` already implements —
+a second recipient, not a second wake path. The notice fires once per
+member per run on the acceptance transition. A re-read of an
+already-accepted subject sends nothing.
+
+Run-scoped QA stages stay the batch's shared wait: a member under a
+flow that declares one still waits for it, because the same reader
+still lists it. The pipeline's advance and `on_failure` are unchanged;
+a run whose other members are outstanding still halts and still
+belongs to its driver.
+
+Owner: `yoke_core.domain.deployment_qa_member_acceptance_notice`,
+emitted from the stage-gate settlement that records acceptance.
+
 ## A human verdict reaches the agent that parked for it
 
 A stage whose verdict policy requires a human opens a review request and

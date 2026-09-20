@@ -37,7 +37,8 @@ owes, and the envelope says which one happened -- read `status` and the
     -- the steering seat batches deliveries. Report what landed, say you are
     waiting on delivery, and stop deliberately.
 
-At the release wait, the deployment wake re-enters the owner. If it asks for
+At the release wait, the deployment wake re-enters the owner: to run item QA,
+when that QA is accepted, or when delivery clears. If it asks for
 item QA, credit it with the stage-scoped form -- a stage credits only the
 requirements bound to its own name, and an item-scoped stage needs the member
 too, so the run-wide form is refused rather than recording a pass the stage

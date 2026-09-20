@@ -176,6 +176,14 @@ def deployment_qa_stage_status(
         member_item_id=member_item_id,
     )
     result["target_digest"] = digest
+    if result.get("accepted") and member_item_id is not None:
+        from yoke_core.domain.deployment_qa_member_acceptance_notice import (
+            notify_item_qa_accepted,
+        )
+
+        notify_item_qa_accepted(
+            conn, run_id=run_id, item_id=int(member_item_id)
+        )
     return result
 
 

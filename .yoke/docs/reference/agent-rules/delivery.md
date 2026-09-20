@@ -91,7 +91,8 @@ learns the other's part from its own skill. The split is the whole rule:
   member already in it.
 - **The member owner owns its own item.** Its merge parked it at the flow's
   release wait holding its work claim; the deployment wake re-enters it for its
-  QA stage and again when delivery clears.
+  QA stage, when its own item-scoped QA is accepted, and again when delivery
+  clears.
 
 **A QA stage credits only requirements bound to its own stage name** — an
 item-scoped stage only ones bound to the member too. So the member owner runs
