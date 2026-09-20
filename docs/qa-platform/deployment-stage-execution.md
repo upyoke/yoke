@@ -94,6 +94,58 @@ appears the first time the case runs against the real deployed target. An
 `undetermined` or `error` verdict does not close the window; neither reached
 a judgement.
 
+A member's post-deploy obligation is admitted as a *copy* of the item's own
+requirement, keyed `admitted-requirement-<source id>`, so correcting the item
+row and correcting what the stage runs are two different writes. They are
+reconciled rather than left to drift. `yoke qa requirement update` resolves
+the source row's admitted copies and, for each one on a run that is still
+active, either reaches it or refuses:
+
+- a copy that has not yet recorded a determinate verdict is corrected with the
+  source, on the same correction-window rule — a case nobody has judged is a
+  case, not a result, so nothing is rewritten;
+- a copy that has already answered, or that a live execution has frozen into
+  the roster it is being walked against, refuses the amendment as
+  `admitted_copy_in_flight` **before either row is written**, naming the copy,
+  its run, and the recovery: abort that execution, re-apply the amendment so
+  it reaches the copy, and start the stage again — or, for a copy that
+  answered, supersede it;
+- a copy on a terminal run is left alone. It is the acceptance record of what
+  that release was judged against, and rewriting it would be the corruption
+  the freeze exists to prevent.
+
+Reconciliation covers the fields that decide what a case *executes*.
+`target_env`, `qa_phase` and `qa_kind` are excluded on purpose: admission
+rewrites them to the stage's own target, so an item's values there would break
+the copy rather than correct it.
+
+Whatever route a divergence arrives by — a row that diverged before this
+reconciliation existed, or an amendment through a path that does not resolve
+copies — the stage refuses rather than certifies. Building an execution roster
+and every case begin check the copy against its live source and raise
+`admitted_case_superseded`, naming both requirement ids and the fields that
+moved. A stage that cannot run the current definition says so by name; it
+never quietly runs the old one.
+
+That refusal names the recovery that exists, which depends on what moved.
+Reconciliation can only reach a field `yoke qa requirement update` accepts, so
+a divergence confined to those is repaired by aborting the execution and
+re-applying the amendment. `instructions` and `expected_outcome` are not on
+that allowlist, and `yoke qa plan rematerialize` refreshes the source row
+rather than a run's plan-less admitted copy — so a copy whose prose moved
+cannot be corrected by any path, and telling an operator to refresh it would
+teach an action nobody can perform. For that divergence the refusal says so
+and names the three remedies that do exist: supersede the copy with a
+corrected case bound to the same run, stage, member and target; waive it
+through the registered waiver surface with explicit authorization; or deliver
+the item on a new run, whose admission freezes the corrected body.
+
+`yoke qa requirement list --deployment-run-id <run-id>` reports
+`source_currency` (`current` or `stale`), `source_requirement_id`, and
+`source_diverging_fields` for every admitted copy, so whether a running case
+is the item's current definition is readable from the run without opening the
+item's row beside it.
+
 Relatedly, a Command case that reads `BASE_URL` must set
 `method_config.requires_base_url`. The runner injects `BASE_URL` only for a
 case that declares it, so an undeclared probe does not fail — it falls

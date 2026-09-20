@@ -15,7 +15,7 @@ on validation failure; handlers return a structured ``FunctionError`` instead.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel
 
@@ -45,6 +45,9 @@ class QaRequirementUpdateResponse(BaseModel):
     requirement_id: int
     field: str
     new_value: Optional[str] = None
+    #: Admitted deployment-stage copies this amendment also reached, so the
+    #: caller learns a run in flight was corrected rather than left behind.
+    admitted_copies_updated: List[int] = []
 
 
 def _error(
@@ -93,6 +96,7 @@ def handle_qa_requirement_update(request: FunctionCallRequest) -> HandlerOutcome
             "requirement_id": result.requirement_id,
             "field": result.field,
             "new_value": result.new_value,
+            "admitted_copies_updated": list(result.admitted_copies_updated),
         },
         primary_success=True,
     )
