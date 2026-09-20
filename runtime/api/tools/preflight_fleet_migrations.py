@@ -321,7 +321,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
     run, unwritten = _record_receipt(
         receipt_env=receipt_env,
-        environment=admin_env,
+        environment=covered_env,
         product_sha=product_sha,
         entries=entries,
         engine_artifact=engine_artifact.evidence(),
