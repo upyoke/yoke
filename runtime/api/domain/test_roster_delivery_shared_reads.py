@@ -17,7 +17,6 @@ from yoke_core.domain import release_delivery_summary as summary_module
 from yoke_core.domain.deployment_run_candidate_containment import (
     NOT_CONTAINED,
     CandidateContainment,
-    ContainmentVerdict,
 )
 from yoke_core.domain.item_merge_receipt_document import record_entry
 from yoke_core.domain.release_delivery_summary import (
