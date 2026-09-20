@@ -157,6 +157,16 @@ target. A case bound this way carries a deployment execution target whose
 alongside its name, which is the shape Machine QA contracts accept beside a
 plan's own environment target.
 
+That snapshot is frozen at first materialization for the run, stage, and
+member. Later target resolution reuses it, so a live edit to
+`environments.url` or environment settings cannot move
+`execution_target_digest` and drop a recorded pass out of scope. Re-running
+the stage reuses the existing requirement rather than minting a second copy.
+When evidence exists but a caller still asks under a different digest, the
+refusal names the recorded requirement and that it is out of scope — never
+"no cases". Result-write validation still live-resolves against a named
+receipt so a replaced candidate on the same run row cannot be written over.
+
 A deployment-run case is not bound to the session's claimed lane: its subject
 is the candidate the run deployed, already built and observed at that
 endpoint, which no member's worktree contributed to. It is bound to that

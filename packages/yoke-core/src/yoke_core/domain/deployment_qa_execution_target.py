@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -75,6 +76,49 @@ def _preview_target(receipt: Mapping[str, Any]) -> dict:
     }
 
 
+def _decode_stored_target(raw: Any) -> dict[str, Any] | None:
+    if isinstance(raw, Mapping):
+        return dict(raw)
+    try:
+        decoded = json.loads(str(raw or ""))
+    except (TypeError, ValueError):
+        return None
+    return dict(decoded) if isinstance(decoded, dict) else None
+
+
+def first_materialized_execution_target(
+    conn: Any,
+    *,
+    run_id: str,
+    stage_name: str,
+    member_item_id: int | None,
+) -> dict[str, Any] | None:
+    """The target stamped onto this subject at first materialization.
+
+    Environment URL and settings remain live tables, so recomputing the
+    snapshot mid-run re-keys ``execution_target_digest`` and drops already
+    recorded cases out of scope. The first materialized row is the freeze.
+    """
+    cursor = conn.execute(
+        "SELECT execution_target_json FROM qa_requirements "
+        f"WHERE deployment_run_id={_p(conn)} AND deployment_stage={_p(conn)} "
+        f"AND COALESCE(deployment_member_item_id,0)={_p(conn)} "
+        "AND execution_target_json IS NOT NULL ORDER BY "
+        "CASE WHEN method_id IS NOT NULL THEN 0 ELSE 1 END, id LIMIT 1",
+        (str(run_id), str(stage_name), int(member_item_id or 0)),
+    )
+    row = _row(cursor, cursor.fetchone())
+    if row is None:
+        return None
+    frozen = _decode_stored_target(row["execution_target_json"])
+    if frozen is None:
+        raise ValueError(
+            f"deployment run {run_id!r} stage {stage_name!r} member "
+            f"{member_item_id!r} has an unreadable frozen execution target"
+        )
+    return frozen
+
+
 def _require_receipt_source(subject: Mapping[str, Any], source_stage: str) -> None:
     stages = subject["stages"]
     qa_name = str(subject["stage"]["name"])
@@ -99,7 +143,23 @@ def deployment_qa_execution_target(
     *,
     receipt_id: int | None = None,
 ) -> dict:
-    """Resolve configured destination plus the newest observed stage receipt."""
+    """Resolve configured destination plus the newest observed stage receipt.
+
+    After this subject has materialized at least one case, later reads
+    reuse that snapshot so a live environment edit cannot move the digest
+    mid-stage. Passing ``receipt_id`` skips the freeze: result-write
+    validation still compares against the live subject, including a
+    replaced candidate on the same run row.
+    """
+    if receipt_id is None:
+        frozen = first_materialized_execution_target(
+            conn,
+            run_id=str(subject["id"]),
+            stage_name=str(subject["stage"]["name"]),
+            member_item_id=subject.get("member_item_id"),
+        )
+        if frozen is not None:
+            return frozen
     target = subject["stage"].get("target")
     if not isinstance(target, Mapping):
         raise ValueError("deployment QA stage has no pinned target")
@@ -218,6 +278,7 @@ __all__ = [
     "DEPLOYMENT_TARGET_KIND",
     "DEPLOYMENT_TARGET_SCHEMA",
     "deployment_qa_execution_target",
+    "first_materialized_execution_target",
     "is_deployment_execution_target",
     "validate_deployment_execution_target",
 ]
