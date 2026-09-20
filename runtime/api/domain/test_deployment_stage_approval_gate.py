@@ -22,6 +22,26 @@ from yoke_core.domain.deployment_approval_requests import (
 from yoke_core.domain.deployment_run_approval import emit_run_approval
 
 
+def _run_status(conn, run_id: str) -> str:
+    return str(
+        conn.execute(
+            "SELECT status FROM deployment_runs WHERE id = %s", (run_id,)
+        ).fetchone()[0]
+    )
+
+
+def _stage_request_ids(conn, run_id: str) -> list[int]:
+    """Every decision request raised for this run's stages, oldest first."""
+    return [
+        int(row[0])
+        for row in conn.execute(
+            "SELECT id FROM decision_requests WHERE subject_type='deployment_stage' "
+            "AND subject_key LIKE %s ORDER BY id",
+            (f"{run_id}:%",),
+        ).fetchall()
+    ]
+
+
 def test_missing_stage_approvers_fail_closed(test_db):
     create_decision_request_tables(test_db)
     seed_gate_run(
@@ -76,14 +96,18 @@ def test_reject_does_not_satisfy_and_does_not_open_a_new_request(test_db):
         actor_id=owner,
         action="reject",
     )
-    rejected = evaluate_deployment_stage_approval(
-        test_db,
-        run_id="run-gate-reject",
-        stage="approve-prod",
-    )
-    assert rejected.satisfied is False
-    assert rejected.resolution_action == "reject"
-    assert rejected.request_id == pending.request_id
+    # A rejected stage has nothing left to advance, so recording the answer
+    # closes the run. Nothing can satisfy the gate afterwards because there is
+    # no executing run to evaluate -- a stronger guarantee than a re-evaluation
+    # reporting the rejection, and the reason the refusal is the assertion here.
+    assert _run_status(test_db, "run-gate-reject") == "failed"
+    with pytest.raises(ValueError, match="not waiting at an executing stage"):
+        evaluate_deployment_stage_approval(
+            test_db,
+            run_id="run-gate-reject",
+            stage="approve-prod",
+        )
+    assert _stage_request_ids(test_db, "run-gate-reject") == [pending.request_id]
 
 
 def test_named_actor_is_the_configured_authority(test_db):

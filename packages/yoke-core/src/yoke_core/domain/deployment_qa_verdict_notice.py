@@ -21,11 +21,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from yoke_core.domain.merge_queue_landing_notice import HOLDER, push_notice
-from yoke_core.domain.deployment_qa_stage_wake import (
+from yoke_core.domain.deployment_run_driver_notice import (
     DRIVER,
     push_run_scoped_notice,
 )
+from yoke_core.domain.merge_queue_landing_notice import HOLDER, push_notice
 
 
 #: Verdict notices are keyed by the decided requirement and its outcome, so

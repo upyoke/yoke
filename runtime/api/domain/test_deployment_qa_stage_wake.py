@@ -8,12 +8,12 @@ this file stays to pure, conn-free message/key shape assertions.
 from __future__ import annotations
 
 from yoke_core.domain.deployment_qa_stage_wake import (
-    DRIVER,
     run_stage_wait_idempotency_key,
     run_stage_wait_message,
     stage_wait_idempotency_key,
     stage_wait_message,
 )
+from yoke_core.domain.deployment_run_driver_notice import DRIVER
 from yoke_core.domain.merge_queue_landing_notice import HOLDER, STEERING
 
 

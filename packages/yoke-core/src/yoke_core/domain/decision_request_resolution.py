@@ -26,6 +26,10 @@ from yoke_core.domain.decision_request_contract import (
 )
 from yoke_core.domain.decision_request_authority import authority_reason
 from yoke_core.domain.decision_request_events import append_decision_event
+from yoke_core.domain.decision_request_subject_effect import (
+    apply_subject_resolution,
+    notify_subject_resolution,
+)
 from yoke_core.domain.decision_request_subject_state import (
     require_decision_request_subject_ended,
 )
@@ -65,79 +69,6 @@ def _require_session_authority(
         action="clear or reject this candidate",
     )
 
-
-def _apply_subject_resolution(
-    conn: Any,
-    request: dict[str, Any],
-    *,
-    action: str,
-    actor_id: int,
-    note: Optional[str],
-    stamp: str,
-) -> None:
-    """Carry the resolved decision into the subject the request was gating."""
-    if request["kind"] != "qa_needs_review":
-        return
-    from yoke_core.domain.schema_common import _table_exists
-    from yoke_core.domain.qa_review_requests import apply_qa_review_resolution
-
-    if _table_exists(conn, "qa_requirements"):
-        context = request.get("subject_context") or {}
-        try:
-            reviewed_run_id = int(context.get("run_id") or 0) or None
-        except (TypeError, ValueError):
-            reviewed_run_id = None
-        apply_qa_review_resolution(
-            conn,
-            requirement_id=int(request["subject_key"]),
-            action=action,
-            actor_id=actor_id,
-            note=note,
-            resolved_at=stamp,
-            reviewed_run_id=reviewed_run_id,
-        )
-
-
-def _notify_subject_resolution(
-    conn: Any,
-    request: dict[str, Any],
-    *,
-    action: str,
-    note: Optional[str],
-) -> None:
-    """Tell whoever was waiting on this decision what it was.
-
-    Called after the resolution has committed, and deliberately: the
-    verdict is the durable outcome and a notification hiccup must not
-    endanger it. A failure degrades to a printed warning, because the
-    decision stands either way and the recipient can still read it.
-    """
-    if request["kind"] != "qa_needs_review":
-        return
-    from yoke_core.domain.deployment_qa_verdict_notice import (
-        notify_deployment_qa_verdict,
-    )
-
-    try:
-        delivery = notify_deployment_qa_verdict(
-            conn,
-            requirement_id=int(request["subject_key"]),
-            action=action,
-            note=note or "",
-        )
-        conn.commit()
-    except Exception as exc:  # noqa: BLE001 - degrade, never undo the verdict
-        conn.rollback()
-        print(
-            "Warning: could not reach the agent waiting on QA requirement "
-            f"{request['subject_key']}: {exc}"
-        )
-        return
-    if delivery == "":
-        print(
-            f"QA requirement {request['subject_key']} was resolved with nobody "
-            "addressable to tell. Staff it manually."
-        )
 
 
 def resolve_decision_request(
@@ -220,13 +151,14 @@ def resolve_decision_request(
     )
     if int(cursor.rowcount or 0) != 1:
         raise ValueError(f"decision request {request_id} is no longer pending")
-    _apply_subject_resolution(
+    apply_subject_resolution(
         conn,
         request,
         action=str(progress.action),
         actor_id=int(progress.deciding_actor_id or actor_id),
         note=progress.note,
         stamp=stamp,
+        session_id=session_id,
     )
     append_decision_event(
         conn,
@@ -246,7 +178,7 @@ def resolve_decision_request(
         created_at=stamp,
     )
     conn.commit()
-    _notify_subject_resolution(
+    notify_subject_resolution(
         conn,
         request,
         action=str(progress.action),

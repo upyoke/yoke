@@ -282,10 +282,19 @@ the control plane still runs the deployed build, so a locally derived verdict
 reads the candidate's columns out of the deployed build's database. Evaluating
 raises the decision request the policy calls for and reports what the stage is
 still waiting on; it never approves. Recording an answer stays on
-`deployment_runs.approve`. Python owners:
+`deployment_runs.approve`, and recording it acts on it. An approve wakes the
+project's deploy-lock driver -- its steering seat when no session holds the
+lock -- with the commands that re-enter the runner on the same run; the runner
+still performs every advance, so the answer moves no run state by itself. A
+rejection closes the run instead: a rejected stage has nothing left to advance,
+and a run that kept reading `executing` behind a recorded refusal would be
+reporting a release in flight that nobody will ship. Python owners:
 `yoke_core.domain.deployment_approval_requests` (the evaluator),
-`yoke_core.domain.handlers.deployment_stage_approval` (the serving side), and
-`yoke_core.domain.deployment_stage_approval_dispatch` (the pipeline side).
+`yoke_core.domain.handlers.deployment_stage_approval` (the serving side),
+`yoke_core.domain.deployment_stage_approval_dispatch` (the pipeline side), and
+`yoke_core.domain.deployment_stage_decision_effect` (what the answer does),
+reached through the kind-keyed
+`yoke_core.domain.decision_request_subject_effect`.
 
 **`github-actions-workflow` step runner:** Triggers a GitHub Actions workflow and polls for completion. Stage fields: `workflow` (workflow filename, e.g., `deploy.yml`), `watch_for` (state to wait for, e.g., `"completed"`), `on_failure` (`"halt"`). Used by external projects where GitHub Actions owns the pipeline. Python owners: `yoke_core.domain.github_actions` + `yoke_core.domain.deploy_pipeline`.
 
