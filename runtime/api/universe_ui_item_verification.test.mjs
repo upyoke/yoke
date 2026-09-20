@@ -117,6 +117,52 @@ test("item verification renders current proof with truthful outcome labels", asy
   );
 });
 
+test("item verification distinguishes a standing source from its admitted copy", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const item = detailItem("issue");
+  item.qa_plan_attachments = [];
+  item.qa_requirements = [
+    {
+      id: 28759,
+      item_id: 3449,
+      qa_kind: "plan_case",
+      qa_phase: "post_deploy",
+      plan_case_key: "plan-currency-readable",
+      requirement_source: "flow_derived",
+      method_id: "command",
+      method_name: "Command",
+      outcome: "queued",
+    },
+    {
+      id: 28801,
+      item_id: null,
+      deployment_member_item_id: 3449,
+      deployment_run_id: "run-20260920-005",
+      qa_kind: "plan_case",
+      qa_phase: "post_deploy",
+      plan_case_key: "admitted-requirement-28759",
+      requirement_source: "flow_derived",
+      method_id: "command",
+      method_name: "Command",
+      outcome: "passed",
+    },
+  ];
+  renderItemDetailView(itemContext(documentNode, async () => ({
+    status: 200,
+    envelope: { success: true, result: { item } },
+  })), root, "7", "ACM-22");
+  await settle();
+
+  const pills = byClass(root, "item-proof-row").map(
+    (row) => byClass(row, "pill")[0].textContent,
+  );
+  assert.deepEqual(pills, ["standing check", "this release"]);
+  const roles = byClass(root, "item-proof-role").map((node) => node.textContent);
+  assert.ok(roles.some((text) => /Open is expected/.test(text)));
+  assert.ok(roles.some((text) => /this is what ran for this release/.test(text)));
+});
+
 test("Issue union names the gated transition and counts canonical outcomes", async () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");

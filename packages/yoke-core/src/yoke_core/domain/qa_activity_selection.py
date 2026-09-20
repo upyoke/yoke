@@ -68,8 +68,10 @@ HAPPENED_AT = "COALESCE(r.completed_at, r.created_at, q.created_at)"
 ACTIVITY_COLUMNS = (
     "q.id AS requirement_id, q.plan_id, q.plan_case_key, "
     "q.deployment_run_id, q.deployment_stage, q.item_id, "
-    "q.deployment_member_item_id, "
-    "q.host_baseline, q.waived_at, p.slug AS plan, pr.slug AS project, "
+    "q.deployment_member_item_id, q.qa_kind, q.qa_phase, "
+    "q.waived_at, q.waiver_rationale, q.instructions, "
+    "q.superseded_by_requirement_id, q.superseded_at, "
+    "q.host_baseline, p.slug AS plan, pr.slug AS project, "
     "q.method_id, q.method_name, m.proof_kind, r.id AS run_id, "
     "r.performed_by, "
     "r.verdict, r.verdict_reason, r.case_outcome, r.capture_degraded_reason, "
@@ -83,10 +85,15 @@ ACTIVITY_COLUMNS = (
 #: item or a deployment run without a plan. Requiring a plan instead made a
 #: storage detail decide visibility: an item's own ad hoc verification, and
 #: every standalone run case, recorded passing runs and screenshots that no
-#: surface could read back. What stays out is the method-less bookkeeping
-#: row — an acceptance-criterion marker that never executes, so it has no
-#: run, no verdict, and no evidence to show.
-EXECUTABLE_REQUIREMENT = "(q.plan_id IS NOT NULL OR q.method_id IS NOT NULL)"
+#: surface could read back. Recorded post-deploy facts — no-obligation and
+#: a waiver-backed "not required" — also belong here: they never execute,
+#: but they are the only durable distinction from silence. What stays out is
+#: method-less run machinery (stage acceptance) and acceptance-criterion
+#: markers that never execute and never record an answer.
+EXECUTABLE_REQUIREMENT = (
+    "(q.plan_id IS NOT NULL OR q.method_id IS NOT NULL "
+    "OR q.qa_kind IN ('post_deploy_no_obligation', 'post_deploy_not_required'))"
+)
 
 #: Which project a requirement belongs to, however it is attached. A
 #: plan-backed row inherits its plan's project; a planless row takes it from

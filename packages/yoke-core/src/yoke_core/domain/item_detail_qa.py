@@ -91,6 +91,11 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         "q.created_at",
         requirement_column("plan_id"),
         requirement_column("plan_case_key"),
+        requirement_column("deployment_run_id"),
+        requirement_column("deployment_member_item_id"),
+        requirement_column("superseded_by_requirement_id"),
+        requirement_column("superseded_at"),
+        requirement_column("supersession_rationale"),
         requirement_column("method_id"),
         _runner_column(conn, has_methods),
         requirement_column("workflow_transition_id"),
@@ -135,12 +140,16 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         joins.append("LEFT JOIN qa_plans p ON p.id = q.plan_id")
     if has_methods:
         joins.append("LEFT JOIN qa_methods m ON m.id = q.method_id")
+    where = f"WHERE q.item_id = {marker} OR q.epic_id = {marker}"
+    params: list[Any] = [item_id, item_id]
+    if _column_exists(conn, "qa_requirements", "deployment_member_item_id"):
+        where += f" OR q.deployment_member_item_id = {marker}"
+        params.append(item_id)
     rows = _dict_rows(
         conn.execute(
             f"SELECT {', '.join(select)} {' '.join(joins)} "
-            f"WHERE q.item_id = {marker} OR q.epic_id = {marker} "
-            "ORDER BY q.id",
-            (item_id, item_id),
+            f"{where} ORDER BY q.id",
+            tuple(params),
         )
     )
     # A review verdict's own run rarely holds the screenshots it verifies —

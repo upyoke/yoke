@@ -17,6 +17,12 @@ import {
 } from "./review_evidence_strip.js";
 import { reviewRequestCard } from "./review_request_card.js";
 import { evidenceOf } from "./review_request_presentation.js";
+import {
+  QA_STATE,
+  classifyMemberQa,
+  memberQaCaption,
+  qaStateNote,
+} from "./qa_state.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
 
@@ -202,11 +208,8 @@ export function carriedItemReviews(facts, itemId, runId, checks) {
   return [...requests.values()];
 }
 
-function captionOf(checks) {
+function countCaption(checks) {
   const counts = new Map();
-  // Where a check records the stage it ran at, the caption keeps it: that is
-  // the rest of what ties this evidence to this release rather than to the
-  // item at large.
   const stages = new Set();
   for (const check of checks) {
     const outcome = String(check.outcome || "unknown");
@@ -220,6 +223,18 @@ function captionOf(checks) {
   ].join(" · ");
 }
 
+function captionOf(itemId, runId, facts, checks) {
+  const memberState = classifyMemberQa(
+    facts?.byItem?.get(String(itemId)) || checks,
+    { runId },
+  );
+  if (memberState.id !== QA_STATE.NEVER_ASKED) {
+    return memberQaCaption(memberState);
+  }
+  if (checks.length) return countCaption(checks);
+  return memberQaCaption(memberState);
+}
+
 // `options.onDecide(request, action, node, note)` answers a review through
 // the same resolver the Inbox uses, so the answer is the same act wherever
 // it is given.
@@ -229,18 +244,31 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   if (itemId === null) return null;
   const { checks, artifacts } = carriedItemEvidence(facts, itemId, runId);
   const reviews = carriedItemReviews(facts, itemId, runId, checks);
-  if (!checks.length && !reviews.length) return null;
-  // Which requests this section takes responsibility for. A caller drawing
-  // the same release's gates alongside has to know, or one decision is
-  // offered twice on one page with two sets of buttons.
+  const memberState = classifyMemberQa(
+    facts?.byItem?.get(String(itemId)) || checks,
+    { runId },
+  );
+  // A member with no executable check is still a fact: waived, no-obligation,
+  // and never-asked used to render as a bare title.
   const drawnRequests = new Set(reviews.map((request) => String(request.id)));
   const documentNode = context.document;
-  const wrap = el(documentNode, "div", "carried-item-evidence");
-  if (checks.length) {
-    wrap.appendChild(el(
-      documentNode, "span", "carried-item-evidence-caption", captionOf(checks),
-    ));
-  }
+  const wrap = el(
+    documentNode,
+    "div",
+    `carried-item-evidence is-${String(memberState.id).replaceAll("_", "-")}`,
+  );
+  wrap.appendChild(el(
+    documentNode,
+    "span",
+    "carried-item-evidence-caption",
+    captionOf(itemId, runId, facts, checks),
+  ));
+  // Item-owned non-post-deploy checks (pre-merge CI) keep a count caption.
+  // The never-asked note is for silence, not for those rows.
+  const note = memberState.id === QA_STATE.NEVER_ASKED && checks.length
+    ? null
+    : qaStateNote(documentNode, memberState);
+  if (note) wrap.appendChild(note);
   // The read bounds each item's checks within each release, so what is
   // missing here is this item's older checks in one of the groups on screen
   // — never another item's, never another release's, and never silently.

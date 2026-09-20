@@ -10,7 +10,6 @@
 
 import { createDecisionResolver } from "./inbox_rows.js";
 import {
-  CARRIED_ITEMS_SHOWN,
   carriedItems,
   shippingRunCard,
 } from "./universe_work_cards.js";
@@ -142,19 +141,16 @@ export async function loadDelivery(context, host, getScope, options = {}) {
     });
   };
   paint();
-  // What each carried item proved is read for the items these cards are
-  // about, which the run rows have to arrive first to name — and only for
-  // the entries a card actually lists, not the ones behind its "+N more".
-  // The cards paint without it and fill in when it lands, rather than
-  // holding the page.
+  // What each carried item proved is read for every member a card names,
+  // including the ones behind "+N more". Fetching only the first three made
+  // the rest look unverified: the production run that surfaced this had
+  // twenty members and QA lines on exactly the first three in list order.
   const carried = [];
   for (const callResult of callResults) {
     const result = successfulResult(callResult);
     for (const row of result?.rows || []) {
-      // Each subject travels with the run its card draws, so the read is
-      // sized by these cards rather than by every release it was ever in.
       const runId = row.id || row.run_id;
-      for (const item of carriedItems(row).slice(0, CARRIED_ITEMS_SHOWN)) {
+      for (const item of carriedItems(row)) {
         carried.push({ ...item, run_id: runId });
       }
     }

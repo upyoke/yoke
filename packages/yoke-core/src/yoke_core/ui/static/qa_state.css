@@ -1,0 +1,34 @@
+/* Distinct presentation for QA states that used to render as blank or as
+   peers. Colour comes from the shared pill families; these marks keep the
+   relationship readable when two rows share a plan. */
+.universe-app-root .qa-state-note {
+  display: block;
+  color: var(--yoke-muted);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .carried-item-evidence.is-never-asked,
+.universe-app-root .carried-item-evidence.is-no-obligation,
+.universe-app-root .carried-item-evidence.is-waived {
+  border-left-color: color-mix(
+    in srgb, var(--yoke-warn, #b45309) 55%, var(--yoke-border)
+  );
+}
+.universe-app-root .carried-item-evidence.is-never-asked {
+  border-left-color: color-mix(
+    in srgb, var(--yoke-crit, #b91c1c) 45%, var(--yoke-border)
+  );
+}
+.universe-app-root .carried-item-evidence.is-no-obligation {
+  border-left-color: var(--yoke-border);
+}
+.universe-app-root .item-proof-role {
+  display: block;
+  margin-top: 2px;
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .02em;
+}

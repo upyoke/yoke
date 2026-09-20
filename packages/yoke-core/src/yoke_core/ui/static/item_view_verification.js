@@ -213,13 +213,15 @@ export function verificationPanel(context, item) {
         row.workflow_transition_id !== attachment.transition_id
       ) continue;
       renderedRows.add(row.id);
-      body.appendChild(requirementCard(context, item, row, workflowId));
+      const card = requirementCard(context, item, row, workflowId, rows);
+      if (card) body.appendChild(card);
     }
   }
   for (const row of rows) {
     if (renderedRows.has(row.id)) continue;
     renderedRows.add(row.id);
-    body.appendChild(requirementCard(context, item, row, workflowId));
+    const card = requirementCard(context, item, row, workflowId, rows);
+    if (card) body.appendChild(card);
   }
   if (rows.length && workflowId === "issue") {
     body.appendChild(unionCard(documentNode, rows));

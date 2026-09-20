@@ -95,8 +95,12 @@ test("an item with no shown checks but a waiting review still draws it", async (
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
   assert.ok(evidence, "the entry is drawn for the request alone");
-  // No checks to count, so no caption claiming any.
-  assert.equal(byClass(evidence, "carried-item-evidence-caption").length, 0);
+  // Silence is a named state, not a missing caption. The waiting review
+  // still sits under that state rather than under a blank title.
+  assert.match(
+    byClass(evidence, "carried-item-evidence-caption")[0].textContent,
+    /never asked/,
+  );
   assert.equal(byClass(evidence, "review-card")[0].getAttribute("data-request-id"), "4502");
 });
 
