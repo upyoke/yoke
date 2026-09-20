@@ -24,9 +24,8 @@ from typing import Tuple
 from yoke_core.domain.populate_registry_data_authoritative import (
     QA_RUN_COMPLETED_DESCRIPTION,
 )
-from yoke_core.domain.populate_registry_data_curated_relay import (
-    RELAY_TRANSPORT_EVENTS,
-)
+from yoke_core.domain.populate_registry_data_curated_qa import QA_RETRACT_EVENTS
+from yoke_core.domain.populate_registry_data_curated_relay import RELAY_TRANSPORT_EVENTS
 from yoke_core.domain.populate_registry_data_updates import (  # noqa: F401
     CORRECTIVE_UPDATES,
     SEVERITY_ONLY_UPDATES,
@@ -80,14 +79,7 @@ CURATED_EVENTS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "QA requirement created and attached to item, task, or deployment run",
         "INFO",
     ),
-    (
-        "QARequirementRetracted",
-        "lifecycle",
-        "qa_lifecycle",
-        "qa-db",
-        "QA requirement retired because its item plan attachment was retracted",
-        "STATUS",
-    ),
+    *QA_RETRACT_EVENTS,
     (
         "QARequirementWaived",
         "lifecycle",
