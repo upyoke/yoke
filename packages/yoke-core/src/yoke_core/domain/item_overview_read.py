@@ -262,18 +262,26 @@ def _card_delivery(
     Release and the last day of finished work are the two bands whose cards
     show delivery, and they share one rendering, so they share this read.
     Every other row answers a question this costs nothing to leave
-    unanswered, and the ancestry reads behind it are per item — so the
-    roster pays for them only where a card will show the result. The same
-    24-hour window :func:`append_overview_window` selects on bounds the
-    finished side here, so a caller that did not apply that window cannot
-    turn this into an unbounded scan of every terminal item.
+    unanswered, so the roster pays for it only where a card will show the
+    result. The same 24-hour window :func:`append_overview_window` selects on
+    bounds the finished side here, so a caller that did not apply that window
+    cannot turn this into an unbounded scan of every terminal item.
+
+    The releases a card is compared against belong to its project,
+    environment and flow rather than to the item, so they are resolved once
+    per distinct triple, and every card's landings are read in one pass.
     """
     if compact:
         return {}
     drawn = [row for row in base_rows if _delivery_drawn(row)]
     if not drawn:
         return {}
-    from yoke_core.domain.release_delivery_summary import delivery_summary
+    from yoke_core.domain.release_delivery_summary import (
+        DeliverySummary,
+        ReleaseCandidates,
+        delivery_summary,
+        recorded_merge_shas_for_items,
+    )
 
     flows = sorted({
         str(row.get("deployment_flow") or "").strip()
@@ -293,17 +301,30 @@ def _card_delivery(
             str(flow["id"]): flow["target_environment_id"]
             for flow in _dict_rows(flow_cursor)
         }
+    ids = [int(row["internal_id"]) for row in drawn]
+    merges_by_item = recorded_merge_shas_for_items(conn, ids)
     summaries: dict[int, dict[str, Any]] = {}
+    by_release_line: dict[tuple[int, Any, str], Any] = {}
     for row in drawn:
         item_id = int(row["internal_id"])
-        flow = str(row.get("deployment_flow") or "").strip()
-        summary = delivery_summary(
-            conn,
-            item_id=item_id,
-            project_id=int(facts[item_id]["project_id"]),
-            environment_id=environment_by_flow.get(flow),
-            flow=flow,
-        )
+        merges = merges_by_item.get(item_id, ())
+        # Nothing landed means no release carried it, so this card's release
+        # line is never resolved on its behalf.
+        summary = DeliverySummary()
+        if merges:
+            flow = str(row.get("deployment_flow") or "").strip()
+            line = (
+                int(facts[item_id]["project_id"]),
+                environment_by_flow.get(flow),
+                flow,
+            )
+            if line not in by_release_line:
+                by_release_line[line] = ReleaseCandidates(
+                    conn, project_id=line[0], environment_id=line[1], flow=flow,
+                )
+            summary = delivery_summary(
+                merges=merges, candidates=by_release_line[line],
+            )
         summaries[item_id] = {
             "merges": summary.merges,
             "deployed": summary.deployed,

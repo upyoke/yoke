@@ -106,6 +106,8 @@ export function mountUniverseApp(rootNode, options = {}) {
     // Ranked from the app-wide roster below, never each page's own rows.
     steeringGroupColors: () => steeringColors.colors(),
     refreshSteeringGroupColors: () => steeringColors.refresh(),
+    // A view already holding that roster ranks from its rows, not a re-read.
+    adoptSteeringGroupColors: (rows) => steeringColors.adopt(rows),
     // Host capability data, read by views that need an explicit deployment
     // mode or host-owned control surface. The Organization view interprets
     // portability capabilities; the topbar carries no capability controls.

@@ -148,12 +148,16 @@ function stagesByItemRef(sessions) {
 }
 
 export async function loadFrontier(context, bands, getScope, sessionRoster, options = {}) {
-  const [{ callResults }, sessionCalls] = await Promise.all([
+  // Every read this paint needs, in flight together. The bands are one
+  // reading of one roster, so they all paint at once either way; starting
+  // them in sequence only made the wait their sum.
+  const [{ callResults }, sessionCalls, deployments] = await Promise.all([
     settledScopedCalls(context, [
       { functionId: "items.overview.list", payload: { relevance: "overview" } },
       { functionId: "frontier.list", payload: {} },
     ]),
     sessionRoster,
+    Promise.resolve(options.deployments).catch(() => undefined),
   ]);
   if (!context.isMounted()) return null;
   const paint = () => {
@@ -293,7 +297,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
       const card = workItemCard(documentNode, row, scope, {
         timestamp: row.updated_at,
       });
-      appendItemDelivery(documentNode, card, row, options.deployments);
+      appendItemDelivery(documentNode, card, row, deployments);
       return card;
     }), "Nothing is waiting to ship.");
 
@@ -308,7 +312,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
         timestamp: finishedAt(row),
         timeLabel: "finished",
       });
-      appendItemDelivery(documentNode, card, row, options.deployments);
+      appendItemDelivery(documentNode, card, row, deployments);
       return card;
     });
     if (done.length > visible.length) visible.push(seeMoreCard(documentNode, scope));

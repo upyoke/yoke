@@ -53,9 +53,11 @@ export function renderFrontierView(context, main, scope) {
     payload: { per_project: true, open: true },
   }]);
   // A revealed session card is tinted by its steering group exactly as it is
-  // on Sessions, so the roster's colors are refreshed alongside the read
-  // rather than after it.
-  const steeringColorsReady = context.refreshSteeringGroupColors();
+  // on Sessions. Those colors are ranked from the open roster, which is the
+  // read above — so they are taken from it rather than read again.
+  sessionRoster.then(({ callResults }) => context.adoptSteeringGroupColors(
+    successfulResult(callResults[0])?.rows || [],
+  )).catch(() => {});
   const projects = context.projects();
   // Which release carried each finished item. The same 24-hour run window the
   // Done band uses, so a card and the run it names describe one period.
@@ -68,27 +70,29 @@ export function renderFrontierView(context, main, scope) {
         : { project: String(project.id), relevance: "overview" },
     })),
   );
-  hold(Promise.all([runRoster, steeringColorsReady]).then(([{ callResults }]) => {
-    const runs = callResults.flatMap(
-      (callResult) => successfulResult(callResult)?.rows || [],
-    );
-    return loadFrontier(
-      context,
-      { waiting, ready, active, release, done },
-      getScope,
-      sessionRoster,
-      {
-        deployments: deploymentsByItemId(runs),
-        renderFullSession: (row) => sessionCard(
-          documentNode,
-          row,
-          onMessage,
-          context.projects(),
-          context.steeringGroupColors(),
-        ),
-      },
-    );
-  }));
+  // The run roster is handed over as a promise, not awaited first. It answers
+  // a different question than the item reads do and nothing in them depends
+  // on it, so sequencing the two made the screen wait for their sum when the
+  // slower of the two is the whole cost.
+  const deployments = runRoster.then(({ callResults }) => deploymentsByItemId(
+    callResults.flatMap((callResult) => successfulResult(callResult)?.rows || []),
+  ));
+  hold(loadFrontier(
+    context,
+    { waiting, ready, active, release, done },
+    getScope,
+    sessionRoster,
+    {
+      deployments,
+      renderFullSession: (row) => sessionCard(
+        documentNode,
+        row,
+        onMessage,
+        context.projects(),
+        context.steeringGroupColors(),
+      ),
+    },
+  ));
 
   return {
     rescope(nextScope) {

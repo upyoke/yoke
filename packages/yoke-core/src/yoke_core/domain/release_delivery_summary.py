@@ -40,12 +40,12 @@ resolution per run, on every load of a roster that draws many such items.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Sequence
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_run_candidate_containment import (
-    candidate_contains_commit,
+    CandidateContainment,
 )
 from yoke_core.domain.deployment_run_project_sources import (
     carrying_runs_for_project,
@@ -55,10 +55,12 @@ from yoke_core.domain.delivery_release_candidates import (
     succeeded_persistent_runs,
 )
 from yoke_core.domain.item_merge_receipt_document import (
-    merge_shas as receipt_merge_shas,
+    merge_shas_for_items as receipt_merge_shas_for_items,
 )
 from yoke_core.domain.json_helper import loads_text
-from yoke_core.domain.qa_merging_identity import recorded_batch_blocks
+from yoke_core.domain.qa_merging_identity import (
+    recorded_batch_blocks_for_items,
+)
 
 SUCCEEDED = "succeeded"
 
@@ -82,23 +84,37 @@ class DeliverySummary:
         return max(self.merges - self.deployed, 0)
 
 
-def recorded_merge_shas(conn: Any, item_id: int) -> tuple[str, ...]:
-    """Every distinct commit this item's own landings recorded, newest first.
+def recorded_merge_shas_for_items(
+    conn: Any, item_ids: Sequence[int],
+) -> dict[int, tuple[str, ...]]:
+    """Every distinct commit each item's own landings recorded, newest first.
 
     A queue landing's batch block and a standalone landing's merge receipt
     are the same fact written by the two routes to the base branch, so both
-    are read and the same commit written by both counts once.
+    are read and a commit written by both counts once. Both are stored one
+    row per item in one table each, so a caller summarising a roster reads
+    each table once rather than once per card. An item recording neither
+    landing is absent, which every caller reads as no recorded merge.
     """
-    seen: list[str] = []
-    recorded = [
-        str(block.get("merge_sha") or "").strip()
-        for block in recorded_batch_blocks(conn, int(item_id))
-    ]
-    recorded.extend(receipt_merge_shas(conn, int(item_id)))
-    for sha in recorded:
-        if sha and sha not in seen:
-            seen.append(sha)
-    return tuple(seen)
+    ids = sorted({int(item_id) for item_id in item_ids})
+    if not ids:
+        return {}
+    blocks_by_item = recorded_batch_blocks_for_items(conn, ids)
+    receipts_by_item = receipt_merge_shas_for_items(conn, ids)
+    merges: dict[int, tuple[str, ...]] = {}
+    for item_id in ids:
+        seen: list[str] = []
+        recorded = [
+            str(block.get("merge_sha") or "").strip()
+            for block in blocks_by_item.get(item_id, ())
+        ]
+        recorded.extend(receipts_by_item.get(item_id, ()))
+        for sha in recorded:
+            if sha and sha not in seen:
+                seen.append(sha)
+        if seen:
+            merges[item_id] = tuple(seen)
+    return merges
 
 
 def _carried_shas(raw: Any, *, bound_project_id: int | None = None) -> set[str]:
@@ -216,51 +232,98 @@ def _carried_by_flow(runs: list[dict[str, Any]]) -> dict[str, str]:
     return carried
 
 
+class ReleaseCandidates:
+    """What one project's releases have shipped, resolved once for many items.
+
+    Every item sharing a project, environment and flow is asked about exactly
+    the same releases, so the candidate runs, the commits they carried, and
+    the newest lineage are facts of that triple rather than of the item. A
+    roster resolving them per card re-read the same releases and re-opened the
+    same repository for every card it drew; resolving them per triple is the
+    same answer asked once.
+    """
+
+    def __init__(
+        self,
+        conn: Any,
+        *,
+        project_id: int,
+        environment_id: Any,
+        flow: str = "",
+    ) -> None:
+        self._conn = conn
+        self._project_id = int(project_id)
+        runs = candidate_runs(
+            conn,
+            project_id=project_id,
+            environment_id=environment_id,
+            flow=flow,
+        )
+        self._carried = _carried_by_flow(runs)
+        # Releases advance, so a commit an older release contained is
+        # contained by the newest one too. Asking every lineage would spend
+        # one repository resolution per run to re-derive an answer the first
+        # one already gives.
+        newest = next(
+            (run for run in runs if str(run.get("release_lineage") or "").strip()),
+            {},
+        )
+        self._newest_lineage = str(newest.get("release_lineage") or "").strip()
+        self._newest_flow = str(newest.get("flow") or "")
+        self._containment: CandidateContainment | None = None
+
+    def carrying_flow(self, sha: str) -> str | None:
+        """The flow of the release that named ``sha``, or ``None``."""
+        return self._carried.get(sha)
+
+    def contains(self, sha: str) -> bool:
+        """Whether the newest release already carries ``sha`` by ancestry.
+
+        Asked only once carried work has said no, and answered through one
+        containment walk per triple rather than one per commit.
+        """
+        if not self._newest_lineage:
+            return False
+        if self._containment is None:
+            self._containment = CandidateContainment(
+                self._conn,
+                self._project_id,
+                candidate_lineage=self._newest_lineage,
+            )
+        return self._containment.contains(sha).contained
+
+    @property
+    def newest_flow(self) -> str:
+        return self._newest_flow
+
+
 def delivery_summary(
-    conn: Any,
     *,
-    item_id: int,
-    project_id: int,
-    environment_id: Any,
-    flow: str = "",
+    merges: Sequence[str],
+    candidates: ReleaseCandidates,
 ) -> DeliverySummary:
-    """Count this item's landed merges, how many shipped, and under which flow."""
-    merges = recorded_merge_shas(conn, item_id)
+    """Count one item's landed merges, how many shipped, and under which flow.
+
+    Both operands belong to something larger than the item — the merges to a
+    batched read over the roster, the candidates to the item's project — so
+    this is the arithmetic alone and issues no read of its own.
+    """
     if not merges:
         return DeliverySummary()
-    runs = candidate_runs(
-        conn,
-        project_id=project_id,
-        environment_id=environment_id,
-        flow=flow,
-    )
-    carried = _carried_by_flow(runs)
-    # Releases advance, so a commit an older release contained is contained
-    # by the newest one too. Asking every lineage would spend one repository
-    # resolution per run to re-derive an answer the first one already gives.
-    newest = next(
-        (run for run in runs if str(run.get("release_lineage") or "").strip()),
-        {},
-    )
-    newest_lineage = str(newest.get("release_lineage") or "").strip()
     deployed = 0
     carrying_flow = ""
     for sha in merges:
-        if sha in carried:
+        carried_flow = candidates.carrying_flow(sha)
+        if carried_flow is not None:
             deployed += 1
-            carrying_flow = carrying_flow or carried[sha]
+            carrying_flow = carrying_flow or carried_flow
             continue
         # Not named by any run: it may still have reached the base branch
         # under another item's landing, which ancestry — not carried work —
         # is the record of.
-        if newest_lineage and candidate_contains_commit(
-            conn,
-            int(project_id),
-            candidate_lineage=newest_lineage,
-            commit_sha=sha,
-        ).contained:
+        if candidates.contains(sha):
             deployed += 1
-            carrying_flow = carrying_flow or str(newest.get("flow") or "")
+            carrying_flow = carrying_flow or candidates.newest_flow
     return DeliverySummary(
         merges=len(merges), deployed=deployed, flow=carrying_flow
     )
@@ -268,8 +331,9 @@ def delivery_summary(
 
 __all__ = [
     "DeliverySummary",
+    "ReleaseCandidates",
     "candidate_runs",
     "delivery_summary",
-    "recorded_merge_shas",
+    "recorded_merge_shas_for_items",
     "succeeded_runs_for_environment",
 ]
