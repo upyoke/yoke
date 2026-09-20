@@ -14,7 +14,10 @@ already has one, and this module names it.
 This module carries:
 
 * :data:`DIRECTIVE`, :data:`COMPACT_RECIPES`, and :data:`FOOTER` — the short
-  stanza that rides every ``--help`` block and the startup packet.
+  stanza that rides every ``--help`` block and the root rules file. The
+  ``main_agent`` startup block points at that ``--help`` rather than
+  repeating the stanza: it is a list of questions and the command that
+  answers each, and its tightest harness channel has no room to spare.
 * :data:`RECIPES` and the :class:`ReadRecipe` shape — the worked catalog, one
   entry per thing a caller is after.
 * :func:`format_recipes_for_help` — a pure renderer turning :data:`RECIPES`
@@ -70,15 +73,6 @@ def _render_compact() -> str:
 
 
 FOOTER: str = _render_compact()
-
-
-#: One line for a startup block that can afford a pointer but not a stanza.
-#: Every byte here rides every session start on every harness, so it names
-#: the two shapes and sends the reader to the catalog for the rest.
-STARTUP_READ_LINE: str = (
-    "- Part of an answer — `yoke items get PREFIX-N status`; "
-    "catalog `yoke --help`."
-)
 
 
 RECIPES: tuple[ReadRecipe, ...] = (
@@ -179,7 +173,6 @@ __all__ = (
     "DIRECTIVE",
     "COMPACT_RECIPES",
     "FOOTER",
-    "STARTUP_READ_LINE",
     "ReadRecipe",
     "RECIPES",
     "format_recipes_for_help",

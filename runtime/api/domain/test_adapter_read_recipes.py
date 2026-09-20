@@ -35,7 +35,6 @@ def _teaching_text() -> str:
         [
             arr.DIRECTIVE,
             arr.FOOTER,
-            arr.STARTUP_READ_LINE,
             arr.format_recipes_for_help(),
         ]
     )
@@ -105,10 +104,19 @@ def test_trailer_adds_only_the_missing_stanza() -> None:
     assert parser.epilog.count(FIELD_NOTE_FOOTER) == 0
 
 
-def test_startup_packet_names_the_read() -> None:
+def test_startup_packet_points_at_the_help_that_carries_the_recipe() -> None:
+    """The startup block is a question-to-command list, not a recipe list.
+
+    Its tightest harness channel is measured in tens of bytes, so the
+    narrow read is named there and spelled out in the `--help` the line
+    sends the reader to.
+    """
     from yoke_core.domain.main_agent_packet import render_main_agent_block
 
-    assert arr.STARTUP_READ_LINE in render_main_agent_block()
+    block = render_main_agent_block()
+    assert "narrow reads" in block
+    assert "`--help`" in block
+    assert arr.FOOTER not in block
 
 
 def test_launch_sentence_names_the_message_read() -> None:
