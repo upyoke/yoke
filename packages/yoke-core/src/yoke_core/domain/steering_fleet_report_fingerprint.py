@@ -4,6 +4,17 @@ The fingerprint answers "is this the same report I already read", so it is
 built from what the sections say and never from how old anything is: ages
 advance on every pass, and a fingerprint that moved with them would mark
 every report changed and teach the seat to ignore the signal entirely.
+
+That rule is what makes the deployment-run section usable, and it is the
+tempting one to break. A stalled run's most striking fact is how long it
+has been stalled, so hashing its stage age looks like the way to make the
+watcher say so. It is the opposite: the age changes every pass, so the
+report would wake the seat once a minute forever and the one pass that
+mattered — the one where a verdict turned red — would look like all the
+others. Only the run's *state* is hashed: which stage, how many
+outstanding of how many, and which requirements are red. The watcher then
+fires exactly when one of those changes, and the age is read off the row
+once the seat is already looking.
 """
 
 from __future__ import annotations
@@ -78,6 +89,16 @@ def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
                 entry.readiness.merge_when_ready,
             )
             for entry in report.landings
+        ),
+        "deployment_runs": sorted(
+            (
+                entry.run_id,
+                entry.stage,
+                entry.outstanding,
+                entry.total_blocking,
+                tuple(sorted(red.requirement_id for red in entry.red)),
+            )
+            for entry in report.deployment_runs
         ),
         "dead_waits": sorted(
             (entry.session_id, entry.answerer_session_id, entry.reason)

@@ -42,6 +42,10 @@ from yoke_core.domain.steering_fleet_report_capacity import (
     live_session_counts,
     machine_capacities,
 )
+from yoke_core.domain.steering_fleet_report_deployment_runs import (
+    DeploymentRunProgress,
+    run_progress,
+)
 from yoke_core.domain.steering_fleet_report_detectors import (
     UnregisteredLaunch,
     unregistered_launches,
@@ -83,6 +87,9 @@ class ProjectFleetFacts:
     unregistered_launches: tuple[UnregisteredLaunch, ...]
     abandoned_launches: tuple[AbandonedLaunch, ...]
     landed_open: tuple[LandedItem, ...]
+    #: Live deployment runs. A run is a delivery-plane fact with members
+    #: rather than an item, so no scope narrows it.
+    deployment_runs: tuple[DeploymentRunProgress, ...]
     vendor_errors: tuple[VendorErrorSession, ...]
     launchable: tuple[SurfaceReadiness, ...]
     session_counts: tuple[SessionCount, ...]
@@ -112,6 +119,7 @@ def read_project_facts(
         ),
         abandoned_launches=abandoned_launches(conn, project_id=project_id, now=now),
         landed_open=landed_without_closeout(conn, project_id=project_id, now=now),
+        deployment_runs=run_progress(conn, project_id=project_id, now=now),
         vendor_errors=vendor_error_sessions(conn, project_id=project_id, now=now),
         launchable=launchable_surfaces(conn, project_id=project_id, now=now),
         session_counts=live_session_counts(conn, project_id=project_id),

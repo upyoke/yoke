@@ -13,6 +13,9 @@ from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
 from yoke_core.domain.steering_fleet_report_balance import session_selection_label
 from yoke_core.domain.steering_fleet_report_available import FrontierEntry
 from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait
+from yoke_core.domain.steering_fleet_report_deployment_runs import (
+    DeploymentRunProgress,
+)
 from yoke_core.domain.steering_fleet_report_undelivered import (
     UndeliveredMessages,
 )
@@ -119,6 +122,29 @@ def _dead_wait_dict(entry: DeadWait) -> dict[str, Any]:
     }
 
 
+def _run_dict(entry: DeploymentRunProgress) -> dict[str, Any]:
+    return {
+        "run_id": entry.run_id,
+        "flow": entry.flow,
+        "status": entry.status,
+        "stage": entry.stage,
+        "stage_seconds": entry.stage_seconds,
+        "outstanding": entry.outstanding,
+        "total_blocking": entry.total_blocking,
+        "unresolved": list(entry.unresolved),
+        "red": [
+            {
+                "requirement_id": red.requirement_id,
+                "verdict": red.verdict,
+                "member_ref": red.member_ref,
+            }
+            for red in entry.red
+        ],
+        "needs_action": entry.needs_action,
+        "recovery": entry.recovery(),
+    }
+
+
 def _vendor_error_dict(entry: VendorErrorSession) -> dict[str, Any]:
     return {
         "session_id": entry.session_id,
@@ -186,6 +212,10 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
             entry.to_dict() for entry in report.landings_needing_action()
         ],
         "dead_waits": [_dead_wait_dict(entry) for entry in report.dead_waits],
+        "deployment_runs": [_run_dict(entry) for entry in report.deployment_runs],
+        "deployment_runs_needing_action": [
+            _run_dict(entry) for entry in report.runs_needing_action()
+        ],
         "vendor_errors": [_vendor_error_dict(entry) for entry in report.vendor_errors],
         "launchable": [
             {"machine_id": ready.machine_id, "surface": ready.surface}

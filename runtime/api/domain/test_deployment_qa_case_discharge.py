@@ -30,10 +30,8 @@ from yoke_core.domain.deployment_qa_stage_contract import (
 from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
 )
-from yoke_core.domain.deployment_qa_stage_gate import (
-    OUTCOME_DISCHARGED,
-    deployment_qa_stage_status,
-)
+from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
+from yoke_core.domain.deployment_qa_stage_outcome import OUTCOME_DISCHARGED
 from yoke_core.domain.qa_plan_execution_state import (
     advance_plan_execution,
     begin_plan_execution,

@@ -179,6 +179,40 @@ pinning a plan that does not exist cannot even be frozen into a run —
 composition freeze refuses it — so it never reaches the dispatch to be
 misread, which is why only one condition needs classifying there.
 
+## A failed case and an unrun one are different answers
+
+A stage subject's acceptance boundary answers one of five things. Two
+accept it: `passed`, and `discharged` for a subject whose every case was
+waived or superseded so there was nothing left to run. Three do not:
+`waiting` means something has yet to happen, `rejected` means an
+authorized reviewer turned the stage's own acceptance requirement down,
+and `blocked` means a scoped case holds a determinate failing verdict.
+
+`blocked` exists because `waiting` used to cover it. A case whose latest
+verdict was `fail` and a case that had never run produced the same
+answer, so "this run cannot finish as it stands" was not a state the
+system could be in — a release with three red requirements reported
+nothing at all for four hours before a person cancelled it. Splitting the
+two changes what the operator is told and nothing about what makes a
+stage acceptable: `blocked` carries `accepted=False` exactly as `waiting`
+did, and no gate reads differently because of it.
+
+Every unaccepted answer carries `case_failures`, one record per blocking
+case with a `kind` beside its sentence, because four reasons a case is
+unacceptable need four different actions: `red` for a determinate failing
+verdict, `unrun` for a case with no verdict, `undetermined` for a runner
+that declined to decide, and `passed_without_evidence` for a case that
+passed while the gate resolved no attached evidence for it. That last one
+is named rather than folded in precisely because its owner sees a green
+case and the gate sees an unacceptable one — re-running it produces
+another passing case with the same problem, so calling it `unrun` would
+send its owner to do the one thing that cannot help. A caller that needs
+to tell these apart reads `case_failures` rather than matching on the
+reason sentences. Owners:
+`yoke_core.domain.deployment_qa_stage_outcome` for the vocabulary,
+`yoke_core.domain.deployment_qa_stage_case_failures` for the
+classification.
+
 ## A settled QA stage result reaches its configured audience
 
 A release has three notification surfaces and they are deliberately
@@ -197,9 +231,10 @@ it legitimately receives this notice AND the separate item-done notice —
 different events about different things, each with its own key, never
 folded together.
 
-Only a settled result is reported: passed, or rejected. A stage still
-waiting is not one, and reporting it would duplicate the wake that
-already addressed the agent. A stage that configured no notification, or
+Only a settled result is reported: passed, discharged, or rejected. A
+stage still waiting is not one, and neither is a blocked one — reporting
+either would duplicate the wake that already addressed the agent, and a
+blocked stage is held rather than decided. A stage that configured no notification, or
 one whose audience resolves to nobody, reports that rather than inventing
 a recipient. Passed and rejected carry separate keys, so a later
 rejection is its own event rather than a replacement, and the pinned

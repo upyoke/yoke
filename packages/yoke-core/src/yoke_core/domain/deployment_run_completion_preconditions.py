@@ -122,13 +122,61 @@ def _unresolved_plan_cases(conn: Any, run_id: str) -> List[str]:
     return described
 
 
+def blocking_obligation_total(conn: Any, run_id: str) -> int:
+    """How many blocking QA obligations *run_id* carries in total.
+
+    Counted the same two ways :func:`unresolved_blocking_qa` reads them, so
+    "M of P outstanding" is always a subset relation rather than two
+    numbers from two different populations.
+    """
+    total = 0
+    if _table_exists(conn, "deployment_run_qa"):
+        total += int(
+            query_scalar(
+                conn,
+                "SELECT COUNT(*) FROM deployment_run_qa "
+                "WHERE run_id=%s AND blocking=1",
+                (run_id,),
+            )
+            or 0
+        )
+    if _table_exists(conn, "qa_requirements"):
+        total += int(
+            query_scalar(
+                conn,
+                "SELECT COUNT(*) FROM qa_requirements "
+                "WHERE deployment_run_id=%s AND blocking_mode='blocking' "
+                f"AND NOT {settled_obligation_sql()}",
+                (run_id,),
+            )
+            or 0
+        )
+    return total
+
+
+def redrive_recovery(run_id: str, *, unresolved: int) -> str:
+    """The one recovery sentence every surface prints for an unfinished run.
+
+    Both halves are here rather than at each caller because a run with
+    nothing outstanding needs a different instruction from one with work
+    left, and a surface that only knew the first half told operators to
+    settle obligations that did not exist.
+    """
+    if unresolved:
+        return f"Settle or waive each one, then re-drive {run_id} to finalize."
+    return (
+        f"Nothing is outstanding; re-drive {run_id} to finish it. It is "
+        "waiting only to be driven."
+    )
+
+
 def awaiting_qa_report_lines(run_id: str, unresolved: List[str]) -> List[str]:
     """Render the pipeline's waiting report for unresolved blocking QA."""
     return [
         f"{AWAITING_QA_PREFIX} — {len(unresolved)} blocking QA "
         f"obligation(s) unresolved for run {run_id}",
         *(f"  - {detail}" for detail in unresolved),
-        f"  Settle or waive each one, then re-drive {run_id} to finalize.",
+        f"  {redrive_recovery(run_id, unresolved=len(unresolved))}",
     ]
 
 
@@ -228,9 +276,11 @@ def _final_stage_name(conn: Any, run_id: str) -> str:
 __all__ = [
     "AWAITING_QA_PREFIX",
     "awaiting_qa_report_lines",
+    "blocking_obligation_total",
     "held_stage_report_lines",
     "HELD_STAGE_PREFIX",
     "RESOLVED_RUN_QA_STATUSES",
+    "redrive_recovery",
     "refuse_succeeded",
     "unresolved_blocking_qa",
 ]

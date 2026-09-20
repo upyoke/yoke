@@ -14,6 +14,9 @@ from yoke_core.domain.steering_fleet_report_balance import (
     launch_balance_lines,
 )
 from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
+from yoke_core.domain.steering_fleet_report_deployment_runs import (
+    DeploymentRunProgress,
+)
 from yoke_core.domain.steering_fleet_report_landed_open import (
     custody_phrase,
     landed_recovery,
@@ -108,6 +111,36 @@ def _landed_lines(report: FleetReport) -> list[str]:
         for entry in report.landed_open[:SECTION_LIMIT]
     ]
     return capped(lines, len(report.landed_open))
+
+
+def _run_lines(report: FleetReport) -> list[str]:
+    """One block per live run: where it is, for how long, and what holds it.
+
+    Every live run gets a row, not only a troubled one. The seat's question
+    is "how is the release doing", and a section that appeared only on
+    failure would answer it with silence for the whole healthy stretch —
+    which is indistinguishable from the section not working.
+    """
+    lines: list[str] = []
+    for run in report.deployment_runs[:SECTION_LIMIT]:
+        lines.append(
+            f"  {OVERDUE_MARK if run.needs_action else ' '} {run.run_id}  "
+            f"{run.status}  flow {run.flow}  stage {run.stage} for "
+            f"{_stage_age(run)}  {run.outstanding} of {run.total_blocking} "
+            f"outstanding, {len(run.red)} red"
+        )
+        if run.red:
+            lines.append(f"      red: {', '.join(r.describe() for r in run.red)}")
+        if run.needs_action:
+            lines.append(f"      {run.recovery()}")
+    return capped(lines, len(report.deployment_runs))
+
+
+def _stage_age(run: DeploymentRunProgress) -> str:
+    """How long this run has sat at its stage, or that nothing says."""
+    if run.stage_seconds is None:
+        return "an unrecorded time (no stage receipt and no run start)"
+    return minutes(run.stage_seconds)
 
 
 def _dead_wait_lines(report: FleetReport) -> list[str]:
@@ -207,6 +240,11 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
             "dead waits — idle holder's last question, and whether an answer "
             "can still arrive",
             _dead_wait_lines(report),
+        ),
+        *_section(
+            f"deployment runs — stage, time there, outstanding blocking QA "
+            f"({OVERDUE_MARK} cannot move without a decision)",
+            _run_lines(report),
         ),
         *_awaiting_seat_lines(report),
         *_section(CLAIMS_HEADING, _holder_lines(unlisted_holders(report))),

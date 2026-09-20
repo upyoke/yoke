@@ -63,6 +63,9 @@ from yoke_core.domain.steering_fleet_report_capacity import (
     SurfaceReadiness,
 )
 from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait, dead_waits
+from yoke_core.domain.steering_fleet_report_deployment_runs import (
+    DeploymentRunProgress,
+)
 from yoke_core.domain.steering_fleet_report_detectors import (
     UnregisteredLaunch,
     suspected_orphaned_waiters,
@@ -135,6 +138,10 @@ class FleetReport:
     messages_awaiting_seat: int = 0
     #: Open landing pull requests, with the queue entry and arming read together.
     landings: tuple[FleetLandingReadback, ...] = ()
+    #: Every live deployment run, whether or not anything is wrong with it.
+    #: A healthy run in flight is reported without an alarm precisely so a
+    #: stalled one is visible as an exception rather than as silence.
+    deployment_runs: tuple[DeploymentRunProgress, ...] = ()
 
     def waited_too_long(self) -> tuple[FrontierEntry, ...]:
         """Available work past the staffing threshold: the alarm, not the list."""
@@ -171,6 +178,15 @@ class FleetReport:
         """Open landing records GitHub is no longer driving or could not read."""
         return tuple(entry for entry in self.landings if entry.needs_action)
 
+    def runs_needing_action(self) -> tuple[DeploymentRunProgress, ...]:
+        """Live runs that cannot move without someone deciding something.
+
+        A run still working through its obligations is reported and is not
+        this. Only one holding a determinate failing verdict, or one with
+        nothing left outstanding and no driver, is owed a decision.
+        """
+        return tuple(entry for entry in self.deployment_runs if entry.needs_action)
+
     @property
     def actionable(self) -> bool:
         """True when something in this report needs the steerer to act."""
@@ -185,6 +201,7 @@ class FleetReport:
             or self.dead_waits
             or self.vendor_errors_needing_action()
             or self.landings_needing_action()
+            or self.runs_needing_action()
             or self.relay_health
             or self.messages_awaiting_seat
         )
@@ -249,6 +266,7 @@ def compose_report(
         unregistered_launches=facts.unregistered_launches,
         abandoned_launches=facts.abandoned_launches,
         landed_open=members_only(facts.landed_open, members),
+        deployment_runs=facts.deployment_runs,
         suspected_orphaned_waiters=suspected_orphaned_waiters(conn, idle=alive_idle),
         in_flight=split.in_flight,
         dead_waits=dead_waits(conn, idle=alive_idle, now=now),
