@@ -44,7 +44,6 @@ from yoke_core.domain.project_identity import (
     unresolved_item_ref,
 )
 from yoke_core.domain.schema_common import _column_exists, _table_exists
-from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
 from yoke_core.domain.work_claim_target_sql import scope_int_sql
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
@@ -264,7 +263,6 @@ def test_machine_detail(
     identity = resolve_project(conn, project, required=False)
     if identity is None:
         raise TestMachineCapabilityError(f"project {project!r} not found")
-    ensure_test_machine_schema(conn)
     rows = test_machine_capability_rows(conn, project_id=identity.id)
     selected = select_test_machine_row(
         rows,
@@ -279,7 +277,6 @@ def test_machine_list(conn: Any, *, project: str) -> dict[str, Any]:
     identity = resolve_project(conn, project, required=False)
     if identity is None:
         raise TestMachineCapabilityError(f"project {project!r} not found")
-    ensure_test_machine_schema(conn)
     rows = test_machine_capability_rows(conn, project_id=identity.id)
     return {
         "project_id": int(identity.id),

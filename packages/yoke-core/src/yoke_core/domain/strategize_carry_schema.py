@@ -15,12 +15,15 @@ VALID_STATES: frozenset[str] = frozenset({"pending", "reflected", "dismissed"})
 
 
 def ensure_schema(conn: Any) -> None:
-    """Create the ``strategize_landed_carry`` table if it does not exist.
+    """Create the ``strategize_landed_carry`` table for a fixture database.
 
-    The canonical schema owner is :mod:`yoke_core.domain.schema`, but this
-    helper is also exercised by unit tests that build minimal in-memory
-    databases, so it must be idempotent and self-sufficient. Callers that
-    already run the full schema init can skip this call.
+    **Tests only.** The schema owner is
+    :func:`yoke_core.domain.schema_init.converge_core_schema`, which creates this
+    table and its index on every boot; serving code reaches an already-converged
+    database and must not call this. Executing DDL from a dispatched function
+    means a call the registry declares side-effect-free mutates schema, so the
+    only sanctioned callers are tests that build a minimal database with no
+    converge behind it. Idempotent.
     """
     conn.execute(
         """

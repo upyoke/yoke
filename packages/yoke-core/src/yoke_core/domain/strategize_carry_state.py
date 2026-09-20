@@ -11,7 +11,6 @@ from yoke_core.domain.strategize_carry_schema import (
     DEFAULT_CARRY_LIMIT,
     DEFAULT_HORIZON_DAYS,
     VALID_STATES,
-    ensure_schema,
 )
 
 
@@ -66,7 +65,6 @@ def register_new_landings(
     so previously-reflected and previously-dismissed items are not re-added as
     pending on every refresh.
     """
-    ensure_schema(conn)
     project_id = resolve_project_id(conn, project)
     now_iso = now_iso or _iso_utc_now()
     cutoff = _horizon_cutoff(now_iso, horizon_days)
@@ -112,7 +110,6 @@ def get_candidate_set(
     new_ids: Optional[Iterable[int]] = None,
 ) -> Dict[str, Any]:
     """Return the classified bounded carry-forward candidate set."""
-    ensure_schema(conn)
     project_id = resolve_project_id(conn, project)
     now_iso = now_iso or _iso_utc_now()
     horizon_cutoff = _horizon_cutoff(now_iso, horizon_days)
@@ -205,7 +202,6 @@ def mark_items(
             f"invalid strategize carry state {state!r}; "
             f"expected one of {sorted(VALID_STATES)}"
         )
-    ensure_schema(conn)
     project_id = resolve_project_id(conn, project)
     now_iso = now_iso or _iso_utc_now()
     project_id = resolve_project_id(conn, project)

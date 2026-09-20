@@ -56,7 +56,13 @@ def _now_iso() -> str:
 
 
 def ensure_schema(conn: Any) -> None:
-    """Create the table + index if missing (minimal test DBs). Idempotent."""
+    """Create the table + index for a fixture database. **Tests only.**
+
+    The schema owner is :func:`yoke_core.domain.schema_init.converge_core_schema`;
+    serving code reaches an already-converged database and must not call this.
+    See :func:`yoke_core.domain.strategize_carry_schema.ensure_schema` for why.
+    Idempotent.
+    """
     ddl = (
         _TABLE_DDL_POSTGRES
         if db_backend.connection_is_postgres(conn)

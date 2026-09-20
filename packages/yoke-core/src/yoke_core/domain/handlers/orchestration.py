@@ -69,7 +69,7 @@ def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
         resolve_board_scope,
     )
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.project_code_days import ensure_schema, upsert_days
+    from yoke_core.domain.project_code_days import upsert_days
     from yoke_contracts.board.config import config_from_values
     from yoke_contracts.board.policy_settings import board_settings_from_config
 
@@ -86,7 +86,6 @@ def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
     if payload.code_days:
         conn = connect()
         try:
-            ensure_schema(conn)
             upsert_days(conn, payload.code_days)
             conn.commit()
         finally:

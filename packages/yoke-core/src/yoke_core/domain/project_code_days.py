@@ -34,7 +34,12 @@ def _p(conn: Any) -> str:
 
 
 def ensure_schema(conn: Any) -> None:
-    """Create ``project_code_days`` if missing (minimal test DBs)."""
+    """Create ``project_code_days`` for a fixture database. **Tests only.**
+
+    The schema owner is :func:`yoke_core.domain.schema_init.converge_core_schema`;
+    serving code reaches an already-converged database and must not call this.
+    See :func:`yoke_core.domain.strategize_carry_schema.ensure_schema` for why.
+    """
 
     ddl = (
         _TABLE_DDL_POSTGRES
