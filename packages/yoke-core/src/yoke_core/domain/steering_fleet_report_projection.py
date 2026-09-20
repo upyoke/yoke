@@ -140,6 +140,16 @@ def _run_dict(entry: DeploymentRunProgress) -> dict[str, Any]:
             }
             for red in entry.red
         ],
+        "answered_decision": (
+            {
+                "request_id": entry.answered_decision.request_id,
+                "action": entry.answered_decision.action,
+                "resolved_at": entry.answered_decision.resolved_at,
+                "resolved_seconds": entry.answered_decision.resolved_seconds,
+            }
+            if entry.answered_decision is not None
+            else None
+        ),
         "needs_action": entry.needs_action,
         "recovery": entry.recovery(),
     }

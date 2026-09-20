@@ -56,6 +56,33 @@ class RedRequirement:
 
 
 @dataclass(frozen=True)
+class AnsweredDecision:
+    """A stage decision a person answered that the run never acted on.
+
+    The decision surface records the answer; the deployment runner is the
+    only thing that advances run state, and nothing re-drives the run when
+    an answer arrives. So the stage keeps waiting on a question that has
+    already been settled, and the person who settled it has no signal that
+    their answer did nothing.
+
+    Not read from ``consumed_at``: that column is written only by the item
+    lifecycle's own approval consumption, never for a deployment stage, so
+    it is NULL on every one of these rows and proves nothing either way.
+    What establishes the gap is the pair of live facts — this stage has a
+    resolved decision, and the run is still sitting on this stage.
+    """
+
+    request_id: int
+    action: str
+    resolved_at: str
+    resolved_seconds: Optional[int]
+
+    def describe(self) -> str:
+        verb = "rejected" if self.action == "reject" else "approved"
+        return f"decision #{self.request_id} {verb}"
+
+
+@dataclass(frozen=True)
 class DeploymentRunProgress:
     """One live run's stage, age, and outstanding blocking QA."""
 
@@ -71,13 +98,25 @@ class DeploymentRunProgress:
     total_blocking: int
     unresolved: tuple[str, ...]
     red: tuple[RedRequirement, ...]
+    #: Set when this run's current stage already has a resolved decision.
+    answered_decision: Optional[AnsweredDecision] = None
 
     @property
     def needs_action(self) -> bool:
         """True when nothing the run is waiting for can arrive by itself."""
-        return bool(self.red) or self.outstanding == 0
+        return (
+            bool(self.red)
+            or self.outstanding == 0
+            or self.answered_decision is not None
+        )
 
     def recovery(self) -> str:
+        if self.answered_decision is not None:
+            return (
+                f"The answer is already recorded; re-drive {self.run_id} so the "
+                "runner acts on it — an approve proceeds, a reject fails the "
+                "stage. Until then the run waits on a settled question."
+            )
         return redrive_recovery(self.run_id, unresolved=self.outstanding)
 
 
@@ -165,6 +204,40 @@ def _red_requirements(conn: Any, *, run_id: str) -> tuple[RedRequirement, ...]:
     return tuple(found)
 
 
+def _answered_decision(
+    conn: Any,
+    *,
+    run_id: str,
+    stage: str,
+    now: str,
+) -> Optional[AnsweredDecision]:
+    """This stage's latest decision, when it is resolved and unacted on.
+
+    Scoped to the stage the run is standing at, because a decision resolved
+    for a stage the run already left is history rather than a stall.
+    """
+    if not stage or not _table_exists(conn, "decision_requests"):
+        return None
+    p = marker(conn)
+    row = conn.execute(
+        f"""SELECT id, resolution_action, resolved_at FROM decision_requests
+             WHERE subject_type = 'deployment_stage' AND subject_key = {p}
+               AND status = 'resolved'
+             ORDER BY resolved_at DESC, id DESC LIMIT 1""",
+        (f"{run_id}:{stage}",),
+    ).fetchone()
+    if row is None:
+        return None
+    record = row_dict(row)
+    resolved_at = str(record.get("resolved_at") or "")
+    return AnsweredDecision(
+        request_id=int(record["id"]),
+        action=str(record.get("resolution_action") or ""),
+        resolved_at=resolved_at,
+        resolved_seconds=age_seconds(resolved_at, now),
+    )
+
+
 def run_progress(
     conn: Any,
     *,
@@ -193,12 +266,16 @@ def run_progress(
                 total_blocking=blocking_obligation_total(conn, run_id),
                 unresolved=unresolved,
                 red=_red_requirements(conn, run_id=run_id),
+                answered_decision=_answered_decision(
+                    conn, run_id=run_id, stage=stage, now=now
+                ),
             )
         )
     return tuple(rows)
 
 
 __all__ = [
+    "AnsweredDecision",
     "DeploymentRunProgress",
     "RedRequirement",
     "run_progress",

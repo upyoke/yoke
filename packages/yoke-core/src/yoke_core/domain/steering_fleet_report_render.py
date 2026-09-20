@@ -131,6 +131,16 @@ def _run_lines(report: FleetReport) -> list[str]:
         )
         if run.red:
             lines.append(f"      red: {', '.join(r.describe() for r in run.red)}")
+        answered = run.answered_decision
+        if answered is not None:
+            lines.append(
+                f"      {answered.describe()} "
+                f"{minutes(answered.resolved_seconds)} ago, and the run is "
+                "still waiting at this stage"
+                if answered.resolved_seconds is not None
+                else f"      {answered.describe()}, and the run is still "
+                "waiting at this stage"
+            )
         if run.needs_action:
             lines.append(f"      {run.recovery()}")
     return capped(lines, len(report.deployment_runs))

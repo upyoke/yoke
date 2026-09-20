@@ -179,3 +179,68 @@ def test_the_fingerprint_moves_on_state_and_not_on_the_clock(fleet) -> None:
     _record_verdict(fleet, requirement_id=901, verdict="fail")
     fleet.commit()
     assert compose(fleet, now=NOW).fingerprint() != at_four_hours
+
+
+def _resolve_decision(conn, *, request_id: int, action: str, stage: str = STAGE) -> None:
+    """A stage decision a person answered, as the decision surface records it."""
+    conn.execute(
+        "INSERT INTO decision_requests"
+        "(id,kind,subject_type,subject_key,project_id,status,"
+        "resolution_action,resolved_at,approval_mode,created_at) "
+        "VALUES (%s,'deployment_stage_approval','deployment_stage',%s,1,"
+        "'resolved',%s,%s,'any',%s)",
+        (request_id, f"{RUN_ID}:{stage}", action, STAGE_STARTED, STAGE_STARTED),
+    )
+    conn.commit()
+
+
+def test_an_answered_decision_the_run_never_acted_on_is_named(fleet) -> None:
+    _seed_requirement(fleet, requirement_id=901, member_item_id=1)
+    _seed_requirement(fleet, requirement_id=902, member_item_id=2)
+    _record_verdict(fleet, requirement_id=901, verdict="pass")
+    _record_verdict(fleet, requirement_id=902, verdict="pass")
+    _resolve_decision(fleet, request_id=8385, action="approve")
+
+    report = compose(fleet)
+    body = report_body(report)
+
+    answered = report.deployment_runs[0].answered_decision
+    assert answered is not None
+    assert answered.request_id == 8385
+    assert answered.action == "approve"
+    assert report.runs_needing_action() == (report.deployment_runs[0],)
+    assert "decision #8385 approved 4h00m ago" in body
+    assert "the run is still waiting at this stage" in body
+    assert f"re-drive {RUN_ID} so the runner acts on it" in body
+
+
+def test_an_answered_reject_still_sitting_in_flight_is_named(fleet) -> None:
+    _seed_requirement(fleet, requirement_id=901, member_item_id=1)
+    _record_verdict(fleet, requirement_id=901, verdict="pass")
+    _resolve_decision(fleet, request_id=8386, action="reject")
+
+    body = report_body(compose(fleet))
+
+    assert "decision #8386 rejected 4h00m ago" in body
+    assert "a reject fails the stage" in body
+
+
+def test_a_decision_for_a_stage_the_run_left_is_not_a_stall(fleet) -> None:
+    """History, not a stall: the run is standing somewhere else now."""
+    _seed_requirement(fleet, requirement_id=901, member_item_id=1)
+    _resolve_decision(fleet, request_id=8387, action="approve", stage="earlier-gate")
+
+    report = compose(fleet)
+
+    assert report.deployment_runs[0].answered_decision is None
+
+
+def test_an_answered_decision_changes_the_report_identity(fleet) -> None:
+    _seed_requirement(fleet, requirement_id=901, member_item_id=1)
+    _record_verdict(fleet, requirement_id=901, verdict="pass")
+    fleet.commit()
+    before = compose(fleet).fingerprint()
+
+    _resolve_decision(fleet, request_id=8385, action="approve")
+
+    assert compose(fleet).fingerprint() != before
