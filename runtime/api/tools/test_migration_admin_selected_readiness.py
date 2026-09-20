@@ -168,6 +168,71 @@ def test_preflight_keeps_receipt_on_preexisting_control_plane(
     assert receipts == ["release"]
 
 
+def test_preflight_records_receipt_on_registered_environment_not_admin(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    recorded: list[str] = []
+
+    def activate(environment: str) -> SimpleNamespace:
+        return _authority(environment)
+
+    def rehearse(dsn_for: Any, **_kwargs: Any) -> list[SimpleNamespace]:
+        del dsn_for
+        return [SimpleNamespace(passed=True, line="yoke_alpha: PASS")]
+
+    monkeypatch.setenv("YOKE_ENV", "release")
+    _declare_admin(monkeypatch, {"review-west": "cluster-admin"})
+    config = _machine_config("release")
+    config["connections"]["review-west"] = {"transport": "https"}
+    config["connections"]["cluster-admin"] = {
+        "transport": "local-postgres",
+        "prod": False,
+    }
+    monkeypatch.setattr(preflight.machine_config, "load_config", lambda: config)
+    monkeypatch.setattr(readiness, "activate_selected_postgres", activate)
+    monkeypatch.setattr(
+        local_universe, "ensure_engine_binaries", lambda _emit: tmp_path
+    )
+    monkeypatch.setattr(
+        local_universe,
+        "cluster_spec",
+        lambda **_kwargs: SimpleNamespace(sock_dir=tmp_path / "socket"),
+    )
+    monkeypatch.setattr(
+        yoke_migration_fleet,
+        "rehearsal_plan",
+        lambda: SimpleNamespace(history=("0001_existing",)),
+    )
+    monkeypatch.setattr(migration_fleet_preflight, "rehearse_fleet", rehearse)
+    monkeypatch.setattr(
+        "yoke_core.domain.schema_shape_source.digest_schema_shape",
+        lambda: "digest-for-test",
+    )
+    monkeypatch.setattr(
+        preflight,
+        "_record_receipt",
+        lambda **kwargs: (
+            recorded.append(kwargs["environment"]),
+            ("20260101T000000Z", ""),
+        )[1],
+    )
+
+    assert (
+        preflight.main(
+            [
+                "review-west",
+                "yoke_alpha",
+                "--record-receipt",
+                "--product-sha",
+                "abc",
+            ]
+        )
+        == 0
+    )
+    assert recorded == ["review-west"]
+
+
 def test_preflight_resolves_an_environment_name_to_the_admin_connection(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
