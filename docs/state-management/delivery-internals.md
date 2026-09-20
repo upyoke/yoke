@@ -49,7 +49,9 @@ Postgres, so it reads that field rather than resolving the flow itself.
 The refusal names the durable answers rather than defaulting between them:
 
 - **Standing** — `yoke qa item-plan attach ... --qa-phase post_deploy` writes
-  a per-item attachment every future deployment resolves.
+  a per-item attachment every future deployment resolves. A mis-specified
+  attachment is withdrawn with `yoke qa item-plan retract`; the row stays
+  as retracted history and the item is unanswered again.
 - **No post-deploy obligation** — `yoke qa post-deploy record-no-obligation
   --item PREFIX-N --reason TEXT` records that nothing about the item is
   observable once deployed. That fact is not a waiver.

@@ -62,16 +62,16 @@ def rematerialize_for_item(
     """Refresh current plan snapshots and waive cases no longer in the plan."""
     lock_item_workflow_bindings(conn, (int(item_id),))
     transition_id = str(transition_id or "").strip()
-    attachments, answered = attachments_still_owed(
+    attachments = attachments_still_owed(
         conn,
         member_item_id=int(item_id),
         attachments=_attached_plans(
             conn, item_id=int(item_id), transition_id=transition_id
         ),
-    )
-    if not attachments and answered:
-        # A delivery already answered every attachment here; refreshing a
-        # snapshot of it would author the same unanswerable obligation.
+    )[0]
+    if not attachments:
+        # Nothing live to refresh — a retracted attachment included. A
+        # delivery that already answered is the same empty snapshot.
         return {
             "item_id": int(item_id),
             "transition_id": transition_id,

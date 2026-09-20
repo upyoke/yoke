@@ -28,6 +28,7 @@ from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_obligation_settlement import obligation_settled
+from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
 
 
 #: The phase an item-scoped deployment QA stage credits. An attachment for
@@ -52,6 +53,7 @@ def attached_member_plan_ids(
         "SELECT a.plan_id,p.target_environment_id FROM qa_plan_item_attachments a "
         "JOIN qa_plans p ON p.id=a.plan_id "
         "WHERE a.item_id=%s AND a.qa_phase=%s AND p.retired_at IS NULL "
+        f"AND {live_item_attachment_sql(conn, 'a')} "
         "ORDER BY a.plan_id",
         (int(member_item_id), DEPLOYMENT_ATTACHMENT_PHASE),
     )
@@ -91,7 +93,7 @@ def delivery_answered_plan_ids(
     placeholders = ", ".join(["%s"] * len(wanted))
     rows = query_rows(
         conn,
-        "SELECT id,plan_id,waived_at,superseded_by_requirement_id "
+        "SELECT id,plan_id,waived_at,superseded_by_requirement_id,retracted_at "
         "FROM qa_requirements "
         "WHERE deployment_member_item_id=%s AND deployment_run_id IS NOT NULL "
         f"AND plan_id IN ({placeholders})",

@@ -31,6 +31,9 @@ QA_TABLES: dict[str, dict] = {
             ("waived_at", "TEXT"),
             ("waiver_rationale", "TEXT"),
             ("waiver_source", "TEXT"),
+            ("retracted_at", "TEXT"),
+            ("retraction_rationale", "TEXT"),
+            ("retraction_source", "TEXT"),
             ("plan_id", "INTEGER"),
             ("plan_case_key", "TEXT"),
             ("case_position", "INTEGER"),
@@ -59,6 +62,9 @@ QA_TABLES: dict[str, dict] = {
             "is NO `is_blocking` column. Primary key is `id`, not "
             "`requirement_id`; requirement rows do not carry `status` "
             "or `last_known_result`. "
+            "A retracted row (`retracted_at`) is withdrawn history from "
+            "`yoke qa item-plan retract`, not a waiver and not a "
+            "supersession. "
             "Deployment requirements may additionally bind the frozen stage "
             "and optional attached member through `deployment_stage` and "
             "`deployment_member_item_id`; both stay NULL on legacy run subjects. "

@@ -75,7 +75,7 @@ def _requirement(conn: Any, requirement_id: int, *, label: str) -> dict[str, Any
         "deployment_run_id,deployment_stage,deployment_member_item_id,"
         "execution_target_digest,blocking_mode,plan_case_key,method_id,"
         "qa_kind,qa_phase,"
-        "waived_at,superseded_by_requirement_id "
+        "waived_at,superseded_by_requirement_id,retracted_at "
         "FROM qa_requirements WHERE id=%s",
         (int(requirement_id),),
     )
@@ -116,7 +116,7 @@ def admitted_source_correction(
         return {}
     source = query_one(
         conn,
-        "SELECT id,waived_at,superseded_by_requirement_id "
+        "SELECT id,waived_at,superseded_by_requirement_id,retracted_at "
         "FROM qa_requirements WHERE id=%s",
         (int(source_id),),
     )

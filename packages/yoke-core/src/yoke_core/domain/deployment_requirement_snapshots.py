@@ -14,6 +14,7 @@ from yoke_core.domain.deployment_requirement_snapshot_format import (
     semantic_row,
 )
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
@@ -234,7 +235,8 @@ def snapshot_member_requirements(
     for plan_id in selected["plan_ids"]:
         attached = conn.execute(
             f"SELECT transition_id,qa_phase FROM qa_plan_item_attachments "
-            f"WHERE item_id={_p(conn)} AND plan_id={_p(conn)}",
+            f"WHERE item_id={_p(conn)} AND plan_id={_p(conn)} "
+            f"AND {live_item_attachment_sql(conn)}",
             (int(item_id), int(plan_id)),
         ).fetchone()
         if attached is None:

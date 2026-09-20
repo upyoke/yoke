@@ -114,7 +114,7 @@ def refreshed_case_keys(
     rows = query_rows(
         conn,
         "SELECT id,plan_case_key,method_id,method_config,instructions,"
-        "expected_outcome,waived_at,superseded_by_requirement_id "
+        "expected_outcome,waived_at,superseded_by_requirement_id,retracted_at "
         "FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage=%s "
         "AND COALESCE(deployment_member_item_id,0)=%s AND plan_id=%s "
         "AND execution_target_digest=%s ORDER BY id",

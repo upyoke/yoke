@@ -7,7 +7,16 @@ from typing import Any
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
+
+
+def live_item_attachment_sql(conn: Any, alias: str = "") -> str:
+    """Live attachments only. Missing ``retracted_at`` means every row is live."""
+    prefix = f"{alias}." if alias else ""
+    if not _column_exists(conn, "qa_plan_item_attachments", "retracted_at"):
+        return "TRUE"
+    return f"{prefix}retracted_at IS NULL"
 
 
 def plan_attachment_rows(conn: Any, plan_id: int) -> list[dict]:
@@ -62,4 +71,4 @@ def plan_attachment_rows(conn: Any, plan_id: int) -> list[dict]:
     return result
 
 
-__all__ = ["plan_attachment_rows"]
+__all__ = ["live_item_attachment_sql", "plan_attachment_rows"]

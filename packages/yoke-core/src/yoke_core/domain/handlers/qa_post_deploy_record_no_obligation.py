@@ -136,8 +136,9 @@ def handle_qa_post_deploy_record_no_obligation(
                 "payload_invalid",
                 "this item already has post-deploy verification to do, so it "
                 "cannot record that it has none. An attached plan or a live "
-                "case is the answer; retire what it owes rather than "
-                "declaring the obligation away.",
+                "case is the answer; retract a mis-specified attachment with "
+                "`yoke qa item-plan retract` rather than declaring the "
+                "obligation away.",
             )
         row = {
             "qa_kind": NO_OBLIGATION_QA_KIND,

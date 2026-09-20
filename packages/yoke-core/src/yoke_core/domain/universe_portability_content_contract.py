@@ -64,6 +64,17 @@ ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
             "required_completion",
             "verdict_path",
             "workflow_transition_id",
+            "retracted_at",
+            "retraction_rationale",
+            "retraction_source",
+        }
+    ),
+    "qa_plan_item_attachments": frozenset(
+        {
+            "retracted_at",
+            "retraction_rationale",
+            "retraction_source",
+            "retracted_by_actor_id",
         }
     ),
     "qa_runs": frozenset({"capture_degraded_reason", "case_outcome"}),

@@ -28,7 +28,8 @@ from typing import Any
 #: row for the readers that already hold one — one rule, two shapes.
 SETTLED_OBLIGATION_SQL = (
     "({alias}waived_at IS NOT NULL "
-    "OR {alias}superseded_by_requirement_id IS NOT NULL)"
+    "OR {alias}superseded_by_requirement_id IS NOT NULL "
+    "OR {alias}retracted_at IS NOT NULL)"
 )
 
 
@@ -41,7 +42,7 @@ def obligation_settled(row: Mapping[str, Any]) -> bool:
     """Whether this requirement row is already settled without evidence."""
     return bool(row.get("waived_at")) or bool(
         row.get("superseded_by_requirement_id")
-    )
+    ) or bool(row.get("retracted_at"))
 
 
 __all__ = [

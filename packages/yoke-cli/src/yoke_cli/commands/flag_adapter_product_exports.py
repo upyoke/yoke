@@ -3,6 +3,7 @@
 from yoke_cli.commands.adapters import (
     qa_catalog,
     qa_catalog_defaults,
+    qa_item_plan_retract,
     test_machine,
     workflow_mechanics,
 )
@@ -26,6 +27,10 @@ PRODUCT_ADAPTER_EXPORTS = {
                 "qa_plan_materialize_for_item",
                 "qa_plan_rematerialize",
             ),
+        ),
+        (
+            qa_item_plan_retract,
+            ("qa_plan_item_retract",),
         ),
         (
             qa_catalog_defaults,

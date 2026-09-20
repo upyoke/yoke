@@ -113,8 +113,10 @@ done.
 no-obligation fact lets the deployment QA stage discharge with no cases
 and no waiver row. Silence still blocks. An item that does have something
 to check attaches a plan instead, with `yoke qa item-plan attach ...
---qa-phase post_deploy`. Repeating this command returns the fact already
-recorded rather than writing a second one.
+--qa-phase post_deploy`. A mis-specified standing attachment is withdrawn
+with `yoke qa item-plan retract` before this fact can be recorded.
+Repeating this command returns the fact already recorded rather than
+writing a second one.
 """
 
 

@@ -172,7 +172,7 @@ def source_obligation_consumed(
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
         "SELECT id,deployment_stage,deployment_member_item_id,"
-        "waived_at,superseded_by_requirement_id "
+        "waived_at,superseded_by_requirement_id,retracted_at "
         "FROM qa_requirements WHERE deployment_run_id="
         f"{marker} AND plan_case_key={marker} AND plan_id IS NULL "
         "ORDER BY id",
@@ -185,14 +185,11 @@ def source_obligation_consumed(
     stage_name = str(_row_value(row, "deployment_stage", 1) or "")
     member = _row_value(row, "deployment_member_item_id", 2)
     member_item_id = int(member) if member not in (None, 0) else None
-    settled = obligation_settled(
-        {
-            "waived_at": _row_value(row, "waived_at", 3),
-            "superseded_by_requirement_id": _row_value(
-                row, "superseded_by_requirement_id", 4
-            ),
-        }
-    )
+    settled = obligation_settled({
+        "waived_at": _row_value(row, "waived_at", 3),
+        "superseded_by_requirement_id": _row_value(row, "superseded_by_requirement_id", 4),
+        "retracted_at": _row_value(row, "retracted_at", 5),
+    })
     try:
         subject = deployment_qa_stage_subject(
             conn,

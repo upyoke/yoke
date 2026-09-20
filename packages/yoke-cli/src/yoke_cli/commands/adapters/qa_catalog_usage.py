@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_cli.commands.adapters.qa_item_plan_retract import (
+    QA_ITEM_PLAN_RETRACT_USAGE,
+)
 from yoke_cli.commands.adapters.workflows_item_posture import (
     WORKFLOWS_ITEM_POSTURE_AMEND_RECIPE,
 )
@@ -14,8 +17,10 @@ from yoke_contracts.qa_case_environment import (
 
 #: Read as ``yoke qa item-plan attach --help``.
 ITEM_PLAN_ATTACH_EPILOG = (
-    "Attaching creates a blocking case row at --transition, and there "
-    "is no detach. On a workflow whose QA policy is optional item "
+    "Attaching creates a blocking case row at --transition. A "
+    "mis-specified post-deploy attachment is withdrawn with "
+    "`yoke qa item-plan retract` — the row stays as retracted history; "
+    "there is no detach. On a workflow whose QA policy is optional item "
     "attachment, attach accepts only the plan or method already "
     "selected in workflow_posture.verification; select it first "
     f"with `{WORKFLOWS_ITEM_POSTURE_AMEND_RECIPE}`, then attach and "
@@ -137,6 +142,7 @@ USAGE_BY_FUNCTION_ID = {
         "yoke qa item-plan attach --item PREFIX-N --project P "
         "--plan-id N --transition T"
     ),
+    "qa.item_plan.retract": QA_ITEM_PLAN_RETRACT_USAGE,
     "qa.plan.materialize": "yoke qa plan materialize --item PREFIX-N --transition T",
     "qa.plan.rematerialize": "yoke qa plan rematerialize --item PREFIX-N --transition T",
     "qa.artifact.read": (

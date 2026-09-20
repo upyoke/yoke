@@ -81,6 +81,14 @@ CURATED_EVENTS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "INFO",
     ),
     (
+        "QARequirementRetracted",
+        "lifecycle",
+        "qa_lifecycle",
+        "qa-db",
+        "QA requirement retired because its item plan attachment was retracted",
+        "STATUS",
+    ),
+    (
         "QARequirementWaived",
         "lifecycle",
         "qa_lifecycle",

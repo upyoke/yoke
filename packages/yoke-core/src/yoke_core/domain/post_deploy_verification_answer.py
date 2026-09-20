@@ -103,6 +103,11 @@ def _reasons(rows: Sequence[Mapping[str, Any]], field: str) -> tuple[str, ...]:
     )
 
 
+def _is_retracted(row: Mapping[str, Any]) -> bool:
+    """Missing ``retracted_at`` is live: old payloads never carried the field."""
+    return bool(row.get("retracted_at"))
+
+
 def classify(
     *,
     attachments: Sequence[Mapping[str, Any]],
@@ -114,8 +119,8 @@ def classify(
     carries ``deployment_member_item_id`` and no ``item_id``, so it never
     reaches here and a run cannot answer the question on the owner's behalf.
     """
-    attached = _post_deploy(attachments)
-    rows = _post_deploy(requirements)
+    attached = [row for row in _post_deploy(attachments) if not _is_retracted(row)]
+    rows = [row for row in _post_deploy(requirements) if not _is_retracted(row)]
     live = [
         row
         for row in rows
@@ -151,15 +156,22 @@ def answer_from_item_detail(item: Mapping[str, Any]) -> PostDeployAnswer:
 def answer_for_item(conn: Any, item_id: int) -> PostDeployAnswer:
     """Classify from the control plane, for a caller holding a connection."""
     from yoke_core.domain.db_helpers import query_rows
+    from yoke_core.domain.schema_common import _column_exists
 
+    attachment_cols = "qa_phase"
+    if _column_exists(conn, "qa_plan_item_attachments", "retracted_at"):
+        attachment_cols += ",retracted_at"
+    requirement_cols = "qa_phase,qa_kind,waived_at,waiver_rationale,instructions"
+    if _column_exists(conn, "qa_requirements", "retracted_at"):
+        requirement_cols += ",retracted_at"
     attachments = query_rows(
         conn,
-        "SELECT qa_phase FROM qa_plan_item_attachments WHERE item_id=%s",
+        f"SELECT {attachment_cols} FROM qa_plan_item_attachments WHERE item_id=%s",
         (int(item_id),),
     )
     requirements = query_rows(
         conn,
-        "SELECT qa_phase,qa_kind,waived_at,waiver_rationale,instructions "
+        f"SELECT {requirement_cols} "
         "FROM qa_requirements WHERE item_id=%s AND deployment_run_id IS NULL",
         (int(item_id),),
     )

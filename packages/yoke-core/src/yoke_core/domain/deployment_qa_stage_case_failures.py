@@ -29,7 +29,7 @@ from yoke_core.domain.qa_obligation_settlement import obligation_settled
 #: is shared with the run-completing stage, so one boundary never re-opens
 #: an obligation the other accepted as settled.
 _SCOPED_CASES_SQL = (
-    "SELECT id,plan_case_key,waived_at,superseded_by_requirement_id "
+    "SELECT id,plan_case_key,waived_at,superseded_by_requirement_id,retracted_at "
     "FROM qa_requirements "
     "WHERE deployment_run_id=%s AND deployment_stage=%s "
     "AND COALESCE(deployment_member_item_id,0)=%s "

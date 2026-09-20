@@ -96,9 +96,9 @@ def check_verification_gate(
             f"""
             SELECT r.id, r.qa_kind FROM qa_requirements r
             WHERE {where}
-              AND r.qa_phase = 'verification'
               AND r.blocking_mode = 'blocking'
-              AND r.waived_at IS NULL
+              AND r.waived_at IS NULL AND r.retracted_at IS NULL
+              AND r.qa_phase = 'verification'
             """,
             params,
         )
@@ -222,7 +222,7 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
             FROM qa_requirements r
             WHERE {where}
               AND r.blocking_mode = 'blocking'
-              AND r.waived_at IS NULL
+              AND r.waived_at IS NULL AND r.retracted_at IS NULL
             """,
             params,
         )

@@ -145,6 +145,7 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("PreviewEnvCreated", "lifecycle", "preview_env", "deployment-runs-db", "INFO", "Preview deployment environment created for a run lane."),
     ("PreviewEnvOverwritten", "lifecycle", "preview_env", "deployment-runs-db", "INFO", "Occupied preview environment was overwritten by a new run lane claim."),
     ("QARequirementCreated", "lifecycle", "qa_lifecycle", "qa-db", "INFO", "QA requirement created and attached to item, task, or deployment run"),
+    ("QARequirementRetracted", "lifecycle", "qa_lifecycle", "qa-db", "STATUS", "QA requirement retired because its item plan attachment was retracted"),
     ("QARequirementUpdated", "lifecycle", "qa_lifecycle", "qa-db", "INFO", "QA requirement field updated via qa requirement-update"),
     ("QARequirementWaived", "lifecycle", "qa_lifecycle", "qa-db", "STATUS", "QA requirement waived with rationale"),
     ("QARequirementSuperseded", "lifecycle", "qa_lifecycle", "qa-db", "STATUS", "Frozen deployment-run QA requirement discharged by a corrected case that passed, with rationale"),
