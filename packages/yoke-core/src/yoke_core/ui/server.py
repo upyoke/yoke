@@ -14,14 +14,18 @@ Security model:
   (:mod:`yoke_core.ui.served_universe_connection`); an https or
   prod-flagged binding refuses at startup rather than answering from a
   universe the page does not name.
-* One random session token per run (:func:`mint_session_token`). Every
+* One random session token per run, minted and compared by
+  :mod:`yoke_core.ui.session_gate`. Every
   route — the app shell, static assets, the served-build identity path,
   and the function proxy — requires it. The token arrives as a ``?token=`` query parameter on the first hit;
   the app shell exchanges it for an HttpOnly cookie and 303-redirects to
   the bare URL, so asset and API requests authenticate via the cookie and
-  the tokened form drops out of browser history. The tokened URL is the
-  user's door: print it to the caller's terminal, never into event
-  streams or logs.
+  the tokened form drops out of browser history. That cookie is named
+  after the bind port (:func:`~yoke_core.ui.session_gate.session_cookie_name`),
+  because cookies are
+  not scoped by port and two loopback views would otherwise evict each
+  other's session. The tokened URL is the user's door: print it to the
+  caller's terminal, never into event streams or logs.
 * The function proxy accepts only the function ids in
   :data:`UI_READ_FUNCTION_ALLOWLIST` — a closed, read-only roster — plus
   the two actor-scoped Overview dismissal writes in
@@ -32,7 +36,6 @@ Security model:
 
 from __future__ import annotations
 
-import secrets
 import socket
 import threading
 import webbrowser
@@ -54,6 +57,13 @@ from yoke_core.ui.served_universe_connection import (
     environment_display_label,
     serving_connection,
 )
+from yoke_core.ui.session_gate import (
+    SESSION_COOKIE_PREFIX,
+    SESSION_TOKEN_BYTES,
+    mint_session_token,
+    session_cookie_name,
+    token_matches,
+)
 
 #: Default bind host and TCP port for the UI server (loopback only).
 #: Collision-probed at startup; ``--host`` and ``--port`` on ``yoke ui``
@@ -62,35 +72,12 @@ DEFAULT_UI_HOST = "127.0.0.1"
 DEFAULT_UI_PORT = 8688
 LOOPBACK_UI_HOSTS = frozenset({"127.0.0.1", "localhost"})
 
-#: ``secrets.token_urlsafe`` byte length for the per-run session token.
-SESSION_TOKEN_BYTES = 32
-
-#: Cookie the app-shell response sets so assets/API ride the session.
-SESSION_COOKIE_NAME = "yoke_ui_session"
-
 _BROWSER_OPEN_DELAY_S = 0.5
 _HOST_IDENTITY_MARKER = "/*YOKE_HOST_IDENTITY*/"
 
 
 class UiServerError(RuntimeError):
     """The UI server could not be prepared or started."""
-
-
-def mint_session_token() -> str:
-    return secrets.token_urlsafe(SESSION_TOKEN_BYTES)
-
-
-def _token_matches(candidate: str, token: str) -> bool:
-    """Constant-time token comparison.
-
-    Byte-wise on purpose: ``secrets.compare_digest`` raises ``TypeError``
-    on non-ASCII ``str`` input, and a hostile/garbled candidate must land
-    on the clean 401 path, never a 500.
-    """
-    return secrets.compare_digest(
-        candidate.encode("utf-8"),
-        token.encode("utf-8"),
-    )
 
 
 def resolve_ui_host(requested: Optional[str] = None) -> str:
@@ -197,8 +184,12 @@ def _inject_host_identity(html: str, environment: str) -> str:
     )
 
 
-def create_ui_app(token: str):
-    """Build the FastAPI app; every route requires the session token."""
+def create_ui_app(token: str, *, port: int = DEFAULT_UI_PORT):
+    """Build the FastAPI app; every route requires the session token.
+
+    ``port`` is the loopback port this app will be bound to. It names the
+    session cookie, so a view on one port cannot evict a view on another.
+    """
     from fastapi import FastAPI, HTTPException, Query
     from fastapi.responses import (
         HTMLResponse,
@@ -215,6 +206,7 @@ def create_ui_app(token: str):
     environment, refusal = serving_connection()
     if refusal is not None:
         raise UiServerError(refusal)
+    cookie_name = session_cookie_name(port)
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -222,10 +214,10 @@ def create_ui_app(token: str):
     async def session_token_gate(request, call_next):
         candidate = (
             request.query_params.get("token")
-            or request.cookies.get(SESSION_COOKIE_NAME)
+            or request.cookies.get(cookie_name)
             or ""
         )
-        if not _token_matches(candidate, token):
+        if not token_matches(candidate, token):
             return JSONResponse(
                 {
                     "error": {
@@ -248,13 +240,13 @@ def create_ui_app(token: str):
         # parameter and breaks the route with a 422.
         query_token: Optional[str] = Query(default=None, alias="token"),
     ) -> Response:
-        if query_token and _token_matches(query_token, token):
+        if query_token and token_matches(query_token, token):
             # Exchange the query token for an HttpOnly cookie and bounce
             # to the bare URL: the cookie authenticates the follow-up
             # request, and the tokened URL drops out of browser history.
             redirect: Response = RedirectResponse(url="/", status_code=303)
             redirect.set_cookie(
-                SESSION_COOKIE_NAME,
+                cookie_name,
                 token,
                 httponly=True,
                 samesite="strict",
@@ -317,7 +309,7 @@ def serve_ui(
     import uvicorn
 
     bind_host = resolve_ui_host(host)
-    app = create_ui_app(token)
+    app = create_ui_app(token, port=port)
     if open_browser:
         opener = threading.Timer(
             _BROWSER_OPEN_DELAY_S,
@@ -333,7 +325,7 @@ __all__ = [
     "ASSET_CACHE_CONTROL",
     "ASSET_CONTENT_TYPES",
     "DEFAULT_UI_PORT",
-    "SESSION_COOKIE_NAME",
+    "SESSION_COOKIE_PREFIX",
     "SESSION_TOKEN_BYTES",
     "UI_ACTIVATION_LATCH_FUNCTIONS",
     "UI_MUTATION_FUNCTION_ALLOWLIST",
@@ -344,4 +336,5 @@ __all__ = [
     "private_url",
     "resolve_ui_port",
     "serve_ui",
+    "session_cookie_name",
 ]

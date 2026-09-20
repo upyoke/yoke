@@ -49,7 +49,17 @@ class TestSessionTokenGate:
         response = ui_client.get(f"/?token={_TOKEN}", follow_redirects=False)
         assert response.status_code == 303
         assert response.headers["location"] == "/"
-        assert ui_server.SESSION_COOKIE_NAME in response.cookies
+        assert (
+            ui_server.session_cookie_name(ui_server.DEFAULT_UI_PORT)
+            in response.cookies
+        )
+
+    def test_two_views_on_different_ports_keep_separate_sessions(self):
+        # Cookies ignore ports, so a shared name would let each loopback
+        # view's redirect evict the other's session on 127.0.0.1.
+        assert ui_server.session_cookie_name(8688) != ui_server.session_cookie_name(
+            8700
+        )
 
     def test_cookie_authenticates_shell_and_assets_after_exchange(
         self,

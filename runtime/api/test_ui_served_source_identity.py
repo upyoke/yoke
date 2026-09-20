@@ -83,7 +83,9 @@ def test_the_packet_the_server_publishes_carries_the_serving_commit():
 
     from yoke_core.ui.server import _local_host_identity_json
 
-    fields = json.loads(_local_host_identity_json())
+    # Unbound: no connection binding selects a control plane, so the
+    # packet names no environment and the commit still has to be there.
+    fields = json.loads(_local_host_identity_json(""))
     runtime = fields["runtimeIdentity"]
     if runtime.get("installKind") != "source_checkout":
         pytest.skip("this test run is not served from a source checkout")

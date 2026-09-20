@@ -29,13 +29,30 @@ function resolveUrl(route, baseUrl) {
   return base + rel;
 }
 
+// Statuses that mean the server declined to show the page at all. A
+// navigation landing here has not arrived anywhere a later step can
+// read, click or photograph -- the body is a refusal, and a screenshot
+// of a refusal looks like a rendered page.
+const AUTH_REFUSAL_STATUSES = new Set([401, 403]);
+
 /**
  * Execute a navigate action.
  */
 async function executeNavigate(page, step, options) {
   const url = resolveUrl(step.route, options.baseUrl);
   const timeout = step.timeout_ms || options.timeout || DEFAULT_TIMEOUT_MS;
-  await page.goto(url, { timeout, waitUntil: 'domcontentloaded' });
+  const response = await page.goto(url, { timeout, waitUntil: 'domcontentloaded' });
+  const status = response ? response.status() : 0;
+  if (AUTH_REFUSAL_STATUSES.has(status)) {
+    throw new Error(
+      `navigation to ${response.url()} was refused with HTTP ${status}: ` +
+      'this page is an authentication refusal, not the screen the scenario ' +
+      'asked for, and every following step would run against it. ' +
+      'Establish the session first -- for a token-gated server, take one ' +
+      '`snapshot screenshot` against the tokened URL on this same daemon ' +
+      'and profile, then drive the remaining steps against bare paths.'
+    );
+  }
   return { success: true };
 }
 
