@@ -239,3 +239,9 @@ def cmd_requirement_update(
         print(f"Error: {result.message}", file=sys.stderr)
         sys.exit(1 if result.error_code == "not_found" else 2)
     print(f"Updated requirement {req_id}: {field}")
+    if result.admitted_copies_updated:
+        reached = ", ".join(str(copy) for copy in result.admitted_copies_updated)
+        print(
+            f"Also corrected the admitted deployment-stage copies still in "
+            f"flight for it: {reached}"
+        )

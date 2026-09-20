@@ -48,6 +48,10 @@ from yoke_core.domain.qa_requirement_pass_currency import (
     bind_correction_identity,
     executable_method_config,
 )
+from yoke_core.domain.qa_admitted_case_reconciliation import (
+    ADMITTED_COPY_IN_FLIGHT_CODE,
+    reconcile_admitted_copies,
+)
 from yoke_core.domain.qa_requirement_frozen_snapshot import (
     FROZEN_REQUIREMENT_CODE,
     FROZEN_REQUIREMENT_MESSAGE,
@@ -77,6 +81,7 @@ class RequirementUpdateResult:
     """Outcome of one ``qa.requirement.update`` attempt."""
 
     ok: bool
+    admitted_copies_updated: tuple[int, ...] = ()
     error_code: str = ""
     message: str = ""
     jsonpath: str = "$.payload.field"
@@ -261,6 +266,22 @@ def apply_requirement_update(
                 jsonpath="$.payload.value",
             )
         value = prepared_transition
+    # Reach this amendment's in-flight admitted copies or refuse by name,
+    # before either row is written.
+    admitted_copies: tuple[int, ...] = ()
+    if not existing["deployment_run_id"]:
+        reached, refusal = reconcile_admitted_copies(
+            conn, source_requirement_id=int(req_id), field=field, value=value
+        )
+        if refusal:
+            return _fail(
+                code=ADMITTED_COPY_IN_FLIGHT_CODE,
+                message=refusal,
+                req_id=req_id,
+                field=field,
+                jsonpath="$.payload.value",
+            )
+        admitted_copies = tuple(reached)
     if field == "target_env":
         prepared, error = _prepare_target_env(conn, existing, value)
         if error:
@@ -309,6 +330,7 @@ def apply_requirement_update(
     )
     return RequirementUpdateResult(
         ok=True,
+        admitted_copies_updated=admitted_copies,
         requirement_id=int(req_id),
         field=field,
         new_value=value,

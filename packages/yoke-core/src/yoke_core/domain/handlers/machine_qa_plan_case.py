@@ -69,12 +69,18 @@ def _owned_case(
 def _assert_current_snapshot(conn: Any, case: dict[str, Any]) -> None:
     from yoke_core.domain.db_helpers import query_one
     from yoke_core.domain.machine_qa_plan_case_snapshot import case_positions
+    from yoke_core.domain.qa_admitted_case_currency import (
+        require_current_admitted_case,
+    )
     from yoke_core.domain.qa_case_execution_context import (
         get_case_execution_context,
     )
     from yoke_core.domain.qa_plan_execution_store import canonical, marker
 
     requirement_id = int(case["requirement_id"])
+    # An amendment that landed after the roster froze is named here rather
+    # than surfacing as an anonymous snapshot change.
+    require_current_admitted_case(conn, requirement_id)
     current = get_case_execution_context(conn, requirement_id=requirement_id)
     row = query_one(
         conn,

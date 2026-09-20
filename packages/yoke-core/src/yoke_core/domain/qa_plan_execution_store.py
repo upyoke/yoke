@@ -39,6 +39,9 @@ def build_execution_roster(
     host_capability_kinds: Any | None = None,
 ) -> list[dict[str, Any]]:
     """Capture the complete immutable execution context in server order."""
+    from yoke_core.domain.qa_admitted_case_currency import (
+        require_current_admitted_case,
+    )
     from yoke_core.domain.qa_case_execution_context import (
         get_case_execution_context,
     )
@@ -55,6 +58,10 @@ def build_execution_roster(
     )
     roster: list[dict[str, Any]] = []
     for ordinal, order in enumerate(ordered):
+        # The stage never certifies against a body the item has already
+        # superseded: a copy whose source moved refuses here, at the moment
+        # the walk would otherwise freeze it in.
+        require_current_admitted_case(conn, int(order["requirement_id"]))
         context = get_case_execution_context(
             conn,
             requirement_id=int(order["requirement_id"]),
