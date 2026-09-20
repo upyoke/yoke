@@ -27,7 +27,8 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.actors import actor_display_labels, is_human_actor
+from yoke_core.domain.actor_render import actor_display_labels
+from yoke_core.domain.actors import is_human_actor
 from yoke_core.domain.approval_policy import (
     APPROVAL_MODE_ALL,
     APPROVAL_ROLE_LABELS,

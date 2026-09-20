@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.actors import actor_display_labels
+from yoke_core.domain.actor_render import actor_display_labels
 from yoke_core.domain.approval_decisions import actor_decision
 from yoke_core.domain.decision_requests import _request_row
 
