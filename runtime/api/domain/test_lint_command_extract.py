@@ -42,6 +42,22 @@ def test_unresolved_command_token_detects_dollar_argv0() -> None:
     assert not extract.is_unresolved_command_token("head")
 
 
+def test_engine_and_harness_share_the_contracts_command_reader() -> None:
+    from yoke_contracts.hook_runner.command_extract import (
+        extract_command as contracts_extract,
+    )
+    from yoke_harness.hooks.local_policy_common import (
+        command_from_payload,
+        git_invocations,
+    )
+
+    assert extract.extract_command is contracts_extract
+    payload = {"tool_input": {"command": "p=git; $p reset --hard"}}
+    assert "git reset --hard" in command_from_payload(payload)
+    args, _repo = git_invocations("do git stash drop")[0]
+    assert args[:2] == ["stash", "drop"]
+
+
 def test_polling_extract_still_exports_tool_input_for_waiter() -> None:
     from yoke_core.domain.lint_long_command_polling_extract import (
         _extract_tool_input,

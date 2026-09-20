@@ -9,8 +9,8 @@ import subprocess
 from dataclasses import dataclass
 from typing import Optional
 
-from yoke_core.domain.lint_command_extract import extract_command
-from yoke_core.domain.lint_destructive_git_commands import parse_git_invocations
+from yoke_contracts.hook_runner.command_extract import extract_command
+from yoke_contracts.hook_runner.main_commit import git_invocations as parse_git_invocations
 
 
 DENY = "deny"
