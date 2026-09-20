@@ -20,6 +20,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from yoke_core.domain.deployment_qa_case_failure_kinds import failure_reasons
 from yoke_core.domain.deployment_qa_stage_case_failures import (
     case_failures,
     obligations_fully_discharged,
@@ -190,12 +191,14 @@ def stage_acceptance(
         member_item_id=member_item_id,
         execution_target_digest=digest,
     )
-    failures = case_failures(
-        conn,
-        run_id=run_id,
-        stage_name=stage_name,
-        member_item_id=member_item_id,
-        execution_target_digest=digest,
+    failures = failure_reasons(
+        case_failures(
+            conn,
+            run_id=run_id,
+            stage_name=stage_name,
+            member_item_id=member_item_id,
+            execution_target_digest=digest,
+        )
     )
     if execution is None:
         if obligations_fully_discharged(

@@ -1,4 +1,11 @@
-"""Per-case failure reasons for one deployment QA stage acceptance check."""
+"""Which blocking cases of one deployment QA stage are not yet acceptable.
+
+Walks the cases pinned to one stage/member subject and grades each one on
+its latest verdict and the evidence behind it. What each answer *means* --
+red, unrun, undetermined, or passed-without-evidence -- is
+:mod:`deployment_qa_case_failure_kinds`; this module decides which of them
+each case is.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +14,12 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.deployment_qa_case_failure_kinds import (
+    CaseFailure,
+    FAILURE_PASSED_WITHOUT_EVIDENCE,
+    FAILURE_UNRUN,
+    classify_verdict,
+)
 from yoke_core.domain.qa_obligation_settlement import obligation_settled
 
 
@@ -172,6 +185,16 @@ def _inspect_evidence(
     return False, inspected
 
 
+#: Stands in for a case set that was never materialized. It has no
+#: requirement of its own to name, and no verdict, so it is ``unrun``.
+NO_CASES_FAILURE = CaseFailure(
+    requirement_id=0,
+    plan_case_key="",
+    kind=FAILURE_UNRUN,
+    detail="no concrete QA cases are materialized",
+)
+
+
 def case_failures(
     conn: Any,
     *,
@@ -179,7 +202,8 @@ def case_failures(
     stage_name: str,
     member_item_id: int | None,
     execution_target_digest: str,
-) -> list[str]:
+) -> list[CaseFailure]:
+    """Every blocking case this subject cannot accept, each with its kind."""
     rows = scoped_cases(
         conn,
         run_id=run_id,
@@ -188,8 +212,8 @@ def case_failures(
         execution_target_digest=execution_target_digest,
     )
     if not rows:
-        return ["no concrete QA cases are materialized"]
-    failures: list[str] = []
+        return [NO_CASES_FAILURE]
+    failures: list[CaseFailure] = []
     for row in rows:
         if obligation_settled(row):
             # A superseded row is skipped rather than graded, but the case
@@ -205,8 +229,15 @@ def case_failures(
         verdict = str(latest["verdict"] if latest is not None else "")
         if verdict != "pass":
             failures.append(
-                f"requirement #{row['id']} ({row['plan_case_key']}) latest "
-                f"verdict is {verdict or 'missing'}"
+                CaseFailure(
+                    requirement_id=int(row["id"]),
+                    plan_case_key=str(row["plan_case_key"]),
+                    kind=classify_verdict(verdict),
+                    detail=(
+                        f"requirement #{row['id']} ({row['plan_case_key']}) latest "
+                        f"verdict is {verdict or 'missing'}"
+                    ),
+                )
             )
             continue
         accepted_run_id = int(latest["id"])
@@ -222,12 +253,25 @@ def case_failures(
         if not found:
             looked = ", ".join(f"#{candidate}" for candidate in inspected)
             failures.append(
-                f"requirement #{row['id']} ({row['plan_case_key']}) latest "
-                f"passing result has no attached evidence: no qa_artifacts on "
-                f"inspected qa_runs {looked} — attach evidence to qa_run "
-                f"#{accepted_run_id}, the run whose verdict was accepted"
+                CaseFailure(
+                    requirement_id=int(row["id"]),
+                    plan_case_key=str(row["plan_case_key"]),
+                    kind=FAILURE_PASSED_WITHOUT_EVIDENCE,
+                    detail=(
+                        f"requirement #{row['id']} ({row['plan_case_key']}) latest "
+                        f"passing result has no attached evidence: no qa_artifacts "
+                        f"on inspected qa_runs {looked} — attach evidence to "
+                        f"qa_run #{accepted_run_id}, the run whose verdict was "
+                        "accepted"
+                    ),
+                )
             )
     return failures
 
 
-__all__ = ["case_failures", "obligations_fully_discharged", "scoped_cases"]
+__all__ = [
+    "NO_CASES_FAILURE",
+    "case_failures",
+    "obligations_fully_discharged",
+    "scoped_cases",
+]

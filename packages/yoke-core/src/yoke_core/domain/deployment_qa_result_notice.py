@@ -28,7 +28,7 @@ from typing import Any, Optional
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.domain.deployment_item_owner import item_owner_actor
 from yoke_core.domain.delivery_notice_kind import QA_RESULT_NOTICE_PREFIX
-from yoke_core.domain.deployment_qa_stage_gate import (
+from yoke_core.domain.deployment_qa_stage_outcome import (
     OUTCOME_DISCHARGED,
     OUTCOME_PASSED,
     OUTCOME_REJECTED,
