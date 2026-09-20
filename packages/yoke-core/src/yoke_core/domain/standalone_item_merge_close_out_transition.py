@@ -14,10 +14,18 @@ into "the item still has an owner the deployment wake can reach".
 
 Every declining path here re-stamps that park too. A re-entry gets here
 because a wake delivered a prompt, and that prompt cleared the park the
-owner was holding; a close-out that then refuses -- unresolvable delivery
-clearance, refused terminal transition -- would hand back an owner who is
-awake, still waiting, and no longer declared, which is precisely the state
-the sweep reclaims.
+owner was holding; a close-out that then stops short of ``done`` --
+unresolvable delivery clearance, refused terminal transition, or a delivery
+that simply has not happened yet -- would hand back an owner who is awake,
+still waiting, and no longer declared, which is precisely the state the
+sweep reclaims.
+
+Those three are not one outcome. A clearance that could not be read and a
+transition that was refused are failures, and report as failures. A
+delivery that has not happened is an answer: the wait is working as
+designed, so it keeps the item at that wait and names the run it is waiting
+on, rather than walking to ``done`` and letting the ceremony guard refuse
+with a nonce the owner cannot produce.
 """
 
 from __future__ import annotations
@@ -89,6 +97,16 @@ def run_terminal_transition(
         )
         retain_if_waiting(envelope, **waiting)
         return 1
+    if route.delivery_pending:
+        # The item stands at its release wait and the delivery it is waiting
+        # for definitely has not happened. That is a completed merge and an
+        # unfinished item -- the same outcome as the first-pass redirect --
+        # so hold the item where it is, say what it waits on, and put the
+        # park back for the wake that will re-enter this command.
+        envelope["status"] = status
+        envelope["delivery_pending"] = route.delivery_pending
+        retain_if_waiting(envelope, **waiting)
+        return None
     if not route.stages:
         # Mid-progress work (e.g. a still-implementing Blitz slice): the
         # pinned delivery will require a release wait eventually, but this

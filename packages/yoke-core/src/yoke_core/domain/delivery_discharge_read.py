@@ -43,6 +43,13 @@ class DeliveryDischarge:
     # The candidate the release recorded for this item's project, so the
     # close-out can answer containment against it from the lane it stands in.
     release_lineage: str = ""
+    # The run the ladder read, carried on the not-delivered answer because
+    # that is the answer whose caller has to say WHICH run the owner is
+    # waiting on. The provider's own ``reason`` names a run only when it
+    # also has a retry to suggest, so a failed or cancelled run would
+    # otherwise reach the owner as an unidentified "not delivered".
+    run_id: str = ""
+    run_status: str = ""
 
     @property
     def discharged(self) -> bool:
@@ -108,6 +115,8 @@ def delivery_discharge(
         detail=str(result.get("reason") or ""),
         recovery=str(result.get("recovery") or ""),
         release_lineage=lineage,
+        run_id=str(result.get("run_id") or ""),
+        run_status=str(result.get("run_status") or ""),
     )
 
 

@@ -12,8 +12,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from yoke_core.domain.deployment_flow_clearance import resolve_delivery_clearance
-from yoke_core.domain.delivery_discharge_read import delivery_discharge
+from yoke_core.domain.deployment_flow_clearance import (
+    DeliveryClearance,
+    resolve_delivery_clearance,
+)
+from yoke_core.domain.delivery_discharge_read import (
+    DeliveryDischarge,
+    delivery_discharge,
+)
 from yoke_core.domain.merge_review_readiness import pinned_workflow_for_item
 from yoke_core.domain.standalone_item_merge_evidence import CLOSED_OUT_STATUS
 from yoke_core.domain.workflow_behavior import delivery_redirect_stage
@@ -24,11 +30,13 @@ from yoke_core.domain.workflow_declared_transitions import declares_transition
 class CloseOutRoute:
     """The declared stages this close-out walks, and by whose authority.
 
-    ``stages`` is empty when nothing applies here yet -- mid-progress work
+    ``stages`` is empty when there is nowhere to walk -- mid-progress work
     such as a still-implementing Blitz slice, whose continuous-per-slice
-    delivery is not forced into an early release by stage order alone.
-    Otherwise it is the ordered stage ids to transition through, each one a
-    declared edge so every stage in between runs its own gates.
+    delivery is not forced into an early release by stage order alone, and
+    an item already standing at its release wait whose delivery has not
+    happened yet (``delivery_pending``). Otherwise it is the ordered stage
+    ids to transition through, each one a declared edge so every stage in
+    between runs its own gates.
 
     ``delivery_discharged`` is true when this close-out has performed the
     whole of the item's delivery ceremony rather than owing one to a later
@@ -52,11 +60,44 @@ class CloseOutRoute:
     stages: tuple[str, ...] = ()
     delivery_discharged: bool = False
     error: str = ""
+    #: Why an item standing at its release wait stays there: the delivery it
+    #: owes definitely has not happened. Non-empty only alongside empty
+    #: ``stages``, and never alongside ``error`` -- "not delivered yet" is an
+    #: answer the system read, not a failure to read one, so it is reported
+    #: as the wait it is rather than as a clearance that could not resolve.
+    delivery_pending: str = ""
     #: The candidate the delivery read named, when it named one. The done
     #: gate asks whether that revision contains this item's merge, and a
     #: control plane with no checkout of the project may be unable to look --
     #: so the close-out answers it from the lane and relays the verdict.
     release_lineage: str = ""
+
+
+def _pending_delivery(
+    discharge: DeliveryDischarge, clearance: DeliveryClearance
+) -> str:
+    """What this item is still waiting on, in terms its owner can act on.
+
+    Every part of this is a fact the system already held at the moment it
+    used to report a missing ceremony nonce instead: the flow the clearance
+    resolved, the run the evidence ladder read and the status it sits at,
+    and the ladder's own reason and recovery.
+    """
+    flow = clearance.resolved_flow
+    lead = (
+        f"its delivery through flow {flow!r} has not happened yet"
+        if flow
+        else "its delivery has not happened yet"
+    )
+    detail = discharge.detail or "no succeeded run carries this item's merge"
+    run = (
+        f" (deployment run {discharge.run_id} is at status "
+        f"{discharge.run_status or 'unknown'})"
+        if discharge.run_id
+        else ""
+    )
+    recovery = f" {discharge.recovery}" if discharge.recovery else ""
+    return f"{lead}: {detail}{run}.{recovery}"
 
 
 def close_out_route(
@@ -127,9 +168,22 @@ def close_out_route(
                     f"read: {discharge.detail}. {discharge.recovery}"
                 )
             )
+        if not discharge.discharged:
+            # Definitely NOT delivered, which is a plain fact and not a
+            # failure to read one. Routing to the terminal stage here spent
+            # the transition on a ceremony only a deploy can perform, and
+            # the engine's refusal named the missing nonce — telling the
+            # owner to re-run the command that had just run, about a
+            # delivery nobody had said was still pending. So stay at the
+            # wait and name it, the same way the unread branch names the
+            # provider's own reason.
+            return CloseOutRoute(
+                delivery_pending=_pending_delivery(discharge, clearance),
+                release_lineage=discharge.release_lineage,
+            )
         return CloseOutRoute(
             stages=(CLOSED_OUT_STATUS,),
-            delivery_discharged=discharge.discharged,
+            delivery_discharged=True,
             release_lineage=discharge.release_lineage,
         )
     if not declares_transition(workflow, status, release_stage_id):
