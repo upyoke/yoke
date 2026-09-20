@@ -1,27 +1,10 @@
 """Turn raw shell tokens into the filesystem paths they actually name.
 
-Both target extractors — the session-cwd walk in
-:mod:`lint_session_cwd_target_extract_shell` and the write-position walk in
-:mod:`lint_session_cwd_target_extract` — need the same judgment about a
-single token: does it name a path a guard can validate, and if it is a
-variable reference, which path is that?
-
-The capture-first recipe every long command follows makes that judgment
-load-bearing::
-
-    _tmp=$(mktemp /tmp/yoke-cmd.XXXXXX)
-    <command> >"$_tmp" 2>&1
-
-Extraction sees the redirect operand as the literal text ``$_tmp``. A
-non-absolute operand is joined with the harness cwd by the write-target
-consumers, so that literal resolved to a main-checkout path and the guards
-denied the recipe they document. :func:`path_target_from_token` reads the
-variable's own assignment out of the same command body and returns the temp
-path it names; a reference it cannot expand returns ``None`` so callers
-withhold a verdict instead of inventing a cwd-relative target.
-
-One module owns both halves because a token the two extractors disagree
-about is exactly how this class of false denial returns.
+The session-cwd and write-position extractors share this judgment: does a
+token name a path a guard can validate, and if it is a variable, which
+path? The capture-first recipe ``>\"$_tmp\"`` is load-bearing —
+``path_target_from_token`` expands the assignment instead of joining the
+literal with the harness cwd. Unexpandable references return ``None``.
 """
 
 from __future__ import annotations
@@ -77,7 +60,7 @@ def unwrap_cli_file_param(token: str) -> str:
     """Map AWS CLI ``file://`` / ``fileb://`` parameter loading to the path."""
     for prefix in _CLI_FILE_PARAM_PREFIXES:
         if token.startswith(prefix):
-            return token[len(prefix):]
+            return token[len(prefix) :]
     return token
 
 
@@ -213,7 +196,7 @@ def _mktemp_path(inner: str) -> Optional[str]:
         if token in _TEMP_ROOT_FLAGS:
             root = root or tempfile.gettempdir()
         elif token.startswith(_TMPDIR_EQUALS_PREFIX):
-            root = token[len(_TMPDIR_EQUALS_PREFIX):] or tempfile.gettempdir()
+            root = token[len(_TMPDIR_EQUALS_PREFIX) :] or tempfile.gettempdir()
         elif token == _TEMP_ROOT_VALUE_FLAG and index + 1 < len(argv):
             root = argv[index + 1]
             index += 2
@@ -246,11 +229,27 @@ SEGMENT_SEPARATORS = frozenset({"&&", "||", "|", "|&", ";", ";;", "&"})
 # is how ``do curl -sS -w "%{http_code}" URL`` lost curl's write-out format
 # to the ``-w`` worktree-path flag, and how a copy in a loop body reached
 # the write walk as ``do`` and named no destination at all.
-COMPOUND_STATEMENT_KEYWORDS = frozenset({
-    "!", "(", ")", "{", "}",
-    "case", "coproc", "do", "done", "elif", "else", "esac", "fi",
-    "then", "time", "until", "while",
-})
+COMPOUND_STATEMENT_KEYWORDS = frozenset(
+    {
+        "!",
+        "(",
+        ")",
+        "{",
+        "}",
+        "case",
+        "coproc",
+        "do",
+        "done",
+        "elif",
+        "else",
+        "esac",
+        "fi",
+        "then",
+        "time",
+        "until",
+        "while",
+    }
+)
 
 # ``for NAME in <words>`` and ``select NAME in <words>``. The words are the
 # loop variable's VALUES, carried for the body to consume — not operands any
@@ -317,6 +316,19 @@ def _safe_split(text: str) -> List[str]:
         return []
 
 
+def substitute_bound_variables(command: str) -> str:
+    """Replace bound ``$name`` / ``${name}``; leave unbound names as written."""
+    bindings = shell_variable_bindings(command)
+    if not bindings:
+        return command
+
+    def _replace(match: re.Match[str]) -> str:
+        name = match.group("braced") or match.group("bare")
+        return bindings.get(name, match.group(0))
+
+    return _VARIABLE_REFERENCE.sub(_replace, command)
+
+
 __all__ = [
     "COMPOUND_STATEMENT_KEYWORDS",
     "SEGMENT_SEPARATORS",
@@ -329,5 +341,6 @@ __all__ = [
     "shell_command_segments",
     "shell_variable_bindings",
     "split_command_segments",
+    "substitute_bound_variables",
     "unwrap_cli_file_param",
 ]

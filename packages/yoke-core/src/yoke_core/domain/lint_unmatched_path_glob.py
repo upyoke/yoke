@@ -21,6 +21,7 @@ from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     strip_heredoc_body_lines,
 )
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 CHECK_ID = "lint-unmatched-path-glob"
 HOOK_NAME = "lint-unmatched-path-glob"
@@ -28,18 +29,6 @@ SUPPRESSION_TOKEN = "# lint:no-unmatched-glob-check"
 
 _GLOB_CHARS = frozenset("*?[")
 _REDIR_PREFIXES = ("2>>", ">>", "&>", "2>", "1>", ">", "<")
-
-
-def _extract_command(payload: dict) -> str:
-    for key in ("tool_input", "toolInput", "input"):
-        tool_input = payload.get(key)
-        if isinstance(tool_input, dict):
-            for command_key in ("command", "cmd"):
-                value = tool_input.get(command_key)
-                if isinstance(value, str) and value:
-                    return value
-    value = payload.get("command")
-    return value if isinstance(value, str) else ""
 
 
 def _extract_tool_name(payload: dict) -> str:

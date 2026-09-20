@@ -22,6 +22,9 @@ from yoke_core.domain.lint_long_command_polling_constants import (
 from yoke_core.domain.lint_long_command_polling_extract_scratch import (
     scratch_path_roots,
 )
+from yoke_core.domain.lint_command_extract import (  # noqa: F401
+    extract_command as _extract_command,
+)
 
 
 def _temp_dir_prefixes() -> list[str]:
@@ -83,30 +86,6 @@ _MONITOR_CAPTURE_RE = re.compile(
 )
 
 
-def _extract_tool_input(payload: dict) -> dict:
-    """Return ``tool_input`` accepting any of the known payload shapes."""
-    for key in ("tool_input", "toolInput", "input"):
-        value = payload.get(key)
-        if isinstance(value, dict):
-            return value
-    return {}
-
-
-def _extract_command(payload: dict) -> str:
-    """Return the Bash command string (or other text body) from the payload."""
-    tool_input = _extract_tool_input(payload)
-    command = tool_input.get("command")
-    if isinstance(command, str) and command:
-        return command
-    cmd_alt = tool_input.get("cmd")
-    if isinstance(cmd_alt, str) and cmd_alt:
-        return cmd_alt
-    top_cmd = payload.get("command")
-    if isinstance(top_cmd, str) and top_cmd:
-        return top_cmd
-    return ""
-
-
 def _extract_tool_name(payload: dict) -> str:
     """Return the invoked tool name (``Bash``, ``ScheduleWakeup``, etc.)."""
     for key in ("tool_name", "toolName"):
@@ -125,10 +104,29 @@ def _has_monitor_duplicate_suppression(command: str) -> bool:
     return MONITOR_DUPLICATE_SUPPRESSION_TOKEN in command
 
 
-_PEEK_VERBS = frozenset({
-    "tail", "head", "cat", "wc", "grep", "egrep", "fgrep", "rg", "ls",
-    "awk", "sed", "less", "more", "file", "stat", "nl", "cut", "sort", "uniq",
-})
+_PEEK_VERBS = frozenset(
+    {
+        "tail",
+        "head",
+        "cat",
+        "wc",
+        "grep",
+        "egrep",
+        "fgrep",
+        "rg",
+        "ls",
+        "awk",
+        "sed",
+        "less",
+        "more",
+        "file",
+        "stat",
+        "nl",
+        "cut",
+        "sort",
+        "uniq",
+    }
+)
 
 
 def _is_stdin_feed_cat(command: str, match) -> bool:
@@ -140,7 +138,7 @@ def _is_stdin_feed_cat(command: str, match) -> bool:
     """
     if match.group(1) != "cat":
         return False
-    tail = command[match.end():].lstrip()
+    tail = command[match.end() :].lstrip()
     if not tail.startswith("|") or tail.startswith("||"):
         return False
     after_pipe = tail[1:].lstrip()
@@ -186,7 +184,7 @@ def _peek_read_in_command_substitution(command: str) -> bool:
     open_idx = prefix.rfind("$(")
     # Enclosed iff a `$(` opens before the verb with no `)` in between
     # (a closed earlier substitution does not enclose the read).
-    return open_idx != -1 and ")" not in prefix[open_idx + 2:]
+    return open_idx != -1 and ")" not in prefix[open_idx + 2 :]
 
 
 def _extract_sleep_cadence(command: str) -> Optional[int]:
@@ -229,4 +227,3 @@ def _extract_background_capture_files(command: str) -> list[str]:
         match.group(1) for match in _WATCHER_CAPTURE_ARG_RE.finditer(command)
     )
     return list(dict.fromkeys(captures))
-

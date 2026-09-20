@@ -1,29 +1,7 @@
 """PreToolUse Bash hook: steer full-suite pytest runs into the wrapper.
 
-Machine-wide admission (:mod:`yoke_core.tools.gate_admission`) caps how
-many heavy test gates execute at once, and every path that goes through
-``watch_pytest`` or ``run_tests`` arbitrates for that slot. A bare
-``python3 -m pytest <dirs>`` does not: it spawns its own xdist worker
-fleet and its own database fan-out while holding nothing, so it is
-invisible to every other run on the machine. Five concurrent suites were
-observed live on one host that way.
-
-Two verdicts, because two shapes carry different certainty:
-
-- A run naming the project's whole verification surface — every declared
-  full-sweep anchor — is unambiguously the heavy gate and is DENIED with
-  the wrapper spelling.
-- Any other directory-shaped sweep is heavy enough to matter but may be a
-  deliberate narrow investigation, so it WARNs and names the wrapper.
-
-File-scoped runs (``pytest path/to/test_x.py``, ``-k`` selections against
-files) are cheap on every axis and are not matched at all — iterating on
-one failing test must stay frictionless.
-
-Pattern mirrors :mod:`yoke_core.domain.lint_pipe_to_truncator`: typed
-``evaluate(record: HookContext) -> HookDecision`` entry, CLI ``__main__``
-form for the legacy stdin invocation, mode resolved via the lint-config
-registry, suppression token audit-only (does NOT unblock in deny mode).
+A bare ``python3 -m pytest <dirs>`` skips admission. Whole-surface DENY;
+other directory sweeps WARN; file-scoped runs unmatched. Audit-only token.
 """
 
 from __future__ import annotations
@@ -36,16 +14,16 @@ from typing import List, Optional, Sequence, Tuple
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_raw_pytest_full_suite_shell import (
-    mask_data_sink_lines, strip_heredoc_bodies,
+    mask_data_sink_lines,
+    strip_heredoc_bodies,
 )
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
-CHECK_ID = "lint-raw-pytest-full-suite"
-HOOK_NAME = "lint-raw-pytest-full-suite"
+CHECK_ID = HOOK_NAME = "lint-raw-pytest-full-suite"
 SUPPRESSION_TOKEN = "# lint:no-raw-pytest-check"
 
-#: Spellings that already arbitrate for the machine-wide admission slot.
-#: A command mentioning any of these is running through an admitted path.
+#: Admitted paths already hold the machine-wide test-gate slot.
 _ADMITTED_INVOCATIONS = (
     "yoke_core.tools.watch_pytest",
     "yoke_core.tools.run_tests",
@@ -57,34 +35,50 @@ _ADMITTED_INVOCATIONS = (
 _SEGMENT_SPLIT = re.compile(r"(?:;|&&|\|\||\||\n)")
 
 #: Words that may precede the actual program in a pipeline stage.
-_LAUNCHER_TOKENS = frozenset({
-    "uv", "run", "env", "nice", "time", "command", "exec",
-    "poetry", "hatch", "pdm", "rye",
-})
+_LAUNCHER_TOKENS = frozenset(
+    {
+        "uv",
+        "run",
+        "env",
+        "nice",
+        "time",
+        "command",
+        "exec",
+        "poetry",
+        "hatch",
+        "pdm",
+        "rye",
+    }
+)
 
 #: Flags that take a separate value; their operand is not a path.
-_VALUE_FLAGS = frozenset({
-    "-k", "-m", "-n", "--numprocesses", "-p", "--dist", "--splits", "--group",
-    "--splitting-algorithm", "--durations-path", "--durations", "--junitxml",
-    "--tb", "--maxfail", "-c", "--rootdir", "--deselect", "--ignore",
-})
+_VALUE_FLAGS = frozenset(
+    {
+        "-k",
+        "-m",
+        "-n",
+        "--numprocesses",
+        "-p",
+        "--dist",
+        "--splits",
+        "--group",
+        "--splitting-algorithm",
+        "--durations-path",
+        "--durations",
+        "--junitxml",
+        "--tb",
+        "--maxfail",
+        "-c",
+        "--rootdir",
+        "--deselect",
+        "--ignore",
+    }
+)
 
 #: Where pytest's own operands end and the shell's redirection begins:
 #: ``>file``, ``>>file``, ``2>&1``, ``<in``, ``&>both``. These are not
 #: paths, and nothing after them is one either.
 _REDIRECTION = re.compile(r"^\d*(?:&?>>?|<<?)")
-
-
-def _extract_command(payload: dict) -> str:
-    for key in ("tool_input", "toolInput", "input"):
-        tool_input = payload.get(key)
-        if isinstance(tool_input, dict):
-            for command_key in ("command", "cmd"):
-                value = tool_input.get(command_key)
-                if isinstance(value, str) and value:
-                    return value
-    value = payload.get("command")
-    return value if isinstance(value, str) else ""
 
 
 def _extract_tool_name(payload: dict) -> str:
@@ -99,7 +93,8 @@ def _read_mode(payload: object | None = None) -> str:
     from yoke_core.domain import lint_config
 
     return lint_config.resolve_mode_for_payload(
-        "lint_raw_pytest_full_suite", payload,
+        "lint_raw_pytest_full_suite",
+        payload,
     )
 
 
@@ -168,13 +163,13 @@ def _pytest_tokens(segment: str) -> Optional[List[str]]:
     if index >= len(tokens):
         return None
     program = tokens[index].rsplit("/", 1)[-1]
-    rest = tokens[index + 1:]
+    rest = tokens[index + 1 :]
     if program == "pytest":
         return rest
     if program.startswith("python"):
         for offset, token in enumerate(rest[:-1]):
             if token == "-m" and rest[offset + 1] == "pytest":
-                return rest[offset + 2:]
+                return rest[offset + 2 :]
     return None
 
 
@@ -207,7 +202,10 @@ def _classify(command: str) -> Optional[Tuple[str, str]]:
 
 
 def _format_reason(
-    severity: str, detail: str, suppression_seen: bool, mode: str,
+    severity: str,
+    detail: str,
+    suppression_seen: bool,
+    mode: str,
 ) -> str:
     verb = "BLOCKED" if severity == "full" else "HEAVY"
     body = (
@@ -258,8 +256,10 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     # narrower sweep advises regardless of the configured mode.
     mode = _read_mode(payload) if severity == "full" else "warn"
     reason = _format_reason(severity, detail, suppression_seen, mode)
-    outcome = "suppression_attempted" if suppression_seen else (
-        "denied" if mode == "deny" else "warned"
+    outcome = (
+        "suppression_attempted"
+        if suppression_seen
+        else ("denied" if mode == "deny" else "warned")
     )
     return (mode, reason, outcome)
 
@@ -275,11 +275,16 @@ def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> No
     audit_reason = f"[mode={mode}] {reason}" if mode == "warn" else reason
     try:
         emit_denial_event(
-            hook=HOOK_NAME, tool="Bash", check_id=CHECK_ID, reason=audit_reason,
+            hook=HOOK_NAME,
+            tool="Bash",
+            check_id=CHECK_ID,
+            reason=audit_reason,
             session_id=session_id if isinstance(session_id, str) else "",
             tool_use_id=tool_use_id if isinstance(tool_use_id, str) else "",
             turn_id=turn if isinstance(turn, str) else "",
-            command_snippet=_extract_command(payload), outcome=outcome)
+            command_snippet=_extract_command(payload),
+            outcome=outcome,
+        )
     except Exception:
         pass
 
@@ -294,21 +299,37 @@ def evaluate(record: HookContext) -> HookDecision:
     _emit_audit_event(payload, reason, mode, outcome)
     audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
     if mode == "deny":
-        envelope = json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse",
-            "permissionDecision": "deny", "permissionDecisionReason": reason}})
-        return HookDecision(outcome=Outcome.DENY, message=envelope,
-            audit_fields=audit, block=True, next=Next.STOP)
+        envelope = json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason,
+                }
+            }
+        )
+        return HookDecision(
+            outcome=Outcome.DENY,
+            message=envelope,
+            audit_fields=audit,
+            block=True,
+            next=Next.STOP,
+        )
     return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     cwd, session_id = payload.get("cwd"), payload.get("session_id")
-    return HookContext(event_name="PreToolUse", executor_family="claude",
-        executor_surface="claude", payload=payload,
+    return HookContext(
+        event_name="PreToolUse",
+        executor_family="claude",
+        executor_surface="claude",
+        payload=payload,
         tool_name=_extract_tool_name(payload) or None,
         command_body=_extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
-        session_id=session_id if isinstance(session_id, str) else None)
+        session_id=session_id if isinstance(session_id, str) else None,
+    )
 
 
 def main() -> int:

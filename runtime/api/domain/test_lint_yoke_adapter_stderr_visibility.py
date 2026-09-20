@@ -41,8 +41,7 @@ def _eval(command: str, *, mode: str = "deny"):
             "merged stderr",
         ),
         (
-            "printf %s done | yoke say --stdin --item YOK-1 "
-            "2>/dev/null | tail -1",
+            "printf %s done | yoke say --stdin --item YOK-1 2>/dev/null | tail -1",
             "suppressed stderr",
         ),
     ],
@@ -131,26 +130,27 @@ def test_non_bash_tool_is_allowed():
 
 def test_suppression_token_is_audit_only():
     command = (
-        "yoke say --stdin 2>/dev/null "
-        "# lint:no-yoke-adapter-stderr-visibility-check"
+        "yoke say --stdin 2>/dev/null # lint:no-yoke-adapter-stderr-visibility-check"
     )
-    with mock.patch.object(lint, "_read_mode", return_value="deny"), \
-         mock.patch.object(lint, "_emit_audit_event") as emit_mock:
+    with (
+        mock.patch.object(lint, "_read_mode", return_value="deny"),
+        mock.patch.object(lint, "_emit_audit_event") as emit_mock,
+    ):
         decision = lint.evaluate(lint._build_context_from_payload(_payload(command)))
 
     assert decision.outcome is Outcome.DENY
     assert decision.next is Next.STOP
     body = json.loads(decision.message)
     assert body["hookSpecificOutput"]["permissionDecision"] == "deny"
-    assert "does NOT unblock" in body["hookSpecificOutput"][
-        "permissionDecisionReason"
-    ]
+    assert "does NOT unblock" in body["hookSpecificOutput"]["permissionDecisionReason"]
     assert emit_mock.call_args.args[3] == "suppression_attempted"
 
 
 def test_warn_mode_reports_without_blocking():
-    with mock.patch.object(lint, "_read_mode", return_value="warn"), \
-         mock.patch.object(lint, "_emit_audit_event"):
+    with (
+        mock.patch.object(lint, "_read_mode", return_value="warn"),
+        mock.patch.object(lint, "_emit_audit_event"),
+    ):
         decision = lint.evaluate(
             lint._build_context_from_payload(
                 _payload("yoke claims work acquire --item YOK-1 2>&-")
@@ -206,7 +206,7 @@ def test_truncated_adapter_output_is_denied(command: str):
         "yoke watch tail /tmp/yoke-watch-capture.log",
         "git log --oneline | head -5",
         "tail -80 /tmp/yoke-cmd.abc123",
-        'cat /tmp/out | head -1  # yoke messages list ran earlier',
+        "cat /tmp/out | head -1  # yoke messages list ran earlier",
         "yoke messages list --json | python3 -c 'print(1)'",
     ],
 )
@@ -216,7 +216,7 @@ def test_untruncated_and_out_of_scope_shapes_stay_allowed(command: str):
 
 def test_capture_then_inspect_is_the_taught_shape():
     command = (
-        '_tmp=$(mktemp /tmp/yoke-cmd.XXXXXX); yoke watch merge merge-item YOK-1 '
+        "_tmp=$(mktemp /tmp/yoke-cmd.XXXXXX); yoke watch merge merge-item YOK-1 "
         '>"$_tmp" 2>&1; _rc=$?; tail -80 "$_tmp"'
     )
 
@@ -265,3 +265,21 @@ def test_hidden_stderr_outranks_truncation_when_a_command_does_both():
 
     assert result is not None
     assert "hid its diagnostic stderr" in result[1]
+
+
+def test_literal_adapter_truncator_is_denied():
+    result = _eval("yoke relay status | head -4")
+    assert result is not None
+    assert "Yoke adapter output truncated" in result[1]
+
+
+def test_assigned_variable_truncator_is_denied():
+    result = _eval("p=head; yoke relay status | $p -4")
+    assert result is not None
+    assert "Yoke adapter output truncated" in result[1]
+
+
+def test_unresolved_truncator_substitution_is_denied():
+    result = _eval("yoke relay status | $p -4")
+    assert result is not None
+    assert result[0] == "deny"

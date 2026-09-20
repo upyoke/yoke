@@ -1,30 +1,11 @@
 """Extract target paths from PreToolUse payloads for claim-based validation.
 
-The session-cwd lint validates per-tool-call **targets** against the
-session's claim authority. This module is the target-extraction layer:
-given a PreToolUse payload, return the list of paths the tool call
-would touch. The validator in :mod:`lint_session_cwd_validate` then
-decides whether each target lands under a claimed worktree, the
-control plane, or a free path.
-
-Extracted shapes:
-
-* **Edit / Read / Write:** ``tool_input.file_path`` is the canonical
-  target.
-* **apply_patch:** parse only patch directive paths, never diff content.
-* **Bash:** parse the command body and surface any of:
-    - ``-C <path>`` (git, make, etc.)
-    - ``--rootdir <path>`` / ``--rootdir=<path>`` (pytest)
-    - ``--target-root <path>`` / ``--target-root=<path>``
-    - ``--worktree-path <path>`` / ``--worktree-path=<path>``
-    - ``-w <path>`` (custom Yoke flag)
-    - absolute-path positional arguments
-* **Relative targets:** resolve against the call's declared workdir.
-* **No extractable target:** the caller falls back to the effective project cwd.
-
-Write-only consumers use :func:`extract_payload_write_targets`, which
-narrows bodies to paths occupying real write positions. Fixture strings
-and read operands are not write targets.
+The session-cwd lint validates per-call targets against claim authority.
+This module extracts the paths a tool call would touch; the validator in
+:mod:`lint_session_cwd_validate` decides claimed worktree vs control plane
+vs free path. Write-only consumers use
+:func:`extract_payload_write_targets` so fixture strings and read operands
+are not write targets.
 """
 
 from __future__ import annotations
@@ -35,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePath
 from typing import Any, List, Mapping, Tuple
 
+from yoke_core.domain.lint_command_extract import extract_command
 from yoke_core.domain.lint_python_write_target_extract import (
     analyze_python_heredoc_writes,
 )
@@ -59,9 +41,15 @@ from yoke_core.domain.path_claim_bash_splitter import split_pipeline
 
 
 APPLY_PATCH_TOOL_NAMES = frozenset({"apply_patch", "ApplyPatch"})
-_ALL_POSITIONAL_WRITE_COMMANDS = frozenset({
-    "touch", "mkdir", "tee", "truncate", "sponge",
-})
+_ALL_POSITIONAL_WRITE_COMMANDS = frozenset(
+    {
+        "touch",
+        "mkdir",
+        "tee",
+        "truncate",
+        "sponge",
+    }
+)
 _LAST_POSITIONAL_WRITE_COMMANDS = frozenset({"cp", "mv", "install"})
 SHELL_WRITE_COMMAND_BASES = (
     _ALL_POSITIONAL_WRITE_COMMANDS | _LAST_POSITIONAL_WRITE_COMMANDS | {"patch"}
@@ -100,7 +88,9 @@ def _is_apply_patch_payload(payload: Mapping[str, Any]) -> bool:
 
 
 def resolve_payload_cwd(
-    payload: Mapping[str, Any], *, fallback: str = "",
+    payload: Mapping[str, Any],
+    *,
+    fallback: str = "",
 ) -> str:
     """Return the call's declared cwd, excluding a bare app container root."""
     if not isinstance(payload, Mapping):
@@ -118,20 +108,29 @@ def resolve_payload_cwd(
         project_candidates.extend(roots)
     project_cwd = next(
         (
-            value for value in project_candidates
-            if isinstance(value, str) and value.strip()
+            value
+            for value in project_candidates
+            if isinstance(value, str)
+            and value.strip()
             and Path(value).expanduser() != _APP_CONTAINER_ROOT
         ),
         "",
     )
     raw_cwd = payload.get("cwd")
     if isinstance(raw_cwd, str) and raw_cwd.strip():
-        return project_cwd if Path(raw_cwd).expanduser() == _APP_CONTAINER_ROOT else raw_cwd
+        return (
+            project_cwd
+            if Path(raw_cwd).expanduser() == _APP_CONTAINER_ROOT
+            else raw_cwd
+        )
     return project_cwd or fallback
 
 
 def _resolve_target_paths(
-    paths: List[str], cwd: str, *, machine_home: str | None = None,
+    paths: List[str],
+    cwd: str,
+    *,
+    machine_home: str | None = None,
 ) -> List[str]:
     out: List[str] = []
     for raw in paths:
@@ -156,7 +155,9 @@ def _dedupe_paths(paths: List[str]) -> List[str]:
 
 
 def extract_payload_targets(
-    payload: Mapping[str, Any], *, machine_home: str | None = None,
+    payload: Mapping[str, Any],
+    *,
+    machine_home: str | None = None,
 ) -> List[str]:
     """Return the list of target paths for a PreToolUse payload."""
     if not isinstance(payload, Mapping):
@@ -225,7 +226,9 @@ def analyze_payload_write_targets(
     python_writes = analyze_python_heredoc_writes(command)
     out.extend(python_writes.targets)
     return PayloadWriteTargets(
-        _dedupe_paths(out), unresolved, python_writes.unresolved_writes,
+        _dedupe_paths(out),
+        unresolved,
+        python_writes.unresolved_writes,
     )
 
 
@@ -306,27 +309,18 @@ def _split_redirect_targets(tokens: List[str]) -> Tuple[List[str], List[str]]:
 
 
 def extract_payload_command(payload: Mapping[str, Any]) -> str:
-    """Return the Bash command body from a PreToolUse payload, or ``""``.
-
-    Surfaces the raw command so callers
-    (:func:`extract_payload_targets`, the PYTHONPATH-equivalence
-    override in :mod:`lint_session_cwd_control_plane`) can each parse it
-    once without restating the payload-shape lookups.
-    """
+    """Return the Bash command, or apply_patch text, from a PreToolUse payload."""
     if not isinstance(payload, Mapping):
         return ""
-    tool_input = _tool_input(payload)
-    command = tool_input.get("command") or tool_input.get("cmd")
-    if not isinstance(command, str) and _is_apply_patch_payload(payload):
+    command = extract_command(payload)
+    if command:
+        return command
+    if _is_apply_patch_payload(payload):
+        tool_input = _tool_input(payload)
         for key in ("input", "patch", "diff"):
             value = tool_input.get(key)
             if isinstance(value, str) and value.strip():
-                command = value
-                break
-    if not isinstance(command, str):
-        command = payload.get("command")
-    if isinstance(command, str) and command.strip():
-        return command
+                return value
     return ""
 
 

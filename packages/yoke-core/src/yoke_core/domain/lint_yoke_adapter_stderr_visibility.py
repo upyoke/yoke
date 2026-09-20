@@ -37,6 +37,7 @@ from yoke_core.domain.lint_yoke_adapter_output_truncation import (
 )
 from yoke_core.domain.path_claim_bash_splitter import iter_pipeline_groups
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 CHECK_ID = "lint-yoke-adapter-stderr-visibility"
 HOOK_NAME = CHECK_ID
@@ -48,18 +49,6 @@ _ITEM_STRUCTURED_WRITES = frozenset(
 _ITEM_SECTION_WRITES = frozenset({"upsert", "delete"})
 _LAUNCH_WRITES = frozenset({"create", "retry", "reconcile"})
 _MESSAGE_ACKS = frozenset({"ack", "acknowledge"})
-
-
-def _extract_command(payload: dict) -> str:
-    for key in ("tool_input", "toolInput", "input"):
-        tool_input = payload.get(key)
-        if isinstance(tool_input, dict):
-            for command_key in ("command", "cmd"):
-                value = tool_input.get(command_key)
-                if isinstance(value, str) and value:
-                    return value
-    value = payload.get("command")
-    return value if isinstance(value, str) else ""
 
 
 def _extract_tool_name(payload: dict) -> str:
@@ -99,11 +88,7 @@ def _mutating_adapter_label(stage: str) -> Optional[str]:
         and args[2] in _ITEM_SECTION_WRITES
     ):
         path = tuple(args[:3])
-    elif (
-        len(args) >= 3
-        and args[0] == "claims"
-        and args[2] in {"acquire", "release"}
-    ):
+    elif len(args) >= 3 and args[0] == "claims" and args[2] in {"acquire", "release"}:
         path = tuple(args[:3])
     elif args[:2] == ["lifecycle", "transition"]:
         path = tuple(args[:2])
@@ -113,11 +98,7 @@ def _mutating_adapter_label(stage: str) -> Optional[str]:
         and args[2] in _LAUNCH_WRITES
     ):
         path = tuple(args[:3])
-    elif (
-        args[:1] == ["messages"]
-        and len(args) >= 2
-        and args[1] in _MESSAGE_ACKS
-    ):
+    elif args[:1] == ["messages"] and len(args) >= 2 and args[1] in _MESSAGE_ACKS:
         path = tuple(args[:2])
     elif args[:2] == ["messages", "send"]:
         path = tuple(args[:2])
@@ -180,9 +161,7 @@ def _find_violation(command: str) -> Optional[Tuple[str, str]]:
     return None
 
 
-def _format_reason(
-    label: str, hazard: str, suppression_seen: bool, mode: str
-) -> str:
+def _format_reason(label: str, hazard: str, suppression_seen: bool, mode: str) -> str:
     body = (
         f"BLOCKED: state-changing Yoke adapter hid its diagnostic stderr "
         f"(`{label}` {hazard}).\n\n"
@@ -268,23 +247,37 @@ def evaluate(record: HookContext) -> HookDecision:
     _emit_audit_event(payload, reason, mode, outcome)
     audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
     if mode == "deny":
-        envelope = json.dumps({"hookSpecificOutput": {
-            "hookEventName": "PreToolUse", "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }})
-        return HookDecision(outcome=Outcome.DENY, message=envelope,
-            audit_fields=audit, block=True, next=Next.STOP)
+        envelope = json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason,
+                }
+            }
+        )
+        return HookDecision(
+            outcome=Outcome.DENY,
+            message=envelope,
+            audit_fields=audit,
+            block=True,
+            next=Next.STOP,
+        )
     return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     cwd, session_id = payload.get("cwd"), payload.get("session_id")
-    return HookContext(event_name="PreToolUse", executor_family="claude",
-        executor_surface="claude", payload=payload,
+    return HookContext(
+        event_name="PreToolUse",
+        executor_family="claude",
+        executor_surface="claude",
+        payload=payload,
         tool_name=_extract_tool_name(payload) or None,
         command_body=_extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
-        session_id=session_id if isinstance(session_id, str) else None)
+        session_id=session_id if isinstance(session_id, str) else None,
+    )
 
 
 def main() -> int:

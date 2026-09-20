@@ -33,6 +33,7 @@ from yoke_core.domain.lint_session_cwd_target_extract_shell import (
 from yoke_core.domain.lint_shell_target_tokens import shell_command_segments
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 CHECK_ID = "lint-headless-watcher-timeout"
 HOOK_NAME = CHECK_ID
@@ -40,18 +41,6 @@ SUPPRESSION_TOKEN = "# lint:no-headless-watcher-timeout-check"
 _CLAUDE_FAMILY = "claude"
 _HEADLESS_ENV = (LAUNCH_CONTEXT_ENV, RESUME_ATTEMPT_ENV)
 _WATCH_KINDS = frozenset(kind[-1] for kind in WATCH_CLI_TOKENS.values())
-
-
-def _extract_command(payload: dict) -> str:
-    for key in ("tool_input", "toolInput", "input"):
-        value = payload.get(key)
-        if isinstance(value, dict):
-            for command_key in ("command", "cmd"):
-                command = value.get(command_key)
-                if isinstance(command, str) and command:
-                    return command
-    command = payload.get("command")
-    return command if isinstance(command, str) else ""
 
 
 def _extract_tool_name(payload: dict) -> str:

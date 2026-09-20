@@ -35,6 +35,7 @@ from typing import Optional, Tuple
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.workspace_authority import resolve_session_worktree_paths
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 
 CHECK_ID = "lint-workspace-cwd-match"
@@ -59,18 +60,6 @@ _WRITER_VERBS = (
     ("python", "-m", "yoke_core.tools.run_tests"),
     ("python3", "-m", "yoke_core.tools.run_tests"),
 )
-
-
-def _extract_command(payload: dict) -> str:
-    for k in ("tool_input", "toolInput", "input"):
-        ti = payload.get(k)
-        if isinstance(ti, dict):
-            for ck in ("command", "cmd"):
-                v = ti.get(ck)
-                if isinstance(v, str) and v:
-                    return v
-    v = payload.get("command")
-    return v if isinstance(v, str) else ""
 
 
 def _extract_tool_name(payload: dict) -> str:
@@ -149,7 +138,11 @@ def _is_under(target: str, root: str) -> bool:
 
 
 def _format_reason(
-    workspace: str, cwd: str, statement_tokens: list[str], suppression_seen: bool, mode: str,
+    workspace: str,
+    cwd: str,
+    statement_tokens: list[str],
+    suppression_seen: bool,
+    mode: str,
 ) -> str:
     head = " ".join(statement_tokens[:6])
     suffix = ""
@@ -200,7 +193,11 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
             continue
         mode = _read_mode(payload)
         reason = _format_reason(
-            ", ".join(workspaces), cwd, tokens, suppression_seen, mode,
+            ", ".join(workspaces),
+            cwd,
+            tokens,
+            suppression_seen,
+            mode,
         )
         outcome = "suppression_attempted" if suppression_seen else "denied"
         return (mode, reason, outcome)
@@ -242,13 +239,15 @@ def evaluate(record: HookContext) -> HookDecision:
     _emit_audit_event(payload, reason, mode, outcome)
     audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
     if mode == "deny":
-        envelope = json.dumps({
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": reason,
+        envelope = json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason,
+                }
             }
-        })
+        )
         return HookDecision(
             outcome=Outcome.DENY,
             message=envelope,

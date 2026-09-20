@@ -18,24 +18,13 @@ from typing import Optional, Tuple
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 
 CHECK_ID = "lint-watcher-module-form"
 HOOK_NAME = CHECK_ID
 SUPPRESSION_TOKEN = "# lint:no-watcher-module-form-check"
 _PYTHON_NAMES = {"python", "python3"}
-
-
-def _extract_command(payload: dict) -> str:
-    for key in ("tool_input", "toolInput", "input"):
-        value = payload.get(key)
-        if isinstance(value, dict):
-            for command_key in ("command", "cmd"):
-                command = value.get(command_key)
-                if isinstance(command, str) and command:
-                    return command
-    command = payload.get("command")
-    return command if isinstance(command, str) else ""
 
 
 def _extract_tool_name(payload: dict) -> str:
@@ -50,7 +39,8 @@ def _read_mode(payload: object | None = None) -> str:
     from yoke_core.domain import lint_config
 
     return lint_config.resolve_mode_for_payload(
-        "lint_watcher_module_form", payload,
+        "lint_watcher_module_form",
+        payload,
     )
 
 
@@ -75,12 +65,13 @@ def _legacy_forms(command: str) -> tuple[tuple[str, str], ...]:
 
 
 def _format_reason(
-    forms: tuple[tuple[str, str], ...], suppression_seen: bool, mode: str,
+    forms: tuple[tuple[str, str], ...],
+    suppression_seen: bool,
+    mode: str,
 ) -> str:
     old = ", ".join(module for module, _ in forms)
     replacements = "\n".join(
-        f"  {old_form}  ->  {cli_form_value}"
-        for old_form, cli_form_value in forms
+        f"  {old_form}  ->  {cli_form_value}" for old_form, cli_form_value in forms
     )
     body = (
         "BLOCKED: legacy watcher module form is retired.\n\n"
@@ -114,8 +105,10 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     suppression_seen = SUPPRESSION_TOKEN in command
     mode = _read_mode(payload)
     reason = _format_reason(forms, suppression_seen, mode)
-    outcome = "suppression_attempted" if suppression_seen else (
-        "denied" if mode == "deny" else "warned"
+    outcome = (
+        "suppression_attempted"
+        if suppression_seen
+        else ("denied" if mode == "deny" else "warned")
     )
     return mode, reason, outcome
 
@@ -148,13 +141,15 @@ def evaluate(record: HookContext) -> HookDecision:
     _emit_audit_event(payload, reason, mode, outcome)
     audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
     if mode == "deny":
-        envelope = json.dumps({
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": reason,
+        envelope = json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason,
+                }
             }
-        })
+        )
         return HookDecision(
             outcome=Outcome.DENY,
             message=envelope,

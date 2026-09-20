@@ -27,6 +27,7 @@ from yoke_core.domain.lint_claim_ownership_denials import (
     spoof_reason as _spoof_reason,
 )
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 
 CHECK_ID = "claim_ownership_mutation"
@@ -126,25 +127,6 @@ _SESSION_ID_FLAG_RE = re.compile(r"--session-id[=\s]+([^\s]+)")
 _ITEM_FLAG_RE = re.compile(r"(?:--item|--item-id)[=\s]+(?:YOK-)?(\d+)")
 _BARE_YOKE_ITEM_REF_RE = re.compile(r"\bYOK-(\d+)\b")
 _SHELL_BOUNDARIES = frozenset({"&&", "||", ";", "|", ">", "<", "2>&1"})
-
-
-def _extract_command(payload: dict) -> str:
-    tool_input = (
-        payload.get("tool_input")
-        or payload.get("toolInput")
-        or payload.get("input")
-        or {}
-    )
-    if not isinstance(tool_input, dict):
-        tool_input = {}
-    for candidate in (
-        tool_input.get("command"),
-        tool_input.get("cmd"),
-        payload.get("command"),
-    ):
-        if isinstance(candidate, str) and candidate:
-            return candidate
-    return ""
 
 
 def _positional_tokens_after(command: str, module: str, count: int = 3) -> list[str]:

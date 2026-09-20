@@ -22,24 +22,13 @@ from typing import Optional, Tuple
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_destructive_git import _parse_git_invocations
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.domain.lint_command_extract import extract_command as _extract_command
 
 CHECK_ID = "lint-git-stash-arg-order"
 HOOK_NAME = "lint-git-stash-arg-order"
 SUPPRESSION_TOKEN = "# lint:no-stash-arg-order-check"
 
 _MESSAGE_FLAGS = ("-m", "--message")
-
-
-def _extract_command(payload: dict) -> str:
-    for k in ("tool_input", "toolInput", "input"):
-        ti = payload.get(k)
-        if isinstance(ti, dict):
-            for ck in ("command", "cmd"):
-                v = ti.get(ck)
-                if isinstance(v, str) and v:
-                    return v
-    v = payload.get("command")
-    return v if isinstance(v, str) else ""
 
 
 def _extract_tool_name(payload: dict) -> str:
@@ -57,9 +46,19 @@ def _read_mode(payload: object | None = None) -> str:
     return lint_config.resolve_mode_for_payload("lint_git_stash_arg_order", payload)
 
 
-_NON_PUSH_SUBCOMMANDS = frozenset({
-    "drop", "clear", "pop", "list", "show", "apply", "branch", "create", "store",
-})
+_NON_PUSH_SUBCOMMANDS = frozenset(
+    {
+        "drop",
+        "clear",
+        "pop",
+        "list",
+        "show",
+        "apply",
+        "branch",
+        "create",
+        "store",
+    }
+)
 
 
 def _is_stash_push(args: list[str]) -> bool:
@@ -99,7 +98,7 @@ def _find_message_after_dashdash(args: list[str]) -> Optional[Tuple[str, int, in
 
 
 def _format_reason(flag: str, suppression_seen: bool, mode: str) -> str:
-    safe = "git stash push -u -m \"reason\" -- <paths>"
+    safe = 'git stash push -u -m "reason" -- <paths>'
     body = (
         "BLOCKED: `git stash push` with a message flag after `--` silently drops the message.\n\n"
         f"Detected: `{flag}` appears after the `--` separator.\n"
@@ -114,10 +113,9 @@ def _format_reason(flag: str, suppression_seen: bool, mode: str) -> str:
         body = body + "\n\n[mode=warn] this hook would block in deny mode."
     elif suppression_seen:
         body = (
-            body
-            + f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
-              "evidence (outcome=suppression_attempted) but does NOT unblock — the "
-              "rule still denies. Reorder `-m` ahead of `--` and retry."
+            body + f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
+            "evidence (outcome=suppression_attempted) but does NOT unblock — the "
+            "rule still denies. Reorder `-m` ahead of `--` and retry."
         )
     return attach_check_id(body, check_id="lint-git-stash-arg-order")
 
@@ -158,11 +156,16 @@ def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> No
     audit_reason = f"[mode={mode}] {reason}" if mode == "warn" else reason
     try:
         emit_denial_event(
-            hook=HOOK_NAME, tool="Bash", check_id=CHECK_ID, reason=audit_reason,
+            hook=HOOK_NAME,
+            tool="Bash",
+            check_id=CHECK_ID,
+            reason=audit_reason,
             session_id=sid if isinstance(sid, str) else "",
             tool_use_id=tu if isinstance(tu, str) else "",
             turn_id=turn if isinstance(turn, str) else "",
-            command_snippet=_extract_command(payload), outcome=outcome)
+            command_snippet=_extract_command(payload),
+            outcome=outcome,
+        )
     except Exception:
         pass
 
@@ -177,21 +180,37 @@ def evaluate(record: HookContext) -> HookDecision:
     _emit_audit_event(payload, reason, mode, outcome)
     audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
     if mode == "deny":
-        envelope = json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse",
-            "permissionDecision": "deny", "permissionDecisionReason": reason}})
-        return HookDecision(outcome=Outcome.DENY, message=envelope,
-            audit_fields=audit, block=True, next=Next.STOP)
+        envelope = json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason,
+                }
+            }
+        )
+        return HookDecision(
+            outcome=Outcome.DENY,
+            message=envelope,
+            audit_fields=audit,
+            block=True,
+            next=Next.STOP,
+        )
     return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     cwd, sid = payload.get("cwd"), payload.get("session_id")
-    return HookContext(event_name="PreToolUse", executor_family="claude",
-        executor_surface="claude", payload=payload,
+    return HookContext(
+        event_name="PreToolUse",
+        executor_family="claude",
+        executor_surface="claude",
+        payload=payload,
         tool_name=_extract_tool_name(payload) or None,
         command_body=_extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
-        session_id=sid if isinstance(sid, str) else None)
+        session_id=sid if isinstance(sid, str) else None,
+    )
 
 
 def main() -> int:

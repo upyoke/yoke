@@ -81,12 +81,16 @@ class TestHitShapes(unittest.TestCase):
         )
 
     def test_run_tests_piped(self):
-        self.assertIsNotNone(
-            _eval("python3 -m yoke_core.tools.run_tests 2>&1 | head")
-        )
+        self.assertIsNotNone(_eval("python3 -m yoke_core.tools.run_tests 2>&1 | head"))
 
     def test_venv_pytest_path_piped(self):
         self.assertIsNotNone(_eval("./venv/bin/pytest -q | tail -4"))
+
+    def test_assigned_variable_truncator_is_denied(self):
+        self.assertIsNotNone(_eval("p=head; python3 -m pytest runtime/api/ -q | $p -4"))
+
+    def test_unresolved_truncator_substitution_is_denied(self):
+        self.assertIsNotNone(_eval("python3 -m pytest runtime/api/ -q | $p -4"))
 
     def test_discovery_reads_piped_to_truncators_are_exempt(self):
         commands = (
@@ -158,9 +162,7 @@ class TestNonMatches(unittest.TestCase):
         self.assertIsNone(_eval("grep -n pytest runtime/api/conftest.py | head -3"))
 
     def test_search_filter_after_process_listing_not_matched(self):
-        self.assertIsNone(
-            _eval("ps aux | rg 'pytest|watch_pytest|qa case' | head -20")
-        )
+        self.assertIsNone(_eval("ps aux | rg 'pytest|watch_pytest|qa case' | head -20"))
 
     def test_quoted_evidence_pipes_are_not_live_pipelines(self):
         # Field-note / CLI evidence that quotes a long-command|truncator shape
@@ -174,7 +176,7 @@ class TestNonMatches(unittest.TestCase):
         self.assertIsNone(
             _eval(
                 "yoke ouroboros field-note append --kind observation "
-                "--evidence \"python3 -m yoke_core.tools.watch_pytest -- x | tail -8\""
+                '--evidence "python3 -m yoke_core.tools.watch_pytest -- x | tail -8"'
             )
         )
         self.assertIsNone(
@@ -219,22 +221,24 @@ class TestModesAndSuppression(unittest.TestCase):
 
     def test_evaluate_deny_decision_shape(self):
         payload = _payload("python3 -m pytest -q | tail -2")
-        with mock.patch.object(lptt, "_read_mode", return_value="deny"), \
-                mock.patch.object(lptt, "_emit_audit_event") as emit:
+        with (
+            mock.patch.object(lptt, "_read_mode", return_value="deny"),
+            mock.patch.object(lptt, "_emit_audit_event") as emit,
+        ):
             decision = lptt.evaluate(lptt._build_context_from_payload(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
         envelope = json.loads(decision.message)
-        self.assertEqual(
-            envelope["hookSpecificOutput"]["permissionDecision"], "deny"
-        )
+        self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
         emit.assert_called_once()
 
     def test_evaluate_warn_decision_shape(self):
         payload = _payload("python3 -m pytest -q | tail -2")
-        with mock.patch.object(lptt, "_read_mode", return_value="warn"), \
-                mock.patch.object(lptt, "_emit_audit_event"):
+        with (
+            mock.patch.object(lptt, "_read_mode", return_value="warn"),
+            mock.patch.object(lptt, "_emit_audit_event"),
+        ):
             decision = lptt.evaluate(lptt._build_context_from_payload(payload))
         self.assertIs(decision.outcome, Outcome.WARN)
         self.assertFalse(decision.block)

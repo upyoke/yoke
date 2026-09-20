@@ -27,6 +27,7 @@ import shlex
 from typing import Optional
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_core.domain.lint_command_extract import is_unresolved_command_token
 from yoke_core.domain.path_claim_bash_splitter import iter_pipeline_groups
 
 TRUNCATORS = frozenset({"head", "tail"})
@@ -85,7 +86,8 @@ def _is_truncator(stage: str) -> bool:
     tokens = stage_tokens(stage)
     if not tokens:
         return False
-    return os.path.basename(tokens[0]) in TRUNCATORS
+    first = os.path.basename(tokens[0])
+    return first in TRUNCATORS or is_unresolved_command_token(first)
 
 
 def find_truncation_violation(command: str) -> Optional[tuple[str, str]]:
@@ -167,7 +169,7 @@ def truncation_reason(
         "`yoke <command> --help` ends with the recipe, and `yoke --help` "
         "carries the catalog. To keep a long run's whole output, capture it "
         "to a file and read the file:\n"
-        "  _tmp=$(mktemp /tmp/yoke-cmd.XXXXXX); <command> >\"$_tmp\" 2>&1; "
+        '  _tmp=$(mktemp /tmp/yoke-cmd.XXXXXX); <command> >"$_tmp" 2>&1; '
         '_rc=$?; tail -80 "$_tmp"'
     )
     if mode == "warn":

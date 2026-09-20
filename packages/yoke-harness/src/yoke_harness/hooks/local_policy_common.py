@@ -9,6 +9,9 @@ import subprocess
 from dataclasses import dataclass
 from typing import Optional
 
+from yoke_core.domain.lint_command_extract import extract_command
+from yoke_core.domain.lint_destructive_git_commands import parse_git_invocations
+
 
 DENY = "deny"
 ADVISORY = "advisory"
@@ -33,13 +36,7 @@ def tool_input(payload: dict) -> dict:
 
 
 def command_from_payload(payload: dict) -> str:
-    data = tool_input(payload)
-    for key in ("command", "cmd"):
-        value = data.get(key)
-        if isinstance(value, str) and value:
-            return value
-    value = payload.get("command")
-    return value if isinstance(value, str) else ""
+    return extract_command(payload)
 
 
 def tool_name(payload: dict) -> str:
@@ -111,30 +108,7 @@ def git(cwd: str, *args: str) -> Optional[subprocess.CompletedProcess]:
 
 
 def git_invocations(command: str) -> list[tuple[list[str], str]]:
-    out: list[tuple[list[str], str]] = []
-    for tokens in statements(command):
-        index = 0
-        if tokens[index].rsplit("/", 1)[-1] != "git":
-            continue
-        index += 1
-        repo_path = ""
-        while index < len(tokens):
-            token = tokens[index]
-            if token == "-C" and index + 1 < len(tokens):
-                repo_path = tokens[index + 1]
-                index += 2
-            elif token.startswith("-C") and len(token) > 2:
-                repo_path = token[2:]
-                index += 1
-            elif token == "-c" and index + 1 < len(tokens):
-                index += 2
-            elif token.startswith("-"):
-                index += 1
-            else:
-                break
-        if index < len(tokens):
-            out.append((tokens[index:], repo_path))
-    return out
+    return parse_git_invocations(command)
 
 
 def repo_cwd(payload: dict, repo_path: str = "") -> str:

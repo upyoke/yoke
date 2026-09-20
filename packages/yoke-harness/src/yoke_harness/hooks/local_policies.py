@@ -112,14 +112,23 @@ def lint_destructive_git(payload: dict) -> PolicyResult:
             threatened = (
                 stash.stdout.splitlines() if stash and stash.returncode == 0 else []
             )
+            heading = "Stashes that would be discarded"
+            remediation = (
+                "Preserve the patch with `git stash show -p <stash>` "
+                "(or `git stash apply` if you still need it), then have the "
+                "operator run the drop or clear."
+            )
+        else:
+            heading = "Files at risk"
+            remediation = "Stash or commit work before retrying."
         if not threatened:
             continue
         listed = "\n  ".join(threatened[:10])
         return PolicyResult(
             DENY,
             "BLOCKED: destructive git command would wipe uncommitted changes.\n\n"
-            f"Shape: {shape}\nFiles at risk:\n  {listed}\n\n"
-            "Remediation: stash or commit work before retrying.",
+            f"Shape: {shape}\n{heading}:\n  {listed}\n\n"
+            f"Remediation: {remediation}",
         )
     return PolicyResult(NOOP)
 
