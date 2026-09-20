@@ -106,3 +106,96 @@ def test_suppression_is_audit_only():
     body = json.loads(decision.message)
     assert body["hookSpecificOutput"]["permissionDecision"] == "deny"
     assert emit_mock.call_args.args[3] == "suppression_attempted"
+
+
+# The prose both denied commands carried, verbatim from the recorded denial up
+# to the point its stored snippet was cut, then closed out with the later
+# double-quoted phrase the body went on to carry. It names a yoke command after
+# an ampersand pair and quotes adapter output either side of that, which is
+# what defeated the per-match heredoc strip: the more a body documented yoke
+# usage, the likelier the guard was to walk it as if it were command line.
+_FIELD_NOTE_PROSE = (
+    "The taught command for reading a Fleet message body does not print the "
+    "body, and the shape that does buries it under an unbounded "
+    "delivery-attempt log.  `yoke messages get --help` teaches, in its own "
+    "top-level Fleet workflow block: \"yoke messages get MESSAGE-ID && yoke "
+    "messages acknowledge MESSAGE-ID  # The body\". Run bare, that command "
+    "prints a header, a one-line `Body excerpt` truncated at roughly 70 "
+    "characters, a RECIPIENTS table, and then a DELIVERY ATTEMPTS table with "
+    "one row per attempt. The reader learns \"who tried to deliver it\" and "
+    "nothing about what it says."
+)
+
+
+def test_recorded_quoted_heredoc_denial_now_allows():
+    command = (
+        "yoke ouroboros field-note append --kind new --stdin <<'EOF'\n"
+        f"{_FIELD_NOTE_PROSE}\n"
+        "EOF"
+    )
+    assert _eval(command) is None
+
+
+def test_recorded_single_quoted_argument_denial_now_allows():
+    command = (
+        "yoke ouroboros field-note append --kind new --evidence "
+        f"'{_FIELD_NOTE_PROSE}'"
+    )
+    assert _eval(command) is None
+
+
+def test_unquoted_heredoc_delimiter_denies_and_names_quoting_it():
+    command = (
+        "yoke ouroboros field-note append --kind new --stdin <<EOF\n"
+        "the shell substitutes `whoami` here before yoke runs\n"
+        "EOF"
+    )
+    result = _eval(command)
+
+    assert result is not None
+    mode, reason, outcome = result
+    assert mode == "deny"
+    assert outcome == "denied"
+    assert "unquoted" in reason
+    assert "Heredoc body" in reason
+    assert "<<'EOF'" in reason
+
+
+def test_quoted_heredoc_body_is_literal_for_any_delimiter():
+    command = (
+        "yoke ouroboros field-note append --kind new --stdin <<'NOTE'\n"
+        "a `command` and $(whoami) stay literal inside a quoted delimiter\n"
+        "NOTE"
+    )
+    assert _eval(command) is None
+
+
+def test_heredoc_body_does_not_leak_into_a_later_command():
+    command = (
+        "cat > /tmp/note.txt <<'EOF'\n"
+        f"{_FIELD_NOTE_PROSE}\n"
+        "EOF\n"
+        "yoke ouroboros field-note append --kind new --stdin < /tmp/note.txt"
+    )
+    assert _eval(command) is None
+
+
+def test_yoke_invocation_on_a_later_line_is_still_scanned():
+    command = (
+        "git status\n"
+        'yoke dash TITLE "run `yoke items get` next"'
+    )
+    result = _eval(command)
+
+    assert result is not None
+    assert result[0] == "deny"
+    assert "double-quoted argument" in result[1]
+
+
+def test_yoke_named_inside_another_command_argument_allows():
+    command = 'git commit -m "note; yoke items get `X`"'
+    assert _eval(command) is None
+
+
+def test_here_string_is_not_read_as_a_heredoc():
+    assert _eval('yoke dash TITLE --stdin <<<"literal text"') is None

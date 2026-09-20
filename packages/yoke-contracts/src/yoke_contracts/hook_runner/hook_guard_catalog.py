@@ -209,7 +209,8 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
         "lint_yoke_quoted_shell_substitution",
         f"{_MODULE_PREFIX}lint_yoke_quoted_shell_substitution",
         False,
-        "Refuse yoke invocations with backticks or $( in double-quoted args.",
+        "Refuse yoke text the shell substitutes: backticks or $( in a "
+        "double-quoted argument or an unquoted-delimiter heredoc body.",
         check_id="lint-yoke-quoted-shell-substitution",
     ),
     GuardSpec(

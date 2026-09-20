@@ -21,16 +21,37 @@ SAFE_FORM = (
     "  yoke ... --source-ref \"$sha\""
 )
 
+QUOTE_THE_DELIMITER = (
+    "An unquoted delimiter leaves the body expanded, so quote it and the same "
+    "text arrives literally:\n"
+    "  yoke ... --stdin <<'EOF'\n"
+    "  body that names `yoke items get` and $(whoami) literally\n"
+    "  EOF"
+)
 
-def format_reason(span: str, suppression_seen: bool, mode: str) -> str:
-    preview = span if len(span) <= 160 else span[:157] + "..."
+_ARGUMENT_HEADLINE = (
+    "BLOCKED: a `yoke` invocation carries backticks or $( inside a "
+    "double-quoted argument."
+)
+_HEREDOC_HEADLINE = (
+    "BLOCKED: a `yoke` invocation feeds a heredoc whose delimiter is "
+    "unquoted, and its body carries backticks or $(."
+)
+_LABELS = {"argument": "Quoted argument", "heredoc": "Heredoc body"}
+_HEADLINES = {"argument": _ARGUMENT_HEADLINE, "heredoc": _HEREDOC_HEADLINE}
+_RECOVERIES = {"argument": SAFE_FORM, "heredoc": QUOTE_THE_DELIMITER}
+
+
+def format_reason(
+    kind: str, text: str, suppression_seen: bool, mode: str
+) -> str:
+    preview = text if len(text) <= 160 else text[:157] + "..."
     body = (
-        "BLOCKED: a `yoke` invocation carries backticks or $( inside a "
-        "double-quoted argument.\n\n"
-        f"Quoted argument: {preview!r}\n\n"
+        f"{_HEADLINES[kind]}\n\n"
+        f"{_LABELS[kind]}: {preview!r}\n\n"
         "The shell expands those forms before Yoke runs, so the command "
         "Yoke receives is already substituted. "
-        f"{SAFE_FORM}\n"
+        f"{_RECOVERIES[kind]}\n"
     )
     if mode == "warn":
         body += "\n[mode=warn] this hook would block in deny mode."
