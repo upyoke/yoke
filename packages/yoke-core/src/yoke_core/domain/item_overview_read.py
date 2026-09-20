@@ -12,6 +12,7 @@ from yoke_core.domain.item_finished_times import (
     finished_window_clause,
     is_finished,
 )
+from yoke_core.domain.item_landings import landing_counts
 from yoke_core.domain.item_page_claims import active_item_claims
 from yoke_core.domain.item_terminal_resources import terminal_stage_ids
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
@@ -167,6 +168,8 @@ def enrich_item_overview_rows(
             for lane in _dict_rows(lane_cursor):
                 worktrees.setdefault(int(lane["item_id"]), []).append(lane)
         claims = active_item_claims(conn, ids)
+        # One grouped count for the whole roster; no card reports it compact.
+        landings = {} if compact else landing_counts(conn, ids)
         qa_attention: dict[int, dict[str, str]] = {}
         if (
             _table_exists(conn, "qa_requirements")
@@ -226,6 +229,7 @@ def enrich_item_overview_rows(
                 "stage_label": runtime.stage_label(str(row["status"])),
                 "qa_attention": qa_attention.get(item_id),
                 "delivery": delivery.get(item_id),
+                "landing_count": landings.get(item_id, 0),
             }
         )
         result.append(

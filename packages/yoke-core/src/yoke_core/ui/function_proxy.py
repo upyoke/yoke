@@ -46,6 +46,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "packs.bundle.get",
         "project_structure.architecture_health.get",
         "items.detail.get",
+        "item_landings.list",
         "epic_tasks.list.run",
         "strategy.doc.list",
         "strategy.doc_claim.list",

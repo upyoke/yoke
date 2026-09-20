@@ -115,7 +115,7 @@ for (const band of BANDS) {
     assert.equal(byClass(box, "item-delivery-flow")[0].textContent, FLOW);
     assert.equal(
       byClass(box, "item-delivery-merges")[0].textContent,
-      "3 merges · 1 deployed · 2 not deployed",
+      "3 recorded merges · 1 deployed · 2 not deployed",
     );
     mounted.unmount();
   });
@@ -201,7 +201,7 @@ for (const band of BANDS) {
     mounted.unmount();
   });
 
-  test(`${band.key}: one landed merge is "1 merge"`, async (t) => {
+  test(`${band.key}: one recorded merge is "1 recorded merge"`, async (t) => {
     stubFetch(t);
     const { mounted, box } = await mountBand(band, () => [], {
       delivery: { merges: 1, deployed: 1, not_deployed: 0 },
@@ -209,7 +209,7 @@ for (const band of BANDS) {
 
     assert.equal(
       byClass(box, "item-delivery-merges")[0].textContent,
-      "1 merge · 1 deployed · 0 not deployed",
+      "1 recorded merge · 1 deployed · 0 not deployed",
     );
     mounted.unmount();
   });
@@ -220,17 +220,17 @@ for (const band of BANDS) {
       delivery: { merges: 0, deployed: 0, not_deployed: 0 },
     });
 
-    assert.equal(byClass(box, "item-delivery-merges")[0].textContent, "no merges");
+    assert.equal(byClass(box, "item-delivery-merges")[0].textContent, "no recorded merge");
     mounted.unmount();
   });
 
   test(`${band.key}: a projection that carried no delivery block still draws the line`, async (t) => {
     stubFetch(t);
     // An older serving build answers without the field; the card must not
-    // render "undefined merges" at a reader while that rolls out.
+    // render "undefined recorded merges" at a reader while that rolls out.
     const { mounted, box } = await mountBand(band);
 
-    assert.equal(byClass(box, "item-delivery-merges")[0].textContent, "no merges");
+    assert.equal(byClass(box, "item-delivery-merges")[0].textContent, "no recorded merge");
     mounted.unmount();
   });
 
@@ -251,7 +251,7 @@ for (const band of BANDS) {
     assert.equal(byClass(box, "item-delivery-flow")[0].textContent, FLOW);
     assert.equal(
       byClass(box, "item-delivery-merges")[0].textContent,
-      "1 merge · 1 deployed · 0 not deployed",
+      "1 recorded merge · 1 deployed · 0 not deployed",
     );
     // The head already names that flow, so the sub-card repeating it says
     // nothing — the same rule an item with its own flow gets.
@@ -269,7 +269,7 @@ for (const band of BANDS) {
     assert.equal(byClass(box, "item-delivery-flow")[0].textContent, "no flow");
     assert.equal(
       byClass(box, "item-delivery-merges")[0].textContent,
-      "1 merge · 0 deployed · 1 not deployed",
+      "1 recorded merge · 0 deployed · 1 not deployed",
     );
     mounted.unmount();
   });

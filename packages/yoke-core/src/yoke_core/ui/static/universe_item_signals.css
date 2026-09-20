@@ -290,3 +290,15 @@
     min-height: 36px;
   }
 }
+
+/* Re-landing churn, reported on the card only when there is churn to report:
+   an item that landed once carries nothing here. */
+.universe-app-root .work-item-card-landings {
+  padding: 1px 6px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 999px;
+  color: var(--yoke-ink-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

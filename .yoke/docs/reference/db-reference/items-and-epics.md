@@ -30,7 +30,7 @@ frozen INTEGER DEFAULT 0
 github_issue TEXT
 deployed_to TEXT
 body TEXT
-merged_at TEXT -- the landing merge commit's own time; a second landing replaces it
+merged_at TEXT -- the landing merge commit's own time; a second landing replaces it. Every landing is kept in `item_landings` ([item-landings.md](item-landings.md))
 created_at TEXT NOT NULL
 updated_at TEXT NOT NULL
 source TEXT NOT NULL DEFAULT '2' -- stringified actors.id for who/what originated the item

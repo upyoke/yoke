@@ -4,6 +4,7 @@ from yoke_cli.commands.adapters import (
     harness_machine_report,
     machine,
     inbox_decisions,
+    item_landings,
     item_worktree_create,
     item_worktrees,
     merge_review,
@@ -142,6 +143,14 @@ INBOX_DECISION_SUBCOMMAND_REGISTRY = {
 }
 
 
+ITEM_LANDING_SUBCOMMAND_REGISTRY = {
+    ("item-landings", "list"): (
+        "item_landings.list",
+        item_landings.item_landings_list,
+    ),
+}
+
+
 ITEM_WORKTREE_SUBCOMMAND_REGISTRY = {
     ("item-worktrees", "create"): (
         "item_worktrees.create",
@@ -209,6 +218,7 @@ PRODUCT_SURFACE_SUBCOMMAND_REGISTRY = {
     **OVERVIEW_SUBCOMMAND_REGISTRY,
     **EXECUTION_INSTRUCTION_SUBCOMMAND_REGISTRY,
     **INBOX_DECISION_SUBCOMMAND_REGISTRY,
+    **ITEM_LANDING_SUBCOMMAND_REGISTRY,
     **ITEM_PAGE_SUBCOMMAND_REGISTRY,
     **ITEM_WORKTREE_SUBCOMMAND_REGISTRY,
     **PROJECT_STRUCTURE_SUBCOMMAND_REGISTRY,

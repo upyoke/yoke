@@ -104,6 +104,12 @@ test("Blitz detail route renders the full execution-document composition", async
         },
       };
     }
+    if (request.function === "item_landings.list") {
+      return {
+        status: 200,
+        envelope: { success: true, result: { item_id: 51, rows: [], count: 0 } },
+      };
+    }
     throw new Error(`unexpected function ${request.function}`);
   }), root, "7", "ACM-22");
   await settle();
@@ -112,11 +118,12 @@ test("Blitz detail route renders the full execution-document composition", async
     requests.map((request) => request.function).sort(),
     // The verification rows also ask which of their reviews still wait on
     // this reader, so a pending one can point at its Inbox card; the page
-    // also reads who holds the claim and which releases carried the work.
+    // also reads who holds the claim, every landing the branch made, and
+    // which releases carried the work.
     [
-      "deployment_runs.find_by_item", "inbox.list", "items.detail.get",
-      "qa.artifact.read", "sessions.list", "strategy.execution.get",
-      "workflows.mechanics.get",
+      "deployment_runs.find_by_item", "inbox.list", "item_landings.list",
+      "items.detail.get", "qa.artifact.read", "sessions.list",
+      "strategy.execution.get", "workflows.mechanics.get",
     ],
   );
   const rendered = itemText(root);

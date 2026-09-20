@@ -25,6 +25,13 @@ ITEMS_ADAPTERS = [
         cli_invocation="yoke items public-ref lookup --id N [--id N ...]",
     ),
     AdapterEntry(
+        function_id="item_landings.list",
+        cli_invocation=(
+            "yoke item-landings list <PREFIX-N> "
+            "[--project P] [--session-id S] [--json]"
+        ),
+    ),
+    AdapterEntry(
         function_id="item_worktrees.create",
         cli_invocation=(
             "yoke item-worktrees create <PREFIX-N> "

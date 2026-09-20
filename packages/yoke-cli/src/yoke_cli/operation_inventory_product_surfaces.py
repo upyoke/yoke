@@ -22,6 +22,7 @@ WRAPPED_ROWS = (
     _w("yoke decision-requests resolve", "decision_requests"),
     _w("yoke merge-review candidate evaluate", "merge_review"),
     _w("yoke items get", "items.read"),
+    _w("yoke item-landings list", "item_landings"),
     _w("yoke item-worktrees create", "item_worktrees"),
     _w("yoke item-worktrees get", "item_worktrees"),
     _w("yoke item-worktrees inventory", "item_worktrees"),

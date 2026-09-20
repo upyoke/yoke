@@ -159,7 +159,7 @@ def test_a_merge_that_skips_close_out_does_not_report_a_closed_item(
 
 
 def test_a_refusal_names_not_closed_and_its_blocker(capsys):
-    exit_code = merge_cli._fail(
+    exit_code = report.fail_json(
         "ITEM-1: work claim held by another session (other)",
         as_json=False,
         public_ref="ITEM-1",
@@ -174,7 +174,7 @@ def test_a_refusal_names_not_closed_and_its_blocker(capsys):
 
 
 def test_a_refusal_reports_no_effect_it_did_not_confirm(capsys):
-    merge_cli._fail("ITEM-1: stale lane", as_json=True, public_ref="ITEM-1")
+    report.fail_json("ITEM-1: stale lane", as_json=True, public_ref="ITEM-1")
 
     block = _outcome_block(capsys.readouterr().err)
     assert not [line for line in block if "evidence saved" in line]
@@ -340,7 +340,7 @@ def test_an_unusable_item_id_is_unconfirmed_rather_than_raised():
 
 
 def test_an_unresolved_item_is_not_given_a_public_reference(capsys):
-    merge_cli._fail("could not resolve item '9999': no such item", as_json=False)
+    report.fail_json("could not resolve item '9999': no such item", as_json=False)
 
     block = _outcome_block(capsys.readouterr().err)
     assert block[0] == f"{report.UNRESOLVED_REF} not closed"
