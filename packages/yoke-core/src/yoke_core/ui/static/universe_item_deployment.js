@@ -104,19 +104,26 @@ export function shownDeliveryRuns(carried) {
 }
 
 /**
- * What the card says about this item's landed merges.
+ * What the card says about the merges it can account for.
  *
- * The counts come from the projection, which reads the item's own recorded
- * landings: a merge that landed after the last run is still one of them, and
- * saying so is the point of the line. One merge is "1 merge" — a card that
- * said "1 merges" at a reader undid the care the rest of the box takes.
+ * The count is of merge commits this item has a surviving RECORD of — the
+ * queue batch blocks and the merge receipt the projection reads — and the
+ * word says so. That is narrower than how many times the branch landed: the
+ * receipt is one settled entry per branch, so a branch that landed four times
+ * leaves one. The card names the landings themselves from `item_landings`,
+ * and a box calling its narrower number "merges" beside that put two
+ * contradicting counts of one thing on one card.
+ *
+ * A merge that landed after the last run is still one of these, and saying so
+ * is the point of the line. One is "1 recorded merge" — a card that said
+ * "1 recorded merges" at a reader undid the care the rest of the box takes.
  */
 export function mergesPhrase(delivery) {
   const merges = Number(delivery?.merges || 0);
-  if (!merges) return "no merges";
+  if (!merges) return "no recorded merge";
   const deployed = Number(delivery?.deployed || 0);
   const notDeployed = Number(delivery?.not_deployed ?? merges - deployed);
-  const noun = merges === 1 ? "merge" : "merges";
+  const noun = merges === 1 ? "recorded merge" : "recorded merges";
   return `${merges} ${noun} · ${deployed} deployed · ${notDeployed} not deployed`;
 }
 

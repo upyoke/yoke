@@ -46,12 +46,19 @@ const LANDINGS = [
   },
 ];
 
-function landingsClient(item, landings, { fail = false } = {}) {
+function landingsClient(item, landings, { fail = false, unreadable = false } = {}) {
   return async (request) => {
     if (request.function === "items.detail.get") return ok({ item });
     if (request.function === "item_landings.list") {
       if (fail) return { status: 500, envelope: { success: false } };
-      return ok({ item_id: 51, rows: landings, count: landings.length });
+      return ok({
+        item_id: 51,
+        rows: unreadable
+          ? landings.map(({ delivery, ...rest }) => rest)
+          : landings,
+        count: landings.length,
+        delivery_unreadable: unreadable,
+      });
     }
     if (request.function === "deployment_runs.find_by_item") {
       return ok({ item_id: 51, fields: [], rows: [] });
@@ -172,4 +179,19 @@ test("a card reports landing churn only when there is churn to report", () => {
       `landing_count=${count} must add nothing to the card`,
     );
   }
+});
+
+test("a delivery the read could not resolve is unknown, not undelivered", async () => {
+  // The landings are still the audit record; what failed is the second
+  // question over release state. Reporting it as "nothing shipped this" would
+  // be a false answer to a question nobody managed to ask.
+  const root = await renderLandings(LANDINGS, { unreadable: true });
+
+  assert.equal(byClass(root, "item-landing").length, 3);
+  assert.equal(byClass(root, "item-landing-undelivered").length, 0);
+  assert.equal(byClass(root, "item-landing-release").length, 0);
+  assert.deepEqual(
+    byClass(root, "item-landing-unknown").map((node) => node.textContent),
+    ["delivery unknown", "delivery unknown", "delivery unknown"],
+  );
 });

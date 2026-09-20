@@ -31,7 +31,15 @@ function shortSha(sha) {
   return String(sha || "").slice(0, SHA_WIDTH);
 }
 
-function deliveryNode(documentNode, item, landing) {
+// "Not delivered" is an answer; a question that could not be asked is not.
+// The read says which it is, so a landing whose release could not be resolved
+// reads as unknown rather than as nothing having shipped it.
+function deliveryNode(documentNode, item, landing, unreadable) {
+  if (unreadable) {
+    return el(
+      documentNode, "span", "item-landing-unknown", "delivery unknown",
+    );
+  }
   const delivery = landing.delivery || {};
   const runId = String(delivery.run_id || "").trim();
   if (!runId) {
@@ -44,7 +52,7 @@ function deliveryNode(documentNode, item, landing) {
   return link;
 }
 
-function landingRow(documentNode, item, landing, ordinal) {
+function landingRow(documentNode, item, landing, ordinal, unreadable) {
   const row = el(documentNode, "div", "item-landing");
   row.appendChild(el(
     documentNode, "span", "item-landing-ordinal", `#${ordinal}`,
@@ -76,7 +84,7 @@ function landingRow(documentNode, item, landing, ordinal) {
       relativeAgePhrase(landing.landed_at),
     ));
   }
-  row.appendChild(deliveryNode(documentNode, item, landing));
+  row.appendChild(deliveryNode(documentNode, item, landing, unreadable));
   return row;
 }
 
@@ -120,8 +128,11 @@ export function itemLandingsPanel(context, item) {
     const rows = result.rows || [];
     if (!rows.length) return;
     panel.hidden = false;
+    const unreadable = Boolean(result.delivery_unreadable);
     body.replaceChildren(...rows.map(
-      (landing, index) => landingRow(documentNode, item, landing, index + 1),
+      (landing, index) => landingRow(
+        documentNode, item, landing, index + 1, unreadable,
+      ),
     ));
   })();
   return panel;

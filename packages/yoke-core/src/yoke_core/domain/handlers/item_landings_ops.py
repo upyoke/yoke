@@ -60,6 +60,10 @@ class ListItemLandingsResponse(BaseModel):
     item_id: int
     rows: List[dict]
     count: int
+    #: True when the landings are readable but which release carried them is
+    #: not. Each row's ``delivery`` is then absent because the question could
+    #: not be asked, which is a different answer from "nothing delivered it".
+    delivery_unreadable: bool = False
 
 
 def _err(code: str, message: str) -> HandlerOutcome:
@@ -172,25 +176,36 @@ def handle_list_item_landings(request: FunctionCallRequest) -> HandlerOutcome:
                 return _err("target_not_found", ITEM_NOT_FOUND)
             project_id, flow, environment_id = scope
             landings = landings_for_item(conn, item_id)
-            delivered = delivery_by_landing(
-                conn,
-                merge_shas=[landing.merge_sha for landing in landings],
-                project_id=project_id,
-                environment_id=environment_id,
-                flow=flow,
-            )
+            # The landings are the audit record and answer on their own. Which
+            # release carried them is a second question over repository and
+            # release state that can fail by itself, and losing the record to
+            # that would be the wrong trade -- but so would reporting an
+            # unasked question as "nothing delivered it".
+            try:
+                delivered = delivery_by_landing(
+                    conn,
+                    merge_shas=[landing.merge_sha for landing in landings],
+                    project_id=project_id,
+                    environment_id=environment_id,
+                    flow=flow,
+                )
+                unreadable = False
+            except Exception:  # noqa: BLE001 - degraded to an unknown answer
+                delivered, unreadable = {}, True
     except Exception as exc:  # noqa: BLE001 - surfaced as an advisory refusal
         return _err("item_landings_read_failed", str(exc))
     rows = []
     for landing in landings:
         payload = landing.payload()
-        payload["delivery"] = delivered.get(landing.merge_sha)
+        if not unreadable:
+            payload["delivery"] = delivered.get(landing.merge_sha)
         rows.append(payload)
     return HandlerOutcome(
         result_payload={
             "item_id": item_id,
             "rows": rows,
             "count": len(rows),
+            "delivery_unreadable": unreadable,
         },
         primary_success=True,
     )

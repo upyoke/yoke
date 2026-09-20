@@ -341,4 +341,5 @@
 .universe-app-root .item-landing-pr,
 .universe-app-root .item-landing-route,
 .universe-app-root .item-landing-when { color: var(--yoke-muted); }
-.universe-app-root .item-landing-undelivered { color: var(--yoke-muted); }
+.universe-app-root .item-landing-undelivered,
+.universe-app-root .item-landing-unknown { color: var(--yoke-muted); }
