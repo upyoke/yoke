@@ -124,6 +124,7 @@ def _connection() -> sqlite3.Connection:
           created_at TEXT,
           plan_id INTEGER,
           plan_case_key TEXT,
+          deployment_member_item_id INTEGER,
           method_id TEXT,
           workflow_transition_id TEXT,
           instructions TEXT,

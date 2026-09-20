@@ -109,7 +109,13 @@ def dt_db(tmp_path, monkeypatch):
             id INTEGER PRIMARY KEY,
             item_id INTEGER,
             qa_kind TEXT,
-            requirement_source TEXT
+            qa_phase TEXT,
+            deployment_run_id TEXT,
+            blocking_mode TEXT DEFAULT 'blocking',
+            waived_at TEXT,
+            requirement_source TEXT,
+            plan_case_key TEXT,
+            deployment_member_item_id INTEGER
         );
         CREATE TABLE qa_runs (
             id INTEGER PRIMARY KEY,

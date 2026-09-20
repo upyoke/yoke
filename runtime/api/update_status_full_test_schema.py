@@ -225,8 +225,14 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
     id INTEGER PRIMARY KEY,
     item_id INTEGER NOT NULL,
     check_name TEXT NOT NULL,
+    qa_kind TEXT,
     qa_phase TEXT DEFAULT 'verification',
-    success_policy TEXT DEFAULT 'blocking'
+    deployment_run_id TEXT,
+    blocking_mode TEXT DEFAULT 'blocking',
+    waived_at TEXT,
+    success_policy TEXT DEFAULT 'blocking',
+    plan_case_key TEXT,
+    deployment_member_item_id INTEGER
 );
 CREATE TABLE IF NOT EXISTS qa_runs (
     id INTEGER PRIMARY KEY,

@@ -137,9 +137,8 @@ CREATE TABLE qa_requirements (
     success_policy TEXT NOT NULL DEFAULT 'blocking',
     capability_requirements TEXT,
     suite_id TEXT,
-    waived_at TEXT,
-    waiver_rationale TEXT,
-    created_at TEXT NOT NULL
+    waived_at TEXT, waiver_rationale TEXT, created_at TEXT NOT NULL,
+    plan_case_key TEXT, deployment_member_item_id INTEGER
 );
 """
 
