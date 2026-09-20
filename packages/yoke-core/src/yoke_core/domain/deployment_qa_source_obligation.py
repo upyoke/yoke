@@ -14,7 +14,6 @@ from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
 )
 from yoke_core.domain.deployment_qa_stage_acceptance import (
-    acceptance_waived,
     latest_verdict,
     stage_acceptance_blockers,
 )
@@ -24,20 +23,24 @@ from yoke_core.domain.deployment_qa_stage_contract import (
 )
 from yoke_core.domain.deployment_run_bound_sources import BOUND_SOURCES_FIELD
 from yoke_core.domain.deployment_run_project_sources import recorded_source_sha
+from yoke_core.domain.qa_obligation_settlement import obligation_settled
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 # A post_deploy row that already passed once is not re-runnable into
 # satisfaction, so "execute the case" is the wrong instruction and
-# "permanently blocked" is wrong too: there are two real ways out, and
-# both are configuration or authority rather than another run.
+# "permanently blocked" is wrong too: there are three real ways out, and
+# none of them is another run of the intake row.
 POST_DEPLOY_RECOVERY = (
     "A post_deploy obligation is satisfied by the completion run's admitted "
     "copy, so re-running the intake row cannot clear it. Deliver the item "
     "through a flow whose stage target matches the requirement's target_env "
     "so the run admits and accepts it, correcting whichever of the two is "
-    "wrong when they disagree; or waive the requirement through the "
-    "registered waiver surface with explicit authorization."
+    "wrong when they disagree; or, when the admitted copy was itself "
+    "defective and already recorded a verdict, record a corrected case that "
+    "passed in its place with yoke qa requirement supersede; or waive the "
+    "requirement through the registered waiver surface with explicit "
+    "authorization."
 )
 
 
@@ -124,7 +127,23 @@ def latest_deployment_run_for_item(conn: Any, item_id: int) -> dict[str, str]:
 def source_obligation_consumed(
     conn: Any, *, item_id: int, source_requirement_id: int
 ) -> bool:
-    """True when this intake row's admitted copy is accepted on the completion run."""
+    """True when this intake row's admitted copy is accepted on the completion run.
+
+    "Accepted" is the stage's own answer plus the copy's own discharge state,
+    and both discharge records count: a waiver and a supersession each settle
+    the obligation without evidence from the copy itself. Honouring only the
+    waiver made the product prescribe a remedy it then refused to read --
+    the freeze refusal tells an owner to supersede a case that answered
+    wrongly, the stage accepts the replacement, and ``done`` kept blocking on
+    the frozen row anyway, leaving a waiver as the only exit.
+
+    Following the link cannot launder a failure through. The replacement is
+    bound to the same run, stage, member and execution target, so it is
+    inside the scope :func:`stage_acceptance_blockers` already graded above
+    on its own evidence: a replacement that is not passing leaves blockers,
+    and this returns ``False`` before the discharge is ever consulted. An
+    un-superseded failing copy is untouched and still holds ``done``.
+    """
     binding = latest_deployment_run_for_item(conn, int(item_id))
     run_id = binding["run_id"]
     if not run_id or binding["status"] != "succeeded":
@@ -132,7 +151,8 @@ def source_obligation_consumed(
     case_key = admitted_requirement_case_key(int(source_requirement_id))
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
-        "SELECT id,deployment_stage,deployment_member_item_id "
+        "SELECT id,deployment_stage,deployment_member_item_id,"
+        "waived_at,superseded_by_requirement_id "
         "FROM qa_requirements WHERE deployment_run_id="
         f"{marker} AND plan_case_key={marker} AND plan_id IS NULL "
         "ORDER BY id",
@@ -141,10 +161,18 @@ def source_obligation_consumed(
     if len(rows) != 1:
         return False
     row = rows[0]
-    copy_id = int(row["id"] if hasattr(row, "keys") else row[0])
-    stage_name = str(row["deployment_stage"] if hasattr(row, "keys") else row[1] or "")
-    member = row["deployment_member_item_id"] if hasattr(row, "keys") else row[2]
+    copy_id = int(_row_value(row, "id", 0))
+    stage_name = str(_row_value(row, "deployment_stage", 1) or "")
+    member = _row_value(row, "deployment_member_item_id", 2)
     member_item_id = int(member) if member not in (None, 0) else None
+    settled = obligation_settled(
+        {
+            "waived_at": _row_value(row, "waived_at", 3),
+            "superseded_by_requirement_id": _row_value(
+                row, "superseded_by_requirement_id", 4
+            ),
+        }
+    )
     try:
         subject = deployment_qa_stage_subject(
             conn,
@@ -164,7 +192,7 @@ def source_obligation_consumed(
         return False
     if blockers:
         return False
-    if acceptance_waived(conn, copy_id):
+    if settled:
         return True
     return latest_verdict(conn, copy_id) == "pass"
 

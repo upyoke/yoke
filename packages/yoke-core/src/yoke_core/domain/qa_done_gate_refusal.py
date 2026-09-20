@@ -4,8 +4,8 @@ Split out of :mod:`qa_gates` to stay under the authored file line budget. The
 gate decides which rows still block; this renders why each one does and what
 clears it, which differs by phase: a row that has never run is executed, while
 a post_deploy row may already have a passing run recorded against a candidate
-this delivery is not about, and is cleared by delivery or an authorized waiver
-instead.
+this delivery is not about, and is cleared instead by delivery, by a corrected
+case that supersedes the defective admitted copy, or by an authorized waiver.
 """
 
 from __future__ import annotations
