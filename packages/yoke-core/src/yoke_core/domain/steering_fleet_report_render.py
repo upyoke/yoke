@@ -14,7 +14,10 @@ from yoke_core.domain.steering_fleet_report_balance import (
     launch_balance_lines,
 )
 from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
-from yoke_core.domain.steering_fleet_report_detectors import landed_recovery
+from yoke_core.domain.steering_fleet_report_landed_open import (
+    custody_phrase,
+    landed_recovery,
+)
 from yoke_core.domain.steering_fleet_report_render_launches import (
     abandoned_launch_lines,
     unregistered_launch_lines,
@@ -100,6 +103,7 @@ def _landed_lines(report: FleetReport) -> list[str]:
         f"  {entry.public_ref}  still {entry.status}  "
         f"landed {minutes(entry.landed_seconds)} ago  "
         f"{entry.holder_session_id or 'no live holder'}  "
+        f"{custody_phrase(entry)}  "
         f"{landed_recovery(entry.public_ref)}"
         for entry in report.landed_open[:SECTION_LIMIT]
     ]
@@ -196,7 +200,7 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
             abandoned_launch_lines(report.abandoned_launches),
         ),
         *_section(
-            "landed without close-out — branch merged, item still open",
+            "landed without close-out — branch merged, item still open; each row names which release holds it",
             _landed_lines(report),
         ),
         *_section(

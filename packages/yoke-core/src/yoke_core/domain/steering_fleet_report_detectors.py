@@ -1,8 +1,9 @@
 """Detect steering failures that arrive as silence in live control-plane state.
 
-Queries reveal unregistered launches, frozen Monitor waiters, and merged
-work lacking close-out. Launches corrected after delivery live in
-:mod:`steering_fleet_report_abandoned`. Undelivered mail lives in
+Queries reveal unregistered launches and frozen Monitor waiters. Merged work
+lacking close-out lives in :mod:`steering_fleet_report_landed_open`, which
+asks a release-custody question of its own. Launches corrected after delivery
+live in :mod:`steering_fleet_report_abandoned`. Undelivered mail lives in
 :mod:`steering_fleet_report_undelivered`; dead waits that need judgment live
 in :mod:`steering_fleet_report_dead_waits`.
 
@@ -18,8 +19,6 @@ from typing import Any, Mapping, Sequence
 
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_core.domain import db_backend
-from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
-from yoke_core.domain.item_ref_render import render_item_refs
 from yoke_core.domain.session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
 from yoke_core.domain.steering_fleet_report_evidence import (
     evidence_document,
@@ -35,7 +34,6 @@ from yoke_core.domain.session_tool_call_projections import (
     MONITOR_TOOL_NAME,
     last_completed_tool_select,
 )
-from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 def marker(conn: Any) -> str:
@@ -130,21 +128,6 @@ class UnregisteredLaunch:
     #: row names the exact capture on the machine that produced it.
     evidence_id: str = ""
     detail: str | None = None
-
-
-@dataclass(frozen=True)
-class LandedItem:
-    """One item whose branch landed while the item stayed open."""
-
-    item_id: int
-    public_ref: str
-    status: str
-    landed_at: str
-    landed_seconds: int
-    #: The live session holding the item's claim, empty when none does.
-    #: Close-out is a claim-holding step, so this is the difference between
-    #: a landing someone can be told to finish and one that needs staffing.
-    holder_session_id: str = ""
 
 
 def unregistered_launches(
@@ -243,105 +226,9 @@ def unregistered_launches(
     )
 
 
-def landed_recovery(public_ref: str) -> str:
-    """The close-out recipe both the text and the machine projection print."""
-    return (
-        f"finish close-out with `yoke merge item {public_ref}`; do not wait on status"
-    )
-
-
-def _live_item_holders(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
-    """Which of ``item_ids`` a live session still holds the claim on.
-
-    Only sessions that have neither ended nor terminated count: an ended
-    session cannot be asked to run close-out, so reporting it as the holder
-    would name a recovery path that does not exist.
-    """
-    if not item_ids:
-        return {}
-    p = marker(conn)
-    scope = scope_int_sql(conn, "wc.scope", "item_id")
-    holes = ", ".join(p for _ in item_ids)
-    rows = conn.execute(
-        f"""SELECT {scope} AS item_id, wc.session_id
-              FROM work_claims wc
-              JOIN harness_sessions hs ON hs.session_id = wc.session_id
-             WHERE wc.target_kind = 'item'
-               AND wc.released_at IS NULL
-               AND hs.ended_at IS NULL
-               AND hs.terminated_at IS NULL
-               AND {scope} IN ({holes})
-             ORDER BY wc.id""",
-        tuple(int(value) for value in item_ids),
-    ).fetchall()
-    return {int(row[0]): str(row[1]) for row in rows}
-
-
-def landed_without_closeout(
-    conn: Any,
-    *,
-    project_id: int,
-    now: str,
-) -> tuple[LandedItem, ...]:
-    """Items whose branch landed while the item never reached a terminal status.
-
-    The landing stamp is the item's own ``merged_at`` or, on a merge-queue
-    project, ``merge_queue_landed_at``; the earlier of the two present is the
-    moment the code was on the base branch. Either stamp may come from the
-    control-plane landing observer rather than from a worker that waited, so
-    this row fires for a landing whose waiting process died.
-
-    Each row carries whoever still holds the item, because close-out is a
-    claim-holding step: a landing with a live holder is a message away from
-    finished, and one with none needs a seat.
-    """
-    p = marker(conn)
-    terminal = sorted(TERMINAL_STATUSES)
-    holes = ", ".join(p for _ in terminal)
-    rows = conn.execute(
-        f"""SELECT id, status, merged_at, merge_queue_landed_at
-              FROM items
-             WHERE project_id = {p}
-               AND status NOT IN ({holes})
-               AND (merged_at IS NOT NULL OR merge_queue_landed_at IS NOT NULL)""",
-        (int(project_id), *terminal),
-    ).fetchall()
-    records = [dict(row) for row in rows]
-    item_ids = [int(record["id"]) for record in records]
-    refs = render_item_refs(conn, item_ids)
-    holders = _live_item_holders(conn, item_ids)
-    landed = []
-    for record in records:
-        present = [
-            str(record.get(name) or "")
-            for name in ("merged_at", "merge_queue_landed_at")
-            if record.get(name)
-        ]
-        if not present:
-            continue
-        landed_at = min(present)
-        item_id = int(record["id"])
-        landed.append(
-            LandedItem(
-                item_id=item_id,
-                public_ref=refs.get(item_id, str(item_id)),
-                status=str(record.get("status") or ""),
-                landed_at=landed_at,
-                landed_seconds=age_seconds(landed_at, now) or 0,
-                holder_session_id=holders.get(item_id, ""),
-            )
-        )
-    return tuple(
-        sorted(landed, key=lambda entry: (-entry.landed_seconds, entry.item_id))
-    )
-
-
 __all__ = [
-    "LandedItem",
     "UnregisteredLaunch",
     "age_seconds",
-    "landed_recovery",
-    "landed_without_closeout",
     "marker",
     "parse_stamp",
     "suspected_orphaned_waiters",

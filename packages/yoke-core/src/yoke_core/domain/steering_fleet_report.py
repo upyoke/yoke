@@ -64,10 +64,10 @@ from yoke_core.domain.steering_fleet_report_capacity import (
 )
 from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait, dead_waits
 from yoke_core.domain.steering_fleet_report_detectors import (
-    LandedItem,
     UnregisteredLaunch,
     suspected_orphaned_waiters,
 )
+from yoke_core.domain.steering_fleet_report_landed_open import LandedItem
 from yoke_core.domain.steering_fleet_report_fingerprint import report_fingerprint
 from yoke_core.domain.steering_fleet_report_holders import ClaimHolder
 from yoke_core.domain.steering_fleet_report_in_flight import (

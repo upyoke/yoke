@@ -16,9 +16,9 @@ from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait
 from yoke_core.domain.steering_fleet_report_undelivered import (
     UndeliveredMessages,
 )
-from yoke_core.domain.steering_fleet_report_detectors import (
+from yoke_core.domain.steering_fleet_report_detectors import UnregisteredLaunch
+from yoke_core.domain.steering_fleet_report_landed_open import (
     LandedItem,
-    UnregisteredLaunch,
     landed_recovery,
 )
 from yoke_core.domain.steering_fleet_report_vendor_errors import VendorErrorSession
@@ -100,6 +100,9 @@ def _landed_dict(entry: LandedItem) -> dict[str, Any]:
         "landed_at": entry.landed_at,
         "landed_seconds": entry.landed_seconds,
         "holder_session_id": entry.holder_session_id,
+        "custody_state": entry.custody_state,
+        "custody_run_id": entry.custody_run_id,
+        "stranded": entry.stranded,
         "recovery": landed_recovery(entry.public_ref),
     }
 

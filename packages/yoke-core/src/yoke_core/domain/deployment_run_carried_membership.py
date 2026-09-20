@@ -7,7 +7,12 @@ works. This module answers that in the two ways a start needs.
 
 :func:`enroll_carried_members` reads the run's own pinned ``release_lineage``
 and admits what that commit carries, so an ordinary start completes its own
-membership instead of asking a human to type the list back.
+membership instead of asking a human to type the list back. It draws on two
+candidate sources, because the carried range alone has a floor at the previous
+succeeded release and a landing behind that floor is invisible to it forever:
+the carried work itself, and the unheld landings this candidate carries
+(:mod:`deployment_run_unheld_candidates`). Both are filtered by the same
+admission rules below.
 :func:`carried_membership_refusal` is the invariant behind it — what enrollment
 could not resolve still stops the run, so nothing is waived by silence.
 
@@ -59,6 +64,9 @@ from yoke_core.domain.deployment_run_composition_freeze import (
 )
 from yoke_core.domain.deployment_run_composition_guard import (
     has_frozen_composition,
+)
+from yoke_core.domain.deployment_run_unheld_candidates import (
+    unheld_candidate_ids,
 )
 from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.deployment_requirement_snapshots import (
@@ -193,7 +201,10 @@ def enroll_carried_members(
         # owner reports it, so silence here is deferral, not a waiver.
         if bool((project_set.get("derivation") or {}).get("contents_known"))
         for entry in project_set.get("items") or []
-    })
+    # A landing older than the carried range's floor is still this run's to
+    # deliver when nothing else holds it, so the second source is unioned in
+    # before any lock is taken.
+    } | set(unheld_candidate_ids(conn, run_id)))
     if not carried:
         return ()
     # Item workflow bindings first, then the run row: the same order
@@ -237,7 +248,8 @@ def describe_enrollment(enrolled: Iterable[str]) -> str:
     if not refs:
         return ""
     return (
-        f"Enrolled {len(refs)} carried delivery-ready item(s) into this "
+        f"Enrolled {len(refs)} delivery-ready item(s) this candidate carries "
+        f"and no release held, into this "
         f"release: {', '.join(refs)}"
     )
 

@@ -20,9 +20,13 @@ from runtime.api.steering_fleet_test_helpers import (
     seed_tool_call,
 )
 from yoke_core.domain.steering_fleet_report_detectors import (
-    landed_without_closeout,
     suspected_orphaned_waiters,
     unregistered_launches,
+)
+from yoke_core.domain.delivery_landing_custody import UNHELD
+from yoke_core.domain.steering_fleet_report_landed_open import (
+    custody_phrase,
+    landed_without_closeout,
 )
 
 
@@ -241,6 +245,23 @@ def test_a_merged_branch_on_an_open_item_is_reported(fleet):
     assert [entry.item_id for entry in landed] == [1]
     assert landed[0].status == "implementing"
     assert landed[0].landed_seconds == 3 * 3600
+
+
+def test_a_landing_no_release_names_is_reported_as_stranded(fleet):
+    """The row that used to read like any other item waiting on a delivery.
+
+    No release names this item, so nothing is bringing its code to an
+    environment and the row has to say so rather than look like a wait.
+    """
+    fleet.execute("UPDATE items SET merged_at = %s WHERE id = 1", (LONG_AGO,))
+    fleet.commit()
+
+    landed = landed_without_closeout(fleet, project_id=PROJECT_ID, now=NOW)
+
+    assert landed[0].custody_state == UNHELD
+    assert landed[0].custody_run_id == ""
+    assert landed[0].stranded is True
+    assert "no release holds it" in custody_phrase(landed[0])
 
 
 def test_a_merged_branch_on_a_closed_item_is_not_reported(fleet):

@@ -68,12 +68,16 @@ learns the other's part from its own skill. The split is the whole rule:
 - **The seat driving delivery owns the run.** It holds `DEPLOY:<project>` for
   the whole pair, pins one source SHA, creates the stage and production runs
   from that SHA, and starts each one with `yoke --env CONTROL-PLANE watch
-  deploy -- RUN-ID`. The start enrolls every carried, delivery-ready item and
-  applies the composition check itself, so membership needs no separate step:
+  deploy -- RUN-ID`. The start enrolls every delivery-ready item its candidate
+  carries that no live or succeeded release already holds — whether the work
+  landed since the last release or long before it — and applies the composition
+  check itself, so membership needs no separate step:
   `yoke deployment-runs add-item RUN-ID PREFIX-N` is for the other case, an
   item whose code the candidate does not carry but which the run should still
   deliver, and `validate-composition` is an optional preview of what a start
-  will enroll and refuse. The driving seat does not run a member's item QA and
+  will enroll and refuse. An item a cancelled run left behind therefore needs
+  no attaching, and `yoke steering report get` names any landed item no
+  release holds so nobody has to notice one going stale. The driving seat does not run a member's item QA and
   does not close a member out.
 - **The member owner owns its own item.** Its merge parked it at the flow's
   release wait holding its work claim; the deployment wake re-enters it for its
