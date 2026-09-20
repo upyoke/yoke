@@ -239,5 +239,90 @@ class TestFailOpen(unittest.TestCase):
         self.assertIsNone(_eval('python3 -c "from runtime'))
 
 
+class TestRegisteredSourceRunWrapper(unittest.TestCase):
+    """``yoke dev run -- <command>`` is the mandated shape for lane source.
+
+    The exemption has to follow the invocation the ``-c`` body belongs to.
+    Deciding it from the command's LINES instead recognised only a
+    single-line invocation, so the same wrapper was refused whenever its
+    body spanned lines or another command ran ahead of it.
+    """
+
+    # Denied on its own, so each test below proves the wrapper is what
+    # exempts it rather than the body being innocuous.
+    ONE_LINE_BODY = '"import yoke_core, yoke_contracts"'
+    MULTI_LINE_BODY = (
+        '"\n'
+        "import yoke_core.domain.qa_admitted_case_currency as c\n"
+        "print('imports ok', c.STALE_PLAN_CASE_CODE)\n"
+        '"'
+    )
+
+    def assert_wrapper_decides(self, prefix: str, body: str) -> None:
+        self.assertIsNotNone(
+            _eval(f"{prefix}python3 -c {body}"),
+            "fixture proves nothing unless the unwrapped form denies",
+        )
+        self.assertIsNone(_eval(f"{prefix}yoke dev run -- python3 -c {body}"))
+
+    def test_wrapped_one_line_body_is_exempt(self):
+        self.assert_wrapper_decides("", self.ONE_LINE_BODY)
+
+    def test_wrapped_multi_line_body_is_exempt(self):
+        self.assert_wrapper_decides("", self.MULTI_LINE_BODY)
+
+    def test_wrapped_invocation_after_another_command_is_exempt(self):
+        self.assert_wrapper_decides(
+            "cd /Users/me/.worktrees/LANE && ", self.MULTI_LINE_BODY
+        )
+
+    def test_wrapped_invocation_after_an_env_assignment_is_exempt(self):
+        self.assert_wrapper_decides("YOKE_ENV=prod-db-admin ", self.ONE_LINE_BODY)
+
+    def test_an_unwrapped_invocation_beside_a_wrapped_one_still_denies(self):
+        verdict = _eval(
+            'yoke dev run -- python3 -c "import yoke_core, yoke_contracts"'
+            " && python3 -c \"import yoke_core, yoke_harness\""
+        )
+        self.assertIsNotNone(verdict)
+
+    def test_a_bare_interpreter_path_is_not_the_wrapper(self):
+        self.assertIsNotNone(
+            _eval(
+                '/Users/me/yoke/.venv/bin/python3 -c "import yoke_core, yoke_contracts"'
+            )
+        )
+
+
+class TestDenialNamesWhatItMatched(unittest.TestCase):
+    """A compound command gives the reader no way to tell which half matched.
+
+    One field-note attributed a correct denial to a heredoc that was only
+    editing a file, because the refusal named the rule and nothing else. The
+    reason has to quote the import it actually matched.
+    """
+
+    HEREDOC_EDIT_THEN_REACH_IN = (
+        "python3 - <<'PYEOF'\n"
+        "import pathlib\n"
+        'p = pathlib.Path("packages/yoke-core/src/yoke_core/domain/surfaces.py")\n'
+        'new = "from yoke_core.domain.item_worktrees import list_item_worktrees"\n'
+        'p.write_text(p.read_text().replace("# anchor", new))\n'
+        "PYEOF\n"
+        'python3 -c "from yoke_core.domain.surfaces import render"'
+    )
+
+    def test_a_file_editing_heredoc_alone_is_not_an_import(self):
+        heredoc_only = self.HEREDOC_EDIT_THEN_REACH_IN.rsplit("\n", 1)[0]
+        self.assertIsNone(_eval(heredoc_only))
+
+    def test_the_matched_import_is_quoted_in_the_reason(self):
+        verdict = _eval(self.HEREDOC_EDIT_THEN_REACH_IN)
+        self.assertIsNotNone(verdict)
+        reason = verdict[1]
+        self.assertIn("from yoke_core.domain.surfaces import render", reason)
+        self.assertNotIn("list_item_worktrees", reason)
+
+
 if __name__ == "__main__":
     unittest.main()

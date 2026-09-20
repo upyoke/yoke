@@ -38,7 +38,7 @@ import os
 import re
 import shlex
 import sys
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_no_agent_runtime_api_import_from_c_readonly import (
@@ -65,22 +65,27 @@ _FORBIDDEN_IMPORT_RE = re.compile(
     rf")"
 )
 _PYTHON_TOKEN_RE = re.compile(r"^python(?:3(?:\.\d+)?)?$")
-_EXPORT_PREFIX_RE = re.compile(r"^export\s+[A-Za-z_][A-Za-z0-9_]*=.+$")
+#: The tokens immediately ahead of an interpreter that ``yoke dev run --``
+#: wraps. Source-dev doctrine mandates that wrapper for lane source, so the
+#: interpreter it launches is the sanctioned shape rather than a reach-in.
+_SOURCE_RUN_PREFIX = ["dev", "run", "--"]
 
 
-def _is_registered_source_run(command: str) -> bool:
-    """True for ``yoke dev run`` after optional environment setup lines."""
-    lines = [line.strip() for line in command.splitlines() if line.strip()]
-    if not lines or any(
-        _EXPORT_PREFIX_RE.fullmatch(line) is None for line in lines[:-1]
-    ):
+def _is_registered_source_run(tokens: List[str], python_index: int) -> bool:
+    """True when ``yoke dev run --`` launches the interpreter at *python_index*.
+
+    The exemption belongs to one invocation, not to the command body. Reading
+    it off the body's LINES recognised only a single-line invocation, so the
+    same wrapper was refused whenever its ``-c`` payload spanned lines or
+    another command ran ahead of it — and, in the other direction, a wrapper
+    at the start of the body exempted an unwrapped reach-in further along.
+    """
+    start = python_index - len(_SOURCE_RUN_PREFIX) - 1
+    if start < 0:
         return False
-    try:
-        tokens = shlex.split(lines[-1], posix=True)
-    except ValueError:
-        return False
-    return len(tokens) >= 4 and (
-        os.path.basename(tokens[0]) == "yoke" and tokens[1:4] == ["dev", "run", "--"]
+    return (
+        os.path.basename(tokens[start]) == "yoke"
+        and tokens[start + 1: python_index] == _SOURCE_RUN_PREFIX
     )
 
 
@@ -119,7 +124,9 @@ def _iter_python_c_bodies(command: str):
 
     Uses ``shlex.split`` for argument-aware tokenisation so the body is
     extracted post-shell-quoting. Returns the literal quoted body so the
-    caller can scan it for ``runtime.*`` imports.
+    caller can scan it for ``runtime.*`` imports. An invocation the
+    ``yoke dev run --`` wrapper launches is skipped, because that wrapper is
+    the sanctioned way to run this checkout's own source.
     """
     try:
         tokens = shlex.split(command, posix=True)
@@ -129,6 +136,8 @@ def _iter_python_c_bodies(command: str):
     for i, tok in enumerate(tokens):
         base = os.path.basename(tok)
         if not _PYTHON_TOKEN_RE.match(base):
+            continue
+        if _is_registered_source_run(tokens, i):
             continue
         for j in range(i + 1, n):
             arg = tokens[j]
@@ -151,11 +160,27 @@ def _iter_python_c_bodies(command: str):
                 break
 
 
+def _matched_import(body: str) -> str:
+    """Return the import statement this rule matched, or ``""``.
+
+    A compound command gives the reader no way to tell which of its
+    invocations tripped the rule: one refusal naming only the rule was read
+    as firing on a heredoc that was editing a file, when it had matched a
+    genuine reach-in further along the same body. Quoting the statement makes
+    the match self-evident.
+    """
+    match = _FORBIDDEN_IMPORT_RE.search(body)
+    if match is None:
+        return ""
+    tail = body[match.start():].lstrip("; \t\n")
+    return tail.splitlines()[0].strip() if tail else ""
+
+
 def _body_imports_runtime(body: str) -> bool:
     return bool(_FORBIDDEN_IMPORT_RE.search(body))
 
 
-def _format_reason(suppression_seen: bool, mode: str) -> str:
+def _format_reason(suppression_seen: bool, mode: str, matched: str = "") -> str:
     body = (
         'BLOCKED: `python3 -c "from yoke_core..."` is not the agent-facing shape '
         "for Yoke operations.\n\n"
@@ -191,6 +216,12 @@ def _format_reason(suppression_seen: bool, mode: str) -> str:
         "ad-hoc `yoke_core.*` / `runtime.*` reach-in is infrastructure / debug surface, not "
         "an agent shape."
     )
+    if matched:
+        body = (
+            f"Matched in a `-c` body: {matched}\n"
+            "Only that invocation is refused; anything else in this command "
+            "body, including a heredoc editing a file, is untouched.\n\n"
+        ) + body
     if mode == "warn":
         body = body + "\n\n[mode=warn] this hook would block in deny mode."
     elif suppression_seen:
@@ -213,18 +244,16 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     command = _extract_command(payload)
     if not command:
         return None
-    if _is_registered_source_run(command):
-        return None
-    hit = False
+    matched = ""
     for body in _iter_python_c_bodies(command):
         if _body_imports_runtime(body) and not is_read_only_import_probe(body):
-            hit = True
+            matched = _matched_import(body)
             break
-    if not hit:
+    if not matched:
         return None
     suppression_seen = SUPPRESSION_TOKEN in command
     mode = _read_mode(payload)
-    reason = _format_reason(suppression_seen, mode)
+    reason = _format_reason(suppression_seen, mode, matched)
     outcome = "suppression_attempted" if suppression_seen else "denied"
     return (mode, reason, outcome)
 

@@ -15,6 +15,7 @@ from yoke_core.domain.lint_session_cwd_host_command import (
     yoke_subcommand_positionals,
 )
 from yoke_core.domain.lint_shell_target_tokens import (
+    command_operand_tokens,
     path_target_from_token,
     resolve_path_operands,
     shell_command_segments,
@@ -174,7 +175,7 @@ def _extract_segment_targets(
     bindings: Mapping[str, str],
 ) -> Tuple[List[str], bool]:
     """Extract target paths from a single command segment."""
-    tokens = strip_env_prefixes(tokens)
+    tokens = strip_env_prefixes(command_operand_tokens(tokens))
     if not tokens:
         return [], False
 

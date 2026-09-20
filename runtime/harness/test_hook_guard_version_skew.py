@@ -10,8 +10,13 @@ from yoke_harness.hooks.guard_version_skew import (
 )
 
 
-CLIENT = {"source_sha": "a" * 40}
-SERVER = {"source_sha": "b" * 40}
+CLIENT = {"source_sha": "a" * 40, "install_kind": "source_checkout"}
+SERVER = {"source_sha": "b" * 40, "install_kind": "installed_wheel"}
+SERVER_FROM_CHECKOUT = {
+    "source_sha": "b" * 40,
+    "install_kind": "source_checkout",
+    "install_path": "/srv/yoke",
+}
 
 
 def test_matching_full_and_short_revisions_need_no_notice() -> None:
@@ -31,18 +36,49 @@ def test_matching_full_and_short_revisions_need_no_notice() -> None:
     )
 
 
-def test_mismatch_notice_names_serving_process_restart_boundary() -> None:
+def test_mismatch_notice_names_both_revisions() -> None:
     notice = guard_version_skew_notice(client=CLIENT, server=SERVER)
     assert "server revision bbbbbbbbbbbb" in notice
     assert "client hook is aaaaaaaaaaaa" in notice
-    assert "serving Yoke process" in notice
-    assert "restarting this session will not update a behind server" in notice
+
+
+def test_an_installed_server_is_told_a_restart_does_not_close_the_gap() -> None:
+    """Provenance is captured once at import. Restarting a process that loaded
+    an installed artifact re-imports that same artifact, so the only thing that
+    moves it is installing a newer build."""
+    notice = guard_version_skew_notice(client=CLIENT, server=SERVER)
+    assert "installed build" in notice
+    assert "installed" in notice
+    assert "restart" in notice.lower()
+    # The old wording named a restart as the remedy for every case.
+    assert not notice.endswith(
+        "restart the serving Yoke process at the intended revision."
+    )
+
+
+def test_a_source_checkout_server_is_told_a_restart_does_close_the_gap() -> None:
+    """There the loaded modules came from a git tree that has since moved, so a
+    restart re-probes that tree and picks the new revision up."""
+    notice = guard_version_skew_notice(client=CLIENT, server=SERVER_FROM_CHECKOUT)
+    assert "restart" in notice.lower()
+    assert "/srv/yoke" in notice
+    assert "installed build" not in notice
+
+
+def test_an_unknown_install_kind_is_not_promised_a_restart_remedy() -> None:
+    """Only a checkout is known to re-probe, so anything else gets the
+    conservative recovery rather than an action that may do nothing."""
+    notice = guard_version_skew_notice(
+        client=CLIENT, server={"source_sha": "b" * 40, "install_kind": "uv_tool"},
+    )
+    assert "installed build" in notice
 
 
 def test_mismatch_notice_is_one_line() -> None:
     """It rides along on a refusal the reader is already diagnosing."""
-    notice = guard_version_skew_notice(client=CLIENT, server=SERVER)
-    assert notice.count("\n") == 0
+    for server in (SERVER, SERVER_FROM_CHECKOUT):
+        notice = guard_version_skew_notice(client=CLIENT, server=server)
+        assert notice.count("\n") == 0
 
 
 def test_codex_deny_reason_receives_skew_notice_once() -> None:
