@@ -43,6 +43,56 @@ and they are how such a case names its own subject. A command that writes a
 run id or a member ref as a literal is correct for exactly one run and then
 reports on the wrong one; read these instead, and the same plan keeps working
 on every release.
+
+What this does NOT reach
+------------------------
+Replacing cases writes the plan. Rows already materialized from it keep the
+body they were materialized with, so the result reports
+requirements_behind_plan: every such row, the fields that moved, and the
+`yoke qa plan rematerialize` invocation that reaches that exact row. An empty
+list means nothing is behind the plan. Read it — a correction that stops at
+the plan is a correction the case that actually runs never received.
+"""
+
+#: Read as ``yoke qa plan rematerialize --help``. The one route from a
+#: corrected plan to the rows that run it, and where it stops.
+PLAN_REMATERIALIZE_EPILOG = """Bringing live rows to the plan's current text
+---------------------------------------------
+This is the supported way to correct a materialized case. It refreshes
+matching rows in place, retains their QA run history, creates cases the plan
+has gained, and waives cases it has lost. It reaches every executable column,
+instructions and expected_outcome included -- which `yoke qa requirement
+update` cannot write at all -- because it rewrites the derivation whole rather
+than one allowlisted field. It also carries that body onto every admitted
+deployment-stage copy frozen from a refreshed row that can still be reached,
+reported as corrected_admitted_copy_ids -- otherwise the copy would keep the
+old body and its stage would refuse the case as superseded.
+
+A deployment subject refreshes only cases that have not recorded a
+determinate verdict; one that has already answered is an acceptance record,
+so the call refuses and names it for `yoke qa requirement supersede` instead.
+The subject keeps the deployment target its stage receipt pinned --
+rematerializing never re-points a frozen run at the plan's current
+environment.
+
+Where it refuses instead
+------------------------
+It will not move a row something else has already frozen a copy of, and it
+decides that before writing anything, so a refused refresh leaves every row
+exactly as it was.
+
+plan_execution_in_flight: a live QA plan execution is walking a roster built
+from these rows. The refusal names the execution and the full
+`yoke qa plan abort` invocation that reopens the refresh.
+
+admitted_copy_in_flight: an admitted deployment-stage copy of a row is on a
+run that is still executing and cannot be corrected. The refusal names the
+copy, its run, and the remedy available for that copy.
+
+Reading drift without two bodies
+--------------------------------
+`yoke qa requirement list` reports plan_currency per materialized row --
+current, stale with plan_diverging_fields, orphaned, or unreadable.
 """
 
 USAGE_BY_FUNCTION_ID = {
@@ -98,5 +148,6 @@ USAGE_BY_FUNCTION_ID = {
 __all__ = [
     "ITEM_PLAN_ATTACH_EPILOG",
     "PLAN_CASES_REPLACE_EPILOG",
+    "PLAN_REMATERIALIZE_EPILOG",
     "USAGE_BY_FUNCTION_ID",
 ]

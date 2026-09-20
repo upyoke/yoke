@@ -67,8 +67,8 @@ yoke qa item-plan attach \
 ```
 
 At the declared transition, Yoke materializes one requirement per case.
-Those rows are the snapshot: later plan edits affect only items that have not
-materialized the plan. Once any requirement for a plan and transition exists,
+Those rows are the snapshot; a later plan edit does not reach them, and says
+so. Once any requirement for a plan and transition exists,
 the whole plan is considered snapshotted for that item; newly authored cases
 do not leak into that item on a later materialization call. Empty plans cannot
 be attached or materialized. v1 accepts only the `all-pass` policy, including
@@ -77,15 +77,14 @@ that same project. Case waiver stays case-scoped, and the transition
 consumes the union of all materialized outcomes. Where QA policy is optional item attachment, attach and materialize accept only the selection in
 `workflow_posture.verification`; set it on an item that has none with `yoke workflows item-posture amend PREFIX-N --verification-plan ID_OR_SLUG --reason TEXT` (`--help` carries the per-key decision tree).
 
-If a plan definition needs correction after it has materialized, replace the
-active snapshot with:
+A plan edit writes the plan alone and reports `requirements_behind_plan` — the
+already-materialized rows it did not reach. Bringing those current is one
+operation, which refuses rather than move a row a live walk or an in-flight
+admitted copy has frozen: [Plan case currency](qa-platform/plan-case-currency.md).
 
 ```text
 yoke qa plan rematerialize --item <PREFIX-N> --transition <stage>
 ```
-
-The operation refreshes matching plan requirements in place, retains their run
-history, creates any newly added cases, and waives cases no longer in the plan.
 
 Before an item can enter any terminal lifecycle stage, its QA records must be
 settled. A run without a verdict (including a timed-out run), or an active,

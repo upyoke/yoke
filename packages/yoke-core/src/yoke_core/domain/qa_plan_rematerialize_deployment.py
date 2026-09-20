@@ -29,7 +29,9 @@ from yoke_core.domain.db_helpers import iso8601_now, query_rows
 from yoke_core.domain.qa_deployment_case_correction_window import (
     determinate_verdict,
 )
+from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder, _plan_row
+from yoke_core.domain.qa_plan_refresh_safety import require_no_live_execution
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
     insert_requirement,
@@ -116,6 +118,15 @@ def rematerialize_for_deployment_stage(
             "the plan onto the stage first"
         )
     execution_target = _pinned_target(rows, subject=subject)
+    # Refused before the first write, for the same reason the answered-case
+    # refusal below rolls back: half a refresh is worse than none.
+    require_no_live_execution(
+        conn,
+        subject=subject,
+        deployment_run_id=str(deployment_run_id),
+        deployment_stage=str(deployment_stage),
+        deployment_member_item_id=deployment_member_item_id,
+    )
 
     rows_by_plan: dict[int, list[dict[str, Any]]] = {}
     for row in rows:
@@ -144,21 +155,15 @@ def rematerialize_for_deployment_stage(
             (str(row["plan_case_key"]), row["host_baseline"]): int(row["id"])
             for row in plan_rows
         }
-        cases = query_rows(
-            conn,
-            "SELECT c.*, m.name AS method_name, m.runner_id, "
-            "m.required_capability_kinds, m.verdict_path, m.config_contract_id "
-            f"FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
-            f"WHERE c.plan_id={_placeholder(conn)} ORDER BY c.position",
-            (plan_id,),
-        )
+        cases = plan_cases(conn, plan_id)
         if not cases:
             raise QaPlanError(
                 f"QA plan {plan_id} has no cases and cannot be rematerialized"
             )
         for case in cases:
-            baselines = json.loads(str(case["host_baselines"] or "[]")) or [None]
-            for baseline_position, baseline in enumerate(baselines, start=1):
+            for baseline_position, baseline in enumerate(
+                case_baselines(case), start=1
+            ):
                 key = (str(case["case_key"]), baseline)
                 requirement_id = existing_ids.get(key)
                 if requirement_id is None:

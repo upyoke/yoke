@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any, Callable, Optional
 
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
@@ -13,6 +12,7 @@ from yoke_core.domain.qa_execution_environment_target import (
 from yoke_core.domain.qa_deployment_run_stage_scope import (
     require_stage_scoped_materialization,
 )
+from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     require_existing_target,
     require_requirement_id_target,
@@ -60,14 +60,7 @@ def materialize_deployment_plan(
         raise QaPlanError(f"QA plan {plan!r} not found in project {run['project']!r}")
     plan_id = int(plan_row["id"])
     execution_target = resolve_plan_execution_target(conn, plan_id=plan_id)
-    cases = query_rows(
-        conn,
-        "SELECT c.*, m.name AS method_name, m.runner_id, "
-        "m.required_capability_kinds, m.verdict_path, m.config_contract_id "
-        "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
-        f"WHERE c.plan_id={marker} ORDER BY c.position",
-        (plan_id,),
-    )
+    cases = plan_cases(conn, plan_id)
     if not cases:
         raise QaPlanError(f"QA plan {plan_id} has no cases and cannot be materialized")
     existing_rows = query_rows(
@@ -101,8 +94,9 @@ def materialize_deployment_plan(
     now = iso8601_now()
     try:
         for case in cases:
-            baselines = json.loads(str(case["host_baselines"] or "[]")) or [None]
-            for baseline_position, baseline in enumerate(baselines, start=1):
+            for baseline_position, baseline in enumerate(
+                case_baselines(case), start=1
+            ):
                 requirement_id = insert_requirement_fn(
                     conn,
                     deployment_run_id=str(deployment_run_id),

@@ -11,8 +11,8 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 from yoke_core.domain.handlers.qa import _error, _p
-from yoke_core.domain.qa_admitted_case_currency import annotate_admitted_currency
 from yoke_core.domain.qa_constants import REQ_COLUMNS, RUN_COLUMNS
+from yoke_core.domain.qa_plan_case_currency import annotate_requirement_currency
 from yoke_core.domain.qa_review_requirement_facts import frozen_target_facts
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -80,7 +80,7 @@ def handle_qa_requirement_list(request: FunctionCallRequest) -> HandlerOutcome:
             f"WHERE {where.format(p=_p(conn))} ORDER BY id",
             params,
         )
-        listed = annotate_admitted_currency(conn, _rows_to_dicts(rows, REQ_COLUMNS))
+        listed = annotate_requirement_currency(conn, _rows_to_dicts(rows, REQ_COLUMNS))
     finally:
         conn.close()
     return HandlerOutcome(
