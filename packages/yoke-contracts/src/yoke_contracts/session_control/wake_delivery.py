@@ -133,6 +133,26 @@ _DIAGNOSTIC_EVIDENCE_KEYS = (
 #: successful hook injection a failure.
 HOOK_INJECTED_RESULT = "injected"
 
+#: The composed reply could not carry this body even alone. Retrying the
+#: same payload against the same harness cap cannot succeed.
+INLINE_OVERFLOW_RESULT = "inline_overflow"
+
+#: This hook admitted other messages; the receipt stays pending for a
+#: later hook that starts with a fresh budget. Not a delivery failure.
+HOOK_DEFERRED_FOR_BUDGET_RESULT = "deferred_for_budget"
+
+#: Hopeless overflow retries against an unchanged cap. The third attempt
+#: still records the diagnostic; later hooks stop leasing the receipt.
+INLINE_OVERFLOW_ATTEMPT_BOUND = 3
+
+
+def inline_overflow_skip_reason(message_id: str) -> str:
+    """Named overflow class plus the read that yields the body."""
+    return (
+        f"inline_overflow: exceeds inline cap; yoke messages get {message_id}"
+    )
+
+
 #: Every attempt outcome, on either route, that delivered or may still.
 DELIVERY_ATTEMPT_SUCCESS_RESULTS = frozenset(
     {HOOK_INJECTED_RESULT, *WAKE_ATTEMPT_SUCCESS_RESULTS}
@@ -153,6 +173,8 @@ def delivery_attempt_failed(result_code: object) -> bool:
         # pending and the next sweep after the running native exits
         # wakes it; calling that a failure would report a defect where
         # the relay made the correct decision.
+        return False
+    if str(result_code) == HOOK_DEFERRED_FOR_BUDGET_RESULT:
         return False
     return str(result_code) not in DELIVERY_ATTEMPT_SUCCESS_RESULTS
 
@@ -204,12 +226,16 @@ TURN_WITHOUT_INJECTION_RECOVERY = (
 
 __all__ = [
     "DELIVERY_ATTEMPT_SUCCESS_RESULTS",
+    "HOOK_DEFERRED_FOR_BUDGET_RESULT",
     "HOOK_INJECTED_RESULT",
+    "INLINE_OVERFLOW_ATTEMPT_BOUND",
+    "INLINE_OVERFLOW_RESULT",
     "NATIVE_RESUME_ACCEPTED_RESULT",
     "NATIVE_TURN_RUNNING_RESULT",
     "UNREPORTED_DELIVERY_DIAGNOSTIC",
     "delivery_attempt_diagnostic",
     "delivery_attempt_failed",
+    "inline_overflow_skip_reason",
     "WAKE_ATTEMPT_SUCCESS_RESULTS",
     "WAKE_ATTEMPT_ROSTER_RESULTS",
     "TURN_WITHOUT_INJECTION_RECOVERY",

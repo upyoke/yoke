@@ -119,6 +119,18 @@ def _operator_actor_id(conn: Any, session_id: str) -> int | None:
     return int(row[0]) if row is not None and row[0] is not None else None
 
 
+def _hook_already_attempted(conn: Any, *, envelope_id: str, session_id: str) -> bool:
+    """True when a hook already tried this envelope — that is not an absent operator."""
+    marker = _p(conn)
+    row = conn.execute(
+        "SELECT 1 FROM session_message_attempts "
+        f"WHERE message_id={marker} AND target_session_id={marker} "
+        "AND attempt_kind='hook' LIMIT 1",
+        (envelope_id, session_id),
+    ).fetchone()
+    return row is not None
+
+
 def _notice_body(*, session_id: str, surface: str, envelope_id: str) -> str:
     return (
         f"A message is waiting in your {surface} session {session_id} and "
@@ -148,10 +160,12 @@ def notify_operator_to_wake(
     if not operator_wake_notice_due(row, grace_seconds=grace_seconds, now=now):
         return None
     session_id = str(row["session_id"])
+    envelope_id = str(row["message_id"])
+    if _hook_already_attempted(conn, envelope_id=envelope_id, session_id=session_id):
+        return None
     actor_id = _operator_actor_id(conn, session_id)
     if actor_id is None:
         return None
-    envelope_id = str(row["message_id"])
     policy = project_policy(conn, project_id)
     details, created = insert_message(
         conn,
@@ -256,6 +270,10 @@ def _envelope_settled_reason(
     expires = parse_timestamp(receipt.get("expires_at"))
     if expires is not None and expires <= now:
         return "original_expired"
+    if _hook_already_attempted(
+        conn, envelope_id=envelope_id, session_id=session_id
+    ):
+        return "hook_attempted"
     return wake_notice_settled_reason(receipt)
 
 

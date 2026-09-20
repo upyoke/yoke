@@ -72,6 +72,7 @@ class SessionMessageDeliveryPort(Protocol):
         lease_id: str,
         injected: bool,
         result: str,
+        message_results: Mapping[str, str] | None = None,
     ) -> None: ...
 
     def confirm_report_delivered(
@@ -271,6 +272,7 @@ class CoreSessionMessageDeliveryPort:
         lease_id: str,
         injected: bool,
         result: str,
+        message_results: Mapping[str, str] | None = None,
     ) -> None:
         from yoke_core.domain import db_backend
         from yoke_core.domain.session_message_delivery import complete_hook_lease
@@ -282,6 +284,7 @@ class CoreSessionMessageDeliveryPort:
                 lease_id=lease_id,
                 injected=injected,
                 result=result,
+                message_results=message_results,
             )
         finally:
             conn.close()

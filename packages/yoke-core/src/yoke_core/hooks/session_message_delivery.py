@@ -7,11 +7,8 @@ from typing import Iterable
 
 from yoke_contracts.hook_context_compose import (
     FLEET_REPORT_CONTEXT_FIELD,
-    POINTER_BEGIN,
     compose_context_list,
-    overflow_lease_marker,
     reply_is_well_formed,
-    token_delivered,
 )
 from yoke_contracts.hook_runner.config_owner import CURSOR_MODEL_CONTEXT_NATIVE_EVENTS
 from yoke_contracts.hook_runner.model_context_channel import (
@@ -23,7 +20,6 @@ from yoke_contracts.session_control.capabilities import (
     capabilities_for_harness,
     capability_for_surface,
 )
-from yoke_contracts.session_control.wake_delivery import HOOK_INJECTED_RESULT
 from yoke_contracts.session_execution import is_subagent_execution
 from yoke_core.domain.session_message_delivery_probe import (
     PROBE_LEASE_FAILED,
@@ -42,6 +38,7 @@ from yoke_core.hooks.session_message_rendering import (
     render_child_view,
     render_lease,
 )
+from yoke_core.hooks.session_message_settlement import classify_lease_settlement
 from yoke_core.hooks.session_message_wake_eligibility import wake_eligible
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
@@ -292,30 +289,18 @@ def settle_after_render(
             if delivery_port is None:
                 delivery_port = _delivery_port()
             token = str(raw.get("render_token") or "").strip()
-            # A substring match alone is not proof of delivery: a report
-            # envelope followed by an unrelated raw message body satisfies
-            # it while the harness's own parser never reaches the second
-            # value. token_delivered also checks the reply parses cleanly.
-            injected = not denied and token_delivered(rendered_text, token)
-            overflow = bool(
-                POINTER_BEGIN in rendered_text
-                and overflow_lease_marker(lease_id) in rendered_text
+            settlement = classify_lease_settlement(
+                rendered_text,
+                denied=denied,
+                lease_id=lease_id,
+                token=token,
             )
-            if overflow:
-                injected = False
-            if denied:
-                result = "dropped_by_sibling_denial"
-            elif overflow:
-                result = "inline_overflow"
-            elif injected:
-                result = HOOK_INJECTED_RESULT
-            else:
-                result = "render_output_missing"
             try:
                 delivery_port.complete_hook_lease(
                     lease_id=lease_id,
-                    injected=injected,
-                    result=result,
+                    injected=settlement.injected,
+                    result=settlement.result,
+                    message_results=settlement.message_results or None,
                 )
             except Exception:
                 pass

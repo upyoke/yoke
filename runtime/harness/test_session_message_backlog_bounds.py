@@ -12,11 +12,17 @@ from __future__ import annotations
 import pytest
 
 from yoke_contracts.hook_context_compose import POINTER_BEGIN
+from yoke_contracts.session_control.wake_delivery import (
+    HOOK_DEFERRED_FOR_BUDGET_RESULT,
+    INLINE_OVERFLOW_ATTEMPT_BOUND,
+    INLINE_OVERFLOW_RESULT,
+    inline_overflow_skip_reason,
+)
 from yoke_core.domain.session_message_delivery import (
     complete_hook_lease,
     lease_for_hook,
 )
-from yoke_core.domain.session_message_queries import list_messages
+from yoke_core.domain.session_message_queries import get_message, list_messages
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.hooks import session_message_delivery as hook_delivery
 from yoke_core.hooks.decision_render import render_claude_decision
@@ -83,10 +89,19 @@ class _ConnectionPort:
         )
 
     def complete_hook_lease(
-        self, *, lease_id: str, injected: bool, result: str
+        self,
+        *,
+        lease_id: str,
+        injected: bool,
+        result: str,
+        message_results: dict[str, str] | None = None,
     ) -> None:
         complete_hook_lease(
-            self.conn, lease_id=lease_id, injected=injected, result=result
+            self.conn,
+            lease_id=lease_id,
+            injected=injected,
+            result=result,
+            message_results=message_results,
         )
 
     def confirm_report_delivered(self, **_fields: str) -> None:
@@ -173,102 +188,79 @@ def test_a_backlog_is_not_truncated_by_a_message_count() -> None:
     assert set(_receipts(conn).values()) == {"injected"}
 
 
-def test_a_lease_too_large_for_the_ceiling_settles_none_of_its_messages() -> None:
-    """Overflow points at every leased message rather than shipping some."""
+def test_a_lease_too_large_for_the_ceiling_ships_only_what_fits() -> None:
     conn = message_connection()
-    message_ids = _send(conn, 10, body="short")
+    message_ids = _send(conn, 10, body="y" * 400)
 
     with pytest.MonkeyPatch.context() as monkeypatch:
         rendered = _hook(conn, monkeypatch)
 
-    assert POINTER_BEGIN in rendered
-    for message_id in message_ids:
-        assert f"yoke messages get {message_id} --json" in rendered
-    assert set(_receipts(conn).values()) == {"pending"}
-    assert "inline_overflow" in _attempt_results(conn)
+    receipts = _receipts(conn)
+    injected = {mid for mid, state in receipts.items() if state == "injected"}
+    pending = {mid for mid, state in receipts.items() if state == "pending"}
+    assert injected and pending
+    assert set(receipts) == set(message_ids)
+    for message_id in injected:
+        assert f"--- BEGIN YOKE SESSION MESSAGE {message_id} ---" in rendered
+    for message_id in pending:
+        assert f"--- BEGIN YOKE SESSION MESSAGE {message_id} ---" not in rendered
+    assert INLINE_OVERFLOW_RESULT not in _attempt_results(conn)
+    assert HOOK_DEFERRED_FOR_BUDGET_RESULT in _attempt_results(conn)
 
 
 def test_an_oversized_body_keeps_its_own_receipt_pending_and_named() -> None:
     conn = message_connection()
-    (message_id,) = _send(conn, 1, body="x" * 12_000)
+    body = "x" * 12_000
+    (message_id,) = _send(conn, 1, body=body)
 
     with pytest.MonkeyPatch.context() as monkeypatch:
         rendered = _hook(conn, monkeypatch)
 
+    command = f"yoke messages get {message_id}"
     assert POINTER_BEGIN in rendered
-    assert message_id in rendered
-    assert f"yoke messages get {message_id} --json" in rendered
+    assert f"Read: {command}" in rendered
+    assert f"{command} --json" not in rendered
     assert _receipts(conn) == {message_id: "pending"}
-    assert "inline_overflow" in _attempt_results(conn)
+    assert INLINE_OVERFLOW_RESULT in _attempt_results(conn)
+    details = get_message(
+        conn, message_id=message_id, actor_id=10, session_id=RECIPIENT
+    )
+    assert details["body"] == f"message 0: {body}"
+    assert details["attempts"][-1]["evidence"]["skip_reason"] == (
+        inline_overflow_skip_reason(message_id)
+    )
 
 
-def test_a_small_message_is_never_settled_by_an_oversized_sibling() -> None:
+def test_a_small_message_is_never_blocked_by_an_oversized_sibling() -> None:
     conn = message_connection()
     (small_id,) = _send(conn, 1, body="decide the gate")
     (oversized_id,) = _send(conn, 1, body="x" * 12_000)
 
     with pytest.MonkeyPatch.context() as monkeypatch:
-        overflowed = _hook(conn, monkeypatch)
+        rendered = _hook(conn, monkeypatch)
 
-        assert POINTER_BEGIN in overflowed
-        assert _receipts(conn) == {small_id: "pending", oversized_id: "pending"}
-
-        conn.execute(
-            "UPDATE session_message_recipients SET state='acknowledged' "
-            "WHERE message_id=?",
-            (oversized_id,),
-        )
-        conn.commit()
-        delivered = _hook(conn, monkeypatch, "PostToolUse")
-
-    assert small_id in delivered
-    assert POINTER_BEGIN not in delivered
-    assert _receipts(conn)[small_id] == "injected"
+    assert f"--- BEGIN YOKE SESSION MESSAGE {small_id} ---" in rendered
+    assert POINTER_BEGIN in rendered
+    assert f"Read: yoke messages get {oversized_id}" in rendered
+    assert _receipts(conn) == {small_id: "injected", oversized_id: "pending"}
+    assert INLINE_OVERFLOW_RESULT in _attempt_results(conn)
 
 
-def test_a_long_backlog_never_receipts_a_body_it_did_not_carry() -> None:
-    """Over many hooks, every injected receipt has its body in some reply.
-
-    A backlog too large for one composed block is pointed at on every hook
-    rather than partially shipped, so the invariant to hold across a long
-    session is not that the backlog drains inline — it is that no receipt
-    ever runs ahead of the text that carried it.
-    """
+def test_a_backlog_drains_across_hooks_and_never_receipts_a_missing_body() -> None:
     conn = message_connection()
     message_ids = _send(conn, 18, body="y" * 200)
-    acknowledged = set(message_ids[:12])
-    remaining = set(message_ids) - acknowledged
-
     seen: list[str] = []
     with pytest.MonkeyPatch.context() as monkeypatch:
-        for index in range(6):
+        for index in range(20):
+            if set(_receipts(conn).values()) <= {"injected"}:
+                break
             seen.append(_hook(conn, monkeypatch, EVENTS[index % 2]))
-        expanded = "\n".join(seen)
-
-        assert set(_receipts(conn).values()) == {"pending"}
-        named = {
-            message_id
-            for message_id in message_ids
-            if f"yoke messages get {message_id} --json" in expanded
-        }
-        assert len(named) == 10
-
-        conn.execute(
-            "UPDATE session_message_recipients SET state='acknowledged' "
-            "WHERE message_id IN (%s)" % ",".join("?" for _ in acknowledged),
-            tuple(acknowledged),
-        )
-        conn.commit()
-        remainder = _hook(conn, monkeypatch)
-
-    assert all(message_id in remainder for message_id in remaining)
-    assert POINTER_BEGIN not in remainder
-    injected = {
-        message_id
-        for message_id, state in _receipts(conn).items()
-        if state == "injected"
-    }
-    assert injected == remaining
+        else:
+            raise AssertionError("backlog did not drain")
+    expanded = "\n".join(seen)
+    for message_id in message_ids:
+        assert f"--- BEGIN YOKE SESSION MESSAGE {message_id} ---" in expanded
+        assert _receipts(conn)[message_id] == "injected"
     assert (
         len(
             list_messages(
@@ -279,5 +271,21 @@ def test_a_long_backlog_never_receipts_a_body_it_did_not_carry() -> None:
                 limit=50,
             )
         )
-        == 6
+        == 18
     )
+
+
+def test_overflow_retries_are_bounded_and_named() -> None:
+    conn = message_connection()
+    (message_id,) = _send(conn, 1, body="x" * 12_000)
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        for index in range(INLINE_OVERFLOW_ATTEMPT_BOUND + 2):
+            _hook(conn, monkeypatch, EVENTS[index % 2])
+    overflowed = conn.execute(
+        "SELECT COUNT(*) FROM session_message_attempts "
+        "WHERE result_code=? AND completed_at IS NOT NULL",
+        (INLINE_OVERFLOW_RESULT,),
+    ).fetchone()
+    assert int(overflowed[0]) == INLINE_OVERFLOW_ATTEMPT_BOUND
+    assert _receipts(conn) == {message_id: "pending"}
+

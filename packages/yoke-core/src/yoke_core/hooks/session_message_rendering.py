@@ -69,7 +69,7 @@ def _parent_overflow_notice(hidden_count: int, session_id: str) -> str:
             "List the backlog with "
             f"`yoke messages list --recipient-session {recipient} "
             "--state unacknowledged`.",
-            "Read a full body with `yoke messages get MESSAGE-ID --json`.",
+            "Read a full body with `yoke messages get MESSAGE-ID`.",
         )
     )
 
@@ -92,10 +92,9 @@ def _parent_blocks(
 ) -> list[str]:
     """Expand every leased body; only unleased messages are summarized.
 
-    The lease is one settlement unit: whatever it holds is marked injected
-    together. Dropping a body here therefore issues a receipt for text this
-    block never carried, and the omitted message is excluded from the
-    pending-only retry that would have carried it next.
+    Fitting later admits whole messages that fit the harness cap and
+    leaves the rest pending. Dropping a body here would still exclude it
+    from that retry, so this renderer expands every leased message.
     """
     blocks = [
         _render_message(
@@ -121,10 +120,10 @@ def render_lease(
     """Return the whole lease as model context, plus its settlement token.
 
     Bounding happens where delivery is actually decided: the harness
-    context composer either carries this block intact or replaces it with
-    the overflow pointer that names every message and keeps each receipt
-    pending. Trimming it here instead would make both outcomes look
-    identical to settlement.
+    context composer admits whole messages that fit, points at a body that
+    cannot fit even alone, and leaves the rest pending for the next hook.
+    Trimming it here instead would make those outcomes look identical to
+    settlement.
     """
     token = f"YOKE_SESSION_MESSAGE_LEASE:{lease.lease_id}"
     rendered = _parent_text(token, _parent_blocks(lease, session_id=session_id))

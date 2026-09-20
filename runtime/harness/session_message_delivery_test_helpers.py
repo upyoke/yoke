@@ -103,7 +103,9 @@ class FakePort:
         lease_id: str,
         injected: bool,
         result: str,
+        message_results: dict[str, str] | None = None,
     ) -> None:
+        del message_results
         self.completed.append((lease_id, injected, result))
         if injected:
             self.delivered = True

@@ -11,7 +11,10 @@ from yoke_core.domain.actor_permissions import (
     ROLE_VIEWER,
     grant_actor_org_role,
 )
-from yoke_core.domain.session_message_receipts import acknowledge_actor_message
+from yoke_core.domain.session_message_receipts import (
+    acknowledge_actor_message,
+    acknowledge_message,
+)
 from yoke_core.domain.session_message_service import preview_message, send_message
 from yoke_core.domain.session_message_types import SessionMessageError
 from runtime.api.domain.test_session_message_support import (
@@ -114,6 +117,27 @@ def test_actor_inbox_acknowledgement_is_self_only_and_updates_badge() -> None:
     assert receipt["state"] == "read"
     assert receipt["read_at"]
     assert inbox_actor_messages(conn, actor_id=11, include_read=False) == {
+        "messages": [],
+        "pending_count": 0,
+    }
+
+
+def test_any_session_of_the_operator_can_acknowledge_actor_mail() -> None:
+    conn = _members()
+    message_id = send_message(
+        conn,
+        actor_id=12,
+        sender_session_id=None,
+        sender_surface="web_form",
+        selector=selector(actors=["10"]),
+        body="A message is waiting in your desktop session.",
+        now=NOW,
+    )["message_id"]
+    acknowledged = acknowledge_message(
+        conn, message_id=message_id, session_id="s2", now=NOW
+    )
+    assert acknowledged["actor_recipients"][0]["state"] == "read"
+    assert inbox_actor_messages(conn, actor_id=10, include_read=False) == {
         "messages": [],
         "pending_count": 0,
     }

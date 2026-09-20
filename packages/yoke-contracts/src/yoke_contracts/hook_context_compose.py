@@ -27,6 +27,16 @@ REPORT_OMITTED_NOTICE = (
 
 _LEASE_RE = re.compile(r"YOKE_SESSION_MESSAGE_LEASE:([^\s=]+)")
 _MESSAGE_RE = re.compile(r"--- BEGIN YOKE SESSION MESSAGE ([0-9a-fA-F-]{36}) ---")
+_DELIVERY_BEGIN_RE = re.compile(
+    r"=== BEGIN YOKE SESSION MESSAGE DELIVERY "
+    r"(YOKE_SESSION_MESSAGE_LEASE:[^\s=]+) ==="
+)
+_MESSAGE_BLOCK_RE = re.compile(
+    r"--- BEGIN YOKE SESSION MESSAGE ([0-9a-fA-F-]{36}) ---\n"
+    r".*?"
+    r"--- END YOKE SESSION MESSAGE \1 ---",
+    re.DOTALL,
+)
 
 
 def classify_hook_context(text: str) -> str:
@@ -113,8 +123,8 @@ def render_overflow_pointer(block: str) -> str:
     lease_id = match.group(1) if match else "unknown"
     message_ids = _MESSAGE_RE.findall(block)
     reads = [
-        f"Read: yoke messages get {message_id} --json" for message_id in message_ids
-    ] or ["Read: yoke messages get MESSAGE-ID --json"]
+        f"Read: yoke messages get {message_id}" for message_id in message_ids
+    ] or ["Read: yoke messages get MESSAGE-ID"]
     acks = [
         f"Acknowledge: yoke messages acknowledge {message_id}"
         for message_id in message_ids
@@ -141,6 +151,71 @@ def _is_session_message_delivery(text: str) -> bool:
     return False
 
 
+def _wrap_session_delivery(token: str, prefix: str, messages: list[str]) -> str:
+    parts = [f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {token} ==="]
+    if prefix:
+        parts.append(prefix)
+    parts.extend(messages)
+    parts.append(f"=== END YOKE SESSION MESSAGE DELIVERY {token} ===")
+    return "\n\n".join(parts)
+
+
+def _session_delivery_parts(block: str) -> tuple[str, str, list[str]] | None:
+    header = _DELIVERY_BEGIN_RE.search(block)
+    if header is None:
+        return None
+    token = header.group(1)
+    end = f"=== END YOKE SESSION MESSAGE DELIVERY {token} ==="
+    inner_end = block.find(end)
+    if inner_end < 0:
+        return None
+    inner = block[header.end() : inner_end].strip()
+    matches = list(_MESSAGE_BLOCK_RE.finditer(inner))
+    if not matches:
+        return None
+    prefix = inner[: matches[0].start()].strip()
+    return token, prefix, [match.group(0) for match in matches]
+
+
+def _fit_session_messages(
+    block: str,
+    already: list[str],
+    *,
+    fits: Callable[[list[str]], bool],
+) -> list[str]:
+    parts = _session_delivery_parts(block)
+    if parts is None:
+        pointer = render_overflow_pointer(block)
+        if fits([*already, pointer]) or (not already and fits([pointer])):
+            return [pointer]
+        return []
+    token, prefix, messages = parts
+    admitted: list[str] = []
+    pointers: list[str] = []
+
+    def snapshot() -> list[str]:
+        out: list[str] = []
+        if admitted:
+            out.append(_wrap_session_delivery(token, prefix, admitted))
+        out.extend(pointers)
+        return out
+
+    for message in messages:
+        trial = _wrap_session_delivery(token, prefix, [*admitted, message])
+        if fits([*already, trial, *pointers]):
+            admitted.append(message)
+            continue
+        solo = _wrap_session_delivery(token, prefix, [message])
+        if fits([solo]):
+            continue
+        pointer = render_overflow_pointer(solo)
+        if fits([*already, *snapshot(), pointer]):
+            pointers.append(pointer)
+        elif not already and not snapshot() and fits([pointer]):
+            pointers.append(pointer)
+    return snapshot()
+
+
 def _fit_deliveries(
     deliveries: list[str],
     *,
@@ -153,11 +228,7 @@ def _fit_deliveries(
             continue
         if not _is_session_message_delivery(block):
             continue
-        pointer = render_overflow_pointer(block)
-        if fits([*fitted, pointer]):
-            fitted.append(pointer)
-        elif not fitted and fits([pointer]):
-            fitted.append(pointer)
+        fitted.extend(_fit_session_messages(block, fitted, fits=fits))
     return fitted
 
 
