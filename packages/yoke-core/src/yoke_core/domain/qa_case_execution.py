@@ -279,17 +279,22 @@ def execute_case_context(
         from yoke_core.domain.qa_case_worktree_run import execute_worktree_case
 
         return execute_worktree_case(
-            case, base_url=base_url, timeout_seconds=timeout_seconds,
+            case,
+            base_url=base_url,
+            timeout_seconds=timeout_seconds,
             checkout_path=checkout_path,
-            allow_tree_mismatch=allow_tree_mismatch, actor=actor,
+            allow_tree_mismatch=allow_tree_mismatch,
+            actor=actor,
         )
     if runner_id == "ci_run":
         from yoke_core.domain.qa_case_ci_run import execute_ci_case
 
         return execute_ci_case(
-            case, timeout_seconds=timeout_seconds,
+            case,
+            timeout_seconds=timeout_seconds,
             checkout_path=checkout_path,
-            allow_tree_mismatch=allow_tree_mismatch, actor=actor,
+            allow_tree_mismatch=allow_tree_mismatch,
+            actor=actor,
         )
     if runner_id == "browser_substrate":
         return _browser_result(
@@ -315,29 +320,11 @@ def execute_case_context(
     )
 
 
-def execute_case(
-    requirement_id: int,
-    *,
-    base_url: str = "",
-    expected_branch: Optional[str] = None,
-    expected_sha: Optional[str] = None,
-    timeout_seconds: Optional[int] = None,
-    checkout_path: Optional[str | Path] = None,
-    allow_tree_mismatch: bool = False,
-    actor: Optional[ActorContext] = None,
-) -> dict:
+def execute_case(requirement_id: int, **kwargs) -> dict:
     """Authorize, snapshot, and execute one registered materialized case."""
-    case = fetch_case_execution_context(requirement_id, actor=actor)
-    return execute_case_context(
-        case,
-        base_url=base_url,
-        expected_branch=expected_branch,
-        expected_sha=expected_sha,
-        timeout_seconds=timeout_seconds,
-        checkout_path=checkout_path,
-        allow_tree_mismatch=allow_tree_mismatch,
-        actor=actor,
-    )
+    from yoke_core.domain.qa_case_stage_credit import execute_authorized_case
+
+    return execute_authorized_case(requirement_id, **kwargs)
 
 
 __all__ = [

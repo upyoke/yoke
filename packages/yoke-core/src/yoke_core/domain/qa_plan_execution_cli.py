@@ -197,8 +197,8 @@ So the scope flags are not optional decoration:
 
 Dropping --stage or --member is the failure that looks like success: cases run,
 verdicts record, and the stage still reads unsatisfied because nothing credited
-it. `yoke qa case run --requirement-id N` has the same problem at release time
--- it credits the requirement's existing binding, never a stage.
+it. `yoke qa case run --requirement-id N` refuses an item-scoped binding
+and names this command instead of exiting zero with an uncredited pass.
 
 When the stage names no concrete cases, --plan records the executor's
 project-owned selection -- and only then. A stage already naming its own cases
