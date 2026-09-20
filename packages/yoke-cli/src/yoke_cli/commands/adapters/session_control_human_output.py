@@ -234,7 +234,9 @@ def _body_excerpt(message: Mapping[str, Any]) -> str:
     return _fit(message.get("body"), BODY_EXCERPT_CHARACTERS)
 
 
-def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
+def _write_message_detail(
+    message: Mapping[str, Any], stdout: TextIO, *, with_body: bool = False
+) -> None:
     command = message.get("acknowledgement_command")
     if command:
         print(command, file=stdout)
@@ -259,7 +261,10 @@ def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
     if summary:
         fields.append(("Steering", summary))
     write_summary("MESSAGE", fields, stdout)
-    write_body(message, stdout)
+    # A receipt reports what happened to a message; only the read of one
+    # is someone opening their own mail, so only it serves the prose.
+    if with_body:
+        write_body(message, stdout)
     _write_recipients(
         recipients,
         stdout,
@@ -270,7 +275,9 @@ def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
     write_withheld_attempts(message, stdout)
 
 
-def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
+def write_message_result(
+    result: Mapping[str, Any], stdout: TextIO, *, with_body: bool = False
+) -> None:
     if "recipients" in result:
         message_id = result.get("message_id")
         fields: list[tuple[str, Any]] = [
@@ -325,7 +332,7 @@ def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
         return
     message = result.get("message")
     if isinstance(message, Mapping):
-        _write_message_detail(message, stdout)
+        _write_message_detail(message, stdout, with_body=with_body)
         return
     print("MESSAGE\nNo message details returned.", file=stdout)
 

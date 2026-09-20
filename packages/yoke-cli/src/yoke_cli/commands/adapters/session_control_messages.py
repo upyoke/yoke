@@ -21,6 +21,7 @@ from yoke_cli.commands.adapters.session_control_common import (
     add_selector_arguments,
     read_stdin_payload,
     selector_payload,
+    write_message_detail_result,
     write_message_result,
 )
 from yoke_contracts.api.function_call import TargetRef
@@ -291,8 +292,11 @@ def _message_by_id(args: List[str], operation: str) -> int:
         requested = list(parsed.fields)
         payload["fields"] = requested
         payload["detail"] = detail_of(parsed)
-        if requested:
-            writer = projected_message_writer(requested)
+        writer = (
+            projected_message_writer(requested)
+            if requested
+            else write_message_detail_result
+        )
     return dispatch_and_emit(
         function_id=f"session_control.message.{operation}",
         target=TargetRef(kind="global"),

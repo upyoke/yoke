@@ -12,6 +12,9 @@ import io
 
 from yoke_contracts.read_detail import DETAIL_FULL
 from yoke_cli.commands.adapters import session_control_messages as messages
+from yoke_cli.commands.adapters.session_control_common import (
+    write_message_detail_result,
+)
 
 
 FULL_MESSAGE_ID = "33333333-3333-4333-8333-333333333333"
@@ -67,15 +70,15 @@ def test_list_excerpts_the_body_and_the_detail_read_serves_it() -> None:
         "acknowledgement_command": f"yoke messages acknowledge {FULL_MESSAGE_ID}",
     }
 
-    def render(result: dict) -> str:
+    def render(result: dict, writer) -> str:
         output = io.StringIO()
         response = type("Response", (), {"result": result})()
-        messages.write_message_result(response, output, io.StringIO())
+        writer(response, output, io.StringIO())
         return output.getvalue()
 
     # The list is a scan across messages, so it excerpts every body even
     # when handed a whole one.
-    listed = render({"messages": [message], "count": 1})
+    listed = render({"messages": [message], "count": 1}, messages.write_message_result)
     assert listed.splitlines()[0] == f"yoke messages acknowledge {FULL_MESSAGE_ID}"
     assert "MESSAGES" in listed
     assert "BODY" in listed.upper()
@@ -88,7 +91,7 @@ def test_list_excerpts_the_body_and_the_detail_read_serves_it() -> None:
 
     # The detail read is one authorized recipient opening its own mail:
     # the body is the answer it came for, and the digest still stays out.
-    detail = render({"message": message})
+    detail = render({"message": message}, write_message_detail_result)
     assert detail.splitlines()[0] == f"yoke messages acknowledge {FULL_MESSAGE_ID}"
     assert "MESSAGE" in detail
     assert "BODY" in detail.upper()

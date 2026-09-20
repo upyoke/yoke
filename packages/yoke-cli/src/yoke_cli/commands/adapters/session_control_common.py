@@ -165,6 +165,14 @@ def write_message_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
     write_human_message_result(response.result or {}, stdout)
 
 
+def write_message_detail_result(
+    response: Any, stdout: TextIO, stderr: TextIO
+) -> None:
+    """The authorized read of one message, where the body is the answer."""
+    del stderr
+    write_human_message_result(response.result or {}, stdout, with_body=True)
+
+
 def write_launch_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
     del stderr
     write_human_launch_result(response.result or {}, stdout)
@@ -177,5 +185,6 @@ __all__ = [
     "selector_payload",
     "steering_scope_argument",
     "write_launch_result",
+    "write_message_detail_result",
     "write_message_result",
 ]
