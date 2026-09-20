@@ -39,7 +39,13 @@ from yoke_core.tools.generated_block_render import (
 
 
 # Re-exported so callers keep one import site for the family's result rows.
-__all__ = ("INVENTORY", "FileRenderOutcome", "RenderResult", "render")
+__all__ = (
+    "INVENTORY",
+    "FileRenderOutcome",
+    "RenderResult",
+    "render",
+    "format_drift_summary_for_family",
+)
 
 SLUG: str = "field-note-directive"
 BEGIN_MARKER: str = begin_marker(SLUG)
@@ -142,7 +148,8 @@ def render(
     )
 
 
-def _format_drift_summary(result: RenderResult, *, check: bool) -> str:
+def format_drift_summary_for_family(result: RenderResult, *, check: bool) -> str:
+    """Render this family's drift summary, naming its repair command."""
     return format_drift_summary(
         result,
         check=check,
@@ -182,7 +189,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     result = render(target_root, check=args.check)
 
-    summary = _format_drift_summary(result, check=args.check)
+    summary = format_drift_summary_for_family(result, check=args.check)
     if summary:
         sys.stderr.write(summary)
 

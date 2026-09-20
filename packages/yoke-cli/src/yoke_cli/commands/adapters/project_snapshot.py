@@ -11,7 +11,7 @@ from yoke_cli.commands._helpers import (
     add_json_arg,
     add_project_arg,
     add_session_arg,
-    attach_field_note_footer,
+    attach_help_trailer,
     client_project_context,
     ensure_handlers_loaded,
     parse_or_usage_error,
@@ -72,7 +72,7 @@ def project_snapshot_sync(args: List[str]) -> int:
     )
     add_session_arg(parser)
     add_json_arg(parser)
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, PROJECT_SNAPSHOT_SYNC_USAGE)
     if parsed is None:
         return 2

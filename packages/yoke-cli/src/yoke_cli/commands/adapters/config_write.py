@@ -12,7 +12,7 @@ import argparse
 from typing import List
 
 from yoke_cli.commands._helpers import (
-    attach_field_note_footer,
+    attach_help_trailer,
     parse_or_usage_error,
     usage_error,
 )
@@ -46,7 +46,7 @@ def env_use(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke env use")
     parser.add_argument("env")
     parser.add_argument("--config", dest="config_path", default=None)
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, ENV_USE_USAGE)
     if parsed is None:
         return 2
@@ -75,7 +75,7 @@ def connection_set(args: List[str]) -> int:
     parser.add_argument("--dsn-file", dest="dsn_file", default=None)
     parser.add_argument("--dsn-stdin", dest="dsn_stdin", action="store_true")
     parser.add_argument("--config", dest="config_path", default=None)
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, CONNECTION_SET_USAGE)
     if parsed is None:
         return 2
@@ -108,7 +108,7 @@ def connection_remove(args: List[str]) -> int:
         help="Connection to make active when retiring the active authority.",
     )
     parser.add_argument("--config", dest="config_path", default=None)
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, CONNECTION_REMOVE_USAGE)
     if parsed is None:
         return 2
@@ -129,7 +129,7 @@ def auth_set(args: List[str]) -> int:
     parser.add_argument("--dsn-file", dest="dsn_file", default=None)
     parser.add_argument("--dsn-stdin", dest="dsn_stdin", action="store_true")
     parser.add_argument("--config", dest="config_path", default=None)
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, AUTH_SET_USAGE)
     if parsed is None:
         return 2

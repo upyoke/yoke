@@ -118,6 +118,11 @@ class MessageListRequest(BaseModel):
 
 class MessageGetRequest(BaseModel):
     message_id: str
+    #: Field projection. Empty serves the routine answer: the whole body
+    #: beside a bounded tail of the delivery-attempt log.
+    fields: tuple[str, ...] = ()
+    #: "full" serves every delivery attempt the routine read bounded.
+    detail: str = ""
 
 
 class MessageAcknowledgeRequest(BaseModel):

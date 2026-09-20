@@ -6,7 +6,7 @@ import argparse
 import sys
 from typing import List
 
-from yoke_cli.commands._helpers import attach_field_note_footer, parse_or_usage_error
+from yoke_cli.commands._helpers import attach_help_trailer, parse_or_usage_error
 from yoke_cli.commands.adapters import onboard_apply
 from yoke_cli.commands.adapters import onboard_destination_args
 from yoke_cli.commands.adapters import onboard_hosted_authorization as hosted_auth
@@ -94,7 +94,7 @@ def onboard(args: List[str]) -> int:
         ),
     )
     onboard_project_args.add_project_args(parser)
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, ONBOARD_USAGE)
     if parsed is None:
         return 2

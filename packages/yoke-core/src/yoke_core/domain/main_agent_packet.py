@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import shutil
 
+from yoke_contracts.adapter_read_recipes import STARTUP_READ_LINE
 from yoke_contracts.connection_authority_teaching import (
     CONNECTION_AUTHORITY_STANZA,
 )
@@ -84,6 +85,7 @@ MAIN_AGENT_STARTUP_READS = (
     "`runtime/harness/<harness_id>/manifest.json`, never a document's claim "
     "about it.\n"
     "- An operation's variants and flags — that operation's `--help`.\n"
+    f"{STARTUP_READ_LINE}\n"
     "Work-item entry surfaces: every create names a workflow plus a typed "
     "entry surface — `web_form`, `cli`, `harness_skill`, `promotion` — the "
     "pinned workflow version allows; `/yoke idea` is the `harness_skill` path."

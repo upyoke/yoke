@@ -6,7 +6,7 @@ import argparse
 from typing import Any, List
 
 from yoke_cli.commands._helpers import (
-    attach_field_note_footer,
+    attach_help_trailer,
     parse_or_usage_error,
 )
 from yoke_cli.config import status as machine_config_status
@@ -64,7 +64,7 @@ def env_list(args: List[str]) -> int:
 
 def config_example(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog=CONFIG_EXAMPLE_USAGE)
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, CONFIG_EXAMPLE_USAGE)
     if parsed is None:
         return 2

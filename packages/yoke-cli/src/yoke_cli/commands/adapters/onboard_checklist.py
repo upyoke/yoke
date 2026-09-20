@@ -7,7 +7,7 @@ import sys
 from typing import Any, List, Mapping
 
 from yoke_cli.commands._helpers import (
-    attach_field_note_footer,
+    attach_help_trailer,
     client_project_context,
     ensure_handlers_loaded,
     parse_or_usage_error,
@@ -57,7 +57,7 @@ def onboard_checklist_cmd(args: List[str]) -> int:
     view = parser.add_mutually_exclusive_group()
     view.add_argument("--view-path", dest="view_path", default=None)
     view.add_argument("--no-view", dest="no_view", action="store_true")
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, ONBOARD_CHECKLIST_USAGE)
     if parsed is None:
         return 2
@@ -102,7 +102,7 @@ def _init(args: List[str]) -> int:
                         help="Project slug or numeric id (standalone init).")
     parser.add_argument("--project-id", dest="project_id", type=int, default=None)
     parser.add_argument("--json", dest="json_mode", action="store_true")
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, ONBOARD_CHECKLIST_INIT_USAGE)
     if parsed is None:
         return 2

@@ -16,7 +16,7 @@ import json
 from typing import List
 
 from yoke_cli.commands._helpers import (
-    attach_field_note_footer,
+    attach_help_trailer,
     parse_or_usage_error,
 )
 from yoke_cli.config.machine_config import MachineConfigError
@@ -78,7 +78,7 @@ def _install_parser(prog: str) -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--json", dest="json_mode", action="store_true")
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     return parser
 
 
@@ -197,7 +197,7 @@ def project_uninstall(args: List[str]) -> int:
                         help="Project repo root (default: cwd).")
     parser.add_argument("--config", dest="config_path", default=None)
     parser.add_argument("--json", dest="json_mode", action="store_true")
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, PROJECT_UNINSTALL_USAGE)
     if parsed is None:
         return 2

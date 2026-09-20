@@ -14,6 +14,10 @@ from yoke_contracts.session_control.terminal_report import (
 from yoke_cli.commands.adapters.session_control_attempt_output import (
     write_attempts,
 )
+from yoke_cli.commands.adapters.session_control_message_body_output import (
+    write_body,
+    write_withheld_attempts,
+)
 from yoke_cli.commands.adapters.session_control_roster_diagnostics_output import (
     roster_diagnostics,
 )
@@ -246,16 +250,16 @@ def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
         ("Recipients", recipient_count(message)),
         ("Created (UTC)", utc_time(message.get("created_at"))),
         ("Expires (UTC)", utc_time(message.get("expires_at"))),
-        ("Body excerpt", _body_excerpt(message)),
     ]
     if message.get("cancellation_reason"):
-        fields.insert(
-            -1, ("Cancellation reason", humanize(message["cancellation_reason"]))
+        fields.append(
+            ("Cancellation reason", humanize(message["cancellation_reason"]))
         )
     summary = steering_summary(message)
     if summary:
-        fields.insert(-1, ("Steering", summary))
+        fields.append(("Steering", summary))
     write_summary("MESSAGE", fields, stdout)
+    write_body(message, stdout)
     _write_recipients(
         recipients,
         stdout,
@@ -263,6 +267,7 @@ def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
         steering_recipient=message.get("steering_recipient"),
     )
     write_attempts(message.get("attempts") or [], stdout)
+    write_withheld_attempts(message, stdout)
 
 
 def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:

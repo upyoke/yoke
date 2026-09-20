@@ -173,39 +173,29 @@ def _run_file_line_check_or_block() -> int:
     return 1
 
 
-def _run_field_note_render_or_block() -> int:
-    """Run the field-note renderer in --check mode; rc to propagate.
+def _run_generated_block_renders_or_block() -> int:
+    """Refuse commits whose generated blocks disagree with their contract.
 
-    Fail-closed shape matches :func:`_run_file_line_check_or_block`: a
-    missing renderer module blocks the commit because a quality gate that
-    silently disables itself on import error is worse than no gate.
+    Delegates to the shared block-render mechanics, which own the family
+    roster; this wrapper adds only the commit-time bypass hint.
     """
-    try:
-        from yoke_core.tools import render_field_note_inline as rri
-    except ImportError:
-        sys.stderr.write(
-            "ERROR: field-note renderer not available — "
-            "install/repair yoke_core.tools.render_field_note_inline.\n"
-            "Use `git commit --no-verify` to bypass this check.\n"
-        )
-        return 1
+    from yoke_core.tools.generated_block_render import check_families
 
     repo_root = _resolve_repo_root()
-    if repo_root is None:
-        return 0
-
-    result = rri.render(pathlib.Path(repo_root), check=True)
-    if result.ok and not result.changed:
-        return 0
-
-    sys.stderr.write(rri._format_drift_summary(result, check=True))
-    return 1
+    rc, summary = check_families(
+        pathlib.Path(repo_root) if repo_root is not None else None
+    )
+    if summary:
+        sys.stderr.write(summary)
+    if rc != 0 and summary.startswith("ERROR:"):
+        sys.stderr.write("Use `git commit --no-verify` to bypass this check.\n")
+    return rc
 
 
 def _run_harness_capability_render_or_block() -> int:
     """Refuse commits whose wake capability disagrees with its contract.
 
-    Fail-closed like :func:`_run_field_note_render_or_block`. The scan also
+    Fail-closed like :func:`_run_generated_block_renders_or_block`. The scan also
     refuses a wake claim written past the contract, which is what went stale.
     """
     try:
@@ -244,7 +234,7 @@ def _run_agent_render_check_or_block() -> int:
     Without this, an edit to a packet seed commits cleanly alongside
     stale rendered adapters and the mismatch only surfaces in the full
     test suite, long after the commit that caused it. Same shape as
-    :func:`_run_field_note_render_or_block`: the renderer is the source
+    :func:`_run_generated_block_renders_or_block`: the renderer is the source
     of truth and the operator re-renders and re-stages.
 
     Skips silently outside a Yoke source checkout — a project repo has
@@ -326,7 +316,7 @@ def run() -> int:
     rc = _run_file_line_check_or_block()
     if rc != 0:
         return rc
-    rc = _run_field_note_render_or_block()
+    rc = _run_generated_block_renders_or_block()
     if rc != 0:
         return rc
     rc = _run_harness_capability_render_or_block()
