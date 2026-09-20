@@ -268,6 +268,24 @@ class TestServingFloorDeclaration(_RegistryTestBase):
         )
         self.assertEqual(entry.minimum_serving_version, "next-release")
 
+    def test_engine_floors_match_the_client_readable_map(self):
+        from yoke_contracts.function_serving_floors import (
+            FUNCTION_MINIMUM_SERVING_VERSIONS,
+        )
+        from yoke_core.domain.handlers.__init_register__ import register_all_handlers
+        from yoke_core.domain.yoke_function_registry import (
+            require_floor_for_unserved_ids,
+        )
+
+        require_floor_for_unserved_ids()
+        register_all_handlers()
+        engine = {
+            e.function_id: e.minimum_serving_version
+            for e in list_entries()
+            if e.minimum_serving_version
+        }
+        self.assertEqual(dict(FUNCTION_MINIMUM_SERVING_VERSIONS), engine)
+
 
 class TestVersioningMetadata(_RegistryTestBase):
     """Registry preserves stability + replacement + removal_target_version."""

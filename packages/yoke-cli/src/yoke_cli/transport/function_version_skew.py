@@ -28,6 +28,7 @@ from functools import lru_cache
 
 from yoke_contracts.api.function_call import FunctionError
 from yoke_contracts.engine_version import compare_engine_versions
+from yoke_contracts.function_serving_floors import declared_minimum_serving_version
 
 #: Error code replacing a relayed ``function_not_registered``.
 SKEW_ERROR_CODE = "function_version_skew"
@@ -84,22 +85,6 @@ def local_function_ids() -> frozenset:
     return frozenset(ids)
 
 
-def declared_minimum_serving_version(function_id: str) -> str:
-    """Return the registry floor for *function_id*, or empty if unknown.
-
-    HTTPS clients that cannot import the engine registry degrade to no
-    floor; the typed skew error still names the non-circular recovery.
-    """
-    try:
-        from yoke_core.domain.yoke_function_registry import lookup
-    except Exception:
-        return ""
-    entry = lookup(function_id)
-    if entry is None:
-        return ""
-    return str(entry.minimum_serving_version or "").strip()
-
-
 def skew_error(
     *,
     function_id: str,
@@ -142,6 +127,5 @@ __all__ = [
     "SKEW_ERROR_CODE",
     "UNKNOWN_VERSION",
     "local_function_ids",
-    "declared_minimum_serving_version",
     "skew_error",
 ]

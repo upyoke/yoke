@@ -203,6 +203,22 @@ class TestRelayedSkewGate:
             response.error.recovery_hint
         )
 
+    def test_relayed_skew_names_the_client_readable_floor(self, monkeypatch):
+        from yoke_contracts.function_serving_floors import (
+            FUNCTION_MINIMUM_SERVING_VERSIONS,
+        )
+
+        monkeypatch.setitem(
+            FUNCTION_MINIMUM_SERVING_VERSIONS, SERVED_LOCALLY, "next-release"
+        )
+        response = _dispatch_over_https(
+            monkeypatch, server_version="1.0.0", client_version="2.0.0"
+        )
+        assert response.error.code == SKEW_ERROR_CODE
+        assert "next-release" in response.error.message
+        assert "minimum serving version" in response.error.message.lower()
+        assert "retry after deploy" not in response.error.recovery_hint.lower()
+
     def test_newer_server_gets_the_client_update_recovery(self, monkeypatch):
         response = _dispatch_over_https(
             monkeypatch, server_version="2.0.0", client_version="1.0.0"
