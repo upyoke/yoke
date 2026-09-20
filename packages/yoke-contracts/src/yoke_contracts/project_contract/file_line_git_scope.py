@@ -1,4 +1,13 @@
-"""Git-only resolution of an item branch's authored-file scope."""
+"""Git-only resolution of an item branch's authored-file scope.
+
+``own_paths`` here exists solely to subtract the branch's own delta from
+``inherited_paths``, and an inherited path comes from a two-revision diff that
+can never name an untracked file. The set the authored-file check actually
+evaluates is resolved separately, from
+:mod:`yoke_contracts.project_contract.changed_path_scope`, which does carry
+untracked work. Do not copy this two-revision helper into a local mirror of a
+CI contract: a mirror needs the working-tree scope, untracked half included.
+"""
 
 from __future__ import annotations
 

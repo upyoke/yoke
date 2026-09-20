@@ -179,23 +179,6 @@ def head_exists(repo_root: pathlib.Path) -> bool:
     return run_git(["rev-parse", "--verify", "HEAD"], repo_root=repo_root).returncode == 0
 
 
-def collect_changed_paths(
-    *, repo_root: pathlib.Path, base: str | None, staged: bool
-) -> list[str]:
-    if staged:
-        args = ["diff", "--cached", "--name-only", "--diff-filter=ACMR"]
-    else:
-        # Two-dot diff (branch vs base). Three-dot degenerates to empty when
-        # base == HEAD, which silently skips all checks — never use it here.
-        args = ["diff", "--name-only", "--diff-filter=ACMR", base or "main"]
-    result = run_git(args, repo_root=repo_root)
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"git diff failed: {result.stderr.strip() or result.stdout.strip()}"
-        )
-    return [p.strip() for p in result.stdout.splitlines() if p.strip()]
-
-
 def staged_new_count(path: str, *, repo_root: pathlib.Path) -> int:
     result = run_git(["show", f":{path}"], repo_root=repo_root)
     if result.returncode == 0:

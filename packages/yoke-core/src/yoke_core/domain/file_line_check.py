@@ -38,7 +38,6 @@ from yoke_core.domain.file_line_check_helpers import (
     FileEntry,
     build_parser,
     classify_change,
-    collect_changed_paths,
     do_classify_path,
     git_show_line_count,
     head_exists,
@@ -59,6 +58,9 @@ from yoke_contracts.project_contract.file_line_policy import (
 from yoke_core.domain.file_line_check_pack_versions import (
     is_pack_manifest,
     is_pack_version_carry_forward,
+)
+from yoke_contracts.project_contract.changed_path_scope import (
+    changed_scope_for_check,
 )
 from yoke_contracts.project_contract.file_line_git_scope import (
     resolve_file_line_git_scope,
@@ -239,9 +241,10 @@ def changed_files_check(
             repo_root, integration_target,
         )
         effective_base = base if staged else scope.item_base_sha
-        paths = collect_changed_paths(
-            repo_root=repo_root, base=effective_base, staged=staged
+        changed = changed_scope_for_check(
+            repo_root, effective_base, staged=staged
         )
+        paths = list(changed.paths)
     except (RuntimeError, FileNotFoundError):
         return CheckVerdict(
             ok=False,
@@ -290,6 +293,8 @@ def changed_files_check(
         summary = f"{len(hard_fails)} hard-fail(s), {len(warnings)} warning(s)"
     if pre_existing:
         summary += f", {len(pre_existing)} pre-existing over-limit file(s)"
+    if not staged:
+        summary += f"; {changed.coverage_sentence()}"
     return CheckVerdict(
         ok=ok, hard_fails=hard_fails, warnings=warnings, summary=summary,
         pre_existing=pre_existing,

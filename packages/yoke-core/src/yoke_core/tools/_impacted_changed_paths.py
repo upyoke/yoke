@@ -5,6 +5,11 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+from yoke_contracts.project_contract.changed_path_scope import (
+    ChangedPathError,
+    untracked_paths,
+)
+
 #: The ref a change is measured against when the caller names none.
 DEFAULT_BASE_REF = "main"
 
@@ -38,7 +43,8 @@ def changed_paths(repo_root: Path, base: str) -> tuple[str, ...]:
 
     Committed names try ``{base}...HEAD`` first, then ``origin/{base}...HEAD``
     when *base* is an unqualified ref — CI checkouts often have the default
-    branch only as a remote-tracking name.
+    branch only as a remote-tracking name. Untracked, non-ignored paths join
+    the set through the shared changed-path scope.
     """
     seen: list[str] = []
     committed_specs = [f"{base}...HEAD"]
@@ -52,16 +58,22 @@ def changed_paths(repo_root: Path, base: str) -> tuple[str, ...]:
             if line not in seen:
                 seen.append(line)
         break
-    for args in (
-        ["diff", "--name-only", "HEAD"],
-        ["ls-files", "--others", "--exclude-standard"],
-    ):
-        names = _name_only(repo_root, args)
-        if names is None:
-            continue
-        for line in names:
-            if line not in seen:
-                seen.append(line)
+    names = _name_only(repo_root, ["diff", "--name-only", "HEAD"])
+    for line in names or ():
+        if line not in seen:
+            seen.append(line)
+    # Untracked work is as changed as anything else relative to the base, and
+    # a newly authored file is where a fresh failure is likeliest to sit. The
+    # enumeration is shared so every local mirror of a CI contract agrees on
+    # what "changed" means.
+    try:
+        untracked = untracked_paths(repo_root)
+    except ChangedPathError:
+        untracked = ()
+    for raw in untracked:
+        line = normalize_changed_path(raw)
+        if line and line not in seen:
+            seen.append(line)
     return tuple(seen)
 
 
