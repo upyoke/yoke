@@ -107,7 +107,7 @@ def test_trailer_adds_only_the_missing_stanza() -> None:
 def test_startup_packet_points_at_the_help_that_carries_the_recipe() -> None:
     """The startup block is a question-to-command list, not a recipe list.
 
-    Its tightest harness channel is measured in tens of bytes, so the
+    Its smallest harness channel is measured in tens of bytes, so the
     narrow read is named there and spelled out in the `--help` the line
     sends the reader to.
     """

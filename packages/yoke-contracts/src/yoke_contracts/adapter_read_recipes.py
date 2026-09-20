@@ -17,7 +17,7 @@ This module carries:
   stanza that rides every ``--help`` block and the root rules file. The
   ``main_agent`` startup block points at that ``--help`` rather than
   repeating the stanza: it is a list of questions and the command that
-  answers each, and its tightest harness channel has no room to spare.
+  answers each, and its smallest harness channel has none to spare.
 * :data:`RECIPES` and the :class:`ReadRecipe` shape — the worked catalog, one
   entry per thing a caller is after.
 * :func:`format_recipes_for_help` — a pure renderer turning :data:`RECIPES`
