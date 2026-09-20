@@ -47,8 +47,8 @@ makes those databases refuse to boot on a content mismatch.
 ## Item vs fleet
 
 Rehearsal against the validation surface does not prove every tenant DB.
-Fleet preflight exists for release trains that carry unapplied history or a
-schema-shape change no current receipt covers; after converging each
+Fleet preflight exists for release trains carrying a history entry or a
+schema shape no current receipt covers for the target environment; after converging each
 throwaway copy of a live database it also re-runs callable invariants for
 every shipped entry that already has ledger membership so a green membership
 row cannot hide a historical verification failure. A passing run records what
@@ -56,7 +56,10 @@ it covered on the rehearsed environment's own settings document, so coverage
 is durable state rather than telemetry that can expire out from under a build
 that was already rehearsed. The pre-tag release gate refuses unless both the
 history names and this build's schema-shape digest are covered for the target
-environment.
+environment, and the hosted release dispatch runs the rehearsal itself when it
+finds either uncovered. Both ask the same question, because an entry that only
+rewrites rows moves no schema shape — so a shape-only check reports the
+riskiest entry as already covered.
 
 The fleet is tenant databases only. Names carrying the reserved
 `yoke_test_run` scratch prefix are disposable by construction — a test or

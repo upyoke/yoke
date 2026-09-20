@@ -12,6 +12,7 @@ from yoke_core.domain.migration_history import HistoryError
 from yoke_core.domain.migration_content_identity import raw_content_sha256
 from yoke_core.domain.migration_history_integration import (
     RELEASED_DIGESTS_NAME,
+    history_names_at_ref,
     require_merge_history_extension,
     require_rehearsal_history_extension,
 )
@@ -159,3 +160,38 @@ def test_unresolvable_target_refuses_rehearsal(lane: Path) -> None:
             integration_target="missing",
             migration_modules=["0014_next"],
         )
+
+
+def test_history_names_at_ref_reads_the_entries_one_commit_carries(
+    lane: Path,
+) -> None:
+    # The revision decides the answer, not the working tree: a release gate
+    # asks what the commit it is shipping carries, from a checkout that may
+    # be sitting anywhere else.
+    _entry(lane, "0014_next")
+    _git(lane, "add", "-A")
+    _git(lane, "commit", "-q", "-m", "lane entry")
+
+    assert history_names_at_ref(lane, "main", MODULES_DIR) == ("0013_existing",)
+    assert history_names_at_ref(lane, "lane", MODULES_DIR) == (
+        "0013_existing",
+        "0014_next",
+    )
+
+
+def test_history_names_at_ref_orders_by_sequence_not_discovery(lane: Path) -> None:
+    _entry(lane, "0100_later")
+    _entry(lane, "0014_next")
+    _git(lane, "add", "-A")
+    _git(lane, "commit", "-q", "-m", "lane entries")
+
+    assert history_names_at_ref(lane, "lane", MODULES_DIR) == (
+        "0013_existing",
+        "0014_next",
+        "0100_later",
+    )
+
+
+def test_history_names_at_ref_refuses_an_unreadable_revision(lane: Path) -> None:
+    with pytest.raises(HistoryError, match="could not read git state"):
+        history_names_at_ref(lane, "no-such-ref", MODULES_DIR)

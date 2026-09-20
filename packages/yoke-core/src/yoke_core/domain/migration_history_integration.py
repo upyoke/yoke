@@ -100,22 +100,23 @@ def _relative_modules_dir(modules_dir: str) -> str:
     return path.as_posix()
 
 
-def _target_history(
+def _listed_entries(
     repo: Path,
-    target_ref: str,
+    ref: str,
     modules_dir: str,
-) -> tuple[HistoryIdentity, ...]:
+) -> tuple[tuple[int, PurePosixPath], ...]:
+    """Entry ordinals and paths in the history at *ref*, in sequence order."""
     listing = _git(
         repo,
         "ls-tree",
         "-r",
         "--name-only",
-        target_ref,
+        ref,
         "--",
         modules_dir,
     ).stdout.decode("utf-8", "replace")
     directory = PurePosixPath(modules_dir)
-    entries: list[HistoryIdentity] = []
+    listed: list[tuple[int, PurePosixPath]] = []
     seen: dict[int, str] = {}
     for raw_path in listing.splitlines():
         path = PurePosixPath(raw_path.strip())
@@ -127,15 +128,49 @@ def _target_history(
         sequence = int(match.group(1))
         if sequence in seen:
             raise HistoryError(
-                f"integration target migration history has duplicate sequence "
+                f"migration history at {ref} has duplicate sequence "
                 f"{match.group(1)}: {seen[sequence]!r} and {path.stem!r}"
             )
         seen[sequence] = path.stem
-        content = _git(repo, "show", f"{target_ref}:{path.as_posix()}").stdout
-        entries.append(
-            HistoryIdentity(sequence, path.stem, raw_content_sha256(content))
+        listed.append((sequence, path))
+    return tuple(sorted(listed, key=lambda entry: entry[0]))
+
+
+def history_names_at_ref(
+    repository: Path,
+    ref: str,
+    modules_dir: str,
+) -> tuple[str, ...]:
+    """Ordered entry names the history at one exact revision carries.
+
+    Names alone, so a caller asking only "which entries does this build
+    carry?" pays one ``ls-tree`` instead of a ``git show`` per entry. The
+    name is the entry's ledger and fleet-receipt identity, so it is the
+    whole answer to that question.
+    """
+    return tuple(
+        path.stem
+        for _sequence, path in _listed_entries(
+            repository, ref, _relative_modules_dir(modules_dir)
         )
-    return tuple(sorted(entries, key=lambda entry: entry.sequence))
+    )
+
+
+def _target_history(
+    repo: Path,
+    target_ref: str,
+    modules_dir: str,
+) -> tuple[HistoryIdentity, ...]:
+    return tuple(
+        HistoryIdentity(
+            sequence,
+            path.stem,
+            raw_content_sha256(
+                _git(repo, "show", f"{target_ref}:{path.as_posix()}").stdout
+            ),
+        )
+        for sequence, path in _listed_entries(repo, target_ref, modules_dir)
+    )
 
 
 def _lane_history(repo: Path, modules_dir: str) -> tuple[HistoryIdentity, ...]:
@@ -290,6 +325,7 @@ def require_merge_history_extension(
 __all__ = [
     "HistoryIdentity",
     "RELEASED_DIGESTS_NAME",
+    "history_names_at_ref",
     "migration_ordinal",
     "require_merge_history_extension",
     "require_rehearsal_history_extension",

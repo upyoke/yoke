@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from typing import Any, Dict, List, Mapping, Optional
 
-from yoke_core.domain import deploy_pipeline_schema_rehearsal
+from yoke_core.domain import deploy_pipeline_fleet_rehearsal
 from yoke_core.domain.deploy_preview_dispatch_boundary import (
     release_preview_identity,
 )
@@ -151,7 +151,7 @@ def _dispatch_step_runner(
         return dispatch_deployment_qa_stage(stage, run_id=run_id)
     if step_runner == "github-actions-workflow":
         rehearsal_rc, rehearsal_diag = (
-            deploy_pipeline_schema_rehearsal.ensure_before_dispatch(
+            deploy_pipeline_fleet_rehearsal.ensure_before_dispatch(
                 config,
                 stage_name=name,
                 project=project,
