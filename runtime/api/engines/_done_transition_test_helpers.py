@@ -120,7 +120,10 @@ def dt_db(tmp_path, monkeypatch):
         CREATE TABLE qa_runs (
             id INTEGER PRIMARY KEY,
             qa_requirement_id INTEGER,
-            verdict TEXT
+            performed_by TEXT,
+            verdict TEXT,
+            verdict_reason TEXT,
+            created_at TEXT
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY,

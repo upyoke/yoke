@@ -135,8 +135,10 @@ def _connection() -> sqlite3.Connection:
           id INTEGER PRIMARY KEY,
           qa_requirement_id INTEGER,
           verdict TEXT,
+          verdict_reason TEXT,
           execution_status TEXT,
           completed_at TEXT,
+          created_at TEXT,
           case_outcome TEXT,
           capture_degraded_reason TEXT,
           raw_result TEXT

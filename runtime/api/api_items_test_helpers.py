@@ -94,7 +94,7 @@ CREATE TABLE qa_requirements (
 );
 CREATE TABLE qa_runs (
     id INTEGER PRIMARY KEY, qa_requirement_id INTEGER NOT NULL,
-    performed_by TEXT, verdict TEXT, execution_status TEXT,
+    performed_by TEXT, verdict TEXT, verdict_reason TEXT, execution_status TEXT,
     raw_result TEXT, created_at TEXT NOT NULL
 );
 CREATE TABLE item_sections (

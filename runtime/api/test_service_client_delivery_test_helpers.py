@@ -97,7 +97,9 @@ _SCHEMA_DDL = """
         qa_requirement_id INTEGER NOT NULL,
         performed_by TEXT,
         verdict TEXT,
-        raw_result TEXT
+        verdict_reason TEXT,
+        raw_result TEXT,
+        created_at TEXT
     );
 
     CREATE TABLE deployment_runs (

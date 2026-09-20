@@ -237,7 +237,10 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
 CREATE TABLE IF NOT EXISTS qa_runs (
     id INTEGER PRIMARY KEY,
     qa_requirement_id INTEGER NOT NULL,
-    verdict TEXT
+    performed_by TEXT,
+    verdict TEXT,
+    verdict_reason TEXT,
+    created_at TEXT
 );
 CREATE TABLE IF NOT EXISTS deployment_flows (
     id TEXT PRIMARY KEY,

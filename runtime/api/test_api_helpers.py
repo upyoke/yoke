@@ -148,6 +148,7 @@ CREATE TABLE qa_runs (
     qa_requirement_id INTEGER NOT NULL,
     performed_by TEXT,
     verdict TEXT,
+    verdict_reason TEXT,
     raw_result TEXT,
     created_at TEXT NOT NULL
 );

@@ -214,7 +214,7 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
             qa_requirement_id INTEGER NOT NULL,
             performed_by TEXT,
             qa_kind TEXT,
-            verdict TEXT, raw_result TEXT,
+            verdict TEXT, verdict_reason TEXT, raw_result TEXT,
             created_at TEXT NOT NULL,
             started_at TEXT, completed_at TEXT
         );

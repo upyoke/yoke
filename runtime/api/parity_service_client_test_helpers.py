@@ -80,7 +80,9 @@ WRITE_PARITY_SCHEMA_EXTRAS = """
         qa_requirement_id INTEGER NOT NULL,
         performed_by TEXT,
         verdict TEXT,
-        raw_result TEXT
+        verdict_reason TEXT,
+        raw_result TEXT,
+        created_at TEXT
     );
 """
 
