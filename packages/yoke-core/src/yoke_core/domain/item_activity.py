@@ -45,10 +45,12 @@ def _p(conn: Any) -> str:
 
 
 def ensure_schema(conn: Any) -> None:
-    """Create ``item_activity_days`` if missing (minimal test DBs).
+    """Create ``item_activity_days`` for a fixture database. **Tests only.**
 
-    The canonical schema owner is ``yoke_core.domain.schema``; this
-    helper keeps fixture DBs self-sufficient. Idempotent.
+    The schema owner is :func:`yoke_core.domain.schema_init.converge_core_schema`;
+    serving code reaches an already-converged database and must not call this.
+    See :func:`yoke_core.domain.strategize_carry_schema.ensure_schema` for why.
+    Idempotent.
     """
     ddl = (
         _TABLE_DDL_POSTGRES

@@ -82,6 +82,15 @@ def create_project_onboarding_tables(conn: Any) -> None:
 
 
 def ensure_schema(conn: Any) -> None:
+    """Create the onboarding run tables for a fixture database. **Tests only.**
+
+    The schema owner is :func:`yoke_core.domain.schema_init.converge_core_schema`,
+    which calls :func:`create_project_onboarding_tables` on every boot; serving
+    code reaches an already-converged database and must not call this. That
+    matters more here than for a bare ``CREATE TABLE IF NOT EXISTS``, because
+    :func:`_ensure_columns` issues ``ALTER TABLE ... ADD COLUMN``. See
+    :func:`yoke_core.domain.strategize_carry_schema.ensure_schema` for why.
+    """
     create_project_onboarding_tables(conn)
     conn.commit()
 
@@ -137,7 +146,6 @@ def update_run(
     own_conn = conn is None
     selected = conn or connect()
     try:
-        ensure_schema(selected)
         selected_id = _normalize_run_id(run_id or f"run-{uuid4().hex[:12]}")
         resumed = _run_exists(selected, selected_id)
         existing = _fetch_run(selected, selected_id)
@@ -188,7 +196,6 @@ def get_run(run_id: str, *, conn: Any | None = None) -> dict[str, Any]:
     own_conn = conn is None
     selected = conn or connect()
     try:
-        ensure_schema(selected)
         p = _p(selected)
         run = selected.execute(
             f"SELECT * FROM project_onboarding_runs WHERE run_id = {p}",
