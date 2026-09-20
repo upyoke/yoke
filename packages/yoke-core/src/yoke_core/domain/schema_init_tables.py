@@ -22,6 +22,7 @@ from yoke_core.domain.item_worktree_schema import (
     ensure_epic_item_worktree_references,
     ensure_item_worktree_schema,
 )
+from yoke_core.domain.item_landings_schema import ITEM_LANDINGS_CREATE_SQL
 from yoke_core.domain.merge_queue_landing_record_schema import (
     MERGE_QUEUE_LANDING_RECORDS_CREATE_SQL,
 )
@@ -75,6 +76,7 @@ def create_core_tables(conn: Any) -> None:
           {MEMBERSHIP_FINALIZED_COLUMN} TEXT,
           UNIQUE(project_id, project_sequence)
         );
+        {ITEM_LANDINGS_CREATE_SQL}
         {MERGE_QUEUE_LANDING_RECORDS_CREATE_SQL}
         {SESSION_CI_RUN_WAITS_CREATE_SQL}
         CREATE TABLE IF NOT EXISTS ouroboros_entries (

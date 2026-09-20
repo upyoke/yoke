@@ -44,6 +44,9 @@ def _schema_ddl() -> str:
             PROJECT_PACK_REPORT_ENTRIES_TABLE_SQL,
             PROJECT_PACK_REPORTS_TABLE_SQL,
         )
+        from yoke_core.domain.item_landings_schema import (
+            ITEM_LANDINGS_CREATE_SQL,
+        )
         from yoke_core.domain.qa_catalog_schema import QA_CATALOG_TABLES_SQL
         from yoke_core.domain.ui_preferences_schema import (
             ACTOR_UI_PREFERENCES_CREATE_SQL,
@@ -83,6 +86,10 @@ def _schema_ddl() -> str:
             " REFERENCES items(id) ON DELETE CASCADE",
             "",
         )
+        item_landings_without_fk = ITEM_LANDINGS_CREATE_SQL.replace(
+            " REFERENCES items(id)",
+            "",
+        )
         qa_catalog_without_fk = re.sub(
             r" REFERENCES [A-Za-z_][A-Za-z0-9_]*\([^)]*\)"
             r"(?: ON DELETE CASCADE)?",
@@ -95,6 +102,7 @@ def _schema_ddl() -> str:
             + _ITEMS_DDL
             + item_worktrees_without_fk
             + ITEM_WORKTREES_INDEX_SQL
+            + item_landings_without_fk
             + _EPIC_QA_DDL
             + DOCTOR_RUNS_SCHEMA_SQL
             + _RUNTIME_DDL

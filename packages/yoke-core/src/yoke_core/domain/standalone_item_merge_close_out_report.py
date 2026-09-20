@@ -16,6 +16,7 @@ a fact the run never established is left out instead of guessed.
 
 from __future__ import annotations
 
+import json
 import sys
 from collections.abc import Mapping
 from functools import partial
@@ -279,6 +280,23 @@ def final_outcome(
     return NOT_CLOSED, blocker
 
 
+def announce_phase(step: str) -> None:
+    """Name each close-out step so a killed capture shows where it stopped."""
+    print(f"[phase:close-out] {step}", file=sys.stderr, flush=True)
+
+
+def fail_json(
+    message: str, *, as_json: bool, public_ref: str = "", **extra: Any
+) -> int:
+    """Report one refused close-out on both streams and return its exit code."""
+    if as_json:
+        print(json.dumps({"ok": False, "error": message, **extra}, indent=2))
+    else:
+        print(f"Error: {message}", file=sys.stderr)
+    print_outcome(kind=NOT_CLOSED, public_ref=public_ref, blocker=message)
+    return 1
+
+
 __all__: Sequence[str] = (
     "ALREADY_CLOSED",
     "AWAITING_DELIVERY",
@@ -289,8 +307,10 @@ __all__: Sequence[str] = (
     "LINE_PREFIX",
     "NOT_CLOSED",
     "UNRESOLVED_REF",
+    "announce_phase",
     "bind",
     "claim_state",
+    "fail_json",
     "final_outcome",
     "outcome_lines",
     "print_outcome",

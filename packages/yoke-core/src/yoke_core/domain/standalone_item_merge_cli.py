@@ -19,6 +19,7 @@ from yoke_core.domain.close_out_evidence_gate import (
 from yoke_core.domain import standalone_item_merge as merge_domain
 from yoke_core.domain import standalone_item_merge_close_out_report as report
 from yoke_core.domain import standalone_item_merge_converge as converge
+from yoke_core.domain import item_landings_close_out as landings
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
@@ -49,15 +50,6 @@ from yoke_core.domain.standalone_item_merge_lane import (
 from yoke_core.domain.terminal_lane_cleanup import record_terminal_lane_close_out
 
 
-def _fail(message: str, *, as_json: bool, public_ref: str = "", **extra: Any) -> int:
-    if as_json:
-        print(json.dumps({"ok": False, "error": message, **extra}, indent=2))
-    else:
-        print(f"Error: {message}", file=sys.stderr)
-    report.print_outcome(kind=report.NOT_CLOSED, public_ref=public_ref, blocker=message)
-    return 1
-
-
 def _session_holds_claim(item_id: int, session_id: str) -> str:
     """Empty when this session owns the item claim, else why it does not."""
     return recovery.claim_error(item_id, session_id)
@@ -77,11 +69,6 @@ def _resolve_item(public_ref: str, project: Optional[str]) -> tuple[Any, str]:
     return (response.result or {}).get("item") or {}, ""
 
 
-def _announce_close_out(step: str) -> None:
-    """Name each close-out step so a killed capture shows where it stopped."""
-    print(f"[phase:close-out] {step}", file=sys.stderr, flush=True)
-
-
 def run(argv: List[str]) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -89,11 +76,13 @@ def run(argv: List[str]) -> int:
 
     item, error = _resolve_item(str(args.item), args.project)
     if error:
-        return _fail(f"could not resolve item {args.item!r}: {error}", as_json=as_json)
+        return report.fail_json(
+            f"could not resolve item {args.item!r}: {error}", as_json=as_json,
+        )
 
     item_id = int(item["id"])
     public_ref = str(item.get("public_ref") or args.item)
-    fail = partial(_fail, as_json=as_json, public_ref=public_ref)
+    fail = partial(report.fail_json, as_json=as_json, public_ref=public_ref)
     announce = report.bind(session_id=str(args.session_id), dispatch=call_dispatcher)
     workflow_id = str((item.get("workflow") or {}).get("id") or "")
     status = str(item.get("status") or "")
@@ -230,13 +219,17 @@ def run(argv: List[str]) -> int:
         announce(landing, kind=report.LANDING_PENDING)
         return 0
 
-    close_lane = landed_lane or landed.LandedLane(
+    # The one boundary both landing routes reach with the merge identity
+    # resolved, so the item's landing history is appended here or nowhere.
+    close_lane, landing_note = landings.close_out_lane(
+        item_id=item_id,
         branch=branch,
         target=target,
-        commit_sha=outcome.commit_sha,
-        merge_sha=outcome.merge_sha,
-        touched_files=tuple(outcome.touched_files),
-        source="this merge",
+        repo_root=str(repo_root),
+        landed_lane=landed_lane,
+        outcome=outcome,
+        queue_pr_number=str(queue.get("pr_number") or ""),
+        queue_landed_at=str(queue.get("landed_at") or ""),
     )
     # A claim recovered at admission is already close-out authority. Re-check
     # after landing only when the wait itself could have outlived a claim
@@ -268,9 +261,11 @@ def run(argv: List[str]) -> int:
         "status": status,
         "warnings": list(outcome.warnings),
     }
+    if landing_note:
+        envelope["warnings"].append(landing_note)
 
     if record_evidence:
-        _announce_close_out("recording evidence")
+        report.announce_phase("recording evidence")
         write_error, write_warning = close_out.record_execution_evidence(
             item_id=item_id,
             outcome=outcome,
@@ -290,7 +285,7 @@ def run(argv: List[str]) -> int:
             envelope["warnings"].append(write_warning)
         envelope["evidence_recorded"] = True
 
-    _announce_close_out("prepared release")
+    report.announce_phase("prepared release")
     release_fragment, release_warning = release_flow.continue_prepared_release(
         item_id=item_id, session_id=str(args.session_id), public_ref=public_ref,
     )
@@ -299,7 +294,7 @@ def run(argv: List[str]) -> int:
     if release_warning:
         envelope["warnings"].append(release_warning)
 
-    _announce_close_out("syncing GitHub")
+    report.announce_phase("syncing GitHub")
     if sync_error := merge_domain.sync_item_to_github(item_id):
         envelope["warnings"].append(f"GitHub sync skipped: {sync_error}")
 
@@ -314,7 +309,7 @@ def run(argv: List[str]) -> int:
         session_id=str(args.session_id),
         repo_root=repo_root,
         envelope=envelope,
-        announce=_announce_close_out,
+        announce=report.announce_phase,
         close_out=close_out,
         evidence=evidence,
         pending=pending,
