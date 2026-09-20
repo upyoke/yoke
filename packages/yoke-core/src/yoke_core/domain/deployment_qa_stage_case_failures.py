@@ -67,13 +67,14 @@ def obligations_fully_discharged(
     return bool(rows) and all(obligation_settled(row) for row in rows)
 
 
-#: A case's evidence, found through any completed execution of this same
-#: subject and target rather than through one chosen execution. A corrected
-#: case typically runs under its own plan, and therefore its own execution;
-#: reading only the newest execution's results made that passing case report
-#: "no attached evidence" and hold the stage it had just satisfied. The
-#: digest predicate still carries the target-identity guarantee, so evidence
-#: recorded against a replaced target is no more visible than before.
+#: A case's evidence as the execution record names it: any completed
+#: execution of this same subject and target rather than one chosen
+#: execution. A corrected case typically runs under its own plan, and
+#: therefore its own execution; reading only the newest execution's results
+#: made that passing case report "no attached evidence" and hold the stage it
+#: had just satisfied. This is the fallback behind the accepted verdict's own
+#: run. The digest predicate still carries the target-identity guarantee, so
+#: evidence recorded against a replaced target is no more visible than before.
 _CASE_EVIDENCE_SQL = (
     "SELECT r.result_json FROM qa_plan_execution_results r "
     "JOIN qa_plan_executions e ON e.id=r.execution_id "
@@ -85,7 +86,16 @@ _CASE_EVIDENCE_SQL = (
 )
 
 
-def _has_evidence(
+def _artifact_count(conn: Any, qa_run_id: int) -> int:
+    return int(
+        conn.execute(
+            "SELECT COUNT(*) FROM qa_artifacts WHERE qa_run_id=%s",
+            (int(qa_run_id),),
+        ).fetchone()[0]
+    )
+
+
+def _execution_evidence_runs(
     conn: Any,
     *,
     requirement_id: int,
@@ -93,9 +103,10 @@ def _has_evidence(
     stage_name: str,
     member_item_id: int | None,
     execution_target_digest: str,
-) -> bool:
-    """True when some completed execution of this subject attached artifacts."""
-    rows = query_rows(
+) -> list[int]:
+    """The run ids this subject's completed execution results name."""
+    runs: list[int] = []
+    for row in query_rows(
         conn,
         _CASE_EVIDENCE_SQL,
         (
@@ -105,8 +116,7 @@ def _has_evidence(
             member_item_id or 0,
             execution_target_digest,
         ),
-    )
-    for row in rows:
+    ):
         raw_result = row["result_json"]
         result = (
             dict(raw_result)
@@ -114,17 +124,52 @@ def _has_evidence(
             else json.loads(str(raw_result or "{}"))
         )
         evidence_run_id = result.get("qa_run_id") or result.get("run_id")
-        if evidence_run_id is None:
+        if evidence_run_id is not None:
+            runs.append(int(evidence_run_id))
+    return runs
+
+
+def _inspect_evidence(
+    conn: Any,
+    *,
+    verdict_run_id: int,
+    requirement_id: int,
+    run_id: str,
+    stage_name: str,
+    member_item_id: int | None,
+    execution_target_digest: str,
+) -> tuple[bool, list[int]]:
+    """Whether any candidate run carries artifacts, and the runs inspected.
+
+    The run whose verdict this gate accepted is inspected first, because that
+    is the run the gate's evidence question is about and the one a reviewer
+    attaches evidence to. Asking only the execution record instead named a
+    different run — the capture run the execution wrote — and refused a member
+    whose evidence was already attached where the accepted pass lived. The
+    execution-scoped walk stays behind it, so a corrected case that ran under
+    its own plan and execution keeps passing on that evidence.
+
+    The inspected ids are returned so a refusal can say where it looked.
+    """
+    candidates = [
+        verdict_run_id,
+        *_execution_evidence_runs(
+            conn,
+            requirement_id=requirement_id,
+            run_id=run_id,
+            stage_name=stage_name,
+            member_item_id=member_item_id,
+            execution_target_digest=execution_target_digest,
+        ),
+    ]
+    inspected: list[int] = []
+    for candidate in candidates:
+        if candidate in inspected:
             continue
-        attached = int(
-            conn.execute(
-                "SELECT COUNT(*) FROM qa_artifacts WHERE qa_run_id=%s",
-                (int(evidence_run_id),),
-            ).fetchone()[0]
-        )
-        if attached:
-            return True
-    return False
+        inspected.append(candidate)
+        if _artifact_count(conn, candidate):
+            return True, inspected
+    return False, inspected
 
 
 def case_failures(
@@ -164,17 +209,23 @@ def case_failures(
                 f"verdict is {verdict or 'missing'}"
             )
             continue
-        if not _has_evidence(
+        accepted_run_id = int(latest["id"])
+        found, inspected = _inspect_evidence(
             conn,
+            verdict_run_id=accepted_run_id,
             requirement_id=int(row["id"]),
             run_id=run_id,
             stage_name=stage_name,
             member_item_id=member_item_id,
             execution_target_digest=execution_target_digest,
-        ):
+        )
+        if not found:
+            looked = ", ".join(f"#{candidate}" for candidate in inspected)
             failures.append(
                 f"requirement #{row['id']} ({row['plan_case_key']}) latest "
-                "passing result has no attached evidence"
+                f"passing result has no attached evidence: no qa_artifacts on "
+                f"inspected qa_runs {looked} — attach evidence to qa_run "
+                f"#{accepted_run_id}, the run whose verdict was accepted"
             )
     return failures
 

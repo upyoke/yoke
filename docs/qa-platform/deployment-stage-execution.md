@@ -199,12 +199,18 @@ discharges, both recorded and both distinguishable from a passing result:
   readable. The superseding row is graded on its own evidence in the same
   pass, so a link cannot carry a failure through. Supersession refuses a
   replacement in another subject, one that is non-blocking, waived, already
-  superseded, or that has not recorded a passing verdict. A case's evidence
-  is found through any completed execution of that same subject and target,
-  not only the newest one — a corrected case normally runs under its own plan
-  and therefore its own execution, and reading a single execution made such a
-  case report "no attached evidence" and hold the stage it had just
-  satisfied.
+  superseded, or that has not recorded a passing verdict. A case's evidence is
+  counted first on the run whose verdict the gate accepted — the newest run
+  for that requirement, which is where a reviewer attaches evidence — and then
+  through any completed execution of that same subject and target, not only
+  the newest one. Both halves are load-bearing: asking only the execution
+  record named the capture run it wrote and refused a member whose evidence
+  was attached to the accepted pass, while a corrected case normally runs
+  under its own plan and therefore its own execution, and reading a single
+  execution made such a case report "no attached evidence" and hold the stage
+  it had just satisfied. A pass carrying artifacts on no run at all still
+  refuses, and that refusal names every run id it inspected plus the run to
+  attach evidence to.
 - **Waiver.** `yoke qa requirement waive --force` remains the authorized
   operator discharge when no corrected case answers.
 
