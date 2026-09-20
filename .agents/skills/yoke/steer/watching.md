@@ -70,9 +70,10 @@ wake to fire, the already-open stream simply surfaces the finding on its
 next check. Due reports are checked even without deltas, so cooldown then
 quiet and timer-only findings still reach the seat. Fingerprints suppress
 unchanged reports; existing idle-holder, unowned-work and undelivered-message
-checks remain in force. A changed report's wake carries the hook digest —
-actionable sections, the decisions it does not serve, and the closing marker —
-so the seat can act or decide to pull. Pull `yoke steering report get` without a project
+checks remain in force. A changed report arrives as one wake containing the
+whole block — opening marker, hook digest, and closing marker together — so
+the seat can act or decide to pull. A delimiter never wakes on its own. Pull
+`yoke steering report get` without a project
 filter to reconcile all held project/document scopes.
 
 After compaction, resume, watcher exit, or subscription loss, verify the live
