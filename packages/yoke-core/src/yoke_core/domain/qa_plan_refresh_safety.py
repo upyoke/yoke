@@ -1,0 +1,105 @@
+"""What a plan refresh will not touch, and why it refuses rather than proceed.
+
+Bringing a live requirement row back to its plan's current text is the one
+supported correction, and it is safe exactly while nothing else has already
+frozen a copy of that row. Two things can have:
+
+* a **live QA plan execution**, which built its roster from these very rows
+  and is being walked against it right now. Rewriting a row underneath that
+  walk is the drift the roster snapshot check exists to catch, so the refresh
+  refuses and names the abort that reopens it.
+* an **admitted deployment-stage copy** of the row, frozen onto a run that is
+  still executing. :mod:`qa_admitted_case_reconciliation` already decides per
+  copy whether an amendment can honestly reach it; this asks it the same
+  question before a refresh writes anything, rather than asking it a second
+  way.
+
+Both checks run before the first write, so a refused refresh leaves every row
+exactly as it was. A half-applied refresh is the state hardest to reason about
+afterwards, and it is the state that made the original defect invisible.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Optional
+
+from yoke_core.domain.qa_plan_execution_store import live_plan_execution_id
+
+LIVE_EXECUTION_CODE = "plan_execution_in_flight"
+
+LIVE_EXECUTION_MESSAGE = (
+    "{code}: {subject} is being walked by live QA plan execution "
+    "{execution_id}, whose roster was frozen from these rows. Refreshing them "
+    "now would move the definitions underneath a walk already in progress. "
+    "Abort that execution with `yoke qa plan abort`, refresh, and start it "
+    "again — the abort is what makes the refresh reachable."
+)
+
+
+def require_no_live_execution(
+    conn: Any,
+    *,
+    subject: str,
+    item_id: Optional[int] = None,
+    transition_id: Optional[str] = None,
+    deployment_run_id: Optional[str] = None,
+    deployment_stage: Optional[str] = None,
+    deployment_member_item_id: Optional[int] = None,
+) -> None:
+    """Refuse a refresh whose rows a live execution has already frozen in."""
+    from yoke_core.domain.qa_plan_management import QaPlanError
+    from yoke_core.domain.schema_common import _table_exists
+
+    if not _table_exists(conn, "qa_plan_executions"):
+        return
+    execution_id = live_plan_execution_id(
+        conn,
+        item_id=item_id,
+        transition_id=transition_id,
+        deployment_run_id=deployment_run_id,
+        deployment_stage=deployment_stage,
+        deployment_member_item_id=deployment_member_item_id,
+    )
+    if execution_id is None:
+        return
+    raise QaPlanError(
+        LIVE_EXECUTION_MESSAGE.format(
+            code=LIVE_EXECUTION_CODE,
+            subject=subject,
+            execution_id=execution_id,
+        )
+    )
+
+
+def require_reachable_admitted_copies(
+    conn: Any, requirement_ids: list[int]
+) -> None:
+    """Refuse a refresh that would strand a copy already frozen onto a run.
+
+    A refresh rewrites the executable body whole, so every admitted copy of a
+    refreshed row is affected by it. The reconciliation module owns which
+    copies an amendment can reach; asking it here — before any write — is what
+    keeps one answer for that question instead of two that can disagree.
+    """
+    from yoke_core.domain.qa_admitted_case_reconciliation import (
+        admitted_copies_in_flight,
+        unreachable_copy_refusal,
+    )
+    from yoke_core.domain.qa_plan_management import QaPlanError
+
+    refusals = []
+    for requirement_id in requirement_ids:
+        copies = admitted_copies_in_flight(conn, int(requirement_id))
+        refusal = unreachable_copy_refusal(int(requirement_id), copies)
+        if refusal:
+            refusals.append(refusal)
+    if refusals:
+        raise QaPlanError(" ".join(refusals))
+
+
+__all__ = [
+    "LIVE_EXECUTION_CODE",
+    "LIVE_EXECUTION_MESSAGE",
+    "require_no_live_execution",
+    "require_reachable_admitted_copies",
+]

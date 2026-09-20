@@ -1,8 +1,16 @@
-"""Refresh QA plan requirements while retaining completed run history."""
+"""Refresh QA plan requirements while retaining completed run history.
+
+This is the one supported way to bring a live item requirement back to its
+plan's current text, and it reaches every executable column — instructions and
+expected_outcome included — because :func:`refresh_requirement` rewrites the
+derivation whole rather than going through the narrow ``qa.requirement.update``
+allowlist. What it will not touch is named by :mod:`qa_plan_refresh_safety`:
+it refuses, before writing anything, when a live execution or an unreachable
+admitted copy has already frozen a copy of the rows it would refresh.
+"""
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from yoke_core.domain.db_helpers import iso8601_now, query_rows
@@ -20,7 +28,12 @@ from yoke_core.domain.qa_plan_attachments import _attached_plans
 from yoke_core.domain.qa_plan_execution_target_snapshot import (
     rebind_unresolvable_targets,
 )
+from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder, _plan_row
+from yoke_core.domain.qa_plan_refresh_safety import (
+    require_no_live_execution,
+    require_reachable_admitted_copies,
+)
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
     insert_requirement,
@@ -81,6 +94,13 @@ def rematerialize_for_item(
         "AND plan_id IS NOT NULL ORDER BY id",
         (int(item_id), transition_id),
     )
+    subject = f"{render_item_ref(conn, item_id)} transition {transition_id!r}"
+    # Both refusals run before the first write: a refresh that stops halfway
+    # leaves exactly the half-corrected state this operation exists to end.
+    require_no_live_execution(
+        conn, subject=subject, item_id=int(item_id), transition_id=transition_id
+    )
+    require_reachable_admitted_copies(conn, [int(row["id"]) for row in rows])
     rows_by_plan: dict[int, list[Any]] = {}
     for row in rows:
         rows_by_plan.setdefault(int(row["plan_id"]), []).append(row)
@@ -103,27 +123,21 @@ def rematerialize_for_item(
         require_existing_target(
             plan_rows,
             execution_target=execution_target,
-            subject=f"{render_item_ref(conn, item_id)} transition {transition_id!r}",
+            subject=subject,
         )
         existing_ids = {
             (str(row["plan_case_key"]), row["host_baseline"]): int(row["id"])
             for row in plan_rows
         }
-        cases = query_rows(
-            conn,
-            "SELECT c.*, m.name AS method_name, m.runner_id, "
-            "m.required_capability_kinds, m.verdict_path, m.config_contract_id "
-            "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
-            f"WHERE c.plan_id={marker} ORDER BY c.position",
-            (plan_id,),
-        )
+        cases = plan_cases(conn, plan_id)
         if not cases:
             raise QaPlanError(
                 f"QA plan {plan_id} has no cases and cannot be materialized"
             )
         for case in cases:
-            baselines = json.loads(str(case["host_baselines"] or "[]")) or [None]
-            for baseline_position, baseline in enumerate(baselines, start=1):
+            for baseline_position, baseline in enumerate(
+                case_baselines(case), start=1
+            ):
                 key = (str(case["case_key"]), baseline)
                 requirement_id = existing_ids.get(key)
                 if requirement_id is None:
@@ -156,7 +170,7 @@ def rematerialize_for_item(
                             conn,
                             requirement_id=requirement_id,
                             execution_target=execution_target,
-                            subject=f"{render_item_ref(conn, item_id)} transition {transition_id!r}",
+                            subject=subject,
                         )
                 else:
                     refresh_requirement(

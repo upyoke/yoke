@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
@@ -12,6 +11,7 @@ from yoke_core.domain.qa_plan_management import (
     _placeholder,
     _plan_row,
 )
+from yoke_core.domain.qa_plan_case_definition import case_baselines, plan_cases
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
     insert_requirement,
@@ -225,14 +225,7 @@ def materialize_for_item(
                 execution_target,
             )
             continue
-        cases = query_rows(
-            conn,
-            "SELECT c.*, m.name AS method_name, m.runner_id, "
-            "m.required_capability_kinds, m.verdict_path, m.config_contract_id "
-            "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
-            f"WHERE c.plan_id={marker} ORDER BY c.position",
-            (plan_id,),
-        )
+        cases = plan_cases(conn, plan_id)
         if not cases:
             raise QaPlanError(
                 f"QA plan {plan_id} has no cases and cannot be materialized"
@@ -250,8 +243,9 @@ def materialize_for_item(
             existing.extend(existing_ids)
             continue
         for case in cases:
-            baselines = json.loads(str(case["host_baselines"] or "[]")) or [None]
-            for baseline_position, baseline in enumerate(baselines, start=1):
+            for baseline_position, baseline in enumerate(
+                case_baselines(case), start=1
+            ):
                 requirement_id = insert_requirement(
                     conn,
                     item_id=item_id,
