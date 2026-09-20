@@ -257,6 +257,43 @@ async function testDelayThenScreenshotCapturesDelayedContent() {
   await page.close();
 }
 
+async function testNavigateOntoAnAuthRefusalFailsInsteadOfProceeding() {
+  console.log('\n## Test: navigate onto an auth refusal fails loudly');
+  const http = require('http');
+  const page = await context.newPage();
+
+  // A token-gated server answers an unauthenticated request with a JSON
+  // refusal body. Screenshotting that body yields a plausible-looking
+  // capture of a screen nobody rendered, so the step must not proceed.
+  const server = http.createServer((req, res) => {
+    res.writeHead(401, { 'Content-Type': 'application/json' });
+    res.end('{"error":{"code":"session_token_required"}}');
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const gatedBase = `http://127.0.0.1:${server.address().port}`;
+
+  try {
+    const result = await executeStep(page, {
+      route: '/',
+      action: 'navigate',
+    }, { baseUrl: gatedBase });
+
+    assertEqual(result.success, false, 'navigate onto a 401 reports failure');
+    assert(result.error.includes('401'), 'error names the refusing status');
+    assert(
+      result.error.includes('authentication refusal'),
+      'error says the page is a refusal, not the requested screen',
+    );
+    assert(
+      result.error.includes('snapshot screenshot'),
+      'error names the recovery that establishes the session',
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    await page.close();
+  }
+}
+
 async function run() {
   console.log('=== Step Runner Tests: Actions ===');
   await setup();
@@ -270,6 +307,7 @@ async function run() {
     await testDelayWithDurationMs();
     await testDelayDefaultDuration();
     await testDelayThenScreenshotCapturesDelayedContent();
+    await testNavigateOntoAnAuthRefusalFailsInsteadOfProceeding();
   } catch (err) {
     console.error('\nUnexpected error:', err);
     failCount++;
