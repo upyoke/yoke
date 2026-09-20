@@ -32,6 +32,7 @@ def register(registry) -> None:
         adapter_status="internal",
         claim_required_kind=None,
         ambient_session_required=False,
+        minimum_serving_version="next-release",
     )
     registry.register(
         "item_landings.list",
@@ -47,6 +48,7 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind=None,
         ambient_session_required=False,
+        minimum_serving_version="next-release",
     )
 
 
