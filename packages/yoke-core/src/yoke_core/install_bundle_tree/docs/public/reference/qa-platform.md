@@ -211,9 +211,9 @@ NULL`). **Public preview:** `yoke qa gate-summary --item PREFIX-N --target revie
 
 ### Done Gate
 
-Transitioning to `done` requires all blocking `post_deploy` and `manual_acceptance` phase requirements to be satisfied (same pass/waive logic).
+`done` settles every blocking requirement the item carries — item-bound (`item_id`) or run-bound (`deployment_member_item_id`), any phase. The refusal names the requirement and its run. `cancelled` and `stopped` abandon without settling or auto-waiving. A member with no such rows is distinct from one whose obligation is unsatisfied.
 
-**Public preview:** `yoke qa gate-summary --item PREFIX-N --target implemented --json`
+**Public preview:** `yoke qa gate-summary --item PREFIX-N --target done --json`
 
 ### Bypass
 

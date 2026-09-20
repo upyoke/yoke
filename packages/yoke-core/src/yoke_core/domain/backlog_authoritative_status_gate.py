@@ -245,17 +245,22 @@ def _evaluate_qa_verification(
     Returns the canonical failure payload, or ``None`` when the gate is
     satisfied or unavailable for this target.
     """
+    from yoke_core.domain.qa_gate_definitions import (
+        QA_SETTLING_TERMINAL_STATUSES,
+        status_settles_blocking_qa,
+    )
+
     if not definition_selected and target_status not in {
         "reviewed-implementation",
         "implemented",
         "release",
-        "done",
+        *QA_SETTLING_TERMINAL_STATUSES,
     }:
         return None
     from yoke_core.domain import qa_gates
 
     gate_target = qa_gates.GateTarget(item_id=int(item_id))
-    if target_status == "done":
+    if status_settles_blocking_qa(target_status):
         gate_result = qa_gates.check_done_gate(gate_target, db_path)
         error_code = "GATE_QA_DONE"
     else:

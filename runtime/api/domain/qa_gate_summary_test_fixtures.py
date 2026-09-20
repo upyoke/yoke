@@ -27,6 +27,7 @@ CREATE TABLE qa_requirements (
     epic_id INTEGER,
     task_num INTEGER,
     deployment_run_id TEXT,
+    deployment_member_item_id INTEGER,
     qa_kind TEXT NOT NULL,
     method_id TEXT,
     verdict_path TEXT,

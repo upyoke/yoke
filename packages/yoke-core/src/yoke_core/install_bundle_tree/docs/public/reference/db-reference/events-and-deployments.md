@@ -279,6 +279,8 @@ is covered by one check. Two tables carry those obligations, and both are read:
   That rule is shared with the stage acceptance check, so the end of a release
   never re-opens what a stage already accepted. A case whose latest run is
   `undetermined` and awaits human review is named with it and its authorities.
+  The item `done` gate reads the same rows when they name the item as
+  `deployment_member_item_id`; run-scoped rows with no member stay the run's.
 
 Non-blocking checks never hold a run, and `force=True` overrides the
 hold exactly as it overrides the stage checks beside it.

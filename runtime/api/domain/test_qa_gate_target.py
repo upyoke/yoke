@@ -34,7 +34,9 @@ class TestGateTarget:
         target = GateTarget(item_id=42)
         sql, params = target.where_clause()
         assert "item_id" in sql
-        assert params == (42,)
+        assert "deployment_member_item_id" in sql
+        assert "deployment_run_id" not in sql
+        assert params == (42, 42)
 
     def test_where_clause_epic(self):
         target = GateTarget(epic_id=833, task_num=5)

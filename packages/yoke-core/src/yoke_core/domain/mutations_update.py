@@ -30,6 +30,7 @@ from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 #: that waits on a release-stage gate before the terminal stage, including a
 #: still-implementing Blitz's final closeout.
 from yoke_core.domain.deployment_qa_source_obligation import POST_DEPLOY_RECOVERY
+from yoke_core.domain.qa_gate_definitions import status_settles_blocking_qa
 
 _RELEASE_CEREMONY_DELIVERY_POLICIES = frozenset(
     {"release_stage", WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE}
@@ -177,12 +178,11 @@ def prepare_update(
                     item_id=item.id,
                 )
 
-        # Done QA gate: every workflow's terminal transition needs its
-        # blocking requirements satisfied. Stage-scoped QA enforcement for
-        # every other status belongs to the composed qa_verification gate
-        # the pinned workflow version declares for that stage.
+        # Settling-terminal QA gate: ``done`` must settle blocking obligations
+        # this item carries. ``cancelled`` and ``stopped`` are named
+        # non-settling terminals — they abandon without auto-waiving.
         if (
-            value == "done"
+            status_settles_blocking_qa(value)
             and gate.unsatisfied_all_blocking > 0
             and not gate.qa_bypass
             and not gate.force
@@ -195,9 +195,12 @@ def prepare_update(
             return MutationResult(
                 success=False,
                 error=(
-                    f"Cannot transition {item.ref} to 'done' -- "
-                    f"{gate.unsatisfied_all_blocking} blocking QA "
-                    f"requirement(s) unsatisfied.{recovery}"
+                    gate.done_qa_refusal
+                    or (
+                        f"Cannot transition {item.ref} to '{value}' -- "
+                        f"{gate.unsatisfied_all_blocking} blocking QA "
+                        f"requirement(s) unsatisfied.{recovery}"
+                    )
                 ),
                 error_code="GATE_QA_DONE",
                 item_id=item.id,

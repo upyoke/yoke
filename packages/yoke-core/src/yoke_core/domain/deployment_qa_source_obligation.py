@@ -283,6 +283,7 @@ class UnsatisfiedBlocking:
 
     count: int = 0
     includes_post_deploy: bool = False
+    rows: tuple[dict[str, Any], ...] = ()
 
 
 def unsatisfied_blocking(
@@ -294,41 +295,44 @@ def unsatisfied_blocking(
     ``post_deploy`` row is judged on its completion-run admitted copy. At every
     other target the original row's own passing run is the answer.
 
-    The requirement count keeps the blocking scan off databases with no QA rows
-    at all, whose minimal schema need not carry every column that scan reads.
+    Item-bound rows and run-bound rows that name this item as
+    ``deployment_member_item_id`` share :meth:`GateTarget.where_clause`.
     """
+    from yoke_core.domain.qa_gate_definitions import (
+        GateTarget,
+        status_settles_blocking_qa,
+    )
+
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    present = conn.execute(
-        f"SELECT COUNT(*) as cnt FROM qa_requirements WHERE item_id = {marker}",
-        (int(item_id),),
-    ).fetchone()
-    if not (present["cnt"] if present else 0):
-        return UnsatisfiedBlocking()
-    rows = conn.execute(
-        "SELECT qr.id, qr.qa_phase FROM qa_requirements qr "
-        f"WHERE qr.item_id = {marker} AND qr.blocking_mode = 'blocking' "
+    where, params = GateTarget(item_id=int(item_id)).where_clause()
+    if marker != "%s":
+        where = where.replace("%s", marker)
+    fetched = conn.execute(
+        "SELECT qr.id, qr.qa_kind, qr.qa_phase, qr.deployment_run_id "
+        "FROM qa_requirements qr "
+        f"WHERE {where} AND qr.blocking_mode = 'blocking' "
         "AND qr.waived_at IS NULL",
-        (int(item_id),),
+        params,
     ).fetchall()
     scored = []
-    for row in rows:
+    for row in fetched:
         item = dict(row)
         item["passed"] = has_current_passing_run(conn, int(item["id"]))
         scored.append(item)
-    rows = scored
-    if target_status != "done":
-        unsatisfied = [row for row in rows if not row["passed"]]
-    else:
+    if status_settles_blocking_qa(target_status):
         unsatisfied = [
             row
-            for row in rows
+            for row in scored
             if row_unsatisfied_at_done(conn, row, item_id=int(item_id))
         ]
+    else:
+        unsatisfied = [row for row in scored if not row["passed"]]
     return UnsatisfiedBlocking(
         count=len(unsatisfied),
         includes_post_deploy=any(
             str(row["qa_phase"] or "") == "post_deploy" for row in unsatisfied
         ),
+        rows=tuple(unsatisfied),
     )
 
 

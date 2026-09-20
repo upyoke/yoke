@@ -11,6 +11,17 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Tuple
 
+# ``done`` asserts blocking QA is settled. Engine terminals abandon the item
+# without that claim and without auto-waiving rows; the run still enforces
+# run-owned QA at its own completion boundary.
+QA_SETTLING_TERMINAL_STATUSES = frozenset({"done"})
+QA_NONSETTLING_TERMINAL_STATUSES = frozenset({"cancelled", "stopped"})
+
+
+def status_settles_blocking_qa(status: str) -> bool:
+    """True when transitioning to *status* must settle blocking QA."""
+    return status in QA_SETTLING_TERMINAL_STATUSES
+
 
 @dataclass
 class GateTarget:
@@ -34,9 +45,18 @@ class GateTarget:
         return cls(item_id=parse_item_argument(raw))
 
     def where_clause(self) -> Tuple[str, tuple]:
-        """Return (SQL fragment, params) for WHERE filtering."""
+        """Return (SQL fragment, params) for this target's obligations.
+
+        An item carries item-bound rows (``item_id``) and run-bound rows that
+        name it as ``deployment_member_item_id``. Run-scoped rows with no
+        member belong to the run's completion gate, so a member with nothing
+        of its own to verify is not blocked by another member's cases.
+        """
         if self.item_id is not None:
-            return "item_id = %s", (self.item_id,)
+            return (
+                "(item_id = %s OR deployment_member_item_id = %s)",
+                (self.item_id, self.item_id),
+            )
         return "epic_id = %s AND task_num = %s", (self.epic_id, self.task_num)
 
     def display_name(self, conn: Any) -> str:

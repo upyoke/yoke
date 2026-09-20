@@ -189,6 +189,14 @@ def _execute_update_once(
             )
             gate.unsatisfied_all_blocking = blocking.count
             gate.unsatisfied_includes_post_deploy = blocking.includes_post_deploy
+            if blocking.rows:
+                from yoke_core.domain.qa_done_gate_refusal import (
+                    done_gate_refusal_text,
+                )
+
+                gate.done_qa_refusal = done_gate_refusal_text(
+                    conn, blocking.rows, item_id=int(item_dict["id"])
+                )
 
         # Deployed-to validation
         if field == "deployed_to" and value:

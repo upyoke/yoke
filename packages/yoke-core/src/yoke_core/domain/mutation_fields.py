@@ -253,6 +253,9 @@ class GateContext:
             Callers using this escape hatch must preserve invariants outside
             the mutation layer.
         qa_bypass: True if QA gates should be bypassed.
+        done_qa_refusal: Operator-facing done-gate error already rendered
+            from the unsatisfied rows (names requirement and run). Empty
+            when the count-only fallback should be used.
         title_max_length: DB-resolved title-length limit for the item's
             project, pre-loaded when the update touches ``title``. None if
             not loaded (falls back to the shipped default).
@@ -267,4 +270,5 @@ class GateContext:
     done_nonce_verified: bool = False
     force: bool = False
     qa_bypass: bool = False
+    done_qa_refusal: Optional[str] = None
     title_max_length: Optional[int] = None

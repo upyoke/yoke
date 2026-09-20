@@ -220,7 +220,7 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
         rows = query_rows(
             conn,
             f"""
-            SELECT r.id, r.qa_kind, r.qa_phase
+            SELECT r.id, r.qa_kind, r.qa_phase, r.deployment_run_id
             FROM qa_requirements r
             WHERE {where}
               AND r.blocking_mode = 'blocking'
