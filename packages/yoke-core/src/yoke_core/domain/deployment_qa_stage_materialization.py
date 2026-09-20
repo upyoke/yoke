@@ -29,6 +29,10 @@ from yoke_core.domain.deployment_qa_direct_case_target import (
     bind_existing_direct_deployment_cases,
 )
 from yoke_core.domain.deployment_requirement_snapshots import _plan_snapshot
+from yoke_core.domain.post_deploy_verification_answer import (
+    cases_not_selected_refusal,
+    member_post_deploy_answer,
+)
 from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.qa_execution_environment_target import target_digest
 from yoke_core.domain.qa_plan_requirement_snapshot import (
@@ -142,13 +146,7 @@ def _selected_plans(
         )
         unique[key] = snapshot
     if not unique and not allow_empty:
-        raise QaCasesNotSelectedError(
-            "deployment QA stage has no pinned cases; select a project QA "
-            "plan and retry, naming the same stage (and member, on an "
-            "item-scoped stage) this execution runs under: `yoke qa plan run "
-            "--deployment-run-id RUN --stage STAGE [--member PREFIX-N] "
-            "--plan PLAN --project P`"
-        )
+        raise QaCasesNotSelectedError(cases_not_selected_refusal())
     return list(unique.values())
 
 
@@ -206,6 +204,7 @@ def materialize_deployment_qa_stage(
     )
     created: list[int] = []
     existing: list[int] = []
+    declared_none: tuple[str, ...] = ()
     now = iso8601_now()
     try:
         # Serializes first materialization without adding another ledger/index.
@@ -221,13 +220,13 @@ def materialize_deployment_qa_stage(
             or bound_direct
             or any(requirement.get("method_id") for requirement in admitted)
         ):
-            raise QaCasesNotSelectedError(
-                "deployment QA stage has no pinned cases; select a project QA "
-                "plan and retry, naming the same stage (and member, on an "
-                "item-scoped stage) this execution runs under: `yoke qa plan "
-                "run --deployment-run-id RUN --stage STAGE [--member "
-                "PREFIX-N] --plan PLAN --project P`"
-            )
+            # A member that RECORDED "nothing to verify, because X" answered
+            # this question before its deploy; one that recorded nothing
+            # never answered it, and is still held exactly as before.
+            answer = member_post_deploy_answer(conn, subject)
+            if not answer.declared_none:
+                raise QaCasesNotSelectedError(cases_not_selected_refusal())
+            declared_none = answer.reasons
         existing.extend(bound_direct)
         for requirement in admitted:
             requirement_id, was_created = materialize_admitted_requirement(
@@ -337,6 +336,10 @@ def materialize_deployment_qa_stage(
         "execution_target": target,
         "created_requirement_ids": created,
         "existing_requirement_ids": existing,
+        # Non-empty only for a member that recorded it needs no post-deploy
+        # verification, so a reader can tell a stage that credited nothing
+        # deliberately from one that found work to do.
+        "declared_no_post_deploy_verification": list(declared_none),
     }
 
 

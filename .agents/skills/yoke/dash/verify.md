@@ -117,11 +117,28 @@ An empty listing means no effective plan is attached at that transition. For
 optional Dash QA that is an honest absence; do not invent a substitute command
 or a hand-written run.
 
-## Bring your own item QA plan
+## Say what your deploy needs verified
 
 When the item's resolved deployment flow carries an **item-scoped QA stage**,
 that stage will later ask this item to prove its own behaviour on the deployed
-candidate. Author that plan here, while its cases are still editable, and
+candidate. `yoke merge item` asks you first, and refuses the landing until you
+answer — the resolved flow being the one that will close the item, so an item
+that never pinned a flow is still asked through its project's delivery default.
+
+Two answers are durable and they are different. If there is genuinely nothing
+to check once this item is live, record that and why, and merge:
+
+```text
+yoke qa post-deploy declare-none --item ITEM --reason "why nothing needs checking"
+```
+
+That is an answer, not a bypass: it writes the item's post-deploy requirement
+waived with your reason, the deployment QA stage discharges on it, and a
+reader can tell it from an item nobody asked. Do not reach for it to get past
+the refusal — an item with something to verify and no plan is the case this
+whole gate exists for.
+
+Otherwise author that plan here, while its cases are still editable, and
 attach it at the item's release stage, which is where post-deploy
 acceptance binds:
 
@@ -147,11 +164,17 @@ yoke qa plan run --item ITEM --transition release \
 ```
 
 `yoke merge item` refuses an item whose flow has an item-scoped QA stage and
-no attached plan, and names this recipe. An item whose flow has no such stage
-is unaffected and needs none of this. The deployment stage picks the attached
-plan up on its own, so nothing has to be chosen at the wake — which is the
-point: a probe first executed against production, after its case has frozen,
-can only be waived or superseded.
+has neither attached a plan nor declared it needs none, and names both
+recipes. An item whose flow has no such stage is unaffected and needs none of
+this. The deployment stage picks the attached plan up on its own, so nothing
+has to be chosen at the wake — which is the point: a probe first executed
+against production, after its case has frozen, can only be waived or
+superseded.
+
+Selecting a plan with `--plan` on a running deployment stage is a third,
+different thing: it binds cases to that one run and writes nothing the item
+keeps, so the next deployment is back to having no answer. Attaching is what
+makes the answer standing.
 
 ## Posture knobs
 

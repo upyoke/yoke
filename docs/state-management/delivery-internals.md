@@ -25,6 +25,57 @@ Those names are definition-owned, not a universal item progression.
 
 **The `deploy_stage` column** on the `items` table is retained as a read cache during the transition period, kept in sync with the run's `current_stage`. New code should read stage from the run, not from the item. See `packages/yoke-core/src/yoke_core/domain/approval.py` constants `STAGE_AUTHORITY_FIELD` (`current_stage`) and `STAGE_CACHE_FIELD` (`deploy_stage`) for the canonical machine-readable distinction.
 
+## Post-Deploy Verification Is Asked Before The Merge
+
+An item-scoped QA stage runs after the deploy, so it is far too late to be
+the first surface that asks a member what it wants verified once the code is
+live. The question is asked at the merge instead, by
+`qa_item_stage_plan_gate.missing_item_qa_plan_refusal`, which
+`standalone_item_merge_verify.verify_and_land` runs before the branch lands.
+That is the last moment the answer is cheap: the owner still holds the claim
+and the lane, and the cases are still editable.
+
+**Read the flow that will close the item, not `items.deployment_flow`.** That
+column holds only an explicit pin. `freeze_item_completion_flow` writes the
+project and workflow delivery default into it when a run admits the item,
+which is after the merge, so before the merge it is empty on essentially
+every item. A gate keyed on it therefore asks almost nobody. The resolution
+every other delivery consumer uses is `item_completion_flow` — explicit pin,
+else the delivery default — and because it needs a connection the item
+detail read resolves it and carries the answer as `completion_flow`. The
+merge engine runs client-side against an https control plane with no local
+Postgres, so it reads that field rather than resolving the flow itself.
+
+The refusal names three different things rather than defaulting between
+them:
+
+- **Standing** — `yoke qa item-plan attach ... --qa-phase post_deploy` writes
+  a per-item attachment every future deployment resolves.
+- **Nothing to verify** — `yoke qa post-deploy declare-none --item PREFIX-N
+  --reason TEXT` records the decision and the reason.
+- **Run-scoped** — `--plan` on a running deployment stage binds cases to that
+  one run and writes nothing the item keeps. It needs a run, so at the merge
+  it is named as unavailable rather than omitted.
+
+`post_deploy_verification_answer` is the single classifier the merge gate and
+the deployment QA stage both read, so the two cannot disagree about one item.
+It answers `answered` (a live post-deploy attachment or requirement),
+`declared_none` (only waived post-deploy rows, carrying their recorded
+reasons), or `unanswered` (no post-deploy record of any kind).
+
+The deployment QA stage honours the difference. A member that recorded a
+declaration materializes no cases and its stage reports `discharged`; a
+member nobody asked keeps the `QaCasesNotSelectedError` wait exactly as
+before. An empty case set on its own is still never enough — silence is not
+a declaration.
+
+The declaration needs no storage of its own: it is the item's `post_deploy`
+requirement waived with its reason, so `waived_at`, `waiver_rationale` and
+`waiver_source` carry it and the done gate already reads a waiver as a
+cleared post-deploy blocker. `yoke qa post-deploy declare-none` exists so
+that is one named act rather than adding an obligation in order to decline
+it.
+
 ## Halt States
 
 > **Vocabulary note:** Halt states (`awaiting-approval`,

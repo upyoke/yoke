@@ -16,6 +16,9 @@ from yoke_cli.commands.adapters.qa_requirement_supersede import (
     QA_REQUIREMENT_SUPERSEDE_USAGE,
 )
 from yoke_cli.commands.adapters.qa_crud import QA_REQUIREMENT_ADD_USAGE
+from yoke_cli.commands.adapters.qa_post_deploy import (
+    QA_POST_DEPLOY_DECLARE_NONE_USAGE,
+)
 from yoke_cli.commands.adapters.qa_crud_batch import (
     QA_REQUIREMENT_ADD_BATCH_USAGE,
 )
@@ -50,6 +53,7 @@ QA_ADAPTER_USAGE: Dict[str, str] = {
     "qa.run.list": QA_RUN_LIST_USAGE,
     "qa.run.get": QA_RUN_GET_USAGE,
     "qa.gate_summary.run": QA_GATE_SUMMARY_USAGE,
+    "qa.post_deploy.declare_none": QA_POST_DEPLOY_DECLARE_NONE_USAGE,
 }
 
 __all__ = ["QA_ADAPTER_USAGE"]

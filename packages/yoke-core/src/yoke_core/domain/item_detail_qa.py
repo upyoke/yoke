@@ -87,6 +87,7 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         "q.requirement_source",
         "q.success_policy",
         "q.waived_at",
+        requirement_column("waiver_rationale"),
         "q.created_at",
         requirement_column("plan_id"),
         requirement_column("plan_case_key"),

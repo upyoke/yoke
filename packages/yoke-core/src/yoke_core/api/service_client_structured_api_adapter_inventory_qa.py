@@ -127,6 +127,12 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "[--source operator|agent] [--session-id S] [--json]",
     ),
     AdapterEntry(
+        "qa.post_deploy.declare_none",
+        "yoke qa post-deploy declare-none --item PREFIX-N "
+        "(--reason TEXT | --content-file PATH | --stdin) [--project P] "
+        "[--source operator|agent] [--session-id S] [--json]",
+    ),
+    AdapterEntry(
         "qa.requirement.waive",
         "yoke qa requirement waive --requirement-id N "
         "(--rationale TEXT | --content-file PATH | --stdin) "
