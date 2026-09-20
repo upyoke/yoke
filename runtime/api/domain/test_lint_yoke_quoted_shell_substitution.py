@@ -114,6 +114,19 @@ def test_suppression_is_audit_only():
 # an ampersand pair and quotes adapter output either side of that, which is
 # what defeated the per-match heredoc strip: the more a body documented yoke
 # usage, the likelier the guard was to walk it as if it were command line.
+#
+# This prose is load-bearing, and changing it casually breaks the tests below
+# without failing them. Every character of it was validated by replaying the
+# two commands against the PRE-FIX scan and confirming they reproduced the
+# stored refusal fragment. That replay is not ceremony: the first
+# reconstruction, assembled from the recorded snippet alone, did NOT reproduce
+# the defect. The snippet is cut at 500 bytes and the body ran on past it with
+# a further double-quoted phrase; without that later quote the double-quoted
+# span never closes and the old scanner produced nothing. Both regression
+# tests would have passed against the unfixed guard -- green, and proving
+# nothing. A regression test that does not fail against the unfixed code is
+# decoration. If you edit this prose, re-validate it the same way against a
+# scan without the heredoc lift before trusting the tests that use it.
 _FIELD_NOTE_PROSE = (
     "The taught command for reading a Fleet message body does not print the "
     "body, and the shape that does buries it under an unbounded "
