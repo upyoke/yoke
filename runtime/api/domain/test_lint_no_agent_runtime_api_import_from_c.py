@@ -323,6 +323,21 @@ class TestDenialNamesWhatItMatched(unittest.TestCase):
         self.assertIn("from yoke_core.domain.surfaces import render", reason)
         self.assertNotIn("list_item_worktrees", reason)
 
+    def test_the_reason_locates_which_invocation_matched(self):
+        # Same reach-in, different position: the refusal has to move with it,
+        # or a compound command still leaves the reader guessing which
+        # segment to look at.
+        reach_in = 'python3 -c "from yoke_core.domain.surfaces import render"'
+        alone = _eval(reach_in)
+        after_a_heredoc = _eval(self.HEREDOC_EDIT_THEN_REACH_IN)
+        self.assertIsNotNone(alone)
+        self.assertIsNotNone(after_a_heredoc)
+        self.assertNotEqual(
+            alone[1],
+            after_a_heredoc[1],
+            "the reason must distinguish the invocation it matched",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -4,19 +4,35 @@ from __future__ import annotations
 
 import json
 
+from yoke_contracts.execution_provenance import collect_execution_provenance
 from yoke_harness.hooks.guard_version_skew import (
     annotate_guard_version_skew,
     guard_version_skew_notice,
 )
 
 
-CLIENT = {"source_sha": "a" * 40, "install_kind": "source_checkout"}
-SERVER = {"source_sha": "b" * 40, "install_kind": "installed_wheel"}
-SERVER_FROM_CHECKOUT = {
-    "source_sha": "b" * 40,
-    "install_kind": "source_checkout",
-    "install_path": "/srv/yoke",
-}
+def _provenance(sha: str, module_file: str) -> dict:
+    """Real provenance for one install shape, rather than a hand-built dict.
+
+    ``install_kind`` is what the recovery branches on, so the fixtures have to
+    come from the collector that populates it in production — a literal dict
+    would let the two drift apart without a test noticing.
+    """
+    return collect_execution_provenance(
+        module_file=module_file,
+        env={"YOKE_BUILD_SHA": sha},
+    )
+
+
+#: This test file sits in a checkout, so the collector reports a git tree.
+CLIENT = _provenance("a" * 40, __file__)
+SERVER_FROM_CHECKOUT = _provenance("b" * 40, __file__)
+#: No ``.git`` above a ``site-packages`` parent, so the collector reports a
+#: build whose files were copied in rather than a tree it can re-read.
+SERVER = _provenance("b" * 40, "/opt/py/site-packages/yoke_harness/hooks/x.py")
+SERVER_FROM_UV_TOOL = _provenance(
+    "b" * 40, "/Users/me/.local/share/uv/tools/yoke/lib/yoke_harness/x.py"
+)
 
 
 def test_matching_full_and_short_revisions_need_no_notice() -> None:
@@ -42,36 +58,43 @@ def test_mismatch_notice_names_both_revisions() -> None:
     assert "client hook is aaaaaaaaaaaa" in notice
 
 
-def test_an_installed_server_is_told_a_restart_does_not_close_the_gap() -> None:
-    """Provenance is captured once at import. Restarting a process that loaded
-    an installed artifact re-imports that same artifact, so the only thing that
-    moves it is installing a newer build."""
-    notice = guard_version_skew_notice(client=CLIENT, server=SERVER)
-    assert "installed build" in notice
-    assert "installed" in notice
-    assert "restart" in notice.lower()
-    # The old wording named a restart as the remedy for every case.
-    assert not notice.endswith(
-        "restart the serving Yoke process at the intended revision."
+def test_the_recovery_differs_by_how_the_server_was_installed() -> None:
+    """Provenance is captured once at import, so what moves a server off its
+    revision depends on where it loaded code from: a checkout re-reads its tree
+    on restart, an installed build re-imports the same artifact. The footer used
+    to give one unconditional answer, which is wrong for one of the two."""
+    from_checkout = guard_version_skew_notice(
+        client=CLIENT, server=SERVER_FROM_CHECKOUT
     )
+    installed = guard_version_skew_notice(client=CLIENT, server=SERVER)
+    assert from_checkout and installed
+    assert from_checkout != installed
 
 
-def test_a_source_checkout_server_is_told_a_restart_does_close_the_gap() -> None:
-    """There the loaded modules came from a git tree that has since moved, so a
-    restart re-probes that tree and picks the new revision up."""
+def test_a_checkout_server_is_told_which_tree_a_restart_would_re_read() -> None:
+    """The action is only actionable if it names the tree it applies to, and
+    that path has to come from the server's own provenance."""
     notice = guard_version_skew_notice(client=CLIENT, server=SERVER_FROM_CHECKOUT)
-    assert "restart" in notice.lower()
-    assert "/srv/yoke" in notice
-    assert "installed build" not in notice
+    assert SERVER_FROM_CHECKOUT["install_path"] in notice
 
 
-def test_an_unknown_install_kind_is_not_promised_a_restart_remedy() -> None:
-    """Only a checkout is known to re-probe, so anything else gets the
-    conservative recovery rather than an action that may do nothing."""
-    notice = guard_version_skew_notice(
-        client=CLIENT, server={"source_sha": "b" * 40, "install_kind": "uv_tool"},
+def test_a_build_server_is_not_told_to_re_read_a_tree_it_does_not_have() -> None:
+    """It has no checkout to re-probe, so it must not be handed the checkout
+    recovery — and must not be told some other server's path."""
+    notice = guard_version_skew_notice(client=CLIENT, server=SERVER)
+    assert SERVER["install_path"] not in notice
+    assert notice != guard_version_skew_notice(
+        client=CLIENT, server=SERVER_FROM_CHECKOUT
     )
-    assert "installed build" in notice
+
+
+def test_an_install_kind_that_is_not_a_checkout_gets_the_build_recovery() -> None:
+    """Only a checkout is known to re-probe on restart. Every other shape gets
+    the conservative answer rather than an action that may do nothing."""
+    assert SERVER_FROM_UV_TOOL["install_kind"] != "source_checkout"
+    assert guard_version_skew_notice(
+        client=CLIENT, server=SERVER_FROM_UV_TOOL
+    ) == guard_version_skew_notice(client=CLIENT, server=SERVER)
 
 
 def test_mismatch_notice_is_one_line() -> None:
