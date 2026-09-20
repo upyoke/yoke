@@ -25,6 +25,11 @@ class QaRequirementSupersedeResponse(BaseModel):
     superseded_at: str
     supersession_rationale: str
     supersession_source: str
+    #: Present only when the discharged row was an admitted copy whose intake
+    #: requirement is still outstanding, because supersession is run-local and
+    #: the next release admits that row again untouched.
+    admitted_from_requirement_id: Optional[int] = None
+    next_admission_notice: Optional[str] = None
 
 
 def handle_qa_requirement_supersede(

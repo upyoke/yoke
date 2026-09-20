@@ -9,6 +9,15 @@ A copy on a **terminal** run is not here at all. It is the acceptance record
 of what that release was judged against, and reaching into it would rewrite
 history rather than correct a pending case.
 
+A copy whose own obligation is already **settled** is not here either --
+waived, or superseded by a corrected case that carries the obligation now
+(:mod:`qa_obligation_settlement`). Nothing is still waiting on such a copy,
+so it has no claim to hold its source row still. Honouring only the waiver
+closed the exit the supersede receipt now names: the operator superseded the
+frozen copy exactly as instructed, then found correcting the intake row
+refused because of that same discharged copy, and the refusal sent them back
+to supersede it again.
+
 A copy on an **active** run that has not yet recorded a determinate verdict is
 reached: the amendment is applied to it as well. That is not a new licence,
 it is :mod:`qa_deployment_case_correction_window` applied to the copy -- until
@@ -38,6 +47,7 @@ from yoke_core.domain.qa_admitted_case_currency import (
 from yoke_core.domain.qa_deployment_case_correction_window import (
     determinate_verdict,
 )
+from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 from yoke_core.domain.qa_plan_execution_store import (
     live_plan_execution_id,
     marker,
@@ -103,7 +113,8 @@ def admitted_copies_in_flight(
         "q.deployment_member_item_id FROM qa_requirements q "
         "JOIN deployment_runs dr ON dr.id=q.deployment_run_id "
         f"WHERE q.plan_case_key={placeholder} AND q.plan_id IS NULL "
-        f"AND q.waived_at IS NULL AND dr.status IN ({statuses}) "
+        f"AND NOT {settled_obligation_sql('q')} "
+        f"AND dr.status IN ({statuses}) "
         "ORDER BY q.id",
         (
             f"{ADMITTED_REQUIREMENT_CASE_PREFIX}{int(source_requirement_id)}",

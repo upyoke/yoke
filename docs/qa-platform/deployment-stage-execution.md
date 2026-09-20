@@ -110,6 +110,13 @@ active, either reaches it or refuses:
   its run, and the recovery: abort that execution, re-apply the amendment so
   it reaches the copy, and start the stage again — or, for a copy that
   answered, supersede it;
+- a copy whose own obligation is already **settled** — waived, or superseded
+  by a corrected case that carries the obligation now — is not reconciled and
+  does not refuse. Nothing is waiting on it, so it has no claim to hold its
+  source row still. Reading only the waiver here closed the exit the supersede
+  receipt names: the operator superseded the frozen copy exactly as the
+  refusal above instructed, then found correcting the source refused because
+  of that same copy, sent back to the supersession they had just recorded;
 - a copy on a terminal run is left alone. It is the acceptance record of what
   that release was judged against, and rewriting it would be the corruption
   the freeze exists to prevent.
@@ -205,7 +212,15 @@ discharges, both recorded and both distinguishable from a passing result:
 
   The superseded row is left exactly as it is, so what went wrong stays
   readable. The superseding row is graded on its own evidence in the same
-  pass, so a link cannot carry a failure through. Supersession refuses a
+  pass, so a link cannot carry a failure through. Supersession is run-local
+  and never reaches the item requirement an admitted copy was frozen from —
+  that row is a real outstanding obligation, and discharging it from here
+  would drop it forever — so when the discharged case is an admitted copy the
+  receipt returns `admitted_from_requirement_id` and a `next_admission_notice`
+  naming that row and the `yoke qa requirement update` that corrects it.
+  Without it the correction reaches one run and the next release admits the
+  same body again. A source that is missing, or itself already discharged, is
+  named by neither, because no future release admits it. Supersession refuses a
   replacement in another subject, one that is non-blocking, waived, already
   superseded, or that has not recorded a passing verdict. A case's evidence is
   counted first on the run whose verdict the gate accepted — the newest run

@@ -29,7 +29,7 @@ from typing import Any
 
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.deployment_qa_admission_materialization import (
-    ADMITTED_REQUIREMENT_CASE_PREFIX,
+    admitted_source_requirement_id,
 )
 from yoke_core.domain.qa_plan_execution_store import canonical, marker
 from yoke_core.domain.qa_requirement_pass_currency import (
@@ -175,22 +175,6 @@ class AdmittedCaseDivergence:
         )
 
 
-def admitted_source_requirement_id(case_key: Any) -> int | None:
-    """The source requirement an admitted case key names, or ``None``.
-
-    Every other case key -- a plan's own, or the ``ad-hoc-`` form -- names no
-    source row, so it has nothing to be stale against.
-    """
-    key = str(case_key or "")
-    if not key.startswith(ADMITTED_REQUIREMENT_CASE_PREFIX):
-        return None
-    tail = key[len(ADMITTED_REQUIREMENT_CASE_PREFIX) :]
-    if not tail.isdigit():
-        return None
-    source_id = int(tail)
-    return source_id if source_id > 0 else None
-
-
 def _comparable(value: Any) -> str:
     """One stable string per stored value, across both rows' storage shapes.
 
@@ -311,7 +295,6 @@ __all__ = [
     "StaleAdmittedCaseError",
     "UNREACHABLE_FIELD_RECOVERY",
     "admitted_case_divergence",
-    "admitted_source_requirement_id",
     "annotate_admitted_currency",
     "definition_snapshot",
     "diverging_fields",

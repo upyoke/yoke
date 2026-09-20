@@ -17,6 +17,15 @@ The gate never has to trust the link on its own: the superseding row is in
 the same evaluated scope, so it is graded on its own evidence in the same
 pass. A link to a row that later stops passing therefore cannot launder a
 failure through -- that row fails for itself.
+
+What supersession deliberately does NOT do is reach the item requirement an
+admitted copy was frozen from. That row is a real outstanding obligation and
+discharging it from here would drop it forever. But leaving it unmentioned
+was how a correction failed to stick: the next release admitted a fresh copy
+of the same defective body and asked the same owner to run the same case. So
+the receipt names that row and the command that corrects it, at the one
+moment the operator is holding the corrected configuration. Naming it is all
+this does; only the operator running that command changes the source.
 """
 
 from __future__ import annotations
@@ -24,10 +33,27 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
+from yoke_core.domain.deployment_qa_admission_materialization import (
+    admitted_source_requirement_id,
+)
 from yoke_core.domain.qa_events import emit_qa_requirement_event
+from yoke_core.domain.qa_obligation_settlement import obligation_settled
 
 
 SUPERSESSION_SOURCES = ("agent", "operator")
+
+#: Said when the discharged row is an admitted copy whose intake row is still
+#: outstanding. Supersession is run-local by design, so this is the one moment
+#: the operator holds the corrected configuration AND the system knows which
+#: row the next release will copy it from.
+NEXT_ADMISSION_NOTICE = (
+    "requirement {copy_id} was admitted from requirement {source_id}, which "
+    "this supersession does not touch. Correcting only this copy leaves "
+    "requirement {source_id} outstanding, so the next release admits a fresh "
+    "copy of the same body and asks its owner to run the same case. Correct "
+    "the source too: yoke qa requirement update --requirement-id {source_id} "
+    "--field method_config --value '<corrected-config>'"
+)
 
 #: Columns that together answer "is this row discharged, and by what".
 SUPERSESSION_FIELDS = (
@@ -72,6 +98,36 @@ def _same_scope(broken: dict[str, Any], corrected: dict[str, Any]) -> list[str]:
                 f"{label} differs ({broken.get(column)!r} vs {corrected.get(column)!r})"
             )
     return mismatches
+
+
+def admitted_source_correction(
+    conn: Any, broken: dict[str, Any]
+) -> dict[str, Any]:
+    """Name the intake row this discharged copy was frozen from, if any.
+
+    Returns empty when there is nothing true to say: a run-bound case that is
+    not an admitted copy names no upstream, and neither does one whose intake
+    row has been deleted or is itself already settled -- a settled row is not
+    outstanding, so no future release admits it and there is nothing left to
+    correct. The notice is never invented to fill the field.
+    """
+    source_id = admitted_source_requirement_id(broken.get("plan_case_key"))
+    if source_id is None:
+        return {}
+    source = query_one(
+        conn,
+        "SELECT id,waived_at,superseded_by_requirement_id "
+        "FROM qa_requirements WHERE id=%s",
+        (int(source_id),),
+    )
+    if source is None or obligation_settled(dict(source)):
+        return {}
+    return {
+        "admitted_from_requirement_id": int(source_id),
+        "next_admission_notice": NEXT_ADMISSION_NOTICE.format(
+            copy_id=int(broken["id"]), source_id=int(source_id)
+        ),
+    }
 
 
 def latest_verdict(conn: Any, requirement_id: int) -> str:
@@ -211,6 +267,7 @@ def supersede_requirement(
         "superseded_at": now,
         "supersession_rationale": rationale,
         "supersession_source": str(source),
+        **admitted_source_correction(conn, broken),
     }
 
 
@@ -231,9 +288,11 @@ def supersession_history(conn: Any, *, run_id: str) -> list[dict[str, Any]]:
 
 
 __all__ = [
+    "NEXT_ADMISSION_NOTICE",
     "SUPERSESSION_FIELDS",
     "SUPERSESSION_SOURCES",
     "QaSupersessionError",
+    "admitted_source_correction",
     "latest_verdict",
     "supersede_requirement",
     "supersession_history",
