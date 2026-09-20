@@ -21,21 +21,26 @@ from yoke_core.domain.deployment_qa_case_failure_kinds import (
     classify_verdict,
 )
 from yoke_core.domain.qa_execution_proof import qa_artifact_counts_by_run
-from yoke_core.domain.qa_obligation_settlement import obligation_settled
+from yoke_core.domain.qa_obligation_settlement import (
+    obligation_settled,
+    requirement_retracted_at_select,
+)
 
 
 #: The blocking cases pinned to one stage/member subject, carrying both
 #: discharge records so :func:`obligation_settled` can read them. That rule
 #: is shared with the run-completing stage, so one boundary never re-opens
 #: an obligation the other accepted as settled.
-_SCOPED_CASES_SQL = (
-    "SELECT id,plan_case_key,waived_at,superseded_by_requirement_id,retracted_at "
-    "FROM qa_requirements "
-    "WHERE deployment_run_id=%s AND deployment_stage=%s "
-    "AND COALESCE(deployment_member_item_id,0)=%s "
-    "AND method_id IS NOT NULL AND blocking_mode='blocking' "
-    "AND execution_target_digest=%s ORDER BY id"
-)
+def _scoped_cases_sql(conn: Any) -> str:
+    return (
+        "SELECT id,plan_case_key,waived_at,superseded_by_requirement_id,"
+        f"{requirement_retracted_at_select(conn)} "
+        "FROM qa_requirements "
+        "WHERE deployment_run_id=%s AND deployment_stage=%s "
+        "AND COALESCE(deployment_member_item_id,0)=%s "
+        "AND method_id IS NOT NULL AND blocking_mode='blocking' "
+        "AND execution_target_digest=%s ORDER BY id"
+    )
 
 
 def scoped_cases(
@@ -50,7 +55,7 @@ def scoped_cases(
         dict(row)
         for row in query_rows(
             conn,
-            _SCOPED_CASES_SQL,
+            _scoped_cases_sql(conn),
             (run_id, stage_name, member_item_id or 0, execution_target_digest),
         )
     ]

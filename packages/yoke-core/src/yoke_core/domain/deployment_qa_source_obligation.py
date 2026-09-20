@@ -26,7 +26,10 @@ from yoke_core.domain.deployment_qa_stage_contract import (
 )
 from yoke_core.domain.deployment_run_bound_sources import BOUND_SOURCES_FIELD
 from yoke_core.domain.deployment_run_project_sources import recorded_source_sha
-from yoke_core.domain.qa_obligation_settlement import obligation_settled
+from yoke_core.domain.qa_obligation_settlement import (
+    obligation_settled,
+    requirement_retracted_at_select,
+)
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
@@ -172,7 +175,7 @@ def source_obligation_consumed(
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
         "SELECT id,deployment_stage,deployment_member_item_id,"
-        "waived_at,superseded_by_requirement_id,retracted_at "
+        f"waived_at,superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements WHERE deployment_run_id="
         f"{marker} AND plan_case_key={marker} AND plan_id IS NULL "
         "ORDER BY id",

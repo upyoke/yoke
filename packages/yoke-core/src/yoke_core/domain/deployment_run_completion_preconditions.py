@@ -97,7 +97,7 @@ def _unresolved_plan_cases(conn: Any, run_id: str) -> List[str]:
         SELECT r.id, r.qa_kind FROM qa_requirements r
         WHERE r.deployment_run_id = %s
           AND r.blocking_mode = 'blocking'
-          AND NOT {settled_obligation_sql("r")}
+          AND NOT {settled_obligation_sql(conn, "r")}
           AND NOT EXISTS (
             SELECT 1 FROM qa_runs qr
             WHERE qr.qa_requirement_id = r.id
@@ -146,7 +146,7 @@ def blocking_obligation_total(conn: Any, run_id: str) -> int:
                 conn,
                 "SELECT COUNT(*) FROM qa_requirements "
                 "WHERE deployment_run_id=%s AND blocking_mode='blocking' "
-                f"AND NOT {settled_obligation_sql()}",
+                f"AND NOT {settled_obligation_sql(conn)}",
                 (run_id,),
             )
             or 0

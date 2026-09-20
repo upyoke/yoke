@@ -27,7 +27,10 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_rows
-from yoke_core.domain.qa_obligation_settlement import obligation_settled
+from yoke_core.domain.qa_obligation_settlement import (
+    obligation_settled,
+    requirement_retracted_at_select,
+)
 from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
 
 
@@ -93,7 +96,7 @@ def delivery_answered_plan_ids(
     placeholders = ", ".join(["%s"] * len(wanted))
     rows = query_rows(
         conn,
-        "SELECT id,plan_id,waived_at,superseded_by_requirement_id,retracted_at "
+        f"SELECT id,plan_id,waived_at,superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements "
         "WHERE deployment_member_item_id=%s AND deployment_run_id IS NOT NULL "
         f"AND plan_id IN ({placeholders})",

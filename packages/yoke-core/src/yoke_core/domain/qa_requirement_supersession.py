@@ -37,7 +37,10 @@ from yoke_core.domain.deployment_qa_admission_materialization import (
     admitted_source_requirement_id,
 )
 from yoke_core.domain.qa_events import emit_qa_requirement_event
-from yoke_core.domain.qa_obligation_settlement import obligation_settled
+from yoke_core.domain.qa_obligation_settlement import (
+    obligation_settled,
+    requirement_retracted_at_select,
+)
 
 
 SUPERSESSION_SOURCES = ("agent", "operator")
@@ -75,7 +78,7 @@ def _requirement(conn: Any, requirement_id: int, *, label: str) -> dict[str, Any
         "deployment_run_id,deployment_stage,deployment_member_item_id,"
         "execution_target_digest,blocking_mode,plan_case_key,method_id,"
         "qa_kind,qa_phase,"
-        "waived_at,superseded_by_requirement_id,retracted_at "
+        f"waived_at,superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements WHERE id=%s",
         (int(requirement_id),),
     )
@@ -116,7 +119,7 @@ def admitted_source_correction(
         return {}
     source = query_one(
         conn,
-        "SELECT id,waived_at,superseded_by_requirement_id,retracted_at "
+        f"SELECT id,waived_at,superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements WHERE id=%s",
         (int(source_id),),
     )
