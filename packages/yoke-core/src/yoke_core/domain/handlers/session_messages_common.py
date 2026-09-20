@@ -76,12 +76,23 @@ def domain_error(exc: Exception) -> HandlerOutcome:
     return failure("message_rejected", str(exc))
 
 
+def readable_json_message(message: dict[str, Any]) -> dict[str, Any]:
+    """Put the body and identity where a `--json` reader looks first."""
+    return {
+        "message": message,
+        "message_id": message.get("message_id"),
+        "body": message.get("body"),
+        "state": message.get("state"),
+    }
+
+
 __all__ = [
     "domain_error",
     "failure",
     "numeric_actor_id",
     "open_connection",
     "parse",
+    "readable_json_message",
     "require_global",
     "require_top_level_message_actor",
 ]

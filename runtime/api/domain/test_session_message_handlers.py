@@ -164,10 +164,16 @@ def test_list_and_get_handlers_use_stable_envelopes(monkeypatch) -> None:
         now=NOW,
     )["message_id"]
     monkeypatch.setattr(session_messages, "open_connection", lambda: conn)
+    from yoke_core.domain import session_message_delivery
+
+    monkeypatch.setattr(session_message_delivery, "utc_now", lambda: NOW)
     fetched = session_messages.handle_message_get(
         _request("session_control.message.get", {"message_id": message_id})
     )
     assert fetched.result_payload["message"]["body"] == "Fetched"
+    assert fetched.result_payload["body"] == "Fetched"
+    assert fetched.result_payload["message_id"] == message_id
+    assert fetched.result_payload["state"] == "pending"
 
 
 def test_handler_refuses_non_global_target_before_opening_connection() -> None:
@@ -195,6 +201,34 @@ def test_handler_requires_dispatcher_bound_numeric_actor(monkeypatch) -> None:
     )
     assert outcome.primary_success is False
     assert outcome.error and outcome.error.code == "actor_required"
+
+
+def test_acknowledge_handler_flattens_body_and_state(monkeypatch) -> None:
+    conn = message_connection()
+    message_id = send_message(
+        conn,
+        actor_id=10,
+        sender_session_id="s1",
+        selector=selector(session_ids=["s1"]),
+        body="Ack me",
+        now=NOW,
+    )["message_id"]
+    monkeypatch.setattr(session_messages_receipts, "open_connection", lambda: conn)
+    from yoke_core.domain import session_message_delivery
+
+    monkeypatch.setattr(session_message_delivery, "utc_now", lambda: NOW)
+    outcome = session_messages_receipts.handle_message_acknowledge(
+        _request(
+            "session_control.message.acknowledge",
+            {"message_id": message_id},
+            session_id="s1",
+        )
+    )
+    assert outcome.primary_success is True
+    assert outcome.result_payload["body"] == "Ack me"
+    assert outcome.result_payload["message_id"] == message_id
+    assert outcome.result_payload["state"] == "acknowledged"
+    assert outcome.result_payload["message"]["body"] == "Ack me"
 
 
 def test_acknowledge_handler_binds_recipient_to_actor_session(monkeypatch) -> None:

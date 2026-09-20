@@ -14,6 +14,7 @@ from yoke_core.domain.handlers.session_messages_common import (
     numeric_actor_id,
     open_connection,
     parse,
+    readable_json_message,
     require_global,
     require_top_level_message_actor,
 )
@@ -49,18 +50,29 @@ def handle_message_acknowledge(request: FunctionCallRequest) -> HandlerOutcome:
                 "Fleet acknowledgments require a registered top-level session",
                 "$.actor.session_id",
             )
-        message = (
+        actor_id = numeric_actor_id(request)
+        if session_id:
             acknowledge_message(
                 conn, message_id=parsed.message_id, session_id=session_id
             )
-            if session_id
-            else acknowledge_actor_message(
+        else:
+            acknowledge_actor_message(
                 conn,
                 message_id=parsed.message_id,
-                actor_id=numeric_actor_id(request),
+                actor_id=actor_id,
+            )
+        from yoke_core.domain.session_message_queries import get_message
+
+        return HandlerOutcome(
+            result_payload=readable_json_message(
+                get_message(
+                    conn,
+                    message_id=parsed.message_id,
+                    actor_id=actor_id,
+                    session_id=session_id or None,
+                )
             )
         )
-        return HandlerOutcome(result_payload={"message": message})
     except Exception as exc:
         conn.rollback()
         return domain_error(exc)

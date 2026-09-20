@@ -208,7 +208,8 @@ def test_parent_backlog_expands_every_leased_message() -> None:
     assert rendered.count("--- BEGIN YOKE SESSION MESSAGE ") == len(messages)
     assert "7 additional unacknowledged session message(s)" in rendered
     assert "--state unacknowledged" in rendered
-    assert "yoke messages get MESSAGE-ID --json" in rendered
+    assert "yoke messages get MESSAGE-ID" in rendered
+    assert "yoke messages get MESSAGE-ID --json" not in rendered
 
 
 def test_parent_renders_an_oversized_body_rather_than_summarizing_it() -> None:

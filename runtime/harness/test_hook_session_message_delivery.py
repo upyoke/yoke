@@ -264,7 +264,7 @@ def test_inline_overflow_keeps_the_receipt_pending(
         (
             POINTER_BEGIN,
             overflow_lease_marker("lease-1"),
-            f"Read: yoke messages get {MESSAGE_ID} --json",
+            f"Read: yoke messages get {MESSAGE_ID}",
             "=== END YOKE SESSION MESSAGE DELIVERY POINTER ===",
         )
     )
@@ -339,6 +339,7 @@ def test_raw_stdout_channel_points_at_a_lease_it_cannot_carry(
 
     assert audit["output_field"] == "stdout"
     assert POINTER_BEGIN in rendered
-    assert f"yoke messages get {MESSAGE_ID} --json" in rendered
+    assert f"yoke messages get {MESSAGE_ID}" in rendered
+    assert f"yoke messages get {MESSAGE_ID} --json" not in rendered
     assert port.body not in rendered
     assert port.completed == [("lease-1", False, "inline_overflow")]

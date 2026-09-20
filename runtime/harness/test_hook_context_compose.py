@@ -67,6 +67,7 @@ def test_oversized_delivery_becomes_a_pointer_and_drops_the_lease_token() -> Non
     assert TOKEN not in body
     assert overflow_lease_marker(LEASE_ID) in body
     assert f"yoke messages get {MESSAGE_ID}" in body
+    assert f"yoke messages get {MESSAGE_ID} --json" not in body
     assert f"yoke messages acknowledge {MESSAGE_ID}" in body
     assert "hint" not in body
     assert len(body.encode("utf-8")) <= 8192
@@ -136,3 +137,29 @@ def test_oversized_launch_delivery_is_omitted_without_a_pointer() -> None:
     assert POINTER_BEGIN not in body
     assert "BEGIN YOKE LAUNCH DELIVERY" not in body
     assert "hint" in body
+
+
+SMALL_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+HUGE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+
+
+def test_fitting_messages_ship_and_unsplittable_overflow_is_pointed() -> None:
+    block = "\n".join(
+        (
+            f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {TOKEN} ===",
+            f"--- BEGIN YOKE SESSION MESSAGE {SMALL_ID} ---",
+            "hello",
+            f"--- END YOKE SESSION MESSAGE {SMALL_ID} ---",
+            f"--- BEGIN YOKE SESSION MESSAGE {HUGE_ID} ---",
+            "x" * 9000,
+            f"--- END YOKE SESSION MESSAGE {HUGE_ID} ---",
+            f"=== END YOKE SESSION MESSAGE DELIVERY {TOKEN} ===",
+        )
+    )
+    body = compose_hook_context([block], [], [], harness_id="claude-code")
+    assert f"--- BEGIN YOKE SESSION MESSAGE {SMALL_ID} ---" in body
+    assert "hello" in body
+    assert POINTER_BEGIN in body
+    assert f"Read: yoke messages get {HUGE_ID}" in body
+    assert "x" * 9000 not in body
+

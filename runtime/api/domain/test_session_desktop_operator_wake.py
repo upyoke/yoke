@@ -240,6 +240,36 @@ def test_no_notice_before_the_grace_window_closes() -> None:
     assert _operator_notices(conn) == []
 
 
+def test_a_hook_attempt_does_not_page_the_operator() -> None:
+    conn = message_connection()
+    _add_desktop_session(conn)
+    message_id = _send_to(conn, CLAUDE_DESKTOP_SESSION_ID)
+    conn.execute(
+        "INSERT INTO session_message_attempts "
+        "(attempt_id,message_id,target_session_id,attempt_kind,"
+        "adapter_revision,lease_id,started_at,completed_at,result_code,evidence) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (
+            "attempt-hook-1",
+            message_id,
+            CLAUDE_DESKTOP_SESSION_ID,
+            "hook",
+            "session-message-hook-v1",
+            "lease-1",
+            NOW_TEXT,
+            NOW_TEXT,
+            "inline_overflow",
+            "{}",
+        ),
+    )
+    conn.commit()
+    _go_quiet(conn, CLAUDE_DESKTOP_SESSION_ID, when=STARVED)
+
+    wake_eligible_recipients(conn, now=STARVED)
+
+    assert _operator_notices(conn) == []
+
+
 def test_an_injected_desktop_envelope_owes_its_operator_nothing() -> None:
     conn = message_connection()
     _add_desktop_session(conn)

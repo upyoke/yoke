@@ -16,6 +16,7 @@ from yoke_core.domain.handlers.session_messages_common import (
     numeric_actor_id,
     open_connection,
     parse,
+    readable_json_message,
     require_global,
     require_top_level_message_actor,
 )
@@ -124,8 +125,8 @@ def handle_message_get(request: FunctionCallRequest) -> HandlerOutcome:
     return _handle(
         request,
         MessageGetRequest,
-        lambda conn, body, actor_id: {
-            "message": get_message(
+        lambda conn, body, actor_id: readable_json_message(
+            get_message(
                 conn,
                 message_id=body.message_id,
                 actor_id=actor_id,
@@ -133,7 +134,7 @@ def handle_message_get(request: FunctionCallRequest) -> HandlerOutcome:
                 fields=body.fields,
                 detail=body.detail,
             )
-        },
+        ),
     )
 
 

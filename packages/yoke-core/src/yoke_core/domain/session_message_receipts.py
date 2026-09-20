@@ -54,11 +54,24 @@ def acknowledge_message(
             session_id=session_id,
             acknowledged_at=acknowledged_at,
         )
-    except SessionMessageError:
-        if not seated:
-            raise
-        conn.commit()
-        return message_details(conn, message_id)
+    except SessionMessageError as exc:
+        if seated:
+            conn.commit()
+            return message_details(conn, message_id)
+        conn.rollback()
+        if exc.code == "acknowledge_self_only":
+            actor_id = _actor_id_for_session(conn, session_id)
+            if actor_id is not None:
+                try:
+                    return acknowledge_actor_message(
+                        conn,
+                        message_id=message_id,
+                        actor_id=actor_id,
+                        now=acknowledged_at,
+                    )
+                except SessionMessageError:
+                    pass
+        raise
     recipient = next(
         (
             row
@@ -155,6 +168,20 @@ def cancel_message(
     )
     conn.commit()
     return cancelled
+
+
+def _actor_id_for_session(conn: Any, session_id: str) -> int | None:
+    from yoke_core.domain import db_backend
+
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = conn.execute(
+        f"SELECT actor_id FROM harness_sessions WHERE session_id={marker}",
+        (session_id,),
+    ).fetchone()
+    if row is None or row[0] is None:
+        return None
+    return int(row[0])
+
 
 __all__ = [
     "acknowledge_actor_message",
