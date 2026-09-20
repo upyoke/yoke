@@ -5,7 +5,7 @@ Covers:
 * ``--help`` prints the canonical ``HELP_BODY``.
 * Argparse rejects an unknown ``--kind``.
 * The retired subcommand is gone (not aliased).
-* The renamed ``attach_field_note_footer`` helper resolves.
+* The renamed ``attach_help_trailer`` helper resolves.
 """
 
 from __future__ import annotations
@@ -275,24 +275,30 @@ def test_old_subcommand_gone() -> None:
     assert rc != 0
 
 
-def test_attach_field_note_footer_appends_canonical_footer() -> None:
+def test_attach_help_trailer_appends_canonical_footer() -> None:
     from yoke_cli.commands._helpers import (
-        attach_field_note_footer,
+        attach_help_trailer,
     )
     from yoke_contracts.field_note_text import FOOTER
 
     parser = argparse.ArgumentParser(prog="test")
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     assert parser.epilog is not None
     assert parser.epilog.endswith(FOOTER)
 
 
-def test_attach_field_note_footer_skips_when_description_already_has_footer() -> None:
+def test_attach_help_trailer_does_not_repeat_a_stanza_the_parser_carries() -> None:
+    """A parser composing the footer itself keeps its one copy.
+
+    The read recipe is still attached: the two stanzas answer different
+    questions, so carrying one is not a reason to withhold the other.
+    """
     from yoke_cli.commands._helpers import (
-        attach_field_note_footer,
+        attach_help_trailer,
     )
+    from yoke_contracts.adapter_read_recipes import FOOTER as READ_FOOTER
     from yoke_contracts.field_note_text import FOOTER
 
     parser = argparse.ArgumentParser(prog="test", description=f"Body\n\n{FOOTER}")
-    attach_field_note_footer(parser)
-    assert parser.epilog is None
+    attach_help_trailer(parser)
+    assert parser.epilog == READ_FOOTER

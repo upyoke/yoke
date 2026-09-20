@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 from typing import List
 
-from yoke_cli.commands._helpers import attach_field_note_footer, parse_or_usage_error
+from yoke_cli.commands._helpers import attach_help_trailer, parse_or_usage_error
 from yoke_cli.commands.adapters.config_write_shared import run
 from yoke_cli.commands.session_begin_corroboration import resolve_ambient
 from yoke_cli.config import writer
@@ -46,7 +46,7 @@ def project_register(args: List[str]) -> int:
         help="Deliberate setup/operator-authorized checkout move only.",
     )
     parser.add_argument("--config", dest="config_path", default=None)
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, PROJECT_REGISTER_USAGE)
     if parsed is None:
         return 2
@@ -81,7 +81,7 @@ def config_stamp_project_env(args: List[str]) -> int:
         ),
     )
     parser.add_argument("--config", dest="config_path", default=None)
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, STAMP_PROJECT_ENV_USAGE)
     if parsed is None:
         return 2

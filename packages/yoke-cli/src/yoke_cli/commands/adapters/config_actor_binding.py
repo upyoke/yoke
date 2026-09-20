@@ -15,7 +15,7 @@ from importlib import import_module
 from typing import Dict, List
 
 from yoke_cli.commands._helpers import (
-    attach_field_note_footer,
+    attach_help_trailer,
     parse_or_usage_error,
 )
 from yoke_cli.config import machine_config
@@ -50,7 +50,7 @@ def config_bind_actor(args: List[str]) -> int:
     )
     parser.add_argument("--actor-id", dest="actor_id", type=int, default=None)
     parser.add_argument("--config", dest="config_path", default=None)
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, BIND_ACTOR_USAGE)
     if parsed is None:
         return 2

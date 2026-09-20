@@ -103,6 +103,48 @@ def find_truncation_violation(command: str) -> Optional[tuple[str, str]]:
     return None
 
 
+#: Per-class recovery, keyed on the first word of the caught subcommand.
+#: A generic "narrow the request" did not redirect the habit across nine
+#: occurrences in one session, because the caller still had to work out
+#: what the narrower shape was for the command it had just written. Each
+#: entry names a shape reachable for the command that triggered the block.
+_CLASS_RECOVERY: dict[str, tuple[str, ...]] = {
+    "watch": (
+        "The wrapper streams its own progress and prints a raw capture "
+        "path; read that file once the run exits.",
+    ),
+    "db": (
+        "The columns, the filter, and the row count are part of the "
+        "query: SELECT the columns you want and add a LIMIT.",
+    ),
+    "messages": (
+        "yoke messages get MESSAGE-ID body        # the field you came for",
+        "yoke messages list --state pending       # one row per message",
+    ),
+    "items": (
+        "yoke items get PREFIX-N status           # name the fields you want",
+        'yoke items get PREFIX-N spec --section "## Heading"',
+    ),
+    "qa": (
+        "The routine read is the default; --full serves what its summary "
+        "named as held back.",
+    ),
+}
+
+
+def _recovery_lines(label: str) -> tuple[str, ...]:
+    """Name the narrower shape for the command class that was caught."""
+    family = label.split()[1] if len(label.split()) > 1 else ""
+    specific = _CLASS_RECOVERY.get(family, ())
+    # The fallback names only shapes every registered adapter accepts: a
+    # bare invocation, and --json. A `--full` suggested at a command that
+    # has no such flag would send the caller into a second refusal.
+    return specific or (
+        f"{label} <arguments>          # run it bare; reads are already scoped",
+        f"{label} <arguments> --json   # the envelope, when you need its shape",
+    )
+
+
 def truncation_reason(
     label: str,
     truncator: str,
@@ -113,21 +155,18 @@ def truncation_reason(
     suppression_token: str,
 ) -> str:
     """Render the refusal, naming the narrower read to run instead."""
+    recovery = "\n".join(f"  {line}" for line in _recovery_lines(label))
     body = (
         f"BLOCKED: Yoke adapter output truncated (`{label}` piped into "
         f"`{truncator}`).\n\n"
         "A registered adapter prints its answer whole, and a refusal prints "
         "its named reason and recovery step. Keeping a byte window discards "
         "the rest and hides the exit status the window did not reach.\n\n"
-        "Narrow the request instead of slicing the output:\n"
-        f"  {label} <arguments>                      # run it bare; reads are "
-        "already scoped\n"
-        f"  {label} <arguments> --json               # then select the one "
-        "field you need\n"
-        "  yoke items get PREFIX-N <field>          # a narrow read beats a "
-        "wide one\n\n"
-        "To keep a long run's whole output, capture it to a file and inspect "
-        "the file:\n"
+        f"Ask the narrow question instead — for `{label}`:\n"
+        f"{recovery}\n\n"
+        "`yoke <command> --help` ends with the recipe, and `yoke --help` "
+        "carries the catalog. To keep a long run's whole output, capture it "
+        "to a file and read the file:\n"
         "  _tmp=$(mktemp /tmp/yoke-cmd.XXXXXX); <command> >\"$_tmp\" 2>&1; "
         '_rc=$?; tail -80 "$_tmp"'
     )

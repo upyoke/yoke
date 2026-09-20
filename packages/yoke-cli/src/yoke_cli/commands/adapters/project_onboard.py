@@ -9,7 +9,7 @@ from typing import List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
-    attach_field_note_footer,
+    attach_help_trailer,
     parse_or_usage_error,
 )
 from yoke_cli.config import onboard_github_copy
@@ -174,7 +174,7 @@ def _project_parser(prog: str, usage: str) -> argparse.ArgumentParser:
     mode.add_argument("--dry-run", dest="dry_run", action="store_true")
     parser.set_defaults(apply=False, dry_run=False)
     add_json_arg(parser)
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     return parser
 
 

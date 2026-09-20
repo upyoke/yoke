@@ -224,13 +224,40 @@ def test_capture_then_inspect_is_the_taught_shape():
 
 
 def test_truncation_denial_names_a_narrower_read():
+    """The recovery is specific to the command class that was caught.
+
+    A caller that has just written one command needs the narrower shape
+    for that command, not a generic instruction to narrow.
+    """
     result = _eval("yoke items get YOK-1 body | head -30")
 
     assert result is not None
     reason = result[1]
-    assert "yoke items get" in reason
-    assert "--json" in reason
+    assert "yoke items get PREFIX-N status" in reason
+    assert "--section" in reason
     assert "mktemp /tmp/yoke-cmd.XXXXXX" in reason
+
+
+def test_truncation_denial_falls_back_to_universally_accepted_shapes():
+    """An unrecognized class gets only shapes every adapter accepts.
+
+    Naming a flag the caught command does not take would send the caller
+    into a second refusal.
+    """
+    result = _eval("yoke env list | head -5")
+
+    assert result is not None
+    reason = result[1]
+    assert "yoke env list <arguments>" in reason
+    assert "--json" in reason
+    assert "--full" not in reason
+
+
+def test_truncation_denial_sends_a_watcher_to_its_own_capture():
+    result = _eval("yoke watch pytest --print-streaming-pair | tail -12")
+
+    assert result is not None
+    assert "raw capture path" in result[1]
 
 
 def test_hidden_stderr_outranks_truncation_when_a_command_does_both():

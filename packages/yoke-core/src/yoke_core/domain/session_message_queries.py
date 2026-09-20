@@ -10,7 +10,7 @@ else sees a message only when they can read every project it reached.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Sequence
 
 from yoke_core.domain.actor_message_recipients import expire_due_actor_recipients
 from yoke_core.domain.session_message_authorization import can_read_project
@@ -106,14 +106,32 @@ def get_message(
     message_id: str,
     actor_id: int,
     session_id: str | None,
+    fields: Sequence[str] = (),
+    detail: str = "",
 ) -> dict[str, Any]:
+    from yoke_contracts.session_control.message_projection import (
+        project_message,
+        unknown_message_fields,
+    )
+
     expire_message_receipts(conn)
     details = message_details(conn, message_id)
     if not message_visible(conn, details, actor_id=actor_id, session_id=session_id):
         raise SessionMessageError(
             "message_forbidden", "message is not visible to the calling actor"
         )
-    return message_with_actor_context(details, actor_id=actor_id, session_id=session_id)
+    message = message_with_actor_context(
+        details, actor_id=actor_id, session_id=session_id
+    )
+    unknown = unknown_message_fields(message, fields)
+    if unknown:
+        known = ", ".join(sorted(message))
+        raise SessionMessageError(
+            "message_field_unknown",
+            f"no such message field: {', '.join(unknown)}. "
+            f"Accepted fields: {known}.",
+        )
+    return project_message(message, fields=fields, detail=detail)
 
 
 def list_messages(

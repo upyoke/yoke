@@ -46,6 +46,7 @@ from yoke_contracts.control_plane_locality import (
     local_authority_is_pinned,
     remote_control_plane,
 )
+from yoke_contracts.adapter_read_recipes import format_recipes_for_help
 from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
 from yoke_contracts.machine_config import schema as machine_schema
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE, TRANSPORT_HTTPS
@@ -121,13 +122,13 @@ def _render_help() -> str:
         "Session id resolves from $YOKE_SESSION_ID (or --session-id "
         "override); actor id is filled server-side from harness_sessions."
     )
-    # The field-note footer lands on every `yoke --help`
-    # invocation so the operator-facing channel for the Ouroboros learning
-    # loop is one screen away from every CLI agent surface. Per-subcommand
-    # adapters carry the same footer via argparse's `epilog`; see
-    # `yoke_cli.commands._helpers.parse_or_usage_error` for the wiring.
-    lines.append("")
-    lines.append(_FIELD_NOTE_FOOTER)
+    # The root listing is the deep home for reading a command's answer:
+    # every subcommand's `--help` carries the short recipe, and the worked
+    # catalog behind it lives here. The field-note footer follows so the
+    # Ouroboros channel is one screen from every CLI agent surface. Both
+    # stanzas reach per-subcommand help via argparse's `epilog`; see
+    # `yoke_cli.commands._helpers.parse_or_usage_error`.
+    lines.extend(["", format_recipes_for_help(), "", _FIELD_NOTE_FOOTER])
     return "\n".join(lines)
 
 

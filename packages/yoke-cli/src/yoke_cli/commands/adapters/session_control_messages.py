@@ -6,16 +6,22 @@ import argparse
 from typing import Any, get_args, List
 
 from yoke_cli.commands._helpers import (
+    add_full_arg,
     add_json_arg,
     add_session_arg,
+    detail_of,
     dispatch_and_emit,
     parse_or_usage_error,
     usage_error,
+)
+from yoke_cli.commands.adapters.session_control_message_body_output import (
+    projected_message_writer,
 )
 from yoke_cli.commands.adapters.session_control_common import (
     add_selector_arguments,
     read_stdin_payload,
     selector_payload,
+    write_message_detail_result,
     write_message_result,
 )
 from yoke_contracts.api.function_call import TargetRef
@@ -43,7 +49,9 @@ MESSAGE_SEND_USAGE = (
 MESSAGE_LIST_USAGE = (
     "yoke messages list [--state STATE] [--recipient-session S] [--limit N] [--json]"
 )
-MESSAGE_GET_USAGE = "yoke messages get MESSAGE-ID [--json]"
+MESSAGE_GET_USAGE = (
+    "yoke messages get MESSAGE-ID [field ...] [--full] [--json]"
+)
 MESSAGE_ACKNOWLEDGE_USAGE = "yoke messages acknowledge MESSAGE-ID [--json]"
 MESSAGE_CANCEL_USAGE = "yoke messages cancel MESSAGE-ID [--json]"
 MESSAGE_WORKFLOW_HELP = FLEET_MESSAGE_WORKFLOW_HELP
@@ -253,6 +261,22 @@ def _message_by_id(args: List[str], operation: str) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("message_id", help="Durable message id.")
+    if operation == "get":
+        parser.add_argument(
+            "fields",
+            nargs="*",
+            default=[],
+            help=(
+                "Optional field projection — `body`, `sender_session_id`, "
+                "`acknowledgement_command`, `recipients`, `attempts`, or any "
+                "other key the message carries. Omit them for the routine "
+                "answer."
+            ),
+        )
+        add_full_arg(
+            parser,
+            "every delivery attempt the routine read bounded",
+        )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
@@ -262,13 +286,24 @@ def _message_by_id(args: List[str], operation: str) -> int:
         refused = _refuse_subagent_message_operation(operation)
         if refused is not None:
             return refused
+    payload: dict = {"message_id": parsed.message_id}
+    writer = write_message_result
+    if operation == "get":
+        requested = list(parsed.fields)
+        payload["fields"] = requested
+        payload["detail"] = detail_of(parsed)
+        writer = (
+            projected_message_writer(requested)
+            if requested
+            else write_message_detail_result
+        )
     return dispatch_and_emit(
         function_id=f"session_control.message.{operation}",
         target=TargetRef(kind="global"),
-        payload={"message_id": parsed.message_id},
+        payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=write_message_result,
+        human_writer=writer,
     )
 
 

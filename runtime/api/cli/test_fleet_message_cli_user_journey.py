@@ -243,6 +243,7 @@ def test_operator_journey_discovers_sends_reads_and_acknowledges() -> None:
         assert result == 0 and error == ""
         assert MESSAGE_ID in output
         evidence.append(output)
+    detail_output = evidence.pop()  # `messages get`: mail, not a receipt
 
     result, _output, error = _run_cli(
         broker,
@@ -284,6 +285,7 @@ def test_operator_journey_discovers_sends_reads_and_acknowledges() -> None:
     rendered_evidence = "\n".join(evidence)
     assert MESSAGE_BODY not in rendered_evidence
     assert PRIVATE_SUFFIX not in rendered_evidence
+    assert MESSAGE_BODY in detail_output
 
 
 def test_subagent_send_and_ack_stop_before_engine_dispatch(monkeypatch) -> None:

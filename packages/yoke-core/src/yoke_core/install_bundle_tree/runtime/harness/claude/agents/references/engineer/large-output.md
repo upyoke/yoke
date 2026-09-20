@@ -32,6 +32,18 @@ Reference content for the Engineer prompt. Read this file when running test suit
 
 ## General Large-Output Discipline
 
-- **Prefer targeted extraction over full reads:** use `grep`, `tail`, `head` via Bash before reading an entire file.
-- **Preemptively limit output:** when a Bash command might produce large output, pipe through `tail -N` or `head -N`. **Exception: test suites** — never pipe test runs through `tail` or `head` directly. Always use the capture-to-temp-file pattern above so failures are preserved and inspectable without re-running.
+- **Ask the narrow question.** A registered `yoke` command serves its answer whole, and every read has a shape that returns the part you want.
+
+<!-- BEGIN GENERATED: read-recipe -->
+Want part of an answer? Ask the narrow question — every read has a shape that serves it.
+
+```text
+yoke <command> <arguments>      # the routine answer, already scoped
+yoke items get PREFIX-N status  # the fields you name
+tail -80 <raw-capture>          # the capture a watcher prints, once it exits
+```
+<!-- END GENERATED: read-recipe -->
+
+  The recipe rides the bottom of every `yoke <command> --help`; `yoke --help` carries the worked catalog.
+- **Targeted extraction reads a file on disk:** `grep`, `sed -n`, `tail`, and `head` belong on a source file or on a capture. A watcher wrapper prints its raw capture path, and anything else is captured first with the pattern above — the file then answers as many questions as you have without re-running anything.
 - **Never read a temp file blind:** always check its line count with `wc -l` first. If over 500 lines, use targeted reads.

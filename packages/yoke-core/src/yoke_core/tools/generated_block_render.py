@@ -22,6 +22,7 @@ one path. :mod:`yoke_core.tools.render_field_note_inline` and
 from __future__ import annotations
 
 import dataclasses
+import importlib
 import pathlib
 from typing import Callable, Iterable
 
@@ -203,10 +204,49 @@ def format_drift_summary(
     return "\n".join(parts) + ("\n" if parts else "")
 
 
+#: Every generated-block family, by module path. A family lands here the
+#: moment it exists, so one canonical Python contract can never drift from
+#: the markdown surfaces quoting it. Imported lazily in
+#: :func:`check_families` because each family imports this module.
+FAMILY_MODULES: tuple[str, ...] = (
+    "yoke_core.tools.render_field_note_inline",
+    "yoke_core.tools.render_read_recipe_inline",
+)
+
+
+def check_families(repo_root: pathlib.Path | None) -> tuple[int, str]:
+    """Check every family's render, returning ``(exit code, summary)``.
+
+    Fail-closed on a missing family module: a gate that silently disables
+    itself on import error is worse than no gate, so the summary names the
+    module to repair. ``repo_root=None`` still imports every family — the
+    roster is verified even where there is no tree to render against.
+    """
+    families = []
+    for module_path in FAMILY_MODULES:
+        try:
+            families.append(importlib.import_module(module_path))
+        except ImportError:
+            return 1, (
+                f"ERROR: generated-block renderer not available — "
+                f"install/repair {module_path}.\n"
+            )
+    if repo_root is None:
+        return 0, ""
+    for family in families:
+        result = family.render(repo_root, check=True)
+        if result.ok and not result.changed:
+            continue
+        return 1, family.format_drift_summary_for_family(result, check=True)
+    return 0, ""
+
+
 __all__ = (
+    "FAMILY_MODULES",
     "FileRenderOutcome",
     "RenderResult",
     "begin_marker",
+    "check_families",
     "end_marker",
     "format_drift_summary",
     "render_blocks",

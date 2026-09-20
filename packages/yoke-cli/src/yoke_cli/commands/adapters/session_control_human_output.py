@@ -14,6 +14,10 @@ from yoke_contracts.session_control.terminal_report import (
 from yoke_cli.commands.adapters.session_control_attempt_output import (
     write_attempts,
 )
+from yoke_cli.commands.adapters.session_control_message_body_output import (
+    write_body,
+    write_withheld_attempts,
+)
 from yoke_cli.commands.adapters.session_control_roster_diagnostics_output import (
     roster_diagnostics,
 )
@@ -230,7 +234,9 @@ def _body_excerpt(message: Mapping[str, Any]) -> str:
     return _fit(message.get("body"), BODY_EXCERPT_CHARACTERS)
 
 
-def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
+def _write_message_detail(
+    message: Mapping[str, Any], stdout: TextIO, *, with_body: bool = False
+) -> None:
     command = message.get("acknowledgement_command")
     if command:
         print(command, file=stdout)
@@ -246,16 +252,19 @@ def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
         ("Recipients", recipient_count(message)),
         ("Created (UTC)", utc_time(message.get("created_at"))),
         ("Expires (UTC)", utc_time(message.get("expires_at"))),
-        ("Body excerpt", _body_excerpt(message)),
     ]
     if message.get("cancellation_reason"):
-        fields.insert(
-            -1, ("Cancellation reason", humanize(message["cancellation_reason"]))
+        fields.append(
+            ("Cancellation reason", humanize(message["cancellation_reason"]))
         )
     summary = steering_summary(message)
     if summary:
-        fields.insert(-1, ("Steering", summary))
+        fields.append(("Steering", summary))
     write_summary("MESSAGE", fields, stdout)
+    # A receipt reports what happened to a message; only the read of one
+    # is someone opening their own mail, so only it serves the prose.
+    if with_body:
+        write_body(message, stdout)
     _write_recipients(
         recipients,
         stdout,
@@ -263,9 +272,12 @@ def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
         steering_recipient=message.get("steering_recipient"),
     )
     write_attempts(message.get("attempts") or [], stdout)
+    write_withheld_attempts(message, stdout)
 
 
-def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
+def write_message_result(
+    result: Mapping[str, Any], stdout: TextIO, *, with_body: bool = False
+) -> None:
     if "recipients" in result:
         message_id = result.get("message_id")
         fields: list[tuple[str, Any]] = [
@@ -320,7 +332,7 @@ def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
         return
     message = result.get("message")
     if isinstance(message, Mapping):
-        _write_message_detail(message, stdout)
+        _write_message_detail(message, stdout, with_body=with_body)
         return
     print("MESSAGE\nNo message details returned.", file=stdout)
 

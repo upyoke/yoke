@@ -11,7 +11,7 @@ from typing import Any, List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
-    attach_field_note_footer,
+    attach_help_trailer,
     parse_or_usage_error,
 )
 from yoke_cli.config import db_admin_setup as db_admin_setup_config
@@ -71,7 +71,7 @@ def dev_setup(args: List[str]) -> int:
     mode.add_argument("--dry-run", dest="dry_run", action="store_true")
     parser.set_defaults(apply=False, dry_run=False)
     add_json_arg(parser)
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, DEV_SETUP_USAGE)
     if parsed is None:
         return 2
@@ -127,7 +127,7 @@ def dev_path_snapshot_prewarm(args: List[str]) -> int:
         help="Project id from the projects table (default: $YOKE_PROJECT_ID or yoke).",
     )
     add_json_arg(parser)
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(
         parser, args, DEV_PATH_SNAPSHOT_PREWARM_USAGE,
     )
@@ -198,7 +198,7 @@ def dev_db_admin_setup(args: List[str]) -> int:
     mode.add_argument("--dry-run", dest="dry_run", action="store_true")
     parser.set_defaults(apply=False, dry_run=False, prod=False)
     add_json_arg(parser)
-    attach_field_note_footer(parser)
+    attach_help_trailer(parser)
     parsed = parse_or_usage_error(parser, args, DEV_DB_ADMIN_SETUP_USAGE)
     if parsed is None:
         return 2

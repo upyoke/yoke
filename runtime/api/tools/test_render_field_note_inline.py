@@ -191,8 +191,12 @@ class TestMainCLI(unittest.TestCase):
 
 
 class TestPreCommitDispatchWiring(unittest.TestCase):
-    """Lock the fact that git_pre_commit.run() includes the field-note
-    check as a hard-fail step after file_line_check."""
+    """Lock the generated-block render gate into ``git_pre_commit.run()``.
+
+    The gate walks a family roster rather than one family, so the wiring
+    assertions are about the step; that the field-note family is on the
+    roster is asserted directly below.
+    """
 
     def _patched_run(self, **rcs: int) -> tuple[int, list[str]]:
         """Run gpc.run() with each step patched to record + return rcs[name]."""
@@ -209,7 +213,11 @@ class TestPreCommitDispatchWiring(unittest.TestCase):
         with (
             mock.patch.object(gpc, "_emit_diverged_warning", record("diverged")),
             mock.patch.object(gpc, "_run_file_line_check_or_block", record("file_line")),
-            mock.patch.object(gpc, "_run_field_note_render_or_block", record("field_note")),
+            mock.patch.object(
+                gpc,
+                "_run_generated_block_renders_or_block",
+                record("generated_blocks"),
+            ),
             mock.patch.object(
                 gpc,
                 "_run_harness_capability_render_or_block",
@@ -222,7 +230,7 @@ class TestPreCommitDispatchWiring(unittest.TestCase):
             rc = gpc.run()
         return rc, order
 
-    def test_field_note_check_runs_after_file_line_check(self) -> None:
+    def test_block_render_check_runs_after_file_line_check(self) -> None:
         rc, order = self._patched_run()
         self.assertEqual(rc, 0)
         self.assertEqual(
@@ -230,7 +238,7 @@ class TestPreCommitDispatchWiring(unittest.TestCase):
             [
                 "diverged",
                 "file_line",
-                "field_note",
+                "generated_blocks",
                 "harness_capability",
                 "agent_render",
                 "worktree",
@@ -238,43 +246,44 @@ class TestPreCommitDispatchWiring(unittest.TestCase):
             ],
         )
 
-    def test_field_note_check_hard_fails(self) -> None:
-        rc, _ = self._patched_run(field_note=1)
+    def test_block_render_check_hard_fails(self) -> None:
+        rc, _ = self._patched_run(generated_blocks=1)
         self.assertEqual(rc, 1)
 
-    def test_field_note_helper_fails_closed_on_import_error(self) -> None:
-        """If render_field_note_inline cannot import, helper returns 1.
+    def test_field_note_family_is_on_the_roster(self) -> None:
+        """The gate is generic; this family's membership is the contract."""
+        from yoke_core.tools.generated_block_render import FAMILY_MODULES
+
+        self.assertIn("yoke_core.tools.render_field_note_inline", FAMILY_MODULES)
+
+    def test_helper_fails_closed_on_import_error(self) -> None:
+        """A family module that cannot import blocks the commit.
 
         Matches the file_line_check defensive shape — silent skip on module
-        breakage is worse than a hard-fail.
+        breakage is worse than a hard-fail — and the refusal names the
+        module to repair.
         """
         from yoke_core.domain import git_pre_commit as gpc
+        from yoke_core.tools import generated_block_render as gbr
 
-        import builtins
-
-        real_import = builtins.__import__
-
-        def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
-            if (
-                name == "yoke_core.tools"
-                and fromlist
-                and "render_field_note_inline" in fromlist
-            ):
-                raise ImportError("simulated unavailable")
-            return real_import(name, globals, locals, fromlist, level)
+        def fake_import(name: str):
+            raise ImportError("simulated unavailable")
 
         buf = io.StringIO()
         with (
-            mock.patch.object(builtins, "__import__", side_effect=fake_import),
+            mock.patch.object(gbr.importlib, "import_module", fake_import),
             mock.patch.object(gpc.sys, "stderr", buf),
         ):
-            rc = gpc._run_field_note_render_or_block()
+            rc = gpc._run_generated_block_renders_or_block()
         self.assertEqual(rc, 1)
-        self.assertIn("field-note", buf.getvalue().lower())
+        err = buf.getvalue()
+        self.assertIn("render_field_note_inline", err)
+        self.assertIn("--no-verify", err)
 
-    def test_field_note_helper_passes_on_clean_tree(self) -> None:
-        """When render(--check) returns ok=True with no changes, rc=0."""
+    def test_helper_passes_on_clean_tree(self) -> None:
+        """When every family's render(--check) reports no change, rc=0."""
         from yoke_core.domain import git_pre_commit as gpc
+        from yoke_core.tools import generated_block_render as gbr
 
         clean = rri.RenderResult(
             changed=(),
@@ -285,9 +294,12 @@ class TestPreCommitDispatchWiring(unittest.TestCase):
         )
         with (
             mock.patch.object(gpc, "_resolve_repo_root", return_value="/tmp/x"),
+            mock.patch.object(
+                gbr, "FAMILY_MODULES", ("yoke_core.tools.render_field_note_inline",)
+            ),
             mock.patch.object(rri, "render", return_value=clean) as patched,
         ):
-            rc = gpc._run_field_note_render_or_block()
+            rc = gpc._run_generated_block_renders_or_block()
         self.assertEqual(rc, 0)
         # Pre-commit gate MUST use check=True so it never mutates the tree.
         _, kwargs = patched.call_args

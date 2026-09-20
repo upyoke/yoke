@@ -6,6 +6,7 @@ import sys
 import pytest
 
 from runtime.api.test_constants import TEST_ITEM_REF
+from yoke_contracts.read_detail import DETAIL_SUMMARY
 from yoke_cli.commands.adapters import session_control_messages as messages
 from yoke_cli.commands.registry_session_control import (
     SESSION_CONTROL_SUBCOMMAND_ALIAS_REGISTRY,
@@ -183,7 +184,14 @@ def test_message_list_get_acknowledge_and_cancel_payloads(monkeypatch) -> None:
         "session_id": "session-2",
         "limit": 8,
     }
-    assert all(call["payload"] == {"message_id": "message-1"} for call in calls[1:])
+    # `get` carries the two narrowing levers; no fields and no --full is
+    # the routine answer.
+    assert calls[1]["payload"] == {
+        "message_id": "message-1",
+        "fields": [],
+        "detail": DETAIL_SUMMARY,
+    }
+    assert all(call["payload"] == {"message_id": "message-1"} for call in calls[2:])
 
 
 def test_message_human_output_keeps_recipient_evidence(capsys) -> None:
@@ -224,64 +232,6 @@ def test_message_human_output_keeps_recipient_evidence(capsys) -> None:
     assert "yes" in rendered
     assert "|" not in rendered
     assert capsys.readouterr().out == ""
-
-
-def test_message_list_and_get_use_excerpts_without_full_body_leak() -> None:
-    body = "Operator context " + ("private detail " * 10) + "DO-NOT-LEAK"
-    message = {
-        "message_id": FULL_MESSAGE_ID,
-        "sender_actor_id": 7,
-        "sender_session_id": "session-sender",
-        "body": body,
-        "body_sha256": "digest-that-is-not-human-output",
-        "created_at": "2026-08-23T12:00:00Z",
-        "expires_at": "2026-08-24T12:00:00Z",
-        "attempts": [
-            {
-                "attempt_id": "attempt-1",
-                "target_session_id": "session-1",
-                "attempt_kind": "wake_relay",
-                "result_code": "skipped_surface",
-            }
-        ],
-        "recipients": [
-            {
-                "session_id": "session-1",
-                "project_id": 1,
-                "state": "injected",
-                "executor_surface": "codex-desktop",
-                "machine_id": "machine-1",
-                "routing_snapshot": {
-                    "project": "yoke",
-                    "messageability": {"messageable": True},
-                },
-            }
-        ],
-        "acknowledgement_command": f"yoke messages acknowledge {FULL_MESSAGE_ID}",
-    }
-
-    for result, heading in (
-        ({"messages": [message], "count": 1}, "MESSAGES"),
-        ({"message": message}, "MESSAGE"),
-    ):
-        output = io.StringIO()
-        response = type("Response", (), {"result": result})()
-        messages.write_message_result(response, output, io.StringIO())
-        rendered = output.getvalue()
-        assert rendered.splitlines()[0] == (
-            f"yoke messages acknowledge {FULL_MESSAGE_ID}"
-        )
-        assert heading in rendered
-        assert "BODY" in rendered.upper()
-        assert "CREATED (UTC)" in rendered.upper()
-        assert FULL_MESSAGE_ID in rendered
-        assert "…" in rendered
-        assert body not in rendered
-        assert "DO-NOT-LEAK" not in rendered
-        assert "body_sha256" not in rendered
-        if heading == "MESSAGE":
-            assert "DELIVERY ATTEMPTS" in rendered
-            assert "skipped surface" in rendered
 
 
 def test_say_help_teaches_the_complete_top_level_workflow(capsys) -> None:

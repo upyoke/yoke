@@ -35,6 +35,11 @@ AUTOMATIC_LAUNCH_REGISTRATION_TEACHING = (
     "Launch registration is automatic in the opening hook; do not run a session "
     "registration command."
 )
+LAUNCH_BOOTSTRAP_MESSAGE_READ = (
+    "Your message is waiting on the control plane: `yoke messages list "
+    "--state pending` names it, and `yoke messages get MESSAGE-ID` serves "
+    "it."
+)
 LAUNCH_BOOTSTRAP_CLAIM_FIRST = (
     "If your message assigns you a work item, acquire that item's work claim "
     "as your first action, before any survey or reading."
@@ -45,7 +50,7 @@ def native_launch_bootstrap(launch_id: str) -> str:
     """Return the launch sentence: act, claim first, and stop if unregistered."""
     return (
         f"Yoke launch `{launch_id}`: {AUTOMATIC_LAUNCH_REGISTRATION_TEACHING} "
-        "Pull your message, then act. "
+        f"{LAUNCH_BOOTSTRAP_MESSAGE_READ} Read it, then act. "
         f"{LAUNCH_BOOTSTRAP_CLAIM_FIRST} {LAUNCH_BOOTSTRAP_REFUSAL}"
     )
 

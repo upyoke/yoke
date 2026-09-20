@@ -130,6 +130,8 @@ def handle_message_get(request: FunctionCallRequest) -> HandlerOutcome:
                 message_id=body.message_id,
                 actor_id=actor_id,
                 session_id=request.actor.session_id or None,
+                fields=body.fields,
+                detail=body.detail,
             )
         },
     )
