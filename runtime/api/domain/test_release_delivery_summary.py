@@ -96,9 +96,10 @@ def _succeeded_run(
         target_tier="persistent",
         release_lineage=LINEAGE,
         target_environment_id=ENVIRONMENT_ID,
-        carried_work=json.dumps(
-            {"items": [{"ref": "YOK-1", "commit_shas": carried}]}
-        ),
+        carried_work=json.dumps({
+            "derivation": {"contents_known": True},
+            "items": [{"ref": "YOK-1", "commit_shas": carried}],
+        }),
         completed_at="2026-09-18T00:00:00Z",
     )
 

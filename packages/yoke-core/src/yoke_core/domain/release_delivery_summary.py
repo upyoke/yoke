@@ -24,12 +24,12 @@ project's releases to a destination that outlives the run — and the release
 that carried the merge is also what the card names where a stored flow would
 otherwise go.
 
-Deployment is then one question per merge, asked two ways because a merge
-reaches a release by two routes. Usually the run that carried it names it in
-its own carried work. But a merge can also reach the base branch under
-another item's landing, in which case no run ever lists it for this item
-while it is nonetheless deployed. Ancestry answers that second case, through
-the same containment helper the completion gate uses.
+Deployment is then one question per merge, asked from records first. Membership
+in a succeeded run to the item's environment is delivery. A merge newer than
+that environment's newest succeeded candidate is not. Honest carried work may
+still name the commit; a payload that could not look is ignored. Ancestry
+answers only the residual — merged before the candidate, never a member —
+through the same containment helper the completion gate uses.
 
 Only the newest release lineage is asked. Releases advance, so a commit an
 older one contained is contained by the newest as well, and the answer is
@@ -47,6 +47,7 @@ from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_run_candidate_containment import (
     CandidateContainment,
 )
+from yoke_core.domain.release_delivery_membership import ReleaseDeliveryIndex
 from yoke_core.domain.deployment_run_project_sources import (
     carrying_runs_for_project,
     environment_name,
@@ -57,7 +58,6 @@ from yoke_core.domain.delivery_release_candidates import (
 from yoke_core.domain.item_merge_receipt_document import (
     merge_shas_for_items as receipt_merge_shas_for_items,
 )
-from yoke_core.domain.json_helper import loads_text
 from yoke_core.domain.qa_merging_identity import (
     recorded_batch_blocks_for_items,
 )
@@ -115,37 +115,6 @@ def recorded_merge_shas_for_items(
         if seen:
             merges[item_id] = tuple(seen)
     return merges
-
-
-def _carried_shas(raw: Any, *, bound_project_id: int | None = None) -> set[str]:
-    """The commits one run named for a project, its own or one it bound.
-
-    A carrier records each bound project's carried set beside its own, so a
-    bound project reads its own slice of the same record rather than the
-    carrier's items, which belong to a different repository entirely.
-    """
-    payload = loads_text(str(raw or "{}"))
-    if not isinstance(payload, dict):
-        return set()
-    if bound_project_id is not None:
-        payload = next(
-            (
-                entry
-                for entry in payload.get("bound_projects") or []
-                if isinstance(entry, dict)
-                and entry.get("project_id") == bound_project_id
-            ),
-            {},
-        )
-    carried: set[str] = set()
-    for entry in payload.get("items") or []:
-        if not isinstance(entry, dict):
-            continue
-        for sha in entry.get("commit_shas") or []:
-            text = str(sha or "").strip()
-            if text:
-                carried.add(text)
-    return carried
 
 
 def _placeholder(conn: Any) -> str:
@@ -216,38 +185,15 @@ def candidate_runs(
     return succeeded_persistent_runs(conn, project_id=int(project_id))
 
 
-def _carriage_by_sha(
-    runs: list[dict[str, Any]],
-) -> dict[str, dict[str, str]]:
-    """Each commit these releases carried, against the release that shipped it.
-
-    Newest first, so a commit shipped more than once is named by the most
-    recent release that carried it. The run is named as well as its flow,
-    because a reader showing where the work went links the release itself.
-    """
-    carried: dict[str, dict[str, str]] = {}
-    for run in runs:
-        carrier = {
-            "run_id": str(run.get("id") or ""),
-            "flow": str(run.get("flow") or ""),
-        }
-        for sha in _carried_shas(
-            run.get("carried_work"),
-            bound_project_id=run.get("bound_project_id"),
-        ):
-            carried.setdefault(sha, carrier)
-    return carried
-
-
 class ReleaseCandidates:
     """What one project's releases have shipped, resolved once for many items.
 
     Every item sharing a project, environment and flow is asked about exactly
-    the same releases, so the candidate runs, the commits they carried, and
-    the newest lineage are facts of that triple rather than of the item. A
-    roster resolving them per card re-read the same releases and re-opened the
-    same repository for every card it drew; resolving them per triple is the
-    same answer asked once.
+    the same releases, so membership, honest carried work, and the newest
+    lineage are facts of that triple rather than of the item. A roster
+    resolving them per card re-read the same releases and re-opened the same
+    repository for every card it drew; resolving them per triple is the same
+    answer asked once.
     """
 
     def __init__(
@@ -258,74 +204,45 @@ class ReleaseCandidates:
         environment_id: Any,
         flow: str = "",
     ) -> None:
-        self._conn = conn
-        self._project_id = int(project_id)
         runs = candidate_runs(
             conn,
             project_id=project_id,
             environment_id=environment_id,
             flow=flow,
         )
-        self._carriage = _carriage_by_sha(runs)
-        # Releases advance, so a commit an older release contained is
-        # contained by the newest one too. Asking every lineage would spend
-        # one repository resolution per run to re-derive an answer the first
-        # one already gives.
-        newest = next(
-            (run for run in runs if str(run.get("release_lineage") or "").strip()),
-            {},
+        self._index = ReleaseDeliveryIndex(
+            conn,
+            project_id=int(project_id),
+            runs=runs,
+            containment_cls=CandidateContainment,
         )
-        self._newest_lineage = str(newest.get("release_lineage") or "").strip()
-        self._newest_carrier = {
-            "run_id": str(newest.get("id") or ""),
-            "flow": str(newest.get("flow") or ""),
-        }
-        self._containment: CandidateContainment | None = None
 
-    def carrier_for(self, sha: str) -> dict[str, str] | None:
-        """The release that delivered ``sha``, or ``None`` if none has.
-
-        The one answer to "what shipped this commit", asked the two ways a
-        commit reaches a release. Usually a run names it in its own carried
-        work. Otherwise it may have reached the base branch under another
-        item's landing, which ancestry against the newest pinned lineage — not
-        carried work — is the record of. Both answers name the run and its
-        flow, so a count of delivered merges and a card linking the release
-        that delivered one are reading the same fact rather than two.
-        """
-        carried = self._carriage.get(sha)
-        if carried is not None:
-            return dict(carried)
-        if not self._newest_lineage:
-            return None
-        if self._containment is None:
-            self._containment = CandidateContainment(
-                self._conn,
-                self._project_id,
-                candidate_lineage=self._newest_lineage,
-            )
-        if self._containment.contains(sha).contained:
-            return dict(self._newest_carrier)
-        return None
+    def carrier_for(
+        self, sha: str, *, item_id: int | None = None,
+    ) -> dict[str, str] | None:
+        """The release that delivered ``sha``, or ``None`` if none has."""
+        return self._index.carrier_for(sha, item_id=item_id)
 
 
 def delivery_summary(
     *,
     merges: Sequence[str],
     candidates: ReleaseCandidates,
+    item_id: int | None = None,
 ) -> DeliverySummary:
     """Count one item's landed merges, how many shipped, and under which flow.
 
     Both operands belong to something larger than the item — the merges to a
     batched read over the roster, the candidates to the item's project — so
-    this is the arithmetic alone and issues no read of its own.
+    this is the arithmetic alone. ``item_id`` lets membership and recency
+    answer without a repository.
     """
     if not merges:
         return DeliverySummary()
     deployed = 0
     carrying_flow = ""
     for sha in merges:
-        carrier = candidates.carrier_for(sha)
+        carrier = candidates.carrier_for(sha, item_id=item_id)
         if carrier is None:
             continue
         deployed += 1
