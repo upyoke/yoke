@@ -64,6 +64,7 @@ def item_landings_list(args: List[str]) -> int:
             return
         for landing in rows:
             pr_number = str(landing.get("pr_number") or "").strip()
+            origin = str(landing.get("origin") or "").strip()
             print(
                 "|".join([
                     str(landing.get("landed_at") or ""),
@@ -72,6 +73,7 @@ def item_landings_list(args: List[str]) -> int:
                     str(landing.get("candidate_sha") or "")[:_SHA_WIDTH],
                     f"#{pr_number}" if pr_number else "",
                     str(landing.get("target_branch") or ""),
+                    origin,
                     _delivery_label(landing),
                 ]),
                 file=stdout,

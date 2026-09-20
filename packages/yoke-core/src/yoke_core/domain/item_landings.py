@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import Any, Iterable
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.item_landings_schema import ORIGIN_RECORDED
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_message_types import row_dict
 
@@ -34,6 +35,7 @@ _COLUMNS = (
     "target_branch",
     "route",
     "landed_at",
+    "origin",
 )
 
 
@@ -48,6 +50,7 @@ class ItemLanding:
     candidate_sha: str = ""
     pr_number: str = ""
     target_branch: str = ""
+    origin: str = ORIGIN_RECORDED
     #: Assigned by the database on append; zero on a row not yet written.
     id: int = 0
 
@@ -61,6 +64,7 @@ class ItemLanding:
             "target_branch": self.target_branch,
             "route": self.route,
             "landed_at": self.landed_at,
+            "origin": self.origin,
         }
 
 
@@ -78,6 +82,7 @@ def _from_row(value: dict[str, Any]) -> ItemLanding:
         target_branch=str(value.get("target_branch") or ""),
         route=str(value["route"]),
         landed_at=str(value.get("landed_at") or ""),
+        origin=str(value.get("origin") or ORIGIN_RECORDED),
     )
 
 
@@ -85,14 +90,16 @@ def append_landing(conn: Any, landing: ItemLanding) -> bool:
     """Record ``landing``. Returns whether this call wrote a new row.
 
     A ``False`` return is the re-entered close-out converging on the landing
-    it already recorded, not a failure: the row is there either way.
+    it already recorded, not a failure: the row is there either way. A
+    reconstructed fact for a merge close-out already wrote is the same
+    convergence: the recorded row stays, origin included.
     """
     p = _p(conn)
     cursor = conn.execute(
         "INSERT INTO item_landings "
         "(item_id,merge_sha,candidate_sha,pr_number,target_branch,route,"
-        "landed_at) "
-        f"VALUES ({','.join([p] * 7)}) "
+        "landed_at,origin) "
+        f"VALUES ({','.join([p] * 8)}) "
         "ON CONFLICT(item_id, merge_sha) DO NOTHING",
         (
             int(landing.item_id),
@@ -102,6 +109,7 @@ def append_landing(conn: Any, landing: ItemLanding) -> bool:
             landing.target_branch,
             landing.route,
             landing.landed_at,
+            landing.origin,
         ),
     )
     return bool(cursor.rowcount)

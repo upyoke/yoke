@@ -19,12 +19,18 @@ landing recorded before its merge commit was resolvable has only that.
 ``id`` is monotonic, and it — not ``landed_at`` — is the tiebreaker for
 "which landing is the newest". Two landings can share a timestamp, and an
 item that landed four times in one day is the case this table exists for.
+
+``origin`` says how the row got here. Close-out writes ``recorded``. A
+git-history backfill writes ``reconstructed``, whose ``landed_at`` is the
+merge commit's committer time and can run minutes early of the GitHub
+observed moment for a merge-queue landing.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 #: The merge queue merged this landing on GitHub.
@@ -38,7 +44,16 @@ ROUTE_FAST_FORWARD = "fast_forward"
 #: Every route a landing may be recorded under.
 LANDING_ROUTES = (ROUTE_MERGE_QUEUE, ROUTE_STANDALONE, ROUTE_FAST_FORWARD)
 
+#: Close-out observed this landing as it happened.
+ORIGIN_RECORDED = "recorded"
+#: The row was rebuilt from git; ``landed_at`` is committer time.
+ORIGIN_RECONSTRUCTED = "reconstructed"
+
+#: Every origin a landing may be stored under.
+LANDING_ORIGINS = (ORIGIN_RECORDED, ORIGIN_RECONSTRUCTED)
+
 _ROUTE_SQL = ",".join(f"'{route}'" for route in LANDING_ROUTES)
+_ORIGIN_SQL = ",".join(f"'{origin}'" for origin in LANDING_ORIGINS)
 
 ITEM_LANDINGS_CREATE_SQL = f"""
 CREATE TABLE IF NOT EXISTS item_landings (
@@ -50,6 +65,8 @@ CREATE TABLE IF NOT EXISTS item_landings (
   target_branch TEXT NOT NULL DEFAULT '',
   route TEXT NOT NULL CHECK(route IN ({_ROUTE_SQL})),
   landed_at TEXT NOT NULL,
+  origin TEXT NOT NULL DEFAULT '{ORIGIN_RECORDED}'
+    CHECK(origin IN ({_ORIGIN_SQL})),
   UNIQUE(item_id, merge_sha)
 );
 CREATE INDEX IF NOT EXISTS idx_item_landings_item
@@ -58,13 +75,22 @@ CREATE INDEX IF NOT EXISTS idx_item_landings_item
 
 
 def ensure_item_landings_schema(conn: Any) -> None:
-    """Converge the additive item-landings table on ``conn``."""
+    """Converge the additive item-landings table and origin column on ``conn``."""
     execute_schema_script(conn, ITEM_LANDINGS_CREATE_SQL)
+    _add_column_if_not_exists(
+        conn,
+        "item_landings",
+        "origin",
+        f"TEXT NOT NULL DEFAULT '{ORIGIN_RECORDED}'",
+    )
 
 
 __all__ = [
     "ITEM_LANDINGS_CREATE_SQL",
+    "LANDING_ORIGINS",
     "LANDING_ROUTES",
+    "ORIGIN_RECONSTRUCTED",
+    "ORIGIN_RECORDED",
     "ROUTE_FAST_FORWARD",
     "ROUTE_MERGE_QUEUE",
     "ROUTE_STANDALONE",
