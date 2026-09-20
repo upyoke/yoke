@@ -242,8 +242,9 @@ left to execute, so it is **discharged**: it gates exactly like `accepted`,
 and reads as `discharged` wherever a state is rendered — including the stage
 result notice sent to the member's owner. Keeping the two words apart is
 deliberate; an authorized discharge is not a result that passed. A subject
-with no materialized cases at all is not discharged: that is an unanswered
-obligation, not a settled one.
+with no materialized cases at all is unanswered unless the member recorded
+that it has no post-deploy obligation (not a waiver) or a waiver-backed
+declaration before the deploy.
 
 ## Governed cutover
 

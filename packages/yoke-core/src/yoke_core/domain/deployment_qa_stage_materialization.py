@@ -220,11 +220,10 @@ def materialize_deployment_qa_stage(
             or bound_direct
             or any(requirement.get("method_id") for requirement in admitted)
         ):
-            # A member that RECORDED "nothing to verify, because X" answered
-            # this question before its deploy; one that recorded nothing
-            # never answered it, and is still held exactly as before.
+            # A member that recorded no obligation, or waived the check,
+            # answered before deploy; silence is still a wait.
             answer = member_post_deploy_answer(conn, subject)
-            if not answer.declared_none:
+            if not answer.discharges_without_cases:
                 raise QaCasesNotSelectedError(cases_not_selected_refusal())
             declared_none = answer.reasons
         existing.extend(bound_direct)

@@ -26,25 +26,20 @@ QA_POST_DEPLOY_DECLARE_NONE_USAGE = (
 )
 
 QA_POST_DEPLOY_DECLARE_NONE_EPILOG = """\
-Records that this item needs no verification after its deploy, and why.
+Records a waiver that this item's post-deploy check is declined, and why.
 
-`yoke merge item` asks this question before the branch lands, while the
-owner still holds the lane and the deploy has not happened. A recorded
-declaration is a different artifact from an unanswered question: the
-deployment QA stage lets the first through with no cases and holds the
-second, so declaring is never the same as staying silent.
+This is the waiver-backed declaration: ``waived_at``, ``waiver_rationale``
+and ``waiver_source`` carry a decision not to collect evidence. Use it when
+there is something one might check once the code is live, and you are
+choosing not to. An item that genuinely has no post-deploy obligation —
+nothing about it is observable from outside once deployed — records that
+fact with `yoke qa post-deploy record-no-obligation` instead. That command
+is not a waiver, and an auditor listing waivers will not see it.
 
-Use it only when there is genuinely nothing to check once the code is live.
-An item that does have something to check attaches a plan instead, with
-`yoke qa item-plan attach ... --qa-phase post_deploy`, which is durable and
-resolves on every future deployment. Selecting a plan with `--plan` on a
-running deployment stage is the third, different thing: it binds cases to
-one run and writes nothing the next run will see.
-
-The declaration is stored as this item's post-deploy requirement, waived
-with your reason, so `waiver_rationale` carries the "because X" and the
-usual QA reads show it. Repeating the command returns the declaration
-already recorded rather than writing a second one.
+`yoke merge item` asks the emptiness question before the branch lands.
+Silence is not an answer; a recorded no-obligation fact is. Repeating this
+command returns the declaration already recorded rather than writing a
+second one.
 """
 
 
@@ -63,7 +58,7 @@ def qa_post_deploy_declare_none(args: List[str]) -> int:
         "--reason",
         "--content-file",
         dest="reason",
-        help_text="Why this item needs no post-deploy verification.",
+        help_text="Why this post-deploy check is being declined.",
         file_help="Read the reason from a path.",
     )
     add_stdin_flag(reason_group, help_text="Read the reason from stdin.")
@@ -99,12 +94,86 @@ def qa_post_deploy_declare_none(args: List[str]) -> int:
     )
 
 
+QA_POST_DEPLOY_RECORD_NO_OBLIGATION_USAGE = (
+    "yoke qa post-deploy record-no-obligation --item PREFIX-N "
+    "(--reason TEXT | --content-file PATH | --stdin) [--project P] "
+    "[--session-id S] [--json]"
+)
+
+QA_POST_DEPLOY_RECORD_NO_OBLIGATION_EPILOG = """\
+Records that this item has no post-deploy obligation, and why.
+
+Use it when nothing about the item is observable from outside once
+deployed. That fact is not a waiver: a waiver says an obligation existed
+and we chose not to satisfy it. `yoke qa post-deploy declare-none` remains
+the waiver-backed declaration for declining a check that might have been
+done.
+
+`yoke merge item` asks this question before the branch lands. A recorded
+no-obligation fact lets the deployment QA stage discharge with no cases
+and no waiver row. Silence still blocks. An item that does have something
+to check attaches a plan instead, with `yoke qa item-plan attach ...
+--qa-phase post_deploy`. Repeating this command returns the fact already
+recorded rather than writing a second one.
+"""
+
+
+def qa_post_deploy_record_no_obligation(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke qa post-deploy record-no-obligation",
+        description=QA_POST_DEPLOY_RECORD_NO_OBLIGATION_USAGE,
+        epilog=QA_POST_DEPLOY_RECORD_NO_OBLIGATION_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--item", required=True, help="Item public ref.")
+    parser.add_argument("--project", default=None, help="Item's project slug.")
+    reason_group = parser.add_mutually_exclusive_group(required=True)
+    add_text_file_pair(
+        reason_group,
+        "--reason",
+        "--content-file",
+        dest="reason",
+        help_text="Why this item has no post-deploy obligation.",
+        file_help="Read the reason from a path.",
+    )
+    add_stdin_flag(reason_group, help_text="Read the reason from stdin.")
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(
+        parser, args, QA_POST_DEPLOY_RECORD_NO_OBLIGATION_USAGE
+    )
+    if parsed is None:
+        return 2
+    try:
+        reason = resolve_one_text_source(
+            positional=parsed.reason,
+            file_path=parsed.reason_file,
+            stdin=parsed.stdin,
+            positional_label="--reason",
+            file_flag="--content-file",
+        )
+    except ValueError as exc:
+        return usage_error(str(exc))
+    return dispatch_and_emit(
+        function_id="qa.post_deploy.record_no_obligation",
+        target=item_target("item", parsed.item, parsed.project),
+        payload={"reason": reason},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+    )
+
+
 USAGE_BY_FUNCTION_ID = {
     "qa.post_deploy.declare_none": QA_POST_DEPLOY_DECLARE_NONE_USAGE,
+    "qa.post_deploy.record_no_obligation": (
+        QA_POST_DEPLOY_RECORD_NO_OBLIGATION_USAGE
+    ),
 }
 
 __all__ = [
     "QA_POST_DEPLOY_DECLARE_NONE_USAGE",
+    "QA_POST_DEPLOY_RECORD_NO_OBLIGATION_USAGE",
     "USAGE_BY_FUNCTION_ID",
     "qa_post_deploy_declare_none",
+    "qa_post_deploy_record_no_obligation",
 ]

@@ -14,10 +14,11 @@ instead, where correcting it costs nothing.
 
 The question has more than one right answer, so the refusal names each as
 itself rather than demanding a plan: a standing attachment every future
-deployment resolves, or a recorded declaration that this item needs nothing
-verified once it is live. :mod:`post_deploy_verification_answer` is the
-classifier both this gate and the deployment QA stage read, so an item
-cannot be refused here as unanswered and then read there as declared.
+deployment resolves, or a recorded no-obligation fact that nothing about
+this item is observable once live. That fact is not a waiver.
+:mod:`post_deploy_verification_answer` is the classifier both this gate
+and the deployment QA stage read, so an item cannot be refused here as
+unanswered and then read there as recorded.
 
 The check reads the flow definition rather than any project's conventions:
 an item is only asked when its own resolved flow declares a QA stage scoped
@@ -55,7 +56,7 @@ from yoke_core.domain.post_deploy_verification_answer import (
     RUN_SCOPED_NOTE,
     answer_from_item_detail,
     attach_standing_recipe,
-    declare_none_recipe,
+    record_no_obligation_recipe,
 )
 
 #: Where post-deploy acceptance binds when the workflow declares no
@@ -244,10 +245,10 @@ def missing_item_qa_plan_refusal(
         "  That attachment is standing: every future deployment of this item "
         "resolves it, and the deployment stage picks it up on its own, so no "
         "plan choice is needed at the wake.\n"
-        "  If it genuinely has nothing to verify once it is live, record that "
-        "and why -- a declared 'none' is an answer, an unanswered item is "
-        "not:\n"
-        f"    {declare_none_recipe(public_ref)}\n"
+        "  If it genuinely has nothing to verify once it is live, record "
+        "that no post-deploy obligation exists, and why -- that fact is an "
+        "answer and is not a waiver; an unanswered item is not an answer:\n"
+        f"    {record_no_obligation_recipe(public_ref)}\n"
         f"  {RUN_SCOPED_NOTE}"
     )
 

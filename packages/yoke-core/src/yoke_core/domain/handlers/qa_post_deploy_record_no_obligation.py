@@ -1,26 +1,22 @@
-"""Record a waiver that an item's post-deploy check is declined, and why.
+"""Record that an item has no post-deploy obligation, and why.
 
-A waiver says an obligation existed and we chose not to satisfy it. The
-storage for that decision already existed: a ``post_deploy`` requirement
-waived with its reason carries ``waived_at``, ``waiver_rationale`` and
-``waiver_source``, emits ``QARequirementWaived``, and already clears the
-done gate's post-deploy blocker.
+An item that is not observable from outside once deployed owes no check
+after its deploy. That fact is not a waiver: a waiver says an obligation
+existed and we chose not to satisfy it. Recording emptiness under
+``waived_at`` destroys the signal in the one listing an auditor uses for
+real exceptions.
 
-An item that genuinely has no post-deploy obligation — nothing about it is
-observable once deployed — must not use this surface. That fact is
-:func:`yoke_core.domain.handlers.qa_post_deploy_record_no_obligation.handle_qa_post_deploy_record_no_obligation`,
-which writes no waiver row.
-
-What did not exist here was a way to record the waiver as one act.
-Composing it out of ``qa requirement add`` plus ``qa requirement waive``
-makes the owner manufacture the obligation they are declining. So the
-declaration is written here in one call, against those same tables and that
-same event.
+This write is one act against the item's own ``post_deploy`` requirement
+row. The row is non-blocking, carries ``qa_kind``
+``post_deploy_no_obligation``, stores the reason on ``instructions``, and
+leaves every waiver column empty. The shared classifier in
+:mod:`yoke_core.domain.post_deploy_verification_answer` is the only reader
+of that fact.
 
 The row binds to the item's pinned release wait, the first stage
-:mod:`yoke_core.domain.qa_phase_boundary` lets a post-deploy row bind to,
-and it is non-blocking: a declaration is the answer to the question, never
-a fresh obligation waiting on one.
+:mod:`yoke_core.domain.qa_phase_boundary` lets a post-deploy row bind to.
+Repeating the command returns the fact already recorded rather than a
+second row.
 """
 
 from __future__ import annotations
@@ -40,7 +36,7 @@ from yoke_core.domain.handlers.qa_requirement_insert import (
     insert_params,
 )
 from yoke_core.domain.post_deploy_verification_answer import (
-    DECLARATION_QA_KIND,
+    NO_OBLIGATION_QA_KIND,
     answer_for_item,
 )
 from yoke_core.domain.qa_deployment_member_attached_plans import (
@@ -53,70 +49,66 @@ from yoke_core.domain.workflow_item_binding_lock import (
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
-class QaPostDeployDeclareNoneRequest(BaseModel):
+class QaPostDeployRecordNoObligationRequest(BaseModel):
     reason: str = Field(..., min_length=1)
-    source: str = "agent"
 
 
-class QaPostDeployDeclareNoneResponse(BaseModel):
+class QaPostDeployRecordNoObligationResponse(BaseModel):
     requirement_id: int
     item_id: int
     workflow_transition_id: str
     reason: str
-    already_declared: bool
+    already_recorded: bool
 
 
 def _release_wait(conn: Any, item_id: int) -> tuple[str, str]:
-    """The stage a post-deploy declaration binds to, or why there is none."""
+    """The stage a post-deploy fact binds to, or why there is none."""
     workflow = load_item_workflow_runtime(conn, int(item_id))
     stage = delivery_redirect_stage(workflow)
     if not stage:
         return "", (
             f"{workflow.workflow_id}@{workflow.version} declares no release "
             "wait, so it never reaches a deployment and has no post-deploy "
-            "verification to decline. Nothing to declare."
+            "obligation to record. Nothing to record."
         )
     return str(stage), ""
 
 
-def _existing_declaration(conn: Any, item_id: int) -> Optional[dict]:
-    """This item's recorded declaration, so a repeat is not a second row."""
+def _existing_fact(conn: Any, item_id: int) -> Optional[dict]:
+    """This item's recorded no-obligation fact, so a repeat is not a second row."""
     from yoke_core.domain.db_helpers import query_one
 
     return query_one(
         conn,
-        "SELECT id,waiver_rationale,workflow_transition_id FROM qa_requirements "
+        "SELECT id,instructions,workflow_transition_id FROM qa_requirements "
         "WHERE item_id=%s AND qa_phase=%s AND qa_kind=%s "
-        "AND deployment_run_id IS NULL ORDER BY id LIMIT 1",
-        (int(item_id), DEPLOYMENT_ATTACHMENT_PHASE, DECLARATION_QA_KIND),
+        "AND deployment_run_id IS NULL AND waived_at IS NULL "
+        "ORDER BY id LIMIT 1",
+        (int(item_id), DEPLOYMENT_ATTACHMENT_PHASE, NO_OBLIGATION_QA_KIND),
     )
 
 
-def handle_qa_post_deploy_declare_none(
+def handle_qa_post_deploy_record_no_obligation(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    """Write the item's recorded nothing-to-verify declaration."""
+    """Write the item's recorded no-post-deploy-obligation fact."""
     from yoke_core.domain.db_helpers import connect, iso8601_now
     from yoke_core.domain.qa_events import emit_qa_requirement_event
-    from yoke_core.domain.qa_requirement_ops import waive_requirement
 
     item_id = request.target.item_id
     if item_id is None:
         return _error(
             "target_invalid",
-            "qa.post_deploy.declare_none requires target.item_id",
+            "qa.post_deploy.record_no_obligation requires target.item_id",
         )
     try:
-        body = QaPostDeployDeclareNoneRequest.model_validate(
+        body = QaPostDeployRecordNoObligationRequest.model_validate(
             request.payload or {}
         )
     except Exception as exc:
-        return _error("payload_invalid", f"declare-none payload invalid: {exc}")
-    if body.source not in {"agent", "operator"}:
         return _error(
             "payload_invalid",
-            "source must be one of ['agent', 'operator']",
-            jsonpath="$.payload.source",
+            f"record-no-obligation payload invalid: {exc}",
         )
 
     conn = connect()
@@ -125,9 +117,8 @@ def handle_qa_post_deploy_declare_none(
         transition_id, refusal = _release_wait(conn, int(item_id))
         if refusal:
             return _error("payload_invalid", refusal)
-        recorded = _existing_declaration(conn, int(item_id))
+        recorded = _existing_fact(conn, int(item_id))
         if recorded is not None:
-            # A repeated call is the same answer, not a second one.
             return HandlerOutcome(
                 result_payload={
                     "requirement_id": int(recorded["id"]),
@@ -135,8 +126,8 @@ def handle_qa_post_deploy_declare_none(
                     "workflow_transition_id": str(
                         recorded["workflow_transition_id"] or transition_id
                     ),
-                    "reason": str(recorded["waiver_rationale"] or ""),
-                    "already_declared": True,
+                    "reason": str(recorded["instructions"] or ""),
+                    "already_recorded": True,
                 },
                 primary_success=True,
             )
@@ -144,13 +135,12 @@ def handle_qa_post_deploy_declare_none(
             return _error(
                 "payload_invalid",
                 "this item already has post-deploy verification to do, so it "
-                "cannot declare that it has none. Retire what it owes first: "
-                "`yoke qa requirement waive --requirement-id N --rationale "
-                "TEXT` records the same decision per case, and a plan it no "
-                "longer needs is detached rather than declared away.",
+                "cannot record that it has none. An attached plan or a live "
+                "case is the answer; retire what it owes rather than "
+                "declaring the obligation away.",
             )
         row = {
-            "qa_kind": DECLARATION_QA_KIND,
+            "qa_kind": NO_OBLIGATION_QA_KIND,
             "qa_phase": DEPLOYMENT_ATTACHMENT_PHASE,
             "blocking_mode": "non_blocking",
             "instructions": body.reason,
@@ -163,13 +153,12 @@ def handle_qa_post_deploy_declare_none(
             ),
         )
         requirement_id = int(cur.fetchone()[0])
-        conn.commit()
         emit_qa_requirement_event(
             conn,
             db_path=None,
             event_name="QARequirementCreated",
             requirement_id=requirement_id,
-            qa_kind=DECLARATION_QA_KIND,
+            qa_kind=NO_OBLIGATION_QA_KIND,
             qa_phase=DEPLOYMENT_ATTACHMENT_PHASE,
             target_row={
                 "item_id": int(item_id),
@@ -178,10 +167,7 @@ def handle_qa_post_deploy_declare_none(
                 "deployment_run_id": None,
             },
         )
-        # The waiver is what makes the row a settled declaration rather than
-        # a fresh obligation, and it is where the reason becomes durable and
-        # attributable. Non-blocking, so it needs no force override.
-        waive_requirement(conn, requirement_id, body.reason, source=body.source)
+        conn.commit()
     finally:
         conn.close()
 
@@ -191,14 +177,14 @@ def handle_qa_post_deploy_declare_none(
             "item_id": int(item_id),
             "workflow_transition_id": transition_id,
             "reason": body.reason,
-            "already_declared": False,
+            "already_recorded": False,
         },
         primary_success=True,
     )
 
 
 __all__ = [
-    "QaPostDeployDeclareNoneRequest",
-    "QaPostDeployDeclareNoneResponse",
-    "handle_qa_post_deploy_declare_none",
+    "QaPostDeployRecordNoObligationRequest",
+    "QaPostDeployRecordNoObligationResponse",
+    "handle_qa_post_deploy_record_no_obligation",
 ]

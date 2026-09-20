@@ -46,35 +46,39 @@ detail read resolves it and carries the answer as `completion_flow`. The
 merge engine runs client-side against an https control plane with no local
 Postgres, so it reads that field rather than resolving the flow itself.
 
-The refusal names three different things rather than defaulting between
-them:
+The refusal names the durable answers rather than defaulting between them:
 
 - **Standing** — `yoke qa item-plan attach ... --qa-phase post_deploy` writes
   a per-item attachment every future deployment resolves.
-- **Nothing to verify** — `yoke qa post-deploy declare-none --item PREFIX-N
-  --reason TEXT` records the decision and the reason.
+- **No post-deploy obligation** — `yoke qa post-deploy record-no-obligation
+  --item PREFIX-N --reason TEXT` records that nothing about the item is
+  observable once deployed. That fact is not a waiver.
 - **Run-scoped** — `--plan` on a running deployment stage binds cases to that
   one run and writes nothing the item keeps. It needs a run, so at the merge
   it is named as unavailable rather than omitted.
 
+`yoke qa post-deploy declare-none` remains the waiver-backed declaration
+for declining a check that might have been done. It is the wrong record for
+genuine emptiness: an auditor listing waivers must not get members that
+never owed a check.
+
 `post_deploy_verification_answer` is the single classifier the merge gate and
 the deployment QA stage both read, so the two cannot disagree about one item.
 It answers `answered` (a live post-deploy attachment or requirement),
-`declared_none` (only waived post-deploy rows, carrying their recorded
-reasons), or `unanswered` (no post-deploy record of any kind).
+`no_obligation` (a recorded no-obligation fact, reason on `instructions`,
+no `waived_at`), `declared_none` (only waived post-deploy rows, carrying
+their recorded reasons), or `unanswered` (no post-deploy record of any kind).
 
-The deployment QA stage honours the difference. A member that recorded a
-declaration materializes no cases and its stage reports `discharged`; a
-member nobody asked keeps the `QaCasesNotSelectedError` wait exactly as
-before. An empty case set on its own is still never enough — silence is not
-a declaration.
+The deployment QA stage honours the difference. A member that recorded
+no-obligation or a waiver-backed declaration materializes no cases and its
+stage reports `discharged`; a member nobody asked keeps the
+`QaCasesNotSelectedError` wait exactly as before. An empty case set on its
+own is still never enough — silence is not an answer.
 
-The declaration needs no storage of its own: it is the item's `post_deploy`
-requirement waived with its reason, so `waived_at`, `waiver_rationale` and
-`waiver_source` carry it and the done gate already reads a waiver as a
-cleared post-deploy blocker. `yoke qa post-deploy declare-none` exists so
-that is one named act rather than adding an obligation in order to decline
-it.
+The no-obligation fact is the item's `post_deploy` requirement with
+`qa_kind=post_deploy_no_obligation`, non-blocking, reason on `instructions`,
+and empty waiver columns. `yoke qa post-deploy record-no-obligation` exists
+so that is one named act.
 
 ## Halt States
 

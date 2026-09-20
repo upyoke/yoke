@@ -20,6 +20,9 @@ from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     item_qa_stage_definitions,
 )
 from yoke_core.domain import qa_item_stage_plan_gate as gate
+from yoke_core.domain.post_deploy_verification_answer import (
+    NO_OBLIGATION_QA_KIND,
+)
 
 PUBLIC_REF = "YOK-1927"
 ITEM_SCOPED_STAGES = item_qa_stage_definitions(None, environment="development")
@@ -136,12 +139,16 @@ def test_an_explicit_pin_still_answers_when_nothing_resolved_it(
     assert _refusal(monkeypatch, pinned, ITEM_SCOPED_STAGES) != ""
 
 
-def test_the_refusal_names_declaring_none_as_its_own_answer(
+def test_the_refusal_names_recording_no_obligation_as_its_own_answer(
     monkeypatch,
 ) -> None:
     """Demanding a plan would make "nothing to verify" unrepresentable."""
     refusal = _refusal(monkeypatch, _item(), ITEM_SCOPED_STAGES)
-    assert f"yoke qa post-deploy declare-none --item {PUBLIC_REF}" in refusal
+    assert (
+        f"yoke qa post-deploy record-no-obligation --item {PUBLIC_REF}"
+        in refusal
+    )
+    assert "not a waiver" in refusal
     # And the run-scoped choice is named as the different thing it is,
     # rather than silently defaulted to or left out.
     assert "--plan" in refusal
@@ -155,6 +162,20 @@ def test_a_recorded_declaration_clears_the_landing(monkeypatch) -> None:
                 "qa_phase": "post_deploy",
                 "waived_at": "2026-09-20T00:00:00Z",
                 "waiver_rationale": "internal refactor, no runtime surface",
+            }
+        ]
+    )
+    assert _refusal(monkeypatch, item, ITEM_SCOPED_STAGES) == ""
+
+
+def test_a_recorded_no_obligation_clears_the_landing(monkeypatch) -> None:
+    item = _item(
+        requirements=[
+            {
+                "qa_phase": "post_deploy",
+                "qa_kind": NO_OBLIGATION_QA_KIND,
+                "waived_at": None,
+                "instructions": "no runtime surface to observe",
             }
         ]
     )
