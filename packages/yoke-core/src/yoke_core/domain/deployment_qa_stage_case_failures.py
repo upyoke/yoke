@@ -235,6 +235,7 @@ def case_failures(
                 "WHERE deployment_run_id=%s AND deployment_stage=%s "
                 "AND COALESCE(deployment_member_item_id,0)=%s "
                 "AND method_id IS NOT NULL AND blocking_mode='blocking' "
+                "AND COALESCE(execution_target_digest,'')<>'' "
                 "ORDER BY id",
                 (run_id, stage_name, member_item_id or 0),
             )
