@@ -97,7 +97,9 @@ def first_materialized_execution_target(
 
     Environment URL and settings remain live tables, so recomputing the
     snapshot mid-run re-keys ``execution_target_digest`` and drops already
-    recorded cases out of scope. The first materialized row is the freeze.
+    recorded cases out of scope. The first materialized row is the freeze
+    while that subject's producer receipt is unchanged. A newer ready
+    attempt is a new identity and must not reuse this snapshot.
     """
     cursor = conn.execute(
         "SELECT execution_target_json FROM qa_requirements "
@@ -117,6 +119,26 @@ def first_materialized_execution_target(
             f"{member_item_id!r} has an unreadable frozen execution target"
         )
     return frozen
+
+
+def _latest_ready_receipt_id(
+    conn: Any, *, run_id: str, source_stage: str
+) -> int | None:
+    cursor = conn.execute(
+        f"SELECT id FROM deployment_stage_receipts WHERE run_id={_p(conn)} "
+        f"AND stage_name={_p(conn)} AND status='ready' "
+        "ORDER BY attempt_number DESC LIMIT 1",
+        (str(run_id), str(source_stage)),
+    )
+    row = _row(cursor, cursor.fetchone())
+    return int(row["id"]) if row is not None else None
+
+
+def _frozen_producer_receipt_id(target: Mapping[str, Any]) -> int | None:
+    observation = target.get("observation")
+    if not isinstance(observation, Mapping) or observation.get("receipt_id") is None:
+        return None
+    return int(observation["receipt_id"])
 
 
 def _require_receipt_source(subject: Mapping[str, Any], source_stage: str) -> None:
@@ -146,10 +168,11 @@ def deployment_qa_execution_target(
     """Resolve configured destination plus the newest observed stage receipt.
 
     After this subject has materialized at least one case, later reads
-    reuse that snapshot so a live environment edit cannot move the digest
-    mid-stage. Passing ``receipt_id`` skips the freeze: result-write
-    validation still compares against the live subject, including a
-    replaced candidate on the same run row.
+    reuse that snapshot while the producer receipt is unchanged, so a live
+    environment edit cannot move the digest mid-stage. A newer ready
+    receipt is a new identity and is resolved live. Passing ``receipt_id``
+    also skips the freeze: result-write validation still compares against
+    the live subject, including a replaced candidate on the same run row.
     """
     if receipt_id is None:
         frozen = first_materialized_execution_target(
@@ -158,7 +181,28 @@ def deployment_qa_execution_target(
             stage_name=str(subject["stage"]["name"]),
             member_item_id=subject.get("member_item_id"),
         )
-        if frozen is not None:
+        pinned = subject["stage"].get("target")
+        source_stage = (
+            str(pinned.get("source_stage") or "").strip()
+            if isinstance(pinned, Mapping)
+            else ""
+        )
+        latest_receipt = (
+            _latest_ready_receipt_id(
+                conn, run_id=str(subject["id"]), source_stage=source_stage
+            )
+            if source_stage
+            else None
+        )
+        frozen_receipt = (
+            _frozen_producer_receipt_id(frozen) if frozen is not None else None
+        )
+        if (
+            frozen is not None
+            and latest_receipt is not None
+            and frozen_receipt is not None
+            and latest_receipt == frozen_receipt
+        ):
             return frozen
     target = subject["stage"].get("target")
     if not isinstance(target, Mapping):
