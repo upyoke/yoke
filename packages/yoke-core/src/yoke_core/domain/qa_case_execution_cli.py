@@ -61,9 +61,10 @@ full run.
 
 It is NOT the form that credits a deployment stage. A deployment QA stage
 credits only the requirements bound to its own stage name, and an item-scoped
-stage needs the member named too, so reach for the stage-scoped plan run
-instead; running cases one id at a time can pass every case while the stage
-still reads unsatisfied:
+stage needs the member named too. When the requirement already carries a
+run, a stage, and a member, this command refuses and prints the invocation
+that would credit the stage, rather than exiting zero with a pass the stage
+ignores:
 
   yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
 

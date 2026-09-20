@@ -98,9 +98,11 @@ item-scoped stage only ones bound to the member too. So the member owner runs
 `yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N`, and
 the unscoped run-wide form is refused rather than recording a pass the stage
 ignores. `yoke qa case run --requirement-id N` credits that requirement's
-existing binding and never a stage, so it cannot substitute either. Dropping
-`--stage` or `--member` is the failure that looks like success: every case
-passes and the stage still reads unsatisfied.
+existing binding and never a stage, so it cannot substitute either: when the
+requirement is already bound to an item-scoped stage it refuses and names
+the plan-run invocation that would credit it. Dropping `--stage` or
+`--member` is the failure that looks like success: every case passes and the
+stage still reads unsatisfied.
 
 **`yoke merge item` is the one agent-facing close-out**, at the merge and again
 at the release wait, carrying `--result` and `--verification` both times. There
