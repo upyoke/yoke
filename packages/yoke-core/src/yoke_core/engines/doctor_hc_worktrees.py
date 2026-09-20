@@ -137,11 +137,14 @@ def hc_orphaned_stashes(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     ``yoke-pre-rebase-`` safety stash, which means every other stash — the
     ones an agent or a person parked by hand — has no owner at all. Reporting
     only Yoke's own made exactly those invisible, so this reads the whole
-    list and dates each entry.
+    list and dates each entry. ``--date=short`` rewrites ``%gd`` to a
+    calendar day, so two stashes from the same day share one selector and
+    the printed drop command is ambiguous; ``%cs`` supplies the short date
+    without touching the numeric reflog selector.
     """
     issues: List[str] = []
     r = _base._run(
-        ["git", "stash", "list", "--date=short", "--format=%gd | %cd | %gs"]
+        ["git", "stash", "list", "--format=%gd | %cs | %gs"]
     )
     if r.returncode == 0 and r.stdout.strip():
         issues = [f"- {line}" for line in r.stdout.strip().splitlines()]
