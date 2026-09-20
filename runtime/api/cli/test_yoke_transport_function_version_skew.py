@@ -109,9 +109,23 @@ class TestSkewErrorDirection:
             server_version="2.0.0",
         )
         hint = error.recovery_hint.lower()
-        assert "retry after deploy" in hint
+        assert "retry after deploy" not in hint
+        assert "*-db-admin" in error.recovery_hint
         assert "yoke self-host upgrade --dir <bundle>" in hint
         assert UNKNOWN_VERSION in error.message
+
+    def test_a_call_below_a_declared_floor_names_the_floor(self):
+        error = skew_error(
+            function_id=SERVED_LOCALLY,
+            client_version="2.0.0",
+            server_version="1.0.0",
+            minimum_serving_version="2.0.0",
+        )
+        assert error.code == SKEW_ERROR_CODE
+        assert "2.0.0" in error.message
+        assert "minimum serving version" in error.message.lower()
+        assert "retry after deploy" not in error.recovery_hint.lower()
+        assert "*-db-admin" in error.recovery_hint
 
     def test_development_suffixes_still_order(self):
         error = skew_error(
@@ -188,6 +202,22 @@ class TestRelayedSkewGate:
         assert "deployed server predates this client build" in (
             response.error.recovery_hint
         )
+
+    def test_relayed_skew_names_the_client_readable_floor(self, monkeypatch):
+        from yoke_contracts.function_serving_floors import (
+            FUNCTION_MINIMUM_SERVING_VERSIONS,
+        )
+
+        monkeypatch.setitem(
+            FUNCTION_MINIMUM_SERVING_VERSIONS, SERVED_LOCALLY, "next-release"
+        )
+        response = _dispatch_over_https(
+            monkeypatch, server_version="1.0.0", client_version="2.0.0"
+        )
+        assert response.error.code == SKEW_ERROR_CODE
+        assert "next-release" in response.error.message
+        assert "minimum serving version" in response.error.message.lower()
+        assert "retry after deploy" not in response.error.recovery_hint.lower()
 
     def test_newer_server_gets_the_client_update_recovery(self, monkeypatch):
         response = _dispatch_over_https(

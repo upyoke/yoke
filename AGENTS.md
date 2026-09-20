@@ -115,6 +115,7 @@ Applies to any project declaring a `migration_model` capability. Before any sche
 - **Code and tests validate against the model's declared validation surface** (`model.runner.connection_env_var`); `/yoke` control-plane commands always use `CANONICAL_YOKE_DB`. Every audit-fingerprint exception call site needs a paired `docs/archive/decisions/<helper-name>.md` and a populated `exception_reason`.
 - **Rehearsal against the validation surface proves nothing about the universes that need the entry.** Before releasing a build carrying an unapplied entry, run the fleet migration preflight over a throwaway copy of every live database and record its receipt; the release refuses when an entry has no receipt for that environment.
 - **Client-side code reaches control-plane rows by relaying, never by connecting.** Over https there is no local database; `db_backend.connect()` refuses with `RemoteControlPlaneConnectionError`, deliberately outside the `Exception` hierarchy. Genuine local authority declares `local_authority_exempt()` at the call site.
+- Serving floor: `code-and-cli.md`.
 
 ## Architecture Model
 A project may declare an `architecture_model` Project Structure family: the one policy document carrying the layer map, area patterns, dependency rules, cross-cutting gateways, exemptions, and the `package_roots` mapping.

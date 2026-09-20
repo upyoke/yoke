@@ -16,6 +16,7 @@ Public surface:
 - :class:`RegistryDuplicateError`, :class:`RegistryValidationError`.
 - :func:`register` — import-time write.
 - :func:`lookup`, :func:`list_entries`, :func:`schema_for`.
+- :func:`require_floor_for_unserved_ids` — re-enable the new-id floor check.
 - :func:`reset_registry_for_tests` — test-only reset hook.
 
 The six values the dispatcher accepts for ``claim_required_kind`` are
@@ -32,6 +33,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import validate_function_id
+from yoke_core.domain.function_serving_floor_ids import ALREADY_SERVED_FUNCTION_IDS
 
 
 _STABILITY_VALUES = frozenset({"stable", "beta", "deprecated", "internal"})
@@ -79,9 +81,15 @@ class RegistryEntry:
     removal_target_version: Optional[str] = None
     claim_required_kind: Optional[str] = None
     ambient_session_required: bool = True
+    minimum_serving_version: Optional[str] = None
 
 
 _REGISTRY: Dict[str, RegistryEntry] = {}
+# Production import leaves this on so an id absent from the previous
+# serving set cannot register without a floor. Test reset turns it off
+# because fixtures reuse unfloored ids; require_floor_for_unserved_ids
+# turns it back on for the floor contract tests.
+_REQUIRE_UNSERVED_FLOOR = True
 
 
 def register(
@@ -102,13 +110,15 @@ def register(
     removal_target_version: Optional[str] = None,
     claim_required_kind: Optional[str] = None,
     ambient_session_required: bool = True,
+    minimum_serving_version: Optional[str] = None,
 ) -> RegistryEntry:
     """Register a handler at import time.
 
     Raises :class:`RegistryDuplicateError` if ``function_id`` is already
     registered. Raises :class:`RegistryValidationError` for any static
     contract violation (bad id shape, unknown stability, deprecated
-    without replacement, unknown claim-required kind).
+    without replacement, unknown claim-required kind, or an id absent
+    from the previous serving set that omits ``minimum_serving_version``).
     """
     if not validate_function_id(function_id):
         raise RegistryValidationError(
@@ -136,6 +146,17 @@ def register(
             f"unknown claim_required_kind {claim_required_kind!r}; "
             f"expected one of {accepted}"
         )
+    floor = (minimum_serving_version or "").strip() or None
+    if (
+        _REQUIRE_UNSERVED_FLOOR
+        and floor is None
+        and function_id not in ALREADY_SERVED_FUNCTION_IDS
+    ):
+        raise RegistryValidationError(
+            f"{function_id!r} is absent from the previous serving registry; "
+            "declare minimum_serving_version ('next-release' until a release "
+            "carries it)"
+        )
 
     entry = RegistryEntry(
         function_id=function_id,
@@ -154,6 +175,7 @@ def register(
         removal_target_version=removal_target_version,
         claim_required_kind=claim_required_kind,
         ambient_session_required=bool(ambient_session_required),
+        minimum_serving_version=floor,
     )
     _REGISTRY[function_id] = entry
     return entry
@@ -180,9 +202,17 @@ def schema_for(function_id: str) -> Dict[str, Any]:
     return entry.request_model.model_json_schema()
 
 
+def require_floor_for_unserved_ids() -> None:
+    """Re-enable the new-id floor check after a test reset."""
+    global _REQUIRE_UNSERVED_FLOOR
+    _REQUIRE_UNSERVED_FLOOR = True
+
+
 def reset_registry_for_tests() -> None:
     """Test-only reset hook. Real code should never call this."""
+    global _REQUIRE_UNSERVED_FLOOR
     _REGISTRY.clear()
+    _REQUIRE_UNSERVED_FLOOR = False
 
 
 __all__ = [
@@ -193,5 +223,6 @@ __all__ = [
     "lookup",
     "list_entries",
     "schema_for",
+    "require_floor_for_unserved_ids",
     "reset_registry_for_tests",
 ]

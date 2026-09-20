@@ -9,11 +9,14 @@ module converts the answer into the typed ``function_version_skew``
 error naming the function, both engine versions, and the recovery that
 matches the direction of the skew.
 
-Both directions are covered. A client ahead of the env waits for the
-deploy that carries its engine; a client behind the env — one whose
-function id the server has since removed or renamed — updates itself.
-When neither version resolves, the error names both recoveries rather
-than guessing.
+Both directions are covered. A client ahead of the env uses the older
+command this env still serves, or the paired ``*-db-admin`` connection
+when the caller holds the control plane; it does not wait on a deploy
+that itself needs the missing function. A client behind the env — one
+whose function id the server has since removed or renamed — updates
+itself. When a function declares ``minimum_serving_version``, the
+refusal names that floor. When neither version resolves, the error
+names both recoveries rather than guessing.
 
 In-process dispatch is immune by construction: one process holds one
 registry, so this gate applies only to the HTTPS relay.
@@ -25,6 +28,7 @@ from functools import lru_cache
 
 from yoke_contracts.api.function_call import FunctionError
 from yoke_contracts.engine_version import compare_engine_versions
+from yoke_contracts.function_serving_floors import declared_minimum_serving_version
 
 #: Error code replacing a relayed ``function_not_registered``.
 SKEW_ERROR_CODE = "function_version_skew"
@@ -34,9 +38,12 @@ SKEW_ERROR_CODE = "function_version_skew"
 UNKNOWN_VERSION = "unknown"
 
 _SERVER_BEHIND_RECOVERY = (
-    "The deployed server predates this client build. Retry after the env "
-    "deploys an engine carrying that function, or use the older command "
-    "form this env still serves."
+    "The deployed server predates this client build. Use the older command "
+    "form this env still serves. If you hold this control plane, use the "
+    "paired local-Postgres `*-db-admin` connection (`yoke env list` names "
+    "it): it dispatches against the same universe with this client's "
+    "registry, which is the non-circular exit when the missing function "
+    "is on the deploy path."
 )
 _CLIENT_BEHIND_RECOVERY = (
     "This client build predates the deployed server, which no longer "
@@ -46,12 +53,13 @@ _CLIENT_BEHIND_RECOVERY = (
     "that environment advertises."
 )
 _UNDETERMINED_RECOVERY = (
-    "The engine versions do not establish which side is behind: either "
-    "the env has not yet deployed an engine carrying that function (retry "
-    "after deploy), or this client build predates the deployed server and "
-    "no longer matches its registry (for a self-host bundle, run `yoke "
-    "self-host upgrade --dir <bundle>`; otherwise install the CLI release "
-    "that environment advertises)."
+    "The engine versions do not establish which side is behind. If this "
+    "client build predates the deployed server, for a self-host bundle "
+    "run `yoke self-host upgrade --dir <bundle>`; otherwise install the "
+    "CLI release that environment advertises. If the server predates this "
+    "client, use the older command form this env still serves, or the "
+    "paired local-Postgres `*-db-admin` connection (`yoke env list` names "
+    "it) when you hold this control plane."
 )
 
 
@@ -84,15 +92,19 @@ def skew_error(
     server_version: str,
     env_name: str = "",
     extra_hint: str = "",
+    minimum_serving_version: str = "",
 ) -> FunctionError:
     """Build the typed skew error for an unserved *function_id*."""
     client = client_version or UNKNOWN_VERSION
     server = server_version or UNKNOWN_VERSION
     env = f"env {env_name!r}" if env_name else "env"
+    floor = (minimum_serving_version or declared_minimum_serving_version(function_id)).strip()
+    floor_clause = f" (minimum serving version {floor})" if floor else ""
     message = (
-        f"the active HTTPS {env} does not serve function {function_id!r}: "
-        f"client engine version {client}, server engine version {server} — "
-        "the client and server function registries have skewed"
+        f"the active HTTPS {env} does not serve function {function_id!r}"
+        f"{floor_clause}: client engine version {client}, "
+        f"server engine version {server} — the client and server function "
+        "registries have skewed"
     )
     recovery = _recovery_for_direction(client_version, server_version)
     if extra_hint:

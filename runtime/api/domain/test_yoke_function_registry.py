@@ -233,6 +233,60 @@ class TestFunctionIdShape(_RegistryTestBase):
         self.assertEqual(entry.function_id, "claims.work.acquire")
 
 
+class TestServingFloorDeclaration(_RegistryTestBase):
+    """Ids absent from the previous serving set must declare a floor."""
+
+    def test_unserved_id_without_a_floor_is_rejected(self):
+        from yoke_core.domain.yoke_function_registry import (
+            require_floor_for_unserved_ids,
+        )
+
+        require_floor_for_unserved_ids()
+        with self.assertRaises(RegistryValidationError) as ctx:
+            register(
+                "brand.new.op",
+                _handler,
+                _ReqA,
+                _RespA,
+                **_stable_kwargs(),
+            )
+        self.assertIn("minimum_serving_version", str(ctx.exception))
+
+    def test_unserved_id_with_a_floor_is_recorded(self):
+        from yoke_core.domain.yoke_function_registry import (
+            require_floor_for_unserved_ids,
+        )
+
+        require_floor_for_unserved_ids()
+        entry = register(
+            "brand.new.op",
+            _handler,
+            _ReqA,
+            _RespA,
+            **_stable_kwargs(),
+            minimum_serving_version="next-release",
+        )
+        self.assertEqual(entry.minimum_serving_version, "next-release")
+
+    def test_engine_floors_match_the_client_readable_map(self):
+        from yoke_contracts.function_serving_floors import (
+            FUNCTION_MINIMUM_SERVING_VERSIONS,
+        )
+        from yoke_core.domain.handlers.__init_register__ import register_all_handlers
+        from yoke_core.domain.yoke_function_registry import (
+            require_floor_for_unserved_ids,
+        )
+
+        require_floor_for_unserved_ids()
+        register_all_handlers()
+        engine = {
+            e.function_id: e.minimum_serving_version
+            for e in list_entries()
+            if e.minimum_serving_version
+        }
+        self.assertEqual(dict(FUNCTION_MINIMUM_SERVING_VERSIONS), engine)
+
+
 class TestVersioningMetadata(_RegistryTestBase):
     """Registry preserves stability + replacement + removal_target_version."""
 
