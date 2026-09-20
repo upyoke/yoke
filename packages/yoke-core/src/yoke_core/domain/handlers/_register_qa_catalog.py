@@ -254,6 +254,7 @@ def register(registry) -> None:
         guardrails=["same_project", "claim_required"],
         adapter_status="live",
         claim_required_kind="item",
+        minimum_serving_version="next-release",
     )
     registry.register(
         "qa.plan.materialize",
