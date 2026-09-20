@@ -19,6 +19,7 @@ from runtime.api.steering_fleet_test_helpers import (
     STAFFING_SECONDS,
     SURFACE,
 )
+from yoke_core.domain.delivery_landing_custody import HELD, REMERGED
 from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
 from yoke_core.domain.steering_fleet_report_render import report_body
 
@@ -32,9 +33,9 @@ def _populated_report():
     )
     from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait
     from yoke_core.domain.steering_fleet_report_detectors import (
-        LandedItem,
         UnregisteredLaunch,
     )
+    from yoke_core.domain.steering_fleet_report_landed_open import LandedItem
     from yoke_core.domain.steering_fleet_report_delivery_states import (
         NEVER_ATTEMPTED,
     )
@@ -214,6 +215,63 @@ def test_a_landed_item_nobody_holds_says_so_instead_of_naming_a_session():
 
     landed_row = next(line for line in body.splitlines() if "YOK-4" in line)
     assert "no live holder" in landed_row
+
+
+def test_a_landed_row_names_the_release_holding_it_or_says_none_does():
+    """The two rows used to read alike, so a stranded item hid among them."""
+    report = _populated_report()
+    delivering = dataclasses.replace(
+        report.landed_open[0], custody_state=HELD, custody_run_id="run-20260919-020"
+    )
+
+    stranded_row = next(
+        line for line in report_body(report).splitlines() if "YOK-4" in line
+    )
+    delivering_row = next(
+        line
+        for line in report_body(
+            dataclasses.replace(report, landed_open=(delivering,))
+        ).splitlines()
+        if "YOK-4" in line
+    )
+
+    assert "no release holds it" in stranded_row
+    assert "delivering in run-20260919-020" in delivering_row
+    assert report.landed_open[0].stranded is True
+    assert delivering.stranded is False
+
+
+def test_a_relanded_item_names_the_run_its_newest_merge_left_behind():
+    """"Merged again since RUN" is a different finding from "nothing holds it"."""
+    report = _populated_report()
+    relanded = dataclasses.replace(
+        report.landed_open[0],
+        custody_state=REMERGED,
+        custody_run_id="run-20260919-012",
+    )
+
+    row = next(
+        line
+        for line in report_body(
+            dataclasses.replace(report, landed_open=(relanded,))
+        ).splitlines()
+        if "YOK-4" in line
+    )
+
+    assert "merged again since run-20260919-012" in row
+    assert relanded.stranded is True
+
+
+def test_custody_change_alone_moves_the_report_fingerprint():
+    """A landing losing its release is the finding; a blind identity hides it."""
+    report = _populated_report()
+    delivering = dataclasses.replace(
+        report.landed_open[0], custody_state=HELD, custody_run_id="run-20260919-020"
+    )
+
+    assert report.fingerprint() != dataclasses.replace(
+        report, landed_open=(delivering,)
+    ).fingerprint()
 
 
 def test_the_populated_report_stays_short_enough_to_ride_every_message():

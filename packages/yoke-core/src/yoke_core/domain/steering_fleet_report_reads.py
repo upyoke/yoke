@@ -43,10 +43,12 @@ from yoke_core.domain.steering_fleet_report_capacity import (
     machine_capacities,
 )
 from yoke_core.domain.steering_fleet_report_detectors import (
-    LandedItem,
     UnregisteredLaunch,
-    landed_without_closeout,
     unregistered_launches,
+)
+from yoke_core.domain.steering_fleet_report_landed_open import (
+    LandedItem,
+    landed_without_closeout,
 )
 from yoke_core.domain.steering_fleet_report_holders import ClaimHolder, claim_holders
 from yoke_core.domain.steering_fleet_report_limits import (

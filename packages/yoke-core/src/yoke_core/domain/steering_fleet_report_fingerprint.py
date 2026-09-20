@@ -53,7 +53,14 @@ def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
         "abandoned_launches": sorted(
             entry.launch_id for entry in report.abandoned_launches
         ),
-        "landed_open": sorted(entry.item_id for entry in report.landed_open),
+        # Custody joins identity because a landing moving from "a release is
+        # delivering this" to "nothing holds it" is the finding this section
+        # exists to raise, and a fingerprint blind to it would leave the seat
+        # unwoken. The run id deliberately stays out: which release holds a
+        # landing changes every batch and is not itself a finding.
+        "landed_open": sorted(
+            (entry.item_id, entry.custody_state) for entry in report.landed_open
+        ),
         "suspected_orphaned_waiters": sorted(
             (holder.session_id, holder.item_id)
             for holder in report.suspected_orphaned_waiters

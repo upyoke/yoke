@@ -126,8 +126,9 @@ external delivery is supported over HTTPS. A serving-API self-deploy requires
 the paired local `*-db-admin` env named by the executor's refusal.
 
 Remaining items in the `(project, flow)` group need no membership step: the
-start enrolls every carried, delivery-ready item and applies the composition
-check itself. Attach an item only for the other case — its code is not in the
+start enrolls every delivery-ready item the candidate carries that no live or
+succeeded release already holds, including one a cancelled run left behind,
+and applies the composition check itself. Attach an item only for the other case — its code is not in the
 candidate, and the run should still deliver it:
 
 ```bash
