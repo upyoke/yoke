@@ -83,7 +83,7 @@ export function focusAttribution(row) {
   if (row.work_role) return "lane";
   // Nobody holds it: this session filed it and it is still sitting there,
   // which is worth saying — under its own label, not in the work position.
-  return row.current_item_holder_session_id ? null : "filed";
+  return row.current_item_held_by_other_session_id ? null : "filed";
 }
 
 function appendStagePill(documentNode, work, status, workflow) {

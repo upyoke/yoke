@@ -7,6 +7,16 @@ or the session filed the item and nobody has picked it up — and one fact
 keeps it out: another live session holds the claim, which makes the item
 that session's work however this one came to be attributed to it.
 
+One session's holder question has two halves, and the row answers each
+under its own name. ``owns_current_item`` is true when this session holds
+the claim; ``current_item_held_by_other_session_id`` names a *different*
+live session holding it. Neither is "the holder" on its own — the holder
+is this session when ``owns_current_item``, otherwise whoever
+``current_item_held_by_other_session_id`` names, and nobody when both are
+empty. The second field is deliberately blank on the holder's own row,
+because the reader that needs it is asking "did somebody else pick up the
+item I filed?", not "who has this".
+
 Split from :mod:`sessions_list_read` (authored-file line cap), which
 composes the result straight into each roster row.
 """
@@ -29,10 +39,12 @@ def focus_attribution(
 
     ``item_holders`` maps an item to the live session holding its work
     claim (see
-    :func:`yoke_core.domain.sessions_holdings_read.live_item_claim_holders`);
-    a holder that is not this session becomes
-    ``current_item_holder_session_id`` so readers can tell attribution
-    from work.
+    :func:`yoke_core.domain.sessions_holdings_read.live_item_claim_holders`).
+    This session's own holding is reported as ``owns_current_item``; a
+    holder that is some *other* live session becomes
+    ``current_item_held_by_other_session_id``, so readers can tell
+    attribution from work. Together the two name one holder, never two
+    competing answers.
     """
     item_claims = [
         claim
@@ -68,7 +80,10 @@ def focus_attribution(
         "claim_started_at": (
             item_claims[0].get("claimed_at") if item_claims else None
         ),
-        "current_item_holder_session_id": (
+        # Blank on the holder's own row by design: this session's own
+        # holding is already ``owns_current_item`` above, and the name
+        # says "other".
+        "current_item_held_by_other_session_id": (
             holder if holder and holder != session_id else None
         ),
     }

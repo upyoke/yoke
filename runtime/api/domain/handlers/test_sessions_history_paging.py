@@ -104,7 +104,7 @@ def test_history_is_compact_and_does_not_run_live_enrichment(test_db, monkeypatc
     assert row["ended_cause"] == "wound_down"
     for live_only in (
         "claims", "holdings", "messageability", "native_process", "relay",
-        "health", "current_item_holder_session_id",
+        "health", "current_item_held_by_other_session_id",
     ):
         assert live_only not in row
 
