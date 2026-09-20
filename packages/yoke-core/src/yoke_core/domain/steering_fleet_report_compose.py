@@ -218,6 +218,10 @@ def combined_body(combined: CombinedFleetReport) -> str:
 
 def combined_dict(combined: CombinedFleetReport) -> dict[str, Any]:
     """Machine-readable projection of the combined report."""
+    from yoke_core.domain.steering_fleet_report_hook_digest import (
+        combined_hook_digest,
+    )
+
     return {
         "composed_at": combined.composed_at,
         "actionable": combined.actionable,
@@ -235,6 +239,7 @@ def combined_dict(combined: CombinedFleetReport) -> dict[str, Any]:
             for section in combined.sections
         ],
         "body": combined_body(combined),
+        "digest": combined_hook_digest(combined),
     }
 
 

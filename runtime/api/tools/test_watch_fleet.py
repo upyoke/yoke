@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import sys
 from pathlib import Path
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
@@ -60,12 +61,61 @@ def test_routine_deltas_are_silent_until_a_report_wake() -> None:
         assert watch_fleet.classify_fleet_line(line).cls is LineClass.NOISE
 
     assert watch_fleet.classify_fleet_line(REPORT_BEGIN).cls is LineClass.URGENT
-    assert watch_fleet.classify_fleet_line(REPORT_END).cls is LineClass.NOISE
+    assert watch_fleet.classify_fleet_line(REPORT_END).cls is LineClass.URGENT
 
 
 def test_unrecognized_output_is_noise() -> None:
     classified = watch_fleet.classify_fleet_line("some incidental chatter\n")
     assert classified.cls is LineClass.NOISE
+
+
+def test_a_report_block_travels_with_its_header_and_closing_marker() -> None:
+    classify = watch_fleet.make_fleet_classifier()
+    assert classify(REPORT_BEGIN).cls is LineClass.URGENT
+    assert classify("composed now · 1 held scopes · hook digest").cls is LineClass.URGENT
+    assert classify("how much plan headroom each surface has left").cls is LineClass.URGENT
+    assert classify(REPORT_END).cls is LineClass.URGENT
+    assert classify("some incidental chatter").cls is LineClass.NOISE
+
+
+def test_the_follower_receives_digest_content_not_a_bare_header(
+    tmp_path: Path,
+) -> None:
+    """A wake that only promotes REPORT_BEGIN leaves the follower empty."""
+    from yoke_core.tools import _watch_runner
+
+    lines = [
+        REPORT_BEGIN,
+        "composed now · 1 held scopes · hook digest",
+        "how much plan headroom each surface has left",
+        REPORT_END,
+        "fleet item YOK-1 status idea -> implementing",
+    ]
+    script = tmp_path / "emit.py"
+    script.write_text(
+        "import sys\n"
+        f"for line in {lines!r}:\n"
+        "    print(line)\n",
+        encoding="utf-8",
+    )
+    raw = tmp_path / "raw.log"
+    progress = tmp_path / "progress.log"
+    rc = _watch_runner.run_watcher(
+        argv=[sys.executable, str(script)],
+        classifier=watch_fleet.make_fleet_classifier(),
+        raw_capture=raw,
+        progress_capture=progress,
+        kind="fleet",
+        stdout_stream=io.StringIO(),
+    )
+    assert rc == 0
+    progress_text = progress.read_text(encoding="utf-8")
+    assert REPORT_BEGIN in progress_text
+    assert "hook digest" in progress_text
+    assert "plan headroom" in progress_text
+    assert REPORT_END in progress_text
+    assert "idea -> implementing" not in progress_text
+    assert "idea -> implementing" in raw.read_text(encoding="utf-8")
 
 
 def test_the_probe_argv_targets_the_fleet_delta_probe() -> None:
