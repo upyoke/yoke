@@ -28,8 +28,8 @@ Item-bound batch release — who runs what:
     yoke claims coordination-claim release --project P --key DEPLOY:P --reason R
   `deployment-runs add-item RUN-ID PREFIX-N` is for the other case: an item
   whose code the candidate does not carry but which the run should still
-  deliver. `deployment-runs validate-composition RUN-ID` is an optional preview
-  of what a start will enroll and refuse.
+  deliver. `deployment-runs validate-composition RUN-ID` composes the run now
+  and reports what it enrolled or why it refused.
   An item a cancelled run left behind needs no attaching: it is held by no
   live release, so the next start takes it. `yoke steering report get` names
   any landed item no release holds, so nobody has to notice one going stale.

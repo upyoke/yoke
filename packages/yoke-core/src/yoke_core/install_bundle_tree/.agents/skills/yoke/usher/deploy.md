@@ -139,8 +139,8 @@ That command requires the same project deploy lock. Enrollment resolves the
 public item reference through the registered item target and refuses a run
 that has left `created`, an item whose project the run ships no source for, or
 an incompatible workflow binding. `yoke --env {control-plane} deployment-runs
-validate-composition {run-id}` is an optional preview of what a start will
-enroll and refuse. A composition refusal halts the batch; do not execute a
+validate-composition {run-id}` composes the run now and reports what it
+enrolled or why it refused. A composition refusal halts the batch; do not execute a
 partial run.
 
 Multiple resolvable environments → `AskUserQuestion` for selection, then re-run with `--environment`. Validation failure → halt.

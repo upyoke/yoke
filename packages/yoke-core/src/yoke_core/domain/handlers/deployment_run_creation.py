@@ -61,7 +61,10 @@ def _member_item_ids(run_id: str) -> tuple[int, ...]:
 def handle_deployment_run_create(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    """Create a zero-member run, optionally reusing a terminal run's lineage."""
+    """Create a run; the start fills membership from the candidate.
+
+    Optionally reuses a terminal run's lineage.
+    """
     invalid = require_global(request, "deployment_runs.create")
     if invalid is not None:
         return invalid

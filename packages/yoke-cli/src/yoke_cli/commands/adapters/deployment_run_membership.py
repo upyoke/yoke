@@ -60,8 +60,9 @@ def deployment_runs_add_item(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs add-item",
         description=(
-            "Attach one public item reference to a created deployment run. "
-            "Requires the caller's project deploy lock."
+            "Attach one public item reference whose code the candidate does "
+            "not carry but which the run should still deliver. Requires the "
+            "caller's project deploy lock."
         ),
         epilog=CROSS_PROJECT_MEMBERSHIP_NOTE,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -103,8 +104,9 @@ def deployment_runs_validate_composition(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs validate-composition",
         description=(
-            "Validate the current deployment-run membership before "
-            "execution. Requires the caller's project deploy lock."
+            "Compose the run now from its candidate and report what "
+            "enrolled or why it refused. Requires the caller's project "
+            "deploy lock."
         ),
     )
     parser.add_argument("run_id")
