@@ -27,7 +27,9 @@ yoke qa requirement add-batch --item YOK-N --rows-file qa-requirements.json
 # Materialize project-default and item-attached plan cases
 yoke qa plan materialize --item YOK-N --transition reviewing-implementation
 
-# Refresh corrected plan cases without losing their QA run history
+# Refresh corrected plan cases without losing their QA run history.
+# The one route that reaches instructions and expected_outcome; refuses by
+# name when a live walk or an admitted run copy has already frozen a row.
 yoke qa plan rematerialize --item YOK-N --transition reviewing-implementation
 
 # Execute the materialized cases in immutable plan/case/baseline order
@@ -103,11 +105,11 @@ run owns its delivery context.
 | `yoke qa requirement add` | `--item PREFIX-N --qa-kind K --qa-phase P --workflow-transition T [opts]` | Insert one transition-bound item requirement |
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item requirements atomically; every row requires `workflow_transition_id` |
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
-| `yoke qa plan rematerialize` | `--item PREFIX-N --transition T` | Refresh corrected plan cases while retaining QA run history |
+| `yoke qa plan rematerialize` | `--item PREFIX-N --transition T` | Bring live rows to their plan's current text, retaining QA run history; refuses by name rather than move a row a live walk or an in-flight admitted copy has frozen |
 | `yoke qa plan run` | `--item PREFIX-N --transition T [--machine NAME] [--continue-mission] [runner opts]` | Execute one durable roster; without a pin, prefer a verified free Test Machine. `--continue-mission` resumes a mission walk the stale sweep settled while its walker was parked, reaching no host baseline so the machine keeps that walk's state |
 | `yoke qa plan review-submit` | `(--item-id N \| --deployment-run-id RUN) --execution-id ID --bundle-id ID --bundle-digest SHA256 --stdin` | Persist one complete agent-verdict batch for an immutable review bundle |
 | `yoke qa case run` | `--requirement-id N [runner opts]` | Authorize and execute one immutable case snapshot locally |
-| `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements |
+| `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements, each materialized row reporting `plan_currency` and `plan_diverging_fields` against its plan case |
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
 | `yoke qa requirement waive` | `--requirement-id N --rationale TEXT` | Authorize progress without recording a passing verdict |

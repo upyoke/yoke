@@ -23,6 +23,7 @@ from yoke_cli.transport.dispatcher import (
     call_dispatcher,
     emit_response,
 )
+from yoke_cli.commands.adapters.qa_catalog_usage import PLAN_REMATERIALIZE_EPILOG
 from yoke_cli.qa_artifact_download import ArtifactDownloadError, download_artifact
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.qa_artifact_read import artifact_read_destination
@@ -109,15 +110,7 @@ def qa_plan_rematerialize(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa plan rematerialize",
         description=usage,
-        epilog=(
-            "Refresh materialized cases from their current plan definitions. "
-            "A deployment subject refreshes only cases that have not recorded "
-            "a determinate verdict; one that has already answered is an "
-            "acceptance record, so the call refuses and names it for "
-            "'yoke qa requirement supersede' instead. The subject keeps the "
-            "deployment target its stage receipt pinned; rematerializing never "
-            "re-points a frozen run at the plan's current environment."
-        ),
+        epilog=PLAN_REMATERIALIZE_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
