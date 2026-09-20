@@ -19,6 +19,12 @@ from __future__ import annotations
 #: every surface whose refusal advertises it.
 ALLOW_TREE_MISMATCH_FLAG = "--allow-tree-mismatch"
 
+#: Flag that points a QA case or plan run at a specific checkout. Accepted by
+#: ``yoke qa case run`` and ``yoke qa plan run``; a deployment refusal that
+#: needs a candidate-pinned tree names this recovery rather than mutating the
+#: shared project checkout the reader is standing in.
+CHECKOUT_PATH_FLAG = "--checkout-path"
+
 #: Refusal for a claimed lane that still exists on disk: the reader can go
 #: there, so the recovery is to go there.
 TREE_BINDING_REFUSAL_TEMPLATE = (
@@ -61,6 +67,7 @@ UNVERIFIED_BINDING_NOTICE = (
 __all__ = [
     "ALLOW_TREE_MISMATCH_FLAG",
     "ALLOW_TREE_MISMATCH_NOTICE",
+    "CHECKOUT_PATH_FLAG",
     "MISSING_LANE_REFUSAL_TEMPLATE",
     "TREE_BINDING_REFUSAL_TEMPLATE",
     "UNVERIFIED_BINDING_NOTICE",

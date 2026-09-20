@@ -83,10 +83,32 @@ def test_engine_cli_executes_case_and_emits_result(capsys) -> None:
         expected_branch=None,
         expected_sha=None,
         timeout_seconds=None,
+        checkout_path=None,
         allow_tree_mismatch=False,
         actor=mock.ANY,
     )
     assert execute.call_args.kwargs["actor"].session_id == "engine-session"
+
+
+def test_engine_cli_forwards_checkout_path(capsys) -> None:
+    with mock.patch.object(
+        qa_case_execution_cli,
+        "execute_case",
+        return_value={"requirement_id": 41, "verdict": "pass", "run_id": 7},
+    ) as execute:
+        code = qa_case_execution_cli.run(
+            [
+                "--requirement-id",
+                "41",
+                "--checkout-path",
+                "/tmp/candidate-checkout",
+                "--session-id",
+                "engine-session",
+            ]
+        )
+
+    assert code == 0
+    assert execute.call_args.kwargs["checkout_path"] == "/tmp/candidate-checkout"
 
 
 def test_qa_case_run_preserves_explicit_session_override() -> None:

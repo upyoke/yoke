@@ -18,7 +18,8 @@ _QA_MISSION_SCRATCH_MODULE = "yoke_core.domain.agent_mission_scratch_cli"
 QA_CASE_RUN_USAGE = (
     "yoke qa case run --requirement-id N [--base-url URL] "
     "[--expected-branch BRANCH --expected-sha SHA] "
-    "[--timeout-seconds N] [--allow-tree-mismatch] [--session-id S]"
+    "[--timeout-seconds N] [--checkout-path PATH] "
+    "[--allow-tree-mismatch] [--session-id S]"
 )
 QA_PLAN_RUN_USAGE = (
     "yoke qa plan run "
@@ -26,7 +27,8 @@ QA_PLAN_RUN_USAGE = (
     "--deployment-run-id RUN --plan PLAN --project P) "
     "[--project P] [--base-url URL] [--machine NAME] "
     "[--expected-branch BRANCH --expected-sha SHA] "
-    "[--timeout-seconds N] [--allow-tree-mismatch] [--continue-mission] "
+    "[--timeout-seconds N] [--checkout-path PATH] "
+    "[--allow-tree-mismatch] [--continue-mission] "
     "[--session-id S]"
 )
 QA_PLAN_ABORT_USAGE = (
