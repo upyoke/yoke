@@ -210,7 +210,7 @@ class DispatcherOverheadSyntheticTests(unittest.TestCase):
                 stability="internal", owner_module=__name__,
                 target_kinds=["global"], side_effects=[], emitted_event_names=[],
                 guardrails=[], adapter_status="live",
-                claim_required_kind="self_only",
+                claim_required_kind="self_only", minimum_serving_version="next-release",
             )
         except RegistryDuplicateError:
             pass
