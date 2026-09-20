@@ -15,6 +15,7 @@ from runtime.api.domain.machine_qa_fixture_test_support import (
     fixture_runner,
 )
 from yoke_core.domain.host_control_runner import HostActionResult
+from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
 from yoke_core.domain.ssh_mac_full_reset_contract import (
     PRESERVED_HOME_ENTRIES,
     YOKE_ABSENT_RELATIVE_DIRECTORIES,
@@ -306,6 +307,8 @@ def make_conn() -> sqlite3.Connection:
         VALUES(1,'yoke','Yoke','YOK');
         """
     )
+    # Receipts, which the boot converge creates and serving reads no longer do.
+    ensure_test_machine_schema(conn)
     return conn
 
 
