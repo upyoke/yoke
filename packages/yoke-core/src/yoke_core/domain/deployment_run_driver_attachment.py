@@ -186,9 +186,7 @@ def attach_driver(
         return None
     current = parse_attachment(run_id_value, locked[1])
     same = (
-        current is not None
-        and current.session_id == session_id
-        and current.pid == pid
+        current is not None and current.session_id == session_id and current.pid == pid
     )
     if current is not None and is_live(current, now=clock) and not same:
         raise DriverAlreadyAttached(run_id_value, current)

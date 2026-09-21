@@ -275,17 +275,16 @@ def test_watch_records_the_driver_before_the_freeze(monkeypatch, tmp_path):
     monkeypatch.setattr(
         watch_deploy._watch_runner,
         "bind_capture_paths",
-        lambda ns, kind: order.append("bind")
-        or (tmp_path / "raw", tmp_path / "progress"),
+        lambda ns, kind: (
+            order.append("bind") or (tmp_path / "raw", tmp_path / "progress")
+        ),
     )
     monkeypatch.setattr(
         watch_deploy,
         "child_environment",
         lambda _run_id: order.append("freeze") or None,
     )
-    monkeypatch.setattr(
-        watch_deploy._watch_runner, "run_watcher", lambda **_k: 0
-    )
+    monkeypatch.setattr(watch_deploy._watch_runner, "run_watcher", lambda **_k: 0)
     assert watch_deploy.main(["run-1"]) == 0
     assert order[0] == "bind"
     assert "freezing_source" in order

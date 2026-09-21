@@ -124,9 +124,7 @@ def test_an_executing_run_with_nothing_outstanding_is_not_advised_to_re_drive(
 def test_a_created_run_with_nothing_outstanding_is_advised_to_be_driven(
     fleet,
 ) -> None:
-    fleet.execute(
-        "UPDATE deployment_runs SET status='created' WHERE id=%s", (RUN_ID,)
-    )
+    fleet.execute("UPDATE deployment_runs SET status='created' WHERE id=%s", (RUN_ID,))
     fleet.commit()
 
     report = compose(fleet)
@@ -148,8 +146,7 @@ def test_a_created_run_with_a_live_driver_is_not_advised_to_be_driven(
     from yoke_core.domain.json_helper import dumps_compact
 
     fleet.execute(
-        "UPDATE deployment_runs SET status='created', driver_attachment=%s "
-        "WHERE id=%s",
+        "UPDATE deployment_runs SET status='created', driver_attachment=%s WHERE id=%s",
         (
             dumps_compact(
                 {
@@ -228,6 +225,7 @@ def test_the_machine_projection_carries_the_same_facts(fleet) -> None:
     assert row["red"] == [
         {"requirement_id": 901, "verdict": "fail", "member_ref": "YOK-1"}
     ]
+    assert row["driver_phase"] == ""
     assert row["needs_action"] is True
     assert projected["deployment_runs_needing_action"] == [row]
 
@@ -246,7 +244,9 @@ def test_the_fingerprint_moves_on_state_and_not_on_the_clock(fleet) -> None:
     assert compose(fleet, now=NOW).fingerprint() != at_four_hours
 
 
-def _resolve_decision(conn, *, request_id: int, action: str, stage: str = STAGE) -> None:
+def _resolve_decision(
+    conn, *, request_id: int, action: str, stage: str = STAGE
+) -> None:
     """A stage decision a person answered, as the decision surface records it."""
     conn.execute(
         "INSERT INTO decision_requests"

@@ -137,9 +137,7 @@ class DeploymentRunProgress:
             and not self.driver_phase
         )
         return (
-            bool(self.red)
-            or self.answered_decision is not None
-            or waiting_to_be_driven
+            bool(self.red) or self.answered_decision is not None or waiting_to_be_driven
         )
 
     def recovery(self) -> str:

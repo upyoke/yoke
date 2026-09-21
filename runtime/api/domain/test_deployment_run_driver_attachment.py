@@ -113,7 +113,9 @@ def test_a_stale_heartbeat_lets_another_process_re_drive(db_path: str) -> None:
         assert recovered is not None
         assert recovered.session_id == "sess-b"
         assert recovered.pid == 22
-        assert live_attachment_for_run(conn, run_id_value=run_id, now=STALE) == recovered
+        assert (
+            live_attachment_for_run(conn, run_id_value=run_id, now=STALE) == recovered
+        )
     finally:
         conn.close()
 
@@ -133,13 +135,14 @@ def test_capture_lookup_names_the_live_writer(db_path: str) -> None:
             now=NOW,
         )
         conn.commit()
-        found = live_attachment_for_capture(
-            conn, progress_capture=capture, now=NOW
-        )
+        found = live_attachment_for_capture(conn, progress_capture=capture, now=NOW)
         assert found == recorded
-        assert live_attachment_for_capture(
-            conn, progress_capture="/tmp/other.log", now=NOW
-        ) is None
+        assert (
+            live_attachment_for_capture(
+                conn, progress_capture="/tmp/other.log", now=NOW
+            )
+            is None
+        )
     finally:
         conn.close()
 

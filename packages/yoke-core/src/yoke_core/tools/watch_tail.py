@@ -285,9 +285,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             "whose writer died without a sentinel will never gain one."
         ),
     )
-    parser.add_argument(
-        "path", type=Path, help="Progress capture file to follow."
-    )
+    parser.add_argument("path", type=Path, help="Progress capture file to follow.")
     ns = parser.parse_args(list(argv) if argv is not None else None)
     return follow(ns.path)
 

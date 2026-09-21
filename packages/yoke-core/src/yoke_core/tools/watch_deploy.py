@@ -274,9 +274,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     held = False
     try:
         try:
-            _hold_driver(
-                run_id, phase=PHASE_FREEZING_SOURCE, progress_capture=capture
-            )
+            _hold_driver(run_id, phase=PHASE_FREEZING_SOURCE, progress_capture=capture)
             held = True
         except DeploymentControlPlaneError as exc:
             sys.stderr.write(f"watch_deploy: {exc}\n")

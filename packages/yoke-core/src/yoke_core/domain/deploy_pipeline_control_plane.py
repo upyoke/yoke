@@ -74,7 +74,9 @@ def update_run_field(run_id: str, field: str, value: str) -> None:
 
 def seed_qa(run_id: str) -> int:
     """Idempotently seed the run's flow-derived QA checks."""
-    return int(_call("deployment_runs.execution.qa_seed", run_id, {}).get("seeded") or 0)
+    return int(
+        _call("deployment_runs.execution.qa_seed", run_id, {}).get("seeded") or 0
+    )
 
 
 def record_qa_stage(
@@ -114,18 +116,14 @@ def record_qa_pass(run_id: str, stage: str, qa_result: str) -> None:
 
 def unresolved_qa(run_id: str) -> List[str]:
     """Return every blocking QA obligation that still prevents completion."""
-    values = _call("deployment_runs.execution.qa_pending", run_id, {}).get(
-        "unresolved"
-    )
+    values = _call("deployment_runs.execution.qa_pending", run_id, {}).get("unresolved")
     return [str(value) for value in values] if isinstance(values, list) else []
 
 
 def ephemeral_qa_ready(run_id: str) -> bool:
     """Return whether every run member already has passing browser QA."""
     return bool(
-        _call("deployment_runs.execution.ephemeral_qa_ready", run_id, {}).get(
-            "ready"
-        )
+        _call("deployment_runs.execution.ephemeral_qa_ready", run_id, {}).get("ready")
     )
 
 

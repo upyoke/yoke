@@ -118,9 +118,7 @@ def handle_release_driver(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.db_helpers import connect
 
     with connect() as conn:
-        released = release_driver(
-            conn, resolved, session_id=session_id, pid=pid
-        )
+        released = release_driver(conn, resolved, session_id=session_id, pid=pid)
         conn.commit()
     return HandlerOutcome(
         result_payload={"run_id": resolved, "released": released},
