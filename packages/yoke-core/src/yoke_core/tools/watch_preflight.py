@@ -36,7 +36,8 @@ PREFLIGHT_URGENT_RE = re.compile(
 # Terminal outcomes: what the whole fleet came to, and whether the
 # receipt the release gate reads was written.
 PREFLIGHT_SUMMARY_RE = re.compile(
-    r"(^\d+ passed,\s+\d+ failed\b|^receipt recorded\b)",
+    r"(^\d+ passed,\s+\d+ failed(?:,\s+\d+ skipped)?\b"
+    r"|^skipped \S+ -- |^receipt recorded\b)",
     re.IGNORECASE,
 )
 # Motion: a fleet rehearsal names its artifact, rosters the cluster it

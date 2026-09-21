@@ -84,6 +84,13 @@ def _latched_modules(conn: sqlite3.Connection) -> set[str]:
 
 
 def test_standing_invariant_does_not_recognize_deployment_supersession() -> None:
+    """The frozen 0035 claim is obsolete as a standing invariant.
+
+    Live ``run_onboard`` also latches a deployment-superseded run. That
+    broadening is wanted: a project that has deployed is past onboarding
+    even with an open checklist. 0035 predates it, so the module bytes stay
+    frozen and the re-prover retires this claim by name.
+    """
     conn = _universe()
     _run(conn, "run-stalled", ("verified", "blocked"))
     conn.execute(

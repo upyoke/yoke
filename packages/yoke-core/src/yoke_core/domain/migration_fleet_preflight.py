@@ -51,11 +51,13 @@ from yoke_core.domain import (
     migration_fleet_preflight_transfer,
     postgres_cluster,
 )
+from yoke_core.domain.migration_fleet_applied_invariants import (
+    format_fleet_summary,
+)
 from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
 from yoke_core.domain.postgres_cluster import ClusterSpec
 
-#: Prefix for the throwaway copy a rehearsal converges. Names it clearly
-#: enough that an operator who finds one left behind knows it is disposable.
+#: Throwaway copy prefix; a leftover name is visibly disposable.
 REHEARSAL_PREFIX = "migration_rehearsal_"
 
 
@@ -69,6 +71,7 @@ class Verdict:
     pending_before: Tuple[str, ...] = ()
     applied: Tuple[str, ...] = ()
     pending_evaluated: bool = True
+    skipped_invariants: Tuple[Tuple[str, str], ...] = ()
 
     @property
     def line(self) -> str:
@@ -262,6 +265,7 @@ def _converge_copy(
 ) -> Verdict:
     from yoke_core.domain import db_backend
     from yoke_core.domain.migration_fleet_applied_invariants import (
+        AppliedInvariantReport,
         applied_shipped_names,
         verify_applied_history_invariants,
     )
@@ -278,24 +282,26 @@ def _converge_copy(
                 conn.rollback()
                 return Verdict(database, False, str(exc).strip(), pending)
         applied = applied_shipped_names(plan.history, plan.pending_names, conn)
-        failure = (
-            None
+        report = (
+            AppliedInvariantReport()
             if plan.load_module is None
             else verify_applied_history_invariants(
-                conn,
-                applied,
-                history=plan.history,
-                load_module=plan.load_module,
-                redact=copy_dsn,
+                conn, applied, history=plan.history,
+                load_module=plan.load_module, redact=copy_dsn,
             )
         )
+        failure = report.failure
         if failure is None and plan.post_converge_validator is not None:
             failure = plan.post_converge_validator(conn, copy_dsn)
         if failure is not None:
             conn.rollback()
-            return Verdict(database, False, failure, pending, applied)
-        conn.commit()
-        return Verdict(database, True, "converged", pending, applied)
+        else:
+            conn.commit()
+        return Verdict(
+            database, failure is None,
+            "converged" if failure is None else failure,
+            pending, applied, skipped_invariants=report.skipped,
+        )
     finally:
         conn.close()
 
@@ -336,9 +342,6 @@ def rehearse_fleet(
 
 
 __all__ = [
-    "REHEARSAL_PREFIX",
-    "RehearsalPlan",
-    "Verdict",
-    "rehearse",
-    "rehearse_fleet",
+    "REHEARSAL_PREFIX", "RehearsalPlan", "Verdict", "format_fleet_summary",
+    "rehearse", "rehearse_fleet",
 ]

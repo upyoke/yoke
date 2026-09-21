@@ -23,6 +23,13 @@ from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
         ("PASS yoke_alpha: 0007_x -> converged", LineClass.PROGRESS),
         ("FAIL yoke_beta: could not copy: pg_dump failed", LineClass.URGENT),
         ("1 passed, 1 failed", LineClass.SUMMARY),
+        ("2 passed, 0 failed, 1 skipped", LineClass.SUMMARY),
+        (
+            "skipped 0035_clear_unproven_onboard_activation_latch -- "
+            "the live run_onboard signal also latches a "
+            "deployment-superseded run",
+            LineClass.SUMMARY,
+        ),
         ("receipt recorded on prod covering 7 history entries", LineClass.SUMMARY),
         ("unrelated child detail", LineClass.NOISE),
     ],
@@ -39,6 +46,8 @@ def test_union_pattern_matches_every_signal_shape() -> None:
         "PASS yoke_alpha: nothing pending -> converged",
         "FAIL yoke_beta: could not read ownership",
         "1 passed, 1 failed",
+        "2 passed, 0 failed, 1 skipped",
+        "skipped 0035_clear_unproven_onboard_activation_latch -- reason",
         "receipt recorded on prod covering 7 history entries",
     ):
         assert watch_preflight.PREFLIGHT_PROGRESS_PATTERN.search(line), line

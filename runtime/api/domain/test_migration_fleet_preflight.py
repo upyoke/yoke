@@ -232,7 +232,7 @@ class TestAppliedHistoryInvariants:
         )
 
         secret = "host=db password=hunter2 dbname=copy"
-        detail = verify_applied_history_invariants(
+        report = verify_applied_history_invariants(
             object(),
             HISTORY,
             history=HISTORY,
@@ -244,10 +244,10 @@ class TestAppliedHistoryInvariants:
             redact=secret,
         )
 
-        assert detail is not None
-        assert detail.startswith("0002_second invariants failed --")
-        assert "hunter2" not in detail
-        assert "<dsn>" in detail
+        assert report.failure is not None
+        assert report.failure.startswith("0002_second invariants failed --")
+        assert "hunter2" not in report.failure
+        assert "<dsn>" in report.failure
 
     def test_fully_valid_current_database_passes_after_converge(
         self, monkeypatch, tmp_path: Path
@@ -276,8 +276,40 @@ class TestAppliedHistoryInvariants:
         assert verdict.passed
         assert verdict.pending_before == ()
         assert verdict.applied == HISTORY
+        assert verdict.skipped_invariants == ()
         assert conn.committed
         assert not conn.rolled_back
+
+    def test_converge_copy_carries_skipped_standing_invariants(
+        self, monkeypatch, tmp_path: Path
+    ) -> None:
+        from yoke_core.domain import db_backend
+        from yoke_core.domain.migration_fleet_applied_invariants import (
+            RETIRED_STANDING_INVARIANTS,
+        )
+
+        name, reason = next(iter(RETIRED_STANDING_INVARIANTS.items()))
+        conn = _ConvergeConn()
+        monkeypatch.setattr(db_backend, "_open_native_postgres", lambda _dsn: conn)
+        dump = tmp_path / "tenant.dump"
+        dump.write_bytes(b"x")
+        plan = RehearsalPlan(
+            (name,),
+            pending_names=lambda _conn, _history: (),
+            converge=lambda _conn, _dsn: None,
+            load_module=lambda _name: _FailModule("must skip"),
+        )
+
+        verdict = migration_fleet_preflight._converge_copy(
+            local_universe.cluster_spec(root=tmp_path),
+            "tenant_1",
+            "migration_rehearsal_tenant_1",
+            dump,
+            plan,
+        )
+
+        assert verdict.passed
+        assert verdict.skipped_invariants == ((name, reason),)
 
     def test_converge_copy_fails_when_ledger_present_invariant_raises(
         self, monkeypatch, tmp_path: Path

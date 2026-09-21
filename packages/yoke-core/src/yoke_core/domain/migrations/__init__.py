@@ -35,7 +35,9 @@ Contract for a module here:
   they describe is gone. A standing invariant found wrong after apply is
   retired by name and reason in the fleet re-prover's
   ``RETIRED_STANDING_INVARIANTS`` map, never by editing the applied module
-  whose bytes every database ledger records.
+  whose bytes every database ledger records. The fleet preflight summary
+  reports that skip as its own count and reason, alongside passed and
+  failed — not only as a converge-stream line, and not as a pass.
 - **The body must be safe to re-run.** A database restored from a
   pre-ledger archive replays its history, so guard every statement
   (``IF EXISTS`` / ``IF NOT EXISTS``, or an explicit state check).
