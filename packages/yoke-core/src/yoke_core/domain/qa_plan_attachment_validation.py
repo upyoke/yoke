@@ -6,11 +6,22 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_one
+from yoke_core.domain.qa_phase_boundary import (
+    POST_MERGE_QA_PHASES,
+    TERMINAL_DONE,
+    is_pre_release_stage,
+)
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder
 from yoke_core.domain.qa_workflow_binding_validation import (
     QaWorkflowBindingError,
     validate_item_qa_transition,
 )
+from yoke_core.domain.workflow_behavior import delivery_redirect_stage
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
+
+class UnreachablePlanTargetError(QaPlanError):
+    """A plan's persistent target cannot be reached at this transition."""
 
 
 def require_plan_cases(conn: Any, plan_id: int) -> None:
@@ -90,7 +101,76 @@ def validate_attached_item_transition(
     return transition
 
 
+def plan_persistent_environment(
+    conn: Any, plan: Mapping[str, Any]
+) -> tuple[int, str] | None:
+    """Return the persistent environment a plan is bound to, if any."""
+    raw = plan.get("target_environment_id")
+    if raw is None:
+        return None
+    environment_id = int(raw)
+    row = query_one(
+        conn,
+        f"SELECT name FROM environments WHERE id={_placeholder(conn)}",
+        (environment_id,),
+    )
+    if row is None:
+        name = str(environment_id)
+    elif hasattr(row, "keys"):
+        name = str(row["name"])
+    else:
+        name = str(row[0])
+    return environment_id, name
+
+
+def refuse_unreachable_plan_attachment(
+    conn: Any,
+    *,
+    item_id: int,
+    plan: Mapping[str, Any],
+    transition_id: str,
+    qa_phase: str,
+    acknowledge: bool = False,
+) -> None:
+    """Refuse a persistent-environment plan at a pre-delivery transition.
+
+    Materialization must not call this: an attachment that already exists
+    keeps its meaning. The acknowledgement path is for a caller who knows
+    the target is already reachable, not a way to attach anything anywhere.
+    """
+    if acknowledge:
+        return
+    target = plan_persistent_environment(conn, plan)
+    if target is None:
+        return
+    phase = str(qa_phase or "").strip() or "verification"
+    if phase in POST_MERGE_QA_PHASES:
+        return
+    workflow = load_item_workflow_runtime(conn, int(item_id))
+    transition = str(transition_id or "").strip()
+    if not is_pre_release_stage(workflow, transition):
+        return
+    _environment_id, environment_name = target
+    attach_at = delivery_redirect_stage(workflow) or TERMINAL_DONE
+    plan_id = int(plan["id"])
+    raise UnreachablePlanTargetError(
+        f"QA plan {plan_id} is bound to persistent environment "
+        f"{environment_name!r} and cannot be satisfied at pre-delivery "
+        f"transition {transition!r}: that environment is given this item's "
+        "revision only by a deployment run, which the item cannot enter "
+        "while this attachment blocks close-out. Attach the same plan at "
+        "the item's post-deploy transition: yoke qa item-plan attach "
+        f"--item PREFIX-N --project P --plan-id {plan_id} "
+        f"--transition {attach_at} --qa-phase post_deploy. A caller who "
+        "knows this target is already reachable may pass "
+        "acknowledge_unreachable_target."
+    )
+
+
 __all__ = [
+    "UnreachablePlanTargetError",
+    "plan_persistent_environment",
+    "refuse_unreachable_plan_attachment",
     "require_plan_cases",
     "validate_attached_item_transition",
     "validate_item_transition",

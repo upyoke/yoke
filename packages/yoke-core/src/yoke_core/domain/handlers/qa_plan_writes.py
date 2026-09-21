@@ -95,6 +95,7 @@ class ItemAttachRequest(BaseModel):
     plan_id: int
     transition_id: str = Field(..., min_length=1)
     qa_phase: str = "verification"
+    acknowledge_unreachable_target: bool = False
 
 
 class MutationResponse(BaseModel):
@@ -296,6 +297,7 @@ def handle_item_attach(request: FunctionCallRequest) -> HandlerOutcome:
     if item_id is None:
         return _error("target_invalid", "item id is required", "$.target")
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.qa_plan_attachment_validation import UnreachablePlanTargetError
     from yoke_core.domain.qa_plan_attachments import attach_plan_to_item
     from yoke_core.domain.qa_plan_management import QaPlanError
 
@@ -313,7 +315,10 @@ def handle_item_attach(request: FunctionCallRequest) -> HandlerOutcome:
                 transition_id=payload.transition_id,
                 qa_phase=payload.qa_phase,
                 actor_id=_actor_id(request),
+                acknowledge_unreachable_target=payload.acknowledge_unreachable_target,
             )
+    except UnreachablePlanTargetError as exc:
+        return _error("unreachable_qa_target", str(exc), "$.payload")
     except QaPlanError as exc:
         return _error("incompatible", str(exc), "$.payload")
     return HandlerOutcome(result_payload={"result": result}, primary_success=True)

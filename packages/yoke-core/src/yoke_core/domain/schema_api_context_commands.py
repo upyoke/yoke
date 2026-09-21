@@ -74,6 +74,7 @@ for _row in (
             "notes": f"{_row.get('notes', '')} {_retract['notes']}",
         }
     WRAPPER_COMMANDS.append(_row)
+WRAPPER_COMMANDS.extend(QA_ITEM_PLAN_COMMANDS[1:])
 
 
 __all__ = ["WRAPPER_COMMANDS"]

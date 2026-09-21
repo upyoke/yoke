@@ -23,6 +23,7 @@ from yoke_core.domain.qa_deployment_member_attached_plans import (
 )
 from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
 from yoke_core.domain.qa_plan_attachment_validation import (
+    refuse_unreachable_plan_attachment,
     require_plan_cases,
     validate_attached_item_transition,
     validate_item_transition,
@@ -46,16 +47,10 @@ from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
-PROJECT_DEFAULT_QA_POLICIES = frozenset(
-    {
-        "project_transition_defaults",
-        "project_and_task_attachments",
-    }
-)
+PROJECT_DEFAULT_QA_POLICIES = frozenset({"project_transition_defaults", "project_and_task_attachments"})
 
 
 def workflow_uses_project_testing_defaults(conn: Any, item_id: int) -> bool:
-    """Whether this item's pinned workflow makes project defaults effective."""
     workflow = load_item_workflow_runtime(conn, int(item_id))
     return str(workflow.policies.get("qa") or "") in PROJECT_DEFAULT_QA_POLICIES
 
@@ -69,6 +64,7 @@ def attach_plan_to_item(
     qa_phase: str = "verification",
     actor_id: Optional[int] = None,
     commit: bool = True,
+    acknowledge_unreachable_target: bool = False,
 ) -> dict:
     """Add an item-specific plan attachment after enforcing project scope."""
     plan = _plan_row(conn, plan_id)
@@ -91,6 +87,8 @@ def attach_plan_to_item(
         plan_id=int(plan_id),
         qa_phase=qa_phase,
     )
+    refuse_unreachable_plan_attachment(
+        conn, item_id=int(item_id), plan=plan, transition_id=transition_id, qa_phase=qa_phase, acknowledge=acknowledge_unreachable_target)
     now = iso8601_now()
     if _column_exists(conn, "qa_plan_item_attachments", "retracted_at"):
         existing = query_one(
