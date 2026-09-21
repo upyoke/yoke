@@ -28,8 +28,8 @@ USAGE = (
     "(--stages-json JSON | --stages-file PATH | --stdin) "
     "[--description TEXT] [--on-failure halt|continue] "
     "[--target-tier persistent|ephemeral] [--environment ENV] "
-    "[--done-description TEXT] [--status active|disabled] "
-    "[--session-id S] [--json]"
+    "[--done-description TEXT] [--takes-delivery-custody true|false] "
+    "[--status active|disabled] [--session-id S] [--json]"
 )
 
 EPILOG = """\
@@ -48,7 +48,9 @@ Examples:
 
 A persistent flow names exactly one registered environment; an ephemeral
 flow deploys per-run preview substrate and names none; a merge-only flow
-declares neither.
+declares neither. `--takes-delivery-custody` is the authored enrollment
+declaration, independent of the stage vocabulary; omit it to store the
+behavior the schema version used to imply.
 """
 
 
@@ -76,6 +78,11 @@ def deployment_flows_create(args: List[str]) -> int:
     parser.add_argument("--done-description", default=None)
     parser.add_argument(
         "--status", choices=("active", "disabled"), default="active",
+    )
+    parser.add_argument(
+        "--takes-delivery-custody",
+        choices=("true", "false"),
+        default=None,
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -106,6 +113,10 @@ def deployment_flows_create(args: List[str]) -> int:
         "done_description": parsed.done_description,
         "status": parsed.status,
     }
+    if parsed.takes_delivery_custody is not None:
+        payload["takes_delivery_custody"] = (
+            parsed.takes_delivery_custody == "true"
+        )
     return dispatch_and_emit(
         function_id="deployment_flows.create",
         target=TargetRef(kind="global", project_id=parsed.project),

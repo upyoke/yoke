@@ -37,8 +37,8 @@ def _fixture(conn: Any) -> None:
     )
     conn.execute(
         "INSERT INTO deployment_flows(id,project_id,name,description,stages,"
-        "created_at,status,definition_schema_version) VALUES "
-        "('atomic-flow',1,'Atomic flow','',%s,%s,'disabled',2)",
+        "created_at,status,definition_schema_version,takes_delivery_custody) "
+        "VALUES ('atomic-flow',1,'Atomic flow','',%s,%s,'disabled',2,1)",
         (stages, "2026-09-14T00:00:00Z"),
     )
     for item_id in (9431, 9432):

@@ -63,7 +63,7 @@ def project_slug(conn: Any) -> str:
 
 
 def insert_flow(conn: Any, flow_id: str, *, binds_own_trunk: bool = False) -> None:
-    """One v2 flow, optionally binding this same project's trunk branch."""
+    """One v2 flow that takes delivery custody, optionally binding trunk."""
     stages = '[{"name":"complete"}]'
     if binds_own_trunk:
         stages = (
@@ -73,8 +73,8 @@ def insert_flow(conn: Any, flow_id: str, *, binds_own_trunk: bool = False) -> No
     conn.execute(
         "INSERT INTO deployment_flows("
         "id,project_id,name,description,stages,created_at,status,"
-        "definition_schema_version) "
-        "VALUES (%s,1,%s,'',%s,'2026-09-19T00:00:00Z','active',2)",
+        "definition_schema_version,takes_delivery_custody) "
+        "VALUES (%s,1,%s,'',%s,'2026-09-19T00:00:00Z','active',2,1)",
         (flow_id, flow_id, stages),
     )
     conn.commit()

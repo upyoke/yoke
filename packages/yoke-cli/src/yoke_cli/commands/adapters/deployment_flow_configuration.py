@@ -21,7 +21,8 @@ UPDATE_USAGE = (
     "yoke deployment-flows update FLOW-ID [--name NAME] [--description TEXT] "
     "[--stages-json JSON | --stages-file PATH | --stdin] "
     "[--on-failure halt|continue] [--target-tier persistent|ephemeral|none] "
-    "[--environment ENV] [--done-description TEXT] [--session-id S] [--json]"
+    "[--environment ENV] [--done-description TEXT] "
+    "[--takes-delivery-custody true|false] [--session-id S] [--json]"
 )
 REORDER_USAGE = (
     "yoke deployment-flows reorder FLOW-ID --order NAME,NAME [--session-id S] [--json]"
@@ -76,6 +77,11 @@ def _add_definition_options(
     )
     parser.add_argument("--environment", default=None)
     parser.add_argument("--done-description", default=None)
+    parser.add_argument(
+        "--takes-delivery-custody",
+        choices=("true", "false"),
+        default=None,
+    )
 
 
 def _changes(parsed: argparse.Namespace) -> dict[str, Any]:
@@ -94,6 +100,9 @@ def _changes(parsed: argparse.Namespace) -> dict[str, Any]:
             changes["environment"] = None
     if parsed.environment is not None:
         changes["environment"] = parsed.environment
+    custody = getattr(parsed, "takes_delivery_custody", None)
+    if custody is not None:
+        changes["takes_delivery_custody"] = custody == "true"
     return changes
 
 

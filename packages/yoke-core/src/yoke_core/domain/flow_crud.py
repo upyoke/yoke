@@ -54,6 +54,7 @@ _FLOW_FIELDS = frozenset(
         "done_description",
         "status",
         "definition_schema_version",
+        "takes_delivery_custody",
         "supersedes_flow_id",
     }
 )
@@ -62,7 +63,7 @@ _SELECT_COLS = (
     "df.id, p.slug AS project, df.name, df.description, df.stages, "
     "df.on_failure, df.created_at, df.target_tier, e.name AS target_environment, "
     "df.done_description, df.status, df.definition_schema_version, "
-    "df.supersedes_flow_id"
+    "df.takes_delivery_custody, df.supersedes_flow_id"
 )
 
 

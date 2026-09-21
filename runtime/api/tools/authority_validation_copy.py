@@ -209,16 +209,30 @@ def _copy(authority: str, validation_dsn: str) -> tuple[str, str]:
                 "authority dump failed: " + (dumped.stderr or "unknown error")[-800:]
             )
         _reset_validation_schema(validation)
+        from runtime.api.tools.authority_validation_extension_restore import (
+            ExtensionRestoreError,
+            prepare_extension_restore,
+        )
+
+        try:
+            restore_list = prepare_extension_restore(
+                authority, validation, archive, Path(raw_tmp) / "restore.list"
+            )
+        except ExtensionRestoreError as exc:
+            raise ValidationCopyError(str(exc)) from exc
+        restore_argv = [
+            "pg_restore",
+            "--exit-on-error",
+            "--no-owner",
+            "--no-privileges",
+            "--dbname",
+            validation_arg,
+        ]
+        if restore_list is not None:
+            restore_argv.extend(["-L", str(restore_list)])
+        restore_argv.append(str(archive))
         restored = subprocess.run(
-            [
-                "pg_restore",
-                "--exit-on-error",
-                "--no-owner",
-                "--no-privileges",
-                "--dbname",
-                validation_arg,
-                str(archive),
-            ],
+            restore_argv,
             capture_output=True,
             text=True,
             check=False,

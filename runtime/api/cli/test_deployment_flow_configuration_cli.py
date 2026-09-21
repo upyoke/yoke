@@ -77,6 +77,21 @@ def test_update_sends_only_explicit_definition_changes() -> None:
     }
 
 
+def test_update_sends_authored_delivery_custody() -> None:
+    code, _out, error = _run(
+        "deployment-flows",
+        "update",
+        "release-v1",
+        "--takes-delivery-custody",
+        "false",
+    )
+    assert code == 0, error
+    assert CAPTURED[-1].payload == {
+        "flow_id": "release-v1",
+        "changes": {"takes_delivery_custody": False},
+    }
+
+
 def test_reorder_preserves_stage_names_as_an_ordered_list() -> None:
     code, _out, error = _run(
         "deployment-flows",

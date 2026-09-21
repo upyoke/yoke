@@ -47,7 +47,7 @@ _EXPECTED_SCHEMA_STR = (
     "|decision_request_decisions:id/INTEGER,request_id/INTEGER,actor_id/INTEGER,action/TEXT,note/TEXT,decided_at/TEXT,decided_session_id/TEXT"
     "|decision_request_role_authorities:request_id/INTEGER,scope_kind/TEXT,scope_id/INTEGER,role_name/TEXT"
     "|decision_requests:id/INTEGER,kind/TEXT,subject_type/TEXT,subject_key/TEXT,subject_context/TEXT,project_id/INTEGER,org_id/INTEGER,originator_actor_id/INTEGER,approval_mode/TEXT,status/TEXT,resolution_action/TEXT,resolution_actor_id/INTEGER,resolution_note/TEXT,resolved_at/TEXT,withdrawal_reason/TEXT,withdrawn_at/TEXT,consumed_at/TEXT,consumed_from_stage/TEXT,consumed_to_stage/TEXT,consumed_workflow_version_id/INTEGER,created_at/TEXT"
-    "|deployment_flows:id/TEXT,project_id/INTEGER,name/TEXT,description/TEXT,stages/TEXT,on_failure/TEXT,created_at/TEXT,target_tier/TEXT,target_environment_id/INTEGER,done_description/TEXT,status/TEXT,definition_schema_version/INTEGER,supersedes_flow_id/TEXT"
+    "|deployment_flows:id/TEXT,project_id/INTEGER,name/TEXT,description/TEXT,stages/TEXT,on_failure/TEXT,created_at/TEXT,target_tier/TEXT,target_environment_id/INTEGER,done_description/TEXT,status/TEXT,definition_schema_version/INTEGER,takes_delivery_custody/INTEGER,supersedes_flow_id/TEXT"
     "|deployment_preview_environments:id/INTEGER,project_id/INTEGER,env_name/TEXT,run_id/TEXT,status/TEXT,env_type/TEXT,url/TEXT,created_at/TEXT"
     "|deployment_run_items:run_id/TEXT,item_id/INTEGER,added_at/TEXT,delivery_intent/TEXT,requirement_selection/TEXT,requirement_snapshot/TEXT,containment_attestation/TEXT"
     "|deployment_run_qa:id/INTEGER,run_id/TEXT,check_name/TEXT,source/TEXT,blocking/INTEGER,status/TEXT,updated_at/TEXT"

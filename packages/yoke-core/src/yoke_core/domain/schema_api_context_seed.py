@@ -219,9 +219,11 @@ PACKET_LINE_BUDGET_PER_ROLE: int = 340
 PACKET_LINE_BUDGET_AGGREGATE: int = 2100
 PACKET_BYTE_BUDGET_PER_ROLE: int = 32000
 # Compact retract recipe plus three qa_requirements retract columns on
-# every qa-topic role spent ~700 extra bytes; 197000 is that measured
-# aggregate rounded up so the next ordinary edit still has headroom.
-PACKET_BYTE_BUDGET_AGGREGATE: int = 197000
+# every qa-topic role spent ~700 extra bytes. Listing
+# takes_delivery_custody on the three project-topic roles spent 48 more;
+# 198000 is that measured aggregate rounded up so the next ordinary
+# edit still has headroom.
+PACKET_BYTE_BUDGET_AGGREGATE: int = 198000
 
 # Ratchet budget for one rendered subagent body: the condensed role prose
 # plus its compact packet. A subagent body is read from a file rather than

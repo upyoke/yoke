@@ -252,8 +252,9 @@ created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline
 target_tier TEXT -- persistent | ephemeral | NULL (merge-only)
 target_environment_id INTEGER -- internal REFERENCES environments(id); required exactly when target_tier='persistent'
 done_description TEXT DEFAULT NULL -- per-flow "done means..." contract; human-readable definition of what "done" means for this flow
-status TEXT NOT NULL DEFAULT 'active' -- 'active' accepts assignments/runs; 'disabled' is history-only
-definition_schema_version INTEGER NOT NULL DEFAULT 1
+status TEXT NOT NULL DEFAULT 'active' -- 'active' or 'disabled'
+definition_schema_version INTEGER NOT NULL DEFAULT 1 -- stage vocabulary only
+takes_delivery_custody INTEGER NOT NULL DEFAULT 0 -- 1 takes delivery of carried items
 supersedes_flow_id TEXT REFERENCES deployment_flows(id)
 UNIQUE(project_id, name)
 ```
@@ -263,14 +264,15 @@ Every stage object requires `name` (string) and `step_runner` (string, closed se
 Every stage declares its runner fields at the top level, beside `name` and `step_runner`; a stage carrying a nested `config` object is refused on write, because the pipeline builds a stage's runner config from the stage itself and nested fields would never reach the runner. Normalization for execution keeps the stage the definition declared, so `target`, `stage_kind`, and `scope` are readable by the receipt layer and the preview producer. Python owner: `yoke_core.domain.flow_validation`.
 
 Definition schema v2 adds release-policy configuration without changing the
-schema-v1 executor. Every v2 stage declares `stage_kind` (`execution` or `qa`)
-and scope. QA stages use `step_runner: "qa"`, target a persistent environment or
-an earlier preview-producing execution stage, may select reusable QA plan/case
-references, and declare verdict authority separately from informational
-notification recipients. Item-scoped QA operates on each admitted member while
-run-scoped QA operates once on the shared frozen batch target. A v2 definition
-may be validated and stored disabled, but activation, workflow assignment, and
-run start refuse until the execution engine supports version 2.
+schema-v1 executor: every v2 stage declares `stage_kind` (`execution` or `qa`)
+and scope. QA stages use `step_runner: "qa"`, target a persistent environment
+or an earlier preview, may select reusable QA cases, and declare verdict
+authority separately from informational notification. A v2 definition may be
+stored disabled; activation refuses until the engine supports version 2.
+Delivery custody is `takes_delivery_custody`, not a side effect of that
+version: a v2 flow can take none, and adding `stage_kind` changes no
+enrollment. Create accepts `--takes-delivery-custody true|false`; omitting it
+stores the behavior the schema version used to imply.
 
 **`human-approval` step runner:** Halts the run at the stage until the
 declared approval policy is satisfied. The driver does not derive the verdict
@@ -319,7 +321,8 @@ Read the current project workflow definition with `yoke workflows definition get
 
 Flows are ordinary control-plane rows, managed by command like every other
 database object. Define one with
-`yoke deployment-flows create <flow-id> --project <slug> --name NAME --stages-file PATH`,
+`yoke deployment-flows create <flow-id> --project <slug> --name NAME --stages-file PATH`
+(`[--takes-delivery-custody true|false]`),
 adding `--target-tier persistent --environment <name>` for a flow that deploys
 to a registered environment or `--target-tier ephemeral` for per-run preview
 substrate. Validate advanced configuration with `yoke deployment-flows validate`,
