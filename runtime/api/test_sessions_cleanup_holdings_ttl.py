@@ -101,9 +101,9 @@ def test_empty_session_keeps_the_short_ttl(conn):
 
 @pytest.mark.parametrize(
     "holding_kind",
-    ["work_claim", "strategy_lock", "coordination_claim"],
+    ["strategy_lock", "coordination_claim"],
 )
-def test_active_holding_selects_the_long_ttl(conn, holding_kind):
+def test_non_item_holding_selects_the_long_ttl(conn, holding_kind):
     session_id = f"held-{holding_kind}"
     _register(conn, session_id=session_id)
     _add_holding(conn, session_id, holding_kind)
@@ -113,11 +113,63 @@ def test_active_holding_selects_the_long_ttl(conn, holding_kind):
     result = clean_stale_harness_sessions(conn, stale_threshold_minutes=20)
 
     assert result["total_reclaimed"] == 0
+    assert result["zero_reclaim_reason"] == "within_retention_bound"
+    assert "terminate" in result["escalation"]
     row = conn.execute(
         "SELECT ended_at FROM harness_sessions WHERE session_id=%s",
         (session_id,),
     ).fetchone()
     assert row["ended_at"] is None
+
+
+def test_ambient_sweep_spares_probe_stale_item_holder(conn):
+    session_id = "held-work_claim-ambient"
+    _register(conn, session_id=session_id)
+    _add_holding(conn, session_id, "work_claim")
+    _age_session(conn, session_id, 30)
+
+    result = clean_stale_harness_sessions(conn, stale_threshold_minutes=20)
+
+    assert result["total_reclaimed"] == 0
+    assert result["zero_reclaim_reason"] == "within_retention_bound"
+    skipped = [
+        entry
+        for entry in result["skipped_between_turns"]
+        if entry["session_id"] == session_id
+    ]
+    assert skipped, result
+    row = conn.execute(
+        "SELECT ended_at FROM harness_sessions WHERE session_id=%s",
+        (session_id,),
+    ).fetchone()
+    assert row["ended_at"] is None
+
+
+def test_probe_stale_item_holder_is_reclaimed_before_the_long_ttl(conn):
+    session_id = "held-work_claim"
+    _register(conn, session_id=session_id)
+    _add_holding(conn, session_id, "work_claim")
+    _age_session(conn, session_id, 30)
+
+    result = clean_stale_harness_sessions(
+        conn,
+        stale_threshold_minutes=20,
+        reclaim_probe_stale_holders=True,
+    )
+
+    assert result["total_reclaimed"] == 1
+    collected = [
+        entry
+        for entry in result["heartbeat_stale"]
+        if entry["session_id"] == session_id
+    ]
+    assert collected, result
+    assert collected[0]["reason"] == "claimed_by_stale"
+    claim = conn.execute(
+        "SELECT released_at FROM work_claims WHERE session_id=%s",
+        (session_id,),
+    ).fetchone()
+    assert claim["released_at"] is not None
 
 
 def test_held_session_is_reclaimed_after_the_long_ttl(conn):

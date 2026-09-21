@@ -212,3 +212,15 @@ def test_yoke_named_inside_another_command_argument_allows():
 
 def test_here_string_is_not_read_as_a_heredoc():
     assert _eval('yoke dash TITLE --stdin <<<"literal text"') is None
+
+
+def test_merge_item_denial_names_a_form_the_command_accepts():
+    result = _eval(
+        'yoke merge item YOK-1 --result "ran `whoami`" --verification ok'
+    )
+
+    assert result is not None
+    reason = result[1]
+    assert "yoke merge item PREFIX-N --result" in reason
+    assert "--verification" in reason
+    assert "yoke dash TITLE --stdin" not in reason

@@ -21,6 +21,21 @@ SAFE_FORM = (
     "  yoke ... --source-ref \"$sha\""
 )
 
+MERGE_ITEM_SAFE_FORM = (
+    "`yoke merge item` has no --stdin; capture first, then pass the "
+    "variables the command already accepts:\n"
+    "  result=$(cat <<'EOF'\n"
+    "  what changed\n"
+    "  EOF\n"
+    "  )\n"
+    "  verification=$(cat <<'EOF'\n"
+    "  evidence\n"
+    "  EOF\n"
+    "  )\n"
+    "  yoke merge item PREFIX-N --result \"$result\" "
+    "--verification \"$verification\""
+)
+
 QUOTE_THE_DELIMITER = (
     "An unquoted delimiter leaves the body expanded, so quote it and the same "
     "text arrives literally:\n"
@@ -42,16 +57,27 @@ _HEADLINES = {"argument": _ARGUMENT_HEADLINE, "heredoc": _HEREDOC_HEADLINE}
 _RECOVERIES = {"argument": SAFE_FORM, "heredoc": QUOTE_THE_DELIMITER}
 
 
+def _is_merge_item(command: str) -> bool:
+    return "merge item" in command
+
+
 def format_reason(
-    kind: str, text: str, suppression_seen: bool, mode: str
+    kind: str,
+    text: str,
+    suppression_seen: bool,
+    mode: str,
+    command: str = "",
 ) -> str:
     preview = text if len(text) <= 160 else text[:157] + "..."
+    recovery = (
+        MERGE_ITEM_SAFE_FORM if _is_merge_item(command) else _RECOVERIES[kind]
+    )
     body = (
         f"{_HEADLINES[kind]}\n\n"
         f"{_LABELS[kind]}: {preview!r}\n\n"
         "The shell expands those forms before Yoke runs, so the command "
         "Yoke receives is already substituted. "
-        f"{_RECOVERIES[kind]}\n"
+        f"{recovery}\n"
     )
     if mode == "warn":
         body += "\n[mode=warn] this hook would block in deny mode."

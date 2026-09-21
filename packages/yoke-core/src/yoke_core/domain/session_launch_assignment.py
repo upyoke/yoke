@@ -43,6 +43,39 @@ def refuse_terminal_assigned_item(
     )
 
 
+def refuse_held_assigned_item(
+    conn: Any,
+    *,
+    public_ref: str,
+    project_id: int,
+) -> None:
+    """Refuse a launch onto an item another session still holds.
+
+    The worker cannot clear that claim, so delivering the launch only
+    stalls. Name the holder and the command that releases its claims.
+    Missing pin schema is a no-op so identity-only fixtures stay valid,
+    matching ``refuse_terminal_assigned_item``.
+    """
+    if not workflow_pin_schema_present(conn):
+        return
+    item_id = resolve_item_id(conn, public_ref, project=project_id)
+    if item_id is None:
+        return
+    from yoke_core.domain.sessions_offer_revalidation import holder_session_for_item
+
+    holder = holder_session_for_item(conn, item_id)
+    session_id = str(holder.get("holder_session_id") or "")
+    if not session_id:
+        return
+    raise SessionLaunchError(
+        "assignment_item_claimed",
+        f"assignment item {public_ref} is already claimed by session "
+        f"{session_id}. A launched worker cannot clear that claim. Free it "
+        f"with `yoke sessions terminate {session_id} --reason R` "
+        "(releases the session's held work claims), then launch.",
+    )
+
+
 def assignment_session_name(
     conn: Any,
     *,
@@ -78,5 +111,6 @@ def assignment_session_name(
 __all__ = [
     "MAX_SESSION_NAME_LENGTH",
     "assignment_session_name",
+    "refuse_held_assigned_item",
     "refuse_terminal_assigned_item",
 ]

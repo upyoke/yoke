@@ -20,6 +20,11 @@ SESSION_TERMINATE_USAGE = (
     "yoke sessions terminate SESSION-ID --reason R "
     "[--override-chain-end --chain-end-rationale R] [--json]"
 )
+SESSION_TERMINATE_DESCRIPTION = (
+    "Permanently end one top-level session, cancel its undelivered "
+    "messages, request best-effort native-process reaping, and release "
+    "the session's held work claims."
+)
 
 
 def _write_termination_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
@@ -43,10 +48,7 @@ def session_terminate(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions terminate",
         usage=SESSION_TERMINATE_USAGE,
-        description=(
-            "Permanently end one top-level session, cancel its undelivered "
-            "messages, and request best-effort native-process reaping."
-        ),
+        description=SESSION_TERMINATE_DESCRIPTION,
     )
     parser.add_argument("target_session_id", metavar="SESSION-ID")
     parser.add_argument("--reason", required=True)
@@ -81,4 +83,8 @@ def session_terminate(args: List[str]) -> int:
     )
 
 
-__all__ = ["SESSION_TERMINATE_USAGE", "session_terminate"]
+__all__ = [
+    "SESSION_TERMINATE_DESCRIPTION",
+    "SESSION_TERMINATE_USAGE",
+    "session_terminate",
+]

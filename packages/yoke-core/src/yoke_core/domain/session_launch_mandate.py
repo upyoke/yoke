@@ -219,6 +219,7 @@ def _instructions_for_create(
         existing = get_launch_by_dedupe(conn, actor_id, parsed.idempotency_key)
     if parsed.item and (existing is None or parsed.compose_mandate):
         from yoke_core.domain.session_launch_assignment import (
+            refuse_held_assigned_item,
             refuse_terminal_assigned_item,
         )
         from yoke_core.domain.session_launch_steering_coverage import (
@@ -226,6 +227,9 @@ def _instructions_for_create(
         )
 
         refuse_terminal_assigned_item(
+            conn, public_ref=str(parsed.item), project_id=project_id
+        )
+        refuse_held_assigned_item(
             conn, public_ref=str(parsed.item), project_id=project_id
         )
         refuse_uncovered_steering_launch(

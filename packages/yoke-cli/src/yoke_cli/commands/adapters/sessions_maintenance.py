@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from typing import List
+from typing import Any, List, TextIO
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
@@ -12,6 +12,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
+from yoke_cli.commands.adapters.session_control_human_output import write_summary
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -22,6 +23,14 @@ SESSIONS_END_IF_EMPTY_USAGE = (
 SESSIONS_RECLAIM_STALE_USAGE = (
     "yoke sessions reclaim-stale --confirm [--project-ids ID,ID,...] "
     "[--session-id S] [--json]"
+)
+SESSIONS_RECLAIM_STALE_DESCRIPTION = (
+    "Reclaim idle sessions and their liveness-bound claims. A holder the "
+    "fleet probe already reports as claimed_by_stale is reclaimed on the "
+    "probe's short TTL; other holdings keep the holdings TTL. "
+    "total_reclaimed=0 names whether nothing was stale or everything stale "
+    "is still inside that holdings bound, and the escalation "
+    "(yoke sessions terminate SESSION-ID --reason R) that frees a holder now."
 )
 
 
@@ -57,10 +66,28 @@ def _project_ids(raw: str | None) -> list[int] | None:
     return values
 
 
+def _write_reclaim_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
+    del stderr
+    result = response.result or {}
+    skipped = result.get("skipped_between_turns") or []
+    write_summary(
+        "STALE SESSION RECLAIM",
+        (
+            ("TOTAL RECLAIMED", result.get("total_reclaimed")),
+            ("ZERO REASON", result.get("zero_reclaim_reason") or "—"),
+            ("RETENTION BOUND MINUTES", result.get("retention_bound_minutes")),
+            ("SKIPPED BETWEEN TURNS", len(skipped)),
+            ("ESCALATION", result.get("escalation")),
+        ),
+        stdout,
+    )
+
+
 def sessions_reclaim_stale(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions reclaim-stale",
-        description=SESSIONS_RECLAIM_STALE_USAGE,
+        usage=SESSIONS_RECLAIM_STALE_USAGE,
+        description=SESSIONS_RECLAIM_STALE_DESCRIPTION,
     )
     parser.add_argument("--confirm", action="store_true", required=True)
     parser.add_argument("--project-ids", default=None)
@@ -82,11 +109,13 @@ def sessions_reclaim_stale(args: List[str]) -> int:
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
+        human_writer=_write_reclaim_result,
     )
 
 
 __all__ = [
     "SESSIONS_END_IF_EMPTY_USAGE",
+    "SESSIONS_RECLAIM_STALE_DESCRIPTION",
     "SESSIONS_RECLAIM_STALE_USAGE",
     "sessions_end_if_empty",
     "sessions_reclaim_stale",

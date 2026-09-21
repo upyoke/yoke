@@ -23,7 +23,7 @@ historically intuitive group; they do not dispatch a guessed mutation.
 | `yoke source` | Navigation to the `source-authority` group. |
 | `yoke doctor` | Bare-group help for the registered doctor commands. |
 | `yoke github actions get` | Navigation to the registered GitHub Actions reads so the caller selects the intended subject. |
-| `yoke sessions reclaim-stale --confirm` | Registered guarded stale-session reclamation; the lower-level cleanup commands are removed. |
+| `yoke sessions reclaim-stale --confirm` | Registered guarded stale-session reclamation; probe-classified `claimed_by_stale` item holders use the short TTL, and `yoke sessions terminate` releases held work claims immediately. |
 
 `HC-atlas-integrity` extracts command spellings from live skills, agent
 bodies, packets, command help, recovery/denial text, and command-reference
