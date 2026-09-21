@@ -33,6 +33,7 @@ from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
 from yoke_core.domain.strategy_docs_create import create_doc
 from yoke_core.domain.strategy_docs_defaults import seed_default_docs
+from yoke_core.engines.merge_worktree_pr_check_runs import PrLandingProjection
 from yoke_core.engines.merge_worktree_pr_queue import PrLandingState, QueueMember
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
@@ -90,26 +91,36 @@ def two_seats(test_db):
 
 
 def _wire_github(monkeypatch, *, queue_error: str = "") -> Counter:
-    """Stub the three landing reads and count every outbound call."""
-    calls: Counter[str] = Counter()
+    """Stub the landing reads and count every outbound call.
 
-    def pr_state(_ctx, pr_number):
-        calls[f"pr_state:{pr_number}"] += 1
-        return PrLandingState(False, False, True, merge_state_status="blocked"), None
+    One unit of fixture time is charged per GitHub call so a report of
+    two pull requests can state the sequential cost (REST status plus
+    GraphQL checks per PR, plus one queue) against the combined cost
+    (one GraphQL projection per PR, plus one queue) without claiming a
+    live-network millisecond budget.
+    """
+    calls: Counter[str] = Counter()
+    calls["elapsed"] = 0
+
+    def projection(_ctx, pr_number):
+        calls[f"pr_projection:{pr_number}"] += 1
+        calls["elapsed"] += 1
+        return PrLandingProjection(
+            state=PrLandingState(False, False, True, merge_state_status="blocked"),
+            required_checks=(),
+        )
 
     def queue_members(_ctx, base_branch="main"):
         calls[f"queue_members:{base_branch}"] += 1
+        calls["elapsed"] += 1
         if queue_error:
             return None, queue_error
         return [QueueMember("1", "YOK-1", state="AWAITING_CHECKS")], None
 
-    def required_checks(_ctx, pr_number):
-        calls[f"required_checks:{pr_number}"] += 1
-        return [], None
-
-    monkeypatch.setattr(reads_mod, "read_pr_landing_state", pr_state)
+    monkeypatch.setattr(
+        reads_mod, "read_pr_landing_and_required_checks", projection
+    )
     monkeypatch.setattr(reads_mod, "read_queue_members", queue_members)
-    monkeypatch.setattr(reads_mod, "read_required_checks", required_checks)
     return calls
 
 
@@ -136,8 +147,11 @@ def test_one_repository_answers_the_queue_question_once_per_request(
 
     assert [len(section.report.landings) for section in combined.sections] == [1, 1]
     assert calls["queue_members:main"] == 1
-    assert calls["pr_state:1"] == 1
-    assert calls["pr_state:2"] == 1
+    assert calls["pr_projection:1"] == 1
+    assert calls["pr_projection:2"] == 1
+    sequential_elapsed = 5  # 2 REST + 2 GraphQL checks + 1 queue
+    assert calls["elapsed"] == 3
+    assert calls["elapsed"] == sequential_elapsed - 2
 
 
 def test_project_facts_are_read_once_and_each_scope_narrows_them(
@@ -197,10 +211,11 @@ def test_a_landing_fact_is_read_once_per_pull_request_and_repository(
 
     for _ in range(3):
         reads.pr_landing_state(here, "42")
+        reads.required_checks(here, "42")
         reads.queue_members(here, base_branch="main")
     reads.pr_landing_state(elsewhere, "42")
 
-    assert calls["pr_state:42"] == 2
+    assert calls["pr_projection:42"] == 2
     assert calls["queue_members:main"] == 1
 
 
@@ -213,4 +228,4 @@ def test_a_request_of_its_own_reads_for_itself(monkeypatch) -> None:
     second = MergeQueueReads().pr_landing_state(ctx, "42")
 
     assert first == second
-    assert calls["pr_state:42"] == 2
+    assert calls["pr_projection:42"] == 2

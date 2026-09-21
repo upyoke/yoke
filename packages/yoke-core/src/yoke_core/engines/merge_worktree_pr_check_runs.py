@@ -11,6 +11,10 @@ the entry can never happen. Those come from the pull request's
 Once a train is building, the commit under validation is the train's, not
 the pull request's, and nothing on it is required for the pull request.
 That set is the plain per-commit check-run listing.
+
+Landing status used to be a separate REST read. The GraphQL document that
+already fetched the rollup now returns the merged/closed/head/arming
+fields the report needs, so one pull request is one upstream call.
 """
 
 from __future__ import annotations
@@ -30,19 +34,29 @@ from yoke_core.domain.gh_rest_transport import (
     split_repo,
 )
 from yoke_core.engines.merge_worktree_pr_queue import (
+    PrLandingState,
     graphql_with_auth,
     resolve_auth_detail,
 )
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
-#: The rollup answers from the pull request's head commit, and carries the
-#: two facts a per-commit listing cannot: whether each check gates the
-#: queue entry, and the run a holder has to open to read the failure.
-_REQUIRED_CHECKS_QUERY = """
+#: One document per distinct pull request: landing status plus the rollup
+#: that names required checks. The rollup answers from the head commit and
+#: carries the two facts a per-commit listing cannot: whether each check
+#: gates the queue entry, and the run a holder has to open to read it.
+_PR_LANDING_AND_CHECKS_QUERY = """
 query($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
+      merged
+      closed
+      state
+      autoMergeRequest { enabledAt }
+      mergeStateStatus
+      headRefOid
+      mergedAt
+      mergeCommit { oid }
       commits(last: 1) {
         nodes {
           commit {
@@ -78,6 +92,7 @@ query($owner: String!, $name: String!, $number: Int!) {
 
 #: Commit statuses report one state rather than a status/conclusion pair.
 _SETTLED_STATUS_STATES = frozenset({"success", "failure", "error"})
+_CLOSED_PR_STATES = frozenset({"CLOSED", "MERGED"})
 
 
 @dataclass(frozen=True)
@@ -94,6 +109,16 @@ class LandingCheck:
         """The check and the run behind it, so a refusal can be acted on."""
         verdict = self.conclusion or self.status or "unreported"
         return f"{self.name}={verdict}" + (f" ({self.url})" if self.url else "")
+
+
+@dataclass(frozen=True)
+class PrLandingProjection:
+    """Landing status and required checks from one GraphQL pull-request read."""
+
+    state: Optional[PrLandingState] = None
+    required_checks: Optional[tuple[LandingCheck, ...]] = None
+    state_error: Optional[str] = None
+    checks_error: Optional[str] = None
 
 
 def check_payload(check: LandingCheck) -> dict[str, Any]:
@@ -180,44 +205,8 @@ def _rollup_context(node: Any) -> Optional[tuple[LandingCheck, str]]:
     )
 
 
-def read_required_checks(
-    ctx: MergeContext,
-    pr_num: str,
-) -> tuple[Optional[tuple[LandingCheck, ...]], Optional[str]]:
-    """The required checks gating ``pr_num``'s entry into the merge queue.
-
-    Only the latest run of each name is returned, because that is the one
-    GitHub evaluates: a re-run leaves the superseded attempt in the rollup,
-    and reading it as live would report a fixed check as still red. Later
-    is decided by the node's own start time, with list order breaking a
-    tie.
-
-    ``(None, reason)`` is an unreadable rollup, which proves nothing and
-    must not be read as a green one. A pull request with no required
-    checks answers with an empty tuple.
-    """
-    auth, auth_err = resolve_auth_detail(ctx, PR_READ)
-    if auth_err or auth is None:
-        return None, auth_err or "github auth unavailable"
-    owner, name = split_repo(auth.repo)
-    try:
-        number = int(str(pr_num).strip())
-    except ValueError:
-        return None, f"pull request identifier {pr_num!r} is not a number"
-    data, err = graphql_with_auth(
-        auth,
-        query=_REQUIRED_CHECKS_QUERY,
-        variables={"owner": owner, "name": name, "number": number},
-        required_permissions=PR_READ,
-    )
-    if err:
-        return None, f"required-checks read failed: {err}"
-    pull_request = ((data or {}).get("repository") or {}).get("pullRequest")
-    if not isinstance(pull_request, dict):
-        return None, (
-            f"repository {owner}/{name} returned no pull request {pr_num}; "
-            "its required checks could not be read"
-        )
+def _parse_required_checks(pull_request: dict[str, Any]) -> tuple[LandingCheck, ...]:
+    """Latest required rollup run of each name, or empty when none exist."""
     nodes = ((pull_request.get("commits") or {}).get("nodes")) or []
     head = (nodes[-1] or {}).get("commit") if nodes else None
     rollup = (head or {}).get("statusCheckRollup") if isinstance(head, dict) else None
@@ -231,12 +220,91 @@ def read_required_checks(
         previous = latest.get(check.name)
         if previous is None or started >= previous[0]:
             latest[check.name] = (started, check)
-    return tuple(check for _started, check in latest.values()), None
+    return tuple(check for _started, check in latest.values())
+
+
+def _parse_landing_state(pull_request: dict[str, Any]) -> PrLandingState:
+    """Map GraphQL pull-request fields onto the REST landing-state shape."""
+    merge_commit = pull_request.get("mergeCommit")
+    merge_oid = ""
+    if isinstance(merge_commit, dict):
+        merge_oid = str(merge_commit.get("oid") or "").strip()
+    state = str(pull_request.get("state") or "").strip().upper()
+    return PrLandingState(
+        merged=bool(pull_request.get("merged")),
+        closed=bool(pull_request.get("closed")) or state in _CLOSED_PR_STATES,
+        auto_merge_active=pull_request.get("autoMergeRequest") is not None,
+        merge_state_status=str(
+            pull_request.get("mergeStateStatus") or ""
+        ).strip().lower(),
+        head_sha=str(pull_request.get("headRefOid") or "").strip(),
+        merged_at=str(pull_request.get("mergedAt") or "").strip(),
+        merge_commit_sha=merge_oid,
+    )
+
+
+def _unreadable(reason: str) -> PrLandingProjection:
+    return PrLandingProjection(state_error=reason, checks_error=reason)
+
+
+def read_pr_landing_and_required_checks(
+    ctx: MergeContext,
+    pr_num: str,
+) -> PrLandingProjection:
+    """Landing status and required checks for ``pr_num`` in one GraphQL read.
+
+    ``(None, reason)`` on either half is unreadable, which proves nothing
+    and must not be read as a green or landed result. A readable pull
+    request with no required checks answers that half with an empty tuple.
+    A GraphQL error list still fails the whole document: partial payloads
+    are not interpreted as success.
+    """
+    auth, auth_err = resolve_auth_detail(ctx, PR_READ)
+    if auth_err or auth is None:
+        return _unreadable(auth_err or "github auth unavailable")
+    owner, name = split_repo(auth.repo)
+    try:
+        number = int(str(pr_num).strip())
+    except ValueError:
+        return _unreadable(f"pull request identifier {pr_num!r} is not a number")
+    data, err = graphql_with_auth(
+        auth,
+        query=_PR_LANDING_AND_CHECKS_QUERY,
+        variables={"owner": owner, "name": name, "number": number},
+        required_permissions=PR_READ,
+    )
+    if err:
+        return _unreadable(f"pull-request landing read failed: {err}")
+    pull_request = ((data or {}).get("repository") or {}).get("pullRequest")
+    if not isinstance(pull_request, dict):
+        return _unreadable(
+            f"repository {owner}/{name} returned no pull request {pr_num}; "
+            "its landing status and required checks could not be read"
+        )
+    return PrLandingProjection(
+        state=_parse_landing_state(pull_request),
+        required_checks=_parse_required_checks(pull_request),
+    )
+
+
+def read_required_checks(
+    ctx: MergeContext,
+    pr_num: str,
+) -> tuple[Optional[tuple[LandingCheck, ...]], Optional[str]]:
+    """The required checks gating ``pr_num``'s entry into the merge queue.
+
+    Independent callers keep this name. The document is the combined
+    projection; extra landing fields are unused here.
+    """
+    projection = read_pr_landing_and_required_checks(ctx, pr_num)
+    return projection.required_checks, projection.checks_error
 
 
 __all__ = [
     "LandingCheck",
+    "PrLandingProjection",
     "check_payload",
     "read_landing_checks",
+    "read_pr_landing_and_required_checks",
     "read_required_checks",
 ]

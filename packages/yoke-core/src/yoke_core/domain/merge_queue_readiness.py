@@ -258,15 +258,18 @@ def read_merge_queue_readiness(
 ) -> MergeQueueReadiness:
     """Read the PR, the target branch's queue, and required checks.
 
-    A merged pull request answers everything the required checks could —
-    it already landed — so the read is skipped there; every other outcome
-    needs the same terminal fact the landing notifier already reads.
+    Landing status and required checks share one GraphQL document per
+    pull request. A merged pull request answers everything the required
+    checks could — it already landed — so those facts are unused there;
+    they still arrived with the landing status rather than as a second
+    call. Every other outcome needs the same terminal fact the landing
+    notifier already reads.
 
     ``reads`` is one request's read memo. A caller inspecting several
     landings passes its own so the repository's queue is read once for the
-    whole request instead of once per landing; a single-landing caller
-    passes nothing and gets a memo of its own, which reads exactly as
-    before.
+    whole request instead of once per landing, and each distinct pull
+    request is read once; a single-landing caller passes nothing and gets
+    a memo of its own, which reads exactly as before.
     """
     reader = reads if reads is not None else MergeQueueReads()
     state, state_error = reader.pr_landing_state(ctx, pr_number)
