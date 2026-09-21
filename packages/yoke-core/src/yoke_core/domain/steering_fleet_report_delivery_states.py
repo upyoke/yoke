@@ -94,6 +94,11 @@ DELIVERY_STATES = (
 )
 
 
+#: Two or more failed attempts are the finding even while a tool call is
+#: open: that is a route that keeps missing, not a wait for the call's hook.
+REPEATED_FAILURE_COUNT = 2
+
+
 def deliverable_receipt(marker: str) -> str:
     """The delivery plane's own test for a receipt still worth delivering.
 
@@ -153,18 +158,22 @@ def delivery_state(
     grace: timedelta,
     sla: timedelta,
     current: Any,
+    failed_count: int = 0,
 ) -> str:
     """Classify one undelivered receipt into exactly one delivery state.
 
-    A gone recipient is decided first because nothing later can change it,
-    and an open tool call next because a hook is already coming: both
-    override an earlier failed attempt, which describes a route the
-    recipient's own turn has since overtaken.
+    A gone recipient is decided first because nothing later can change it.
+    Repeated failed attempts are next: an open tool call used to hide a
+    hundred expired hook leases as a wait for a hook that had already
+    fired. One failure a live turn has since overtaken still yields to
+    that turn; two or more are the finding even mid-call.
     """
     if str(record.get("terminated_at") or ""):
         return RECIPIENT_TERMINATED
     if str(record.get("ended_at") or ""):
         return RECIPIENT_ENDED
+    if failed_count >= REPEATED_FAILURE_COUNT:
+        return ATTEMPT_FAILED
     if str(record.get(OPEN_TOOL_CALL_COLUMN) or ""):
         if current_native_process_observation(record) is None:
             return TURN_IN_FLIGHT
@@ -188,6 +197,7 @@ __all__ = [
     "NEVER_ATTEMPTED",
     "RECIPIENT_ENDED",
     "RECIPIENT_TERMINATED",
+    "REPEATED_FAILURE_COUNT",
     "SEAT_ACTION_STATES",
     "TURN_IN_FLIGHT",
     "WAKE_HELD_FOR_NATIVE_TURN",

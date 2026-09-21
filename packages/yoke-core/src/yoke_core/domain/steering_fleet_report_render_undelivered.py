@@ -27,6 +27,7 @@ from yoke_core.domain.steering_fleet_report_delivery_states import (
     ATTEMPT_FAILED,
     ATTEMPT_IN_FLIGHT,
     AWAITING_ATTEMPT,
+    IN_DELIVERY_STATES,
     NEVER_ATTEMPTED,
     RECIPIENT_ENDED,
     RECIPIENT_TERMINATED,
@@ -112,6 +113,13 @@ def _wake_suffix(entry: UndeliveredMessages) -> str:
     escalation on that row describes the attempt that never happened.
     """
     if entry.delivery_state in _NO_WAKE_STATES:
+        return ""
+    if (
+        entry.delivery_state in IN_DELIVERY_STATES
+        or entry.delivery_state == ATTEMPT_FAILED
+    ):
+        # A hook already coming, or a named failure, is not an operator who
+        # has not typed. Desktop copy there hid a hundred expired leases.
         return ""
     if entry.queued_wake and not entry.operator_wake:
         # The recovery is the same command that was already asked for: it
