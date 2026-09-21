@@ -118,7 +118,7 @@ Which checks run is derived, not fixed: every check declares its project scope, 
 `freeze PREFIX-N` -- Keep status, set `frozen=true`. `thaw PREFIX-N` -- Set `frozen=false`.
 
 ### block / unblock
-`block PREFIX-N "<reason>"` -- Keep status, set the orthogonal blocked flag and reason on the item (cross-reference: see your `items` packet stanza); advance/merge/done-transition gates refuse forward progression. `unblock PREFIX-N` clears both. Unrelated to a path-claim's `blocked` state (cross-reference: see your `path_claims` packet stanza).
+`block PREFIX-N "<reason>"` -- Keep status, set the orthogonal blocked flag and reason on the item (cross-reference: see your `items` packet stanza) for waits with no blocking item; refuses when a live hard-block dependency edge already carries the wait (`yoke items dependency add`). Advance/merge/done-transition gates refuse forward progression, and a write to `done` evaluates closure-gated edges. `unblock PREFIX-N` clears both. Unrelated to a path-claim's `blocked` state (cross-reference: see your `path_claims` packet stanza).
 
 ### resync
 

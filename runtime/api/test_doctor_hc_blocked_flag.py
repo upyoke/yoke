@@ -62,6 +62,13 @@ def conn():
             blocked INTEGER DEFAULT 0,
             blocked_reason TEXT
         );
+        CREATE TABLE item_dependencies (
+            id INTEGER PRIMARY KEY,
+            dependent_item_id INTEGER NOT NULL,
+            blocking_item_id INTEGER NOT NULL,
+            gate_point TEXT NOT NULL,
+            satisfaction TEXT NOT NULL
+        );
         """,
     )
     c.execute(
@@ -120,3 +127,60 @@ def test_flag_consistency_fails_when_unblocked_with_stale_reason(conn):
     assert rec.records[0].verdict == "FAIL"
     assert "YOK-705" in rec.records[0].detail
     assert "old reason" in rec.records[0].detail
+
+
+def _seed_blocked_dependent(conn, *, item_id: int, sequence: int, gate_point: str) -> None:
+    conn.execute(
+        "INSERT INTO items (id, project_id, project_sequence, status, "
+        "blocked, blocked_reason) VALUES (%s, 1, %s, 'implementing', 1, 'waiting')",
+        (item_id, sequence),
+    )
+    conn.execute(
+        "INSERT INTO items (id, project_id, project_sequence, status, blocked) "
+        "VALUES (%s, 1, %s, 'done', 0)",
+        (item_id + 1, sequence + 1),
+    )
+    conn.execute(
+        "INSERT INTO item_dependencies (id, dependent_item_id, blocking_item_id, "
+        "gate_point, satisfaction) VALUES (%s, %s, %s, %s, 'status:done')",
+        (item_id, item_id, item_id + 1, gate_point),
+    )
+
+
+def test_flag_consistency_fails_when_blocked_and_hard_block_edges_satisfied(
+    conn, monkeypatch,
+):
+    _seed_blocked_dependent(conn, item_id=10, sequence=710, gate_point="closure")
+    monkeypatch.setattr(
+        "yoke_core.domain.check_hard_blocks.evaluate_blockers",
+        lambda item_id, gate_filter=None, conn=None: [],
+    )
+    rec = _RecorderStub()
+    hc_blocked_flag_consistency(conn, _DoctorArgsStub(), rec)
+    assert rec.records[0].verdict == "FAIL"
+    assert "YOK-710" in rec.records[0].detail
+    assert "yoke items unblock" in rec.records[0].detail
+
+
+def test_flag_consistency_passes_when_a_hard_block_edge_is_unsatisfied(
+    conn, monkeypatch,
+):
+    _seed_blocked_dependent(conn, item_id=12, sequence=712, gate_point="activation")
+    monkeypatch.setattr(
+        "yoke_core.domain.check_hard_blocks.evaluate_blockers",
+        lambda item_id, gate_filter=None, conn=None: [
+            "BLOCKED|YOK-713|idea|Upstream|activation|status:done|not done"
+        ],
+    )
+    rec = _RecorderStub()
+    hc_blocked_flag_consistency(conn, _DoctorArgsStub(), rec)
+    assert rec.records[0].verdict == "PASS"
+
+
+def test_flag_consistency_passes_when_only_coordination_only_edge(conn):
+    _seed_blocked_dependent(
+        conn, item_id=14, sequence=714, gate_point="coordination_only"
+    )
+    rec = _RecorderStub()
+    hc_blocked_flag_consistency(conn, _DoctorArgsStub(), rec)
+    assert rec.records[0].verdict == "PASS"

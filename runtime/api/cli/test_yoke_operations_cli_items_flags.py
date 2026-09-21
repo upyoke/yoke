@@ -191,3 +191,13 @@ class TestFlagClaimContract:
         assert refusal is not None
         error: Dict[str, Any] = refusal.error.model_dump()
         assert error["code"] == "claim_required"
+
+
+class TestBlockHelp:
+    def test_help_names_dependency_add(self, capsys) -> None:
+        from yoke_cli.commands.adapters.items_flags import items_block
+
+        with pytest.raises(SystemExit):
+            items_block(["--help"])
+        out = capsys.readouterr().out
+        assert "yoke items dependency add" in out

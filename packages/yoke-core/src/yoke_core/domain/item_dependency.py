@@ -38,6 +38,7 @@ def _refresh_blocked_reasons(conn, dep_id: int, blk_id: int) -> None:
     )
 
 VALID_GATE_POINTS = frozenset({"activation", "integration", "closure", "coordination_only"})
+HARD_BLOCK_GATE_POINTS = VALID_GATE_POINTS - {"coordination_only"}
 VALID_SOURCES = frozenset(
     {"operator", "shepherd", "conduct", "feed", "migration", "idea", "refine"}
 )

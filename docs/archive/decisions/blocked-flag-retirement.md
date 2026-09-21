@@ -45,8 +45,10 @@ lifecycle semantics.
 - `## Block` rendering, advance / merge / done-transition refusals, and
   blocked-label drift detection all share one signal: the flag.
 - Doctor's blocked-flag health checks (post-cutover invariant, agreement
-  between flag and reason, ageing of flag-driven blocks) replaced the
-  status-driven checks.
+  between flag and reason, leftover flag whose every live hard-block
+  edge is already satisfied, ageing of flag-driven blocks) replaced the
+  status-driven checks. The flag stays for waits with no blocking item;
+  `items.block` refuses a wait a live hard-block edge already carries.
 - The legacy lifecycle value remains in `lifecycle_enums` and the schema
   CHECK constraint as drift bait; new writes never produce it.
 - The blocked board row is part of the canonical 8-line stats box.

@@ -198,7 +198,12 @@ def items_block(args: List[str]) -> int:
 Mark an item blocked with an operator-supplied reason, preserving its
 lifecycle status. The reason is stored verbatim and surfaces in the
 rendered body's Block section, the decision-engine escalate context,
-and the blocked details.
+and the blocked details. The flag is for waits with no blocking item.
+
+Refuses when a live activation, integration, or closure dependency
+edge already carries the wait. Record that wait with
+`yoke items dependency add` — the edge is evaluated live and
+discharges itself; the flag cannot.
 
 Blocking an already-blocked item replaces the recorded reason rather
 than refusing. Refuses a done item. The reason is written before the
