@@ -89,9 +89,16 @@ def different_target_refusal(
     else:
         recovery = None
         escalate_to = (
-            "the operator to retire or supersede requirement "
-            f"{requirement_id} deliberately, then rematerialize a "
-            "snapshot for the current target"
+            "the operator; requirement "
+            f"{requirement_id} is a live item requirement whose host "
+            "does not match the resolved environment, and supersession "
+            "exists only for frozen run-bound cases"
+            if item_bound
+            else (
+                "the operator to retire or supersede requirement "
+                f"{requirement_id} deliberately, then rematerialize a "
+                "snapshot for the current target"
+            )
         )
     return compose_refusal(
         f"{subject} has QA requirement {requirement_id} bound to a "

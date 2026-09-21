@@ -8,12 +8,17 @@ supersession guards stay as they are: none of them may silently rebind a
 row that holds a verdict.
 
 `yoke qa requirement rebind-target` is the missing act. It points the row
-at the live declaration of **the same environment identity**, keeps the
-recorded runs and verdict, and writes `rebound_from_target_json` (the
-previous declaration), `rebound_from_digest`, `rebind_endpoint_delta_json`
-(which facts moved, from what to what), `rebound_at`, `rebind_rationale`,
-and `rebind_actor_id`. Two opaque hashes are not enough: a later reader
-must be able to reconstruct the delta from the row.
+at the live declaration of **the environment the case already exercised**,
+keeps the recorded runs and verdict, and writes `rebound_from_target_json`
+(the previous declaration), `rebound_from_digest`,
+`rebind_endpoint_delta_json` (which facts moved, from what to what),
+`rebound_at`, `rebind_rationale`, and `rebind_actor_id`. Two opaque hashes
+are not enough: a later reader must be able to reconstruct the delta from
+the row. The same command also accepts a snapshot that records **no
+environment.id** and whose **endpoints already match** the resolved
+environment, even when its site label is stale or incoherent. Endpoints are the
+stronger evidence of what was actually exercised; a site label is
+bookkeeping. A live item requirement cannot be superseded.
 
 Identity is not an endpoint check. The same environment row can have
 `hosts.app` corrected from `api.upyoke.com` to `https://api.upyoke.com`
@@ -56,7 +61,8 @@ the fallout one close-out refusal at a time is not.
 
 `require_existing_target` still refuses to reuse a row bound to a different
 digest. When the mismatch is a declaration correction of the same
-environment **and** resolved host authority is unchanged, that refusal
-names `yoke qa requirement rebind-target`. When the identity or host
-authority actually changed, it names a fresh execution or sanctioned
-retirement/supersession.
+environment, or a snapshot whose endpoints already match the resolved
+environment, **and** resolved host authority is unchanged, that refusal
+names `yoke qa requirement rebind-target`. When the host authority
+actually changed, it names a fresh execution. It does not name
+`supersede` to a caller holding a live item requirement.

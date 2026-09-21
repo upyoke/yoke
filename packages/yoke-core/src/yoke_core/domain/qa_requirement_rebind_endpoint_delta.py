@@ -95,8 +95,39 @@ def summarize_endpoint_delta(delta: Mapping[str, Any]) -> str:
     return "; ".join(parts) if parts else "no endpoint facts moved"
 
 
+def exercised_endpoints_match(
+    stored: Mapping[str, Any] | None, live: Mapping[str, Any] | None
+) -> bool:
+    """True when the snapshot already hit the resolved environment's hosts.
+
+    Identity labels can be stale; a moved host cannot. Extra or missing
+    capability keys stay bookkeeping so long as both sides name endpoints
+    and no resolved authority changed.
+    """
+    if not isinstance(stored, Mapping) or not isinstance(live, Mapping):
+        return False
+    old_map = _flatten(_mapping(stored.get("endpoints")))
+    new_map = _flatten(_mapping(live.get("endpoints")))
+    if not old_map or not new_map:
+        return False
+    return not endpoint_delta(stored, live)["authority_changed"]
+
+
+def stale_label_rebind_applies(
+    stored: Mapping[str, Any], live: Mapping[str, Any]
+) -> bool:
+    """Endpoints already match, and the snapshot named no environment row."""
+    try:
+        env_id = int(_mapping(stored.get("environment")).get("id"))
+    except (TypeError, ValueError):
+        env_id = 0
+    return (not env_id) and exercised_endpoints_match(stored, live)
+
+
 __all__ = [
     "endpoint_authority",
     "endpoint_delta",
+    "exercised_endpoints_match",
+    "stale_label_rebind_applies",
     "summarize_endpoint_delta",
 ]

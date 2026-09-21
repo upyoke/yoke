@@ -4,8 +4,8 @@ A settings write can change the execution-target digest without changing
 which environment row or subject the case ran against. The existing
 snapshot reuse, retract, and supersession guards correctly refuse to
 launder that evidence onto a different target. This module is the path
-those guards do not cover: the same environment identity, same subject,
-and the same resolved host authority.
+those guards do not cover: the same resolved host, whether the labels
+still name the same identity or the endpoints already match that host.
 
 Rebinding is not re-verifying. A different environment, deployment, or
 subject still needs a fresh execution or sanctioned retirement. So does a
@@ -25,6 +25,7 @@ from yoke_core.domain.qa_events import emit_qa_requirement_event
 from yoke_core.domain.qa_execution_environment_target import canonical_target, target_digest
 from yoke_core.domain.qa_requirement_rebind_endpoint_delta import (
     endpoint_delta,
+    stale_label_rebind_applies,
     summarize_endpoint_delta,
 )
 from yoke_core.domain.qa_requirement_rebind_identity import (
@@ -138,7 +139,10 @@ def rebind_requirement(
             from_target=_json_object(row["rebound_from_target_json"]),
             delta=_json_object(row["rebind_endpoint_delta_json"]) or delta,
         )
-    if not same_environment_identity(stored, live):
+    if not (
+        same_environment_identity(stored, live)
+        or stale_label_rebind_applies(stored, live)
+    ):
         raise QaRebindError(
             identity_mismatch_message(
                 stored,
