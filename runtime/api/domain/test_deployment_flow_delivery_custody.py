@@ -177,3 +177,16 @@ def test_backfill_fills_nulls_and_leaves_authored_zero(seeded: Any) -> None:
     entry.invariants(seeded)
     assert _custody(seeded, "backfill-v2") == 1
     assert _custody(seeded, "authored-zero") == 0
+
+
+def test_backfill_adds_the_column_when_absent(seeded: Any) -> None:
+    entry = _entry()
+    _create(seeded, "pre-column", V2_STAGES, name="Pre column")
+    seeded.execute(
+        "ALTER TABLE deployment_flows DROP COLUMN takes_delivery_custody"
+    )
+    seeded.commit()
+    entry.apply(seeded)
+    seeded.commit()
+    entry.invariants(seeded)
+    assert _custody(seeded, "pre-column") == 1
