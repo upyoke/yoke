@@ -56,14 +56,9 @@ def _matching_reportable_scope(
 
 
 def _append_matches(
-    blockers: list[ConflictMatch],
-    seen: set[tuple[str, int, str]],
-    *,
-    kind: str,
-    owner_item_id: int,
-    paths: tuple[str, ...],
-    state: str,
-    detail: str,
+    blockers: list[ConflictMatch], seen: set[tuple[str, int, str]], *,
+    kind: str, owner_item_id: int, paths: tuple[str, ...],
+    state: str, detail: str,
 ) -> None:
     for path in paths:
         key = (kind, owner_item_id, path)
@@ -156,7 +151,13 @@ def _git_lines(worktree_path: str, argv: list[str]) -> list[str]:
 
 
 def git_touched_paths(worktree_path: str, integration_target: str) -> list[str]:
-    """Return committed, unstaged, and untracked paths from a live worktree."""
+    """Return changed paths from a live worktree when git can read it.
+
+    Three reads, because committed history alone hides an agent that is
+    mid-edit: the branch's own commits against the integration target,
+    tracked edits not yet committed, and files git is not tracking yet.
+    Ignored files stay out, so lane scratch never reads as declared work.
+    """
     if not worktree_path:
         return []
     touched: list[str] = []
@@ -216,6 +217,9 @@ def _item_coordination_blockers(
         if "sd.content" in doc_select
         else ""
     )
+    # A File Budget authored through the section surface never reaches
+    # ``items.spec``, so reading the spec alone misses it entirely. Both
+    # storages are live, so both are read.
     budget_select = (
         ", COALESCE(fb.content, '') AS file_budget_section"
         if _table_exists(conn, "item_sections")
@@ -271,6 +275,11 @@ def _item_coordination_blockers(
             ],
             project_id=int(item["project_id"]),
         )
+        # A recorded survey is the weakest of the three signals — declared
+        # intent, not work already under way. Stronger signals keep
+        # attribution on the paths they match; remaining survey-only
+        # overlaps are attributed separately so the operator can tell
+        # the two apart.
         survey_only = tuple(
             path
             for path in _matching_reportable_scope(
