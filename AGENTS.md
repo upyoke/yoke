@@ -188,9 +188,9 @@ Observe → `ouroboros_entries` → `/yoke curate` → `/yoke doctor` → `/yoke
 - **Prefer inline chat for summaries, checkpoints, and design iteration;** reserve structured chooser UIs for short binary or ternary decisions. **The work item is the plan:** when running a `/yoke` skill, the item's structured fields are the plan, so never enter plan mode on your own, and if the plan is insufficient, stop and escalate.
 <!-- END YOKE MANAGED BLOCK -->
 # Yoke Repo Internals
-<!-- Not shipped: the managed block above is the project-agnostic doctrine `yoke project install` ships; this section is yoke's own and stays outside the markers. -->
+<!-- Not shipped. -->
 ## Source-Dev Doctrine
-Working on Yoke itself is [`docs/source-dev-doctrine.md`](docs/source-dev-doctrine.md). **Read it before a test selection, release, render, deploy, preflight, or cleanup here.** One rule inline, because violating it silently verifies the wrong code:
-- **Run lane-source commands through `yoke dev run -- <command>`** — the installed `yoke` and a bare `python3 -m ...` resolve main's editable install, never your claimed lane.
+[`docs/source-dev-doctrine.md`](docs/source-dev-doctrine.md). **Read it before a test selection, release, render, deploy, preflight, or cleanup here.** One rule inline, because violating it silently verifies the wrong code:
+- **Run lane-source commands through `yoke dev run -- <command>`** — installed `yoke` and `python3 -m ...` resolve main, never the claimed lane. `--local`: small targeted check expected to finish in about one minute; uncommitted work does not justify a slow one; inject xdist `-n auto`. CI: `yoke watch pytest -- runtime/api/ runtime/harness/ tests/`; `yoke dev ruff-changed --base <ref>`.
 A second rule inline, because violating it silently serializes this concurrent pair:
-- **A release here is two concurrent runs on one lineage** — stage on the HTTPS control-plane connection, production on paired `prod-db-admin` because production replaces the serving API. Drive them together; correct here because stage only tests the live control plane and a Yoke stage run carries no members. Do not lift it onto a project whose stage is a real pre-production gate.
+- **A release here is two concurrent runs on one lineage** — stage on the HTTPS control-plane connection, production on paired `prod-db-admin` (replaces the serving API). Drive them together; stage only tests the live control plane and a Yoke stage run carries no members. Do not lift it onto a project whose stage is a real pre-production gate.
