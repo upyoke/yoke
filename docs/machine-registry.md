@@ -106,9 +106,12 @@ launchable: capacity whose owner and settings are unknown cannot be checked.
 `yoke machine list` shows every registered machine with its owner, access
 mode, and last poll seen. The fleet report's launch-balance rows, launchable
 machine/surface pairs, and plan-limit rows all name machines by their
-registered name. A machine with no registry row falls back to whatever that
-row can offer: the plan-limit rows still have the host name its relay
-reported, while the balance and pair rows have only the id.
+registered name. Launch `--machine` accepts that same registered name, the
+relay hostname, or the machine id. An unresolvable value is refused as
+`machine_unresolved` and names `yoke machine list`; it is not an absent
+relay. A machine with no registry row falls back to whatever that row can
+offer: the plan-limit rows still have the host name its relay reported,
+while the balance and pair rows have only the id.
 
 ## Related surfaces
 

@@ -146,7 +146,8 @@ SESSION_ADAPTERS = [
     _read_entry(
         function_id="session_control.launch.preview",
         cli_invocation=(
-            "yoke session-control launch preview --project P --surface S [--json]"
+            "yoke session-control launch preview --project P --surface S "
+            "[--machine M] [--json]"
         ),
     ),
     AdapterEntry(
@@ -154,7 +155,7 @@ SESSION_ADAPTERS = [
         cli_invocation=(
             "yoke session-control launch create --project P --surface S "
             "[--item PREFIX-N] --idempotency-key K [--stdin] [--raw-instructions] "
-            "[--json]"
+            "[--machine M] [--json]"
         ),
     ),
     _read_entry(
