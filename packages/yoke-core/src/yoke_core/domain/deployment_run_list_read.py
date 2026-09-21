@@ -13,6 +13,7 @@ from yoke_core.domain.deployment_run_gates import run_gates
 from yoke_core.domain.deployment_runs_schema import _run_named_columns
 from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.release_delivery_live_visibility import live_visible_items
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
 from yoke_core.domain.workflows_definition_read import _stage_names
 
@@ -37,6 +38,7 @@ def append_overview_run_window(
 
 RUN_PRESENTATION_FIELDS = (
     "member_items",
+    "contained_items",
     "stages",
     "stage_index",
     "stage_count",
@@ -194,8 +196,17 @@ def present_deployment_runs(
                 }
                 for member in run_members
             ]
+        # In-flight runs with no members still need a join key for the
+        # Frontier box: candidate containment, never a membership row.
+        contained: list[dict[str, Any]] = []
+        if (
+            str(row.get("status") or "") not in TERMINAL_RUN_STATUSES
+            and not run_members
+        ):
+            contained = live_visible_items(conn, row)
         presentation = {
             "member_items": run_members,
+            "contained_items": contained,
             "stages": stages,
             "gates": gates.get(run_id, []),
             "overview_priority": (

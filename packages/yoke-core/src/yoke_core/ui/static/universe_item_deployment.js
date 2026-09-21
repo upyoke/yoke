@@ -6,11 +6,15 @@
 // two moments, so they get the same box rather than two renderings that
 // drift apart.
 //
-// Membership is the recorded carried work of a deployment run — the run's own
-// member rows joined on the item's internal id — never a guess from matching
-// projects or nearby timestamps. The time shown is the run's completion, the
-// moment the deployment finished, rather than when the item was merged or
-// when the run row was last touched.
+// Membership is who owes the item a delivery — the run's own member rows
+// joined on the item's internal id. An in-flight run that never enrolls
+// (a schema-v1 stage flow) still has to appear while it is moving: the list
+// projection joins it through `contained_items`, items whose recorded merge
+// the candidate contains, which is not membership and does not take custody.
+// Honest carried_work is the residual join once a run has succeeded.
+// Never guess from matching projects or nearby timestamps. The time shown is
+// the run's completion, the moment the deployment finished, rather than when
+// the item was merged or when the run row was last touched.
 //
 // A run still moving says so in the present tense. Only a succeeded run is
 // allowed to say the item was deployed, and an item whose carrying run never
@@ -26,6 +30,7 @@ const SUCCEEDED = "succeeded";
 
 function runMembers(run) {
   if ((run.member_items || []).length) return run.member_items;
+  if ((run.contained_items || []).length) return run.contained_items;
   return run.carried_work?.items || [];
 }
 
@@ -78,24 +83,26 @@ function newestFirst(runs) {
 /**
  * The runs worth drawing: what is shipping now, and where it last landed.
  *
- * One live run, plus the newest succeeded run per environment. Older
- * succeeded runs to the same environment are superseded by definition, and
- * failed ones a later success replaced are history the run page still holds.
+ * One live run per environment, plus the newest succeeded run per
+ * environment. Concurrent stage and prod deploys are two release lines, so
+ * one global live slot would hide the older of the two. Older succeeded
+ * runs to the same environment are superseded by definition, and failed
+ * ones a later success replaced are history the run page still holds.
  */
 export function shownDeliveryRuns(carried) {
   const shown = [];
   const environmentsSeen = new Set();
-  let liveShown = false;
+  const liveEnvironmentsSeen = new Set();
   for (const run of newestFirst(carried)) {
     const status = String(run.status || "");
+    const environment = runEnvironment(run);
     if (!TERMINAL_RUN_STATES.has(status)) {
-      if (liveShown) continue;
-      liveShown = true;
+      if (liveEnvironmentsSeen.has(environment)) continue;
+      liveEnvironmentsSeen.add(environment);
       shown.push(run);
       continue;
     }
     if (status !== SUCCEEDED) continue;
-    const environment = runEnvironment(run);
     if (environmentsSeen.has(environment)) continue;
     environmentsSeen.add(environment);
     shown.push(run);
