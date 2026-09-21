@@ -9,19 +9,35 @@ Re-proving against a live copy is what makes an entry's invariants a claim
 about the schema rather than about the rows: whatever the apply left behind,
 live builds have been writing since, and an entry that asserted a row count
 is re-judged here against traffic it never saw.
+
+A standing invariant that cannot evaluate is a third answer, not a pass.
+The fleet summary reports it beside passed and failed, with the reason.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Callable, Optional, Sequence, Tuple
 
 
 RETIRED_STANDING_INVARIANTS: dict[str, str] = {
+    # 0035's apply still clears a latch no closed checklist backs. The live
+    # run_onboard signal later also latches a deployment-superseded run, so
+    # the frozen invariants() cannot evaluate on those databases. The
+    # standing claim is obsolete; the module bytes stay frozen.
     "0035_clear_unproven_onboard_activation_latch": (
         "the live run_onboard signal also latches a deployment-superseded "
         "run, while this entry recognizes only a fully closed checklist"
     ),
 }
+
+
+@dataclass(frozen=True)
+class AppliedInvariantReport:
+    """Failure detail, or the standing invariants that declined to evaluate."""
+
+    failure: Optional[str] = None
+    skipped: Tuple[Tuple[str, str], ...] = ()
 
 
 def applied_shipped_names(
@@ -34,6 +50,38 @@ def applied_shipped_names(
     return tuple(name for name in history if name not in pending)
 
 
+def skipped_standing_invariant_line(name: str, reason: str) -> str:
+    """One summary/stream line for a standing invariant that did not evaluate."""
+    return f"skipped {name} -- {reason}"
+
+
+def format_fleet_summary(verdicts: Sequence[Any]) -> str:
+    """Passed, failed, and skipped standing invariants for one fleet run.
+
+    Database verdicts stay the pass/fail counts. Distinct retired standing
+    invariants are the third count, each named with its reason so a reader
+    who is not following a converge stream still sees them.
+    """
+    failed = [verdict for verdict in verdicts if not verdict.passed]
+    skipped: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for verdict in verdicts:
+        for name, reason in getattr(verdict, "skipped_invariants", ()):
+            if name in seen:
+                continue
+            seen.add(name)
+            skipped.append((name, reason))
+    lines = [
+        f"{len(verdicts) - len(failed)} passed, {len(failed)} failed, "
+        f"{len(skipped)} skipped"
+    ]
+    lines.extend(
+        skipped_standing_invariant_line(name, reason)
+        for name, reason in skipped
+    )
+    return "\n".join(lines)
+
+
 def verify_applied_history_invariants(
     conn: Any,
     applied: Sequence[str],
@@ -41,7 +89,7 @@ def verify_applied_history_invariants(
     history: Sequence[str],
     load_module: Callable[[str], Any],
     redact: str = "",
-) -> Optional[str]:
+) -> AppliedInvariantReport:
     """Run callable invariants for each applied name; return a fail detail.
 
     Every shipped module is loaded before verification so a pending entry can
@@ -59,9 +107,11 @@ def verify_applied_history_invariants(
         for module in modules.values()
         for retired_name in getattr(module, "RETIRES_INVARIANTS", ())
     }
+    skipped: list[tuple[str, str]] = []
     for name in applied:
         retired_reason = RETIRED_STANDING_INVARIANTS.get(name)
         if retired_reason is not None:
+            skipped.append((name, retired_reason))
             print(
                 f"converging {name}: standing invariant skipped -- "
                 f"{retired_reason}"
@@ -79,12 +129,18 @@ def verify_applied_history_invariants(
             detail = str(exc).strip()
             if redact:
                 detail = detail.replace(redact, "<dsn>")
-            return f"{name} invariants failed -- {detail}"
-    return None
+            return AppliedInvariantReport(
+                failure=f"{name} invariants failed -- {detail}",
+                skipped=tuple(skipped),
+            )
+    return AppliedInvariantReport(skipped=tuple(skipped))
 
 
 __all__ = [
+    "AppliedInvariantReport",
     "RETIRED_STANDING_INVARIANTS",
     "applied_shipped_names",
+    "format_fleet_summary",
+    "skipped_standing_invariant_line",
     "verify_applied_history_invariants",
 ]

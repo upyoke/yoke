@@ -18,6 +18,8 @@ from yoke_core.domain import db_backend, environment_bootstrap
 from yoke_core.domain.migration_fleet_applied_invariants import (
     RETIRED_STANDING_INVARIANTS,
     applied_shipped_names,
+    format_fleet_summary,
+    skipped_standing_invariant_line,
     verify_applied_history_invariants,
 )
 from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
@@ -32,14 +34,15 @@ def test_pending_entry_can_retire_an_applied_predecessor() -> None:
         "0002_removal": SimpleNamespace(RETIRES_INVARIANTS=("0001_presence",)),
     }
 
-    detail = verify_applied_history_invariants(
+    report = verify_applied_history_invariants(
         object(),
         ("0001_presence",),
         history=tuple(modules),
         load_module=modules.__getitem__,
     )
 
-    assert detail is None
+    assert report.failure is None
+    assert report.skipped == ()
 
 
 def test_retired_standing_invariant_names_its_skip_and_reason(
@@ -50,7 +53,7 @@ def test_retired_standing_invariant_names_its_skip_and_reason(
     def wrong_standing_invariant(_conn: Any) -> None:
         raise AssertionError("this invariant must be skipped")
 
-    detail = verify_applied_history_invariants(
+    report = verify_applied_history_invariants(
         object(),
         (name,),
         history=(name,),
@@ -59,10 +62,25 @@ def test_retired_standing_invariant_names_its_skip_and_reason(
         ),
     )
 
-    assert detail is None
+    assert report.failure is None
+    assert report.skipped == ((name, reason),)
     assert capsys.readouterr().out == (
         f"converging {name}: standing invariant skipped -- {reason}\n"
     )
+
+
+def test_fleet_summary_names_skipped_standing_invariants_beside_pass_fail() -> None:
+    name, reason = next(iter(RETIRED_STANDING_INVARIANTS.items()))
+    passed = SimpleNamespace(passed=True, skipped_invariants=((name, reason),))
+    failed = SimpleNamespace(passed=False, skipped_invariants=())
+
+    summary = format_fleet_summary((passed, passed, failed))
+
+    assert summary.splitlines()[0] == "2 passed, 1 failed, 1 skipped"
+    assert skipped_standing_invariant_line(name, reason) in summary.splitlines()
+    assert format_fleet_summary(
+        (SimpleNamespace(passed=True, skipped_invariants=()),)
+    ) == "1 passed, 0 failed, 0 skipped"
 
 
 def test_empty_database_converges_full_history_and_live_invariants(
@@ -95,15 +113,16 @@ def test_empty_database_converges_full_history_and_live_invariants(
         }
         assert applied == history
         assert applied_by == {"boot-converge"}
-        assert (
-            verify_applied_history_invariants(
-                conn,
-                applied,
-                history=history,
-                load_module=load_module,
-                redact=dsn,
-            )
-            is None
+        first = verify_applied_history_invariants(
+            conn,
+            applied,
+            history=history,
+            load_module=load_module,
+            redact=dsn,
+        )
+        assert first.failure is None
+        assert "0035_clear_unproven_onboard_activation_latch" in dict(
+            first.skipped
         )
 
         # A session whose provider attested a model but whose ask was never
@@ -113,16 +132,14 @@ def test_empty_database_converges_full_history_and_live_invariants(
         # invariants are a claim about the schema, not about the rows.
         _register_session_with_no_recorded_request(conn)
 
-        assert (
-            verify_applied_history_invariants(
-                conn,
-                applied,
-                history=history,
-                load_module=load_module,
-                redact=dsn,
-            )
-            is None
+        second = verify_applied_history_invariants(
+            conn,
+            applied,
+            history=history,
+            load_module=load_module,
+            redact=dsn,
         )
+        assert second.failure is None
     finally:
         conn.close()
         pg_testdb.drop_test_database(database)

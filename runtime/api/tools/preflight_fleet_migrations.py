@@ -300,7 +300,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
 
     failed = [v for v in verdicts if not v.passed]
-    print(f"\n{len(verdicts) - len(failed)} passed, {len(failed)} failed")
+    print("\n" + migration_fleet_preflight.format_fleet_summary(verdicts))
     if failed or not record:
         return 1 if failed else 0
 
