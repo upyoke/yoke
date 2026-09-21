@@ -24,7 +24,10 @@ from typing import Tuple
 from yoke_core.domain.populate_registry_data_authoritative import (
     QA_RUN_COMPLETED_DESCRIPTION,
 )
-from yoke_core.domain.populate_registry_data_curated_qa import QA_RETRACT_EVENTS
+from yoke_core.domain.populate_registry_data_curated_qa import (
+    QA_REQUIREMENT_STATUS_EVENTS,
+    QA_RETRACT_EVENTS,
+)
 from yoke_core.domain.populate_registry_data_curated_relay import RELAY_TRANSPORT_EVENTS
 from yoke_core.domain.populate_registry_data_updates import (  # noqa: F401
     CORRECTIVE_UPDATES,
@@ -80,14 +83,7 @@ CURATED_EVENTS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "INFO",
     ),
     *QA_RETRACT_EVENTS,
-    (
-        "QARequirementWaived",
-        "lifecycle",
-        "qa_lifecycle",
-        "qa-db",
-        "QA requirement waived with rationale",
-        "STATUS",
-    ),
+    *QA_REQUIREMENT_STATUS_EVENTS,
     (
         "QARequirementSuperseded",
         "lifecycle",

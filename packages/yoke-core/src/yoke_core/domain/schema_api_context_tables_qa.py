@@ -51,6 +51,12 @@ QA_TABLES: dict[str, dict] = {
             ("method_config", "TEXT"),
             ("execution_target_json", "TEXT"),
             ("execution_target_digest", "TEXT"),
+            ("rebound_at", "TEXT"),
+            ("rebound_from_digest", "TEXT"),
+            ("rebind_rationale", "TEXT"),
+            ("rebind_actor_id", "INTEGER"),
+            ("rebound_from_target_json", "TEXT"),
+            ("rebind_endpoint_delta_json", "TEXT"),
             ("created_at", "TEXT"),
         ],
         "notes": (
@@ -99,12 +105,17 @@ QA_TABLES: dict[str, dict] = {
             "completion, instructions, expected-outcome, and method-config "
             "snapshots plus one environment/tenant/project execution target. "
             "The target digest prevents endpoint or environment substitution "
-            "after materialization. Execute a transition's ordered set through "
+            "after materialization. Rebind a same-environment declaration via "
+            "`yoke qa requirement rebind-target` only when resolved host "
+            "authority is unchanged; a repointed host refuses. Identity is "
+            "not host. Previous JSON and the endpoint delta stay on the row. "
+            "Execute a transition's ordered set through "
             "`yoke qa plan run --item PREFIX-N --transition T`, or one "
             "snapshot through `yoke qa case run --requirement-id <id>`; "
             "never replace snapshot fields during execution. "
             "A green run satisfies only while it still proves live method_config "
             "and the live execution-target digest (`has_current_passing_run`); "
+            "a sanctioned rebind keeps a prior pass current. "
             "EXISTS(verdict=pass) is not current. "
             "Runners stamp executed method_config and the start-bound target "
             "digest into raw_result at start; complete keeps those snapshots. "

@@ -24,14 +24,12 @@ GET_USAGE = (
 MERGE_USAGE = (
     "yoke projects environment-settings merge --project NAME "
     "--environment NAME --set KEY.PATH=VALUE [--set ...] "
-    "[--session-id S] [--json]"
+    "[--acknowledge-stranded-evidence] [--session-id S] [--json]"
 )
 
 
 def projects_environment_settings_get(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke projects environment-settings get"
-    )
+    parser = argparse.ArgumentParser(prog="yoke projects environment-settings get")
     _add_identity_args(parser)
     parser.add_argument(
         "--path",
@@ -57,9 +55,7 @@ def projects_environment_settings_get(args: List[str]) -> int:
 
 
 def projects_environment_settings_merge(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke projects environment-settings merge"
-    )
+    parser = argparse.ArgumentParser(prog="yoke projects environment-settings merge")
     _add_identity_args(parser)
     parser.add_argument(
         "--set",
@@ -67,6 +63,14 @@ def projects_environment_settings_merge(args: List[str]) -> int:
         action="append",
         required=True,
         help="KEY.PATH=VALUE; numeric path segments address array entries.",
+    )
+    parser.add_argument(
+        "--acknowledge-stranded-evidence",
+        action="store_true",
+        help=(
+            "Proceed even when this write moves a QA execution-target digest "
+            "that bound requirements still carry."
+        ),
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -77,14 +81,17 @@ def projects_environment_settings_merge(args: List[str]) -> int:
         assignments = _parse_assignments(parsed.assignments)
     except ValueError as exc:
         return usage_error(str(exc))
+    payload: Dict[str, Any] = {
+        "project": parsed.project,
+        "environment": parsed.environment,
+        "assignments": assignments,
+    }
+    if parsed.acknowledge_stranded_evidence:
+        payload["acknowledge_stranded_evidence"] = True
     return _dispatch(
         "projects.environment_settings.merge",
         parsed,
-        {
-            "project": parsed.project,
-            "environment": parsed.environment,
-            "assignments": assignments,
-        },
+        payload,
     )
 
 

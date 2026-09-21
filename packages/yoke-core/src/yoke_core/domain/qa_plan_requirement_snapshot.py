@@ -91,6 +91,10 @@ def require_existing_target(
                     has_runs=has_runs,
                     item_bound=item_bound,
                     state_known=conn is not None,
+                    stored_target=stored_target
+                    if isinstance(stored_target, dict)
+                    else {},
+                    current_target=execution_target,
                 )
             )
         ids.append(requirement_id)
@@ -260,8 +264,13 @@ def existing_requirement_id(
         else ""
     )
     params: tuple[Any, ...] = (
-        subject_value, deployment_stage or "", deployment_member_item_id or 0,
-        plan_id, case_key, baseline or "", transition_id or "",
+        subject_value,
+        deployment_stage or "",
+        deployment_member_item_id or 0,
+        plan_id,
+        case_key,
+        baseline or "",
+        transition_id or "",
     )
     if execution_target_digest is not None:
         params += (execution_target_digest,)

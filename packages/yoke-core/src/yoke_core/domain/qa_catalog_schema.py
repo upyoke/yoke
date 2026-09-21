@@ -151,6 +151,12 @@ _REQUIREMENT_COLUMNS = (
     ("retracted_at", "TEXT"),
     ("retraction_rationale", "TEXT"),
     ("retraction_source", "TEXT"),
+    ("rebound_at", "TEXT"),
+    ("rebound_from_digest", "TEXT"),
+    ("rebind_rationale", "TEXT"),
+    ("rebind_actor_id", "INTEGER"),
+    ("rebound_from_target_json", "TEXT"),
+    ("rebind_endpoint_delta_json", "TEXT"),
 )
 
 _ATTACHMENT_RETRACT_COLUMNS = (
@@ -310,9 +316,7 @@ def create_qa_catalog_tables(
             "('verification','post_deploy','manual_acceptance'))",
         )
     for column, definition in _ATTACHMENT_RETRACT_COLUMNS:
-        _add_column_if_not_exists(
-            conn, "qa_plan_item_attachments", column, definition
-        )
+        _add_column_if_not_exists(conn, "qa_plan_item_attachments", column, definition)
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS "
         "idx_qa_requirement_materialization "

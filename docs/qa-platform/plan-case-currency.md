@@ -59,6 +59,7 @@ afterwards, and it is the state that made the original defect invisible.
 | `plan_execution_in_flight` | A live QA plan execution is walking a roster built from these rows | The full `yoke qa plan abort` invocation for that execution, then refresh and start the walk again |
 | `admitted_copy_in_flight` | An admitted deployment-stage copy of a row has answered, or a live execution froze it into the roster it is being walked against | The remedy available for that copy — see [Deployment QA Stage Execution](deployment-stage-execution.md) |
 | answered deployment case | A deployment-stage row has already recorded a determinate verdict | `yoke qa requirement supersede`, because an answered case is an acceptance record |
+| declaration-corrected target | Stored digest moved because declared facts changed, same environment row/subject, **and** resolved host authority is unchanged | `yoke qa requirement rebind-target` — see [Execution-target rebind](execution-target-declaration-rebind.md). A repointed host on the same row is a different target. |
 
 Each refusal names a command that is actually reachable for the case that
 raised it. A recovery that would answer with a usage error, or that names a

@@ -16,6 +16,7 @@ from yoke_cli.commands.adapters import qa_post_deploy as _qa_post_deploy
 from yoke_cli.commands.adapters import qa_crud_batch as _qa_crud_batch
 from yoke_cli.commands.adapters import qa_read as _qa_read
 from yoke_cli.commands.adapters import (
+    qa_requirement_rebind as _qa_rebind,
     qa_requirement_supersede as _qa_supersede,
 )
 
@@ -25,6 +26,10 @@ QA_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("qa", "requirement", "update"): (
         "qa.requirement.update",
         _qa.qa_requirement_update,
+    ),
+    ("qa", "requirement", "rebind-target"): (
+        "qa.requirement.rebind_target",
+        _qa_rebind.qa_requirement_rebind_target,
     ),
     ("qa", "requirement", "supersede"): (
         "qa.requirement.supersede",

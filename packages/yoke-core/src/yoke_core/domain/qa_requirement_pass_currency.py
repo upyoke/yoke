@@ -7,7 +7,7 @@ configuration and execution-target digest it started under inside
 once set it stays, including through empty config, and unstamped greens then
 no longer satisfy. Compare and execute the config with that marker stripped.
 A live execution-target digest is proved only by a pass that recorded the
-same digest.
+same digest, or the digest a sanctioned rebind moved the row from.
 """
 
 from __future__ import annotations
@@ -189,8 +189,7 @@ def _live_execution_target_digest(conn: Any, requirement_id: int) -> str:
         return ""
     row = query_one(
         conn,
-        "SELECT execution_target_digest FROM qa_requirements "
-        f"WHERE id={_marker(conn)}",
+        f"SELECT execution_target_digest FROM qa_requirements WHERE id={_marker(conn)}",
         (int(requirement_id),),
     )
     if row is None:
@@ -216,20 +215,26 @@ def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
         )
         return found is not None
     digest_sql = ""
+    rebind_sql = ""
     if _column_exists(conn, "qa_requirements", EXECUTION_TARGET_DIGEST_FIELD):
         digest_sql = ", execution_target_digest"
+        if _column_exists(conn, "qa_requirements", "rebound_from_digest"):
+            rebind_sql = ", rebound_from_digest, rebound_at"
     row = query_one(
         conn,
-        f"SELECT method_config{digest_sql} FROM qa_requirements WHERE id={marker}",
+        f"SELECT method_config{digest_sql}{rebind_sql} FROM qa_requirements WHERE id={marker}",
         (int(requirement_id),),
     )
     if row is None:
         return False
     current = canonical_method_config(row["method_config"])
     corrected = method_config_was_corrected(row["method_config"])
-    live_digest = (
-        str(row["execution_target_digest"] or "") if digest_sql else ""
-    )
+    live_digest = str(row["execution_target_digest"] or "") if digest_sql else ""
+    proving_digests = {live_digest} if live_digest else set()
+    if rebind_sql:
+        rebound_from = str(row["rebound_from_digest"] or "")
+        if str(row["rebound_at"] or "") and rebound_from:
+            proving_digests.add(rebound_from)
     runs = query_rows(
         conn,
         "SELECT verdict, raw_result FROM qa_runs "
@@ -239,7 +244,8 @@ def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
     for run in runs:
         if str(run["verdict"] or "") != "pass":
             continue
-        if live_digest and recorded_execution_target_digest(run["raw_result"]) != live_digest:
+        recorded_digest = recorded_execution_target_digest(run["raw_result"])
+        if live_digest and recorded_digest not in proving_digests:
             continue
         recorded = recorded_method_config(run["raw_result"])
         if recorded is not None:

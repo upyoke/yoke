@@ -33,6 +33,7 @@ class EnvironmentSettingsMergeRequest(BaseModel):
     project: str
     environment: str
     assignments: Dict[str, Any]
+    acknowledge_stranded_evidence: bool = False
 
 
 class EnvironmentSettingsProjectionResponse(BaseModel):
@@ -46,6 +47,7 @@ class EnvironmentSettingsMergeResponse(BaseModel):
     environment: str
     changed_paths: list[str]
     message: str
+    stranded_requirements: list[dict[str, Any]] = []
 
 
 def handle_environment_settings_get(
@@ -100,9 +102,28 @@ def handle_environment_settings_merge(
     if isinstance(resolved, HandlerOutcome):
         return resolved
 
+    from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.projects_environments_settings import (
         cmd_environment_merge_settings,
     )
+    from yoke_core.domain.qa_requirement_stranded_evidence import (
+        StrandedQaEvidenceError,
+        refuse_or_describe_stranded_evidence,
+    )
+
+    conn = connect()
+    try:
+        try:
+            stranded = refuse_or_describe_stranded_evidence(
+                conn,
+                environment_id=resolved.id,
+                assignments=parsed.assignments,
+                acknowledge=parsed.acknowledge_stranded_evidence,
+            )
+        except StrandedQaEvidenceError as exc:
+            return _failure("stranded_qa_evidence", str(exc), "$.payload.assignments")
+    finally:
+        conn.close()
 
     try:
         message = cmd_environment_merge_settings(resolved.id, parsed.assignments)
@@ -119,6 +140,7 @@ def handle_environment_settings_merge(
             "environment": resolved.name,
             "changed_paths": sorted(parsed.assignments),
             "message": message,
+            "stranded_requirements": stranded,
         },
     )
 

@@ -14,6 +14,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "item_landings.list": "next-release",
     "item_landings.record": "next-release",
     "qa.item_plan.retract": "next-release",
+    "qa.requirement.rebind_target": "next-release",
 }
 
 
