@@ -11,7 +11,7 @@ from yoke_core.domain.qa_execution_environment_target import (
     QaExecutionTargetError,
     target_digest,
 )
-from yoke_core.domain.qa_requirement_target_rebind import (
+from yoke_core.domain.qa_requirement_rebind_identity import (
     REBIND_RECIPE,
     _identity_row,
 )
