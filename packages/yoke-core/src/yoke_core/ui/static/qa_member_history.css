@@ -1,5 +1,12 @@
 /* Folded: a summary and the latest pictures. Expanded: every check with
    its own provenance, so before-merge and this-release cannot read as one. */
+.universe-app-root .carried-item-evidence .review-evidence.compact .review-shot {
+  width: 150px;
+}
+.universe-app-root .carried-item-evidence .review-evidence.compact .review-shot-open {
+  min-height: 0;
+  aspect-ratio: unset;
+}
 .universe-app-root .carried-item-history {
   margin: 2px 0 0;
   padding-left: 16px;

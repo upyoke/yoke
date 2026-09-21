@@ -90,6 +90,10 @@ test("collapsed cards keep the latest pictures without expanding history", async
   assert.match(caption, /verified this release/);
   assert.match(caption, /verified before merge/);
   assert.equal(byClass(evidence, "review-shot").length, 1);
+  assert.match(
+    byClass(evidence, "review-evidence")[0].className,
+    /\bcompact\b/,
+  );
   const history = byClass(evidence, "carried-item-history")[0];
   assert.ok(history.hidden, "history starts folded");
   const provenances = byClass(evidence, "carried-item-history-provenance")
