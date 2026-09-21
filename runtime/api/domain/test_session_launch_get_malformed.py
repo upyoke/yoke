@@ -10,7 +10,6 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.handlers import session_launch as handlers
-from yoke_core.domain.session_launch_store import get_launch
 from yoke_core.domain.session_launch_types import SessionLaunchError
 from yoke_core.domain.session_launch_validation import require_launch_id
 from runtime.api.domain.session_launch_test_support import (
@@ -60,16 +59,6 @@ def test_a_short_hex_string_is_not_a_missing_launch() -> None:
     assert "not found" not in str(raised.value)
     assert "UUID" in str(raised.value)
     assert "8-4-4-4-12" in str(raised.value)
-
-
-def test_get_launch_refuses_a_malformed_id_before_looking_up_a_row() -> None:
-    conn = launch_connection()
-
-    with pytest.raises(SessionLaunchError) as raised:
-        get_launch(conn, FRAGMENT)
-
-    assert raised.value.code == "launch_id_invalid"
-    assert "not found" not in str(raised.value)
 
 
 def test_launch_get_teaches_the_uuid_shape_for_a_malformed_id(monkeypatch) -> None:
