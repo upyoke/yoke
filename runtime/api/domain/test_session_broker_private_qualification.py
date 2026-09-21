@@ -54,8 +54,8 @@ def _candidate_connection(monkeypatch, *, route: str):
     conn.execute(
         "UPDATE harness_sessions SET executor='claude-code',"
         "executor_surface='claude-cli',executor_version='2.1.241',"
-        "ended_at=NULL,last_heartbeat=?,last_tool_call_at=? "
-        "WHERE session_id='s4'",
+        "ended_at=NULL,last_heartbeat=?,last_tool_call_at=?,"
+        "turn_posture='unknown' WHERE session_id='s4'",
         (idle_since, idle_since),
     )
     conn.execute(
