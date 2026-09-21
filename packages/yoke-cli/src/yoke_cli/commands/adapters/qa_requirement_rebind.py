@@ -28,14 +28,17 @@ QA_REQUIREMENT_REBIND_TARGET_USAGE = (
 )
 
 _EPILOG = (
-    "Point a requirement at the live declaration of the SAME environment "
-    "identity, keeping its recorded runs and verdict, when a settings write "
-    "moved the execution-target digest without changing resolved host "
-    "authority. A scheme-only hosts.* correction is in; a host that now "
-    "resolves to a different netloc is a different target and this command "
-    "refuses. The result reports the endpoint delta and stores the previous "
-    "execution_target_json so a later reader can see what moved. It is not "
-    "a waiver and not re-verification."
+    "Point a requirement at the live declaration of the environment it "
+    "already exercised, keeping its recorded runs and verdict. That is the "
+    "same environment identity after a settings write that moved the digest "
+    "without changing resolved host authority, or a snapshot whose "
+    "endpoints already match the resolved environment while its site or "
+    "other identity labels are stale. A scheme-only hosts.* correction is "
+    "in; a host that now resolves to a different netloc is a different "
+    "target and this command refuses. The result reports the endpoint "
+    "delta and stores the previous execution_target_json so a later reader "
+    "can see what moved. It is not a waiver and not re-verification. A "
+    "live item requirement cannot be superseded; this is its path."
 )
 
 

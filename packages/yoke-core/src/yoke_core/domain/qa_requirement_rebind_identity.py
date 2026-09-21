@@ -11,7 +11,10 @@ from yoke_core.domain.qa_execution_environment_target import (
     canonical_target,
     target_digest,
 )
-from yoke_core.domain.qa_requirement_rebind_endpoint_delta import endpoint_delta
+from yoke_core.domain.qa_requirement_rebind_endpoint_delta import (
+    endpoint_delta,
+    stale_label_rebind_applies,
+)
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -88,14 +91,16 @@ def same_environment_identity(
 def declaration_correction_applies(
     stored: Mapping[str, Any] | None, current: Mapping[str, Any] | None
 ) -> bool:
-    """Same identity, different digest, same resolved host authority."""
+    """Same host, different digest: identity match or unlabeled endpoints match."""
     if not isinstance(stored, Mapping) or not isinstance(current, Mapping):
-        return False
-    if not same_environment_identity(stored, current):
         return False
     if target_digest(stored) == target_digest(current):
         return False
-    return not endpoint_delta(stored, current)["authority_changed"]
+    if endpoint_delta(stored, current)["authority_changed"]:
+        return False
+    return same_environment_identity(stored, current) or stale_label_rebind_applies(
+        stored, current
+    )
 
 
 def different_target_reuse_recovery(
@@ -107,18 +112,16 @@ def different_target_reuse_recovery(
     """Recovery clause for snapshot reuse when the stored digest is stale."""
     if declaration_correction_applies(stored_target or {}, current_target or {}):
         return (
-            "the stored target and the current target are the same environment "
-            "identity and differ only in declared facts whose resolved host "
-            "authority is unchanged. Rebind the evidence "
+            "the stored target and the current target share resolved host "
+            "authority — the same environment identity with only declared "
+            "facts moved, or a snapshot whose endpoints already match the "
+            "resolved environment while its identity labels are stale. "
+            "Rebind the evidence "
             f"with `{REBIND_RECIPE.format(requirement_id=int(requirement_id))}`; "
-            "rebinding is not re-verifying. A genuinely different environment, "
-            "deployment, subject, or host still needs a fresh deployment/plan "
-            "execution or sanctioned retirement or supersession"
+            "rebinding is not re-verifying. A genuinely different host still "
+            "needs a fresh deployment/plan execution"
         )
-    return (
-        "start a fresh deployment/plan execution or use sanctioned "
-        "retirement or supersession before rematerializing"
-    )
+    return "start a fresh deployment/plan execution before rematerializing"
 
 
 def _identity_row(conn: Any, environment_id: int) -> dict[str, Any] | None:
@@ -164,13 +167,7 @@ def _resolve_live_environment_id(
     *,
     plan_id: int | None,
 ) -> tuple[int, str]:
-    """Pick the environment row the snapshot actually ran against.
-
-    ``(plan project, environment name)`` cannot identify that row: names
-    repeat across projects, and a plan's project may differ from its
-    target environment's owner. Stored id, the plan target, then site
-    plus name are the authorities that do.
-    """
+    """Pick the environment row: stored id, plan target, then site plus name."""
     stored_id = _int(_mapping(stored.get("environment")).get("id"))
     if stored_id:
         return stored_id, "stored environment.id"
@@ -265,8 +262,7 @@ def identity_mismatch_message(
         f"({live_site}/{live_env.get('name')}) from {resolved_from}; "
         f"snapshot named site {stored_site!r} environment "
         f"{stored_env.get('name')!r}{stored_id_text}. Start a fresh "
-        "execution or use sanctioned retirement or supersession; "
-        "rebinding is not re-verifying"
+        "execution; rebinding is not re-verifying"
     )
 
 
@@ -322,16 +318,18 @@ def _live_target(
         if "role" in live:
             overlaid["role"] = live["role"]
         return overlaid, environment_id, resolved_from
-    if not same_environment_identity(stored, live):
-        raise QaRebindError(
-            identity_mismatch_message(
-                stored,
-                live,
-                environment_id=environment_id,
-                resolved_from=resolved_from,
-            )
+    if same_environment_identity(stored, live) or stale_label_rebind_applies(
+        stored, live
+    ):
+        return live, environment_id, resolved_from
+    raise QaRebindError(
+        identity_mismatch_message(
+            stored,
+            live,
+            environment_id=environment_id,
+            resolved_from=resolved_from,
         )
-    return live, environment_id, resolved_from
+    )
 
 
 __all__ = [
@@ -341,4 +339,5 @@ __all__ = [
     "different_target_reuse_recovery",
     "identity_mismatch_message",
     "same_environment_identity",
+    "stale_label_rebind_applies",
 ]

@@ -78,9 +78,12 @@ determinate verdict; one that has already answered is an acceptance record,
 so the call refuses and names it for `yoke qa requirement supersede` instead.
 The subject keeps the deployment target its stage receipt pinned --
 rematerializing never re-points a frozen run at the plan's current
-environment. A declaration correction of the same environment identity
-is not rematerialize's job: `yoke qa requirement rebind-target` points
-the stored digest at the live facts and keeps the recorded verdict.
+environment. A declaration correction of the same environment identity, or a
+snapshot whose endpoints already match the resolved environment while
+its identity labels are stale, is not rematerialize's job:
+`yoke qa requirement rebind-target` points the stored digest at the
+live facts and keeps the recorded verdict. A live item requirement
+cannot be superseded.
 
 Where it refuses instead
 ------------------------

@@ -79,6 +79,8 @@ def test_different_target_omits_unreachable_remedies_when_passed() -> None:
     assert "No reachable recovery from this call" in text
     assert "escalate to the operator" in text
     assert "Recovery:" not in text
+    assert "supersede" not in text
+    assert "retire or supersede" not in text
 
 
 def test_different_target_names_rebind_when_declaration_moved() -> None:
@@ -113,3 +115,49 @@ def test_different_target_does_not_name_rebind_when_host_authority_moved() -> No
     )
     assert "rebind-target" not in text
     assert "start a fresh" in text
+    assert "supersede" not in text
+
+
+def _stale_site(app_url: str, *, site: str) -> dict[str, object]:
+    target = _same_identity(app_url=app_url)
+    target["site"] = {"name": site}
+    environment = dict(target["environment"])  # type: ignore[arg-type]
+    environment.pop("id", None)
+    target["environment"] = environment
+    return target
+
+
+def test_different_target_names_rebind_when_endpoints_match_stale_labels() -> None:
+    text = different_target_refusal(
+        subject="item 101 transition implemented",
+        requirement_id=101,
+        stored_digest="old",
+        expected_digest="new",
+        latest_verdict="pass",
+        has_runs=True,
+        item_bound=True,
+        stored_target=_stale_site("https://app.upyoke.com", site="Yoke API"),
+        current_target=_stale_site("https://app.upyoke.com", site="yoke"),
+    )
+    assert "rebind-target" in text
+    assert "Recovery:" in text
+    assert "identity labels are stale" in text
+    assert "No reachable recovery from this call" not in text
+    assert "supersede" not in text
+
+
+def test_different_target_omits_supersede_when_stale_labels_and_host_moved() -> None:
+    text = different_target_refusal(
+        subject="item 101 transition implemented",
+        requirement_id=101,
+        stored_digest="old",
+        expected_digest="new",
+        latest_verdict="pass",
+        has_runs=True,
+        item_bound=True,
+        stored_target=_stale_site("https://app.upyoke.com", site="Yoke API"),
+        current_target=_stale_site("https://other.example.test", site="yoke"),
+    )
+    assert "rebind-target" not in text
+    assert "supersede" not in text
+    assert "live item requirement" in text
