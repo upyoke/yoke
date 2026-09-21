@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { FakeDocument, byClass, settle } from "./universe_ui_dom_test_support.mjs";
-import { member } from "./universe_ui_carried_item_test_support.mjs";
+import { DEPLOYED_SHA, member } from "./universe_ui_carried_item_test_support.mjs";
 import { loadDelivery } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_shipping_runs.js";
 import { CARRIED_ITEMS_SHOWN } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_work_cards.js";
 import { QA_KIND } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_state.js";
@@ -43,6 +43,10 @@ function activityFor(itemId, overrides = {}) {
     artifacts: [],
     evidence_count: 0,
     happened_at: "2026-09-20T16:00:00Z",
+    execution_target_json: {
+      observation: { observed_release_lineage: DEPLOYED_SHA },
+      deployment: { release_lineage: DEPLOYED_SHA },
+    },
     ...overrides,
   };
 }
@@ -67,6 +71,7 @@ function shippingClient(rows, options = {}) {
                 status: "succeeded",
                 flow: "yoke-hosted-production-release-qa",
                 target_environment: "prod",
+                release_lineage: DEPLOYED_SHA,
                 created_at: "2026-09-20T05:49:22Z",
                 member_items: roster,
                 gates: [],
@@ -206,7 +211,7 @@ test("run-20260920-005 shape distinguishes verified, waived, no-obligation, neve
     const caption = byClass(members[index], "carried-item-evidence-caption")[0];
     return [item.ref, caption ? caption.textContent : ""];
   }));
-  assert.match(byRef["YOK-3281"], /verified this release/);
+  assert.match(byRef["YOK-3281"], /ran against the deployed revision/);
   assert.match(byRef["YOK-3294"], /waived/);
   assert.match(byRef["YOK-3297"], /no obligation/);
   assert.match(byRef["YOK-3290"], /never asked/);

@@ -20,6 +20,7 @@ import {
   activityRow,
   artifact,
   cardFor,
+  deployedTarget,
   itemReviewRow,
   member,
   memberEntry,
@@ -84,6 +85,7 @@ test("each carried item shows its own evidence and no one else's", async () => {
         deployment_run_id: RUN_ID,
         deployment_stage: "stage",
         artifacts: [artifact(17890, 26140)],
+        execution_target_json: deployedTarget(),
       }),
     ],
   });
@@ -96,9 +98,10 @@ test("each carried item shows its own evidence and no one else's", async () => {
   const second = byClass(memberEntry(card, 1), "carried-item-evidence")[0];
   assert.equal(byClass(first, "review-shot").length, 2);
   assert.equal(byClass(second, "review-shot").length, 1);
-  // The check recorded against this very run needs no disclaimer.
+  // Matching the deployed SHA is the this-release claim; run-id alone is not.
   assert.match(
-    byClass(second, "carried-item-evidence-caption")[0].textContent, /1 passed/,
+    byClass(second, "carried-item-evidence-caption")[0].textContent,
+    /ran against the deployed revision/,
   );
   assert.equal(byClass(second, "carried-item-evidence-note").length, 0);
 });

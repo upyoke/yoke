@@ -98,6 +98,7 @@ function decisionCard(context, row, project, onAct, evidenceShown, itemFacts, on
     const drawn = appendCarriedItemEvidence(context, list, {
       item,
       runId: row.id || row.run_id,
+      deployedSha: row.release_lineage,
       facts: itemFacts,
       onDecide: onItemDecision,
     });

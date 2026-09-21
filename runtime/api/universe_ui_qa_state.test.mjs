@@ -7,6 +7,8 @@ import {
   classifyMemberQa,
   classifyQaRow,
   memberQaCaption,
+  observedReleaseLineage,
+  ranAgainstDeployedRevision,
   summarizeQaUnion,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_state.js";
 
@@ -153,7 +155,7 @@ test("union discharges superseded and expected standing, and names what still bl
     },
   ]);
   assert.equal(standing.satisfied, true);
-  assert.match(standing.counts, /standing check/);
+  assert.match(standing.counts, /source requirement/);
 
   const blocked = summarizeQaUnion([
     { outcome: "passed", run_id: 1 },
@@ -162,3 +164,24 @@ test("union discharges superseded and expected standing, and names what still bl
   assert.equal(blocked.satisfied, false);
   assert.equal(blocked.outstandingPhrase, "1 failed");
 });
+
+test("observed lineage prefers the serving SHA over the intended one", () => {
+  const sha = "11c1487ec8543ef47c04458bac85a5645382563b";
+  const row = {
+    execution_target_json: {
+      deployment: { release_lineage: "deadbeef" },
+      observation: { observed_release_lineage: sha },
+    },
+  };
+  assert.equal(observedReleaseLineage(row), sha);
+  assert.equal(ranAgainstDeployedRevision(row, sha), true);
+  assert.equal(ranAgainstDeployedRevision(row, "other"), false);
+  assert.equal(ranAgainstDeployedRevision({ item_id: 1 }, sha), false);
+  assert.equal(
+    observedReleaseLineage({
+      execution_target_json: { deployment: { release_lineage: sha } },
+    }),
+    sha,
+  );
+});
+

@@ -28,10 +28,27 @@ export const QA_STATE = Object.freeze({
 
 const ADMITTED = /^admitted-requirement-(\d+)$/;
 
+export function observedReleaseLineage(row) {
+  const raw = row?.execution_target_json;
+  let target = raw;
+  if (typeof raw === "string") {
+    try { target = JSON.parse(raw); } catch { return ""; }
+  }
+  if (!target || typeof target !== "object") return "";
+  return String(target.observation?.observed_release_lineage
+    || target.deployment?.release_lineage || "").trim();
+}
+
+export function ranAgainstDeployedRevision(row, deployedSha) {
+  const observed = observedReleaseLineage(row);
+  const deployed = String(deployedSha || "").trim();
+  return Boolean(observed && deployed && observed === deployed);
+}
+
 const LABELS = Object.freeze({
   [QA_STATE.VERIFIED_RUN]: "verified this release",
   [QA_STATE.VERIFIED_ITEM]: "verified before merge",
-  [QA_STATE.STANDING_SOURCE]: "standing check",
+  [QA_STATE.STANDING_SOURCE]: "source requirement",
   [QA_STATE.ADMITTED_COPY]: "this release",
   [QA_STATE.SUPERSEDED]: "superseded",
   [QA_STATE.WAIVED]: "waived",
@@ -42,21 +59,7 @@ const LABELS = Object.freeze({
   [QA_STATE.QUEUED]: "queued",
   [QA_STATE.NEEDS_REVIEW]: "needs review",
 });
-
-const PILL = Object.freeze({
-  [QA_STATE.VERIFIED_RUN]: "verified this release",
-  [QA_STATE.VERIFIED_ITEM]: "verified before merge",
-  [QA_STATE.STANDING_SOURCE]: "standing check",
-  [QA_STATE.ADMITTED_COPY]: "this release",
-  [QA_STATE.SUPERSEDED]: "superseded",
-  [QA_STATE.WAIVED]: "waived",
-  [QA_STATE.NO_OBLIGATION]: "no obligation",
-  [QA_STATE.NEVER_ASKED]: "never asked",
-  [QA_STATE.RUN_MACHINERY]: "run gate",
-  [QA_STATE.FAILED]: "failed",
-  [QA_STATE.QUEUED]: "queued",
-  [QA_STATE.NEEDS_REVIEW]: "needs review",
-});
+const PILL = LABELS;
 
 function kindOf(row) {
   return String(row?.qa_kind || "");
@@ -146,7 +149,7 @@ export function classifyQaRow(row, rows = []) {
   if (sourceId != null) {
     return state(
       QA_STATE.ADMITTED_COPY,
-      `Admitted copy of standing check ${sourceId}; this is what ran for this release.`,
+      `Admitted copy of source requirement ${sourceId}; this is what ran for this release.`,
     );
   }
   const id = Number(row.id ?? row.requirement_id);
@@ -175,7 +178,7 @@ export function classifyQaRow(row, rows = []) {
       QA_STATE.STANDING_SOURCE,
       hasCopy
         ? "Stays open so the next release admits the same body. Open is expected."
-        : "Standing post-deploy check. Open until a release admits and runs it.",
+        : "Intake source. Open until a release admits a copy and runs it.",
     );
   }
   if (!isPostDeployFact(row) && !row.deployment_run_id) return null;
@@ -226,7 +229,7 @@ export function classifyMemberQa(rows, { runId } = {}) {
     return {
       ...state(
         QA_STATE.STANDING_SOURCE,
-        "Standing check has not been admitted onto this release.",
+        "This intake case was not run against the revision that is deployed.",
       ),
       rows: facts,
     };

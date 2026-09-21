@@ -181,6 +181,7 @@ export function appendCarried(context, host, row, options = {}) {
     const drawn = appendCarriedItemEvidence(context, member, {
       item,
       runId: row.id || row.run_id,
+      deployedSha: row.release_lineage,
       facts: options.facts,
       onDecide: options.onDecide,
     });

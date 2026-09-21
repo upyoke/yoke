@@ -79,7 +79,7 @@ const FAMILIES = {
   waived: "warn",
   "never asked": "warn",
   "no obligation": "idle",
-  "standing check": "idle",
+  "source requirement": "idle",
   "this release": "good",
   "run gate": "idle",
   "verified this release": "good",

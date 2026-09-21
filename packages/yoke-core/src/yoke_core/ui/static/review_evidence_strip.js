@@ -73,11 +73,8 @@ function captionOf(artifact) {
 function shotLabel(artifact, stepCaptionsOnly) {
   const step = artifactStepLabel(artifact);
   const named = step || (stepCaptionsOnly ? "" : artifactLabel(artifact));
-  if (!named) return "";
-  // Run-wide evidence gathers several items' captures into one strip, where
-  // "step 2" alone belongs to nobody — and two members' step 2 sit side by
-  // side. The owning item leads the caption wherever the caller knows it.
-  return artifact.owner_ref ? `${artifact.owner_ref} · ${named}` : named;
+  const parts = [artifact.owner_ref, artifact.provenance, named].filter(Boolean);
+  return parts.join(" · ");
 }
 
 // The pending box says why it is empty instead of the reason the read
@@ -102,6 +99,9 @@ function screenshot(context, artifact, stepCaptionsOnly) {
   const caption = captionOf(artifact);
   const figure = el(documentNode, "figure", "review-shot");
   figure.setAttribute("data-artifact-id", String(artifact.id));
+  if (artifact.provenance) {
+    figure.setAttribute("data-provenance", artifact.provenance);
+  }
   if (caption) figure.title = caption;
   const picture = el(documentNode, "a", "review-shot-open");
   const image = el(documentNode, "img", "review-shot-image");
@@ -204,7 +204,10 @@ function onMachineChip(documentNode, artifact) {
 // not normalize is not drawable and is dropped here rather than downstream.
 export function normalizedArtifacts(artifacts, options = {}) {
   return (Array.isArray(artifacts) ? artifacts : [])
-    .map((raw) => normalizeArtifact(raw, options.requirementId))
+    .map((raw) => ({
+      ...normalizeArtifact(raw, options.requirementId),
+      provenance: raw.provenance ?? null,
+    }))
     .filter((artifact) => Number.isFinite(artifact.id));
 }
 

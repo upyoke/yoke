@@ -69,6 +69,7 @@ ACTIVITY_COLUMNS = (
     "q.id AS requirement_id, q.plan_id, q.plan_case_key, "
     "q.deployment_run_id, q.deployment_stage, q.item_id, "
     "q.deployment_member_item_id, q.qa_kind, q.qa_phase, "
+    "q.execution_target_json, "
     "q.waived_at, q.waiver_rationale, q.instructions, "
     "q.superseded_by_requirement_id, q.superseded_at, "
     "q.host_baseline, p.slug AS plan, pr.slug AS project, "
