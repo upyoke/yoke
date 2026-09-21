@@ -16,7 +16,8 @@ Key concepts:
   (don't close until blocker reaches a milestone).
 - **Satisfaction condition** describes *what* must be true about the
   blocking item for the dependency to be considered resolved:
-  ``status:done``, ``status:implemented``, ``fact:merged``, or
+  ``status:<stage-id>`` (including ``status:done`` and
+  ``status:implemented``), ``fact:merged``, or
   ``fact:deployed:<environment-name>``.
 """
 
@@ -27,6 +28,7 @@ from typing import NamedTuple, Optional
 
 
 FACT_DEPLOYED_PREFIX = "fact:deployed:"
+STATUS_PREFIX = "status:"
 
 
 # ---------------------------------------------------------------------------
@@ -75,9 +77,9 @@ class Satisfaction(str, Enum):
 
     DB column: ``item_dependencies.satisfaction``
 
-    - ``STATUS_DONE``: Blocking item must reach ``done``.
-    - ``STATUS_IMPLEMENTED``: Blocking item must reach ``implemented``,
-      ``release``, or ``done``.
+    - ``status:<stage-id>``: Blocking item must reach that stage in its
+      pinned workflow. ``STATUS_DONE`` and ``STATUS_IMPLEMENTED`` remain
+      ordinary members of this form.
     - ``FACT_MERGED``: Blocking item's merge must be confirmed by canonical
       fact (for example ``merged_at``) or branch ancestry.
     - ``fact:deployed:<environment-name>``: A succeeded deployment run for
@@ -90,12 +92,21 @@ class Satisfaction(str, Enum):
 
     @classmethod
     def _missing_(cls, value: object) -> "Satisfaction" | None:
-        environment = deployed_environment(str(value))
-        if environment is None:
+        text = str(value)
+        environment = deployed_environment(text)
+        if environment is not None:
+            member = str.__new__(cls, text)
+            member._name_ = f"FACT_DEPLOYED_{environment}"
+            member._value_ = text
+            return member
+        stage_id = status_stage_id(text)
+        if stage_id is None:
             return None
-        member = str.__new__(cls, str(value))
-        member._name_ = f"FACT_DEPLOYED_{environment}"
-        member._value_ = str(value)
+        member = str.__new__(cls, text)
+        member._name_ = "STATUS_" + "".join(
+            ch.upper() if ch.isalnum() else "_" for ch in stage_id
+        )
+        member._value_ = text
         return member
 
     @classmethod
@@ -111,8 +122,7 @@ class Satisfaction(str, Enum):
 
 
 SATISFACTION_GRAMMAR = (
-    "status:done | status:implemented | fact:merged | "
-    "fact:deployed:<environment-name>"
+    "status:<stage-id> | fact:merged | fact:deployed:<environment-name>"
 )
 
 
@@ -120,10 +130,20 @@ def deployed_environment(satisfaction: str) -> str | None:
     """Return the named environment from a deployed-fact value."""
     if not satisfaction.startswith(FACT_DEPLOYED_PREFIX):
         return None
-    environment = satisfaction[len(FACT_DEPLOYED_PREFIX):]
+    environment = satisfaction[len(FACT_DEPLOYED_PREFIX) :]
     if not environment or environment != environment.strip():
         return None
     return environment
+
+
+def status_stage_id(satisfaction: str) -> str | None:
+    """Return the stage id from a status satisfaction value."""
+    if not satisfaction.startswith(STATUS_PREFIX):
+        return None
+    stage_id = satisfaction[len(STATUS_PREFIX) :]
+    if not stage_id or stage_id != stage_id.strip():
+        return None
+    return stage_id
 
 
 def satisfaction_is_known(satisfaction: str) -> bool:

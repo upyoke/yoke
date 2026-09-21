@@ -180,7 +180,8 @@ class TestVerificationStatusTokens:
         from yoke_core.domain.standalone_item_merge_cli_parser import build_parser
 
         merge_flag = next(
-            action for action in build_parser()._actions
+            action
+            for action in build_parser()._actions
             if "--verification-status" in action.option_strings
         )
         assert tuple(merge_flag.choices) == PASSING_VERIFICATION_STATUSES
@@ -192,9 +193,13 @@ class TestDependencySatisfactionHelp:
         [items_dependency_add, items_dependency_update],
     )
     def test_help_teaches_delivery_grammar_and_authoring_choice(
-        self, adapter, capsys,
+        self,
+        adapter,
+        capsys,
     ):
         out = _help_text(adapter, ["--help"], capsys)
+        assert "status:<stage-id>" in out
+        assert "lists the stages" in out
         assert "fact:deployed:<environment-name>" in out
         assert "not registered" in out
         assert "needs the blocker's code on trunk" in out

@@ -13,7 +13,8 @@ Key concepts:
   (don't close until blocker reaches a milestone).
 - **Satisfaction condition** describes *what* must be true about the
   blocking item for the dependency to be considered resolved:
-  ``status:done``, ``status:implemented``, ``fact:merged``, or
+  ``status:<stage-id>`` (including ``status:done`` and
+  ``status:implemented``), ``fact:merged``, or
   ``fact:deployed:<environment-name>``.
 - **Rationale** is a human-readable explanation of why the edge exists.
 - **Evidence JSON** is structured provenance payload.

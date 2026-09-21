@@ -102,7 +102,7 @@ _edge_mutations.append({
  dependent: "PREFIX-N",
  blocking: "PREFIX-M",
  gate_point: "activation|integration|closure",
- satisfaction: "status:done|status:implemented|fact:merged|fact:deployed:<environment-name>",
+ satisfaction: "status:<stage-id>|fact:merged|fact:deployed:<environment-name>",
  source: "feed|operator|idea|shepherd|conduct",
  rationale: "<why this row exists or changed>"
 })
