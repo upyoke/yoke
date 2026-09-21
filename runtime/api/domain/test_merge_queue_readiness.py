@@ -12,7 +12,10 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain import merge_queue_read_reuse as reads_mod
 from yoke_core.domain import merge_queue_readiness as readiness_mod
 from yoke_core.domain.handlers import github_merge_queue_readiness as handler
-from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
+from yoke_core.engines.merge_worktree_pr_check_runs import (
+    LandingCheck,
+    PrLandingProjection,
+)
 from yoke_core.engines.merge_worktree_pr_queue import PrLandingState, QueueMember
 
 
@@ -40,17 +43,20 @@ def _wire(
     state: PrLandingState,
     members,
     checks: tuple[LandingCheck, ...] = (),
-) -> list[str]:
+) -> tuple[list[str], list[str]]:
     targets: list[str] = []
-    checks_calls: list[str] = []
+    projections: list[str] = []
     monkeypatch.setattr(
         "yoke_core.domain.item_detail_read.get_item_detail",
         lambda _item_id: _item(),
     )
+
+    def read_projection(_ctx, pr_num):
+        projections.append(pr_num)
+        return PrLandingProjection(state=state, required_checks=tuple(checks))
+
     monkeypatch.setattr(
-        reads_mod,
-        "read_pr_landing_state",
-        lambda _ctx, _pr: (state, None),
+        reads_mod, "read_pr_landing_and_required_checks", read_projection
     )
 
     def read_members(_ctx, *, base_branch="main"):
@@ -58,13 +64,7 @@ def _wire(
         return list(members), None
 
     monkeypatch.setattr(reads_mod, "read_queue_members", read_members)
-
-    def read_checks(_ctx, pr_num):
-        checks_calls.append(pr_num)
-        return tuple(checks), None
-
-    monkeypatch.setattr(reads_mod, "read_required_checks", read_checks)
-    return targets, checks_calls
+    return targets, projections
 
 
 def test_enqueued_consumed_arming_is_reported_in_flight(monkeypatch) -> None:
@@ -114,7 +114,7 @@ def test_a_red_required_check_stops_an_armed_not_enqueued_landing(monkeypatch) -
     failed = LandingCheck(
         name="repo-contracts", status="completed", conclusion="failure", required=True
     )
-    _, checks_calls = _wire(
+    _, projections = _wire(
         monkeypatch,
         state=PrLandingState(False, False, True, merge_state_status="blocked"),
         members=(),
@@ -137,7 +137,7 @@ def test_a_red_required_check_stops_an_armed_not_enqueued_landing(monkeypatch) -
         }
     ]
     assert "repo-contracts=failure" in result.narrative
-    assert checks_calls == ["42"]
+    assert projections == ["42"]
 
 
 def test_a_pending_required_check_stays_a_healthy_in_flight_wait(monkeypatch) -> None:
@@ -198,9 +198,9 @@ def test_a_real_queue_entry_outranks_a_stale_check_read(monkeypatch) -> None:
     assert result.queue_holding == "enqueued"
 
 
-def test_a_merged_pull_request_never_reads_required_checks(monkeypatch) -> None:
-    """A merge that already happened answers everything the checks could."""
-    _, checks_calls = _wire(
+def test_a_merged_pull_request_uses_one_combined_github_read(monkeypatch) -> None:
+    """A merge that already happened is still one GraphQL document, not two."""
+    _, projections = _wire(
         monkeypatch,
         state=PrLandingState(True, False, False, merge_state_status="clean"),
         members=(),
@@ -210,7 +210,7 @@ def test_a_merged_pull_request_never_reads_required_checks(monkeypatch) -> None:
 
     result = handler.MergeQueueReadinessResponse(**outcome.result_payload)
     assert result.landing_state == "landed"
-    assert checks_calls == []
+    assert projections == ["42"]
 
 
 def test_registration_is_read_only_and_claim_free() -> None:

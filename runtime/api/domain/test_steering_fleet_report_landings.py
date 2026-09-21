@@ -8,6 +8,7 @@ from runtime.api.steering_fleet_test_helpers import compose, seed_steering_scope
 from yoke_core.domain import merge_queue_read_reuse as reads_mod
 from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_render import report_body
+from yoke_core.engines.merge_worktree_pr_check_runs import PrLandingProjection
 from yoke_core.engines.merge_worktree_pr_queue import PrLandingState, QueueMember
 
 
@@ -25,8 +26,8 @@ def fleet(test_db):
 def _wire(monkeypatch, *, state: PrLandingState, members) -> None:
     monkeypatch.setattr(
         reads_mod,
-        "read_pr_landing_state",
-        lambda _ctx, _pr: (state, None),
+        "read_pr_landing_and_required_checks",
+        lambda _ctx, _pr: PrLandingProjection(state=state, required_checks=()),
     )
     monkeypatch.setattr(
         reads_mod,
@@ -77,7 +78,7 @@ def test_an_open_verification_pr_is_not_yet_a_fleet_landing(fleet, monkeypatch) 
     fleet.commit()
     monkeypatch.setattr(
         reads_mod,
-        "read_pr_landing_state",
+        "read_pr_landing_and_required_checks",
         lambda *_args, **_kwargs: pytest.fail("landing read should not run"),
     )
 
