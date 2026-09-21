@@ -41,10 +41,12 @@ project and workflow delivery default into it when a run admits the item,
 which is after the merge, so before the merge it is empty on essentially
 every item. A gate keyed on it therefore asks almost nobody. The resolution
 every other delivery consumer uses is `item_completion_flow` — explicit pin,
-else the delivery default — and because it needs a connection the item
-detail read resolves it and carries the answer as `completion_flow`. The
-merge engine runs client-side against an https control plane with no local
-Postgres, so it reads that field rather than resolving the flow itself.
+else the delivery default — carried as `completion_flow`. Overview rows also
+carry `completion_flow_source` so a Frontier card can tell a pin from a
+project default; it prints "no flow" only when that resolution is empty and
+no release has carried a merge. The merge engine runs client-side against
+an https control plane with no local Postgres, so it reads `completion_flow`
+rather than resolving the flow itself.
 
 The refusal names the durable answers rather than defaulting between them:
 

@@ -130,13 +130,44 @@ export function mergesPhrase(delivery) {
 /**
  * Which flow the box names as shipping this item.
  *
- * The item's own stored flow when it has one. When it stores none, the flow
- * of the release that actually carried a merge — a flow-less item is still
- * delivered by whatever run picked it up, and "no flow" said about shipped
- * work reported a missing field as a missing delivery. Only an item that
- * stores no flow and whose merges no release has carried says "no flow".
+ * The overview row's effective completion flow when the serving build
+ * resolved one: the item's stored pin, else the project default (labeled
+ * as inherited), else the flow of a release that carried a merge. "no flow"
+ * is only the last case — an item that stores none, whose project declares
+ * none, and whose merges no release has carried. An unreadable default is
+ * named as unread, never as "no flow".
+ *
+ * A row that lacks the new fields is an older serving build: draw the
+ * stored-flow label this box already used, rather than refusing the
+ * roster. Blanking every Frontier card for one mixed-version window would
+ * hide the board; the previous label is wrong for unpinned defaults but
+ * still names a flow when the item stored one.
  */
+function hasCompletionFlowFields(row) {
+  return Object.prototype.hasOwnProperty.call(row, "completion_flow")
+    && Object.prototype.hasOwnProperty.call(row, "completion_flow_source");
+}
+
+function namedFlowId(row) {
+  if (hasCompletionFlowFields(row)) {
+    return String(row.completion_flow || "") || String(row.delivery?.flow || "");
+  }
+  return String(row.deployment_flow || "") || String(row.delivery?.flow || "");
+}
+
 export function deliveryFlowLabel(row) {
+  if (hasCompletionFlowFields(row)) {
+    if (String(row.completion_flow_source || "") === "unreadable") {
+      return "its project default could not be read";
+    }
+    const resolved = String(row.completion_flow || "");
+    if (resolved) {
+      return String(row.completion_flow_source || "") === "project_default"
+        ? `${resolved} (project default)`
+        : resolved;
+    }
+    return String(row.delivery?.flow || "") || "no flow";
+  }
   const stored = String(row.deployment_flow || "");
   if (stored) return stored;
   return String(row.delivery?.flow || "") || "no flow";
@@ -170,7 +201,7 @@ function deliveryRunCard(documentNode, run, row) {
   // The flow only when it is not the item's own: repeating the line above on
   // every sub-card says nothing, while a differing flow is the whole point.
   const flow = String(run.flow || "");
-  if (flow && flow !== deliveryFlowLabel(row)) {
+  if (flow && flow !== namedFlowId(row)) {
     card.appendChild(el(
       documentNode, "small", "item-deployment-flow", flow,
     ));

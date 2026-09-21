@@ -291,3 +291,58 @@ for (const band of BANDS) {
     mounted.unmount();
   });
 }
+
+async function flowLabel(t, facts, runsFor = () => []) {
+  stubFetch(t);
+  const { mounted, box } = await mountBand(BANDS[0], runsFor, facts);
+  const label = byClass(box, "item-delivery-flow")[0].textContent;
+  const runFlows = byClass(box, "item-deployment-flow").length;
+  mounted.unmount();
+  return { label, runFlows };
+}("completion-flow labels: own pin, project default, none, carried, unread", async (t) => {
+  assert.equal(
+    (await flowLabel(t, {
+      completion_flow: FLOW, completion_flow_source: "item",
+    })).label,
+    FLOW,
+  );
+  const inherited = await flowLabel(
+    t,
+    {
+      deployment_flow: "",
+      completion_flow: FLOW,
+      completion_flow_source: "project_default",
+      delivery: { merges: 1, deployed: 1, not_deployed: 0, flow: FLOW },
+    },
+    (itemId) => [run("run-1", itemId)],
+  );
+  assert.equal(inherited.label, `${FLOW} (project default)`);
+  assert.equal(inherited.runFlows, 0);
+  assert.equal(
+    (await flowLabel(t, {
+      deployment_flow: "",
+      completion_flow: "",
+      completion_flow_source: "none",
+      delivery: { merges: 0, deployed: 0, not_deployed: 0, flow: "" },
+    })).label,
+    "no flow",
+  );
+  assert.equal(
+    (await flowLabel(t, {
+      deployment_flow: "",
+      completion_flow: "",
+      completion_flow_source: "none",
+      delivery: { merges: 1, deployed: 1, not_deployed: 0, flow: FLOW },
+    })).label,
+    FLOW,
+  );
+  assert.equal(
+    (await flowLabel(t, {
+      deployment_flow: "",
+      completion_flow: "",
+      completion_flow_source: "unreadable",
+      delivery: { merges: 0, deployed: 0, not_deployed: 0, flow: "" },
+    })).label,
+    "its project default could not be read",
+  );
+});
