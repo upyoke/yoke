@@ -53,7 +53,11 @@ def refuse_held_assigned_item(
 
     The worker cannot clear that claim, so delivering the launch only
     stalls. Name the holder and the command that releases its claims.
+    Missing pin schema is a no-op so identity-only fixtures stay valid,
+    matching ``refuse_terminal_assigned_item``.
     """
+    if not workflow_pin_schema_present(conn):
+        return
     item_id = resolve_item_id(conn, public_ref, project=project_id)
     if item_id is None:
         return
