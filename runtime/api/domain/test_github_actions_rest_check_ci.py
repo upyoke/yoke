@@ -53,6 +53,20 @@ class TestCheckCi:
                 github_actions.cmd_check_ci("o/r", "ci.yml", project="yoke")
             assert exc_info.value.code == 1
 
+    def test_cancelled_is_no_verdict_not_a_failure(
+        self, _resolver_ok, monkeypatch, capsys,
+    ):
+        with _fake_urls(
+            monkeypatch,
+            [_run_payload(status="completed", conclusion="cancelled")],
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                github_actions.cmd_check_ci("o/r", "ci.yml", project="yoke")
+            assert exc_info.value.code == 1
+        output = capsys.readouterr().out
+        assert "no_verdict:cancelled" in output
+        assert "failed:cancelled" not in output
+
     def test_running_no_wait(self, _resolver_ok, monkeypatch):
         with _fake_urls(
             monkeypatch,

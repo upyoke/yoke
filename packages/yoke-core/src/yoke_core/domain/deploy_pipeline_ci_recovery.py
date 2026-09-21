@@ -32,6 +32,94 @@ def ci_gate_subject(branch: str, head_sha: str) -> str:
     return short_sha or branch
 
 
+_QUEUE_REF_PREFIX = "gh-readonly-queue/"
+
+
+def failed_ci_message(subject: str) -> str:
+    """Refuse a deploy whose declared CI run concluded failure."""
+    return (
+        f"\nBLOCKED: Cannot deploy — CI has failed for {subject}.\n\n"
+        "Remediation:\n"
+        f"  1. Fix the failing CI on {subject}\n"
+        "  2. Re-run the deployment pipeline\n"
+    )
+
+
+def timed_out_ci_message(subject: str, timeout_sec: int) -> str:
+    """Refuse a deploy whose CI wait budget ended before a conclusion."""
+    return (
+        f"\nBLOCKED: Cannot deploy — CI timed out for {subject} "
+        f"({timeout_sec}s).\n\n"
+        "Remediation:\n"
+        "  1. Wait for CI to complete, then re-run the deployment pipeline\n"
+        "  2. Or increase --timeout if the CI workflow normally takes longer\n"
+    )
+
+
+def merge_queue_same_tree_note(runs: list[Any]) -> str:
+    """Name a same-tree merge-queue conclusion when the listing has one."""
+    queue_runs = []
+    for run in runs:
+        if not isinstance(run, dict):
+            continue
+        event = str(run.get("event") or "")
+        head_branch = str(run.get("head_branch") or "")
+        if event != "merge_group" and not head_branch.startswith(_QUEUE_REF_PREFIX):
+            continue
+        queue_runs.append(run)
+    if not queue_runs:
+        return ""
+    chosen = next(
+        (
+            run for run in queue_runs
+            if str(run.get("conclusion") or "") == "success"
+        ),
+        queue_runs[0],
+    )
+    conclusion = str(chosen.get("conclusion") or "").strip() or "none"
+    name = str(chosen.get("name") or "workflow")
+    loc = str(chosen.get("head_branch") or chosen.get("event") or "merge queue")
+    return (
+        f"A merge-queue run of {name} on {loc} for this identical tree "
+        f"already concluded {conclusion}; that does not satisfy this gate.\n\n"
+    )
+
+
+def no_verdict_ci_message(
+    *,
+    subject: str,
+    conclusion: str,
+    project: str = "",
+    head_sha: str = "",
+    sibling_runs: list[Any] | None = None,
+) -> str:
+    """Refuse a deploy whose CI run completed without a pass or fail."""
+    named = (conclusion or "").strip() or "empty"
+    runs = sibling_runs
+    if runs is None and project and head_sha:
+        from yoke_core.domain.github_actions_commit_runs_read import (
+            CommitRunAuthorityError,
+            matching_runs,
+        )
+
+        try:
+            runs = matching_runs(project, head_sha, "")
+        except CommitRunAuthorityError:
+            runs = []
+    queue_note = merge_queue_same_tree_note(runs or [])
+    return (
+        f"\nBLOCKED: Cannot deploy — CI has no verdict for {subject} "
+        f"(conclusion {named}).\n\n"
+        "A cancelled, skipped, or otherwise unfinished run is not a test "
+        "failure.\n\n"
+        f"{queue_note}"
+        "Recovery:\n"
+        "  1. Obtain a CI verdict for this exact commit (re-run the declared "
+        "workflow on this SHA)\n"
+        "  2. Re-run the deployment pipeline\n"
+    )
+
+
 def unverifiable_ci_target_message(*, github_repo: str, workflow: str) -> str:
     """Refuse a gate that named neither a branch nor a release commit."""
     return (
@@ -206,7 +294,11 @@ __all__ = [
     "ci_gate_dispatch_request_id",
     "ci_gate_subject",
     "dispatch_missing_ci_run",
+    "failed_ci_message",
+    "merge_queue_same_tree_note",
     "missing_ci_run_message",
+    "no_verdict_ci_message",
     "recover_missing_ci_gate",
+    "timed_out_ci_message",
     "unverifiable_ci_target_message",
 ]
