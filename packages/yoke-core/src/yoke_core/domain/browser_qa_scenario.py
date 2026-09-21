@@ -283,7 +283,7 @@ def execute_scenario(
         if outcome.executed:
             result.executed += 1
 
-        if outcome.capture_failed:
+        if outcome.capture_failed or outcome.run_result.verdict == "fail":
             result.verdict = "fail"
         elif outcome.run_result.verdict == "pending" and result.verdict == "pass":
             result.verdict = "pending"
