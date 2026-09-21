@@ -17,7 +17,6 @@ from runtime.api.domain.test_deployment_delivery_close_out_notice import (
     _run,
 )
 from runtime.api.domain.test_deployment_qa_member_acceptance_notice import (
-    MEMBER_A,
     _executing_run,
 )
 from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
