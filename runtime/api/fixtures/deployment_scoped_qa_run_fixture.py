@@ -113,6 +113,7 @@ def seed_run_standing_on_qa_stage(
     lineage: str,
     environment: str = "stage",
     environment_url: str = "https://preview.example.test",
+    receipt_target_kind: str = "persistent_environment",
 ) -> None:
     """Seed a frozen run parked on its item QA stage with deploy done.
 
@@ -191,7 +192,7 @@ def seed_run_standing_on_qa_stage(
         run_id=run_id,
         stage_name=str(stages[0]["name"]),
         correlation_id=f"{run_id}-deploy-1",
-        target_kind="persistent_environment",
+        target_kind=receipt_target_kind,
         executor="test",
         commit=False,
     )
@@ -216,7 +217,8 @@ def seed_run_standing_on_qa_stage(
 
 
 #: The one item-scoped QA stage these helpers seed, named once so a test and
-#: the fixture cannot drift apart on the string.
+#: the fixture cannot drift apart on the string. Flows with two item-scoped
+#: stages live in test_deployment_qa_multi_item_scoped_stages.
 ITEM_QA_STAGE = "item-qa"
 
 

@@ -9,6 +9,9 @@ from typing import Any
 from yoke_core.domain.deployment_stage_receipts import (
     deployment_stage_receipt_for_qa,
 )
+from yoke_core.domain.post_deploy_verification_answer import (
+    member_post_deploy_answer,
+)
 
 
 DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND = "deployment_stage_acceptance"
@@ -131,6 +134,54 @@ def _subjects(conn: Any, run_id: str, stage: Mapping[str, Any]) -> list[int | No
     return [int(row["item_id"] if hasattr(row, "keys") else row[0]) for row in rows]
 
 
+def _stage_subject_discharged(
+    conn: Any,
+    *,
+    run_id: str,
+    stage: Mapping[str, Any],
+    member: int | None,
+) -> bool:
+    """True when this prior-stage subject was settled without an acceptance row.
+
+    Discharge is a recorded fact: no-obligation / declared-none on the
+    member, or every case at this stage waived or superseded. Absence of
+    an acceptance row for an unasked member is not discharge.
+    """
+    if member is not None and member_post_deploy_answer(
+        conn, {"member_item_id": member}
+    ).discharges_without_cases:
+        return True
+    from yoke_core.domain.deployment_qa_execution_target import (
+        deployment_qa_execution_target,
+    )
+    from yoke_core.domain.deployment_qa_stage_case_failures import (
+        obligations_fully_discharged,
+    )
+    from yoke_core.domain.deployment_qa_stage_contract import (
+        deployment_qa_stage_subject,
+    )
+    from yoke_core.domain.qa_execution_environment_target import target_digest
+
+    try:
+        subject = deployment_qa_stage_subject(
+            conn,
+            run_id=run_id,
+            stage_name=str(stage["name"]),
+            member_item_id=member,
+            require_active=False,
+        )
+        target = deployment_qa_execution_target(conn, subject)
+    except (LookupError, TypeError, ValueError):
+        return False
+    return obligations_fully_discharged(
+        conn,
+        run_id=run_id,
+        stage_name=str(stage["name"]),
+        member_item_id=member,
+        execution_target_digest=target_digest(target),
+    )
+
+
 def prior_stage_refusals(
     conn: Any,
     *,
@@ -183,6 +234,10 @@ def prior_stage_refusals(
                 else:
                     invalid_reasons.append(refusal)
             if len(valid) != 1:
+                if len(valid) == 0 and _stage_subject_discharged(
+                    conn, run_id=run_id, stage=stage, member=member
+                ):
+                    continue
                 refusals.append(
                     f"stage {stage['name']!r} member {member!r} has "
                     f"{len(valid)} current acceptance records"

@@ -34,6 +34,51 @@ from yoke_core.domain.qa_obligation_settlement import (
 from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
 
 
+def stage_environment_id_for_plan_selection(
+    conn: Any, target: Mapping[str, Any]
+) -> int | None:
+    """Persistent environment this stage is asking against.
+
+    A ``run_preview`` target has no environment id of its own. It stands in
+    for the run's persistent ``target_environment_id``, which is how a plan
+    bound to prod stays selectable at preview and still skips a plan bound
+    to a different environment.
+    """
+    environment = target.get("environment")
+    if not isinstance(environment, Mapping):
+        return None
+    raw_id = environment.get("id")
+    if raw_id is not None:
+        return int(raw_id)
+    if str(environment.get("kind") or "") != "run_preview":
+        return None
+    deployment = target.get("deployment")
+    run_id = (
+        str(deployment.get("run_id") or "")
+        if isinstance(deployment, Mapping)
+        else ""
+    )
+    if not run_id:
+        return None
+    row = conn.execute(
+        "SELECT target_environment_id FROM deployment_runs WHERE id=%s",
+        (run_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    value = row["target_environment_id"] if hasattr(row, "keys") else row[0]
+    return int(value) if value is not None else None
+
+
+def plan_matches_stage_environment(
+    plan_environment_id: Any, stage_environment_id: int | None
+) -> bool:
+    """True when an unbound plan, or a plan bound to this stage's environment."""
+    if plan_environment_id is None:
+        return True
+    return int(plan_environment_id) == int(stage_environment_id or 0)
+
+
 #: The phase an item-scoped deployment QA stage credits. An attachment for
 #: any other phase belongs to a workflow transition, not to a deployment.
 DEPLOYMENT_ATTACHMENT_PHASE = "post_deploy"
@@ -62,9 +107,8 @@ def attached_member_plan_ids(
     )
     selected: list[int] = []
     for row in rows:
-        plan_environment = row["target_environment_id"]
-        if plan_environment is not None and int(plan_environment) != int(
-            environment_id or 0
+        if not plan_matches_stage_environment(
+            row["target_environment_id"], environment_id
         ):
             continue
         selected.append(int(row["plan_id"]))
@@ -157,14 +201,10 @@ def attached_member_plans(
     if member_item_id is None:
         # A run-scoped stage has no member, so no member plan to attach.
         return []
-    environment = target.get("environment")
-    environment_id = (
-        environment.get("id") if isinstance(environment, Mapping) else None
-    )
     plan_ids = attached_member_plan_ids(
         conn,
         member_item_id=int(member_item_id),
-        environment_id=environment_id,
+        environment_id=stage_environment_id_for_plan_selection(conn, target),
     )
     if not plan_ids:
         return []
@@ -188,4 +228,6 @@ __all__ = [
     "attachments_still_owed",
     "delivery_answered_plan_ids",
     "attached_member_plans",
+    "plan_matches_stage_environment",
+    "stage_environment_id_for_plan_selection",
 ]

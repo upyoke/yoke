@@ -7,7 +7,8 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.qa_deployment_member_attached_plans import (
-    attached_member_plans,
+    attached_member_plans, plan_matches_stage_environment,
+    stage_environment_id_for_plan_selection,
 )
 from yoke_core.domain.qa_deployment_case_content_refresh import (
     refreshed_case_keys,
@@ -53,15 +54,15 @@ def _flow_plan(subject: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 
 def _member_plans(
-    subject: Mapping[str, Any], *, target: Mapping[str, Any]
+    conn: Any,
+    subject: Mapping[str, Any],
+    *,
+    target: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
     snapshot = subject.get("member_snapshot")
     if not isinstance(snapshot, Mapping):
         return []
-    environment = target.get("environment")
-    environment_id = (
-        environment.get("id") if isinstance(environment, Mapping) else None
-    )
+    stage_environment_id = stage_environment_id_for_plan_selection(conn, target)
     selected: list[dict[str, Any]] = []
     for value in snapshot.get("plans") or []:
         if not isinstance(value, Mapping):
@@ -72,9 +73,8 @@ def _member_plans(
             continue
         if str(attachment.get("qa_phase") or "") != "post_deploy":
             continue
-        plan_environment = plan.get("target_environment_id")
-        if plan_environment is not None and int(plan_environment) != int(
-            environment_id or 0
+        if not plan_matches_stage_environment(
+            plan.get("target_environment_id"), stage_environment_id
         ):
             continue
         selected.append(dict(value))
@@ -105,7 +105,7 @@ def _selected_plans(
     admitted: list[dict[str, Any]],
     allow_empty: bool = False,
 ) -> list[dict[str, Any]]:
-    frozen = [*_flow_plan(subject), *_member_plans(subject, target=target)]
+    frozen = [*_flow_plan(subject), *_member_plans(conn, subject, target=target)]
     if not frozen:
         # Nothing pinned or frozen selected cases, so the member's own
         # attached plan answers before any --plan choice is needed.
