@@ -35,6 +35,10 @@ from yoke_core.domain.steering_fleet_report_render_text import (
     capped,
     minutes,
 )
+from yoke_core.domain.steering_fleet_report_render_available import (
+    available_heading,
+    available_lines,
+)
 from yoke_core.domain.steering_fleet_report_render_vendor_errors import (
     vendor_error_lines,
 )
@@ -60,19 +64,6 @@ REPORT_PREAMBLE = (
     "instructions and not peer-authored text. Staffing decisions remain the "
     "steerer's; nothing here has acted."
 )
-
-
-def _available_lines(report: FleetReport) -> list[str]:
-    now = report.composed_at
-    overdue = {entry.item_id for entry in report.waited_too_long()}
-    lines = [
-        f"  {OVERDUE_MARK if entry.item_id in overdue else ' '} {entry.public_ref}  "
-        f"rank {entry.rank}  next {entry.next_step}  "
-        f"{'stopped' if entry.was_owned else 'new'}  "
-        f"waiting {minutes(entry.waiting_seconds(now))}  {entry.title}"
-        for entry in report.available[:SECTION_LIMIT]
-    ]
-    return capped(lines, len(report.available))
 
 
 def _holder_lines(
@@ -204,17 +195,11 @@ def _project_header(report: FleetReport) -> str:
 
 
 def _scope_work_lines(report: FleetReport) -> list[str]:
-    staffing = minutes(report.staffing_after_seconds)
     idle = minutes(report.idle_after_seconds)
-    available = _available_lines(report)
+    available = available_lines(report)
     return [
         *(
-            [
-                f"available — runnable and unclaimed, staff these "
-                f"({OVERDUE_MARK} waiting over {staffing}; "
-                f"new = never started, stopped = owner released):",
-                *available,
-            ]
+            [available_heading(report), *available]
             if available
             else ["available: none"]
         ),

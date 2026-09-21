@@ -21,8 +21,11 @@ from yoke_core.domain.session_launch_types import (
     SessionLaunchError,
 )
 from yoke_core.domain.session_launch_projection import public_launch_record
-from yoke_core.domain.session_launch_validation import preview_model_selection_payload
-from yoke_core.domain.session_launch_validation import validate_preview_model_selection
+from yoke_core.domain.session_launch_validation import (
+    preview_model_selection_payload,
+    require_launch_id,
+    validate_preview_model_selection,
+)
 
 
 def _failure(code: str, message: str, path: str = "$.payload") -> HandlerOutcome:
@@ -225,9 +228,13 @@ def handle_launch_get(request: FunctionCallRequest) -> HandlerOutcome:
     parsed = _parse(LaunchMutationRequest, request)
     if isinstance(parsed, HandlerOutcome):
         return parsed
+    try:
+        launch_id = require_launch_id(parsed.launch_id)
+    except SessionLaunchError as exc:
+        return _domain_error(exc)
     conn = _open()
     try:
-        launch, auth = _launch_and_auth(conn, request, parsed.launch_id)
+        launch, auth = _launch_and_auth(conn, request, launch_id)
         if not auth.can_operate_project:
             raise SessionLaunchError("permission_denied", "project operator required")
         return HandlerOutcome(result_payload={"launch": public_launch_record(launch)})

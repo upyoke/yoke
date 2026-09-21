@@ -3,6 +3,10 @@
 The waiting clock is the whole reason this is its own read. "Unstaffed since"
 is not the item's age: a claim released two minutes ago restarts the wait,
 because a released item is newly available rather than newly neglected.
+
+A launch already in ``assigned``, ``launching``, or ``awaiting_registration``
+is still a candidate — hiding it would stall a frozen worker — but its clock
+runs from that launch, not from when the item became pickable.
 """
 
 from __future__ import annotations
@@ -16,6 +20,9 @@ from yoke_core.domain.scheduler_types import ClaimState, NextStep
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds, marker
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
+#: Launch states that mean a worker is already being staffed onto the item.
+STAFFING_LAUNCH_STATES = ("assigned", "launching", "awaiting_registration")
+
 
 @dataclass(frozen=True)
 class FrontierEntry:
@@ -28,9 +35,46 @@ class FrontierEntry:
     rank: int
     pickable_since: str
     was_owned: bool
+    launch_id: str = ""
+    launch_state: str = ""
+    launched_at: str = ""
 
     def waiting_seconds(self, now: str) -> int:
-        return age_seconds(self.pickable_since, now) or 0
+        return age_seconds(self.launched_at or self.pickable_since, now) or 0
+
+
+def _assignment_ref(session_name: str) -> str:
+    """The item ref ``assignment_session_name`` stores ahead of the colon."""
+    name = session_name.strip()
+    return name.split(":", 1)[0].strip() if name else ""
+
+
+def _staffing_launches(
+    conn: Any, project_id: int
+) -> dict[str, tuple[str, str, str]]:
+    """Earliest in-flight launch keyed by the assignment item ref."""
+    p = marker(conn)
+    holes = ", ".join(p for _ in STAFFING_LAUNCH_STATES)
+    rows = conn.execute(
+        f"""SELECT launch_id, state, created_at, session_name
+              FROM session_launches
+             WHERE project_id = {p}
+               AND state IN ({holes})
+             ORDER BY created_at ASC, launch_id ASC""",
+        (int(project_id), *STAFFING_LAUNCH_STATES),
+    ).fetchall()
+    assigned: dict[str, tuple[str, str, str]] = {}
+    for row in rows:
+        record = dict(row)
+        ref = _assignment_ref(str(record.get("session_name") or ""))
+        if not ref or ref in assigned:
+            continue
+        assigned[ref] = (
+            str(record["launch_id"]),
+            str(record["state"]),
+            str(record["created_at"]),
+        )
+    return assigned
 
 
 def _pickable_since(conn: Any, item_ids: Sequence[int]) -> dict[int, tuple[str, bool]]:
@@ -95,21 +139,29 @@ def scope_candidates(
     ]
     refs = render_item_refs(conn, [step.item_id for step in steps])
     pickable = _pickable_since(conn, [step.item_id for step in steps])
+    launches = _staffing_launches(conn, project_id)
     entries = []
     for step in steps:
         since, was_owned = pickable.get(step.item_id, (step.created_at, False))
+        public_ref = refs.get(step.item_id, str(step.item_id))
+        launch_id, launch_state, launched_at = launches.get(
+            public_ref, ("", "", "")
+        )
         entries.append(
             FrontierEntry(
                 item_id=step.item_id,
-                public_ref=refs.get(step.item_id, str(step.item_id)),
+                public_ref=public_ref,
                 title=step.title,
                 next_step=step.next_step.value,
                 rank=step.rank,
                 pickable_since=since or step.created_at,
                 was_owned=was_owned,
+                launch_id=launch_id,
+                launch_state=launch_state,
+                launched_at=launched_at,
             )
         )
     return tuple(entries)
 
 
-__all__ = ["FrontierEntry", "scope_candidates"]
+__all__ = ["FrontierEntry", "STAFFING_LAUNCH_STATES", "scope_candidates"]
