@@ -33,8 +33,16 @@ from yoke_core.domain.qa_requirement_rebind_identity import (
     _live_target,
     declaration_correction_applies,
     different_target_reuse_recovery,
+    identity_mismatch_message,
     same_environment_identity,
 )
+
+
+def _int_or_none(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _json_object(raw: Any) -> dict[str, Any] | None:
@@ -90,7 +98,7 @@ def rebind_requirement(
         )
     row = query_one(
         conn,
-        "SELECT id,item_id,epic_id,task_num,deployment_run_id,"
+        "SELECT id,item_id,epic_id,task_num,deployment_run_id,plan_id,"
         "qa_kind,qa_phase,execution_target_json,execution_target_digest,"
         "rebound_at,rebound_from_digest,rebound_from_target_json,"
         "rebind_endpoint_delta_json,rebind_rationale,rebind_actor_id "
@@ -112,7 +120,9 @@ def rebind_requirement(
             "start a fresh execution or use sanctioned retirement or "
             "supersession"
         )
-    live = _live_target(conn, stored)
+    live, environment_id, resolved_from = _live_target(
+        conn, stored, plan_id=_int_or_none(row["plan_id"])
+    )
     old_digest = str(row["execution_target_digest"] or "")
     new_json = canonical_target(live)
     new_digest = target_digest(live)
@@ -130,10 +140,13 @@ def rebind_requirement(
         )
     if not same_environment_identity(stored, live):
         raise QaRebindError(
-            f"requirement {requirement_id} is bound to a genuinely different "
-            "target, not a corrected declaration of the same environment. "
-            "Start a fresh deployment/plan execution or use sanctioned "
-            "retirement or supersession; rebinding is not re-verifying"
+            identity_mismatch_message(
+                stored,
+                live,
+                environment_id=environment_id,
+                resolved_from=resolved_from,
+                requirement_id=int(requirement_id),
+            )
         )
     if delta["authority_changed"]:
         raise QaRebindError(
