@@ -34,6 +34,8 @@ from yoke_core.domain.deployment_run_carried_work import derive_carried_work
 from yoke_core.domain.deployment_run_carried_work_source import (
     SOURCE_REPOSITORY_PROVIDER,
 )
+from yoke_core.domain.json_helper import dumps_compact
+from yoke_core.domain.release_delivery_membership import honest_carried_shas
 
 
 #: A well-formed commit id no repository in these tests has ever held.
@@ -171,6 +173,73 @@ def test_the_membership_refusal_carries_the_recovery_the_reason_earned(
     assert ABSENT_COMMIT in refusal
     assert str(stale) in refusal
     assert "repair attribution" not in refusal
+
+
+def _second_remote(repo: Path, tmp_path: Path, name: str = "archive") -> None:
+    extra = tmp_path / f"{name}.git"
+    subprocess.run(
+        ["git", "init", "--quiet", "--bare", "-b", "main", str(extra)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    git(repo, "remote", "add", name, str(extra))
+
+
+def _warning_text(carried: dict[str, Any]) -> str:
+    bound = _bound_set(carried)
+    notes = list(bound.get("warnings") or []) + list(carried.get("warnings") or [])
+    return " ".join(
+        f"{note.get('reason', '')} {note.get('recovery', '')}"
+        for note in notes
+        if isinstance(note, dict)
+    )
+
+
+def test_several_remotes_still_refresh_from_the_branch_that_records_one(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A second remote is not 'no remote'; the branch already named origin."""
+    release, stale, published = _stale_consumer_checkout(
+        test_db, tmp_path, monkeypatch
+    )
+    _second_remote(stale, tmp_path)
+    recorded = record_bound_sources(test_db, "run-candidate")
+    test_db.commit()
+    assert recorded["inputs"]["consumer_sha"] == published
+
+    carried = derive_carried_work(test_db, "run-candidate")
+
+    assert "checkout_not_refreshed" not in _warning_text(carried)
+    bound = _bound_set(carried)
+    assert bound["derivation"]["contents_known"] is True
+    assert honest_carried_shas(
+        dumps_compact(carried), bound_project_id=release["consumer_id"]
+    )
+    assert published in bound["commits"] or any(
+        published in entry["commit_shas"] for entry in bound["items"]
+    )
+
+
+def test_several_unrecorded_remotes_do_not_claim_none_is_configured(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When nothing records a remote, the note names the ambiguity."""
+    _release, stale, _published = _stale_consumer_checkout(
+        test_db, tmp_path, monkeypatch
+    )
+    _second_remote(stale, tmp_path)
+    git(stale, "config", "--unset", "branch.main.remote")
+    record_bound_sources(test_db, "run-candidate")
+    test_db.commit()
+
+    carried = derive_carried_work(test_db, "run-candidate")
+
+    text = _warning_text(carried)
+    assert "checkout_not_refreshed" in text
+    assert "no remote is configured" not in text
+    assert "remotes are configured" in text
+    assert "none is recorded" in text
 
 
 class _UnfetchableSource:

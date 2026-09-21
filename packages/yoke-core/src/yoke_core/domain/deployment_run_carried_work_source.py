@@ -145,18 +145,29 @@ class LocalCheckoutSource:
         remote, the credential, and the network bound are the ones lane
         preparation already fetches through, and only remote-tracking refs
         move — no local branch, ref, or working tree is touched. A checkout
-        with no configured remote, no credential for it, or no network keeps
-        answering from the refs it already holds and records why, so a later
-        refusal is the ordinary named one rather than a new failure mode.
+        that cannot name a remote, has no credential for it, or has no
+        network keeps answering from the refs it already holds and records
+        why, so a later refusal is the ordinary named one rather than a
+        new failure mode.
         """
         if self._fetched:
             return False
         self._fetched = True
         from yoke_cli.config import repo_upstream_git
 
-        remote, _configured = repo_upstream_git.resolve_remote(self._repo_root)
+        branch = git.git_out(self._repo_root, "branch", "--show-current")
+        remote, configured = repo_upstream_git.resolve_remote(
+            self._repo_root, branch
+        )
         if not remote:
-            self._note_unfetched("no remote is configured for this checkout")
+            self._note_unfetched(
+                "no remote is configured for this checkout"
+                if configured == 0
+                else (
+                    f"{configured} remotes are configured and none is recorded "
+                    f"for this branch"
+                )
+            )
             return False
         fetched = repo_upstream_git.git(
             self._repo_root,
