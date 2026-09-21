@@ -21,9 +21,11 @@ DEPLOYMENT_RUN_QUERY_HINT = (
     "`target_env` column); `deployment_runs.status` and "
     "`deployment_runs.current_stage` record progress. There is no "
     "`deployment_runs.item_id`; join through `deployment_run_items` "
-    "for item-bound runs. `deployment_runs.carried_work` is the "
-    "inert JSON record of what a succeeded run shipped: resolved "
-    "items plus unresolved bare commits."
+    "for item-bound runs. `deployment_runs.carried_work` records "
+    "resolved items and unresolved bare commits; a warning that "
+    "changes what the run can attest is `deployment_runs.get` "
+    "`attestation_warnings` (reason, cost, recovery), not a parse "
+    "of that JSON column."
 )
 
 #: Which release-time command belongs to the seat driving a run and which to

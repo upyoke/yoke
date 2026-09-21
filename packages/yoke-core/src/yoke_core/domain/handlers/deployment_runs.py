@@ -55,6 +55,7 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
         )
     parsed = pipe_to_dict(raw, RUN_FIELDS)
     from yoke_core.domain.deployment_run_carried_work import parse_carried_work
+    from yoke_core.domain.release_delivery_attestation import attestation_warnings
 
     parsed["carried_work"] = parse_carried_work(parsed.get("carried_work"))
     return HandlerOutcome(
@@ -62,6 +63,7 @@ def handle_deployment_run_get(request: FunctionCallRequest) -> HandlerOutcome:
             "run_id": resolved_run_id,
             "fields": list(RUN_FIELDS),
             "run": parsed,
+            "attestation_warnings": attestation_warnings(parsed.get("carried_work")),
         },
         primary_success=True,
     )
@@ -261,9 +263,7 @@ def handle_deployment_run_approve(request: FunctionCallRequest) -> HandlerOutcom
             # Only a cleared stage has a run to re-enter; one still collecting
             # decisions would be teaching a command that refuses.
             "drive_recipe": (
-                drive_recipe(
-                    approval.run_id, approval.project, holds_lock=False
-                )
+                drive_recipe(approval.run_id, approval.project, holds_lock=False)
                 if approval.stage_approved
                 else None
             ),

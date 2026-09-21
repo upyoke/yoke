@@ -147,6 +147,7 @@ class TestItemLessRun:
             "Deployment authority: release_control_plane=prod "
             f"target=stage flow=flow-env run={run_id}"
         ) in out
+        assert "carried-work attestation" not in out
 
         # Item-bound steps are skipped entirely: no branch verification.
         verify.assert_not_called()

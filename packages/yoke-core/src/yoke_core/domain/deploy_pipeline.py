@@ -24,6 +24,7 @@ from yoke_core.domain.deploy_pipeline_reporting import (
 from yoke_core.domain.deploy_pipeline_run_context import (
     EXIT_FINALIZATION_PENDING,  # noqa: F401 — public pipeline exit 4
     finalize_after_stages,
+    narrate_carried_work_attestation,
     resolve_project_checkout_path,
 )
 from yoke_core.domain import deploy_pipeline_stage_checks as stage_checks
@@ -45,7 +46,12 @@ EXIT_STAGE_FAILED = deploy_pipeline_failure.EXIT_STAGE_FAILED
 EXIT_AWAITING_APPROVAL = 2
 EXIT_USAGE = 3
 EXIT_AWAITING_QA = 5
+_QA_EXITS = {"usage_exit": EXIT_USAGE, "awaiting_qa_exit": EXIT_AWAITING_QA}
 _release_control_plane_env = deploy_env.release_control_plane_env
+
+
+def _finalize(*args, sd):
+    return finalize_after_stages(*args, sd=sd, **_QA_EXITS)
 
 
 def run_pipeline(
@@ -98,6 +104,7 @@ def run_pipeline(
     enrollment = describe_enrollment(context.get("enrolled_carried_items") or ())
     if enrollment:
         print(enrollment)
+    narrate_carried_work_attestation(run.get("carried_work"))
     if not member_items:
         print(f"Run {run_id} has no member items (environment-level deploy)")
 
@@ -134,6 +141,7 @@ def run_pipeline(
 
     target_tier = str(run.get("target_tier") or "")
     environment_name = str(run.get("target_environment") or "")
+    finish = (run_id, flow_id, project, member_items, target_tier, environment_name)
     print(
         "Deployment authority: "
         f"release_control_plane={deploy_env.release_control_plane_env()} "
@@ -177,11 +185,7 @@ def run_pipeline(
             if run_status == "succeeded":
                 print(f"Pipeline already complete for run {run_id}")
                 return EXIT_SUCCESS
-            return finalize_after_stages(
-                run_id, flow_id, project, member_items, target_tier,
-                environment_name, usage_exit=EXIT_USAGE,
-                awaiting_qa_exit=EXIT_AWAITING_QA, sd=sd,
-            )
+            return _finalize(*finish, sd=sd)
         else:
             start_stage = current_stage
 
@@ -211,8 +215,7 @@ def run_pipeline(
                 continue
 
         qa_exit = stage_checks.check_completion_stage_qa(
-            stage, stages, run_id,
-            usage_exit=EXIT_USAGE, awaiting_qa_exit=EXIT_AWAITING_QA,
+            stage, stages, run_id, **_QA_EXITS
         )
         if qa_exit is not None:
             return qa_exit
@@ -332,11 +335,7 @@ def run_pipeline(
     # --- Pipeline complete ---
     _set_deploy_stage("complete", run_id, member_items, sd=sd)
 
-    return finalize_after_stages(
-        run_id, flow_id, project, member_items, target_tier,
-        environment_name, usage_exit=EXIT_USAGE,
-        awaiting_qa_exit=EXIT_AWAITING_QA, sd=sd,
-    )
+    return _finalize(*finish, sd=sd)
 
 
 def main(argv: Optional[List[str]] = None) -> int:

@@ -111,6 +111,7 @@ class DeploymentRunGetResponse(BaseModel):
     value: Optional[str] = None
     fields: Optional[List[str]] = None
     run: Optional[Dict[str, Any]] = None
+    attestation_warnings: Optional[List[Dict[str, str]]] = None
 
 
 class DeploymentRunCreateRequest(BaseModel):
