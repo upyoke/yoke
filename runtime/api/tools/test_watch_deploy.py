@@ -146,6 +146,8 @@ def test_the_union_pattern_matches_every_classified_shape():
         "--- Stage: merged (step_runner: auto) ---",
         "  Workflow run ID: 1",
         "  Stage 'hosted-release' completed successfully",
+        "deploy driver source drift: driver is executing abc",
+        "Self-deploy driver frozen at abc (/tmp/pin)",
     ):
         assert watch_deploy.DEPLOY_PROGRESS_PATTERN.search(line), line
 
@@ -189,3 +191,79 @@ def test_the_wrapper_is_reachable_from_both_registries():
 def test_a_run_id_is_required(capsys):
     assert watch_deploy.main([]) == 2
     assert "missing run id" in capsys.readouterr().err
+
+
+def test_driver_source_drift_is_urgent():
+    line = "deploy driver source drift: driver is executing abc"
+    assert _line_class(line) == LineClass.URGENT
+
+
+def test_frozen_driver_notice_is_progress():
+    line = "Self-deploy driver frozen at abc (/tmp/pin)"
+    assert _line_class(line) == LineClass.PROGRESS
+
+
+def test_self_deploy_watch_binds_the_pinned_child(monkeypatch, tmp_path):
+    captured = {}
+    monkeypatch.setattr(
+        watch_deploy, "execution_connection_error", lambda _run_id: None
+    )
+    monkeypatch.setattr(
+        watch_deploy,
+        "child_environment",
+        lambda _run_id: {
+            "YOKE_DEPLOY_DRIVER_RELEASE": "abc",
+            "YOKE_DEPLOY_DRIVER_SOURCE_ROOT": str(tmp_path),
+        },
+    )
+    monkeypatch.setattr(
+        watch_deploy._watch_runner,
+        "bind_capture_paths",
+        lambda ns, kind: (tmp_path / "raw", tmp_path / "progress"),
+    )
+
+    def _run(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(watch_deploy._watch_runner, "run_watcher", _run)
+    assert watch_deploy.main(["run-1"]) == 0
+    assert captured["env"]["YOKE_DEPLOY_DRIVER_RELEASE"] == "abc"
+    assert captured["cwd"] == str(tmp_path)
+    assert captured["header_metadata"].startswith("Self-deploy driver frozen at")
+
+
+def test_relayed_watch_does_not_take_a_checkout(monkeypatch, tmp_path):
+    captured = {}
+    monkeypatch.setattr(
+        watch_deploy, "execution_connection_error", lambda _run_id: None
+    )
+    monkeypatch.setattr(watch_deploy, "child_environment", lambda _run_id: None)
+    monkeypatch.setattr(
+        watch_deploy._watch_runner,
+        "bind_capture_paths",
+        lambda ns, kind: (tmp_path / "raw", tmp_path / "progress"),
+    )
+
+    def _run(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(watch_deploy._watch_runner, "run_watcher", _run)
+    assert watch_deploy.main(["run-1"]) == 0
+    assert captured["env"] is None
+    assert captured["cwd"] is None
+    assert captured["header_metadata"] is None
+
+
+def test_watch_stops_when_the_driver_cannot_freeze(monkeypatch, capsys):
+    monkeypatch.setattr(
+        watch_deploy, "execution_connection_error", lambda _run_id: None
+    )
+
+    def _raise(_run_id):
+        raise watch_deploy.DeployPinnedSourceError("cannot freeze")
+
+    monkeypatch.setattr(watch_deploy, "child_environment", _raise)
+    assert watch_deploy.main(["run-1"]) == 2
+    assert "cannot freeze" in capsys.readouterr().err

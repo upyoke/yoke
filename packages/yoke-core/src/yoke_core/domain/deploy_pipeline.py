@@ -295,6 +295,9 @@ def run_pipeline(
                 file=sys.stderr,
             )
             return EXIT_AWAITING_QA
+        if exec_rc == -5:
+            print(exec_diag, file=sys.stderr)
+            return EXIT_STAGE_FAILED
 
         # Handle result
         if exec_rc == 0:

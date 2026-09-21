@@ -27,8 +27,17 @@ from yoke_contracts.deployment_itemless_teaching import (
     ITEMLESS_RELEASE_RECIPE,
     WATCH_DEPLOY_DESCRIPTION,
 )
+from yoke_core.domain.deploy_pipeline_pinned_source import (
+    DRIVER_SOURCE_DRIFT_PREFIX,
+    DeployPinnedSourceError,
+)
 from yoke_core.tools import _watch_digest, _watch_runner, watch_preflight
 from yoke_core.tools._watch_throttle import Classification, LineClass
+from yoke_core.tools.deploy_pipeline_pinned_driver import (
+    child_environment,
+    frozen_driver_notice,
+    pinned_driver_cwd,
+)
 
 WRAPPER_MODULE = "yoke_core.tools.watch_deploy"
 KIND = "deploy"
@@ -45,6 +54,7 @@ DEPLOY_URGENT_PREFIXES: tuple[str, ...] = (
     "ERROR:",
     "Step runner diagnostic:",
     "fatal:",
+    DRIVER_SOURCE_DRIFT_PREFIX,
 )
 # Terminal outcomes: the run's verdict, and what a reader must act on.
 DEPLOY_SUMMARY_PREFIXES: tuple[str, ...] = (
@@ -58,6 +68,7 @@ DEPLOY_SUMMARY_RE = re.compile(r"has no member items")
 DEPLOY_PROGRESS_PREFIXES: tuple[str, ...] = (
     "--- Stage:",
     "Deployment authority:",
+    "Self-deploy driver frozen at",
 )
 # Indented by the pipeline, so these match anywhere on the line rather
 # than at its start.
@@ -236,7 +247,14 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         sys.stderr.write(refusal + "\n")
         return 2
 
+    try:
+        pinned_env = child_environment(passthrough[0])
+    except DeployPinnedSourceError as exc:
+        sys.stderr.write(f"watch_deploy: {exc}\n")
+        return 2
+
     raw_path, progress_path = _watch_runner.bind_capture_paths(ns, KIND)
+    header = frozen_driver_notice(pinned_env) if pinned_env else None
 
     return _watch_runner.run_watcher(
         argv=_engine_argv(passthrough),
@@ -244,6 +262,9 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
+        cwd=pinned_driver_cwd(pinned_env),
+        env=pinned_env,
+        header_metadata=header,
         flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
         # A seat driving two releases reads one transcript, so each
         # digest names the run it summarises.
