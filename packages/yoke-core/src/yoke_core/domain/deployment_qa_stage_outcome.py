@@ -92,8 +92,9 @@ def _blocked(reasons: list[str], failures: tuple[CaseFailure, ...]) -> dict[str,
         reasons=[
             *reasons,
             f"this stage cannot finish as it stands: {len(red)} scoped case(s) "
-            f"hold a determinate failing verdict ({named}). Settle or waive "
-            "each one through its registered QA surface, then re-drive the run.",
+            f"hold a determinate failing verdict ({named}).",
+            "Settle or waive each one through its registered QA surface, then "
+            "re-drive the run.",
         ],
         failures=failures,
     )

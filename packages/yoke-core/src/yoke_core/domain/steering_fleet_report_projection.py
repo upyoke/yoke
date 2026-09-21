@@ -161,6 +161,27 @@ def _run_dict(entry: DeploymentRunProgress) -> dict[str, Any]:
             if entry.answered_decision is not None
             else None
         ),
+        "pin_qa": {
+            "unpassable": [
+                {
+                    "requirement_id": item.requirement_id,
+                    "member_ref": item.member_ref,
+                    "merge_sha": item.merge_sha,
+                    "pin": item.pin,
+                }
+                for item in entry.pin_qa.unpassable
+            ],
+            "unproven": [
+                {
+                    "requirement_id": item.requirement_id,
+                    "member_ref": item.member_ref,
+                    "merge_sha": item.merge_sha,
+                    "pin": item.pin,
+                    "reason": item.reason,
+                }
+                for item in entry.pin_qa.unproven
+            ],
+        },
         "needs_action": entry.needs_action,
         "recovery": entry.recovery(),
     }

@@ -12,7 +12,8 @@ watcher say so. It is the opposite: the age changes every pass, so the
 report would wake the seat once a minute forever and the one pass that
 mattered — the one where a verdict turned red — would look like all the
 others. Only the run's *state* is hashed: which stage, how many
-outstanding of how many, and which requirements are red. The watcher then
+outstanding of how many, which requirements are red, and which of those
+are proven unpassable against the pin (or unproven). The watcher then
 fires exactly when one of those changes, and the age is read off the row
 once the seat is already looking.
 """
@@ -101,6 +102,8 @@ def fingerprint_payload(report: "FleetReport") -> dict[str, Any]:
                 entry.total_blocking,
                 tuple(entry.unresolved),
                 tuple(sorted(red.requirement_id for red in entry.red)),
+                tuple(sorted(item.requirement_id for item in entry.pin_qa.unpassable)),
+                tuple(sorted(item.requirement_id for item in entry.pin_qa.unproven)),
                 (
                     (
                         entry.answered_decision.request_id,
