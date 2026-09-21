@@ -37,7 +37,7 @@ def dispatch_health_check(
     contract assumed for arbitrary endpoints, and no build assertion — a raw
     URL override carries no candidate identity to verify). Without one, the
     URL resolves from the flow's target environment
-    (``https://{hosts.api}{health_path}``) and the check enforces the Yoke
+    (declared ``hosts.api`` URL plus ``health_path``) and the check enforces the Yoke
     core x-request-id echo contract PLUS the build assertion: the response's
     ``build`` must equal the expected tag, so the gate proves the NEW code
     answered — not a stale container that survived a failed swap. When this

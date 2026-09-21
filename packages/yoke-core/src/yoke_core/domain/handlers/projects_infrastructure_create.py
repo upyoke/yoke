@@ -213,6 +213,15 @@ def _validate_settings(payload: dict[str, Any]) -> Optional[HandlerOutcome]:
             "settings must be a JSON object",
             "$.payload.settings",
         )
+    if isinstance(settings, dict):
+        from yoke_core.domain.environment_declared_facts import (
+            refuse_invalid_endpoint_urls,
+        )
+
+        try:
+            refuse_invalid_endpoint_urls(settings)
+        except ValueError as exc:
+            return _failure("payload_invalid", str(exc), "$.payload.settings")
     return None
 
 

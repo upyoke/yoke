@@ -239,6 +239,14 @@ class TestEnvironmentCreate:
         assert outcome.error.code == "payload_invalid"
         assert "http(s) origin" in outcome.error.message
 
+    def test_create_refuses_scheme_less_hosts_api(self, infrastructure_db) -> None:
+        _create_site()
+        outcome = _create_environment(settings={"hosts": {"api": "api.example.com"}})
+        assert outcome.primary_success is False
+        assert outcome.error.code == "payload_invalid"
+        assert "hosts.api" in outcome.error.message
+        assert "http(s) URL" in outcome.error.message
+
 
 def test_registration_specs_cover_both_function_ids() -> None:
     ids = [spec["function_id"] for spec in handlers.REGISTRATION_SPECS]

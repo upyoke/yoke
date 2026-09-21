@@ -313,7 +313,7 @@ the run as `DeploymentRunWarmedUp`; a failure fails the stage with the real
 transport or function error rather than marking a cold box deployed. Python
 owner: `yoke_core.domain.deploy_warm_up`.
 
-**`health-check` step runner:** An explicit stage `url` is checked verbatim (plain HTTP 2xx, no request-id contract assumed for arbitrary endpoints). When the stage omits `url`, the URL resolves from the flow's referenced environment settings as `https://{hosts.api}{health_path}` and the check enforces the Yoke core x-request-id echo contract: the request carries a generated `x-request-id` header and fails unless the response echoes the exact same value back.
+**`health-check` step runner:** An explicit stage `url` is checked verbatim (plain HTTP 2xx, no request-id contract assumed for arbitrary endpoints). When the stage omits `url`, the URL resolves from the flow's referenced environment settings as the declared `hosts.api` URL plus `health_path` and the check enforces the Yoke core x-request-id echo contract: the request carries a generated `x-request-id` header and fails unless the response echoes the exact same value back.
 
 Read the current project workflow definition with `yoke workflows definition get --project <slug> --json`; inspect a flow with `yoke deployment-flows get <flow-id>` / `stages`.
 
