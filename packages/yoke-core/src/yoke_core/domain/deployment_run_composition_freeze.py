@@ -24,7 +24,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_run_bound_sources import record_bound_sources
 from yoke_core.domain.deployment_run_carried_work import record_carried_work
 from yoke_core.domain.deployment_runs_schema import _run_field_available
-from yoke_core.domain.deployment_flow_policy import RELEASE_POLICY_SCHEMA_VERSION
+from yoke_core.domain.deployment_flow_delivery_custody import COLUMN, from_cell
 from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
 )
@@ -117,16 +117,15 @@ def validate_delivery_intent_for_item(
 
 
 def requires_release_admission(conn: Any, run_id: str) -> bool:
-    """Whether the run's flow uses the frozen release-policy contract."""
-    if not _column_exists(conn, "deployment_flows", "definition_schema_version"):
+    """Whether the run's flow takes delivery custody of carried items."""
+    if not _column_exists(conn, "deployment_flows", COLUMN):
         return False
     row = conn.execute(
-        f"SELECT df.definition_schema_version FROM deployment_runs dr "
+        f"SELECT df.{COLUMN} FROM deployment_runs dr "
         f"JOIN deployment_flows df ON df.id=dr.flow WHERE dr.id={_p(conn)}",
         (run_id,),
     ).fetchone()
-    version = _cell(row, "definition_schema_version", 0) if row is not None else 1
-    return row is not None and int(version or 1) >= RELEASE_POLICY_SCHEMA_VERSION
+    return row is not None and from_cell(_cell(row, COLUMN, 0))
 
 
 def member_ids(conn: Any, run_id: str) -> tuple[int, ...]:

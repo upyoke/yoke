@@ -25,6 +25,7 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("done_description", "TEXT"),
             ("status", "TEXT"),
             ("definition_schema_version", "INTEGER"),
+            ("takes_delivery_custody", "INTEGER"),
             ("supersedes_flow_id", "TEXT"),
         ],
         "notes": (
@@ -39,11 +40,13 @@ DELIVERY_TABLES: dict[str, dict] = {
             "there is no `target_env` label column (stale guess). "
             "`supersedes_flow_id` links immutable definition identities once "
             "a run references a flow. "
-            "`definition_schema_version` separates accepted configuration "
-            "from the execution engine's supported version: advanced "
-            "release-policy definitions may be stored disabled, but cannot "
-            "be activated, assigned, or started until the engine supports "
-            "them. `stages` is an ordered JSON array. Schema v2 gives every "
+            "`definition_schema_version` names the stage vocabulary the "
+            "executor reads: advanced release-policy definitions may be "
+            "stored disabled, but cannot be activated, assigned, or started "
+            "until the engine supports them. `takes_delivery_custody` is the "
+            "authored delivery-custody declaration (INTEGER 0/1), independent "
+            "of that version — adding `stage_kind` does not enroll items. "
+            "`stages` is an ordered JSON array. Schema v2 gives every "
             "stage an execution/QA kind, a run/item scope, an explicit "
             "persistent or prior-preview target, reusable QA plan/case "
             "selection, verdict authority, and informational notification "

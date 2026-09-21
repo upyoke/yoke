@@ -45,13 +45,16 @@ _candidate_json=$(yoke deployment-flows get "${_candidate_flow}" --json) || {
 }
 ```
 
-Use `status`, `target_tier`, `target_environment`, and
-`definition_schema_version` from that document.
+Use `status`, `target_tier`, `target_environment`,
+`definition_schema_version`, and `takes_delivery_custody` from that document.
 
 - Disabled: not assignable.
 - Serving runtime cannot execute that `definition_schema_version`: omit
   the assignment, keep the definition disabled, and report it. Do not
   invent a weaker substitute.
+- `takes_delivery_custody` is independent of the schema version: a v2
+  vocabulary can take no delivery custody, and adding `stage_kind` does
+  not enroll items.
 - Empty/`null` `target_tier` is merge-only; `persistent` and `ephemeral`
   come from the same fields. An id ending in `-internal` is not route
   authority.

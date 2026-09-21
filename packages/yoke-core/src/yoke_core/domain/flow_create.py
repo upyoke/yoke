@@ -9,7 +9,7 @@ later edit re-checks.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import iso8601_now, query_scalar
 from yoke_core.domain.deployment_flow_state import (
@@ -19,6 +19,10 @@ from yoke_core.domain.deployment_flow_state import (
 from yoke_core.domain.deployment_flow_target_support import (
     require_provable_qa_identity,
     require_supported_stage_targets,
+)
+from yoke_core.domain.deployment_flow_delivery_custody import (
+    as_sql_int,
+    resolve_takes_delivery_custody,
 )
 from yoke_core.domain.deployment_flow_policy import (
     definition_schema_version,
@@ -46,6 +50,7 @@ def cmd_create(
     environment: Optional[str] = None,
     done_description: Optional[str] = None,
     status: str = FLOW_STATUS_ACTIVE,
+    takes_delivery_custody: Optional[Any] = None,
     supersedes_flow_id: Optional[str] = None,
 ) -> str:
     """Insert one deployment flow.
@@ -75,6 +80,9 @@ def cmd_create(
             project=project,
         )
     validate_stage_references(conn, project=project, stages_json=stages_json)
+    custody = resolve_takes_delivery_custody(
+        takes_delivery_custody, schema_version=schema_version
+    )
     target_environment_id = resolve_flow_target(
         conn,
         project=project,
@@ -90,8 +98,8 @@ def cmd_create(
         "INSERT INTO deployment_flows "
         "(id, project_id, name, description, stages, on_failure, created_at, "
         "target_tier, target_environment_id, done_description, status, "
-        "definition_schema_version, supersedes_flow_id) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        "definition_schema_version, takes_delivery_custody, supersedes_flow_id) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             flow_id,
             ident.id,
@@ -105,6 +113,7 @@ def cmd_create(
             done_description,
             normalized_status,
             schema_version,
+            as_sql_int(custody),
             supersedes_flow_id,
         ),
     )

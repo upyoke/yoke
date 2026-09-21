@@ -199,7 +199,7 @@ def test_terminal_carried_history_is_never_enrolled(
     assert carried_membership_refusal(test_db, "run-candidate") is None
 
 
-def test_a_flow_predating_release_admission_enrolls_nothing(
+def test_a_flow_without_delivery_custody_enrolls_nothing(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _candidate(test_db, tmp_path, monkeypatch, run_flow=LEGACY_FLOW,
@@ -207,7 +207,7 @@ def test_a_flow_predating_release_admission_enrolls_nothing(
 
     assert (
         carried_enrollment_blocked(test_db, "run-candidate")
-        == "flow_predates_release_admission"
+        == "flow_without_delivery_custody"
     )
     assert enroll_carried_members(test_db, "run-candidate") == ()
 

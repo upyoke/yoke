@@ -37,6 +37,7 @@ def _ensure_flow_schema(conn) -> None:
             created_at TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'active',
             definition_schema_version INTEGER NOT NULL DEFAULT 1,
+            takes_delivery_custody INTEGER NOT NULL DEFAULT 0,
             supersedes_flow_id TEXT REFERENCES deployment_flows(id),
             target_tier TEXT,
             target_environment_id {environment_ref},
@@ -79,6 +80,12 @@ def _ensure_flow_schema(conn) -> None:
         "deployment_flows",
         "definition_schema_version",
         "INTEGER NOT NULL DEFAULT 1",
+    )
+    _add_column_if_not_exists(
+        conn,
+        "deployment_flows",
+        "takes_delivery_custody",
+        "INTEGER",
     )
     _add_column_if_not_exists(
         conn,

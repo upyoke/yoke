@@ -159,7 +159,7 @@ def project_carried_sets(payload: Mapping[str, Any]) -> tuple[Mapping[str, Any],
 def carried_enrollment_blocked(conn: Any, run_id: str) -> str:
     """Name why this run enrolls nothing, or ``''`` when it may enroll."""
     if not requires_release_admission(conn, run_id):
-        return "flow_predates_release_admission"
+        return "flow_without_delivery_custody"
     if not _column_exists(conn, "deployment_runs", "composition_resolution"):
         return "composition_schema_unconverged"
     if has_frozen_composition(conn, run_id):

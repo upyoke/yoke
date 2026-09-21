@@ -26,6 +26,7 @@ FLOW_ROW_FIELDS = (
     "done_description",
     "status",
     "definition_schema_version",
+    "takes_delivery_custody",
     "supersedes_flow_id",
 )
 
@@ -93,6 +94,7 @@ class DeploymentFlowCreateRequest(BaseModel):
     environment: Optional[str] = None
     done_description: Optional[str] = None
     status: str = "active"
+    takes_delivery_custody: Optional[bool] = None
 
 
 class DeploymentFlowCreateResponse(BaseModel):

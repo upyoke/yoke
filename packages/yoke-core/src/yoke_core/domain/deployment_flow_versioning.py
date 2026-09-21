@@ -17,6 +17,10 @@ from yoke_core.domain.deployment_flow_target_support import (
     unprovable_qa_identity_stages,
     unsupported_stage_target_kinds,
 )
+from yoke_core.domain.deployment_flow_delivery_custody import (
+    as_sql_int,
+    parse_takes_delivery_custody,
+)
 from yoke_core.domain.deployment_flow_policy import (
     CURRENT_EXECUTION_SCHEMA_VERSION,
     definition_schema_version,
@@ -46,6 +50,7 @@ CONFIG_FIELDS = frozenset(
         "target_tier",
         "environment",
         "done_description",
+        "takes_delivery_custody",
     }
 )
 ON_FAILURE_VALUES = frozenset({"halt", "continue"})
@@ -59,7 +64,7 @@ def _definition(conn: Any, flow_id: str) -> dict[str, Any]:
     row = conn.execute(
         "SELECT df.id,df.project_id,p.slug AS project,df.name,df.description,df.stages,"
         "df.on_failure,df.target_tier,e.name AS environment,df.done_description,df.status,"
-        "df.definition_schema_version,df.supersedes_flow_id "
+        "df.definition_schema_version,df.supersedes_flow_id,df.takes_delivery_custody "
         "FROM deployment_flows df JOIN projects p ON p.id=df.project_id "
         "LEFT JOIN environments e ON e.id=df.target_environment_id WHERE df.id=%s",
         (flow_id,),
@@ -80,6 +85,7 @@ def _definition(conn: Any, flow_id: str) -> dict[str, Any]:
         "status",
         "definition_schema_version",
         "supersedes_flow_id",
+        "takes_delivery_custody",
     )
     return {name: _cell(row, name, index) for index, name in enumerate(fields)}
 
@@ -235,7 +241,8 @@ def cmd_update_definition(
     conn.execute(
         "UPDATE deployment_flows SET name=%s,description=%s,stages=%s,"
         "on_failure=%s,target_tier=%s,target_environment_id=%s,"
-        "done_description=%s,definition_schema_version=%s WHERE id=%s",
+        "done_description=%s,definition_schema_version=%s,"
+        "takes_delivery_custody=%s WHERE id=%s",
         (
             str(merged["name"]),
             merged.get("description"),
@@ -245,6 +252,7 @@ def cmd_update_definition(
             target_environment_id,
             merged.get("done_description"),
             schema_version,
+            as_sql_int(parse_takes_delivery_custody(merged["takes_delivery_custody"])),
             flow_id,
         ),
     )
@@ -305,6 +313,7 @@ def cmd_version_definition(
         environment=merged.get("environment"),
         done_description=merged.get("done_description"),
         status=status,
+        takes_delivery_custody=merged.get("takes_delivery_custody"),
         supersedes_flow_id=source_flow_id,
     )
     return _definition(conn, new_flow_id)

@@ -283,6 +283,7 @@ def handle_deployment_flow_create(
                 environment=payload.get("environment"),
                 done_description=payload.get("done_description"),
                 status=str(payload.get("status") or "active"),
+                takes_delivery_custody=payload.get("takes_delivery_custody"),
             )
         except LookupError as exc:
             return error("not_found", str(exc), jsonpath="$.payload")

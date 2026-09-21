@@ -31,6 +31,7 @@ RELEASE_POLICY_SCHEMA_VERSION = 2
 #: ordered per-stage execution, scoped QA materialization and gating, stage
 #: receipts with observed evidence, the wait and verdict wakes, the
 #: configured result notification, and release-to-done acceptance.
+#: Delivery custody is an authored flow column, not this version.
 #:
 #: Target kinds are a SEPARATE axis and are not promised by this version:
 #: :func:`unsupported_stage_target_kinds` refuses a definition whose QA
