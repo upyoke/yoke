@@ -197,6 +197,13 @@ class CoreSessionMessageDeliveryPort:
                     limit=limit,
                 )
             )
+            # A pending envelope must ship on this hook. Ranking the fleet
+            # report after the lease spent the 30s window on composition
+            # while settlement never ran, so the next hook recorded
+            # hook_lease_expired and an active recipient looped that for
+            # every tool call. The report rides a later empty-inbox hook.
+            if lease is not None and lease.messages:
+                return lease
             candidate = self._report_candidate(conn, session_id)
             if candidate is None:
                 return lease
@@ -219,11 +226,11 @@ class CoreSessionMessageDeliveryPort:
     def _report_candidate(conn: Any, session_id: str) -> Any:
         """Peek the fleet report this delivery may owe its recipient, if any.
 
-        Composed after the lease commits so the ranking read never runs
-        inside the lease's lock window. Read-only and best-effort: composing
-        never claims the delivery interval, so a report lost to a sibling
-        denial or a malformed reply leaves the next hook free to retry
-        rather than costing the recipient its messages OR a whole interval.
+        Called only when this hook holds no pending message, so ranking
+        cannot sit on an open injection lease. Read-only and best-effort:
+        composing never claims the delivery interval, so a report lost to a
+        sibling denial or a malformed reply leaves the next hook free to
+        retry rather than costing a whole interval.
         """
         from yoke_core.domain.steering_fleet_report_delivery import (
             steering_report_candidate,

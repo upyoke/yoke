@@ -213,7 +213,14 @@ def delivery_attempt_diagnostic(
     said = tail.strip() if isinstance(tail, str) else ""
     if named and said:
         return f"{named}: {said}"
-    return named or said or UNREPORTED_DELIVERY_DIAGNOSTIC
+    if named or said:
+        return named or said
+    # `failed` is the coarse wake bucket whose reason lives in evidence.
+    # A hook result such as `hook_lease_expired` is already the reason;
+    # calling that `unreported` hid a hundred identical misses.
+    if coarse and coarse != "failed":
+        return coarse
+    return UNREPORTED_DELIVERY_DIAGNOSTIC
 
 
 #: What an operator reading an undelivered wake should do about it.

@@ -86,6 +86,26 @@ def test_a_queued_unattempted_wake_says_so_and_names_its_recovery():
     assert "no delivery attempted" not in queued
 
 
+def test_a_queued_hook_on_a_desktop_recipient_does_not_ask_the_operator():
+    """Firing hooks is not an operator who has not typed."""
+    queued = _row(delivery_state=AWAITING_ATTEMPT, operator_wake=True)
+
+    assert "queued for the recipient's next hook — waiting" in queued
+    assert "waiting for the operator to wake it" not in queued
+
+
+def test_a_failed_attempt_on_a_desktop_recipient_does_not_ask_the_operator():
+    """A named refusal is already the finding; the operator did not miss it."""
+    failed = _row(
+        delivery_state=ATTEMPT_FAILED,
+        diagnostic="hook_lease_expired ×127",
+        operator_wake=True,
+    )
+
+    assert "last attempt failed (hook_lease_expired ×127)" in failed
+    assert "waiting for the operator to wake it" not in failed
+
+
 def test_a_queued_wake_on_a_desktop_recipient_still_asks_its_operator():
     """Yoke never resumes a desktop chat, so no release recipe applies."""
     desktop = _row(

@@ -34,7 +34,6 @@ from yoke_contracts.session_control.evidence import (
 from yoke_contracts.session_control.wake_delivery import (
     delivery_attempt_diagnostic,
 )
-from yoke_core.domain import json_helper
 from yoke_core.domain.session_tool_call_projections import (
     OPEN_TOOL_CALL_COLUMN,
     open_tool_call_select,
@@ -42,6 +41,7 @@ from yoke_core.domain.session_tool_call_projections import (
 from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
 from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_relay_policy import effective_relay_policy
+from yoke_core.domain.steering_fleet_report_attempt_summary import last_attempts
 from yoke_core.domain.steering_fleet_report_delivery_states import (
     ATTEMPT_FAILED,
     WAKE_HELD_FOR_NATIVE_TURN,
@@ -80,8 +80,11 @@ class UndeliveredMessages:
     #: so the finding is an ask to that person rather than work for the seat.
     operator_wake: bool = False
     #: How the last attempt failed, named. Empty unless the state is
-    #: ``ATTEMPT_FAILED``.
+    #: ``ATTEMPT_FAILED``. A repeating result includes its count.
     diagnostic: str = ""
+    #: How many attempts on these envelopes already failed. Zero unless
+    #: the state is ``ATTEMPT_FAILED``.
+    failed_attempt_count: int = 0
     #: The diagnostic reference that attempt left on its own machine, so the
     #: row can name the exact capture rather than the session's newest file.
     evidence_id: str = ""
@@ -111,40 +114,6 @@ class UndeliveredMessages:
         return self.delivery_state in IN_DELIVERY_STATES
 
 
-def _last_attempts(
-    conn: Any, *, project_id: int, marker: str, now: str
-) -> dict[tuple[str, str], tuple[str, Mapping[str, Any]]]:
-    """Return each undelivered receipt's most recent attempt, keyed by receipt."""
-    rows = conn.execute(
-        f"""SELECT a.message_id AS message_id,
-                   a.target_session_id AS target_session_id,
-                   a.result_code AS result_code,
-                   a.evidence AS evidence
-              FROM session_message_attempts a
-              JOIN session_message_recipients r
-                ON r.message_id = a.message_id
-               AND r.session_id = a.target_session_id
-              JOIN session_messages m ON m.message_id = r.message_id
-             WHERE {deliverable_receipt(marker)}
-             ORDER BY a.started_at, a.attempt_id""",
-        (int(project_id), now),
-    ).fetchall()
-    latest: dict[tuple[str, str], tuple[str, Mapping[str, Any]]] = {}
-    for raw in rows:
-        row = dict(raw)
-        evidence = row.get("evidence")
-        if isinstance(evidence, str):
-            try:
-                evidence = json_helper.loads_text(evidence)
-            except (TypeError, ValueError):
-                evidence = {}
-        latest[(str(row["message_id"]), str(row["target_session_id"]))] = (
-            str(row.get("result_code") or ""),
-            evidence if isinstance(evidence, Mapping) else {},
-        )
-    return latest
-
-
 @dataclass
 class _Group:
     """Mutable accumulator for one (recipient, state) row."""
@@ -160,6 +129,7 @@ class _Group:
     recipient_gone_at: str = ""
     held_native_silent_for_seconds: int | None = None
     queued_wake: bool = False
+    failed_attempt_count: int = 0
 
     def __post_init__(self) -> None:
         if self.message_ids is None:
@@ -201,9 +171,12 @@ class _Group:
         self, *, result_code: str, evidence: Mapping[str, Any]
     ) -> None:
         """Record how the attempt failed and where its capture lives."""
-        self.diagnostic = (
+        reason = (
             delivery_attempt_diagnostic(result_code, evidence) or self.diagnostic
         )
+        if self.failed_attempt_count > 1 and reason:
+            reason = f"{reason} ×{self.failed_attempt_count}"
+        self.diagnostic = reason
         reference = valid_native_diagnostic_reference(
             evidence.get("native_diagnostic_ref")
         )
@@ -248,7 +221,7 @@ def undelivered_messages(
     sla = timedelta(
         seconds=int(effective_relay_policy(conn, [int(project_id)]).poll_seconds)
     )
-    attempts = _last_attempts(conn, project_id=project_id, marker=placeholder, now=now)
+    attempts = last_attempts(conn, project_id=project_id, marker=placeholder, now=now)
     open_call = open_tool_call_select(conn, session_alias="s")
     rows = conn.execute(
         f"""SELECT r.message_id AS message_id,
@@ -285,9 +258,10 @@ def undelivered_messages(
         if waited is None:
             continue
         session_id = str(record["session_id"])
-        result_code, evidence = attempts.get(
-            (str(record["message_id"]), session_id), ("", {})
-        )
+        view = attempts.get((str(record["message_id"]), session_id))
+        result_code = view.result_code if view else ""
+        evidence = view.evidence if view else {}
+        failed_count = view.failed_count if view else 0
         state = delivery_state(
             record,
             result_code=result_code,
@@ -295,10 +269,17 @@ def undelivered_messages(
             grace=grace,
             sla=sla,
             current=current,
+            failed_count=failed_count,
         )
         group = groups.setdefault((session_id, state), _Group())
         group.absorb(record, state=state, waited=waited)
+        group.failed_attempt_count = max(group.failed_attempt_count, failed_count)
         if state == ATTEMPT_FAILED:
+            # An in-flight retry has no result of its own; name the last
+            # refusal, but do not feed that code back into classification.
+            if not result_code and view is not None and view.last_failed_code:
+                result_code = view.last_failed_code
+                evidence = view.last_failed_evidence
             group.name_the_failure(result_code=result_code, evidence=evidence)
         elif state == WAKE_HELD_FOR_NATIVE_TURN:
             group.note_held_native(evidence=evidence)
@@ -312,6 +293,7 @@ def undelivered_messages(
             wake_escalation=group.wake_escalation,
             operator_wake=group.operator_wake,
             diagnostic=group.diagnostic,
+            failed_attempt_count=group.failed_attempt_count,
             held_native_silent_for_seconds=group.held_native_silent_for_seconds,
             evidence_id=group.evidence_id,
             turn_in_flight_since=group.turn_in_flight_since,
