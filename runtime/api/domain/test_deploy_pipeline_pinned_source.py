@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import io
 import subprocess
-from contextlib import redirect_stdout
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
-from yoke_cli.commands.deployment_execute import deployment_runs_execute
 from yoke_core.domain import deploy_pipeline_pinned_source as pinned
 from yoke_core.domain import deploy_pipeline_stage_receipt as receipt
 from yoke_core.domain.deploy_pipeline_pinned_source import (
@@ -230,45 +226,3 @@ def test_stage_dispatch_halts_on_drift_without_running_the_runner(
     assert code == EXIT_DRIVER_SOURCE_DRIFT
     assert diag.startswith(DRIVER_SOURCE_DRIFT_PREFIX)
 
-
-def test_execute_passes_pinned_env_to_the_pipeline(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        "yoke_cli.commands.deployment_execute.execution_connection_error",
-        lambda _run_id: None,
-    )
-    monkeypatch.setattr(
-        "yoke_cli.commands.deployment_execute.child_environment",
-        lambda _run_id: {PINNED_RELEASE_ENV: "abc", "PATH": "/bin"},
-    )
-    with patch(
-        "yoke_cli.commands.deployment_execute.subprocess.run",
-    ) as pipeline:
-        pipeline.return_value.returncode = 0
-        out = io.StringIO()
-        with redirect_stdout(out):
-            rc = deployment_runs_execute(["run-1"])
-    assert rc == 0
-    assert pipeline.call_args.kwargs["env"][PINNED_RELEASE_ENV] == "abc"
-    assert "frozen at" in out.getvalue()
-
-
-def test_execute_leaves_relayed_env_unbound(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        "yoke_cli.commands.deployment_execute.execution_connection_error",
-        lambda _run_id: None,
-    )
-    monkeypatch.setattr(
-        "yoke_cli.commands.deployment_execute.child_environment",
-        lambda _run_id: None,
-    )
-    with patch(
-        "yoke_cli.commands.deployment_execute.subprocess.run",
-    ) as pipeline:
-        pipeline.return_value.returncode = 0
-        rc = deployment_runs_execute(["run-1"])
-    assert rc == 0
-    assert "env" not in pipeline.call_args.kwargs

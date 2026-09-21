@@ -12,11 +12,6 @@ from yoke_cli.commands.adapters.deployment_execution_authority import (
 from yoke_contracts.deployment_itemless_teaching import (
     INTERRUPTED_RUN_RECOVERY,
 )
-from yoke_core.domain.deploy_pipeline_pinned_source import DeployPinnedSourceError
-from yoke_core.tools.deploy_pipeline_pinned_driver import (
-    child_environment,
-    frozen_driver_notice,
-)
 
 AdapterFn = Callable[[List[str]], int]
 DEPLOYMENT_RUNS_EXECUTE_USAGE = (
@@ -67,14 +62,6 @@ def deployment_runs_execute(args: List[str]) -> int:
         print(f"error: {refusal}", file=sys.stderr)
         return 2
 
-    try:
-        pinned_env = child_environment(args[0])
-    except DeployPinnedSourceError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
-    if pinned_env:
-        print(frozen_driver_notice(pinned_env))
-
     completed = subprocess.run(
         [
             sys.executable,
@@ -83,7 +70,6 @@ def deployment_runs_execute(args: List[str]) -> int:
             *args,
         ],
         check=False,
-        **({"env": pinned_env} if pinned_env is not None else {}),
     )
     return completed.returncode
 

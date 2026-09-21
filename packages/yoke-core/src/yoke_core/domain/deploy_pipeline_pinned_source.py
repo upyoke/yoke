@@ -26,6 +26,7 @@ from yoke_core.domain.worktree_provision import GIT_WORKTREE_ADD_TIMEOUT_SECONDS
 
 PINNED_RELEASE_ENV = "YOKE_DEPLOY_DRIVER_RELEASE"
 PINNED_SOURCE_ROOT_ENV = "YOKE_DEPLOY_DRIVER_SOURCE_ROOT"
+PINNED_REEXEC_ENV = "YOKE_DEPLOY_DRIVER_REEXEC"
 DRIVER_SOURCE_DRIFT_PREFIX = "deploy driver source drift:"
 # Distinct from step-runner failure so the pipeline can halt without
 # calling fail_pipeline_stage (which would mark the run failed).
@@ -195,6 +196,7 @@ __all__ = [
     "DeployPinnedSourceError",
     "EXIT_DRIVER_SOURCE_DRIFT",
     "PINNED_RELEASE_ENV",
+    "PINNED_REEXEC_ENV",
     "PINNED_SOURCE_ROOT_ENV",
     "PinnedDriverSource",
     "driver_source_drift_refusal",

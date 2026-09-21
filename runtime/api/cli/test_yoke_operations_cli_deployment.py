@@ -36,14 +36,6 @@ def _reset_captured() -> None:
     _CAPTURED_REQUESTS.clear()
 
 
-@pytest.fixture(autouse=True)
-def _leave_self_deploy_driver_unpinned(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "yoke_cli.commands.deployment_execute.child_environment",
-        lambda _run_id: None,
-    )
-
-
 def _run_capture(stub, *argv: str) -> tuple[int, str, str]:
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
         with patch(
