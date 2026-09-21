@@ -7,8 +7,10 @@ later earns. The column accepts these two values or NULL.
 Both the ``yoke qa run add`` / ``yoke qa run complete`` flag adapters and the
 registered ``qa.run.add`` / ``qa.run.complete`` handlers read the vocabulary
 from here, so an unsupported value is refused by name before it reaches the
-database CHECK constraint. Schema modules restate the same two values in DDL
-text because storage-layer modules may not import this one.
+database CHECK constraint. ``captured`` also requires artifacts or a named
+``capture_degraded_reason``; that agreement lives in
+``yoke_core.domain.qa_capture_agreement``. Schema modules restate the same
+two values in DDL text because storage-layer modules may not import this one.
 """
 
 from __future__ import annotations
@@ -27,7 +29,9 @@ EXECUTION_STATUS_USAGE_TOKEN = "|".join(VALID_EXECUTION_STATUSES)
 
 EXECUTION_STATUS_HELP = (
     "Capture outcome, distinct from the quality verdict. "
-    f"One of: {', '.join(VALID_EXECUTION_STATUSES)}. Omit to leave it unset."
+    f"One of: {', '.join(VALID_EXECUTION_STATUSES)}. "
+    "captured requires qa_artifacts or capture_degraded_reason. "
+    "Omit to leave it unset."
 )
 
 

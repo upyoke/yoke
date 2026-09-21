@@ -28,6 +28,7 @@ from yoke_core.domain.qa_artifact_ops import (  # noqa: F401  (re-exported)
     linked_artifact_handle,
 )
 from yoke_core.domain.qa_run_batch import cmd_run_add_batch  # noqa: F401  (re-exported)
+from yoke_core.domain.qa_capture_agreement import abort_if_captured_without_evidence, run_artifact_count
 from yoke_core.domain.qa_run_reads import (  # noqa: F401  (re-exported)
     _RUN_SELECT,
     cmd_run_get,
@@ -93,8 +94,7 @@ def cmd_run_add(
     artifact_path: Optional[str] = None,
     head_sha: Optional[str] = None,
 ) -> int:
-    """Insert a qa_run row. Returns the new ID. ``qa_kind`` defaults to
-    the requirement's stored kind; a supplied mismatch is a hard error."""
+    """Insert a qa_run row. Returns the new ID."""
     if not requirement_id:
         print("Error: --requirement-id is required", file=sys.stderr)
         sys.exit(2)
@@ -230,6 +230,7 @@ def cmd_run_add(
                     iso8601_now(),
                 ),
             )
+        abort_if_captured_without_evidence(execution_status=execution_status, artifact_count=1 if artifact_path is not None else 0, rollback=conn.rollback)
         conn.commit()
         _event_name = "QARunCompleted" if verdict is not None else (
             "QARunCaptured" if execution_status is not None else "QARunStarted"
@@ -260,12 +261,7 @@ def cmd_run_complete(
     raw_result: Optional[str] = None,
     duration_ms: Optional[int] = None,
 ) -> int:
-    """Finalize an in-progress run. Returns the run ID.
-
-    Capture may set ``execution_status='captured'`` without a verdict.
-    Inspection later writes ``pass`` / ``fail`` / ``undetermined``.
-    ``QARunCompleted`` fires on a verdict; ``QARunCaptured`` otherwise.
-    """
+    """Finalize an in-progress run. Returns the run ID."""
     if not run_id:
         print("Error: --run-id is required", file=sys.stderr)
         sys.exit(2)
@@ -297,6 +293,7 @@ def cmd_run_complete(
             conn, performed_by=str(row["performed_by"]), verdict=verdict,
             run_ids=(run_id,),
         )
+        abort_if_captured_without_evidence(execution_status=execution_status, artifact_count=run_artifact_count(conn, run_id))
 
         params: list = [iso8601_now()]
         set_parts = ["completed_at = %s"]

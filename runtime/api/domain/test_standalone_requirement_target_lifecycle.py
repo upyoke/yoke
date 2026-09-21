@@ -111,7 +111,8 @@ def test_bound_item_case_reaches_gate_after_linked_review() -> None:
                     function="qa.run.complete",
                     actor=ActorContext(actor_id="op", session_id="s-1"),
                     target=TargetRef(kind="qa_requirement", qa_requirement_id=req_id),
-                    payload={"run_id": capture_id, "execution_status": "captured"},
+                    payload={"run_id": capture_id, "execution_status": "captured",
+                             "capture_degraded_reason": "fixture_no_shot"},
                 )
             )
             assert completed.primary_success, completed.error

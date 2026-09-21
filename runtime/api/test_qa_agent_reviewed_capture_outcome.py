@@ -78,6 +78,17 @@ def _capture(conn, requirement_id: int) -> int:
         )
         assert added.primary_success, added.error
         run_id = int(added.result_payload["qa_run_id"])
+        conn.execute(
+            "INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, "
+            "artifact_handle, created_at) VALUES (%s, 'browser_screenshot', "
+            "'image/png', %s, %s)",
+            (
+                run_id,
+                json.dumps({"backend": "local", "path": "/tmp/shot.png"}),
+                NOW,
+            ),
+        )
+        conn.commit()
         completed = qa_browser_writes.handle_qa_run_complete(
             _request(
                 "qa.run.complete",
@@ -86,17 +97,6 @@ def _capture(conn, requirement_id: int) -> int:
             )
         )
         assert completed.primary_success, completed.error
-    conn.execute(
-        "INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, "
-        "artifact_handle, created_at) VALUES (%s, 'browser_screenshot', "
-        "'image/png', %s, %s)",
-        (
-            run_id,
-            json.dumps({"backend": "local", "path": "/tmp/shot.png"}),
-            NOW,
-        ),
-    )
-    conn.commit()
     return run_id
 
 

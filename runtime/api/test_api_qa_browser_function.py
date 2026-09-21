@@ -281,6 +281,7 @@ class TestQaRunComplete(unittest.TestCase):
                         TargetRef(kind="qa_requirement", qa_requirement_id=10),
                         payload={"run_id": run_id,
                                  "execution_status": "captured",
+                                 "capture_degraded_reason": "fixture_no_shot",
                                  "raw_result": '{"ok": true}'},
                     ),
                 )

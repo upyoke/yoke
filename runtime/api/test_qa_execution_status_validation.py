@@ -106,15 +106,12 @@ class TestRunCompleteExecutionStatus(unittest.TestCase):
                 with test_database() as conn:
                     _seed_requirement(conn)
                     run_id = _add_started_run(conn)
+                    payload = {"run_id": run_id, "execution_status": supported}
+                    if supported == "captured":
+                        payload["capture_degraded_reason"] = "fixture_no_shot"
                     with patch("yoke_core.domain.qa_events.emit_qa_run_event"):
                         outcome = qa_browser_writes.handle_qa_run_complete(
-                            _request(
-                                "qa.run.complete",
-                                {
-                                    "run_id": run_id,
-                                    "execution_status": supported,
-                                },
-                            ),
+                            _request("qa.run.complete", payload),
                         )
                     self.assertTrue(outcome.primary_success, outcome.error)
                     stored = conn.execute(
@@ -122,6 +119,43 @@ class TestRunCompleteExecutionStatus(unittest.TestCase):
                         (run_id,),
                     ).fetchone()
                 self.assertEqual(stored[0], supported)
+
+    def test_captured_without_artifacts_or_reason_is_refused(self):
+        with test_database() as conn:
+            _seed_requirement(conn)
+            run_id = _add_started_run(conn)
+            outcome = qa_browser_writes.handle_qa_run_complete(
+                _request(
+                    "qa.run.complete",
+                    {"run_id": run_id, "execution_status": "captured"},
+                ),
+            )
+            self.assertFalse(outcome.primary_success)
+            self.assertEqual(outcome.error.code, "capture_status_artifact_disagreement")
+            stored = conn.execute(
+                "SELECT execution_status FROM qa_runs WHERE id = %s",
+                (run_id,),
+            ).fetchone()
+        self.assertIsNone(stored[0])
+
+    def test_captured_with_an_artifact_persists(self):
+        with test_database() as conn:
+            _seed_requirement(conn)
+            run_id = _add_started_run(conn)
+            conn.execute(
+                "INSERT INTO qa_artifacts (qa_run_id, artifact_type, created_at) "
+                "VALUES (%s, 'browser_screenshot', %s)",
+                (run_id, "2026-01-01T00:00:00Z"),
+            )
+            conn.commit()
+            with patch("yoke_core.domain.qa_events.emit_qa_run_event"):
+                outcome = qa_browser_writes.handle_qa_run_complete(
+                    _request(
+                        "qa.run.complete",
+                        {"run_id": run_id, "execution_status": "captured"},
+                    ),
+                )
+            self.assertTrue(outcome.primary_success, outcome.error)
 
     def test_omitted_status_keeps_verdict_only_completion(self):
         with test_database() as conn:

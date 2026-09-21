@@ -20,6 +20,7 @@ class QaRunAddRequest(BaseModel):
     verdict: Optional[str] = None
     verdict_reason: Optional[str] = None
     execution_status: Optional[str] = None
+    capture_degraded_reason: Optional[str] = None
     raw_result: Optional[str] = None
     duration_ms: Optional[int] = None
     head_sha: Optional[str] = None
@@ -36,6 +37,7 @@ class QaRunCompleteRequest(BaseModel):
     verdict: Optional[str] = None
     verdict_reason: Optional[str] = None
     execution_status: Optional[str] = None
+    capture_degraded_reason: Optional[str] = None
     raw_result: Optional[str] = None
     duration_ms: Optional[int] = None
     execution_claim_id: Optional[int] = None

@@ -58,6 +58,7 @@ def _insert_docket(
     from yoke_core.domain.machine_qa_execution_protocol import (
         host_control_submission_receipt,
     )
+    from yoke_core.domain.qa_capture_agreement import AGENT_MISSION_DOCKET_REASON
     from yoke_core.domain.qa_plan_execution_store import canonical, marker
     from yoke_core.domain.qa_requirement_pass_currency import stamp_executed_method_config
 
@@ -75,8 +76,9 @@ def _insert_docket(
     p = marker(conn)
     row = conn.execute(
         "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
-        "execution_status,case_outcome,raw_result,started_at,completed_at,created_at) "
-        f"VALUES({', '.join([p] * 10)}) RETURNING id",
+        "execution_status,case_outcome,capture_degraded_reason,raw_result,"
+        "started_at,completed_at,created_at) "
+        f"VALUES({', '.join([p] * 11)}) RETURNING id",
         (
             int(case["requirement_id"]),
             "agent_mission",
@@ -84,6 +86,7 @@ def _insert_docket(
             None,
             "captured",
             "needs_review",
+            AGENT_MISSION_DOCKET_REASON,
             stamp_executed_method_config(canonical(transcript), case.get("method_config"), execution_target_digest=case.get("execution_target_digest")),
             now,
             now,
@@ -343,8 +346,4 @@ def register(registry: Any) -> None:
         )
 
 
-__all__ = [
-    "handle_agent_mission_access",
-    "handle_agent_mission_ready",
-    "register",
-]
+__all__ = ["handle_agent_mission_access", "handle_agent_mission_ready", "register"]
