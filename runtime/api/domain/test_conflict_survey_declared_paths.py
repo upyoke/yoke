@@ -14,6 +14,10 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.conflict_survey import record_conflict_survey, survey_conflicts
 
 from yoke_core.domain.conflict_survey_blockers import git_touched_paths
+from yoke_core.domain.conflict_survey_declared_paths import (
+    matching_scope,
+    matching_scopes,
+)
 from yoke_core.domain.file_budget_paths import FILE_BUDGET_SECTION
 
 
@@ -152,6 +156,66 @@ class TestRecordedSurveyIsACoordinationSignal:
         )
 
         assert {row.kind for row in second.blockers} == {"frontier_scope"}
+
+    def test_every_shared_survey_path_appears_as_its_own_blocker(self, test_db):
+        first_id, second_id = 2244, 2245
+        snapshot = (
+            "packages/yoke-core/src/yoke_core/domain/"
+            "qa_plan_requirement_snapshot.py"
+        )
+        tables = (
+            "packages/yoke-core/src/yoke_core/domain/"
+            "schema_api_context_tables_qa.py"
+        )
+        insert_item(test_db, id=first_id, workflow_id="dash")
+        insert_item(test_db, id=second_id, workflow_id="dash")
+        _record_survey(test_db, item_id=first_id, paths=[snapshot, tables])
+        second = _record_survey(
+            test_db, item_id=second_id, paths=[snapshot, tables],
+        )
+        first_view = survey_conflicts(
+            test_db, item_id=first_id, touch_paths=[snapshot, tables],
+        )
+
+        def owned_survey_paths(survey, owner_id):
+            return {
+                row.path
+                for row in survey.blockers
+                if row.kind == "survey_scope" and row.owner_item_id == owner_id
+            }
+
+        shared = {snapshot, tables}
+        assert owned_survey_paths(second, first_id) == shared
+        assert owned_survey_paths(first_view, second_id) == shared
+
+    def test_stronger_signal_does_not_drop_other_survey_overlaps(self, test_db):
+        first_id, second_id = 2246, 2247
+        budgeted = "src/budgeted_overlap.py"
+        surveyed = "src/survey_only_overlap.py"
+        insert_item(test_db, id=first_id, workflow_id="dash")
+        insert_item(test_db, id=second_id, workflow_id="dash")
+        _record_survey(test_db, item_id=first_id, paths=[budgeted, surveyed])
+        _upsert_section(
+            test_db,
+            item_id=first_id,
+            section_name=FILE_BUDGET_SECTION,
+            content=f"- `{budgeted}` — one job\n",
+        )
+
+        second = survey_conflicts(
+            test_db, item_id=second_id, touch_paths=[budgeted, surveyed],
+        )
+
+        by_path = {row.path: row.kind for row in second.blockers}
+        assert by_path[budgeted] == "frontier_scope"
+        assert by_path[surveyed] == "survey_scope"
+
+
+def test_matching_scopes_returns_every_overlapping_candidate():
+    touch = ("a.py", "b.py", "c.py")
+    candidates = ("a.py", "unrelated.py", "b.py")
+    assert matching_scopes(touch, candidates) == ("a.py", "b.py")
+    assert matching_scope(touch, candidates) == "a.py"
 
 
 class TestSectionStoredFileBudget:

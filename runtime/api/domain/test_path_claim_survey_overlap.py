@@ -184,6 +184,48 @@ class TestSurveyAdvisory:
             candidate_item_id=None,
         ) == []
 
+    def test_two_shared_paths_agree_with_conflict_survey_blockers(self, test_db):
+        snapshot = (
+            "packages/yoke-core/src/yoke_core/domain/"
+            "qa_plan_requirement_snapshot.py"
+        )
+        tables = (
+            "packages/yoke-core/src/yoke_core/domain/"
+            "schema_api_context_tables_qa.py"
+        )
+        shared = (snapshot, tables)
+        _seed_survey(
+            test_db, item_id=2269, paths=shared, status="reviewing-implementation",
+        )
+        insert_item(test_db, id=2270, workflow_id="dash")
+        record_conflict_survey(
+            test_db,
+            survey_conflicts(test_db, item_id=2270, touch_paths=list(shared)),
+        )
+        target_ids = [
+            seed_target(test_db, item_id=2270, path=snapshot),
+            seed_target(test_db, item_id=2270, path=tables),
+        ]
+
+        advisory_paths = {
+            path
+            for survey, path in survey_overlaps(
+                test_db,
+                target_ids=target_ids,
+                integration_target="main",
+                candidate_item_id=2270,
+            )
+            if survey.item_id == 2269
+        }
+        blocker_paths = {
+            row.path
+            for row in survey_conflicts(
+                test_db, item_id=2270, touch_paths=list(shared),
+            ).blockers
+            if row.kind == "survey_scope" and row.owner_item_id == 2269
+        }
+        assert advisory_paths == blocker_paths == {snapshot, tables}
+
 
 class TestClaimDoorLock:
     def test_same_target_claim_still_blocks(self, test_db):

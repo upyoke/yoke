@@ -14,7 +14,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_declared_paths import (
     DeclaredSurvey,
     declared_surveys,
-    matching_scope,
+    matching_scopes,
 )
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.path_render_overlap import is_render_target_only_overlap
@@ -93,12 +93,13 @@ def survey_overlaps(
     integration_target: str,
     candidate_item_id: Optional[int],
 ) -> list[tuple[DeclaredSurvey, str]]:
-    """Return each live survey the candidate coverage lands on, with the path.
+    """Return each live survey path the candidate coverage lands on.
 
     Survey coordination is item-to-item: a claim with no owning item
     carries no identity to coordinate against and no declared edges to
     classify direction from, so it consults nothing here and the
-    claim-side classification stands alone.
+    claim-side classification stands alone. Reported paths are the
+    stored survey touch set, not a first-match recompute.
     """
     if candidate_item_id is None:
         return []
@@ -117,14 +118,15 @@ def survey_overlaps(
         integration_target=integration_target,
         exclude_item_id=candidate_item_id,
     ):
-        matched = matching_scope(survey.paths, paths)
-        if matched and not is_render_target_only_overlap(
+        matched_paths = matching_scopes(paths, survey.paths)
+        if not matched_paths or is_render_target_only_overlap(
             conn,
             candidate_paths=paths,
             other_paths=survey.paths,
             project_id=project_id,
         ):
-            matches.append((survey, matched))
+            continue
+        matches.extend((survey, path) for path in matched_paths)
     return matches
 
 
