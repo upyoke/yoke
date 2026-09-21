@@ -99,7 +99,7 @@ def _launch_dict(entry: UnregisteredLaunch) -> dict[str, Any]:
     }
 
 
-def _landed_dict(entry: LandedItem) -> dict[str, Any]:
+def _landed_dict(entry: LandedItem, *, idle_after_seconds: int) -> dict[str, Any]:
     return {
         "item_id": entry.item_id,
         "public_ref": entry.public_ref,
@@ -109,15 +109,17 @@ def _landed_dict(entry: LandedItem) -> dict[str, Any]:
         "holder_session_id": entry.holder_session_id,
         "holder_parked": entry.holder_parked,
         "holder_quiet_reason": entry.holder_quiet_reason,
+        "holder_idle_seconds": entry.holder_idle_seconds,
         "workflow_id": entry.workflow_id,
         "custody_state": entry.custody_state,
         "custody_run_id": entry.custody_run_id,
         "stranded": entry.stranded,
         # Empty when the row needs nothing: a live holder owns its own
-        # close-out, and a parked one is waiting on the delivery that
-        # close-out needs. A consumer that prints this unconditionally is
-        # reproducing the defect the empty string exists to end.
-        "recovery": landed_recovery(entry),
+        # close-out, and a parked one still inside the idle threshold is
+        # waiting on the delivery that close-out needs. A quiet holder is
+        # not that owner; the recovery names a wake and the close-out that
+        # runs once the claim is free.
+        "recovery": landed_recovery(entry, idle_after_seconds=idle_after_seconds),
     }
 
 
@@ -223,7 +225,10 @@ def report_dict(report: FleetReport) -> dict[str, Any]:
             }
             for entry in report.abandoned_launches
         ],
-        "landed_open": [_landed_dict(entry) for entry in report.landed_open],
+        "landed_open": [
+            _landed_dict(entry, idle_after_seconds=report.idle_after_seconds)
+            for entry in report.landed_open
+        ],
         "suspected_orphaned_waiters": [
             _holder_dict(holder) for holder in report.suspected_orphaned_waiters
         ],

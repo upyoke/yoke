@@ -31,13 +31,13 @@ The stale-claim window is already covered
 A stale claim is deliberately not a candidate for available work: the item
 still has a holder until the stale-session sweep releases it, and reporting
 it as available invites a second worker onto an item it cannot claim. That
-leaves the window between a holder going stale and the sweep firing -- and
-that window is not silent. ``claim_holders`` excludes only ended and
-terminated sessions, and idleness is measured from ``last_tool_call_at``
-rather than from any liveness label, so a stale-but-unswept holder is in the
-idle list from ``idle_after_seconds`` onward and its item moves to available
-the moment the sweep releases it. There is no moment when the item is in no
-section, so the window gets no line of its own.
+window is not silent. ``claim_holders`` excludes only ended and terminated
+sessions, and idleness is measured from ``last_tool_call_at`` rather than
+from any liveness label, so a holder quiet past ``idle_after_seconds`` is in
+the idle list even when parked. A landing linked to another strategy
+document still appears in the project-wide landed-open section, because a
+landing is a delivery-plane fact and staffing membership must not hide a
+close-out. There is no moment when the item is in no section.
 
 A deliberately held item is the operator's flag to set
 ------------------------------------------------------
@@ -87,6 +87,8 @@ from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
 from yoke_core.domain.steering_fleet_report_relay_health import RelayHealthCondition
 from yoke_core.domain.steering_fleet_report_scope import (
     members_only,
+    seat_claim_holders,
+    seat_landed_open,
     seat_members,
     sessions_only,
 )
@@ -254,12 +256,13 @@ def compose_report(
     )
     seat_scope = dict(scope) if scope else {"project_id": int(project_id)}
     members = seat_members(conn, seat_scope)
-    holders = members_only(facts.holders, members)
+    landed_open = seat_landed_open(facts.landed_open, members, seat_scope)
+    holders = seat_claim_holders(facts.holders, members, landed_open)
     quiet = tuple(
         holder
         for holder in holders
         if holder.native_process_gone
-        or (not holder.parked and holder.idle_seconds >= int(idle_after_seconds))
+        or holder.idle_seconds >= int(idle_after_seconds)
     )
     split = partition_quiet(conn, quiet=quiet, now=now)
     stranded = facts.stranded
@@ -285,7 +288,7 @@ def compose_report(
         ),
         unregistered_launches=facts.unregistered_launches,
         abandoned_launches=facts.abandoned_launches,
-        landed_open=members_only(facts.landed_open, members),
+        landed_open=landed_open,
         deployment_runs=facts.deployment_runs,
         suspected_orphaned_waiters=suspected_orphaned_waiters(conn, idle=alive_idle),
         in_flight=split.in_flight,

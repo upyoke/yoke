@@ -77,6 +77,10 @@ class LandedItem:
     holder_parked: bool = False
     #: The parked holder's own words for what it waits on, when it left any.
     holder_quiet_reason: str = ""
+    #: Seconds since that holder's last tool call. Quiet past the report's
+    #: idle threshold means they are not driving the close-out, even if
+    #: parked waiting on a delivery.
+    holder_idle_seconds: int = 0
     #: The workflow the item pins, because close-out is composed from it: an
     #: evidence-gated terminal transition refuses the bare command.
     workflow_id: str = ""
@@ -95,22 +99,40 @@ class LandedItem:
         return self.custody_state in ENROLLABLE_CUSTODY_STATES
 
 
-def holder_phrase(entry: LandedItem) -> str:
-    """Who holds the item, and whether they are waiting or working.
+def _holder_is_quiet(entry: LandedItem, idle_after_seconds: int | None) -> bool:
+    """True when a live holder has been quiet past the report's idle threshold."""
+    if not entry.holder_session_id or idle_after_seconds is None:
+        return False
+    return entry.holder_idle_seconds >= int(idle_after_seconds)
+
+
+def holder_phrase(
+    entry: LandedItem, *, idle_after_seconds: int | None = None
+) -> str:
+    """Who holds the item, and whether they are waiting, working, or quiet.
 
     A bare session id said only that somebody was there. Whether that somebody
     is parked decides whether the row needs anything at all, so the row says
-    it rather than leaving a reader to go and look.
+    it rather than leaving a reader to go and look. A parked holder that has
+    gone quiet past the idle threshold is not waiting by design — they are
+    not driving the close-out, and the row has to say so.
     """
     if not entry.holder_session_id:
         return "no live holder"
     held = f"held by {entry.holder_session_id}"
+    if _holder_is_quiet(entry, idle_after_seconds):
+        quiet = f"quiet {entry.holder_idle_seconds // 60}m"
+        parked = ", parked" if entry.holder_parked else ""
+        reason = f" — {entry.holder_quiet_reason}" if entry.holder_quiet_reason else ""
+        return f"{held}, {quiet}{parked}{reason}; holder is not driving this"
     if not entry.holder_parked:
         return f"{held}, working"
     return f"{held}, parked — {entry.holder_quiet_reason or 'waiting on delivery'}"
 
 
-def landed_recovery(entry: LandedItem) -> str:
+def landed_recovery(
+    entry: LandedItem, *, idle_after_seconds: int | None = None
+) -> str:
     """What a seat does about this row, or ``""`` when it needs nothing.
 
     Close-out is a claim-holding step, so a seat can only run it on a landing
@@ -120,14 +142,25 @@ def landed_recovery(entry: LandedItem) -> str:
     correct command offered for a situation that needs no command is still
     noise, and it costs every reader the time it takes to try.
 
+    A holder quiet past the idle threshold is not that live owner. The claim
+    still blocks close-out until the sweep releases it, so the row names a
+    wake (the holder may yet return) and the close-out that runs once the
+    claim is free.
+
     Where a seat can act, the command is composed for the item's own workflow.
     An evidence-gated terminal transition refuses the bare form, so the row
     names the flags rather than leaving them to be discovered through the
     denial.
     """
+    command = close_out_command(entry.public_ref, workflow_id=entry.workflow_id)
+    if _holder_is_quiet(entry, idle_after_seconds):
+        return (
+            f"wake `yoke say --item {entry.public_ref} --stdin`; "
+            f"if the holder is gone, finish close-out with `{command}` "
+            "once the claim is free"
+        )
     if entry.holder_session_id:
         return ""
-    command = close_out_command(entry.public_ref, workflow_id=entry.workflow_id)
     return f"finish close-out with `{command}`; do not wait on status"
 
 
@@ -200,6 +233,7 @@ def landed_without_closeout(
                 holder_session_id=holder.session_id if holder else "",
                 holder_parked=bool(holder and holder.parked),
                 holder_quiet_reason=holder.quiet_reason if holder else "",
+                holder_idle_seconds=holder.idle_seconds if holder else 0,
                 workflow_id=str(record.get("workflow_id") or ""),
                 custody_state=held.state,
                 custody_run_id=held.run_id,

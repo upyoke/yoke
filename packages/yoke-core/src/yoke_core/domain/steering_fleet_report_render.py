@@ -102,13 +102,15 @@ def _landed_lines(report: FleetReport) -> list[str]:
     outstanding close-outs.
     """
     lines = []
+    idle_after = report.idle_after_seconds
     for entry in report.landed_open[:SECTION_LIMIT]:
         line = (
             f"  {entry.public_ref}  still {entry.status}  "
             f"landed {minutes(entry.landed_seconds)} ago  "
-            f"{holder_phrase(entry)}  {custody_phrase(entry)}"
+            f"{holder_phrase(entry, idle_after_seconds=idle_after)}  "
+            f"{custody_phrase(entry)}"
         )
-        recovery = landed_recovery(entry)
+        recovery = landed_recovery(entry, idle_after_seconds=idle_after)
         if recovery:
             line += f"  {recovery}"
         lines.append(line)

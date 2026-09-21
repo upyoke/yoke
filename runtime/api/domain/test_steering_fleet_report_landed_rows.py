@@ -16,6 +16,7 @@ from runtime.api.fixtures.backlog import insert_item
 from runtime.api.steering_fleet_test_helpers import (
     ASKER,
     BEFORE_THAT,
+    IDLE_SECONDS,
     LONG_AGO,
     NOW,
     PROJECT_ID,
@@ -193,6 +194,23 @@ def test_a_landing_its_parked_holder_waits_on_offers_no_command(fleet):
     assert landed_recovery(entry) == ""
     assert "parked" in holder_phrase(entry)
     assert "awaiting YOK-1 delivery" in holder_phrase(entry)
+
+
+def test_a_parked_holder_quiet_past_idle_names_a_wake(fleet):
+    """A declared wait that has gone quiet is a dead holder, not a healthy one."""
+    fleet.execute("UPDATE items SET merged_at = %s WHERE id = 1", (LONG_AGO,))
+    _claim_item(fleet, ASKER)
+    _park(fleet, ASKER, "awaiting YOK-1 delivery: deployment run, then close-out")
+    fleet.commit()
+
+    entry = _landed(fleet)[0]
+    phrase = holder_phrase(entry, idle_after_seconds=IDLE_SECONDS)
+    recovery = landed_recovery(entry, idle_after_seconds=IDLE_SECONDS)
+
+    assert "holder is not driving this" in phrase
+    assert "quiet" in phrase
+    assert "yoke say --item YOK-1" in recovery
+    assert "yoke merge item YOK-1" in recovery
 
 
 def test_a_parked_holder_that_left_no_reason_still_reads_as_waiting(fleet):

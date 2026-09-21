@@ -13,13 +13,15 @@ from runtime.api.steering_fleet_test_helpers import (
     SURFACE,
     WORKER_SESSION,
     compose as _compose,
+    seed_session,
     seed_steering_scope,
 )
-from yoke_core.domain.session_activity_state import apply_envelope_state
+from runtime.api.fixtures.backlog import insert_item
 from yoke_core.domain.session_mode import SESSION_MODE_PARKED, set_session_mode
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
 from yoke_core.domain.steering_fleet_report_capacity import SessionCount
 from yoke_core.domain.steering_fleet_report_projection import report_dict
+from yoke_core.domain.steering_fleet_report_render import report_body
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
@@ -158,6 +160,71 @@ def test_staffing_and_idle_thresholds_answer_separate_questions(steering_scope):
     assert {entry.item_id for entry in report.waited_too_long()} == {2, 3}
 
 
+def test_a_parked_holder_quiet_past_idle_is_idle(steering_scope):
+    """A declared wait that has gone quiet is stuck, not healthy."""
+    claim_work(
+        steering_scope,
+        session_id=WORKER_SESSION,
+        target=make_item_target(1),
+    )
+    set_session_mode(
+        steering_scope,
+        WORKER_SESSION,
+        SESSION_MODE_PARKED,
+        reason="awaiting YOK-1 delivery",
+    )
+
+    report = _compose(steering_scope)
+
+    assert {holder.item_id for holder in report.idle} == {1}
+    assert report.idle[0].parked is True
+
+
+def test_a_document_linked_landing_is_named_on_the_project_seat(steering_scope):
+    """Staffing membership must not hide a close-out linked to another document."""
+    holder = "parked-closer"
+    seed_session(steering_scope, holder, last_tool_call_at=LONG_AGO, mode="parked")
+    insert_item(
+        steering_scope,
+        id=4,
+        title="Landed close-out",
+        workflow_id="dash",
+        status="release",
+        created_at=LONG_AGO,
+        updated_at=LONG_AGO,
+        merged_at=LONG_AGO,
+        merge_queue_landed_at=LONG_AGO,
+    )
+    steering_scope.execute(
+        "INSERT INTO item_strategy_docs "
+        "(item_id, project_id, strategy_doc_slug, linked_at) "
+        "VALUES (4, 1, 'LANDSCAPE', %s)",
+        (NOW,),
+    )
+    claim_work(steering_scope, session_id=holder, target=make_item_target(4))
+    set_session_mode(
+        steering_scope,
+        holder,
+        SESSION_MODE_PARKED,
+        reason="awaiting YOK-4 delivery: deployment run, then close-out",
+    )
+    steering_scope.commit()
+
+    report = _compose(steering_scope)
+    body = report_body(report)
+
+    assert 4 in {entry.item_id for entry in report.landed_open}
+    assert 4 in {holder_row.item_id for holder_row in report.idle}
+    assert "YOK-4" in body
+    assert "holder is not driving this" in body
+    assert "yoke say --item YOK-4" in body
+
+    plan_seat = _compose(
+        steering_scope, scope={"project_id": 1, "document": "CURRENT-PLAN"}
+    )
+    assert 4 not in {entry.item_id for entry in plan_seat.landed_open}
+
+
 def test_a_parked_holder_declared_its_wait_and_is_not_idle(steering_scope):
     claim_work(
         steering_scope,
@@ -170,16 +237,11 @@ def test_a_parked_holder_declared_its_wait_and_is_not_idle(steering_scope):
         SESSION_MODE_PARKED,
         reason="waiting on a blocking claim",
     )
-    apply_envelope_state(
-        steering_scope,
-        {
-            "event_name": "HarnessToolCallStarted",
-            "session_id": WORKER_SESSION,
-            "event_time": NOW,
-            "tool_use_id": "tool-1",
-            "tool_name": "Shell",
-        },
+    steering_scope.execute(
+        "UPDATE harness_sessions SET last_tool_call_at = %s WHERE session_id = %s",
+        (NOW, WORKER_SESSION),
     )
+    steering_scope.commit()
 
     report = _compose(steering_scope)
 

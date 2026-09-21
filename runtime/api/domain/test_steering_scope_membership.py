@@ -7,6 +7,8 @@ import pytest
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.steering_fleet_report_scope import (
     members_only,
+    seat_claim_holders,
+    seat_landed_open,
     seat_members,
     sessions_only,
 )
@@ -187,3 +189,17 @@ def test_filters_narrow_to_the_seats_own_items_and_holders() -> None:
     rows = (_Row(1, "s1"), _Row(2, "s2"))
     assert members_only(rows, {1}) == (rows[0],)
     assert sessions_only(rows, session_ids={"s2"}, members={2}) == (rows[1],)
+
+
+def test_a_project_seat_keeps_every_landing_a_document_seat_narrows() -> None:
+    rows = (_Row(1, "s1"), _Row(2, "s2"))
+    assert seat_landed_open(rows, {1}, {"project_id": 1}) == rows
+    assert seat_landed_open(
+        rows, {1}, {"project_id": 1, "document": AREA_PLAN}
+    ) == (rows[0],)
+
+
+def test_a_project_seat_adds_holders_of_visible_landings() -> None:
+    holders = (_Row(1, "s1"), _Row(2, "s2"))
+    assert seat_claim_holders(holders, {1}, (_Row(2),)) == holders
+    assert seat_claim_holders(holders, {1}, (_Row(1),)) == (holders[0],)
