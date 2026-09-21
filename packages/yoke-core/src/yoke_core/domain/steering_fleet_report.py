@@ -150,11 +150,17 @@ class FleetReport:
     deployment_runs: tuple[DeploymentRunProgress, ...] = ()
 
     def waited_too_long(self) -> tuple[FrontierEntry, ...]:
-        """Available work past the staffing threshold: the alarm, not the list."""
+        """Available work past the staffing threshold: the alarm, not the list.
+
+        A launch already in flight is visible on the list with its own clock;
+        it is not this alarm. The mark has to stay reserved for work nobody
+        is staffing, or it stops meaning staff-these.
+        """
         return tuple(
             entry
             for entry in self.available
-            if entry.waiting_seconds(self.composed_at) >= self.staffing_after_seconds
+            if not entry.launch_state
+            and entry.waiting_seconds(self.composed_at) >= self.staffing_after_seconds
         )
 
     def undelivered_needing_action(self) -> tuple[UndeliveredMessages, ...]:

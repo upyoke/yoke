@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import uuid
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
 from yoke_contracts.session_control.model_selection import (
@@ -18,6 +19,26 @@ from yoke_core.domain.session_launch_types import (
 )
 from yoke_core.domain.session_launch_assignment import MAX_SESSION_NAME_LENGTH
 from yoke_contracts.session_control.presentation import CLAUDE_LOCAL_PRESENTATION
+
+
+def require_launch_id(launch_id: str) -> str:
+    """Return the canonical UUID, or refuse a fragment that is not a launch id.
+
+    ``session_control.launch.get`` answering "not found" for an eight-character
+    hex string reads as "the launch is gone". A launch id is a UUID; name the
+    malformed input and the shape rather than searching for a row it cannot be.
+    """
+    raw = str(launch_id or "").strip()
+    try:
+        parsed = uuid.UUID(raw)
+    except ValueError:
+        raise SessionLaunchError(
+            "launch_id_invalid",
+            f"launch id {raw!r} is not a UUID; a launch id is 8-4-4-4-12 hex "
+            "(the value session_control.launch.create returns), not a fragment "
+            "or short hex string. Recovery: pass the full launch id.",
+        ) from None
+    return str(parsed)
 
 
 def validate_launch_request(
@@ -109,6 +130,7 @@ def preview_model_selection_payload(
 
 __all__ = [
     "preview_model_selection_payload",
+    "require_launch_id",
     "validate_launch_request",
     "validate_model_selection",
     "validate_preview_model_selection",

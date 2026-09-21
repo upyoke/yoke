@@ -40,6 +40,9 @@ def _entry_dict(entry: FrontierEntry, now: str) -> dict[str, Any]:
         "pickable_since": entry.pickable_since,
         "waiting_seconds": entry.waiting_seconds(now),
         "was_owned": entry.was_owned,
+        "launch_id": entry.launch_id,
+        "launch_state": entry.launch_state,
+        "launched_at": entry.launched_at,
     }
 
 

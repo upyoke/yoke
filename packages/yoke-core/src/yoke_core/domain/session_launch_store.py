@@ -13,6 +13,7 @@ from yoke_contracts.session_control.sender_surface import (
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_launch_types import LaunchRecord, SessionLaunchError
+from yoke_core.domain.session_launch_validation import require_launch_id
 
 
 LAUNCH_COLUMNS = (
@@ -154,6 +155,7 @@ def row_to_launch(row: Any) -> LaunchRecord:
 
 
 def get_launch(conn: Any, launch_id: str, *, for_update: bool = False) -> LaunchRecord:
+    launch_id = require_launch_id(launch_id)
     suffix = (
         " FOR UPDATE" if for_update and db_backend.connection_is_postgres(conn) else ""
     )
