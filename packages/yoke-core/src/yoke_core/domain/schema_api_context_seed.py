@@ -232,5 +232,6 @@ PACKET_BYTE_BUDGET_AGGREGATE: int = 197000
 # rose from 58,981 when the engineer's submission contract came back inline:
 # the receipt an agent must emit and the checks that gate it are not a
 # reference it looks up, so carving them out was the wrong call and the
-# submission-gate tests said so.
-AGENT_PROMPT_BYTE_BUDGET: int = 66000
+# submission-gate tests said so. Six qa_requirements rebind columns pushed
+# the largest Claude body to 66,104 bytes; 67,000 is that measurement rounded up.
+AGENT_PROMPT_BYTE_BUDGET: int = 67000
