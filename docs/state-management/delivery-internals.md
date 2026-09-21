@@ -73,14 +73,21 @@ their recorded reasons), or `unanswered` (no post-deploy record of any kind).
 
 The deployment QA stage honours the difference. A member that recorded
 no-obligation or a waiver-backed declaration materializes no cases and its
-stage reports `discharged`; a member nobody asked keeps the
-`QaCasesNotSelectedError` wait exactly as before. An empty case set on its
+stage reports `discharged`; a later item-scoped stage treats that discharge
+as the prior stage's settlement (zero acceptance rows is correct; two is
+still refused). A member nobody asked keeps the `QaCasesNotSelectedError`
+wait, and still blocks the next item-scoped stage. An empty case set on its
 own is still never enough — silence is not an answer.
 
 The no-obligation fact is the item's `post_deploy` requirement with
 `qa_kind=post_deploy_no_obligation`, non-blocking, reason on `instructions`,
 and empty waiver columns. `yoke qa post-deploy record-no-obligation` exists
 so that is one named act.
+
+A plan bound to a persistent environment is selectable at a `run_preview`
+QA stage when the run's `target_environment_id` is that environment — the
+preview stands in for it. The binding still skips a plan aimed at a
+different persistent environment.
 
 ## Halt States
 

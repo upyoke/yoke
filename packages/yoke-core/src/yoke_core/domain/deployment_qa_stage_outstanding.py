@@ -36,6 +36,8 @@ from yoke_core.domain.post_deploy_verification_answer import (
 )
 from yoke_core.domain.qa_deployment_member_attached_plans import (
     attached_member_plans,
+    plan_matches_stage_environment,
+    stage_environment_id_for_plan_selection,
 )
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.steering_fleet_report_detectors import marker
@@ -142,10 +144,7 @@ def _frozen_plans(
         if isinstance(selection, Mapping) and str(selection.get("stage") or "") == stage
     ]
     snapshot = subject.get("member_snapshot")
-    environment = target.get("environment")
-    environment_id = (
-        environment.get("id") if isinstance(environment, Mapping) else None
-    )
+    stage_environment_id = stage_environment_id_for_plan_selection(conn, target)
     if isinstance(snapshot, Mapping):
         for value in snapshot.get("plans") or []:
             if not isinstance(value, Mapping):
@@ -156,9 +155,8 @@ def _frozen_plans(
                 continue
             if str(attachment.get("qa_phase") or "") != "post_deploy":
                 continue
-            plan_environment = plan.get("target_environment_id")
-            if plan_environment is not None and int(plan_environment) != int(
-                environment_id or 0
+            if not plan_matches_stage_environment(
+                plan.get("target_environment_id"), stage_environment_id
             ):
                 continue
             frozen.append(dict(value))
