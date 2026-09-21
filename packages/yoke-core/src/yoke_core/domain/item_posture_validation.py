@@ -36,20 +36,6 @@ def _verification(
         plan = _plan_row(conn, plan_id)
         if int(plan["project_id"]) != int(project_id):
             raise ItemPostureError("verification plan is not in the item project")
-        from yoke_core.domain.qa_plan_attachment_validation import (
-            plan_persistent_environment,
-        )
-
-        target = plan_persistent_environment(conn, plan)
-        if target is not None:
-            raise ItemPostureError(
-                "verification posture cannot select a plan bound to "
-                f"persistent environment {target[1]!r}; that plan belongs "
-                "at the item's post-deploy transition: yoke qa item-plan "
-                "attach --item PREFIX-N --project P "
-                f"--plan-id {plan_id} --transition <release-wait> "
-                "--qa-phase post_deploy"
-            )
         return {"kind": "plan", "plan_id": plan_id}
     if kind == "ad_hoc":
         if set(raw) != {"kind", "method_id"}:

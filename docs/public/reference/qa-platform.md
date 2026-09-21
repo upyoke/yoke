@@ -341,7 +341,7 @@ QA-domain writes emit unified events via `yoke_core.domain.events.emit_event` (c
 | `QARunCompleted` | qa_run verdict recorded |
 | `QAArtifactAttached` | qa_artifact row inserted |
 
-All event names are registered in the `event_registry` table. Attach of a plan bound to a persistent environment at a pre-delivery transition is refused and names the post-deploy attachment that works.
+All event names are registered in the `event_registry` table. Attach of a plan bound to the item's delivery environment at a pre-delivery transition is refused and names the post-deploy attachment that works.
 
 ### Current Lifecycle Vocabulary
 

@@ -293,14 +293,17 @@ def amend_item_posture(
 
     from yoke_core.domain.item_posture_bindings import bind_item_posture_selection
 
-    binding = bind_item_posture_selection(
-        conn,
-        item_id=int(item_id),
-        definition=runtime.definition,
-        posture=normalized,
-        actor_id=actor_id,
-        commit=False,
-    )
+    try:
+        binding = bind_item_posture_selection(
+            conn,
+            item_id=int(item_id),
+            definition=runtime.definition,
+            posture=normalized,
+            actor_id=actor_id,
+            commit=False,
+        )
+    except ItemPostureError as exc:
+        raise ItemPostureAmendError(str(exc)) from exc
     event_id = _emit_amended(
         conn,
         item_id=int(item_id),

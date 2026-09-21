@@ -1,4 +1,4 @@
-"""``qa`` topic wrapper-command recipes for item plan attach and retract.
+"""``qa`` topic wrapper-command recipes for item plan retraction.
 
 Sibling of :mod:`schema_api_context_commands_qa`. Split out so that
 module stays under the authored-file line cap while this write still
@@ -31,29 +31,6 @@ QA_ITEM_PLAN_COMMANDS: list[dict] = [
             "refused so the history row remains. Wrong guesses: that "
             "waiver or supersession is how you undo a wrong attachment, "
             "and that retracting is how you discard an unwelcome fail."
-        ),
-    },
-    {
-        "topic": "qa",
-        "purpose": "Attach a QA plan at a transition the item can satisfy",
-        "recipe": (
-            "yoke qa item-plan attach --item PREFIX-N --project P "
-            "--plan-id N --transition T [--qa-phase PHASE] "
-            "[--acknowledge-unreachable-target]"
-        ),
-        "notes": (
-            "Registered write qa.item_plan.attach. A plan with no "
-            "target_environment_id attaches at any transition it does "
-            "today. A plan bound to a persistent environment attached at "
-            "a transition that precedes delivery to that environment is "
-            "refused: the revision probe resolves from that target, so "
-            "the requirement can never pass and the item cannot enter "
-            "release. The refusal names the post-deploy attachment that "
-            "works. Pass acknowledge_unreachable_target only when the "
-            "caller knows the target is already reachable. Wrong guesses: "
-            "that --base-url can redirect a bound revision probe, and "
-            "that verification posture can select an environment-bound "
-            "plan."
         ),
     },
 ]

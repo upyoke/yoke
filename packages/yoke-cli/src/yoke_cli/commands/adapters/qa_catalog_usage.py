@@ -18,10 +18,11 @@ from yoke_contracts.qa_case_environment import (
 #: Read as ``yoke qa item-plan attach --help``.
 ITEM_PLAN_ATTACH_EPILOG = (
     "Attaching creates a blocking case row at --transition. A plan bound "
-    "to a persistent environment cannot attach at a transition that "
-    "precedes delivery to that environment: the revision probe resolves "
-    "from the bound target, so the requirement can never pass and the "
-    "item cannot enter release. Attach that plan at the item's "
+    "to the item's completion-flow environment cannot attach at a "
+    "transition that precedes delivery there: the revision probe resolves "
+    "from that target, so the requirement can never pass and the item "
+    "cannot enter release. A catalog plan bound to a different environment "
+    "still attaches. Attach the delivery-target plan at the item's "
     "post-deploy transition instead (`--qa-phase post_deploy`). A caller "
     "who knows the target is already reachable may pass "
     "`--acknowledge-unreachable-target`. A mis-specified post-deploy "

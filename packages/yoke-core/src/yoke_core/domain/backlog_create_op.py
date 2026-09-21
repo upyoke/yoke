@@ -295,6 +295,9 @@ def execute_create(
                     time.sleep(0.1)
                     continue
                 raise
+            except ItemPostureError as exc:
+                conn.rollback()
+                return {"success": False, "error": str(exc)}
             except Exception:
                 conn.rollback()
                 raise
