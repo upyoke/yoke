@@ -1,12 +1,13 @@
 """Probe-aligned reclaim of ``claimed_by_stale`` item holders.
 
 The fleet probe classifies an item ``claimed_by_stale`` with the short
-session TTL, not the holdings TTL. The sweep still uses the holdings TTL
-as the default for a session that may be between turns. When the probe has
-already classified a holder, the sweep frees that same holder without
-waiting out the holdings bound. Parked release-wait owners stay spared:
-the probe does not classify them stale, and ``release_wait_sweep`` still
-guards the mutation.
+session TTL, not the holdings TTL. Ambient janitors still use the holdings
+TTL so a session that may be between turns keeps its claim. The
+reclaim-stale command is the shorter path: when the probe has already
+classified a holder, that sweep frees the same holder without waiting out
+the holdings bound. Parked release-wait owners stay spared: the probe
+does not classify them stale, and ``release_wait_sweep`` still guards the
+mutation.
 """
 
 from __future__ import annotations
@@ -72,6 +73,7 @@ def bucket_holdings_spared_session(
     progress_stale: List[Dict[str, Any]],
     heartbeat_stale: List[Dict[str, Any]],
     skipped_between_turns: List[Dict[str, Any]],
+    reclaim_probe_stale_holders: bool = False,
 ) -> None:
     """Place a holdings-TTL-fresh session into the matching sweep bucket."""
     if progress_stale_flag:
@@ -84,7 +86,10 @@ def bucket_holdings_spared_session(
         executor_ttl_overrides={},
     ):
         return
-    if probe_classifies_item_holder_stale(conn, sid):
+    if (
+        reclaim_probe_stale_holders
+        and probe_classifies_item_holder_stale(conn, sid)
+    ):
         heartbeat_stale.append(
             {
                 **entry,

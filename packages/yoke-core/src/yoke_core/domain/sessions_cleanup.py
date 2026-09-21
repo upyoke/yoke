@@ -54,12 +54,12 @@ def clean_stale_harness_sessions(
     *,
     executor_ttl_overrides: Optional[Dict[str, int]] = None,
     project_ids: Optional[List[int]] = None,
+    reclaim_probe_stale_holders: bool = False,
 ) -> Dict[str, Any]:
     """Unified stale-session cleanup.
 
-    The short TTL applies to empty sessions. Sessions with an
-    active work claim, session-owned strategy-document lock, or session-owned
-    coordination lease use the longer holdings TTL.
+    The short TTL applies to empty sessions. An active work claim,
+    strategy-document lock, or coordination lease uses the holdings TTL.
 
     Each reclaim emits exactly one ``HarnessSessionStaleReclaimed`` event with
     ``stale_minutes``, ``last_event_at``, ``released_claim_count``, ``executor``,
@@ -183,15 +183,9 @@ def clean_stale_harness_sessions(
 
         if not is_stale:
             bucket_holdings_spared_session(
-                conn,
-                sid,
-                entry,
-                progress_stale_flag,
-                activity_at,
-                stale_threshold_minutes,
-                progress_stale,
-                heartbeat_stale,
-                skipped_between_turns,
+                conn, sid, entry, progress_stale_flag, activity_at,
+                stale_threshold_minutes, progress_stale, heartbeat_stale,
+                skipped_between_turns, reclaim_probe_stale_holders,
             )
             continue
 

@@ -64,8 +64,16 @@ def test_reclaim_returns_sweep_receipt_for_global_and_project_scopes():
     assert scoped_outcome.primary_success
     assert scoped_outcome.result_payload == receipt
     assert sweep.call_args_list == [
-        call(connection, project_ids=None),
-        call(connection, project_ids=[1, 2]),
+        call(
+            connection,
+            project_ids=None,
+            reclaim_probe_stale_holders=True,
+        ),
+        call(
+            connection,
+            project_ids=[1, 2],
+            reclaim_probe_stale_holders=True,
+        ),
     ]
 
 
