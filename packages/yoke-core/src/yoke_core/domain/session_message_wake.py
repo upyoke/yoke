@@ -7,6 +7,8 @@ from typing import Any, Mapping
 
 from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
+from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
+from yoke_core.domain.session_mode import session_is_parked
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
 from yoke_core.domain.session_activity_state import (
@@ -54,10 +56,7 @@ from yoke_core.domain.session_relay_types import WakeMode
 from yoke_core.domain.session_relay_versions import wake_operation
 
 
-#: The absences that override deferring to a live session's own hooks, in the
-#: order they are tested. The observed death answers first because it is the
-#: only one that settles the question rather than inferring it; the parked
-#: test comes next because it needs no waiting window either.
+#: Observed death first (settled), then parked (no window), then starved.
 _HOOK_ROUTE_ABSENCES = (
     (NATIVE_PROCESS_GONE, native_process_gone),
     (PARKED_WITHOUT_IDLE_WAKE, parked_without_idle_wake),
@@ -78,16 +77,12 @@ def _native_wake_route_available(
     relay_versions: Mapping[str, str],
     force_stopped_route: bool = False,
 ) -> bool:
-    # A terminated session is never wakeable, by any route. Its liveness now
-    # reads "ended" like any other gone session, which does resolve a wake
-    # operation, so the ban has to read terminated_at — otherwise the private
-    # route qualification below would reopen what the kill closed.
+    # Liveness now reads "ended" like any other gone session, so the ban
+    # has to read terminated_at or qualification would reopen the kill.
     if row.get("terminated_at"):
         return False
-    # A surface whose wake authority is its operator is never resumed here,
-    # whatever its liveness, parked mode, or stall state says. The stage
-    # qualification below would otherwise reopen exactly the private route
-    # this rules out, which is how a desktop transcript gets forked.
+    # Operator-wake surfaces are never resumed here: that forks the
+    # desktop transcript the person is reading.
     if not native_wake_supported(str(row.get("executor_surface") or "")):
         return False
     from yoke_core.domain.session_surface_policy import live_mark
@@ -208,7 +203,12 @@ def wake_eligible_recipients(
                 ignore_attempt_id and attempt_count == policy.max_wake_attempts
             )
             first_manual_attempt = explicit_wake and attempt_count == 0
-            if at_limit and not adopting_final_attempt and not first_manual_attempt:
+            parked_native_hold = session_is_parked(row.get("mode")) and (
+                str(row.get("wake_escalation") or "") == NATIVE_TURN_RUNNING_RESULT
+            )
+            if at_limit and not (
+                adopting_final_attempt or first_manual_attempt or parked_native_hold
+            ):
                 continue
             if explicit_wake and attempt_count > 0:
                 continue
@@ -310,10 +310,8 @@ def wake_eligible_recipients(
                     "message_id": str(row["message_id"]),
                     "session_id": str(row["session_id"]),
                     "project_id": int(row["project_id"]),
-                    # The recipient's project is where the MESSAGE is
-                    # addressed; the session's workspace is where it runs.
-                    # A wake resumes a conversation that only exists in the
-                    # second, so both travel and the relay picks the right one.
+                    "parked": session_is_parked(row.get("mode")),
+                    # Message project vs session workspace: resume the latter.
                     "session_workspace": str(row["session_workspace"] or ""),
                     "machine_id": row["machine_id"],
                     "executor_surface": row["executor_surface"],

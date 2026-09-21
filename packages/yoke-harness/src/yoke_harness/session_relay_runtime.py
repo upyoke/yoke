@@ -60,6 +60,7 @@ class RelayExecutionContext:
     target_liveness: str | None = None
     wake_mode: WakeMode | None = None
     wake_route: str | None = None
+    target_parked: bool = False
     launch_attestation: str | None = field(default=None, repr=False)
     launch_progress_reporter: Callable[[Mapping[str, object]], bool] | None = field(
         default=None,
@@ -251,6 +252,7 @@ def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
         ),
         wake_mode=normalize_wake_mode(job.get("wake_mode")),
         wake_route=str(job["wake_route"]) if job.get("wake_route") else None,
+        target_parked=bool(job.get("target_parked")),
         launch_attestation=(
             str(job["launch_attestation"]) if job.get("launch_attestation") else None
         ),

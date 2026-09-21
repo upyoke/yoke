@@ -22,11 +22,13 @@ time beside it, in two record families that already exist for other readers:
 A deferral also reports how long that native has been silent, read from its
 own capture. Custody still refuses on the pid alone -- silence is never
 authority to start a second turn, because a turn between tool calls is
-silent by design. It travels because the refusal repeats: two natives held
-custody for half an hour and an hour while every wake to their sessions was
-declined, and nothing in the refusal said whether the turn behind it was
-moving. That is the difference between a wake worth retrying and a session
-a person needs to look at.
+silent by design. A recorded park is not silence: the session declared its
+own turn over, so that pid is leftover process rather than a live turn, and
+the hold does not apply. It travels because the refusal repeats: two natives
+held custody for half an hour and an hour while every wake to their
+sessions was declined, and nothing in the refusal said whether the turn
+behind it was moving. That is the difference between a wake worth retrying
+and a session a person needs to look at.
 
 Both are custody records: this machine started a headless native that exits
 when its turn ends, so its pid still being that process means the turn is
@@ -289,12 +291,16 @@ def deferral_for_running_native(
     """The outcome a wake takes instead of starting a second native.
 
     Returns ``None`` for every job that may proceed, so the shared runner
-    asks one question and every surface adapter inherits the answer. The
-    envelope is untouched: it stays pending for the live turn's own hook,
-    and the control plane restores the wake budget this deferral did not
-    spend.
+    asks one question and every surface adapter inherits the answer. A
+    parked session proceeds even when a native pid is still that process:
+    the park is the session declaring its turn over, and the leftover pid
+    is not a live turn. The envelope is untouched when this does defer: it
+    stays pending for the live turn's own hook, and the control plane
+    restores the wake budget this deferral did not spend.
     """
     if context.job_kind != "wake":
+        return None
+    if context.target_parked:
         return None
     running = running_native_for_session(
         context.target_session_id,

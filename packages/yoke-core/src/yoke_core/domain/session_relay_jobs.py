@@ -117,6 +117,9 @@ def claim_wake_job(
         session_id=session_id,
         surface=execution[0],
     )
+    presentation = managed_presentation.managed_session_presentation(
+        conn, session_id=session_id, surface=execution[0]
+    )
     mark_relay_batch(
         conn,
         relay_id=heartbeat.relay_id,
@@ -141,13 +144,10 @@ def claim_wake_job(
         requested_model=selection.model,
         requested_reasoning_effort=selection.reasoning_effort,
         requested_context_window_tokens=selection.context_window_tokens,
-        presentation=managed_presentation.managed_session_presentation(
-            conn,
-            session_id=session_id,
-            surface=execution[0],
-        ),
+        presentation=presentation,
         wake_mode=WakeMode(str(selected["wake_mode"])),
         target_liveness=str(selected["liveness"]),
+        target_parked=bool(selected.get("parked")),
         wake_route="direct",
         private_route_qualification=qualification,
     )

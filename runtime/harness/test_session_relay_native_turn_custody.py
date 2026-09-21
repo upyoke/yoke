@@ -188,6 +188,34 @@ def test_only_a_wake_job_is_ever_deferred(tmp_path: Path) -> None:
     )
 
 
+def test_the_runner_spawns_when_the_session_has_parked(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A leftover pid must not prevent the adapter from starting a parked wake."""
+    spawned: list[str] = []
+
+    def adapter(context):
+        spawned.append(context.target_session_id or "")
+        return session_relay_runtime.RelayAdapterResult("resumed_running")
+
+    session_relay_runtime.reset_relay_adapters_for_tests()
+    session_relay_runtime.register_relay_adapter("claude-cli", adapter)
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_native_turn_custody.process_start_time",
+        _start_time_of({4001: RECORDED_START}),
+    )
+    _resume_record()
+
+    result = session_relay_runtime.run_registered_job(
+        {**_wake_job(workspace=tmp_path), "target_parked": True}
+    )
+
+    assert result.result_code == "resumed_running"
+    assert spawned == [SESSION]
+    session_relay_runtime.reset_relay_adapters_for_tests()
+
+
 def test_the_runner_refuses_before_any_adapter_spawns(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -277,3 +305,33 @@ def test_a_wake_after_the_native_exits_is_allowed(
 
 def test_a_deferral_is_not_reported_as_a_failure() -> None:
     assert delivery_attempt_failed(NATIVE_TURN_RUNNING_RESULT) is False
+
+
+def test_a_parked_session_is_not_held_by_a_lingering_native(
+    tmp_path: Path,
+) -> None:
+    """Park is a self-declared turn-over, so a leftover pid is not a live turn."""
+    _resume_record(tmp_path)
+    context = session_relay_runtime.execution_context(
+        {**_wake_job(workspace=tmp_path), "target_parked": True}
+    )
+    assert (
+        deferral_for_running_native(
+            context,
+            custody_state_dir=tmp_path,
+            start_time_of=_start_time_of({4001: RECORDED_START}),
+        )
+        is None
+    )
+
+
+def test_an_unparked_session_is_still_held_by_a_live_native(tmp_path: Path) -> None:
+    _resume_record(tmp_path)
+    context = session_relay_runtime.execution_context(_wake_job(workspace=tmp_path))
+    result = deferral_for_running_native(
+        context,
+        custody_state_dir=tmp_path,
+        start_time_of=_start_time_of({4001: RECORDED_START}),
+    )
+    assert result is not None
+    assert result.result_code == NATIVE_TURN_RUNNING_RESULT

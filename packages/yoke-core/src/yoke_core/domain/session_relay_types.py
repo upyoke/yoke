@@ -128,6 +128,9 @@ class RelayJob:
     wake_mode: WakeMode | None = None
     target_liveness: str | None = None
     wake_route: str | None = None
+    #: The target stamped ``mode=parked``: its turn is over by its own
+    #: declaration, so a lingering vendor pid must not hold this wake.
+    target_parked: bool = False
     launch_attestation: str | None = field(default=None, repr=False)
     #: The exact bounded question an evidence read carries to the machine:
     #: which kind, which file, how many lines, and the diagnostic references
