@@ -1,7 +1,11 @@
-/* Folded: a summary and the latest pictures. Expanded: every check with
-   its own provenance, so before-merge and this-release cannot read as one. */
+/* Folded: a summary and a thumbnail strip. Expanded: every check with
+   its own provenance, so before-merge and this-release cannot read as one.
+   72px matches the Runs table strip; 150px still read as figures. */
+.universe-app-root .carried-item-evidence .review-evidence.compact {
+  gap: 6px;
+}
 .universe-app-root .carried-item-evidence .review-evidence.compact .review-shot {
-  width: 150px;
+  width: 72px;
 }
 .universe-app-root .carried-item-evidence .review-evidence.compact .review-shot-open {
   min-height: 0;
