@@ -59,6 +59,51 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             outcome.result_payload["run"]["carried_work"]["schema"],
             1,
         )
+        self.assertEqual(outcome.result_payload["attestation_warnings"], [])
+
+    def test_run_get_projects_attestation_warnings_beside_carried_work(self):
+        from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
+
+        sha = "c" * 40
+        carried = (
+            '{"schema":2,"derivation":{"contents_known":true},'
+            '"items":[{"commit_shas":["' + sha + '"]}],'
+            '"warnings":[{"reason":"checkout_not_refreshed",'
+            '"recovery":"Refresh origin, then retry."}]}'
+        )
+        values = [
+            "run-20260616-001",
+            "yoke",
+            "yoke-hosted-prod",
+            "persistent",
+            "prod",
+            "",
+            "succeeded",
+            "",
+            "2026-06-16T00:00:00Z",
+            "",
+            "",
+            "operator",
+            carried,
+        ]
+        raw = "|".join(values[: len(RUN_FIELDS)])
+        with patch(
+            "yoke_core.domain.deployment_runs_crud_query.cmd_get",
+            return_value=raw,
+        ):
+            outcome = deployment_runs.handle_deployment_run_get(
+                _request(
+                    function="deployment_runs.get",
+                    target=self._run_target(),
+                ),
+            )
+
+        self.assertTrue(outcome.primary_success)
+        projected = outcome.result_payload["attestation_warnings"]
+        self.assertEqual(projected[0]["reason"], "checkout_not_refreshed")
+        self.assertIn(sha, projected[0]["cost"])
+        self.assertIn("ancestry residual", projected[0]["cost"])
+        self.assertEqual(projected[0]["recovery"], "Refresh origin, then retry.")
 
     def test_run_get_not_found_returns_not_found(self):
         with patch(

@@ -14,9 +14,10 @@ from typing import Any, Callable
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.json_helper import loads_text
+from yoke_core.domain.release_delivery_attestation import (
+    has_attestation_changing_warning,
+)
 from yoke_core.domain.schema_common import _column_exists, _table_exists
-
-CHECKOUT_NOT_REFRESHED = "checkout_not_refreshed"
 
 
 def _placeholder(conn: Any) -> str:
@@ -35,21 +36,14 @@ def _contents_known(payload: dict[str, Any]) -> bool:
     return isinstance(derivation, dict) and bool(derivation.get("contents_known"))
 
 
-def _checkout_stale(payload: dict[str, Any]) -> bool:
-    for warning in payload.get("warnings") or []:
-        if isinstance(warning, dict) and warning.get("reason") == CHECKOUT_NOT_REFRESHED:
-            return True
-        if warning == CHECKOUT_NOT_REFRESHED:
-            return True
-    return False
-
-
 def _honest(payload: dict[str, Any]) -> bool:
-    return _contents_known(payload) and not _checkout_stale(payload)
+    return _contents_known(payload) and not has_attestation_changing_warning(payload)
 
 
 def honest_carried_shas(
-    raw: Any, *, bound_project_id: int | None = None,
+    raw: Any,
+    *,
+    bound_project_id: int | None = None,
 ) -> set[str]:
     """Commits one run named, only when that record says it actually looked."""
     payload = loads_text(str(raw or "{}"))
@@ -103,7 +97,8 @@ def newest_lineage_run(runs: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def succeeded_run_members(
-    conn: Any, runs: list[dict[str, Any]],
+    conn: Any,
+    runs: list[dict[str, Any]],
 ) -> dict[int, dict[str, str]]:
     """Each item enrolled on these succeeded runs, newest run first."""
     run_by_id = {
@@ -150,15 +145,22 @@ class ReleaseDeliveryIndex:
         newest = newest_lineage_run(runs)
         self._newest_lineage = str(newest.get("release_lineage") or "").strip()
         self._newest_completed = str(newest.get("completed_at") or "").strip()
-        self._newest_carrier = _carrier(newest) if self._newest_lineage else {
-            "run_id": "",
-            "flow": "",
-        }
+        self._newest_carrier = (
+            _carrier(newest)
+            if self._newest_lineage
+            else {
+                "run_id": "",
+                "flow": "",
+            }
+        )
         self._containment: Any = None
         self._merged_at: dict[int, str] = {}
 
     def carrier_for(
-        self, sha: str, *, item_id: int | None = None,
+        self,
+        sha: str,
+        *,
+        item_id: int | None = None,
     ) -> dict[str, str] | None:
         """The release that delivered ``sha``, or ``None`` if none has.
 
@@ -193,7 +195,9 @@ class ReleaseDeliveryIndex:
             return self._merged_at[item_id]
         stamp = ""
         if _table_exists(self._conn, "items") and _column_exists(
-            self._conn, "items", "merged_at",
+            self._conn,
+            "items",
+            "merged_at",
         ):
             marker = _placeholder(self._conn)
             rows = query_rows(

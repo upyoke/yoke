@@ -183,11 +183,22 @@ def finalize_after_stages(
     )
 
 
+def narrate_carried_work_attestation(carried_work: object) -> None:
+    """Print attestation-changing carried-work warnings, or nothing."""
+    from yoke_core.domain.release_delivery_attestation import (
+        attestation_warning_lines,
+    )
+
+    for line in attestation_warning_lines(carried_work):
+        print(line)
+
+
 __all__ = [
     "EXIT_FINALIZATION_PENDING",
     "RunFinalizationPending",
     "complete_run_finalization",
     "finalize_after_stages",
     "finalize_run_success",
+    "narrate_carried_work_attestation",
     "resolve_project_checkout_path",
 ]
