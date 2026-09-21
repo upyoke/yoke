@@ -341,10 +341,8 @@ QA-domain writes emit unified events via `yoke_core.domain.events.emit_event` (c
 | `QARunCompleted` | qa_run verdict recorded |
 | `QAArtifactAttached` | qa_artifact row inserted |
 
-All event names are registered in the `event_registry` table.
+All event names are registered in the `event_registry` table. Attach of a plan bound to the item's delivery environment at a pre-delivery transition is refused and names the post-deploy attachment that works.
 
 ### Current Lifecycle Vocabulary
 
-The current canonical status for this checkpoint is `reviewed-implementation`.
-`verification` remains a QA phase name, not a lifecycle status. Retired lifecycle
-names from the older QA-stage vocabulary should not appear in current runtime
+`reviewed-implementation` is the checkpoint status; `verification` is a QA phase, not a lifecycle status. Retired QA-stage lifecycle names must not appear in current runtime.

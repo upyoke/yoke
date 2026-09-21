@@ -17,14 +17,21 @@ from yoke_contracts.qa_case_environment import (
 
 #: Read as ``yoke qa item-plan attach --help``.
 ITEM_PLAN_ATTACH_EPILOG = (
-    "Attaching creates a blocking case row at --transition. A "
-    "mis-specified post-deploy attachment is withdrawn with "
-    "`yoke qa item-plan retract` — the row stays as retracted history; "
-    "there is no detach. On a workflow whose QA policy is optional item "
-    "attachment, attach accepts only the plan or method already "
-    "selected in workflow_posture.verification; select it first "
-    f"with `{WORKFLOWS_ITEM_POSTURE_AMEND_RECIPE}`, then attach and "
-    "`yoke qa plan materialize`."
+    "Attaching creates a blocking case row at --transition. A plan bound "
+    "to the item's completion-flow environment cannot attach at a "
+    "transition that precedes delivery there: the revision probe resolves "
+    "from that target, so the requirement can never pass and the item "
+    "cannot enter release. A catalog plan bound to a different environment "
+    "still attaches. Attach the delivery-target plan at the item's "
+    "post-deploy transition instead (`--qa-phase post_deploy`). A caller "
+    "who knows the target is already reachable may pass "
+    "`--acknowledge-unreachable-target`. A mis-specified post-deploy "
+    "attachment is withdrawn with `yoke qa item-plan retract` — the row "
+    "stays as retracted history; there is no detach. On a workflow whose "
+    "QA policy is optional item attachment, attach accepts only the plan "
+    "or method already selected in workflow_posture.verification; select "
+    f"it first with `{WORKFLOWS_ITEM_POSTURE_AMEND_RECIPE}`, then attach "
+    "and `yoke qa plan materialize`."
 )
 
 #: Read as ``yoke qa plan-cases replace --help``. What an author has to know
@@ -145,7 +152,7 @@ USAGE_BY_FUNCTION_ID = {
     ),
     "qa.item_plan.attach": (
         "yoke qa item-plan attach --item PREFIX-N --project P "
-        "--plan-id N --transition T"
+        "--plan-id N --transition T [--acknowledge-unreachable-target]"
     ),
     "qa.item_plan.retract": QA_ITEM_PLAN_RETRACT_USAGE,
     "qa.plan.materialize": "yoke qa plan materialize --item PREFIX-N --transition T",

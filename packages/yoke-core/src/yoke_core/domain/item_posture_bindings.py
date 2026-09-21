@@ -45,16 +45,23 @@ def bind_item_posture_selection(
 
     kind = str(verification.get("kind") or "")
     if kind == "plan":
+        from yoke_core.domain.item_posture_validation import ItemPostureError
+        from yoke_core.domain.qa_plan_attachment_validation import (
+            UnreachablePlanTargetError,
+        )
         from yoke_core.domain.qa_plan_attachments import attach_plan_to_item
 
-        attachment = attach_plan_to_item(
-            conn,
-            plan_id=int(verification["plan_id"]),
-            item_id=int(item_id),
-            transition_id=ITEM_POSTURE_VERIFICATION_TRANSITION,
-            actor_id=actor_id,
-            commit=False,
-        )
+        try:
+            attachment = attach_plan_to_item(
+                conn,
+                plan_id=int(verification["plan_id"]),
+                item_id=int(item_id),
+                transition_id=ITEM_POSTURE_VERIFICATION_TRANSITION,
+                actor_id=actor_id,
+                commit=False,
+            )
+        except UnreachablePlanTargetError as exc:
+            raise ItemPostureError(str(exc)) from exc
         if commit:
             conn.commit()
         return {"verification": {"kind": "plan", "attachment": attachment}}

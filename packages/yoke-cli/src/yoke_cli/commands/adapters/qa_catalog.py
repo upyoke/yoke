@@ -290,6 +290,7 @@ def _configure_attachment(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--plan-id", type=int, required=True)
     parser.add_argument("--transition", required=True)
     parser.add_argument("--qa-phase", default="verification")
+    parser.add_argument("--acknowledge-unreachable-target", action="store_true")
 
 
 def qa_plan_item_attach(args: List[str]) -> int:
@@ -319,6 +320,7 @@ def qa_plan_item_attach(args: List[str]) -> int:
             "plan_id": parsed.plan_id,
             "transition_id": parsed.transition,
             "qa_phase": parsed.qa_phase,
+            "acknowledge_unreachable_target": parsed.acknowledge_unreachable_target,
         },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
