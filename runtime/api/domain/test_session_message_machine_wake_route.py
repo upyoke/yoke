@@ -44,7 +44,7 @@ def _surface_connection(*, executor: str, surface: str, version: str, ended: boo
     conn.execute(
         "UPDATE harness_sessions SET executor=?,executor_surface=?,"
         "executor_version=?,machine_id=?,last_heartbeat=?,last_tool_call_at=?,"
-        "turn_posture='running',ended_at=? WHERE session_id='s2'",
+        "turn_posture=?,ended_at=? WHERE session_id='s2'",
         (
             executor,
             surface,
@@ -52,6 +52,7 @@ def _surface_connection(*, executor: str, surface: str, version: str, ended: boo
             MACHINE_ID,
             NOW_TEXT if ended else STALE_ACTIVITY,
             NOW_TEXT if ended else STALE_ACTIVITY,
+            "waiting" if ended else "running",
             NOW_TEXT if ended else None,
         ),
     )
@@ -310,7 +311,7 @@ def test_capability_refusal_records_one_observable_wake_skip(
     evidence = details["attempts"][0]["evidence"]
     evidence = json.loads(evidence) if isinstance(evidence, str) else evidence
     assert evidence["skip_reason"] == reason
-    assert evidence["turn_posture"] == "running"
+    assert evidence["turn_posture"] == ("waiting" if ended else "running")
     assert evidence["liveness"] == ("ended" if ended else "stale")
     assert details["attempts"][0]["completed_at"] is not None
     assert details["recipients"][0]["wake_attempt_count"] == 0

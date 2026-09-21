@@ -277,7 +277,7 @@ def test_render_failures_are_bounded_by_the_wake_retry_policy() -> None:
             conn,
             broker_session_id="broker-a",
             hook_event="PreToolUse",
-            now=NOW + timedelta(seconds=offset * 2),
+            now=NOW + timedelta(minutes=offset),
         )
         assert lease
         complete_broker_hook_lease(
@@ -285,7 +285,7 @@ def test_render_failures_are_bounded_by_the_wake_retry_policy() -> None:
             lease_id=lease.lease_id,
             delivered=False,
             result="render_output_missing",
-            now=NOW + timedelta(seconds=offset * 2 + 1),
+            now=NOW + timedelta(minutes=offset, seconds=1),
         )
 
     assert (
@@ -293,7 +293,7 @@ def test_render_failures_are_bounded_by_the_wake_retry_policy() -> None:
             conn,
             broker_session_id="broker-a",
             hook_event="PreToolUse",
-            now=NOW + timedelta(seconds=10),
+            now=NOW + timedelta(minutes=4),
         )
         is None
     )

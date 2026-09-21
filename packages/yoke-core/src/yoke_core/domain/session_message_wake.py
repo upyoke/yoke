@@ -9,8 +9,8 @@ from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
 from yoke_core.domain.session_mode import session_is_parked
-from yoke_core.domain import db_backend
 from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
+from yoke_core.domain.session_message_ended_recipient import skip_ended_recipient
 from yoke_core.domain.session_activity_state import (
     episode_column_present,
     native_process_observation_columns_present,
@@ -52,6 +52,7 @@ from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
     machine_surface_versions,
 )
+from yoke_core.domain.session_relay_storage import marker as _p
 from yoke_core.domain.session_relay_types import WakeMode
 from yoke_core.domain.session_relay_versions import wake_operation
 
@@ -62,10 +63,6 @@ _HOOK_ROUTE_ABSENCES = (
     (PARKED_WITHOUT_IDLE_WAKE, parked_without_idle_wake),
     (STARVED_HOOK_ROUTE, starved_hook_route),
 )
-
-
-def _p(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 def _native_wake_route_available(
@@ -194,6 +191,8 @@ def wake_eligible_recipients(
         eligible: list[dict[str, Any]] = []
         for raw in rows:
             row = row_dict(raw)
+            if skip_ended_recipient(conn, row, now=current):
+                continue
             policy = project_policy(conn, int(row["project_id"]))
             liveness = session_liveness(row, now=current)
             explicit_wake = explicit_stopped_wake_requested(row.get("routing_snapshot"))

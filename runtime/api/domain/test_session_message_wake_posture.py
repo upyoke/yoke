@@ -38,29 +38,18 @@ def _stop(conn, session_id: str = NATIVE_WAKE_SESSION_ID) -> None:
     conn.commit()
 
 
-def test_idle_threshold_boundary_is_respected() -> None:
+def test_an_ended_session_is_not_woken_by_age_alone() -> None:
     conn = message_connection()
     _send(conn)
     _stop(conn)
     assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=59)) == []
-    assert len(wake_eligible_recipients(conn, now=NOW + timedelta(seconds=60))) == 1
+    assert wake_eligible_recipients(conn, now=NOW + timedelta(days=30)) == []
 
 
 def test_long_idle_session_with_a_fresh_message_wakes_on_the_next_sweep() -> None:
     conn = message_connection()
-    conn.execute(
-        "UPDATE harness_sessions SET last_heartbeat=?,last_tool_call_at=? "
-        "WHERE session_id=?",
-        (
-            "2026-08-22T15:00:00Z",
-            "2026-08-22T15:00:00Z",
-            NATIVE_WAKE_SESSION_ID,
-        ),
-    )
-    conn.commit()
     _send(conn)
-    _stop(conn)
-    assert len(wake_eligible_recipients(conn, now=NOW)) == 1
+    assert len(wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11))) == 1
 
 
 def test_actively_working_session_with_a_pending_message_is_never_woken() -> None:
@@ -88,8 +77,14 @@ def test_unsupported_route_stays_terminal_until_routing_facts_change() -> None:
     conn = message_connection()
     conn.execute(
         "UPDATE harness_sessions SET executor_surface='cursor-desktop',"
-        "executor_version='3.17.8',ended_at=? WHERE session_id=?",
-        (NOW_TEXT, NATIVE_WAKE_SESSION_ID),
+        "executor_version='3.17.8' WHERE session_id=?",
+        (NATIVE_WAKE_SESSION_ID,),
+    )
+    stamp_turn_posture(
+        conn,
+        session_id=NATIVE_WAKE_SESSION_ID,
+        posture="waiting",
+        observed_at=NOW - timedelta(seconds=1),
     )
     conn.commit()
     message_id = _send(conn)
@@ -105,16 +100,6 @@ def test_unsupported_route_stays_terminal_until_routing_facts_change() -> None:
 
 
 def test_candidates_carry_scheduler_authority_separately_from_liveness() -> None:
-    idle_conn = message_connection()
-    _send(idle_conn)
-    _stop(idle_conn)
-
-    idle = wake_eligible_recipients(idle_conn, now=NOW + timedelta(minutes=11))[0]
-
-    assert idle["wake_mode"] == WakeMode.IDLE_TIMEOUT
-    assert idle["turn_posture"] == "unknown"
-    assert idle["liveness"] == "ended"
-
     waiting_conn = message_connection()
     stamp_turn_posture(
         waiting_conn,
