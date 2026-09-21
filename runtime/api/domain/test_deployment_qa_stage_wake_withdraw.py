@@ -8,6 +8,7 @@ on the run's completion, and already-recorded attempts stay as evidence.
 
 from __future__ import annotations
 
+import sqlite3
 from datetime import datetime, timezone
 from typing import Any
 
@@ -214,3 +215,14 @@ def test_a_run_scoped_wait_withdraws_when_the_run_is_terminal(test_db: Any) -> N
     _, cancelled_at, reason = _message(test_db, key)
     assert cancelled_at
     assert reason == "run_terminal:failed"
+
+
+def test_withdraw_is_a_no_op_when_the_message_plane_is_absent() -> None:
+    """Terminal run updates still happen on lean DBs with no Fleet tables."""
+    conn = sqlite3.connect(":memory:")
+    assert (
+        withdraw_deployment_qa_wait_wakes(
+            conn, run_id="run-lean", reason="run_terminal:failed"
+        )
+        == 0
+    )

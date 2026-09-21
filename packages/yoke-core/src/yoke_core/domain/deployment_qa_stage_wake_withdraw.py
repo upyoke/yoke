@@ -23,6 +23,7 @@ from yoke_core.domain.deployment_qa_stage_wake import (
     DEPLOYMENT_QA_STAGE_WAIT_PREFIX,
     RUN_SCOPED_WAIT_TOKEN,
 )
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_item_delivery_status import TERMINAL_RUN_STATUSES
 from yoke_core.domain.session_message_store import cancel_message_rows
 from yoke_core.domain.session_message_types import parse_timestamp, utc_now
@@ -137,6 +138,10 @@ def deployment_qa_wait_settled_reason(
 def _pending_wait_rows(
     conn: Any, *, message_id: str | None = None
 ) -> list[tuple[str, str]]:
+    if not _table_exists(conn, "session_messages"):
+        # A universe that cannot store Fleet wakes has none to withdraw.
+        # Terminal run updates still run here, including on lean test DBs.
+        return []
     marker = _p(conn)
     sql = (
         "SELECT m.message_id, m.idempotency_key FROM session_messages m "
