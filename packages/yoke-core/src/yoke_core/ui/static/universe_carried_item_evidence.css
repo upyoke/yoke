@@ -27,6 +27,14 @@
   font-style: italic;
   overflow-wrap: anywhere;
 }
+.universe-app-root .carried-item-run-conclusion {
+  color: var(--yoke-link);
+  font-size: 11px;
+  text-decoration: none;
+}
+.universe-app-root .carried-item-run-conclusion:hover {
+  text-decoration: underline;
+}
 .universe-app-root .carried-item-evidence .review-card.inline {
   margin-top: 2px;
 }

@@ -11,6 +11,7 @@
 import { attachTooltip } from "./universe_tooltip.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
+import { appendRunConclusion } from "./qa_run_conclusion.js";
 import {
   QA_STATE,
   classifyQaRow,
@@ -117,22 +118,26 @@ function proofMethodIcon(row) {
 function requirementEvidence(context, host, row) {
   const documentNode = context.document;
   const artifacts = Array.isArray(row.artifacts) ? row.artifacts : [];
-  if (!artifacts.length) {
-    if (row.run_id === null || row.run_id === undefined) return null;
-    host.appendChild(el(
-      documentNode,
-      "div",
-      "item-proof-evidence-none",
-      "This run attached no artifacts.",
-    ));
-    return null;
+  if (artifacts.length) {
+    const evidence = el(documentNode, "div", "item-proof-evidence");
+    evidence.appendChild(evidenceStrip(context, artifacts, {
+      compact: true, requirementId: row.id,
+    }));
+    host.appendChild(evidence);
+    return evidence;
   }
-  const evidence = el(documentNode, "div", "item-proof-evidence");
-  evidence.appendChild(evidenceStrip(context, artifacts, {
-    compact: true, requirementId: row.id,
-  }));
-  host.appendChild(evidence);
-  return evidence;
+  if (row.run_id === null || row.run_id === undefined) return null;
+  const conclusion = appendRunConclusion(
+    documentNode, host, row, "item-proof-link-out",
+  );
+  if (conclusion) return conclusion;
+  host.appendChild(el(
+    documentNode,
+    "div",
+    "item-proof-evidence-none",
+    "This run attached no artifacts.",
+  ));
+  return null;
 }
 
 function requirementLinks(documentNode, item, row) {

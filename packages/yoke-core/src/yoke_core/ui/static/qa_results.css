@@ -97,6 +97,13 @@
   color: var(--yoke-muted);
   font-size: 11.5px;
 }
+a.qa-activity-evidence-summary {
+  color: var(--yoke-link);
+  text-decoration: none;
+}
+a.qa-activity-evidence-summary:hover {
+  text-decoration: underline;
+}
 
 .qa-stats {
   display: grid;

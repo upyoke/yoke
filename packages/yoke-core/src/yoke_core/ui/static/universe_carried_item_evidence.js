@@ -24,6 +24,7 @@ import {
   qaStateNote,
 } from "./qa_state.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
+import { appendRunConclusion } from "./qa_run_conclusion.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
 
 // How many checks one item may contribute, and how many items share a call.
@@ -291,6 +292,12 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   };
   const strip = evidenceStrip(context, artifacts, stripOptions);
   if (strip) wrap.appendChild(strip);
+  for (const check of checks) {
+    if ((check.artifacts || []).length) continue;
+    appendRunConclusion(
+      documentNode, wrap, check, "carried-item-run-conclusion",
+    );
+  }
   // The strip above is this item's recent history, which is not the same
   // thing as this request's evidence: the reviewed capture may be older than
   // the bound, or the strip may be empty. Its own evidence is suppressed

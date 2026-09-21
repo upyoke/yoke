@@ -5,6 +5,7 @@ import {
   withProjectColumn,
 } from "./universe_view_support.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
+import { evidenceSummaryNode } from "./qa_run_conclusion.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
 import {
@@ -92,8 +93,8 @@ function evidenceText(row) {
 function evidenceCell(context, documentNode, row) {
   const td = el(documentNode, "td", "qa-activity-evidence");
   const artifacts = Array.isArray(row.artifacts) ? row.artifacts : [];
-  const summary = el(
-    documentNode, "div", "qa-activity-evidence-summary", evidenceText(row),
+  const summary = evidenceSummaryNode(
+    documentNode, row, evidenceText(row), "qa-activity-evidence-summary",
   );
   if (row.verdict_reason) attachTooltip(documentNode, summary, row.verdict_reason);
   td.appendChild(summary);
