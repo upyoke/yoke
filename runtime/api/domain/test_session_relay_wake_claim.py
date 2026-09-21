@@ -11,6 +11,7 @@ from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_jobs import claim_wake_job
 from yoke_core.domain.session_relay_types import RelayHeartbeat
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
+from yoke_core.domain.session_turn_posture import stamp_turn_posture
 from runtime.api.domain.test_session_message_support import (
     ALPHA_WORKSPACE,
     NATIVE_WAKE_SESSION_ID,
@@ -19,6 +20,20 @@ from runtime.api.domain.test_session_message_support import (
     message_connection,
     selector,
 )
+
+
+def _waiting(conn: sqlite3.Connection) -> None:
+    stamp_turn_posture(
+        conn,
+        session_id=NATIVE_WAKE_SESSION_ID,
+        posture="waiting",
+        observed_at=NOW - timedelta(seconds=1),
+    )
+    conn.execute(
+        "UPDATE harness_sessions SET ended_at=? WHERE session_id=?",
+        (NOW_TEXT, NATIVE_WAKE_SESSION_ID),
+    )
+    conn.commit()
 
 
 def test_stale_candidate_cannot_open_a_duplicate_native_wake_attempt() -> None:
@@ -32,10 +47,10 @@ def test_stale_candidate_cannot_open_a_duplicate_native_wake_attempt() -> None:
         now=NOW,
     )["message_id"]
     conn.execute(
-        "UPDATE harness_sessions SET native_thread_id=?,ended_at=? WHERE session_id=?",
-        ("codex-thread-s4", NOW_TEXT, NATIVE_WAKE_SESSION_ID),
+        "UPDATE harness_sessions SET native_thread_id=? WHERE session_id=?",
+        ("codex-thread-s4", NATIVE_WAKE_SESSION_ID),
     )
-    conn.commit()
+    _waiting(conn)
     candidate = wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11))[0]
     assert candidate["native_thread_id"] == "codex-thread-s4"
 
@@ -76,10 +91,10 @@ def test_concurrent_relays_cannot_claim_the_same_recipient(tmp_path) -> None:
         now=NOW,
     )
     seed.execute(
-        "UPDATE harness_sessions SET ended_at=? WHERE session_id=?",
-        (NOW_TEXT, NATIVE_WAKE_SESSION_ID),
+        "UPDATE harness_sessions SET native_thread_id=? WHERE session_id=?",
+        ("codex-thread-s4", NATIVE_WAKE_SESSION_ID),
     )
-    seed.commit()
+    _waiting(seed)
     candidate = wake_eligible_recipients(seed, now=NOW + timedelta(minutes=11))[0]
     seed.close()
 
@@ -118,15 +133,11 @@ def test_new_liveness_observation_invalidates_a_selected_candidate() -> None:
         body="Do not wake an active prompt.",
         now=NOW,
     )
-    conn.execute(
-        "UPDATE harness_sessions SET ended_at=? WHERE session_id=?",
-        (NOW_TEXT, NATIVE_WAKE_SESSION_ID),
-    )
-    conn.commit()
+    _waiting(conn)
     candidate = wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11))[0]
     conn.execute(
-        "UPDATE harness_sessions SET ended_at=NULL,last_heartbeat=?,"
-        "last_tool_call_at=? WHERE session_id=?",
+        "UPDATE harness_sessions SET last_heartbeat=?,last_tool_call_at=? "
+        "WHERE session_id=?",
         (
             "2026-08-22T16:11:00Z",
             "2026-08-22T16:11:00Z",
@@ -154,8 +165,8 @@ def test_idle_wake_skips_when_a_heartbeat_landed_after_send() -> None:
         now=NOW,
     )
     conn.execute(
-        "UPDATE harness_sessions SET ended_at=?,last_heartbeat=? WHERE session_id=?",
-        (NOW_TEXT, "2026-08-22T16:00:01Z", NATIVE_WAKE_SESSION_ID),
+        "UPDATE harness_sessions SET last_heartbeat=? WHERE session_id=?",
+        ("2026-08-22T16:00:01Z", NATIVE_WAKE_SESSION_ID),
     )
     conn.commit()
 
@@ -172,11 +183,7 @@ def test_idle_wake_fires_when_no_activity_landed_after_send() -> None:
         body="Wake the truly quiet session.",
         now=NOW,
     )
-    conn.execute(
-        "UPDATE harness_sessions SET ended_at=? WHERE session_id=?",
-        (NOW_TEXT, NATIVE_WAKE_SESSION_ID),
-    )
-    conn.commit()
+    _waiting(conn)
     candidates = wake_eligible_recipients(conn, now=NOW + timedelta(minutes=4))
     assert len(candidates) == 1
     claim = claim_wake_attempt(
@@ -195,11 +202,7 @@ def test_idle_wake_claim_skips_when_injection_landed_after_send() -> None:
         body="Do not resume after hook injection.",
         now=NOW,
     )
-    conn.execute(
-        "UPDATE harness_sessions SET ended_at=? WHERE session_id=?",
-        (NOW_TEXT, NATIVE_WAKE_SESSION_ID),
-    )
-    conn.commit()
+    _waiting(conn)
     candidate = wake_eligible_recipients(conn, now=NOW + timedelta(minutes=4))[0]
     conn.execute(
         "UPDATE session_message_recipients SET last_injected_at=?",
@@ -222,10 +225,11 @@ def test_wake_job_carries_the_session_workspace_not_the_message_project() -> Non
     """
     conn = message_connection()
     conn.execute(
-        "UPDATE harness_sessions SET project_id=2,native_thread_id=?,ended_at=? "
+        "UPDATE harness_sessions SET project_id=2,native_thread_id=? "
         "WHERE session_id=?",
-        ("codex-thread-s4", NOW_TEXT, NATIVE_WAKE_SESSION_ID),
+        ("codex-thread-s4", NATIVE_WAKE_SESSION_ID),
     )
+    _waiting(conn)
     conn.execute(
         "INSERT INTO session_relays (relay_id,actor_id,machine_id,hostname,"
         "relay_version,surface_versions,project_checkouts,first_seen_at,"

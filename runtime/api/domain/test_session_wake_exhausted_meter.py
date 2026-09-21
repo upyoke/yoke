@@ -25,6 +25,7 @@ from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_types import SessionMessageError
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
+from yoke_core.domain.session_turn_posture import stamp_turn_posture
 from yoke_core.domain.session_wake_meter import (
     BLOCKED_METER_RESUME,
     METER_EXHAUSTED_CODE,
@@ -107,6 +108,12 @@ def _queue_stopped_codex(conn, remaining: float) -> str:
         machine_id="m4",
         project_id=1,
         windows=_rolling("primary", remaining),
+    )
+    stamp_turn_posture(
+        conn,
+        session_id=NATIVE_WAKE_SESSION_ID,
+        posture="waiting",
+        observed_at=NOW - timedelta(seconds=1),
     )
     conn.execute(
         "UPDATE harness_sessions SET native_thread_id=?,ended_at=? WHERE session_id=?",

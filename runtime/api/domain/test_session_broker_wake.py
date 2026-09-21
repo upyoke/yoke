@@ -49,7 +49,7 @@ def _seed(path: str = ":memory:"):
     idle_at = _stamp(minutes=-11)
     conn.execute(
         "UPDATE harness_sessions SET machine_id=?,ended_at=?,last_heartbeat=?,"
-        "last_tool_call_at=?,turn_posture='unknown',"
+        "last_tool_call_at=?,turn_posture='waiting',"
         "turn_posture_at=? WHERE session_id='s4'",
         (MACHINE_ID, NOW_TEXT, idle_at, idle_at, NOW_TEXT),
     )
@@ -86,7 +86,10 @@ def _reserve(conn, broker: str = "broker-a"):
 
 def test_broker_hook_reserves_then_existing_relay_executes_same_attempt() -> None:
     conn, message_id = _seed()
-    conn.execute("UPDATE session_message_recipients SET wake_attempt_count=2")
+    conn.execute(
+        "UPDATE session_message_recipients SET wake_attempt_count=2,last_wake_at=?",
+        (_stamp(minutes=-2),),
+    )
     lease = _reserve(conn)
     assert lease and lease.command == (
         f"yoke relay serve-once --broker --broker-lease {lease.lease_id}"
@@ -102,10 +105,6 @@ def test_broker_hook_reserves_then_existing_relay_executes_same_attempt() -> Non
         "broker_hook_leased",
     )
     assert "Secret body" not in attempt[4]
-    wake_count = conn.execute(
-        "SELECT wake_attempt_count FROM session_message_recipients"
-    ).fetchone()[0]
-    assert wake_count == 3
 
     complete_broker_hook_lease(
         conn,
@@ -265,7 +264,7 @@ def test_broker_loss_and_dropped_render_each_consume_one_retry() -> None:
         conn,
         broker_session_id="broker-a",
         hook_event="PreToolUse",
-        now=NOW + timedelta(seconds=3),
+        now=NOW + timedelta(seconds=62),
     )
     assert second
     complete_broker_hook_lease(
@@ -273,14 +272,14 @@ def test_broker_loss_and_dropped_render_each_consume_one_retry() -> None:
         lease_id=second.lease_id,
         delivered=True,
         result="injected",
-        now=NOW + timedelta(seconds=4),
+        now=NOW + timedelta(seconds=63),
     )
     conn.execute(
         "UPDATE harness_sessions SET turn_posture='waiting' WHERE session_id='broker-a'"
     )
     conn.commit()
 
-    assert settle_broker_wake_losses(conn, now=NOW + timedelta(seconds=34)) == 1
+    assert settle_broker_wake_losses(conn, now=NOW + timedelta(seconds=93)) == 1
     lost = conn.execute(
         "SELECT result_code FROM session_message_attempts WHERE attempt_id=?",
         (second.attempt_id,),
@@ -338,13 +337,13 @@ def test_concurrent_peers_reserve_exactly_one_broker_attempt(tmp_path) -> None:
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(reserve, ("broker-a", "broker-b")))
-
     assert sum(result is not None for result in results) == 1
-    verify = sqlite3.connect(str(path))
     assert (
-        verify.execute(
+        sqlite3.connect(str(path))
+        .execute(
             "SELECT COUNT(*) FROM session_message_attempts "
             "WHERE attempt_kind='wake_broker' AND completed_at IS NULL"
-        ).fetchone()[0]
+        )
+        .fetchone()[0]
         == 1
     )

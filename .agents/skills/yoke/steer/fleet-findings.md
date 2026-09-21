@@ -53,9 +53,10 @@ What the report gives you is a finding; what to do with each one is yours:
   *waiting*: none is a failure, and a wake would start a second turn.
   **Beyond reach** — *recipient session ended* or *terminated* means the
   envelope was addressed to a session that no longer exists and *no delivery
-  route remains*; the row proposes nothing because nothing can be done to
-  that session. Re-send the content to whoever should have it now. For the
-  two you owe, use the wake or **Revive** bridge below.
+  route remains*. Do not launch a successor; it cannot acknowledge that mail.
+  Settle it with `yoke messages cancel MESSAGE-ID` (the row names the id),
+  then re-send the content to whoever should have it now. For the two you
+  owe, use the wake or **Revive** bridge below.
 - **Vendor-stopped sessions** — the model provider ended that worker's turn,
   not the worker. The end of the row says who moves next: an attempt and a
   time is the relay's, so leave it. A row naming you has no retry coming — an

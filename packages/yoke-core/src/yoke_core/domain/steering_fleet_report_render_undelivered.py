@@ -17,6 +17,7 @@ and stops, because there is no route to suggest and nothing to revive.
 from __future__ import annotations
 
 from yoke_contracts.session_control.evidence_fetch import evidence_pull_suffix
+from yoke_core.domain.session_message_ended_recipient import cancel_recovery
 from yoke_core.domain.steering_fleet_report import FleetReport, UndeliveredMessages
 from yoke_core.domain.steering_fleet_report_render_text import (
     SECTION_LIMIT,
@@ -95,10 +96,14 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
         )
     phrase = _STATE_PHRASES[entry.delivery_state]
     if entry.recipient_gone_at:
-        # The loss is the finding. No revive recipe follows: the envelope
-        # stays addressed to the session it was sent to, and that session
-        # is not coming back.
-        return f"{phrase} {entry.recipient_gone_at} — no delivery route remains"
+        # The loss is the finding. Nothing can revive that session, so the
+        # named recovery is for the sender or seat to cancel the envelope
+        # rather than to recruit a successor that cannot acknowledge it.
+        settle = cancel_recovery(entry.message_ids[0] if entry.message_ids else None)
+        return (
+            f"{phrase} {entry.recipient_gone_at} — no delivery route remains; "
+            f"settle with `{settle}`"
+        )
     return phrase
 
 

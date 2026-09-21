@@ -55,7 +55,7 @@ def _seed_target(*, broker: bool, surface: str, served: tuple, requested: tuple)
     conn.execute(
         "UPDATE harness_sessions SET executor=?,executor_surface=?,"
         "executor_version=?,machine_id=?,ended_at=?,last_heartbeat=?,"
-        "last_tool_call_at=?,turn_posture='unknown',turn_posture_at=?,"
+        "last_tool_call_at=?,turn_posture='waiting',turn_posture_at=?,"
         "native_thread_id='current-thread',model=?,reasoning_effort=?,"
         "context_window_tokens=?,requested_model=?,"
         "requested_reasoning_effort=?,requested_context_window_tokens=? "

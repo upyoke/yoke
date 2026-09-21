@@ -201,7 +201,10 @@ def test_a_broker_relayed_wake_is_settled_by_the_same_receipt() -> None:
     )
 
     conn, _message_id = _seed()
-    conn.execute("UPDATE session_message_recipients SET wake_attempt_count=2")
+    conn.execute(
+        "UPDATE session_message_recipients SET wake_attempt_count=2,last_wake_at=?",
+        (_stamp(minutes=-2),),
+    )
     lease = _reserve(conn)
     complete_broker_hook_lease(
         conn, lease_id=lease.lease_id, delivered=True, result="injected"

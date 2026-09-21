@@ -138,26 +138,31 @@ def test_a_recipient_mid_call_is_left_alone():
     assert "no resume" in line
 
 
-def test_a_gone_recipient_names_the_loss_and_proposes_no_revival():
-    """Two absences, told apart, with no recipe either can be fixed by.
+def test_a_gone_recipient_names_the_loss_and_how_to_settle_it():
+    """The envelope cannot be revived, so the row names cancel, not a wake.
 
-    The envelope stays addressed to the session it was sent to, so a row
-    that suggested waking a terminated session would be proposing something
-    that cannot happen.
+    The addressed session is not coming back, and a successor cannot
+    acknowledge its mail. The named recovery is the sender's cancel, which
+    records why the envelope stopped rather than discarding it silently.
     """
     ended = _row(
-        delivery_state=RECIPIENT_ENDED, recipient_gone_at="2026-08-26T11:58:00Z"
+        delivery_state=RECIPIENT_ENDED,
+        recipient_gone_at="2026-08-26T11:58:00Z",
+        message_ids=("msg-ended",),
     )
     terminated = _row(
         delivery_state=RECIPIENT_TERMINATED,
         recipient_gone_at="2026-08-26T11:58:00Z",
+        message_ids=("msg-killed",),
         wake_escalation="starved_hook_route",
         operator_wake=True,
     )
 
     assert "recipient session ended 2026-08-26T11:58:00Z" in ended
     assert "no delivery route remains" in ended
+    assert "yoke messages cancel msg-ended" in ended
     assert "recipient session terminated 2026-08-26T11:58:00Z" in terminated
+    assert "yoke messages cancel msg-killed" in terminated
     for line in (ended, terminated):
         assert "wake" not in line
         assert "resume" not in line
