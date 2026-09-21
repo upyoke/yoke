@@ -6,7 +6,9 @@ import json
 from types import SimpleNamespace
 
 from runtime.api.steering_fleet_test_helpers import (
+    ACTOR_ID,
     NOW,
+    PROJECT_ID,
     WORKER_SESSION,
     compose,
     seed_steering_scope,
@@ -23,7 +25,6 @@ from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_render import report_body
 from yoke_core.domain.steering_fleet_report_stranded import (
     KIND_METER_EXHAUSTED,
-    KIND_MODEL_DESELECTED,
     KIND_MODEL_REMOVED,
     StrandedSession,
     stranded_section,
@@ -133,6 +134,7 @@ def test_an_exhausted_pool_is_named_instead_of_idle(test_db) -> None:
     assert "stranded sessions" in body
     assert WORKER_SESSION in body
     assert "do not wake them" in body
+    assert "no-longer-selected" not in body
     assert "idle holders" not in body
     assert report_dict(report)["stranded"][0]["kind"] == KIND_METER_EXHAUSTED
 
@@ -161,15 +163,47 @@ def test_the_wrong_cursor_pool_at_zero_does_not_strand_opus(test_db) -> None:
     assert compose(conn).stranded == ()
 
 
-def test_a_deselected_model_is_stranded(test_db) -> None:
+def test_an_off_default_model_is_not_stranded(test_db) -> None:
     conn = seed_steering_scope(test_db)
     claim_work(conn, session_id=WORKER_SESSION, target=make_item_target(1))
     _pin_worker(conn, preferred={"cursor-cli": "composer-1"})
 
     report = compose(conn)
-    assert report.stranded[0].kind == KIND_MODEL_DESELECTED
-    assert "composer-1" in report.stranded[0].reason
-    assert report.actionable is True
+    assert report.stranded == ()
+
+
+def _still_registering_launch(conn, *, deadline: str) -> None:
+    conn.execute(
+        "INSERT INTO session_messages "
+        "(message_id, sender_actor_id, sender_session_id, body, body_sha256, "
+        "selector_snapshot, created_at, expires_at) "
+        "VALUES (%s, %s, %s, 'launch instruction', 'sha', %s, %s, %s)",
+        ("msg-registering", ACTOR_ID, "steering-holder", json.dumps({}), NOW, NOW),
+    )
+    conn.execute(
+        "INSERT INTO session_launches "
+        "(launch_id, requester_actor_id, project_id, requested_surface, "
+        "selected_surface, allow_surface_fallback, message_id, state, "
+        "deadline_at, created_at, origin, assigned_machine_id, "
+        "registered_session_id) "
+        "VALUES ('launch-registering', %s, %s, 'cursor-cli', 'cursor-cli', 0, "
+        "'msg-registering', 'awaiting_registration', %s, %s, 'steering', "
+        "'machine-1', %s)",
+        (ACTOR_ID, PROJECT_ID, deadline, NOW, WORKER_SESSION),
+    )
+    conn.commit()
+
+
+def test_a_session_still_registering_is_not_stranded(test_db) -> None:
+    conn = seed_steering_scope(test_db)
+    _pin_worker(
+        conn,
+        windows=_exhausted_other_models(),
+        preferred={"cursor-cli": "composer-1"},
+    )
+    _still_registering_launch(conn, deadline="2026-08-26T13:00:00Z")
+
+    assert compose(conn).stranded == ()
 
 
 def test_a_removed_model_is_stranded(test_db) -> None:

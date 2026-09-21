@@ -14,8 +14,9 @@ What the report gives you is a finding; what to do with each one is yours:
   `yoke messages get MESSAGE-ID` and ack; the row stays pending.
 - **Idle holders** — probe and revive. A holder that stamped `--mode parked`
   declared its wait, one inside a long call is listed under **In flight**, one
-  the provider stopped under **Vendor-stopped sessions**, and one pinned to an
-  exhausted or no-longer-selected model under **Stranded sessions**; none of
+  the provider stopped under **Vendor-stopped sessions**, and one that cannot
+  resume — exhausted meter, rejected credentials, or a removed model — under
+  **Stranded sessions**; none of
   those appears here. Verify the recorded state before dismissing an idle or
   stale row as an already-explained wait: read the holder's live `mode` and
   `quiet_reason` (`yoke sessions list --json`), not a memory of an earlier
@@ -63,13 +64,15 @@ What the report gives you is a finding; what to do with each one is yours:
   first: a worker that produced commits is worth resuming, one that never got
   a turn in is better reclaimed onto a fresh session; the same failure on
   every row of a machine is the provider or that client build.
-- **Stranded sessions** — pinned to a model they cannot usefully resume on:
-  an exhausted published meter, rejected credentials, a model the surface no
-  longer offers, or one the machine no longer selects. Do not wake them. The
-  row names the count, the held items, and the recovery: relaunch on a
-  surface with headroom. A wake against that wall is refused as
-  `meter_exhausted`. Unknown or unreadable meters are not exhaustion. The
-  roster shows a recurring `resumed-died` as `blocked-meter-exhausted`.
+- **Stranded sessions** — cannot resume: an exhausted published meter,
+  rejected credentials, or a model the surface no longer offers. Do not wake
+  them. A pin that only differs from the current preferred default is not
+  this, and a session still inside its launch deadline and still registering
+  is not named here. The row names the count, the held items, and the
+  recovery: relaunch on a surface with headroom. A wake against that wall
+  is refused as `meter_exhausted`. Unknown or unreadable meters are not
+  exhaustion. The roster shows a recurring `resumed-died` as
+  `blocked-meter-exhausted`.
 - **Unregistered launches** — read which hand the row asks for. *native is
   live — bind it* means the process is up and only the binding is missing, so
   reconcile it onto the session the row names. *native is dead — reconcile,

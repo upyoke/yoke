@@ -131,9 +131,10 @@ class FleetReport:
     #: Live sessions whose last turn the model provider ended. Every other
     #: detector reads one of these as a worker quietly thinking.
     vendor_errors: tuple[VendorErrorSession, ...] = ()
-    #: Live sessions pinned to an exhausted, removed, or no-longer-selected
-    #: model. A wake cannot return them; the seat relaunches on a surface
-    #: with headroom.
+    #: Live sessions that cannot resume: exhausted meter, rejected
+    #: credentials, or a model the surface no longer offers. A wake cannot
+    #: return them. A pin that only differs from the preferred default is
+    #: not this.
     stranded: tuple[StrandedSession, ...] = ()
     relay_health: tuple[RelayHealthCondition, ...] = ()
     #: Role-addressed messages in this scope that no live seat is acting on.

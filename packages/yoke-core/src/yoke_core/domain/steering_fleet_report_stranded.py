@@ -1,12 +1,11 @@
 """Sessions that cannot return, named instead of quiet.
 
-A wake against an exhausted meter dies. A session still pinned to a model
-the machine no longer selects, or to one its surface no longer offers, is
-the same shape: the control plane already knows, and silence is the wrong
-report. This detector reads that published state — the meters, the
-preferred map, the native availability, a credential rejection the vendor
-already classified — and names the recovery. It never relaunches and never
-substitutes a model; those stay the operator's call.
+A wake against an exhausted meter dies. Rejected credentials or a model
+the surface no longer offers are the same wall. Differing from the
+machine's preferred default is not: that default is a launch choice. A
+session still inside its launch deadline and still registering has not
+been observed yet, so it is not named here. This detector never
+relaunches and never substitutes a model; those stay the operator's call.
 """
 
 from __future__ import annotations
@@ -38,15 +37,14 @@ from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 KIND_METER_EXHAUSTED = "meter_exhausted"
-KIND_MODEL_DESELECTED = "model_deselected"
 KIND_MODEL_REMOVED = "model_removed"
 KIND_CREDENTIAL_REJECTED = "credential_rejected"
+_REGISTERING_STATES = ("launching", "awaiting_registration")
 
 _KIND_ORDER = (
     KIND_METER_EXHAUSTED,
     KIND_CREDENTIAL_REJECTED,
     KIND_MODEL_REMOVED,
-    KIND_MODEL_DESELECTED,
 )
 
 
@@ -117,6 +115,21 @@ def _live_sessions(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
+def _still_registering(conn: Any, session_ids: list[str], *, now: str) -> set[str]:
+    if not session_ids:
+        return set()
+    placeholder = marker(conn)
+    id_holes = ",".join(placeholder for _ in session_ids)
+    state_holes = ",".join(placeholder for _ in _REGISTERING_STATES)
+    rows = conn.execute(
+        "SELECT registered_session_id FROM session_launches "
+        f"WHERE registered_session_id IN ({id_holes}) "
+        f"AND state IN ({state_holes}) AND deadline_at>={placeholder}",
+        (*session_ids, *_REGISTERING_STATES, now),
+    ).fetchall()
+    return {str(dict(row)["registered_session_id"]) for row in rows}
+
+
 def _relay_maps(
     conn: Any, *, machine_id: str, now: str
 ) -> tuple[dict[str, str], Mapping[str, Any]]:
@@ -142,7 +155,6 @@ def _kinds_for(
     row: Mapping[str, Any],
     *,
     wall: MeterWall | None,
-    preferred: str,
     native_models: tuple[str, ...],
     credential_rejected: bool,
 ) -> tuple[str, ...]:
@@ -154,16 +166,13 @@ def _kinds_for(
         kinds.append(KIND_CREDENTIAL_REJECTED)
     if native_models and model and model not in native_models:
         kinds.append(KIND_MODEL_REMOVED)
-    if preferred and model and preferred != model:
-        kinds.append(KIND_MODEL_DESELECTED)
-    return tuple(kind for kind in _KIND_ORDER if kind in kinds)
+    return tuple(kinds)
 
 
 def _reason(
     kind: str,
     *,
     wall: MeterWall | None,
-    preferred: str,
     model: str,
 ) -> tuple[str, str]:
     if kind == KIND_METER_EXHAUSTED and wall is not None:
@@ -183,10 +192,7 @@ def _reason(
             f"pinned to {model}, which this surface no longer offers",
             "Relaunch on a model this surface still selects.",
         )
-    return (
-        f"pinned to {model}; current preferred is {preferred}",
-        "Relaunch deliberately if you want the current default; a wake stays on the old model.",
-    )
+    raise ValueError(f"unknown stranded kind: {kind}")
 
 
 def stranded_sessions(
@@ -210,12 +216,16 @@ def stranded_sessions(
         for state in vendor_error_states(conn, authorized_projects=(int(project_id),))
         if str(state.get("signature_id") or "") == "auth_rejected"
     }
-    claimed = _claimed_items(conn, [str(row["session_id"]) for row in live])
+    live_ids = [str(row["session_id"]) for row in live]
+    claimed = _claimed_items(conn, live_ids)
+    registering = _still_registering(conn, live_ids, now=now)
     refs = render_item_refs(conn, sorted(set(claimed.values())))
     found: list[StrandedSession] = []
     relay_cache: dict[str, tuple[dict[str, str], Mapping[str, Any]]] = {}
     for row in live:
         session_id = str(row["session_id"])
+        if session_id in registering:
+            continue
         machine_id = str(row.get("machine_id") or "").strip()
         surface = str(row.get("executor_surface") or "").strip()
         model = pinned_model(row)
@@ -230,14 +240,13 @@ def stranded_sessions(
         kinds = _kinds_for(
             row,
             wall=wall,
-            preferred=preferred,
             native_models=native_models,
             credential_rejected=session_id in rejected,
         )
         if not kinds:
             continue
         kind = kinds[0]
-        reason, recovery = _reason(kind, wall=wall, preferred=preferred, model=model)
+        reason, recovery = _reason(kind, wall=wall, model=model)
         item_id = claimed.get(session_id, 0)
         found.append(
             StrandedSession(
@@ -283,8 +292,7 @@ def stranded_section(report: Any) -> list[str]:
         for key, group in ordered
     ]
     return [
-        "stranded sessions — pinned to an exhausted or no-longer-selected "
-        "model; do not wake them:",
+        "stranded sessions — cannot resume; do not wake them:",
         *capped(lines[:SECTION_LIMIT], len(rows)),
     ]
 
@@ -313,7 +321,6 @@ def stranded_dicts(rows: tuple[StrandedSession, ...]) -> list[dict[str, Any]]:
 __all__ = [
     "KIND_CREDENTIAL_REJECTED",
     "KIND_METER_EXHAUSTED",
-    "KIND_MODEL_DESELECTED",
     "KIND_MODEL_REMOVED",
     "StrandedSession",
     "stranded_dicts",
