@@ -62,7 +62,13 @@ def _add_launch_selector(parser: argparse.ArgumentParser) -> None:
 
     parser.add_argument("--project", required=True)
     parser.add_argument("--surface", required=True, dest="executor_surface")
-    parser.add_argument("--machine", default=None, dest="machine_id")
+    parser.add_argument(
+        "--machine",
+        default=None,
+        dest="machine_id",
+        metavar="NAME",
+        help="Registered name or machine id (`yoke machine list`).",
+    )
     parser.add_argument("--model", default=None)
     parser.add_argument("--reasoning-effort", default=None)
     parser.add_argument(

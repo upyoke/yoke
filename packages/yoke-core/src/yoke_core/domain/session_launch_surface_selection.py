@@ -11,6 +11,10 @@ from yoke_contracts.executor_labels import (
 from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_core.domain.machine_launch_access import filter_by_machine_access
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
+from yoke_core.domain.session_launch_machine_pin import (
+    MACHINE_UNRESOLVED,
+    resolve_launch_machine_pin,
+)
 from yoke_core.domain.session_launch_placement import place_launch
 from yoke_core.domain.session_launch_store import utc_now
 from yoke_core.domain.session_launch_types import (
@@ -104,6 +108,15 @@ def preview_launch(
     """
     ensure_operator(auth)
     current = now or utc_now()
+    pin = resolve_launch_machine_pin(conn, machine_id)
+    if pin.unresolved:
+        return LaunchPreview(
+            outcome=MACHINE_UNRESOLVED,
+            requested_surface=surface,
+            eligible_relays=(),
+            placement_reason=pin.refusal_reason,
+        )
+    machine_id = pin.machine_id
     exact, _ = filter_by_machine_access(
         conn,
         eligibility(

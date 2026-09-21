@@ -20,8 +20,10 @@ adapter shape. It is a lookup, not a phase step.
 | `claims.coordination_claim.list` | `yoke claims coordination-claim list --session-id S --active-only --json` |
 | `claims.coordination_claim.release` | `yoke claims coordination-claim release (--project P --key K \| --claim-id N) --reason TEXT` |
 | `steering.report.get` | `yoke steering report get [--project P]` |
-| `session_control.launch.preview` | `yoke session-control launch preview --project P --surface S [--model M] [--reasoning-effort E] [--context-window N] --json` |
-| `session_control.launch.create` | `yoke session-control launch create --project P --surface S [--item PREFIX-N] --idempotency-key K [--stdin] [--raw-instructions] [--model M] [--reasoning-effort E] [--context-window N]` |
+| `session_control.launch.preview` | `yoke session-control launch preview --project P --surface S [--machine M] [--model M] [--reasoning-effort E] [--context-window N] --json` |
+| `session_control.launch.create` | `yoke session-control launch create --project P --surface S [--item PREFIX-N] --idempotency-key K [--stdin] [--raw-instructions] [--machine M] [--model M] [--reasoning-effort E] [--context-window N]` |
+
+`--machine` accepts the registered name the fleet report prints, or a machine id from `yoke machine list`. An unresolvable value is `machine_unresolved`, not an absent relay.
 | `session_control.launch.get` | `yoke session-control launch get LAUNCH-ID --json` |
 | `session_control.launch.list` | `yoke session-control launch list --project P` |
 | `session_control.launch.reconcile` | `yoke session-control launch reconcile LAUNCH-ID --json` |
