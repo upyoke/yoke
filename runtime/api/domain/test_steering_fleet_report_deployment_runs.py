@@ -124,9 +124,7 @@ def test_an_executing_run_with_nothing_outstanding_is_not_advised_to_re_drive(
 def test_a_created_run_with_nothing_outstanding_is_advised_to_be_driven(
     fleet,
 ) -> None:
-    fleet.execute(
-        "UPDATE deployment_runs SET status='created' WHERE id=%s", (RUN_ID,)
-    )
+    fleet.execute("UPDATE deployment_runs SET status='created' WHERE id=%s", (RUN_ID,))
     fleet.commit()
 
     report = compose(fleet)
@@ -140,6 +138,42 @@ def test_a_created_run_with_nothing_outstanding_is_advised_to_be_driven(
     assert f"! {RUN_ID}  created  flow prod-release" in body
     assert f"Nothing is outstanding; re-drive {RUN_ID} to finish it." in body
     assert "waiting only to be driven" in body
+
+
+def test_a_created_run_with_a_live_driver_is_not_advised_to_be_driven(
+    fleet,
+) -> None:
+    from yoke_core.domain.json_helper import dumps_compact
+
+    fleet.execute(
+        "UPDATE deployment_runs SET status='created', driver_attachment=%s WHERE id=%s",
+        (
+            dumps_compact(
+                {
+                    "session_id": "sess-freeze",
+                    "pid": 4242,
+                    "attached_at": NOW,
+                    "heartbeat_at": NOW,
+                    "phase": "freezing_source",
+                    "progress_capture": "/tmp/progress.log",
+                }
+            ),
+            RUN_ID,
+        ),
+    )
+    fleet.commit()
+
+    report = compose(fleet)
+    body = report_body(report)
+
+    run = report.deployment_runs[0]
+    assert run.status == "created"
+    assert run.driver_phase == "freezing_source"
+    assert run.needs_action is False
+    assert report.runs_needing_action() == ()
+    assert f"  {RUN_ID}  created  driver freezing_source  flow prod-release" in body
+    assert "re-drive" not in body
+    assert "waiting only to be driven" not in body
 
 
 def test_a_healthy_run_is_reported_without_raising_an_alarm(fleet) -> None:
@@ -191,6 +225,7 @@ def test_the_machine_projection_carries_the_same_facts(fleet) -> None:
     assert row["red"] == [
         {"requirement_id": 901, "verdict": "fail", "member_ref": "YOK-1"}
     ]
+    assert row["driver_phase"] == ""
     assert row["needs_action"] is True
     assert projected["deployment_runs_needing_action"] == [row]
 
@@ -209,7 +244,9 @@ def test_the_fingerprint_moves_on_state_and_not_on_the_clock(fleet) -> None:
     assert compose(fleet, now=NOW).fingerprint() != at_four_hours
 
 
-def _resolve_decision(conn, *, request_id: int, action: str, stage: str = STAGE) -> None:
+def _resolve_decision(
+    conn, *, request_id: int, action: str, stage: str = STAGE
+) -> None:
     """A stage decision a person answered, as the decision surface records it."""
     conn.execute(
         "INSERT INTO decision_requests"

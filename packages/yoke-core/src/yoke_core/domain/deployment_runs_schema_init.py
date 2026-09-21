@@ -44,6 +44,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 composition_resolution TEXT,
                 composition_frozen_at TEXT,
                 requirement_snapshot TEXT,
+                driver_attachment TEXT,
                 CONSTRAINT deployment_runs_target_tier_vocabulary
                     CHECK (target_tier IS NULL
                            OR target_tier IN ('persistent','ephemeral')),
@@ -101,6 +102,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
             "composition_resolution",
             "composition_frozen_at",
             "requirement_snapshot",
+            "driver_attachment",
         ):
             _add_column_if_not_exists(conn, "deployment_runs", column, "TEXT")
         for column, declaration in (

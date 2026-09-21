@@ -7,10 +7,20 @@ import sys
 from typing import List, Optional
 
 from yoke_core.domain import deploy_pipeline
+from yoke_core.domain.deploy_pipeline_control_plane import (
+    DeploymentControlPlaneError,
+    DriverLivenessPump,
+    attach_driver,
+    release_driver,
+)
 from yoke_core.domain.deploy_pipeline_pinned_source import (
     PINNED_RELEASE_ENV,
     PINNED_REEXEC_ENV,
     PINNED_SOURCE_ROOT_ENV,
+)
+from yoke_core.domain.deployment_run_driver_attachment import (
+    PHASE_EXECUTING,
+    PHASE_FREEZING_SOURCE,
 )
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 
@@ -52,14 +62,47 @@ def _reexec_into_pinned_source(argv: List[str]) -> Optional[int]:
     return None
 
 
+def _hold_driver(run_id: str, *, phase: str) -> None:
+    attach_driver(run_id, phase=phase)
+
+
+def _drop_driver(run_id: str) -> None:
+    release_driver(run_id)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Execute the deployment pipeline inside a bounded liveness scope."""
     argv = list(sys.argv[1:] if argv is None else argv)
-    refusal = _reexec_into_pinned_source(argv)
-    if refusal is not None:
-        return refusal
-    with SessionLivenessPump().running():
-        return deploy_pipeline.main(argv)
+    run_id = argv[0] if argv and str(argv[0]).startswith("run-") else ""
+    held = False
+    try:
+        if run_id:
+            try:
+                _hold_driver(run_id, phase=PHASE_FREEZING_SOURCE)
+                held = True
+            except DeploymentControlPlaneError as exc:
+                print(f"error: {exc}", file=sys.stderr)
+                return 2
+            with DriverLivenessPump(run_id, phase=PHASE_FREEZING_SOURCE).running():
+                refusal = _reexec_into_pinned_source(argv)
+        else:
+            refusal = _reexec_into_pinned_source(argv)
+        if refusal is not None:
+            return refusal
+        if run_id:
+            try:
+                _hold_driver(run_id, phase=PHASE_EXECUTING)
+                held = True
+            except DeploymentControlPlaneError as exc:
+                print(f"error: {exc}", file=sys.stderr)
+                return 2
+            with DriverLivenessPump(run_id, phase=PHASE_EXECUTING).running():
+                return deploy_pipeline.main(argv)
+        with SessionLivenessPump().running():
+            return deploy_pipeline.main(argv)
+    finally:
+        if held and run_id:
+            _drop_driver(run_id)
 
 
 if __name__ == "__main__":  # pragma: no cover - module adapter

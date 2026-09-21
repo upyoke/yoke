@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import Any, Dict, List, Optional
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.domain.control_plane_function_degradation import REGISTRY_SKEW_CODES
+from yoke_core.domain.deployment_run_driver_attachment import (
+    ATTACH_FUNCTION_ID,
+    RELEASE_FUNCTION_ID,
+)
+from yoke_core.domain.session_liveness_pump import (
+    HEARTBEAT_INTERVAL_SECONDS,
+    SessionLivenessPump,
+)
 
 
 class DeploymentControlPlaneError(RuntimeError):
@@ -64,7 +74,9 @@ def update_run_field(run_id: str, field: str, value: str) -> None:
 
 def seed_qa(run_id: str) -> int:
     """Idempotently seed the run's flow-derived QA checks."""
-    return int(_call("deployment_runs.execution.qa_seed", run_id, {}).get("seeded") or 0)
+    return int(
+        _call("deployment_runs.execution.qa_seed", run_id, {}).get("seeded") or 0
+    )
 
 
 def record_qa_stage(
@@ -104,18 +116,14 @@ def record_qa_pass(run_id: str, stage: str, qa_result: str) -> None:
 
 def unresolved_qa(run_id: str) -> List[str]:
     """Return every blocking QA obligation that still prevents completion."""
-    values = _call("deployment_runs.execution.qa_pending", run_id, {}).get(
-        "unresolved"
-    )
+    values = _call("deployment_runs.execution.qa_pending", run_id, {}).get("unresolved")
     return [str(value) for value in values] if isinstance(values, list) else []
 
 
 def ephemeral_qa_ready(run_id: str) -> bool:
     """Return whether every run member already has passing browser QA."""
     return bool(
-        _call("deployment_runs.execution.ephemeral_qa_ready", run_id, {}).get(
-            "ready"
-        )
+        _call("deployment_runs.execution.ephemeral_qa_ready", run_id, {}).get("ready")
     )
 
 
@@ -197,15 +205,84 @@ def project_field(project: str, field: str) -> str:
     return "" if value is None else str(value)
 
 
+def attach_driver(
+    run_id: str, *, phase: str, progress_capture: str = ""
+) -> Dict[str, Any]:
+    """Record this process as the run's driver, or refuse a live other one.
+
+    A registry-skew answer means this client is ahead of the plane; the
+    caller proceeds without recording, matching an unconverged column.
+    """
+    response = call_dispatcher(
+        function_id=ATTACH_FUNCTION_ID,
+        target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
+        payload={
+            "phase": phase,
+            "pid": os.getpid(),
+            "progress_capture": progress_capture,
+        },
+    )
+    if response.success:
+        return dict(response.result or {})
+    code = response.error.code if response.error else ""
+    if code in REGISTRY_SKEW_CODES:
+        return {}
+    message = response.error.message if response.error else "request failed"
+    raise DeploymentControlPlaneError(f"{ATTACH_FUNCTION_ID} failed: {message}")
+
+
+def release_driver(run_id: str) -> None:
+    """Drop this process's driver attachment; a miss is not a pipeline failure."""
+    try:
+        _call(RELEASE_FUNCTION_ID, run_id, {"pid": os.getpid()})
+    except DeploymentControlPlaneError as exc:
+        print(f"warning: could not release deploy driver: {exc}", file=sys.stderr)
+
+
+class DriverLivenessPump(SessionLivenessPump):
+    """Refresh the run's driver attachment for as long as this process is."""
+
+    def __init__(
+        self,
+        run_id: str,
+        *,
+        phase: str,
+        progress_capture: str = "",
+        interval_seconds: float = HEARTBEAT_INTERVAL_SECONDS,
+    ) -> None:
+        super().__init__(interval_seconds=interval_seconds)
+        self._run_id = run_id
+        self._phase = phase
+        self._progress_capture = progress_capture
+
+    def tick(self) -> bool:
+        now = self._clock()
+        due = now - self._last_refresh >= self._interval
+        refreshed = super().tick()
+        if due:
+            try:
+                attach_driver(
+                    self._run_id,
+                    phase=self._phase,
+                    progress_capture=self._progress_capture,
+                )
+            except DeploymentControlPlaneError:
+                pass
+        return refreshed
+
+
 __all__ = [
     "DeploymentControlPlaneError",
+    "DriverLivenessPump",
     "allocate_stage_receipt",
+    "attach_driver",
     "complete_stage_receipt",
     "execution_context",
     "ephemeral_qa_ready",
     "latest_stage_receipt",
     "project_field",
     "record_qa_stage",
+    "release_driver",
     "run_pin",
     "seed_qa",
     "unresolved_qa",

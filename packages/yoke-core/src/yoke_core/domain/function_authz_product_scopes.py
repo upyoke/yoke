@@ -160,6 +160,9 @@ PRODUCT_AUTHZ_BY_ID = {
     "deployment_runs.stage_approval.evaluate": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "deployment_runs.execution.context": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "deployment_runs.execution.update": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.execution.attach_driver": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.execution.release_driver": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.driver.for_capture": AuthzSpec(ACTOR_SESSION, None),
     "deployment_runs.execution.ephemeral_qa_ready": AuthzSpec(
         PROJECT, PERM_PROJECT_ADMIN
     ),

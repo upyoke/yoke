@@ -17,6 +17,12 @@ from yoke_core.tools._watch_throttle import LineClass
 from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
 
 
+@pytest.fixture(autouse=True)
+def _quiet_driver(monkeypatch):
+    monkeypatch.setattr(watch_deploy, "_hold_driver", lambda *a, **k: None)
+    monkeypatch.setattr(watch_deploy, "_drop_driver", lambda *a, **k: None)
+
+
 def _line_class(line: str) -> LineClass:
     return watch_deploy.classify_deploy_line(line).cls
 
@@ -256,9 +262,44 @@ def test_relayed_watch_does_not_take_a_checkout(monkeypatch, tmp_path):
     assert captured["header_metadata"] is None
 
 
-def test_watch_stops_when_the_driver_cannot_freeze(monkeypatch, capsys):
+def test_watch_records_the_driver_before_the_freeze(monkeypatch, tmp_path):
+    order: list[str] = []
     monkeypatch.setattr(
         watch_deploy, "execution_connection_error", lambda _run_id: None
+    )
+    monkeypatch.setattr(
+        watch_deploy,
+        "_hold_driver",
+        lambda _run_id, *, phase, progress_capture="": order.append(phase),
+    )
+    monkeypatch.setattr(
+        watch_deploy._watch_runner,
+        "bind_capture_paths",
+        lambda ns, kind: (
+            order.append("bind") or (tmp_path / "raw", tmp_path / "progress")
+        ),
+    )
+    monkeypatch.setattr(
+        watch_deploy,
+        "child_environment",
+        lambda _run_id: order.append("freeze") or None,
+    )
+    monkeypatch.setattr(watch_deploy._watch_runner, "run_watcher", lambda **_k: 0)
+    assert watch_deploy.main(["run-1"]) == 0
+    assert order[0] == "bind"
+    assert "freezing_source" in order
+    assert order.index("bind") < order.index("freezing_source")
+    assert order.index("freezing_source") < order.index("freeze")
+
+
+def test_watch_stops_when_the_driver_cannot_freeze(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(
+        watch_deploy, "execution_connection_error", lambda _run_id: None
+    )
+    monkeypatch.setattr(
+        watch_deploy._watch_runner,
+        "bind_capture_paths",
+        lambda ns, kind: (tmp_path / "raw", tmp_path / "progress"),
     )
 
     def _raise(_run_id):

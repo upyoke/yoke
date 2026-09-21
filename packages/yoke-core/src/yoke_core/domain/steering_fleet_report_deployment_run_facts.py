@@ -1,8 +1,6 @@
 """Bounded live-run status reads for one steering report request.
 
-Table presence, receipts, red verdicts, resolved stage decisions, and
-completion-boundary outstanding/total facts are retrieved once for the
-live set. Scoped QA stages still go through ``qa_stage_outstanding``.
+Facts are retrieved once for the live set; scoped QA uses qa_stage_outstanding.
 """
 
 from __future__ import annotations
@@ -26,8 +24,13 @@ from yoke_core.domain.steering_fleet_report_detectors import marker
 
 
 _FACT_TABLES = (
-    "deployment_runs", "deployment_flows", "deployment_stage_receipts",
-    "qa_requirements", "qa_runs", "decision_requests", "deployment_run_qa",
+    "deployment_runs",
+    "deployment_flows",
+    "deployment_stage_receipts",
+    "qa_requirements",
+    "qa_runs",
+    "decision_requests",
+    "deployment_run_qa",
 )
 
 
@@ -53,7 +56,9 @@ class _Tables:
 
 def probe_report_tables(conn: Any) -> _Tables:
     """Presence of every table this report request will read, asked once."""
-    return _Tables(frozenset(name for name in _FACT_TABLES if _table_exists(conn, name)))
+    return _Tables(
+        frozenset(name for name in _FACT_TABLES if _table_exists(conn, name))
+    )
 
 
 def live_deployment_runs(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
@@ -62,7 +67,7 @@ def live_deployment_runs(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
     holes = ", ".join(p for _ in terminal)
     rows = conn.execute(
         f"""SELECT id, flow, status, COALESCE(current_stage, '') AS current_stage,
-                   started_at, created_at
+                   started_at, created_at, driver_attachment
               FROM deployment_runs
              WHERE project_id = {p}
                AND status NOT IN ({holes})
@@ -308,7 +313,9 @@ def _completion_boundary(
             params,
         ).fetchall()
         if plan_rows:
-            from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
+            from yoke_core.domain.qa_review_requests import (
+                requirement_awaits_human_review,
+            )
 
             for raw in plan_rows:
                 row = row_dict(raw)
@@ -330,8 +337,8 @@ def _completion_boundary(
             row = row_dict(raw)
             totals[str(row["run_id"])] += int(row["total"] or 0)
     return (
-        {run_id: tuple(lines) for run_id, lines in unresolved.items() if lines},
-        {run_id: total for run_id, total in totals.items() if total},
+        {k: tuple(v) for k, v in unresolved.items() if v},
+        {k: n for k, n in totals.items() if n},
     )
 
 

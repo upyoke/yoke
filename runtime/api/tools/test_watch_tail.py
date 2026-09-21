@@ -57,8 +57,7 @@ def test_exits_on_negative_exit_sentinel(tmp_path: Path) -> None:
     """A signal-killed child writes a negative rc (e.g. SIGTERM -> -15)."""
     progress = tmp_path / "progress.log"
     progress.write_text(
-        "progress before kill\n"
-        "# watch_pytest exit=-15 raw=/tmp/raw.log\n",
+        "progress before kill\n# watch_pytest exit=-15 raw=/tmp/raw.log\n",
         encoding="utf-8",
     )
     out = io.StringIO()
@@ -108,8 +107,7 @@ def test_waits_for_missing_file(tmp_path: Path) -> None:
     def creator() -> None:
         time.sleep(0.1)
         progress.write_text(
-            "delayed progress\n"
-            "# watch_pytest exit=0 raw=/tmp/raw.log\n",
+            "delayed progress\n# watch_pytest exit=0 raw=/tmp/raw.log\n",
             encoding="utf-8",
         )
 
@@ -136,9 +134,7 @@ def test_cli_subprocess_exits_cleanly(tmp_path: Path) -> None:
 
     env = os.environ.copy()
     yoke_root = Path(__file__).resolve().parents[3]
-    env["PYTHONPATH"] = (
-        f"{yoke_root}{os.pathsep}{env.get('PYTHONPATH', '')}"
-    )
+    env["PYTHONPATH"] = f"{yoke_root}{os.pathsep}{env.get('PYTHONPATH', '')}"
 
     result = subprocess.run(
         [
@@ -162,9 +158,7 @@ def test_cli_subprocess_exits_cleanly(tmp_path: Path) -> None:
 
 def _stamped(progress: Path, kind: str = "pytest", pid: int | None = None) -> None:
     """Claim *progress* for *pid* the way a bound watcher run does."""
-    progress.write_text(
-        binding.writer_marker_line(kind, pid=pid), encoding="utf-8"
-    )
+    progress.write_text(binding.writer_marker_line(kind, pid=pid), encoding="utf-8")
 
 
 def test_refuses_a_capture_no_watcher_ever_claimed(tmp_path: Path) -> None:
@@ -173,9 +167,7 @@ def test_refuses_a_capture_no_watcher_ever_claimed(tmp_path: Path) -> None:
     progress.write_text("", encoding="utf-8")
     out = io.StringIO()
 
-    rc = watch_tail.follow(
-        progress, out=out, poll_interval=0.01, grace_seconds=0.05
-    )
+    rc = watch_tail.follow(progress, out=out, poll_interval=0.01, grace_seconds=0.05)
     text = out.getvalue()
 
     assert rc == binding.UNWRITTEN_CAPTURE_EXIT
@@ -197,6 +189,34 @@ def test_refuses_when_the_capture_never_appears(tmp_path: Path) -> None:
     assert "--print-streaming-pair" in out.getvalue()
 
 
+def test_refuses_an_unwritten_capture_by_naming_the_live_driver(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from yoke_core.domain.deployment_run_driver_attachment import DriverAttachment
+
+    progress = tmp_path / "progress.log"
+    monkeypatch.setattr(
+        watch_tail,
+        "_live_driver",
+        lambda _path: DriverAttachment(
+            run_id="run-9",
+            session_id="sess-9",
+            pid=7,
+            attached_at="2026-09-21T12:00:00Z",
+            heartbeat_at="2026-09-21T12:00:00Z",
+            phase="freezing_source",
+            progress_capture=str(progress),
+        ),
+    )
+    out = io.StringIO()
+    rc = watch_tail.follow(progress, out=out, poll_interval=0.01, grace_seconds=0.05)
+    text = out.getvalue()
+    assert rc == binding.UNWRITTEN_CAPTURE_EXIT
+    assert "run-9" in text
+    assert "freezing_source" in text
+    assert "--raw-capture/--progress-capture" not in text
+
+
 def test_refuses_when_the_claiming_watcher_died_without_a_sentinel(
     tmp_path: Path,
 ) -> None:
@@ -207,9 +227,7 @@ def test_refuses_when_the_claiming_watcher_died_without_a_sentinel(
         handle.write("[ 12%] partial progress\n")
     out = io.StringIO()
 
-    rc = watch_tail.follow(
-        progress, out=out, poll_interval=0.01, grace_seconds=5.0
-    )
+    rc = watch_tail.follow(progress, out=out, poll_interval=0.01, grace_seconds=5.0)
     text = out.getvalue()
 
     assert rc == binding.UNWRITTEN_CAPTURE_EXIT
@@ -255,9 +273,7 @@ def test_a_sentinel_written_just_before_the_writer_exited_still_exits_zero(
         handle.write("# watch_pytest exit=0 raw=/tmp/raw.log\n")
     out = io.StringIO()
 
-    rc = watch_tail.follow(
-        progress, out=out, poll_interval=0.01, grace_seconds=5.0
-    )
+    rc = watch_tail.follow(progress, out=out, poll_interval=0.01, grace_seconds=5.0)
 
     assert rc == 0
     assert "# watch_pytest exit=0" in out.getvalue()

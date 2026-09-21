@@ -91,6 +91,28 @@ def test_refusals_name_the_cause_and_the_recovery_step(tmp_path: Path) -> None:
     assert "--raw-capture/--progress-capture" in unwritten
     assert "--print-streaming-pair" in unwritten
 
+    from yoke_core.domain.deployment_run_driver_attachment import DriverAttachment
+
+    live = binding.unwritten_capture_refusal(
+        capture,
+        grace_seconds=30.0,
+        driver=DriverAttachment(
+            run_id="run-1",
+            session_id="sess-1",
+            pid=99,
+            attached_at="2026-09-21T12:00:00Z",
+            heartbeat_at="2026-09-21T12:00:00Z",
+            phase="freezing_source",
+            progress_capture=str(capture),
+        ),
+    )
+    assert "run-1" in live
+    assert "freezing_source" in live
+    assert "sess-1" in live
+    assert "pid 99" in live
+    assert "--raw-capture/--progress-capture" not in live
+    assert "do not start a second execute" in live
+
     dead = binding.dead_writer_refusal(capture, pid=4242)
     assert "4242" in dead
     assert "exit sentinel" in dead
