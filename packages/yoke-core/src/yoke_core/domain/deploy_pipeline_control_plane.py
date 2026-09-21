@@ -30,6 +30,25 @@ def execution_context(run_id: str) -> Dict[str, Any]:
     return _call("deployment_runs.execution.context", run_id, {})
 
 
+def run_pin(run_id: str) -> Dict[str, str]:
+    """Return the run's project and pin without composing membership.
+
+    Self-deploy driver freeze needs the lineage and project to take a
+    worktree. Asking :func:`execution_context` for those two fields also
+    enrolls every delivery-ready item and derives carried work, which is
+    minutes of git before the child exists. The pin itself is already on
+    the run row.
+    """
+    result = _call("deployment_runs.get", run_id, {})
+    run = result.get("run") or {}
+    if not isinstance(run, dict):
+        run = {}
+    return {
+        "project": str(run.get("project") or ""),
+        "release_lineage": str(run.get("release_lineage") or ""),
+    }
+
+
 def update_run_field(run_id: str, field: str, value: str) -> None:
     """Write one execution-owned run field through serving authority."""
     result = _call(
@@ -187,6 +206,7 @@ __all__ = [
     "latest_stage_receipt",
     "project_field",
     "record_qa_stage",
+    "run_pin",
     "seed_qa",
     "unresolved_qa",
     "update_run_field",

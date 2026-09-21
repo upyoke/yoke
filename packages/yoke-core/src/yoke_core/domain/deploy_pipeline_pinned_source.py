@@ -119,10 +119,9 @@ def prepare_self_deploy_driver(run_id: str) -> PinnedDriverSource | None:
     """Freeze driver source for a local self-deploy; None on the relayed path."""
     if _https_transport():
         return None
-    context = control_plane.execution_context(run_id)
-    run = context.get("run") or {}
-    lineage = str(run.get("release_lineage") or "").strip()
-    project = str(run.get("project") or "")
+    context = control_plane.run_pin(run_id)
+    lineage = str(context.get("release_lineage") or "").strip()
+    project = str(context.get("project") or "")
     if not lineage:
         raise DeployPinnedSourceError(
             f"deployment run {run_id} has no release_lineage to pin the "
