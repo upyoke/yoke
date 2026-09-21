@@ -8,6 +8,8 @@ keyed only on ``item_id``, so an admitted per-run copy (``item_id`` null,
 
 from __future__ import annotations
 
+import json
+
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.backlog_qa_inserts import (
     insert_qa_requirement,
@@ -87,3 +89,30 @@ def test_item_detail_includes_admitted_copy_beside_standing_source() -> None:
         copy_row = next(row for row in rows if int(row["id"]) == int(copy["id"]))
         assert copy_row["plan_case_key"] == f"admitted-requirement-{int(source['id'])}"
         assert copy_row["deployment_member_item_id"] == 4820
+
+
+def test_activity_returns_execution_target_json() -> None:
+    target = {
+        "deployment": {
+            "release_lineage": "97dce1f6f88d896ab561c066a50b1978c432f481",
+            "run_id": "run-20260921-016",
+        },
+        "observation": {
+            "observed_release_lineage": "97dce1f6f88d896ab561c066a50b1978c432f481",
+            "source_stage": "warm-up",
+        },
+    }
+    with test_database() as conn:
+        insert_item(conn, id=4830, title="Targeted member")
+        requirement = insert_qa_requirement(
+            conn,
+            item_id=4830,
+            qa_kind="plan_case",
+            qa_phase="post_deploy",
+            method_id="command",
+            execution_target_json=json.dumps(target),
+        )
+        conn.commit()
+        rows = list_activity(conn, project="yoke", item_ids=[4830])
+        row = next(r for r in rows if r["requirement_id"] == int(requirement["id"]))
+        assert row["execution_target_json"] == target

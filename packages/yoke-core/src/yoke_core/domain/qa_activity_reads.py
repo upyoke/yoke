@@ -164,6 +164,9 @@ def _list_activity(
                 "qa_phase": (
                     str(row["qa_phase"]) if row["qa_phase"] is not None else None
                 ),
+                "execution_target_json": _json_value(
+                    row["execution_target_json"], None
+                ),
                 "waived_at": row["waived_at"],
                 "waiver_rationale": row["waiver_rationale"],
                 "instructions": row["instructions"],

@@ -115,6 +115,7 @@ function appendApprovalCarried(context, card, row, facts, onDecide) {
     appendCarriedItemEvidence(context, entry, {
       item,
       runId: row.subject_context?.run_id,
+      deployedSha: row.subject_context?.release_lineage,
       facts,
       onDecide,
     });

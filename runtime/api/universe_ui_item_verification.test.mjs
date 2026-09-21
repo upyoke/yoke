@@ -157,7 +157,7 @@ test("item verification distinguishes a standing source from its admitted copy",
   const pills = byClass(root, "item-proof-row").map(
     (row) => byClass(row, "pill")[0].textContent,
   );
-  assert.deepEqual(pills, ["standing check", "this release"]);
+  assert.deepEqual(pills, ["source requirement", "this release"]);
   const roles = byClass(root, "item-proof-role").map((node) => node.textContent);
   assert.ok(roles.some((text) => /Open is expected/.test(text)));
   assert.ok(roles.some((text) => /this is what ran for this release/.test(text)));
@@ -281,7 +281,7 @@ test("Issue union treats an open standing source beside its admitted copy as exp
   await settle();
 
   const union = itemText(byClass(root, "item-proof-union")[0]);
-  assert.match(union, /1 standing check · 1 this release/);
+  assert.match(union, /1 source requirement · 1 this release/);
   assert.match(union, /done is satisfied/);
   assert.doesNotMatch(union, /not satisfied yet/);
   assert.doesNotMatch(union, /1 queued/);

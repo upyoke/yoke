@@ -218,6 +218,7 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   );
   const painted = paintMemberHistory(context, wrap, {
     itemId, runId, facts, history, memberState,
+    deployedSha: options.deployedSha,
   });
   // A CI check that captured nothing still proved a tree. History lists
   // that row; this keeps the Actions run openable on the folded face.

@@ -8,7 +8,15 @@ import { shippingRunCard } from "../../packages/yoke-core/src/yoke_core/ui/stati
 import { loadCarriedItemEvidence } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.js";
 
 export const RUN_ID = "run-20260910-009";
+export const DEPLOYED_SHA = "97dce1f6f88d896ab561c066a50b1978c432f481";
 const PNG = "iVBORw0KGgo=";
+
+export function deployedTarget(sha = DEPLOYED_SHA) {
+  return {
+    observation: { observed_release_lineage: sha, source_stage: "warm-up" },
+    deployment: { release_lineage: sha, run_id: RUN_ID },
+  };
+}
 
 export function artifact(id, requirementId) {
   return {
@@ -48,6 +56,7 @@ export function runRow(items) {
     status: "failed",
     flow: "yoke-hosted-stage-consumer-bound",
     target_environment: "stage",
+    release_lineage: DEPLOYED_SHA,
     created_at: "2026-09-10T10:00:00Z",
     stages: [{ name: "release", state: "failed" }],
     gates: [],
