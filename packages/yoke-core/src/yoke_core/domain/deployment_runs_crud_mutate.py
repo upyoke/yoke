@@ -187,6 +187,13 @@ def cmd_update(
 
                     stamp_run_environment(conn, run_id, when=completed_at)
                     record_carried_work(conn, run_id)
+                from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
+                    withdraw_deployment_qa_wait_wakes,
+                )
+
+                withdraw_deployment_qa_wait_wakes(
+                    conn, run_id=run_id, reason=f"run_terminal:{value}"
+                )
                 conn.commit()
                 if value == "succeeded":
                     from yoke_core.domain.deployment_delivery_close_out_notice import (
