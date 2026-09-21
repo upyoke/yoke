@@ -52,8 +52,9 @@ const FAMILIES = {
   in_use: "run",
   "in use": "run",
   verified: "good",
-  configured_unverified: "warn",
-  "configured (unverified)": "warn",
+  configured_unverified: "idle",
+  "configured (unverified)": "idle",
+  "configured (verified_at unset)": "idle",
   "not configured": "warn",
   configured: "warn",
   "project scoped": "idle",
@@ -113,7 +114,14 @@ const FAMILIES = {
   "next up": "run",
   activated: "good",
   stored: "good",
+  captured: "idle",
+  "captured (no artifacts)": "idle",
+  "captured (capture-stage bookkeeping)": "idle",
 };
+
+export const CONFIGURED_UNVERIFIED_LABEL = "configured (verified_at unset)";
+export const CONFIGURED_UNVERIFIED_TITLE =
+  "Bookkeeping: verified_at is unset. Not a health or authorization diagnosis. Browser profile authorization is yoke qa browser status.";
 
 export function pillFamilyForState(value) {
   return FAMILIES[String(value || "").toLowerCase()] || "idle";

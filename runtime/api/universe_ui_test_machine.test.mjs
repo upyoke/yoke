@@ -173,12 +173,12 @@ test("availability mirrors verification state instead of lease presence alone", 
     const availability = text(byClass(
       main, "test-machine-availability-state",
     )[0]);
-    assert.match(availability, /configured \(unverified\)/);
+    assert.match(availability, /configured \(verified_at unset\)/);
     assert.doesNotMatch(availability, /\bready\b/);
     assert.equal(
       byClass(
         byClass(main, "test-machine-availability-state")[0],
-        "warn",
+        "idle",
       ).length,
       1,
     );

@@ -114,11 +114,11 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
     "GitHub", "yoke", "provider access", "example-org/example-repo",
     "GitHub · delivery", relativeAge("2026-07-15T12:00:00Z"), "ready",
     "AWS admin", "yoke", "provider access", "—", "Delivery · Environments",
-    "never", "configured (unverified)",
+    "never", "configured (verified_at unset)",
   ]);
   // Kind and state color through the semantic pill families. The engine
-  // derives both values; configured-but-never-verified reads as loudly as
-  // broken (warn), never as neutral idle.
+  // derives both values; verified_at unset is bookkeeping (idle), not a
+  // health warning.
   const pills = allNodes(root)
     .filter((node) => node.classList && node.classList.contains("pill"));
   assert.deepEqual(
@@ -127,7 +127,7 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
       "pill good", "pill run",
       "pill idle", "pill good",
       "pill run", "pill good",
-      "pill run", "pill warn",
+      "pill run", "pill idle",
     ],
   );
   // The list keeps the stored identifier in its payload while rendering the

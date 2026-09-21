@@ -126,6 +126,7 @@ def rematerialize_for_item(
             plan_rows,
             execution_target=execution_target,
             subject=subject,
+            conn=conn,
         )
         existing_ids = {
             (str(row["plan_case_key"]), row["host_baseline"]): int(row["id"])

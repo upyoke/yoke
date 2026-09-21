@@ -137,6 +137,7 @@ def materialize_admitted_requirement(
             ],
             execution_target=dict(target),
             subject=f"admitted QA requirement {source_id}",
+            conn=conn,
         )
         if len(ids) != 1:
             raise QaPlanError(

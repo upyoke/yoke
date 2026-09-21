@@ -20,17 +20,26 @@ import { el, statePill } from "./universe_view_support.js";
 
 function qaOutcome(row) {
   if (row.waived_at) return "waived";
-  const outcome = String(
+  const quality = String(
     row.outcome ||
     row.case_outcome ||
     row.verdict ||
-    row.execution_status ||
-    "queued",
+    "",
   ).toLowerCase().replaceAll("_", " ");
-  if (outcome === "pass") return "passed";
-  if (["fail", "error"].includes(outcome)) return "failed";
-  if (outcome === "undetermined") return "needs review";
-  return outcome;
+  if (quality === "pass") return "passed";
+  if (["fail", "error"].includes(quality)) return "failed";
+  if (quality === "undetermined") return "needs review";
+  if (quality) return quality;
+  const execution = String(row.execution_status || "").toLowerCase();
+  if (execution === "captured") {
+    const artifacts = Array.isArray(row.artifacts) ? row.artifacts : [];
+    if (!artifacts.length && !row.capture_degraded_reason) {
+      return "captured (no artifacts)";
+    }
+    return "captured (capture-stage bookkeeping)";
+  }
+  if (execution === "capture_failed") return "capture failed";
+  return "queued";
 }
 function qaOutcomePill(documentNode, row, workflowId) {
   const outcome = qaOutcome(row);
@@ -73,6 +82,17 @@ function currentProof(row) {
     const reason = String(row.precondition_reason || "blocked")
       .replaceAll("_", " ");
     return `baseline ${baseline} ${reason} — case did not run`;
+  }
+  const execution = String(row.execution_status || "").toLowerCase();
+  if (execution === "captured") {
+    const artifacts = Array.isArray(row.artifacts) ? row.artifacts : [];
+    if (!artifacts.length && !row.capture_degraded_reason) {
+      return (
+        "capture-stage bookkeeping: execution_status=captured, "
+        + "capture_degraded_reason unset, 0 artifacts — not proof a capture "
+        + "produced evidence"
+      );
+    }
   }
   return "run recorded";
 }

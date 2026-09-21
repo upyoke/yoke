@@ -14,6 +14,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from yoke_core.domain import db_backend, json_helper
+from yoke_core.domain.refusal_recovery import compose_refusal
 from yoke_core.domain.settings_cas import apply_key_path_assignments, read_key_path
 
 HOSTS_APP_PATH = "hosts.app"
@@ -34,20 +35,72 @@ ENDPOINT_PATHS = (
     DISTRIBUTION_BASE_URL_PATH,
     DISTRIBUTION_CHANNEL_PATH,
 )
+URL_ENDPOINT_PATHS = frozenset(
+    {HOSTS_APP_PATH, HOSTS_API_PATH, DISTRIBUTION_BASE_URL_PATH}
+)
+
+
+def endpoint_fact_report(settings: Mapping[str, Any] | None) -> str:
+    """Every endpoint fact this refusal evaluated, including declared ones."""
+    parts: list[str] = []
+    for path in ENDPOINT_PATHS:
+        text = declared_text(settings, path)
+        if not text:
+            parts.append(f"{path}=absent")
+            continue
+        if path in URL_ENDPOINT_PATHS and "://" not in text:
+            parts.append(f"{path}={text!r} (declared, not a URL: no scheme)")
+        else:
+            parts.append(f"{path}={text!r}")
+    return "; ".join(parts)
 
 
 class MissingEnvironmentFact(ValueError):
     """One or more required environment settings are absent."""
 
-    def __init__(self, environment: str, paths: str | Sequence[str]) -> None:
+    def __init__(
+        self,
+        environment: str,
+        paths: str | Sequence[str],
+        settings: Mapping[str, Any] | None = None,
+    ) -> None:
         self.environment = environment
         self.paths = (paths,) if isinstance(paths, str) else tuple(paths)
         named = ", ".join(self.paths)
-        super().__init__(
-            f"environment {environment!r} does not declare {named}; set "
-            "it via: yoke projects environment-settings merge --project "
-            f"<project> --environment {environment} --set {self.paths[0]}=<value>"
-        )
+        if settings is not None and all(path in ENDPOINT_PATHS for path in self.paths):
+            malformed = [
+                path
+                for path in ENDPOINT_PATHS
+                if path in URL_ENDPOINT_PATHS
+                and declared_text(settings, path)
+                and "://" not in declared_text(settings, path)
+            ]
+            recovery = (
+                "set the absent facts with yoke projects environment-settings "
+                f"merge --project <project> --environment {environment} "
+                + " ".join(f"--set {path}=<value>" for path in self.paths)
+            )
+            if malformed:
+                recovery += (
+                    "; replace declared-but-not-a-URL values before retrying "
+                    f"({', '.join(malformed)}) so completing the absent set "
+                    "does not promote a scheme-less host to a consumed URL"
+                )
+            message = compose_refusal(
+                f"environment {environment!r} does not declare {named}",
+                evaluated=endpoint_fact_report(settings),
+                recovery=recovery,
+            )
+        else:
+            message = compose_refusal(
+                f"environment {environment!r} does not declare {named}",
+                recovery=(
+                    "set it via: yoke projects environment-settings merge "
+                    "--project <project> --environment "
+                    f"{environment} --set {self.paths[0]}=<value>"
+                ),
+            )
+        super().__init__(message)
 
 
 def _document(settings: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -127,7 +180,7 @@ def hosted_endpoints(
     """Require the four endpoint facts and assemble the QA snapshot endpoints."""
     missing = [path for path in ENDPOINT_PATHS if not declared_text(settings, path)]
     if missing:
-        raise MissingEnvironmentFact(environment, missing)
+        raise MissingEnvironmentFact(environment, missing, settings=settings)
     app_url = declared_text(settings, HOSTS_APP_PATH).rstrip("/")
     api_url = declared_text(settings, HOSTS_API_PATH).rstrip("/")
     installer_base = declared_text(settings, DISTRIBUTION_BASE_URL_PATH).rstrip("/")
@@ -220,6 +273,8 @@ __all__ = [
     "ENDPOINT_PATHS",
     "HOSTS_API_PATH",
     "HOSTS_APP_PATH",
+    "URL_ENDPOINT_PATHS",
+    "endpoint_fact_report",
     "MissingEnvironmentFact",
     "PRODUCTION_ROLE_PATH",
     "QA_HOSTED_RUNTIME_PATH",

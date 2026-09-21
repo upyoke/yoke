@@ -126,7 +126,8 @@ per item so no subject crowds out another; `qa.artifact.read` resolves evidence 
 
 ## Capabilities and secrets
 
-Capability availability is: not configured, configured (unverified), ready, in use, or error.
+Capability availability is: not configured, configured (verified_at unset), ready, in use, or error.
+`configured_unverified` is bookkeeping (`verified_at` is NULL), not a health claim; browser profile authorization is `yoke qa browser status`.
 Serial resources queue while in use; that does not prevent plan attachment.
 
 A project may register several `test-machine:<resource_name>` rows, one per physical host.

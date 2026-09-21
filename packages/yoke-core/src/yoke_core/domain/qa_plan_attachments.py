@@ -231,6 +231,7 @@ def materialize_for_item(
             existing_rows,
             execution_target=execution_target,
             subject=f"{render_item_ref(conn, item_id)} transition {transition_id!r}",
+            conn=conn,
         )
         if existing_ids:
             snapshots[plan_id] = (

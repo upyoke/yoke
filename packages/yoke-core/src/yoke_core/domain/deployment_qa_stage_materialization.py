@@ -265,6 +265,7 @@ def materialize_deployment_qa_stage(
                             f"deployment run {deployment_run_id!r} stage "
                             f"{deployment_stage!r} member {deployment_member_item_id!r}"
                         ),
+                        conn=conn,
                     )
                 )
                 continue
