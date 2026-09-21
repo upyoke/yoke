@@ -2,27 +2,12 @@
 
 ``items.freeze.run`` / ``items.thaw.run`` toggle ``items.frozen``;
 ``items.block.run`` / ``items.unblock.run`` toggle ``items.blocked``
-together with ``items.blocked_reason``.
-
-Claim handling is implicit, not absent. The caller does not write the
-acquire/release choreography by hand, but the work claim still governs
-the write: with no live claim the handler acquires one and releases what
-it acquired; when the calling session already holds the claim it
-proceeds and leaves that claim untouched; when a different live session
-holds it the call is refused, naming the holder. See
-:mod:`items_flags_claim` for why the acquire is attempted before the
-holder is read.
-
-A frozen item still accepts block and unblock — the frozen guard on
-``items.scalar.update`` stops content drift on a parked item, and
-recording why a parked item is also blocked is coordination, not drift.
-
-``blocked_reason`` is written before ``blocked``, and cleared after it on
-unblock, because every reader keys on the flag and none surfaces a
-reason without it (:func:`render_blocked_section` returns ``None``
-unless ``blocked`` is set). The flag write is therefore the single
-observable commit point, so a failure between the two writes can never
-leave a half-applied block.
+with ``items.blocked_reason``. Claim handling is implicit: the handler
+acquires and releases when the caller holds nothing, leaves a claim the
+caller already holds, and refuses a foreign holder. See
+:mod:`items_flags_claim`. Frozen items still accept block/unblock.
+``blocked_reason`` is written before ``blocked`` (and cleared after it)
+so no reader can observe a reason without the flag.
 """
 
 from __future__ import annotations
@@ -272,6 +257,13 @@ def handle_block(request: FunctionCallRequest) -> HandlerOutcome:
             f"Cannot block {state['public_ref']}: the item is done. Advance it "
             "back into an in-flight status first.",
         )
+    from yoke_core.domain.handlers.items_flags_dependency_wait import (
+        refusal_for_dependency_wait,
+    )
+
+    wait_refusal = refusal_for_dependency_wait(item_id, state["public_ref"])
+    if wait_refusal is not None:
+        return wait_refusal
     captured = io.StringIO()
     changed = not state["blocked"] or str(state["blocked_reason"] or "") != reason
     if not changed:

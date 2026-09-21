@@ -266,3 +266,38 @@ class TestImplicitClaim:
         assert outcome.error.code == "claim_held"
         blocked, reason = _flags(test_db, 8304)[1:3]
         assert (blocked, reason) == (False, None)
+
+
+def _add_dependency(
+    conn: Any, dependent: int, blocking: int, gate_point: str
+) -> None:
+    conn.execute(
+        "INSERT INTO item_dependencies "
+        "(dependent_item_id, blocking_item_id, gate_point, satisfaction, "
+        "source, created_at) VALUES (%s, %s, %s, 'status:done', 'operator', %s)",
+        (dependent, blocking, gate_point, iso8601_now()),
+    )
+    conn.commit()
+
+
+class TestBlockRefusesALiveHardBlockEdge:
+    @pytest.mark.parametrize("gate_point", ("activation", "integration", "closure"))
+    def test_block_refuses_when_a_live_hard_block_edge_exists(
+        self, test_db, gate_point: str,
+    ) -> None:
+        insert_item(test_db, id=8310, status="implementing")
+        insert_item(test_db, id=8311, status="idea")
+        _add_dependency(test_db, 8310, 8311, gate_point)
+        outcome = handle_block(_request(8310, reason="waiting on upstream"))
+        assert not outcome.primary_success
+        assert outcome.error.code == "dependency_wait_on_edge"
+        assert "yoke items dependency add" in outcome.error.message
+        assert _flags(test_db, 8310)[1] is False
+
+    def test_block_accepts_a_coordination_only_edge(self, test_db) -> None:
+        insert_item(test_db, id=8312, status="implementing")
+        insert_item(test_db, id=8313, status="idea")
+        _add_dependency(test_db, 8312, 8313, "coordination_only")
+        outcome = handle_block(_request(8312, reason="external wait"))
+        assert outcome.primary_success, outcome.error
+        assert _flags(test_db, 8312)[1] is True

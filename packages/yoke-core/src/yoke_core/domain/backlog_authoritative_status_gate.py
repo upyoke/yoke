@@ -94,6 +94,13 @@ def _run_authoritative_status_gate(
     terminal_gate = terminal_transition_result(conn, item_id, target_status, workflow)
     if terminal_gate:
         return terminal_gate
+    from yoke_core.domain.closure_status_gate import evaluate_for_status_write
+
+    closure_gate = evaluate_for_status_write(
+        item_id=item_id, target_status=target_status, db_path=db_path, conn=conn,
+    )
+    if closure_gate is not None:
+        return closure_gate
     if workflow.workflow_id == "dash":
         from yoke_core.domain.dash_posture_gate import evaluate as evaluate_posture
 

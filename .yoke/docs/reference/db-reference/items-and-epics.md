@@ -69,7 +69,7 @@ python3 -m yoke_core.cli.db_router sections upsert 42 "Goals" --content-file /tm
 python3 -m yoke_core.domain.item_field_transform section-upsert --item PREFIX-N --section "Goals" --body-file /tmp/g.md --ordering 100 --source operator
 ```
 
-> **Blocked is a flag on items.** Columns `items.blocked INTEGER DEFAULT 0` and `items.blocked_reason TEXT` carry the operator-set block; lifecycle status is preserved across block/unblock; legacy `status='blocked'` lifecycle position is retired (`HC-blocked-status-drift` flags any survivor). Operators use `yoke items block PREFIX-N --reason TEXT` / `yoke items unblock PREFIX-N`. Epic-task `blocked` is unchanged. The view column `item_progress_view.blocked_reason` is `pipeline_blocked_reason`. Full architectural-why (yoke source repo): `docs/archive/decisions/blocked-flag-retirement.md`.
+> **Blocked is a flag on items.** Columns `items.blocked INTEGER DEFAULT 0` and `items.blocked_reason TEXT` carry the operator-set block; lifecycle status is preserved. The flag is for waits with no blocking item: `items.block` refuses when a live activation/integration/closure edge already carries the wait (`yoke items dependency add`). Legacy `status='blocked'` is retired (`HC-blocked-status-drift`). Operators use `yoke items block PREFIX-N --reason TEXT` / `yoke items unblock PREFIX-N`. Epic-task `blocked` is unchanged. View column `item_progress_view.blocked_reason` is `pipeline_blocked_reason`. Architectural-why: `docs/archive/decisions/blocked-flag-retirement.md`.
 
 ### DB Claim — the unified amendment workflow
 
@@ -248,7 +248,7 @@ Every row in `item_dependencies` is a real enforced blocker with directional mea
  - `plan_candidate_set(conn, candidate_ids, gate_point)` -- plan a candidate set; returns eligible items in topological order and blocked items with detail.
 - Service-client commands: `python3 -m yoke_core.api.service_client evaluate-gate <item-id> <gate-point>` and `python3 -m yoke_core.api.service_client plan-candidates <gate-point> <item1> ...` delegate to the Python kernel.
 
-**Enforcement:** `python3 -m yoke_core.domain.check_hard_blocks` evaluates satisfaction conditions per dependency with an optional `--gate-point` filter. `advance`, `conduct`, and `usher` gates use the shared kernel through that CLI or the service-client dependency commands. The authoritative status write runs the same evaluation for the `check_hard_blocks` gate a workflow lists on its implementing stage, filtered to the `activation` gate point, so the definition's promise and the write path agree. The frontier computation in `frontier.py` uses `evaluate_batch_gates()` from the shared kernel for activation-gate evaluation.
+**Enforcement:** `evaluate_blockers` (`python3 -m yoke_core.domain.check_hard_blocks`, optional `--gate-point`) is the one evaluator. `advance` / `conduct` / `usher` share it. The authoritative status write runs it for listed `check_hard_blocks` at `activation`, and on every write to `done` at `closure` (not skippable by force or QA bypass). `items.block` refuses a wait a live activation/integration/closure edge already carries — use `yoke items dependency add`. The frontier uses `evaluate_batch_gates()` for activation.
 
 ## Table: ouroboros_entries
 
