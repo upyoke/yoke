@@ -16,9 +16,11 @@ from yoke_contracts.browser_qa_contract import (
 )
 from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain.browser_qa_assertion_evidence import CaseAssertions
+from yoke_core.domain.browser_qa_failure_capture import failed_step_from_response
 from yoke_core.domain.browser_qa_results import RequirementOutcome, RunResult
 from yoke_core.domain.browser_qa_step_artifacts import record_step_artifacts
 from yoke_core.domain.qa_artifacts import artifact_directory
+from yoke_core.domain.qa_capture_agreement import degraded_reason_for_empty_capture
 from yoke_core.domain.qa_constants import INVALID_BROWSER_METHOD_LABEL
 
 
@@ -34,10 +36,7 @@ def _process_requirement(
 ) -> RequirementOutcome:
     """Process a single qa_requirement row end-to-end.
 
-    Returns a ``RequirementOutcome`` describing the resulting qa_run, whether
-    it was skipped (malformed policy) or executed, whether capture failed,
-    and whether the daemon-level env-setup failure was hit (signal to the
-    caller to abort remaining requirements).
+    Returns a ``RequirementOutcome`` for the resulting qa_run.
     """
     # Lazy import to dodge the circular import with browser_qa and to honor
     # test patches against browser_qa.<helper>.
@@ -64,9 +63,7 @@ def _process_requirement(
         except json.JSONDecodeError:
             pass
 
-    # The size this case is authored at. It is resolved before anything opens
-    # a page, because a page is sized when it is created rather than adjusted
-    # once a case is already looking at it.
+    # Viewport is resolved before the page opens; a page is sized at create.
     viewport = case_viewport(method_config)
     violation = (
         browser_method_contract_violation(str(method_id or ""), steps)
@@ -125,14 +122,9 @@ def _process_requirement(
     artifact_dir = str(artifact_directory(project, subject, run_id))
     os.makedirs(artifact_dir, exist_ok=True)
 
-    # capture writes execution_status; verdict is assigned only on capture
-    # failures (so the failure is visible in gates that filter verdict='fail').
-    # Successful captures land with verdict=NULL until screenshot inspection
-    # sets it via a later yoke qa run complete call.
-    # This case's own page, open for exactly as long as the case runs. Every
-    # step addresses it by id, so no other run is ever handed this screen and
-    # this case never inherits one: the route and the width it establishes are
-    # its own from its first step to its last.
+    # capture writes execution_status; verdict is fail only when capture fails.
+    # Successful captures land with verdict=NULL until screenshot inspection.
+    # This case owns its page for the whole run; every step addresses it by id.
     page_id = ""
     page_open_error = ""
     try:
@@ -193,29 +185,29 @@ def _process_requirement(
             break
 
         # unwrap daemon data envelope when present.
-        # The daemon wraps its payload under a "data" key:
-        #   {"success": true, "data": {"success": true, "artifacts": [...]}}
-        # Fall back to the response itself for flat/direct shapes.
         data = response.get("data", response)
-
-        # Check outer envelope success first (covers exit_code, transport errors)
-        if not response.get("success", True):
-            error = response.get("error", data.get("error", "unknown"))
-            _bqa._log(f"  Step {step_idx}: FAILED (error={error})")
-            _mark_capture_failed(f"step_{step_idx}:{error};")
-            continue
-
-        # Check inner data.success for step-level failures.
-        if (
-            isinstance(data, dict)
-            and data is not response
-            and not data.get("success", True)
-        ):
-            error = data.get("error", "step_failed")
-            _bqa._log(
-                f"  Step {step_idx}: FAILED (inner data.success=false, error={error})"
-            )
-            _mark_capture_failed(f"step_{step_idx}:{error};")
+        failed = failed_step_from_response(
+            response,
+            data,
+            assertion_expected=assertion_expected,
+            step_idx=step_idx,
+            page_id=page_id,
+            base_url=base_url,
+            artifact_dir=artifact_dir,
+            run_id=run_id,
+            requirement_id=req_id,
+            qa_kind=qa_kind,
+            subject=subject,
+            route=current_route,
+            actor=actor,
+        )
+        if failed is not None:
+            step_errors += failed.errors
+            run_artifacts.extend(failed.paths)
+            run_artifact_ids.extend(failed.artifact_ids)
+            run_verdict = "fail"
+            if failed.capture_missed:
+                run_execution_status = "capture_failed"
             continue
 
         # Extract artifacts from the unwrapped data envelope.
@@ -233,8 +225,7 @@ def _process_requirement(
             _mark_capture_failed(f"step_{step_idx}:no_screenshot_artifact;")
             continue
 
-        # The step's own account of the page it ran on travels with every
-        # capture it produced.
+        # The step's observed page travels with every capture it produced.
         step_artifacts = record_step_artifacts(
             artifact_paths=list(artifacts_raw),
             step_index=step_idx,
@@ -267,9 +258,6 @@ def _process_requirement(
             if assertion_expected:
                 assertions.record_pass(data)
 
-    # The case is over, so its page goes with it. Leaving it open would leave
-    # a signed-in screen around for nothing to inherit, which is exactly the
-    # state this ownership exists to end.
     if page_id:
         try:
             _bqa.close_owned_page(page_id)
@@ -301,6 +289,11 @@ def _process_requirement(
         req_id,
         verdict=run_verdict,
         execution_status=run_execution_status,
+        capture_degraded_reason=(
+            degraded_reason_for_empty_capture(len(run_artifact_ids))
+            if run_execution_status == "captured"
+            else None
+        ),
         raw_result=_bqa._build_run_payload(
             project=project,
             base_url=base_url,

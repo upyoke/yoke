@@ -5,6 +5,11 @@ from __future__ import annotations
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_contracts.qa_execution_status import execution_status_error
 from yoke_core.domain.handlers.qa import _error, _p
+from yoke_core.domain.qa_capture_agreement import (
+    CAPTURE_STATUS_ARTIFACT_DISAGREEMENT,
+    captured_without_evidence_error,
+    run_artifact_count,
+)
 from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
 from yoke_core.domain.handlers.qa_browser_write_models import (
     QaArtifactAddRequest,
@@ -39,6 +44,7 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
     verdict = payload.get("verdict")
     verdict_reason = payload.get("verdict_reason")
     execution_status = payload.get("execution_status")
+    capture_degraded_reason = payload.get("capture_degraded_reason")
     raw_result = payload.get("raw_result")
     duration_ms = payload.get("duration_ms")
     if not isinstance(performed_by, str) or not performed_by:
@@ -107,6 +113,16 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
             return _error(
                 "payload_invalid", bind_error, jsonpath="$.payload.raw_result"
             )
+        if issue := captured_without_evidence_error(
+            execution_status=execution_status,
+            artifact_count=0,
+            capture_degraded_reason=capture_degraded_reason,
+        ):
+            return _error(
+                CAPTURE_STATUS_ARTIFACT_DISAGREEMENT,
+                issue,
+                jsonpath="$.payload.execution_status",
+            )
         from yoke_core.domain.qa_requirement_pass_currency import (
             stamp_executed_method_config,
         )
@@ -121,9 +137,9 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         cur = conn.execute(
             "INSERT INTO qa_runs "
             "(qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
-            "execution_status, case_outcome, raw_result, duration_ms, "
-            "started_at, completed_at, created_at) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
+            "execution_status, case_outcome, capture_degraded_reason, raw_result, "
+            "duration_ms, started_at, completed_at, created_at) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
             "RETURNING id",
             (
                 int(req_id),
@@ -133,6 +149,7 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
                 verdict_reason,
                 execution_status,
                 case_outcome_for_verdict(verdict),
+                capture_degraded_reason,
                 raw_result,
                 duration_ms,
                 now_iso,
@@ -189,6 +206,7 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
     verdict = payload.get("verdict")
     verdict_reason = payload.get("verdict_reason")
     execution_status = payload.get("execution_status")
+    capture_degraded_reason = payload.get("capture_degraded_reason")
     raw_result = payload.get("raw_result")
     duration_ms = payload.get("duration_ms")
     if not isinstance(run_id, int):
@@ -223,7 +241,8 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
         row = query_one(
             conn,
             "SELECT run.qa_requirement_id, run.qa_kind, run.performed_by, "
-            "run.raw_result, req.verdict_path, req.method_id FROM qa_runs run "
+            "run.raw_result, run.capture_degraded_reason, req.verdict_path, "
+            "req.method_id FROM qa_runs run "
             "JOIN qa_requirements req ON req.id = run.qa_requirement_id "
             f"WHERE run.id = {p}",
             (int(run_id),),
@@ -243,6 +262,19 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
             run_ids=(int(run_id),),
         ):
             return _error(issue.code, str(issue), jsonpath="$.payload.verdict")
+        reason = capture_degraded_reason
+        if reason is None:
+            reason = row["capture_degraded_reason"]
+        if issue := captured_without_evidence_error(
+            execution_status=execution_status,
+            artifact_count=run_artifact_count(conn, int(run_id)),
+            capture_degraded_reason=reason,
+        ):
+            return _error(
+                CAPTURE_STATUS_ARTIFACT_DISAGREEMENT,
+                issue,
+                jsonpath="$.payload.execution_status",
+            )
         params: list = [iso8601_now()]
         set_parts = [f"completed_at = {p}"]
         if verdict is not None:
@@ -255,16 +287,15 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
         elif execution_status == CAPTURED and is_agent_reviewed_case(
             row["verdict_path"], row["method_id"]
         ):
-            # A capture on an agent-reviewed case is finished but undecided:
-            # the verdict arrives later, from a reviewer reading it. Recording
-            # that outcome here is what lets the release proof gate pair this
-            # capture with its own review; leaving it null made the gate's
-            # agent branch unreachable for every Browser inspection.
+            # Capture is finished but undecided; the reviewer supplies the verdict.
             set_parts.append(f"case_outcome = {p}")
             params.append(NEEDS_REVIEW_OUTCOME)
         if execution_status is not None:
             set_parts.append(f"execution_status = {p}")
             params.append(execution_status)
+        if capture_degraded_reason is not None:
+            set_parts.append(f"capture_degraded_reason = {p}")
+            params.append(capture_degraded_reason)
         if raw_result is not None:
             from yoke_core.domain.qa_requirement_pass_currency import (
                 retain_start_bound_method_config,

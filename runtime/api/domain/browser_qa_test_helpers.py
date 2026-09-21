@@ -148,14 +148,23 @@ class _FakeRunRecorder:
         raw_result: str | None = None,
         *,
         execution_status: str | None = None,
+        capture_degraded_reason: str | None = None,
         actor=None,
     ) -> None:
         conn = connect_test_db(self.db_path)
         p = _placeholder(conn)
         conn.execute(
             f"UPDATE qa_runs SET verdict = {p}, execution_status = {p}, "
-            f"raw_result = {p}, completed_at = {p} WHERE id = {p}",
-            (verdict, execution_status, raw_result, "2026-01-01T00:00:01Z", run_id),
+            f"capture_degraded_reason = {p}, raw_result = {p}, "
+            f"completed_at = {p} WHERE id = {p}",
+            (
+                verdict,
+                execution_status,
+                capture_degraded_reason,
+                raw_result,
+                "2026-01-01T00:00:01Z",
+                run_id,
+            ),
         )
         conn.commit()
         conn.close()
@@ -276,6 +285,20 @@ def _patch_external_deps(
                 if assertion_responses is None:
                     return default
                 return assertion_responses.get(str(step.get("target")), default)
+            if (
+                step.get("action") == "screenshot"
+                and step.get("capture") is True
+                and not execute_step_responses
+            ):
+                artifact_dir = _args[1] if len(_args) > 1 else None
+                if artifact_dir:
+                    from pathlib import Path
+
+                    shot = Path(str(artifact_dir)) / "assertion_failure.png"
+                    shot.parent.mkdir(parents=True, exist_ok=True)
+                    shot.write_bytes(b"PNG")
+                    return {"success": True, "artifacts": [str(shot)]}
+                return default
             if not execute_step_responses:
                 return default
             if len(execute_step_responses) > 1:

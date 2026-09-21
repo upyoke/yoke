@@ -114,6 +114,7 @@ QA_RUN_ADD_USAGE = (
     "yoke qa run add --requirement-id N --performed-by TYPE "
     "[--qa-kind KIND] [--verdict V] [--verdict-reason REASON] "
     f"[--execution-status {EXECUTION_STATUS_USAGE_TOKEN}] "
+    "[--capture-degraded-reason TEXT] "
     "[--raw-result TEXT] [--duration-ms N] [--session-id S] [--json]"
 )
 
@@ -160,6 +161,12 @@ def qa_run_add(args: List[str]) -> int:
         help=EXECUTION_STATUS_HELP,
     )
     parser.add_argument(
+        "--capture-degraded-reason",
+        dest="capture_degraded_reason",
+        default=None,
+        help="Why a captured run produced no qa_artifacts.",
+    )
+    parser.add_argument(
         "--raw-result",
         dest="raw_result",
         default=None,
@@ -183,6 +190,7 @@ def qa_run_add(args: List[str]) -> int:
         "verdict",
         "verdict_reason",
         "execution_status",
+        "capture_degraded_reason",
         "raw_result",
     ):
         value = getattr(parsed, key)
@@ -205,7 +213,8 @@ def qa_run_add(args: List[str]) -> int:
 QA_RUN_COMPLETE_USAGE = (
     "yoke qa run complete --requirement-id N --run-id N "
     "[--verdict V] [--verdict-reason REASON] "
-    f"[--execution-status {EXECUTION_STATUS_USAGE_TOKEN}] [--raw-result TEXT] "
+    f"[--execution-status {EXECUTION_STATUS_USAGE_TOKEN}] "
+    "[--capture-degraded-reason TEXT] [--raw-result TEXT] "
     "[--duration-ms N] [--session-id S] [--json]"
 )
 
@@ -245,6 +254,12 @@ def qa_run_complete(args: List[str]) -> int:
         help=EXECUTION_STATUS_HELP,
     )
     parser.add_argument(
+        "--capture-degraded-reason",
+        dest="capture_degraded_reason",
+        default=None,
+        help="Why a captured run produced no qa_artifacts.",
+    )
+    parser.add_argument(
         "--raw-result",
         dest="raw_result",
         default=None,
@@ -263,7 +278,7 @@ def qa_run_complete(args: List[str]) -> int:
     if parsed is None:
         return 2
     payload: Dict[str, Any] = {"run_id": int(parsed.run_id)}
-    for key in ("verdict", "verdict_reason", "execution_status", "raw_result"):
+    for key in ("verdict", "verdict_reason", "execution_status", "capture_degraded_reason", "raw_result"):
         value = getattr(parsed, key)
         if value is not None:
             payload[key] = value

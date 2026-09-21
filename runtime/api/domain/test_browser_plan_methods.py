@@ -113,7 +113,11 @@ def test_plan_browser_method_selects_its_declared_verdict_path(
     assert completed[0][1]["execution_status"] == "captured"
 
 
-def test_browser_check_records_failed_assertion_on_canonical_runner() -> None:
+def test_browser_check_records_failed_assertion_on_canonical_runner(
+    tmp_path,
+) -> None:
+    screenshot = tmp_path / "assertion_failure.png"
+    screenshot.write_bytes(b"PNG")
     requirement = {
         "id": 41,
         "qa_kind": "plan_case",
@@ -154,7 +158,13 @@ def test_browser_check_records_failed_assertion_on_canonical_runner() -> None:
             side_effect=[
                 {"success": True, "artifacts": []},
                 {"success": False, "error": "assertion failed"},
+                {"success": True, "artifacts": [str(screenshot)]},
             ],
+        ),
+        mock.patch.object(
+            browser_qa,
+            "_record_artifact_file",
+            return_value=8,
         ),
     ):
         result = browser_qa.execute_scenario(
@@ -166,8 +176,12 @@ def test_browser_check_records_failed_assertion_on_canonical_runner() -> None:
 
     assert result.verdict == "fail"
     assert result.runs[0].verdict == "fail"
+    assert result.runs[0].execution_status == "captured"
     assert "assertion failed" in result.runs[0].errors
+    assert "assertion_failure_capture:" not in result.runs[0].errors
+    assert result.runs[0].artifact_ids == [8]
     assert completed[0][1]["verdict"] == "fail"
+    assert completed[0][1]["execution_status"] == "captured"
 
 
 @pytest.mark.parametrize(

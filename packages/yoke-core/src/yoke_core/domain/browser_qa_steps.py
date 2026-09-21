@@ -155,6 +155,7 @@ def _complete_run(
     raw_result: Optional[str] = None,
     *,
     execution_status: Optional[str] = None,
+    capture_degraded_reason: Optional[str] = None,
     actor: Optional[ActorContext] = None,
 ) -> None:
     """Finalize a qa_run via ``qa.run.complete``.
@@ -169,6 +170,8 @@ def _complete_run(
         payload["verdict"] = verdict
     if execution_status is not None:
         payload["execution_status"] = execution_status
+    if capture_degraded_reason is not None:
+        payload["capture_degraded_reason"] = capture_degraded_reason
     if raw_result is not None:
         payload["raw_result"] = raw_result
     _dispatch_qa_write(
