@@ -23,6 +23,13 @@ from yoke_core.domain.deployment_run_driver_notice import (
 )
 from yoke_core.domain.merge_queue_landing_notice import HOLDER, push_notice
 
+#: Identity every item-scoped and run-scoped QA wait notice shares, so a
+#: later reader can find every still-pending wait without parsing bodies.
+DEPLOYMENT_QA_STAGE_WAIT_PREFIX = "deployment-qa-stage-wait:"
+
+#: The member slot a run-scoped wait stores instead of an item id.
+RUN_SCOPED_WAIT_TOKEN = "run"
+
 
 def stage_wait_idempotency_key(
     run_id: str, stage_name: str, item_id: int, target_digest: str = ""
@@ -38,14 +45,20 @@ def stage_wait_idempotency_key(
     earlier wait's key -- it does not authorize swapping a frozen run's
     candidate; that stays a replacement run's job.
     """
-    return f"deployment-qa-stage-wait:{run_id}:{stage_name}:{item_id}:{target_digest}"
+    return (
+        f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}{run_id}:{stage_name}:"
+        f"{item_id}:{target_digest}"
+    )
 
 
 def run_stage_wait_idempotency_key(
     run_id: str, stage_name: str, target_digest: str = ""
 ) -> str:
     """One notice per run/stage/attempt, mirroring the item-scoped key."""
-    return f"deployment-qa-stage-wait:{run_id}:{stage_name}:run:{target_digest}"
+    return (
+        f"{DEPLOYMENT_QA_STAGE_WAIT_PREFIX}{run_id}:{stage_name}:"
+        f"{RUN_SCOPED_WAIT_TOKEN}:{target_digest}"
+    )
 
 
 def _execution_context(*, target_tier: str, revision: str) -> str:
@@ -243,6 +256,8 @@ def notify_run_scoped_qa_wait(
 
 
 __all__ = [
+    "DEPLOYMENT_QA_STAGE_WAIT_PREFIX",
+    "RUN_SCOPED_WAIT_TOKEN",
     "notify_item_scoped_qa_wait",
     "notify_run_scoped_qa_wait",
     "run_stage_wait_idempotency_key",

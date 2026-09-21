@@ -122,6 +122,17 @@ def notify_item_qa_accepted(
     """
     if not run_id or not item_id:
         return ""
+    from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
+        withdraw_deployment_qa_wait_wakes,
+    )
+
+    withdraw_deployment_qa_wait_wakes(
+        conn,
+        run_id=str(run_id),
+        item_id=int(item_id),
+        reason="member_stage_credited",
+        now=now,
+    )
     if not _item_qa_cleared(conn, run_id=run_id, item_id=item_id):
         return ""
     member = _release_wait_member(conn, int(item_id))

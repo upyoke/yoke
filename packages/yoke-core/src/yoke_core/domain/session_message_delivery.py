@@ -87,7 +87,13 @@ def expire_due_recipients(conn: Any, *, now: datetime | None = None) -> int:
     """Converge every due, unacknowledged receipt through one mutation."""
     _begin_mutation(conn)
     try:
-        count = _expire_rows(conn, now=now or utc_now())
+        stamp = now or utc_now()
+        count = _expire_rows(conn, now=stamp)
+        from yoke_core.domain.deployment_qa_stage_wake_withdraw import (
+            withdraw_deployment_qa_wait_wakes,
+        )
+
+        withdraw_deployment_qa_wait_wakes(conn, now=stamp)
         conn.commit()
         return count
     except Exception:

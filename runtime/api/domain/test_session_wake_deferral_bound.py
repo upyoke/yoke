@@ -69,6 +69,31 @@ def test_the_refund_stops_so_a_declined_recipient_stops_churning() -> None:
     assert state == "pending"
 
 
+def test_the_same_non_transient_decline_escalates_past_the_bound() -> None:
+    """Six identical running-turn declines with an empty escalation is silence.
+
+    The bound already stops the refund. Escalation names the condition the
+    wake could not reach so the seat can act instead of watching retries.
+    """
+    conn = _connection()
+    _add_wake_recipient(conn)
+
+    for index in range(MAX_RESTORED_DEFERRALS):
+        _defer_once(conn, round_index=index)
+        escalation = conn.execute(
+            "SELECT wake_escalation FROM session_message_recipients "
+            "WHERE message_id='message-1'"
+        ).fetchone()[0]
+        assert not escalation
+
+    _defer_once(conn, round_index=MAX_RESTORED_DEFERRALS)
+    escalation = conn.execute(
+        "SELECT wake_escalation FROM session_message_recipients "
+        "WHERE message_id='message-1'"
+    ).fetchone()[0]
+    assert escalation == NATIVE_TURN_RUNNING_RESULT
+
+
 def test_a_different_native_does_not_inherit_the_spent_bound() -> None:
     """The bound is per holding process, so a new one starts its own.
 

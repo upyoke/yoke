@@ -109,15 +109,19 @@ def restore_deferred_wake_budget(
     )
     # The decline being settled is already stored, so ``declined`` counts it:
     # the bound is reached on the attempt after the last one it refunds.
-    refund = (
-        "wake_attempt_count=wake_attempt_count-1,"
-        if declined <= MAX_RESTORED_DEFERRALS
-        else ""
-    )
+    # Cadence (the wake_after backoff) does not change; past the bound the
+    # receipt escalates so a same-condition loop is visible instead of silent.
+    assignments = ["wake_after=" + p]
+    values: list[Any] = [backoff]
+    if declined <= MAX_RESTORED_DEFERRALS:
+        assignments.insert(0, "wake_attempt_count=wake_attempt_count-1")
+    else:
+        assignments.insert(0, "wake_escalation=" + p)
+        values.insert(0, NATIVE_TURN_RUNNING_RESULT)
     conn.execute(
         "UPDATE session_message_recipients SET "
-        + refund
-        + "wake_after=" + p + " "
+        + ",".join(assignments)
+        + " "
         f"WHERE message_id={p} AND session_id={p} AND state='pending' "
         f"AND wake_attempt_count>0 AND wake_after<={p} "
         "AND NOT EXISTS (SELECT 1 FROM session_message_attempts a "
@@ -125,7 +129,7 @@ def restore_deferred_wake_budget(
         "AND a.target_session_id=session_message_recipients.session_id "
         "AND a.attempt_kind IN ('wake_relay','wake_broker') "
         "AND a.completed_at IS NULL)",
-        (backoff, message_id, session_id, backoff),
+        (*values, message_id, session_id, backoff),
     )
 
 

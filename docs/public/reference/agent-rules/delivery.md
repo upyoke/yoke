@@ -92,7 +92,13 @@ learns the other's part from its own skill. The split is the whole rule:
 - **The member owner owns its own item.** Its merge parked it at the flow's
   release wait holding its work claim; the deployment wake re-enters it for its
   QA stage, when its own item-scoped QA is accepted, and again when delivery
-  clears.
+  clears. A wait wake is withdrawn — the existing message-cancel path —
+  when its run reaches a terminal status or its member is no longer
+  outstanding (the item-scoped stage is credited, or the item is done), so
+  a late delivery cannot instruct settled work. Recorded delivery attempts
+  stay as evidence. A wake whose every attempt in a bounded window met the
+  same non-transient condition (a native turn that never exited) escalates
+  on the receipt and names that condition, rather than retrying in silence.
 
 **A QA stage credits only requirements bound to its own stage name** — an
 item-scoped stage only ones bound to the member too. So the member owner runs
