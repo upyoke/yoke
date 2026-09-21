@@ -147,6 +147,19 @@ test("what a session held reads the same after it ends", () => {
 });
 
 
+test("an ended card that held nothing keeps the idle work region", () => {
+  const rendered = card(new FakeDocument(), "ended", {
+    current: [], previous: [], previous_remainder: 0,
+  }, { current_item: null, current_item_title: null, recent_item: null });
+  assert.equal(
+    byClass(rendered, "session-unassigned")[0].textContent,
+    "No active work claims",
+  );
+  assert.equal(byClass(rendered, "session-holdings-current").length, 0);
+  assert.equal(byClass(rendered, "session-item-link").length, 0);
+});
+
+
 test("an ended card keeps its timing region and claims no live work", () => {
   const documentNode = new FakeDocument();
   const rendered = card(documentNode, "ended", {
@@ -155,6 +168,13 @@ test("an ended card keeps its timing region and claims no live work", () => {
 
   assert.equal(byClass(rendered, "session-age").length, 1);
   assert.equal(byClass(rendered, "session-attached").length, 0);
+  assert.equal(byClass(rendered, "session-holdings-current").length, 0);
+  assert.deepEqual(
+    byClass(rendered, "session-holdings-label").map((node) => node.textContent),
+    ["Previously held"],
+  );
+  assert.equal(byClass(rendered, "session-item-link")[0].textContent, "YOK-20");
+  assert.equal(byClass(rendered, "session-item-title")[0].textContent, "Current title");
   assert.equal(byClass(rendered, "session-unassigned").length, 0);
 });
 

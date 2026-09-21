@@ -191,13 +191,15 @@ function machineLabel(row) {
 }
 
 export function appendSessionRelay(documentNode, body, row) {
-  const line = el(documentNode, "div", "session-relay");
+  const ended = String(row.liveness || "") === "ended";
+  const line = el(
+    documentNode, "div", ended ? "session-relay is-muted" : "session-relay",
+  );
   line.appendChild(el(documentNode, "span", "session-relay-label", "Relay:"));
   const connected = row.relay === "connected";
   // An ended session is not waiting on a relay, and a history row reports no
   // relay state at all, so its machine reads idle rather than critical: the
   // alarm belongs to a live session whose messages have nowhere to land.
-  const ended = String(row.liveness || "") === "ended";
   const tone = connected ? "good" : (ended ? "idle" : "crit");
   const pill = el(
     documentNode, "span", `pill ${tone} session-relay-pill`,
@@ -232,13 +234,7 @@ export function messagingAvailability(row) {
   // reading that absence as a missing delivery hook would blame the harness
   // for a session that simply is not running.
   if (String(row.liveness || "") === "ended") {
-    return {
-      available: false,
-      reason: routing.reason === "session_terminated"
-        ? "Messaging unavailable: this session was terminated."
-        : "Messaging unavailable: this session has ended and cannot be "
-          + "restarted from here.",
-    };
+    return { available: false, reason: "" };
   }
   if (routing.reason === "session_terminated") {
     return {
@@ -265,8 +261,7 @@ export function messagingAvailability(row) {
     };
   }
   if (String(row.liveness || "") !== "active" && routing.wake_available !== true) {
-    if (String(row.liveness || "") !== "ended"
-      && routing.wake_authority === "operator") {
+    if (routing.wake_authority === "operator") {
       return {
         available: true,
         reason: "",
@@ -284,10 +279,7 @@ export function messagingAvailability(row) {
     }
     return {
       available: false,
-      reason: String(row.liveness || "") === "ended"
-        ? "Messaging unavailable: this session has ended and cannot be "
-          + "restarted from here."
-        : "Messaging unavailable: this idle session has no wake route.",
+      reason: "Messaging unavailable: this idle session has no wake route.",
     };
   }
   return { available: true, reason: "" };
@@ -314,6 +306,7 @@ export function sessionMessageButton(documentNode, row, onMessage) {
 }
 
 export function appendSessionMessagingBlocker(documentNode, body, row) {
+  if (String(row.liveness || "") === "ended") return;
   const availability = messagingAvailability(row);
   if (availability.available) return;
   body.appendChild(el(

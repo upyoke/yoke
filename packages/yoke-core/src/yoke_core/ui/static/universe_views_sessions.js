@@ -144,10 +144,13 @@ export function sessionCard(
   }
   appendHoldings(documentNode, body, row, projects);
   appendSessionAge(documentNode, body, row);
-  const messageAction = sessionMessageButton(documentNode, row, onMessage);
   appendSessionRelay(documentNode, body, row);
-  appendSessionMessageLine(documentNode, body, row, messageAction);
-  appendSessionMessagingBlocker(documentNode, body, row);
+  // Ended cards share this layout; they omit messaging, not the card shape.
+  if (liveness !== "ended") {
+    const messageAction = sessionMessageButton(documentNode, row, onMessage);
+    appendSessionMessageLine(documentNode, body, row, messageAction);
+    appendSessionMessagingBlocker(documentNode, body, row);
+  }
   card.appendChild(body);
   return card;
 }

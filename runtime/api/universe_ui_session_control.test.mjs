@@ -264,6 +264,8 @@ test("roster keeps exact message actions on open sessions only", async (t) => {
     (card) => card.getAttribute("data-session-id") === "ended-wakeable",
   );
   assert.equal(button(endedCard, "Message"), undefined);
+  assert.equal(byClass(endedCard, "session-messaging-blocked").length, 0);
+  assert.equal(byClass(endedCard, "session-latest-message").length, 0);
   const activeCard = byClass(root, "session-card").find(
     (card) => card.getAttribute("data-session-id") === "messageable",
   );

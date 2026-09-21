@@ -44,11 +44,14 @@ function holdingHref(holding, row) {
     publicRef: holding.item_ref || holding.target,
   });
   if (explicit) return explicit;
-  if (holding.target_kind === "item" && holding.target === row.current_item) {
+  if (
+    holding.target_kind === "item"
+    && (holding.target === row.current_item || holding.target === row.recent_item)
+  ) {
     return itemDrillInHref({
-      projectId: row.current_item_project_id,
+      projectId: row.current_item_project_id || row.project_id,
       projectSequence: row.current_item_project_sequence,
-      publicRef: row.current_item,
+      publicRef: holding.target,
     });
   }
   return null;
@@ -190,7 +193,8 @@ function appendHoldingEntry(
   }
   if (showTitle) {
     const title = holding.item_title
-      || (holding.target === row.current_item ? row.current_item_title : "");
+      || (holding.target === row.current_item ? row.current_item_title : "")
+      || (holding.target === row.recent_item ? row.recent_item_title : "");
     if (title) {
       work.appendChild(el(documentNode, "span", "session-item-title", title));
     }
@@ -238,7 +242,8 @@ function appendHoldingGroup(
   return appendHoldingsSection(documentNode, body, {
     label, previous, entries, projects,
     sessionId: String(row.session_id || ""),
-    titled: previous ? null : titleHolding(entries, row),
+    titled: previous && String(row.liveness || "") !== "ended"
+      ? null : titleHolding(entries, row),
     attachTooltip,
     renderMarker: () => el(documentNode, "span", "session-lock", "📜"),
     renderRow: (parent, entry, showTitle) => {
@@ -262,11 +267,13 @@ function holdsAnything(groups) {
 
 export function appendHoldings(documentNode, body, row, projects = []) {
   const groups = holdingGroups(row);
+  const ended = String(row.liveness || "") === "ended";
   let rendered = false;
   // The steering block above the holdings already names every seat and
   // document it covers; repeating them here says the same hold twice.
   const coveredAbove = steeringLeadCovers(row);
-  const current = groups.current.filter((holding) => !coveredAbove(holding));
+  const liveCurrent = groups.current.filter((holding) => !coveredAbove(holding));
+  const current = ended ? [] : liveCurrent;
   const attribution = focusAttribution(row);
   let currentGroup = null;
   if (current.length) {
@@ -290,9 +297,21 @@ export function appendHoldings(documentNode, body, row, projects = []) {
   // released seat covers keeps its own row. Never nest a Steering box
   // inside Previously held.
   const foldedIntoSeat = steeringDocCovers(groups.previous);
-  const previous = groups.previous.filter(
-    (holding) => !foldedIntoSeat(holding),
-  );
+  const previous = [
+    ...(ended ? liveCurrent : []),
+    ...groups.previous.filter((holding) => !foldedIntoSeat(holding)),
+  ];
+  const lastItem = ended && !previous.some((h) => h.target_kind === "item")
+    && (row.current_item || row.recent_item);
+  if (lastItem) {
+    previous.push({
+      holding_kind: "work_claim", target_kind: "item",
+      target: lastItem, item_ref: lastItem,
+      item_title: row.current_item_title || row.recent_item_title || "",
+      item_project_id: row.current_item_project_id,
+      item_project_sequence: row.current_item_project_sequence,
+    });
+  }
   if (previous.length) {
     appendHoldingGroup(
       documentNode, body, row, "Previously held", previous, true,
@@ -311,7 +330,7 @@ export function appendHoldings(documentNode, body, row, projects = []) {
     body.appendChild(group);
     rendered = true;
   }
-  if (!rendered && !holdsAnything(groups) && row.liveness !== "ended") {
+  if (!rendered && !holdsAnything(groups)) {
     // Boxed like every other work region so an idle card reads as idle
     // rather than as a card whose work region failed to render. No label
     // heading: the line inside already says there is nothing held.
