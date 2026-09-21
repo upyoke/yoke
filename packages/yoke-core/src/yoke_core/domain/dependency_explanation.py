@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from yoke_core.domain.dependency_types import deployed_environment
+from yoke_core.domain.dependency_types import deployed_environment, status_stage_id
 
 
 def satisfaction_description(satisfaction: str) -> str:
@@ -12,9 +12,10 @@ def satisfaction_description(satisfaction: str) -> str:
     environment = deployed_environment(satisfaction)
     if environment is not None:
         return f"deployment to {environment}"
+    stage_id = status_stage_id(satisfaction)
+    if stage_id is not None:
+        return f"status reaches {stage_id}"
     return {
-        "status:done": "status reaches done",
-        "status:implemented": "status reaches implemented",
         "fact:merged": "branch is merged to main",
     }.get(satisfaction, satisfaction)
 

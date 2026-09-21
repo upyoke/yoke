@@ -315,7 +315,7 @@ The `blocked_details` array is present when the shared scheduler provides struct
 | `item_id` | string | The blocked item (``YOK-N``). |
 | `blocking_item` | string | The blocker item (``YOK-N``). |
 | `gate_point` | string | When the dependency matters: ``activation``, ``integration``, or ``closure``. |
-| `satisfaction` | string | What must be true: ``status:done``, ``status:implemented``, ``fact:merged``, or ``fact:deployed:<environment-name>``. Use merged for a trunk dependency and deployed when the blocker must be running in the named registered environment. |
+| `satisfaction` | string | What must be true: ``status:<stage-id>`` (including ``status:done`` and ``status:implemented``), ``fact:merged``, or ``fact:deployed:<environment-name>``. Use a named stage when the wait is a workflow milestone, merged for a trunk dependency, and deployed when the blocker must be running in the named registered environment. |
 | `rationale` | string | Persisted human-readable explanation of why this edge exists. |
 | `reason` | string | Runtime evaluation: why the blocker is currently unsatisfied. |
 

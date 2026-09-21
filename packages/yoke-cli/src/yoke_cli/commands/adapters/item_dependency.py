@@ -29,8 +29,7 @@ __all__ = [
 
 
 ITEMS_DEPENDENCY_LIST_USAGE = (
-    "yoke items dependency list (PREFIX-N | --item PREFIX-N) "
-    "[--session-id S] [--json]"
+    "yoke items dependency list (PREFIX-N | --item PREFIX-N) [--session-id S] [--json]"
 )
 
 
@@ -40,11 +39,14 @@ def items_dependency_list(args: List[str]) -> int:
         description=ITEMS_DEPENDENCY_LIST_USAGE,
     )
     parser.add_argument(
-        "--item", default=None,
+        "--item",
+        default=None,
         help="Item id (PREFIX-N or project-local number). Alternative to positional.",
     )
     parser.add_argument(
-        "item_positional", nargs="?", default=None,
+        "item_positional",
+        nargs="?",
+        default=None,
         help="Item id positional (alternative to --item).",
     )
     add_session_arg(parser)
@@ -69,15 +71,18 @@ def items_dependency_list(args: List[str]) -> int:
 ITEMS_DEPENDENCY_ADD_USAGE = (
     "yoke items dependency add <dependent> <blocking> <source> "
     "[--gate-point activation|integration|closure|coordination_only] "
-    "[--satisfaction status:done|status:implemented|fact:merged|"
+    "[--satisfaction status:<stage-id>|fact:merged|"
     "fact:deployed:<environment-name>] "
     "(--rationale TEXT | --rationale-file PATH) "
     "[--evidence JSON | --evidence-file PATH] [--session-id S] [--json]"
 )
 
 _SATISFACTION_HELP = """Satisfaction values:
-  status:done | status:implemented | fact:merged |
-  fact:deployed:<environment-name>
+  status:<stage-id> | fact:merged | fact:deployed:<environment-name>
+
+status:done and status:implemented remain valid. Any other status:<stage-id>
+must be a stage in the blocking item's pinned workflow; authoring refuses
+an unknown stage and lists the stages that workflow version has.
 
 Use fact:merged when the dependent only needs the blocker's code on trunk.
 Use fact:deployed:<environment-name> when it needs that code running in a
@@ -89,6 +94,8 @@ Examples:
     --satisfaction fact:merged --rationale "needs blocker on trunk"
   yoke items dependency add APP-3 APP-1 operator --gate-point activation
     --satisfaction fact:deployed:prod --rationale "acceptance uses the prod build"
+  yoke items dependency add APP-4 APP-1 operator --gate-point activation
+    --satisfaction status:reviewing-implementation --rationale "wait until review"
 """
 
 
@@ -100,11 +107,13 @@ def items_dependency_add(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "item", metavar="dependent",
+        "item",
+        metavar="dependent",
         help="Dependent item id (PREFIX-N or project-local number).",
     )
     parser.add_argument(
-        "blocking", help="Blocking item id (usually PREFIX-N).",
+        "blocking",
+        help="Blocking item id (usually PREFIX-N).",
     )
     parser.add_argument(
         "source",
@@ -118,13 +127,17 @@ def items_dependency_add(args: List[str]) -> int:
     )
     rationale = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
-        rationale, "--rationale", "--rationale-file",
+        rationale,
+        "--rationale",
+        "--rationale-file",
         dest="rationale",
         help_text="Non-empty authored rationale for the edge.",
     )
     evidence = parser.add_mutually_exclusive_group()
     add_text_file_pair(
-        evidence, "--evidence", "--evidence-file",
+        evidence,
+        "--evidence",
+        "--evidence-file",
         dest="evidence",
         help_text="JSON evidence payload (default {}).",
         file_help="Read JSON evidence payload from a file.",
@@ -136,10 +149,14 @@ def items_dependency_add(args: List[str]) -> int:
         return 2
     try:
         rationale_text = resolve_text_file(
-            parsed.rationale, parsed.rationale_file, "--rationale-file",
+            parsed.rationale,
+            parsed.rationale_file,
+            "--rationale-file",
         )
         evidence_json = resolve_text_file(
-            parsed.evidence, parsed.evidence_file, "--evidence-file",
+            parsed.evidence,
+            parsed.evidence_file,
+            "--evidence-file",
         )
     except ValueError as exc:
         return usage_error(str(exc))
@@ -164,7 +181,7 @@ def items_dependency_add(args: List[str]) -> int:
 ITEMS_DEPENDENCY_UPDATE_USAGE = (
     "yoke items dependency update <dependent> <blocking> "
     "[--match-gate-point POINT] [--gate-point POINT] "
-    "[--satisfaction status:done|status:implemented|fact:merged|"
+    "[--satisfaction status:<stage-id>|fact:merged|"
     "fact:deployed:<environment-name>] "
     "[--rationale TEXT | --rationale-file PATH] "
     "[--session-id S] [--json]"
@@ -179,7 +196,8 @@ def items_dependency_update(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "item", metavar="dependent",
+        "item",
+        metavar="dependent",
         help="Dependent item id (PREFIX-N or project-local number).",
     )
     parser.add_argument("blocking", help="Blocking item id (usually PREFIX-N).")
@@ -192,7 +210,9 @@ def items_dependency_update(args: List[str]) -> int:
     )
     rationale = parser.add_mutually_exclusive_group()
     add_text_file_pair(
-        rationale, "--rationale", "--rationale-file",
+        rationale,
+        "--rationale",
+        "--rationale-file",
         dest="rationale",
         help_text="Updated rationale text.",
     )
@@ -203,7 +223,9 @@ def items_dependency_update(args: List[str]) -> int:
         return 2
     try:
         rationale_text = resolve_text_file(
-            parsed.rationale, parsed.rationale_file, "--rationale-file",
+            parsed.rationale,
+            parsed.rationale_file,
+            "--rationale-file",
         )
     except ValueError as exc:
         return usage_error(str(exc))
@@ -228,8 +250,7 @@ def items_dependency_update(args: List[str]) -> int:
 
 
 ITEMS_DEPENDENCY_REMOVE_USAGE = (
-    "yoke items dependency remove <dependent> <blocking> "
-    "[--session-id S] [--json]"
+    "yoke items dependency remove <dependent> <blocking> [--session-id S] [--json]"
 )
 
 
@@ -239,7 +260,8 @@ def items_dependency_remove(args: List[str]) -> int:
         description=ITEMS_DEPENDENCY_REMOVE_USAGE,
     )
     parser.add_argument(
-        "item", metavar="dependent",
+        "item",
+        metavar="dependent",
         help="Dependent item id (PREFIX-N or project-local number).",
     )
     parser.add_argument("blocking", help="Blocking item id (usually PREFIX-N).")

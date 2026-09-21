@@ -13,6 +13,10 @@ from yoke_core.domain.dependency_types import (
     deployed_environment,
     satisfaction_is_known,
 )
+from yoke_core.domain.dependency_status_stage import (
+    evaluate_status_satisfaction,
+    require_authorable_status_stage,
+)
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 from yoke_core.domain.environment_delivery_record import (
     UnregisteredEnvironment,
@@ -20,10 +24,7 @@ from yoke_core.domain.environment_delivery_record import (
     resolve_environment_id,
 )
 from yoke_core.domain.schema_common import _get_columns, _table_exists
-from yoke_core.domain.workflow_runtime import (
-    WorkflowRuntime,
-    builtin_workflow_runtime,
-)
+from yoke_core.domain.workflow_runtime import WorkflowRuntime, builtin_workflow_runtime
 from yoke_core.domain.project_identity import render_item_ref
 
 
@@ -87,8 +88,7 @@ def read_deployed_environment_fact(
         (project_id, environment_id),
     ).fetchall()
     carried = any(
-        int(blocking_item_id)
-        in _carried_item_ids(_row_value(run, "carried_work", 0))
+        int(blocking_item_id) in _carried_item_ids(_row_value(run, "carried_work", 0))
         for run in rows
     )
     return DeployedEnvironmentFact(environment, True, carried)
@@ -100,7 +100,7 @@ def require_authorable_satisfaction(
     blocking_item_id: int,
     satisfaction: str,
 ) -> None:
-    """Refuse unknown values and unregistered deployed environments."""
+    """Refuse unknown values, unknown stages, and unregistered environments."""
     try:
         Satisfaction.from_db(satisfaction)
     except ValueError as exc:
@@ -110,6 +110,9 @@ def require_authorable_satisfaction(
         ) from exc
     environment = deployed_environment(satisfaction)
     if environment is None:
+        require_authorable_status_stage(
+            conn, blocking_item_id=blocking_item_id, satisfaction=satisfaction
+        )
         return
     p = _placeholder(conn)
     row = conn.execute(
@@ -117,7 +120,9 @@ def require_authorable_satisfaction(
         (int(blocking_item_id),),
     ).fetchone()
     if row is None:
-        raise LookupError(f"blocking {render_item_ref(conn, blocking_item_id)} not found")
+        raise LookupError(
+            f"blocking {render_item_ref(conn, blocking_item_id)} not found"
+        )
     try:
         require_registered_environment(
             conn,
@@ -138,7 +143,9 @@ def _evaluate_merge(
         return GateResult(True, "Blocking item's merge is confirmed.")
     if blocking_merged is False:
         branch = f" ({blocking_worktree})" if blocking_worktree else ""
-        return GateResult(False, f"Blocking item's branch{branch} is not yet merged to main.")
+        return GateResult(
+            False, f"Blocking item's branch{branch} is not yet merged to main."
+        )
     if workflow.stage_implies_merge(blocking_status):
         return GateResult(
             True,
@@ -183,23 +190,16 @@ def evaluate_satisfaction(
         if blocking_deployed.carried:
             return GateResult(True, f"Blocking item is deployed to {environment}.")
     if workflow is None or blocking_status is None:
-        return GateResult(False, "Blocking item has no verifiable workflow-version pin.")
-    if satisfaction == Satisfaction.STATUS_DONE.value:
-        if workflow.satisfies_stage_milestone(blocking_status, "done"):
-            return GateResult(True, "Blocking item has reached done.")
-        return GateResult(False, f"Blocking item status is '{blocking_status}'; must reach done.")
-    if satisfaction == Satisfaction.STATUS_IMPLEMENTED.value:
-        if workflow.satisfies_stage_milestone(blocking_status, "implemented"):
-            return GateResult(True, "Blocking item has reached implemented or later.")
         return GateResult(
-            False,
-            f"Blocking item status is '{blocking_status}'; must reach implemented.",
+            False, "Blocking item has no verifiable workflow-version pin."
         )
+    status_result = evaluate_status_satisfaction(
+        satisfaction, blocking_status, workflow
+    )
+    if status_result is not None:
+        return status_result
     merge_result = _evaluate_merge(
-        blocking_status,
-        blocking_worktree,
-        blocking_merged,
-        workflow,
+        blocking_status, blocking_worktree, blocking_merged, workflow
     )
     if satisfaction == Satisfaction.FACT_MERGED.value:
         return merge_result
@@ -210,8 +210,12 @@ def evaluate_satisfaction(
             f"deployment_fact_unavailable: no deployment evidence was read for {environment}.",
         )
     if not merge_result.satisfied:
-        return GateResult(False, f"Blocking item is not merged; not deployed to {environment}.")
-    return GateResult(False, f"Blocking item is merged, not yet deployed to {environment}.")
+        return GateResult(
+            False, f"Blocking item is not merged; not deployed to {environment}."
+        )
+    return GateResult(
+        False, f"Blocking item is merged, not yet deployed to {environment}."
+    )
 
 
 def evaluate_persisted_satisfaction(
@@ -255,10 +259,14 @@ def unsatisfied_dependency_pairs(
     placeholders = ",".join(p for _ in dependent_item_ids)
     dependency_columns = set(_get_columns(conn, "item_dependencies"))
     item_columns = set(_get_columns(conn, "items"))
-    has_workflow_context = _table_exists(conn, "workflow_versions") and {
-        "workflow_id",
-        "workflow_version_id",
-    } <= item_columns
+    has_workflow_context = (
+        _table_exists(conn, "workflow_versions")
+        and {
+            "workflow_id",
+            "workflow_version_id",
+        }
+        <= item_columns
+    )
     workflow_fields = (
         "b.workflow_id,b.workflow_version_id,wv.version,wv.definition_json,"
         "wv.definition_digest"
