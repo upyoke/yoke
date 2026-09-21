@@ -148,7 +148,7 @@ def notify_deployment_qa_verdict(
     from yoke_core.domain.project_identity import render_item_ref
 
     item_ref = render_item_ref(conn, member_item_id)
-    return push_notice(
+    delivery = push_notice(
         conn,
         item_id=member_item_id,
         project_id=subject["project_id"],
@@ -163,6 +163,15 @@ def notify_deployment_qa_verdict(
         idempotency_key=key,
         now=now or datetime.now(timezone.utc),
     )
+    if action in {"approve", "waive"}:
+        from yoke_core.domain.deployment_qa_member_acceptance_notice import (
+            notify_item_qa_accepted,
+        )
+
+        notify_item_qa_accepted(
+            conn, run_id=run_id, item_id=member_item_id, now=now
+        )
+    return delivery
 
 
 __all__ = [

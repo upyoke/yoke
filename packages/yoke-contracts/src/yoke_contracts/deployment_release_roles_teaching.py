@@ -37,7 +37,8 @@ Item-bound batch release — who runs what:
   run-wide pass does not credit a member's item-scoped stage.
 
   The member owner stays parked at its release wait holding its own claim, and
-  the deployment wake re-enters it. When a stage wants its evidence it credits
+  the deployment wake re-enters it for its QA stage, when its own item-scoped
+  QA is accepted, and when delivery clears. When a stage wants its evidence it credits
   that stage by naming the stage AND itself, because a stage credits only the
   requirements bound to its own name:
     yoke qa plan run --deployment-run-id RUN-ID --stage STAGE --member PREFIX-N \\

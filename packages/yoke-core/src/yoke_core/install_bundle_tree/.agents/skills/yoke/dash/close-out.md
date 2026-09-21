@@ -36,7 +36,9 @@ yoke sessions touch --mode parked --reason "awaiting ITEM delivery: deployment r
 ```
 
 The deployment wake re-enters you: a QA stage that needs your evidence, a
-verdict on one you supplied, or the notice that your run succeeded and the
+verdict on one you supplied, the notice that your own item-scoped QA is
+accepted (the run may still be executing; other members' outstanding item QA
+does not block you), or the notice that your run succeeded and the
 wait is over — that last one fires only for the run that actually discharges
 this item's delivery, so a stage run in a stage-and-production pair will not
 call you. Re-run the same `yoke merge item` command with `--result` and

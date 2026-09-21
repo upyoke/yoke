@@ -357,8 +357,10 @@ unscoped `yoke qa plan run --deployment-run-id {RUN_ID}` and never
 `yoke qa case run --requirement-id N`, both of which leave the stage
 unsatisfied. Depth: `yoke qa plan run --help`.
 
-After the batch succeeds, every member parked at its release boundary closes
-ITSELF out: the deployment wake re-enters its owner, which still holds the
+A member whose own item-scoped QA is accepted closes ITSELF out without
+waiting for the rest of the batch (a run-scoped stage the flow declares is
+still a shared wait). After the batch succeeds, any owner still parked
+closes ITSELF out: the deployment wake re-enters its owner, which still holds the
 item's work claim, and that owner runs the one agent-facing close-out
 `yoke merge item PREFIX-N --result ... --verification ...`. Do not acquire a
 live owner's claim to finish its item for it, and do not reach for the
