@@ -19,9 +19,11 @@ per live run.
 It decides nothing. There is no timeout and no auto-cancel here on
 purpose: a run that has been at a stage for hours is *reported*, and a
 person reads the row and chooses. The only rows marked as needing action
-are the two the run cannot leave by itself — one holding a determinate
-failing verdict, and one with nothing outstanding that is simply waiting
-to be re-driven.
+are the ones the run cannot leave by itself — a determinate failing
+verdict, a resolved decision the runner has not acted on, and a run
+still at ``created`` with nothing outstanding. An ``executing`` run with
+nothing outstanding is already being driven: the row names the stage it
+is at rather than recommending a second drive.
 """
 
 from __future__ import annotations
@@ -37,7 +39,7 @@ from yoke_core.domain.deployment_run_completion_preconditions import (
     redrive_recovery,
     unresolved_blocking_qa,
 )
-from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
+from yoke_core.domain.runs import RunStatus, TERMINAL_RUN_STATUSES
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_message_types import row_dict
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds, marker
@@ -105,11 +107,21 @@ class DeploymentRunProgress:
 
     @property
     def needs_action(self) -> bool:
-        """True when nothing the run is waiting for can arrive by itself."""
+        """True when nothing the run is waiting for can arrive by itself.
+
+        Outstanding QA is not that signal on its own. A run still at
+        ``created`` with nothing outstanding is waiting to be driven; one
+        already ``executing`` with nothing outstanding is in flight, and
+        recommending a re-drive there invites a second dispatch against a
+        live release.
+        """
+        waiting_to_be_driven = (
+            self.status == RunStatus.CREATED and self.outstanding == 0
+        )
         return (
             bool(self.red)
-            or self.outstanding == 0
             or self.answered_decision is not None
+            or waiting_to_be_driven
         )
 
     def recovery(self) -> str:

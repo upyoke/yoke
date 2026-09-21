@@ -98,7 +98,10 @@ def test_the_report_sentence_carries_the_stage_age_and_the_counts(fleet) -> None
     assert f"Settle or waive each one, then re-drive {RUN_ID} to finalize." in body
 
 
-def test_a_settled_run_is_reported_as_waiting_only_to_be_driven(fleet) -> None:
+def test_an_executing_run_with_nothing_outstanding_is_not_advised_to_re_drive(
+    fleet,
+) -> None:
+    """A live driver already holds the run; a second drive can double-dispatch."""
     _seed_requirement(fleet, requirement_id=901, member_item_id=1)
     _record_verdict(fleet, requirement_id=901, verdict="pass")
     fleet.commit()
@@ -107,11 +110,36 @@ def test_a_settled_run_is_reported_as_waiting_only_to_be_driven(fleet) -> None:
     body = report_body(report)
 
     run = report.deployment_runs[0]
+    assert run.status == "executing"
     assert run.outstanding == 0
     assert run.red == ()
-    assert run.needs_action is True
+    assert run.needs_action is False
+    assert report.runs_needing_action() == ()
+    assert f"  {RUN_ID}  executing  flow prod-release" in body
     assert "0 of 1 outstanding, 0 red" in body
+    assert "re-drive" not in body
+    assert "waiting only to be driven" not in body
+
+
+def test_a_created_run_with_nothing_outstanding_is_advised_to_be_driven(
+    fleet,
+) -> None:
+    fleet.execute(
+        "UPDATE deployment_runs SET status='created' WHERE id=%s", (RUN_ID,)
+    )
+    fleet.commit()
+
+    report = compose(fleet)
+    body = report_body(report)
+
+    run = report.deployment_runs[0]
+    assert run.status == "created"
+    assert run.outstanding == 0
+    assert run.needs_action is True
+    assert report.runs_needing_action() == (run,)
+    assert f"! {RUN_ID}  created  flow prod-release" in body
     assert f"Nothing is outstanding; re-drive {RUN_ID} to finish it." in body
+    assert "waiting only to be driven" in body
 
 
 def test_a_healthy_run_is_reported_without_raising_an_alarm(fleet) -> None:
