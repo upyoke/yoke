@@ -80,6 +80,7 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("composition_resolution", "TEXT"),
             ("composition_frozen_at", "TEXT"),
             ("requirement_snapshot", "TEXT"),
+            ("driver_attachment", "TEXT"),
         ],
         "notes": (
             "One row per deployment-flow execution. Primary key is the "
@@ -133,6 +134,12 @@ DELIVERY_TABLES: dict[str, dict] = {
             "dr.current_stage, dr.target_environment_id FROM deployment_runs dr "
             "JOIN deployment_run_items dri ON dri.run_id = dr.id WHERE "
             "dri.item_id = ? ORDER BY dr.created_at DESC LIMIT 1;`. "
+            "`driver_attachment` is JSON naming the live process driving "
+            "the run (`session_id`, `pid`, `attached_at`, `heartbeat_at`, "
+            "`phase`, `progress_capture`). A second execute of a run whose "
+            "attachment is still live refuses by name; an empty or stale "
+            "attachment is an interrupted driver, recovered by re-driving "
+            "the same run id. "
             "Stale-run HCs scan rows where `status` is non-terminal "
             "but `started_at` is older than the configured cutoff; "
             "item-less is suspicious only when a run never starts."

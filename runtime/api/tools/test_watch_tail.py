@@ -197,6 +197,36 @@ def test_refuses_when_the_capture_never_appears(tmp_path: Path) -> None:
     assert "--print-streaming-pair" in out.getvalue()
 
 
+def test_refuses_an_unwritten_capture_by_naming_the_live_driver(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from yoke_core.domain.deployment_run_driver_attachment import DriverAttachment
+
+    progress = tmp_path / "progress.log"
+    monkeypatch.setattr(
+        watch_tail,
+        "_live_driver",
+        lambda _path: DriverAttachment(
+            run_id="run-9",
+            session_id="sess-9",
+            pid=7,
+            attached_at="2026-09-21T12:00:00Z",
+            heartbeat_at="2026-09-21T12:00:00Z",
+            phase="freezing_source",
+            progress_capture=str(progress),
+        ),
+    )
+    out = io.StringIO()
+    rc = watch_tail.follow(
+        progress, out=out, poll_interval=0.01, grace_seconds=0.05
+    )
+    text = out.getvalue()
+    assert rc == binding.UNWRITTEN_CAPTURE_EXIT
+    assert "run-9" in text
+    assert "freezing_source" in text
+    assert "--raw-capture/--progress-capture" not in text
+
+
 def test_refuses_when_the_claiming_watcher_died_without_a_sentinel(
     tmp_path: Path,
 ) -> None:

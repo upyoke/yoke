@@ -51,7 +51,12 @@ def deployment_runs_execute(args: List[str]) -> int:
             "*-db-admin connection that keeps run state writable while the "
             "API is replaced. That self-deploy freezes the driver at the "
             "run's release_lineage so a merge landing mid-run cannot mix "
-            "source; a named halt stays re-drivable.\n\n"
+            "source; a named halt stays re-drivable. The driver records "
+            "itself on the run before that freeze, so a second execute of "
+            "the same run refuses by naming the live session, pid, phase, "
+            "and capture. watch_tail consults that fact before blaming "
+            "missing capture flags. Steering does not treat a created run "
+            "with a live driver as waiting to be driven.\n\n"
             f"{INTERRUPTED_RUN_RECOVERY}"
         )
         return 0

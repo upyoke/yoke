@@ -14,12 +14,19 @@ from yoke_core.domain.deploy_pipeline_pinned_source import (
     PINNED_REEXEC_ENV,
     PINNED_SOURCE_ROOT_ENV,
 )
+from yoke_core.domain.deployment_run_driver_attachment import PHASE_FREEZING_SOURCE
 
 _PINNED_ENV = {
     PINNED_RELEASE_ENV: "abc",
     PINNED_SOURCE_ROOT_ENV: "/pin",
     "PATH": "/bin",
 }
+
+
+@pytest.fixture(autouse=True)
+def _quiet_driver(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(liveness_cli, "_hold_driver", lambda *a, **k: None)
+    monkeypatch.setattr(liveness_cli, "_drop_driver", lambda *a, **k: None)
 
 
 def _quiet_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -138,3 +145,34 @@ def test_liveness_cli_prints_freeze_failure(
     )
     assert liveness_cli.main(["run-1"]) == 2
     assert "cannot freeze" in capsys.readouterr().err
+
+
+def test_liveness_cli_records_the_driver_before_the_freeze(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order: list[str] = []
+    monkeypatch.setattr(
+        liveness_cli,
+        "_hold_driver",
+        lambda _run_id, *, phase: order.append(phase),
+    )
+    monkeypatch.setattr(
+        "yoke_core.tools.deploy_pipeline_pinned_driver.child_environment",
+        lambda _run_id: order.append("freeze") or dict(_PINNED_ENV),
+    )
+    monkeypatch.setattr(
+        "yoke_core.tools.deploy_pipeline_pinned_driver.frozen_driver_notice",
+        lambda env: f"Self-deploy driver frozen at {env[PINNED_RELEASE_ENV]}",
+    )
+    monkeypatch.setattr(
+        liveness_cli.os,
+        "execve",
+        lambda *_a, **_k: (_ for _ in ()).throw(SystemExit(0)),
+    )
+    out = io.StringIO()
+    with redirect_stdout(out):
+        with pytest.raises(SystemExit):
+            liveness_cli.main(["run-1"])
+    assert order[0] == PHASE_FREEZING_SOURCE
+    assert "freeze" in order
+    assert order.index(PHASE_FREEZING_SOURCE) < order.index("freeze")

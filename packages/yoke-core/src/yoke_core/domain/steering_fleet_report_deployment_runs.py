@@ -21,7 +21,9 @@ purpose: a run that has been at a stage for hours is *reported*, and a
 person reads the row and chooses. The only rows marked as needing action
 are the ones the run cannot leave by itself — a determinate failing
 verdict, a resolved decision the runner has not acted on, and a run
-still at ``created`` with nothing outstanding. An ``executing`` run with
+still at ``created`` with nothing outstanding and no live driver. A
+``created`` run with a live driver is already inside a silent phase
+(the self-deploy freeze is the worked case). An ``executing`` run with
 nothing outstanding is already being driven: the row names the stage it
 is at rather than recommending a second drive.
 
@@ -39,6 +41,7 @@ from typing import Any, Optional
 
 from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
 from yoke_core.domain.deployment_run_completion_preconditions import redrive_recovery
+from yoke_core.domain.deployment_run_driver_attachment import live_attachment_for_run
 from yoke_core.domain.deployment_run_unpassable_blocking_qa import (
     PinQaDiagnosis,
     diagnose_unpassable_blocking_qa,
@@ -112,19 +115,26 @@ class DeploymentRunProgress:
     #: Set when this run's current stage already has a resolved decision.
     answered_decision: Optional[AnsweredDecision] = None
     pin_qa: PinQaDiagnosis = PinQaDiagnosis()
+    #: Live driver phase when one is attached, else empty. Distinguishes
+    #: "nobody started this" from "started, inside a long silent phase".
+    driver_phase: str = ""
 
     @property
     def needs_action(self) -> bool:
         """True when nothing the run is waiting for can arrive by itself.
 
         Outstanding QA is not that signal on its own. A run still at
-        ``created`` with nothing outstanding is waiting to be driven; one
+        ``created`` with nothing outstanding is waiting to be driven only
+        when no live driver is attached; a live driver in a silent freeze
+        is already in flight even while status stays ``created``. One
         already ``executing`` with nothing outstanding is in flight, and
         recommending a re-drive there invites a second dispatch against a
         live release.
         """
         waiting_to_be_driven = (
-            self.status == RunStatus.CREATED and self.outstanding == 0
+            self.status == RunStatus.CREATED
+            and self.outstanding == 0
+            and not self.driver_phase
         )
         return (
             bool(self.red)
@@ -198,6 +208,7 @@ def run_progress(
             )
             for item in facts.red.get(run_id, ())
         )
+        attached = live_attachment_for_run(conn, run_id_value=run_id, now=now)
         rows.append(
             DeploymentRunProgress(
                 run_id=run_id,
@@ -215,6 +226,7 @@ def run_progress(
                     if red
                     else PinQaDiagnosis()
                 ),
+                driver_phase=attached.phase if attached is not None else "",
             )
         )
     return tuple(rows)

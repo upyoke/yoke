@@ -64,6 +64,34 @@ DELIVERED_MARKER_SUFFIX = ".delivered"
 DEFAULT_PROG = "watch_tail"
 
 
+def _live_driver(path: Path):
+    """Live run driver that claimed *path*, or None when none is recorded."""
+    try:
+        from yoke_contracts.api.function_call import TargetRef
+        from yoke_core.api.service_client_structured_api_adapter import (
+            call_dispatcher,
+        )
+        from yoke_core.domain.deployment_run_driver_attachment import (
+            FOR_CAPTURE_FUNCTION_ID,
+            parse_attachment,
+        )
+        from yoke_core.domain.json_helper import dumps_compact
+
+        response = call_dispatcher(
+            function_id=FOR_CAPTURE_FUNCTION_ID,
+            target=TargetRef(kind="global"),
+            payload={"progress_capture": str(path)},
+        )
+        payload = (response.result or {}).get("driver") if response.success else None
+        if not isinstance(payload, dict):
+            return None
+        return parse_attachment(
+            str(payload.get("run_id") or ""), dumps_compact(payload)
+        )
+    except Exception:  # noqa: BLE001 - a tail must still diagnose the file
+        return None
+
+
 def _refuse(stream: TextIO, message: str) -> int:
     """Emit *message* on the followed stream and return the refusal code.
 
@@ -196,7 +224,9 @@ def follow(
         if clock() >= deadline:
             return _refuse(
                 stream,
-                unwritten_capture_refusal(path, grace_seconds=grace_seconds),
+                unwritten_capture_refusal(
+                    path, grace_seconds=grace_seconds, driver=_live_driver(path)
+                ),
             )
         time.sleep(poll_interval)
     with path.open("r", encoding="utf-8") as handle:
@@ -210,7 +240,9 @@ def follow(
                         return _refuse(
                             stream,
                             unwritten_capture_refusal(
-                                path, grace_seconds=grace_seconds
+                                path,
+                                grace_seconds=grace_seconds,
+                                driver=_live_driver(path),
                             ),
                         )
                 elif not writer_alive(owner):

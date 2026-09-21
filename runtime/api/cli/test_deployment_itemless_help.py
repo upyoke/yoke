@@ -94,6 +94,8 @@ def test_execute_help_teaches_interrupted_run_redrive() -> None:
     assert "finalization pending" in text
     assert "re-enters executing at that stage" in text
     assert "does not replay skipped completed stages" in text
+    assert "records itself on the run before that freeze" in text
+    assert "heartbeat within ten minutes" in text
 
 
 def test_create_post_note_points_at_watch_deploy() -> None:

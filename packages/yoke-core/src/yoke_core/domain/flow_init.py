@@ -113,6 +113,7 @@ def _ensure_flow_schema(conn) -> None:
             "composition_resolution",
             "composition_frozen_at",
             "requirement_snapshot",
+            "driver_attachment",
         ):
             _add_column_if_not_exists(conn, "deployment_runs", column, "TEXT")
 

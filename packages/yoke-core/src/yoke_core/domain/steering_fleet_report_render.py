@@ -127,9 +127,10 @@ def _run_lines(report: FleetReport) -> list[str]:
     """
     lines: list[str] = []
     for run in report.deployment_runs[:SECTION_LIMIT]:
+        driver = f"  driver {run.driver_phase}" if run.driver_phase else ""
         lines.append(
             f"  {OVERDUE_MARK if run.needs_action else ' '} {run.run_id}  "
-            f"{run.status}  flow {run.flow}  stage {run.stage} for "
+            f"{run.status}{driver}  flow {run.flow}  stage {run.stage} for "
             f"{_stage_age(run)}  {run.outstanding} of {run.total_blocking} "
             f"outstanding, {len(run.red)} red"
         )

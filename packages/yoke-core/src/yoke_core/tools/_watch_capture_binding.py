@@ -131,8 +131,28 @@ def writer_alive(pid: int) -> bool:
     return True
 
 
-def unwritten_capture_refusal(path: Path, *, grace_seconds: float) -> str:
+def unwritten_capture_refusal(
+    path: Path, *, grace_seconds: float, driver: Any | None = None
+) -> str:
     """Return the refusal for a capture no writer ever claimed."""
+    if driver is not None:
+        capture = (
+            f", writing {driver.progress_capture}"
+            if getattr(driver, "progress_capture", "")
+            else ""
+        )
+        return (
+            f"# watch_tail refusing: no watcher claimed {path} within "
+            f"{grace_seconds:g}s, and nothing has been written to it.\n"
+            f"#   Cause: run {driver.run_id} has a live driver in phase "
+            f"{driver.phase} since {driver.attached_at} (session "
+            f"{driver.session_id}, pid {driver.pid}{capture}). The freeze "
+            "that pins a self-deploy driver is the worked case — it is "
+            "silent until it finishes, and the capture flags were not the "
+            "problem.\n"
+            "#   Fix: wait for that driver, or inspect that process; do "
+            "not start a second execute of the same run.\n"
+        )
     return (
         f"# watch_tail refusing: no watcher claimed {path} within "
         f"{grace_seconds:g}s, and nothing has been written to it.\n"

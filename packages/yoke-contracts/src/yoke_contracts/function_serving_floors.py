@@ -11,6 +11,9 @@ from __future__ import annotations
 
 #: function_id -> minimum serving version. Do not copy already-served ids here.
 FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
+    "deployment_runs.driver.for_capture": "next-release",
+    "deployment_runs.execution.attach_driver": "next-release",
+    "deployment_runs.execution.release_driver": "next-release",
     "item_landings.list": "next-release",
     "item_landings.record": "next-release",
     "qa.item_plan.retract": "next-release",

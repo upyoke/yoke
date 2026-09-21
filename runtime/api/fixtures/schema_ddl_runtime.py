@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS deployment_runs (
     artifact_identity TEXT,
     composition_resolution TEXT,
     composition_frozen_at TEXT,
-    requirement_snapshot TEXT,
+    requirement_snapshot TEXT, driver_attachment TEXT,
     CHECK((target_tier IS NOT NULL AND target_tier = 'persistent')
           = (target_environment_id IS NOT NULL))
 );

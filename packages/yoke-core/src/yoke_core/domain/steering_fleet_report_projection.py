@@ -184,6 +184,7 @@ def _run_dict(entry: DeploymentRunProgress) -> dict[str, Any]:
                 for item in entry.pin_qa.unproven
             ],
         },
+        "driver_phase": entry.driver_phase,
         "needs_action": entry.needs_action,
         "recovery": entry.recovery(),
     }

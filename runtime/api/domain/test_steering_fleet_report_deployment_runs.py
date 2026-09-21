@@ -142,6 +142,43 @@ def test_a_created_run_with_nothing_outstanding_is_advised_to_be_driven(
     assert "waiting only to be driven" in body
 
 
+def test_a_created_run_with_a_live_driver_is_not_advised_to_be_driven(
+    fleet,
+) -> None:
+    from yoke_core.domain.json_helper import dumps_compact
+
+    fleet.execute(
+        "UPDATE deployment_runs SET status='created', driver_attachment=%s "
+        "WHERE id=%s",
+        (
+            dumps_compact(
+                {
+                    "session_id": "sess-freeze",
+                    "pid": 4242,
+                    "attached_at": NOW,
+                    "heartbeat_at": NOW,
+                    "phase": "freezing_source",
+                    "progress_capture": "/tmp/progress.log",
+                }
+            ),
+            RUN_ID,
+        ),
+    )
+    fleet.commit()
+
+    report = compose(fleet)
+    body = report_body(report)
+
+    run = report.deployment_runs[0]
+    assert run.status == "created"
+    assert run.driver_phase == "freezing_source"
+    assert run.needs_action is False
+    assert report.runs_needing_action() == ()
+    assert f"  {RUN_ID}  created  driver freezing_source  flow prod-release" in body
+    assert "re-drive" not in body
+    assert "waiting only to be driven" not in body
+
+
 def test_a_healthy_run_is_reported_without_raising_an_alarm(fleet) -> None:
     _seed_requirement(fleet, requirement_id=901, member_item_id=1)
     _seed_requirement(fleet, requirement_id=902, member_item_id=2)

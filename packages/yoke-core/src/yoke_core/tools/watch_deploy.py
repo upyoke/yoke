@@ -31,6 +31,10 @@ from yoke_core.domain.deploy_pipeline_pinned_source import (
     DRIVER_SOURCE_DRIFT_PREFIX,
     DeployPinnedSourceError,
 )
+from yoke_core.domain.deployment_run_driver_attachment import (
+    PHASE_EXECUTING,
+    PHASE_FREEZING_SOURCE,
+)
 from yoke_core.tools import _watch_digest, _watch_runner, watch_preflight
 from yoke_core.tools._watch_throttle import Classification, LineClass
 from yoke_core.tools.deploy_pipeline_pinned_driver import (
@@ -219,6 +223,18 @@ def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
     return filtered, found
 
 
+def _hold_driver(run_id: str, *, phase: str, progress_capture: str = "") -> None:
+    from yoke_core.domain.deploy_pipeline_control_plane import attach_driver
+
+    attach_driver(run_id, phase=phase, progress_capture=progress_capture)
+
+
+def _drop_driver(run_id: str) -> None:
+    from yoke_core.domain.deploy_pipeline_control_plane import release_driver
+
+    release_driver(run_id)
+
+
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
@@ -247,29 +263,57 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         sys.stderr.write(refusal + "\n")
         return 2
 
-    try:
-        pinned_env = child_environment(passthrough[0])
-    except DeployPinnedSourceError as exc:
-        sys.stderr.write(f"watch_deploy: {exc}\n")
-        return 2
+    from yoke_core.domain.deploy_pipeline_control_plane import (
+        DeploymentControlPlaneError,
+        DriverLivenessPump,
+    )
 
     raw_path, progress_path = _watch_runner.bind_capture_paths(ns, KIND)
-    header = frozen_driver_notice(pinned_env) if pinned_env else None
-
-    return _watch_runner.run_watcher(
-        argv=_engine_argv(passthrough),
-        classifier=classify_deploy_line,
-        raw_capture=raw_path,
-        progress_capture=progress_path,
-        kind=KIND,
-        cwd=pinned_driver_cwd(pinned_env),
-        env=pinned_env,
-        header_metadata=header,
-        flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
-        # A seat driving two releases reads one transcript, so each
-        # digest names the run it summarises.
-        digest_label=passthrough[0],
-    )
+    capture = str(progress_path)
+    run_id = passthrough[0]
+    held = False
+    try:
+        try:
+            _hold_driver(
+                run_id, phase=PHASE_FREEZING_SOURCE, progress_capture=capture
+            )
+            held = True
+        except DeploymentControlPlaneError as exc:
+            sys.stderr.write(f"watch_deploy: {exc}\n")
+            return 2
+        try:
+            with DriverLivenessPump(
+                run_id, phase=PHASE_FREEZING_SOURCE, progress_capture=capture
+            ).running():
+                pinned_env = child_environment(run_id)
+        except DeployPinnedSourceError as exc:
+            sys.stderr.write(f"watch_deploy: {exc}\n")
+            return 2
+        try:
+            _hold_driver(run_id, phase=PHASE_EXECUTING, progress_capture=capture)
+            held = True
+        except DeploymentControlPlaneError as exc:
+            sys.stderr.write(f"watch_deploy: {exc}\n")
+            return 2
+        header = frozen_driver_notice(pinned_env) if pinned_env else None
+        return _watch_runner.run_watcher(
+            argv=_engine_argv(passthrough),
+            classifier=classify_deploy_line,
+            raw_capture=raw_path,
+            progress_capture=progress_path,
+            kind=KIND,
+            cwd=pinned_driver_cwd(pinned_env),
+            env=pinned_env,
+            header_metadata=header,
+            flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
+            digest_label=run_id,
+            liveness=DriverLivenessPump(
+                run_id, phase=PHASE_EXECUTING, progress_capture=capture
+            ),
+        )
+    finally:
+        if held:
+            _drop_driver(run_id)
 
 
 if __name__ == "__main__":  # pragma: no cover — exercised via subprocess
