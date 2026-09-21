@@ -41,7 +41,7 @@ function holdingHref(holding, row) {
   const explicit = itemDrillInHref({
     projectId: holding.item_project_id,
     projectSequence: holding.item_project_sequence,
-    publicRef: holding.item_ref || holding.target,
+    publicRef: holding.public_ref || holding.item_ref || holding.target,
   });
   if (explicit) return explicit;
   if (
@@ -306,7 +306,7 @@ export function appendHoldings(documentNode, body, row, projects = []) {
   if (lastItem) {
     previous.push({
       holding_kind: "work_claim", target_kind: "item",
-      target: lastItem, item_ref: lastItem,
+      target: lastItem, public_ref: lastItem,
       item_title: row.current_item_title || row.recent_item_title || "",
       item_project_id: row.current_item_project_id,
       item_project_sequence: row.current_item_project_sequence,
