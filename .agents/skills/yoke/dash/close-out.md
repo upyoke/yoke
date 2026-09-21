@@ -43,6 +43,9 @@ wait is over — that last one fires only for the run that actually discharges
 this item's delivery, so a stage run in a stage-and-production pair will not
 call you. Re-run the same `yoke merge item` command with `--result` and
 `--verification` then, and it finishes the close-out. Never poll the run.
+A member that recorded `post_deploy_no_obligation` before it landed does
+not get that wake: the same close-out runs without a session when the
+completion-flow run succeeds.
 
 A run in ANOTHER project never calls you either, even when it deployed your
 code. A flow stage may bind a second project's branch tip through
