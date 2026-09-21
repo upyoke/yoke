@@ -14,10 +14,15 @@ from unittest import mock
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.deployment_item_flow_resolution import (
+    FLOW_SOURCE_ITEM,
+    FLOW_SOURCE_NONE,
+    FLOW_SOURCE_PROJECT_DEFAULT,
+    FLOW_SOURCE_UNREADABLE,
     NO_FLOW_HEAD,
     describe_missing_flow,
     freeze_item_completion_flow,
     item_completion_flow,
+    item_completion_flow_facts,
 )
 from yoke_core.domain.deployment_run_carried_membership import admit_run_item
 from yoke_core.domain.flow_create import cmd_create
@@ -182,3 +187,56 @@ def test_admit_run_item_freezes_the_completion_flow_before_membership(
         test_db, project="yoke", workflow_id="blitz", flow_id="completion-later",
     )
     assert item_completion_flow(test_db, 9333) == "completion-admit"
+
+
+def test_facts_name_a_pin_as_the_items_own(test_db: Any) -> None:
+    _active_flow(test_db, "completion-own")
+    insert_item(
+        test_db,
+        id=9334,
+        project_sequence=9334,
+        workflow_id="blitz",
+        status="implementing",
+        deployment_flow="completion-own",
+    )
+    fact = item_completion_flow_facts(test_db, [9334])[9334]
+    assert fact.flow == "completion-own"
+    assert fact.source == FLOW_SOURCE_ITEM
+
+
+def test_facts_name_a_resolved_default_as_inherited(test_db: Any) -> None:
+    _active_flow(test_db, "completion-default")
+    _unpinned_item(test_db, 9335)
+    set_delivery_default(
+        test_db, project="yoke", workflow_id="blitz",
+        flow_id="completion-default",
+    )
+    fact = item_completion_flow_facts(test_db, [9335])[9335]
+    assert fact.flow == "completion-default"
+    assert fact.source == FLOW_SOURCE_PROJECT_DEFAULT
+
+
+def test_facts_name_neither_as_none(test_db: Any) -> None:
+    _unpinned_item(test_db, 9336)
+    fact = item_completion_flow_facts(test_db, [9336])[9336]
+    assert fact.flow == ""
+    assert fact.source == FLOW_SOURCE_NONE
+
+
+def test_facts_name_an_unreadable_default(test_db: Any, monkeypatch) -> None:
+    _unpinned_item(test_db, 9337)
+
+    def _boom(*_args, **_kwargs):
+        from yoke_core.domain.workflow_project_defaults import (
+            WorkflowProjectDefaultError,
+        )
+        raise WorkflowProjectDefaultError("could not be read")
+
+    monkeypatch.setattr(
+        "yoke_core.domain.workflow_project_defaults.get_delivery_default",
+        _boom,
+    )
+    fact = item_completion_flow_facts(test_db, [9337])[9337]
+    assert fact.flow == ""
+    assert fact.source == FLOW_SOURCE_UNREADABLE
+    assert item_completion_flow(test_db, 9337) == ""

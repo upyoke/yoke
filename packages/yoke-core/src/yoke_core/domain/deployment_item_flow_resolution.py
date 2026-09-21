@@ -1,6 +1,6 @@
 """Resolve an item's project and effective delivery flow."""
 
-from typing import Any, Iterable
+from typing import Any, Iterable, NamedTuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import db_helpers
@@ -12,18 +12,28 @@ from yoke_core.domain.workflow_project_defaults import WorkflowProjectDefaultErr
 
 NO_FLOW_HEAD = "has no deployment_flow; cannot start deploy run"
 
+FLOW_SOURCE_ITEM = "item"
+FLOW_SOURCE_PROJECT_DEFAULT = "project_default"
+FLOW_SOURCE_NONE = "none"
+FLOW_SOURCE_UNREADABLE = "unreadable"
 
-def item_completion_flows(conn: Any, item_ids: Iterable[int]) -> dict[int, str]:
-    """The closing flow for a whole set of items, keyed by internal id.
 
-    The set form exists because the callers that need this need it for every
-    item on a page. Asking per item re-probed the schema and re-resolved the
-    same project default once per row; here the schema question is asked
-    once, the item rows come back in one statement, and a project default is
-    resolved once per distinct project-and-workflow pair.
+class ItemCompletionFlowFact(NamedTuple):
+    """The closing flow for one item, and whether it is stored or inherited."""
 
-    An item with no closing flow maps to ``""``, the same answer
-    :func:`item_completion_flow` gives.
+    flow: str
+    source: str
+
+
+def item_completion_flow_facts(
+    conn: Any, item_ids: Iterable[int],
+) -> dict[int, ItemCompletionFlowFact]:
+    """The closing flow and where it came from, keyed by internal id.
+
+    Same batching as :func:`item_completion_flows`: one item-row read, and
+    one default resolution per distinct project-and-workflow pair. A default
+    that cannot be read is ``source='unreadable'`` with an empty flow, never
+    silently the same as a project that declared none.
     """
     ids = tuple(dict.fromkeys(int(value) for value in item_ids))
     if not ids or not _column_exists(conn, "items", "deployment_flow"):
@@ -39,25 +49,30 @@ def item_completion_flows(conn: Any, item_ids: Iterable[int]) -> dict[int, str]:
         f"WHERE i.id IN ({','.join(marker for _ in ids)})",
         ids,
     ).fetchall()
-    flows: dict[int, str] = {}
+    facts: dict[int, ItemCompletionFlowFact] = {}
     unresolved: dict[int, tuple[str, str]] = {}
     for raw in rows:
         row = dict(raw)
         item_id = int(row["id"])
         pinned = str(row["deployment_flow"] or "").strip()
         if pinned:
-            flows[item_id] = pinned
+            facts[item_id] = ItemCompletionFlowFact(pinned, FLOW_SOURCE_ITEM)
             continue
-        flows[item_id] = ""
+        facts[item_id] = ItemCompletionFlowFact("", FLOW_SOURCE_NONE)
         if not has_workflow:
             continue
         project = str(row["slug"] or "")
         workflow_id = str(row["workflow_id"] or "")
         if project and workflow_id:
             unresolved[item_id] = (project, workflow_id)
-    if not unresolved or not _table_exists(conn, "project_structure"):
-        return flows
-    defaults: dict[tuple[str, str], str] = {}
+    if not unresolved:
+        return facts
+    if not _table_exists(conn, "project_structure"):
+        unreadable = ItemCompletionFlowFact("", FLOW_SOURCE_UNREADABLE)
+        for item_id in unresolved:
+            facts[item_id] = unreadable
+        return facts
+    defaults: dict[tuple[str, str], ItemCompletionFlowFact] = {}
     for item_id, key in unresolved.items():
         if key not in defaults:
             try:
@@ -65,10 +80,37 @@ def item_completion_flows(conn: Any, item_ids: Iterable[int]) -> dict[int, str]:
                     conn, project=key[0], workflow_id=key[1],
                 )
             except WorkflowProjectDefaultError:
-                resolved = None
-            defaults[key] = str(resolved or "")
-        flows[item_id] = defaults[key]
-    return flows
+                defaults[key] = ItemCompletionFlowFact(
+                    "", FLOW_SOURCE_UNREADABLE,
+                )
+            else:
+                flow = str(resolved or "")
+                defaults[key] = ItemCompletionFlowFact(
+                    flow,
+                    FLOW_SOURCE_PROJECT_DEFAULT if flow else FLOW_SOURCE_NONE,
+                )
+        facts[item_id] = defaults[key]
+    return facts
+
+
+def item_completion_flows(conn: Any, item_ids: Iterable[int]) -> dict[int, str]:
+    """The closing flow for a whole set of items, keyed by internal id.
+
+    The set form exists because the callers that need this need it for every
+    item on a page. Asking per item re-probed the schema and re-resolved the
+    same project default once per row; here the schema question is asked
+    once, the item rows come back in one statement, and a project default is
+    resolved once per distinct project-and-workflow pair.
+
+    An item with no closing flow maps to ``""``, the same answer
+    :func:`item_completion_flow` gives. An unreadable default is also
+    ``""`` here — callers that need to tell that apart from a declared-none
+    use :func:`item_completion_flow_facts`.
+    """
+    return {
+        item_id: fact.flow
+        for item_id, fact in item_completion_flow_facts(conn, item_ids).items()
+    }
 
 
 def item_completion_flow(conn: Any, item_id: int) -> str:
@@ -210,10 +252,16 @@ def describe_missing_flow(item_ref: str, project: str) -> str:
 
 
 __all__ = [
+    "FLOW_SOURCE_ITEM",
+    "FLOW_SOURCE_NONE",
+    "FLOW_SOURCE_PROJECT_DEFAULT",
+    "FLOW_SOURCE_UNREADABLE",
+    "ItemCompletionFlowFact",
     "NO_FLOW_HEAD",
     "describe_missing_flow",
     "freeze_item_completion_flow",
     "item_completion_flow",
+    "item_completion_flow_facts",
     "item_completion_flows",
     "lookup_item_project_and_flow",
     "membership_closes_item",

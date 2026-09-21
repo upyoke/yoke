@@ -263,23 +263,17 @@ def _card_delivery(
 ) -> dict[int, dict[str, Any]]:
     """Merge counts for the rows that draw a delivery box, and no others.
 
-    Release and the last day of finished work are the two bands whose cards
-    show delivery, and they share one rendering, so they share this read.
-    Every other row answers a question this costs nothing to leave
-    unanswered, so the roster pays for it only where a card will show the
-    result. The same 24-hour window :func:`append_overview_window` selects on
-    bounds the finished side here, so a caller that did not apply that window
-    cannot turn this into an unbounded scan of every terminal item.
-
-    The releases a card is compared against belong to its project,
-    environment and flow rather than to the item, so they are resolved once
-    per distinct triple, and every card's landings are read in one pass.
+    Release and the last day of finished work share this read. The same
+    24-hour window :func:`append_overview_window` selects on bounds the
+    finished side here. Releases are resolved once per project, environment
+    and completion flow rather than per card.
     """
     if compact:
         return {}
     drawn = [row for row in base_rows if _delivery_drawn(row)]
     if not drawn:
         return {}
+    from yoke_core.domain.item_overview_effective_flow import apply_effective_flows
     from yoke_core.domain.release_delivery_summary import (
         DeliverySummary,
         ReleaseCandidates,
@@ -287,10 +281,11 @@ def _card_delivery(
         recorded_merge_shas_for_items,
     )
 
+    apply_effective_flows(conn, drawn)
     flows = sorted({
-        str(row.get("deployment_flow") or "").strip()
+        str(row.get("completion_flow") or "").strip()
         for row in drawn
-        if str(row.get("deployment_flow") or "").strip()
+        if str(row.get("completion_flow") or "").strip()
     })
     environment_by_flow: dict[str, Any] = {}
     if flows:
@@ -316,7 +311,7 @@ def _card_delivery(
         # line is never resolved on its behalf.
         summary = DeliverySummary()
         if merges:
-            flow = str(row.get("deployment_flow") or "").strip()
+            flow = str(row.get("completion_flow") or "").strip()
             line = (
                 int(facts[item_id]["project_id"]),
                 environment_by_flow.get(flow),
