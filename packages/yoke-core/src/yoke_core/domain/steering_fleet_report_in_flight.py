@@ -101,8 +101,14 @@ def long_running_command(command_summary: str | None) -> str | None:
     return None
 
 
-def _newest_open_call(conn: Any, session_id: str) -> dict[str, Any] | None:
-    """The newest unfinished ``session_tool_calls`` row for one session.
+def _unique_session_ids(holders: Sequence[Any]) -> list[str]:
+    return list(dict.fromkeys(str(holder.session_id) for holder in holders))
+
+
+def _newest_open_calls(
+    conn: Any, session_ids: Sequence[str]
+) -> dict[str, dict[str, Any]]:
+    """The newest unfinished ``session_tool_calls`` row for each session.
 
     A refused call is closed by the guardrail that refused it, carrying
     the ``denied`` outcome, so it is not open and never reaches here. That
@@ -111,17 +117,24 @@ def _newest_open_call(conn: Any, session_id: str) -> dict[str, Any] | None:
     like a worker inside a long command, which is the opposite of the
     idle holder the steerer needed to see.
     """
+    if not session_ids:
+        return {}
     p = marker(conn)
-    row = conn.execute(
-        f"""SELECT tool_use_id, tool_name, started_at, command_summary
+    slots = ",".join(p for _ in session_ids)
+    rows = conn.execute(
+        f"""SELECT DISTINCT ON (session_id)
+                   session_id, tool_use_id, tool_name, started_at, command_summary
               FROM session_tool_calls
-             WHERE session_id = {p}
+             WHERE session_id IN ({slots})
                AND completed_at IS NULL
-             ORDER BY started_at DESC, tool_use_id DESC
-             LIMIT 1""",
-        (session_id,),
-    ).fetchone()
-    return dict(row) if row is not None else None
+             ORDER BY session_id, started_at DESC, tool_use_id DESC""",
+        tuple(session_ids),
+    ).fetchall()
+    found: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        record = dict(row)
+        found[str(record["session_id"])] = record
+    return found
 
 
 def in_flight_calls(
@@ -131,11 +144,15 @@ def in_flight_calls(
     now: str,
 ) -> tuple[InFlightCall, ...]:
     """Which of these quiet holders are inside a long-running call."""
+    session_ids = _unique_session_ids(quiet)
+    if not session_ids:
+        return ()
     if not has_session_tool_calls_table(conn):
         return ()
+    open_calls = _newest_open_calls(conn, session_ids)
     calls = []
     for holder in quiet:
-        open_call = _newest_open_call(conn, holder.session_id)
+        open_call = open_calls.get(str(holder.session_id))
         if open_call is None:
             continue
         command = long_running_command(open_call.get("command_summary"))

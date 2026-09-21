@@ -87,31 +87,58 @@ class DeadWait:
         return self.reason != UNRESOLVED
 
 
-def _last_question(conn: Any, session_id: str) -> dict[str, Any] | None:
-    """The most recent message this session sent that asks something.
+def _unique_session_ids(holders: Sequence[Any]) -> list[str]:
+    return list(dict.fromkeys(str(holder.session_id) for holder in holders))
 
-    Scans back over the holder's recent conversation rather than reading only
-    its latest message, so a confirmation sent after a real question neither
-    counts as a wait itself nor hides the question still underneath it.
+
+def _last_questions(
+    conn: Any, session_ids: Sequence[str]
+) -> dict[str, dict[str, Any] | None]:
+    """The most recent asking message each session sent, if one is in view.
+
+    Scans back over each holder's recent conversation rather than reading
+    only its latest message, so a confirmation sent after a real question
+    neither counts as a wait itself nor hides the question still underneath
+    it. The per-session window is the same ``ASK_SCAN_LIMIT`` joined rows
+    the single-session scan used.
     """
+    found: dict[str, dict[str, Any] | None] = {
+        session_id: None for session_id in session_ids
+    }
+    if not session_ids:
+        return found
     p = marker(conn)
+    slots = ",".join(p for _ in session_ids)
     rows = conn.execute(
-        f"""SELECT m.message_id AS message_id,
-                   m.created_at AS created_at,
-                   m.body AS body,
-                   r.session_id AS answerer_session_id
-              FROM session_messages m
-              JOIN session_message_recipients r ON r.message_id = m.message_id
-             WHERE m.sender_session_id = {p}
-             ORDER BY m.created_at DESC, m.message_id DESC
-             LIMIT {ASK_SCAN_LIMIT}""",
-        (session_id,),
+        f"""SELECT sender_session_id, message_id, created_at, body,
+                   answerer_session_id
+              FROM (
+                    SELECT m.sender_session_id AS sender_session_id,
+                           m.message_id AS message_id,
+                           m.created_at AS created_at,
+                           m.body AS body,
+                           r.session_id AS answerer_session_id,
+                           ROW_NUMBER() OVER (
+                             PARTITION BY m.sender_session_id
+                             ORDER BY m.created_at DESC, m.message_id DESC
+                           ) AS rn
+                      FROM session_messages m
+                      JOIN session_message_recipients r
+                        ON r.message_id = m.message_id
+                     WHERE m.sender_session_id IN ({slots})
+                   ) recent
+             WHERE rn <= {ASK_SCAN_LIMIT}
+             ORDER BY sender_session_id, created_at DESC, message_id DESC""",
+        tuple(session_ids),
     ).fetchall()
     for row in rows:
         record = dict(row)
+        sender = str(record.get("sender_session_id") or "")
+        if sender not in found or found[sender] is not None:
+            continue
         if message_asks(record.get("body")):
-            return record
-    return None
+            found[sender] = record
+    return found
 
 
 def answered_after(conn: Any, *, answerer: str, asker: str, asked_at: str) -> bool:
@@ -123,55 +150,94 @@ def answered_after(conn: Any, *, answerer: str, asker: str, asked_at: str) -> bo
     drain asks the same question of a seat that ended holding a
     role-addressed message.
     """
+    return (answerer, asker) in _replied_pairs(conn, ((answerer, asker, asked_at),))
+
+
+def _replied_pairs(
+    conn: Any, triples: Sequence[tuple[str, str, str]]
+) -> set[tuple[str, str]]:
+    """Which (answerer, asker) pairs already have a reply at or after the ask."""
+    if not triples:
+        return set()
     p = marker(conn)
-    row = conn.execute(
-        f"""SELECT 1 AS replied
+    clauses = " OR ".join(
+        f"(m.sender_session_id = {p} AND r.session_id = {p} AND m.created_at >= {p})"
+        for _ in triples
+    )
+    params: list[str] = []
+    for answerer, asker, asked_at in triples:
+        params.extend((answerer, asker, asked_at))
+    rows = conn.execute(
+        f"""SELECT DISTINCT m.sender_session_id AS answerer,
+                   r.session_id AS asker
               FROM session_messages m
               JOIN session_message_recipients r ON r.message_id = m.message_id
-             WHERE m.sender_session_id = {p}
-               AND r.session_id = {p}
-               AND m.created_at >= {p}
-             LIMIT 1""",
-        (answerer, asker, asked_at),
-    ).fetchone()
-    return row is not None
+             WHERE {clauses}""",
+        tuple(params),
+    ).fetchall()
+    return {(str(dict(row)["answerer"]), str(dict(row)["asker"])) for row in rows}
 
 
-def _item_status(conn: Any, raw_item_id: Any) -> str:
-    """The status of the item a session declared as its current one.
-
-    ``harness_sessions.current_item_id`` is a text column while ``items.id``
-    is an integer, so this resolves in two steps rather than joining across
-    the mismatch. A value that is not an item id at all resolves to no
-    status, which reads as "nothing known" rather than as evidence.
-    """
+def _parse_item_id(raw_item_id: Any) -> int | None:
+    """``current_item_id`` is text; ``items.id`` is an integer."""
     try:
-        item_id = int(str(raw_item_id))
+        return int(str(raw_item_id))
     except (TypeError, ValueError):
-        return ""
-    row = conn.execute(
-        f"SELECT status FROM items WHERE id = {marker(conn)}",
-        (item_id,),
-    ).fetchone()
-    return str(dict(row).get("status") or "") if row is not None else ""
+        return None
 
 
-def _answerability(conn: Any, answerer: str) -> str:
-    """Why no answer can arrive from this session, or ``UNRESOLVED``."""
-    row = conn.execute(
-        f"""SELECT ended_at, terminated_at, current_item_id
+def _item_statuses(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
+    if not item_ids:
+        return {}
+    p = marker(conn)
+    unique = list(dict.fromkeys(item_ids))
+    slots = ",".join(p for _ in unique)
+    rows = conn.execute(
+        f"SELECT id, status FROM items WHERE id IN ({slots})",
+        tuple(unique),
+    ).fetchall()
+    statuses: dict[int, str] = {}
+    for row in rows:
+        record = dict(row)
+        statuses[int(record["id"])] = str(record.get("status") or "")
+    return statuses
+
+
+def _answerability_for(conn: Any, answerers: Sequence[str]) -> dict[str, str]:
+    """Why no answer can arrive from each session, or ``UNRESOLVED``."""
+    unique = list(dict.fromkeys(str(answerer) for answerer in answerers if answerer))
+    reasons = {
+        answerer: "answerer session is unknown to the control plane"
+        for answerer in unique
+    }
+    if not unique:
+        return reasons
+    p = marker(conn)
+    slots = ",".join(p for _ in unique)
+    rows = conn.execute(
+        f"""SELECT session_id, ended_at, terminated_at, current_item_id
               FROM harness_sessions
-             WHERE session_id = {marker(conn)}""",
-        (answerer,),
-    ).fetchone()
-    if row is None:
-        return "answerer session is unknown to the control plane"
-    record = dict(row)
-    if record.get("ended_at") or record.get("terminated_at"):
-        return "answerer session has ended"
-    if _item_status(conn, record.get("current_item_id")) in TERMINAL_STATUSES:
-        return "answerer's own item is already terminal"
-    return UNRESOLVED
+             WHERE session_id IN ({slots})""",
+        tuple(unique),
+    ).fetchall()
+    live_pairs: list[tuple[str, int]] = []
+    for row in rows:
+        record = dict(row)
+        answerer = str(record.get("session_id") or "")
+        if record.get("ended_at") or record.get("terminated_at"):
+            reasons[answerer] = "answerer session has ended"
+            continue
+        item_id = _parse_item_id(record.get("current_item_id"))
+        if item_id is None:
+            reasons[answerer] = UNRESOLVED
+            continue
+        reasons[answerer] = UNRESOLVED
+        live_pairs.append((answerer, item_id))
+    statuses = _item_statuses(conn, [item_id for _answerer, item_id in live_pairs])
+    for answerer, item_id in live_pairs:
+        if statuses.get(item_id, "") in TERMINAL_STATUSES:
+            reasons[answerer] = "answerer's own item is already terminal"
+    return reasons
 
 
 def dead_waits(
@@ -185,9 +251,9 @@ def dead_waits(
         role_addressed_message_ids,
     )
 
-    questions = {
-        holder.session_id: _last_question(conn, holder.session_id) for holder in idle
-    }
+    if not idle:
+        return ()
+    questions = _last_questions(conn, _unique_session_ids(idle))
     role_addressed = role_addressed_message_ids(
         conn,
         [
@@ -196,7 +262,7 @@ def dead_waits(
             if question is not None
         ],
     )
-    waits = []
+    pending: list[tuple[Any, str, str, str]] = []
     for holder in idle:
         question = questions.get(holder.session_id)
         if question is None:
@@ -205,26 +271,36 @@ def dead_waits(
         asked_at = str(question.get("created_at") or "")
         if not answerer or answerer == holder.session_id:
             continue
-        if answered_after(
-            conn,
-            answerer=answerer,
-            asker=holder.session_id,
-            asked_at=asked_at,
-        ):
-            continue
-        if str(question.get("message_id") or "") in role_addressed:
-            continue
-        waits.append(
-            DeadWait(
-                session_id=holder.session_id,
-                item_id=holder.item_id,
-                public_ref=holder.public_ref,
-                asked_seconds=age_seconds(asked_at, now) or 0,
-                answerer_session_id=answerer,
-                reason=_answerability(conn, answerer),
-            )
+        pending.append(
+            (holder, answerer, asked_at, str(question.get("message_id") or ""))
         )
-    return tuple(waits)
+    replied = _replied_pairs(
+        conn,
+        tuple(
+            (answerer, holder.session_id, asked_at)
+            for holder, answerer, asked_at, _message_id in pending
+        ),
+    )
+    remaining = [
+        (holder, answerer, asked_at)
+        for holder, answerer, asked_at, message_id in pending
+        if (answerer, holder.session_id) not in replied
+        and message_id not in role_addressed
+    ]
+    reasons = _answerability_for(conn, [answerer for _h, answerer, _asked in remaining])
+    return tuple(
+        DeadWait(
+            session_id=holder.session_id,
+            item_id=holder.item_id,
+            public_ref=holder.public_ref,
+            asked_seconds=age_seconds(asked_at, now) or 0,
+            answerer_session_id=answerer,
+            reason=reasons.get(
+                answerer, "answerer session is unknown to the control plane"
+            ),
+        )
+        for holder, answerer, asked_at in remaining
+    )
 
 
 __all__ = [
