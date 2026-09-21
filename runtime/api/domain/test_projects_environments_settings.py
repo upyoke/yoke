@@ -145,7 +145,7 @@ class TestInterleavedWriters:
         with pytest.raises(SettingsConflictError, match="settings_conflict"):
             pes.cmd_environment_set_settings(
                 _STAGE_ID,
-                '{"hosts": {"api": "new.example"}}',
+                '{"hosts": {"api": "https://new.example"}}',
                 base_b,
                 db_path=env_db,
             )
@@ -179,12 +179,12 @@ class TestMergeSettings:
             _STAGE_ID, {"pulumi.stack_name": "stage-stack"}, db_path=env_db
         )
         pes.cmd_environment_merge_settings(
-            _STAGE_ID, {"hosts.api": "api.stage.example"}, db_path=env_db
+            _STAGE_ID, {"hosts.api": "https://api.stage.example"}, db_path=env_db
         )
         final = _settings(env_db)
         assert final["pulumi"]["stack_name"] == "stage-stack"
         assert final["pulumi"]["activation_state"] == "render_only"
-        assert final["hosts"]["api"] == "api.stage.example"
+        assert final["hosts"]["api"] == "https://api.stage.example"
 
     def test_merge_retries_once_when_base_moves(
         self, env_db: str, monkeypatch: pytest.MonkeyPatch
@@ -202,10 +202,10 @@ class TestMergeSettings:
 
         monkeypatch.setattr(pes, "_read_settings_text", contended_read)
         pes.cmd_environment_merge_settings(
-            _STAGE_ID, {"hosts.api": "api.stage.example"}, db_path=env_db
+            _STAGE_ID, {"hosts.api": "https://api.stage.example"}, db_path=env_db
         )
         final = _settings(env_db)
-        assert final["hosts"]["api"] == "api.stage.example"
+        assert final["hosts"]["api"] == "https://api.stage.example"
         assert final["pulumi"]["activation_state"] == "render_only"
         assert calls["n"] >= 2
 
@@ -221,7 +221,7 @@ class TestMergeSettings:
         )
         with pytest.raises(SettingsConflictError, match="settings_conflict"):
             pes.cmd_environment_merge_settings(
-                _STAGE_ID, {"hosts.api": "api.stage.example"}, db_path=env_db
+                _STAGE_ID, {"hosts.api": "https://api.stage.example"}, db_path=env_db
             )
 
     def test_merge_missing_row_is_loud(self, env_db: str) -> None:
@@ -237,3 +237,10 @@ class TestMergeSettings:
                 {"pulumi.activation_state.deep": "x"},
                 db_path=env_db,
             )
+
+    def test_merge_refuses_scheme_less_host_url(self, env_db: str) -> None:
+        with pytest.raises(ValueError, match="hosts.api must be an http\\(s\\) URL"):
+            pes.cmd_environment_merge_settings(
+                _STAGE_ID, {"hosts.api": "api.stage.example"}, db_path=env_db
+            )
+        assert "hosts" not in _settings(env_db)

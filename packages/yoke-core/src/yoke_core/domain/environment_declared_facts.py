@@ -14,6 +14,10 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from yoke_core.domain import db_backend, json_helper
+from yoke_core.domain.environment_host_urls import (
+    http_url_error,
+    refuse_url_value,
+)
 from yoke_core.domain.refusal_recovery import compose_refusal
 from yoke_core.domain.settings_cas import apply_key_path_assignments, read_key_path
 
@@ -47,8 +51,7 @@ def endpoint_fact_report(settings: Mapping[str, Any] | None) -> str:
         text = declared_text(settings, path)
         if not text:
             parts.append(f"{path}=absent")
-            continue
-        if path in URL_ENDPOINT_PATHS and "://" not in text:
+        elif path in URL_ENDPOINT_PATHS and http_url_error(text):
             parts.append(f"{path}={text!r} (declared, not a URL: no scheme)")
         else:
             parts.append(f"{path}={text!r}")
@@ -63,18 +66,27 @@ class MissingEnvironmentFact(ValueError):
         environment: str,
         paths: str | Sequence[str],
         settings: Mapping[str, Any] | None = None,
+        *,
+        declared_not_url: bool = False,
     ) -> None:
         self.environment = environment
         self.paths = (paths,) if isinstance(paths, str) else tuple(paths)
         named = ", ".join(self.paths)
-        if settings is not None and all(path in ENDPOINT_PATHS for path in self.paths):
-            malformed = [
-                path
-                for path in ENDPOINT_PATHS
-                if path in URL_ENDPOINT_PATHS
-                and declared_text(settings, path)
-                and "://" not in declared_text(settings, path)
-            ]
+        if declared_not_url:
+            recovery = (
+                "replace each declared-but-not-a-URL value with an http(s) URL: "
+                "yoke projects environment-settings merge --project <project> "
+                f"--environment {environment} "
+                + " ".join(f"--set {path}=https://<host>" for path in self.paths)
+            )
+            reason = (
+                f"environment {environment!r} declares {named} as a "
+                "scheme-less host, not a URL"
+            )
+        elif settings is not None and all(
+            path in ENDPOINT_PATHS for path in self.paths
+        ):
+            malformed = malformed_url_endpoint_paths(settings)
             recovery = (
                 "set the absent facts with yoke projects environment-settings "
                 f"merge --project <project> --environment {environment} "
@@ -86,20 +98,21 @@ class MissingEnvironmentFact(ValueError):
                     f"({', '.join(malformed)}) so completing the absent set "
                     "does not promote a scheme-less host to a consumed URL"
                 )
-            message = compose_refusal(
-                f"environment {environment!r} does not declare {named}",
-                evaluated=endpoint_fact_report(settings),
-                recovery=recovery,
-            )
+            reason = f"environment {environment!r} does not declare {named}"
         else:
-            message = compose_refusal(
-                f"environment {environment!r} does not declare {named}",
-                recovery=(
-                    "set it via: yoke projects environment-settings merge "
-                    "--project <project> --environment "
-                    f"{environment} --set {self.paths[0]}=<value>"
-                ),
+            recovery = (
+                "set it via: yoke projects environment-settings merge "
+                "--project <project> --environment "
+                f"{environment} --set {self.paths[0]}=<value>"
             )
+            reason = f"environment {environment!r} does not declare {named}"
+        message = compose_refusal(
+            reason,
+            evaluated=(
+                endpoint_fact_report(settings) if settings is not None else None
+            ),
+            recovery=recovery,
+        )
         super().__init__(message)
 
 
@@ -112,6 +125,23 @@ def declared_text(settings: Mapping[str, Any] | None, path: str) -> str:
     if isinstance(value, str):
         return value.strip()
     return ""
+
+
+def malformed_url_endpoint_paths(
+    settings: Mapping[str, Any] | None,
+) -> tuple[str, ...]:
+    return tuple(
+        path
+        for path in URL_ENDPOINT_PATHS
+        if declared_text(settings, path)
+        and http_url_error(declared_text(settings, path))
+    )
+
+
+def refuse_invalid_endpoint_urls(settings: Mapping[str, Any] | None) -> None:
+    """Refuse a settings document that already holds a scheme-less URL fact."""
+    for path in malformed_url_endpoint_paths(settings):
+        refuse_url_value(path, declared_text(settings, path))
 
 
 def declared_bool(settings: Mapping[str, Any] | None, path: str) -> bool | None:
@@ -169,7 +199,10 @@ def endpoint_declaration_state(settings: Mapping[str, Any] | None) -> str:
     present = [path for path in ENDPOINT_PATHS if declared_text(settings, path)]
     if not present:
         return "unstated"
-    if len(present) == len(ENDPOINT_PATHS):
+    if (
+        len(present) == len(ENDPOINT_PATHS)
+        and not malformed_url_endpoint_paths(settings)
+    ):
         return "complete"
     return "incomplete"
 
@@ -181,6 +214,11 @@ def hosted_endpoints(
     missing = [path for path in ENDPOINT_PATHS if not declared_text(settings, path)]
     if missing:
         raise MissingEnvironmentFact(environment, missing, settings=settings)
+    malformed = malformed_url_endpoint_paths(settings)
+    if malformed:
+        raise MissingEnvironmentFact(
+            environment, malformed, settings=settings, declared_not_url=True
+        )
     app_url = declared_text(settings, HOSTS_APP_PATH).rstrip("/")
     api_url = declared_text(settings, HOSTS_API_PATH).rstrip("/")
     installer_base = declared_text(settings, DISTRIBUTION_BASE_URL_PATH).rstrip("/")
@@ -289,6 +327,8 @@ __all__ = [
     "endpoint_declaration_state",
     "hosted_endpoints",
     "is_hosted_runtime",
+    "malformed_url_endpoint_paths",
+    "refuse_invalid_endpoint_urls",
     "is_production",
     "is_release_environment",
     "load_environment_settings",

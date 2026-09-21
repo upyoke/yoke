@@ -17,14 +17,20 @@ from yoke_core.domain.environment_declared_facts import (
     MissingEnvironmentFact,
     HOSTS_APP_PATH,
     admin_connection_for_environment,
+    endpoint_declaration_state,
     hosted_endpoints,
     production_declared_facts,
+    refuse_invalid_endpoint_urls,
     restricts_qa_to_self,
     serving_connection_for_environment,
     target_is_production,
 )
+from yoke_core.domain.environment_host_urls import (
+    refuse_invalid_endpoint_url_assignments,
+)
 from yoke_core.domain.qa_execution_environment_target import (
     QaExecutionTargetError,
+    _generic_endpoints,
     _yoke_endpoints,
     require_runtime_target,
 )
@@ -156,3 +162,45 @@ def test_flow_qa_target_still_accepts_an_explicit_environment() -> None:
         },
     ]
     validate_release_stage_policy(stages)
+
+
+def _complete_scheme_less_api() -> dict:
+    facts = production_declared_facts(
+        app_url=HOSTED_PLATFORM_URL,
+        api_url="api.upyoke.com",
+        installer_base_url=DISTRIBUTION_PROD_URL,
+        release_channel="stable",
+        admin_connection="prod-db-admin",
+        serving_connection="prod",
+        production=True,
+    )
+    return facts
+
+
+def test_complete_scheme_less_host_is_not_a_sufficient_declaration() -> None:
+    settings = _complete_scheme_less_api()
+    assert endpoint_declaration_state(settings) == "incomplete"
+    with pytest.raises(MissingEnvironmentFact, match="scheme-less host") as caught:
+        hosted_endpoints("prod", settings)
+    text = str(caught.value)
+    assert "hosts.api='api.upyoke.com'" in text
+    assert "hosts.app=" in text
+    assert "Recovery:" in text
+
+
+def test_generic_endpoints_refuse_scheme_less_hosts() -> None:
+    with pytest.raises(QaExecutionTargetError, match="not an HTTP URL"):
+        _generic_endpoints({"url": ""}, {"hosts": {"api": "api.upyoke.com"}})
+
+
+def test_settings_write_refuses_scheme_less_host_assignment() -> None:
+    with pytest.raises(ValueError, match="hosts.api must be an http\\(s\\) URL"):
+        refuse_invalid_endpoint_url_assignments({"hosts.api": "api.upyoke.com"})
+    refuse_invalid_endpoint_url_assignments(
+        {"hosts.api": "https://api.upyoke.com"}
+    )
+    refuse_invalid_endpoint_urls(
+        {"hosts": {"api": "https://api.upyoke.com"}}
+    )
+    with pytest.raises(ValueError, match="hosts.api must be an http\\(s\\) URL"):
+        refuse_invalid_endpoint_urls({"hosts": {"api": "api.upyoke.com"}})

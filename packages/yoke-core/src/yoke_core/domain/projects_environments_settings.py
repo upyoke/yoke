@@ -17,6 +17,10 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from yoke_core.domain.db_helpers import connect, query_one
+from yoke_core.domain.environment_declared_facts import refuse_invalid_endpoint_urls
+from yoke_core.domain.environment_host_urls import (
+    refuse_invalid_endpoint_url_assignments,
+)
 from yoke_core.domain.settings_cas import (
     EMPTY_SETTINGS_DOC,
     SettingsConflictError,
@@ -118,7 +122,9 @@ def cmd_environment_set_settings(
                 get_recipe=_GET_RECIPE, merge_recipe=_MERGE_RECIPE
             )
         )
-    parse_settings_object(settings_json, what="settings JSON")
+    refuse_invalid_endpoint_urls(
+        parse_settings_object(settings_json, what="settings JSON")
+    )
     conn = connect(db_path)
     try:
         return _cas_replace(
@@ -134,6 +140,7 @@ def cmd_environment_merge_settings(
     db_path: Optional[str] = None,
 ) -> str:
     """Merge dot-path assignments into one row's settings (CAS, one retry)."""
+    refuse_invalid_endpoint_url_assignments(assignments)
     conn = connect(db_path)
     try:
         def read_current() -> Optional[str]:

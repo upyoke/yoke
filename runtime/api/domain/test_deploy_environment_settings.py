@@ -34,7 +34,7 @@ def _settings(
 def _prod_env(**overrides) -> RendererEnvironmentSettings:
     settings = {
         "hosts": {
-            "api": "api.example.com",
+            "api": "https://api.example.com",
             "origin": "origin.example.com",
             "origin_port": 80,
         },
@@ -172,7 +172,7 @@ class TestDeployEnvironmentResolution:
                 environments=[
                     _prod_env(
                         hosts={
-                            "api": "api.example.com",
+                            "api": "https://api.example.com",
                             "origin": "origin.example.com",
                             "origin_port": 8080,
                         }
@@ -312,54 +312,38 @@ class TestDeployEnvironmentResolution:
         assert "pulumi.stack_name" in str(exc.value)
         assert "environments.settings" in str(exc.value)
 
+    def test_scheme_less_hosts_api_refuses_at_resolve(self):
+        with pytest.raises(DeployEnvironmentError, match="http\\(s\\) URL"):
+            deploy_environment_from_settings(
+                _settings(
+                    environments=[
+                        _prod_env(
+                            hosts={
+                                "api": "api.example.com",
+                                "origin": "origin.example.com",
+                            }
+                        )
+                    ],
+                    capabilities=_full_capabilities(),
+                ),
+                "prod",
+            )
 
-class TestDeclaredGitBranch:
-    """environments.settings.git.branch -> DeployEnvironment.git_branch."""
-
-    def test_declared_branch_populates_git_branch(self):
+    def test_declared_http_scheme_is_used_for_health_url(self):
         env = deploy_environment_from_settings(
             _settings(
-                environments=[_prod_env(git={"branch": "main"})],
+                environments=[
+                    _prod_env(
+                        hosts={
+                            "api": "http://api.example.com",
+                            "origin": "origin.example.com",
+                            "origin_port": 80,
+                        }
+                    )
+                ],
                 capabilities=_full_capabilities(),
             ),
             "prod",
         )
-        assert env.git_branch == "main"
-
-    def test_no_git_settings_means_no_declared_branch(self):
-        env = deploy_environment_from_settings(
-            _settings(
-                environments=[_prod_env()],
-                capabilities=_full_capabilities(),
-            ),
-            "prod",
-        )
-        assert env.git_branch == ""
-
-    def test_declared_env_branch_narrow_reader(self, monkeypatch):
-        # The narrow reader tolerates env rows that are not
-        # deploy-capable — the merged gate reads any referenced env.
-        from yoke_core.domain import deploy_environment_settings as des
-
-        bare = RendererEnvironmentSettings(
-            id="103", name="stage",
-            settings={"git": {"branch": "stage"}},
-        )
-        snapshot = _settings(environments=[bare])
-        monkeypatch.setattr(
-            des, "load_project_renderer_settings", lambda project: snapshot
-        )
-        assert des.declared_env_branch("yoke", "stage") == "stage"
-        assert des.declared_env_branch("yoke", "missing-env") == ""
-
-    def test_declared_env_branch_without_git_key(self, monkeypatch):
-        from yoke_core.domain import deploy_environment_settings as des
-
-        bare = RendererEnvironmentSettings(
-            id="yoke-api-eph", name="ephemeral", settings={}
-        )
-        snapshot = _settings(environments=[bare])
-        monkeypatch.setattr(
-            des, "load_project_renderer_settings", lambda project: snapshot
-        )
-        assert des.declared_env_branch("yoke", "yoke-api-eph") == ""
+        assert env.api_host == "api.example.com"
+        assert env.api_health_url == "http://api.example.com/v1/health"

@@ -75,6 +75,8 @@ class DeployEnvironment:
     origin_vps_stack_name: str = ""
     otel_exporter_endpoint: str = ""
     github_app: GitHubAppDeploymentConfig | None = None
+    # Origin of hosts.api (scheme://host) used to build the health URL.
+    api_origin: str = ""
     # Long-lived branch this env runs the HEAD of (environments.settings
     # .git.branch: main<->prod, stage<->stage). Empty = no declared branch;
     # the env takes worktree/SHA deploys (the ephemeral tier).
@@ -89,7 +91,8 @@ class DeployEnvironment:
 
     @property
     def api_health_url(self) -> str:
-        return f"https://{self.api_host}{self.health_path}"
+        origin = (self.api_origin or f"https://{self.api_host}").rstrip("/")
+        return f"{origin}{self.health_path}"
 
     @property
     def origin_health_url(self) -> str:
@@ -206,12 +209,20 @@ def deploy_environment_from_settings(
     aws_region = _capability_value(settings, "aws-admin", "region")
     state_bucket = _capability_value(settings, "pulumi-state", "state_bucket")
 
+    try:
+        from yoke_core.domain.environment_host_urls import split_host_url
+
+        api_host, api_origin = split_host_url(
+            _require(hosts.get("api"), what="hosts.api", hint=env_hint)
+        )
+    except ValueError as exc:
+        raise DeployEnvironmentError(str(exc)) from exc
     return DeployEnvironment(
         project=settings.project,
         deploy_namespace=settings.deploy_namespace,
         env_name=env_name,
         site_id=settings.site_id,
-        api_host=str(_require(hosts.get("api"), what="hosts.api", hint=env_hint)),
+        api_host=api_host,
         origin_host=str(
             _require(hosts.get("origin"), what="hosts.origin", hint=env_hint)
         ),
@@ -252,6 +263,7 @@ def deploy_environment_from_settings(
             observability.get("otel_exporter_endpoint") or ""
         ),
         github_app=github_app,
+        api_origin=api_origin,
         git_branch=str(git.get("branch") or ""),
     )
 

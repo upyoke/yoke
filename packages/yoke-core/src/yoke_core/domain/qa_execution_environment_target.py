@@ -75,11 +75,6 @@ def _url(value: Any) -> str:
     return text
 
 
-def _host_url(value: Any) -> str:
-    text = str(value or "").strip()
-    return _url(text if "://" in text else f"https://{text}") if text else ""
-
-
 def runtime_environment_name() -> str:
     """Return the normalized runtime environment selected for QA."""
     selected = os.environ.get("YOKE_ENVIRONMENT") or os.environ.get("APP_ENV")
@@ -136,8 +131,8 @@ def _generic_endpoints(row: Mapping[str, Any], settings: Mapping[str, Any]) -> d
     qa = qa if isinstance(qa, Mapping) else {}
     capabilities = qa.get("capability_endpoints")
     capabilities = capabilities if isinstance(capabilities, Mapping) else {}
-    app_url = _url(row.get("url")) or _host_url(hosts.get("app"))
-    api_url = _host_url(hosts.get("api")) or app_url
+    app_url = _url(row.get("url")) or _url(hosts.get("app"))
+    api_url = _url(hosts.get("api")) or app_url
     installer_base = _url(distribution.get("base_url"))
     release_channel = str(distribution.get("channel") or "").strip()
     return {
