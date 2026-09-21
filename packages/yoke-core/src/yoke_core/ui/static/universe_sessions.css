@@ -262,6 +262,10 @@
 .universe-app-root .session-relay-pill::before { flex: 0 0 auto; }
 .universe-app-root .session-relay-machine { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+.universe-app-root .session-relay.is-muted {
+  opacity: 0.55;
+}
+
 .universe-app-root .session-relay-warning,
 .universe-app-root .session-messaging-blocked {
   min-width: 0;

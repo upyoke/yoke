@@ -95,8 +95,6 @@ test("an ended card is composed from the same sections as a live one", () => {
     assert.ok(byClass(active, section).length, `live card lacks ${section}`);
     assert.ok(byClass(ended, section).length, `ended card lacks ${section}`);
   }
-  // Truthful about what ended: no live action is offered, and the reason
-  // names the end rather than blaming the harness for a missing route.
   assert.equal(
     allNodes(ended).find(
       (node) => node.tagName === "BUTTON" && node.textContent === "Message",
@@ -104,10 +102,17 @@ test("an ended card is composed from the same sections as a live one", () => {
     undefined,
   );
   assert.equal(
-    byClass(ended, "session-messaging-blocked")[0].textContent,
-    "Messaging unavailable: this session has ended and cannot be restarted "
-    + "from here.",
+    byClass(ended, "session-messaging-blocked").length, 0,
   );
+  assert.equal(byClass(ended, "session-history-prior").length, 0);
+  assert.equal(byClass(ended, "session-latest-message").length, 0);
+  assert.deepEqual(
+    byClass(ended, "session-holdings-label").map((node) => node.textContent),
+    ["Previously held"],
+  );
+  assert.equal(byClass(ended, "session-item-link")[0].textContent, "YOK-1");
+  assert.equal(byClass(ended, "session-item-title")[0].textContent, "A worked item");
+  assert.ok(byClass(ended, "session-relay")[0].className.includes("is-muted"));
   // A relay warning is a live session's alarm; an ended card still names its
   // machine without raising one.
   assert.equal(byClass(ended, "session-relay-warning").length, 0);

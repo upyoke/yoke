@@ -56,16 +56,9 @@ function appendActivityStatus(documentNode, age, timestamp) {
   if (typeof timer.unref === "function") timer.unref();
 }
 
-// The prior item, the moment it ended, and why — the facts an ended session
-// has where a live one has a heartbeat. They ride the same timing region and
-// the same fact-line typography, so an ended card is the live card with
-// different values rather than a second, simpler card.
+// Why it ended stays on the shared fact-line. The last item it held is the
+// holdings panel, not a summary parsed onto this line.
 function appendEndedFacts(documentNode, body, row) {
-  const prior = row.recent_item_title || row.focus || row.recent_item;
-  if (prior) body.appendChild(el(
-    documentNode, "div", "fact-line session-history-prior",
-    row.recent_item ? `${prior} · ${row.recent_item}` : prior,
-  ));
   if (row.termination_reason) body.appendChild(el(
     documentNode, "div", "fact-line session-history-reason",
     `Reason: ${row.termination_reason}`,
