@@ -37,22 +37,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from yoke_contracts.public_ref import format_item_ref
-from yoke_core.domain.deployment_qa_case_failure_kinds import RED_VERDICTS
 from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
-from yoke_core.domain.deployment_run_completion_preconditions import (
-    blocking_obligation_total,
-    redrive_recovery,
-    unresolved_blocking_qa,
-)
+from yoke_core.domain.deployment_run_completion_preconditions import redrive_recovery
 from yoke_core.domain.deployment_run_unpassable_blocking_qa import (
     PinQaDiagnosis,
     diagnose_unpassable_blocking_qa,
 )
-from yoke_core.domain.runs import RunStatus, TERMINAL_RUN_STATUSES
-from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.session_message_types import row_dict
-from yoke_core.domain.steering_fleet_report_detectors import age_seconds, marker
+from yoke_core.domain.runs import RunStatus
+from yoke_core.domain.steering_fleet_report_deployment_run_facts import (
+    live_deployment_runs,
+    load_live_run_facts,
+    probe_report_tables,
+)
+from yoke_core.domain.steering_fleet_report_detectors import age_seconds
 
 
 @dataclass(frozen=True)
@@ -147,119 +144,13 @@ class DeploymentRunProgress:
         return redrive_recovery(self.run_id, unresolved=self.outstanding)
 
 
-def _live_runs(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
-    p = marker(conn)
-    terminal = sorted(TERMINAL_RUN_STATUSES)
-    holes = ", ".join(p for _ in terminal)
-    rows = conn.execute(
-        f"""SELECT id, flow, status, COALESCE(current_stage, '') AS current_stage,
-                   started_at, created_at
-              FROM deployment_runs
-             WHERE project_id = {p}
-               AND status NOT IN ({holes})
-             ORDER BY id""",
-        (int(project_id), *terminal),
-    ).fetchall()
-    return [row_dict(row) for row in rows]
-
-
-def _stage_entered_at(conn: Any, *, run_id: str, stage: str) -> str:
-    """When this run most recently began the stage it is sitting at.
-
-    The newest receipt for the stage is the moment it was last attempted.
-    A stage that has produced no receipt has not started, so the caller
-    falls back to the run's own clock rather than reporting no age.
-    """
-    if not stage or not _table_exists(conn, "deployment_stage_receipts"):
-        return ""
-    p = marker(conn)
-    row = conn.execute(
-        f"""SELECT created_at FROM deployment_stage_receipts
-             WHERE run_id = {p} AND stage_name = {p}
-             ORDER BY created_at DESC, id DESC LIMIT 1""",
-        (run_id, stage),
-    ).fetchone()
-    return str(row[0] or "") if row is not None else ""
-
-
-def _red_requirements(conn: Any, *, run_id: str) -> tuple[RedRequirement, ...]:
-    """Blocking requirements of this run whose latest verdict is red.
-
-    Latest is per requirement, matching what the stage gate grades: an
-    earlier failure a later pass replaced is not a red requirement, and
-    reporting it as one would send the operator after a case that is fine.
-    The newest verdict is selected per row rather than joined, so the read
-    runs unchanged on every backend the report composes against.
-    """
-    if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
-        return ()
-    p = marker(conn)
-    rows = conn.execute(
-        f"""SELECT r.id,
-                   (SELECT qr.verdict FROM qa_runs qr
-                     WHERE qr.qa_requirement_id = r.id
-                     ORDER BY qr.created_at DESC, qr.id DESC LIMIT 1) AS verdict,
-                   p.slug, p.public_item_prefix, i.project_sequence
-              FROM qa_requirements r
-              LEFT JOIN items i ON i.id = r.deployment_member_item_id
-              LEFT JOIN projects p ON p.id = i.project_id
-             WHERE r.deployment_run_id = {p}
-               AND r.blocking_mode = 'blocking'
-               AND r.waived_at IS NULL
-               AND r.superseded_by_requirement_id IS NULL
-             ORDER BY r.id""",
-        (run_id,),
-    ).fetchall()
-    found = []
-    for raw in rows:
-        row = row_dict(raw)
-        verdict = str(row["verdict"] or "")
-        if verdict not in RED_VERDICTS:
-            continue
-        ref = ""
-        if row.get("project_sequence") is not None:
-            ref = format_item_ref(
-                row["slug"], row["public_item_prefix"], row["project_sequence"]
-            )
-        found.append(
-            RedRequirement(
-                requirement_id=int(row["id"]),
-                verdict=verdict,
-                member_ref=ref,
-            )
-        )
-    return tuple(found)
-
-
-def _answered_decision(
-    conn: Any,
-    *,
-    run_id: str,
-    stage: str,
-    now: str,
-) -> Optional[AnsweredDecision]:
-    """This stage's latest decision, when it is resolved and unacted on.
-
-    Scoped to the stage the run is standing at, because a decision resolved
-    for a stage the run already left is history rather than a stall.
-    """
-    if not stage or not _table_exists(conn, "decision_requests"):
+def _answered(raw: Optional[dict[str, Any]], *, now: str) -> Optional[AnsweredDecision]:
+    if raw is None:
         return None
-    p = marker(conn)
-    row = conn.execute(
-        f"""SELECT id, resolution_action, resolved_at FROM decision_requests
-             WHERE subject_type = 'deployment_stage' AND subject_key = {p}
-               AND status = 'resolved'
-             ORDER BY resolved_at DESC, id DESC LIMIT 1""",
-        (f"{run_id}:{stage}",),
-    ).fetchone()
-    if row is None:
-        return None
-    record = row_dict(row)
-    resolved_at = str(record.get("resolved_at") or "")
+    resolved_at = str(raw.get("resolved_at") or "")
     return AnsweredDecision(
-        request_id=int(record["id"]),
-        action=str(record.get("resolution_action") or ""),
+        request_id=int(raw["request_id"]),
+        action=str(raw.get("action") or ""),
         resolved_at=resolved_at,
         resolved_seconds=age_seconds(resolved_at, now),
     )
@@ -272,22 +163,31 @@ def run_progress(
     now: str,
 ) -> tuple[DeploymentRunProgress, ...]:
     """Every non-terminal run in the project, with what is holding it."""
-    if not _table_exists(conn, "deployment_runs"):
+    tables = probe_report_tables(conn)
+    if not tables.has("deployment_runs"):
         return ()
+    live = live_deployment_runs(conn, project_id=project_id)
+    if not live:
+        return ()
+    facts = load_live_run_facts(conn, runs=live, tables=tables)
     rows = []
-    for run in _live_runs(conn, project_id=project_id):
+    for run in live:
         run_id = str(run["id"])
         stage = str(run["current_stage"])
-        qa = qa_stage_outstanding(conn, run_id=run_id, stage_name=stage)
+        qa = (
+            qa_stage_outstanding(conn, run_id=run_id, stage_name=stage)
+            if run_id in facts.qa_stage_run_ids
+            else None
+        )
         if qa is not None:
             unresolved = qa.lines
             outstanding = qa.waiting
             total_blocking = qa.subjects
         else:
-            unresolved = tuple(unresolved_blocking_qa(conn, run_id))
+            unresolved = facts.unresolved.get(run_id, ())
             outstanding = len(unresolved)
-            total_blocking = blocking_obligation_total(conn, run_id)
-        entered = _stage_entered_at(conn, run_id=run_id, stage=stage) or str(
+            total_blocking = facts.totals.get(run_id, 0)
+        entered = facts.entered_at.get(run_id) or str(
             run.get("started_at") or run.get("created_at") or ""
         )
         rows.append(
@@ -300,10 +200,15 @@ def run_progress(
                 outstanding=outstanding,
                 total_blocking=total_blocking,
                 unresolved=unresolved,
-                red=_red_requirements(conn, run_id=run_id),
-                answered_decision=_answered_decision(
-                    conn, run_id=run_id, stage=stage, now=now
+                red=tuple(
+                    RedRequirement(
+                        requirement_id=int(item["requirement_id"]),
+                        verdict=str(item["verdict"]),
+                        member_ref=str(item.get("member_ref") or ""),
+                    )
+                    for item in facts.red.get(run_id, ())
                 ),
+                answered_decision=_answered(facts.decisions.get(run_id), now=now),
                 pin_qa=diagnose_unpassable_blocking_qa(conn, run_id=run_id),
             )
         )
