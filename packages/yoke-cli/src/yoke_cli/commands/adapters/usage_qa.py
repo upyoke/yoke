@@ -12,6 +12,9 @@ from yoke_cli.commands.adapters.qa import (
     QA_REQUIREMENT_UPDATE_USAGE,
     QA_RUN_RECORD_VERDICT_USAGE,
 )
+from yoke_cli.commands.adapters.qa_requirement_rebind import (
+    QA_REQUIREMENT_REBIND_TARGET_USAGE,
+)
 from yoke_cli.commands.adapters.qa_requirement_supersede import (
     QA_REQUIREMENT_SUPERSEDE_USAGE,
 )
@@ -40,6 +43,7 @@ from yoke_cli.commands.adapters.qa_browser import (
 
 QA_ADAPTER_USAGE: Dict[str, str] = {
     "qa.requirement.update": QA_REQUIREMENT_UPDATE_USAGE,
+    "qa.requirement.rebind_target": QA_REQUIREMENT_REBIND_TARGET_USAGE,
     "qa.requirement.supersede": QA_REQUIREMENT_SUPERSEDE_USAGE,
     "qa.run.record_verdict": QA_RUN_RECORD_VERDICT_USAGE,
     "qa.browser_context.get": QA_BROWSER_CONTEXT_GET_USAGE,
@@ -55,9 +59,7 @@ QA_ADAPTER_USAGE: Dict[str, str] = {
     "qa.run.get": QA_RUN_GET_USAGE,
     "qa.gate_summary.run": QA_GATE_SUMMARY_USAGE,
     "qa.post_deploy.declare_none": QA_POST_DEPLOY_DECLARE_NONE_USAGE,
-    "qa.post_deploy.record_no_obligation": (
-        QA_POST_DEPLOY_RECORD_NO_OBLIGATION_USAGE
-    ),
+    "qa.post_deploy.record_no_obligation": (QA_POST_DEPLOY_RECORD_NO_OBLIGATION_USAGE),
 }
 
 __all__ = ["QA_ADAPTER_USAGE"]

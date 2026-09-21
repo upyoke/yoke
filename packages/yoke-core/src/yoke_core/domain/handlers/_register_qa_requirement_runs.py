@@ -8,6 +8,7 @@ from yoke_core.domain.handlers import (
     qa_browser_writes as _qa_browser_writes,
     qa_post_deploy_declare_none as _qa_post_deploy_declare_none,
     qa_post_deploy_record_no_obligation as _qa_post_deploy_record_no_obligation,
+    qa_requirement_rebind as _qa_requirement_rebind,
     qa_requirement_supersede as _qa_requirement_supersede,
     qa_requirement_waive as _qa_requirement_waive,
     qa_run as _qa_run,
@@ -75,6 +76,21 @@ def register(registry) -> None:
         guardrails=["claim_required"],
         adapter_status="live",
         claim_required_kind="qa_subject",
+    )
+    registry.register(
+        "qa.requirement.rebind_target",
+        _qa_requirement_rebind.handle_qa_requirement_rebind_target,
+        _qa_requirement_rebind.QaRequirementRebindTargetRequest,
+        _qa_requirement_rebind.QaRequirementRebindTargetResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.qa_requirement_rebind",
+        target_kinds=["qa_requirement"],
+        side_effects=["qa_requirements_update"],
+        emitted_event_names=["YokeFunctionCalled", "QARequirementTargetRebound"],
+        guardrails=["claim_required"],
+        adapter_status="live",
+        claim_required_kind="qa_subject",
+        minimum_serving_version="next-release",
     )
     registry.register(
         "qa.requirement.supersede",

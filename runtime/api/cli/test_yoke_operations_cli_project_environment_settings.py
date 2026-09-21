@@ -92,3 +92,21 @@ def test_merge_parses_json_values():
         "pulumi.activation_state": "render_only",
         "servers": [],
     }
+    assert "acknowledge_stranded_evidence" not in calls[0].payload
+
+
+def test_merge_sends_acknowledge_stranded_evidence_only_when_set():
+    rc, _out, _err, calls = _run(
+        "projects",
+        "environment-settings",
+        "merge",
+        "--project",
+        "platform",
+        "--environment",
+        "prod",
+        "--set",
+        "hosts.app=https://app.example.test",
+        "--acknowledge-stranded-evidence",
+    )
+    assert rc == 0
+    assert calls[0].payload["acknowledge_stranded_evidence"] is True
