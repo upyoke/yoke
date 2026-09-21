@@ -2,6 +2,7 @@
 // the stage rail it is moving along, and the checks it recorded.
 
 import { evidenceStrip } from "./review_evidence_strip.js";
+import { appendRunConclusion } from "./qa_run_conclusion.js";
 import { classifyQaRow } from "./qa_state.js";
 import { el } from "./universe_view_support.js";
 
@@ -89,6 +90,8 @@ export function verificationCard(context, checks) {
     if (strip) {
       strip.classList.add("run-check-evidence");
       line.appendChild(strip);
+    } else {
+      appendRunConclusion(documentNode, line, check, "run-check-conclusion");
     }
     card.appendChild(line);
   }

@@ -14,6 +14,7 @@ from yoke_core.domain.qa_execution_proof import (
     qa_run_outcome,
 )
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
+from yoke_core.domain.qa_run_conclusion import run_conclusion_fields
 from yoke_core.domain.qa_plan_attachments import (
     workflow_uses_project_testing_defaults,
 )
@@ -186,7 +187,10 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         outcome = qa_run_outcome(row)
         raw_result = row.pop("raw_result", None)
         row.pop("performed_by", None)
+        conclusion = run_conclusion_fields(raw_result)
         row["recorded_head_sha"] = recorded_head_sha(raw_result)
+        row["run_url"] = conclusion["run_url"]
+        row["ci_conclusion"] = conclusion["ci_conclusion"]
         row["artifacts"] = artifact_rows.get(evidence_run_id, [])
         precondition_reason = qa_precondition_reason(raw_result)
         row["outcome"] = outcome

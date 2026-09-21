@@ -16,6 +16,8 @@ from yoke_core.domain.qa_execution_proof import (
     qa_proof_summary,
     qa_run_outcome,
 )
+from yoke_core.domain.qa_merging_identity import recorded_head_sha
+from yoke_core.domain.qa_run_conclusion import run_conclusion_fields
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_activity_selection import (
     ACTIVITY_SOURCE,
@@ -120,12 +122,14 @@ def _list_activity(
     )
     result = []
     for row, evidence_run_id in zip(rows, evidence_run_ids):
-        raw_result = _json_value(row["raw_result"], {})
+        stored_raw = row["raw_result"]
+        raw_result = _json_value(stored_raw, {})
         run_id = int(row["run_id"]) if row["run_id"] is not None else None
         precondition_reason = qa_precondition_reason(raw_result)
         outcome = qa_run_outcome(row)
         artifacts = artifact_rows.get(evidence_run_id, [])
         artifact_counts = Counter(a["artifact_type"] for a in artifacts)
+        conclusion = run_conclusion_fields(raw_result)
         result.append(
             {
                 "requirement_id": int(row["requirement_id"]),
@@ -175,6 +179,9 @@ def _list_activity(
                 "outcome": outcome,
                 "artifacts": artifacts,
                 "evidence_count": len(artifacts),
+                "recorded_head_sha": recorded_head_sha(stored_raw),
+                "run_url": conclusion["run_url"],
+                "ci_conclusion": conclusion["ci_conclusion"],
                 "capture_degraded_reason": row["capture_degraded_reason"],
                 "verdict_reason": row["verdict_reason"],
                 "precondition_reason": precondition_reason,

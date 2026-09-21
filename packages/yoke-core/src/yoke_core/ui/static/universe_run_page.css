@@ -232,6 +232,15 @@
   max-width: none;
   margin-top: 4px;
 }
+.universe-app-root .run-check-conclusion {
+  grid-column: 2 / -1;
+  color: var(--yoke-link);
+  font-size: 12px;
+  text-decoration: none;
+}
+.universe-app-root .run-check-conclusion:hover {
+  text-decoration: underline;
+}
 .universe-app-root .run-check-evidence .review-shot {
   width: 100%;
   max-width: none;

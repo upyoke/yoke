@@ -8,6 +8,7 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_core.domain.qa_run_conclusion import conclusion_proof_summary
 
 
 def _row_value(row: Any, key: str) -> Any:
@@ -138,6 +139,10 @@ def qa_proof_summary(
     evidence_count = sum(artifacts.values())
     screenshots = _matching_artifact_count(artifacts, "screenshot")
     traces = _matching_artifact_count(artifacts, "trace")
+    if evidence_count == 0:
+        conclusion = conclusion_proof_summary(raw_result)
+        if conclusion:
+            return conclusion
     if selected_proof_kind == "command":
         exit_code = payload.get("exit_code")
         return (
