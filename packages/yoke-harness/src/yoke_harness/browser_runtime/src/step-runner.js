@@ -18,6 +18,10 @@ const nav = require('./step-actions/navigation');
 const inter = require('./step-actions/interaction');
 const assertions = require('./step-actions/assertion');
 const capture = require('./step-actions/capture');
+const {
+  refuseNavigateWithoutRoute,
+  refuseUnrecognizedStepKeys,
+} = require('./step-schema');
 
 // resolveUrl is owned by the navigation sibling and re-exported here so the
 // public module surface (executeStep, resolveUrl) stays stable.
@@ -111,6 +115,8 @@ async function executeStep(page, step, options) {
         'Update stored scenarios to use canonical vocabulary (route, target, delay/wait_for).'
       );
     }
+    refuseUnrecognizedStepKeys(step);
+    refuseNavigateWithoutRoute(step);
 
     // A step may state the width it is about. Responsive behaviour is only
     // provable by resizing the real viewport — constraining an element inside

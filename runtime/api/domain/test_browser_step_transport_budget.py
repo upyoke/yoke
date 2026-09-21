@@ -28,7 +28,7 @@ def _timeout_for(step, monkeypatch) -> int:
 
 
 def test_a_step_without_its_own_budget_uses_the_ordinary_timeout(monkeypatch):
-    timeout = _timeout_for({"action": "delay", "ms": 1}, monkeypatch)
+    timeout = _timeout_for({"action": "delay", "duration": 1}, monkeypatch)
     assert timeout == browser_client.DEFAULT_DAEMON_REQUEST_TIMEOUT_SECONDS
 
 
@@ -58,6 +58,6 @@ def test_a_short_wait_never_shortens_the_transport(monkeypatch):
 def test_a_nonsense_budget_is_ignored_rather_than_obeyed(monkeypatch):
     for declared in (0, -1, "60000", None):
         timeout = _timeout_for(
-            {"action": "delay", "ms": 1, "timeout_ms": declared}, monkeypatch,
+            {"action": "delay", "duration": 1, "timeout_ms": declared}, monkeypatch,
         )
         assert timeout == browser_client.DEFAULT_DAEMON_REQUEST_TIMEOUT_SECONDS

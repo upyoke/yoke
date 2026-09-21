@@ -55,16 +55,19 @@ There is no translation layer.
 | `type` | `target`, `value` | Type into an input. |
 | `fill_form` | `fields` | Fill several target/value pairs. |
 | `assert` | `target`, `check` | Evaluate an observable condition. |
-| `screenshot` | `capture: true` | Save screenshot evidence. |
+| `screenshot` | `capture: true` | Save screenshot evidence. Optional `label` names the capture. |
 | `wait_for` | `target` | Wait for a visible element. |
-| `delay` | optional `duration` | Wait a number of milliseconds. |
+| `delay` | optional `duration` or `duration_ms` | Wait a number of milliseconds. |
 | `scroll` | optional `target`, `x`, `y` | Scroll to an element or offset. |
 | `hover` | `target` | Hover over an element. |
 | `select` | `target`, `value` | Choose a select option. |
 
-Shared optional fields include `timeout_ms`, `source_ac`, and `refined`.
-Authored plan cases should use verified selectors and set `refined: true` when
-they include that field.
+Shared optional fields include `timeout_ms`, `source_ac`, `refined`, and
+`viewport`. `timeout_ms` is the wait budget every waiting action and
+assertion honours. A step that sets a key its action does not define is
+refused; the refusal names the unrecognised key and the keys that action
+defines. Authored plan cases should use verified selectors and set
+`refined: true` when they include that field.
 
 ## Viewport
 
@@ -89,17 +92,24 @@ it was taken, beside the route the case navigated to.
 
 ## Assertion checks
 
-| Check | Additional field | Meaning |
-|---|---|---|
-| `visible` | none | Target is visible. |
-| `hidden` | none | Target is hidden. |
-| `text_contains` | `expected` | Target text contains the expected string. |
-| `text_equals` | `expected` | Trimmed target text equals the expected string. |
-| `count_gte` | `min_count` | At least the requested number of targets exist. |
-| `count_eq` | `expected` | Exactly the requested number of targets exist. |
+| Check | Additional field | Waits | Meaning |
+|---|---|---|---|
+| `visible` | none | yes | Target is visible. |
+| `hidden` | none | yes | Target is hidden. |
+| `text_contains` | `expected` | yes | Target text contains the expected string. |
+| `text_equals` | `expected` | yes | Trimmed target text equals the expected string. |
+| `count_gte` | `min_count` | yes | At least the requested number of targets exist. |
+| `count_eq` | `expected` | yes | Exactly the requested number of targets exist. |
+
+Every assertion honours `timeout_ms` (default 5000ms): `count_gte` and
+`count_eq` poll until the count holds or that budget expires. `wait_for`
+waits for a visible target. `delay` waits `duration` / `duration_ms`; it
+does not take a destination.
 
 The runner rejects aliases such as `url` for `route`, `selector` for
-`target`, and `wait` for `delay` or `wait_for`.
+`target`, and `wait` for `delay` or `wait_for`. A navigate step that sets
+`target` instead of `route` is refused rather than falling through to the
+base URL.
 
 ### Absence assertions and what they observed
 
@@ -151,8 +161,8 @@ yoke qa requirement add \
   --method-config '{"steps":[{"action":"navigate","route":"/login"},{"action":"assert","target":"[data-testid=login-form]","check":"visible"},{"action":"screenshot","capture":true}]}'
 ```
 
-The method validator rejects missing steps, empty actions, and an empty
-`base_url`.
+The method validator rejects missing steps, empty actions, an empty
+`base_url`, and a step key the action does not define.
 
 ## Execution
 

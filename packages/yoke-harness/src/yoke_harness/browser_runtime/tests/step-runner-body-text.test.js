@@ -80,7 +80,6 @@ async function testTextContainsBodyExcludesScriptContent() {
   // The page has "RACING" in visible text AND RSC flight data in <script> tags.
   // text_contains with body target should find "racing" in visible text only.
   const result = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'body',
     check: 'text_contains',
@@ -92,7 +91,6 @@ async function testTextContainsBodyExcludesScriptContent() {
   // Verify that RSC flight data strings are NOT included in the text search.
   // "__next_f" exists in script tags but should not appear in visible text.
   const rscResult = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'body',
     check: 'text_contains',
@@ -114,7 +112,6 @@ async function testTextContainsBodyHydrationWait() {
   // hydrated content after 500ms. Document-wide assertions must keep polling
   // until the expected text appears instead of returning on the first visible text.
   const result = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'body',
     check: 'text_contains',
@@ -134,7 +131,6 @@ async function testTextContainsNonBodyUsesNormalSemantics() {
 
   // Non-body target (h1) should use standard textContent() — not the visible-text path
   const result = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'h1',
     check: 'text_contains',
@@ -145,7 +141,6 @@ async function testTextContainsNonBodyUsesNormalSemantics() {
 
   // Non-matching text on non-body target should still fail
   const result2 = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'h1',
     check: 'text_contains',
@@ -165,7 +160,6 @@ async function testTextEqualsBodyExcludesScriptContent() {
 
   // text_equals on body should compare against visible text only
   const result = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'body',
     check: 'text_equals',
@@ -185,7 +179,6 @@ async function testTextContainsBodyErrorOutputBounded() {
 
   // Search for text that does not exist — error message should be bounded
   const result = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'body',
     check: 'text_contains',
@@ -208,7 +201,6 @@ async function testTextContainsBodyCaseInsensitive() {
 
   // "RACING" is in the page; searching for "racing" (lowercase) should match
   const result = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'body',
     check: 'text_contains',
@@ -219,7 +211,6 @@ async function testTextContainsBodyCaseInsensitive() {
 
   // Also test with mixed case
   const result2 = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'body',
     check: 'text_contains',

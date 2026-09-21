@@ -76,6 +76,34 @@ function assertionResult(step, matched) {
 }
 
 /**
+ * Poll a locator count until *predicate* holds or *timeout* expires.
+ *
+ * `locator.count()` is a single snapshot. Waiting assertions such as
+ * `visible` already honour `timeout_ms`; count checks have to poll the
+ * same budget or a late-painted page fails as `found 0`.
+ *
+ * @param {import('playwright').Locator} locator
+ * @param {import('playwright').Page} page
+ * @param {number} timeout
+ * @param {(count: number) => boolean} predicate
+ * @returns {Promise<number>}
+ */
+async function waitForCount(locator, page, timeout, predicate) {
+  const deadline = Date.now() + timeout;
+  const pollInterval = 100;
+  let count = await locator.count();
+  while (!predicate(count)) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      return count;
+    }
+    await page.waitForTimeout(Math.min(pollInterval, remaining));
+    count = await locator.count();
+  }
+  return count;
+}
+
+/**
  * Execute an assert action.
  * Supports checks: visible, hidden, text_contains, text_equals, count_gte, count_eq
  */
@@ -134,7 +162,12 @@ async function executeAssert(page, step, options, refMap) {
     }
 
     case 'count_gte': {
-      const count = await locator.count();
+      const count = await waitForCount(
+        locator,
+        page,
+        timeout,
+        (matched) => matched >= step.min_count
+      );
       if (count < step.min_count) {
         throw new Error(
           `Expected at least ${step.min_count} elements, found ${count}`
@@ -144,7 +177,12 @@ async function executeAssert(page, step, options, refMap) {
     }
 
     case 'count_eq': {
-      const count = await locator.count();
+      const count = await waitForCount(
+        locator,
+        page,
+        timeout,
+        (matched) => matched === step.expected
+      );
       if (count !== step.expected) {
         throw new Error(
           `Expected exactly ${step.expected} elements, found ${count}`

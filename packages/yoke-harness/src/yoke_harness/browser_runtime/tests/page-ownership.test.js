@@ -67,7 +67,7 @@ async function testOneRunsWidthNeverReachesAnother() {
   console.log('\n## Test: one run\'s width never reaches another run');
   const phone = await manager.openOwnedPage({ width: 375, height: 812 });
   await executeStep(manager.ownedPage(phone.pageId), {
-    route: '', action: 'delay', ms: 1, viewport: { width: 375, height: 812 },
+    action: 'delay', duration: 1, viewport: { width: 375, height: 812 },
   }, { baseUrl: baseUrl() });
 
   const desktop = await manager.openOwnedPage({ width: 1440, height: 900 });
@@ -162,14 +162,14 @@ async function testStepReportsWhatThePageWas() {
   await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
 
   const result = await executeStep(page, {
-    route: '', action: 'delay', ms: 1,
+    action: 'delay', duration: 1,
   }, { baseUrl: baseUrl() });
   assertEqual(result.success, true, 'the step succeeds');
   assertEqual(result.viewport.width, 1024, 'the step reports the width it ran at');
   assertEqual(result.url, fixtureUrl(), 'the step reports the url it ran on');
 
   const failed = await executeStep(page, {
-    route: '', action: 'assert', target: '#nope', check: 'visible', timeout_ms: 200,
+    action: 'assert', target: '#nope', check: 'visible', timeout_ms: 200,
   }, { baseUrl: baseUrl() });
   assertEqual(failed.success, false, 'a failing step still fails');
   assertEqual(

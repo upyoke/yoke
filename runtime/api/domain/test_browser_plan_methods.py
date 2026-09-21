@@ -217,3 +217,74 @@ def test_browser_method_validation_rejects_vacuous_contracts(
 ) -> None:
     with pytest.raises(QaMethodConfigError, match=message):
         validate_method_config(method_id, {"steps": steps})
+
+
+def test_navigate_with_target_instead_of_route_is_refused() -> None:
+    with pytest.raises(QaMethodConfigError, match="does not honour key 'target'"):
+        validate_method_config(
+            "browser-check",
+            {
+                "steps": [
+                    {"action": "navigate", "target": "/login"},
+                    {
+                        "action": "assert",
+                        "target": "main",
+                        "check": "visible",
+                    },
+                ]
+            },
+        )
+
+
+def test_assert_with_misplaced_route_is_refused() -> None:
+    with pytest.raises(QaMethodConfigError, match="does not honour key 'route'"):
+        validate_method_config(
+            "browser-check",
+            {
+                "steps": [
+                    {"action": "navigate", "route": "/"},
+                    {
+                        "action": "assert",
+                        "route": "/",
+                        "target": "main",
+                        "check": "visible",
+                    },
+                ]
+            },
+        )
+
+
+def test_screenshot_may_declare_label() -> None:
+    config = validate_method_config(
+        "browser-inspection",
+        {
+            "steps": [
+                {"action": "navigate", "route": "/"},
+                {
+                    "action": "screenshot",
+                    "capture": True,
+                    "label": "home",
+                },
+            ]
+        },
+    )
+    assert config["steps"][1]["label"] == "home"
+
+
+def test_count_gte_may_declare_timeout_ms() -> None:
+    config = validate_method_config(
+        "browser-check",
+        {
+            "steps": [
+                {"action": "navigate", "route": "/"},
+                {
+                    "action": "assert",
+                    "target": ".card",
+                    "check": "count_gte",
+                    "min_count": 1,
+                    "timeout_ms": 60000,
+                },
+            ]
+        },
+    )
+    assert config["steps"][1]["timeout_ms"] == 60000
