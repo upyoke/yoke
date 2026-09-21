@@ -24,6 +24,12 @@ verdict, a resolved decision the runner has not acted on, and a run
 still at ``created`` with nothing outstanding. An ``executing`` run with
 nothing outstanding is already being driven: the row names the stage it
 is at rather than recommending a second drive.
+
+A red requirement whose member has a recorded merge outside this run's
+``release_lineage`` is named as unable to pass against the pin, with
+superseding as the path. That comparison is containment of the recorded
+merge, never elapsed time or a newer tip. An unreadable comparison is
+named as unproven rather than asserted.
 """
 
 from __future__ import annotations
@@ -38,6 +44,10 @@ from yoke_core.domain.deployment_run_completion_preconditions import (
     blocking_obligation_total,
     redrive_recovery,
     unresolved_blocking_qa,
+)
+from yoke_core.domain.deployment_run_unpassable_blocking_qa import (
+    PinQaDiagnosis,
+    diagnose_unpassable_blocking_qa,
 )
 from yoke_core.domain.runs import RunStatus, TERMINAL_RUN_STATUSES
 from yoke_core.domain.schema_common import _table_exists
@@ -104,6 +114,7 @@ class DeploymentRunProgress:
     red: tuple[RedRequirement, ...]
     #: Set when this run's current stage already has a resolved decision.
     answered_decision: Optional[AnsweredDecision] = None
+    pin_qa: PinQaDiagnosis = PinQaDiagnosis()
 
     @property
     def needs_action(self) -> bool:
@@ -125,6 +136,8 @@ class DeploymentRunProgress:
         )
 
     def recovery(self) -> str:
+        if self.pin_qa.unpassable:
+            return self.pin_qa.supersede_recovery(self.run_id)
         if self.answered_decision is not None:
             return (
                 f"The answer is already recorded; re-drive {self.run_id} so the "
@@ -291,6 +304,7 @@ def run_progress(
                 answered_decision=_answered_decision(
                     conn, run_id=run_id, stage=stage, now=now
                 ),
+                pin_qa=diagnose_unpassable_blocking_qa(conn, run_id=run_id),
             )
         )
     return tuple(rows)

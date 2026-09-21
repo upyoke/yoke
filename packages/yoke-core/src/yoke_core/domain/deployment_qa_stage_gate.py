@@ -20,6 +20,7 @@ from yoke_core.domain.deployment_qa_stage_case_failures import (
     obligations_fully_discharged,
 )
 from yoke_core.domain.deployment_qa_stage_outcome import (
+    OUTCOME_BLOCKED,
     OUTCOME_REJECTED,
     OUTCOME_WAITING,
     answer,
@@ -27,6 +28,9 @@ from yoke_core.domain.deployment_qa_stage_outcome import (
     passed,
     settled,
     waiting,
+)
+from yoke_core.domain.deployment_run_unpassable_blocking_qa import (
+    diagnose_unpassable_blocking_qa,
 )
 from yoke_core.domain.deployment_qa_stage_contract import (
     DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
@@ -238,7 +242,7 @@ def _settle_stage_status(
         # A missing execution alongside red cases still reads as blocked: the
         # red verdicts are the reason no acceptable execution can exist, and
         # calling that "waiting" is the collapse this split undoes.
-        return settled(reasons, failures)
+        return _with_pin_diagnosis(conn, run_id, settled(reasons, failures))
     assert execution is not None
     obligation_failures = fulfill_admitted_obligations(
         conn,
@@ -312,6 +316,27 @@ def _settle_stage_status(
         ],
         request_id=request_id,
     )
+
+
+def _with_pin_diagnosis(
+    conn: Any, run_id: str, status: dict[str, Any]
+) -> dict[str, Any]:
+    """Name a pin the red cases cannot pass, on the stage answer itself."""
+    if status.get("outcome") != OUTCOME_BLOCKED:
+        return status
+    diagnosis = diagnose_unpassable_blocking_qa(conn, run_id=run_id)
+    extra = list(diagnosis.notes())
+    if diagnosis.unpassable:
+        extra.append(diagnosis.supersede_recovery(run_id))
+        reasons = [
+            reason
+            for reason in status["reasons"]
+            if "then re-drive the run" not in reason
+        ]
+        return {**status, "reasons": [*reasons, *extra]}
+    if not extra:
+        return status
+    return {**status, "reasons": [*status["reasons"], *extra]}
 
 
 __all__ = [

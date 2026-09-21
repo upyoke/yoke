@@ -136,6 +136,7 @@ def _run_lines(report: FleetReport) -> list[str]:
         lines.extend(f"      {detail}" for detail in run.unresolved)
         if run.red:
             lines.append(f"      red: {', '.join(r.describe() for r in run.red)}")
+        lines.extend(f"      {note}" for note in run.pin_qa.notes())
         answered = run.answered_decision
         if answered is not None:
             lines.append(
