@@ -26,7 +26,15 @@ from yoke_core.domain.actor_message_recipient_schema import (
     TABLE as RECIPIENT_TABLE,
 )
 from yoke_core.domain.session_message_types import timestamp
+from yoke_core.domain.steering_recipient_candidates import (
+    attach_message_bodies,
+    load_unsettled_steering_rows,
+)
 from yoke_core.domain.steering_scope_coverage import steering_scope_covers
+from yoke_core.domain.steering_scope_membership import (
+    apply_item_document,
+    item_document_links,
+)
 
 
 TABLE = RECIPIENT_TABLE
@@ -54,21 +62,25 @@ def decode_steering_scope(raw: Any) -> dict[str, Any]:
     return dict(value) if isinstance(value, dict) else {}
 
 
-def row_coverage_target(conn: Any, row: Mapping[str, Any]) -> dict[str, Any]:
+def row_coverage_target(
+    conn: Any,
+    row: Mapping[str, Any],
+    *,
+    links: Mapping[int, tuple[int, str]] | None = None,
+) -> dict[str, Any]:
     """The addressed work one stored row represents, for the coverage rule.
 
     The sender's item is stored; the document that item belongs to is read
     live, because a link written after the message was sent still decides
-    which seat the message is now the business of.
+    which seat the message is now the business of. Pass *links* when
+    describing a set of rows so that read happens once for the set.
     """
-    from yoke_core.domain.steering_scope_membership import apply_item_document
-
     target = decode_steering_scope(row.get("steering_scope"))
     item_id = row.get("sender_item_id")
     if item_id is None:
         return target
     target["item_id"] = int(item_id)
-    return apply_item_document(conn, target, int(item_id))
+    return apply_item_document(conn, target, int(item_id), links=links)
 
 
 def record_steering_recipient(
@@ -107,26 +119,6 @@ def record_steering_recipient(
     )
 
 
-def _rows_for_project(conn: Any, project_id: int) -> list[dict[str, Any]]:
-    marker = _marker(conn)
-    rows = conn.execute(
-        f"SELECT r.message_id AS message_id, r.state AS state, "
-        "r.steering_scope AS steering_scope, r.sender_item_id AS sender_item_id, "
-        "r.project_id AS project_id, r.seat_session_id AS seat_session_id, "
-        "r.created_at AS created_at, m.body AS body, "
-        "m.sender_session_id AS sender_session_id, "
-        "m.created_at AS sent_at, m.cancelled_at AS cancelled_at, "
-        "seat.ended_at AS seat_ended_at, seat.terminated_at AS seat_terminated_at "
-        f"FROM {TABLE} r "
-        "JOIN session_messages m ON m.message_id = r.message_id "
-        "LEFT JOIN harness_sessions seat ON seat.session_id = r.seat_session_id "
-        f"WHERE r.recipient_kind = {marker} AND r.project_id = {marker} "
-        "ORDER BY m.created_at DESC, r.message_id DESC",
-        (STEERING_KIND, int(project_id)),
-    ).fetchall()
-    return [dict(row) for row in rows]
-
-
 def _seat_still_live(row: Mapping[str, Any]) -> bool:
     if not row.get("seat_session_id"):
         return False
@@ -153,6 +145,37 @@ def _seat_answered(conn: Any, row: Mapping[str, Any]) -> bool:
     )
 
 
+def _drainable_candidates(
+    conn: Any,
+    *,
+    scope: Mapping[str, Any],
+    project_id: int,
+) -> list[dict[str, Any]]:
+    """Unsettled rows this scope covers, without fetching message bodies."""
+    rows = load_unsettled_steering_rows(conn, project_id)
+    if not rows:
+        return []
+    item_ids = [
+        int(row["sender_item_id"])
+        for row in rows
+        if row.get("sender_item_id") is not None
+    ]
+    links = item_document_links(conn, item_ids)
+    drainable: list[dict[str, Any]] = []
+    for row in rows:
+        if not steering_scope_covers(
+            scope, row_coverage_target(conn, row, links=links)
+        ):
+            continue
+        if row["state"] == STATE_AWAITING_SEAT:
+            drainable.append(row)
+            continue
+        if _seat_still_live(row) or _seat_answered(conn, row):
+            continue
+        drainable.append(row)
+    return drainable
+
+
 def drainable_rows(
     conn: Any,
     *,
@@ -165,21 +188,9 @@ def drainable_rows(
     whose seat ended without answering: the sender is waiting on a reply
     that can no longer arrive. Acknowledgement settles the row permanently.
     """
-    drainable: list[dict[str, Any]] = []
-    for row in _rows_for_project(conn, project_id):
-        if row.get("cancelled_at"):
-            continue
-        if not steering_scope_covers(scope, row_coverage_target(conn, row)):
-            continue
-        if row["state"] == STATE_AWAITING_SEAT:
-            drainable.append(row)
-            continue
-        if row["state"] == STATE_ACKNOWLEDGED:
-            continue
-        if _seat_still_live(row) or _seat_answered(conn, row):
-            continue
-        drainable.append(row)
-    return drainable
+    return attach_message_bodies(
+        conn, _drainable_candidates(conn, scope=scope, project_id=project_id)
+    )
 
 
 def session_awaiting_seat_reply(conn: Any, session_id: str) -> dict[str, Any] | None:
@@ -218,7 +229,7 @@ def session_awaiting_seat_reply(conn: Any, session_id: str) -> dict[str, Any] | 
 
 def awaiting_seat_count(conn: Any, *, project_id: int, scope: Mapping[str, Any]) -> int:
     """How many role-addressed messages in this scope have no live seat."""
-    return len(drainable_rows(conn, scope=scope, project_id=project_id))
+    return len(_drainable_candidates(conn, scope=scope, project_id=project_id))
 
 
 def hand_to_seat(
