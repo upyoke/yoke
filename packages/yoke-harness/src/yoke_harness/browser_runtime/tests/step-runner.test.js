@@ -142,7 +142,6 @@ async function testClickAction() {
 
   // AC-3: click resolves target and clicks
   const result = await executeStep(page, {
-    route: '',
     action: 'click',
     target: 'button',
   }, { baseUrl: baseUrl() });
@@ -160,7 +159,6 @@ async function testClickNonExistentTarget() {
 
   // AC-10: Failed steps return error
   const result = await executeStep(page, {
-    route: '',
     action: 'click',
     target: '#does-not-exist',
     timeout_ms: 500,
@@ -180,7 +178,6 @@ async function testFillFormAction() {
 
   // AC-4: fill_form iterates fields and fills each
   const result = await executeStep(page, {
-    route: '',
     action: 'fill_form',
     fields: {
       '[data-testid="email"]': 'test@example.com',
@@ -207,7 +204,6 @@ async function testWaitForVisible() {
 
   // AC-5: wait_for waits for target to be visible
   const result = await executeStep(page, {
-    route: '',
     action: 'wait_for',
     target: 'button',
   }, { baseUrl: baseUrl() });
@@ -224,7 +220,6 @@ async function testWaitForTimeout() {
 
   // AC-10: Timeout returns error
   const result = await executeStep(page, {
-    route: '',
     action: 'wait_for',
     target: '#non-existent-element',
     timeout_ms: 500,
@@ -242,7 +237,6 @@ async function testHoverAction() {
   await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
 
   const result = await executeStep(page, {
-    route: '',
     action: 'hover',
     target: 'button',
   }, { baseUrl: baseUrl() });
@@ -258,7 +252,6 @@ async function testSelectAction() {
   await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
 
   const result = await executeStep(page, {
-    route: '',
     action: 'select',
     target: 'select[aria-label="Choose a color"]',
     value: 'Blue',

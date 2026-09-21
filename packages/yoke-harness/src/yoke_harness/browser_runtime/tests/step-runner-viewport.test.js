@@ -59,9 +59,8 @@ async function testStepResizesBeforeItRuns() {
   await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
 
   const result = await executeStep(page, {
-    route: '',
     action: 'delay',
-    ms: 1,
+    duration: 1,
     viewport: { width: 375, height: 812 },
   }, { baseUrl: baseUrl() });
 
@@ -72,13 +71,13 @@ async function testStepResizesBeforeItRuns() {
   // It stays set: the steps that follow are about the same width until one
   // of them says otherwise.
   const next = await executeStep(page, {
-    route: '', action: 'delay', ms: 1,
+    action: 'delay', duration: 1,
   }, { baseUrl: baseUrl() });
   assertEqual(next.success, true, 'the following step succeeds');
   assertEqual(page.viewportSize().width, 375, 'the width holds for later steps');
 
   const wide = await executeStep(page, {
-    route: '', action: 'delay', ms: 1, viewport: { width: 1440, height: 900 },
+    action: 'delay', duration: 1, viewport: { width: 1440, height: 900 },
   }, { baseUrl: baseUrl() });
   assertEqual(wide.success, true, 'a later width is taken');
   assertEqual(page.viewportSize().width, 1440, 'the later width is applied');
@@ -91,7 +90,7 @@ async function testMalformedViewportIsNamed() {
   await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
 
   const result = await executeStep(page, {
-    route: '', action: 'delay', ms: 1, viewport: { width: '375' },
+    action: 'delay', duration: 1, viewport: { width: '375' },
   }, { baseUrl: baseUrl() });
 
   assertEqual(result.success, false, 'a viewport without numbers fails');

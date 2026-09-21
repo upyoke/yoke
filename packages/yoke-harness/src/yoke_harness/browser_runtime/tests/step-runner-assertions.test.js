@@ -78,7 +78,6 @@ async function testAssertVisible() {
   await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
 
   const result = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'button',
     check: 'visible',
@@ -95,7 +94,6 @@ async function testAssertHidden() {
   await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
 
   const result = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: '#hidden-element',
     check: 'hidden',
@@ -113,7 +111,6 @@ async function testAssertTextContains() {
   await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
 
   const result = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'h1',
     check: 'text_contains',
@@ -124,7 +121,6 @@ async function testAssertTextContains() {
 
   // Case-insensitive matching.
   const resultCI = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'h1',
     check: 'text_contains',
@@ -137,7 +133,6 @@ async function testAssertTextContains() {
 
   // Seeded keyword scenario: lowercase expected text against uppercase page text.
   const resultCI2 = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'h1',
     check: 'text_contains',
@@ -148,7 +143,6 @@ async function testAssertTextContains() {
 
   // text_contains with non-matching text
   const result2 = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'h1',
     check: 'text_contains',
@@ -168,7 +162,6 @@ async function testAssertCountGte() {
 
   // At least 2 links in the fixture's nav.
   const result = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'nav a',
     check: 'count_gte',
@@ -179,11 +172,11 @@ async function testAssertCountGte() {
 
   // count_gte with too-high threshold
   const result2 = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: 'nav a',
     check: 'count_gte',
     min_count: 100,
+    timeout_ms: 200,
   }, { baseUrl: baseUrl() });
 
   assertEqual(result2.success, false, 'assert count_gte fails when count is too low');
@@ -200,7 +193,6 @@ async function testAbsenceMatchCount() {
   // Nothing on the page is a #hidden-element, so this assertion could not
   // have failed: Playwright reports a detached locator as hidden.
   const detached = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: '#hidden-element',
     check: 'hidden',
@@ -226,7 +218,6 @@ async function testAbsenceMatchCount() {
     + '<p class="card">One</p><p class="card">Two</p></body></html>'
   );
   const present = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: '#banner',
     check: 'hidden',
@@ -241,7 +232,6 @@ async function testAbsenceMatchCount() {
   );
 
   const countZero = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: '.absent-card',
     check: 'count_eq',
@@ -256,7 +246,6 @@ async function testAbsenceMatchCount() {
   );
 
   const countTwo = await executeStep(page, {
-    route: '',
     action: 'assert',
     target: '.card',
     check: 'count_eq',

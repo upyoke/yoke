@@ -78,7 +78,6 @@ async function testScreenshotAction() {
 
   // AC-7: screenshot with capture: true returns artifacts
   const result = await executeStep(page, {
-    route: '',
     action: 'screenshot',
     capture: true,
   }, { baseUrl: baseUrl(), outputDir: tmpDir });
@@ -91,7 +90,6 @@ async function testScreenshotAction() {
 
   // screenshot with capture: false produces no artifacts
   const result2 = await executeStep(page, {
-    route: '',
     action: 'screenshot',
     capture: false,
   }, { baseUrl: baseUrl(), outputDir: tmpDir });
@@ -112,7 +110,6 @@ async function testTimeoutDefault() {
   // Instead of waiting 5s, we just verify the step runner handles the
   // timeout_ms override correctly.
   const result = await executeStep(page, {
-    route: '',
     action: 'wait_for',
     target: '#non-existent',
     timeout_ms: 200,
@@ -152,7 +149,6 @@ async function testUnknownAction() {
   await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
 
   const result = await executeStep(page, {
-    route: '',
     action: 'teleport',
   }, { baseUrl: baseUrl() });
 

@@ -39,6 +39,30 @@ _EXPECTED_VALUE_CHECKS = frozenset(
         "count_eq",
     }
 )
+#: Shared optional fields every action may carry. Must match
+#: ``browser_runtime/src/step-schema.js``.
+SHARED_STEP_KEYS = frozenset(
+    {
+        "action",
+        "timeout_ms",
+        "source_ac",
+        "refined",
+        "viewport",
+    }
+)
+ACTION_STEP_KEYS = {
+    "navigate": frozenset({"route"}),
+    "click": frozenset({"target"}),
+    "type": frozenset({"target", "value", "delay"}),
+    "fill_form": frozenset({"fields"}),
+    "assert": frozenset({"target", "check", "expected", "min_count"}),
+    "screenshot": frozenset({"capture", "fullPage"}),
+    "wait_for": frozenset({"target"}),
+    "delay": frozenset({"duration", "duration_ms"}),
+    "scroll": frozenset({"target", "x", "y"}),
+    "hover": frozenset({"target"}),
+    "select": frozenset({"target", "value"}),
+}
 
 
 @dataclass(frozen=True)
@@ -51,6 +75,40 @@ class BrowserMethodContractViolation:
 
 def _non_empty_text(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
+
+
+def defined_keys_for_action(action: str) -> frozenset[str]:
+    """Return the keys *action* honours, including shared optional fields."""
+    extra = ACTION_STEP_KEYS.get(action)
+    if extra is None:
+        return SHARED_STEP_KEYS
+    return SHARED_STEP_KEYS | extra
+
+
+def _unrecognized_step_keys(step: dict[str, Any]) -> list[str]:
+    action = step.get("action")
+    if action not in ACTION_STEP_KEYS:
+        return []
+    allowed = defined_keys_for_action(str(action))
+    return sorted(key for key in step if key not in allowed)
+
+
+def _step_key_violation(
+    index: int,
+    step: dict[str, Any],
+) -> Optional[BrowserMethodContractViolation]:
+    unknown = _unrecognized_step_keys(step)
+    if not unknown:
+        return None
+    action = step.get("action")
+    defined = ", ".join(sorted(defined_keys_for_action(str(action))))
+    labelled = ", ".join(repr(key) for key in unknown)
+    noun = "key" if len(unknown) == 1 else "keys"
+    return BrowserMethodContractViolation(
+        "step_key_unrecognized",
+        f"Browser {action} step {index} does not honour {noun} "
+        f"{labelled}. Defined keys: {defined}",
+    )
 
 
 def browser_method_contract_violation(
@@ -73,8 +131,18 @@ def browser_method_contract_violation(
         if not isinstance(raw_step, dict):
             continue
         action = raw_step.get("action")
+        key_violation = _step_key_violation(index, raw_step)
+        if key_violation is not None:
+            return key_violation
         if action == "navigate":
             route_declared = _non_empty_text(raw_step.get("route"))
+            if not route_declared:
+                return BrowserMethodContractViolation(
+                    "navigate_route_missing",
+                    f"Browser navigate step {index} requires a non-empty "
+                    "route. Defined keys: "
+                    + ", ".join(sorted(defined_keys_for_action("navigate"))),
+                )
             continue
         if action == "assert":
             if not route_declared:
@@ -181,10 +249,13 @@ __all__ = [
     "DEFAULT_BROWSER_VIEWPORT",
     "BROWSER_CHECK_METHOD",
     "BROWSER_INSPECTION_METHOD",
+    "ACTION_STEP_KEYS",
     "BROWSER_METHODS",
     "BrowserMethodContractViolation",
+    "SHARED_STEP_KEYS",
     "SUPPORTED_ASSERTION_CHECKS",
     "browser_method_contract_violation",
+    "defined_keys_for_action",
     "case_viewport",
     "is_browser_assertion",
 ]
