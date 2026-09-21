@@ -52,6 +52,10 @@ def test_copies_with_no_owner_or_privilege_restore(monkeypatch) -> None:
     )
     resets: list[str] = []
     monkeypatch.setattr(copy_tool, "_reset_validation_schema", resets.append)
+    monkeypatch.setattr(
+        "runtime.api.tools.authority_validation_extension_restore.prepare_extension_restore",
+        lambda *_a, **_k: None,
+    )
     calls: list[tuple[list[str], dict[str, str]]] = []
 
     def fake_run(argv, **_kwargs):
@@ -69,7 +73,6 @@ def test_copies_with_no_owner_or_privilege_restore(monkeypatch) -> None:
     dump_argv, dump_env = calls[0]
     restore_argv, restore_env = calls[1]
     assert dump_argv[0] == "pg_dump"
-    assert "--exclude-schema=statement_statistics" in dump_argv
     assert restore_argv[0] == "pg_restore"
     assert "--no-owner" in dump_argv
     assert "--no-privileges" in dump_argv
@@ -82,6 +85,69 @@ def test_copies_with_no_owner_or_privilege_restore(monkeypatch) -> None:
     assert dump_env["PGPASSWORD"] == "top-secret"
     assert restore_env.get("PGPASSWORD") is None
     assert resets == [validation_dsn]
+
+
+def test_restore_passes_the_staged_extension_list(monkeypatch, tmp_path) -> None:
+    authority_dsn = "host=authority dbname=yoke"
+    validation_dsn = "host=validation dbname=yoke_validation"
+    list_path = tmp_path / "restore.list"
+    list_path.write_text(";1; SCHEMA - statement_statistics\n")
+    monkeypatch.setattr(
+        copy_tool.db_backend, "resolve_pg_dsn", lambda: authority_dsn
+    )
+    monkeypatch.setattr(
+        copy_tool,
+        "_database_identity",
+        lambda dsn: (
+            ("yoke", "10.0.0.1", "5432")
+            if dsn == authority_dsn
+            else ("yoke_validation", "local-socket", "5432")
+        ),
+    )
+    monkeypatch.setattr(copy_tool, "_reset_validation_schema", lambda _dsn: None)
+    monkeypatch.setattr(
+        "runtime.api.tools.authority_validation_extension_restore.prepare_extension_restore",
+        lambda *_a, **_k: list_path,
+    )
+    restore_calls: list[list[str]] = []
+
+    def fake_run(argv, **_kwargs):
+        argv = list(argv)
+        if argv[0] == "pg_dump":
+            Path(argv[argv.index("--file") + 1]).write_bytes(b"archive")
+        elif argv[0] == "pg_restore":
+            restore_calls.append(argv)
+        return SimpleNamespace(returncode=0, stderr="")
+
+    monkeypatch.setattr(copy_tool.subprocess, "run", fake_run)
+    copy_tool.copy_authority_to_validation(validation_dsn)
+    assert restore_calls
+    assert "-L" in restore_calls[0]
+    assert str(list_path) in restore_calls[0]
+
+
+def test_restore_list_comments_staged_schema_create(monkeypatch, tmp_path) -> None:
+    from runtime.api.tools.authority_validation_extension_restore import (
+        write_restore_list_omitting_schemas,
+    )
+
+    listing = (
+        "1; 2615 123 SCHEMA - statement_statistics tenant\n"
+        "2; 1259 456 TABLE public items tenant\n"
+    )
+    monkeypatch.setattr(
+        "runtime.api.tools.authority_validation_extension_restore.subprocess.run",
+        lambda *_a, **_k: SimpleNamespace(
+            returncode=0, stdout=listing, stderr=""
+        ),
+    )
+    path = tmp_path / "list"
+    write_restore_list_omitting_schemas(
+        tmp_path / "dump", ["statement_statistics"], path
+    )
+    text = path.read_text()
+    assert text.splitlines()[0].startswith(";1;")
+    assert "TABLE public items" in text
 
 
 def test_derives_a_disposable_target_when_nothing_is_bound(monkeypatch) -> None:

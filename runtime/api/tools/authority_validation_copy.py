@@ -38,13 +38,6 @@ from yoke_core.domain.scratch_database_authority import (
 #: database it provisioned be rehearsed as a tenant.
 VALIDATION_DSN_ENV = YOKE_VALIDATION_DSN_ENV
 
-# Telemetry views over current_database_statements_read() fail
-# pg_restore --exit-on-error after a schema reset: the dump's
-# positional alias list disagrees with a freshly installed
-# extension rowtype. Fleet preflight stages the pin; this copy
-# skips the schema. Control-plane tables still restore.
-DUMP_EXCLUDE_SCHEMAS = ("statement_statistics",)
-
 #: Connected to only for the CREATE DATABASE that provisions a derived
 #: target; the database being created cannot host its own creation.
 MAINTENANCE_DB = "postgres"
@@ -198,10 +191,6 @@ def _copy(authority: str, validation_dsn: str) -> tuple[str, str]:
                 "--format=custom",
                 "--no-owner",
                 "--no-privileges",
-                *[
-                    f"--exclude-schema={name}"
-                    for name in DUMP_EXCLUDE_SCHEMAS
-                ],
                 "--file",
                 str(archive),
                 authority_arg,
@@ -220,16 +209,30 @@ def _copy(authority: str, validation_dsn: str) -> tuple[str, str]:
                 "authority dump failed: " + (dumped.stderr or "unknown error")[-800:]
             )
         _reset_validation_schema(validation)
+        from runtime.api.tools.authority_validation_extension_restore import (
+            ExtensionRestoreError,
+            prepare_extension_restore,
+        )
+
+        try:
+            restore_list = prepare_extension_restore(
+                authority, validation, archive, Path(raw_tmp) / "restore.list"
+            )
+        except ExtensionRestoreError as exc:
+            raise ValidationCopyError(str(exc)) from exc
+        restore_argv = [
+            "pg_restore",
+            "--exit-on-error",
+            "--no-owner",
+            "--no-privileges",
+            "--dbname",
+            validation_arg,
+        ]
+        if restore_list is not None:
+            restore_argv.extend(["-L", str(restore_list)])
+        restore_argv.append(str(archive))
         restored = subprocess.run(
-            [
-                "pg_restore",
-                "--exit-on-error",
-                "--no-owner",
-                "--no-privileges",
-                "--dbname",
-                validation_arg,
-                str(archive),
-            ],
+            restore_argv,
             capture_output=True,
             text=True,
             check=False,
