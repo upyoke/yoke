@@ -22,9 +22,11 @@ from typing import Any, Callable, Optional, Sequence, Tuple
 
 RETIRED_STANDING_INVARIANTS: dict[str, str] = {
     # 0035's apply still clears a latch no closed checklist backs. The live
-    # run_onboard signal later also latches a deployment-superseded run, so
-    # the frozen invariants() cannot evaluate on those databases. The
-    # standing claim is obsolete; the module bytes stay frozen.
+    # run_onboard signal later also latches a deployment-superseded run —
+    # wanted behaviour, not a defect: a project that has deployed is past
+    # onboarding even with an open checklist. 0035 predates that case, so the
+    # frozen invariants() cannot evaluate on those databases. The standing
+    # claim is obsolete; the module bytes stay frozen.
     "0035_clear_unproven_onboard_activation_latch": (
         "the live run_onboard signal also latches a deployment-superseded "
         "run, while this entry recognizes only a fully closed checklist"
