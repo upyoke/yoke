@@ -177,6 +177,7 @@ def _adopt_attempt(
             ),
             wake_mode=WakeMode(str(candidate["wake_mode"])),
             target_liveness=str(candidate["liveness"]),
+            target_parked=bool(candidate.get("parked")),
             wake_route="broker",
             private_route_qualification=qualification,
         )
