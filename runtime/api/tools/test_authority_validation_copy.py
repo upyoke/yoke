@@ -69,6 +69,7 @@ def test_copies_with_no_owner_or_privilege_restore(monkeypatch) -> None:
     dump_argv, dump_env = calls[0]
     restore_argv, restore_env = calls[1]
     assert dump_argv[0] == "pg_dump"
+    assert "--exclude-schema=statement_statistics" in dump_argv
     assert restore_argv[0] == "pg_restore"
     assert "--no-owner" in dump_argv
     assert "--no-privileges" in dump_argv

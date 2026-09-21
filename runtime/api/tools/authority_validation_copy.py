@@ -38,6 +38,13 @@ from yoke_core.domain.scratch_database_authority import (
 #: database it provisioned be rehearsed as a tenant.
 VALIDATION_DSN_ENV = YOKE_VALIDATION_DSN_ENV
 
+# Telemetry views over current_database_statements_read() fail
+# pg_restore --exit-on-error after a schema reset: the dump's
+# positional alias list disagrees with a freshly installed
+# extension rowtype. Fleet preflight stages the pin; this copy
+# skips the schema. Control-plane tables still restore.
+DUMP_EXCLUDE_SCHEMAS = ("statement_statistics",)
+
 #: Connected to only for the CREATE DATABASE that provisions a derived
 #: target; the database being created cannot host its own creation.
 MAINTENANCE_DB = "postgres"
@@ -191,6 +198,10 @@ def _copy(authority: str, validation_dsn: str) -> tuple[str, str]:
                 "--format=custom",
                 "--no-owner",
                 "--no-privileges",
+                *[
+                    f"--exclude-schema={name}"
+                    for name in DUMP_EXCLUDE_SCHEMAS
+                ],
                 "--file",
                 str(archive),
                 authority_arg,
