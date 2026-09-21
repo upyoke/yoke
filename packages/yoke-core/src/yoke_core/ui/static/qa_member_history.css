@@ -1,0 +1,49 @@
+/* Folded: a summary and the latest pictures. Expanded: every check with
+   its own provenance, so before-merge and this-release cannot read as one. */
+.universe-app-root .carried-item-evidence .review-evidence.compact .review-shot {
+  width: 150px;
+}
+.universe-app-root .carried-item-evidence .review-evidence.compact .review-shot-open {
+  min-height: 0;
+  aspect-ratio: unset;
+}
+.universe-app-root .carried-item-history {
+  margin: 2px 0 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* `display: flex` above would otherwise beat the UA [hidden] rule and
+   leak the full list on the folded face. */
+.universe-app-root .carried-item-history[hidden] {
+  display: none;
+}
+.universe-app-root .carried-item-history-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  color: var(--yoke-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.universe-app-root .carried-item-history-provenance {
+  color: var(--yoke-ink);
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+.universe-app-root .carried-item-history-meta {
+  overflow-wrap: anywhere;
+}
+.universe-app-root .carried-item-history-more {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--yoke-muted);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}

@@ -25,18 +25,21 @@
 .universe-app-root .shipping-run-card .review-evidence-rest {
   grid-column: 1 / -1;
 }
-.universe-app-root .shipping-run-card .review-shot {
+/* These stretch rules are for the run-wide strip's two-column grid, not
+   for a carried member's compact thumbnails. Matching every .review-shot
+   in the card painted each member capture at full card width. */
+.universe-app-root .shipping-run-card .shipping-run-evidence .review-shot {
   width: 100%;
 }
-.universe-app-root .shipping-run-card .review-shot-open {
+.universe-app-root .shipping-run-card .shipping-run-evidence .review-shot-open {
   min-height: 0;
   aspect-ratio: auto;
 }
-.universe-app-root .shipping-run-card .review-shot-caption {
+.universe-app-root .shipping-run-card .shipping-run-evidence .review-shot-caption {
   padding: 5px 0 0;
   line-height: 1.3;
 }
-.universe-app-root .shipping-run-card .review-more {
+.universe-app-root .shipping-run-card .shipping-run-evidence .review-more {
   align-self: start;
   justify-self: start;
 }

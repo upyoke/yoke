@@ -188,7 +188,10 @@ test("a carried CI check without artifacts is a link, not an empty strip", async
   await settle();
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
-  assert.match(evidence.textContent, /1 check · 1 passed/);
+  const caption = byClass(evidence, "carried-item-evidence-caption")[0].textContent;
+  assert.match(caption, /never asked/);
+  assert.match(caption, /verified before merge/);
+  assert.doesNotMatch(caption, /verified this release/);
   assert.equal(byClass(evidence, "review-shot").length, 0);
   const link = byClass(evidence, "carried-item-run-conclusion")[0];
   assert.equal(link.href, RUN_URL);

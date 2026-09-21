@@ -10,19 +10,11 @@
 // a picture that proves nothing about this run is never presented as if it
 // did.
 
-import {
-  drawnArtifacts,
-  evidenceStrip,
-  normalizedArtifacts,
-} from "./review_evidence_strip.js";
+import { normalizedArtifacts } from "./review_evidence_strip.js";
 import { reviewRequestCard } from "./review_request_card.js";
 import { evidenceOf } from "./review_request_presentation.js";
-import {
-  QA_STATE,
-  classifyMemberQa,
-  memberQaCaption,
-  qaStateNote,
-} from "./qa_state.js";
+import { classifyMemberQa } from "./qa_state.js";
+import { paintMemberHistory } from "./qa_member_history.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
 import { appendRunConclusion } from "./qa_run_conclusion.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
@@ -36,9 +28,6 @@ import { el, settledScopedCalls } from "./universe_view_support.js";
 // dropping the rest, for the same reason.
 const CHECKS_PER_ITEM = 20;
 const SUBJECTS_PER_CALL = 50;
-
-// An item entry is a line in a card, not a gallery.
-const CARRIED_EVIDENCE_SHOWN = 3;
 
 export const EMPTY_CARRIED_ITEM_FACTS = Object.freeze({
   byItem: new Map(),
@@ -72,9 +61,8 @@ function subjectsByProject(items) {
     // guessed into somebody else's project: the read is project-scoped.
     if (id === null || item.project_id == null) continue;
     const key = String(item.project_id);
-    const bucket = byProject.get(key) || { items: new Set(), runs: new Set() };
+    const bucket = byProject.get(key) || { items: new Set() };
     bucket.items.add(id);
-    if (item.run_id) bucket.runs.add(String(item.run_id));
     byProject.set(key, bucket);
   }
   return byProject;
@@ -96,9 +84,8 @@ export async function loadCarriedItemEvidence(context, items) {
         payload: {
           project,
           item_ids: subjects.slice(at, at + SUBJECTS_PER_CALL),
-          // The runs these cards draw. An item's run-less checks always
-          // come back; its other releases are not this page's business.
-          deployment_run_ids: [...bucket.runs],
+          // History across releases is what the card summarises. The
+          // per-item bound still trims old checks inside one run group.
           limit: CHECKS_PER_ITEM,
         },
       });
@@ -209,33 +196,6 @@ export function carriedItemReviews(facts, itemId, runId, checks) {
   return [...requests.values()];
 }
 
-function countCaption(checks) {
-  const counts = new Map();
-  const stages = new Set();
-  for (const check of checks) {
-    const outcome = String(check.outcome || "unknown");
-    counts.set(outcome, Number(counts.get(outcome) || 0) + 1);
-    if (check.deployment_stage) stages.add(String(check.deployment_stage));
-  }
-  return [
-    `QA · ${checks.length} check${checks.length === 1 ? "" : "s"}`,
-    ...[...counts.entries()].map(([outcome, count]) => `${count} ${outcome}`),
-    ...[...stages],
-  ].join(" · ");
-}
-
-function captionOf(itemId, runId, facts, checks) {
-  const memberState = classifyMemberQa(
-    facts?.byItem?.get(String(itemId)) || checks,
-    { runId },
-  );
-  if (memberState.id !== QA_STATE.NEVER_ASKED) {
-    return memberQaCaption(memberState);
-  }
-  if (checks.length) return countCaption(checks);
-  return memberQaCaption(memberState);
-}
-
 // `options.onDecide(request, action, node, note)` answers a review through
 // the same resolver the Inbox uses, so the answer is the same act wherever
 // it is given.
@@ -243,12 +203,10 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   const { item, runId, facts, onDecide } = options;
   const itemId = carriedItemId(item);
   if (itemId === null) return null;
-  const { checks, artifacts } = carriedItemEvidence(facts, itemId, runId);
+  const { checks } = carriedItemEvidence(facts, itemId, runId);
+  const history = facts?.byItem?.get(String(itemId)) || checks;
   const reviews = carriedItemReviews(facts, itemId, runId, checks);
-  const memberState = classifyMemberQa(
-    facts?.byItem?.get(String(itemId)) || checks,
-    { runId },
-  );
+  const memberState = classifyMemberQa(history, { runId });
   // A member with no executable check is still a fact: waived, no-obligation,
   // and never-asked used to render as a bare title.
   const drawnRequests = new Set(reviews.map((request) => String(request.id)));
@@ -258,56 +216,25 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
     "div",
     `carried-item-evidence is-${String(memberState.id).replaceAll("_", "-")}`,
   );
-  wrap.appendChild(el(
-    documentNode,
-    "span",
-    "carried-item-evidence-caption",
-    captionOf(itemId, runId, facts, checks),
-  ));
-  // Item-owned non-post-deploy checks (pre-merge CI) keep a count caption.
-  // The never-asked note is for silence, not for those rows.
-  const note = memberState.id === QA_STATE.NEVER_ASKED && checks.length
-    ? null
-    : qaStateNote(documentNode, memberState);
-  if (note) wrap.appendChild(note);
-  // The read bounds each item's checks within each release, so what is
-  // missing here is this item's older checks in one of the groups on screen
-  // — never another item's, never another release's, and never silently.
-  const cutShort = [groupKey(itemId, runId), groupKey(itemId, null)].some(
-    (key) => facts?.truncatedGroups?.has(key),
-  );
-  if (cutShort) {
-    wrap.appendChild(el(
-      documentNode,
-      "span",
-      "carried-item-evidence-note",
-      `Showing at most ${facts.perGroupLimit || CHECKS_PER_ITEM} checks per `
-        + "release; older ones are on the item.",
-    ));
-  }
-  // One options object for the strip and for what counts as on screen, so
-  // the two can never disagree about how much of this evidence is visible.
-  const stripOptions = {
-    compact: true, limit: CARRIED_EVIDENCE_SHOWN, stepCaptionsOnly: true,
-  };
-  const strip = evidenceStrip(context, artifacts, stripOptions);
-  if (strip) wrap.appendChild(strip);
+  const painted = paintMemberHistory(context, wrap, {
+    itemId, runId, facts, history, memberState,
+  });
+  // A CI check that captured nothing still proved a tree. History lists
+  // that row; this keeps the Actions run openable on the folded face.
   for (const check of checks) {
     if ((check.artifacts || []).length) continue;
     appendRunConclusion(
       documentNode, wrap, check, "carried-item-run-conclusion",
     );
   }
-  // The strip above is this item's recent history, which is not the same
+  // The strip above is this item's latest pictures, which is not the same
   // thing as this request's evidence: the reviewed capture may be older than
-  // the bound, or the strip may be empty. Its own evidence is suppressed
+  // the latest few, or the strip may be empty. Its own evidence is suppressed
   // only where every artifact it rests on is demonstrably already on screen
   // — drawn, not merely passed in, since the strip folds everything past its
   // limit behind "+N more" where nobody has seen it yet.
   const shown = new Set(
-    (strip ? drawnArtifacts(artifacts, stripOptions) : []).map(
-      (artifact) => String(artifact.id),
-    ),
+    painted.shown.map((artifact) => String(artifact.id)),
   );
   for (const request of reviews) {
     const evidence = evidenceOf(request);
@@ -330,7 +257,7 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   return {
     node: wrap,
     requestIds: drawnRequests,
-    drewEvidence: Boolean(strip) || reviews.length > 0,
+    drewEvidence: painted.drewEvidence || reviews.length > 0,
   };
 }
 

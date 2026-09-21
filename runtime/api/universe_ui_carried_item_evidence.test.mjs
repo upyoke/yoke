@@ -57,7 +57,11 @@ test("an item's own QA shows in its Carries entry", async () => {
   assert.ok(evidence, "the item's entry carries its own evidence");
   assert.match(
     byClass(evidence, "carried-item-evidence-caption")[0].textContent,
-    /1 check · 1 undetermined/,
+    /never asked/,
+  );
+  assert.match(
+    byClass(evidence, "carried-item-evidence-caption")[0].textContent,
+    /verified before merge/,
   );
   // Each screenshot is its own control inside that entry.
   assert.equal(byClass(evidence, "review-shot").length, 2);

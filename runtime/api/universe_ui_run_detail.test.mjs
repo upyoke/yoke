@@ -288,7 +288,11 @@ test("a carried item's own QA is shown beside that item, labelled as its own", a
   assert.ok(evidence, "the carried item carries its own evidence");
   assert.match(
     byClass(evidence, "carried-item-evidence-caption")[0].textContent,
-    /1 check · 1 undetermined/,
+    /never asked/,
+  );
+  assert.match(
+    byClass(evidence, "carried-item-evidence-caption")[0].textContent,
+    /verified before merge/,
   );
   assert.equal(byClass(evidence, "review-shot").length, 1);
   assert.equal(byClass(evidence, "carried-item-evidence-note").length, 0);
