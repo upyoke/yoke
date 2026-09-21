@@ -35,7 +35,7 @@ from typing import Any, Sequence
 
 from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds, marker
-
+from yoke_core.domain.steering_fleet_report_timing import report_timed
 
 #: An answerer that is live and working. Rendered as a real row so the seat
 #: sees the open question, but never as evidence that the wait is dead.
@@ -174,6 +174,7 @@ def _answerability(conn: Any, answerer: str) -> str:
     return UNRESOLVED
 
 
+@report_timed("dead_waits")
 def dead_waits(
     conn: Any,
     *,

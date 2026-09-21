@@ -26,8 +26,8 @@ from yoke_core.domain.actor_message_recipient_schema import (
     TABLE as RECIPIENT_TABLE,
 )
 from yoke_core.domain.session_message_types import timestamp
+from yoke_core.domain.steering_fleet_report_timing import report_timed
 from yoke_core.domain.steering_scope_coverage import steering_scope_covers
-
 
 TABLE = RECIPIENT_TABLE
 STEERING_KIND = "steering"
@@ -216,6 +216,7 @@ def session_awaiting_seat_reply(conn: Any, session_id: str) -> dict[str, Any] | 
     return None
 
 
+@report_timed("awaiting_seat")
 def awaiting_seat_count(conn: Any, *, project_id: int, scope: Mapping[str, Any]) -> int:
     """How many role-addressed messages in this scope have no live seat."""
     return len(drainable_rows(conn, scope=scope, project_id=project_id))

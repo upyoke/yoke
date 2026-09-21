@@ -50,11 +50,11 @@ from yoke_core.domain.steering_fleet_report_detectors import (
     UnregisteredLaunch,
     unregistered_launches,
 )
+from yoke_core.domain.steering_fleet_report_holders import ClaimHolder, claim_holders
 from yoke_core.domain.steering_fleet_report_landed_open import (
     LandedItem,
     landed_without_closeout,
 )
-from yoke_core.domain.steering_fleet_report_holders import ClaimHolder, claim_holders
 from yoke_core.domain.steering_fleet_report_limits import (
     MachinePlanLimit,
     load_plan_limits,
@@ -71,6 +71,7 @@ from yoke_core.domain.steering_fleet_report_stranded import (
     StrandedSession,
     stranded_sessions,
 )
+from yoke_core.domain.steering_fleet_report_timing import report_phase, report_timed
 from yoke_core.domain.steering_fleet_report_undelivered import (
     UndeliveredMessages,
     undelivered_messages,
@@ -106,6 +107,7 @@ class ProjectFleetFacts:
     machine_names: Mapping[str, str]
 
 
+@report_timed("project_facts")
 def read_project_facts(
     conn: Any,
     *,
@@ -164,7 +166,8 @@ class FleetReportReads:
     def cached(self, key: tuple[Any, ...], factory: Callable[[], Any]) -> Any:
         """Return ``factory()`` for ``key``, evaluating it once per request."""
         if key not in self._memo:
-            self._memo[key] = factory()
+            with report_phase("read." + str(key[0])):
+                self._memo[key] = factory()
         return self._memo[key]
 
     def machine_names(self, conn: Any) -> Mapping[str, str]:

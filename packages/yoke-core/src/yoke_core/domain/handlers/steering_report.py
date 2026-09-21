@@ -10,12 +10,13 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, ValidationError
-
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
 )
+
+from yoke_core.domain.steering_fleet_report_timing import report_phase, report_timed
 
 
 class SteeringReportGetRequest(BaseModel):
@@ -73,6 +74,7 @@ def _claim_required(project_id: int | None) -> HandlerOutcome:
     )
 
 
+@report_timed("pull", root=True)
 def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
     """Compose held-scope reports, or one scope when --project is set."""
     try:
@@ -116,9 +118,10 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
             return _claim_required(project_id)
         if project_id is not None:
             report = combined.sections[0].report
-            return HandlerOutcome(
-                result_payload={**report_dict(report), "body": report_body(report)}
-            )
+            with report_phase("render"):
+                return HandlerOutcome(
+                    result_payload={**report_dict(report), "body": report_body(report)}
+                )
         return HandlerOutcome(result_payload=combined_dict(combined))
     finally:
         conn.close()

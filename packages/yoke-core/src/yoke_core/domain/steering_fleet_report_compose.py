@@ -10,36 +10,37 @@ further refinement becomes another section rather than a new code path.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
+from dataclasses import dataclass
 from typing import Any, Mapping
 
 from yoke_contracts.project_contract.project_keys import (
     DEFAULT_STEERING_REPORT_IDLE_MINUTES,
     DEFAULT_STEERING_REPORT_STAFFING_MINUTES,
 )
+
+from yoke_core.domain import steering_fleet_report as fleet_report
 from yoke_core.domain.project_identity import resolve_project_slug
 from yoke_core.domain.project_policy_capabilities import project_policy_value
 from yoke_core.domain.steering_claims import list_session_claims
-from yoke_core.domain.steering_scope_membership import scope_document
-from yoke_core.domain import steering_fleet_report as fleet_report
 from yoke_core.domain.steering_fleet_report import FleetReport
-from yoke_core.domain.steering_fleet_report_machine_block import machine_shared_lines
-from yoke_core.domain.steering_fleet_report_projection import report_dict
-from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
 from yoke_core.domain.steering_fleet_report_inbox import (
     UnackedInjectedMessage,
     load_unacked_injected,
     unacked_section_lines,
     wake_ack_grace_seconds,
 )
+from yoke_core.domain.steering_fleet_report_machine_block import machine_shared_lines
+from yoke_core.domain.steering_fleet_report_projection import report_dict
+from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
 from yoke_core.domain.steering_fleet_report_render import (
     REPORT_BEGIN,
     REPORT_END,
     scope_inner_body,
 )
-
+from yoke_core.domain.steering_fleet_report_timing import report_timed
+from yoke_core.domain.steering_scope_membership import scope_document
 
 COMBINED_PREAMBLE = (
     "Control-plane state, composed server-side for every steering claim this "
@@ -115,6 +116,7 @@ class CombinedFleetReport:
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
+@report_timed("compose", root=True)
 def compose_held_reports(
     conn: Any,
     *,
@@ -190,6 +192,7 @@ def compose_held_reports(
     )
 
 
+@report_timed("render_body", root=True)
 def combined_body(combined: CombinedFleetReport) -> str:
     """One envelope: per-scope facts, then one machine block per machine_id.
 
@@ -216,6 +219,7 @@ def combined_body(combined: CombinedFleetReport) -> str:
     return "\n".join(parts)
 
 
+@report_timed("render", root=True)
 def combined_dict(combined: CombinedFleetReport) -> dict[str, Any]:
     """Machine-readable projection of the combined report."""
     from yoke_core.domain.steering_fleet_report_hook_digest import (

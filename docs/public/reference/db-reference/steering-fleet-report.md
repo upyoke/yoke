@@ -56,3 +56,31 @@ Every detector except dead waits, verified process death, and positive launch-co
 Two absences are deliberate and recorded rather than left silent. A stale claim is not available work — the item keeps its holder until the stale-session sweep releases it — and the window between a holder going stale and the sweep firing needs no section of its own, because idleness is measured from `last_tool_call_at` rather than from any liveness label: the holder is in the idle list throughout and the item becomes available the moment the sweep releases it. And an item an operator is holding on purpose is excluded by the flag the operator sets: the frontier composition the report reads already drops frozen and operator-blocked items, so `yoke items freeze` and `yoke items block` are the whole hold mechanism. Work that will never resume is `yoke items cancel`, not freeze. Teaching the report to infer a hold from age would hide real unstaffed work.
 
 A steerer or operator can disable one `(machine, surface)` with `yoke session-control surface-policy disable --project P --machine M --surface S --reason TEXT`. Launch preview/create and native-resume wakes then skip that relay and name the mark, the reason, and the enable command. In-flight sessions stay up. `yoke status` lists live marks on that machine. No counters, auto-trip, or probing.
+
+### Performance diagnostics
+
+The existing structured service logs emit `SteeringReportTiming` for report
+composition and rendering, including failed calls. Filter CloudWatch Logs by
+`event_name = "SteeringReportTiming"`; `context.operation` names the boundary
+and `context.phases` holds `duration_ms`, `calls`, and `errors` per section. Errors count raised exceptions, not returned
+statuses such as an unreadable upstream result.
+On-demand pulls emit one `pull` boundary covering composition and rendering,
+with the function request id and steering session id. Composition logs outside
+that handler carry the steering `session_id` and an explicit project
+filter when supplied. A nested scope or render shares its outer observation,
+so it does not emit a second log. These are log records, not database events.
+
+`compose`/`scope` measure composition; `project_facts` and `read.*` measure
+local/database-backed fact preparation, `awaiting_seat` measures message
+counts, `in_flight` and `dead_waits` measure session classification, and
+`deployments` measures deployment diagnostics. `github.*` measures each
+uncached PR, queue or checks read, including credential resolution and
+retries. Request-cache hits do not count as another read. `render` and
+`render_body` measure output assembly. Section times are inclusive and overlap:
+do not sum them. Fact preparation is elapsed application time, not pure SQL
+execution time; the report boundary excludes HTTP authentication and queueing.
+
+Collection uses monotonic clocks and request-local memory, adds no database
+queries or writes, and never affects report fingerprints or delivery decisions.
+A logging failure cannot fail the report. Missing timing logs are missing
+observations, never evidence that the report was fast.

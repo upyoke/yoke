@@ -32,6 +32,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_contracts.public_ref import format_item_ref
+
 from yoke_core.domain.deployment_qa_case_failure_kinds import RED_VERDICTS
 from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
 from yoke_core.domain.deployment_run_completion_preconditions import (
@@ -39,10 +40,11 @@ from yoke_core.domain.deployment_run_completion_preconditions import (
     redrive_recovery,
     unresolved_blocking_qa,
 )
-from yoke_core.domain.runs import RunStatus, TERMINAL_RUN_STATUSES
+from yoke_core.domain.runs import TERMINAL_RUN_STATUSES, RunStatus
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_message_types import row_dict
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds, marker
+from yoke_core.domain.steering_fleet_report_timing import report_timed
 
 
 @dataclass(frozen=True)
@@ -119,9 +121,7 @@ class DeploymentRunProgress:
             self.status == RunStatus.CREATED and self.outstanding == 0
         )
         return (
-            bool(self.red)
-            or self.answered_decision is not None
-            or waiting_to_be_driven
+            bool(self.red) or self.answered_decision is not None or waiting_to_be_driven
         )
 
     def recovery(self) -> str:
@@ -252,6 +252,7 @@ def _answered_decision(
     )
 
 
+@report_timed("deployments")
 def run_progress(
     conn: Any,
     *,

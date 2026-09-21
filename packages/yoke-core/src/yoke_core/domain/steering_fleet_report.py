@@ -70,13 +70,13 @@ from yoke_core.domain.steering_fleet_report_detectors import (
     UnregisteredLaunch,
     suspected_orphaned_waiters,
 )
-from yoke_core.domain.steering_fleet_report_landed_open import LandedItem
 from yoke_core.domain.steering_fleet_report_fingerprint import report_fingerprint
 from yoke_core.domain.steering_fleet_report_holders import ClaimHolder
 from yoke_core.domain.steering_fleet_report_in_flight import (
     InFlightCall,
     partition_quiet,
 )
+from yoke_core.domain.steering_fleet_report_landed_open import LandedItem
 from yoke_core.domain.steering_fleet_report_landings import (
     FleetLandingReadback,
     landing_readbacks,
@@ -91,6 +91,7 @@ from yoke_core.domain.steering_fleet_report_scope import (
     sessions_only,
 )
 from yoke_core.domain.steering_fleet_report_stranded import StrandedSession
+from yoke_core.domain.steering_fleet_report_timing import report_timed
 from yoke_core.domain.steering_fleet_report_undelivered import UndeliveredMessages
 from yoke_core.domain.steering_fleet_report_vendor_errors import VendorErrorSession
 from yoke_core.domain.steering_message_recipients import awaiting_seat_count
@@ -224,6 +225,7 @@ class FleetReport:
         return report_fingerprint(self)
 
 
+@report_timed("scope", root=True)
 def compose_report(
     conn: Any,
     *,

@@ -20,6 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
+from yoke_core.domain.steering_fleet_report_timing import report_phase
 from yoke_core.engines.merge_worktree_pr_check_runs import (
     LandingCheck,
     read_required_checks,
@@ -45,7 +46,8 @@ class MergeQueueReads:
 
     def _read(self, key: tuple[str, str, str], factory: Callable[[], Any]) -> Any:
         if key not in self._answers:
-            self._answers[key] = factory()
+            with report_phase("github." + key[0]):
+                self._answers[key] = factory()
         return self._answers[key]
 
     def pr_landing_state(

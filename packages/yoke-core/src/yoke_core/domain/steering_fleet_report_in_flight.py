@@ -34,6 +34,7 @@ from dataclasses import dataclass
 from typing import Any, Sequence
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS
+
 from yoke_core.domain.session_activity_state import has_session_tool_calls_table
 from yoke_core.domain.session_reclaim_progress import open_tool_call_is_live
 from yoke_core.domain.steering_fleet_report_detectors import (
@@ -41,7 +42,7 @@ from yoke_core.domain.steering_fleet_report_detectors import (
     marker,
     parse_stamp,
 )
-
+from yoke_core.domain.steering_fleet_report_timing import report_timed
 
 #: How long an open long-running call may go unexamined before it rejoins the
 #: idle alarm. Set to the widest budget any of these shapes gives itself -- the
@@ -124,6 +125,7 @@ def _newest_open_call(conn: Any, session_id: str) -> dict[str, Any] | None:
     return dict(row) if row is not None else None
 
 
+@report_timed("in_flight")
 def in_flight_calls(
     conn: Any,
     *,
