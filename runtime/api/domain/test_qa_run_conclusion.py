@@ -45,6 +45,46 @@ def test_worktree_tree_identity_alone_is_not_a_ci_conclusion() -> None:
     assert conclusion_proof_summary(raw) is None
 
 
+def test_merge_queue_batch_nested_run_url_is_the_openable_conclusion() -> None:
+    raw = json.dumps(
+        {
+            "verification_tree": {"head_sha": SHA},
+            "merge_queue_batch": {
+                "combined_head_sha": SHA,
+                "run_url": RUN_URL,
+            },
+        }
+    )
+    fields = run_conclusion_fields(raw)
+    assert fields["run_url"] == RUN_URL
+    assert conclusion_proof_summary(raw) == f"verified {SHA[:12]} · GitHub Actions run"
+    summary = qa_proof_summary(
+        method_id="command",
+        run_id=92,
+        raw_result=raw,
+        artifacts={},
+        outcome="passed",
+        verdict_reason=None,
+        capture_degraded_reason=None,
+        host_baseline=None,
+        precondition_reason=None,
+        proof_kind="command",
+    )
+    assert summary == f"verified {SHA[:12]} · GitHub Actions run"
+
+
+def test_merge_queue_batch_without_run_url_is_not_a_ci_conclusion() -> None:
+    raw = json.dumps(
+        {
+            "verification_tree": {"head_sha": SHA},
+            "merge_queue_batch": {"combined_head_sha": SHA},
+        }
+    )
+    fields = run_conclusion_fields(raw)
+    assert fields == {"run_url": "", "ci_conclusion": ""}
+    assert conclusion_proof_summary(raw) is None
+
+
 def test_javascript_url_is_refused() -> None:
     fields = run_conclusion_fields(
         json.dumps({"run_url": "javascript:alert(1)", "ci_run_id": "1"})

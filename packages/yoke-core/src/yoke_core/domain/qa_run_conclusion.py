@@ -35,10 +35,19 @@ def _payload(raw_result: Any) -> dict[str, Any]:
     return parsed if isinstance(parsed, dict) else {}
 
 
+def _run_url_candidates(payload: Mapping[str, Any]) -> tuple[str, ...]:
+    urls = [str(payload.get("run_url") or "")]
+    batch = payload.get("merge_queue_batch")
+    if isinstance(batch, Mapping):
+        urls.append(str(batch.get("run_url") or ""))
+    return tuple(urls)
+
+
 def _actions_run_url(payload: Mapping[str, Any]) -> str:
-    url = str(payload.get("run_url") or "").strip()
-    if _ACTIONS_RUN.match(url):
-        return url.rstrip("/")
+    for candidate in _run_url_candidates(payload):
+        url = candidate.strip()
+        if _ACTIONS_RUN.match(url):
+            return url.rstrip("/")
     repo = str(payload.get("repo") or "").strip()
     run_id = str(payload.get("ci_run_id") or "").strip()
     if _REPO.match(repo) and run_id.isdigit():
@@ -61,9 +70,10 @@ def run_conclusion_fields(raw_result: Any) -> dict[str, str]:
     """Return the openable CI conclusion, or empty strings when there is none.
 
     Presence of ``ci_run_id``, ``ci_conclusion``, or a GitHub Actions
-    ``run_url`` marks a CI conclusion. ``verification_tree`` alone does not
-    — worktree command runs record a SHA too, and their proof is the
-    attached output, not this link.
+    ``run_url`` (top-level or under ``merge_queue_batch``) marks a CI
+    conclusion. ``verification_tree`` alone does not — worktree command
+    runs record a SHA too, and their proof is the attached output, not
+    this link.
     """
     payload = _payload(raw_result)
     url = _actions_run_url(payload)
