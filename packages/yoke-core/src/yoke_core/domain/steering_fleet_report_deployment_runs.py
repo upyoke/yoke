@@ -190,6 +190,14 @@ def run_progress(
         entered = facts.entered_at.get(run_id) or str(
             run.get("started_at") or run.get("created_at") or ""
         )
+        red = tuple(
+            RedRequirement(
+                requirement_id=int(item["requirement_id"]),
+                verdict=str(item["verdict"]),
+                member_ref=str(item.get("member_ref") or ""),
+            )
+            for item in facts.red.get(run_id, ())
+        )
         rows.append(
             DeploymentRunProgress(
                 run_id=run_id,
@@ -200,16 +208,13 @@ def run_progress(
                 outstanding=outstanding,
                 total_blocking=total_blocking,
                 unresolved=unresolved,
-                red=tuple(
-                    RedRequirement(
-                        requirement_id=int(item["requirement_id"]),
-                        verdict=str(item["verdict"]),
-                        member_ref=str(item.get("member_ref") or ""),
-                    )
-                    for item in facts.red.get(run_id, ())
-                ),
+                red=red,
                 answered_decision=_answered(facts.decisions.get(run_id), now=now),
-                pin_qa=diagnose_unpassable_blocking_qa(conn, run_id=run_id),
+                pin_qa=(
+                    diagnose_unpassable_blocking_qa(conn, run_id=run_id)
+                    if red
+                    else PinQaDiagnosis()
+                ),
             )
         )
     return tuple(rows)
