@@ -41,7 +41,10 @@ from typing import Any, Optional
 
 from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
 from yoke_core.domain.deployment_run_completion_preconditions import redrive_recovery
-from yoke_core.domain.deployment_run_driver_attachment import live_attachment_for_run
+from yoke_core.domain.deployment_run_driver_attachment import (
+    is_live,
+    parse_attachment,
+)
 from yoke_core.domain.deployment_run_unpassable_blocking_qa import (
     PinQaDiagnosis,
     diagnose_unpassable_blocking_qa,
@@ -206,7 +209,12 @@ def run_progress(
             )
             for item in facts.red.get(run_id, ())
         )
-        attached = live_attachment_for_run(conn, run_id_value=run_id, now=now)
+        attached = parse_attachment(run_id, run.get("driver_attachment"))
+        driver_phase = (
+            attached.phase
+            if attached is not None and is_live(attached, now=now)
+            else ""
+        )
         rows.append(
             DeploymentRunProgress(
                 run_id=run_id,
@@ -224,7 +232,7 @@ def run_progress(
                     if red
                     else PinQaDiagnosis()
                 ),
-                driver_phase=attached.phase if attached is not None else "",
+                driver_phase=driver_phase,
             )
         )
     return tuple(rows)
