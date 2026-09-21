@@ -4,7 +4,7 @@ Reads the latest workflow run for ``(repo, workflow)`` on ``branch`` and,
 when supplied, the exact ``head_sha``
 via :mod:`yoke_core.domain.gh_rest_transport`, classifies the result
 into one of the canonical advisory states (``passed`` / ``failed`` /
-``running`` / ``no_runs``), and returns the structured payload.
+``no_verdict`` / ``running`` / ``no_runs``), and returns the structured payload.
 
 An empty ``branch`` means "any ref": the run is then selected by
 ``head_sha`` alone, which is how a candidate frozen without a branch of
@@ -75,8 +75,10 @@ class CheckCiRequest(BaseModel):
 
 
 class CheckCiResponse(BaseModel):
-    # passed | failed | running | no_runs. The CLI adapter's client-side
-    # wait loop additionally synthesizes "timeout" on budget exhaustion.
+    # passed | failed | no_verdict | running | no_runs. The CLI adapter's
+    # client-side wait loop additionally synthesizes "timeout" on budget
+    # exhaustion. ``no_verdict`` is a completed run that is not a pass
+    # and not a failing test (cancelled, skipped, empty conclusion).
     state: str
     run_id: Optional[int] = None
     html_url: Optional[str] = None
@@ -147,11 +149,18 @@ def _classify(run: Optional[Dict[str, Any]]) -> CheckCiResponse:
     html_url = str(run.get("html_url") or "").strip() or None
 
     if status == "completed":
-        state = "passed" if conclusion == "success" else "failed"
+        if conclusion == "success":
+            state = "passed"
+        elif conclusion == "failure":
+            state = "failed"
+        else:
+            state = "no_verdict"
     elif status in _RUNNING_STATUSES:
         state = "running"
+    elif status:
+        state = "no_verdict"
     else:
-        state = "failed" if status else "no_runs"
+        state = "no_runs"
 
     return CheckCiResponse(
         state=state,

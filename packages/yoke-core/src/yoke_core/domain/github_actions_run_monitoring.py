@@ -91,10 +91,18 @@ def check_ci_command(
         ci_url = str(run.get("html_url") or "")
 
         if ci_status == "completed":
-            if ci_conclusion == "success":
+            from yoke_core.domain.handlers.github_actions_check_ci import (
+                _classify,
+            )
+
+            classified = _classify(run)
+            if classified.state == "passed":
                 print(f"passed|{ci_id}|{ci_url}")
                 sys.exit(0)
-            print(f"failed:{ci_conclusion}|{ci_id}|{ci_url}")
+            if classified.state == "failed":
+                print(f"failed:{ci_conclusion}|{ci_id}|{ci_url}")
+                sys.exit(1)
+            print(f"no_verdict:{ci_conclusion}|{ci_id}|{ci_url}")
             sys.exit(1)
 
         if not wait:

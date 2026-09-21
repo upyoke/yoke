@@ -45,6 +45,8 @@ class CommitRun(BaseModel):
     conclusion: str = ""
     html_url: str = ""
     head_sha: str = ""
+    head_branch: str = ""
+    event: str = ""
 
 
 class CommitRunsListResponse(BaseModel):
@@ -113,6 +115,8 @@ def handle_commit_runs_list(request: FunctionCallRequest) -> HandlerOutcome:
             conclusion=str(run.get("conclusion") or ""),
             html_url=str(run.get("html_url") or ""),
             head_sha=str(run.get("head_sha") or ""),
+            head_branch=str(run.get("head_branch") or ""),
+            event=str(run.get("event") or ""),
         )
         for run in _selected(data, head_sha, str(payload.workflow or ""))
     ]

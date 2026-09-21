@@ -129,6 +129,8 @@ def test_the_handler_selects_by_exact_sha_and_workflow_name(
     assert outcome.primary_success
     assert [run["id"] for run in outcome.result_payload["runs"]] == ["1"]
     assert outcome.result_payload["repo"] == "owner/name"
+    assert outcome.result_payload["runs"][0]["head_branch"] == ""
+    assert outcome.result_payload["runs"][0]["event"] == ""
 
 
 def test_the_handler_defaults_to_the_projects_bound_repository(
@@ -165,6 +167,49 @@ def test_the_handler_defaults_to_the_projects_bound_repository(
     assert outcome.primary_success
     assert seen["path"] == "/repos/owner/name/actions/runs"
     assert seen["query"]["head_sha"] == HEAD
+
+
+def test_the_handler_keeps_head_branch_and_event(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        handler_module,
+        "_validate_and_resolve_auth",
+        lambda request, model, function_id, *, required_permissions: (
+            model.model_validate(request.payload or {}),
+            _Resolved(),
+            None,
+        ),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.github_actions_rest.rest_get",
+        lambda path, *, query, token: {
+            "workflow_runs": [
+                {
+                    "id": 9,
+                    "name": "yoke-ci",
+                    "head_sha": HEAD,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "head_branch": "gh-readonly-queue/main/pr-1425",
+                    "event": "merge_group",
+                },
+            ]
+        },
+    )
+
+    outcome = handler_module.handle_commit_runs_list(
+        _request(
+            function=handler_module.FUNCTION_ID,
+            target=TargetRef(kind="global"),
+            payload={"project": "yoke", "head_sha": HEAD},
+        )
+    )
+
+    assert outcome.primary_success
+    run = outcome.result_payload["runs"][0]
+    assert run["head_branch"] == "gh-readonly-queue/main/pr-1425"
+    assert run["event"] == "merge_group"
 
 
 def test_the_read_is_reachable_under_attended_local_authority():

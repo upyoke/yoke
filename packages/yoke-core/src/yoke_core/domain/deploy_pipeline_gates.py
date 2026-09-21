@@ -283,9 +283,19 @@ def _check_ci_gate(
     if state == "passed":
         return True, f"  CI gate: {subject} CI passed"
     if state == "failed":
-        return False, _failed_ci_message(subject)
+        return False, ci_recovery.failed_ci_message(subject)
+    if state == "no_verdict":
+        conclusion = (
+            str(result.get("conclusion") or "") if isinstance(result, dict) else ""
+        )
+        return False, ci_recovery.no_verdict_ci_message(
+            subject=subject,
+            conclusion=conclusion,
+            project=project,
+            head_sha=head_sha,
+        )
     if state == "timeout":
-        return False, _timed_out_ci_message(subject, timeout_sec)
+        return False, ci_recovery.timed_out_ci_message(subject, timeout_sec)
     if state == "no_runs":
         if head_sha:
             return ci_recovery.recover_missing_ci_gate(
@@ -325,22 +335,3 @@ def _function_response_envelope(output: str) -> Optional[dict]:
         if isinstance(parsed, dict) and "success" in parsed:
             return parsed
     return None
-
-
-def _failed_ci_message(subject: str) -> str:
-    return (
-        f"\nBLOCKED: Cannot deploy — CI has failed for {subject}.\n\n"
-        "Remediation:\n"
-        f"  1. Fix the failing CI on {subject}\n"
-        "  2. Re-run the deployment pipeline\n"
-    )
-
-
-def _timed_out_ci_message(subject: str, timeout_sec: int) -> str:
-    return (
-        f"\nBLOCKED: Cannot deploy — CI timed out for {subject} "
-        f"({timeout_sec}s).\n\n"
-        "Remediation:\n"
-        "  1. Wait for CI to complete, then re-run the deployment pipeline\n"
-        "  2. Or increase --timeout if the CI workflow normally takes longer\n"
-    )
