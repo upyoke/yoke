@@ -190,7 +190,7 @@ Observe → `ouroboros_entries` → `/yoke curate` → `/yoke doctor` → `/yoke
 # Yoke Repo Internals
 <!-- Not shipped. -->
 ## Source-Dev Doctrine
-[`docs/source-dev-doctrine.md`](docs/source-dev-doctrine.md). **Read it before a test selection, release, render, deploy, preflight, or cleanup here.** One rule inline, because violating it silently verifies the wrong code:
-- **Run lane-source commands through `yoke dev run -- <command>`** — installed `yoke` and `python3 -m ...` resolve main, never the claimed lane. `--local`: small targeted check expected to finish in about one minute; uncommitted work does not justify a slow one; inject xdist `-n auto`. CI: `yoke watch pytest -- runtime/api/ runtime/harness/ tests/`; `yoke dev ruff-changed --base <ref>`.
+[`docs/source-dev-doctrine.md`](docs/source-dev-doctrine.md). **Read it before a test selection, release, render, deploy, preflight, or cleanup.** One rule inline, because violating it silently verifies the wrong code:
+- **Run lane-source commands through `yoke dev run -- <command>`** — installed `yoke` and `python3 -m ...` resolve main, never the lane. `--local`: small targeted check expected to finish in about one minute; uncommitted work does not justify a slow one; inject xdist `-n auto`. CI: `yoke watch pytest -- runtime/api/ runtime/harness/ tests/` (`python3 -m yoke_core.tools.run_tests`); `yoke dev ruff-changed --base <ref>`.
 A second rule inline, because violating it silently serializes this concurrent pair:
-- **A release here is two concurrent runs on one lineage** — stage on the HTTPS control-plane connection, production on paired `prod-db-admin` (replaces the serving API). Drive them together; stage only tests the live control plane and a Yoke stage run carries no members. Do not lift it onto a project whose stage is a real pre-production gate.
+- **A release here is two concurrent runs on one lineage** — stage on HTTPS control-plane connection, production on paired `prod-db-admin` (replaces the serving API). Stage only tests the live control plane and a Yoke stage run carries no members. Do not lift it onto a project whose stage is a real pre-production gate.
