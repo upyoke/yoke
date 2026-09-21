@@ -254,6 +254,23 @@ def test_assert_with_misplaced_route_is_refused() -> None:
         )
 
 
+def test_screenshot_may_declare_label() -> None:
+    config = validate_method_config(
+        "browser-inspection",
+        {
+            "steps": [
+                {"action": "navigate", "route": "/"},
+                {
+                    "action": "screenshot",
+                    "capture": True,
+                    "label": "home",
+                },
+            ]
+        },
+    )
+    assert config["steps"][1]["label"] == "home"
+
+
 def test_count_gte_may_declare_timeout_ms() -> None:
     config = validate_method_config(
         "browser-check",

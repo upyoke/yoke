@@ -22,7 +22,7 @@ const ACTION_STEP_KEYS = Object.freeze({
   type: Object.freeze(['target', 'value', 'delay']),
   fill_form: Object.freeze(['fields']),
   assert: Object.freeze(['target', 'check', 'expected', 'min_count']),
-  screenshot: Object.freeze(['capture', 'fullPage']),
+  screenshot: Object.freeze(['capture', 'fullPage', 'label']),
   wait_for: Object.freeze(['target']),
   delay: Object.freeze(['duration', 'duration_ms']),
   scroll: Object.freeze(['target', 'x', 'y']),

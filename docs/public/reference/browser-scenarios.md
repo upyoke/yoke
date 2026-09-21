@@ -55,7 +55,7 @@ There is no translation layer.
 | `type` | `target`, `value` | Type into an input. |
 | `fill_form` | `fields` | Fill several target/value pairs. |
 | `assert` | `target`, `check` | Evaluate an observable condition. |
-| `screenshot` | `capture: true` | Save screenshot evidence. |
+| `screenshot` | `capture: true` | Save screenshot evidence. Optional `label` names the capture. |
 | `wait_for` | `target` | Wait for a visible element. |
 | `delay` | optional `duration` or `duration_ms` | Wait a number of milliseconds. |
 | `scroll` | optional `target`, `x`, `y` | Scroll to an element or offset. |

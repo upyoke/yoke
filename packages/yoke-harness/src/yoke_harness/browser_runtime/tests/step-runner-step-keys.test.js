@@ -6,6 +6,8 @@
  * Run: node tests/step-runner-step-keys.test.js
  */
 
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
 const { executeStep } = require('../src/step-runner');
@@ -112,6 +114,30 @@ async function testAssertDoesNotAcceptRoute() {
   await page.close();
 }
 
+async function testScreenshotHonoursLabel() {
+  console.log('\n## Test: screenshot honours label');
+  const page = await context.newPage();
+  await page.goto(fixtureUrl(), { waitUntil: 'domcontentloaded' });
+  const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yoke-step-keys-'));
+
+  const result = await executeStep(page, {
+    action: 'screenshot',
+    capture: true,
+    label: 'home',
+  }, { baseUrl: baseUrl(), outputDir });
+
+  assertEqual(result.success, true, 'screenshot with label succeeds');
+  assert(
+    Array.isArray(result.artifacts) && result.artifacts.length === 1,
+    'one artifact produced'
+  );
+  assert(
+    /screenshot-home-\d+\.png$/.test(result.artifacts[0] || ''),
+    'artifact filename includes the label'
+  );
+  await page.close();
+}
+
 async function testDelayDoesNotAcceptMs() {
   console.log('\n## Test: delay with ms instead of duration is refused');
   const page = await context.newPage();
@@ -142,6 +168,7 @@ async function run() {
     await testNavigateTargetDoesNotFallThroughToBaseUrl();
     await testEmptyNavigateRouteIsRefused();
     await testAssertDoesNotAcceptRoute();
+    await testScreenshotHonoursLabel();
     await testDelayDoesNotAcceptMs();
   } catch (err) {
     console.error('\nUnexpected error:', err);

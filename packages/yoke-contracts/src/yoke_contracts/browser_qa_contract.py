@@ -56,7 +56,7 @@ ACTION_STEP_KEYS = {
     "type": frozenset({"target", "value", "delay"}),
     "fill_form": frozenset({"fields"}),
     "assert": frozenset({"target", "check", "expected", "min_count"}),
-    "screenshot": frozenset({"capture", "fullPage"}),
+    "screenshot": frozenset({"capture", "fullPage", "label"}),
     "wait_for": frozenset({"target"}),
     "delay": frozenset({"duration", "duration_ms"}),
     "scroll": frozenset({"target", "x", "y"}),
