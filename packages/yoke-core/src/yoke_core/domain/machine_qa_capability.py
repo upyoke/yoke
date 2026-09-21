@@ -224,6 +224,13 @@ def _test_machine_detail(
             "error_code": verification[3] if verification else None,
             "checks": list(receipt.get("checks") or []),
             "host_end_state": host_end_state(list(receipt.get("checks") or [])),
+            "status_meaning": (
+                "bookkeeping: verified_at is unset; not a health or "
+                "authorization diagnosis. Browser profile authorization is "
+                "yoke qa browser status"
+                if status == "configured_unverified"
+                else None
+            ),
         },
         "operations": test_machine_operation_receipts(
             conn,

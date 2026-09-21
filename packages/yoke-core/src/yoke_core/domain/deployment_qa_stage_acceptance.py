@@ -29,6 +29,7 @@ from yoke_core.domain.deployment_qa_admission_materialization import (
     fulfill_admitted_obligations,
 )
 from yoke_core.domain import qa_execution_environment_target as target_authority
+from yoke_core.domain.refusal_recovery import compose_refusal
 
 
 def latest_verdict(conn: Any, requirement_id: int) -> str:
@@ -147,6 +148,21 @@ STAGE_REJECTED = "rejected"
 STAGE_AWAITING_REVIEW = "awaiting review"
 
 
+def unsettled_acceptance_blocker(*, execution_id: object, digest: str) -> str:
+    """Whole-state recovery for an unmatched completed execution."""
+    return compose_refusal(
+        "stage acceptance was never settled against this deployment target",
+        evaluated=(
+            f"completed scoped execution {execution_id} matches digest "
+            f"{digest}; no case failed"
+        ),
+        recovery=(
+            "re-drive the deployment run; steering owns the run and there "
+            "is no member or worker action"
+        ),
+    )
+
+
 @dataclass(frozen=True)
 class StageAcceptance:
     """One stage subject's acceptance, as a state and the reasons behind it."""
@@ -240,7 +256,11 @@ def stage_acceptance(
     if requirement_id is None:
         return StageAcceptance(
             STAGE_UNSETTLED,
-            ("stage acceptance was never settled against this deployment target",),
+            (
+                unsettled_acceptance_blocker(
+                    execution_id=execution["id"], digest=digest
+                ),
+            ),
         )
     if acceptance_waived(conn, requirement_id):
         return StageAcceptance(STAGE_ACCEPTED, ())
@@ -295,4 +315,5 @@ __all__ = [
     "latest_verdict",
     "stage_acceptance",
     "stage_acceptance_blockers",
+    "unsettled_acceptance_blocker",
 ]

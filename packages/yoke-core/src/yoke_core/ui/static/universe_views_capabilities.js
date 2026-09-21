@@ -9,9 +9,13 @@ import {
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { renderTestMachineDetail } from "./universe_view_test_machine.js";
 import { relativeTime } from "./universe_time.js";
+import {
+  CONFIGURED_UNVERIFIED_LABEL,
+  CONFIGURED_UNVERIFIED_TITLE,
+} from "./universe_state_pills.js";
 
 const CAPABILITY_LABELS = {
-  configured_unverified: "configured (unverified)",
+  configured_unverified: CONFIGURED_UNVERIFIED_LABEL,
   in_use: "in use",
 };
 
@@ -101,6 +105,9 @@ function renderCapabilityTable(body, rows, columns) {
           text,
           column.display ? column.display(row) : capabilityLabel(text),
         );
+        if (pill && text === "configured_unverified") {
+          pill.setAttribute("title", CONFIGURED_UNVERIFIED_TITLE);
+        }
         if (pill) cell.appendChild(pill);
       } else if (isNode) {
         cell.appendChild(value);
@@ -121,8 +128,8 @@ function renderCapabilityTable(body, rows, columns) {
 // projects its display label, kind, ordering, detail route, and state model.
 // The verified stamp is whichever source the engine trusts for that type
 // (the GitHub row wears its repo-binding freshness). A NULL stamp
-// renders as the word "never" — configured-but-never-verified is a warning,
-// not a resting state.
+// renders as the word "never" — verified_at unset is bookkeeping, not a
+// health warning. Browser profile authorization is yoke qa browser status.
 export function renderCapabilitiesView(context, main, scope) {
   const documentNode = context.document;
   const projects = context.projects();

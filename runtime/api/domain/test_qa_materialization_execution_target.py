@@ -85,7 +85,7 @@ def test_legacy_unbound_rows_are_not_silently_reused() -> None:
 
         with pytest.raises(
             QaPlanError,
-            match="legacy QA requirement.*start a fresh",
+            match="legacy QA requirement",
         ):
             materialize_for_item(
                 conn,
@@ -120,7 +120,7 @@ def test_rows_bound_to_another_target_are_not_silently_reused() -> None:
 
         with pytest.raises(
             QaPlanError,
-            match="different execution target.*start a fresh",
+            match="different execution target",
         ):
             materialize_for_item(
                 conn,
@@ -221,7 +221,7 @@ def test_a_requirement_with_run_evidence_keeps_its_target() -> None:
 
         with pytest.raises(
             QaPlanError,
-            match="different execution target.*start a fresh",
+            match="different execution target",
         ):
             rematerialize_for_item(
                 conn, item_id=826, transition_id="implemented"

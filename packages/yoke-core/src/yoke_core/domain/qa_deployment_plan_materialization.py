@@ -85,6 +85,7 @@ def materialize_deployment_plan(
                 existing_rows,
                 execution_target=execution_target,
                 subject=f"deployment run {deployment_run_id!r}",
+                conn=conn,
             ),
         }
 

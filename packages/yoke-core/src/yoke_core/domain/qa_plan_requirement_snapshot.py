@@ -24,6 +24,11 @@ from yoke_core.domain.qa_plan_case_definition import (
     case_target_subject,
     materialized_definition,
 )
+from yoke_core.domain.qa_plan_target_reuse_refusal import (
+    different_target_refusal,
+    requirement_verdict_and_runs,
+)
+from yoke_core.domain.refusal_recovery import compose_refusal
 
 
 def require_existing_target(
@@ -31,29 +36,44 @@ def require_existing_target(
     *,
     execution_target: Mapping[str, Any],
     subject: str,
+    conn: Any | None = None,
 ) -> list[int]:
     """Permit idempotent reuse only for rows bound to the exact target."""
     expected_json = canonical_target(execution_target)
     expected_digest = target_digest(execution_target)
+    item_bound = " transition " in subject and not subject.startswith("deployment run")
     ids: list[int] = []
     for row in rows:
         requirement_id = int(row["id"])
         raw_target = row["execution_target_json"]
         stored_digest = str(row["execution_target_digest"] or "")
+        verdict, has_runs = requirement_verdict_and_runs(conn, requirement_id)
         if not raw_target or not stored_digest:
             raise QaPlanError(
-                f"{subject} has legacy QA requirement {requirement_id} without "
-                "an execution target; preserve that evidence and start a fresh "
-                "deployment/plan execution, or use a sanctioned requirement "
-                "retirement or supersession operation before rematerializing"
+                compose_refusal(
+                    f"{subject} has legacy QA requirement {requirement_id} "
+                    "without an execution target",
+                    evaluated=f"requirement {requirement_id} has no stored digest",
+                    recovery=(
+                        "preserve that evidence and use a sanctioned "
+                        "requirement retirement or supersession before "
+                        "rematerializing"
+                    ),
+                )
             )
         try:
             stored_target = json.loads(str(raw_target))
         except (TypeError, ValueError) as exc:
             raise QaPlanError(
-                f"{subject} has invalid target evidence on QA requirement "
-                f"{requirement_id}; preserve it and use sanctioned retirement "
-                "or supersession before rematerializing"
+                compose_refusal(
+                    f"{subject} has invalid target evidence on QA requirement "
+                    f"{requirement_id}",
+                    evaluated="execution_target_json is not valid JSON",
+                    recovery=(
+                        "preserve it and use sanctioned retirement or "
+                        "supersession before rematerializing"
+                    ),
+                )
             ) from exc
         if (
             not isinstance(stored_target, dict)
@@ -62,10 +82,16 @@ def require_existing_target(
             or target_digest(stored_target) != stored_digest
         ):
             raise QaPlanError(
-                f"{subject} has QA requirement {requirement_id} bound to a "
-                "different execution target; do not reuse it—start a fresh "
-                "deployment/plan execution or use sanctioned retirement or "
-                "supersession before rematerializing"
+                different_target_refusal(
+                    subject=subject,
+                    requirement_id=requirement_id,
+                    stored_digest=stored_digest,
+                    expected_digest=expected_digest,
+                    latest_verdict=verdict,
+                    has_runs=has_runs,
+                    item_bound=item_bound,
+                    state_known=conn is not None,
+                )
             )
         ids.append(requirement_id)
     return ids
@@ -92,6 +118,7 @@ def require_requirement_id_target(
         [row],
         execution_target=execution_target,
         subject=subject,
+        conn=conn,
     )[0]
 
 

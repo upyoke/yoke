@@ -95,6 +95,17 @@ def test_undeclared_environment_refuses_endpoints_by_name() -> None:
         hosted_endpoints("blah", {"qa": {"hosted_runtime": True}})
 
 
+def test_incomplete_endpoints_report_declared_scheme_less_hosts() -> None:
+    settings = {"hosts": {"api": "app.upyoke.com"}}
+    with pytest.raises(MissingEnvironmentFact, match="not a URL") as caught:
+        hosted_endpoints("prod", settings)
+    text = str(caught.value)
+    assert "hosts.app=absent" in text
+    assert "hosts.api='app.upyoke.com'" in text
+    assert "replace declared-but-not-a-URL" in text
+    assert "Recovery:" in text
+
+
 def test_undeclared_runtime_does_not_inherit_production_qa_gating() -> None:
     require_runtime_target({"environment": {"name": "other"}})
     assert restricts_qa_to_self({}) is False

@@ -4,6 +4,10 @@ import {
   statePill,
 } from "./universe_view_support.js";
 import {
+  CONFIGURED_UNVERIFIED_LABEL,
+  CONFIGURED_UNVERIFIED_TITLE,
+} from "./universe_state_pills.js";
+import {
   machinePanel as panel,
   machineRelativeAge as relativeAge,
 } from "./test_machine_view_primitives.js";
@@ -160,7 +164,7 @@ export function operationsPanel(documentNode, detail) {
 function availabilityState(detail) {
   const verification = detail.verification || {};
   if (verification.status === "error") return "error";
-  if (verification.status !== "verified") return "configured (unverified)";
+  if (verification.status !== "verified") return CONFIGURED_UNVERIFIED_LABEL;
   return detail.active_lease ? "in use" : "ready";
 }
 
@@ -173,7 +177,7 @@ function leaseIdentity(active) {
 function methodAvailabilityState(detail) {
   const verification = detail.verification || {};
   if (verification.status === "error") return "error";
-  if (verification.status !== "verified") return "configured (unverified)";
+  if (verification.status !== "verified") return CONFIGURED_UNVERIFIED_LABEL;
   return "ready";
 }
 
@@ -188,7 +192,12 @@ export function availabilityPanel(documentNode, detail) {
     documentNode, "div", "lease test-machine-availability-state",
   );
   const state = statePill(documentNode, availabilityState(detail));
-  if (state) stateRow.appendChild(state);
+  if (state) {
+    if (availabilityState(detail) === CONFIGURED_UNVERIFIED_LABEL) {
+      state.setAttribute("title", CONFIGURED_UNVERIFIED_TITLE);
+    }
+    stateRow.appendChild(state);
+  }
   if (active) {
     const meter = el(documentNode, "span", "bar test-machine-lease-bar");
     meter.appendChild(el(documentNode, "i"));
