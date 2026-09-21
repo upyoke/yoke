@@ -92,6 +92,11 @@ export function checkProvenance(row, { runId, deployedSha } = {}, rows = []) {
   return "not the revision that is deployed";
 }
 
+function recordedOnViewedRun(row, runId) {
+  const recorded = String(row?.deployment_run_id || "");
+  return !recorded || recorded === String(runId || "");
+}
+
 export function historyCaption(rows, { runId, deployedSha } = {}) {
   const memberState = classifyMemberQa(rows, { runId });
   const options = { runId, deployedSha };
@@ -101,6 +106,7 @@ export function historyCaption(rows, { runId, deployedSha } = {}) {
   for (const row of historyChecks(rows)) {
     const provenance = checkProvenance(row, options, rows);
     if (provenance === "verified before merge") beforeMerge += 1;
+    else if (!recordedOnViewedRun(row, runId)) continue;
     else if (provenance === "ran against the deployed revision") matched += 1;
     else if (provenance === "not the revision that is deployed") otherRevision += 1;
   }

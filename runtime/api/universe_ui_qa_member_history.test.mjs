@@ -179,3 +179,12 @@ test("intake-source screenshots do not read as the deployed revision", async () 
   assert.equal(shot.getAttribute("data-provenance"), NOT_DEPLOYED);
   assert.match(shot.textContent, new RegExp(NOT_DEPLOYED));
 });
+
+test("another release's checks do not replace this run's never-asked caption", () => {
+  const other = activityRow({ deployment_run_id: "run-20260910-003" });
+  const options = { runId: RUN_ID, deployedSha: DEPLOYED_SHA };
+  assert.equal(checkProvenance(other, options, [other]), NOT_DEPLOYED);
+  const caption = historyCaption([other], options);
+  assert.match(caption, /never asked/);
+  assert.doesNotMatch(caption, new RegExp(NOT_DEPLOYED));
+});
