@@ -6,11 +6,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from yoke_core.domain.db_helpers import query_one
-from yoke_core.domain.environment_reference import (
-    EnvironmentReferenceError,
-    resolve as resolve_environment,
-)
+from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.qa_execution_environment_target import (
     canonical_target,
     target_digest,
@@ -143,7 +139,143 @@ def _identity_row(conn: Any, environment_id: int) -> dict[str, Any] | None:
     return dict(row) if row is not None else None
 
 
-def _live_target(conn: Any, stored: Mapping[str, Any]) -> dict[str, Any]:
+def _environment_row(conn: Any, environment_id: int) -> dict[str, Any] | None:
+    if not _table_exists(conn, "environments"):
+        return None
+    row = query_one(
+        conn,
+        "SELECT e.id AS environment_id, e.name AS environment_name, e.url, "
+        "e.settings, s.name AS site_name FROM environments e "
+        "JOIN sites s ON s.id=e.site WHERE e.id=%s",
+        (int(environment_id),),
+    )
+    return dict(row) if row is not None else None
+
+
+def _row_id(row: Any) -> int:
+    if hasattr(row, "keys"):
+        return int(row["id"])
+    return int(row[0])
+
+
+def _resolve_live_environment_id(
+    conn: Any,
+    stored: Mapping[str, Any],
+    *,
+    plan_id: int | None,
+) -> tuple[int, str]:
+    """Pick the environment row the snapshot actually ran against.
+
+    ``(plan project, environment name)`` cannot identify that row: names
+    repeat across projects, and a plan's project may differ from its
+    target environment's owner. Stored id, the plan target, then site
+    plus name are the authorities that do.
+    """
+    stored_id = _int(_mapping(stored.get("environment")).get("id"))
+    if stored_id:
+        return stored_id, "stored environment.id"
+    if plan_id:
+        plan = query_one(
+            conn,
+            "SELECT target_environment_id FROM qa_plans WHERE id=%s",
+            (int(plan_id),),
+        )
+        plan_target = 0 if plan is None else _int(plan["target_environment_id"])
+        if plan_target:
+            return plan_target, "qa_plans.target_environment_id"
+    site_name = str(_mapping(stored.get("site")).get("name") or "")
+    env_name = str(_mapping(stored.get("environment")).get("name") or "")
+    if site_name and env_name:
+        rows = query_rows(
+            conn,
+            "SELECT e.id FROM environments e JOIN sites s ON s.id=e.site "
+            "WHERE s.name=%s AND e.name=%s",
+            (site_name, env_name),
+        )
+        if len(rows) == 1:
+            return _row_id(rows[0]), "stored site.name and environment.name"
+        if len(rows) > 1:
+            raise QaRebindError(
+                f"stored site {site_name!r} and environment {env_name!r} "
+                f"resolve to {len(rows)} rows; start a fresh execution or "
+                "use sanctioned retirement or supersession"
+            )
+        raise QaRebindError(
+            f"no environment row named {site_name}/{env_name}; start a "
+            "fresh execution or use sanctioned retirement or supersession"
+        )
+    raise QaRebindError(
+        "stored target records no environment identity; start a fresh "
+        "deployment/plan execution or use sanctioned retirement or "
+        "supersession"
+    )
+
+
+def _identity_from_stored(
+    stored: Mapping[str, Any], env_row: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Assemble a live identity using the snapshot's project, not the row owner.
+
+    A yoke plan targeting the hosted Yoke API stores the plan's project
+    next to the environment's site. Rebuilding from the environment's
+    owning project would look like a different identity.
+    """
+    project = _mapping(stored.get("project"))
+    tenant = _mapping(stored.get("tenant"))
+    return {
+        "project_id": _int(project.get("id")),
+        "project_slug": str(project.get("slug") or ""),
+        "project_name": str(project.get("name") or ""),
+        "tenant_id": _int(tenant.get("id")),
+        "tenant_slug": str(tenant.get("slug") or ""),
+        "tenant_name": str(tenant.get("name") or ""),
+        "site_name": str(env_row["site_name"]),
+        "environment_id": int(env_row["environment_id"]),
+        "environment_name": str(env_row["environment_name"]),
+        "url": env_row["url"],
+        "settings": env_row["settings"],
+    }
+
+
+def identity_mismatch_message(
+    stored: Mapping[str, Any],
+    live: Mapping[str, Any],
+    *,
+    environment_id: int,
+    resolved_from: str,
+    requirement_id: int | None = None,
+) -> str:
+    """Name the resolved row and the field it came from next to the snapshot."""
+    stored_env = _mapping(stored.get("environment"))
+    live_env = _mapping(live.get("environment"))
+    stored_site = str(_mapping(stored.get("site")).get("name") or "")
+    live_site = str(_mapping(live.get("site")).get("name") or "")
+    stored_id = stored_env.get("id")
+    stored_id_text = (
+        f" id {stored_id}" if stored_id not in (None, "") else " with no environment id"
+    )
+    head = (
+        f"requirement {requirement_id} is bound to a genuinely different "
+        "target, not a corrected declaration of the same environment"
+        if requirement_id is not None
+        else "stored target and live target are not the same environment identity"
+    )
+    return (
+        f"{head}: resolved environment id {environment_id} "
+        f"({live_site}/{live_env.get('name')}) from {resolved_from}; "
+        f"snapshot named site {stored_site!r} environment "
+        f"{stored_env.get('name')!r}{stored_id_text}. Start a fresh "
+        "execution or use sanctioned retirement or supersession; "
+        "rebinding is not re-verifying"
+    )
+
+
+def _live_target(
+    conn: Any,
+    stored: Mapping[str, Any],
+    *,
+    plan_id: int | None = None,
+) -> tuple[dict[str, Any], int, str]:
     from yoke_core.domain.deployment_qa_execution_target import (
         is_deployment_execution_target,
     )
@@ -151,24 +283,22 @@ def _live_target(conn: Any, stored: Mapping[str, Any]) -> dict[str, Any]:
         environment_execution_target,
     )
 
-    project_id = _int(_mapping(stored.get("project")).get("id"))
-    env_name = str(_mapping(stored.get("environment")).get("name") or "")
-    if not project_id or not env_name:
+    environment_id, resolved_from = _resolve_live_environment_id(
+        conn, stored, plan_id=plan_id
+    )
+    env_row = _environment_row(conn, environment_id)
+    if env_row is None:
         raise QaRebindError(
-            "stored target records no environment identity; start a fresh "
-            "deployment/plan execution or use sanctioned retirement or "
-            "supersession"
+            f"environment id {environment_id} from {resolved_from} could "
+            "not be loaded as an execution target; start a fresh execution "
+            "or use sanctioned retirement or supersession"
         )
     try:
-        ref = resolve_environment(conn, project_id=project_id, name=env_name)
-    except EnvironmentReferenceError as exc:
-        raise QaRebindError(str(exc)) from exc
-    identity = _identity_row(conn, ref.id)
-    if identity is None:
-        raise QaRebindError(
-            f"environment {env_name!r} could not be loaded as an execution target"
+        live = environment_execution_target(
+            conn, _identity_from_stored(stored, env_row), require_runtime_match=False
         )
-    live = environment_execution_target(conn, identity, require_runtime_match=False)
+    except ValueError as exc:
+        raise QaRebindError(str(exc)) from exc
     if is_deployment_execution_target(stored):
         kind = str(_mapping(stored.get("environment")).get("kind") or "")
         if kind != "persistent_environment":
@@ -178,24 +308,30 @@ def _live_target(conn: Any, stored: Mapping[str, Any]) -> dict[str, Any]:
                 "the active target"
             )
         stored_id = _int(_mapping(stored.get("environment")).get("id"))
-        if stored_id and stored_id != int(ref.id):
+        if stored_id and stored_id != environment_id:
             raise QaRebindError(
-                "stored target names a different environment row than the "
-                "live declaration; start a fresh execution or use sanctioned "
-                "retirement or supersession"
+                identity_mismatch_message(
+                    stored,
+                    live,
+                    environment_id=environment_id,
+                    resolved_from=resolved_from,
+                )
             )
         overlaid = json.loads(canonical_target(stored))
         overlaid["endpoints"] = live["endpoints"]
         if "role" in live:
             overlaid["role"] = live["role"]
-        return overlaid
+        return overlaid, environment_id, resolved_from
     if not same_environment_identity(stored, live):
         raise QaRebindError(
-            "stored target and live target are not the same environment "
-            "identity; start a fresh execution or use sanctioned retirement "
-            "or supersession"
+            identity_mismatch_message(
+                stored,
+                live,
+                environment_id=environment_id,
+                resolved_from=resolved_from,
+            )
         )
-    return live
+    return live, environment_id, resolved_from
 
 
 __all__ = [
@@ -203,5 +339,6 @@ __all__ = [
     "QaRebindError",
     "declaration_correction_applies",
     "different_target_reuse_recovery",
+    "identity_mismatch_message",
     "same_environment_identity",
 ]

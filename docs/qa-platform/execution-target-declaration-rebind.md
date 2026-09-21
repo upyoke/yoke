@@ -23,6 +23,18 @@ URL endpoint's resolved host authority (`host[:port]` after defaulting a
 missing scheme to `https`) changes, reports that delta, and names a
 fresh execution. A scheme-only or scalar declared-fact change is in.
 
+Live identity is the environment the case actually ran against, not the
+environment that shares the plan project's name. A plan's project and its
+`target_environment_id` can belong to different projects — a yoke plan
+targeting hosted `Yoke API`/`prod` is the normal shape. Rebind therefore
+resolves, in order, a stored `environment.id`, the plan's
+`target_environment_id`, then `site.name` plus `environment.name`. It
+does not resolve `(project.id, environment.name)`: that name repeats
+across projects and selects the plan's own `prod` instead of the hosted
+row. An identity refusal names the resolved environment id, the field it
+came from, and what the snapshot named, so a wrong row is not reported
+as a genuinely different target.
+
 ```text
 yoke qa requirement rebind-target --requirement-id N --rationale '...'
 ```
