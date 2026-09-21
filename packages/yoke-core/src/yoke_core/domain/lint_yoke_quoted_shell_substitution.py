@@ -80,7 +80,7 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     kind, text = finding
     suppression_seen = SUPPRESSION_TOKEN in command
     mode = _read_mode(payload)
-    reason = format_reason(kind, text, suppression_seen, mode)
+    reason = format_reason(kind, text, suppression_seen, mode, command=command)
     outcome = "suppression_attempted" if suppression_seen else "denied"
     return mode, reason, outcome
 

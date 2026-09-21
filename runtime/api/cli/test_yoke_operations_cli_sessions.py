@@ -308,3 +308,13 @@ def test_sessions_list_dispatches_filters_and_prints_roster_table() -> None:
         "liveness": "active",
         "limit": 5,
     }
+
+
+def test_reclaim_stale_help_distinguishes_a_zero_and_names_terminate() -> None:
+    from yoke_cli.commands.adapters.sessions_maintenance import (
+        SESSIONS_RECLAIM_STALE_DESCRIPTION,
+    )
+
+    assert "nothing was stale" in SESSIONS_RECLAIM_STALE_DESCRIPTION
+    assert "holdings bound" in SESSIONS_RECLAIM_STALE_DESCRIPTION
+    assert "yoke sessions terminate" in SESSIONS_RECLAIM_STALE_DESCRIPTION

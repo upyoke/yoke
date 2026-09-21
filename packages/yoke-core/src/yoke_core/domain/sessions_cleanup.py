@@ -32,6 +32,11 @@ from .sessions_queries import _now_iso
 from .sessions_render_end_chain_pending import chain_pending_state
 from .sessions_render import reclaim_stale_session
 from .scratch_auto_prune import ScratchPruneResult, auto_prune_stale_scratch
+from .sessions_cleanup_probe_stale import (
+    bucket_holdings_spared_session,
+    reclaim_ttl_for_candidate,
+    sweep_receipt,
+)
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
 
 
@@ -177,19 +182,17 @@ def clean_stale_harness_sessions(
             )
 
         if not is_stale:
-            if progress_stale_flag:
-                progress_stale.append({**entry, "reason": "progress_stale"})
-                continue
-            # Spared despite the base threshold — by the holdings-aware TTL
-            # or by live in-flight evidence. A session still inside the base
-            # threshold is simply fresh and needs no explanation.
-            if activity_is_stale(
+            bucket_holdings_spared_session(
+                conn,
+                sid,
+                entry,
+                progress_stale_flag,
                 activity_at,
-                executor=None,
-                base_ttl_minutes=stale_threshold_minutes,
-                executor_ttl_overrides={},
-            ):
-                skipped_between_turns.append({**entry, "reason": "between_turns"})
+                stale_threshold_minutes,
+                progress_stale,
+                heartbeat_stale,
+                skipped_between_turns,
+            )
             continue
 
         if tool_count == 0:
@@ -209,12 +212,11 @@ def clean_stale_harness_sessions(
     for entry in reclaim_batches:
         sid = entry["session_id"]
         has_active_holdings = sid in active_holding_sessions(conn)
-        effective_ttl = effective_cleanup_ttl(
-            entry["executor"],
-            base_ttl_minutes=stale_threshold_minutes,
-            executor_ttl_overrides=executor_ttl_overrides,
+        effective_ttl = reclaim_ttl_for_candidate(
+            entry,
             has_active_holdings=has_active_holdings,
-            holdings_ttl_minutes=DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
+            stale_threshold_minutes=stale_threshold_minutes,
+            executor_ttl_overrides=executor_ttl_overrides,
         )
 
         # A session parked on an item's pinned release wait is waiting by
@@ -334,15 +336,14 @@ def clean_stale_harness_sessions(
         },
     )
 
-    return {
-        "never_engaged": never_engaged,
-        "heartbeat_stale": heartbeat_stale,
-        "progress_stale": progress_stale,
-        "skipped_between_turns": skipped_between_turns,
-        "total_reclaimed": total_reclaimed,
-        "scratch_cleanup": scratch_cleanup,
-    }
+    return sweep_receipt(
+        never_engaged=never_engaged,
+        heartbeat_stale=heartbeat_stale,
+        progress_stale=progress_stale,
+        skipped_between_turns=skipped_between_turns,
+        total_reclaimed=total_reclaimed,
+        scratch_cleanup=scratch_cleanup,
+    )
 
 
-# Public alias retained by the sessions front door.
 cleanup_never_engaged_sessions = clean_stale_harness_sessions
