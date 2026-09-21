@@ -14,6 +14,11 @@
   flex-direction: column;
   gap: 2px;
 }
+/* `display: flex` above would otherwise beat the UA [hidden] rule and
+   leak the full list on the folded face. */
+.universe-app-root .carried-item-history[hidden] {
+  display: none;
+}
 .universe-app-root .carried-item-history-entry {
   display: flex;
   flex-direction: column;

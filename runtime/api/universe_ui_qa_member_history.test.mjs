@@ -5,6 +5,7 @@
 // provenance each check must name for itself.
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { byClass, FakeDocument, settle } from "./universe_ui_dom_test_support.mjs";
@@ -22,6 +23,17 @@ import {
   historyCaption,
   latestVisualArtifacts,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_member_history.js";
+
+test("folded history stays hidden against its own flex layout", () => {
+  const css = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/qa_member_history.css",
+    import.meta.url,
+  ), "utf8");
+  assert.match(
+    css,
+    /\.carried-item-history\[hidden\] \{[^}]*display: none;/,
+  );
+});
 
 test("latest screenshots survive a later command-only check", () => {
   const visual = activityRow({
