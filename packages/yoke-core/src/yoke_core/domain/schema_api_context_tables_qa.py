@@ -55,6 +55,8 @@ QA_TABLES: dict[str, dict] = {
             ("rebound_from_digest", "TEXT"),
             ("rebind_rationale", "TEXT"),
             ("rebind_actor_id", "INTEGER"),
+            ("rebound_from_target_json", "TEXT"),
+            ("rebind_endpoint_delta_json", "TEXT"),
             ("created_at", "TEXT"),
         ],
         "notes": (
@@ -105,8 +107,14 @@ QA_TABLES: dict[str, dict] = {
             "The target digest prevents endpoint or environment substitution "
             "after materialization. A declaration correction of the same "
             "environment rebinds that digest in place via "
-            "`yoke qa requirement rebind-target` and records `rebound_at`, "
-            "`rebound_from_digest`, `rebind_rationale`, and `rebind_actor_id`. "
+            "`yoke qa requirement rebind-target` only when resolved host "
+            "authority is unchanged (scheme-only hosts.* is in; a repointed "
+            "host on the same row is a different target and refuses). The row "
+            "keeps `rebound_from_target_json` with `rebound_from_digest` so "
+            "the previous declaration is readable, `rebind_endpoint_delta_json` "
+            "for which facts moved, plus `rebound_at`, `rebind_rationale`, "
+            "and `rebind_actor_id`. Identity alone does not refuse a different "
+            "host. "
             "Execute a transition's ordered set through "
             "`yoke qa plan run --item PREFIX-N --transition T`, or one "
             "snapshot through `yoke qa case run --requirement-id <id>`; "

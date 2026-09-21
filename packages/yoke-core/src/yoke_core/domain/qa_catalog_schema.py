@@ -155,6 +155,8 @@ _REQUIREMENT_COLUMNS = (
     ("rebound_from_digest", "TEXT"),
     ("rebind_rationale", "TEXT"),
     ("rebind_actor_id", "INTEGER"),
+    ("rebound_from_target_json", "TEXT"),
+    ("rebind_endpoint_delta_json", "TEXT"),
 )
 
 _ATTACHMENT_RETRACT_COLUMNS = (

@@ -90,10 +90,26 @@ def test_different_target_names_rebind_when_declaration_moved() -> None:
         latest_verdict="pass",
         has_runs=True,
         item_bound=True,
-        stored_target=_same_identity(app_url="https://old.example.test"),
-        current_target=_same_identity(app_url="https://new.example.test"),
+        stored_target=_same_identity(app_url="https://app.example.test"),
+        current_target=_same_identity(app_url="http://app.example.test"),
     )
     assert "rebind-target" in text
     assert "Recovery:" in text
     assert "start a fresh" not in text
     assert "No reachable recovery from this call" not in text
+
+
+def test_different_target_does_not_name_rebind_when_host_authority_moved() -> None:
+    text = different_target_refusal(
+        subject="item 101 transition implemented",
+        requirement_id=101,
+        stored_digest="old",
+        expected_digest="new",
+        latest_verdict="pass",
+        has_runs=True,
+        item_bound=True,
+        stored_target=_same_identity(app_url="https://app.example.test"),
+        current_target=_same_identity(app_url="https://other.example.test"),
+    )
+    assert "rebind-target" not in text
+    assert "start a fresh" in text

@@ -24,6 +24,8 @@ class QaRequirementRebindTargetResponse(BaseModel):
     rebound_at: Optional[str] = None
     rebind_rationale: Optional[str] = None
     already_current: bool = False
+    from_target: Optional[dict] = None
+    endpoint_delta: Optional[dict] = None
 
 
 def _actor_id(request: FunctionCallRequest) -> int | None:

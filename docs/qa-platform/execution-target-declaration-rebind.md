@@ -9,21 +9,27 @@ row that holds a verdict.
 
 `yoke qa requirement rebind-target` is the missing act. It points the row
 at the live declaration of **the same environment identity**, keeps the
-recorded runs and verdict, and writes `rebound_at`, `rebound_from_digest`,
-`rebind_rationale`, and `rebind_actor_id` so a later reader can see exactly
-what moved and why. A pass recorded against the previous digest still
-proves the row after that rebind.
+recorded runs and verdict, and writes `rebound_from_target_json` (the
+previous declaration), `rebound_from_digest`, `rebind_endpoint_delta_json`
+(which facts moved, from what to what), `rebound_at`, `rebind_rationale`,
+and `rebind_actor_id`. Two opaque hashes are not enough: a later reader
+must be able to reconstruct the delta from the row.
+
+Identity is not an endpoint check. The same environment row can have
+`hosts.app` corrected from `api.upyoke.com` to `https://api.upyoke.com`
+(scheme/defaulting only) or repointed to another host. The first is a
+rebind; the second is a different target. The command refuses when any
+URL endpoint's resolved host authority (`host[:port]` after defaulting a
+missing scheme to `https`) changes, reports that delta, and names a
+fresh execution. A scheme-only or scalar declared-fact change is in.
 
 ```text
 yoke qa requirement rebind-target --requirement-id N --rationale '...'
 ```
 
-It is not a waiver and not a re-run. Teach it when the stored target and
-the live target resolve to the same environment row and subject and differ
-only in declared facts. A different environment, a different deployment
-receipt, or a different subject is a genuinely different target: this
-command refuses, and the recovery is a fresh execution or sanctioned
-retirement/supersession.
+It is not a waiver and not a re-run. A different environment, a different
+deployment receipt, a different subject, or a repointed host still needs
+a fresh execution or sanctioned retirement/supersession.
 
 ## Do not strand the digest silently
 
@@ -38,6 +44,7 @@ the fallout one close-out refusal at a time is not.
 
 `require_existing_target` still refuses to reuse a row bound to a different
 digest. When the mismatch is a declaration correction of the same
-environment, that refusal names `yoke qa requirement rebind-target` and the
-condition under which it applies. When the identity actually changed, it
-still names a fresh execution or sanctioned retirement/supersession.
+environment **and** resolved host authority is unchanged, that refusal
+names `yoke qa requirement rebind-target`. When the identity or host
+authority actually changed, it names a fresh execution or sanctioned
+retirement/supersession.

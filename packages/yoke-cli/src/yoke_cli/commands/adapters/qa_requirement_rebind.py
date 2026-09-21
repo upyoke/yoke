@@ -29,13 +29,13 @@ QA_REQUIREMENT_REBIND_TARGET_USAGE = (
 
 _EPILOG = (
     "Point a requirement at the live declaration of the SAME environment "
-    "identity, keeping its recorded runs and verdict. Use it when a settings "
-    "write corrected declared facts (hosts, distribution, role) and moved the "
-    "execution-target digest without changing which environment or subject "
-    "the case ran against. It is not a waiver and not re-verification. A "
-    "different environment, deployment, or subject still needs a fresh "
-    "execution or sanctioned retirement/supersession; this command refuses "
-    "those and says so."
+    "identity, keeping its recorded runs and verdict, when a settings write "
+    "moved the execution-target digest without changing resolved host "
+    "authority. A scheme-only hosts.* correction is in; a host that now "
+    "resolves to a different netloc is a different target and this command "
+    "refuses. The result reports the endpoint delta and stores the previous "
+    "execution_target_json so a later reader can see what moved. It is not "
+    "a waiver and not re-verification."
 )
 
 
@@ -54,6 +54,16 @@ def _write_rebind_result(
         f"{result.get('from_digest', '')} -> {result.get('to_digest', '')}",
         file=stdout,
     )
+    delta = result.get("endpoint_delta") or {}
+    changed = delta.get("changed") or []
+    if changed:
+        parts = [
+            f"{row.get('key')} {row.get('from')!r} -> {row.get('to')!r} "
+            f"({row.get('kind')})"
+            for row in changed
+            if isinstance(row, dict)
+        ]
+        print("endpoint delta: " + "; ".join(parts), file=stdout)
 
 
 def qa_requirement_rebind_target(args: List[str]) -> int:

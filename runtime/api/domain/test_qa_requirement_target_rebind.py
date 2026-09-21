@@ -20,6 +20,7 @@ from yoke_core.domain.qa_requirement_target_rebind import (
     QaRebindError,
     rebind_requirement,
 )
+from yoke_core.domain.qa_requirement_rebind_endpoint_delta import endpoint_delta
 from yoke_core.domain.settings_cas import (
     apply_key_path_assignments,
     parse_settings_object,
@@ -35,7 +36,7 @@ def _yoke_development(conn):
 
 
 def _identity(conn, environment_id):
-    from yoke_core.domain.qa_requirement_target_rebind import _identity_row
+    from yoke_core.domain.qa_requirement_rebind_identity import _identity_row
 
     return _identity_row(conn, environment_id)
 
@@ -64,6 +65,18 @@ def _stamp_requirement(conn, *, item_id: int, environment_id: int) -> int:
         raw_result=attach_execution_target_digest("{}", digest),
     )
     return int(row["id"])
+
+
+def test_endpoint_delta_names_scheme_versus_authority() -> None:
+    stored = {"endpoints": {"app_url": "https://app.example.test"}}
+    scheme = {"endpoints": {"app_url": "http://app.example.test"}}
+    host = {"endpoints": {"app_url": "https://other.example.test"}}
+    scheme_delta = endpoint_delta(stored, scheme)
+    host_delta = endpoint_delta(stored, host)
+    assert scheme_delta["authority_changed"] == []
+    assert scheme_delta["changed"][0]["kind"] == "scheme"
+    assert host_delta["authority_changed"] == ["app_url"]
+    assert host_delta["changed"][0]["kind"] == "authority"
 
 
 def test_rebind_preserves_the_passing_verdict_on_the_live_digest() -> None:
@@ -97,11 +110,18 @@ def test_rebind_preserves_the_passing_verdict_on_the_live_digest() -> None:
         assert result["from_digest"] != result["to_digest"]
         stored = conn.execute(
             "SELECT execution_target_digest, rebound_from_digest, "
+            "rebound_from_target_json, rebind_endpoint_delta_json, "
             "rebind_rationale FROM qa_requirements WHERE id=%s",
             (requirement_id,),
         ).fetchone()
         assert stored["execution_target_digest"] == result["to_digest"]
         assert stored["rebound_from_digest"] == result["from_digest"]
+        previous = json.loads(str(stored["rebound_from_target_json"]))
+        assert isinstance(previous, dict)
+        delta = json.loads(str(stored["rebind_endpoint_delta_json"]))
+        assert delta["authority_changed"] == []
+        assert result["endpoint_delta"]["changed"]
+        assert result["from_target"] is not None
         verdict = conn.execute(
             "SELECT verdict FROM qa_runs WHERE qa_requirement_id=%s",
             (requirement_id,),
@@ -136,6 +156,48 @@ def test_rebind_refuses_a_genuinely_different_environment() -> None:
             )
 
 
+def test_rebind_refuses_a_repointed_host_on_the_same_environment() -> None:
+    with test_database() as conn:
+        environment_id = _yoke_development(conn)
+        requirement_id = _stamp_requirement(
+            conn, item_id=9106, environment_id=environment_id
+        )
+        raw = conn.execute(
+            "SELECT execution_target_json FROM qa_requirements WHERE id=%s",
+            (requirement_id,),
+        ).fetchone()[0]
+        stored = json.loads(str(raw))
+        stored["endpoints"] = dict(stored.get("endpoints") or {})
+        stored["endpoints"]["app_url"] = "https://app.example.test"
+        conn.execute(
+            "UPDATE qa_requirements SET execution_target_json=%s,"
+            "execution_target_digest=%s WHERE id=%s",
+            (json.dumps(stored, sort_keys=True), "0" * 64, requirement_id),
+        )
+        row = conn.execute(
+            "SELECT settings FROM environments WHERE id=%s",
+            (int(environment_id),),
+        ).fetchone()
+        merged = json.dumps(
+            apply_key_path_assignments(
+                parse_settings_object(str(row[0] or "{}"), what="settings"),
+                {"hosts.app": "https://other.example.test"},
+            )
+        )
+        conn.execute(
+            "UPDATE environments SET settings=%s, url=%s WHERE id=%s",
+            (merged, "https://other.example.test", int(environment_id)),
+        )
+        conn.commit()
+        with pytest.raises(QaRebindError, match="host authority") as exc:
+            rebind_requirement(
+                conn,
+                requirement_id=requirement_id,
+                rationale="should not silently follow a host repoint",
+            )
+        assert "fresh" in str(exc.value)
+
+
 def test_snapshot_reuse_names_rebind_when_only_declared_facts_moved() -> None:
     with test_database() as conn:
         environment_id = _yoke_development(conn)
@@ -152,7 +214,7 @@ def test_snapshot_reuse_names_rebind_when_only_declared_facts_moved() -> None:
         )
         current = dict(current)
         current["endpoints"] = dict(current.get("endpoints") or {})
-        current["endpoints"]["app_url"] = "https://app.example.test"
+        current["endpoints"]["app_url"] = "http://app.example.test"
         row = conn.execute(
             "SELECT id, execution_target_json, execution_target_digest "
             "FROM qa_requirements WHERE id=%s",
