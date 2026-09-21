@@ -10,13 +10,14 @@ from yoke_core.domain.conflict_survey_declared_paths import (
     CONFLICT_SURVEY_SECTION,
     declared_surveys,
     matching_scope,
+    matching_scopes,
 )
 from yoke_core.domain.conflict_survey_models import ConflictMatch
 from yoke_core.domain.file_budget_paths import (
+    FILE_BUDGET_SECTION,
     extract_file_budget_paths,
     extract_file_budget_section_paths,
 )
-from yoke_core.domain.file_budget_paths import FILE_BUDGET_SECTION
 from yoke_core.domain.path_render_overlap import is_render_target_only_overlap
 from yoke_core.domain.schema_common import _table_exists
 
@@ -42,16 +43,36 @@ def _matching_reportable_scope(
     touch_paths: tuple[str, ...],
     other_paths: list[str] | tuple[str, ...],
     project_id: int,
-) -> str:
-    matched = matching_scope(touch_paths, other_paths)
+) -> tuple[str, ...]:
+    matched = matching_scopes(touch_paths, other_paths)
     if matched and is_render_target_only_overlap(
         conn,
         candidate_paths=touch_paths,
         other_paths=other_paths,
         project_id=project_id,
     ):
-        return ""
+        return ()
     return matched
+
+
+def _append_matches(
+    blockers: list[ConflictMatch],
+    seen: set[tuple[str, int, str]],
+    *,
+    kind: str,
+    owner_item_id: int,
+    paths: tuple[str, ...],
+    state: str,
+    detail: str,
+) -> None:
+    for path in paths:
+        key = (kind, owner_item_id, path)
+        if key not in seen:
+            seen.add(key)
+            blockers.append(ConflictMatch(
+                kind=kind, owner_item_id=owner_item_id, path=path,
+                state=state, detail=detail,
+            ))
 
 
 def _path_claim_blockers(
@@ -135,13 +156,7 @@ def _git_lines(worktree_path: str, argv: list[str]) -> list[str]:
 
 
 def git_touched_paths(worktree_path: str, integration_target: str) -> list[str]:
-    """Return changed paths from a live worktree when git can read it.
-
-    Three reads, because committed history alone hides an agent that is
-    mid-edit: the branch's own commits against the integration target,
-    tracked edits not yet committed, and files git is not tracking yet.
-    Ignored files stay out, so lane scratch never reads as declared work.
-    """
+    """Return committed, unstaged, and untracked paths from a live worktree."""
     if not worktree_path:
         return []
     touched: list[str] = []
@@ -201,9 +216,6 @@ def _item_coordination_blockers(
         if "sd.content" in doc_select
         else ""
     )
-    # A File Budget authored through the section surface never reaches
-    # ``items.spec``, so reading the spec alone misses it entirely. Both
-    # storages are live, so both are read.
     budget_select = (
         ", COALESCE(fb.content, '') AS file_budget_section"
         if _table_exists(conn, "item_sections")
@@ -242,9 +254,7 @@ def _item_coordination_blockers(
     blockers: list[ConflictMatch] = []
     seen: set[tuple[str, int, str]] = set()
     for row in rows:
-        if str(row["status"]) in _TERMINAL_STATUSES:
-            continue
-        if bool(row.get("frozen")):
+        if str(row["status"]) in _TERMINAL_STATUSES or bool(row.get("frozen")):
             continue
         declared = [
             *extract_file_budget_paths(f"{row['spec']}\n{row['execution_document']}"),
@@ -252,61 +262,56 @@ def _item_coordination_blockers(
                 str(row.get("file_budget_section") or "")
             ),
         ]
-        worktree_paths = git_touched_paths(
-            str(row.get("worktree_path") or ""), integration_target
-        )
-        active_paths = [*worktree_paths, *declared]
-        matched = _matching_reportable_scope(
+        stronger = _matching_reportable_scope(
             conn,
             touch_paths=touch_paths,
-            other_paths=active_paths,
+            other_paths=[
+                *git_touched_paths(str(row.get("worktree_path") or ""), integration_target),
+                *declared,
+            ],
             project_id=int(item["project_id"]),
         )
-        # A recorded survey is the weakest of the three signals — declared
-        # intent, not work already under way — so it answers only where the
-        # stronger ones found nothing, and it is attributed separately so
-        # the operator can tell the two apart.
-        survey_paths = surveys.get(int(row["id"]), ())
-        survey_match = (
-            ""
-            if matched
-            else _matching_reportable_scope(
+        survey_only = tuple(
+            path
+            for path in _matching_reportable_scope(
                 conn,
                 touch_paths=touch_paths,
-                other_paths=survey_paths,
+                other_paths=surveys.get(int(row["id"]), ()),
                 project_id=int(item["project_id"]),
             )
+            if path not in stronger
         )
-        if not matched and not survey_match:
+        if not stronger and not survey_only:
             continue
-        if not matched:
-            matched = survey_match
-            kind, state = "survey_scope", str(row["status"])
-            detail = (
-                "non-terminal item declares this path in its recorded "
-                f"{CONFLICT_SURVEY_SECTION}"
-            )
-        elif row.get("work_claim_id") is not None:
-            kind, state = "work_claim", "active"
-            detail = f"active work claim {row['work_claim_id']}"
-        elif row.get("worktree_path"):
-            kind, state = "worktree", "active"
-            detail = f"in-flight branch {row.get('worktree_branch') or ''}".strip()
-        else:
-            kind, state = "frontier_scope", str(row["status"])
-            detail = "non-terminal item declares this path in its File Budget"
-        key = (kind, int(row["id"]), matched)
-        if key not in seen:
-            blockers.append(
-                ConflictMatch(
-                    kind=kind,
-                    owner_item_id=int(row["id"]),
-                    path=matched,
-                    state=state,
-                    detail=detail,
+        owner_id = int(row["id"])
+        if stronger:
+            if row.get("work_claim_id") is not None:
+                kind, state, detail = (
+                    "work_claim", "active", f"active work claim {row['work_claim_id']}",
                 )
+            elif row.get("worktree_path"):
+                kind, state, detail = (
+                    "worktree", "active",
+                    f"in-flight branch {row.get('worktree_branch') or ''}".strip(),
+                )
+            else:
+                kind, state, detail = (
+                    "frontier_scope", str(row["status"]),
+                    "non-terminal item declares this path in its File Budget",
+                )
+            _append_matches(
+                blockers, seen, kind=kind, owner_item_id=owner_id,
+                paths=stronger, state=state, detail=detail,
             )
-            seen.add(key)
+        if survey_only:
+            _append_matches(
+                blockers, seen, kind="survey_scope", owner_item_id=owner_id,
+                paths=survey_only, state=str(row["status"]),
+                detail=(
+                    "non-terminal item declares this path in its recorded "
+                    f"{CONFLICT_SURVEY_SECTION}"
+                ),
+            )
     return blockers
 
 

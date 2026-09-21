@@ -70,14 +70,26 @@ def path_scopes_overlap(left: str, right: str) -> bool:
     )
 
 
-def matching_scope(touch_paths: Sequence[str], candidates: Iterable[str]) -> str:
-    """Return the first candidate path that overlaps the declared scope."""
+def matching_scopes(
+    touch_paths: Sequence[str], candidates: Iterable[str]
+) -> tuple[str, ...]:
+    """Return every candidate path that overlaps the declared scope."""
+    found: list[str] = []
+    seen: set[str] = set()
     for candidate in candidates:
         clean = clean_path(candidate)
-        for intended in touch_paths:
-            if clean and path_scopes_overlap(intended, clean):
-                return clean
-    return ""
+        if not clean or clean in seen:
+            continue
+        if any(path_scopes_overlap(intended, clean) for intended in touch_paths):
+            found.append(clean)
+            seen.add(clean)
+    return tuple(found)
+
+
+def matching_scope(touch_paths: Sequence[str], candidates: Iterable[str]) -> str:
+    """Return the first candidate path that overlaps the declared scope."""
+    matched = matching_scopes(touch_paths, candidates)
+    return matched[0] if matched else ""
 
 
 def classify_survey_payload(
@@ -185,5 +197,6 @@ __all__ = [
     "clean_path",
     "declared_surveys",
     "matching_scope",
+    "matching_scopes",
     "path_scopes_overlap",
 ]
