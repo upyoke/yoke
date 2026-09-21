@@ -82,7 +82,10 @@ own is still never enough — silence is not an answer.
 The no-obligation fact is the item's `post_deploy` requirement with
 `qa_kind=post_deploy_no_obligation`, non-blocking, reason on `instructions`,
 and empty waiver columns. `yoke qa post-deploy record-no-obligation` exists
-so that is one named act.
+so that is one named act. After the completion-flow run succeeds, that
+recorded fact auto-closes the member through the same merge close-out,
+without waking a session. An empty case set still stays held;
+`declared_none` still wakes, because a waiver is not that fact.
 
 A plan bound to a persistent environment is selectable at a `run_preview`
 QA stage when the run's `target_environment_id` is that environment — the

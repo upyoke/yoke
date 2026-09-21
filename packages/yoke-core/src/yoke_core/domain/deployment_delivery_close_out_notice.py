@@ -184,20 +184,39 @@ def _send(conn: Any, member: dict[str, Any], run_id: str, stamp: datetime) -> st
     return delivery
 
 
+def _close_or_wake(
+    conn: Any, member: dict[str, Any], run_id: str, stamp: datetime
+) -> str:
+    """Auto-close a recorded no-obligation; otherwise wake the owner."""
+    from yoke_core.domain.no_obligation_member_close_out import (
+        close_out_recorded_no_obligation,
+    )
+
+    closed = close_out_recorded_no_obligation(
+        conn, item_id=int(member["item_id"]), public_ref=str(member["public_ref"])
+    )
+    if closed.applies:
+        return "closed" if closed.ok else f"failed: {closed.detail}"
+    return _send(conn, member, run_id, stamp)
+
+
 def notify_delivery_cleared(
     conn: Any, *, run_id: str, now: Optional[datetime] = None
 ) -> list[dict[str, Any]]:
     """Tell every owner whose wait this run cleared, one isolated send each.
 
-    Returns one record per announced member with what delivery did, so a
-    caller can report a notice that did not land without treating it as a
-    run failure. Call it only after the run's own status is committed.
+    A member that recorded ``post_deploy_no_obligation`` is closed through
+    the merge close-out instead of woken: the fact and the landing evidence
+    already hold the sentences a session would write. Returns one record
+    per member with what delivery did, so a caller can report a notice or
+    close-out that did not land without treating it as a run failure. Call
+    it only after the run's own status is committed.
     """
     stamp = now or datetime.now(timezone.utc)
     return [
         {
             "public_ref": member["public_ref"],
-            "delivery": _send(conn, member, run_id, stamp),
+            "delivery": _close_or_wake(conn, member, run_id, stamp),
         }
         for member in _cleared_release_waits(conn, run_id)
     ]

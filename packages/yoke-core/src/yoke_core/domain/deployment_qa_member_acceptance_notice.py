@@ -135,6 +135,15 @@ def notify_item_qa_accepted(
     )
     if not _item_qa_cleared(conn, run_id=run_id, item_id=item_id):
         return ""
+    from yoke_core.domain.no_obligation_member_close_out import (
+        recorded_no_obligation,
+    )
+
+    # The close-out runs when delivery clears, not here: this stage can
+    # accept while the run is still executing. A wake would only restate
+    # a decision already on the row.
+    if recorded_no_obligation(conn, int(item_id)):
+        return ""
     member = _release_wait_member(conn, int(item_id))
     if member is None:
         return ""
