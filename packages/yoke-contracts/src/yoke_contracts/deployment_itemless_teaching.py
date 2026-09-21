@@ -19,6 +19,8 @@ Interrupted driver (watch/execute died; GitHub kept going): re-drive the
 SAME run id. The dispatch correlation token reattaches to the workflow
 already started and does not fire a second release.
   yoke --env CONTROL-PLANE watch deploy -- RUN-ID
+A self-deploy halt named `deploy driver source drift` also leaves the
+run executing — re-drive the same run id; do not mint a second release.
 If the driver exits 4 (deploy succeeded, finalization pending), stages
 already finished — re-drive the same run id to land the succeeded stamp.
 `deployment-runs terminalize` only records failed or cancelled. Do not
@@ -89,7 +91,8 @@ WATCH_DEPLOY_DESCRIPTION = (
     "it matches the --env connection name. Re-driving the same run "
     "recovers an interrupted driver by correlation token instead of "
     "dispatching a second release. Only serving-API self-deploys require "
-    "the paired local db-admin env."
+    "the paired local db-admin env; that path freezes the driver at the "
+    "run's release_lineage so a merge landing mid-run cannot mix source."
 )
 
 

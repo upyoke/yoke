@@ -34,6 +34,10 @@ from collections.abc import Mapping
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import deploy_pipeline_control_plane as control_plane
+from yoke_core.domain.deploy_pipeline_pinned_source import (
+    EXIT_DRIVER_SOURCE_DRIFT,
+    driver_source_drift_refusal,
+)
 from yoke_core.domain.deploy_pipeline_stage_receipt_producers import (
     ARTIFACT_OBSERVING_TARGET_KINDS,
     IDENTITY_PROVING_STEP_RUNNERS,
@@ -123,6 +127,9 @@ def dispatch_step_runner_with_receipt(
     """
     stage_name = str(stage.get("name") or "")
     step_runner = str(stage.get("step_runner") or "")
+    drift = driver_source_drift_refusal(release_lineage)
+    if drift:
+        return EXIT_DRIVER_SOURCE_DRIFT, drift
 
     def _dispatch(*, dispatch_environment: str) -> tuple[int, str]:
         return _dispatch_step_runner(

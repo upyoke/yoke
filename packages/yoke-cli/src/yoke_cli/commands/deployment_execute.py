@@ -6,11 +6,11 @@ import subprocess
 import sys
 from typing import Callable, Dict, List, Tuple
 
-from yoke_contracts.deployment_itemless_teaching import (
-    INTERRUPTED_RUN_RECOVERY,
-)
 from yoke_cli.commands.adapters.deployment_execution_authority import (
     execution_connection_error,
+)
+from yoke_contracts.deployment_itemless_teaching import (
+    INTERRUPTED_RUN_RECOVERY,
 )
 
 AdapterFn = Callable[[List[str]], int]
@@ -49,7 +49,9 @@ def deployment_runs_execute(args: List[str]) -> int:
             "Ordinary external delivery works over HTTPS. A serving-API "
             "self-deploy is refused on HTTPS and names the paired local "
             "*-db-admin connection that keeps run state writable while the "
-            "API is replaced.\n\n"
+            "API is replaced. That self-deploy freezes the driver at the "
+            "run's release_lineage so a merge landing mid-run cannot mix "
+            "source; a named halt stays re-drivable.\n\n"
             f"{INTERRUPTED_RUN_RECOVERY}"
         )
         return 0

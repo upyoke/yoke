@@ -9,6 +9,7 @@ the end.
 
 from __future__ import annotations
 
+import os
 import sys
 import time
 from pathlib import Path
@@ -39,9 +40,19 @@ class RunFinalizationPending(RuntimeError):
 
 def resolve_project_checkout_path(project: str) -> str:
     """Machine-config checkout path for *project*, warning when broken."""
+    from yoke_core.domain.deploy_pipeline_pinned_source import (
+        PINNED_RELEASE_ENV,
+        PINNED_SOURCE_ROOT_ENV,
+    )
     from yoke_core.domain.project_checkout_locations import (
         checkout_for_project_slug,
     )
+
+    pinned = os.environ.get(PINNED_SOURCE_ROOT_ENV, "").strip()
+    if pinned:
+        lineage = os.environ.get(PINNED_RELEASE_ENV, "").strip()
+        print(f"Self-deploy driver frozen at {lineage} ({pinned})")
+        return pinned
 
     if not project:
         return ""
