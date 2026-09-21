@@ -38,6 +38,10 @@ test("folded history stays hidden against its own flex layout", () => {
     css,
     /\.carried-item-history\[hidden\] \{[^}]*display: none;/,
   );
+  assert.match(
+    css,
+    /\.carried-item-evidence \.review-evidence\.compact \.review-shot \{\s*width: 72px;/,
+  );
 });
 
 test("latest screenshots survive a later command-only check", () => {
@@ -125,6 +129,55 @@ test("collapsed cards keep the latest pictures without expanding history", async
     .map((node) => node.getAttribute("data-provenance"));
   assert.ok(provenances.includes(AGAINST_DEPLOYED));
   assert.ok(provenances.includes("verified before merge"));
+});
+
+test("standing-check rationale lives on the caption tooltip, not inline", async () => {
+  const documentNode = new FakeDocument();
+  const client = readingClient({
+    rows: [activityRow({
+      qa_phase: "post_deploy",
+      deployment_run_id: null,
+      outcome: "queued",
+      artifacts: [artifact(10, 26134)],
+    })],
+  });
+  const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
+  await settle();
+
+  const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
+  const caption = byClass(evidence, "carried-item-evidence-caption")[0];
+  assert.match(caption.textContent, new RegExp(NOT_DEPLOYED));
+  assert.doesNotMatch(caption.textContent, /Intake source/);
+  assert.equal(byClass(evidence, "qa-state-note").length, 0);
+  assert.equal(
+    caption.getAttribute("data-tooltip"),
+    "This intake case was not run against the revision that is deployed.",
+  );
+  assert.equal(caption.classList.contains("has-tooltip"), true);
+  assert.equal(caption.getAttribute("tabindex"), "0");
+  assert.equal(byClass(evidence, "review-shot").length, 1);
+  assert.ok(byClass(evidence, "carried-item-history")[0].hidden);
+});
+
+test("a verified-run member has no rationale tooltip", async () => {
+  const documentNode = new FakeDocument();
+  const client = readingClient({
+    rows: [activityRow({
+      deployment_run_id: RUN_ID,
+      qa_phase: "post_deploy",
+      method_id: "command",
+      method_name: "Command",
+      outcome: "passed",
+      artifacts: [],
+    })],
+  });
+  const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
+  await settle();
+
+  const caption = byClass(memberEntry(card), "carried-item-evidence-caption")[0];
+  assert.match(caption.textContent, new RegExp(NOT_DEPLOYED));
+  assert.equal(caption.getAttribute("data-tooltip"), null);
+  assert.equal(caption.classList.contains("has-tooltip"), false);
 });
 
 test("command-only evidence does not grow fake screenshots", async () => {

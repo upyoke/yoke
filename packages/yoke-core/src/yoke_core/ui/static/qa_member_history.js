@@ -22,6 +22,7 @@ import {
   evidenceStrip,
 } from "./review_evidence_strip.js";
 import { appendMoreDisclosure } from "./universe_sessions_holdings_disclosure.js";
+import { attachTooltip } from "./universe_tooltip.js";
 import { relativeAgePhrase } from "./universe_time.js";
 import { el } from "./universe_view_support.js";
 
@@ -157,21 +158,26 @@ function groupKey(itemId, runId) {
   return `${itemId}|${runId || ""}`;
 }
 
-// Caption, this-run honesty note, latest pictures, and the expandable
-// history. Reviews stay with the caller: they are live work, not history.
+// Caption, latest pictures, and the expandable history. A rationale
+// paragraph used to sit under the caption on every collapsed card, so a
+// release with many members made the reader scroll past investigation
+// prose to see the run. The caption still names the QA state; the
+// rationale answers hover, tap, and keyboard through the shared tooltip.
+// Reviews stay with the caller: they are live work, not history.
 export function paintMemberHistory(context, wrap, options = {}) {
   const { itemId, runId, facts, history, memberState, deployedSha } = options;
   const provenance = { runId, deployedSha };
   const documentNode = context.document;
   const rows = historyChecks(history);
-  wrap.appendChild(el(
+  const caption = el(
     documentNode,
     "span",
     "carried-item-evidence-caption",
     historyCaption(history, provenance),
-  ));
+  );
+  wrap.appendChild(caption);
   const note = qaStateNote(documentNode, memberState);
-  if (note) wrap.appendChild(note);
+  if (note) attachTooltip(documentNode, caption, note.textContent);
   const cutShort = [groupKey(itemId, runId), groupKey(itemId, null)].some(
     (key) => facts?.truncatedGroups?.has(key),
   );
