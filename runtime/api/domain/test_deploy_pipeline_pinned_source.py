@@ -87,10 +87,8 @@ def test_non_yoke_checkout_is_not_this_path(
     monkeypatch.setattr(pinned, "_https_transport", lambda: False)
     monkeypatch.setattr(
         pinned.control_plane,
-        "execution_context",
-        lambda _run_id: {
-            "run": {"release_lineage": "abc", "project": "other"},
-        },
+        "run_pin",
+        lambda _run_id: {"release_lineage": "abc", "project": "other"},
     )
     other = tmp_path / "other"
     other.mkdir()
@@ -149,16 +147,37 @@ def test_prepare_freezes_a_yoke_shaped_checkout(
     monkeypatch.setattr(pinned, "_https_transport", lambda: False)
     monkeypatch.setattr(
         pinned.control_plane,
-        "execution_context",
-        lambda _run_id: {
-            "run": {"release_lineage": pin, "project": "yoke"},
-        },
+        "run_pin",
+        lambda _run_id: {"release_lineage": pin, "project": "yoke"},
     )
     monkeypatch.setattr(pinned, "checkout_for_project_slug", lambda _p: repo)
     prepared = pinned.prepare_self_deploy_driver("run-20260921-010")
     assert prepared is not None
     assert prepared.lineage == pin
     assert prepared.root == pinned.driver_worktree_path(repo, "run-20260921-010")
+
+
+def test_prepare_does_not_compose_membership(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _init_repo(tmp_path / "repo")
+    _yoke_shape(repo)
+    pin = _commit(repo, "pin")
+    monkeypatch.setattr(pinned, "_https_transport", lambda: False)
+    monkeypatch.setattr(
+        pinned.control_plane,
+        "run_pin",
+        lambda _run_id: {"release_lineage": pin, "project": "yoke"},
+    )
+    monkeypatch.setattr(pinned, "checkout_for_project_slug", lambda _p: repo)
+
+    def _boom(_run_id: str) -> dict:
+        raise AssertionError("prepare must not enroll via execution_context")
+
+    monkeypatch.setattr(pinned.control_plane, "execution_context", _boom)
+    prepared = pinned.prepare_self_deploy_driver("run-20260921-010")
+    assert prepared is not None
+    assert prepared.lineage == pin
 
 
 def test_drift_refusal_is_silent_without_pin_env(

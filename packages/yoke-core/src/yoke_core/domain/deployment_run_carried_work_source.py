@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional, Protocol, Sequence
 
+from yoke_core.domain import checkout_ancestry
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 
@@ -118,6 +119,8 @@ class LocalCheckoutSource:
         self.location = repo_root
         self._fetched = False
         self._warnings: list[dict[str, str]] = []
+        self._graphs: dict[str, dict[str, tuple[str, ...]]] = {}
+        self._facts: dict[str, tuple[str, str]] = {}
 
     def resolve_commit(self, ref: str) -> str:
         resolved = self._rev_parse(ref)
@@ -218,27 +221,24 @@ class LocalCheckoutSource:
             ).splitlines()
             if line.strip()
         )
+        self._facts.update(checkout_ancestry.commit_facts(self._repo_root, commits))
         return CommitRange(RELATION_AHEAD, commits)
 
     def commit_message(self, sha: str) -> str:
-        return git.git_out(self._repo_root, "show", "-s", "--format=%B", sha)
+        return self._fact(sha)[1]
 
     def commit_time(self, sha: str) -> str:
-        return git.git_out(self._repo_root, "show", "-s", "--format=%cI", sha)
+        return self._fact(sha)[0]
 
     def contains_commit(self, candidate: str, commit: str) -> Optional[bool]:
-        return git.is_ancestor(self._repo_root, commit, candidate)
+        return checkout_ancestry.commit_is_ancestor(
+            self._graph(candidate), candidate, commit
+        )
 
     def adds_nothing(self, candidate: str, commit: str) -> Optional[bool]:
-        # The merge boundary's own definition, called rather than restated.
         adds_nothing = git.lane_adds_nothing(self._repo_root, commit, candidate)
         if adds_nothing is not None:
             return adds_nothing
-        # That answers ``None`` for a conflict and for a git it could not
-        # run, and those are not the same fact: a merge that conflicts is a
-        # merge that changes the base, which is the definition of adding
-        # something. Separating them here keeps a genuinely excluded
-        # candidate a definite refusal instead of an unreadable one.
         conflicts = git.lane_merge_conflicts(self._repo_root, commit, candidate)
         return False if conflicts else None
 
@@ -250,17 +250,22 @@ class LocalCheckoutSource:
         head: str,
         commits: Sequence[str],
     ) -> str:
-        if git.is_ancestor(self._repo_root, lane_commit, base):
-            return ""
-        if not git.is_ancestor(self._repo_root, lane_commit, head):
-            return ""
-        for commit in commits:
-            if git.is_ancestor(self._repo_root, lane_commit, commit):
-                return commit
-        return ""
+        return checkout_ancestry.carrying_commit(
+            self._graph(head), lane_commit, base=base, head=head, commits=commits
+        )
 
     def warnings(self) -> list[dict[str, str]]:
         return list(self._warnings)
+
+    def _graph(self, tip: str) -> dict[str, tuple[str, ...]]:
+        if tip not in self._graphs:
+            self._graphs[tip] = checkout_ancestry.parent_graph(self._repo_root, tip)
+        return self._graphs[tip]
+
+    def _fact(self, sha: str) -> tuple[str, str]:
+        if sha and sha not in self._facts:
+            self._facts.update(checkout_ancestry.commit_facts(self._repo_root, (sha,)))
+        return self._facts.get(sha, ("", ""))
 
 
 def carried_work_sources(

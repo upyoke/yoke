@@ -38,7 +38,7 @@ from yoke_core.domain.delivery_landing_custody import (
     merged_open_items,
 )
 from yoke_core.domain.deployment_run_candidate_containment import (
-    candidate_contains_commit,
+    CandidateContainment,
 )
 from yoke_core.domain.deployment_run_composition_freeze import (
     item_requires_release_membership,
@@ -82,22 +82,16 @@ def _project_candidates(
     if not deliverable:
         return set()
     custody = landing_custody(conn, project_id=project_id, item_ids=deliverable)
+    walker = CandidateContainment(conn, project_id, candidate_lineage=lineage)
     return {
         item_id
         for item_id in deliverable
         if custody[item_id].enrollable
-        and _candidate_carries(
-            conn,
-            project_id=project_id,
-            lineage=lineage,
-            landing_sha=custody[item_id].landing_sha,
-        )
+        and _candidate_carries(walker, custody[item_id].landing_sha)
     }
 
 
-def _candidate_carries(
-    conn: Any, *, project_id: int, lineage: str, landing_sha: str
-) -> bool:
+def _candidate_carries(walker: CandidateContainment, landing_sha: str) -> bool:
     """Whether this run's own pinned candidate contains that landing.
 
     Only a definite yes enrolls. ``not_contained`` is the ordinary case of a
@@ -107,12 +101,7 @@ def _candidate_carries(
     """
     if not landing_sha:
         return False
-    return candidate_contains_commit(
-        conn,
-        int(project_id),
-        candidate_lineage=lineage,
-        commit_sha=landing_sha,
-    ).contained
+    return walker.contains(landing_sha).contained
 
 
 __all__ = ["unheld_candidate_ids"]

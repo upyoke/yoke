@@ -51,6 +51,7 @@ from yoke_core.domain.deployment_item_flow_resolution import (
 )
 from yoke_core.domain.deployment_run_carried_work import (
     derive_carried_work_safely,
+    record_carried_work,
 )
 from yoke_core.domain.deployment_member_post_deploy_admission import (
     admissible_post_deploy_requirement_ids,
@@ -193,7 +194,7 @@ def enroll_carried_members(
         raise LookupError(f"deployment run {run_id!r} not found")
     if not str(row[0] or "").strip():
         return ()
-    payload = dict(carried_work or derive_carried_work_safely(conn, run_id))
+    payload = dict(carried_work or record_carried_work(conn, run_id))
     carried = sorted({
         int(entry["item_id"])
         for project_set in project_carried_sets(payload)
