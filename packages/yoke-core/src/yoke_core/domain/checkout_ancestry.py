@@ -41,20 +41,18 @@ def commit_is_ancestor(
         return False
     if candidate == commit:
         return True
-    seen: dict[str, bool] = {}
-
-    def reachable(node: str) -> bool:
-        if node == commit:
-            return True
-        cached = seen.get(node)
-        if cached is not None:
-            return cached
-        seen[node] = False
-        result = any(reachable(parent) for parent in graph.get(node, ()))
-        seen[node] = result
-        return result
-
-    return reachable(candidate)
+    seen: set[str] = set()
+    stack = [candidate]
+    while stack:
+        current = stack.pop()
+        if current in seen or current not in graph:
+            continue
+        seen.add(current)
+        for parent in graph[current]:
+            if parent == commit:
+                return True
+            stack.append(parent)
+    return False
 
 
 def carrying_commit(

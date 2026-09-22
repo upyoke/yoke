@@ -9,6 +9,7 @@ from typing import Any
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import (
+    checkout_ancestry,
     deployment_run_carried_work_source,
     deployment_runs,
 )
@@ -259,3 +260,25 @@ def test_unreachable_prior_lineage_records_named_empty_result(
     assert carried["derivation"]["reason"] == "prior_release_lineage_unreachable"
     assert carried["items"] == []
     assert carried["commits"] == []
+
+
+def test_commit_is_ancestor_deep_ancestry_traversal_does_not_recurse() -> None:
+    # A linear graph with 1500 commits exceeds default sys.getrecursionlimit() (typically 1000)
+    depth = 1500
+    graph: dict[str, tuple[str, ...]] = {}
+    for i in range(depth):
+        child = f"commit_{i:04d}"
+        parent = f"commit_{i + 1:04d}" if i + 1 < depth else None
+        graph[child] = (parent,) if parent else ()
+
+    tip = "commit_0000"
+    base = f"commit_{depth - 1:04d}"
+    outside = "commit_nonexistent"
+
+    assert checkout_ancestry.commit_is_ancestor(graph, tip, base) is True
+    assert checkout_ancestry.commit_is_ancestor(graph, tip, tip) is True
+    assert checkout_ancestry.commit_is_ancestor(graph, base, tip) is False
+    assert checkout_ancestry.commit_is_ancestor(graph, tip, outside) is False
+    assert checkout_ancestry.commit_is_ancestor(graph, "", base) is False
+    assert checkout_ancestry.commit_is_ancestor(graph, tip, "") is False
+
