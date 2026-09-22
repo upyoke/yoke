@@ -49,6 +49,7 @@ def _build_run_payload(
     recorded_screenshots: int = 0,
     vacuous_absences: Optional[List[Dict[str, Any]]] = None,
     note: Optional[str] = None,
+    sign_in: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Build the structured raw_result payload for browser QA runs."""
     payload: Dict[str, Any] = {
@@ -58,6 +59,8 @@ def _build_run_payload(
     }
     if code_identity:
         payload["code_identity"] = code_identity
+    if sign_in:
+        payload["sign_in"] = sign_in
     if verdict:
         payload["verdict"] = verdict
     if execution_status:

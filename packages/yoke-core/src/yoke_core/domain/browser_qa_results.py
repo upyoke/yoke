@@ -31,6 +31,7 @@ class RunResult:
     recorded_screenshots: int = 0
     vacuous_absences: List[Dict[str, Any]] = field(default_factory=list)
     code_identity: Dict[str, str] = field(default_factory=dict)
+    sign_in: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -60,6 +61,8 @@ class RunResult:
             d["vacuous_absences"] = self.vacuous_absences
         if self.code_identity:
             d["code_identity"] = self.code_identity
+        if self.sign_in:
+            d["sign_in"] = self.sign_in
         return d
 
 

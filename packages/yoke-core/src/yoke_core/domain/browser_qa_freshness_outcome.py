@@ -33,7 +33,9 @@ IDENTITY_PROOF_UNAVAILABLE = "identity_proof_unavailable"
 IDENTITY_PROOF_MALFORMED = "identity_proof_malformed"
 #: Freshness was established by asking one deployment, and the run was
 #: then pointed at a different one. Evidence collected there would carry a
-#: freshness claim nothing proved about it.
+#: freshness claim nothing proved about it. The same code names a Browser
+#: case that landed on an authentication wall: that page is not the signed-in
+#: target either, and the recovery is ``yoke browser authorize``.
 EXECUTION_TARGET_UNAUTHORIZED = "execution_target_unauthorized"
 #: A deployment run names no commit it was pinned to deliver, so its
 #: evidence has nothing to be bound to. Distinct from a deployment that
