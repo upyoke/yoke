@@ -135,6 +135,11 @@ def test_recorded_no_obligation_closes_without_waking(
         (NO_OBLIGATION_ITEM,),
     ).fetchone()
     assert live is None
+    holder_session = test_db.execute(
+        "SELECT ended_at FROM harness_sessions WHERE session_id=%s",
+        (HOLDER_A,),
+    ).fetchone()
+    assert holder_session is not None and holder_session["ended_at"] is not None
 
 
 def test_a_sibling_that_owes_a_check_is_still_woken(

@@ -16,8 +16,10 @@ import io
 from dataclasses import dataclass
 from typing import Any
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.dash_execution import evaluate_dash_evidence
 from yoke_core.domain.post_deploy_verification_answer import answer_for_item
+from yoke_core.domain.standalone_item_merge_evidence import CLOSED_OUT_STATUS
 from yoke_core.domain.status_claim_bypass_context import status_bypass_override
 
 CLAIM_BYPASS_PREFIX = "merge-close-out:"
@@ -69,7 +71,6 @@ def _close_out(
     from yoke_core.domain import backlog
     from yoke_core.domain.project_identity import render_item_ref
     from yoke_core.domain.standalone_item_merge import sync_item_to_github
-    from yoke_core.domain.standalone_item_merge_evidence import CLOSED_OUT_STATUS
     from yoke_core.domain.terminal_lane_cleanup import record_terminal_lane_close_out
 
     named = str(public_ref).strip() or render_item_ref(conn, item_id)
@@ -121,10 +122,46 @@ def _close_out(
         target_status=CLOSED_OUT_STATUS,
         landing_recorded=True,
     )
+    _end_previous_claim_holders_if_empty(conn, item_id=item_id)
     print(
         f"{named}: recorded post_deploy_no_obligation; closed out without a wake."
     )
     return NoObligationCloseOut(applies=True, ok=True, detail="closed")
+
+
+def _end_previous_claim_holders_if_empty(conn: Any, *, item_id: int) -> None:
+    """End any previous holding sessions released by the transition if now empty."""
+    from yoke_core.domain.sessions_render_end_if_empty import end_session_if_empty
+    from yoke_core.domain.work_claim_targets import scope_int_sql
+
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    item_scope = scope_int_sql(conn, "scope", "item_id")
+    epic_scope = scope_int_sql(conn, "scope", "epic_id")
+    release_intent = f"item-terminal:{CLOSED_OUT_STATUS}"
+
+    rows = conn.execute(
+        "SELECT DISTINCT session_id FROM work_claims "
+        f"WHERE release_reason_intent={marker} AND "
+        f"((target_kind='item' AND {item_scope}={marker}) OR "
+        f"(target_kind='epic_task' AND {epic_scope}={marker}))",
+        (release_intent, int(item_id), int(item_id)),
+    ).fetchall()
+
+    session_ids = [
+        str(row["session_id"] if hasattr(row, "keys") else row[0])
+        for row in rows
+        if row and (row["session_id"] if hasattr(row, "keys") else row[0])
+    ]
+
+    for session_id in sorted(set(session_ids)):
+        try:
+            end_session_if_empty(
+                conn,
+                session_id,
+                triggered_by="no-obligation-closeout",
+            )
+        except Exception:  # noqa: BLE001 - best-effort session cleanup
+            pass
 
 
 def _item_status(conn: Any, item_id: int) -> str:
