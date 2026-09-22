@@ -132,6 +132,15 @@ def cmd_create_run(
             # bound branches here would let a retry ship a consumer revision
             # the run it retries never carried.
             copy_bound_sources(conn, inherit_members_from, run_id)
+        else:
+            from yoke_core.domain.deployment_run_carried_membership import (
+                enroll_carried_members,
+            )
+
+            try:
+                enroll_carried_members(conn, run_id)
+            except (LookupError, ValueError):
+                pass
         conn.commit()
         return run_id
     finally:

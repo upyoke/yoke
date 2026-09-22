@@ -221,3 +221,33 @@ def test_an_unreadable_source_enrolls_nothing_from_this_source(
     serve_repository(monkeypatch, None)
 
     assert unheld_candidate_ids(test_db, "run-candidate") == ()
+
+
+def test_cmd_create_run_auto_enrolls_carried_unheld_items(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A newly created run auto-enrolls carried unheld items at creation time."""
+    from yoke_core.domain.deployment_run_create_write import cmd_create_run
+
+    ref = _stranded_item(test_db)
+    repo, landing, tip = _repository_past_the_landing(tmp_path, ref)
+    serve_repository(monkeypatch, repo)
+    _record_landing(test_db, landing)
+    _run_pair(test_db, previous=tip, candidate=tip)
+
+    # Re-enable flow so cmd_create_run can use it
+    test_db.execute(
+        f"UPDATE deployment_flows SET status='active' WHERE id='{RELEASE_FLOW}'"
+    )
+    test_db.commit()
+
+    # Create run using cmd_create_run
+    new_run_id = cmd_create_run("yoke", RELEASE_FLOW, release_lineage=tip)
+
+    rows = test_db.execute(
+        "SELECT item_id FROM deployment_run_items WHERE run_id=%s",
+        (new_run_id,),
+    ).fetchall()
+    enrolled_ids = [int(dict(row)["item_id"]) for row in rows]
+    assert enrolled_ids == [STRANDED_ITEM_ID]
+
