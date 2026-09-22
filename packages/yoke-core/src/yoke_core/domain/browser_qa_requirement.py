@@ -18,6 +18,7 @@ from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain.browser_qa_assertion_evidence import CaseAssertions
 from yoke_core.domain.browser_qa_failure_capture import failed_step_from_response
 from yoke_core.domain.browser_qa_results import RequirementOutcome, RunResult
+from yoke_core.domain import browser_qa_sign_in_evidence as _sign_in
 from yoke_core.domain.browser_qa_step_artifacts import record_step_artifacts
 from yoke_core.domain.qa_artifacts import artifact_directory
 from yoke_core.domain.qa_capture_agreement import degraded_reason_for_empty_capture
@@ -32,6 +33,7 @@ def _process_requirement(
     base_url: str,
     code_identity: Dict[str, str],
     freshness_validated: bool,
+    sign_in: Dict[str, Any],
     actor: Optional[ActorContext] = None,
 ) -> RequirementOutcome:
     """Process a single qa_requirement row end-to-end.
@@ -41,6 +43,18 @@ def _process_requirement(
     # Lazy import to dodge the circular import with browser_qa and to honor
     # test patches against browser_qa.<helper>.
     from yoke_core.domain import browser_qa as _bqa
+
+    sign_in = dict(sign_in)
+
+    def _payload(**extra: Any) -> str:
+        return _bqa._build_run_payload(
+            project=project,
+            base_url=base_url,
+            code_identity=code_identity,
+            freshness_validated=freshness_validated,
+            sign_in=sign_in,
+            **extra,
+        )
 
     req_id = req_row["id"]
     qa_kind = req_row["qa_kind"]
@@ -81,11 +95,7 @@ def _process_requirement(
 
         run_id = _bqa._record_run(
             req_id, qa_kind, "error",
-            _bqa._build_run_payload(
-                project=project,
-                base_url=base_url,
-                code_identity=code_identity,
-                freshness_validated=freshness_validated,
+            _payload(
                 verdict="error",
                 errors=error,
                 note=f"Skipped: {note}",
@@ -99,6 +109,7 @@ def _process_requirement(
             qa_run_id=run_id,
             errors=error,
             code_identity=dict(code_identity),
+            sign_in=dict(sign_in),
         )
         return RequirementOutcome(run_result=run_result, skipped=True)
 
@@ -107,13 +118,7 @@ def _process_requirement(
     run_id = _bqa._record_run(
         req_id,
         qa_kind,
-        raw_result=_bqa._build_run_payload(
-            project=project,
-            base_url=base_url,
-            code_identity=code_identity,
-            freshness_validated=freshness_validated,
-            note="started",
-        ),
+        raw_result=_payload(note="started"),
         actor=actor,
     )
     _bqa._log(f"Created qa_run {run_id}")
@@ -186,6 +191,7 @@ def _process_requirement(
 
         # unwrap daemon data envelope when present.
         data = response.get("data", response)
+        wall = _sign_in.observe_authentication_wall(sign_in, response, data)
         failed = failed_step_from_response(
             response,
             data,
@@ -200,12 +206,13 @@ def _process_requirement(
             subject=subject,
             route=current_route,
             actor=actor,
+            project=project,
         )
         if failed is not None:
             step_errors += failed.errors
             run_artifacts.extend(failed.paths)
             run_artifact_ids.extend(failed.artifact_ids)
-            run_verdict = "fail"
+            run_verdict = "error" if failed.unauthorized else "fail"
             if failed.capture_missed:
                 run_execution_status = "capture_failed"
             continue
@@ -235,7 +242,7 @@ def _process_requirement(
             qa_kind=qa_kind,
             subject=subject,
             route=current_route,
-            label=step.get("label"),
+            label=_sign_in.AUTHENTICATION_WALL_LABEL if wall else step.get("label"),
             vacuous_absences=list(assertions.vacuous),
             viewport=data.get("viewport") if isinstance(data, dict) else None,
             observed_url=str(data.get("url") or "") if isinstance(data, dict) else "",
@@ -294,11 +301,7 @@ def _process_requirement(
             if run_execution_status == "captured"
             else None
         ),
-        raw_result=_bqa._build_run_payload(
-            project=project,
-            base_url=base_url,
-            code_identity=code_identity,
-            freshness_validated=freshness_validated,
+        raw_result=_payload(
             verdict=run_verdict,
             execution_status=run_execution_status,
             errors=step_errors,
@@ -333,6 +336,7 @@ def _process_requirement(
         recorded_screenshots=recorded_screenshots,
         vacuous_absences=assertions.vacuous,
         code_identity=dict(code_identity),
+        sign_in=dict(sign_in),
     )
     return RequirementOutcome(
         run_result=run_result,

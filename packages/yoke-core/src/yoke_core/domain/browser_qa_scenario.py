@@ -30,6 +30,7 @@ from yoke_core.domain.browser_qa_freshness_outcome import (
     EXECUTION_TARGET_UNAUTHORIZED,
 )
 from yoke_core.domain.browser_qa_requirement import _process_requirement
+from yoke_core.domain.browser_qa_sign_in_evidence import describe_sign_in
 from yoke_core.domain.browser_qa_run_source import run_bound_identity
 from yoke_core.domain.browser_qa_results import ScenarioResult
 from yoke_core.domain.qa_artifacts import case_artifact_subject
@@ -263,6 +264,8 @@ def execute_scenario(
         print(result.to_json())
         return result
 
+    sign_in = describe_sign_in(project)
+
     # Step 6: Process each requirement
     for req_row in req_rows:
         outcome = _process_requirement(
@@ -272,6 +275,7 @@ def execute_scenario(
             base_url=base_url,
             code_identity=code_identity,
             freshness_validated=freshness_validated,
+            sign_in=sign_in,
             actor=actor,
         )
         result.runs.append(outcome.run_result)
@@ -283,7 +287,13 @@ def execute_scenario(
         if outcome.executed:
             result.executed += 1
 
-        if outcome.capture_failed or outcome.run_result.verdict == "fail":
+        if outcome.run_result.verdict == "error":
+            if result.verdict == "pass":
+                result.verdict = "error"
+            errors = outcome.run_result.errors or ""
+            if EXECUTION_TARGET_UNAUTHORIZED in errors:
+                result.note = EXECUTION_TARGET_UNAUTHORIZED
+        elif outcome.capture_failed or outcome.run_result.verdict == "fail":
             result.verdict = "fail"
         elif outcome.run_result.verdict == "pending" and result.verdict == "pass":
             result.verdict = "pending"

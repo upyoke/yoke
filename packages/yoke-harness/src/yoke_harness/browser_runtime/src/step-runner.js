@@ -22,6 +22,11 @@ const {
   refuseNavigateWithoutRoute,
   refuseUnrecognizedStepKeys,
 } = require('./step-schema');
+const {
+  authenticationWallError,
+  isSelectorWaitTimeout,
+  pageShowsAuthenticationWall,
+} = require('./auth-wall');
 
 // resolveUrl is owned by the navigation sibling and re-exported here so the
 // public module surface (executeStep, resolveUrl) stays stable.
@@ -188,6 +193,9 @@ async function executeStep(page, step, options) {
     }
 
     const duration_ms = Date.now() - startTime;
+    const wall = shouldProbeAuthenticationWall(step)
+      ? await pageShowsAuthenticationWall(page)
+      : false;
     return {
       success: true,
       duration_ms,
@@ -200,16 +208,28 @@ async function executeStep(page, step, options) {
       ...(result.vacuous_absence
         ? { vacuous_absence: result.vacuous_absence }
         : {}),
+      ...(wall ? { authenticationWall: true } : {}),
     };
   } catch (err) {
     const duration_ms = Date.now() - startTime;
+    const wall = await pageShowsAuthenticationWall(page);
+    let error = err.message || String(err);
+    if (wall && isSelectorWaitTimeout(step, err)) {
+      error = authenticationWallError();
+    }
     return {
       success: false,
       duration_ms,
       ...observedState(page),
-      error: err.message || String(err),
+      error,
+      ...(wall ? { authenticationWall: true } : {}),
     };
   }
+}
+
+function shouldProbeAuthenticationWall(step) {
+  const action = step && step.action;
+  return action === 'navigate' || action === 'wait_for' || action === 'assert';
 }
 
 module.exports = { executeStep, resolveUrl };

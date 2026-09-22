@@ -174,4 +174,7 @@ profile facet.
 Expiry needs no machinery. A dead session — the site's own expiry, or the
 30-day lifetime given to a kept session cookie — lands the walker on a sign-in
 page, which is already the human gate it raises. Run `yoke browser authorize`
-again for that site.
+again for that site. A Browser QA case that lands the same way records
+`sign_in.authenticated` as false, and a wait_for or assert timeout there is
+`execution_target_unauthorized` with that authorize command rather than a
+missing selector.

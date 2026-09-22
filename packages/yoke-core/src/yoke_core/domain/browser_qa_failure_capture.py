@@ -14,6 +14,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain.browser_qa_step_artifacts import record_step_artifacts
+from yoke_core.domain.browser_qa_sign_in_evidence import (
+    AUTHENTICATION_WALL_LABEL,
+    authorize_recovery,
+)
+from yoke_core.domain.browser_qa_freshness_outcome import (
+    EXECUTION_TARGET_UNAUTHORIZED,
+)
 
 FAILURE_SCREENSHOT_STEP: Dict[str, Any] = {
     "action": "screenshot",
@@ -35,6 +42,7 @@ def capture_failed_assertion_page(
     subject: int | str,
     route: str,
     actor: Optional[ActorContext] = None,
+    label: str = "assertion_failure",
 ) -> Tuple[str, List[str], List[int], bool]:
     """Capture the page under a failed assertion.
 
@@ -54,8 +62,10 @@ def capture_failed_assertion_page(
             False,
         )
 
+    shot = dict(FAILURE_SCREENSHOT_STEP)
+    shot["label"] = label
     response = _bqa._execute_step(
-        FAILURE_SCREENSHOT_STEP, base_url, artifact_dir, page_id
+        shot, base_url, artifact_dir, page_id
     )
     data = response.get("data", response)
     inner_failed = (
@@ -107,7 +117,7 @@ def capture_failed_assertion_page(
         qa_kind=qa_kind,
         subject=subject,
         route=route,
-        label="assertion_failure",
+        label=label,
         vacuous_absences=None,
         viewport=data.get("viewport") if isinstance(data, dict) else None,
         observed_url=str(data.get("url") or "") if isinstance(data, dict) else "",
@@ -137,12 +147,17 @@ def apply_failed_step(
     subject: int | str,
     route: str,
     actor: Optional[ActorContext] = None,
+    authentication_wall: bool = False,
 ) -> Tuple[str, List[str], List[int], bool]:
-    """Record a failed step. Capture the page when it was an assertion.
+    """Record a failed step. Capture the page for assertions and auth walls.
 
     Returns ``(errors, paths, artifact_ids, capture_missed)``.
     """
-    if assertion_expected:
+    if assertion_expected or authentication_wall:
+        label = (
+            AUTHENTICATION_WALL_LABEL if authentication_wall
+            else "assertion_failure"
+        )
         errors, paths, ids, capture_ok = capture_failed_assertion_page(
             step_idx=step_idx,
             error=error,
@@ -155,6 +170,7 @@ def apply_failed_step(
             subject=subject,
             route=route,
             actor=actor,
+            label=label,
         )
         return errors, paths, ids, not capture_ok
     return f"step_{step_idx}:{error};", [], [], True
@@ -168,6 +184,7 @@ class FailedStep:
     paths: List[str]
     artifact_ids: List[int]
     capture_missed: bool
+    unauthorized: bool = False
 
 
 def failed_step_from_response(
@@ -185,6 +202,7 @@ def failed_step_from_response(
     subject: int | str,
     route: str,
     actor: Optional[ActorContext] = None,
+    project: str = "",
 ) -> Optional[FailedStep]:
     """Return a ``FailedStep`` when the daemon said the step failed."""
     from yoke_core.domain import browser_qa as _bqa
@@ -203,6 +221,15 @@ def failed_step_from_response(
     if not error and isinstance(data, dict):
         error = data.get("error")
     error = error or "step_failed"
+    wall = bool(response.get("authenticationWall"))
+    if isinstance(data, dict):
+        wall = wall or bool(data.get("authenticationWall"))
+    unauthorized = wall and (
+        EXECUTION_TARGET_UNAUTHORIZED in str(error)
+        or "timeout" in str(error).lower()
+    )
+    if unauthorized:
+        error = authorize_recovery(project, base_url)
     _bqa._log(f"  Step {step_idx}: FAILED (error={error})")
     errors, paths, ids, capture_missed = apply_failed_step(
         assertion_expected=assertion_expected,
@@ -217,11 +244,13 @@ def failed_step_from_response(
         subject=subject,
         route=route,
         actor=actor,
+        authentication_wall=unauthorized,
     )
     return FailedStep(
         errors=errors,
         paths=paths,
         artifact_ids=ids,
         capture_missed=capture_missed,
+        unauthorized=unauthorized,
     )
 

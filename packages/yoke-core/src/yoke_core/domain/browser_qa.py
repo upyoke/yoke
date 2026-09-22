@@ -16,6 +16,8 @@ Implementation is split across sibling modules under
 - ``browser_qa_steps``    — per-step dispatch and qa_run/qa_artifact
                             recording delegates.
 - ``browser_qa_requirement`` — per-``qa_requirement`` step-loop owner.
+- ``browser_qa_sign_in_evidence`` — which profile the daemon used and
+                            whether the page looked authenticated.
 - ``browser_qa_step_artifacts`` — durable submission of one step's captures,
                             stamped with the page state that step observed.
 - ``browser_qa_scenario`` — top-level driver (``execute_scenario``) plus

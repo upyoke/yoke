@@ -110,7 +110,7 @@ verdict TEXT -- CHECK: pass | fail | undetermined | error (nullable: started but
 verdict_reason TEXT -- required when undetermined; agent outcomes also require linked evidence
 score REAL -- nullable numeric score
 confidence REAL -- nullable confidence level (0.0-1.0)
-raw_result TEXT -- → JSONB on Postgres; JSON: full execution output; browser_substrate runs also record code_identity.branch / code_identity.sha
+raw_result TEXT -- → JSONB on Postgres; JSON: full execution output; browser_substrate runs also record code_identity.branch / code_identity.sha and sign_in.profile / sign_in.authenticated
 duration_ms INTEGER -- nullable execution duration
 started_at TEXT -- ISO timestamp
 completed_at TEXT -- ISO timestamp
