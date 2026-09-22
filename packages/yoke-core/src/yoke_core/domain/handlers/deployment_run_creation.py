@@ -166,6 +166,7 @@ def handle_deployment_run_create(
         return error("run_create_rejected", str(exc), jsonpath="$.payload")
 
     inherited_items = _member_item_ids(created_run_id) if retry_source else ()
+    member_items = _member_item_ids(created_run_id)
 
     from yoke_core.domain.deployment_runs_crud_query import cmd_get
     from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
@@ -176,6 +177,7 @@ def handle_deployment_run_create(
             "run_id": created_run_id,
             "retry_of": retry_source or None,
             "inherited_item_ids": list(inherited_items),
+            "member_item_ids": list(member_items),
             "project": created.get("project") or clean_project,
             "flow": created.get("flow") or clean_flow,
             "target_tier": created.get("target_tier") or None,
