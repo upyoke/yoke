@@ -28,7 +28,7 @@ import { el, statePill } from "./universe_view_support.js";
 
 const SUCCEEDED = "succeeded";
 const FAILED = "failed";
-const STALLED_AFTER_MS = 90 * 60 * 1000;
+const STALLED_AFTER_MS = 30 * 60 * 1000;
 
 function runMembers(run) {
   if ((run.member_items || []).length) return run.member_items;

@@ -191,7 +191,7 @@ for (const band of BANDS) {
     stubFetch(t);
     const { mounted, box } = await mountBand(band, (itemId) => [
       run("run-live", itemId, {
-        status: "executing", created_at: ago(1), completed_at: "",
+        status: "executing", created_at: ago(0.25), completed_at: "",
       }),
     ]);
 
