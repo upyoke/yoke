@@ -8,7 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.tools import _watch_capture_binding, _watch_runner, watch_deploy, watch_merge
+from yoke_core.tools import (
+    _watch_capture_binding,
+    _watch_runner,
+    watch_deploy,
+    watch_merge,
+)
 from yoke_core.tools import gate_stall_report
 from yoke_core.tools._watch_wait_mode import WatchWaitMode
 from yoke_core.tools._watch_throttle import Classification, LineClass
@@ -62,7 +67,9 @@ def test_direct_and_tail_streams_only_deliver_terminal_failure(
         progress_capture=progress,
         kind=kind,
         stdout_stream=direct,
-        header_metadata=("Self-deploy driver frozen at abc" if kind == "deploy" else None),
+        header_metadata=(
+            "Self-deploy driver frozen at abc" if kind == "deploy" else None
+        ),
         outcome_only=True,
     )
     delivered = io.StringIO()
@@ -164,7 +171,10 @@ def test_undiagnosed_failure_names_unknown_cause_and_raw_capture(
     progress = tmp_path / "unknown.progress"
     output = io.StringIO()
     rc = _watch_runner.run_watcher(
-        argv=[sys.executable, str(_child(tmp_path, ["uncategorized failure detail"], 9))],
+        argv=[
+            sys.executable,
+            str(_child(tmp_path, ["uncategorized failure detail"], 9)),
+        ],
         classifier=lambda _line: Classification(LineClass.NOISE),
         raw_capture=raw,
         progress_capture=progress,
@@ -196,12 +206,41 @@ def test_deploy_terminal_diagnostics_are_preserved_as_the_final_cause(
     raw = tmp_path / "diagnostic.raw"
     raw.write_text(diagnostic + "\n", encoding="utf-8")
 
-    outcome = format_terminal_outcome(
-        kind="deploy", exit_code=2, raw_capture=raw
-    )
+    outcome = format_terminal_outcome(kind="deploy", exit_code=2, raw_capture=raw)
 
     assert diagnostic in outcome
     assert "terminal cause not diagnosed" not in outcome
+
+
+def test_specific_deploy_error_survives_later_generic_stage_failure(
+    tmp_path: Path,
+) -> None:
+    raw = tmp_path / "stage-failure.raw"
+    terminal_error = (
+        "Terminal error: FAILED ... PortabilityRefused ... Use a newly provisioned "
+        "empty target or contact support"
+    )
+    raw.write_text(
+        "\n".join(
+            (
+                "Step runner diagnostic: failed:failure",
+                "Terminal failing job: candidate service suite",
+                terminal_error,
+                "Error: stage 'hosted-release' failed (exit code: 1)",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    outcome = format_terminal_outcome(kind="deploy", exit_code=1, raw_capture=raw)
+
+    assert terminal_error in outcome
+    assert (
+        "recovery: Use a newly provisioned empty target or contact support" in outcome
+    )
+    assert "Error: stage 'hosted-release' failed" not in outcome
+    assert "exit=1" in outcome
 
 
 def test_deadlock_abort_reports_named_cause_without_heartbeat(
