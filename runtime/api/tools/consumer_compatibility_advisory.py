@@ -5,9 +5,11 @@ Publication is where consumer proof is mandatory — see
 before it allocates the annotated tag. This is the earlier, advisory half:
 it runs in its own independent CI job (see
 ``.github/workflows/consumer-compatibility-advisory.yml``) so an author
-changing the shared universe app surface learns at the merge attempt rather
-than at the release, and it never decides any required check's verdict —
-nor does the tree-contracts job or the shard matrix wait on it.
+changing a surface the hosted service consumes gets an early signal rather
+than first learning at the release, and it never decides any required check's
+verdict — nor does the tree-contracts job or the shard matrix wait on it. A
+fast landing can beat this advisory; the mandatory exact-pair release proof
+remains the authority.
 
 Three outcomes, and the difference between them is the point:
 
@@ -47,6 +49,12 @@ _PACKAGE_SOURCE_ROOT = "packages/yoke-core/src/"
 #: Declaration-emitting sources for the same contract, which change the
 #: shared surface without changing a shipped asset byte-for-byte.
 _CONTRACT_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/ui/contracts/"
+#: Control-plane schema and boot-seed sources exercised by the hosted
+#: consumer's pristine-tenant candidate check.
+_CONTROL_PLANE_DOMAIN_ROOT = "packages/yoke-core/src/yoke_core/domain/"
+_MODEL_REFERENCE_CONTRACT_ROOT = (
+    "packages/yoke-contracts/src/yoke_contracts/model_reference_"
+)
 
 _ANNOTATION_TITLE = "consumer-compatibility"
 
@@ -54,18 +62,39 @@ _ANNOTATION_TITLE = "consumer-compatibility"
 def host_consumed_paths() -> Tuple[str, ...]:
     """Repository paths of the assets the host consumes, from one source."""
     return tuple(
-        f"{_PACKAGE_SOURCE_ROOT}{asset.artifact_member}"
-        for asset in UNIVERSE_ASSETS
+        f"{_PACKAGE_SOURCE_ROOT}{asset.artifact_member}" for asset in UNIVERSE_ASSETS
     )
 
 
-def touches_host_contract(paths: Sequence[str]) -> Tuple[str, ...]:
-    """The changed paths that put the host-consumed contract in play."""
+def _touches_control_plane_data(path: str) -> bool:
+    """Whether *path* can change hosted control-plane schema or boot seeds."""
+    if path.startswith(_MODEL_REFERENCE_CONTRACT_ROOT):
+        return True
+    if not path.startswith(_CONTROL_PLANE_DOMAIN_ROOT):
+        return False
+
+    relative = path[len(_CONTROL_PLANE_DOMAIN_ROOT) :]
+    return (
+        relative == "schema.py"
+        or relative == "schema_init.py"
+        or relative == "model_reference_store.py"
+        or relative.startswith("schema_")
+        or relative.endswith("_schema.py")
+        or relative.startswith("migrations/")
+    )
+
+
+def touches_hosted_consumer_surface(paths: Sequence[str]) -> Tuple[str, ...]:
+    """The changed paths that require the hosted consumer advisory."""
     consumed = set(host_consumed_paths())
     return tuple(
         path
         for path in paths
-        if path in consumed or path.startswith(_CONTRACT_SOURCE_ROOT)
+        if (
+            path in consumed
+            or path.startswith(_CONTRACT_SOURCE_ROOT)
+            or _touches_control_plane_data(path)
+        )
     )
 
 
@@ -112,11 +141,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         )
         return 0
 
-    touched = touches_host_contract(scope.paths)
+    touched = touches_hosted_consumer_surface(scope.paths)
     if not touched:
         _report(
             "not applicable — this change does not touch the surface the "
-            "hosted host consumes"
+            "hosted service consumes"
         )
         return 0
 
@@ -146,8 +175,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # this dispatches onto trunk by name and trusts the run's own report
     # instead of demanding an exact-pair match.
     code, narrative, _proven = gate.prove(
-        candidate, gate.CONSUMER_TRUNK_REF,
-        timeout_sec=args.timeout_sec, exact_pair=False,
+        candidate,
+        gate.CONSUMER_TRUNK_REF,
+        timeout_sec=args.timeout_sec,
+        exact_pair=False,
     )
     _report(narrative, warn=bool(code))
     return code
