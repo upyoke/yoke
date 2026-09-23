@@ -64,11 +64,15 @@ def test_failure_trace_human_output_names_terminal_cause_and_chain() -> None:
         "stage": "hosted-release",
         "complete": True,
         "terminal_job": "copy-attested-digest-to-ecr",
+        "terminal_job_url": "https://github.com/owner/repo/actions/runs/123/job/456",
         "terminal_error": "unauthorized: authentication required",
         "chain": [
             {
                 "url": "https://github.com/owner/repo/actions/runs/123",
                 "failed_job": "release observer",
+                "failed_job_url": (
+                    "https://github.com/owner/repo/actions/runs/123/job/456"
+                ),
             }
         ],
     }
@@ -85,5 +89,10 @@ def test_failure_trace_human_output_names_terminal_cause_and_chain() -> None:
 
     rendered = stdout.getvalue()
     assert "Terminal failing job: copy-attested-digest-to-ecr" in rendered
+    assert (
+        "Terminal job URL: https://github.com/owner/repo/actions/runs/123/job/456"
+        in rendered
+    )
     assert "Terminal error: unauthorized: authentication required" in rendered
     assert "https://github.com/owner/repo/actions/runs/123" in rendered
+    assert "job: https://github.com/owner/repo/actions/runs/123/job/456" in rendered
