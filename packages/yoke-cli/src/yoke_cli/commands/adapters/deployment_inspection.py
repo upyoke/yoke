@@ -33,8 +33,9 @@ DEPLOYMENT_RUNS_FAILURE_TRACE_USAGE = (
 
 
 def _pipe(fields: list[str], row: dict[str, Any]) -> str:
-    return "|".join("" if row.get(field) is None else str(row.get(field))
-                    for field in fields)
+    return "|".join(
+        "" if row.get(field) is None else str(row.get(field)) for field in fields
+    )
 
 
 def deployment_flows_list(args: List[str]) -> int:
@@ -80,9 +81,7 @@ def deployment_runs_find_by_item(args: List[str]) -> int:
     parser.add_argument("--status", default=None)
     add_session_arg(parser)
     add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser, args, DEPLOYMENT_RUNS_FIND_BY_ITEM_USAGE
-    )
+    parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_FIND_BY_ITEM_USAGE)
     if parsed is None:
         return 2
 
@@ -154,6 +153,10 @@ def deployment_runs_failure_trace(args: List[str]) -> int:
         result = response.result or {}
         if result.get("complete"):
             print(f"Terminal failing job: {result.get('terminal_job')}", file=stdout)
+            if result.get("terminal_job_url"):
+                print(
+                    f"Terminal job URL: {result.get('terminal_job_url')}", file=stdout
+                )
             print(f"Terminal error: {result.get('terminal_error')}", file=stdout)
         else:
             print(f"Failure trace stopped: {result.get('stop_reason')}", file=stdout)
@@ -166,6 +169,8 @@ def deployment_runs_failure_trace(args: List[str]) -> int:
         for index, hop in enumerate(result.get("chain") or [], start=1):
             job = f" — {hop.get('failed_job')}" if hop.get("failed_job") else ""
             print(f"  {index}. {hop.get('url')}{job}", file=stdout)
+            if hop.get("failed_job_url"):
+                print(f"     job: {hop.get('failed_job_url')}", file=stdout)
 
     return dispatch_and_emit(
         function_id="deployment_runs.failure_trace",

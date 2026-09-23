@@ -30,10 +30,31 @@ def _partial(run_id: str, stage: str, reason: str, recovery: str) -> dict[str, A
         "complete": False,
         "chain": [],
         "terminal_job": "",
+        "terminal_job_url": "",
         "terminal_error": "",
         "stop_reason": reason,
         "recovery": recovery,
     }
+
+
+def _inspect_run(ref: RunRef, *, token: str) -> RunSnapshot:
+    """Adapt the shared failed-job collector to the failure-chain model."""
+    from yoke_core.domain.github_actions_failed_jobs import collect_failed_jobs
+
+    failures = collect_failed_jobs(ref.repo, ref.run_id, token=token)
+    return RunSnapshot(
+        ref,
+        tuple(
+            FailedJob(
+                job.job_id,
+                job.name,
+                job.log_text,
+                job.log_detail,
+                job.html_url,
+            )
+            for job in failures
+        ),
+    )
 
 
 def trace_deployment_failure(run_id: str, *, actor_id: int | None) -> dict[str, Any]:
@@ -138,38 +159,8 @@ def trace_deployment_failure(run_id: str, *, actor_id: int | None) -> dict[str, 
         return tokens[wanted]
 
     def inspect(ref: RunRef) -> RunSnapshot:
-        from yoke_core.domain.github_actions_logs import fetch_job_log
-        from yoke_core.domain.github_actions_rest import rest_get
-
         token = token_for(ref.repo)
-        listing = rest_get(
-            f"/repos/{ref.repo}/actions/runs/{ref.run_id}/jobs",
-            query={"filter": "all", "per_page": "100"},
-            token=token,
-        )
-        if not isinstance(listing, dict) or not isinstance(listing.get("jobs"), list):
-            raise ValueError("workflow jobs response omitted jobs")
-        jobs = [job for job in listing["jobs"] if isinstance(job, dict)]
-        total = listing.get("total_count")
-        if isinstance(total, int) and total > len(jobs):
-            raise ValueError(f"run has {total} jobs; only {len(jobs)} were returned")
-        failures: list[FailedJob] = []
-        for job in jobs:
-            if str(job.get("conclusion") or "") != "failure":
-                continue
-            job_id = str(job.get("id") or "")
-            name = str(job.get("name") or f"job-{job_id}")
-            try:
-                failures.append(
-                    FailedJob(
-                        job_id,
-                        name,
-                        fetch_job_log(ref.repo, job_id, token=token),
-                    )
-                )
-            except Exception as exc:
-                failures.append(FailedJob(job_id, name, "", str(exc)))
-        return RunSnapshot(ref, tuple(failures))
+        return _inspect_run(ref, token=token)
 
     def resolve_job(repo: str, job_id: str) -> RunRef:
         from yoke_core.domain.github_actions_rest import rest_get

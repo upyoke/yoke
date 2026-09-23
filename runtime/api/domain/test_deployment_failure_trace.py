@@ -9,11 +9,94 @@ from yoke_core.domain.deployment_failure_trace import (
     terminal_error,
     walk_failure_chain,
 )
+from yoke_core.domain.deployment_failure_trace_runtime import _inspect_run
+from yoke_core.domain.github_actions_failed_jobs import (
+    LOG_AVAILABLE,
+    FailedJob as ProviderFailedJob,
+)
 
 
-def _snapshot(repo: str, run_id: str, job_id: str, job: str, log: str) -> RunSnapshot:
+def _snapshot(
+    repo: str,
+    run_id: str,
+    job_id: str,
+    job: str,
+    log: str,
+    job_url: str = "",
+) -> RunSnapshot:
     ref = github_run_ref(repo, run_id)
-    return RunSnapshot(ref, (FailedJob(job_id, job, log),))
+    return RunSnapshot(ref, (FailedJob(job_id, job, log, url=job_url),))
+
+
+def test_provider_handoff_reuses_failed_job_collector(monkeypatch) -> None:
+    job_url = "https://github.com/owner/consumer/actions/runs/200/job/300"
+    collected = ProviderFailedJob(
+        job_id="300",
+        name="validate promotion",
+        conclusion="failure",
+        html_url=job_url,
+        log_text="##[error]consumer pin ancestry rejected",
+        log_status=LOG_AVAILABLE,
+        log_detail="",
+    )
+
+    def collect(repo: str, run_id: str, *, token: str):
+        assert (repo, run_id, token) == ("owner/consumer", "200", "token")
+        return [collected]
+
+    monkeypatch.setattr(
+        "yoke_core.domain.github_actions_failed_jobs.collect_failed_jobs",
+        collect,
+    )
+
+    snapshot = _inspect_run(
+        github_run_ref("owner/consumer", "200"),
+        token="token",
+    )
+
+    assert snapshot.failed_jobs == (
+        FailedJob(
+            "300",
+            "validate promotion",
+            "##[error]consumer pin ancestry rejected",
+            url=job_url,
+        ),
+    )
+
+
+def test_nested_validation_annotation_reports_diagnostic_and_job_url() -> None:
+    job_url = "https://github.com/owner/consumer/actions/runs/200/job/300"
+    snapshots = {
+        ("owner/product", "100"): _snapshot(
+            "owner/product",
+            "100",
+            "150",
+            "delegate validation",
+            "failed:failure|https://github.com/owner/consumer/actions/runs/200",
+        ),
+        ("owner/consumer", "200"): _snapshot(
+            "owner/consumer",
+            "200",
+            "300",
+            "validate promotion",
+            "##[error]promotion rejected: consumer pin ancestry is not canonical",
+            job_url,
+        ),
+    }
+
+    result = walk_failure_chain(
+        github_run_ref("owner/product", "100"),
+        inspect_run=lambda ref: snapshots[(ref.repo, ref.run_id)],
+        resolve_job=lambda repo, job_id: github_run_ref(repo, job_id),
+    )
+
+    assert result["complete"] is True
+    assert result["terminal_job"] == "validate promotion"
+    assert result["terminal_job_url"] == job_url
+    assert result["terminal_error"] == (
+        "promotion rejected: consumer pin ancestry is not canonical"
+    )
+    assert result["chain"][-1]["failed_job_url"] == job_url
 
 
 def test_walk_reaches_registry_authentication_cause_through_job_id() -> None:
@@ -179,6 +262,7 @@ def test_permission_refusal_preserves_the_unreadable_hop_url() -> None:
             "run_id": "10",
             "url": origin.url,
             "failed_job": "",
+            "failed_job_url": "",
         }
     ]
     assert "Actions logs are not visible" in result["stop_reason"]

@@ -41,6 +41,7 @@ class FailedJob:
     name: str
     log: str
     log_error: str = ""
+    url: str = ""
 
 
 @dataclass(frozen=True)
@@ -148,11 +149,14 @@ def terminal_error(log: str) -> str | None:
     """Select the most diagnostic non-relay error line from one job log."""
     candidates: list[tuple[tuple[int, int], str]] = []
     for line in _clean_lines(log):
-        text = line.split("##[error]", 1)[-1].strip() if "##[error]" in line else line
+        annotated = "##[error]" in line
+        text = line.split("##[error]", 1)[-1].strip() if annotated else line
         folded = text.casefold()
         if not text or any(generic in folded for generic in _GENERIC_ERRORS):
             continue
         score = _error_score(text)
+        if annotated and not score[0]:
+            score = (70, len(text))
         if score[0]:
             candidates.append((score, text))
     if not candidates:
@@ -160,12 +164,17 @@ def terminal_error(log: str) -> str | None:
     return max(candidates, key=lambda item: item[0])[1]
 
 
-def _chain_entry(ref: RunRef, job: str = "") -> dict[str, str]:
+def _chain_entry(
+    ref: RunRef,
+    job: str = "",
+    job_url: str = "",
+) -> dict[str, str]:
     return {
         "repo": ref.repo,
         "run_id": ref.run_id,
         "url": ref.url,
         "failed_job": job,
+        "failed_job_url": job_url,
     }
 
 
@@ -178,6 +187,7 @@ def _stopped(
         "complete": False,
         "chain": chain,
         "terminal_job": "",
+        "terminal_job_url": "",
         "terminal_error": "",
         "stop_reason": reason,
         "recovery": recovery,
@@ -213,9 +223,9 @@ def walk_failure_chain(
                 f"could not inspect {current.url}: {exc}",
                 "restore Actions read/log permission for this hop, then rerun the trace",
             )
-        relay_refs: list[tuple[RunRef, str]] = []
+        relay_refs: list[tuple[RunRef, str, str]] = []
         relay_without_target: list[str] = []
-        terminal_candidates: list[tuple[tuple[int, int], str, str]] = []
+        terminal_candidates: list[tuple[tuple[int, int], str, str, str]] = []
         for job in snapshot.failed_jobs:
             signal = relay_signal(job.log, current)
             resolved = list(signal.run_refs)
@@ -225,24 +235,28 @@ def walk_failure_chain(
                 except Exception as exc:
                     relay_without_target.append(f"job {job_id}: {exc}")
             for ref in _unique_refs(resolved, current):
-                relay_refs.append((ref, job.name))
+                relay_refs.append((ref, job.name, job.url))
             if signal.observed and not resolved and not signal.job_ids:
                 relay_without_target.append(job.log_error or job.name)
             error_text = terminal_error(job.log)
             if error_text:
                 terminal_candidates.append(
-                    (_error_score(error_text), job.name, error_text)
+                    (_error_score(error_text), job.name, error_text, job.url)
                 )
         unique_relays = {
-            (ref.repo.casefold(), ref.run_id): (ref, job) for ref, job in relay_refs
+            (ref.repo.casefold(), ref.run_id): (ref, job, job_url)
+            for ref, job, job_url in relay_refs
         }
         if len(unique_relays) == 1:
-            downstream, relay_job = next(iter(unique_relays.values()))
+            downstream, relay_job, relay_job_url = next(iter(unique_relays.values()))
             chain[-1]["failed_job"] = relay_job
+            chain[-1]["failed_job_url"] = relay_job_url
             current = downstream
             continue
         if len(unique_relays) > 1:
-            urls = ", ".join(sorted(ref.url for ref, _job in unique_relays.values()))
+            urls = ", ".join(
+                sorted(ref.url for ref, _job, _job_url in unique_relays.values())
+            )
             return _stopped(
                 chain,
                 f"relay at {current.url} named multiple failed runs: {urls}",
@@ -256,14 +270,16 @@ def walk_failure_chain(
                 "check the printed hop and its Actions job/run visibility, then rerun",
             )
         if terminal_candidates:
-            _score, job_name, error_text = max(
+            _score, job_name, error_text, job_url = max(
                 terminal_candidates, key=lambda item: item[0]
             )
             chain[-1]["failed_job"] = job_name
+            chain[-1]["failed_job_url"] = job_url
             return {
                 "complete": True,
                 "chain": chain,
                 "terminal_job": job_name,
+                "terminal_job_url": job_url,
                 "terminal_error": error_text,
                 "stop_reason": "",
                 "recovery": "",

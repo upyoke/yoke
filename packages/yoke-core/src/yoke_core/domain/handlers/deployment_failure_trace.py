@@ -17,6 +17,7 @@ class FailureChainEntry(BaseModel):
     run_id: str = Field(..., min_length=1)
     url: str = Field(..., min_length=1)
     failed_job: str = ""
+    failed_job_url: str = ""
 
 
 class DeploymentFailureTraceResponse(BaseModel):
@@ -25,6 +26,7 @@ class DeploymentFailureTraceResponse(BaseModel):
     complete: bool
     chain: list[FailureChainEntry]
     terminal_job: str = ""
+    terminal_job_url: str = ""
     terminal_error: str = ""
     stop_reason: str = ""
     recovery: str = ""
