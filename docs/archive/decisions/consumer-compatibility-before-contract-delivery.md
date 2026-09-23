@@ -64,18 +64,21 @@ downstream of it publishes. The gate is unconditional there, because a
 release publishes whatever trunk carries and there is no candidate diff to
 consult.
 
-The same pair is advised earlier, at the merge attempt, from a step inside
-the repo-contracts job that already runs on every pull request and merge
-group. That job resolves one changed-path scope for every event, and the
-advisory reuses it rather than deciding applicability a second way: when the
-change touches the host-consumed surface it asks the consumer, and otherwise
-it says so and stops.
+The same candidate is advised earlier from an independent reusable workflow
+called by required CI on every pull request and merge group. It resolves the
+event's changed-path scope through the same repository contract helper: when
+the change touches a host-consumed UI contract, control-plane schema, governed
+migration, or boot-seeded model-reference data it asks the consumer, and
+otherwise it says so and stops.
 
-It is advisory in the literal sense — it never decides that job's verdict,
-so nothing about the merge path becomes conditional on a private repository
-being reachable. Reaching for a required status context and a ruleset entry
-instead was considered and rejected: those would make every landing depend
-on a credential a fork cannot have.
+It is advisory in the literal sense — its caller has no dependency on the
+reusable job, its job and reporting step both continue on error, and it has no
+required status context. The required repository-contract and shard jobs run
+in parallel and the normal release path gains no wait. A fast landing can
+therefore finish before this advisory does; this improves early visibility but
+does not promise a pre-merge block. Reaching for a required status context and
+a ruleset entry instead was considered and rejected: those would make every
+landing depend on a credential a fork cannot have.
 
 Three outcomes, and keeping them distinct is the point. *Not applicable* is
 an honest absence. *Checked* carries the consumer's own conclusion with both
@@ -105,11 +108,12 @@ so nothing here claims to bind that.
 
 ## What this deliberately does not do
 
-It does not gate a landing. The earlier report warns; it never blocks, so a
-change that breaks the shared contract can still merge. What it cannot do is
-get published without the host having been built against the candidate. That
-keeps the ordering simple: a producer change and its consumer companion can
-land in either order, and the release is where the pair has to be real.
+It does not gate a landing. The earlier report warns; it never blocks and can
+arrive after a fast merge, so a change that breaks the shared contract can
+still land. What it cannot do is get published without the host having been
+built against the exact candidate and consumer revisions. That keeps the
+ordering simple: a producer change and its consumer companion can land in
+either order, and the release is where the pair has to be real.
 
 No new queue, receipt table, compatibility framework, negotiation layer,
 second validator, second consumer workflow, required status context,
