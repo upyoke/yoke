@@ -9,14 +9,16 @@ from yoke_contracts.model_reference_records import (
 )
 
 CHECKED_AT = "2026-09-07"
+REFRESHED_AT = "2026-09-23"
 ANTHROPIC_PRICING = "https://platform.claude.com/docs/en/about-claude/pricing"
+OPUS_55_DOCS = "https://platform.claude.com/docs/en/models/opus-5-5/overview"
 CURSOR_PRICING = "https://cursor.com/docs/models-and-pricing"
 GROK_46_DOCS = "https://cursor.com/docs/models/grok-4-6"
+GROK_47_DOCS = "https://cursor.com/docs/models/grok-4-7"
 CLAUDE_MAX_PLAN = "https://support.claude.com/en/articles/11049741-what-is-the-max-plan"
 CODEX_PRO_PLAN = "https://help.openai.com/en/articles/9793128-about-chatgpt-pro-tiers"
 CHATGPT_PRICING = "https://learn.chatgpt.com/docs/pricing"
 OPENAI_MODEL_DOCS = "https://developers.openai.com/api/docs/models"
-OPENROUTER_ASTRA = "https://openrouter.ai/openai/gpt-6-astra"
 
 #: The unit ChatGPT meters plan usage in. Credits are not dollars and the
 #: page publishes no conversion from credits to a percentage of an included
@@ -41,13 +43,13 @@ CURSOR_MODELS_RULE = SubscriptionRule(
     plan="ultra",
     pool="cursor-models",
     rule=(
-        "Ultra includes the Cursor Models pool (Grok 4.6, Grok 4.5, "
+        "Ultra includes the Cursor Models pool (Grok 4.7, Grok 4.6, Grok 4.5, "
         "Composer 2.5). The included monthly amount is not published; the "
         "account usage dashboard is the only reading of what remains. API "
         "dollars are not a percentage of that pool."
     ),
     source_url=CURSOR_PRICING,
-    checked_at=CHECKED_AT,
+    checked_at=REFRESHED_AT,
 )
 CURSOR_OTHER_RULE = SubscriptionRule(
     harness="cursor",
@@ -64,7 +66,11 @@ CURSOR_OTHER_RULE = SubscriptionRule(
 
 
 def chatgpt_credits(
-    *, input_credits: float, cached_input_credits: float, output_credits: float
+    *,
+    input_credits: float,
+    cached_input_credits: float,
+    output_credits: float,
+    checked_at: str = CHECKED_AT,
 ) -> ConsumptionWeight:
     """One model's published ChatGPT credit weight per million tokens."""
     return ConsumptionWeight(
@@ -73,11 +79,13 @@ def chatgpt_credits(
         cached_input_per_million=cached_input_credits,
         output_per_million=output_credits,
         source_url=CHATGPT_PRICING,
-        checked_at=CHECKED_AT,
+        checked_at=checked_at,
     )
 
 
-def codex_pro_rule(weight: ConsumptionWeight | None = None) -> SubscriptionRule:
+def codex_pro_rule(
+    weight: ConsumptionWeight | None = None, *, checked_at: str = CHECKED_AT
+) -> SubscriptionRule:
     """The ChatGPT plan rule Codex CLI work consumes, with its credit weight.
 
     The weight is what the plan meters; how many credits a plan includes,
@@ -97,7 +105,7 @@ def codex_pro_rule(weight: ConsumptionWeight | None = None) -> SubscriptionRule:
             "published, and message ranges vary with task size."
         ),
         source_url=CHATGPT_PRICING,
-        checked_at=CHECKED_AT,
+        checked_at=checked_at,
         consumption_weight=weight,
     )
 
@@ -110,6 +118,7 @@ def claude_price(
     cache_write: float,
     cache_write_long: float,
     conditions: str,
+    checked_at: str = CHECKED_AT,
 ) -> ApiPrice:
     return ApiPrice(
         input_per_million_usd=input_usd,
@@ -119,12 +128,17 @@ def claude_price(
         cache_write_long_per_million_usd=cache_write_long,
         conditions=conditions,
         source_url=ANTHROPIC_PRICING,
-        checked_at=CHECKED_AT,
+        checked_at=checked_at,
     )
 
 
 def cursor_pool_price(
-    *, input_usd: float, cache_read: float, output_usd: float, conditions: str
+    *,
+    input_usd: float,
+    cache_read: float,
+    output_usd: float,
+    conditions: str,
+    checked_at: str = CHECKED_AT,
 ) -> ApiPrice:
     return ApiPrice(
         input_per_million_usd=input_usd,
@@ -134,7 +148,7 @@ def cursor_pool_price(
         cache_write_long_per_million_usd=None,
         conditions=conditions,
         source_url=CURSOR_PRICING,
-        checked_at=CHECKED_AT,
+        checked_at=checked_at,
     )
 
 

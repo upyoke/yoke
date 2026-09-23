@@ -13,37 +13,51 @@ Benchmarks stay empty until a named public result is attached.
 from __future__ import annotations
 
 from yoke_contracts.model_reference_cursor import CURSOR_RECORDS
-from yoke_contracts.model_reference_records import ApiPrice, ModelRecord
+from yoke_contracts.model_reference_openai import OPENAI_RECORDS
+from yoke_contracts.model_reference_records import ModelRecord
 from yoke_contracts.model_reference_sources import (
     ANTHROPIC_PRICING,
-    CHATGPT_PRICING,
     CHECKED_AT,
     CLAUDE_MAX_RULE,
-    CODEX_PRO_PLAN,
     CURSOR_OTHER_RULE,
     CURSOR_PRICING,
-    OPENAI_MODEL_DOCS,
-    OPENROUTER_ASTRA,
-    chatgpt_credits,
+    OPUS_55_DOCS,
+    REFRESHED_AT,
     claude_price,
-    codex_pro_rule,
-    cursor_other_price,
 )
 
-#: Every OpenAI record cites the model docs entry for its own id.
-_ASTRA_DOCS = f"{OPENAI_MODEL_DOCS}/gpt-6-astra"
-
-_PROVIDER_RECORDS: tuple[ModelRecord, ...] = (
+ANTHROPIC_RECORDS: tuple[ModelRecord, ...] = (
+    ModelRecord(
+        model_id="claude-opus-5-5",
+        provider="anthropic",
+        display_name="Claude Opus 5.5",
+        proposed_tier="tier2",
+        tier_evidence=(
+            "Current Opus sits immediately below the Fable/Astra frontier. "
+            "Anthropic positions Fable 5.1 above Opus 5.5 for demanding "
+            "reasoning; this global tier is not inferred from price."
+        ),
+        api_price=claude_price(
+            input_usd=4.0,
+            output_usd=20.0,
+            cache_read=0.20,
+            cache_write=5.0,
+            cache_write_long=8.0,
+            conditions="Standard API. Fast mode is $8/$40; cache hits are 0.05x input.",
+            checked_at=REFRESHED_AT,
+        ),
+        subscription_rules=(CLAUDE_MAX_RULE, CURSOR_OTHER_RULE),
+        source_urls=(OPUS_55_DOCS, ANTHROPIC_PRICING, CURSOR_PRICING),
+        checked_at=REFRESHED_AT,
+    ),
     ModelRecord(
         model_id="claude-opus-5",
         provider="anthropic",
         display_name="Claude Opus 5",
-        aliases=("claude-opus-5-fast",),
-        proposed_tier="tier2",
+        proposed_tier="excluded",
         tier_evidence=(
-            "Current Opus sits immediately below the absolute frontier "
-            "(Fable/Astra). A provider flagship label is not global tier1. "
-            "Fast mode is a speed/price variant, not a different tier."
+            "Prior Opus release. Opus 5.5 now occupies the current tier2 "
+            "band; the old flagship label does not retain that rank."
         ),
         api_price=claude_price(
             input_usd=5.0,
@@ -55,7 +69,7 @@ _PROVIDER_RECORDS: tuple[ModelRecord, ...] = (
         ),
         subscription_rules=(CLAUDE_MAX_RULE, CURSOR_OTHER_RULE),
         source_urls=(ANTHROPIC_PRICING, CURSOR_PRICING),
-        checked_at=CHECKED_AT,
+        checked_at=REFRESHED_AT,
     ),
     ModelRecord(
         model_id="claude-sonnet-5",
@@ -85,7 +99,7 @@ _PROVIDER_RECORDS: tuple[ModelRecord, ...] = (
         proposed_tier="excluded",
         tier_evidence=(
             "Prior-generation Opus. Re-evaluated rather than kept as a "
-            "flagship; current Opus 5 already occupies the approved tier2 band."
+            "flagship; current Opus 5.5 occupies the tier2 band."
         ),
         api_price=claude_price(
             input_usd=5.0,
@@ -144,168 +158,8 @@ _PROVIDER_RECORDS: tuple[ModelRecord, ...] = (
         source_urls=(ANTHROPIC_PRICING,),
         checked_at=CHECKED_AT,
     ),
-    ModelRecord(
-        model_id="gpt-6-astra",
-        provider="openai",
-        display_name="GPT-6 Astra",
-        proposed_tier="tier1",
-        tier_evidence=(
-            "Absolute-frontier Astra family. Operator-approved global tier1; "
-            "not inferred from OpenAI's flagship label or the Sol price gap."
-        ),
-        api_price=ApiPrice(
-            input_per_million_usd=10.0,
-            output_per_million_usd=50.0,
-            cache_read_per_million_usd=1.0,
-            cache_write_per_million_usd=12.50,
-            conditions=(
-                "Standard rate; this reference carries no service-tier-specific "
-                "pricing. Prompts over 272K input bill at 2x input and cache "
-                "rates and 1.5x output. Batch and Flex are 50%; Fast is 2x."
-            ),
-            source_url=_ASTRA_DOCS,
-            checked_at=CHECKED_AT,
-        ),
-        subscription_rules=(
-            codex_pro_rule(
-                chatgpt_credits(
-                    input_credits=250.0,
-                    cached_input_credits=25.0,
-                    output_credits=1250.0,
-                )
-            ),
-        ),
-        source_urls=(_ASTRA_DOCS, OPENROUTER_ASTRA, CHATGPT_PRICING),
-        checked_at=CHECKED_AT,
-    ),
-    ModelRecord(
-        model_id="gpt-5.6-sol",
-        provider="openai",
-        display_name="GPT-5.6 Sol",
-        proposed_tier="tier2",
-        tier_evidence=(
-            "Codex's current family flagship is not global tier1. Capability "
-            "immediately below Astra/Fable, with current Opus and latest Grok."
-        ),
-        api_price=cursor_other_price(
-            input_usd=4.0,
-            cache_read=0.4,
-            cache_write_usd=5.0,
-            output_usd=20.0,
-            conditions=(
-                "Cursor Other Models list; promotional through 2026-11-21. "
-                "Fast and long-context (>272k) are 2x."
-            ),
-        ),
-        subscription_rules=(
-            codex_pro_rule(
-                chatgpt_credits(
-                    input_credits=100.0,
-                    cached_input_credits=10.0,
-                    output_credits=500.0,
-                )
-            ),
-            CURSOR_OTHER_RULE,
-        ),
-        source_urls=(CURSOR_PRICING, CHATGPT_PRICING, CODEX_PRO_PLAN),
-        checked_at=CHECKED_AT,
-    ),
-    ModelRecord(
-        model_id="gpt-5.6-terra",
-        provider="openai",
-        display_name="GPT-5.6 Terra",
-        proposed_tier="excluded",
-        tier_evidence=(
-            "Below the approved tier2 band. A Codex mid-ladder label does not "
-            "keep a family in tier2 after Sol occupies that band."
-        ),
-        api_price=cursor_other_price(
-            input_usd=2.0,
-            cache_read=0.2,
-            cache_write_usd=2.5,
-            output_usd=12.0,
-            conditions="Cursor Other Models list. Fast and long-context 2x.",
-        ),
-        subscription_rules=(
-            codex_pro_rule(
-                chatgpt_credits(
-                    input_credits=50.0,
-                    cached_input_credits=5.0,
-                    output_credits=300.0,
-                )
-            ),
-            CURSOR_OTHER_RULE,
-        ),
-        source_urls=(CURSOR_PRICING, CHATGPT_PRICING, CODEX_PRO_PLAN),
-        checked_at=CHECKED_AT,
-    ),
-    ModelRecord(
-        model_id="gpt-5.6-luna",
-        provider="openai",
-        display_name="GPT-5.6 Luna",
-        proposed_tier="excluded",
-        tier_evidence=(
-            "Smallest 5.6 variant, below the approved tier2 band. Bounded-work "
-            "marketing is not a usable steering rank."
-        ),
-        api_price=cursor_other_price(
-            input_usd=0.2,
-            cache_read=0.02,
-            cache_write_usd=0.25,
-            output_usd=1.2,
-            conditions="Cursor Other Models list. Fast and long-context 2x.",
-        ),
-        subscription_rules=(
-            codex_pro_rule(
-                chatgpt_credits(
-                    input_credits=5.0,
-                    cached_input_credits=0.5,
-                    output_credits=30.0,
-                )
-            ),
-            CURSOR_OTHER_RULE,
-        ),
-        source_urls=(CURSOR_PRICING, CHATGPT_PRICING, CODEX_PRO_PLAN),
-        checked_at=CHECKED_AT,
-    ),
-    ModelRecord(
-        model_id="gpt-5.5",
-        provider="openai",
-        display_name="GPT-5.5",
-        proposed_tier="excluded",
-        tier_evidence=(
-            "Prior Codex flagship. Re-evaluated rather than accumulated in "
-            "tier1 because a vendor once called it flagship; Sol is current."
-        ),
-        api_price=cursor_other_price(
-            input_usd=5.0,
-            cache_read=0.5,
-            output_usd=30.0,
-            conditions="Cursor Other Models list.",
-        ),
-        subscription_rules=(codex_pro_rule(), CURSOR_OTHER_RULE),
-        source_urls=(CURSOR_PRICING, CHATGPT_PRICING, CODEX_PRO_PLAN),
-        checked_at=CHECKED_AT,
-    ),
-    ModelRecord(
-        model_id="gpt-5.4",
-        provider="openai",
-        display_name="GPT-5.4",
-        proposed_tier="excluded",
-        tier_evidence=(
-            "Older Codex family still listed. A prior flagship label is not "
-            "enough to remain in tier1 or tier2."
-        ),
-        api_price=cursor_other_price(
-            input_usd=2.5,
-            cache_read=0.25,
-            output_usd=15.0,
-            conditions="Cursor Other Models list.",
-        ),
-        subscription_rules=(codex_pro_rule(), CURSOR_OTHER_RULE),
-        source_urls=(CURSOR_PRICING, CHATGPT_PRICING, CODEX_PRO_PLAN),
-        checked_at=CHECKED_AT,
-    ),
 )
 
-MODEL_RECORDS: tuple[ModelRecord, ...] = CURSOR_RECORDS + _PROVIDER_RECORDS
+MODEL_RECORDS: tuple[ModelRecord, ...] = (
+    CURSOR_RECORDS + ANTHROPIC_RECORDS + OPENAI_RECORDS
+)
