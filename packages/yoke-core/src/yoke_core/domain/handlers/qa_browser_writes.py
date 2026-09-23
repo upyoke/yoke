@@ -50,15 +50,23 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
     raw_result = payload.get("raw_result")
     duration_ms = payload.get("duration_ms")
     if not isinstance(performed_by, str) or not performed_by:
-        return _error("payload_invalid", "performed_by is required", jsonpath="$.payload.performed_by")
+        return _error(
+            "payload_invalid",
+            "performed_by is required",
+            jsonpath="$.payload.performed_by",
+        )
     if verdict is not None and verdict not in VALID_VERDICTS:
-        return _error("payload_invalid", "invalid verdict", jsonpath="$.payload.verdict")
+        return _error(
+            "payload_invalid", "invalid verdict", jsonpath="$.payload.verdict"
+        )
     try:
         verdict_reason = normalized_verdict_reason(verdict, verdict_reason)
     except ValueError as exc:
         return _error("payload_invalid", str(exc), jsonpath="$.payload.verdict_reason")
     if status_issue := execution_status_error(execution_status):
-        return _error("payload_invalid", status_issue, jsonpath="$.payload.execution_status")
+        return _error(
+            "payload_invalid", status_issue, jsonpath="$.payload.execution_status"
+        )
     conn = connect()
     try:
         p = _p(conn)
@@ -127,10 +135,10 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
             now_iso if (verdict is not None or execution_status is not None) else None
         )
         agent_case = is_agent_reviewed_case(row["verdict_path"], row["method_id"])
-        if verdict is not None:
-            case_outcome_val = case_outcome_for_verdict(verdict)
-        elif execution_status == "captured" and agent_case:
+        if execution_status == "captured" and agent_case:
             case_outcome_val = NEEDS_REVIEW_OUTCOME
+        elif verdict is not None:
+            case_outcome_val = case_outcome_for_verdict(verdict)
         else:
             case_outcome_val = None
 
@@ -209,7 +217,9 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
     raw_result = payload.get("raw_result")
     duration_ms = payload.get("duration_ms")
     if not isinstance(run_id, int):
-        return _error("payload_invalid", "run_id is required", jsonpath="$.payload.run_id")
+        return _error(
+            "payload_invalid", "run_id is required", jsonpath="$.payload.run_id"
+        )
     if verdict is None and execution_status is None:
         return _error(
             "payload_invalid",
@@ -217,13 +227,17 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
             jsonpath="$.payload.verdict",
         )
     if verdict is not None and verdict not in VALID_VERDICTS:
-        return _error("payload_invalid", "invalid verdict", jsonpath="$.payload.verdict")
+        return _error(
+            "payload_invalid", "invalid verdict", jsonpath="$.payload.verdict"
+        )
     try:
         verdict_reason = normalized_verdict_reason(verdict, verdict_reason)
     except ValueError as exc:
         return _error("payload_invalid", str(exc), jsonpath="$.payload.verdict_reason")
     if status_issue := execution_status_error(execution_status):
-        return _error("payload_invalid", status_issue, jsonpath="$.payload.execution_status")
+        return _error(
+            "payload_invalid", status_issue, jsonpath="$.payload.execution_status"
+        )
     conn = connect()
     try:
         p = _p(conn)
@@ -267,7 +281,9 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
         params: list = [iso8601_now()]
         set_parts = [f"completed_at = {p}"]
         if verdict is not None:
-            set_parts.extend([f"verdict = {p}", f"verdict_reason = {p}", f"case_outcome = {p}"])
+            set_parts.extend(
+                [f"verdict = {p}", f"verdict_reason = {p}", f"case_outcome = {p}"]
+            )
             params.extend([verdict, verdict_reason, case_outcome_for_verdict(verdict)])
         elif execution_status == CAPTURED and is_agent_reviewed_case(
             row["verdict_path"], row["method_id"]
@@ -285,9 +301,7 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
                 retain_start_bound_method_config,
             )
 
-            raw_result = retain_start_bound_method_config(
-                row["raw_result"], raw_result
-            )
+            raw_result = retain_start_bound_method_config(row["raw_result"], raw_result)
             set_parts.append(f"raw_result = {p}")
             params.append(raw_result)
         if duration_ms is not None:

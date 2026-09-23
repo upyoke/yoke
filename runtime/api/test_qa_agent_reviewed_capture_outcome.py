@@ -151,6 +151,35 @@ def _gate(conn):
 
 
 class TestAgentReviewedCaptureOutcome(unittest.TestCase):
+    def test_run_add_keeps_captured_passing_case_pending_agent_review(self):
+        with test_database() as conn:
+            _seed_case(
+                conn,
+                requirement_id=8406,
+                method_id="browser-inspection",
+                verdict_path="agent",
+            )
+            with patch("yoke_core.domain.qa_events.emit_qa_run_event"):
+                added = qa_browser_writes.handle_qa_run_add(
+                    _request(
+                        "qa.run.add",
+                        8406,
+                        {
+                            "performed_by": "browser_substrate",
+                            "verdict": "pass",
+                            "execution_status": "captured",
+                            "capture_degraded_reason": "fixture_no_screenshot",
+                            "head_sha": "a" * 40,
+                        },
+                    )
+                )
+
+            self.assertTrue(added.primary_success, added.error)
+            run_id = int(added.result_payload["qa_run_id"])
+            self.assertEqual(
+                _outcome(conn, run_id), ("captured", "needs_review", "pass")
+            )
+
     def test_capture_through_linked_review_satisfies_the_release_gate(self):
         with test_database() as conn:
             _seed_case(
@@ -191,7 +220,6 @@ class TestAgentReviewedCaptureOutcome(unittest.TestCase):
                 "no linked substrate-and-verdict proof", "\n".join(result.errors)
             )
             self.assertIn("yoke qa run record-verdict", "\n".join(result.errors))
-
 
     def test_record_verdict_links_a_local_preview_inspection_for_the_gate(self):
         with test_database() as conn:
@@ -241,7 +269,6 @@ class TestAgentReviewedCaptureOutcome(unittest.TestCase):
             self.assertEqual(outcome.error.code, "policy_violation")
             self.assertIn("record-verdict", outcome.error.message)
             self.assertIn("hosts.app", outcome.error.message)
-
 
     def test_a_capture_decided_by_its_own_steps_keeps_its_verdict_outcome(self):
         with test_database() as conn:

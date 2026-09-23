@@ -81,7 +81,9 @@ def attach_agent_review_to_capture(
     if capture is None:
         raise CapturedInspectionReviewError(CAPTURED_INSPECTION_REVIEW_RECOVERY)
     now = iso8601_now()
-    roster = [{"requirement_id": int(requirement_id), "capture_run_id": int(capture["id"])}]
+    roster = [
+        {"requirement_id": int(requirement_id), "capture_run_id": int(capture["id"])}
+    ]
     encoded = json.dumps(roster, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
     execution_id = str(uuid4())
