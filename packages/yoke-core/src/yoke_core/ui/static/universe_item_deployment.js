@@ -27,6 +27,8 @@ import { relativeAgePhrase } from "./universe_time.js";
 import { el, statePill } from "./universe_view_support.js";
 
 const SUCCEEDED = "succeeded";
+const FAILED = "failed";
+const STALLED_AFTER_MS = 30 * 60 * 1000;
 
 function runMembers(run) {
   if ((run.member_items || []).length) return run.member_items;
@@ -83,11 +85,11 @@ function newestFirst(runs) {
 /**
  * The runs worth drawing: what is shipping now, and where it last landed.
  *
- * One live run per environment, plus the newest succeeded run per
+ * One live run per environment, plus the newest meaningful terminal run per
  * environment. Concurrent stage and prod deploys are two release lines, so
  * one global live slot would hide the older of the two. Older succeeded
- * runs to the same environment are superseded by definition, and failed
- * ones a later success replaced are history the run page still holds.
+ * runs to the same environment are superseded by definition, as is a failure
+ * that a later success replaced. A latest failure stays visible until then.
  */
 export function shownDeliveryRuns(carried) {
   const shown = [];
@@ -102,7 +104,7 @@ export function shownDeliveryRuns(carried) {
       shown.push(run);
       continue;
     }
-    if (status !== SUCCEEDED) continue;
+    if (status !== SUCCEEDED && status !== FAILED) continue;
     if (environmentsSeen.has(environment)) continue;
     environmentsSeen.add(environment);
     shown.push(run);
@@ -225,20 +227,29 @@ function deliveryRunCard(documentNode, run, row) {
 // state chip beside it would contradict.
 function runTiming(documentNode, run, status) {
   const completed = String(run.completed_at || "");
-  if (status === SUCCEEDED) {
+  if (TERMINAL_RUN_STATES.has(status)) {
+    const action = status === SUCCEEDED
+      ? "Deployed"
+      : `${status.charAt(0).toUpperCase()}${status.slice(1)}`;
     if (!completed) {
       return el(
         documentNode,
         "span",
         "item-deployment-time is-unavailable",
-        "deployment time unavailable",
+        `${action.toLowerCase()} time unavailable`,
       );
     }
-    return timeNode(documentNode, completed, `Deployed ${relativeAgePhrase(completed)}`);
+    return timeNode(documentNode, completed, `${action} ${relativeAgePhrase(completed)}`);
   }
   const started = String(run.started_at || run.created_at || "");
   if (!started) {
     return el(documentNode, "span", "item-deployment-time", "Deploying now");
+  }
+  const startedAt = Date.parse(started);
+  if (Number.isFinite(startedAt) && Date.now() - startedAt > STALLED_AFTER_MS) {
+    return timeNode(
+      documentNode, started, `Deployment delayed · started ${relativeAgePhrase(started)}`,
+    );
   }
   return timeNode(
     documentNode, started, `Deploying since ${relativeAgePhrase(started)}`,
