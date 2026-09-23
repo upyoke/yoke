@@ -5,9 +5,9 @@ filter per invocation. It covers what
 ``yoke_core.engines.done_transition`` and
 ``yoke_core.engines.merge_worktree`` emit; the class constants below
 carry the per-shape assignments, and every other line is ``NOISE``
-(raw capture only). Errors, hard stops, and the result emissions a
-caller reads back reach a follower at once; the banners, step headers,
-test substream, and queue-landing polls ride the digest.
+(raw capture only). Only terminal errors and the final result reach the
+user-facing stream. Routine progress and watcher metadata stay out of the
+stream; the raw capture retains the complete child output.
 
 Usage::
 
@@ -30,7 +30,12 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.tools import _watch_digest, _watch_runner
+from yoke_core.tools import _watch_runner
+from yoke_core.tools._watch_terminal_outcome import (
+    OUTCOME_ONLY_WATCH_KINDS,
+    PYTHON_EXCEPTION_PATTERN,
+    is_python_exception_line,
+)
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_merge"
@@ -53,10 +58,7 @@ SUBCOMMAND_MODULES: dict[str, str] = {
     "merge-worktree": "yoke_core.engines.merge_worktree",
 }
 
-# Per-class regexes. Each is line-oriented and used by
-# :func:`classify_merge_line` directly. The public union pattern below
-# is composed from these so the existing ``filter_match`` callers keep
-# working.
+# Per-class regexes drive classification; the public pattern below is their union.
 MERGE_URGENT_PREFIXES: tuple[str, ...] = (
     "Error:",
     "ERROR:",
@@ -66,17 +68,18 @@ MERGE_URGENT_PREFIXES: tuple[str, ...] = (
     "Merge lock error:",
     "fatal:",
 )
-# Terminal outcomes: the machine-readable result emissions a caller reads
-# back, and the verdicts that end the merge before it starts.
+_MERGE_URGENT_WARNING_RE = re.compile(
+    r"^Warning:(?!.*(?i:\b(?:transient|temporar(?:y|ily)|"
+    r"retry(?:ing)?|try again)\b))"
+)
+# Terminal results and verdicts that end the merge before it starts.
 MERGE_SUMMARY_PREFIXES: tuple[str, ...] = (
     "Branch already merged",
     "Merge already completed",
     "RESULT_FILE=",
     "YOKE_REPO_ROOT=",
 )
-# Motion: which branch, which worktree, which section — real content, but
-# a reader needs it as one summary of where the merge got to, not as a
-# wake apiece.
+# Routine motion is retained in raw capture, not the user-facing stream.
 MERGE_PROGRESS_PREFIXES: tuple[str, ...] = (
     "===",
     "Merging branch:",
@@ -85,13 +88,9 @@ MERGE_PROGRESS_PREFIXES: tuple[str, ...] = (
     "Pre-flight:",
 )
 MERGE_STEP_RE = re.compile(r"^Step \d")
-# The queue-routed landing announces every poll observation under this
-# prefix (``yoke_core.domain.merge_queue_route.POLL_LINE_PREFIX``). These
-# are the only motion a 45-minute queue wait produces, so they must reach
-# the operator rather than settling in the raw capture.
+# Queue poll observations remain classified as progress for diagnostics.
 MERGE_QUEUE_POLL_RE = re.compile(r"^Queue landing: ")
-# Merge-time test substream and phase-prefixed lines emitted by
-# yoke_core.engines.merge_worktree_tests.
+# Merge-time test substream and phase-prefixed lines.
 MERGE_TEST_SUBSTREAM_RE = re.compile(r"^\[(tests|phase:[^\]]+)\]")
 MERGE_TEST_PERCENT_RE = re.compile(r"\[\s*(\d+)%\]")
 MERGE_TEST_URGENT_PREFIXES: tuple[str, ...] = (
@@ -112,7 +111,18 @@ def _test_substream_payload(line: str) -> str | None:
 
 def classify_merge_line(line: str) -> Classification:
     """Classify a single output line from a Yoke merge engine."""
+    if is_python_exception_line(line):
+        return Classification(LineClass.URGENT)
+    if line.startswith("Warning:"):
+        warning_class = (
+            LineClass.URGENT
+            if _MERGE_URGENT_WARNING_RE.match(line)
+            else LineClass.NOISE
+        )
+        return Classification(warning_class)
     for prefix in MERGE_URGENT_PREFIXES:
+        if prefix == "Warning:":
+            continue
         if line.startswith(prefix):
             return Classification(LineClass.URGENT)
     for prefix in MERGE_SUMMARY_PREFIXES:
@@ -139,15 +149,15 @@ def classify_merge_line(line: str) -> Classification:
 
 
 def _build_merge_progress_pattern() -> re.Pattern[str]:
-    """Compose the public union regex from the class-specific regexes.
-
-    All prefix-based alternatives are anchored to line start with ``^``
-    so :func:`yoke_core.tools._watch_runner.filter_match` keeps the
-    "is this a signal line?" semantics — a stray ``Error:`` mid-line
-    (for example, inside a quoted string) must NOT count as a banner.
-    """
+    """Build the public union pattern from classifier signal lines."""
     parts: list[str] = []
-    parts.extend("^" + re.escape(p) for p in MERGE_URGENT_PREFIXES)
+    parts.extend(
+        "^" + re.escape(prefix)
+        for prefix in MERGE_URGENT_PREFIXES
+        if prefix != "Warning:"
+    )
+    parts.append(_MERGE_URGENT_WARNING_RE.pattern)
+    parts.append(PYTHON_EXCEPTION_PATTERN.pattern)
     parts.extend("^" + re.escape(p) for p in MERGE_SUMMARY_PREFIXES)
     parts.extend("^" + re.escape(p) for p in MERGE_PROGRESS_PREFIXES)
     parts.append(MERGE_STEP_RE.pattern)
@@ -156,9 +166,7 @@ def _build_merge_progress_pattern() -> re.Pattern[str]:
     return re.compile("|".join(parts))
 
 
-# Public union pattern, retained so legacy filter-coverage tests keep
-# their single source of truth and so any operator-facing tooling that
-# greps for "is this a merge signal?" still works.
+# Public union retained for filter-coverage tests and signal tooling.
 MERGE_PROGRESS_PATTERN = _build_merge_progress_pattern()
 
 
@@ -197,7 +205,8 @@ def _parse_args(
     parser = argparse.ArgumentParser(
         prog=prog,
         description=(
-            "Run a Yoke merge engine under a shared raw+progress watcher. "
+            "Run a Yoke merge engine with outcome-only watcher output. "
+            "Routine progress is suppressed; the raw capture keeps full output. "
             f"Sub-commands: {subcommands}. "
             "Pass-through flags include --local-verification (force local "
             "post-rebase suite even when the project declares CI; CI routing "
@@ -226,7 +235,6 @@ def _parse_args(
         action="store_true",
         help=_watch_runner.STREAMING_WAIT_HELP,
     )
-    _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
         "--raw-capture",
         type=Path,
@@ -294,7 +302,6 @@ def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
-    raw, flush_seconds = _watch_digest.extract_flush_seconds(raw)
     ns = _parse_args(raw, prog)
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
@@ -319,7 +326,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             wrapper_args=sub_args,
             raw_capture=raw_path,
             progress_capture=progress_path,
-            wrapper_options=_watch_digest.streaming_pair_options(flush_seconds),
+            outcome_only=KIND in OUTCOME_ONLY_WATCH_KINDS,
         )
 
     module, passthrough = _resolve_subcommand(sub_args)
@@ -332,7 +339,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
-        flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
+        outcome_only=KIND in OUTCOME_ONLY_WATCH_KINDS,
     )
 
 

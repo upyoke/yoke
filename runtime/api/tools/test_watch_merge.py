@@ -93,7 +93,11 @@ class TestMergeFilterCoverage:
 
     @pytest.mark.parametrize("line", MERGE_WORKTREE_FIXTURE_LINES)
     def test_merge_worktree_signal_lines(self, line: str) -> None:
-        assert filter_match(watch_merge.MERGE_PROGRESS_PATTERN, line)
+        if line.startswith("Warning:"):
+            assert filter_match(watch_merge.MERGE_PROGRESS_PATTERN, line)
+            assert watch_merge.classify_merge_line(line).cls.value == "urgent"
+        else:
+            assert filter_match(watch_merge.MERGE_PROGRESS_PATTERN, line)
 
     def test_queue_landing_poll_observations_are_signal(self) -> None:
         """A queue wait emits nothing else; the union pattern must carry it."""
@@ -223,6 +227,7 @@ class TestPrintStreamingPair:
         assert "PYTHONPATH" not in out
         # Sub-command argv preserved in the printed Bash invocation.
         assert "done-transition" in out
+        assert "Outcome-only stream" in out
         # Progress tail auto-exits via watch_tail; post-completion inspection
         # still uses tail -80 against the raw capture.
         assert f"{command_anchor} tail" in out
@@ -313,7 +318,7 @@ class TestLiveWrapperSmokeViaPython:
                     "classifier=watch_merge.classify_merge_line,"
                     "raw_capture=__import__('pathlib').Path(raw),"
                     "progress_capture=__import__('pathlib').Path(prog),"
-                    "kind='merge');"
+                    "kind='merge', outcome_only=True);"
                     "sys.exit(rc)"
                 ),
             ],
@@ -332,9 +337,11 @@ class TestLiveWrapperSmokeViaPython:
         # The non-matching diagnostic line lives in raw, not progress.
         assert "ordinary diagnostic detail" in raw_text
         assert "ordinary diagnostic detail" not in progress_text
-        # Signal lines land in progress.
-        assert f"=== Done transition: {FAKE_ITEM} ===" in progress_text
+        # Routine progress stays in raw, while errors and the final result
+        # reach the user-facing capture.
+        assert f"=== Done transition: {FAKE_ITEM} ===" not in progress_text
         assert "Error: synthetic failure" in progress_text
+        assert "# watch_merge outcome: completed successfully" in progress_text
         # Title detail is intentionally below the filter — appears only in raw.
         assert "Title: ignored detail" in raw_text
         assert "Title: ignored detail" not in progress_text

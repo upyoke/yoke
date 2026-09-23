@@ -119,6 +119,7 @@ def print_streaming_pair(
     raw_capture: Path,
     progress_capture: Path,
     wrapper_options: Sequence[str] = (),
+    outcome_only: bool = False,
     wake_mechanism: str = "Monitor",
     out: Optional[TextIO] = None,
 ) -> None:
@@ -153,6 +154,12 @@ def print_streaming_pair(
     stream.write("# Background command — wrapper writes raw + progress captures\n")
     stream.write(f"{bash_invocation}\n")
     stream.write("\n")
+    if outcome_only:
+        stream.write(
+            "# Outcome-only stream: actionable terminal errors and the final "
+            "result are forwarded; routine progress is suppressed.\n"
+        )
+        stream.write("# The raw capture retains the complete child output.\n")
     mechanism = wake_mechanism or "the configured idle-wake subscription"
     stream.write(f"# Progress tail — arm {mechanism} ONCE against this capture file.\n")
     stream.write("# Paste the background command above VERBATIM: the two lines are a\n")
@@ -170,8 +177,9 @@ def print_streaming_pair(
     stream.write("# for the lifetime of the bg command. Do NOT re-arm to 'continue\n")
     stream.write("# tail' — that is the wake-loop bug and is denied at PreToolUse.\n")
     stream.write("# Auto-exits when the wrapper writes its exit sentinel.\n")
-    for tier_line in TIER_HELP.rstrip().splitlines():
-        stream.write(f"# {tier_line}\n" if tier_line else "#\n")
+    if not outcome_only:
+        for tier_line in TIER_HELP.rstrip().splitlines():
+            stream.write(f"# {tier_line}\n" if tier_line else "#\n")
     stream.write(
         f"cd {cwd_q} && {_with_connection_env(_invocation(WATCH_TAIL_MODULE))} "
         f"{progress_q}\n"
@@ -190,6 +198,7 @@ def print_in_turn_invocation(
     raw_capture: Path,
     progress_capture: Path,
     wrapper_options: Sequence[str] = (),
+    outcome_only: bool = False,
     out: Optional[TextIO] = None,
 ) -> None:
     """Emit the single foreground invocation an unwakeable caller runs.
@@ -216,6 +225,11 @@ def print_in_turn_invocation(
     stream.write("# hands the call back before it finishes, the command is\n")
     stream.write("# still running: continue that same call rather than\n")
     stream.write("# starting a second one.\n")
+    if outcome_only:
+        stream.write(
+            "# Routine progress is suppressed; terminal errors and the final "
+            "result stream. Full child output is in the raw capture.\n"
+        )
     stream.write(f"{bash_invocation}\n")
     stream.write("\n")
     stream.write("# After completion, inspect the raw capture once for full output\n")
@@ -231,6 +245,7 @@ def print_wait_mode_invocation(
     raw_capture: Path,
     progress_capture: Path,
     wrapper_options: Sequence[str] = (),
+    outcome_only: bool = False,
     out: Optional[TextIO] = None,
     wait_mode: WatchWaitMode | None = None,
 ) -> int:
@@ -262,6 +277,7 @@ def print_wait_mode_invocation(
             raw_capture=raw_capture,
             progress_capture=progress_capture,
             wrapper_options=wrapper_options,
+            outcome_only=outcome_only,
             out=stream,
         )
         return 0
@@ -277,6 +293,7 @@ def print_wait_mode_invocation(
         raw_capture=raw_capture,
         progress_capture=progress_capture,
         wrapper_options=wrapper_options,
+        outcome_only=outcome_only,
         wake_mechanism=selected.wake_mechanism,
         out=stream,
     )

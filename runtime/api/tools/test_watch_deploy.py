@@ -1,18 +1,17 @@
-"""The deploy watcher's line classification, guard, and registration.
+"""The deploy watcher's output classification, guard, and registration.
 
-A deploy is the longest command an operator runs, so the filter reports
-the shapes that change what a watcher would do — stage boundaries, run
-identity, and every terminal that ends a run — and stays silent on the
-repeating status poll. Telling a quiet driver from a hung one is the
-shared runner's no-progress notice, not a per-minute tick from here.
+Routine stage and status output stays in raw capture; terminal errors and
+the final result reach the user-facing stream.
 """
 
 from __future__ import annotations
 
+import io
+
 import pytest
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
-from yoke_core.tools import watch_deploy
+from yoke_core.tools import watch_deploy, watch_tail
 from yoke_core.tools._watch_throttle import LineClass
 from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
 
@@ -41,18 +40,14 @@ def test_terminal_failure_shapes_are_urgent(line):
     assert _line_class(line) == LineClass.URGENT
 
 
-def test_an_unavailable_relay_is_urgent_although_the_pipeline_retries():
-    """The failure that spends a release's wall clock without ending it.
-
-    The pipeline keeps retrying inside its stage budget, so this is not a
-    terminal line -- and treating it as routine progress is exactly how a
-    run burns half an hour looking identical to a healthy one.
-    """
+def test_an_unavailable_relay_is_raw_only_while_the_pipeline_retries():
+    """A retryable relay outage does not wake the user as an error."""
     line = (
         "  GitHub Actions status relay is temporarily unavailable; retrying "
         "within the 7200s stage budget (consecutive failure 26)"
     )
-    assert _line_class(line) == LineClass.URGENT
+    assert _line_class(line) == LineClass.NOISE
+    assert not watch_deploy.DEPLOY_PROGRESS_PATTERN.search(line)
 
 
 @pytest.mark.parametrize(
@@ -81,7 +76,7 @@ def test_an_unavailable_relay_is_urgent_although_the_pipeline_retries():
         ),
     ],
 )
-def test_fleet_schema_rehearsal_phase_reaches_the_deploy_stream(line, expected):
+def test_fleet_schema_rehearsal_phase_is_classified(line, expected):
     assert _line_class(line) == expected
     assert watch_deploy.DEPLOY_PROGRESS_PATTERN.search(line)
 
@@ -95,12 +90,8 @@ def test_fleet_schema_rehearsal_phase_reaches_the_deploy_stream(line, expected):
         "  Stage 'hosted-release' completed successfully",
     ],
 )
-def test_stage_boundaries_and_identifiers_ride_the_digest(line):
-    """Motion a release emits a dozen times is batched, not one wake each.
-
-    A seat driving two releases read a dozen one-line turns per pair off
-    these, none of which asked it for anything.
-    """
+def test_stage_boundaries_and_identifiers_are_classified_as_progress(line):
+    """The classifier recognizes routine motion the outcome stream suppresses."""
     assert _line_class(line) == LineClass.PROGRESS
 
 
@@ -112,7 +103,7 @@ def test_stage_boundaries_and_identifiers_ride_the_digest(line):
         "Run run-20260805-005 has no member items (environment-level deploy)",
     ],
 )
-def test_terminal_outcomes_still_wake_immediately(line):
+def test_terminal_outcomes_are_classified_as_summaries(line):
     assert _line_class(line) == LineClass.SUMMARY
 
 
@@ -237,6 +228,7 @@ def test_self_deploy_watch_binds_the_pinned_child(monkeypatch, tmp_path):
     assert captured["env"]["YOKE_DEPLOY_DRIVER_RELEASE"] == "abc"
     assert captured["cwd"] == str(tmp_path)
     assert captured["header_metadata"].startswith("Self-deploy driver frozen at")
+    assert captured["outcome_only"] is True
 
 
 def test_relayed_watch_does_not_take_a_checkout(monkeypatch, tmp_path):
@@ -293,13 +285,15 @@ def test_watch_records_the_driver_before_the_freeze(monkeypatch, tmp_path):
 
 
 def test_watch_stops_when_the_driver_cannot_freeze(monkeypatch, tmp_path, capsys):
+    raw = tmp_path / "raw.log"
+    progress = tmp_path / "progress.log"
     monkeypatch.setattr(
         watch_deploy, "execution_connection_error", lambda _run_id: None
     )
     monkeypatch.setattr(
         watch_deploy._watch_runner,
         "bind_capture_paths",
-        lambda ns, kind: (tmp_path / "raw", tmp_path / "progress"),
+        lambda ns, kind: (raw, progress),
     )
 
     def _raise(_run_id):
@@ -308,3 +302,9 @@ def test_watch_stops_when_the_driver_cannot_freeze(monkeypatch, tmp_path, capsys
     monkeypatch.setattr(watch_deploy, "child_environment", _raise)
     assert watch_deploy.main(["run-1"]) == 2
     assert "cannot freeze" in capsys.readouterr().err
+    assert "cannot freeze" in raw.read_text(encoding="utf-8")
+    assert "# watch_deploy failure:" in progress.read_text(encoding="utf-8")
+    assert "# watch_deploy exit=2" in progress.read_text(encoding="utf-8")
+    output = io.StringIO()
+    assert watch_tail.follow(progress, out=output, poll_interval=0.001) == 0
+    assert "cannot freeze" in output.getvalue()

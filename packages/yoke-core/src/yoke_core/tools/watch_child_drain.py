@@ -89,6 +89,7 @@ def _route_line(
     raw_f: TextIO,
     progress_watch: ProgressEmitWatch,
     emit_immediate: Callable[[str], None],
+    outcome_only: bool,
 ) -> Optional[str]:
     """Record and emit one child line; return it when it is a summary.
 
@@ -107,6 +108,10 @@ def _route_line(
         partial=False,
     )
     cls = classification.cls
+    if outcome_only:
+        if cls is LineClass.URGENT:
+            emit_immediate(line)
+        return line if cls is LineClass.SUMMARY else None
     if cls is LineClass.NOISE:
         return None
     if cls in (LineClass.URGENT, LineClass.SUMMARY, LineClass.METADATA):
@@ -150,6 +155,7 @@ def drain_watched_child(
     timeout_seconds: float | None,
     raw_capture: Path,
     stall_abort_exit: int,
+    outcome_only: bool = False,
 ) -> tuple[Optional[int], Optional[str], bool]:
     """Drain *proc* stdout until exit, timeout, or nested-deadlock abort.
 
@@ -208,6 +214,7 @@ def drain_watched_child(
                             raw_f=raw_f,
                             progress_watch=progress_watch,
                             emit_immediate=emit_immediate,
+                            outcome_only=outcome_only,
                         )
                         if summary is not None:
                             last_summary = summary
@@ -242,6 +249,7 @@ def drain_watched_child(
                     ),
                     raw_capture=raw_capture,
                     stall_abort_exit=stall_abort_exit,
+                    outcome_only=outcome_only,
                 )
                 if abort_exit is not None:
                     _emit_classifier_held(
@@ -268,6 +276,7 @@ def drain_watched_child(
                     raw_f=raw_f,
                     progress_watch=progress_watch,
                     emit_immediate=emit_immediate,
+                    outcome_only=outcome_only,
                 )
                 if summary is not None:
                     last_summary = summary
@@ -281,7 +290,8 @@ def drain_watched_child(
                     emit_immediate=emit_immediate,
                     partial=True,
                 )
-                emit_immediate(stall_line)
+                if not outcome_only:
+                    emit_immediate(stall_line)
     _emit_classifier_held(
         classifier,
         now=clock(),

@@ -233,6 +233,7 @@ class TestMergeClassifier:
             ("Error: merge phase 'rebase' failed", LineClass.URGENT),
             ("ERROR: synthetic", LineClass.URGENT),
             ("Warning: branch mismatch detected", LineClass.URGENT),
+            ("Warning: transient merge status; retrying", LineClass.NOISE),
             ("HARD STOP: User-authored files at risk", LineClass.URGENT),
             ("Merge halted: agent resolution required", LineClass.URGENT),
             ("Merge lock error: lease held by other session", LineClass.URGENT),

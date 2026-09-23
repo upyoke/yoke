@@ -45,7 +45,9 @@ from yoke_core.domain.project_scratch_dir import mint_watcher_capture_pair
 #: First line a bound watcher writes into its progress capture. The
 #: producer (:func:`stamp_writer`) and the consumer (:func:`writer_pid`)
 #: are the only two sides of this literal.
-WRITER_MARKER_RE = re.compile(r"^# watch_\w+ writer_pid=(\d+)\b")
+WRITER_MARKER_RE = re.compile(
+    r"^# watch_(?P<kind>\w+) writer_pid=(?P<pid>\d+)\b"
+)
 #: How long a follower waits for any writer evidence before refusing.
 #: Covers interpreter start-up and the gap between arming the follower
 #: and pasting the background command; a queued run has already stamped.
@@ -113,7 +115,7 @@ def bind_capture_paths(namespace: Any, kind: str) -> tuple[Path, Path]:
 def writer_pid(line: str) -> int | None:
     """Return the pid claimed by *line*, or ``None`` when it is not a marker."""
     match = WRITER_MARKER_RE.match(line)
-    return int(match.group(1)) if match else None
+    return int(match.group("pid")) if match else None
 
 
 def writer_alive(pid: int) -> bool:

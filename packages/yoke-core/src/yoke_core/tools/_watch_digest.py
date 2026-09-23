@@ -6,8 +6,9 @@ per pair on stage boundaries, workflow ids, and rehearsal verdicts —
 motion the operator reads as noise because none of it needs an answer.
 
 The fleet watcher already tiers its output: actionable deltas wake
-immediately, routine churn rides the next wake. This module gives every
-other wrapper the same shape. Progress lines accumulate in
+immediately, routine churn rides the next wake. This module gives wrappers
+that expose progress digests the same shape. Merge and deploy instead emit
+only terminal errors and final results to the user-facing stream. Progress lines accumulate in
 :class:`ProgressDigest` and leave as ONE line per flush window, in
 order, with nothing dropped; the immediate tier (urgent, summary,
 metadata) flushes the buffer ahead of itself so a wake never arrives
@@ -15,8 +16,8 @@ without the motion that led to it. The raw capture is untouched: it
 still holds every line exactly as the command printed it.
 
 The window is one constant here, overridable per run by
-``--flush-seconds`` on any wrapper. ``--flush-seconds 0`` turns batching
-off and emits each progress line as it arrives.
+``--flush-seconds`` on wrappers that expose the option. A value of 0 turns
+batching off and emits each progress line as it arrives.
 """
 
 from __future__ import annotations
@@ -48,7 +49,7 @@ wake tiers:
   follower the moment they arrive, carrying whatever progress was buffered
   before them.
 
-  Progress lines — stage boundaries, run and workflow ids, rehearsal
+  For wrappers using progress digests, stage boundaries, run and workflow ids, rehearsal
   verdicts, percentages, status polls — are buffered and emitted as ONE
   `# watch_<kind> digest ...` line at most every {DEFAULT_FLUSH_SECONDS:g}
   seconds, and always at completion. Read a digest as one wake covering
