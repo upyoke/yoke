@@ -89,6 +89,13 @@ class _Harness:
                 side_effect=self.update_run_field,
             ),
             mock.patch.object(
+                deploy_pipeline_run_updates,
+                "start_run",
+                side_effect=lambda run_id, _basis, _checkout: self.update_run_field(
+                    run_id, "status", "executing"
+                ),
+            ),
+            mock.patch.object(
                 deploy_pipeline.control_plane,
                 "project_field",
                 return_value="",

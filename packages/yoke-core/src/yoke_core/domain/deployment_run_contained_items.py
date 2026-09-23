@@ -93,11 +93,18 @@ def _carried_project_ids(run: Mapping[str, Any]) -> tuple[int, ...]:
 
 def _visibility_item_ids(conn: Any, project_id: int) -> tuple[int, ...]:
     """Items a live delivery box could name: open, or finished today."""
+    marker = _p(conn)
+    if (
+        conn.execute(
+            f"SELECT 1 FROM items WHERE project_id={marker} LIMIT 1", (project_id,)
+        ).fetchone()
+        is None
+    ):
+        return ()
     found = {int(record["id"]) for record in merged_open_items(conn, project_id)}
     finished = finished_times_in_window(conn)
     if finished:
         ids = sorted(finished)
-        marker = _p(conn)
         holes = ", ".join(marker for _ in ids)
         rows = query_rows(
             conn,

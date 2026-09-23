@@ -91,6 +91,13 @@ class TestItemLessRun:
                 side_effect=fake_update_run_field,
             ),
             mock.patch.object(
+                deploy_pipeline_run_updates,
+                "start_run",
+                side_effect=lambda started_run, _basis, _checkout: (
+                    fake_update_run_field(started_run, "status", "executing")
+                ),
+            ),
+            mock.patch.object(
                 deploy_pipeline.control_plane,
                 "project_field",
                 return_value="",
