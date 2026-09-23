@@ -72,10 +72,13 @@ def merge_failures(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
 def launch_failures(
     conn: Any,
     items: Mapping[int, Mapping[str, Any]],
+    *,
+    active_item_ids: Sequence[int] = (),
 ) -> dict[int, str]:
-    """Items whose newest named session launch did not come up."""
+    """Unheld items whose newest named session launch did not come up."""
     if not items or not _table_exists(conn, "session_launches"):
         return {}
+    active = frozenset(active_item_ids)
     project_ids = tuple(
         dict.fromkeys(int(item["project_id"]) for item in items.values())
     )
@@ -96,7 +99,7 @@ def launch_failures(
     for record in records:
         public_ref = str(record["session_name"] or "").partition(":")[0]
         item_id = by_ref.get((int(record["project_id"]), public_ref))
-        if item_id is None or item_id in observed:
+        if item_id is None or item_id in active or item_id in observed:
             continue
         observed.add(item_id)
         if str(record["state"] or "") in _LAUNCH_FAILURE_STATES:

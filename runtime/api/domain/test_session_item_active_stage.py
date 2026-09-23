@@ -173,11 +173,15 @@ def test_projection_reads_the_holder_mode_for_a_lane_session() -> None:
     )
 
     assert _states(stages["lane"]) == [
-        "complete", "active", "pending", "pending", "pending",
+        "complete",
+        "active",
+        "pending",
+        "pending",
+        "pending",
     ]
 
 
-def test_projection_pins_a_launch_failure_to_the_working_stage() -> None:
+def test_projection_ignores_launch_failure_once_item_has_live_holder() -> None:
     conn = _connection(status="idea", holder_mode="dash")
     conn.executescript(
         """
@@ -194,7 +198,38 @@ def test_projection_pins_a_launch_failure_to_the_working_stage() -> None:
 
     assert stages[1] == {
         "name": "implementing",
+        "state": "active",
+        "failure": None,
+    }
+    assert stages[0]["state"] == "complete"
+
+
+def test_projection_keeps_launch_failure_without_live_holder() -> None:
+    conn = _connection(status="idea", holder_mode=None)
+    conn.executescript(
+        """
+        CREATE TABLE session_launches (
+            launch_id TEXT PRIMARY KEY, project_id INTEGER, session_name TEXT,
+            state TEXT, created_at TEXT
+        );
+        INSERT INTO session_launches VALUES
+            ('launch-1',1,'YOK-20: worker','failed','2026-09-01T12:01:00Z');
+        """
+    )
+
+    stages = primary_item_stages_by_session(
+        conn,
+        [
+            {
+                "session_id": "lane",
+                "work_role": "implementation",
+                "current_item": "YOK-20",
+            }
+        ],
+    )["lane"]
+
+    assert stages[0] == {
+        "name": "idea",
         "state": "failed",
         "failure": "launch failed",
     }
-    assert stages[0]["state"] == "complete"
