@@ -225,6 +225,7 @@ def test_schema_carrying_release_starts_before_containment_column_converges(
         _open_item(conn)
         _stage_run(conn)
         conn.execute("ALTER TABLE deployment_runs DROP COLUMN candidate_containment")
+        conn.commit()
         basis = candidate_containment_basis(conn, "run-stage")
         attestation = attest_candidate_containment(basis, lambda _project: "/repo")
         refusal = cmd_update(
