@@ -16,6 +16,10 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "deployment_runs.execution.release_driver": "next-release",
     "item_landings.list": "next-release",
     "item_landings.record": "next-release",
+    "models.diff.run": "next-release",
+    "models.publish.run": "next-release",
+    "models.restore.run": "next-release",
+    "models.revisions.run": "next-release",
     "qa.item_plan.retract": "next-release",
     "qa.requirement.rebind_target": "next-release",
 }

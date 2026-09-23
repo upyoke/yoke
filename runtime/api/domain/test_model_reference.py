@@ -2,34 +2,21 @@
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 
 import pytest
 
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
 from yoke_contracts.model_reference import (
     ModelReferenceError,
-    iter_model_records,
-    lookup_api_price,
-    lookup_model_reference,
+    lookup_api_price as _lookup_api_price,
+    lookup_model_reference as _lookup_model_reference,
     validate_model_record,
 )
-from yoke_core.domain.handlers import __init_register__ as init_register
-from yoke_core.domain.handlers import _register_models, model_reference
-from yoke_core.domain import yoke_function_registry
+from yoke_contracts.model_reference_data import MODEL_RECORDS
 
-
-def _request(function_id: str, payload: dict) -> FunctionCallRequest:
-    return FunctionCallRequest(
-        function=function_id,
-        actor=ActorContext(session_id="s-test"),
-        target=TargetRef(kind="global"),
-        payload=payload,
-    )
+lookup_api_price = partial(_lookup_api_price, records=MODEL_RECORDS)
+lookup_model_reference = partial(_lookup_model_reference, records=MODEL_RECORDS)
 
 
 def test_unknown_model_is_explicitly_unresearched() -> None:
@@ -67,9 +54,7 @@ def test_global_tiers_match_operator_approved_frontier() -> None:
     assert _proposed_tier("claude-sonnet-5") == "excluded"
     assert _proposed_tier("gpt-5.5") == "excluded"
     cursor_tiers = {
-        record.proposed_tier
-        for record in iter_model_records()
-        if record.provider == "cursor"
+        record.proposed_tier for record in MODEL_RECORDS if record.provider == "cursor"
     }
     assert "tier1" not in cursor_tiers
 
@@ -128,57 +113,8 @@ def test_validate_accepts_null_unknown_leaves() -> None:
     assert record.benchmarks == ()
 
 
-def test_lookup_handler_returns_unresearched_without_raising() -> None:
-    outcome = model_reference.handle_models_lookup(
-        _request(model_reference.LOOKUP_FUNCTION_ID, {"model_id": "missing"})
-    )
-    assert outcome.primary_success is True
-    assert outcome.result_payload["researched"] is False
-    assert outcome.result_payload["record"] is None
-
-
-def test_validate_handler_names_the_refusal_code() -> None:
-    outcome = model_reference.handle_models_validate(
-        _request(
-            model_reference.VALIDATE_FUNCTION_ID,
-            {"record": {"model_id": "x", "provider": "y", "proposed_tier": "gold"}},
-        )
-    )
-    assert outcome.primary_success is False
-    assert outcome.error is not None
-    assert outcome.error.code == "tier_invalid"
-
-
-def test_get_handler_lists_seeded_records() -> None:
-    outcome = model_reference.handle_models_get(
-        _request(model_reference.GET_FUNCTION_ID, {})
-    )
-    assert outcome.primary_success is True
-    assert outcome.result_payload["count"] >= 1
-    ids = {row["model_id"] for row in outcome.result_payload["records"]}
-    assert "cursor-grok-4.6" in ids
-    assert "claude-sonnet-5" in ids
-
-
-def test_models_handlers_are_registered_as_session_optional_reads() -> None:
-    init_register.register_all_handlers()
-    assert _register_models in init_register._DOMAIN_REGISTRARS
-    for function_id in (
-        model_reference.LOOKUP_FUNCTION_ID,
-        model_reference.GET_FUNCTION_ID,
-        model_reference.VALIDATE_FUNCTION_ID,
-    ):
-        entry = yoke_function_registry.lookup(function_id)
-        assert entry is not None
-        assert entry.target_kinds == ("global",)
-        assert entry.claim_required_kind is None
-        assert entry.ambient_session_required is False
-        assert entry.adapter_status == "live"
-        assert entry.side_effects == ()
-
-
 def test_seeded_document_survives_its_own_validator() -> None:
-    records = iter_model_records()
+    records = MODEL_RECORDS
     assert records
     for record in records:
         assert validate_model_record(record.to_dict()) == record

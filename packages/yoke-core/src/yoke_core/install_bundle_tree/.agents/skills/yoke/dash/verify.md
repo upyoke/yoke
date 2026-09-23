@@ -149,6 +149,7 @@ yoke qa plan create <slug> --project P --environment <env>
 yoke qa plan-cases replace --project P --plan-id <id> --stdin
 yoke qa item-plan attach --item ITEM --project P --plan-id <id> \
   --transition release --qa-phase post_deploy
+yoke qa plan materialize --item ITEM --transition release
 ```
 
 Its cases test **this item's** acceptance criteria — not another item's, and
@@ -156,8 +157,9 @@ not the release's in general. A Command case reads its own subject from the
 environment the runner exports — `BASE_URL`, plus `DEPLOYMENT_RUN_ID` and
 `DEPLOYMENT_MEMBER_REF` once the case is bound to a run and member — so never
 write a run id or a member ref into the command as a literal: it would be
-right for one release and quietly wrong for every one after. Then dry-run the
-plan once against your own candidate, before merging, while a defect still
+right for one release and quietly wrong for every one after. Materialize the
+attached cases before the dry run; `qa plan run` refuses an empty transition.
+Then dry-run the plan once against your own candidate, before merging, while a defect still
 costs an edit:
 
 ```text

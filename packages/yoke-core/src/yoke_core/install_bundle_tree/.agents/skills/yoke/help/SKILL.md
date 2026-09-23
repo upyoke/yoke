@@ -34,7 +34,7 @@ COMMANDS
  /yoke conduct PREFIX-N Engineer/Tester loop for a single epic
  /yoke usher [PREFIX-N] Merge and deploy implemented/release items
  /yoke doctor [project] Health checks and diagnostics (--fix for auto-repair)
- /yoke models lookup|get|validate Sourced model reference lookup, list, and record validation
+ /yoke models lookup|get|validate|diff|publish|revisions|restore Sourced model catalog review and publication
  /yoke resync Detect and repair drift between local and GitHub
  /yoke curate Curate the Ouroboros learning log
  /yoke wrapup Structured session wrap-up
@@ -72,8 +72,8 @@ LOCAL TERMINAL HELPERS
   Generate, preview, and optionally apply .yoke/board-art variants.
   Use `--mixed` or `--image PATH` for the other variant families.
   Runs directly in a terminal; no harness session is required.
- yoke models lookup MODEL_ID / yoke models get / yoke models validate --stdin
-  Sourced model-reference lookup, list, and record validation.
+ yoke models lookup MODEL_ID / get / validate / diff / publish / revisions / restore
+  Sourced effective-dated catalog reads, review, and publication. Use `/yoke models` for the full recipe.
 
 AUTONOMOUS MODE
  /yoke do -> decision engine picks the best next action

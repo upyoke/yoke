@@ -149,6 +149,13 @@ def apply_fixture_ddl(conn: Any, ddl: str) -> None:
 def apply_fixture_schema(conn: Any) -> None:
     """Apply the composed fixture schema to *conn*."""
     apply_fixture_ddl(conn, _schema_ddl())
+    from yoke_core.domain.model_reference_store import (
+        create_model_reference_table,
+        seed_initial_catalog,
+    )
+
+    create_model_reference_table(conn)
+    seed_initial_catalog(conn)
     from yoke_core.domain.session_control_schema import (
         create_session_control_tables,
     )

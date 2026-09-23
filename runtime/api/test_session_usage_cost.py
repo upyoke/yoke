@@ -7,6 +7,7 @@ from typing import Optional
 
 import pytest
 
+from yoke_contracts.model_reference_data import MODEL_RECORDS
 from yoke_contracts.session_usage_cost import (
     COST_COMPLETE,
     COST_PARTIAL,
@@ -32,6 +33,12 @@ from yoke_contracts.session_usage_facts import (
     unavailable,
     usage_document,
 )
+
+_REVISION = {
+    "revision_id": "test-catalog",
+    "effective_at": "2026-09-01T00:00:00Z",
+    "records": MODEL_RECORDS,
+}
 
 
 @dataclass(frozen=True)
@@ -278,7 +285,7 @@ def test_an_unavailable_reading_keeps_its_reason_when_models_are_empty() -> None
     )
     cost = session_cost(usage, _priced)
     note = usage_title(usage, cost)
-    projection = usage_projection(usage_document(usage))
+    projection = usage_projection(usage_document(usage), _REVISION)
 
     assert tokens_display(usage) == UNREAD_DISPLAY
     assert cost_display(cost) == UNREAD_DISPLAY
@@ -294,7 +301,7 @@ def test_an_unavailable_reading_keeps_its_reason_when_models_are_empty() -> None
 
 def test_an_absent_reading_still_says_nothing_was_recorded_yet() -> None:
     note = usage_title(None, None)
-    projection = usage_projection(None)
+    projection = usage_projection(None, _REVISION)
 
     assert note == "no consumption recorded for this session yet"
     assert projection["usage_tokens"] is None

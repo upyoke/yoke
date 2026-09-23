@@ -99,6 +99,7 @@ def render_sessions_section(
                 model,
                 requested_model,
                 usage_totals,
+                offered_at,
                 project_id,
             )
 
@@ -186,6 +187,7 @@ def render_sessions_section(
                 model,
                 requested_model,
                 usage_totals,
+                offered_at,
                 project_id,
             )
             lane_str = _render_lane(

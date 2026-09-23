@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from functools import partial
+
 from yoke_contracts.model_reference import (
-    lookup_api_price,
-    lookup_model_reference,
+    lookup_api_price as _lookup_api_price,
+    lookup_model_reference as _lookup_model_reference,
     validate_model_record,
 )
+from yoke_contracts.model_reference_data import MODEL_RECORDS
+
+lookup_api_price = partial(_lookup_api_price, records=MODEL_RECORDS)
+lookup_model_reference = partial(_lookup_model_reference, records=MODEL_RECORDS)
 
 
 def test_current_opus_prices_five_minute_and_one_hour_cache_separately() -> None:

@@ -152,7 +152,8 @@ USAGE_BY_FUNCTION_ID = {
     ),
     "qa.item_plan.attach": (
         "yoke qa item-plan attach --item PREFIX-N --project P "
-        "--plan-id N --transition T [--acknowledge-unreachable-target]"
+        "--plan-id N --transition T [--qa-phase post_deploy] "
+        "[--acknowledge-unreachable-target]"
     ),
     "qa.item_plan.retract": QA_ITEM_PLAN_RETRACT_USAGE,
     "qa.plan.materialize": "yoke qa plan materialize --item PREFIX-N --transition T",

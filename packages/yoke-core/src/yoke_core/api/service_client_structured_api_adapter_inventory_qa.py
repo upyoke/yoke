@@ -102,7 +102,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         "qa.item_plan.attach",
-        "yoke qa item-plan attach --item YOK-N --project P --plan-id N --transition T",
+        "yoke qa item-plan attach --item PREFIX-N --project P --plan-id N --transition T [--qa-phase post_deploy]",
     ),
     AdapterEntry(
         "qa.item_plan.retract",

@@ -10,6 +10,7 @@ import contextlib
 from pathlib import Path
 
 from yoke_core.board.db import BoardDB
+from yoke_core.domain.model_reference_store import create_model_reference_table, seed_initial_catalog
 from runtime.api.fixtures.file_test_db import apply_inline_ddl, connect_test_db, init_test_db
 from yoke_core.domain.work_claim_targets import make_item_target
 
@@ -95,6 +96,9 @@ def _make_render_db(tmp_path: Path):
     from yoke_contracts.board.sections_sessions import render_sessions_section
 
     with init_test_db(tmp_path, apply_schema=_apply_render_schema) as db_path:
+        with connect_test_db(db_path) as conn:
+            create_model_reference_table(conn)
+            seed_initial_catalog(conn)
         db = BoardDB(db_path)
         db.path = db_path
         yield db, render_sessions_section

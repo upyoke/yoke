@@ -212,7 +212,7 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 - **`project_derived_facts`** — `id, project_id, fact_key, present, fact_value, observed_at, observed_from`
 - **`yoke_core.domain.worktree`** — `paths db, paths main, paths yoke-root, create`
 - **`yoke_core.domain.db_helpers`** — `iso8601_now, connect, query_rows, query_one, query_scalar`
-- **`yoke_contracts.model_reference`** — `lookup_model_reference, lookup_api_price, validate_model_record, iter_model_records`
+- **`yoke_contracts.model_reference`** — `lookup_model_reference, lookup_api_price, validate_model_record`
 - **`runtime/harness/<harness_id>/manifest.json`** — `agent_wake, session_control, supports`
 
 **JSON-nested-field schemas** (_parse the rendered JSON string; do NOT query nested fields as top-level columns_):

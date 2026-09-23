@@ -1,6 +1,6 @@
-"""Sourced model reference shared by steering, cost readers, and refresh.
+"""Pure validation and lookup for the sourced model reference.
 
-The durable store is this package: typed records plus a seeded document.
+The control plane supplies the selected catalog revision to each reader.
 Lookup never raises. ``researched=False`` is the explicit not-researched
 marker — missing facts are not a discovery, launch, or usage gate.
 Researched ``proposed_tier`` is not operator routing; per-surface routing
@@ -61,32 +61,25 @@ def _index_records(records: Iterable[ModelRecord]) -> dict[str, ModelRecord]:
     return indexed
 
 
-def _records() -> tuple[ModelRecord, ...]:
-    from yoke_contracts.model_reference_data import MODEL_RECORDS
-
-    return MODEL_RECORDS
-
-
-def iter_model_records() -> tuple[ModelRecord, ...]:
-    """Return the seeded reference document."""
-    return _records()
-
-
-def lookup_model_reference(model_id: str) -> ModelLookup:
+def lookup_model_reference(
+    model_id: str, records: Iterable[ModelRecord]
+) -> ModelLookup:
     """Look up a launch ``--model`` string. Unknown → researched=False."""
     asked = str(model_id or "").strip()
     if not asked:
         return ModelLookup(model_id="", researched=False)
-    indexed = _index_records(_records())
+    indexed = _index_records(records)
     record = indexed.get(asked) or indexed.get(lookup_stem(asked))
     if record is None:
         return ModelLookup(model_id=asked, researched=False)
     return ModelLookup(model_id=asked, researched=True, record=record)
 
 
-def lookup_api_price(model_id: str) -> Optional[ApiPrice]:
+def lookup_api_price(
+    model_id: str, records: Iterable[ModelRecord]
+) -> Optional[ApiPrice]:
     """Return API price for cost readers. None when unknown or not researched."""
-    lookup = lookup_model_reference(model_id)
+    lookup = lookup_model_reference(model_id, records)
     if not lookup.researched or lookup.record is None:
         return None
     return lookup.record.api_price
@@ -319,7 +312,6 @@ __all__ = [
     "PROPOSED_TIERS",
     "ProposedTier",
     "SubscriptionRule",
-    "iter_model_records",
     "lookup_api_price",
     "lookup_model_reference",
     "lookup_stem",

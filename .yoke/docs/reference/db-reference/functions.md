@@ -102,7 +102,7 @@ The five values are the closed enum; the registry rejects any other string at im
 
 ## Function families
 
-The function id grammar is `<family>.<subfamily>.<operation>` validated by `yoke_contracts.api.function_call.validate_function_id`. Families today:
+The function id grammar is `<family>.<subfamily>.<operation>` validated by `yoke_contracts.api.function_call.validate_function_id`. Families today include the catalog's [model reference functions](model-reference.md):
 
 ### `items.*` — creation, structured field, section, and progress-log writes
 

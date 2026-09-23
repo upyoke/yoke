@@ -20,6 +20,10 @@ from yoke_core.domain.flow_init import (
 )
 from yoke_core.domain.github_app_schema import create_github_app_tables
 from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
+from yoke_core.domain.model_reference_store import (
+    create_model_reference_table,
+    seed_initial_catalog,
+)
 from yoke_core.domain.org_schema import seed_default_org
 from yoke_core.domain.ouroboros_entry_corrections import (
     ensure_ouroboros_entry_corrections_schema,
@@ -104,6 +108,7 @@ def project_code_owned_rows(conn) -> None:
     workflows and methods, so they come last.
     """
     converge_builtin_workflows(conn)
+    seed_initial_catalog(conn)
     seed_builtin_qa_methods(conn)
     sync_machine_qa_pack_methods(conn)
     converge_pack_catalog(conn)
@@ -187,6 +192,7 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     was_born = universe_is_born_on(conn)
 
     create_core_tables(conn)
+    create_model_reference_table(conn)
     apply_work_claim_scope_column(conn)
     create_actor_identity_tables(conn)
     # actor_ui_preferences FKs into actors, so this follows the identity step.

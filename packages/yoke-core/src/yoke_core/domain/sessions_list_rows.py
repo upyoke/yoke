@@ -22,6 +22,7 @@ from yoke_core.domain.sessions_holdings_claim_facts import (
     ITEM_AWAITING_LANDING_KEY,
 )
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
+from yoke_core.domain.model_reference_store import revision_from_schedule, revision_schedule
 from yoke_core.domain.session_presentation_read import (
     lane_settings_by_project,
     session_presentation,
@@ -82,9 +83,11 @@ def render_session_roster_rows(
     costs one statement per distinct question rather than one per row.
     """
     page = [dict(raw) for raw in rows]
+    schedule = revision_schedule(conn) if page else []
     actor_names = render_actor_names(conn, (row.get("actor_id") for row in page))
     lane_settings = lane_settings_by_project(
-        conn, (row.get("project_id") for row in page),
+        conn,
+        (row.get("project_id") for row in page),
     )
     item_refs = render_item_ref_lookup(
         conn,
@@ -172,7 +175,9 @@ def render_session_roster_rows(
                 "reasoning_effort": row.get("reasoning_effort"),
                 "context_window_tokens": row.get("context_window_tokens"),
                 "requested_model": row.get("requested_model"),
-                **usage_fields(row),
+                **usage_fields(
+                    row, revision_from_schedule(schedule, row.get("offered_at"))
+                ),
                 "workspace": row.get("workspace"),
                 "offered_at": row.get("offered_at"),
                 "native_process": current_native_process_observation(

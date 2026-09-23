@@ -81,6 +81,26 @@ HARNESS_TABLES: dict[str, dict] = {
             "reporting machine, never that it is configured."
         ),
     },
+    "model_reference_revisions": {
+        "columns": [
+            ("revision_id", "TEXT"),
+            ("effective_at", "TEXT"),
+            ("published_at", "TEXT"),
+            ("published_by_actor_id", "INTEGER"),
+            ("catalog_json", "TEXT"),
+            ("source_note", "TEXT"),
+            ("source_revision_id", "TEXT"),
+        ],
+        "notes": (
+            "Immutable whole-catalog revisions. Select the latest effective_at "
+            "at or before harness_sessions.offered_at to price a session; "
+            "episode_started_at can change on reactivation and does not "
+            "change the price revision. `yoke models diff`, `publish`, "
+            "`revisions`, and `restore` own publication; never update rows "
+            "directly. The catalog contains researched model facts, not "
+            "native availability or machine session_model_routing."
+        ),
+    },
 }
 
 

@@ -161,13 +161,15 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             ("lookup_model_reference", "callable"),
             ("lookup_api_price", "callable"),
             ("validate_model_record", "callable"),
-            ("iter_model_records", "callable"),
         ],
         "notes": (
-            "Sourced model reference. `lookup_model_reference` never raises; "
+            "Pure lookup helpers take records from a DB catalog revision. "
+            "`lookup_model_reference` never raises; "
             "`researched=False` is unknown, not a gate. `lookup_api_price` "
-            "returns None when unknown. `proposed_tier` is not routing "
-            "(`session_model_routing`). CLI: `yoke models lookup MODEL_ID`. "
+            "returns None when unknown. `model_reference_revisions` stores "
+            "effective-dated sourced catalogs; publish via `yoke models publish`. "
+            "`proposed_tier` is not routing (`session_model_routing`). "
+            "Native availability is independent. CLI: `yoke models lookup MODEL_ID`. "
             "No `operator_preferences` field."
         ),
     },

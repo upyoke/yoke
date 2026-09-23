@@ -13,10 +13,10 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.model_reference import (
     ModelReferenceError,
-    iter_model_records,
     lookup_model_reference,
     validate_model_record,
 )
+from yoke_core.domain.model_reference_store import revision_at, revision_get
 
 LOOKUP_FUNCTION_ID = "models.lookup.run"
 GET_FUNCTION_ID = "models.get.run"
@@ -25,10 +25,13 @@ VALIDATE_FUNCTION_ID = "models.validate.run"
 
 class ModelsLookupRequest(BaseModel):
     model_id: str = Field(..., min_length=1)
+    at: Optional[str] = None
 
 
 class ModelsGetRequest(BaseModel):
     model_id: Optional[str] = None
+    revision_id: Optional[str] = None
+    at: Optional[str] = None
 
 
 class ModelsValidateRequest(BaseModel):
@@ -39,6 +42,8 @@ class ModelsLookupResponse(BaseModel):
     model_id: str
     researched: bool
     record: Optional[Dict[str, Any]] = None
+    revision_id: str
+    effective_at: str
 
 
 class ModelsGetResponse(BaseModel):
@@ -47,6 +52,12 @@ class ModelsGetResponse(BaseModel):
     record: Optional[Dict[str, Any]] = None
     records: Optional[List[Dict[str, Any]]] = None
     count: Optional[int] = None
+    revision_id: str
+    effective_at: str
+    published_at: str
+    published_by_actor_id: Optional[int] = None
+    source_note: str
+    source_revision_id: Optional[str] = None
 
 
 class ModelsValidateResponse(BaseModel):
@@ -71,8 +82,22 @@ def handle_models_lookup(request: FunctionCallRequest) -> HandlerOutcome:
         spec = ModelsLookupRequest.model_validate(request.payload or {})
     except ValidationError as exc:
         return _payload_error(exc)
-    lookup = lookup_model_reference(spec.model_id)
-    return HandlerOutcome(result_payload=lookup.to_dict(), primary_success=True)
+    from yoke_core.domain.db_helpers import connect
+
+    with connect() as conn:
+        try:
+            revision = revision_at(conn, spec.at)
+        except ModelReferenceError as exc:
+            return _reference_error(exc)
+    lookup = lookup_model_reference(spec.model_id, revision["records"])
+    return HandlerOutcome(
+        result_payload={
+            **lookup.to_dict(),
+            "revision_id": revision["revision_id"],
+            "effective_at": revision["effective_at"],
+        },
+        primary_success=True,
+    )
 
 
 def handle_models_get(request: FunctionCallRequest) -> HandlerOutcome:
@@ -80,13 +105,46 @@ def handle_models_get(request: FunctionCallRequest) -> HandlerOutcome:
         spec = ModelsGetRequest.model_validate(request.payload or {})
     except ValidationError as exc:
         return _payload_error(exc)
+    from yoke_core.domain.db_helpers import connect
+
+    with connect() as conn:
+        try:
+            revision = (
+                revision_get(conn, spec.revision_id)
+                if spec.revision_id
+                else revision_at(conn, spec.at)
+            )
+        except ModelReferenceError as exc:
+            return _reference_error(exc)
+    metadata = {
+        "revision_id": revision["revision_id"],
+        "effective_at": revision["effective_at"],
+        "published_at": revision["published_at"],
+        "published_by_actor_id": revision["published_by_actor_id"],
+        "source_note": revision["source_note"],
+        "source_revision_id": revision["source_revision_id"],
+    }
     if spec.model_id:
-        lookup = lookup_model_reference(spec.model_id)
-        return HandlerOutcome(result_payload=lookup.to_dict(), primary_success=True)
-    records = [record.to_dict() for record in iter_model_records()]
+        lookup = lookup_model_reference(spec.model_id, revision["records"])
+        return HandlerOutcome(
+            result_payload={**lookup.to_dict(), **metadata}, primary_success=True
+        )
+    records = [record.to_dict() for record in revision["records"]]
     return HandlerOutcome(
-        result_payload={"records": records, "count": len(records)},
+        result_payload={"records": records, "count": len(records), **metadata},
         primary_success=True,
+    )
+
+
+def _reference_error(exc: ModelReferenceError) -> HandlerOutcome:
+    return HandlerOutcome(
+        result_payload={},
+        primary_success=False,
+        error=FunctionError(
+            code=exc.code,
+            message=str(exc),
+            recovery_hint="Run `yoke models get` or `yoke models revisions` to inspect published catalog revisions.",
+        ),
     )
 
 

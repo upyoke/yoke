@@ -77,6 +77,11 @@ below. A surface with no entry keeps whatever per-surface default it already
 had — blank is a
 complete answer, not a gap to fill. Cursor omits `tier1` because it has none.
 
+`yoke models lookup MODEL_ID` reads the active sourced catalog revision.
+`/yoke models` reviews and publishes revisions without a code change.
+Native availability and per-model reasoning efforts remain live surface
+observations; the catalog does not decide whether a model can launch.
+
 Effort levels come from what the specific **model** publishes, which can be
 narrower than what the surface accepts. Read the model's own
 `reasoning_efforts` from native availability; asking for a level a model never

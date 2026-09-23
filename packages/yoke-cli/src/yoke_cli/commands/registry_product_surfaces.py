@@ -182,6 +182,10 @@ MODELS_SUBCOMMAND_REGISTRY = {
     ("models", "lookup"): ("models.lookup.run", models.models_lookup),
     ("models", "get"): ("models.get.run", models.models_get),
     ("models", "validate"): ("models.validate.run", models.models_validate),
+    ("models", "diff"): ("models.diff.run", models.models_diff),
+    ("models", "publish"): ("models.publish.run", models.models_publish),
+    ("models", "revisions"): ("models.revisions.run", models.models_revisions),
+    ("models", "restore"): ("models.restore.run", models.models_restore),
 }
 
 MACHINE_SUBCOMMAND_REGISTRY = {
