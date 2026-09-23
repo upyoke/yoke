@@ -28,11 +28,13 @@ class DeploymentExecutionContextResponse(BaseModel):
     # are control-plane authority — a driver that read them from its own
     # machine would prove nothing about the environment.
     target_identity: Dict[str, Any] = {}
+    candidate_containment_basis: Dict[str, Any] = {}
 
 
 class DeploymentExecutionUpdateRequest(BaseModel):
     field: str
     value: str
+    candidate_containment: Optional[Dict[str, Any]] = None
 
 
 class DeploymentExecutionUpdateResponse(BaseModel):
@@ -121,7 +123,10 @@ def _enroll_carried_items(run_id_value: str) -> List[str] | HandlerOutcome:
     raw = cmd_get(run_id_value)
     if raw is None:
         return error("not_found", f"deployment run {run_id_value!r} not found")
-    if parse_carried_work(pipe_to_dict(raw, RUN_FIELDS).get("carried_work")) is not None:
+    if (
+        parse_carried_work(pipe_to_dict(raw, RUN_FIELDS).get("carried_work"))
+        is not None
+    ):
         return []
 
     with connect() as conn:
@@ -184,6 +189,10 @@ def handle_deployment_execution_context(
     if isinstance(enrolled_carried_items, HandlerOutcome):
         return enrolled_carried_items
     from yoke_core.domain.deployment_run_carried_work import parse_carried_work
+    from yoke_core.domain.deployment_run_contained_items import (
+        CandidateContainmentRefusal,
+        candidate_containment_basis,
+    )
     from yoke_core.domain.deployment_runs_crud_query import cmd_get
     from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
     from yoke_core.domain.db_helpers import connect
@@ -202,13 +211,19 @@ def handle_deployment_execution_context(
     try:
         with connect() as conn:
             stages = json.loads(cmd_stages(conn, str(run["flow"])))
+            containment_basis = candidate_containment_basis(conn, resolved_run_id)
             target_identity = run_target_identity(
                 conn,
                 project_id=resolve_project_id(conn, str(run["project"])),
                 stages=stages,
                 target_environment=str(run.get("target_environment") or ""),
             )
-    except (LookupError, ValueError, json.JSONDecodeError) as exc:
+    except (
+        CandidateContainmentRefusal,
+        LookupError,
+        ValueError,
+        json.JSONDecodeError,
+    ) as exc:
         return error("execution_context_invalid", str(exc))
     return HandlerOutcome(
         result_payload={
@@ -216,6 +231,7 @@ def handle_deployment_execution_context(
             "members": _member_rows(resolved_run_id),
             "stages": stages,
             "target_identity": target_identity,
+            "candidate_containment_basis": containment_basis,
             "enrolled_carried_items": enrolled_carried_items,
         },
         primary_success=True,
@@ -243,8 +259,19 @@ def handle_deployment_execution_update(
         return refusal
     from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
 
-    if update_error := cmd_update(resolved_run_id, field, str(value)):
-        return error("update_failed", update_error)
+    attestation = payload.get("candidate_containment")
+    if update_error := cmd_update(
+        resolved_run_id,
+        field,
+        str(value),
+        candidate_containment=(
+            dict(attestation) if isinstance(attestation, dict) else None
+        ),
+    ):
+        code = "update_failed"
+        if update_error.startswith("Error: candidate_containment_"):
+            code = update_error.removeprefix("Error: ").split(":", 1)[0]
+        return error(code, update_error)
     return HandlerOutcome(
         result_payload={
             "run_id": resolved_run_id,

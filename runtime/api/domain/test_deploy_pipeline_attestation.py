@@ -13,6 +13,7 @@ from yoke_core.domain import (
 
 SHA = "b" * 40
 RECOVERY = "Refresh origin, then re-drive the run."
+BASIS = {"schema": 1, "primary_project": "yoke", "projects": []}
 
 
 def _drive(capsys, monkeypatch, carried_work):
@@ -35,6 +36,7 @@ def _drive(capsys, monkeypatch, carried_work):
             {"name": "merged", "step_runner": "auto"},
             {"name": "complete", "step_runner": "auto"},
         ],
+        "candidate_containment_basis": BASIS,
     }
 
     def fake_dispatch(stage, **kwargs):
@@ -56,6 +58,7 @@ def _drive(capsys, monkeypatch, carried_work):
             "execution_context",
             return_value=context,
         ),
+        mock.patch.object(deploy_pipeline_run_updates, "start_run") as start_run,
         mock.patch.object(deploy_pipeline_run_updates, "update_run_field"),
         mock.patch.object(
             deploy_pipeline.control_plane,
@@ -89,7 +92,7 @@ def _drive(capsys, monkeypatch, carried_work):
             image_tag="abc",
             sd="/tmp/sd",
         )
-    return rc, capsys.readouterr().out
+    return rc, capsys.readouterr().out, start_run.call_args
 
 
 def test_pipeline_prints_attestation_warning_cost_and_recovery(
@@ -103,8 +106,9 @@ def test_pipeline_prints_attestation_warning_cost_and_recovery(
             {"reason": "checkout_not_refreshed", "recovery": RECOVERY},
         ],
     }
-    rc, out = _drive(capsys, monkeypatch, carried)
+    rc, out, start_call = _drive(capsys, monkeypatch, carried)
     assert rc == deploy_pipeline.EXIT_SUCCESS
+    assert start_call == mock.call("run-attest-001", BASIS, "/repo")
     assert "carried-work attestation: checkout_not_refreshed" in out
     assert SHA in out
     assert "ancestry residual" in out
@@ -115,7 +119,7 @@ def test_pipeline_prints_nothing_extra_without_attestation_warnings(
     capsys,
     monkeypatch,
 ) -> None:
-    rc, out = _drive(
+    rc, out, _start_call = _drive(
         capsys,
         monkeypatch,
         {"derivation": {"contents_known": True}, "items": [], "warnings": []},

@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import pytest
+
 from runtime.api.fixtures.backlog_inserts import insert_deployment_run, insert_item
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import deployment_run_contained_items as containment_module
 from yoke_core.domain.deployment_run_candidate_containment import (
-    CONTAINED,
-    NOT_CONTAINED,
+    UNDETERMINED,
     ContainmentVerdict,
 )
 from yoke_core.domain.deployment_run_contained_items import (
+    attest_candidate_containment,
+    candidate_containment_basis,
     parse_candidate_containment,
 )
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
@@ -36,9 +39,28 @@ class _ForbiddenWalk:
         raise AssertionError("list reads must not perform an ancestry walk")
 
 
+class _LocalAnswer:
+    origin = "checkout"
+    location = "/repo"
+
+    def __init__(self, contained: bool, *, seen: list[str] | None = None):
+        self._contained = contained
+        self._seen = seen if seen is not None else []
+
+    def resolve_commit(self, ref):
+        return ref
+
+    def contains_commit(self, candidate, commit):
+        self._seen.append(commit)
+        return self._contained
+
+    def adds_nothing(self, candidate, commit):
+        return False
+
+
 def _contained_walk(answer):
     class _Walk:
-        def __init__(self, conn, project_id, *, candidate_lineage):
+        def __init__(self, conn, project_id, *, candidate_lineage, source=None):
             self._lineage = candidate_lineage
 
         def contains(self, commit_sha):
@@ -89,24 +111,40 @@ def _member_count(conn) -> int:
     return int(row["n"])
 
 
-def test_start_persists_candidate_containment_without_taking_custody(
+def test_local_attestation_persists_when_server_has_no_graph_source(
     monkeypatch,
 ) -> None:
     seen: list[str] = []
-
-    def answer(commit_sha, lineage):
-        seen.append(commit_sha)
-        assert lineage == LINEAGE
-        return ContainmentVerdict(state=CONTAINED)
-
     monkeypatch.setattr(
-        containment_module, "CandidateContainment", _contained_walk(answer)
+        containment_module,
+        "LocalCheckoutSource",
+        lambda _checkout: _LocalAnswer(True, seen=seen),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_run_carried_work_source.carried_work_sources",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("the server must not open a repository provider")
+        ),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.project_checkout_locations.checkout_for_project_id",
+        lambda _project_id: None,
     )
     with test_database() as conn:
         _open_item(conn)
         _stage_run(conn)
+        basis = candidate_containment_basis(conn, "run-stage")
+        attestation = attest_candidate_containment(basis, lambda _project: "/repo")
 
-        assert cmd_update("run-stage", "status", "executing") is None
+        assert (
+            cmd_update(
+                "run-stage",
+                "status",
+                "executing",
+                candidate_containment=attestation,
+            )
+            is None
+        )
 
         row = conn.execute(
             "SELECT status,candidate_containment FROM deployment_runs WHERE id=%s",
@@ -117,6 +155,7 @@ def test_start_persists_candidate_containment_without_taking_custody(
 
     assert row["status"] == "executing"
     assert snapshot["derivation"]["contents_known"] is True
+    assert snapshot["derivation"]["source"] == "attested_local_checkout"
     assert snapshot["items"] == [{"id": ITEM_ID, "project_id": PROJECT_ID}]
     assert seen == [MERGE]
     assert members == 0
@@ -125,16 +164,24 @@ def test_start_persists_candidate_containment_without_taking_custody(
 def test_start_persists_known_empty_containment(monkeypatch) -> None:
     monkeypatch.setattr(
         containment_module,
-        "CandidateContainment",
-        _contained_walk(
-            lambda commit_sha, lineage: ContainmentVerdict(state=NOT_CONTAINED)
-        ),
+        "LocalCheckoutSource",
+        lambda _checkout: _LocalAnswer(False),
     )
     with test_database() as conn:
         _open_item(conn)
         _stage_run(conn)
+        basis = candidate_containment_basis(conn, "run-stage")
+        attestation = attest_candidate_containment(basis, lambda _project: "/repo")
 
-        assert cmd_update("run-stage", "status", "executing") is None
+        assert (
+            cmd_update(
+                "run-stage",
+                "status",
+                "executing",
+                candidate_containment=attestation,
+            )
+            is None
+        )
 
         row = conn.execute(
             "SELECT candidate_containment FROM deployment_runs WHERE id=%s",
@@ -145,8 +192,51 @@ def test_start_persists_known_empty_containment(monkeypatch) -> None:
     assert snapshot["derivation"] == {
         "status": "known",
         "contents_known": True,
+        "source": "attested_local_checkout",
     }
     assert snapshot["items"] == []
+
+
+def test_start_refuses_missing_attestation_without_freezing_empty() -> None:
+    with test_database() as conn:
+        _open_item(conn)
+        _stage_run(conn)
+
+        refusal = cmd_update("run-stage", "status", "executing")
+
+        row = conn.execute(
+            "SELECT status,candidate_containment FROM deployment_runs WHERE id=%s",
+            ("run-stage",),
+        ).fetchone()
+
+    assert "candidate_containment_attestation_required" in refusal
+    assert "local deployment driver" in refusal
+    assert row["status"] == "created"
+    assert row["candidate_containment"] is None
+
+
+def test_undetermined_local_graph_is_a_named_retryable_refusal(monkeypatch) -> None:
+    monkeypatch.setattr(
+        containment_module,
+        "CandidateContainment",
+        _contained_walk(
+            lambda _commit, _lineage: ContainmentVerdict(
+                state=UNDETERMINED,
+                reason="containment_commit_unreachable",
+                recovery="Fetch both commits, then retry.",
+            )
+        ),
+    )
+    with test_database() as conn:
+        _open_item(conn)
+        _stage_run(conn)
+        basis = candidate_containment_basis(conn, "run-stage")
+
+    with pytest.raises(
+        containment_module.CandidateContainmentRefusal,
+        match="candidate_containment_undetermined.*Fetch both commits",
+    ):
+        attest_candidate_containment(basis, lambda _project: "/repo")
 
 
 def _present(base, monkeypatch):

@@ -85,10 +85,19 @@ class CandidateContainment:
     """
 
     def __init__(
-        self, conn: Any, project_id: int, *, candidate_lineage: str,
+        self,
+        conn: Any,
+        project_id: int,
+        *,
+        candidate_lineage: str,
+        source: Optional[CarriedWorkSource] = None,
     ) -> None:
         self._candidate = str(candidate_lineage or "").strip()
-        self._openers = carried_work_sources(conn, project_id)
+        self._openers = (
+            (lambda: source,)
+            if source is not None
+            else carried_work_sources(conn, project_id)
+        )
         self._opened: Optional[list[_OpenedSource]] = None
 
     def _sources(self) -> list["_OpenedSource"]:
@@ -117,7 +126,9 @@ class CandidateContainment:
                 refusals.append(entry.refusal or ("", ""))
                 continue
             verdict = _ask_source(
-                entry.source, entry.resolved_candidate(self._candidate), merge,
+                entry.source,
+                entry.resolved_candidate(self._candidate),
+                merge,
             )
             if verdict is None:
                 refusals.append(
@@ -188,7 +199,9 @@ def candidate_contains_commit(
     once per commit.
     """
     return CandidateContainment(
-        conn, project_id, candidate_lineage=candidate_lineage,
+        conn,
+        project_id,
+        candidate_lineage=candidate_lineage,
     ).contains(commit_sha)
 
 
