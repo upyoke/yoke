@@ -59,6 +59,7 @@ class TestReviewedImplementationGateWithoutCheckout:
         assert "GATE_QA_BROWSER_PROOF_NEEDS_CHECKOUT" in joined
         assert f"Requirement #{req_id}" in joined
         assert "no exact revision" in joined
+
     def test_tc_durable_stamped_proof_passes_without_a_checkout(self, qa_db):
         """Durable evidence plus an exact revision needs no customer checkout."""
         req_id = _add_requirement(
@@ -81,6 +82,7 @@ class TestReviewedImplementationGateWithoutCheckout:
         ):
             result = check_reviewed_implementation_gate(GateTarget(item_id=42), qa_db)
         assert result.passed, result.errors
+
     def test_tc_stale_full_sha_capture_without_checkout_refuses(self, qa_db):
         """A full-length SHA is identity, not freshness.
 
@@ -113,6 +115,7 @@ class TestReviewedImplementationGateWithoutCheckout:
         assert "stale passing runs" in joined
         assert _CAPTURED_SHA in joined
         assert _SUPERSEDED_SHA in joined
+
     def test_tc_item_with_no_recorded_revision_refuses(self, qa_db):
         """Nothing recorded to compare against is unverifiable, not fresh."""
         req_id = _add_requirement(
@@ -137,6 +140,7 @@ class TestReviewedImplementationGateWithoutCheckout:
         joined = "\n".join(result.errors)
         assert "GATE_QA_BROWSER_PROOF_NEEDS_CHECKOUT" in joined
         assert "records no revision for the item" in joined
+
     def test_tc_checkout_relative_evidence_without_checkout_refuses(self, qa_db):
         """A path relative to the checkout is unreadable where there is none."""
         req_id = _add_requirement(
@@ -162,6 +166,7 @@ class TestReviewedImplementationGateWithoutCheckout:
         joined = "\n".join(result.errors)
         assert "GATE_QA_BROWSER_PROOF_NEEDS_CHECKOUT" in joined
         assert "checkout-relative path" in joined
+
     def test_tc_no_checkout_is_not_applicable_without_browser_methods(self, qa_db):
         req_id = _add_requirement(qa_db)
         _add_run(qa_db, req_id, "pass")
@@ -224,6 +229,7 @@ class TestReviewedImplementationGateWithoutCheckout:
             raw_result=_stamped_result(_CAPTURED_SHA),
         )
         from runtime.api.fixtures.file_test_db import connect_test_db
+
         conn = connect_test_db(qa_db)
         try:
             conn.execute(
@@ -255,4 +261,3 @@ class TestReviewedImplementationGateWithoutCheckout:
         ):
             result = check_reviewed_implementation_gate(GateTarget(item_id=42), qa_db)
         assert result.passed, result.errors
-
