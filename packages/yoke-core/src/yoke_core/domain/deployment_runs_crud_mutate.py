@@ -24,7 +24,10 @@ from yoke_core.domain.deployment_run_composition_guard import (
     mutable_field_refusal,
     terminal_run_refusal,
 )
-from yoke_core.domain.deployment_runs_lock import lock_run, lock_run_with_stable_membership
+from yoke_core.domain.deployment_runs_lock import (
+    lock_run,
+    lock_run_with_stable_membership,
+)
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
 )
@@ -159,11 +162,15 @@ def cmd_update(
                 return refusal
 
             if value == "executing":
+                from yoke_core.domain.deployment_run_contained_items import (
+                    record_candidate_containment,
+                )
                 from yoke_core.domain.deployment_run_composition_freeze import (
                     freeze_run_composition,
                 )
 
                 freeze_run_composition(conn, run_id)
+                record_candidate_containment(conn, run_id)
                 conn.execute(
                     "UPDATE deployment_runs SET status=%s, started_at=%s WHERE id=%s",
                     (value, iso8601_now(), run_id),

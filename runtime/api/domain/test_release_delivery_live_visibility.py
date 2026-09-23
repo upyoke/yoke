@@ -1,23 +1,21 @@
-"""In-flight candidate containment is a card join, never membership.
-
-A schema-v1 stage run enrolls nobody, so a live box that indexes only by
-member rows is blank for the whole execution. These cases prove the card
-can still name that run from containment, that the membership table is
-untouched, and that an in-flight containment is not counted as deployed.
-"""
+"""Persisted candidate containment is a card join, never membership."""
 
 from __future__ import annotations
 
 from runtime.api.fixtures.backlog_inserts import insert_deployment_run, insert_item
 from runtime.api.fixtures.pg_testdb import test_database
-from yoke_core.domain import release_delivery_live_visibility as visibility
+from yoke_core.domain import deployment_run_contained_items as containment_module
 from yoke_core.domain.deployment_run_candidate_containment import (
     CONTAINED,
     NOT_CONTAINED,
     ContainmentVerdict,
 )
+from yoke_core.domain.deployment_run_contained_items import (
+    parse_candidate_containment,
+)
+from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
 from yoke_core.domain.item_merge_receipt_document import record_entry
-from yoke_core.domain.release_delivery_live_visibility import live_visible_items
+from yoke_core.domain.json_helper import dumps_compact
 from yoke_core.domain.release_delivery_summary import (
     ReleaseCandidates,
     delivery_summary,
@@ -31,12 +29,11 @@ PROJECT_ID = 1
 ENVIRONMENT_ID = 7
 MERGE = "a" * 40
 LINEAGE = "d" * 40
-COMPLETED = "2026-09-18T00:00:00Z"
 
 
 class _ForbiddenWalk:
     def __init__(self, *args, **kwargs):
-        raise AssertionError("ancestry walk must not run")
+        raise AssertionError("list reads must not perform an ancestry walk")
 
 
 def _contained_walk(answer):
@@ -50,17 +47,6 @@ def _contained_walk(answer):
     return _Walk
 
 
-def _landing(conn, item_id: int = ITEM_ID, merge_sha: str = MERGE) -> None:
-    record_entry(
-        conn,
-        item_id=item_id,
-        branch=f"LANE-{item_id}",
-        target="main",
-        commit_sha=merge_sha,
-        merge_sha=merge_sha,
-    )
-
-
 def _open_item(conn) -> None:
     insert_item(
         conn,
@@ -71,15 +57,22 @@ def _open_item(conn) -> None:
         project_id=PROJECT_ID,
         deployment_flow=PROD_FLOW,
     )
-    _landing(conn)
+    record_entry(
+        conn,
+        item_id=ITEM_ID,
+        branch=f"LANE-{ITEM_ID}",
+        target="main",
+        commit_sha=MERGE,
+        merge_sha=MERGE,
+    )
 
 
-def _executing_stage(conn, run_id: str = "run-stage") -> None:
+def _stage_run(conn, *, status: str = "created") -> None:
     insert_deployment_run(
         conn,
-        id=run_id,
+        id="run-stage",
         project_id=PROJECT_ID,
-        status="executing",
+        status=status,
         flow=FLOW,
         target_tier="persistent",
         release_lineage=LINEAGE,
@@ -88,15 +81,15 @@ def _executing_stage(conn, run_id: str = "run-stage") -> None:
     )
 
 
-def _member_count(conn, run_id: str) -> int:
+def _member_count(conn) -> int:
     row = conn.execute(
         "SELECT COUNT(*) AS n FROM deployment_run_items WHERE run_id=%s",
-        (run_id,),
+        ("run-stage",),
     ).fetchone()
-    return int(row["n"] if hasattr(row, "keys") else row[0])
+    return int(row["n"])
 
 
-def test_an_executing_stage_run_names_the_item_its_candidate_contains(
+def test_start_persists_candidate_containment_without_taking_custody(
     monkeypatch,
 ) -> None:
     seen: list[str] = []
@@ -106,32 +99,32 @@ def test_an_executing_stage_run_names_the_item_its_candidate_contains(
         assert lineage == LINEAGE
         return ContainmentVerdict(state=CONTAINED)
 
-    monkeypatch.setattr(visibility, "CandidateContainment", _contained_walk(answer))
+    monkeypatch.setattr(
+        containment_module, "CandidateContainment", _contained_walk(answer)
+    )
     with test_database() as conn:
         _open_item(conn)
-        _executing_stage(conn)
-        conn.commit()
-        items = live_visible_items(
-            conn,
-            {
-                "id": "run-stage",
-                "project_id": PROJECT_ID,
-                "status": "executing",
-                "release_lineage": LINEAGE,
-            },
-        )
-        members = _member_count(conn, "run-stage")
+        _stage_run(conn)
 
-    assert items == [{"id": ITEM_ID}]
+        assert cmd_update("run-stage", "status", "executing") is None
+
+        row = conn.execute(
+            "SELECT status,candidate_containment FROM deployment_runs WHERE id=%s",
+            ("run-stage",),
+        ).fetchone()
+        snapshot = parse_candidate_containment(row["candidate_containment"])
+        members = _member_count(conn)
+
+    assert row["status"] == "executing"
+    assert snapshot["derivation"]["contents_known"] is True
+    assert snapshot["items"] == [{"id": ITEM_ID, "project_id": PROJECT_ID}]
     assert seen == [MERGE]
     assert members == 0
 
 
-def test_a_candidate_that_does_not_contain_the_merge_names_nobody(
-    monkeypatch,
-) -> None:
+def test_start_persists_known_empty_containment(monkeypatch) -> None:
     monkeypatch.setattr(
-        visibility,
+        containment_module,
         "CandidateContainment",
         _contained_walk(
             lambda commit_sha, lineage: ContainmentVerdict(state=NOT_CONTAINED)
@@ -139,48 +132,85 @@ def test_a_candidate_that_does_not_contain_the_merge_names_nobody(
     )
     with test_database() as conn:
         _open_item(conn)
-        _executing_stage(conn)
-        conn.commit()
-        items = live_visible_items(
-            conn,
-            {
-                "id": "run-stage",
-                "project_id": PROJECT_ID,
-                "status": "executing",
-                "release_lineage": LINEAGE,
-            },
-        )
+        _stage_run(conn)
 
-    assert items == []
+        assert cmd_update("run-stage", "status", "executing") is None
+
+        row = conn.execute(
+            "SELECT candidate_containment FROM deployment_runs WHERE id=%s",
+            ("run-stage",),
+        ).fetchone()
+        snapshot = parse_candidate_containment(row["candidate_containment"])
+
+    assert snapshot["derivation"] == {
+        "status": "known",
+        "contents_known": True,
+    }
+    assert snapshot["items"] == []
 
 
-def test_a_succeeded_run_is_not_a_live_visibility_join(monkeypatch) -> None:
-    monkeypatch.setattr(visibility, "CandidateContainment", _ForbiddenWalk)
-    with test_database() as conn:
-        _open_item(conn)
-        insert_deployment_run(
-            conn,
-            id="run-done",
-            project_id=PROJECT_ID,
-            status="succeeded",
-            flow=FLOW,
-            target_tier="persistent",
-            release_lineage=LINEAGE,
-            target_environment_id=ENVIRONMENT_ID,
-            completed_at=COMPLETED,
-        )
-        conn.commit()
-        items = live_visible_items(
-            conn,
-            {
-                "id": "run-done",
-                "project_id": PROJECT_ID,
-                "status": "succeeded",
-                "release_lineage": LINEAGE,
-            },
-        )
+def _present(base, monkeypatch):
+    from yoke_core.domain.deployment_run_list_read import present_deployment_runs
 
-    assert items == []
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_run_list_read._member_items",
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_run_list_read.run_gates",
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(containment_module, "CandidateContainment", _ForbiddenWalk)
+    return present_deployment_runs(
+        object(),
+        [base],
+        actor_id=None,
+        visible_project_ids=None,
+        include_carried_work=False,
+    )[0]
+
+
+def test_list_presentation_reads_the_persisted_snapshot_without_network(
+    monkeypatch,
+) -> None:
+    snapshot = {
+        "schema": 1,
+        "derivation": {"status": "known", "contents_known": True},
+        "items": [{"id": ITEM_ID, "project_id": PROJECT_ID}],
+    }
+    row = _present(
+        {
+            "id": "run-stage",
+            "status": "executing",
+            "project_id": PROJECT_ID,
+            "candidate_containment": dumps_compact(snapshot),
+            "stages": "[]",
+        },
+        monkeypatch,
+    )
+
+    assert row["contained_items"] == snapshot["items"]
+    assert "candidate_containment" not in row
+
+
+def test_terminal_run_does_not_project_the_start_time_join(monkeypatch) -> None:
+    snapshot = {
+        "schema": 1,
+        "derivation": {"status": "known", "contents_known": True},
+        "items": [{"id": ITEM_ID, "project_id": PROJECT_ID}],
+    }
+    row = _present(
+        {
+            "id": "run-stage",
+            "status": "succeeded",
+            "project_id": PROJECT_ID,
+            "candidate_containment": dumps_compact(snapshot),
+            "stages": "[]",
+        },
+        monkeypatch,
+    )
+
+    assert row["contained_items"] == []
 
 
 def test_an_in_flight_stage_run_is_not_counted_as_deployed(monkeypatch) -> None:
@@ -189,8 +219,7 @@ def test_an_in_flight_stage_run_is_not_counted_as_deployed(monkeypatch) -> None:
     monkeypatch.setattr(summary_module, "CandidateContainment", _ForbiddenWalk)
     with test_database() as conn:
         _open_item(conn)
-        _executing_stage(conn)
-        conn.commit()
+        _stage_run(conn, status="executing")
         merges = recorded_merge_shas_for_items(conn, [ITEM_ID]).get(ITEM_ID, ())
         result = delivery_summary(
             merges=merges,
@@ -204,85 +233,3 @@ def test_an_in_flight_stage_run_is_not_counted_as_deployed(monkeypatch) -> None:
         )
 
     assert (result.merges, result.deployed, result.not_deployed) == (1, 0, 1)
-
-
-def test_list_presentation_joins_contained_items_only_when_members_are_empty(
-    monkeypatch,
-) -> None:
-    from yoke_core.domain.deployment_run_list_read import present_deployment_runs
-
-    monkeypatch.setattr(
-        "yoke_core.domain.deployment_run_list_read._member_items",
-        lambda *_args, **_kwargs: {},
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.deployment_run_list_read.run_gates",
-        lambda *_args, **_kwargs: {},
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.deployment_run_list_read.live_visible_items",
-        lambda *_args, **_kwargs: [{"id": ITEM_ID}],
-    )
-    rows = present_deployment_runs(
-        object(),
-        [{
-            "id": "run-stage",
-            "status": "executing",
-            "project_id": PROJECT_ID,
-            "stages": "[]",
-        }],
-        actor_id=None,
-        visible_project_ids=None,
-        include_carried_work=False,
-    )
-
-    assert rows[0]["member_items"] == []
-    assert rows[0]["contained_items"] == [{"id": ITEM_ID}]
-
-
-def test_list_presentation_does_not_join_contained_items_over_members(
-    monkeypatch,
-) -> None:
-    from yoke_core.domain.deployment_run_list_read import present_deployment_runs
-
-    monkeypatch.setattr(
-        "yoke_core.domain.deployment_run_list_read._member_items",
-        lambda *_args, **_kwargs: {
-            "run-prod": [{
-                "id": ITEM_ID,
-                "ref": "YOK-1",
-                "title": "prod member",
-                "status": "release",
-                "project_id": PROJECT_ID,
-                "project_sequence": 1,
-                "project": "yoke",
-            }],
-        },
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.deployment_run_list_read.run_gates",
-        lambda *_args, **_kwargs: {},
-    )
-
-    def _must_not_look(*_args, **_kwargs):
-        raise AssertionError("members already join the card")
-
-    monkeypatch.setattr(
-        "yoke_core.domain.deployment_run_list_read.live_visible_items",
-        _must_not_look,
-    )
-    rows = present_deployment_runs(
-        object(),
-        [{
-            "id": "run-prod",
-            "status": "executing",
-            "project_id": PROJECT_ID,
-            "stages": "[]",
-        }],
-        actor_id=None,
-        visible_project_ids=None,
-        include_carried_work=False,
-    )
-
-    assert rows[0]["member_items"][0]["id"] == ITEM_ID
-    assert rows[0]["contained_items"] == []

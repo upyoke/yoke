@@ -23,6 +23,15 @@ def _drop_carried_work(db_path: str) -> None:
         conn.close()
 
 
+def _drop_candidate_containment(db_path: str) -> None:
+    conn = connect_test_db(db_path)
+    try:
+        conn.execute("ALTER TABLE deployment_runs DROP COLUMN candidate_containment")
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def test_runs_get_succeeds_when_carried_work_column_is_absent(db_path: str) -> None:
     run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
     _drop_carried_work(db_path)
@@ -70,6 +79,21 @@ def test_named_and_pipe_selects_project_empty_carried_work(db_path: str) -> None
     assert "COALESCE(carried_work" not in pipe_sql
     assert "NULL AS carried_work" in named_sql
     assert "dr.carried_work" not in named_sql
+
+
+def test_named_select_projects_null_candidate_containment_when_absent(
+    db_path: str,
+) -> None:
+    dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
+    _drop_candidate_containment(db_path)
+    conn = connect_test_db(db_path)
+    try:
+        named_sql, _join = _run_named_columns(conn)
+    finally:
+        conn.close()
+
+    assert "NULL AS candidate_containment" in named_sql
+    assert "dr.candidate_containment" not in named_sql
 
 
 def test_locked_existing_read_survives_missing_carried_work(db_path: str) -> None:

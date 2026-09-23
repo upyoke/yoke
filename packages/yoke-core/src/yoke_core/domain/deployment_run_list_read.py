@@ -9,11 +9,13 @@ from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.deployment_run_bound_sources import parse_bound_sources
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
+from yoke_core.domain.deployment_run_contained_items import (
+    parse_candidate_containment,
+)
 from yoke_core.domain.deployment_run_gates import run_gates
 from yoke_core.domain.deployment_runs_schema import _run_named_columns
 from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.project_identity import resolve_project
-from yoke_core.domain.release_delivery_live_visibility import live_visible_items
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
 from yoke_core.domain.workflows_definition_read import _stage_names
 
@@ -178,6 +180,9 @@ def present_deployment_runs(
             # What this run pinned for every project it ships but does not
             # own. Run detail reads the same record delivery is judged on.
             row["bound_sources"] = parse_bound_sources(row.get("bound_sources"))
+        containment = parse_candidate_containment(
+            row.pop("candidate_containment", None)
+        )
         stage_names = _stage_names(row.pop("stages", None))
         stages, stage_index = _stage_rows(
             stage_names,
@@ -203,7 +208,12 @@ def present_deployment_runs(
             str(row.get("status") or "") not in TERMINAL_RUN_STATUSES
             and not run_members
         ):
-            contained = live_visible_items(conn, row)
+            contained = [
+                item
+                for item in containment.get("items") or []
+                if visible_project_ids is None
+                or int(item.get("project_id") or 0) in visible_project_ids
+            ]
         presentation = {
             "member_items": run_members,
             "contained_items": contained,
