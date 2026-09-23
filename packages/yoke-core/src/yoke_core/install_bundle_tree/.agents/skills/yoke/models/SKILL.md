@@ -91,15 +91,17 @@ in `operator_notes` and machine `session_model_routing`, never in sourced
 prices, benchmarks, or `proposed_tier`. A catalog refresh does not change
 routing or an already-started session.
 
-## Source-edit entry
+## Dash entry
 
 For a direct refresh request with no claimed work item, file a `/yoke dash`
-for the bounded research and publication. Acquire its item work
-claim, record the complete touch-set survey, prepare its registered worktree,
-and transition it to implementing before changing the catalog. Keep the
-candidate JSON and research evidence in the claimed worktree while reviewing;
-publish through the prod control plane only after verification, then follow
-Dash close-out. A claimed item uses its existing worktree and workflow.
+for the bounded research and publication, then acquire its item work claim.
+When repository files change, survey their paths and work in Dash's registered
+worktree. For a DB-only refresh, survey `--no-changes`; Dash prepare records
+its laneless skip. Keep the candidate JSON in a temp file and its lasting
+sources in catalog records and the publication note. Publish through the prod
+control plane after review, record the revision in the Progress Log, and use
+Dash close-out; a DB-only refresh needs no release. A claimed item uses its
+existing worktree and workflow.
 Read-only `lookup`, `get`, `validate`, `diff`, and `revisions` need no Dash.
 
 ## Refresh steps
