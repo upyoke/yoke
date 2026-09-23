@@ -145,8 +145,8 @@ def source_obligation_consumed(
 ) -> bool:
     """True when every admitted copy of this intake on the completion run is accepted.
 
-    Zero copies is unmet. Several accepted copies are met: duplication is
-    materialization bookkeeping, not a missing proof. An unsettled copy still
+    Zero copies is unmet. A newer cancelled run cannot replace the delivered
+    candidate. Several accepted copies are met, but an unsettled copy still
     holds ``done``.
 
     "Accepted" is the stage's own answer plus the copy's own discharge state,
@@ -164,9 +164,10 @@ def source_obligation_consumed(
     and this returns ``False`` before the discharge is ever consulted. An
     un-superseded failing copy is untouched and still holds ``done``.
     """
-    binding = latest_deployment_run_for_item(conn, int(item_id))
-    run_id = binding["run_id"]
-    if not run_id or binding["status"] != "succeeded":
+    from yoke_core.domain.delivery_evidence_ladder import delivery_evidence
+    binding = delivery_evidence(conn, int(item_id))
+    run_id = binding.run_id
+    if not binding.discharged or not run_id:
         return False
     case_key = admitted_requirement_case_key(int(source_requirement_id))
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"

@@ -27,11 +27,18 @@ from runtime.api.domain.test_deployment_qa_admission_execution import (
     _seed_selected_requirement_run,
 )
 from runtime.api.fixtures.backlog_inserts import insert_qa_run
+from yoke_core.domain import delivery_evidence_ladder as ladder
 from yoke_core.domain.dash_execution import record_dash_evidence
 from yoke_core.domain.dash_posture_gate import evaluate
+from yoke_core.domain.deployment_run_candidate_containment import (
+    CONTAINED, NOT_CONTAINED, ContainmentVerdict,
+)
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
+from yoke_core.domain.deployment_qa_source_obligation import source_obligation_consumed
+from yoke_core.domain.delivery_evidence_ladder import delivery_evidence
+from yoke_core.domain.item_merge_receipt_document import record_entry
 from yoke_core.domain.qa_gates import GateTarget, check_done_gate
 
 
@@ -221,6 +228,66 @@ def test_an_accepted_admitted_copy_closes_out_a_source_that_also_passed(
     assert status == "done"
     assert int(original_runs) == 1
     assert waived is None
+
+
+def test_cancelled_newer_run_does_not_mask_the_delivered_qa(
+    test_db,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        ladder, "candidate_contains_commit",
+        lambda _conn, _project, *, candidate_lineage, commit_sha:
+        ContainmentVerdict(
+            CONTAINED if candidate_lineage == commit_sha else NOT_CONTAINED
+        ),
+    )
+    item_id = 2345
+    _insert_dash(test_db, item_id=item_id, status="release")
+    source_id = _bind_original(test_db, item_id=item_id)
+    _seed_selected_requirement_run(
+        test_db, run_id="run-delivered", item_id=item_id,
+        requirement_id=source_id,
+    )
+    _retarget_run(
+        test_db, run_id="run-delivered", lineage="d" * 40,
+        created_at="2026-09-14T00:00:00Z",
+    )
+    _accept_member_qa(test_db, run_id="run-delivered", item_id=item_id)
+    _seed_selected_requirement_run(
+        test_db, run_id="run-cancelled", item_id=item_id,
+        requirement_id=source_id,
+    )
+    _retarget_run(
+        test_db, run_id="run-cancelled", lineage="d" * 40,
+        created_at="2026-09-14T00:10:00Z",
+    )
+    test_db.execute(
+        "UPDATE deployment_runs SET flow=%s,status='cancelled' WHERE id=%s",
+        ("flow-run-delivered", "run-cancelled"),
+    )
+    test_db.execute(
+        "UPDATE items SET deployment_flow=%s WHERE id=%s",
+        ("flow-run-delivered", item_id),
+    )
+    test_db.commit()
+    _record_evidence(test_db, item_id=item_id)
+    record_entry(
+        test_db, item_id=item_id, branch="test-lane", target="main",
+        merge_sha="d" * 40,
+    )
+    test_db.commit()
+
+    delivered = delivery_evidence(test_db, item_id)
+    assert delivered.discharged, delivered
+    assert delivered.run_id == "run-delivered"
+    assert source_obligation_consumed(
+        test_db, item_id=item_id, source_requirement_id=source_id
+    )
+    db_path = str(test_db.info.dsn)
+    assert evaluate(item_id=item_id, target_status="done", db_path=db_path) is None
+    assert check_done_gate(GateTarget(item_id=item_id), db_path).passed is True
+    outcome = _transition_done(test_db, item_id=item_id, monkeypatch=monkeypatch)
+    assert outcome.primary_success is True, outcome.error
 
 
 def test_a_verification_row_is_still_satisfied_by_its_own_passing_run(
