@@ -133,6 +133,30 @@ def test_publish_and_restore_create_auditable_revisions(catalog_db):
         latest.result_payload["revisions"][0]["revision_id"]
         == published.result_payload["revision_id"]
     )
+    active = model_reference.handle_models_get(
+        _request(model_reference.GET_FUNCTION_ID, {})
+    )
+    assert active.result_payload["revision_id"] == current["revision_id"]
+    future_read = model_reference.handle_models_get(
+        _request(model_reference.GET_FUNCTION_ID, {"at": future})
+    )
+    assert (
+        next(
+            row
+            for row in future_read.result_payload["records"]
+            if row["model_id"] == "gpt-6-sol"
+        )["api_price"]["input_per_million_usd"]
+        == 3.0
+    )
+    future_lookup = model_reference.handle_models_lookup(
+        _request(
+            model_reference.LOOKUP_FUNCTION_ID, {"model_id": "gpt-6-sol", "at": future}
+        )
+    )
+    assert (
+        future_lookup.result_payload["revision_id"]
+        == published.result_payload["revision_id"]
+    )
     restored = publication.handle_models_restore(
         _request(
             publication.RESTORE_FUNCTION_ID,
