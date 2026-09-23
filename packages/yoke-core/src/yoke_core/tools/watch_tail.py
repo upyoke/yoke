@@ -42,11 +42,13 @@ from typing import Callable, Sequence, TextIO
 from yoke_core.tools._watch_capture_binding import (
     DEFAULT_WRITER_GRACE_SECONDS,
     UNWRITTEN_CAPTURE_EXIT,
+    WRITER_MARKER_RE,
     dead_writer_refusal,
     unwritten_capture_refusal,
     writer_alive,
     writer_pid,
 )
+from yoke_core.tools._watch_terminal_outcome import OUTCOME_ONLY_WATCH_KINDS
 
 # Matches the wrapper-side footer format owned by
 # ``_watch_runner.run_watcher`` -- single source of the literal in
@@ -158,6 +160,15 @@ class _Delivery:
         fresh = self.position > self.delivered
         if not (fresh or sentinel):
             return sentinel
+        marker = WRITER_MARKER_RE.match(line)
+        if (
+            marker is not None
+            and marker.group("kind") in OUTCOME_ONLY_WATCH_KINDS
+        ):
+            if fresh:
+                self.delivered = self.position
+                _record_delivered(self.path, self.delivered)
+            return False
         try:
             self.stream.write(line)
             self.stream.flush()

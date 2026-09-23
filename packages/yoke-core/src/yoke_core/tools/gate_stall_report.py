@@ -240,24 +240,29 @@ def handle_quiet_period(
     terminate_child,
     raw_capture,
     stall_abort_exit: int,
+    outcome_only: bool = False,
 ) -> Optional[int]:
     """Diagnose a quiet child; return an abort exit code or None to continue.
 
     *emit_immediate* writes a line to progress + stdout. *write_raw* appends
     to the forensic capture. *terminate_child* reaps the watched group.
+    Outcome-only callers keep the diagnosis and abort signal but defer the
+    exit sentinel until the runner has written the final failure result.
     """
     report = diagnose_quiet_run(root_pid)
     heartbeat = report.heartbeat_line(kind=kind, quiet_seconds=quiet_seconds)
-    emit_immediate(heartbeat)
+    if not outcome_only:
+        emit_immediate(heartbeat)
     if not report.abort:
         return None
     abort_line = report.abort_line(kind=kind)
     write_raw(abort_line)
     emit_immediate(abort_line)
     terminate_child()
-    emit_immediate(
-        f"# watch_{kind} exit={stall_abort_exit} raw={raw_capture}\n"
-    )
+    if not outcome_only:
+        emit_immediate(
+            f"# watch_{kind} exit={stall_abort_exit} raw={raw_capture}\n"
+        )
     return stall_abort_exit
 
 

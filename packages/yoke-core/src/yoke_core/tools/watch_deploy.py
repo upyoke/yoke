@@ -35,7 +35,13 @@ from yoke_core.domain.deployment_run_driver_attachment import (
     PHASE_EXECUTING,
     PHASE_FREEZING_SOURCE,
 )
-from yoke_core.tools import _watch_digest, _watch_runner, watch_preflight
+from yoke_core.tools import _watch_runner, watch_preflight
+from yoke_core.tools._watch_terminal_outcome import (
+    OUTCOME_ONLY_WATCH_KINDS,
+    PYTHON_EXCEPTION_PATTERN,
+    emit_terminal_failure,
+    is_python_exception_line,
+)
 from yoke_core.tools._watch_throttle import Classification, LineClass
 from yoke_core.tools.deploy_pipeline_pinned_driver import (
     child_environment,
@@ -66,9 +72,8 @@ DEPLOY_SUMMARY_PREFIXES: tuple[str, ...] = (
     FINALIZATION_PENDING_PREFIX,
 )
 DEPLOY_SUMMARY_RE = re.compile(r"has no member items")
-# Motion: a release opens stages, names the workflow it dispatched, and
-# closes them again. Each line is real, none of it is a question for the
-# reader, and a release emits a dozen — so they ride the digest.
+# Routine motion remains classified for capture and diagnostics, but the
+# outcome-only runner does not forward it to the user-facing stream.
 DEPLOY_PROGRESS_PREFIXES: tuple[str, ...] = (
     "--- Stage:",
     "Deployment authority:",
@@ -77,9 +82,8 @@ DEPLOY_PROGRESS_PREFIXES: tuple[str, ...] = (
 # Indented by the pipeline, so these match anywhere on the line rather
 # than at its start.
 DEPLOY_PROGRESS_RE = re.compile(r"(Workflow run ID:|completed successfully)")
-# A relay that cannot answer is the failure mode that cost a release most
-# of its wall clock, so it is urgent rather than progress even though the
-# pipeline keeps retrying past it.
+# The pipeline retries a temporary relay outage; keep it in raw diagnostics
+# without waking the user before the run reaches an outcome.
 DEPLOY_RELAY_UNAVAILABLE_RE = re.compile(r"status relay is temporarily unavailable")
 FLEET_SCHEMA_REHEARSAL_START_RE = re.compile(r"^\s*Fleet schema rehearsal: uncovered\b")
 FLEET_SCHEMA_REHEARSAL_COVERED_RE = re.compile(
@@ -90,20 +94,18 @@ FLEET_SCHEMA_REHEARSAL_COVERED_RE = re.compile(
 def classify_deploy_line(line: str) -> Classification:
     """Classify a single output line from the deployment pipeline.
 
-    The pipeline's ``Workflow status: <state> (elapsed: Ns)`` poll repeats
-    roughly once a minute for the whole run and carries no state the
-    previous poll did not. Waking a watching agent on it spends a wake and
-    a line of transcript per minute per driver to say nothing, so a poll is
-    deliberately noise here. Liveness is not lost with it: the shared watch
-    runner reports ``# watch_deploy no progress for Ns`` on its own cadence,
-    distinguishing a quiet-but-moving driver from one whose child has gone
-    silent, and a dead driver still lands the exit sentinel with its code.
+    The user-facing stream is outcome-only. Workflow polls, progress and
+    retryable relay warnings remain in the raw capture; terminal errors and
+    summary lines are returned to the shared runner for immediate or final
+    delivery. Liveness and deadlock checks still run without heartbeats.
     """
+    if is_python_exception_line(line):
+        return Classification(LineClass.URGENT)
     for prefix in DEPLOY_URGENT_PREFIXES:
         if line.startswith(prefix):
             return Classification(LineClass.URGENT)
     if DEPLOY_RELAY_UNAVAILABLE_RE.search(line):
-        return Classification(LineClass.URGENT)
+        return Classification(LineClass.NOISE)
     for prefix in DEPLOY_SUMMARY_PREFIXES:
         if line.startswith(prefix):
             return Classification(LineClass.SUMMARY)
@@ -132,11 +134,11 @@ def _build_deploy_progress_pattern() -> re.Pattern[str]:
     """
     parts: list[str] = []
     parts.extend("^" + re.escape(p) for p in DEPLOY_URGENT_PREFIXES)
+    parts.append(PYTHON_EXCEPTION_PATTERN.pattern)
     parts.extend("^" + re.escape(p) for p in DEPLOY_SUMMARY_PREFIXES)
     parts.extend("^" + re.escape(p) for p in DEPLOY_PROGRESS_PREFIXES)
     parts.append(DEPLOY_SUMMARY_RE.pattern)
     parts.append(DEPLOY_PROGRESS_RE.pattern)
-    parts.append(DEPLOY_RELAY_UNAVAILABLE_RE.pattern)
     parts.append(FLEET_SCHEMA_REHEARSAL_START_RE.pattern)
     parts.append(FLEET_SCHEMA_REHEARSAL_COVERED_RE.pattern)
     parts.append(f"(?i:{watch_preflight.PREFLIGHT_PROGRESS_PATTERN.pattern})")
@@ -165,7 +167,12 @@ def _parse_args(
         prog=prog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=WATCH_DEPLOY_DESCRIPTION,
-        epilog=ITEMLESS_RELEASE_RECIPE,
+        epilog=(
+            f"{ITEMLESS_RELEASE_RECIPE}\n\n"
+            "Routine progress and watcher metadata are suppressed. "
+            "Terminal errors and the final result are delivered immediately; "
+            "the raw capture retains full output."
+        ),
         allow_abbrev=False,
     )
     parser.add_argument(
@@ -174,7 +181,6 @@ def _parse_args(
         action="store_true",
         help=_watch_runner.STREAMING_WAIT_HELP,
     )
-    _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
         "--raw-capture",
         type=Path,
@@ -235,10 +241,24 @@ def _drop_driver(run_id: str) -> None:
     release_driver(run_id)
 
 
+def _report_preflight_failure(
+    message: str,
+    raw_capture: Path,
+    progress_capture: Path,
+) -> int:
+    """Write a preflight failure into the bound raw and progress captures."""
+    return emit_terminal_failure(
+        kind=KIND,
+        message=message,
+        exit_code=2,
+        raw_capture=raw_capture,
+        progress_capture=progress_capture,
+    )
+
+
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
-    raw, flush_seconds = _watch_digest.extract_flush_seconds(raw)
     ns = _parse_args(raw, prog)
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
@@ -252,23 +272,23 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             wrapper_args=passthrough,
             raw_capture=raw_path,
             progress_capture=progress_path,
-            wrapper_options=_watch_digest.streaming_pair_options(flush_seconds),
+            outcome_only=KIND in OUTCOME_ONLY_WATCH_KINDS,
         )
 
+    raw_path, progress_path = _watch_runner.bind_capture_paths(ns, KIND)
     if not passthrough:
-        sys.stderr.write("watch_deploy: missing run id\n")
-        return 2
+        return _report_preflight_failure(
+            "watch_deploy: missing run id", raw_path, progress_path
+        )
     refusal = deployment_connection_error(passthrough[0])
     if refusal is not None:
-        sys.stderr.write(refusal + "\n")
-        return 2
+        return _report_preflight_failure(refusal, raw_path, progress_path)
 
     from yoke_core.domain.deploy_pipeline_control_plane import (
         DeploymentControlPlaneError,
         DriverLivenessPump,
     )
 
-    raw_path, progress_path = _watch_runner.bind_capture_paths(ns, KIND)
     capture = str(progress_path)
     run_id = passthrough[0]
     held = False
@@ -277,22 +297,25 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             _hold_driver(run_id, phase=PHASE_FREEZING_SOURCE, progress_capture=capture)
             held = True
         except DeploymentControlPlaneError as exc:
-            sys.stderr.write(f"watch_deploy: {exc}\n")
-            return 2
+            return _report_preflight_failure(
+                f"watch_deploy: {exc}", raw_path, progress_path
+            )
         try:
             with DriverLivenessPump(
                 run_id, phase=PHASE_FREEZING_SOURCE, progress_capture=capture
             ).running():
                 pinned_env = child_environment(run_id)
         except DeployPinnedSourceError as exc:
-            sys.stderr.write(f"watch_deploy: {exc}\n")
-            return 2
+            return _report_preflight_failure(
+                f"watch_deploy: {exc}", raw_path, progress_path
+            )
         try:
             _hold_driver(run_id, phase=PHASE_EXECUTING, progress_capture=capture)
             held = True
         except DeploymentControlPlaneError as exc:
-            sys.stderr.write(f"watch_deploy: {exc}\n")
-            return 2
+            return _report_preflight_failure(
+                f"watch_deploy: {exc}", raw_path, progress_path
+            )
         header = frozen_driver_notice(pinned_env) if pinned_env else None
         return _watch_runner.run_watcher(
             argv=_engine_argv(passthrough),
@@ -303,8 +326,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             cwd=pinned_driver_cwd(pinned_env),
             env=pinned_env,
             header_metadata=header,
-            flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
-            digest_label=run_id,
+            outcome_only=KIND in OUTCOME_ONLY_WATCH_KINDS,
             liveness=DriverLivenessPump(
                 run_id, phase=PHASE_EXECUTING, progress_capture=capture
             ),

@@ -5,9 +5,9 @@ filter per invocation. It covers what
 ``yoke_core.engines.done_transition`` and
 ``yoke_core.engines.merge_worktree`` emit; the class constants below
 carry the per-shape assignments, and every other line is ``NOISE``
-(raw capture only). Errors, hard stops, and the result emissions a
-caller reads back reach a follower at once; the banners, step headers,
-test substream, and queue-landing polls ride the digest.
+(raw capture only). Only terminal errors and the final result reach the
+user-facing stream. Routine progress and watcher metadata stay out of the
+stream; the raw capture retains the complete child output.
 
 Usage::
 
@@ -30,7 +30,12 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.tools import _watch_digest, _watch_runner
+from yoke_core.tools import _watch_runner
+from yoke_core.tools._watch_terminal_outcome import (
+    OUTCOME_ONLY_WATCH_KINDS,
+    PYTHON_EXCEPTION_PATTERN,
+    is_python_exception_line,
+)
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_merge"
@@ -60,7 +65,6 @@ SUBCOMMAND_MODULES: dict[str, str] = {
 MERGE_URGENT_PREFIXES: tuple[str, ...] = (
     "Error:",
     "ERROR:",
-    "Warning:",
     "HARD STOP:",
     "Merge halted:",
     "Merge lock error:",
@@ -74,9 +78,8 @@ MERGE_SUMMARY_PREFIXES: tuple[str, ...] = (
     "RESULT_FILE=",
     "YOKE_REPO_ROOT=",
 )
-# Motion: which branch, which worktree, which section — real content, but
-# a reader needs it as one summary of where the merge got to, not as a
-# wake apiece.
+# Routine merge motion remains classified as progress for diagnostics and
+# capture, while the outcome-only runner keeps it out of the user stream.
 MERGE_PROGRESS_PREFIXES: tuple[str, ...] = (
     "===",
     "Merging branch:",
@@ -86,9 +89,8 @@ MERGE_PROGRESS_PREFIXES: tuple[str, ...] = (
 )
 MERGE_STEP_RE = re.compile(r"^Step \d")
 # The queue-routed landing announces every poll observation under this
-# prefix (``yoke_core.domain.merge_queue_route.POLL_LINE_PREFIX``). These
-# are the only motion a 45-minute queue wait produces, so they must reach
-# the operator rather than settling in the raw capture.
+# prefix. The classifier recognizes those lines as routine progress; the
+# outcome-only runner keeps them in raw capture during a long queue wait.
 MERGE_QUEUE_POLL_RE = re.compile(r"^Queue landing: ")
 # Merge-time test substream and phase-prefixed lines emitted by
 # yoke_core.engines.merge_worktree_tests.
@@ -112,6 +114,8 @@ def _test_substream_payload(line: str) -> str | None:
 
 def classify_merge_line(line: str) -> Classification:
     """Classify a single output line from a Yoke merge engine."""
+    if is_python_exception_line(line):
+        return Classification(LineClass.URGENT)
     for prefix in MERGE_URGENT_PREFIXES:
         if line.startswith(prefix):
             return Classification(LineClass.URGENT)
@@ -148,6 +152,7 @@ def _build_merge_progress_pattern() -> re.Pattern[str]:
     """
     parts: list[str] = []
     parts.extend("^" + re.escape(p) for p in MERGE_URGENT_PREFIXES)
+    parts.append(PYTHON_EXCEPTION_PATTERN.pattern)
     parts.extend("^" + re.escape(p) for p in MERGE_SUMMARY_PREFIXES)
     parts.extend("^" + re.escape(p) for p in MERGE_PROGRESS_PREFIXES)
     parts.append(MERGE_STEP_RE.pattern)
@@ -197,7 +202,8 @@ def _parse_args(
     parser = argparse.ArgumentParser(
         prog=prog,
         description=(
-            "Run a Yoke merge engine under a shared raw+progress watcher. "
+            "Run a Yoke merge engine with outcome-only watcher output. "
+            "Routine progress is suppressed; the raw capture keeps full output. "
             f"Sub-commands: {subcommands}. "
             "Pass-through flags include --local-verification (force local "
             "post-rebase suite even when the project declares CI; CI routing "
@@ -226,7 +232,6 @@ def _parse_args(
         action="store_true",
         help=_watch_runner.STREAMING_WAIT_HELP,
     )
-    _watch_digest.attach_flush_seconds(parser)
     parser.add_argument(
         "--raw-capture",
         type=Path,
@@ -294,7 +299,6 @@ def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
-    raw, flush_seconds = _watch_digest.extract_flush_seconds(raw)
     ns = _parse_args(raw, prog)
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
@@ -319,7 +323,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             wrapper_args=sub_args,
             raw_capture=raw_path,
             progress_capture=progress_path,
-            wrapper_options=_watch_digest.streaming_pair_options(flush_seconds),
+            outcome_only=KIND in OUTCOME_ONLY_WATCH_KINDS,
         )
 
     module, passthrough = _resolve_subcommand(sub_args)
@@ -332,7 +336,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
-        flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
+        outcome_only=KIND in OUTCOME_ONLY_WATCH_KINDS,
     )
 
 

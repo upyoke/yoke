@@ -6,12 +6,10 @@ Watchers maintain two distinct output artifacts:
    underlying command. Every line lands here for post-failure
    inspection. Annotations and wrapper headers/footers are NEVER
    written to the raw capture — its contract is forensic fidelity.
-2. Progress capture file — the immediate tier (URGENT, SUMMARY,
-   METADATA) line by line, PROGRESS batched into digest lines, plus the
-   wrapper's own metadata banner (header + footer). This is the file
-   Claude Monitor follows with ``watch_tail`` because the wrapper has
-   already filtered, and it is also streamed to the wrapper's own stdout
-   so direct (Codex / shell) callers see the same filtered progress.
+2. Progress capture file — either the standard immediate tiers and
+   digested progress, or an outcome-only stream for merge and deploy.
+   ``watch_tail`` follows this already-filtered file; direct callers see
+   the same stream on wrapper stdout.
 
 Each command-shaped wrapper (``watch_pytest``, ``watch_merge``, ...)
 ships only its line classifier — see
@@ -25,10 +23,6 @@ progress until the child exits.
 
 from __future__ import annotations
 
-import json
-import os
-import re
-import shlex
 import subprocess
 import sys
 import time
@@ -53,13 +47,18 @@ from yoke_core.tools._watch_streaming_pair import (  # noqa: F401
     print_streaming_pair,
     print_wait_mode_invocation,
 )
-from yoke_core.tools._watch_wait_mode import (
-    HEADLESS_CONTINUATION_DIRECTIVE,
-    caller_is_headless_command,
+from yoke_core.tools._watch_output import (
+    emit_immediate as _emit_immediate,
+    emit_watcher_header,
+    unbuffered_child_environment as _unbuffered_child_environment,
 )
 from yoke_core.tools._watch_digest import (  # noqa: F401
     DEFAULT_FLUSH_SECONDS,
     ProgressDigest,
+)
+from yoke_core.tools._watch_terminal_outcome import (
+    emit_terminal_outcome,
+    terminal_error_from_raw_capture,
 )
 from yoke_core.tools._watch_throttle import (  # noqa: F401
     Classification,
@@ -91,48 +90,6 @@ STALL_ABORT_EXIT = 125  # nested-admission deadlock; capture names the reason
 PRINT_STREAMING_PAIR_FLAG = "--print-streaming-pair"
 
 
-_JSON_ERROR_FIELD_RE = re.compile(r'^\s*"error"\s*:\s*(.+)\s*$')
-
-
-def _unbuffered_child_environment(
-    env: dict[str, str] | None,
-) -> dict[str, str]:
-    """Return an isolated child environment with immediate Python output."""
-    source = os.environ if env is None else env
-    return {**source, "PYTHONUNBUFFERED": "1"}
-
-
-def _emit_immediate(
-    line: str,
-    *,
-    progress_f: TextIO,
-    out: TextIO,
-) -> None:
-    """Write a single line straight to progress capture and stdout."""
-    progress_f.write(line)
-    progress_f.flush()
-    out.write(line)
-    out.flush()
-
-
-def _terminal_error_from_raw_capture(raw_capture: Path) -> str:
-    """Return the last string-valued JSON error field in a raw capture."""
-    latest = ""
-    with raw_capture.open(encoding="utf-8", errors="replace") as capture:
-        for line in capture:
-            match = _JSON_ERROR_FIELD_RE.match(line)
-            if match is None:
-                continue
-            encoded = match.group(1).rstrip().removesuffix(",")
-            try:
-                value = json.loads(encoded)
-            except (TypeError, ValueError):
-                continue
-            if isinstance(value, str) and value.strip():
-                latest = " ".join(value.split())
-    return latest
-
-
 def run_watcher(
     *,
     argv: Sequence[str],
@@ -151,23 +108,20 @@ def run_watcher(
     footer_metadata: Callable[[], str | None] | None = None,
     flush_seconds: float = DEFAULT_FLUSH_SECONDS,
     digest_label: str | None = None,
+    outcome_only: bool = False,
 ) -> int:
-    """Run *argv* under the shared raw + digested-progress contract.
+    """Run *argv* under the shared capture and user-facing output contract.
 
-    The classifier owns the per-line class decision. ``URGENT``,
-    ``SUMMARY``, and ``METADATA`` lines emit immediately, each flushing
-    whatever progress was buffered before it. ``PROGRESS`` lines pass
-    through :class:`ProgressGate` — which carries a numeric tick only
-    once it has stepped past the last one — and accumulate in
-    :class:`ProgressDigest`, leaving as one digest line per
-    ``flush_seconds`` window and once more at completion. ``NOISE`` lines
-    are written to raw only.
+    The classifier owns each line's class. Standard watchers immediately
+    emit urgent, summary, and metadata lines, digest progress, and retain
+    noise in raw. Outcome-only watchers immediately emit urgent lines,
+    defer summaries until a zero exit, and keep all routine lines in raw.
 
     ``digest_label`` names the run inside its digest lines, so a seat
     driving two of them can tell the two apart in one transcript.
 
     ``stdout_stream`` is primarily a test seam — production callers leave it
-    unset so the wrapper writes filtered progress to its own ``sys.stdout``.
+    unset so the wrapper writes its filtered stream to ``sys.stdout``.
     ``policy`` and ``time_source`` are optional test seams; production callers
     use the config-driven defaults. ``timeout_seconds`` starts when the watched
     child starts, not while a caller waits for an external admission gate.
@@ -177,6 +131,10 @@ def run_watcher(
     that started this command from going
     stale while it waits: a long gate run is activity, and without the
     refresh the stale-session sweep reclaims the item claim mid-run.
+
+    ``outcome_only`` suppresses watcher metadata and routine progress,
+    defers summaries until a zero child exit, and reports a final result
+    with the raw-capture path on either outcome.
     """
     out: TextIO = stdout_stream or sys.stdout
     pump = liveness if liveness is not None else SessionLivenessPump()
@@ -200,12 +158,6 @@ def run_watcher(
     )
     deadline = clock() + timeout_seconds if timeout_seconds is not None else None
 
-    header = (
-        f"# watch_{kind} raw={raw_capture} "
-        f"progress={progress_capture} "
-        f"argv={shlex.join(argv)}\n"
-    )
-
     raw_f = raw_capture.open("w", encoding="utf-8", buffering=1)
     # Appended, not truncated: ``bind_capture_paths`` has already stamped
     # this process's ownership marker as the file's first line, and a
@@ -220,22 +172,16 @@ def run_watcher(
             _emit_immediate(carried, progress_f=progress_f, out=out)
 
     try:
-        # Wrapper metadata is class METADATA: emit immediately, never to raw.
-        _emit_immediate(header, progress_f=progress_f, out=out)
-        # A headless turn that ends here takes this child with it, so the
-        # caller that cannot be re-prompted is told what a handed-back call
-        # means before the command it must keep holding starts.
-        if caller_is_headless_command():
-            _emit_immediate(
-                f"# watch_{kind} headless_continuation: "
-                f"{HEADLESS_CONTINUATION_DIRECTIVE}\n",
-                progress_f=progress_f,
-                out=out,
-            )
-        if header_metadata:
-            _emit_immediate(
-                f"{header_metadata.rstrip()}\n", progress_f=progress_f, out=out
-            )
+        emit_watcher_header(
+            kind=kind,
+            raw_capture=raw_capture,
+            progress_capture=progress_capture,
+            argv=argv,
+            progress_f=progress_f,
+            out=out,
+            outcome_only=outcome_only,
+            header_metadata=header_metadata,
+        )
 
         try:
             # A watched run is the one most likely to be interrupted, and its
@@ -255,10 +201,21 @@ def run_watcher(
             # Launch errors must reach all surfaces, including raw.
             raw_f.write(err_line)
             _emit_immediate(err_line, progress_f=progress_f, out=out)
-            # Armed followers (watch_tail) exit only on the sentinel, so
-            # the launch-error path must still write the exit footer.
-            footer = f"# watch_{kind} exit={WRAPPER_LAUNCH_ERROR} raw={raw_capture}\n"
-            _emit_immediate(footer, progress_f=progress_f, out=out)
+            if outcome_only:
+                emit_terminal_outcome(
+                    kind=kind,
+                    exit_code=WRAPPER_LAUNCH_ERROR,
+                    raw_capture=raw_capture,
+                    raw_f=raw_f,
+                    progress_f=progress_f,
+                    out=out,
+                )
+            else:
+                footer = (
+                    f"# watch_{kind} exit={WRAPPER_LAUNCH_ERROR} "
+                    f"raw={raw_capture}\n"
+                )
+                _emit_immediate(footer, progress_f=progress_f, out=out)
             return WRAPPER_LAUNCH_ERROR
 
         assert proc.stdout is not None
@@ -282,8 +239,18 @@ def run_watcher(
                     timeout_seconds=timeout_seconds,
                     raw_capture=raw_capture,
                     stall_abort_exit=STALL_ABORT_EXIT,
+                    outcome_only=outcome_only,
                 )
                 if early is not None:
+                    if outcome_only:
+                        emit_terminal_outcome(
+                            kind=kind,
+                            exit_code=early,
+                            raw_capture=raw_capture,
+                            raw_f=raw_f,
+                            progress_f=progress_f,
+                            out=out,
+                        )
                     return early
                 rc = TIMEOUT_EXIT if timed_out else proc.wait()
         except process_group_reaping.ProcessGroupInterrupted as interruption:
@@ -299,21 +266,43 @@ def run_watcher(
             )
             raw_f.write(reaped)
             _emit_immediate(reaped, progress_f=progress_f, out=out)
-            footer = f"# watch_{kind} exit={rc} raw={raw_capture}\n"
-            _emit_immediate(footer, progress_f=progress_f, out=out)
-            return rc
-        # Completion always flushes: a run that ended mid-window still
-        # owes the follower the motion it accumulated.
-        flush_digest()
-        if rc:
-            raw_f.flush()
-            terminal_error = _terminal_error_from_raw_capture(raw_capture)
-            if terminal_error:
-                _emit_immediate(
-                    f"# watch_{kind} error: {terminal_error}\n",
+            if outcome_only:
+                emit_terminal_outcome(
+                    kind=kind,
+                    exit_code=rc,
+                    raw_capture=raw_capture,
+                    raw_f=raw_f,
                     progress_f=progress_f,
                     out=out,
                 )
+            else:
+                footer = f"# watch_{kind} exit={rc} raw={raw_capture}\n"
+                _emit_immediate(footer, progress_f=progress_f, out=out)
+            return rc
+        # Completion always flushes: a run that ended mid-window still
+        # owes the follower the motion it accumulated.
+        if outcome_only:
+            emit_terminal_outcome(
+                kind=kind,
+                exit_code=rc,
+                raw_capture=raw_capture,
+                raw_f=raw_f,
+                progress_f=progress_f,
+                out=out,
+                result_summary=last_summary,
+            )
+            return rc
+        else:
+            flush_digest()
+            if rc:
+                raw_f.flush()
+                terminal_error = terminal_error_from_raw_capture(raw_capture)
+                if terminal_error:
+                    _emit_immediate(
+                        f"# watch_{kind} error: {terminal_error}\n",
+                        progress_f=progress_f,
+                        out=out,
+                    )
         # Re-emit the last SUMMARY line as an explicit terminal footer
         # before the exit sentinel. Mid-stream SUMMARY emits go through
         # `_emit_immediate` above, but agents reading the tail of the
