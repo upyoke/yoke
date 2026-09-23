@@ -15,7 +15,7 @@ of API-equivalent spend, never as plan consumption.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Mapping, Optional
 
 from yoke_contracts.session_usage_cost import COST_COMPLETE, SessionCost
 from yoke_contracts.session_usage_facts import (
@@ -117,6 +117,10 @@ def usage_title(usage: Optional[SessionUsage], cost: Optional[SessionCost]) -> s
             parts.append(f"tokens exact, pricing uncertain: {usage.cost_caveat}")
     if cost is not None and cost.priced():
         parts.append("estimated API-equivalent cost, not plan consumption")
+        if cost.revision_id:
+            parts.append(
+                f"catalog {cost.revision_id} effective {cost.revision_effective_at}"
+            )
         if cost.price_basis:
             parts.append(f"prices from {cost.price_basis}")
         if cost.effective_date:
@@ -130,7 +134,9 @@ def usage_title(usage: Optional[SessionUsage], cost: Optional[SessionCost]) -> s
     return " · ".join(parts)
 
 
-def usage_projection(usage_totals: object) -> dict[str, object]:
+def usage_projection(
+    usage_totals: object, revision: Mapping[str, Any]
+) -> dict[str, object]:
     """Render-ready consumption facts for one stored reading.
 
     Surfaces receive derived values rather than the stored document, so
@@ -143,13 +149,15 @@ def usage_projection(usage_totals: object) -> dict[str, object]:
     from yoke_contracts.session_usage_pricing import estimated_session_cost
 
     usage = usage_from_document(usage_totals)
-    cost = estimated_session_cost(usage)
+    cost = estimated_session_cost(usage, revision)
     measured = usage is not None and usage.billable_tokens() > 0
     return {
         "usage_tokens": usage.billable_tokens() if measured else None,
         "usage_status": usage.status if usage is not None else None,
         "usage_cost_usd": cost.usd if cost.priced() else None,
         "usage_cost_status": cost.status,
+        "usage_price_revision_id": cost.revision_id,
+        "usage_price_effective_at": cost.revision_effective_at,
         "usage_note": usage_title(usage, cost),
     }
 
@@ -160,6 +168,8 @@ USAGE_PROJECTION_FIELDS = (
     "usage_status",
     "usage_cost_usd",
     "usage_cost_status",
+    "usage_price_revision_id",
+    "usage_price_effective_at",
     "usage_note",
 )
 

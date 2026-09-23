@@ -16,6 +16,12 @@ from yoke_core.domain.function_authz_types import (
 
 
 PRODUCT_AUTHZ_BY_ID = {
+    # The researched catalog is universe-wide; publication changes the
+    # prices every project uses for sessions starting at its effective time.
+    "models.publish.run": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    "models.restore.run": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    "models.diff.run": AuthzSpec(ACTOR_SESSION, None),
+    "models.revisions.list": AuthzSpec(ACTOR_SESSION, None),
     # Actor-visible lists and personal decision/preference surfaces.
     "items.overview.list": AuthzSpec(ACTOR_SESSION, None),
     "items.detail.get": AuthzSpec(ACTOR_SESSION, None),

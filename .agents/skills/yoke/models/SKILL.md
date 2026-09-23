@@ -1,13 +1,16 @@
 ---
 name: models
-description: Refresh the sourced model reference from public primary sources and validate proposed records.
-argument-hint: "lookup MODEL_ID | get | validate"
+description: Research, review, and publish effective-dated model catalog revisions.
+argument-hint: "lookup MODEL_ID | get | validate | diff | publish | revisions | restore"
 ---
 
 # /yoke models
 
-Refresh the sourced model reference. This is a bounded seed plus a
-typed reader, not a catalog, discovery service, or routing policy.
+Research and publish the sourced model catalog in the control-plane database.
+Each complete revision has a UTC `effective_at`. Session cost uses the revision
+effective at the session's stored initial `offered_at`, including after
+reactivation. Raw usage remains stored; derived API-equivalent cost remains a
+read-time estimate, with its revision ID shown beside it.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -20,14 +23,21 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | Function id | Target | CLI adapter |
 |---|---|---|
 | `models.lookup.run` | global; `model_id` | `yoke models lookup MODEL_ID [--json]` |
-| `models.get.run` | global; optional `model_id` | `yoke models get [--model-id MODEL_ID] [--json]` |
+| `models.get.run` | global; optional `model_id`, `revision_id`, `at` | `yoke models get [--model-id MODEL_ID] [--revision-id REV \| --at UTC] [--json]` |
 | `models.validate.run` | global; `record` | `yoke models validate --stdin [--json]` |
+| `models.diff.run` | global; complete `catalog` | `yoke models diff --stdin [--json]` |
+| `models.publish.run` | global; complete catalog, expected base, source note, effective time | `yoke models publish --stdin --expected-base REV --source-note TEXT [--effective-at UTC] [--json]` |
+| `models.revisions.list` | global | `yoke models revisions [--json]` |
+| `models.restore.run` | global; source revision, expected base, source note, effective time | `yoke models restore REV --expected-base REV --source-note TEXT [--effective-at UTC] [--json]` |
 
-Python (preferred for sibling readers):
+For an operator or agent, use the registered CLI above. Server-side Python
+readers select a DB revision first, then use the pure lookup helper:
 
 ```text
-from yoke_contracts.model_reference import lookup_model_reference, lookup_api_price
-lookup = lookup_model_reference("<launch --model string>")
+from yoke_core.domain.model_reference_store import revision_at
+from yoke_contracts.model_reference import lookup_model_reference
+revision = revision_at(conn, session_offered_at)
+lookup = lookup_model_reference("<launch --model string>", revision["records"])
 ```
 
 Lookup never raises. `researched=False` is the explicit unknown marker.
@@ -35,13 +45,17 @@ Missing research is not a discovery, launch, or usage gate.
 
 ## What this owns
 
-- Seeded records in `yoke_contracts.model_reference_data` and family modules.
+- Published whole-catalog revisions in `model_reference_revisions`. The bundled
+  records bootstrap an empty installation only; refreshing does not edit them.
 - Reader contract: identity, proposed tier with evidence, API prices,
   published subscription rules, optional benchmarks, source URLs, dates.
-- Refresh teaching: research official pages, validate, then edit the seed.
+- Refresh teaching: research official pages, validate, diff, then publish a
+  sourced revision through the registered DB command.
 
-It does **not** own live catalog/discovery, usage/cost capture, or
-per-surface routing. Routing lives in steering `session_model_routing`.
+Native selectable models and supported reasoning efforts come from each
+surface's live API observations, independently of this research catalog.
+Tier-to-model routing lives in machine `session_model_routing`, independently
+of catalog revisions. This skill does not change usage capture or routing.
 `proposed_tier` is a researched global classification, not an operator
 launch table. Optional `operator_notes` is annotation only. There is no
 `operator_preferences` field.
@@ -97,13 +111,13 @@ Unknown, stale, or error is not exhaustion. Native request string is
 ## Source-edit entry
 
 For a direct refresh request with no claimed work item, file a `/yoke dash`
-for the bounded source, test, and teaching change. Acquire its item work
+for the bounded research and publication. Acquire its item work
 claim, record the complete touch-set survey, prepare its registered worktree,
-and transition it to implementing before reading deeply or editing. Run
-source edits and checks in that worktree; follow Dash verification and
-close-out. When a claimed item already owns the refresh, use that item's
-worktree and workflow instead of filing a second item. `lookup`, `get`, and
-`validate` alone are read-only and need no Dash.
+and transition it to implementing before changing the catalog. Keep the
+candidate JSON and research evidence in the claimed worktree while reviewing;
+publish through the prod control plane only after verification, then follow
+Dash close-out. A claimed item uses its existing worktree and workflow.
+Read-only `lookup`, `get`, `validate`, `diff`, and `revisions` need no Dash.
 
 ## Refresh steps
 
@@ -117,13 +131,29 @@ worktree and workflow instead of filing a second item. `lookup`, `get`, and
    rank. Sonnet stays excluded from ordinary steering selections.
 3. Unknown leaves stay null or empty. Benchmarks stay empty until a
    named public result is attached. No composite quality score.
-4. Validate the proposed record:
+4. Read the current catalog and revision ID with `yoke models get --json`.
+   Prepare the complete candidate JSON; preserve unchanged records. Validate
+   changed records and review the whole-catalog diff:
 
 ```bash
 printf '%s' '{"model_id":"...","provider":"..."}' | yoke models validate --stdin --json
+yoke models diff --stdin --json < candidate.json
 ```
 
-5. Edit the matching seed module under `yoke_contracts/` in the claimed
-   worktree, keep each file under the authored-file line cap, and commit.
-   No paid probes, automatic performance experiments, or broad updater
-   framework.
+5. Inspect the diff for adds, changes, removals, sources, dates, and proposed
+   tiers. Publish with the diff's `base_revision_id`. Choose a UTC effective
+   time now or in the future; past times are refused so old sessions never
+   reprice. A later publication must use the latest scheduled revision as
+   its base and cannot take effect before it. `--source-note` records research
+   and publication evidence. Publication requires an org admin actor.
+
+```bash
+yoke models publish --stdin --expected-base REV --source-note 'official sources checked YYYY-MM-DD' --json < candidate.json
+yoke models revisions --json
+```
+
+6. Re-read the published revision and confirm its content and effective time.
+   To recover, `yoke models restore REV --expected-base CURRENT --source-note
+   'reason'` publishes a new revision copied from REV; history is immutable.
+   A scheduled future revision must be replaced at its effective time or later.
+   No paid probes or automatic performance experiments.

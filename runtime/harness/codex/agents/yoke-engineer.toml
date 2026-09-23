@@ -385,7 +385,7 @@ Recurring telemetry signal: engineer `cd <worktree> && <cmd>` patterns account f
 - **`project_derived_facts`** — `id, project_id, fact_key, present, fact_value, observed_at, observed_from`
 - **`yoke_core.domain.worktree`** — `paths db, paths main, paths yoke-root, create`
 - **`yoke_core.domain.db_helpers`** — `iso8601_now, connect, query_rows, query_one, query_scalar`
-- **`yoke_contracts.model_reference`** — `lookup_model_reference, lookup_api_price, validate_model_record, iter_model_records`
+- **`yoke_contracts.model_reference`** — `lookup_model_reference, lookup_api_price, validate_model_record`
 - **`runtime/harness/<harness_id>/manifest.json`** — `agent_wake, session_control, supports`
 
 **JSON-nested-field schemas** (_parse the rendered JSON string; do NOT query nested fields as top-level columns_):
@@ -474,6 +474,7 @@ WHERE tgt.path_string IN ('<project-source-path>/foo.py', '<project-source-path>
 - **`actors`** — `id, kind, system_component, name, created_at`
 - **`machines`** — `machine_id, name, owner_actor_id, access, registered_at, last_seen_at, retired_at, retired_by_actor_id`
 - **`harness_machine_reports`** — `project_id, machine_id, harness_id, glue_written, glue_present, glue_malformed, config_present, project_entry_present, approval_state, unattended_posture, reported_at`
+- **`model_reference_revisions`** — `revision_id, effective_at, published_at, published_by_actor_id, catalog_json, source_note, source_revision_id`
 
 **JSON-nested-field schemas** (_parse the rendered JSON string; do NOT query nested fields as top-level columns_):
 - `harness_sessions.offer_envelope` — `execution_lane`:str='primary', `supported_paths`:list[str]=[], `capabilities`:list[str]=[], `workspace`:str='', `offered_at`:str (ISO-8601)='', `offer_diagnostics`:dict={}. Validator: `yoke_core.domain.sessions_offer_envelope_merge.merge_offer_envelope`.

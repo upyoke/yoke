@@ -64,13 +64,13 @@ SESSION_LIST_FIELDS = (
 )
 
 
-def usage_fields(row: Mapping[str, Any]) -> dict[str, Any]:
+def usage_fields(row: Mapping[str, Any], revision: Mapping[str, Any]) -> dict[str, Any]:
     """Derive this row's consumption fields from its stored reading.
 
     The roster ships figures rather than the stored document so pricing
     happens once, here, instead of separately in every reader.
     """
-    return usage_projection(row.get("usage_totals"))
+    return usage_projection(row.get("usage_totals"), revision)
 
 
 __all__ = ["SESSION_LIST_FIELDS", "usage_fields"]

@@ -145,11 +145,19 @@ def test_cursor_event_without_tokens_keeps_watermarked_totals() -> None:
 
 
 def test_cursor_unnamed_model_cost_names_the_gap_not_a_free_session() -> None:
+    from yoke_contracts.model_reference_data import MODEL_RECORDS
     from yoke_contracts.session_usage_cost import COST_UNAVAILABLE
     from yoke_contracts.session_usage_pricing import estimated_session_cost
 
     usage = attest_session_usage("cursor", cursor_result_payload())
-    cost = estimated_session_cost(usage)
+    cost = estimated_session_cost(
+        usage,
+        {
+            "revision_id": "test-catalog",
+            "effective_at": "2026-09-01T00:00:00Z",
+            "records": MODEL_RECORDS,
+        },
+    )
 
     assert usage.status == USAGE_COMPLETE
     assert cost.status == COST_UNAVAILABLE

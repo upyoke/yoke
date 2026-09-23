@@ -22,6 +22,45 @@ Harness skills (`/yoke do`, `/yoke idea`, …) call the same function-call
 surface; CLI adapters are the operator/debug shape. Prefer
 `yoke <subcommand> --help` for flags.
 
+### Model catalog revisions
+
+The sourced model catalog lives in `model_reference_revisions` in the control
+plane. `yoke models get --json` reads the revision effective now;
+`--at UTC` reads the revision effective at a past or future time, and
+`--revision-id REV` reads an immutable revision directly. `yoke models lookup
+MODEL_ID` resolves one exact native selector or known alias against the active
+catalog. Unknown research is explicit and never blocks a launch.
+
+To refresh research, start `/yoke models`. It files a Dash for a direct
+refresh, researches public primary sources, validates changed records, then
+reviews a complete catalog JSON document before publication:
+
+```bash
+yoke models get --json
+yoke models validate --stdin --json < changed-record.json
+yoke models diff --stdin --json < candidate-catalog.json
+yoke models publish --stdin --expected-base REV --source-note 'source and check date' --json < candidate-catalog.json
+yoke models revisions --json
+```
+
+`diff` reports the latest revision ID, including a scheduled future revision.
+Publication requires that exact `--expected-base` and an org admin actor. It
+creates an immutable revision effective now by default; `--effective-at UTC`
+schedules one for the future. A new revision cannot take effect before the
+latest scheduled one. To recover, `yoke models restore REV --expected-base
+CURRENT --source-note 'reason'` copies an older complete catalog into a new
+revision. Research sources and check dates belong to the records, with a
+publication source note for the review trail. No source edit or release is
+needed for a normal refresh after this feature ships.
+
+Session usage tokens remain stored in `harness_sessions.usage_totals`. Dollar
+cost is derived at read time from the catalog revision effective at that
+session's initial `offered_at`, and the result names the revision. Later
+publications leave earlier sessions' estimates stable. Native model
+availability and each model's supported reasoning levels still come from
+the surface API; tier-to-model routing still comes from
+`session_model_routing` in machine config.
+
 ## Machine config
 
 `~/.yoke/config.json` holds machine-local connections and tunables: which

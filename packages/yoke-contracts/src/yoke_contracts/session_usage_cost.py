@@ -76,6 +76,9 @@ class SessionCost:
     #: When the reference last verified those rates against the source,
     #: which is the date that answers "are these stale?".
     checked_date: str = ""
+    #: The catalog whose rates were in effect at initial session registration.
+    revision_id: str = ""
+    revision_effective_at: str = ""
 
     def priced(self) -> bool:
         """True when at least some tokens were converted to dollars."""
