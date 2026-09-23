@@ -94,8 +94,8 @@ class TestMergeFilterCoverage:
     @pytest.mark.parametrize("line", MERGE_WORKTREE_FIXTURE_LINES)
     def test_merge_worktree_signal_lines(self, line: str) -> None:
         if line.startswith("Warning:"):
-            assert not filter_match(watch_merge.MERGE_PROGRESS_PATTERN, line)
-            assert watch_merge.classify_merge_line(line).cls.value == "noise"
+            assert filter_match(watch_merge.MERGE_PROGRESS_PATTERN, line)
+            assert watch_merge.classify_merge_line(line).cls.value == "urgent"
         else:
             assert filter_match(watch_merge.MERGE_PROGRESS_PATTERN, line)
 

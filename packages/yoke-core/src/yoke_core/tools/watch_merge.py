@@ -58,28 +58,28 @@ SUBCOMMAND_MODULES: dict[str, str] = {
     "merge-worktree": "yoke_core.engines.merge_worktree",
 }
 
-# Per-class regexes. Each is line-oriented and used by
-# :func:`classify_merge_line` directly. The public union pattern below
-# is composed from these so the existing ``filter_match`` callers keep
-# working.
+# Per-class regexes drive classification; the public pattern below is their union.
 MERGE_URGENT_PREFIXES: tuple[str, ...] = (
     "Error:",
     "ERROR:",
+    "Warning:",
     "HARD STOP:",
     "Merge halted:",
     "Merge lock error:",
     "fatal:",
 )
-# Terminal outcomes: the machine-readable result emissions a caller reads
-# back, and the verdicts that end the merge before it starts.
+_MERGE_URGENT_WARNING_RE = re.compile(
+    r"^Warning:(?!.*(?i:\b(?:transient|temporar(?:y|ily)|"
+    r"retry(?:ing)?|try again)\b))"
+)
+# Terminal results and verdicts that end the merge before it starts.
 MERGE_SUMMARY_PREFIXES: tuple[str, ...] = (
     "Branch already merged",
     "Merge already completed",
     "RESULT_FILE=",
     "YOKE_REPO_ROOT=",
 )
-# Routine merge motion remains classified as progress for diagnostics and
-# capture, while the outcome-only runner keeps it out of the user stream.
+# Routine motion is retained in raw capture, not the user-facing stream.
 MERGE_PROGRESS_PREFIXES: tuple[str, ...] = (
     "===",
     "Merging branch:",
@@ -88,12 +88,9 @@ MERGE_PROGRESS_PREFIXES: tuple[str, ...] = (
     "Pre-flight:",
 )
 MERGE_STEP_RE = re.compile(r"^Step \d")
-# The queue-routed landing announces every poll observation under this
-# prefix. The classifier recognizes those lines as routine progress; the
-# outcome-only runner keeps them in raw capture during a long queue wait.
+# Queue poll observations remain classified as progress for diagnostics.
 MERGE_QUEUE_POLL_RE = re.compile(r"^Queue landing: ")
-# Merge-time test substream and phase-prefixed lines emitted by
-# yoke_core.engines.merge_worktree_tests.
+# Merge-time test substream and phase-prefixed lines.
 MERGE_TEST_SUBSTREAM_RE = re.compile(r"^\[(tests|phase:[^\]]+)\]")
 MERGE_TEST_PERCENT_RE = re.compile(r"\[\s*(\d+)%\]")
 MERGE_TEST_URGENT_PREFIXES: tuple[str, ...] = (
@@ -116,7 +113,16 @@ def classify_merge_line(line: str) -> Classification:
     """Classify a single output line from a Yoke merge engine."""
     if is_python_exception_line(line):
         return Classification(LineClass.URGENT)
+    if line.startswith("Warning:"):
+        warning_class = (
+            LineClass.URGENT
+            if _MERGE_URGENT_WARNING_RE.match(line)
+            else LineClass.NOISE
+        )
+        return Classification(warning_class)
     for prefix in MERGE_URGENT_PREFIXES:
+        if prefix == "Warning:":
+            continue
         if line.startswith(prefix):
             return Classification(LineClass.URGENT)
     for prefix in MERGE_SUMMARY_PREFIXES:
@@ -143,15 +149,14 @@ def classify_merge_line(line: str) -> Classification:
 
 
 def _build_merge_progress_pattern() -> re.Pattern[str]:
-    """Compose the public union regex from the class-specific regexes.
-
-    All prefix-based alternatives are anchored to line start with ``^``
-    so :func:`yoke_core.tools._watch_runner.filter_match` keeps the
-    "is this a signal line?" semantics — a stray ``Error:`` mid-line
-    (for example, inside a quoted string) must NOT count as a banner.
-    """
+    """Build the public union pattern from classifier signal lines."""
     parts: list[str] = []
-    parts.extend("^" + re.escape(p) for p in MERGE_URGENT_PREFIXES)
+    parts.extend(
+        "^" + re.escape(prefix)
+        for prefix in MERGE_URGENT_PREFIXES
+        if prefix != "Warning:"
+    )
+    parts.append(_MERGE_URGENT_WARNING_RE.pattern)
     parts.append(PYTHON_EXCEPTION_PATTERN.pattern)
     parts.extend("^" + re.escape(p) for p in MERGE_SUMMARY_PREFIXES)
     parts.extend("^" + re.escape(p) for p in MERGE_PROGRESS_PREFIXES)
@@ -161,9 +166,7 @@ def _build_merge_progress_pattern() -> re.Pattern[str]:
     return re.compile("|".join(parts))
 
 
-# Public union pattern, retained so legacy filter-coverage tests keep
-# their single source of truth and so any operator-facing tooling that
-# greps for "is this a merge signal?" still works.
+# Public union retained for filter-coverage tests and signal tooling.
 MERGE_PROGRESS_PATTERN = _build_merge_progress_pattern()
 
 
