@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_contracts.qa_execution_status import execution_status_error
+from yoke_core.domain import qa_events
+from yoke_core.domain import qa_undetermined_evidence as _review_evidence
+from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
 from yoke_core.domain.handlers.qa import _error, _p
-from yoke_core.domain.qa_capture_agreement import (
-    CAPTURE_STATUS_ARTIFACT_DISAGREEMENT,
-    captured_without_evidence_error,
-    run_artifact_count,
-)
 from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
 from yoke_core.domain.handlers.qa_browser_write_models import (
     QaArtifactAddRequest,
@@ -19,18 +17,22 @@ from yoke_core.domain.handlers.qa_browser_write_models import (
     QaRunCompleteRequest,
     QaRunCompleteResponse,
 )
-from yoke_core.domain import qa_undetermined_evidence as _review_evidence
+from yoke_core.domain.qa_capture_agreement import (
+    CAPTURE_STATUS_ARTIFACT_DISAGREEMENT,
+    captured_without_evidence_error,
+    run_artifact_count,
+)
+from yoke_core.domain.qa_constants import (
+    NEEDS_REVIEW_OUTCOME,
+    VALID_VERDICTS,
+    case_outcome_for_verdict,
+    is_agent_reviewed_case,
+    is_browser_method_requirement,
+    normalized_verdict_reason,
+)
 
 
 def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain import qa_events
-    from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
-    from yoke_core.domain.qa_constants import (
-        VALID_VERDICTS,
-        case_outcome_for_verdict,
-        is_browser_method_requirement,
-        normalized_verdict_reason,
-    )
 
     req_id = request.target.qa_requirement_id
     if req_id is None:
@@ -48,31 +50,21 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
     raw_result = payload.get("raw_result")
     duration_ms = payload.get("duration_ms")
     if not isinstance(performed_by, str) or not performed_by:
-        return _error(
-            "payload_invalid",
-            "performed_by is required",
-            jsonpath="$.payload.performed_by",
-        )
+        return _error("payload_invalid", "performed_by is required", jsonpath="$.payload.performed_by")
     if verdict is not None and verdict not in VALID_VERDICTS:
-        return _error(
-            "payload_invalid", "invalid verdict", jsonpath="$.payload.verdict"
-        )
+        return _error("payload_invalid", "invalid verdict", jsonpath="$.payload.verdict")
     try:
         verdict_reason = normalized_verdict_reason(verdict, verdict_reason)
     except ValueError as exc:
         return _error("payload_invalid", str(exc), jsonpath="$.payload.verdict_reason")
     if status_issue := execution_status_error(execution_status):
-        return _error(
-            "payload_invalid",
-            status_issue,
-            jsonpath="$.payload.execution_status",
-        )
+        return _error("payload_invalid", status_issue, jsonpath="$.payload.execution_status")
     conn = connect()
     try:
         p = _p(conn)
         row = query_one(
             conn,
-            f"SELECT qa_kind, method_id, blocking_mode, waived_at, item_id, "
+            f"SELECT qa_kind, method_id, verdict_path, blocking_mode, waived_at, item_id, "
             f"method_config FROM qa_requirements WHERE id = {p}",
             (int(req_id),),
         )
@@ -134,6 +126,14 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         completed_at_value = (
             now_iso if (verdict is not None or execution_status is not None) else None
         )
+        agent_case = is_agent_reviewed_case(row["verdict_path"], row["method_id"])
+        if verdict is not None:
+            case_outcome_val = case_outcome_for_verdict(verdict)
+        elif execution_status == "captured" and agent_case:
+            case_outcome_val = NEEDS_REVIEW_OUTCOME
+        else:
+            case_outcome_val = None
+
         cur = conn.execute(
             "INSERT INTO qa_runs "
             "(qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
@@ -148,7 +148,7 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
                 verdict,
                 verdict_reason,
                 execution_status,
-                case_outcome_for_verdict(verdict),
+                case_outcome_val,
                 capture_degraded_reason,
                 raw_result,
                 duration_ms,
@@ -159,12 +159,11 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         )
         run_id = int(cur.fetchone()[0])
         conn.commit()
-        if verdict is not None:
-            event_name = "QARunCompleted"
-        elif execution_status is not None:
-            event_name = "QARunCaptured"
-        else:
-            event_name = "QARunStarted"
+        event_name = (
+            "QARunCompleted"
+            if verdict is not None
+            else ("QARunCaptured" if execution_status is not None else "QARunStarted")
+        )
         qa_events.emit_qa_run_event(
             conn,
             db_path=None,
@@ -210,11 +209,7 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
     raw_result = payload.get("raw_result")
     duration_ms = payload.get("duration_ms")
     if not isinstance(run_id, int):
-        return _error(
-            "payload_invalid",
-            "run_id is required",
-            jsonpath="$.payload.run_id",
-        )
+        return _error("payload_invalid", "run_id is required", jsonpath="$.payload.run_id")
     if verdict is None and execution_status is None:
         return _error(
             "payload_invalid",
@@ -222,19 +217,13 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
             jsonpath="$.payload.verdict",
         )
     if verdict is not None and verdict not in VALID_VERDICTS:
-        return _error(
-            "payload_invalid", "invalid verdict", jsonpath="$.payload.verdict"
-        )
+        return _error("payload_invalid", "invalid verdict", jsonpath="$.payload.verdict")
     try:
         verdict_reason = normalized_verdict_reason(verdict, verdict_reason)
     except ValueError as exc:
         return _error("payload_invalid", str(exc), jsonpath="$.payload.verdict_reason")
     if status_issue := execution_status_error(execution_status):
-        return _error(
-            "payload_invalid",
-            status_issue,
-            jsonpath="$.payload.execution_status",
-        )
+        return _error("payload_invalid", status_issue, jsonpath="$.payload.execution_status")
     conn = connect()
     try:
         p = _p(conn)
@@ -278,16 +267,11 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
         params: list = [iso8601_now()]
         set_parts = [f"completed_at = {p}"]
         if verdict is not None:
-            set_parts.append(f"verdict = {p}")
-            params.append(verdict)
-            set_parts.append(f"verdict_reason = {p}")
-            params.append(verdict_reason)
-            set_parts.append(f"case_outcome = {p}")
-            params.append(case_outcome_for_verdict(verdict))
+            set_parts.extend([f"verdict = {p}", f"verdict_reason = {p}", f"case_outcome = {p}"])
+            params.extend([verdict, verdict_reason, case_outcome_for_verdict(verdict)])
         elif execution_status == CAPTURED and is_agent_reviewed_case(
             row["verdict_path"], row["method_id"]
         ):
-            # Capture is finished but undecided; the reviewer supplies the verdict.
             set_parts.append(f"case_outcome = {p}")
             params.append(NEEDS_REVIEW_OUTCOME)
         if execution_status is not None:

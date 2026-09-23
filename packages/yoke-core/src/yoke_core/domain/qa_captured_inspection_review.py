@@ -74,7 +74,7 @@ def attach_agent_review_to_capture(
         "SELECT id FROM qa_runs "
         f"WHERE qa_requirement_id={p} AND performed_by='browser_substrate' "
         "AND execution_status='captured' "
-        f"AND case_outcome={p} AND completed_at IS NOT NULL "
+        f"AND case_outcome IN ({p}, 'passed') AND completed_at IS NOT NULL "
         "ORDER BY id DESC LIMIT 1",
         (int(requirement_id), NEEDS_REVIEW_OUTCOME),
     )

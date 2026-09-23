@@ -86,7 +86,7 @@ def _qualifying_capture(requirement: str, capture: str) -> str:
           OR (
             {agent_case}
             AND {capture}.execution_status = 'captured'
-            AND {capture}.case_outcome = '{NEEDS_REVIEW_OUTCOME}'
+            AND {capture}.case_outcome IN ('{NEEDS_REVIEW_OUTCOME}', 'passed')
             AND {linked_agent_pass}
           )
         )

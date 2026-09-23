@@ -208,3 +208,51 @@ class TestReviewedImplementationGateWithoutCheckout:
             conn.close()
         assert _SUPERSEDED_SHA not in revisions
         assert _CAPTURED_SHA in revisions
+
+    def test_tc_browser_inspection_agent_review_with_passed_case_outcome(self, qa_db):
+        """A browser-inspection capture recorded with case_outcome='passed' is qualifying when paired with agent pass."""
+        req_id = _add_requirement(
+            qa_db,
+            qa_kind="plan_case",
+            method_id="browser-inspection",
+        )
+        capture_run_id = _add_run(
+            qa_db,
+            req_id,
+            "pass",
+            performed_by="browser_substrate",
+            raw_result=_stamped_result(_CAPTURED_SHA),
+        )
+        from runtime.api.fixtures.file_test_db import connect_test_db
+        conn = connect_test_db(qa_db)
+        try:
+            conn.execute(
+                "UPDATE qa_runs SET execution_status = 'captured', case_outcome = 'passed' WHERE id = %s",
+                (capture_run_id,),
+            )
+            # Create a review run and review verdict
+            review_run_id = _add_run(qa_db, req_id, "pass", performed_by="agent")
+            bundle_id = "bundle-test-uuid"
+            conn.execute(
+                "INSERT INTO qa_plan_review_bundles (id, state) VALUES (%s, 'completed')",
+                (bundle_id,),
+            )
+            conn.execute(
+                "INSERT INTO qa_plan_review_verdicts (bundle_id, requirement_id, capture_run_id, review_run_id, verdict) "
+                "VALUES (%s, %s, %s, %s, 'pass')",
+                (bundle_id, req_id, capture_run_id, review_run_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        _add_artifact(qa_db, capture_run_id, handle=_DURABLE_HANDLE)
+        _record_lane_revision(qa_db, _CAPTURED_SHA)
+
+        with mock.patch(
+            "yoke_core.domain.qa_gates._resolve_repo_root",
+            return_value=None,
+        ):
+            result = check_reviewed_implementation_gate(GateTarget(item_id=42), qa_db)
+        assert result.passed, result.errors
+
