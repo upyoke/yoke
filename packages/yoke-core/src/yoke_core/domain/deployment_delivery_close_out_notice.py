@@ -62,9 +62,7 @@ def delivery_cleared_idempotency_key(item_id: int, run_id: str) -> str:
     return f"{DELIVERY_CLEARED_KEY_PREFIX}{item_id}:{run_id}"
 
 
-def delivery_cleared_message(
-    *, public_ref: str, run_id: str, route: str
-) -> str:
+def delivery_cleared_message(*, public_ref: str, run_id: str, route: str) -> str:
     """Name what cleared, and the exact command that finishes the item."""
     lead = (
         f"{public_ref}'s delivery cleared: deployment run {run_id} succeeded "
@@ -119,9 +117,7 @@ def _delivery_now_discharged(conn: Any, item_id: int) -> bool:
     could not confirm is what unparks an owner that still has to wait.
     """
     try:
-        fact = load_item_facts(conn, int(item_id)).get(
-            ITEM_DEPLOYMENT_RUN_SUCCEEDED
-        )
+        fact = load_item_facts(conn, int(item_id)).get(ITEM_DEPLOYMENT_RUN_SUCCEEDED)
     except Exception:  # noqa: BLE001 - an unreadable fact announces nothing
         return False
     return fact is not None and fact.verdict == FactVerdict.PRESENT
@@ -165,8 +161,8 @@ def _send(conn: Any, member: dict[str, Any], run_id: str, stamp: datetime) -> st
             conn,
             item_id=int(member["item_id"]),
             project_id=int(member["project_id"]),
-            body_for_route=lambda route, ref=public_ref: (
-                delivery_cleared_message(public_ref=ref, run_id=run_id, route=route)
+            body_for_route=lambda route, ref=public_ref: delivery_cleared_message(
+                public_ref=ref, run_id=run_id, route=route
             ),
             idempotency_key=delivery_cleared_idempotency_key(
                 int(member["item_id"]), run_id
@@ -187,13 +183,16 @@ def _send(conn: Any, member: dict[str, Any], run_id: str, stamp: datetime) -> st
 def _close_or_wake(
     conn: Any, member: dict[str, Any], run_id: str, stamp: datetime
 ) -> str:
-    """Auto-close a recorded no-obligation; otherwise wake the owner."""
+    """Auto-close a delivery-satisfied member; otherwise wake its owner."""
     from yoke_core.domain.no_obligation_member_close_out import (
-        close_out_recorded_no_obligation,
+        close_out_satisfied_delivery_member,
     )
 
-    closed = close_out_recorded_no_obligation(
-        conn, item_id=int(member["item_id"]), public_ref=str(member["public_ref"])
+    closed = close_out_satisfied_delivery_member(
+        conn,
+        item_id=int(member["item_id"]),
+        public_ref=str(member["public_ref"]),
+        run_id=run_id,
     )
     if closed.applies:
         return "closed" if closed.ok else f"failed: {closed.detail}"
@@ -205,12 +204,12 @@ def notify_delivery_cleared(
 ) -> list[dict[str, Any]]:
     """Tell every owner whose wait this run cleared, one isolated send each.
 
-    A member that recorded ``post_deploy_no_obligation`` is closed through
-    the merge close-out instead of woken: the fact and the landing evidence
-    already hold the sentences a session would write. Returns one record
-    per member with what delivery did, so a caller can report a notice or
-    close-out that did not land without treating it as a run failure. Call
-    it only after the run's own status is committed.
+    A member whose scoped obligations passed or were discharged is closed
+    through the merge close-out instead of woken: the completion-flow result
+    and landing evidence already hold the sentences a session would write.
+    Returns one record per member with what delivery did, so a caller can
+    report a notice or close-out that did not land without treating it as a
+    run failure. Call it only after the run's own status is committed.
     """
     stamp = now or datetime.now(timezone.utc)
     return [

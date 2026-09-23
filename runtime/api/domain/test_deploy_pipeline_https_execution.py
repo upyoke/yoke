@@ -282,7 +282,10 @@ def test_a_qa_write_failure_warns_but_never_reports_a_false_pass(
     # to completion — but nothing was actually recorded for "preflight", so
     # the required-QA gate must hold the run back rather than reporting
     # success. A warning must never read back as a passing verdict.
-    assert deploy_pipeline.run_pipeline(run_id) == deploy_pipeline.EXIT_AWAITING_QA
+    assert (
+        deploy_pipeline.run_pipeline(run_id, timeout_min=0)
+        == deploy_pipeline.EXIT_AWAITING_QA
+    )
     unresolved = conn.execute(
         "SELECT status,current_stage FROM deployment_runs WHERE id=%s",
         (run_id,),

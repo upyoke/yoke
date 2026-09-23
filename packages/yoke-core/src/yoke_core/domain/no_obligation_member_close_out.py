@@ -1,13 +1,10 @@
-"""Close a member that recorded no post-deploy obligation, without a wake.
+"""Close a delivery-cleared member whose post-deploy work is satisfied.
 
-The merge close-out is the one path to done. This module is that same
-close-out running without a session: the recorded
-``post_deploy_no_obligation`` fact, the landing evidence, and the
-succeeded completion-flow run already hold every sentence the owner
-would write. Auto-close keys on that recorded fact alone. An empty case
-set is a member nobody asked and stays held. ``declared_none`` is the
-waiver-backed sibling and is out of scope — a waiver auto-closing is a
-different proposition from a considered no-obligation auto-closing.
+The merge close-out is the one path to done. This module runs that same
+close-out without a session when either the member recorded
+``post_deploy_no_obligation`` or its completion-flow QA requirements all
+passed or were discharged. An empty case set is still a member nobody asked
+and stays held.
 """
 
 from __future__ import annotations
@@ -18,7 +15,10 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.dash_execution import evaluate_dash_evidence
+from yoke_core.domain.db_helpers import query_scalar
 from yoke_core.domain.post_deploy_verification_answer import answer_for_item
+from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.standalone_item_merge_evidence import CLOSED_OUT_STATUS
 from yoke_core.domain.status_claim_bypass_context import status_bypass_override
 
@@ -27,8 +27,8 @@ STATUS_SOURCE = "merge-close-out"
 
 
 @dataclass(frozen=True)
-class NoObligationCloseOut:
-    """Whether this member is the recorded-no-obligation case, and the result.
+class DeliveryMemberCloseOut:
+    """Whether this member can close without a wake, and the result.
 
     ``applies`` is the predicate the wake sites read: false means this is
     not that fact, so the ordinary wake still fires. True means do not
@@ -45,29 +45,55 @@ def recorded_no_obligation(conn: Any, item_id: int) -> bool:
     return answer_for_item(conn, int(item_id)).no_obligation
 
 
-def close_out_recorded_no_obligation(
-    conn: Any, *, item_id: int, public_ref: str
-) -> NoObligationCloseOut:
-    """Run the merge close-out for one recorded-no-obligation member.
+def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
+    """Whether this run settled every scoped QA obligation for the member."""
+    if recorded_no_obligation(conn, int(item_id)):
+        return True
+    if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
+        return False
+    total = query_scalar(
+        conn,
+        "SELECT COUNT(*) FROM qa_requirements r "
+        "WHERE r.deployment_run_id=%s AND r.deployment_member_item_id=%s "
+        "AND r.qa_phase='post_deploy' AND r.blocking_mode='blocking'",
+        (str(run_id), int(item_id)),
+    )
+    if not int(total or 0):
+        return False
+    unresolved = query_scalar(
+        conn,
+        "SELECT COUNT(*) FROM qa_requirements r "
+        "WHERE r.deployment_run_id=%s AND r.deployment_member_item_id=%s "
+        "AND r.qa_phase='post_deploy' AND r.blocking_mode='blocking' "
+        f"AND NOT {settled_obligation_sql(conn, 'r')} "
+        "AND NOT EXISTS (SELECT 1 FROM qa_runs qr "
+        "WHERE qr.qa_requirement_id=r.id AND qr.verdict='pass')",
+        (str(run_id), int(item_id)),
+    )
+    return int(unresolved or 0) == 0
+
+
+def close_out_satisfied_delivery_member(
+    conn: Any, *, item_id: int, public_ref: str, run_id: str
+) -> DeliveryMemberCloseOut:
+    """Run the merge close-out for one delivery-cleared satisfied member.
 
     Evidence must already be on the item from landing; this path never
     invents ``--result`` or ``--verification``. The status write is the
     same ``backlog.execute_update`` the merge close-out already uses,
     with a request-scoped claim bypass so it can run with no session.
     """
-    if not recorded_no_obligation(conn, int(item_id)):
-        return NoObligationCloseOut(applies=False)
+    if not satisfied_delivery_member(conn, item_id=int(item_id), run_id=run_id):
+        return DeliveryMemberCloseOut(applies=False)
     try:
         return _close_out(conn, item_id=int(item_id), public_ref=str(public_ref))
     except Exception as exc:  # noqa: BLE001 - never reverse the succeeded run
-        return NoObligationCloseOut(
+        return DeliveryMemberCloseOut(
             applies=True, ok=False, detail=str(exc) or exc.__class__.__name__
         )
 
 
-def _close_out(
-    conn: Any, *, item_id: int, public_ref: str
-) -> NoObligationCloseOut:
+def _close_out(conn: Any, *, item_id: int, public_ref: str) -> DeliveryMemberCloseOut:
     from yoke_core.domain import backlog
     from yoke_core.domain.project_identity import render_item_ref
     from yoke_core.domain.standalone_item_merge import sync_item_to_github
@@ -76,15 +102,15 @@ def _close_out(
     named = str(public_ref).strip() or render_item_ref(conn, item_id)
     status = _item_status(conn, item_id)
     if status == CLOSED_OUT_STATUS:
-        return NoObligationCloseOut(applies=True, ok=True, detail="already done")
+        return DeliveryMemberCloseOut(applies=True, ok=True, detail="already done")
     evidence = evaluate_dash_evidence(conn, item_id)
     if not evidence.satisfied:
         missing = ", ".join(evidence.missing) or "execution_evidence"
-        return NoObligationCloseOut(
+        return DeliveryMemberCloseOut(
             applies=True,
             ok=False,
             detail=(
-                f"{named} recorded post_deploy_no_obligation but cannot "
+                f"{named} has satisfied post-deploy delivery but cannot "
                 f"auto-close: landing evidence is missing {missing}. Record "
                 "it with `yoke merge item` `--result` and `--verification`, "
                 "then re-drive the run."
@@ -107,10 +133,12 @@ def _close_out(
             no_github=True,
         )
     if not result.get("success"):
-        return NoObligationCloseOut(
+        return DeliveryMemberCloseOut(
             applies=True,
             ok=False,
-            detail=str(result.get("error") or captured.getvalue() or "close-out refused"),
+            detail=str(
+                result.get("error") or captured.getvalue() or "close-out refused"
+            ),
         )
     github_error = sync_item_to_github(item_id)
     envelope: dict[str, Any] = {"warnings": []}
@@ -123,10 +151,8 @@ def _close_out(
         landing_recorded=True,
     )
     _end_previous_claim_holders_if_empty(conn, item_id=item_id)
-    print(
-        f"{named}: recorded post_deploy_no_obligation; closed out without a wake."
-    )
-    return NoObligationCloseOut(applies=True, ok=True, detail="closed")
+    print(f"{named}: post-deploy obligations satisfied; closed without a wake.")
+    return DeliveryMemberCloseOut(applies=True, ok=True, detail="closed")
 
 
 def _end_previous_claim_holders_if_empty(conn: Any, *, item_id: int) -> None:
@@ -158,7 +184,7 @@ def _end_previous_claim_holders_if_empty(conn: Any, *, item_id: int) -> None:
             end_session_if_empty(
                 conn,
                 session_id,
-                triggered_by="no-obligation-closeout",
+                triggered_by="delivery-satisfied-closeout",
             )
         except Exception:  # noqa: BLE001 - best-effort session cleanup
             pass
@@ -176,7 +202,8 @@ def _item_status(conn: Any, item_id: int) -> str:
 __all__ = [
     "CLAIM_BYPASS_PREFIX",
     "STATUS_SOURCE",
-    "NoObligationCloseOut",
-    "close_out_recorded_no_obligation",
+    "DeliveryMemberCloseOut",
+    "close_out_satisfied_delivery_member",
     "recorded_no_obligation",
+    "satisfied_delivery_member",
 ]
