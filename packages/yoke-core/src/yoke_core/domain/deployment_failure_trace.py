@@ -149,11 +149,14 @@ def terminal_error(log: str) -> str | None:
     """Select the most diagnostic non-relay error line from one job log."""
     candidates: list[tuple[tuple[int, int], str]] = []
     for line in _clean_lines(log):
-        text = line.split("##[error]", 1)[-1].strip() if "##[error]" in line else line
+        annotated = "##[error]" in line
+        text = line.split("##[error]", 1)[-1].strip() if annotated else line
         folded = text.casefold()
         if not text or any(generic in folded for generic in _GENERIC_ERRORS):
             continue
         score = _error_score(text)
+        if annotated and not score[0]:
+            score = (70, len(text))
         if score[0]:
             candidates.append((score, text))
     if not candidates:
