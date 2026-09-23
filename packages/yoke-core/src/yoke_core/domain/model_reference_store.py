@@ -105,6 +105,29 @@ def revision_at(conn: Any, at: str | None = None) -> dict[str, Any]:
     return revision
 
 
+def revision_schedule(conn: Any) -> list[dict[str, Any]]:
+    """Load each catalog once for readers projecting a page of sessions."""
+    rows = conn.execute(
+        "SELECT revision_id,effective_at,published_at,published_by_actor_id,"
+        "catalog_json,source_note,source_revision_id "
+        f"FROM {TABLE} ORDER BY effective_at DESC,published_at DESC,revision_id DESC"
+    ).fetchall()
+    return [_revision(row) for row in rows]
+
+
+def revision_from_schedule(
+    schedule: list[dict[str, Any]], at: str | None
+) -> dict[str, Any]:
+    """Select a session's revision without another database statement."""
+    when = _stamp(_utc(at)) if at else _stamp(datetime.now(timezone.utc))
+    for revision in schedule:
+        if revision["effective_at"] <= when:
+            return revision
+    raise ModelReferenceError(
+        "revision_missing", "No model catalog covers this time; publish a catalog revision"
+    )
+
+
 def latest_revision(conn: Any) -> dict[str, Any]:
     """Read the last scheduled revision, including one not yet effective."""
     revision = _select(conn)
@@ -264,7 +287,9 @@ __all__ = [
     "publish_catalog",
     "latest_revision",
     "revision_at",
+    "revision_from_schedule",
     "revision_get",
+    "revision_schedule",
     "revisions_list",
     "seed_initial_catalog",
 ]

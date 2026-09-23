@@ -184,7 +184,7 @@ MODELS_SUBCOMMAND_REGISTRY = {
     ("models", "validate"): ("models.validate.run", models.models_validate),
     ("models", "diff"): ("models.diff.run", models.models_diff),
     ("models", "publish"): ("models.publish.run", models.models_publish),
-    ("models", "revisions"): ("models.revisions.list", models.models_revisions),
+    ("models", "revisions"): ("models.revisions.run", models.models_revisions),
     ("models", "restore"): ("models.restore.run", models.models_restore),
 }
 

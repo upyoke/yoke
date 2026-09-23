@@ -166,7 +166,6 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         "actors",
         "machines",
         "harness_machine_reports",
-        "model_reference_revisions",
     ),
     "auth": (
         "roles",

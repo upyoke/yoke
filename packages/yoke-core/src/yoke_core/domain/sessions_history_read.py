@@ -14,7 +14,7 @@ from yoke_contracts.session_control.liveness import (
     live_session_sql,
 )
 from yoke_core.domain.json_helper import dumps_compact, loads_text
-from yoke_core.domain.model_reference_store import revision_at
+from yoke_core.domain.model_reference_store import revision_from_schedule, revision_schedule
 from yoke_core.domain.project_identity import placeholder, row_value
 from yoke_core.domain.session_list_fields import (
     USAGE_PROJECTION_FIELDS,
@@ -221,6 +221,7 @@ def read_ended_session_history(
     ).fetchall()
     has_more = len(rows) > limit
     page = rows[:limit]
+    schedule = revision_schedule(conn) if page else []
     rendered = []
     for raw in page:
         row = dict(raw)
@@ -248,7 +249,7 @@ def read_ended_session_history(
             "terminated_at": row.get("terminated_at"),
             "ended_cause": ENDED_CAUSE_KILLED if row.get("terminated_at") else ENDED_CAUSE_WOUND_DOWN,
             "termination_reason": row.get("termination_reason"),
-            **usage_fields(row, revision_at(conn, row.get("offered_at"))),
+            **usage_fields(row, revision_from_schedule(schedule, row.get("offered_at"))),
         })
     next_cursor = None
     if has_more and rendered:
@@ -310,13 +311,14 @@ def read_recent_session_usage_by_machine(
         "FROM harness_sessions s " + where,
         tuple(params),
     ).fetchall()
+    schedule = revision_schedule(conn) if rows else []
     rendered = [
         {
             "session_id": str(row_value(raw, "session_id", 0)),
             "machine_id": str(row_value(raw, "machine_id", 1)),
             "project_id": row_value(raw, "project_id", 2),
             **usage_fields(
-                dict(raw), revision_at(conn, row_value(raw, "offered_at", 4))
+                dict(raw), revision_from_schedule(schedule, row_value(raw, "offered_at", 4))
             ),
         }
         for raw in rows

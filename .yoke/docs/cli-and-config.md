@@ -43,7 +43,8 @@ yoke models publish --stdin --expected-base REV --source-note 'source and check 
 yoke models revisions --json
 ```
 
-`diff` reports the latest revision ID, including a scheduled future revision.
+`diff` reports the latest revision ID, including a scheduled future revision;
+start a new candidate from that revision so scheduled changes stay included.
 Publication requires that exact `--expected-base` and an org admin actor. It
 creates an immutable revision effective now by default; `--effective-at UTC`
 schedules one for the future. A new revision cannot take effect before the

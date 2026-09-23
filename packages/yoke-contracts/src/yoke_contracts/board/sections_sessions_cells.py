@@ -70,12 +70,17 @@ def _display_usage(
         .isoformat(timespec="microseconds")
         .replace("+00:00", "Z")
     )
-    rows = db.query(
+    sql = (
         "SELECT revision_id,effective_at,catalog_json "
         "FROM model_reference_revisions WHERE effective_at <= %s "
-        "ORDER BY effective_at DESC,published_at DESC,revision_id DESC LIMIT 1",
-        (stamp,),
+        "ORDER BY effective_at DESC,published_at DESC,revision_id DESC LIMIT 1"
     )
+    params = (stamp,)
+    usage = usage_from_document(usage_totals)
+    has_query = getattr(db, "has_query", None)
+    if callable(has_query) and not has_query(sql, params):
+        return usage_cell(usage, None)
+    rows = db.query(sql, params)
     if not rows:
         raise ValueError("no model catalog revision covers this session; publish one")
     revision_id, effective_at, document = rows[0]
@@ -84,7 +89,6 @@ def _display_usage(
         "effective_at": effective_at,
         "records": validate_catalog(json.loads(document)),
     }
-    usage = usage_from_document(usage_totals)
     return usage_cell(usage, estimated_session_cost(usage, revision))
 
 

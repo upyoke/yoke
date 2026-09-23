@@ -22,7 +22,7 @@ GET_FUNCTION_ID = "models.get.run"
 VALIDATE_FUNCTION_ID = "models.validate.run"
 DIFF_FUNCTION_ID = "models.diff.run"
 PUBLISH_FUNCTION_ID = "models.publish.run"
-REVISIONS_FUNCTION_ID = "models.revisions.list"
+REVISIONS_FUNCTION_ID = "models.revisions.run"
 RESTORE_FUNCTION_ID = "models.restore.run"
 LOOKUP_USAGE = "yoke models lookup MODEL_ID [--json]"
 GET_USAGE = (
@@ -81,7 +81,7 @@ def models_lookup(args: List[str]) -> int:
     return dispatch_and_emit(
         function_id=LOOKUP_FUNCTION_ID,
         target=TargetRef(kind="global"),
-        payload={"model_id": parsed.model_id, "at": parsed.at},
+        payload={"model_id": parsed.model_id, **({"at": parsed.at} if parsed.at else {})},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=None if parsed.json_mode else _print_lookup,

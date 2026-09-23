@@ -27,7 +27,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `models.validate.run` | global; `record` | `yoke models validate --stdin [--json]` |
 | `models.diff.run` | global; complete `catalog` | `yoke models diff --stdin [--json]` |
 | `models.publish.run` | global; complete catalog, expected base, source note, effective time | `yoke models publish --stdin --expected-base REV --source-note TEXT [--effective-at UTC] [--json]` |
-| `models.revisions.list` | global | `yoke models revisions [--json]` |
+| `models.revisions.run` | global | `yoke models revisions [--json]` |
 | `models.restore.run` | global; source revision, expected base, source note, effective time | `yoke models restore REV --expected-base REV --source-note TEXT [--effective-at UTC] [--json]` |
 
 For an operator or agent, use the registered CLI above. Server-side Python
@@ -85,28 +85,11 @@ pricing as part of a classification correction.
 
 ## Operator routing (annotation, not published facts)
 
-Persist operator policy in `operator_notes` and in steering routing.
-Do not write it into `proposed_tier`, prices, or benchmarks.
-
-Approved 2026-09-07, future launches only (do not change an already-started
-session). Judge the **task**, supported reasoning, cost/benefit, and
-applicable quota. Do not always launch `preferred_session_models`.
-
-1. Simple edits, documentation, routine cleanup: tier2 + medium.
-2. Normal development, research, steering: tier1 + high. Where a surface
-   has no tier1 model, use that surface's configured ordinary worker.
-3. Difficult debugging or architectural decisions: tier1 + xhigh.
-   Where xhigh is unsupported, use high. Resolve supported levels from
-   the actual per-model/native surface facts.
-
-Claude/Codex premium models stay reserved for steering or an explicit
-operator request; `worker_tier` still routes ordinary workers through
-the operator's tier2 keys (Opus / Sol), not Sonnet. The approved Cursor
-route still asks for Grok 4.6 first even though the refreshed global
-tier2 is Grok 4.7. Cursor Opus is
-fallback only after **confirmed** Grok/Cursor Models quota exhaustion.
-Unknown, stale, or error is not exhaustion. Native request string is
-`cursor-grok-4.6-high`.
+Read [steer/model-selection.md](../steer/model-selection.md) for the approved
+work-kind, effort, worker-tier, and fallback policy. Operator policy belongs
+in `operator_notes` and machine `session_model_routing`, never in sourced
+prices, benchmarks, or `proposed_tier`. A catalog refresh does not change
+routing or an already-started session.
 
 ## Source-edit entry
 
@@ -131,8 +114,10 @@ Read-only `lookup`, `get`, `validate`, `diff`, and `revisions` need no Dash.
    rank. Sonnet stays excluded from ordinary steering selections.
 3. Unknown leaves stay null or empty. Benchmarks stay empty until a
    named public result is attached. No composite quality score.
-4. Read the current catalog and revision ID with `yoke models get --json`.
-   Prepare the complete candidate JSON; preserve unchanged records. Validate
+4. Read `yoke models revisions --json`; start from its latest revision with
+   `yoke models get --revision-id REV --json` when one is scheduled, otherwise
+   use `yoke models get --json`. Prepare the complete candidate JSON; preserve
+   unchanged records. Validate
    changed records and review the whole-catalog diff:
 
 ```bash

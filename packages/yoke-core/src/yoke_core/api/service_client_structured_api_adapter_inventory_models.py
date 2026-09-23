@@ -31,7 +31,7 @@ MODELS_ADAPTERS: List[AdapterEntry] = [
         notes="Validate and compare a complete candidate against the latest revision.",
     ),
     _read_entry(
-        function_id="models.revisions.list",
+        function_id="models.revisions.run",
         cli_invocation="yoke models revisions [--json]",
         notes="List immutable effective-dated catalog revisions.",
     ),

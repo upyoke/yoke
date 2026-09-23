@@ -16,7 +16,9 @@ from yoke_core.domain.model_reference_store import (
     latest_revision,
     publish_catalog,
     revision_at,
+    revision_from_schedule,
     revision_get,
+    revision_schedule,
     seed_initial_catalog,
 )
 
@@ -55,6 +57,15 @@ def test_revision_effective_at_preserves_earlier_sessions(catalog_db):
 
     assert revision_at(catalog_db, _future(1))["revision_id"] == original["revision_id"]
     assert revision_at(catalog_db, effective)["revision_id"] == published["revision_id"]
+    schedule = revision_schedule(catalog_db)
+    assert (
+        revision_from_schedule(schedule, _future(1))["revision_id"]
+        == original["revision_id"]
+    )
+    assert (
+        revision_from_schedule(schedule, effective)["revision_id"]
+        == published["revision_id"]
+    )
     assert (
         revision_at(catalog_db, _future(3))["revision_id"] == published["revision_id"]
     )

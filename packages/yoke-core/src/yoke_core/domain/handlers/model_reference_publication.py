@@ -21,7 +21,7 @@ from yoke_core.domain.model_reference_store import (
 
 DIFF_FUNCTION_ID = "models.diff.run"
 PUBLISH_FUNCTION_ID = "models.publish.run"
-REVISIONS_FUNCTION_ID = "models.revisions.list"
+REVISIONS_FUNCTION_ID = "models.revisions.run"
 RESTORE_FUNCTION_ID = "models.restore.run"
 
 
