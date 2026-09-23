@@ -41,7 +41,7 @@ function run(id, facts = {}) {
     flow: FLOW,
     target_environment: "prod",
     status: "executing",
-    created_at: ago(1),
+    created_at: ago(0.25),
     completed_at: "",
     stages: [{ name: "item-qa", state: "active" }],
     member_items: [],
