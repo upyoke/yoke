@@ -92,8 +92,7 @@ def test_composed_mandate_tells_workers_to_continue_a_handed_back_call() -> None
     assert "a merge that returned landing_pending has its landing notice" in teaching
     assert (
         "when a *local* test check on a project with declared CI has already "
-        "exceeded about one minute"
-        in teaching
+        "exceeded about one minute" in teaching
     )
     assert "a machine-specific diagnostic" in teaching
     assert "a project without CI" in teaching
@@ -109,7 +108,9 @@ def test_composed_mandate_keeps_a_release_wait_owner_holding_its_item() -> None:
     assert "keeps your work claim and parks your session" in teaching
     assert "Do NOT release the claim and do NOT end your session" in teaching
     assert "deployment wake re-enters you" in teaching
-    assert "re-run the same `yoke merge item` command" in teaching
+    assert "closes automatically when the completion-flow run succeeds" in teaching
+    assert "do not re-run merge solely for that acceptance" in teaching
+    assert "automatic close-out could not finish" in teaching
     assert "Only once the item reaches done do you send the DONE report" in teaching
     assert "handed to steering" in teaching
 
