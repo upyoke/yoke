@@ -119,3 +119,18 @@ test("concurrent live runs to different environments both show", async () => {
     restore();
   }
 });
+
+test("terminal runs ignore a stale containment snapshot", async () => {
+  const { mounted, restore, box } = await mount([
+    run("run-stage", {
+      status: "failed",
+      contained_items: [{ id: ITEM_ID }],
+    }),
+  ]);
+  try {
+    assert.equal(byClass(box, "item-deployment-run").length, 0);
+  } finally {
+    mounted.unmount();
+    restore();
+  }
+});

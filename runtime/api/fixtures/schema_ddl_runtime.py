@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS deployment_runs (
     created_by TEXT DEFAULT 'operator',
     carried_work TEXT, -- → JSONB on Postgres
     bound_sources TEXT, -- → JSONB on Postgres
-    artifact_identity TEXT,
+    candidate_containment TEXT, artifact_identity TEXT,
     composition_resolution TEXT,
     composition_frozen_at TEXT,
     requirement_snapshot TEXT, driver_attachment TEXT,

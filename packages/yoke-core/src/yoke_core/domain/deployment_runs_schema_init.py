@@ -40,6 +40,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 created_by TEXT DEFAULT 'operator',
                 carried_work TEXT,
                 bound_sources TEXT,
+                candidate_containment TEXT,
                 artifact_identity TEXT,
                 composition_resolution TEXT,
                 composition_frozen_at TEXT,
@@ -103,6 +104,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
             "composition_frozen_at",
             "requirement_snapshot",
             "driver_attachment",
+            "candidate_containment",
         ):
             _add_column_if_not_exists(conn, "deployment_runs", column, "TEXT")
         for column, declaration in (

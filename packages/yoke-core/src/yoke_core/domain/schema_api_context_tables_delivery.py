@@ -76,6 +76,7 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("created_by", "TEXT"),
             ("carried_work", "TEXT"),
             ("bound_sources", "TEXT"),
+            ("candidate_containment", "TEXT"),
             ("artifact_identity", "TEXT"),
             ("composition_resolution", "TEXT"),
             ("composition_frozen_at", "TEXT"),
@@ -95,7 +96,8 @@ DELIVERY_TABLES: dict[str, dict] = {
             "release and still advances this run row. Schema-v1 flows never "
             "enroll, so they stay empty through execution too: "
             "`deployment_runs.list` still projects the items whose recorded "
-            "merge the pinned candidate contains as `contained_items`, which "
+            "merge the pinned candidate contains as `contained_items`, read "
+            "in O(1) from the start-time `candidate_containment` snapshot, which "
             "is the Frontier card's live-run join key, not membership, and "
             "does not take delivery custody. To "
             "start a schema-v2 run, `release_lineage` must be a full commit "

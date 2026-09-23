@@ -59,12 +59,21 @@ def run_pin(run_id: str) -> Dict[str, str]:
     }
 
 
-def update_run_field(run_id: str, field: str, value: str) -> None:
+def update_run_field(
+    run_id: str,
+    field: str,
+    value: str,
+    *,
+    candidate_containment: Optional[Dict[str, Any]] = None,
+) -> None:
     """Write one execution-owned run field through serving authority."""
+    payload: Dict[str, Any] = {"field": field, "value": value}
+    if candidate_containment is not None:
+        payload["candidate_containment"] = candidate_containment
     result = _call(
         "deployment_runs.execution.update",
         run_id,
-        {"field": field, "value": value},
+        payload,
     )
     if not result.get("updated"):
         raise DeploymentControlPlaneError(

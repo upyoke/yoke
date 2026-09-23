@@ -9,8 +9,8 @@
 // Membership is who owes the item a delivery — the run's own member rows
 // joined on the item's internal id. An in-flight run that never enrolls
 // (a schema-v1 stage flow) still has to appear while it is moving: the list
-// projection joins it through `contained_items`, items whose recorded merge
-// the candidate contains, which is not membership and does not take custody.
+// projection joins it through `contained_items`, read from the run's persisted
+// start-time containment snapshot. It is not membership and takes no custody.
 // Honest carried_work is the residual join once a run has succeeded.
 // Never guess from matching projects or nearby timestamps. The time shown is
 // the run's completion, the moment the deployment finished, rather than when
@@ -28,11 +28,13 @@ import { el, statePill } from "./universe_view_support.js";
 
 const SUCCEEDED = "succeeded";
 const FAILED = "failed";
+const TERMINAL_RUN_STATES = new Set([SUCCEEDED, FAILED, "cancelled"]);
 const STALLED_AFTER_MS = 30 * 60 * 1000;
 
 function runMembers(run) {
   if ((run.member_items || []).length) return run.member_items;
-  if ((run.contained_items || []).length) return run.contained_items;
+  if (!TERMINAL_RUN_STATES.has(String(run.status || ""))
+      && (run.contained_items || []).length) return run.contained_items;
   return run.carried_work?.items || [];
 }
 
@@ -68,8 +70,6 @@ export function deploymentsByItemId(runs) {
 }
 
 //: A run still moving. Anything else has recorded its outcome.
-const TERMINAL_RUN_STATES = new Set([SUCCEEDED, "failed", "cancelled"]);
-
 function runEnvironment(run) {
   return String(run.target_environment || run.target_tier || "");
 }

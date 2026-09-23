@@ -67,6 +67,13 @@ def test_failed_from_stage_resume_reenters_executing_without_replay(capsys):
             side_effect=fake_update_run_field,
         ),
         mock.patch.object(
+            deploy_pipeline_run_updates,
+            "start_run",
+            side_effect=lambda started_run, _basis, _checkout: fake_update_run_field(
+                started_run, "status", "executing"
+            ),
+        ),
+        mock.patch.object(
             deploy_pipeline.control_plane,
             "project_field",
             return_value="",
@@ -100,9 +107,7 @@ def test_failed_from_stage_resume_reenters_executing_without_replay(capsys):
             return_value=[],
         ),
     ):
-        rc = deploy_pipeline.run_pipeline(
-            run_id, from_stage="warm-up", sd="/tmp/sd"
-        )
+        rc = deploy_pipeline.run_pipeline(run_id, from_stage="warm-up", sd="/tmp/sd")
 
     assert rc == deploy_pipeline.EXIT_SUCCESS
     assert "hosted-release" not in dispatched
