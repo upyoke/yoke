@@ -67,6 +67,9 @@ a fact about a provider account, so it is read from the machine composing the
 launch — unlike the two default maps above, which come from the machine that
 will run it:
 
+The example preserves an approved operator route. Refreshing sourced model
+tiers does not change these configured selectors or an active session.
+
 ```json
 {
   "session_model_routing": {
@@ -92,21 +95,24 @@ will run it:
 Tiers are global capability relative to the absolute frontier, not a vendor
 ladder and not the best model a harness happens to offer. `tier1` is
 frontier-equivalent (Fable/Astra or successors); `tier2` is the band
-immediately below (current Opus and latest Grok). Models below that,
+immediately below (Opus 5.5, GPT-6 Sol, and Grok 4.7). Models below that,
 including Sonnet, are `excluded` — not extra usable ranks. Cursor currently
-has no `tier1` model; latest Grok stays `tier2`. A `fallbacks` entry is
-reachable only when the preferred model's own billing pool is confirmed
-empty — an unreadable meter, a low headroom reading, or room in a different
-pool is not confirmation, so a fallback never starts spending a separate
+has no `tier1` model; latest Grok stays `tier2`. The researched tier is
+advisory: an explicit operator route can still name an older model. A
+`fallbacks` entry is reachable only when the preferred model's own billing
+pool is confirmed empty. An unreadable meter, a low headroom reading, or
+room in a different pool is not confirmation, so a fallback never starts
+spending a separate
 allowance by accident. Every key is optional and a surface with no entry
 keeps the defaults above.
 
 `worker_tier` is how a surface reserves its global tier-1 model: ordinary
-work placed on that surface routes to the named tier whatever the work kind
-asked for, while the steering seat still takes tier1, as does a launch that
+work placed on that surface routes to the named model in that tier's
+operator policy, while the steering seat still takes tier1, as does a launch that
 names its model explicitly. The example above reserves Claude and Codex
 tier-1 models for steering or an explicit instruction and routes ordinary
-workers to global tier2 (Opus / Sol), not Sonnet. Cursor omits `tier1` and
+workers through the operator's tier2 keys (Opus / Sol), not Sonnet. Cursor
+omits `tier1` and
 leaves Grok as the ordinary worker, with the Claude fallback reachable only
 on confirmed pool exhaustion. That split is a machine-local operator choice,
 not a Yoke default: a surface with no `worker_tier` routes every work kind

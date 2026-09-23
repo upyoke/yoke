@@ -55,9 +55,10 @@ particular harness happens to offer.
 - **tier1** — frontier-equivalent families and their successors only
   (currently Fable and Astra). Cursor currently has no tier1 model.
 - **tier2** — the band immediately below that frontier (currently Opus
-  and the latest Grok).
-- **excluded** — below the usable floor for ordinary steering
-  selections (currently Sonnet). Not an extra usable rank.
+  5.5, GPT-6 Sol, and Grok 4.7).
+- **excluded** — below the usable floor for new tier-based steering
+  selections (including Sonnet and superseded families). Not an extra
+  usable rank. An explicit operator route can still name one.
 
 A vendor flagship label, a larger version number, a higher price, or a
 new harness selector is not evidence of global tier1. Re-evaluate older
@@ -79,17 +80,30 @@ applicable quota. Do not always launch `preferred_session_models`.
 
 1. Simple edits, documentation, routine cleanup: tier2 + medium.
 2. Normal development, research, steering: tier1 + high. Where a surface
-   has no tier1 model, use that surface's ordinary worker (Cursor: Grok).
+   has no tier1 model, use that surface's configured ordinary worker.
 3. Difficult debugging or architectural decisions: tier1 + xhigh.
    Where xhigh is unsupported, use high. Resolve supported levels from
    the actual per-model/native surface facts.
 
 Claude/Codex premium models stay reserved for steering or an explicit
-operator request; `worker_tier` still routes ordinary workers to global
-tier2 (Opus / Sol), not Sonnet. Cursor: Grok 4.6 first. Cursor Opus is
+operator request; `worker_tier` still routes ordinary workers through
+the operator's tier2 keys (Opus / Sol), not Sonnet. The approved Cursor
+route still asks for Grok 4.6 first even though the refreshed global
+tier2 is Grok 4.7. Cursor Opus is
 fallback only after **confirmed** Grok/Cursor Models quota exhaustion.
 Unknown, stale, or error is not exhaustion. Native request string is
 `cursor-grok-4.6-high`.
+
+## Source-edit entry
+
+For a direct refresh request with no claimed work item, file a `/yoke dash`
+for the bounded source, test, and teaching change. Acquire its item work
+claim, record the complete touch-set survey, prepare its registered worktree,
+and transition it to implementing before reading deeply or editing. Run
+source edits and checks in that worktree; follow Dash verification and
+close-out. When a claimed item already owns the refresh, use that item's
+worktree and workflow instead of filing a second item. `lookup`, `get`, and
+`validate` alone are read-only and need no Dash.
 
 ## Refresh steps
 
@@ -109,6 +123,7 @@ Unknown, stale, or error is not exhaustion. Native request string is
 printf '%s' '{"model_id":"...","provider":"..."}' | yoke models validate --stdin --json
 ```
 
-5. Edit the matching seed module under `yoke_contracts/`, keep each file
-   under the authored-file line cap, and commit. No paid probes, no
-   automatic performance experiments, no broad updater framework.
+5. Edit the matching seed module under `yoke_contracts/` in the claimed
+   worktree, keep each file under the authored-file line cap, and commit.
+   No paid probes, automatic performance experiments, or broad updater
+   framework.

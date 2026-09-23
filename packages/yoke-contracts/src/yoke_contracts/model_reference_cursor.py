@@ -8,24 +8,52 @@ from yoke_contracts.model_reference_sources import (
     CURSOR_MODELS_RULE,
     CURSOR_PRICING,
     GROK_46_DOCS,
+    GROK_47_DOCS,
+    REFRESHED_AT,
     cursor_pool_price,
 )
 
 CURSOR_RECORDS: tuple[ModelRecord, ...] = (
     ModelRecord(
+        model_id="cursor-grok-4.7",
+        provider="cursor",
+        display_name="Grok 4.7",
+        aliases=("grok-4.7",),
+        proposed_tier="tier2",
+        tier_evidence=(
+            "Current Grok occupies the global tier2 band below Fable/Astra. "
+            "Cursor's published long-task improvements over 4.6 support "
+            "re-evaluating the prior model; Cursor still has no tier1."
+        ),
+        api_price=cursor_pool_price(
+            input_usd=2.0,
+            cache_read=0.5,
+            output_usd=6.0,
+            conditions=(
+                "Standard pool rate. Fast is $4/$1/$12; 500k context is "
+                "$4/$1/$12, or $6/$1.5/$18 with Fast."
+            ),
+            checked_at=REFRESHED_AT,
+        ),
+        subscription_rules=(CURSOR_MODELS_RULE,),
+        source_urls=(CURSOR_PRICING, GROK_47_DOCS),
+        checked_at=REFRESHED_AT,
+    ),
+    ModelRecord(
         model_id="cursor-grok-4.6",
         provider="cursor",
         display_name="Grok 4.6",
         aliases=("grok-4.6",),
-        proposed_tier="tier2",
+        proposed_tier="excluded",
         tier_evidence=(
-            "Latest Grok is global tier2, with current Opus. Cursor has no "
-            "tier1; a harness's best offering is not evidence of global tier1."
+            "Prior Grok release. Grok 4.7 now occupies the current tier2 "
+            "band; Cursor's prior best offering does not retain that rank."
         ),
         operator_notes=(
             "Operator routing annotation for the cursor surface only, not a "
-            "published fact and not proposed_tier. Cursor has no global tier1 "
-            "model. Grok 4.6 at high is the ordinary worker on this surface. "
+            "published fact and not proposed_tier. Approved routing still "
+            "selects Grok 4.6 at high for ordinary Cursor work; this record "
+            "refresh does not change that operator preference. "
             "Claude Opus is a fallback reached only after confirmed Cursor "
             "Models pool exhaustion; an unknown, stale, or errored meter "
             "reading is not exhaustion. The whole per-surface policy, including "
@@ -40,7 +68,7 @@ CURSOR_RECORDS: tuple[ModelRecord, ...] = (
         ),
         subscription_rules=(CURSOR_MODELS_RULE,),
         source_urls=(CURSOR_PRICING, GROK_46_DOCS),
-        checked_at=CHECKED_AT,
+        checked_at=REFRESHED_AT,
     ),
     ModelRecord(
         model_id="cursor-grok-4.5",

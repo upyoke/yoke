@@ -47,21 +47,23 @@ def _proposed_tier(model_id: str) -> str | None:
 
 
 def test_cursor_effort_suffix_hits_the_canonical_grok_record() -> None:
-    lookup = lookup_model_reference("cursor-grok-4.6-high")
+    lookup = lookup_model_reference("cursor-grok-4.7-high")
     assert lookup.researched is True
     assert lookup.record is not None
-    assert lookup.record.model_id == "cursor-grok-4.6"
+    assert lookup.record.model_id == "cursor-grok-4.7"
     assert lookup.record.proposed_tier == "tier2"
-    assert "Grok 4.6" in (lookup.record.operator_notes or "")
     assert "operator_preferences" not in lookup.record.to_dict()
 
 
 def test_global_tiers_match_operator_approved_frontier() -> None:
     assert _proposed_tier("claude-fable-5-1") == "tier1"
     assert _proposed_tier("gpt-6-astra") == "tier1"
-    assert _proposed_tier("claude-opus-5") == "tier2"
-    assert _proposed_tier("cursor-grok-4.6") == "tier2"
-    assert _proposed_tier("gpt-5.6-sol") == "tier2"
+    assert _proposed_tier("claude-opus-5-5") == "tier2"
+    assert _proposed_tier("cursor-grok-4.7") == "tier2"
+    assert _proposed_tier("gpt-6-sol") == "tier2"
+    assert _proposed_tier("claude-opus-5") == "excluded"
+    assert _proposed_tier("cursor-grok-4.6") == "excluded"
+    assert _proposed_tier("gpt-5.6-sol") == "excluded"
     assert _proposed_tier("claude-sonnet-5") == "excluded"
     assert _proposed_tier("gpt-5.5") == "excluded"
     cursor_tiers = {
