@@ -126,17 +126,13 @@ def _basis_digest(basis: Mapping[str, Any]) -> str:
 
 def candidate_containment_basis(conn: Any, run_id: str) -> dict[str, Any]:
     """Return the server-owned questions a local checkout must answer."""
-    if not _column_exists(conn, "deployment_runs", CANDIDATE_CONTAINMENT_FIELD):
-        raise CandidateContainmentRefusal(
-            "candidate_containment_schema_unconverged",
-            "deployment_runs.candidate_containment is missing",
-            "Boot the current build to converge its additive schema, then re-drive "
-            f"{run_id}.",
-        )
+    recorded = _column_exists(conn, "deployment_runs", CANDIDATE_CONTAINMENT_FIELD)
+    stored_column = CANDIDATE_CONTAINMENT_FIELD if recorded else "NULL"
     marker = _p(conn)
     row = conn.execute(
         f"SELECT project_id,release_lineage,bound_sources,"
-        f"{CANDIDATE_CONTAINMENT_FIELD} FROM deployment_runs WHERE id={marker}",
+        f"{stored_column} AS {CANDIDATE_CONTAINMENT_FIELD} "
+        f"FROM deployment_runs WHERE id={marker}",
         (run_id,),
     ).fetchone()
     if row is None:
@@ -323,12 +319,13 @@ def record_attested_candidate_containment(
             key=lambda item: item["id"],
         ),
     }
-    marker = _p(conn)
-    conn.execute(
-        f"UPDATE deployment_runs SET {CANDIDATE_CONTAINMENT_FIELD}={marker} "
-        f"WHERE id={marker}",
-        (dumps_compact(snapshot), run_id),
-    )
+    if _column_exists(conn, "deployment_runs", CANDIDATE_CONTAINMENT_FIELD):
+        marker = _p(conn)
+        conn.execute(
+            f"UPDATE deployment_runs SET {CANDIDATE_CONTAINMENT_FIELD}={marker} "
+            f"WHERE id={marker}",
+            (dumps_compact(snapshot), run_id),
+        )
     return snapshot
 
 

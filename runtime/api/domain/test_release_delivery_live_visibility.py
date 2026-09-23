@@ -215,6 +215,30 @@ def test_start_refuses_missing_attestation_without_freezing_empty() -> None:
     assert row["candidate_containment"] is None
 
 
+def test_schema_carrying_release_starts_before_containment_column_converges(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        containment_module, "LocalCheckoutSource", lambda _: _LocalAnswer(True)
+    )
+    with test_database() as conn:
+        _open_item(conn)
+        _stage_run(conn)
+        conn.execute("ALTER TABLE deployment_runs DROP COLUMN candidate_containment")
+        conn.commit()
+        basis = candidate_containment_basis(conn, "run-stage")
+        attestation = attest_candidate_containment(basis, lambda _project: "/repo")
+        refusal = cmd_update(
+            "run-stage", "status", "executing", candidate_containment=attestation
+        )
+        status = conn.execute(
+            "SELECT status FROM deployment_runs WHERE id=%s", ("run-stage",)
+        ).fetchone()["status"]
+
+    assert refusal is None
+    assert status == "executing"
+
+
 def test_undetermined_local_graph_is_a_named_retryable_refusal(monkeypatch) -> None:
     monkeypatch.setattr(
         containment_module,
