@@ -22,6 +22,7 @@ from runtime.api.domain.test_deployment_qa_member_acceptance_notice import (
 from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
     HOLDER_A,
     HOLDER_B,
+    _bodies,
     _recipients,
 )
 from runtime.api.domain.test_status_transition_preflight import (
@@ -142,9 +143,7 @@ def test_recorded_no_obligation_closes_without_waking(
     assert holder_session is not None and holder_session["ended_at"] is not None
 
 
-def test_a_sibling_that_owes_a_check_is_still_woken(
-    test_db: Any, monkeypatch
-) -> None:
+def test_a_sibling_that_owes_a_check_is_still_woken(test_db: Any, monkeypatch) -> None:
     _isolate_status_effects(monkeypatch)
     _project(test_db)
     _ready_member(test_db, NO_OBLIGATION_ITEM, HOLDER_A)
@@ -164,9 +163,12 @@ def test_a_sibling_that_owes_a_check_is_still_woken(
 
     assert reports["9821"] == "closed"
     assert reports["9822"] in ("delivered", "undelivered")
-    assert _recipients(
-        test_db, delivery_cleared_idempotency_key(NO_OBLIGATION_ITEM, "run-mixed")
-    ) == []
+    assert (
+        _recipients(
+            test_db, delivery_cleared_idempotency_key(NO_OBLIGATION_ITEM, "run-mixed")
+        )
+        == []
+    )
     assert _recipients(
         test_db, delivery_cleared_idempotency_key(SIBLING_ITEM, "run-mixed")
     ) == [HOLDER_B]
@@ -226,7 +228,7 @@ def test_an_unanswered_member_still_wakes(test_db: Any, monkeypatch) -> None:
     assert status != "done"
 
 
-def test_missing_landing_evidence_fails_closed_without_a_wake(
+def test_missing_landing_evidence_sends_a_recovery_wake(
     test_db: Any, monkeypatch
 ) -> None:
     _isolate_status_effects(monkeypatch)
@@ -245,15 +247,14 @@ def test_missing_landing_evidence_fails_closed_without_a_wake(
 
     assert report["delivery"].startswith("failed:")
     assert "execution_evidence" in report["delivery"]
-    assert (
-        _recipients(
-            test_db,
-            delivery_cleared_idempotency_key(
-                MISSING_EVIDENCE_ITEM, "run-missing-evidence"
-            ),
-        )
-        == []
+    key = delivery_cleared_idempotency_key(
+        MISSING_EVIDENCE_ITEM, "run-missing-evidence"
     )
+    assert _recipients(test_db, key) == [HOLDER_A]
+    [body] = _bodies(test_db, key)
+    assert "Automatic close-out failed" in body
+    assert "execution_evidence" in body
+    assert "yoke merge item" in body
     status = test_db.execute(
         "SELECT status FROM items WHERE id=%s", (MISSING_EVIDENCE_ITEM,)
     ).fetchone()["status"]

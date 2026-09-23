@@ -62,12 +62,16 @@ def delivery_cleared_idempotency_key(item_id: int, run_id: str) -> str:
     return f"{DELIVERY_CLEARED_KEY_PREFIX}{item_id}:{run_id}"
 
 
-def delivery_cleared_message(*, public_ref: str, run_id: str, route: str) -> str:
+def delivery_cleared_message(
+    *, public_ref: str, run_id: str, route: str, close_out_failure: str = ""
+) -> str:
     """Name what cleared, and the exact command that finishes the item."""
     lead = (
         f"{public_ref}'s delivery cleared: deployment run {run_id} succeeded "
         f"and the item is still at its release wait."
     )
+    if close_out_failure:
+        lead += f" Automatic close-out failed: {close_out_failure}."
     if route == HOLDER:
         return (
             f"{lead} You hold its work claim and parked on this wait, so this "
@@ -144,7 +148,14 @@ def _cleared_release_waits(conn: Any, run_id: str) -> list[dict[str, Any]]:
     return cleared
 
 
-def _send(conn: Any, member: dict[str, Any], run_id: str, stamp: datetime) -> str:
+def _send(
+    conn: Any,
+    member: dict[str, Any],
+    run_id: str,
+    stamp: datetime,
+    *,
+    close_out_failure: str = "",
+) -> str:
     """Send one member's notice inside its own savepoint.
 
     The savepoint is the isolation this needs: without it a single failed
@@ -162,7 +173,10 @@ def _send(conn: Any, member: dict[str, Any], run_id: str, stamp: datetime) -> st
             item_id=int(member["item_id"]),
             project_id=int(member["project_id"]),
             body_for_route=lambda route, ref=public_ref: delivery_cleared_message(
-                public_ref=ref, run_id=run_id, route=route
+                public_ref=ref,
+                run_id=run_id,
+                route=route,
+                close_out_failure=close_out_failure,
             ),
             idempotency_key=delivery_cleared_idempotency_key(
                 int(member["item_id"]), run_id
@@ -194,8 +208,17 @@ def _close_or_wake(
         public_ref=str(member["public_ref"]),
         run_id=run_id,
     )
+    if closed.applies and closed.ok:
+        return "closed"
     if closed.applies:
-        return "closed" if closed.ok else f"failed: {closed.detail}"
+        recovery = _send(
+            conn,
+            member,
+            run_id,
+            stamp,
+            close_out_failure=closed.detail,
+        )
+        return f"failed: {closed.detail}; recovery notice {recovery}"
     return _send(conn, member, run_id, stamp)
 
 
@@ -205,11 +228,12 @@ def notify_delivery_cleared(
     """Tell every owner whose wait this run cleared, one isolated send each.
 
     A member whose scoped obligations passed or were discharged is closed
-    through the merge close-out instead of woken: the completion-flow result
-    and landing evidence already hold the sentences a session would write.
-    Returns one record per member with what delivery did, so a caller can
-    report a notice or close-out that did not land without treating it as a
-    run failure. Call it only after the run's own status is committed.
+    through the merge close-out instead of woken. If that automatic close-out
+    refuses, the ordinary isolated notice carries its detail and recovery to
+    the holder or steering seat. Returns one record per member with what
+    delivery did, so a caller can report a notice or close-out that did not
+    land without treating it as a run failure. Call it only after the run's
+    own status is committed.
     """
     stamp = now or datetime.now(timezone.utc)
     return [

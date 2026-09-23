@@ -31,8 +31,9 @@ class DeliveryMemberCloseOut:
     """Whether this member can close without a wake, and the result.
 
     ``applies`` is the predicate the wake sites read: false means this is
-    not that fact, so the ordinary wake still fires. True means do not
-    wake, whether the close-out landed or named why it could not.
+    not an automatic-close case, so the ordinary delivery wake fires. True
+    with ``ok=False`` tells the caller to send a recovery notice carrying
+    ``detail``; a failed close-out must never strand the release-wait owner.
     """
 
     applies: bool
@@ -88,6 +89,10 @@ def close_out_satisfied_delivery_member(
     try:
         return _close_out(conn, item_id=int(item_id), public_ref=str(public_ref))
     except Exception as exc:  # noqa: BLE001 - never reverse the succeeded run
+        try:
+            conn.rollback()
+        except Exception:  # noqa: BLE001 - the notice path reports its own failure
+            pass
         return DeliveryMemberCloseOut(
             applies=True, ok=False, detail=str(exc) or exc.__class__.__name__
         )
