@@ -16,6 +16,7 @@ _TERMINAL_LINE_RE = re.compile(
     r"receipt was not recorded\b|release gate will still refuse\b))",
     re.IGNORECASE,
 )
+_EXPLICIT_TERMINAL_ERROR_RE = re.compile(r"^\s*Terminal error:", re.IGNORECASE)
 PYTHON_EXCEPTION_PATTERN = re.compile(
     r"^\s*(?:[A-Za-z_][\w.]*?(?:Error|Exception)|SystemExit|KeyboardInterrupt):"
 )
@@ -25,10 +26,20 @@ _WATCH_FAILURE_RE = re.compile(
     re.IGNORECASE,
 )
 _TRANSIENT_RE = re.compile(r"temporarily unavailable.*retrying", re.IGNORECASE)
+_EXPLICIT_RECOVERY_RE = re.compile(
+    r"\b(?:use|try|retry|rerun|re-run|contact)\s+.+$", re.IGNORECASE
+)
 
 
 def _compact(line: str) -> str:
     return " ".join(line.split())
+
+
+def _terminal_recovery(cause: str) -> str | None:
+    if not _EXPLICIT_TERMINAL_ERROR_RE.match(cause):
+        return None
+    match = _EXPLICIT_RECOVERY_RE.search(cause)
+    return _compact(match.group(0)) if match is not None else None
 
 
 def terminal_error_from_raw_capture(raw_capture: Path) -> str | None:
@@ -51,9 +62,13 @@ def terminal_error_from_raw_capture(raw_capture: Path) -> str | None:
 
 def _terminal_cause(raw_capture: Path) -> str | None:
     latest = terminal_error_from_raw_capture(raw_capture)
+    explicit = None
     with raw_capture.open(encoding="utf-8", errors="replace") as capture:
         for line in capture:
             if _TRANSIENT_RE.search(line):
+                continue
+            if _EXPLICIT_TERMINAL_ERROR_RE.match(line):
+                explicit = _compact(line)
                 continue
             if (
                 _TERMINAL_LINE_RE.match(line)
@@ -61,7 +76,7 @@ def _terminal_cause(raw_capture: Path) -> str | None:
                 or _WATCH_FAILURE_RE.match(line)
             ):
                 latest = _compact(line)
-    return latest
+    return explicit or latest
 
 
 def format_terminal_outcome(
@@ -97,7 +112,9 @@ def format_terminal_outcome(
     elif "launch_error" in cause:
         recovery = "verify the command or module is available in this environment"
     else:
-        recovery = "follow the repair in the error and inspect the capture for context"
+        recovery = _terminal_recovery(cause) or (
+            "follow the repair in the error and inspect the capture for context"
+        )
     return (
         f"# watch_{kind} failure: {cause}; exit={exit_code}; "
         f"recovery: {recovery}; raw={raw_capture}\n"
@@ -149,9 +166,10 @@ def emit_terminal_failure(
     with raw_capture.open("a", encoding="utf-8", buffering=1) as raw_f:
         raw_f.write(f"Error: {message.rstrip()}\n")
     stream = sys.stderr if out is None else out
-    with raw_capture.open("a", encoding="utf-8") as raw_f, progress_capture.open(
-        "a", encoding="utf-8", buffering=1
-    ) as progress_f:
+    with (
+        raw_capture.open("a", encoding="utf-8") as raw_f,
+        progress_capture.open("a", encoding="utf-8", buffering=1) as progress_f,
+    ):
         emit_terminal_outcome(
             kind=kind,
             exit_code=exit_code,
