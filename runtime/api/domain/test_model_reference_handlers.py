@@ -63,6 +63,8 @@ def test_diff_and_get_read_complete_published_catalog(catalog_db):
     )
     assert current.primary_success is True
     assert current.result_payload["count"] == 18
+    assert current.result_payload["source_note"]
+    assert current.result_payload["published_at"]
     diff = publication.handle_models_diff(
         _request(
             publication.DIFF_FUNCTION_ID,

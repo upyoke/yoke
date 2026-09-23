@@ -54,6 +54,9 @@ def test_revision_effective_at_preserves_earlier_sessions(catalog_db):
         source_note="Provider price update checked against official source",
         expected_base_revision_id=original["revision_id"],
     )
+    price_change = published["diff"]["changes"]["gpt-6-sol"]["api_price"]
+    assert price_change["before"]["input_per_million_usd"] == 2.0
+    assert price_change["after"]["input_per_million_usd"] == 3.0
 
     assert revision_at(catalog_db, _future(1))["revision_id"] == original["revision_id"]
     assert revision_at(catalog_db, effective)["revision_id"] == published["revision_id"]

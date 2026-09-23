@@ -54,6 +54,10 @@ class ModelsGetResponse(BaseModel):
     count: Optional[int] = None
     revision_id: str
     effective_at: str
+    published_at: str
+    published_by_actor_id: Optional[int] = None
+    source_note: str
+    source_revision_id: Optional[str] = None
 
 
 class ModelsValidateResponse(BaseModel):
@@ -115,6 +119,10 @@ def handle_models_get(request: FunctionCallRequest) -> HandlerOutcome:
     metadata = {
         "revision_id": revision["revision_id"],
         "effective_at": revision["effective_at"],
+        "published_at": revision["published_at"],
+        "published_by_actor_id": revision["published_by_actor_id"],
+        "source_note": revision["source_note"],
+        "source_revision_id": revision["source_revision_id"],
     }
     if spec.model_id:
         lookup = lookup_model_reference(spec.model_id, revision["records"])

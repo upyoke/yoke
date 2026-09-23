@@ -73,12 +73,30 @@ def catalog_diff(
     """Return a stable review summary for one complete replacement."""
     before = {record.model_id: record.to_dict() for record in current}
     after = {record.model_id: record.to_dict() for record in candidate}
+    changed_ids = sorted(
+        key for key in before.keys() & after.keys() if before[key] != after[key]
+    )
     return {
         "added": sorted(after.keys() - before.keys()),
         "removed": sorted(before.keys() - after.keys()),
-        "changed": sorted(
-            key for key in before.keys() & after.keys() if before[key] != after[key]
-        ),
+        "changed": changed_ids,
+        "added_records": {
+            key: after[key] for key in sorted(after.keys() - before.keys())
+        },
+        "removed_records": {
+            key: before[key] for key in sorted(before.keys() - after.keys())
+        },
+        "changes": {
+            key: {
+                field: {
+                    "before": before[key].get(field),
+                    "after": after[key].get(field),
+                }
+                for field in sorted(before[key].keys() | after[key].keys())
+                if before[key].get(field) != after[key].get(field)
+            }
+            for key in changed_ids
+        },
         "unchanged_count": sum(
             1 for key in before.keys() & after.keys() if before[key] == after[key]
         ),
