@@ -15,6 +15,9 @@ import { workbenchClient } from "./universe_ui_workbench_test_support.mjs";
 
 const MINUTE = 60 * 1000;
 const ago = (minutes) => new Date(Date.now() - minutes * MINUTE).toISOString();
+const ITEM_ID = 450;
+const ITEM_SEQUENCE = 50;
+const ITEM_REF = `YOK-${ITEM_SEQUENCE}`;
 
 function run(id, status, minutes, facts = {}) {
   return {
@@ -52,15 +55,14 @@ test("an in-flight run older than thirty minutes is labeled delayed", async (t) 
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
 
-  const itemId = 3376;
   const client = workbenchClient({
     "items.overview.list": {
       rows: [{
-        internal_id: itemId,
-        public_ref: "YOK-3376",
+        internal_id: ITEM_ID,
+        public_ref: ITEM_REF,
         project: "yoke",
         project_id: 1,
-        project_sequence: 3376,
+        project_sequence: ITEM_SEQUENCE,
         title: "Show delayed runs",
         workflow_id: "dash",
         status: "release",
@@ -78,7 +80,7 @@ test("an in-flight run older than thirty minutes is labeled delayed", async (t) 
         project: "yoke",
         flow: "flow",
         stages: [],
-        member_items: [{ id: itemId, ref: "YOK-3376", title: "Show delayed runs" }],
+        member_items: [{ id: ITEM_ID, ref: ITEM_REF, title: "Show delayed runs" }],
       }],
     },
   });
