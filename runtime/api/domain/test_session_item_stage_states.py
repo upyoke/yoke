@@ -181,13 +181,6 @@ def _connection() -> sqlite3.Connection:
             updated_at TEXT,
             UNIQUE (item_id, section_name)
         );
-        CREATE TABLE session_launches (
-            launch_id TEXT PRIMARY KEY,
-            project_id INTEGER,
-            session_name TEXT,
-            state TEXT,
-            created_at TEXT
-        );
         """
     )
     conn.execute("INSERT INTO projects VALUES (1,'yoke','Yoke','YOK')")
@@ -229,7 +222,6 @@ def _project(conn: sqlite3.Connection) -> list[dict[str, object]]:
     (
         ("qa", "QA failed"),
         ("merge", "CI checks failed"),
-        ("launch", "launch failed"),
         ("blocked", "blocked: upstream unavailable"),
     ),
 )
@@ -245,11 +237,6 @@ def test_projection_marks_only_real_failure_signals_red(
         conn.execute("INSERT INTO qa_runs VALUES (1,1,'fail')")
     elif signal == "merge":
         _record_merge_failure(conn, "CI checks failed")
-    elif signal == "launch":
-        conn.execute(
-            "INSERT INTO session_launches VALUES "
-            "('launch-1',1,'YOK-20: worker','failed','2026-09-01T12:01:00Z')"
-        )
     else:
         conn.execute(
             "UPDATE items SET blocked=1,blocked_reason='upstream unavailable' "
@@ -316,7 +303,9 @@ def test_projection_clears_a_swept_error_once_a_continuation_run_lands() -> None
     is what the strip shows.
     """
     conn = _connection()
-    conn.execute("INSERT INTO qa_requirements VALUES (1,7,'reviewing-implementation',NULL)")
+    conn.execute(
+        "INSERT INTO qa_requirements VALUES (1,7,'reviewing-implementation',NULL)"
+    )
     conn.execute("INSERT INTO qa_runs VALUES (1,1,'error')")
 
     swept = [stage for stage in _project(conn) if stage["state"] == "failed"]

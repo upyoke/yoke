@@ -284,7 +284,11 @@ def primary_item_stages_by_session(
     item_ids = tuple(items)
     qa = qa_failures(conn, item_ids)
     merge = merge_failures(conn, item_ids)
-    launch = launch_failures(conn, items)
+    connected_claims = _active_item_claims(conn, _session_ids(rows))
+    connected_item_ids = tuple(
+        item_id for held in connected_claims.values() for item_id, _ in held
+    )
+    launch = launch_failures(conn, items, active_item_ids=connected_item_ids)
     holder_modes = _holder_modes(conn, item_ids)
     projected: dict[str, list[dict[str, Any]]] = {}
     for session_id, item_id in selected.items():
