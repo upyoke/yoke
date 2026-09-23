@@ -357,13 +357,12 @@ unscoped `yoke qa plan run --deployment-run-id {RUN_ID}` and never
 `yoke qa case run --requirement-id N`, both of which leave the stage
 unsatisfied. Depth: `yoke qa plan run --help`.
 
-A member whose own item-scoped QA is accepted closes ITSELF out without
-waiting for the rest of the batch (a run-scoped stage the flow declares is
-still a shared wait). After the batch succeeds, any owner still parked
-closes ITSELF out: the deployment wake re-enters its owner, which still holds the
-item's work claim, and that owner runs the one agent-facing close-out
-`yoke merge item PREFIX-N --result ... --verification ...`. Do not acquire a
-live owner's claim to finish its item for it, and do not reach for the
+A member whose own item-scoped QA is accepted no longer needs a manual merge
+close-out. After all of that member's scoped obligations pass or are waived,
+the completion-flow success closes it from its recorded landing and QA evidence,
+without waiting for sibling item-scoped QA, and ends an otherwise empty holder
+session. A run-scoped stage the flow declares remains a shared wait. Do not
+acquire a live owner's claim to finish its item, and do not reach for the
 internal done engine — `done-transition --skip-deploy` records a selected-flow
 delivery as out-of-band, which is a false record and is refused when the item's
 flow already has a succeeded run covering its merge.

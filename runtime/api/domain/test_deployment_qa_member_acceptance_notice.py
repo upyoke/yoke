@@ -73,9 +73,12 @@ def test_accepted_item_qa_wakes_the_parked_owner_while_the_run_executes(
     _executing_run(test_db, "run-item-qa-wake", (MEMBER_A,), plan_slug="wake-holder")
     _settle(test_db, run_id="run-item-qa-wake", stage="item-qa", member=MEMBER_A)
 
-    assert item_qa_acceptance_blockers(
-        test_db, run_id="run-item-qa-wake", item_id=MEMBER_A
-    ) == []
+    assert (
+        item_qa_acceptance_blockers(
+            test_db, run_id="run-item-qa-wake", item_id=MEMBER_A
+        )
+        == []
+    )
     assert (
         test_db.execute(
             "SELECT status FROM deployment_runs WHERE id='run-item-qa-wake'"
@@ -87,7 +90,9 @@ def test_accepted_item_qa_wakes_the_parked_owner_while_the_run_executes(
     [body] = _bodies(test_db, key)
     assert "own item-scoped QA is accepted" in body
     assert "still be executing" in body
-    assert "yoke merge item" in body
+    assert "will auto-close" in body
+    assert "do not re-run merge solely" in body
+    assert "yoke sessions touch --mode parked" in body
     assert "You hold its work claim" in body
 
 
@@ -185,15 +190,21 @@ def test_a_failed_send_does_not_undo_the_recorded_acceptance(
 
     monkeypatch.setattr(notice, "push_member_notice", boom)
     _settle(test_db, run_id="run-item-qa-fail", stage="item-qa", member=MEMBER_A)
-    assert deployment_qa_stage_status(
-        test_db,
-        run_id="run-item-qa-fail",
-        stage_name="item-qa",
-        member_item_id=MEMBER_A,
-    )["accepted"] is True
-    assert item_qa_acceptance_blockers(
-        test_db, run_id="run-item-qa-fail", item_id=MEMBER_A
-    ) == []
+    assert (
+        deployment_qa_stage_status(
+            test_db,
+            run_id="run-item-qa-fail",
+            stage_name="item-qa",
+            member_item_id=MEMBER_A,
+        )["accepted"]
+        is True
+    )
+    assert (
+        item_qa_acceptance_blockers(
+            test_db, run_id="run-item-qa-fail", item_id=MEMBER_A
+        )
+        == []
+    )
     assert (
         _recipients(
             test_db, item_qa_accepted_idempotency_key(MEMBER_A, "run-item-qa-fail")

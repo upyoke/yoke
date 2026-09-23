@@ -91,8 +91,11 @@ learns the other's part from its own skill. The split is the whole rule:
   member already in it.
 - **The member owner owns its own item.** Its merge parked it at the flow's
   release wait holding its work claim; the deployment wake re-enters it for its
-  QA stage, when its own item-scoped QA is accepted, and again when delivery
-  clears. A wait wake is withdrawn — the existing message-cancel path —
+  QA stage and when its own item-scoped QA is accepted. Once that member's
+  scoped obligations pass or are waived, completion-flow success auto-closes
+  it from the recorded landing and QA evidence, without a delivery wake, and
+  ends an otherwise empty holder session. A wait wake is withdrawn — the
+  existing message-cancel path —
   when its run reaches a terminal status or its member is no longer
   outstanding (the item-scoped stage is credited, or the item is done), so
   a late delivery cannot instruct settled work. Recorded delivery attempts

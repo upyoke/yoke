@@ -44,10 +44,8 @@ def item_qa_accepted_idempotency_key(item_id: int, run_id: str) -> str:
     return f"{ITEM_QA_ACCEPTED_KEY_PREFIX}{item_id}:{run_id}"
 
 
-def item_qa_accepted_message(
-    *, public_ref: str, run_id: str, route: str
-) -> str:
-    """Name what was accepted, and the exact command that finishes the item."""
+def item_qa_accepted_message(*, public_ref: str, run_id: str, route: str) -> str:
+    """Name what was accepted and how the release-wait owner should wait."""
     lead = (
         f"{public_ref}'s own item-scoped QA is accepted on deployment run "
         f"{run_id}. The run may still be executing; other members' outstanding "
@@ -56,17 +54,18 @@ def item_qa_accepted_message(
     if route == HOLDER:
         return (
             f"{lead} You hold its work claim and parked on this wait, so this "
-            f"is your re-entry: re-run `yoke merge item {public_ref} --result "
-            f"... --verification ...` to record the evidence and close the "
-            f"item out. Report and end only once it reaches done. If anything "
-            f"leaves it short of done, re-park before going quiet — this "
-            f"prompt cleared your previous park."
+            f"is your re-entry. The completion-flow success will auto-close "
+            f"the item from its recorded landing and QA evidence and end an "
+            f"otherwise empty holder session; do not re-run merge solely for "
+            f"this acceptance. This prompt cleared your previous park, so if "
+            f"the run is still executing, re-park with `yoke sessions touch "
+            f'--mode parked --reason "awaiting {public_ref} delivery"`.'
         )
     return (
-        f"{lead} Nobody holds its work claim, so no worker will close it out: "
-        f"staff a session at `/yoke dash {public_ref}`, or close it out "
-        f"directly with `yoke merge item {public_ref} --result ... "
-        f"--verification ...`. Check `yoke deployment-runs get {run_id}`."
+        f"{lead} Nobody holds its work claim, but no worker is needed for the "
+        f"satisfied path: completion-flow success will auto-close the item "
+        f"from its recorded evidence. Check `yoke deployment-runs get "
+        f"{run_id}` only if the run fails or stops."
     )
 
 

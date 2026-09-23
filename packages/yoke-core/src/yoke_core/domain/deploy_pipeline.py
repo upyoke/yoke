@@ -14,6 +14,7 @@ from yoke_core.domain.deploy_pipeline_gates import (
     _resolve_and_verify_branch,
     resolve_flow_gate_branch,
 )
+from yoke_core.domain.deploy_pipeline_qa_wait import dispatch_until_qa_resolves
 from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 from yoke_core.domain import deploy_pipeline_failure
 from yoke_core.domain.deploy_pipeline_reporting import (
@@ -257,9 +258,10 @@ def run_pipeline(
             sd=sd,
         )
 
-        # Dispatch step_runner
-        exec_rc, exec_diag = stage_receipt.dispatch_step_runner_with_receipt(
+        exec_rc, exec_diag = dispatch_until_qa_resolves(
+            stage_receipt.dispatch_step_runner_with_receipt,
             stage,
+            timeout_seconds=timeout_min * 60,
             stages=stages,
             run_id=run_id,
             member_items=member_items,
@@ -282,7 +284,6 @@ def run_pipeline(
             sd=sd,
         )
 
-        # Special return codes
         if exec_rc == -2:
             # Awaiting human approval
             return EXIT_AWAITING_APPROVAL

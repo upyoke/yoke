@@ -286,7 +286,10 @@ def test_admin_candidate_keeps_local_scoped_qa_while_its_https_sibling_still_rel
     # Resuming past approval reaches the new scoped-QA stage; nothing has
     # been materialized yet, so this must pause as EXIT_AWAITING_QA — never
     # a false success and never a hard stage failure.
-    assert deploy_pipeline.run_pipeline(RUN_ID) == deploy_pipeline.EXIT_AWAITING_QA
+    assert (
+        deploy_pipeline.run_pipeline(RUN_ID, timeout_min=0)
+        == deploy_pipeline.EXIT_AWAITING_QA
+    )
     unresolved = conn.execute(
         "SELECT status,current_stage FROM deployment_runs WHERE id=%s",
         (RUN_ID,),
