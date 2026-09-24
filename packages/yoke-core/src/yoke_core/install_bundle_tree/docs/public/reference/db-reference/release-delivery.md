@@ -167,6 +167,15 @@ still lists it. The pipeline's advance and `on_failure` are unchanged;
 a run whose other members are outstanding still halts and still
 belongs to its driver.
 
+Completion of a target-bound scoped QA execution settles its active stage
+gate on the control plane. The same happens after an agent review bundle is
+submitted. For `required_human`, settlement creates the authorized request
+immediately; the server never supplies its answer. The frozen target digest
+is checked before settlement, so old evidence cannot credit a new target.
+A passed, discharged, blocked, or rejected subject requests continuation
+of the same run through the existing driver notice contract. The pinned
+runner still owns external stages and the deploy lock.
+
 Owner: `yoke_core.domain.deployment_qa_member_acceptance_notice`,
 emitted from the stage-gate settlement that records acceptance.
 
@@ -175,14 +184,24 @@ emitted from the stage-gate settlement that records acceptance.
 A stage whose verdict policy requires a human opens a review request and
 waits, and the agent that supplied the evidence parks. Resolving a
 `qa_needs_review` request whose requirement is a deployment-stage subject
-sends one notice to the recipient the wait itself addressed: the member's
+settles that stage gate on the server and sends a notice to the recipient
+the wait itself addressed: the member's
 claim holder or the project's steering seat, or the deploy-lock driver for
 a run-scoped stage. It names the run, stage, subject, outcome and the next
 step — an approval releases the parked agent, a rejection hands it work, a
 waiver discharges the obligation. Sent after the resolution commits and
 degrading to a warning when undeliverable, because the verdict is the
 durable outcome; a requirement that is not a deployment-stage subject
-notifies nobody. Owner: `yoke_core.domain.deployment_qa_verdict_notice`.
+notifies nobody. Item-scoped decisions also notify the run driver. Owners:
+`yoke_core.domain.deployment_qa_verdict_notice` and
+`yoke_core.domain.deployment_qa_stage_settlement`.
+
+The deploy driver owns run-scoped visual QA. It inspects the live target as
+an agent or assigns a capable QA agent through Yoke, records evidence for
+that run and stage with `yoke watch qa-plan -- --deployment-run-id RUN
+--stage STAGE --project P`, and re-drives the same run. Add `--plan PLAN`
+only when that stage names no cases. Item-scoped captures cannot credit a
+run-scoped stage.
 
 ## A caseless QA stage waits rather than failing
 

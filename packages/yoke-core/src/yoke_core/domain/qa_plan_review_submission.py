@@ -310,6 +310,10 @@ def submit_plan_review(
             )
         except Exception:
             conn.rollback()
+    if execution.get("deployment_stage"):
+        from yoke_core.domain.deployment_qa_stage_settlement import settle_execution
+
+        settle_execution(conn, execution)
     return {
         "execution_id": str(execution["id"]),
         "bundle_id": bundle_id,

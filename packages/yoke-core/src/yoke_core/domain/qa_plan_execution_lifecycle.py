@@ -160,6 +160,12 @@ def finish_plan_execution(
         dispose_execution_decisions(conn, execution, commit=False)
     if commit:
         conn.commit()
+        if state == "completed" and execution.get("deployment_stage"):
+            from yoke_core.domain.deployment_qa_stage_settlement import (
+                settle_execution,
+            )
+
+            settle_execution(conn, execution)
 
 
 def reap_stale_plan_executions(

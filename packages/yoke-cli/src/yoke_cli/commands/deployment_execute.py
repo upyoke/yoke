@@ -57,6 +57,15 @@ def deployment_runs_execute(args: List[str]) -> int:
             "and capture. watch_tail consults that fact before blaming "
             "missing capture flags. Steering does not treat a created run "
             "with a live driver as waiting to be driven.\n\n"
+            "A completed scoped QA execution settles its stage gate on the "
+            "control plane and opens any required human review there. A "
+            "resolved review requests continuation of this same run; "
+            "re-enter it after a continuation notice. A run-scoped visual "
+            "QA wait belongs to this deploy driver: inspect as an agent or "
+            "assign a capable QA agent, record evidence with "
+            "`yoke watch qa-plan -- --deployment-run-id RUN-ID --stage STAGE "
+            "--project PROJECT`, then re-enter this run. Add `--plan PLAN` "
+            "only when that stage names no cases.\n\n"
             f"{INTERRUPTED_RUN_RECOVERY}"
         )
         return 0
