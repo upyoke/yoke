@@ -308,6 +308,12 @@
 
 @media (max-width: 720px) {
   .universe-app-root .run-title { font-size: 21px; }
+  .universe-app-root .run-badge {
+    flex: 0 1 auto;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
 }
 
 /* On a narrow content pane the stage rail and the work stack rather than
