@@ -107,7 +107,10 @@ intake row. A prior candidate's pass does not satisfy a later run --
 including a passing run recorded on the original intake row itself, which
 proves whatever was deployed when it ran. A completion run that never
 admitted this source does not satisfy it, and neither does the absence of
-any run at all.
+any run at all. Failed and cancelled member attempts cannot erase a prior
+succeeded completion run's accepted copy. A later release that contains the
+merge without enrolling the item proves delivery, but contributes no admitted
+copy and does not replace the member run for source QA.
 `manual_acceptance` keeps its established phase gate.
 
 Screenshot / visual evidence of a deployed candidate:

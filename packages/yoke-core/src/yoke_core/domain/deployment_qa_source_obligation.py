@@ -58,11 +58,17 @@ POST_DEPLOY_RECOVERY = (
 )
 
 
-def latest_completion_run(conn: Any, item_id: int) -> dict[str, Any] | None:
+def latest_completion_run(
+    conn: Any, item_id: int, *, skip_terminal_failures: bool = False
+) -> dict[str, Any] | None:
     """Newest membership that can close this item, or none.
 
     Which memberships can is :func:`membership_closes_item`; this walks the
     item's memberships newest first and returns the first one that is.
+
+    Failed and cancelled attempts may be skipped for source QA: they cannot
+    replace an earlier succeeded candidate's admitted proof. A newer active
+    attempt still wins and must finish before that source can close out.
 
     Freshness is still ``created_at`` (then ``id``). ``release_lineage`` and
     ``project_id`` name the candidate to ask containment about: the commit
@@ -107,9 +113,12 @@ def latest_completion_run(conn: Any, item_id: int) -> dict[str, Any] | None:
             source_sha=source_sha,
         ):
             continue
+        status = str(_row_value(row, "status", 1) or "")
+        if skip_terminal_failures and status in {"failed", "cancelled"}:
+            continue
         return {
             "id": str(_row_value(row, "id", 0) or ""),
-            "status": str(_row_value(row, "status", 1) or ""),
+            "status": status,
             "current_stage": str(_row_value(row, "current_stage", 2) or ""),
             "project_id": item_project,
             "release_lineage": source_sha,
@@ -143,32 +152,20 @@ def latest_deployment_run_for_item(conn: Any, item_id: int) -> dict[str, str]:
 def source_obligation_consumed(
     conn: Any, *, item_id: int, source_requirement_id: int
 ) -> bool:
-    """True when every admitted copy of this intake on the completion run is accepted.
+    """Require every admitted copy on the selected completion member to pass.
 
-    Zero copies is unmet. A newer cancelled run cannot replace the delivered
-    candidate. Several accepted copies are met, but an unsettled copy still
-    holds ``done``.
-
-    "Accepted" is the stage's own answer plus the copy's own discharge state,
-    and both discharge records count: a waiver and a supersession each settle
-    the obligation without evidence from the copy itself. Honouring only the
-    waiver made the product prescribe a remedy it then refused to read --
-    the freeze refusal tells an owner to supersede a case that answered
-    wrongly, the stage accepts the replacement, and ``done`` kept blocking on
-    the frozen row anyway, leaving a waiver as the only exit.
-
-    Following the link cannot launder a failure through. The replacement is
-    bound to the same run, stage, member and execution target, so it is
-    inside the scope :func:`stage_acceptance_blockers` already graded above
-    on its own evidence: a replacement that is not passing leaves blockers,
-    and this returns ``False`` before the discharge is ever consulted. An
-    un-superseded failing copy is untouched and still holds ``done``.
+    Failed or cancelled members cannot mask prior success; a newer active
+    member holds the wait. A later containment-only release has no QA copy.
+    Zero copies is unmet. Stage acceptance and every copy's pass or discharge
+    (waiver or supersession) are required. A bad replacement remains a stage
+    blocker, and an unsettled duplicate still holds ``done``.
     """
-    from yoke_core.domain.delivery_evidence_ladder import delivery_evidence
-    binding = delivery_evidence(conn, int(item_id))
-    run_id = binding.run_id
-    if not binding.discharged or not run_id:
+    # Containment-only releases prove delivery, but have no member-scoped QA
+    # copy. Read the completion membership that actually admitted this source.
+    completion = latest_completion_run(conn, int(item_id), skip_terminal_failures=True)
+    if completion is None or completion["status"] != "succeeded":
         return False
+    run_id = completion["id"]
     case_key = admitted_requirement_case_key(int(source_requirement_id))
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
@@ -206,13 +203,15 @@ def source_obligation_consumed(
         return False
     for row in rows:
         copy_id = int(_row_value(row, "id", 0))
-        settled = obligation_settled({
-            "waived_at": _row_value(row, "waived_at", 3),
-            "superseded_by_requirement_id": _row_value(
-                row, "superseded_by_requirement_id", 4
-            ),
-            "retracted_at": _row_value(row, "retracted_at", 5),
-        })
+        settled = obligation_settled(
+            {
+                "waived_at": _row_value(row, "waived_at", 3),
+                "superseded_by_requirement_id": _row_value(
+                    row, "superseded_by_requirement_id", 4
+                ),
+                "retracted_at": _row_value(row, "retracted_at", 5),
+            }
+        )
         if not settled and latest_verdict(conn, copy_id) != "pass":
             return False
     return True
@@ -228,18 +227,9 @@ def blocking_row_unsatisfied_at_done(
 ) -> bool:
     """True when this blocking intake row still holds ``done``.
 
-    A ``post_deploy`` row is answered by the admitted copy on the completion
-    run and by nothing else -- ``original_passed`` is deliberately ignored for
-    it. That row's own passing run was recorded against whatever candidate was
-    deployed when it ran, so honouring it here would let a prior candidate's
-    proof close out the release actually being delivered, which is the exact
-    substitution frozen admission exists to prevent. An item with no succeeded
-    completion run, or whose admitted copies are missing or not all
-    accepted, has no such proof and keeps blocking.
-
-    Every other phase keeps its established meaning, where the original row's
-    own passing run is the satisfaction: pre-merge verification proves the
-    branch, and manual acceptance proves itself.
+    A ``post_deploy`` row needs its completion member's admitted proof; its
+    own earlier pass could describe another candidate. Other phases keep
+    their original passing run as proof.
     """
     if qa_phase != "post_deploy":
         return not original_passed
