@@ -90,7 +90,7 @@ def test_direct_work_refuses_blank_instruction_before_dispatch(
         args.extend(["--content-file", str(path)])
         named_source = "--content-file"
     else:
-        args.append(blank)
+        args.insert(1, blank)
         named_source = "INSTRUCTION"
 
     command = adapter.dash_file if adapter is dash_file else adapter.task_file
