@@ -44,6 +44,7 @@ def resolve_one_text_source(
     stdin: bool,
     positional_label: str,
     file_flag: str,
+    require_nonblank: bool = False,
 ) -> str:
     selected = sum(bool(item) for item in (positional, file_path, stdin))
     if selected > 1:
@@ -51,15 +52,25 @@ def resolve_one_text_source(
             f"pass exactly one of {positional_label}, {file_flag}, or --stdin"
         )
     if stdin:
-        return sys.stdin.read()
-    if file_path:
+        text = sys.stdin.read()
+        source = "--stdin"
+    elif file_path:
         text = resolve_text_file(None, file_path, file_flag)
-        return text if text is not None else ""
-    if positional:
-        return positional
-    raise ValueError(
-        f"{positional_label}, {file_flag}, or --stdin is required"
-    )
+        text = text if text is not None else ""
+        source = file_flag
+    elif positional:
+        text = positional
+        source = positional_label
+    else:
+        raise ValueError(
+            f"{positional_label}, {file_flag}, or --stdin is required"
+        )
+    if require_nonblank and not text.strip():
+        raise ValueError(
+            f"{source} supplied no instruction; provide nonblank text via "
+            f"{positional_label}, {file_flag}, or --stdin"
+        )
+    return text
 
 
 def resolve_optional_text_source(

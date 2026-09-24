@@ -140,6 +140,7 @@ def task_file(args: List[str]) -> int:
             stdin=parsed.stdin,
             positional_label="INSTRUCTION",
             file_flag="--content-file",
+            require_nonblank=True,
         )
     except ValueError as exc:
         return usage_error(str(exc))
