@@ -51,15 +51,26 @@ yoke browser authorize --reset                # start from an empty profile
 ```
 
 The command opens the profile in a plain window of the daemon's own Chromium
-and waits until you close it. Sign into as many sites as you like; whatever the
+and waits until you close every authorization window. Sign into as many sites as you like; whatever the
 window ends up holding is what the project's Browser cases and walkers get.
 There are no origin lists, no declarations, no per-site probes, and no exported
 storage state.
 
+On macOS, closing the last window can leave Chromium running with no window.
+The command counts windows owned by the browser process it spawned, including
+minimized windows, then asks that process to shut down when the last one closes.
+It waits for Chromium to exit before updating session cookies or reporting the
+profile saved, so the daemon can open the profile without its lock. A browser
+that opens no window within 30 seconds, or stays running for 30 minutes, is
+stopped with a named condition. If it still holds the profile after 10 seconds,
+the error names its PID: quit that process normally and rerun the command
+without `--reset`. The profile directory is never discarded by this recovery.
+
 ### Why the window is plain, and why it is that binary
 
 The window is a directly spawned browser process — `--user-data-dir` on the
-profile, plus the first-run and default-browser prompts turned off — and never
+profile, plus the first-run and default-browser prompts and background mode
+turned off — and never
 a Playwright context. Playwright's `launchPersistentContext` runs the browser
 under automation control: `--enable-automation`, `navigator.webdriver`, an
 attached debugging session. Google's sign-in refuses exactly that shape with

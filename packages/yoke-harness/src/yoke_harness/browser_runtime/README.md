@@ -87,3 +87,9 @@ the project's machine-local capability secrets at
 `~/.yoke/secrets/capability-secrets/<project>/browser-control/profile`, and a
 project with no profile still gets a clean throwaway context. Full contract:
 [Persistent Browser Profile](../../../../../docs/browser-substrate/persistent-profile.md).
+
+On macOS the spawned Chromium can remain alive after its last window closes.
+The authorizer checks windows belonging to that process and requests shutdown
+after the last closes; it reports success only after the process exits and the
+profile can be finalized. A window that never appears and a browser that keeps
+the profile lock both have bounded, named recovery without resetting the profile.
