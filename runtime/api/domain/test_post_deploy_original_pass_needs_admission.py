@@ -31,7 +31,9 @@ from yoke_core.domain import delivery_evidence_ladder as ladder
 from yoke_core.domain.dash_execution import record_dash_evidence
 from yoke_core.domain.dash_posture_gate import evaluate
 from yoke_core.domain.deployment_run_candidate_containment import (
-    CONTAINED, NOT_CONTAINED, ContainmentVerdict,
+    CONTAINED,
+    NOT_CONTAINED,
+    ContainmentVerdict,
 )
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
@@ -96,9 +98,7 @@ def test_an_original_pass_without_any_completion_run_still_blocks_done(
     insert_qa_run(test_db, qa_requirement_id=source_id, verdict="pass")
     _record_evidence(test_db, item_id=item_id)
 
-    _assert_every_done_consumer_refuses(
-        test_db, item_id=item_id, source_id=source_id
-    )
+    _assert_every_done_consumer_refuses(test_db, item_id=item_id, source_id=source_id)
     outcome = _transition_done(test_db, item_id=item_id, monkeypatch=monkeypatch)
     assert outcome.primary_success is False
     # The status write refuses before the shared gate runs, so its own
@@ -139,9 +139,7 @@ def test_an_original_pass_does_not_survive_a_rejected_admitted_copy(
     test_db.commit()
     _record_evidence(test_db, item_id=item_id)
 
-    _assert_every_done_consumer_refuses(
-        test_db, item_id=item_id, source_id=source_id
-    )
+    _assert_every_done_consumer_refuses(test_db, item_id=item_id, source_id=source_id)
     outcome = _transition_done(test_db, item_id=item_id, monkeypatch=monkeypatch)
     assert outcome.primary_success is False
 
@@ -183,9 +181,7 @@ def test_an_original_pass_does_not_survive_a_stale_accepted_copy(
     )
     _record_evidence(test_db, item_id=item_id)
 
-    _assert_every_done_consumer_refuses(
-        test_db, item_id=item_id, source_id=source_id
-    )
+    _assert_every_done_consumer_refuses(test_db, item_id=item_id, source_id=source_id)
     outcome = _transition_done(test_db, item_id=item_id, monkeypatch=monkeypatch)
     assert outcome.primary_success is False
 
@@ -235,9 +231,9 @@ def test_cancelled_newer_run_does_not_mask_the_delivered_qa(
     monkeypatch: pytest.MonkeyPatch,
 ):
     monkeypatch.setattr(
-        ladder, "candidate_contains_commit",
-        lambda _conn, _project, *, candidate_lineage, commit_sha:
-        ContainmentVerdict(
+        ladder,
+        "candidate_contains_commit",
+        lambda _conn, _project, *, candidate_lineage, commit_sha: ContainmentVerdict(
             CONTAINED if candidate_lineage == commit_sha else NOT_CONTAINED
         ),
     )
@@ -245,20 +241,28 @@ def test_cancelled_newer_run_does_not_mask_the_delivered_qa(
     _insert_dash(test_db, item_id=item_id, status="release")
     source_id = _bind_original(test_db, item_id=item_id)
     _seed_selected_requirement_run(
-        test_db, run_id="run-delivered", item_id=item_id,
+        test_db,
+        run_id="run-delivered",
+        item_id=item_id,
         requirement_id=source_id,
     )
     _retarget_run(
-        test_db, run_id="run-delivered", lineage="d" * 40,
+        test_db,
+        run_id="run-delivered",
+        lineage="d" * 40,
         created_at="2026-09-14T00:00:00Z",
     )
     _accept_member_qa(test_db, run_id="run-delivered", item_id=item_id)
     _seed_selected_requirement_run(
-        test_db, run_id="run-cancelled", item_id=item_id,
+        test_db,
+        run_id="run-cancelled",
+        item_id=item_id,
         requirement_id=source_id,
     )
     _retarget_run(
-        test_db, run_id="run-cancelled", lineage="d" * 40,
+        test_db,
+        run_id="run-cancelled",
+        lineage="d" * 40,
         created_at="2026-09-14T00:10:00Z",
     )
     test_db.execute(
@@ -272,14 +276,32 @@ def test_cancelled_newer_run_does_not_mask_the_delivered_qa(
     test_db.commit()
     _record_evidence(test_db, item_id=item_id)
     record_entry(
-        test_db, item_id=item_id, branch="test-lane", target="main",
+        test_db,
+        item_id=item_id,
+        branch="test-lane",
+        target="main",
         merge_sha="d" * 40,
+    )
+    # A later successful release contains the same merge, but did not enroll
+    # this item and therefore has no admitted copy of its source requirement.
+    test_db.execute(
+        "INSERT INTO deployment_runs "
+        "(id,project_id,flow,status,release_lineage,created_at,completed_at) "
+        "SELECT %s,project_id,flow,'succeeded',%s,%s,%s "
+        "FROM deployment_runs WHERE id=%s",
+        (
+            "run-containing-without-member",
+            "d" * 40,
+            "2026-09-14T00:20:00Z",
+            "2026-09-14T00:21:00Z",
+            "run-delivered",
+        ),
     )
     test_db.commit()
 
     delivered = delivery_evidence(test_db, item_id)
     assert delivered.discharged, delivered
-    assert delivered.run_id == "run-delivered"
+    assert delivered.run_id == "run-containing-without-member"
     assert source_obligation_consumed(
         test_db, item_id=item_id, source_requirement_id=source_id
     )
