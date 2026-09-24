@@ -57,7 +57,100 @@ const COOKIE_ENCRYPTION_SWITCHES = ['--password-store=basic', '--use-mock-keycha
 function fakeChild() {
   const child = new EventEmitter();
   child.stderr = new EventEmitter();
+  child.pid = 4242;
+  child.kill = () => { child.emit('exit', null, 'SIGTERM'); return true; };
   return child;
+}
+
+async function testLastWindowCloseFinishesOnMac() {
+  console.log('\n## Test: closing the last window ends a lingering macOS browser');
+  const child = fakeChild();
+  let checks = 0;
+  let signals = 0;
+  child.kill = (signal) => {
+    signals++;
+    assert(signal === 'SIGTERM', 'Requests graceful Chromium shutdown');
+    child.emit('exit', null, signal);
+    return true;
+  };
+  await authorize.openSignInWindow(
+    { profileDir: '/profiles/acme' },
+    {
+      spawnProcess: () => child,
+      executablePath: () => '/cache/chromium',
+      platform: 'darwin', pollMs: 1, limitMs: 2000,
+      windowCount: async (pid) => {
+        assert(pid === 4242, 'Checks only the spawned browser PID');
+        return [1, 0, 0][Math.min(checks++, 2)];
+      },
+    },
+  );
+  assert(signals === 1, 'The final window close completes the command');
+}
+
+async function testHeadlessBrowserHasBoundedRecovery() {
+  console.log('\n## Test: a browser with no window cannot wait forever');
+  const child = fakeChild();
+  let message = '';
+  try {
+    await authorize.openSignInWindow(
+      { profileDir: '/profiles/acme' },
+      {
+        spawnProcess: () => child,
+        executablePath: () => '/cache/chromium',
+        platform: 'darwin', pollMs: 1, startMs: 20, limitMs: 2000,
+        windowCount: async () => 0,
+      },
+    );
+  } catch (error) {
+    message = error.message;
+  }
+  assert(message.includes('opened no authorization window'), 'Names the headless condition');
+  assert(message.includes('without --reset'), 'Preserves the existing signed-in profile');
+}
+
+async function testUnreleasedProfileLockHasBoundedRecovery() {
+  console.log('\n## Test: a browser that ignores termination names its PID');
+  const child = fakeChild();
+  child.kill = () => true;
+  let message = '';
+  try {
+    await authorize.openSignInWindow(
+      { profileDir: '/profiles/acme' },
+      {
+        spawnProcess: () => child,
+        executablePath: () => '/cache/chromium',
+        platform: 'darwin', pollMs: 1, shutdownMs: 20, limitMs: 2000,
+        windowCount: (() => {
+          let checks = 0;
+          return async () => [1, 0, 0][Math.min(checks++, 2)];
+        })(),
+      },
+    );
+  } catch (error) {
+    message = error.message;
+  }
+  assert(message.includes('PID 4242 still holds the profile'), 'Names the lock holder');
+  assert(message.includes('Quit that process normally'), 'Gives a safe recovery');
+}
+
+async function testLongRunningBrowserHasAnEnd() {
+  console.log('\n## Test: a lingering browser cannot wait indefinitely on any platform');
+  const child = fakeChild();
+  let message = '';
+  try {
+    await authorize.openSignInWindow(
+      { profileDir: '/profiles/acme' },
+      {
+        spawnProcess: () => child,
+        executablePath: () => '/cache/chromium',
+        platform: 'linux', pollMs: 1, limitMs: 20,
+      },
+    );
+  } catch (error) {
+    message = error.message;
+  }
+  assert(message.includes('authorization exceeded'), 'Names the bounded session');
 }
 
 async function testSpawnsTheDaemonsBinaryOnTheProfile() {
@@ -212,6 +305,10 @@ async function run() {
 
   const tests = [
     testSpawnsTheDaemonsBinaryOnTheProfile,
+    testLastWindowCloseFinishesOnMac,
+    testHeadlessBrowserHasBoundedRecovery,
+    testUnreleasedProfileLockHasBoundedRecovery,
+    testLongRunningBrowserHasAnEnd,
     testMatchesPlaywrightsOwnCookieEncryptionSwitches,
     testOmitsTheUrlWhenNoneIsGiven,
     testReportsANonZeroBrowserExit,

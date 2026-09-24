@@ -31,7 +31,47 @@
  * is what makes the operator's sign-in readable afterwards.
  */
 
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
+
+const WINDOW_POLL_MS = 2000;
+const WINDOW_START_MS = 30000;
+const AUTHORIZATION_LIMIT_MS = 30 * 60 * 1000;
+const SHUTDOWN_MS = 10000;
+
+// CoreGraphics counts every window, including minimized and off-screen ones.
+// The query only reads window metadata for our spawned PID; it does not attach
+// to Chromium or automate the sign-in page.
+const MAC_WINDOW_QUERY = `
+ObjC.import('CoreGraphics');
+function run(argv) {
+  const pid = Number(argv[0]);
+  const windows = $.CGWindowListCopyWindowInfo($.kCGWindowListOptionAll, $.kCGNullWindowID);
+  let count = 0;
+  for (let i = 0; i < $.CFArrayGetCount(windows); i++) {
+    const info = ObjC.castRefToObject($.CFArrayGetValueAtIndex(windows, i));
+    if (ObjC.unwrap(info.objectForKey($('kCGWindowOwnerPID'))) === pid
+        && ObjC.unwrap(info.objectForKey($('kCGWindowLayer'))) === 0) count++;
+  }
+  return count;
+}`;
+
+function macWindowCount(pid) {
+  return new Promise((resolve, reject) => {
+    execFile('osascript', ['-l', 'JavaScript', '-e', MAC_WINDOW_QUERY, String(pid)],
+      { timeout: 5000 }, (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(`macOS window check failed: ${stderr.trim() || error.message}`));
+          return;
+        }
+        const count = Number(stdout.trim());
+        if (!Number.isInteger(count) || count < 0) {
+          reject(new Error(`macOS window check returned ${JSON.stringify(stdout.trim())}`));
+          return;
+        }
+        resolve(count);
+      });
+  });
+}
 
 /** Command-line flags for a plain, human-driven browser window. */
 function buildLaunchArgs({ profileDir, url }) {
@@ -39,6 +79,7 @@ function buildLaunchArgs({ profileDir, url }) {
     `--user-data-dir=${profileDir}`,
     '--no-first-run',
     '--no-default-browser-check',
+    '--disable-background-mode',
     // The daemon's Playwright launch always passes these two, and a cookie
     // written under one key domain is unreadable -- so silently dropped --
     // under the other. Keep them identical on both sides.
@@ -94,7 +135,12 @@ function parseArgs(argv) {
  */
 function openSignInWindow(
   { profileDir, url },
-  { spawnProcess = spawn, executablePath = resolveExecutablePath } = {},
+  {
+    spawnProcess = spawn, executablePath = resolveExecutablePath,
+    platform = process.platform, windowCount = macWindowCount,
+    pollMs = WINDOW_POLL_MS, startMs = WINDOW_START_MS,
+    limitMs = AUTHORIZATION_LIMIT_MS, shutdownMs = SHUTDOWN_MS,
+  } = {},
 ) {
   const binary = executablePath();
   const child = spawnProcess(binary, buildLaunchArgs({ profileDir, url }), {
@@ -105,21 +151,82 @@ function openSignInWindow(
     child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
   }
   return new Promise((resolve, reject) => {
-    child.on('error', (err) => reject(new Error(
+    let finished = false;
+    let seenWindow = false;
+    let emptyChecks = 0;
+    let windowClosed = false;
+    let stopping = false;
+    let stoppedBecause = '';
+    let timer;
+    let shutdownTimer;
+    const started = Date.now();
+    const finish = (error) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      clearTimeout(shutdownTimer);
+      if (error) reject(error);
+      else resolve();
+    };
+    const stop = (reason) => {
+      if (finished || stopping) return;
+      stopping = true;
+      stoppedBecause = reason;
+      child.kill('SIGTERM');
+      if (finished) return;
+      shutdownTimer = setTimeout(() => finish(new Error(
+        `${reason}; spawned Chromium PID ${child.pid} still holds the profile after `
+        + `${shutdownMs / 1000}s. Quit that process normally, then rerun `
+        + '`yoke browser authorize` without --reset to keep the sign-in.',
+      )), shutdownMs);
+    };
+    const checkWindows = async () => {
+      if (finished || stopping) return;
+      const elapsed = Date.now() - started;
+      if (elapsed >= limitMs) {
+        stop(`authorization exceeded ${limitMs / 60000} minutes with Chromium still running`);
+        return;
+      }
+      if (platform === 'darwin') {
+        try {
+          const count = await windowCount(child.pid);
+          if (finished || stopping) return;
+          if (count > 0) {
+            seenWindow = true;
+            emptyChecks = 0;
+          } else if (seenWindow && ++emptyChecks >= 2) {
+            windowClosed = true;
+            stop('all authorization windows closed but Chromium stayed running');
+            return;
+          } else if (elapsed >= startMs) {
+            stop(`Chromium PID ${child.pid} opened no authorization window within ${startMs / 1000}s`);
+            return;
+          }
+        } catch (error) {
+          stop(`${error.message}. Close Chromium and check macOS window access`);
+          return;
+        }
+      }
+      timer = setTimeout(checkWindows, pollMs);
+    };
+    child.on('error', (err) => finish(new Error(
       `could not start ${binary}: ${err.message}. Run `
       + '`yoke qa browser status` to check the browser runtime, then retry.',
     )));
-    child.on('exit', (code) => {
-      if (code === 0 || code === null) {
-        resolve();
+    child.on('exit', (code, signal) => {
+      if ((!stopping && code === 0)
+          || (windowClosed && (code === 0 || signal === 'SIGTERM'))) {
+        finish();
         return;
       }
       const tail = stderr.trim().split('\n').slice(-5).join('\n');
-      reject(new Error(
-        `the browser exited with status ${code}.`
+      finish(new Error(
+        (stoppedBecause || `the browser exited with status ${code ?? signal}`)
+        + '. Reopen it with `yoke browser authorize` without --reset.'
         + (tail ? `\n${tail}` : ''),
       ));
     });
+    timer = setTimeout(checkWindows, pollMs);
   });
 }
 
@@ -127,7 +234,7 @@ async function main() {
   const args = parseArgs(process.argv);
   console.log('Sign in to whatever sites you need, then close the window.');
   await openSignInWindow(args);
-  console.log('Window closed. Profile saved.');
+  console.log('Authorization window closed; Chromium exited.');
 }
 
 if (require.main === module) {

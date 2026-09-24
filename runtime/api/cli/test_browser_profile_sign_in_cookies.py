@@ -48,7 +48,8 @@ def _cookie_store(profile: Path, rows) -> Path:
     with connection:
         connection.execute(COOKIE_TABLE)
         connection.executemany(
-            "INSERT INTO cookies VALUES (0, ?, ?, '', X'00', ?, ?, ?)", rows,
+            "INSERT INTO cookies VALUES (0, ?, ?, '', X'00', ?, ?, ?)",
+            rows,
         )
     connection.close()
     return store
@@ -109,10 +110,13 @@ def _stub_authorize_runtime(tmp_path, monkeypatch) -> list[dict]:
     runtime_dir.joinpath("src").mkdir(parents=True)
     runtime_dir.joinpath("src", "authorize.js").write_text("", encoding="utf-8")
     monkeypatch.setattr(
-        "yoke_harness.browser_runtime_home.ensure_materialized", lambda: runtime_dir,
+        "yoke_harness.browser_runtime_home.ensure_materialized",
+        lambda: runtime_dir,
     )
     monkeypatch.setattr(
-        browser_client.DaemonState, "load", staticmethod(lambda path=None: None),
+        browser_client.DaemonState,
+        "load",
+        staticmethod(lambda path=None: None),
     )
     calls: list[dict] = []
 
@@ -126,16 +130,23 @@ def _stub_authorize_runtime(tmp_path, monkeypatch) -> list[dict]:
 
 
 def test_authorize_keeps_the_sign_in_when_the_window_closes(
-    machine_home, tmp_path, monkeypatch, capsys,
+    machine_home,
+    tmp_path,
+    monkeypatch,
+    capsys,
 ) -> None:
     _stub_authorize_runtime(tmp_path, monkeypatch)
     store = _cookie_store(
-        browser_profile.ensure_profile_dir("acme"), [("app.example", "sid", 0, 0, 0)],
+        browser_profile.ensure_profile_dir("acme"),
+        [("app.example", "sid", 0, 0, 0)],
     )
 
-    assert authorize_command.browser_authorize(
-        ["--project", "acme", "--json"],
-    ) == 0
+    assert (
+        authorize_command.browser_authorize(
+            ["--project", "acme", "--json"],
+        )
+        == 0
+    )
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["kept_sign_in_cookies"] == 1
@@ -144,7 +155,10 @@ def test_authorize_keeps_the_sign_in_when_the_window_closes(
 
 
 def test_authorize_reports_an_unusable_cookie_store(
-    machine_home, tmp_path, monkeypatch, capsys,
+    machine_home,
+    tmp_path,
+    monkeypatch,
+    capsys,
 ) -> None:
     _stub_authorize_runtime(tmp_path, monkeypatch)
     store = cookie_store_path(browser_profile.ensure_profile_dir("acme"))
@@ -155,8 +169,39 @@ def test_authorize_reports_an_unusable_cookie_store(
     assert "cookie store" in capsys.readouterr().err
 
 
+def test_authorize_json_reports_a_lingering_browser_without_resetting_profile(
+    machine_home,
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    _stub_authorize_runtime(tmp_path, monkeypatch)
+    profile = browser_profile.ensure_profile_dir("acme")
+    _cookie_store(profile, [("app.example", "sid", 0, 0, 0)])
+
+    def lingering_window(command, **_kwargs):
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            stderr=(
+                "all authorization windows closed but Chromium stayed running; "
+                "spawned Chromium PID 4242 still holds the profile"
+            ),
+        )
+
+    monkeypatch.setattr(authorize_command.subprocess, "run", lingering_window)
+    assert authorize_command.browser_authorize(["--project", "acme", "--json"]) == 1
+
+    error = json.loads(capsys.readouterr().out)["error"]
+    assert "PID 4242 still holds the profile" in error
+    assert cookie_store_path(profile).exists(), "failure preserves the existing sign-in"
+
+
 def test_reset_removes_the_profile_before_opening_the_window(
-    machine_home, tmp_path, monkeypatch, capsys,
+    machine_home,
+    tmp_path,
+    monkeypatch,
+    capsys,
 ) -> None:
     calls = _stub_authorize_runtime(tmp_path, monkeypatch)
     profile = browser_profile.ensure_profile_dir("acme")
@@ -171,7 +216,10 @@ def test_reset_removes_the_profile_before_opening_the_window(
 
 
 def test_reset_without_a_profile_still_opens_the_window(
-    machine_home, tmp_path, monkeypatch, capsys,
+    machine_home,
+    tmp_path,
+    monkeypatch,
+    capsys,
 ) -> None:
     calls = _stub_authorize_runtime(tmp_path, monkeypatch)
 
@@ -186,7 +234,8 @@ def test_remove_profile_dir_reports_an_absent_profile(machine_home) -> None:
 
 
 def test_the_daemon_keeps_the_sign_in_before_it_launches(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     """The daemon's own refreshed session cookies survive its next start."""
     profile = tmp_path / "profile"
@@ -207,7 +256,9 @@ def test_the_daemon_keeps_the_sign_in_before_it_launches(
 
 
 def test_a_daemon_start_survives_an_unusable_cookie_store(
-    tmp_path, monkeypatch, capsys,
+    tmp_path,
+    monkeypatch,
+    capsys,
 ) -> None:
     """A profile that cannot be updated is named, not fatal: the run is signed out."""
     profile = tmp_path / "profile"
@@ -229,15 +280,21 @@ def _stub_daemon_launch(monkeypatch, tmp_path, order: list[str]) -> None:
     browser.joinpath("node_modules", "playwright").mkdir(parents=True)
     monkeypatch.setattr(browser_client, "_browser_dir", lambda: browser)
     monkeypatch.setattr(
-        browser_client, "_state_file_path", lambda: tmp_path / "state.json",
+        browser_client,
+        "_state_file_path",
+        lambda: tmp_path / "state.json",
     )
     monkeypatch.setattr(browser_client.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(
         browser_client.DaemonState,
         "load",
-        staticmethod(lambda path=None: browser_client.DaemonState(
-            pid=4242, endpoint="http://127.0.0.1:9000", health="healthy",
-        )),
+        staticmethod(
+            lambda path=None: browser_client.DaemonState(
+                pid=4242,
+                endpoint="http://127.0.0.1:9000",
+                health="healthy",
+            )
+        ),
     )
     monkeypatch.setattr(browser_client, "daemon_running", lambda state=None: False)
     monkeypatch.setattr(
@@ -249,7 +306,10 @@ def _stub_daemon_launch(monkeypatch, tmp_path, order: list[str]) -> None:
         browser_client.subprocess,
         "run",
         lambda command, **_kwargs: subprocess.CompletedProcess(
-            command, 0, "ok" if command[1:2] == ["-e"] else "", "",
+            command,
+            0,
+            "ok" if command[1:2] == ["-e"] else "",
+            "",
         ),
     )
 

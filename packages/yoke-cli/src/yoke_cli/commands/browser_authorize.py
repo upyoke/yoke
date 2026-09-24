@@ -41,6 +41,13 @@ credential is read, stored, or logged by Yoke — the profile is Chromium's own,
 kept with the project's machine-local capability secrets at owner-only
 permissions.
 
+Close every authorization window to finish. On macOS, where Chromium may stay
+running without a window, Yoke checks the spawned browser's windows and asks
+it to shut down after the last one closes. If no macOS window opens in 30 seconds,
+or the browser remains running for 30 minutes, the command stops it and names
+the condition. If it still holds the profile 10 seconds later, quit the named
+PID normally and rerun without --reset; the profile directory is preserved.
+
 The window is a directly spawned browser process, never an automated one. An
 automation-controlled browser announces itself — `--enable-automation`,
 `navigator.webdriver`, an attached debugging session — and Google's sign-in
@@ -93,21 +100,22 @@ _BROWSER_AUTHORIZE_HELP_DEEP = _BROWSER_AUTHORIZE_HELP_DEEP.format(
 def browser_authorize(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke browser authorize",
-        description=(
-            f"{BROWSER_AUTHORIZE_USAGE}\n\n{_BROWSER_AUTHORIZE_HELP_DEEP}"
-        ),
+        description=(f"{BROWSER_AUTHORIZE_USAGE}\n\n{_BROWSER_AUTHORIZE_HELP_DEEP}"),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--project", default=None,
+        "--project",
+        default=None,
         help="Project whose profile to sign in (default: this checkout's).",
     )
     parser.add_argument(
-        "--url", default=None,
+        "--url",
+        default=None,
         help="Optional starting URL to open in the window.",
     )
     parser.add_argument(
-        "--reset", action="store_true",
+        "--reset",
+        action="store_true",
         help=(
             "Delete this project's profile before opening the window, so the "
             "sign-in starts from an empty browser."
@@ -178,13 +186,20 @@ def browser_authorize(args: List[str]) -> int:
         check=False,
         env=toolchain.command_env(),
         stdout=subprocess.DEVNULL if parsed.json_mode else None,
+        stderr=subprocess.PIPE,
+        text=True,
     )
     if result.returncode != 0:
+        detail = (result.stderr or "").strip()
         return _fail(
             parsed.json_mode,
             "the sign-in window exited with status "
-            f"{result.returncode}. Run `yoke qa browser status` to check the "
-            "browser runtime, then retry.",
+            f"{result.returncode}. "
+            + (
+                detail
+                or "Run `yoke qa browser status` to check the browser "
+                "runtime, then retry."
+            ),
             code=1,
         )
 
