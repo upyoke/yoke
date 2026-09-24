@@ -137,7 +137,7 @@ def test_run_message_names_the_stage_bound_invocation_without_a_member():
     )
 
     assert (
-        "yoke qa plan run --deployment-run-id run-9 --stage run-qa "
+        "yoke watch qa-plan -- --deployment-run-id run-9 --stage run-qa "
         "--plan PLAN --project PROJECT" in body
     )
     assert "--member" not in body
@@ -174,7 +174,7 @@ def test_a_run_scoped_stage_that_already_names_cases_omits_the_plan_too():
     )
 
     assert (
-        "yoke qa plan run --deployment-run-id run-9 --stage run-qa "
+        "yoke watch qa-plan -- --deployment-run-id run-9 --stage run-qa "
         "--project PROJECT" in body
     )
     assert "--plan" not in body
