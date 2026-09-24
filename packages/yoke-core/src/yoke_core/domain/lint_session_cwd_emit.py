@@ -76,6 +76,7 @@ def emit_mismatch_denied(
     session_id: str,
     offending_target: str,
     claim_count: int,
+    authority_reason: str = "",
 ) -> None:
     """Emit ``SessionCwdMismatchDenied`` for a deny verdict.
 
@@ -85,12 +86,15 @@ def emit_mismatch_denied(
     ``claim_count`` records how many claimed worktrees the session
     held at the time of the block so post-hoc analysis can spot
     multi-claim sessions where the lint surfaced a misrouted target.
+    ``authority_reason`` is a fixed classification tag and carries no file contents.
     """
     context = {
         "session_id": session_id,
         "offending_target": offending_target,
         "claim_count": int(claim_count),
     }
+    if authority_reason:
+        context["authority_reason"] = authority_reason
     _emit(
         name="SessionCwdMismatchDenied",
         outcome="blocked",
@@ -254,6 +258,7 @@ def emit_deny_and_build_audit(verdict: object) -> dict:
             session_id=verdict.session_id,
             offending_target=verdict.offending_target,
             claim_count=len(claims),
+            authority_reason=getattr(verdict, "authority_reason", ""),
         )
 
     audit: dict = {
@@ -261,6 +266,9 @@ def emit_deny_and_build_audit(verdict: object) -> dict:
         "claim_count": len(claims),
         "failure_class": failure_class,
     }
+    authority_reason = getattr(verdict, "authority_reason", "")
+    if authority_reason:
+        audit["authority_reason"] = authority_reason
     if occupant is not None:
         audit["occupant_session_id"] = occupant.session_id
         audit["occupant_item_id"] = occupant.item_id

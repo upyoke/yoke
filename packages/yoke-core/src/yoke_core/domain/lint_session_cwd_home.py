@@ -92,7 +92,7 @@ def is_external_reference_path(
     repo_roots: Sequence[str],
     machine_home: str | None = None,
 ) -> bool:
-    """True for ordinary material under the selected home, outside checkouts."""
+    """True for home targets without dot-prefixed components, outside checkouts."""
     home = _selected_home(machine_home)
     if not home:
         return False
@@ -100,7 +100,11 @@ def is_external_reference_path(
     if not _is_inside(resolved, home):
         return False
     relative = Path(resolved).parts[len(Path(home).parts) :]
-    if not relative or relative[0].startswith(".") or ".worktrees" in relative:
+    if (
+        not relative
+        or any(part.startswith(".") for part in relative)
+        or ".worktrees" in relative
+    ):
         return False
     return not any(_is_inside(resolved, root) for root in repo_roots)
 
