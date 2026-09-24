@@ -243,6 +243,37 @@ def test_specific_deploy_error_survives_later_generic_stage_failure(
     assert "exit=1" in outcome
 
 
+def test_preflight_failure_survives_later_runner_and_stage_summaries(
+    tmp_path: Path,
+) -> None:
+    diagnostic = (
+        "FAIL yoke_tenant_4: nothing pending -> could not copy: "
+        "pg_dump timed out after 3600s"
+    )
+    raw = tmp_path / "preflight-failure.raw"
+    raw.write_text(
+        "\n".join(
+            (
+                diagnostic,
+                "Step runner diagnostic: hosted release fleet rehearsal failed "
+                "before dispatch (exit code: 1)",
+                "Error: stage 'hosted-release' failed (exit code: 1)",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    outcome = format_terminal_outcome(kind="deploy", exit_code=1, raw_capture=raw)
+
+    assert f"# watch_deploy failure: {diagnostic};" in outcome
+    assert "Step runner diagnostic:" not in outcome
+    assert "Error: stage 'hosted-release' failed" not in outcome
+    assert "recovery: inspect the last captured output" in outcome
+    assert "exit=1" in outcome
+    assert f"raw={raw}" in outcome
+
+
 def test_deadlock_abort_reports_named_cause_without_heartbeat(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

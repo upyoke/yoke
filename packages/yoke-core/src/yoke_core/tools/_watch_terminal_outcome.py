@@ -17,6 +17,9 @@ _TERMINAL_LINE_RE = re.compile(
     re.IGNORECASE,
 )
 _EXPLICIT_TERMINAL_ERROR_RE = re.compile(r"^\s*Terminal error:", re.IGNORECASE)
+_TERMINAL_SUMMARY_RE = re.compile(
+    r"^\s*(?:Step runner diagnostic:|Error:\s*stage\b)", re.IGNORECASE
+)
 PYTHON_EXCEPTION_PATTERN = re.compile(
     r"^\s*(?:[A-Za-z_][\w.]*?(?:Error|Exception)|SystemExit|KeyboardInterrupt):"
 )
@@ -62,6 +65,12 @@ def terminal_error_from_raw_capture(raw_capture: Path) -> str | None:
 
 def _terminal_cause(raw_capture: Path) -> str | None:
     latest = terminal_error_from_raw_capture(raw_capture)
+    latest_detail = (
+        latest
+        if latest is not None and not _TERMINAL_SUMMARY_RE.match(latest)
+        else None
+    )
+    latest_summary = None
     explicit = None
     with raw_capture.open(encoding="utf-8", errors="replace") as capture:
         for line in capture:
@@ -75,8 +84,13 @@ def _terminal_cause(raw_capture: Path) -> str | None:
                 or PYTHON_EXCEPTION_PATTERN.match(line)
                 or _WATCH_FAILURE_RE.match(line)
             ):
-                latest = _compact(line)
-    return explicit or latest
+                candidate = _compact(line)
+                latest = candidate
+                if _TERMINAL_SUMMARY_RE.match(line):
+                    latest_summary = candidate
+                else:
+                    latest_detail = candidate
+    return explicit or latest_detail or latest_summary or latest
 
 
 def format_terminal_outcome(
