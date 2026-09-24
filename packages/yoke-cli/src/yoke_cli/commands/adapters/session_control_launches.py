@@ -31,7 +31,7 @@ LAUNCH_PREVIEW_USAGE = (
 )
 LAUNCH_CREATE_USAGE = (
     "yoke session-control launch create --project P --surface S "
-    "[--item PREFIX-N] --idempotency-key K [--stdin] [--raw-instructions] "
+    "(--item PREFIX-N | --raw-instructions --stdin) --idempotency-key K "
     "[--machine M] [--model M] [--reasoning-effort E] [--context-window N] "
     "[--presentation P] "
     "[--allow-surface-fallback] [--list-models] [--json]"
@@ -155,7 +155,7 @@ def _launch_create_parser(
         mode.add_argument(
             "--stdin",
             action="store_true",
-            help="Optional extras appended after the server-composed mandate.",
+            help="Optional extras for --item; required non-empty body for --raw-instructions.",
         )
     else:
         parser.add_argument(
@@ -166,7 +166,7 @@ def _launch_create_parser(
     parser.add_argument(
         "--raw-instructions",
         action="store_true",
-        help="Treat --stdin as the full instruction body; skip mandate composition.",
+        help="Use --stdin as the full instruction body, including itemless launches.",
     )
     parser.add_argument("--idempotency-key", default=None)
     parser.add_argument("--item", default=None)
@@ -199,14 +199,17 @@ def _create(args: List[str], *, alias: bool) -> int:
             function_id="session_control.launch.preview",
             payload=selector,
         )
-    if not parsed.idempotency_key:
-        return usage_error("launch create requires --idempotency-key")
     instructions = read_stdin_payload(parsed) or ""
     if parsed.raw_instructions:
         if not instructions.strip():
             return usage_error("raw instruction launches require non-empty --stdin")
     elif not parsed.item:
-        return usage_error("launch create requires --item PREFIX-N")
+        return usage_error(
+            "launch create requires --item PREFIX-N or --raw-instructions --stdin "
+            "for an itemless launch"
+        )
+    if not parsed.idempotency_key:
+        return usage_error("launch create requires --idempotency-key")
     payload = {
         **selector,
         "instructions": instructions,

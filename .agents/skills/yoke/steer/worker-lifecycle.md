@@ -235,16 +235,19 @@ the first command named.
 
 ## Launcher recipe
 
-Preview is mandatory. Do not create until preview returns
-`launchable=true` for the chosen CLI surface. CLI surface only. Composed
-mandates require `--item`; `session_control.launch.create` composes the
-canonical single-item mandate server-side from that ref and the
-charge-schedule route. Itemless launches use `--raw-instructions` with a
-nonempty `--stdin` body and skip item lookup, terminal-item checks, and
-item-derived naming. Every worker reports deliberately with
+Preview is mandatory for every steering-staffed session, including itemless
+ones. Do not create until preview returns `launchable=true` for the chosen
+CLI surface. Use `session_control.launch.create` for every launch. An
+item-bound composed mandate requires `--item`; the server composes the
+canonical single-item mandate from that ref and the charge-schedule route.
+An explicitly itemless raw mandate requires `--raw-instructions --stdin` and
+a nonempty body; it skips item lookup, terminal-item checks, and item-derived
+naming. After a Yoke refusal, follow its named recovery through Yoke; never
+substitute the Codex app `create_thread`, direct native CLI, or another
+launch path. Every worker reports deliberately with
 `yoke say --steering`. The mandate carries no session id: the report is
-addressed to the steering ROLE. Do not hand-assemble the worker body.
-Optional extras append after a composed mandate via `--stdin`.
+addressed to the steering ROLE. Do not hand-assemble an item-bound worker
+body. Optional extras append after a composed mandate via `--stdin`.
 
 ```text
 yoke session-control launch create \
@@ -269,7 +272,9 @@ yoke session-control launch create \
   --model {_model} \
   --reasoning-effort {_effort} \
   --context-window {_context} \
-  --json
+  --json <<'EOF'
+<complete itemless mandate>
+EOF
 ```
 
 Managed `claude-*` launches are local-only per launch: Yoke disables Claude
@@ -482,9 +487,10 @@ the `yoke qa plan run ... --continue-mission` command its next
 `yoke qa mission host-command` refusal names. Tell a held walker to continue
 rather than to re-run the plan; an ordinary run resets the host.
 
-Use this recipe for every launch, whether the item just became runnable
-or the fleet report named it as available. There is no second staffing
-path: every launch is item-bound and CLI-only, and the server composes it.
+Use this recipe for every launch, whether an item just became runnable,
+the fleet report named it as available, or the steering request is itemless.
+Item-bound frontier staffing remains the default. Both shapes use the same
+Yoke launch path on a CLI surface; the server composes item-bound mandates.
 
 When same-surface worker failures carry a vendor-side signature, disable
 that surface with `yoke session-control surface-policy disable` and staff
