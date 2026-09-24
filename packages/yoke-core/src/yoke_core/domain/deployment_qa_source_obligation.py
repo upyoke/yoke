@@ -16,6 +16,9 @@ from yoke_core.domain.deployment_qa_admission_materialization import (
 from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
 )
+from yoke_core.domain.deployment_qa_run_bound_done_settlement import (
+    superseded_run_bound_row_satisfied,
+)
 from yoke_core.domain.deployment_qa_stage_acceptance import (
     latest_verdict,
     stage_acceptance_blockers,
@@ -33,13 +36,10 @@ from yoke_core.domain.qa_obligation_settlement import (
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
-# A post_deploy row that already passed once is not re-runnable into
-# satisfaction. POST_DEPLOY_RECOVERY names three exits, each with its
-# condition; the wording is pinned in
-# runtime/api/domain/test_post_deploy_recovery_exit_conditions.py.
+# Intake recovery wording is pinned in test_post_deploy_recovery_exit_conditions.py.
 POST_DEPLOY_RECOVERY = (
-    "A post_deploy obligation is satisfied by the completion run's admitted "
-    "copy, so re-running the intake row cannot clear it. Three exits exist, "
+    "A post_deploy intake obligation is satisfied by the completion run's "
+    "admitted copy, so re-running the intake row cannot clear it. For intake, three exits exist, "
     "each with its own condition. If no admitted copy was ever accepted -- "
     "there is no completion run, or that run did not succeed, or the flow's "
     "QA stage target and the requirement's target_env disagree so nothing "
@@ -54,7 +54,9 @@ POST_DEPLOY_RECOVERY = (
     "accepted; re-delivery does not remove a duplicate, so an unsettled "
     "copy is superseded or waived. If none of those conditions hold, waive the "
     "requirement through the registered waiver surface with explicit "
-    "authorization."
+    "authorization. A failed run-bound member case instead needs a passing "
+    "same-run, stage, member and target replacement with accepted stage proof, "
+    "or an authorized waiver; another delivery cannot settle that frozen row."
 )
 
 
@@ -249,6 +251,13 @@ def row_unsatisfied_at_done(conn: Any, row: Any, *, item_id: int) -> bool:
         source_id = int(row["id"])
         passed = bool(row["passed"])
         if row.get("item_id") is None:
+            if phase == "post_deploy" and not passed and row["deployment_run_id"]:
+                return not superseded_run_bound_row_satisfied(
+                    conn,
+                    requirement_id=source_id,
+                    item_id=item_id,
+                    completion=latest_completion_run(conn, item_id),
+                )
             phase = ""
     else:
         phase = str(row[1] or "")
