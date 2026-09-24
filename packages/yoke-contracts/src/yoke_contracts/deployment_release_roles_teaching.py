@@ -34,14 +34,24 @@ Item-bound batch release — who runs what:
   live release, so the next start takes it. `yoke steering report get` names
   any landed item no release holds, so nobody has to notice one going stale.
   Steering does not run a member's item QA and does not close a member out. A
-  run-wide pass does not credit a member's item-scoped stage.
+  run-wide pass does not credit a member's item-scoped stage. Completed scoped
+  execution settles its gate on the server and opens required human review;
+  a resolved decision requests continuation of the same run. Re-enter the
+  pinned runner on that run after a continuation notice.
+
+  The deploy driver owns run-scoped visual QA. Inspect the live run target as
+  an agent or assign a capable QA agent through Yoke. Record the inspection
+  for the run and stage, then re-drive that same run:
+    yoke watch qa-plan -- --deployment-run-id RUN-ID --stage STAGE --project P
+  Add `--plan PLAN` only when that run stage names no cases. Item QA captures
+  cannot credit this separate run-scoped stage.
 
   The member owner stays parked at its release wait holding its own claim, and
   the deployment wake re-enters it for its QA stage, when its own item-scoped
   QA is accepted, and when delivery clears. When a stage wants its evidence it credits
   that stage by naming the stage AND itself, because a stage credits only the
   requirements bound to its own name:
-    yoke qa plan run --deployment-run-id RUN-ID --stage STAGE --member PREFIX-N \\
+    yoke watch qa-plan -- --deployment-run-id RUN-ID --stage STAGE --member PREFIX-N \\
       --project P
   `--plan PLAN` goes on that line only for a stage the wake says names no
   cases; a stage already naming its own refuses it, because a plan there

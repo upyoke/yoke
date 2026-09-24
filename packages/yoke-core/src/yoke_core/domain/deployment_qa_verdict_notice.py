@@ -129,6 +129,9 @@ def notify_deployment_qa_verdict(
     run_id = subject["run_id"]
     stage_name = subject["stage_name"]
     member_item_id = subject["member_item_id"]
+    from yoke_core.domain.deployment_qa_stage_settlement import settle_subject
+
+    settle_subject(conn, run_id=run_id, stage=stage_name, member=member_item_id)
     key = verdict_idempotency_key(requirement_id, action)
     if member_item_id is None:
         return push_run_scoped_notice(
@@ -168,9 +171,7 @@ def notify_deployment_qa_verdict(
             notify_item_qa_accepted,
         )
 
-        notify_item_qa_accepted(
-            conn, run_id=run_id, item_id=member_item_id, now=now
-        )
+        notify_item_qa_accepted(conn, run_id=run_id, item_id=member_item_id, now=now)
     return delivery
 
 

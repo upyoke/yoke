@@ -156,13 +156,15 @@ def run_stage_wait_message(
     )
     return (
         f"Deployment run {run_id} reached run-scoped QA stage {stage_name!r} "
-        f"for {context}. Reaching {addressed}: the stage still needs "
-        f"evidence/verdict ({reasons}). Run its cases naming the stage, "
-        "which is what this stage credits: 'yoke qa plan run "
+        f"for {context}. Reaching {addressed}: the deploy driver owns this "
+        "run-scoped inspection. Inspect the live target as an agent or "
+        "assign a capable QA agent through Yoke, then record evidence and "
+        f"verdict for this run and stage ({reasons}). Run its cases naming "
+        "the stage, which is what this stage credits: 'yoke watch qa-plan -- "
         f"--deployment-run-id {run_id} --stage {stage_name}"
         f"{_plan_selection(names_cases)} "
-        f"--project PROJECT'. Check 'yoke deployment-runs get {run_id}' for "
-        "the current state."
+        f"--project PROJECT'. Then re-drive the same run. Check "
+        f"'yoke deployment-runs get {run_id}' for the current state."
     )
 
 

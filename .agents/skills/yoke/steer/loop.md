@@ -349,13 +349,33 @@ stage counts. The deployment wake re-enters each parked owner for its stage,
 and the owner runs its own:
 
 ```text
-yoke qa plan run --deployment-run-id {RUN_ID} --stage STAGE --member PREFIX-N --plan PLAN --project {_project}
+yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --member PREFIX-N --project {_project}
 ```
 
 Broadcast that exact form if an owner asks which command to run; never an
 unscoped `yoke qa plan run --deployment-run-id {RUN_ID}` and never
 `yoke qa case run --requirement-id N`, both of which leave the stage
 unsatisfied. Depth: `yoke qa plan run --help`.
+
+Add `--plan PLAN` to the scoped QA command only when the stage names no
+cases and asks the agent to select them. A selected stage already has its
+own cases. Completed scoped execution settles the stage acceptance on the
+server and opens its configured human review immediately. A resolved review
+also reaches this run's driver; re-enter the pinned runner on the same run
+after a continuation notice, without repeating passing QA or deployment
+stages.
+
+**The deploy driver owns run-scoped visual QA.** Inspect the run's live
+target as an agent, or assign a capable QA agent through Yoke. Record the
+inspection and verdict against that run and stage:
+
+```text
+yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --project {_project}
+```
+
+Add `--plan PLAN` only when this run stage names no cases. Then re-drive
+`{RUN_ID}` through its existing pinned runner. Item QA evidence has its own
+member subject and cannot credit this run-scoped stage.
 
 A member whose own item-scoped QA is accepted no longer needs a manual merge
 close-out. After all of that member's scoped obligations pass or are waived,
