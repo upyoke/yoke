@@ -27,6 +27,7 @@ import threading
 from yoke_core.domain import yoke_function_registry
 
 from yoke_core.domain.handlers import (
+    _register_actors,
     _register_advance_preflight,
     _register_capabilities_read,
     _register_claims,
@@ -110,6 +111,7 @@ from yoke_core.domain.handlers import (
 )
 
 _DOMAIN_REGISTRARS = (
+    _register_actors,
     _register_items_create,
     _register_items_structured,
     _register_items_github_sync,

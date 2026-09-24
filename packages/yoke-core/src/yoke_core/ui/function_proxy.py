@@ -42,6 +42,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         # navigation while its read was refused, so the page rendered a
         # 403 where its content belongs.
         "profile.get",
+        "actors.roster",
         "packs.list",
         "packs.bundle.get",
         "project_structure.architecture_health.get",
@@ -139,6 +140,7 @@ UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset(
         "test_machine.list",
         "workflows.mechanics.get",
         "profile.get",
+        "actors.roster",
     }
 )
 

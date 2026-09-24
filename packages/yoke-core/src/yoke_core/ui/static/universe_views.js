@@ -25,6 +25,7 @@ import {
   renderItemsView,
 } from "./universe_views_items.js";
 import { renderOrganizationView } from "./universe_views_organization.js";
+import { renderActorsView } from "./universe_views_actors.js";
 import { renderProfileView } from "./universe_views_profile.js";
 import {
   renderOuroborosEntryDetailView,
@@ -123,6 +124,7 @@ export const VIEW_RENDERERS = {
   profile: renderProfileView,
 
   organization: renderOrganizationView,
+  actors: renderActorsView,
   workflows: renderWorkflowsView,
   projects: renderProjectsView,
   github: renderGithubView,

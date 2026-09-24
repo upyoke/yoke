@@ -1,0 +1,54 @@
+/* Actors keeps the prototype's flush roster table in the shared dashboard. */
+.universe-app-root .actors-lead {
+  margin: 0 0 18px;
+  color: var(--yoke-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.universe-app-root .actors-local-notice {
+  margin-bottom: 14px;
+}
+
+.universe-app-root .actors-local-notice[hidden] {
+  display: none;
+}
+
+.universe-app-root .actors-local-body,
+.universe-app-root .actors-identity {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.universe-app-root .actors-local-body {
+  gap: 10px;
+}
+
+.universe-app-root .actors-panel .panel-body:has(> .table-wrap) {
+  padding: 0;
+}
+
+.universe-app-root .actors-table {
+  min-width: 600px;
+}
+
+.universe-app-root .actors-table .actor-avatar.current {
+  background: var(--yoke-accent);
+  color: #fff;
+}
+
+.universe-app-root .actors-name {
+  color: var(--yoke-ink);
+  font-weight: 550;
+}
+
+.universe-app-root .actors-muted {
+  color: var(--yoke-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.universe-app-root .actors-empty {
+  margin: 13px 15px;
+}
