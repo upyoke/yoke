@@ -118,7 +118,7 @@ def test_launch_create_itemless_raw_omits_item(monkeypatch) -> None:
     assert payload["compose_mandate"] is False
 
 
-def test_launch_create_composed_without_item_is_usage_error() -> None:
+def test_launch_create_without_selector_teaches_itemless_recovery(capsys) -> None:
     assert (
         launches.session_launch_create(
             [
@@ -132,6 +132,27 @@ def test_launch_create_composed_without_item_is_usage_error() -> None:
         )
         == 2
     )
+    assert (
+        "--raw-instructions --stdin for an itemless launch" in capsys.readouterr().err
+    )
+    assert (
+        launches.session_launch_create(["--project", "yoke", "--surface", "cursor-cli"])
+        == 2
+    )
+    assert (
+        "--raw-instructions --stdin for an itemless launch" in capsys.readouterr().err
+    )
+    help_text = " ".join(
+        launches._launch_create_parser(
+            "yoke session-control launch create",
+            launches.LAUNCH_CREATE_USAGE,
+            preview=False,
+        )
+        .format_help()
+        .split()
+    )
+    assert "(--item PREFIX-N | --raw-instructions --stdin)" in help_text
+    assert "including itemless launches" in help_text
 
 
 def test_launch_create_itemless_raw_without_body_is_usage_error() -> None:

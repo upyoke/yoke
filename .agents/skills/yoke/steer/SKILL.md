@@ -69,6 +69,11 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
 - **Workers merge; the steerer batches delivery.** Worker mandates prohibit
   deployment-run creation. The loop pins one release SHA, deploys batches,
   and completes any item parked at its release boundary afterward.
+- **Yoke launches every staffed session.** Preview an explicit CLI surface,
+  then use `session_control.launch.create` for both item-bound composed mandates
+  (`--item`) and itemless raw mandates (`--raw-instructions --stdin`). After a
+  Yoke refusal, use its named recovery through Yoke; never substitute the
+  Codex app `create_thread`, a direct native CLI, or another launch path.
 - **Every response the operator sees states a live outstanding operator
   action** — the item it blocks and what it unblocks — until it resolves
   or the operator asks to mute reminders; fold this into the reply and the
