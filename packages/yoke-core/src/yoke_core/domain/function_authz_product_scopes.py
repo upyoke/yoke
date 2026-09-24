@@ -23,6 +23,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "models.diff.run": AuthzSpec(ACTOR_SESSION, None),
     "models.revisions.run": AuthzSpec(ACTOR_SESSION, None),
     # Actor-visible lists and personal decision/preference surfaces.
+    "actors.roster": AuthzSpec(ACTOR_SESSION, None),
     "items.overview.list": AuthzSpec(ACTOR_SESSION, None),
     "items.detail.get": AuthzSpec(ACTOR_SESSION, None),
     "items.public_ref.lookup": AuthzSpec(ACTOR_SESSION, None),

@@ -6,6 +6,11 @@ Who and what may act on the universe and per project: machine connect,
 approvals, tokens. On Cloud, CLI connect and machine authorization start
 at the platform routes (`/connect`, `/machine`).
 
+The dashboard's **Actors** page reads the live actor roster. It shows each
+actor's kind, organization role, and project grants; hosted mode also shows
+the linked sign-in email when one exists. The page is read-only. A local
+universe with one human actor explains that it has no access to grant yet.
+
 A machine waiting to be admitted is answered on the **Machines** page,
 not here: approving needs the machine beside the decision — which one,
 who asked for it, and the one-time code the person at that machine is
