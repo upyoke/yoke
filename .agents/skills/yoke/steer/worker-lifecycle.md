@@ -491,6 +491,7 @@ Use this recipe for every launch, whether an item just became runnable,
 the fleet report named it as available, or the steering request is itemless.
 Item-bound frontier staffing remains the default. Both shapes use the same
 Yoke launch path on a CLI surface; the server composes item-bound mandates.
+There is no second staffing path.
 
 When same-surface worker failures carry a vendor-side signature, disable
 that surface with `yoke session-control surface-policy disable` and staff
