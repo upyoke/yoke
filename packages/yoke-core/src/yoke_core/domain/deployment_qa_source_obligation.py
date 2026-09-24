@@ -38,8 +38,9 @@ from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 # Intake recovery wording is pinned in test_post_deploy_recovery_exit_conditions.py.
 POST_DEPLOY_RECOVERY = (
-    "A post_deploy intake obligation is satisfied by the completion run's "
-    "admitted copy, so re-running the intake row cannot clear it. For intake, three exits exist, "
+    "A post_deploy obligation is satisfied by the completion run's admitted "
+    "copy when it comes from item intake, so re-running that intake row cannot "
+    "clear it. For intake, three exits exist, "
     "each with its own condition. If no admitted copy was ever accepted -- "
     "there is no completion run, or that run did not succeed, or the flow's "
     "QA stage target and the requirement's target_env disagree so nothing "
