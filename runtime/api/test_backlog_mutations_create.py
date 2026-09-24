@@ -206,7 +206,7 @@ class TestExecuteCreate:
         assert _item_field(tmp_db, result["item_id"], "spec") == instruction
         assert "created with no body content" not in out.getvalue()
 
-    def test_empty_dash_body_warns_with_registered_structured_field_recipe(self, tmp_db):  # noqa: F811
+    def test_staged_issue_body_warns_with_registered_structured_field_recipe(self, tmp_db):  # noqa: F811
         out = io.StringIO()
         with _patch_externals(), \
              mock.patch.dict(
@@ -214,8 +214,8 @@ class TestExecuteCreate:
                  {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
              ):
             result = backlog.execute_create(
-                title="Empty Dash item",
-                workflow="dash",
+                title="Staged Issue item",
+                workflow="issue",
                 project="yoke",
                 entry_surface="harness_skill",
                 out=out,

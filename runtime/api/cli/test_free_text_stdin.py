@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from io import StringIO
 
+import pytest
+
 from yoke_cli.commands.adapters import dash_file, items_create, qa, qa_crud, task
 from yoke_cli.commands.adapters import ouroboros_field_note as field_note
 
@@ -67,6 +69,36 @@ def test_task_filing_reads_instruction_from_stdin(monkeypatch):
     assert captured["payload"]["instruction"] == (
         "Refresh the local inventory file.\n"
     )
+
+
+@pytest.mark.parametrize("adapter", [dash_file, task])
+@pytest.mark.parametrize("source", ["stdin", "file", "positional"])
+@pytest.mark.parametrize("blank", ["", " \n"])
+def test_direct_work_refuses_blank_instruction_before_dispatch(
+    monkeypatch, tmp_path, capsys, adapter, source, blank,
+):
+    dispatched = []
+    monkeypatch.setattr(adapter, "dispatch_and_emit", lambda **kw: dispatched.append(kw))
+    args = ["Work title", "--execution-instructions-considered"]
+    if source == "stdin":
+        monkeypatch.setattr("yoke_cli.commands.text_file.sys.stdin", StringIO(blank))
+        args.append("--stdin")
+        named_source = "--stdin"
+    elif source == "file":
+        path = tmp_path / "empty.txt"
+        path.write_text(blank, encoding="utf-8")
+        args.extend(["--content-file", str(path)])
+        named_source = "--content-file"
+    else:
+        args.insert(1, blank)
+        named_source = "INSTRUCTION"
+
+    command = adapter.dash_file if adapter is dash_file else adapter.task_file
+    assert command(args) == 2
+    assert not dispatched
+    error = capsys.readouterr().err
+    assert named_source in error
+    assert "nonblank text" in error or "is required" in error
 
 
 def test_items_create_reads_title_from_stdin(monkeypatch):

@@ -143,6 +143,12 @@ def execute_create(
         if intake_block:
             return {"success": False, "error": intake_block}
         clean_instruction = None if instruction is None else str(instruction).strip()
+        if workflow_id in ("dash", "task") and not clean_instruction:
+            return {
+                "success": False,
+                "error": f"{workflow_id} item creation requires a nonblank instruction; "
+                "provide instruction text before filing",
+            }
         if entry_surface == "web_form" and not clean_instruction:
             return {
                 "success": False,
