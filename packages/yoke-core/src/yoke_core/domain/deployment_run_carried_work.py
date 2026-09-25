@@ -183,7 +183,14 @@ def _require_bound_project_coverage(
         (run_id,),
     ).fetchone()
     assert row is not None
-    expected = set(bound_project_shas(parse_bound_sources(row[0])))
+    require_bound_project_coverage(run_id, payload, row[0])
+
+
+def require_bound_project_coverage(
+    run_id: str, payload: dict[str, Any], bound_sources: Any
+) -> None:
+    """Reject a cached answer derived before its bound commits were pinned."""
+    expected = set(bound_project_shas(parse_bound_sources(bound_sources)))
     actual = {int(entry["project_id"]) for entry in payload.get("bound_projects") or []}
     if expected != actual:
         raise ValueError(
@@ -202,5 +209,6 @@ __all__ = [
     "derive_project_carried_work",
     "derive_carried_work_safely",
     "parse_carried_work",
+    "require_bound_project_coverage",
     "record_carried_work",
 ]
