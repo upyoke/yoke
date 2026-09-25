@@ -26,6 +26,7 @@ from runtime.api.domain.test_deployment_qa_stage_execution import (
     _seed_run,
     _stages,
 )
+from runtime.api.domain.test_no_obligation_member_close_out import _no_obligation
 from yoke_core.domain.db_helpers import iso8601_now
 from runtime.api.domain.test_deployment_qa_stage_ordering import (
     _qa_stage as _ordered_qa_stage,
@@ -120,6 +121,21 @@ def test_one_member_failing_leaves_its_sibling_accepted(test_db) -> None:
     outstanding = _standing(test_db, "run-siblings", 9905)
     assert outstanding.state == "not yet run"
     assert "no completed scoped QA execution exists" in outstanding.reason
+
+
+def test_explicit_no_obligation_reads_as_discharged_on_session_card(test_db) -> None:
+    plan_id = _plan(test_db, "no-obligation-standing")
+    _seed_run(
+        test_db,
+        run_id="run-no-obligation-standing",
+        stages=_stages(plan_id),
+        members=(9910,),
+    )
+    _no_obligation(test_db, 9910, reason="nothing observable after delivery")
+
+    standing = _standing(test_db, "run-no-obligation-standing", 9910)
+    assert standing.state == "discharged"
+    assert standing.blockers == ()
 
 
 def test_a_release_with_no_item_qa_stage_reports_nothing(test_db) -> None:

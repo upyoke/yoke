@@ -91,9 +91,10 @@ learns the other's part from its own skill. The split is the whole rule:
   member already in it.
 - **The member owner owns its own item.** Its merge parked it at the flow's
   release wait holding its work claim; the deployment wake re-enters it for its
-  QA stage and when its own item-scoped QA is accepted. A final member on a
+  QA stage and when its own item-scoped QA clears. A final member on a
   selected flow without run QA closes after its own final production QA is
-  accepted, even while sibling QA holds the run open. Required run QA holds
+  accepted or explicitly discharged by `post_deploy_no_obligation`, even
+  while sibling QA holds the run open. Required run QA holds
   every final member through all item QA, shared QA, and run success. This
   automatic close-out needs no delivery wake and ends an otherwise empty
   holder session. A wait wake is withdrawn — the

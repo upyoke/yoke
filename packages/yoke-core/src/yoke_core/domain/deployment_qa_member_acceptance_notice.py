@@ -47,7 +47,7 @@ def item_qa_accepted_message(
 ) -> str:
     """Name what was accepted and how the release-wait owner should wait."""
     lead = (
-        f"{public_ref}'s own item-scoped QA is accepted on deployment run "
+        f"{public_ref}'s item-scoped QA gate is clear on deployment run "
         f"{run_id}. The run may still be executing; the selected flow's "
         "shared QA decides whether sibling QA delays completion."
     )
@@ -136,13 +136,6 @@ def notify_item_qa_accepted(
         now=now,
     )
     if not _item_qa_cleared(conn, run_id=run_id, item_id=item_id):
-        return ""
-    from yoke_core.domain.no_obligation_member_close_out import (
-        recorded_no_obligation,
-    )
-
-    # A no-obligation member waits for the ordinary run-success close-out.
-    if recorded_no_obligation(conn, int(item_id)):
         return ""
     member = _release_wait_member(conn, int(item_id))
     if member is None:

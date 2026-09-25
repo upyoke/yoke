@@ -153,9 +153,13 @@ missing was a wake: the only deployment wake was run-scoped and
 addressed to the driver, so a member whose own item-scoped QA was
 accepted sat at its release wait until the whole run finished.
 
-When an item-scoped stage subject becomes accepted, and
+When an item-scoped stage subject becomes accepted or is discharged by an
+explicit `post_deploy_no_obligation`, and
 `deployment_qa_run_acceptance.item_qa_acceptance_blockers` is empty for
-that member, the member's release-wait owner is woken on the same
+that member, a final production member on a selected flow without run QA
+closes independently even while sibling item QA holds the run open. The
+same final-delivery, evidence, and done gates still apply. If automatic
+close-out refuses, the member's release-wait owner is woken on the same
 delivery contract `deployment_run_driver_notice` already implements —
 a second recipient, not a second wake path. The notice fires once per
 member per run on the acceptance transition. A re-read of an

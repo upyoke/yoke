@@ -377,9 +377,10 @@ Add `--plan PLAN` only when this run stage names no cases. Then re-drive
 `{RUN_ID}` through its existing pinned runner. Item QA evidence has its own
 member subject and cannot credit this run-scoped stage.
 
-A member whose own item-scoped QA is accepted no longer needs a manual merge
+A member whose own item-scoped QA clears no longer needs a manual merge
 close-out. A final member on a selected flow without run QA closes from its
-landing and final production QA evidence while sibling item QA keeps the run
+landing and final production QA acceptance or explicit
+`post_deploy_no_obligation` discharge while sibling item QA keeps the run
 executing. A flow with required run QA holds every final member through all
 item QA, shared QA, and run success. Automatic close-out ends an otherwise
 empty holder session. Do not

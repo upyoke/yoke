@@ -88,7 +88,7 @@ def test_accepted_item_qa_wakes_the_parked_owner_while_the_run_executes(
     key = item_qa_accepted_idempotency_key(MEMBER_A, "run-item-qa-wake")
     assert _recipients(test_db, key) == [HOLDER_A]
     [body] = _bodies(test_db, key)
-    assert "own item-scoped QA is accepted" in body
+    assert "item-scoped QA gate is clear" in body
     assert "still be executing" in body
     assert "will auto-close" in body
     assert "do not re-run merge solely" in body
