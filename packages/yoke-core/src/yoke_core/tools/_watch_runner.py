@@ -130,7 +130,8 @@ def run_watcher(
     evidence around the child run. ``liveness`` keeps the session
     that started this command from going
     stale while it waits: a long gate run is activity, and without the
-    refresh the stale-session sweep reclaims the item claim mid-run.
+    refresh a claimless session can age out mid-run; an active work claim
+    remains protected independently of the heartbeat.
 
     ``outcome_only`` suppresses watcher metadata and routine progress,
     defers summaries until a zero child exit, and reports a final result
@@ -212,8 +213,7 @@ def run_watcher(
                 )
             else:
                 footer = (
-                    f"# watch_{kind} exit={WRAPPER_LAUNCH_ERROR} "
-                    f"raw={raw_capture}\n"
+                    f"# watch_{kind} exit={WRAPPER_LAUNCH_ERROR} raw={raw_capture}\n"
                 )
                 _emit_immediate(footer, progress_f=progress_f, out=out)
             return WRAPPER_LAUNCH_ERROR

@@ -141,9 +141,8 @@ class TestSessionEndRelease:
 
 
 class TestHarnessSessionCommands:
-    @pytest.mark.parametrize("command_name", ["release_all", "reclaim"])
-    def test_session_scoped_commands_preserve_sticky_claims(
-        self, db_path: str, command_name: str, monkeypatch
+    def test_release_all_preserves_sticky_claims(
+        self, db_path: str, monkeypatch
     ) -> None:
         from yoke_core.hooks import sessions_claims
 
@@ -151,10 +150,7 @@ class TestHarnessSessionCommands:
         try:
             claims = _hold_everything(conn)
             monkeypatch.setattr(sessions_claims, "_emit_event", lambda *a, **k: None)
-            if command_name == "release_all":
-                sessions_claims.cmd_release_all(conn, HOLDER)
-            else:
-                sessions_claims.cmd_reclaim(conn, HOLDER)
+            sessions_claims.cmd_release_all(conn, HOLDER)
             _assert_sticky_survived(conn, claims)
         finally:
             conn.close()

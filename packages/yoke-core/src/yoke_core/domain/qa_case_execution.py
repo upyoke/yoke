@@ -86,7 +86,7 @@ def recording_leg(
     Binds the requirement the run belongs to, the calling actor, and the
     authority the run pinned at ``qa.case_execution.begin``. That last
     part is what lets a gate measured in tens of minutes record the
-    verdict it earned after the stale-session sweep reclaimed the live
+    verdict it earned after explicit release or handoff of the live
     claim mid-run.
     """
     requirement_id = int(case["requirement_id"])
