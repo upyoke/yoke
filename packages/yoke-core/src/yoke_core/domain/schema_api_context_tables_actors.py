@@ -31,7 +31,11 @@ ACTOR_TABLES: dict[str, dict] = {
             "caller, or an owner. actors has NO org_id column; resolve an "
             "actor's organization membership through actor_org_roles.org_id. "
             "status is active or disabled; disabled actors have no authority "
-            "even when their historical role grants remain."
+            "even when their historical role grants remain. Org admins use "
+            "actors.state.set to change status. Retiring a system actor "
+            "requires an audit of its live dependencies and explicit "
+            "confirmation; the canonical core actor and actors with active "
+            "deployment credentials cannot be disabled."
         ),
     },
 }

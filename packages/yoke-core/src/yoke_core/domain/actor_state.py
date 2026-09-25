@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.actor_permissions import ROLE_DEPLOYMENT_CI
+from yoke_core.domain.actors import SYSTEM_COMPONENT_YOKE_CORE
 
 
 class ActorDisabledError(Exception):
@@ -35,8 +37,27 @@ def require_actor_active(conn: Any, actor_id: int, *, lock: bool = False) -> Non
         )
 
 
+def has_active_deployment_credential(conn: Any, actor_id: int) -> bool:
+    """A serving deployment actor must retire its bearer before disable."""
+    p = _p(conn)
+    row = conn.execute(
+        "SELECT 1 FROM actor_project_roles apr "
+        "JOIN roles r ON r.id = apr.role_id "
+        "JOIN api_tokens t ON t.actor_id = apr.actor_id AND t.status = 'active' "
+        f"WHERE apr.actor_id = {p} AND r.name = {p} LIMIT 1",
+        (actor_id, ROLE_DEPLOYMENT_CI),
+    ).fetchone()
+    return row is not None
+
+
 def set_actor_enabled(
-    conn: Any, *, actor_id: int, caller_actor_id: int, enabled: bool, now: str
+    conn: Any,
+    *,
+    actor_id: int,
+    caller_actor_id: int,
+    enabled: bool,
+    now: str,
+    confirm_system_retirement: bool = False,
 ) -> int:
     """Change actor authority and revoke all live credentials in one transaction.
 
@@ -55,10 +76,6 @@ def set_actor_enabled(
         if row is None:
             raise ActorStateRefused(f"actor {actor_id} does not exist; refresh Actors")
         kind, component, status = row
-        if kind == "system" or component is not None:
-            raise ActorStateRefused(
-                f"actor {actor_id} is system-critical; choose a human actor instead"
-            )
         if not enabled and actor_id == caller_actor_id:
             raise ActorStateRefused(
                 "cannot disable your own actor; ask another org admin to do it"
@@ -67,6 +84,24 @@ def set_actor_enabled(
         if status == desired:
             return 0
         if not enabled:
+            if kind == "system" or component is not None:
+                if component == SYSTEM_COMPONENT_YOKE_CORE:
+                    raise ActorStateRefused(
+                        "the canonical core actor cannot be disabled; choose "
+                        "a different actor"
+                    )
+                if has_active_deployment_credential(conn, actor_id):
+                    raise ActorStateRefused(
+                        f"actor {actor_id} has an active deployment credential; "
+                        "retire its release dependency and revoke that "
+                        "credential before disabling it"
+                    )
+                if not confirm_system_retirement:
+                    raise ActorStateRefused(
+                        f"actor {actor_id} is a system actor; inspect its live "
+                        "workflow and service references, then retry with "
+                        "--confirm-system-retirement"
+                    )
             last_admin = conn.execute(
                 "SELECT aor.org_id FROM actor_org_roles aor "
                 "JOIN roles r ON r.id = aor.role_id "
