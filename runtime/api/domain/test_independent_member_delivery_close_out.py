@@ -132,6 +132,9 @@ def _seed_final_run(conn: Any, run_id: str, *, shared_qa: bool) -> list[dict]:
         run_qa["name"] = "run-qa"
         run_qa["scope"] = "run"
         stages.append(run_qa)
+    stages.append(
+        {"name": "complete", "step_runner": "auto", "stage_kind": "execution"}
+    )
     _seed_run(
         conn,
         run_id=run_id,

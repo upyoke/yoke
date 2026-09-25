@@ -1,7 +1,8 @@
 """Recognize a final member delivered before its sibling QA completes.
 
-Only a selected flow whose final stage is item QA can discharge one member
-while its run remains executing. The QA acceptance reader verifies the
+Only a selected flow whose last substantive stage is item QA can discharge
+one member while its run remains executing. Trailing no-op auto stages carry
+no further delivery obligation. The QA acceptance reader verifies the
 current deployment receipt, candidate, cases, and verdict for that member.
 """
 
@@ -50,10 +51,14 @@ def independent_member_delivery_ready(conn: Any, *, item_id: int, run_id: str) -
     ]
     if not qa_stages or any(stage.get("scope") == "run" for stage in qa_stages):
         return False
-    final_stage = stages[-1] if stages else {}
+    final_stage = qa_stages[-1]
     target = final_stage.get("target") or {}
+    trailing = stages[stages.index(final_stage) + 1 :]
     if (
-        final_stage is not qa_stages[-1]
+        any(
+            stage.get("step_runner") != "auto" or stage.get("stage_kind") != "execution"
+            for stage in trailing
+        )
         or final_stage.get("scope") != "item"
         or not isinstance(target, dict)
         or target.get("kind") != "persistent_environment"
