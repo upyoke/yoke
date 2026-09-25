@@ -1,4 +1,4 @@
-"""Browser-facing, read-only Actors roster."""
+"""Actor roster and state-change function registrations."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def register(registry) -> None:
         side_effects=["actors_update", "api_tokens_update", "api_token_audit_insert"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["org_admin"],
-        adapter_status="internal",
+        adapter_status="live",
         claim_required_kind=None,
         ambient_session_required=False,
         minimum_serving_version="next-release",

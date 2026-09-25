@@ -107,6 +107,11 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     *QA_ADAPTERS,
     *TEST_MACHINE_ADAPTERS,
     AdapterEntry(
+        "actors.state.set",
+        "yoke actors state set ACTOR-ID (--enable | --disable) [--confirm-system-retirement]",
+        notes="org-admin actor lifecycle; system retirement requires explicit dependency attestation",
+    ),
+    AdapterEntry(
         "machine.register",
         "yoke machine register [--name NAME]",
         notes="registers this host and rotates its machine-bound bearer",

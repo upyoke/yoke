@@ -17,6 +17,7 @@ WRAPPED_ROWS = (
     *DIRECT_WORKFLOW_WRAPPED_ROWS,
     *ITEM_STRATEGY_SURFACE_WRAPPED_ROWS,
     *QA_CATALOG_WRAPPED_ROWS,
+    _w("yoke actors state set", "actors"),
     _w("yoke inbox list", "inbox"),
     _w("yoke decision-requests dispose-ended", "decision_requests"),
     _w("yoke decision-requests resolve", "decision_requests"),

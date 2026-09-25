@@ -10,8 +10,13 @@ The dashboard's **Actors** page reads the live actor roster. It shows each
 actor's kind, active or disabled state, organization role, project grants,
 and every unrevoked API key by name, ID, last use, and machine association.
 Hosted mode also shows the linked sign-in email when one exists. An org admin
-can disable or enable a human actor other than themselves. System actors and
-the last active org admin cannot be disabled. Disabling immediately blocks
+can disable or enable a human actor other than themselves. The last active
+org admin cannot be disabled. A retired system actor can be disabled through
+`yoke actors state set ACTOR-ID --disable --confirm-system-retirement` after
+checking its live workflow and service references. The canonical core actor
+cannot be disabled. A deployment actor with an active deployment credential
+must have its release dependency retired and credential revoked first.
+Disabling immediately blocks
 the actor's browser sessions and other authority and revokes all its API keys,
 including machine keys. Enabling restores role access but does not restore
 those keys: the person must sign in again and reconnect affected machines.

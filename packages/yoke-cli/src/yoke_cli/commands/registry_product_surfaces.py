@@ -1,6 +1,7 @@
 """Registry rows for workflow-aware product surfaces."""
 
 from yoke_cli.commands.adapters import (
+    actors,
     harness_machine_report,
     machine,
     inbox_decisions,
@@ -204,6 +205,10 @@ MACHINE_SUBCOMMAND_REGISTRY = {
     ),
 }
 
+ACTORS_SUBCOMMAND_REGISTRY = {
+    ("actors", "state", "set"): ("actors.state.set", actors.actors_state_set),
+}
+
 OVERVIEW_SUBCOMMAND_REGISTRY = {
     ("overview", "activation", "get"): (
         "overview.activation.get",
@@ -217,6 +222,7 @@ OVERVIEW_SUBCOMMAND_REGISTRY = {
 
 PRODUCT_SURFACE_SUBCOMMAND_REGISTRY = {
     **DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY,
+    **ACTORS_SUBCOMMAND_REGISTRY,
     **MACHINE_SUBCOMMAND_REGISTRY,
     **MODELS_SUBCOMMAND_REGISTRY,
     **OVERVIEW_SUBCOMMAND_REGISTRY,
@@ -236,6 +242,7 @@ PRODUCT_SURFACE_SUBCOMMAND_ALIAS_REGISTRY = {
 
 
 __all__ = [
+    "ACTORS_SUBCOMMAND_REGISTRY",
     "INBOX_DECISION_SUBCOMMAND_REGISTRY",
     "MACHINE_SUBCOMMAND_REGISTRY",
     "PRODUCT_SURFACE_SUBCOMMAND_ALIAS_REGISTRY",

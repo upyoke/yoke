@@ -18,6 +18,7 @@ from yoke_core.domain.control_plane_authority import require_control_plane_permi
 class ActorStateSetRequest(BaseModel):
     actor_id: int
     enabled: bool
+    confirm_system_retirement: bool = False
 
 
 class ActorStateSetResponse(BaseModel):
@@ -42,10 +43,18 @@ def handle_actor_state_set(request: FunctionCallRequest) -> HandlerOutcome:
     payload = request.payload or {}
     actor_id = payload.get("actor_id")
     enabled = payload.get("enabled")
+    confirm_system_retirement = payload.get("confirm_system_retirement", False)
     if isinstance(actor_id, bool) or not isinstance(actor_id, int) or actor_id <= 0:
         return _refuse("payload_invalid", "actor_id must be a positive integer")
     if not isinstance(enabled, bool):
         return _refuse("payload_invalid", "enabled must be true or false")
+    if not isinstance(confirm_system_retirement, bool) or (
+        enabled and confirm_system_retirement
+    ):
+        return _refuse(
+            "payload_invalid",
+            "confirm_system_retirement must be a boolean used only when disabling",
+        )
     with db_helpers.connect() as conn:
         try:
             require_control_plane_permission(
@@ -62,6 +71,7 @@ def handle_actor_state_set(request: FunctionCallRequest) -> HandlerOutcome:
                 caller_actor_id=int(raw_caller),
                 enabled=enabled,
                 now=db_helpers.iso8601_now(),
+                confirm_system_retirement=confirm_system_retirement,
             )
         except ActorStateRefused as exc:
             return _refuse("actor_state_refused", str(exc))
