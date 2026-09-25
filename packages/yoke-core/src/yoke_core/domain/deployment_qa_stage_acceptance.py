@@ -29,6 +29,7 @@ from yoke_core.domain.deployment_qa_admission_materialization import (
     fulfill_admitted_obligations,
 )
 from yoke_core.domain import qa_execution_environment_target as target_authority
+from yoke_core.domain.post_deploy_verification_answer import member_post_deploy_answer
 from yoke_core.domain.refusal_recovery import compose_refusal
 
 
@@ -229,6 +230,8 @@ def stage_acceptance(
             # discharge already stood in for -- the trap that made a
             # fully-waived member unreleasable without removing it from the
             # run, which deployment membership has no way to do.
+            return StageAcceptance(STAGE_DISCHARGED, ())
+        if member_post_deploy_answer(conn, subject).discharges_without_cases:
             return StageAcceptance(STAGE_DISCHARGED, ())
         return StageAcceptance(
             STAGE_NOT_RUN,

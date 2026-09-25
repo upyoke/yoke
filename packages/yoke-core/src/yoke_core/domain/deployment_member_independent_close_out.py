@@ -1,9 +1,10 @@
 """Recognize a final member delivered before its sibling QA completes.
 
-Only a selected flow whose last substantive stage is item QA can discharge
-one member while its run remains executing. Trailing no-op auto stages carry
-no further delivery obligation. The QA acceptance reader verifies the
-current deployment receipt, candidate, cases, and verdict for that member.
+Only a selected flow with no shared QA or human approval, whose last
+substantive stage is item QA, can discharge one member while its run remains
+executing. Trailing no-op auto stages carry no further delivery obligation.
+The QA acceptance reader verifies the current deployment receipt, candidate,
+cases, and verdict for that member.
 """
 
 from __future__ import annotations
@@ -20,10 +21,10 @@ from yoke_core.domain.deployment_qa_source_obligation import latest_completion_r
 def independent_member_delivery_ready(conn: Any, *, item_id: int, run_id: str) -> bool:
     """True only after this member's final production QA is accepted.
 
-    A run-level QA stage is shared: its ordered prerequisites keep every
-    final member open until the whole run succeeds. A failed or cancelled
-    run never qualifies. The selected-flow membership and frozen final
-    intent are required even if another run carries the same item.
+    A run-level QA or human-approval stage is shared, wherever it appears in
+    the flow. Either keeps every final member open until the run succeeds. A
+    failed or cancelled run never qualifies. The selected-flow membership and
+    frozen final intent are required even if another run carries the item.
     """
     from yoke_core.domain.deployment_run_composition_freeze import DELIVERY_INTENT_FINAL
 
@@ -49,7 +50,11 @@ def independent_member_delivery_ready(conn: Any, *, item_id: int, run_id: str) -
         for stage in stages
         if stage.get("stage_kind") == "qa" or stage.get("step_runner") == "qa"
     ]
-    if not qa_stages or any(stage.get("scope") == "run" for stage in qa_stages):
+    if (
+        not qa_stages
+        or any(stage.get("scope") == "run" for stage in qa_stages)
+        or any(stage.get("step_runner") == "human-approval" for stage in stages)
+    ):
         return False
     final_stage = qa_stages[-1]
     target = final_stage.get("target") or {}

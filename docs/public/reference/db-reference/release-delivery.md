@@ -153,19 +153,28 @@ missing was a wake: the only deployment wake was run-scoped and
 addressed to the driver, so a member whose own item-scoped QA was
 accepted sat at its release wait until the whole run finished.
 
-When an item-scoped stage subject becomes accepted, and
+When an item-scoped stage subject becomes accepted or is discharged by an
+explicit `post_deploy_no_obligation`, and
 `deployment_qa_run_acceptance.item_qa_acceptance_blockers` is empty for
-that member, the member's release-wait owner is woken on the same
+that member, a final production member on a selected flow without run QA or run approval
+closes independently even while sibling item QA holds the run open. The
+same final-delivery, evidence, and done gates still apply. If automatic
+close-out refuses, the member's release-wait owner is woken on the same
 delivery contract `deployment_run_driver_notice` already implements —
 a second recipient, not a second wake path. The notice fires once per
 member per run on the acceptance transition. A re-read of an
 already-accepted subject sends nothing.
 
-Run-scoped QA stages stay the batch's shared wait: a member under a
-flow that declares one still waits for it, because the same reader
-still lists it. The pipeline's advance and `on_failure` are unchanged;
-a run whose other members are outstanding still halts and still
-belongs to its driver.
+Run-scoped QA and human-approval stages keep every member at release until all
+item and shared gates pass and the run succeeds. The pipeline's advance and
+`on_failure` are unchanged; a run whose other members are outstanding still
+halts and still belongs to its driver.
+
+At the member's done gate, a failed run-bound case from an earlier attempt
+remains in QA history but does not block a later completion run. The later
+run must satisfy its own admitted item cases and stage acceptance. A failing
+case on that current run still blocks done unless its same-target replacement
+passes and that stage is accepted.
 
 Completion of a target-bound scoped QA execution settles its active stage
 gate on the control plane. The same happens after an agent review bundle is

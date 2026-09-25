@@ -5,8 +5,14 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.domain.test_dash_post_deploy_review_isolation import _insert_dash
+from runtime.api.domain.test_deployment_qa_admission_execution import (
+    _seed_selected_requirement_run,
+)
 from runtime.api.fixtures.deployment_admitted_case_fixture import (
+    MEMBER_QA_STAGE,
+    admitted_copy,
     deliver_with_failing_admitted_copy,
+    execute_member_stage,
     member_stage_acceptance,
     succeed_run,
 )
@@ -66,6 +72,59 @@ def test_unsuperseded_run_bound_failure_still_blocks(test_db) -> None:
     broken_id, _ = _run_bound_failure(test_db, item_id=item_id, run_id=run_id)
     succeed_run(test_db, run_id)
     assert broken_id in _blocked(test_db, item_id)
+
+
+def test_failed_run_bound_case_is_history_after_successful_retry(test_db) -> None:
+    item_id = 2453
+    failed_run = "run-bound-failed-attempt"
+    current_run = "run-bound-successful-retry"
+    broken_id, corrected_id = _run_bound_failure(
+        test_db, item_id=item_id, run_id=failed_run
+    )
+    supersede_requirement(
+        test_db,
+        requirement_id=broken_id,
+        superseded_by_requirement_id=corrected_id,
+        rationale="correction applied only to the first run",
+    )
+    test_db.execute(
+        "UPDATE deployment_runs SET status='failed' WHERE id=%s", (failed_run,)
+    )
+    intake_id = test_db.execute(
+        "SELECT id FROM qa_requirements WHERE item_id=%s "
+        "AND deployment_run_id IS NULL ORDER BY id LIMIT 1",
+        (item_id,),
+    ).fetchone()["id"]
+    test_db.execute(
+        "UPDATE qa_requirements SET waived_at=NULL WHERE id=%s", (intake_id,)
+    )
+    test_db.commit()
+
+    _seed_selected_requirement_run(
+        test_db, run_id=current_run, item_id=item_id, requirement_id=intake_id
+    )
+    current_copy_id = admitted_copy(test_db, run_id=current_run, item_id=item_id)
+    execute_member_stage(
+        test_db,
+        run_id=current_run,
+        item_id=item_id,
+        verdicts={current_copy_id: "pass"},
+    )
+    assert deployment_qa_stage_status(
+        test_db,
+        run_id=current_run,
+        stage_name=MEMBER_QA_STAGE,
+        member_item_id=item_id,
+    )["accepted"]
+    succeed_run(test_db, current_run)
+
+    assert broken_id not in _blocked(test_db, item_id)
+    assert intake_id not in _blocked(test_db, item_id)
+    old = test_db.execute(
+        "SELECT superseded_by_requirement_id FROM qa_requirements WHERE id=%s",
+        (broken_id,),
+    ).fetchone()
+    assert old["superseded_by_requirement_id"] == corrected_id
 
 
 @pytest.mark.parametrize(
