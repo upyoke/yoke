@@ -1,5 +1,5 @@
 # ruff: noqa: F811
-"""A running Yoke command keeps its work claim out of stale cleanup."""
+"""Long command heartbeats and active work claims survive stale cleanup."""
 
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ def _age_session(conn, session_id: str) -> None:
     conn.commit()
 
 
-def test_running_command_survives_while_dead_session_is_reclaimed(conn):
+def test_running_and_idle_claim_holders_survive_cleanup(conn):
     _register(conn, session_id="running-command")
     _register(conn, session_id="dead-command")
     claim_work(conn, session_id="running-command", item_id=810)
@@ -88,8 +88,7 @@ def test_running_command_survives_while_dead_session_is_reclaimed(conn):
         progress_threshold_minutes=90,
     )
 
-    assert result["total_reclaimed"] == 1
-    assert result["never_engaged"][0]["session_id"] == "dead-command"
+    assert result["total_reclaimed"] == 0
     live = conn.execute(
         "SELECT ended_at FROM harness_sessions WHERE session_id=%s",
         ("running-command",),
@@ -100,6 +99,11 @@ def test_running_command_survives_while_dead_session_is_reclaimed(conn):
         (make_item_target(810).scope_json(),),
     ).fetchone()
     assert live_claim["released_at"] is None
+    idle_claim = conn.execute(
+        "SELECT released_at FROM work_claims WHERE target_kind='item' AND scope=%s",
+        (make_item_target(811).scope_json(),),
+    ).fetchone()
+    assert idle_claim["released_at"] is None
 
 
 def test_client_poll_loop_outlives_the_stale_ttl_without_losing_claim(conn):
@@ -133,9 +137,14 @@ def test_client_poll_loop_outlives_the_stale_ttl_without_losing_claim(conn):
         progress_threshold_minutes=90,
     )
 
-    assert result["total_reclaimed"] == 1
+    assert result["total_reclaimed"] == 0
     live_claim = conn.execute(
         "SELECT released_at FROM work_claims WHERE target_kind='item' AND scope=%s",
         (make_item_target(810).scope_json(),),
     ).fetchone()
     assert live_claim["released_at"] is None
+    idle_claim = conn.execute(
+        "SELECT released_at FROM work_claims WHERE target_kind='item' AND scope=%s",
+        (make_item_target(811).scope_json(),),
+    ).fetchone()
+    assert idle_claim["released_at"] is None

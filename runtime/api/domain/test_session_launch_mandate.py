@@ -116,7 +116,7 @@ def test_composed_mandate_keeps_a_release_wait_owner_holding_its_item() -> None:
     assert "Do not re-run merge solely for that acceptance" in teaching
     assert "automatic close-out could not finish" in teaching
     assert "Only once the item reaches done do you send the DONE report" in teaching
-    assert "handed to steering" in teaching
+    assert "active work claim protects the session" in teaching
 
 
 def test_the_done_report_step_names_the_release_wait_as_incomplete() -> None:

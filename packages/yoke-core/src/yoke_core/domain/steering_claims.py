@@ -60,7 +60,7 @@ def _overlapping_rows(conn: Any, scope: dict[str, Any]) -> list[Any]:
     finer future scope nested inside a held project scope is still the same
     seat's territory. Liveness is deliberately not consulted here -- an
     unreleased claim row holds the scope until it is released or the
-    stale-session sweep reclaims it, and letting a second row exist beside
+    holder explicitly releases it, and letting a second row exist beside
     it would leave the scope with two holders on record.
     """
     rows = conn.execute(

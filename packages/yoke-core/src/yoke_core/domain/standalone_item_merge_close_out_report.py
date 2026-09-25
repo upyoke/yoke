@@ -108,7 +108,7 @@ def _awaiting_delivery_lines(record: Mapping[str, Any], public_ref: str) -> list
     if parked and not parked.startswith(("yes", "skipped")):
         lines.append(
             "park unconfirmed: stamp it yourself with `yoke sessions touch "
-            f'--mode parked --reason "{block.get("park_reason", "")}"` — an '
+            f'--mode parked --reason "{block.get("park_reason", "")}"` — '
             "declare the wait so wake and recovery routing can find it"
         )
     return lines

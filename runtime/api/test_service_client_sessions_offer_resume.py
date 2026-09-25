@@ -28,15 +28,15 @@ pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 class TestSessionOfferResume:
     """CLI session-offer resume and stale-claim recovery flows."""
 
-    def test_session_offer_recovers_stale_claimed_work(self, session_offer_db):
-        """CLI session-offer recovers stale-claimed work."""
+    def test_session_offer_recovers_ended_session_claim(self, session_offer_db):
+        """CLI session-offer recovers work after its holder ends."""
         conn = connect_test_db(session_offer_db["db_path"])
         stale_iso = "2000-01-01T00:00:00Z"
         conn.execute(
             f"""INSERT INTO harness_sessions
-               (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
-               VALUES ('stale-offer', 'claude-code', 'anthropic', '{TEST_MODEL_ID}', '/tmp/test', %s, %s)""",
-            (stale_iso, stale_iso),
+               (session_id, executor, provider, model, workspace, offered_at, last_heartbeat, ended_at)
+               VALUES ('stale-offer', 'claude-code', 'anthropic', '{TEST_MODEL_ID}', '/tmp/test', %s, %s, %s)""",
+            (stale_iso, stale_iso, stale_iso),
         )
         conn.execute(
             """INSERT INTO work_claims

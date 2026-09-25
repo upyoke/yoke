@@ -48,8 +48,7 @@ def test_the_release_wait_outcome_names_the_retention_and_the_re_entry():
 
 
 def test_an_unconfirmed_park_tells_the_owner_to_stamp_it():
-    """A wait nothing recorded is one the stale sweep reclaims, so the block
-    hands over the exact repair rather than reading as success."""
+    """An unrecorded wait needs a park for wake and recovery routing."""
     lines = report.outcome_lines(
         {
             "public_ref": "ITEM-1",
@@ -65,4 +64,4 @@ def test_an_unconfirmed_park_tells_the_owner_to_stamp_it():
     body = " ".join(lines)
     assert "park unconfirmed" in body
     assert "yoke sessions touch --mode parked" in body
-    assert "reclaimed by the stale sweep" in body
+    assert "declare the wait so wake and recovery routing can find it" in body

@@ -460,4 +460,4 @@ continues autonomously.
 ## Stop
 
 A clean stop follows the close-out ceremony in `SKILL.md` step 5 — settle,
-hand off, and release everything held; the stale sweep alone reclaims an abandoned coordinator.
+hand off, and release everything held. An abandoned coordinator's active work claim stays held until explicit release or authorized termination.
