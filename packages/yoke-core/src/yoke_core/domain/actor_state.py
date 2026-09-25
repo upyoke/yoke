@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.actor_permissions import ROLE_DEPLOYMENT_CI
 from yoke_core.domain.actors import SYSTEM_COMPONENT_YOKE_CORE
 
 
@@ -39,6 +38,8 @@ def require_actor_active(conn: Any, actor_id: int, *, lock: bool = False) -> Non
 
 def has_active_deployment_credential(conn: Any, actor_id: int) -> bool:
     """A serving deployment actor must retire its bearer before disable."""
+    from yoke_core.domain.actor_permissions import ROLE_DEPLOYMENT_CI
+
     p = _p(conn)
     row = conn.execute(
         "SELECT 1 FROM actor_project_roles apr "
