@@ -3,9 +3,8 @@
 Two operation classes live here, split into two entry points so the boot
 converge path can run the safe half without the destructive half:
 
-* :func:`apply_additive_schema` — strictly additive DDL (``ADD COLUMN IF NOT
-  EXISTS``, ``CREATE INDEX IF NOT EXISTS``). Structurally incapable of dropping
-  or rewriting a row, so it is safe to run on every server boot of an
+* :func:`apply_additive_schema` — additive DDL only. It cannot drop or rewrite
+  a row, so it is safe to run on every server boot of an
   already-born universe — the mechanism that propagates a newly-deployed
   additive column to existing prod / self-host universes.
 * :func:`apply_legacy_data_migrations` — the birth/full-init-only tail: guarded
@@ -84,9 +83,11 @@ def apply_additive_schema(conn: Any) -> None:
         )
     conn.commit()
 
-    # The one human-readable name every surface renders. NOT NULL DEFAULT
-    # so Postgres populates existing rows at ADD time.
+    # Non-null name default fills existing Postgres rows.
     _add_column_if_not_exists(conn, "actors", "name", "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_not_exists(
+        conn, "actors", "status", "TEXT NOT NULL DEFAULT 'active'"
+    )
     conn.commit()
 
     # Idempotent ADD COLUMN migrations for epic_tasks
@@ -334,7 +335,6 @@ def apply_legacy_data_migrations(conn: Any) -> None:
         conn.commit()
         print("Dropped deprecated 'prd' column from items table.")
 
-    # Retire QA vocabulary
     _migrate_qa_vocab(conn)
 
     # Split browser capture from inspection verdict

@@ -30,7 +30,17 @@
 }
 
 .universe-app-root .actors-table {
-  min-width: 600px;
+  min-width: 950px;
+}
+
+.universe-app-root .actors-keys {
+  min-width: 220px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.universe-app-root .actors-key + .actors-key {
+  margin-top: 5px;
 }
 
 .universe-app-root .actors-table .actor-avatar.current {

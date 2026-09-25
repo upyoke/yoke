@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.actor_state import actor_is_active
 from yoke_core.domain.actor_permissions import (
     PERM_ITEMS_READ,
     PermissionDenied,
@@ -54,9 +55,22 @@ def check_dispatch_permission(
         side_effects=bool(entry.side_effects),
         project_permission=permission_key_for(entry),
     )
+    actor_id = _numeric_actor_id(request.actor.actor_id)
+    if actor_id is not None and not actor_is_active(conn, actor_id):
+        return DispatchPermission(
+            spec.permission_key,
+            None,
+            None,
+            error=_error_response(
+                request,
+                entry,
+                "actor_disabled",
+                f"actor {actor_id} is disabled or unavailable; ask an org admin "
+                "to enable the actor, then sign in again or reconnect its machine",
+            ),
+        )
     if spec.scope == CLIENT_LOCAL:
         return DispatchPermission(spec.permission_key, None, None)
-    actor_id = _numeric_actor_id(request.actor.actor_id)
     if actor_id is None:
         return DispatchPermission(spec.permission_key, None, None)
     if (
@@ -73,13 +87,21 @@ def check_dispatch_permission(
         return doctor_dispatch_permission(conn, entry, request, actor_id)
     if entry.function_id == "board.data.get":
         return board_data_get_dispatch_permission(
-            conn, entry, request, actor_id, spec.permission_key or PERM_ITEMS_READ,
+            conn,
+            entry,
+            request,
+            actor_id,
+            spec.permission_key or PERM_ITEMS_READ,
         )
     if spec.scope == DENY:
         return DispatchPermission(
-            spec.permission_key, None, None,
+            spec.permission_key,
+            None,
+            None,
             error=_error_response(
-                request, entry, "permission_denied",
+                request,
+                entry,
+                "permission_denied",
                 f"function {entry.function_id!r} has side effects but is not "
                 "classified for authorization; denied by default",
             ),
@@ -97,7 +119,9 @@ def check_dispatch_permission(
             )
         except PermissionDenied as exc:
             return DispatchPermission(
-                spec.permission_key, None, None,
+                spec.permission_key,
+                None,
+                None,
                 error=_error_response(request, entry, "permission_denied", str(exc)),
             )
         return DispatchPermission(spec.permission_key, None, None)
@@ -105,31 +129,44 @@ def check_dispatch_permission(
         org_id = resolve_org_context(conn, request)
         if org_id is None:
             return DispatchPermission(
-                spec.permission_key, None, None,
+                spec.permission_key,
+                None,
+                None,
                 error=_error_response(
-                    request, entry, "permission_denied",
+                    request,
+                    entry,
+                    "permission_denied",
                     "could not resolve a target org for an org-scoped function",
                 ),
             )
         try:
             require_org_permission(
-                conn, actor_id=actor_id, org_id=org_id,
+                conn,
+                actor_id=actor_id,
+                org_id=org_id,
                 permission_key=spec.permission_key,
             )
         except PermissionDenied as exc:
             return DispatchPermission(
-                spec.permission_key, None, None,
+                spec.permission_key,
+                None,
+                None,
                 error=_error_response(request, entry, "permission_denied", str(exc)),
             )
         return DispatchPermission(spec.permission_key, None, None)
     else:  # PROJECT
         visible_ids = actor_project_ids_with_permission(
-            conn, actor_id, spec.permission_key or PERM_ITEMS_READ,
+            conn,
+            actor_id,
+            spec.permission_key or PERM_ITEMS_READ,
         )
         try:
             project_context = resolve_project_context(
-                conn, entry, request, visible_project_ids=visible_ids,
-        )
+                conn,
+                entry,
+                request,
+                visible_project_ids=visible_ids,
+            )
         except (AmbiguousProjectRefError, ProjectNotRegisteredError) as exc:
             code = (
                 "ambiguous_project"
@@ -137,26 +174,36 @@ def check_dispatch_permission(
                 else "permission_denied"
             )
             return DispatchPermission(
-                spec.permission_key, None, None,
+                spec.permission_key,
+                None,
+                None,
                 error=_error_response(request, entry, code, str(exc)),
             )
         if project_context is None:
             return DispatchPermission(
-                spec.permission_key, None, None,
+                spec.permission_key,
+                None,
+                None,
                 error=_error_response(
-                    request, entry, "permission_denied",
+                    request,
+                    entry,
+                    "permission_denied",
                     "could not resolve a target project for project-scoped function",
                 ),
             )
         project_id, project_slug = project_context
     try:
         require_permission(
-            conn, actor_id=actor_id, project_id=project_id,
+            conn,
+            actor_id=actor_id,
+            project_id=project_id,
             permission_key=spec.permission_key,
         )
     except PermissionDenied as exc:
         return DispatchPermission(
-            spec.permission_key, project_id, project_slug,
+            spec.permission_key,
+            project_id,
+            project_slug,
             error=_error_response(request, entry, "permission_denied", str(exc)),
         )
     return DispatchPermission(spec.permission_key, project_id, project_slug)
@@ -172,15 +219,17 @@ def dispatch_permission_for_request(
         side_effects=bool(entry.side_effects),
         project_permission=permission_key_for(entry),
     )
-    if spec.scope == CLIENT_LOCAL:
-        return DispatchPermission(spec.permission_key, None, None)
     if _numeric_actor_id(request.actor.actor_id) is None:
         return DispatchPermission(spec.permission_key, None, None)
     if spec.scope == DENY:
         return DispatchPermission(
-            spec.permission_key, None, None,
+            spec.permission_key,
+            None,
+            None,
             error=_error_response(
-                request, entry, "permission_denied",
+                request,
+                entry,
+                "permission_denied",
                 f"function {entry.function_id!r} has side effects but is not "
                 "classified for authorization; denied by default",
             ),

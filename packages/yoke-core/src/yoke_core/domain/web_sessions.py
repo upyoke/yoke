@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.actor_state import require_actor_active
 
 
 #: Default browser-session lifetime. One value, consumed by the mint
@@ -87,7 +88,8 @@ def _prune_expired(conn: Any, *, now: datetime) -> None:
     p = _p(conn)
     try:
         conn.execute(
-            f"DELETE FROM web_sessions WHERE expires_at <= {p}", (_fmt(now),),
+            f"DELETE FROM web_sessions WHERE expires_at <= {p}",
+            (_fmt(now),),
         )
     except Exception:  # noqa: BLE001 - a housekeeping sweep never blocks a mint
         pass
@@ -113,6 +115,7 @@ def mint_web_session(
     # (indexed on the same timestamp column verify compares) and best-effort
     # — a sweep failure never blocks minting the new session.
     _prune_expired(conn, now=now)
+    require_actor_active(conn, actor_id, lock=True)
     row = conn.execute(
         "INSERT INTO web_sessions (token_hash, actor_id, created_at, expires_at) "
         f"VALUES ({p}, {p}, {p}, {p}) RETURNING id",
@@ -144,6 +147,7 @@ def verify_web_session(conn: Any, raw_token: str) -> VerifiedWebSession:
     if row is None:
         raise WebSessionNotFound("web session not found")
     web_session_id, actor_id, expires_at, revoked_at = row
+    require_actor_active(conn, int(actor_id))
     if revoked_at is not None:
         raise WebSessionRevoked("web session is revoked")
     if str(expires_at) <= _fmt(_now_dt()):
@@ -154,7 +158,8 @@ def verify_web_session(conn: Any, raw_token: str) -> VerifiedWebSession:
     )
     conn.commit()
     return VerifiedWebSession(
-        web_session_id=int(web_session_id), actor_id=int(actor_id),
+        web_session_id=int(web_session_id),
+        actor_id=int(actor_id),
     )
 
 
@@ -162,7 +167,8 @@ def revoke_web_session(conn: Any, *, web_session_id: int) -> None:
     """Revoke a session by row id; raw token material is not needed."""
     p = _p(conn)
     row = conn.execute(
-        f"SELECT 1 FROM web_sessions WHERE id = {p}", (int(web_session_id),),
+        f"SELECT 1 FROM web_sessions WHERE id = {p}",
+        (int(web_session_id),),
     ).fetchone()
     if row is None:
         raise WebSessionNotFound(f"web session id {web_session_id} not found")

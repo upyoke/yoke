@@ -15,6 +15,7 @@ from yoke_contracts.self_host_bootstrap_output import (
 )
 
 from yoke_core.domain import db_backend, json_helper
+from yoke_core.domain.actor_state import actor_is_active, require_actor_active
 
 
 TOKEN_STATUS_ACTIVE = "active"
@@ -44,6 +45,10 @@ class TokenExpired(TokenError):
 
 class TokenMachineRetired(TokenError):
     """The token belongs to a machine that has been retired."""
+
+
+class TokenActorDisabled(TokenError):
+    """The token's actor has been disabled."""
 
 
 @dataclass(frozen=True)
@@ -104,6 +109,7 @@ def mint_token(
     raw = raw_token or generate_token()
     token_hash = hash_token(raw)
     p = _p(conn)
+    require_actor_active(conn, actor_id, lock=True)
     row = conn.execute(
         "INSERT INTO api_tokens "
         "(token_hash, actor_id, name, status, created_at, expires_at, diagnostic_metadata) "
@@ -161,6 +167,11 @@ def verify_token(
     token_id, actor_id, name, status, expires_at, machine_id = row
     token_id = int(token_id)
     actor_id = int(actor_id)
+    if not actor_is_active(conn, actor_id):
+        raise TokenActorDisabled(
+            f"actor {actor_id} is disabled; ask an org admin to enable it, "
+            "then issue a new key or reconnect the machine"
+        )
     bound_machine = str(machine_id) if machine_id else None
     if bound_machine:
         retired = conn.execute(
@@ -323,27 +334,3 @@ def bootstrap_project_service_token(
         role_name=role_name,
         token_name=token_name,
     )
-
-
-__all__ = [
-    "CreatedToken",
-    "DEFAULT_ADMIN_ACTOR_NAME",
-    "INITIAL_ADMIN_TOKEN_NAME",
-    "TOKEN_PREFIX",
-    "TOKEN_STATUS_ACTIVE",
-    "TOKEN_STATUS_REVOKED",
-    "TokenError",
-    "TokenExpired",
-    "TokenMachineRetired",
-    "TokenNotFound",
-    "TokenRevoked",
-    "VerifiedToken",
-    "bootstrap_admin_token",
-    "bootstrap_project_service_token",
-    "generate_token",
-    "hash_token",
-    "mint_token",
-    "record_token_audit",
-    "revoke_token",
-    "verify_token",
-]

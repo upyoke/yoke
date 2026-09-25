@@ -9,6 +9,7 @@ authored-file line cap. The public decision functions are re-exported from
 from __future__ import annotations
 
 from typing import Any
+from yoke_core.domain.actor_state import actor_is_active
 
 from yoke_core.domain.actor_permissions import (
     ORG_SCOPED_PERMISSIONS,
@@ -98,6 +99,14 @@ def permission_decision(
     Otherwise the decision allows when an explicitly-granted org or project role
     carries the permission, exactly as before.
     """
+    if not actor_is_active(conn, actor_id):
+        return PermissionDecision(
+            actor_id=actor_id,
+            project_id=project_id,
+            permission_key=permission_key,
+            allowed=False,
+            role_names=(),
+        )
     # Wildcard 1 — org admin (all-access), drift-proof: the admin role is defined
     # as every permission, so we never consult role_permissions for it.
     if _holds_org_admin(conn, project_id=project_id, actor_id=actor_id):
@@ -111,9 +120,8 @@ def permission_decision(
     # Wildcard 2 — project owner, limited to project-grantable permissions
     # (org-scoped permissions like org.admin / project.create are never a
     # project role's to grant, so a project owner can never self-escalate to them).
-    if (
-        permission_key not in ORG_SCOPED_PERMISSIONS
-        and _holds_project_owner(conn, project_id=project_id, actor_id=actor_id)
+    if permission_key not in ORG_SCOPED_PERMISSIONS and _holds_project_owner(
+        conn, project_id=project_id, actor_id=actor_id
     ):
         return PermissionDecision(
             actor_id=actor_id,
@@ -199,6 +207,15 @@ def org_permission_decision(
     otherwise an explicitly-granted org role must carry the permission.
     """
     p = _p(conn)
+    if not actor_is_active(conn, actor_id):
+        return PermissionDecision(
+            actor_id=actor_id,
+            project_id=None,
+            permission_key=permission_key,
+            allowed=False,
+            role_names=(),
+            org_id=org_id,
+        )
     admin_row = conn.execute(
         "SELECT 1 FROM actor_org_roles aor "
         "JOIN roles r ON r.id = aor.role_id "

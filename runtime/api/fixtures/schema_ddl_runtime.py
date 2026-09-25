@@ -250,6 +250,7 @@ CREATE TABLE IF NOT EXISTS actors (
     kind TEXT NOT NULL CHECK(kind IN ('human','system')),
     system_component TEXT,
     name TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','disabled')),
     created_at TEXT NOT NULL,
     CHECK (
         (kind = 'system' AND system_component IS NOT NULL)

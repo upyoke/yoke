@@ -1,41 +1,12 @@
-"""Sign-in resolution ladder: verified id_token claims -> actor.
+"""Resolve verified identity claims to an actor.
 
-One entry point, :func:`resolve_sign_in`, takes the claims of an ALREADY
-VERIFIED id_token (signature, issuer, audience, expiry, nonce all checked
-upstream) and answers "which actor is signing in?" by walking four rungs:
-
-1. **Linked identity.** ``(issuer, subject)`` already bound in
-   ``actor_external_identities`` -> that actor.
-2. **Pending invite.** A pending ``actor_invites`` row matches the
-   verified email (case-insensitive) -> accept it. An invite carrying a
-   target ``actor_id`` (email pre-link) binds the identity to that
-   existing actor; otherwise a new human actor is created (named from
-   the ``name`` claim, then the email local part). The invite's
-   ``role_id``, when set, grants that org role.
-3. **Verified-domain admission.** The org policy enables verified-domain
-   membership and the email's domain equals ``organizations.domain`` ->
-   create actor + link, no role grant.
-4. **Refusal** with an operator-facing reason kind.
-
-Email trust is strict by default: rungs 2-3 only consider the email when
-the id_token marks ``email_verified`` true. A provider that omits the
-claim entirely is trusted only when the operator opted in
-(``allow_unverified_email=True``); an explicit ``email_verified: false``
-is never trusted.
-
-Every admitted sign-in also adopts the id_token's ``name`` claim as the
-actor's name, so the account system that owns a person's name owns what
-Yoke calls them. Adoption happens on all three admitting rungs, which is
-what lets a renamed account propagate on its next sign-in rather than
-freezing the name it first joined under. A claim with no name writes
-nothing and leaves the actor's existing name alone.
-
-No rung ever resolves an actor from a name or an email local part.
-Admission is decided by the linked ``(issuer, subject)`` pair, then by a
-pending invite, then by verified-domain membership; a name only ever
-labels the actor those rungs already chose. Two members who share a name
-therefore stay two actors, and renaming one admits nobody to the other's
-work.
+Admission checks a linked issuer and subject, then a pending email invite,
+then an enabled organization-domain policy. Email must be verified unless
+the operator explicitly permits a missing verification claim; an explicit
+false claim is never trusted. A matching invite can bind an existing actor
+or create one and grant its requested role. Domain admission creates an
+actor without a role grant. Each admitted sign-in adopts a supplied name,
+but names and email local parts never resolve identity.
 """
 
 from __future__ import annotations
@@ -44,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.actor_state import actor_is_active
 from yoke_core.domain.actor_invites import (
     Invite,
     mark_invite_accepted,
@@ -73,6 +45,7 @@ REFUSAL_MISSING_REQUIRED_CLAIMS = "missing_required_claims"
 REFUSAL_MISSING_EMAIL_CLAIM = "missing_email_claim"
 REFUSAL_EMAIL_UNVERIFIED = "email_unverified"
 REFUSAL_NO_ADMISSION_MATCH = "no_invite_or_auto_join_match"
+REFUSAL_ACTOR_DISABLED = "actor_disabled"
 
 
 @dataclass(frozen=True)
@@ -177,6 +150,13 @@ def _succeed(
     proved the identity. It moves no authority either: the actor was
     already chosen by that pair.
     """
+    if not actor_is_active(conn, actor_id):
+        return _refuse(
+            issuer,
+            REFUSAL_ACTOR_DISABLED,
+            f"actor {actor_id} is disabled; ask an org admin to enable it "
+            "before signing in again",
+        )
     renamed = set_actor_name(conn, actor_id, name_claim)
     emit_identity_event(
         EVENT_SIGN_IN_SUCCEEDED,
@@ -188,7 +168,10 @@ def _succeed(
         },
     )
     return SignInResolution(
-        actor_id=actor_id, outcome=outcome, refusal_reason=None, detail=detail,
+        actor_id=actor_id,
+        outcome=outcome,
+        refusal_reason=None,
+        detail=detail,
     )
 
 
@@ -199,7 +182,10 @@ def _refuse(issuer: Optional[str], reason: str, detail: str) -> SignInResolution
         context={"issuer": issuer, "refusal_reason": reason},
     )
     return SignInResolution(
-        actor_id=None, outcome=OUTCOME_REFUSED, refusal_reason=reason, detail=detail,
+        actor_id=None,
+        outcome=OUTCOME_REFUSED,
+        refusal_reason=reason,
+        detail=detail,
     )
 
 
@@ -228,7 +214,10 @@ def resolve_sign_in(
     linked = resolve_external_identity(conn, issuer=issuer, subject=subject)
     if linked is not None:
         return _succeed(
-            conn, issuer, linked, OUTCOME_LINKED_IDENTITY,
+            conn,
+            issuer,
+            linked,
+            OUTCOME_LINKED_IDENTITY,
             f"external identity is linked to actor {linked}",
             name_claim=name_claim,
         )
@@ -262,19 +251,37 @@ def resolve_sign_in(
     if invite is not None:
         if invite.actor_id is not None:
             actor_id = invite.actor_id
+            if not actor_is_active(conn, actor_id):
+                return _refuse(
+                    issuer,
+                    REFUSAL_ACTOR_DISABLED,
+                    f"actor {actor_id} is disabled; ask an org admin to "
+                    "enable it before accepting this invite",
+                )
         else:
             actor_id = _create_named_actor(
-                conn, email=email, name_claim=name_claim,
+                conn,
+                email=email,
+                name_claim=name_claim,
             )
         link_external_identity(
-            conn, actor_id=actor_id, issuer=issuer, subject=subject, email=email,
+            conn,
+            actor_id=actor_id,
+            issuer=issuer,
+            subject=subject,
+            email=email,
         )
         mark_invite_accepted(
-            conn, invite_id=invite.invite_id, accepted_by_actor_id=actor_id,
+            conn,
+            invite_id=invite.invite_id,
+            accepted_by_actor_id=actor_id,
         )
         _grant_invite_role(conn, invite, actor_id)
         return _succeed(
-            conn, issuer, actor_id, OUTCOME_INVITE_ACCEPTED,
+            conn,
+            issuer,
+            actor_id,
+            OUTCOME_INVITE_ACCEPTED,
             f"invite {invite.invite_id} accepted for actor {actor_id}",
             name_claim=name_claim,
         )
@@ -285,17 +292,28 @@ def resolve_sign_in(
 
     domain = organization_domain(conn, org_id=org_id)
     admission_enabled, _ = read_organization_setting(
-        conn, org_id, "membership.auto_join_domain_verified",
+        conn,
+        org_id,
+        "membership.auto_join_domain_verified",
     )
     if admission_enabled and domain and _email_domain(email) == domain:
         actor_id = _create_named_actor(
-            conn, email=email, name_claim=name_claim,
+            conn,
+            email=email,
+            name_claim=name_claim,
         )
         link_external_identity(
-            conn, actor_id=actor_id, issuer=issuer, subject=subject, email=email,
+            conn,
+            actor_id=actor_id,
+            issuer=issuer,
+            subject=subject,
+            email=email,
         )
         return _succeed(
-            conn, issuer, actor_id, OUTCOME_AUTO_JOINED,
+            conn,
+            issuer,
+            actor_id,
+            OUTCOME_AUTO_JOINED,
             f"verified email domain {domain!r} admitted actor {actor_id}",
             name_claim=name_claim,
         )

@@ -1,5 +1,4 @@
-// Everyone and everything permitted to act in this universe. The roster is
-// read from the engine; the browser offers no grant or revoke controls.
+// Actor authority and nonsecret credential inventory for this universe.
 
 import {
   callFunction, el, portabilityMode, renderError,
@@ -40,7 +39,7 @@ function projectAccess(actor) {
   return grants.length ? grants.join(", ") : "—";
 }
 
-function renderRoster(body, result, hosted) {
+function renderRoster(body, result, hosted, context, main, feedback) {
   const documentNode = body.ownerDocument;
   const rows = Array.isArray(result.rows) ? result.rows : [];
   const tableWrap = el(documentNode, "div", "table-wrap");
@@ -48,7 +47,8 @@ function renderRoster(body, result, hosted) {
   const head = el(documentNode, "thead");
   const headings = el(documentNode, "tr");
   for (const label of [
-    "Actor", "Kind", "Org role", "Project access", ...(hosted ? ["Account"] : []),
+    "Actor", "Kind", "State", "Org role", "Project access",
+    ...(hosted ? ["Account"] : []), "API keys", "Action",
   ]) headings.appendChild(el(documentNode, "th", null, label));
   head.appendChild(headings);
   table.appendChild(head);
@@ -61,6 +61,12 @@ function renderRoster(body, result, hosted) {
       documentNode, actor.kind, actor.kind === "human" ? "good" : "idle",
     ));
     tr.appendChild(kind);
+    const state = el(documentNode, "td");
+    state.appendChild(pill(
+      documentNode, actor.status || "active",
+      actor.status === "disabled" ? "idle" : "good",
+    ));
+    tr.appendChild(state);
     const orgRole = el(documentNode, "td");
     const orgRoles = actor.roles?.org || [];
     if (orgRoles.length) {
@@ -73,6 +79,47 @@ function renderRoster(body, result, hosted) {
     if (hosted) tr.appendChild(el(
       documentNode, "td", "actors-muted", actor.identity?.email || "—",
     ));
+    const keys = el(documentNode, "td", "actors-keys");
+    if (actor.tokens?.length) {
+      for (const token of actor.tokens) {
+        const machine = token.machine_id
+          ? ` · machine ${token.machine_name || token.machine_id}` : "";
+        keys.appendChild(el(
+          documentNode, "div", "actors-key",
+          `${token.name} (#${token.token_id}) · last used ${token.last_used_at || "never"}${machine}`,
+        ));
+      }
+    } else keys.appendChild(el(documentNode, "span", "actors-muted", "No active keys"));
+    tr.appendChild(keys);
+    const action = el(documentNode, "td");
+    if (result.can_manage_actors && actor.kind === "human"
+        && actor.id !== result.current_actor_id) {
+      const enabling = actor.status === "disabled";
+      const button = el(documentNode, "button", "button", enabling ? "Enable" : "Disable");
+      button.type = "button";
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        feedback.textContent = enabling ? "Enabling actor…" : "Disabling actor…";
+        try {
+          const changed = await callFunction(context.client, "actors.state.set", {
+            actor_id: actor.id, enabled: enabling,
+          });
+          if (changed.status !== 200 || !changed.envelope?.success) {
+            feedback.textContent = changed.envelope?.error?.message || "Actor update failed; retry.";
+            button.disabled = false;
+            return;
+          }
+          if (context.isMounted() && main.contains(body)) {
+            await renderActorsView(context, main);
+          }
+        } catch (error) {
+          feedback.textContent = `${error}; retry the action or refresh Actors.`;
+          button.disabled = false;
+        }
+      });
+      action.appendChild(button);
+    } else action.appendChild(el(documentNode, "span", "actors-muted", "—"));
+    tr.appendChild(action);
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);
@@ -95,9 +142,10 @@ export async function renderActorsView(context, main) {
   localNotice.hidden = true;
   const panel = el(documentNode, "section", "panel actors-panel");
   const body = el(documentNode, "div", "panel-body actors-body", "Loading actors…");
+  const feedback = el(documentNode, "p", "actors-muted");
   body.setAttribute("role", "status");
   panel.appendChild(body);
-  main.replaceChildren(lead, localNotice, panel);
+  main.replaceChildren(lead, localNotice, panel, feedback);
 
   let callResult;
   try {
@@ -119,7 +167,12 @@ export async function renderActorsView(context, main) {
     ));
     return;
   }
-  const rows = renderRoster(body, callResult.envelope.result || {}, mode === "hosted");
+  const rows = renderRoster(
+    body, callResult.envelope.result || {}, mode === "hosted", context, main, feedback,
+  );
+  if (rows.some((row) => row.status === "disabled")) {
+    feedback.textContent = "Enabling restores access, but revoked API keys stay revoked. Sign in again and reconnect affected machines.";
+  }
   if (mode === "local" && rows.length === 1 && rows[0].kind === "human") {
     const noticeBody = el(documentNode, "div", "panel-body actors-local-body");
     noticeBody.appendChild(pill(documentNode, "sole actor", "idle"));

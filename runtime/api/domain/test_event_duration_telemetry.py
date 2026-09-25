@@ -61,7 +61,7 @@ def _registry_kwargs() -> dict:
 def _request(function_id: str) -> FunctionCallRequest:
     return FunctionCallRequest(
         function=function_id,
-        actor=ActorContext(actor_id="2", session_id="duration-session"),
+        actor=ActorContext(actor_id="duration-test", session_id="duration-session"),
         target=TargetRef(kind="item", item_id=42),
     )
 

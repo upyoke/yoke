@@ -7,9 +7,15 @@ approvals, tokens. On Cloud, CLI connect and machine authorization start
 at the platform routes (`/connect`, `/machine`).
 
 The dashboard's **Actors** page reads the live actor roster. It shows each
-actor's kind, organization role, and project grants; hosted mode also shows
-the linked sign-in email when one exists. The page is read-only. A local
-universe with one human actor explains that it has no access to grant yet.
+actor's kind, active or disabled state, organization role, project grants,
+and every unrevoked API key by name, ID, last use, and machine association.
+Hosted mode also shows the linked sign-in email when one exists. An org admin
+can disable or enable a human actor other than themselves. System actors and
+the last active org admin cannot be disabled. Disabling immediately blocks
+the actor's browser sessions and other authority and revokes all its API keys,
+including machine keys. Enabling restores role access but does not restore
+those keys: the person must sign in again and reconnect affected machines.
+A local universe with one human actor explains that it has no access to grant yet.
 
 A machine waiting to be admitted is answered on the **Machines** page,
 not here: approving needs the machine beside the decision — which one,

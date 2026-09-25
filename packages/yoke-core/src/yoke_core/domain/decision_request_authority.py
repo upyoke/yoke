@@ -13,6 +13,7 @@ from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_render import actor_display_labels
+from yoke_core.domain.actor_state import actor_is_active
 
 
 def _p(conn: Any) -> str:
@@ -60,13 +61,15 @@ def authority_reason(
     re-reading the authorities it already holds for every gate it shows.
     """
     p = _p(conn)
+    if not actor_is_active(conn, actor_id):
+        return None
     named_ids = None if request is None else request.get("named_actor_ids")
     # Being named is only standing if the named actor is a person, so the
     # membership check still runs — but only for an actor the request names.
     if named_ids is None or int(actor_id) in {int(one) for one in named_ids}:
         named = conn.execute(
             "SELECT 1 FROM decision_request_actor_authorities dra "
-            "JOIN actors a ON a.id = dra.actor_id AND a.kind = 'human' "
+            "JOIN actors a ON a.id = dra.actor_id AND a.kind = 'human' AND a.status = 'active' "
             f"WHERE dra.request_id = {p} AND dra.actor_id = {p}",
             (request_id, actor_id),
         ).fetchone()
@@ -77,7 +80,7 @@ def authority_reason(
         scope_column = "org_id" if scope_kind == "org" else "project_id"
         match = conn.execute(
             f"SELECT 1 FROM {table} ar JOIN actors a ON a.id = ar.actor_id "
-            "AND a.kind = 'human' JOIN roles r ON r.id = ar.role_id "
+            "AND a.kind = 'human' AND a.status = 'active' JOIN roles r ON r.id = ar.role_id "
             f"WHERE ar.actor_id = {p} AND ar.{scope_column} = {p} "
             f"AND r.name = {p} LIMIT 1",
             (actor_id, scope_id, role_name),
@@ -111,7 +114,7 @@ def request_deciders(
     deciders: dict[int, dict[str, Any]] = {}
     for row in conn.execute(
         "SELECT dra.actor_id FROM decision_request_actor_authorities dra "
-        "JOIN actors a ON a.id = dra.actor_id AND a.kind = 'human' "
+        "JOIN actors a ON a.id = dra.actor_id AND a.kind = 'human' AND a.status = 'active' "
         f"WHERE dra.request_id = {p} ORDER BY dra.actor_id",
         (request_id,),
     ).fetchall():
@@ -147,7 +150,7 @@ def request_deciders(
         scope_column = "org_id" if scope_kind == "org" else "project_id"
         for holder in conn.execute(
             f"SELECT ar.actor_id FROM {table} ar "
-            "JOIN actors a ON a.id = ar.actor_id AND a.kind = 'human' "
+            "JOIN actors a ON a.id = ar.actor_id AND a.kind = 'human' AND a.status = 'active' "
             "JOIN roles r ON r.id = ar.role_id "
             f"WHERE ar.{scope_column} = {p} AND r.name = {p} "
             "ORDER BY ar.actor_id",
@@ -184,7 +187,7 @@ def decision_request_authority_actor_ids(
         int(row[0])
         for row in conn.execute(
             "SELECT dra.actor_id FROM decision_request_actor_authorities dra "
-            "JOIN actors a ON a.id = dra.actor_id AND a.kind = 'human' "
+            "JOIN actors a ON a.id = dra.actor_id AND a.kind = 'human' AND a.status = 'active' "
             f"WHERE dra.request_id = {p}",
             (request_id,),
         ).fetchall()
@@ -200,7 +203,7 @@ def decision_request_authority_actor_ids(
         scope_column = "org_id" if role[0] == "org" else "project_id"
         rows = conn.execute(
             f"SELECT ar.actor_id FROM {table} ar "
-            "JOIN actors a ON a.id = ar.actor_id AND a.kind = 'human' "
+            "JOIN actors a ON a.id = ar.actor_id AND a.kind = 'human' AND a.status = 'active' "
             "JOIN roles r ON r.id = ar.role_id "
             f"WHERE ar.{scope_column} = {p} AND r.name = {p}",
             (int(role[1]), str(role[2])),
@@ -222,7 +225,7 @@ def human_role_holders(
     p = _p(conn)
     rows = conn.execute(
         f"SELECT ar.actor_id FROM {table} ar "
-        "JOIN actors a ON a.id = ar.actor_id AND a.kind = 'human' "
+        "JOIN actors a ON a.id = ar.actor_id AND a.kind = 'human' AND a.status = 'active' "
         "JOIN roles r ON r.id = ar.role_id "
         f"WHERE ar.{scope_column} = {p} AND r.name = {p} "
         "ORDER BY ar.actor_id",

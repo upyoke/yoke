@@ -11,9 +11,11 @@ from typing import Any, List, Optional
 
 from yoke_core.domain import json_helper
 from yoke_core.domain.actor_permissions import PROJECT_ROLES
+from yoke_core.domain.actor_state import ActorDisabledError
 from yoke_core.domain.api_tokens import (
     DEFAULT_ADMIN_ACTOR_NAME,
     INITIAL_ADMIN_TOKEN_NAME,
+    TokenError,
     bootstrap_admin_token,
     bootstrap_project_service_token,
     mint_token,
@@ -268,7 +270,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = _build_parser().parse_args(argv)
     try:
         return args.func(args)
-    except (LookupError, ValueError) as exc:
+    except (LookupError, ValueError, ActorDisabledError, TokenError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 

@@ -21,7 +21,7 @@ from yoke_core.domain.scheduler_path_claim_feasibility import (
 # Kept here so the test file is self-contained without needing the
 # Yoke schema migrator wiring.
 _SCHEMA = """
-CREATE TABLE actors (
+CREATE TABLE actors (status TEXT NOT NULL DEFAULT 'active',
     id INTEGER PRIMARY KEY,
     name TEXT
 );
@@ -119,9 +119,7 @@ CREATE TABLE path_context_values (
 @pytest.fixture
 def conn():
     name = pg_testdb.create_test_database()
-    c = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    c = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     apply_fixture_ddl(c, _SCHEMA)
     c.execute("INSERT INTO actors (id, name) VALUES (1, 'tester')")
     yield c
@@ -200,7 +198,8 @@ class TestBlockedCrossItemOverlap:
         assert "shared.py" in verdict.shared_paths
 
     def test_enumeration_excludes_disjoint_file_under_shared_directory(
-        self, conn,
+        self,
+        conn,
     ) -> None:
         _insert_target(conn, 90, "src")
         _insert_target(conn, 100, "src/shared.py", parent=90)
