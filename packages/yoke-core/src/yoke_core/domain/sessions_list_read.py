@@ -58,7 +58,8 @@ MAX_SESSIONS_LIST_LIMIT = 500
 #: Under the unscoped (``project=None``) roster read with ``per_project=True``,
 #: each project and the NULL-project partition gets its own newest-N slice,
 #: so a busy project cannot crowd a quiet one
-#: out of the fetch window. Opt-in so the flat unscoped read (search, the full
+#: out of the fetch window, and every live item-claim holder is kept past
+#: that slice so a claimed card can always name its holder. Opt-in so the flat unscoped read (search, the full
 #: roster view) keeps its universe-wide newest-N behavior.
 PER_PROJECT_SESSIONS_LIST_CAP = 20
 

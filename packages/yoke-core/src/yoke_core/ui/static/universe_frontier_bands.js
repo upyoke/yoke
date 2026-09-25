@@ -2,6 +2,11 @@
 // roster, so they are computed together: an item appears in exactly one of
 // them, and each band's count is the number of cards it drew.
 //
+// Which band a card sits in and who is holding it are separate facts. Every
+// card whose item a qualifying session holds carries that session's chip,
+// whichever band it landed in — a merged item parked at its release wait is
+// still that session's, and the card says so.
+//
 // Release is the one band a status decides outright. An item that has merged
 // and is waiting on its deployment is neither stopped, free to pick up, nor
 // being worked on, so it is held out of the other live bands rather than
@@ -201,6 +206,12 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
     const renderFullSession = options.renderFullSession || (() => (
       el(documentNode, "p", "empty", "Session detail is unavailable here.")
     ));
+    const withClaimants = (card, row) => {
+      appendItemClaimants(
+        documentNode, card, reference(row), claimants, renderFullSession,
+      );
+      return card;
+    };
 
     const releasing = items
       .filter((row) => status(row) === RELEASE_STATE)
@@ -236,11 +247,14 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
       ));
     const waitingRefs = new Set(waiting.map((entry) => reference(entry.row)));
     bands.waiting.setCount(waiting.length);
-    bands.waiting.renderCards(waiting.map(({ row, reason }) => workItemCard(
-      documentNode,
+    bands.waiting.renderCards(waiting.map(({ row, reason }) => withClaimants(
+      workItemCard(
+        documentNode,
+        row,
+        scope,
+        { flag: reason.flag, timestamp: row.created_at, timeLabel: "filed" },
+      ),
       row,
-      scope,
-      { flag: reason.flag, timestamp: row.created_at, timeLabel: "filed" },
     )), "Nothing is stopped.");
 
     bands.active.setCount(activeRows.length);
@@ -252,15 +266,11 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
         .map((row) => {
           const ref = reference(row);
           const blocker = waitingReason(row, blockedByRef.get(ref));
-          const card = workItemCard(documentNode, row, scope, {
+          return withClaimants(workItemCard(documentNode, row, scope, {
             flag: blocker?.flag,
             stages: stages.get(ref) || [],
             timestamp: row.updated_at,
-          });
-          appendItemClaimants(
-            documentNode, card, ref, claimants, renderFullSession,
-          );
-          return card;
+          }), row);
         }),
       "No session is running against this universe.",
     );
@@ -298,7 +308,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
         timestamp: row.updated_at,
       });
       appendItemDelivery(documentNode, card, row, deployments);
-      return card;
+      return withClaimants(card, row);
     }), "Nothing is waiting to ship.");
 
     const done = items
@@ -313,7 +323,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
         timeLabel: "finished",
       });
       appendItemDelivery(documentNode, card, row, deployments);
-      return card;
+      return withClaimants(card, row);
     });
     if (done.length > visible.length) visible.push(seeMoreCard(documentNode, scope));
     bands.done.setCount(done.length);
