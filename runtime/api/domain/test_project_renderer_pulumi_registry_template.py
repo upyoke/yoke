@@ -106,11 +106,11 @@ class TestRegistryProgramShape:
             "the registry stack must never mint static access keys for CI"
         )
 
-    def test_infrastructure_and_delivery_roles_are_separate(self):
+    def test_delivery_role_is_the_only_github_role(self):
         source = _registry_stack_source()
         assert "AdministratorAccess" not in source
-        assert "job-function/ViewOnlyAccess" in source
-        assert "githubActionsInfrastructureRoleArn" in source
+        assert "job-function/ViewOnlyAccess" not in source
+        assert "githubActionsInfrastructureRoleArn" not in source
         assert "githubActionsDeliveryRoleArn" in source
         assert "githubActionsDeliveryPolicy" in source
 
