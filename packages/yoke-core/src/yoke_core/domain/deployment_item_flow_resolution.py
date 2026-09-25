@@ -141,6 +141,12 @@ def completion_flow_refusal(conn: Any, item_id: int) -> str:
             f"{ref} completion flow is unreadable; repair its project workflow "
             "delivery default, then retry the deployment start"
         )
+    if not _column_exists(conn, "items", "workflow_id"):
+        return (
+            f"{ref} completion flow cannot be resolved because items.workflow_id "
+            "has not converged; converge the item schema, then retry the "
+            "deployment start"
+        )
     row = conn.execute(
         "SELECT p.slug,i.workflow_id FROM items i JOIN projects p "
         "ON p.id=i.project_id WHERE i.id=%s",

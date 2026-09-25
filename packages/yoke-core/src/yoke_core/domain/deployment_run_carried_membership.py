@@ -1,8 +1,7 @@
 """What a run's candidate obliges it to deliver, and how that becomes membership.
 
-The candidate contains a delivery-ready item's merged code, so the run owns
-its delivery whether or not anyone attached it. This module answers that at
-start and at composition freeze.
+The candidate contains merged code, so the run owns delivery whether or not
+anyone attached its item. This module answers at start and composition freeze.
 
 :func:`enroll_carried_members` reads the run's own pinned ``release_lineage``
 and admits what that commit carries, so an ordinary start completes its own
@@ -116,8 +115,9 @@ def admit_run_item(
     stored as given, and the freeze takes it as given.
     """
     validate_deployment_run_item(conn, run_id=run_id, item_id=int(item_id))
-    if refusal := completion_flow_refusal(conn, int(item_id)):
-        raise ValueError(refusal)
+    if requires_release_admission(conn, run_id):
+        if refusal := completion_flow_refusal(conn, int(item_id)):
+            raise ValueError(refusal)
     freeze_item_completion_flow(conn, int(item_id))
     intent = validate_delivery_intent_for_item(conn, int(item_id), delivery_intent)
     selected_requirements = tuple(requirement_ids)
