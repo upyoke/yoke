@@ -92,7 +92,9 @@ def test_disable_retires_personal_and_machine_keys_and_blocks_browser_and_keyles
         == 2
     )
     assert (
-        check_dispatch_permission(test_db, entry, _keyless_request(subject)).error.code
+        check_dispatch_permission(
+            test_db, entry, _keyless_request(subject)
+        ).error.error.code
         == "actor_disabled"
     )
     assert subject not in human_role_holders(

@@ -32,6 +32,7 @@ class TestRegistrationShape:
 
         register_all_handlers()
         assert ui_server.UI_MUTATION_FUNCTION_ALLOWLIST == {
+            "actors.state.set",
             "overview.module.dismiss",
             "overview.module.restore",
             "profile.token.create",
@@ -40,7 +41,7 @@ class TestRegistrationShape:
             "profile.onboarding.reset",
             "ui_preferences.screen_selection.set",
             "ui_preferences.nav_group.set",
-        "ui_preferences.search_history.record",
+            "ui_preferences.search_history.record",
             "workflows.current.set",
             "workflows.policy_defaults.publish",
             "workflows.testing_default.set",
@@ -74,10 +75,10 @@ class TestRegistrationShape:
             "machine.settings.set",
             "strategy.revision.restore",
             "deployment_runs.terminalize",
-        "deployment_flows.create",
-        "deployment_flows.update",
-        "deployment_flows.version",
-        "deployment_flows.set_status",
+            "deployment_flows.create",
+            "deployment_flows.update",
+            "deployment_flows.version",
+            "deployment_flows.set_status",
         }
         assert not (
             ui_server.UI_MUTATION_FUNCTION_ALLOWLIST
