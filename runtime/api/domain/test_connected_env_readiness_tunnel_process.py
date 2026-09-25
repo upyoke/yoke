@@ -6,9 +6,9 @@ readiness test file remains under the authored-line cap.
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
+import time
 
 import pytest
 
@@ -44,12 +44,12 @@ def _completed(stdout: str = "", returncode: int = 0) -> subprocess.CompletedPro
     )
 
 
-def _write_lease(port: int, pid: int, reason: str) -> None:
-    directory = coordination.coordination_dir(port) / coordination.LEASE_DIR_NAME
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-    (directory / f"{pid}.json").write_text(
-        json.dumps({"pid": pid, "reason": reason, "started_at": 0.0}),
-        encoding="utf-8",
+def _stub_lease(monkeypatch, pid: int, reason: str) -> None:
+    lease = coordination.UseLease(pid, reason, time.time())
+    monkeypatch.setattr(
+        lifecycle,
+        "active_leases",
+        lambda _port, *, exclude_pid=None: [] if exclude_pid == pid else [lease],
     )
 
 
@@ -230,7 +230,7 @@ def test_replace_forward_waits_out_a_lease_and_adopts_the_forward(
 ):
     """A forward under a bulk transfer is usually slow, not dead."""
     spec = _spec()
-    _write_lease(spec.local_port, os.getppid(), "fleet migration rehearsal of prod")
+    _stub_lease(monkeypatch, os.getppid(), "fleet migration rehearsal of prod")
     answers = iter([False, True])
     monkeypatch.setattr(lifecycle.time, "sleep", lambda delay: None)
     monkeypatch.setattr(
@@ -249,7 +249,7 @@ def test_replace_forward_refuses_while_another_process_holds_a_lease(
 ):
     """The observed outage: a restart killed a forward mid bulk transfer."""
     spec = _spec()
-    _write_lease(spec.local_port, os.getppid(), "fleet migration rehearsal of prod")
+    _stub_lease(monkeypatch, os.getppid(), "fleet migration rehearsal of prod")
     monkeypatch.setattr(lifecycle, "LEASE_WAIT_SECONDS", 0.0)
     monkeypatch.setattr(
         lifecycle,
@@ -274,7 +274,7 @@ def test_replace_forward_refuses_while_another_process_holds_a_lease(
 def test_replace_forward_ignores_this_process_own_lease(machine_home, monkeypatch):
     """A process may heal the forward it is itself using."""
     spec = _spec()
-    _write_lease(spec.local_port, os.getpid(), "this session's own copy")
+    _stub_lease(monkeypatch, os.getpid(), "this session's own copy")
     started: list[object] = []
     monkeypatch.setattr(lifecycle, "_find_tunnel_pids", lambda _spec: [])
     monkeypatch.setattr(lifecycle, "_terminate_pids", lambda pids: None)

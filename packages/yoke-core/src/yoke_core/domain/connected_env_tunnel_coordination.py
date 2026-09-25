@@ -16,7 +16,8 @@ Two coordination primitives, both keyed by local port, both machine-wide:
 * **A use lease** records that some process is mid-operation through the
   forward. :mod:`yoke_core.domain.connected_env_tunnel_lifecycle` refuses to
   replace a leased forward and names the holder instead of terminating its
-  work.
+  work. Its open file lock, rather than a PID probe, proves the copy is still
+  using the tunnel; the kernel releases it when an interrupted child exits.
 
 State lives under the machine Yoke home rather than a repo, because the
 forward is a machine resource: every checkout and worktree shares one.
@@ -33,6 +34,7 @@ import json
 import os
 import subprocess
 import time
+from uuid import uuid4
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -152,7 +154,7 @@ def _lock_holder(path: Path) -> str:
 
 
 def pid_alive(pid: int) -> bool:
-    """True when *pid* still exists (a lease outlives nothing but its holder)."""
+    """True when *pid* still exists, for lifecycle-lock diagnostics."""
     if pid <= 0:
         return False
     try:
@@ -187,18 +189,27 @@ def use_lease(local_port: int, reason: str) -> Iterator[Path]:
 
     The lease is written under the lifecycle lock so it is visible before any
     concurrent replacement can begin terminating pids -- writing it unlocked
-    would leave exactly the window this exists to close.
+    would leave exactly the window this exists to close. Keep its own file
+    lock open until the operation finishes, including across a dropped tunnel.
     """
     directory = coordination_dir(local_port) / LEASE_DIR_NAME
-    path = directory / f"{os.getpid()}.json"
+    path = directory / f"{os.getpid()}-{uuid4().hex}.json"
     payload = {"pid": os.getpid(), "reason": reason, "started_at": time.time()}
     with lifecycle_lock(local_port):
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload), encoding="utf-8")
+        descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            os.ftruncate(descriptor, 0)
+            os.write(descriptor, json.dumps(payload).encode("utf-8"))
+        except BaseException:
+            os.close(descriptor)
+            raise
     try:
         yield path
     finally:
         path.unlink(missing_ok=True)
+        os.close(descriptor)
 
 
 @contextmanager
@@ -225,7 +236,7 @@ def active_leases(
     *,
     exclude_pid: Optional[int] = None,
 ) -> List[UseLease]:
-    """Live leases on this port; a lease whose holder is gone is removed."""
+    """Live leases on this port; the holder's exit releases its file lock."""
     directory = coordination_dir(local_port) / LEASE_DIR_NAME
     try:
         entries = sorted(directory.iterdir())
@@ -233,9 +244,21 @@ def active_leases(
         return []
     leases: List[UseLease] = []
     for entry in entries:
-        lease = _read_lease(entry)
-        if lease is None or not pid_alive(lease.pid):
-            entry.unlink(missing_ok=True)
+        try:
+            descriptor = os.open(entry, os.O_RDONLY)
+        except FileNotFoundError:
+            continue
+        try:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                lease = _read_lease(entry)
+            else:
+                entry.unlink(missing_ok=True)
+                continue
+        finally:
+            os.close(descriptor)
+        if lease is None:
             continue
         if exclude_pid is not None and lease.pid == exclude_pid:
             continue
