@@ -1,11 +1,9 @@
 """An answered deployment stage decision reaches its run.
 
-A resolved decision used to change nothing: the run stayed ``executing`` at
-the same stage, so an approve waited forever on a question already answered
-and a rejection kept presenting as a release in flight. These cover both
-answers, the stage nobody has answered yet, and — because a recovery nobody
-can perform is not a recovery — that the commands the wake carries are ones
-the CLI actually serves.
+A resolved decision must change the run: an approved ready run can finish,
+while a rejection closes it. These cover both answers, the stage nobody has
+answered yet, and — because a recovery nobody can perform is not a recovery —
+that the commands the wake carries are ones the CLI actually serves.
 """
 
 from __future__ import annotations
@@ -103,10 +101,10 @@ def _seat(conn: Any, session_id: str, *, driver: bool) -> None:
     )
 
 
-def test_a_resolved_approve_wakes_the_driver_and_leaves_the_run_to_the_runner(
+def test_a_resolved_approve_finishes_a_ready_run_without_waking_the_driver(
     test_db: Any,
 ) -> None:
-    """The answer reaches somebody who can act; the run itself is untouched."""
+    """The held deploy lock lets the answered final gate finish the run."""
     create_decision_request_tables(test_db)
     _project(test_db)
     owner = _owner_with_role(test_db)
@@ -128,14 +126,11 @@ def test_a_resolved_approve_wakes_the_driver_and_leaves_the_run_to_the_runner(
         session_id="deciding-session",
     )
 
-    # Advancing the run stays the runner's, so the answer moves nothing here.
-    assert _run_row(test_db, run_id)[:2] == ("executing", STAGE)
+    status, stage, completed_at = _run_row(test_db, run_id)
+    assert (status, stage) == ("succeeded", "complete")
+    assert completed_at
     key = stage_decision_idempotency_key(run_id, STAGE, request_id, "approve")
-    assert _recipients(test_db, key) == [DRIVER_SESSION]
-    [body] = _bodies(test_db, key)
-    assert run_id in body
-    assert STAGE in body
-    assert f"watch deploy -- {run_id}" in body
+    assert _recipients(test_db, key) == []
 
 
 def test_a_resolved_reject_closes_the_run_instead_of_leaving_it_executing(
