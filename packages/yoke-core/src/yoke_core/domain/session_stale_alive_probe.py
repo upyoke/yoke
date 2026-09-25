@@ -7,10 +7,9 @@ separate the first case by recording that the process is gone, but no
 machine-liveness signal revokes a session's holdings.
 
 What is left over is the harder population: claim-holding sessions that read
-``stale`` while the relay does *not* prove them dead. Nothing decides anything
-about those today, so their claims sit until the holdings TTL expires hours
-later, and the work they were holding is blocked the whole time on a session
-that may simply be waiting for someone to say something to it.
+``stale`` while the relay does *not* prove them dead. Their claims remain
+held until an explicit release or terminal action, so this probe asks for
+status and leaves a durable question for recovery.
 
 So ask. The escalation this module opens is deliberately the mildest thing
 that could work:
@@ -22,9 +21,9 @@ that could work:
    so the existing wake machinery escalates it — the native resume when the
    session reads active, the ordinary idle route while it reads stale.
 
-A delivered probe that gets no answer remains evidence for the operator and
-the normal holdings-TTL sweep. It never ends a claim-holding session; only a
-deliberate termination or that holdings TTL may release its authority.
+A delivered probe that gets no answer remains evidence for the operator.
+It never ends a claim-holding session; an explicit release, completion,
+cancellation, or authorized termination settles its authority.
 
 Nothing here pages an operator. Each step is evidence for the next, and the
 session can end the sequence at any point simply by calling a tool.
@@ -55,7 +54,7 @@ PROBE_BODY = (
     "process is gone. Report status by continuing your work — any tool call "
     "clears this probe. If you are blocked or waiting on someone, say so and "
     "release the claim if the work has been handed off. An unanswered probe "
-    "stays visible until deliberate termination or the holdings TTL."
+    "stays visible until explicit release or authorized termination."
 )
 
 

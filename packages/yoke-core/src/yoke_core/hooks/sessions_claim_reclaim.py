@@ -5,10 +5,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from yoke_core.domain.claim_holder_staleness import (
-    REASON_PARKED_HOLDER,
-    parked_claim_holders,
-)
 from yoke_core.domain.session_reclaim_activity import (
     SCOPE_ITEM_CLAIM,
     classify_reclaimable,
@@ -48,12 +44,6 @@ def reclaim_stale_conflicts(
     ]
     item_id = str(target.item_id) if target.kind == TARGET_KIND_ITEM else None
     reclaimed_holders: list[str] = []
-    # A session acquiring this target does not get to take it from a holder
-    # that parked on purpose; that quiet is a declared wait, not a death.
-    parked_holders = parked_claim_holders(
-        conn,
-        (claim[1] for claim in snapshot_stale_claims),
-    )
     for claim in snapshot_stale_claims:
         original_session_id = claim[1]
         recheck = classify_reclaimable(
@@ -61,8 +51,7 @@ def reclaim_stale_conflicts(
             original_session_id,
             claim_id=claim[0],
         )
-        holder_parked = str(original_session_id or "") in parked_holders
-        if holder_parked or not recheck.is_reclaimable:
+        if not recheck.is_reclaimable:
             evidence = recheck.evidence.as_payload()
             _emit_event(
                 conn,
@@ -74,11 +63,7 @@ def reclaim_stale_conflicts(
                         "scope": SCOPE_ITEM_CLAIM,
                         "original_session_id": original_session_id,
                         "attempting_session_id": attempting_session_id,
-                        "abort_reason": (
-                            REASON_PARKED_HOLDER
-                            if holder_parked
-                            else recheck.reason
-                        ),
+                        "abort_reason": recheck.reason,
                         "executor": evidence["executor"],
                         "effective_ttl_minutes": evidence["effective_ttl_minutes"],
                         "original_session_last_heartbeat": evidence["last_heartbeat"],

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from . import db_backend
-from .claim_holder_staleness import parked_claim_holders
+from .claim_holder_staleness import protected_claim_holders
 from .session_reclaim_activity_bulk import latest_activity_by_session
 from .session_staleness import activity_is_stale
 from .scheduler_types import ClaimState
@@ -77,9 +77,8 @@ def _evaluate_claim_states(
         conn,
         (row[1] for row in claim_rows if len(row) > 2 and row[1]),
     )
-    # A holder parked on purpose is quiet by declaration, not by death, so
-    # its claim stays held however long the wait runs.
-    parked_holders = parked_claim_holders(
+    # A persisted active claim stays held while its session is live.
+    protected_holders = protected_claim_holders(
         conn,
         (row[1] for row in claim_rows if len(row) > 2 and row[1]),
     )
@@ -118,7 +117,7 @@ def _evaluate_claim_states(
             else False
         )
 
-        if session_is_stale and str(claim_session or "") in parked_holders:
+        if session_is_stale and str(claim_session or "") in protected_holders:
             session_is_stale = False
 
         if session_id and claim_session == session_id:

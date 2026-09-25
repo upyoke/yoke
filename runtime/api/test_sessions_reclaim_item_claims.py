@@ -154,7 +154,7 @@ def _capture_session_events(monkeypatch):
 class TestReclaimStaleItemClaimsRecheck:
     """Same activity signals as cmd_claim and clean_stale_harness_sessions."""
 
-    def test_reclaims_when_no_recent_tool_activity(self, conn_with_events):
+    def test_reclaims_ended_holder_even_with_old_claim(self, conn_with_events):
         c = conn_with_events
         _seed_holder(
             c,
@@ -163,6 +163,11 @@ class TestReclaimStaleItemClaimsRecheck:
             holder_heartbeat_ago_min=30,
             claim_heartbeat_ago_min=30,
         )
+        c.execute(
+            "UPDATE harness_sessions SET ended_at=%s WHERE session_id='holder-A'",
+            (_ago_minutes(1),),
+        )
+        c.commit()
 
         from yoke_core.domain.sessions import reclaim_stale_item_claims
 
@@ -190,6 +195,11 @@ class TestReclaimStaleItemClaimsRecheck:
         )
         set_current_item(c, "holder-focus", "5010")
 
+        c.execute(
+            "UPDATE harness_sessions SET ended_at=%s WHERE session_id='holder-focus'",
+            (_ago_minutes(1),),
+        )
+        c.commit()
         assert reclaim_stale_item_claims(c, "5010", stale_threshold_minutes=10) == 1
 
         row = c.execute(
@@ -230,7 +240,7 @@ class TestReclaimStaleItemClaimsRecheck:
         ).fetchone()["current_item_id"]
         assert str(focus) == "5011"
 
-    def test_aborts_when_holder_session_heartbeat_is_fresh(
+    def test_aborts_for_live_work_claim_even_when_claim_heartbeat_is_old(
         self,
         conn_with_events,
         monkeypatch,
@@ -260,7 +270,7 @@ class TestReclaimStaleItemClaimsRecheck:
         ctx = aborted[0]["context"]
         assert ctx["scope"] == "item_claim"
         assert ctx["original_session_id"] == "holder-A"
-        assert ctx["abort_reason"] == "fresh"
+        assert ctx["abort_reason"] == "active_work_claim"
         assert ctx["reclaimed_by_item_offer"] is True
 
     def test_fresh_claim_heartbeat_is_not_a_reclaim_candidate(

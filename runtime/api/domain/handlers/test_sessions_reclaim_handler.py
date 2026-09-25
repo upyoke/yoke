@@ -67,12 +67,10 @@ def test_reclaim_returns_sweep_receipt_for_global_and_project_scopes():
         call(
             connection,
             project_ids=None,
-            reclaim_probe_stale_holders=True,
         ),
         call(
             connection,
             project_ids=[1, 2],
-            reclaim_probe_stale_holders=True,
         ),
     ]
 

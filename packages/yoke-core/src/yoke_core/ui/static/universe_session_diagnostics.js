@@ -37,6 +37,7 @@ export function killExplanation(row) {
 // cleanup sweep would consider it, whether or not the roster has re-read its
 // liveness since.
 function pastStalenessWindow(row, now) {
+  if (!row.stale_eligible_at) return false;
   if (String(row.liveness || "") === "stale") return true;
   const eligible = new Date(row.stale_eligible_at).getTime();
   return !Number.isNaN(eligible) && eligible <= now;

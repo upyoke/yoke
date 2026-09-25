@@ -29,6 +29,7 @@ REASON_NEVER_ENGAGED = "never_engaged"
 REASON_HEARTBEAT_STALE = "heartbeat_stale"
 REASON_PROGRESS_STALE = "progress_stale"
 REASON_FRESH = "fresh"
+REASON_ACTIVE_WORK_CLAIM = "active_work_claim"
 REASON_ABANDONED_IN_FLIGHT = "abandoned_in_flight"
 IN_FLIGHT_HARD_TTL_MULTIPLIER = 3
 
@@ -243,11 +244,12 @@ def classify_reclaimable(
     )
 
     if evidence.ended_at is not None:
-        return ReclaimClassification(
-            is_reclaimable=True,
-            reason=REASON_ENDED,
-            evidence=evidence,
-        )
+        return ReclaimClassification(True, REASON_ENDED, evidence)
+
+    from .session_cleanup_holdings import session_has_active_work_claim
+
+    if session_has_active_work_claim(conn, session_id):
+        return ReclaimClassification(False, REASON_ACTIVE_WORK_CLAIM, evidence)
 
     overrides_dict = dict(overrides) if overrides is not None else None
     heartbeat_stale = activity_is_stale(
@@ -320,11 +322,7 @@ def classify_reclaimable(
     ):
         return ReclaimClassification(True, REASON_ABANDONED_IN_FLIGHT, evidence)
 
-    return ReclaimClassification(
-        is_reclaimable=False,
-        reason=REASON_FRESH,
-        evidence=evidence,
-    )
+    return ReclaimClassification(False, REASON_FRESH, evidence)
 
 
 __all__ = [
@@ -336,6 +334,7 @@ __all__ = [
     "REASON_ABANDONED_IN_FLIGHT",
     "REASON_ENDED",
     "REASON_FRESH",
+    "REASON_ACTIVE_WORK_CLAIM",
     "REASON_HEARTBEAT_STALE",
     "REASON_NEVER_ENGAGED",
     "REASON_PROGRESS_STALE",

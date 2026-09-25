@@ -73,7 +73,6 @@ def handle_sessions_reclaim_stale(
         result = clean_stale_harness_sessions(
             conn,
             project_ids=payload.project_ids,
-            reclaim_probe_stale_holders=True,
         )
     finally:
         conn.close()

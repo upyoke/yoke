@@ -80,15 +80,13 @@ def _headline(public_ref: str, kind: str, status: str) -> str:
     return f"{public_ref} not closed"
 
 
-def _awaiting_delivery_lines(
-    record: Mapping[str, Any], public_ref: str
-) -> list[str]:
+def _awaiting_delivery_lines(record: Mapping[str, Any], public_ref: str) -> list[str]:
     """What the owner of a release wait holds, and what re-enters it.
 
     The close-out already keeps the claim and parks the session here; this
     says so out loud because the worker reading it has been told everywhere
     else to report and end. An unconfirmed park is named rather than
-    softened: a wait nothing recorded is one the stale sweep will reclaim.
+    softened: a wait should be recorded for wake and recovery routing.
 
     ``delivery_pending`` leads when the close-out knows which delivery is
     outstanding, so a re-entry that found the deploy still unfinished says
@@ -110,8 +108,8 @@ def _awaiting_delivery_lines(
     if parked and not parked.startswith(("yes", "skipped")):
         lines.append(
             "park unconfirmed: stamp it yourself with `yoke sessions touch "
-            f"--mode parked --reason \"{block.get('park_reason', '')}\"` — an "
-            "undeclared wait is reclaimed by the stale sweep"
+            f'--mode parked --reason "{block.get("park_reason", "")}"` — an '
+            "declare the wait so wake and recovery routing can find it"
         )
     return lines
 

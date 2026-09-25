@@ -1,9 +1,9 @@
 """Keep the owning session live while it waits on a long local command.
 
-The stale-session sweep reclaims a session whose newest activity signal is
-older than its stale TTL — 20 minutes by default, or the holdings TTL
-while a work claim or lock is held — and releases that session's work
-claims when it does. A gate run routinely outlives that: a
+The stale-session sweep reclaims a claimless session whose newest activity
+signal is older than its stale TTL. An active work claim protects its holder
+regardless of activity or process presence. A gate run routinely outlives
+the claimless TTL: a
 registered Command case or a watcher-backed suite runs for 30 to 60
 minutes while the session that started it sits idle waiting, so the sweep
 reclaimed the item claim out from under a run that was still going and the
@@ -15,9 +15,9 @@ work is in flight. The pump refreshes the session heartbeat — and, through it,
 the heartbeats of that session's active claims — no more often than
 :data:`HEARTBEAT_INTERVAL_SECONDS`.
 
-Liveness lasts exactly as long as the process does. Kill the run and the
-refreshes stop, so the session goes stale on the normal schedule rather
-than becoming immortal because something once claimed to be busy.
+Refreshes stop when the command exits. Claimless sessions then follow the
+normal stale schedule; claimed sessions remain protected by their persisted
+claim until an explicit release or terminal action.
 """
 
 from __future__ import annotations

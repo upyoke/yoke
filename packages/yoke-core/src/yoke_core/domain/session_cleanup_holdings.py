@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
+from . import db_backend
 from .schema_common import _table_exists
 from .sessions_render_reclaim import _resolve_effective_ttl
 
@@ -15,12 +16,8 @@ def _add_session_ids(target: set[str], rows: list[Any], column: str) -> None:
             target.add(str(value))
 
 
-def active_holding_sessions(conn: Any) -> set[str]:
-    """Return sessions holding active work or document claims.
-
-    Shared-operation holds are work_claims rows, so the first query
-    already covers them.
-    """
+def active_work_claim_sessions(conn: Any) -> set[str]:
+    """Return sessions protected by persisted active work claims."""
     sessions: set[str] = set()
     if _table_exists(conn, "work_claims"):
         _add_session_ids(
@@ -30,6 +27,31 @@ def active_holding_sessions(conn: Any) -> set[str]:
             ).fetchall(),
             "session_id",
         )
+    return sessions
+
+
+def session_has_active_work_claim(conn: Any, session_id: str) -> bool:
+    """Read a holder's durable work claim at a reclaim boundary."""
+    if not _table_exists(conn, "work_claims"):
+        return False
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    return (
+        conn.execute(
+            f"SELECT 1 FROM work_claims WHERE session_id={marker} "
+            "AND released_at IS NULL LIMIT 1",
+            (session_id,),
+        ).fetchone()
+        is not None
+    )
+
+
+def active_holding_sessions(conn: Any) -> set[str]:
+    """Return sessions holding active work or document claims.
+
+    Shared-operation holds are work_claims rows, so the first query
+    already covers them.
+    """
+    sessions = active_work_claim_sessions(conn)
     if _table_exists(conn, "strategy_doc_claims"):
         _add_session_ids(
             sessions,
@@ -61,4 +83,9 @@ def effective_cleanup_ttl(
     return max(short_ttl, int(holdings_ttl_minutes))
 
 
-__all__ = ["active_holding_sessions", "effective_cleanup_ttl"]
+__all__ = [
+    "active_holding_sessions",
+    "active_work_claim_sessions",
+    "effective_cleanup_ttl",
+    "session_has_active_work_claim",
+]

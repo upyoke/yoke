@@ -22,7 +22,6 @@ from typing import Any, List
 
 from . import db_backend
 from . import sessions_analytics as _sa
-from .claim_holder_staleness import REASON_PARKED_HOLDER, parked_claim_holders
 from .session_reclaim_activity import (
     SCOPE_ITEM_CLAIM,
     classify_reclaimable,
@@ -84,12 +83,6 @@ def reclaim_stale_item_claims(
 
     released = 0
     reclaimed_holders: List[str] = []
-    # A holder parked on purpose is waiting, not gone, so the offer that
-    # asked for this item must not take it away from its owner.
-    parked_holders = parked_claim_holders(
-        conn,
-        (claim_row["session_id"] for claim_row in candidate_rows),
-    )
     for claim_row in candidate_rows:
         holder_session_id = claim_row["session_id"]
         recheck = classify_reclaimable(
@@ -98,8 +91,7 @@ def reclaim_stale_item_claims(
             claim_id=claim_row["id"],
             base_ttl_minutes=stale_threshold_minutes,
         )
-        holder_parked = str(holder_session_id or "") in parked_holders
-        if holder_parked or not recheck.is_reclaimable:
+        if not recheck.is_reclaimable:
             evidence_payload = recheck.evidence.as_payload()
             _sa._emit_session_event(
                 EVENT_RECLAIM_ABORTED,
@@ -115,9 +107,7 @@ def reclaim_stale_item_claims(
                     "scope": SCOPE_ITEM_CLAIM,
                     "original_session_id": holder_session_id,
                     "attempting_session_id": None,
-                    "abort_reason": (
-                        REASON_PARKED_HOLDER if holder_parked else recheck.reason
-                    ),
+                    "abort_reason": recheck.reason,
                     "executor": evidence_payload["executor"],
                     "effective_ttl_minutes": evidence_payload["effective_ttl_minutes"],
                     "original_session_last_heartbeat": evidence_payload[

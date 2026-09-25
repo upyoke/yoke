@@ -42,13 +42,17 @@ def find_stale_sessions(
     """Identify sessions whose canonical activity is older than the threshold."""
     from .session_reclaim_activity import latest_activity
     from .session_staleness import activity_is_stale
+    from .session_cleanup_holdings import active_work_claim_sessions
 
     rows = conn.execute(
         "SELECT * FROM harness_sessions WHERE ended_at IS NULL",
     ).fetchall()
     result = []
+    protected = active_work_claim_sessions(conn)
     for r in rows:
         d = _row_to_dict(r)
+        if str(d.get("session_id") or "") in protected:
+            continue
         activity_at = latest_activity(conn, str(d.get("session_id") or ""))
         if not activity_is_stale(
             activity_at,
@@ -89,6 +93,17 @@ def reclaim_stale_session(
         raise SessionError(
             "SESSION_ENDED",
             f"Session '{session_id}' has already ended.",
+        )
+
+    active_work_claim = conn.execute(
+        "SELECT id FROM work_claims WHERE session_id=%s AND released_at IS NULL LIMIT 1",
+        (session_id,),
+    ).fetchone()
+    if active_work_claim is not None:
+        raise SessionError(
+            "ACTIVE_WORK_CLAIM",
+            f"Session '{session_id}' holds an active work claim. Release the claim, "
+            "complete or cancel its work, or use authorized session termination.",
         )
 
     # Capture claim details before releasing for per-claim telemetry
