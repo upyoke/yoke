@@ -3,7 +3,8 @@
 The shared row shape + joins and the two query shapes
 :func:`yoke_core.domain.sessions_list_read.list_sessions` runs: the flat
 newest-N read and the per-project-windowed roster (each project — and the
-NULL-project partition — gets its own newest-N slice).
+NULL-project partition — gets its own newest-N slice, and every session
+holding a live item work claim rides along whatever its rank).
 """
 
 from __future__ import annotations
@@ -11,6 +12,16 @@ from __future__ import annotations
 #: The activity stamp every read orders by: the later of the two timestamps as
 #: uniform ISO-8601 text (lexicographic order matches chronological order).
 _ACTIVITY = "GREATEST(COALESCE(s.last_tool_call_at, ''), s.last_heartbeat)"
+
+#: Whether the session holds a live item work claim. The windowed roster keeps
+#: these rows past its per-project cap: a holder parked at its item's release
+#: wait is idle by design, and ranking it by activity alone would drop the
+#: holder a claimed card has to name.
+_HOLDS_ITEM = (
+    "EXISTS (SELECT 1 FROM work_claims wc "
+    "WHERE wc.session_id = s.session_id "
+    "AND wc.target_kind = 'item' AND wc.released_at IS NULL)"
+)
 
 #: Row shape shared by both query shapes.
 _SELECT = (
@@ -44,16 +55,18 @@ _JOINS = (
 
 def build_sessions_query(where: str, *, windowed: bool) -> str:
     """The roster SQL. ``windowed`` gives each project its own newest-N slice
-    (a ``%s`` per-project cap bind before the overall ``LIMIT %s``); otherwise
+    (a ``%s`` per-project cap bind before the overall ``LIMIT %s``) plus every
+    item-claim holder, which also sorts ahead of the overall limit; otherwise
     it is the flat newest-N read (a single trailing ``LIMIT %s``)."""
     if windowed:
         return (
-            f"SELECT * FROM ({_SELECT}, "
+            f"SELECT * FROM ({_SELECT}, {_HOLDS_ITEM} AS _holds_item, "
             f"ROW_NUMBER() OVER (PARTITION BY s.project_id "
             f"ORDER BY {_ACTIVITY} DESC) AS _rn "
             f"{_JOINS} {where}) ranked "
-            "WHERE _rn <= %s "
-            "ORDER BY GREATEST(COALESCE(last_tool_call_at, ''), "
+            "WHERE _rn <= %s OR _holds_item "
+            "ORDER BY _holds_item DESC, "
+            "GREATEST(COALESCE(last_tool_call_at, ''), "
             "last_heartbeat) DESC LIMIT %s"
         )
     return f"{_SELECT} {_JOINS} {where} ORDER BY {_ACTIVITY} DESC LIMIT %s"
