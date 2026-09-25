@@ -18,6 +18,9 @@ from yoke_core.domain.delivery_evidence_ladder import (
     delivery_evidence,
 )
 from yoke_core.domain.deployment_qa_source_obligation import latest_completion_run
+from yoke_core.domain.deployment_member_independent_close_out import (
+    independent_member_delivery_ready,
+)
 from yoke_core.domain.dash_posture_read import (
     failure as _failure,
     item_row as _item,
@@ -174,22 +177,22 @@ def _stale_completion_run_gate(
     conn: Any,
     item_id: int,
 ) -> Optional[dict[str, Any]]:
-    """Refuse a succeeded run that does not contain the live lane head.
+    """Refuse delivered membership that does not contain the live lane head.
 
-    Selected deployment posture still requires a succeeded run and still
-    contains the recorded merge. This narrower check runs even when that
-    posture is off: a first-landing run must not close the item while a
-    newer same-item head is unmerged or undeployed.
+    Selected delivery still requires the recorded merge, even without posture:
+    a first landing cannot close while newer work is unshipped.
 
-    The head is a pointer, not an identity, so an unplaceable one is only a
-    refusal while the item's own merge is also unaccounted for
-    (:mod:`dash_lane_head_staleness`).
+    An unplaceable head refuses only while its merge is unaccounted for.
     """
     head = _active_lane_head(conn, item_id)
     if not head:
         return None
     row = latest_completion_run(conn, int(item_id))
-    if row is None or str(row["status"]) != "succeeded":
+    if row is None:
+        return None
+    if str(row["status"]) != "succeeded" and not independent_member_delivery_ready(
+        conn, item_id=item_id, run_id=str(row["id"])
+    ):
         return None
     lineage = str(row.get("release_lineage") or "")
     blocked = _lineage_covers(
@@ -269,8 +272,7 @@ def _deployment_gate(
                 # runs, or, for an item that stores no flow, its project's
                 # persistent-environment runs — so the headline does not
                 # claim a flow the item may not have.
-                else f"No succeeded run delivers this item "
-                f"({evidence_verdict.reason})."
+                else f"No succeeded run delivers this item ({evidence_verdict.reason})."
             ),
             (
                 f"Execute it: {watch_deploy_command(str(row['id']))}"

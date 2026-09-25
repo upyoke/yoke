@@ -1,21 +1,16 @@
-"""Wake the release-wait owner whose own item-scoped QA just became accepted.
+"""Close an independently delivered member or wake its release-wait owner.
 
 The release-to-done gate already answers for one item, not the batch:
 :func:`deployment_qa_run_acceptance.item_qa_acceptance_blockers` lists that
 item's own item-scoped stages plus every run-scoped stage, and treats
-another member's outstanding item-scoped QA as that member's problem. What
-was missing was a wake. The only deployment wake was run-scoped and
-addressed to the driver, so a member whose own QA was accepted sat parked
-until the whole run finished.
+another member's outstanding item-scoped QA as that member's problem. A
+flow with no run QA can therefore close a final member when its own final
+production QA passes. A flow with run QA still holds all members until the
+shared QA and run success.
 
-This is that wake. It fires where acceptance is settled, once per member
-per run, and only when the gate's own reader is already empty -- so a
-flow that still declares a run-scoped stage keeps that shared wait, and
-a member whose sibling is still outstanding does not wait on the sibling.
-The envelope reuses :mod:`yoke_core.domain.deployment_run_driver_notice`'s
-delivery contract with the member as the recipient, rather than minting a
-second wake path. A failed send is isolated so it cannot undo the
-acceptance that just committed.
+The satisfied path reuses the existing merge close-out. A refused close-out
+uses the existing member wake with its reason and recovery. A failed send
+is isolated so it cannot undo the acceptance that just committed.
 """
 
 from __future__ import annotations
@@ -28,6 +23,9 @@ from yoke_core.domain.deployment_qa_run_acceptance import (
     item_qa_acceptance_blockers,
 )
 from yoke_core.domain.deployment_run_driver_notice import push_member_notice
+from yoke_core.domain.deployment_member_independent_close_out import (
+    independent_member_delivery_ready,
+)
 from yoke_core.domain.merge_queue_landing_notice import HOLDER
 from yoke_core.domain.release_wait_ownership import item_at_release_wait
 from yoke_core.domain.schema_common import _table_exists
@@ -44,28 +42,34 @@ def item_qa_accepted_idempotency_key(item_id: int, run_id: str) -> str:
     return f"{ITEM_QA_ACCEPTED_KEY_PREFIX}{item_id}:{run_id}"
 
 
-def item_qa_accepted_message(*, public_ref: str, run_id: str, route: str) -> str:
+def item_qa_accepted_message(
+    *, public_ref: str, run_id: str, route: str, close_out_failure: str = ""
+) -> str:
     """Name what was accepted and how the release-wait owner should wait."""
     lead = (
         f"{public_ref}'s own item-scoped QA is accepted on deployment run "
         f"{run_id}. The run may still be executing; other members' outstanding "
         "item-scoped QA does not block this close-out."
     )
+    if close_out_failure:
+        lead += f" Automatic close-out failed: {close_out_failure}."
+    recovery = (
+        "Automatic close-out needs recovery before this item can finish. "
+        if close_out_failure
+        else "The completion flow will close this item when its shared obligations finish. "
+    )
     if route == HOLDER:
         return (
             f"{lead} You hold its work claim and parked on this wait, so this "
-            f"is your re-entry. The completion-flow success will auto-close "
-            f"the item from its recorded landing and QA evidence and end an "
-            f"otherwise empty holder session; do not re-run merge solely for "
-            f"this acceptance. This prompt cleared your previous park, so if "
-            f"the run is still executing, re-park with `yoke sessions touch "
+            f"is your re-entry. {recovery}Do not re-run merge solely for "
+            f"this acceptance. If the item is still at release wait, re-park "
+            f"with `yoke sessions touch "
             f'--mode parked --reason "awaiting {public_ref} delivery"`.'
         )
     return (
         f"{lead} Nobody holds its work claim, but no worker is needed for the "
-        f"satisfied path: completion-flow success will auto-close the item "
-        f"from its recorded evidence. Check `yoke deployment-runs get "
-        f"{run_id}` only if the run fails or stops."
+        f"satisfied path: {recovery}Check `yoke deployment-runs get "
+        f"{run_id}` for run status and recovery."
     )
 
 
@@ -138,14 +142,30 @@ def notify_item_qa_accepted(
         recorded_no_obligation,
     )
 
-    # The close-out runs when delivery clears, not here: this stage can
-    # accept while the run is still executing. A wake would only restate
-    # a decision already on the row.
+    # A no-obligation member waits for the ordinary run-success close-out.
     if recorded_no_obligation(conn, int(item_id)):
         return ""
     member = _release_wait_member(conn, int(item_id))
     if member is None:
         return ""
+    close_out_failure = ""
+    if independent_member_delivery_ready(
+        conn, item_id=int(item_id), run_id=str(run_id)
+    ):
+        from yoke_core.domain.no_obligation_member_close_out import (
+            close_out_satisfied_delivery_member,
+        )
+
+        closed = close_out_satisfied_delivery_member(
+            conn,
+            item_id=int(item_id),
+            public_ref=str(member["public_ref"]),
+            run_id=str(run_id),
+        )
+        if closed.applies and closed.ok:
+            return "closed"
+        if closed.applies:
+            close_out_failure = closed.detail
     stamp = now or datetime.now(timezone.utc)
     public_ref = str(member["public_ref"])
     try:
@@ -158,7 +178,10 @@ def notify_item_qa_accepted(
             item_id=int(member["item_id"]),
             project_id=int(member["project_id"]),
             body_for_route=lambda route, ref=public_ref: item_qa_accepted_message(
-                public_ref=ref, run_id=str(run_id), route=route
+                public_ref=ref,
+                run_id=str(run_id),
+                route=route,
+                close_out_failure=close_out_failure,
             ),
             idempotency_key=item_qa_accepted_idempotency_key(
                 int(member["item_id"]), str(run_id)

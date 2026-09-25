@@ -81,13 +81,13 @@ still refused). A member nobody asked keeps the `QaCasesNotSelectedError`
 wait, and still blocks the next item-scoped stage. An empty case set on its
 own is still never enough — silence is not an answer.
 
-The no-obligation fact is the item's `post_deploy` requirement with
-`qa_kind=post_deploy_no_obligation`, non-blocking, reason on `instructions`,
-and empty waiver columns. `yoke qa post-deploy record-no-obligation` exists
-so that is one named act. After the completion-flow run succeeds, that
-recorded fact auto-closes the member through the same merge close-out,
-without waking a session. An empty case set still stays held;
-`declared_none` still wakes, because a waiver is not that fact.
+The `post_deploy_no_obligation` fact is a non-blocking `post_deploy` requirement with a reason in `instructions` and no waiver.
+Record it with `yoke qa post-deploy record-no-obligation`; completion-run
+success then auto-closes the member without a wake. An empty case set stays
+held; `declared_none` still wakes because a waiver is not that fact. A final
+member on a selected flow without run QA closes after its own final production
+QA is accepted, even if sibling QA keeps the run executing. Required run QA
+holds all final members through shared QA and run success.
 
 A plan bound to a persistent environment is selectable at a `run_preview`
 QA stage when the run's `target_environment_id` is that environment — the
