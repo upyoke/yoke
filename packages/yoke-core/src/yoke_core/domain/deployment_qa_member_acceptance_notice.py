@@ -4,9 +4,9 @@ The release-to-done gate already answers for one item, not the batch:
 :func:`deployment_qa_run_acceptance.item_qa_acceptance_blockers` lists that
 item's own item-scoped stages plus every run-scoped stage, and treats
 another member's outstanding item-scoped QA as that member's problem. A
-flow with no run QA can therefore close a final member when its own final
-production QA passes. A flow with run QA still holds all members until the
-shared QA and run success.
+flow with no run QA or run approval can therefore close a final member when
+its own final production QA passes or is explicitly discharged. A shared QA
+or approval gate holds all members until the run succeeds.
 
 The satisfied path reuses the existing merge close-out. A refused close-out
 uses the existing member wake with its reason and recovery. A failed send
@@ -49,7 +49,7 @@ def item_qa_accepted_message(
     lead = (
         f"{public_ref}'s item-scoped QA gate is clear on deployment run "
         f"{run_id}. The run may still be executing; the selected flow's "
-        "shared QA decides whether sibling QA delays completion."
+        "shared QA and approval gates decide whether sibling QA delays completion."
     )
     if close_out_failure:
         lead += f" Automatic close-out failed: {close_out_failure}."
@@ -158,6 +158,12 @@ def notify_item_qa_accepted(
             return "closed"
         if closed.applies:
             close_out_failure = closed.detail
+    from yoke_core.domain.no_obligation_member_close_out import (
+        recorded_no_obligation,
+    )
+
+    if recorded_no_obligation(conn, int(item_id)) and not close_out_failure:
+        return ""
     stamp = now or datetime.now(timezone.utc)
     public_ref = str(member["public_ref"])
     try:
