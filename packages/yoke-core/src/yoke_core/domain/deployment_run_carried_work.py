@@ -97,9 +97,7 @@ def derive_carried_work(
         previous=previous,
         repo_root=repo_root,
     )
-    bound = bound_project_shas(
-        parse_bound_sources(_cell(row, BOUND_SOURCES_FIELD, 3))
-    )
+    bound = bound_project_shas(parse_bound_sources(_cell(row, BOUND_SOURCES_FIELD, 3)))
     payload["bound_projects"] = [
         dict(
             derive_project_carried_work(
@@ -153,6 +151,7 @@ def record_carried_work(conn: Any, run_id: str) -> dict[str, Any]:
         raise LookupError(f"deployment run {run_id!r} not found")
     existing = parse_carried_work(_cell(row, CARRIED_WORK_FIELD, 0))
     if existing is not None:
+        _require_bound_project_coverage(conn, run_id, existing)
         return existing
     payload = derive_carried_work_safely(conn, run_id)
     conn.execute(
@@ -162,12 +161,54 @@ def record_carried_work(conn: Any, run_id: str) -> dict[str, Any]:
     return payload
 
 
+def carried_work_for_enrollment(conn: Any, run_id: str) -> dict[str, Any]:
+    """Derive provisionally until the run has recorded every bound source."""
+    row = conn.execute(
+        "SELECT carried_work FROM deployment_runs WHERE id=%s", (run_id,)
+    ).fetchone()
+    if row is None:
+        raise LookupError(f"deployment run {run_id!r} not found")
+    existing = parse_carried_work(_cell(row, CARRIED_WORK_FIELD, 0))
+    if existing is not None:
+        _require_bound_project_coverage(conn, run_id, existing)
+        return existing
+    return derive_carried_work_safely(conn, run_id)
+
+
+def _require_bound_project_coverage(
+    conn: Any, run_id: str, payload: dict[str, Any]
+) -> None:
+    row = conn.execute(
+        f"SELECT {_bound_sources_column(conn)} FROM deployment_runs WHERE id=%s",
+        (run_id,),
+    ).fetchone()
+    assert row is not None
+    require_bound_project_coverage(run_id, payload, row[0])
+
+
+def require_bound_project_coverage(
+    run_id: str, payload: dict[str, Any], bound_sources: Any
+) -> None:
+    """Reject a cached answer derived before its bound commits were pinned."""
+    expected = set(bound_project_shas(parse_bound_sources(bound_sources)))
+    actual = {int(entry["project_id"]) for entry in payload.get("bound_projects") or []}
+    if expected != actual:
+        raise ValueError(
+            f"deployment run {run_id!r} carried_work omits recorded bound "
+            f"project source(s) {sorted(expected - actual)}; its attribution "
+            "was recorded before bound sources. Cancel this run and create a "
+            "new one so membership is derived from every pinned source"
+        )
+
+
 __all__ = [
     "CARRIED_WORK_FIELD",
     "CARRIED_WORK_SCHEMA",
+    "carried_work_for_enrollment",
     "derive_carried_work",
     "derive_project_carried_work",
     "derive_carried_work_safely",
     "parse_carried_work",
+    "require_bound_project_coverage",
     "record_carried_work",
 ]

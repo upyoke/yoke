@@ -1,9 +1,7 @@
 """What a run's candidate obliges it to deliver, and how that becomes membership.
 
-The candidate already contains a delivery-ready item's merged code, so the run
-deploying it owns that item's delivery whether or not anyone attached it:
-leaving the item out never removed the code, only the obligation to prove it
-works. This module answers that in the two ways a start needs.
+The candidate contains merged code, so the run owns delivery whether or not
+anyone attached its item. This module answers at start and composition freeze.
 
 :func:`enroll_carried_members` reads the run's own pinned ``release_lineage``
 and admits what that commit carries, so an ordinary start completes its own
@@ -25,11 +23,8 @@ silence that used to mean "deliver nothing provable" now means "deliver what
 this item still owes". ``cmd_add_item`` is the operator-facing adapter
 around it.
 
-Enrollment runs once per project the run ships code for — its own, plus
-every project a flow stage binds — each against that project's own recorded
-commit. Membership still names one item, and each item still belongs to
-exactly one project; what widens is which projects a run can close out, not
-what a membership row means.
+Enrollment checks each shipped project's recorded commit. Membership still
+names one item in one project; the run may close items across bound projects.
 
 Two things enrollment deliberately does not do. It never invents attribution:
 an underivable carried set or an unattributed commit stays a refusal, because
@@ -47,11 +42,12 @@ from typing import Any, Iterable
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.deployment_item_flow_resolution import (
+    completion_flow_refusal,
     freeze_item_completion_flow,
 )
 from yoke_core.domain.deployment_run_carried_work import (
+    carried_work_for_enrollment,
     derive_carried_work_safely,
-    record_carried_work,
 )
 from yoke_core.domain.deployment_member_post_deploy_admission import (
     admissible_post_deploy_requirement_ids,
@@ -119,6 +115,9 @@ def admit_run_item(
     stored as given, and the freeze takes it as given.
     """
     validate_deployment_run_item(conn, run_id=run_id, item_id=int(item_id))
+    if requires_release_admission(conn, run_id):
+        if refusal := completion_flow_refusal(conn, int(item_id)):
+            raise ValueError(refusal)
     freeze_item_completion_flow(conn, int(item_id))
     intent = validate_delivery_intent_for_item(conn, int(item_id), delivery_intent)
     selected_requirements = tuple(requirement_ids)
@@ -140,8 +139,7 @@ def admit_run_item(
         "INSERT INTO deployment_run_items "
         "(run_id, item_id, added_at, delivery_intent, requirement_selection) "
         "VALUES (%s, %s, %s, %s, %s)",
-        (run_id, int(item_id), iso8601_now(), intent,
-         None if derived else selection),
+        (run_id, int(item_id), iso8601_now(), intent, None if derived else selection),
     )
     return render_item_ref(conn, int(item_id))
 
@@ -194,18 +192,21 @@ def enroll_carried_members(
         raise LookupError(f"deployment run {run_id!r} not found")
     if not str(row[0] or "").strip():
         return ()
-    payload = dict(carried_work or record_carried_work(conn, run_id))
-    carried = sorted({
-        int(entry["item_id"])
-        for project_set in project_carried_sets(payload)
-        # An underivable carried set names no items to enroll. The refusal
-        # owner reports it, so silence here is deferral, not a waiver.
-        if bool((project_set.get("derivation") or {}).get("contents_known"))
-        for entry in project_set.get("items") or []
-    # A landing older than the carried range's floor is still this run's to
-    # deliver when nothing else holds it, so the second source is unioned in
-    # before any lock is taken.
-    } | set(unheld_candidate_ids(conn, run_id)))
+    payload = dict(carried_work or carried_work_for_enrollment(conn, run_id))
+    carried = sorted(
+        {
+            int(entry["item_id"])
+            for project_set in project_carried_sets(payload)
+            # An underivable carried set names no items to enroll. The refusal
+            # owner reports it, so silence here is deferral, not a waiver.
+            if bool((project_set.get("derivation") or {}).get("contents_known"))
+            for entry in project_set.get("items") or []
+            # A landing older than the carried range's floor is still this run's to
+            # deliver when nothing else holds it, so the second source is unioned in
+            # before any lock is taken.
+        }
+        | set(unheld_candidate_ids(conn, run_id))
+    )
     if not carried:
         return ()
     # Item workflow bindings first, then the run row: the same order
@@ -226,8 +227,7 @@ def enroll_carried_members(
     candidates = [
         item_id
         for item_id in carried
-        if item_id not in members
-        and item_requires_release_membership(conn, item_id)
+        if item_id not in members and item_requires_release_membership(conn, item_id)
     ]
     enrolled: list[str] = []
     for item_id in candidates:
@@ -312,18 +312,21 @@ def carried_membership_refusal(
         # candidate never promised, so the inherited answer stands.
         return None
     members = set(member_ids(conn, run_id))
-    omitted = sorted({
-        int(entry["item_id"])
-        for project_set in project_sets
-        for entry in project_set.get("items") or []
-        if int(entry["item_id"]) not in members
-        and item_requires_release_membership(conn, int(entry["item_id"]))
-    })
+    eligible = sorted(
+        {
+            int(entry["item_id"])
+            for project_set in project_sets
+            for entry in project_set.get("items") or []
+            if item_requires_release_membership(conn, int(entry["item_id"]))
+        }
+    )
+    for item_id in eligible:
+        if refusal := completion_flow_refusal(conn, item_id):
+            return f"deployment run {run_id!r} carries {refusal}"
+    omitted = [item_id for item_id in eligible if item_id not in members]
     if not omitted:
         return None
-    labels = ", ".join(
-        render_item_ref(conn, int(item_id)) for item_id in omitted
-    )
+    labels = ", ".join(render_item_ref(conn, int(item_id)) for item_id in omitted)
     why = carried_enrollment_blocked(conn, run_id) or (
         "they became deliverable after this run composed its membership"
     )

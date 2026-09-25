@@ -57,11 +57,22 @@ CARRIED_ITEM_ID = 9501
 def _flows(conn: Any) -> None:
     stage_environment(conn)
     cmd_create(
-        conn, RELEASE_FLOW, "yoke", "Release admission", "", RELEASE_STAGES,
+        conn,
+        RELEASE_FLOW,
+        "yoke",
+        "Release admission",
+        "",
+        RELEASE_STAGES,
         status="disabled",
     )
     cmd_create(
-        conn, LEGACY_FLOW, "yoke", "Legacy", "", LEGACY_STAGES, status="disabled",
+        conn,
+        LEGACY_FLOW,
+        "yoke",
+        "Legacy",
+        "",
+        LEGACY_STAGES,
+        status="disabled",
     )
 
 
@@ -91,8 +102,9 @@ def _candidate(
     ref = _item(conn, status=item_status, flow=item_flow)
     repo, baseline, tip = release_repository(tmp_path, ref)
     serve_repository(monkeypatch, repo)
-    insert_run(conn, "run-previous", lineage=baseline, status="succeeded",
-               flow=run_flow)
+    insert_run(
+        conn, "run-previous", lineage=baseline, status="succeeded", flow=run_flow
+    )
     insert_run(conn, "run-candidate", lineage=tip, status="created", flow=run_flow)
     return ref
 
@@ -117,6 +129,19 @@ def test_a_start_enrolls_the_delivery_ready_item_its_candidate_carries(
     assert item_ref in describe_enrollment(enrolled)
     # The invariant the enrollment exists to satisfy now holds on its own.
     assert carried_membership_refusal(test_db, "run-candidate") is None
+
+
+def test_primary_carried_item_without_a_completion_flow_refuses_admission(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ref = _candidate(test_db, tmp_path, monkeypatch, item_flow="")
+
+    with pytest.raises(ValueError, match="no resolvable completion flow") as error:
+        enroll_carried_members(test_db, "run-candidate")
+
+    assert ref in str(error.value)
+    assert "--workflow blitz --flow FLOW" in str(error.value)
+    assert _members(test_db) == []
 
 
 def test_enrollment_leaves_a_deliberate_member_choice_untouched(
@@ -146,8 +171,12 @@ def test_a_retry_reuses_inherited_membership_instead_of_recomputing(
     """
     _candidate(test_db, tmp_path, monkeypatch)
     insert_item(
-        test_db, id=CARRIED_ITEM_ID + 1, project_sequence=CARRIED_ITEM_ID + 1,
-        workflow_id="blitz", status="implementing", deployment_flow=RELEASE_FLOW,
+        test_db,
+        id=CARRIED_ITEM_ID + 1,
+        project_sequence=CARRIED_ITEM_ID + 1,
+        workflow_id="blitz",
+        status="implementing",
+        deployment_flow=RELEASE_FLOW,
     )
     test_db.execute(
         "INSERT INTO deployment_run_items"
@@ -202,8 +231,9 @@ def test_terminal_carried_history_is_never_enrolled(
 def test_a_flow_without_delivery_custody_enrolls_nothing(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _candidate(test_db, tmp_path, monkeypatch, run_flow=LEGACY_FLOW,
-               item_flow=LEGACY_FLOW)
+    _candidate(
+        test_db, tmp_path, monkeypatch, run_flow=LEGACY_FLOW, item_flow=LEGACY_FLOW
+    )
 
     assert (
         carried_enrollment_blocked(test_db, "run-candidate")

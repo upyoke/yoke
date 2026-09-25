@@ -28,6 +28,7 @@ from yoke_core.domain.deployment_run_carried_work import derive_carried_work
 from yoke_core.domain.deployment_run_carried_membership import (
     carried_membership_refusal,
 )
+from yoke_core.domain.deployment_run_composition_freeze import freeze_run_composition
 from yoke_core.domain.flow_create import cmd_create
 
 
@@ -90,21 +91,61 @@ def test_a_readable_comparison_refuses_a_run_omitting_its_carried_item(
     item_ref = _delivery_ready_item(test_db)
     repo, baseline, tip = release_repository(tmp_path, item_ref)
     serve_repository(monkeypatch, repo)
-    insert_run(test_db, "run-previous", lineage=baseline, status="succeeded",
-               flow="release-admission-flow")
-    insert_run(test_db, "run-candidate", lineage=tip, status="created",
-               flow="release-admission-flow")
+    insert_run(
+        test_db,
+        "run-previous",
+        lineage=baseline,
+        status="succeeded",
+        flow="release-admission-flow",
+    )
+    insert_run(
+        test_db,
+        "run-candidate",
+        lineage=tip,
+        status="created",
+        flow="release-admission-flow",
+    )
 
     carried = derive_carried_work(test_db, "run-candidate")
     assert carried["derivation"]["contents_known"] is True
     assert [entry["item_id"] for entry in carried["items"]] == [CARRIED_ITEM_ID]
 
-    refusal = carried_membership_refusal(
-        test_db, "run-candidate", carried_work=carried
-    )
+    refusal = carried_membership_refusal(test_db, "run-candidate", carried_work=carried)
     assert refusal is not None
     assert "omits delivery-ready carried work" in refusal
     assert item_ref in refusal
+
+
+def test_missing_completion_flow_cannot_pass_composition_freeze(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _release_flow(test_db)
+    ref = _delivery_ready_item(test_db)
+    test_db.execute(
+        "UPDATE items SET deployment_flow=NULL WHERE id=%s", (CARRIED_ITEM_ID,)
+    )
+    test_db.commit()
+    repo, baseline, tip = release_repository(tmp_path, ref)
+    serve_repository(monkeypatch, repo)
+    insert_run(
+        test_db,
+        "run-previous",
+        lineage=baseline,
+        status="succeeded",
+        flow="release-admission-flow",
+    )
+    insert_run(
+        test_db,
+        "run-candidate",
+        lineage=tip,
+        status="created",
+        flow="release-admission-flow",
+    )
+
+    with pytest.raises(ValueError, match="no resolvable completion flow") as error:
+        freeze_run_composition(test_db, "run-candidate")
+
+    assert ref in str(error.value)
 
 
 def test_an_unreadable_comparison_refuses_by_name_instead_of_scanning(
@@ -120,17 +161,25 @@ def test_an_unreadable_comparison_refuses_by_name_instead_of_scanning(
     _release_flow(test_db)
     _delivery_ready_item(test_db)
     serve_repository(monkeypatch, None)
-    insert_run(test_db, "run-previous", lineage="a" * 40, status="succeeded",
-               flow="release-admission-flow")
-    insert_run(test_db, "run-candidate", lineage="b" * 40, status="created",
-               flow="release-admission-flow")
+    insert_run(
+        test_db,
+        "run-previous",
+        lineage="a" * 40,
+        status="succeeded",
+        flow="release-admission-flow",
+    )
+    insert_run(
+        test_db,
+        "run-candidate",
+        lineage="b" * 40,
+        status="created",
+        flow="release-admission-flow",
+    )
 
     carried = derive_carried_work(test_db, "run-candidate")
     assert carried["derivation"]["contents_known"] is False
     assert carried["derivation"]["status"] == "unknown"
 
-    refusal = carried_membership_refusal(
-        test_db, "run-candidate", carried_work=carried
-    )
+    refusal = carried_membership_refusal(test_db, "run-candidate", carried_work=carried)
     assert refusal is not None
     assert "carried-code membership is project_source_unavailable" in refusal
