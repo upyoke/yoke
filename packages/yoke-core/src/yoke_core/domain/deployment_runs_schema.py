@@ -216,6 +216,7 @@ def _run_named_columns(conn: Any, alias: str = "dr") -> tuple[str, str]:
         (
             f"{alias}.id",
             "p.slug AS project",
+            "p.id AS project_id",
             f"{alias}.flow",
             col("target_tier"),
             environment,

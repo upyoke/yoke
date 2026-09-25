@@ -6,12 +6,10 @@
 // two moments, so they get the same box rather than two renderings that
 // drift apart.
 //
-// Membership is who owes the item a delivery — the run's own member rows
-// joined on the item's internal id. An in-flight run that never enrolls
-// (a schema-v1 stage flow) still has to appear while it is moving: the list
-// projection joins it through `contained_items`, read from the run's persisted
-// start-time containment snapshot. It is not membership and takes no custody.
-// Honest carried_work is the residual join once a run has succeeded.
+// Membership is who owes the item a delivery. Candidate containment can also
+// show a landing while it is being delivered, without calling it membership.
+// The overview projection removes a merely contained landing after its first
+// successful delivery to that environment. Run history keeps every run.
 // Never guess from matching projects or nearby timestamps. The time shown is
 // the run's completion, the moment the deployment finished, rather than when
 // the item was merged or when the run row was last touched.
@@ -31,11 +29,17 @@ const FAILED = "failed";
 const TERMINAL_RUN_STATES = new Set([SUCCEEDED, FAILED, "cancelled"]);
 const STALLED_AFTER_MS = 30 * 60 * 1000;
 
-function runMembers(run) {
-  if ((run.member_items || []).length) return run.member_items;
-  if (!TERMINAL_RUN_STATES.has(String(run.status || ""))
-      && (run.contained_items || []).length) return run.contained_items;
-  return run.carried_work?.items || [];
+function runItems(run) {
+  const members = (run.member_items || []).map((item) => ({ item, relation: "member" }));
+  const candidates = Object.hasOwn(run, "delivery_candidate_items")
+    ? run.delivery_candidate_items
+    : !TERMINAL_RUN_STATES.has(String(run.status || ""))
+      ? run.contained_items || []
+      : run.carried_work?.items || [];
+  const memberIds = new Set(members.map(({ item }) => memberItemId(item)));
+  return members.concat((candidates || [])
+    .filter((item) => !memberIds.has(memberItemId(item)))
+    .map((item) => ({ item, relation: "candidate" })));
 }
 
 function memberItemId(member) {
@@ -52,11 +56,11 @@ function memberItemId(member) {
 export function deploymentsByItemId(runs) {
   const index = new Map();
   for (const run of runs || []) {
-    for (const member of runMembers(run)) {
-      const itemId = memberItemId(member);
+    for (const { item, relation } of runItems(run)) {
+      const itemId = memberItemId(item);
       if (!itemId) continue;
       if (!index.has(itemId)) index.set(itemId, []);
-      index.get(itemId).push(run);
+      index.get(itemId).push({ ...run, delivery_relation: relation });
     }
   }
   for (const [, carried] of index) {
@@ -195,9 +199,11 @@ function deliveryRunCard(documentNode, run, row) {
   const icon = navIcon(documentNode, "shipping");
   icon.classList.add("item-deployment-icon");
   card.appendChild(icon);
-  // The run and the item it carries are the same project by membership,
-  // so the item's own project scopes the link.
-  card.href = deploymentRunHref(row.project_id ?? null, run.id || run.run_id);
+  // A run may ship a bound project's candidate, so scope its link to the
+  // run's project rather than the item's project.
+  card.href = deploymentRunHref(
+    run.project_id ?? row.project_id ?? null, run.id || run.run_id,
+  );
   const pill = statePill(documentNode, status, status);
   if (pill) card.appendChild(pill);
   card.appendChild(el(
@@ -217,6 +223,10 @@ function deliveryRunCard(documentNode, run, row) {
   }
   card.appendChild(el(
     documentNode, "small", "item-deployment-run", String(run.id || run.run_id || ""),
+  ));
+  card.appendChild(el(
+    documentNode, "small", "item-deployment-relation",
+    run.delivery_relation === "member" ? "run member" : "candidate contains landing",
   ));
   return card;
 }
