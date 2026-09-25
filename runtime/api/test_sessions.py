@@ -114,7 +114,7 @@ def _create_schema(conn) -> None:
         PROJECTS_SCHEMA,
         ITEMS_SCHEMA,
         """
-        CREATE TABLE IF NOT EXISTS actors (
+        CREATE TABLE IF NOT EXISTS actors (status TEXT NOT NULL DEFAULT 'active',
             id INTEGER PRIMARY KEY,
             kind TEXT NOT NULL CHECK(kind IN ('human','system')),
             system_component TEXT,
@@ -255,7 +255,7 @@ def _create_ownership_schema(conn) -> None:
 # must exist. Columns mirror the native event emitter's INSERT so the reclaim
 # emit path writes cleanly on both engines.
 EMIT_PATH_TABLES = """
-    CREATE TABLE IF NOT EXISTS actors (
+    CREATE TABLE IF NOT EXISTS actors (status TEXT NOT NULL DEFAULT 'active',
         id INTEGER PRIMARY KEY, kind TEXT NOT NULL DEFAULT 'system',
         system_component TEXT, name TEXT NOT NULL DEFAULT '', created_at TEXT
     );

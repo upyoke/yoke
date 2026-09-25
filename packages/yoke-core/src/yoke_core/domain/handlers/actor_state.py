@@ -28,7 +28,8 @@ class ActorStateSetResponse(BaseModel):
 
 def _refuse(code: str, message: str) -> HandlerOutcome:
     return HandlerOutcome(
-        primary_success=False, error=FunctionError(code=code, message=message),
+        primary_success=False,
+        error=FunctionError(code=code, message=message),
     )
 
 
@@ -48,14 +49,19 @@ def handle_actor_state_set(request: FunctionCallRequest) -> HandlerOutcome:
     with db_helpers.connect() as conn:
         try:
             require_control_plane_permission(
-                conn, actor_id=int(raw_caller), permission_key=PERM_ORG_ADMIN,
+                conn,
+                actor_id=int(raw_caller),
+                permission_key=PERM_ORG_ADMIN,
             )
         except PermissionDenied as exc:
             return _refuse("permission_denied", str(exc))
         try:
             revoked = set_actor_enabled(
-                conn, actor_id=actor_id, caller_actor_id=int(raw_caller),
-                enabled=enabled, now=db_helpers.iso8601_now(),
+                conn,
+                actor_id=actor_id,
+                caller_actor_id=int(raw_caller),
+                enabled=enabled,
+                now=db_helpers.iso8601_now(),
             )
         except ActorStateRefused as exc:
             return _refuse("actor_state_refused", str(exc))

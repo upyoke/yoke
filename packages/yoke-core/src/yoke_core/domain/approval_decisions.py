@@ -173,9 +173,7 @@ def _boxes(request: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     for actor_id in request.get("named_actor_ids") or []:
-        boxes.append(
-            {"kind": "actor", "actor_id": int(actor_id), "label": None}
-        )
+        boxes.append({"kind": "actor", "actor_id": int(actor_id), "label": None})
     return boxes
 
 

@@ -88,7 +88,8 @@ def _prune_expired(conn: Any, *, now: datetime) -> None:
     p = _p(conn)
     try:
         conn.execute(
-            f"DELETE FROM web_sessions WHERE expires_at <= {p}", (_fmt(now),),
+            f"DELETE FROM web_sessions WHERE expires_at <= {p}",
+            (_fmt(now),),
         )
     except Exception:  # noqa: BLE001 - a housekeeping sweep never blocks a mint
         pass
@@ -157,7 +158,8 @@ def verify_web_session(conn: Any, raw_token: str) -> VerifiedWebSession:
     )
     conn.commit()
     return VerifiedWebSession(
-        web_session_id=int(web_session_id), actor_id=int(actor_id),
+        web_session_id=int(web_session_id),
+        actor_id=int(actor_id),
     )
 
 
@@ -165,7 +167,8 @@ def revoke_web_session(conn: Any, *, web_session_id: int) -> None:
     """Revoke a session by row id; raw token material is not needed."""
     p = _p(conn)
     row = conn.execute(
-        f"SELECT 1 FROM web_sessions WHERE id = {p}", (int(web_session_id),),
+        f"SELECT 1 FROM web_sessions WHERE id = {p}",
+        (int(web_session_id),),
     ).fetchone()
     if row is None:
         raise WebSessionNotFound(f"web session id {web_session_id} not found")

@@ -101,8 +101,11 @@ def permission_decision(
     """
     if not actor_is_active(conn, actor_id):
         return PermissionDecision(
-            actor_id=actor_id, project_id=project_id,
-            permission_key=permission_key, allowed=False, role_names=(),
+            actor_id=actor_id,
+            project_id=project_id,
+            permission_key=permission_key,
+            allowed=False,
+            role_names=(),
         )
     # Wildcard 1 — org admin (all-access), drift-proof: the admin role is defined
     # as every permission, so we never consult role_permissions for it.
@@ -117,9 +120,8 @@ def permission_decision(
     # Wildcard 2 — project owner, limited to project-grantable permissions
     # (org-scoped permissions like org.admin / project.create are never a
     # project role's to grant, so a project owner can never self-escalate to them).
-    if (
-        permission_key not in ORG_SCOPED_PERMISSIONS
-        and _holds_project_owner(conn, project_id=project_id, actor_id=actor_id)
+    if permission_key not in ORG_SCOPED_PERMISSIONS and _holds_project_owner(
+        conn, project_id=project_id, actor_id=actor_id
     ):
         return PermissionDecision(
             actor_id=actor_id,
@@ -207,8 +209,12 @@ def org_permission_decision(
     p = _p(conn)
     if not actor_is_active(conn, actor_id):
         return PermissionDecision(
-            actor_id=actor_id, project_id=None, permission_key=permission_key,
-            allowed=False, role_names=(), org_id=org_id,
+            actor_id=actor_id,
+            project_id=None,
+            permission_key=permission_key,
+            allowed=False,
+            role_names=(),
+            org_id=org_id,
         )
     admin_row = conn.execute(
         "SELECT 1 FROM actor_org_roles aor "

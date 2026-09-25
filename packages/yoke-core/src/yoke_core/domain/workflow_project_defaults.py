@@ -32,26 +32,23 @@ def _current_workflows(conn: Any) -> list[dict]:
 
 
 def _selected_workflows(
-    conn: Any, workflow_id: str, apply_to_all: bool,
+    conn: Any,
+    workflow_id: str,
+    apply_to_all: bool,
 ) -> list[dict]:
     workflows = _current_workflows(conn)
     if apply_to_all:
         return workflows
     selected = [row for row in workflows if row["id"] == workflow_id]
     if not selected:
-        raise WorkflowProjectDefaultError(
-            f"workflow {workflow_id!r} does not exist"
-        )
+        raise WorkflowProjectDefaultError(f"workflow {workflow_id!r} does not exist")
     return selected
 
 
 def _qa_transition_ids(workflow: dict) -> tuple[str, ...]:
     transitions = []
     for stage in workflow["definition"].get("stages", []):
-        if any(
-            gate.get("id") == "qa_verification"
-            for gate in stage.get("gates", [])
-        ):
+        if any(gate.get("id") == "qa_verification" for gate in stage.get("gates", [])):
             transitions.append(str(stage["id"]))
     return tuple(transitions)
 
@@ -119,8 +116,13 @@ def set_testing_default(
             "attached_at, attached_by_actor_id"
             f") VALUES ({', '.join([p] * 7)})",
             (
-                int(identity.id), selected_id, transition_id, "verification",
-                int(plan_id), stamp, actor_id,
+                int(identity.id),
+                selected_id,
+                transition_id,
+                "verification",
+                int(plan_id),
+                stamp,
+                actor_id,
             ),
         )
     conn.commit()
@@ -161,23 +163,26 @@ def list_delivery_defaults(conn: Any) -> list[dict]:
         payload = _json_object(row["payload"])
         fallback = payload.get("deployment_flow")
         workflow_defaults = payload.get("workflow_defaults")
-        declared = (
-            workflow_defaults if isinstance(workflow_defaults, dict) else {}
-        )
+        declared = workflow_defaults if isinstance(workflow_defaults, dict) else {}
         for workflow_id in workflows:
             flow_id = declared.get(workflow_id, fallback)
             if isinstance(flow_id, str) and flow_id:
-                result.append({
-                    "project_id": int(row["project_id"]),
-                    "project": str(row["project"]),
-                    "workflow_id": workflow_id,
-                    "flow_id": flow_id,
-                })
+                result.append(
+                    {
+                        "project_id": int(row["project_id"]),
+                        "project": str(row["project"]),
+                        "workflow_id": workflow_id,
+                        "flow_id": flow_id,
+                    }
+                )
     return result
 
 
 def get_delivery_default(
-    conn: Any, *, project: str, workflow_id: str,
+    conn: Any,
+    *,
+    project: str,
+    workflow_id: str,
 ) -> Optional[str]:
     """Resolve the workflow-specific choice, then the legacy project fallback."""
     identity = resolve_project(conn, project, required=False)
@@ -232,12 +237,14 @@ def set_delivery_default(
     apply_patch_on_connection(
         conn,
         identity.slug,
-        ops=[{
-            "op": "put",
-            "family": "deploy_defaults",
-            "attachment": "project",
-            "payload": payload,
-        }],
+        ops=[
+            {
+                "op": "put",
+                "family": "deploy_defaults",
+                "attachment": "project",
+                "payload": payload,
+            }
+        ],
     )
     conn.commit()
     return {
@@ -253,7 +260,8 @@ def list_approval_actors(conn: Any) -> list[dict]:
     rows = query_rows(
         conn,
         "SELECT a.id, a.name AS label FROM actors a "
-        "WHERE a.kind='human' AND a.name <> '' ORDER BY LOWER(a.name), a.id",
+        "WHERE a.kind='human' AND a.status='active' AND a.name <> '' "
+        "ORDER BY LOWER(a.name), a.id",
     )
     return [{"id": int(row["id"]), "label": str(row["label"])} for row in rows]
 

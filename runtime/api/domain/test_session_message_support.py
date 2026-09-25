@@ -64,7 +64,7 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
             public_item_prefix TEXT NOT NULL,
             default_branch TEXT NOT NULL DEFAULT 'main'
         );
-        CREATE TABLE actors (
+        CREATE TABLE actors (status TEXT NOT NULL DEFAULT 'active',
             id INTEGER PRIMARY KEY,
             kind TEXT NOT NULL DEFAULT 'human',
             system_component TEXT,

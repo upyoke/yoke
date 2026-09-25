@@ -141,7 +141,7 @@ def _build_schema(create_schema) -> None:
 # ``_create_ownership_schema`` does not build. Missing relations poison a
 # Postgres transaction, so the empty tables must exist.
 _OWNERSHIP_EXTRA_TABLES = """
-    CREATE TABLE IF NOT EXISTS actors (
+    CREATE TABLE IF NOT EXISTS actors (status TEXT NOT NULL DEFAULT 'active',
         id INTEGER PRIMARY KEY,
         kind TEXT NOT NULL DEFAULT 'system',
         system_component TEXT,

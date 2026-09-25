@@ -18,7 +18,7 @@ def registry_connection() -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(
         """
-        CREATE TABLE actors (id INTEGER PRIMARY KEY);
+        CREATE TABLE actors (status TEXT NOT NULL DEFAULT 'active', id INTEGER PRIMARY KEY);
         CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT NOT NULL, org_id INTEGER);
         CREATE TABLE roles (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
         CREATE TABLE actor_project_roles (

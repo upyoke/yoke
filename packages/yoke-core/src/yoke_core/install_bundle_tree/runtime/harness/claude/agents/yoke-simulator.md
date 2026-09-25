@@ -344,7 +344,7 @@ WHERE tgt.path_string IN ('<project-source-path>/foo.py', '<project-source-path>
 - **`path_claim_task_bindings`** — `claim_id, epic_id, task_num, bound_at`
 - **`path_targets`** — `id, project_id, kind, path_string, generation, parent_target_id, created_at, materialization_state, materialization_updated_at, planned_by_item_id, planned_by_claim_id`
 - **`path_claim_amendments`** — `id, claim_id, amended_at, amendment_kind, payload, reason`
-- **`actors`** — `id, kind, system_component, name, created_at`
+- **`actors`** — `id, kind, system_component, name, status, created_at`
 - **`machines`** — `machine_id, name, owner_actor_id, access, registered_at, last_seen_at, retired_at, retired_by_actor_id`
 - **`harness_machine_reports`** — `project_id, machine_id, harness_id, glue_written, glue_present, glue_malformed, config_present, project_entry_present, approval_state, unattended_posture, reported_at`
 

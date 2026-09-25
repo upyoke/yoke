@@ -77,7 +77,7 @@ def _connection() -> sqlite3.Connection:
           actor_id INTEGER,
           executor TEXT
         );
-        CREATE TABLE actors (
+        CREATE TABLE actors (status TEXT NOT NULL DEFAULT 'active',
           id INTEGER PRIMARY KEY,
           kind TEXT,
           system_component TEXT,
@@ -232,7 +232,10 @@ def _connection() -> sqlite3.Connection:
         )
         """
     )
-    conn.execute("INSERT INTO actors VALUES (3, 'human', NULL, 'Codex')")
+    conn.execute(
+        "INSERT INTO actors (id, kind, system_component, name) "
+        "VALUES (3, 'human', NULL, 'Codex')"
+    )
     conn.execute("INSERT INTO harness_sessions VALUES ('session-z', 3, 'codex')")
     conn.execute(
         """

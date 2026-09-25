@@ -185,7 +185,9 @@ def authenticate_request(request: Request) -> HttpAuthContext | JSONResponse:
         )
     except TokenActorDisabled as exc:
         return auth_error_response(
-            status_code=401, code="actor_disabled", message=str(exc),
+            status_code=401,
+            code="actor_disabled",
+            message=str(exc),
         )
     except TokenExpired:
         return auth_error_response(

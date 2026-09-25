@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS event_registry (
 # succeed cleanly; without it the missing-relation error aborts the transaction
 # before the subsequent INSERT.
 _CREATE_ACTORS = """
-CREATE TABLE IF NOT EXISTS actors (
+CREATE TABLE IF NOT EXISTS actors (status TEXT NOT NULL DEFAULT 'active',
     id INTEGER PRIMARY KEY,
     kind TEXT NOT NULL DEFAULT 'human',
     system_component TEXT,

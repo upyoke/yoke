@@ -40,9 +40,7 @@ from yoke_core.domain.session_message_service import send_message
 #: discharge is: the member was released without its cases passing, which is
 #: precisely what its owner needs told rather than left to infer from a run
 #: that simply moved on.
-REPORTABLE_OUTCOMES = frozenset(
-    {OUTCOME_PASSED, OUTCOME_REJECTED, OUTCOME_DISCHARGED}
-)
+REPORTABLE_OUTCOMES = frozenset({OUTCOME_PASSED, OUTCOME_REJECTED, OUTCOME_DISCHARGED})
 
 
 def qa_result_idempotency_key(
@@ -94,6 +92,7 @@ def _role_holders(conn: Any, *, project_id: int, roles: tuple[str, ...]) -> set[
     rows = conn.execute(
         "SELECT DISTINCT apr.actor_id FROM actor_project_roles apr "
         "JOIN actors a ON a.id = apr.actor_id AND a.kind = 'human' "
+        "AND a.status = 'active' "
         "JOIN roles r ON r.id = apr.role_id "
         f"WHERE apr.project_id = %s AND r.name IN ({placeholders})",
         (int(project_id), *roles),

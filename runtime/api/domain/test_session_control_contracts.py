@@ -135,7 +135,7 @@ def test_session_control_schema_is_additive_and_idempotent() -> None:
     conn = sqlite3.connect(":memory:")
     conn.executescript(
         """
-        CREATE TABLE actors (id INTEGER PRIMARY KEY);
+        CREATE TABLE actors (status TEXT NOT NULL DEFAULT 'active', id INTEGER PRIMARY KEY);
         CREATE TABLE projects (id INTEGER PRIMARY KEY);
         CREATE TABLE harness_sessions (session_id TEXT PRIMARY KEY);
         """

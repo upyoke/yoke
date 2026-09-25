@@ -123,7 +123,7 @@ _SESSION_OFFER_SCHEMA_DDL = f"""
         created_at TEXT NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS actors (
+    CREATE TABLE IF NOT EXISTS actors (status TEXT NOT NULL DEFAULT 'active',
         id INTEGER PRIMARY KEY,
         kind TEXT NOT NULL CHECK(kind IN ('human','system')),
         system_component TEXT,

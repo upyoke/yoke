@@ -17,7 +17,7 @@ def decision_request_connection():
     value.row_factory = sqlite3.Row
     value.execute("PRAGMA foreign_keys = ON")
     value.executescript("""
-        CREATE TABLE actors (
+        CREATE TABLE actors (status TEXT NOT NULL DEFAULT 'active',
             id INTEGER PRIMARY KEY,
             kind TEXT NOT NULL,
             system_component TEXT,
@@ -70,9 +70,7 @@ def decision_request_connection():
     """)
     ensure_event_schema(value)
     create_decision_request_tables(value)
-    value.execute(
-        "INSERT INTO organizations VALUES (1, 'default', 'Default', 'now')"
-    )
+    value.execute("INSERT INTO organizations VALUES (1, 'default', 'Default', 'now')")
     value.execute(
         "INSERT INTO projects "
         "(id, slug, name, public_item_prefix, org_id, created_at) "
@@ -85,15 +83,9 @@ def decision_request_connection():
             (actor_id,),
         )
     for role_id, name in enumerate(("owner", "operator", "admin", "viewer"), 1):
-        value.execute(
-            "INSERT INTO roles VALUES (?, ?, '', 'now')", (role_id, name)
-        )
-    value.execute(
-        "INSERT INTO actor_project_roles VALUES (2, 10, 1, 'now')"
-    )
-    value.execute(
-        "INSERT INTO actor_project_roles VALUES (4, 10, 4, 'now')"
-    )
+        value.execute("INSERT INTO roles VALUES (?, ?, '', 'now')", (role_id, name))
+    value.execute("INSERT INTO actor_project_roles VALUES (2, 10, 1, 'now')")
+    value.execute("INSERT INTO actor_project_roles VALUES (4, 10, 4, 'now')")
     value.execute("INSERT INTO actor_org_roles VALUES (5, 1, 3, 'now')")
     # Row 7 carries version 1 on purpose: an item pins a workflow_versions
     # row id, and a fixture where id and version happen to match cannot tell

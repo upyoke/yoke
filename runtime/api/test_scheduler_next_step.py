@@ -34,7 +34,7 @@ class TestAdvanceFeasibilityProbeRewrite:
     """Definition-selected item-claim activation may reroute to refine."""
 
     _SCHEMA = """
-    CREATE TABLE actors (id INTEGER PRIMARY KEY, name TEXT);
+    CREATE TABLE actors (status TEXT NOT NULL DEFAULT 'active', id INTEGER PRIMARY KEY, name TEXT);
     CREATE TABLE projects (
         id INTEGER PRIMARY KEY, slug TEXT, public_item_prefix TEXT
     );
@@ -89,7 +89,8 @@ class TestAdvanceFeasibilityProbeRewrite:
     def _make_db(self):
         name = pg_testdb.create_test_database()
         return pg_testdb.drop_database_on_close(
-            pg_testdb.connect_test_database(name), name,
+            pg_testdb.connect_test_database(name),
+            name,
         )
 
     def _seed(self, conn):
@@ -138,10 +139,7 @@ class TestAdvanceFeasibilityProbeRewrite:
             )
             assert result.next_step is NextStep.REFINE
             assert result.routing_override is not None
-            assert (
-                result.routing_override.reason
-                == ROUTING_OVERRIDE_PATH_CLAIM_BLOCKED
-            )
+            assert result.routing_override.reason == ROUTING_OVERRIDE_PATH_CLAIM_BLOCKED
             assert "YOK-43" in result.routing_override.conflicting_item_ids
             assert "shared.py" in result.routing_override.shared_paths
         finally:

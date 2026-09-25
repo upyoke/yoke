@@ -98,7 +98,7 @@ CREATE TABLE work_claims (
 # would poison the transaction, so the table must exist (empty -> resolver
 # returns ``None``) before the session INSERT runs in the same txn.
 ACTORS_SCHEMA = """
-CREATE TABLE actors (
+CREATE TABLE actors (status TEXT NOT NULL DEFAULT 'active',
     id INTEGER PRIMARY KEY,
     kind TEXT NOT NULL DEFAULT 'system',
     system_component TEXT,

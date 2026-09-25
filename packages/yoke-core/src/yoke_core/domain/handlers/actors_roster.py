@@ -64,7 +64,8 @@ def handle_actors_roster(request: FunctionCallRequest) -> HandlerOutcome:
         if current_actor_id is not None:
             try:
                 require_control_plane_permission(
-                    conn, actor_id=current_actor_id,
+                    conn,
+                    actor_id=current_actor_id,
                     permission_key=PERM_ORG_ADMIN,
                 )
                 can_manage_actors = True
@@ -74,7 +75,10 @@ def handle_actors_roster(request: FunctionCallRequest) -> HandlerOutcome:
         conn.close()
 
     return HandlerOutcome(
-        result_payload={"rows": rows, "current_actor_id": current_actor_id,
-                        "can_manage_actors": can_manage_actors},
+        result_payload={
+            "rows": rows,
+            "current_actor_id": current_actor_id,
+            "can_manage_actors": can_manage_actors,
+        },
         primary_success=True,
     )

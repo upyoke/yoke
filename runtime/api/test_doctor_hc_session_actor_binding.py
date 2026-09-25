@@ -74,7 +74,7 @@ CREATE TABLE harness_sessions (
     actor_id INTEGER,
     ended_at TEXT
 );
-CREATE TABLE actors (
+CREATE TABLE actors (status TEXT NOT NULL DEFAULT 'active',
     id SERIAL PRIMARY KEY,
     kind TEXT NOT NULL,
     system_component TEXT,

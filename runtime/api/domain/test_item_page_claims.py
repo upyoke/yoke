@@ -33,15 +33,15 @@ def _connection() -> sqlite3.Connection:
             actor_id INTEGER,
             executor TEXT
         );
-        CREATE TABLE actors (
+        CREATE TABLE actors (status TEXT NOT NULL DEFAULT 'active',
             id INTEGER PRIMARY KEY,
             kind TEXT,
             name TEXT
         );
         """
     )
-    conn.execute("INSERT INTO actors VALUES (2,'human','Ben')")
-    conn.execute("INSERT INTO actors VALUES (3,'human','Dana')")
+    conn.execute("INSERT INTO actors (id, kind, name) VALUES (2,'human','Ben')")
+    conn.execute("INSERT INTO actors (id, kind, name) VALUES (3,'human','Dana')")
     return conn
 
 
