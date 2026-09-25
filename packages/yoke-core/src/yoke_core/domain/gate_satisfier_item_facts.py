@@ -18,12 +18,17 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow
+from yoke_core.domain.deployment_member_independent_close_out import (
+    independent_member_delivery_ready,
+)
+from yoke_core.domain.deployment_qa_source_obligation import latest_completion_run
 from yoke_core.domain.gate_satisfier_facts import Fact, FactVerdict
 from yoke_core.domain.schema_common import _column_exists
 
 
 ITEM_CI_VERDICT = "item:ci_verdict"
 ITEM_DEPLOYMENT_RUN_SUCCEEDED = "item:deployment_run_succeeded"
+ITEM_INDEPENDENT_MEMBER_DELIVERED = "item:independent_member_delivered"
 ITEM_NO_DEPLOYMENT_TARGET = "item:no_deployment_target"
 
 
@@ -59,10 +64,13 @@ def _fact(key: str, count: int, present_detail: str, absent_detail: str) -> Fact
             ),
         )
     if count:
-        return Fact(key=key, verdict=FactVerdict.PRESENT, value=str(count),
-                    detail=present_detail.format(count=count))
-    return Fact(key=key, verdict=FactVerdict.ABSENT, value="0",
-                detail=absent_detail)
+        return Fact(
+            key=key,
+            verdict=FactVerdict.PRESENT,
+            value=str(count),
+            detail=present_detail.format(count=count),
+        )
+    return Fact(key=key, verdict=FactVerdict.ABSENT, value="0", detail=absent_detail)
 
 
 def _no_deployment_target(conn: Any, item_id: int) -> Fact:
@@ -154,6 +162,15 @@ def load_item_facts(conn: Any, item_id: int) -> Dict[str, Fact]:
             ("deployment_runs", "flow"),
             ("deployment_run_items", "item_id"),
         )
+    candidate = (
+        latest_completion_run(conn, int(item_id)) if flow and not deployed else None
+    )
+    independent = bool(
+        candidate
+        and independent_member_delivery_ready(
+            conn, item_id=int(item_id), run_id=str(candidate["id"])
+        )
+    )
     return {
         ITEM_CI_VERDICT: _fact(
             ITEM_CI_VERDICT,
@@ -167,6 +184,12 @@ def load_item_facts(conn: Any, item_id: int) -> Dict[str, Fact]:
             "{count} succeeded item-bound deployment run(s)",
             "no item-bound deployment run has succeeded",
         ),
+        ITEM_INDEPENDENT_MEMBER_DELIVERED: _fact(
+            ITEM_INDEPENDENT_MEMBER_DELIVERED,
+            int(independent),
+            "one final member's selected-flow production delivery and QA are accepted",
+            "no independently accepted final member delivery is recorded",
+        ),
         ITEM_NO_DEPLOYMENT_TARGET: _no_deployment_target(conn, item_id),
     }
 
@@ -174,6 +197,7 @@ def load_item_facts(conn: Any, item_id: int) -> Dict[str, Fact]:
 __all__ = [
     "ITEM_CI_VERDICT",
     "ITEM_DEPLOYMENT_RUN_SUCCEEDED",
+    "ITEM_INDEPENDENT_MEMBER_DELIVERED",
     "ITEM_NO_DEPLOYMENT_TARGET",
     "load_item_facts",
 ]

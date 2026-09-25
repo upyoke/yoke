@@ -26,6 +26,7 @@ from yoke_core.domain.gate_satisfier_facts import (
 from yoke_core.domain.gate_satisfier_item_facts import (
     ITEM_CI_VERDICT,
     ITEM_DEPLOYMENT_RUN_SUCCEEDED,
+    ITEM_INDEPENDENT_MEMBER_DELIVERED,
     ITEM_NO_DEPLOYMENT_TARGET,
 )
 from yoke_core.domain.gate_satisfier_ladder import (
@@ -137,6 +138,14 @@ DELIVERY_EVIDENCE_LADDER = SatisfierLadder(
                 DERIVED_ENVIRONMENTS_PRESENT,
                 ITEM_DEPLOYMENT_RUN_SUCCEEDED,
             ),
+        ),
+        SatisfierRung(
+            rung_id="independent_member_delivered",
+            summary=(
+                "this final member's selected-flow production delivery and "
+                "item QA were accepted with no later run QA"
+            ),
+            requires=(DERIVED_ENVIRONMENTS_PRESENT, ITEM_INDEPENDENT_MEMBER_DELIVERED),
         ),
         SatisfierRung(
             rung_id="merge_only",

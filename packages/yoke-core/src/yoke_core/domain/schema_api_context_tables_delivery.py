@@ -148,7 +148,14 @@ DELIVERY_TABLES: dict[str, dict] = {
             " New run creation locks `deployment_runs` in Postgres, computes "
             "the UTC day's maximum numeric suffix plus one, and inserts under "
             "the same transaction with the primary key as a collision guard. "
-            "`runs next-id` is only a non-reserving preview."
+            "`runs next-id` is only a non-reserving preview. The selected "
+            "final member close-out reader is "
+            "`deployment_member_independent_close_out`; it imports "
+            "`deployment_run_composition_freeze.DELIVERY_INTENT_FINAL` at call "
+            "time because a module-level import creates a circular import. "
+            "The prior-QA-stage refusal reader is "
+            "`deployment_qa_stage_resume.prior_deployment_qa_refusals`, not "
+            "`deployment_qa_stage_prerequisites` (stale module guess)."
         ),
     },
     "deployment_stage_receipts": {

@@ -37,8 +37,8 @@ owes, and the envelope says which one happened -- read `status` and the
     -- the steering seat batches deliveries. Report what landed, say you are
     waiting on delivery, and stop deliberately.
 
-At the release wait, the deployment wake re-enters the owner: to run item QA,
-when that QA is accepted, or when delivery clears. If it asks for
+At the release wait, the deployment wake re-enters the owner to run item QA
+or recover a close-out that could not finish automatically. If it asks for
 item QA, credit it with the stage-scoped form -- a stage credits only the
 requirements bound to its own name, and an item-scoped stage needs the member
 too, so the run-wide form is refused rather than recording a pass the stage
@@ -49,8 +49,12 @@ ignores:
 Add `--plan PLAN` only when the wake says the stage names no cases; a stage
 already naming its own refuses it.
 
-Then re-run this exact command with `--result` and `--verification` to finish
-the close-out. Never poll GitHub or the run instead of the wake.
+After QA acceptance, a final member on a selected flow without run QA closes
+automatically from its own production proof, even while sibling QA holds the
+run open. Required run QA holds every member through run success. Check the
+item after a wake and re-park if it remains at release wait. Re-run this exact
+command with `--result` and `--verification` only when a delivery recovery
+wake asks for it. Never poll GitHub or the run instead of the wake.
 
 Queue landing
 -------------
@@ -65,8 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="yoke merge item",
         description=(
-            "Merge one item's lane and record its close-out evidence in the "
-            "same call."
+            "Merge one item's lane and record its close-out evidence in the same call."
         ),
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,

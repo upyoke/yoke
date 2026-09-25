@@ -109,7 +109,11 @@ def test_composed_mandate_keeps_a_release_wait_owner_holding_its_item() -> None:
     assert "Do NOT release the claim and do NOT end your session" in teaching
     assert "deployment wake re-enters you" in teaching
     assert "closes automatically when the completion-flow run succeeds" in teaching
-    assert "do not re-run merge solely for that acceptance" in teaching
+    assert "no run QA closes when its own final production QA is accepted" in teaching
+    assert (
+        "required run QA holds every member until that QA and run success" in teaching
+    )
+    assert "Do not re-run merge solely for that acceptance" in teaching
     assert "automatic close-out could not finish" in teaching
     assert "Only once the item reaches done do you send the DONE report" in teaching
     assert "handed to steering" in teaching

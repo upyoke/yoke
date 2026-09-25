@@ -38,26 +38,18 @@ from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 # Intake recovery wording is pinned in test_post_deploy_recovery_exit_conditions.py.
 POST_DEPLOY_RECOVERY = (
-    "A post_deploy obligation is satisfied by the completion run's admitted "
-    "copy when it comes from item intake, so re-running that intake row cannot "
-    "clear it. For intake, three exits exist, "
-    "each with its own condition. If no admitted copy was ever accepted -- "
-    "there is no completion run, or that run did not succeed, or the flow's "
-    "QA stage target and the requirement's target_env disagree so nothing "
-    "was frozen -- deliver the item through a flow whose stage target "
-    "matches target_env, correcting whichever of the two is wrong. If the "
-    "admitted copy was itself defective and a corrected case bound to the "
-    "same run, stage, member and execution target has ALREADY recorded a "
-    "passing verdict, record that case in its place with yoke qa requirement "
-    "supersede; a finished run refuses a new run-bound case, so this exit is "
-    "closed unless that corrected case already exists. If several admitted "
-    "copies of this source exist, they satisfy it when every copy is "
-    "accepted; re-delivery does not remove a duplicate, so an unsettled "
-    "copy is superseded or waived. If none of those conditions hold, waive the "
-    "requirement through the registered waiver surface with explicit "
-    "authorization. A failed run-bound member case instead needs a passing "
-    "same-run, stage, member and target replacement with accepted stage proof, "
-    "or an authorized waiver; another delivery cannot settle that frozen row."
+    "A post_deploy obligation is satisfied by its admitted copy on the selected "
+    "completion member; re-running intake cannot clear it. If no admitted copy "
+    "was accepted because no final delivery or matching QA target exists, deliver "
+    "the item through a flow whose stage target matches target_env and finish "
+    "its required delivery and QA. If a corrected case bound to the same run, "
+    "stage, member, and target already passed, use `yoke qa requirement "
+    "supersede` for the defective copy; finished runs refuse new bound cases. "
+    "If no correction can apply, waive the requirement through the registered "
+    "surface with explicit authorization. Every admitted duplicate must be "
+    "accepted, superseded, or waived. A failed run-bound case needs a passing "
+    "same-run, stage, member, and target replacement with accepted stage proof "
+    "or an authorized waiver; another delivery cannot settle it."
 )
 
 
@@ -66,11 +58,9 @@ def latest_completion_run(
 ) -> dict[str, Any] | None:
     """Newest membership that can close this item, or none.
 
-    Which memberships can is :func:`membership_closes_item`; this walks the
-    item's memberships newest first and returns the first one that is.
+    Uses :func:`membership_closes_item` over newest-first memberships.
 
-    Failed and cancelled attempts may be skipped for source QA: they cannot
-    replace an earlier succeeded candidate's admitted proof. A newer active
+    Failed and cancelled attempts may be skipped for source QA; a newer active
     attempt still wins and must finish before that source can close out.
 
     Freshness is still ``created_at`` (then ``id``). ``release_lineage`` and
@@ -166,8 +156,17 @@ def source_obligation_consumed(
     # Containment-only releases prove delivery, but have no member-scoped QA
     # copy. Read the completion membership that actually admitted this source.
     completion = latest_completion_run(conn, int(item_id), skip_terminal_failures=True)
-    if completion is None or completion["status"] != "succeeded":
+    if completion is None:
         return False
+    if completion["status"] != "succeeded":
+        from yoke_core.domain.deployment_member_independent_close_out import (
+            independent_member_delivery_ready,
+        )
+
+        if not independent_member_delivery_ready(
+            conn, item_id=int(item_id), run_id=str(completion["id"])
+        ):
+            return False
     run_id = completion["id"]
     case_key = admitted_requirement_case_key(int(source_requirement_id))
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"

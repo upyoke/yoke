@@ -53,6 +53,9 @@ from yoke_core.domain.delivery_release_candidates import (
 from yoke_core.domain.deployment_item_flow_resolution import (
     item_completion_flow,
 )
+from yoke_core.domain.deployment_member_independent_close_out import (
+    independent_member_delivery_ready,
+)
 from yoke_core.domain.deployment_qa_source_obligation import (
     latest_completion_run,
 )
@@ -146,6 +149,21 @@ def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
             DISCHARGED,
             run_id=str(member["id"]),
             run_status="succeeded",
+            source=SOURCE_MEMBERSHIP,
+            release_lineage=str(member.get("release_lineage") or ""),
+            project_id=member.get("project_id"),
+        )
+    if (
+        member is not None
+        and str(member["status"]) == "executing"
+        and independent_member_delivery_ready(
+            conn, item_id=int(item_id), run_id=str(member["id"])
+        )
+    ):
+        return DeliveryEvidence(
+            DISCHARGED,
+            run_id=str(member["id"]),
+            run_status="executing",
             source=SOURCE_MEMBERSHIP,
             release_lineage=str(member.get("release_lineage") or ""),
             project_id=member.get("project_id"),

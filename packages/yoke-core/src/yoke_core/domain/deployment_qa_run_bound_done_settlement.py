@@ -27,8 +27,17 @@ def superseded_run_bound_row_satisfied(
     A stored supersession link alone cannot discharge a row: older or forced
     links may name a failing case or a case outside this member's target.
     """
-    if completion is None or completion["status"] != "succeeded":
+    if completion is None:
         return False
+    if completion["status"] != "succeeded":
+        from yoke_core.domain.deployment_member_independent_close_out import (
+            independent_member_delivery_ready,
+        )
+
+        if not independent_member_delivery_ready(
+            conn, item_id=int(item_id), run_id=str(completion["id"])
+        ):
+            return False
     broken = query_one(
         conn,
         "SELECT deployment_run_id,deployment_stage,deployment_member_item_id,"
