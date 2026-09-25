@@ -61,6 +61,13 @@ finds either uncovered. Both ask the same question, because an entry that only
 rewrites rows moves no schema shape — so a shape-only check reports the
 riskiest entry as already covered.
 
+Each tenant is copied in full even when its migration ledger has no pending
+entry. A large `pg_dump` may run longer than an hour while its archive keeps
+growing; the copy has no total time limit. If the archive stops growing for
+five minutes, preflight kills the stalled copy, removes the partial archive,
+and names the source database or SSH tunnel to check before rerunning. A
+dropped tunnel still gets the existing connection recovery and retry path.
+
 The fleet is tenant databases only. Names carrying the reserved
 `yoke_test_run` scratch prefix are disposable by construction — a test or
 rehearsal run created them and nothing owns them once it exits — so the

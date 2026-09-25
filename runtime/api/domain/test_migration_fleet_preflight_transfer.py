@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
+import sys
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -25,7 +28,7 @@ def _no_real_forward_recovery(monkeypatch):
 
 def test_ssl_eof_is_transient() -> None:
     assert transfer.is_transient_dump_error(
-        'pg_dump failed (1): SSL SYSCALL error: EOF detected'
+        "pg_dump failed (1): SSL SYSCALL error: EOF detected"
     )
     assert not transfer.is_transient_dump_error("pg_dump failed (1): permission denied")
 
@@ -33,7 +36,7 @@ def test_ssl_eof_is_transient() -> None:
 def test_a_dropped_forward_is_transient() -> None:
     """The forward dying mid-copy refuses the next connection like a dead one."""
     assert transfer.is_transient_dump_error(
-        "pg_dump failed (1): connection to server at \"127.0.0.1\", port 6547 "
+        'pg_dump failed (1): connection to server at "127.0.0.1", port 6547 '
         "failed: Connection refused"
     )
 
@@ -50,9 +53,7 @@ def test_run_transfer_redacts_dsn(monkeypatch) -> None:
         returncode = 1
         stderr = "failed host=db password=secret"
 
-    monkeypatch.setattr(
-        transfer.subprocess, "run", lambda *_args, **_kwargs: _Result()
-    )
+    monkeypatch.setattr(transfer.subprocess, "run", lambda *_args, **_kwargs: _Result())
     with pytest.raises(RuntimeError) as excinfo:
         transfer.run_transfer(
             ["/bin/pg_dump"],
@@ -72,15 +73,66 @@ def test_run_transfer_names_timeout(monkeypatch) -> None:
         transfer.run_transfer(["/opt/pg_dump"], timeout=9)
 
 
+def test_dump_progress_can_outlive_the_idle_limit(tmp_path) -> None:
+    dump = tmp_path / "tenant.dump"
+    script = (
+        "import pathlib, sys, time; "
+        "path = pathlib.Path(sys.argv[1]); "
+        "[(path.open('ab').write(b'x'), time.sleep(0.2)) for _ in range(8)]"
+    )
+    started = time.monotonic()
+    result = transfer.run_transfer(
+        [sys.executable, "-c", script, str(dump)],
+        timeout=0.8,
+        progress_file=dump,
+    )
+    assert result.returncode == 0
+    assert time.monotonic() - started > 0.8
+    assert dump.stat().st_size == 8
+
+
+def test_stalled_dump_kills_and_reaps_the_copy_process(tmp_path) -> None:
+    dump = tmp_path / "tenant.dump"
+    pid_file = tmp_path / "copy.pid"
+    script = (
+        "import os, pathlib, sys, time; "
+        "pathlib.Path(sys.argv[1]).write_text(str(os.getpid())); "
+        "pathlib.Path(sys.argv[2]).write_bytes(b'x'); time.sleep(10)"
+    )
+    with pytest.raises(RuntimeError, match="stalled: no dump output.*rerun preflight"):
+        transfer.run_transfer(
+            [sys.executable, "-c", script, str(pid_file), str(dump)],
+            timeout=0.8,
+            progress_file=dump,
+        )
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(pid_file.read_text()), 0)
+
+
+def test_failed_dump_removes_partial_archive(monkeypatch, tmp_path) -> None:
+    dump = tmp_path / "tenant.dump"
+
+    def _fail(*_args, **_kwargs):
+        dump.write_bytes(b"partial archive")
+        raise RuntimeError("pg_dump failed (1): permission denied")
+
+    monkeypatch.setattr(transfer, "run_transfer", _fail)
+    monkeypatch.setattr(transfer.postgres_cluster, "binary", lambda _spec, name: name)
+    with pytest.raises(RuntimeError, match="permission denied"):
+        transfer.dump_database(
+            SimpleNamespace(), "host=db", dump, source_environment=ADMIN_ENV
+        )
+    assert not dump.exists()
+
+
 def test_dump_retries_ssl_eof_then_succeeds(monkeypatch, tmp_path) -> None:
     calls: list[tuple] = []
 
-    def _fake_run(argv, *, redact, timeout, env):
+    def _fake_run(argv, *, redact, timeout, env, progress_file):
         calls.append((list(argv), redact, timeout, env))
+        assert progress_file == dump
         if len(calls) == 1:
-            raise RuntimeError(
-                "pg_dump failed (1): SSL SYSCALL error: EOF detected"
-            )
+            raise RuntimeError("pg_dump failed (1): SSL SYSCALL error: EOF detected")
 
     monkeypatch.setattr(transfer, "run_transfer", _fake_run)
     monkeypatch.setattr(
@@ -97,7 +149,7 @@ def test_dump_retries_ssl_eof_then_succeeds(monkeypatch, tmp_path) -> None:
     assert len(calls) == 2
     assert "--compress=1" in calls[0][0]
     assert calls[0][1] == "host=db password=secret"
-    assert calls[0][2] == transfer.DUMP_TIMEOUT_SECONDS
+    assert calls[0][2] == transfer.DUMP_STALL_TIMEOUT_SECONDS
     assert calls[0][3]["PGKEEPALIVES"] == "1"
 
 
@@ -122,8 +174,8 @@ def test_dump_restores_the_forward_before_copying_again(monkeypatch, tmp_path) -
     """A retry through a dead forward is another failure; heal it first."""
     events: list[str] = []
 
-    def _fake_run(argv, *, redact, timeout, env):
-        del argv, redact, timeout, env
+    def _fake_run(argv, *, redact, timeout, env, progress_file):
+        del argv, redact, timeout, env, progress_file
         events.append("copy")
         if events.count("copy") == 1:
             raise RuntimeError("pg_dump failed (1): Connection refused")
@@ -154,7 +206,8 @@ def test_dump_restores_the_forward_before_copying_again(monkeypatch, tmp_path) -
 
 
 def test_dump_names_both_failures_when_the_forward_stays_down(
-        monkeypatch, tmp_path) -> None:
+    monkeypatch, tmp_path
+) -> None:
     def _fake_run(*_args, **_kwargs):
         raise RuntimeError("pg_dump failed (1): Connection refused")
 
