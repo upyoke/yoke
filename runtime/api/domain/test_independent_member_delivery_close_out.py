@@ -58,7 +58,14 @@ def _status(conn: Any, item_id: int) -> str:
     )
 
 
-def _settle(conn: Any, *, run_id: str, stage: str, member: int | None) -> None:
+def _settle(
+    conn: Any,
+    *,
+    run_id: str,
+    stage: str,
+    member: int | None,
+    may_complete_run: bool = False,
+) -> None:
     """Record a case pass with the target identity a real QA runner stamps."""
     materialize_deployment_qa_stage(
         conn,
@@ -109,6 +116,14 @@ def _settle(conn: Any, *, run_id: str, stage: str, member: int | None) -> None:
         },
     )
     finish_plan_execution(conn, execution, state="completed", reason="test-complete")
+    if (
+        may_complete_run
+        and conn.execute(
+            "SELECT status FROM deployment_runs WHERE id=%s", (run_id,)
+        ).fetchone()["status"]
+        == "succeeded"
+    ):
+        return
     assert deployment_qa_stage_status(
         conn, run_id=run_id, stage_name=stage, member_item_id=member
     )["accepted"]

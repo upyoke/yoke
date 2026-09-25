@@ -69,6 +69,17 @@ def settle_subject(
     outcome = str(status.get("outcome") or "")
     if outcome not in {"passed", "discharged", "rejected", "blocked"}:
         return status
+    conn.commit()
+    completion_failure = ""
+    if outcome in {"passed", "discharged"}:
+        from yoke_core.domain.deployment_run_auto_completion import (
+            continue_after_settlement,
+        )
+
+        attempt = continue_after_settlement(conn, run_id, notify_recovery=False)
+        if attempt.completed:
+            return status
+        completion_failure = attempt.failure
     from yoke_core.domain.deployment_run_driver_notice import push_run_scoped_notice
     from yoke_core.domain.project_identity import resolve_project
 
@@ -87,6 +98,7 @@ def settle_subject(
             outcome=outcome,
             project_slug=project.slug,
             route=route,
+            completion_failure=completion_failure,
         ),
         idempotency_key=key,
     )
@@ -111,16 +123,27 @@ def status_project_id(conn: Any, run_id: str) -> int:
 
 
 def continuation_message(
-    *, run_id: str, stage: str, outcome: str, project_slug: str, route: str
+    *,
+    run_id: str,
+    stage: str,
+    outcome: str,
+    project_slug: str,
+    route: str,
+    completion_failure: str = "",
 ) -> str:
     from yoke_core.domain.deployment_run_driver_notice import DRIVER
     from yoke_core.domain.deployment_stage_decision_effect import drive_recipe
 
     recipe = drive_recipe(run_id, project_slug, holds_lock=route == DRIVER)
+    recovery = (
+        f"Automatic completion failed: {completion_failure}. "
+        if completion_failure
+        else ""
+    )
     return (
         f"Deployment run {run_id} QA stage {stage!r} settled {outcome} "
-        "against its frozen target. Continue this same run through its "
-        f"pinned deploy-lock runner:\n{recipe}\n"
+        f"against its frozen target. {recovery}Continue this same run through "
+        f"its pinned deploy-lock runner:\n{recipe}\n"
         "Read the run and its live driver attachment first. If that driver "
         "is still running, continue its existing watcher; otherwise re-enter "
         "this run. The runner adopts recorded QA and completed stages "

@@ -162,9 +162,7 @@ class TestFlowDerivedChecks:
         run_id = _run_on_final_stage(db_path)
         _add_flow_check(db_path, run_id, "smoke-test")
 
-        err = dr.cmd_update(
-            run_id, "status", "succeeded", force=True, db_path=db_path
-        )
+        err = dr.cmd_update(run_id, "status", "succeeded", force=True, db_path=db_path)
 
         assert err is None
 
@@ -228,9 +226,7 @@ class TestRunBoundPlanCases:
 
         assert dr.cmd_update(run_id, "status", "succeeded", db_path=db_path) is None
 
-    def test_a_supersession_moves_the_obligation_rather_than_dropping_it(
-        self, db_path
-    ):
+    def test_a_supersession_moves_the_obligation_rather_than_dropping_it(self, db_path):
         """The replacement is still graded, so the run still waits on it."""
         run_id = _run_on_final_stage(db_path)
         _add_plan_case(db_path, run_id, 4108, verdict="fail")
@@ -299,7 +295,7 @@ class TestPipelineWaitingReport:
         assert "2 blocking QA" in lines[0]
         assert lines[1] == "  - check 'smoke-test' is pending"
         assert lines[2] == "  - requirement #7 (smoke): no passing run"
-        assert "re-drive run-20260909-001 to finalize" in lines[3]
+        assert "run finishes automatically" in lines[3]
 
     def test_report_does_not_claim_the_deploy_succeeded(self):
         lines = precond.awaiting_qa_report_lines("run-1", ["check 'x' is failed"])

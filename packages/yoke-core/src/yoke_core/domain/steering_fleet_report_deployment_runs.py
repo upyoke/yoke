@@ -146,6 +146,8 @@ class DeploymentRunProgress:
     def recovery(self) -> str:
         if self.pin_qa.unpassable:
             return self.pin_qa.supersede_recovery(self.run_id)
+        if self.status == RunStatus.CREATED and self.outstanding == 0:
+            return f"Nothing is outstanding; re-drive {self.run_id} to start it."
         if self.answered_decision is not None:
             return (
                 f"The answer is already recorded; re-drive {self.run_id} so the "

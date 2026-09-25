@@ -58,9 +58,7 @@ def unresolved_blocking_qa(conn: Any, run_id: str) -> List[str]:
     the completion boundary runs against fixtures that carry only the
     deployment tables they exercise.
     """
-    return _unresolved_flow_checks(conn, run_id) + _unresolved_plan_cases(
-        conn, run_id
-    )
+    return _unresolved_flow_checks(conn, run_id) + _unresolved_plan_cases(conn, run_id)
 
 
 def _unresolved_flow_checks(conn: Any, run_id: str) -> List[str]:
@@ -75,9 +73,7 @@ def _unresolved_flow_checks(conn: Any, run_id: str) -> List[str]:
         "ORDER BY check_name ASC",
         (run_id, *RESOLVED_RUN_QA_STATUSES),
     )
-    return [
-        f"check '{row['check_name']}' is {row['status']}" for row in rows
-    ]
+    return [f"check '{row['check_name']}' is {row['status']}" for row in rows]
 
 
 def _unresolved_plan_cases(conn: Any, run_id: str) -> List[str]:
@@ -87,9 +83,7 @@ def _unresolved_plan_cases(conn: Any, run_id: str) -> List[str]:
     replacement superseded reads the same here as it does at the stage that
     accepted the supersession in the first place.
     """
-    if not (
-        _table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")
-    ):
+    if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
         return []
     rows = query_rows(
         conn,
@@ -134,8 +128,7 @@ def blocking_obligation_total(conn: Any, run_id: str) -> int:
         total += int(
             query_scalar(
                 conn,
-                "SELECT COUNT(*) FROM deployment_run_qa "
-                "WHERE run_id=%s AND blocking=1",
+                "SELECT COUNT(*) FROM deployment_run_qa WHERE run_id=%s AND blocking=1",
                 (run_id,),
             )
             or 0
@@ -155,18 +148,17 @@ def blocking_obligation_total(conn: Any, run_id: str) -> int:
 
 
 def redrive_recovery(run_id: str, *, unresolved: int) -> str:
-    """The one recovery sentence every surface prints for an unfinished run.
-
-    Both halves are here rather than at each caller because a run with
-    nothing outstanding needs a different instruction from one with work
-    left, and a surface that only knew the first half told operators to
-    settle obligations that did not exist.
-    """
+    """Name automatic continuation and the explicit recovery if it stalls."""
     if unresolved:
-        return f"Settle or waive each one, then re-drive {run_id} to finalize."
+        return (
+            "Settle or waive each one; the run finishes automatically after "
+            "its remaining gates and members clear. If it stays executing, "
+            f"read `yoke deployment-runs get {run_id}` and re-drive {run_id}."
+        )
     return (
-        f"Nothing is outstanding; re-drive {run_id} to finish it. It is "
-        "waiting only to be driven."
+        "Nothing is outstanding; automatic completion should finish this run. "
+        f"If it stays executing, read `yoke deployment-runs get {run_id}` "
+        f"and re-drive {run_id}."
     )
 
 
@@ -189,8 +181,7 @@ def held_stage_report_lines(
         f"{len(unresolved)} blocking QA obligation(s) are unresolved for "
         f"run {run_id}",
         *(f"  - {detail}" for detail in unresolved),
-        f"  Settle or waive each one, then re-drive {run_id}: the stage "
-        "runs and the run completes only once nothing is outstanding.",
+        f"  {redrive_recovery(run_id, unresolved=len(unresolved))}",
     ]
 
 
@@ -218,8 +209,8 @@ def refuse_succeeded(
     return (
         f"Error: cannot set status=succeeded -- {len(unresolved)} blocking QA "
         f"obligation(s) unresolved for run {run_id}: {detail}. "
-        "Settle or waive each one through its registered QA surface, then "
-        f"re-drive {run_id} to finalize."
+        "Settle or waive each one through its registered QA surface; "
+        f"automatic completion will then finish {run_id}."
     )
 
 
