@@ -208,7 +208,7 @@ notifies nobody. Item-scoped decisions also notify the run driver. Owners:
 The deploy driver owns run-scoped visual QA. It inspects the live target as
 an agent or assigns a capable QA agent through Yoke, records evidence for
 that run and stage with `yoke watch qa-plan -- --deployment-run-id RUN
---stage STAGE --project P`, and re-drives the same run. Add `--plan PLAN`
+--stage STAGE --project P`; settlement finishes a ready run. Add `--plan PLAN`
 only when that stage names no cases. Item-scoped captures cannot credit a
 run-scoped stage.
 

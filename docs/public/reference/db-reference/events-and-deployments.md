@@ -293,10 +293,10 @@ starts: with any unresolved it prints each one and exits 5 without
 starting the stage, setting `current_stage`, emitting
 `DeploymentRunStageStarted`, or allocating a receipt. That stage stays
 pending on the card exactly while work remains, `status` stays
-`executing`, and earlier stages keep their results. Settle or waive each
-obligation and re-drive: the run resumes at the stage `current_stage`
-names, the held stage runs, and it finalizes. A run parked at
-`current_stage='complete'` by an earlier build takes the same report.
+`executing`, and earlier stages keep their results. Settling the last
+obligation advances accepted QA, approval, and auto stages under the
+project deploy lock, then closes the run and eligible members. An attached
+driver continues its own run; a failed close names recovery to its seat.
 
 A blocking obligation bound to a run but naming no stage is refused at
 admission wherever the flow pins QA stages: acceptance credits only rows

@@ -87,7 +87,14 @@ def close_out_satisfied_delivery_member(
     if not satisfied_delivery_member(conn, item_id=int(item_id), run_id=run_id):
         return DeliveryMemberCloseOut(applies=False)
     try:
-        return _close_out(conn, item_id=int(item_id), public_ref=str(public_ref))
+        closed = _close_out(conn, item_id=int(item_id), public_ref=str(public_ref))
+        if closed.ok:
+            from yoke_core.domain.deployment_run_auto_completion import (
+                continue_after_settlement,
+            )
+
+            continue_after_settlement(conn, run_id)
+        return closed
     except Exception as exc:  # noqa: BLE001 - never reverse the succeeded run
         try:
             conn.rollback()

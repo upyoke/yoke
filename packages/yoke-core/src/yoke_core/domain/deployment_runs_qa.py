@@ -64,6 +64,12 @@ def cmd_qa_update(
             (status, iso8601_now(), run_id, check_name),
         )
         conn.commit()
+        if status in {"passed", "waived"}:
+            from yoke_core.domain.deployment_run_auto_completion import (
+                continue_after_settlement,
+            )
+
+            continue_after_settlement(conn, run_id)
         return None
     finally:
         conn.close()

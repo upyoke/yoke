@@ -58,9 +58,7 @@ def _stage_identity(request: dict[str, Any]) -> tuple[str, str]:
     context = request.get("subject_context") or {}
     parts = str(request["subject_key"]).rsplit(":", 1)
     run_id = str(context.get("run_id") or parts[0]).strip()
-    stage = str(
-        context.get("stage") or (parts[1] if len(parts) == 2 else "")
-    ).strip()
+    stage = str(context.get("stage") or (parts[1] if len(parts) == 2 else "")).strip()
     if not run_id or not stage:
         raise ValueError(
             f"decision request {request['id']} names no verifiable deployment "
@@ -119,6 +117,7 @@ def stage_decision_message(
     request_id: int,
     project_slug: str,
     route: str,
+    completion_failure: str = "",
 ) -> str:
     """Say what was approved, and give a recipe this recipient can run."""
     holds_lock = route == DRIVER
@@ -131,10 +130,15 @@ def stage_decision_message(
         )
     )
     recipe = drive_recipe(run_id, project_slug, holds_lock=holds_lock)
+    recovery = (
+        f"Automatic completion failed: {completion_failure}. "
+        if completion_failure
+        else ""
+    )
     return (
         f"Deployment run {run_id} stage {stage!r} is APPROVED: decision "
-        f"request {request_id} resolved approve. The run is still standing at "
-        "that stage because only the deployment runner advances a run, and "
+        f"request {request_id} resolved approve. {recovery}The run still needs "
+        "its pinned runner for remaining work, and "
         f"{addressed}. Re-enter the runner on the same run id:\n"
         f"{recipe}\n"
         "The recorded answer is what the stage reads, so this continues the "
@@ -201,6 +205,13 @@ def notify_deployment_stage_decision(
     from yoke_core.domain.project_identity import resolve_project
 
     run_id, stage = _stage_identity(request)
+    from yoke_core.domain.deployment_run_auto_completion import (
+        continue_after_settlement,
+    )
+
+    attempt = continue_after_settlement(conn, run_id, notify_recovery=False)
+    if attempt.completed:
+        return None
     project_id = request.get("project_id")
     if project_id is None:
         return ""
@@ -216,6 +227,7 @@ def notify_deployment_stage_decision(
             request_id=int(request["id"]),
             project_slug=identity.slug,
             route=route,
+            completion_failure=attempt.failure,
         ),
         idempotency_key=stage_decision_idempotency_key(
             run_id, stage, int(request["id"]), action
