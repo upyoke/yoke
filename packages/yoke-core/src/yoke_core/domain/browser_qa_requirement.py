@@ -10,6 +10,7 @@ from yoke_contracts.browser_qa_contract import (
     BROWSER_CHECK_METHOD,
     BROWSER_INSPECTION_METHOD,
     BrowserMethodContractViolation,
+    browser_cleanup_contract_violation,
     browser_method_contract_violation,
     case_viewport,
     is_browser_assertion,
@@ -17,6 +18,7 @@ from yoke_contracts.browser_qa_contract import (
 from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain.browser_qa_assertion_evidence import CaseAssertions
 from yoke_core.domain.browser_qa_failure_capture import failed_step_from_response
+from yoke_core.domain.browser_qa_cleanup import run_cleanup
 from yoke_core.domain.browser_qa_results import RequirementOutcome, RunResult
 from yoke_core.domain import browser_qa_sign_in_evidence as _sign_in
 from yoke_core.domain.browser_qa_step_artifacts import record_step_artifacts
@@ -36,12 +38,7 @@ def _process_requirement(
     sign_in: Dict[str, Any],
     actor: Optional[ActorContext] = None,
 ) -> RequirementOutcome:
-    """Process a single qa_requirement row end-to-end.
-
-    Returns a ``RequirementOutcome`` for the resulting qa_run.
-    """
-    # Lazy import to dodge the circular import with browser_qa and to honor
-    # test patches against browser_qa.<helper>.
+    """Process one Browser requirement and return its run outcome."""
     from yoke_core.domain import browser_qa as _bqa
 
     sign_in = dict(sign_in)
@@ -67,7 +64,6 @@ def _process_requirement(
     }.get(method_id, INVALID_BROWSER_METHOD_LABEL)
     _bqa._log(f"Processing requirement {req_id} ({method_label})...")
 
-    # Parse the materialized method configuration.
     steps = []
     method_config: Dict[str, Any] = {}
     if method_config_raw:
@@ -77,24 +73,27 @@ def _process_requirement(
         except json.JSONDecodeError:
             pass
 
-    # Viewport is resolved before the page opens; a page is sized at create.
     viewport = case_viewport(method_config)
     violation = (
         browser_method_contract_violation(str(method_id or ""), steps)
-        if steps else None
+        if steps
+        else None
     )
+    cleanup_steps = method_config.get("cleanup_steps", [])
+    if violation is None and "cleanup_steps" in method_config:
+        violation = browser_cleanup_contract_violation(cleanup_steps)
     if violation is None and isinstance(viewport, BrowserMethodContractViolation):
         violation = viewport
     if not steps or violation is not None:
         error_code = violation.code if violation else "missing_steps"
         note = violation.message if violation else "method_config has no 'steps'"
         error = f"malformed_method_config:{error_code}"
-        _bqa._log(
-            f"WARNING: Invalid method_config for requirement {req_id}: {note}"
-        )
+        _bqa._log(f"WARNING: Invalid method_config for requirement {req_id}: {note}")
 
         run_id = _bqa._record_run(
-            req_id, qa_kind, "error",
+            req_id,
+            qa_kind,
+            "error",
             _payload(
                 verdict="error",
                 errors=error,
@@ -123,13 +122,9 @@ def _process_requirement(
     )
     _bqa._log(f"Created qa_run {run_id}")
 
-    # Create artifact directory
     artifact_dir = str(artifact_directory(project, subject, run_id))
     os.makedirs(artifact_dir, exist_ok=True)
 
-    # capture writes execution_status; verdict is fail only when capture fails.
-    # Successful captures land with verdict=NULL until screenshot inspection.
-    # This case owns its page for the whole run; every step addresses it by id.
     page_id = ""
     page_open_error = ""
     try:
@@ -148,6 +143,7 @@ def _process_requirement(
     recorded_screenshots = 0
     assertions = CaseAssertions()
     env_failure = False
+    step_failure = False
 
     def _mark_capture_failed(reason: str) -> None:
         nonlocal run_execution_status, run_verdict, step_errors
@@ -157,8 +153,7 @@ def _process_requirement(
 
     if page_open_error:
         _bqa._log(
-            f"ERROR: this case could not open its own browser page: "
-            f"{page_open_error}"
+            f"ERROR: this case could not open its own browser page: {page_open_error}"
         )
         _mark_capture_failed(f"page_open_failure:{page_open_error};")
         env_failure = True
@@ -167,7 +162,6 @@ def _process_requirement(
         assertion_expected = is_browser_assertion(step)
         if assertion_expected:
             assertions.declare()
-        # Update current route from navigate steps
         if isinstance(step, dict) and step.get("action") == "navigate":
             route = step.get("route", "")
             if route:
@@ -187,9 +181,9 @@ def _process_requirement(
             )
             _mark_capture_failed(f"step_{step_idx}:env_setup_failure;")
             env_failure = True
+            step_failure = True
             break
 
-        # unwrap daemon data envelope when present.
         data = response.get("data", response)
         wall = _sign_in.observe_authentication_wall(sign_in, response, data)
         failed = failed_step_from_response(
@@ -215,24 +209,23 @@ def _process_requirement(
             run_verdict = "error" if failed.unauthorized else "fail"
             if failed.capture_missed:
                 run_execution_status = "capture_failed"
-            continue
+            step_failure = True
+            break
 
-        # Extract artifacts from the unwrapped data envelope.
         artifacts_raw = data.get("artifacts", [])
         if not artifacts_raw:
             screenshot = data.get("screenshot") or response.get("screenshot")
             if screenshot:
                 artifacts_raw = [screenshot]
 
-        # Screenshot steps must produce an artifact path.
         if screenshot_expected and not artifacts_raw:
             _bqa._log(
                 f"  Step {step_idx}: FAILED -- screenshot step returned no artifact path"
             )
             _mark_capture_failed(f"step_{step_idx}:no_screenshot_artifact;")
-            continue
+            step_failure = True
+            break
 
-        # The step's observed page travels with every capture it produced.
         step_artifacts = record_step_artifacts(
             artifact_paths=list(artifacts_raw),
             step_index=step_idx,
@@ -252,6 +245,8 @@ def _process_requirement(
         run_artifact_ids.extend(step_artifacts.artifact_ids)
         if step_artifacts.failures:
             _mark_capture_failed(step_artifacts.failures)
+            step_failure = True
+            break
 
         if (
             screenshot_expected
@@ -265,13 +260,20 @@ def _process_requirement(
             if assertion_expected:
                 assertions.record_pass(data)
 
+    if step_failure or page_open_error:
+        step_errors += run_cleanup(
+            cleanup_steps,
+            page_id=page_id,
+            base_url=base_url,
+            artifact_dir=artifact_dir,
+        )
+
     if page_id:
         try:
             _bqa.close_owned_page(page_id)
         except RuntimeError as exc:
             _bqa._log(f"Warning: this case's browser page did not close: {exc}")
 
-    # Completeness check: expected vs. recorded screenshots.
     if (
         expected_screenshots > 0
         and recorded_screenshots < expected_screenshots

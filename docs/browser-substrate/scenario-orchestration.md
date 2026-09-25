@@ -89,7 +89,11 @@ Advance flows must not refine or replace it after materialization.
    default 1440x900, and closes it when the case ends. Every step names that
    page, so a case can neither inherit another case's route and width nor
    leave its own behind.
-6. Executes each declared `method_config.steps` entry in order.
+6. Executes `method_config.steps` in order until the first failed required
+   step. It captures one diagnostic screenshot when the page is available,
+   skips dependent steps, then runs any declared `cleanup_steps` (at most five)
+   on the same page before closing it. A cleanup failure is added to the run
+   errors without replacing the first failure.
 7. Records a run through `qa.run.add` and `qa.run.complete`.
 8. Records screenshot or trace evidence through `qa.artifact.add`; durable
    storage uses `qa.artifact.presign` with direct S3 or the hosted tenant broker
