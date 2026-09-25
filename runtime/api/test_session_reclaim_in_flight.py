@@ -220,9 +220,7 @@ class TestInFlightSweepAndScheduler:
 
         assert activity_is_stale(activity["bulk-abandoned"], executor="claude-code")
 
-    def test_cleanup_reclaims_an_abandoned_running_session_claim(
-        self, conn_with_events
-    ):
+    def test_cleanup_keeps_an_abandoned_running_session_claim(self, conn_with_events):
         c = conn_with_events
         _insert_claimable_item(c, 9103)
         old_minutes = (
@@ -246,7 +244,8 @@ class TestInFlightSweepAndScheduler:
         )
         c.commit()
 
-        clean_stale_harness_sessions(c)
+        result = clean_stale_harness_sessions(c)
+        assert result["total_reclaimed"] == 0
 
         target = make_item_target(9103)
         row = c.execute(
@@ -255,8 +254,8 @@ class TestInFlightSweepAndScheduler:
             "AND scope = %s",
             (target.kind, target.scope_json()),
         ).fetchone()
-        assert row["released_at"] is not None
-        assert row["release_reason"] == "reclaimed"
+        assert row["released_at"] is None
+        assert row["release_reason"] is None
 
 
 class TestReclaimedClaimReactivation:

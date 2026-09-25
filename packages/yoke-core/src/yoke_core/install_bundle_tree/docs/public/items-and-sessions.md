@@ -26,7 +26,13 @@ ended sessions. **Reclaim stale** counts stale rows in the loaded scope and
 reloads the roster after cleanup, so reclaimed rows leave Active immediately.
 
 Sessions own work claims. Implementation lanes require an active claim and a
-registered worktree. Ending a session releases claims it still holds.
+registered worktree. A persisted active work claim keeps its session live
+through stale, idle, parked, process-gone, and startup sweeps. This includes
+release waits; parking records the delivery wait for wake routing and does
+not determine retention. Claim release, completion, cancellation, and
+authorized operator termination free ownership. Explicit session end releases
+the claims it still holds. A claim conflict names its holder and requires one
+of those explicit actions rather than a heartbeat timeout.
 
 An active steering scope appears on the generated board with its holder,
 project and held strategy documents, claim age, liveness, steering-launched

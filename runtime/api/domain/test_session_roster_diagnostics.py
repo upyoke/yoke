@@ -199,8 +199,8 @@ def test_roster_projects_latest_message_blockers_and_effective_ttl() -> None:
         "active_claim_count": 0,
         "active_document_lock_count": 1,
     }
-    assert by_session["claim-session"]["effective_stale_ttl_minutes"] == 1440
-    assert by_session["claim-session"]["stale_eligible_at"] == ("2026-08-23T12:00:00Z")
+    assert by_session["claim-session"]["effective_stale_ttl_minutes"] is None
+    assert by_session["claim-session"]["stale_eligible_at"] is None
     assert by_session["lock-session"]["effective_stale_ttl_minutes"] == 1440
     assert by_session["chain-session"]["effective_stale_ttl_minutes"] == 20
     assert by_session["chain-session"]["stale_eligible_at"] == ("2026-08-22T12:20:00Z")

@@ -1,5 +1,6 @@
 # ruff: noqa: E402, F401, F811
 """Session API tests: CLI dispatch, events, stale reclaim, telemetry, release helpers."""
+
 from __future__ import annotations
 
 import json
@@ -111,7 +112,9 @@ class TestEventEmission:
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_end_session_with_claims_auto_releases_and_emits_release_event(
-        self, mock_emit, conn,
+        self,
+        mock_emit,
+        conn,
     ):
         """No-flags end_session auto-releases and emits HarnessSessionEndReleasedClaims."""
         _register(conn, session_id="ev-4")
@@ -125,7 +128,8 @@ class TestEventEmission:
         assert result["released_claims"][0]["claim_id"] == claim_a["id"]
 
         release_events = [
-            c for c in mock_emit.call_args_list
+            c
+            for c in mock_emit.call_args_list
             if c[0][0] == EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS
         ]
         assert len(release_events) == 1
@@ -134,7 +138,8 @@ class TestEventEmission:
         assert ctx["release_reason"] == "session_ended"
 
         ended_events = [
-            c for c in mock_emit.call_args_list
+            c
+            for c in mock_emit.call_args_list
             if c[0][0] == EVENT_HARNESS_SESSION_ENDED
         ]
         assert len(ended_events) == 1
@@ -151,7 +156,7 @@ class TestEventEmission:
         assert kwargs["session_id"] == "ev-4b"
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
-    def test_reclaim_emits_event(self, mock_emit, conn):
+    def test_direct_reclaim_refuses_active_work_claim(self, mock_emit, conn):
         _register(conn, session_id="ev-5")
         claim = claim_work(conn, session_id="ev-5", item_id=500)
         # Manually set stale heartbeat
@@ -161,14 +166,16 @@ class TestEventEmission:
         )
         conn.commit()
         mock_emit.reset_mock()
-        reclaim_stale_session(conn, "ev-5")
-        # One WorkReclaimed event per active claim (item_id populated)
-        mock_emit.assert_called_once()
-        args, kwargs = mock_emit.call_args
-        assert args[0] == EVENT_WORK_RECLAIMED
-        assert kwargs["session_id"] == "ev-5"
-        assert kwargs["item_id"] == "500"
-        assert kwargs["context"]["claim_id"] == claim["id"]
+        with pytest.raises(SessionError) as exc_info:
+            reclaim_stale_session(conn, "ev-5")
+        assert exc_info.value.code == "ACTIVE_WORK_CLAIM"
+        mock_emit.assert_not_called()
+        assert (
+            conn.execute(
+                "SELECT released_at FROM work_claims WHERE id=%s", (claim["id"],)
+            ).fetchone()[0]
+            is None
+        )
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_reclaim_stale_item_claims_emits_offer_reclaim_event(self, mock_emit, conn):
@@ -176,6 +183,10 @@ class TestEventEmission:
         claim = claim_work(conn, session_id="ev-5b", item_id=501)
         conn.execute(
             "UPDATE harness_sessions SET last_heartbeat = %s WHERE session_id = 'ev-5b'",
+            (_STALE_TS,),
+        )
+        conn.execute(
+            "UPDATE harness_sessions SET ended_at = %s WHERE session_id = 'ev-5b'",
             (_STALE_TS,),
         )
         conn.execute(

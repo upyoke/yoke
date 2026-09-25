@@ -2,17 +2,13 @@
 
 Running out of wait budget is not a failure: the queue may still merge the
 pull request, and re-running the landing converges on whatever happened
-meanwhile. What made the printed retry unusable was the item work claim.
-A landing can wait for tens of minutes without emitting a line, so the
-stale-session sweep saw a session with no activity, reclaimed it, and
-released the claim the retry needs — then the timeout text said "re-run
-the landing" without mentioning that the retry would now refuse for want
-of a claim, and the operator had to discover an undocumented re-acquire.
+meanwhile. A landing can wait for tens of minutes without emitting a line.
+An active work claim now stays held through that wait, while a claim explicitly
+released during the wait still requires a new acquisition before retry.
 
-Two things keep that from repeating. The record loop refreshes the session
-heartbeat while it waits (:mod:`yoke_core.domain.session_liveness_pump`),
-so the claim survives a wait that is doing exactly what it was asked to
-do; and the message built here reads the claim as it actually is at the
+The record loop refreshes the session heartbeat while it waits
+(:mod:`yoke_core.domain.session_liveness_pump`), and the message built here
+reads the claim as it actually is at the
 moment of the timeout, then prints a command that runs as-is from that
 state — naming the re-acquire step only when the claim is genuinely gone.
 """

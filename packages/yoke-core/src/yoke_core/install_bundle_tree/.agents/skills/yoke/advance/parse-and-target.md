@@ -91,7 +91,7 @@ For non-claim-holding targets (`reviewed-implementation`, `implemented`, `releas
 
 **Claim semantics:**
 - `claims.work.acquire` is idempotent for same-session re-claim — if the operator re-runs after a preflight failure, the response carries `result.already_owned=true` with `success=true`. No explicit release-on-failure is needed.
-- Stale claims held by other sessions auto-reclaim after the configured stale-heartbeat window (`session_stale_ttl_minutes` in machine config; sessions with active holdings use `session_stale_ttl_with_holdings_minutes`) of heartbeat silence with no events emitted from the owning session in that window, or when the owning session has ended. `WorkReclaimed` is emitted in that case. Threshold owner: the harness session-claim implementation; resolver: `yoke_core.domain.sessions_analytics_core.DEFAULT_STALE_THRESHOLD_MINUTES` / `DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES`.
+- An active work claim remains held across idle sweeps, process exit, and restart. A conflicting claimant must wait for explicit release, item completion or cancellation, or authorized session termination; heartbeat age does not transfer ownership. An already ended session with an inconsistent active claim can still be repaired by the reclaim path.
 - If the item is actively held by another live session, the response carries `error.code="claim_conflict"` with the holder session id — stop advance and surface the error.
 - Stop and SessionEnd hooks never release active claims. At an explicit handoff, run `yoke claims work release --all-mine`; the hooks close only an already claim-free session whose checkpoint has no remaining chain budget.
 

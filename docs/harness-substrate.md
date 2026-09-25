@@ -160,10 +160,10 @@ the keepalive daemon was eliminated it became a tool-activity recency
 signal rather than a liveness signal, conflating idle-but-alive sessions
 with permanent ends. `last_heartbeat` survives only for the
 stale-session reclaim sweep in `yoke_core.domain.sessions_cleanup`
-(short TTL from `session_stale_ttl_minutes` when empty; longer TTL from
-`session_stale_ttl_with_holdings_minutes` while holding an active work claim,
-strategy-document claim, or coordination lease), which is what reclaims truly
-dead sessions without treating mid-work silence as abandonment.
+(short TTL from `session_stale_ttl_minutes` when empty; the holdings TTL
+for strategy-document locks). Active work claims have no inactivity reclaim
+deadline. The sweep reads persisted claims before startup and periodic cleanup,
+so a relay restart cannot end a holder before it reattaches.
 
 ## Reactivation: conditional auto-reacquire + slim resume block
 

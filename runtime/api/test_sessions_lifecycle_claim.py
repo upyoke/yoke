@@ -98,9 +98,8 @@ class TestClaimWork:
             claim_work(conn, session_id="sess-2", item_id=9999)
         assert exc_info.value.code == "ALREADY_CLAIMED"
 
-    def test_claim_auto_reaps_stale_session_on_conflict(self, conn):
-        """claim_work runs clean_stale_harness_sessions on conflict
-        and succeeds if the conflicting session was stale."""
+    def test_claim_keeps_old_active_session_on_conflict(self, conn):
+        """A stale heartbeat does not release the holder's work claim."""
         # Need events table for the stale-session reaper. Mirrors production
         # via the shared helper — cleanup queries read events.session_id as
         # an indexed column, so the test fixture must carry that column.
@@ -119,16 +118,14 @@ class TestClaimWork:
             "WHERE session_id = 'sess-stale'",
             (_STALE_TS_WITH_HOLDINGS, _STALE_TS_WITH_HOLDINGS),
         )
-        # This should auto-reap sess-stale and succeed
-        result = claim_work(conn, session_id="sess-new", item_id=99)
-        assert result["session_id"] == "sess-new"
-        assert result["scope"] == {"item_id": 99}
-        # Verify the stale session's claim was released
+        with pytest.raises(SessionError) as exc_info:
+            claim_work(conn, session_id="sess-new", item_id=99)
+        assert exc_info.value.code == "ALREADY_CLAIMED"
         stale_claim = conn.execute(
             "SELECT released_at, release_reason FROM work_claims "
             "WHERE session_id = 'sess-stale'"
         ).fetchone()
-        assert stale_claim["released_at"] is not None
+        assert stale_claim["released_at"] is None
 
     def test_claim_by_same_session_is_idempotent(self, conn):
         """Same-session re-claim returns the existing row instead of raising.

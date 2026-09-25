@@ -74,20 +74,19 @@ class TestStaleDetection:
         stale = find_stale_sessions(conn, stale_threshold_minutes=10)
         assert len(stale) == 0
 
-    def test_reclaim_stale_session(self, conn):
+    def test_reclaim_stale_session_refuses_active_work_claim(self, conn):
         _register(conn)
         claim_work(conn, session_id="sess-1", item_id=9999)
         conn.execute(
             "UPDATE harness_sessions SET last_heartbeat = '2020-01-01T00:00:00Z' WHERE session_id='sess-1'"
         )
         conn.commit()
-        result = reclaim_stale_session(conn, "sess-1")
-        assert result["ended_at"] is not None
-        # Claim should be released with reason reclaimed
+        with pytest.raises(SessionError, match="Release the claim"):
+            reclaim_stale_session(conn, "sess-1")
         claim = conn.execute(
-            "SELECT release_reason FROM work_claims WHERE session_id='sess-1'"
+            "SELECT released_at FROM work_claims WHERE session_id='sess-1'"
         ).fetchone()
-        assert claim["release_reason"] == "reclaimed"
+        assert claim["released_at"] is None
 
     def test_reclaim_leaves_a_sticky_coordination_claim_held(
         self,
@@ -113,12 +112,12 @@ class TestStaleDetection:
             lambda name, **kwargs: emitted.append((name, kwargs)),
         )
 
-        reclaim_stale_session(conn, "sess-1")
+        with pytest.raises(SessionError, match="Release the claim"):
+            reclaim_stale_session(conn, "sess-1")
 
         assert coordination_claims.get_claim(conn, claim.id).is_active
         assert not any(
-            name == coordination_claims.LEASE_RELEASED_EVENT
-            for name, _call in emitted
+            name == coordination_claims.LEASE_RELEASED_EVENT for name, _call in emitted
         )
 
 

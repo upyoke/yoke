@@ -8,8 +8,12 @@ from typing import Any, Dict, List, Optional
 
 from . import sessions_analytics as _sa
 from . import db_backend
-from . import release_wait_sweep as _rwo
-from .session_cleanup_holdings import active_holding_sessions, effective_cleanup_ttl
+from .session_cleanup_holdings import (
+    active_holding_sessions,
+    active_work_claim_sessions,
+    effective_cleanup_ttl,
+    session_has_active_work_claim,
+)
 from .session_reclaim_activity import (
     SCOPE_SESSION_CLEANUP,
     classify_reclaimable,
@@ -32,7 +36,7 @@ from .sessions_queries import _now_iso
 from .sessions_render_end_chain_pending import chain_pending_state
 from .sessions_render import reclaim_stale_session
 from .scratch_auto_prune import ScratchPruneResult, auto_prune_stale_scratch
-from .sessions_cleanup_probe_stale import (
+from .session_cleanup_receipt import (
     bucket_holdings_spared_session,
     reclaim_ttl_for_candidate,
     sweep_receipt,
@@ -54,12 +58,12 @@ def clean_stale_harness_sessions(
     *,
     executor_ttl_overrides: Optional[Dict[str, int]] = None,
     project_ids: Optional[List[int]] = None,
-    reclaim_probe_stale_holders: bool = False,
 ) -> Dict[str, Any]:
     """Unified stale-session cleanup.
 
-    The short TTL applies to empty sessions. An active work claim,
-    strategy-document lock, or coordination lease uses the holdings TTL.
+    The short TTL applies to empty sessions. A strategy-document lock uses
+    the holdings TTL. An active work claim protects its session until an
+    explicit release or terminal action, independent of activity or process.
 
     Each reclaim emits exactly one ``HarnessSessionStaleReclaimed`` event with
     ``stale_minutes``, ``last_event_at``, ``released_claim_count``, ``executor``,
@@ -106,6 +110,7 @@ def clean_stale_harness_sessions(
     progress_stale: List[Dict[str, Any]] = []
     skipped_between_turns: List[Dict[str, Any]] = []
     holding_sessions = active_holding_sessions(conn)
+    work_claim_sessions = active_work_claim_sessions(conn)
 
     now_iso = _now_iso()
 
@@ -168,6 +173,10 @@ def clean_stale_harness_sessions(
             "stale_minutes": stale_minutes,
         }
 
+        if sid in work_claim_sessions:
+            skipped_between_turns.append({**entry, "reason": "active_work_claim"})
+            continue
+
         progress_stale_flag = False
         progress_at = current_episode_progress_stamp(
             latest_event_at,
@@ -183,9 +192,15 @@ def clean_stale_harness_sessions(
 
         if not is_stale:
             bucket_holdings_spared_session(
-                conn, sid, entry, progress_stale_flag, activity_at,
-                stale_threshold_minutes, progress_stale, heartbeat_stale,
-                skipped_between_turns, reclaim_probe_stale_holders,
+                conn,
+                sid,
+                entry,
+                progress_stale_flag,
+                activity_at,
+                stale_threshold_minutes,
+                progress_stale,
+                heartbeat_stale,
+                skipped_between_turns,
             )
             continue
 
@@ -205,6 +220,8 @@ def clean_stale_harness_sessions(
     reclaim_batches = never_engaged + heartbeat_stale + progress_stale
     for entry in reclaim_batches:
         sid = entry["session_id"]
+        if session_has_active_work_claim(conn, sid):
+            continue
         has_active_holdings = sid in active_holding_sessions(conn)
         effective_ttl = reclaim_ttl_for_candidate(
             entry,
@@ -213,24 +230,15 @@ def clean_stale_harness_sessions(
             executor_ttl_overrides=executor_ttl_overrides,
         )
 
-        # A session parked on an item's pinned release wait is waiting by
-        # design: reclaiming it would strip the delivery's only owner. One
-        # that never declared that wait is gone, and its items are handed to
-        # steering by name after the release rather than dropped in silence.
-        owed_release_waits = _rwo.owned_release_waits(conn, sid)
-        recheck = _rwo.guard_release_wait_owner(
+        recheck = classify_reclaimable(
             conn,
             sid,
-            classify_reclaimable(
-                conn,
-                sid,
-                base_ttl_minutes=effective_ttl,
-                overrides={},
-                progress_threshold_minutes=(
-                    max(progress_threshold_minutes, effective_ttl)
-                    if has_active_holdings
-                    else progress_threshold_minutes
-                ),
+            base_ttl_minutes=effective_ttl,
+            overrides={},
+            progress_threshold_minutes=(
+                max(progress_threshold_minutes, effective_ttl)
+                if has_active_holdings
+                else progress_threshold_minutes
             ),
         )
         if not recheck.is_reclaimable:
@@ -271,7 +279,6 @@ def clean_stale_harness_sessions(
             # Concurrently reclaimed or already ended — still report attempt
             continue
         total_reclaimed += 1
-        _rwo.hand_off_release_wait(conn, sid, owed_release_waits)
 
         _sa._emit_event(
             EVENT_HARNESS_SESSION_STALE_RECLAIMED,

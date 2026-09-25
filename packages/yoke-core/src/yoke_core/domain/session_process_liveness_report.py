@@ -4,8 +4,8 @@ A local process record proves only that the recorded process is gone.  It
 does not revoke control-plane authority.  A session with nothing outstanding
 can end immediately; one that still holds something, declared a wait about
 itself, or is owed an answer remains live, keeps every claim, and carries the
-process-gone observation until new activity supersedes it or a
-deliberate/holdings-TTL teardown ends it.
+process-gone observation until new activity supersedes it or an explicit
+release or terminal action settles it.
 
 The staleness TTL exists because quiet has two causes the control plane
 cannot tell apart, and it waits out the ambiguity.  A report naming the

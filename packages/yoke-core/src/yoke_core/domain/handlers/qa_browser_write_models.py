@@ -3,8 +3,8 @@
 ``execution_claim_id`` is the claim a long gate run bound when it started
 (see :mod:`yoke_core.domain.qa_start_bound_authority`, whose ``PAYLOAD_KEY``
 names this same field). The dispatcher reads it to authorize a recording
-leg whose live claim was reclaimed or handed off while the run was still
-going; the handlers themselves never consult it.
+leg whose live claim was explicitly released or handed off while the run
+was still going; the handlers themselves never consult it.
 """
 
 from __future__ import annotations

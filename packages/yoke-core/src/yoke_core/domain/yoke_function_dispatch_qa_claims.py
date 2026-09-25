@@ -110,7 +110,7 @@ def qa_subject_claim_verdict(
     subject is authorized by the run's own project scope. An item subject
     needs the session's live item claim — or the claim the run bound when
     it started, which is what lets an hour-long gate record the verdict it
-    earned after the stale-session sweep reclaimed the live one.
+    earned after the live claim was explicitly released or handed off.
     """
     if target.kind == "deployment_run" and target.deployment_run_id:
         return True, None, None
@@ -150,8 +150,7 @@ def qa_subject_claim_verdict(
     return (
         False,
         "claim_required",
-        f"no active claim by session {actor_session!r} on "
-            f"{item_ref_for_id(target_id)}",
+        f"no active claim by session {actor_session!r} on {item_ref_for_id(target_id)}",
     )
 
 

@@ -66,13 +66,18 @@ def _session_start(executor_family: str) -> HookContext:
 @pytest.fixture
 def _quiet_start():
     """Neutralize the non-reap SessionStart side effects."""
-    with mock.patch(
-        "yoke_core.hooks.session_dispatch._root_and_db",
-        return_value=("/Users/x/yoke", "/Users/x/yoke/data/yoke.db"),
-    ), mock.patch(
-        "yoke_core.hooks.session_dispatch._is_yoke_target", return_value=True,
-    ), mock.patch(
-        "yoke_core.engines.main_checkout_sync.sync_main_checkout_at_session_start",
+    with (
+        mock.patch(
+            "yoke_core.hooks.session_dispatch._root_and_db",
+            return_value=("/Users/x/yoke", "/Users/x/yoke/data/yoke.db"),
+        ),
+        mock.patch(
+            "yoke_core.hooks.session_dispatch._is_yoke_target",
+            return_value=True,
+        ),
+        mock.patch(
+            "yoke_core.engines.main_checkout_sync.sync_main_checkout_at_session_start",
+        ),
     ):
         yield
 
@@ -89,15 +94,21 @@ def _quiet_start():
     ],
 )
 def test_session_start_reaps_after_registration_on_every_family(
-    _quiet_start, executor_family: str, registration_target: str,
+    _quiet_start,
+    executor_family: str,
+    registration_target: str,
 ) -> None:
     order = mock.Mock()
-    with mock.patch(
-        registration_target, return_value="",
-    ) as register, mock.patch(
-        "yoke_core.hooks.session_start_stale_cleanup"
-        ".run_session_start_stale_cleanup",
-    ) as reap:
+    with (
+        mock.patch(
+            registration_target,
+            return_value="",
+        ) as register,
+        mock.patch(
+            "yoke_core.hooks.session_start_stale_cleanup"
+            ".run_session_start_stale_cleanup",
+        ) as reap,
+    ):
         order.attach_mock(register, "register")
         order.attach_mock(reap, "reap")
         session_dispatch.evaluate(_session_start(executor_family))
@@ -113,12 +124,15 @@ def test_session_start_reaps_after_registration_on_every_family(
 
 
 def test_session_start_preserves_family_stdout(_quiet_start) -> None:
-    with mock.patch(
-        "yoke_core.hooks.session_dispatch._run_codex_session_start",
-        return_value="## Yoke Orientation\n",
-    ), mock.patch(
-        "yoke_core.hooks.session_start_stale_cleanup"
-        ".run_session_start_stale_cleanup",
+    with (
+        mock.patch(
+            "yoke_core.hooks.session_dispatch._run_codex_session_start",
+            return_value="## Yoke Orientation\n",
+        ),
+        mock.patch(
+            "yoke_core.hooks.session_start_stale_cleanup"
+            ".run_session_start_stale_cleanup",
+        ),
     ):
         decision = session_dispatch.evaluate(_session_start("codex"))
 
@@ -147,7 +161,9 @@ def test_reap_skips_a_control_plane_with_no_local_authority(
     """The relayed SessionStart already reaps server-side; this is not a failure."""
     sent: list = []
     monkeypatch.setattr(
-        _reap, "emit_session_hook_failed", lambda **kw: sent.append(kw),
+        _reap,
+        "emit_session_hook_failed",
+        lambda **kw: sent.append(kw),
     )
     monkeypatch.setattr(_reap, "local_connection_or_none", lambda _open: None)
 
@@ -155,7 +171,9 @@ def test_reap_skips_a_control_plane_with_no_local_authority(
         raise AssertionError("swept without a local connection")
 
     ran = _reap.run_session_start_stale_cleanup(
-        "/repo", executor="claude-code", _cleanup=_unreachable,
+        "/repo",
+        executor="claude-code",
+        _cleanup=_unreachable,
     )
 
     assert ran is False
@@ -167,7 +185,9 @@ def test_reap_reports_a_failed_sweep_without_raising(
 ) -> None:
     sent: list = []
     monkeypatch.setattr(
-        _reap, "emit_session_hook_failed", lambda **kw: sent.append(kw),
+        _reap,
+        "emit_session_hook_failed",
+        lambda **kw: sent.append(kw),
     )
     conn_obj = _FakeConn()
 
@@ -214,7 +234,9 @@ def _ended_at(conn_obj, session_id: str):
 
 
 def test_local_session_start_sweeps_only_the_stale_claimless_session(
-    conn, tmp_path, monkeypatch: pytest.MonkeyPatch,
+    conn,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _insert_claimable_items(conn, 9301)
     _register(conn, session_id="stale-claimless")
@@ -225,7 +247,7 @@ def test_local_session_start_sweeps_only_the_stale_claimless_session(
 
     _register(conn, session_id="holding-session")
     claim_work(conn, session_id="holding-session", item_id=9301)
-    _age(conn, "holding-session", 30)
+    _age(conn, "holding-session", 20_000)
 
     _register(conn, session_id="in-flight-session")
     _age(conn, "in-flight-session", 30)
@@ -246,17 +268,25 @@ def test_local_session_start_sweeps_only_the_stale_claimless_session(
     conn.commit()
 
     monkeypatch.setattr(
-        _reap, "local_connection_or_none", lambda _open: _KeepOpenConn(conn),
+        _reap,
+        "local_connection_or_none",
+        lambda _open: _KeepOpenConn(conn),
     )
-    with mock.patch(
-        "yoke_core.hooks.session_dispatch._root_and_db",
-        return_value=(str(tmp_path), str(tmp_path / "yoke.db")),
-    ), mock.patch(
-        "yoke_core.hooks.session_dispatch._is_yoke_target", return_value=True,
-    ), mock.patch(
-        "yoke_core.engines.main_checkout_sync.sync_main_checkout_at_session_start",
-    ), mock.patch(
-        "yoke_core.hooks.session_dispatch._run_claude_session_start",
+    with (
+        mock.patch(
+            "yoke_core.hooks.session_dispatch._root_and_db",
+            return_value=(str(tmp_path), str(tmp_path / "yoke.db")),
+        ),
+        mock.patch(
+            "yoke_core.hooks.session_dispatch._is_yoke_target",
+            return_value=True,
+        ),
+        mock.patch(
+            "yoke_core.engines.main_checkout_sync.sync_main_checkout_at_session_start",
+        ),
+        mock.patch(
+            "yoke_core.hooks.session_dispatch._run_claude_session_start",
+        ),
     ):
         session_dispatch.evaluate(_session_start("claude"))
 
