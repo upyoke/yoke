@@ -1,8 +1,8 @@
 """A live release's state reads off the steering report as a sentence.
 
 Three shapes an operator has to tell apart without asking anyone: a run
-holding red requirements, a run with nothing outstanding that is only
-waiting to be driven, and a healthy run mid-flight. The rendered text is
+holding red requirements, a run with nothing outstanding, and a healthy run
+mid-flight. The rendered text is
 asserted alongside the fields, because the operator reads the prose.
 """
 
@@ -95,7 +95,8 @@ def test_the_report_sentence_carries_the_stage_age_and_the_counts(fleet) -> None
     assert f"! {RUN_ID}  executing  flow prod-release  stage {STAGE} for 4h00m" in body
     assert "1 of 1 outstanding, 1 red" in body
     assert "red: YOK-1 #901 fail" in body
-    assert f"Settle or waive each one, then re-drive {RUN_ID} to finalize." in body
+    assert "Settle or waive each one; the run finishes automatically" in body
+    assert f"read `yoke deployment-runs get {RUN_ID}` and re-drive {RUN_ID}" in body
 
 
 def test_an_executing_run_with_nothing_outstanding_is_not_advised_to_re_drive(
@@ -136,8 +137,7 @@ def test_a_created_run_with_nothing_outstanding_is_advised_to_be_driven(
     assert run.needs_action is True
     assert report.runs_needing_action() == (run,)
     assert f"! {RUN_ID}  created  flow prod-release" in body
-    assert f"Nothing is outstanding; re-drive {RUN_ID} to finish it." in body
-    assert "waiting only to be driven" in body
+    assert f"Nothing is outstanding; re-drive {RUN_ID} to start it." in body
 
 
 def test_a_created_run_with_a_live_driver_is_not_advised_to_be_driven(
