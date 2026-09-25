@@ -46,7 +46,14 @@ for a bounded window — a forward under a bulk transfer is usually slow rather
 than dead, so this is what lets two drivers share one machine — and only then
 refuses, naming the holder, its reason, and how long it has held it. The fleet
 preflight takes a lease for the whole rehearsal. A process ignores its own
-lease, so it can still heal the forward it is itself using.
+lease, so it can still heal the forward it is itself using. The holder keeps a
+file lock open for that lease. If a preflight watcher reaps an interrupted
+child before its context manager can remove the lease file, the kernel closes
+the lock; readiness removes the stale file and may repair the dropped tunnel.
+PID existence alone cannot prove a copy is still running, since process
+teardown and PID reuse can outlast the watcher's report. A live holder's lock
+continues to block replacement, and the refusal names that holder and the
+retry step.
 
 **Load tolerance** on both sides of the forward. The readiness probe's connect
 timeout and confirmation window are sized for a saturated forward, not an idle
