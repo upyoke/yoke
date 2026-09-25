@@ -32,11 +32,12 @@ def _wire(
     monkeypatch.setattr(ladder, "_table_exists", lambda _conn, _table: True)
     monkeypatch.setattr(ladder, "item_completion_flow", lambda _c, _i: flow)
     monkeypatch.setattr(ladder, "latest_completion_run", lambda _c, _i: member)
+    monkeypatch.setattr(
+        ladder, "independent_member_delivery_ready", lambda _c, **_kw: False
+    )
     monkeypatch.setattr(ladder, "item_merge_identity", lambda _c, _i: merge_sha)
     monkeypatch.setattr(ladder, "_project_id", lambda _c, _i: 1)
-    monkeypatch.setattr(
-        ladder, "succeeded_flow_runs", lambda _c, **_kw: list(runs)
-    )
+    monkeypatch.setattr(ladder, "succeeded_flow_runs", lambda _c, **_kw: list(runs))
     monkeypatch.setattr(
         ladder, "succeeded_persistent_runs", lambda _c, **_kw: list(persistent_runs)
     )
@@ -172,6 +173,7 @@ def test_an_item_with_no_flow_is_not_closed_by_an_unrelated_run(monkeypatch):
 
 def test_an_item_with_no_flow_never_asks_the_selected_flow_rung(monkeypatch):
     """There is no flow to ask about, so the walk reads the project's runs."""
+
     def _refuse(*_args, **_kwargs):
         raise AssertionError("a flow-less item has no selected-flow runs")
 

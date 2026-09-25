@@ -38,17 +38,18 @@ from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 # Intake recovery wording is pinned in test_post_deploy_recovery_exit_conditions.py.
 POST_DEPLOY_RECOVERY = (
-    "A post_deploy intake obligation needs its admitted copy on the selected "
-    "completion member; re-running the intake row cannot clear it. If no copy "
-    "was accepted, deliver through a flow whose QA target matches target_env "
-    "and complete this member's required delivery and QA. If a corrected "
-    "same-run, stage, member and target case already passed, supersede the "
-    "defective copy with `yoke qa requirement supersede`; a finished run "
-    "refuses a new run-bound case. Every admitted duplicate must be accepted, "
-    "superseded or waived. Otherwise use the registered waiver surface with "
-    "explicit authorization. A failed run-bound case needs a passing "
-    "same-run, stage, member and target replacement with accepted stage proof "
-    "or an authorized waiver; another delivery cannot settle that frozen row."
+    "A post_deploy obligation is satisfied by its admitted copy on the selected "
+    "completion member; re-running intake cannot clear it. If no admitted copy "
+    "was accepted because no final delivery or matching QA target exists, deliver "
+    "the item through a flow whose stage target matches target_env and finish "
+    "its required delivery and QA. If a corrected case bound to the same run, "
+    "stage, member, and target already passed, use `yoke qa requirement "
+    "supersede` for the defective copy; finished runs refuse new bound cases. "
+    "If no correction can apply, waive the requirement through the registered "
+    "surface with explicit authorization. Every admitted duplicate must be "
+    "accepted, superseded, or waived. A failed run-bound case needs a passing "
+    "same-run, stage, member, and target replacement with accepted stage proof "
+    "or an authorized waiver; another delivery cannot settle it."
 )
 
 
@@ -59,8 +60,7 @@ def latest_completion_run(
 
     Uses :func:`membership_closes_item` over newest-first memberships.
 
-    Failed and cancelled attempts may be skipped for source QA: they cannot
-    replace an earlier succeeded candidate's admitted proof. A newer active
+    Failed and cancelled attempts may be skipped for source QA; a newer active
     attempt still wins and must finish before that source can close out.
 
     Freshness is still ``created_at`` (then ``id``). ``release_lineage`` and

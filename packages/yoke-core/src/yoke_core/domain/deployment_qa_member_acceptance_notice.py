@@ -48,27 +48,26 @@ def item_qa_accepted_message(
     """Name what was accepted and how the release-wait owner should wait."""
     lead = (
         f"{public_ref}'s own item-scoped QA is accepted on deployment run "
-        f"{run_id}. The run may still be executing; other members' outstanding "
-        "item-scoped QA does not block this close-out."
+        f"{run_id}. The run may still be executing; the selected flow's "
+        "shared QA decides whether sibling QA delays completion."
     )
     if close_out_failure:
         lead += f" Automatic close-out failed: {close_out_failure}."
     recovery = (
         "Automatic close-out needs recovery before this item can finish. "
         if close_out_failure
-        else "The completion flow will close this item when its shared obligations finish. "
+        else "The completion flow will auto-close this item when its remaining delivery and QA obligations clear. "
     )
     if route == HOLDER:
         return (
             f"{lead} You hold its work claim and parked on this wait, so this "
-            f"is your re-entry. {recovery}Do not re-run merge solely for "
+            f"is your re-entry. {recovery}Check the item; do not re-run merge solely for "
             f"this acceptance. If the item is still at release wait, re-park "
             f"with `yoke sessions touch "
             f'--mode parked --reason "awaiting {public_ref} delivery"`.'
         )
     return (
-        f"{lead} Nobody holds its work claim, but no worker is needed for the "
-        f"satisfied path: {recovery}Check `yoke deployment-runs get "
+        f"{lead} Nobody holds its work claim. {recovery}Check `yoke deployment-runs get "
         f"{run_id}` for run status and recovery."
     )
 

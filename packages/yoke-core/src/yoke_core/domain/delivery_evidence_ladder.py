@@ -153,8 +153,12 @@ def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
             release_lineage=str(member.get("release_lineage") or ""),
             project_id=member.get("project_id"),
         )
-    if member is not None and independent_member_delivery_ready(
-        conn, item_id=int(item_id), run_id=str(member["id"])
+    if (
+        member is not None
+        and str(member["status"]) == "executing"
+        and independent_member_delivery_ready(
+            conn, item_id=int(item_id), run_id=str(member["id"])
+        )
     ):
         return DeliveryEvidence(
             DISCHARGED,
