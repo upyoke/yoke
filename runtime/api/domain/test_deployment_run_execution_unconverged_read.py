@@ -12,8 +12,18 @@ from runtime.api.domain import (
 )
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.backlog_inserts import insert_item
+from yoke_core.domain.actor_state import (
+    ActorStateRefused,
+    actor_is_active,
+    set_actor_enabled,
+)
+from yoke_core.domain.approval_decisions import _holds_role
+from yoke_core.domain.decision_request_authority import human_role_holders
+from yoke_core.domain.deployment_qa_result_notice import _role_holders
 from yoke_core.domain.flow_create import cmd_create
 from yoke_core.domain.handlers.deployment_run_execution import _member_rows
+from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.workflow_project_defaults import list_approval_actors
 
 
 serving_plane = serving_fixture.serving_plane
@@ -57,7 +67,13 @@ def _add_member(
         "INSERT INTO deployment_run_items"
         "(run_id,item_id,added_at,delivery_intent,requirement_snapshot) "
         "VALUES (%s,%s,%s,%s,%s)",
-        (run_id, item_id, "2026-09-14T00:00:00Z", delivery_intent, requirement_snapshot),
+        (
+            run_id,
+            item_id,
+            "2026-09-14T00:00:00Z",
+            delivery_intent,
+            requirement_snapshot,
+        ),
     )
     conn.commit()
 
@@ -184,3 +200,69 @@ def test_execution_context_dispatch_survives_unconverged_columns(
     assert members[0]["item_id"] == ITEM_ID
     assert members[0]["delivery_intent"] is None
     assert members[0]["requirement_snapshot"] is None
+
+
+def test_deployment_create_and_execution_survive_unconverged_actor_status(
+    serving_plane,
+) -> None:
+    """The admin driver must create its own deploy before server boot converge."""
+    client = serving_plane["client"]
+    headers = serving_plane["owner_headers"]
+    session_id = serving_plane["owner_session"]
+    actor_id = serving_plane["owner_id"]
+    conn = serving_plane["conn"]
+    project_id = resolve_project_id(conn, PROJECT)
+    conn.execute("ALTER TABLE actors DROP COLUMN status")
+    conn.commit()
+
+    assert actor_is_active(conn, actor_id)
+    assert not actor_is_active(conn, actor_id + 1000000)
+    assert human_role_holders(
+        conn, scope_kind="project", scope_id=project_id, role_name="owner"
+    ) == (actor_id,)
+    assert _holds_role(
+        conn,
+        actor_id=actor_id,
+        scope_kind="project",
+        scope_id=project_id,
+        role_name="owner",
+    )
+    assert _role_holders(conn, project_id=project_id, roles=("owner",)) == {actor_id}
+    assert actor_id in {row["id"] for row in list_approval_actors(conn)}
+    with pytest.raises(ActorStateRefused, match="boot-converge"):
+        set_actor_enabled(
+            conn,
+            actor_id=actor_id,
+            caller_actor_id=actor_id,
+            enabled=False,
+            now="2026-09-25T00:00:00Z",
+        )
+
+    created = _call(
+        client,
+        headers,
+        session_id,
+        "deployment_runs.create",
+        payload={"project": PROJECT, "flow": FLOW, "release_lineage": LINEAGE},
+    )
+    assert created.status_code == 200, created.text
+    run_id = created.json()["result"]["run_id"]
+    started = _call(
+        client,
+        headers,
+        session_id,
+        "deployment_runs.execution.update",
+        run_id=run_id,
+        payload={"field": "status", "value": "executing"},
+    )
+    assert started.status_code == 200, started.text
+    context = _call(
+        client, headers, session_id, "deployment_runs.execution.context", run_id=run_id
+    )
+    assert context.status_code == 200, context.text
+    roster = _call(client, headers, session_id, "actors.roster")
+    assert roster.status_code == 200, roster.text
+    owner_row = next(
+        row for row in roster.json()["result"]["rows"] if row["id"] == actor_id
+    )
+    assert owner_row["status"] == "active"
