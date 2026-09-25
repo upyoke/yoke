@@ -134,3 +134,63 @@ test("terminal runs ignore a stale containment snapshot", async () => {
     restore();
   }
 });
+
+test("a mixed project run keeps candidate delivery beside real membership", async () => {
+  const { mounted, restore, box } = await mount([
+    run("run-mixed", {
+      project_id: 2,
+      member_items: [{ id: 999, project_id: 2, ref: "PLAT-9" }],
+      delivery_candidate_items: [{ id: ITEM_ID, project_id: 1 }],
+    }),
+  ]);
+  try {
+    assert.deepEqual(
+      byClass(box, "item-deployment-run").map((node) => node.textContent),
+      ["run-mixed"],
+    );
+    assert.equal(
+      byClass(box, "item-deployment-relation")[0].textContent,
+      "candidate contains landing",
+    );
+    assert.equal(
+      byClass(box, "item-deployment")[0].href,
+      "#/deployments/runs/run-mixed?project=2",
+    );
+  } finally {
+    mounted.unmount();
+    restore();
+  }
+});
+
+test("a later containing candidate does not revive delivered work", async () => {
+  const { mounted, restore, box } = await mount([
+    run("run-stage-later", {
+      target_environment: "stage",
+      contained_items: [{ id: ITEM_ID }],
+      delivery_candidate_items: [],
+    }),
+  ]);
+  try {
+    assert.equal(byClass(box, "item-deployment").length, 0);
+    assert.equal(byClass(box, "item-delivery-empty").length, 1);
+  } finally {
+    mounted.unmount();
+    restore();
+  }
+});
+
+test("a run member remains visible when candidate delivery is settled", async () => {
+  const { mounted, restore, box } = await mount([
+    run("run-member", {
+      member_items: [{ id: ITEM_ID, project_id: 1 }],
+      delivery_candidate_items: [],
+    }),
+  ]);
+  try {
+    assert.equal(byClass(box, "item-deployment-run")[0].textContent, "run-member");
+    assert.equal(byClass(box, "item-deployment-relation")[0].textContent, "run member");
+  } finally {
+    mounted.unmount();
+    restore();
+  }
+});

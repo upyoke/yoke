@@ -12,6 +12,7 @@ from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 from yoke_core.domain.deployment_run_contained_items import (
     parse_candidate_containment,
 )
+from yoke_core.domain.deployment_run_item_delivery import candidate_delivery_items
 from yoke_core.domain.deployment_run_gates import run_gates
 from yoke_core.domain.deployment_runs_schema import _run_named_columns
 from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
@@ -41,6 +42,7 @@ def append_overview_run_window(
 RUN_PRESENTATION_FIELDS = (
     "member_items",
     "contained_items",
+    "delivery_candidate_items",
     "stages",
     "stage_index",
     "stage_count",
@@ -132,6 +134,7 @@ def present_deployment_runs(
     visible_project_ids: Optional[set[int]],
     include_carried_work: bool,
     compact: bool = False,
+    include_item_delivery: bool = False,
 ) -> list[dict[str, Any]]:
     """Add member, stage, and gate facts to already-authorized run rows."""
     run_ids = [str(row["id"]) for row in base]
@@ -141,6 +144,7 @@ def present_deployment_runs(
         visible_project_ids=visible_project_ids,
     )
     gates = run_gates(conn, run_ids, actor_id=actor_id)
+    delivery_items = candidate_delivery_items(conn, base) if include_item_delivery else {}
     result: list[dict[str, Any]] = []
     for source in base:
         row = dict(source)
@@ -180,9 +184,8 @@ def present_deployment_runs(
             # What this run pinned for every project it ships but does not
             # own. Run detail reads the same record delivery is judged on.
             row["bound_sources"] = parse_bound_sources(row.get("bound_sources"))
-        containment = parse_candidate_containment(
-            row.pop("candidate_containment", None)
-        )
+        recorded_containment = row.pop("candidate_containment", None)
+        containment = parse_candidate_containment(recorded_containment)
         stage_names = _stage_names(row.pop("stages", None))
         stages, stage_index = _stage_rows(
             stage_names,
@@ -227,6 +230,12 @@ def present_deployment_runs(
                 else 1
             ),
         }
+        if include_item_delivery and recorded_containment and "answers" in containment:
+            presentation["delivery_candidate_items"] = [
+                item for item in delivery_items.get(run_id, [])
+                if visible_project_ids is None
+                or int(item["project_id"]) in visible_project_ids
+            ]
         if not compact:
             presentation.update(
                 {"stage_index": stage_index, "stage_count": len(stage_names)}
@@ -310,6 +319,7 @@ def list_deployment_runs(
             actor_id=actor_id,
             visible_project_ids=visible_project_ids,
             include_carried_work=True,
+            include_item_delivery=relevance == "overview",
         )
     finally:
         conn.close()
