@@ -51,6 +51,14 @@ the run's own candidate, so the run delivers two projects, not one.
   ordinary members. They get a membership row, a requirement snapshot, and the
   item-scoped QA wake, exactly like own-project members. An item whose project
   the run ships no source for is still refused.
+  Creation-time attribution stays provisional until bound source commits are
+  recorded at start. If a stored carried-work record omits a recorded bound
+  project, start refuses it by name; cancel that stale run and create a new one.
+  A carried delivery-ready item with no completion flow also refuses: select
+  its project workflow default with `yoke workflows delivery-default set
+  --project P --workflow W --flow F`, then retry the start. Unreadable source
+  or landing containment refuses with its item and recovery instead of silently
+  omitting membership.
 - **Delivery is judged per project.** An item counts as delivered by a
   succeeded run whose recorded commit *for that item's project* contains its
   merge. That is why a bound-project item needs no second run on its own flow

@@ -92,13 +92,20 @@ def _repository_past_the_landing(tmp_path: Path, ref: str) -> tuple[Path, str, s
 def _run_pair(conn: Any, *, previous: str, candidate: str) -> None:
     stage_environment(conn)
     cmd_create(
-        conn, RELEASE_FLOW, "yoke", "Release admission", "", RELEASE_STAGES,
+        conn,
+        RELEASE_FLOW,
+        "yoke",
+        "Release admission",
+        "",
+        RELEASE_STAGES,
         status="disabled",
     )
-    insert_run(conn, "run-previous", lineage=previous, status="succeeded",
-               flow=RELEASE_FLOW)
-    insert_run(conn, "run-candidate", lineage=candidate, status="created",
-               flow=RELEASE_FLOW)
+    insert_run(
+        conn, "run-previous", lineage=previous, status="succeeded", flow=RELEASE_FLOW
+    )
+    insert_run(
+        conn, "run-candidate", lineage=candidate, status="created", flow=RELEASE_FLOW
+    )
 
 
 def _members(conn: Any) -> list[int]:
@@ -150,8 +157,9 @@ def test_a_landing_a_live_run_holds_is_left_alone(
             "SELECT release_lineage FROM deployment_runs WHERE id='run-candidate'"
         ).fetchone()
     )["release_lineage"]
-    insert_run(test_db, "run-live", lineage=lineage, status="created",
-               flow=RELEASE_FLOW)
+    insert_run(
+        test_db, "run-live", lineage=lineage, status="created", flow=RELEASE_FLOW
+    )
     test_db.execute(
         "INSERT INTO deployment_run_items(run_id,item_id,added_at) "
         "VALUES ('run-live',%s,'2026-09-14T00:30:00Z')",
@@ -213,14 +221,17 @@ def test_a_terminal_item_is_never_enrolled_from_this_source(
     assert enroll_carried_members(test_db, "run-candidate") == ()
 
 
-def test_an_unreadable_source_enrolls_nothing_from_this_source(
+def test_an_unreadable_source_refuses_unknown_containment(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """No comparison, no enrollment — and the steering read still names it."""
-    _stranded_candidate(test_db, tmp_path, monkeypatch)
+    """A delivery-ready landing cannot disappear behind an unknown answer."""
+    ref = _stranded_candidate(test_db, tmp_path, monkeypatch)
     serve_repository(monkeypatch, None)
 
-    assert unheld_candidate_ids(test_db, "run-candidate") == ()
+    with pytest.raises(ValueError) as error:
+        unheld_candidate_ids(test_db, "run-candidate")
+    assert ref in str(error.value)
+    assert "cannot compare the pinned candidate" in str(error.value)
 
 
 def test_cmd_create_run_auto_enrolls_carried_unheld_items(
@@ -250,4 +261,3 @@ def test_cmd_create_run_auto_enrolls_carried_unheld_items(
     ).fetchall()
     enrolled_ids = [int(dict(row)["item_id"]) for row in rows]
     assert enrolled_ids == [STRANDED_ITEM_ID]
-

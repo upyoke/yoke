@@ -38,6 +38,7 @@ from yoke_core.domain.delivery_landing_custody import (
     merged_open_items,
 )
 from yoke_core.domain.deployment_run_candidate_containment import (
+    UNDETERMINED,
     CandidateContainment,
 )
 from yoke_core.domain.deployment_run_composition_freeze import (
@@ -47,6 +48,7 @@ from yoke_core.domain.deployment_run_project_sources import (
     carried_project_ids,
     run_source_sha,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 def unheld_candidate_ids(conn: Any, run_id: str) -> tuple[int, ...]:
@@ -83,25 +85,33 @@ def _project_candidates(
         return set()
     custody = landing_custody(conn, project_id=project_id, item_ids=deliverable)
     walker = CandidateContainment(conn, project_id, candidate_lineage=lineage)
-    return {
-        item_id
-        for item_id in deliverable
-        if custody[item_id].enrollable
-        and _candidate_carries(walker, custody[item_id].landing_sha)
-    }
-
-
-def _candidate_carries(walker: CandidateContainment, landing_sha: str) -> bool:
-    """Whether this run's own pinned candidate contains that landing.
-
-    Only a definite yes enrolls. ``not_contained`` is the ordinary case of a
-    merge that landed after this candidate was pinned, and ``undetermined``
-    is a comparison this host could not make — promising delivery on either
-    would attach an obligation to a release that does not carry the code.
-    """
-    if not landing_sha:
-        return False
-    return walker.contains(landing_sha).contained
+    found: set[int] = set()
+    for item_id in deliverable:
+        landing = custody[item_id]
+        if landing.state == UNDETERMINED:
+            raise ValueError(
+                f"deployment run {run_id!r} cannot determine custody of "
+                f"{render_item_ref(conn, item_id)}: {landing.reason}. "
+                f"{landing.recovery}"
+            )
+        if not landing.enrollable:
+            continue
+        if not landing.landing_sha:
+            raise ValueError(
+                f"deployment run {run_id!r} cannot attribute "
+                f"{render_item_ref(conn, item_id)}: its merged landing has no "
+                "commit identity; repair its merge receipt and retry"
+            )
+        verdict = walker.contains(landing.landing_sha)
+        if verdict.state == UNDETERMINED:
+            raise ValueError(
+                f"deployment run {run_id!r} cannot compare the pinned "
+                f"candidate with {render_item_ref(conn, item_id)}: "
+                f"{verdict.reason}. {verdict.recovery}"
+            )
+        if verdict.contained:
+            found.add(item_id)
+    return found
 
 
 __all__ = ["unheld_candidate_ids"]

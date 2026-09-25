@@ -6,7 +6,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain import db_helpers
 from yoke_core.domain import workflow_project_defaults
 from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
-from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.project_identity import render_item_ref, resolve_project
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.workflow_project_defaults import WorkflowProjectDefaultError
 
@@ -26,7 +26,8 @@ class ItemCompletionFlowFact(NamedTuple):
 
 
 def item_completion_flow_facts(
-    conn: Any, item_ids: Iterable[int],
+    conn: Any,
+    item_ids: Iterable[int],
 ) -> dict[int, ItemCompletionFlowFact]:
     """The closing flow and where it came from, keyed by internal id.
 
@@ -77,11 +78,14 @@ def item_completion_flow_facts(
         if key not in defaults:
             try:
                 resolved = workflow_project_defaults.get_delivery_default(
-                    conn, project=key[0], workflow_id=key[1],
+                    conn,
+                    project=key[0],
+                    workflow_id=key[1],
                 )
             except WorkflowProjectDefaultError:
                 defaults[key] = ItemCompletionFlowFact(
-                    "", FLOW_SOURCE_UNREADABLE,
+                    "",
+                    FLOW_SOURCE_UNREADABLE,
                 )
             else:
                 flow = str(resolved or "")
@@ -124,6 +128,30 @@ def item_completion_flow(conn: Any, item_id: int) -> str:
     a set of items uses that entry point instead.
     """
     return item_completion_flows(conn, (int(item_id),)).get(int(item_id), "")
+
+
+def completion_flow_refusal(conn: Any, item_id: int) -> str:
+    """Explain why a delivery-ready item cannot enter a release composition."""
+    fact = item_completion_flow_facts(conn, (int(item_id),)).get(int(item_id))
+    if fact and fact.flow:
+        return ""
+    ref = render_item_ref(conn, int(item_id))
+    if fact and fact.source == FLOW_SOURCE_UNREADABLE:
+        return (
+            f"{ref} completion flow is unreadable; repair its project workflow "
+            "delivery default, then retry the deployment start"
+        )
+    row = conn.execute(
+        "SELECT p.slug,i.workflow_id FROM items i JOIN projects p "
+        "ON p.id=i.project_id WHERE i.id=%s",
+        (int(item_id),),
+    ).fetchone()
+    project, workflow = str(row[0]), str(row[1])
+    return (
+        f"{ref} has no resolvable completion flow; select one with "
+        f"yoke workflows delivery-default set --project {project} "
+        f"--workflow {workflow} --flow FLOW, then retry the deployment start"
+    )
 
 
 def membership_closes_item(
@@ -256,6 +284,7 @@ __all__ = [
     "FLOW_SOURCE_NONE",
     "FLOW_SOURCE_PROJECT_DEFAULT",
     "FLOW_SOURCE_UNREADABLE",
+    "completion_flow_refusal",
     "ItemCompletionFlowFact",
     "NO_FLOW_HEAD",
     "describe_missing_flow",

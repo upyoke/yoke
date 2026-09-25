@@ -105,10 +105,14 @@ def validate_delivery_intent_for_item(
     if state is None:
         raise ValueError("progress delivery requires a pinned item workflow")
     runtime, status = state
-    if str(runtime.policies.get("delivery")) not in (
-        "continuous_slice_actions",
-        WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
-    ) or str(status) in runtime.terminal_stage_ids:
+    if (
+        str(runtime.policies.get("delivery"))
+        not in (
+            "continuous_slice_actions",
+            WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
+        )
+        or str(status) in runtime.terminal_stage_ids
+    ):
         raise ValueError(
             "progress delivery is available only to a nonterminal item whose "
             "effective workflow uses continuous_slice_actions"
@@ -158,24 +162,13 @@ def inherited_frozen_membership(conn: Any, run_id: str) -> bool:
 
 def item_requires_release_membership(conn: Any, item_id: int) -> bool:
     row = conn.execute(
-        f"SELECT p.slug,i.deployment_flow,i.workflow_id,i.status FROM items i "
-        f"JOIN projects p ON p.id=i.project_id WHERE i.id={_p(conn)}",
+        f"SELECT status FROM items WHERE id={_p(conn)}",
         (int(item_id),),
     ).fetchone()
     if row is None:
         return False
-    project = str(_cell(row, "slug", 0))
-    effective_flow = _cell(row, "deployment_flow", 1)
-    if not effective_flow:
-        from yoke_core.domain.workflow_project_defaults import get_delivery_default
-
-        effective_flow = get_delivery_default(
-            conn, project=project, workflow_id=str(_cell(row, "workflow_id", 2))
-        )
-    if not effective_flow:
-        return False
     runtime = load_item_workflow_runtime(conn, int(item_id))
-    status = str(_cell(row, "status", 3))
+    status = str(_cell(row, "status", 0))
     if status in runtime.terminal_stage_ids or status in ENGINE_TERMINAL_STAGE_IDS:
         # A done item owes no membership and could not take one: new
         # admission of a terminal item is rejected, and its code reaches

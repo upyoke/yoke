@@ -7,6 +7,7 @@ comparison and the real QA-stage subject across two actual repositories.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +60,115 @@ def test_a_bound_projects_landed_item_is_enrolled_by_the_carrying_run(
     assert carried_membership_refusal(test_db, "run-candidate") is None
 
 
+def test_creation_keeps_attribution_provisional_until_bound_source_is_pinned(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release = two_project_release(test_db, tmp_path, monkeypatch)
+
+    early = enroll_carried_members(test_db, "run-candidate")
+    assert release["consumer_ref"] not in early
+    assert (
+        test_db.execute(
+            "SELECT carried_work FROM deployment_runs WHERE id='run-candidate'"
+        ).fetchone()[0]
+        is None
+    )
+
+    record_bound_sources(test_db, "run-candidate")
+    later = enroll_carried_members(test_db, "run-candidate")
+    assert later == (release["consumer_ref"],)
+    freeze_run_composition(test_db, "run-candidate")
+    carried = json.loads(
+        test_db.execute(
+            "SELECT carried_work FROM deployment_runs WHERE id='run-candidate'"
+        ).fetchone()[0]
+    )
+    assert [entry["project"] for entry in carried["bound_projects"]] == [
+        CONSUMER_PROJECT
+    ]
+
+
+def test_stale_cached_attribution_cannot_start_without_bound_project(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    two_project_release(test_db, tmp_path, monkeypatch)
+    stale = derive_carried_work(test_db, "run-candidate")
+    assert stale["bound_projects"] == []
+    test_db.execute(
+        "UPDATE deployment_runs SET carried_work=%s WHERE id='run-candidate'",
+        (json.dumps(stale),),
+    )
+    test_db.commit()
+    record_bound_sources(test_db, "run-candidate")
+
+    with pytest.raises(
+        ValueError, match="omits recorded bound project source"
+    ) as error:
+        enroll_carried_members(test_db, "run-candidate")
+    assert "Cancel this run and create a new one" in str(error.value)
+    with pytest.raises(ValueError, match="omits recorded bound project source"):
+        freeze_run_composition(test_db, "run-candidate")
+
+
+def test_bound_item_without_completion_flow_refuses_until_selected(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release = two_project_release(test_db, tmp_path, monkeypatch)
+    record_bound_sources(test_db, "run-candidate")
+    test_db.execute(
+        "UPDATE items SET deployment_flow=NULL WHERE id=%s", (CONSUMER_ITEM_ID,)
+    )
+    test_db.commit()
+
+    refusal = carried_membership_refusal(test_db, "run-candidate")
+    assert refusal is not None
+    assert release["consumer_ref"] in refusal
+    assert f"--project {CONSUMER_PROJECT} --workflow blitz --flow FLOW" in refusal
+    with pytest.raises(ValueError, match="no resolvable completion flow"):
+        enroll_carried_members(test_db, "run-candidate")
+    test_db.rollback()
+
+    test_db.execute(
+        "UPDATE items SET deployment_flow=%s WHERE id=%s",
+        (CONSUMER_FLOW, CONSUMER_ITEM_ID),
+    )
+    test_db.commit()
+    enrolled = enroll_carried_members(test_db, "run-candidate")
+    assert set(enrolled) == {release["carrier_ref"], release["consumer_ref"]}
+    assert carried_membership_refusal(test_db, "run-candidate") is None
+
+
+def test_a_bound_commit_excludes_later_missing_flow_work(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release = two_project_release(test_db, tmp_path, monkeypatch)
+    record_bound_sources(test_db, "run-candidate")
+    git(
+        release["consumer_repo"],
+        "commit",
+        "--allow-empty",
+        "-m",
+        "Later delivery-ready landing",
+    )
+    insert_item(
+        test_db,
+        id=UNBOUND_ITEM_ID,
+        project_sequence=UNBOUND_ITEM_ID,
+        workflow_id="blitz",
+        status="implementing",
+        project=CONSUMER_PROJECT,
+        deployment_flow="",
+    )
+    test_db.commit()
+
+    assert carried_membership_refusal(test_db, "run-candidate") is not None
+    assert item_ref(test_db, UNBOUND_ITEM_ID) not in (
+        carried_membership_refusal(test_db, "run-candidate") or ""
+    )
+    enrolled = enroll_carried_members(test_db, "run-candidate")
+    assert item_ref(test_db, UNBOUND_ITEM_ID) not in enrolled
+
+
 def test_a_bound_projects_single_commit_landing_attributes_by_its_receipt(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -107,12 +217,19 @@ def test_an_item_the_bound_commit_predates_is_not_enrolled(
     later_ref = item_ref(test_db, CONSUMER_ITEM_ID)
     record_bound_sources(test_db, "run-candidate")
     git(
-        release["consumer_repo"], "commit", "--allow-empty", "-m",
+        release["consumer_repo"],
+        "commit",
+        "--allow-empty",
+        "-m",
         f"Land {later_ref} follow-up",
     )
     insert_item(
-        test_db, id=UNBOUND_ITEM_ID, project_sequence=UNBOUND_ITEM_ID,
-        workflow_id="blitz", status="implementing", project=CONSUMER_PROJECT,
+        test_db,
+        id=UNBOUND_ITEM_ID,
+        project_sequence=UNBOUND_ITEM_ID,
+        workflow_id="blitz",
+        status="implementing",
+        project=CONSUMER_PROJECT,
         deployment_flow=CONSUMER_FLOW,
     )
     test_db.commit()
@@ -128,8 +245,12 @@ def test_an_item_whose_project_the_run_ships_no_source_for_is_refused(
     two_project_release(test_db, tmp_path, monkeypatch)
     record_bound_sources(test_db, "run-candidate")
     insert_item(
-        test_db, id=UNBOUND_ITEM_ID, project_sequence=UNBOUND_ITEM_ID,
-        workflow_id="blitz", status="implementing", project=UNBOUND_PROJECT,
+        test_db,
+        id=UNBOUND_ITEM_ID,
+        project_sequence=UNBOUND_ITEM_ID,
+        workflow_id="blitz",
+        status="implementing",
+        project=UNBOUND_PROJECT,
     )
     test_db.commit()
 

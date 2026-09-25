@@ -116,18 +116,6 @@ def _enroll_carried_items(run_id_value: str) -> List[str] | HandlerOutcome:
     from yoke_core.domain.deployment_run_carried_membership import (
         enroll_carried_members,
     )
-    from yoke_core.domain.deployment_run_carried_work import parse_carried_work
-    from yoke_core.domain.deployment_runs_crud_query import cmd_get
-    from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
-
-    raw = cmd_get(run_id_value)
-    if raw is None:
-        return error("not_found", f"deployment run {run_id_value!r} not found")
-    if (
-        parse_carried_work(pipe_to_dict(raw, RUN_FIELDS).get("carried_work"))
-        is not None
-    ):
-        return []
 
     with connect() as conn:
         try:
