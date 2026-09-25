@@ -208,6 +208,36 @@ def browser_method_contract_violation(
     return None
 
 
+def browser_cleanup_contract_violation(
+    steps: Any,
+) -> Optional[BrowserMethodContractViolation]:
+    """Validate a short recovery sequence using the ordinary step vocabulary."""
+    if not isinstance(steps, list) or not 1 <= len(steps) <= 5:
+        return BrowserMethodContractViolation(
+            "cleanup_steps_invalid",
+            "method_config.cleanup_steps must contain 1 to 5 Browser steps",
+        )
+    for index, step in enumerate(steps):
+        if (
+            not isinstance(step, dict)
+            or not isinstance(step.get("action"), str)
+            or step["action"] not in ACTION_STEP_KEYS
+        ):
+            return BrowserMethodContractViolation(
+                "cleanup_action_invalid",
+                f"Browser cleanup step {index} needs a supported action",
+            )
+        violation = _step_key_violation(index, step)
+        if violation is not None:
+            return violation
+        if step["action"] == "navigate" and not _non_empty_text(step.get("route")):
+            return BrowserMethodContractViolation(
+                "cleanup_route_missing",
+                f"Browser cleanup navigate step {index} needs a non-empty route",
+            )
+    return None
+
+
 def case_viewport(method_config: Any) -> Any:
     """Return the viewport a case is authored at, or its contract violation.
 
@@ -255,6 +285,7 @@ __all__ = [
     "SHARED_STEP_KEYS",
     "SUPPORTED_ASSERTION_CHECKS",
     "browser_method_contract_violation",
+    "browser_cleanup_contract_violation",
     "defined_keys_for_action",
     "case_viewport",
     "is_browser_assertion",

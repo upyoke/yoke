@@ -1,10 +1,10 @@
-"""Record the page a failing Browser assertion was looking at.
+"""Record the page a failing Browser step was looking at.
 
 A case author does not have to declare a screenshot step for this. The
-runner takes one at the moment the assertion fails so a later reader can
+runner takes one at the moment a step fails so a later reader can
 see the screen instead of guessing why the check reported `found 0`.
 When that shot cannot be taken, the returned errors name both the
-assertion failure and why the page was not captured.
+step failure and why the page was not captured.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from yoke_core.domain.browser_qa_freshness_outcome import (
 FAILURE_SCREENSHOT_STEP: Dict[str, Any] = {
     "action": "screenshot",
     "capture": True,
-    "label": "assertion_failure",
+    "label": "step_failure",
 }
 
 
@@ -42,9 +42,9 @@ def capture_failed_assertion_page(
     subject: int | str,
     route: str,
     actor: Optional[ActorContext] = None,
-    label: str = "assertion_failure",
+    label: str = "step_failure",
 ) -> Tuple[str, List[str], List[int], bool]:
-    """Capture the page under a failed assertion.
+    """Capture the page under a failed step.
 
     Returns ``(errors, paths, artifact_ids, capture_ok)``. ``capture_ok``
     is True only when a screenshot artifact was recorded. The assertion
@@ -64,9 +64,7 @@ def capture_failed_assertion_page(
 
     shot = dict(FAILURE_SCREENSHOT_STEP)
     shot["label"] = label
-    response = _bqa._execute_step(
-        shot, base_url, artifact_dir, page_id
-    )
+    response = _bqa._execute_step(shot, base_url, artifact_dir, page_id)
     data = response.get("data", response)
     inner_failed = (
         isinstance(data, dict)
@@ -95,9 +93,8 @@ def capture_failed_assertion_page(
     artifacts_raw = list(data.get("artifacts") or []) if isinstance(data, dict) else []
     if not artifacts_raw:
         screenshot = (
-            (data.get("screenshot") if isinstance(data, dict) else None)
-            or response.get("screenshot")
-        )
+            data.get("screenshot") if isinstance(data, dict) else None
+        ) or response.get("screenshot")
         if screenshot:
             artifacts_raw = [screenshot]
     if not artifacts_raw:
@@ -149,31 +146,32 @@ def apply_failed_step(
     actor: Optional[ActorContext] = None,
     authentication_wall: bool = False,
 ) -> Tuple[str, List[str], List[int], bool]:
-    """Record a failed step. Capture the page for assertions and auth walls.
+    """Record a failed step and capture its page when available.
 
     Returns ``(errors, paths, artifact_ids, capture_missed)``.
     """
-    if assertion_expected or authentication_wall:
-        label = (
-            AUTHENTICATION_WALL_LABEL if authentication_wall
-            else "assertion_failure"
-        )
-        errors, paths, ids, capture_ok = capture_failed_assertion_page(
-            step_idx=step_idx,
-            error=error,
-            page_id=page_id,
-            base_url=base_url,
-            artifact_dir=artifact_dir,
-            run_id=run_id,
-            requirement_id=requirement_id,
-            qa_kind=qa_kind,
-            subject=subject,
-            route=route,
-            actor=actor,
-            label=label,
-        )
-        return errors, paths, ids, not capture_ok
-    return f"step_{step_idx}:{error};", [], [], True
+    label = (
+        AUTHENTICATION_WALL_LABEL
+        if authentication_wall
+        else "assertion_failure"
+        if assertion_expected
+        else "step_failure"
+    )
+    errors, paths, ids, capture_ok = capture_failed_assertion_page(
+        step_idx=step_idx,
+        error=error,
+        page_id=page_id,
+        base_url=base_url,
+        artifact_dir=artifact_dir,
+        run_id=run_id,
+        requirement_id=requirement_id,
+        qa_kind=qa_kind,
+        subject=subject,
+        route=route,
+        actor=actor,
+        label=label,
+    )
+    return errors, paths, ids, not capture_ok
 
 
 @dataclass
@@ -225,8 +223,7 @@ def failed_step_from_response(
     if isinstance(data, dict):
         wall = wall or bool(data.get("authenticationWall"))
     unauthorized = wall and (
-        EXECUTION_TARGET_UNAUTHORIZED in str(error)
-        or "timeout" in str(error).lower()
+        EXECUTION_TARGET_UNAUTHORIZED in str(error) or "timeout" in str(error).lower()
     )
     if unauthorized:
         error = authorize_recovery(project, base_url)
@@ -253,4 +250,3 @@ def failed_step_from_response(
         capture_missed=capture_missed,
         unauthorized=unauthorized,
     )
-
