@@ -92,6 +92,9 @@ def register_with_credential(
             now=now,
             commit=False,
         )
+        from yoke_core.domain.actor_state import require_actor_active
+
+        require_actor_active(conn, record.owner_actor_id, lock=True)
         _revoke_active(
             conn,
             machine_id=record.machine_id,

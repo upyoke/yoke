@@ -69,7 +69,8 @@ test("Actors route renders the live roster with the shared page title", async ()
   assert.deepEqual(byClass(root, "page-head").map((node) => node.textContent), ["Actors"]);
   assert.equal(byClass(root, "actors-panel").length, 1);
   assert.deepEqual(headings(byClass(root, "actors-panel")[0]), [
-    "Actor", "Kind", "Org role", "Project access", "Account",
+    "Actor", "Kind", "State", "Org role", "Project access", "Account",
+    "API keys", "Action",
   ]);
   assert.deepEqual(byClass(root, "actors-name").map((node) => node.textContent), [
     "Ben (you)", "deploy-ci",
@@ -93,7 +94,7 @@ test("local roster omits Account and explains a sole human actor", async () => {
   const onlyHuman = { ...roster, rows: [roster.rows[0]] };
   const { root, mounted } = await mountActors(() => ok(onlyHuman));
   assert.deepEqual(headings(byClass(root, "actors-panel")[0]), [
-    "Actor", "Kind", "Org role", "Project access",
+    "Actor", "Kind", "State", "Org role", "Project access", "API keys", "Action",
   ]);
   assert.equal(byClass(root, "actors-local-notice")[0].hidden, false);
   mounted.unmount();
@@ -102,7 +103,7 @@ test("local roster omits Account and explains a sole human actor", async () => {
 test("empty, loading and refused reads retain a meaningful Actors screen", async () => {
   const empty = await mountActors(() => ok({ rows: [], current_actor_id: null }));
   assert.deepEqual(headings(byClass(empty.root, "actors-panel")[0]), [
-    "Actor", "Kind", "Org role", "Project access",
+    "Actor", "Kind", "State", "Org role", "Project access", "API keys", "Action",
   ]);
   assert.ok(empty.root.textContent.includes("No actors are registered"));
   empty.mounted.unmount();

@@ -10,6 +10,7 @@ ACTOR_TABLES: dict[str, dict] = {
             ("kind", "TEXT"),
             ("system_component", "TEXT"),
             ("name", "TEXT"),
+            ("status", "TEXT"),
             ("created_at", "TEXT"),
         ],
         "notes": (
@@ -28,7 +29,9 @@ ACTOR_TABLES: dict[str, dict] = {
             "actors.resolve_actors_by_name is an operator SEARCH returning a "
             "list; never use it to pick a session identity, an authenticated "
             "caller, or an owner. actors has NO org_id column; resolve an "
-            "actor's organization membership through actor_org_roles.org_id."
+            "actor's organization membership through actor_org_roles.org_id. "
+            "status is active or disabled; disabled actors have no authority "
+            "even when their historical role grants remain."
         ),
     },
 }

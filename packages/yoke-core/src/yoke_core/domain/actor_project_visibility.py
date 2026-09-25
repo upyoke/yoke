@@ -22,6 +22,10 @@ def actor_visible_project_ids(
     """Return actor-visible project ids, or ``None`` for local/unscoped calls."""
     if actor_id is None:
         return None
+    from yoke_core.domain.actor_state import actor_is_active
+
+    if not actor_is_active(conn, actor_id):
+        return set()
     from yoke_core.domain.project_identity import placeholder, row_value
 
     p = placeholder(conn)

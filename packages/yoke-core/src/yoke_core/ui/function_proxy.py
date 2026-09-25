@@ -173,6 +173,7 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "overview.module.dismiss",
         "overview.module.restore",
         "profile.token.create",
+        "actors.state.set",
         "profile.token.revoke",
         "profile.preference.set",
         "profile.onboarding.reset",

@@ -44,6 +44,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.actor_state import actor_is_active
 from yoke_core.domain.actor_invites import (
     Invite,
     mark_invite_accepted,
@@ -73,6 +74,7 @@ REFUSAL_MISSING_REQUIRED_CLAIMS = "missing_required_claims"
 REFUSAL_MISSING_EMAIL_CLAIM = "missing_email_claim"
 REFUSAL_EMAIL_UNVERIFIED = "email_unverified"
 REFUSAL_NO_ADMISSION_MATCH = "no_invite_or_auto_join_match"
+REFUSAL_ACTOR_DISABLED = "actor_disabled"
 
 
 @dataclass(frozen=True)
@@ -177,6 +179,12 @@ def _succeed(
     proved the identity. It moves no authority either: the actor was
     already chosen by that pair.
     """
+    if not actor_is_active(conn, actor_id):
+        return _refuse(
+            issuer, REFUSAL_ACTOR_DISABLED,
+            f"actor {actor_id} is disabled; ask an org admin to enable it "
+            "before signing in again",
+        )
     renamed = set_actor_name(conn, actor_id, name_claim)
     emit_identity_event(
         EVENT_SIGN_IN_SUCCEEDED,
@@ -262,6 +270,12 @@ def resolve_sign_in(
     if invite is not None:
         if invite.actor_id is not None:
             actor_id = invite.actor_id
+            if not actor_is_active(conn, actor_id):
+                return _refuse(
+                    issuer, REFUSAL_ACTOR_DISABLED,
+                    f"actor {actor_id} is disabled; ask an org admin to "
+                    "enable it before accepting this invite",
+                )
         else:
             actor_id = _create_named_actor(
                 conn, email=email, name_claim=name_claim,

@@ -84,9 +84,9 @@ def apply_additive_schema(conn: Any) -> None:
         )
     conn.commit()
 
-    # The one human-readable name every surface renders. NOT NULL DEFAULT
-    # so Postgres populates existing rows at ADD time.
+    # Non-null name default fills existing Postgres rows.
     _add_column_if_not_exists(conn, "actors", "name", "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_not_exists(conn, "actors", "status", "TEXT NOT NULL DEFAULT 'active'")
     conn.commit()
 
     # Idempotent ADD COLUMN migrations for epic_tasks

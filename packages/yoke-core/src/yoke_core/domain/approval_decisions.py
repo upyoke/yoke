@@ -148,7 +148,8 @@ def _holds_role(
     return (
         conn.execute(
             f"SELECT 1 FROM {table} ar JOIN actors a ON a.id = ar.actor_id "
-            "AND a.kind = 'human' JOIN roles r ON r.id = ar.role_id "
+            "AND a.kind = 'human' AND a.status = 'active' "
+            "JOIN roles r ON r.id = ar.role_id "
             f"WHERE ar.actor_id = {p} AND ar.{scope_column} = {p} "
             f"AND r.name = {p} LIMIT 1",
             (int(actor_id), int(scope_id), str(role_name)),

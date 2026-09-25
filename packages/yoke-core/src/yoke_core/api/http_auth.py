@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from yoke_core.api.observability import request_id_for
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.api_tokens import (
+    TokenActorDisabled,
     TokenExpired,
     TokenMachineRetired,
     TokenNotFound,
@@ -28,6 +29,7 @@ from yoke_core.domain.api_tokens import (
     verify_token,
 )
 from yoke_core.domain.web_sessions import WebSessionError, verify_web_session
+from yoke_core.domain.actor_state import ActorDisabledError
 
 
 AUTH_STATE_ATTR = "yoke_auth"
@@ -99,7 +101,7 @@ def authenticate_web_session(request: Request) -> Optional[WebSessionAuthContext
     try:
         with db_helpers.connect() as conn:
             verified = verify_web_session(conn, raw)
-    except (ValueError, WebSessionError):
+    except (ValueError, WebSessionError, ActorDisabledError):
         return None
     except db_backend.database_error_types():
         return None
@@ -180,6 +182,10 @@ def authenticate_request(request: Request) -> HttpAuthContext | JSONResponse:
             status_code=401,
             code="authentication_revoked",
             message="API token is revoked",
+        )
+    except TokenActorDisabled as exc:
+        return auth_error_response(
+            status_code=401, code="actor_disabled", message=str(exc),
         )
     except TokenExpired:
         return auth_error_response(

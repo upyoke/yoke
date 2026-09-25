@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.actor_state import actor_is_active
 from yoke_core.domain.actor_permissions import (
     PERM_ITEMS_READ,
     PermissionDenied,
@@ -54,9 +55,18 @@ def check_dispatch_permission(
         side_effects=bool(entry.side_effects),
         project_permission=permission_key_for(entry),
     )
+    actor_id = _numeric_actor_id(request.actor.actor_id)
+    if actor_id is not None and not actor_is_active(conn, actor_id):
+        return DispatchPermission(
+            spec.permission_key, None, None,
+            error=_error_response(
+                request, entry, "actor_disabled",
+                f"actor {actor_id} is disabled or unavailable; ask an org admin "
+                "to enable the actor, then sign in again or reconnect its machine",
+            ),
+        )
     if spec.scope == CLIENT_LOCAL:
         return DispatchPermission(spec.permission_key, None, None)
-    actor_id = _numeric_actor_id(request.actor.actor_id)
     if actor_id is None:
         return DispatchPermission(spec.permission_key, None, None)
     if (
@@ -172,8 +182,6 @@ def dispatch_permission_for_request(
         side_effects=bool(entry.side_effects),
         project_permission=permission_key_for(entry),
     )
-    if spec.scope == CLIENT_LOCAL:
-        return DispatchPermission(spec.permission_key, None, None)
     if _numeric_actor_id(request.actor.actor_id) is None:
         return DispatchPermission(spec.permission_key, None, None)
     if spec.scope == DENY:
