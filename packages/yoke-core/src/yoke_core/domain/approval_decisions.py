@@ -28,6 +28,7 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.actor_render import actor_display_labels
+from yoke_core.domain.actor_state import actor_active_sql
 from yoke_core.domain.decision_answers import actor_decision, list_decisions
 from yoke_core.domain.actors import is_human_actor
 from yoke_core.domain.approval_policy import (
@@ -145,10 +146,11 @@ def _holds_role(
     table = "actor_org_roles" if scope_kind == "org" else "actor_project_roles"
     scope_column = "org_id" if scope_kind == "org" else "project_id"
     p = _p(conn)
+    active = actor_active_sql(conn, "a")
     return (
         conn.execute(
             f"SELECT 1 FROM {table} ar JOIN actors a ON a.id = ar.actor_id "
-            "AND a.kind = 'human' AND a.status = 'active' "
+            f"AND a.kind = 'human' AND {active} "
             "JOIN roles r ON r.id = ar.role_id "
             f"WHERE ar.actor_id = {p} AND ar.{scope_column} = {p} "
             f"AND r.name = {p} LIMIT 1",

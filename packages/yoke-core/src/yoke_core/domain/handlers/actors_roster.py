@@ -13,6 +13,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.profile_read import read_identity, read_roles
 from yoke_core.domain.profile_read import read_tokens
+from yoke_core.domain.actor_state import actor_status_sql
 from yoke_core.domain.actor_permissions import PERM_ORG_ADMIN, PermissionDenied
 from yoke_core.domain.control_plane_authority import require_control_plane_permission
 
@@ -41,8 +42,10 @@ def handle_actors_roster(request: FunctionCallRequest) -> HandlerOutcome:
 
     conn = db_helpers.connect()
     try:
+        status = actor_status_sql(conn, "a")
         actors = conn.execute(
-            "SELECT id, kind, name, system_component, status FROM actors ORDER BY id"
+            f"SELECT a.id, a.kind, a.name, a.system_component, {status} "
+            "FROM actors a ORDER BY a.id"
         ).fetchall()
         rows = []
         for actor_id, kind, name, system_component, status in actors:

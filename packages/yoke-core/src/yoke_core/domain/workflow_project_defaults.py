@@ -257,10 +257,13 @@ def set_delivery_default(
 
 def list_approval_actors(conn: Any) -> list[dict]:
     """Return the named-human roster available to an org-admin editor."""
+    from yoke_core.domain.actor_state import actor_active_sql
+
+    active = actor_active_sql(conn, "a")
     rows = query_rows(
         conn,
         "SELECT a.id, a.name AS label FROM actors a "
-        "WHERE a.kind='human' AND a.status='active' AND a.name <> '' "
+        f"WHERE a.kind='human' AND {active} AND a.name <> '' "
         "ORDER BY LOWER(a.name), a.id",
     )
     return [{"id": int(row["id"]), "label": str(row["label"])} for row in rows]

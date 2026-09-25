@@ -35,7 +35,13 @@ ACTOR_TABLES: dict[str, dict] = {
             "actors.state.set to change status. Retiring a system actor "
             "requires an audit of its live dependencies and explicit "
             "confirmation; the canonical core actor and actors with active "
-            "deployment credentials cannot be disabled."
+            "deployment credentials cannot be disabled. Before the serving "
+            "build boot-converges the additive status column, a paired "
+            "db-admin client still drives the self-deploy on the old schema. "
+            "Authorization uses actor_state.actor_is_active or "
+            "actor_state.actor_active_sql, not a direct SELECT of "
+            "actors.status (the wrong pre-converge guess). A legacy actor "
+            "row is active; once status exists, only active is authorized."
         ),
     },
 }

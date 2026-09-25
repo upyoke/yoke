@@ -20,12 +20,34 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+def actor_status_sql(conn: Any, alias: str) -> str:
+    """Read status before and after the additive column reaches a universe.
+
+    The workstation can drive the serving API's own release before boot
+    convergence. An absent column means the legacy schema, whose actors all
+    had authority; an existing column with NULL or an unknown value does not.
+    """
+    if not db_backend.connection_is_postgres(conn):
+        return f"{alias}.status"
+    actor = f"to_jsonb({alias})"
+    return (
+        f"CASE WHEN jsonb_exists({actor}, 'status') "
+        f"THEN {actor}->>'status' ELSE 'active' END"
+    )
+
+
+def actor_active_sql(conn: Any, alias: str) -> str:
+    return f"({actor_status_sql(conn, alias)}) = 'active'"
+
+
 def actor_is_active(conn: Any, actor_id: int, *, lock: bool = False) -> bool:
     suffix = " FOR UPDATE" if lock and db_backend.connection_is_postgres(conn) else ""
     row = conn.execute(
-        f"SELECT status FROM actors WHERE id = {_p(conn)}{suffix}", (actor_id,)
+        f"SELECT {actor_active_sql(conn, 'a')} FROM actors a "
+        f"WHERE a.id = {_p(conn)}{suffix}",
+        (actor_id,),
     ).fetchone()
-    return row is not None and row[0] == "active"
+    return row is not None and bool(row[0])
 
 
 def require_actor_active(conn: Any, actor_id: int, *, lock: bool = False) -> None:
@@ -68,15 +90,26 @@ def set_actor_enabled(
     """
     p = _p(conn)
     lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
+    status_present = (
+        "jsonb_exists(to_jsonb(a), 'status')"
+        if db_backend.connection_is_postgres(conn)
+        else "1"
+    )
     try:
         conn.execute(f"SELECT id FROM organizations ORDER BY id{lock}").fetchall()
         row = conn.execute(
-            f"SELECT kind, system_component, status FROM actors WHERE id = {p}{lock}",
+            f"SELECT a.kind, a.system_component, {status_present}, "
+            f"{actor_status_sql(conn, 'a')} FROM actors a WHERE a.id = {p}{lock}",
             (actor_id,),
         ).fetchone()
         if row is None:
             raise ActorStateRefused(f"actor {actor_id} does not exist; refresh Actors")
-        kind, component, status = row
+        kind, component, has_status, status = row
+        if not has_status:
+            raise ActorStateRefused(
+                "actor enable/disable requires the serving build to boot-converge "
+                "the actor status column; deploy that build first"
+            )
         if not enabled and actor_id == caller_actor_id:
             raise ActorStateRefused(
                 "cannot disable your own actor; ask another org admin to do it"
@@ -103,6 +136,7 @@ def set_actor_enabled(
                         "workflow and service references, then retry with "
                         "--confirm-system-retirement"
                     )
+            active_admin = actor_active_sql(conn, "other_actor")
             last_admin = conn.execute(
                 "SELECT aor.org_id FROM actor_org_roles aor "
                 "JOIN roles r ON r.id = aor.role_id "
@@ -113,7 +147,7 @@ def set_actor_enabled(
                 "JOIN actors other_actor ON other_actor.id = other.actor_id "
                 "WHERE other.org_id = aor.org_id AND other.actor_id <> aor.actor_id "
                 "AND other_role.name = 'admin' AND other_actor.kind = 'human' "
-                "AND other_actor.status = 'active') "
+                f"AND {active_admin}) "
                 "LIMIT 1",
                 (actor_id,),
             ).fetchone()

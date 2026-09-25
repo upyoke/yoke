@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from yoke_contracts.session_control.models import RecipientSelector
+from yoke_core.domain.actor_state import actor_active_sql
 from yoke_core.domain.deployment_item_owner import item_owner_actor
 from yoke_core.domain.delivery_notice_kind import QA_RESULT_NOTICE_PREFIX
 from yoke_core.domain.deployment_qa_stage_outcome import (
@@ -89,10 +90,11 @@ def _role_holders(conn: Any, *, project_id: int, roles: tuple[str, ...]) -> set[
     if not roles:
         return set()
     placeholders = ",".join("%s" for _ in roles)
+    active = actor_active_sql(conn, "a")
     rows = conn.execute(
         "SELECT DISTINCT apr.actor_id FROM actor_project_roles apr "
         "JOIN actors a ON a.id = apr.actor_id AND a.kind = 'human' "
-        "AND a.status = 'active' "
+        f"AND {active} "
         "JOIN roles r ON r.id = apr.role_id "
         f"WHERE apr.project_id = %s AND r.name IN ({placeholders})",
         (int(project_id), *roles),
