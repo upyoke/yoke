@@ -56,7 +56,8 @@
   align-items: stretch;
   gap: 9px;
   overflow-x: auto;
-  padding-bottom: 3px;
+  padding: 4px 4px 7px;
+  margin: -4px -4px -4px;
 }
 .universe-app-root .workflow-stage {
   display: flex;
@@ -79,6 +80,10 @@
   padding: 7px;
   border: 2px solid var(--yoke-accent);
   background: var(--yoke-accent-weak);
+}
+.universe-app-root .workflow-stage:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: 2px;
 }
 .universe-app-root .workflow-stage-label {
   font-size: 12px;
