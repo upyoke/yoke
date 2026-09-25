@@ -17,7 +17,11 @@ exists only when a plan attachment or explicit requirement declares it.
 `method_config` must be a JSON object with a non-empty `steps` array. An
 optional `base_url` may provide the default target; the execution command can
 override it. An optional `viewport` states the width and height the case is
-about.
+about. A case that changes external state may declare `cleanup_steps`, a
+sequence of one to five ordinary Browser steps to run after a failed required
+step. For example, a dedicated actor round trip can include
+`"cleanup_steps": [{"action": "click", "target": "#disable-actor"}]`.
+Choose steps that restore a safe state from the page left by a failure.
 
 ```json
 {
@@ -45,6 +49,15 @@ about.
 The step vocabulary matches
 the browser step runner implementation.
 There is no translation layer.
+
+Required steps run in order until the first failure. The runner then records
+that failure, takes one diagnostic screenshot from the owned page when it is
+available, and skips subsequent required steps. It runs `cleanup_steps` after
+the screenshot, even when cleanup follows a failed navigate, wait, assertion,
+or interaction. Cleanup stops on its own first failure. The run retains the
+original failed verdict and records any screenshot or cleanup failure beside
+the original reason. Inspect `qa_run.raw_result.errors` and linked artifacts;
+repair the named failure and rerun the case after restoring external state.
 
 ## Action reference
 

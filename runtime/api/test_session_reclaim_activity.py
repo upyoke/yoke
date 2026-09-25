@@ -8,6 +8,7 @@ import pytest
 from yoke_core.domain.session_reclaim_activity import (
     REASON_ENDED,
     REASON_FRESH,
+    REASON_ACTIVE_WORK_CLAIM,
     REASON_HEARTBEAT_STALE,
     REASON_NEVER_ENGAGED,
     REASON_PROGRESS_STALE,
@@ -202,7 +203,7 @@ class TestClassifyReclaimable:
         )
 
         assert result.is_reclaimable is False
-        assert result.reason == REASON_FRESH
+        assert result.reason == REASON_ACTIVE_WORK_CLAIM
 
     def test_progress_threshold_catches_wedged_session(self, conn_with_events):
         c = conn_with_events

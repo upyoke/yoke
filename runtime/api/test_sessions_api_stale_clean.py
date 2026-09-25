@@ -43,8 +43,7 @@ class TestCleanStaleHarnessSessions:
         """Activity state lives on harness_sessions columns now."""
         return conn
 
-    def test_reclaims_never_engaged_session(self, conn_with_events):
-        """Stale heartbeat + zero tool events = never_engaged."""
+    def test_keeps_never_engaged_work_claim_holder(self, conn_with_events):
         conn = conn_with_events
         _register(conn, session_id="stale-offer")
         _ts300 = _ago_minutes(_PAST_HOLDINGS_TTL)
@@ -66,24 +65,22 @@ class TestCleanStaleHarnessSessions:
 
         result = clean_stale_harness_sessions(conn, stale_threshold_minutes=10)
 
-        assert len(result["never_engaged"]) == 1
-        assert result["never_engaged"][0]["session_id"] == "stale-offer"
-        assert result["total_reclaimed"] == 1
+        assert result["never_engaged"] == []
+        assert result["total_reclaimed"] == 0
 
-        # Verify session ended and claim released
+        # The persisted claim protects the holder even before its first tool call.
         row = conn.execute(
             "SELECT ended_at FROM harness_sessions WHERE session_id = 'stale-offer'",
         ).fetchone()
-        assert row["ended_at"] is not None
+        assert row["ended_at"] is None
         claim_row = conn.execute(
             "SELECT release_reason FROM work_claims "
             "WHERE target_kind='item' AND scope = %s",
             (make_item_target(100).scope_json(),),
         ).fetchone()
-        assert claim_row["release_reason"] == "reclaimed"
+        assert claim_row["release_reason"] is None
 
-    def test_reclaims_heartbeat_stale_session(self, conn_with_events):
-        """Stale heartbeat + has tool events = heartbeat_stale."""
+    def test_keeps_heartbeat_stale_work_claim_holder(self, conn_with_events):
         conn = conn_with_events
         _register(conn, session_id="dead-worker")
         _ts300 = _ago_minutes(_PAST_HOLDINGS_TTL)
@@ -109,13 +106,11 @@ class TestCleanStaleHarnessSessions:
 
         result = clean_stale_harness_sessions(conn, stale_threshold_minutes=10)
 
-        assert len(result["heartbeat_stale"]) == 1
-        assert result["heartbeat_stale"][0]["session_id"] == "dead-worker"
+        assert result["heartbeat_stale"] == []
         assert len(result["never_engaged"]) == 0
-        assert result["total_reclaimed"] == 1
+        assert result["total_reclaimed"] == 0
 
-    def test_reclaims_progress_stale_session(self, conn_with_events):
-        """Fresh heartbeat cannot hide a genuinely stale live episode."""
+    def test_keeps_progress_stale_work_claim_holder(self, conn_with_events):
         conn = conn_with_events
         _register(conn, session_id="wedged-sess")
         claim_work(conn, session_id="wedged-sess", item_id=300)
@@ -134,11 +129,10 @@ class TestCleanStaleHarnessSessions:
             progress_threshold_minutes=90,
         )
 
-        assert len(result["progress_stale"]) == 1
-        assert result["progress_stale"][0]["session_id"] == "wedged-sess"
+        assert result["progress_stale"] == []
         assert len(result["heartbeat_stale"]) == 0
         assert len(result["never_engaged"]) == 0
-        assert result["total_reclaimed"] == 1
+        assert result["total_reclaimed"] == 0
 
     def test_skips_active_session_with_recent_progress(self, conn_with_events):
         """Fresh heartbeat + recent tool events = not stale."""
@@ -254,21 +248,7 @@ class TestCleanStaleHarnessSessions:
             (_ts300, _ts300),
         )
         c.commit()
-        claim_work(c, session_id="racy-sess", item_id=700)
-        # With latest_activity centralizing liveness, the cleanup sweep uses
-        # ``session_reclaim_activity.latest_activity`` for the snapshot,
-        # which MAX-es harness + work_claims + tool-event signals. Age
-        # the freshly-stamped claim heartbeat too so the snapshot picks
-        # the session up as stale; the fresh_first_classify monkeypatch
-        # below refreshes ``harness_sessions.last_heartbeat`` between
-        # snapshot and mutation to exercise the race window.
-        c.execute(
-            """UPDATE work_claims
-               SET claimed_at = %s, last_heartbeat = %s
-               WHERE session_id = 'racy-sess' AND released_at IS NULL""",
-            (_ts300, _ts300),
-        )
-        c.commit()
+        # Refresh between snapshot and mutation to exercise the race window.
 
         from yoke_core.domain import sessions_cleanup as _sc
 
@@ -339,11 +319,3 @@ class TestCleanStaleHarnessSessions:
             "SELECT ended_at FROM harness_sessions WHERE session_id = 'racy-sess'",
         ).fetchone()
         assert sess_row["ended_at"] is None
-
-        claim_row = c.execute(
-            "SELECT released_at, release_reason FROM work_claims "
-            "WHERE target_kind='item' AND scope = %s",
-            (make_item_target(700).scope_json(),),
-        ).fetchone()
-        assert claim_row["released_at"] is None
-        assert claim_row["release_reason"] is None

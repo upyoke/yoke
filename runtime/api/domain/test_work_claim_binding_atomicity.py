@@ -38,7 +38,7 @@ def _join(thread: threading.Thread) -> None:
     assert not thread.is_alive(), f"thread {thread.name} did not finish"
 
 
-def test_cross_item_stale_cleanup_does_not_invert_target_locks(
+def test_cross_item_cleanup_preserves_active_holders_without_lock_inversion(
     test_db,
     monkeypatch,
 ) -> None:
@@ -115,15 +115,17 @@ def test_cross_item_stale_cleanup_does_not_invert_target_locks(
         second_conn.close()
 
     assert all(
-        not isinstance(outcomes[name], BaseException) for name in ("fresh-a", "fresh-b")
+        isinstance(outcomes[name], SessionError)
+        and outcomes[name].code == "ALREADY_CLAIMED"
+        for name in ("fresh-a", "fresh-b")
     )
     holders = test_db.execute(
         "SELECT session_id,scope FROM work_claims "
         "WHERE released_at IS NULL AND target_kind='item' ORDER BY session_id",
     ).fetchall()
     assert [(row[0], int(decode_scope(row[1])["item_id"])) for row in holders] == [
-        ("fresh-a", item_ids[0]),
-        ("fresh-b", item_ids[1]),
+        ("stale-holder", item_ids[0]),
+        ("stale-holder", item_ids[1]),
     ]
 
 

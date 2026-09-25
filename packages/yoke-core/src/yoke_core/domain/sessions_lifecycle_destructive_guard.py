@@ -18,9 +18,9 @@ records which of those it was on the terminal events.
 ``last_heartbeat`` is not consulted here — after the keepalive daemon
 was eliminated it became a tool-activity recency signal rather than a
 liveness signal, conflating idle-but-alive sessions with permanent
-ends. It survives only for the stale-session reclaim sweep in
-``yoke_core.domain.sessions_cleanup`` (TTL from the
-``session_stale_ttl_minutes`` machine-config key).
+ends. The stale-session sweep in ``yoke_core.domain.sessions_cleanup`` uses
+it to clean claimless sessions after ``session_stale_ttl_minutes``; active
+work-claim holders have no inactivity deadline.
 
 Not the same path as ``end_session_if_empty``. ``end_session_if_empty``
 is a separate non-destructive idle-cleanup helper used by the Stop and

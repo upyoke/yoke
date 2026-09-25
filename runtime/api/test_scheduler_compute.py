@@ -193,7 +193,7 @@ class TestComputeSchedule:
             assert step_map[1].claim_state == ClaimState.CLAIMED_BY_SELF
 
     def test_schedule_claim_state_stale_by_heartbeat(self, scheduler_db):
-        """Heartbeat-stale claims are treated as reclaimable stale claims."""
+        """A quiet live holder keeps its persisted claim."""
         conn = scheduler_db["conn"]
         stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=30)).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
@@ -208,11 +208,10 @@ class TestComputeSchedule:
         conn.commit()
 
         claims = _evaluate_claim_states(conn, [1])
-        assert claims[1] == ClaimState.CLAIMED_BY_STALE
+        assert claims[1] == ClaimState.CLAIMED_BY_OTHER_LIVE
 
-    def test_schedule_selects_stale_claimed_item(self, scheduler_db):
-        """scheduler selects highest-ranked CLAIMED_BY_STALE item
-        instead of skipping to a lower-ranked UNCLAIMED item."""
+    def test_schedule_selects_claim_from_ended_session(self, scheduler_db):
+        """An ended session's inconsistent active claim remains recoverable."""
         conn = scheduler_db["conn"]
         stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=30)).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
@@ -231,12 +230,14 @@ class TestComputeSchedule:
         top_item = baseline.selected_step.item_id
 
         _insert_item_claim(conn, "sess-stale", _item_num(top_item), stale_iso)
+        conn.execute(
+            "UPDATE harness_sessions SET ended_at=%s WHERE session_id='sess-stale'",
+            (stale_iso,),
+        )
         conn.commit()
 
         result = compute_schedule(conn, project_scope=["yoke"])
 
-        # Previously the scheduler would skip CLAIMED_BY_STALE items
-        # and select a lower-ranked unclaimed item instead.
         assert result.selected_step is not None
         assert result.selected_step.item_id == top_item
         assert result.selected_step.claim_state == ClaimState.CLAIMED_BY_STALE
@@ -297,8 +298,8 @@ class TestComputeSchedule:
         if result.selected_step is not None:
             assert result.selected_step.item_id != top_item
 
-    def test_schedule_claim_state_25min_is_stale_selected(self, scheduler_db):
-        """25-min heartbeat: CLAIMED_BY_STALE, scheduler selects the item."""
+    def test_schedule_claim_state_25min_remains_held(self, scheduler_db):
+        """Heartbeat age does not make a live claim selectable."""
         conn = scheduler_db["conn"]
         stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=25)).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
@@ -318,9 +319,8 @@ class TestComputeSchedule:
         conn.commit()
 
         claims = _evaluate_claim_states(conn, [top_item])
-        assert claims[top_item] == ClaimState.CLAIMED_BY_STALE
+        assert claims[top_item] == ClaimState.CLAIMED_BY_OTHER_LIVE
 
         result = compute_schedule(conn, project_scope=["yoke"])
-        assert result.selected_step is not None
-        assert result.selected_step.item_id == top_item
-        assert result.selected_step.claim_state == ClaimState.CLAIMED_BY_STALE
+        if result.selected_step is not None:
+            assert result.selected_step.item_id != top_item

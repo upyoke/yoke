@@ -1,6 +1,6 @@
 """Reclaim and race-safety tests for session_offer_with_ownership.
 
-Split from ``test_sessions_queries.py``. Covers stale-claim reclaim,
+Split from ``test_sessions_queries.py``. Covers held-claim retention,
 ended-session reclaim, race-safe single-owner enforcement, manifest
 capability resolution, and offer envelope persistence.
 """
@@ -108,10 +108,8 @@ class TestSessionOfferReclaim:
         envelope = json.loads(row["offer_envelope"])
         assert envelope["supported_paths"] == ["conduct"]
 
-    def test_offer_reclaims_stale_heartbeat_claim(self, ownership_conn):
-        """Session_offer_with_ownership auto-reclaims
-        a stale exclusive claim from a heartbeat-stale session and then
-        acquires the item for the offering session."""
+    def test_offer_preserves_stale_heartbeat_claim(self, ownership_conn):
+        """A heartbeat-stale session keeps its active claim during an offer."""
         conn, ws = ownership_conn
         _ensure_active_session(conn, "new-sess-reclaim", ws, model="opus")
         stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=30)).strftime(
@@ -136,15 +134,11 @@ class TestSessionOfferReclaim:
             workspace=ws,
         )
 
-        # The offering session should acquire the item
-        assert result["action_hint"] == "charge"
-        assert result["new_claim"] is not None
-        assert result["new_claim"]["scope"] == {"item_id": 100}
-
-        # The stale claim should be released
+        assert result["action_hint"] == "no_work"
+        assert result["new_claim"] is None
         stale_claim = _claim_row(conn, "stale-sess", 100)
-        assert stale_claim["released_at"] is not None
-        assert stale_claim["release_reason"] == "reclaimed"
+        assert stale_claim["released_at"] is None
+        assert stale_claim["release_reason"] is None
 
     def test_offer_reclaims_ended_session_claim(self, ownership_conn):
         """Session_offer_with_ownership auto-reclaims
@@ -177,9 +171,8 @@ class TestSessionOfferReclaim:
         assert result["new_claim"] is not None
         assert result["new_claim"]["scope"] == {"item_id": 100}
 
-    def test_offer_only_stale_work_returns_charge(self, ownership_conn):
-        """If only stale-claimed work exists on the frontier,
-        the offer surface recovers it instead of returning no_work."""
+    def test_offer_only_claimed_work_returns_no_work(self, ownership_conn):
+        """An old but active claim keeps its item off the available frontier."""
         conn, ws = ownership_conn
         _ensure_active_session(conn, "rescuer-sess", ws, model="opus")
         stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=30)).strftime(
@@ -204,9 +197,9 @@ class TestSessionOfferReclaim:
             workspace=ws,
         )
 
-        # Must NOT return no_work -- must recover the stale item
-        assert result["action_hint"] == "charge"
-        assert result["new_claim"] is not None
+        assert result["action_hint"] == "no_work"
+        assert result["new_claim"] is None
+        assert _claim_row(conn, "sole-stale", 100)["released_at"] is None
 
     def test_offer_race_safe_no_duplicate_claims(self, ownership_conn):
         """If a live session holds the claim, reclaim does

@@ -168,6 +168,14 @@ def validate_method_config(
         violation = browser_method_contract_violation(config_contract_id, steps)
         if violation is not None:
             raise QaMethodConfigError(violation.message)
+        if "cleanup_steps" in config:
+            from yoke_contracts.browser_qa_contract import (
+                browser_cleanup_contract_violation,
+            )
+
+            violation = browser_cleanup_contract_violation(config["cleanup_steps"])
+            if violation is not None:
+                raise QaMethodConfigError(violation.message)
     elif config_contract_id == "agent-mission":
         executor = config.get("executor")
         if set(config) not in (

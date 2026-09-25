@@ -51,7 +51,7 @@ def _seed_conflict(
     conn.close()
 
 
-def test_claim_work_reclaims_holdings_ttl_stale_claim(session_offer_db):
+def test_claim_work_preserves_old_active_claim(session_offer_db):
     db_path = session_offer_db["db_path"]
     _seed_conflict(
         db_path,
@@ -65,13 +65,15 @@ def test_claim_work_reclaims_holdings_ttl_stale_claim(session_offer_db):
         db_path=db_path,
     )
 
-    assert result.returncode == 0
+    assert result.returncode == 1
+    assert "already claimed" in json.loads(result.stderr)["error"]
     conn = connect(db_path)
-    released_reason = conn.execute(
-        "SELECT release_reason FROM work_claims WHERE session_id='owner-session'"
-    ).fetchone()[0]
+    row = conn.execute(
+        "SELECT released_at, release_reason FROM work_claims WHERE session_id='owner-session'"
+    ).fetchone()
     conn.close()
-    assert released_reason == "reclaimed"
+    assert row["released_at"] is None
+    assert row["release_reason"] is None
 
 
 def test_claim_work_keeps_codex_between_turn_claim_live(session_offer_db):

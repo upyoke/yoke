@@ -15,7 +15,7 @@ Behavior lives in responsibility-named siblings:
 - :mod:`yoke_core.hooks.sessions_lifecycle` — ``begin``,
   ``touch``, ``end``, ``get`` command handlers.
 - :mod:`yoke_core.hooks.sessions_claims` — ``claim``,
-  ``release``, ``release-all``, ``reclaim``, ``list-claims``,
+  ``release``, ``release-all``, ``list-claims``,
   ``who-claims`` command handlers.
 - :mod:`yoke_core.hooks.sessions_inventory` — read-only
   ``list`` and ``stale`` queries.
@@ -24,6 +24,7 @@ Public names (cmd_*) are re-exported here so legacy
 ``from yoke_core.hooks.sessions_cli import cmd_*`` imports continue
 to resolve.
 """
+
 from __future__ import annotations
 
 import sys
@@ -37,7 +38,6 @@ from yoke_core.domain.yok_n_parser import parse_item_argument
 from yoke_core.hooks.sessions_claims import (  # noqa: F401
     cmd_claim,
     cmd_list_claims,
-    cmd_reclaim,
     cmd_release,
     cmd_release_all,
     cmd_who_claims,
@@ -66,7 +66,6 @@ Subcommands:
         --process-key KEY --conflict-group GROUP [--reason R]
   release <claim-id> [reason]
   release-all <session-id> [reason]
-  reclaim <session-id>
   list
   list-claims <session-id>
   who-claims <item-id> [--current-episode]
@@ -149,11 +148,15 @@ def main(argv: Optional[List[str]] = None) -> None:
                 )
             lane = rest[5] if len(rest) > 5 else "primary"
             mode = rest[6] if len(rest) > 6 else "wait"
-            print(cmd_begin(conn, rest[0], rest[1], rest[2], rest[3], rest[4], lane, mode))
+            print(
+                cmd_begin(conn, rest[0], rest[1], rest[2], rest[3], rest[4], lane, mode)
+            )
 
         elif subcmd == "touch":
             if not rest:
-                _cli_usage_error("Usage: harness-sessions touch <session-id> [--mode M]")
+                _cli_usage_error(
+                    "Usage: harness-sessions touch <session-id> [--mode M]"
+                )
             mode = None
             if len(rest) > 1:
                 if rest[1] == "--mode" and len(rest) > 2:
@@ -213,12 +216,19 @@ def main(argv: Optional[List[str]] = None) -> None:
                     )
             if kind is None:
                 _cli_usage_error("--target-kind is required for claim")
-            print(cmd_claim(
-                conn, session_id, kind,
-                item_id=item_id, epic_id=epic_id, task_num=task_num,
-                process_key=process_key, conflict_group=conflict_group,
-                reason=reason,
-            ))
+            print(
+                cmd_claim(
+                    conn,
+                    session_id,
+                    kind,
+                    item_id=item_id,
+                    epic_id=epic_id,
+                    task_num=task_num,
+                    process_key=process_key,
+                    conflict_group=conflict_group,
+                    reason=reason,
+                )
+            )
 
         elif subcmd == "release":
             if not rest:
@@ -228,14 +238,11 @@ def main(argv: Optional[List[str]] = None) -> None:
 
         elif subcmd == "release-all":
             if not rest:
-                _cli_usage_error("Usage: harness-sessions release-all <session-id> [reason]")
+                _cli_usage_error(
+                    "Usage: harness-sessions release-all <session-id> [reason]"
+                )
             reason = rest[1] if len(rest) > 1 else "released"
             print(cmd_release_all(conn, rest[0], reason))
-
-        elif subcmd == "reclaim":
-            if not rest:
-                _cli_usage_error("Usage: harness-sessions reclaim <session-id>")
-            print(cmd_reclaim(conn, rest[0]))
 
         elif subcmd == "list":
             result = cmd_list(conn)
@@ -252,8 +259,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         elif subcmd == "who-claims":
             if not rest:
                 _cli_usage_error(
-                    "Usage: harness-sessions who-claims <item-id> "
-                    "[--current-episode]"
+                    "Usage: harness-sessions who-claims <item-id> [--current-episode]"
                 )
             current_episode = "--current-episode" in rest[1:]
             extra = [a for a in rest[1:] if a != "--current-episode"]
@@ -263,7 +269,9 @@ def main(argv: Optional[List[str]] = None) -> None:
                     "[--current-episode]"
                 )
             result = cmd_who_claims(
-                conn, rest[0], current_episode=current_episode,
+                conn,
+                rest[0],
+                current_episode=current_episode,
             )
             if result:
                 print(result)

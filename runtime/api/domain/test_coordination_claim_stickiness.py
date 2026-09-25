@@ -1,11 +1,7 @@
-"""Sticky claim kinds survive what reclaims a liveness-bound one.
+"""Sticky claim kinds survive session end and stale cleanup.
 
-The stale-session sweep, the session-end release, and the claim-free end
-check exist because a session that goes quiet cannot finish its backlog
-work. A migration mid-authorship and a physical host mid-suite keep
-operating regardless, so reclaiming those hands a live resource to a
-second holder. These tests pin that difference at every surface that
-releases claims by session.
+The stale-session sweep and session-end release keep resource holders safe.
+These tests pin the different release rules for sticky coordination claims.
 """
 
 from __future__ import annotations
@@ -95,6 +91,7 @@ class TestStaleSessionSweep:
         self, db_path: str
     ) -> None:
         from yoke_core.domain.sessions_render_reclaim import reclaim_stale_session
+        from yoke_core.domain.sessions import SessionError
 
         conn = _connect(db_path)
         try:
@@ -103,8 +100,12 @@ class TestStaleSessionSweep:
             acquire_steering(
                 conn, session_id=HOLDER, project_id=PROJECT_YOKE, reason="steer"
             )
-            reclaim_stale_session(conn, HOLDER)
-            _assert_sticky_survived(conn, claims)
+            with pytest.raises(SessionError, match="active work claim"):
+                reclaim_stale_session(conn, HOLDER)
+            assert all(
+                coordination_claims.get_claim(conn, claim_id).is_active
+                for claim_id in claims.values()
+            )
         finally:
             conn.close()
 
@@ -140,9 +141,8 @@ class TestSessionEndRelease:
 
 
 class TestHarnessSessionCommands:
-    @pytest.mark.parametrize("command_name", ["release_all", "reclaim"])
-    def test_session_scoped_commands_preserve_sticky_claims(
-        self, db_path: str, command_name: str, monkeypatch
+    def test_release_all_preserves_sticky_claims(
+        self, db_path: str, monkeypatch
     ) -> None:
         from yoke_core.hooks import sessions_claims
 
@@ -150,10 +150,7 @@ class TestHarnessSessionCommands:
         try:
             claims = _hold_everything(conn)
             monkeypatch.setattr(sessions_claims, "_emit_event", lambda *a, **k: None)
-            if command_name == "release_all":
-                sessions_claims.cmd_release_all(conn, HOLDER)
-            else:
-                sessions_claims.cmd_reclaim(conn, HOLDER)
+            sessions_claims.cmd_release_all(conn, HOLDER)
             _assert_sticky_survived(conn, claims)
         finally:
             conn.close()

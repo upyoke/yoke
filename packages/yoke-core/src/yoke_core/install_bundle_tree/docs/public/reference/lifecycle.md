@@ -108,9 +108,8 @@ unprotected unless both layers below hold:
   for every `status='idea'` row and pushes the title-only ones into
   `blocked` with reason `idea-incomplete`. This catches every tail case
   Layer 1 cannot reach: a `/yoke idea` session that crashes between
-  the two phases (claim auto-reclaims after the configured stale-heartbeat
-  window — `session_stale_ttl_minutes` in machine config — but the
-  body is still title-only); a manual
+  the two phases (the title-only body remains, while the active claim
+  stays held until explicit release or authorized termination); a manual
   `python3 -m yoke_core.cli.db_router items add` from ad hoc tooling
   that bypasses the claim convention; any future `/yoke idea` variant
   that forgets to acquire the claim. The doctor health check
@@ -138,10 +137,10 @@ explicit operator calls (`session-end --release-claims`) and fail closed with
 `override_chain_end=True` plus a rationale is supplied; releases record
 `agent_presence_evidence` on the terminal events. On reactivation, conditional
 auto-reacquire restores prior session_ended claims within
-`session_reactivation_reacquire_window_s` when no conflicting holder exists;
-truly dead sessions are reclaimed by the stale-session sweep: empty sessions
-use `session_stale_ttl_minutes`, while sessions with active claims or locks use
-`session_stale_ttl_with_holdings_minutes`. See `docs/harness-substrate.md` for
+`session_reactivation_reacquire_window_s` when no conflicting holder exists.
+The stale-session sweep can end idle claimless sessions; it preserves every
+active work-claim holder regardless of heartbeat, park, or process state.
+See `docs/harness-substrate.md` for
 the full contract.
 
 ### Polish handoff

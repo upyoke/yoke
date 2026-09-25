@@ -20,7 +20,7 @@ from runtime.api.test_sessions_reclaim_item_claims import (
     _seed_holder,
     conn_with_events,  # noqa: F401  (pytest fixture)
 )
-from yoke_core.domain.claim_holder_staleness import REASON_PARKED_HOLDER
+from yoke_core.domain.session_reclaim_activity import REASON_ACTIVE_WORK_CLAIM
 
 
 def _park(conn, session_id: str) -> None:
@@ -52,7 +52,9 @@ class TestParkedHolderKeepsItsClaim:
         assert reclaim_stale_item_claims(c, "5201", stale_threshold_minutes=10) == 0
         assert _claim_row(c, "parked-holder", 5201)["released_at"] is None
         aborts = [e for e in captured if e["event_name"] == "ReclaimAborted"]
-        assert aborts and aborts[-1]["context"]["abort_reason"] == REASON_PARKED_HOLDER
+        assert (
+            aborts and aborts[-1]["context"]["abort_reason"] == REASON_ACTIVE_WORK_CLAIM
+        )
 
     def test_offer_sweep_reclaims_an_ended_parked_holder(self, conn_with_events):
         c = conn_with_events
@@ -75,7 +77,7 @@ class TestParkedHolderKeepsItsClaim:
         assert reclaim_stale_item_claims(c, "5202", stale_threshold_minutes=10) == 1
         assert _claim_row(c, "parked-ended-holder", 5202)["released_at"] is not None
 
-    def test_offer_sweep_reclaims_a_parked_holder_whose_native_died(
+    def test_offer_sweep_keeps_a_parked_holder_whose_native_died(
         self, conn_with_events
     ):
         c = conn_with_events
@@ -104,5 +106,5 @@ class TestParkedHolderKeepsItsClaim:
 
         from yoke_core.domain.sessions import reclaim_stale_item_claims
 
-        assert reclaim_stale_item_claims(c, "5203", stale_threshold_minutes=10) == 1
-        assert _claim_row(c, "parked-crashed-holder", 5203)["released_at"] is not None
+        assert reclaim_stale_item_claims(c, "5203", stale_threshold_minutes=10) == 0
+        assert _claim_row(c, "parked-crashed-holder", 5203)["released_at"] is None

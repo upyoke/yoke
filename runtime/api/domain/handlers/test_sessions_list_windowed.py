@@ -2,7 +2,8 @@
 
 ``sessions.list`` with ``per_project=True`` gives each project its own
 newest-:data:`PER_PROJECT_SESSIONS_LIST_CAP` slice so a busy project cannot
-crowd a quiet one out of the fetch window. Shares the row-insert helpers with
+crowd a quiet one out of the fetch window, and keeps every live item-claim
+holder past that cap. Shares the row-insert helpers with
 :mod:`runtime.api.domain.handlers.test_sessions_list_handler`.
 """
 
@@ -15,10 +16,12 @@ from yoke_core.domain.sessions_list_read import (
 )
 
 from runtime.api.domain.handlers.test_sessions_list_handler import (
+    _insert_item_claim,
     _insert_session,
     _iso,
     _request,
 )
+from runtime.api.fixtures.backlog import insert_item
 
 
 class TestPerProjectWindow:
@@ -67,6 +70,24 @@ class TestPerProjectWindow:
         opened = list_sessions(per_project=True, open=True)
         assert any(row["session_id"] == "live-quiet" for row in opened)
         assert all(row["liveness"] != "ended" for row in opened)
+
+    def test_idle_item_holder_survives_a_crowded_window(self, test_db):
+        cap = PER_PROJECT_SESSIONS_LIST_CAP
+        # A holder parked at its item's release wait is idle by design, so
+        # every busy session outranks it on activity.
+        insert_item(test_db, id=41, title="parked at release")
+        test_db.commit()
+        for index in range(cap + 2):
+            _insert_session(test_db, f"busy-{index}", last_heartbeat=_iso(index))
+        _insert_session(test_db, "parked-holder", last_heartbeat=_iso(90))
+        _insert_item_claim(test_db, "parked-holder", 41)
+
+        windowed = list_sessions(per_project=True, open=True, limit=cap)
+        ids = [row["session_id"] for row in windowed]
+        assert "parked-holder" in ids
+        assert len(ids) == cap
+        holder = next(row for row in windowed if row["session_id"] == "parked-holder")
+        assert [claim["target_kind"] for claim in holder["claims"]] == ["item"]
 
     def test_handler_rejects_non_boolean_per_project(self, test_db):
         outcome = handle_sessions_list(_request({"per_project": "yes"}))

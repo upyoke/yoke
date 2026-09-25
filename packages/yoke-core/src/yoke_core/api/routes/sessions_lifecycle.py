@@ -36,6 +36,7 @@ router = APIRouter()
 
 def _main_api():
     import yoke_core.api.main as main
+
     return main
 
 
@@ -183,7 +184,6 @@ def api_reclaim_stale(
             conn,
             stale_threshold_minutes=threshold_minutes,
             progress_threshold_minutes=progress_threshold_minutes,
-            reclaim_probe_stale_holders=True,
         )
         return JSONResponse(status_code=200, content=result)
     except db_backend.operational_error_types(conn) as exc:

@@ -9,6 +9,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_cleanup_holdings import (
     active_holding_sessions,
+    active_work_claim_sessions,
     effective_cleanup_ttl,
 )
 from yoke_core.domain.sessions_analytics_core import (
@@ -116,6 +117,7 @@ def session_diagnostics(
     latest_messages = _latest_messages(conn, session_ids)
     document_locks = _document_lock_counts(conn, session_ids)
     holding_sessions = active_holding_sessions(conn)
+    work_claim_sessions = active_work_claim_sessions(conn)
     wake_deliveries = wake_deliveries_in_flight(conn, session_ids)
     launch_deliveries = pending_launch_deliveries(conn, session_ids)
     keepalive_holds = session_keepalive_holds(conn, session_ids)
@@ -123,12 +125,16 @@ def session_diagnostics(
     for row in rows:
         session_id = str(row.get("session_id") or "")
         identity = identities.get(session_id, {})
-        ttl_minutes = effective_cleanup_ttl(
-            row.get("executor"),
-            base_ttl_minutes=DEFAULT_STALE_THRESHOLD_MINUTES,
-            executor_ttl_overrides=None,
-            has_active_holdings=session_id in holding_sessions,
-            holdings_ttl_minutes=DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
+        ttl_minutes = (
+            None
+            if session_id in work_claim_sessions
+            else effective_cleanup_ttl(
+                row.get("executor"),
+                base_ttl_minutes=DEFAULT_STALE_THRESHOLD_MINUTES,
+                executor_ttl_overrides=None,
+                has_active_holdings=session_id in holding_sessions,
+                holdings_ttl_minutes=DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
+            )
         )
         terminal = bool(
             identity.get("ended_at")
@@ -153,7 +159,7 @@ def session_diagnostics(
             "end_blocker": blocker,
             "effective_stale_ttl_minutes": ttl_minutes,
             "stale_eligible_at": None
-            if terminal
+            if terminal or ttl_minutes is None
             else _stale_eligible_at(row.get("activity_at"), ttl_minutes),
         }
     return projected

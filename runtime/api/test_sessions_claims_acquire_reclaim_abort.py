@@ -177,8 +177,8 @@ def _read_events(conn, event_name: str):
 class TestCmdClaimReclaimRace:
     """TOCTOU recheck inside cmd_claim's reclaim block."""
 
-    def test_genuinely_stale_holder_is_reclaimed(self, race_conn):
-        """Heartbeat + tool event both stale → reclaim succeeds."""
+    def test_ended_holder_is_reclaimed(self, race_conn):
+        """An ended holder's unreleased claim can be recovered."""
         c = race_conn
         _seed_holder_with_claim(
             c,
@@ -186,6 +186,7 @@ class TestCmdClaimReclaimRace:
             item_id=4001,
             holder_heartbeat_ago_min=30,
             claim_heartbeat_ago_min=30,
+            holder_ended_at=_ago_minutes(25),
         )
         _insert_tool_event(c, "holder-A", ago_minutes=25)
 
@@ -233,7 +234,7 @@ class TestCmdClaimReclaimRace:
         assert detail["scope"] == "item_claim"
         assert detail["original_session_id"] == "holder-A"
         assert detail["attempting_session_id"] == "challenger-B"
-        assert detail["abort_reason"] == "fresh"
+        assert detail["abort_reason"] == "active_work_claim"
         assert detail["effective_ttl_minutes"] == 20
         assert detail["executor"] == "claude-code"
         assert "original_session_last_heartbeat" in detail

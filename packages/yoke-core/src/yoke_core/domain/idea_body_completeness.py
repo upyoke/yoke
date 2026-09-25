@@ -7,7 +7,7 @@ classification used by:
   bodies into ``blocked`` instead of ``runnable`` so the frontier never
   hands a title-only work item to ``/yoke refine``.
 - :mod:`yoke_core.engines.doctor_hc_meta_backlog` — surfaces tail-case
-  items that re-emerged unclaimed after stale-heartbeat reclaim.
+  incomplete items, including those whose claim was explicitly released.
 - ``.agents/skills/yoke/advance/preflight-recovery.md`` — the
   reconciliation gate's advisory shares this heuristic.
 
@@ -58,7 +58,9 @@ def is_idea_body_incomplete(item_row: Mapping[str, object]) -> bool:
     body) and falls back to a ``body`` key when callers pass a
     pre-rendered row.
     """
-    title = _coerce_text(item_row.get("title") if hasattr(item_row, "get") else item_row["title"])
+    title = _coerce_text(
+        item_row.get("title") if hasattr(item_row, "get") else item_row["title"]
+    )
     spec = _coerce_text(_safe_get(item_row, "spec"))
     body = spec if spec else _coerce_text(_safe_get(item_row, "body"))
     if not body.strip():

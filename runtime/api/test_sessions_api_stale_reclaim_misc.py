@@ -14,13 +14,11 @@ from unittest.mock import patch
 import pytest
 
 from runtime.api.test_sessions import (
-    _insert_claimable_items,
     _register,
     conn,  # noqa: F401
 )
 from yoke_core.domain.sessions import (
     EVENT_HARNESS_SESSION_STALE_SWEEP_COMPLETED,
-    claim_work,
     clean_stale_harness_sessions,
 )
 from yoke_core.domain.sessions_analytics_core import (
@@ -156,7 +154,6 @@ class TestEmptySessionStaleCleanup:
     def test_emits_stale_session_reclaimed_event(self, conn_with_events):
         """Reclaim emits HarnessSessionStaleReclaimed with required fields."""
         conn = conn_with_events
-        _insert_claimable_items(conn, 777)
         _register(conn, session_id="stale-ev", executor="claude-code")
         conn.execute(
             """UPDATE harness_sessions
@@ -165,16 +162,6 @@ class TestEmptySessionStaleCleanup:
             (_ago_minutes(_PAST_HOLDINGS_TTL),),
         )
         conn.commit()
-        claim_work(conn, session_id="stale-ev", item_id=777)
-        stale_claim_ts = _ago_minutes(_PAST_HOLDINGS_TTL)
-        conn.execute(
-            """UPDATE work_claims
-               SET claimed_at = %s, last_heartbeat = %s
-               WHERE session_id = 'stale-ev'""",
-            (stale_claim_ts, stale_claim_ts),
-        )
-        conn.commit()
-
         with patch("yoke_core.domain.sessions_analytics._emit_event") as mock_emit:
             clean_stale_harness_sessions(conn, stale_threshold_minutes=20)
 
@@ -188,11 +175,9 @@ class TestEmptySessionStaleCleanup:
         assert ctx["executor"] == "claude-code"
         assert "stale_minutes" in ctx
         assert "last_event_at" in ctx
-        assert ctx["released_claim_count"] == 1
-        assert ctx["effective_ttl_minutes"] == (
-            DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES
-        )
-        assert ctx["has_active_holdings"] is True
+        assert ctx["released_claim_count"] == 0
+        assert ctx["effective_ttl_minutes"] == 20
+        assert ctx["has_active_holdings"] is False
 
 
 class TestRegistrySeeder:

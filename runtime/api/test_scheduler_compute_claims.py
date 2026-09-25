@@ -82,7 +82,7 @@ def test_fifteen_minute_claim_is_still_live(scheduler_db):
         assert result.selected_step.item_id != top_item
 
 
-def test_twenty_five_minute_claim_is_stale_and_selectable(scheduler_db):
+def test_twenty_five_minute_claim_remains_held(scheduler_db):
     conn = scheduler_db["conn"]
     top_item = _claim_top_item(
         conn,
@@ -92,11 +92,11 @@ def test_twenty_five_minute_claim_is_stale_and_selectable(scheduler_db):
     )
 
     claims = _evaluate_claim_states(conn, [top_item])
-    assert claims[top_item] == ClaimState.CLAIMED_BY_STALE
+    assert claims[top_item] == ClaimState.CLAIMED_BY_OTHER_LIVE
 
     result = compute_schedule(conn, project_scope=["yoke"])
-    assert result.selected_step is not None
-    assert result.selected_step.item_id == top_item
+    if result.selected_step is not None:
+        assert result.selected_step.item_id != top_item
 
 
 def _park(conn, session_id: str) -> None:
@@ -146,8 +146,8 @@ def test_ended_parked_holder_is_stale(scheduler_db):
     assert claims[top_item] == ClaimState.CLAIMED_BY_STALE
 
 
-def test_parked_holder_with_dead_native_is_stale(scheduler_db):
-    """A native that crashed under the park is a death, not a wait."""
+def test_parked_holder_with_dead_native_remains_held(scheduler_db):
+    """A missing native process does not release persisted ownership."""
     conn = scheduler_db["conn"]
     top_item = _claim_top_item(
         conn,
@@ -164,7 +164,7 @@ def test_parked_holder_with_dead_native_is_stale(scheduler_db):
     conn.commit()
 
     claims = _evaluate_claim_states(conn, [top_item])
-    assert claims[top_item] == ClaimState.CLAIMED_BY_STALE
+    assert claims[top_item] == ClaimState.CLAIMED_BY_OTHER_LIVE
 
 
 def test_parked_holder_whose_native_finished_cleanly_stays_live(scheduler_db):

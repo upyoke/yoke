@@ -1,7 +1,6 @@
 """Work-claim release / inspection command handlers (typed targets).
 
 Owns ``release`` of a single claim, ``release-all`` for a session,
-``reclaim`` for stale-session recovery, and the read-only
 ``list-claims`` / ``who-claims`` introspection commands. The acquire
 path (``claim``) lives in the
 :mod:`yoke_core.hooks.sessions_claims_acquire` sibling and is
@@ -35,10 +34,8 @@ from yoke_core.hooks.sessions_event_emit import (
     _emit_event,
 )
 from yoke_core.hooks.sessions_focus import (
-    _clear_current_item,
     _format_row,
     _now_iso,
-    _require_active_session,
 )
 from yoke_core.domain.work_claim_target_sql import LIVENESS_BOUND_SQL
 
@@ -178,52 +175,6 @@ def cmd_release_all(conn, session_id: str, reason: str = "released") -> str:
     return f"Released all claims for session: {session_id}"
 
 
-def cmd_reclaim(conn, session_id: str) -> str:
-    now = _now_iso()
-    _require_active_session(conn, session_id)
-
-    active_claims = query_rows(
-        conn,
-        "SELECT id, target_kind, scope "
-        "FROM work_claims WHERE session_id=%s AND released_at IS NULL "
-        f"AND {LIVENESS_BOUND_SQL} ORDER BY claimed_at ASC, id ASC",
-        (session_id,),
-    )
-    _clear_current_item(conn, session_id)
-    conn.execute(
-        "UPDATE work_claims SET released_at=%s, release_reason='reclaimed' "
-        "WHERE session_id=%s AND released_at IS NULL "
-        f"AND {LIVENESS_BOUND_SQL}",
-        (now, session_id),
-    )
-    conn.execute(
-        "UPDATE harness_sessions SET ended_at=%s WHERE session_id=%s",
-        (now, session_id),
-    )
-    conn.commit()
-
-    for claim in active_claims:
-        cid = claim[0]
-        target = _target(claim[1], claim[2])
-        ctx = _target_context(target)
-        ctx.update(
-            {
-                "claim_id": cid,
-                "reason": "stale_session_reclaimed",
-            }
-        )
-        _emit_event(
-            conn,
-            session_id,
-            "WorkReclaimed",
-            json.dumps(ctx),
-            item_id=_event_item(target),
-            task_num=_coerce_task_num(target.task_num),
-        )
-
-    return f"Reclaimed session: {session_id}"
-
-
 def cmd_list_claims(conn, session_id: str) -> str:
     rows = query_rows(
         conn,
@@ -314,7 +265,6 @@ __all__ = [
     "WHO_CLAIMS_NON_HOLDER_WARNING_TEMPLATE",
     "cmd_claim",
     "cmd_list_claims",
-    "cmd_reclaim",
     "cmd_release",
     "cmd_release_all",
     "cmd_who_claims",
