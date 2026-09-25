@@ -73,6 +73,7 @@ from yoke_contracts.hook_runner.session_cwd import (
 
 
 _ORIENTATION_EVENTS = frozenset({"SessionStart", "UserPromptSubmit"})
+CLIENT_HOME_AUTHORITY_UNAVAILABLE = "client_home_metadata_missing_or_invalid"
 
 
 @dataclass(frozen=True)
@@ -91,6 +92,7 @@ class Verdict:
     mode: str = ""
     suppression_attempted: bool = False
     occupant: Optional[LaneOccupant] = None
+    authority_reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -159,6 +161,8 @@ def evaluate_pre_tool_use(
             claims=outcome.claims, repo_roots=outcome.repo_roots,
         )
 
+    authority_reason = ""
+
     if outcome.failure_class == PRE_IMPL_FAILURE_CLASS:
         return build_pre_implementing_verdict(outcome, payload)
 
@@ -193,6 +197,20 @@ def evaluate_pre_tool_use(
             command=command,
         )
         body += repo_command_block(payload, outcome.claims) if not targets else ""
+        if (
+            machine_home == ""
+            and not write_operation
+            and tool_name.strip()
+            and (not command.strip() or match_read_only_signature(command))
+        ):
+            authority_reason = CLIENT_HOME_AUTHORITY_UNAVAILABLE
+            body += (
+                "\nAuthority classification: the relayed client machine-home "
+                "metadata was missing or invalid, so this read cannot be "
+                "classified as ordinary reference material under the client "
+                "home. Restore the canonical client-home fact in the hook "
+                "relay and retry."
+            )
     reason = attach_check_id(body, check_id="lint-session-cwd")
     return Verdict(
         allow=False,
@@ -202,7 +220,7 @@ def evaluate_pre_tool_use(
         claims=outcome.claims,
         repo_roots=outcome.repo_roots,
         failure_class=outcome.failure_class,
-        occupant=outcome.occupant,
+        occupant=outcome.occupant, authority_reason=authority_reason,
     )
 
 

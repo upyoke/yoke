@@ -18,6 +18,7 @@ from yoke_cli.transport.https import HttpsConnection, TransportError
 
 
 _RESOLVE = "yoke_cli.transport.https.resolve_https_connection"
+_HOME_FACT = {"_yoke_client_machine_home": {"schema": 1, "root": "/home"}}
 
 
 @pytest.fixture(autouse=True)
@@ -26,7 +27,7 @@ def local_subset(monkeypatch):
     from yoke_harness.hooks.local_subset import LocalSubsetEvaluation
 
     holder = SimpleNamespace(
-        result=LocalSubsetEvaluation(stdout="", exit_code=0, denied=False),
+        result=LocalSubsetEvaluation("", 0, False, _HOME_FACT),
         calls=[],
     )
 
@@ -118,7 +119,7 @@ def test_hook_evaluate_https_posts_contract_and_relays(
     capsys,
     https_connection,
 ) -> None:
-    raw_stdin = '{"tool_name": "Bash", "tool_input": {"command": "ls"}}'
+    raw_stdin = '{"tool_name":"Bash","tool_input":{"command":"cat \'/home/ref.md\'"}}'
     monkeypatch.setattr(sys, "stdin", io.StringIO(raw_stdin))
     monkeypatch.setenv("YOKE_SESSION_ID", "sid-stamped")
     monkeypatch.setenv("YOKE_HOOK_AGENT_TYPE", "engineer")
@@ -165,7 +166,7 @@ def test_hook_evaluate_https_posts_contract_and_relays(
     )
     assert body["executor"] == "claude-code"
     assert body["agent_type"] == "engineer"
-    assert body["payload_extra"] == {}
+    assert body["payload_extra"] == _HOME_FACT
     assert "entrypoint" in body
     assert "model" not in body, "tool-call relays never pay the transcript read"
     assert 0 < body["deadline_ms"] <= 10000
