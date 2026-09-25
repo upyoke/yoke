@@ -19,16 +19,29 @@ from yoke_core.domain.deployment_qa_stage_contract import (
 )
 
 
-def superseded_run_bound_row_satisfied(
+def run_bound_row_satisfied_at_done(
     conn: Any, *, requirement_id: int, item_id: int, completion: dict[str, Any] | None
 ) -> bool:
-    """Require the corrected case and its exact completion stage to be accepted.
+    """Ignore historical runs; require proof for the current completion run.
 
-    A stored supersession link alone cannot discharge a row: older or forced
-    links may name a failing case or a case outside this member's target.
+    An old run-bound failure remains as history after a later run carries the
+    item. On the current run, a supersession link alone cannot discharge a
+    row: its corrected case and exact stage must still be accepted.
     """
     if completion is None:
         return False
+    broken = query_one(
+        conn,
+        "SELECT deployment_run_id,deployment_stage,deployment_member_item_id,"
+        "execution_target_digest,superseded_by_requirement_id "
+        "FROM qa_requirements WHERE id=%s",
+        (int(requirement_id),),
+    )
+    if broken is None:
+        return False
+    run_id = str(broken["deployment_run_id"] or "")
+    if run_id != completion["id"]:
+        return True
     if completion["status"] != "succeeded":
         from yoke_core.domain.deployment_member_independent_close_out import (
             independent_member_delivery_ready,
@@ -38,22 +51,10 @@ def superseded_run_bound_row_satisfied(
             conn, item_id=int(item_id), run_id=str(completion["id"])
         ):
             return False
-    broken = query_one(
-        conn,
-        "SELECT deployment_run_id,deployment_stage,deployment_member_item_id,"
-        "execution_target_digest,superseded_by_requirement_id "
-        "FROM qa_requirements WHERE id=%s",
-        (int(requirement_id),),
-    )
-    if broken is None or not broken["superseded_by_requirement_id"]:
+    if not broken["superseded_by_requirement_id"]:
         return False
-    run_id = str(broken["deployment_run_id"] or "")
     stage = str(broken["deployment_stage"] or "")
-    if (
-        run_id != completion["id"]
-        or not stage
-        or broken["deployment_member_item_id"] != int(item_id)
-    ):
+    if not stage or broken["deployment_member_item_id"] != int(item_id):
         return False
     corrected_id = int(broken["superseded_by_requirement_id"])
     corrected = query_one(

@@ -17,7 +17,7 @@ from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
 )
 from yoke_core.domain.deployment_qa_run_bound_done_settlement import (
-    superseded_run_bound_row_satisfied,
+    run_bound_row_satisfied_at_done,
 )
 from yoke_core.domain.deployment_qa_stage_acceptance import (
     latest_verdict,
@@ -252,7 +252,7 @@ def row_unsatisfied_at_done(conn: Any, row: Any, *, item_id: int) -> bool:
         passed = bool(row["passed"])
         if row.get("item_id") is None:
             if phase == "post_deploy" and not passed and row["deployment_run_id"]:
-                return not superseded_run_bound_row_satisfied(
+                return not run_bound_row_satisfied_at_done(
                     conn,
                     requirement_id=source_id,
                     item_id=item_id,

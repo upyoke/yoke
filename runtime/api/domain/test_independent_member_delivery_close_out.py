@@ -114,7 +114,9 @@ def _settle(conn: Any, *, run_id: str, stage: str, member: int | None) -> None:
     )["accepted"]
 
 
-def _seed_final_run(conn: Any, run_id: str, *, shared_qa: bool) -> list[dict]:
+def _seed_final_run(
+    conn: Any, run_id: str, *, shared_qa: bool, shared_approval: bool = False
+) -> list[dict]:
     _project(conn)
     _environment(conn)
     conn.execute(
@@ -127,6 +129,17 @@ def _seed_final_run(conn: Any, run_id: str, *, shared_qa: bool) -> list[dict]:
         _ready_member(conn, item_id, holder)
     stages = _stages(_plan(conn, f"plan-{run_id}"))
     stages[1]["target"]["environment"] = "prod"
+    if shared_approval:
+        stages.insert(
+            1,
+            {
+                "name": "approve-release",
+                "step_runner": "human-approval",
+                "stage_kind": "execution",
+                "scope": "run",
+                "approvals": {"roles": ["owner"], "actors": []},
+            },
+        )
     if shared_qa:
         run_qa = dict(stages[1])
         run_qa["name"] = "run-qa"
@@ -142,6 +155,11 @@ def _seed_final_run(conn: Any, run_id: str, *, shared_qa: bool) -> list[dict]:
         members=(),
         existing_members=(MEMBER_A, MEMBER_B),
     )
+    if shared_approval:
+        conn.execute(
+            "UPDATE deployment_runs SET current_stage='item-qa' WHERE id=%s",
+            (run_id,),
+        )
     # The shared test seeder defaults to a stage target. Bind this test's
     # exact ready receipt and run target to the registered production target.
     prod_id = conn.execute(

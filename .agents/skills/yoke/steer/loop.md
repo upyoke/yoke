@@ -378,11 +378,11 @@ Add `--plan PLAN` only when this run stage names no cases. Then re-drive
 member subject and cannot credit this run-scoped stage.
 
 A member whose own item-scoped QA clears no longer needs a manual merge
-close-out. A final member on a selected flow without run QA closes from its
+close-out. A final member on a selected flow without run QA or run approval closes from its
 landing and final production QA acceptance or explicit
 `post_deploy_no_obligation` discharge while sibling item QA keeps the run
-executing. A flow with required run QA holds every final member through all
-item QA, shared QA, and run success. Automatic close-out ends an otherwise
+executing. A flow with run QA or run approval holds every final member through all
+item QA, shared gates, and run success. Automatic close-out ends an otherwise
 empty holder session. Do not
 acquire a live owner's claim to finish its item, and do not reach for the
 internal done engine — `done-transition --skip-deploy` records a selected-flow

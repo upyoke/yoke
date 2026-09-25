@@ -13,6 +13,7 @@ from runtime.api.domain.test_independent_member_delivery_close_out import (
     MEMBER_A,
     MEMBER_B,
     _seed_final_run,
+    _settle,
     _status,
 )
 from runtime.api.domain.test_no_obligation_member_close_out import _no_obligation
@@ -96,6 +97,56 @@ def test_shared_run_qa_holds_explicitly_discharged_member(
     assert (_status(test_db, MEMBER_A), _status(test_db, MEMBER_B)) == (
         "release",
         "release",
+    )
+
+
+def test_shared_approval_before_item_qa_holds_explicitly_discharged_member(
+    test_db: Any, monkeypatch
+) -> None:
+    _isolate_status_effects(monkeypatch)
+    run_id = "run-approval-no-obligation"
+    _seed_final_run(test_db, run_id, shared_qa=False, shared_approval=True)
+    _no_obligation(test_db, MEMBER_A, reason="nothing observable after delivery")
+
+    assert deployment_qa_stage_status(
+        test_db, run_id=run_id, stage_name="item-qa", member_item_id=MEMBER_A
+    )["accepted"]
+    assert not independent_member_delivery_ready(
+        test_db, item_id=MEMBER_A, run_id=run_id
+    )
+    assert (_status(test_db, MEMBER_A), _status(test_db, MEMBER_B)) == (
+        "release",
+        "release",
+    )
+    assert (
+        test_db.execute(
+            "SELECT ended_at FROM harness_sessions WHERE session_id=%s", (HOLDER_A,)
+        ).fetchone()["ended_at"]
+        is None
+    )
+
+
+def test_shared_approval_before_item_qa_holds_accepted_member(
+    test_db: Any, monkeypatch
+) -> None:
+    _isolate_status_effects(monkeypatch)
+    run_id = "run-approval-accepted-item-qa"
+    _seed_final_run(test_db, run_id, shared_qa=False, shared_approval=True)
+
+    _settle(test_db, run_id=run_id, stage="item-qa", member=MEMBER_A)
+
+    assert not independent_member_delivery_ready(
+        test_db, item_id=MEMBER_A, run_id=run_id
+    )
+    assert (_status(test_db, MEMBER_A), _status(test_db, MEMBER_B)) == (
+        "release",
+        "release",
+    )
+    assert (
+        test_db.execute(
+            "SELECT ended_at FROM harness_sessions WHERE session_id=%s", (HOLDER_A,)
+        ).fetchone()["ended_at"]
+        is None
     )
 
 
