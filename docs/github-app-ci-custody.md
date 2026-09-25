@@ -5,17 +5,11 @@ keys outside GitHub Actions.
 
 ## Runner-Fleet Token Broker
 
-Infrastructure CI uses a dedicated `infrastructure_ci` actor to read the
-secret-free renderer snapshot, then its GitHub-OIDC AWS role invokes the exact
-runner broker Lambda named in that validated authority intent. The broker owns
-the App-key read, verifies the intent digest and repository/App identity
-against its deployed environment, and returns only a short-lived installation
-token scoped to the bound repository with `repository_hooks:read` and
-`actions_variables:read`. Local
-operator-attended applies mint a separate process-only token with write scope;
-CI can refresh/preview GitHub resources but cannot mutate them. The registry
-stack uses the same boundary to own its two non-secret workflow role-routing
-variables; manual repository-variable edits are drift.
+Operator-attended infrastructure previews and applies use the declared local
+AWS and GitHub App authorities. The registry stack owns its non-secret
+`YOKE_DELIVERY_CI_ROLE_ARN` workflow variable; manual edits to it are drift.
+The retired GitHub Actions infrastructure preview lane has no OIDC role or
+repository variable in the current registry Pack.
 
 The client bounds Lambda responses and refuses function errors, invalid
 payloads, expired grants, and a different repository binding. Error reporting
@@ -32,21 +26,19 @@ administration.
 
 ## AWS Boundary
 
-The registry stack owns two exact-branch GitHub OIDC roles:
+The registry stack owns one GitHub OIDC role:
 
-- infrastructure: Platform `main` only, Pulumi preview authority only
-  (`ViewOnlyAccess`, exact state reads, and invocation of the exact runner
-  broker Lambda), with explicit
-  secret-value and privilege-escalation denies;
 - delivery: Platform `main` and `stage` only, action/resource-scoped delivery
-  permissions, plus the same explicit deny.
+  permissions, with an explicit App-key secret deny.
 
-It also owns `YOKE_INFRA_CI_ROLE_ARN` and `YOKE_DELIVERY_CI_ROLE_ARN` as
-GitHub Actions variables wired directly to those role outputs. The first local
-operator apply creates them; no manual ARN copy is part of steady state.
+It also owns `YOKE_DELIVERY_CI_ROLE_ARN` as a GitHub Actions variable wired
+directly to that role output. The first local operator apply creates it; no
+manual ARN copy is part of steady state. Remove consumers of
+`YOKE_INFRA_CI_ROLE_ARN` before applying the current Pack, which deletes that
+retired variable and IAM role.
 
-Pull requests, feature branches, tags, and GitHub-environment subjects are not
-trusted. The deny covers every configured App-key ARN plus the account's
+Pull requests, feature branches, and tags are not trusted. The deny covers
+every configured App-key ARN plus the account's
 `*github-app-private-key-*` name pattern, so it overrides any broader allow.
 
 Each origin instance role alone may read its exact environment App-key ARN and,
