@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import time
 from pathlib import Path
 from typing import Callable, Mapping, Optional, Sequence
 
@@ -17,7 +18,8 @@ from yoke_core.domain.connected_env_readiness_connector import (
 )
 from yoke_core.domain.postgres_cluster import ClusterSpec
 
-DUMP_TIMEOUT_SECONDS = 3600
+DUMP_STALL_TIMEOUT_SECONDS = 300
+DUMP_PROGRESS_POLL_SECONDS = 5
 RESTORE_TIMEOUT_SECONDS = 900
 DUMP_ATTEMPTS = 3
 
@@ -57,19 +59,62 @@ def run_transfer(
     redact: str = "",
     timeout: int,
     env: Optional[Mapping[str, str]] = None,
+    progress_file: Optional[Path] = None,
 ) -> subprocess.CompletedProcess:
     try:
-        result = subprocess.run(
-            list(argv),
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=None if env is None else dict(env),
-        )
+        if progress_file is None:
+            result = subprocess.run(
+                list(argv),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=None if env is None else dict(env),
+            )
+        else:
+            with subprocess.Popen(
+                list(argv),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=None if env is None else dict(env),
+            ) as process:
+                try:
+                    size = progress_file.stat().st_size if progress_file.exists() else 0
+                    last_progress = time.monotonic()
+                    while True:
+                        idle = time.monotonic() - last_progress
+                        try:
+                            stdout, stderr = process.communicate(
+                                timeout=min(
+                                    DUMP_PROGRESS_POLL_SECONDS,
+                                    max(0.01, timeout - idle),
+                                )
+                            )
+                            break
+                        except subprocess.TimeoutExpired:
+                            current_size = (
+                                progress_file.stat().st_size
+                                if progress_file.exists()
+                                else 0
+                            )
+                            if current_size > size:
+                                size = current_size
+                                last_progress = time.monotonic()
+                            elif time.monotonic() - last_progress >= timeout:
+                                raise RuntimeError(
+                                    f"{Path(argv[0]).name} stalled: no dump output for {timeout}s; "
+                                    "check the source database and SSH tunnel, then rerun preflight"
+                                )
+                except BaseException:
+                    if process.poll() is None:
+                        process.kill()
+                    process.communicate()
+                    raise
+            result = subprocess.CompletedProcess(
+                argv, process.returncode, stdout, stderr
+            )
     except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(
-            f"{Path(argv[0]).name} timed out after {timeout}s"
-        ) from exc
+        raise RuntimeError(f"{Path(argv[0]).name} timed out after {timeout}s") from exc
     if result.returncode == 0:
         return result
     stderr = (result.stderr or "").strip()
@@ -121,8 +166,9 @@ def dump_database(
             run_transfer(
                 argv,
                 redact=source_dsn,
-                timeout=DUMP_TIMEOUT_SECONDS,
+                timeout=DUMP_STALL_TIMEOUT_SECONDS,
                 env=dump_env(),
+                progress_file=dump,
             )
             return
         except RuntimeError as exc:
