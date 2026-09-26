@@ -53,14 +53,24 @@ def latest_completion_run(
     """Newest membership that can close this item, or none.
 
     Walks :func:`completion_runs`, the one reading of completion authority.
-    Failed and cancelled attempts may be skipped for source QA; a newer active
-    attempt still wins and must finish before that source can close out.
+    A failed or cancelled attempt never shadows a live or delivered one,
+    whichever is newer: a duplicate cancelled before it executed says nothing
+    about the release that is settling or succeeded beside it, while a newer
+    active attempt still wins and must finish first. The newest failed or
+    cancelled run is answered only when no other membership exists, so its
+    status can still be reported — unless ``skip_terminal_failures`` asks for
+    none, which source QA does.
     """
-    for run in completion_runs(conn, int(item_id)):
-        if skip_terminal_failures and run["status"] in {"failed", "cancelled"}:
-            continue
-        return run
-    return None
+    runs = completion_runs(conn, int(item_id))
+    for run in runs:
+        if run["status"] not in _TERMINAL_FAILURES:
+            return run
+    if skip_terminal_failures or not runs:
+        return None
+    return runs[0]
+
+
+_TERMINAL_FAILURES = frozenset({"failed", "cancelled"})
 
 
 def _row_value(row: Any, key: str, position: int) -> Any:

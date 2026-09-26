@@ -197,3 +197,35 @@ def test_an_uncleared_member_holds_the_run_until_answered(
     assert cmd_update("run-unanswered", "status", "succeeded") is None
     assert _run(test_db, "run-unanswered") == ("succeeded", True)
     assert _status(test_db, FIRST_ITEM) == "done"
+
+
+def test_a_cancelled_duplicate_does_not_block_re_driving_the_settling_run(
+    test_db: Any, monkeypatch
+) -> None:
+    """A duplicate enrolled the member and was cancelled before it executed;
+    the settling run that actually delivered still closes the member."""
+    _isolate_status_effects(monkeypatch)
+    _project(test_db)
+    _ready_member(test_db, FIRST_ITEM, HOLDER_A)
+    _no_obligation(test_db, FIRST_ITEM, reason=REASON)
+    _executing_run(test_db, "run-delivering", (FIRST_ITEM,))
+    test_db.execute(
+        "UPDATE deployment_runs SET settling_at=%s, created_at=%s WHERE id=%s",
+        ("2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z", "run-delivering"),
+    )
+    test_db.execute(
+        "INSERT INTO deployment_runs (id,project_id,flow,status,created_at) "
+        "VALUES ('run-duplicate',1,%s,'cancelled','2026-01-01T00:00:27Z')",
+        (COMPLETION_FLOW,),
+    )
+    test_db.execute(
+        "INSERT INTO deployment_run_items (run_id,item_id,added_at) "
+        "VALUES ('run-duplicate',%s,'2026-01-01T00:00:27Z')",
+        (FIRST_ITEM,),
+    )
+    test_db.commit()
+
+    assert cmd_update("run-delivering", "status", "succeeded") is None
+
+    assert _run(test_db, "run-delivering") == ("succeeded", True)
+    assert _status(test_db, FIRST_ITEM) == "done"
