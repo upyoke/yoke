@@ -43,7 +43,7 @@ def _approval_semantics(
             "roles": tuple(sorted(str(value) for value in configured["roles"])),
             "actors": tuple(sorted(int(value) for value in configured["actors"])),
         }
-    from yoke_core.domain.dash_posture_gate import (
+    from yoke_core.domain.dash_approval_posture import (
         approval_policy_for_posture,
     )
 

@@ -160,6 +160,15 @@ def _frozen_blocked(item_id: int, force: bool) -> Optional[HandlerOutcome]:
     )
 
 
+def _laneless_no_change(item_id: int) -> bool:
+    """A no-change Dash with no lane closes through this very transition."""
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.dash_execution import laneless_no_change_close_out
+
+    with db_helpers.connect() as conn:
+        return laneless_no_change_close_out(conn, int(item_id))
+
+
 # ---------------------------------------------------------------------------
 # Handler
 # ---------------------------------------------------------------------------
@@ -218,6 +227,10 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
         relayed_attestations_bound,
     )
 
+    done_nonce_verified = payload.done_nonce_verified or (
+        payload.target_status == "done" and _laneless_no_change(item_id)
+    )
+
     captured = io.StringIO()
     with (
         acting_item_ref_bound(target.public_ref),
@@ -229,7 +242,7 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
             field="status",
             value=payload.target_status,
             resolution=cancellation_reason,
-            done_nonce_verified=payload.done_nonce_verified,
+            done_nonce_verified=done_nonce_verified,
             force=payload.force,
             qa_bypass=payload.qa_bypass,
             session_id=request.actor.session_id,

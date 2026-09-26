@@ -78,7 +78,9 @@ def delivery_cleared_message(
             f"is your re-entry: walk any post-deploy validation the run owes, "
             f"then re-run `yoke merge item {public_ref} --result ... "
             f"--verification ...` to record the evidence and close the item "
-            f"out. Report and end only once it reaches done. If anything "
+            f"out (a no-change Dash with no lane closes with `yoke lifecycle "
+            f"transition {public_ref} --to done` instead). Report and end "
+            f"only once it reaches done. If anything "
             f"leaves it short of done, re-park before going quiet — this "
             f"prompt cleared your previous park."
         )
@@ -115,10 +117,12 @@ def _delivery_now_discharged(conn: Any, item_id: int) -> bool:
     """Whether the done gate's own delivery fact now reads satisfied.
 
     Asking the gate rather than re-deriving it is the point: the fact keys
-    off the item's completion flow, so a sibling run on another flow — the
-    stage half of a stage-then-production pair — correctly answers no. An
-    unreadable fact answers no too, because announcing a clearance this
-    could not confirm is what unparks an owner that still has to wait.
+    off completion authority — the item's own flow, or another project's run
+    that bound this project's source — so a sibling run on another flow of
+    the same project, the stage half of a stage-then-production pair,
+    correctly answers no. An unreadable fact answers no too, because
+    announcing a clearance this could not confirm is what unparks an owner
+    that still has to wait.
     """
     try:
         fact = load_item_facts(conn, int(item_id)).get(ITEM_DEPLOYMENT_RUN_SUCCEEDED)

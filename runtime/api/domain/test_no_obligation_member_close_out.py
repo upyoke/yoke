@@ -19,6 +19,7 @@ from runtime.api.domain.test_deployment_delivery_close_out_notice import (
 from runtime.api.domain.test_deployment_qa_member_acceptance_notice import (
     _executing_run,
 )
+from runtime.api.domain.test_deployment_run_composition_freeze import _environment
 from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
     HOLDER_A,
     HOLDER_B,
@@ -283,3 +284,57 @@ def test_item_qa_acceptance_does_not_wake_a_no_obligation_member(
         )
         == []
     )
+
+
+UNSTAMPED_DELIVERY_ITEM = 9827
+
+
+def _delivery_rung(conn: Any, item_id: int) -> str:
+    row = conn.execute(
+        "SELECT rung_id FROM item_gate_satisfactions "
+        "WHERE item_id=%s AND obligation='delivery_evidence'",
+        (item_id,),
+    ).fetchone()
+    return str(row["rung_id"]) if row else ""
+
+
+def test_run_success_stamps_the_delivery_rung_landing_could_not(
+    test_db: Any, monkeypatch
+) -> None:
+    """A release-targeted landing leaves the delivery rung unstamped; the
+    run's own success records it and closes the member with no wake."""
+    _isolate_status_effects(monkeypatch)
+    _project(test_db)
+    _environment(test_db)
+    environment = test_db.execute(
+        "SELECT id FROM environments WHERE project_id=1 ORDER BY id LIMIT 1"
+    ).fetchone()[0]
+    test_db.execute(
+        "INSERT INTO deployment_flows "
+        "(id,project_id,name,stages,created_at,target_tier,target_environment_id) "
+        "VALUES (%s,1,%s,'[]',%s,'persistent',%s) ON CONFLICT(id) DO NOTHING",
+        (COMPLETION_FLOW, COMPLETION_FLOW, iso8601_now(), environment),
+    )
+    test_db.commit()
+    _ready_member(test_db, UNSTAMPED_DELIVERY_ITEM, HOLDER_A)
+    _no_obligation(
+        test_db, UNSTAMPED_DELIVERY_ITEM, reason="nothing observable once deployed"
+    )
+    assert _delivery_rung(test_db, UNSTAMPED_DELIVERY_ITEM) == ""
+    _run(
+        test_db,
+        "run-unstamped",
+        flow=COMPLETION_FLOW,
+        members=(UNSTAMPED_DELIVERY_ITEM,),
+    )
+
+    [report] = notify_delivery_cleared(test_db, run_id="run-unstamped")
+
+    assert report["delivery"] == "closed"
+    assert _delivery_rung(test_db, UNSTAMPED_DELIVERY_ITEM) == (
+        "deployment_run_succeeded"
+    )
+    assert _recipients(
+        test_db,
+        delivery_cleared_idempotency_key(UNSTAMPED_DELIVERY_ITEM, "run-unstamped"),
+    ) == []

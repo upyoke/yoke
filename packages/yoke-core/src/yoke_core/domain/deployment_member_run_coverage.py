@@ -45,10 +45,21 @@ from yoke_core.domain.deployment_item_flow_resolution import (
     item_completion_flow,
     membership_closes_item,
 )
-from yoke_core.domain.deployment_run_composition_freeze import member_ids
+from yoke_core.domain.deployment_run_composition_freeze import (
+    DELIVERY_INTENT_PROGRESS,
+    member_ids,
+    requires_release_admission,
+)
 from yoke_core.domain.deployment_run_project_sources import run_source_sha
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_item_stage_plan_gate import item_scoped_qa_stage_names
+from yoke_core.domain.workflow_delivery_binding_validation import (
+    COMPLETED_ITEM_STAGE_ID,
+)
+from yoke_core.domain.workflow_runtime import ENGINE_TERMINAL_STAGE_IDS
+
+#: Where a run with delivery custody is a final delivery rather than a preview.
+FINAL_DELIVERY_TIER = "persistent"
 
 
 def _p(conn: Any) -> str:
@@ -223,10 +234,88 @@ def inert_membership_notice(
     return " ".join(notices)
 
 
+def _final_delivery_run(conn: Any, run_id: str) -> bool:
+    """Whether this run is a release that finally delivers its members.
+
+    Custody alone does not say so: an ephemeral preview takes custody of what
+    it carries without owing anyone their done. A persistent-tier release
+    does, and it is the one that can turn green over a member it cannot close.
+    """
+    if not requires_release_admission(conn, run_id):
+        return False
+    row = conn.execute(
+        "SELECT COALESCE(NULLIF(dr.target_tier, ''), df.target_tier, '') "
+        "FROM deployment_runs dr LEFT JOIN deployment_flows df ON df.id = dr.flow "
+        f"WHERE dr.id = {_p(conn)}",
+        (str(run_id),),
+    ).fetchone()
+    return row is not None and str(row[0] or "") == FINAL_DELIVERY_TIER
+
+
+def _final_open_member(conn: Any, run_id: str, item_id: int) -> bool:
+    """A member this run is its final delivery for, still short of terminal."""
+    marker = _p(conn)
+    row = conn.execute(
+        "SELECT COALESCE(dri.delivery_intent, ''), i.status "
+        "FROM deployment_run_items dri JOIN items i ON i.id = dri.item_id "
+        f"WHERE dri.run_id = {marker} AND dri.item_id = {marker}",
+        (str(run_id), int(item_id)),
+    ).fetchone()
+    if row is None:
+        return False
+    intent, status = str(row[0] or ""), str(row[1] or "")
+    return intent != DELIVERY_INTENT_PROGRESS and status not in (
+        ENGINE_TERMINAL_STAGE_IDS | {COMPLETED_ITEM_STAGE_ID}
+    )
+
+
+def unclosable_final_member_refusal(conn: Any, run_id: str) -> str | None:
+    """Refuse a release whose success would leave a final member open.
+
+    Membership admits an item on facts about the code; closing it takes
+    completion authority (:func:`membership_closes_item`). A same-project run
+    of another flow holds the member, runs its QA, turns green, and cannot
+    close it — the member then waits for a delivery that already happened.
+    Said before execution, while the item's flow or the run can still change.
+    """
+    if not _final_delivery_run(conn, run_id):
+        return None
+    unclosable = [
+        coverage
+        for coverage in (
+            member_run_coverage(conn, run_id=str(run_id), item_id=int(item_id))
+            for item_id in member_ids(conn, run_id)
+            if _final_open_member(conn, run_id, int(item_id))
+        )
+        # No completion flow at all is completion_flow_refusal's to name.
+        if coverage.completion_flow and not coverage.closes
+    ]
+    if not unclosable:
+        return None
+    run_flow = unclosable[0].run_flow
+    named = "; ".join(
+        f"{coverage.item_ref} selects completion flow {coverage.completion_flow!r}"
+        for coverage in unclosable
+    )
+    first = unclosable[0].item_ref
+    return (
+        f"deployment run {run_id!r} on flow {run_flow!r} is the final delivery "
+        f"of members it has no authority to close: {named}. Succeeding would "
+        "leave them open at their release wait. Reconcile before execution: "
+        "when this run is the delivery they should close on, select its flow "
+        f"(`yoke items scalar update {first} --field deployment_flow --value "
+        f"{run_flow}`, once per member) and re-run `yoke deployment-runs "
+        f"validate-composition {run_id}`; otherwise cancel it (`yoke "
+        f"deployment-runs terminalize {run_id} --disposition cancelled "
+        "--reason REASON`) and deliver them through a run of their own flow."
+    )
+
+
 __all__ = [
     "MemberRunCoverage",
     "describe_member_run_coverage",
     "inert_membership_notice",
     "member_coverage_notice",
     "member_run_coverage",
+    "unclosable_final_member_refusal",
 ]

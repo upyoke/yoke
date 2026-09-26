@@ -172,7 +172,7 @@ def prepare_status_transition(
     )
     approval_source = workflow_default_approval_source(target_status)
     if policy is None:
-        from yoke_core.domain.dash_posture_gate import (
+        from yoke_core.domain.dash_approval_posture import (
             approval_policy_for_transition,
         )
 

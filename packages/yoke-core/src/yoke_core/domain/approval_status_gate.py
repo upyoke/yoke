@@ -46,7 +46,7 @@ def evaluate(
             # Same authority resolution the preflight uses when it decides
             # whether to create the decision request at all, so the gate and
             # the request agree about who — if anyone — may answer.
-            from yoke_core.domain.dash_posture_gate import (
+            from yoke_core.domain.dash_approval_posture import (
                 approval_policy_for_transition,
             )
 
