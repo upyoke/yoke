@@ -45,11 +45,18 @@ function runClient(row, activityRows = [], itemActivityRows = [], siblingRows = 
       requests.push(request);
       if (request.function === "organizations.get") return okEnvelope({ name: "Yoke" });
       if (request.function === "projects.list") {
-        return okEnvelope({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }] });
+        return okEnvelope({ rows: [
+          { id: 1, slug: "yoke", name: "Yoke" },
+          { id: 2, slug: "platform", name: "Platform" },
+        ] });
       }
       if (request.function === "deployment_runs.list") {
+        const selected = request.payload.page?.projects;
+        const visible = selected
+          ? row?.member_items.filter((item) => selected.includes(String(item.project_id)))
+          : row?.member_items;
         return okEnvelope({
-          rows: row ? [row] : [],
+          rows: row ? [{ ...row, member_items: visible }] : [],
           unfinished_count: row ? 1 : 0, completed_match_count: 0,
           completed_loaded_count: 0, next_cursor: null,
           filters: {
@@ -133,7 +140,7 @@ test("the run page reads the run by id and draws it in the page's shape", async 
   // One run, found by its id through the same paged read the table uses.
   const read = client.requests.find((request) => request.function === "deployment_runs.list");
   assert.deepEqual(read.payload, {
-    page: { page_size: 50, search: "run-20260726-001", projects: ["1"] },
+    page: { page_size: 50, search: "run-20260726-001" },
   });
   // Two QA reads, because the page reports two different facts: what this
   // run's own checks found, and what each carried item proved on its own —
@@ -231,6 +238,39 @@ test("a run with nothing waiting says what it is doing instead", async (t) => {
   mounted.unmount();
 });
 
+for (const route of [
+  "#/deployments/runs/run-20260726-001?selection=all",
+  "#/deployments/runs/run-20260726-001?project=1",
+]) {
+  test(`a mixed-project run shows every authorized member from ${route}`, async (t) => {
+    const yokeRef = ["YOK", 2228].join("-");
+    const platformRef = ["PLAT", 149].join("-");
+    const client = runClient(runRow({
+      member_items: [
+        { id: 2262, ref: yokeRef, project_sequence: 2228,
+          title: "Ship the release", project_id: 1, project: "yoke" },
+        { id: 2263, ref: platformRef, project_sequence: 149,
+          title: "Build the host", project_id: 2, project: "platform" },
+      ],
+    }));
+    const { root, mounted } = await mountAt(t, route, client);
+    const read = client.requests.find((request) => request.function === "deployment_runs.list");
+    assert.deepEqual(read.payload.page, { page_size: 50, search: "run-20260726-001" });
+    assert.equal(byClass(root, "run-sub")[0].textContent,
+      "yoke · prod · 2 items · release 0.1.1+launch");
+    assert.deepEqual(byClass(root, "run-items")[0].children
+      .filter((node) => node.tagName === "A").map((node) => node.textContent),
+    [yokeRef, platformRef]);
+    assert.equal(byClass(root, "run-fact-value")[0].textContent, "0.1.1+launch.379");
+    assert.equal(byClass(root, "run-items")[0].children[3].href, "#/items/149?project=2");
+    assert.ok(client.requests.some((request) => request.function === "qa.activity.list"
+      && request.payload.project === "1" && request.payload.deployment_run_id));
+    assert.ok(client.requests.some((request) => request.function === "qa.activity.list"
+      && request.payload.project === "2" && request.payload.item_ids?.includes(2263)));
+    mounted.unmount();
+  });
+}
+
 test("a cancelled run keeps its history and names what carried the work after", async (t) => {
   const client = runClient(
     runRow({ status: "cancelled", current_stage: "approval" }),
@@ -260,11 +300,11 @@ test("a cancelled run keeps its history and names what carried the work after", 
   mounted.unmount();
 });
 
-test("a run the scope does not hold says so rather than drawing an empty page", async (t) => {
+test("an inaccessible or missing run says so rather than drawing an empty page", async (t) => {
   const client = runClient(null);
   const { root, mounted } = await mountAt(t, "#/deployments/runs/run-nope?project=1", client);
   const text = allNodes(root).map((node) => node.textContent || "").join(" ");
-  assert.match(text, /There is no run called run-nope in this scope/);
+  assert.match(text, /There is no accessible run called run-nope/);
   assert.equal(byClass(root, "review-link")[0].href, "#/deployments/runs?project=1");
   mounted.unmount();
 });
