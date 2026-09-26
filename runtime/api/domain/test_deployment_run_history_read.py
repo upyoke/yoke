@@ -231,6 +231,7 @@ def test_compact_presentation_keeps_only_rendered_member_and_stage_facts(monkeyp
         "project_sequence",
     }
     assert rows[0]["gates"] == [{"kind": "approval"}]
+    assert rows[0]["overview_priority"] == 1
     assert "stage_index" not in rows[0]
     assert "stage_count" not in rows[0]
 
