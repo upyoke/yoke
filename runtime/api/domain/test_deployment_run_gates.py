@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
 )
@@ -11,6 +13,7 @@ from yoke_core.domain.deployment_approval_requests import (
     evaluate_deployment_stage_approval,
 )
 from yoke_core.domain.deployment_run_gates import run_gates
+from yoke_core.domain.deployment_run_list_read import list_deployment_runs
 from yoke_core.domain.qa_catalog_schema import create_qa_catalog_tables
 
 RUN_ID = "run-gate-proof"
@@ -119,6 +122,48 @@ def test_a_run_with_nothing_pending_reports_no_gate(test_db):
 
     assert run_gates(test_db, ["run-not-halted"], actor_id=None) == {}
     assert run_gates(test_db, [], actor_id=None) == {}
+
+
+@pytest.mark.parametrize("action", ["approve", "reject"])
+def test_resolved_stage_approval_keeps_its_human_record_without_actions(test_db, action):
+    create_decision_request_tables(test_db)
+    owner, _originator = _seed_run_awaiting_approval(test_db)
+    request_id = run_gates(test_db, [RUN_ID], actor_id=owner)[RUN_ID][0]["request_id"]
+    decided_at = "2026-07-26T01:02:03Z"
+    test_db.execute(
+        "UPDATE decision_requests SET status='resolved', resolution_action=%s, "
+        "resolution_actor_id=%s, resolved_at=%s WHERE id=%s",
+        (action, owner, decided_at, request_id),
+    )
+    test_db.commit()
+
+    gate = run_gates(test_db, [RUN_ID], actor_id=owner)[RUN_ID][0]
+    assert gate["status"] == "resolved"
+    assert gate["resolution_action"] == action
+    assert gate["resolved_at"] == decided_at
+    assert gate["resolved_by"] == test_db.execute(
+        "SELECT name FROM actors WHERE id=%s", (owner,)
+    ).fetchone()[0]
+    assert gate["actions"] == []
+    assert gate["can_act"] is False
+
+
+def test_run_list_exposes_settlement_marker_without_claiming_success(test_db):
+    create_decision_request_tables(test_db)
+    _seed_run_awaiting_approval(test_db)
+    test_db.execute(
+        "UPDATE deployment_runs SET current_stage='complete', settling_at=%s "
+        "WHERE id=%s",
+        ("2026-07-26T01:00:00Z", RUN_ID),
+    )
+    test_db.commit()
+
+    row = next(row for row in list_deployment_runs(
+        project=None, status=None, limit=100,
+    ) if row["id"] == RUN_ID)
+    assert row["settling_at"] == "2026-07-26T01:00:00Z"
+    assert row["current_stage"] == "complete"
+    assert row["status"] == "executing"
 
 
 def test_a_halted_run_shows_screenshots_attached_after_the_gate_was_recorded(test_db):

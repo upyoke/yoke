@@ -27,3 +27,17 @@
 .universe-app-root .run-request .review-evidence .review-shot {
   width: 150px;
 }
+.universe-app-root .shipping-run-card.is-finalizing {
+  border-top-color: var(--yoke-warn);
+}
+.universe-app-root .run-decision-record,
+.universe-app-root .run-finalization-note {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 6px;
+  background: var(--yoke-bg);
+  overflow-wrap: anywhere;
+}
+.universe-app-root .run-finalization-note {
+  border-left: 3px solid var(--yoke-warn);
+}

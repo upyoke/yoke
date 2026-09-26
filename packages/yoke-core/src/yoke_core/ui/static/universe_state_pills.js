@@ -107,6 +107,7 @@ const FAMILIES = {
   // vocabulary had no word for it, so a gated card wore a grey pill.
   "awaiting approval": "warn",
   "awaiting review": "warn",
+  finalizing: "warn",
   "blocked on precondition": "crit",
   installed: "good",
   success: "good",
