@@ -301,7 +301,9 @@ def test_cancelled_newer_run_does_not_mask_the_delivered_qa(
 
     delivered = delivery_evidence(test_db, item_id)
     assert delivered.discharged, delivered
-    assert delivered.run_id == "run-containing-without-member"
+    # The cancelled run does not shadow the item's own delivered membership,
+    # so membership answers before the later containing release is consulted.
+    assert delivered.run_id == "run-delivered"
     assert source_obligation_consumed(
         test_db, item_id=item_id, source_requirement_id=source_id
     )
