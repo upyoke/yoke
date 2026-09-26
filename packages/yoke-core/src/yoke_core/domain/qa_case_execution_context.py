@@ -102,7 +102,7 @@ def get_case_execution_context(
         "LEFT JOIN deployment_runs dr ON dr.id=q.deployment_run_id "
         "LEFT JOIN items m ON m.id=q.deployment_member_item_id "
         "LEFT JOIN projects mp ON mp.id=m.project_id "
-        "JOIN projects p ON p.id=COALESCE(i.project_id, dr.project_id) "
+        "JOIN projects p ON p.id=COALESCE(m.project_id,i.project_id,dr.project_id) "
         f"WHERE q.id={marker} AND q.waived_at IS NULL",
         (int(requirement_id),),
     )

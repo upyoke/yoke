@@ -108,8 +108,9 @@ run owns its delivery context.
 For a run's item-scoped QA stage, `--member` must name an attached item in the
 run's frozen membership and `--project` must name that item's project. The
 member's current work claim and project permission authorize the plan walk;
-its materialized requirements and later evidence writes retain the same
-project authority. Run-scoped QA continues to use the run's project. A wrong
+its materialized requirements, case execution context, activity reads, and
+evidence storage retain the same project authority. Run-scoped QA continues
+to use the run's project. A wrong
 project hint, inactive or wrong stage, missing member, or plan from another
 project is refused before evidence is written. The case runner still verifies
 the exact deployed candidate; a newer deployment cannot certify an older run.
