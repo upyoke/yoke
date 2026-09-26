@@ -53,15 +53,17 @@ member through all item and shared gates and run success.
 After an item QA acceptance wake, check whether your item reached done and
 re-park only while it remains at release wait.
 
-A run in ANOTHER project never calls you either, even when it deployed your
-code. A flow stage may bind a second project's branch tip through
-`input_bindings` and deploy that commit alongside its own candidate, so your
-merged change can already be live before any run of yours exists. That deploys
-the code; it does not discharge the item. Membership is same-project only, so
-only a run on your own item's flow carries you, wakes you, and lets this
-close-out finish. Keep waiting for that run — and when you report, say your
-code may already be serving, so the reader does not read your open wait as an
-unshipped change.
+Only a run with completion authority for your item finishes this close-out:
+a run of your item's own selected flow, or a run in ANOTHER project that
+recorded a bound source commit for your project and carries you as a member.
+Carried code alone is not that authority. A flow stage may bind a second
+project's branch tip through `input_bindings` and deploy that commit alongside
+its own candidate, so your merged change can already be live before any run
+that closes you exists. Neither a same-project run of another flow nor a
+failed run discharges the item. Keep waiting for a run that does, and when you
+report, say your code may already be serving so the reader does not read your
+open wait as an unshipped change. That run's success stamps your delivery
+evidence itself, so do not re-run the merge just to record it.
 
 A stage that wants your evidence is run by naming that stage AND your item.
 When you attached an item QA plan at verify, the stage has already resolved it
@@ -252,8 +254,13 @@ yoke direct-workflow dash evidence ITEM --result "<account>" \
 ```
 
 Then move the Dash through `reviewing-implementation` to `done` on that
-attestation. `yoke merge item --no-changes` is only for a lane that already
-exists.
+attestation with `yoke lifecycle transition ITEM --to <next stage>`. With no
+lane, that transition is the whole done ceremony, including the step from a
+release wait to `done`. Every done gate still applies. When the item's flow owes a
+delivery, the release wait holds until a run with completion authority for it
+succeeds, and that success usually closes the item automatically.
+`yoke merge item --no-changes` is only for a lane that already exists; a
+no-change Dash with a lane closes through that command, not the transition.
 
 An item whose pinned workflow delivers merge-free — `worktrees=none`,
 `delivery=merge_free`, the floor Task shape — did change things, and names them

@@ -24,6 +24,20 @@ checks and the target environment still belong to the run's owning project.
 to a run, execute the pipeline, and move members toward done. Flow id ≠ run
 id (`run-YYYYMMDD-NNN`).
 
+Membership is not by itself completion. A member closes only on a succeeded
+run with completion authority for it: a run of the item's own selected flow,
+or another project's run that recorded a bound source commit for the item's
+project. Carried code, a failed run, or a same-project run of another flow
+does not close it. So a final-delivery release refuses, before it executes,
+a same-project member whose selected flow it cannot close. The refusal names
+both repairs: select the run's flow for the item, or cancel the run and
+deliver the item on its own flow. When a release with that authority
+succeeds, it stamps each member's delivery evidence and closes every member
+whose item and shared gates have passed, with no holder re-running a merge.
+When a no-change Dash that never opened a lane is left at its release wait,
+its holder closes it with `yoke lifecycle transition PREFIX-N --to done`.
+That transition still requires the succeeded run, QA, and approval.
+
 ## Hosting
 
 There is no separate Hosting destination. Hosting shows up as:

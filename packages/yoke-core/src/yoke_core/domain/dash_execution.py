@@ -265,6 +265,35 @@ def evaluate_dash_evidence(conn: Any, item_id: int) -> DashEvidenceVerdict:
     return DashEvidenceVerdict(not missing, tuple(missing), evidence)
 
 
+def laneless_no_change_close_out(conn: Any, item_id: int) -> bool:
+    """Whether this Dash's own recorded evidence is its whole done ceremony.
+
+    The done nonce proves a caller went through a close-out that merges,
+    cleans up, and records a landing. A Dash that recorded a no-change
+    finding and never opened a lane has none of that to do, so the
+    lifecycle transition that closes it IS the sanctioned ceremony. Only
+    the nonce is answered here: evidence, QA, approval, claim, and the
+    selected-flow delivery gates still run on that same transition.
+    """
+    marker = _p(conn)
+    row = conn.execute(
+        f"SELECT workflow_id FROM items WHERE id = {marker}", (int(item_id),)
+    ).fetchone()
+    if row is None or str(row[0] or "") != "dash":
+        return False
+    evidence = read_json_section(
+        conn, item_id=int(item_id), section=DASH_EVIDENCE_SECTION
+    )
+    if (evidence or {}).get("no_changes") is not True:
+        return False
+    lane = conn.execute(
+        "SELECT 1 FROM item_worktrees "
+        f"WHERE item_id = {marker} AND state = 'active'",
+        (int(item_id),),
+    ).fetchone()
+    return lane is None
+
+
 def record_dash_escalation(
     conn: Any,
     *,
@@ -302,6 +331,7 @@ __all__ = [
     "DASH_EVIDENCE_SECTION",
     "DashEvidenceVerdict",
     "evaluate_dash_evidence",
+    "laneless_no_change_close_out",
     "record_dash_escalation",
     "record_dash_evidence",
 ]

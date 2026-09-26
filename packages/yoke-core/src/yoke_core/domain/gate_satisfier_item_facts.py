@@ -17,7 +17,9 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow
+from yoke_core.domain.deployment_item_completion_runs import (
+    succeeded_completion_runs,
+)
 from yoke_core.domain.deployment_member_independent_close_out import (
     independent_member_delivery_ready,
 )
@@ -147,24 +149,12 @@ def load_item_facts(conn: Any, item_id: int) -> Dict[str, Fact]:
         ("qa_runs", "performed_by"),
         ("qa_requirements", "item_id"),
     )
-    flow = item_completion_flow(conn, int(item_id))
-    if not flow:
-        deployed = 0
-    else:
-        deployed = _count(
-            conn,
-            "SELECT COUNT(*) FROM deployment_runs dr "
-            "JOIN deployment_run_items dri ON dr.id = dri.run_id "
-            f"WHERE dri.item_id = {p} AND dr.status = 'succeeded' "
-            f"AND dr.flow = {p}",
-            (item_id, flow),
-            ("deployment_runs", "status"),
-            ("deployment_runs", "flow"),
-            ("deployment_run_items", "item_id"),
-        )
-    candidate = (
-        latest_completion_run(conn, int(item_id)) if flow and not deployed else None
-    )
+    # Completion authority is one predicate: a succeeded run of the item's
+    # own flow, or another project's succeeded run that bound this project's
+    # source. Counting only the own flow here left a cross-project member
+    # delivered by every other reader and undelivered by the done gate.
+    deployed = len(succeeded_completion_runs(conn, int(item_id)))
+    candidate = None if deployed else latest_completion_run(conn, int(item_id))
     independent = bool(
         candidate
         and independent_member_delivery_ready(
@@ -181,8 +171,8 @@ def load_item_facts(conn: Any, item_id: int) -> Dict[str, Fact]:
         ITEM_DEPLOYMENT_RUN_SUCCEEDED: _fact(
             ITEM_DEPLOYMENT_RUN_SUCCEEDED,
             deployed,
-            "{count} succeeded item-bound deployment run(s)",
-            "no item-bound deployment run has succeeded",
+            "{count} succeeded completion-authority deployment run(s)",
+            "no deployment run with completion authority for this item has succeeded",
         ),
         ITEM_INDEPENDENT_MEMBER_DELIVERED: _fact(
             ITEM_INDEPENDENT_MEMBER_DELIVERED,

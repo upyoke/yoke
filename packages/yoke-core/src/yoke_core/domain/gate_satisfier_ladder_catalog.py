@@ -131,7 +131,9 @@ DELIVERY_EVIDENCE_LADDER = SatisfierLadder(
         SatisfierRung(
             rung_id="deployment_run_succeeded",
             summary=(
-                "an item-bound deployment run reached succeeded against a "
+                "a deployment run with completion authority for this item — "
+                "its own selected flow, or another project's run that bound "
+                "this project's source — reached succeeded against a "
                 "registered environment"
             ),
             requires=(

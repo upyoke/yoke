@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
-from yoke_core.domain.approval_policy import ApprovalPolicy
+from yoke_core.domain.dash_approval_posture import approval_gate as _approval_gate
 from yoke_core.domain.dash_path_claim_posture import (
     activation_gate as _path_activation_gate,
     completion_gate as _path_completion_gate,
@@ -42,37 +42,6 @@ from yoke_core.domain.qa_workflow_binding_validation import (
 from yoke_core.domain.schema_common import _table_exists
 
 
-def approval_policy_for_posture(
-    *,
-    workflow_id: str,
-    posture: Mapping[str, Any],
-    target_status: str,
-) -> Optional[ApprovalPolicy]:
-    """Return the explicit owner gate selected by Dash approval posture."""
-    if (
-        workflow_id != "dash"
-        or target_status != "done"
-        or posture.get("approval_on_done") is not True
-    ):
-        return None
-    return ApprovalPolicy(roles=("owner",))
-
-
-def approval_policy_for_transition(
-    conn: Any,
-    *,
-    item_id: int,
-    target_status: str,
-) -> Optional[ApprovalPolicy]:
-    """Return the explicit owner authority selected by approval-on-done."""
-    item = _item(conn, item_id)
-    return approval_policy_for_posture(
-        workflow_id=str(item["workflow_id"]),
-        posture=_posture(item),
-        target_status=target_status,
-    )
-
-
 #: The one gate code whose two readings the stale-head decision separates.
 _CONTAINMENT_UNDETERMINED_GATE = "GATE_DASH_DEPLOYMENT_CONTAINMENT_UNDETERMINED"
 
@@ -85,44 +54,6 @@ def _evidence(conn: Any, item_id: int) -> Optional[dict[str, Any]]:
         conn,
         item_id=item_id,
         section=DASH_EVIDENCE_SECTION,
-    )
-
-
-def _approval_gate(
-    conn: Any,
-    item_id: int,
-) -> Optional[dict[str, Any]]:
-    from yoke_core.domain.decision_requests import list_subject_requests
-
-    history = list_subject_requests(
-        conn,
-        "item_transition",
-        f"{int(item_id)}:done",
-    )
-    latest = history[0] if history else None
-    if (
-        latest is not None
-        and latest["status"] == "resolved"
-        and latest["resolution_action"] == "approve"
-    ):
-        return None
-    from yoke_core.domain.decision_request_authority import request_deciders
-
-    if (
-        latest is not None
-        and latest["status"] == "pending"
-        and not request_deciders(conn, int(latest["id"]))
-    ):
-        return _failure(
-            "GATE_DASH_APPROVAL_REQUIRED",
-            "Approval-on-done has no eligible human project owner who can answer.",
-            "Grant the project owner role to a human actor, then resolve the "
-            "Inbox request. Do not assign roles automatically.",
-        )
-    return _failure(
-        "GATE_DASH_APPROVAL_REQUIRED",
-        "Approval-on-done is waiting for a project owner decision.",
-        "Resolve the lifecycle decision request through the Inbox.",
     )
 
 
@@ -226,7 +157,11 @@ def _deployment_gate(
     # Containment stays here so verification-phase intake can land apart.
     evidence = _evidence(conn, item_id)
     merge_sha = str((evidence or {}).get("merge_sha") or "")
-    if not merge_sha:
+    # A recorded no-change finding merged nothing, so there is no merge for a
+    # release to contain. It still owes the delivery its flow selects: the
+    # membership rung below must read a succeeded completion run.
+    no_changes = bool((evidence or {}).get("no_changes"))
+    if not merge_sha and not no_changes:
         return _failure(
             "GATE_DASH_DEPLOYMENT_EVIDENCE_REQUIRED",
             "Deploy-after-merge needs the persisted merge identity.",
@@ -284,6 +219,8 @@ def _deployment_gate(
     # requires the deployed candidate to contain this item's merge, which the
     # ladder deliberately does not decide — a run can list the item as a
     # member while shipping a revision that predates its merge.
+    if no_changes:
+        return None
     blocked = _lineage_covers(
         conn,
         int(evidence_verdict.project_id or 0),
@@ -342,8 +279,4 @@ def evaluate(
         conn.close()
 
 
-__all__ = [
-    "approval_policy_for_posture",
-    "approval_policy_for_transition",
-    "evaluate",
-]
+__all__ = ["evaluate"]

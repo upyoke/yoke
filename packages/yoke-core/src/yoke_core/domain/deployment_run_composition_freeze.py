@@ -262,6 +262,12 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
     # discovered here stops the run by name instead of widening it silently.
     if refusal := carried_membership_refusal(conn, run_id, carried_work=carried_work):
         raise ValueError(refusal)
+    from yoke_core.domain.deployment_member_run_coverage import (
+        unclosable_final_member_refusal,
+    )
+
+    if refusal := unclosable_final_member_refusal(conn, run_id):
+        raise ValueError(refusal)
     from yoke_core.domain.deployment_qa_admission_materialization import (
         ADMITTED_REQUIREMENT_CASE_PREFIX,
     )

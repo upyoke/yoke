@@ -167,7 +167,7 @@ def test_approval_gate_is_absent_until_an_authority_is_declared(monkeypatch):
         lambda conn, item_id: SimpleNamespace(policies={"approval_defaults": {}}),
     )
     monkeypatch.setattr(
-        "yoke_core.domain.dash_posture_gate.approval_policy_for_transition",
+        "yoke_core.domain.dash_approval_posture.approval_policy_for_transition",
         lambda conn, item_id, target_status: None,
     )
     recorded: list[dict] = []

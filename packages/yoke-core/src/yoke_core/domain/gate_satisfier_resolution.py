@@ -148,20 +148,11 @@ def resolve_and_record_item_rung(
     }
 
 
-def record_done_evidence_rungs(
-    conn: Any,
-    *,
-    item_id: int,
-    merge_recorded: bool,
-    agent_attested: bool,
-) -> tuple[Dict[str, Any], ...]:
-    """Stamp the done obligations one evidence write can answer for.
-
-    Merge evidence is answered by the merge itself and must resolve here.
-    Delivery evidence is stamped opportunistically, because for an item
-    delivering through a release it is not yet answerable at merge time.
-    """
-    observed = {
+def _evidence_observations(
+    *, merge_recorded: bool, agent_attested: bool
+) -> Dict[str, Tuple[bool, str]]:
+    """What one evidence record observes for the done ladders."""
+    return {
         OBSERVED_MERGE_RECORDED: (
             bool(merge_recorded),
             "the standalone close-out records a landed merge"
@@ -175,6 +166,25 @@ def record_done_evidence_rungs(
             else "the close-out records an implementation merge",
         ),
     }
+
+
+def record_done_evidence_rungs(
+    conn: Any,
+    *,
+    item_id: int,
+    merge_recorded: bool,
+    agent_attested: bool,
+) -> tuple[Dict[str, Any], ...]:
+    """Stamp the done obligations one evidence write can answer for.
+
+    Merge evidence is answered by the merge itself and must resolve here.
+    Delivery evidence is stamped opportunistically, because for an item
+    delivering through a release it is not yet answerable at merge time.
+    """
+    observed = _evidence_observations(
+        merge_recorded=merge_recorded, agent_attested=agent_attested
+    )
+
     def _stamp(obligation: str) -> Dict[str, Any]:
         return resolve_and_record_item_rung(
             conn,
@@ -199,12 +209,39 @@ def record_done_evidence_rungs(
         # await, which a second landing on such an item can never satisfy.
         # The obligation still binds where it belongs: the done gate reads
         # the stamp back through `missing_done_evidence_rungs`, and no item
-        # reaches a terminal stage without it.
+        # reaches a terminal stage without it. The release's own success
+        # stamps it through `record_delivery_evidence_rung`.
         delivery = _stamp(OBLIGATION_DELIVERY_EVIDENCE)
         if delivery.get("satisfied"):
             _require_stamp(delivery)
             outcomes.append(delivery)
     return tuple(outcomes)
+
+
+def record_delivery_evidence_rung(
+    conn: Any, *, item_id: int, merge_recorded: bool
+) -> Dict[str, Any]:
+    """Stamp the delivery obligation once a release has actually delivered.
+
+    A landing into a release wait cannot answer this — the release is what it
+    waits for — so the release's own success is where the stamp belongs.
+    Without it the done gate reads a missing rung on a delivered item and
+    sends its holder back to re-run a merge only to record what the run
+    already proved. Refuses rather than returning an unstamped success.
+    """
+    outcome = resolve_and_record_item_rung(
+        conn,
+        item_id=int(item_id),
+        obligation=OBLIGATION_DELIVERY_EVIDENCE,
+        observed=_evidence_observations(
+            merge_recorded=merge_recorded, agent_attested=False
+        ),
+        target_status="done",
+    )
+    if not outcome.get("satisfied"):
+        raise ValueError(str(outcome.get("refusal") or "").strip())
+    _require_stamp(outcome)
+    return outcome
 
 
 def _require_stamp(outcome: Dict[str, Any]) -> None:
@@ -250,6 +287,7 @@ __all__ = [
     "ResolutionOnlyObligation",
     "UnknownGateObligation",
     "missing_done_evidence_rungs",
+    "record_delivery_evidence_rung",
     "record_done_evidence_rungs",
     "resolve_and_record_item_rung",
 ]

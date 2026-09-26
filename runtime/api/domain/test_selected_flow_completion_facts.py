@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -154,3 +155,57 @@ def test_combined_selected_flow_is_not_complete_until_the_run_succeeds(db):
     assert row is not None
     assert row["id"] == "run-combined"
     assert row["status"] == "succeeded"
+
+
+def _carrier_fact(db, item_id, *, status, bound_project_id):
+    """The delivery fact for an item another project's run carried."""
+    from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
+
+    item_project = SEED_PROJECT_IDS["externalwebapp"]
+    bound = (
+        [{"project_id": bound_project_id, "commit_sha": "c" * 40}]
+        if bound_project_id is not None
+        else []
+    )
+    conn = connect_test_db(db)
+    try:
+        insert_item(
+            conn, id=item_id, source=str(seed_human_actor(conn)),
+            project_id=item_project, deployment_flow="consumer-analysis",
+        )
+        insert_deployment_run(
+            conn, id=f"run-carrier-{item_id}", flow="carrier-release",
+            status=status, release_lineage="a" * 40,
+            bound_sources=json.dumps(
+                {"schema": 1, "projects": bound, "inputs": {}}
+            ),
+        )
+        _carry(conn, item_id, f"run-carrier-{item_id}")
+        return load_item_facts(conn, item_id)[ITEM_DEPLOYMENT_RUN_SUCCEEDED]
+    finally:
+        conn.close()
+
+
+def test_cross_project_carrier_with_a_bound_source_delivers_the_item(db):
+    from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
+
+    fact = _carrier_fact(
+        db, 8620, status="succeeded",
+        bound_project_id=SEED_PROJECT_IDS["externalwebapp"],
+    )
+    assert fact.verdict is FactVerdict.PRESENT
+
+
+def test_carried_code_without_a_bound_source_is_not_completion_authority(db):
+    fact = _carrier_fact(db, 8621, status="succeeded", bound_project_id=None)
+    assert fact.verdict is FactVerdict.ABSENT
+
+
+def test_a_failed_cross_project_carrier_delivers_nothing(db):
+    from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
+
+    fact = _carrier_fact(
+        db, 8622, status="failed",
+        bound_project_id=SEED_PROJECT_IDS["externalwebapp"],
+    )
+    assert fact.verdict is FactVerdict.ABSENT

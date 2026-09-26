@@ -4,7 +4,8 @@ Owns: ``cmd_validate_composition`` (post-creation membership check) and
 ``cmd_check_batch_compatibility`` (pre-creation batch check). Both enforce
 project alignment, item-status floor, and
 unsatisfied hard-block dependency detection. Selected flow is completion
-authority, not a membership gate. SQL bodies preserved verbatim
+authority: a final-delivery release refuses a member it could not close.
+SQL bodies preserved verbatim
 from the pre-split state-machine — no reordering, no early-return refactor.
 """
 
@@ -21,6 +22,7 @@ from yoke_core.domain.deployment_member_post_deploy_admission import (
 )
 from yoke_core.domain.deployment_member_run_coverage import (
     inert_membership_notice,
+    unclosable_final_member_refusal,
 )
 from yoke_core.domain.deployment_run_carried_membership import (
     carried_membership_refusal,
@@ -201,6 +203,11 @@ def cmd_validate_composition(
         if carried_refusal:
             errors.append(carried_refusal)
 
+        # A release that would turn green over a final member it cannot
+        # close strands that member at its release wait, so it never starts.
+        if unclosable := unclosable_final_member_refusal(conn, run_id):
+            errors.append(unclosable)
+
         # An obligation no stage on this run targets is not a composition
         # error -- a stage run legitimately carries an item whose prod
         # acceptance belongs to the production run -- but it is never
@@ -245,7 +252,8 @@ def cmd_check_batch_compatibility(
     try:
         ident = resolve_project(conn, project)
         assert ident is not None
-        # ``flow`` identifies the proposed run; it does not restrict membership.
+        # ``flow`` identifies the proposed run. Whether that run may close each
+        # final member is judged on its composition, before it executes.
         _ = flow
         # Build placeholders for IN clause
         placeholders = ",".join("%s" for _ in item_ids)

@@ -171,7 +171,13 @@ def cmd_update(
                     freeze_run_composition,
                 )
 
-                freeze_run_composition(conn, run_id)
+                try:
+                    freeze_run_composition(conn, run_id)
+                except ValueError as exc:
+                    # A composition the freeze refuses names its own repair;
+                    # it reaches the caller as that refusal, not a traceback.
+                    conn.rollback()
+                    return f"Error: {exc}"
                 try:
                     record_attested_candidate_containment(
                         conn, run_id, candidate_containment

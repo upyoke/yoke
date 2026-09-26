@@ -16,6 +16,8 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.dash_execution import evaluate_dash_evidence
 from yoke_core.domain.db_helpers import query_scalar
+from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
+from yoke_core.domain.gate_satisfier_resolution import record_delivery_evidence_rung
 from yoke_core.domain.post_deploy_verification_answer import answer_for_item
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 from yoke_core.domain.schema_common import _table_exists
@@ -115,6 +117,16 @@ def _close_out(conn: Any, *, item_id: int, public_ref: str) -> DeliveryMemberClo
     status = _item_status(conn, item_id)
     if status == CLOSED_OUT_STATUS:
         return DeliveryMemberCloseOut(applies=True, ok=True, detail="already done")
+    # The delivery this close-out answers is the canonical delivery rung's
+    # evidence. Landing could not stamp it — the release was still pending —
+    # so it is stamped here, before the evidence read that requires it,
+    # rather than waking the holder to re-run a merge just to record it.
+    record_delivery_evidence_rung(
+        conn,
+        item_id=item_id,
+        merge_recorded=bool(item_merge_identity(conn, item_id)),
+    )
+    conn.commit()
     evidence = evaluate_dash_evidence(conn, item_id)
     if not evidence.satisfied:
         missing = ", ".join(evidence.missing) or "execution_evidence"
