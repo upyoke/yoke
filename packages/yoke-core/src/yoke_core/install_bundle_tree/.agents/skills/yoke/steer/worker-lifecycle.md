@@ -145,7 +145,8 @@ authority, and its success stamps the delivery evidence itself — no holder
 re-runs merge to record it. A run reads succeeded only after every cleared
 member has closed: until then it stays executing and settling, a refusal or
 interruption leaves it there with the remaining members' claims and lanes
-kept, and re-driving `status succeeded` replays settlement. A final-delivery release refuses before execution
+kept, and re-driving `status succeeded` replays settlement. A final member
+with unanswered post-deploy obligations holds the run the same way. A final-delivery release refuses before execution
 a same-project member whose selected flow it cannot close, so compose each
 release on its members' own flow or reconcile the item's flow first. Automatic close-out ends an otherwise empty
 holder session; the worker re-parks after an acceptance wake only while the

@@ -40,7 +40,8 @@ counts as delivered for its members' own gates. A refusal or an interrupted
 process leaves it there: members that closed stay done, and the rest keep
 their claims and lanes. The refusal names each member, its reason, and the
 re-drive, `yoke deployment-runs update RUN status succeeded`, which replays
-settlement.
+settlement. A final member the run could not even try to close, such as one
+whose post-deploy obligations are unanswered, holds the run the same way.
 When a no-change Dash that never opened a lane is left at its release wait,
 its holder closes it with `yoke lifecycle transition PREFIX-N --to done`.
 That transition still requires the succeeded run, QA, and approval.

@@ -171,3 +171,29 @@ def test_run_success_closes_every_ready_member_with_it(
     for item_id in (FIRST_ITEM, SECOND_ITEM):
         assert _status(test_db, item_id) == "done"
         assert not _claim_held(test_db, item_id)
+
+
+def test_an_uncleared_member_holds_the_run_until_answered(
+    test_db: Any, monkeypatch
+) -> None:
+    """A final member with no post-deploy answer is never cleared, so no
+    close-out even runs for it; success still waits for it by name."""
+    _isolate_status_effects(monkeypatch)
+    _project(test_db)
+    _ready_member(test_db, FIRST_ITEM, HOLDER_A)
+    release = _status(test_db, FIRST_ITEM)
+    _executing_run(test_db, "run-unanswered", (FIRST_ITEM,))
+
+    refusal = cmd_update("run-unanswered", "status", "succeeded")
+
+    assert refusal is not None
+    assert render_item_ref(test_db, FIRST_ITEM) in refusal
+    assert "post-deploy obligations on this run are not all answered" in refusal
+    assert _run(test_db, "run-unanswered") == ("executing", True)
+    assert _status(test_db, FIRST_ITEM) == release
+    assert _claim_held(test_db, FIRST_ITEM)
+
+    _no_obligation(test_db, FIRST_ITEM, reason=REASON)
+    assert cmd_update("run-unanswered", "status", "succeeded") is None
+    assert _run(test_db, "run-unanswered") == ("succeeded", True)
+    assert _status(test_db, FIRST_ITEM) == "done"

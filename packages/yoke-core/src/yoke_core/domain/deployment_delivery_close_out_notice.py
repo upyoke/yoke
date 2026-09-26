@@ -93,7 +93,7 @@ def delivery_cleared_message(
     )
 
 
-def _run_members(conn: Any, run_id: str) -> list[dict[str, Any]]:
+def run_members(conn: Any, run_id: str) -> list[dict[str, Any]]:
     """Every item this run carries, with the facts the wait test needs."""
     required = ("deployment_run_items", "items", "projects", "workflow_versions")
     if not all(_table_exists(conn, name) for name in required):
@@ -101,6 +101,7 @@ def _run_members(conn: Any, run_id: str) -> list[dict[str, Any]]:
     return list(
         conn.execute(
             "SELECT i.id AS item_id,i.project_id,i.status,i.project_sequence,"
+            "COALESCE(dri.delivery_intent,'') AS delivery_intent,"
             "i.workflow_id,i.workflow_version_id,p.public_item_prefix,"
             "v.version,v.definition_json,v.definition_digest "
             "FROM deployment_run_items dri "
@@ -113,7 +114,7 @@ def _run_members(conn: Any, run_id: str) -> list[dict[str, Any]]:
     )
 
 
-def _delivery_now_discharged(conn: Any, item_id: int) -> bool:
+def delivery_now_discharged(conn: Any, item_id: int) -> bool:
     """Whether the done gate's own delivery fact now reads satisfied.
 
     Asking the gate rather than re-deriving it is the point: the fact keys
@@ -134,11 +135,11 @@ def _delivery_now_discharged(conn: Any, item_id: int) -> bool:
 def cleared_release_waits(conn: Any, run_id: str) -> list[dict[str, Any]]:
     """Members standing at a release wait this run's success discharged."""
     cleared: list[dict[str, Any]] = []
-    for row in _run_members(conn, run_id):
+    for row in run_members(conn, run_id):
         if not item_at_release_wait(row, str(row["status"] or "")):
             continue
         item_id = int(row["item_id"])
-        if not _delivery_now_discharged(conn, item_id):
+        if not delivery_now_discharged(conn, item_id):
             continue
         cleared.append(
             {
@@ -256,6 +257,8 @@ __all__ = [
     "DELIVERY_CLEARED_KEY_PREFIX",
     "delivery_cleared_idempotency_key",
     "cleared_release_waits",
+    "delivery_now_discharged",
     "delivery_cleared_message",
     "notify_delivery_cleared",
+    "run_members",
 ]
