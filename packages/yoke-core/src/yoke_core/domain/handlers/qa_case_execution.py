@@ -59,9 +59,7 @@ def _handler_for(function_id: str):
     from yoke_core.domain.handlers import qa_requirement_waive
 
     return {
-        "qa.requirement.waive": (
-            qa_requirement_waive.handle_qa_requirement_waive
-        ),
+        "qa.requirement.waive": (qa_requirement_waive.handle_qa_requirement_waive),
     }.get(function_id)
 
 
@@ -101,7 +99,7 @@ def handle_case_execution_begin(
             # the call. Hand that verified claim back on the contract so
             # the run records against it later instead of re-deriving
             # authority from a claim table an hour of suite has moved on.
-            item_id = result.get("item_id")
+            item_id = result.get("item_id") or result.get("deployment_member_item_id")
             if item_id is not None:
                 result[PAYLOAD_KEY] = resolve_start_bound_claim_id(
                     conn,

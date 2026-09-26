@@ -32,6 +32,7 @@ from yoke_core.domain.function_unresolved_project import (
     permission_error_response as _error_response,
 )
 from yoke_core.domain.project_identity import AmbiguousProjectRefError
+from yoke_core.domain.qa_deployment_function_subject import QaSubjectProjectError
 from yoke_core.domain.session_action_dispatch_permission import (
     session_action_dispatch_permission,
 )
@@ -167,7 +168,11 @@ def check_dispatch_permission(
                 request,
                 visible_project_ids=visible_ids,
             )
-        except (AmbiguousProjectRefError, ProjectNotRegisteredError) as exc:
+        except (
+            AmbiguousProjectRefError,
+            ProjectNotRegisteredError,
+            QaSubjectProjectError,
+        ) as exc:
             code = (
                 "ambiguous_project"
                 if isinstance(exc, AmbiguousProjectRefError)

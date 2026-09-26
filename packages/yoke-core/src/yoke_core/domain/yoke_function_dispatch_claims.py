@@ -156,15 +156,11 @@ def verify_claim(
     ver = entry.version
 
     if kind == "qa_subject":
-        allowed, code, message = _qa_subject_claim_verdict(
-            target, actor_session, request.payload
-        )
+        allowed, code, message = _qa_subject_claim_verdict(request)
         if allowed:
             allow_claim_verification(evidence, authority="qa_subject_policy")
             return None
-        return _claim_error(
-            request, fid, ver, code or "claim_required", message or ""
-        )
+        return _claim_error(request, fid, ver, code or "claim_required", message or "")
 
     if kind in ("item", "epic"):
         target_id = target.item_id if kind == "item" else target.epic_id
@@ -180,11 +176,7 @@ def verify_claim(
             if err_code is not None:
                 return _claim_error(request, fid, ver, err_code, err_msg or "")
             target_id = resolved
-        if (
-            target_id is None
-            and kind == "item"
-            and target.kind == "deployment_run"
-        ):
+        if target_id is None and kind == "item" and target.kind == "deployment_run":
             # An item-scoped deployment stage names its member in the
             # payload, not in target.item_id; that member is the thing a
             # caller holds a claim on.
@@ -238,9 +230,7 @@ def verify_claim(
         claim_id = target.claim_id
         payload = request.payload or {}
         process_key = payload.get("process_key")
-        if claim_id is None and (
-            target.kind in ("item", "epic_task") or process_key
-        ):
+        if claim_id is None and (target.kind in ("item", "epic_task") or process_key):
             resolved = _session_claim_id_for_target(
                 target,
                 actor_session,
@@ -253,9 +243,7 @@ def verify_claim(
                 elif target.kind == "item":
                     shape = item_ref_for_id(target.item_id)
                 else:
-                    shape = (
-                        f"epic_task ({target.epic_id}, {target.task_num})"
-                    )
+                    shape = f"epic_task ({target.epic_id}, {target.task_num})"
                 return _claim_error(
                     request,
                     fid,
@@ -267,7 +255,10 @@ def verify_claim(
                 )
             # Lookup filters on actor session — resolution is ownership proof.
             _allow_resolved_self_claim(
-                evidence, target, actor_session, resolved,
+                evidence,
+                target,
+                actor_session,
+                resolved,
             )
             return None
         if claim_id is None:

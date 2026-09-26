@@ -67,7 +67,8 @@ def resolve_qa_requirement_subject(
         with db_helpers.connect() as conn:
             p = _placeholder(conn)
             row = conn.execute(
-                "SELECT item_id, deployment_run_id FROM qa_requirements "
+                "SELECT item_id, deployment_run_id, deployment_member_item_id "
+                "FROM qa_requirements "
                 f"WHERE id = {p}",
                 (int(qa_requirement_id),),
             ).fetchone()
@@ -85,7 +86,7 @@ def resolve_qa_requirement_subject(
             "not_found",
             (f"qa_requirement_id={qa_requirement_id} not found"),
         )
-    item_id = row[0]
+    item_id = row[0] if row[0] is not None else row[2]
     deployment_run_id = row[1]
     if item_id is not None:
         return int(item_id), None, None, None
@@ -100,9 +101,7 @@ def resolve_qa_requirement_subject(
 
 
 def qa_subject_claim_verdict(
-    target: Any,
-    actor_session: str,
-    payload: Any,
+    request: Any,
 ) -> tuple[bool, Optional[str], Optional[str]]:
     """Decide whether ``actor_session`` may write against a QA subject.
 
@@ -112,9 +111,25 @@ def qa_subject_claim_verdict(
     it started, which is what lets an hour-long gate record the verdict it
     earned after the live claim was explicitly released or handed off.
     """
+    target = request.target
+    payload = request.payload
+    actor_session = request.actor.session_id
     if target.kind == "deployment_run" and target.deployment_run_id:
-        return True, None, None
-    target_id = target.item_id if target.kind == "item" else None
+        try:
+            from yoke_core.domain.db_helpers import connect
+            from yoke_core.domain.qa_deployment_function_subject import (
+                resolve_run_qa_subject,
+            )
+
+            with connect() as conn:
+                _project_id, _slug, member_id = resolve_run_qa_subject(conn, request)
+        except (LookupError, ValueError) as exc:
+            return False, "claim_required", str(exc)
+        if member_id is None:
+            return True, None, None
+        target_id = member_id
+    else:
+        target_id = target.item_id if target.kind == "item" else None
     if target.kind == "qa_requirement" and target.qa_requirement_id is not None:
         (
             target_id,

@@ -31,6 +31,11 @@ from yoke_core.domain.function_target_coordination_claim_project import (
 from yoke_core.domain.function_target_ouroboros_entry_project import (
     resolve_ouroboros_entry_context,
 )
+from yoke_core.domain.qa_deployment_function_subject import (
+    SCOPED_RUN_FUNCTIONS,
+    QaSubjectProjectError,
+    resolve_run_qa_subject,
+)
 from yoke_core.domain.function_unresolved_project import (
     ProjectNotRegisteredError,
     control_plane_label,
@@ -118,6 +123,9 @@ def resolve_project_context(
     target = request.target
     deployment_run_id = target.deployment_run_id or target.workflow_run_id
     if deployment_run_id is not None:
+        if entry.function_id in SCOPED_RUN_FUNCTIONS:
+            project_id, slug, _member_id = resolve_run_qa_subject(conn, request)
+            return project_id, slug
         deployment_project = resolve_deployment_run_project(
             conn,
             str(deployment_run_id),
@@ -136,6 +144,24 @@ def resolve_project_context(
             if hinted_project_id != deployment_project[0]:
                 return None
         return deployment_project
+    if entry.function_id.startswith("qa.") and target.qa_requirement_id is not None:
+        qa_project = resolve_qa_requirement_project(conn, int(target.qa_requirement_id))
+        if qa_project is None:
+            return None
+        if target.project_id:
+            try:
+                hinted_id = resolve_project_id(conn, str(target.project_id))
+            except LookupError as exc:
+                raise QaSubjectProjectError(
+                    f"QA project hint {target.project_id!r} was not found; "
+                    f"use project {qa_project[1]!r}"
+                ) from exc
+            if hinted_id != qa_project[0]:
+                raise QaSubjectProjectError(
+                    f"QA project hint {target.project_id!r} does not match "
+                    f"requirement project {qa_project[1]!r}; use that project"
+                )
+        return qa_project
     explicit = (
         target.project_id
         or request.payload.get("project_id")
@@ -236,7 +262,8 @@ def _resolve_github_actions_project_context(
         raise
     except LookupError as exc:
         raise ProjectNotRegisteredError(
-            payload_ref, plane=control_plane_label(),
+            payload_ref,
+            plane=control_plane_label(),
         ) from exc
     return project_id, slug_for_project_id(conn, project_id)
 

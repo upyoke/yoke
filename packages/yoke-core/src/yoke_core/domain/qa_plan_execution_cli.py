@@ -182,8 +182,10 @@ Exactly one subject flag is required, and it decides everything else.
       plans already attached to it.
 
   --deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN]
+      --project PROJECT
       One frozen QA stage of a deployment run. The stage must be the run's
       active pinned QA stage.
+      PROJECT is the member's project for item QA, or the run's for run QA.
 
 Release-time scope: a stage credits only its own name
 -----------------------------------------------------

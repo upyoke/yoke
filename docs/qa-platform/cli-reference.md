@@ -37,6 +37,11 @@ yoke qa plan run \
  --item YOK-N --transition reviewing-implementation \
  --base-url https://preview.example --machine test-mac-pro
 
+# Execute an item-scoped stage for a member of a shared release. The project
+# is the member's project, even when the deployment run belongs to another.
+yoke qa plan run --deployment-run-id RUN --stage item-qa \
+ --member PREFIX-N --project MEMBER-PROJECT
+
 # Submit the complete verdict batch requested by an exit-12 review descriptor
 printf '%s' '{"verdicts":[{"requirement_id":1,"verdict":"pass","rationale":"The captured frame matches the expected outcome."}]}' |
  yoke qa plan review-submit \
@@ -99,6 +104,15 @@ a `qa_verification` gate. Every `add-batch` row therefore includes
 default that field. Deployment-run-attached requirements are the one exception:
 their operator-debug creation path may omit a workflow transition because the
 run owns its delivery context.
+
+For a run's item-scoped QA stage, `--member` must name an attached item in the
+run's frozen membership and `--project` must name that item's project. The
+member's current work claim and project permission authorize the plan walk;
+its materialized requirements and later evidence writes retain the same
+project authority. Run-scoped QA continues to use the run's project. A wrong
+project hint, inactive or wrong stage, missing member, or plan from another
+project is refused before evidence is written. The case runner still verifies
+the exact deployed candidate; a newer deployment cannot certify an older run.
 
 | Command | Args | Description |
 |---|---|---|
