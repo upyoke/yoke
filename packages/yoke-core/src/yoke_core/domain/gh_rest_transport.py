@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json as _json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -111,7 +112,9 @@ def _request_with_retry(
     try:
         operation_deadline = deadline_after(timeout_seconds)
     except ValueError:
-        raise RestTransportError("GitHub REST timeout must be positive and finite") from None
+        raise RestTransportError(
+            "GitHub REST timeout must be positive and finite"
+        ) from None
 
     last_exc: Optional[RestTransportError] = None
     attempt_limit = max(1, max_attempts or gh_retry.MAX_RETRIES)
@@ -135,10 +138,16 @@ def _request_with_retry(
         except GitHubRestOperationDeadlineError as exc:
             raise RestNetworkError(str(exc)) from None
         except RestTransportError as exc:
-            if not replay_safe or not _is_retryable_error(exc) or attempt >= attempt_limit:
+            if (
+                not replay_safe
+                or not _is_retryable_error(exc)
+                or attempt >= attempt_limit
+            ):
                 raise
             last_exc = exc
-        wait = gh_retry.BACKOFF_SECONDS[min(attempt - 1, len(gh_retry.BACKOFF_SECONDS) - 1)]
+        wait = gh_retry.BACKOFF_SECONDS[
+            min(attempt - 1, len(gh_retry.BACKOFF_SECONDS) - 1)
+        ]
         print(
             f"GitHub REST retry {attempt}/{gh_retry.MAX_RETRIES} after {safe_diagnostic_text(str(last_exc), secrets=(token,))}; sleeping {wait}s",
             file=sys.stderr,
@@ -172,7 +181,9 @@ def _issue_once(
     try:
         url = _build_url(req)
     except RestTransportError as exc:
-        raise RestTransportError(safe_diagnostic_text(str(exc), secrets=(token,))) from None
+        raise RestTransportError(
+            safe_diagnostic_text(str(exc), secrets=(token,))
+        ) from None
     encoded_body: Optional[bytes] = None
     if req.body is not None:
         encoded_body = _json.dumps(req.body).encode("utf-8")
@@ -186,7 +197,9 @@ def _issue_once(
     if encoded_body is not None:
         headers["Content-Type"] = "application/json"
 
-    raw_request = urllib.request.Request(url, data=encoded_body, headers=headers, method=req.method.upper())
+    raw_request = urllib.request.Request(
+        url, data=encoded_body, headers=headers, method=req.method.upper()
+    )
     try:
         endpoint = github_api_urls.active_api_endpoint(GITHUB_API_BASE)
         injected_opener = None if urlopen is urllib.request.urlopen else urlopen
@@ -212,7 +225,9 @@ def _issue_once(
             except GitHubResponseTooLargeError as exc:
                 raise RestResponseTooLargeError(str(exc), status=status) from None
             except GitHubResponseDeadlineError:
-                raise RestNetworkError("GitHub REST response exceeded the time limit") from None
+                raise RestNetworkError(
+                    "GitHub REST response exceeded the time limit"
+                ) from None
             except Exception:
                 raise RestNetworkError("GitHub REST response read failed") from None
     except urllib.error.HTTPError as exc:
@@ -231,7 +246,9 @@ def _issue_once(
             body_text = "GitHub REST error response could not be read"
         else:
             try:
-                body_text = decode_utf8_response(body_bytes, label="GitHub REST error response")
+                body_text = decode_utf8_response(
+                    body_bytes, label="GitHub REST error response"
+                )
             except GitHubResponseDecodeError:
                 body_text = "GitHub REST error response was not valid UTF-8"
         body_text = safe_diagnostic_text(
@@ -243,11 +260,15 @@ def _issue_once(
     except urllib.error.URLError:
         raise RestNetworkError("GitHub REST network request failed") from None
     except ResponseOpenDeadlineError:
-        raise RestNetworkError("GitHub REST operation exceeded the time limit") from None
+        raise RestNetworkError(
+            "GitHub REST operation exceeded the time limit"
+        ) from None
     except (TimeoutError, OSError):
         raise RestNetworkError("GitHub REST network request failed") from None
     except GitHubApiOriginError as exc:
-        raise RestTransportError(safe_diagnostic_text(str(exc), secrets=(token,))) from None
+        raise RestTransportError(
+            safe_diagnostic_text(str(exc), secrets=(token,))
+        ) from None
     except RestTransportError:
         raise
     except Exception:
@@ -259,13 +280,16 @@ def _issue_once(
         raise RestResponseDecodeError(str(exc), status=status) from None
     body_text = redact_exact_secrets(body_text, (token,))
     parsed = _decode_json(body_text)
-
-    # Some GitHub mutation paths return 200 with an error envelope. Detect
-    # the documented "Base branch was modified" surfaces and propagate as
-    # a soft-retryable error so the retry loop can re-attempt.
-    if isinstance(parsed, dict):
+    # Pull merge alone has a 200 error envelope; other resource messages are data.
+    if (
+        status == 200
+        and req.method.upper() == "PUT"
+        and re.fullmatch(r"/repos/[^/]+/[^/]+/pulls/[1-9][0-9]*/merge", req.path)
+        and isinstance(parsed, dict)
+        and not parsed.get("merged")
+    ):
         message = str(parsed.get("message") or "")
-        if gh_retry.is_retryable_text(message):
+        if message.casefold().startswith("base branch was modified."):
             safe_message = safe_diagnostic_text(message, secrets=(token,))
             raise RestUnprocessableError(
                 f"retryable envelope message: {safe_message}",
@@ -276,13 +300,14 @@ def _issue_once(
                     maximum_chars=GITHUB_ERROR_BODY_LIMIT_CHARS,
                 ),
             )
-
     return RestResponse(status=status, headers=response_headers, body=parsed)
 
 
 def _build_url(req: RestRequest) -> str:
     try:
-        return github_api_urls.build_url(req.path, req.query, default_base=GITHUB_API_BASE)
+        return github_api_urls.build_url(
+            req.path, req.query, default_base=GITHUB_API_BASE
+        )
     except GitHubApiOriginError as exc:
         raise RestTransportError(str(exc)) from exc
 
