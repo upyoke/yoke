@@ -209,3 +209,46 @@ def test_a_failed_cross_project_carrier_delivers_nothing(db):
         bound_project_id=SEED_PROJECT_IDS["externalwebapp"],
     )
     assert fact.verdict is FactVerdict.ABSENT
+
+
+def test_a_later_cancelled_duplicate_does_not_shadow_the_delivering_run(db):
+    item_id = 8630
+    conn = connect_test_db(db)
+    try:
+        insert_item(
+            conn, id=item_id, source=str(seed_human_actor(conn)),
+            deployment_flow="prod-flow",
+        )
+        insert_deployment_run(
+            conn, id="run-delivered", flow="prod-flow", status="succeeded",
+            created_at="2026-01-01T00:00:00Z",
+        )
+        insert_deployment_run(
+            conn, id="run-duplicate", flow="prod-flow", status="cancelled",
+            created_at="2026-01-01T00:00:27Z",
+        )
+        _carry(conn, item_id, "run-delivered", "run-duplicate")
+        row = latest_completion_run(conn, item_id)
+    finally:
+        conn.close()
+    assert row is not None and row["id"] == "run-delivered"
+
+
+def test_a_lone_cancelled_run_is_still_reported_unless_skipped(db):
+    item_id = 8631
+    conn = connect_test_db(db)
+    try:
+        insert_item(
+            conn, id=item_id, source=str(seed_human_actor(conn)),
+            deployment_flow="prod-flow",
+        )
+        insert_deployment_run(
+            conn, id="run-only-cancelled", flow="prod-flow", status="cancelled",
+        )
+        _carry(conn, item_id, "run-only-cancelled")
+        reported = latest_completion_run(conn, item_id)
+        skipped = latest_completion_run(conn, item_id, skip_terminal_failures=True)
+    finally:
+        conn.close()
+    assert reported is not None and reported["status"] == "cancelled"
+    assert skipped is None
