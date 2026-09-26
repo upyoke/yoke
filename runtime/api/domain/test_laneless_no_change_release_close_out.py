@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """A laneless no-change Dash finishes its release wait on its own evidence.
 
 The done nonce proves a close-out that merges and cleans up; a Dash that

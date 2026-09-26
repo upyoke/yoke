@@ -138,7 +138,13 @@ member's scoped QA passes, is waived, or is explicitly discharged by
 `post_deploy_no_obligation`, a selected flow without run QA or run approval closes
 that final member after its own final production QA clears, even while
 sibling QA keeps the run executing. Run QA or run approval holds all final members
-through every item gate, shared gate, and run success. Automatic close-out ends an otherwise empty
+through every item gate, shared gate, and run success. Membership alone is not
+what closes a member: only a run of its own selected flow, or another
+project's run that recorded a bound source for its project, has that
+authority, and its success stamps the delivery evidence itself — no holder
+re-runs merge to record it. A final-delivery release refuses before execution
+a same-project member whose selected flow it cannot close, so compose each
+release on its members' own flow or reconcile the item's flow first. Automatic close-out ends an otherwise empty
 holder session; the worker re-parks after an acceptance wake only while the
 item remains at release wait, without rerunning merge for that acceptance.
 Any prompt clears a park, so a held worker you message for

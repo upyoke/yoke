@@ -252,7 +252,8 @@ def cmd_check_batch_compatibility(
     try:
         ident = resolve_project(conn, project)
         assert ident is not None
-        # ``flow`` identifies the proposed run; it does not restrict membership.
+        # ``flow`` identifies the proposed run. Whether that run may close each
+        # final member is judged on its composition, before it executes.
         _ = flow
         # Build placeholders for IN clause
         placeholders = ",".join("%s" for _ in item_ids)
