@@ -267,6 +267,11 @@ def _execute_update_once(
             if authoritative_gate_result is not None:
                 return authoritative_gate_result
 
+        if dry_run:
+            # Every gate above has answered; a preview writes nothing.
+            conn.rollback()
+            return {"success": True, "dry_run": True}
+
         old_status = item_dict["status"] if field == "status" else None
         from yoke_core.domain.backlog_status_write_precondition import (
             apply_prepared_item_writes,

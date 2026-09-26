@@ -131,7 +131,7 @@ def _delivery_now_discharged(conn: Any, item_id: int) -> bool:
     return fact is not None and fact.verdict == FactVerdict.PRESENT
 
 
-def _cleared_release_waits(conn: Any, run_id: str) -> list[dict[str, Any]]:
+def cleared_release_waits(conn: Any, run_id: str) -> list[dict[str, Any]]:
     """Members standing at a release wait this run's success discharged."""
     cleared: list[dict[str, Any]] = []
     for row in _run_members(conn, run_id):
@@ -232,9 +232,11 @@ def notify_delivery_cleared(
     """Tell every owner whose wait this run cleared, one isolated send each.
 
     A member whose scoped obligations passed or were discharged is closed
-    through the merge close-out instead of woken. If that automatic close-out
-    refuses, the ordinary isolated notice carries its detail and recovery to
-    the holder or steering seat. Returns one record per member with what
+    through the merge close-out instead of woken. The run's success write
+    previews every one of these close-outs first and holds the run if any
+    would refuse (:mod:`deployment_run_collective_finalization`), so a refusal
+    here is one that appeared after that preview; the ordinary isolated
+    notice carries its detail and recovery to the holder or steering seat. Returns one record per member with what
     delivery did, so a caller can report a notice or close-out that did not
     land without treating it as a run failure. Call it only after the run's
     own status is committed.
@@ -245,13 +247,14 @@ def notify_delivery_cleared(
             "public_ref": member["public_ref"],
             "delivery": _close_or_wake(conn, member, run_id, stamp),
         }
-        for member in _cleared_release_waits(conn, run_id)
+        for member in cleared_release_waits(conn, run_id)
     ]
 
 
 __all__ = [
     "DELIVERY_CLEARED_KEY_PREFIX",
     "delivery_cleared_idempotency_key",
+    "cleared_release_waits",
     "delivery_cleared_message",
     "notify_delivery_cleared",
 ]

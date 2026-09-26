@@ -63,7 +63,10 @@ that closes you exists. Neither a same-project run of another flow nor a
 failed run discharges the item. Keep waiting for a run that does, and when you
 report, say your code may already be serving so the reader does not read your
 open wait as an unshipped change. That run's success stamps your delivery
-evidence itself, so do not re-run the merge just to record it.
+evidence itself, so do not re-run the merge just to record it. If your
+close-out would refuse, the run does not succeed without you: it holds at its
+prior status, you keep your claim and lane, and the refusal names what to
+repair before the run is re-driven.
 
 A stage that wants your evidence is run by naming that stage AND your item.
 When you attached an item QA plan at verify, the stage has already resolved it
