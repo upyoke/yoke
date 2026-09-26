@@ -34,6 +34,10 @@ both repairs: select the run's flow for the item, or cancel the run and
 deliver the item on its own flow. When a release with that authority
 succeeds, it stamps each member's delivery evidence and closes every member
 whose item and shared gates have passed, with no holder re-running a merge.
+Run success and those close-outs settle together. If any cleared member's
+close-out would refuse, the run keeps its prior status and nothing closes.
+Every claim and lane is kept, and the refusal names each member, its reason,
+and the re-drive: `yoke deployment-runs update RUN status succeeded`.
 When a no-change Dash that never opened a lane is left at its release wait,
 its holder closes it with `yoke lifecycle transition PREFIX-N --to done`.
 That transition still requires the succeeded run, QA, and approval.
