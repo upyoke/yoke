@@ -142,10 +142,10 @@ through every item gate, shared gate, and run success. Membership alone is not
 what closes a member: only a run of its own selected flow, or another
 project's run that recorded a bound source for its project, has that
 authority, and its success stamps the delivery evidence itself — no holder
-re-runs merge to record it. Run success and member close-out settle together:
-a cleared member whose close-out would refuse holds the run at its prior
-status with every claim and lane kept, and the refusal names the member and
-the re-drive. A final-delivery release refuses before execution
+re-runs merge to record it. A run reads succeeded only after every cleared
+member has closed: until then it stays executing and settling, a refusal or
+interruption leaves it there with the remaining members' claims and lanes
+kept, and re-driving `status succeeded` replays settlement. A final-delivery release refuses before execution
 a same-project member whose selected flow it cannot close, so compose each
 release on its members' own flow or reconcile the item's flow first. Automatic close-out ends an otherwise empty
 holder session; the worker re-parks after an acceptance wake only while the

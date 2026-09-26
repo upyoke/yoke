@@ -193,28 +193,25 @@ def cmd_update(
                 return None
 
             if value in ("succeeded", "failed", "cancelled"):
+                if value == "succeeded":
+                    from yoke_core.domain.deployment_run_collective_finalization import (
+                        mark_settling,
+                        settle_members,
+                    )
+
+                    # Every cleared member closes before the run may read
+                    # succeeded. Settling is durable and non-terminal, so a
+                    # refusal or an interruption here is replayed by the
+                    # next re-drive rather than leaving a green run behind.
+                    mark_settling(conn, run_id)
+                    if refusal := settle_members(conn, run_id):
+                        return refusal
                 completed_at = iso8601_now()
                 conn.execute(
                     "UPDATE deployment_runs SET status=%s, completed_at=%s WHERE id=%s",
                     (value, completed_at, run_id),
                 )
                 if value == "succeeded":
-                    from yoke_core.domain.deployment_run_collective_finalization import (
-                        member_close_out_refusal,
-                    )
-
-                    # Members' gates read delivery from committed rows, so
-                    # the status commits before they are asked — and is
-                    # restored if any member's close-out would refuse.
-                    conn.commit()
-                    if refusal := member_close_out_refusal(conn, run_id):
-                        conn.execute(
-                            "UPDATE deployment_runs SET status=%s, "
-                            "completed_at=NULL WHERE id=%s",
-                            (status, run_id),
-                        )
-                        conn.commit()
-                        return refusal
                     from yoke_core.domain.deployment_run_carried_work import (
                         record_carried_work,
                     )

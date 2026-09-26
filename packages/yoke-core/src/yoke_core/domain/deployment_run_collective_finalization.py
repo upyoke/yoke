@@ -1,69 +1,44 @@
-"""Run success and member close-out settle together, or neither does.
+"""A run reads succeeded only after every cleared member has closed.
 
-A run whose shared gates passed used to commit ``succeeded`` first and close
-its members one by one afterwards. A member whose close-out then refused was
-left at its release wait under a green run — delivered by every record, done
-by none, with a holder woken to repair what the release had already decided.
+A run whose shared gates passed used to commit ``succeeded`` and close its
+members afterwards, so any refusal, failed write, or interrupted process in
+between left a green run over members still at their release wait.
 
-So before a run is left succeeded, every member it clears is asked whether
-its close-out would land: the same close-out, every gate answered, nothing
-written. Any refusal holds the run at its prior status with each member and
-its reason named. Nothing is closed, released, or cleaned up, so every claim
-and lane is exactly where it was for the repair and the re-drive.
+Settlement reverses that order through one durable, non-terminal state. The
+run stays ``executing`` and records ``settling_at``; completion authority
+reads a settling run as delivered, so each member's own done gates can pass.
+Every cleared member is then closed for real, each committed on its own. Only
+when none is left does the caller write ``succeeded``.
 
-The question has to be asked of a succeeded run, because each gate reads
-delivery from committed rows on its own connection. The caller therefore
-writes ``succeeded``, asks, and on refusal restores the run's prior status.
-The one thing the question writes is the delivery rung each preview stamps;
-a refusal restores those rows too, so a held run leaves no evidence claiming
-a delivery that did not settle.
+Anything that stops settlement part way leaves exactly that state behind: the
+run ``executing`` and settling, the members that closed done, and every other
+member at its release wait with its claim and lane. Re-driving ``status
+succeeded`` replays settlement from there — a member already done is no longer
+at its wait, so nothing is closed twice.
 """
 
 from __future__ import annotations
 
 from typing import Any, Optional
 
-
-_STAMP_COLUMNS = (
-    "rung_id",
-    "target_status",
-    "detail",
-    "facts",
-    "recorded_at",
-    "recorded_by_session_id",
-)
+from yoke_core.domain.db_helpers import iso8601_now
 
 
-def _delivery_stamp(conn: Any, item_id: int) -> Optional[tuple]:
-    row = conn.execute(
-        f"SELECT {','.join(_STAMP_COLUMNS)} FROM item_gate_satisfactions "
-        "WHERE item_id=%s AND obligation='delivery_evidence'",
-        (int(item_id),),
-    ).fetchone()
-    return None if row is None else tuple(row)
-
-
-def _restore_delivery_stamp(conn: Any, item_id: int, prior: Optional[tuple]) -> None:
-    if prior is None:
-        conn.execute(
-            "DELETE FROM item_gate_satisfactions "
-            "WHERE item_id=%s AND obligation='delivery_evidence'",
-            (int(item_id),),
-        )
-        return
-    assignments = ",".join(f"{column}=%s" for column in _STAMP_COLUMNS)
+def mark_settling(conn: Any, run_id: str) -> None:
+    """Record, once and durably, that this run is settling its members."""
     conn.execute(
-        f"UPDATE item_gate_satisfactions SET {assignments} "
-        "WHERE item_id=%s AND obligation='delivery_evidence'",
-        (*prior, int(item_id)),
+        "UPDATE deployment_runs SET settling_at=COALESCE(settling_at, %s) "
+        "WHERE id=%s AND status='executing'",
+        (iso8601_now(), run_id),
     )
+    conn.commit()
 
 
-def member_close_out_refusal(conn: Any, run_id: str) -> Optional[str]:
-    """Name every cleared member whose close-out would refuse, or ``None``.
+def settle_members(conn: Any, run_id: str) -> Optional[str]:
+    """Close every cleared member; name each that refused, or ``None``.
 
-    Call with the run's ``succeeded`` status committed. On a refusal the
-    preview's delivery stamps are already restored when this returns.
+    Call after :func:`mark_settling`. A refusal leaves the run settling for
+    a re-drive; the members that did close stay done.
     """
     from yoke_core.domain.deployment_delivery_close_out_notice import (
         cleared_release_waits,
@@ -72,33 +47,29 @@ def member_close_out_refusal(conn: Any, run_id: str) -> Optional[str]:
         close_out_satisfied_delivery_member,
     )
 
-    members = cleared_release_waits(conn, run_id)
-    priors = {int(m["item_id"]): _delivery_stamp(conn, m["item_id"]) for m in members}
     refused: list[str] = []
-    for member in members:
+    for member in cleared_release_waits(conn, run_id):
         outcome = close_out_satisfied_delivery_member(
             conn,
             item_id=int(member["item_id"]),
             public_ref=str(member["public_ref"]),
             run_id=run_id,
-            preview=True,
+            continue_run=False,
         )
         if outcome.applies and not outcome.ok:
             refused.append(f"{member['public_ref']}: {outcome.detail}")
     if not refused:
         return None
-    for item_id, prior in priors.items():
-        _restore_delivery_stamp(conn, item_id, prior)
-    conn.commit()
     return (
-        f"Error: cannot set status=succeeded -- {len(refused)} member "
-        f"close-out(s) of run {run_id} would refuse, and run success and "
-        f"member close-out settle together: {'; '.join(refused)}. The run "
-        "keeps its prior status and every member keeps its claim and lane. "
-        "Repair each named member, then re-drive completion under the "
-        f"project deploy lock with `yoke deployment-runs update {run_id} "
-        "status succeeded`."
+        f"Error: cannot set status=succeeded -- run {run_id} is settling and "
+        f"{len(refused)} member close-out(s) refused: {'; '.join(refused)}. "
+        "A run reads succeeded only after every cleared member closes, so it "
+        "stays executing and settling; members that closed stay done, and "
+        "every other member keeps its claim and lane. Repair each named "
+        "member, then re-drive under the project deploy lock with `yoke "
+        f"deployment-runs update {run_id} status succeeded`, which replays "
+        "settlement from here."
     )
 
 
-__all__ = ["member_close_out_refusal"]
+__all__ = ["mark_settling", "settle_members"]

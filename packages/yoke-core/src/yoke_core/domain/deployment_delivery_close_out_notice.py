@@ -233,9 +233,10 @@ def notify_delivery_cleared(
 
     A member whose scoped obligations passed or were discharged is closed
     through the merge close-out instead of woken. The run's success write
-    previews every one of these close-outs first and holds the run if any
-    would refuse (:mod:`deployment_run_collective_finalization`), so a refusal
-    here is one that appeared after that preview; the ordinary isolated
+    has already settled every such member before the run could read
+    succeeded (:mod:`deployment_run_collective_finalization`), so this finds
+    them done; what remains here is the member whose holder still owes
+    post-deploy work. If a close-out does refuse, the ordinary isolated
     notice carries its detail and recovery to the holder or steering seat. Returns one record per member with what
     delivery did, so a caller can report a notice or close-out that did not
     land without treating it as a run failure. Call it only after the run's
