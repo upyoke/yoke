@@ -97,11 +97,11 @@ EXECUTABLE_REQUIREMENT = (
 )
 
 #: Which project a requirement belongs to, however it is attached. A
-#: plan-backed row inherits its plan's project; a planless row takes it from
-#: the subject it names — its item, its epic, or its deployment run. The
+#: deployment member owns its stage cases; otherwise a plan-backed row
+#: inherits its plan's project, and a planless row takes its item or run.
 #: projects join stays inner, so a row whose project cannot be resolved this
 #: way is readable by nobody rather than by every tenant.
-PROJECT_OF_REQUIREMENT = "COALESCE(p.project_id, si.project_id, dr.project_id)"
+PROJECT_OF_REQUIREMENT = "COALESCE(mi.project_id, p.project_id, si.project_id, dr.project_id)"
 
 #: What a project-scoped read filters on. It is the resolved project above,
 #: read off the joined row, so plan-backed and planless rows are scoped by
@@ -112,6 +112,7 @@ ACTIVITY_SOURCE = (
     "FROM qa_requirements q "
     "LEFT JOIN qa_plans p ON p.id=q.plan_id "
     "LEFT JOIN items si ON si.id=COALESCE(q.item_id, q.epic_id) "
+    "LEFT JOIN items mi ON mi.id=q.deployment_member_item_id "
     "LEFT JOIN deployment_runs dr ON dr.id=q.deployment_run_id "
     f"JOIN projects pr ON pr.id={PROJECT_OF_REQUIREMENT} "
     "LEFT JOIN qa_methods m ON m.id=q.method_id "

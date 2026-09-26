@@ -25,7 +25,12 @@ from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
 from yoke_core.domain.browser_qa_case_target import resolve_case_deployment_under_test
+from yoke_core.domain.qa_activity_reads import list_activity
+from yoke_core.domain.qa_artifact_storage import requirement_storage_owner
+from yoke_core.domain.qa_case_execution_context import get_case_execution_context
+from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.handlers.qa_case_execution import handle_case_execution_begin
+from yoke_core.domain.handlers.qa_reads import handle_qa_run_get
 from yoke_core.domain.qa_plan_execution_state import (
     advance_plan_execution,
     begin_plan_execution,
@@ -76,6 +81,11 @@ def test_member_project_authorizes_every_plan_leg_and_requirement(
         agent_plan="consumer-smoke",
     )
     requirement_id = materialized["created_requirement_ids"][0]
+    context = get_case_execution_context(conn, requirement_id=requirement_id)
+    assert (context["project_id"], context["project"]) == (
+        release["consumer_id"], CONSUMER_PROJECT
+    )
+    assert requirement_storage_owner(conn, requirement_id)["project"] == CONSUMER_PROJECT
     assert materialized["candidate_revision"] == str(
         conn.execute(
             "SELECT release_lineage FROM deployment_runs WHERE id=%s", (RUN,)
@@ -174,6 +184,12 @@ def test_member_project_authorizes_every_plan_leg_and_requirement(
             verdict = qa_subject_claim_verdict(leg)
             assert verdict[0], verdict
     qa_run_id = record_case_verdict(conn, requirement_id, "pass", evidence=True)
+    member_run = _request("qa.run.get", requirement_id=requirement_id)
+    member_run.payload = {"run_id": qa_run_id, "project": CONSUMER_PROJECT}
+    assert handle_qa_run_get(member_run).primary_success
+    carrier_run = _request("qa.run.get", requirement_id=requirement_id, project="yoke")
+    carrier_run.payload = {"run_id": qa_run_id, "project": "yoke"}
+    assert not handle_qa_run_get(carrier_run).primary_success
     advance_plan_execution(
         conn,
         execution,
@@ -187,6 +203,13 @@ def test_member_project_authorizes_every_plan_leg_and_requirement(
         },
     )
     finish_plan_execution(conn, execution, state="completed", reason="test-complete")
+    assert [row["requirement_id"] for row in list_activity(
+        conn, project=CONSUMER_PROJECT, deployment_run_id=RUN
+    )] == [requirement_id]
+    assert not list_activity(conn, project="yoke", deployment_run_id=RUN)
+    assert deployment_qa_stage_status(
+        conn, run_id=RUN, stage_name=STAGE, member_item_id=CONSUMER_ITEM_ID
+    )["accepted"]
     assert (
         conn.execute(
             "SELECT state FROM qa_plan_executions WHERE id=%s", (execution["id"],)
