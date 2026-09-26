@@ -92,9 +92,11 @@ evaluator/client-wall coverage, are labelled incomparable.
 - **Frontier** — work in the four states work is in: stopped and why,
   free to pick up, being worked on right now, and finished in the last day
 - **Shipping** — deployment runs as they execute, with what each release
-  carries, pending approvals, and resolved approvals naming who decided and
-  when. A run whose stages are complete but whose members are still being
-  settled reads **finalizing** until its authoritative status succeeds.
+  carries, pending human approvals and QA reviews, and resolved decisions
+  naming who decided and when. Member and run QA decisions remain distinct
+  from the agent's QA verdict. A run whose stages are complete but whose
+  members are still being settled reads **finalizing** until its authoritative
+  status succeeds.
 - **Inbox** — three sections: the decisions waiting on you (a release
   approval, a work approval, or a QA review), the messages sent to you, and
   what you decided while on the page. An agent that needs you to know

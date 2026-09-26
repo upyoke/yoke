@@ -30,6 +30,16 @@ function decision(action) {
   };
 }
 
+function qaDecision(action, memberId = null) {
+  return {
+    ...decision(action), kind: "qa_needs_review",
+    subject_context: { subject: {
+      kind: "deployment_run", deployment_run_id: "run-shipping-proof",
+      deployment_member_item_id: memberId,
+    } },
+  };
+}
+
 test("pending approval keeps its action and waiting status", () => {
   const card = render(run({ gates: [{
     request_id: 77, kind: "deployment_stage_approval", status: "pending",
@@ -39,6 +49,31 @@ test("pending approval keeps its action and waiting status", () => {
   assert.equal(byClass(card, "review-action").length, 2);
   assert.equal(byClass(card, "run-decision-record").length, 0);
 });
+
+test("pending run QA review keeps its action and waiting status", () => {
+  const card = render(run({ gates: [{
+    ...qaDecision("approve"), status: "pending",
+    actions: ["approve", "reject"], can_act: true,
+  }] }));
+  assert.ok(card.classList.contains("is-awaiting-review"));
+  assert.equal(byClass(card, "review-action").length, 2);
+  assert.equal(byClass(card, "run-decision-record").length, 0);
+});
+
+for (const memberId of [null, 42]) {
+  for (const [action, word] of [["approve", "Approved"], ["reject", "Rejected"]]) {
+    test(`${word.toLowerCase()} ${memberId ? "member" : "run"} QA review is read only`, () => {
+      const gate = qaDecision(action, memberId);
+      const card = render(run({ gates: [gate] }));
+      const record = byClass(card, "run-decision-record")[0];
+      assert.match(record.textContent, new RegExp(`${word} by Ben Bauman`));
+      assert.equal(allNodes(record).filter((node) => node.tagName === "TIME")[0]
+        .getAttribute("datetime"), "2026-09-26T10:30:00.000Z");
+      assert.equal(byClass(card, "review-action").length, 0);
+      assert.deepEqual(runGates(run({ gates: [gate] })), []);
+    });
+  }
+}
 
 for (const [action, word] of [["approve", "Approved"], ["reject", "Rejected"]]) {
   test(`${word.toLowerCase()} approval names actor and time without actions`, () => {

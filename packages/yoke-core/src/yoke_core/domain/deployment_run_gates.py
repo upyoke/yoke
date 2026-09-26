@@ -9,8 +9,9 @@ rather than growing a second, thinner account of the same decision.
 
 Two kinds reach a run. ``deployment_stage_approval`` carries both a pending
 action and its resolved human decision, keyed ``{run_id}:{stage}``.
-``qa_needs_review`` is a pending human review of an undetermined agent verdict,
-reaching the run through ``qa_requirements.deployment_run_id``.
+``qa_needs_review`` carries pending and resolved human reviews of run-level
+and member QA evidence, reaching the run through
+``qa_requirements.deployment_run_id``.
 """
 
 from __future__ import annotations
@@ -56,7 +57,7 @@ def _qa_review_gates(
     conn: Any,
     run_ids: list[str],
 ) -> list[tuple[str, int]]:
-    """Pair each run with pending reviews of its own run-level QA checks."""
+    """Pair each run with pending and resolved reviews of its QA checks."""
     if not _table_exists(conn, "qa_requirements"):
         return []
     p = _p(conn)
@@ -67,7 +68,7 @@ def _qa_review_gates(
         "JOIN qa_requirements qr "
         "ON CAST(qr.id AS TEXT) = dr.subject_key "
         f"WHERE dr.kind = {p} AND dr.subject_type = 'qa_requirement' "
-        f"AND dr.status = 'pending' "
+        f"AND dr.status IN ('pending', 'resolved') "
         f"AND qr.deployment_run_id IN ({markers})",
         (QA_NEEDS_REVIEW, *run_ids),
     ).fetchall()
