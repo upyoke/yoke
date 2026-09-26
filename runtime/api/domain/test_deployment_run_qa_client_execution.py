@@ -5,6 +5,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest import mock
 
+import pytest
+
 from runtime.api.domain.deployment_run_qa_plan_execution_test_support import (
     RUN_ID,
     deployment_run,
@@ -18,6 +20,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain import qa_case_execution, qa_plan_execution
 from yoke_core.domain.function_target_resolution import resolve_project_context
+from yoke_core.domain.qa_deployment_function_subject import QaSubjectProjectError
 
 
 def test_client_materializes_before_server_authorized_run_execution() -> None:
@@ -89,10 +92,10 @@ def test_client_materializes_before_server_authorized_run_execution() -> None:
     assert [function for function, _target, _payload in calls] == [
         "qa.plan.materialize",
         "qa.plan_execution.begin",
-            "qa.plan_execution.heartbeat",
-            "qa.plan_execution.advance",
-            "qa.plan_review.begin",
-            "qa.plan_execution.complete",
+        "qa.plan_execution.heartbeat",
+        "qa.plan_execution.advance",
+        "qa.plan_review.begin",
+        "qa.plan_execution.complete",
     ]
     assert all(target.kind == "deployment_run" for _, target, _ in calls)
     assert calls[0][2] == {
@@ -124,4 +127,5 @@ def test_deployment_run_project_hint_must_match_row_authority() -> None:
             }
         )
         assert resolve_project_context(conn, entry, matching) == (1, "yoke")
-        assert resolve_project_context(conn, entry, mismatched) is None
+        with pytest.raises(QaSubjectProjectError, match="does not match"):
+            resolve_project_context(conn, entry, mismatched)

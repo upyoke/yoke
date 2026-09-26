@@ -261,8 +261,7 @@ def _named_or_run_target(
     """Resolve case/run authority when no frozen snapshot is on the row."""
     marker = _p(conn)
     row = conn.execute(
-        f"SELECT target_env, deployment_run_id FROM qa_requirements "
-        f"WHERE id={marker}",
+        f"SELECT target_env, deployment_run_id FROM qa_requirements WHERE id={marker}",
         (int(requirement_id),),
     ).fetchone()
     if row is None:
@@ -313,14 +312,19 @@ def resolve_case_deployment_under_test(
     bound_project = target.get("project")
     if isinstance(bound_project, Mapping) and bound_project.get("id") is not None:
         if int(bound_project["id"]) != int(project_id):
-            return DeploymentUnderTest(
-                unresolved=(
-                    "this Browser case is bound to an execution target owned "
-                    f"by project {int(bound_project['id'])}, not "
-                    f"{int(project_id)}; its evidence would answer for another "
-                    "project's deployment"
-                )
+            from yoke_core.domain.qa_deployment_function_subject import (
+                bound_target_project_for_member,
             )
+
+            host_id = bound_target_project_for_member(
+                conn, target, project_id, requirement_id
+            )
+            if host_id is None:
+                return DeploymentUnderTest(
+                    unresolved="this Browser case is bound to another project's "
+                    "deployment without a verified run-member QA subject"
+                )
+            project_id = host_id
     if str(environment.get("kind") or "") == RUN_PREVIEW_KIND:
         return _receipt_located_preview(conn, target, project_id=int(project_id))
     name = str(environment.get("name") or "")

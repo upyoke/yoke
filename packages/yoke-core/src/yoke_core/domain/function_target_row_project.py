@@ -176,6 +176,27 @@ def resolve_qa_requirement_project(
 ) -> tuple[int, str] | None:
     p = _p(conn)
     try:
+        subject_row = conn.execute(
+            "SELECT deployment_run_id,deployment_stage,deployment_member_item_id "
+            f"FROM qa_requirements WHERE id = {p}",
+            (qa_requirement_id,),
+        ).fetchone()
+        if subject_row is None:
+            return None
+        if subject_row[2] is not None:
+            from yoke_core.domain.deployment_qa_stage_contract import (
+                deployment_qa_stage_subject,
+            )
+
+            subject = deployment_qa_stage_subject(
+                conn,
+                run_id=str(subject_row[0]),
+                stage_name=str(subject_row[1] or ""),
+                member_item_id=int(subject_row[2]),
+                require_active=False,
+            )
+            project_id = int(subject["member_project_id"])
+            return project_id, slug_for_project_id(conn, project_id)
         row = conn.execute(
             "SELECT p.id, p.slug "
             "FROM qa_requirements q "
@@ -185,7 +206,7 @@ def resolve_qa_requirement_project(
             f"WHERE q.id = {p}",
             (qa_requirement_id,),
         ).fetchone()
-    except db_backend.database_error_types():
+    except (*db_backend.database_error_types(), LookupError, ValueError):
         return None
     if row is None:
         return None
