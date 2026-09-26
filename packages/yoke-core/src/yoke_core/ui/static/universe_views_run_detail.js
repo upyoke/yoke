@@ -149,9 +149,8 @@ function decisionCard(context, row, project, onAct, evidenceShown, itemFacts, on
   return card;
 }
 
-async function readRun(context, runId, scope) {
+async function readRun(context, runId) {
   const page = { page_size: RUNS_PAGE_SIZE, search: runId };
-  if (Array.isArray(scope) && scope.length) page.projects = scope.map(String);
   const { callResults, failed } = await settledScopedCalls(context, [
     { functionId: "deployment_runs.list", payload: { page } },
   ]);
@@ -167,7 +166,7 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   if (typeof navigation.setDetailLabel === "function") navigation.setDetailLabel(String(runId));
   const loading = section(documentNode, String(runId));
   main.replaceChildren(loading);
-  const read = await readRun(context, runId, scope);
+  const read = await readRun(context, runId);
   if (!context.isMounted()) return;
   if (read.failed) {
     loading.renderEnvelope(read.failed, (body) => renderError(body, read.failed));
@@ -175,7 +174,7 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   }
   if (!read.row) {
     loading.renderEnvelopes([], (body) => {
-      body.appendChild(el(documentNode, "p", "empty", `There is no run called ${runId} in this scope.`));
+      body.appendChild(el(documentNode, "p", "empty", `There is no accessible run called ${runId}.`));
       const back = el(documentNode, "a", "review-link", "Back to Deployments");
       back.href = deploymentRunsHref(Array.isArray(scope) ? scope.join(",") : null);
       body.appendChild(back);

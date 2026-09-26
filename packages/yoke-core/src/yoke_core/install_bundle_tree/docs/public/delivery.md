@@ -13,6 +13,10 @@ subject:
 
 Flows is the tab Deployments opens on. Runs live at `#/deployments/runs`, and
 one run at `#/deployments/runs/<run id>`.
+The run page reads that exact run across every project the viewer can access,
+so its members include work from another project even when opened from a
+project-filtered list. The list itself keeps its chosen project filter; run
+checks and the target environment still belong to the run's owning project.
 
 ## Item-bound delivery
 
