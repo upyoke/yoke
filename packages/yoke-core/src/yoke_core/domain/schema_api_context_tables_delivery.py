@@ -82,6 +82,7 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("composition_frozen_at", "TEXT"),
             ("requirement_snapshot", "TEXT"),
             ("driver_attachment", "TEXT"),
+            ("settling_at", "TEXT"),
         ],
         "notes": (
             "One row per deployment-flow execution. Primary key is the "
@@ -142,6 +143,10 @@ DELIVERY_TABLES: dict[str, dict] = {
             "attachment is still live refuses by name; an empty or stale "
             "attachment is an interrupted driver, recovered by re-driving "
             "the same run id. "
+            "`settling_at` marks an `executing` run whose shared gates "
+            "passed and which is closing its cleared members before it may "
+            "read `succeeded`; completion authority treats it as delivered, "
+            "and re-driving `status succeeded` replays the settlement. "
             "Stale-run HCs scan rows where `status` is non-terminal "
             "but `started_at` is older than the configured cutoff; "
             "item-less is suspicious only when a run never starts."

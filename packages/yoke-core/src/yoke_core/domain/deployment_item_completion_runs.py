@@ -10,6 +10,12 @@ A membership closes the item when :func:`membership_closes_item` says so: a
 run of the item's own completion flow, or another project's run that recorded
 a bound source commit for the item's project. Carried code alone, or a
 same-project run of any other flow, is membership without authority.
+
+A run that is settling (``settling_at`` set while it still reads
+``executing``) passed every shared gate and is closing its members before it
+may read ``succeeded``. Its delivery happened, so completion authority reads
+it as succeeded; that is what lets those members' own done gates pass while
+the run itself stays non-terminal until they have.
 """
 
 from __future__ import annotations
@@ -28,6 +34,13 @@ from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 def _row_value(row: Any, key: str, position: int) -> Any:
     return row[key] if hasattr(row, "keys") else row[position]
+
+
+def _settling_column(conn: Any) -> str:
+    """Select the settlement marker, or empty on an unconverged plane."""
+    if _column_exists(conn, "deployment_runs", "settling_at"):
+        return "COALESCE(dr.settling_at, '') AS settling_at"
+    return "'' AS settling_at"
 
 
 def _bound_sources_column(conn: Any) -> str:
@@ -56,7 +69,7 @@ def completion_runs(conn: Any, item_id: int) -> list[dict[str, Any]]:
         "SELECT dr.id, dr.status, dr.current_stage, dr.project_id, "
         "COALESCE(dr.release_lineage, '') AS release_lineage, dr.flow, "
         "i.project_id AS item_project_id, "
-        f"{_bound_sources_column(conn)} "
+        f"{_bound_sources_column(conn)}, {_settling_column(conn)} "
         "FROM deployment_runs dr "
         "JOIN deployment_run_items dri ON dr.id = dri.run_id "
         "JOIN items i ON i.id = dri.item_id "
@@ -84,10 +97,13 @@ def completion_runs(conn: Any, item_id: int) -> list[dict[str, Any]]:
             source_sha=source_sha,
         ):
             continue
+        status = str(_row_value(row, "status", 1) or "")
+        if status == "executing" and str(_row_value(row, "settling_at", 8) or ""):
+            status = "succeeded"
         closing.append(
             {
                 "id": str(_row_value(row, "id", 0) or ""),
-                "status": str(_row_value(row, "status", 1) or ""),
+                "status": status,
                 "current_stage": str(_row_value(row, "current_stage", 2) or ""),
                 "project_id": item_project,
                 "release_lineage": source_sha,

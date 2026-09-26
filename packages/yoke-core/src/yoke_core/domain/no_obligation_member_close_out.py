@@ -77,7 +77,12 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
 
 
 def close_out_satisfied_delivery_member(
-    conn: Any, *, item_id: int, public_ref: str, run_id: str, preview: bool = False
+    conn: Any,
+    *,
+    item_id: int,
+    public_ref: str,
+    run_id: str,
+    continue_run: bool = True,
 ) -> DeliveryMemberCloseOut:
     """Run the merge close-out for one delivery-cleared satisfied member.
 
@@ -85,16 +90,14 @@ def close_out_satisfied_delivery_member(
     invents ``--result`` or ``--verification``. The status write is the
     same ``backlog.execute_update`` the merge close-out already uses,
     with a request-scoped claim bypass so it can run with no session.
-    ``preview`` answers every gate of that write without making it, so a
-    run can learn whether its members would close before it settles.
+    ``continue_run=False`` is the run's own settlement closing its members:
+    that caller finishes the run itself once every member has closed.
     """
     if not satisfied_delivery_member(conn, item_id=int(item_id), run_id=run_id):
         return DeliveryMemberCloseOut(applies=False)
     try:
-        closed = _close_out(
-            conn, item_id=int(item_id), public_ref=str(public_ref), preview=preview
-        )
-        if closed.ok and not preview:
+        closed = _close_out(conn, item_id=int(item_id), public_ref=str(public_ref))
+        if closed.ok and continue_run:
             from yoke_core.domain.deployment_run_auto_completion import (
                 continue_after_settlement,
             )
@@ -111,9 +114,7 @@ def close_out_satisfied_delivery_member(
         )
 
 
-def _close_out(
-    conn: Any, *, item_id: int, public_ref: str, preview: bool = False
-) -> DeliveryMemberCloseOut:
+def _close_out(conn: Any, *, item_id: int, public_ref: str) -> DeliveryMemberCloseOut:
     from yoke_core.domain import backlog
     from yoke_core.domain.project_identity import render_item_ref
     from yoke_core.domain.standalone_item_merge import sync_item_to_github
@@ -161,7 +162,6 @@ def _close_out(
             done_nonce_verified=True,
             expected_status=status,
             no_github=True,
-            dry_run=preview,
         )
     if not result.get("success"):
         return DeliveryMemberCloseOut(
@@ -171,8 +171,6 @@ def _close_out(
                 result.get("error") or captured.getvalue() or "close-out refused"
             ),
         )
-    if preview:
-        return DeliveryMemberCloseOut(applies=True, ok=True, detail="would close")
     github_error = sync_item_to_github(item_id)
     envelope: dict[str, Any] = {"warnings": []}
     if github_error:
