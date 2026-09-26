@@ -10,13 +10,15 @@
 import { reviewRequestCard } from "./review_request_card.js";
 import { KIND_LABELS } from "./review_request_presentation.js";
 import { el } from "./universe_view_support.js";
+import { relativeTime } from "./universe_time.js";
 
 // The two kinds that reach a run. Anything else on the gates list is not a
 // decision this card knows how to draw, and is left to the Inbox.
 const RUN_GATE_KINDS = new Set(["deployment_stage_approval", "qa_needs_review"]);
 
 export function runGates(row) {
-  return (row?.gates || []).filter((gate) => RUN_GATE_KINDS.has(gate.kind));
+  return (row?.gates || []).filter((gate) =>
+    RUN_GATE_KINDS.has(gate.kind) && gate.status !== "resolved");
 }
 
 // A gate row as the card expects a request: the run gate projection keys
@@ -33,16 +35,29 @@ export function gateAsRequest(gate) {
 // the page — a member's own review, drawn on that member's row. Skipping them
 // here is what keeps one decision from appearing twice on one card with two
 // sets of Approve controls.
-export function appendRunGates(context, card, gates, onAct, options = {}) {
+export function appendRunGates(context, card, row, onAct, options = {}) {
   const documentNode = context.document;
+  const gates = row.gates || [];
   const drawn = options.drawnRequestIds || new Set();
   const rows = (gates || []).filter(
     (gate) => RUN_GATE_KINDS.has(gate.kind)
       && !drawn.has(String(gate.request_id)),
   );
-  if (!rows.length) return null;
+  if (!rows.length && !(row.current_stage === "complete" && row.status === "executing")) {
+    return null;
+  }
   const host = el(documentNode, "div", "run-requests");
   for (const gate of rows) {
+    if (gate.status === "resolved") {
+      const result = el(documentNode, "p", "run-decision-record");
+      const action = gate.resolution_action === "approve" ? "Approved"
+        : gate.resolution_action === "reject" ? "Rejected" : "Decided";
+      const actor = gate.resolved_by || `actor ${gate.resolution_actor_id || "unknown"}`;
+      result.appendChild(el(documentNode, "span", null, `${action} by ${actor} · `));
+      if (gate.resolved_at) result.appendChild(relativeTime(documentNode, gate.resolved_at));
+      host.appendChild(result);
+      continue;
+    }
     const wrap = el(documentNode, "div", "run-request");
     wrap.appendChild(el(
       documentNode, "div", "run-request-kind", KIND_LABELS[gate.kind],
@@ -53,6 +68,12 @@ export function appendRunGates(context, card, gates, onAct, options = {}) {
     }));
     host.appendChild(wrap);
   }
+  if (row.current_stage === "complete" && row.status === "executing") {
+    host.appendChild(el(documentNode, "p", "run-finalization-note",
+      row.settling_at
+        ? "Stages complete. Finalizing member delivery; the run remains open until every member closes. If settlement stopped, re-drive this run under the project deploy lock."
+        : "Stages complete. Waiting for final checks and member delivery before this run can succeed."));
+  }
   card.appendChild(host);
   return host;
 }
@@ -62,7 +83,10 @@ export function appendRunGates(context, card, gates, onAct, options = {}) {
 // from separate sources left an amber-edged card wearing a grey pill.
 export function runGateStatus(row) {
   const gates = runGates(row);
-  if (!gates.length) return null;
+  if (!gates.length) {
+    return row?.status === "executing" && row?.current_stage === "complete"
+      ? "finalizing" : null;
+  }
   return gates.some((gate) => gate.kind === "deployment_stage_approval")
     ? "awaiting approval"
     : "awaiting review";

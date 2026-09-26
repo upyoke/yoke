@@ -224,7 +224,7 @@ def present_deployment_runs(
             "gates": gates.get(run_id, []),
             "overview_priority": (
                 0
-                if gates.get(run_id)
+                if any(gate.get("status") == "pending" for gate in gates.get(run_id, []))
                 else 2
                 if str(row.get("status") or "") in TERMINAL_RUN_STATUSES
                 else 1

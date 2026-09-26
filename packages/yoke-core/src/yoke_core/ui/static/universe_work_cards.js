@@ -314,7 +314,7 @@ export function shippingRunCard(context, row, scope, options = {}) {
       [derivation.status, derivation.reason].filter(Boolean).join(" — "),
     ));
   }
-  appendRunGates(context, card, row.gates, options.onGateAction, {
+  appendRunGates(context, card, row, options.onGateAction, {
     drawnRequestIds: carried.requestIds,
   });
   // The request folded in above already shows the evidence it rests on, and
