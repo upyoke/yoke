@@ -182,12 +182,13 @@ def test_qa_review_stays_on_run_card_after_human_decision(
         )
     requirement_id = int(test_db.execute(
         "INSERT INTO qa_requirements "
-        "(deployment_run_id, deployment_member_item_id, expected_outcome, "
+        "(deployment_run_id, deployment_stage, deployment_member_item_id, "
+        "expected_outcome, "
         "qa_kind, qa_phase, blocking_mode, verdict_path, created_at) "
-        "VALUES (%s, %s, 'The deployed release is verified.', "
+        "VALUES (%s, %s, %s, 'The deployed release is verified.', "
         "'deployment_stage_acceptance', 'post_deploy', 'blocking', 'agent', "
         "'2026-07-26T00:00:00Z') RETURNING id",
-        (RUN_ID, member_id),
+        (RUN_ID, "item-qa" if member_scoped else "run-visual-qa", member_id),
     ).fetchone()[0])
     qa_run_id = int(test_db.execute(
         "INSERT INTO qa_runs "
