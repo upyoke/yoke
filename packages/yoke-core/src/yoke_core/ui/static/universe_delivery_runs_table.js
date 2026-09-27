@@ -91,8 +91,6 @@ function evidenceCell(context, row, facts) {
   if (hidden > 0) {
     cell.appendChild(el(documentNode, "p", "delivery-run-evidence-more", `and ${hidden} more`));
   }
-  // The row navigates to the run; a thumbnail opens its picture instead.
-  cell.addEventListener("click", (event) => event.stopPropagation());
   return cell;
 }
 
@@ -121,10 +119,6 @@ export function renderRunsTable(context, body, rows, options) {
   for (const row of rows) {
     const href = runDetailHref(context, row, scope);
     const tr = el(documentNode, "tr", "delivery-run-row");
-    tr.addEventListener("click", (event) => {
-      if (event.target?.closest?.("a, button")) return;
-      context.navigate(href);
-    });
     const release = el(documentNode, "td");
     // The run ID is the way into the run; the flow name only says what kind
     // of release it is.

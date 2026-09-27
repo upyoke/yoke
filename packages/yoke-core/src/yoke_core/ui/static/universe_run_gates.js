@@ -39,8 +39,10 @@ export function gateAsRequest(gate) {
 
 export function resolvedDecisionRecord(documentNode, gate) {
   if (gate.status !== "resolved") return null;
-  const action = gate.resolution_action === "approve" ? "Approved"
-    : gate.resolution_action === "reject" ? "Rejected" : "Decided";
+  const raw = String(gate.resolution_action || "").trim();
+  const action = raw === "approve" ? "Approved"
+    : raw === "reject" ? "Rejected"
+      : `Decided (${raw ? raw.replaceAll("_", " ") : "outcome not recorded"})`;
   const actor = gate.resolved_by || `actor ${gate.resolution_actor_id || "unknown"}`;
   const result = el(documentNode, "p", "run-decision-record");
   result.appendChild(el(documentNode, "span", null,

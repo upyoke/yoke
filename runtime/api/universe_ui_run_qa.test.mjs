@@ -171,3 +171,48 @@ test("carried item reference and title both link to the item", () => {
   assert.equal(title.textContent, "Carried work");
   assert.equal(title.href, ref.href);
 });
+
+// Several run QA reviews, or one whose recorded answer is missing or unknown.
+function gate(requestId, status, action) {
+  return { request_id: requestId, kind: "qa_needs_review", status,
+    resolution_action: action, resolved_by: "Ben Bauman",
+    resolved_at: "2026-09-01T12:00:00Z", subject_context: { requirement_id: 8 },
+    actions: status === "pending" ? ["approve", "reject"] : [],
+    can_act: status === "pending" };
+}
+
+function sectionWith(gates) {
+  const documentNode = new FakeDocument();
+  return runQaSection(context(documentNode), { ...row("resolved"), gates }, checks, () => {});
+}
+
+const verdictOf = (qa) => byClass(qa, "run-verdict")[0].textContent;
+const firstOutcome = (qa) => byClass(directChecks(qa)[0], "run-qa-check-outcome")[0].textContent;
+
+for (const [label, action] of [["missing", undefined], ["empty", ""], ["unknown", "shrug"]]) {
+  test(`a decided review with a ${label} action never reads approved`, () => {
+    const qa = sectionWith([gate(1, "resolved", action)]);
+    assert.equal(verdictOf(qa), "Decided · outcome not recorded");
+    assert.equal(firstOutcome(qa), "decided · outcome not recorded");
+    assert.doesNotMatch(qa.textContent, /approved|Approved/);
+    assert.match(byClass(qa, "run-decision-record")[0].textContent,
+      new RegExp(`^Decided \\(${action ? "shrug" : "outcome not recorded"}\\) by Ben Bauman`));
+  });
+}
+
+test("a rejection outranks another review still pending", () => {
+  const qa = sectionWith([gate(1, "resolved", "reject"), gate(2, "pending")]);
+  assert.equal(verdictOf(qa), "2 of 2 rejected");
+  assert.equal(firstOutcome(qa), "rejected");
+});
+
+test("a rejection outranks an approval", () => {
+  const qa = sectionWith([gate(1, "resolved", "approve"), gate(2, "resolved", "reject")]);
+  assert.equal(verdictOf(qa), "2 of 2 rejected");
+});
+
+test("an approval with another review pending still awaits approval", () => {
+  const qa = sectionWith([gate(1, "resolved", "approve"), gate(2, "pending")]);
+  assert.equal(verdictOf(qa), "Awaiting approval");
+  assert.equal(firstOutcome(qa), "screenshots captured · awaiting your approval");
+});

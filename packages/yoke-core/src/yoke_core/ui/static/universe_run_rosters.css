@@ -39,8 +39,6 @@
 /* The Runs table: the flow name with the run ID beneath it as the link,
    rows that open the run, and a narrow evidence cell of small wrapped
    thumbnails. */
-.universe-app-root .delivery-run-row { cursor: pointer; }
-.universe-app-root .delivery-run-row:hover td { background: var(--yoke-hover); }
 .universe-app-root .delivery-run-title {
   color: var(--yoke-ink);
   font-weight: 600;

@@ -18,7 +18,7 @@ function artifact(id) {
   };
 }
 
-function renderTable(artifactCount) {
+function renderTable(artifactCount, navigations = []) {
   const documentNode = new FakeDocument();
   const body = documentNode.createElement("div");
   const context = {
@@ -26,7 +26,7 @@ function renderTable(artifactCount) {
     projects: () => [{ id: 1, slug: "alpha", name: "Alpha" }],
     capabilities: {},
     client: { call: async () => ({ status: 200, envelope: { success: true, result: {} } }) },
-    navigate: () => {},
+    navigate: (href) => navigations.push(href),
   };
   const row = {
     id: "run-20260927-001", flow: "alpha-release", project: "alpha",
@@ -117,4 +117,13 @@ test("stacking tables switch on their content pane at 840px", () => {
   const css = readFileSync(new URL("table_stacks_narrow.css", STATIC), "utf8");
   assert.match(css, /@container dashboard-content \(max-width: 840px\)/);
   assert.doesNotMatch(css, /@media \(max-width: 720px\)/);
+});
+
+test("clicking a run row does not navigate; only the run ID does", () => {
+  const navigations = [];
+  const body = renderTable(0, navigations);
+  byClass(body, "delivery-run-row")[0].dispatchEvent(new Event("click"));
+  assert.deepEqual(navigations, []);
+  assert.doesNotMatch(readFileSync(new URL("universe_run_rosters.css", STATIC), "utf8"),
+    /delivery-run-row/);
 });

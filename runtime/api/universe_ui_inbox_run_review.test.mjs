@@ -144,3 +144,35 @@ test("release approvals and item QA reviews keep the shared request card", async
   assert.equal(byClass(inboxSection(main, "waiting"), "run-qa-review").length, 0);
   assert.equal(byClass(cards[1], "review-qa").length, 1);
 });
+
+test("an Inbox run review decided with no recorded action never reads approved", async () => {
+  const { main } = render([runReview({ status: "resolved", decided_by_you: true,
+    your_decision: {}, actions: [], can_act: false })]);
+  await settle();
+  const card = byClass(inboxSection(main, "decided"), "review-card")[0];
+  assert.equal(byClass(byClass(card, "run-qa-check")[0], "run-qa-check-outcome")[0]
+    .textContent, "decided · outcome not recorded");
+  assert.equal(byClass(card, "review-state")[0].textContent, "Decided");
+  assert.equal(byClass(card, "review-who")[0].textContent, "You decided");
+});
+
+test("your vote on a review still open for others keeps its checks awaiting approval", async () => {
+  const { main } = render([runReview({ status: "pending", decided_by_you: true,
+    your_decision: { action: "approve" }, actions: [], can_act: false,
+    approval_progress: { mode: "all", required: 2, satisfied: 1, outstanding: ["Quinn"] } })]);
+  await settle();
+  const card = byClass(inboxSection(main, "decided"), "review-card")[0];
+  assert.equal(byClass(byClass(card, "run-qa-check")[0], "run-qa-check-outcome")[0]
+    .textContent, "screenshots captured · awaiting your approval");
+  assert.equal(byClass(card, "review-state")[0].textContent, "Approved");
+  assert.match(byClass(card, "review-who")[0].textContent, /^You approved · 1 of 2 · waiting on Quinn$/);
+});
+
+test("a resolved review reads the request's outcome over your own vote", async () => {
+  const { main } = render([runReview({ status: "resolved", decided_by_you: true,
+    resolution_action: "reject", your_decision: { action: "approve" }, actions: [], can_act: false })]);
+  await settle();
+  const card = byClass(inboxSection(main, "decided"), "review-card")[0];
+  assert.equal(byClass(byClass(card, "run-qa-check")[0], "run-qa-check-outcome")[0]
+    .textContent, "rejected");
+});

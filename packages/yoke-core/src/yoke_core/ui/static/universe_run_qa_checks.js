@@ -18,7 +18,29 @@ const DECISION_OUTCOMES = {
   pending: "screenshots captured · awaiting your approval",
   approved: "approved",
   rejected: "rejected",
+  undetermined: "decided · outcome not recorded",
 };
+
+// One answered review's outcome. Only a recorded approve reads approved;
+// a missing, empty or unknown action is a decision whose outcome the record
+// does not name, never an approval.
+export function decidedOutcome(action) {
+  if (action === "approve") return "approved";
+  if (action === "reject" || action === "deny" || action === "request_changes") {
+    return "rejected";
+  }
+  return "undetermined";
+}
+
+// Several answers fold with rejection first, then anything still open, then
+// any unnamed outcome; only all-approved reads approved.
+export function foldDecisions(outcomes) {
+  if (!outcomes.length) return null;
+  for (const state of ["rejected", "pending", "undetermined"]) {
+    if (outcomes.includes(state)) return state;
+  }
+  return "approved";
+}
 
 function projectIdOf(context, project) {
   if (project == null || project === "") return null;
@@ -62,15 +84,12 @@ export function checkOutcome(check, decision) {
 }
 
 // Where a person decides a run's checks, the answer on its run-level QA
-// review: pending until every such review is answered, rejected when any
-// was rejected, approved otherwise. `null` when no person decides, which
+// reviews, folded by `foldDecisions`. `null` when no person decides, which
 // keeps agent-only verdicts reading "passed".
 export function runHumanDecision(gates) {
   const reviews = (gates || []).filter((gate) => gate.kind === "qa_needs_review");
-  if (!reviews.length) return null;
-  if (reviews.some((gate) => gate.status !== "resolved")) return "pending";
-  return reviews.some((gate) => gate.resolution_action === "reject")
-    ? "rejected" : "approved";
+  return foldDecisions(reviews.map((gate) => (gate.status === "resolved"
+    ? decidedOutcome(gate.resolution_action) : "pending")));
 }
 
 // The Run QA heading's verdict: the person's answer when one is owed,
@@ -78,6 +97,9 @@ export function runHumanDecision(gates) {
 export function runQaVerdict(checks, decision) {
   if (decision === "pending") {
     return { text: "Awaiting approval", tone: "is-awaiting" };
+  }
+  if (decision === "undetermined") {
+    return { text: "Decided · outcome not recorded", tone: "is-undetermined" };
   }
   const passed = checks.filter(passedLike).length;
   const word = decision || "passed";
@@ -135,6 +157,8 @@ export const universeRunQaChecks = {
   appendRunChecks,
   checkName,
   checkOutcome,
+  decidedOutcome,
+  foldDecisions,
   qaCaseHref,
   qaCaseLink,
   runCheckLine,

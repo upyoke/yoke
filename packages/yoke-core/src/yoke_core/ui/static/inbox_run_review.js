@@ -12,7 +12,7 @@ import { effectiveRunChecks } from "./universe_run_evidence.js";
 import { appendActions } from "./review_request_card.js";
 import { decidedLabel, reviewerLine } from "./review_request_presentation.js";
 import { deploymentRunHref } from "./universe_navigation.js";
-import { appendRunChecks } from "./universe_run_qa_checks.js";
+import { appendRunChecks, decidedOutcome } from "./universe_run_qa_checks.js";
 import { relativeTime } from "./universe_time.js";
 import { callFunction, el } from "./universe_view_support.js";
 
@@ -38,10 +38,11 @@ export function reviewRunId(row) {
   return String(reviewSubject(row).deployment_run_id || "");
 }
 
-function reviewDecision(row) {
-  if (!row.decided_by_you && row.status !== "resolved") return "pending";
-  const action = row.your_decision?.action || row.resolution_action;
-  return action === "reject" ? "rejected" : "approved";
+// Only a resolved request has an outcome. A reader's own vote on a request
+// still open for other reviewers leaves it awaiting approval.
+export function reviewDecision(row) {
+  if (row.status !== "resolved") return "pending";
+  return decidedOutcome(row.resolution_action || row.your_decision?.action);
 }
 
 function appendHead(documentNode, card, row, options) {
@@ -139,6 +140,7 @@ export const inboxRunReview = {
   fillRunQaReviewChecks,
   isRunQaReview,
   loadRunQaReviewChecks,
+  reviewDecision,
   reviewRunId,
   runQaReviewCard,
 };
