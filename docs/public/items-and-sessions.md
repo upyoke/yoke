@@ -93,8 +93,10 @@ evaluator/client-wall coverage, are labelled incomparable.
   free to pick up, being worked on right now, and finished in the last day
 - **Shipping** — deployment runs as they execute, with what each release
   carries, pending human approvals and QA reviews, and resolved decisions
-  naming who decided and when. Member and run QA decisions remain distinct
-  from the agent's QA verdict. A run whose stages are complete but whose
+  naming who decided and when beside the exact screenshots that were approved
+  or rejected. The run page keeps those same decision records and screenshots.
+  Member and run QA decisions remain distinct from the agent's QA verdict.
+  A run whose stages are complete but whose
   members are still being settled reads **finalizing** until its authoritative
   status succeeds.
 - **Inbox** — three sections: the decisions waiting on you (a release
@@ -117,7 +119,7 @@ evaluator/client-wall coverage, are labelled incomparable.
 - **Deployments** is one page with Flows first and Runs second. A Runs row
   opens the run page: what the release is frozen to, the flow, the stages,
   the checks the run's QA recorded with their evidence, what the run
-  carries, and the decision waiting on it. A stopped release says what it
+  carries, and its waiting and resolved decisions. A stopped release says what it
   keeps and names the releases that carried the same work after it
 - **QA activity** rows open the case: its subject, the contract it had to
   prove, the stage execution whose verdict policy judged it, and what it

@@ -1,7 +1,4 @@
-/* The decision a run card is halted on, folded into the card: one rule
-   above it, the kind named, and the request card drawn without a second
-   frame. Its own sheet beside its own module, so the run card's styles
-   stay about the card. */
+/* Pending and resolved decisions folded into run cards, with their evidence. */
 .universe-app-root .run-requests {
   display: flex;
   flex-direction: column;
@@ -20,6 +17,10 @@
   font-weight: 700;
   letter-spacing: .04em;
   text-transform: uppercase;
+}
+.universe-app-root .run-request-kind.is-resolved,
+.universe-app-root .run-request.is-resolved .run-request-kind {
+  color: var(--yoke-muted);
 }
 .universe-app-root .run-request .review-foot {
   border-top: 1px solid var(--yoke-border);

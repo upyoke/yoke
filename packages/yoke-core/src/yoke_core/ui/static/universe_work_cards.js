@@ -149,8 +149,8 @@ export function runDetailHref(context, row, scope) {
 // done; for an environment run that owns nothing the derived contents stand
 // in, and a run that carries nothing says so in its meta line instead.
 //
-// Each entry also carries what that one item proved and what it still owes a
-// reviewer, because that is the item's own fact rather than the release's:
+// Each entry also carries what that item proved and its human reviews,
+// because those are the item's facts rather than the release's:
 // `options.facts` is the carried-item evidence read once for the whole band,
 // and `options.onDecide` answers a review from here.
 export function appendCarried(context, host, row, options = {}) {
@@ -182,7 +182,7 @@ export function appendCarried(context, host, row, options = {}) {
       item,
       runId: row.id || row.run_id,
       deployedSha: row.release_lineage,
-      facts: options.facts,
+      facts: { ...options.facts, gates: row.gates },
       onDecide: options.onDecide,
     });
     for (const id of drawn?.requestIds || []) drawnRequests.add(id);

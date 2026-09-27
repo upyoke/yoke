@@ -1,6 +1,6 @@
 // One deployment run, in the shape of a page: where it is going, how far it
-// has got, what its checks found, what it carries, and the one decision
-// that is waiting on someone — if any.
+// has got, what its checks found, what it carries, and the decisions it
+// awaited or received.
 //
 // Reached from the Deployments table, the Overview's Shipping cards, and
 // an Inbox release request. Everything on it is the run row the paged
@@ -21,7 +21,9 @@ import {
   EMPTY_CARRIED_ITEM_FACTS,
   loadCarriedItemEvidence,
 } from "./universe_carried_item_evidence.js";
-import { gateAsRequest, runGateStatus, runGates } from "./universe_run_gates.js";
+import {
+  gateAsRequest, resolvedDecisionRecord, runDecisionGates, runGateStatus, runGates,
+} from "./universe_run_gates.js";
 import {
   appendRunAftermath,
   loadRunTarget,
@@ -71,10 +73,10 @@ function statusCopy(row, gate) {
   return { title: "Running", copy: `${row.current_stage || "A stage"} is running. Nothing is waiting on you.` };
 }
 
-// What the run carries, and the decision waiting on it. Each carried item
-// also shows its own QA and its own waiting review, which belong to the item
+// What the run carries, and its pending and resolved decisions. Each member
+// also shows its own QA and review, which belong to the item
 // rather than to the release moving it.
-function decisionCard(context, row, project, onAct, evidenceShown, itemFacts, onItemDecision) {
+function decisionCard(context, row, project, onAct, itemFacts, onItemDecision) {
   const documentNode = context.document;
   const card = el(documentNode, "section", "run-card");
   const items = carriedItems(row);
@@ -99,7 +101,7 @@ function decisionCard(context, row, project, onAct, evidenceShown, itemFacts, on
       item,
       runId: row.id || row.run_id,
       deployedSha: row.release_lineage,
-      facts: itemFacts,
+      facts: { ...itemFacts, gates: row.gates },
       onDecide: onItemDecision,
     });
     for (const id of drawn?.requestIds || []) drawnRequests.add(id);
@@ -112,6 +114,8 @@ function decisionCard(context, row, project, onAct, evidenceShown, itemFacts, on
   const gate = gates.find(
     (candidate) => !drawnRequests.has(String(candidate.request_id)),
   ) || null;
+  const decisions = runDecisionGates(row).filter(
+    (candidate) => !drawnRequests.has(String(candidate.request_id)));
   const { title, copy } = statusCopy(row, gate || gates[0] || null);
   card.classList.add("run-work");
   card.appendChild(el(documentNode, "h2", null, title));
@@ -135,16 +139,19 @@ function decisionCard(context, row, project, onAct, evidenceShown, itemFacts, on
       documentNode, "p", "run-copy", "No items are attached to this run.",
     ));
   }
-  if (gate) {
-    card.appendChild(el(documentNode, "div", "run-request-kind", KIND_LABELS[gate.kind]));
-    // A release approval's evidence is the run's own QA screenshots, which
-    // the Verification card beside it already shows; a QA review's is its
-    // own run's artifacts, so it keeps them.
-    card.appendChild(reviewRequestCard(context, gateAsRequest(gate), {
+  for (const request of decisions) {
+    card.appendChild(el(documentNode, "div",
+      `run-request-kind${request.status === "resolved" ? " is-resolved" : ""}`,
+      KIND_LABELS[request.kind]));
+    // The frozen request names the exact screenshots the person approved;
+    // the Verification card may include a different set of run captures.
+    card.appendChild(reviewRequestCard(context, gateAsRequest(request), {
       inline: true,
-      evidence: !(evidenceShown && gate.kind === "deployment_stage_approval"),
-      onAct: (request, action, node, note) => onAct(gate, action, node, note),
+      onAct: request.status === "resolved" ? null
+        : (row, action, node, note) => onAct(request, action, node, note),
     }));
+    const decision = resolvedDecisionRecord(documentNode, request);
+    if (decision) card.appendChild(decision);
   }
   return card;
 }
@@ -184,7 +191,6 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   const row = read.row;
   const project = projectFor(context, row, scope);
   let checks = [];
-  let artifacts = [];
   let itemFacts = EMPTY_CARRIED_ITEM_FACTS;
   if (project) {
     let activity;
@@ -206,9 +212,6 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
     }
     if (activity.status === 200 && activity.envelope.success) {
       checks = activity.envelope.result?.rows || [];
-      artifacts = checks.flatMap((check) => (check.artifacts || []).map(
-        (artifact) => ({ ...artifact, requirement_id: check.requirement_id }),
-      ));
     }
     itemFacts = await carried;
   }
@@ -265,7 +268,7 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   appendSteps(documentNode, stages, row.stages);
   top.appendChild(stages);
   const decision = decisionCard(
-    context, row, project, onAct, artifacts.length > 0, itemFacts, onItemDecision,
+    context, row, project, onAct, itemFacts, onItemDecision,
   );
   appendRunAftermath(context, decision, row, project, siblings);
   top.appendChild(decision);

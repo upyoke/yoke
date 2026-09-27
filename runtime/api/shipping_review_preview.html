@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shipping review evidence preview</title>
+<link rel="stylesheet" href="../../packages/yoke-core/src/yoke_core/ui/static/theme.css">
+<link rel="stylesheet" href="../../packages/yoke-core/src/yoke_core/ui/static/app.css">
+<style>
+  body { margin: 0; background: #fff; }
+  main.universe-app-root { display: block; height: auto; overflow: visible;
+    max-width: 1440px; margin: auto; padding: 20px; }
+  section.preview-section { margin: 0 0 36px; }
+  footer { color: #596575; font: 12px sans-serif; padding: 20px 0; }
+</style>
+<main class="universe-app-root">
+  <h1>Controlled candidate review fixture</h1>
+  <section class="preview-section">
+    <h2>Shipping</h2>
+    <div id="shipping"></div>
+  </section>
+  <section class="preview-section">
+    <h2>Run detail</h2>
+    <div id="detail"></div>
+  </section>
+  <footer>Controlled run and decision rows · UI modules and stylesheet from this checkout</footer>
+</main>
+<script type="module">
+  import { shippingRunCard } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_work_cards.js";
+  import { loadCarriedItemEvidence } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.js";
+  import { renderRunDetailView } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_run_detail.js";
+
+  const runId = "run-review-preview";
+  const artifact = (id, requirementId) => ({
+    id, requirement_id: requirementId, artifact_type: "screenshot",
+    content_type: "image/svg+xml", metadata: { label: `Capture ${id}` },
+  });
+  const decided = (id, kind, action, subjectContext) => ({
+    request_id: id, kind, status: "resolved", subject_context: subjectContext,
+    resolution_action: action, resolved_by: "Sample reviewer",
+    resolved_at: "2026-09-27T06:00:00Z", actions: [], can_act: false,
+  });
+  const row = {
+    id: runId, project: "yoke", flow: "preview", status: "executing",
+    current_stage: "complete", settling_at: "2026-09-27T06:01:00Z",
+    target_environment: "prod", release_lineage: "controlled-candidate",
+    created_at: "2026-09-27T05:00:00Z",
+    stages: [{ name: "item-qa", state: "complete" },
+      { name: "run-qa", state: "complete" }],
+    member_items: [{ id: 42, ref: "Sample member", title: "Member review",
+      project_id: 1, project_sequence: 42 }],
+    gates: [
+      decided(71, "deployment_stage_approval", "approve", {
+        evidence: { screenshots: Array.from({ length: 8 },
+          (_, index) => artifact(701 + index, 901)) },
+      }),
+      decided(72, "qa_needs_review", "reject", {
+        requirement_id: 902,
+        subject: { kind: "deployment_run", deployment_run_id: runId,
+          deployment_member_item_id: 42 },
+        artifacts: [artifact(811, 902), artifact(812, 902)],
+      }),
+    ],
+  };
+  const ok = (result) => ({ status: 200, envelope: { success: true, result } });
+  const client = { async call(request) {
+    if (request.function === "deployment_runs.list") {
+      return ok({ rows: [row], filters: { flows: [] } });
+    }
+    if (request.function === "qa.activity.list") return ok({ rows: [] });
+    if (request.function === "inbox.list") return ok({ needs_decision: [] });
+    if (request.function === "projects.infrastructure.list") {
+      return ok({ environments: [] });
+    }
+    if (request.function === "deployment_runs.find_by_item") return ok({ rows: [] });
+    if (request.function === "qa.artifact.read") {
+      const id = request.payload.artifact_id;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="110">`
+        + `<rect width="200" height="110" fill="#dce8f8"/>`
+        + `<text x="16" y="60" font-size="20" fill="#17395b">Capture ${id}</text></svg>`;
+      return ok({ disposition: "ready", content_type: "image/svg+xml",
+        content_base64: btoa(svg) });
+    }
+    throw new Error(`Unexpected read: ${request.function}`);
+  } };
+  const context = { document, client, capabilities: {}, isMounted: () => true,
+    projects: () => [{ id: 1, slug: "yoke", name: "Yoke" }] };
+  const itemFacts = await loadCarriedItemEvidence(context, row.member_items);
+  document.querySelector("#shipping").appendChild(
+    shippingRunCard(context, row, ["1"], { itemFacts }));
+  await renderRunDetailView(context, document.querySelector("#detail"), ["1"], runId);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  document.querySelectorAll(".review-more").forEach((button) => button.click());
+  document.body.dataset.ready = "true";
+</script>
+</html>
