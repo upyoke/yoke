@@ -15,6 +15,13 @@ uses. ``not_contained`` is the only yes. ``contained`` is silence — the
 fail may still be settleable against this pin. Anything else, including a
 missing pin or an unreadable comparison, is named as unproven so a reader
 is never invited to kill a run that could still succeed.
+
+A run can carry more than its own project: a mixed-project release binds
+other projects' sources, and a member belongs to whichever project owns it.
+Its merge is asked of its own project's repository against the commit this
+run pinned for that project, never of the run's project — commit ids from
+two repositories are not comparable, and the provider answers such a
+comparison with a 404 rather than a verdict.
 """
 
 from __future__ import annotations
@@ -30,9 +37,19 @@ from yoke_core.domain.deployment_run_candidate_containment import (
     UNDETERMINED,
     CandidateContainment,
 )
+from yoke_core.domain.deployment_run_project_sources import run_source_sha
 from yoke_core.domain.release_delivery_summary import recorded_merge_shas_for_items
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.session_message_types import row_dict
+
+
+OPERANDS_MISSING = "containment_operands_missing"
+PROJECT_NOT_PINNED = "member_project_not_pinned"
+PROJECT_NOT_PINNED_RECOVERY = (
+    "This run pinned no source commit for the member's project, so there "
+    "is nothing of that project here to compare its merge against; settle "
+    "or waive the requirement on this run's own evidence."
+)
 
 
 @dataclass(frozen=True)
@@ -49,7 +66,7 @@ class UnpassablePinQa:
         return (
             f"{subject} #{self.requirement_id} cannot pass against this pin: "
             f"recorded merge {self.merge_sha} is not contained in "
-            f"release_lineage {self.pin}."
+            f"the pinned source {self.pin}."
         )
 
 
@@ -62,15 +79,17 @@ class UnprovenPinQa:
     merge_sha: str
     pin: str
     reason: str
+    recovery: str = ""
 
     def note(self) -> str:
         subject = self.member_ref or "run-wide"
         pin = self.pin or "(none)"
+        recovery = f" {self.recovery}" if self.recovery else ""
         return (
             f"{subject} #{self.requirement_id} failed; whether recorded merge "
-            f"{self.merge_sha} is in release_lineage {pin} is unproven "
+            f"{self.merge_sha} is in the pinned source {pin} is unproven "
             f"({self.reason}). Do not treat this run as unable to pass on "
-            "that evidence."
+            f"that evidence.{recovery}"
         )
 
 
@@ -107,8 +126,8 @@ def diagnose_unpassable_blocking_qa(
         and _table_exists(conn, "qa_runs")
     ):
         return PinQaDiagnosis()
-    run = _run_pin(conn, run_id)
-    if run is None:
+    run_project_id = _run_project_id(conn, run_id)
+    if run_project_id is None:
         return PinQaDiagnosis()
     red = _red_members(conn, run_id)
     if not red:
@@ -117,12 +136,7 @@ def diagnose_unpassable_blocking_qa(
     merges = recorded_merge_shas_for_items(conn, item_ids)
     if not any(merges.get(item_id) for item_id in item_ids):
         return PinQaDiagnosis()
-    pin = run.pin
-    walker = None
-    if pin:
-        walker = (containment_cls or CandidateContainment)(
-            conn, run.project_id, candidate_lineage=pin,
-        )
+    walkers: dict[Optional[int], tuple[str, Any]] = {}
     unpassable: list[UnpassablePinQa] = []
     unproven: list[UnprovenPinQa] = []
     for row in red:
@@ -132,14 +146,22 @@ def diagnose_unpassable_blocking_qa(
         if not shas:
             continue
         newest = shas[0]
+        project_id = row.project_id
+        if project_id not in walkers:
+            walkers[project_id] = _project_walker(
+                conn, run_id, project_id, containment_cls
+            )
+        pin, walker = walkers[project_id]
         if walker is None:
+            own = project_id == run_project_id
             unproven.append(
                 UnprovenPinQa(
                     requirement_id=row.requirement_id,
                     member_ref=row.member_ref,
                     merge_sha=newest,
                     pin=pin,
-                    reason="containment_operands_missing",
+                    reason=OPERANDS_MISSING if own else PROJECT_NOT_PINNED,
+                    recovery="" if own else PROJECT_NOT_PINNED_RECOVERY,
                 )
             )
             continue
@@ -161,21 +183,17 @@ def diagnose_unpassable_blocking_qa(
                     merge_sha=newest,
                     pin=pin,
                     reason=verdict.reason or UNDETERMINED,
+                    recovery=verdict.recovery,
                 )
             )
     return PinQaDiagnosis(unpassable=tuple(unpassable), unproven=tuple(unproven))
 
 
 @dataclass(frozen=True)
-class _RunPin:
-    project_id: int
-    pin: str
-
-
-@dataclass(frozen=True)
 class _RedMember:
     requirement_id: int
     item_id: Optional[int]
+    project_id: Optional[int]
     member_ref: str
 
 
@@ -183,22 +201,34 @@ def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _run_pin(conn: Any, run_id: str) -> Optional[_RunPin]:
-    p = _placeholder(conn)
-    columns = "id, project_id"
-    if _column_exists(conn, "deployment_runs", "release_lineage"):
-        columns += ", COALESCE(release_lineage, '') AS release_lineage"
+def _run_project_id(conn: Any, run_id: str) -> Optional[int]:
     row = conn.execute(
-        f"SELECT {columns} FROM deployment_runs WHERE id = {p}",
+        f"SELECT project_id FROM deployment_runs WHERE id = {_placeholder(conn)}",
         (run_id,),
     ).fetchone()
-    if row is None:
-        return None
-    record = row_dict(row)
-    return _RunPin(
-        project_id=int(record["project_id"]),
-        pin=str(record.get("release_lineage") or "").strip(),
+    return None if row is None else int(row_dict(row)["project_id"])
+
+
+def _project_walker(
+    conn: Any,
+    run_id: str,
+    project_id: Optional[int],
+    containment_cls: Optional[type],
+) -> tuple[str, Any]:
+    """The pin this run froze for one member project, and a walker over it.
+
+    The run's own project answers from ``release_lineage``; a bound project
+    from the commit the run recorded for it at start. No pin means no walker.
+    """
+    if project_id is None:
+        return "", None
+    pin = run_source_sha(conn, run_id, project_id)
+    if not pin:
+        return "", None
+    walker = (containment_cls or CandidateContainment)(
+        conn, project_id, candidate_lineage=pin,
     )
+    return pin, walker
 
 
 def _red_members(conn: Any, run_id: str) -> tuple[_RedMember, ...]:
@@ -217,7 +247,7 @@ def _red_members(conn: Any, run_id: str) -> tuple[_RedMember, ...]:
                    (SELECT qr.verdict FROM qa_runs qr
                      WHERE qr.qa_requirement_id = r.id
                      ORDER BY qr.created_at DESC, qr.id DESC LIMIT 1) AS verdict,
-                   p.slug, p.public_item_prefix, i.project_sequence
+                   i.project_id, p.slug, p.public_item_prefix, i.project_sequence
               FROM qa_requirements r
               LEFT JOIN items i ON i.id = r.deployment_member_item_id
               LEFT JOIN projects p ON p.id = i.project_id
@@ -234,6 +264,7 @@ def _red_members(conn: Any, run_id: str) -> tuple[_RedMember, ...]:
         if str(record["verdict"] or "") not in RED_VERDICTS:
             continue
         item_id = record.get("deployment_member_item_id")
+        project_id = record.get("project_id")
         ref = ""
         if record.get("project_sequence") is not None:
             ref = format_item_ref(
@@ -243,6 +274,7 @@ def _red_members(conn: Any, run_id: str) -> tuple[_RedMember, ...]:
             _RedMember(
                 requirement_id=int(record["id"]),
                 item_id=int(item_id) if item_id is not None else None,
+                project_id=int(project_id) if project_id is not None else None,
                 member_ref=ref,
             )
         )

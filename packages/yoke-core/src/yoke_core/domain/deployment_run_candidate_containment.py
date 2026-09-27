@@ -81,7 +81,9 @@ class CandidateContainment:
 
     A source is opened at most once. One that refuses to open keeps its named
     refusal and contributes it to every commit's undetermined verdict, so a
-    batched walk collects exactly the reasons a per-commit walk did.
+    batched walk collects exactly the reasons a per-commit walk did. One that
+    opens but refuses a comparison contributes that refusal to that commit's
+    verdict the same way.
     """
 
     def __init__(
@@ -125,11 +127,19 @@ class CandidateContainment:
             if entry.source is None:
                 refusals.append(entry.refusal or ("", ""))
                 continue
-            verdict = _ask_source(
-                entry.source,
-                entry.resolved_candidate(self._candidate),
-                merge,
-            )
+            try:
+                verdict = _ask_source(
+                    entry.source,
+                    entry.resolved_candidate(self._candidate),
+                    merge,
+                )
+            except CarriedWorkSourceUnavailable as exc:
+                # A source can open and still refuse the comparison itself —
+                # a provider that does not carry one of the commits answers
+                # 404. That is this source's named refusal, not a crash of
+                # every reader asking about the candidate.
+                refusals.append((exc.reason, exc.recovery))
+                continue
             if verdict is None:
                 refusals.append(
                     (COMMIT_UNREACHABLE, COMMIT_UNREACHABLE_RECOVERY),
