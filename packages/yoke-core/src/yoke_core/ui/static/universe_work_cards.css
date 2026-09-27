@@ -20,11 +20,6 @@
   border-color: color-mix(in srgb, var(--yoke-border) 45%, var(--yoke-accent));
   box-shadow: var(--yoke-shadow);
 }
-.universe-app-root .work-item-card:hover {
-  border-color: var(--yoke-border);
-  box-shadow: none;
-  cursor: default;
-}
 .universe-app-root .work-item-card:focus-visible,
 .universe-app-root .strategy-doc-card:focus-visible {
   outline: 2px solid var(--yoke-accent);
