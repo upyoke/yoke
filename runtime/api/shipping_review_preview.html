@@ -85,8 +85,37 @@
   const context = { document, client, capabilities: {}, isMounted: () => true,
     projects: () => [{ id: 1, slug: "yoke", name: "Yoke" }] };
   const itemFacts = await loadCarriedItemEvidence(context, row.member_items);
-  document.querySelector("#shipping").appendChild(
-    shippingRunCard(context, row, ["1"], { itemFacts }));
+  const shipping = document.querySelector("#shipping");
+  const examples = [
+    ["Resolved review and finalizing", row, { itemFacts }],
+    ["Pending approval", {
+      ...row, id: "run-pending-preview", current_stage: "approval",
+      settling_at: null, member_items: [], gates: [{
+        request_id: 73, kind: "deployment_stage_approval", status: "pending",
+        subject_context: {}, actions: ["approve", "reject"], can_act: true,
+      }],
+    }, {}],
+    ["Rejected approval", {
+      ...row, id: "run-rejected-preview", current_stage: "approval",
+      settling_at: null, member_items: [], gates: [decided(
+        74, "deployment_stage_approval", "reject", {
+          evidence: { screenshots: [artifact(821, 903)] },
+        })],
+    }, {}],
+    ["Terminal success", {
+      ...row, id: "run-succeeded-preview", status: "succeeded",
+      settling_at: null, member_items: [], gates: [decided(
+        75, "deployment_stage_approval", "approve", {
+          evidence: { screenshots: [artifact(831, 904)] },
+        })],
+    }, {}],
+  ];
+  for (const [label, example, options] of examples) {
+    const heading = document.createElement("h3");
+    heading.textContent = label;
+    shipping.appendChild(heading);
+    shipping.appendChild(shippingRunCard(context, example, ["1"], options));
+  }
   await renderRunDetailView(context, document.querySelector("#detail"), ["1"], runId);
   await new Promise((resolve) => setTimeout(resolve, 100));
   document.querySelectorAll(".review-more").forEach((button) => button.click());
