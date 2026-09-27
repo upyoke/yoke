@@ -59,6 +59,29 @@ test("the run ID links to the run and the flow name is plain text", () => {
   assert.equal(allNodes(releaseCell).filter((node) => node.tagName === "A").length, 1);
 });
 
+test("carried items are chips the link underline skips", () => {
+  const documentNode = new FakeDocument();
+  const body = documentNode.createElement("div");
+  renderRunsTable({
+    document: documentNode, projects: () => [{ id: 1, slug: "alpha" }], capabilities: {},
+    client: { call: async () => ({}) }, navigate: () => {},
+  }, body, [{
+    id: "run-1", flow: "f", project: "alpha", status: "succeeded", stages: [],
+    member_items: [
+      { item_id: 5, project_id: 1, project_sequence: 5, ref: "YOK-5" },
+      { item_id: 6, ref: "YOK-6" },
+    ],
+  }], { facts: { evidence: new Map(), flowNames: new Map() }, flowLabels: new Map(), scope: "1" });
+  // Linked and unlinked carried items read the same.
+  const chips = byClass(body, "delivery-member");
+  assert.deepEqual(chips.map((chip) => chip.tagName), ["A", "SPAN"]);
+  for (const chip of chips) {
+    assert.match(chip.className, /chip/);
+  }
+  const css = readFileSync(new URL("universe_link_underline.css", STATIC), "utf8");
+  assert.match(css, /:not\(\[class\*="chip"\]\)/);
+});
+
 test("the status cell is a plain table cell holding the pill", () => {
   const body = renderTable(0);
   const cell = byClass(body, "delivery-run-status-cell")[0];
@@ -83,6 +106,11 @@ test("runs table CSS keeps thumbnails small and the status cell a table cell", (
   assert.doesNotMatch(css, /delivery-run-evidence-cell\s*\{[^}]*min-width/);
   assert.match(css, /delivery-run-evidence-cell \.review-evidence\.compact \.review-shot \{\s*width: 44px;/);
   assert.doesNotMatch(css, /delivery-run-status-cell\s*\{[^}]*display:\s*flex/);
+  // Must outweigh the shared `table.items td:has(.pill)` top alignment.
+  assert.match(
+    css,
+    /\.universe-app-root table\.items\.delivery-runs-table td\.delivery-run-status-cell \{\s*vertical-align: middle;/,
+  );
 });
 
 test("stacking tables switch on their content pane at 840px", () => {

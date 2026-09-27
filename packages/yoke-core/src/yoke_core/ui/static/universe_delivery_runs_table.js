@@ -27,7 +27,9 @@ function memberLink(documentNode, member) {
     publicRef: member.ref || member.public_ref || member.item_ref,
   });
   const label = member.ref || member.public_ref || member.item_ref || `item ${member.item_id}`;
-  const link = el(documentNode, href ? "a" : "span", "delivery-member", label);
+  // A carried item is a chip, linked or not; the chip class keeps the
+  // content-wide link underline off it.
+  const link = el(documentNode, href ? "a" : "span", "delivery-member delivery-member-chip", label);
   if (href) link.href = href;
   if (member.title) link.title = String(member.title);
   return link;

@@ -132,7 +132,7 @@ test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
     ),
     {
       function: "qa.activity.list",
-      payload: { project: "1", limit: 6 },
+      payload: { project: "1", limit: 500 },
     },
   );
   const text = visibleText(root, " ");

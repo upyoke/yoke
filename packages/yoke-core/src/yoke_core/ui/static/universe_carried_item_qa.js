@@ -159,10 +159,20 @@ function earlierRow(context, row, rows, options) {
   return qaRow(documentNode, row, parts);
 }
 
-function screenshots(context, row) {
-  const shots = (row?.artifacts || []).filter(isScreenshot).map((artifact) => ({
-    ...artifact, requirement_id: row.requirement_id,
-  }));
+// Every screenshot the item's checks captured, each once under the check
+// that owns it: the lead check's first, then the rest newest first. The
+// strip shows three and opens the others in place.
+function screenshots(context, lead, rows) {
+  const seen = new Set();
+  const shots = [];
+  for (const row of [lead, ...newestFirst(rows.filter((other) => other !== lead))]) {
+    for (const artifact of row?.artifacts || []) {
+      const key = String(artifact.id ?? artifact.artifact_id ?? "");
+      if (!isScreenshot(artifact) || (key && seen.has(key))) continue;
+      if (key) seen.add(key);
+      shots.push({ ...artifact, requirement_id: row.requirement_id });
+    }
+  }
   const options = { compact: true, limit: LATEST_VISUALS, stepCaptionsOnly: true };
   const strip = evidenceStrip(context, shots, options);
   return { strip, drawn: strip ? drawnArtifacts(shots, options) : [] };
@@ -180,7 +190,7 @@ export function paintCarriedItemQa(context, wrap, rows, options = {}) {
     wrap.appendChild(el(documentNode, "p", "carried-item-qa-heading",
       "QA for the deployed revision"));
     wrap.appendChild(currentRow(context, current, options));
-    const { strip, drawn } = screenshots(context, current);
+    const { strip, drawn } = screenshots(context, current, checks);
     if (strip) wrap.appendChild(strip);
     shown.push(...drawn);
   }
@@ -188,11 +198,10 @@ export function paintCarriedItemQa(context, wrap, rows, options = {}) {
   if (earlier.length) {
     const details = el(documentNode, "details", "carried-item-qa-earlier");
     details.appendChild(el(documentNode, "summary", null, "Earlier checks"));
-    // With nothing run against the deployed revision, the newest pictures
-    // any check took stay reachable here rather than leading the entry.
-    const pictured = current ? null : earlier.find((row) => (
-      (row.artifacts || []).some(isScreenshot)));
-    if (pictured) details.appendChild(screenshots(context, pictured).strip);
+    // With nothing run against the deployed revision, the item's pictures
+    // stay reachable here rather than leading the entry.
+    const strip = current ? null : screenshots(context, earlier[0], checks).strip;
+    if (strip) details.appendChild(strip);
     for (const row of earlier) details.appendChild(earlierRow(context, row, checks, options));
     wrap.appendChild(details);
   }

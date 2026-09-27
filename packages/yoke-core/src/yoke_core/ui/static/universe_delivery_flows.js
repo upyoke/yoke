@@ -24,8 +24,16 @@ function searchableText(row) {
 function isActive(row) {
   return flowStatus(row) === "active";
 }
-function sortedRows(rows) {
+// Scoped projects first, then the rest by name; within a project, active
+// flows before disabled ones, each by name.
+function sortedRows(rows, leadingProjects = []) {
+  const lead = (row) => {
+    const at = leadingProjects.indexOf(String(row.project || ""));
+    return at === -1 ? leadingProjects.length : at;
+  };
   return [...rows].sort((left, right) => {
+    const leadOrder = lead(left) - lead(right);
+    if (leadOrder) return leadOrder;
     const projectOrder = String(left.project || "").localeCompare(String(right.project || ""));
     if (projectOrder) return projectOrder;
     if (isActive(left) !== isActive(right)) return isActive(left) ? -1 : 1;
@@ -59,7 +67,7 @@ function flowRowButton(documentNode, row, selected) {
 
 export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId = null, options = {}) {
   const documentNode = body.ownerDocument;
-  const rows = sortedRows(sourceRows);
+  const rows = sortedRows(sourceRows, options.leadingProjects || []);
   panel.classList.add("delivery-flow-panel");
   if (!rows.length) {
     panel.setCount(0);

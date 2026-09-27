@@ -14,7 +14,8 @@ subject:
 Flows is the tab Deployments opens on. Runs live at `#/deployments/runs`, and
 one run at `#/deployments/runs/<run id>`.
 
-**Flows** lists definitions grouped by project, with a search over names,
+**Flows** lists every definition you can read, grouped by project with the
+projects in the current scope first, and searches names,
 IDs, stages and environments. Disabled definitions stay hidden until **Show
 disabled (N)** is checked; only a flow that is not active carries a status
 pill. The selected flow shows its name and ID, its description, and one facts

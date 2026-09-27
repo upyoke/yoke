@@ -1,6 +1,7 @@
 // Card renderers for the three live objects on the Overview frontier: items,
 // sessions (rendered by the Sessions module), and deployment runs.
 
+import { appendCarriedItemHeading } from "./universe_carried_item_titles.js";
 import {
   buildUniverseRoute,
   deploymentRunHref,
@@ -14,10 +15,7 @@ import {
 } from "./universe_secondary_primitives.js";
 import { relativeAgePhrase } from "./universe_time.js";
 import { runGateStatus } from "./universe_run_gates.js";
-import {
-  appendCarriedItemEvidence,
-  appendCarriedItemHeading,
-} from "./universe_carried_item_evidence.js";
+import { appendCarriedItemEvidence } from "./universe_carried_item_evidence.js";
 import { runEvidence, runFlowName } from "./universe_run_evidence.js";
 import { runQaSection } from "./universe_run_qa.js";
 import { itemClaimantControl } from "./universe_item_claimant.js";
@@ -173,7 +171,7 @@ export function appendCarried(context, host, row, options = {}) {
     const member = el(documentNode, "div", "release-member");
     appendCarriedItemHeading(documentNode, member, {
       ...item, ref: carriedReference(item),
-    }, runProjectId(context, row, options.scope || "all"));
+    }, runProjectId(context, row, options.scope || "all"), options.facts?.titles);
     const drawn = appendCarriedItemEvidence(context, member, {
       item,
       runId: row.id || row.run_id,

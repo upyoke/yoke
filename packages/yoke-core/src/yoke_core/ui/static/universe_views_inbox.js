@@ -1,6 +1,7 @@
 // Per-actor needs-you surface: the decisions waiting on you, the messages
 // sent to you, and what you have already decided.
 
+import { appendCarriedItemHeading } from "./universe_carried_item_titles.js";
 import {
   callFunction,
   el,
@@ -21,7 +22,6 @@ import {
 } from "./universe_sessions_holdings_disclosure.js";
 import {
   appendCarriedItemEvidence,
-  appendCarriedItemHeading,
   loadCarriedItemEvidence,
 } from "./universe_carried_item_evidence.js";
 import {
@@ -116,7 +116,7 @@ function appendApprovalCarried(context, card, row, facts, onDecide) {
   }
   const entryFor = (item) => {
     const entry = el(documentNode, "div", "release-member");
-    appendCarriedItemHeading(documentNode, entry, item, row.project_id);
+    appendCarriedItemHeading(documentNode, entry, item, row.project_id, facts.titles);
     appendCarriedItemEvidence(context, entry, {
       item,
       runId: row.subject_context?.run_id,

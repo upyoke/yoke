@@ -15,7 +15,7 @@ import { reviewRequestCard } from "./review_request_card.js";
 import { evidenceOf } from "./review_request_presentation.js";
 import { QA_STATE, classifyMemberQa, classifyQaRow } from "./qa_state.js";
 import { paintCarriedItemQa } from "./universe_carried_item_qa.js";
-import { itemDrillInHref } from "./universe_item_routes.js";
+import { loadMissingItemTitles } from "./universe_carried_item_titles.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
 import { gateAsRequest, resolvedDecisionRecord } from "./universe_run_gates.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
@@ -36,6 +36,7 @@ export const EMPTY_CARRIED_ITEM_FACTS = Object.freeze({
   pendingByItem: new Map(),
   truncatedGroups: new Set(),
   perGroupLimit: CHECKS_PER_ITEM,
+  titles: new Map(),
   failed: null,
 });
 
@@ -92,9 +93,10 @@ export async function loadCarriedItemEvidence(context, items) {
       });
     }
   }
-  const [{ callResults, failed }, pendingByRequirement] = await Promise.all([
+  const [{ callResults, failed }, pendingByRequirement, titles] = await Promise.all([
     settledScopedCalls(context, calls),
     loadPendingReviews(context, buckets.map(([project]) => Number(project))),
+    loadMissingItemTitles(context, items),
   ]);
   const byItem = new Map();
   const truncatedGroups = new Set();
@@ -121,6 +123,7 @@ export async function loadCarriedItemEvidence(context, items) {
     pendingByItem: reviewsByItem(pendingByRequirement),
     truncatedGroups,
     perGroupLimit: CHECKS_PER_ITEM,
+    titles,
     failed: failed
       ? failed.envelope?.error?.message
         || "Item QA evidence could not be loaded."
@@ -220,26 +223,6 @@ function appendTruncationNote(documentNode, wrap, facts, itemId, runId) {
   ));
 }
 
-// A carried item's reference and title, each a link to the item. The title
-// is always drawn when the row names one; an entry with a bare reference
-// read as an item nobody could identify.
-export function appendCarriedItemHeading(documentNode, host, item, projectId) {
-  const ref = String(item.ref || item.public_ref || item.item_ref
-    || `item ${item.item_id ?? item.id}`);
-  const href = itemDrillInHref({
-    projectId: item.project_id ?? projectId,
-    projectSequence: item.project_sequence,
-    publicRef: ref,
-  });
-  const code = el(documentNode, href ? "a" : "code", "mono carried-item-ref", ref);
-  if (href) code.href = href;
-  host.appendChild(code);
-  const text = String(item.title || item.item_title || "");
-  const title = el(documentNode, href && text ? "a" : "span", "carried-item-title", text);
-  if (href && text) title.href = href;
-  host.appendChild(title);
-}
-
 // `options.onDecide(request, action, node, note)` answers a review through
 // the same resolver the Inbox uses, so the answer is the same act wherever
 // it is given.
@@ -303,7 +286,6 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
 export const universeCarriedItemEvidence = {
   EMPTY_CARRIED_ITEM_FACTS,
   appendCarriedItemEvidence,
-  appendCarriedItemHeading,
   carriedItemEvidence,
   carriedItemId,
   carriedItemReviews,

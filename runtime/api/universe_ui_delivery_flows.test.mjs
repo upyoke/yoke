@@ -255,6 +255,35 @@ test("an empty scope points at the CLI rather than a form", async (t) => {
   mounted.unmount();
 });
 
+test("Flows spans every readable project with the scoped project first and no title bar", async (t) => {
+  const client = flowClient();
+  const { root, mounted } = await mountFlows(t, client, "#/deployments/flows?project=2");
+  assert.deepEqual(
+    client.requests.filter((request) => request.function === "workflows.definition.get")
+      .map((request) => request.payload),
+    [{}],
+  );
+  assert.deepEqual(
+    byClass(root, "delivery-flow-group").map((group) => tagText(group, "H3")),
+    ["beta", "alpha"],
+  );
+  assert.equal(rowFor(root, "Beta Promote").classList.contains("is-selected"), true);
+  const panel = byClass(root, "delivery-flow-panel")[0];
+  assert.equal(byClass(panel, "panel-header").length, 0);
+  mounted.unmount();
+});
+
+test("a server without description or lineage fields degrades to the facts it has", async (t) => {
+  const bare = FLOWS.map(({ description, supersedes_flow_id, ...rest }) => rest);
+  const { root, mounted } = await mountFlows(t, flowClient(bare));
+  assert.equal(byClass(root, "delivery-flow-description").length, 0);
+  assert.deepEqual(
+    byClass(root, "delivery-flow-fact").map((fact) => tagText(fact, "DT")),
+    ["Project", "Environment", "Target tier", "On failure"],
+  );
+  mounted.unmount();
+});
+
 test("a flow deep link opens the Flows tab on that definition", async (t) => {
   // The drill-in under the Flows tab is a definition, not a run.
   const { root, mounted } = await mountFlows(

@@ -14,13 +14,18 @@
 .universe-app-root .shipping-run-card .run-qa-section .review-evidence-rest {
   width: 100%;
 }
-/* Run QA thumbnails stay glance-sized even on a full-width card. */
-.universe-app-root .shipping-run-card .run-qa-section .review-shot {
-  width: min(144px, 45%);
+/* Run QA thumbnails: three to a row, glance-sized, the picture filling its
+   frame so the step caption sits directly under it. */
+.universe-app-root .run-qa-check > .review-evidence .review-shot {
+  width: min(144px, calc((100% - 16px) / 3));
 }
-.universe-app-root .shipping-run-card .run-qa-section .review-shot-open {
+.universe-app-root .run-qa-check > .review-evidence .review-shot-open {
   min-height: 84px;
   aspect-ratio: 4 / 3;
+}
+.universe-app-root .run-qa-check > .review-evidence .review-shot-image {
+  height: 100%;
+  aspect-ratio: auto;
 }
 .universe-app-root .shipping-run-card .run-qa-section .review-shot-caption {
   padding: 5px 0 0;
@@ -52,7 +57,9 @@
 .universe-app-root .delivery-runs-table td:first-child {
   min-width: 180px;
 }
-.universe-app-root .delivery-runs-table td.delivery-run-status-cell {
+/* Outweighs the shared `td:has(.pill)` top alignment so the pill sits
+   centred in its row. */
+.universe-app-root table.items.delivery-runs-table td.delivery-run-status-cell {
   vertical-align: middle;
 }
 /* Table cells override the strip's own compact width, so the selector has

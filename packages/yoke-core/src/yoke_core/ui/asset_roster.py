@@ -87,6 +87,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "universe_run_qa_checks.js": "text/javascript; charset=utf-8",
     "inbox_run_review.js": "text/javascript; charset=utf-8",
     "universe_carried_item_qa.js": "text/javascript; charset=utf-8",
+    "universe_carried_item_titles.js": "text/javascript; charset=utf-8",
     "universe_run_identity.js": "text/javascript; charset=utf-8",
     "universe_carried_item_evidence.js": "text/javascript; charset=utf-8",
     "universe_views_run_detail.js": "text/javascript; charset=utf-8",

@@ -64,7 +64,15 @@
   color: var(--yoke-warn);
 }
 .universe-app-root .run-qa-check { font-size: 12px; }
-.universe-app-root .run-qa-check-name { overflow-wrap: anywhere; }
+.universe-app-root .run-qa-check-name {
+  font-weight: 560;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .run-qa-check-name a {
+  color: var(--yoke-ink);
+  font-weight: 560;
+  text-decoration: underline;
+}
 .universe-app-root .run-qa-check-outcome { color: var(--yoke-muted); }
 /* A check's verdict reason is prose: it wraps under the name at full width. */
 .universe-app-root .run-qa-check-reason {
@@ -79,6 +87,9 @@
 }
 .universe-app-root .run-qa-check > .review-evidence {
   flex: 0 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   max-width: 100%;
   margin-top: 2px;
 }

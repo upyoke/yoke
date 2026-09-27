@@ -186,3 +186,25 @@ test("QA stages say scope, where they run, cases and who decides in plain words"
   assert.deepEqual(stageText(root, "delivery-flow-stage-kind"), ["Preview deploy", "QA", "QA"]);
   mounted.unmount();
 });
+
+test("runner labels drop missing parameters and derive a warm-up environment", async (t) => {
+  const OLDER_SERVER = {
+    ...GATED,
+    id: "older", name: "Older Server",
+    stages: [
+      { name: "ship", step_runner: "github-actions-workflow" },
+      { name: "warm-up", step_runner: "warm-up" },
+      {
+        name: "item-qa", step_runner: "qa", stage_kind: "qa", scope: "item",
+        target: { kind: "persistent_environment", environment: "prod", source_stage: "warm-up" },
+        verdict: { mode: "agent_only" },
+      },
+      { name: "cold", step_runner: "warm-up" },
+    ],
+  };
+  const { root, mounted } = await mountFlows(t, flowClient([OLDER_SERVER]));
+  assert.deepEqual(stageText(root, "delivery-flow-stage-kind"), [
+    "GitHub Actions", "Warm-up · prod", "QA", "Warm-up",
+  ]);
+  mounted.unmount();
+});

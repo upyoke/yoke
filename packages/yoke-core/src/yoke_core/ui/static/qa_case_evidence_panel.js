@@ -18,15 +18,29 @@ import { el } from "./universe_view_support.js";
 const OUTPUT_LOADING = "loading recorded output…";
 const OUTPUT_UNREADABLE = "The recorded output could not be read from here.";
 
+// The exit code the command check recorded beside its output, when it did.
+function recordedExitCode(artifact) {
+  let meta = artifact.metadata;
+  if (typeof meta === "string") {
+    try { meta = JSON.parse(meta); } catch { meta = null; }
+  }
+  const code = meta?.exit_code;
+  return Number.isInteger(code) ? code : null;
+}
+
 // Each recorded output fills in where it will sit once its bytes arrive, so
 // the rest of the page does not wait on a read of every artifact.
-function recordedOutputBlock(context, artifact) {
+function recordedOutputBlock(context, artifact, requirementId) {
   const documentNode = context.document;
   const block = el(documentNode, "div", "qa-case-output-block");
-  const label = el(documentNode, "h3", "qa-case-output-label", "Recorded output");
+  const exitCode = recordedExitCode(artifact);
+  const label = el(
+    documentNode, "h3", "qa-case-output-label",
+    exitCode == null ? "Recorded output" : `Recorded output · exit ${exitCode}`,
+  );
   block.appendChild(label);
   block.appendChild(el(documentNode, "p", "empty", OUTPUT_LOADING));
-  void readRecordedOutput(context, artifact).then((text) => {
+  void readRecordedOutput(context, artifact, requirementId).then((text) => {
     if (context.isMounted && !context.isMounted()) return;
     block.replaceChildren(
       label,
@@ -64,7 +78,7 @@ export function caseEvidencePanel(context, { row, latest, requirementId }) {
   );
   if (strip) body.appendChild(strip);
   for (const artifact of outputs) {
-    body.appendChild(recordedOutputBlock(context, artifact));
+    body.appendChild(recordedOutputBlock(context, artifact, requirementId));
   }
   const ci = ciRunLink(documentNode, row);
   if (ci) body.appendChild(ci);

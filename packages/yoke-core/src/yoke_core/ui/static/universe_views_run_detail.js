@@ -6,6 +6,7 @@
 // an Inbox release request. Everything on it is the run row the paged
 // history read serves plus the QA activity recorded against the run.
 
+import { appendCarriedItemHeading } from "./universe_carried_item_titles.js";
 import { createDecisionResolver } from "./inbox_rows.js";
 import { deploymentRunsHref } from "./universe_navigation.js";
 import { appendSteps } from "./universe_run_verification.js";
@@ -13,7 +14,6 @@ import { runQaSection } from "./universe_run_qa.js";
 import { carriedItems } from "./universe_work_cards.js";
 import {
   appendCarriedItemEvidence,
-  appendCarriedItemHeading,
   EMPTY_CARRIED_ITEM_FACTS,
   loadCarriedItemEvidence,
 } from "./universe_carried_item_evidence.js";
@@ -85,7 +85,7 @@ function decisionCard(context, row, project, checks, onAct, itemFacts, onItemDec
   const drawnRequests = new Set();
   const list = el(documentNode, "div", "run-items");
   for (const item of items) {
-    appendCarriedItemHeading(documentNode, list, item, project?.id);
+    appendCarriedItemHeading(documentNode, list, item, project?.id, itemFacts.titles);
     const drawn = appendCarriedItemEvidence(context, list, {
       item,
       runId: row.id || row.run_id,

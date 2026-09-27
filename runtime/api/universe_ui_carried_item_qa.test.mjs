@@ -14,6 +14,10 @@ import {
   RUN_ID,
 } from "./universe_ui_carried_item_test_support.mjs";
 import { paintCarriedItemQa } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_qa.js";
+import {
+  appendCarriedItemHeading,
+  loadMissingItemTitles,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_titles.js";
 
 const CI_URL = "https://github.com/upyoke/platform/actions/runs/1234";
 const OLDER_RUN = "run-20260910-002";
@@ -106,4 +110,40 @@ test("with nothing run against the deployed revision, all checks are earlier che
   assert.equal(byClass(wrap, "carried-item-qa-heading").length, 0);
   assert.equal(byClass(byClass(wrap, "carried-item-qa-earlier")[0],
     "carried-item-qa-row").length, 3);
+});
+
+test("the strip holds every screenshot the item's checks captured, each once", () => {
+  const rows = [
+    ...history,
+    check({ requirement_id: 15, deployment_run_id: OLDER_RUN, qa_phase: "post_deploy",
+      artifacts: [artifact(3, 15), artifact(40, 15), artifact(41, 15)],
+      happened_at: "2026-09-10T06:00:00Z" }),
+  ];
+  const strip = paint(rows).children[2];
+  assert.equal(byClass(strip, "review-more")[0].textContent, "and 4 more");
+  byClass(strip, "review-more")[0].dispatchEvent(new Event("click"));
+  assert.deepEqual(byClass(strip, "review-shot").map(
+    (shot) => Number(shot.getAttribute("data-artifact-id"))), [1, 2, 3, 4, 5, 40, 41]);
+});
+
+test("a carried title the run payload omits is read from the item", async () => {
+  const documentNode = new FakeDocument();
+  const reads = [];
+  const context = { document: documentNode, client: { async call(request) {
+    reads.push(request);
+    return { status: 200, envelope: { success: true,
+      result: { item: { title: `Title of ${request.target.public_ref}` } } } };
+  } } };
+  const items = [
+    { id: 3416, ref: "YOK-3416", title: "", project_id: 1, project_sequence: 3416 },
+    { id: 3418, ref: "YOK-3418", title: "Already named", project_id: 1, project_sequence: 3418 },
+  ];
+  const titles = await loadMissingItemTitles(context, items);
+  assert.deepEqual(reads.map((request) => [request.function, request.target.public_ref]),
+    [["items.detail.get", "YOK-3416"]]);
+  const host = documentNode.createElement("div");
+  appendCarriedItemHeading(documentNode, host, items[0], 1, titles);
+  const title = byClass(host, "carried-item-title")[0];
+  assert.equal(title.textContent, "Title of YOK-3416");
+  assert.equal(title.href, "#/items/3416?project=1");
 });

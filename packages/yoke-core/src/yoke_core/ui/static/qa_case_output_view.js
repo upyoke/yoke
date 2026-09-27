@@ -25,11 +25,14 @@ function decodeText(base64) {
 }
 
 // The recorded output, or null when its bytes are not portable to this
-// reader (a machine-local handle, or a read that failed).
-export async function readRecordedOutput(context, artifact) {
+// reader (a machine-local handle, or a read that failed). The read names
+// its case: an artifact read is project-scoped, and the requirement is what
+// resolves the project and proves the artifact belongs to it.
+export async function readRecordedOutput(context, artifact, requirementId) {
   try {
     const result = await callFunction(
       context.client, "qa.artifact.read", { artifact_id: Number(artifact.id) },
+      { kind: "qa_requirement", qa_requirement_id: Number(requirementId) },
     );
     const content = result.status === 200 && result.envelope.success
       ? result.envelope.result?.content_base64 : null;

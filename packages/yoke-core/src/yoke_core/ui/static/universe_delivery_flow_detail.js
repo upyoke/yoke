@@ -81,7 +81,7 @@ function renderPipeline(documentNode, row, actorNames) {
     const body = el(documentNode, "div", "delivery-flow-stage-body");
     const head = el(documentNode, "div", "delivery-flow-stage-head");
     head.appendChild(el(documentNode, "strong", "delivery-flow-stage-name", stage.name));
-    const runner = stageRunnerLabel(stage);
+    const runner = stageRunnerLabel(stage, stages);
     if (runner) head.appendChild(el(documentNode, "span", "delivery-flow-stage-kind", runner));
     if (isPersonDecided(stage)) {
       head.appendChild(el(documentNode, "span", "delivery-flow-stage-person", "a person decides"));

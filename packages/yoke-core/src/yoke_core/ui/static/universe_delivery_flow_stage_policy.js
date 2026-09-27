@@ -30,19 +30,27 @@ const SCOPE_PHRASES = {
   run: "runs once for the whole release",
 };
 
+// The environment a warm-up stage reaches. The definition names it as the
+// stage's connection; a server that does not serve that parameter still
+// serves the later stages that act on "prod, as warm-up left it", which
+// name the same environment.
+function warmUpEnvironment(stage, stages) {
+  if (stage.connection_env) return String(stage.connection_env);
+  const follower = stages.find((other) => (
+    other.target?.source_stage === stage.name && other.target?.environment
+  ));
+  return follower ? String(follower.target.environment) : "";
+}
+
 // What runs the stage, named the way a reader would say it rather than by
-// the step runner's code.
-export function stageRunnerLabel(stage) {
+// the step runner's code. A parameter the server did not serve is left out
+// rather than replaced with a placeholder word.
+export function stageRunnerLabel(stage, stages = []) {
   const runner = String(stage.step_runner || "");
-  if (runner === "github-actions-workflow") {
-    return `GitHub Actions · ${stage.workflow || "workflow"}`;
-  }
-  if (runner === "warm-up") {
-    return stage.connection_env ? `Warm-up · ${stage.connection_env}` : "Warm-up";
-  }
-  if (runner === "ephemeral-verify") {
-    return stage.workflow ? `Preview verification · ${stage.workflow}` : "Preview verification";
-  }
+  const detail = (label, value) => (value ? `${label} · ${value}` : label);
+  if (runner === "github-actions-workflow") return detail("GitHub Actions", stage.workflow);
+  if (runner === "warm-up") return detail("Warm-up", warmUpEnvironment(stage, stages));
+  if (runner === "ephemeral-verify") return detail("Preview verification", stage.workflow);
   if (!runner && stage.stage_kind === "qa") return "QA";
   return RUNNER_LABELS[runner] || runner || String(stage.stage_kind || "");
 }

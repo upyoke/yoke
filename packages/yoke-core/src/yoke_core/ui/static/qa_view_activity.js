@@ -19,12 +19,17 @@ import {
   tableWrap,
 } from "./qa_view_primitives.js";
 
-const RECENT_ACTIVITY_LIMIT = 6;
+// The read's largest page. The table lists every case run of the day the
+// summary counts, so "30 case runs today" sits above thirty rows; a fixed
+// short page cut the list off and hid whichever cases ran first.
+const ACTIVITY_PAGE_LIMIT = 500;
+// A day with no case runs yet still shows what ran most recently.
+const QUIET_DAY_ROWS = 20;
 // Three pictures fit a table row; the rest fold behind "+N more".
 const ACTIVITY_EVIDENCE_SHOWN = 3;
 
-function todayRows(rows) {
-  const today = new Date().toISOString().slice(0, 10);
+function todayRows(rows, day = new Date().toISOString().slice(0, 10)) {
+  const today = day;
   return rows.filter(
     (row) => String(row.happened_at || "").slice(0, 10) === today,
   );
@@ -238,7 +243,7 @@ export async function renderQaActivity(context, main, scope) {
   ));
   const [{ callResults, failed }, pending] = await Promise.all([
     loadProjectCalls(
-      context, scope, "qa.activity.list", { limit: RECENT_ACTIVITY_LIMIT },
+      context, scope, "qa.activity.list", { limit: ACTIVITY_PAGE_LIMIT },
     ),
     loadPendingReviews(
       context, scope === "all" ? context.projects().map((row) => row.id) : scope,
@@ -249,12 +254,17 @@ export async function renderQaActivity(context, main, scope) {
     showFailure(documentNode, main, failed);
     return;
   }
-  const rows = callResults.flatMap(
+  const recent = callResults.flatMap(
     (result) => result.envelope.result?.rows || [],
   ).sort((left, right) =>
     String(right.happened_at || "").localeCompare(
       String(left.happened_at || ""),
-    )).slice(0, RECENT_ACTIVITY_LIMIT);
+    ));
+  const summaryDay = callResults
+    .map((result) => result.envelope.result?.summary?.day)
+    .find(Boolean);
+  const dayRows = todayRows(recent, summaryDay);
+  const rows = dayRows.length ? dayRows : recent.slice(0, QUIET_DAY_ROWS);
   const itemRefs = await loadQaCaseItemRefs(context, rows);
   if (!context.isMounted()) return;
   const summary = aggregateSummaries(callResults);

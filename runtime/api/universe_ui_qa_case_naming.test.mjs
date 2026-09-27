@@ -31,7 +31,8 @@ const ITEM_CHECK = {
   plan_id: null, plan: null, project: "yoke", method_id: "command",
   method_name: "Command", outcome: "passed", run_url: CI_RUN,
   evidence_count: 1,
-  artifacts: [{ id: 22502, artifact_type: "command_output", content_type: "text/plain" }],
+  artifacts: [{ id: 22502, artifact_type: "command_output", content_type: "text/plain",
+    metadata: "{\"exit_code\": 0}" }],
   happened_at: "2026-09-27T16:30:00Z",
 };
 
@@ -114,6 +115,36 @@ test("activity links each case by name and the row itself does not navigate", as
   );
 });
 
+test("activity lists every case run the day's count covers, run checks included", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("main");
+  const today = [...Array(8)].map((_, index) => ({
+    ...(index % 2 ? ITEM_CHECK : RUN_CHECK),
+    requirement_id: 40000 + index,
+    happened_at: `2026-09-27T1${index}:00:00Z`,
+  }));
+  const context = qaContext(documentNode, {
+    rows: [...today, { ...RUN_CHECK, requirement_id: 39999, happened_at: "2026-09-26T09:00:00Z" }],
+  });
+  context.client.call = ((call) => async (request) => {
+    const response = await call(request);
+    if (request.function === "qa.activity.list") {
+      response.envelope.result.summary = { day: "2026-09-27", total: 8, counts: {} };
+    }
+    return response;
+  })(context.client.call.bind(context.client));
+  await renderQaActivity(context, root, "all");
+  await settle();
+
+  assert.equal(byClass(root, "qa-stat")[0].children[0].textContent, "8");
+  const names = byClass(root, "qa-activity-link").map((link) => link.textContent);
+  assert.equal(names.length, 8);
+  assert.equal(names.filter((name) => name.startsWith("Browser inspection · run-")).length, 4);
+  assert.equal(
+    context.requests.find((r) => r.function === "qa.activity.list").payload.limit, 500,
+  );
+});
+
 test("a command check's case page shows its recorded output and CI run", async () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("main");
@@ -133,6 +164,11 @@ test("a command check's case page shows its recorded output and CI run", async (
   const output = byClass(root, "qa-case-recorded-output");
   assert.equal(output.length, 1);
   assert.equal(output[0].textContent, OUTPUT.trimEnd());
+  assert.equal(byClass(root, "qa-case-output-label")[0].textContent, "Recorded output · exit 0");
+  // The read names its case: qa.artifact.read is project-scoped, and without
+  // a requirement target the server cannot resolve the project and refuses.
+  const read = context.requests.find((r) => r.function === "qa.artifact.read");
+  assert.deepEqual(read.target, { kind: "qa_requirement", qa_requirement_id: 31877 });
   // The output is shown as text, not repeated as an evidence tile.
   assert.equal(byClass(root, "review-shot").length, 0);
   assert.doesNotMatch(root.textContent, /could not be resolved/);
