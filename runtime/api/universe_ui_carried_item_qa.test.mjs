@@ -13,6 +13,7 @@ import {
   deployedTarget,
   RUN_ID,
 } from "./universe_ui_carried_item_test_support.mjs";
+import { readArtifact } from "../../packages/yoke-core/src/yoke_core/ui/static/review_evidence_read.js";
 import { paintCarriedItemQa } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_qa.js";
 import {
   appendCarriedItemHeading,
@@ -146,4 +147,24 @@ test("a carried title the run payload omits is read from the item", async () => 
   const title = byClass(host, "carried-item-title")[0];
   assert.equal(title.textContent, "Title of YOK-3416");
   assert.equal(title.href, "#/items/3416?project=1");
+});
+
+test("a repaint reuses a ready artifact read and retries a failed one", async () => {
+  let calls = 0;
+  let ready = true;
+  const context = { client: { async call() {
+    calls += 1;
+    return ready
+      ? { status: 200, envelope: { success: true, result: { disposition: "ready",
+        content_type: "image/png", content_base64: "aVZCT1J3MEs=" } } }
+      : { status: 500, envelope: { success: false, error: { message: "down" } } };
+  } } };
+  await readArtifact(context, { id: 1, requirement_id: 9 });
+  await readArtifact(context, { id: 1, requirement_id: 9 });
+  assert.equal(calls, 1);
+  ready = false;
+  await readArtifact(context, { id: 2, requirement_id: 9 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await readArtifact(context, { id: 2, requirement_id: 9 });
+  assert.equal(calls, 3);
 });

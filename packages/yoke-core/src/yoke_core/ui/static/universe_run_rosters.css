@@ -8,7 +8,7 @@
 .universe-app-root .shipping-run-card .run-qa-section .review-evidence-rest:not([hidden]) {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
   align-items: start;
 }
 .universe-app-root .shipping-run-card .run-qa-section .review-evidence-rest {
@@ -17,7 +17,7 @@
 /* Run QA thumbnails: three to a row, glance-sized, the picture filling its
    frame so the step caption sits directly under it. */
 .universe-app-root .run-qa-check > .review-evidence .review-shot {
-  width: min(144px, calc((100% - 16px) / 3));
+  width: min(144px, calc((100% - 24px) / 3));
 }
 .universe-app-root .run-qa-check > .review-evidence .review-shot-open {
   min-height: 84px;
