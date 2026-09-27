@@ -2,23 +2,32 @@
 
 from __future__ import annotations
 
+import json
+
 from runtime.api.fixtures.backlog import (
     insert_deployment_run,
     insert_item,
     insert_qa_requirement,
     insert_qa_run,
 )
+from runtime.api.fixtures.backlog_insert_support import ensure_project_id
 from runtime.api.steering_fleet_test_helpers import compose, seed_steering_scope
 from yoke_core.domain.deployment_run_candidate_containment import (
     CONTAINED,
     NOT_CONTAINED,
     UNDETERMINED,
+    CandidateContainment,
     ContainmentVerdict,
 )
 from yoke_core.domain.deployment_run_unpassable_blocking_qa import (
+    PROJECT_NOT_PINNED,
     diagnose_unpassable_blocking_qa,
 )
 from yoke_core.domain.item_merge_receipt_document import record_entry
+from yoke_core.domain.repository_provider_refusal import (
+    HEAD_UNPUBLISHED,
+    head_unpublished,
+)
 from yoke_core.domain.steering_fleet_report_render import report_body
 
 
@@ -28,9 +37,11 @@ FIX = "7ff9dad000000000000000000000000000000001"
 ITEM_ID = 8801
 
 
-def _walk(state: str, reason: str = ""):
+def _walk(state: str, reason: str = "", built: list | None = None):
     class _Walk:
         def __init__(self, conn, project_id, *, candidate_lineage):
+            if built is not None:
+                built.append((project_id, candidate_lineage))
             self.lineage = candidate_lineage
             self.asked: list[str] = []
 
@@ -49,8 +60,14 @@ class _ForbiddenWalk:
         raise AssertionError("containment must not run without a recorded merge")
 
 
-def _seed_failed_member(conn, *, run_id: str = RUN_ID, item_id: int = ITEM_ID):
-    insert_item(conn, id=item_id, title="failed member", status="release")
+def _seed_failed_member(
+    conn, *, run_id: str = RUN_ID, item_id: int = ITEM_ID, project: str = "yoke"
+):
+    if project != "yoke":
+        ensure_project_id(conn, project, ts="2026-09-27T00:00:00Z")
+    insert_item(
+        conn, id=item_id, title="failed member", status="release", project=project
+    )
     insert_deployment_run(
         conn,
         id=run_id,
@@ -118,10 +135,16 @@ def test_a_fail_whose_merge_is_outside_the_pin_names_superseding(test_db) -> Non
     requirement_id = _seed_failed_member(test_db)
     _record_fix(test_db)
 
+    built: list = []
     diagnosis = diagnose_unpassable_blocking_qa(
-        test_db, run_id=RUN_ID, containment_cls=_walk(NOT_CONTAINED)
+        test_db, run_id=RUN_ID, containment_cls=_walk(NOT_CONTAINED, built=built)
     )
 
+    run_project = test_db.execute(
+        "SELECT project_id FROM deployment_runs WHERE id=%s", (RUN_ID,)
+    ).fetchone()[0]
+    # A member of the run's own project is asked against the run's lineage.
+    assert built == [(run_project, PIN)]
     assert [item.requirement_id for item in diagnosis.unpassable] == [requirement_id]
     assert diagnosis.unpassable[0].merge_sha == FIX
     assert diagnosis.unpassable[0].pin == PIN
@@ -226,3 +249,94 @@ def test_a_blocked_stage_carries_the_unpassable_pin_on_the_run_answer(
     assert any("cannot pass against this pin" in reason for reason in status["reasons"])
     assert any(f"Supersede {run_id}" in reason for reason in status["reasons"])
     assert all("then re-drive the run" not in reason for reason in status["reasons"])
+
+
+PLATFORM_PIN = "22d2598fd9654f058d15569cbd96b6756493674c"
+PLATFORM_FIX = "8aaebe1000000000000000000000000000000002"
+
+
+def _bind_platform(conn, pin: str = PLATFORM_PIN) -> int:
+    platform_id = ensure_project_id(conn, "platform", ts="2026-09-27T00:00:00Z")
+    bound = {
+        "schema": 1,
+        "projects": [
+            {"project": "platform", "project_id": platform_id, "commit_sha": pin}
+        ],
+        "inputs": {},
+    }
+    conn.execute(
+        "UPDATE deployment_runs SET bound_sources=%s WHERE id=%s",
+        (json.dumps(bound), RUN_ID),
+    )
+    return platform_id
+
+
+def test_a_bound_project_member_is_asked_against_its_own_projects_pin(
+    test_db,
+) -> None:
+    requirement_id = _seed_failed_member(test_db, project="platform")
+    platform_id = _bind_platform(test_db)
+    _record_fix(test_db, merge_sha=PLATFORM_FIX)
+    built: list = []
+
+    diagnosis = diagnose_unpassable_blocking_qa(
+        test_db, run_id=RUN_ID, containment_cls=_walk(NOT_CONTAINED, built=built)
+    )
+
+    # Never the run's own repository and lineage: a Platform merge compared
+    # against a Yoke commit is a 404, not a verdict.
+    assert built == [(platform_id, PLATFORM_PIN)]
+    assert [item.requirement_id for item in diagnosis.unpassable] == [requirement_id]
+    assert diagnosis.unpassable[0].pin == PLATFORM_PIN
+
+
+def test_a_member_whose_project_the_run_does_not_pin_is_named_unproven(
+    test_db,
+) -> None:
+    requirement_id = _seed_failed_member(test_db, project="platform")
+    _record_fix(test_db, merge_sha=PLATFORM_FIX)
+
+    diagnosis = diagnose_unpassable_blocking_qa(
+        test_db, run_id=RUN_ID, containment_cls=_ForbiddenWalk
+    )
+
+    assert diagnosis.unpassable == ()
+    assert [item.requirement_id for item in diagnosis.unproven] == [requirement_id]
+    assert diagnosis.unproven[0].reason == PROJECT_NOT_PINNED
+    assert "settle or waive the requirement" in diagnosis.unproven[0].note()
+
+
+class _UnpublishedSource:
+    origin = "repository_provider"
+    location = "upyoke/platform"
+
+    def resolve_commit(self, ref):
+        return ref
+
+    def contains_commit(self, candidate, commit):
+        raise head_unpublished(self.location, candidate, commit)
+
+
+class _ProviderRefusingWalk(CandidateContainment):
+    def __init__(self, conn, project_id, *, candidate_lineage):
+        super().__init__(
+            conn, project_id, candidate_lineage=candidate_lineage,
+            source=_UnpublishedSource(),
+        )
+
+
+def test_a_provider_refusal_is_a_named_recoverable_diagnosis(test_db) -> None:
+    requirement_id = _seed_failed_member(test_db, project="platform")
+    _bind_platform(test_db)
+    _record_fix(test_db, merge_sha=PLATFORM_FIX)
+
+    diagnosis = diagnose_unpassable_blocking_qa(
+        test_db, run_id=RUN_ID, containment_cls=_ProviderRefusingWalk
+    )
+
+    assert diagnosis.unpassable == ()
+    assert [item.requirement_id for item in diagnosis.unproven] == [requirement_id]
+    assert diagnosis.unproven[0].reason == HEAD_UNPUBLISHED
+    note = diagnosis.unproven[0].note()
+    assert "Publish or land the lane" in note
+    assert "Do not treat this run as unable to pass" in note
