@@ -20,12 +20,6 @@
 .qa-capability-link,
 .qa-activity-link {
   color: var(--yoke-link);
-  text-decoration: none;
-}
-
-.qa-capability-link:hover,
-.qa-activity-link:hover {
-  text-decoration: underline;
 }
 
 .qa-method-catalog {

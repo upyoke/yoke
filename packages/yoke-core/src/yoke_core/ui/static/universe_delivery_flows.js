@@ -1,16 +1,14 @@
-import { el, liveStatus, statePill } from "./universe_view_support.js";
-import { renderDeliveryFlowDetail } from "./universe_delivery_flow_detail.js";
-import { flowActionsRow } from "./universe_delivery_flow_actions.js";
-import { openDeliveryFlowForm } from "./universe_delivery_flow_form.js";
+// Deployments → Flows: a searchable list of flow definitions grouped by
+// project beside the selected flow. On a narrow content pane the list comes
+// first and a chosen flow opens alone, with "‹ All flows" to return.
+import { el, statePill } from "./universe_view_support.js";
+import {
+  flowName,
+  flowStatus,
+  renderDeliveryFlowDetail,
+} from "./universe_delivery_flow_detail.js";
 
-function flowName(row) {
-  return row.name || row.id || "Unnamed flow";
-}
-function flowStatus(row) {
-  return String(row.status || "unknown").toLowerCase();
-}
-
-function stagesFor(row) {
+function stageNames(row) {
   return (Array.isArray(row.stages) ? row.stages : []).map((stage) => stage.name);
 }
 function searchableText(row) {
@@ -18,263 +16,179 @@ function searchableText(row) {
     row.name,
     row.id,
     row.project,
-    row.status,
-    row.target_tier,
     row.target_environment,
-    row.on_failure,
-    ...stagesFor(row),
+    row.target_tier,
+    ...stageNames(row),
   ].filter(Boolean).join(" ").toLowerCase();
 }
-function sortedRows(rows) {
+function isActive(row) {
+  return flowStatus(row) === "active";
+}
+// Scoped projects first, then the rest by name; within a project, active
+// flows before disabled ones, each by name.
+function sortedRows(rows, leadingProjects = []) {
+  const lead = (row) => {
+    const at = leadingProjects.indexOf(String(row.project || ""));
+    return at === -1 ? leadingProjects.length : at;
+  };
   return [...rows].sort((left, right) => {
-    const projectOrder = String(left.project || "").localeCompare(
-      String(right.project || ""),
-    );
+    const leadOrder = lead(left) - lead(right);
+    if (leadOrder) return leadOrder;
+    const projectOrder = String(left.project || "").localeCompare(String(right.project || ""));
     if (projectOrder) return projectOrder;
-    const leftDisabled = flowStatus(left) === "disabled";
-    const rightDisabled = flowStatus(right) === "disabled";
-    if (leftDisabled !== rightDisabled) return leftDisabled ? 1 : -1;
+    if (isActive(left) !== isActive(right)) return isActive(left) ? -1 : 1;
     return flowName(left).localeCompare(flowName(right));
   });
 }
-function flowCard(documentNode, row, selected, index) {
-  const card = el(documentNode, "button", "delivery-flow-card");
-  card.type = "button";
-  card.setAttribute("role", "option");
-  card.setAttribute("id", `delivery-flow-option-${index}`);
-  card.setAttribute("aria-selected", String(selected));
-  card.setAttribute("aria-controls", "delivery-flow-detail");
-  card.setAttribute("data-status", flowStatus(row));
-  card.tabIndex = selected ? 0 : -1;
-  card.classList.toggle("selected", selected);
 
-  const header = el(documentNode, "span", "delivery-flow-card-header");
-  header.appendChild(el(
-    documentNode, "strong", "delivery-flow-card-name", flowName(row),
-  ));
-  const pill = statePill(documentNode, flowStatus(row), flowStatus(row));
-  if (pill) header.appendChild(pill);
-  card.appendChild(header);
-  const meta = el(documentNode, "span", "delivery-flow-card-meta");
-  meta.appendChild(el(
-    documentNode, "span", "delivery-flow-card-project", row.project || "Unknown project",
-  ));
-  meta.appendChild(el(
-    documentNode,
-    "span",
-    null,
-    `${stagesFor(row).length} stage${stagesFor(row).length === 1 ? "" : "s"}`,
-  ));
-  card.appendChild(meta);
-  return card;
+function flowRowMeta(row) {
+  const count = stageNames(row).length;
+  return [
+    row.target_environment,
+    `${count} stage${count === 1 ? "" : "s"}`,
+  ].filter(Boolean).join(" · ");
 }
-function zeroState(documentNode, title, copy, className = "") {
-  const empty = el(
-    documentNode,
-    "div",
-    `delivery-flow-zero ${className}`.trim(),
-  );
-  empty.setAttribute("role", "status");
-  empty.appendChild(el(documentNode, "span", "delivery-flow-zero-mark", "↗"));
-  empty.appendChild(el(documentNode, "h3", null, title));
-  empty.appendChild(el(documentNode, "p", null, copy));
-  return empty;
+
+function flowRowButton(documentNode, row, selected) {
+  const button = el(documentNode, "button", "delivery-flow-row");
+  button.type = "button";
+  button.setAttribute("data-flow-id", String(row.id));
+  button.setAttribute("aria-current", String(selected));
+  button.classList.toggle("is-selected", selected);
+  button.appendChild(el(documentNode, "span", "delivery-flow-row-name", flowName(row)));
+  // Active is the ordinary case; only an exception earns a pill.
+  if (!isActive(row)) {
+    const pill = statePill(documentNode, flowStatus(row), flowStatus(row));
+    if (pill) button.appendChild(pill);
+  }
+  button.appendChild(el(documentNode, "span", "delivery-flow-row-meta", flowRowMeta(row)));
+  return button;
 }
-export function renderDeliveryFlowExplorer(
-  body, panel, sourceRows, selectedId = null, { context, reload } = {},
-) {
+
+export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId = null, options = {}) {
   const documentNode = body.ownerDocument;
-  const rows = sortedRows(sourceRows);
+  const rows = sortedRows(sourceRows, options.leadingProjects || []);
   panel.classList.add("delivery-flow-panel");
-  const dialogHost = el(documentNode, "div", "delivery-flow-dialog-host");
-  const report = liveStatus(documentNode, "delivery-flow-report");
-  const say = (text, tone) => {
-    report.className = `delivery-flow-report ${tone || ""}`.trim();
-    report.textContent = text;
-    report.hidden = !text;
-  };
   if (!rows.length) {
     panel.setCount(0);
-    const empty = zeroState(
+    body.appendChild(el(
       documentNode,
-      "No deployment flows yet",
-      "Definitions published for this project scope will appear here.",
-      "delivery-flow-empty-scope",
-    );
-    if (context) {
-      const first = el(
-        documentNode, "button", "delivery-flow-action primary", "New flow",
-      );
-      first.type = "button";
-      first.addEventListener("click", () => openDeliveryFlowForm(
-        context, dialogHost,
-        { mode: "create", projects: context.projects(), onSaved: reload },
-      ));
-      empty.appendChild(first);
-    }
-    body.appendChild(empty);
-    body.appendChild(report);
-    body.appendChild(dialogHost);
+      "p",
+      "delivery-flow-empty",
+      "No deployment flows yet. Flows are created with `yoke deployment-flows create`.",
+    ));
     return;
   }
-
-  const disabledCount = rows.filter(
-    (row) => flowStatus(row) === "disabled",
-  ).length;
+  const disabledCount = rows.filter((row) => !isActive(row)).length;
   // A route naming a flow opens on it, including a disabled one — a link to
-  // a retired definition should land on that definition rather than silently
-  // on whichever active flow happens to sort first.
+  // a retired definition lands on that definition.
   const routed = selectedId
     ? rows.find((row) => String(row.id) === String(selectedId)) || null
     : null;
   const state = {
     query: "",
-    showDisabled: Boolean(routed && flowStatus(routed) === "disabled"),
-    selected: routed || rows.find((row) => flowStatus(row) !== "disabled") || null,
+    showDisabled: Boolean(routed && !isActive(routed)),
+    selected: routed || rows.find(isActive) || rows[0],
+    open: Boolean(routed),
   };
-  const explorer = el(documentNode, "div", "delivery-flow-explorer");
-  const toolbar = el(documentNode, "div", "delivery-flow-toolbar");
-  const searchLabel = el(documentNode, "label", "delivery-flow-search");
-  searchLabel.appendChild(el(documentNode, "span", null, "Search flows"));
-  const search = el(documentNode, "input");
-  search.type = "search";
-  search.placeholder = "Name, project, stage, target…";
-  search.setAttribute("aria-controls", "delivery-flow-list");
-  searchLabel.appendChild(search);
-  toolbar.appendChild(searchLabel);
-  const actions = context ? flowActionsRow({
-    documentNode, context, dialogHost, reload, report: say,
-  }) : null;
-  const disabledToggle = el(
-    documentNode, "button", "delivery-flow-disabled-toggle",
-  );
-  disabledToggle.type = "button";
-  disabledToggle.hidden = disabledCount === 0;
-  toolbar.appendChild(disabledToggle);
-  const summary = el(documentNode, "p", "delivery-flow-result-summary");
-  summary.setAttribute("aria-live", "polite");
-  toolbar.appendChild(summary);
-  if (actions) toolbar.appendChild(actions.row);
-  explorer.appendChild(toolbar);
 
-  const workspace = el(documentNode, "div", "delivery-flow-workspace");
-  const browser = el(documentNode, "aside", "delivery-flow-browser");
-  browser.setAttribute("aria-label", "Deployment flow catalog");
-  const list = el(documentNode, "div", "delivery-flow-list");
-  list.setAttribute("id", "delivery-flow-list");
-  list.setAttribute("role", "listbox");
+  const page = el(documentNode, "div", "delivery-flow-page");
+  const list = el(documentNode, "aside", "delivery-flow-list");
   list.setAttribute("aria-label", "Deployment flows");
-  browser.appendChild(list);
+  const tools = el(documentNode, "div", "delivery-flow-tools");
+  const search = el(documentNode, "input", "delivery-flow-search");
+  search.type = "search";
+  search.placeholder = "Search flows, stages, environments";
+  search.setAttribute("aria-label", "Search flows");
+  const toggle = el(documentNode, "label", "delivery-flow-show-disabled");
+  const box = el(documentNode, "input");
+  box.type = "checkbox";
+  box.checked = state.showDisabled;
+  toggle.appendChild(box);
+  toggle.appendChild(documentNode.createTextNode(` Show disabled (${disabledCount})`));
+  tools.appendChild(search);
+  tools.appendChild(toggle);
+  const count = el(documentNode, "p", "delivery-flow-count");
+  count.setAttribute("aria-live", "polite");
+  const groups = el(documentNode, "div", "delivery-flow-groups");
+  for (const part of [tools, count, groups]) list.appendChild(part);
   const detail = el(documentNode, "article", "delivery-flow-detail");
   detail.setAttribute("id", "delivery-flow-detail");
-  workspace.appendChild(browser);
-  workspace.appendChild(detail);
-  explorer.appendChild(workspace);
-  explorer.appendChild(report);
-  explorer.appendChild(dialogHost);
-  body.appendChild(explorer);
+  page.appendChild(list);
+  page.appendChild(detail);
+  body.appendChild(page);
 
-  let cardByRow = new Map();
-  const visibleRows = () => rows.filter((row) => {
-    if (!state.showDisabled && flowStatus(row) === "disabled") return false;
-    return !state.query || searchableText(row).includes(state.query);
-  });
+  const visibleRows = () => rows.filter((row) => (
+    (state.showDisabled || isActive(row))
+    && (!state.query || searchableText(row).includes(state.query))
+  ));
+
+  const select = (row) => {
+    state.selected = row;
+    state.open = true;
+    if (!isActive(row) && !state.showDisabled) {
+      state.showDisabled = true;
+      box.checked = true;
+    }
+    paint();
+    page.scrollIntoView?.({ block: "start" });
+  };
+
+  const paintList = (visible) => {
+    panel.setCount(visible.length);
+    count.textContent = `${visible.length} flow${visible.length === 1 ? "" : "s"}`;
+    groups.replaceChildren();
+    if (!visible.length) {
+      groups.appendChild(el(documentNode, "p", "delivery-flow-empty", "No flows match."));
+      return;
+    }
+    const byProject = new Map();
+    for (const row of visible) {
+      const project = row.project || "Unknown project";
+      if (!byProject.has(project)) byProject.set(project, []);
+      byProject.get(project).push(row);
+    }
+    for (const [project, projectRows] of byProject) {
+      const group = el(documentNode, "section", "delivery-flow-group");
+      group.appendChild(el(documentNode, "h3", null, project));
+      const items = el(documentNode, "ul");
+      for (const row of projectRows) {
+        const button = flowRowButton(documentNode, row, row === state.selected);
+        button.addEventListener("click", () => select(row));
+        const item = el(documentNode, "li");
+        item.appendChild(button);
+        items.appendChild(item);
+      }
+      group.appendChild(items);
+      groups.appendChild(group);
+    }
+  };
 
   const paint = () => {
     const visible = visibleRows();
     if (!visible.includes(state.selected)) state.selected = visible[0] || null;
-    panel.setCount(visible.length);
-    disabledToggle.textContent = state.showDisabled
-      ? "Hide disabled"
-      : `Show disabled (${disabledCount})`;
-    disabledToggle.setAttribute("aria-pressed", String(state.showDisabled));
-    summary.textContent = `${visible.length} flow${visible.length === 1 ? "" : "s"} shown` +
-      (!state.showDisabled && disabledCount
-        ? ` · ${disabledCount} disabled hidden`
-        : "");
-    list.replaceChildren();
-    cardByRow = new Map();
-    if (!visible.length) {
-      const disabledHint = !state.showDisabled && disabledCount
-        ? " Disabled definitions remain hidden."
-        : "";
-      const empty = zeroState(
-        documentNode,
-        state.query ? "No matching flows" : "No active flows",
-        state.query
-          ? `Nothing matches “${search.value}”.${disabledHint}`
-          : `${disabledCount} historical definition${disabledCount === 1 ? " is" : "s are"} hidden.`,
-        "delivery-flow-no-results",
-      );
-      if (state.query) {
-        const clear = el(documentNode, "button", "delivery-flow-clear", "Clear search");
-        clear.type = "button";
-        clear.addEventListener("click", () => {
-          search.value = "";
-          state.query = "";
-          paint();
-          search.focus();
-        });
-        empty.appendChild(clear);
-      }
-      list.appendChild(empty);
-      renderDeliveryFlowDetail(documentNode, detail, null);
-      actions?.setSelected(null);
-      return;
-    }
-
-    const groups = new Map();
-    for (const row of visible) {
-      const project = row.project || "Unknown project";
-      if (!groups.has(project)) groups.set(project, []);
-      groups.get(project).push(row);
-    }
-    let optionIndex = 0;
-    for (const [project, projectRows] of groups) {
-      const group = el(documentNode, "section", "delivery-flow-project-group");
-      group.setAttribute("role", "group");
-      group.setAttribute("aria-label", project);
-      group.appendChild(el(documentNode, "h3", null, project));
-      for (const row of projectRows) {
-        const card = flowCard(
-          documentNode, row, row === state.selected, optionIndex,
-        );
-        optionIndex += 1;
-        cardByRow.set(row, card);
-        card.addEventListener("click", () => {
-          state.selected = row;
-          paint();
-          cardByRow.get(row)?.focus();
-        });
-        card.addEventListener("keydown", (event) => {
-          const index = visible.indexOf(row);
-          let next = null;
-          if (["ArrowDown", "ArrowRight"].includes(event.key)) {
-            next = (index + 1) % visible.length;
-          } else if (["ArrowUp", "ArrowLeft"].includes(event.key)) {
-            next = (index - 1 + visible.length) % visible.length;
-          } else if (event.key === "Home") next = 0;
-          else if (event.key === "End") next = visible.length - 1;
-          if (next === null) return;
-          event.preventDefault();
-          state.selected = visible[next];
-          paint();
-          cardByRow.get(state.selected)?.focus();
-        });
-        group.appendChild(card);
-      }
-      list.appendChild(group);
-    }
-    renderDeliveryFlowDetail(documentNode, detail, state.selected);
-    actions?.setSelected(state.selected);
+    page.classList.toggle("is-detail-open", state.open && Boolean(state.selected));
+    paintList(visible);
+    renderDeliveryFlowDetail(documentNode, detail, state.selected, {
+      flows: rows,
+      actorNames: options.actorNames || {},
+      flowHref: options.flowHref,
+      runHref: options.runHref,
+      loadRecentRuns: options.loadRecentRuns,
+      onSelect: select,
+      onBack: () => {
+        state.open = false;
+        page.classList.remove("is-detail-open");
+      },
+    });
   };
 
   search.addEventListener("input", () => {
     state.query = String(search.value || "").trim().toLowerCase();
     paint();
   });
-  disabledToggle.addEventListener("click", () => {
-    state.showDisabled = !state.showDisabled;
+  box.addEventListener("change", () => {
+    state.showDisabled = box.checked;
     paint();
   });
   paint();

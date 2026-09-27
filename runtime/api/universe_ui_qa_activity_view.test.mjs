@@ -100,7 +100,8 @@ test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
       ["1", "running"],
     ],
   );
-  assert.equal(byClass(root, "qa-clickable-row").length, 6);
+  assert.equal(byClass(root, "qa-activity-row").length, 6);
+  assert.equal(byClass(root, "qa-clickable-row").length, 0);
   const columns = ["Plan", "Case", "Method", "Outcome", "Evidence", "Review", "When"];
   assert.deepEqual(
     allNodes(byClass(root, "qa-activity-table")[0])
@@ -114,13 +115,13 @@ test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
     byClass(root, "qa-activity-table")[0].classList.contains("table-stacks-narrow"),
   );
   assert.deepEqual(
-    allNodes(byClass(root, "qa-clickable-row")[0])
+    allNodes(byClass(root, "qa-activity-row")[0])
       .filter((node) => node.tagName === "TD")
       .map((node) => node.attributes.get("data-label")),
     columns,
   );
-  // And the row a reader taps opens that exact case, which is the only way
-  // to reach its evidence once the columns are stacked.
+  // The case name opens that exact case, which is the only way to reach
+  // its evidence once the columns are stacked.
   assert.equal(
     byClass(root, "qa-activity-link")[1].href,
     "#/qa-activity/32?project=1",
@@ -131,13 +132,13 @@ test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
     ),
     {
       function: "qa.activity.list",
-      payload: { project: "1", limit: 6 },
+      payload: { project: "1", limit: 500 },
     },
   );
   const text = visibleText(root, " ");
   assert.match(text, /case runs today/);
   assert.match(text, /release-readiness/);
-  assert.match(text, /checkout-flow/);
+  assert.match(text, /Browser check · case 32/);
   assert.match(text, /Browser check/);
   assert.match(text, /needs review/);
   assert.match(text, /4 screenshots/);
@@ -334,11 +335,12 @@ test("a case attached without a plan reads as such and is named by its method", 
 
   // The Plan cell says there is none, and offers no link to a plan page
   // that does not exist.
-  const row = byClass(root, "qa-clickable-row")[0];
+  const row = byClass(root, "qa-activity-row")[0];
   assert.equal(row.children[0].children[0].textContent, "no plan");
   assert.equal(byClass(row, "qa-activity-link").length, 1);
-  // The case is named by what executes it, and still opens its own page.
+  // The case is named by what executes it; with no item or run it answers
+  // for itself, and still opens its own page.
   const caseLink = byClass(row, "qa-activity-link")[0];
-  assert.equal(caseLink.textContent, "Browser inspection");
+  assert.equal(caseLink.textContent, "Browser inspection · case 26759");
   assert.equal(caseLink.href, "#/qa-activity/26759?project=1");
 });

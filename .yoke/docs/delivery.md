@@ -6,13 +6,34 @@ subject:
 
 | Destination | Meaning |
 |---|---|
-| **Deployments → Flows** | Pipeline definitions runs execute. Read-only here: definitions are authored by command. |
-| **Deployments → Runs** | Each execution of a flow against an environment. Opening a row opens that run. |
+| **Deployments → Flows** | Pipeline definitions runs execute. Read-only: create, version and disable them with `yoke deployment-flows create`, `version` and `set-status`. |
+| **Deployments → Runs** | Each execution of a flow against an environment. The run ID opens that run. |
 | **Environments** | Deploy targets |
 | **Databases** | Declared DB models, posture, apply records — see [databases-and-migrations.md](databases-and-migrations.md) |
 
 Flows is the tab Deployments opens on. Runs live at `#/deployments/runs`, and
 one run at `#/deployments/runs/<run id>`.
+
+**Flows** lists every definition you can read, grouped by project with the
+projects in the current scope first, and searches names,
+IDs, stages and environments. Disabled definitions stay hidden until **Show
+disabled (N)** is checked; only a flow that is not active carries a status
+pill. The selected flow shows its name and ID, its description, and one facts
+row — project, environment, target tier, on failure, and the flow it
+replaces (`supersedes_flow_id`, linked). Its pipeline is a numbered list in
+stage order, each stage naming what runs it ("GitHub Actions ·
+release.yml", "Warm-up · prod", "Automatic", "Approval"); QA and approval
+stages add their scope, where they run, and who decides, and stages a person
+must decide are marked. Up to five recent runs of the flow link to their run
+pages. On a narrow pane the list comes first and a chosen flow opens alone
+with **‹ All flows** to return. The page has no controls that change a
+definition: flows are created, versioned and disabled only through
+`yoke deployment-flows create | version | set-status`.
+
+**Runs** titles each row with its flow name and puts the run ID beneath it as
+the link to the run. The QA evidence column holds a few small thumbnails with
+"and N more" beneath; the run page has the rest. The table stacks each row
+into labelled lines whenever its content pane cannot hold every column.
 The run page reads that exact run across every project the viewer can access,
 so its members include work from another project even when opened from a
 project-filtered list. The list itself keeps its chosen project filter; run

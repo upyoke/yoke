@@ -5,6 +5,7 @@ import {
   withProjectColumn,
 } from "./universe_view_support.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
+import { loadQaCaseItemRefs, qaCaseItemId, qaCaseName } from "./qa_case_name.js";
 import { evidenceSummaryNode } from "./qa_run_conclusion.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
@@ -18,12 +19,17 @@ import {
   tableWrap,
 } from "./qa_view_primitives.js";
 
-const RECENT_ACTIVITY_LIMIT = 6;
+// The read's largest page. The table lists every case run of the day the
+// summary counts, so "30 case runs today" sits above thirty rows; a fixed
+// short page cut the list off and hid whichever cases ran first.
+const ACTIVITY_PAGE_LIMIT = 500;
+// A day with no case runs yet still shows what ran most recently.
+const QUIET_DAY_ROWS = 20;
 // Three pictures fit a table row; the rest fold behind "+N more".
 const ACTIVITY_EVIDENCE_SHOWN = 3;
 
-function todayRows(rows) {
-  const today = new Date().toISOString().slice(0, 10);
+function todayRows(rows, day = new Date().toISOString().slice(0, 10)) {
+  const today = day;
   return rows.filter(
     (row) => String(row.happened_at || "").slice(0, 10) === today,
   );
@@ -102,9 +108,6 @@ function evidenceCell(context, documentNode, row) {
     compact: true, requirementId: row.requirement_id, limit: ACTIVITY_EVIDENCE_SHOWN,
   });
   if (strip) td.appendChild(strip);
-  // The row itself navigates to its plan on click; a thumbnail opens its
-  // picture and must not also trigger that.
-  td.addEventListener("click", (event) => event.stopPropagation());
   return td;
 }
 
@@ -123,15 +126,6 @@ function planCell(context, documentNode, row) {
   link.href = qaRoute(context, "plans", String(row.plan_id), row.project);
   td.appendChild(link);
   return td;
-}
-
-// What names this case in the table. A plan-backed case is named by its case
-// key; a planless one has none, so it falls back to the method that defines
-// what it executes, and to its own id when even that is absent.
-function caseLabelOf(row) {
-  const name = row.case_key || row.method_name || row.method_id
-    || row.qa_kind || `case ${row.requirement_id}`;
-  return row.host_baseline ? `${name} @${row.host_baseline}` : name;
 }
 
 // Whether a person still has to answer for this row. Only a pending review
@@ -163,7 +157,7 @@ function activityProjectLabel(context, row) {
   );
 }
 
-function renderActivityTable(context, body, rows, scope, pending) {
+function renderActivityTable(context, body, rows, scope, pending, itemRefs) {
   const documentNode = context.document;
   if (!rows.length) {
     body.appendChild(el(
@@ -190,16 +184,13 @@ function renderActivityTable(context, body, rows, scope, pending) {
   }
   table.appendChild(head);
   for (const row of rows) {
-    // The row is about this case run, so opening it opens the case. Its plan
-    // is a different subject and keeps its own link in the Plan cell.
+    // Each subject keeps its own link — the case name opens the case, the
+    // plan its plan, a thumbnail its picture — and the row itself is not a
+    // link, so a click never lands somewhere its reader did not point at.
     const href = qaRoute(
       context, "activity", String(row.requirement_id), row.project,
     );
-    const tr = el(documentNode, "tr", "qa-clickable-row");
-    tr.addEventListener("click", (event) => {
-      if (event.target?.closest?.("a")) return;
-      context.navigate(href);
-    });
+    const tr = el(documentNode, "tr", "qa-activity-row");
     tr.appendChild(planCell(context, documentNode, row));
     if (projectColumn) {
       tr.appendChild(el(
@@ -209,9 +200,11 @@ function renderActivityTable(context, body, rows, scope, pending) {
         projectColumn.value(row),
       ));
     }
-    const caseLabel = caseLabelOf(row);
-    const caseCell = el(documentNode, "td", "mono");
-    const caseLink = el(documentNode, "a", "qa-activity-link", caseLabel);
+    const caseCell = el(documentNode, "td", "qa-activity-case");
+    const caseLink = el(
+      documentNode, "a", "qa-activity-link",
+      qaCaseName(row, itemRefs.get(qaCaseItemId(row))),
+    );
     caseLink.href = href;
     caseCell.appendChild(caseLink);
     tr.appendChild(caseCell);
@@ -250,7 +243,7 @@ export async function renderQaActivity(context, main, scope) {
   ));
   const [{ callResults, failed }, pending] = await Promise.all([
     loadProjectCalls(
-      context, scope, "qa.activity.list", { limit: RECENT_ACTIVITY_LIMIT },
+      context, scope, "qa.activity.list", { limit: ACTIVITY_PAGE_LIMIT },
     ),
     loadPendingReviews(
       context, scope === "all" ? context.projects().map((row) => row.id) : scope,
@@ -261,12 +254,19 @@ export async function renderQaActivity(context, main, scope) {
     showFailure(documentNode, main, failed);
     return;
   }
-  const rows = callResults.flatMap(
+  const recent = callResults.flatMap(
     (result) => result.envelope.result?.rows || [],
   ).sort((left, right) =>
     String(right.happened_at || "").localeCompare(
       String(left.happened_at || ""),
-    )).slice(0, RECENT_ACTIVITY_LIMIT);
+    ));
+  const summaryDay = callResults
+    .map((result) => result.envelope.result?.summary?.day)
+    .find(Boolean);
+  const dayRows = todayRows(recent, summaryDay);
+  const rows = dayRows.length ? dayRows : recent.slice(0, QUIET_DAY_ROWS);
+  const itemRefs = await loadQaCaseItemRefs(context, rows);
+  if (!context.isMounted()) return;
   const summary = aggregateSummaries(callResults);
   const counts = summary.counts;
   const stats = el(documentNode, "div", "qa-stats");
@@ -297,7 +297,7 @@ export async function renderQaActivity(context, main, scope) {
   ));
   panel.appendChild(header);
   const body = el(documentNode, "div", "panel-body");
-  renderActivityTable(context, body, rows, scope, pending);
+  renderActivityTable(context, body, rows, scope, pending, itemRefs);
   panel.appendChild(body);
   const note = el(documentNode, "div", "qa-panel-note");
   note.textContent =

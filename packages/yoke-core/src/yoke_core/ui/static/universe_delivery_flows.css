@@ -1,310 +1,140 @@
-.universe-app-root .delivery-flow-panel > .panel-body {
-  padding: 0;
-}
-
-.universe-app-root .delivery-flow-explorer {
-  min-width: 0;
-}
-
-.universe-app-root .delivery-flow-toolbar {
+/* Deployments → Flows: the flow list beside the selected flow. On a narrow
+   content pane the list comes first and a chosen flow opens alone. */
+.universe-app-root .delivery-flow-page {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto;
-  grid-template-areas: "search toggle" "summary actions";
-  gap: 10px 12px;
-  align-items: end;
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--yoke-border);
-  background: color-mix(in srgb, var(--yoke-surface) 72%, var(--yoke-bg));
-}
-
-.universe-app-root .delivery-flow-search {
-  display: grid;
-  gap: 6px;
-  color: var(--yoke-ink-2);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: .02em;
-}
-
-.universe-app-root .delivery-flow-search input {
-  width: 100%;
-  min-height: 38px;
-  padding: 8px 11px 8px 34px;
-  border: 1px solid var(--yoke-border);
-  border-radius: 9px;
-  outline: none;
-  background:
-    linear-gradient(45deg, transparent 44%, var(--yoke-muted) 45% 55%, transparent 56%) 18px 23px / 7px 7px no-repeat,
-    radial-gradient(circle, transparent 46%, var(--yoke-muted) 48% 60%, transparent 62%) 9px 9px / 15px 15px no-repeat,
-    var(--yoke-bg);
-  color: var(--yoke-ink);
-  font: 12.5px/1.4 var(--yoke-font-sans);
-  transition: border-color .15s ease, box-shadow .15s ease;
-}
-
-.universe-app-root .delivery-flow-search input:focus-visible {
-  border-color: var(--yoke-accent);
-  box-shadow: 0 0 0 3px var(--yoke-accent-weak);
-}
-
-.universe-app-root .delivery-flow-disabled-toggle,
-.universe-app-root .delivery-flow-clear {
-  min-height: 38px;
-  padding: 8px 12px;
-  border: 1px solid var(--yoke-border);
-  border-radius: 9px;
-  background: var(--yoke-bg);
-  color: var(--yoke-ink-2);
-  cursor: pointer;
-  font: 600 11.5px/1.4 var(--yoke-font-sans);
-  transition: border-color .15s ease, background .15s ease, color .15s ease;
-}
-
-.universe-app-root .delivery-flow-disabled-toggle:hover,
-.universe-app-root .delivery-flow-clear:hover {
-  border-color: var(--yoke-accent-line);
-  background: var(--yoke-hover);
-  color: var(--yoke-ink);
-}
-
-.universe-app-root .delivery-flow-disabled-toggle[aria-pressed="true"] {
-  border-color: var(--yoke-accent-line);
-  background: var(--yoke-accent-weak);
-  color: var(--yoke-accent);
-}
-
-.universe-app-root .delivery-flow-disabled-toggle:focus-visible,
-.universe-app-root .delivery-flow-clear:focus-visible {
-  outline: 2px solid var(--yoke-accent);
-  outline-offset: 2px;
-}
-
-.universe-app-root .delivery-flow-result-summary {
-  grid-column: 1 / -1;
-  margin: 0;
-  color: var(--yoke-muted);
-  font-size: 10.5px;
-}
-
-.universe-app-root .delivery-flow-workspace {
-  display: grid;
-  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
-  min-height: 440px;
-}
-
-.universe-app-root .delivery-flow-browser {
-  min-width: 0;
-  border-right: 1px solid var(--yoke-border);
-  background: var(--yoke-surface);
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
 }
 
 .universe-app-root .delivery-flow-list {
-  display: grid;
-  gap: 16px;
-  max-height: 640px;
-  padding: 14px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.universe-app-root .delivery-flow-project-group {
-  display: grid;
-  gap: 7px;
-}
-
-.universe-app-root .delivery-flow-project-group > h3 {
-  margin: 0;
-  padding: 2px 3px;
-  color: var(--yoke-muted);
-  font: 700 9.5px/1.3 var(--yoke-font-sans);
-  letter-spacing: .09em;
-  text-transform: uppercase;
-}
-
-.universe-app-root .delivery-flow-card {
-  position: relative;
-  display: grid;
-  width: 100%;
-  gap: 8px;
-  padding: 12px 13px 12px 15px;
-  overflow: hidden;
-  border: 1px solid var(--yoke-border);
-  border-radius: 10px;
-  background: var(--yoke-bg);
-  box-shadow: 0 1px 0 rgba(20, 22, 26, .02);
-  color: var(--yoke-ink);
-  cursor: pointer;
-  text-align: left;
-  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
-}
-
-.universe-app-root .delivery-flow-card::before {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  background: var(--yoke-good);
-  content: "";
-}
-
-.universe-app-root .delivery-flow-card:hover {
-  border-color: var(--yoke-accent-line);
-  box-shadow: var(--yoke-shadow);
-  transform: translateY(-1px);
-}
-
-.universe-app-root .delivery-flow-card:focus-visible {
-  outline: 2px solid var(--yoke-accent);
-  outline-offset: 2px;
-}
-
-.universe-app-root .delivery-flow-card.selected {
-  border-color: var(--yoke-accent);
-  background: var(--yoke-accent-weak);
-  box-shadow: 0 0 0 1px var(--yoke-accent-line);
-}
-
-.universe-app-root .delivery-flow-card[data-status="disabled"] {
-  background:
-    repeating-linear-gradient(
-      -45deg,
-      transparent 0 7px,
-      color-mix(in srgb, var(--yoke-surface-2) 55%, transparent) 7px 8px
-    ),
-    var(--yoke-bg);
-  color: var(--yoke-muted);
-}
-
-.universe-app-root .delivery-flow-card[data-status="disabled"]::before {
-  background: var(--yoke-idle);
-}
-
-.universe-app-root .delivery-flow-card[data-status="disabled"].selected {
-  border-color: var(--yoke-accent);
-  background: var(--yoke-accent-weak);
-  color: var(--yoke-ink);
-}
-
-.universe-app-root .delivery-flow-card-header,
-.universe-app-root .delivery-flow-card-meta {
+  position: sticky;
+  top: 0;
   display: flex;
+  flex-direction: column;
+  gap: 10px;
   min-width: 0;
-  align-items: center;
-  justify-content: space-between;
+}
+
+.universe-app-root .delivery-flow-tools {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
-.universe-app-root .delivery-flow-card-name {
-  overflow: hidden;
-  font-size: 12.5px;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.universe-app-root .delivery-flow-card-meta {
-  justify-content: flex-start;
-  color: var(--yoke-muted);
-  font-size: 10.5px;
-}
-
-.universe-app-root .delivery-flow-card-project::after {
-  margin-left: 8px;
-  color: var(--yoke-border);
-  content: "•";
-}
-
-.universe-app-root .delivery-flow-zero {
-  display: grid;
-  justify-items: center;
-  gap: 7px;
-  padding: 36px 20px;
-  color: var(--yoke-muted);
-  text-align: center;
-}
-
-.universe-app-root .delivery-flow-zero-mark {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
+.universe-app-root .delivery-flow-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 11px;
   border: 1px solid var(--yoke-border);
-  border-radius: 50%;
-  background: var(--yoke-surface);
-  color: var(--yoke-accent);
-  font-size: 16px;
-}
-
-.universe-app-root .delivery-flow-zero h3,
-.universe-app-root .delivery-flow-zero p {
-  max-width: 320px;
-  margin: 0;
-}
-
-.universe-app-root .delivery-flow-zero h3 {
+  border-radius: 8px;
+  background: var(--yoke-bg);
   color: var(--yoke-ink);
-  font-size: 14px;
+  font: inherit;
+  font-size: 13px;
 }
 
-.universe-app-root .delivery-flow-zero p {
-  font-size: 11.5px;
-  line-height: 1.55;
+.universe-app-root .delivery-flow-show-disabled {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--yoke-ink-2);
+  cursor: pointer;
 }
 
-.universe-app-root .delivery-flow-empty-scope {
-  min-height: 360px;
+.universe-app-root .delivery-flow-count,
+.universe-app-root .delivery-flow-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--yoke-muted);
 }
 
-.universe-app-root .delivery-flow-clear {
-  margin-top: 7px;
+.universe-app-root .delivery-flow-group h3 {
+  margin: 6px 0 4px;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--yoke-muted);
 }
 
-@media (max-width: 880px) {
-  .universe-app-root .delivery-flow-workspace {
-    grid-template-columns: minmax(220px, 42%) minmax(0, 1fr);
-  }
+.universe-app-root .delivery-flow-group ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-@media (max-width: 640px) {
-  /* The areas have to give way with the columns. Leaving a two-column
-     template in force while the container declared one squeezed the search
-     field down to its icon and wrapped its own label onto two lines. */
-  .universe-app-root .delivery-flow-toolbar {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "search" "toggle" "summary" "actions";
-  }
-
-  .universe-app-root .delivery-flow-disabled-toggle {
-    justify-self: start;
-  }
-
-  .universe-app-root .delivery-flow-workspace {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .universe-app-root .delivery-flow-browser {
-    border-right: 0;
-    border-bottom: 1px solid var(--yoke-border);
-  }
-
-  .universe-app-root .delivery-flow-list {
-    max-height: 390px;
-  }
-
+.universe-app-root .delivery-flow-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--yoke-ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .universe-app-root .delivery-flow-card,
-  .universe-app-root .delivery-flow-disabled-toggle,
-  .universe-app-root .delivery-flow-search input {
-    transition: none;
-  }
+.universe-app-root .delivery-flow-row:hover { background: var(--yoke-surface-2); }
 
-  .universe-app-root .delivery-flow-card:hover {
-    transform: none;
-  }
+.universe-app-root .delivery-flow-row.is-selected {
+  border-left-color: var(--yoke-accent);
+  background: var(--yoke-accent-weak);
 }
 
-.universe-app-root .delivery-flow-search { grid-area: search; }
-.universe-app-root .delivery-flow-disabled-toggle { grid-area: toggle; }
-.universe-app-root .delivery-flow-result-summary { grid-area: summary; }
-.universe-app-root .delivery-flow-actions { grid-area: actions; }
+.universe-app-root .delivery-flow-row:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: 1px;
+}
+
+/* Full names: a flow name is how a reader tells two flows apart. */
+.universe-app-root .delivery-flow-row-name {
+  font-size: 13.5px;
+  font-weight: 560;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.universe-app-root .delivery-flow-row .pill {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+}
+
+.universe-app-root .delivery-flow-row-meta {
+  grid-column: 1;
+  font-size: 12px;
+  color: var(--yoke-muted);
+}
+
+.universe-app-root .delivery-flow-back {
+  display: none;
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--yoke-accent);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+@container dashboard-content (max-width: 760px) {
+  .universe-app-root .delivery-flow-page { grid-template-columns: minmax(0, 1fr); }
+  .universe-app-root .delivery-flow-list { position: static; }
+  .universe-app-root .delivery-flow-page:not(.is-detail-open) .delivery-flow-detail { display: none; }
+  .universe-app-root .delivery-flow-page.is-detail-open .delivery-flow-list { display: none; }
+  .universe-app-root .delivery-flow-back { display: inline-block; }
+  .universe-app-root .delivery-flow-detail { padding: 16px; }
+}

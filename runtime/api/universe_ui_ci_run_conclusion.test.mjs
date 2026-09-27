@@ -169,7 +169,7 @@ test("activity evidence summary is the Actions run when a CI row has no artifact
   assert.match(summary.textContent, /verified f81d1ad1a61c/);
 });
 
-test("a carried CI check without artifacts is a link, not an empty strip", async () => {
+test("a carried before-merge CI check links its own Actions run", async () => {
   const documentNode = new FakeDocument();
   const client = readingClient({
     rows: [activityRow({
@@ -188,12 +188,14 @@ test("a carried CI check without artifacts is a link, not an empty strip", async
   await settle();
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
-  const caption = byClass(evidence, "carried-item-evidence-caption")[0].textContent;
-  assert.doesNotMatch(caption, /never asked/);
-  assert.match(caption, /verified before merge/);
-  assert.doesNotMatch(caption, /verified this release/);
   assert.equal(byClass(evidence, "review-shot").length, 0);
-  const link = byClass(evidence, "carried-item-run-conclusion")[0];
+  // Before merge is an earlier check, not QA for the deployed revision.
+  assert.equal(byClass(evidence, "carried-item-qa-heading").length, 0);
+  const row = byClass(byClass(evidence, "carried-item-qa-earlier")[0],
+    "carried-item-qa-row")[0];
+  assert.match(row.textContent, /^✓Before merge·.*·GitHub Actions$/);
+  const link = byClass(row, "carried-item-qa-ci")[0];
   assert.equal(link.href, RUN_URL);
-  assert.match(link.textContent, /GitHub Actions run/);
+  // The row's own link replaces the separate link that used to close the entry.
+  assert.equal(byClass(evidence, "carried-item-run-conclusion").length, 0);
 });

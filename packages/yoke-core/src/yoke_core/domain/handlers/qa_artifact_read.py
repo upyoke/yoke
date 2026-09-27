@@ -12,6 +12,10 @@ from pydantic import BaseModel
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.qa import _error, _p
 from yoke_core.domain.qa_artifact_storage import MAX_ARTIFACT_BYTES
+from yoke_core.domain.qa_artifact_text_inline import (
+    inline_text_base64,
+    is_text_content,
+)
 
 READ_EXPIRES_S = 300
 MAX_INLINE_BYTES = MAX_ARTIFACT_BYTES
@@ -231,6 +235,11 @@ def handle_qa_artifact_read(
             result, error = _s3_result(conn, row, handle)
             if error is not None:
                 return error
+            content_type = row["content_type"] or handle.get("content_type")
+            if result.get("download_url") and is_text_content(content_type):
+                inline = inline_text_base64(result["download_url"])
+                if inline is not None:
+                    result["content_base64"] = inline
         else:
             result = _local_result(row, handle)
     return HandlerOutcome(

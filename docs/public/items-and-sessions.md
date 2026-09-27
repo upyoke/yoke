@@ -91,21 +91,33 @@ evaluator/client-wall coverage, are labelled incomparable.
   it, the archive, and the write history below them
 - **Frontier** — work in the four states work is in: stopped and why,
   free to pick up, being worked on right now, and finished in the last day
-- **Shipping** — each run card opens its detail page from its open space and
-  lists carried items first. An item with a QA requirement shows its checks
-  and evidence beneath that item; an item with no QA requirement has no QA
-  placeholder. One run QA section follows the items with current checks,
-  screenshots, and any pending or completed human decision. Approved evidence
-  stays in place beside the decision record naming who decided and when. The
-  run page uses the same order and folds earlier check attempts into history.
-  Member and run QA decisions remain distinct from the agent's QA verdict.
-  A run whose stages are complete but whose
+- **Shipping** — each run card lists carried items first; only its run ID
+  opens the run page, while item links, screenshots, decisions and
+  disclosures keep their own targets. Each carried item's ID and title link to
+  the item. An item with a QA requirement leads with **QA for the deployed
+  revision** — the check that ran against it, linked to its QA case, with
+  **View output** when it recorded output — then that check's screenshots;
+  every other check is one row behind a single **Earlier checks** disclosure
+  (before merge with its own GitHub Actions run, or an earlier run and
+  revision). An item with no QA requirement shows no QA block. One run QA
+  section follows the items: each current check names its method (linked to
+  its QA case), its outcome, its reason, and the screenshots that check
+  captured, each shown once; earlier or superseded checks fold before the
+  decision. A run with no run checks and no decision has no run QA section.
+  Where a person decides a run's checks, they read **screenshots captured ·
+  awaiting approval** and the heading **Awaiting approval** until the
+  request is answered with **Reject** or **Approve**, then **approved** (or
+  **rejected**) beside the record naming who decided and when. The run page
+  uses the same order. A run whose stages are complete but whose
   members are still being settled reads **finalizing** until its authoritative
   status succeeds.
 - **Inbox** — three sections: the decisions waiting on you (a release
   approval, a work approval, or a QA review), the messages sent to you, and
   what you decided while on the page. An agent that needs you to know
-  something sends a message, with context and a specific ask
+  something sends a message, with context and a specific ask. A run's own QA
+  review is titled **Run QA · <run ID>**, linking the run, and lists the run's
+  checks the way Shipping does — each with its own screenshots, earlier
+  attempts folded — then the decision
 - Every decision is one card, the same card a run draws on Shipping and on
   the run page: what kind of ask it is, what it is
   about, what a yes does in one sentence, who settles it, and the answer.
@@ -122,9 +134,15 @@ evaluator/client-wall coverage, are labelled incomparable.
 - **Deployments** is one page with Flows first and Runs second. A Runs row
   opens the run page: what the release is frozen to, the flow, the stages,
   the checks the run's QA recorded with their evidence, what the run
-  carries, and its waiting and resolved decisions. A stopped release says what it
-  keeps and names the releases that carried the same work after it
-- **QA activity** rows open the case: its subject, the contract it had to
+  carries, and its waiting and resolved decisions. The trail sits above the
+  title; the status ends the facts line; the stage rail is a 200px column
+  beside the work once the content is wider than 590px. A stopped release
+  names the releases that carried the same work after it
+- **QA activity** names each case for what ran against what ("Browser
+  inspection · run-…", "Command check · PLAT-…"), and that name links to
+  the case page — the row itself is not a link. The case page carries the
+  same name, a command check's recorded output, its GitHub Actions run when
+  the record has one, the contract it had to
   prove, the stage execution whose verdict policy judged it, and what it
   captured. An item's Verification rows point a review still waiting on you
   back at its Inbox card

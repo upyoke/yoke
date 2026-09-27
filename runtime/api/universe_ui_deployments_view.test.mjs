@@ -120,11 +120,17 @@ test("Runs is one eight-column table whose rows open the run page", async (t) =>
     ],
   );
   assert.equal(byClass(root, "secondary-muted")[0].textContent, "environment run");
-  // The release is titled by its flow, with the run id beneath, and opens
-  // the run's own page.
+  // The release is titled by its flow in plain text; the run id beneath is
+  // the link to the run's own page.
   assert.equal(byClass(root, "delivery-run-id")[0].textContent, "run-20260101-001");
+  assert.equal(byClass(root, "delivery-run-title")[0].tagName, "DIV");
+  assert.equal(byClass(root, "delivery-run-id")[0].tagName, "A");
+  // The status cell is a plain table cell; its pill lives in a wrapper.
+  const statusCell = byClass(root, "delivery-run-status-cell")[0];
+  assert.equal(statusCell.tagName, "TD");
+  assert.equal(byClass(statusCell, "delivery-run-status").length, 1);
   assert.equal(
-    byClass(root, "delivery-run-title")[0].href,
+    byClass(root, "delivery-run-id")[0].href,
     "#/deployments/runs/run-20260101-001?project=2",
   );
   assert.equal(byClass(root, "delivery-run-card").length, 0);
@@ -221,7 +227,7 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
   assert.equal(byClass(root, "delivery-member")[0].textContent, "YOK-2228");
   assert.equal(byClass(root, "delivery-member")[0].title, "Ship the release");
   assert.equal(
-    byClass(root, "delivery-run-title")[0].href,
+    byClass(root, "delivery-run-id")[0].href,
     "#/deployments/runs/run-20260726-001?project=1",
   );
   // A suspended run reports its request, not the status it held when it
@@ -303,7 +309,7 @@ test("a page-shaped list row shows flow, stages, and derived carried items", asy
     ["complete", "complete", "complete", "complete"],
   );
   assert.equal(
-    byClass(root, "delivery-run-title")[0].href,
+    byClass(root, "delivery-run-id")[0].href,
     "#/deployments/runs/run-20260911-001?project=1",
   );
   mounted.unmount();

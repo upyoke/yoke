@@ -18,9 +18,11 @@ const STAGES = [
   {
     name: "approve-prod",
     step_runner: "human-approval",
-    approvals: { roles: ["operator"], actors: [] },
+    approvals: { roles: [], actors: [2], mode: "any" },
   },
   { name: "release", step_runner: "auto" },
+  { name: "ship", step_runner: "github-actions-workflow", workflow: "release.yml" },
+  { name: "warm", step_runner: "warm-up", connection_env: "prod" },
 ];
 
 const GATED = {
@@ -100,22 +102,10 @@ function flowClient(flows) {
         ] });
       }
       if (request.function === "workflows.definition.get") {
-        return okEnvelope({ flows });
+        return okEnvelope({ flows, flow_actor_names: { 2: "Ben Bauman" } });
       }
-      if (request.function === "workflows.mechanics.get") {
-        return okEnvelope({ approvers: [{ id: 2, label: "ben" }] });
-      }
-      if (request.function === "deployment_flows.stages") {
-        return okEnvelope({
-          flow_id: request.payload.flow_id,
-          stages: JSON.stringify(STAGES),
-        });
-      }
-      if (request.function === "deployment_flows.update_stages") {
-        return okEnvelope({
-          flow_id: request.payload.flow_id,
-          message: "updated",
-        });
+      if (request.function === "deployment_runs.list") {
+        return okEnvelope({ rows: [] });
       }
       throw new Error(`unexpected function ${request.function}`);
     },
@@ -134,111 +124,87 @@ async function mountFlows(t, client) {
   return { documentNode, root, mounted };
 }
 
-function buttonByText(root, text) {
-  return allNodes(root).find(
-    (node) => node.tagName === "BUTTON" && node.textContent === text,
-  );
+function stageFacts(root, index) {
+  const stage = byClass(root, "delivery-flow-stage")[index];
+  const list = byClass(stage, "delivery-flow-stage-facts")[0];
+  if (!list) return {};
+  const cells = list.children;
+  const facts = {};
+  for (let at = 0; at < cells.length; at += 2) {
+    facts[cells[at].textContent] = cells[at + 1].textContent;
+  }
+  return facts;
 }
 
-// One stage card's policy rows as label -> value, which is how a reader
-// takes the card in.
-function policyFor(root, index) {
-  const card = byClass(root, "delivery-flow-stage")[index];
-  const rows = byClass(card, "delivery-flow-stage-policy-row");
-  return Object.fromEntries(rows.map((row) => [
-    row.children[0].textContent,
-    row.children[1].textContent,
-  ]));
+function stageText(root, className) {
+  return byClass(root, className).map((node) => node.textContent);
 }
 
-test("a flow with no human-approval stage names no approvers", async (t) => {
+test("the pipeline is a numbered rail naming what runs each stage", async (t) => {
+  const { root, mounted } = await mountFlows(t, flowClient([GATED]));
+  assert.deepEqual(stageText(root, "delivery-flow-stage-num"), ["1", "2", "3", "4"]);
+  assert.deepEqual(stageText(root, "delivery-flow-stage-name"), ["approve-prod", "release", "ship", "warm"]);
+  assert.deepEqual(stageText(root, "delivery-flow-stage-kind"), [
+    "Approval", "Automatic", "GitHub Actions · release.yml", "Warm-up · prod",
+  ]);
+  mounted.unmount();
+});
+
+test("an approval stage is person-decided and names its approvers by name", async (t) => {
+  const { root, mounted } = await mountFlows(t, flowClient([GATED]));
+  const stage = byClass(root, "delivery-flow-stage")[0];
+  assert.equal(stage.classList.contains("is-person"), true);
+  assert.equal(byClass(stage, "delivery-flow-stage-person")[0].textContent, "a person decides");
+  assert.deepEqual(stageFacts(root, 0), { Approvers: "Ben Bauman" });
+  assert.deepEqual(stageFacts(root, 1), {});
+  mounted.unmount();
+});
+
+test("a flow without approval stages marks no stage as person-decided", async (t) => {
   const { root, mounted } = await mountFlows(t, flowClient([UNGATED]));
-  assert.equal(policyFor(root, 0).Approval, undefined);
+  assert.equal(byClass(root, "is-person").length, 0);
+  assert.equal(byClass(root, "delivery-flow-stage-facts").length, 0);
   mounted.unmount();
 });
 
-test("human-approval stages name who may approve, and offer no way to change it",
-  async (t) => {
-    const client = flowClient([GATED]);
-    const { root, mounted } = await mountFlows(t, client);
-
-    assert.equal(policyFor(root, 0).Approval, "project operator");
-    // A flow definition is authored and versioned by command, and a run
-    // freezes the one it referenced. The page that reads a definition offers
-    // no control that would rewrite it, and asks for nothing it would need
-    // to — the named-approver roster is an editor's read.
-    assert.equal(buttonByText(root, "Edit who may approve"), undefined);
-    assert.equal(
-      client.requests.filter(
-        (request) => request.function === "workflows.mechanics.get",
-      ).length,
-      0,
-    );
-    assert.equal(
-      client.requests.filter(
-        (request) => request.function === "deployment_flows.update_stages",
-      ).length,
-      0,
-    );
-    mounted.unmount();
-  },
-);
-
-test("a stage needing every approver reads as and in the pipeline", async (t) => {
-  const everyApprover = {
-    ...GATED,
-    stages: [
-      {
-        ...STAGES[0],
-        approvals: { roles: ["operator", "owner"], actors: [], mode: "all" },
-      },
-      STAGES[1],
-    ],
-  };
-  const { root, mounted } = await mountFlows(t, flowClient([everyApprover]));
-  assert.equal(
-    policyFor(root, 0).Approval,
-    "project operator and project owner",
-  );
-  mounted.unmount();
-});
-
-test("an item-scoped QA stage says what it checks and who rules on it",
-  async (t) => {
-    const { root, mounted } = await mountFlows(t, flowClient([SCOPED]));
-
-    assert.deepEqual(
-      byClass(root, "delivery-flow-stage-kind").map((node) => node.textContent),
-      ["ephemeral-deploy", "QA", "QA"],
-    );
-    const item = policyFor(root, 1);
-    assert.equal(item.Scope, "runs once per admitted item");
-    // The preview has no name to look up, so it is named by its builder.
-    assert.equal(item["Runs on"], "the preview preview-deploy built");
-    assert.equal(item.Cases, "plan 7 · preview-url-compare");
-    assert.equal(item.Verdict, "a person decides, always — project owner");
-    assert.equal(item.Notify, "each item's owner");
-    mounted.unmount();
-  },
-);
-
-test("a run-scoped QA stage separates deciding from being told", async (t) => {
+test("QA stages say scope, where they run, cases and who decides in plain words", async (t) => {
   const { root, mounted } = await mountFlows(t, flowClient([SCOPED]));
-
-  const release = policyFor(root, 2);
+  assert.deepEqual(stageFacts(root, 0), { "Runs on": "a per-run preview (ephemeral-env)" });
+  assert.deepEqual(stageFacts(root, 1), {
+    Scope: "runs once per admitted item",
+    "Runs on": "the preview preview-deploy built",
+    Cases: "plan 7 · preview-url-compare",
+    Verdict: "a person decides — project owner",
+    Notify: "each item's owner",
+  });
+  assert.equal(byClass(root, "delivery-flow-stage")[1].classList.contains("is-person"), true);
+  const release = stageFacts(root, 2);
   assert.equal(release.Scope, "runs once for the whole release");
   assert.equal(release["Runs on"], "stage environment, as stage-deploy left it");
-  assert.equal(release.Cases, "plan 9 · every case in the plan");
-  // agent_only carries no reviewers; the operator is on the notice list and
-  // reading that as authority is exactly the confusion the two lines prevent.
   assert.equal(release.Verdict, "the agent decides");
-  assert.equal(release.Notify, "project operator");
+  assert.equal(byClass(root, "delivery-flow-stage")[2].classList.contains("is-qa"), true);
+  assert.deepEqual(stageText(root, "delivery-flow-stage-kind"), ["Preview deploy", "QA", "QA"]);
   mounted.unmount();
 });
 
-test("a stage the definition gave no policy shows none", async (t) => {
-  const { root, mounted } = await mountFlows(t, flowClient([UNGATED]));
-  assert.deepEqual(policyFor(root, 1), {});
-  assert.equal(byClass(root, "delivery-flow-stage-name")[1].textContent, "verify");
+test("runner labels drop missing parameters and derive a warm-up environment", async (t) => {
+  const OLDER_SERVER = {
+    ...GATED,
+    id: "older", name: "Older Server",
+    stages: [
+      { name: "ship", step_runner: "github-actions-workflow" },
+      { name: "warm-up", step_runner: "warm-up" },
+      {
+        name: "item-qa", step_runner: "qa", stage_kind: "qa", scope: "item",
+        target: { kind: "persistent_environment", environment: "prod", source_stage: "warm-up" },
+        verdict: { mode: "agent_only" },
+      },
+      { name: "cold", step_runner: "warm-up" },
+    ],
+  };
+  const { root, mounted } = await mountFlows(t, flowClient([OLDER_SERVER]));
+  assert.deepEqual(stageText(root, "delivery-flow-stage-kind"), [
+    "GitHub Actions", "Warm-up · prod", "QA", "Warm-up",
+  ]);
   mounted.unmount();
 });

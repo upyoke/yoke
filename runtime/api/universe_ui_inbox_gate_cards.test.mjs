@@ -142,9 +142,8 @@ test("a run stopped on an approval folds the request in and carries the answer",
     [false, true],
   );
 
-  // Answered here, not on the way to the run: the card is a link, and the
-  // request's own controls must not navigate out of the answer. What is
-  // answered is the decision request, which is why the handler is handed it.
+  // Answered here: what is answered is the decision request, which is why
+  // the handler is handed it.
   buttons[1].dispatchEvent(new Event("click"));
   assert.deepEqual(acted, [[deploymentRequestRow().id, "approve"]]);
 });
@@ -160,23 +159,23 @@ test("a request this reader may not answer names who it waits on and offers noth
   assert.equal(byClass(card, "review-action").length, 0);
 });
 
-test("a QA review on a run card carries the evidence the Inbox shows", async () => {
-  const { card } = renderRunCard(runGate(qaRequestRow()));
+test("a run QA review on a run card is a plain request, not a restated case", async () => {
+  const { acted, card } = renderRunCard(runGate(qaRequestRow()));
   await settle();
 
   assert.ok(card.className.includes("is-awaiting-review"), card.className);
-  assert.equal(byClass(card, "run-request-kind")[0].textContent, "QA review");
-  const facts = byClass(card, "review-qa")[0].textContent;
-  assert.ok(!facts.includes("run 4120"), facts);
-  assert.ok(facts.includes("Nav collapses at 680px"), facts);
-  // The same strip, so a reviewer deciding from the pipeline end opens the
-  // screenshot exactly as one deciding from the mailbox end does.
-  assert.equal(byClass(card, "review-shot").length, 2);
-  assert.equal(byClass(card, "review-text-chip").length, 1);
-  assert.deepEqual(
-    byClass(card, "review-action").map((node) => node.textContent),
-    ["Waive", "Reject", "Approve"],
-  );
+  // No "QA review" label, no boilerplate facts, no request-wide screenshot
+  // strip and no repeated run link: the checks above carry the evidence.
+  assert.equal(byClass(card, "run-request-kind").length, 0);
+  assert.equal(byClass(card, "review-qa").length, 0);
+  assert.equal(byClass(card, "review-links").length, 0);
+  assert.equal(byClass(card, "review-shot").length, 0);
+  const ask = byClass(card, "run-decision-ask")[0];
+  assert.equal(ask.children[0].textContent, "Approve or reject the visual result.");
+  const buttons = byClass(ask, "review-action");
+  assert.deepEqual(buttons.map((node) => node.textContent), ["Waive", "Reject", "Approve"]);
+  buttons[2].dispatchEvent(new Event("click"));
+  assert.deepEqual(acted, [[qaRequestRow().id, "approve"]]);
   assertNoDetails(card);
 });
 

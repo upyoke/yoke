@@ -16,9 +16,11 @@ import { renderDeliveryFlowExplorer } from "./universe_delivery_flows.js";
 import { routeTabBar } from "./universe_tab_bar.js";
 import {
   createDeploymentRunsLoader,
+  loadRecentFlowRuns,
 } from "./universe_deployment_runs_loader.js";
 import { renderRunsTable } from "./universe_delivery_runs_table.js";
 import { EMPTY_RUN_FACTS, loadRunFacts } from "./universe_run_evidence.js";
+import { runDetailHref } from "./universe_work_cards.js";
 
 function renderDeliveryRunsView(context, main, scope) {
   const documentNode = context.document;
@@ -160,28 +162,43 @@ function renderDeliveryRunsView(context, main, scope) {
   loader.start();
 }
 
+// The project slugs a scope names, so the flow list can open on them.
+function scopedProjectSlugs(scope, projects) {
+  if (scope === "all" || scope === null || scope === undefined) return [];
+  const ids = new Set((Array.isArray(scope) ? scope : [scope]).map(String));
+  return projects
+    .filter((project) => ids.has(String(project.id)))
+    .map((project) => String(project.slug));
+}
+
+// Flows lists every definition the reader can see, grouped by project: a
+// release often spans projects, and a definition in one names environments
+// and flows the others share. The scoped projects lead the list.
 function renderDeliveryFlowsView(context, main, scope, selectedFlowId = null) {
   const documentNode = context.document;
   const panel = section(documentNode, "Flows");
+  // The list carries its own count, so the page drops the panel's title bar
+  // (the first child `section` builds).
+  panel.removeChild(panel.children[0]);
+  panel.classList.add("delivery-flow-panel");
   main.replaceChildren(panel);
-  const buckets = scopeBuckets(scope, context.projects(), false);
-  // Authoring a definition changes the catalog it was authored from, so the
-  // screen re-reads rather than patching a row it did not compute.
-  const reload = () => renderDeliveryFlowsView(
-    context, main, scope, selectedFlowId,
-  );
+  const scopeKey = serializeScope(scope);
   loadScopedSection(
     context,
     panel,
-    buckets.map((bucket) => ({
-      functionId: "workflows.definition.get",
-      payload: bucket === null ? {} : { project: bucket },
-    })),
+    [{ functionId: "workflows.definition.get", payload: {} }],
     (body, callResults) => {
       const rows = mergedRows(callResults, (result) => result.flows);
-      renderDeliveryFlowExplorer(
-        body, panel, rows, selectedFlowId, { context, reload },
-      );
+      const actorNames = Object.assign({}, ...callResults.map(
+        (callResult) => callResult.envelope?.result?.flow_actor_names || {},
+      ));
+      renderDeliveryFlowExplorer(body, panel, rows, selectedFlowId, {
+        actorNames,
+        leadingProjects: scopedProjectSlugs(scope, context.projects()),
+        flowHref: (flowId) => buildUniverseRoute("deployments", scopeKey, "flows", String(flowId)),
+        runHref: (run) => runDetailHref(context, run, scope),
+        loadRecentRuns: (flow) => loadRecentFlowRuns(context, flow),
+      });
     },
   );
 }

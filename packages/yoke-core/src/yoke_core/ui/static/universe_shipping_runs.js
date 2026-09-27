@@ -11,6 +11,7 @@
 import { createDecisionResolver } from "./inbox_rows.js";
 import {
   carriedItems,
+  runProjectId,
   shippingRunCard,
 } from "./universe_work_cards.js";
 import {
@@ -150,8 +151,10 @@ export async function loadDelivery(context, host, getScope, options = {}) {
     const result = successfulResult(callResult);
     for (const row of result?.rows || []) {
       const runId = row.id || row.run_id;
+      // Derived carried work names no project; it is the run's own.
+      const projectId = runProjectId(context, row, "all");
       for (const item of carriedItems(row)) {
-        carried.push({ ...item, run_id: runId });
+        carried.push({ ...item, project_id: item.project_id ?? projectId, run_id: runId });
       }
     }
   }

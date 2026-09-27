@@ -34,6 +34,8 @@ FLOW_FIELDS = (
     "on_failure",
     "stages",
     "project",
+    "description",
+    "supersedes_flow_id",
 )
 
 
@@ -74,6 +76,47 @@ _STAGE_POLICY_KEYS = (
 )
 
 
+#: Runner parameters a reader needs to say what runs a stage: the GitHub
+#: Actions workflow file a dispatch step starts, and the connection a warm-up
+#: step reaches.
+_STAGE_RUNNER_KEYS = ("workflow", "connection_env")
+
+
+def _stage_actor_ids(stages: List[dict[str, Any]]) -> set[int]:
+    """Every actor a stage names as reviewer, approver or recipient."""
+    ids: set[int] = set()
+    for stage in stages:
+        verdict = stage.get("verdict") if isinstance(stage.get("verdict"), dict) else {}
+        notification = (
+            stage.get("notification") if isinstance(stage.get("notification"), dict) else {}
+        )
+        for policy in (
+            verdict.get("reviewers"),
+            stage.get("approvals"),
+            notification.get("recipients"),
+        ):
+            if not isinstance(policy, dict):
+                continue
+            for actor in policy.get("actors") or []:
+                try:
+                    ids.add(int(actor))
+                except (TypeError, ValueError):
+                    continue
+    return ids
+
+
+def _actor_names(conn: Any, actor_ids: set[int]) -> Dict[str, str]:
+    """Names for the actors flow stages address, keyed by id as text."""
+    if not actor_ids:
+        return {}
+    ordered = sorted(actor_ids)
+    marks = ", ".join(["%s"] * len(ordered))
+    rows = conn.execute(
+        f"SELECT id, name FROM actors WHERE id IN ({marks})", tuple(ordered),
+    ).fetchall()
+    return {str(dict(row)["id"]): str(dict(row)["name"]) for row in rows if dict(row).get("name")}
+
+
 def _flow_stages(raw_stages: Any) -> List[dict[str, Any]]:
     """Each stage with the release policy it declares, in pipeline order.
 
@@ -99,7 +142,7 @@ def _flow_stages(raw_stages: Any) -> List[dict[str, Any]]:
         runner = stage.get("step_runner")
         if runner:
             entry["step_runner"] = str(runner)
-        for key in _STAGE_POLICY_KEYS:
+        for key in (*_STAGE_RUNNER_KEYS, *_STAGE_POLICY_KEYS):
             if key in stage:
                 entry[key] = stage[key]
         served.append(entry)
@@ -129,7 +172,8 @@ def get_workflows_definition(
             "SELECT df.id, df.name, df.target_tier, "
             "e.name AS target_environment, "
             "df.status, df.on_failure, "
-            "df.stages, p.slug AS project "
+            "df.stages, p.slug AS project, "
+            "df.description, df.supersedes_flow_id "
             "FROM deployment_flows df "
             "JOIN projects p ON p.id = df.project_id "
             "LEFT JOIN environments e ON e.id = df.target_environment_id "
@@ -150,8 +194,14 @@ def get_workflows_definition(
                     "on_failure": row.get("on_failure"),
                     "stages": _flow_stages(row.get("stages")),
                     "project": row.get("project"),
+                    "description": row.get("description"),
+                    "supersedes_flow_id": row.get("supersedes_flow_id"),
                 }
             )
+        actor_names = _actor_names(
+            conn,
+            {actor for flow in flows for actor in _stage_actor_ids(flow["stages"])},
+        )
         workflows = list_current_workflows(conn)
         title_limit = resolve_title_max_length(conn, project_id)
     finally:
@@ -162,6 +212,10 @@ def get_workflows_definition(
         "workflows": workflows,
         "gate_catalog": workflow_gate_catalog(),
         "flows": flows,
+        # Display names for the people flow stages name as reviewers,
+        # approvers or recipients, so a pipeline reads "Ben Bauman" rather
+        # than an actor id.
+        "flow_actor_names": actor_names,
         # The server stays authoritative; clients read this only to cap their
         # own inputs, and re-read it whenever the selected project changes.
         "title_max_length": title_limit,
