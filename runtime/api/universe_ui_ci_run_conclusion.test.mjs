@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   renderItemDetailView,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_items.js";
-import { verificationCard } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_run_verification.js";
+import { runQaSection } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_run_qa.js";
 import { renderQaActivity } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_activity.js";
 import {
   FakeDocument,
@@ -101,10 +101,10 @@ test("captured without artifacts is still missing evidence, not a CI run", async
   );
 });
 
-test("the run verification card links a CI check that has no screenshots", () => {
+test("the run QA section links a CI check that has no screenshots", () => {
   const documentNode = new FakeDocument();
   const context = { document: documentNode, client: { call: async () => ({}) } };
-  const card = verificationCard(context, [{
+  const card = runQaSection(context, { id: "run-ci", gates: [] }, [{
     requirement_id: 8,
     case_key: "backend-suite",
     method_name: "Command",
@@ -189,7 +189,7 @@ test("a carried CI check without artifacts is a link, not an empty strip", async
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
   const caption = byClass(evidence, "carried-item-evidence-caption")[0].textContent;
-  assert.match(caption, /never asked/);
+  assert.doesNotMatch(caption, /never asked/);
   assert.match(caption, /verified before merge/);
   assert.doesNotMatch(caption, /verified this release/);
   assert.equal(byClass(evidence, "review-shot").length, 0);

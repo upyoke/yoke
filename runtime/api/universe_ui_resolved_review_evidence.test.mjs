@@ -52,7 +52,9 @@ function clientFor(row) {
         if (request.function === "deployment_runs.list") {
           return { rows: [row], filters: { flows: [] } };
         }
-        if (request.function === "qa.activity.list") return { rows: [] };
+        if (request.function === "qa.activity.list") return { rows:
+          request.payload.deployment_run_id ? [{ requirement_id: 901,
+            deployment_run_id: RUN_ID, outcome: "passed", artifacts: [artifact(701)] }] : [] };
         if (request.function === "inbox.list") return { needs_decision: [] };
         if (request.function === "projects.infrastructure.list") {
           return { environments: [] };

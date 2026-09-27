@@ -148,7 +148,7 @@ test("Shipping reads QA for every carried member, not the first three", async ()
   }
 });
 
-test("run-20260920-005 shape distinguishes verified, waived, no-obligation, never-asked", async () => {
+test("carried items show required QA and leave no-obligation items silent", async () => {
   const documentNode = new FakeDocument();
   const host = documentNode.createElement("div");
   const rows = [
@@ -213,10 +213,8 @@ test("run-20260920-005 shape distinguishes verified, waived, no-obligation, neve
   }));
   assert.match(byRef["YOK-3281"], /ran against the deployed revision/);
   assert.match(byRef["YOK-3294"], /waived/);
-  assert.match(byRef["YOK-3297"], /no obligation/);
-  assert.match(byRef["YOK-3290"], /never asked/);
-  assert.notEqual(byRef["YOK-3294"], byRef["YOK-3297"]);
-  assert.notEqual(byRef["YOK-3297"], byRef["YOK-3290"]);
+  assert.equal(byRef["YOK-3297"], "");
+  assert.equal(byRef["YOK-3290"], "");
 });
 
 function ancestorHidden(node) {

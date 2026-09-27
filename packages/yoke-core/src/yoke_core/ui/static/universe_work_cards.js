@@ -13,13 +13,12 @@ import {
   workflowBadge,
 } from "./universe_secondary_primitives.js";
 import { relativeAgePhrase } from "./universe_time.js";
-import { appendRunGates, runGateStatus, runGates } from "./universe_run_gates.js";
-import { evidenceStrip } from "./review_evidence_strip.js";
+import { runGateStatus } from "./universe_run_gates.js";
 import {
   appendCarriedItemEvidence,
-  carriedItemId,
 } from "./universe_carried_item_evidence.js";
 import { runEvidence, runFlowName } from "./universe_run_evidence.js";
+import { runQaSection } from "./universe_run_qa.js";
 import { itemClaimantControl } from "./universe_item_claimant.js";
 import { navIcon } from "./universe_nav_sidebar.js";
 import {
@@ -144,6 +143,14 @@ export function runDetailHref(context, row, scope) {
   return deploymentRunHref(runProjectId(context, row, scope), row.id || row.run_id);
 }
 
+function insideControl(target, card) {
+  for (let node = target; node && node !== card; node = node.parentNode) {
+    if (["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA", "SUMMARY"].includes(node.tagName)
+      || ["button", "link"].includes(node.getAttribute?.("role"))) return true;
+  }
+  return false;
+}
+
 // What the run carries, listed on the card: the first few items, and an
 // honest "+N more" for the rest. Membership is who the pipeline moves to
 // done; for an environment run that owns nothing the derived contents stand
@@ -159,13 +166,8 @@ export function appendCarried(context, host, row, options = {}) {
   // Which requests these member rows took responsibility for, so a caller
   // drawing the release's gates beside them does not draw one of them twice.
   const drawnRequests = new Set();
-  // Whether any member drew evidence of its own. A caller that also has a
-  // run-wide strip to fall back on needs to know, because run-wide evidence
-  // carries no item: the same "step 2" tile under two different members
-  // reads as one unattributed pair.
-  let drewEvidence = false;
   if (!items.length) {
-    return { node: null, requestIds: drawnRequests, drewEvidence };
+    return { requestIds: drawnRequests };
   }
   const batch = el(documentNode, "div", "release-batch");
   batch.appendChild(el(
@@ -186,10 +188,6 @@ export function appendCarried(context, host, row, options = {}) {
       onDecide: options.onDecide,
     });
     for (const id of drawn?.requestIds || []) drawnRequests.add(id);
-    // A QA-state caption is not the member's own pictures. Treating it as
-    // evidence hid the run-wide strip that still has to name whose capture
-    // each tile is.
-    if (drawn?.drewEvidence) drewEvidence = true;
     return member;
   };
   for (const item of items.slice(0, CARRIED_ITEMS_SHOWN)) {
@@ -214,7 +212,7 @@ export function appendCarried(context, host, row, options = {}) {
     });
   }
   host.appendChild(batch);
-  return { node: batch, requestIds: drawnRequests, drewEvidence };
+  return { requestIds: drawnRequests };
 }
 
 // A run card takes the whole view context rather than just its document:
@@ -234,17 +232,25 @@ export function shippingRunCard(context, row, scope, options = {}) {
     "div",
     `shipping-run-card is-${status.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
   );
-  // The card is readable text, not one big control. Its run name is the
-  // link to the run, each screenshot opens its own evidence, and a
-  // request's Approve and Reject are buttons. A card-wide anchor used to
-  // wrap everything readable, so hovering blank space lit the whole card,
-  // the text under the cursor could not be selected, and a click meant for
-  // a screenshot navigated to the run instead.
+  const href = runDetailHref(context, row, scope);
+  card.setAttribute("role", "link");
+  card.setAttribute("tabindex", "0");
+  card.setAttribute("aria-label", `Open details for ${row.id || row.run_id}`);
+  card.addEventListener("click", (event) => {
+    if (insideControl(event.target, card) || event.button > 0
+      || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    documentNode.defaultView.location.hash = href;
+  });
+  card.addEventListener("keydown", (event) => {
+    if (event.target !== card || !["Enter", " "].includes(event.key)) return;
+    event.preventDefault();
+    documentNode.defaultView.location.hash = href;
+  });
   const head = el(documentNode, "div", "shipping-run-card-head");
   const runLink = el(
     documentNode, "a", "shipping-run-id", row.id || row.run_id || "run",
   );
-  runLink.href = runDetailHref(context, row, scope);
+  runLink.href = href;
   head.appendChild(runLink);
   head.appendChild(el(
     documentNode,
@@ -314,36 +320,9 @@ export function shippingRunCard(context, row, scope, options = {}) {
       [derivation.status, derivation.reason].filter(Boolean).join(" — "),
     ));
   }
-  appendRunGates(context, card, row, options.onGateAction, {
-    drawnRequestIds: carried.requestIds,
-  });
-  // The request folded in above already shows the evidence it rests on, and
-  // so does each carried member that drew its own. This run-wide strip is
-  // the last resort for a run whose evidence nothing else has shown — an
-  // environment run carrying no items, or members whose checks it does not
-  // hold. Drawn beside per-member evidence it repeated the same tiles with
-  // their item stripped off, so one release showed "step 2" and "step 5"
-  // twice with nothing saying whose they were.
-  if (!runGates(row).length && !carried.drewEvidence) {
-    // Attributed on the way in: this strip gathers several members' captures
-    // into one grid, so each tile leads with the item whose check took it.
-    const refById = new Map(carriedItems(row).map(
-      (item) => [String(carriedItemId(item)), carriedReference(item)],
-    ));
-    const artifacts = runEvidence(options.facts, row.id || row.run_id)
-      .artifacts.map((artifact) => {
-        const ref = refById.get(String(artifact.member_item_id ?? ""));
-        return ref ? { ...artifact, owner_ref: ref } : artifact;
-      });
-    const strip = evidenceStrip(
-      context, artifacts, { compact: true, stepCaptionsOnly: true },
-    );
-    if (strip) {
-      const wrap = el(documentNode, "div", "shipping-run-evidence");
-      wrap.appendChild(el(documentNode, "span", "release-batch-title", "QA evidence"));
-      wrap.appendChild(strip);
-      card.appendChild(wrap);
-    }
-  }
+  const qa = runQaSection(context, row,
+    runEvidence(options.facts, row.id || row.run_id).checks,
+    options.onGateAction, { drawnRequestIds: carried.requestIds });
+  if (qa) card.appendChild(qa);
   return card;
 }

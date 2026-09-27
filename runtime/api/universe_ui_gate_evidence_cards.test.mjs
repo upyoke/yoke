@@ -61,7 +61,7 @@ test("a capture that recorded no step is not given one", () => {
   assert.equal(artifactStepLabel({ metadata: { step_index: 0 } }), "step 0");
 });
 
-test("a QA review shows what was checked, what the agent said, and each artifact", async () => {
+test("a QA review shows the expected result, reason, and each artifact", async () => {
   const { main } = renderInbox("all", [qaRequestRow()]);
   await settle();
 
@@ -74,13 +74,9 @@ test("a QA review shows what was checked, what the agent said, and each artifact
     "Review marketing-pages-visual",
   );
   const facts = byClass(main, "review-qa")[0];
-  assert.deepEqual(
-    facts.children.filter((node) => node.tagName === "DT").map((node) => node.textContent),
-    ["Checked", "Expected", "Agent said"],
-  );
+  assert.equal(facts.children.length, 2);
   const body = cardText(main);
-  assert.ok(body.includes("YOK-1907 · Approval evidence review"), body);
-  assert.ok(body.includes("run 4120 · verification · revision 9f21c4ab77e3"), body);
+  assert.doesNotMatch(body, /run 4120|verification · revision|Checked|Agent said/);
   assert.ok(body.includes("Every marketing page renders at 680px and 1024px."), body);
   assert.ok(body.includes("Nav collapses at 680px"), body);
   assert.ok(body.includes("Is this acceptable?"), body);
@@ -230,7 +226,7 @@ test("a deployment QA review claims nothing about what has shipped", async () =>
   await settle();
 
   const body = cardText(main);
-  assert.ok(body.includes("run-20260909-027 · released to prod"), body);
+  assert.ok(!body.includes("run-20260909-027 · released to prod"), body);
   assert.ok(!body.includes("declared post_deploy against run-20260909-027"), body);
   assert.ok(!body.includes("completed, so"), body);
   assert.ok(!body.includes("ran after the release"), body);

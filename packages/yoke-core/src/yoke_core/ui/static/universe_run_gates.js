@@ -70,6 +70,7 @@ export function appendRunGates(context, card, row, onAct, options = {}) {
     ));
     wrap.appendChild(reviewRequestCard(context, gateAsRequest(gate), {
       inline: true,
+      evidence: options.evidence,
       onAct: onAct && gate.status !== "resolved"
         ? (row, action, node, note) => onAct(gate, action, node, note) : null,
     }));

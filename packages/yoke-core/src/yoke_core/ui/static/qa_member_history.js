@@ -114,9 +114,11 @@ export function historyCaption(rows, { runId, deployedSha } = {}) {
   const parts = [];
   if (matched) parts.push("QA · ran against the deployed revision");
   else if (otherRevision) parts.push("QA · not the revision that is deployed");
-  else parts.push(memberQaCaption(memberState));
+  else if (!(memberState.id === QA_STATE.NEVER_ASKED && beforeMerge)) {
+    parts.push(memberQaCaption(memberState));
+  }
   if (beforeMerge) {
-    parts.push(`${beforeMerge} verified before merge`);
+    parts.push(`${parts.length ? "" : "QA · "}${beforeMerge} verified before merge`);
   }
   return parts.join(" · ");
 }
@@ -212,7 +214,6 @@ export function paintMemberHistory(context, wrap, options = {}) {
     });
   }
   return {
-    drewEvidence: Boolean(strip),
     shown: strip ? drawnArtifacts(visuals, stripOptions) : [],
   };
 }

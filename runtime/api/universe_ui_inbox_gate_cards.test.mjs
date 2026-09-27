@@ -167,7 +167,7 @@ test("a QA review on a run card carries the evidence the Inbox shows", async () 
   assert.ok(card.className.includes("is-awaiting-review"), card.className);
   assert.equal(byClass(card, "run-request-kind")[0].textContent, "QA review");
   const facts = byClass(card, "review-qa")[0].textContent;
-  assert.ok(facts.includes("YOK-1907 · Approval evidence review"), facts);
+  assert.ok(!facts.includes("run 4120"), facts);
   assert.ok(facts.includes("Nav collapses at 680px"), facts);
   // The same strip, so a reviewer deciding from the pipeline end opens the
   // screenshot exactly as one deciding from the mailbox end does.

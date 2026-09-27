@@ -1,12 +1,8 @@
 // What a person can click on a deployment run card, and what each click
 // opens.
 //
-// The card used to be one card-wide anchor wrapped around everything
-// readable: hovering blank space lit the whole card, the text under the
-// cursor could not be selected, and a click aimed at a screenshot opened the
-// run. These cases hold the shape that replaced it — a run name that is the
-// link to the run, and evidence whose picture and caption each open that
-// one artifact.
+// The card opens its run from empty space while nested evidence links keep
+// opening their own artifact.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -79,25 +75,26 @@ function runCard(documentNode, artifacts) {
   const context = readingContext(documentNode, artifacts);
   return shippingRunCard(context, runRow(), ["1"], {
     facts: {
-      evidence: new Map([["run-20260910-006", { checks: [], artifacts }]]),
+      evidence: new Map([["run-20260910-006", { checks: artifacts.length ? [{
+        requirement_id: 21583, outcome: "passed", artifacts,
+      }] : [], artifacts }]]),
       flowNames: new Map([["yoke-hosted-stage-typed-target", "Stage"]]),
       failed: null,
     },
   });
 }
 
-test("the run name is the card's link, and the card itself is not one", () => {
+test("the run name stays a link inside the navigable card", () => {
   const documentNode = new FakeDocument();
   const card = runCard(documentNode, []);
 
   assert.equal(card.tagName, "DIV");
+  assert.equal(card.getAttribute("role"), "link");
   assert.equal(byClass(card, "shipping-run-card-link").length, 0);
   const runName = byClass(card, "shipping-run-id")[0];
   assert.equal(runName.tagName, "A");
   assert.equal(runName.textContent, "run-20260910-006");
   assert.equal(runName.href, "#/deployments/runs/run-20260910-006?project=1");
-  // Everything else the card reads out is text, so there is nothing between
-  // the reader and selecting it.
   assert.deepEqual(
     byClass(card, "shipping-run-flow").map((node) => node.tagName), ["STRONG"],
   );
@@ -174,12 +171,7 @@ test("a capture with no step keeps its own name for a caption", async () => {
   );
 });
 
-// A release card has two places evidence can appear: under each carried
-// member, and a run-wide strip. Drawn together the strip repeated the same
-// tiles with their item stripped off, so one release read "step 2" and
-// "step 5" twice with nothing saying whose they were. The strip is the last
-// resort now, not a second copy.
-test("a run-wide strip stands down when its members show their own evidence", async () => {
+test("member evidence stays with the member", async () => {
   const documentNode = new FakeDocument();
   const artifacts = [screenshotArtifact()];
   const context = readingContext(documentNode, artifacts);
@@ -209,7 +201,6 @@ test("a run-wide strip stands down when its members show their own evidence", as
   });
   await settle();
 
-  // The member drew its own, so the run-wide strip is absent entirely.
   assert.equal(byClass(card, "carried-item-evidence").length, 1);
   assert.equal(byClass(card, "shipping-run-evidence").length, 0);
 });
@@ -219,15 +210,11 @@ test("a run carrying nothing still shows what its checks captured", async () => 
   const card = runCard(documentNode, [screenshotArtifact()]);
   await settle();
 
-  // No members to attribute tiles to, so the run-wide strip is the only
-  // place this evidence could be shown, and it is shown.
-  assert.equal(byClass(card, "shipping-run-evidence").length, 1);
+  assert.equal(byClass(card, "run-qa-section").length, 1);
+  assert.equal(byClass(card, "review-shot").length, 1);
 });
 
-// When the run-wide strip does draw, its tiles come from several members at
-// once, so "step 2" alone belongs to nobody — and two members' step 2 sit
-// side by side. Each caption leads with the item whose check took it.
-test("a run-wide tile names the carried item whose check took it", async () => {
+test("each carried item owns its own screenshot", async () => {
   const documentNode = new FakeDocument();
   const artifacts = [
     screenshotArtifact({ id: 77, deployment_member_item_id: 41 }),
@@ -242,21 +229,19 @@ test("a run-wide tile names the carried item whose check took it", async () => {
     ],
   };
   const card = shippingRunCard(context, row, ["1"], {
-    facts: {
-      evidence: new Map([["run-20260910-006", {
-        checks: [],
-        artifacts: artifacts.map((artifact) => ({
-          ...artifact,
-          member_item_id: artifact.deployment_member_item_id,
-        })),
-      }]]),
-      flowNames: new Map([["yoke-hosted-stage-typed-target", "Stage"]]),
-      failed: null,
+    itemFacts: {
+      byItem: new Map([["41", [{ requirement_id: 1,
+        deployment_run_id: row.id, qa_phase: "post_deploy", outcome: "passed",
+        artifacts: [artifacts[0]] }]], ["42", [{ requirement_id: 2,
+        deployment_run_id: row.id, qa_phase: "post_deploy", outcome: "passed",
+        artifacts: [artifacts[1]] }]]]),
+      pendingByRequirement: new Map(), pendingByItem: new Map(),
+      truncatedGroups: new Set(), perGroupLimit: 20,
     },
   });
   await settle();
 
-  const captions = byClass(card, "review-shot-caption")
-    .map((node) => node.textContent);
-  assert.deepEqual(captions, ["YOK-1 · step 21", "YOK-2 · step 21"]);
+  assert.deepEqual(byClass(card, "release-member").map((member) =>
+    byClass(member, "review-shot").map((shot) => Number(shot.getAttribute("data-artifact-id")))),
+  [[77], [78]]);
 });

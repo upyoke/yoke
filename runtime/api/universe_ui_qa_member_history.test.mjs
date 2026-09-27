@@ -82,7 +82,7 @@ test("a pre-merge check is not this release's post-deploy answer", () => {
     artifacts: [],
   });
   const caption = historyCaption([ci], { runId: RUN_ID });
-  assert.match(caption, /never asked/);
+  assert.doesNotMatch(caption, /never asked/);
   assert.doesNotMatch(caption, /verified this release/);
   assert.equal(checkProvenance(ci, { runId: RUN_ID }, [ci]), "verified before merge");
   assert.equal(latestVisualArtifacts([ci]).length, 0);

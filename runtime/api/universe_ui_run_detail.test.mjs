@@ -123,7 +123,10 @@ test("the run page reads the run by id and draws it in the page's shape", async 
   const gate = deploymentRequestRow();
   const client = runClient(runRow({
     gates: [{
-      request_id: gate.id, kind: gate.kind, subject_context: gate.subject_context,
+      request_id: gate.id, kind: gate.kind,
+      subject_context: { ...gate.subject_context,
+        evidence: { screenshots: [{ id: 41, artifact_type: "screenshot",
+          content_type: "image/png" }] } },
       actions: gate.actions, approval_progress: {}, can_act: true,
       authority_reason: "project owner", deciders: gate.deciders,
       your_decision: null, decided_by_you: false,
@@ -184,24 +187,17 @@ test("the run page reads the run by id and draws it in the page's shape", async 
   assert.equal(identityValues[1], "not recorded");
   assert.equal(identityValues[2], "not frozen");
   assert.equal(identityValues[3], "prod · https://upyoke.com");
-  // Verification: the run's own checks, with their pictures, full width
-  // below the stage rail and the work beside it.
-  const verification = byClass(root, "run-grid")[0].children[0];
-  assert.equal(byClass(verification, "run-verdict")[0].textContent, "1 of 1 passed");
-  assert.ok(byClass(verification, "run-check")[0].textContent.includes("smoke · Browser check"));
-  // The picture sits under the check that recorded it, not in a pool at the
-  // foot of the card where a reader would have to guess which check took it.
-  const check = byClass(verification, "run-check")[0];
-  assert.equal(byClass(check, "run-check-evidence").length, 1);
-  assert.equal(byClass(check, "review-shot").length, 1);
-  assert.equal(byClass(verification, "review-shot").length, 1);
+  const qa = byClass(root, "run-qa-section")[0];
+  assert.equal(byClass(qa, "run-verdict")[0].textContent, "1 of 1 passed");
+  assert.ok(byClass(qa, "run-qa-check")[0].textContent.includes("smoke · Browser check"));
+  assert.equal(byClass(qa, "review-shot").length, 1);
   // The decision: what the run carries, and the request folded in.
   const decision = byClass(root, "run-work")[0];
   assert.ok(decision.textContent.includes("Waiting for approval"), decision.textContent);
   const items = byClass(decision, "run-items")[0].children;
   assert.equal(items[0].textContent, "YOK-2228");
   assert.equal(items[1].textContent, "Ship the release");
-  assert.match(items[2].textContent, /never asked/);
+  assert.equal(byClass(decision, "carried-item-evidence").length, 0);
   assert.equal(byClass(decision, "run-request-kind")[0].textContent, "Release approval");
   assert.deepEqual(
     byClass(decision, "review-action").map((node) => node.textContent),
@@ -222,7 +218,7 @@ test("a run with nothing waiting says what it is doing instead", async (t) => {
   }));
   const { root, mounted } = await mountAt(t, "#/deployments/runs/run-20260726-001?project=1", client);
   assert.equal(byClass(root, "run-badge")[0].textContent, "succeeded");
-  // Stages beside the work, verification full width below them.
+  // Stages beside the work, run QA below the carried items.
   const decision = byClass(root, "run-work")[0];
   assert.ok(decision.textContent.includes("Succeeded"), decision.textContent);
   assert.ok(decision.textContent.includes("Completed now."), decision.textContent);
@@ -230,8 +226,8 @@ test("a run with nothing waiting says what it is doing instead", async (t) => {
   assert.ok(byClass(root, "run-top")[0].children.includes(decision));
   assert.ok(byClass(root, "run-stages")[0]);
   assert.ok(
-    byClass(root, "run-grid")[0].children[0].textContent
-      .includes("No checks were recorded on this run."),
+    byClass(root, "run-qa-section")[0].textContent
+      .includes("No run checks were recorded."),
   );
   // A run that ended well carries no aftermath block.
   assert.equal(byClass(root, "run-aftermath").length, 0);
@@ -262,7 +258,8 @@ for (const route of [
       .filter((node) => node.tagName === "A").map((node) => node.textContent),
     [yokeRef, platformRef]);
     assert.equal(byClass(root, "run-fact-value")[0].textContent, "0.1.1+launch.379");
-    assert.equal(byClass(root, "run-items")[0].children[3].href, "#/items/149?project=2");
+    assert.equal(byClass(root, "run-items")[0].children.find(
+      (node) => node.textContent === platformRef).href, "#/items/149?project=2");
     assert.ok(client.requests.some((request) => request.function === "qa.activity.list"
       && request.payload.project === "1" && request.payload.deployment_run_id));
     assert.ok(client.requests.some((request) => request.function === "qa.activity.list"
@@ -326,10 +323,8 @@ test("a carried item's own QA is shown beside that item, labelled as its own", a
 
   const evidence = byClass(byClass(root, "run-items")[0], "carried-item-evidence")[0];
   assert.ok(evidence, "the carried item carries its own evidence");
-  assert.match(
-    byClass(evidence, "carried-item-evidence-caption")[0].textContent,
-    /never asked/,
-  );
+  assert.doesNotMatch(byClass(evidence, "carried-item-evidence-caption")[0].textContent,
+    /never asked/);
   assert.match(
     byClass(evidence, "carried-item-evidence-caption")[0].textContent,
     /verified before merge/,

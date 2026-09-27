@@ -9,21 +9,15 @@
 import { createDecisionResolver } from "./inbox_rows.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import { deploymentRunsHref } from "./universe_navigation.js";
-import { reviewRequestCard } from "./review_request_card.js";
-import { KIND_LABELS } from "./review_request_presentation.js";
-import {
-  appendSteps,
-  verificationCard,
-} from "./universe_run_verification.js";
+import { appendSteps } from "./universe_run_verification.js";
+import { runQaSection } from "./universe_run_qa.js";
 import { carriedItems } from "./universe_work_cards.js";
 import {
   appendCarriedItemEvidence,
   EMPTY_CARRIED_ITEM_FACTS,
   loadCarriedItemEvidence,
 } from "./universe_carried_item_evidence.js";
-import {
-  gateAsRequest, resolvedDecisionRecord, runDecisionGates, runGateStatus, runGates,
-} from "./universe_run_gates.js";
+import { runGateStatus, runGates } from "./universe_run_gates.js";
 import {
   appendRunAftermath,
   loadRunTarget,
@@ -70,13 +64,17 @@ function statusCopy(row, gate) {
   }
   if (status === "cancelled") return { title: "Cancelled", copy: "" };
   if (status === "created") return { title: "Not started", copy: "The run is created and has not begun." };
-  return { title: "Running", copy: `${row.current_stage || "A stage"} is running. Nothing is waiting on you.` };
+  if (row.current_stage === "complete") {
+    return { title: "Finalizing", copy: "Stages are complete. The run is settling delivery." };
+  }
+  const stage = String(row.current_stage || "A stage").replaceAll(/[-_]/g, " ");
+  return { title: "Running", copy: `${stage} is running. Nothing is waiting on you.` };
 }
 
 // What the run carries, and its pending and resolved decisions. Each member
 // also shows its own QA and review, which belong to the item
 // rather than to the release moving it.
-function decisionCard(context, row, project, onAct, itemFacts, onItemDecision) {
+function decisionCard(context, row, project, checks, onAct, itemFacts, onItemDecision) {
   const documentNode = context.document;
   const card = el(documentNode, "section", "run-card");
   const items = carriedItems(row);
@@ -114,8 +112,6 @@ function decisionCard(context, row, project, onAct, itemFacts, onItemDecision) {
   const gate = gates.find(
     (candidate) => !drawnRequests.has(String(candidate.request_id)),
   ) || null;
-  const decisions = runDecisionGates(row).filter(
-    (candidate) => !drawnRequests.has(String(candidate.request_id)));
   const { title, copy } = statusCopy(row, gate || gates[0] || null);
   card.classList.add("run-work");
   card.appendChild(el(documentNode, "h2", null, title));
@@ -139,20 +135,9 @@ function decisionCard(context, row, project, onAct, itemFacts, onItemDecision) {
       documentNode, "p", "run-copy", "No items are attached to this run.",
     ));
   }
-  for (const request of decisions) {
-    card.appendChild(el(documentNode, "div",
-      `run-request-kind${request.status === "resolved" ? " is-resolved" : ""}`,
-      KIND_LABELS[request.kind]));
-    // The frozen request names the exact screenshots the person approved;
-    // the Verification card may include a different set of run captures.
-    card.appendChild(reviewRequestCard(context, gateAsRequest(request), {
-      inline: true,
-      onAct: request.status === "resolved" ? null
-        : (row, action, node, note) => onAct(request, action, node, note),
-    }));
-    const decision = resolvedDecisionRecord(documentNode, request);
-    if (decision) card.appendChild(decision);
-  }
+  card.appendChild(runQaSection(context, row, checks, onAct, {
+    drawnRequestIds: drawnRequests, showEmpty: true,
+  }));
   return card;
 }
 
@@ -268,16 +253,13 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   appendSteps(documentNode, stages, row.stages);
   top.appendChild(stages);
   const decision = decisionCard(
-    context, row, project, onAct, itemFacts, onItemDecision,
+    context, row, project, checks, onAct, itemFacts, onItemDecision,
   );
   appendRunAftermath(context, decision, row, project, siblings);
   top.appendChild(decision);
   page.appendChild(top);
 
-  // Verification is full width below them: a check's reason and the pictures
-  // it took are the widest thing on the page.
   const grid = el(documentNode, "div", "run-grid");
-  grid.appendChild(verificationCard(context, checks));
   grid.appendChild(runIdentityCard(context, row, environment));
   page.appendChild(grid);
   main.replaceChildren(page);

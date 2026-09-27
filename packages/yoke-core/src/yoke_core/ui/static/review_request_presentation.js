@@ -127,28 +127,12 @@ export function evidenceOf(row) {
   };
 }
 
-// What a QA review is a review OF: the subject, the run, the revision, what
-// was expected, and the agent's own words for why it could not decide.
+// The useful decision context without transport ids, stage codes, or a
+// generic field-by-field diagnostic recital.
 export function qaFacts(row) {
   const facts = row.subject_context || {};
-  const subject = facts.subject || {};
-  const checked = [];
-  if (subject.kind === "deployment_run" && subject.deployment_run_id) {
-    checked.push(String(subject.deployment_run_id));
-    if (subject.target_environment) checked.push(`released to ${subject.target_environment}`);
-  } else if (subject.item_ref) {
-    checked.push([subject.item_ref, subject.item_title].filter(Boolean).join(" · "));
-  }
-  if (facts.run_id != null) checked.push(`run ${facts.run_id}`);
-  if (subject.qa_phase) checked.push(String(subject.qa_phase));
-  checked.push(facts.code_revision
-    ? `revision ${String(facts.code_revision).slice(0, 12)}`
-    : "revision not recorded");
-  return [
-    ["Checked", checked.join(" · ")],
-    ["Expected", facts.expected_outcome ? String(facts.expected_outcome) : ""],
-    ["Agent said", facts.verdict_reason ? String(facts.verdict_reason) : ""],
-  ].filter(([, value]) => value);
+  return [facts.expected_outcome, facts.verdict_reason]
+    .filter(Boolean).map(String);
 }
 
 export const reviewRequestPresentation = {

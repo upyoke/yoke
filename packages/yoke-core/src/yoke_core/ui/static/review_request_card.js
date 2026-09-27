@@ -72,13 +72,11 @@ function appendHead(documentNode, card, row, options) {
 
 function appendQaBody(documentNode, card, row) {
   const facts = qaFacts(row);
-  if (!facts.length) return;
-  const list = el(documentNode, "dl", "review-qa");
-  for (const [term, value] of facts) {
-    list.appendChild(el(documentNode, "dt", null, term));
-    list.appendChild(el(documentNode, "dd", null, value));
+  if (facts.length) {
+    const body = el(documentNode, "div", "review-qa");
+    for (const fact of facts) body.appendChild(el(documentNode, "p", null, fact));
+    card.appendChild(body);
   }
-  card.appendChild(list);
   if (row.status !== "resolved" && !row.decided_by_you) {
     card.appendChild(el(documentNode, "p", "review-question", "Is this acceptable?"));
   }

@@ -58,7 +58,7 @@ test("an item's own QA shows in its Carries entry", async () => {
   assert.ok(evidence, "the item's entry carries its own evidence");
   assert.match(
     byClass(evidence, "carried-item-evidence-caption")[0].textContent,
-    /never asked/,
+    /verified before merge/,
   );
   assert.match(
     byClass(evidence, "carried-item-evidence-caption")[0].textContent,
