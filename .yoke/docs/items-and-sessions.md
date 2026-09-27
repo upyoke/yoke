@@ -91,10 +91,13 @@ evaluator/client-wall coverage, are labelled incomparable.
   it, the archive, and the write history below them
 - **Frontier** — work in the four states work is in: stopped and why,
   free to pick up, being worked on right now, and finished in the last day
-- **Shipping** — deployment runs as they execute, with what each release
-  carries, pending human approvals and QA reviews, and resolved decisions
-  naming who decided and when beside the exact screenshots that were approved
-  or rejected. The run page keeps those same decision records and screenshots.
+- **Shipping** — each run card opens its detail page from its open space and
+  lists carried items first. An item with a QA requirement shows its checks
+  and evidence beneath that item; an item with no QA requirement has no QA
+  placeholder. One run QA section follows the items with current checks,
+  screenshots, and any pending or completed human decision. Approved evidence
+  stays in place beside the decision record naming who decided and when. The
+  run page uses the same order and folds earlier check attempts into history.
   Member and run QA decisions remain distinct from the agent's QA verdict.
   A run whose stages are complete but whose
   members are still being settled reads **finalizing** until its authoritative
@@ -105,8 +108,8 @@ evaluator/client-wall coverage, are labelled incomparable.
   something sends a message, with context and a specific ask
 - Every decision is one card, the same card a run draws on Shipping and on
   the run page: what kind of ask it is, what it is
-  about, what a yes does in one sentence, the evidence behind it, who
-  settles it, and the answer. Screenshots load as thumbnails and open in
+  about, what a yes does in one sentence, who settles it, and the answer.
+  A run draws its screenshots once in its QA section. Screenshots load as thumbnails and open in
   place; stored command output opens as text; evidence held on another
   machine says so. The long form — why you were asked, exactly what
   approving does, the release contents or branch diff — stays one
