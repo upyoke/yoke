@@ -60,6 +60,8 @@ def claimed_item_facts(
         rows = conn.execute(
             "SELECT i.id AS id, i.project_id AS project_id, i.title AS title, "
             "i.project_sequence AS project_sequence, i.status AS status, "
+            "i.frozen AS frozen, i.blocked AS blocked, "
+            "i.blocked_reason AS blocked_reason, "
             "i.workflow_id AS workflow_id, i.merged_at AS merged_at, "
             "i.merge_queue_enqueued_at AS merge_queue_enqueued_at, "
             "i.merge_queue_landed_at AS merge_queue_landed_at, "
@@ -83,6 +85,9 @@ def claimed_item_facts(
             "item_project_sequence": int(row["project_sequence"]),
             "item_title": row["title"],
             "item_status": row["status"],
+            "item_frozen": bool(row["frozen"]),
+            "item_blocked": bool(row["blocked"]),
+            "item_blocked_reason": row["blocked_reason"],
             "item_workflow_id": row["workflow_id"],
             ITEM_AWAITING_LANDING_KEY: waiting_on_landing(dict(row)),
         }

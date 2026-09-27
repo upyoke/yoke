@@ -12,7 +12,9 @@ import {
   appendHoldingsSection,
 } from "./universe_sessions_holdings_disclosure.js";
 import { el, statePill } from "./universe_view_support.js";
-import { renderStageStrip } from "./universe_stage_strip.js";
+import {
+  appendItemConditionPills, appendItemStageProgress,
+} from "./universe_session_item_conditions.js";
 import { relativeTime } from "./universe_time.js";
 
 const HOLDING_AUTHORITY_KINDS = new Set([
@@ -64,9 +66,6 @@ export function ownsFocusedItem(row) {
   );
 }
 
-// The meta line's "claim held" duration follows the top claim the card
-// actually renders: the first STEERING lead row when a live seat is up,
-// otherwise the first CURRENTLY HELD row, any target_kind.
 export function topRenderedClaim(row) {
   const groups = holdingGroups(row);
   const steering = activeSteeringClaims(row);
@@ -95,13 +94,6 @@ function appendStagePill(documentNode, work, status, workflow) {
   if (!stage) return;
   stage.className = `${stage.className} session-item-stage`;
   work.appendChild(stage);
-}
-
-function appendStageProgress(documentNode, work, stages) {
-  if (!Array.isArray(stages) || !stages.length) return;
-  const progress = el(documentNode, "div", "session-item-stage-progress");
-  progress.appendChild(renderStageStrip(documentNode, stages));
-  work.appendChild(progress);
 }
 
 function titleHolding(entries, row) {
@@ -171,6 +163,7 @@ function appendHoldingEntry(
   target.textContent = holdingTarget(holding, projects);
   if (href) target.href = href;
   work.appendChild(target);
+  if (holding.target_kind === "item") appendItemConditionPills(documentNode, work, holding);
   if (holding.path_count !== undefined) {
     work.appendChild(el(
       documentNode,
@@ -198,7 +191,7 @@ function appendHoldingEntry(
     if (title) {
       work.appendChild(el(documentNode, "span", "session-item-title", title));
     }
-    appendStageProgress(documentNode, work, row.primary_item_stages);
+    appendItemStageProgress(documentNode, work, row.primary_item_stages, holding);
   }
   body.appendChild(work);
 }
@@ -220,6 +213,12 @@ function appendAttachedEntry(documentNode, body, row, attribution) {
   item.textContent = String(row.current_item);
   if (href) item.href = href;
   work.appendChild(item);
+  const conditionFacts = {
+    item_frozen: row.current_item_frozen,
+    item_blocked: row.current_item_blocked,
+    item_blocked_reason: row.current_item_blocked_reason,
+  };
+  appendItemConditionPills(documentNode, work, conditionFacts);
   if (attribution === "filed") {
     appendStagePill(
       documentNode, work, row.current_item_status, row.current_item_workflow_id,
@@ -231,7 +230,7 @@ function appendAttachedEntry(documentNode, body, row, attribution) {
     ));
   }
   if (attribution === "lane") {
-    appendStageProgress(documentNode, work, row.primary_item_stages);
+    appendItemStageProgress(documentNode, work, row.primary_item_stages, conditionFacts);
   }
   body.appendChild(work);
 }
@@ -310,6 +309,9 @@ export function appendHoldings(documentNode, body, row, projects = []) {
       item_title: row.current_item_title || row.recent_item_title || "",
       item_project_id: row.current_item_project_id,
       item_project_sequence: row.current_item_project_sequence,
+      item_frozen: row.current_item_frozen,
+      item_blocked: row.current_item_blocked,
+      item_blocked_reason: row.current_item_blocked_reason,
     });
   }
   if (previous.length) {

@@ -19,6 +19,12 @@ files. See [reference/commands.md](reference/commands.md).
 Workbench **Sessions** lists harness sessions against this universe: who is
 running, what item they hold, mode (dash, conduct, wait, …).
 
+Held item IDs show Frozen and Blocked pills from the item's own state. If
+both apply, Frozen appears first and colors the active workflow segment ice
+blue; Blocked remains visible beside it. Blocked alone colors that segment
+red. Completed and upcoming segments retain their normal colors. A parked or
+idle session does not, by itself, mark its item Frozen or Blocked.
+
 The roster opens on **Active**, which includes both active sessions and stale
 sessions. Stale sessions remain visible as light-red cards with a red `stale`
 pill. **Any state** includes ended sessions too, while **Ended** shows only

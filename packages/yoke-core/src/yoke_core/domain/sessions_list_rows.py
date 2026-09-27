@@ -196,6 +196,9 @@ def render_session_roster_rows(
                 ),
                 "current_item_title": row.get("current_item_title"),
                 "current_item_status": row.get("current_item_status"),
+                "current_item_frozen": bool(row.get("current_item_frozen")),
+                "current_item_blocked": bool(row.get("current_item_blocked")),
+                "current_item_blocked_reason": row.get("current_item_blocked_reason"),
                 "current_item_workflow_id": row.get("current_item_workflow_id"),
                 "current_item_workflow_version_id": row.get(
                     "current_item_workflow_version_id",
