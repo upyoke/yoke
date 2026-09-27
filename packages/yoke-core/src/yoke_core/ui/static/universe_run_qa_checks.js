@@ -15,7 +15,7 @@ import { el } from "./universe_view_support.js";
 // verdict needs a person is not passed until that person decides; the
 // agent's passing check is evidence for the decision, not the decision.
 const DECISION_OUTCOMES = {
-  pending: "screenshots captured · awaiting your approval",
+  pending: "screenshots captured · awaiting approval",
   approved: "approved",
   rejected: "rejected",
   undetermined: "decided · outcome not recorded",

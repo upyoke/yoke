@@ -109,7 +109,7 @@ test("an open human verdict reads as awaiting approval with a plain request", ()
   assert.equal(byClass(qa, "run-verdict")[0].textContent, "Awaiting approval");
   for (const line of directChecks(qa)) {
     assert.equal(byClass(line, "run-qa-check-outcome")[0].textContent,
-      "screenshots captured · awaiting your approval");
+      "screenshots captured · awaiting approval");
   }
   const ask = byClass(qa, "run-decision-ask")[0];
   assert.equal(ask.children[0].textContent, "Approve or reject the visual result.");
@@ -214,5 +214,5 @@ test("a rejection outranks an approval", () => {
 test("an approval with another review pending still awaits approval", () => {
   const qa = sectionWith([gate(1, "resolved", "approve"), gate(2, "pending")]);
   assert.equal(verdictOf(qa), "Awaiting approval");
-  assert.equal(firstOutcome(qa), "screenshots captured · awaiting your approval");
+  assert.equal(firstOutcome(qa), "screenshots captured · awaiting approval");
 });

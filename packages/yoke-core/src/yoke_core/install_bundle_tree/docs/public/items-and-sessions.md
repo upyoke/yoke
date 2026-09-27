@@ -105,7 +105,7 @@ evaluator/client-wall coverage, are labelled incomparable.
   captured, each shown once; earlier or superseded checks fold before the
   decision. A run with no run checks and no decision has no run QA section.
   Where a person decides a run's checks, they read **screenshots captured ·
-  awaiting your approval** and the heading **Awaiting approval** until the
+  awaiting approval** and the heading **Awaiting approval** until the
   request is answered with **Reject** or **Approve**, then **approved** (or
   **rejected**) beside the record naming who decided and when. The run page
   uses the same order. A run whose stages are complete but whose

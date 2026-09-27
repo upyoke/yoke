@@ -87,7 +87,7 @@ test("an open run QA review lists the run's checks, then asks for the decision",
   assert.equal(byClass(current[0], "run-qa-check-name")[0].children[0].href,
     "#/qa-activity/31974?project=10");
   assert.equal(byClass(current[0], "run-qa-check-outcome")[0].textContent,
-    "screenshots captured · awaiting your approval");
+    "screenshots captured · awaiting approval");
   assert.equal(byClass(current[0], "run-qa-check-reason")[0].textContent,
     "Shipping shows the approved review.");
   // Each screenshot once, under the check that took it.
@@ -163,7 +163,7 @@ test("your vote on a review still open for others keeps its checks awaiting appr
   await settle();
   const card = byClass(inboxSection(main, "decided"), "review-card")[0];
   assert.equal(byClass(byClass(card, "run-qa-check")[0], "run-qa-check-outcome")[0]
-    .textContent, "screenshots captured · awaiting your approval");
+    .textContent, "screenshots captured · awaiting approval");
   assert.equal(byClass(card, "review-state")[0].textContent, "Approved");
   assert.match(byClass(card, "review-who")[0].textContent, /^You approved · 1 of 2 · waiting on Quinn$/);
 });
