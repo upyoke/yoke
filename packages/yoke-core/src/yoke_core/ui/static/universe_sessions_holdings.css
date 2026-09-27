@@ -117,7 +117,7 @@
 
 .universe-app-root
   .session-item-stage-progress .delivery-run-stage[data-item-condition="frozen"] {
-  background: #0b6a9c;
+  background: #80d4f9;
   animation: delivery-run-pulse 1.6s ease-in-out infinite;
 }
 
