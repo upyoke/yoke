@@ -64,7 +64,7 @@ def test_http_error_body_is_redacted_neutralized_and_capped(monkeypatch) -> None
 
 def test_retryable_success_envelope_diagnostic_is_safe(monkeypatch) -> None:
     hostile_message = (
-        "Base branch was modified\x1b[31m" + TOKEN + "\u202e\ud800" + "x" * 6000
+        "Base branch was modified.\x1b[31m" + TOKEN + "\u202e\ud800" + "x" * 6000
     )
     response_body = json.dumps({"message": hostile_message}).encode("utf-8")
 

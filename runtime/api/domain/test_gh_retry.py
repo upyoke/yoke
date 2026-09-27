@@ -15,7 +15,10 @@ from yoke_core.domain import gh_retry
 def test_classifier_constants_importable():
     """The REST transport pulls these four names directly."""
     assert isinstance(gh_retry.MAX_RETRIES, int) and gh_retry.MAX_RETRIES >= 1
-    assert isinstance(gh_retry.BACKOFF_SECONDS, tuple) and len(gh_retry.BACKOFF_SECONDS) >= 1
+    assert (
+        isinstance(gh_retry.BACKOFF_SECONDS, tuple)
+        and len(gh_retry.BACKOFF_SECONDS) >= 1
+    )
     assert isinstance(gh_retry.RETRY_STDERR_MATCHERS, tuple)
     assert callable(gh_retry.is_retryable_text)
 
@@ -45,6 +48,8 @@ def test_is_retryable_text_matches_canonical_transient_signatures(stderr_text):
         "not found",
         "",
         "fatal: repository does not exist",
+        "Merge pull request #1500 from upyoke/example",
+        "commit sha a500b",
     ],
 )
 def test_is_retryable_text_rejects_terminal_failures(stderr_text):
@@ -73,7 +78,4 @@ def test_rest_transport_imports_classifier():
 
     assert gh_rest_transport.gh_retry is gh_retry
     assert gh_rest_transport.gh_retry.MAX_RETRIES == gh_retry.MAX_RETRIES
-    assert (
-        gh_rest_transport.gh_retry.BACKOFF_SECONDS
-        == gh_retry.BACKOFF_SECONDS
-    )
+    assert gh_rest_transport.gh_retry.BACKOFF_SECONDS == gh_retry.BACKOFF_SECONDS
