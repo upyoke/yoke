@@ -67,7 +67,13 @@
     if (request.function === "deployment_runs.list") {
       return ok({ rows: [row], filters: { flows: [] } });
     }
-    if (request.function === "qa.activity.list") return ok({ rows: [] });
+    if (request.function === "qa.activity.list") return ok({ rows:
+      request.payload.deployment_run_id ? [{
+        requirement_id: 901, deployment_run_id: runId,
+        case_key: "Release review", method_name: "Browser inspection",
+        outcome: "passed", happened_at: "2026-09-27T05:30:00Z",
+        artifacts: [artifact(701, 901)],
+      }] : [] });
     if (request.function === "inbox.list") return ok({ needs_decision: [] });
     if (request.function === "projects.infrastructure.list") {
       return ok({ environments: [] });
@@ -86,14 +92,23 @@
   const context = { document, client, capabilities: {}, isMounted: () => true,
     projects: () => [{ id: 1, slug: "yoke", name: "Yoke" }] };
   const itemFacts = await loadCarriedItemEvidence(context, row.member_items);
+  const runFacts = { evidence: new Map([[runId, { checks: [{
+    requirement_id: 901, deployment_run_id: runId,
+    case_key: "Release review", method_name: "Browser inspection",
+    outcome: "passed", happened_at: "2026-09-27T05:30:00Z",
+    artifacts: [artifact(701, 901)],
+  }] }]]) };
   const shipping = document.querySelector("#shipping");
   const examples = [
-    ["Resolved review and finalizing", row, { itemFacts }],
-    ["Pending approval", {
+    ["Resolved review and finalizing", row, { itemFacts, facts: runFacts }],
+    ["Pending run QA review", {
       ...row, id: "run-pending-preview", current_stage: "approval",
       settling_at: null, member_items: [], gates: [{
-        request_id: 73, kind: "deployment_stage_approval", status: "pending",
-        subject_context: {}, actions: ["approve", "reject"], can_act: true,
+        request_id: 73, kind: "qa_needs_review", status: "pending",
+        subject_context: { requirement_id: 903,
+          expected_outcome: "The release is readable on a narrow screen.",
+          artifacts: [artifact(821, 903)] },
+        actions: ["approve", "reject"], can_act: true,
       }],
     }, { onGateAction: () => {} }],
     ["Rejected approval", {

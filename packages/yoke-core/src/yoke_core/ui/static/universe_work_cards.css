@@ -12,21 +12,13 @@
   color: var(--yoke-ink);
   text-decoration: none;
 }
-/* A card that is not itself a control does not act like one. The lit border
-   and lifted shadow read as selection, so hovering blank space on a card
-   whose links are elsewhere promised something the card could not do. Only
-   a card that IS a link keeps the cue. */
+/* Strategy cards are links; work item cards keep their own controls. */
 .universe-app-root a.strategy-doc-card {
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 .universe-app-root a.strategy-doc-card:hover {
   border-color: color-mix(in srgb, var(--yoke-border) 45%, var(--yoke-accent));
   box-shadow: var(--yoke-shadow);
-}
-.universe-app-root :is(.work-item-card, .shipping-run-card):hover {
-  border-color: var(--yoke-border);
-  box-shadow: none;
-  cursor: default;
 }
 .universe-app-root .work-item-card:focus-visible,
 .universe-app-root .strategy-doc-card:focus-visible {
@@ -306,12 +298,6 @@
 }
 .universe-app-root .shipping-run-details[open] > :not(summary) {
   margin-top: 8px;
-}
-.universe-app-root .shipping-run-evidence {
-  color: var(--yoke-link);
-  font-size: 11px;
-  font-weight: 600;
-  text-decoration: none;
 }
 .universe-app-root .shipping-run-release {
   color: var(--yoke-muted);

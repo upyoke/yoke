@@ -11,6 +11,25 @@ import { settledScopedCalls } from "./universe_view_support.js";
 
 const ACTIVITY_LIMIT = 100;
 
+// Activity is an attempt log. The visible run verdict uses the latest live
+// attempt for each requirement; replaced requirements stay in history.
+export function effectiveRunChecks(rows) {
+  const latest = new Map();
+  for (const row of rows || []) {
+    if (row.deployment_member_item_id != null || row.superseded_at
+      || row.superseded_by_requirement_id) continue;
+    const key = String(row.requirement_id ?? row.case_key ?? row.id);
+    const previous = latest.get(key);
+    const rank = Date.parse(row.happened_at || "") || Number(row.run_id) || 0;
+    const priorRank = Date.parse(previous?.happened_at || "")
+      || Number(previous?.run_id) || 0;
+    if (!previous || rank > priorRank) {
+      latest.set(key, row);
+    }
+  }
+  return [...latest.values()];
+}
+
 function groupByRun(rows) {
   const byRun = new Map();
   for (const row of rows) {

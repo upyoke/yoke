@@ -13,7 +13,7 @@
 import { normalizedArtifacts } from "./review_evidence_strip.js";
 import { reviewRequestCard } from "./review_request_card.js";
 import { evidenceOf } from "./review_request_presentation.js";
-import { classifyMemberQa } from "./qa_state.js";
+import { QA_STATE, classifyMemberQa, classifyQaRow } from "./qa_state.js";
 import { paintMemberHistory } from "./qa_member_history.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
 import { gateAsRequest, resolvedDecisionRecord } from "./universe_run_gates.js";
@@ -214,6 +214,11 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   const { checks } = carriedItemEvidence(facts, itemId, runId);
   const history = facts?.byItem?.get(String(itemId)) || checks;
   const reviews = carriedItemReviews(facts, itemId, runId, checks);
+  const hasQa = history.some((row) => {
+    const state = classifyQaRow(row, history)?.id;
+    return state !== QA_STATE.NO_OBLIGATION && state !== QA_STATE.RUN_MACHINERY;
+  });
+  if (!hasQa && !reviews.length) return null;
   const memberState = classifyMemberQa(history, { runId });
   // A member with no executable check is still a fact: waived, no-obligation,
   // and never-asked used to render as a bare title.
@@ -224,10 +229,10 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
     "div",
     `carried-item-evidence is-${String(memberState.id).replaceAll("_", "-")}`,
   );
-  const painted = paintMemberHistory(context, wrap, {
+  const painted = hasQa ? paintMemberHistory(context, wrap, {
     itemId, runId, facts, history, memberState,
     deployedSha: options.deployedSha,
-  });
+  }) : { shown: [] };
   // A CI check that captured nothing still proved a tree. History lists
   // that row; this keeps the Actions run openable on the folded face.
   for (const check of checks) {
@@ -268,7 +273,6 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   return {
     node: wrap,
     requestIds: drawnRequests,
-    drewEvidence: painted.drewEvidence || reviews.length > 0,
   };
 }
 
