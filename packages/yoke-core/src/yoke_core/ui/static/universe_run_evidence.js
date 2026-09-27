@@ -2,8 +2,8 @@
 // does not carry: the QA checks recorded against it, with their artifacts,
 // and the name of the flow it ran.
 //
-// A run row names its flow by id and carries evidence only inside a pending
-// gate. The checks and their screenshots are QA activity rows keyed by the
+// A run row names its flow by id and its decisions carry frozen evidence.
+// The checks and their screenshots are QA activity rows keyed by the
 // run, and the flow's name is on the flow definition, so both are read once
 // per project and joined here rather than once per run.
 

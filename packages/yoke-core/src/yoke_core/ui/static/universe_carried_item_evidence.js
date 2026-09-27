@@ -1,5 +1,5 @@
 // What a release's carried items proved on their own, and the reviews those
-// items still owe a person, shown inside each item's own entry in a
+// items awaited or received, shown inside each item's own entry in a
 // deployment card's Carries box.
 //
 // A deployment run's own checks record the run they ran in. An item's checks
@@ -16,6 +16,7 @@ import { evidenceOf } from "./review_request_presentation.js";
 import { classifyMemberQa } from "./qa_state.js";
 import { paintMemberHistory } from "./qa_member_history.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
+import { gateAsRequest, resolvedDecisionRecord } from "./universe_run_gates.js";
 import { appendRunConclusion } from "./qa_run_conclusion.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
 
@@ -175,12 +176,9 @@ function reviewsByItem(pendingByRequirement) {
   return byItem;
 }
 
-// The reviews still waiting on this reader for this item in this run. The
-// item's own reviews come from the request index, so a truncated history
-// cannot hide one; the checks on screen add the reviews whose request names
-// a run rather than an item, which is how a release's per-member check is
-// addressed. Either way a request recorded against a different run belongs
-// to that run and is not offered here.
+// The item's waiting reviews come from the request index; the run's own
+// gates also carry resolved member reviews and their frozen evidence. A
+// truncated QA history must not hide either request from this member row.
 export function carriedItemReviews(facts, itemId, runId, checks) {
   const requests = new Map();
   const wanted = String(runId || "");
@@ -192,6 +190,16 @@ export function carriedItemReviews(facts, itemId, runId, checks) {
   for (const check of checks) {
     const request = facts?.pendingByRequirement?.get(String(check.requirement_id));
     if (request) requests.set(String(request.id), request);
+  }
+  for (const gate of facts?.gates || []) {
+    if (gate.kind !== "qa_needs_review") continue;
+    const subject = gate.subject_context?.subject || {};
+    const memberId = subject.deployment_member_item_id ?? subject.item_id;
+    if (String(memberId ?? "") !== String(itemId)) continue;
+    const requestId = String(gate.request_id);
+    if (gate.status === "resolved" || !requests.has(requestId)) {
+      requests.set(requestId, gateAsRequest(gate));
+    }
   }
   return [...requests.values()];
 }
@@ -246,10 +254,12 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
     wrap.appendChild(reviewRequestCard(context, request, {
       inline: true,
       evidence: !alreadyShown,
-      onAct: onDecide
+      onAct: onDecide && request.status !== "resolved"
         ? (row, action, node, note) => onDecide(request, action, node, note)
         : null,
     }));
+    const decision = resolvedDecisionRecord(documentNode, request);
+    if (decision) wrap.appendChild(decision);
   }
   host.appendChild(wrap);
   // A caption is this member's QA state, not its pictures. The run-wide

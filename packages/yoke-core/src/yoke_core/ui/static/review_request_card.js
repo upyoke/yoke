@@ -79,7 +79,7 @@ function appendQaBody(documentNode, card, row) {
     list.appendChild(el(documentNode, "dd", null, value));
   }
   card.appendChild(list);
-  if (!row.decided_by_you) {
+  if (row.status !== "resolved" && !row.decided_by_you) {
     card.appendChild(el(documentNode, "p", "review-question", "Is this acceptable?"));
   }
 }
@@ -185,7 +185,7 @@ export function reviewRequestCard(context, row, options = {}) {
     documentNode,
     "article",
     `review-card${compact ? " compact" : ""}${options.inline ? " inline" : ""}${
-      row.decided_by_you ? " decided" : ""
+      row.decided_by_you || row.status === "resolved" ? " decided" : ""
     }`,
   );
   card.setAttribute("data-request-id", String(row.id ?? row.request_id ?? ""));
@@ -207,7 +207,7 @@ export function reviewRequestCard(context, row, options = {}) {
   const who = reviewerLine(row);
   if (who) foot.appendChild(el(documentNode, "span", "review-who", who));
   appendLinks(documentNode, foot, row);
-  const canAct = !row.decided_by_you && row.can_act !== false
+  const canAct = row.status !== "resolved" && !row.decided_by_you && row.can_act !== false
     && typeof options.onAct === "function" && !compact;
   if (canAct) appendActions(documentNode, foot, card, row, options.onAct);
   if (foot.children.length) side.appendChild(foot);
