@@ -70,22 +70,16 @@
   font-size: 14px;
   line-height: 1.5;
 }
-/* Label and value in two columns rather than a paragraph of runs: a QA
-   review is a handful of named facts, and a reader scans them. */
+/* The outcome and reason read as prose without diagnostic field labels. */
 .universe-app-root .inbox-sections .review-qa {
-  display: grid;
-  grid-template-columns: 100px minmax(0, 1fr);
-  gap: 6px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin: 8px 0;
   font-size: 14px;
   line-height: 1.4;
 }
-.universe-app-root .inbox-sections .review-qa dt {
-  color: var(--yoke-muted);
-  font-size: 12px;
-  font-weight: 500;
-}
-.universe-app-root .inbox-sections .review-qa dd {
+.universe-app-root .inbox-sections .review-qa p {
   margin: 0;
   font-size: 14px;
 }
