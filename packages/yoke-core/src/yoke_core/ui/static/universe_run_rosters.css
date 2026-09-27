@@ -31,39 +31,46 @@
   justify-self: start;
 }
 
-/* The Runs table: a titled release with its id beneath, rows that open the
-   run, and a bounded evidence cell. */
+/* The Runs table: the flow name with the run ID beneath it as the link,
+   rows that open the run, and a narrow evidence cell of small wrapped
+   thumbnails. */
 .universe-app-root .delivery-run-row { cursor: pointer; }
 .universe-app-root .delivery-run-row:hover td { background: var(--yoke-hover); }
 .universe-app-root .delivery-run-title {
   color: var(--yoke-ink);
   font-weight: 600;
-  text-decoration: none;
 }
-.universe-app-root .delivery-run-title:hover { color: var(--yoke-accent); }
-.universe-app-root .delivery-run-id {
+.universe-app-root a.delivery-run-id {
+  display: inline-block;
   margin-top: 2px;
   color: var(--yoke-muted);
   font-size: 11px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
+.universe-app-root a.delivery-run-id:hover { color: var(--yoke-accent); }
 .universe-app-root .delivery-runs-table td:first-child {
   min-width: 180px;
 }
-.universe-app-root .delivery-run-evidence-cell {
-  min-width: 250px;
+.universe-app-root .delivery-runs-table td.delivery-run-status-cell {
+  vertical-align: middle;
 }
 /* Table cells override the strip's own compact width, so the selector has
    to outweigh it. */
-.universe-app-root .delivery-run-evidence-cell .review-evidence.compact .review-shot,
+.universe-app-root .delivery-run-evidence-cell .review-evidence.compact .review-shot {
+  width: 44px;
+}
 .universe-app-root .qa-activity-evidence .review-evidence.compact .review-shot {
   width: 72px;
 }
 .universe-app-root .delivery-run-evidence-cell .review-evidence {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  max-width: 148px;
 }
-.universe-app-root .delivery-run-evidence-cell .review-more {
-  padding: 4px 7px;
+.universe-app-root .delivery-run-evidence-more {
+  margin: 4px 0 0;
+  color: var(--yoke-muted);
   font-size: 11px;
 }

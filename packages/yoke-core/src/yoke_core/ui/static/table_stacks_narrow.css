@@ -3,8 +3,11 @@
    release or a QA run the facts they came for (status, outcome, evidence)
    are exactly the ones out there. A table marked to stack turns each row
    into a block and prints every column's name beside its value. The markup
-   stays a table; only the narrow layout changes. */
-@media (max-width: 720px) {
+   stays a table; only the narrow layout changes. The switch reads the
+   content pane, not the window: a sidebar beside a wide window leaves less
+   room than a phone-width breakpoint admits, and every column has to fit
+   before the table keeps its columns. */
+@container dashboard-content (max-width: 840px) {
   /* Panels keep their tables scrollably wide so columns survive. A stacked
      table has no columns to keep, and inheriting that floor is what pushes
      its content past the right edge. */

@@ -16,9 +16,11 @@ import { renderDeliveryFlowExplorer } from "./universe_delivery_flows.js";
 import { routeTabBar } from "./universe_tab_bar.js";
 import {
   createDeploymentRunsLoader,
+  loadRecentFlowRuns,
 } from "./universe_deployment_runs_loader.js";
 import { renderRunsTable } from "./universe_delivery_runs_table.js";
 import { EMPTY_RUN_FACTS, loadRunFacts } from "./universe_run_evidence.js";
+import { runDetailHref } from "./universe_work_cards.js";
 
 function renderDeliveryRunsView(context, main, scope) {
   const documentNode = context.document;
@@ -165,11 +167,7 @@ function renderDeliveryFlowsView(context, main, scope, selectedFlowId = null) {
   const panel = section(documentNode, "Flows");
   main.replaceChildren(panel);
   const buckets = scopeBuckets(scope, context.projects(), false);
-  // Authoring a definition changes the catalog it was authored from, so the
-  // screen re-reads rather than patching a row it did not compute.
-  const reload = () => renderDeliveryFlowsView(
-    context, main, scope, selectedFlowId,
-  );
+  const scopeKey = serializeScope(scope);
   loadScopedSection(
     context,
     panel,
@@ -179,9 +177,15 @@ function renderDeliveryFlowsView(context, main, scope, selectedFlowId = null) {
     })),
     (body, callResults) => {
       const rows = mergedRows(callResults, (result) => result.flows);
-      renderDeliveryFlowExplorer(
-        body, panel, rows, selectedFlowId, { context, reload },
-      );
+      const actorNames = Object.assign({}, ...callResults.map(
+        (callResult) => callResult.envelope?.result?.flow_actor_names || {},
+      ));
+      renderDeliveryFlowExplorer(body, panel, rows, selectedFlowId, {
+        actorNames,
+        flowHref: (flowId) => buildUniverseRoute("deployments", scopeKey, "flows", String(flowId)),
+        runHref: (run) => runDetailHref(context, run, scope),
+        loadRecentRuns: (flow) => loadRecentFlowRuns(context, flow),
+      });
     },
   );
 }

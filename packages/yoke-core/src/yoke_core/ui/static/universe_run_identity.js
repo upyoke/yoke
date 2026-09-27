@@ -1,4 +1,4 @@
-// What a run is bound to, and what it left behind when it stopped.
+// What a run is bound to, and which other releases carried its work.
 //
 // A release freezes an identity: the candidate commit it carries, the
 // artifact built from it, the moment its membership stopped changing, and
@@ -14,8 +14,6 @@
 import { deploymentRunHref } from "./universe_navigation.js";
 import { relativeAgePhrase } from "./universe_time.js";
 import { callFunction, el } from "./universe_view_support.js";
-
-const TERMINAL_STATUSES = new Set(["cancelled", "stopped", "failed"]);
 
 function factRow(documentNode, host, label, value, { mono = false } = {}) {
   host.appendChild(el(documentNode, "span", "run-fact-label", label));
@@ -118,21 +116,10 @@ export async function loadSiblingRuns(context, project, items, runId) {
   }
 }
 
-export function appendRunAftermath(context, card, row, project, siblings) {
+// What else carried this run's work, so a stopped or cancelled release
+// leads to whichever run replaced it.
+export function appendSiblingRuns(context, card, project, siblings) {
   const documentNode = context.document;
-  const status = String(row.status || "");
-  if (!TERMINAL_STATUSES.has(status)) return;
-  card.appendChild(el(
-    documentNode,
-    "p",
-    "run-copy run-aftermath",
-    status === "cancelled" || status === "stopped"
-      ? "Stopping a release keeps its history and does not undo what it already "
-        + "deployed. Its evidence and approvals answer for this candidate only; "
-        + "a replacement runs its own checks."
-      : "The run stopped. Its evidence answers for this candidate only; a "
-        + "replacement runs its own checks.",
-  ));
   if (!siblings.length) return;
   const list = el(documentNode, "div", "run-siblings");
   list.appendChild(el(

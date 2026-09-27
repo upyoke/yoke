@@ -1,7 +1,8 @@
 @import url("./universe_run_rosters.css");
 
-/* The run page: one heading row carrying the trail, the run's name and the
-   facts that place it; then the stage rail beside the work it is moving;
+/* The run page: the trail on its own line, then the run's name and the facts
+   that place it, ending with its status; then the stage rail beside the work
+   it is moving;
    then verification, full width, below both. Plus the run card's evidence
    strip and carries box on Shipping and the run title in the table. */
 .universe-app-root .run-page {
@@ -17,22 +18,19 @@
   letter-spacing: .08em;
   text-transform: uppercase;
 }
-/* Trail, name, facts and status on one row where they fit, wrapping in that
-   order when they do not. */
+/* Trail, title and content share one left edge. */
 .universe-app-root .run-head {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px 16px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
 }
 .universe-app-root .run-head .breadcrumb {
-  flex: 0 0 auto;
   margin: 0;
 }
 .universe-app-root .run-head-copy {
   min-width: 0;
-  flex: 1 1 320px;
+  max-width: 100%;
 }
 .universe-app-root .run-title {
   margin: 0;
@@ -45,17 +43,22 @@
   overflow-wrap: anywhere;
 }
 .universe-app-root .run-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 0;
   margin-top: 6px;
   color: var(--yoke-muted);
   font-size: 13.5px;
 }
+.universe-app-root .run-sub-sep { white-space: pre; }
 .universe-app-root .run-badge {
   flex: 0 0 auto;
-  padding: 6px 14px;
+  padding: 3px 10px;
   border-radius: 999px;
   background: var(--yoke-idle-bg);
   color: var(--yoke-idle);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -81,11 +84,19 @@
 /* Stages beside the work, read down rather than along: a row of arrows
    wrapped as soon as a flow had six stages, and a wrapped sequence stops
    reading as a sequence. */
+/* One column on narrow content; a fixed 200px stage rail beside the work
+   once the content area is wider than 590px. */
 .universe-app-root .run-top {
   display: grid;
-  grid-template-columns: minmax(190px, .4fr) minmax(0, 1fr);
-  gap: 36px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
   align-items: start;
+}
+@container dashboard-content (min-width: 591px) {
+  .universe-app-root .run-top {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 32px;
+  }
 }
 .universe-app-root .run-top > .run-card {
   padding: 0;
@@ -197,21 +208,13 @@
 }
 .universe-app-root .run-verdict.is-approved { background: var(--yoke-good-bg); color: var(--yoke-good); }
 .universe-app-root .run-verdict.is-rejected { background: var(--yoke-crit-bg); color: var(--yoke-crit); }
-.universe-app-root .run-check-conclusion {
-  color: var(--yoke-link);
-  font-size: 12px;
-  text-decoration: none;
-}
-.universe-app-root .run-check-conclusion:hover {
-  text-decoration: underline;
-}
 .universe-app-root .run-items {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 8px 14px;
   font-size: 13.5px;
 }
-.universe-app-root .run-items .mono { color: var(--yoke-muted); text-decoration: none; }
+.universe-app-root .run-items .mono { color: var(--yoke-muted); }
 /* The four facts a release is frozen to, as a label/value grid. A commit and
    an artifact id are read character by character, so they get their own row
    rather than being packed into a subtitle. */
@@ -237,8 +240,7 @@
 .universe-app-root .run-target-name { color: var(--yoke-muted); }
 .universe-app-root .run-target-url { color: var(--yoke-accent); text-decoration: none; }
 .universe-app-root .run-target-url:hover { text-decoration: underline; }
-/* What a stopped release leaves behind, and the releases that carried the
-   same work afterwards. */
+/* The other releases that carried the same work. */
 .universe-app-root .run-siblings {
   display: flex;
   flex-direction: column;
@@ -252,7 +254,6 @@
   font-size: 12px;
 }
 .universe-app-root .run-sibling span { color: var(--yoke-muted); }
-.universe-app-root .run-aftermath { margin-top: 10px; }
 
 .universe-app-root .run-copy {
   margin: 0;
@@ -275,10 +276,6 @@
    squeeze; a terminal inside either stays pannable rather than being
    word-wrapped into nonsense. */
 @container dashboard-content (max-width: 590px) {
-  .universe-app-root .run-top {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
-  }
   .universe-app-root .run-items {
     grid-template-columns: minmax(0, 1fr);
     gap: 7px;

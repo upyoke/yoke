@@ -158,18 +158,21 @@ test("the run page reads the run by id and draws it in the page's shape", async 
     Array.isArray(payload.item_ids) && payload.item_ids.includes(2262)
   )), JSON.stringify(activity));
 
-  // The trail, the run's name and the facts that place it are one row, and
-  // the run's own id is not repeated: the breadcrumb already ends on it.
+  // The trail stands on its own line above the title, and the run's own id
+  // is not repeated: the breadcrumb already ends on it.
   const head = byClass(root, "run-head")[0];
-  assert.ok(byClass(head, "breadcrumb")[0]);
+  assert.ok(head.children[0].classList.contains("breadcrumb"));
   assert.equal(
     byClass(head, "breadcrumb-here")[0].textContent, "run-20260726-001",
   );
   assert.equal(byClass(root, "run-title")[0].textContent, "Hosted release");
   assert.equal(
     byClass(root, "run-sub")[0].textContent,
-    "yoke · prod · 1 item · release 0.1.1+launch",
+    "yoke · prod · 1 item · release 0.1.1+launch · awaiting approval",
   );
+  // The status badge ends the facts line rather than floating by the title.
+  const facts = byClass(root, "run-sub")[0];
+  assert.equal(facts.children.at(-1), byClass(root, "run-badge")[0]);
   assert.equal(byClass(root, "run-badge")[0].textContent, "awaiting approval");
   assert.deepEqual(
     byClass(root, "run-step").map((node) => node.className),
@@ -189,7 +192,8 @@ test("the run page reads the run by id and draws it in the page's shape", async 
   assert.equal(identityValues[3], "prod · https://upyoke.com");
   const qa = byClass(root, "run-qa-section")[0];
   assert.equal(byClass(qa, "run-verdict")[0].textContent, "1 of 1 passed");
-  assert.ok(byClass(qa, "run-qa-check")[0].textContent.includes("smoke · Browser check"));
+  // A check is named for its method, never its case key.
+  assert.equal(byClass(qa, "run-qa-check-name")[0].textContent, "Browser check");
   assert.equal(byClass(qa, "review-shot").length, 1);
   // The decision: what the run carries, and the request folded in.
   const decision = byClass(root, "run-work")[0];
@@ -225,12 +229,9 @@ test("a run with nothing waiting says what it is doing instead", async (t) => {
   assert.equal(byClass(decision, "review-card").length, 0);
   assert.ok(byClass(root, "run-top")[0].children.includes(decision));
   assert.ok(byClass(root, "run-stages")[0]);
-  assert.ok(
-    byClass(root, "run-qa-section")[0].textContent
-      .includes("No run checks were recorded."),
-  );
-  // A run that ended well carries no aftermath block.
-  assert.equal(byClass(root, "run-aftermath").length, 0);
+  // A run with no run checks and no decision has no Run QA section at all.
+  assert.equal(byClass(root, "run-qa-section").length, 0);
+  assert.doesNotMatch(root.textContent, /No run checks were recorded/);
   mounted.unmount();
 });
 
@@ -253,10 +254,15 @@ for (const route of [
     const read = client.requests.find((request) => request.function === "deployment_runs.list");
     assert.deepEqual(read.payload.page, { page_size: 50, search: "run-20260726-001" });
     assert.equal(byClass(root, "run-sub")[0].textContent,
-      "yoke · prod · 2 items · release 0.1.1+launch");
-    assert.deepEqual(byClass(root, "run-items")[0].children
-      .filter((node) => node.tagName === "A").map((node) => node.textContent),
-    [yokeRef, platformRef]);
+      "yoke · prod · 2 items · release 0.1.1+launch · executing");
+    assert.deepEqual(byClass(root, "carried-item-ref").map((node) => node.textContent),
+      [yokeRef, platformRef]);
+    // Each carried title links to the same item as its reference.
+    assert.deepEqual(byClass(root, "carried-item-title").map((node) => [
+      node.tagName, node.textContent, node.href]), [
+      ["A", "Ship the release", "#/items/2228?project=1"],
+      ["A", "Build the host", "#/items/149?project=2"],
+    ]);
     assert.equal(byClass(root, "run-fact-value")[0].textContent, "0.1.1+launch.379");
     assert.equal(byClass(root, "run-items")[0].children.find(
       (node) => node.textContent === platformRef).href, "#/items/149?project=2");
@@ -284,8 +290,8 @@ test("a cancelled run keeps its history and names what carried the work after", 
     t, "#/deployments/runs/run-20260726-001?project=1", client,
   );
 
-  const aftermath = byClass(root, "run-aftermath")[0];
-  assert.match(aftermath.textContent, /does not undo what it already deployed/);
+  // No boilerplate about what a stopped run's evidence answers for.
+  assert.doesNotMatch(root.textContent, /evidence answers for this candidate only/);
   // The run itself is not listed as its own replacement.
   const siblings = byClass(root, "run-sibling");
   assert.deepEqual(
@@ -323,12 +329,14 @@ test("a carried item's own QA is shown beside that item, labelled as its own", a
 
   const evidence = byClass(byClass(root, "run-items")[0], "carried-item-evidence")[0];
   assert.ok(evidence, "the carried item carries its own evidence");
-  assert.doesNotMatch(byClass(evidence, "carried-item-evidence-caption")[0].textContent,
-    /never asked/);
-  assert.match(
-    byClass(evidence, "carried-item-evidence-caption")[0].textContent,
-    /verified before merge/,
-  );
+  // Nothing ran against the deployed revision, so the item's check sits in
+  // its earlier checks, named for when it ran and linked to its QA case.
+  assert.equal(byClass(evidence, "carried-item-qa-heading").length, 0);
+  const earlier = byClass(evidence, "carried-item-qa-earlier")[0];
+  assert.equal(earlier.children[0].textContent, "Earlier checks");
+  const row = byClass(earlier, "carried-item-qa-row")[0];
+  assert.match(row.textContent, /^○Before merge·.*·Browser inspection·undetermined$/);
+  assert.equal(row.children[1].href, "#/qa-activity/26134?project=1");
   assert.equal(byClass(evidence, "review-shot").length, 1);
   assert.equal(byClass(evidence, "carried-item-evidence-note").length, 0);
 });

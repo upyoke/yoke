@@ -1,20 +1,28 @@
-// What a release stage does beyond carrying a name: the kind of work it is,
-// the scope it operates at, the target it acts on, and — for a QA stage —
-// who decides its verdict versus who is only told the result.
+// What a release stage does, in plain words: what runs it, the scope it
+// operates at, where it acts, and — for a QA or approval stage — who decides.
 //
 // Every run freezes the definition it references, so these are the terms the
-// release will actually be held to. A reader who can only see stage names
+// release will actually be held to. A reader who sees only a runner code
 // cannot tell a per-item check from a whole-release one, or a gate a person
-// must answer from one an agent settles alone; both mistakes are only
-// discovered once the run is already halted on them.
+// must answer from one an agent settles alone.
 
 import { el } from "./universe_view_support.js";
 import { ROLE_LABELS } from "./workflow_mechanics_data.js";
 
+const RUNNER_LABELS = {
+  auto: "Automatic",
+  qa: "QA",
+  "human-approval": "Approval",
+  "ephemeral-deploy": "Preview deploy",
+  "environment-activate": "Environment activation",
+  "core-container-deploy": "Container deploy",
+  "health-check": "Health check",
+};
+
 const VERDICT_PHRASES = {
   agent_only: "the agent decides",
   human_if_unsure: "a person decides when the agent is unsure",
-  required_human: "a person decides, always",
+  required_human: "a person decides",
 };
 
 const SCOPE_PHRASES = {
@@ -22,21 +30,50 @@ const SCOPE_PHRASES = {
   run: "runs once for the whole release",
 };
 
-// Roles and actors read as one addressee list. The mode is the difference
-// between needing everyone and needing anyone, so it stays in the phrase
-// rather than being flattened into a comma list.
-export function addresseePhrase(policy) {
-  const who = [
-    ...(policy?.roles || []).map((role) => ROLE_LABELS[role] || role),
-    ...(policy?.actors || []).map((actorId) => `actor ${actorId}`),
-  ];
-  if (!who.length) return "";
-  return who.join(policy?.mode === "all" ? " and " : " or ");
+// What runs the stage, named the way a reader would say it rather than by
+// the step runner's code.
+export function stageRunnerLabel(stage) {
+  const runner = String(stage.step_runner || "");
+  if (runner === "github-actions-workflow") {
+    return `GitHub Actions · ${stage.workflow || "workflow"}`;
+  }
+  if (runner === "warm-up") {
+    return stage.connection_env ? `Warm-up · ${stage.connection_env}` : "Warm-up";
+  }
+  if (runner === "ephemeral-verify") {
+    return stage.workflow ? `Preview verification · ${stage.workflow}` : "Preview verification";
+  }
+  if (!runner && stage.stage_kind === "qa") return "QA";
+  return RUNNER_LABELS[runner] || runner || String(stage.stage_kind || "");
 }
 
-// Where the stage acts. A preview target names the stage that built it
-// rather than an environment, because an ephemeral substrate has no name a
-// reader could look up anywhere else.
+// A stage a person must answer: an approval step, or a QA verdict reserved
+// for a human.
+export function isPersonDecided(stage) {
+  return stage.step_runner === "human-approval"
+    || Boolean(stage.approvals)
+    || stage.verdict?.mode === "required_human";
+}
+
+export function isQaStage(stage) {
+  return stage.stage_kind === "qa" || stage.step_runner === "qa";
+}
+
+// Roles and actors read as one list of people. The mode is the difference
+// between needing everyone and needing anyone, so it stays in the phrase.
+export function peoplePhrase(policy, actorNames = {}) {
+  const actors = (policy?.actors || []).map(
+    (actorId) => actorNames[String(actorId)] || `actor ${actorId}`,
+  );
+  const roles = (policy?.roles || []).map((role) => ROLE_LABELS[role] || role);
+  const people = [...new Set([...actors, ...roles])];
+  if (!people.length) return "anyone with access";
+  if (people.length === 1) return people[0];
+  return `${policy?.mode === "all" ? "all of" : "any of"} ${people.join(", ")}`;
+}
+
+// Where the stage acts. A preview target names the stage that built it,
+// because an ephemeral substrate has no name a reader could look up.
 function targetPhrase(target) {
   if (!target) return "";
   if (target.kind === "run_preview") {
@@ -58,59 +95,46 @@ function casesPhrase(cases) {
     : `plan ${cases.plan_id} · every case in the plan`;
 }
 
-// Verdict authority and notification are deliberately two lines. Being told
-// a release failed is not the same as being asked to rule on it, and a
-// definition that blurs them is how a review nobody owns goes unanswered.
-function verdictPhrase(verdict) {
+function verdictPhrase(verdict, actorNames) {
   if (!verdict) return "";
   const decision = VERDICT_PHRASES[verdict.mode] || String(verdict.mode);
-  const reviewers = addresseePhrase(verdict.reviewers);
-  return reviewers ? `${decision} — ${reviewers}` : decision;
+  if (verdict.mode === "agent_only") return decision;
+  return `${decision} — ${peoplePhrase(verdict.reviewers, actorNames)}`;
 }
 
-function notificationPhrase(notification) {
+// Being told a release failed is not the same as being asked to rule on it,
+// so notification stays its own line.
+function notificationPhrase(notification, actorNames) {
   if (!notification?.enabled) return "";
   const recipients = notification.recipients || {};
-  const addressed = addresseePhrase(recipients);
-  const who = [
+  const addressed = (recipients.actors?.length || recipients.roles?.length)
+    ? peoplePhrase(recipients, actorNames)
+    : "";
+  return [
     ...(recipients.item_owners ? ["each item's owner"] : []),
     ...(addressed ? [addressed] : []),
-  ];
-  return who.join(", ");
+  ].join(", ");
 }
 
-// The lines one stage contributes, in the order a reader asks for them:
-// what it is, where it acts, what it checks, who rules on it, who hears.
-function policyLines(stage) {
-  const approvers = addresseePhrase(stage.approvals);
+// The lines one stage contributes, in the order a reader asks for them.
+export function stageFacts(stage, actorNames = {}) {
   return [
     ["Scope", SCOPE_PHRASES[stage.scope] || ""],
     ["Runs on", targetPhrase(stage.target)],
     ["Cases", casesPhrase(stage.cases)],
-    ["Verdict", verdictPhrase(stage.verdict)],
-    ["Notify", notificationPhrase(stage.notification)],
-    ["Approval", approvers],
+    ["Verdict", verdictPhrase(stage.verdict, actorNames)],
+    ["Approvers", stage.approvals ? peoplePhrase(stage.approvals, actorNames) : ""],
+    ["Notify", notificationPhrase(stage.notification, actorNames)],
   ].filter(([, value]) => value);
 }
 
-// The badge a reader scans for first. QA stages are called out by kind
-// because a gate is the thing worth spotting in a pipeline; every other
-// stage is labelled by its step runner, which says the same thing more
-// precisely — "ephemeral-deploy" is already, unmistakably, execution.
-export function stageKindLabel(stage) {
-  if (stage.stage_kind === "qa") return "QA";
-  return String(stage.step_runner || stage.stage_kind || "");
-}
-
-export function stagePolicyList(documentNode, stage) {
-  const lines = policyLines(stage);
-  if (!lines.length) return null;
-  const list = el(documentNode, "dl", "delivery-flow-stage-policy");
-  for (const [label, value] of lines) {
-    const row = el(documentNode, "div", "delivery-flow-stage-policy-row");
-    row.appendChild(el(documentNode, "dt", null, label));
-    row.appendChild(el(documentNode, "dd", null, value));
-    list.appendChild(row);
+export function stageFactList(documentNode, stage, actorNames) {
+  const facts = stageFacts(stage, actorNames);
+  if (!facts.length) return null;
+  const list = el(documentNode, "dl", "delivery-flow-stage-facts");
+  for (const [label, value] of facts) {
+    list.appendChild(el(documentNode, "dt", null, label));
+    list.appendChild(el(documentNode, "dd", null, value));
   }
   return list;
 }

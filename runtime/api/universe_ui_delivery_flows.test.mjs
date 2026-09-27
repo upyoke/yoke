@@ -25,6 +25,7 @@ const FLOWS = [
     id: "alpha-release", name: "Alpha Release", project: "alpha",
     status: "active", target_tier: "persistent", target_environment: "prod",
     on_failure: "halt", stages: [{ name: "build" }, { name: "verify" }],
+    description: "Release Alpha to production.", supersedes_flow_id: "alpha-legacy",
   },
   {
     id: "alpha-legacy", name: "Alpha Legacy", project: "alpha",
@@ -52,6 +53,10 @@ function flowClient(flows = FLOWS) {
           { id: 1, slug: "alpha", name: "Alpha" },
           { id: 2, slug: "beta", name: "Beta" },
         ] });
+      }
+      if (request.function === "deployment_runs.list") {
+        const flow = request.payload.page.flow;
+        return okEnvelope({ rows: flow === "alpha-release" ? RUNS : [] });
       }
       if (request.function === "workflows.definition.get") {
         const project = request.payload.project;
@@ -100,172 +105,169 @@ test("Deployments opens on Flows under one route head", async (t) => {
   mounted.unmount();
 });
 
-function cardNames(root) {
-  return byClass(root, "delivery-flow-card-name").map((node) => node.textContent);
+const RUNS = Array.from({ length: 6 }, (_, index) => ({
+  id: `run-20260927-00${index + 1}`, project: "alpha", status: "succeeded",
+  created_at: `2026-09-27T1${index}:00:00Z`,
+}));
+
+function rowNames(root) {
+  return byClass(root, "delivery-flow-row-name").map((node) => node.textContent);
 }
 
 function detailHeading(root) {
-  const detail = byClass(root, "delivery-flow-detail")[0];
-  return allNodes(detail).find((node) => node.tagName === "H3")?.textContent;
+  return byClass(root, "delivery-flow-detail-name")[0]?.textContent;
 }
 
-function keyEvent(key) {
-  const event = new Event("keydown", { cancelable: true });
-  Object.defineProperty(event, "key", { value: key });
-  return event;
-}
-
-test("flow explorer is active-first and makes disabled and selection explicit", async (t) => {
-  const client = flowClient();
-  const { documentNode, root, mounted } = await mountFlows(t, client);
-
-  assert.deepEqual(
-    client.requests.filter((request) => request.function === "workflows.definition.get"),
-    [{ function: "workflows.definition.get", payload: {} }],
+function rowFor(root, name) {
+  return byClass(root, "delivery-flow-row").find(
+    (row) => byClass(row, "delivery-flow-row-name")[0].textContent === name,
   );
-  assert.deepEqual(cardNames(root), ["Alpha Release", "Beta Promote"]);
-  const disabledToggle = byClass(root, "delivery-flow-disabled-toggle")[0];
-  assert.equal(disabledToggle.textContent, "Show disabled (1)");
-  assert.equal(disabledToggle.attributes.get("aria-pressed"), "false");
-  assert.equal(byClass(root, "delivery-flow-result-summary")[0].textContent,
-    "2 flows shown · 1 disabled hidden");
+}
 
-  const list = byClass(root, "delivery-flow-list")[0];
-  assert.equal(list.attributes.get("role"), "listbox");
+function tagText(node, tag) {
+  return allNodes(node).find((child) => child.tagName === tag)?.textContent;
+}
+
+test("the list groups active flows by project with full names and plain meta", async (t) => {
+  const { root, mounted } = await mountFlows(t, flowClient());
+
+  assert.deepEqual(rowNames(root), ["Alpha Release", "Beta Promote"]);
   assert.deepEqual(
-    byClass(root, "delivery-flow-project-group").map(
-      (group) => group.children[0].textContent,
-    ),
+    byClass(root, "delivery-flow-group").map((group) => tagText(group, "H3")),
     ["alpha", "beta"],
   );
-  assert.deepEqual(byClass(root, "delivery-flow-project-group").map(
-    (group) => group.attributes.get("aria-label")), ["alpha", "beta"]);
-  let cards = byClass(root, "delivery-flow-card");
-  assert.deepEqual(cards.map((card) => card.attributes.get("role")), ["option", "option"]);
-  assert.deepEqual(cards.map((card) => card.attributes.get("aria-selected")), ["true", "false"]);
-  assert.deepEqual(cards.map((card) => card.tabIndex), [0, -1]);
-  assert.equal(cards[0].classList.contains("selected"), true);
-  assert.equal(cards[0].attributes.get("data-status"), "active");
-  assert.equal(detailHeading(root), "Alpha Release");
   assert.deepEqual(
-    byClass(root, "delivery-flow-stage-name").map((node) => node.textContent),
-    ["build", "verify"],
+    byClass(root, "delivery-flow-row-meta").map((node) => node.textContent),
+    ["prod · 2 stages", "3 stages"],
   );
-  // A card says how many stages a flow has in words. It used to draw them as
-  // a segmented bar too, which read as a progress meter for something that
-  // was not progressing.
-  assert.equal(byClass(root, "delivery-flow-card-shape").length, 0);
-  assert.ok(byClass(root, "delivery-flow-card")[0].textContent.includes("2 stages"));
-
-  cards[0].dispatchEvent(keyEvent("ArrowDown"));
-  cards = byClass(root, "delivery-flow-card");
-  assert.deepEqual(cards.map((card) => card.attributes.get("aria-selected")), ["false", "true"]);
-  assert.equal(documentNode.activeElement, cards[1]);
-  assert.equal(detailHeading(root), "Beta Promote");
-
-  disabledToggle.dispatchEvent(new Event("click"));
-  assert.equal(disabledToggle.textContent, "Hide disabled");
-  assert.equal(disabledToggle.attributes.get("aria-pressed"), "true");
-  assert.deepEqual(cardNames(root), ["Alpha Release", "Alpha Legacy", "Beta Promote"]);
-  assert.ok(byClass(root, "delivery-flow-card")[1].textContent.includes("1 stage"));
-  cards = byClass(root, "delivery-flow-card");
-  assert.equal(cards[1].attributes.get("data-status"), "disabled");
-  cards[1].dispatchEvent(new Event("click"));
-  cards = byClass(root, "delivery-flow-card");
-  assert.equal(cards[1].classList.contains("selected"), true);
-  assert.equal(detailHeading(root), "Alpha Legacy");
-  assert.equal(
-    byClass(root, "delivery-flow-detail-title")[0].children[1]
-      .attributes.get("data-state"),
-    "disabled",
-  );
-  disabledToggle.dispatchEvent(new Event("click"));
-  assert.deepEqual(cardNames(root), ["Alpha Release", "Beta Promote"]);
-  assert.equal(detailHeading(root), "Alpha Release");
-  assert.equal(byClass(root, "raw-toggle").length, 0);
-  assert.equal(byClass(root, "raw-json").length, 0);
+  // Active flows carry no pill; the first flow is selected and highlighted.
+  assert.equal(byClass(byClass(root, "delivery-flow-groups")[0], "pill").length, 0);
+  const first = rowFor(root, "Alpha Release");
+  assert.equal(first.classList.contains("is-selected"), true);
+  assert.equal(first.attributes.get("aria-current"), "true");
+  assert.equal(byClass(root, "delivery-flow-count")[0].textContent, "2 flows");
+  assert.match(byClass(root, "delivery-flow-show-disabled")[0].textContent, /Show disabled \(1\)/);
   mounted.unmount();
 });
 
-test("search covers project, target, and stage text with a recoverable no-result state", async (t) => {
-  const { documentNode, root, mounted } = await mountFlows(t, flowClient());
-  const search = allNodes(byClass(root, "delivery-flow-search")[0])
+test("Show disabled reveals disabled flows with a status pill", async (t) => {
+  const { root, mounted } = await mountFlows(t, flowClient());
+  const box = allNodes(byClass(root, "delivery-flow-show-disabled")[0])
     .find((node) => node.tagName === "INPUT");
-  assert.equal(search.attributes.get("aria-controls"), "delivery-flow-list");
-
-  search.value = "promote";
-  search.dispatchEvent(new Event("input"));
-  assert.deepEqual(cardNames(root), ["Beta Promote"]);
-  assert.equal(detailHeading(root), "Beta Promote");
-
-  search.value = "nowhere";
-  search.dispatchEvent(new Event("input"));
-  assert.equal(byClass(root, "delivery-flow-card").length, 0);
-  assert.equal(byClass(root, "delivery-flow-no-results")[0].children[1].textContent,
-    "No matching flows");
-  assert.equal(byClass(root, "delivery-flow-detail")[0].classList.contains("is-empty"), true);
-  byClass(root, "delivery-flow-clear")[0].dispatchEvent(new Event("click"));
-  assert.deepEqual(cardNames(root), ["Alpha Release", "Beta Promote"]);
-  assert.equal(documentNode.activeElement, search);
-
-  search.value = "archive";
-  search.dispatchEvent(new Event("input"));
-  assert.equal(byClass(root, "delivery-flow-card").length, 0);
-  assert.match(byClass(root, "delivery-flow-no-results")[0].children[2].textContent,
-    /Disabled definitions remain hidden/);
+  box.checked = true;
+  box.dispatchEvent(new Event("change"));
+  assert.deepEqual(rowNames(root), ["Alpha Release", "Alpha Legacy", "Beta Promote"]);
+  assert.equal(byClass(rowFor(root, "Alpha Legacy"), "pill")[0].textContent, "disabled");
   mounted.unmount();
 });
 
-test("project scoping stays server-side while each browse item names its project", async (t) => {
+test("search matches names, ids, stages and environments", async (t) => {
+  const { root, mounted } = await mountFlows(t, flowClient());
+  const search = byClass(root, "delivery-flow-search")[0];
+  for (const [query, expected] of [
+    ["promote", ["Beta Promote"]],
+    ["alpha-release", ["Alpha Release"]],
+    ["observe", ["Beta Promote"]],
+    ["prod", ["Alpha Release"]],
+  ]) {
+    search.value = query;
+    search.dispatchEvent(new Event("input"));
+    assert.deepEqual(rowNames(root), expected, query);
+  }
+  search.value = "nothing-here";
+  search.dispatchEvent(new Event("input"));
+  assert.equal(byClass(root, "delivery-flow-empty")[0].textContent, "No flows match.");
+  mounted.unmount();
+});
+
+test("the selected flow shows its facts, the flow it replaces and recent runs", async (t) => {
   const client = flowClient();
-  const { root, mounted } = await mountFlows(
-    t, client, "#/deployments/flows?project=2",
+  const { root, mounted } = await mountFlows(t, client, "#/deployments/flows?project=1");
+  await settle();
+
+  assert.equal(detailHeading(root), "Alpha Release");
+  assert.equal(byClass(root, "delivery-flow-id")[0].textContent, "alpha-release");
+  assert.equal(
+    byClass(root, "delivery-flow-description")[0].textContent, "Release Alpha to production.",
   );
-  assert.deepEqual(
-    client.requests.filter((request) => request.function === "workflows.definition.get"),
-    [{ function: "workflows.definition.get", payload: { project: "2" } }],
-  );
-  assert.deepEqual(cardNames(root), ["Beta Promote"]);
-  assert.equal(byClass(root, "delivery-flow-card-project")[0].textContent, "beta");
-  assert.equal(byClass(root, "scope-bar").length, 1);
+  const facts = byClass(root, "delivery-flow-fact").map((fact) => [
+    tagText(fact, "DT"), tagText(fact, "DD"),
+  ]);
+  assert.deepEqual(facts, [
+    ["Project", "alpha"], ["Environment", "prod"], ["Target tier", "persistent"],
+    ["On failure", "halt"], ["Replaces", "Alpha Legacy"],
+  ]);
+  const replaces = byClass(root, "delivery-flow-replaces")[0];
+  assert.equal(replaces.href, "#/deployments/flows/alpha-legacy?project=1");
+
+  const runRequest = client.requests.find((request) => request.function === "deployment_runs.list");
+  assert.deepEqual(runRequest.payload, {
+    page: { page_size: 5, flow: "alpha-release", projects: ["alpha"] },
+  });
+  const runLinks = byClass(root, "delivery-flow-run-link");
+  assert.equal(runLinks.length, 5);
+  assert.equal(runLinks[0].textContent, "run-20260927-001");
+  assert.match(runLinks[0].href, /^#\/deployments\/runs\/run-20260927-001/);
+
+  // Following Replaces opens the replaced (disabled) flow in place.
+  replaces.dispatchEvent(new Event("click", { cancelable: true }));
+  assert.equal(detailHeading(root), "Alpha Legacy");
+  assert.equal(rowFor(root, "Alpha Legacy").classList.contains("is-selected"), true);
   mounted.unmount();
 });
 
-test("empty and disabled-only scopes explain what can happen next", async (t) => {
-  const empty = await mountFlows(t, flowClient([]));
-  assert.equal(byClass(empty.root, "delivery-flow-empty-scope").length, 1);
-  assert.equal(byClass(empty.root, "delivery-flow-empty-scope")[0].children[1].textContent,
-    "No deployment flows yet");
-  empty.mounted.unmount();
+test("choosing a flow opens it alone and All flows returns to the list", async (t) => {
+  const { root, mounted } = await mountFlows(t, flowClient());
+  const page = byClass(root, "delivery-flow-page")[0];
+  assert.equal(page.classList.contains("is-detail-open"), false);
+  rowFor(root, "Beta Promote").dispatchEvent(new Event("click"));
+  assert.equal(page.classList.contains("is-detail-open"), true);
+  assert.equal(detailHeading(root), "Beta Promote");
+  const back = byClass(root, "delivery-flow-back")[0];
+  assert.equal(back.textContent, "‹ All flows");
+  back.dispatchEvent(new Event("click"));
+  assert.equal(page.classList.contains("is-detail-open"), false);
+  mounted.unmount();
+});
 
-  const disabledOnly = await mountFlows(t, flowClient([FLOWS[1]]));
-  assert.equal(byClass(disabledOnly.root, "delivery-flow-card").length, 0);
-  assert.equal(byClass(disabledOnly.root, "delivery-flow-no-results")[0].children[1].textContent,
-    "No active flows");
-  const toggle = byClass(disabledOnly.root, "delivery-flow-disabled-toggle")[0];
-  assert.equal(toggle.textContent, "Show disabled (1)");
-  toggle.dispatchEvent(new Event("click"));
-  assert.deepEqual(cardNames(disabledOnly.root), ["Alpha Legacy"]);
-  assert.equal(detailHeading(disabledOnly.root), "Alpha Legacy");
-  disabledOnly.mounted.unmount();
+test("Flows offers no way to create, edit, version or disable a definition", async (t) => {
+  const client = flowClient();
+  const { root, mounted } = await mountFlows(t, client);
+  rowFor(root, "Beta Promote").dispatchEvent(new Event("click"));
+  await settle();
+  const labels = allNodes(root)
+    .filter((node) => node.tagName === "BUTTON")
+    .map((node) => node.textContent.trim());
+  for (const forbidden of ["New flow", "Edit", "New version", "Disable", "Enable"]) {
+    assert.equal(labels.includes(forbidden), false, forbidden);
+  }
+  for (const className of ["delivery-flow-action", "delivery-flow-form", "delivery-flow-actions"]) {
+    assert.equal(byClass(root, className).length, 0, className);
+  }
+  const called = client.requests.map((request) => request.function);
+  assert.equal(called.some((functionId) => functionId.startsWith("deployment_flows.")), false);
+  mounted.unmount();
+});
+
+test("an empty scope points at the CLI rather than a form", async (t) => {
+  const { root, mounted } = await mountFlows(t, flowClient([]));
+  assert.match(byClass(root, "delivery-flow-empty")[0].textContent, /yoke deployment-flows create/);
+  mounted.unmount();
 });
 
 test("a flow deep link opens the Flows tab on that definition", async (t) => {
-  // The drill-in under the Flows tab is a definition, not a run: routing it
-  // to the run page reported "there is no run called <flow id>" while the
-  // breadcrumb still said Flows.
+  // The drill-in under the Flows tab is a definition, not a run.
   const { root, mounted } = await mountFlows(
     t, flowClient(), "#/deployments/flows/alpha-legacy?project=1",
   );
-
-  assert.equal(byClass(root, "delivery-flow-detail-title").length, 1);
+  assert.equal(detailHeading(root), "Alpha Legacy");
+  // A retired definition is what the link named, so the list shows disabled
+  // definitions rather than falling back to the first active flow.
+  assert.equal(byClass(root, "delivery-flow-id")[0].textContent, "alpha-legacy");
   assert.equal(
-    byClass(root, "delivery-flow-detail-title")[0].children[0].textContent,
-    "Alpha Legacy",
+    byClass(byClass(root, "delivery-flow-detail")[0], "pill")[0].textContent, "disabled",
   );
-  // A retired definition is still what the link named, so the catalog opens
-  // showing disabled definitions rather than falling back to the first active flow.
-  assert.match(byClass(root, "delivery-flow-id")[0].textContent, /alpha-legacy/);
+  assert.equal(byClass(root, "delivery-flow-page")[0].classList.contains("is-detail-open"), true);
   mounted.unmount();
 });
 

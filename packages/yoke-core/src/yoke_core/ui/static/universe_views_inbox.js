@@ -21,8 +21,16 @@ import {
 } from "./universe_sessions_holdings_disclosure.js";
 import {
   appendCarriedItemEvidence,
+  appendCarriedItemHeading,
   loadCarriedItemEvidence,
 } from "./universe_carried_item_evidence.js";
+import {
+  fillRunQaReviewChecks,
+  isRunQaReview,
+  loadRunQaReviewChecks,
+  reviewRunId,
+  runQaReviewCard,
+} from "./inbox_run_review.js";
 
 export { inboxPresentation } from "./inbox_presentation.js";
 
@@ -108,10 +116,7 @@ function appendApprovalCarried(context, card, row, facts, onDecide) {
   }
   const entryFor = (item) => {
     const entry = el(documentNode, "div", "release-member");
-    entry.appendChild(el(
-      documentNode, "code", null, item.ref || `item ${item.item_id}`,
-    ));
-    entry.appendChild(el(documentNode, "span", null, item.title || ""));
+    appendCarriedItemHeading(documentNode, entry, item, row.project_id);
     appendCarriedItemEvidence(context, entry, {
       item,
       runId: row.subject_context?.run_id,
@@ -216,8 +221,8 @@ export function renderInboxView(context, main, scope) {
     waiting.setCount(pending.length);
     const cards = new Map();
     cardList(documentNode, waiting.body, pending.map((row) => {
-      const card = reviewRequestCard(
-        context, row, { onAct: resolve, projectLabel: rowProject(row) },
+      const card = decisionCard(
+        row, { onAct: resolve, projectLabel: rowProject(row) },
       );
       cards.set(row, card);
       return card;
@@ -251,9 +256,27 @@ export function renderInboxView(context, main, scope) {
     // Nothing decided means no section, not an empty one.
     decided.setCount(done.length);
     decided.hidden = !done.length;
-    cardList(documentNode, decided.body, done.map((row) => reviewRequestCard(
-      context, row, { compact: true, projectLabel: rowProject(row) },
-    )), "");
+    const decidedCards = new Map(done.map((row) => [row, decisionCard(
+      row, { compact: true, projectLabel: rowProject(row) },
+    )]));
+    cardList(documentNode, decided.body, [...decidedCards.values()], "");
+    appendRunReviewChecks(new Map([...cards, ...decidedCards]));
+  };
+
+  // A run QA review draws the run's own checks; every other decision keeps
+  // the shared request card.
+  const decisionCard = (row, options) => (isRunQaReview(row)
+    ? runQaReviewCard(context, row, options)
+    : reviewRequestCard(context, row, options));
+
+  const appendRunReviewChecks = async (cards) => {
+    const reviews = [...cards.keys()].filter(isRunQaReview);
+    if (!reviews.length) return;
+    const checks = await loadRunQaReviewChecks(context, reviews);
+    if (!context.isMounted()) return;
+    for (const row of reviews) {
+      fillRunQaReviewChecks(context, cards.get(row), row, checks.get(reviewRunId(row)));
+    }
   };
 
   // One batched read for every release approval on the page, then the

@@ -84,12 +84,12 @@ function runCard(documentNode, artifacts) {
   });
 }
 
-test("the run name stays a link inside the navigable card", () => {
+test("the run ID is the card's only link to run detail", () => {
   const documentNode = new FakeDocument();
   const card = runCard(documentNode, []);
 
   assert.equal(card.tagName, "DIV");
-  assert.equal(card.getAttribute("role"), "link");
+  assert.equal(card.getAttribute("role"), null);
   assert.equal(byClass(card, "shipping-run-card-link").length, 0);
   const runName = byClass(card, "shipping-run-id")[0];
   assert.equal(runName.tagName, "A");

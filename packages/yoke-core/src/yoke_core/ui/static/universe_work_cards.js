@@ -16,6 +16,7 @@ import { relativeAgePhrase } from "./universe_time.js";
 import { runGateStatus } from "./universe_run_gates.js";
 import {
   appendCarriedItemEvidence,
+  appendCarriedItemHeading,
 } from "./universe_carried_item_evidence.js";
 import { runEvidence, runFlowName } from "./universe_run_evidence.js";
 import { runQaSection } from "./universe_run_qa.js";
@@ -143,14 +144,6 @@ export function runDetailHref(context, row, scope) {
   return deploymentRunHref(runProjectId(context, row, scope), row.id || row.run_id);
 }
 
-function insideControl(target, card) {
-  for (let node = target; node && node !== card; node = node.parentNode) {
-    if (["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA", "SUMMARY"].includes(node.tagName)
-      || ["button", "link"].includes(node.getAttribute?.("role"))) return true;
-  }
-  return false;
-}
-
 // What the run carries, listed on the card: the first few items, and an
 // honest "+N more" for the rest. Membership is who the pipeline moves to
 // done; for an environment run that owns nothing the derived contents stand
@@ -178,8 +171,9 @@ export function appendCarried(context, host, row, options = {}) {
   ));
   const memberFor = (item) => {
     const member = el(documentNode, "div", "release-member");
-    member.appendChild(el(documentNode, "code", null, carriedReference(item)));
-    member.appendChild(el(documentNode, "span", null, item.title || ""));
+    appendCarriedItemHeading(documentNode, member, {
+      ...item, ref: carriedReference(item),
+    }, runProjectId(context, row, options.scope || "all"));
     const drawn = appendCarriedItemEvidence(context, member, {
       item,
       runId: row.id || row.run_id,
@@ -232,20 +226,9 @@ export function shippingRunCard(context, row, scope, options = {}) {
     "div",
     `shipping-run-card is-${status.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
   );
+  // Only the run ID opens run detail. Items, screenshots, decisions and
+  // disclosures on the card keep their own targets.
   const href = runDetailHref(context, row, scope);
-  card.setAttribute("role", "link");
-  card.setAttribute("tabindex", "0");
-  card.setAttribute("aria-label", `Open details for ${row.id || row.run_id}`);
-  card.addEventListener("click", (event) => {
-    if (insideControl(event.target, card) || event.button > 0
-      || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    documentNode.defaultView.location.hash = href;
-  });
-  card.addEventListener("keydown", (event) => {
-    if (event.target !== card || !["Enter", " "].includes(event.key)) return;
-    event.preventDefault();
-    documentNode.defaultView.location.hash = href;
-  });
   const head = el(documentNode, "div", "shipping-run-card-head");
   const runLink = el(
     documentNode, "a", "shipping-run-id", row.id || row.run_id || "run",
@@ -308,6 +291,7 @@ export function shippingRunCard(context, row, scope, options = {}) {
     timing ? relativeAgePhrase(timing) : null,
   ].filter(Boolean).join(" · ")));
   const carried = appendCarried(context, card, row, {
+    scope,
     facts: options.itemFacts,
     onDecide: options.onItemDecision,
   });

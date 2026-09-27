@@ -68,22 +68,33 @@ function runTimestamp(row) {
 }
 
 // The pictures behind this run: what its QA checks captured, or, for a run
-// with none recorded yet, what its open request carries.
+// with none recorded yet, what its open request carries. The cell stays
+// narrow — small wrapped thumbnails with a plain "and N more" beneath — so
+// the table fits the page; the full set lives on the run page.
 function evidenceCell(context, row, facts) {
-  const cell = el(context.document, "td", "delivery-run-evidence-cell");
+  const documentNode = context.document;
+  const cell = el(documentNode, "td", "delivery-run-evidence-cell");
   let artifacts = runEvidence(facts, row.id).artifacts;
   if (!artifacts.length) {
     artifacts = runGates(row).flatMap((gate) => evidenceOf(gate).artifacts);
   }
-  const strip = evidenceStrip(context, artifacts, { compact: true, limit: TABLE_EVIDENCE_SHOWN });
-  if (strip) cell.appendChild(strip);
-  else cell.appendChild(el(context.document, "span", "secondary-muted", "—"));
+  const shown = artifacts.slice(0, TABLE_EVIDENCE_SHOWN);
+  const strip = evidenceStrip(context, shown, { compact: true, limit: TABLE_EVIDENCE_SHOWN });
+  if (!strip) {
+    cell.appendChild(el(documentNode, "span", "secondary-muted", "—"));
+    return cell;
+  }
+  cell.appendChild(strip);
+  const hidden = artifacts.length - shown.length;
+  if (hidden > 0) {
+    cell.appendChild(el(documentNode, "p", "delivery-run-evidence-more", `and ${hidden} more`));
+  }
   // The row navigates to the run; a thumbnail opens its picture instead.
   cell.addEventListener("click", (event) => event.stopPropagation());
   return cell;
 }
 
-// Three pictures fit a row; the rest fold behind "+N more".
+// Three small pictures fit the cell; the rest are counted beneath.
 const TABLE_EVIDENCE_SHOWN = 3;
 
 export const RUN_TABLE_COLUMNS = [
@@ -113,10 +124,15 @@ export function renderRunsTable(context, body, rows, options) {
       context.navigate(href);
     });
     const release = el(documentNode, "td");
-    const title = el(documentNode, "a", "delivery-run-title", flowLabels.get(String(row.flow)) || row.flow || "flow unavailable");
-    title.href = href;
-    release.appendChild(title);
-    release.appendChild(el(documentNode, "div", "mono delivery-run-id", row.id || "—"));
+    // The run ID is the way into the run; the flow name only says what kind
+    // of release it is.
+    release.appendChild(el(
+      documentNode, "div", "delivery-run-title",
+      flowLabels.get(String(row.flow)) || row.flow || "flow unavailable",
+    ));
+    const runId = el(documentNode, row.id ? "a" : "span", "mono delivery-run-id", row.id || "—");
+    if (row.id) runId.href = href;
+    release.appendChild(runId);
     tr.appendChild(release);
     tr.appendChild(el(documentNode, "td", null, runProjectLabel(projects, row.project)));
     tr.appendChild(carriesCell(documentNode, row));
@@ -126,12 +142,16 @@ export function renderRunsTable(context, body, rows, options) {
     const stages = el(documentNode, "td");
     stages.appendChild(renderStageStrip(documentNode, row.stages));
     tr.appendChild(stages);
-    const status = el(documentNode, "td", "delivery-run-status");
+    // The cell stays a table cell so row dividers run unbroken and the pill
+    // sits centred; its pill and action line up inside a wrapper.
+    const status = el(documentNode, "td", "delivery-run-status-cell");
+    const statusBody = el(documentNode, "div", "delivery-run-status");
+    status.appendChild(statusBody);
     // A suspended run keeps whatever status it held when it stopped, so the
     // table reports the request instead — the same string the run card shows.
     const shown = runGateStatus(row) || row.status;
     const pill = statePill(documentNode, shown, shown);
-    if (pill) status.appendChild(pill);
+    if (pill) statusBody.appendChild(pill);
     if (isTerminalizable(row)) {
       const terminalize = el(
         documentNode, "button", "delivery-run-terminalize", "Terminalize",
@@ -140,7 +160,7 @@ export function renderRunsTable(context, body, rows, options) {
       terminalize.addEventListener("click", () => {
         body.appendChild(terminalizationDialog(context, row, reload));
       });
-      status.appendChild(terminalize);
+      statusBody.appendChild(terminalize);
     }
     tr.appendChild(status);
     tr.appendChild(evidenceCell(context, row, facts));

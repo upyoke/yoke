@@ -118,11 +118,7 @@ function renderPlanTable(context, body, rows) {
     const href = qaRoute(
       context, "plans", String(row.id), row.project,
     );
-    const tr = el(documentNode, "tr", "qa-clickable-row");
-    tr.addEventListener("click", (event) => {
-      if (event.target?.closest?.("a")) return;
-      context.navigate(href);
-    });
+    const tr = el(documentNode, "tr");
     const planCell = el(documentNode, "td");
     const link = el(documentNode, "a", "qa-plan-button", row.slug);
     link.href = href;

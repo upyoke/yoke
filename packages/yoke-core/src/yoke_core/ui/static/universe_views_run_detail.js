@@ -7,19 +7,19 @@
 // history read serves plus the QA activity recorded against the run.
 
 import { createDecisionResolver } from "./inbox_rows.js";
-import { itemDrillInHref } from "./universe_item_routes.js";
 import { deploymentRunsHref } from "./universe_navigation.js";
 import { appendSteps } from "./universe_run_verification.js";
 import { runQaSection } from "./universe_run_qa.js";
 import { carriedItems } from "./universe_work_cards.js";
 import {
   appendCarriedItemEvidence,
+  appendCarriedItemHeading,
   EMPTY_CARRIED_ITEM_FACTS,
   loadCarriedItemEvidence,
 } from "./universe_carried_item_evidence.js";
 import { runGateStatus, runGates } from "./universe_run_gates.js";
 import {
-  appendRunAftermath,
+  appendSiblingRuns,
   loadRunTarget,
   loadSiblingRuns,
   runIdentityCard,
@@ -85,16 +85,7 @@ function decisionCard(context, row, project, checks, onAct, itemFacts, onItemDec
   const drawnRequests = new Set();
   const list = el(documentNode, "div", "run-items");
   for (const item of items) {
-    const ref = item.ref || item.public_ref || item.item_ref || `item ${item.item_id}`;
-    const href = itemDrillInHref({
-      projectId: item.project_id ?? project?.id,
-      projectSequence: item.project_sequence,
-      publicRef: ref,
-    });
-    const code = el(documentNode, href ? "a" : "code", "mono", ref);
-    if (href) code.href = href;
-    list.appendChild(code);
-    list.appendChild(el(documentNode, "span", null, item.title || ""));
+    appendCarriedItemHeading(documentNode, list, item, project?.id);
     const drawn = appendCarriedItemEvidence(context, list, {
       item,
       runId: row.id || row.run_id,
@@ -135,9 +126,10 @@ function decisionCard(context, row, project, checks, onAct, itemFacts, onItemDec
       documentNode, "p", "run-copy", "No items are attached to this run.",
     ));
   }
-  card.appendChild(runQaSection(context, row, checks, onAct, {
-    drawnRequestIds: drawnRequests, showEmpty: true,
-  }));
+  const qa = runQaSection(context, row, checks, onAct, {
+    drawnRequestIds: drawnRequests,
+  });
+  if (qa) card.appendChild(qa);
   return card;
 }
 
@@ -221,9 +213,9 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   const status = runGateStatus(row) || String(row.status || "unknown");
   const items = carriedItems(row);
   const page = el(documentNode, "div", "run-page");
-  // Where you came from, what this is, and the facts that place it — one row
-  // at a width that holds them. The run's own id is not repeated here: the
-  // breadcrumb already ends on it.
+  // Where you came from on its own line, then what this is and the facts
+  // that place it, ending with the run's status. The run's own id is not
+  // repeated: the breadcrumb already ends on it.
   const head = el(documentNode, "div", "run-head");
   if (navigation.breadcrumb) head.appendChild(navigation.breadcrumb);
   const copy = el(documentNode, "div", "run-head-copy");
@@ -232,16 +224,18 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   ));
   // The candidate commit lives on the Identity card whole; a truncated copy
   // here read like a second, shorter identity.
-  copy.appendChild(el(documentNode, "div", "run-sub", [
+  const facts = el(documentNode, "div", "run-sub", [
     project?.slug || row.project,
     row.target_environment || row.target_tier,
     items.length ? `${items.length} item${items.length === 1 ? "" : "s"}` : "no attached items",
     row.release_lineage ? `release ${String(row.release_lineage).slice(0, 12)}` : null,
-  ].filter(Boolean).join(" · ")));
-  head.appendChild(copy);
-  head.appendChild(el(
+  ].filter(Boolean).join(" · "));
+  facts.appendChild(el(documentNode, "span", "run-sub-sep", " · "));
+  facts.appendChild(el(
     documentNode, "span", `run-badge is-${status.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`, status,
   ));
+  copy.appendChild(facts);
+  head.appendChild(copy);
   page.appendChild(head);
 
   // Stages beside the work they are moving: an open vertical rail, so which
@@ -255,7 +249,7 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   const decision = decisionCard(
     context, row, project, checks, onAct, itemFacts, onItemDecision,
   );
-  appendRunAftermath(context, decision, row, project, siblings);
+  appendSiblingRuns(context, decision, project, siblings);
   top.appendChild(decision);
   page.appendChild(top);
 

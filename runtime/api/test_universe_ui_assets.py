@@ -314,9 +314,10 @@ def test_delivery_facets_keep_wide_tables_scrollable_on_compact_screens():
     assert "touch-action: pan-x" in activity_css
     assert "min-width: 660px" in activity_css
     assert ".delivery-run-stages" in activity_css
-    assert ".delivery-flow-workspace" in flow_css
-    assert "@media (max-width: 640px)" in flow_css
-    assert "prefers-reduced-motion: reduce" in flow_css
+    # Flows is list-first on a narrow content pane: a chosen flow opens alone.
+    assert ".delivery-flow-page" in flow_css
+    assert "@container dashboard-content (max-width: 760px)" in flow_css
+    assert ".delivery-flow-page.is-detail-open .delivery-flow-list" in flow_css
     assert ".delivery-flow-pipeline" in detail_css
     secondary_css = static_root.joinpath("universe_secondary_views.css").read_text()
     assert ".packs-stack" in secondary_css

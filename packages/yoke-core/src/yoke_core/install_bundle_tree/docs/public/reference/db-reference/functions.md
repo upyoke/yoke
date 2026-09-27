@@ -200,7 +200,7 @@ Ensure the policy-required default lane with `yoke item-worktrees create PREFIX-
 
 | Function id | claim_required_kind | Handler | Notes |
 |---|---|---|---|
-| `workflows.definition.get` | `None` (read) | `yoke_core.domain.handlers.workflows_definition` | Lists selected immutable definitions, version history, gate catalog, and deployment flows. |
+| `workflows.definition.get` | `None` (read) | `yoke_core.domain.handlers.workflows_definition` | Lists selected immutable definitions, version history, gate catalog, and deployment flows (with description, `supersedes_flow_id`, and `flow_actor_names` for the people their stages name). |
 | `workflows.item.get` | `None` (read) | `yoke_core.domain.handlers.workflows_versioning` | Returns the item's exact pin, digest, stage, posture, interpreted lane policy, and active lanes. |
 | `workflows.current.set` | `"operator_override"` | same module | Selects an already-published version for subsequently created items; existing pins do not change. |
 | `workflows.item.migrate` | `"operator_override"` | same module | Atomically migrates one item when stage/posture, active lanes and claims, approval/QA gates, and delivery bindings remain representable; label-only changes are compatible, while retroactive unsatisfied gates are refused. |
