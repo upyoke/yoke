@@ -29,7 +29,7 @@ class _Response:
         return self.body if size < 0 else self.body[:size]
 
 
-def test_release_tag_accepts_source_commit_message_with_pull_number(monkeypatch):
+def test_release_tag_accepts_commit_and_tag_messages_with_numeric_content(monkeypatch):
     source_sha = "a" * 40
     paths = []
 
@@ -51,7 +51,7 @@ def test_release_tag_accepts_source_commit_message_with_pull_number(monkeypatch)
                             "refs": {
                                 "nodes": [
                                     {
-                                        "name": "v0.1.1+launch.41",
+                                        "name": "v0.1.1+launch.499",
                                         "target": {
                                             "__typename": "Tag",
                                             "target": {
@@ -68,9 +68,18 @@ def test_release_tag_accepts_source_commit_message_with_pull_number(monkeypatch)
                 }
             )
         if path == "/repos/upyoke/yoke/git/tags":
-            return _Response({"sha": "c" * 40}, status=201)
+            return _Response(
+                {
+                    "sha": "c" * 40,
+                    "message": (
+                        "Yoke 0.1.1+launch.500\n\n"
+                        "Automated hosted release for deployment run run-20260927-001."
+                    ),
+                },
+                status=201,
+            )
         if path == "/repos/upyoke/yoke/git/refs":
-            return _Response({"ref": "refs/tags/v0.1.1+launch.42"}, status=201)
+            return _Response({"ref": "refs/tags/v0.1.1+launch.500"}, status=201)
         raise AssertionError(path)
 
     monkeypatch.setattr(gh_rest_transport, "urlopen", open_github)
@@ -99,7 +108,7 @@ def test_release_tag_accepts_source_commit_message_with_pull_number(monkeypatch)
     outcome = github_release_tag.handle_create_next_release_tag(request)
 
     assert outcome.primary_success is True
-    assert outcome.result_payload["tag"] == "v0.1.1+launch.42"
+    assert outcome.result_payload["tag"] == "v0.1.1+launch.500"
     assert outcome.result_payload["created"] is True
     assert paths == [
         f"/repos/upyoke/yoke/git/commits/{source_sha}",
