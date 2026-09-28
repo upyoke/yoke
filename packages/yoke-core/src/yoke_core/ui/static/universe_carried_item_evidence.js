@@ -153,7 +153,8 @@ export function carriedItemEvidence(facts, itemId, runId) {
       const key = String(artifact.id ?? artifact.artifact_id ?? "");
       if (key && seen.has(key)) continue;
       if (key) seen.add(key);
-      artifacts.push({ ...artifact, requirement_id: check.requirement_id });
+      artifacts.push({ ...artifact,
+        requirement_id: artifact.requirement_id ?? check.requirement_id });
     }
   }
   return { checks, artifacts, unlinked };
