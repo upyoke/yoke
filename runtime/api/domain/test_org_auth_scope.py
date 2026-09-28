@@ -132,3 +132,29 @@ def test_project_grant_still_scopes_to_one_project(authdb):
     assert not permission_decision(
         authdb, actor_id=actor_id, project_id=externalwebapp_id, permission_key=PERM_ITEMS_WRITE
     ).allowed
+
+
+def test_org_operator_grant_authorizes_every_project(authdb):
+    actor_id = seed_human_actor(authdb)
+    org_id = org_id_by_slug(authdb, DEFAULT_ORG_SLUG)
+    grant_actor_org_role(
+        authdb, actor_id=actor_id, org_id=org_id, role_name=ROLE_OPERATOR
+    )
+    yoke_id = resolve_project_id(authdb, "yoke")
+    assert permission_decision(
+        authdb, actor_id=actor_id, project_id=yoke_id, permission_key=PERM_ITEMS_WRITE
+    ).allowed
+
+
+@pytest.mark.parametrize("role_name", [ROLE_OWNER, "deployment_ci", "nonexistent"])
+def test_org_grant_refuses_role_not_grantable_at_org_scope(authdb, role_name):
+    actor_id = seed_human_actor(authdb)
+    org_id = org_id_by_slug(authdb, DEFAULT_ORG_SLUG)
+    with pytest.raises(ValueError, match="role_not_grantable_at_org_scope"):
+        grant_actor_org_role(
+            authdb, actor_id=actor_id, org_id=org_id, role_name=role_name
+        )
+    count = authdb.execute(
+        "SELECT COUNT(*) FROM actor_org_roles WHERE actor_id = %s", (actor_id,)
+    ).fetchone()[0]
+    assert count == 0

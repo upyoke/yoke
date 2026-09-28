@@ -55,6 +55,8 @@ ORG_SCOPED_PERMISSIONS = (
 
 # Roles grantable at each scope.
 ORG_ROLES = (ROLE_ADMIN, ROLE_VIEWER, ROLE_MIGRATION_VERIFICATION_CI)
+# Hosted membership grants ``operator`` org-wide; permission checks honor it.
+ORG_GRANTABLE_ROLES = (*ORG_ROLES, ROLE_OPERATOR)
 PROJECT_ROLES = (
     ROLE_OWNER,
     ROLE_OPERATOR,
@@ -311,7 +313,15 @@ def grant_actor_org_role(
     role_name: str,
     granted_by_actor_id: int | None = None,
 ) -> None:
-    """Grant org ``role_name`` to ``actor_id`` in ``org_id`` idempotently."""
+    """Grant org ``role_name`` to ``actor_id`` in ``org_id`` idempotently.
+
+    Raises ``ValueError`` when ``role_name`` is not in ``ORG_GRANTABLE_ROLES``.
+    """
+    if role_name not in ORG_GRANTABLE_ROLES:
+        raise ValueError(
+            f"role_not_grantable_at_org_scope: {role_name!r} is not one of "
+            f"{', '.join(ORG_GRANTABLE_ROLES)}"
+        )
     role_id = role_id_by_name(conn, role_name)
     p = _p(conn)
     conn.execute(
