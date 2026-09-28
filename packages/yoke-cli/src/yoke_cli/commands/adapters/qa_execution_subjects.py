@@ -91,17 +91,19 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
             project_id=parsed.project,
         )
     )
+    payload = {
+        "transition_id": parsed.transition,
+        "plan": parsed.plan,
+        "project": parsed.project,
+        "deployment_stage": parsed.stage,
+        "deployment_member": parsed.member,
+    }
+    if parsed.replaces:
+        payload["replacements"] = parsed.replaces
     return dispatch_and_emit(
         function_id="qa.plan.materialize",
         target=target,
-        payload={
-            "transition_id": parsed.transition,
-            "plan": parsed.plan,
-            "project": parsed.project,
-            "deployment_stage": parsed.stage,
-            "deployment_member": parsed.member,
-            "replacements": parsed.replaces,
-        },
+        payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
     )
