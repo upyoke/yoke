@@ -182,6 +182,7 @@ def _report_stage_result(
             "recipient(s)."
         )
 
+
 def materialize_and_gate_deployment_qa_stage(
     conn: Any, stage: Mapping[str, Any], *, run_id: str
 ) -> tuple[int, str]:
@@ -277,20 +278,35 @@ def materialize_and_gate_deployment_qa_stage(
         if not status["accepted"]:
             waiting.extend(f"{label}: {reason}" for reason in status["reasons"])
             if project_id is not None:
-                _notify_stage_wait(
-                    conn,
-                    run_id=run_id,
-                    stage_name=str(stage["name"]),
-                    member=member,
-                    item_scoped=stage.get("scope") == "item",
-                    project_id=project_id,
-                    reasons="; ".join(status["reasons"]),
-                    names_cases=True,
-                    target_tier=target_tier,
-                    revision=revision,
-                    target_digest=str(status.get("target_digest") or ""),
-                    label=label,
-                )
+                if member is not None and status.get("outcome") == "blocked":
+                    from yoke_core.domain.deployment_qa_failure_handoff import (
+                        notify_member_qa_failure,
+                    )
+
+                    handoff = notify_member_qa_failure(
+                        conn,
+                        run_id=run_id,
+                        stage=str(stage["name"]),
+                        item_id=member,
+                        status=status,
+                    )
+                    if handoff.startswith(("failed:", "unaddressed:")):
+                        print(f"Run {run_id} stage {stage['name']!r}: {handoff}")
+                else:
+                    _notify_stage_wait(
+                        conn,
+                        run_id=run_id,
+                        stage_name=str(stage["name"]),
+                        member=member,
+                        item_scoped=stage.get("scope") == "item",
+                        project_id=project_id,
+                        reasons="; ".join(status["reasons"]),
+                        names_cases=True,
+                        target_tier=target_tier,
+                        revision=revision,
+                        target_digest=str(status.get("target_digest") or ""),
+                        label=label,
+                    )
     if waiting:
         return -4, "; ".join(waiting)
     return 0, ""
