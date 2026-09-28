@@ -48,6 +48,7 @@ def test_retry_of_dispatches_the_source_run_without_resolving_a_moving_ref():
         with redirect_stdout(stdout), redirect_stderr(stderr):
             rc = cli_main([
                 "deployment-runs", "create", "yoke", "hosted-release",
+                "--idempotency-key", "retry-1",
                 "--retry-of", "run-20260810-001",
             ])
 
@@ -56,6 +57,7 @@ def test_retry_of_dispatches_the_source_run_without_resolving_a_moving_ref():
         "project": "yoke",
         "flow": "hosted-release",
         "created_by": "operator",
+        "idempotency_key": "retry-1",
         "retry_of": "run-20260810-001",
     }
     resolve_lineage.assert_not_called()
@@ -91,6 +93,7 @@ def test_retry_of_runs_the_pin_regression_guard():
         with redirect_stdout(io.StringIO()), redirect_stderr(stderr):
             rc = cli_main([
                 "deployment-runs", "create", "yoke", "hosted-release",
+                "--idempotency-key", "retry-1",
                 "--retry-of", "run-20260810-001",
             ])
 
@@ -114,6 +117,7 @@ def test_retry_of_refuses_when_the_pin_guard_reports_regression():
         with redirect_stdout(io.StringIO()), redirect_stderr(stderr):
             rc = cli_main([
                 "deployment-runs", "create", "yoke", "hosted-release",
+                "--idempotency-key", "retry-1",
                 "--retry-of", "run-20260810-001",
             ])
     assert rc == 1
@@ -144,6 +148,7 @@ def test_retry_of_allow_pin_regression_reaches_the_guard():
         with redirect_stdout(io.StringIO()), redirect_stderr(stderr):
             rc = cli_main([
                 "deployment-runs", "create", "yoke", "hosted-release",
+                "--idempotency-key", "retry-1",
                 "--retry-of", "run-20260810-001",
                 "--allow-pin-regression",
             ])
@@ -156,6 +161,7 @@ def test_retry_of_rejects_a_second_lineage_source():
     with redirect_stderr(stderr):
         rc = cli_main([
             "deployment-runs", "create", "yoke", "hosted-release",
+                "--idempotency-key", "retry-1",
             "--retry-of", "run-20260810-001",
             "--source-ref", "origin/main",
         ])

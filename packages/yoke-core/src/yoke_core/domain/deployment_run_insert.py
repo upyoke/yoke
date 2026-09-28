@@ -19,6 +19,8 @@ def insert_run(
     created_by: str,
     created_at: str,
     artifact_identity: str | None,
+    create_idempotency_key: str | None = None,
+    create_request: str | None = None,
 ) -> Any:
     """Insert through both legacy and additively converged run schemas."""
     columns = [
@@ -50,6 +52,16 @@ def insert_run(
     if has_artifact_identity:
         columns.append("artifact_identity")
         values.append(artifact_identity or None)
+    if create_idempotency_key:
+        # Boot converges this additive column before serving, so absence is a
+        # universe that skipped its converge, never a state to write around.
+        if not _column_exists(conn, "deployment_runs", "create_idempotency_key"):
+            raise RuntimeError(
+                "deployment_runs.create_idempotency_key has not converged; "
+                "apply the current additive schema before creating a keyed run"
+            )
+        columns += ["create_idempotency_key", "create_request"]
+        values += [create_idempotency_key, create_request]
     placeholders = ", ".join(["%s"] * len(columns))
     return conn.execute(
         f"INSERT INTO deployment_runs ({', '.join(columns)}) "

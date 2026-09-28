@@ -102,7 +102,8 @@ def test_deployment_run_create_falls_back_to_structured_receipt() -> None:
         return _response(request, {"status": "created"})
 
     rc, out, err = _run_capture(
-        stub, "deployment-runs", "create", "acme", "acme-prod"
+        stub, "deployment-runs", "create", "acme", "acme-prod",
+        "--idempotency-key", "acme-prod-1",
     )
 
     assert rc == 0, err

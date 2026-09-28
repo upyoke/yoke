@@ -116,29 +116,6 @@ class DeploymentRunGetResponse(BaseModel):
     attestation_warnings: Optional[List[Dict[str, str]]] = None
 
 
-class DeploymentRunCreateRequest(BaseModel):
-    project: str
-    flow: str
-    environment: Optional[str] = None
-    release_lineage: Optional[str] = None
-    created_by: str = "operator"
-    artifact_identity: Optional[str] = None
-    retry_of: Optional[str] = None
-
-
-class DeploymentRunCreateResponse(BaseModel):
-    run_id: str
-    project: str
-    flow: str
-    target_tier: Optional[str] = None
-    target_environment: Optional[str] = None
-    release_lineage: Optional[str] = None
-    artifact_identity: Optional[str] = None
-    status: str
-    retry_of: Optional[str] = None
-    inherited_item_ids: list[int] = []
-
-
 class DeploymentRunStartForItemRequest(BaseModel):
     project: Optional[str] = None
     flow: Optional[str] = None

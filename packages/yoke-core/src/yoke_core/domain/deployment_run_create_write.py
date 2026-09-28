@@ -17,6 +17,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, iso8601_now
 from yoke_core.domain.deployment_flow_state import require_flow_for_new_run
 from yoke_core.domain.deployment_run_bound_sources import copy_bound_sources
+from yoke_core.domain.deployment_run_create_idempotency import existing_run
 from yoke_core.domain.deployment_run_insert import insert_run
 from yoke_core.domain.deployment_run_retry_membership import copy_frozen_members
 from yoke_core.domain.project_identity import resolve_project_id
@@ -72,7 +73,39 @@ def cmd_create_run(
     db_path: Optional[str] = None,
     inherit_members_from: Optional[str] = None,
 ) -> str:
-    """Create a new deployment run. Returns the generated run ID.
+    """Create a new deployment run without a caller key. Returns its ID."""
+    run_id, _replayed = create_run(
+        project,
+        flow,
+        environment=environment,
+        release_lineage=release_lineage,
+        created_by=created_by,
+        artifact_identity=artifact_identity,
+        db_path=db_path,
+        inherit_members_from=inherit_members_from,
+    )
+    return run_id
+
+
+def create_run(
+    project: str,
+    flow: str,
+    environment: Optional[str] = None,
+    release_lineage: Optional[str] = None,
+    created_by: str = "operator",
+    artifact_identity: Optional[str] = None,
+    db_path: Optional[str] = None,
+    inherit_members_from: Optional[str] = None,
+    idempotency_key: Optional[str] = None,
+    create_request: Optional[str] = None,
+) -> tuple[str, bool]:
+    """Create a new deployment run. Returns ``(run_id, replayed)``.
+
+    ``idempotency_key`` with its canonical ``create_request`` makes the create
+    safe to repeat: under the table lock, a run already created with that key
+    and request is returned with ``replayed=True`` instead of minting another,
+    and the same key with a different request raises
+    :class:`~yoke_core.domain.deployment_run_create_idempotency.IdempotencyKeyConflict`.
 
     ``environment`` (a registered name) overrides the flow's registered
     target; tier and environment otherwise copy from the flow definition.
@@ -88,6 +121,11 @@ def cmd_create_run(
         if db_backend.connection_is_postgres(conn):
             conn.execute("LOCK TABLE deployment_runs IN SHARE ROW EXCLUSIVE MODE")
         project_id = resolve_project_id(conn, project)
+        if idempotency_key:
+            existing = existing_run(conn, project_id, idempotency_key, create_request)
+            if existing is not None:
+                conn.rollback()
+                return existing, True
         _flow_project_id, target_tier, target_environment_id = require_flow_for_new_run(
             conn,
             flow,
@@ -122,6 +160,8 @@ def cmd_create_run(
             created_by=created_by,
             created_at=iso8601_now(),
             artifact_identity=artifact_identity,
+            create_idempotency_key=idempotency_key,
+            create_request=create_request if idempotency_key else None,
         )
         if inserted is None:
             raise RuntimeError(f"deployment run ID {run_id} was claimed concurrently")
@@ -142,9 +182,9 @@ def cmd_create_run(
             except (LookupError, ValueError):
                 pass
         conn.commit()
-        return run_id
+        return run_id, False
     finally:
         conn.close()
 
 
-__all__ = ["cmd_create_run", "cmd_next_id"]
+__all__ = ["cmd_create_run", "cmd_next_id", "create_run"]

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from typing import Optional
+
+from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.deployment_common import (
@@ -12,12 +15,39 @@ from yoke_core.domain.handlers.deployment_common import (
     require_global,
 )
 from yoke_core.domain.deploy_lock import deploy_lock_refusal
+from yoke_core.domain import deployment_run_create_idempotency as idempotency
 from yoke_core.domain.deployment_run_retry_membership import (
     candidate_mismatch_refusal,
 )
 from yoke_core.domain.deployment_run_target_resolution import (
     EnvironmentRegistryMigrationRequired,
 )
+
+
+class DeploymentRunCreateRequest(BaseModel):
+    project: str
+    flow: str
+    environment: Optional[str] = None
+    release_lineage: Optional[str] = None
+    created_by: str = "operator"
+    artifact_identity: Optional[str] = None
+    retry_of: Optional[str] = None
+    idempotency_key: Optional[str] = None
+
+
+class DeploymentRunCreateResponse(BaseModel):
+    run_id: str
+    project: str
+    flow: str
+    target_tier: Optional[str] = None
+    target_environment: Optional[str] = None
+    release_lineage: Optional[str] = None
+    artifact_identity: Optional[str] = None
+    status: str
+    retry_of: Optional[str] = None
+    inherited_item_ids: list[int] = []
+    idempotency_key: Optional[str] = None
+    replayed: bool = False
 
 
 def _retry_candidate(run_id: str, *, project: str, flow: str) -> tuple[str, str | None]:
@@ -76,6 +106,7 @@ def handle_deployment_run_create(
     retry_of = payload.get("retry_of")
     artifact_identity = payload.get("artifact_identity")
     created_by = payload.get("created_by") or "operator"
+    idempotency_key = payload.get("idempotency_key")
     for key, value, required in (
         ("project", project, True),
         ("flow", flow, True),
@@ -118,6 +149,41 @@ def handle_deployment_run_create(
     clean_flow = flow.strip()
     retry_source = retry_of.strip() if retry_of else ""
 
+    key = None
+    create_request = None
+    if idempotency_key is not None:
+        if (key_error := idempotency.validate_key(idempotency_key)) is not None:
+            return error(
+                "payload_invalid", key_error, jsonpath="$.payload.idempotency_key"
+            )
+        key = idempotency_key.strip()
+        # The request as the caller sent it, before a retry resolves its
+        # source lineage, so a replay compares like with like.
+        create_request = idempotency.canonical_request({
+            "project": clean_project,
+            "flow": clean_flow,
+            "environment": environment,
+            "release_lineage": release_lineage,
+            "retry_of": retry_source,
+            "artifact_identity": artifact_identity,
+            "created_by": created_by,
+        })
+        try:
+            replayed_run = idempotency.replay_run(clean_project, key, create_request)
+        except idempotency.IdempotencyKeyConflict as exc:
+            return error(exc.code, str(exc), jsonpath="$.payload.idempotency_key")
+        except LookupError as exc:
+            return error("not_found", str(exc), jsonpath="$.payload")
+        if replayed_run is not None:
+            return _created_outcome(
+                replayed_run,
+                retry_source=retry_source,
+                project=clean_project,
+                flow=clean_flow,
+                key=key,
+                replayed=True,
+            )
+
     lock_error = deploy_lock_refusal(
         clean_project,
         operation="deployment_runs.create",
@@ -146,7 +212,7 @@ def handle_deployment_run_create(
             ):
                 return error("retry_candidate_mismatch", mismatch, jsonpath="$.payload")
             release_lineage, artifact_identity = source_lineage, source_artifact
-        from yoke_core.domain.deployment_runs_crud_mutate import cmd_create_run
+        from yoke_core.domain.deployment_runs_crud_mutate import create_run
 
         create_kwargs = {
             "environment": (environment or "").strip() or None,
@@ -157,7 +223,15 @@ def handle_deployment_run_create(
             create_kwargs["artifact_identity"] = artifact_identity
         if retry_source:
             create_kwargs["inherit_members_from"] = retry_source
-        created_run_id = cmd_create_run(clean_project, clean_flow, **create_kwargs)
+        created_run_id, replayed = create_run(
+            clean_project,
+            clean_flow,
+            idempotency_key=key,
+            create_request=create_request,
+            **create_kwargs,
+        )
+    except idempotency.IdempotencyKeyConflict as exc:
+        return error(exc.code, str(exc), jsonpath="$.payload.idempotency_key")
     except EnvironmentRegistryMigrationRequired as exc:
         return error(exc.code, str(exc))
     except LookupError as exc:
@@ -165,29 +239,53 @@ def handle_deployment_run_create(
     except ValueError as exc:
         return error("run_create_rejected", str(exc), jsonpath="$.payload")
 
-    inherited_items = _member_item_ids(created_run_id) if retry_source else ()
-    member_items = _member_item_ids(created_run_id)
+    return _created_outcome(
+        created_run_id,
+        retry_source=retry_source,
+        project=clean_project,
+        flow=clean_flow,
+        key=key,
+        replayed=replayed,
+    )
 
+
+def _created_outcome(
+    run_id: str,
+    *,
+    retry_source: str,
+    project: str,
+    flow: str,
+    key: str | None,
+    replayed: bool,
+) -> HandlerOutcome:
     from yoke_core.domain.deployment_runs_crud_query import cmd_get
     from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
 
-    created = pipe_to_dict(cmd_get(created_run_id), RUN_FIELDS)
+    inherited_items = _member_item_ids(run_id) if retry_source else ()
+    member_items = _member_item_ids(run_id)
+    created = pipe_to_dict(cmd_get(run_id), RUN_FIELDS)
     return HandlerOutcome(
         result_payload={
-            "run_id": created_run_id,
+            "run_id": run_id,
             "retry_of": retry_source or None,
             "inherited_item_ids": list(inherited_items),
             "member_item_ids": list(member_items),
-            "project": created.get("project") or clean_project,
-            "flow": created.get("flow") or clean_flow,
+            "project": created.get("project") or project,
+            "flow": created.get("flow") or flow,
             "target_tier": created.get("target_tier") or None,
             "target_environment": created.get("target_environment") or None,
             "release_lineage": created.get("release_lineage") or None,
             "artifact_identity": created.get("artifact_identity") or None,
             "status": created.get("status") or "created",
+            "idempotency_key": key,
+            "replayed": replayed,
         },
         primary_success=True,
     )
 
 
-__all__ = ["handle_deployment_run_create"]
+__all__ = [
+    "DeploymentRunCreateRequest",
+    "DeploymentRunCreateResponse",
+    "handle_deployment_run_create",
+]

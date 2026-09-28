@@ -254,6 +254,7 @@ def test_deployment_run_create_dispatches_mechanically_bound_lineage() -> None:
         rc, out, err = _run_capture(
             stub,
             "deployment-runs", "create", "yoke", "yoke-hosted-prod",
+            "--idempotency-key", "prod-release-1",
             "--created-by", "operator",
             "--project-repo-path", "/repo", "--source-ref", "origin/main",
         )
@@ -267,6 +268,7 @@ def test_deployment_run_create_dispatches_mechanically_bound_lineage() -> None:
         "project": "yoke",
         "flow": "yoke-hosted-prod",
         "created_by": "operator",
+        "idempotency_key": "prod-release-1",
         "release_lineage": "a" * 40,
     }
     resolve_lineage.assert_called_once_with("/repo", "origin/main")

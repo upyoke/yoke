@@ -34,7 +34,7 @@ adapter shape. It is a lookup, not a phase step.
 | `session_control.message.send` | `yoke say --item PREFIX-N --stdin` (workers reply with `yoke say --steering`) |
 | `session_control.message.acknowledge` | `yoke messages acknowledge MESSAGE-ID` |
 | `charge.schedule` | `yoke charge schedule --project P` |
-| `deployment_runs.create` | `yoke --env <cp> deployment-runs create PROJECT FLOW ...`; paired `*-db-admin` only for a serving-API self-deploy |
+| `deployment_runs.create` | `yoke --env <cp> deployment-runs create PROJECT FLOW --idempotency-key KEY ...`; paired `*-db-admin` only for a serving-API self-deploy |
 
 `--machine` accepts the registered name the fleet report prints, or a machine id from `yoke machine list`. An unresolvable value is `machine_unresolved`, not an absent relay.
 

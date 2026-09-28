@@ -23,7 +23,8 @@ Item-bound batch release — who runs what:
   membership needs no separate step:
     yoke claims coordination-claim acquire --project P --key DEPLOY:P --reason R
     yoke --env CONTROL-PLANE deployment-runs create P FLOW --environment ENV \\
-      --project-repo-path /path/to/checkout --source-ref PINNED_SHA
+      --project-repo-path /path/to/checkout --source-ref PINNED_SHA \\
+      --idempotency-key ENV-PINNED_SHA-1
     yoke --env CONTROL-PLANE watch deploy -- RUN-ID
     yoke claims coordination-claim release --project P --key DEPLOY:P --reason R
   `deployment-runs add-item RUN-ID PREFIX-N` is for the other case: an item
