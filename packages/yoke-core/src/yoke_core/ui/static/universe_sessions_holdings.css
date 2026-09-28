@@ -53,6 +53,24 @@
   font-weight: 700;
 }
 
+.universe-app-root .session-item-condition {
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.universe-app-root .session-item-condition.is-frozen {
+  background: #e6f6ff;
+  color: #0b6a9c;
+}
+
+.universe-app-root .session-item-condition.is-blocked {
+  background: var(--yoke-crit-bg);
+  color: var(--yoke-crit);
+}
+
 .universe-app-root .session-item-stage-progress {
   display: flex;
   flex: 1 0 100%;
@@ -95,6 +113,18 @@
 .universe-app-root
   .session-item-stage-progress .delivery-run-stage[data-state="stopped"] {
   background: var(--yoke-warn);
+}
+
+.universe-app-root
+  .session-item-stage-progress .delivery-run-stage[data-item-condition="frozen"] {
+  background: #80d4f9;
+  animation: delivery-run-pulse 1.6s ease-in-out infinite;
+}
+
+.universe-app-root
+  .session-item-stage-progress .delivery-run-stage[data-item-condition="blocked"] {
+  background: var(--yoke-crit);
+  animation: delivery-run-pulse 1.6s ease-in-out infinite;
 }
 
 .universe-app-root button.session-holdings-more,

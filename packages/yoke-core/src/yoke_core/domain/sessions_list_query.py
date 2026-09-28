@@ -40,6 +40,8 @@ _SELECT = (
     "s.terminated_by_session_id, s.termination_reason, s.current_item_id, s.actor_id, "
     "a.kind AS actor_kind, i.title AS current_item_title, "
     "i.status AS current_item_status, "
+    "i.frozen AS current_item_frozen, i.blocked AS current_item_blocked, "
+    "i.blocked_reason AS current_item_blocked_reason, "
     "i.project_id AS current_item_project_id, "
     "i.project_sequence AS current_item_project_sequence, "
     "i.workflow_id AS current_item_workflow_id, "

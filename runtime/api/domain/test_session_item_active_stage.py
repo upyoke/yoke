@@ -110,6 +110,10 @@ def _connection(*, status: str, holder_mode: str | None) -> sqlite3.Connection:
             scope TEXT, claimed_at TEXT, released_at TEXT
         );
         CREATE TABLE harness_sessions (session_id TEXT PRIMARY KEY, mode TEXT);
+        CREATE TABLE item_status_transitions (
+            id INTEGER PRIMARY KEY, item_id INTEGER, task_num INTEGER,
+            to_status TEXT, created_at TEXT
+        );
         """
     )
     conn.execute("INSERT INTO projects VALUES (1,'yoke','Yoke','YOK')")
@@ -155,6 +159,59 @@ def test_projection_reads_the_claim_holder_mode() -> None:
         "pending",
         "pending",
     ]
+
+
+@pytest.mark.parametrize("landing_field", ("merged_at", "merge_queue_landed_at"))
+def test_held_session_card_trusts_post_merge_return_to_implementing(
+    landing_field: str,
+) -> None:
+    conn = _connection(status="implementing", holder_mode="dash")
+    conn.execute(
+        f"UPDATE items SET {landing_field}=? WHERE id=7",
+        ("2026-09-01T12:02:00Z",),
+    )
+    conn.execute(
+        "INSERT INTO item_status_transitions VALUES (1,7,NULL,?,?)",
+        ("implementing", "2026-09-01T13:00:00Z"),
+    )
+
+    stages = primary_item_stages_by_session(conn, [{"session_id": "s1"}])["s1"]
+
+    assert _states(stages) == [
+        "complete",
+        "active",
+        "pending",
+        "pending",
+        "pending",
+    ]
+    assert stages[1] == {"name": "implementing", "state": "active", "failure": None}
+
+
+@pytest.mark.parametrize("history", ("before_merge", "task", "different_status"))
+def test_held_session_card_keeps_closeout_for_stale_merge_status(
+    history: str,
+) -> None:
+    conn = _connection(status="implementing", holder_mode="dash")
+    conn.execute("UPDATE items SET merged_at='2026-09-01T12:02:00Z' WHERE id=7")
+    if history != "before_merge":
+        conn.execute(
+            "INSERT INTO item_status_transitions VALUES (1,7,?,?,?)",
+            (
+                1 if history == "task" else None,
+                "implementing" if history == "task" else "reviewing-implementation",
+                "2026-09-01T13:00:00Z",
+            ),
+        )
+    else:
+        conn.execute(
+            "INSERT INTO item_status_transitions VALUES (1,7,NULL,?,?)",
+            ("implementing", "2026-09-01T12:01:00Z"),
+        )
+
+    stages = primary_item_stages_by_session(conn, [{"session_id": "s1"}])["s1"]
+
+    assert stages[2]["state"] == "active"
+    assert stages[1]["state"] == "complete"
 
 
 def test_projection_reads_the_holder_mode_for_a_lane_session() -> None:

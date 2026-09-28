@@ -22,7 +22,10 @@ from yoke_core.domain.sessions_holdings_claim_facts import (
     ITEM_AWAITING_LANDING_KEY,
 )
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
-from yoke_core.domain.model_reference_store import revision_from_schedule, revision_schedule
+from yoke_core.domain.model_reference_store import (
+    revision_from_schedule,
+    revision_schedule,
+)
 from yoke_core.domain.session_presentation_read import (
     lane_settings_by_project,
     session_presentation,
@@ -196,6 +199,9 @@ def render_session_roster_rows(
                 ),
                 "current_item_title": row.get("current_item_title"),
                 "current_item_status": row.get("current_item_status"),
+                "current_item_frozen": bool(row.get("current_item_frozen")),
+                "current_item_blocked": bool(row.get("current_item_blocked")),
+                "current_item_blocked_reason": row.get("current_item_blocked_reason"),
                 "current_item_workflow_id": row.get("current_item_workflow_id"),
                 "current_item_workflow_version_id": row.get(
                     "current_item_workflow_version_id",

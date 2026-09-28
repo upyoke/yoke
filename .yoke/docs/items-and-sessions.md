@@ -19,6 +19,12 @@ files. See [reference/commands.md](reference/commands.md).
 Workbench **Sessions** lists harness sessions against this universe: who is
 running, what item they hold, mode (dash, conduct, wait, …).
 
+Held item IDs show Frozen and Blocked pills from the item's own state. If
+both apply, Frozen appears first and colors the active workflow segment ice
+blue; Blocked remains visible beside it. Blocked alone colors that segment
+red. Completed and upcoming segments retain their normal colors. A parked or
+idle session does not, by itself, mark its item Frozen or Blocked.
+
 The roster opens on **Active**, which includes both active sessions and stale
 sessions. Stale sessions remain visible as light-red cards with a red `stale`
 pill. **Any state** includes ended sessions too, while **Ended** shows only
@@ -151,7 +157,10 @@ evaluator/client-wall coverage, are labelled incomparable.
   the two events it is and is dismissed rather than answered
 - An item page says how it ships: the flow it is bound to, and each release
   that carried it, newest first. A session card says where its release has
-  got to and where its item has, as two short statuses
+  got to and where its item has, as two short statuses. Its item stage strip
+  follows a recorded status change after landing, including a return to
+  implementation; a merge stamp with no later transition keeps a stale
+  earlier status at closeout
 - A desktop conversation cannot be resumed for you, so a message waiting in
   one raises a notice asking you to open that chat. The notice is derived
   from the waiting message, so it settles itself the moment the wait ends —

@@ -66,6 +66,29 @@ def test_every_item_claim_carries_its_own_stage_and_workflow(test_db):
     assert claims["YOK-6002"]["item_workflow_id"] == "issue"
 
 
+def test_item_conditions_come_from_each_item_not_session_mode(test_db):
+    insert_item(test_db, id=6011, project_sequence=6011, title="frozen")
+    insert_item(test_db, id=6012, project_sequence=6012, title="blocked")
+    test_db.execute("UPDATE items SET frozen=1 WHERE id=6011")
+    test_db.execute(
+        "UPDATE items SET blocked=1, blocked_reason='waiting for review' WHERE id=6012"
+    )
+    insert_session(test_db, "s-conditions", current_item_id="6011")
+    test_db.execute(
+        "UPDATE harness_sessions SET mode='parked' WHERE session_id='s-conditions'"
+    )
+    insert_item_claim(test_db, "s-conditions", 6011)
+    insert_item_claim(test_db, "s-conditions", 6012)
+
+    row = list_sessions()[0]
+    claims = {claim["target"]: claim for claim in row["claims"]}
+    assert row["current_item_frozen"] is True
+    assert row["current_item_blocked"] is False
+    assert claims["YOK-6011"]["item_frozen"] is True
+    assert claims["YOK-6012"]["item_blocked"] is True
+    assert claims["YOK-6012"]["item_blocked_reason"] == "waiting for review"
+
+
 def test_steering_claim_carries_project_coordinates(test_db):
     insert_session(test_db, "s-steering")
     insert_steering_claim(test_db, "s-steering")
