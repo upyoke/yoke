@@ -315,11 +315,11 @@ Browser setup is on demand, not at install time: the first `yoke qa browser`
 execution provisions everything. QA admission knows that, so a Browser case
 needs no `browser-control` project capability row to reach this machine.
 
-`yoke qa browser setup` materializes the packaged sources into
-`~/.yoke/browser-runtime/`, resolves the Node toolchain, runs `npm install`
-there when `node_modules` is missing, and installs Chromium via
-`npx playwright install chromium` when the binary is absent. It needs nothing
-from the host but network access.
+`yoke qa browser setup` materializes sources under `~/.yoke/browser-runtime/`,
+resolves Node, installs missing npm dependencies and Chromium, and launches a
+daemon in a process group independent of the caller's shell. It succeeds only
+after the authenticated health endpoint responds; otherwise it names a repair.
+Short-lived callers can exit without stopping it; `yoke qa browser status` checks it.
 
 The toolchain resolves cheapest-first: a Node 18+ with npm already on `PATH`,
 else the pinned release already unpacked under `~/.yoke/node/<version>/`, else

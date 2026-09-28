@@ -24,7 +24,7 @@ from yoke_cli.transport.bounded_json_http import (
 from yoke_cli import browser_node_toolchain
 from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_harness import browser_runtime_home
-from yoke_harness.browser_client_readiness import wait_for_daemon_ready
+from yoke_harness.browser_client_readiness import launch_daemon, wait_for_daemon_ready
 from yoke_harness.browser_linux_deps import (
     amazon_linux_chromium_deps_command,
     is_amazon_linux,
@@ -299,14 +299,7 @@ def daemon_start(
 
     state_path.parent.mkdir(parents=True, exist_ok=True)
     log_file = browser / ".daemon-stderr.log"
-    with open(log_file, "w", encoding="utf-8") as stderr_log:
-        proc = subprocess.Popen(
-            command,
-            stdout=subprocess.DEVNULL,
-            stderr=stderr_log,
-            env=env,
-        )
-
+    proc = launch_daemon(command, env, log_file)
     return wait_for_daemon_ready(proc, log_file)
 
 
