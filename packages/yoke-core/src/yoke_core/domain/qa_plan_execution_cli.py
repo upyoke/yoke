@@ -325,8 +325,9 @@ def run(args: List[str]) -> int:
         return WAITING_RETRY_EXIT
     if state == "awaiting_agent_review":
         print(
-            "QA capture complete; dispatch the returned typed reviewer contract "
-            "now and submit its complete verdict batch before continuing.",
+            "QA capture complete; independent review pending, not a pass. "
+            "Dispatch the returned typed reviewer contract now; its submitted "
+            "verdict batch is the QA verdict.",
             file=sys.stderr,
         )
         return AGENT_REVIEW_REQUIRED_EXIT

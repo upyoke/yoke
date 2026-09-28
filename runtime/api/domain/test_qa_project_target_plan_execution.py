@@ -169,6 +169,7 @@ def test_plan_execution_passes_the_runtime_base_url_to_the_command_runner() -> N
         )
 
     assert result["state"] == "passed"
+    assert result["review_status"] is None
     assert execute.call_args.kwargs["base_url"] == "https://preview.example.test"
     assert calls == [
         "qa.plan_execution.begin",
@@ -177,6 +178,43 @@ def test_plan_execution_passes_the_runtime_base_url_to_the_command_runner() -> N
         "qa.plan_review.begin",
         "qa.plan_execution.complete",
     ]
+
+
+def test_capture_awaiting_independent_review_is_labelled_pending() -> None:
+    """A captured case whose review bundle is open reports no verdict yet."""
+
+    def dispatch(**kwargs):
+        if kwargs["function_id"] == "qa.plan_execution.begin":
+            return {
+                "execution_id": "execution-awaiting-review",
+                "item_id": 42,
+                "cursor_ordinal": 0,
+                "execution_target": PROJECT_TARGET,
+                "requirements": [_requirement()],
+                "results": [],
+            }
+        if kwargs["function_id"] == "qa.plan_review.begin":
+            return {"review_bundle": {"bundle_id": "bundle-1", "cases": []}}
+        return {}
+
+    captured = {"requirement_id": 11, "runner_id": "worktree_run", "verdict": None}
+    with (
+        mock.patch.object(
+            qa_plan_execution, "_call_plan_function", side_effect=dispatch
+        ),
+        mock.patch.object(
+            qa_case_execution, "execute_case_context", return_value=captured
+        ),
+    ):
+        result = qa_plan_execution.execute_plan(
+            public_ref="YOK-42",
+            transition_id="implemented",
+            base_url="https://preview.example.test/",
+            actor=ActorContext(actor_id="7", session_id="project-target"),
+        )
+
+    assert result["state"] == "awaiting_agent_review"
+    assert result["review_status"] == "pending"
 
 
 def test_missing_runtime_base_url_prevents_case_side_effects() -> None:

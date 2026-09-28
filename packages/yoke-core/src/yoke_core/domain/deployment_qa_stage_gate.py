@@ -13,6 +13,7 @@ from yoke_core.domain.deployment_qa_stage_acceptance import (
     completed_execution,
     existing_acceptance_requirement,
     latest_verdict,
+    missing_execution_blocker,
 )
 from yoke_core.domain.deployment_qa_case_failure_kinds import failure_reasons
 from yoke_core.domain.deployment_qa_stage_case_failures import (
@@ -237,7 +238,10 @@ def _settle_stage_status(
             # An empty case set alone is never enough -- that is a member
             # nobody asked, which stays held.
             return discharged()
-        reasons.insert(0, "no completed scoped QA execution exists")
+        _state, missing = missing_execution_blocker(
+            conn, run_id, stage_name, member_item_id, current_target_digest
+        )
+        reasons.insert(0, missing)
     if reasons:
         # A missing execution alongside red cases still reads as blocked: the
         # red verdicts are the reason no acceptable execution can exist, and

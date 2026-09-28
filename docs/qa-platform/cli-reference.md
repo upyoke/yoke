@@ -245,6 +245,13 @@ includes `review_bundle.dispatch`. The harness must immediately dispatch the
 named reviewer subagent with that immutable bundle and prompt, then use the
 exact returned submission command. The execution remains live and the QA gate
 remains unsatisfied until submission. Pending dispatch creates no human work.
+Until then the result carries `review_status="pending"`: the capture is
+complete but no QA verdict exists, so it is never reported as a pass. A verdict
+written beside the pending review — `qa run complete --verdict`, `qa run
+record-verdict`, or `qa run add --verdict` on that requirement — is refused by
+name with the review step as its recovery. A deployment stage in this state
+reads `awaiting review` and names the pending execution and bundle, distinct
+from a stage whose QA never ran.
 Evidence-backed agent `undetermined` halts the item for owner/operator review;
 an unexecuted case records failure/`blocked_on_precondition` instead.
 

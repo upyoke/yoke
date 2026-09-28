@@ -22,6 +22,7 @@ from yoke_core.domain.qa_capture_agreement import (
     captured_without_evidence_error,
     run_artifact_count,
 )
+from yoke_core.domain.qa_pending_agent_review import pending_review_verdict_refusal
 from yoke_core.domain.qa_constants import (
     NEEDS_REVIEW_OUTCOME,
     VALID_VERDICTS,
@@ -95,8 +96,9 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
             )
         if issue := _review_evidence.agent_undetermined_evidence_error(
             conn, performed_by=performed_by, verdict=verdict
-        ):
-            return _error(issue.code, str(issue), jsonpath="$.payload.verdict")
+        ) or pending_review_verdict_refusal(conn, int(req_id), verdict, row):
+            code = getattr(issue, "code", "policy_violation")
+            return _error(code, str(issue), jsonpath="$.payload.verdict")
         from yoke_core.domain.qa_run_commit_binding import bind_recorded_raw_result
 
         raw_result, bind_error = bind_recorded_raw_result(
@@ -263,8 +265,9 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
             performed_by=str(row["performed_by"]),
             verdict=verdict,
             run_ids=(int(run_id),),
-        ):
-            return _error(issue.code, str(issue), jsonpath="$.payload.verdict")
+        ) or pending_review_verdict_refusal(conn, int(req_id), verdict, row):
+            code = getattr(issue, "code", "policy_violation")
+            return _error(code, str(issue), jsonpath="$.payload.verdict")
         reason = capture_degraded_reason
         if reason is None:
             reason = row["capture_degraded_reason"]

@@ -31,7 +31,7 @@ class TestPlanClassifier:
         [
             "# qa plan run: requirement=13625 outcome=failed",
             "state awaiting_agent_review",
-            "QA capture complete; dispatch the returned typed reviewer contract",
+            "QA capture complete; independent review pending, not a pass.",
             '{"state": "awaiting_agent_review"}',
         ],
     )

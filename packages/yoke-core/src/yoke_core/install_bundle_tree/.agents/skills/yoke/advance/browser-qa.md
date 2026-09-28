@@ -82,8 +82,9 @@ plan run with a manually assembled series of case runs.
 - Exit `0` / `pass`: continue.
 - `fail` or runner error: block, fix the defect or environment, then rerun
   the same requirement.
-- Exit `12` / `awaiting_agent_review`: immediately dispatch the returned typed
-  `review_bundle.dispatch`. For `dispatch_kind=subagent`, supply the complete
+- Exit `12` / `awaiting_agent_review`: capture complete, independent review
+  pending — not a pass, and a verdict of your own on that case is refused.
+  Immediately dispatch the returned typed `review_bundle.dispatch`. For `dispatch_kind=subagent`, supply the complete
   immutable bundle and exact prompt to its `subagent_type`. For
   `dispatch_kind=main_agent_mission`, the main agent follows each typed
   `walker_dispatch`: use the harness subagent facility for an informed walker
