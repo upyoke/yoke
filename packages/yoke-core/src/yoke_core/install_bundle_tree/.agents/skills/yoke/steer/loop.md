@@ -305,7 +305,7 @@ yoke claims coordination-claim acquire --project {_project} --key DEPLOY:{_proje
 Pin one source SHA and use that same SHA for stage and production:
 
 ```text
-yoke --env <cp> deployment-runs create {_project} {FLOW} --environment {ENV} --project-repo-path {CHECKOUT} --source-ref {PINNED_SHA}
+yoke --env <cp> deployment-runs create {_project} {FLOW} --environment {ENV} --project-repo-path {CHECKOUT} --source-ref {PINNED_SHA} --idempotency-key {ENV}-{PINNED_SHA}-1
 yoke --env <cp> watch deploy -- {RUN_ID}
 ```
 
@@ -339,8 +339,12 @@ resolved did not ride, and genuinely needs its own run.
 Retry from the recorded run instead of silently creating unrelated lineage:
 
 ```text
-yoke --env <cp> deployment-runs create {_project} {FLOW} --retry-of {RUN_ID}
+yoke --env <cp> deployment-runs create {_project} {FLOW} --retry-of {RUN_ID} --idempotency-key retry-of-{RUN_ID}-1
 ```
+
+A create that yielded is still running — continue that invocation; only if it
+exited without a run id, repeat it verbatim with the SAME key to get the
+original run back. A new key is a deliberate new run.
 
 **A member's item QA is that member's own, not yours.** A QA stage is credited
 only by requirements bound to its own stage name — an item-scoped one by ones

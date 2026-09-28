@@ -31,8 +31,8 @@ class TestDeploymentRunCreation(unittest.TestCase):
         with (
             patch(DEPLOY_LOCK, return_value=None),
             patch(
-                "yoke_core.domain.deployment_runs_crud_mutate.cmd_create_run",
-                return_value="run-20260616-002",
+                "yoke_core.domain.deployment_runs_crud_mutate.create_run",
+                return_value=("run-20260616-002", False),
             ) as cmd_create,
             patch(
                 "yoke_core.domain.deployment_runs_crud_query.cmd_get",
@@ -54,6 +54,8 @@ class TestDeploymentRunCreation(unittest.TestCase):
         cmd_create.assert_called_once_with(
             "yoke",
             "yoke-hosted-prod",
+            idempotency_key=None,
+            create_request=None,
             environment=None,
             release_lineage="a" * 40,
             created_by="operator",
@@ -69,7 +71,7 @@ class TestDeploymentRunCreation(unittest.TestCase):
         with (
             patch(DEPLOY_LOCK, return_value=None),
             patch(
-                "yoke_core.domain.deployment_runs_crud_mutate.cmd_create_run",
+                "yoke_core.domain.deployment_runs_crud_mutate.create_run",
                 side_effect=ValueError(
                     "deployment flow 'old-flow' is disabled and cannot start "
                     "new runs"
@@ -103,8 +105,8 @@ class TestDeploymentRunCreation(unittest.TestCase):
                 side_effect=[source, created],
             ),
             patch(
-                "yoke_core.domain.deployment_runs_crud_mutate.cmd_create_run",
-                return_value="run-new",
+                "yoke_core.domain.deployment_runs_crud_mutate.create_run",
+                return_value=("run-new", False),
             ) as create,
         ):
             outcome = deployment_runs.handle_deployment_run_create(
@@ -128,7 +130,7 @@ class TestDeploymentRunCreation(unittest.TestCase):
         with (
             patch(DEPLOY_LOCK, return_value=refusal) as lock,
             patch(
-                "yoke_core.domain.deployment_runs_crud_mutate.cmd_create_run",
+                "yoke_core.domain.deployment_runs_crud_mutate.create_run",
             ) as cmd_create,
         ):
             outcome = deployment_runs.handle_deployment_run_create(

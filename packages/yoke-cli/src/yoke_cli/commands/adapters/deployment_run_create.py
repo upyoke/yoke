@@ -33,6 +33,8 @@ from yoke_contracts.deployment_itemless_teaching import (
     CREATE_DESCRIPTION,
     ITEMLESS_RELEASE_RECIPE,
     execute_created_run_note,
+    replayed_run_note,
+    unkeyed_server_warning,
 )
 
 
@@ -58,7 +60,8 @@ def _execute_connection() -> str:
 
 
 DEPLOYMENT_RUNS_CREATE_USAGE = (
-    "yoke deployment-runs create PROJECT FLOW [--environment ENV] "
+    "yoke deployment-runs create PROJECT FLOW --idempotency-key KEY "
+    "[--environment ENV] "
     "[--project-repo-path PATH --source-ref REF | --retry-of RUN-ID] "
     "[--artifact-json JSON | --artifact-file PATH] "
     "[--created-by WHO] [--allow-pin-regression] [--session-id S] [--json]"
@@ -74,6 +77,16 @@ def deployment_runs_create(args: List[str]) -> int:
     )
     parser.add_argument("project")
     parser.add_argument("flow")
+    parser.add_argument(
+        "--idempotency-key",
+        required=True,
+        help=(
+            "Stable name for the one run this invocation intends. Repeating "
+            "the identical request with the same key returns that run "
+            "instead of minting another; a new, intentional deployment "
+            "takes a new key."
+        ),
+    )
     parser.add_argument("--environment", dest="environment", default=None)
     parser.add_argument("--created-by", dest="created_by", default="operator")
     parser.add_argument(
@@ -128,7 +141,12 @@ def deployment_runs_create(args: List[str]) -> int:
         return usage_error("--retry-of cannot be combined with artifact identity")
     def _human_writer(response, stdout, stderr) -> None:
         run_id_receipt(response, stdout, stderr)
-        run_id = (response.result or {}).get("run_id")
+        result = response.result or {}
+        run_id = result.get("run_id")
+        if run_id and "idempotency_key" not in result:
+            print(unkeyed_server_warning(run_id), file=stderr)
+        elif run_id and result.get("replayed"):
+            print(replayed_run_note(run_id, parsed.idempotency_key), file=stderr)
         if run_id:
             authority = _execute_connection() or "<control-plane-env>"
             print(execute_created_run_note(authority, run_id), file=stderr)
@@ -137,6 +155,7 @@ def deployment_runs_create(args: List[str]) -> int:
         "project": parsed.project,
         "flow": parsed.flow,
         "created_by": parsed.created_by,
+        "idempotency_key": parsed.idempotency_key,
     }
     if parsed.retry_of is not None:
         payload["retry_of"] = parsed.retry_of

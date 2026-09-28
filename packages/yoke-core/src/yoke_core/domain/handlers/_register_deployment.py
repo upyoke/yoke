@@ -8,6 +8,7 @@ from yoke_core.domain.handlers import (
     deployment_failure_trace as _failure_trace,
     deployment_inspection as _inspection,
     deployment_run_carried_work_repair as _carried_work_repair,
+    deployment_run_creation as _run_creation,
     deployment_run_release_output as _release_output,
     deployment_run_membership as _run_membership,
     deployment_run_projection as _run_projection,
@@ -80,8 +81,8 @@ def register(registry) -> None:
     registry.register(
         "deployment_runs.create",
         _runs.handle_deployment_run_create,
-        _models.DeploymentRunCreateRequest,
-        _models.DeploymentRunCreateResponse,
+        _run_creation.DeploymentRunCreateRequest,
+        _run_creation.DeploymentRunCreateResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.deployment_runs",
         target_kinds=["global"],

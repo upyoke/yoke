@@ -31,6 +31,17 @@ use it to close a run whose workflow succeeded — re-driving is the
 recovery.
 """
 
+CREATE_RETRY_GUIDANCE = """\
+Create is safe to repeat under one --idempotency-key. A create that yielded
+or went quiet is usually still running: continue that same invocation and
+read its output. Only once it has really exited without printing a run id,
+repeat the identical command with the SAME key — it returns the run the
+first call created instead of minting another. The same key with any
+changed input refuses `idempotency_key_conflict`, naming the run and the
+differing fields. A deliberate second run of the same candidate takes a
+NEW key.
+"""
+
 # Copy-pasteable recipe shown on the surfaces that own each step.
 ITEMLESS_RELEASE_RECIPE = (
     """\
@@ -44,13 +55,15 @@ Itemless environment release (project-generic):
   # connection required for that self-deploy. The run copies the flow's
   # registered environment; pass --environment ENV only to override it.
   RUN_ID=$(yoke --env CONTROL-PLANE deployment-runs create PROJECT FLOW \\
+    --idempotency-key PROJECT-FLOW-PINNED_SHA-1 \\
     --project-repo-path /path/to/checkout \\
-    --source-ref origin/main)
+    --source-ref PINNED_SHA)
   yoke --env CONTROL-PLANE watch deploy -- "$RUN_ID"
 
 Retry a failed or cancelled run without following a moving branch:
-  RETRY_ID=$(yoke --env CONTROL-PLANE deployment-runs create \
-    PROJECT FLOW --retry-of FAILED_RUN_ID)
+  RETRY_ID=$(yoke --env CONTROL-PLANE deployment-runs create \\
+    PROJECT FLOW --retry-of FAILED_RUN_ID \\
+    --idempotency-key retry-of-FAILED_RUN_ID-1)
   yoke --env CONTROL-PLANE watch deploy -- "$RETRY_ID"
 
 Resume the same failed run without minting a new run or replaying completed stages:
@@ -58,6 +71,8 @@ Resume the same failed run without minting a new run or replaying completed stag
 That re-enters executing on this run. `--retry-of` is a new run of the same candidate.
 
 """
+    + CREATE_RETRY_GUIDANCE
+    + "\n"
     + INTERRUPTED_RUN_RECOVERY
 )
 
@@ -102,6 +117,25 @@ WATCH_DEPLOY_DESCRIPTION = (
 )
 
 
+def replayed_run_note(run_id: str, key: str) -> str:
+    """Post-create stderr line when the key returned an existing run."""
+    return (
+        f"note: idempotency key {key!r} already created {run_id}; returned "
+        "that run instead of creating another"
+    )
+
+
+def unkeyed_server_warning(run_id: str) -> str:
+    """Post-create stderr line when the control plane ignored the key."""
+    return (
+        f"warning: created {run_id}, but the serving control plane predates "
+        "idempotent create and ignored --idempotency-key, so repeating this "
+        "command WILL mint another run. Before any repeat, check "
+        "`yoke deployment-runs list` for a run already created; install the "
+        "current Yoke release on that control plane to make create retry-safe."
+    )
+
+
 def execute_created_run_note(authority: str, run_id: str) -> str:
     """Post-create stderr line pointing at the watch-deploy execute path."""
     return (
@@ -112,10 +146,13 @@ def execute_created_run_note(authority: str, run_id: str) -> str:
 
 __all__ = [
     "CREATE_DESCRIPTION",
+    "CREATE_RETRY_GUIDANCE",
     "FINALIZATION_PENDING_PREFIX",
     "INTERRUPTED_RUN_RECOVERY",
     "ITEMLESS_RELEASE_RECIPE",
     "RESOLVE_TARGET_DESCRIPTION",
     "WATCH_DEPLOY_DESCRIPTION",
     "execute_created_run_note",
+    "replayed_run_note",
+    "unkeyed_server_warning",
 ]

@@ -13,6 +13,7 @@ from yoke_core.domain import (
 from yoke_core.domain.deployment_run_create_write import (
     cmd_create_run,
     cmd_next_id,
+    create_run,
 )
 from yoke_core.domain.deployment_runs_schema import (
     UPDATABLE_FIELDS,
@@ -274,6 +275,7 @@ def cmd_update(
 __all__ = [
     "cmd_add_item",
     "cmd_create_run",
+    "create_run",
     "cmd_next_id",
     "cmd_remove_item",
     "cmd_update",

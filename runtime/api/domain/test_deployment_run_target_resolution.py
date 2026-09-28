@@ -93,7 +93,7 @@ def test_unknown_flow_is_reported_as_unknown() -> None:
 
 def test_create_returns_migration_required_error() -> None:
     with patch(
-        "yoke_core.domain.deployment_runs_crud_mutate.cmd_create_run",
+        "yoke_core.domain.deployment_runs_crud_mutate.create_run",
         side_effect=_migration_error(),
     ):
         outcome = deployment_runs.handle_deployment_run_create(

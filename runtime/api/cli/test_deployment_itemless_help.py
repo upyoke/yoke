@@ -29,7 +29,9 @@ def _assert_itemless_recipe(text: str) -> None:
     assert "resolve-target PROJECT FLOW" in text
     assert "Verify the environment name is the deploy destination" in text
     assert "--project-repo-path /path/to/checkout" in text
-    assert "--source-ref origin/main" in text
+    assert "--source-ref PINNED_SHA" in text
+    assert "--idempotency-key" in text
+    assert "SAME key" in text
     assert "--retry-of FAILED_RUN_ID" in text
     assert "without following a moving branch" in text
     assert "--from-stage STAGE" in text
@@ -110,7 +112,12 @@ def test_create_post_note_points_at_watch_deploy() -> None:
             function=request.function,
             version=request.version,
             request_id=request.request_id,
-            result={"run_id": "run-20260805-001", "status": "created"},
+            result={
+                "run_id": "run-20260805-001",
+                "status": "created",
+                "idempotency_key": "stage-1",
+                "replayed": False,
+            },
         )
 
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
@@ -128,9 +135,12 @@ def test_create_post_note_points_at_watch_deploy() -> None:
                             "create",
                             "yoke",
                             "yoke-hosted-stage-no-ci-gate",
+                            "--idempotency-key",
+                            "stage-1",
                         ]
                     )
     assert rc == 0
     assert out.getvalue().strip() == "run-20260805-001"
     assert "watch deploy -- run-20260805-001" in err.getvalue()
     assert "deployment-runs execute" not in err.getvalue()
+    assert "warning" not in err.getvalue()

@@ -5,6 +5,11 @@ from __future__ import annotations
 from typing import Optional
 
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.deployment_run_create_idempotency import (
+    KEY_COLUMN,
+    KEY_INDEX_SQL,
+    REQUEST_COLUMN,
+)
 from yoke_core.domain.deployment_stage_receipts import (
     DEPLOYMENT_STAGE_RECEIPTS_SQL,
 )
@@ -107,8 +112,11 @@ def cmd_init(db_path: Optional[str] = None) -> None:
             "driver_attachment",
             "candidate_containment",
             "settling_at",
+            KEY_COLUMN,
+            REQUEST_COLUMN,
         ):
             _add_column_if_not_exists(conn, "deployment_runs", column, "TEXT")
+        conn.execute(KEY_INDEX_SQL)
         for column, declaration in (
             ("delivery_intent", DELIVERY_INTENT_COLUMN_SQL),
             ("requirement_selection", "TEXT"),
