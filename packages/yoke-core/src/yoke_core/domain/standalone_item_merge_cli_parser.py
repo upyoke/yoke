@@ -47,7 +47,8 @@ ignores:
   yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
 
 Add `--plan PLAN` only when the wake says the stage names no cases; a stage
-already naming its own refuses it.
+already naming its own accepts only a correction-only plan whose every case
+uses `--replaces CASE_KEY=FAILED_REQUIREMENT_ID`.
 
 After QA acceptance, a final member on a selected flow without run QA closes
 automatically from its own production proof, even while sibling QA holds the
