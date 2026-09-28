@@ -19,9 +19,30 @@ from yoke_core.domain import qa_case_execution, qa_plan_execution
 @pytest.mark.parametrize(
     ("failed_result", "expected_state"),
     [
-        ({"case_outcome": "failed", "verdict": "fail", "execution_status": "capture_failed"}, "failed"),
-        ({"case_outcome": "error", "verdict": "error", "execution_status": "capture_failed"}, "error"),
-        ({"case_outcome": "needs_review", "verdict": "pending", "execution_status": "capture_failed"}, "failed"),
+        (
+            {
+                "case_outcome": "failed",
+                "verdict": "fail",
+                "execution_status": "capture_failed",
+            },
+            "failed",
+        ),
+        (
+            {
+                "case_outcome": "error",
+                "verdict": "error",
+                "execution_status": "capture_failed",
+            },
+            "error",
+        ),
+        (
+            {
+                "case_outcome": "needs_review",
+                "verdict": "pending",
+                "execution_status": "capture_failed",
+            },
+            "failed",
+        ),
         ({"case_outcome": "failed", "verdict": "fail"}, "failed"),
     ],
 )
@@ -105,8 +126,12 @@ def test_failed_capture_closes_execution_and_corrected_roster_enters_review(
         }
     )
     with (
-        mock.patch.object(qa_plan_execution, "_call_plan_function", side_effect=dispatch),
-        mock.patch.object(qa_case_execution, "execute_case_context", side_effect=capture),
+        mock.patch.object(
+            qa_plan_execution, "_call_plan_function", side_effect=dispatch
+        ),
+        mock.patch.object(
+            qa_case_execution, "execute_case_context", side_effect=capture
+        ),
     ):
         failed = qa_plan_execution.execute_plan(**subject, actor=actor)
         corrected = qa_plan_execution.execute_plan(**subject, actor=actor)

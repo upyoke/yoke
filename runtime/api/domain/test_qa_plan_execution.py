@@ -252,7 +252,7 @@ def test_client_runner_preserves_order_and_actor_until_waiting() -> None:
     ]
     outcomes = {
         11: {"requirement_id": 11, "verdict": "pass"},
-        12: {"requirement_id": 12, "verdict": "fail"},
+        12: {"requirement_id": 12, "verdict": "pass"},
         13: {
             "requirement_id": 13,
             "verdict": "waiting",

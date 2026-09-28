@@ -272,7 +272,10 @@ def execute_plan(
             break
         results.append(normalized)
         state = _aggregate_state(state, normalized)
-        if state in {"failed", "error"} or normalized.get("execution_status") == "capture_failed":
+        if (
+            state in {"failed", "error"}
+            or normalized.get("execution_status") == "capture_failed"
+        ):
             _call_plan_function(
                 function_id="qa.plan_execution.abort",
                 target=target,
@@ -289,7 +292,11 @@ def execute_plan(
             break
 
     review_bundle = None
-    if len(results) == len(requirements) and state not in {"failed", "error", "waiting"}:
+    if len(results) == len(requirements) and state not in {
+        "failed",
+        "error",
+        "waiting",
+    }:
         review = _call_plan_function(
             function_id="qa.plan_review.begin",
             target=target,
