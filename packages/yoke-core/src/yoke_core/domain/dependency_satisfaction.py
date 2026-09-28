@@ -17,7 +17,6 @@ from yoke_core.domain.dependency_status_stage import (
     evaluate_status_satisfaction,
     require_authorable_status_stage,
 )
-from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 from yoke_core.domain.environment_delivery_record import (
     UnregisteredEnvironment,
     require_registered_environment,
@@ -45,21 +44,6 @@ def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _carried_item_ids(value: Any) -> set[int]:
-    payload = parse_carried_work(value)
-    if payload is None:
-        return set()
-    item_ids: set[int] = set()
-    for item in payload.get("items") or []:
-        if not isinstance(item, dict):
-            continue
-        try:
-            item_ids.add(int(item["item_id"]))
-        except (KeyError, TypeError, ValueError):
-            continue
-    return item_ids
-
-
 def read_deployed_environment_fact(
     conn: Any,
     *,
@@ -78,18 +62,18 @@ def read_deployed_environment_fact(
     if row is None:
         return None
     project_id = int(_row_value(row, "project_id", 0))
-    environment_id = resolve_environment_id(conn, project_id, environment)
-    if environment_id is None:
+    if resolve_environment_id(conn, project_id, environment) is None:
         return DeployedEnvironmentFact(environment, False, False)
-    rows = conn.execute(
-        "SELECT carried_work FROM deployment_runs "
-        f"WHERE project_id={p} AND status='succeeded' "
-        f"AND target_environment_id={p}",
-        (project_id, environment_id),
-    ).fetchall()
-    carried = any(
-        int(blocking_item_id) in _carried_item_ids(_row_value(run, "carried_work", 0))
-        for run in rows
+    carried = (
+        conn.execute(
+            "SELECT 1 FROM deployment_run_items member "
+            "JOIN deployment_runs run ON run.id=member.run_id "
+            "JOIN environments target ON target.id=run.target_environment_id "
+            f"WHERE member.item_id={p} AND run.status='succeeded' "
+            f"AND target.name={p} AND target.project_id=run.project_id LIMIT 1",
+            (int(blocking_item_id), environment),
+        ).fetchone()
+        is not None
     )
     return DeployedEnvironmentFact(environment, True, carried)
 

@@ -60,9 +60,10 @@ Apply these rules when encoding each edge:
 | Runtime deployment | chosen consumption gate | `fact:deployed:<environment-name>` | The dependent needs the blocker running in that registered environment |
 | Closeout | `closure` | `status:done` | PREFIX-N cannot close until PREFIX-M is done |
 
-Use `fact:merged` when trunk contains everything the dependent consumes.
-Use the deployed fact for stage/prod QA, an installed environment build, a
-live API, or a cross-project consumer that cannot proceed at merge time.
+Use the blocker's pinned stage, normally `status:done`, when its delivery and
+closeout must finish. Use `fact:merged` when trunk is enough. Reserve the
+deployed fact for a live environment need before `done`; it requires actual
+membership in a succeeded run, even across project boundaries.
 
 ### Deduplication
 

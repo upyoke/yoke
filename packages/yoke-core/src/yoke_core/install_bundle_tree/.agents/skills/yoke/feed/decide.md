@@ -193,12 +193,14 @@ Gate/satisfaction combinations:
 - **Coding-order blockers**: `gate_point=activation`, `satisfaction=status:done` -- PREFIX-N cannot start until PREFIX-M is done
 - **Validation-before-start**: `gate_point=activation`, `satisfaction=status:implemented` -- PREFIX-N cannot start until PREFIX-M reaches implemented status
 - **Merge-order blockers**: `gate_point=integration`, `satisfaction=fact:merged` -- PREFIX-N and PREFIX-M can be coded in parallel but must merge in order
-- **Runtime-deployment blockers**: choose the gate where consumption begins and `satisfaction=fact:deployed:<environment-name>` -- PREFIX-N waits until a succeeded run carries PREFIX-M into that registered environment
+- **Runtime-deployment blockers**: choose the gate where consumption begins and `satisfaction=fact:deployed:<environment-name>` only when PREFIX-N needs PREFIX-M live before `done`; a succeeded run must name PREFIX-M as an actual member in that environment
 - **Closeout blockers**: `gate_point=closure`, `satisfaction=status:done` -- PREFIX-N cannot close until PREFIX-M is done
 
-Use `fact:merged` when the dependent only needs the blocker's code on trunk
-(including code built together). Use the deployed fact for a live stage/prod
-walk, a released API consumer, or another project that needs the running build.
+Use the blocker's pinned stage, normally `status:done`, when delivery and
+closeout must finish. Use `fact:merged` for trunk code (including code built
+together). Reserve the deployed fact for a live environment need before `done`,
+even when a different project owns the run. Code containment alone is not
+membership.
 
 ## Ambiguity Handling
 
