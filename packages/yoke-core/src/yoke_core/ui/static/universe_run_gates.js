@@ -5,7 +5,8 @@
 // behind the decision, so the run card keeps it beside the recorded answer.
 
 import { appendActions, reviewRequestCard } from "./review_request_card.js";
-import { KIND_LABELS, reviewerLine } from "./review_request_presentation.js";
+import { normalizedArtifacts, evidenceStrip } from "./review_evidence_strip.js";
+import { KIND_LABELS, evidenceOf, reviewerLine } from "./review_request_presentation.js";
 import { el } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
 
@@ -83,8 +84,8 @@ export function runFinalizationNote(documentNode, row) {
       : "Stages complete. Waiting for final checks and member delivery before this run can succeed.");
 }
 
-// A release approval freezes its subject's latest screenshots. Any a run
-// check already drew stay under that check, so each shows once on the card.
+// A decision's frozen evidence, less every screenshot a check above already
+// drew, so each shows once in its scope.
 function withoutDrawnScreenshots(request, drawnIds) {
   const evidence = request.subject_context?.evidence;
   if (!drawnIds?.size || !Array.isArray(evidence?.screenshots)) return request;
@@ -96,37 +97,50 @@ function withoutDrawnScreenshots(request, drawnIds) {
   };
 }
 
-// ``options.drawnRequestIds`` names the requests a caller has already put on
-// the page — a member's own review, drawn on that member's row. Skipping them
-// here is what keeps one decision from appearing twice on one card with two
-// sets of Approve controls. A run QA review is drawn as its decision alone; a
-// release approval keeps its full request card. ``options.drawnArtifactIds``
-// names the screenshots the run's checks already drew.
-export function appendRunGates(context, card, row, onAct, options = {}) {
+// A QA review's own capture, where no check above drew it: the reviewed
+// capture can be older than the checks on screen.
+function undrawnReviewEvidence(context, gate, drawnIds) {
+  const evidence = evidenceOf(gate);
+  const artifacts = normalizedArtifacts(evidence.artifacts, {
+    requirementId: evidence.requirementId,
+  }).filter((artifact) => !drawnIds?.has(String(artifact.id)));
+  return artifacts.length
+    ? evidenceStrip(context, artifacts, { compact: true, stepCaptionsOnly: true })
+    : null;
+}
+
+// The person's side of one QA scope, as one list the caller places after the
+// checks it rests on: a QA review is its open ask or recorded answer; an
+// approval keeps its request card, with any screenshot the checks above did
+// not draw. The answer —
+// "Approved by …" — follows either. ``options.drawnArtifactIds`` names the
+// screenshots the scope's checks drew; ``options.scope === "item"`` omits
+// the item reference an item's own section already states.
+export function decisionList(context, gates, onAct, options = {}) {
   const documentNode = context.document;
-  const drawn = options.drawnRequestIds || new Set();
-  const rows = runDecisionGates(row).filter(
-    (gate) => !drawn.has(String(gate.request_id)));
-  const note = runFinalizationNote(documentNode, row);
-  if (!rows.length && !note) return null;
-  const host = el(documentNode, "div", "run-requests");
-  for (const gate of rows) {
+  const drawnIds = options.drawnArtifactIds;
+  const requests = el(documentNode, "div", "run-requests");
+  for (const gate of gates) {
     const wrap = el(documentNode, "div",
       `run-request${gate.status === "resolved" ? " is-resolved" : ""}`);
+    wrap.setAttribute("data-request-id", String(gate.request_id ?? ""));
     if (gate.kind === "qa_needs_review") {
+      const strip = undrawnReviewEvidence(context, gate, drawnIds);
+      if (strip) wrap.appendChild(strip);
       wrap.appendChild(runQaDecision(context, gate, onAct));
-      host.appendChild(wrap);
+      requests.appendChild(wrap);
       continue;
     }
     wrap.appendChild(el(
       documentNode, "div", "run-request-kind", KIND_LABELS[gate.kind],
     ));
     if (gate.kind === "lifecycle_transition_approval") {
-      wrap.appendChild(el(documentNode, "p", "run-request-member",
-        `${gate.subject_context?.item_ref || "Carried item"} · Item state: ${gate.item_status || "unknown"}`));
+      const state = `Item state: ${gate.item_status || "unknown"}`;
+      wrap.appendChild(el(documentNode, "p", "run-request-member", options.scope === "item"
+        ? state : `${gate.subject_context?.item_ref || "Carried item"} · ${state}`));
     }
     wrap.appendChild(reviewRequestCard(context, withoutDrawnScreenshots(
-      gateAsRequest(gate), options.drawnArtifactIds,
+      gateAsRequest(gate), drawnIds,
     ), {
       inline: true,
       onAct: onAct && gate.status !== "resolved"
@@ -134,8 +148,23 @@ export function appendRunGates(context, card, row, onAct, options = {}) {
     }));
     const decision = resolvedDecisionRecord(documentNode, gate);
     if (decision) wrap.appendChild(decision);
-    host.appendChild(wrap);
+    requests.appendChild(wrap);
   }
+  return requests;
+}
+
+// The run's own decisions: ``options.drawnRequestIds`` names the requests a
+// caller has already put on the page — a carried item's review or approval,
+// drawn in that item's own QA — so one decision never appears twice on one
+// card with two sets of Approve controls.
+export function appendRunGates(context, card, row, onAct, options = {}) {
+  const documentNode = context.document;
+  const drawn = options.drawnRequestIds || new Set();
+  const rows = runDecisionGates(row).filter(
+    (gate) => !drawn.has(String(gate.request_id)));
+  const note = runFinalizationNote(documentNode, row);
+  if (!rows.length && !note) return null;
+  const host = decisionList(context, rows, onAct, options);
   if (note) host.appendChild(note);
   card.appendChild(host);
   return host;
@@ -157,6 +186,7 @@ export function runGateStatus(row) {
 
 export const universeRunGates = {
   appendRunGates,
+  decisionList,
   gateAsRequest,
   resolvedDecisionRecord,
   runDecisionGates,

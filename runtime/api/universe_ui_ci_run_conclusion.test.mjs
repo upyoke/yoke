@@ -189,12 +189,12 @@ test("a carried before-merge CI check links its own Actions run", async () => {
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
   assert.equal(byClass(evidence, "review-shot").length, 0);
-  // Before merge is an earlier check, not QA for the deployed revision.
-  assert.equal(byClass(evidence, "carried-item-qa-heading").length, 0);
-  const row = byClass(byClass(evidence, "carried-item-qa-earlier")[0],
-    "carried-item-qa-row")[0];
-  assert.match(row.textContent, /^✓Before merge·.*·GitHub Actions$/);
-  const link = byClass(row, "carried-item-qa-ci")[0];
+  // Before merge is an earlier check, not a current check of this release.
+  assert.equal(byClass(evidence, "item-qa-section")[0].children.filter(
+    (node) => node.classList.contains("run-qa-check")).length, 0);
+  const row = byClass(byClass(evidence, "run-qa-history")[0], "run-qa-check")[0];
+  assert.equal(byClass(row, "run-qa-check-run")[0].textContent, "Before merge");
+  const link = byClass(row, "run-check-conclusion")[0];
   assert.equal(link.href, RUN_URL);
   // The row's own link replaces the separate link that used to close the entry.
   assert.equal(byClass(evidence, "carried-item-run-conclusion").length, 0);

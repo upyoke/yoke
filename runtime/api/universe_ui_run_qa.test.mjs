@@ -96,7 +96,7 @@ test("earlier checks fold before the decision", () => {
   const order = qa.children.map((node) => node.className.split(" ")[0]);
   assert.ok(order.indexOf("run-qa-history") < order.indexOf("run-requests"));
   assert.equal(byClass(qa, "run-qa-history")[0].children[0].textContent,
-    "2 earlier or superseded checks");
+    "Earlier checks (2)");
 });
 
 test("a check links its QA case and omits a routine passing reason", () => {
@@ -114,7 +114,7 @@ test("a check links its QA case and omits a routine passing reason", () => {
 
 test("a failed check keeps its reason for recovery", () => {
   const qa = byClass(render("resolved").card, "run-qa-history")[0];
-  assert.equal(byClass(qa, "run-qa-check-outcome")[0].textContent, "failed");
+  assert.equal(byClass(qa, "run-qa-check-outcome")[0].textContent, "Failed");
   assert.equal(byClass(qa, "run-qa-check-reason")[0].textContent,
     "The screenshot could not be read.");
 });
@@ -158,9 +158,9 @@ test("a resolved review loads frozen screenshots through each case's requirement
 test("an open human verdict reads as awaiting approval with a plain request", () => {
   const qa = byClass(render("pending").card, "run-qa-section")[0];
   assert.equal(byClass(qa, "run-verdict")[0].textContent, "Awaiting approval");
+  // Each check keeps its own result; the person's decision is its own record.
   for (const line of directChecks(qa)) {
-    assert.equal(byClass(line, "run-qa-check-outcome")[0].textContent,
-      "screenshots captured · awaiting approval");
+    assert.equal(byClass(line, "run-qa-check-outcome")[0].textContent, "Passed");
   }
   const ask = byClass(qa, "run-decision-ask")[0];
   assert.equal(ask.children[0].textContent, "Approve or reject the visual result.");
@@ -171,10 +171,12 @@ test("an open human verdict reads as awaiting approval with a plain request", ()
   assert.equal(byClass(qa, "review-links").length, 0);
 });
 
-test("an approved human verdict reads approved with the recorded approval", () => {
+test("an approved human verdict keeps check results and records the approval below", () => {
   const qa = byClass(render("resolved").card, "run-qa-section")[0];
-  assert.equal(byClass(qa, "run-verdict")[0].textContent, "2 of 2 approved");
-  assert.equal(byClass(directChecks(qa)[0], "run-qa-check-outcome")[0].textContent, "approved");
+  assert.equal(byClass(qa, "run-verdict")[0].textContent, "2 of 2 passed");
+  assert.equal(byClass(directChecks(qa)[0], "run-qa-check-outcome")[0].textContent, "Passed");
+  const order = qa.children.map((node) => node.className.split(" ")[0]);
+  assert.ok(order.lastIndexOf("run-qa-check") < order.indexOf("run-requests"));
   assert.match(byClass(qa, "run-decision-record")[0].textContent, /^Approved by Ben Bauman · /);
   assert.equal(byClass(qa, "review-action").length, 0);
   assert.equal(byClass(qa, "review-card").length, 0);
@@ -182,8 +184,8 @@ test("an approved human verdict reads approved with the recorded approval", () =
 
 test("a rejected human verdict reads rejected", () => {
   const qa = byClass(render("resolved", "reject").card, "run-qa-section")[0];
-  assert.equal(byClass(qa, "run-verdict")[0].textContent, "2 of 2 rejected");
-  assert.equal(byClass(directChecks(qa)[1], "run-qa-check-outcome")[0].textContent, "rejected");
+  assert.equal(byClass(qa, "run-verdict")[0].textContent, "Rejected");
+  assert.equal(byClass(directChecks(qa)[1], "run-qa-check-outcome")[0].textContent, "Passed");
   assert.match(byClass(qa, "run-decision-record")[0].textContent, /^Rejected by Ben Bauman/);
 });
 
@@ -193,7 +195,7 @@ test("agent-only run checks keep their own verdict", () => {
   const qa = runQaSection(context(documentNode), agentRow, checks, null);
   assert.equal(byClass(qa, "run-verdict")[0].textContent, "2 of 2 passed");
   assert.equal(byClass(directChecks(qa)[0], "run-qa-check-outcome")[0].textContent,
-    "verified this release");
+    "Passed");
 });
 
 test("a run with no checks and no decision has no Run QA section", () => {
@@ -244,7 +246,7 @@ for (const [label, action] of [["missing", undefined], ["empty", ""], ["unknown"
   test(`a decided review with a ${label} action never reads approved`, () => {
     const qa = sectionWith([gate(1, "resolved", action)]);
     assert.equal(verdictOf(qa), "Decided · outcome not recorded");
-    assert.equal(firstOutcome(qa), "decided · outcome not recorded");
+    assert.equal(firstOutcome(qa), "Passed");
     assert.doesNotMatch(qa.textContent, /approved|Approved/);
     assert.match(byClass(qa, "run-decision-record")[0].textContent,
       new RegExp(`^Decided \\(${action ? "shrug" : "outcome not recorded"}\\) by Ben Bauman`));
@@ -253,17 +255,17 @@ for (const [label, action] of [["missing", undefined], ["empty", ""], ["unknown"
 
 test("a rejection outranks another review still pending", () => {
   const qa = sectionWith([gate(1, "resolved", "reject"), gate(2, "pending")]);
-  assert.equal(verdictOf(qa), "2 of 2 rejected");
-  assert.equal(firstOutcome(qa), "rejected");
+  assert.equal(verdictOf(qa), "Rejected");
+  assert.equal(firstOutcome(qa), "Passed");
 });
 
 test("a rejection outranks an approval", () => {
   const qa = sectionWith([gate(1, "resolved", "approve"), gate(2, "resolved", "reject")]);
-  assert.equal(verdictOf(qa), "2 of 2 rejected");
+  assert.equal(verdictOf(qa), "Rejected");
 });
 
 test("an approval with another review pending still awaits approval", () => {
   const qa = sectionWith([gate(1, "resolved", "approve"), gate(2, "pending")]);
   assert.equal(verdictOf(qa), "Awaiting approval");
-  assert.equal(firstOutcome(qa), "screenshots captured · awaiting approval");
+  assert.equal(firstOutcome(qa), "Passed");
 });

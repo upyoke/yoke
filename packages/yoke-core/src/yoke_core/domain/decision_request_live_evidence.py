@@ -4,7 +4,9 @@ A frozen snapshot never updates on its own, and a pending gate is exactly
 where that hurts: the evidence recorded since it was raised, and the subject
 the request is about, both have to be current for a reader to act on them.
 This recomputes only those, only while the request is pending, and only into
-the copy handed to the caller — the stored row keeps its original snapshot.
+the copy handed to the caller. The stored row keeps its original snapshot
+until the request resolves; resolution records the refreshed copy the
+decision rested on, so the answer stays beside the evidence it answered.
 """
 
 from __future__ import annotations
@@ -32,8 +34,9 @@ def live_evidence(
 
     A frozen snapshot never updates on its own; this reruns the same
     resolution against the request's frozen subject, so a pending read sees
-    evidence recorded since -- the stored row, and every resolved or
-    withdrawn read, keep the original snapshot untouched. ``subject_key``/
+    evidence recorded since -- the stored row keeps its snapshot until
+    resolution records this refresh, and a withdrawn read keeps the original
+    snapshot untouched. ``subject_key``/
     ``project_id`` are the row's own typed identity, set once and never
     rewritten -- matching ``run_id``/``requirement_id`` to each other alone
     doesn't prove either agrees with the request this row actually is.

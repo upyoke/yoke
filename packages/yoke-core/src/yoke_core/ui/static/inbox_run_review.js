@@ -3,7 +3,7 @@
 //
 // The card is titled for the run it asks about and links it. Its body is the
 // same check list Shipping and the run page draw — each current check with
-// its linked name, verdict, reason and own screenshots, earlier attempts
+// its linked name, result, reason and own screenshots, earlier attempts
 // folded — then the decision: a plain request with Reject and Approve while
 // open, the recorded answer once decided. The run's checks are a second read,
 // so the card paints its decision first and fills the checks in when they land.
@@ -12,7 +12,8 @@ import { effectiveRunChecks } from "./universe_run_evidence.js";
 import { appendActions } from "./review_request_card.js";
 import { decidedLabel, reviewerLine } from "./review_request_presentation.js";
 import { deploymentRunHref } from "./universe_navigation.js";
-import { appendRunChecks, decidedOutcome } from "./universe_run_qa_checks.js";
+import { resolvedDecisionRecord } from "./universe_run_gates.js";
+import { appendRunChecks } from "./universe_run_qa_checks.js";
 import { relativeTime } from "./universe_time.js";
 import { callFunction, el } from "./universe_view_support.js";
 
@@ -36,13 +37,6 @@ export function isRunQaReview(row) {
 
 export function reviewRunId(row) {
   return String(reviewSubject(row).deployment_run_id || "");
-}
-
-// Only a resolved request has an outcome. A reader's own vote on a request
-// still open for other reviewers leaves it awaiting approval.
-export function reviewDecision(row) {
-  if (row.status !== "resolved") return "pending";
-  return decidedOutcome(row.resolution_action || row.your_decision?.action);
 }
 
 function appendHead(documentNode, card, row, options) {
@@ -86,6 +80,10 @@ function appendDecision(documentNode, main, card, row, options) {
   }
   const who = reviewerLine(row);
   if (who) main.appendChild(el(documentNode, "p", "review-who", who));
+  // The request's own outcome, after the evidence, as on Shipping; a reader's
+  // vote on a request still open for others is not an outcome.
+  const record = resolvedDecisionRecord(documentNode, row);
+  if (record) main.appendChild(record);
 }
 
 // `options`: onAct(row, action, card, note), compact, projectLabel.
@@ -114,7 +112,7 @@ export function fillRunQaReviewChecks(context, card, row, rows) {
   const current = effectiveRunChecks(runRows);
   const history = runRows.filter((check) => !current.includes(check));
   host.replaceChildren();
-  appendRunChecks(context, host, current, history, reviewDecision(row));
+  appendRunChecks(context, host, current, history, { runId: reviewRunId(row) });
 }
 
 // One QA activity read per run under review, shared by every card that
@@ -140,7 +138,6 @@ export const inboxRunReview = {
   fillRunQaReviewChecks,
   isRunQaReview,
   loadRunQaReviewChecks,
-  reviewDecision,
   reviewRunId,
   runQaReviewCard,
 };

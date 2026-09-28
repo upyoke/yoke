@@ -92,8 +92,8 @@ function appendEvidence(context, card, row, compact) {
     stepCaptionsOnly: true,
     requirementId: evidence.requirementId,
     // A QA review with nothing behind it must say so: a verdict on nothing
-    // is the case the warning exists for. A release or work approval whose
-    // subject simply has no screenshots is not a defect, so it says nothing.
+    // is the case the warning exists for. A release or work approval states
+    // its subject's evidence state in its own note below.
     emptyNote: row.kind === "qa_needs_review" ? NO_QA_EVIDENCE : null,
   });
   if (strip) card.appendChild(strip);

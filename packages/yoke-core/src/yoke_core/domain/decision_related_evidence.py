@@ -35,6 +35,21 @@ def _revision(raw: Any) -> str:
     return recorded_head_sha(serialized)
 
 
+def current_release_run_id(conn: Any, item_id: int) -> Optional[str]:
+    """Return the newest deployment run that carries ``item_id`` to release."""
+    if not _table_exists(conn, "deployment_run_items"):
+        return None
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = conn.execute(
+        "SELECT dri.run_id FROM deployment_run_items dri "
+        "JOIN deployment_runs dr ON dr.id=dri.run_id "
+        f"WHERE dri.item_id={marker} AND dri.delivery_intent='final' "
+        "ORDER BY dr.created_at DESC, dr.id DESC LIMIT 1",
+        (int(item_id),),
+    ).fetchone()
+    return None if row is None else str(_value(row, "run_id", 0))
+
+
 def related_screenshot_evidence(
     conn: Any,
     *,
@@ -44,6 +59,9 @@ def related_screenshot_evidence(
 ) -> dict[str, Any]:
     """Return latest-result screenshots tied to exactly one item or deploy run.
 
+    An item's evidence is its own requirements plus the member requirements
+    its current release run recorded for it; member checks from earlier runs
+    prove nothing about this release and stay out.
     Standalone plan evidence is deliberately excluded: an approval must not
     imply that an unattached plan proved its item or release. The returned
     state distinguishes no attachment, an attached run with no screenshots,
@@ -56,9 +74,18 @@ def related_screenshot_evidence(
     if (item_id is None) == (deployment_run_id is None):
         raise ValueError("name exactly one evidence subject")
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    release_run_id: Optional[str] = None
     if item_id is not None:
-        subject = f"(q.item_id={marker} OR q.epic_id={marker})"
+        subject = f"(q.item_id={marker} OR q.epic_id={marker}"
         params: tuple[Any, ...] = (int(item_id), int(item_id))
+        release_run_id = current_release_run_id(conn, int(item_id))
+        if release_run_id is not None:
+            subject += (
+                f" OR (q.deployment_run_id={marker}"
+                f" AND q.deployment_member_item_id={marker})"
+            )
+            params += (release_run_id, int(item_id))
+        subject += ")"
     else:
         subject = f"q.deployment_run_id={marker}"
         params = (str(deployment_run_id),)
@@ -141,7 +168,7 @@ def related_screenshot_evidence(
             state = "stale"
         elif expected and not revisions:
             state = "revision_unknown"
-    return {
+    result = {
         "state": state,
         "screenshots": screenshots,
         "screenshot_count": len(screenshots),
@@ -149,6 +176,10 @@ def related_screenshot_evidence(
         "revisions": sorted(revisions),
         "expected_revision": expected_revision,
     }
+    if item_id is not None:
+        # Which release's member checks an item's evidence drew from.
+        result["release_run_id"] = release_run_id
+    return result
 
 
-__all__ = ["related_screenshot_evidence"]
+__all__ = ["current_release_run_id", "related_screenshot_evidence"]

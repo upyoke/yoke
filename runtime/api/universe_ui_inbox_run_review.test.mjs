@@ -86,14 +86,13 @@ test("an open run QA review lists the run's checks, then asks for the decision",
   assert.equal(current.length, 2);
   assert.equal(byClass(current[0], "run-qa-check-name")[0].children[0].href,
     "#/qa-activity/31974?project=10");
-  assert.equal(byClass(current[0], "run-qa-check-outcome")[0].textContent,
-    "screenshots captured · awaiting approval");
+  assert.equal(byClass(current[0], "run-qa-check-outcome")[0].textContent, "Passed");
   assert.equal(byClass(current[0], "run-qa-check-reason").length, 0);
   // Each screenshot once, under the check that took it.
   assert.deepEqual(shotIds(current[0]), [22834, 22835]);
   assert.deepEqual(shotIds(current[1]), [22840]);
   const history = byClass(checks, "run-qa-history")[0];
-  assert.equal(history.children[0].textContent, "1 earlier or superseded check");
+  assert.equal(history.children[0].textContent, "Earlier checks (1)");
   assert.deepEqual(shotIds(history), [22800]);
 
   const ask = byClass(card, "run-decision-ask")[0];
@@ -122,16 +121,20 @@ test("answering the review goes through the Inbox resolver", async () => {
 for (const [action, state, outcome] of [
   ["approve", "Approved", "approved"], ["reject", "Rejected", "rejected"],
 ]) {
-  test(`a ${outcome} run QA review records the answer on each check`, async () => {
+  test(`a ${outcome} run QA review records the answer after the checks`, async () => {
     const { main } = render([runReview({ status: "resolved", decided_by_you: true,
+      resolution_action: action, resolved_by: "Ben Bauman",
       your_decision: { action }, actions: [], can_act: false })]);
     await settle();
     const card = byClass(inboxSection(main, "decided"), "review-card")[0];
     assert.equal(byClass(card, "review-state")[0].textContent, state);
     assert.equal(byClass(card, "review-who")[0].textContent, `You ${outcome}`);
     assert.equal(byClass(card, "review-action").length, 0);
+    // The check keeps its own result; the answer is its own record.
     assert.equal(byClass(byClass(card, "run-qa-check")[0], "run-qa-check-outcome")[0]
-      .textContent, outcome);
+      .textContent, "Passed");
+    assert.match(byClass(card, "run-decision-record")[0].textContent,
+      new RegExp(`^${state} by Ben Bauman`));
   });
 }
 
@@ -150,7 +153,10 @@ test("an Inbox run review decided with no recorded action never reads approved",
   await settle();
   const card = byClass(inboxSection(main, "decided"), "review-card")[0];
   assert.equal(byClass(byClass(card, "run-qa-check")[0], "run-qa-check-outcome")[0]
-    .textContent, "decided · outcome not recorded");
+    .textContent, "Passed");
+  assert.doesNotMatch(card.textContent, /Approved/);
+  assert.match(byClass(card, "run-decision-record")[0].textContent,
+    /^Decided \(outcome not recorded\)/);
   assert.equal(byClass(card, "review-state")[0].textContent, "Decided");
   assert.equal(byClass(card, "review-who")[0].textContent, "You decided");
 });
@@ -162,7 +168,9 @@ test("your vote on a review still open for others keeps its checks awaiting appr
   await settle();
   const card = byClass(inboxSection(main, "decided"), "review-card")[0];
   assert.equal(byClass(byClass(card, "run-qa-check")[0], "run-qa-check-outcome")[0]
-    .textContent, "screenshots captured · awaiting approval");
+    .textContent, "Passed");
+  // A vote on a request still open records no outcome for the request.
+  assert.equal(byClass(card, "run-decision-record").length, 0);
   assert.equal(byClass(card, "review-state")[0].textContent, "Approved");
   assert.match(byClass(card, "review-who")[0].textContent, /^You approved · 1 of 2 · waiting on Quinn$/);
 });
@@ -172,6 +180,5 @@ test("a resolved review reads the request's outcome over your own vote", async (
     resolution_action: "reject", your_decision: { action: "approve" }, actions: [], can_act: false })]);
   await settle();
   const card = byClass(inboxSection(main, "decided"), "review-card")[0];
-  assert.equal(byClass(byClass(card, "run-qa-check")[0], "run-qa-check-outcome")[0]
-    .textContent, "rejected");
+  assert.match(byClass(card, "run-decision-record")[0].textContent, /^Rejected by /);
 });

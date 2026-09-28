@@ -11,6 +11,7 @@ subject ended, so the question is moot no matter what anyone answered.
 
 from __future__ import annotations
 
+import json
 from typing import Any, Optional
 
 from yoke_core.domain.approval_decisions import (
@@ -26,6 +27,9 @@ from yoke_core.domain.decision_request_contract import (
 )
 from yoke_core.domain.decision_request_authority import authority_reason
 from yoke_core.domain.decision_request_events import append_decision_event
+from yoke_core.domain.decision_request_subject_context import (
+    validate_subject_context,
+)
 from yoke_core.domain.decision_request_subject_effect import (
     apply_subject_resolution,
     notify_subject_resolution,
@@ -136,16 +140,24 @@ def resolve_decision_request(
         conn.commit()
         return _request_row(conn, request_id)
     p = _p(conn)
+    # The pending read refreshed the evidence live; the decision rests on
+    # that refresh, so the resolved record keeps it rather than reverting to
+    # the snapshot frozen before the evidence existed.
+    decided_context = json.dumps(
+        validate_subject_context(request["kind"], request["subject_context"]),
+        separators=(",", ":"),
+    )
     cursor = conn.execute(
         "UPDATE decision_requests SET status = 'resolved', "
         f"resolution_action = {p}, resolution_actor_id = {p}, "
-        f"resolution_note = {p}, resolved_at = {p} "
+        f"resolution_note = {p}, resolved_at = {p}, subject_context = {p} "
         f"WHERE id = {p} AND status = 'pending'",
         (
             progress.action,
             progress.deciding_actor_id,
             progress.note,
             stamp,
+            decided_context,
             request_id,
         ),
     )

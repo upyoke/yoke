@@ -204,8 +204,8 @@ def test_all_mode_review_holds_the_qa_verdict_until_every_box_decides(test_db):
 
 
 def test_pending_review_request_reads_evidence_recorded_after_creation(test_db):
-    """Already-pending requests re-resolve evidence on read; resolved ones
-    stay frozen at what was actually decided."""
+    """Already-pending requests re-resolve evidence on read; resolution
+    records that evidence, so resolved ones stay at what was actually decided."""
     seeded = _seed_undetermined_review(
         test_db,
         item_id=9506,
@@ -263,4 +263,7 @@ def test_pending_review_request_reads_evidence_recorded_after_creation(test_db):
     [resolved_request] = list_subject_requests(
         test_db, "qa_requirement", str(int(requirement_id))
     )
-    assert resolved_request["subject_context"]["evidence_state"] == "missing"
+    assert resolved_request["subject_context"]["evidence_state"] == "attached"
+    assert resolved_request["subject_context"]["artifacts"][0]["artifact_id"] == int(
+        later_artifact_id
+    )

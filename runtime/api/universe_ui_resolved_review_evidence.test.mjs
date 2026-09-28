@@ -100,7 +100,10 @@ function assertDecisionEvidence(host, memberAction, memberClass) {
   assert.ok(runRecord.textContent.includes("Approved by Ben Bauman"));
   assert.equal(byClass(host, "review-action").length, 0);
   assert.equal(byClass(host, "review-question").length, 0);
-  assert.equal(byClass(host, "review-card").length, 2);
+  // The run approval keeps its request card; the member review is the
+  // member's Item QA decision, drawn like a run QA review.
+  assert.equal(byClass(host, "review-card").length, 1);
+  assert.equal(byClass(member, "run-request")[0].getAttribute("data-request-id"), "72");
 }
 
 for (const memberAction of ["approve", "reject"]) {

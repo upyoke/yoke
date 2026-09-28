@@ -330,13 +330,17 @@ test("a carried item's own QA is shown beside that item, labelled as its own", a
   const evidence = byClass(byClass(root, "run-items")[0], "carried-item-evidence")[0];
   assert.ok(evidence, "the carried item carries its own evidence");
   // Nothing ran against the deployed revision, so the item's check sits in
-  // its earlier checks, named for when it ran and linked to its QA case.
-  assert.equal(byClass(evidence, "carried-item-qa-heading").length, 0);
-  const earlier = byClass(evidence, "carried-item-qa-earlier")[0];
-  assert.equal(earlier.children[0].textContent, "Earlier checks");
-  const row = byClass(earlier, "carried-item-qa-row")[0];
-  assert.match(row.textContent, /^○Before merge·.*·Browser inspection·undetermined$/);
-  assert.equal(row.children[1].href, "#/qa-activity/26134?project=1");
+  // its Item QA's earlier checks, named for when it ran and linked to its case.
+  const section = byClass(evidence, "item-qa-section")[0];
+  assert.equal(byClass(section, "run-qa-head")[0].children[0].textContent, "Item QA");
+  assert.equal(section.children.filter(
+    (node) => node.classList.contains("run-qa-check")).length, 0);
+  const earlier = byClass(evidence, "run-qa-history")[0];
+  assert.equal(earlier.children[0].textContent, "Earlier checks (1)");
+  const row = byClass(earlier, "run-qa-check")[0];
+  assert.equal(byClass(row, "run-qa-check-name")[0].children[0].href,
+    "#/qa-activity/26134?project=1");
+  assert.equal(byClass(row, "run-qa-check-run")[0].textContent, "Before merge");
   assert.equal(byClass(evidence, "review-shot").length, 1);
   assert.equal(byClass(evidence, "carried-item-evidence-note").length, 0);
 });

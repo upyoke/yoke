@@ -56,15 +56,18 @@ test("an item's own QA shows in its Carries entry", async () => {
   assert.match(entry.textContent, /BUZ-1896/);
   const evidence = byClass(entry, "carried-item-evidence")[0];
   assert.ok(evidence, "the item's entry carries its own evidence");
-  // A check from before merge is an earlier check: one row, linked to its
-  // QA case, with no phase code and no caption restating it.
-  assert.equal(byClass(evidence, "carried-item-qa-heading").length, 0);
-  const earlier = byClass(evidence, "carried-item-qa-earlier")[0];
-  assert.equal(earlier.children[0].textContent, "Earlier checks");
-  const row = byClass(earlier, "carried-item-qa-row")[0];
-  assert.match(row.textContent, /^○Before merge·/);
-  assert.equal(row.children[1].href, "#/qa-activity/26134?project=1");
-  assert.doesNotMatch(evidence.textContent, /verified before merge|before merge ·/);
+  // The item's QA is its own "Item QA" section, drawn like "Run QA". A
+  // check from before merge is an earlier check: one line, linked to its QA
+  // case, naming the merge it verified rather than a phase code.
+  const section = byClass(evidence, "item-qa-section")[0];
+  assert.equal(byClass(section, "run-qa-head")[0].children[0].textContent, "Item QA");
+  const earlier = byClass(evidence, "run-qa-history")[0];
+  assert.equal(earlier.children[0].textContent, "Earlier checks (1)");
+  const row = byClass(earlier, "run-qa-check")[0];
+  assert.match(row.textContent, /^○Browser inspection·\S.*·Before merge/);
+  assert.equal(byClass(row, "run-qa-check-name")[0].children[0].href,
+    "#/qa-activity/26134?project=1");
+  assert.doesNotMatch(evidence.textContent, /verified before merge|QA for the deployed revision/);
   // Each screenshot is its own control inside that entry.
   assert.equal(byClass(evidence, "review-shot").length, 2);
   // The distinction between an item's own record and this run's proof is
@@ -99,12 +102,16 @@ test("each carried item shows its own evidence and no one else's", async () => {
   const second = byClass(memberEntry(card, 1), "carried-item-evidence")[0];
   assert.equal(byClass(first, "review-shot").length, 2);
   assert.equal(byClass(second, "review-shot").length, 1);
-  // The check that ran against the deployed revision leads its entry.
-  assert.equal(byClass(second, "carried-item-qa-heading")[0].textContent,
-    "QA for the deployed revision");
-  assert.match(byClass(second, "carried-item-qa-row")[0].textContent,
-    /^✓Browser inspection passed·this release·/);
-  assert.equal(byClass(first, "carried-item-qa-heading").length, 0);
+  // The check this run recorded leads its entry as a current check, in the
+  // run's own words and without restating the release the card is about.
+  const lead = byClass(second, "item-qa-section")[0].children
+    .find((node) => node.classList.contains("run-qa-check"));
+  assert.equal(byClass(lead, "run-qa-check-name")[0].textContent, "Browser inspection");
+  assert.equal(byClass(lead, "run-qa-check-outcome")[0].textContent, "Passed");
+  assert.equal(byClass(lead, "run-qa-check-mark")[0].textContent, "✓");
+  assert.doesNotMatch(second.textContent, /this release/);
+  assert.equal(byClass(first, "item-qa-section")[0].children
+    .filter((node) => node.classList.contains("run-qa-check")).length, 0);
   assert.equal(byClass(second, "carried-item-evidence-note").length, 0);
 });
 
@@ -158,7 +165,7 @@ test("a waiting review is answered from the item's entry, as the Inbox would", a
   await settle();
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
-  const review = byClass(evidence, "review-card")[0];
+  const review = byClass(evidence, "run-request")[0];
   assert.ok(review, "the waiting review is offered inside the item's entry");
   assert.equal(review.getAttribute("data-request-id"), "4400");
   // The strip above is this item's recent history, which does not contain
@@ -191,7 +198,7 @@ test("a failed verdict with no waiting request offers no decision", async () => 
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
   assert.ok(evidence, "its evidence is still shown");
-  assert.equal(byClass(evidence, "review-card").length, 0);
+  assert.equal(byClass(evidence, "run-request").length, 0);
   assert.equal(byClass(evidence, "review-action").length, 0);
 });
 
@@ -212,7 +219,7 @@ test("a review belonging to another item is not offered under this one", async (
   await settle();
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
-  assert.equal(byClass(evidence, "review-card").length, 0);
+  assert.equal(byClass(evidence, "run-request").length, 0);
 });
 
 test("a check nobody has run yet still carries its waiting review", async () => {
@@ -234,7 +241,7 @@ test("a check nobody has run yet still carries its waiting review", async () => 
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
   assert.ok(evidence, "the entry is drawn for a check with no run");
-  const review = byClass(evidence, "review-card")[0];
+  const review = byClass(evidence, "run-request")[0];
   assert.equal(review.getAttribute("data-request-id"), "4403");
   // The item's history carries no capture at all, so suppressing the
   // request's own evidence would leave a verdict asked on nothing visible.
@@ -260,7 +267,7 @@ test("a review that names another run is not offered under this run", async () =
   await settle();
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
-  assert.equal(byClass(evidence, "review-card").length, 0);
+  assert.equal(byClass(evidence, "run-request").length, 0);
 });
 
 test("a request whose evidence is already on screen does not draw it twice", async () => {
@@ -291,10 +298,10 @@ test("a request whose evidence is already on screen does not draw it twice", asy
   await settle();
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
-  const review = byClass(evidence, "review-card")[0];
+  const review = byClass(evidence, "run-request")[0];
   assert.equal(review.getAttribute("data-request-id"), "4600");
   // Proven already shown by artifact identity, so it is not repeated. Both
-  // sit inside the three the strip draws, so both are genuinely on screen.
+  // sit inside what the check's strip draws, so both are genuinely on screen.
   assert.equal(byClass(review, "review-evidence").length, 0);
   assert.equal(byClass(evidence, "review-shot").length, 2);
 });
@@ -302,10 +309,10 @@ test("a request whose evidence is already on screen does not draw it twice", asy
 test("a request whose evidence sits behind +N more still draws it", async () => {
   const documentNode = new FakeDocument();
   const client = readingClient({
-    // Five captures, of which the strip draws three; this request rests on
-    // the fourth, which nobody has seen until they click.
+    // Eight captures, of which the check's strip draws six; this request
+    // rests on the seventh, which nobody has seen until they click.
     rows: [activityRow({
-      artifacts: [1, 2, 3, 4, 5].map((id) => artifact(id, 26134)),
+      artifacts: [1, 2, 3, 4, 5, 6, 7, 8].map((id) => artifact(id, 26134)),
       deployment_run_id: RUN_ID,
       execution_target_json: deployedTarget(),
     })],
@@ -317,7 +324,7 @@ test("a request whose evidence sits behind +N more still draws it", async () => 
         ...qaRequestRow().subject_context,
         requirement_id: 26134,
         artifacts: [
-          { artifact_id: 4, artifact_type: "screenshot", content_type: "image/png" },
+          { artifact_id: 7, artifact_type: "screenshot", content_type: "image/png" },
         ],
         artifact_count: 1,
       },
@@ -327,9 +334,9 @@ test("a request whose evidence sits behind +N more still draws it", async () => 
   await settle();
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
-  const review = byClass(evidence, "review-card")[0];
+  const review = byClass(evidence, "run-request")[0];
   assert.equal(review.getAttribute("data-request-id"), "4601");
-  // Passed to the strip is not the same as drawn by it: three are on screen
+  // Passed to the strip is not the same as drawn by it: six are on screen
   // and the rest are folded away, so this request keeps its own evidence.
   assert.equal(byClass(evidence, "review-more").length, 1);
   assert.equal(byClass(review, "review-evidence").length, 1);
