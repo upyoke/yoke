@@ -199,7 +199,9 @@ def test_rejection_reaches_the_holder_with_its_next_step(test_db: Any) -> None:
     assert _recipients(test_db, key) == [HOLDER_A]
     body = _bodies(test_db, key)[0]
     assert "was rejected" in body
-    assert "record fresh evidence" in body
+    assert "keep the member in release and retry QA" in body
+    assert f"lifecycle transition YOK-{member} --from release --to implementing" in body
+    assert f"--requirement-id {requirement_id}" in body
     assert "The release banner still shows the previous version." in body
     # And the stage genuinely did not advance.
     assert not deployment_qa_stage_status(

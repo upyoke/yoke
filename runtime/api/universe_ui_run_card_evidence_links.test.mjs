@@ -36,23 +36,26 @@ function screenshotArtifact(overrides = {}) {
   };
 }
 
-function readingContext(documentNode, artifacts = []) {
+function readingContext(documentNode, artifacts = [], reads = []) {
   return {
     document: documentNode,
     capabilities: {},
     projects: () => [{ id: 1, slug: "yoke", name: "Yoke" }],
     client: {
-      call: async () => ({
-        status: 200,
-        envelope: {
-          success: true,
-          result: {
-            disposition: "ready",
-            content_type: "image/png",
-            content_base64: PNG,
+      call: async (request) => {
+        reads.push(request);
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: {
+              disposition: "ready",
+              content_type: "image/png",
+              content_base64: PNG,
+            },
           },
-        },
-      }),
+        };
+      },
     },
     artifacts,
   };
@@ -216,11 +219,12 @@ test("a run carrying nothing still shows what its checks captured", async () => 
 
 test("each carried item owns its own screenshot", async () => {
   const documentNode = new FakeDocument();
+  const reads = [];
   const artifacts = [
     screenshotArtifact({ id: 77, deployment_member_item_id: 41 }),
     screenshotArtifact({ id: 78, deployment_member_item_id: 42 }),
   ];
-  const context = readingContext(documentNode, artifacts);
+  const context = readingContext(documentNode, artifacts, reads);
   const row = {
     ...runRow(),
     member_items: [
@@ -244,4 +248,6 @@ test("each carried item owns its own screenshot", async () => {
   assert.deepEqual(byClass(card, "release-member").map((member) =>
     byClass(member, "review-shot").map((shot) => Number(shot.getAttribute("data-artifact-id")))),
   [[77], [78]]);
+  assert.deepEqual(reads.filter((request) => request.function === "qa.artifact.read")
+    .map((request) => request.target.qa_requirement_id), [21583, 21583]);
 });

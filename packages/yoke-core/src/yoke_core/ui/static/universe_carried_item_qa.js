@@ -170,7 +170,8 @@ function screenshots(context, lead, rows) {
       const key = String(artifact.id ?? artifact.artifact_id ?? "");
       if (!isScreenshot(artifact) || (key && seen.has(key))) continue;
       if (key) seen.add(key);
-      shots.push({ ...artifact, requirement_id: row.requirement_id });
+      shots.push({ ...artifact,
+        requirement_id: artifact.requirement_id ?? row.requirement_id });
     }
   }
   const options = { compact: true, limit: LATEST_VISUALS, stepCaptionsOnly: true };

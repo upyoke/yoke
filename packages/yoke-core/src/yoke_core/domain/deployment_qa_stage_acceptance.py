@@ -30,6 +30,10 @@ from yoke_core.domain.deployment_qa_admission_materialization import (
 )
 from yoke_core.domain import qa_execution_environment_target as target_authority
 from yoke_core.domain.post_deploy_verification_answer import member_post_deploy_answer
+from yoke_core.domain.qa_pending_agent_review import (
+    pending_review_for_stage,
+    stage_review_pending_blocker,
+)
 from yoke_core.domain.refusal_recovery import compose_refusal
 
 
@@ -164,6 +168,26 @@ def unsettled_acceptance_blocker(*, execution_id: object, digest: str) -> str:
     )
 
 
+def missing_execution_blocker(
+    conn: Any,
+    run_id: str,
+    stage_name: str,
+    member_item_id: int | None,
+    execution_target_digest: str,
+) -> tuple[str, str]:
+    """Why a subject has no completed execution: review pending, or never run."""
+    pending = pending_review_for_stage(
+        conn,
+        run_id=run_id,
+        stage_name=stage_name,
+        member_item_id=member_item_id,
+        execution_target_digest=execution_target_digest,
+    )
+    if pending is not None:
+        return STAGE_AWAITING_REVIEW, stage_review_pending_blocker(pending)
+    return STAGE_NOT_RUN, "no completed scoped QA execution exists"
+
+
 @dataclass(frozen=True)
 class StageAcceptance:
     """One stage subject's acceptance, as a state and the reasons behind it."""
@@ -233,10 +257,10 @@ def stage_acceptance(
             return StageAcceptance(STAGE_DISCHARGED, ())
         if member_post_deploy_answer(conn, subject).discharges_without_cases:
             return StageAcceptance(STAGE_DISCHARGED, ())
-        return StageAcceptance(
-            STAGE_NOT_RUN,
-            ("no completed scoped QA execution exists", *failures),
+        state, reason = missing_execution_blocker(
+            conn, run_id, stage_name, member_item_id, digest
         )
+        return StageAcceptance(state, (reason, *failures))
     if failures:
         return StageAcceptance(STAGE_CASES_UNRESOLVED, tuple(failures))
     obligation_failures = fulfill_admitted_obligations(
@@ -316,6 +340,7 @@ __all__ = [
     "completed_execution",
     "existing_acceptance_requirement",
     "latest_verdict",
+    "missing_execution_blocker",
     "stage_acceptance",
     "stage_acceptance_blockers",
     "unsettled_acceptance_blocker",

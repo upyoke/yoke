@@ -9,12 +9,42 @@ own stderr rather than a bare timeout.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 from typing import Any, Dict
 
 
 READINESS_ATTEMPTS = 10
+
+
+def launch_daemon(command: list[str], env: dict[str, str], log_file: Path):
+    """Start outside the caller's terminal process group and standard input.
+
+    Short-lived command shells may tear down their entire process group on
+    exit, after the daemon has already answered its first health request.
+    """
+    isolation = (
+        {"creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP}
+        if os.name == "nt"
+        else {"start_new_session": True}
+    )
+    try:
+        with log_file.open("w", encoding="utf-8") as stderr_log:
+            return subprocess.Popen(
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=stderr_log,
+                env=env,
+                **isolation,
+            )
+    except OSError as exc:
+        raise RuntimeError(
+            f"browser daemon could not start independently of the caller: {exc}. "
+            "Check the Node executable and browser runtime permissions, then "
+            "run `yoke qa browser setup` again."
+        ) from None
 
 
 def _client():
@@ -71,4 +101,4 @@ def _stderr(log_file: Path) -> str:
     return log_file.read_text(encoding="utf-8")
 
 
-__all__ = ["READINESS_ATTEMPTS", "wait_for_daemon_ready"]
+__all__ = ["READINESS_ATTEMPTS", "launch_daemon", "wait_for_daemon_ready"]

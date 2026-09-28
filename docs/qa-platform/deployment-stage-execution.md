@@ -246,6 +246,29 @@ with no materialized cases at all is unanswered unless the member recorded
 that it has no post-deploy obligation (not a waiver) or a waiver-backed
 declaration before the deploy.
 
+## Failed member QA handoff
+
+A completed item-scoped execution with a determinate failing case sends a
+notice to that member's work-claim holder. If the holder is gone, the notice
+uses the **member's project** steering seat, even when the run carries members
+from several projects. The notice names the run, stage, and failed requirement
+ids, and gives the commands to inspect the durable QA evidence. A repeated
+check of the same failed verdict deduplicates; a new failed verdict or run
+can send a fresh handoff. If nobody is addressable, the stage remains blocked
+and the runner names the missing recipient so the member can be staffed.
+
+The evidence decides the route. An environment or asset-delivery failure is
+retryable against the same deployed revision: leave the item in `release` and
+run fresh QA with `yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE
+--member ITEM --project PROJECT`. A member code defect uses the pinned
+workflow's ordinary backward transition, `yoke lifecycle transition ITEM
+--from release --to implementing --reason "..."`, without an operator
+approval step. Refresh any conflict survey its activation gate requires.
+Keep the existing claim and worktree, correct and verify the item, then merge
+it again. The run driver settles the old run without changing its pin. The
+failed run and QA stay as history; its frozen candidate cannot be rewritten,
+so a new run delivers the corrected commit.
+
 ## Governed cutover
 
 Migration `0043_scoped_deployment_qa_execution` adds nullable stage/member
