@@ -70,8 +70,9 @@ repair before the run is re-driven.
 
 A stage that wants your evidence is run by naming that stage AND your item.
 When you attached an item QA plan at verify, the stage has already resolved it
-and `--plan` is refused there — a plan on a stage that already names its cases
-materializes a second, duplicate set beside the ones it credits. `--plan`
+and `--plan` is refused there unless a failed admitted case is being corrected
+with `--replaces CASE_KEY=FAILED_REQUIREMENT_ID` for every case in a
+correction-only plan. An unrelated plan adds duplicate obligations. `--plan`
 belongs only to the wake that says the stage names no cases:
 
 ```text

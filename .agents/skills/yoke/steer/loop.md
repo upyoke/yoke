@@ -390,7 +390,7 @@ yoke watch qa-plan -- --deployment-run-id {RUN_ID} --stage STAGE --project {_pro
 
 Add `--plan PLAN` only when this run stage names no cases. Then re-drive
 `{RUN_ID}` through its existing pinned runner. Item QA evidence has its own member subject and cannot credit this run-scoped stage.
-A case that failed because the case itself was wrong is corrected with `--plan CORRECTED --replaces CASE_KEY=FAILED_REQUIREMENT_ID`: the failed case leaves the roster and is superseded when the correction passes review, so never supersede it by hand.
+A case that failed because the case itself was wrong is corrected with a plan containing only its corrected case: `--plan CORRECTED --replaces CASE_KEY=FAILED_REQUIREMENT_ID`. This correction is allowed even when the stage names admitted cases. The failed case leaves the roster and is superseded when the correction passes review, so never supersede it by hand.
 
 A member whose own item-scoped QA clears no longer needs a manual merge
 close-out. A final member on a selected flow without run QA or run approval closes from its
