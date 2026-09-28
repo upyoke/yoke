@@ -164,12 +164,15 @@ test("a run QA review on a run card is a plain request, not a restated case", as
   await settle();
 
   assert.ok(card.className.includes("is-awaiting-review"), card.className);
-  // No "QA review" label, no boilerplate facts, no request-wide screenshot
-  // strip and no repeated run link: the checks above carry the evidence.
+  // No "QA review" label, no boilerplate facts and no repeated run link. With
+  // no check on the card to carry it, the review's own capture is shown once,
+  // above the ask, so the decision is never asked on nothing visible.
   assert.equal(byClass(card, "run-request-kind").length, 0);
   assert.equal(byClass(card, "review-qa").length, 0);
   assert.equal(byClass(card, "review-links").length, 0);
-  assert.equal(byClass(card, "review-shot").length, 0);
+  const shots = byClass(card, "review-shot").map((node) => node.getAttribute("data-artifact-id"));
+  assert.equal(new Set(shots).size, shots.length);
+  assert.deepEqual(shots, ["1", "2"]);
   const ask = byClass(card, "run-decision-ask")[0];
   assert.equal(ask.children[0].textContent, "Approve or reject the visual result.");
   const buttons = byClass(ask, "review-action");

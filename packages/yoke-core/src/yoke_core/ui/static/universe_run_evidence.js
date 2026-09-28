@@ -11,14 +11,13 @@ import { settledScopedCalls } from "./universe_view_support.js";
 
 const ACTIVITY_LIMIT = 100;
 
-// Activity is an attempt log. The visible run verdict uses the latest live
+// Activity is an attempt log. The visible verdict uses the latest live
 // attempt for each requirement; replaced requirements stay in history, and
 // so does a failed case whose declared corrected case now carries its attempt.
-export function effectiveRunChecks(rows) {
+export function effectiveChecks(rows) {
   const latest = new Map();
   for (const row of rows || []) {
-    if (row.deployment_member_item_id != null || row.superseded_at
-      || row.superseded_by_requirement_id
+    if (row.superseded_at || row.superseded_by_requirement_id
       || row.replacement_requirement_id) continue;
     const key = String(row.requirement_id ?? row.case_key ?? row.id);
     const previous = latest.get(key);
@@ -30,6 +29,12 @@ export function effectiveRunChecks(rows) {
     }
   }
   return [...latest.values()];
+}
+
+// The run's own checks: a carried item's member checks are that item's.
+export function effectiveRunChecks(rows) {
+  return effectiveChecks((rows || []).filter(
+    (row) => row.deployment_member_item_id == null));
 }
 
 function groupByRun(rows) {
@@ -122,6 +127,8 @@ export async function loadPendingReviews(context, projectIds) {
 
 export const universeRunEvidence = {
   EMPTY_RUN_FACTS,
+  effectiveChecks,
+  effectiveRunChecks,
   loadPendingReviews,
   loadRunFacts,
   runEvidence,

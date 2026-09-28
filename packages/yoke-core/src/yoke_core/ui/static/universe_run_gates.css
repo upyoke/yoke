@@ -78,6 +78,14 @@
   text-decoration: underline;
 }
 .universe-app-root .run-qa-check-outcome { color: var(--yoke-muted); }
+/* One status mark per check line, in Run QA and Item QA alike. */
+.universe-app-root .run-qa-check-mark { width: 1em; text-align: center; font-weight: 700; }
+.universe-app-root .run-qa-check.is-passed > .run-qa-check-mark { color: var(--yoke-good); }
+.universe-app-root .run-qa-check.is-failed > .run-qa-check-mark { color: var(--yoke-crit); }
+.universe-app-root .run-qa-check.is-other > .run-qa-check-mark { color: var(--yoke-muted); }
+.universe-app-root .run-qa-check-sep { color: var(--yoke-muted); }
+.universe-app-root a.run-qa-check-run { color: var(--yoke-link); }
+.universe-app-root span.run-qa-check-run { color: var(--yoke-muted); }
 /* A check's verdict reason is prose: it wraps under the name at full width. */
 .universe-app-root .run-qa-check-reason {
   flex: 0 0 100%;

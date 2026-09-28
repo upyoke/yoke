@@ -114,7 +114,11 @@ export function evidenceOf(row) {
     };
   }
   const evidence = facts.evidence || {};
+  // A decision whose subject captured nothing says so rather than showing
+  // an empty strip a reader could take for missing rendering.
   const notes = {
+    absent: "No QA is recorded for this decision's subject.",
+    missing: "QA ran for this decision's subject but captured no screenshot.",
     failed: "This evidence includes a failed QA result.",
     stale: "These screenshots cover an older revision than this decision.",
     revision_unknown: "The screenshot revision was not recorded.",

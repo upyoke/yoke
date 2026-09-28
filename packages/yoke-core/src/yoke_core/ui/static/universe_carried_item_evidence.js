@@ -1,6 +1,6 @@
-// What a release's carried items proved on their own, and the reviews those
-// items awaited or received, shown inside each item's own entry in a
-// deployment card's Carries box.
+// What a release's carried items proved on their own, and the reviews and
+// approvals those items awaited or received, shown as each item's "Item QA"
+// inside its own entry in a deployment card's Carries box.
 //
 // A deployment run's own checks record the run they ran in. An item's checks
 // do not have to: an item-attached requirement records no deployment run at
@@ -10,14 +10,16 @@
 // a picture that proves nothing about this run is never presented as if it
 // did.
 
-import { normalizedArtifacts } from "./review_evidence_strip.js";
-import { reviewRequestCard } from "./review_request_card.js";
-import { evidenceOf } from "./review_request_presentation.js";
 import { QA_STATE, classifyMemberQa, classifyQaRow } from "./qa_state.js";
-import { paintCarriedItemQa } from "./universe_carried_item_qa.js";
+import { itemQaChecks } from "./universe_carried_item_qa.js";
 import { loadMissingItemTitles } from "./universe_carried_item_titles.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
-import { gateAsRequest, resolvedDecisionRecord } from "./universe_run_gates.js";
+import { decisionList, gateAsRequest } from "./universe_run_gates.js";
+import {
+  drawnCheckArtifactIds,
+  qaScopeSection,
+  runHumanDecision,
+} from "./universe_run_qa_checks.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
 
 // How many checks one item may contribute, and how many items share a call.
@@ -181,8 +183,10 @@ function reviewsByItem(pendingByRequirement) {
 }
 
 // The item's waiting reviews come from the request index; the run's own
-// gates also carry resolved member reviews and their frozen evidence. A
-// truncated QA history must not hide either request from this member row.
+// gates also carry resolved member reviews with their frozen evidence, and
+// the item's own lifecycle approvals, pending or answered. Each is the
+// item's decision, so it is drawn with the item and never under Run QA. A
+// truncated QA history must not hide any of them from this member row.
 export function carriedItemReviews(facts, itemId, runId, checks) {
   const requests = new Map();
   const wanted = String(runId || "");
@@ -196,16 +200,29 @@ export function carriedItemReviews(facts, itemId, runId, checks) {
     if (request) requests.set(String(request.id), request);
   }
   for (const gate of facts?.gates || []) {
-    if (gate.kind !== "qa_needs_review") continue;
-    const subject = gate.subject_context?.subject || {};
-    const memberId = subject.deployment_member_item_id ?? subject.item_id;
-    if (String(memberId ?? "") !== String(itemId)) continue;
+    if (String(gateItemId(gate) ?? "") !== String(itemId)) continue;
     const requestId = String(gate.request_id);
     if (gate.status === "resolved" || !requests.has(requestId)) {
       requests.set(requestId, gateAsRequest(gate));
     }
   }
   return [...requests.values()];
+}
+
+// The carried item a run gate decides for, or null for a run-scoped gate.
+function gateItemId(gate) {
+  if (gate.kind === "lifecycle_transition_approval") {
+    return gate.subject_context?.item_id ?? null;
+  }
+  if (gate.kind !== "qa_needs_review") return null;
+  const subject = gate.subject_context?.subject || {};
+  return subject.deployment_member_item_id ?? subject.item_id ?? null;
+}
+
+// A request in the shape the shared decision list draws: the Inbox row keys
+// its id as `id`, the run gate projection as `request_id`.
+function asGate(request) {
+  return { ...request, request_id: request.request_id ?? request.id };
 }
 
 // A busy item's history is bounded per release; the entry says so rather
@@ -224,7 +241,9 @@ function appendTruncationNote(documentNode, wrap, facts, itemId, runId) {
   ));
 }
 
-// `options.onDecide(request, action, node, note)` answers a review through
+// The item's "Item QA": its checks for this run, the earlier ones folded,
+// then its decisions — the same components as the run's "Run QA".
+// `options.onDecide(request, action, node, note)` answers a decision through
 // the same resolver the Inbox uses, so the answer is the same act wherever
 // it is given.
 export function appendCarriedItemEvidence(context, host, options = {}) {
@@ -233,54 +252,43 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   if (itemId === null) return null;
   const { checks } = carriedItemEvidence(facts, itemId, runId);
   const history = facts?.byItem?.get(String(itemId)) || checks;
-  const reviews = carriedItemReviews(facts, itemId, runId, checks);
+  const gates = carriedItemReviews(facts, itemId, runId, checks).map(asGate);
   const memberState = classifyMemberQa(history, { runId });
   const hasQa = memberState.id !== QA_STATE.NO_OBLIGATION && history.some((row) => {
     const state = classifyQaRow(row, history)?.id;
     return state !== QA_STATE.NO_OBLIGATION && state !== QA_STATE.RUN_MACHINERY;
   });
-  // An item with no QA requirement shows no QA block at all.
-  if (!hasQa && !reviews.length) return null;
-  const drawnRequests = new Set(reviews.map((request) => String(request.id)));
+  // An item with no QA requirement and no decision shows no QA block at all.
+  if (!hasQa && !gates.length) return null;
   const documentNode = context.document;
   const wrap = el(
     documentNode,
     "div",
     `carried-item-evidence is-${String(memberState.id).replaceAll("_", "-")}`,
   );
-  const painted = hasQa ? paintCarriedItemQa(context, wrap, history, {
-    runId, deployedSha: options.deployedSha, project: item.project_id,
-  }) : { shown: [] };
-  if (hasQa) appendTruncationNote(documentNode, wrap, facts, itemId, runId);
-  // The strip above is the deployed revision's pictures, which is not the
-  // same thing as this request's evidence: the reviewed capture may be older,
-  // or the strip may be empty. Its own evidence is suppressed
-  // only where every artifact it rests on is demonstrably already on screen
-  // — drawn, not merely passed in, since the strip folds everything past its
-  // limit behind "+N more" where nobody has seen it yet.
-  const shown = new Set(
-    painted.shown.map((artifact) => String(artifact.id)),
-  );
-  for (const request of reviews) {
-    const evidence = evidenceOf(request);
-    const own = normalizedArtifacts(evidence.artifacts, {
-      requirementId: evidence.requirementId,
-    }).map((artifact) => String(artifact.id));
-    const alreadyShown = own.length > 0 && own.every((id) => shown.has(id));
-    wrap.appendChild(reviewRequestCard(context, request, {
-      inline: true,
-      evidence: !alreadyShown,
-      onAct: onDecide && request.status !== "resolved"
-        ? (row, action, node, note) => onDecide(request, action, node, note)
-        : null,
-    }));
-    const decision = resolvedDecisionRecord(documentNode, request);
-    if (decision) wrap.appendChild(decision);
-  }
+  const scoped = hasQa ? itemQaChecks(history, { runId, deployedSha: options.deployedSha })
+    : { current: [], history: [] };
+  const section = qaScopeSection(context, {
+    heading: "Item QA",
+    headingTag: "h4",
+    current: scoped.current,
+    history: scoped.history,
+    decision: runHumanDecision(gates),
+    runId,
+    project: item.project_id,
+    className: "item-qa-section",
+  });
+  wrap.appendChild(section);
+  if (hasQa) appendTruncationNote(documentNode, section, facts, itemId, runId);
+  const decisions = decisionList(context, gates, onDecide || null, {
+    drawnArtifactIds: drawnCheckArtifactIds([...scoped.current, ...scoped.history]),
+    scope: "item",
+  });
+  if (decisions.children.length) section.appendChild(decisions);
   host.appendChild(wrap);
   return {
     node: wrap,
-    requestIds: drawnRequests,
+    requestIds: new Set(gates.map((gate) => String(gate.request_id))),
   };
 }
 

@@ -119,8 +119,11 @@ test("a pending review is offered on its own member's row only", async (t) => {
   // The member without QA stays silent; the second carries the decision.
   const sections = byClass(root, "carried-item-evidence");
   assert.equal(sections.length, 1, "only the reviewed member draws QA evidence");
+  // The section is the reviewed member's Item QA, holding that member's
+  // review and nothing of the other member's.
+  assert.deepEqual(byClass(sections[0], "run-request").map(
+    (node) => node.getAttribute("data-request-id")), [String(SECOND_MEMBER_REVIEW.id)]);
   const drawn = allNodes(sections[0]).map((node) => node.textContent || "").join(" ");
-  assert.match(drawn, /YOK-2229|authorized acceptance/);
   assert.doesNotMatch(drawn, /YOK-2228/);
   assert.equal(
     allNodes(sections[0]).filter(
@@ -155,8 +158,11 @@ test("a Shipping card offers a member's review once as well", async (t) => {
     (node) => node.tagName === "BUTTON" && node.textContent === "Approve",
   );
   assert.equal(approvals.length, 1, "one decision, one Approve control");
+  // The section is the reviewed member's Item QA, holding that member's
+  // review and nothing of the other member's.
+  assert.deepEqual(byClass(sections[0], "run-request").map(
+    (node) => node.getAttribute("data-request-id")), [String(SECOND_MEMBER_REVIEW.id)]);
   const drawn = allNodes(sections[0]).map((node) => node.textContent || "").join(" ");
-  assert.match(drawn, /YOK-2229|authorized acceptance/);
   assert.doesNotMatch(drawn, /YOK-2228/);
   assert.equal(
     allNodes(sections[0]).filter(

@@ -1,7 +1,8 @@
-// A carried item's QA inside its run entry: the check that ran against the
-// deployed revision leads with its screenshots, and every other check is one
-// row behind a single "Earlier checks" disclosure, each linking its own QA
-// case, run or CI run.
+// A carried item's QA inside its run entry is an "Item QA" section drawn
+// exactly like "Run QA": the checks this run recorded (or, failing those,
+// the one that ran against the deployed revision) lead with their own
+// screenshots, and every other check is one line behind a single "Earlier
+// checks" disclosure, each linking its own QA case and its run or CI run.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -14,11 +15,12 @@ import {
   RUN_ID,
 } from "./universe_ui_carried_item_test_support.mjs";
 import { readArtifact } from "../../packages/yoke-core/src/yoke_core/ui/static/review_evidence_read.js";
-import { paintCarriedItemQa } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_qa.js";
+import { itemQaChecks } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_qa.js";
 import {
   appendCarriedItemHeading,
   loadMissingItemTitles,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_titles.js";
+import { qaScopeSection } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_run_qa_checks.js";
 
 const CI_URL = "https://github.com/upyoke/platform/actions/runs/1234";
 const OLDER_RUN = "run-20260910-002";
@@ -36,6 +38,7 @@ const history = [
     method_name: "Command (CI)", happened_at: "2026-09-09T09:00:00Z" }),
   check({ requirement_id: 12, deployment_run_id: OLDER_RUN, qa_phase: "post_deploy",
     method_name: "Browser inspection", execution_target_json: deployedTarget("0ld"),
+    artifacts: [artifact(40, 12)],
     happened_at: "2026-09-10T08:00:00Z" }),
   check({ requirement_id: 13, deployment_run_id: OLDER_RUN, qa_phase: "post_deploy",
     outcome: "failed", execution_target_json: deployedTarget("0ld"),
@@ -44,87 +47,78 @@ const history = [
     execution_target_json: deployedTarget(DEPLOYED_SHA),
     artifacts: [
       { id: 90, artifact_type: "command_output", content_type: "text/plain" },
-      ...[1, 2, 3, 4, 5].map((id) => artifact(id, 14)),
+      ...[1, 2, 3, 4, 5, 6, 7].map((id) => artifact(id, 14)),
     ],
     happened_at: "2026-09-10T10:00:00Z" }),
 ];
 
 function paint(rows = history) {
   const documentNode = new FakeDocument();
-  const wrap = documentNode.createElement("div");
   const context = { document: documentNode, projects: () => [{ id: 1, slug: "yoke" }],
     client: { call: async () => ({ status: 200, envelope: { success: true, result: {} } }) } };
-  paintCarriedItemQa(context, wrap, rows, { runId: RUN_ID, deployedSha: DEPLOYED_SHA, project: 1 });
-  return wrap;
+  const scoped = itemQaChecks(rows, { runId: RUN_ID, deployedSha: DEPLOYED_SHA });
+  return qaScopeSection(context, { heading: "Item QA", ...scoped, runId: RUN_ID, project: 1 });
 }
 
-test("QA for the deployed revision leads, then its screenshots, then earlier checks", () => {
-  const wrap = paint();
-  const classes = wrap.children.map((node) => node.className.split(" ")[0]);
-  assert.deepEqual(classes, [
-    "carried-item-qa-heading", "carried-item-qa-row", "review-evidence",
-    "carried-item-qa-earlier",
-  ]);
-  assert.equal(wrap.children[0].textContent, "QA for the deployed revision");
-  const current = wrap.children[1];
-  assert.match(current.textContent, /^✓Command check passed·this release·.*·View output$/);
-  assert.equal(current.children[1].href, "#/qa-activity/14?project=1");
-  assert.equal(byClass(current, "carried-item-qa-output")[0].href, "#/qa-activity/14?project=1");
+const checkLines = (host) => host.children.filter(
+  (node) => node.classList.contains("run-qa-check"));
+
+test("the check this run recorded leads, then earlier checks", () => {
+  const section = paint();
+  const classes = section.children.map((node) => node.className.split(" ")[0]);
+  assert.deepEqual(classes, ["run-qa-head", "run-qa-check", "run-qa-history"]);
+  assert.equal(section.children[0].children[0].textContent, "Item QA");
+  assert.equal(section.children[0].children[1].textContent, "1 of 1 passed");
+  const current = section.children[1];
+  assert.equal(byClass(current, "run-qa-check-mark")[0].textContent, "✓");
+  assert.equal(byClass(current, "run-qa-check-name")[0].children[0].href,
+    "#/qa-activity/14?project=1");
+  assert.equal(byClass(current, "run-qa-check-outcome")[0].textContent, "Passed");
+  // The output is its own chip in the check's strip.
+  assert.equal(byClass(current, "review-text-chip").length, 1);
 });
 
-test("the deployed revision's screenshots open and close the rest in place", () => {
-  const strip = paint().children[2];
-  assert.equal(byClass(strip, "review-shot").length, 3);
+test("a check's screenshots open and close the rest in place", () => {
+  const strip = byClass(paint().children[1], "review-evidence")[0];
+  assert.equal(byClass(strip, "review-shot").length, 5);
   const more = byClass(strip, "review-more")[0];
   assert.equal(more.textContent, "and 2 more");
   more.dispatchEvent(new Event("click"));
-  assert.equal(byClass(strip, "review-shot").length, 5);
+  assert.equal(byClass(strip, "review-shot").length, 7);
 });
 
-test("every other check is one row behind one Earlier checks disclosure", () => {
-  const earlier = byClass(paint(), "carried-item-qa-earlier")[0];
+test("every other check is one line behind one Earlier checks disclosure", () => {
+  const earlier = byClass(paint(), "run-qa-history")[0];
   assert.equal(earlier.tagName, "DETAILS");
-  assert.equal(earlier.children[0].textContent, "Earlier checks");
-  const rows = byClass(earlier, "carried-item-qa-row");
+  assert.equal(earlier.children[0].textContent, "Earlier checks (3)");
+  const rows = checkLines(earlier);
   assert.equal(rows.length, 3);
   // Newest first: an older release's pass, its failure, then before merge.
-  assert.match(rows[0].textContent, /^✓Run 20260910-002·.*·older revision$/);
-  const runLink = byClass(rows[0], "carried-item-qa-run")[0];
+  assert.equal(byClass(rows[0], "run-qa-check-outcome")[0].textContent, "Passed");
+  const runLink = byClass(rows[0], "run-qa-check-run")[0];
+  assert.equal(runLink.textContent, "Run 20260910-002");
   assert.equal(runLink.href, `#/deployments/runs/${OLDER_RUN}?project=1`);
-  assert.equal(rows[0].children.at(-1).href, "#/qa-activity/12?project=1");
-  // A check that did not pass says how it ended.
-  assert.match(rows[1].textContent, /^✕Run 20260910-002·.*·older revision·failed$/);
-  assert.match(rows[2].textContent, /^✓Before merge·.*·GitHub Actions$/);
-  assert.equal(rows[2].children[1].href, "#/qa-activity/11?project=1");
-  assert.equal(byClass(rows[2], "carried-item-qa-ci")[0].href, CI_URL);
+  assert.equal(byClass(rows[0], "run-qa-check-name")[0].children[0].href,
+    "#/qa-activity/12?project=1");
+  // Each earlier check keeps the screenshots it captured under itself.
+  assert.deepEqual(byClass(rows[0], "review-shot").map(
+    (shot) => Number(shot.getAttribute("data-artifact-id"))), [40]);
+  assert.equal(byClass(rows[1], "run-qa-check-mark")[0].textContent, "✕");
+  assert.equal(byClass(rows[1], "run-qa-check-outcome")[0].textContent, "Failed");
+  assert.equal(byClass(rows[2], "run-qa-check-run")[0].textContent, "Before merge");
+  assert.equal(byClass(rows[2], "run-check-conclusion")[0].href, CI_URL);
 });
 
-test("no row repeats a phase code, the card's own run ID, or a check count", () => {
+test("no line repeats a phase code, the card's own run ID, or a release label", () => {
   const text = paint().textContent;
-  assert.doesNotMatch(text, /post-deploy|before merge ·|verification/);
+  assert.doesNotMatch(text, /post-deploy|verification|this release|deployed revision/);
   assert.doesNotMatch(text, new RegExp(RUN_ID));
-  assert.doesNotMatch(text, /more checks|not the revision that is deployed/);
 });
 
 test("with nothing run against the deployed revision, all checks are earlier checks", () => {
-  const wrap = paint(history.slice(0, 3));
-  assert.equal(byClass(wrap, "carried-item-qa-heading").length, 0);
-  assert.equal(byClass(byClass(wrap, "carried-item-qa-earlier")[0],
-    "carried-item-qa-row").length, 3);
-});
-
-test("the strip holds every screenshot the item's checks captured, each once", () => {
-  const rows = [
-    ...history,
-    check({ requirement_id: 15, deployment_run_id: OLDER_RUN, qa_phase: "post_deploy",
-      artifacts: [artifact(3, 15), artifact(40, 15), artifact(41, 15)],
-      happened_at: "2026-09-10T06:00:00Z" }),
-  ];
-  const strip = paint(rows).children[2];
-  assert.equal(byClass(strip, "review-more")[0].textContent, "and 4 more");
-  byClass(strip, "review-more")[0].dispatchEvent(new Event("click"));
-  assert.deepEqual(byClass(strip, "review-shot").map(
-    (shot) => Number(shot.getAttribute("data-artifact-id"))), [1, 2, 3, 4, 5, 40, 41]);
+  const section = paint(history.slice(0, 3));
+  assert.equal(checkLines(section).length, 0);
+  assert.equal(checkLines(byClass(section, "run-qa-history")[0]).length, 3);
 });
 
 test("a carried title the run payload omits is read from the item", async () => {

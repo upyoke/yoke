@@ -211,17 +211,16 @@ test("carried items show required QA and leave no-obligation items silent", asyn
     const evidence = byClass(members[index], "carried-item-evidence")[0];
     return [item.ref, evidence ? evidence.textContent : ""];
   }));
-  // The check that ran against the deployed revision leads the entry.
-  const lead = byClass(members[0], "carried-item-evidence")[0];
-  assert.equal(byClass(lead, "carried-item-qa-heading")[0].textContent,
-    "QA for the deployed revision");
-  assert.match(byClass(lead, "carried-item-qa-row")[0].textContent,
-    /^✓Command check passed·this release·/);
-  assert.match(byRef["YOK-3294"], /waived/);
+  // The check this release recorded leads the entry's Item QA.
+  const lead = byClass(byClass(members[0], "item-qa-section")[0], "run-qa-check")[0];
+  assert.equal(byClass(lead, "run-qa-check-outcome")[0].textContent, "Passed");
+  assert.equal(byClass(lead, "run-qa-check-mark")[0].textContent, "✓");
+  assert.match(byRef["YOK-3294"], /Waived/);
   // An item with no QA requirement, or no QA at all, shows no QA block.
   assert.equal(byRef["YOK-3297"], "");
   assert.equal(byRef["YOK-3290"], "");
-  assert.doesNotMatch(host.textContent, /no obligation|verified before merge|not the revision that is deployed/);
+  assert.doesNotMatch(host.textContent,
+    /no obligation|verified before merge|not the revision that is deployed|deployed revision/);
 });
 
 function ancestorHidden(node) {

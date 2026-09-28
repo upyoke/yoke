@@ -100,21 +100,23 @@ evaluator/client-wall coverage, are labelled incomparable.
 - **Shipping** — each run card lists carried items first; only its run ID
   opens the run page, while item links, screenshots, decisions and
   disclosures keep their own targets. Each carried item's ID and title link to
-  the item. An item with a QA requirement leads with **QA for the deployed
-  revision** — the check that ran against it, linked to its QA case, with
-  **View output** when it recorded output — then that check's screenshots;
-  every other check is one row behind a single **Earlier checks** disclosure
-  (before merge with its own GitHub Actions run, or an earlier run and
-  revision). An item with no QA requirement shows no QA block. One run QA
-  section follows the items: each current check names its method (linked to
-  its QA case), its outcome, its reason, and the screenshots that check
-  captured, each shown once; earlier or superseded checks fold before the
-  decision. A run with no run checks and no decision has no run QA section.
-  Where a person decides a run's checks, they read **screenshots captured ·
-  awaiting approval** and the heading **Awaiting approval** until the
-  request is answered with **Reject** or **Approve**, then **approved** (or
-  **rejected**) beside the record naming who decided and when. The run page
-  uses the same order. A run whose stages are complete but whose
+  the item. Beneath each carried item, **Item QA** shows that item's checks
+  for this run, its screenshots, its earlier attempts, and its own decisions;
+  **Run QA** follows every carried item with the run's own checks and
+  decisions only. Both are drawn the same way: each current check reads
+  **<method> · Passed** (or its actual result) with its status mark, linked to
+  its QA case, with the screenshots that check captured, each shown once;
+  every other check is one line behind a single **Earlier checks**
+  disclosure naming the run it came from or **Before merge** with its GitHub
+  Actions run. An item with no QA requirement and no decision shows no Item
+  QA; a run with no run checks and no decision has no Run QA. An item's work
+  approval — pending with **Reject** and **Approve**, or answered — appears
+  only in its Item QA, never under Run QA, with any screenshot of the item's
+  current release its checks have not already shown, or a note that none was
+  captured. A decision never replaces a check's result: while one is owed
+  the heading reads **Awaiting approval**, and once answered the record
+  below the evidence names who approved or rejected it, and when. The run
+  page uses the same order. A run whose stages are complete but whose
   members are still being settled reads **finalizing** until its authoritative
   status succeeds.
 - **Inbox** — three sections: the decisions waiting on you (a release
@@ -123,7 +125,10 @@ evaluator/client-wall coverage, are labelled incomparable.
   something sends a message, with context and a specific ask. A run's own QA
   review is titled **Run QA · <run ID>**, linking the run, and lists the run's
   checks the way Shipping does — each with its own screenshots, earlier
-  attempts folded — then the decision
+  attempts folded — then the decision. A work approval for a carried item
+  shows the screenshots its current release captured for that item —
+  including the capture an accepted review judged — and keeps them beside
+  the recorded answer once decided
 - Every decision is one card, the same card a run draws on Shipping and on
   the run page: what kind of ask it is, what it is
   about, what a yes does in one sentence, who settles it, and the answer.

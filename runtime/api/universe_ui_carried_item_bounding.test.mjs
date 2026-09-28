@@ -77,7 +77,7 @@ test("a pending review survives its own item's history being cut short", async (
   await settle();
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
-  const review = byClass(evidence, "review-card")[0];
+  const review = byClass(evidence, "run-request")[0];
   assert.ok(review, "the waiting review is still offered");
   assert.equal(review.getAttribute("data-request-id"), "4500");
 });
@@ -95,9 +95,10 @@ test("an item with no shown checks but a waiting review still draws it", async (
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
   assert.ok(evidence, "the entry is drawn for the request alone");
-  // Nothing ran against this release, so nothing claims to.
-  assert.equal(byClass(evidence, "carried-item-qa-heading").length, 0);
-  assert.equal(byClass(evidence, "review-card")[0].getAttribute("data-request-id"), "4502");
+  // Nothing ran against this release, so no check claims to be current.
+  assert.equal(byClass(evidence, "item-qa-section")[0].children.filter(
+    (node) => node.classList.contains("run-qa-check")).length, 0);
+  assert.equal(byClass(evidence, "run-request")[0].getAttribute("data-request-id"), "4502");
 });
 
 test("a release's own member review survives its item's history being cut short", async () => {
@@ -134,7 +135,7 @@ test("a release's own member review survives its item's history being cut short"
   await settle();
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
-  const review = byClass(evidence, "review-card")[0];
+  const review = byClass(evidence, "run-request")[0];
   assert.ok(review, "the member review is offered under the item it is about");
   assert.equal(review.getAttribute("data-request-id"), "4700");
 });
