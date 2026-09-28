@@ -113,7 +113,7 @@ export async function loadDelivery(context, host, getScope, options = {}) {
   const paint = () => {
     const chosen = projects.length
       ? selectedProjects(projects, getScope()) : buckets;
-    const rows = [];
+    const byId = new Map();
     for (const project of chosen) {
       const index = buckets.indexOf(project);
       const result = successfulResult(callResults[index]);
@@ -126,8 +126,9 @@ export async function loadDelivery(context, host, getScope, options = {}) {
         ));
         return;
       }
-      rows.push(...(result.rows || []));
+      for (const row of result.rows || []) byId.set(String(row.id || row.run_id), row);
     }
+    const rows = [...byId.values()];
     rows.sort((left, right) => (
       Number(left.overview_priority ?? 1) - Number(right.overview_priority ?? 1)
       || String(right.created_at || "").localeCompare(String(left.created_at || ""))
@@ -147,10 +148,13 @@ export async function loadDelivery(context, host, getScope, options = {}) {
   // the rest look unverified: the production run that surfaced this had
   // twenty members and QA lines on exactly the first three in list order.
   const carried = [];
+  const seenRuns = new Set();
   for (const callResult of callResults) {
     const result = successfulResult(callResult);
     for (const row of result?.rows || []) {
       const runId = row.id || row.run_id;
+      if (seenRuns.has(String(runId))) continue;
+      seenRuns.add(String(runId));
       // Derived carried work names no project; it is the run's own.
       const projectId = runProjectId(context, row, "all");
       for (const item of carriedItems(row)) {

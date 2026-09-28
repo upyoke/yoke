@@ -31,10 +31,11 @@ _STATUS_WRITE_RETRY_ERRORS = (run_updates.DeployPipelineRunUpdateError,)
 class RunFinalizationPending(RuntimeError):
     """Stages finished; the succeeded status write did not land."""
 
-    def __init__(self, run_id: str) -> None:
+    def __init__(self, run_id: str, detail: str = "") -> None:
         self.run_id = run_id
         super().__init__(
-            f"{FINALIZATION_PENDING_PREFIX} — re-drive {run_id} to finalize"
+            f"{FINALIZATION_PENDING_PREFIX} — {detail or 'status write did not land'}; "
+            f"re-drive {run_id} to finalize"
         )
 
 
@@ -85,7 +86,7 @@ def _update_run_succeeded(run_id: str, sd: Optional[str]) -> None:
         except _STATUS_WRITE_RETRY_ERRORS as exc:
             last_exc = exc
     assert last_exc is not None
-    raise RunFinalizationPending(run_id) from last_exc
+    raise RunFinalizationPending(run_id, str(last_exc)) from last_exc
 
 
 def finalize_run_success(

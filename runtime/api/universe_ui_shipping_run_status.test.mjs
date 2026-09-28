@@ -60,6 +60,24 @@ test("pending run QA review keeps its action and waiting status", () => {
   assert.equal(byClass(card, "run-decision-record").length, 0);
 });
 
+test("a carried item's decision shows its project identity and state once", () => {
+  const gate = {
+    ...decision("approve"), request_id: 78,
+    kind: "lifecycle_transition_approval",
+    item_status: "release",
+    subject_context: { item_id: 44, item_ref: "PLAT-44", item_title: "Platform member" },
+  };
+  const card = render(run({
+    member_items: [{ id: 44, ref: "PLAT-44", title: "Platform member",
+      project_id: 2, project_sequence: 44, status: "release" }],
+    gates: [gate],
+  }));
+  assert.match(card.textContent, /PLAT-44/);
+  assert.match(card.textContent, /Item state: release/);
+  assert.equal(byClass(card, "run-decision-record").length, 1);
+  assert.equal(byClass(card, "review-action").length, 0);
+});
+
 for (const memberId of [null, 42]) {
   for (const [action, word] of [["approve", "Approved"], ["reject", "Rejected"]]) {
     test(`${word.toLowerCase()} ${memberId ? "member" : "run"} QA review is read only`, () => {

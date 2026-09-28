@@ -105,7 +105,7 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
     claim = active_claim(
         conn, make_deploy_serialization_target(project_id, project.slug)
     )
-    if claim is None:
+    if claim is None and str(_row_value(row, "current_stage", 2) or "") != "complete":
         return None, (
             f"project deploy lock {deploy_lock_key(project.slug)} is unheld; "
             "acquire it and re-drive this run"
@@ -220,6 +220,16 @@ def finish_ready_run(conn: Any, run_id: str) -> CompletionAttempt:
         )
         conn.commit()
         refusal = cmd_update(run_id, "status", "succeeded")
+        if refusal:
+            from yoke_core.domain.deployment_run_collective_finalization import (
+                _required_open_members,
+            )
+
+            # Closing a member commits independently. An interrupted first
+            # settlement can leave the run executing after its last member
+            # reached done; replay the idempotent status write once here.
+            if not _required_open_members(conn, run_id):
+                refusal = cmd_update(run_id, "status", "succeeded")
         if refusal:
             return CompletionAttempt(
                 failure=f"{refusal}; re-drive {run_id} under its project deploy lock"

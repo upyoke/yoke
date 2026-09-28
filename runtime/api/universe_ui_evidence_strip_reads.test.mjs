@@ -87,6 +87,9 @@ test("expanding overflow reads the remaining screenshots", async () => {
   assert.equal(
     byClass(strip, "review-evidence-rest")[0].children.length, 2,
   );
+  assert.equal(strip.children.at(-1).classList.contains("review-evidence-controls"), true);
+  assert.equal(strip.children.at(-2).classList.contains("review-evidence-rest"), true);
+  assert.equal(byClass(strip, "review-more")[0].textContent, "Show less");
 });
 
 test("two figures of the same artifact share one in-flight read", async () => {

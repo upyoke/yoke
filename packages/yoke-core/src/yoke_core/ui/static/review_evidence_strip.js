@@ -256,7 +256,9 @@ export function evidenceStrip(context, artifacts, options = {}) {
     region.setAttribute("role", "region");
     region.setAttribute("aria-label", "More evidence");
     strip.appendChild(region);
-    const button = appendMoreDisclosure(documentNode, strip, {
+    const controls = el(documentNode, "div", "review-evidence-controls");
+    strip.appendChild(controls);
+    const button = appendMoreDisclosure(documentNode, controls, {
       key: `evidence:${rows.map((artifact) => artifact.id).join(",")}`,
       hiddenCount: rest.length,
       region,

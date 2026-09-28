@@ -1,6 +1,7 @@
 import { callFunction } from "./universe_view_support.js";
 import { createScopePicker, SCOPE_MULTI, SCOPE_NONE, SCOPE_SINGLE } from "./universe_navigation.js";
 import { selectionRoute } from "./universe_selection_routes.js";
+import { scopeForRoute } from "./universe_destinations.js";
 
 // A denied or failed write resolves normally with `success=false`; it must
 // still reach `createProjectSelection`'s `saveFor` as a rejection, or a save
@@ -46,7 +47,7 @@ export function loadScreenSelections(client, scopeSelections) {
 export function createProjectControls(deps) {
   const { documentNode, windowNode, entry, route, scope, projects,
     scopeSelections, onSelectionChange, renderRoute } = deps;
-  if (entry.scope === SCOPE_NONE) {
+  if (scopeForRoute(entry, route) === SCOPE_NONE) {
     if (!scopeSelections.notice) return null;
     const note = documentNode.createElement("span");
     note.className = "scope-context-note";

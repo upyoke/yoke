@@ -9,9 +9,11 @@ import { KIND_LABELS, reviewerLine } from "./review_request_presentation.js";
 import { el } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
 
-// The two kinds that reach a run. Anything else on the gates list is not a
+// The decision kinds that reach a run. Anything else on the gates list is not a
 // decision this card knows how to draw, and is left to the Inbox.
-const RUN_GATE_KINDS = new Set(["deployment_stage_approval", "qa_needs_review"]);
+const RUN_GATE_KINDS = new Set([
+  "deployment_stage_approval", "qa_needs_review", "lifecycle_transition_approval",
+]);
 
 export function runGates(row) {
   return runDecisionGates(row).filter((gate) => gate.status !== "resolved");
@@ -119,6 +121,10 @@ export function appendRunGates(context, card, row, onAct, options = {}) {
     wrap.appendChild(el(
       documentNode, "div", "run-request-kind", KIND_LABELS[gate.kind],
     ));
+    if (gate.kind === "lifecycle_transition_approval") {
+      wrap.appendChild(el(documentNode, "p", "run-request-member",
+        `${gate.subject_context?.item_ref || "Carried item"} · Item state: ${gate.item_status || "unknown"}`));
+    }
     wrap.appendChild(reviewRequestCard(context, withoutDrawnScreenshots(
       gateAsRequest(gate), options.drawnArtifactIds,
     ), {
@@ -144,7 +150,7 @@ export function runGateStatus(row) {
     return row?.status === "executing" && row?.current_stage === "complete"
       ? "finalizing" : null;
   }
-  return gates.some((gate) => gate.kind === "deployment_stage_approval")
+  return gates.some((gate) => gate.kind !== "qa_needs_review")
     ? "awaiting approval"
     : "awaiting review";
 }

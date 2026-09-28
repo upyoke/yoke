@@ -269,6 +269,25 @@ it again. The run driver settles the old run without changing its pin. The
 failed run and QA stay as history; its frozen candidate cannot be rewritten,
 so a new run delivers the corrected commit.
 
+## Carried item approval before shared acceptance
+
+For a final-delivery run with human run QA or a human approval stage, each
+final member's declared done approval is requested under that member's own
+project and pinned workflow before the shared human request opens. Run QA
+capture and agent review may continue while those item decisions wait. A
+rejected item decision blocks shared acceptance and names the member and
+request; the item needs correction through its ordinary workflow before a
+new approval can be requested. Resolving the last required item decision
+revisits the run automatically, including a run already at finalization.
+
+Shipping and Runs select whole runs by a carried member's project. The run
+card and detail show every member, check, pending or resolved decision, and
+its evidence, even when the selected project is only one part of a mixed
+run. An itemless run belongs to its owning project for this selection. Run
+detail has no project selector; the Runs list retains its selector. Inbox
+keeps its ordinary project filter. The evidence gallery expands across the
+available width, with its Show less control after the full expanded set.
+
 ## Governed cutover
 
 Migration `0043_scoped_deployment_qa_execution` adds nullable stage/member

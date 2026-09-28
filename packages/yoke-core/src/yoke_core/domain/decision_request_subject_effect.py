@@ -18,7 +18,10 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
-from yoke_core.domain.decision_request_contract import DEPLOYMENT_STAGE_APPROVAL
+from yoke_core.domain.decision_request_contract import (
+    DEPLOYMENT_STAGE_APPROVAL,
+    LIFECYCLE_TRANSITION_APPROVAL,
+)
 
 QA_NEEDS_REVIEW_KIND = "qa_needs_review"
 
@@ -134,6 +137,30 @@ def _notify_deployment_stage(
     return notify_deployment_stage_decision(conn, request, action=action, note=note)
 
 
+def _notify_carried_item_decision(
+    conn: Any,
+    request: dict[str, Any],
+    *,
+    action: str,
+    note: Optional[str],
+) -> Optional[str]:
+    context = request.get("subject_context") or {}
+    if context.get("to_stage") != "done":
+        return None
+    from yoke_core.domain.deployment_run_member_approvals import (
+        resume_after_member_decision,
+    )
+
+    resume_after_member_decision(conn, int(context["item_id"]))
+    return None
+
+
+def _carried_item_label(request: dict[str, Any]) -> str:
+    return str(
+        (request.get("subject_context") or {}).get("item_ref") or request["subject_key"]
+    )
+
+
 _SUBJECT_EFFECTS: dict[str, SubjectEffect] = {
     QA_NEEDS_REVIEW_KIND: _apply_qa_review,
     DEPLOYMENT_STAGE_APPROVAL: _apply_deployment_stage,
@@ -142,6 +169,7 @@ _SUBJECT_EFFECTS: dict[str, SubjectEffect] = {
 _SUBJECT_NOTICES: dict[str, tuple[SubjectNotice, SubjectLabel]] = {
     QA_NEEDS_REVIEW_KIND: (_notify_qa_review, _qa_requirement_label),
     DEPLOYMENT_STAGE_APPROVAL: (_notify_deployment_stage, _deployment_stage_label),
+    LIFECYCLE_TRANSITION_APPROVAL: (_notify_carried_item_decision, _carried_item_label),
 }
 
 
