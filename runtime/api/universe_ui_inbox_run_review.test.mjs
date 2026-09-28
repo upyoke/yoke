@@ -88,8 +88,7 @@ test("an open run QA review lists the run's checks, then asks for the decision",
     "#/qa-activity/31974?project=10");
   assert.equal(byClass(current[0], "run-qa-check-outcome")[0].textContent,
     "screenshots captured · awaiting approval");
-  assert.equal(byClass(current[0], "run-qa-check-reason")[0].textContent,
-    "Shipping shows the approved review.");
+  assert.equal(byClass(current[0], "run-qa-check-reason").length, 0);
   // Each screenshot once, under the check that took it.
   assert.deepEqual(shotIds(current[0]), [22834, 22835]);
   assert.deepEqual(shotIds(current[1]), [22840]);
