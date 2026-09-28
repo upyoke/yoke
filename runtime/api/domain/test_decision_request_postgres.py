@@ -206,7 +206,7 @@ def test_pending_request_shows_screenshots_attached_after_it_was_created(test_db
     evidence = pending["subject_context"]["evidence"]
     assert evidence["state"] == "attached"
     assert evidence["screenshot_count"] == 1
-    # The stored row is never rewritten to match.
+    # A pending read never rewrites the stored row.
     stored = json.loads(
         test_db.execute(
             "SELECT subject_context FROM decision_requests WHERE id=%s",
@@ -219,6 +219,8 @@ def test_pending_request_shows_screenshots_attached_after_it_was_created(test_db
     resolved = resolve_decision_request(
         test_db, request["id"], actor_id=actor_id, action="approve"
     )
-    # Once resolved, the request is no longer open to answer, so its history
-    # carries the original frozen snapshot rather than the live recompute.
-    assert resolved["subject_context"]["evidence"]["state"] == "absent"
+    # Resolution records the evidence the decision rested on, so the answered
+    # request keeps the screenshot its approver saw rather than reverting to
+    # the snapshot frozen before that screenshot existed.
+    assert resolved["subject_context"]["evidence"]["state"] == "attached"
+    assert resolved["subject_context"]["evidence"]["screenshot_count"] == 1
