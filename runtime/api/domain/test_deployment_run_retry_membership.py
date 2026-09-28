@@ -36,8 +36,14 @@ def retry_db_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     with init_test_db(tmp_path) as db_path:
         monkeypatch.setenv("YOKE_DB", db_path)
         from yoke_core.domain.deployment_runs_schema import cmd_init
+        from yoke_core.domain.shepherd_init import cmd_init as init_dependencies
 
         cmd_init(db_path)
+        conn = connect_test_db(db_path)
+        try:
+            init_dependencies(conn)
+        finally:
+            conn.close()
         yield db_path
 
 
@@ -54,7 +60,9 @@ def _failed_run(db_path: str, *, run_id: str, member_ids: tuple[int, ...]) -> No
             completed_at=iso8601_now(),
         )
         for item_id in member_ids:
-            insert_item(conn, id=item_id, workflow_id="dash", status="reviewing-implementation")
+            insert_item(
+                conn, id=item_id, workflow_id="dash", status="reviewing-implementation"
+            )
             conn.execute(
                 "INSERT INTO deployment_run_items (run_id, item_id, added_at, "
                 "delivery_intent, requirement_selection, requirement_snapshot) "

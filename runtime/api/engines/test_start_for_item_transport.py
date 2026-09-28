@@ -96,12 +96,16 @@ def test_start_for_item_entry_relays_through_dispatcher():
     # If the entry ran the engine in-process it would call this; the relay must
     # not, so a call here is a hard failure.
     with mock.patch.object(
-        composer, "start_for_item",
+        composer,
+        "start_for_item",
         side_effect=AssertionError("entry must relay, not run the engine"),
     ):
         rc, out, err = _run_cli(
-            "deployment-runs", "start-for-item", TEST_ITEM_REF,
-            "--release-lineage", _MERGE_SHA,
+            "deployment-runs",
+            "start-for-item",
+            TEST_ITEM_REF,
+            "--release-lineage",
+            _MERGE_SHA,
         )
     assert rc == 0, err
     assert len(_CAPTURED) == 1
@@ -123,8 +127,11 @@ def test_start_for_item_entry_opens_no_local_connection():
         side_effect=AssertionError("entry path must not open a local connection"),
     ):
         rc, _out, err = _run_cli(
-            "deployment-runs", "start-for-item", TEST_ITEM_REF,
-            "--release-lineage", _MERGE_SHA,
+            "deployment-runs",
+            "start-for-item",
+            TEST_ITEM_REF,
+            "--release-lineage",
+            _MERGE_SHA,
         )
     assert rc == 0, err
     assert _CAPTURED[-1].function == "deployment_runs.start_for_item"
@@ -149,33 +156,53 @@ def test_validate_skips_supplied_lineage_without_local_checkout(monkeypatch):
     import yoke_core.domain.deploy_pipeline_gates as gates
 
     monkeypatch.setattr(
-        gates, "resolve_flow_gate_branch",
+        gates,
+        "resolve_flow_gate_branch",
         lambda *_a, **_k: pytest.fail("git gate-branch resolver must not run"),
     )
-    assert _validate_commit_release_lineage(
-        "yoke", "persistent", "stage", _MERGE_SHA,
-    ) == ""
+    assert (
+        _validate_commit_release_lineage(
+            "yoke",
+            "persistent",
+            "stage",
+            _MERGE_SHA,
+        )
+        == ""
+    )
 
 
 def test_start_for_item_trusts_supplied_lineage_with_no_checkout(monkeypatch):
     monkeypatch.setattr(
-        composer, "_lookup_item_project_and_flow",
+        composer,
+        "_lookup_item_project_and_flow",
         lambda *_a: ("yoke", "yoke-hosted-stage-no-ci-gate"),
     )
     monkeypatch.setattr(
-        composer, "cmd_resolve_target",
+        composer,
+        "cmd_resolve_target",
         lambda *_a, **_k: ("persistent", "stage", "stage"),
     )
     seen = {}
 
-    def _create(project, flow, *, environment, release_lineage, created_by):
+    def _create(
+        project,
+        flow,
+        *,
+        environment,
+        release_lineage,
+        created_by,
+        allow_pending_pair_merges,
+    ):
         seen["release_lineage"] = release_lineage
+        seen["allow_pending_pair_merges"] = allow_pending_pair_merges
         return "run-20260730-002"
 
     monkeypatch.setattr(composer, "cmd_create_run", _create)
     monkeypatch.setattr(composer, "cmd_add_item", lambda *_a, **_k: "OK")
     monkeypatch.setattr(
-        composer, "cmd_validate_composition", lambda *_a, **_k: (True, "ok"),
+        composer,
+        "cmd_validate_composition",
+        lambda *_a, **_k: (True, "ok"),
     )
     monkeypatch.setattr(_CHECKOUT_RESOLVER, lambda *_a, **_k: None)
     # Starting a run is gated on the project deploy lock; this test is about
@@ -184,7 +211,8 @@ def test_start_for_item_trusts_supplied_lineage_with_no_checkout(monkeypatch):
     import yoke_core.domain.deploy_pipeline_gates as gates
 
     monkeypatch.setattr(
-        gates, "resolve_flow_gate_branch",
+        gates,
+        "resolve_flow_gate_branch",
         lambda *_a, **_k: pytest.fail("git resolver must not run over https"),
     )
 
@@ -194,6 +222,7 @@ def test_start_for_item_trusts_supplied_lineage_with_no_checkout(monkeypatch):
     assert result.run_id == "run-20260730-002"
     # The client-resolved lineage is trusted and passed straight to create-run.
     assert seen["release_lineage"] == _MERGE_SHA
+    assert seen["allow_pending_pair_merges"] is False
 
 
 # --------------------------------------------------------------------------
@@ -207,18 +236,31 @@ def test_validate_still_checks_remote_head_with_local_checkout(monkeypatch, tmp_
     import yoke_core.domain.deploy_pipeline_github_workflow as ghw
 
     monkeypatch.setattr(
-        gates, "resolve_flow_gate_branch", lambda *_a, **_k: "release/stage",
+        gates,
+        "resolve_flow_gate_branch",
+        lambda *_a, **_k: "release/stage",
     )
     monkeypatch.setattr(
-        ghw, "_resolve_publish_sha", lambda *_a, **_k: (_MERGE_SHA, ""),
+        ghw,
+        "_resolve_publish_sha",
+        lambda *_a, **_k: (_MERGE_SHA, ""),
     )
     # A lineage equal to the resolved remote head validates clean...
-    assert _validate_commit_release_lineage(
-        "yoke", "persistent", "stage", _MERGE_SHA,
-    ) == ""
+    assert (
+        _validate_commit_release_lineage(
+            "yoke",
+            "persistent",
+            "stage",
+            _MERGE_SHA,
+        )
+        == ""
+    )
     # ...and a divergent lineage is rejected, exactly as the in-process path did.
     divergent = "b" * 40
     message = _validate_commit_release_lineage(
-        "yoke", "persistent", "stage", divergent,
+        "yoke",
+        "persistent",
+        "stage",
+        divergent,
     )
     assert "does not equal the exact remote gate-branch commit" in message
