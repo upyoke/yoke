@@ -68,9 +68,11 @@ ignores:
 
   yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
 
-Add `--plan PLAN` only for a stage that names no cases; a stage already naming
-its own refuses it, because a plan there materializes a second, duplicate set
-of obligations beside the ones the stage credits.
+Add `--plan PLAN` for a stage that names no cases, or with `--replaces
+CASE_KEY=FAILED_REQUIREMENT_ID` for every case in a correction-only plan.
+A named stage refuses an unrelated plan. An existing corrected direct case
+uses `yoke qa requirement supersede --declare-replacement` before this scoped
+plan run, without `--plan`.
 
 See `yoke qa plan run --help` for the full subject/scope matrix, and
 `yoke merge item --help` for the close-out that follows a credited stage.

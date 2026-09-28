@@ -134,6 +134,8 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                         deployment_stage=payload.deployment_stage,
                         deployment_member_item_id=member_id,
                         agent_plan=payload.plan,
+                        replacement_keys={entry.case_key for entry in payload.replacements},
+                        commit=not payload.replacements,
                     )
                 else:
                     result = materialize_for_deployment_run(
@@ -158,6 +160,23 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                     ],
                 )
                 conn.commit()
+                if payload.deployment_stage is not None:
+                    from yoke_core.domain.deployment_qa_correction_notice import (
+                        notify_correction,
+                    )
+
+                    try:
+                        result["correction_notice"] = notify_correction(
+                            conn, result=result, replacements=result["replacements"]
+                        )
+                    except Exception as exc:  # declaration already committed
+                        conn.rollback()
+                        result["correction_notice"] = {
+                            "delivery": "failed",
+                            "recovery": f"Correction is durable but holder wake failed: {exc}. "
+                            f"Run the corrected case for {run_id} stage "
+                            f"{payload.deployment_stage} and inspect the run.",
+                        }
     except QaPlanError as exc:
         return _error("incompatible", str(exc), "$.payload")
     except QaReplacementError as exc:

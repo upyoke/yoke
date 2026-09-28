@@ -20,6 +20,8 @@ from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
 from yoke_core.domain.qa_plan_management import QaPlanError
+from yoke_core.domain.qa_requirement_replacement import declare_replacements
+from runtime.api.fixtures.deployment_scoped_qa_run_fixture import record_case_verdict
 
 STAGE = "member-qa"
 
@@ -136,3 +138,38 @@ def test_re_supplying_a_plan_stays_open_for_a_corrected_case(test_db) -> None:
     )
 
     assert again["created_requirement_ids"] == []
+
+
+def test_failed_admitted_case_accepts_only_an_explicit_correction(test_db) -> None:
+    item_id = 9725
+    run_id = "run-admitted-case-correction"
+    _member(
+        test_db, run_id=run_id, item_id=item_id, sequence=725,
+        method_id="browser-inspection",
+    )
+    initial = materialize_deployment_qa_stage(
+        test_db, deployment_run_id=run_id, deployment_stage=STAGE,
+        deployment_member_item_id=item_id,
+    )
+    failed_id = initial["created_requirement_ids"][0]
+    record_case_verdict(test_db, failed_id, "fail", evidence=True)
+    plan_id = _plan(test_db, "correct-ambiguous-selector")
+
+    with pytest.raises(QaPlanError, match="exactly those corrected case keys"):
+        materialize_deployment_qa_stage(
+            test_db, deployment_run_id=run_id, deployment_stage=STAGE,
+            deployment_member_item_id=item_id, agent_plan=str(plan_id),
+            replacement_keys={"wrong-key"},
+        )
+
+    corrected = materialize_deployment_qa_stage(
+        test_db, deployment_run_id=run_id, deployment_stage=STAGE,
+        deployment_member_item_id=item_id, agent_plan=str(plan_id),
+        replacement_keys={"command-smoke"}, commit=False,
+    )
+    declaration = declare_replacements(
+        test_db, [{"case_key": "command-smoke", "requirement_id": failed_id}],
+        materialized_requirement_ids=corrected["created_requirement_ids"],
+    )
+    test_db.commit()
+    assert declaration[0]["replacement_requirement_id"] == corrected["created_requirement_ids"][0]

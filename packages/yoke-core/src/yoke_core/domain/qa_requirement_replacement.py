@@ -109,6 +109,65 @@ def point_at_replacement(conn: Any, failed_id: int, replacement_id: int) -> None
     )
 
 
+def declare_existing_replacement(
+    conn: Any, *, failed_id: int, replacement_id: int
+) -> dict[str, int | str]:
+    """Atomically attach an already-created direct case to a failed run case."""
+    failed = _row(conn, failed_id)
+    corrected = _row(conn, replacement_id)
+    if failed is None or corrected is None:
+        raise QaReplacementError(
+            f"failed requirement {failed_id} or corrected requirement "
+            f"{replacement_id} is missing; inspect both with `yoke qa requirement get`"
+        )
+    if not failed.get("deployment_run_id"):
+        raise QaReplacementError("direct replacement requires a deployment-run case")
+    mismatches = same_scope(failed, corrected)
+    if mismatches:
+        raise QaReplacementError(
+            f"corrected requirement {replacement_id} cannot replace {failed_id}: "
+            f"{'; '.join(mismatches)}. Bind it to the same run, stage, "
+            "member and pinned execution target."
+        )
+    if str(corrected.get("blocking_mode") or "") != "blocking" or obligation_settled(corrected):
+        raise QaReplacementError(
+            f"corrected requirement {replacement_id} must be an active blocking case"
+        )
+    if failed.get("replacement_requirement_id") == replacement_id:
+        return {"requirement_id": failed_id, "replacement_requirement_id": replacement_id,
+                "deployment_run_id": str(failed["deployment_run_id"]),
+                "deployment_stage": str(failed["deployment_stage"]),
+                "deployment_member_item_id": failed.get("deployment_member_item_id")}
+    if obligation_settled(failed) or failed.get("replacement_requirement_id"):
+        raise QaReplacementError(
+            f"requirement {failed_id} is settled or already replaced; "
+            "inspect its current replacement before retrying"
+        )
+    if latest_verdict(conn, failed_id) != "fail":
+        raise QaReplacementError(
+            f"requirement {failed_id} has no failed verdict; run it before correction"
+        )
+    if latest_verdict(conn, replacement_id):
+        raise QaReplacementError(
+            f"corrected requirement {replacement_id} already has a verdict; "
+            "use ordinary supersession after a pass or create a fresh case"
+        )
+    run = query_one(
+        conn, "SELECT status,current_stage FROM deployment_runs WHERE id=%s FOR UPDATE",
+        (str(failed["deployment_run_id"]),),
+    )
+    if run is None or run["status"] != "executing" or run["current_stage"] != failed["deployment_stage"]:
+        raise QaReplacementError(
+            f"run {failed['deployment_run_id']} is not executing stage "
+            f"{failed['deployment_stage']}; inspect the run before correction"
+        )
+    point_at_replacement(conn, failed_id, replacement_id)
+    return {"requirement_id": failed_id, "replacement_requirement_id": replacement_id,
+            "deployment_run_id": str(failed["deployment_run_id"]),
+            "deployment_stage": str(failed["deployment_stage"]),
+            "deployment_member_item_id": failed.get("deployment_member_item_id")}
+
+
 def declare_replacements(
     conn: Any,
     replacements: Iterable[dict[str, Any]],
@@ -122,6 +181,15 @@ def declare_replacements(
         failed = _row(conn, failed_id)
         if failed is None:
             raise QaReplacementError(f"replaced requirement {failed_id} not found")
+        replacement = _replacement_for(
+            conn, failed, str(entry["case_key"]), materialized_requirement_ids
+        )
+        replacement_id = int(replacement["id"])
+        if failed.get("replacement_requirement_id") == replacement_id:
+            declared.append(
+                {"requirement_id": failed_id, "replacement_requirement_id": replacement_id}
+            )
+            continue
         if obligation_settled(failed):
             raise QaReplacementError(
                 f"requirement {failed_id} is already waived, superseded or "
@@ -132,10 +200,16 @@ def declare_replacements(
                 f"requirement {failed_id} already passed; declare a replacement "
                 "only for a case that failed or could not be judged."
             )
-        replacement = _replacement_for(
-            conn, failed, str(entry["case_key"]), materialized_requirement_ids
-        )
-        replacement_id = int(replacement["id"])
+        if failed.get("deployment_run_id") and latest_verdict(conn, failed_id) != "fail":
+            raise QaReplacementError(
+                f"deployment requirement {failed_id} has no failed verdict; "
+                "run its admitted case before declaring a correction."
+            )
+        if failed.get("replacement_requirement_id"):
+            raise QaReplacementError(
+                f"requirement {failed_id} already points to corrected case "
+                f"{failed['replacement_requirement_id']}; correct that case instead."
+            )
         point_at_replacement(conn, failed_id, replacement_id)
         declared.append(
             {"requirement_id": failed_id, "replacement_requirement_id": replacement_id}
@@ -200,6 +274,7 @@ __all__ = [
     "QaReplacementError",
     "announce_discharges",
     "declare_replacements",
+    "declare_existing_replacement",
     "discharge_declared_replacements",
     "point_at_replacement",
     "replacement_note",

@@ -7,6 +7,7 @@ for the runner to happen to check the same stage again.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any, Mapping
 
 
@@ -97,7 +98,8 @@ def settle_subject(
     key = (
         f"deployment-qa-continuation:{run_id}:{stage}:"
         f"{member if member is not None else 'run'}:"
-        f"{status.get('target_digest') or ''}:{outcome}"
+        f"{status.get('target_digest') or ''}:{outcome}:"
+        f"{hashlib.sha256(repr(status.get('reasons') or ()).encode()).hexdigest()[:12]}"
     )
     delivery = push_run_scoped_notice(
         conn,
@@ -109,6 +111,7 @@ def settle_subject(
             project_slug=project.slug,
             route=route,
             completion_failure=completion_failure,
+            blockers="; ".join(str(reason) for reason in status.get("reasons") or ()),
         ),
         idempotency_key=key,
     )
@@ -117,7 +120,8 @@ def settle_subject(
         print(
             f"Run {run_id} stage {stage!r} settled {outcome}, but no deploy "
             "driver or covering steering seat could be reached. The QA "
-            "outcome is durable; acquire the project deploy lock and re-drive "
+            f"blockers are {status.get('reasons') or 'none reported'}. "
+            "The outcome is durable; acquire the project deploy lock and re-drive "
             f"the same run with `yoke watch deploy -- {run_id}`."
         )
     return status
@@ -140,6 +144,7 @@ def continuation_message(
     project_slug: str,
     route: str,
     completion_failure: str = "",
+    blockers: str = "",
 ) -> str:
     from yoke_core.domain.deployment_run_driver_notice import DRIVER
     from yoke_core.domain.deployment_stage_decision_effect import drive_recipe
@@ -152,7 +157,9 @@ def continuation_message(
     )
     return (
         f"Deployment run {run_id} QA stage {stage!r} settled {outcome} "
-        f"against its frozen target. {recovery}Continue this same run through "
+        f"against its frozen target. {recovery}"
+        f"{'Remaining blockers: ' + blockers + '. ' if blockers else ''}"
+        "Continue this same run through "
         f"its pinned deploy-lock runner:\n{recipe}\n"
         "Read the run and its live driver attachment first. If that driver "
         "is still running, continue its existing watcher; otherwise re-enter "

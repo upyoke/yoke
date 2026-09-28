@@ -18,6 +18,7 @@ from yoke_core.domain.deployment_qa_execution_target import deployment_qa_execut
 from yoke_core.domain.deployment_qa_stage_contract import deployment_qa_stage_subject
 from yoke_core.domain.deployment_qa_stage_named_cases import (
     AGENT_PLAN_ALREADY_NAMED_REFUSAL,
+    require_correction_only_plan,
     stage_names_cases,
 )
 from yoke_core.domain.deployment_qa_admission_materialization import (
@@ -102,20 +103,17 @@ def _selected_plans(
     target: Mapping[str, Any],
     admitted: list[dict[str, Any]],
     allow_empty: bool = False,
+    replacement_keys: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     frozen = [*_flow_plan(subject), *_member_plans(conn, subject, target=target)]
     if not frozen:
-        # Nothing pinned or frozen selected cases, so the member's own
-        # attached plan answers before any --plan choice is needed.
         frozen = attached_member_plans(conn, subject, target=target)
-    if agent_plan is not None and stage_names_cases(
+    named = agent_plan is not None and stage_names_cases(
         conn, subject, frozen_plans=frozen, admitted=admitted
-    ):
+    )
+    if named and not replacement_keys:
         raise QaPlanError(AGENT_PLAN_ALREADY_NAMED_REFUSAL)
     if agent_plan is not None:
-        # An item-scoped stage selects from the MEMBER's project: a run that
-        # ships a bound project's code carries members whose QA plans live in
-        # that project, not in the run's own.
         plan_project_id = int(
             subject.get("member_project_id") or subject["project_id"]
         )
@@ -129,9 +127,10 @@ def _selected_plans(
                 f"agent-selected QA plan {agent_plan!r} is not active in this project"
             )
         agent_plan_id = int(row["id"] if hasattr(row, "keys") else row[0])
-        frozen.append(
-            _plan_snapshot(conn, int(agent_plan_id), project_id=plan_project_id)
-        )
+        snapshot = _plan_snapshot(conn, int(agent_plan_id), project_id=plan_project_id)
+        if named:
+            require_correction_only_plan(snapshot, replacement_keys or set())
+        frozen.append(snapshot)
     unique: dict[tuple[int, tuple[str, ...]], dict[str, Any]] = {}
     for snapshot in frozen:
         plan = snapshot.get("plan")
@@ -182,6 +181,7 @@ def materialize_deployment_qa_stage(
     deployment_member_item_id: int | None = None,
     agent_plan: str | None = None,
     commit: bool = True,
+    replacement_keys: set[str] | None = None,
 ) -> dict[str, Any]:
     """Create concrete scoped cases from the run's immutable snapshots."""
     subject = deployment_qa_stage_subject(
@@ -199,6 +199,7 @@ def materialize_deployment_qa_stage(
         target=target,
         admitted=admitted,
         allow_empty=True,
+        replacement_keys=replacement_keys,
     )
     created: list[int] = []
     existing: list[int] = []

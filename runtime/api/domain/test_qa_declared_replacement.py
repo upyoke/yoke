@@ -22,6 +22,8 @@ from runtime.api.fixtures.qa_declared_replacement_fixture import (
     declare,
     requirement_row,
 )
+from runtime.api.domain.test_deployment_run_auto_completion import _held_lock
+from runtime.api.domain.test_status_transition_preflight import _isolate_status_effects
 from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.qa_deployment_case_content_refresh import (
     declare_refreshed_replacements,
@@ -34,6 +36,7 @@ from yoke_core.domain.qa_plan_execution_state import (
 )
 from yoke_core.domain.qa_requirement_replacement import (
     QaReplacementError,
+    declare_existing_replacement,
     discharge_declared_replacements,
 )
 
@@ -199,3 +202,37 @@ def test_refreshed_case_is_declared_the_replacement_of_its_failed_rows(test_db) 
 
     assert requirement_row(test_db, failed_id)["replacement_requirement_id"] == refreshed_id
     assert _roster(test_db, run_id) == [refreshed_id]
+
+
+def test_existing_corrected_case_replaces_failed_capture_with_sibling_pending(
+    test_db, monkeypatch
+) -> None:
+    _isolate_status_effects(monkeypatch)
+    _held_lock(monkeypatch)
+    run_id = "run-direct-correction-and-sibling"
+    failed_id = seed_member_qa_case(test_db, run_id=run_id, member_item_id=MEMBER)
+    record_case_verdict(test_db, failed_id, "fail", evidence=True)
+    corrected_id = corrected_case(test_db, failed_id=failed_id, case_key="selector-scoped")
+    sibling_id = corrected_case(test_db, failed_id=failed_id, case_key="other-check")
+
+    declared = declare_existing_replacement(
+        test_db, failed_id=failed_id, replacement_id=corrected_id
+    )
+    test_db.commit()
+    assert declare_existing_replacement(
+        test_db, failed_id=failed_id, replacement_id=corrected_id
+    ) == declared
+    assert failed_id not in _roster(test_db, run_id)
+    assert set(_roster(test_db, run_id)) == {corrected_id, sibling_id}
+
+    record_case_verdict(test_db, corrected_id, "pass", evidence=True)
+    discharge_declared_replacements(test_db, [corrected_id])
+    test_db.commit()
+    assert requirement_row(test_db, failed_id)["superseded_by_requirement_id"] == corrected_id
+    assert not _status(test_db, run_id)["accepted"]
+
+    _pass(test_db, run_id)
+    run = test_db.execute(
+        "SELECT status FROM deployment_runs WHERE id=%s", (run_id,)
+    ).fetchone()
+    assert run["status"] == "succeeded"

@@ -23,6 +23,7 @@ from typing import Any
 from yoke_core.domain.deployment_qa_direct_case_target import (
     list_direct_deployment_method_cases,
 )
+from yoke_core.domain.qa_plan_management import QaPlanError
 
 
 AGENT_PLAN_ALREADY_NAMED_REFUSAL = (
@@ -30,7 +31,10 @@ AGENT_PLAN_ALREADY_NAMED_REFUSAL = (
     "agent-selected plan would materialize a second, duplicate set of "
     "obligations beside the ones the stage credits. Re-run the same "
     "command without --plan; --plan selects cases only for a stage that "
-    "names none, which is the wait that asks you for one by name."
+    "names none, which is the wait that asks you for one by name. To correct "
+    "a failed admitted case, use --plan CORRECTED_PLAN with "
+    "--replaces CORRECTED_CASE_KEY=FAILED_REQUIREMENT_ID for every case in "
+    "that plan."
 )
 
 
@@ -69,6 +73,18 @@ def stage_names_cases(
             member_item_id=subject.get("member_item_id"),
         )
     )
+
+
+def require_correction_only_plan(snapshot: Mapping[str, Any], keys: set[str]) -> None:
+    """A correction plan may add only the cases explicitly replacing failures."""
+    cases = snapshot.get("cases")
+    actual = {str(case.get("case_key")) for case in cases or []}
+    if not keys or actual != keys or len(cases or []) != len(keys):
+        raise QaPlanError(
+            "a stage already naming cases accepts --plan only with --replaces "
+            "for every case in the corrected plan; select a plan containing "
+            "exactly those corrected case keys"
+        )
 
 
 __all__ = [

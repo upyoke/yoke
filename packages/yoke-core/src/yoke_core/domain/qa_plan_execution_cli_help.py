@@ -37,9 +37,9 @@ and names this command instead of exiting zero with an uncredited pass.
 When the stage names no concrete cases, --plan records the executor's
 project-owned selection -- and only then. A stage already naming its own cases
 (pinned, frozen, member-attached, admitted, or directly authored) refuses
---plan by name: a plan there materializes a second, duplicate set of
-obligations beside the ones the stage credits. The wake asking for a selection
-prints --plan; every other wake omits it.
+--plan unless --replaces names every case in a correction-only plan. This
+atomic correction binds each case to the same run, stage, member and target;
+it does not add an unrelated second set of obligations.
 Materialization stamps the run's own deployed target
 onto the cases, so a plan authored before this release still verifies it. A
 deployment case is bound to the candidate the run deployed, not to your lane:
@@ -56,20 +56,23 @@ for the close-out and `yoke deployment-runs --help` for the run itself.
 
 Replacing a failed case with a corrected one
 --------------------------------------------
-When a case failed because the case itself was wrong (a capture that could not
-establish the UI, a bad probe), materialize the corrected case with --plan and
-name the exact failed requirement it replaces:
+When an admitted case failed because its capture or probe was wrong, create a
+plan containing only its corrected case and name the failed requirement:
 
   yoke qa plan run --deployment-run-id RUN --stage STAGE [--member PREFIX-N] \\
       --plan CORRECTED_PLAN --project P --replaces CASE_KEY=FAILED_REQUIREMENT_ID
 
-The failed case keeps blocking but is no longer captured or reviewed again, so
-the review bundle holds only the newly captured cases. A passing independent
-verdict on the corrected case supersedes the failed one in the same
-transaction and the stage re-evaluates; a failing or undetermined one leaves
-the failed case blocking with its evidence. To correct a failed correction,
-name that correction's requirement id. For an item subject, pass --replaces to
+The failed attempt remains history and leaves the execution roster. The new
+blocking case keeps the stage waiting until its independent verdict passes;
+that pass supersedes the old row and resumes the run driver. A missing sibling
+case still blocks. Retries reuse the declaration. To correct a failed
+correction, name its requirement id. For an item subject, pass --replaces to
 `yoke qa plan materialize --item PREFIX-N --transition T` before this run.
+If the corrected direct requirement already exists, declare it with `yoke qa
+requirement supersede --requirement-id FAILED_ID
+--superseded-by-requirement-id CORRECTED_ID --rationale 'corrected case'
+--declare-replacement`, then run the scoped plan without --plan. The old case
+leaves its roster immediately; the corrected case still needs a pass.
 """
 
 
