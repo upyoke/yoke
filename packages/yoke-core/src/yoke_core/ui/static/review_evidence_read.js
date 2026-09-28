@@ -64,9 +64,13 @@ export async function readArtifact(context, artifact) {
   })).finally(() => {
     clearTimeout(timer);
     signal?.removeEventListener?.("abort", onAbort);
-    // Delete only from this view's map. A route swap installs a new Map on
-    // context before this finally runs, and must not lose the fresh read.
-    if (reads.get(key) === pending) reads.delete(key);
+  });
+  // A settled ready read stays for this view, so a repaint of the same page
+  // reuses it instead of queueing every tile's read again; a failed read is
+  // forgotten so the next paint retries it. Only this view's map is touched:
+  // a route swap installs a new Map on context before this settles.
+  void pending.then((response) => {
+    if (!readOutcome(response).ready && reads.get(key) === pending) reads.delete(key);
   });
   reads.set(key, pending);
   return pending;

@@ -11,9 +11,15 @@ import {
   planRow,
 } from "./universe_ui_qa_view_data_test_support.mjs";
 
+// A fixed instant at midday UTC, so every row sits on the same UTC day as the
+// summary that counts it whatever the wall clock reads when the suite runs.
+// The activity table lists the rows of the summary's day, so a clock-relative
+// anchor put the older rows on the previous day between 00:00 and 04:00 UTC.
+const ACTIVITY_NOW = Date.parse("2026-09-27T12:00:00Z");
+
 function qaClient() {
   const requests = [];
-  const activityNow = Date.now();
+  const activityNow = ACTIVITY_NOW;
   return {
     requests,
     async call(request) {
@@ -162,7 +168,7 @@ function qaClient() {
               capture_degraded_reason: null,
               precondition_reason: "capability went error",
               happened_at: new Date(
-                activityNow - 24 * 60 * 60 * 1000,
+                activityNow - 4 * 60 * 60 * 1000,
               ).toISOString(),
             },
           ],

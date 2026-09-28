@@ -29,6 +29,24 @@ function requestPayload(scope, criteria, cursor) {
   };
 }
 
+// The newest runs of one flow, for the flow page's recent-runs list. A
+// failed read shows no list rather than an error beside the definition.
+export async function loadRecentFlowRuns(context, flow, limit = 5) {
+  try {
+    const result = await callFunction(context.client, "deployment_runs.list", {
+      page: {
+        page_size: limit,
+        flow: String(flow.id),
+        ...(flow.project ? { projects: [String(flow.project)] } : {}),
+      },
+    });
+    if (failed(result)) return [];
+    return (result.envelope.result?.rows || []).slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
 function failed(result) {
   return result?.status !== 200 || result?.envelope?.success !== true;
 }

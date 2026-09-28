@@ -1,0 +1,22 @@
+/* Every text link in the content area reads as a link: underlined, in the
+   link color's own weight. Component styles that drop the underline for a
+   text link are overridden here on purpose; controls drawn as something
+   other than text — chips, pills, tabs, buttons, cards and image tiles —
+   keep their own affordance and are listed as exceptions.
+
+   A disclosure whose summary is a line of text ("Earlier checks",
+   "3 earlier or superseded checks") behaves like a link and is underlined
+   too: a plain <summary>, or any summary marked .disclosure-link. */
+.universe-app-root main.content a[href]:not(.btn):not(.nav-link):not(.tab-link):not(.row-link):not(.breadcrumb-parent):not(.review-shot-open):not(.review-lightbox-open):not(.review-pill):not(.item-button):not(.qa-plan-button):not(.header-search-result):not(.actor-menu-link):not(.profile-row-action):not([class*="card"]):not([class*="chip"]):not([class*="pill"]):not([class*="tab"]):not([class*="button"]) {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.universe-app-root main.content details > summary:not([class]),
+.universe-app-root main.content summary.disclosure-link {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}

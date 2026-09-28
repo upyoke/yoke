@@ -56,14 +56,15 @@ test("an item's own QA shows in its Carries entry", async () => {
   assert.match(entry.textContent, /BUZ-1896/);
   const evidence = byClass(entry, "carried-item-evidence")[0];
   assert.ok(evidence, "the item's entry carries its own evidence");
-  assert.match(
-    byClass(evidence, "carried-item-evidence-caption")[0].textContent,
-    /verified before merge/,
-  );
-  assert.match(
-    byClass(evidence, "carried-item-evidence-caption")[0].textContent,
-    /verified before merge/,
-  );
+  // A check from before merge is an earlier check: one row, linked to its
+  // QA case, with no phase code and no caption restating it.
+  assert.equal(byClass(evidence, "carried-item-qa-heading").length, 0);
+  const earlier = byClass(evidence, "carried-item-qa-earlier")[0];
+  assert.equal(earlier.children[0].textContent, "Earlier checks");
+  const row = byClass(earlier, "carried-item-qa-row")[0];
+  assert.match(row.textContent, /^○Before merge·/);
+  assert.equal(row.children[1].href, "#/qa-activity/26134?project=1");
+  assert.doesNotMatch(evidence.textContent, /verified before merge|before merge ·/);
   // Each screenshot is its own control inside that entry.
   assert.equal(byClass(evidence, "review-shot").length, 2);
   // The distinction between an item's own record and this run's proof is
@@ -98,11 +99,12 @@ test("each carried item shows its own evidence and no one else's", async () => {
   const second = byClass(memberEntry(card, 1), "carried-item-evidence")[0];
   assert.equal(byClass(first, "review-shot").length, 2);
   assert.equal(byClass(second, "review-shot").length, 1);
-  // Matching the deployed SHA is the this-release claim; run-id alone is not.
-  assert.match(
-    byClass(second, "carried-item-evidence-caption")[0].textContent,
-    /ran against the deployed revision/,
-  );
+  // The check that ran against the deployed revision leads its entry.
+  assert.equal(byClass(second, "carried-item-qa-heading")[0].textContent,
+    "QA for the deployed revision");
+  assert.match(byClass(second, "carried-item-qa-row")[0].textContent,
+    /^✓Browser inspection passed·this release·/);
+  assert.equal(byClass(first, "carried-item-qa-heading").length, 0);
   assert.equal(byClass(second, "carried-item-evidence-note").length, 0);
 });
 
@@ -264,8 +266,12 @@ test("a review that names another run is not offered under this run", async () =
 test("a request whose evidence is already on screen does not draw it twice", async () => {
   const documentNode = new FakeDocument();
   const client = readingClient({
-    // The item's own recent history IS the capture this request rests on.
-    rows: [activityRow({ artifacts: [artifact(1, 26134), artifact(2, 26134)] })],
+    // The deployed revision's check IS the capture this request rests on.
+    rows: [activityRow({
+      artifacts: [artifact(1, 26134), artifact(2, 26134)],
+      deployment_run_id: RUN_ID,
+      execution_target_json: deployedTarget(),
+    })],
     pending: [qaRequestRow({
       id: 4600,
       status: "pending",
@@ -300,6 +306,8 @@ test("a request whose evidence sits behind +N more still draws it", async () => 
     // the fourth, which nobody has seen until they click.
     rows: [activityRow({
       artifacts: [1, 2, 3, 4, 5].map((id) => artifact(id, 26134)),
+      deployment_run_id: RUN_ID,
+      execution_target_json: deployedTarget(),
     })],
     pending: [qaRequestRow({
       id: 4601,

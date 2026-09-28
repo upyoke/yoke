@@ -103,3 +103,65 @@ class TestFlowStagePolicy:
 
         stages = get_workflows_definition(project="yoke")["flows"][0]["stages"]
         assert stages == [{"name": "stage-deploy", "step_runner": "auto"}]
+
+    def test_a_flow_carries_its_description_lineage_and_runner_parameters(
+        self, test_db
+    ):
+        # The Flows page says what runs each stage ("GitHub Actions ·
+        # release.yml") and which definition a flow replaces, so the read
+        # serves the workflow file, the description and the lineage link.
+        _insert_flow(
+            test_db,
+            "yoke",
+            "ship-it",
+            [
+                {
+                    "name": "ship",
+                    "step_runner": "github-actions-workflow",
+                    "workflow": "release.yml",
+                    "inputs": {"target_environment": "prod"},
+                },
+                {"name": "warm", "step_runner": "warm-up", "connection_env": "prod"},
+            ],
+        )
+        test_db.execute(
+            "UPDATE deployment_flows SET description = %s, supersedes_flow_id = %s "
+            "WHERE id = %s",
+            ("Ship to production.", None, "ship-it"),
+        )
+        test_db.commit()
+
+        flow = get_workflows_definition(project="yoke")["flows"][0]
+        assert flow["description"] == "Ship to production."
+        assert flow["supersedes_flow_id"] is None
+        # Runner parameters a reader needs are served; dispatch inputs are not.
+        assert flow["stages"] == [
+            {
+                "name": "ship",
+                "step_runner": "github-actions-workflow",
+                "workflow": "release.yml",
+            },
+            {"name": "warm", "step_runner": "warm-up", "connection_env": "prod"},
+        ]
+
+    def test_people_a_stage_names_are_served_by_name(self, test_db):
+        actor = test_db.execute(
+            "SELECT id, name FROM actors WHERE name <> '' ORDER BY id LIMIT 1"
+        ).fetchone()
+        assert actor is not None
+        actor = dict(actor)
+        _insert_flow(
+            test_db,
+            "yoke",
+            "approved-release",
+            [
+                {
+                    "name": "approve",
+                    "step_runner": "human-approval",
+                    "approvals": {"actors": [actor["id"]], "mode": "any"},
+                }
+            ],
+        )
+
+        result = get_workflows_definition(project="yoke")
+        assert result["flow_actor_names"] == {str(actor["id"]): actor["name"]}

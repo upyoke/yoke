@@ -26,6 +26,8 @@ from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 from yoke_core.domain.qa_artifacts import artifact_file_path
 from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
 
+INLINE_OUTPUT = base64.b64encode(b"12 passed\n").decode("ascii")
+
 
 def test_local_evidence_inside_checkout_is_returned_inline(tmp_path) -> None:
     evidence = tmp_path / "qa-output.txt"
@@ -189,7 +191,10 @@ def test_s3_evidence_returns_authorized_presigned_download() -> None:
         with patch(
             "yoke_core.domain.handlers.qa_artifact_presign._capability_credentials",
             return_value=CREDS,
-        ):
+        ), patch(
+            "yoke_core.domain.handlers.qa_artifact_read.inline_text_base64",
+            return_value=INLINE_OUTPUT,
+        ) as fetch:
             outcome = handle_qa_artifact_read(artifact_read_request(10, artifact_id))
 
     assert outcome.primary_success
@@ -203,6 +208,10 @@ def test_s3_evidence_returns_authorized_presigned_download() -> None:
     query = parse_qs(parts.query)
     assert query["X-Amz-Expires"] == ["300"]
     assert "X-Amz-Signature" in query
+    # A text object is also read server-side through that URL: the bucket
+    # serves no CORS headers, so a browser could not read it as text.
+    fetch.assert_called_once_with(result["download_url"])
+    assert result["content_base64"] == INLINE_OUTPUT
 
 
 def test_s3_read_matches_real_http_function_boundary() -> None:
@@ -225,6 +234,9 @@ def test_s3_read_matches_real_http_function_boundary() -> None:
             with patch(
                 "yoke_core.domain.handlers.qa_artifact_presign._capability_credentials",
                 return_value=CREDS,
+            ), patch(
+                "yoke_core.domain.handlers.qa_artifact_read.inline_text_base64",
+                return_value=INLINE_OUTPUT,
             ):
                 response = client.post(
                     "/v1/functions/call",

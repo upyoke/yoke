@@ -75,11 +75,18 @@ class TestRegistrationShape:
             "machine.settings.set",
             "strategy.revision.restore",
             "deployment_runs.terminalize",
+        }
+        # Flows are authored, versioned and disabled only through the CLI;
+        # the browser can read a definition but never write one.
+        for function_id in (
             "deployment_flows.create",
             "deployment_flows.update",
             "deployment_flows.version",
             "deployment_flows.set_status",
-        }
+            "deployment_flows.validate",
+        ):
+            assert function_id not in ui_server.UI_MUTATION_FUNCTION_ALLOWLIST
+            assert function_id not in ui_server.UI_READ_FUNCTION_ALLOWLIST
         assert not (
             ui_server.UI_MUTATION_FUNCTION_ALLOWLIST
             & ui_server.UI_READ_FUNCTION_ALLOWLIST

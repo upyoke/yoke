@@ -11,9 +11,10 @@
 // in one and require a named reviewer in the other.
 
 import { createDecisionResolver } from "./inbox_rows.js";
+import { caseEvidencePanel } from "./qa_case_evidence_panel.js";
+import { qaCaseName } from "./qa_case_name.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import { deploymentRunHref } from "./universe_navigation.js";
-import { evidenceStrip } from "./review_evidence_strip.js";
 import { reviewRequestCard } from "./review_request_card.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
 import { relativeAgePhrase } from "./universe_time.js";
@@ -57,18 +58,20 @@ async function loadExecutions(context, requirementId) {
 // which is keyed by subject rather than by requirement. When that read does
 // not carry this case, evidence is unavailable — which is a different answer
 // from the case never having run, and the page must not confuse them.
-async function loadEvidenceRow(context, project, requirement, requirementId) {
+async function loadEvidenceRow(context, projects, requirement, requirementId) {
   const payloads = [];
-  if (requirement?.item_id) {
-    payloads.push({ project, item_ids: [Number(requirement.item_id)] });
-  }
-  if (requirement?.deployment_run_id) {
-    payloads.push({ project, deployment_run_id: String(requirement.deployment_run_id) });
-  }
-  if (requirement?.deployment_member_item_id) {
-    payloads.push({
-      project, item_ids: [Number(requirement.deployment_member_item_id)],
-    });
+  for (const project of projects) {
+    if (requirement?.item_id) {
+      payloads.push({ project, item_ids: [Number(requirement.item_id)] });
+    }
+    if (requirement?.deployment_run_id) {
+      payloads.push({ project, deployment_run_id: String(requirement.deployment_run_id) });
+    }
+    if (requirement?.deployment_member_item_id) {
+      payloads.push({
+        project, item_ids: [Number(requirement.deployment_member_item_id)],
+      });
+    }
   }
   for (const payload of payloads) {
     const result = await read(context, "qa.activity.list", payload);
@@ -180,10 +183,18 @@ export async function renderQaCaseDetail(
     });
     return;
   }
-  const subjectId = subjectItemId(requirement, null);
-  const [executions, row, stages, pending, subjectItem] = await Promise.all([
+  const subjectItem = await loadSubjectItem(
+    context, project, subjectItemId(requirement, null),
+  );
+  if (!context.isMounted()) return;
+  // A release carries items from other projects; a carried item's check is
+  // read under the item's own project when the page's project lacks it.
+  const evidenceProjects = [...new Set([
+    String(project), subjectItem?.project?.slug, subjectItem?.project?.id,
+  ].filter((value) => value != null && value !== "").map(String))];
+  const [executions, row, stages, pending] = await Promise.all([
     loadExecutions(context, requirementId),
-    loadEvidenceRow(context, String(project), requirement, requirementId),
+    loadEvidenceRow(context, evidenceProjects, requirement, requirementId),
     requirement.deployment_run_id
       ? read(context, "deployment_runs.stages", {}, {
         kind: "workflow_run",
@@ -191,7 +202,6 @@ export async function renderQaCaseDetail(
       })
       : Promise.resolve(null),
     loadPendingReviews(context, [project]),
-    loadSubjectItem(context, project, subjectId),
   ]);
   if (!context.isMounted()) return;
   // The newest execution is the case's current answer; the ones before it are
@@ -202,8 +212,10 @@ export async function renderQaCaseDetail(
   const stage = (stages?.stages || []).find(
     (candidate) => String(candidate.name) === String(requirement.deployment_stage),
   ) || null;
-  const caseName = String(
-    row?.case_key || requirement.plan_case_key || `case ${requirementId}`,
+  // The same name the activity table links: what ran, against what.
+  const caseName = qaCaseName(
+    { ...requirement, ...(row || {}), requirement_id: requirementId },
+    subjectItem?.public_ref,
   );
   if (typeof navigation.setDetailLabel === "function") {
     navigation.setDetailLabel(caseName);
@@ -267,46 +279,7 @@ export async function renderQaCaseDetail(
     ["Expected", requirement.expected_outcome || "no expected outcome recorded"],
   ]));
 
-  const evidence = el(documentNode, "section", "panel qa-case-evidence");
-  const header = el(documentNode, "div", "panel-header");
-  header.appendChild(el(documentNode, "h2", null, "Evidence"));
-  evidence.appendChild(header);
-  const body = el(documentNode, "div", "panel-body");
-  const strip = evidenceStrip(context, row?.artifacts || [], {
-    requirementId: Number(requirementId),
-  });
-  if (strip) body.appendChild(strip);
-  for (const [label, value] of [
-    ["What the agent said", latest?.verdict_reason || row?.verdict_reason],
-    ["Capture degraded", latest?.capture_degraded_reason],
-    ["Blocked on precondition", row?.precondition_reason],
-  ]) {
-    if (!value) continue;
-    const line = el(documentNode, "p", "qa-case-reason");
-    line.appendChild(el(documentNode, "strong", null, `${label}: `));
-    line.appendChild(el(documentNode, "span", null, String(value)));
-    body.appendChild(line);
-  }
-  // Evidence the shared chain could not resolve is unavailable, which is a
-  // different fact from a case that never ran and from one that captured
-  // nothing. Each says which it is rather than sharing one empty state.
-  if (latest && !row) {
-    body.appendChild(el(
-      documentNode,
-      "p",
-      "empty",
-      "This execution's evidence could not be resolved from here.",
-    ));
-  } else if (!strip && !body.children.length) {
-    body.appendChild(el(
-      documentNode,
-      "p",
-      "empty",
-      latest ? "No evidence was captured." : "This case has never run.",
-    ));
-  }
-  evidence.appendChild(body);
-  host.appendChild(evidence);
+  host.appendChild(caseEvidencePanel(context, { row, latest, requirementId }));
 
   const request = pending.get(String(requirementId));
   if (request) {

@@ -1,103 +1,82 @@
+/* One flow: name and ID, description, one facts row, a numbered vertical
+   pipeline in stage order, and its recent runs. */
 .universe-app-root .delivery-flow-detail {
   min-width: 0;
-  padding: clamp(20px, 3vw, 34px);
+  padding: 22px 24px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 12px;
   background: var(--yoke-bg);
 }
 
-.universe-app-root .delivery-flow-detail.is-empty {
-  display: grid;
-  place-items: center;
-}
-
-.universe-app-root .delivery-flow-detail-empty {
-  max-width: 260px;
+.universe-app-root .delivery-flow-detail-header h3 {
   margin: 0;
-  color: var(--yoke-muted);
-  font-size: 12px;
-  text-align: center;
-}
-
-.universe-app-root .delivery-flow-eyebrow {
-  margin: 0 0 7px;
-  color: var(--yoke-accent);
-  font-size: 9.5px;
-  font-weight: 750;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-}
-
-.universe-app-root .delivery-flow-detail-title {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 9px;
-}
-
-.universe-app-root .delivery-flow-detail-title h3 {
-  margin: 0;
-  color: var(--yoke-ink);
-  font-size: clamp(21px, 2.5vw, 29px);
-  font-weight: 690;
-  letter-spacing: -.025em;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .universe-app-root .delivery-flow-id {
-  display: inline-block;
-  margin-top: 7px;
+  margin: 4px 0 0;
+  font-size: 12px;
   color: var(--yoke-muted);
-  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
+
+.universe-app-root .delivery-flow-description {
+  max-width: 72ch;
+  margin: 14px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--yoke-ink-2);
 }
 
 .universe-app-root .delivery-flow-facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
-  gap: 1px;
-  margin: 24px 0 28px;
-  overflow: hidden;
-  border: 1px solid var(--yoke-border);
-  border-radius: 10px;
-  background: var(--yoke-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin: 18px 0 0;
+  padding: 14px 0;
+  border-block: 1px solid var(--yoke-border);
 }
 
 .universe-app-root .delivery-flow-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   min-width: 0;
-  padding: 11px 12px;
-  background: var(--yoke-surface);
 }
 
 .universe-app-root .delivery-flow-fact dt {
-  margin-bottom: 5px;
-  color: var(--yoke-muted);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: .055em;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: var(--yoke-muted);
 }
 
 .universe-app-root .delivery-flow-fact dd {
   margin: 0;
-  overflow: hidden;
-  color: var(--yoke-ink-2);
-  font-size: 11.5px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
 }
 
-.universe-app-root .delivery-flow-pipeline-region h4 {
-  margin: 0 0 13px;
-  color: var(--yoke-ink);
-  font-size: 13px;
+.universe-app-root .delivery-flow-detail a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.universe-app-root .delivery-flow-detail a:hover { color: var(--yoke-accent); }
+
+.universe-app-root .delivery-flow-section-title {
+  margin: 22px 0 12px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .universe-app-root .delivery-flow-pipeline {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  /* Each card is as tall as its own policy. Stretching a two-line execution
-     stage to match a six-line QA stage beside it fills the pipeline with
-     empty boxes and hides how much more one stage declares than another. */
-  align-items: start;
-  gap: 9px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -106,110 +85,101 @@
 .universe-app-root .delivery-flow-stage {
   position: relative;
   display: grid;
-  /* Top-aligned: stage cards in one row hold different amounts of policy,
-     and spreading each card's own content to its full height puts the same
-     label at a different altitude in every column. */
-  align-content: start;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid var(--yoke-border);
-  border-radius: 10px;
-  background: linear-gradient(145deg, var(--yoke-surface), var(--yoke-bg));
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 0 14px;
+  padding-bottom: 16px;
 }
 
-.universe-app-root .delivery-flow-stage-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+.universe-app-root .delivery-flow-stage:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: 30px;
+  bottom: 2px;
+  left: 13px;
+  border-left: 2px solid var(--yoke-border);
 }
 
-.universe-app-root .delivery-flow-stage-index {
-  color: var(--yoke-accent);
-  font: 700 9px/1 var(--yoke-font-mono);
-}
-
-.universe-app-root .delivery-flow-stage-kind {
-  padding: 2px 7px;
-  border-radius: 999px;
+.universe-app-root .delivery-flow-stage-num {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
   background: var(--yoke-surface-2);
-  color: var(--yoke-muted);
-  font: 650 9px/1.4 var(--yoke-font-mono);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.universe-app-root .delivery-flow-stage.is-qa .delivery-flow-stage-kind {
-  background: var(--yoke-accent-weak);
-  color: var(--yoke-accent);
-}
-
-/* Label above value: a stage card is narrow, and a side-by-side term list
-   wraps into an unreadable zig-zag at phone width. */
-.universe-app-root .delivery-flow-stage-policy {
-  display: grid;
-  gap: 7px;
-  margin: 0;
-}
-
-.universe-app-root .delivery-flow-stage-policy-row {
-  display: grid;
-  gap: 1px;
-}
-
-.universe-app-root .delivery-flow-stage-policy dt {
-  color: var(--yoke-muted);
-  font-size: 9.5px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.universe-app-root .delivery-flow-stage-policy dd {
-  margin: 0;
-  overflow-wrap: anywhere;
   color: var(--yoke-ink-2);
-  font-size: 10.5px;
-  line-height: 1.45;
-}
-
-.universe-app-root .delivery-flow-stage-name {
-  overflow-wrap: anywhere;
-  color: var(--yoke-ink);
   font-size: 12px;
   font-weight: 650;
 }
 
-.universe-app-root .delivery-flow-no-stages {
-  margin: 0;
-  padding: 18px;
-  border: 1px dashed var(--yoke-border);
-  border-radius: 10px;
+.universe-app-root .delivery-flow-stage.is-person .delivery-flow-stage-num {
+  background: var(--yoke-warn-bg);
+  color: var(--yoke-warn);
+}
+
+.universe-app-root .delivery-flow-stage.is-qa .delivery-flow-stage-num {
+  background: var(--yoke-accent-weak);
+  color: var(--yoke-accent);
+}
+
+.universe-app-root .delivery-flow-stage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  min-height: 28px;
+  padding-top: 4px;
+}
+
+.universe-app-root .delivery-flow-stage-name { font-size: 14px; }
+
+.universe-app-root .delivery-flow-stage-kind {
+  font-size: 12.5px;
   color: var(--yoke-muted);
+  overflow-wrap: anywhere;
+}
+
+.universe-app-root .delivery-flow-stage-person {
   font-size: 11.5px;
+  font-weight: 600;
+  color: var(--yoke-warn);
 }
 
-@media (max-width: 880px) {
-  .universe-app-root .delivery-flow-facts {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .universe-app-root .delivery-flow-fact:last-child:nth-child(odd) {
-    grid-column: 1 / -1;
-  }
+.universe-app-root .delivery-flow-stage-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 14px;
+  margin: 6px 0 0;
+  font-size: 12.5px;
 }
 
-@media (max-width: 640px) {
-  .universe-app-root .delivery-flow-detail {
-    padding: 22px 16px 26px;
-  }
+.universe-app-root .delivery-flow-stage-facts dt { color: var(--yoke-muted); }
+.universe-app-root .delivery-flow-stage-facts dd { margin: 0; overflow-wrap: anywhere; }
 
-  .universe-app-root .delivery-flow-pipeline {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.universe-app-root .delivery-flow-no-stages,
+.universe-app-root .delivery-flow-detail-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--yoke-muted);
 }
 
-.universe-app-root .delivery-flow-stage.is-approval {
-  border-color: var(--yoke-accent-line);
+.universe-app-root .delivery-flow-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
+.universe-app-root .delivery-flow-runs li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  font-size: 13px;
+}
+
+.universe-app-root .delivery-flow-run-when {
+  font-size: 12px;
+  color: var(--yoke-muted);
+}

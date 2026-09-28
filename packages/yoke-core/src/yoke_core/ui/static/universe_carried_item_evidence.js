@@ -14,10 +14,10 @@ import { normalizedArtifacts } from "./review_evidence_strip.js";
 import { reviewRequestCard } from "./review_request_card.js";
 import { evidenceOf } from "./review_request_presentation.js";
 import { QA_STATE, classifyMemberQa, classifyQaRow } from "./qa_state.js";
-import { paintMemberHistory } from "./qa_member_history.js";
+import { paintCarriedItemQa } from "./universe_carried_item_qa.js";
+import { loadMissingItemTitles } from "./universe_carried_item_titles.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
 import { gateAsRequest, resolvedDecisionRecord } from "./universe_run_gates.js";
-import { appendRunConclusion } from "./qa_run_conclusion.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
 
 // How many checks one item may contribute, and how many items share a call.
@@ -36,6 +36,7 @@ export const EMPTY_CARRIED_ITEM_FACTS = Object.freeze({
   pendingByItem: new Map(),
   truncatedGroups: new Set(),
   perGroupLimit: CHECKS_PER_ITEM,
+  titles: new Map(),
   failed: null,
 });
 
@@ -92,9 +93,10 @@ export async function loadCarriedItemEvidence(context, items) {
       });
     }
   }
-  const [{ callResults, failed }, pendingByRequirement] = await Promise.all([
+  const [{ callResults, failed }, pendingByRequirement, titles] = await Promise.all([
     settledScopedCalls(context, calls),
     loadPendingReviews(context, buckets.map(([project]) => Number(project))),
+    loadMissingItemTitles(context, items),
   ]);
   const byItem = new Map();
   const truncatedGroups = new Set();
@@ -121,6 +123,7 @@ export async function loadCarriedItemEvidence(context, items) {
     pendingByItem: reviewsByItem(pendingByRequirement),
     truncatedGroups,
     perGroupLimit: CHECKS_PER_ITEM,
+    titles,
     failed: failed
       ? failed.envelope?.error?.message
         || "Item QA evidence could not be loaded."
@@ -204,6 +207,22 @@ export function carriedItemReviews(facts, itemId, runId, checks) {
   return [...requests.values()];
 }
 
+// A busy item's history is bounded per release; the entry says so rather
+// than letting a cut-short list pass for the whole record.
+function appendTruncationNote(documentNode, wrap, facts, itemId, runId) {
+  const cutShort = [groupKey(itemId, runId), groupKey(itemId, null)].some(
+    (key) => facts?.truncatedGroups?.has(key),
+  );
+  if (!cutShort) return;
+  wrap.appendChild(el(
+    documentNode,
+    "span",
+    "carried-item-evidence-note",
+    `Showing at most ${facts.perGroupLimit || CHECKS_PER_ITEM} checks per `
+      + "release; older ones are on the item.",
+  ));
+}
+
 // `options.onDecide(request, action, node, note)` answers a review through
 // the same resolver the Inbox uses, so the answer is the same act wherever
 // it is given.
@@ -214,14 +233,13 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   const { checks } = carriedItemEvidence(facts, itemId, runId);
   const history = facts?.byItem?.get(String(itemId)) || checks;
   const reviews = carriedItemReviews(facts, itemId, runId, checks);
-  const hasQa = history.some((row) => {
+  const memberState = classifyMemberQa(history, { runId });
+  const hasQa = memberState.id !== QA_STATE.NO_OBLIGATION && history.some((row) => {
     const state = classifyQaRow(row, history)?.id;
     return state !== QA_STATE.NO_OBLIGATION && state !== QA_STATE.RUN_MACHINERY;
   });
+  // An item with no QA requirement shows no QA block at all.
   if (!hasQa && !reviews.length) return null;
-  const memberState = classifyMemberQa(history, { runId });
-  // A member with no executable check is still a fact: waived, no-obligation,
-  // and never-asked used to render as a bare title.
   const drawnRequests = new Set(reviews.map((request) => String(request.id)));
   const documentNode = context.document;
   const wrap = el(
@@ -229,21 +247,13 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
     "div",
     `carried-item-evidence is-${String(memberState.id).replaceAll("_", "-")}`,
   );
-  const painted = hasQa ? paintMemberHistory(context, wrap, {
-    itemId, runId, facts, history, memberState,
-    deployedSha: options.deployedSha,
+  const painted = hasQa ? paintCarriedItemQa(context, wrap, history, {
+    runId, deployedSha: options.deployedSha, project: item.project_id,
   }) : { shown: [] };
-  // A CI check that captured nothing still proved a tree. History lists
-  // that row; this keeps the Actions run openable on the folded face.
-  for (const check of checks) {
-    if ((check.artifacts || []).length) continue;
-    appendRunConclusion(
-      documentNode, wrap, check, "carried-item-run-conclusion",
-    );
-  }
-  // The strip above is this item's latest pictures, which is not the same
-  // thing as this request's evidence: the reviewed capture may be older than
-  // the latest few, or the strip may be empty. Its own evidence is suppressed
+  if (hasQa) appendTruncationNote(documentNode, wrap, facts, itemId, runId);
+  // The strip above is the deployed revision's pictures, which is not the
+  // same thing as this request's evidence: the reviewed capture may be older,
+  // or the strip may be empty. Its own evidence is suppressed
   // only where every artifact it rests on is demonstrably already on screen
   // — drawn, not merely passed in, since the strip folds everything past its
   // limit behind "+N more" where nobody has seen it yet.
@@ -267,9 +277,6 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
     if (decision) wrap.appendChild(decision);
   }
   host.appendChild(wrap);
-  // A caption is this member's QA state, not its pictures. The run-wide
-  // strip stands down only when this wrap already showed tiles or a review
-  // that would otherwise repeat there.
   return {
     node: wrap,
     requestIds: drawnRequests,

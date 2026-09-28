@@ -208,13 +208,20 @@ test("carried items show required QA and leave no-obligation items silent", asyn
   const members = byClass(host, "release-member");
   assert.equal(members.length, 20);
   const byRef = Object.fromEntries(MEMBERS.map((item, index) => {
-    const caption = byClass(members[index], "carried-item-evidence-caption")[0];
-    return [item.ref, caption ? caption.textContent : ""];
+    const evidence = byClass(members[index], "carried-item-evidence")[0];
+    return [item.ref, evidence ? evidence.textContent : ""];
   }));
-  assert.match(byRef["YOK-3281"], /ran against the deployed revision/);
+  // The check that ran against the deployed revision leads the entry.
+  const lead = byClass(members[0], "carried-item-evidence")[0];
+  assert.equal(byClass(lead, "carried-item-qa-heading")[0].textContent,
+    "QA for the deployed revision");
+  assert.match(byClass(lead, "carried-item-qa-row")[0].textContent,
+    /^✓Command check passed·this release·/);
   assert.match(byRef["YOK-3294"], /waived/);
+  // An item with no QA requirement, or no QA at all, shows no QA block.
   assert.equal(byRef["YOK-3297"], "");
   assert.equal(byRef["YOK-3290"], "");
+  assert.doesNotMatch(host.textContent, /no obligation|verified before merge|not the revision that is deployed/);
 });
 
 function ancestorHidden(node) {
@@ -227,7 +234,7 @@ function ancestorHidden(node) {
 function membersWithQa(host, visibleOnly) {
   return byClass(host, "release-member").filter((node) => {
     if (visibleOnly && ancestorHidden(node)) return false;
-    return byClass(node, "carried-item-evidence-caption").length > 0;
+    return byClass(node, "carried-item-evidence").length > 0;
   });
 }
 

@@ -13,12 +13,6 @@
     in srgb, var(--yoke-ink) 30%, var(--yoke-border)
   );
 }
-.universe-app-root .carried-item-evidence-caption {
-  color: var(--yoke-muted);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: .02em;
-}
 /* Evidence whose deployment association was never recorded says so where it
    is shown, so nobody reads it as this run's proof. */
 .universe-app-root .carried-item-evidence-note {
@@ -27,13 +21,57 @@
   font-style: italic;
   overflow-wrap: anywhere;
 }
-.universe-app-root .carried-item-run-conclusion {
-  color: var(--yoke-link);
-  font-size: 11px;
-  text-decoration: none;
+/* The item's reference and title, both links to the item. */
+.universe-app-root .carried-item-title {
+  color: inherit;
+  font-weight: 560;
+  overflow-wrap: anywhere;
 }
-.universe-app-root .carried-item-run-conclusion:hover {
+/* "QA for the deployed revision", its check, then its screenshots; every
+   other check folded behind one "Earlier checks" disclosure. */
+.universe-app-root .carried-item-qa-heading {
+  margin: 0;
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+.universe-app-root .carried-item-qa-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .carried-item-qa-mark { width: 1em; text-align: center; font-weight: 700; }
+.universe-app-root .carried-item-qa-row.is-passed > .carried-item-qa-mark { color: var(--yoke-good); }
+.universe-app-root .carried-item-qa-row.is-failed > .carried-item-qa-mark { color: var(--yoke-crit); }
+.universe-app-root .carried-item-qa-row.is-other > .carried-item-qa-mark { color: var(--yoke-muted); }
+.universe-app-root .carried-item-qa-row a { color: var(--yoke-link); }
+.universe-app-root .carried-item-qa-sep { color: var(--yoke-muted); }
+.universe-app-root .carried-item-qa-earlier > summary {
+  width: max-content;
+  max-width: 100%;
+  cursor: pointer;
+  color: var(--yoke-ink-2);
+  font-size: 12px;
   text-decoration: underline;
+}
+.universe-app-root .carried-item-qa-earlier[open] > summary { margin-bottom: 4px; }
+.universe-app-root .carried-item-qa-earlier > .carried-item-qa-row {
+  padding-left: 14px;
+  color: var(--yoke-ink-2);
+}
+/* Screenshots at the Runs table's thumbnail size. */
+.universe-app-root .carried-item-evidence .review-evidence.compact { gap: 6px; }
+.universe-app-root .carried-item-evidence .review-evidence.compact .review-shot { width: 72px; }
+.universe-app-root .carried-item-evidence .review-evidence.compact .review-shot-open {
+  min-height: 0;
+  aspect-ratio: unset;
 }
 .universe-app-root .carried-item-evidence .review-card.inline {
   margin-top: 2px;

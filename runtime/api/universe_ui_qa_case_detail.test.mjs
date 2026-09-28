@@ -156,7 +156,8 @@ test("a case page names its subject, its stage execution, and its contract", asy
     { project: "1", item_ids: [2262] },
   );
 
-  assert.equal(byClass(root, "title")[0].textContent, "preview-url-compare");
+  // Titled for what ran against what, the name the activity table links.
+  assert.equal(byClass(root, "title")[0].textContent, "Browser check · YOK-2228");
   const facts = values(root);
   // Subject is the item's public ref, not the internal id the case stores.
   assert.match(facts[0], /YOK-2228/);

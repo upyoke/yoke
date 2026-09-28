@@ -144,7 +144,9 @@ function composer(documentNode, card, row, action, onAct) {
   card.appendChild(wrap);
 }
 
-function appendActions(documentNode, foot, card, row, onAct) {
+// The ordered answer buttons for one request. `card` is where a change
+// request's note composer opens.
+export function appendActions(documentNode, foot, card, row, onAct) {
   const actions = el(documentNode, "div", "review-actions");
   const ordered = [...(Array.isArray(row.actions) ? row.actions : [])].sort(
     (left, right) => Number(ACTION_RANK[left] ?? 1) - Number(ACTION_RANK[right] ?? 1),
@@ -212,4 +214,4 @@ export function reviewRequestCard(context, row, options = {}) {
   return card;
 }
 
-export const reviewRequestCardView = { reviewRequestCard };
+export const reviewRequestCardView = { appendActions, reviewRequestCard };

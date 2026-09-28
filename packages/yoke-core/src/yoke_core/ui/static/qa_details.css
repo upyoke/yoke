@@ -101,10 +101,6 @@
   text-decoration: none;
 }
 
-.qa-clickable-row {
-  cursor: pointer;
-}
-
 .qa-method-summary {
   display: inline-flex;
   align-items: center;
@@ -284,4 +280,29 @@
     align-items: flex-start;
     flex-direction: column;
   }
+}
+
+/* What a command check printed, read back from its command_output
+   artifact: scrollable, monospace, and bounded so a long log does not push
+   the rest of the case off the page. */
+.qa-case-output-label {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.qa-case-recorded-output {
+  max-height: 320px;
+  margin: 0;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  background: var(--yoke-surface-2);
+  font: 12px/1.45 var(--yoke-font-mono, ui-monospace, monospace);
+  white-space: pre;
+}
+.qa-case-ci-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--yoke-link);
 }

@@ -76,21 +76,49 @@
   font-weight: 600;
 }
 
-/* The activity table's evidence cell: a summary line plus the genuinely
-   linked capture cards below it, bounded so one row with many screenshots
-   does not push the rest of the table off screen. */
-.qa-activity-evidence {
-  min-width: 330px;
+/* The activity table's evidence cell: a summary line plus small
+   thumbnails, about 170px wide, so the case name, outcome and review
+   columns stay on screen. A thumbnail's caption lives on its title; the
+   case page is where each picture is read at size. */
+.universe-app-root table.items td.qa-activity-evidence {
+  width: 170px;
+  min-width: 0;
 }
-.qa-activity-evidence .review-evidence {
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
+.universe-app-root td.qa-activity-evidence .review-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 4px;
 }
-.qa-activity-evidence .review-more {
-  padding: 4px 7px;
+.universe-app-root td.qa-activity-evidence .review-evidence.compact .review-shot {
+  flex: 0 0 48px;
+  width: 48px;
+  margin: 0;
+}
+.universe-app-root td.qa-activity-evidence .review-shot-open {
+  height: 32px;
+  min-height: 0;
+  aspect-ratio: auto;
+  overflow: hidden;
+}
+.universe-app-root td.qa-activity-evidence .review-shot-image {
+  height: 100%;
+  aspect-ratio: auto;
+}
+.universe-app-root td.qa-activity-evidence .review-shot-caption {
+  display: none;
+}
+.universe-app-root td.qa-activity-evidence .review-more {
+  flex-basis: 100%;
+  padding: 2px 0;
+  border: 0;
+  background: none;
   font-size: 11px;
+  text-align: left;
+}
+.universe-app-root td.qa-activity-case {
+  min-width: 150px;
 }
 
 .qa-activity-evidence-summary {
@@ -99,10 +127,6 @@
 }
 a.qa-activity-evidence-summary {
   color: var(--yoke-link);
-  text-decoration: none;
-}
-a.qa-activity-evidence-summary:hover {
-  text-decoration: underline;
 }
 
 .qa-stats {
