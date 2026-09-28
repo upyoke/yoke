@@ -48,14 +48,19 @@ def deployment_flows_update_stages(args: List[str]) -> int:
     parser.add_argument("flow_id")
     group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
-        group, "--stages-json", "--stages-file", dest="stages_json",
+        group,
+        "--stages-json",
+        "--stages-file",
+        dest="stages_json",
     )
     group.add_argument("--stdin", action="store_true", help="Read stage JSON.")
     parser.add_argument("--description")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, DEPLOYMENT_FLOWS_UPDATE_STAGES_USAGE,
+        parser,
+        args,
+        DEPLOYMENT_FLOWS_UPDATE_STAGES_USAGE,
     )
     if parsed is None:
         return 2
@@ -64,7 +69,9 @@ def deployment_flows_update_stages(args: List[str]) -> int:
     else:
         try:
             stages = resolve_text_file(
-                parsed.stages_json, parsed.stages_json_file, "--stages-file",
+                parsed.stages_json,
+                parsed.stages_json_file,
+                "--stages-file",
             )
         except ValueError as exc:
             return usage_error(str(exc))
@@ -96,18 +103,25 @@ def deployment_flows_describe(args: List[str]) -> int:
     parser.add_argument("flow_id")
     group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
-        group, "--description", "--description-file", dest="description",
+        group,
+        "--description",
+        "--description-file",
+        dest="description",
     )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, DEPLOYMENT_FLOWS_DESCRIBE_USAGE,
+        parser,
+        args,
+        DEPLOYMENT_FLOWS_DESCRIBE_USAGE,
     )
     if parsed is None:
         return 2
     try:
         description = resolve_text_file(
-            parsed.description, parsed.description_file, "--description-file",
+            parsed.description,
+            parsed.description_file,
+            "--description-file",
         )
     except ValueError as exc:
         return usage_error(str(exc))
@@ -143,14 +157,20 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, DEPLOYMENT_RUNS_START_FOR_ITEM_USAGE,
+        parser,
+        args,
+        DEPLOYMENT_RUNS_START_FOR_ITEM_USAGE,
     )
     if parsed is None:
         return 2
     payload = {
         key: value
         for key in (
-            "project", "flow", "environment", "release_lineage", "created_by",
+            "project",
+            "flow",
+            "environment",
+            "release_lineage",
+            "created_by",
         )
         if (value := getattr(parsed, key)) is not None
     }

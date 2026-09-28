@@ -81,9 +81,7 @@ def _member_item_ids(run_id: str) -> tuple[int, ...]:
 
     conn = connect(None)
     try:
-        return tuple(
-            int(member["item_id"]) for member in frozen_members(conn, run_id)
-        )
+        return tuple(int(member["item_id"]) for member in frozen_members(conn, run_id))
     finally:
         conn.close()
 
@@ -159,15 +157,17 @@ def handle_deployment_run_create(
         key = idempotency_key.strip()
         # The request as the caller sent it, before a retry resolves its
         # source lineage, so a replay compares like with like.
-        create_request = idempotency.canonical_request({
-            "project": clean_project,
-            "flow": clean_flow,
-            "environment": environment,
-            "release_lineage": release_lineage,
-            "retry_of": retry_source,
-            "artifact_identity": artifact_identity,
-            "created_by": created_by,
-        })
+        create_request = idempotency.canonical_request(
+            {
+                "project": clean_project,
+                "flow": clean_flow,
+                "environment": environment,
+                "release_lineage": release_lineage,
+                "retry_of": retry_source,
+                "artifact_identity": artifact_identity,
+                "created_by": created_by,
+            }
+        )
         try:
             replayed_run = idempotency.replay_run(clean_project, key, create_request)
         except idempotency.IdempotencyKeyConflict as exc:
