@@ -130,8 +130,8 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
         prog="yoke deployment-runs start-for-item",
         description=(
             "Open a delivery run for one named item on the selected "
-            "control-plane transport. The start fills membership from "
-            "the candidate."
+            "control-plane transport. Creation composes candidate membership "
+            "and start revalidates it before dispatch."
         ),
     )
     parser.add_argument("item")

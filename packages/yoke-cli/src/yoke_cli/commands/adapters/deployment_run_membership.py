@@ -30,7 +30,7 @@ CROSS_PROJECT_MEMBERSHIP_NOTE = """\
 Membership follows the source the run ships:
   An item may join a run whose project owns it, or whose flow binds that
   item's project through a stage `input_bindings`. The run resolves each
-  bound branch once at start and records the commit, so a bound project's
+  bound branch once during composition and records the commit, so a bound project's
   delivery-ready items are enrolled against that exact commit and closed out
   by the run that actually shipped them. Check what a flow binds with
   `yoke deployment-flows stages FLOW-ID`, and what a run recorded with

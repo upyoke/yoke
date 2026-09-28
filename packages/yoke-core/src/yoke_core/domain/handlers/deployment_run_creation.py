@@ -91,7 +91,7 @@ def _member_item_ids(run_id: str) -> tuple[int, ...]:
 def handle_deployment_run_create(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    """Create a run; the start fills membership from the candidate.
+    """Create a run after provisionally checking its pinned composition.
 
     Optionally reuses a terminal run's lineage.
     """

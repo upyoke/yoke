@@ -15,7 +15,7 @@ registered project's branch: `{"consumer_sha": {"project": "other", "branch":
 "main"}}`. The build that stage dispatches ships that project's code alongside
 the run's own candidate, so the run delivers two projects, not one.
 
-- **The branch resolves once, at start.** The run records the exact commit it
+- **The branch resolves once, during composition.** The run records the exact commit it
   resolved for each bound project in `deployment_runs.bound_sources`, beside
   its own `release_lineage`. Every later reader — the stage that substitutes
   the placeholder, enrollment, composition validation, run detail, the
@@ -51,8 +51,9 @@ the run's own candidate, so the run delivers two projects, not one.
   ordinary members. They get a membership row, a requirement snapshot, and the
   item-scoped QA wake, exactly like own-project members. An item whose project
   the run ships no source for is still refused.
-  Creation-time attribution stays provisional until bound source commits are
-  recorded at start. If a stored carried-work record omits a recorded bound
+  Creation pins bound sources and validates composition in its insertion
+  transaction. A refusal rolls back before a run ID is committed; start
+  revalidates before stage dispatch. If a stored carried-work record omits a recorded bound
   project, start refuses it by name; cancel that stale run and create a new one.
   A carried delivery-ready item with no completion flow also refuses: select
   its project workflow default with `yoke workflows delivery-default set
@@ -76,17 +77,23 @@ learns the other's part from its own skill. The split is the whole rule:
 - **The seat driving delivery owns the run.** It holds `DEPLOY:<project>` for
   the whole pair, pins one source SHA, creates the stage and production runs
   from that SHA, and starts each one with `yoke --env CONTROL-PLANE watch
-  deploy -- RUN-ID`. The start enrolls every delivery-ready item its candidate
-  carries that no live or succeeded release already holds — whether the work
-  landed since the last release or long before it — and applies the composition
-  check itself, so membership needs no separate step:
+  deploy -- RUN-ID`. Creation provisionally enrolls every delivery-ready item
+  its candidate carries that no live or succeeded release already holds —
+  whether the work landed since the last release or long before it — and
+  validates before committing the run. Start revalidates before dispatch, so
+  membership needs no separate step:
   `yoke deployment-runs add-item RUN-ID PREFIX-N` is for the other case, an
   item whose code the candidate does not carry but which the run should still
   deliver, and `validate-composition` composes the run now and reports what
-  it enrolled or why it refused. An item a cancelled run left behind therefore needs
-  no attaching, and `yoke steering report get` names any landed item no
-  release holds so nobody has to notice one going stale. The driving seat does not run a member's item QA and
-  does not close a member out.
+  it enrolled or why it refused. Before creating a release pair, inspect the
+  delivery-ready items' selected completion flows and choose their flow. A
+  refused creation or start names independent blockers together, including
+  each mismatched member flow and unattributed commits. Use a run of the
+  selected flow, or deliberately reconcile item flows, then revalidate;
+  never silently change an item's flow. An item a cancelled run left behind
+  needs no attaching, and `yoke steering report get` names any landed item no
+  release holds so nobody has to notice one going stale. The driving seat does
+  not run a member's item QA and does not close a member out.
 - **The attach says what the run can do for the member.** Two independent
   capabilities: a run **checks** a member only through an item-scoped QA
   stage, and **closes** one only as that item's completion flow or as another
