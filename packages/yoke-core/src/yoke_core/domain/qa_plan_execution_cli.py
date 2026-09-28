@@ -50,7 +50,8 @@ def _report_case_failures(result: dict[str, Any]) -> None:
             if case.get(key) not in (None, "")
         )
         print(f"# qa plan run: {' '.join(fields)}", file=sys.stderr, flush=True)
-
+    if result.get("recovery"):
+        print(f"yoke qa plan run: {result['recovery']}", file=sys.stderr)
 
 def _review_connection_env() -> str:
     explicit = os.environ.get("YOKE_ENV", "").strip()
