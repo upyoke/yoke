@@ -1,6 +1,7 @@
 """Human verdict policies follow scoped case evidence, never precede it."""
 
 import json
+from unittest import mock
 
 from runtime.api.domain.test_deployment_qa_stage_execution import (
     _complete_case,
@@ -107,7 +108,9 @@ def test_required_human_request_waits_for_exact_case_evidence(test_db) -> None:
         member_item_id=None,
     )
     assert without_evidence["request_id"] is None
-    assert any("no attached evidence" in reason for reason in without_evidence["reasons"])
+    assert any(
+        "no attached evidence" in reason for reason in without_evidence["reasons"]
+    )
 
     test_db.execute(
         "INSERT INTO qa_artifacts(qa_run_id,artifact_type,artifact_handle,created_at) "
@@ -115,6 +118,18 @@ def test_required_human_request_waits_for_exact_case_evidence(test_db) -> None:
         (run_id,),
     )
     test_db.commit()
+    with mock.patch(
+        "yoke_core.domain.deployment_run_member_approvals.member_approval_blockers",
+        return_value=["Platform member decision awaits its approver"],
+    ):
+        held = deployment_qa_stage_status(
+            test_db,
+            run_id="run-human-stage",
+            stage_name="item-qa",
+            member_item_id=None,
+        )
+    assert held["request_id"] is None
+    assert "Platform member" in " ".join(held["reasons"])
     pending = deployment_qa_stage_status(
         test_db,
         run_id="run-human-stage",

@@ -135,6 +135,15 @@
   align-items: flex-start;
   gap: 10px;
 }
+.universe-app-root .review-evidence-rest:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+.universe-app-root .review-evidence-controls { flex: 0 0 100%; }
 .universe-app-root .review-shot {
   position: relative;
   width: 200px;

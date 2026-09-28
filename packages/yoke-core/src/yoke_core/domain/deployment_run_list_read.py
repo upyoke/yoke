@@ -144,7 +144,9 @@ def present_deployment_runs(
         visible_project_ids=visible_project_ids,
     )
     gates = run_gates(conn, run_ids, actor_id=actor_id)
-    delivery_items = candidate_delivery_items(conn, base) if include_item_delivery else {}
+    delivery_items = (
+        candidate_delivery_items(conn, base) if include_item_delivery else {}
+    )
     result: list[dict[str, Any]] = []
     for source in base:
         row = dict(source)
@@ -200,7 +202,14 @@ def present_deployment_runs(
                     # ``id`` travels even in the compact shape: it is what a
                     # reader joins this member's own QA evidence and reviews
                     # on, and a ref cannot stand in for it.
-                    for key in ("id", "ref", "title", "project_id", "project_sequence")
+                    for key in (
+                        "id",
+                        "ref",
+                        "title",
+                        "status",
+                        "project_id",
+                        "project_sequence",
+                    )
                 }
                 for member in run_members
             ]
@@ -224,7 +233,9 @@ def present_deployment_runs(
             "gates": gates.get(run_id, []),
             "overview_priority": (
                 0
-                if any(gate.get("status") == "pending" for gate in gates.get(run_id, []))
+                if any(
+                    gate.get("status") == "pending" for gate in gates.get(run_id, [])
+                )
                 else 2
                 if str(row.get("status") or "") in TERMINAL_RUN_STATUSES
                 else 1
@@ -232,7 +243,8 @@ def present_deployment_runs(
         }
         if include_item_delivery and recorded_containment and "answers" in containment:
             presentation["delivery_candidate_items"] = [
-                item for item in delivery_items.get(run_id, [])
+                item
+                for item in delivery_items.get(run_id, [])
                 if visible_project_ids is None
                 or int(item["project_id"]) in visible_project_ids
             ]
@@ -259,7 +271,7 @@ def list_deployment_runs(
 ) -> list[dict[str, Any]]:
     """Return newest runs with member, stage, and gate relationships.
 
-    ``actor_id`` scopes runs and member items to projects this reader may see,
+    ``actor_id`` scopes runs by projects this reader may see,
     and decides whether each gate offers the reader its actions. The gate
     itself is reported either way, because a run halted on somebody else is
     still halted.
@@ -272,13 +284,11 @@ def list_deployment_runs(
         clauses: list[str] = []
         params: list[Any] = []
         visible_project_ids = actor_visible_project_ids(conn, actor_id)
-        if visible_project_ids is not None:
-            if not visible_project_ids:
-                clauses.append("1 = 0")
-            else:
-                markers = ", ".join("%s" for _ in visible_project_ids)
-                clauses.append(f"dr.project_id IN ({markers})")
-                params.extend(sorted(visible_project_ids))
+        from yoke_core.domain.deployment_run_project_scope import run_project_scope
+
+        visible_clauses, visible_params = run_project_scope(conn, visible_project_ids)
+        clauses.extend(visible_clauses)
+        params.extend(visible_params)
         if project:
             identity = resolve_project(
                 conn,
@@ -289,8 +299,9 @@ def list_deployment_runs(
             if identity is None:
                 clauses.append("1 = 0")
             else:
-                clauses.append("dr.project_id = %s")
-                params.append(identity.id)
+                project_clauses, project_params = run_project_scope(conn, {identity.id})
+                clauses.extend(project_clauses)
+                params.extend(project_params)
         if status:
             clauses.append("dr.status = %s")
             params.append(status)
@@ -317,7 +328,7 @@ def list_deployment_runs(
             conn,
             base,
             actor_id=actor_id,
-            visible_project_ids=visible_project_ids,
+            visible_project_ids=None,
             include_carried_work=True,
             include_item_delivery=relevance == "overview",
         )

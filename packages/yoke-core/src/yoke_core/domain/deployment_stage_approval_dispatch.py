@@ -41,6 +41,11 @@ def dispatch_deployment_stage_approval(
         )
     if result.get("satisfied"):
         return 0, ""
+    if result.get("request_status") == "rejected_member":
+        return 1, str(result.get("reason") or "carried item approval was rejected")
+    if result.get("request_status") == "blocked_member":
+        print(str(result.get("reason") or "awaiting carried item approval"))
+        return -2, ""
     if result.get("resolution_action") == "reject":
         return 1, (
             f"deployment stage {stage_name!r} was rejected through "

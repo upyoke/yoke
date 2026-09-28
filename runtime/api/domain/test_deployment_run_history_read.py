@@ -123,12 +123,12 @@ def test_initial_and_following_pages_are_complete_stable_and_compact(monkeypatch
     first = _read(conn)
     second = _read(conn, cursor=first["next_cursor"])
 
-    assert first["unfinished_count"] == 2
+    assert first["unfinished_count"] == 1
     assert first["completed_match_count"] == 53
     assert first["completed_loaded_count"] == 50
-    assert len(first["rows"]) == 52
+    assert len(first["rows"]) == 51
     assert first["next_cursor"]
-    assert len(second["rows"]) == 5
+    assert len(second["rows"]) == 4
     assert second["completed_loaded_count"] == 53
     assert second["next_cursor"] is None
     first_completed = {
@@ -155,11 +155,11 @@ def test_search_filters_counts_and_facets_before_paging(monkeypatch):
         lambda _conn, rows, **_kwargs: rows,
     )
     by_item = _read(conn, search="VIS-17")
-    by_run = _read(conn, search="run-live", environment="prod")
+    by_run = _read(conn, search="run-live", environment="stage")
     failed = _read(conn, status="failed", flow="release", page_size=5)
 
     assert [row["id"] for row in by_item["rows"]] == ["run-20260908-052"]
-    assert [row["id"] for row in by_run["rows"]] == ["run-live-1"]
+    assert [row["id"] for row in by_run["rows"]] == ["run-live-2"]
     assert by_run["unfinished_count"] == 1
     assert failed["unfinished_count"] == 0
     assert failed["completed_match_count"] == 18
@@ -227,6 +227,7 @@ def test_compact_presentation_keeps_only_rendered_member_and_stage_facts(monkeyp
         "id",
         "ref",
         "title",
+        "status",
         "project_id",
         "project_sequence",
     }

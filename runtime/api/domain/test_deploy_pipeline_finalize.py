@@ -78,6 +78,7 @@ def test_exhausted_status_retries_are_finalization_pending(monkeypatch):
 
     assert pending.value.run_id == "run-1"
     assert "deploy succeeded, finalization pending" in str(pending.value)
+    assert "write unavailable" in str(pending.value)
     assert "re-drive run-1 to finalize" in str(pending.value)
 
 

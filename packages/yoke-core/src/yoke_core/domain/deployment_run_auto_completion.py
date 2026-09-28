@@ -105,13 +105,14 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
     claim = active_claim(
         conn, make_deploy_serialization_target(project_id, project.slug)
     )
-    if claim is None:
+    if claim is None and str(_row_value(row, "current_stage", 2) or "") != "complete":
         return None, (
             f"project deploy lock {deploy_lock_key(project.slug)} is unheld; "
             "acquire it and re-drive this run"
         )
+    current_stage = str(_row_value(row, "current_stage", 2) or "")
     attached = live_attachment_for_run(conn, run_id_value=run_id, now=iso8601_now())
-    if attached is not None:
+    if attached is not None and current_stage != "complete":
         return None, f"live driver {attached.session_id} is already continuing this run"
     try:
         stages = json.loads(str(_row_value(row, "stages", 5)))
@@ -119,7 +120,7 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
         return None, f"pinned flow stages are unreadable: {exc}"
     if not isinstance(stages, list) or not stages:
         return None, "pinned flow has no ordered stages"
-    current = str(_row_value(row, "current_stage", 2) or "")
+    current = current_stage
     names = [str(stage.get("name") or "") for stage in stages]
     if current == "complete":
         remaining = []
@@ -220,6 +221,16 @@ def finish_ready_run(conn: Any, run_id: str) -> CompletionAttempt:
         )
         conn.commit()
         refusal = cmd_update(run_id, "status", "succeeded")
+        if refusal:
+            from yoke_core.domain.deployment_run_collective_finalization import (
+                _required_open_members,
+            )
+
+            # Closing a member commits independently. An interrupted first
+            # settlement can leave the run executing after its last member
+            # reached done; replay the idempotent status write once here.
+            if not _required_open_members(conn, run_id):
+                refusal = cmd_update(run_id, "status", "succeeded")
         if refusal:
             return CompletionAttempt(
                 failure=f"{refusal}; re-drive {run_id} under its project deploy lock"

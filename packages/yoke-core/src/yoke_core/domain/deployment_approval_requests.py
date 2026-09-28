@@ -15,8 +15,6 @@ from yoke_core.domain.decision_requests import (
 from yoke_core.domain.decision_related_evidence import related_screenshot_evidence
 from yoke_core.domain.events_bounded_emit import emit_bounded
 
-
-#: Registered operation deriving one exact run stage's approval verdict.
 EVALUATE_STAGE_APPROVAL_FUNCTION = "deployment_runs.stage_approval.evaluate"
 
 
@@ -203,6 +201,10 @@ def evaluate_deployment_stage_approval(
         stage_def.config.get("approvals"),
         path=f"stage {stage!r} approvals",
     )
+    from yoke_core.domain.deployment_run_member_approvals import shared_approval_blocker
+
+    if blocked := shared_approval_blocker(conn, run_id):
+        return blocked
     target = str(run["target_environment"] or run["target_tier"] or "merge-only")
     subject_context = _deployment_subject_context(conn, run, stages, stage, target)
     waiting = "the stage is waiting for a human decision"

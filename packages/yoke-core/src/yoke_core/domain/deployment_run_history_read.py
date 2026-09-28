@@ -87,13 +87,9 @@ def _scope(
     conn: Any,
     project_ids: Optional[Collection[int]],
 ) -> tuple[list[str], list[Any]]:
-    if project_ids is None:
-        return [], []
-    ids = sorted({int(value) for value in project_ids})
-    if not ids:
-        return ["1 = 0"], []
-    marker = _p(conn)
-    return [f"dr.project_id IN ({', '.join(marker for _ in ids)})"], ids
+    from yoke_core.domain.deployment_run_project_scope import run_project_scope
+
+    return run_project_scope(conn, project_ids)
 
 
 def _where(clauses: Sequence[str]) -> str:
@@ -170,28 +166,17 @@ def _criteria(
     normalized_search = str(search or "").strip().lower()
     if normalized_search:
         pattern = f"%{normalized_search}%"
-        member_scope = ""
-        member_params: list[Any] = []
-        if project_ids is not None:
-            ids = sorted({int(value) for value in project_ids})
-            if not ids:
-                member_scope = " AND 1 = 0"
-            else:
-                member_scope = (
-                    " AND i.project_id IN (" + ", ".join(marker for _ in ids) + ")"
-                )
-                member_params.extend(ids)
         clauses.append(
             "(LOWER(dr.id) LIKE " + marker + " OR EXISTS ("
             "SELECT 1 FROM deployment_run_items dri "
             "JOIN items i ON i.id = dri.item_id "
             "JOIN projects ip ON ip.id = i.project_id "
-            "WHERE dri.run_id = dr.id" + member_scope + " AND ("
+            "WHERE dri.run_id = dr.id AND ("
             "LOWER(i.title) LIKE " + marker + " OR "
             "LOWER(ip.public_item_prefix || '-' || "
             "CAST(i.project_sequence AS TEXT)) LIKE " + marker + ")))"
         )
-        params.extend([pattern, *member_params, pattern, pattern])
+        params.extend([pattern, pattern, pattern])
     return clauses, params
 
 
@@ -328,12 +313,11 @@ def read_deployment_run_history(
         )
     for row in page:
         row.pop("history_sort_value", None)
-    visible = None if project_ids is None else set(project_ids)
     rows = present_deployment_runs(
         conn,
         [*unfinished_rows, *page],
         actor_id=actor_id,
-        visible_project_ids=visible,
+        visible_project_ids=None,
         include_carried_work=True,
         compact=True,
     )

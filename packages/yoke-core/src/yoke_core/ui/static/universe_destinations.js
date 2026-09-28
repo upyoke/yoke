@@ -23,6 +23,13 @@
 export const SCOPE_MULTI = "multi", SCOPE_SINGLE = "single";
 export const SCOPE_NONE = "none";
 
+// A detail may be one complete cross-project subject even when its parent
+// listing uses the project picker to choose which subjects appear.
+export function scopeForRoute(entry, route) {
+  return route?.detail && entry.detailScopes?.[route.tab || "default"]
+    ? entry.detailScopes[route.tab || "default"] : entry.scope;
+}
+
 export const GROUP_FOCUS = "focus";
 export const GROUP_SETTINGS = "settings";
 export const GROUP_DIAGNOSTICS = "diagnostics";
@@ -126,6 +133,7 @@ export const NAV = [
   {
     id: "deployments", label: "Deployments", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
+    detailScopes: { runs: SCOPE_NONE },
     tabs: [
       { id: "flows", label: "Flows" },
       { id: "runs", label: "Runs" },

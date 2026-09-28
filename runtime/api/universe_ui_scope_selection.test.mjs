@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createProjectSelection } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_project_selection.js";
+import { scopeForRoute, SCOPE_MULTI, SCOPE_NONE } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_destinations.js";
 
 import {
   buildUniverseRoute,
@@ -26,6 +27,13 @@ import {
 import {
   itemsCalls, scopeChips, threeProjectClient, twoProjectClient,
 } from "./universe_ui_read_views_test_support.mjs";
+
+test("a run detail suppresses project chips while its Runs list stays scoped", () => {
+  const entry = navEntry("deployments");
+  assert.equal(scopeForRoute(entry, { tab: "runs" }), SCOPE_MULTI);
+  assert.equal(scopeForRoute(entry, { tab: "runs", detail: "run-mixed" }), SCOPE_NONE);
+  assert.equal(scopeForRoute(entry, { tab: "flows", detail: "flow" }), SCOPE_MULTI);
+});
 
 test("a multi view defaults to the whole universe: All chip on, unfiltered read", async (t) => {
   const originalFetch = globalThis.fetch;

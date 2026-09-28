@@ -47,7 +47,7 @@ from yoke_core.domain.post_deploy_verification_answer import (
     member_post_deploy_answer,
 )
 from yoke_core.domain import qa_execution_environment_target as target_authority
-
+from yoke_core.domain.deployment_run_member_approvals import run_qa_blockers
 
 ACCEPTANCE_QA_KIND = DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND
 
@@ -186,9 +186,7 @@ def deployment_qa_stage_status(
             notify_item_qa_accepted,
         )
 
-        notify_item_qa_accepted(
-            conn, run_id=run_id, item_id=int(member_item_id)
-        )
+        notify_item_qa_accepted(conn, run_id=run_id, item_id=int(member_item_id))
     return result
 
 
@@ -259,6 +257,8 @@ def _settle_stage_status(
     )
     if obligation_failures:
         return waiting(obligation_failures)
+    if blockers := run_qa_blockers(conn, run_id, member_item_id, subject):
+        return waiting(blockers)
     conn.execute("SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE", (run_id,))
     requirement_id = _acceptance_requirement(conn, subject=subject, target=target)
     if acceptance_waived(conn, requirement_id):

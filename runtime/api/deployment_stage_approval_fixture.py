@@ -207,6 +207,11 @@ def yield_seeded_api_db_with_default_approvals() -> Iterator[dict[str, str]]:
     for db in make_test_db_fixture():
         conn = connect_test_db(db["db_path"])
         try:
+            conn.execute(
+                "ALTER TABLE deployment_run_items ADD COLUMN delivery_intent "
+                "TEXT CHECK(delivery_intent IN ('progress', 'final'))"
+            )
+            conn.execute("UPDATE deployment_run_items SET delivery_intent='final'")
             attach_default_human_approval_addresses(conn)
         finally:
             conn.close()

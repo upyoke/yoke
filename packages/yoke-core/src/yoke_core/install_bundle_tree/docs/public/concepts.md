@@ -55,3 +55,10 @@ Members, Billing. Diagnostics is the drawer, closed until you open it: Items,
 Deployments, Environments, Databases, QA methods, QA plans, QA activity,
 Capabilities, Packs, Architecture, Messages, Launches, Events, Doctor,
 Ouroboros. This docs set follows that map.
+
+Shipping and Deployments select whole runs by the projects of their carried
+items. A selected run always shows its full membership and decisions across
+projects; run detail has no project selector. Each item approval keeps that
+item's own project authority and appears on the run beside its evidence,
+before a shared human run acceptance is requested. Inbox filtering remains
+project specific.

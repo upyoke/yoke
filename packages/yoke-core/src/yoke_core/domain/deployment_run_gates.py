@@ -7,11 +7,13 @@ already carries the answer -- which stage, what the release contains, who it
 waits on -- so the card reads it from the same authority the Inbox does
 rather than growing a second, thinner account of the same decision.
 
-Two kinds reach a run. ``deployment_stage_approval`` carries both a pending
+Three kinds reach a run. ``deployment_stage_approval`` carries both a pending
 action and its resolved human decision, keyed ``{run_id}:{stage}``.
 ``qa_needs_review`` carries pending and resolved human reviews of run-level
 and member QA evidence, reaching the run through
 ``qa_requirements.deployment_run_id``.
+``lifecycle_transition_approval`` belongs to a carried final member and
+keeps that item's own project approval authority.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ from yoke_core.domain.decision_request_authority import (
 )
 from yoke_core.domain.decision_request_contract import (
     DEPLOYMENT_STAGE_APPROVAL,
+    LIFECYCLE_TRANSITION_APPROVAL,
     QA_NEEDS_REVIEW,
 )
 from yoke_core.domain.decision_requests import _request_row
@@ -75,6 +78,23 @@ def _qa_review_gates(
     return [(str(row["deployment_run_id"]), int(row["id"])) for row in rows]
 
 
+def _member_approval_gates(conn: Any, run_ids: list[str]) -> list[tuple[str, int]]:
+    """Find the latest done decision for each final member of each run."""
+    p = _p(conn)
+    markers = ", ".join(p for _ in run_ids)
+    rows = conn.execute(
+        "SELECT dri.run_id, MAX(dr.id) AS request_id "
+        "FROM deployment_run_items dri JOIN decision_requests dr "
+        "ON dr.subject_key=CAST(dri.item_id AS TEXT) || ':done' "
+        f"WHERE dri.run_id IN ({markers}) AND dri.delivery_intent='final' "
+        f"AND dr.kind={p} AND dr.subject_type='item_transition' "
+        "AND dr.status IN ('pending','resolved') "
+        "GROUP BY dri.run_id,dri.item_id",
+        (*run_ids, LIFECYCLE_TRANSITION_APPROVAL),
+    ).fetchall()
+    return [(str(row["run_id"]), int(row["request_id"])) for row in rows]
+
+
 def run_gates(
     conn: Any,
     run_ids: list[str],
@@ -94,10 +114,18 @@ def run_gates(
     pairs = [
         *_stage_approval_gates(conn, run_ids),
         *_qa_review_gates(conn, run_ids),
+        *_member_approval_gates(conn, run_ids),
     ]
     result: dict[str, list[dict[str, Any]]] = {}
     for run_id, request_id in pairs:
         request = _request_row(conn, request_id)
+        item_status = None
+        if request["kind"] == LIFECYCLE_TRANSITION_APPROVAL:
+            item_id = int(request["subject_context"]["item_id"])
+            item_row = conn.execute(
+                "SELECT status FROM items WHERE id=%s", (item_id,)
+            ).fetchone()
+            item_status = str(item_row["status"]) if item_row is not None else "missing"
         pending = request["status"] == "pending"
         reason = (
             authority_reason(conn, request_id, actor_id)
@@ -113,6 +141,7 @@ def run_gates(
                 "kind": request["kind"],
                 "status": request["status"],
                 "subject_context": request["subject_context"],
+                "item_status": item_status,
                 "actions": request["actions"] if pending else [],
                 "approval_progress": request["approval_progress"],
                 "requested_at": request.get("created_at"),
@@ -126,7 +155,8 @@ def run_gates(
                 "resolved_at": request.get("resolved_at"),
                 "resolved_by": (
                     actor_name(conn, int(request["resolution_actor_id"]))
-                    if request.get("resolution_actor_id") is not None else None
+                    if request.get("resolution_actor_id") is not None
+                    else None
                 ),
             }
         )
