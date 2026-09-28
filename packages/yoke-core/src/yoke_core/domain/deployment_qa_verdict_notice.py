@@ -44,6 +44,7 @@ def verdict_message(
     action: str,
     note: str,
     route: str,
+    requirement_id: int | None = None,
 ) -> str:
     """Name the decision, what it was about, and what to do next.
 
@@ -59,12 +60,20 @@ def verdict_message(
     }.get(action, f"was resolved as {action!r}")
     next_step = {
         "approve": "the stage can advance; resume the run",
-        "reject": (
-            "address the rejection on this stage's target and record fresh "
-            "evidence before the stage can advance"
-        ),
+        "reject": "address the rejection on this stage's target and record fresh evidence",
         "waive": "the obligation is discharged; no further evidence is needed",
     }.get(action, "read the decision and continue")
+    if action == "reject" and subject != "the whole release batch":
+        next_step = (
+            "read the rejected stage acceptance requirement and its evidence; "
+            "if the environment failed, keep the member in release and retry "
+            "QA against this run's deployed revision; if member code needs "
+            "correction, refresh any required conflict survey and use the "
+            "pinned workflow's rework route "
+            f"`yoke lifecycle transition {subject} --from release --to "
+            "implementing --reason 'Post-deploy QA found a member code "
+            "defect'`, then verify, merge and deploy a new candidate"
+        )
     addressed = (
         "you"
         if route in {HOLDER, DRIVER}
@@ -72,10 +81,16 @@ def verdict_message(
         "evidence is gone)"
     )
     reason = f" Reviewer note: {note}" if note.strip() else ""
+    evidence = (
+        f" Read `yoke qa requirement get --requirement-id {requirement_id}`."
+        if action == "reject" and requirement_id is not None
+        else ""
+    )
     return (
         f"Human verdict on deployment run {run_id} stage {stage_name!r} "
         f"({subject}) {outcome}. Reaching {addressed}: {next_step}.{reason} "
         f"Check 'yoke deployment-runs get {run_id}' for the current state."
+        f"{evidence}"
     )
 
 
@@ -144,6 +159,7 @@ def notify_deployment_qa_verdict(
                 action=action,
                 note=note,
                 route=route,
+                requirement_id=requirement_id,
             ),
             idempotency_key=key,
             now=now,
@@ -162,6 +178,7 @@ def notify_deployment_qa_verdict(
             action=action,
             note=note,
             route=route,
+            requirement_id=requirement_id,
         ),
         idempotency_key=key,
         now=now or datetime.now(timezone.utc),

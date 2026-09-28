@@ -70,6 +70,16 @@ def settle_subject(
     if outcome not in {"passed", "discharged", "rejected", "blocked"}:
         return status
     conn.commit()
+    if outcome == "blocked" and member is not None:
+        from yoke_core.domain.deployment_qa_failure_handoff import (
+            notify_member_qa_failure,
+        )
+
+        handoff = notify_member_qa_failure(
+            conn, run_id=run_id, stage=stage, item_id=member, status=status
+        )
+        if handoff.startswith(("failed:", "unaddressed:")):
+            print(f"Run {run_id} stage {stage!r} member {member}: {handoff}")
     completion_failure = ""
     if outcome in {"passed", "discharged"}:
         from yoke_core.domain.deployment_run_auto_completion import (
@@ -106,8 +116,8 @@ def settle_subject(
     if not delivery:
         print(
             f"Run {run_id} stage {stage!r} settled {outcome}, but no deploy "
-            "driver or covering steering seat could be reached. The accepted "
-            "gate is durable; acquire the project deploy lock and re-drive "
+            "driver or covering steering seat could be reached. The QA "
+            "outcome is durable; acquire the project deploy lock and re-drive "
             f"the same run with `yoke watch deploy -- {run_id}`."
         )
     return status
