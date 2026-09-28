@@ -86,11 +86,11 @@ Any status:<stage-id> must exist in that workflow; authoring refuses an
 unknown stage and lists the stages that workflow version has.
 
 Use fact:merged when the dependent only needs the blocker's code on trunk.
-Reserve fact:deployed:<environment-name> for a dependent that needs the blocker
-live in a registered environment before the blocker reaches done. A succeeded
+Reserve fact:deployed:<environment-name> for a dependent that needs that code running
+in a registered environment before the blocker reaches done. A succeeded
 run satisfies it only when the blocker is an actual run member, even when the
 run belongs to another project. Mere code containment does not satisfy it.
-Add and update require the environment registered for the blocking item.
+Add and update refuse an environment not registered for the blocking item's project.
 
 Examples:
   yoke items dependency add APP-2 APP-1 operator --gate-point integration
