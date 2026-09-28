@@ -3,9 +3,9 @@
 The candidate carries a delivery-ready item's merged code whether or not
 anyone attached the item, so these tests drive the real deriver against a real
 repository and assert that the run gains the member, names it, and freezes it
-with the rest of the composition. The refusals that must survive automation
-are here too: an answer nobody could compute, an item this run cannot admit,
-and a retry whose membership was already frozen by the run it retries.
+with the rest of the composition. The refusals that must survive automation are
+here too: an answer nobody could compute, an item this run cannot admit, and a
+retry whose membership was already frozen by the run it retries.
 """
 
 from __future__ import annotations
@@ -18,11 +18,8 @@ import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.carried_release_candidate import (
-    insert_run,
-    item_ref,
-    release_repository,
-    serve_repository,
-    stage_environment,
+    insert_run, item_ref, record_landing_receipt, release_repository,
+    serve_repository, stage_environment,
 )
 from yoke_core.domain import deployment_run_carried_membership as carried_membership
 from yoke_core.domain.deployment_run_carried_membership import (
@@ -101,6 +98,7 @@ def _candidate(
     _flows(conn)
     ref = _item(conn, status=item_status, flow=item_flow)
     repo, baseline, tip = release_repository(tmp_path, ref)
+    record_landing_receipt(conn, CARRIED_ITEM_ID, branch=ref, tip=tip)
     serve_repository(monkeypatch, repo)
     insert_run(
         conn, "run-previous", lineage=baseline, status="succeeded", flow=run_flow

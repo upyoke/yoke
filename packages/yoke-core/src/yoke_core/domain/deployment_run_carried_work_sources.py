@@ -1,4 +1,13 @@
-"""Resolve deployment-range commits to backlog items from durable evidence."""
+"""Resolve deployment-range commits to backlog items from durable evidence.
+
+Ownership is read only from records that bind an exact commit to its item —
+the item's merge receipt first, whose contributed commits name every commit a
+landing put on the target's first-parent line, then QA and execution evidence
+and lane metadata. A commit message naming an item is not such a record: it
+says what someone wrote about a commit, not who landed it, and crediting it
+can hand an unrelated commit to whichever item it mentions. A commit nothing
+binds stays unattributed, and the release names it for an operator to resolve.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +22,6 @@ from yoke_core.domain.item_merge_receipt_document import merge_identities
 
 
 LANDING_TIME_TOLERANCE_SECONDS = 600
-_ITEM_REF = re.compile(r"\b[A-Z][A-Z0-9]*-[1-9][0-9]*\b")
 _HEX_REF = re.compile(r"^[0-9a-fA-F]{7,64}$")
 
 
@@ -106,28 +114,21 @@ def _add_resolution(
         resolved.setdefault(commit, set()).add(numeric_item_id)
 
 
-def _project_items(
-    conn: Any,
-    project_id: int,
-) -> tuple[dict[int, str], dict[str, int]]:
+def _project_items(conn: Any, project_id: int) -> dict[int, str]:
     rows = conn.execute(
         "SELECT i.id,i.project_sequence,p.slug,p.public_item_prefix "
         "FROM items i JOIN projects p ON p.id=i.project_id "
         "WHERE i.project_id=%s",
         (project_id,),
     ).fetchall()
-    refs: dict[int, str] = {}
-    tokens: dict[str, int] = {}
-    for row in rows:
-        item_id = int(_cell(row, "id", 0))
-        public_ref = format_item_ref(
+    return {
+        int(_cell(row, "id", 0)): format_item_ref(
             str(_cell(row, "slug", 2)),
             str(_cell(row, "public_item_prefix", 3) or ""),
             int(_cell(row, "project_sequence", 1)),
         )
-        refs[item_id] = public_ref
-        tokens[public_ref.upper()] = item_id
-    return refs, tokens
+        for row in rows
+    }
 
 
 def _resolve_recorded_evidence(
@@ -141,10 +142,9 @@ def _resolve_recorded_evidence(
 ) -> None:
     """Attribute range commits from records that name the item outright.
 
-    The item's merge receipt leads: it binds a merge and its implementation
-    commit to the item that produced them, and it outlives the branch and
-    lane the merge removed, so it is the exact lineage to read before any
-    commit-message heuristic.
+    The item's merge receipt leads: it binds a merge, its implementation
+    commit, and every commit the landing contributed to the item that
+    produced them, and it outlives the branch and lane the merge removed.
     """
     for item_id, sha in _safe_read(
         conn,
@@ -293,7 +293,7 @@ def resolve_carried_items(
     commits: Sequence[str],
 ) -> tuple[dict[int, str], dict[str, set[int]], list[dict[str, str]]]:
     """Return item labels, commit-to-item matches, and degraded-source notes."""
-    known_items, item_tokens = _project_items(conn, project_id)
+    known_items = _project_items(conn, project_id)
     resolved: dict[str, set[int]] = {}
     warnings: list[dict[str, str]] = []
     _resolve_recorded_evidence(
@@ -304,15 +304,6 @@ def resolve_carried_items(
         resolved=resolved,
         warnings=warnings,
     )
-    for commit in commits:
-        # The message only. A ref pointing at a commit says where someone
-        # forked, not who wrote it: a lane branch created from the trunk
-        # decorates whatever commit the trunk was on, and reading that
-        # decoration attributes a neighbour's release to the new lane.
-        message = source.commit_message(commit)
-        for token in _ITEM_REF.findall(message.upper()):
-            if token in item_tokens:
-                resolved.setdefault(commit, set()).add(item_tokens[token])
     _resolve_item_metadata(
         conn,
         project_id=project_id,

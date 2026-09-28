@@ -80,6 +80,12 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         ),
     ),
     AdapterEntry(
+        function_id="merge_receipt.commits.attest",
+        cli_invocation=(
+            "yoke merge-receipt commits attest PREFIX-N --commit SHA --reason R"
+        ),
+    ),
+    AdapterEntry(
         function_id="deployment_runs.create",
         cli_invocation="yoke deployment-runs create",
     ),

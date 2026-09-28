@@ -14,6 +14,9 @@ from yoke_cli.commands.adapters.deployment_run_carried_work_repair import (
 from yoke_cli.commands.adapters.deployment_run_release_output import (
     deployment_runs_release_output_record,
 )
+from yoke_cli.commands.adapters.merge_receipt_commits import (
+    merge_receipt_commits_attest,
+)
 from yoke_cli.commands.adapters import deployment_flow_configuration as _flow_config
 from yoke_cli.commands.adapters import deployment_inspection as _inspection
 from yoke_cli.commands.adapters.deployment_run_projection import (
@@ -87,6 +90,10 @@ DEPLOYMENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("deployment-runs", "release-output", "record"): (
         "deployment_runs.release_output.record",
         deployment_runs_release_output_record,
+    ),
+    ("merge-receipt", "commits", "attest"): (
+        "merge_receipt.commits.attest",
+        merge_receipt_commits_attest,
     ),
     ("deployment-runs", "project-snapshot"): (
         "deployment_runs.project_snapshot",

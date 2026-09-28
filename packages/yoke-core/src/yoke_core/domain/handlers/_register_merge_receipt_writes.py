@@ -1,4 +1,4 @@
-"""Register the internal merge-receipt document read and write.
+"""Register the merge-receipt document read, write, and commit attestation.
 
 The merge boundary holds the checkout, so it cannot open the control plane
 directly when that control plane is reached over https. These two functions
@@ -9,6 +9,10 @@ CLI surface), ``ambient_session_required=False`` because a merge may run in a
 subprocess that resolves no ambient harness session, and claim-free because
 the merge boundary already holds the item claim and the merge lock that
 authorize the merge these receipts describe.
+
+``merge_receipt.commits.attest`` is the one live operator surface: it attests
+commits to an item that already landed, typically one another session holds
+or none does, so it takes no claim either.
 """
 
 from __future__ import annotations
@@ -48,6 +52,21 @@ def register(registry) -> None:
         adapter_status="internal",
         claim_required_kind=None,
         ambient_session_required=False,
+    )
+    registry.register(
+        "merge_receipt.commits.attest",
+        _writes.handle_attest_merge_receipt_commits,
+        _writes.AttestMergeReceiptCommitsRequest,
+        _writes.AttestMergeReceiptCommitsResponse,
+        stability="stable",
+        owner_module=_MODULE,
+        target_kinds=["item"],
+        side_effects=["item_merge_receipt_write"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["full_commit_shas_only", "landed_receipt_required"],
+        adapter_status="live",
+        claim_required_kind=None,
+        minimum_serving_version="next-release",
     )
 
 

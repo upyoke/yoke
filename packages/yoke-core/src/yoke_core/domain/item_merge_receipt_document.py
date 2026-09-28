@@ -11,8 +11,9 @@ That home is the item's own ``item_sections`` row — the same durable owner the
 item's execution evidence uses — so a receipt lasts exactly as long as the item
 does. Entries are keyed by the merge identity (branch and target), and one
 merge writes its entry more than once: a pre-merge entry carrying the
-implementation commit and changed files, then a completed entry carrying the
-merge commit and the checks observed after the push. Each write folds into the
+implementation commit, the commits it contributes, and changed files, then a
+completed entry carrying the merge commit and the checks observed after the
+push. Each write folds into the
 entry already stored, so a crash between the two still leaves the earlier facts
 intact.
 
@@ -37,7 +38,9 @@ from yoke_core.domain.schema_common import _table_exists
 MERGE_RECEIPTS_SECTION = "Merge Receipts"
 MERGE_RECEIPTS_ORDERING = 195
 
-_ENTRIES_KEY = "receipts"
+ENTRIES_KEY = "receipts"
+#: Commits an operator attested to the item after its landing omitted them.
+ATTESTED_COMMITS_KEY = "attested_commits"
 #: Bounded so a stderr dump cannot grow the item document without limit.
 _REASON_LIMIT = 1024
 
@@ -52,7 +55,7 @@ def _placeholder(conn: Any) -> str:
 
 
 def _entries(document: Optional[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
-    raw = (document or {}).get(_ENTRIES_KEY)
+    raw = (document or {}).get(ENTRIES_KEY)
     if not isinstance(raw, Mapping):
         return {}
     return {
@@ -131,6 +134,7 @@ def record_entry(
     merge_sha: str = "",
     touched_files: Sequence[str] = (),
     check_runs: Sequence[Mapping[str, Any]] = (),
+    contributed_commits: Sequence[str] = (),
     failure: Optional[Mapping[str, Any]] = None,
     settled: bool = False,
 ) -> dict[str, Any]:
@@ -157,6 +161,9 @@ def record_entry(
     entry["check_runs"] = (
         _clean_check_runs(check_runs) or _clean_check_runs(entry.get("check_runs"))
     )
+    entry["contributed_commits"] = _clean_paths(contributed_commits) or _clean_paths(
+        entry.get("contributed_commits")
+    )
     if settled or entry["merge_sha"]:
         entry.pop("failure", None)
     elif failure is not None:
@@ -167,7 +174,7 @@ def record_entry(
         conn,
         item_id=int(item_id),
         section=MERGE_RECEIPTS_SECTION,
-        payload={_ENTRIES_KEY: entries},
+        payload={ENTRIES_KEY: entries},
         ordering=MERGE_RECEIPTS_ORDERING,
     )
     return entry
@@ -298,8 +305,10 @@ def merge_identities(
 ) -> Iterable[tuple[int, str]]:
     """Every ``(item_id, sha)`` this project's receipts recorded.
 
-    Both the merge commit and the implementation commit are yielded: a release
-    range may contain either, and only the receipt binds them to the item.
+    The merge commit, the implementation commit, every commit the landing
+    contributed, and every commit an operator attested to the item are all
+    yielded: a release range may contain any of them, and only the receipt
+    binds them to the item.
     """
     marker = _placeholder(conn)
     sql = (
@@ -311,13 +320,18 @@ def merge_identities(
         conn, sql, (int(project_id), MERGE_RECEIPTS_SECTION)
     ):
         for entry in entries.values():
-            for field in ("merge_sha", "commit_sha"):
-                sha = str(entry.get(field) or "").strip()
-                if sha:
-                    yield item_id, sha
+            shas = [entry.get("merge_sha"), entry.get("commit_sha")]
+            shas += _clean_paths(entry.get("contributed_commits"))
+            shas += [attested.get("commit_sha") for attested in
+                     entry.get(ATTESTED_COMMITS_KEY) or [] if isinstance(attested, Mapping)]
+            for sha in shas:
+                if str(sha or "").strip():
+                    yield item_id, str(sha).strip()
 
 
 __all__ = [
+    "ATTESTED_COMMITS_KEY",
+    "ENTRIES_KEY",
     "MERGE_RECEIPTS_ORDERING",
     "MERGE_RECEIPTS_SECTION",
     "build_failure",

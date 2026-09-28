@@ -6,10 +6,10 @@ landing, and two runs pinned to those two lineages. Tests that stubbed the
 deriver instead would pass while the comparison that feeds enrollment and its
 refusals quietly stopped being readable.
 
-The landing commit names its item in the message by default. A caller that is
-testing a different attribution rung — a receipt, a lane head — passes
-``names_item=False`` so the message attributes nothing and only that rung can
-answer.
+A commit message never attributes a commit, so the landing commit's message
+names nothing. A test that wants the landing credited to its item records the
+item's merge receipt with :func:`record_landing_receipt` — the evidence a real
+landing leaves — and a test proving a different rung simply does not.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ from typing import Any
 import pytest
 
 from yoke_core.domain import deployment_run_carried_work_source
+from yoke_core.domain.item_merge_receipt_document import record_entry
 
 
 def git(repo: Path, *args: str) -> str:
@@ -39,14 +40,11 @@ def release_repository(
     item_ref: str,
     *,
     name: str = "release-project",
-    names_item: bool = True,
 ) -> tuple[Path, str, str]:
-    """One baseline release and one landed item.
+    """One baseline release and one landed item's commit.
 
-    With ``names_item`` the landing commit message carries the item
-    reference, which is the message rung attribution reads first among the
-    commit-text sources. Without it the message attributes nothing, leaving
-    the recorded evidence rungs to answer alone.
+    ``item_ref`` names only the repository's purpose; the landing commit's
+    message attributes nothing. Record the landing receipt to credit it.
     """
     repo = tmp_path / name
     repo.mkdir(parents=True)
@@ -63,15 +61,12 @@ def release_repository(
     git(repo, "commit", "-m", "Release baseline")
     baseline = git(repo, "rev-parse", "HEAD")
     (repo / "release.txt").write_text("landed\n", encoding="utf-8")
-    subject = (
-        f"Land {item_ref} product changes" if names_item else "Land product changes"
-    )
-    git(repo, "commit", "-am", subject)
+    git(repo, "commit", "-am", "Land product changes")
     return repo, baseline, git(repo, "rev-parse", "HEAD")
 
 
 def bound_source_repository(
-    tmp_path: Path, name: str, item_ref: str, *, names_item: bool = True
+    tmp_path: Path, name: str, item_ref: str,
 ) -> tuple[Path, str, str]:
     """A second project's repository, reachable as its own ``origin``.
 
@@ -79,9 +74,7 @@ def bound_source_repository(
     asking the checkout's remote what the branch names now — so the fixture
     gives the repository a real origin instead of stubbing the read.
     """
-    repo, baseline, tip = release_repository(
-        tmp_path, item_ref, name=name, names_item=names_item
-    )
+    repo, baseline, tip = release_repository(tmp_path, item_ref, name=name)
     git(repo, "remote", "add", "origin", str(repo))
     return repo, baseline, tip
 
@@ -137,6 +130,17 @@ def insert_run(
         "completed_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
         (run_id, project_id, flow, lineage, bound_sources, status,
          "2026-09-14T00:00:00Z", completed_at),
+    )
+    conn.commit()
+
+
+def record_landing_receipt(
+    conn: Any, item_id: int, *, branch: str, tip: str, target: str = "main",
+) -> None:
+    """Record the receipt a landing of ``tip`` leaves on its item."""
+    record_entry(
+        conn, item_id=int(item_id), branch=branch, target=target,
+        commit_sha=tip, merge_sha=tip, contributed_commits=[tip],
     )
     conn.commit()
 

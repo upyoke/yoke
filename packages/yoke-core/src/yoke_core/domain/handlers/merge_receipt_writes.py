@@ -5,11 +5,15 @@ plane reached over https has no local database there. These handlers put the
 receipt write and read on the server side of that boundary so a merge records
 its bookkeeping identically on a local Postgres universe and a relayed one.
 
-They are ``adapter_status='internal'`` merge glue rather than an agent CLI
-surface, and claim-free for the same reason the done-transition finalize
+The record and get pair are ``adapter_status='internal'`` merge glue rather
+than an agent CLI surface, and claim-free for the same reason the done-transition finalize
 writes are: the item claim and merge lock are enforced upstream by the merge
 boundary itself, and a receipt that could be refused here would take crash
 recovery down with it.
+
+``merge_receipt.commits.attest`` is the operator surface beside them: the
+repair a release names when an item's own commits reached its range without
+the receipt recording them (:mod:`yoke_core.domain.item_merge_commit_attestation`).
 """
 
 from __future__ import annotations
@@ -24,6 +28,10 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_core.domain import item_merge_receipt_document as document
+from yoke_core.domain.item_merge_commit_attestation import (
+    CommitAttestationRefused,
+    attest_commits,
+)
 
 
 class MergeFailure(BaseModel):
@@ -39,6 +47,7 @@ class RecordMergeReceiptRequest(BaseModel):
     merge_sha: str = ""
     touched_files: List[str] = Field(default_factory=list)
     check_runs: List[dict] = Field(default_factory=list)
+    contributed_commits: List[str] = Field(default_factory=list)
     failure: Optional[MergeFailure] = None
     settled: bool = False
 
@@ -58,6 +67,19 @@ class GetMergeReceiptResponse(BaseModel):
     item_id: int
     found: bool
     entry: Optional[dict] = None
+
+
+class AttestMergeReceiptCommitsRequest(BaseModel):
+    commits: List[str] = Field(..., min_length=1)
+    reason: str = Field(..., min_length=1)
+
+
+class AttestMergeReceiptCommitsResponse(BaseModel):
+    item_id: int
+    branch: str
+    target: str
+    attested: List[str]
+    already_recorded: List[str]
 
 
 def _err(code: str, message: str) -> HandlerOutcome:
@@ -110,6 +132,7 @@ def handle_record_merge_receipt(request: FunctionCallRequest) -> HandlerOutcome:
                 merge_sha=body.merge_sha,
                 touched_files=body.touched_files,
                 check_runs=body.check_runs,
+                contributed_commits=body.contributed_commits,
                 failure=failure,
                 settled=body.settled,
             )
@@ -118,6 +141,34 @@ def handle_record_merge_receipt(request: FunctionCallRequest) -> HandlerOutcome:
         return _err("merge_receipt_record_failed", str(exc))
     return HandlerOutcome(
         result_payload={"item_id": item_id, "entry": entry},
+        primary_success=True,
+    )
+
+
+def handle_attest_merge_receipt_commits(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    """Attest full commit SHAs to the item's newest landed receipt entry."""
+    item_id = _item_id(request)
+    if item_id is None:
+        return _err(
+            "target_invalid",
+            "merge_receipt.commits.attest requires target.kind='item' and item_id",
+        )
+    try:
+        body = AttestMergeReceiptCommitsRequest.model_validate(request.payload or {})
+    except ValidationError as exc:
+        return _err("payload_invalid", f"commit attestation payload invalid: {exc}")
+    try:
+        with _connect_rw() as conn:
+            result = attest_commits(
+                conn, item_id=item_id, commits=body.commits, reason=body.reason,
+            )
+            conn.commit()
+    except CommitAttestationRefused as exc:
+        return _err(exc.code, str(exc))
+    return HandlerOutcome(
+        result_payload={"item_id": item_id, **result},
         primary_success=True,
     )
 
@@ -152,11 +203,14 @@ def handle_get_merge_receipt(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 __all__ = [
+    "AttestMergeReceiptCommitsRequest",
+    "AttestMergeReceiptCommitsResponse",
     "GetMergeReceiptRequest",
     "GetMergeReceiptResponse",
     "MergeFailure",
     "RecordMergeReceiptRequest",
     "RecordMergeReceiptResponse",
+    "handle_attest_merge_receipt_commits",
     "handle_get_merge_receipt",
     "handle_record_merge_receipt",
 ]
