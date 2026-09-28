@@ -17,6 +17,7 @@ export const QA_STATE = Object.freeze({
   STANDING_SOURCE: "standing_source",
   ADMITTED_COPY: "admitted_copy",
   SUPERSEDED: "superseded",
+  REPLACING: "replacing",
   WAIVED: "waived",
   NO_OBLIGATION: "no_obligation",
   NEVER_ASKED: "never_asked",
@@ -51,6 +52,7 @@ const LABELS = Object.freeze({
   [QA_STATE.STANDING_SOURCE]: "source requirement",
   [QA_STATE.ADMITTED_COPY]: "this release",
   [QA_STATE.SUPERSEDED]: "superseded",
+  [QA_STATE.REPLACING]: "earlier attempt",
   [QA_STATE.WAIVED]: "waived",
   [QA_STATE.NO_OBLIGATION]: "no obligation",
   [QA_STATE.NEVER_ASKED]: "never asked",
@@ -142,7 +144,15 @@ export function classifyQaRow(row, rows = []) {
   if (row.superseded_by_requirement_id || row.superseded_at) {
     return state(
       QA_STATE.SUPERSEDED,
-      reasonOf(row) || "Replaced by a corrected case that actually ran.",
+      row.superseded_by_requirement_id
+        ? `Earlier attempt; corrected case #${row.superseded_by_requirement_id} passed in its place.`
+        : reasonOf(row) || "Replaced by a corrected case that actually ran.",
+    );
+  }
+  if (row.replacement_requirement_id) {
+    return state(
+      QA_STATE.REPLACING,
+      `Earlier attempt, still blocking; corrected case #${row.replacement_requirement_id} discharges it when it passes.`,
     );
   }
   const sourceId = admittedSourceId(row);

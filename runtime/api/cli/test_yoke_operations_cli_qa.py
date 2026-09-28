@@ -266,6 +266,19 @@ class TestQaDeploymentPlanMaterialize:
             "deployment_member": None,
         }
 
+    def test_replaces_declares_each_failed_requirement(self) -> None:
+        rc = _run(
+            _stub_ok, "qa", "plan", "materialize",
+            "--deployment-run-id", "run-20260728-901", "--stage", "run-visual-qa",
+            "--plan", "corrected", "--project", "yoke",
+            "--replaces", "desktop=32796", "--replaces", "narrow=32797",
+        )
+        assert rc == 0
+        assert _CAPTURED_REQUESTS[-1].payload["replacements"] == [
+            {"case_key": "desktop", "requirement_id": 32796},
+            {"case_key": "narrow", "requirement_id": 32797},
+        ]
+
     def test_requires_named_plan_and_project(self) -> None:
         rc = _run(
             _stub_ok,

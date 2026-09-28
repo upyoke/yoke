@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.db_helpers import connect, query_rows
 from yoke_core.domain.qa_gate_definitions import GateResult
+from yoke_core.domain.qa_obligation_settlement import item_supersession_open_sql
 from yoke_core.domain.qa_gate_preconditions import (
     QA_CORE_TABLES,
     qa_gate_precondition_result,
@@ -33,12 +34,12 @@ def check_plan_simulation_satisfied(item_id: int, db_path: str) -> GateResult:
     try:
         unsatisfied = query_rows(
             conn,
-            """
+            f"""
             SELECT r.id, r.qa_kind FROM qa_requirements r
             WHERE r.item_id = %s
               AND r.qa_phase = 'verification'
               AND r.blocking_mode = 'blocking'
-              AND r.waived_at IS NULL
+              AND r.waived_at IS NULL AND {item_supersession_open_sql(conn, "r")}
             ORDER BY r.id
             """,
             (item_id,),

@@ -21,6 +21,7 @@ from yoke_core.domain.deployment_qa_case_failure_kinds import (
     classify_verdict,
 )
 from yoke_core.domain.qa_execution_proof import qa_artifact_counts_by_run
+from yoke_core.domain.qa_requirement_replacement import replacement_note
 from yoke_core.domain.qa_obligation_settlement import (
     obligation_settled,
     requirement_retracted_at_select,
@@ -33,7 +34,7 @@ from yoke_core.domain.qa_obligation_settlement import (
 #: an obligation the other accepted as settled.
 def _scoped_cases_sql(conn: Any) -> str:
     return (
-        "SELECT id,plan_case_key,waived_at,superseded_by_requirement_id,"
+        "SELECT id,plan_case_key,waived_at,superseded_by_requirement_id,replacement_requirement_id,"
         f"{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements "
         "WHERE deployment_run_id=%s AND deployment_stage=%s "
@@ -310,7 +311,7 @@ def case_failures(
                     kind=classify_verdict(verdict),
                     detail=(
                         f"requirement #{row['id']} ({row['plan_case_key']}) latest "
-                        f"verdict is {verdict or 'missing'}"
+                        f"verdict is {verdict or 'missing'}{replacement_note(row)}"
                     ),
                 )
             )

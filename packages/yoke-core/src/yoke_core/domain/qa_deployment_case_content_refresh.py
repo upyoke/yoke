@@ -17,7 +17,8 @@ discharged, so re-running a plan never quietly manufactures work.
 Content identity is computed from the case itself rather than stored, so no
 column or table carries it: the fields a runner actually executes are hashed,
 and the resulting key distinguishes the corrected row from the frozen one it
-will later be linked to by :mod:`qa_requirement_supersession`. The distinct
+is declared to replace, and which it supersedes once it passes
+(:mod:`qa_requirement_replacement`). The distinct
 key is also what makes the second row possible at all -- a materialized case
 is unique on ``(run, stage, member, plan_id, plan_case_key, host_baseline,
 target)``, so a replacement sharing the original's key could not be inserted.
@@ -154,8 +155,59 @@ def refreshed_case_keys(
     return refreshed
 
 
+def declare_refreshed_replacements(conn: Any, created_ids: list[int]) -> None:
+    """Declare each fresh corrected row the replacement of the rows it corrects.
+
+    A refreshed row exists only because every earlier row for its case and
+    baseline stopped answering; the ones that failed without being settled
+    are exactly the attempts it now carries. They keep blocking until it
+    passes (:mod:`qa_requirement_replacement`).
+    """
+    from yoke_core.domain.qa_requirement_replacement import point_at_replacement
+
+    for created_id in created_ids:
+        fresh = query_rows(
+            conn,
+            "SELECT id,plan_case_key,deployment_run_id,deployment_stage,"
+            "deployment_member_item_id,plan_id,execution_target_digest,"
+            "host_baseline FROM qa_requirements WHERE id=%s",
+            (int(created_id),),
+        )
+        if not fresh or REFRESH_KEY_SEPARATOR not in str(fresh[0]["plan_case_key"]):
+            continue
+        row = fresh[0]
+        base = base_case_key(row["plan_case_key"])
+        earlier = query_rows(
+            conn,
+            "SELECT id,waived_at,superseded_by_requirement_id,"
+            f"{requirement_retracted_at_select(conn)} FROM qa_requirements "
+            "WHERE deployment_run_id=%s AND deployment_stage=%s "
+            "AND COALESCE(deployment_member_item_id,0)=%s AND plan_id=%s "
+            "AND execution_target_digest=%s "
+            "AND COALESCE(host_baseline,'')=COALESCE(%s,'') AND id<>%s "
+            "AND replacement_requirement_id IS NULL "
+            "AND (plan_case_key=%s OR substr(plan_case_key,1,%s)=%s) ORDER BY id",
+            (
+                row["deployment_run_id"],
+                row["deployment_stage"],
+                row["deployment_member_item_id"] or 0,
+                row["plan_id"],
+                row["execution_target_digest"],
+                row["host_baseline"],
+                int(row["id"]),
+                base,
+                len(base) + 1,
+                f"{base}{REFRESH_KEY_SEPARATOR}",
+            ),
+        )
+        for failed in earlier:
+            if not obligation_settled(failed) and _discharged_or_failed(conn, failed):
+                point_at_replacement(conn, int(failed["id"]), int(row["id"]))
+
+
 __all__ = [
     "REFRESH_KEY_SEPARATOR",
+    "declare_refreshed_replacements",
     "base_case_key",
     "case_content_digest",
     "refreshed_case_key",

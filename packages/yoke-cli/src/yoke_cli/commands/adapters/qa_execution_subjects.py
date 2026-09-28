@@ -27,6 +27,10 @@ from yoke_cli.commands.adapters.qa_catalog_usage import PLAN_REMATERIALIZE_EPILO
 from yoke_cli.qa_artifact_download import ArtifactDownloadError, download_artifact
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.qa_artifact_read import artifact_read_destination
+from yoke_contracts.qa_requirement_replacement import (
+    REPLACES_METAVAR,
+    add_replaces_argument,
+)
 
 
 def qa_plan_materialize_for_item(args: List[str]) -> int:
@@ -34,7 +38,8 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
         "yoke qa plan materialize "
         "(--item PREFIX-N --transition T | "
         "--deployment-run-id RUN --plan PLAN --project P "
-        "[--stage STAGE [--member PREFIX-N]]) [--json]"
+        f"[--stage STAGE [--member PREFIX-N]]) [--replaces {REPLACES_METAVAR} ...] "
+        "[--json]"
     )
     parser = argparse.ArgumentParser(
         prog="yoke qa plan materialize",
@@ -57,6 +62,7 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
         "--member",
         help="The run member item an item-scoped QA stage credits.",
     )
+    add_replaces_argument(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
@@ -85,16 +91,19 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
             project_id=parsed.project,
         )
     )
+    payload = {
+        "transition_id": parsed.transition,
+        "plan": parsed.plan,
+        "project": parsed.project,
+        "deployment_stage": parsed.stage,
+        "deployment_member": parsed.member,
+    }
+    if parsed.replaces:
+        payload["replacements"] = parsed.replaces
     return dispatch_and_emit(
         function_id="qa.plan.materialize",
         target=target,
-        payload={
-            "transition_id": parsed.transition,
-            "plan": parsed.plan,
-            "project": parsed.project,
-            "deployment_stage": parsed.stage,
-            "deployment_member": parsed.member,
-        },
+        payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
     )

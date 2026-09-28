@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.qa_obligation_settlement import unanswered_attempt_sql
 from yoke_core.domain.qa_plan_empty_roster import refuse_empty_roster
 from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
 from yoke_core.domain.project_identity import render_item_ref
@@ -76,6 +77,7 @@ def ordered_plan_requirements(
         "case_position,baseline_position,host_baseline,method_id,runner_id "
         f"FROM qa_requirements WHERE {where} "
         "AND method_id IS NOT NULL AND waived_at IS NULL "
+        f"AND {unanswered_attempt_sql(conn)} "
         "ORDER BY CASE WHEN plan_id IS NULL THEN 0 ELSE 1 END,"
         "COALESCE(plan_id,0),case_position,baseline_position,id",
         params,

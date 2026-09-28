@@ -13,6 +13,10 @@ from yoke_core.domain.qa_constants import (
 from yoke_core.domain.qa_plan_execution_result_state import aggregate_state
 from yoke_core.domain.qa_plan_execution_store import canonical, marker
 from yoke_core.domain.qa_plan_review import QaPlanReviewError, _public_bundle
+from yoke_core.domain.qa_requirement_replacement import (
+    announce_discharges,
+    discharge_declared_replacements,
+)
 from yoke_core.domain.qa_undetermined_evidence import (
     require_agent_undetermined_evidence,
 )
@@ -292,6 +296,9 @@ def submit_plan_review(
             result_rows(conn, str(execution["id"])),
             validated,
         )
+        discharged = discharge_declared_replacements(
+            conn, [rid for rid, (verdict, _) in validated.items() if verdict == "pass"]
+        )
         conn.commit()
     except Exception:
         conn.rollback()
@@ -310,6 +317,7 @@ def submit_plan_review(
             )
         except Exception:
             conn.rollback()
+    announce_discharges(conn, discharged)
     if execution.get("deployment_stage"):
         from yoke_core.domain.deployment_qa_stage_settlement import settle_execution
 
@@ -329,6 +337,7 @@ def submit_plan_review(
             }
             for requirement_id, (verdict, rationale) in sorted(validated.items())
         ],
+        "superseded_by_replacement": [receipt for receipt, _ in discharged],
     }
 
 

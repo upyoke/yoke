@@ -185,3 +185,33 @@ test("observed lineage prefers the serving SHA over the intended one", () => {
   );
 });
 
+
+test("a failed case waiting on its declared replacement reads as a blocking earlier attempt", () => {
+  const rows = [
+    {
+      id: 1,
+      deployment_run_id: RUN,
+      qa_kind: "plan_case",
+      qa_phase: "post_deploy",
+      outcome: "failed",
+      replacement_requirement_id: 2,
+    },
+    {
+      id: 2,
+      deployment_run_id: RUN,
+      qa_kind: "plan_case",
+      qa_phase: "post_deploy",
+      outcome: "queued",
+    },
+  ];
+  const earlier = classifyQaRow(rows[0], rows);
+  assert.equal(earlier.id, QA_STATE.REPLACING);
+  assert.match(earlier.detail, /corrected case #2/);
+  const union = summarizeQaUnion(rows);
+  assert.equal(union.satisfied, false);
+  assert.match(union.outstandingPhrase, /earlier attempt/);
+
+  const discharged = classifyQaRow({ ...rows[0], superseded_by_requirement_id: 2 }, rows);
+  assert.equal(discharged.id, QA_STATE.SUPERSEDED);
+  assert.match(discharged.detail, /corrected case #2 passed in its place/);
+});

@@ -72,6 +72,7 @@ ACTIVITY_COLUMNS = (
     "q.execution_target_json, "
     "q.waived_at, q.waiver_rationale, q.instructions, "
     "q.superseded_by_requirement_id, q.superseded_at, "
+    "q.replacement_requirement_id, "
     "q.host_baseline, p.slug AS plan, pr.slug AS project, "
     "q.method_id, q.method_name, m.proof_kind, r.id AS run_id, "
     "r.performed_by, "

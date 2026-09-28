@@ -69,6 +69,14 @@ test("effective run checks exclude replaced requirements and older attempts", ()
   assert.deepEqual(effectiveRunChecks(checks), [checks[1], checks[2]]);
 });
 
+test("effective run checks leave a failed case to the corrected case declared to replace it", () => {
+  const earlier = { requirement_id: 40, deployment_run_id: runId, outcome: "failed",
+    replacement_requirement_id: 41, happened_at: "2026-09-28T13:00:00Z" };
+  const corrected = { requirement_id: 41, deployment_run_id: runId, outcome: "passed",
+    happened_at: "2026-09-28T14:00:00Z" };
+  assert.deepEqual(effectiveRunChecks([earlier, corrected]), [corrected]);
+});
+
 test("each run screenshot shows once, under the check whose requirement owns it", () => {
   const qa = byClass(render("resolved").card, "run-qa-section")[0];
   const [first, second] = directChecks(qa);

@@ -7,8 +7,12 @@ records "we chose not to require this" -- a claim nobody wants attached to
 a case that a corrected sibling actually proved.
 
 Supersession is the honest alternative. A second case bound to the same
-run, stage, member and execution target, which has itself passed, may be
-recorded as discharging the broken one. The broken row stays exactly as it
+obligation -- the same run, stage, member and execution target for a
+run-bound case; the same item, transition, phase and execution target for an
+item-bound one -- which has itself passed, may be recorded as discharging
+the broken one. A replacement declared when the corrected case was
+materialized records this automatically once it passes
+(:mod:`yoke_core.domain.qa_requirement_replacement`). The broken row stays exactly as it
 is, so the history of what went wrong survives; what changes is that the
 stage gate reads its obligation as met by the named passing row rather
 than as unmet.
@@ -77,7 +81,7 @@ def _requirement(conn: Any, requirement_id: int, *, label: str) -> dict[str, Any
         "SELECT id,item_id,epic_id,task_num,"
         "deployment_run_id,deployment_stage,deployment_member_item_id,"
         "execution_target_digest,blocking_mode,plan_case_key,method_id,"
-        "qa_kind,qa_phase,"
+        "qa_kind,qa_phase,workflow_transition_id,replacement_requirement_id,"
         f"waived_at,superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements WHERE id=%s",
         (int(requirement_id),),
@@ -87,15 +91,28 @@ def _requirement(conn: Any, requirement_id: int, *, label: str) -> dict[str, Any
     return dict(row)
 
 
-def _same_scope(broken: dict[str, Any], corrected: dict[str, Any]) -> list[str]:
+_RUN_SCOPE = (
+    ("deployment_run_id", "deployment run"),
+    ("deployment_stage", "deployment stage"),
+    ("deployment_member_item_id", "deployment member"),
+    ("execution_target_digest", "execution target"),
+)
+_ITEM_SCOPE = (
+    ("deployment_run_id", "deployment run"),
+    ("item_id", "item"),
+    ("epic_id", "epic"),
+    ("task_num", "task"),
+    ("workflow_transition_id", "workflow transition"),
+    ("qa_phase", "QA phase"),
+    ("execution_target_digest", "execution target"),
+)
+
+
+def same_scope(broken: dict[str, Any], corrected: dict[str, Any]) -> list[str]:
     """Every way the two rows fail to answer for the same obligation."""
     mismatches: list[str] = []
-    for column, label in (
-        ("deployment_run_id", "deployment run"),
-        ("deployment_stage", "deployment stage"),
-        ("deployment_member_item_id", "deployment member"),
-        ("execution_target_digest", "execution target"),
-    ):
+    scope = _RUN_SCOPE if broken.get("deployment_run_id") else _ITEM_SCOPE
+    for column, label in scope:
         if str(broken.get(column) or "") != str(corrected.get(column) or ""):
             mismatches.append(
                 f"{label} differs ({broken.get(column)!r} vs {corrected.get(column)!r})"
@@ -145,22 +162,21 @@ def latest_verdict(conn: Any, requirement_id: int) -> str:
     return str(row["verdict"] or "")
 
 
-def supersede_requirement(
+def record_supersession(
     conn: Any,
     *,
     requirement_id: int,
     superseded_by_requirement_id: int,
     rationale: str,
     source: str = "agent",
-    db_path: str | None = None,
-    commit: bool = True,
-) -> dict[str, Any]:
-    """Record that a passing sibling case discharges this frozen one.
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Validate and write one supersession on the caller's open transaction.
 
     Refuses rather than guessing: the two rows must be the same
     obligation, the replacement must be a real blocking case that has
     passed, and neither may already be discharged another way. Every
-    refusal names what to do instead.
+    refusal names what to do instead. Returns the receipt and the
+    discharged row; the caller commits and then emits the event.
     """
     rationale = str(rationale or "").strip()
     if not rationale:
@@ -181,19 +197,14 @@ def supersede_requirement(
     broken = _requirement(conn, requirement_id, label="superseded")
     corrected = _requirement(conn, superseded_by_requirement_id, label="superseding")
 
-    if not str(broken.get("deployment_run_id") or ""):
-        raise QaSupersessionError(
-            f"requirement {requirement_id} is not bound to a deployment run; "
-            "supersession exists for frozen run-bound cases. Correct a live "
-            "item requirement in place with yoke qa requirement update instead."
-        )
-    mismatches = _same_scope(broken, corrected)
+    mismatches = same_scope(broken, corrected)
     if mismatches:
         raise QaSupersessionError(
             f"requirement {superseded_by_requirement_id} does not answer for "
             f"requirement {requirement_id}'s obligation: {'; '.join(mismatches)}. "
             "Bind the corrected case to the same run, stage, member and "
-            "deployment target, then record the supersession."
+            "deployment target (or, for an item case, the same item, "
+            "transition, phase and target), then record the supersession."
         )
     if str(corrected.get("blocking_mode") or "") != "blocking":
         raise QaSupersessionError(
@@ -206,12 +217,13 @@ def supersede_requirement(
             f"requirement {superseded_by_requirement_id} is itself waived, so "
             "it proves nothing. Name a case that actually passed."
         )
-    if corrected.get("superseded_by_requirement_id"):
-        raise QaSupersessionError(
-            f"requirement {superseded_by_requirement_id} is itself superseded "
-            f"by requirement {corrected['superseded_by_requirement_id']}. Name "
-            "that case directly rather than chaining through a discharged one."
-        )
+    for column in ("superseded_by_requirement_id", "replacement_requirement_id"):
+        if corrected.get(column):
+            raise QaSupersessionError(
+                f"requirement {superseded_by_requirement_id} is itself replaced "
+                f"by requirement {corrected[column]}. Name that case directly "
+                "rather than chaining through an earlier attempt."
+            )
     verdict = latest_verdict(conn, int(superseded_by_requirement_id))
     if verdict != "pass":
         raise QaSupersessionError(
@@ -247,23 +259,6 @@ def supersede_requirement(
             int(requirement_id),
         ),
     )
-    if commit:
-        conn.commit()
-
-    emit_qa_requirement_event(
-        conn,
-        db_path=db_path,
-        event_name="QARequirementSuperseded",
-        requirement_id=int(requirement_id),
-        qa_kind=str(broken.get("qa_kind") or ""),
-        qa_phase=str(broken.get("qa_phase") or ""),
-        rationale=rationale,
-        source=str(source),
-        target_row=broken,
-        extra_detail={
-            "superseded_by_requirement_id": int(superseded_by_requirement_id)
-        },
-    )
     return {
         "requirement_id": int(requirement_id),
         "superseded_by_requirement_id": int(superseded_by_requirement_id),
@@ -271,7 +266,55 @@ def supersede_requirement(
         "supersession_rationale": rationale,
         "supersession_source": str(source),
         **admitted_source_correction(conn, broken),
-    }
+    }, broken
+
+
+def emit_supersession_event(
+    conn: Any,
+    receipt: dict[str, Any],
+    broken: dict[str, Any],
+    *,
+    db_path: str | None = None,
+) -> None:
+    """Best-effort telemetry for a supersession the caller already committed."""
+    emit_qa_requirement_event(
+        conn,
+        db_path=db_path,
+        event_name="QARequirementSuperseded",
+        requirement_id=int(receipt["requirement_id"]),
+        qa_kind=str(broken.get("qa_kind") or ""),
+        qa_phase=str(broken.get("qa_phase") or ""),
+        rationale=str(receipt["supersession_rationale"]),
+        source=str(receipt["supersession_source"]),
+        target_row=broken,
+        extra_detail={
+            "superseded_by_requirement_id": int(
+                receipt["superseded_by_requirement_id"]
+            )
+        },
+    )
+
+
+def supersede_requirement(
+    conn: Any,
+    *,
+    requirement_id: int,
+    superseded_by_requirement_id: int,
+    rationale: str,
+    source: str = "agent",
+    db_path: str | None = None,
+) -> dict[str, Any]:
+    """Record, commit and announce that a passing sibling discharges this one."""
+    receipt, broken = record_supersession(
+        conn,
+        requirement_id=requirement_id,
+        superseded_by_requirement_id=superseded_by_requirement_id,
+        rationale=rationale,
+        source=source,
+    )
+    conn.commit()
+    emit_supersession_event(conn, receipt, broken, db_path=db_path)
+    return receipt
 
 
 def supersession_history(conn: Any, *, run_id: str) -> list[dict[str, Any]]:
@@ -296,7 +339,10 @@ __all__ = [
     "SUPERSESSION_SOURCES",
     "QaSupersessionError",
     "admitted_source_correction",
+    "emit_supersession_event",
     "latest_verdict",
+    "record_supersession",
+    "same_scope",
     "supersede_requirement",
     "supersession_history",
 ]

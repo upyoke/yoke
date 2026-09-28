@@ -67,6 +67,7 @@ ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
             "retracted_at",
             "retraction_rationale",
             "retraction_source",
+            "replacement_requirement_id",
         }
     ),
     "qa_plan_item_attachments": frozenset(

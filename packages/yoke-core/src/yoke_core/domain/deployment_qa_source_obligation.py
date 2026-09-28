@@ -25,6 +25,7 @@ from yoke_core.domain.deployment_qa_stage_contract import (
     deployment_qa_stage_subject,
 )
 from yoke_core.domain.qa_obligation_settlement import (
+    item_supersession_open_sql,
     obligation_settled,
     requirement_retracted_at_select,
 )
@@ -256,7 +257,7 @@ def unsatisfied_blocking(
         "qr.item_id, qr.plan_case_key "
         "FROM qa_requirements qr "
         f"WHERE {where} AND qr.blocking_mode = 'blocking' "
-        "AND qr.waived_at IS NULL",
+        f"AND qr.waived_at IS NULL AND {item_supersession_open_sql(conn, 'qr')}",
         params,
     ).fetchall()
     scored = []

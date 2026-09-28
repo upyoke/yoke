@@ -98,6 +98,7 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         requirement_column("superseded_by_requirement_id"),
         requirement_column("superseded_at"),
         requirement_column("supersession_rationale"),
+        requirement_column("replacement_requirement_id"),
         requirement_column("method_id"),
         _runner_column(conn, has_methods),
         requirement_column("workflow_transition_id"),

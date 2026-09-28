@@ -46,6 +46,7 @@ def execute_plan(
     checkout_path: Optional[str | Path] = None,
     allow_tree_mismatch: bool = False,
     continue_mission: bool = False,
+    replacements: Optional[list[dict[str, Any]]] = None,
     actor: Optional[ActorContext] = None,
 ) -> dict[str, Any]:
     """Resume and execute one server-authorized immutable ordered roster."""
@@ -65,6 +66,8 @@ def execute_plan(
             materialize_payload["deployment_stage"] = deployment_stage
         if deployment_member:
             materialize_payload["deployment_member"] = deployment_member
+        if replacements:
+            materialize_payload["replacements"] = replacements
         _call_plan_function(
             function_id="qa.plan.materialize",
             target=target,

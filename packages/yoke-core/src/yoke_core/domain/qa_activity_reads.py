@@ -176,6 +176,11 @@ def _list_activity(
                     else None
                 ),
                 "superseded_at": row["superseded_at"],
+                "replacement_requirement_id": (
+                    int(row["replacement_requirement_id"])
+                    if row["replacement_requirement_id"] is not None
+                    else None
+                ),
                 "host_baseline": row["host_baseline"],
                 "method_id": row["method_id"],
                 "method_name": row["method_name"],

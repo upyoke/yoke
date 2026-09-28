@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 from yoke_core.domain.qa_case_execution_cli import WAITING_RETRY_EXIT
+from yoke_core.domain.qa_plan_execution_cli_help import QA_PLAN_RUN_EPILOG
+from yoke_contracts.qa_requirement_replacement import add_replaces_argument
 from yoke_core.domain.qa_plan_execution import (
     QaPlanExecutionError,
     execute_plan,
@@ -163,60 +165,6 @@ def _qualify_review_dispatch(result: dict[str, Any]) -> None:
     )
 
 
-#: The subject/scope matrix: which invocation credits which subject, and the
-#: release-time form whose omission leaves a stage unsatisfied. Read as
-#: ``yoke qa plan run --help``.
-_EPILOG = """\
-Pick the subject, then the scope
---------------------------------
-Exactly one subject flag is required, and it decides everything else.
-
-  --item PREFIX-N --transition TRANSITION
-      An item's own attached plans, for a lifecycle transition's QA gate.
-      Requires --transition; does not accept --plan, because an item uses the
-      plans already attached to it.
-
-  --deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN]
-      --project PROJECT
-      One frozen QA stage of a deployment run. The stage must be the run's
-      active pinned QA stage.
-      PROJECT is the member's project for item QA, or the run's for run QA.
-
-Release-time scope: a stage credits only its own name
------------------------------------------------------
-A deployment QA stage is satisfied only by requirements bound to that stage's
-own name -- and an item-scoped stage by requirements bound to the member too.
-So the scope flags are not optional decoration:
-
-  * Run-scoped stage  -> --stage STAGE, no --member.
-  * Item-scoped stage -> --stage STAGE --member PREFIX-N. The run-wide form is
-    refused here rather than recording a pass the stage would ignore.
-
-Dropping --stage or --member is the failure that looks like success: cases run,
-verdicts record, and the stage still reads unsatisfied because nothing credited
-it. `yoke qa case run --requirement-id N` refuses an item-scoped binding
-and names this command instead of exiting zero with an uncredited pass.
-
-When the stage names no concrete cases, --plan records the executor's
-project-owned selection -- and only then. A stage already naming its own cases
-(pinned, frozen, member-attached, admitted, or directly authored) refuses
---plan by name: a plan there materializes a second, duplicate set of
-obligations beside the ones the stage credits. The wake asking for a selection
-prints --plan; every other wake omits it.
-Materialization stamps the run's own deployed target
-onto the cases, so a plan authored before this release still verifies it. A
-deployment case is bound to the candidate the run deployed, not to your lane:
-pass --checkout-path at a separate checkout pinned to that revision, or pass
---allow-tree-mismatch when the case reads nothing from the checkout.
-
-Who runs it, and what follows
------------------------------
-The item owner parked at its release wait runs its own stage when the
-deployment wake asks for it, then finishes with `yoke merge item PREFIX-N
---result ... --verification ...`. The steering seat drives the run and never
-substitutes a run-wide pass for a member's stage. See `yoke merge item --help`
-for the close-out and `yoke deployment-runs --help` for the run itself.
-"""
 
 
 def run(args: List[str]) -> int:
@@ -226,7 +174,7 @@ def run(args: List[str]) -> int:
             "Execute a materialized transition's cases in immutable "
             "plan/case/baseline order through their registered runners."
         ),
-        epilog=_EPILOG,
+        epilog=QA_PLAN_RUN_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
@@ -265,6 +213,7 @@ def run(args: List[str]) -> int:
             "refused unless the subject's most recent execution ended that way."
         ),
     )
+    add_replaces_argument(parser)
     parser.add_argument("--session-id")
     parsed = parser.parse_args(args)
     if bool(parsed.expected_branch) != bool(parsed.expected_sha):
@@ -281,6 +230,11 @@ def run(args: List[str]) -> int:
         parser.error("--deployment-run-id requires --project")
     if parsed.member and not parsed.stage:
         parser.error("--member requires --stage")
+    if parsed.replaces and not parsed.deployment_run_id:
+        parser.error(
+            "--replaces declares at materialization; for --item run "
+            "yoke qa plan materialize --item PREFIX-N --transition T --replaces ..."
+        )
 
     from yoke_core.api.service_client_structured_api_adapter import build_actor
 
@@ -302,6 +256,7 @@ def run(args: List[str]) -> int:
             checkout_path=parsed.checkout_path,
             allow_tree_mismatch=parsed.allow_tree_mismatch,
             continue_mission=parsed.continue_mission,
+            replacements=parsed.replaces,
             actor=actor,
         )
     except QaPlanExecutionError as exc:
