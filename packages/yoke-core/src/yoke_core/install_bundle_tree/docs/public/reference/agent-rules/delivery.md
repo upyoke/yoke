@@ -87,6 +87,12 @@ learns the other's part from its own skill. The split is the whole rule:
   no attaching, and `yoke steering report get` names any landed item no
   release holds so nobody has to notice one going stale. The driving seat does not run a member's item QA and
   does not close a member out.
+- **An unattributed carried commit is named, never waived blind.** The start
+  refuses with each commit's SHA and subject. An item's own commit its receipt
+  did not record is attested to that item —
+  `yoke merge-receipt commits attest PREFIX-N --commit SHA --reason R` — and
+  the start retried; only code no backlog item owns takes a run
+  `composition_resolution`. Never resolve an item's own commits that way.
 - **The attach says what the run can do for the member.** Two independent
   capabilities: a run **checks** a member only through an item-scoped QA
   stage, and **closes** one only as that item's completion flow or as another
