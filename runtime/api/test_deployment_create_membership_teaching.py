@@ -1,4 +1,4 @@
-"""Create-help teaching: membership is filled from the candidate at start."""
+"""Create-help teaching: candidate membership is checked before run creation."""
 
 from __future__ import annotations
 
@@ -13,9 +13,10 @@ def test_create_description_does_not_route_item_bound_batch_to_start_for_item() 
     assert "create-then-watch" in lowered
 
 
-def test_create_description_states_enrolment_happens_at_start() -> None:
+def test_create_description_states_composition_precedes_run_commit() -> None:
     assert "created" in CREATE_DESCRIPTION
-    assert "fills it at the start" in CREATE_DESCRIPTION
+    assert "provisionally composes membership" in CREATE_DESCRIPTION
+    assert "before committing a run ID" in CREATE_DESCRIPTION
     assert "candidate" in CREATE_DESCRIPTION
 
 

@@ -72,6 +72,7 @@ def cmd_create_run(
     artifact_identity: Optional[str] = None,
     db_path: Optional[str] = None,
     inherit_members_from: Optional[str] = None,
+    allow_pending_pair_merges: bool = False,
 ) -> str:
     """Create a new deployment run without a caller key. Returns its ID."""
     run_id, _replayed = create_run(
@@ -83,6 +84,7 @@ def cmd_create_run(
         artifact_identity=artifact_identity,
         db_path=db_path,
         inherit_members_from=inherit_members_from,
+        allow_pending_pair_merges=allow_pending_pair_merges,
     )
     return run_id
 
@@ -98,6 +100,7 @@ def create_run(
     inherit_members_from: Optional[str] = None,
     idempotency_key: Optional[str] = None,
     create_request: Optional[str] = None,
+    allow_pending_pair_merges: bool = False,
 ) -> tuple[str, bool]:
     """Create a new deployment run. Returns ``(run_id, replayed)``.
 
@@ -172,15 +175,21 @@ def create_run(
             # bound branches here would let a retry ship a consumer revision
             # the run it retries never carried.
             copy_bound_sources(conn, inherit_members_from, run_id)
-        else:
-            from yoke_core.domain.deployment_run_carried_membership import (
-                enroll_carried_members,
-            )
+        from yoke_core.domain.deployment_runs_validation import (
+            cmd_validate_composition,
+        )
 
-            try:
-                enroll_carried_members(conn, run_id)
-            except (LookupError, ValueError):
-                pass
+        # The row and any inherited members are provisional until the same
+        # validator used by the explicit command has checked the pinned
+        # sources, carried work, member flows, and dependencies. A refusal
+        # rolls back the row, so it consumes no run ID.
+        valid, message = cmd_validate_composition(
+            run_id,
+            allow_pending_pair_merges=allow_pending_pair_merges,
+            connection=conn,
+        )
+        if not valid:
+            raise ValueError(message)
         conn.commit()
         return run_id, False
     finally:

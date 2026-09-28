@@ -176,12 +176,10 @@ def start_for_item(
         )
 
     try:
-        target_tier, target_environment_id, environment_name = (
-            cmd_resolve_target(
-                resolved_project,
-                resolved_flow,
-                environment_override=environment,
-            )
+        target_tier, target_environment_id, environment_name = cmd_resolve_target(
+            resolved_project,
+            resolved_flow,
+            environment_override=environment,
         )
     except EnvironmentRegistryMigrationRequired as exc:
         return StartForItemResult(
@@ -262,6 +260,7 @@ def start_for_item(
             environment=environment,
             release_lineage=release_lineage,
             created_by=created_by,
+            allow_pending_pair_merges=prepare,
         )
     except Exception as exc:
         return StartForItemResult(
