@@ -14,6 +14,7 @@ from unittest.mock import patch
 from runtime.api.domain.handlers.deployment_handler_test_support import (
     deployment_request as _request,
 )
+from yoke_core.domain.deployment_run_create_write import CreatedRun
 from yoke_core.domain.handlers import deployment_runs
 
 #: Where the create handler reads the project deploy lock.
@@ -32,7 +33,7 @@ class TestDeploymentRunCreation(unittest.TestCase):
             patch(DEPLOY_LOCK, return_value=None),
             patch(
                 "yoke_core.domain.deployment_runs_crud_mutate.create_run",
-                return_value=("run-20260616-002", False),
+                return_value=CreatedRun("run-20260616-002", False, None),
             ) as cmd_create,
             patch(
                 "yoke_core.domain.deployment_runs_crud_query.cmd_get",
@@ -106,7 +107,7 @@ class TestDeploymentRunCreation(unittest.TestCase):
             ),
             patch(
                 "yoke_core.domain.deployment_runs_crud_mutate.create_run",
-                return_value=("run-new", False),
+                return_value=CreatedRun("run-new", False, None),
             ) as create,
         ):
             outcome = deployment_runs.handle_deployment_run_create(

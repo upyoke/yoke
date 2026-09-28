@@ -23,7 +23,7 @@ def _request(**overrides: str) -> str:
 
 
 def _create(db_path: str, key: str | None, request: str, **kwargs):
-    return create_run(
+    run_id, replayed, basis = create_run(
         "yoke",
         "flow-main",
         db_path=db_path,
@@ -31,6 +31,8 @@ def _create(db_path: str, key: str | None, request: str, **kwargs):
         create_request=request,
         **kwargs,
     )
+    assert basis == ("recorded_key" if key else None)
+    return run_id, replayed
 
 
 def test_keyed_create_mints_one_run(db_path: str) -> None:

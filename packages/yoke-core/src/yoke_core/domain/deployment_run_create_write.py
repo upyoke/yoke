@@ -11,16 +11,25 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
-from typing import Optional
+from typing import NamedTuple, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, iso8601_now
 from yoke_core.domain.deployment_flow_state import require_flow_for_new_run
 from yoke_core.domain.deployment_run_bound_sources import copy_bound_sources
-from yoke_core.domain.deployment_run_create_idempotency import existing_run
+from yoke_core.domain import deployment_run_create_idempotency as idempotency
 from yoke_core.domain.deployment_run_insert import insert_run
 from yoke_core.domain.deployment_run_retry_membership import copy_frozen_members
 from yoke_core.domain.project_identity import resolve_project_id
+
+
+class CreatedRun(NamedTuple):
+    """The run a create returned, and how a keyed create identified it."""
+
+    run_id: str
+    replayed: bool
+    #: ``None`` unkeyed; otherwise an ``idempotency.BASIS_*`` value.
+    idempotency_basis: Optional[str]
 
 
 def cmd_next_id(db_path: Optional[str] = None) -> str:
@@ -75,7 +84,7 @@ def cmd_create_run(
     allow_pending_pair_merges: bool = False,
 ) -> str:
     """Create a new deployment run without a caller key. Returns its ID."""
-    run_id, _replayed = create_run(
+    created = create_run(
         project,
         flow,
         environment=environment,
@@ -86,7 +95,7 @@ def cmd_create_run(
         inherit_members_from=inherit_members_from,
         allow_pending_pair_merges=allow_pending_pair_merges,
     )
-    return run_id
+    return created.run_id
 
 
 def create_run(
@@ -101,14 +110,17 @@ def create_run(
     idempotency_key: Optional[str] = None,
     create_request: Optional[str] = None,
     allow_pending_pair_merges: bool = False,
-) -> tuple[str, bool]:
-    """Create a new deployment run. Returns ``(run_id, replayed)``.
+) -> CreatedRun:
+    """Create a new deployment run, or return the one a keyed repeat names.
 
     ``idempotency_key`` with its canonical ``create_request`` makes the create
     safe to repeat: under the table lock, a run already created with that key
     and request is returned with ``replayed=True`` instead of minting another,
     and the same key with a different request raises
     :class:`~yoke_core.domain.deployment_run_create_idempotency.IdempotencyKeyConflict`.
+    Before the key columns converge, the key cannot be stored; the same lock
+    instead returns the one never-started run with the identical resolved
+    request, and the result names that basis.
 
     ``environment`` (a registered name) overrides the flow's registered
     target; tier and environment otherwise copy from the flow definition.
@@ -124,11 +136,20 @@ def create_run(
         if db_backend.connection_is_postgres(conn):
             conn.execute("LOCK TABLE deployment_runs IN SHARE ROW EXCLUSIVE MODE")
         project_id = resolve_project_id(conn, project)
+        basis = None
         if idempotency_key:
-            existing = existing_run(conn, project_id, idempotency_key, create_request)
+            basis = (
+                idempotency.BASIS_RECORDED_KEY
+                if idempotency.key_columns_converged(conn)
+                else idempotency.BASIS_UNCONVERGED_REQUEST_MATCH
+            )
+        if basis == idempotency.BASIS_RECORDED_KEY:
+            existing = idempotency.existing_run(
+                conn, project_id, idempotency_key, create_request
+            )
             if existing is not None:
                 conn.rollback()
-                return existing, True
+                return CreatedRun(existing, True, basis)
         _flow_project_id, target_tier, target_environment_id = require_flow_for_new_run(
             conn,
             flow,
@@ -145,6 +166,21 @@ def create_run(
                 project_id,
                 environment,
             )
+
+        if basis == idempotency.BASIS_UNCONVERGED_REQUEST_MATCH:
+            existing = idempotency.unconverged_match(
+                conn,
+                idempotency_key,
+                project_id=project_id,
+                flow=flow,
+                target_environment_id=target_environment_id,
+                release_lineage=release_lineage,
+                artifact_identity=artifact_identity,
+                created_by=created_by,
+            )
+            if existing is not None:
+                conn.rollback()
+                return CreatedRun(existing, True, basis)
 
         _refuse_run_that_cannot_execute(conn, flow, release_lineage)
 
@@ -163,8 +199,12 @@ def create_run(
             created_by=created_by,
             created_at=iso8601_now(),
             artifact_identity=artifact_identity,
-            create_idempotency_key=idempotency_key,
-            create_request=create_request if idempotency_key else None,
+            create_idempotency_key=(
+                idempotency_key if basis == idempotency.BASIS_RECORDED_KEY else None
+            ),
+            create_request=(
+                create_request if basis == idempotency.BASIS_RECORDED_KEY else None
+            ),
         )
         if inserted is None:
             raise RuntimeError(f"deployment run ID {run_id} was claimed concurrently")
@@ -191,9 +231,9 @@ def create_run(
         if not valid:
             raise ValueError(message)
         conn.commit()
-        return run_id, False
+        return CreatedRun(run_id, False, basis)
     finally:
         conn.close()
 
 
-__all__ = ["cmd_create_run", "cmd_next_id", "create_run"]
+__all__ = ["CreatedRun", "cmd_create_run", "cmd_next_id", "create_run"]

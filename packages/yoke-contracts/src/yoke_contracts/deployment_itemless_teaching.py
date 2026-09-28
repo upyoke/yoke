@@ -39,7 +39,10 @@ repeat the identical command with the SAME key — it returns the run the
 first call created instead of minting another. The same key with any
 changed input refuses `idempotency_key_conflict`, naming the run and the
 differing fields. A deliberate second run of the same candidate takes a
-NEW key.
+NEW key. A control plane whose database has not yet converged the
+key columns (a self-deploy's production half, before its own release
+boots) cannot store the key; the create says so, and until the run starts
+an identical repeat still returns it.
 """
 
 # Copy-pasteable recipe shown on the surfaces that own each step.
@@ -131,6 +134,28 @@ def replayed_run_note(run_id: str, key: str) -> str:
     )
 
 
+#: ``deployment_runs.create`` receipt ``idempotency_basis`` values.
+BASIS_RECORDED_KEY = "recorded_key"
+BASIS_UNCONVERGED_REQUEST_MATCH = "unconverged_request_match"
+
+
+def unconverged_key_note(run_id: str, key: str, replayed: bool) -> str:
+    """Post-create stderr line when the database cannot store the key yet."""
+    found = (
+        f"returned {run_id}, the one not-yet-started run with this exact request"
+        if replayed
+        else f"created {run_id}"
+    )
+    return (
+        f"note: {found}. This control plane's deployment_runs has not "
+        f"converged its idempotency columns, so key {key!r} is not stored; "
+        "they arrive when the serving build boots the current release. Until "
+        f"{run_id} starts, repeating this identical command returns it. Once "
+        "it has started, a repeat creates another run — check `yoke "
+        "deployment-runs list` first."
+    )
+
+
 def unkeyed_server_warning(run_id: str) -> str:
     """Post-create stderr line when the control plane ignored the key."""
     return (
@@ -151,6 +176,8 @@ def execute_created_run_note(authority: str, run_id: str) -> str:
 
 
 __all__ = [
+    "BASIS_RECORDED_KEY",
+    "BASIS_UNCONVERGED_REQUEST_MATCH",
     "CREATE_DESCRIPTION",
     "CREATE_RETRY_GUIDANCE",
     "FINALIZATION_PENDING_PREFIX",
@@ -160,5 +187,6 @@ __all__ = [
     "WATCH_DEPLOY_DESCRIPTION",
     "execute_created_run_note",
     "replayed_run_note",
+    "unconverged_key_note",
     "unkeyed_server_warning",
 ]
