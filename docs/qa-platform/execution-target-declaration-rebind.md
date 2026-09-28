@@ -18,7 +18,9 @@ the row. The same command also accepts a snapshot that records **no
 environment.id** and whose **endpoints already match** the resolved
 environment, even when its site label is stale or incoherent. Endpoints are the
 stronger evidence of what was actually exercised; a site label is
-bookkeeping. A live item requirement cannot be superseded.
+bookkeeping. A live item requirement is corrected in place rather than
+superseded; supersession of an item case is reserved for a corrected case that
+has already passed in its place.
 
 Identity is not an endpoint check. The same environment row can have
 `hosts.app` corrected from `api.upyoke.com` to `https://api.upyoke.com`

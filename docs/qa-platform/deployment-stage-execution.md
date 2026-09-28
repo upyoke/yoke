@@ -193,17 +193,47 @@ discharged row satisfied idempotency. Now a case materializes again when both
 halves hold — the existing rows no longer answer (waived, superseded, or a
 settled `fail`) and the case's executable content has changed since it was
 materialized. The corrected row takes a key carrying that content's digest, so
-it sits beside the frozen one rather than replacing it, and supersession is
-what then links the two. An unchanged case stays idempotent however its row was
+it sits beside the frozen one rather than replacing it, and is declared the
+replacement of every earlier row for that case that failed without being
+settled (see *Declared replacement* below). An unchanged case stays idempotent however its row was
 discharged, and a case whose row is still answering never gets a second row
 racing it.
 
 Once a case has answered, its snapshot is frozen for good and there are two
-discharges, both recorded and both distinguishable from a passing result:
+discharges, both recorded and both distinguishable from a passing result.
+The usual route to the first is declaring the replacement when the corrected
+case is materialized:
 
+- **Declared replacement.** Materialize the corrected case and name the exact
+  failed requirement it replaces:
+
+  ```text
+  yoke qa plan run --deployment-run-id RUN --stage STAGE [--member PREFIX-N] \
+    --plan CORRECTED_PLAN --project P --replaces CASE_KEY=FAILED_REQUIREMENT_ID
+  ```
+
+  (`yoke qa plan materialize ... --replaces` declares without running; an
+  item subject declares there before `yoke qa plan run --item`.) The failed
+  row records `replacement_requirement_id` and keeps blocking, but no later
+  execution captures or reviews it again, so the review bundle holds only the
+  newly captured cases. When the corrected case records a passing independent
+  verdict — the agent review batch, or a human approving its review — the
+  failed row is superseded on that verdict's own transaction, before the stage
+  settles, so the stage re-evaluates and asks for any human acceptance it
+  requires without anyone superseding by hand. A failing or undetermined
+  verdict supersedes nothing: the failed row keeps blocking with its evidence
+  and the corrected row fails for itself. To correct a failed correction,
+  declare the new case the replacement of that failed correction; every row
+  still waiting on it moves to the new case. The declaration refuses a key
+  matching no case (or several) among the cases that materialization produced,
+  a failed row that already passed or is already settled, and a replacement
+  outside the failed row's run, stage, member and target. Earlier attempts
+  stay as history: the web views show a waiting row as an *earlier attempt*
+  and a discharged one as *superseded* by the case that passed in its place.
 - **Supersession.** A corrected case bound to the same run, stage, member and
-  execution target, which has itself passed, is recorded as answering the
-  broken case's obligation:
+  execution target (for an item case: the same item, transition, phase and
+  target), which has itself passed, is recorded as answering the broken case's
+  obligation. A declared replacement records this automatically; by hand:
 
   ```text
   yoke qa requirement supersede --requirement-id <frozen-id> \
