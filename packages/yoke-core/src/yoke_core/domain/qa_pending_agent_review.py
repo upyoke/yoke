@@ -13,9 +13,11 @@ Nothing here writes.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from yoke_core.domain.qa_constants import is_agent_reviewed_case
 from yoke_core.domain.qa_plan_execution_store import marker
 from yoke_core.domain.refusal_recovery import compose_refusal
 
@@ -116,14 +118,18 @@ def capture_verdict_refusal(pending: PendingAgentReview, requirement_id: int) ->
 
 
 def pending_review_verdict_refusal(
-    conn: Any, requirement_id: int, verdict: object
+    conn: Any, requirement_id: int, verdict: object, requirement: Mapping[str, Any]
 ) -> str | None:
     """The refusal for a verdict write while this requirement's review is pending.
 
     Writes that carry no verdict -- capture status, artifacts -- are not
-    verdicts and pass through untouched.
+    verdicts and pass through untouched, and only an agent-reviewed case
+    (``requirement`` carries its ``verdict_path`` and ``method_id``) can ever
+    sit in a review bundle, so every other requirement skips the lookup.
     """
-    if verdict is None:
+    if verdict is None or not is_agent_reviewed_case(
+        requirement.get("verdict_path"), requirement.get("method_id")
+    ):
         return None
     pending = pending_review_for_requirement(conn, requirement_id)
     if pending is None:

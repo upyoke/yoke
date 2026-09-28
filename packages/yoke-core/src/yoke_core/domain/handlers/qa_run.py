@@ -110,8 +110,8 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
         p = _p(conn)
         row = query_one(
             conn,
-            "SELECT qa_kind, method_id, blocking_mode, waived_at, method_config "
-            f"FROM qa_requirements WHERE id = {p}",
+            "SELECT qa_kind, method_id, verdict_path, blocking_mode, waived_at, "
+            f"method_config FROM qa_requirements WHERE id = {p}",
             (int(req_id),),
         )
         if row is None:
@@ -140,12 +140,6 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
             )
         except QaUndeterminedEvidenceError as exc:
             return _error(exc.code, str(exc), jsonpath="$.payload.verdict")
-        from yoke_core.domain.qa_pending_agent_review import (
-            pending_review_verdict_refusal,
-        )
-
-        if refusal := pending_review_verdict_refusal(conn, int(req_id), verdict):
-            return _error("policy_violation", refusal, jsonpath="$.payload.verdict")
 
         if (not agent_browser) and _names_no_verified_tree(
             verdict, row, raw_result
@@ -160,6 +154,12 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
                 "`yoke qa gate-summary` both report the requirement satisfied.",
                 jsonpath="$.payload.raw_result",
             )
+        from yoke_core.domain.qa_pending_agent_review import (
+            pending_review_verdict_refusal,
+        )
+
+        if refusal := pending_review_verdict_refusal(conn, int(req_id), verdict, row):
+            return _error("policy_violation", refusal, jsonpath="$.payload.verdict")
         from yoke_core.domain.qa_requirement_pass_currency import (
             stamp_executed_method_config,
         )

@@ -96,7 +96,7 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
             )
         if issue := _review_evidence.agent_undetermined_evidence_error(
             conn, performed_by=performed_by, verdict=verdict
-        ) or pending_review_verdict_refusal(conn, int(req_id), verdict):
+        ) or pending_review_verdict_refusal(conn, int(req_id), verdict, row):
             code = getattr(issue, "code", "policy_violation")
             return _error(code, str(issue), jsonpath="$.payload.verdict")
         from yoke_core.domain.qa_run_commit_binding import bind_recorded_raw_result
@@ -265,7 +265,7 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
             performed_by=str(row["performed_by"]),
             verdict=verdict,
             run_ids=(int(run_id),),
-        ) or pending_review_verdict_refusal(conn, int(req_id), verdict):
+        ) or pending_review_verdict_refusal(conn, int(req_id), verdict, row):
             code = getattr(issue, "code", "policy_violation")
             return _error(code, str(issue), jsonpath="$.payload.verdict")
         reason = capture_degraded_reason
