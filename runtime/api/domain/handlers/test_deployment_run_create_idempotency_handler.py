@@ -10,6 +10,7 @@ from runtime.api.domain.handlers.deployment_handler_test_support import (
 from yoke_core.domain.deployment_run_create_idempotency import (
     IdempotencyKeyConflict,
 )
+from yoke_core.domain.deployment_run_create_write import CreatedRun
 from yoke_core.domain.handlers import deployment_run_creation, deployment_runs
 
 DEPLOY_LOCK = "yoke_core.domain.handlers.deployment_run_creation.deploy_lock_refusal"
@@ -49,6 +50,7 @@ def test_replay_returns_the_run_without_the_deploy_lock() -> None:
     assert outcome.result_payload["run_id"] == "run-20260928-006"
     assert outcome.result_payload["replayed"] is True
     assert outcome.result_payload["idempotency_key"] == "k1"
+    assert outcome.result_payload["idempotency_basis"] == "recorded_key"
     lock.assert_not_called()
     create.assert_not_called()
 
@@ -57,13 +59,16 @@ def test_fresh_keyed_create_passes_key_and_canonical_request() -> None:
     with (
         patch(REPLAY, return_value=None),
         patch(DEPLOY_LOCK, return_value=None),
-        patch(CREATE, return_value=("run-20260928-006", False)) as create,
+        patch(
+            CREATE, return_value=CreatedRun("run-20260928-006", False, "recorded_key")
+        ) as create,
         patch("yoke_core.domain.deployment_runs_crud_query.cmd_get", return_value=ROW),
         patch.object(deployment_run_creation, "_member_item_ids", return_value=()),
     ):
         outcome = _create(" k1 ")
 
     assert outcome.result_payload["replayed"] is False
+    assert outcome.result_payload["idempotency_basis"] == "recorded_key"
     assert create.call_args.kwargs["idempotency_key"] == "k1"
     assert '"flow":"yoke-hosted-prod"' in create.call_args.kwargs["create_request"]
 

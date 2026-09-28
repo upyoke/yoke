@@ -48,6 +48,7 @@ class DeploymentRunCreateResponse(BaseModel):
     inherited_item_ids: list[int] = []
     idempotency_key: Optional[str] = None
     replayed: bool = False
+    idempotency_basis: Optional[str] = None
 
 
 def _retry_candidate(run_id: str, *, project: str, flow: str) -> tuple[str, str | None]:
@@ -182,6 +183,7 @@ def handle_deployment_run_create(
                 flow=clean_flow,
                 key=key,
                 replayed=True,
+                basis=idempotency.BASIS_RECORDED_KEY,
             )
 
     lock_error = deploy_lock_refusal(
@@ -223,14 +225,17 @@ def handle_deployment_run_create(
             create_kwargs["artifact_identity"] = artifact_identity
         if retry_source:
             create_kwargs["inherit_members_from"] = retry_source
-        created_run_id, replayed = create_run(
+        created = create_run(
             clean_project,
             clean_flow,
             idempotency_key=key,
             create_request=create_request,
             **create_kwargs,
         )
-    except idempotency.IdempotencyKeyConflict as exc:
+    except (
+        idempotency.IdempotencyKeyConflict,
+        idempotency.UnconvergedReplayAmbiguous,
+    ) as exc:
         return error(exc.code, str(exc), jsonpath="$.payload.idempotency_key")
     except EnvironmentRegistryMigrationRequired as exc:
         return error(exc.code, str(exc))
@@ -240,12 +245,13 @@ def handle_deployment_run_create(
         return error("run_create_rejected", str(exc), jsonpath="$.payload")
 
     return _created_outcome(
-        created_run_id,
+        created.run_id,
         retry_source=retry_source,
         project=clean_project,
         flow=clean_flow,
         key=key,
-        replayed=replayed,
+        replayed=created.replayed,
+        basis=created.idempotency_basis,
     )
 
 
@@ -257,6 +263,7 @@ def _created_outcome(
     flow: str,
     key: str | None,
     replayed: bool,
+    basis: str | None,
 ) -> HandlerOutcome:
     from yoke_core.domain.deployment_runs_crud_query import cmd_get
     from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
@@ -279,6 +286,7 @@ def _created_outcome(
             "status": created.get("status") or "created",
             "idempotency_key": key,
             "replayed": replayed,
+            "idempotency_basis": basis,
         },
         primary_success=True,
     )

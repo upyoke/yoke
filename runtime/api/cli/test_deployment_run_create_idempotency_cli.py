@@ -66,6 +66,36 @@ def test_replay_prints_the_original_run_and_says_so() -> None:
     assert f"'k1' already created {RUN_ID}" in err
 
 
+def test_unconverged_create_says_the_key_is_not_stored() -> None:
+    result = {
+        "run_id": RUN_ID,
+        "idempotency_key": "k1",
+        "replayed": False,
+        "idempotency_basis": "unconverged_request_match",
+    }
+    rc, out, err, _captured = _create(result, "--idempotency-key", "k1")
+
+    assert rc == 0, err
+    assert out.strip() == RUN_ID
+    assert f"created {RUN_ID}" in err
+    assert "key 'k1' is not stored" in err
+    assert f"Until {RUN_ID} starts" in err
+
+
+def test_unconverged_replay_names_the_matched_run() -> None:
+    result = {
+        "run_id": RUN_ID,
+        "idempotency_key": "k1",
+        "replayed": True,
+        "idempotency_basis": "unconverged_request_match",
+    }
+    rc, _out, err, _captured = _create(result, "--idempotency-key", "k1")
+
+    assert rc == 0, err
+    assert f"returned {RUN_ID}, the one not-yet-started run" in err
+    assert "already created" not in err
+
+
 def test_server_without_keyed_create_warns_that_a_repeat_is_unsafe() -> None:
     rc, out, err, _captured = _create(
         {"run_id": RUN_ID, "status": "created"}, "--idempotency-key", "k1"

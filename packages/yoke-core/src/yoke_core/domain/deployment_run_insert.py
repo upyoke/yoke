@@ -53,8 +53,9 @@ def insert_run(
         columns.append("artifact_identity")
         values.append(artifact_identity or None)
     if create_idempotency_key:
-        # Boot converges this additive column before serving, so absence is a
-        # universe that skipped its converge, never a state to write around.
+        # The create decides the key basis under its lock and passes a key only
+        # once the columns converged, so absence here is a caller that skipped
+        # that decision.
         if not _column_exists(conn, "deployment_runs", "create_idempotency_key"):
             raise RuntimeError(
                 "deployment_runs.create_idempotency_key has not converged; "
