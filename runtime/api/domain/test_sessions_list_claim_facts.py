@@ -74,7 +74,9 @@ def test_item_conditions_come_from_each_item_not_session_mode(test_db):
         "UPDATE items SET blocked=1, blocked_reason='waiting for review' WHERE id=6012"
     )
     insert_session(test_db, "s-conditions", current_item_id="6011")
-    test_db.execute("UPDATE harness_sessions SET mode='parked' WHERE session_id='s-conditions'")
+    test_db.execute(
+        "UPDATE harness_sessions SET mode='parked' WHERE session_id='s-conditions'"
+    )
     insert_item_claim(test_db, "s-conditions", 6011)
     insert_item_claim(test_db, "s-conditions", 6012)
 

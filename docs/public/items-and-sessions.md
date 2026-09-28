@@ -157,7 +157,10 @@ evaluator/client-wall coverage, are labelled incomparable.
   the two events it is and is dismissed rather than answered
 - An item page says how it ships: the flow it is bound to, and each release
   that carried it, newest first. A session card says where its release has
-  got to and where its item has, as two short statuses
+  got to and where its item has, as two short statuses. Its item stage strip
+  follows a recorded status change after landing, including a return to
+  implementation; a merge stamp with no later transition keeps a stale
+  earlier status at closeout
 - A desktop conversation cannot be resumed for you, so a message waiting in
   one raises a notice asking you to open that chat. The notice is derived
   from the waiting message, so it settles itself the moment the wait ends —

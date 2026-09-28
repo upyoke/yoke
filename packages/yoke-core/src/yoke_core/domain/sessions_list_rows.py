@@ -22,7 +22,10 @@ from yoke_core.domain.sessions_holdings_claim_facts import (
     ITEM_AWAITING_LANDING_KEY,
 )
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
-from yoke_core.domain.model_reference_store import revision_from_schedule, revision_schedule
+from yoke_core.domain.model_reference_store import (
+    revision_from_schedule,
+    revision_schedule,
+)
 from yoke_core.domain.session_presentation_read import (
     lane_settings_by_project,
     session_presentation,

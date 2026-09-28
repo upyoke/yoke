@@ -24,6 +24,7 @@ from yoke_core.domain.session_item_stage_failures import (
     merge_failures,
     qa_failures,
 )
+from yoke_core.domain.session_item_stage_rework import items_returned_after_landing
 from yoke_core.domain.workflow_behavior import delivery_redirect_stage
 from yoke_core.domain.workflow_runtime import (
     WorkflowRuntime,
@@ -290,6 +291,7 @@ def primary_item_stages_by_session(
     )
     launch = launch_failures(conn, items, active_item_ids=connected_item_ids)
     holder_modes = _holder_modes(conn, item_ids)
+    returned_after_landing = items_returned_after_landing(conn, items)
     projected: dict[str, list[dict[str, Any]]] = {}
     for session_id, item_id in selected.items():
         item = items.get(item_id)
@@ -300,6 +302,7 @@ def primary_item_stages_by_session(
         landed_open = bool(
             status not in runtime.terminal_stage_ids
             and (item.get("merged_at") or item.get("merge_queue_landed_at"))
+            and item_id not in returned_after_landing
         )
         holder_mode = holder_modes.get(item_id)
         active_stage = active_stage_id(
