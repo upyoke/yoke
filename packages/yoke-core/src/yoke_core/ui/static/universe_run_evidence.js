@@ -40,7 +40,7 @@ function groupByRun(rows) {
     for (const artifact of Array.isArray(row.artifacts) ? row.artifacts : []) {
       entry.artifacts.push({
         ...artifact,
-        requirement_id: row.requirement_id,
+        requirement_id: artifact.requirement_id ?? row.requirement_id,
         member_item_id: row.deployment_member_item_id ?? null,
       });
     }

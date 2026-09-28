@@ -112,7 +112,7 @@ export function runQaVerdict(checks, decision) {
 
 function ownArtifacts(check) {
   return (check.artifacts || []).map((artifact) => ({
-    ...artifact, requirement_id: check.requirement_id,
+    ...artifact, requirement_id: artifact.requirement_id ?? check.requirement_id,
   }));
 }
 
@@ -125,7 +125,9 @@ export function runCheckLine(context, check, decision = null) {
   line.appendChild(el(
     documentNode, "span", "run-qa-check-outcome", checkOutcome(check, decision),
   ));
-  if (check.verdict_reason) {
+  // A passing check already states its result. Keep diagnostic context for
+  // failures and unresolved checks, where the reason helps the reader act.
+  if (check.verdict_reason && !passedLike(check)) {
     line.appendChild(el(
       documentNode, "p", "run-qa-check-reason", String(check.verdict_reason),
     ));

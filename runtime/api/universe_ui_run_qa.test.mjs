@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { FakeDocument, allNodes, byClass } from "./universe_ui_dom_test_support.mjs";
+import { FakeDocument, allNodes, byClass, settle } from "./universe_ui_dom_test_support.mjs";
 import { shippingRunCard } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_work_cards.js";
 import { effectiveRunChecks } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_run_evidence.js";
 import { runQaSection } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_run_qa.js";
@@ -11,7 +11,8 @@ const image = (id) => ({ id, artifact_type: "screenshot", content_type: "image/p
 const checks = [
   { requirement_id: 8, deployment_run_id: runId, project: "yoke",
     case_key: "current-release-review-state", method_name: "Browser inspection",
-    outcome: "failed", happened_at: "2026-09-01T10:00:00Z", artifacts: [image(81)] },
+    outcome: "failed", verdict_reason: "The screenshot could not be read.",
+    happened_at: "2026-09-01T10:00:00Z", artifacts: [image(81)] },
   { requirement_id: 8, deployment_run_id: runId, project: "yoke",
     case_key: "current-release-review-state", method_name: "Browser inspection",
     outcome: "passed", verdict_reason: "Every page renders with its data.",
@@ -90,18 +91,60 @@ test("earlier checks fold before the decision", () => {
     "2 earlier or superseded checks");
 });
 
-test("a check names its method, linked to its QA case, and states its reason plainly", () => {
+test("a check links its QA case and omits a routine passing reason", () => {
   const qa = byClass(render("resolved").card, "run-qa-section")[0];
   const [first] = directChecks(qa);
   const name = byClass(first, "run-qa-check-name")[0];
   assert.equal(name.textContent, "Browser inspection");
   assert.equal(name.children[0].tagName, "A");
   assert.equal(name.children[0].href, "#/qa-activity/8?project=1");
-  assert.equal(byClass(first, "run-qa-check-reason")[0].textContent,
-    "Every page renders with its data.");
+  assert.equal(byClass(first, "run-qa-check-reason").length, 0);
   assert.equal(allNodes(qa).some((node) => node.tagName === "SUMMARY"
     && node.textContent === "Details"), false);
   assert.doesNotMatch(qa.textContent, /current-release-review-state/);
+});
+
+test("a failed check keeps its reason for recovery", () => {
+  const qa = byClass(render("resolved").card, "run-qa-history")[0];
+  assert.equal(byClass(qa, "run-qa-check-outcome")[0].textContent, "failed");
+  assert.equal(byClass(qa, "run-qa-check-reason")[0].textContent,
+    "The screenshot could not be read.");
+});
+
+test("a resolved review loads frozen screenshots through each case's requirement", async () => {
+  const documentNode = new FakeDocument();
+  const owners = new Map([[821, 101], [822, 102], [823, 500]]);
+  const reads = [];
+  const reviewed = { requirement_id: 500, deployment_run_id: runId,
+    project: "yoke", method_name: "Browser inspection", outcome: "passed",
+    artifacts: [
+      { ...image(821), requirement_id: 101 },
+      { ...image(822), requirement_id: 102 },
+      image(823),
+    ] };
+  const reviewedRow = { ...row("resolved"), gates: [{
+    ...row("resolved").gates[0], subject_context: {
+      requirement_id: 500, artifacts: reviewed.artifacts,
+    },
+  }] };
+  const view = { document: documentNode, client: { call: async (request) => {
+    reads.push([request.payload.artifact_id, request.target.qa_requirement_id]);
+    const authorized = owners.get(request.payload.artifact_id)
+      === request.target.qa_requirement_id;
+    return authorized
+      ? { status: 200, envelope: { success: true, result: {
+        disposition: "ready", content_type: "image/png", content_base64: "iVBORw0KGgo=",
+      } } }
+      : { status: 403, envelope: { success: false, error: {
+        message: "artifact does not belong to requirement",
+      } } };
+  } } };
+  const qa = runQaSection(view, reviewedRow, [reviewed], null);
+  await settle();
+  assert.deepEqual(reads, [[821, 101], [822, 102], [823, 500]]);
+  const shots = byClass(qa, "review-shot");
+  assert.equal(shots.filter((shot) => shot.classList.contains("is-ready")).length, 3);
+  assert.equal(shots.filter((shot) => shot.classList.contains("is-unavailable")).length, 0);
 });
 
 test("an open human verdict reads as awaiting approval with a plain request", () => {
