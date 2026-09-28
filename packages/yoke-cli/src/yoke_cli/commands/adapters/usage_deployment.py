@@ -25,6 +25,9 @@ from yoke_cli.commands.adapters.deployment_run_carried_work_repair import (
 from yoke_cli.commands.adapters.deployment_run_release_output import (
     DEPLOYMENT_RUNS_RELEASE_OUTPUT_RECORD_USAGE,
 )
+from yoke_cli.commands.adapters.merge_receipt_commits import (
+    MERGE_RECEIPT_COMMITS_ATTEST_USAGE,
+)
 from yoke_cli.commands.adapters.deployment_run_create import (
     DEPLOYMENT_RUNS_CREATE_USAGE,
 )
@@ -58,6 +61,7 @@ DEPLOYMENT_USAGE = {
     "deployment_runs.release_output.record": (
         DEPLOYMENT_RUNS_RELEASE_OUTPUT_RECORD_USAGE
     ),
+    "merge_receipt.commits.attest": MERGE_RECEIPT_COMMITS_ATTEST_USAGE,
     "deployment_runs.create": DEPLOYMENT_RUNS_CREATE_USAGE,
     "deployment_runs.add_item": ADD_ITEM_USAGE,
     "deployment_runs.approve": DEPLOYMENT_RUNS_APPROVE_USAGE,

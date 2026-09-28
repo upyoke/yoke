@@ -56,6 +56,7 @@ from dataclasses import dataclass, field
 from typing import Mapping, Optional
 
 from yoke_core.domain import standalone_item_merge_git as git
+from yoke_core.domain import item_merge_contributed_commits as contributed
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.close_out_control_plane_authority import (
     record_merge_queue_ci_evidence as record_batch_evidence,
@@ -293,6 +294,10 @@ def record_landing(
             commit_sha=commit_sha,
             merge_sha=merge_sha,
             touched_files=touched_files,
+            contributed_commits=contributed.after_landing(
+                ctx.repo_root or "", commit_sha=candidate_sha or commit_sha,
+                merge_sha=landing_sha,
+            ),
         ),
     )
     if receipt_note:

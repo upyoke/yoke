@@ -182,7 +182,7 @@ def test_a_bound_projects_single_commit_landing_attributes_by_its_receipt(
     unattributed carried commit.
     """
     release = two_project_release(
-        test_db, tmp_path, monkeypatch, consumer_names_item=False
+        test_db, tmp_path, monkeypatch, consumer_receipt=False
     )
     record_entry(
         test_db,

@@ -15,6 +15,7 @@ this lane's work, and the one way to make that false again is to land it twice.
 
 from __future__ import annotations
 
+from yoke_core.domain import item_merge_contributed_commits as contributed
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
@@ -131,6 +132,9 @@ def converge(
             commit_sha=lane.commit_sha,
             merge_sha=merge_sha,
             touched_files=lane.touched_files,
+            contributed_commits=contributed.after_landing(
+                repo_root, commit_sha=lane.commit_sha, merge_sha=merge_sha,
+            ),
         ),
     )
     if receipt_note:

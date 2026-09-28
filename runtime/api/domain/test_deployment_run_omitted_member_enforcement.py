@@ -20,6 +20,7 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.carried_release_candidate import (
     insert_run,
     item_ref,
+    record_landing_receipt,
     release_repository,
     serve_repository,
     stage_environment,
@@ -90,6 +91,7 @@ def test_a_readable_comparison_refuses_a_run_omitting_its_carried_item(
     _release_flow(test_db)
     item_ref = _delivery_ready_item(test_db)
     repo, baseline, tip = release_repository(tmp_path, item_ref)
+    record_landing_receipt(test_db, CARRIED_ITEM_ID, branch=item_ref, tip=tip)
     serve_repository(monkeypatch, repo)
     insert_run(
         test_db,
@@ -126,6 +128,7 @@ def test_missing_completion_flow_cannot_pass_composition_freeze(
     )
     test_db.commit()
     repo, baseline, tip = release_repository(tmp_path, ref)
+    record_landing_receipt(test_db, CARRIED_ITEM_ID, branch=ref, tip=tip)
     serve_repository(monkeypatch, repo)
     insert_run(
         test_db,

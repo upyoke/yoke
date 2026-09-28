@@ -21,6 +21,7 @@ from runtime.api.fixtures.carried_release_candidate import (
     bound_source_repository,
     insert_run,
     item_ref,
+    record_landing_receipt,
     serve_repositories,
     stage_environment,
 )
@@ -101,13 +102,14 @@ def two_project_release(
     *,
     consumer_status: str = "implementing",
     stages: str | None = None,
-    consumer_names_item: bool = True,
+    consumer_receipt: bool = True,
 ) -> dict[str, Any]:
     """A carrier run whose flow binds a consumer project's trunk.
 
-    ``consumer_names_item=False`` gives the consumer's landing commit a
-    message that attributes nothing, so a test can prove which recorded
-    evidence rung carries the attribution on the bound path.
+    Each item's landing is credited by its merge receipt. With
+    ``consumer_receipt=False`` the consumer's landing has none, so a test can
+    prove which recorded evidence rung carries the attribution on the bound
+    path.
     """
     stage_environment(conn)
     ensure_project_id(conn, CONSUMER_PROJECT, ts=SEEDED_AT)
@@ -137,8 +139,13 @@ def two_project_release(
         tmp_path, "carrier", carrier_ref
     )
     consumer_repo, consumer_base, consumer_tip = bound_source_repository(
-        tmp_path, "consumer", consumer_ref, names_item=consumer_names_item
+        tmp_path, "consumer", consumer_ref
     )
+    record_landing_receipt(conn, CARRIER_ITEM_ID, branch=carrier_ref, tip=carrier_tip)
+    if consumer_receipt:
+        record_landing_receipt(
+            conn, CONSUMER_ITEM_ID, branch=consumer_ref, tip=consumer_tip,
+        )
     serve_repositories(monkeypatch, {1: carrier_repo, consumer_id: consumer_repo})
     insert_run(
         conn, "run-previous", lineage=carrier_base, status="succeeded",
