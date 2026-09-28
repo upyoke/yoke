@@ -1,7 +1,8 @@
 """Typed access to one item's merge receipt from the machine that merges.
 
 Every fact close-out needs afterwards — implementation and merge commits,
-changed files, and observed post-push checks — belongs in this receipt. Once
+every commit the landing contributed, changed files, and observed post-push
+checks — belongs in this receipt. Once
 the branch is contained by the target, ``merge-base`` returns the branch tip
 and the diff that described its work collapses to nothing. The boundary
 records the stable facts before cleanup so any retry converges without
@@ -28,6 +29,7 @@ from typing import Any, Optional, Sequence
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.domain import item_merge_contributed_commits as contributed
 from yoke_core.domain import standalone_item_merge_git as git
 
 RECORD_FUNCTION_ID = "merge_receipt.record"
@@ -44,6 +46,9 @@ class MergeReceipt:
     merge_sha: str = ""
     touched_files: tuple[str, ...] = field(default=())
     check_runs: tuple[dict[str, str], ...] = field(default=())
+    #: The item's own first-parent commits this landing put on ``target``
+    #: (:mod:`yoke_core.domain.item_merge_contributed_commits`).
+    contributed_commits: tuple[str, ...] = field(default=())
 
 
 def _call(function_id: str, item_id: int, payload: dict[str, Any]) -> Any:
@@ -91,7 +96,36 @@ def record(item_id: int, receipt: MergeReceipt) -> str:
             "merge_sha": receipt.merge_sha,
             "touched_files": list(receipt.touched_files),
             "check_runs": list(receipt.check_runs),
+            "contributed_commits": list(receipt.contributed_commits),
         },
+    )
+
+
+def record_before_landing(
+    item_id: int,
+    *,
+    repo_root: str,
+    branch: str,
+    target: str,
+    commit_sha: str,
+    touched_files: Sequence[str],
+) -> str:
+    """The pre-merge write: the lane head, its files, and what it contributes.
+
+    Only before the merge does ``target`` still say where the contribution
+    starts; a fast forward erases that boundary, so the set is taken now.
+    """
+    return record(
+        item_id,
+        MergeReceipt(
+            branch=branch,
+            target=target,
+            commit_sha=commit_sha,
+            touched_files=tuple(touched_files),
+            contributed_commits=contributed.before_landing(
+                repo_root, target=target, commit_sha=commit_sha,
+            ),
+        ),
     )
 
 
@@ -145,6 +179,7 @@ def load(item_id: int, branch: str, target: str) -> Optional[MergeReceipt]:
         merge_sha=str(entry.get("merge_sha") or ""),
         touched_files=_clean(entry.get("touched_files")),
         check_runs=_clean_check_runs(entry.get("check_runs")),
+        contributed_commits=_clean(entry.get("contributed_commits")),
     )
 
 
@@ -297,6 +332,7 @@ __all__ = [
     "landing_merge_commit",
     "load",
     "record",
+    "record_before_landing",
     "record_failure",
     "record_settlement",
     "resolve_touched_files",

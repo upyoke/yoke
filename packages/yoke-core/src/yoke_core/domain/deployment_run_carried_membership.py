@@ -65,6 +65,9 @@ from yoke_core.domain.deployment_run_composition_guard import (
 from yoke_core.domain.deployment_run_unheld_candidates import (
     unheld_candidate_ids,
 )
+from yoke_core.domain.deployment_run_unattributed_commits import (
+    unattributed_commits_refusal,
+)
 from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.deployment_requirement_snapshots import (
     requirement_selection,
@@ -292,13 +295,8 @@ def carried_membership_refusal(
                     + (recovery or "Repair source access, then revalidate composition.")
                 )
                 continue
-            bare = [str(value) for value in project_set.get("commits") or []]
-            if bare:
-                problems.append(
-                    f"{project} has {len(bare)} unattributed carried commit(s): "
-                    f"{', '.join(bare)}; record composition_resolution explaining "
-                    "their membership treatment, then revalidate composition"
-                )
+            if refusal := unattributed_commits_refusal(run_id, project_set):
+                problems.append(refusal)
         if problems:
             return f"deployment run {run_id!r} carried-work blockers:\n" + "\n".join(
                 problems

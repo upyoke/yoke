@@ -303,6 +303,12 @@ def derive_project_carried_work(
             for item_id, shas in item_commits.items()
         ],
         "commits": bare_commits,
+        # Each unattributed commit's subject, so a refusal can show an
+        # operator what the commit is without a checkout of its project.
+        "commit_subjects": {
+            commit: source.commit_message(commit).strip().split("\n", 1)[0]
+            for commit in bare_commits
+        },
         "release_output": release_output,
         "warnings": warnings,
     }

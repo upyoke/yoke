@@ -13,6 +13,7 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.carried_release_candidate import (
     insert_run,
     item_ref,
+    record_landing_receipt,
     release_repository,
     serve_repository,
     stage_environment,
@@ -84,6 +85,7 @@ def _candidate(
     )
     ref = item_ref(conn, ITEM_ID)
     repo, baseline, tip = release_repository(tmp_path, ref)
+    record_landing_receipt(conn, ITEM_ID, branch=ref, tip=tip)
     serve_repository(monkeypatch, repo)
     insert_run(conn, "run-previous", lineage=baseline, status="succeeded", flow=flow)
     insert_run(conn, "run-candidate", lineage=tip, status="created", flow=flow)

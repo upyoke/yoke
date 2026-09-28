@@ -76,7 +76,7 @@ def test_flow_mismatch_and_unattributed_commit_are_reported_together(
     assert not valid
     assert "selects completion flow 'different-release-flow'" in message
     assert unexplained in message
-    assert "unattributed carried commit" in message
+    assert "no item merge receipt or recorded release output claims" in message
 
 
 def test_admission_refusal_does_not_hide_attribution_blockers(

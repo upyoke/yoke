@@ -93,4 +93,7 @@ def test_an_unexplained_commit_beside_a_recorded_one_still_refuses(
     assert carried["commits"] == [release_source["maintenance"]]
     refusal = carried_membership_refusal(test_db, "run-release-output-003")
     assert refusal is not None
-    assert "1 unattributed carried commit(s)" in refusal
+    assert "carries 1 commit(s)" in refusal
+    assert release_source["maintenance"] in refusal
+    assert "yoke merge-receipt commits attest" in refusal
+    assert "composition_resolution" in refusal
