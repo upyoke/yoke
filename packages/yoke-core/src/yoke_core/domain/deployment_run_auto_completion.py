@@ -110,8 +110,9 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
             f"project deploy lock {deploy_lock_key(project.slug)} is unheld; "
             "acquire it and re-drive this run"
         )
+    current_stage = str(_row_value(row, "current_stage", 2) or "")
     attached = live_attachment_for_run(conn, run_id_value=run_id, now=iso8601_now())
-    if attached is not None:
+    if attached is not None and current_stage != "complete":
         return None, f"live driver {attached.session_id} is already continuing this run"
     try:
         stages = json.loads(str(_row_value(row, "stages", 5)))
@@ -119,7 +120,7 @@ def _readiness(conn: Any, run_id: str) -> tuple[dict[str, Any] | None, str]:
         return None, f"pinned flow stages are unreadable: {exc}"
     if not isinstance(stages, list) or not stages:
         return None, "pinned flow has no ordered stages"
-    current = str(_row_value(row, "current_stage", 2) or "")
+    current = current_stage
     names = [str(stage.get("name") or "") for stage in stages]
     if current == "complete":
         remaining = []

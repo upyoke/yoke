@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from unittest import mock
+from types import SimpleNamespace
 
 import pytest
 
@@ -257,3 +258,43 @@ def test_finalization_replays_status_after_last_member_closed(monkeypatch):
     result = deployment_run_auto_completion.finish_ready_run(conn, "run-settling")
     assert result.completed is True
     assert update.call_count == 2
+
+
+def test_completed_run_can_close_while_driver_attachment_is_live(monkeypatch):
+    from yoke_core.domain import (
+        coordination_claims,
+        deployment_run_completion_preconditions,
+        deployment_run_driver_attachment,
+        project_identity,
+    )
+
+    monkeypatch.setattr(coordination_claims, "active_claim", lambda *_: None)
+    monkeypatch.setattr(
+        deployment_run_driver_attachment,
+        "live_attachment_for_run",
+        lambda *_, **__: SimpleNamespace(session_id="attached-driver"),
+    )
+    monkeypatch.setattr(
+        deployment_run_completion_preconditions,
+        "unresolved_blocking_qa",
+        lambda *_: [],
+    )
+    monkeypatch.setattr(
+        project_identity, "resolve_project", lambda *_: SimpleNamespace(slug="yoke")
+    )
+    conn = mock.Mock()
+    conn.execute.return_value.fetchone.return_value = {
+        "project_id": 1,
+        "status": "executing",
+        "current_stage": "complete",
+        "target_tier": "production",
+        "target_name": "prod",
+        "stages": '[{"name":"build","step_runner":"auto"}]',
+    }
+    conn.execute.return_value.fetchall.return_value = []
+
+    ready, reason = deployment_run_auto_completion._readiness(conn, "run-settling")
+
+    assert reason == ""
+    assert ready is not None
+    assert ready["remaining"] == []
