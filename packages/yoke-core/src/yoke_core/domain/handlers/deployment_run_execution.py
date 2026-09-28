@@ -195,6 +195,11 @@ def handle_deployment_execution_context(
     enrolled_carried_items = _enroll_carried_items(resolved_run_id)
     if isinstance(enrolled_carried_items, HandlerOutcome):
         return enrolled_carried_items
+    from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
+
+    valid, composition_message = cmd_validate_composition(resolved_run_id)
+    if not valid:
+        return error("composition_invalid", composition_message)
     from yoke_core.domain.deployment_run_carried_work import parse_carried_work
     from yoke_core.domain.deployment_run_contained_items import (
         CandidateContainmentRefusal,

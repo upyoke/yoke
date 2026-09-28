@@ -280,32 +280,29 @@ def carried_membership_refusal(
     payload = dict(carried_work or derive_carried_work_safely(conn, run_id))
     project_sets = project_carried_sets(payload)
     if not resolution:
+        problems: list[str] = []
         for project_set in project_sets:
             derivation = project_set.get("derivation") or {}
             reason = str(derivation.get("reason") or "unknown")
+            project = str(project_set.get("project") or "run project")
             if not bool(derivation.get("contents_known")):
-                # A comparison that could not look is not an attribution
-                # failure, and handing it attribution's remedy sends the
-                # reader to repair something that is not broken. The
-                # derivation already carries the repair its own reason
-                # earned, so it is the one quoted here.
                 recovery = str(derivation.get("recovery") or "").strip()
-                return (
-                    f"deployment run {run_id!r} carried-code membership is "
-                    f"{reason}. "
-                    + (
-                        recovery
-                        or "Repair attribution or record composition_resolution "
-                        "before execution."
-                    )
+                problems.append(
+                    f"{project} carried-code membership is {reason}. "
+                    + (recovery or "Repair source access, then revalidate composition.")
                 )
+                continue
             bare = [str(value) for value in project_set.get("commits") or []]
             if bare:
-                return (
-                    f"deployment run {run_id!r} has {len(bare)} unattributed "
-                    "carried commit(s); record composition_resolution "
-                    "explaining their membership treatment"
+                problems.append(
+                    f"{project} has {len(bare)} unattributed carried commit(s): "
+                    f"{', '.join(bare)}; record composition_resolution explaining "
+                    "their membership treatment, then revalidate composition"
                 )
+        if problems:
+            return f"deployment run {run_id!r} carried-work blockers:\n" + "\n".join(
+                problems
+            )
     if inherited_frozen_membership(conn, run_id):
         # A retry delivers exactly what its predecessor froze. Re-scanning
         # against a baseline that has moved since would name items this

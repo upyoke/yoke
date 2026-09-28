@@ -1,6 +1,6 @@
 """Composition and batch-compatibility validation for deployment runs.
 
-Owns: ``cmd_validate_composition`` (post-creation membership check) and
+Owns: ``cmd_validate_composition`` (provisional and explicit membership check) and
 ``cmd_check_batch_compatibility`` (pre-creation batch check). Both enforce
 project alignment, item-status floor, and
 unsatisfied hard-block dependency detection. Selected flow is completion
@@ -11,7 +11,7 @@ from the pre-split state-machine — no reordering, no early-return refactor.
 
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
 from yoke_core.domain.dependency_satisfaction import unsatisfied_dependency_pairs
@@ -101,6 +101,7 @@ def cmd_validate_composition(
     db_path: Optional[str] = None,
     *,
     allow_pending_pair_merges: bool = False,
+    connection: Any = None,
 ) -> Tuple[bool, str]:
     """Validate run composition. Returns (ok, message).
 
@@ -115,7 +116,10 @@ def cmd_validate_composition(
     Only those edges are tolerated, and only at that phase — continuation
     re-runs this with the default and so proves the pair actually merged.
     """
-    conn = connect(db_path)
+    # Run creation checks its provisional row before committing it. The
+    # explicit command owns a connection and persists the source bindings and
+    # enrollment it resolved, as it did before this transactional entry point.
+    conn = connection if connection is not None else connect(db_path)
     try:
         run_project_id = query_scalar(
             conn, "SELECT project_id FROM deployment_runs WHERE id=%s", (run_id,)
@@ -131,9 +135,11 @@ def cmd_validate_composition(
             # judge the commits this run will actually ship.
             record_bound_sources(conn, run_id)
             enrolled = enroll_carried_members(conn, run_id)
-            conn.commit()
+            if connection is None:
+                conn.commit()
         except (LookupError, ValueError) as exc:
-            conn.rollback()
+            if connection is None:
+                conn.rollback()
             return False, f"FAIL: Composition validation failed:\n{exc}"
         run_project_id = int(run_project_id)
         run_project = resolve_project_slug(conn, run_project_id)
@@ -226,13 +232,12 @@ def cmd_validate_composition(
             return False, f"FAIL: Composition validation failed:\n{error_text}"
 
         notes = [
-            note
-            for note in (describe_enrollment(enrolled), inert, unadmitted)
-            if note
+            note for note in (describe_enrollment(enrolled), inert, unadmitted) if note
         ]
         return True, ("OK; " + "; ".join(notes)) if notes else "OK"
     finally:
-        conn.close()
+        if connection is None:
+            conn.close()
 
 
 def cmd_check_batch_compatibility(

@@ -302,16 +302,27 @@ production promotion it precedes:
 yoke claims coordination-claim acquire --project {_project} --key DEPLOY:{_project} --reason "driving the release pair"
 ```
 
+Before creating the pair, read each delivery-ready item's selected completion
+flow (`yoke items detail get PREFIX-N --json`) and the intended flow's bound
+projects (`yoke deployment-flows stages {FLOW}`). Select the member flow for
+same-project final delivery. A bound-project member can close through the
+carrying run when that run ships its project's source. If selections differ,
+use a run of the items' selected flow or deliberately reconcile those item
+flows, then validate composition; never silently rewrite a selection.
+
 Pin one source SHA and use that same SHA for stage and production:
 
 ```text
 yoke --env <cp> deployment-runs create {_project} {FLOW} --environment {ENV} --project-repo-path {CHECKOUT} --source-ref {PINNED_SHA} --idempotency-key {ENV}-{PINNED_SHA}-1
+yoke --env <cp> deployment-runs validate-composition {RUN_ID}
 yoke --env <cp> watch deploy -- {RUN_ID}
 ```
 
-The start enrolls every delivery-ready item the candidate carries that no live
-or succeeded release holds, a landing behind the last release included, and
-applies the composition check itself. `yoke --env <cp> deployment-runs add-item {RUN_ID} PREFIX-N`
+Creation pins bound sources and provisionally composes every delivery-ready
+item the candidate carries that no live or succeeded release holds, a landing
+behind the last release included. Its validation refuses all independently
+detectable blockers before committing a run ID; start validates again before
+dispatch. `yoke --env <cp> deployment-runs add-item {RUN_ID} PREFIX-N`
 is for the other case — an item whose code the candidate does not carry but
 which the run should still deliver — and `... validate-composition {RUN_ID}`
 composes the run now. Both hold the same deploy lock
@@ -320,7 +331,7 @@ flow binding, or enrollment after the run has left `created`.
 
 **A run can deploy a second project's code without carrying its items.** A
 `github-actions-workflow` stage may declare an `input_bindings` map, resolving
-another registered project's branch tip at dispatch and shipping that commit
+another registered project's branch tip during composition and shipping that commit
 alongside this run's own candidate. The binding is the only place this is
 stated, so read it before planning either project's release:
 
@@ -328,8 +339,8 @@ stated, so read it before planning either project's release:
 yoke deployment-flows stages {FLOW}
 ```
 
-Membership follows that code: the run resolves each bound branch once at
-start and records the commit, so the bound project's delivery-ready items are
+Membership follows that code: the run resolves each bound branch once during
+composition and records the commit, so the bound project's delivery-ready items are
 enrolled against that exact commit and closed out by the run that actually
 shipped them. An item whose project the run ships no source for is still
 refused, and stays at its release wait until a run that does ship its code

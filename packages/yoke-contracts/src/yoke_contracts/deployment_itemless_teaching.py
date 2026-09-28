@@ -2,8 +2,8 @@
 
 Operators discover the path through ``--help`` on resolve-target,
 create, the deployment-runs group, and watch deploy. ``create`` is shared
-with the item-bound batch path; the start fills membership from the
-candidate. Keep wording project-generic. The resolved environment is the
+with the item-bound batch path; creation composes membership from the
+candidate, and start revalidates it. Keep wording project-generic. The resolved environment is the
 deploy destination; the selected ``--env`` connection at execute time is the
 control plane that owns the run row — verify the resolved destination rather
 than assuming the two names match. Only a deployment targeting that control
@@ -48,6 +48,9 @@ ITEMLESS_RELEASE_RECIPE = (
 Itemless environment release (project-generic):
   # tier|environment-name of the flow's registered target:
   yoke deployment-runs resolve-target PROJECT FLOW
+  # Check delivery-ready items' selected completion flows before choosing
+  # FLOW. A final member needs its selected flow unless this run carries
+  # another project's source and can close that member.
   # Verify the environment name is the deploy destination — do not assume
   # it matches the selected control-plane connection name. Ordinary external
   # delivery is fully supported over HTTPS. If the target is this control
@@ -58,6 +61,7 @@ Itemless environment release (project-generic):
     --idempotency-key PROJECT-FLOW-PINNED_SHA-1 \\
     --project-repo-path /path/to/checkout \\
     --source-ref PINNED_SHA)
+  yoke --env CONTROL-PLANE deployment-runs validate-composition "$RUN_ID"
   yoke --env CONTROL-PLANE watch deploy -- "$RUN_ID"
 
 Retry a failed or cancelled run without following a moving branch:
@@ -85,10 +89,12 @@ RESOLVE_TARGET_DESCRIPTION = (
 )
 
 CREATE_DESCRIPTION = (
-    "Create a deployment run from a flow and candidate. Membership stays "
-    "empty while the run is 'created'; `yoke watch deploy` fills it at the "
-    "start from that candidate — every delivery-ready item the candidate "
-    "carries that no live or succeeded release already holds. The same "
+    "Create a deployment run from a flow and candidate. Creation pins bound "
+    "source commits and provisionally composes membership from the candidate. "
+    "It reports all detectable blockers, including selected member flow "
+    "mismatches and unattributed commits, before committing a run ID. "
+    "Choose the items' selected completion flow or deliberately reconcile "
+    "their flow, then revalidate; creation never changes item flows. The same "
     "create-then-watch path serves an environment release and an item-bound "
     "batch; the run reports which items it enrolled. Uses the selected "
     "control-plane transport, including HTTPS for ordinary external "
@@ -104,8 +110,8 @@ WATCH_DEPLOY_DESCRIPTION = (
     "watcher. For an environment release or an item-bound batch, "
     "resolve the flow's target, create the run with "
     "--project-repo-path and --source-ref, then drive it here through "
-    "the same control-plane connection. The start fills membership from "
-    "the candidate. Verify the resolved environment rather than assuming "
+    "the same control-plane connection. Create checks composition; start "
+    "revalidates it before stage dispatch. Verify the resolved environment rather than assuming "
     "it matches the --env connection name. Re-driving the same run "
     "recovers an interrupted driver by correlation token instead of "
     "dispatching a second release. Only serving-API self-deploys require "
