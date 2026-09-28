@@ -66,7 +66,8 @@ def test_plan_engine_cli_requires_environment_bound_agent_review_dispatch(
         "yoke --env external-project-qa qa plan review-submit"
     )
     assert "do not use the ambient connection" in dispatch["prompt"]
-    assert "dispatch the returned typed reviewer contract now" in output.err
+    assert "QA capture complete; independent review pending, not a pass" in output.err
+    assert "Dispatch the returned typed reviewer contract now" in output.err
 
 
 def test_review_submit_cli_sends_complete_stdin_batch(capsys) -> None:

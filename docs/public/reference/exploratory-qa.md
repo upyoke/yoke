@@ -87,7 +87,9 @@ Without one, admission prefers a verified free machine and reports its reason.
 The plan runner reaches the declared host baseline, records a zero-artifact
 mission docket, advances the full roster, creates the existing review bundle,
 and parks the execution in `awaiting_agent_review`. Exit code `12` means the
-typed review continuation must run now. It is not itself a human-review state.
+typed review continuation must run now. It is not itself a human-review state,
+and it is not a pass: the result carries `review_status="pending"` and no QA
+verdict exists until the reviewer submits the bundle.
 
 While parked, the execution retains and heartbeats its Test Machine lease. The
 returned dispatch has `dispatch_kind=main_agent_mission`. The main agent owns:

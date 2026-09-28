@@ -82,6 +82,15 @@ That is the long, prod-touching step, so it runs under its own wrapper —
 `yoke watch qa-plan`, not `yoke watch qa-case`, which wraps the narrower
 `qa case run --requirement-id N` and refuses these flags.
 
+Exit `12` (`state="awaiting_agent_review"`, `review_status="pending"`) means
+the capture is complete and its independent review is pending: no QA verdict
+exists, so do not report QA complete or passed. Dispatch the returned
+`review_bundle.dispatch` reviewer and submit its batch with the exact returned
+`yoke qa plan review-submit` command; a verdict of your own on that capture
+(`yoke qa run complete --verdict`, `record-verdict`) is refused by name. Report
+the stage's QA only once that reviewer verdict exists; if another session owns
+the review, re-park on the stage, which reads `awaiting review` until then.
+
 Every QA stage credits only requirements bound to its own name — an
 item-scoped one to the member too — so the run-wide form is refused rather
 than recording a pass the stage ignores, and `yoke qa case run

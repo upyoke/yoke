@@ -140,6 +140,12 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
             )
         except QaUndeterminedEvidenceError as exc:
             return _error(exc.code, str(exc), jsonpath="$.payload.verdict")
+        from yoke_core.domain.qa_pending_agent_review import (
+            pending_review_verdict_refusal,
+        )
+
+        if refusal := pending_review_verdict_refusal(conn, int(req_id), verdict):
+            return _error("policy_violation", refusal, jsonpath="$.payload.verdict")
 
         if (not agent_browser) and _names_no_verified_tree(
             verdict, row, raw_result

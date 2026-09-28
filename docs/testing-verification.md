@@ -113,11 +113,11 @@ If any case uses an agent verdict path, deterministic capture finishes first
 and the command returns `state="awaiting_agent_review"` with exit `12`. The
 returned typed dispatch contract is mandatory: the harness dispatches its
 reviewer over the immutable bundle, and that reviewer submits one verdict and
-rationale per case through the exact returned command. The gate remains
-unsatisfied while dispatch is pending. Agent `undetermined` is allowed only
-with attached evidence; it halts the item until a project owner or operator
-resolves the Inbox request. A case that did not run records failure or
-`blocked_on_precondition` and returns to its scheduler without human work.
+rationale per case through the exact returned command. Until then the gate is
+unsatisfied and the result reads `review_status="pending"`: no verdict, not a
+pass, and a capture-side verdict is refused. Agent `undetermined` needs attached
+evidence and halts the item until an owner or operator resolves its Inbox
+request. A case that did not run records failure or `blocked_on_precondition`.
 When reading the result, pass `deployment_run_id` to `qa.plan.get` to avoid
 mixing another item or run's latest proof into the plan view.
 `qa.activity.list` carries that field on every row and filters on it, and takes `item_ids` for the other direction — one item's own checks, which need no deployment run, bounded

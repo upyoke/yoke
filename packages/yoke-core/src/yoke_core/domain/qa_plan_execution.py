@@ -300,6 +300,9 @@ def execute_plan(
         "deployment_member_item_id": execution.get("deployment_member_item_id"),
         "transition_id": transition_id,
         "state": state,
+        # A completed capture awaiting its independent review carries no QA
+        # verdict yet; the reviewer's submitted batch is the verdict.
+        "review_status": "pending" if review_bundle is not None else None,
         "requirement_count": len(requirements),
         "executed_count": len(results),
         "results": results,
