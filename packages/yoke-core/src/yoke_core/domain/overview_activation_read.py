@@ -6,13 +6,14 @@ newly satisfied modules into ``overview_activation_facts``, and reads the
 calling actor's dismissal preferences.
 
 Module signals (all engine-owned reads; the one host-supplied fact is the
-hosted machine connection, forwarded verbatim in ``host_facts``):
+viewer's own hosted machine connection, forwarded verbatim in ``host_facts``):
 
 * ``finish_installation_wizard`` — required pair is a connected machine
-  plus a first ``projects`` row. A machine is connected when the universe
-  lists a registered machine
-  (:mod:`yoke_core.domain.overview_machine_activation`) or the host says so;
-  the checklist row counts and names the registered machines. GitHub
+  plus a first ``projects`` row. The machine row answers for the viewer:
+  it is connected when the viewer has a registered machine
+  (:mod:`yoke_core.domain.overview_machine_activation`, actor-scoped; an
+  unscoped local universe lists every machine) or the host says the
+  viewer's machine is connected; the row counts and names those machines. GitHub
   (``project_github_repo_bindings`` with a non-revoked status) and hosting
   (an ``aws-admin`` ``project_capabilities`` row — declared, no verifier
   writes ``verified_at`` today) are the recommended tail.
