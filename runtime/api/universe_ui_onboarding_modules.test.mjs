@@ -133,10 +133,12 @@ test("the wizard checklist renders ✓/○ rows with tail allowances", async (t)
   // Machine connected mid-wizard reads return-to-terminal, never web-first.
   const wizard = moduleCards(root)[0];
   assert.ok(textOf(wizard).includes(
-    "Your machine is connected to your Yoke identity.",
+    "A machine signed in as you is connected to Yoke.",
   ));
   const cta = byClass(wizard, "activation-cta")[0];
-  assert.equal(textOf(cta), "Return to your terminal and finish yoke onboard");
+  assert.equal(
+    textOf(cta), "Return to that machine's terminal and finish yoke onboard",
+  );
   assert.equal(byClass(root, "web-first").length, 0);
   mounted.unmount();
 });

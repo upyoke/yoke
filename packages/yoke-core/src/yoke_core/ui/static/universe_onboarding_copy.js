@@ -33,6 +33,13 @@ export const WIZARD_ROWS = {
   hosting: "Hosting connected",
 };
 export const WIZARD_TAIL_KEYS = new Set(["github", "hosting"]);
+// Mid-wizard copy once the viewer's own machine is connected. The fact is
+// per viewer (hosted: the shell's per-viewer slot; otherwise the viewer's
+// registered machines), so the copy speaks of that machine, not this browser.
+export const WIZARD_MACHINE_CONNECTED_COPY =
+  "A machine signed in as you is connected to Yoke.";
+export const WIZARD_MACHINE_CONNECTED_CTA =
+  "Return to that machine's terminal and finish ";
 
 export const RUN_ONBOARD_TITLE_HINT =
   "Run this in your harness — the web never invokes a skill";

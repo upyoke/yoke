@@ -184,3 +184,25 @@ def test_hook_health_regresses_per_machine_under_a_held_latch(test_db):
     again = _machines(_modules()["connect_harness"])[MACHINE_A]
     assert again["state"] == "activated"
     assert _health(again)["codex"] == "red"
+
+
+def test_the_machine_row_answers_for_the_viewer_not_the_universe(test_db):
+    from yoke_core.domain.actors import seed_human_actor
+
+    _seed_relay(test_db, MACHINE_A, "first-box")
+    invitee = seed_human_actor(test_db, "invitee")
+    test_db.commit()
+    outcome = handle_overview_activation_get(FunctionCallRequest(
+        function="overview.activation.get",
+        actor=ActorContext(actor_id=str(invitee), session_id=""),
+        target=TargetRef(kind="global"),
+        payload={"host_facts": {"machine_connected": False}},
+    ))
+    assert outcome.primary_success, outcome.error
+    wizard = {
+        m["key"]: m for m in outcome.result_payload["modules"]
+    }["finish_installation_wizard"]
+    row = next(s for s in wizard["submodules"] if s["key"] == "machine_universe")
+    # Another actor's connected machine is not the invitee's progress.
+    assert row["done"] is False
+    assert row["machines"] == []

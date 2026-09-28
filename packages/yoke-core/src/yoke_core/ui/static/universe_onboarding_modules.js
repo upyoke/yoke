@@ -27,6 +27,8 @@ import {
   MODULE_TITLES,
   RUN_ONBOARD_TITLE_HINT,
   STATE_PILL_TEXT,
+  WIZARD_MACHINE_CONNECTED_COPY,
+  WIZARD_MACHINE_CONNECTED_CTA,
   WIZARD_MACHINE_ROWS,
   WIZARD_ROWS,
   WIZARD_TAIL_KEYS,
@@ -35,7 +37,7 @@ import {
 import { harnessBody } from "./universe_onboarding_machines.js";
 import { onboardBody } from "./universe_onboarding_project.js";
 
-// The host-supplied machine fact rides the capability bag into the read's
+// The host-supplied machine fact is the viewer's own (never org-wide) and rides the capability bag into the read's
 // payload verbatim; absent or non-boolean shapes forward nothing, so the
 // engine derives from its own signals and the submodule stays pending.
 function activationPayload(capabilities) {
@@ -110,20 +112,18 @@ function wizardChecklist(documentNode, module, mode) {
   return list;
 }
 
-// Module 1's two in-flight copy states: machine connected reads
-// return-to-terminal; hosted with the machine still pending reads web-first.
+// Module 1's two in-flight copy states: the viewer's machine connected reads
+// return-to-terminal; hosted with the viewer's machine pending reads web-first.
 function wizardBody(documentNode, module, mode, body) {
   const machine = (module.submodules || []).find(
     (submodule) => submodule.key === "machine_universe",
   );
   if (module.state === "in_progress" && machine && machine.done) {
     body.appendChild(el(
-      documentNode, "p", "activation-copy",
-      "Your machine is connected to your Yoke identity.",
+      documentNode, "p", "activation-copy", WIZARD_MACHINE_CONNECTED_COPY,
     ));
     const cta = el(
-      documentNode, "p", "activation-cta",
-      "Return to your terminal and finish ",
+      documentNode, "p", "activation-cta", WIZARD_MACHINE_CONNECTED_CTA,
     );
     cta.appendChild(el(documentNode, "code", null, "yoke onboard"));
     body.appendChild(cta);
