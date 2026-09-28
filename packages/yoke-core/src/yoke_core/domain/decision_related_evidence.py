@@ -168,15 +168,18 @@ def related_screenshot_evidence(
             state = "stale"
         elif expected and not revisions:
             state = "revision_unknown"
-    return {
+    result = {
         "state": state,
         "screenshots": screenshots,
         "screenshot_count": len(screenshots),
         "requirement_count": len(requirement_ids),
         "revisions": sorted(revisions),
         "expected_revision": expected_revision,
-        "release_run_id": release_run_id,
     }
+    if item_id is not None:
+        # Which release's member checks an item's evidence drew from.
+        result["release_run_id"] = release_run_id
+    return result
 
 
 __all__ = ["current_release_run_id", "related_screenshot_evidence"]
