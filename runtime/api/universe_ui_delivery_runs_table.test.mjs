@@ -127,3 +127,13 @@ test("clicking a run row does not navigate; only the run ID does", () => {
   assert.doesNotMatch(readFileSync(new URL("universe_run_rosters.css", STATIC), "utf8"),
     /delivery-run-row/);
 });
+
+test("table evidence tiles draw their loading state without words", () => {
+  const css = readFileSync(new URL("universe_run_rosters.css", STATIC), "utf8");
+  const rule = css.match(
+    /\.delivery-run-evidence-cell \.review-shot-state,\s*\.universe-app-root \.qa-activity-evidence \.review-shot-state \{([^}]*)\}/,
+  );
+  assert.ok(rule, "compact table tiles need their own state rule");
+  assert.match(rule[1], /font-size:\s*0/);
+  assert.match(rule[1], /overflow:\s*hidden/);
+});

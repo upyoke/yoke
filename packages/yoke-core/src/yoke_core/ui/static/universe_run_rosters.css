@@ -68,6 +68,15 @@
 .universe-app-root .qa-activity-evidence .review-evidence.compact .review-shot {
   width: 72px;
 }
+/* A table tile is too small for words: its pending or unavailable box keeps
+   the pulsing or dashed frame and drops the text, which stays in the DOM for
+   assistive technology and on the tile's title for hover. */
+.universe-app-root .delivery-run-evidence-cell .review-shot-state,
+.universe-app-root .qa-activity-evidence .review-shot-state {
+  overflow: hidden;
+  font-size: 0;
+  line-height: 0;
+}
 .universe-app-root .delivery-run-evidence-cell .review-evidence {
   flex-wrap: wrap;
   align-items: center;
