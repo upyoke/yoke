@@ -19,6 +19,17 @@ class MaterializeRequest(BaseModel):
     project: Optional[str] = Field(default=None, min_length=1)
     deployment_stage: Optional[str] = Field(default=None, min_length=1)
     deployment_member: Optional[str] = Field(default=None, min_length=1)
+    # Each corrected case key this materialization produces, paired with the
+    # exact failed requirement it replaces (qa_requirement_replacement).
+    replacements: list["ReplacementDeclaration"] = Field(default_factory=list)
+
+
+class ReplacementDeclaration(BaseModel):
+    case_key: str = Field(..., min_length=1)
+    requirement_id: int = Field(..., gt=0)
+
+
+MaterializeRequest.model_rebuild()
 
 
 class RematerializeRequest(BaseModel):
@@ -48,6 +59,10 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
         materialize_for_item,
     )
     from yoke_core.domain.qa_plan_management import QaPlanError
+    from yoke_core.domain.qa_requirement_replacement import (
+        QaReplacementError,
+        declare_replacements,
+    )
 
     try:
         with connect() as conn:
@@ -133,8 +148,20 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                     "qa.plan.materialize requires an item or deployment run",
                     "$.target.kind",
                 )
+            if payload.replacements:
+                result["replacements"] = declare_replacements(
+                    conn,
+                    [entry.model_dump() for entry in payload.replacements],
+                    materialized_requirement_ids=[
+                        *result.get("created_requirement_ids", []),
+                        *result.get("existing_requirement_ids", []),
+                    ],
+                )
+                conn.commit()
     except QaPlanError as exc:
         return _error("incompatible", str(exc), "$.payload")
+    except QaReplacementError as exc:
+        return _error("replacement_refused", str(exc), "$.payload.replacements")
     return HandlerOutcome(result_payload={"result": result}, primary_success=True)
 
 
@@ -211,6 +238,7 @@ def handle_rematerialize(request: FunctionCallRequest) -> HandlerOutcome:
 
 __all__ = [
     "MaterializeRequest",
+    "ReplacementDeclaration",
     "RematerializeRequest",
     "handle_materialize",
     "handle_rematerialize",

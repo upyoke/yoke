@@ -148,6 +148,10 @@ _REQUIREMENT_COLUMNS = (
     ("superseded_at", "TEXT"),
     ("supersession_rationale", "TEXT"),
     ("supersession_source", "TEXT"),
+    # A failed case a corrected one was declared to replace when it was
+    # materialized. The row stays blocking until that case passes, then the
+    # supersession above is recorded; until then no roster re-runs it.
+    ("replacement_requirement_id", "INTEGER REFERENCES qa_requirements(id)"),
     ("retracted_at", "TEXT"),
     ("retraction_rationale", "TEXT"),
     ("retraction_source", "TEXT"),

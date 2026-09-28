@@ -64,6 +64,29 @@ def requirement_retracted_at_select(conn: Any, alias: str = "") -> str:
     return "NULL AS retracted_at"
 
 
+def item_supersession_open_sql(alias: str = "") -> str:
+    """Rows not settled by an item-bound supersession.
+
+    An item-bound row is superseded only by a passing case bound to the same
+    item, transition and phase, which the same gate grades on its own
+    evidence, so the link settles it outright. A run-bound member row keeps
+    its stricter ``done`` validation (stage acceptance and a same-scope
+    passing replacement), so this predicate never drops one.
+    """
+    prefix = f"{alias}." if alias else ""
+    return (
+        f"({prefix}deployment_run_id IS NOT NULL "
+        f"OR {prefix}superseded_by_requirement_id IS NULL)"
+    )
+
+
+def item_supersession_settled(row: Mapping[str, Any]) -> bool:
+    """Row form of :func:`item_supersession_open_sql`, negated."""
+    return not row.get("deployment_run_id") and bool(
+        row.get("superseded_by_requirement_id")
+    )
+
+
 def obligation_settled(row: Mapping[str, Any]) -> bool:
     """Whether this requirement row is already settled without evidence."""
     return bool(row.get("waived_at")) or bool(
@@ -73,6 +96,8 @@ def obligation_settled(row: Mapping[str, Any]) -> bool:
 
 __all__ = [
     "SETTLED_OBLIGATION_SQL",
+    "item_supersession_open_sql",
+    "item_supersession_settled",
     "obligation_settled",
     "requirement_retracted_at_select",
     "settled_obligation_sql",

@@ -7,10 +7,8 @@ from dataclasses import dataclass
 from typing import Any, Sequence
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.qa_merging_identity import (
-    accepted_merging_shas,
-    recorded_head_sha,
-)
+from yoke_core.domain.qa_merging_identity import accepted_merging_shas, recorded_head_sha
+from yoke_core.domain.qa_obligation_settlement import item_supersession_settled
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 from yoke_core.domain.schema_common import _table_exists
@@ -155,7 +153,7 @@ def blocking_requirement_issues(
         for requirement in requirements
         if str(requirement.get("blocking_mode") or "") == "blocking"
     ]
-    blocking = [row for row in declared if not row.get("waived_at")]
+    blocking = [row for row in declared if not row.get("waived_at") and not item_supersession_settled(row)]
     if not declared and require_any:
         return [BlockingRequirementIssue(
             "materialization",
@@ -200,7 +198,7 @@ def requirement_issue_errors(
 def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
     placeholder = _placeholder(conn)
     cursor = conn.execute(
-        "SELECT q.id, q.blocking_mode, q.waived_at, q.requirement_source, "
+        "SELECT q.id, q.blocking_mode, q.waived_at, q.requirement_source, q.deployment_run_id, q.superseded_by_requirement_id, "
         "q.method_id, q.method_config, r.id AS run_id, "
         "r.verdict, r.verdict_reason, r.execution_status, r.case_outcome, r.completed_at, "
         "r.raw_result FROM qa_requirements q LEFT JOIN qa_runs r ON r.id = ("

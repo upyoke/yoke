@@ -11,12 +11,10 @@ from yoke_core.domain.qa_deployment_member_attached_plans import (
     stage_environment_id_for_plan_selection,
 )
 from yoke_core.domain.qa_deployment_case_content_refresh import (
-    refreshed_case_keys,
+    declare_refreshed_replacements, refreshed_case_keys,
 )
 from yoke_core.domain.db_helpers import iso8601_now, query_rows
-from yoke_core.domain.deployment_qa_execution_target import (
-    deployment_qa_execution_target,
-)
+from yoke_core.domain.deployment_qa_execution_target import deployment_qa_execution_target
 from yoke_core.domain.deployment_qa_stage_contract import deployment_qa_stage_subject
 from yoke_core.domain.deployment_qa_stage_named_cases import (
     AGENT_PLAN_ALREADY_NAMED_REFUSAL,
@@ -322,6 +320,7 @@ def materialize_deployment_qa_stage(
                                 subject=f"deployment stage {deployment_stage!r}",
                             )
                         )
+        declare_refreshed_replacements(conn, created)
         if commit:
             conn.commit()
     except Exception:

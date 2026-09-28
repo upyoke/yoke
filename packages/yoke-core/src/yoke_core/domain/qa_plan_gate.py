@@ -38,7 +38,7 @@ def check_plan_simulation_satisfied(item_id: int, db_path: str) -> GateResult:
             WHERE r.item_id = %s
               AND r.qa_phase = 'verification'
               AND r.blocking_mode = 'blocking'
-              AND r.waived_at IS NULL
+              AND r.waived_at IS NULL AND r.superseded_by_requirement_id IS NULL
             ORDER BY r.id
             """,
             (item_id,),
