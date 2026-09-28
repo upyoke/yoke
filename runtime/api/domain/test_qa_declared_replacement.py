@@ -107,7 +107,10 @@ def test_declared_case_leaves_the_roster_but_keeps_blocking(test_db) -> None:
     assert _roster(test_db, run_id) == [corrected_id]
     status = _status(test_db, run_id)
     assert not status["accepted"]
-    assert any(f"#{failed_id}" in reason for reason in status["reasons"])
+    assert any(
+        f"#{failed_id}" in reason and f"declared replacement #{corrected_id}" in reason
+        for reason in status["reasons"]
+    ), status["reasons"]
 
 
 def test_passing_replacement_supersedes_the_failed_case(test_db) -> None:

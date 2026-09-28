@@ -21,7 +21,7 @@ and inherits every row still waiting on it.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from yoke_core.domain.db_helpers import query_one, query_rows
@@ -176,6 +176,17 @@ def discharge_declared_replacements(
     return discharged
 
 
+def replacement_note(row: Mapping[str, Any]) -> str:
+    """Refusal suffix naming the corrected case a failed row is waiting on."""
+    replacement_id = row.get("replacement_requirement_id")
+    if not replacement_id:
+        return ""
+    return (
+        f"; declared replacement #{replacement_id} supersedes it once it "
+        "records a passing independent verdict"
+    )
+
+
 def announce_discharges(
     conn: Any, discharged: Sequence[tuple[dict[str, Any], dict[str, Any]]]
 ) -> None:
@@ -191,4 +202,5 @@ __all__ = [
     "declare_replacements",
     "discharge_declared_replacements",
     "point_at_replacement",
+    "replacement_note",
 ]

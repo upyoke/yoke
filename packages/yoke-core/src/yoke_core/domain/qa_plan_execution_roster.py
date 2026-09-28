@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.qa_obligation_settlement import unanswered_attempt_sql
 from yoke_core.domain.qa_plan_empty_roster import refuse_empty_roster
 from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
 from yoke_core.domain.project_identity import render_item_ref
@@ -75,12 +76,8 @@ def ordered_plan_requirements(
         "SELECT id AS requirement_id,plan_id,plan_case_key AS case_key,"
         "case_position,baseline_position,host_baseline,method_id,runner_id "
         f"FROM qa_requirements WHERE {where} "
-        # A superseded case is answered and a replaced one's attempt now
-        # belongs to its corrected case; re-running either would only re-judge
-        # history (qa_requirement_replacement).
         "AND method_id IS NOT NULL AND waived_at IS NULL "
-        "AND superseded_by_requirement_id IS NULL "
-        "AND replacement_requirement_id IS NULL "
+        f"AND {unanswered_attempt_sql(conn)} "
         "ORDER BY CASE WHEN plan_id IS NULL THEN 0 ELSE 1 END,"
         "COALESCE(plan_id,0),case_position,baseline_position,id",
         params,

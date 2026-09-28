@@ -64,20 +64,39 @@ def requirement_retracted_at_select(conn: Any, alias: str = "") -> str:
     return "NULL AS retracted_at"
 
 
-def item_supersession_open_sql(alias: str = "") -> str:
+def item_supersession_open_sql(conn: Any, alias: str = "") -> str:
     """Rows not settled by an item-bound supersession.
 
     An item-bound row is superseded only by a passing case bound to the same
     item, transition and phase, which the same gate grades on its own
     evidence, so the link settles it outright. A run-bound member row keeps
     its stricter ``done`` validation (stage acceptance and a same-scope
-    passing replacement), so this predicate never drops one.
+    passing replacement), so this predicate never drops one. A table without
+    the column has superseded nothing.
     """
     prefix = f"{alias}." if alias else ""
+    if not _column_exists(conn, "qa_requirements", "superseded_by_requirement_id"):
+        return "TRUE"
     return (
         f"({prefix}deployment_run_id IS NOT NULL "
         f"OR {prefix}superseded_by_requirement_id IS NULL)"
     )
+
+
+def unanswered_attempt_sql(conn: Any, alias: str = "") -> str:
+    """Rows an execution roster still owes an attempt.
+
+    A superseded row is answered, and a row with a declared replacement has
+    handed its attempt to that corrected case; re-running either would only
+    re-judge history. A table without a column has neither.
+    """
+    prefix = f"{alias}." if alias else ""
+    clauses = [
+        f"{prefix}{column} IS NULL"
+        for column in ("superseded_by_requirement_id", "replacement_requirement_id")
+        if _column_exists(conn, "qa_requirements", column)
+    ]
+    return " AND ".join(clauses) or "TRUE"
 
 
 def item_supersession_settled(row: Mapping[str, Any]) -> bool:
@@ -98,6 +117,7 @@ __all__ = [
     "SETTLED_OBLIGATION_SQL",
     "item_supersession_open_sql",
     "item_supersession_settled",
+    "unanswered_attempt_sql",
     "obligation_settled",
     "requirement_retracted_at_select",
     "settled_obligation_sql",

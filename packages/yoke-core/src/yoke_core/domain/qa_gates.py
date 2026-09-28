@@ -97,7 +97,7 @@ def check_verification_gate(
             SELECT r.id, r.qa_kind FROM qa_requirements r
             WHERE {where}
               AND r.blocking_mode = 'blocking'
-              AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")} AND {item_supersession_open_sql("r")}
+              AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")} AND {item_supersession_open_sql(conn, "r")}
               AND r.qa_phase = 'verification'
             """,
             params,
@@ -222,7 +222,7 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
             FROM qa_requirements r
             WHERE {where}
               AND r.blocking_mode = 'blocking'
-              AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")} AND {item_supersession_open_sql("r")}
+              AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")} AND {item_supersession_open_sql(conn, "r")}
             """,
             params,
         )

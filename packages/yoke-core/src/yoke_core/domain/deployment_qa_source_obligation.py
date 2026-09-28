@@ -257,7 +257,7 @@ def unsatisfied_blocking(
         "qr.item_id, qr.plan_case_key "
         "FROM qa_requirements qr "
         f"WHERE {where} AND qr.blocking_mode = 'blocking' "
-        f"AND qr.waived_at IS NULL AND {item_supersession_open_sql('qr')}",
+        f"AND qr.waived_at IS NULL AND {item_supersession_open_sql(conn, 'qr')}",
         params,
     ).fetchall()
     scored = []
