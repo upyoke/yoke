@@ -65,6 +65,7 @@ SERVICE_CLIENT_PARITY_SCHEMA = (
         run_id TEXT NOT NULL,
         item_id INTEGER NOT NULL,
         added_at TEXT NOT NULL,
+        delivery_intent TEXT CHECK(delivery_intent IN ('progress', 'final')),
         PRIMARY KEY (run_id, item_id)
     );
 
@@ -214,8 +215,8 @@ def seed_service_client_parity_data(conn: Any) -> None:
     )
     _execute(
         conn,
-        """INSERT INTO deployment_run_items (run_id, item_id, added_at)
-           VALUES ('run-parity-001', 4, %s)""",
+        """INSERT INTO deployment_run_items (run_id, item_id, added_at, delivery_intent)
+           VALUES ('run-parity-001', 4, %s, 'final')""",
         (ts,),
     )
     _execute(
@@ -228,8 +229,8 @@ def seed_service_client_parity_data(conn: Any) -> None:
     )
     _execute(
         conn,
-        """INSERT INTO deployment_run_items (run_id, item_id, added_at)
-           VALUES ('run-parity-002', 8, %s)""",
+        """INSERT INTO deployment_run_items (run_id, item_id, added_at, delivery_intent)
+           VALUES ('run-parity-002', 8, %s, 'final')""",
         (ts,),
     )
     conn.commit()
