@@ -79,6 +79,22 @@ def test_flow_mismatch_and_unattributed_commit_are_reported_together(
     assert "unattributed carried commit" in message
 
 
+def test_admission_refusal_does_not_hide_attribution_blockers(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    unexplained = _blocked_candidate(test_db, tmp_path, monkeypatch)
+    test_db.execute(
+        "UPDATE items SET deployment_flow=NULL WHERE id=%s", (CARRIER_ITEM_ID,)
+    )
+    test_db.commit()
+
+    valid, message = cmd_validate_composition("run-candidate")
+
+    assert not valid
+    assert "no resolvable completion flow" in message
+    assert unexplained in message
+
+
 def test_create_refuses_invalid_composition_without_reserving_a_run_id(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

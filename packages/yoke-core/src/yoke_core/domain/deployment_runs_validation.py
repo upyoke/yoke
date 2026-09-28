@@ -129,22 +129,18 @@ def cmd_validate_composition(
         # Completing membership before the checks below is what lets the same
         # checks judge the run that will actually execute. Enrolling after
         # them would validate a composition the start no longer has.
+        errors: List[str] = []
+        enrolled: tuple[str, ...] = ()
         try:
             # The run's source commit per project is resolved and recorded
             # before anything reads it, so enrollment and every check below
             # judge the commits this run will actually ship.
             record_bound_sources(conn, run_id)
             enrolled = enroll_carried_members(conn, run_id)
-            if connection is None:
-                conn.commit()
         except (LookupError, ValueError) as exc:
-            if connection is None:
-                conn.rollback()
-            return False, f"FAIL: Composition validation failed:\n{exc}"
+            errors.append(str(exc))
         run_project_id = int(run_project_id)
         run_project = resolve_project_slug(conn, run_project_id)
-
-        errors: List[str] = []
 
         # Check 1: every item belongs to a project this run ships source for
         carried_projects = carried_project_ids(conn, run_id)
@@ -229,11 +225,15 @@ def cmd_validate_composition(
         if errors:
             trailing = [note for note in (inert, unadmitted) if note]
             error_text = "\n".join(errors + trailing)
+            if connection is None:
+                conn.rollback()
             return False, f"FAIL: Composition validation failed:\n{error_text}"
 
         notes = [
             note for note in (describe_enrollment(enrolled), inert, unadmitted) if note
         ]
+        if connection is None:
+            conn.commit()
         return True, ("OK; " + "; ".join(notes)) if notes else "OK"
     finally:
         if connection is None:
