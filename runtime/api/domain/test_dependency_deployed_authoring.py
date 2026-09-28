@@ -10,6 +10,7 @@ import pytest
 from runtime.api.domain.test_dependency_deployed_satisfaction import (
     _insert_edge,
     _insert_item,
+    _insert_run,
     dependency_conn,  # noqa: F401
 )
 from runtime.api.frontier_test_helpers import (
@@ -32,13 +33,16 @@ def test_authoring_accepts_registered_and_refuses_unknown_environment(
 ) -> None:
     _insert_item(dependency_conn, 1)
     _insert_item(dependency_conn, 2)
-    assert cmd_dependency_add(
-        dependency_conn,
-        "YOK-1",
-        "YOK-2",
-        "operator",
-        satisfaction="fact:deployed:prod",
-    ) == "OK"
+    assert (
+        cmd_dependency_add(
+            dependency_conn,
+            "YOK-1",
+            "YOK-2",
+            "operator",
+            satisfaction="fact:deployed:prod",
+        )
+        == "OK"
+    )
     with pytest.raises(UnregisteredEnvironment, match="environment_unregistered"):
         cmd_dependency_update(
             dependency_conn,
@@ -105,3 +109,31 @@ def test_frontier_reason_names_blocker_and_environment(dependency_conn: Any) -> 
         reason.startswith("Waits for YOK-2 to deploy to prod")
         for reason in dependent.blocked_reasons
     )
+
+
+def test_cross_project_member_clears_frontier_hard_block_and_explanation(
+    dependency_conn: Any,
+) -> None:
+    insert_frontier_item(dependency_conn, 1, status="idea")
+    insert_frontier_item(dependency_conn, 2, status="implemented")
+    _insert_edge(dependency_conn, 1, 2)
+    dependency_conn.execute(
+        "INSERT INTO sites (id,project_id,name) VALUES (21,2,'external')"
+    )
+    dependency_conn.execute(
+        "INSERT INTO environments (id,site,project_id,name) VALUES (201,21,2,'prod')"
+    )
+    _insert_run(
+        dependency_conn,
+        "cross-project-progress",
+        project_id=2,
+        environment_id=201,
+        status="succeeded",
+        member_ids=(2,),
+    )
+    assert (
+        evaluate_item_gate(dependency_conn, "YOK-1", "activation").is_blocked is False
+    )
+    assert check_hard_blocks.evaluate_blockers(1, conn=dependency_conn) == []
+    frontier = compute_frontier(dependency_conn, [1], emit_events=False)
+    assert all(item.item_id != 1 for item in frontier.blocked)

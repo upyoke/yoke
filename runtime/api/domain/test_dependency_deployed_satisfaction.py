@@ -41,6 +41,10 @@ CREATE TABLE deployment_runs (
   status TEXT NOT NULL,
   carried_work TEXT
 );
+CREATE TABLE deployment_run_items (
+  run_id TEXT NOT NULL,
+  item_id INTEGER NOT NULL
+);
 CREATE TABLE path_claims (
   id INTEGER PRIMARY KEY,
   state TEXT NOT NULL,
@@ -114,12 +118,13 @@ def _insert_run(
     project_id: int,
     environment_id: int,
     status: str,
-    item_ids: tuple[int, ...],
+    member_ids: tuple[int, ...] = (),
+    carried_ids: tuple[int, ...] = (),
 ) -> None:
     carried_work = json.dumps(
         {
             "schema": 1,
-            "items": [{"item_id": item_id} for item_id in item_ids],
+            "items": [{"item_id": item_id} for item_id in carried_ids],
         }
     )
     conn.execute(
@@ -128,6 +133,11 @@ def _insert_run(
         "VALUES (%s,%s,%s,%s,%s)",
         (run_id, project_id, environment_id, status, carried_work),
     )
+    for item_id in member_ids:
+        conn.execute(
+            "INSERT INTO deployment_run_items (run_id,item_id) VALUES (%s,%s)",
+            (run_id, item_id),
+        )
 
 
 @pytest.mark.parametrize(
@@ -209,14 +219,14 @@ def test_carried_work_is_the_authoritative_deployed_fact() -> None:
 def test_any_succeeded_run_for_the_environment_satisfies_cumulatively(
     dependency_conn: Any,
 ) -> None:
-    _insert_item(dependency_conn, 2, merged=True)
+    _insert_item(dependency_conn, 2, status="done", merged=True)
     _insert_run(
         dependency_conn,
         "earlier",
         project_id=1,
         environment_id=101,
         status="succeeded",
-        item_ids=(2,),
+        member_ids=(2,),
     )
     _insert_run(
         dependency_conn,
@@ -224,33 +234,40 @@ def test_any_succeeded_run_for_the_environment_satisfies_cumulatively(
         project_id=1,
         environment_id=101,
         status="succeeded",
-        item_ids=(),
     )
     result = evaluate_persisted_satisfaction(
         dependency_conn,
         blocking_item_id=2,
         satisfaction="fact:deployed:prod",
-        blocking_status="implemented",
+        blocking_status="done",
         blocking_merged=True,
         workflow=WORKFLOW,
     )
     assert result.satisfied is True
+    assert (
+        evaluate_persisted_satisfaction(
+            dependency_conn,
+            blocking_item_id=2,
+            satisfaction="status:done",
+            blocking_status="done",
+            workflow=WORKFLOW,
+        ).satisfied
+        is True
+    )
 
 
-def test_other_environment_project_and_failed_runs_do_not_satisfy(
+def test_other_environment_failed_and_cancelled_runs_do_not_satisfy(
     dependency_conn: Any,
 ) -> None:
     _insert_item(dependency_conn, 2, merged=True)
     dependency_conn.execute(
-        "INSERT INTO environments (id,site,project_id,name) "
-        "VALUES (102,11,1,'stage')"
+        "INSERT INTO environments (id,site,project_id,name) VALUES (102,11,1,'stage')"
     )
     dependency_conn.execute(
         "INSERT INTO sites (id,project_id,name) VALUES (21,2,'external')"
     )
     dependency_conn.execute(
-        "INSERT INTO environments (id,site,project_id,name) "
-        "VALUES (201,21,2,'prod')"
+        "INSERT INTO environments (id,site,project_id,name) VALUES (201,21,2,'prod')"
     )
     _insert_run(
         dependency_conn,
@@ -258,15 +275,15 @@ def test_other_environment_project_and_failed_runs_do_not_satisfy(
         project_id=1,
         environment_id=102,
         status="succeeded",
-        item_ids=(2,),
+        member_ids=(2,),
     )
     _insert_run(
         dependency_conn,
         "other-project",
         project_id=2,
         environment_id=201,
-        status="succeeded",
-        item_ids=(2,),
+        status="failed",
+        member_ids=(2,),
     )
     _insert_run(
         dependency_conn,
@@ -274,7 +291,15 @@ def test_other_environment_project_and_failed_runs_do_not_satisfy(
         project_id=1,
         environment_id=101,
         status="failed",
-        item_ids=(2,),
+        member_ids=(2,),
+    )
+    _insert_run(
+        dependency_conn,
+        "cancelled-prod",
+        project_id=1,
+        environment_id=101,
+        status="cancelled",
+        member_ids=(2,),
     )
     result = evaluate_persisted_satisfaction(
         dependency_conn,

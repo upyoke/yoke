@@ -315,11 +315,11 @@ The `blocked_details` array is present when the shared scheduler provides struct
 | `item_id` | string | The blocked item (``YOK-N``). |
 | `blocking_item` | string | The blocker item (``YOK-N``). |
 | `gate_point` | string | When the dependency matters: ``activation``, ``integration``, or ``closure``. |
-| `satisfaction` | string | What must be true: ``status:<stage-id>`` (including ``status:done`` and ``status:implemented``), ``fact:merged``, or ``fact:deployed:<environment-name>``. Use a named stage when the wait is a workflow milestone, merged for a trunk dependency, and deployed when the blocker must be running in the named registered environment. |
+| `satisfaction` | string | What must be true: ``status:<stage-id>``, ``fact:merged``, or ``fact:deployed:<environment-name>``. Use the blocker's pinned stage, normally ``status:done`` for a full item wait; merged for a trunk dependency; deployed only when the blocker must be live in that registered environment before ``done``. |
 | `rationale` | string | Persisted human-readable explanation of why this edge exists. |
 | `reason` | string | Runtime evaluation: why the blocker is currently unsatisfied. |
 
-For a deployed fact, `reason` names the environment and distinguishes an unmerged blocker, a merged blocker not yet present in any succeeded run's `carried_work`, and an `environment_unregistered` edge. This lets session offers say “waits for YOK-N to deploy to prod” instead of reporting a bare unsatisfied edge.
+For a deployed fact, `reason` names the environment and distinguishes an unmerged blocker, a merged blocker without membership in a succeeded run targeting that environment name, and an `environment_unregistered` edge. Run membership can cross project boundaries; mere code containment does not count. This lets session offers say “waits for YOK-N to deploy to prod” instead of reporting a bare unsatisfied edge.
 
 When `blocked_details` is absent or empty, adapters should fall back to the `blocked_items` list for a simple enumeration of blocked item IDs. When the frontier also carries lane-filtered detail, the same `lane_filtered_count` / `lane_filtered_note` / `lane_filtered_items` keys ride along on `escalate` so the operator sees both signals.
 

@@ -134,9 +134,10 @@ audit record — be specific enough that a reader (human or doctor HC) can
 verify the independence claim from the rationale alone. Generic phrases
 like "different concerns" or "no ordering required" are not enough.
 
-Use `fact:merged` when the dependent only needs the blocker's code on
-trunk. Use `fact:deployed:<environment-name>` when it must wait for that
-change to run in a registered environment, such as stage or prod QA.
+Use the blocker's pinned stage, normally `status:done`, for an item wait
+that includes its deployment and closeout. Use `fact:merged` for trunk code.
+Reserve `fact:deployed:<environment-name>` for a dependent that needs the
+blocker live in that registered environment before `done`.
 
 Then re-run `register`; the resolver classifies the overlap as
 `OverlapClassification.NONE` (no path-claim mutex) via the new edge and

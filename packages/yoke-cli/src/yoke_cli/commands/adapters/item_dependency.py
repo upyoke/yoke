@@ -80,14 +80,17 @@ ITEMS_DEPENDENCY_ADD_USAGE = (
 _SATISFACTION_HELP = """Satisfaction values:
   status:<stage-id> | fact:merged | fact:deployed:<environment-name>
 
-status:done and status:implemented remain valid. Any other status:<stage-id>
-must be a stage in the blocking item's pinned workflow; authoring refuses
-an unknown stage and lists the stages that workflow version has.
+Use the blocking item's pinned workflow stage for an item-to-item wait,
+normally status:done when its required deployment and closeout must finish.
+Any status:<stage-id> must exist in that workflow; authoring refuses an
+unknown stage and lists the stages that workflow version has.
 
 Use fact:merged when the dependent only needs the blocker's code on trunk.
-Use fact:deployed:<environment-name> when it needs that code running in a
-registered environment. Add and update refuse an environment not registered
-for the blocking item's project.
+Reserve fact:deployed:<environment-name> for a dependent that needs the blocker
+live in a registered environment before the blocker reaches done. A succeeded
+run satisfies it only when the blocker is an actual run member, even when the
+run belongs to another project. Mere code containment does not satisfy it.
+Add and update require the environment registered for the blocking item.
 
 Examples:
   yoke items dependency add APP-2 APP-1 operator --gate-point integration
