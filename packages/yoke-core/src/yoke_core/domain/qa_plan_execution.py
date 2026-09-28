@@ -261,19 +261,42 @@ def execute_plan(
                     },
                     actor=resolved_actor,
                 )
-            except QaPlanExecutionError:
-                pass
+            except QaPlanExecutionError as abort_exc:
+                raise QaPlanExecutionError(
+                    f"QA case failed and execution {execution_id} could not close: "
+                    f"{abort_exc}. Abort that execution, then retry the corrected plan"
+                ) from abort_exc
             if not isinstance(exc, Exception):
                 raise
             state = "error"
             break
         results.append(normalized)
         state = _aggregate_state(state, normalized)
+        if (
+            state in {"failed", "error"}
+            or normalized.get("execution_status") == "capture_failed"
+        ):
+            _call_plan_function(
+                function_id="qa.plan_execution.abort",
+                target=target,
+                payload={
+                    "execution_id": execution_id,
+                    "reason": f"qa-plan-case-{requirement_id}-failed",
+                },
+                actor=resolved_actor,
+            )
+            if state not in {"failed", "error"}:
+                state = "failed"
+            break
         if state in {"error", "waiting"}:
             break
 
     review_bundle = None
-    if len(results) == len(requirements) and state not in {"error", "waiting"}:
+    if len(results) == len(requirements) and state not in {
+        "failed",
+        "error",
+        "waiting",
+    }:
         review = _call_plan_function(
             function_id="qa.plan_review.begin",
             target=target,
@@ -307,6 +330,12 @@ def execute_plan(
         "executed_count": len(results),
         "results": results,
         "review_bundle": review_bundle,
+        "recovery": (
+            "QA execution closed after a failed capture or runner result. "
+            "Correct the case or plan and rerun yoke qa plan run; no manual abort is needed."
+            if state in {"failed", "error"}
+            else None
+        ),
     }
 
 

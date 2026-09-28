@@ -146,6 +146,11 @@ side effect, pins the complete roster and digest server-side, and advances one
 canonical result at a time. Machine cases reuse one serial lease until the plan
 completes or aborts; retrying a waiting invocation resumes from the stored
 cursor.
+When a capture fails or a runner reports an error, the plan closes that
+execution, retains its case result and partial artifacts, and releases its
+lease. Correct the case or plan and rerun the same command; no manual abort is
+needed. A successful capture that needs visual judgment still waits for the
+independent agent review described below.
 
 Machine QA cases may declare `"machine":"test-mac-pro"` in `method_config`.
 Authoring validates the project's registered machine and materialization adds

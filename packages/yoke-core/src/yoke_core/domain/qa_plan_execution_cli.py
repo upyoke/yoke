@@ -30,14 +30,7 @@ _REPORTED_CASE_FIELDS = (
 
 
 def _report_case_failures(result: dict[str, Any]) -> None:
-    """Restate every case that did not pass, one line each, on stderr.
-
-    A plan run ends on a single JSON document covering many cases, and the
-    case that actually stopped the run is one entry inside it. The reader
-    of the terminal gets the same treatment ``yoke qa case run`` gives its
-    single verdict: which requirement, which case, and why — without
-    parsing stdout or re-running the plan to find out.
-    """
+    """Show each non-passing case and any recovery step beside the JSON result."""
     from yoke_core.domain.qa_plan_execution_result_state import aggregate_state
 
     for case in result.get("results") or []:
@@ -50,6 +43,8 @@ def _report_case_failures(result: dict[str, Any]) -> None:
             if case.get(key) not in (None, "")
         )
         print(f"# qa plan run: {' '.join(fields)}", file=sys.stderr, flush=True)
+    if result.get("recovery"):
+        print(f"yoke qa plan run: {result['recovery']}", file=sys.stderr)
 
 
 def _review_connection_env() -> str:
