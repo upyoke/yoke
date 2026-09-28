@@ -25,6 +25,7 @@ from yoke_core.domain.deployment_run_release_output_record import (
     ReleaseOutputRefused,
     record_release_output,
 )
+from yoke_core.domain.item_merge_receipt_document import record_entry
 
 ITEM_REF = "YOK-9601"
 
@@ -45,8 +46,12 @@ def test_recording_refuses_a_commit_a_backlog_item_already_owns(
     )
     repo = release_source["repo"]
     (repo / "release.txt").write_text("item work\n", encoding="utf-8")
-    git(repo, "commit", "-am", f"Land {ITEM_REF} product changes")
+    git(repo, "commit", "-am", "Land product changes")
     item_commit = git(repo, "rev-parse", "HEAD")
+    record_entry(
+        test_db, item_id=9601, branch=ITEM_REF, target="main",
+        commit_sha=item_commit, merge_sha=item_commit,
+    )
     test_db.commit()
 
     with pytest.raises(ReleaseOutputRefused) as refusal:
@@ -64,10 +69,10 @@ def test_recording_refuses_a_commit_a_backlog_item_already_owns(
 def test_recording_refuses_a_commit_only_a_lane_record_claims(
     test_db: Any, release_source: dict[str, Any]
 ) -> None:
-    """Ownership can be recorded on the lane rather than in the message.
+    """Ownership can be recorded on the lane rather than on a merge receipt.
 
     An item whose landed lane head is this commit owns it just as surely as
-    one that named itself in the subject line. Reading that needs a range the
+    one whose receipt names it. Reading that needs a range the
     commit is actually inside, which is why the guard asks from the commit's
     parent rather than from the commit itself.
     """
