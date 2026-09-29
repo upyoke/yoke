@@ -1,4 +1,4 @@
-"""Delivery-ready landings this run's candidate carries that no release holds.
+"""Delivery-ready landings this run's candidate carries, split by who holds them.
 
 Carried work answers "what did this run add over the run before it", and that
 is the whole candidate set enrollment used to have. It is a question about a
@@ -10,10 +10,15 @@ release wait for a day because the sole remaining recovery was an operator
 remembering to attach them by hand.
 
 This module asks the question that actually serves delivery, and it asks it
-without a floor: which landings does this candidate carry that no live or
-succeeded release holds? The answer is unioned into enrollment beside the
-carried range, so a run start completes its own membership whether the work
-landed since the last release or long before it.
+without a floor: of the landings this candidate carries, which does no live or
+succeeded release hold, and which does one already hold? The unheld half is
+unioned into enrollment beside the carried range, so a run start completes its
+own membership whether the work landed since the last release or long before
+it. The held half is the exclusion the carried range cannot make for itself:
+that range is pure commit arithmetic, so it proposes an ancestor landing
+another live run is mid-delivery on, and composing it would put two runs on
+one obligation — and, where the holder's flow differs from this one's, refuse
+the whole creation over a member this run was never meant to carry.
 
 Three things it deliberately does not do:
 
@@ -27,10 +32,16 @@ Three things it deliberately does not do:
   :mod:`delivery_landing_custody` and is asked per landing, so an item that
   merged again after joining a run enrolls for the new merge while one
   already being delivered is left alone.
+
+Custody is always asked with this run excluded. A run reasoning about its own
+composition that counted its own membership would read every member it already
+holds as held elsewhere, which would silently retire the final-member
+completion-authority refusal rather than narrow it.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain.delivery_landing_custody import (
@@ -51,41 +62,124 @@ from yoke_core.domain.deployment_run_project_sources import (
 from yoke_core.domain.project_identity import render_item_ref
 
 
-def unheld_candidate_ids(conn: Any, run_id: str) -> tuple[int, ...]:
-    """Item ids this run should enroll that its carried range cannot see.
+@dataclass(frozen=True)
+class HeldCandidate:
+    """A landing this candidate carries that another release already holds."""
+
+    item_id: int
+    item_ref: str
+    #: The live or succeeded run whose candidate carries this landing.
+    run_id: str
+    run_status: str
+
+
+@dataclass(frozen=True)
+class CandidateCustody:
+    """This candidate's deliverable landings, split by who owes the delivery."""
+
+    #: Item ids no other live or succeeded release holds.
+    enrollable: tuple[int, ...]
+    held: tuple[HeldCandidate, ...]
+
+    @property
+    def held_ids(self) -> frozenset[int]:
+        return frozenset(record.item_id for record in self.held)
+
+
+def candidate_custody(conn: Any, run_id: str) -> CandidateCustody:
+    """Split what this run's candidate carries into unheld and held landings.
 
     Walks every project the run ships code for, because membership follows
     the code: a run binding another project's source delivers that project's
     merges too. Each project is asked against the commit THIS run pinned for
     it, never against a lineage belonging to the carrier.
     """
-    found: set[int] = set()
+    enrollable: set[int] = set()
+    held: list[HeldCandidate] = []
     for project_id in carried_project_ids(conn, run_id):
         lineage = run_source_sha(conn, run_id, int(project_id))
         if not lineage:
             continue
-        found.update(
-            _project_candidates(
-                conn, run_id, project_id=int(project_id), lineage=lineage
-            )
+        found, holders = _project_custody(
+            conn, run_id, project_id=int(project_id), lineage=lineage
         )
-    return tuple(sorted(found))
+        enrollable.update(found)
+        held.extend(holders)
+    return CandidateCustody(
+        enrollable=tuple(sorted(enrollable)),
+        held=tuple(sorted(held, key=lambda record: record.item_id)),
+    )
 
 
-def _project_candidates(
+def unheld_candidate_ids(conn: Any, run_id: str) -> tuple[int, ...]:
+    """Item ids this run should enroll that its carried range cannot see."""
+    return candidate_custody(conn, run_id).enrollable
+
+
+def held_candidate_ids(conn: Any, run_id: str) -> frozenset[int]:
+    """Carried landings another release holds, empty when custody cannot say.
+
+    A composition reader must not be turned into a raise by a custody question
+    it does not own: :func:`candidate_custody` refuses an unanswerable custody
+    by name and enrollment reports that refusal, so withholding the exclusion
+    here loses the narrowing rather than the error.
+    """
+    try:
+        return candidate_custody(conn, run_id).held_ids
+    except (LookupError, ValueError):
+        return frozenset()
+
+
+def held_candidate_notice(conn: Any, run_id: str) -> str:
+    """Name every carried landing this run left out because a release holds it.
+
+    Said whenever composition reports itself, because "why is my item not a
+    member" is otherwise answerable only by reading two runs' membership by
+    hand. Silent when this run may not enroll at all: nothing was skipped.
+    """
+    from yoke_core.domain.deployment_run_carried_membership import (
+        carried_enrollment_blocked,
+    )
+
+    if carried_enrollment_blocked(conn, run_id):
+        return ""
+    try:
+        held = candidate_custody(conn, run_id).held
+    except (LookupError, ValueError):
+        return ""
+    if not held:
+        return ""
+    named = "; ".join(
+        f"{record.item_ref} held by {record.run_id} ({record.run_status})"
+        for record in held
+    )
+    return (
+        f"Skipped {len(held)} delivery-ready item(s) this candidate carries "
+        f"that a release already holds: {named}. Each is that run's delivery "
+        "to finish; this one composes nothing for it"
+    )
+
+
+def _project_custody(
     conn: Any, run_id: str, *, project_id: int, lineage: str
-) -> set[int]:
-    """One project's unheld, deliverable landings inside this candidate."""
+) -> tuple[set[int], list[HeldCandidate]]:
+    """One project's deliverable landings inside this candidate, split by holder."""
     deliverable = [
         int(record["id"])
         for record in merged_open_items(conn, project_id)
         if item_requires_release_membership(conn, int(record["id"]))
     ]
     if not deliverable:
-        return set()
-    custody = landing_custody(conn, project_id=project_id, item_ids=deliverable)
+        return set(), []
+    custody = landing_custody(
+        conn,
+        project_id=project_id,
+        item_ids=deliverable,
+        exclude_run_id=str(run_id),
+    )
     walker = CandidateContainment(conn, project_id, candidate_lineage=lineage)
     found: set[int] = set()
+    held: list[HeldCandidate] = []
     for item_id in deliverable:
         landing = custody[item_id]
         if landing.state == UNDETERMINED:
@@ -94,8 +188,6 @@ def _project_candidates(
                 f"{render_item_ref(conn, item_id)}: {landing.reason}. "
                 f"{landing.recovery}"
             )
-        if not landing.enrollable:
-            continue
         if not landing.landing_sha:
             raise ValueError(
                 f"deployment run {run_id!r} cannot attribute "
@@ -109,9 +201,27 @@ def _project_candidates(
                 f"candidate with {render_item_ref(conn, item_id)}: "
                 f"{verdict.reason}. {verdict.recovery}"
             )
-        if verdict.contained:
+        if not verdict.contained:
+            continue
+        if landing.held:
+            held.append(
+                HeldCandidate(
+                    item_id=item_id,
+                    item_ref=render_item_ref(conn, item_id),
+                    run_id=landing.run_id,
+                    run_status=landing.run_status,
+                )
+            )
+        elif landing.enrollable:
             found.add(item_id)
-    return found
+    return found, held
 
 
-__all__ = ["unheld_candidate_ids"]
+__all__ = [
+    "CandidateCustody",
+    "HeldCandidate",
+    "candidate_custody",
+    "held_candidate_ids",
+    "held_candidate_notice",
+    "unheld_candidate_ids",
+]
