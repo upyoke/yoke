@@ -2,9 +2,8 @@
 
 Containment exists for the gap between starting a native and that native
 registering. It used to close only when the launch instruction rendered,
-which is a stricter fact than registration and does not always happen: a
-launch closed ``registered_and_claimed`` at its deadline reaches a live
-worker without rendering anything. One such worker -- registered, holding
+which is a stricter fact than registration and does not always happen. One
+worker -- registered, holding
 its item claim, working -- was terminated at the registration deadline plus
 the sweep's grace, and the fleet showed nothing but an idle holder.
 """
@@ -69,9 +68,9 @@ def test_a_hook_that_proves_registration_retires_containment() -> None:
         record = _record(None, process.pid)
         assert record.exists()
 
-        settle_projection("no mandate in this output", LaunchProjection(
-            LAUNCH_ID, SESSION_ID
-        ))
+        settle_projection(
+            "no mandate in this output", LaunchProjection(LAUNCH_ID, SESSION_ID)
+        )
 
         assert not record.exists()
         # The handle replaces it, so liveness can still reach this native.

@@ -37,10 +37,10 @@ def prepare_launch_registration(
     session_id: str,
     now: str | None = None,
 ) -> LaunchRegistrationInjection:
-    """Bind an attested hook session and return its pending instruction body.
+    """Bind an attested hook session and return its instruction body.
 
     The attestation is consumed before the body leaves the transaction. If the
-    hook response is lost, the ordinary pending-message path owns redelivery;
+    hook response is lost, the addressed message remains readable by id;
     the attestation itself can never be replayed.
     """
     current = now or utc_now()
@@ -185,9 +185,7 @@ def complete_launch_injection(
             result = update_launch(
                 conn,
                 launch_id,
-                state="succeeded",
-                completed_at=current,
-                result_code="registered_and_injected",
+                result_code="injected_awaiting_acknowledgement",
             )
         else:
             result = update_launch(
@@ -210,7 +208,7 @@ def complete_launch_for_message(
     now: str | None = None,
     commit: bool = True,
 ) -> LaunchRecord | None:
-    """Let the ordinary message-delivery completion close a bound launch."""
+    """Close a bound launch only after its recipient acknowledges the mandate."""
     current = now or utc_now()
     begin_mutation(conn)
     p = marker(conn)
@@ -255,17 +253,21 @@ def complete_launch_for_message(
             f"WHERE message_id = {p} AND session_id = {p}",
             (message_id, session_id),
         ).fetchone()
-        if receipt is None or value(receipt, "state", 0) != "injected":
+        if receipt is None:
             raise SessionLaunchError(
-                "receipt_not_injected",
-                "message delivery has not proven injection",
+                "receipt_missing",
+                "launch message receipt is missing; inspect the launch and retry delivery",
             )
+        if value(receipt, "state", 0) != "acknowledged":
+            if commit:
+                conn.commit()
+            return launch
         completed = update_launch(
             conn,
             launch_id,
             state="succeeded",
             completed_at=current,
-            result_code="registered_and_injected",
+            result_code="registered_and_acknowledged",
         )
         if commit:
             conn.commit()

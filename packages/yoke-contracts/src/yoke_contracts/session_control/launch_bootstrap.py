@@ -36,13 +36,21 @@ AUTOMATIC_LAUNCH_REGISTRATION_TEACHING = (
     "registration command."
 )
 LAUNCH_BOOTSTRAP_MESSAGE_READ = (
-    "Your message is waiting on the control plane: `yoke messages list "
-    "--state pending` names it, and `yoke messages get MESSAGE-ID` serves "
-    "it."
+    "Read `yoke sessions identity --json` and "
+    "`yoke session-control launch get LAUNCH-ID --json`. Proceed only when "
+    "the launch's registered_session_id matches your session id. If it does "
+    "not, stop and report launch_registration_mismatch to the requester. "
+    "The launch's message_id names your exact mandate. Read that message with "
+    "`yoke messages get MESSAGE-ID`, then acknowledge it with "
+    "`yoke messages acknowledge MESSAGE-ID`. An injected receipt is absent "
+    "from `yoke messages list --state pending`. If the launch has no message_id "
+    "or the message cannot be read, stop and report launch_message_unavailable "
+    "with the launch id; do not infer an assignment."
 )
 LAUNCH_BOOTSTRAP_CLAIM_FIRST = (
     "If your message assigns you a work item, acquire that item's work claim "
-    "as your first action, before any survey or reading."
+    "as your first work action after this handoff, before any item survey or "
+    "repository reading."
 )
 
 
@@ -50,7 +58,7 @@ def native_launch_bootstrap(launch_id: str) -> str:
     """Return the launch sentence: act, claim first, and stop if unregistered."""
     return (
         f"Yoke launch `{launch_id}`: {AUTOMATIC_LAUNCH_REGISTRATION_TEACHING} "
-        f"{LAUNCH_BOOTSTRAP_MESSAGE_READ} Read it, then act. "
+        f"{LAUNCH_BOOTSTRAP_MESSAGE_READ.replace('LAUNCH-ID', launch_id)} "
         f"{LAUNCH_BOOTSTRAP_CLAIM_FIRST} {LAUNCH_BOOTSTRAP_REFUSAL}"
     )
 

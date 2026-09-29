@@ -113,4 +113,4 @@ def test_bind_after_retry_realigns_message_ttl_so_recipient_survives_sweep() -> 
         injected=True,
         now="2026-08-22T12:12:31Z",
     )
-    assert completed.state == "succeeded"
+    assert completed.state == "awaiting_registration"

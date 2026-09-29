@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from yoke_contracts.session_control.launch_bootstrap import (
     AUTOMATIC_LAUNCH_REGISTRATION_TEACHING,
     native_launch_bootstrap,
@@ -10,7 +12,11 @@ from yoke_core.domain.session_launch_execution import (
     claim_assigned_launch,
     report_launch_attempt,
 )
-from yoke_core.domain.session_launch_registration import prepare_launch_registration
+from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
+from yoke_core.domain.session_launch_registration import (
+    complete_launch_injection,
+    prepare_launch_registration,
+)
 from yoke_core.domain.session_launch_registration_grace import (
     hold_launch_registration_grace,
 )
@@ -95,6 +101,35 @@ def test_launch_binding_takes_a_live_registration_grace() -> None:
     held_until = parse_timestamp(hold["keepalive_until"])
     assert held_until is not None
     assert held_until > current
+
+
+def test_injected_unacknowledged_launch_expires_with_named_diagnostic() -> None:
+    conn = launch_connection()
+    add_relay(conn)
+    launch, claim = _reported_launch(conn)
+    _register_worker(conn)
+    prepare_launch_registration(
+        conn,
+        launch_id=launch.launch_id,
+        attestation=claim.attestation,
+        session_id=WORKER,
+        now="2026-08-22T12:00:31Z",
+    )
+    injected = complete_launch_injection(
+        conn,
+        launch_id=launch.launch_id,
+        session_id=WORKER,
+        injected=True,
+        now="2026-08-22T12:00:32Z",
+    )
+    assert injected.state == "awaiting_registration"
+    assert injected.result_code == "injected_awaiting_acknowledgement"
+
+    expired = settle_launch_deadlines(
+        conn, now=launch.deadline_at, launch_id=launch.launch_id
+    )
+    assert expired[0].result_code == "launch_acknowledgement_missing"
+    assert json.loads(expired[0].result_evidence)["receipt_state"] == "injected"
 
 
 def test_registration_grace_blocks_empty_end_until_the_worker_can_claim(conn) -> None:

@@ -96,6 +96,7 @@ def test_public_launch_record_uses_one_allowlisted_evidence_projection() -> None
 
     projected = public_launch_record(launch)
 
+    assert projected["message_id"] == launch.message_id
     assert projected["native_session_id"] == "caller"
     assert projected["registered_session_id"] == "caller"
     assert projected["identity_correlation"] == "matched"

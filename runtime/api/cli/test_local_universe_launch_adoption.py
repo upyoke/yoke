@@ -161,8 +161,8 @@ def test_a_registered_native_is_adopted_before_its_mandate_renders(
 
     It used to follow delivery. That is stricter than authority and does not
     always happen: a launch instruction large enough to overflow the inline
-    budget is served as a pointer, so the hook renders no delivery, the launch
-    closes ``registered_and_claimed`` at its deadline, and custody survives.
+    budget is served as a pointer, so the hook renders no delivery and custody
+    survives.
     A registered worker holding its item claim was terminated on exactly that
     path. This hook renders nothing and still retires custody, because the
     session it names is the authority containment was asking about.

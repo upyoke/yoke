@@ -13,6 +13,7 @@ from yoke_core.domain.session_launch_visibility import launch_visibility
 
 _PUBLIC_FIELDS = (
     "launch_id",
+    "message_id",
     "project_id",
     "requested_surface",
     "selected_surface",

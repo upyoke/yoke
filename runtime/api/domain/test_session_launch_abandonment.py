@@ -19,6 +19,7 @@ from yoke_core.domain.session_launch_execution import (
     report_launch_attempt,
 )
 from yoke_core.domain.session_launch_registration import (
+    complete_launch_for_message,
     complete_launch_injection,
     prepare_launch_registration,
 )
@@ -106,12 +107,23 @@ def _delivered_launch(conn, *, key: str = "mandate"):
         (launch.message_id, WORKER),
     )
     conn.commit()
-    return complete_launch_injection(
+    complete_launch_injection(
         conn,
         launch_id=launch.launch_id,
         session_id=WORKER,
         injected=True,
         now="2026-08-22T12:00:32Z",
+    )
+    conn.execute(
+        "UPDATE session_message_recipients SET state='acknowledged' WHERE message_id=?",
+        (launch.message_id,),
+    )
+    conn.commit()
+    return complete_launch_for_message(
+        conn,
+        message_id=launch.message_id,
+        session_id=WORKER,
+        now="2026-08-22T12:00:33Z",
     )
 
 

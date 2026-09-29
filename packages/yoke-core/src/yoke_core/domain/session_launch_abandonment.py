@@ -143,7 +143,7 @@ def settle_launch_native_death(
         recorded = {
             "result_code": ABANDONED_RESULT_CODE,
             "closure_reason": reason,
-            "launch_phase_reached": "registered_and_injected",
+            "launch_phase_reached": "registered_and_acknowledged",
             "registration_session_id": session_id,
             **{
                 name: evidence[name]
@@ -199,7 +199,7 @@ def settle_abandoned_launch(
         evidence = {
             "result_code": ABANDONED_RESULT_CODE,
             "closure_reason": str(end_reason or "session_ended")[:128],
-            "launch_phase_reached": "registered_and_injected",
+            "launch_phase_reached": "registered_and_acknowledged",
             "registration_session_id": session_id,
         }
         flipped = update_launch(

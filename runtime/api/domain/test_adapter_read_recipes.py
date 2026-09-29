@@ -125,8 +125,11 @@ def test_launch_sentence_names_the_message_read() -> None:
     )
 
     sentence = native_launch_bootstrap("launch-id")
-    assert "yoke messages list --state pending" in sentence
+    assert "yoke sessions identity --json" in sentence
+    assert "yoke session-control launch get launch-id --json" in sentence
     assert "yoke messages get MESSAGE-ID" in sentence
+    assert "yoke messages acknowledge MESSAGE-ID" in sentence
+    assert "absent from `yoke messages list --state pending`" in sentence
 
 
 @pytest.mark.parametrize(

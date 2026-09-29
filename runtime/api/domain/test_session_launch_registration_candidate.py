@@ -190,7 +190,7 @@ def test_registered_session_binding_remains_deliverable_after_marker_expiry() ->
     )
 
     assert replayed == injection
-    assert get_launch(conn, launch.launch_id).state == "succeeded"
+    assert get_launch(conn, launch.launch_id).state == "awaiting_registration"
 
 
 @pytest.mark.parametrize(
