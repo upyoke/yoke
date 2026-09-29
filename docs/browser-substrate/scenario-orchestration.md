@@ -99,7 +99,10 @@ Advance flows must not refine or replace it after materialization.
    storage uses `qa.artifact.presign` with direct S3 or the hosted tenant broker
    when either is configured. A client that already holds the bytes can pass them
    inline (`content_base64` plus `filename`) instead of a machine-local
-   handle the server cannot read.
+   handle the server cannot read. From a `*-db-admin` connection these
+   evidence writes relay to the paired https connection, so the screenshots
+   land where a hosted reviewer reads them; evidence already recorded only on
+   a capture machine is moved in place with `yoke qa artifact rehome`.
 9. Prints a JSON result for the named requirement, including its verdict, run
    identity, execution status, artifact paths, and any `vacuous_absences` —
    absence assertions that passed against a locator matching zero elements.

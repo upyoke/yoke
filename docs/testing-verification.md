@@ -227,7 +227,8 @@ and refuses, and how to read a probe that fails:
 The QA screen renders case outcomes and artifacts through the registered
 artifact read surface, which lands bytes at a readable path it reports as
 `path`; captures and review bundles hand back that command. Durable handles
-presign short-lived downloads; the rest reads as on-machine or not portable.
+presign short-lived downloads; the rest reads as on-machine or not portable
+([capture connections and repair](testing-verification/evidence-portability.md)).
 
 ```text
 yoke qa activity list --project <project>

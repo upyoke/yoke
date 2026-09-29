@@ -70,7 +70,12 @@ conclusive agent verdict.
 `human_if_unsure` creates authorized Inbox work only after an evidence-backed
 undetermined case verdict. `required_human` waits until every case passes, then
 creates one whole-stage acceptance request using the configured project roles,
-named actors, and ANY/ALL mode. Item-stage acceptance for every member is a
+named actors, and ANY/ALL mode. Neither request is created while an artifact it
+would show is unreadable where the reviewer looks: the stage answers blocked
+with `evidence_not_portable`, names each artifact, and gives the
+`yoke qa artifact rehome` recovery (see
+[Evidence portability](../testing-verification/evidence-portability.md)).
+Item-stage acceptance for every member is a
 hard prerequisite for later run-scoped QA. Resume/from-stage and flow failure
 policy cannot skip these acceptances.
 
