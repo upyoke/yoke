@@ -90,12 +90,15 @@ def converge_application_role_settings(conn: Any) -> None:
     role that cannot alter its own defaults nor a concurrent boot racing on the
     catalog row can stop the universe from serving.
 
-    The role default reaches sessions Yoke did not open -- ``psql``, a
-    maintenance client -- which is the only reason it still exists. Yoke's own
-    connections no longer depend on it or on this converge having run:
+    The default is scoped to CURRENT_USER in one database, so it reaches
+    sessions Yoke did not open as this role -- ``psql``, a maintenance client
+    -- and nothing else. That scoping is why it cannot be the only guard: a
+    Yoke client authenticating as a different role inherits that role's value,
+    and on the production control plane the admin role a deploy driver uses
+    carried a whole day where the serving role carried two minutes. Yoke's own
+    connections therefore no longer depend on this converge having run:
     :func:`yoke_core.domain.postgres_control_plane_connection.guarded_conninfo`
-    declares the same bound as a startup option on every connection, including
-    the prod-flagged ones this converge refuses to run against.
+    declares the same bound as a startup option on every connection it opens.
     """
     if not db_backend.connection_is_postgres(conn):
         return

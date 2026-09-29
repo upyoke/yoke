@@ -11,10 +11,16 @@ Two guards, answering two different failures:
 * ``idle_in_transaction_session_timeout`` is the server's own bound, declared
   as a libpq startup option so it is in force before the first statement and no
   ``ROLLBACK`` can revert it. It is set per connection rather than only
-  persisted as the role default, because the role default is written by the
-  boot converge and the converge refuses on a prod-flagged connection -- which
-  is exactly the connection a production deploy drives. A guard that exists
-  only where converge ran is absent where the stakes are highest.
+  persisted as the role default, because a role default is scoped to one
+  ``(role, database)`` pair: the boot converge writes it for the role the
+  serving build connects as, and a client connecting as any other role
+  silently inherits that role's value instead. Measured on the production
+  control plane, the serving role carried ``2min`` while the admin role a
+  production deploy driver connects as carried ``1d`` -- which is how an
+  abandoned transaction held a run row for eleven minutes under a guard that
+  looked, from the server's side, like it was already in place. Declaring it
+  on the connection makes the bound a property of every Yoke client, whatever
+  role it authenticates as.
 * TCP keepalives let libpq notice a half-dead forward -- a laptop asleep at the
   far end of an SSH tunnel -- instead of waiting on a socket that will never
   answer, so the client stops pinning its own side too.
@@ -77,8 +83,8 @@ def open_guarded_postgres(dsn: str, **connect_kwargs: Any):
 
     The single place a control-plane Postgres socket is created, so a guard
     added here reaches every mode -- local, self-hosted, hosted -- every
-    environment, and the prod-flagged connections boot converge never runs
-    against.
+    environment, and every role, including the admin roles no boot converge
+    writes a default for.
     """
     import psycopg
 
