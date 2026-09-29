@@ -17,7 +17,6 @@ from yoke_core.domain.strategy_execution_state import (
     StrategyDocClaimAuthorizationError,
     _marker,
     _row,
-    active_strategy_doc_claim,
     claim_holder_label,
 )
 from yoke_core.domain.work_claim_target_sql import scope_int_sql
@@ -100,13 +99,18 @@ def _paired_active_claim(
     session_id = str(row["session_id"])
     document = scope.get("document")
     if document:
-        claim = active_strategy_doc_claim(
-            conn, project_id=project_id, slug=str(document)
+        claim = _row(
+            conn.execute(
+                "SELECT * FROM strategy_doc_claims "
+                f"WHERE project_id = {marker} AND strategy_doc_slug = {marker} "
+                "AND released_at IS NULL",
+                (project_id, str(document)),
+            )
         )
         if (
             claim is None
             or str(claim.get("owner_session_id")) != session_id
-            or claim.get("steering_claim_id") not in (None, int(work_claim_id))
+            or claim.get("steering_claim_id") != int(work_claim_id)
         ):
             raise StrategyDocClaimAuthorizationError(
                 f"steering claim {work_claim_id} has no paired lock on {document}; "

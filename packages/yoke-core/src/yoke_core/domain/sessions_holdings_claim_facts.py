@@ -16,7 +16,6 @@ from typing import Any, Dict, Iterable, List
 from yoke_contracts.public_ref import format_item_ref
 from yoke_contracts.session_holdings import pair_steering_document_slugs
 from yoke_core.domain import db_backend
-from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.turn_end_unfinished_work import waiting_on_landing
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
@@ -133,8 +132,6 @@ def steered_document_slugs(
         clear_failed_read(conn)
         return {}
     paired = pair_steering_document_slugs(dict(row) for row in rows)
-    if not _column_exists(conn, "strategy_doc_claims", "steering_claim_id"):
-        return {int(claim_id): slugs for claim_id, slugs in paired.items()}
     # Active seats have an explicit document pairing. Hold-window overlap is
     # retained only for history written before that identity existed.
     from yoke_core.domain.strategy_doc_steering_pair import (
