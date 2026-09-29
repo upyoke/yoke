@@ -6,6 +6,14 @@ the release-train shape, the flag matrices, and the incidents that
 produced them. Repo-internal — it is not part of the install bundle,
 because none of it is true of a project that merely uses Yoke.
 
+## Worktree cleanup
+
+- **Lane and deploy-run worktree retirement is one contract:** what makes a
+  directory disposable, why a project must declare its rendered gitignored
+  views, how a self-deploy run's detached driver tree is retired from its run
+  status, and what the `max_active_worktrees` refusal tells you to do about
+  each kind. [`docs/source-dev-worktree-cleanup.md`](source-dev-worktree-cleanup.md).
+
 ## CLA signatures branch — Hard Rule
 - **`origin/cla-signatures` is permanent governance state, not a leftover lane.** The CLA Assistant workflow appends signatures there and the required `signature-check` status reads them. Never delete, force-push, reset, or prune it during cleanup — divergence from `main` with no merge-base is expected — and leave it unprotected so the workflow can write.
 

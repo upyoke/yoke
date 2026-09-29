@@ -68,6 +68,8 @@ class TestWorktreeHealth:
                 "branch refs/heads/main\n"
                 "\n"
             )),
+            # git worktree list for the deploy-run driver pass (none here)
+            _completed(stdout=""),
             # git rev-parse --verify <branch> (branch exists)
             _completed(returncode=0, stdout="abc123\n"),
             _completed(stdout=""),  # git remote

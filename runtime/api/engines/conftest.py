@@ -23,6 +23,10 @@ from unittest.mock import patch
 
 import pytest
 
+from runtime.api.engines._merge_landed_lane_test_helpers import (
+    build_landed_lane,
+)
+
 
 @pytest.fixture(scope="session")
 def _engines_isolated_repo_root():
@@ -48,3 +52,13 @@ def _isolate_engines_from_live_config(_engines_isolated_repo_root):
         return_value=repo_root,
     ), patch.dict(os.environ, {"YOKE_MACHINE_CONFIG_FILE": config_path}):
         yield
+
+
+@pytest.fixture()
+def landed_lane(tmp_path: Path):
+    """A repo whose lane branch is merged and pushed, with a live worktree.
+
+    Shared by the landed-lane retirement tests and the declared-residue pair,
+    so both exercise the same real repository shape.
+    """
+    return build_landed_lane(tmp_path)

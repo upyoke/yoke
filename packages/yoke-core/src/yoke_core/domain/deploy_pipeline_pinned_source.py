@@ -14,6 +14,7 @@ terminalize the run, so re-drive by correlation token still recovers it.
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,6 +23,9 @@ from yoke_core.domain import deploy_pipeline_control_plane as control_plane
 from yoke_core.domain.project_checkout_locations import checkout_for_project_slug
 from yoke_core.domain.worktree_paths import _run, captured_process_detail
 from yoke_core.domain.worktree_provision import GIT_WORKTREE_ADD_TIMEOUT_SECONDS
+from yoke_core.engines.deploy_run_worktree_naming import (
+    driver_worktree_path as _driver_worktree_path,
+)
 
 
 PINNED_RELEASE_ENV = "YOKE_DEPLOY_DRIVER_RELEASE"
@@ -84,8 +88,41 @@ def _ensure_commit(repo: str, revision: str) -> str:
     )
 
 
+def retire_finished_driver_worktrees(checkout: Path, current_run_id: str) -> None:
+    """Reclaim finished runs' pinned trees before this run adds its own.
+
+    Advisory by construction: a deploy must not fail because a previous run's
+    directory could not be reclaimed, so every verdict is reported on stderr
+    and nothing here raises. Reporting is the point — a directory that keeps
+    surviving needs to say so, since the cap it consumes is what eventually
+    refuses somebody else's item lane.
+    """
+    from yoke_core.engines.deploy_run_worktree_retirement import (
+        retire_terminal_deploy_run_worktrees,
+    )
+
+    try:
+        verdicts = retire_terminal_deploy_run_worktrees(
+            repo_root=checkout, keep_run_ids=(current_run_id,)
+        )
+    except Exception as exc:  # noqa: BLE001 - never block a deploy on cleanup
+        print(
+            f"Warning: deploy-run worktree sweep failed (non-fatal): {exc}",
+            file=sys.stderr,
+        )
+        return
+    for verdict in verdicts:
+        if verdict.retired:
+            print(f"Retired finished deploy-run worktree: {verdict.path}")
+        elif not verdict.run_is_open:
+            print(
+                f"Keeping deploy-run worktree {verdict.path}: {verdict.reason}",
+                file=sys.stderr,
+            )
+
+
 def driver_worktree_path(checkout: Path, run_id: str) -> Path:
-    return checkout / ".worktrees" / f"deploy-{run_id}"
+    return _driver_worktree_path(checkout, run_id)
 
 
 def ensure_pinned_worktree(checkout: str, run_id: str, revision: str) -> Path:
@@ -136,6 +173,10 @@ def prepare_self_deploy_driver(run_id: str) -> PinnedDriverSource | None:
     checkout = checkout.expanduser().resolve()
     if not _yoke_shaped(checkout):
         return None
+    # Before taking a slot, give back the ones finished runs are still holding.
+    # A deploy is the one moment this checkout is certain to be asked for a
+    # worktree, which makes it the right place to notice the leftovers.
+    retire_finished_driver_worktrees(checkout, run_id)
     root = ensure_pinned_worktree(str(checkout), run_id, lineage)
     return PinnedDriverSource(root=root, lineage=_ensure_commit(str(checkout), lineage))
 
@@ -202,4 +243,5 @@ __all__ = [
     "driver_worktree_path",
     "ensure_pinned_worktree",
     "prepare_self_deploy_driver",
+    "retire_finished_driver_worktrees",
 ]
