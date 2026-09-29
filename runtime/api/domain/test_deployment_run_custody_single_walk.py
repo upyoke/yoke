@@ -133,6 +133,37 @@ def test_no_containment_walk_happens_while_the_run_row_is_locked(
     assert "containment" not in trace[trace.index("lock_run") :]
 
 
+def test_a_resolution_walks_nothing_until_a_reader_asks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Sharing one answer must not become asking a question nobody asked.
+
+    Readers gate before they need custody, and resolving on their behalf
+    reached the project source for runs that got past none of those gates --
+    turning a composition that used to validate into an UndefinedColumn on a
+    universe whose items table predates the columns that walk reads. So
+    building the resolution walks nothing, the first reader to ask walks once,
+    and everyone after it reuses that answer.
+    """
+    walks: list[str] = []
+    monkeypatch.setattr(
+        unheld,
+        "candidate_custody",
+        lambda conn, run_id: walks.append(run_id)
+        or unheld.CandidateCustody(enrollable=(), held=()),
+    )
+
+    resolution = unheld.resolve_candidate_custody(object(), "run-unasked")
+    assert walks == []
+
+    assert resolution.held_ids == frozenset()
+    assert walks == ["run-unasked"]
+
+    assert resolution.held == ()
+    assert resolution.require().enrollable == ()
+    assert walks == ["run-unasked"]
+
+
 def test_candidate_custody_is_walked_once_per_validation(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

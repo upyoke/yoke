@@ -19,7 +19,7 @@ from runtime.api.fixtures.release_output_source import (
     insert_run,
 )
 from yoke_core.domain import deployment_runs
-from yoke_core.domain.deployment_run_carried_membership import (
+from yoke_core.domain.deployment_run_carried_membership_refusal import (
     carried_membership_refusal,
 )
 from yoke_core.domain.deployment_run_release_output_record import (

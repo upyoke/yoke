@@ -233,7 +233,7 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
     if frozen_at:
         return {"run_id": run_id, "frozen_at": frozen_at}
     from yoke_core.domain.deployment_run_lineage_rebind import is_full_commit
-    from yoke_core.domain.deployment_run_carried_membership import (
+    from yoke_core.domain.deployment_run_carried_membership_refusal import (
         carried_membership_refusal,
     )
 

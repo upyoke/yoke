@@ -43,9 +43,10 @@ question, so network I/O with no bound of its own. Four different composition
 readers need the same answer, and asking four times once put three of those
 walks inside the run row lock that enrollment had already taken: a laptop that
 hibernated mid-walk pinned the row until a human terminated the backend.
-:func:`resolve_candidate_custody` answers once, before any lock, and
-:class:`CustodyResolution` is what the readers pass around. Because custody is
-asked with ``exclude_run_id`` set to this run, enrolling its own members cannot
+:func:`resolve_candidate_custody` hands every reader one
+:class:`CustodyResolution`, which walks at most once and only when a reader
+that got past its own preconditions actually asks. Because custody is asked
+with ``exclude_run_id`` set to this run, enrolling its own members cannot
 change the answer, so one resolution stays valid for the whole composition.
 """
 
@@ -121,49 +122,78 @@ def candidate_custody(conn: Any, run_id: str) -> CandidateCustody:
     )
 
 
-@dataclass(frozen=True)
 class CustodyResolution:
-    """One custody answer, plus the refusal if it could not be answered.
+    """One candidate-custody answer, walked at most once and shared by readers.
 
-    Custody is unanswerable when a landing has no attributable commit or a
-    source cannot be read. Enrollment must raise on that -- it would otherwise
-    compose a membership it could not justify -- while the readers that only
-    *narrow* a report must not, because a lost narrowing is a worse answer than
-    no answer but a raised one is no answer at all. Carrying both lets each
-    reader keep the behaviour it already had off a single walk.
+    Lazy on purpose, and that is the whole contract. Every reader gates on its
+    own preconditions first -- a run with no release lineage, a frozen or
+    inherited composition, a delivery that is not this run's final one -- and
+    several return before custody is relevant at all. Walking eagerly on the
+    caller's behalf would reach the project source for runs that never asked,
+    which is both a wasted round trip and a new failure mode: a universe whose
+    schema cannot answer the question would start refusing compositions that
+    never needed it. Resolving on first use keeps each reader's precondition
+    exactly where it was while still costing one walk for all of them.
+
+    The walk is therefore triggered by whichever reader needs it first, and
+    enrollment -- the only reader that takes the run row lock -- needs it
+    before it locks. So the network round trip stays outside the lock whether
+    enrollment resolves it or skips it.
     """
 
-    custody: CandidateCustody | None
-    refusal: str | None
+    __slots__ = ("_conn", "_run_id", "_custody", "_refusal", "_walked")
+
+    def __init__(self, conn: Any, run_id: str) -> None:
+        self._conn = conn
+        self._run_id = run_id
+        self._custody: CandidateCustody | None = None
+        self._refusal: str | None = None
+        self._walked = False
+
+    def _resolve(self) -> None:
+        """Walk custody once, keeping an unanswerable one as a named refusal.
+
+        Enrollment must raise on that -- it would otherwise compose a
+        membership it could not justify -- while the readers that only *narrow*
+        a report must not, because a lost narrowing beats a raised reader.
+        Holding both lets each keep the behaviour it already had.
+        """
+        if self._walked:
+            return
+        self._walked = True
+        try:
+            self._custody = candidate_custody(self._conn, self._run_id)
+        except (LookupError, ValueError) as exc:
+            self._refusal = str(exc)
 
     def require(self) -> CandidateCustody:
         """Return the custody, or raise the refusal that prevented answering."""
-        if self.custody is None:
-            raise ValueError(self.refusal or "candidate custody is undetermined")
-        return self.custody
+        self._resolve()
+        if self._custody is None:
+            raise ValueError(self._refusal or "candidate custody is undetermined")
+        return self._custody
 
     @property
     def held_ids(self) -> frozenset[int]:
         """Held landings, empty when custody could not be determined."""
-        return self.custody.held_ids if self.custody is not None else frozenset()
+        self._resolve()
+        return self._custody.held_ids if self._custody is not None else frozenset()
 
     @property
     def held(self) -> tuple[HeldCandidate, ...]:
         """Held landings in item order, empty when custody is undetermined."""
-        return self.custody.held if self.custody is not None else ()
+        self._resolve()
+        return self._custody.held if self._custody is not None else ()
 
 
 def resolve_candidate_custody(conn: Any, run_id: str) -> CustodyResolution:
-    """Walk this run's candidate custody once, tolerating an unanswerable one.
+    """Hand back the shared custody answer for *run_id*, unwalked.
 
-    Call this before taking any run or binding lock and hand the result to
-    every consumer: the walk reaches GitHub, and no network round trip belongs
-    inside a row lock a deploy holds.
+    Build this before taking any run or binding lock and pass it to every
+    consumer: the walk it defers reaches the project source, and no network
+    round trip belongs inside a row lock a deploy is holding.
     """
-    try:
-        return CustodyResolution(candidate_custody(conn, run_id), None)
-    except (LookupError, ValueError) as exc:
-        return CustodyResolution(None, str(exc))
+    return CustodyResolution(conn, run_id)
 
 
 def unheld_candidate_ids(conn: Any, run_id: str) -> tuple[int, ...]:
