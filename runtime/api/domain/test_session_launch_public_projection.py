@@ -96,6 +96,7 @@ def test_public_launch_record_uses_one_allowlisted_evidence_projection() -> None
 
     projected = public_launch_record(launch)
 
+    assert projected["message_id"] == launch.message_id
     assert projected["native_session_id"] == "caller"
     assert projected["registered_session_id"] == "caller"
     assert projected["identity_correlation"] == "matched"
@@ -116,7 +117,6 @@ def test_public_launch_record_uses_one_allowlisted_evidence_projection() -> None
     }
     assert {
         "attestation_hash",
-        "message_id",
         "idempotency_key",
         "requester_actor_id",
         "requester_session_id",
@@ -155,12 +155,13 @@ def test_get_and_list_return_the_safe_projection_after_operator_auth(
         *listed.result_payload["history"],
     ]
     assert listed_rows
+    assert fetched.result_payload["launch"]["message_id"] == launch.message_id
     for row in [fetched.result_payload["launch"], *listed_rows]:
-        assert "message_id" not in row
         assert "attestation_hash" not in row
     # A list row is compact: evidence and native identity are detail-only, so
     # a page of a hundred launches carries none of it.
     for row in listed_rows:
+        assert "message_id" not in row
         assert "result_evidence" not in row
         assert "native_session_id" not in row
         assert row["project"] == "launch-project"

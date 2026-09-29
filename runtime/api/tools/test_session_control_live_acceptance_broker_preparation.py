@@ -128,8 +128,9 @@ class _RecoveryClient:
             return {
                 "launch": {
                     "launch_id": args[3],
-                    "state": "succeeded",
-                    "result_code": "registered_and_injected",
+                    "state": "awaiting_registration",
+                    "result_code": "injected_awaiting_acknowledgement",
+                    "message_id": f"message-{role}",
                     "requested_surface": SURFACE,
                     "registered_session_id": session_id,
                     "native_session_id": session_id,

@@ -81,6 +81,16 @@ def acknowledge_message(
         None,
     )
     if recipient is not None:
+        from yoke_core.domain.session_launch_registration import (
+            complete_launch_for_message,
+        )
+
+        complete_launch_for_message(
+            conn,
+            message_id=message_id,
+            session_id=session_id,
+            commit=False,
+        )
         from yoke_core.domain.session_private_route_qualification import (
             PrivateRouteQualificationError,
             consume_qualification_grant,

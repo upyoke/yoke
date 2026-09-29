@@ -73,6 +73,8 @@ def launch_visibility(
 
     if state == "succeeded":
         delivery = "delivered"
+    elif result == "injected_awaiting_acknowledgement":
+        delivery = "awaiting_acknowledgement"
     elif state in TERMINAL_DELIVERY_STATES:
         delivery = "not_delivered"
     else:

@@ -139,7 +139,7 @@ def _register_candidate(
     conn.commit()
 
 
-def test_bound_registration_replays_and_success_requires_injection_completion() -> None:
+def test_bound_registration_replays_and_injection_awaits_acknowledgement() -> None:
     conn = launch_connection()
     add_relay(conn)
     launch, claim = _awaiting_launch(conn)
@@ -177,7 +177,8 @@ def test_bound_registration_replays_and_success_requires_injection_completion() 
         injected=True,
         now="2026-08-22T12:00:33Z",
     )
-    assert completed.state == "succeeded"
+    assert completed.state == "awaiting_registration"
+    assert completed.result_code == "injected_awaiting_acknowledgement"
     assert (
         conn.execute(
             "SELECT state FROM session_message_recipients WHERE message_id = ?",
@@ -220,7 +221,7 @@ def test_dropped_first_hook_recovers_through_ordinary_message_delivery() -> None
         session_id="session-render-crash",
         now="2026-08-22T12:00:33Z",
     )
-    assert completed and completed.state == "succeeded"
+    assert completed and completed.state == "awaiting_registration"
     assert (
         conn.execute(
             "SELECT injection_count FROM session_message_recipients WHERE message_id=?",

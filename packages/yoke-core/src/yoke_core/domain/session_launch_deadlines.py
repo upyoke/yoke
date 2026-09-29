@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.session_launch_bound_liveness import bound_session_delivered
 from yoke_core.domain.session_launch_closure_evidence import (
     closure_evidence,
     open_attempt,
@@ -123,20 +122,27 @@ def _expire_at_deadline(
     and are written while they still are.
     """
     registration = launch.state == "awaiting_registration"
-    if registration and bound_session_delivered(conn, launch, now=now):
-        # The bound session came up, took the item's work claim, and is
-        # running: the launch reached a live worker even though the raw
-        # injection receipt lapsed. Closing it ``failed`` and cancelling the
-        # instruction would contradict a session that is visibly working, so
-        # close it delivered and leave the instruction message alone.
-        return update_launch(
-            conn,
-            launch.launch_id,
-            state="succeeded",
-            completed_at=now,
-            result_code="registered_and_claimed",
-        )
-    result_code = "registration_deadline" if registration else "launch_deadline"
+    receipt = None
+    if registration and launch.registered_session_id:
+        p = marker(conn)
+        receipt = conn.execute(
+            f"SELECT state FROM session_message_recipients "
+            f"WHERE message_id={p} AND session_id={p}",
+            (launch.message_id, launch.registered_session_id),
+        ).fetchone()
+    receipt_state = str(value(receipt, "state", 0)) if receipt is not None else ""
+    unacknowledged = bool(launch.registered_session_id) and receipt_state in (
+        "pending",
+        "injected",
+        "expired",
+    )
+    result_code = (
+        "launch_acknowledgement_missing"
+        if unacknowledged
+        else "registration_deadline"
+        if registration
+        else "launch_deadline"
+    )
     evidence = closure_evidence(
         conn,
         launch=launch,
@@ -147,6 +153,12 @@ def _expire_at_deadline(
         started_at=launch.awaiting_registration_at or launch.launching_at,
         now=now,
     )
+    if unacknowledged:
+        evidence["receipt_state"] = receipt_state
+        evidence["recovery"] = (
+            "Inspect the native turn and hook evidence, then retry the launch; "
+            "the injected message was never acknowledged."
+        )
     return update_launch(
         conn,
         launch.launch_id,

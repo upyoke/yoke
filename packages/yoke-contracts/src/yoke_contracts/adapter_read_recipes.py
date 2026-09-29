@@ -100,16 +100,12 @@ RECIPES: tuple[ReadRecipe, ...] = (
             "yoke projects environment-settings get --project P "
             "--environment E --path key.path"
         ),
-        note=(
-            "A projection read takes the path to the value and serves that "
-            "value."
-        ),
+        note=("A projection read takes the path to the value and serves that value."),
     ),
     ReadRecipe(
         want="Specific rows",
         recipe=(
-            'yoke db read "SELECT id, status FROM items '
-            'ORDER BY id DESC LIMIT 20"'
+            'yoke db read "SELECT id, status FROM items ORDER BY id DESC LIMIT 20"'
         ),
         note=(
             "The columns, the filter, and the row count are all part of the "
@@ -117,11 +113,21 @@ RECIPES: tuple[ReadRecipe, ...] = (
         ),
     ),
     ReadRecipe(
-        want="The message waiting for this session",
+        want="An ordinary pending message",
         recipe="yoke messages list --state pending",
         note=(
             "The list serves one row per message; `yoke messages get "
-            "MESSAGE-ID` then serves that one message."
+            "MESSAGE-ID` then serves that one message. Injected launch "
+            "messages are absent from this list."
+        ),
+    ),
+    ReadRecipe(
+        want="A launched session's assigned message",
+        recipe="yoke session-control launch get LAUNCH-ID --json",
+        note=(
+            "Read its message_id, then `yoke messages get MESSAGE-ID` and "
+            "`yoke messages acknowledge MESSAGE-ID`. An unacknowledged "
+            "launch remains in flight and expires with a named diagnostic."
         ),
     ),
     ReadRecipe(
@@ -130,7 +136,7 @@ RECIPES: tuple[ReadRecipe, ...] = (
         note=(
             "A watcher wrapper prints its raw capture path, so read that "
             "file once the run exits; a command with no wrapper is captured "
-            'first with `_tmp=$(mktemp /tmp/yoke-cmd.XXXXXX); <command> '
+            "first with `_tmp=$(mktemp /tmp/yoke-cmd.XXXXXX); <command> "
             '>"$_tmp" 2>&1; _rc=$?` and the file read.'
         ),
     ),

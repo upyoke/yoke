@@ -11,9 +11,7 @@ here: it has authority, and watching it for death is the relay liveness poll's
 job through the launch handle.
 
 That release used to require the mandate to render as well, which is a
-stricter fact than authority and does not always happen: a launch closed
-``registered_and_claimed`` at its deadline reaches a live worker without ever
-rendering an instruction. One such worker -- registered, holding its item
+stricter fact than authority and does not always happen. One worker -- registered, holding its item
 claim, working -- was reaped here at the deadline plus the grace below. So the
 release moved to registration, and the check below is its backstop rather than
 its only guard: before terminating anything, the sweep asks this machine's own

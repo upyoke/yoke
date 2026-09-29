@@ -34,10 +34,14 @@ def wait_for_registered_launch(
     sleep: Callable[[float], None],
     monotonic: Callable[[], float],
 ) -> tuple[str, dict[str, Any]]:
-    """Wait for one launch and bind its native and registered identities."""
+    """Wait for native and registered identities before testing acknowledgement."""
     deadline = monotonic() + timeout
     current = launch
-    while current.get("state") not in _TERMINAL_STATES:
+    while not current.get("registered_session_id"):
+        if current.get("state") in _TERMINAL_STATES:
+            raise AcceptanceContractError(
+                "launch_registration_missing", surface=surface
+            )
         if monotonic() >= deadline:
             raise AcceptanceContractError("launch_timeout", surface=surface)
         sleep(poll)
@@ -54,58 +58,12 @@ def wait_for_registered_launch(
         surface=surface,
     )
     if (
-        current.get("state") != "succeeded"
-        or current.get("result_code") != "registered_and_injected"
-        or current.get("requested_surface") != surface
+        current.get("requested_surface") != surface
         or current.get("native_session_id") != registered
+        or current.get("state") not in {"awaiting_registration", "succeeded"}
     ):
         raise AcceptanceContractError("launch_identity_unproven", surface=surface)
     return registered, current
-
-
-def _launch_message_id(
-    client: CommandClient,
-    *,
-    launch_id: str,
-    session_id: str,
-    surface: str,
-) -> str:
-    listed = client.call(
-        [
-            "messages",
-            "list",
-            "--recipient-session",
-            session_id,
-            "--limit",
-            "500",
-        ]
-    )
-    messages = listed.get("messages")
-    if not isinstance(messages, list):
-        raise AcceptanceContractError("launch_message_missing", surface=surface)
-    matched: set[str] = set()
-    expected = {"anchor": "launch", "launch_id": launch_id}
-    for message in messages:
-        if not isinstance(message, dict):
-            continue
-        message_id = message.get("message_id")
-        recipients = message.get("recipients")
-        if not isinstance(message_id, str) or not message_id.strip():
-            continue
-        if not isinstance(recipients, list):
-            continue
-        if any(
-            isinstance(recipient, dict)
-            and recipient.get("session_id") == session_id
-            and recipient.get("resolution_evidence") == expected
-            for recipient in recipients
-        ):
-            matched.add(message_id.strip())
-    if not matched:
-        raise AcceptanceContractError("launch_message_missing", surface=surface)
-    if len(matched) != 1:
-        raise AcceptanceContractError("launch_message_ambiguous", surface=surface)
-    return matched.pop()
 
 
 def create_and_bind(
@@ -172,10 +130,9 @@ def create_and_bind(
         sleep=sleep,
         monotonic=monotonic,
     )
-    message_id = _launch_message_id(
-        client,
-        launch_id=launch_id,
-        session_id=registered,
+    message_id = require_text(
+        launch.get("message_id"),
+        code="launch_message_missing",
         surface=cell.surface,
     )
     registration = validate_roster(project, cell, registered)

@@ -100,7 +100,7 @@ def test_native_report_binds_a_session_that_registered_before_correlation() -> N
         "2026-08-22T12:00:30Z",
     )
     assert _inject_through_ordinary_delivery(conn, launch, "native-session").state == (
-        "succeeded"
+        "awaiting_registration"
     )
 
 

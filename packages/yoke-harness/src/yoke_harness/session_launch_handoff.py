@@ -194,9 +194,8 @@ def release_launch_containment(
     only the first is containment's.
 
     Every settlement that proves registration therefore lands here. The one
-    that renders its instruction goes on to suppress replay; the one closed
-    ``registered_and_claimed`` at its deadline never renders anything, and used
-    to leave the record behind for the sweep. A worker that had registered,
+    that renders its instruction goes on to suppress replay; one whose hook
+    renders nothing used to leave the record behind for the sweep. A worker that had registered,
     taken its item claim and was working was reaped on that path, at the
     registration deadline plus the sweep's own grace, with nothing naming it.
 

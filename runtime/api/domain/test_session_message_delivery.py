@@ -13,6 +13,7 @@ from yoke_core.domain.session_message_delivery import (
     lease_for_hook,
 )
 from yoke_core.domain.session_message_observer import read_for_hook
+from yoke_core.domain.session_message_receipts import acknowledge_message
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_turn_posture import stamp_turn_posture
@@ -304,7 +305,8 @@ def test_waiting_receipt_with_injection_lease_does_not_wake_immediately() -> Non
     assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1)) == []
 
 
-def test_hook_completion_closes_bound_launch_in_the_same_mutation() -> None:
+@pytest.mark.parametrize("injected", [False, True])
+def test_launch_completes_only_after_recipient_acknowledges(injected: bool) -> None:
     conn = message_connection()
     message_id = _send(conn)
     conn.execute(
@@ -316,12 +318,18 @@ def test_hook_completion_closes_bound_launch_in_the_same_mutation() -> None:
         (message_id, NOW_TEXT),
     )
     conn.commit()
-    lease = lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10)
-    assert lease
-    complete_hook_lease(
-        conn, lease_id=lease["lease_id"], injected=True, result="injected"
-    )
+    if injected:
+        lease = lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10)
+        assert lease
+        complete_hook_lease(
+            conn, lease_id=lease["lease_id"], injected=True, result="injected"
+        )
     launch = conn.execute(
         "SELECT state,result_code FROM session_launches WHERE launch_id='launch-1'"
     ).fetchone()
-    assert tuple(launch) == ("succeeded", "registered_and_injected")
+    assert tuple(launch) == ("awaiting_registration", None)
+    acknowledge_message(conn, message_id=message_id, session_id="s1", now=NOW)
+    launch = conn.execute(
+        "SELECT state,result_code FROM session_launches WHERE launch_id='launch-1'"
+    ).fetchone()
+    assert tuple(launch) == ("succeeded", "registered_and_acknowledged")

@@ -51,6 +51,7 @@ function instructionDeliveryPresentation(launch) {
   const state = String(launch.instruction_delivery || "unknown");
   const labels = {
     delivered: "Launch instruction delivered",
+    awaiting_acknowledgement: "Mandate injected; awaiting recipient acknowledgement",
     not_delivered: "Launch instruction not delivered",
     pending: "Launch instruction delivery pending",
     unknown: "Launch instruction delivery status unavailable",
@@ -78,6 +79,9 @@ function appendLaunchIdentity(documentNode, body, launch) {
     "p",
     `session-launch-delivery ${delivery.state}`,
     delivery.label,
+  ));
+  if (launch.message_id) body.appendChild(el(
+    documentNode, "p", "session-launch-message", `Mandate message ${launch.message_id}`,
   ));
   const evidence = launch.result_evidence;
   if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) return;
@@ -182,11 +186,14 @@ export function appendLaunchDetail(documentNode, body, launch, mutate) {
   if (RECONCILE_FIRST_STATES.has(launch.state)) {
     appendReconcileControls(documentNode, body, actions, launch, mutate);
   } else if (RETRYABLE_STATES.has(launch.state)) {
+    const missingAck = launch.result_code === "launch_acknowledgement_missing";
     body.appendChild(el(
       documentNode,
       "p",
       "session-launch-guidance",
-      "This attempt stopped before registration. Retry starts a new attempt with the same exact request.",
+      missingAck
+        ? "The registered session never acknowledged its mandate. Inspect its message receipt and resolve any active work claim before retrying."
+        : "This attempt stopped before registration. Retry starts a new attempt with the same exact request.",
     ));
   }
   appendAction(

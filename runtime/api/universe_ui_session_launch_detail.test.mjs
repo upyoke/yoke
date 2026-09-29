@@ -132,6 +132,30 @@ test("expanding one row fetches its record and keeps its actions", async (t) => 
   mounted.unmount();
 });
 
+test("an unacknowledged launch names its mandate and recovery", async (t) => {
+  const client = clientFor({
+    "session_control.launch.list": () => page({
+      operational: [launch("launch-unacknowledged", { state: "failed" })],
+      operational_count: 1,
+    }),
+    "session_control.launch.get": () => ok({
+      launch: launch("launch-unacknowledged", {
+        state: "failed",
+        result_code: "launch_acknowledgement_missing",
+        message_id: "mandate-message",
+        instruction_delivery: "not_delivered",
+        registered_session_id: "worker-session",
+      }),
+    }),
+  });
+  const { root, mounted } = await mountAt(t, client);
+  button(root, "Details").dispatchEvent(new Event("click"));
+  await settle();
+  assert.ok(text(root).includes("Mandate message mandate-message"));
+  assert.ok(text(root).includes("never acknowledged its mandate"));
+  mounted.unmount();
+});
+
 test("a retry reloads the list and refreshes the open record", async (t) => {
   let retried = false;
   const listed = [];

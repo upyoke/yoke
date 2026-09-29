@@ -68,13 +68,6 @@ class _ScenarioClient:
             return self._create(argv)
         if argv[:4] == ["session-control", "launch", "get", "launch-1"]:
             return {"launch": self._launch(terminal=True)}
-        if argv[:2] == ["messages", "list"]:
-            recipient = {
-                **self._recipient(),
-                "resolution_evidence": {"anchor": "launch", "launch_id": "launch-1"},
-            }
-            message = {"message_id": "launch-message", "recipients": [recipient]}
-            return {"messages": [message]}
         if argv[:2] == ["say", "--preview"]:
             return {"recipient_count": 1, "recipients": [self._recipient()]}
         if argv[:2] == ["say", "--stdin"]:
@@ -148,7 +141,8 @@ class _ScenarioClient:
         return {
             "launch_id": "launch-1",
             "state": "succeeded" if terminal else "queued",
-            "result_code": "registered_and_injected" if terminal else None,
+            "result_code": "registered_and_acknowledged" if terminal else None,
+            "message_id": "launch-message",
             "requested_surface": self.cell.surface,
             "native_session_id": self.session_id if terminal else None,
             "registered_session_id": registered if terminal else None,

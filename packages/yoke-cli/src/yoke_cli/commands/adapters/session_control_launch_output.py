@@ -52,11 +52,17 @@ def _instruction_delivery(launch: Mapping[str, Any]) -> str:
         "delivered": "delivered",
         "not_delivered": "not delivered",
         "pending": "pending",
+        "awaiting_acknowledgement": "awaiting recipient acknowledgement",
         "unknown": "status unavailable",
     }.get(state, humanize(state))
 
 
 def _launch_recovery(launch: Mapping[str, Any]) -> str | None:
+    if launch.get("result_code") == "launch_acknowledgement_missing":
+        return (
+            "Inspect the registered session and its message receipt; resolve "
+            "any active work claim before retrying this launch."
+        )
     if launch.get("result_code") == "model_combo_unsupported":
         return (
             "Choose a supported model, reasoning effort, and context window; "

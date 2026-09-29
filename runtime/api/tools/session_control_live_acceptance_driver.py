@@ -163,6 +163,18 @@ class LiveAcceptanceDriver:
             initial = self._wait_ack(
                 cell, session_id, initial_id, timeout=timeout, poll=poll
             )
+            completed = self.client.call(
+                ["session-control", "launch", "get", launch["launch_id"]]
+            ).get("launch")
+            if (
+                not isinstance(completed, dict)
+                or completed.get("state") != "succeeded"
+                or completed.get("result_code") != "registered_and_acknowledged"
+                or completed.get("message_id") != initial_id
+            ):
+                raise AcceptanceContractError(
+                    "launch_acknowledgement_unproven", surface=cell.surface
+                )
         candidate = qualification is not None and not cell.wake_supported
         waiting = roster.wait_for_waiting_registration(
             self.client,
