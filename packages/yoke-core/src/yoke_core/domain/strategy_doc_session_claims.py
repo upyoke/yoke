@@ -77,6 +77,22 @@ def acquire_session_doc_claim(
         )
     _require_live_session(conn, clean_session)
     get_doc(conn, int(project_id), slug)
+    if steering_claim_id is not None:
+        paired_elsewhere = _row(
+            conn.execute(
+                "SELECT strategy_doc_slug FROM strategy_doc_claims "
+                f"WHERE steering_claim_id = {_marker(conn)} "
+                "AND released_at IS NULL AND strategy_doc_slug <> "
+                f"{_marker(conn)}",
+                (int(steering_claim_id), slug),
+            )
+        )
+        if paired_elsewhere is not None:
+            raise StrategyDocClaimConflictError(
+                f"steering claim {steering_claim_id} already pairs document "
+                f"{paired_elsewhere['strategy_doc_slug']!r}; release that seat "
+                "before pairing another document"
+            )
     held = active_strategy_doc_claim(conn, project_id=int(project_id), slug=slug)
     if held is not None:
         if (

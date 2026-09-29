@@ -80,6 +80,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_strategy_doc_claims_active_owner_item
   ON strategy_doc_claims(owner_item_id)
   WHERE released_at IS NULL;
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_strategy_doc_claims_active_steering_seat
+  ON strategy_doc_claims(steering_claim_id)
+  WHERE released_at IS NULL AND steering_claim_id IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_strategy_doc_claims_item_history
   ON strategy_doc_claims(owner_item_id, registered_at);
 
