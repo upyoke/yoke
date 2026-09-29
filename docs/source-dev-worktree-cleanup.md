@@ -139,9 +139,14 @@ same `max_active_worktrees` slot an item lane does.
 
 It is retired from its run's own status instead, by whichever of these comes
 first: a self-deploy sweeping before it pins its own source, the machine-wide
-sweep any landing runs, or `yoke doctor --fix`. Only a status the run-status
-vocabulary names terminal (`succeeded`, `failed`, `cancelled`) releases the
-directory. A run still `created` or `executing` is not a finding. An empty,
+sweep any landing runs, or the health check's own repair:
+
+```text
+yoke watch doctor -- --only HC-worktree-health --fix
+```
+
+Only a status the run-status vocabulary names terminal (`succeeded`, `failed`,
+`cancelled`) releases the directory. A run still `created` or `executing` is not a finding. An empty,
 unrecognised, or unreadable status, a tree holding anything the residue policy
 will not name, and a tree the sweeping process is itself executing from all
 keep the directory with the reason named — reclaiming a live run's pinned
@@ -157,8 +162,9 @@ own recovery, because merging is not the recovery for a deploy-run lane:
 ```text
 max_active_worktrees limit reached (50 active + 1 pending > 50). Merge
 existing worktrees before creating more. Item lanes: .... 36 slot(s) are held
-by deploy-run driver trees, which no merge retires — run `yoke doctor --fix`
-to retire the finished ones. Deploy-run lanes: ...
+by deploy-run driver trees, which no merge retires — run `yoke watch doctor --
+--only HC-worktree-health --fix` to retire the finished ones. Deploy-run
+lanes: ...
 ```
 
 ## Keep Non-Ancestor Evidence Branches

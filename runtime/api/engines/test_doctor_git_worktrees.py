@@ -186,7 +186,11 @@ class TestHcWorktreeHealth:
     @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
     @patch("yoke_core.engines.doctor_report._run")
     def test_clean_worktrees_pass(self, mock_run, mock_root):
-        mock_run.side_effect = [_make_completed(stdout=("worktree /fake/repo\nbranch refs/heads/main\n\n"))]
+        mock_run.side_effect = [
+            _make_completed(stdout=("worktree /fake/repo\nbranch refs/heads/main\n\n")),
+            # The deploy-run driver pass re-lists worktrees; none here.
+            _make_completed(stdout=""),
+        ]
         conn = _make_conn()
         rec = _run_hc(hc_worktree_health, conn)
         assert rec.results[0].result == "PASS"

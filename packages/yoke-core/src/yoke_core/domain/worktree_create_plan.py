@@ -22,6 +22,11 @@ from yoke_core.domain.worktree_lane_plan import (
 )
 
 
+# The resolvable invocation, not the shorthand: a reader copies this out of a
+# refusal, so `yoke doctor --fix` — which routes nowhere — would strand them.
+DOCTOR_RETIRE_RECIPE = "yoke watch doctor -- --only HC-worktree-health --fix"
+
+
 def _capacity_recovery(active_names: Sequence[str]) -> str:
     """Name what holds the slots and the recovery that actually frees them.
 
@@ -46,8 +51,8 @@ def _capacity_recovery(active_names: Sequence[str]) -> str:
     if driver_lanes:
         parts.append(
             f"{len(driver_lanes)} slot(s) are held by deploy-run driver trees, "
-            "which no merge retires — run `yoke doctor --fix` to retire the "
-            f"finished ones. Deploy-run lanes: {', '.join(driver_lanes)}."
+            f"which no merge retires — run `{DOCTOR_RETIRE_RECIPE}` to retire "
+            f"the finished ones. Deploy-run lanes: {', '.join(driver_lanes)}."
         )
     return " ".join(parts) if parts else "No active worktrees were reported."
 

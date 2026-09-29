@@ -62,7 +62,8 @@ _TERMINAL = ("done", "cancelled")
 # Summary order: what needs an operator first, what the next landing sweeps last.
 _DEPLOY_RUN_CATEGORY = "finished deploy run"
 _DEPLOY_RUN_RETIRABLE_LABEL = (
-    "verified-safe; --fix retires it, as does the next landing on this machine"
+    "verified-safe; this check's --fix retires it, as does the next landing "
+    "on this machine"
 )
 _STRANDED_ORDER = (
     "dirty",

@@ -10,7 +10,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_core.domain.worktree_create_plan import preflight_worktree_plan
+from yoke_core.domain.worktree_create_plan import (
+    DOCTOR_RETIRE_RECIPE,
+    preflight_worktree_plan,
+)
 
 
 def _refusal(tmp_path: Path, active_names: list[str]) -> str:
@@ -44,7 +47,9 @@ def test_deploy_run_lanes_are_told_the_recovery_that_frees_them(
 
     assert "2 slot(s) are held by deploy-run driver trees" in error
     assert "which no merge retires" in error
-    assert "yoke doctor --fix" in error
+    # The resolvable invocation, so a reader can copy it straight out.
+    assert DOCTOR_RETIRE_RECIPE in error
+    assert DOCTOR_RETIRE_RECIPE.startswith("yoke watch doctor -- ")
     # No item lane is holding a slot, so no reader is sent to merge anything.
     assert "Merge existing worktrees" not in error
 
