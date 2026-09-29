@@ -11,7 +11,11 @@ from typing import Any, Callable, Optional
 
 from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_BYTES
 
-from yoke_core.domain import db_backend
+from yoke_core.domain.qa_artifact_owner import requirement_storage_owner
+from yoke_core.domain.qa_evidence_portability import (
+    EVIDENCE_NOT_PORTABLE,
+    local_store_refusal,
+)
 
 
 ARTIFACT_PRESIGN_EXPIRES_S = 900
@@ -25,49 +29,6 @@ class ArtifactStorageError(RuntimeError):
         self.code = code
 
 
-def requirement_storage_owner(conn: Any, requirement_id: int) -> dict[str, Any]:
-    """Resolve the project and storage subject owning one QA requirement."""
-
-    from yoke_core.domain.db_helpers import query_one
-
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = query_one(
-        conn,
-        "SELECT r.item_id, r.epic_id, r.task_num, r.deployment_run_id, "
-        "r.target_env, COALESCE(m.project_id,i.project_id) "
-        "AS project_id, p.slug AS project "
-        "FROM qa_requirements r "
-        "LEFT JOIN items i ON i.id=r.item_id "
-        "LEFT JOIN items m ON m.id=r.deployment_member_item_id "
-        "LEFT JOIN projects p ON p.id=COALESCE(m.project_id,i.project_id) "
-        f"WHERE r.id = {marker}",
-        (int(requirement_id),),
-    )
-    if row is None:
-        raise LookupError(f"requirement {requirement_id} not found")
-    owner = dict(row)
-    if owner["project"] is None and owner["deployment_run_id"] is not None:
-        deployment_owner = query_one(
-            conn,
-            "SELECT d.project_id, p.slug AS project "
-            "FROM deployment_runs d "
-            "LEFT JOIN projects p ON p.id = d.project_id "
-            f"WHERE d.id = {marker}",
-            (str(owner["deployment_run_id"]),),
-        )
-        if deployment_owner is not None:
-            owner.update(dict(deployment_owner))
-    if owner["project"] is None:
-        raise ValueError(
-            f"requirement {requirement_id} resolves to no project through its "
-            f"owner (item_id={owner['item_id']!r}, "
-            f"epic_id={owner['epic_id']!r}, "
-            f"deployment_run_id={owner['deployment_run_id']!r}); durable "
-            "evidence requires an item-owned or deployment-run-owned requirement"
-        )
-    return owner
-
-
 def _checked_bytes(content: bytes) -> bytes:
     if not content:
         raise ValueError("artifact content is empty")
@@ -76,6 +37,21 @@ def _checked_bytes(content: bytes) -> bytes:
             f"artifact content is {len(content)} bytes; limit is {MAX_ARTIFACT_BYTES}"
         )
     return content
+
+
+def _configured_store(conn: Any, owner: dict[str, Any]) -> Any:
+    """The owner's configured object store, or None when none is declared."""
+    from yoke_core.domain.handlers.qa_artifact_presign import resolve_artifacts_bucket
+    from yoke_core.domain.qa_artifact_broker import ArtifactBrokerError
+
+    try:
+        return resolve_artifacts_bucket(
+            conn, int(owner["project_id"]), owner["target_env"]
+        )
+    except ArtifactBrokerError as exc:
+        raise ArtifactStorageError(exc.code, str(exc)) from exc
+    except ValueError as exc:
+        raise ArtifactStorageError("s3_configuration_invalid", str(exc)) from exc
 
 
 def _write_permanent_local(
@@ -162,15 +138,17 @@ def store_artifact_bytes(
 ) -> dict[str, Any]:
     """Store bytes in configured S3 or permanent server-local storage.
 
-    Only a genuinely absent artifacts bucket selects local storage. Once a
-    bucket is configured, missing credentials, invalid configuration, and
-    upload failures are explicit errors and never downgrade to disk.
+    Only a genuinely absent artifacts bucket selects local storage, and only
+    where this process is the build serving the universe: a database door
+    into a hosted universe refuses rather than writing bytes no hosted
+    reviewer can open. Once a bucket is configured, missing credentials,
+    invalid configuration, and upload failures are explicit errors and never
+    downgrade to disk.
     """
 
     from yoke_core.domain.handlers.qa_artifact_presign import (
         _aws_region,
         _capability_credentials,
-        resolve_artifacts_bucket,
     )
     from yoke_core.domain.qa_artifact_handle import build_artifact_key, s3_handle
     from yoke_core.domain.qa_artifacts import case_artifact_subject
@@ -183,15 +161,11 @@ def store_artifact_bytes(
 
     checked = _checked_bytes(content)
     owner = requirement_storage_owner(conn, requirement_id)
-    try:
-        configured = resolve_artifacts_bucket(
-            conn, int(owner["project_id"]), owner["target_env"]
-        )
-    except ArtifactBrokerError as exc:
-        raise ArtifactStorageError(exc.code, str(exc)) from exc
-    except ValueError as exc:
-        raise ArtifactStorageError("s3_configuration_invalid", str(exc)) from exc
+    configured = _configured_store(conn, owner)
     if configured is None:
+        refusal = local_store_refusal(str(owner["project"]))
+        if refusal is not None:
+            raise ArtifactStorageError(EVIDENCE_NOT_PORTABLE, refusal)
         try:
             return _write_permanent_local(
                 owner=owner,
@@ -279,20 +253,11 @@ def validate_s3_handle_owner(
     handle: dict[str, Any],
 ) -> None:
     """Refuse an S3 handle outside its configured project/tenant run prefix."""
-    from yoke_core.domain.handlers.qa_artifact_presign import resolve_artifacts_bucket
     from yoke_core.domain.qa_artifact_handle import artifact_key_prefix
     from yoke_core.domain.qa_artifacts import case_artifact_subject
-    from yoke_core.domain.qa_artifact_broker import ArtifactBrokerError
 
     owner = requirement_storage_owner(conn, requirement_id)
-    try:
-        configured = resolve_artifacts_bucket(
-            conn, int(owner["project_id"]), owner["target_env"]
-        )
-    except ArtifactBrokerError as exc:
-        raise ArtifactStorageError(exc.code, str(exc)) from exc
-    except ValueError as exc:
-        raise ArtifactStorageError("s3_configuration_invalid", str(exc)) from exc
+    configured = _configured_store(conn, owner)
     if configured is None:
         raise ArtifactStorageError(
             "s3_not_configured",
@@ -346,4 +311,4 @@ def store_artifact_file(
     )
 
 
-__all__ = "ArtifactStorageError ARTIFACT_PRESIGN_EXPIRES_S MAX_ARTIFACT_BYTES requirement_storage_owner store_artifact_bytes store_artifact_file validate_s3_handle_owner".split()
+__all__ = "ArtifactStorageError ARTIFACT_PRESIGN_EXPIRES_S MAX_ARTIFACT_BYTES store_artifact_bytes store_artifact_file validate_s3_handle_owner".split()

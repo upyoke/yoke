@@ -26,7 +26,7 @@ from yoke_core.domain.deployment_qa_stage_materialization import (
 )
 from yoke_core.domain.browser_qa_case_target import resolve_case_deployment_under_test
 from yoke_core.domain.qa_activity_reads import list_activity
-from yoke_core.domain.qa_artifact_storage import requirement_storage_owner
+from yoke_core.domain.qa_artifact_owner import requirement_storage_owner
 from yoke_core.domain.qa_case_execution_context import get_case_execution_context
 from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.handlers.qa_case_execution import handle_case_execution_begin

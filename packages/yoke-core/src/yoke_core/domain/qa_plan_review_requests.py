@@ -67,19 +67,24 @@ def ensure_plan_review_requests(
                     path="deployment stage verdict.reviewers",
                 )
 
-        request, _created = ensure_qa_review_request(
-            conn,
-            requirement_id=requirement_id,
-            run_id=run_ids[requirement_id],
-            policy=policy,
-            originator_actor_id=(
-                int(reviewer_actor_id)
-                if reviewer_actor_id and str(reviewer_actor_id).isdigit()
-                else None
-            ),
-            session_id=reviewer_session_id,
-            commit=False,
-        )
+        from yoke_core.domain.qa_evidence_portability import EvidenceNotPortable
+
+        try:
+            request, _created = ensure_qa_review_request(
+                conn,
+                requirement_id=requirement_id,
+                run_id=run_ids[requirement_id],
+                policy=policy,
+                originator_actor_id=(
+                    int(reviewer_actor_id)
+                    if reviewer_actor_id and str(reviewer_actor_id).isdigit()
+                    else None
+                ),
+                session_id=reviewer_session_id,
+                commit=False,
+            )
+        except EvidenceNotPortable as exc:
+            raise QaPlanReviewError(str(exc)) from exc
         if request is None:
             continue
         request_id = int(request["id"])

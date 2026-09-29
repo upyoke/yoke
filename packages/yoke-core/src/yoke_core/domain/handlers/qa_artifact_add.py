@@ -51,7 +51,7 @@ def _local_handle_refusal(
         checkout_for_project_id,
     )
     from yoke_core.domain.qa_artifact_handle import is_present
-    from yoke_core.domain.qa_artifact_storage import requirement_storage_owner
+    from yoke_core.domain.qa_artifact_owner import requirement_storage_owner
     from yoke_core.domain.qa_artifacts import (
         case_artifact_subject,
         is_server_evidence_path,

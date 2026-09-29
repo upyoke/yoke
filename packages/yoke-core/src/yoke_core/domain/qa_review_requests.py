@@ -13,6 +13,7 @@ from yoke_core.domain.decision_requests import (
     create_decision_request,
     list_subject_requests,
 )
+from yoke_core.domain.qa_evidence_portability import require_servable_review_evidence
 from yoke_core.domain.qa_review_evidence import qa_review_artifact_context
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_review_requirement_facts import (
@@ -175,15 +176,13 @@ def ensure_qa_review_request(
         or requirement.get("candidate_revision")
         or None
     )
-    # The handle travels with the projection because the gate surfaces draw
-    # each artifact through the same reader QA detail uses: it names the
-    # file and says up front when the bytes only exist on the capture
-    # machine, rather than offering a control that can only fail. Resolved
-    # through the shared evidence-run resolver so a reviewed run whose own
-    # capture was recorded under a different run id (a human_review verdict,
-    # or a re-linked capture) reports the artifacts that actually back it.
+    # The artifacts that back the reviewed run; a reviewer is never asked to
+    # rule on a placeholder, so each must be readable where they look.
     review_context = qa_review_artifact_context(
         conn, requirement_id=requirement_id, run_id=run_id
+    )
+    require_servable_review_evidence(
+        requirement_id, review_context["artifacts"], project_id=project_id
     )
     return create_decision_request(
         conn,
