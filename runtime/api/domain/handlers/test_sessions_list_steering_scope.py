@@ -12,8 +12,15 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from runtime.api.fixtures.session_holdings import insert_steering_claim
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from runtime.api.fixtures.session_holdings import (
+    insert_document_lock,
+    insert_steering_claim,
+)
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_core.domain.handlers.sessions_list import handle_sessions_list
 from yoke_core.domain.sessions_list_read import list_sessions
 
@@ -105,18 +112,20 @@ class TestProjectFilterHonorsLiveSteeringClaim:
     def test_a_document_scoped_steering_claim_matches_the_same_way(self, test_db):
         _insert_project(test_db, _PLATFORM_PROJECT_ID, "platform")
         _insert_session(test_db, "s-root", project_id=1)
-        # A document-scoped seat still names the project in its scope, so
-        # matching needs no special path beyond the plain project claim.
-        from yoke_core.domain.work_claim_targets import make_steering_target
-
-        target = make_steering_target(_PLATFORM_PROJECT_ID, document="CURRENT-PLAN")
-        now = _iso()
-        test_db.execute(
-            "INSERT INTO work_claims (session_id, target_kind, scope, "
-            "claimed_at, last_heartbeat, reason) VALUES (%s, %s, %s, %s, %s, %s)",
-            ("s-root", target.kind, target.scope_json(), now, now, "strategy review"),
+        # A document-scoped seat still names the project in its scope.
+        claim_id = insert_steering_claim(
+            test_db,
+            "s-root",
+            project_id=_PLATFORM_PROJECT_ID,
+            document="CURRENT-PLAN",
         )
-        test_db.commit()
+        insert_document_lock(
+            test_db,
+            "s-root",
+            _PLATFORM_PROJECT_ID,
+            "CURRENT-PLAN",
+            steering_claim_id=claim_id,
+        )
 
         rows = list_sessions(project="platform")
         assert [row["session_id"] for row in rows] == ["s-root"]
@@ -133,7 +142,10 @@ class TestProjectFilterHonorsLiveSteeringClaim:
         _insert_project(test_db, _PLATFORM_PROJECT_ID, "platform")
         _insert_session(test_db, "s-root", project_id=1)
         insert_steering_claim(
-            test_db, "s-root", project_id=_PLATFORM_PROJECT_ID, released_at=_iso(),
+            test_db,
+            "s-root",
+            project_id=_PLATFORM_PROJECT_ID,
+            released_at=_iso(),
         )
 
         assert list_sessions(project="platform") == []
@@ -159,7 +171,8 @@ class TestProjectFilterHonorsLiveSteeringClaim:
 
 class TestOpenRowsDedupeCrossProjectSteering:
     def test_a_session_matching_both_its_home_and_steered_project_appears_once(
-        self, test_db,
+        self,
+        test_db,
     ):
         _insert_project(test_db, _PLATFORM_PROJECT_ID, "platform")
         _insert_session(test_db, "s-root", project_id=1)
@@ -175,7 +188,8 @@ class TestOpenRowsDedupeCrossProjectSteering:
 
 class TestAuthorizationBoundary:
     def test_a_restricted_actor_sees_the_steerer_only_through_a_visible_project(
-        self, test_db,
+        self,
+        test_db,
     ):
         from yoke_core.domain.actors import seed_human_actor
 

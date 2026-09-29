@@ -169,8 +169,10 @@ def test_claimed_focus_with_an_active_lane_reports_that_lane_role(test_db):
 
 def test_steering_holding_reuses_the_claims_document_pairing(test_db):
     insert_session(test_db, "s-steering")
-    insert_steering_claim(test_db, "s-steering")
-    insert_document_lock(test_db, "s-steering", 1, "CURRENT-PLAN")
+    claim_id = insert_steering_claim(test_db, "s-steering")
+    insert_document_lock(
+        test_db, "s-steering", 1, "CURRENT-PLAN", steering_claim_id=claim_id
+    )
 
     row = list_sessions()[0]
     claim = next(entry for entry in row["claims"] if entry["target_kind"] == "steering")

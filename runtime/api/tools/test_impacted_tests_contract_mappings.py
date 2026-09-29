@@ -172,6 +172,29 @@ def test_surface_capability_consumers_survive_bounded_tooling_deferral(
 
 
 @pytest.mark.parametrize(
+    "source", sorted(session_control_contracts.SESSION_HOLDINGS_SOURCE_PATHS)
+)
+def test_session_holdings_consumers_survive_bounded_tooling_deferral(
+    tmp_path: Path, source: str
+) -> None:
+    tooling = (
+        "packages/yoke-core/src/yoke_core/tools/"
+        "_impacted_contract_tests_session_control.py"
+    )
+    _write(tmp_path, source)
+    _write(tmp_path, tooling)
+    expected = set(session_control_contracts.SESSION_HOLDINGS_TESTS)
+    for test_path in {*impacted_tests.ALWAYS_RUN_TESTS, *expected}:
+        _write(tmp_path, test_path, "def test_contract(): pass\n")
+
+    selection = select([source, tooling], build_import_index(tmp_path), bounded=True)
+
+    assert selection.bounded_deferral is True
+    assert expected <= set(selection.files)
+    assert f"session_holdings_contract:{source}" in selection.widening_triggers
+
+
+@pytest.mark.parametrize(
     "source", sorted(session_control_contracts.SESSION_MODEL_SELECTION_SOURCE_PATHS)
 )
 def test_model_selection_consumers_survive_bounded_tooling_deferral(

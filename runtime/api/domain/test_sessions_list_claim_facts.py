@@ -133,8 +133,10 @@ def test_each_steering_claim_carries_its_own_strategy_documents(test_db):
     nothing else shows one project's documents and hides the other hold.
     """
     insert_session(test_db, "s-multi")
-    insert_steering_claim(test_db, "s-multi")
-    insert_document_lock(test_db, "s-multi", 1, "CURRENT-PLAN")
+    claim_id = insert_steering_claim(test_db, "s-multi")
+    insert_document_lock(
+        test_db, "s-multi", 1, "CURRENT-PLAN", steering_claim_id=claim_id
+    )
 
     claim = next(
         claim
