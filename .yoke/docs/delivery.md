@@ -67,6 +67,14 @@ When a no-change Dash that never opened a lane is left at its release wait,
 its holder closes it with `yoke lifecycle transition PREFIX-N --to done`.
 That transition still requires the succeeded run, QA, and approval.
 
+Whether final members close one at a time or together depends on the
+selected flow. When it has no run QA and no run approval, each final member
+closes on its own once its delivery lands and its own item QA is accepted or
+discharged with no post-deploy obligation, even while a sibling is still
+waiting. When the flow has either shared gate, every final member keeps its
+claim, lane, and session until all item gates and shared gates pass, and the
+run and its members then close together.
+
 ## Hosting
 
 There is no separate Hosting destination. Hosting shows up as:
