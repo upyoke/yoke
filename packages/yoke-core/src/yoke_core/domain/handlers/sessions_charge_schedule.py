@@ -109,7 +109,9 @@ def scheduler_result_to_dict(result: Any, conn: Any = None) -> Dict[str, Any]:
             else None
         ),
         "ranked_steps": [_scheduled_step_to_dict(s, conn) for s in result.ranked_steps],
-        "blocked_steps": [_scheduled_step_to_dict(s, conn) for s in result.blocked_steps],
+        "blocked_steps": [
+            _scheduled_step_to_dict(s, conn) for s in result.blocked_steps
+        ],
         "exceptional_steps": [
             _scheduled_step_to_dict(s, conn) for s in result.exceptional_steps
         ],
@@ -122,6 +124,57 @@ def scheduler_result_to_dict(result: Any, conn: Any = None) -> Dict[str, Any]:
         "runnable_elsewhere": list(getattr(result, "runnable_elsewhere", None) or []),
         "workspace_home_project": getattr(result, "workspace_home_project", None),
     }
+
+
+def _held_seat_members(conn: Any, session_id: str) -> tuple[set[int] | None, set[int]]:
+    """Item membership and execution projects of this session's live seats."""
+    from yoke_core.domain.steering_claims import list_session_claims
+    from yoke_core.domain.steering_scope_membership import (
+        member_project_ids,
+        scope_member_item_ids,
+    )
+
+    claims = list_session_claims(conn, session_id=session_id, active_only=True)
+    if not claims:
+        return None, set()
+    members: set[int] = set()
+    for claim in claims:
+        scoped = scope_member_item_ids(conn, claim["scope"])
+        if scoped is None:
+            return None, set()
+        members.update(scoped)
+    return members, member_project_ids(conn, members)
+
+
+def _narrow_to_seats(result: Any, members: set[int] | None) -> Any:
+    """Apply the same membership rule as fleet reporting to charge's lists."""
+    if members is None:
+        return result
+    from yoke_core.domain.scheduler_types import NextStep, is_assignable_claim_state
+
+    for field in (
+        "ranked_steps",
+        "blocked_steps",
+        "exceptional_steps",
+        "conduct_eligible",
+        "frozen_steps",
+    ):
+        setattr(
+            result,
+            field,
+            [step for step in getattr(result, field) if step.item_id in members],
+        )
+    eligible = {step.item_id for step in result.conduct_eligible}
+    result.selected_step = next(
+        (
+            step
+            for step in result.ranked_steps
+            if is_assignable_claim_state(step.claim_state)
+            and (step.next_step != NextStep.CONDUCT or step.item_id in eligible)
+        ),
+        None,
+    )
+    return result
 
 
 def handle_charge_schedule(request: FunctionCallRequest) -> HandlerOutcome:
@@ -154,8 +207,12 @@ def handle_charge_schedule(request: FunctionCallRequest) -> HandlerOutcome:
         wip_cap = body.wip_cap
         if wip_cap is None:
             wip_cap = _resolve_default_wip_cap(project_scope)
+        members, member_projects = _held_seat_members(conn, session_id)
+        project_scope = sorted(set(project_scope) | member_projects)
         result = compute_schedule(
-            conn, project_scope=project_scope, wip_cap=wip_cap,
+            conn,
+            project_scope=project_scope,
+            wip_cap=wip_cap,
             session_id=session_id or None,
         )
         if workspace_home_filter_requested(project_override=override, item=body.item):
@@ -165,8 +222,11 @@ def handle_charge_schedule(request: FunctionCallRequest) -> HandlerOutcome:
                 session_id=session_id or None,
             )
             result = apply_workspace_home_filter(
-                result, home_project_id=home, conn=conn,
+                result,
+                home_project_id=home,
+                conn=conn,
             )
+        result = _narrow_to_seats(result, members)
         payload = enrich_elsewhere_checkout_paths(
             scheduler_result_to_dict(result, conn)
         )

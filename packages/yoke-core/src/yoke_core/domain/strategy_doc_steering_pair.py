@@ -22,6 +22,7 @@ from yoke_core.domain.strategy_execution_state import (
 from yoke_core.domain.work_claim_target_sql import scope_int_sql
 from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_STEERING,
+    decode_scope,
     from_row as work_claim_target_from_row,
 )
 
@@ -72,19 +73,80 @@ def active_paired_session_doc_claim(
     work_claim_id: int,
 ) -> Optional[dict[str, Any]]:
     """Return one active session document associated with a steering claim."""
-    slugs = steered_document_slugs(conn, (int(work_claim_id),)).get(
-        int(work_claim_id), []
+    return _paired_active_claim(conn, work_claim_id)
+
+
+def _paired_active_claim(
+    conn: Any, work_claim_id: int, *, strict: bool = False
+) -> Optional[dict[str, Any]]:
+    """Resolve one lock without borrowing another live seat's document."""
+    marker = _marker(conn)
+    row = _row(
+        conn.execute(
+            f"SELECT session_id, scope FROM work_claims WHERE id = {marker} "
+            "AND target_kind = 'steering' AND released_at IS NULL",
+            (int(work_claim_id),),
+        )
     )
-    if not slugs:
+    if row is None:
         return None
-    project_id = _work_claim_project_id(conn, work_claim_id)
-    if project_id is None:
-        return None
-    return active_strategy_doc_claim(
-        conn,
-        project_id=project_id,
-        slug=str(slugs[0]),
-    )
+    scope = decode_scope(row["scope"])
+    project_id = int(scope["project_id"])
+    session_id = str(row["session_id"])
+    document = scope.get("document")
+    if document:
+        claim = active_strategy_doc_claim(
+            conn, project_id=project_id, slug=str(document)
+        )
+        if (
+            claim is None
+            or str(claim.get("owner_session_id")) != session_id
+            or claim.get("steering_claim_id") not in (None, int(work_claim_id))
+        ):
+            raise StrategyDocClaimAuthorizationError(
+                f"steering claim {work_claim_id} has no paired lock on {document}; "
+                "reacquire the seat's document lock before releasing the seat"
+            )
+        return claim
+    project_scope = scope_int_sql(conn, "scope", "project_id")
+    other_rows = conn.execute(
+        "SELECT scope FROM work_claims "
+        f"WHERE target_kind = 'steering' AND session_id = {marker} "
+        f"AND {project_scope} = {marker} AND released_at IS NULL AND id <> {marker}",
+        (session_id, project_id, int(work_claim_id)),
+    ).fetchall()
+    other_documents = {
+        str(value)
+        for raw in other_rows
+        if (value := decode_scope(dict(raw)["scope"]).get("document"))
+    }
+    candidates = conn.execute(
+        "SELECT * FROM strategy_doc_claims WHERE owner_kind = 'session' "
+        f"AND owner_session_id = {marker} AND project_id = {marker} "
+        "AND released_at IS NULL ORDER BY id",
+        (session_id, project_id),
+    ).fetchall()
+    paired = [
+        dict(raw)
+        for raw in candidates
+        if dict(raw).get("steering_claim_id") == int(work_claim_id)
+    ]
+    if paired:
+        return paired[0]
+    unmatched = [
+        dict(raw)
+        for raw in candidates
+        if str(dict(raw)["strategy_doc_slug"]) not in other_documents
+        and dict(raw).get("steering_claim_id") is None
+    ]
+    if unmatched and strict:
+        names = ", ".join(str(row["strategy_doc_slug"]) for row in unmatched)
+        raise StrategyDocClaimAuthorizationError(
+            f"steering claim {work_claim_id} has unpaired document locks "
+            f"({names}); reacquire this seat with --plan-doc SLUG to bind "
+            "its standing plan, or release unrelated document locks first"
+        )
+    return None
 
 
 def paired_document_slug_for_history(
@@ -108,55 +170,42 @@ def release_paired_session_doc_claim(
     commit: bool = True,
 ) -> Optional[dict[str, Any]]:
     """Release active session documents associated with one steering seat."""
-    project_id = _work_claim_project_id(conn, work_claim_id)
-    if project_id is None:
+    claim = _paired_active_claim(conn, work_claim_id, strict=True)
+    if claim is None:
         return None
     marker = _marker(conn)
-    rows = conn.execute(
-        "SELECT id, project_id, strategy_doc_slug, owner_session_id "
-        "FROM strategy_doc_claims WHERE owner_kind = 'session' "
-        f"AND owner_session_id = {marker} AND project_id = {marker} "
-        "AND released_at IS NULL ORDER BY id",
-        (str(session_id), int(project_id)),
-    ).fetchall()
-    released: Optional[dict[str, Any]] = None
-    released_at = iso8601_now()
-    for raw in rows:
-        row = dict(raw)
-        if str(row["owner_session_id"]) != str(session_id):
-            raise StrategyDocClaimAuthorizationError(
-                f"steering claim {work_claim_id} is associated with a "
-                f"document held by {claim_holder_label(row)}"
-            )
-        updated = _row(
-            conn.execute(
-                "UPDATE strategy_doc_claims "
-                f"SET released_by_actor_id = {marker}, "
-                f"released_by_session_id = {marker}, released_at = {marker}, "
-                f"release_mode = 'normal', release_reason = {marker} "
-                f"WHERE id = {marker} AND released_at IS NULL "
-                "RETURNING id, project_id, strategy_doc_slug",
-                (
-                    actor_id,
-                    str(session_id),
-                    released_at,
-                    reason,
-                    int(row["id"]),
-                ),
-            )
+    if str(claim["owner_session_id"]) != str(session_id):
+        raise StrategyDocClaimAuthorizationError(
+            f"steering claim {work_claim_id} has a document lock held by "
+            f"{claim_holder_label(claim)}"
         )
-        if updated is None:
-            continue
-        released = {
-            "claim_id": int(updated["id"]),
-            "project_id": int(updated["project_id"]),
-            "slug": str(updated["strategy_doc_slug"]),
-            "owner_kind": "session",
-            "owner_session_id": str(session_id),
-            "released_at": released_at,
-            "release_mode": "normal",
-            "release_reason": reason,
-        }
+    released_at = iso8601_now()
+    updated = _row(
+        conn.execute(
+            "UPDATE strategy_doc_claims "
+            f"SET released_by_actor_id = {marker}, "
+            f"released_by_session_id = {marker}, released_at = {marker}, "
+            f"release_mode = 'normal', release_reason = {marker} "
+            f"WHERE id = {marker} AND released_at IS NULL "
+            "RETURNING id, project_id, strategy_doc_slug",
+            (actor_id, str(session_id), released_at, reason, int(claim["id"])),
+        )
+    )
+    if updated is None:
+        raise StrategyDocClaimAuthorizationError(
+            f"steering claim {work_claim_id}'s document lock changed during release; "
+            "retry the steering release"
+        )
+    released = {
+        "claim_id": int(updated["id"]),
+        "project_id": int(updated["project_id"]),
+        "slug": str(updated["strategy_doc_slug"]),
+        "owner_kind": "session",
+        "owner_session_id": str(session_id),
+        "released_at": released_at,
+        "release_mode": "normal",
+        "release_reason": reason,
+    }
     if commit:
         conn.commit()
     return released

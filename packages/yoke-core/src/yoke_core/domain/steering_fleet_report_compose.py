@@ -28,6 +28,10 @@ from yoke_core.domain.steering_fleet_report import FleetReport
 from yoke_core.domain.steering_fleet_report_machine_block import machine_shared_lines
 from yoke_core.domain.steering_fleet_report_projection import report_dict
 from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
+from yoke_core.domain.steering_fleet_report_unattended import (
+    UnattendedLinkedItem,
+    unattended_linked_items,
+)
 from yoke_core.domain.steering_fleet_report_inbox import (
     UnackedInjectedMessage,
     load_unacked_injected,
@@ -96,11 +100,12 @@ class CombinedFleetReport:
     composed_at: str
     sections: tuple[ScopedFleetReport, ...]
     unacked_injected: tuple[UnackedInjectedMessage, ...] = ()
+    unattended: tuple[UnattendedLinkedItem, ...] = ()
 
     @property
     def actionable(self) -> bool:
         return any(section.report.actionable for section in self.sections) or bool(
-            self.unacked_injected
+            self.unacked_injected or self.unattended
         )
 
     def fingerprint(self) -> str:
@@ -111,6 +116,7 @@ class CombinedFleetReport:
         material.append(
             ("unacked_injected", [row.message_id for row in self.unacked_injected])
         )
+        material.append(("unattended", [row.item_id for row in self.unattended]))
         encoded = json.dumps(material, separators=(",", ":"))
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
@@ -187,6 +193,7 @@ def compose_held_reports(
         composed_at=now,
         sections=tuple(sections),
         unacked_injected=unacked,
+        unattended=unattended_linked_items(conn, project_ids),
     )
 
 
@@ -207,6 +214,14 @@ def combined_body(combined: CombinedFleetReport) -> str:
     ]
     if combined.unacked_injected:
         parts.append("")
+    if combined.unattended:
+        parts.extend(
+            [
+                "## unattended linked work",
+                *(f"  {row.finding}" for row in combined.unattended),
+                "",
+            ]
+        )
     for section in combined.sections:
         parts.extend([f"## {section.descriptor}", scope_inner_body(section.report), ""])
     parts.extend(machine_shared_lines(reports, now=combined.composed_at))
@@ -234,6 +249,7 @@ def combined_dict(combined: CombinedFleetReport) -> dict[str, Any]:
             }
             for row in combined.unacked_injected
         ],
+        "unattended": [row.finding for row in combined.unattended],
         "scopes": [
             {"descriptor": section.descriptor, **report_dict(section.report)}
             for section in combined.sections

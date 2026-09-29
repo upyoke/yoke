@@ -62,6 +62,7 @@ def acquire_session_doc_claim(
     session_id: str,
     actor_id: Optional[int],
     reason: Optional[str] = None,
+    steering_claim_id: Optional[int] = None,
     commit: bool = True,
 ) -> dict[str, Any]:
     """Lock one strategy document for the calling session, with no work item.
@@ -82,6 +83,19 @@ def acquire_session_doc_claim(
             str(held["owner_kind"]) == "session"
             and str(held["owner_session_id"]) == clean_session
         ):
+            paired = held.get("steering_claim_id")
+            if steering_claim_id is not None:
+                if paired is not None and int(paired) != int(steering_claim_id):
+                    raise StrategyDocClaimConflictError(
+                        f"strategy document {slug!r} is paired with steering "
+                        f"claim {paired}; release that seat before acquiring another"
+                    )
+                conn.execute(
+                    f"UPDATE strategy_doc_claims SET steering_claim_id = {_marker(conn)} "
+                    f"WHERE id = {_marker(conn)} AND steering_claim_id IS NULL",
+                    (int(steering_claim_id), int(held["id"])),
+                )
+                held["steering_claim_id"] = int(steering_claim_id)
             if commit:
                 conn.commit()
             return dict(held, acquire_reason=reason)
@@ -96,9 +110,10 @@ def acquire_session_doc_claim(
         conn.execute(
             "INSERT INTO strategy_doc_claims "
             "(project_id, strategy_doc_slug, owner_kind, owner_session_id, "
-            "registered_by_actor_id, registered_by_session_id, registered_at) "
+            "registered_by_actor_id, registered_by_session_id, registered_at, "
+            "steering_claim_id) "
             f"VALUES ({marker}, {marker}, 'session', {marker}, "
-            f"{marker}, {marker}, {marker}) "
+            f"{marker}, {marker}, {marker}, {marker}) "
             "ON CONFLICT DO NOTHING RETURNING id",
             (
                 int(project_id),
@@ -107,6 +122,7 @@ def acquire_session_doc_claim(
                 actor_id,
                 clean_session,
                 iso8601_now(),
+                steering_claim_id,
             ),
         )
     )

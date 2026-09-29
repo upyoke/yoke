@@ -18,6 +18,10 @@
   this seat files names the document at intake; work it adopts from the
   frontier gets linked before it is staffed. Other links are that document's,
   or unattended when no document seat is live.
+- **One seat releases one document lock.** When the same session holds a
+  project seat and a separate document seat, releasing either seat releases
+  only its paired lock. Confirm the other seat and lock remain in the claim
+  inventory before editing its document.
 - **Workers address this seat as a role, never by its session id.** Every
   worker's mandate says `yoke say --steering`; the server resolves
   that at delivery to whichever seat covers the sending item — the one the

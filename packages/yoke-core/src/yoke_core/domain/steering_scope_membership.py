@@ -203,6 +203,20 @@ def scope_member_item_ids(
     )
 
 
+def member_project_ids(conn: Any, item_ids: Iterable[int]) -> set[int]:
+    """Execution projects represented by a document seat's linked items."""
+    ids = tuple(dict.fromkeys(int(value) for value in item_ids))
+    if not ids:
+        return set()
+    marker = _marker(conn)
+    rows = conn.execute(
+        f"SELECT DISTINCT project_id FROM items WHERE id IN "
+        f"({','.join(marker for _ in ids)})",
+        ids,
+    ).fetchall()
+    return {int(dict(row)["project_id"]) for row in rows}
+
+
 __all__ = [
     "LINK_TABLE",
     "apply_item_document",
@@ -211,6 +225,7 @@ __all__ = [
     "item_document_link",
     "item_document_links",
     "item_document_slug",
+    "member_project_ids",
     "project_coverage_item_ids",
     "scope_document",
     "scope_member_item_ids",

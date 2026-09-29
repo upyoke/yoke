@@ -132,6 +132,21 @@ def steered_document_slugs(
         clear_failed_read(conn)
         return {}
     paired = pair_steering_document_slugs(dict(row) for row in rows)
+    # Active seats have an explicit document pairing. Hold-window overlap is
+    # retained only for history written before that identity existed.
+    from yoke_core.domain.strategy_doc_steering_pair import (
+        active_paired_session_doc_claim,
+    )
+
+    for row in rows:
+        record = dict(row)
+        if record["claim_released_at"] is not None:
+            continue
+        claim_id = int(record["claim_id"])
+        document = active_paired_session_doc_claim(conn, claim_id)
+        paired[claim_id] = (
+            [str(document["strategy_doc_slug"])] if document is not None else []
+        )
     return {int(claim_id): slugs for claim_id, slugs in paired.items()}
 
 

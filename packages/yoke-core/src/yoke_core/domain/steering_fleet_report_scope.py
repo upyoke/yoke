@@ -15,10 +15,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Mapping, Optional, Sequence, TypeVar
 
-from yoke_core.domain.steering_scope_membership import (
-    scope_document,
-    scope_member_item_ids,
-)
+from yoke_core.domain.steering_scope_membership import scope_member_item_ids
 
 T = TypeVar("T")
 
@@ -47,15 +44,7 @@ def seat_landed_open(
     members: Optional[set[int]],
     scope: Mapping[str, Any],
 ) -> tuple[T, ...]:
-    """Landings this seat can name.
-
-    A project-wide seat's staffing roster is unlinked plus CURRENT-PLAN, but
-    a landing is a delivery-plane fact: the next release enrolls the same
-    rows, and a document link must not hide a close-out. A document seat
-    still sees only its members.
-    """
-    if scope_document(scope) is None:
-        return tuple(rows)
+    """Landings belonging to this seat's linked or project members."""
     return members_only(rows, members)
 
 
@@ -64,17 +53,8 @@ def seat_claim_holders(
     members: Optional[set[int]],
     landed_open: Sequence[Any],
 ) -> tuple[T, ...]:
-    """Staffing membership, plus holders of landings this seat can already see."""
-    scoped = members_only(holders, members)
-    visible = {int(entry.item_id) for entry in landed_open}
-    seen = {(holder.session_id, holder.item_id) for holder in scoped}
-    extra = tuple(
-        holder
-        for holder in holders
-        if int(holder.item_id) in visible
-        and (holder.session_id, holder.item_id) not in seen
-    )
-    return scoped + extra
+    """Holders of exactly this seat's items, including visible landings."""
+    return members_only(holders, members)
 
 
 def sessions_only(

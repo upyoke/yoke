@@ -7,7 +7,11 @@ from typing import Any, Dict, List, Optional, Union
 from yoke_core.domain import db_backend
 from yoke_core.domain.strategy_docs_defaults import DEFAULT_STRATEGY_DOC_SLUGS
 
-from .frontier import AdapterCategory, FrontierResult, compute_frontier as compute_raw_frontier
+from .frontier import (
+    AdapterCategory,
+    FrontierResult,
+    compute_frontier as compute_raw_frontier,
+)
 from .project_scope import normalize_project_scope
 from .project_settings import resolve_default_wip_cap
 from .scheduler_claims import _evaluate_claim_states
@@ -23,6 +27,7 @@ from .scheduler_types import (
     SchedulerResult,
     is_assignable_claim_state,
 )
+
 
 def _compute_sml_state(
     conn: Any,
@@ -65,9 +70,14 @@ def _compute_sml_state(
         return SMLState(coherent=True)
     live_counts: Dict[int, int] = {}
     for row in rows or []:
-        record = dict(row) if hasattr(row, "keys") else {
-            "project_id": row[0], "live_slugs": row[1],
-        }
+        record = (
+            dict(row)
+            if hasattr(row, "keys")
+            else {
+                "project_id": row[0],
+                "live_slugs": row[1],
+            }
+        )
         live_counts[int(record["project_id"])] = int(record["live_slugs"])
     coherent = all(
         live_counts.get(int(pid), 0) == len(DEFAULT_STRATEGY_DOC_SLUGS)
@@ -131,6 +141,7 @@ def compute_schedule(
     all_item_ids = (
         [fi.item_id for fi in raw.runnable]
         + [fi.item_id for fi in raw.blocked]
+        + [fi.item_id for fi in raw.frozen]
     )
 
     # 4. Evaluate claim states
@@ -144,7 +155,8 @@ def compute_schedule(
         step_result = _compute_next_step(
             fi.adapter,
             probe_path_claim_activation=fi.probe_path_claim_activation,
-            conn=conn, item_id=fi.item_id,
+            conn=conn,
+            item_id=fi.item_id,
         )
         step = ScheduledStep(
             item_id=fi.item_id,
@@ -162,7 +174,9 @@ def compute_schedule(
                 f"Ranked #{rank_idx + 1}: {step_result.next_step.value} "
                 f"for {fi.workflow_id}@{fi.workflow_version} in {fi.status}"
             ),
-            adapter=fi.adapter.value if isinstance(fi.adapter, AdapterCategory) else str(fi.adapter),
+            adapter=fi.adapter.value
+            if isinstance(fi.adapter, AdapterCategory)
+            else str(fi.adapter),
             blocked_by=fi.blocked_by,
             blocked_reasons=fi.blocked_reasons,
             unblocks_count=fi.unblocks_count,
@@ -188,15 +202,17 @@ def compute_schedule(
                 # `evaluate_batch_gates` populates blocking_item for every
                 # real edge; the "unknown" default is a defensive fallback
                 # that should never fire.
-                gate_evals.append(GateEvaluation(
-                    blocking_item=detail.get("blocking_item", "unknown"),
-                    relation="blocker",
-                    gate_point=detail.get("gate_point", "activation"),
-                    satisfaction=detail.get("satisfaction", "status:done"),
-                    satisfied=False,
-                    reason=detail.get("reason", ""),
-                    rationale=detail.get("rationale", ""),
-                ))
+                gate_evals.append(
+                    GateEvaluation(
+                        blocking_item=detail.get("blocking_item", "unknown"),
+                        relation="blocker",
+                        gate_point=detail.get("gate_point", "activation"),
+                        satisfaction=detail.get("satisfaction", "status:done"),
+                        satisfied=False,
+                        reason=detail.get("reason", ""),
+                        rationale=detail.get("rationale", ""),
+                    )
+                )
         step = ScheduledStep(
             item_id=fi.item_id,
             workflow_id=fi.workflow_id,
@@ -209,8 +225,12 @@ def compute_schedule(
             project=fi.project,
             claim_state=claims.get(fi.item_id, ClaimState.UNCLAIMED),
             gate_evaluations=gate_evals,
-            explanation=f"Blocked: {'; '.join(fi.blocked_reasons)}" if fi.blocked_reasons else "Blocked",
-            adapter=fi.adapter.value if isinstance(fi.adapter, AdapterCategory) else str(fi.adapter),
+            explanation=f"Blocked: {'; '.join(fi.blocked_reasons)}"
+            if fi.blocked_reasons
+            else "Blocked",
+            adapter=fi.adapter.value
+            if isinstance(fi.adapter, AdapterCategory)
+            else str(fi.adapter),
             blocked_by=fi.blocked_by,
             blocked_reasons=fi.blocked_reasons,
             unblocks_count=fi.unblocks_count,
@@ -226,39 +246,44 @@ def compute_schedule(
     exceptional_steps: List[ScheduledStep] = []
     exceptional_items = query_exceptional_items(conn, project_scope)
     for ei in exceptional_items:
-        exceptional_steps.append(ScheduledStep(
-            item_id=int(ei["id"]),
-            workflow_id=ei.get("workflow_id") or "",
-            workflow_version_id=int(ei.get("workflow_version_id") or 0),
-            workflow_version=int(ei.get("workflow_version") or 0),
-            status=ei.get("status", "failed"),
-            title=ei.get("title", ""),
-            priority=ei.get("priority", "medium"),
-            next_step=NextStep.WAIT,
-            project=project_slug_or_id(conn, ei.get("project_id")),
-            explanation=f"Exceptional: item is in {ei.get('status', 'failed')} status",
-            created_at=ei.get("created_at", ""),
-        ))
+        exceptional_steps.append(
+            ScheduledStep(
+                item_id=int(ei["id"]),
+                workflow_id=ei.get("workflow_id") or "",
+                workflow_version_id=int(ei.get("workflow_version_id") or 0),
+                workflow_version=int(ei.get("workflow_version") or 0),
+                status=ei.get("status", "failed"),
+                title=ei.get("title", ""),
+                priority=ei.get("priority", "medium"),
+                next_step=NextStep.WAIT,
+                project=project_slug_or_id(conn, ei.get("project_id")),
+                explanation=f"Exceptional: item is in {ei.get('status', 'failed')} status",
+                created_at=ei.get("created_at", ""),
+            )
+        )
 
     # 8. Convert frozen items
     frozen_steps: List[ScheduledStep] = []
     for fi in raw.frozen:
-        frozen_steps.append(ScheduledStep(
-            item_id=fi.item_id,
-            workflow_id=fi.workflow_id,
-            workflow_version_id=fi.workflow_version_id,
-            workflow_version=fi.workflow_version,
-            status=fi.status,
-            title=fi.title,
-            priority=fi.priority,
-            next_step=NextStep.WAIT,
-            project=fi.project,
-            explanation="Frozen — excluded from scheduling",
-            created_at=fi.created_at,
-            stage_index=fi.stage_index,
-            stage_count=fi.stage_count,
-            stage_label=fi.stage_label,
-        ))
+        frozen_steps.append(
+            ScheduledStep(
+                item_id=fi.item_id,
+                workflow_id=fi.workflow_id,
+                workflow_version_id=fi.workflow_version_id,
+                workflow_version=fi.workflow_version,
+                status=fi.status,
+                title=fi.title,
+                priority=fi.priority,
+                next_step=NextStep.WAIT,
+                project=fi.project,
+                claim_state=claims.get(fi.item_id, ClaimState.UNCLAIMED),
+                explanation="Frozen — excluded from scheduling",
+                created_at=fi.created_at,
+                stage_index=fi.stage_index,
+                stage_count=fi.stage_count,
+                stage_label=fi.stage_label,
+            )
+        )
 
     # 9. Convert conduct-eligible items
     conduct_eligible: List[ScheduledStep] = []
@@ -273,7 +298,10 @@ def compute_schedule(
     selected: Optional[ScheduledStep] = None
     for step in ranked_steps:
         # conduct_eligible_ids gates only definition-selected conduct work.
-        if step.next_step == NextStep.CONDUCT and step.item_id not in conduct_eligible_ids:
+        if (
+            step.next_step == NextStep.CONDUCT
+            and step.item_id not in conduct_eligible_ids
+        ):
             continue
         if is_assignable_claim_state(step.claim_state):
             selected = step
@@ -298,6 +326,7 @@ def compute_schedule(
         _emit_frontier_step_selected(conn, result, session_id)
 
     return result
+
 
 __all__ = [
     "NextStep",

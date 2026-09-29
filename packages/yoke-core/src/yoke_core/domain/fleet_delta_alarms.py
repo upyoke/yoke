@@ -157,7 +157,7 @@ def unowned_item_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
     live: set[str] = set()
     for ref in sorted(current.items):
         row = current.items[ref]
-        if not row.unclaimed or row.status in BACKLOG_STATUSES:
+        if row.frozen or not row.unclaimed or row.status in BACKLOG_STATUSES:
             state.unowned_since.pop(ref, None)
             continue
         since = state.unowned_since.setdefault(ref, current.taken_at)

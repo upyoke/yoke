@@ -4,6 +4,11 @@ What the report gives you is a finding; what to do with each one is yours:
 
 - **Available work** — staff it. An `!` row has waited past the staffing
   threshold; an unmarked row is simply available.
+- **Unattended linked work** — an open item belongs to a document for which
+  no live seat exists. The row names the document and its owning project and
+  gives the exact `yoke claims steering acquire --project P --doc SLUG`
+  command. Take that seat or arrange its holder before staffing the item;
+  the project seat does not cover the link.
 - **Steering messages awaiting a seat** — unacknowledged mail no live seat
   holds: parked reports and reports left by an ended seat. Acquiring that scope
   hands them over; acknowledged receipts are never inherited. Their unfinished
@@ -128,4 +133,3 @@ What the report gives you is a finding; what to do with each one is yours:
   `max_worker_lanes` in that machine's `~/.yoke/config.json` settings, or
   place the launch elsewhere with `--machine`. `capacity unreported` is an
   older relay, not a roomy machine.
-
