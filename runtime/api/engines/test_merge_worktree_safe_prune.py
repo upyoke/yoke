@@ -20,6 +20,8 @@ from runtime.api.engines._merge_prune_test_helpers import (
     _install,
     _repo,
 )
+from yoke_core.engines import deploy_run_worktree_retirement as _retirement
+from yoke_core.engines.deploy_run_worktree_naming import driver_worktree_path
 from yoke_core.engines import merge_worktree_safe_prune as _safe_prune
 from yoke_core.engines.merge_worktree_safe_prune import prune_managed_worktrees
 
@@ -240,3 +242,50 @@ def test_an_absent_lane_does_not_stop_the_lanes_behind_it(
     assert sweep.removed == (str(second.resolve()),)
     assert not second.exists()
     assert worktree.exists() is False
+
+
+def test_a_finished_deploy_run_worktree_is_swept_with_the_item_lanes(
+    monkeypatch, tmp_path: Path
+):
+    """The detached driver tree is invisible to the lane pass, so the sweep
+    reaches it through its own pass instead — same cap, same boundary."""
+    repo, worktree, branch = _repo(tmp_path)
+    git_io, lines = _install(monkeypatch, repo, _Conn(branch))
+    driver = driver_worktree_path(repo, "run-20260101-001")
+    driver.parent.mkdir(parents=True, exist_ok=True)
+    _git(repo, "worktree", "add", "--detach", str(driver), "HEAD")
+    monkeypatch.setattr(
+        _retirement, "_run_status", lambda _run_id: ("succeeded", "")
+    )
+    monkeypatch.setattr(
+        _retirement, "declared_disposable_roots", lambda _root: frozenset()
+    )
+
+    sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
+
+    assert not driver.exists()
+    assert str(driver.resolve()) in sweep.removed
+    assert any("Retired finished deploy-run worktree" in line for line in lines)
+
+
+def test_a_live_deploy_run_worktree_survives_the_sweep(monkeypatch, tmp_path: Path):
+    repo, worktree, branch = _repo(tmp_path)
+    git_io, lines = _install(monkeypatch, repo, _Conn(branch))
+    driver = driver_worktree_path(repo, "run-20260101-002")
+    driver.parent.mkdir(parents=True, exist_ok=True)
+    _git(repo, "worktree", "add", "--detach", str(driver), "HEAD")
+    monkeypatch.setattr(
+        _retirement, "_run_status", lambda _run_id: ("executing", "")
+    )
+    monkeypatch.setattr(
+        _retirement, "declared_disposable_roots", lambda _root: frozenset()
+    )
+
+    sweep = prune_managed_worktrees(**git_io, repo_root=str(repo), target="main")
+
+    assert driver.is_dir()
+    assert str(driver.resolve()) not in sweep.removed
+    assert any(
+        lane["path"] == str(driver.resolve()) and "executing" in lane["reason"]
+        for lane in sweep.payload()["preserved"]
+    )

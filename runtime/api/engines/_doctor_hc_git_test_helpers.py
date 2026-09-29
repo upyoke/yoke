@@ -197,7 +197,7 @@ def relayed_control_plane(conn):
         raise AssertionError(f"unexpected relayed function {function_id}")
 
     with patch(
-        "yoke_core.engines.doctor_hc_worktrees_health.relay",
+        "yoke_core.engines.doctor_worktree_lane_authority.relay",
         side_effect=_relay,
     ):
         yield

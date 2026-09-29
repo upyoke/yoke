@@ -16,6 +16,7 @@ from typing import Any, Dict, List
 import pytest
 
 from yoke_core.engines import doctor_hc_worktrees_health as hc
+from yoke_core.engines import doctor_worktree_lane_authority as lane_authority
 from yoke_core.engines.doctor_https_compose import UnavailableControlPlane
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
@@ -94,7 +95,7 @@ def _install_relay(monkeypatch, calls, *, inventory, verdict):
             return verdict
         raise AssertionError(f"unexpected relayed function {function_id}")
 
-    monkeypatch.setattr(hc, "relay", fake_relay)
+    monkeypatch.setattr(lane_authority, "relay", fake_relay)
 
 
 def _run_check(args: DoctorArgs) -> RecordCollector:

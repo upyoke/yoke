@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import deploy_pipeline_pinned_source as pinned
+from yoke_core.engines import deploy_run_worktree_retirement as retirement
 from yoke_core.domain import deploy_pipeline_stage_receipt as receipt
 from yoke_core.domain.deploy_pipeline_pinned_source import (
     DRIVER_SOURCE_DRIFT_PREFIX,
@@ -245,3 +246,93 @@ def test_stage_dispatch_halts_on_drift_without_running_the_runner(
     assert code == EXIT_DRIVER_SOURCE_DRIFT
     assert diag.startswith(DRIVER_SOURCE_DRIFT_PREFIX)
 
+
+
+def test_preparation_sweeps_finished_runs_before_taking_a_slot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A deploy is the moment this checkout is certain to need a worktree, so
+    it is where the ones finished runs still hold are given back."""
+    repo = _init_repo(tmp_path / "repo")
+    _yoke_shape(repo)
+    pin = _commit(repo, "pin")
+    stale = pinned.ensure_pinned_worktree(str(repo), "run-20260101-001", pin)
+    assert stale.is_dir()
+
+    monkeypatch.setattr(pinned, "_https_transport", lambda: False)
+    monkeypatch.setattr(
+        pinned.control_plane,
+        "run_pin",
+        lambda _run_id: {"release_lineage": pin, "project": "yoke"},
+    )
+    monkeypatch.setattr(pinned, "checkout_for_project_slug", lambda _p: repo)
+    monkeypatch.setattr(
+        retirement, "_run_status", lambda _run_id: ("succeeded", "")
+    )
+    monkeypatch.setattr(
+        retirement, "declared_disposable_roots", lambda _root: frozenset()
+    )
+
+    prepared = pinned.prepare_self_deploy_driver("run-20260101-002")
+
+    assert prepared is not None
+    assert not stale.exists()
+    assert prepared.root.is_dir()
+
+
+def test_preparation_never_sweeps_the_run_it_is_preparing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Reuse of an existing pin at the right revision must survive the sweep."""
+    repo = _init_repo(tmp_path / "repo")
+    _yoke_shape(repo)
+    pin = _commit(repo, "pin")
+    mine = pinned.ensure_pinned_worktree(str(repo), "run-20260101-003", pin)
+
+    monkeypatch.setattr(pinned, "_https_transport", lambda: False)
+    monkeypatch.setattr(
+        pinned.control_plane,
+        "run_pin",
+        lambda _run_id: {"release_lineage": pin, "project": "yoke"},
+    )
+    monkeypatch.setattr(pinned, "checkout_for_project_slug", lambda _p: repo)
+    monkeypatch.setattr(
+        retirement, "_run_status", lambda _run_id: ("succeeded", "")
+    )
+    monkeypatch.setattr(
+        retirement, "declared_disposable_roots", lambda _root: frozenset()
+    )
+
+    prepared = pinned.prepare_self_deploy_driver("run-20260101-003")
+
+    assert prepared is not None
+    assert prepared.root == mine
+    assert mine.is_dir()
+
+
+def test_a_sweep_failure_never_blocks_the_deploy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _init_repo(tmp_path / "repo")
+    _yoke_shape(repo)
+    pin = _commit(repo, "pin")
+
+    monkeypatch.setattr(pinned, "_https_transport", lambda: False)
+    monkeypatch.setattr(
+        pinned.control_plane,
+        "run_pin",
+        lambda _run_id: {"release_lineage": pin, "project": "yoke"},
+    )
+    monkeypatch.setattr(pinned, "checkout_for_project_slug", lambda _p: repo)
+
+    def _explode(**_kwargs):
+        raise RuntimeError("sweep exploded")
+
+    monkeypatch.setattr(
+        retirement, "retire_terminal_deploy_run_worktrees", _explode
+    )
+
+    prepared = pinned.prepare_self_deploy_driver("run-20260101-004")
+
+    assert prepared is not None
+    assert prepared.root.is_dir()

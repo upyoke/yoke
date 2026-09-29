@@ -178,7 +178,9 @@ def assess_deploy_run_worktrees(
     git = run_git or _runtime_git()
     root = Path(repo_root).resolve()
     candidates = deploy_run_worktree_paths(git, root)
-    if candidates is None:
+    if not candidates:
+        # None (unreadable) and [] (none here) are both "nothing to say", and
+        # neither is worth a control-plane read for declared paths.
         return ()
     declared_roots = declared_disposable_roots(root)
     kept = {run.strip() for run in keep_run_ids if run and run.strip()}
@@ -225,12 +227,15 @@ def retire_terminal_deploy_run_worktrees(
     """
     git = run_git or _runtime_git()
     root = Path(repo_root).resolve()
+    found = assess_deploy_run_worktrees(
+        repo_root=root, run_git=git, keep_run_ids=keep_run_ids
+    )
+    if not any(lane.state == LANE_RETIRABLE for lane in found):
+        return found
     declared_roots = declared_disposable_roots(root)
 
     verdicts: list[DeployRunLane] = []
-    for lane in assess_deploy_run_worktrees(
-        repo_root=root, run_git=git, keep_run_ids=keep_run_ids
-    ):
+    for lane in found:
         if lane.state != LANE_RETIRABLE:
             verdicts.append(lane)
             continue

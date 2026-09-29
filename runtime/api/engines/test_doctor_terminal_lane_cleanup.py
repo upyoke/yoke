@@ -90,7 +90,7 @@ def test_doctor_reports_and_fixes_only_a_verified_safe_terminal_lane(
             return_value=str(repo),
         ),
         patch(
-            "yoke_core.engines.doctor_hc_worktrees_health._authority_block",
+            "yoke_core.engines.doctor_hc_worktrees_health.authority_block",
             return_value="",
         ),
     ):
@@ -128,7 +128,7 @@ def test_doctor_fix_preserves_and_names_unignored_content(tmp_path, monkeypatch)
             return_value=str(repo),
         ),
         patch(
-            "yoke_core.engines.doctor_hc_worktrees_health._authority_block",
+            "yoke_core.engines.doctor_hc_worktrees_health.authority_block",
             return_value="",
         ),
     ):
@@ -147,7 +147,7 @@ def _doctor_patches(repo: Path):
             return_value=str(repo),
         ),
         patch(
-            "yoke_core.engines.doctor_hc_worktrees_health._authority_block",
+            "yoke_core.engines.doctor_hc_worktrees_health.authority_block",
             return_value="",
         ),
     )

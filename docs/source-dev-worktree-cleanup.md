@@ -109,6 +109,58 @@ preserved and reported. Automatic cleanup never uses filesystem `rm -rf`,
 forced worktree removal, or forced branch deletion. `--keep-remote` remains
 the only intentional skip of remote delete (ephemeral environments).
 
+### Lane residue and project-declared renders
+
+A lane directory is disposable only when everything git reports in it is a
+cache the shared residue policy can name — build output, virtualenvs, tool
+caches, the operating-layer state Yoke renders into every checkout — or a path
+the owning project declared through its `project-policy` capability's
+`disposable_generated_paths`. Ignored is not disposable on its own: a local
+database, a credential file, and scratch notes are all ignored and none of them
+is the repository's to delete, so an undeclared ignored path preserves the lane
+and is reported as unknown residue.
+
+That is why a product surface which renders a gitignored view into every
+checkout must be declared. In this repository the Atlas renderer writes
+`docs/atlas.md` into every lane, so the `yoke` project declares it; without
+that declaration every landed lane refused retirement on it, and both the
+worktree and the merged remote branch survived. Read the live declaration with
+`yoke projects capability-settings get --project <slug> --cap-type
+project-policy`.
+
+### Deploy-run driver worktrees
+
+A self-deploy run pins its driver source in a detached worktree at
+`.worktrees/deploy-<run-id>` so the driver reads a tree a merge landing cannot
+move underneath it. Because it carries no branch, it is absent from the
+branch-bearing registry the lane paths read, and no item owns it — so the lane
+sweep and `HC-worktree-health` could not see one at all while it consumed the
+same `max_active_worktrees` slot an item lane does.
+
+It is retired from its run's own status instead, by whichever of these comes
+first: a self-deploy sweeping before it pins its own source, the machine-wide
+sweep any landing runs, or `yoke doctor --fix`. Only a status the run-status
+vocabulary names terminal (`succeeded`, `failed`, `cancelled`) releases the
+directory. A run still `created` or `executing` is not a finding. An empty,
+unrecognised, or unreadable status, a tree holding anything the residue policy
+will not name, and a tree the sweeping process is itself executing from all
+keep the directory with the reason named — reclaiming a live run's pinned
+source would pull the ground out from under a driver mid-deploy.
+
+Removal is the same two steps the item lanes use: clear named and declared
+caches (a driver that executed there left `__pycache__` behind), then a
+non-force `git worktree remove`. Force is never used.
+
+When the cap refuses a new lane it separates the two kinds and gives each its
+own recovery, because merging is not the recovery for a deploy-run lane:
+
+```text
+max_active_worktrees limit reached (50 active + 1 pending > 50). Merge
+existing worktrees before creating more. Item lanes: .... 36 slot(s) are held
+by deploy-run driver trees, which no merge retires — run `yoke doctor --fix`
+to retire the finished ones. Deploy-run lanes: ...
+```
+
 ## Keep Non-Ancestor Evidence Branches
 
 If `git cherry -v "$base_ref" "$branch"` prints `+` commits and those commits

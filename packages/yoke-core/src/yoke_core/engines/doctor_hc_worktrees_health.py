@@ -248,7 +248,9 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
             if args.fix
             else assess_deploy_run_worktrees
         )
-        for lane in sweep(repo_root=str(repo_root)):
+        for lane in sweep(
+            repo_root=str(repo_root), run_git=_git_for_repo(str(repo_root))
+        ):
             if lane.retired:
                 fixed.append(
                     f"- Fixed: retired finished deploy-run worktree "
