@@ -33,6 +33,9 @@ from yoke_cli.commands.adapters.qa_read import (
     QA_RUN_GET_USAGE,
     QA_RUN_LIST_USAGE,
 )
+from yoke_cli.commands.adapters.qa_artifact_rehome_cli import (
+    QA_ARTIFACT_REHOME_USAGE,
+)
 from yoke_cli.commands.adapters.qa_browser import (
     QA_ARTIFACT_ADD_USAGE,
     QA_ARTIFACT_PRESIGN_USAGE,
@@ -51,6 +54,7 @@ QA_ADAPTER_USAGE: Dict[str, str] = {
     "qa.run.complete": QA_RUN_COMPLETE_USAGE,
     "qa.artifact.add": QA_ARTIFACT_ADD_USAGE,
     "qa.artifact.presign": QA_ARTIFACT_PRESIGN_USAGE,
+    "qa.artifact.rehome": QA_ARTIFACT_REHOME_USAGE,
     "qa.requirement.list": QA_REQUIREMENT_LIST_USAGE,
     "qa.requirement.get": QA_REQUIREMENT_GET_USAGE,
     "qa.requirement.add": QA_REQUIREMENT_ADD_USAGE,

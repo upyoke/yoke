@@ -244,6 +244,10 @@ QA_ADAPTERS: List[AdapterEntry] = [
         function_id="qa.artifact.presign",
         cli_invocation="yoke qa artifact presign --requirement-id N --run-id N --filename F",
     ),
+    AdapterEntry(
+        "qa.artifact.rehome",
+        "yoke qa artifact rehome --requirement-id N --artifact-id N [--artifact-id N ...]",
+    ),
 ]
 
 

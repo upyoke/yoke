@@ -229,6 +229,14 @@ It lands the bytes under this machine's temp root and reports that path as
 `path`; open that, not the capture's own `artifacts` scratch paths. Add
 `--output PATH` to choose the destination yourself.
 
+Captures store their screenshots through the build serving the universe, so a
+hosted reviewer sees the same images: from a `*-db-admin` connection the
+evidence writes relay to its paired https connection (`prod-db-admin` →
+`prod`). No review request is raised against a screenshot a hosted reviewer
+cannot open. Evidence already recorded only on the capture machine is moved in
+place from that machine with
+`yoke qa artifact rehome --requirement-id <id> --artifact-id <id>`.
+
 The transition remains blocked until every blocking, materialized or explicit
 requirement has passed or been waived. Capture success alone is not a visual
 quality verdict: inspection checks both visible defects and consistency with

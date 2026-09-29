@@ -24,10 +24,8 @@ from typing import Dict, List, Optional, Tuple
 from pydantic import BaseModel
 
 from yoke_core.domain.handlers.qa import _error, _p
-from yoke_core.domain.qa_artifact_storage import (
-    ARTIFACT_PRESIGN_EXPIRES_S,
-    requirement_storage_owner,
-)
+from yoke_core.domain.qa_artifact_owner import requirement_storage_owner
+from yoke_core.domain.qa_artifact_storage import ARTIFACT_PRESIGN_EXPIRES_S
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,

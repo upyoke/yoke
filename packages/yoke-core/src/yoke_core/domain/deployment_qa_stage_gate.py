@@ -52,30 +52,6 @@ from yoke_core.domain.deployment_run_member_approvals import run_qa_blockers
 ACCEPTANCE_QA_KIND = DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND
 
 
-def _completed_execution(
-    conn: Any,
-    *,
-    run_id: str,
-    stage_name: str,
-    member_item_id: int | None,
-    execution_target_digest: str,
-) -> dict[str, Any] | None:
-    """The completed execution recorded against this frozen target.
-
-    Settling must not re-validate against a live environment snapshot:
-    URL and settings can move while the run is still on the stage, and
-    that recompute is what orphaned a recorded pass. Result writes still
-    go through :func:`validate_deployment_execution_target`.
-    """
-    return completed_execution(
-        conn,
-        run_id=run_id,
-        stage_name=stage_name,
-        member_item_id=member_item_id,
-        execution_target_digest=execution_target_digest,
-    )
-
-
 def _acceptance_requirement(
     conn: Any,
     *,
@@ -201,7 +177,9 @@ def _settle_stage_status(
 ) -> dict[str, Any]:
     """Settle or describe one active stage/member acceptance boundary."""
     current_target_digest = target_authority.target_digest(target)
-    execution = _completed_execution(
+    # Settle against the frozen target recorded on the run, never a live
+    # environment snapshot whose URL or settings may have moved since.
+    execution = completed_execution(
         conn,
         run_id=run_id,
         stage_name=stage_name,
@@ -284,6 +262,10 @@ def _settle_stage_status(
         )
         conn.commit()
         return passed()
+    # The undetermined acceptance and its review request stand or fall
+    # together: no review is requested against evidence a reviewer cannot
+    # open, and a repaired stage re-evaluates from the same state.
+    conn.execute("SAVEPOINT stage_acceptance_review")
     if latest != "undetermined":
         review_run_id = _record_acceptance(
             conn,
@@ -299,17 +281,23 @@ def _settle_stage_status(
             (requirement_id,),
         ).fetchone()
         review_run_id = int(row["id"] if hasattr(row, "keys") else row[0])
+    from yoke_core.domain.qa_evidence_portability import EvidenceNotPortable
     from yoke_core.domain.qa_review_requests import ensure_qa_review_request
 
-    request, _created = ensure_qa_review_request(
-        conn,
-        requirement_id=requirement_id,
-        run_id=review_run_id,
-        policy=parse_approval_policy(
-            verdict["reviewers"], path="deployment stage verdict.reviewers"
-        ),
-        commit=False,
-    )
+    try:
+        request, _created = ensure_qa_review_request(
+            conn,
+            requirement_id=requirement_id,
+            run_id=review_run_id,
+            policy=parse_approval_policy(
+                verdict["reviewers"], path="deployment stage verdict.reviewers"
+            ),
+            commit=False,
+        )
+    except EvidenceNotPortable as exc:
+        conn.execute("ROLLBACK TO SAVEPOINT stage_acceptance_review")
+        conn.commit()
+        return answer(accepted=False, outcome=OUTCOME_BLOCKED, reasons=[str(exc)])
     conn.commit()
     request_id = int(request["id"]) if request is not None else None
     return answer(

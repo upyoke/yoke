@@ -115,4 +115,8 @@ under `path`, so nothing has to be discovered or invented. Pass
 `artifacts` paths are the capturing process's scratch and your path guard
 refuses them; `path` is the address to open. Evidence that is not portable
 (on another machine, or too large to inline) is reported explicitly and
-lands nothing.
+lands nothing. Captures from a `*-db-admin` connection store their evidence
+through its paired https connection, so hosted reviewers see it; evidence
+already stranded on a capture machine is moved in place from that machine
+with `yoke qa artifact rehome --requirement-id N --artifact-id N`, and no
+review request is raised until it is.

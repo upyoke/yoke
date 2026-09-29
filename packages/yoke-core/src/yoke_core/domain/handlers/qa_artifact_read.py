@@ -36,6 +36,9 @@ class QaArtifactReadResponse(BaseModel):
     detail: Optional[str] = None
     expires_in_s: Optional[int] = None
     path: Optional[str] = None
+    #: Where the capture machine recorded bytes this server cannot serve; the
+    #: input ``yoke qa artifact rehome`` reads on that machine.
+    recorded_path: Optional[str] = None
 
 
 def _machine_label(raw: object) -> Optional[str]:
@@ -79,6 +82,7 @@ def _local_result(row, handle: dict) -> dict:
             "disposition": "evidence_on_machine",
             "machine": machine,
             "detail": "the local handle is outside this server's evidence roots",
+            "recorded_path": str(path),
         }
     if not path.is_file():
         return {
@@ -87,6 +91,7 @@ def _local_result(row, handle: dict) -> dict:
             ),
             "machine": machine,
             "detail": "the evidence bytes are not present on this machine",
+            "recorded_path": str(path),
         }
     size = path.stat().st_size
     if size > MAX_INLINE_BYTES:

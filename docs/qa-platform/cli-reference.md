@@ -91,6 +91,11 @@ yoke qa artifact add \
  --requirement-id 1 --run-id 10 --artifact-type screenshot \
  --content-type image/png --filename capture.png --content-file PATH
 
+# Move evidence recorded only on this capture machine into the serving
+# build's store, in place (same artifact row, run, and verdict). Evidence
+# writes from a *-db-admin connection relay to its paired https connection.
+yoke qa artifact rehome --requirement-id 1 --artifact-id 10 --artifact-id 11
+
 # Resolve one artifact through the transport-safe evidence read surface.
 # It lands the bytes under this machine's temp root and reports that
 # path as `path`; --output PATH chooses a different destination.
@@ -134,6 +139,7 @@ the exact deployed candidate; a newer deployment cannot certify an older run.
 | `yoke qa run list` | `[--requirement-id N]` | List runs |
 | `yoke qa artifact presign` | `--requirement-id N --run-id N --filename NAME [--content-type CT]` | Mint a durable upload target |
 | `yoke qa artifact add` | `--requirement-id N --run-id N --artifact-type T (--artifact-handle JSON \| --content-base64 B64 --filename NAME \| --content-file PATH) [opts]` | Insert artifact evidence from a typed handle or inline bytes |
+| `yoke qa artifact rehome` | `--requirement-id N --artifact-id N [--artifact-id N ...]` | On the capture machine, store recorded local-only evidence through the serving build and swap the handle in place |
 | `yoke qa artifact read` | `--requirement-id N --artifact-id N [--output PATH] [--json]` | Land one artifact's bytes at a readable path (default under the machine temp root) and report it; stranded or on-machine evidence is named explicitly |
 
 Dispatcher commands use 0 for success, 1 for a dispatch/not-found failure,
