@@ -35,6 +35,7 @@ from yoke_core.domain.deployment_run_driver_attachment import (
     PHASE_EXECUTING,
     PHASE_FREEZING_SOURCE,
 )
+from yoke_core.domain.deployment_runs_lock import RUN_ROW_LOCK_BLOCKED_PREFIX
 from yoke_core.tools import _watch_runner, watch_preflight
 from yoke_core.tools._watch_terminal_outcome import (
     OUTCOME_ONLY_WATCH_KINDS,
@@ -85,6 +86,10 @@ DEPLOY_PROGRESS_RE = re.compile(r"(Workflow run ID:|completed successfully)")
 # The pipeline retries a temporary relay outage; keep it in raw diagnostics
 # without waking the user before the run reaches an outcome.
 DEPLOY_RELAY_UNAVAILABLE_RE = re.compile(r"status relay is temporarily unavailable")
+# A skipped liveness write is the one thing a stalled deploy can still say, and
+# the release path wraps it in its own warning text, so match it anywhere on
+# the line rather than at the start.
+DEPLOY_ROW_LOCK_BLOCKED_RE = re.compile(re.escape(RUN_ROW_LOCK_BLOCKED_PREFIX))
 FLEET_SCHEMA_REHEARSAL_START_RE = re.compile(r"^\s*Fleet schema rehearsal: uncovered\b")
 FLEET_SCHEMA_REHEARSAL_COVERED_RE = re.compile(
     r"^\s*Fleet schema rehearsal: (?:covered\b|receipt covers\b)"
@@ -100,6 +105,8 @@ def classify_deploy_line(line: str) -> Classification:
     delivery. Liveness and deadlock checks still run without heartbeats.
     """
     if is_python_exception_line(line):
+        return Classification(LineClass.URGENT)
+    if DEPLOY_ROW_LOCK_BLOCKED_RE.search(line):
         return Classification(LineClass.URGENT)
     for prefix in DEPLOY_URGENT_PREFIXES:
         if line.startswith(prefix):

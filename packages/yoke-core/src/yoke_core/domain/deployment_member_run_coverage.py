@@ -51,7 +51,10 @@ from yoke_core.domain.deployment_run_composition_freeze import (
     requires_release_admission,
 )
 from yoke_core.domain.deployment_run_project_sources import run_source_sha
-from yoke_core.domain.deployment_run_unheld_candidates import held_candidate_ids
+from yoke_core.domain.deployment_run_unheld_candidates import (
+    CustodyResolution,
+    held_candidate_ids,
+)
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_item_stage_plan_gate import item_scoped_qa_stage_names
 from yoke_core.domain.workflow_delivery_binding_validation import (
@@ -100,9 +103,7 @@ class MemberRunCoverage:
         return bool(self.completion_flow) and not self.checks and not self.closes
 
 
-def member_run_coverage(
-    conn: Any, *, run_id: str, item_id: int
-) -> MemberRunCoverage:
+def member_run_coverage(conn: Any, *, run_id: str, item_id: int) -> MemberRunCoverage:
     """Resolve what ``run_id`` can do for ``item_id``.
 
     Every fact comes from what the attach already resolved: the run's flow
@@ -156,19 +157,15 @@ def _close_clause(coverage: MemberRunCoverage) -> str:
     if coverage.closes:
         if coverage.run_flow == coverage.completion_flow:
             return "is this item's completion flow, so it can close the item"
-        return (
-            "carries this item's project source, so it can close the item"
-        )
+        return "carries this item's project source, so it can close the item"
     if not coverage.completion_flow:
         # Said plainly, without this notice's recovery: a flow that resolves
         # nowhere is delivery clearance's refusal to name, not this one's.
         return (
-            "cannot close the item, because the item resolves no completion "
-            "flow at all"
+            "cannot close the item, because the item resolves no completion flow at all"
         )
     return (
-        f"cannot close the item, whose completion flow is "
-        f"{coverage.completion_flow!r}"
+        f"cannot close the item, whose completion flow is {coverage.completion_flow!r}"
     )
 
 
@@ -222,7 +219,9 @@ def inert_membership_notice(
     membership that will receive nothing.
     """
     subjects: Iterable[int] = (
-        member_ids(conn, run_id) if item_ids is None else tuple(int(v) for v in item_ids)
+        member_ids(conn, run_id)
+        if item_ids is None
+        else tuple(int(v) for v in item_ids)
     )
     notices = [
         describe_member_run_coverage(coverage)
@@ -270,7 +269,9 @@ def _final_open_member(conn: Any, run_id: str, item_id: int) -> bool:
     )
 
 
-def unclosable_final_member_refusal(conn: Any, run_id: str) -> str | None:
+def unclosable_final_member_refusal(
+    conn: Any, run_id: str, *, custody: CustodyResolution | None = None
+) -> str | None:
     """Refuse a release whose success would leave a final member open.
 
     Membership admits an item on facts about the code; closing it takes
@@ -283,10 +284,12 @@ def unclosable_final_member_refusal(conn: Any, run_id: str) -> str | None:
     them. That run owes the delivery and answers for the close; this one is
     only carrying its ancestor code, so refusing here would block every
     release cut over a live one for a member it was never delivering.
+
+    Pass *custody* to reuse a resolution the caller already walked.
     """
     if not _final_delivery_run(conn, run_id):
         return None
-    held = held_candidate_ids(conn, run_id)
+    held = held_candidate_ids(conn, run_id, custody=custody)
     unclosable = [
         coverage
         for coverage in (

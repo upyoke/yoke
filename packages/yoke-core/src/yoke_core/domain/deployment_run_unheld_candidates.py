@@ -37,6 +37,16 @@ Custody is always asked with this run excluded. A run reasoning about its own
 composition that counted its own membership would read every member it already
 holds as held elsewhere, which would silently retire the final-member
 completion-authority refusal rather than narrow it.
+
+Answering it costs a source walk per carried project -- a GitHub containment
+question, so network I/O with no bound of its own. Four different composition
+readers need the same answer, and asking four times once put three of those
+walks inside the run row lock that enrollment had already taken: a laptop that
+hibernated mid-walk pinned the row until a human terminated the backend.
+:func:`resolve_candidate_custody` answers once, before any lock, and
+:class:`CustodyResolution` is what the readers pass around. Because custody is
+asked with ``exclude_run_id`` set to this run, enrolling its own members cannot
+change the answer, so one resolution stays valid for the whole composition.
 """
 
 from __future__ import annotations
@@ -111,31 +121,80 @@ def candidate_custody(conn: Any, run_id: str) -> CandidateCustody:
     )
 
 
+@dataclass(frozen=True)
+class CustodyResolution:
+    """One custody answer, plus the refusal if it could not be answered.
+
+    Custody is unanswerable when a landing has no attributable commit or a
+    source cannot be read. Enrollment must raise on that -- it would otherwise
+    compose a membership it could not justify -- while the readers that only
+    *narrow* a report must not, because a lost narrowing is a worse answer than
+    no answer but a raised one is no answer at all. Carrying both lets each
+    reader keep the behaviour it already had off a single walk.
+    """
+
+    custody: CandidateCustody | None
+    refusal: str | None
+
+    def require(self) -> CandidateCustody:
+        """Return the custody, or raise the refusal that prevented answering."""
+        if self.custody is None:
+            raise ValueError(self.refusal or "candidate custody is undetermined")
+        return self.custody
+
+    @property
+    def held_ids(self) -> frozenset[int]:
+        """Held landings, empty when custody could not be determined."""
+        return self.custody.held_ids if self.custody is not None else frozenset()
+
+    @property
+    def held(self) -> tuple[HeldCandidate, ...]:
+        """Held landings in item order, empty when custody is undetermined."""
+        return self.custody.held if self.custody is not None else ()
+
+
+def resolve_candidate_custody(conn: Any, run_id: str) -> CustodyResolution:
+    """Walk this run's candidate custody once, tolerating an unanswerable one.
+
+    Call this before taking any run or binding lock and hand the result to
+    every consumer: the walk reaches GitHub, and no network round trip belongs
+    inside a row lock a deploy holds.
+    """
+    try:
+        return CustodyResolution(candidate_custody(conn, run_id), None)
+    except (LookupError, ValueError) as exc:
+        return CustodyResolution(None, str(exc))
+
+
 def unheld_candidate_ids(conn: Any, run_id: str) -> tuple[int, ...]:
     """Item ids this run should enroll that its carried range cannot see."""
     return candidate_custody(conn, run_id).enrollable
 
 
-def held_candidate_ids(conn: Any, run_id: str) -> frozenset[int]:
+def held_candidate_ids(
+    conn: Any, run_id: str, *, custody: CustodyResolution | None = None
+) -> frozenset[int]:
     """Carried landings another release holds, empty when custody cannot say.
 
     A composition reader must not be turned into a raise by a custody question
-    it does not own: :func:`candidate_custody` refuses an unanswerable custody
-    by name and enrollment reports that refusal, so withholding the exclusion
-    here loses the narrowing rather than the error.
+    it does not own: enrollment reports an unanswerable custody by name, so
+    withholding the exclusion here loses the narrowing rather than the error.
+
+    Pass *custody* to reuse a resolution the caller already walked.
     """
-    try:
-        return candidate_custody(conn, run_id).held_ids
-    except (LookupError, ValueError):
-        return frozenset()
+    return (custody or resolve_candidate_custody(conn, run_id)).held_ids
 
 
-def held_candidate_notice(conn: Any, run_id: str) -> str:
+def held_candidate_notice(
+    conn: Any, run_id: str, *, custody: CustodyResolution | None = None
+) -> str:
     """Name every carried landing this run left out because a release holds it.
 
     Said whenever composition reports itself, because "why is my item not a
     member" is otherwise answerable only by reading two runs' membership by
     hand. Silent when this run may not enroll at all: nothing was skipped.
+
+    Pass *custody* to reuse a resolution the caller already walked.
     """
     from yoke_core.domain.deployment_run_carried_membership import (
         carried_enrollment_blocked,
@@ -143,10 +202,7 @@ def held_candidate_notice(conn: Any, run_id: str) -> str:
 
     if carried_enrollment_blocked(conn, run_id):
         return ""
-    try:
-        held = candidate_custody(conn, run_id).held
-    except (LookupError, ValueError):
-        return ""
+    held = (custody or resolve_candidate_custody(conn, run_id)).held
     if not held:
         return ""
     named = "; ".join(
@@ -219,9 +275,11 @@ def _project_custody(
 
 __all__ = [
     "CandidateCustody",
+    "CustodyResolution",
     "HeldCandidate",
     "candidate_custody",
     "held_candidate_ids",
     "held_candidate_notice",
+    "resolve_candidate_custody",
     "unheld_candidate_ids",
 ]

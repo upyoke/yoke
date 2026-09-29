@@ -9,12 +9,14 @@ from yoke_core.domain.deployment_run_driver_attachment import (
     ATTACH_FUNCTION_ID,
     FOR_CAPTURE_FUNCTION_ID,
     RELEASE_FUNCTION_ID,
+    ROW_LOCK_BUSY_CODE,
     DriverAlreadyAttached,
     VALID_PHASES,
     attach_driver,
     live_attachment_for_capture,
     release_driver,
 )
+from yoke_core.domain.deployment_runs_lock import DeploymentRunRowLockBusy
 from yoke_core.domain.handlers import deployment_qa_stage_relay as qa_stage_relay
 from yoke_core.domain.handlers import deployment_run_execution as execution
 from yoke_core.domain.handlers import deployment_run_execution_qa as qa
@@ -86,6 +88,9 @@ def handle_attach_driver(request: FunctionCallRequest) -> HandlerOutcome:
         except DriverAlreadyAttached as exc:
             conn.rollback()
             return error("driver_already_attached", str(exc))
+        except DeploymentRunRowLockBusy as exc:
+            conn.rollback()
+            return error(ROW_LOCK_BUSY_CODE, str(exc))
         except ValueError as exc:
             conn.rollback()
             return error("payload_invalid", str(exc))
@@ -118,7 +123,11 @@ def handle_release_driver(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.db_helpers import connect
 
     with connect() as conn:
-        released = release_driver(conn, resolved, session_id=session_id, pid=pid)
+        try:
+            released = release_driver(conn, resolved, session_id=session_id, pid=pid)
+        except DeploymentRunRowLockBusy as exc:
+            conn.rollback()
+            return error(ROW_LOCK_BUSY_CODE, str(exc))
         conn.commit()
     return HandlerOutcome(
         result_payload={"run_id": resolved, "released": released},

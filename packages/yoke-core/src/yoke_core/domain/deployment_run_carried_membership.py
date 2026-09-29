@@ -12,9 +12,9 @@ landings are unioned in to reach what it cannot see, and the landings a live or
 succeeded release already holds are subtracted, because commit arithmetic
 happily proposes an ancestor another run is mid-delivery on. Everything left is
 filtered by the same admission rules below.
-:func:`carried_membership_refusal` is the invariant behind it — what enrollment
-could not resolve still stops the run, so nothing is waived by silence, and it
-makes the same subtraction so the two can never disagree.
+:mod:`deployment_run_carried_membership_refusal` is the invariant behind it —
+what enrollment could not resolve still stops the run, so nothing is waived by
+silence, and it makes the same subtraction so the two can never disagree.
 
 :func:`admit_run_item` is the single connection-scoped write both entrances
 share: validated project/flow/stage binding, validated delivery intent, an
@@ -49,7 +49,6 @@ from yoke_core.domain.deployment_item_flow_resolution import (
 )
 from yoke_core.domain.deployment_run_carried_work import (
     carried_work_for_enrollment,
-    derive_carried_work_safely,
 )
 from yoke_core.domain.deployment_member_post_deploy_admission import (
     admissible_post_deploy_requirement_ids,
@@ -65,11 +64,8 @@ from yoke_core.domain.deployment_run_composition_guard import (
     has_frozen_composition,
 )
 from yoke_core.domain.deployment_run_unheld_candidates import (
-    candidate_custody,
-    held_candidate_ids,
-)
-from yoke_core.domain.deployment_run_unattributed_commits import (
-    unattributed_commits_refusal,
+    CustodyResolution,
+    resolve_candidate_custody,
 )
 from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.deployment_requirement_snapshots import (
@@ -179,6 +175,7 @@ def enroll_carried_members(
     run_id: str,
     *,
     carried_work: Mapping[str, Any] | None = None,
+    custody: CustodyResolution | None = None,
 ) -> tuple[str, ...]:
     """Attach every delivery-ready carried item the run does not already own.
 
@@ -187,6 +184,10 @@ def enroll_carried_members(
     the item and its recovery when a carried item is genuinely inadmissible —
     an incompatible flow, or a binding its own workflow refuses — because a
     run that cannot carry the obligation must not start pretending it does.
+
+    Pass *custody* to reuse a resolution the caller already walked. Resolving
+    it here is still done before any lock below is taken, because the walk
+    reaches GitHub and the run row must never be held across a network call.
     """
     if carried_enrollment_blocked(conn, run_id):
         return ()
@@ -199,7 +200,7 @@ def enroll_carried_members(
     if not str(row[0] or "").strip():
         return ()
     payload = dict(carried_work or carried_work_for_enrollment(conn, run_id))
-    custody = candidate_custody(conn, run_id)
+    resolved = (custody or resolve_candidate_custody(conn, run_id)).require()
     # An underivable carried set names no items to enroll. The refusal owner
     # reports it, so silence here is deferral, not a waiver.
     range_ids = {
@@ -211,7 +212,7 @@ def enroll_carried_members(
     # A held landing belongs to the release already delivering it; an unheld
     # one below the range's floor is still this run's to deliver. Both are
     # reconciled into one candidate set before any lock is taken.
-    carried = sorted((range_ids - custody.held_ids) | set(custody.enrollable))
+    carried = sorted((range_ids - resolved.held_ids) | set(resolved.enrollable))
     if not carried:
         return ()
     # Item workflow bindings first, then the run row: the same order
@@ -260,89 +261,10 @@ def describe_enrollment(enrolled: Iterable[str]) -> str:
     )
 
 
-def carried_membership_refusal(
-    conn: Any,
-    run_id: str,
-    *,
-    carried_work: Mapping[str, Any] | None = None,
-) -> str | None:
-    """Return an actionable refusal for unresolved or omitted deliverable code."""
-    if not requires_release_admission(conn, run_id):
-        return None
-    if not _column_exists(conn, "deployment_runs", "composition_resolution"):
-        return None
-    run = conn.execute(
-        f"SELECT release_lineage,composition_resolution FROM deployment_runs "
-        f"WHERE id={_p(conn)}",
-        (run_id,),
-    ).fetchone()
-    if run is None:
-        return f"deployment run {run_id!r} not found"
-    lineage = str(_cell(run, "release_lineage", 0) or "").strip()
-    resolution = str(_cell(run, "composition_resolution", 1) or "").strip()
-    if not lineage:
-        return None
-    payload = dict(carried_work or derive_carried_work_safely(conn, run_id))
-    project_sets = project_carried_sets(payload)
-    if not resolution:
-        problems: list[str] = []
-        for project_set in project_sets:
-            derivation = project_set.get("derivation") or {}
-            reason = str(derivation.get("reason") or "unknown")
-            project = str(project_set.get("project") or "run project")
-            if not bool(derivation.get("contents_known")):
-                recovery = str(derivation.get("recovery") or "").strip()
-                problems.append(
-                    f"{project} carried-code membership is {reason}. "
-                    + (recovery or "Repair source access, then revalidate composition.")
-                )
-                continue
-            if refusal := unattributed_commits_refusal(run_id, project_set):
-                problems.append(refusal)
-        if problems:
-            return f"deployment run {run_id!r} carried-work blockers:\n" + "\n".join(
-                problems
-            )
-    if inherited_frozen_membership(conn, run_id):
-        # A retry delivers exactly what its predecessor froze. Re-scanning
-        # against a baseline that has moved since would name items this
-        # candidate never promised, so the inherited answer stands.
-        return None
-    members = set(member_ids(conn, run_id))
-    eligible = sorted(
-        {
-            int(entry["item_id"])
-            for project_set in project_sets
-            for entry in project_set.get("items") or []
-            if item_requires_release_membership(conn, int(entry["item_id"]))
-        }
-        - held_candidate_ids(conn, run_id)
-    )
-    for item_id in eligible:
-        if refusal := completion_flow_refusal(conn, item_id):
-            return f"deployment run {run_id!r} carries {refusal}"
-    omitted = [item_id for item_id in eligible if item_id not in members]
-    if not omitted:
-        return None
-    labels = ", ".join(render_item_ref(conn, int(item_id)) for item_id in omitted)
-    why = carried_enrollment_blocked(conn, run_id) or (
-        "they became deliverable after this run composed its membership"
-    )
-    return (
-        f"deployment run {run_id!r} omits delivery-ready carried work: {labels}; "
-        f"automatic enrollment did not add them ({why}). Re-run the deployment "
-        "start so admission enrolls them, attach them, or choose a candidate "
-        "that excludes their code. An already-done item is never one of them: "
-        "it cannot be newly admitted, and its code travels under the run's "
-        "pinned release lineage"
-    )
-
-
 __all__ = [
     "admit_run_item",
     "project_carried_sets",
     "carried_enrollment_blocked",
-    "carried_membership_refusal",
     "describe_enrollment",
     "enroll_carried_members",
 ]
