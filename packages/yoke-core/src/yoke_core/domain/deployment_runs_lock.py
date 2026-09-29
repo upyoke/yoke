@@ -130,6 +130,11 @@ def run_row_lock_holder(conn) -> Optional[RunRowLockHolder]:
             "(clock_timestamp() - a.state_change)))::int "
             "FROM pg_stat_activity a JOIN pg_locks l ON l.pid = a.pid "
             "WHERE l.relation = 'deployment_runs'::regclass "
+            # pg_locks spans the cluster and its relation oids only mean
+            # anything inside their own database, so an unfiltered read can
+            # name a backend working on a different universe entirely.
+            "AND l.database = "
+            "(SELECT oid FROM pg_database WHERE datname = current_database()) "
             "AND a.pid <> pg_backend_pid() "
             "ORDER BY a.state_change ASC NULLS LAST LIMIT 1"
         ).fetchone()

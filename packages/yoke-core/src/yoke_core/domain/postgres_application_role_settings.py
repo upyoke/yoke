@@ -122,6 +122,5 @@ __all__ = [
     "APPLICATION_ROLE_DEFAULT_NOT_PERSISTED",
     "APPLICATION_ROLE_DEFAULT_RECOVERY",
     "ApplicationRoleSettingsError",
-    "IDLE_IN_TRANSACTION_SESSION_TIMEOUT",
     "converge_application_role_settings",
 ]

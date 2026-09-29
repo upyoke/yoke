@@ -11,6 +11,7 @@ import io
 import pytest
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
+from yoke_core.domain.deployment_runs_lock import RUN_ROW_LOCK_BLOCKED_PREFIX
 from yoke_core.tools import watch_deploy, watch_tail
 from yoke_core.tools._watch_throttle import LineClass
 from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
@@ -147,6 +148,24 @@ def test_the_union_pattern_matches_every_classified_shape():
         "Self-deploy driver frozen at abc (/tmp/pin)",
     ):
         assert watch_deploy.DEPLOY_PROGRESS_PATTERN.search(line), line
+
+
+def test_a_blocked_liveness_write_reaches_the_user_facing_stream():
+    """Silence is the defect this replaces, so the named reason must be urgent.
+
+    The release path wraps its own warning text around the same refusal, so the
+    classifier matches the prefix anywhere on the line rather than at the start.
+    """
+    refusal = (
+        f"{RUN_ROW_LOCK_BLOCKED_PREFIX} deployment run 'run-1' row was not free "
+        "within 2000ms: pid 17132 has held a deployment_runs lock for 683s "
+        "while idle in transaction."
+    )
+
+    assert _line_class(refusal) is LineClass.URGENT
+    assert _line_class(f"warning: could not release deploy driver: {refusal}") is (
+        LineClass.URGENT
+    )
 
 
 def test_wrapper_uses_the_execute_adapter_authority_check(monkeypatch):

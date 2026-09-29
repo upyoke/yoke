@@ -16,8 +16,10 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain import db_helpers
 from yoke_core.domain.postgres_application_role_settings import (
     APPLICATION_ROLE_DEFAULT_NOT_PERSISTED,
-    IDLE_IN_TRANSACTION_SESSION_TIMEOUT,
     converge_application_role_settings,
+)
+from yoke_core.domain.postgres_control_plane_connection import (
+    IDLE_IN_TRANSACTION_SESSION_TIMEOUT,
 )
 from yoke_core.domain.yoke_function_dispatch_idempotency import (
     request_reservation,
