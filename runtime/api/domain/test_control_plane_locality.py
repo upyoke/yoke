@@ -99,6 +99,7 @@ def test_ambient_factory_calls_refuse_before_resolving_anything() -> None:
 
 def test_explicit_dsn_names_its_own_database_and_is_admitted(monkeypatch) -> None:
     import psycopg
+    from psycopg.conninfo import conninfo_to_dict
 
     opened: list[str] = []
     monkeypatch.setattr(
@@ -106,7 +107,14 @@ def test_explicit_dsn_names_its_own_database_and_is_admitted(monkeypatch) -> Non
     )
     with remote_control_plane():
         db_backend.connect_psycopg("host=elsewhere dbname=validation")
-    assert opened == ["host=elsewhere dbname=validation"]
+
+    assert len(opened) == 1
+    # Parsed rather than compared byte for byte: the factory also declares the
+    # control-plane transaction and keepalive guards, and this test is about
+    # which database an explicit DSN reaches, not how the string is spelled.
+    declared = conninfo_to_dict(opened[0])
+    assert declared["host"] == "elsewhere"
+    assert declared["dbname"] == "validation"
 
 
 def test_local_first_probe_still_attempts_the_connection() -> None:
