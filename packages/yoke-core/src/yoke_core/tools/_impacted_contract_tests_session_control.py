@@ -60,7 +60,24 @@ SESSION_MODEL_SELECTION_TESTS = (
     "runtime/harness/test_session_launch_model_selection.py",
     "runtime/harness/test_session_resume_model_selection.py",
 )
+SESSION_HOLDINGS_SOURCE_PATHS = frozenset(
+    {
+        "packages/yoke-core/src/yoke_core/domain/sessions_holdings_claim_facts.py",
+        "packages/yoke-core/src/yoke_core/domain/strategy_doc_steering_pair.py",
+        "packages/yoke-core/src/yoke_core/domain/sessions_list_read.py",
+    }
+)
+SESSION_HOLDINGS_TESTS = (
+    "runtime/api/domain/test_sessions_list_claim_facts.py",
+    "runtime/api/domain/test_sessions_list_holdings.py",
+    "runtime/api/domain/handlers/test_sessions_list_steering_scope.py",
+)
 _SESSION_CONTROL_CONTRACTS = (
+    (
+        "session_holdings_contract",
+        SESSION_HOLDINGS_SOURCE_PATHS,
+        SESSION_HOLDINGS_TESTS,
+    ),
     (
         "private_session_route_contract",
         PRIVATE_SESSION_ROUTE_SOURCE_PATHS,
@@ -101,6 +118,8 @@ __all__ = [
     "PRIVATE_SESSION_ROUTE_TESTS",
     "SESSION_MODEL_SELECTION_SOURCE_PATHS",
     "SESSION_MODEL_SELECTION_TESTS",
+    "SESSION_HOLDINGS_SOURCE_PATHS",
+    "SESSION_HOLDINGS_TESTS",
     "SESSION_SURFACE_CAPABILITY_SOURCE_PATHS",
     "SESSION_SURFACE_CAPABILITY_TESTS",
     "session_control_contract_selection",

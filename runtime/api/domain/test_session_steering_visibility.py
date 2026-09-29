@@ -50,12 +50,14 @@ def _connection() -> sqlite3.Connection:
             released_at TEXT
         );
         CREATE TABLE strategy_doc_claims (
+            id INTEGER PRIMARY KEY,
             project_id INTEGER,
             strategy_doc_slug TEXT,
             owner_kind TEXT,
             owner_session_id TEXT,
             registered_at TEXT,
-            released_at TEXT
+            released_at TEXT,
+            steering_claim_id INTEGER
         );
         """
     )
@@ -86,7 +88,7 @@ def _connection() -> sqlite3.Connection:
     )
     conn.execute(
         "INSERT INTO strategy_doc_claims VALUES "
-        "(10,'MISSION','session','holder-1','2026-08-26T11:00:00Z',NULL)"
+        "(1,10,'MISSION','session','holder-1','2026-08-26T11:00:00Z',NULL,1)"
     )
     return conn
 
@@ -125,8 +127,7 @@ def test_a_worker_holding_a_covered_item_associates_to_the_seat() -> None:
     conn = _connection()
     conn.execute("INSERT INTO items VALUES (42, 10)")
     conn.execute(
-        "UPDATE harness_sessions SET current_item_id = 42 "
-        "WHERE session_id = 'worker-1'"
+        "UPDATE harness_sessions SET current_item_id = 42 WHERE session_id = 'worker-1'"
     )
 
     facts = steering_visibility(conn, _rows(), now=NOW)
@@ -142,12 +143,9 @@ def test_a_worker_holding_a_covered_item_associates_to_the_seat() -> None:
 def test_a_worker_on_another_document_is_not_the_project_seat() -> None:
     conn = _connection()
     conn.execute("INSERT INTO items VALUES (42, 10)")
+    conn.execute("INSERT INTO item_strategy_docs VALUES (42, 10, 'AREA-PLAN')")
     conn.execute(
-        "INSERT INTO item_strategy_docs VALUES (42, 10, 'AREA-PLAN')"
-    )
-    conn.execute(
-        "UPDATE harness_sessions SET current_item_id = 42 "
-        "WHERE session_id = 'worker-1'"
+        "UPDATE harness_sessions SET current_item_id = 42 WHERE session_id = 'worker-1'"
     )
 
     facts = steering_visibility(conn, _rows(), now=NOW)
@@ -225,11 +223,11 @@ def _two_document_seats(conn: sqlite3.Connection) -> None:
     )
     conn.execute(
         "INSERT INTO strategy_doc_claims VALUES "
-        "(10,'CURRENT-PLAN','session','holder-1','2026-08-26T11:00:00Z',NULL)"
+        "(1,10,'CURRENT-PLAN','session','holder-1','2026-08-26T11:00:00Z',NULL,1)"
     )
     conn.execute(
         "INSERT INTO strategy_doc_claims VALUES "
-        "(10,'RELEASES','session','holder-1','2026-08-26T11:01:00Z',NULL)"
+        "(2,10,'RELEASES','session','holder-1','2026-08-26T11:01:00Z',NULL,2)"
     )
 
 
@@ -237,12 +235,9 @@ def test_worker_group_scope_names_the_covering_document_claim() -> None:
     conn = _connection()
     _two_document_seats(conn)
     conn.execute("INSERT INTO items VALUES (42, 10)")
+    conn.execute("INSERT INTO item_strategy_docs VALUES (42, 10, 'CURRENT-PLAN')")
     conn.execute(
-        "INSERT INTO item_strategy_docs VALUES (42, 10, 'CURRENT-PLAN')"
-    )
-    conn.execute(
-        "UPDATE harness_sessions SET current_item_id = 42 "
-        "WHERE session_id = 'worker-1'"
+        "UPDATE harness_sessions SET current_item_id = 42 WHERE session_id = 'worker-1'"
     )
 
     group = steering_visibility(conn, _rows(), now=NOW)["worker-1"][
@@ -259,8 +254,7 @@ def test_worker_on_the_later_document_does_not_inherit_the_first_claim() -> None
     conn.execute("INSERT INTO items VALUES (42, 10)")
     conn.execute("INSERT INTO item_strategy_docs VALUES (42, 10, 'RELEASES')")
     conn.execute(
-        "UPDATE harness_sessions SET current_item_id = 42 "
-        "WHERE session_id = 'worker-1'"
+        "UPDATE harness_sessions SET current_item_id = 42 WHERE session_id = 'worker-1'"
     )
 
     group = steering_visibility(conn, _rows(), now=NOW)["worker-1"][
@@ -307,11 +301,18 @@ def test_covering_claim_projects_when_it_is_not_the_first_project_seat() -> None
             "2026-08-26T11:01:00Z",
         ),
     )
+    conn.execute(
+        "INSERT INTO strategy_doc_claims VALUES "
+        "(1,10,'CURRENT-PLAN','session','holder-1','2026-08-26T11:00:00Z',NULL,1)"
+    )
+    conn.execute(
+        "INSERT INTO strategy_doc_claims VALUES "
+        "(2,10,'RELEASES','session','holder-2','2026-08-26T11:01:00Z',NULL,2)"
+    )
     conn.execute("INSERT INTO items VALUES (42, 10)")
     conn.execute("INSERT INTO item_strategy_docs VALUES (42, 10, 'RELEASES')")
     conn.execute(
-        "UPDATE harness_sessions SET current_item_id = 42 "
-        "WHERE session_id = 'worker-1'"
+        "UPDATE harness_sessions SET current_item_id = 42 WHERE session_id = 'worker-1'"
     )
 
     facts = steering_visibility(

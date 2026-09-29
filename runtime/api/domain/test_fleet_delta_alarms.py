@@ -133,6 +133,27 @@ def test_unowned_item_ignores_backlog_ideas_and_claimed_items() -> None:
     assert unowned_item_alarms(later, state) == []
 
 
+def test_frozen_item_never_alarms_but_unfrozen_unclaimed_work_does() -> None:
+    state = DeltaState()
+    frozen_ref = "frozen-item"
+    live_ref = "unfrozen-item"
+    first = _snapshot(
+        items={
+            frozen_ref: _item(frozen_ref, frozen=True),
+            live_ref: _item(live_ref),
+        }
+    )
+    assert unowned_item_alarms(first, state) == []
+    later = _snapshot(
+        taken_at=NOW + timedelta(minutes=UNOWNED_ITEM_MINUTES + 1),
+        items=first.items,
+    )
+    assert unowned_item_alarms(later, state) == [
+        f"fleet ALARM unowned-item {live_ref} status=implementing "
+        f"unowned={UNOWNED_ITEM_MINUTES + 1}m"
+    ]
+
+
 def _envelope(**overrides) -> EnvelopeRow:
     fields = {
         "message_id": "msg-1111",
@@ -181,9 +202,7 @@ def test_starved_envelope_excludes_a_recipient_that_acted_since_the_send() -> No
     row = _envelope()
     snapshot = _snapshot(
         sessions={
-            "a": _session(
-                "a", activity_at=NOW, last_tool_call_at=NOW, claimed_items=()
-            )
+            "a": _session("a", activity_at=NOW, last_tool_call_at=NOW, claimed_items=())
         },
         envelopes={row.key: row},
     )

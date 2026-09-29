@@ -88,6 +88,7 @@ class ItemRow:
     claim_state: str
     project: str
     runnable: bool = False
+    frozen: bool = False
 
     @property
     def unclaimed(self) -> bool:
@@ -189,6 +190,7 @@ def item_rows(result: Mapping[str, Any]) -> dict[str, ItemRow]:
                 claim_state=str(raw.get("claim_state") or "unknown"),
                 project=str(raw.get("project") or ""),
                 runnable=bucket == "ranked_steps",
+                frozen=bucket == "frozen_steps",
             )
     return rows
 

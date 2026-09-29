@@ -54,7 +54,16 @@ def _seed_item(
         "project_id, project_sequence, workflow_id, workflow_version_id) "
         "VALUES (%s, %s, 'implementing', 'medium', %s, %s, '2', "
         "%s, %s, %s, %s)",
-        (item_id, f"Item {item_id}", now, now, project_id, item_id, workflow_id, version[0]),
+        (
+            item_id,
+            f"Item {item_id}",
+            now,
+            now,
+            project_id,
+            item_id,
+            workflow_id,
+            version[0],
+        ),
     )
     conn.commit()
 
@@ -91,17 +100,16 @@ def test_a_linked_item_names_its_document(test_db) -> None:
 
 def test_coverage_target_carries_project_item_and_document(test_db) -> None:
     conn = _world(test_db)
-    assert item_coverage_target(
-        conn, project_id=PROJECT_ALPHA, item_id=9101
-    ) == {
+    assert item_coverage_target(conn, project_id=PROJECT_ALPHA, item_id=9101) == {
         "project_id": PROJECT_ALPHA,
         "item_id": 9101,
         "document": AREA_PLAN,
         "document_project_id": PROJECT_ALPHA,
     }
-    assert item_coverage_target(
-        conn, project_id=PROJECT_ALPHA, item_id=9102
-    ) == {"project_id": PROJECT_ALPHA, "item_id": 9102}
+    assert item_coverage_target(conn, project_id=PROJECT_ALPHA, item_id=9102) == {
+        "project_id": PROJECT_ALPHA,
+        "item_id": 9102,
+    }
     assert item_coverage_target(conn, project_id=PROJECT_ALPHA, item_id=None) == {
         "project_id": PROJECT_ALPHA
     }
@@ -137,9 +145,7 @@ def test_document_membership_includes_other_projects_items(test_db) -> None:
     assert document_member_item_ids(
         conn, project_id=PROJECT_ALPHA, document=AREA_PLAN
     ) == {9101, 9201}
-    assert item_coverage_target(
-        conn, project_id=PROJECT_BETA, item_id=9201
-    ) == {
+    assert item_coverage_target(conn, project_id=PROJECT_BETA, item_id=9201) == {
         "project_id": PROJECT_BETA,
         "item_id": 9201,
         "document": AREA_PLAN,
@@ -191,15 +197,15 @@ def test_filters_narrow_to_the_seats_own_items_and_holders() -> None:
     assert sessions_only(rows, session_ids={"s2"}, members={2}) == (rows[1],)
 
 
-def test_a_project_seat_keeps_every_landing_a_document_seat_narrows() -> None:
+def test_each_seat_keeps_only_its_own_landings() -> None:
     rows = (_Row(1, "s1"), _Row(2, "s2"))
-    assert seat_landed_open(rows, {1}, {"project_id": 1}) == rows
-    assert seat_landed_open(
-        rows, {1}, {"project_id": 1, "document": AREA_PLAN}
-    ) == (rows[0],)
+    assert seat_landed_open(rows, {1}, {"project_id": 1}) == (rows[0],)
+    assert seat_landed_open(rows, {1}, {"project_id": 1, "document": AREA_PLAN}) == (
+        rows[0],
+    )
 
 
-def test_a_project_seat_adds_holders_of_visible_landings() -> None:
+def test_a_project_seat_does_not_borrow_other_seats_holders() -> None:
     holders = (_Row(1, "s1"), _Row(2, "s2"))
-    assert seat_claim_holders(holders, {1}, (_Row(2),)) == holders
+    assert seat_claim_holders(holders, {1}, (_Row(2),)) == (holders[0],)
     assert seat_claim_holders(holders, {1}, (_Row(1),)) == (holders[0],)

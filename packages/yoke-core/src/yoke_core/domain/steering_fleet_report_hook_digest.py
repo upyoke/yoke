@@ -54,6 +54,14 @@ def combined_hook_digest(combined: CombinedFleetReport) -> str:
     ]
     if combined.unacked_injected:
         parts.append("")
+    if combined.unattended:
+        parts.extend(
+            [
+                "## unattended linked work",
+                *(f"  {row.finding}" for row in combined.unattended),
+                "",
+            ]
+        )
     for section in combined.sections:
         digest = scope_actionable_digest(section.report)
         if not digest:

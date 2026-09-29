@@ -96,6 +96,7 @@ def test_item_rows_union_the_three_scheduler_buckets() -> None:
     assert rows["YOK-2"].runnable is False
     assert rows["YOK-3"].runnable is False
     assert rows["YOK-2"].claim_state == "unknown"
+    assert rows["YOK-3"].frozen is True
     assert "YOK-99" not in rows, "selected_step repeats a ranked entry"
 
 

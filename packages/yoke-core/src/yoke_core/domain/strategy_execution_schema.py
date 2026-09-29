@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS strategy_doc_claims (
     CHECK(owner_kind IN ('item','session')),
   owner_item_id INTEGER REFERENCES items(id) ON DELETE CASCADE,
   owner_session_id TEXT REFERENCES harness_sessions(session_id),
+  steering_claim_id INTEGER REFERENCES work_claims(id),
   CONSTRAINT strategy_doc_claims_owner_shape_check CHECK (
     (owner_kind = 'item'
        AND owner_item_id IS NOT NULL AND owner_session_id IS NULL)
@@ -79,6 +80,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_strategy_doc_claims_active_owner_item
   ON strategy_doc_claims(owner_item_id)
   WHERE released_at IS NULL;
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_strategy_doc_claims_active_steering_seat
+  ON strategy_doc_claims(steering_claim_id)
+  WHERE released_at IS NULL AND steering_claim_id IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_strategy_doc_claims_item_history
   ON strategy_doc_claims(owner_item_id, registered_at);
 
@@ -98,6 +103,8 @@ TYPED_OWNER_COLUMNS: tuple[tuple[str, str], ...] = (
     ("owner_session_id", "TEXT DEFAULT NULL"),
 )
 
+STEERING_PAIR_COLUMN = ("steering_claim_id", "INTEGER DEFAULT NULL")
+
 
 def ensure_strategy_execution_schema(
     conn: Any,
@@ -113,6 +120,8 @@ def ensure_strategy_execution_schema(
     for column, ddl in TYPED_OWNER_COLUMNS:
         if _table_exists(conn, "strategy_doc_claims"):
             _add_column_if_not_exists(conn, "strategy_doc_claims", column, ddl)
+    if _table_exists(conn, "strategy_doc_claims"):
+        _add_column_if_not_exists(conn, "strategy_doc_claims", *STEERING_PAIR_COLUMN)
     execute_schema_script(conn, STRATEGY_EXECUTION_TABLE_SQL)
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     for event_name, description in STRATEGY_EXECUTION_EVENT_ROWS:

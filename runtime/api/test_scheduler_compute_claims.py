@@ -65,6 +65,22 @@ def test_claude_desktop_19_minute_claim_is_live(scheduler_db):
         assert result.selected_step.item_id != top_item
 
 
+def test_frozen_item_retains_its_live_claim_in_charge_schedule(scheduler_db):
+    conn = scheduler_db["conn"]
+    top_item = _claim_top_item(
+        conn,
+        session_id="frozen-owner",
+        executor="codex-desktop",
+        minutes_ago=2,
+    )
+    conn.execute("UPDATE items SET frozen = 1 WHERE id = %s", (_item_num(top_item),))
+    conn.commit()
+
+    result = compute_schedule(conn, project_scope=["yoke"])
+    frozen = next(step for step in result.frozen_steps if step.item_id == top_item)
+    assert frozen.claim_state == ClaimState.CLAIMED_BY_OTHER_LIVE
+
+
 def test_fifteen_minute_claim_is_still_live(scheduler_db):
     conn = scheduler_db["conn"]
     top_item = _claim_top_item(

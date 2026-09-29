@@ -31,6 +31,7 @@ from yoke_core.domain.strategy_execution import (
     StrategyDocClaimConflictError,
     StrategyExecutionLinkError,
     active_strategy_doc_claim,
+    acquire_session_doc_claim,
     authorize_strategy_doc_write,
     list_strategy_doc_claims,
     release_session_doc_claim,
@@ -151,6 +152,33 @@ def test_paired_document_refuses_direct_release_while_seat_is_active(
         conn.close()
 
 
+def test_one_steering_seat_cannot_pair_two_document_locks(tmp_db: str) -> None:
+    conn = connect_test_db(tmp_db)
+    try:
+        _seed_doc(conn, DOC, "# Area plan\n")
+        _seed_doc(conn, "NEXT-PLAN", "# Next plan\n")
+        _seed_session(conn, COORDINATOR)
+        steering = acquire_steering(
+            conn,
+            session_id=COORDINATOR,
+            project_id=1,
+            document=DOC,
+            actor_id=1,
+        )
+
+        with pytest.raises(StrategyDocClaimConflictError, match="already pairs"):
+            acquire_session_doc_claim(
+                conn,
+                project_id=1,
+                slug="NEXT-PLAN",
+                session_id=COORDINATOR,
+                actor_id=1,
+                steering_claim_id=steering["id"],
+            )
+    finally:
+        conn.close()
+
+
 def test_a_second_session_cannot_take_a_held_document(tmp_db: str) -> None:
     conn = connect_test_db(tmp_db)
     try:
@@ -238,11 +266,17 @@ def test_non_holder_cannot_replace_while_coordination_append_keeps_holds(
         _lock(conn)
 
         assert authorize_strategy_doc_write(
-            conn, project_id=1, slug=DOC, session_id=COORDINATOR,
+            conn,
+            project_id=1,
+            slug=DOC,
+            session_id=COORDINATOR,
         )
         with pytest.raises(StrategyDocClaimAuthorizationError):
             authorize_strategy_doc_write(
-                conn, project_id=1, slug=DOC, session_id=WORKER,
+                conn,
+                project_id=1,
+                slug=DOC,
+                session_id=WORKER,
             )
 
         live = get_doc(conn, 1, DOC)

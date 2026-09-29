@@ -91,28 +91,37 @@ def insert_steering_claim(
     session_id: str,
     *,
     project_id: int = 1,
+    document: str | None = None,
     released_at: str | None = None,
-) -> None:
+) -> int:
     now = iso()
-    conn.execute(
+    row = conn.execute(
         "INSERT INTO work_claims ("
         "session_id, target_kind, scope, claimed_at, last_heartbeat, reason, "
         "released_at, release_reason"
-        ") VALUES (%s, 'steering', %s, %s, %s, %s, %s, %s)",
+        ") VALUES (%s, 'steering', %s, %s, %s, %s, %s, %s) RETURNING id",
         (
             session_id,
-            make_steering_target(project_id).scope_json(),
+            make_steering_target(project_id, document=document).scope_json(),
             now,
             now,
             "strategy review",
             released_at,
             "released" if released_at else None,
         ),
-    )
+    ).fetchone()
     conn.commit()
+    return int(row[0])
 
 
-def insert_document_lock(conn, session_id: str, project_id: int, slug: str) -> None:
+def insert_document_lock(
+    conn,
+    session_id: str,
+    project_id: int,
+    slug: str,
+    *,
+    steering_claim_id: int | None = None,
+) -> None:
     """Lock one strategy document to a session, seeding the document itself.
 
     ``strategy_doc_claims`` carries a foreign key onto ``strategy_docs``,
@@ -126,9 +135,9 @@ def insert_document_lock(conn, session_id: str, project_id: int, slug: str) -> N
     conn.execute(
         "INSERT INTO strategy_doc_claims ("
         "project_id, strategy_doc_slug, owner_kind, owner_session_id, "
-        "registered_at"
-        ") VALUES (%s, %s, 'session', %s, %s)",
-        (project_id, slug, session_id, iso()),
+        "registered_at, steering_claim_id"
+        ") VALUES (%s, %s, 'session', %s, %s, %s)",
+        (project_id, slug, session_id, iso(), steering_claim_id),
     )
     conn.commit()
 

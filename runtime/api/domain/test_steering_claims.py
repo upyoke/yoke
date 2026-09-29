@@ -19,6 +19,7 @@ from runtime.api.domain.steering_claim_test_support import (
 )
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
+from yoke_core.domain.sessions_lifecycle_claim_release import release_claim_by_id
 from yoke_core.domain.steering_claims import list_claims
 from yoke_core.domain.strategy_doc_steering_pair import (
     active_paired_session_doc_claim,
@@ -128,6 +129,49 @@ def test_a_plan_locked_seat_coexists_with_a_non_plan_document_seat(
             document="AREA-PLAN",
         )
     assert first["id"] != second["id"]
+
+
+def test_releasing_document_seat_preserves_same_sessions_project_plan_lock(
+    steering_db,
+) -> None:
+    seed_strategy_doc(steering_db, PROJECT_ALPHA, "AREA-PLAN")
+    with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
+        project = acquire_steering(
+            steering_db,
+            SESSION_ALPHA,
+            PROJECT_ALPHA,
+            plan_document=NEAR_TERM_PLAN_SLUG,
+        )
+        document = acquire_steering(
+            steering_db,
+            SESSION_ALPHA,
+            PROJECT_ALPHA,
+            document="AREA-PLAN",
+        )
+    release_claim_by_id(steering_db, document["id"], reason="document finished")
+    assert (
+        active_paired_session_doc_claim(steering_db, project["id"])["strategy_doc_slug"]
+        == NEAR_TERM_PLAN_SLUG
+    )
+    assert active_paired_session_doc_claim(steering_db, document["id"]) is None
+
+
+def test_project_seat_does_not_release_an_unpaired_session_document(
+    steering_db,
+) -> None:
+    seed_strategy_doc(steering_db, PROJECT_ALPHA, "AREA-PLAN")
+    with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
+        seat = acquire_steering(steering_db, SESSION_ALPHA, PROJECT_ALPHA)
+    acquire_session_doc_claim(
+        steering_db,
+        project_id=PROJECT_ALPHA,
+        slug="AREA-PLAN",
+        session_id=SESSION_ALPHA,
+        actor_id=2,
+    )
+    with pytest.raises(Exception, match="unpaired document locks"):
+        release_claim_by_id(steering_db, seat["id"], reason="seat finished")
+    assert list_claims(steering_db, project_id=PROJECT_ALPHA, active_only=True)
 
 
 def test_naming_both_a_scope_document_and_a_plan_document_refuses(

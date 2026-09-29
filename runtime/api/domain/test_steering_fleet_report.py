@@ -180,8 +180,8 @@ def test_a_parked_holder_quiet_past_idle_is_idle(steering_scope):
     assert report.idle[0].parked is True
 
 
-def test_a_document_linked_landing_is_named_on_the_project_seat(steering_scope):
-    """Staffing membership must not hide a close-out linked to another document."""
+def test_a_document_linked_landing_is_named_on_its_document_seat(steering_scope):
+    """The linked document owns the landing and its parked holder."""
     holder = "parked-closer"
     seed_session(steering_scope, holder, last_tool_call_at=LONG_AGO, mode="parked")
     insert_item(
@@ -210,7 +210,10 @@ def test_a_document_linked_landing_is_named_on_the_project_seat(steering_scope):
     )
     steering_scope.commit()
 
-    report = _compose(steering_scope)
+    project_report = _compose(steering_scope)
+    assert 4 not in {entry.item_id for entry in project_report.landed_open}
+
+    report = _compose(steering_scope, scope={"project_id": 1, "document": "LANDSCAPE"})
     body = report_body(report)
 
     assert 4 in {entry.item_id for entry in report.landed_open}

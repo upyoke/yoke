@@ -34,10 +34,9 @@ it as available invites a second worker onto an item it cannot claim. That
 window is not silent. ``claim_holders`` excludes only ended and terminated
 sessions, and idleness is measured from ``last_tool_call_at`` rather than
 from any liveness label, so a holder quiet past ``idle_after_seconds`` is in
-the idle list even when parked. A landing linked to another strategy
-document still appears in the project-wide landed-open section, because a
-landing is a delivery-plane fact and staffing membership must not hide a
-close-out. There is no moment when the item is in no section.
+the idle list even when parked. Linked items, including landings, appear
+under the document seat that covers them. A linked item with no live document
+seat appears in the combined report's unattended finding.
 
 A deliberately held item is the operator's flag to set
 ------------------------------------------------------
@@ -82,6 +81,7 @@ from yoke_core.domain.steering_fleet_report_landings import (
     landing_readbacks,
 )
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
+from yoke_core.domain.steering_fleet_report_members import read_seat_items
 from yoke_core.domain.steering_fleet_report_native_models import MachineNativeModels
 from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
 from yoke_core.domain.steering_fleet_report_relay_health import RelayHealthCondition
@@ -256,16 +256,23 @@ def compose_report(
     )
     seat_scope = dict(scope) if scope else {"project_id": int(project_id)}
     members = seat_members(conn, seat_scope)
-    landed_open = seat_landed_open(facts.landed_open, members, seat_scope)
-    holders = seat_claim_holders(facts.holders, members, landed_open)
+    item_facts = read_seat_items(
+        conn,
+        scope=seat_scope,
+        members=members,
+        session_id=session_id,
+        now=now,
+        reads=request,
+    )
+    landed_open = seat_landed_open(item_facts.landed_open, members, seat_scope)
+    holders = seat_claim_holders(item_facts.holders, members, landed_open)
     quiet = tuple(
         holder
         for holder in holders
-        if holder.native_process_gone
-        or holder.idle_seconds >= int(idle_after_seconds)
+        if holder.native_process_gone or holder.idle_seconds >= int(idle_after_seconds)
     )
     split = partition_quiet(conn, quiet=quiet, now=now)
-    stranded = facts.stranded
+    stranded = item_facts.stranded if seat_scope.get("document") else facts.stranded
     stranded_ids = {entry.session_id for entry in stranded}
     idle = tuple(
         holder for holder in split.idle if holder.session_id not in stranded_ids
@@ -278,11 +285,11 @@ def compose_report(
         composed_at=now,
         staffing_after_seconds=int(staffing_after_seconds),
         idle_after_seconds=int(idle_after_seconds),
-        available=members_only(facts.available, members),
+        available=members_only(item_facts.available, members),
         holders=holders,
         idle=idle,
         undelivered=sessions_only(
-            facts.undelivered,
+            item_facts.undelivered,
             session_ids=(holder.session_id for holder in holders),
             members=members,
         ),
@@ -293,7 +300,11 @@ def compose_report(
         suspected_orphaned_waiters=suspected_orphaned_waiters(conn, idle=alive_idle),
         in_flight=split.in_flight,
         dead_waits=dead_waits(conn, idle=alive_idle, now=now),
-        vendor_errors=facts.vendor_errors,
+        vendor_errors=(
+            item_facts.vendor_errors
+            if seat_scope.get("document")
+            else facts.vendor_errors
+        ),
         stranded=stranded,
         launchable=facts.launchable,
         session_counts=facts.session_counts,
@@ -301,14 +312,18 @@ def compose_report(
         plan_limits=facts.plan_limits,
         native_models=facts.native_models,
         machine_capacity=facts.machine_capacity,
-        landings=landing_readbacks(
-            conn,
-            project_id=project_id,
-            members=members,
-            in_flight_item_ids=frozenset(
-                call.item_id for call in split.in_flight if "merge" in call.command
-            ),
-            reads=request,
+        landings=tuple(
+            landing
+            for item_project in item_facts.project_ids
+            for landing in landing_readbacks(
+                conn,
+                project_id=item_project,
+                members=members,
+                in_flight_item_ids=frozenset(
+                    call.item_id for call in split.in_flight if "merge" in call.command
+                ),
+                reads=request,
+            )
         ),
         machine_names=tuple(sorted(facts.machine_names.items())),
         relay_health=facts.relay_health,

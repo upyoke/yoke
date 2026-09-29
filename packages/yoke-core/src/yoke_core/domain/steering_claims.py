@@ -268,6 +268,7 @@ def _acquire_document_pair(
             session_id=str(claim["session_id"]),
             actor_id=actor_id,
             reason=reason,
+            steering_claim_id=int(claim["id"]),
             commit=False,
         )
     except StrategyDocClaimConflictError as exc:

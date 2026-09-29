@@ -4,6 +4,27 @@ from __future__ import annotations
 
 
 WORK_CLAIM_TABLES: dict[str, dict] = {
+    "strategy_doc_claims": {
+        "columns": [
+            ("id", "INTEGER"),
+            ("project_id", "INTEGER"),
+            ("strategy_doc_slug", "TEXT"),
+            ("owner_kind", "TEXT"),
+            ("owner_item_id", "INTEGER"),
+            ("owner_session_id", "TEXT"),
+            ("steering_claim_id", "INTEGER"),
+            ("registered_at", "TEXT"),
+            ("released_at", "TEXT"),
+            ("release_reason", "TEXT"),
+        ],
+        "notes": (
+            "A session document lock paired to steering stores the exact "
+            "work_claims.id in steering_claim_id; releasing a seat must "
+            "release only that lock. The earlier assumption that every "
+            "minimal SQLite fixture supplies strategy_doc_claims.id was "
+            "wrong; schema-light reads check for the column first."
+        ),
+    },
     "work_claims": {
         "columns": [
             ("id", "INTEGER"),
