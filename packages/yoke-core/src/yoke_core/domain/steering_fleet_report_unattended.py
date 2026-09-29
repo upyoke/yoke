@@ -35,7 +35,11 @@ def unattended_linked_items(
 ) -> tuple[UnattendedLinkedItem, ...]:
     """Find linked work visible to these projects but covered by no seat."""
     projects = tuple(dict.fromkeys(int(value) for value in held_project_ids))
-    if not projects or not _table_exists(conn, "item_strategy_docs"):
+    if (
+        not projects
+        or not _table_exists(conn, "item_strategy_docs")
+        or not _table_exists(conn, "workflow_versions")
+    ):
         return ()
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     slots = ",".join(marker for _ in projects)

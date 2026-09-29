@@ -116,7 +116,8 @@ class CombinedFleetReport:
         material.append(
             ("unacked_injected", [row.message_id for row in self.unacked_injected])
         )
-        material.append(("unattended", [row.item_id for row in self.unattended]))
+        if self.unattended:
+            material.append(("unattended", [row.item_id for row in self.unattended]))
         encoded = json.dumps(material, separators=(",", ":"))
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 

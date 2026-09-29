@@ -8,6 +8,23 @@ from yoke_core.domain.schema_api_context_tables_ouroboros import OUROBOROS_TABLE
 from yoke_core.domain.schema_api_context_tables_worktrees import ITEM_WORKTREE_TABLES
 
 CORE_TABLES: dict[str, dict] = {
+    "workflow_versions": {
+        "columns": [
+            ("id", "INTEGER"),
+            ("workflow_id", "TEXT"),
+            ("version", "INTEGER"),
+            ("definition_json", "TEXT"),
+            ("definition_digest", "TEXT"),
+            ("published_at", "TEXT"),
+            ("immutable_at", "TEXT"),
+        ],
+        "notes": (
+            "Immutable workflow definition rows. Item reference rendering "
+            "may traverse workflow_versions; the earlier assumption that "
+            "every minimal session fixture includes this table was wrong. "
+            "Optional fleet reads check its presence before rendering refs."
+        ),
+    },
     **ITEMS_TABLE,
     **ITEM_WORKTREE_TABLES,
     **OUROBOROS_TABLES,

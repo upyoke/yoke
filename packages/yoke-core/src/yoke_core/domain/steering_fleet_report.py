@@ -272,7 +272,7 @@ def compose_report(
         if holder.native_process_gone or holder.idle_seconds >= int(idle_after_seconds)
     )
     split = partition_quiet(conn, quiet=quiet, now=now)
-    stranded = item_facts.stranded
+    stranded = item_facts.stranded if seat_scope.get("document") else facts.stranded
     stranded_ids = {entry.session_id for entry in stranded}
     idle = tuple(
         holder for holder in split.idle if holder.session_id not in stranded_ids
@@ -300,7 +300,11 @@ def compose_report(
         suspected_orphaned_waiters=suspected_orphaned_waiters(conn, idle=alive_idle),
         in_flight=split.in_flight,
         dead_waits=dead_waits(conn, idle=alive_idle, now=now),
-        vendor_errors=item_facts.vendor_errors,
+        vendor_errors=(
+            item_facts.vendor_errors
+            if seat_scope.get("document")
+            else facts.vendor_errors
+        ),
         stranded=stranded,
         launchable=facts.launchable,
         session_counts=facts.session_counts,

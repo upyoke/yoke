@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.sessions_holdings_claim_facts import steered_document_slugs
 from yoke_core.domain.strategy_execution_state import (
     StrategyDocClaimAuthorizationError,
@@ -108,6 +109,10 @@ def _paired_active_claim(
                 "reacquire the seat's document lock before releasing the seat"
             )
         return claim
+    if not _table_exists(conn, "strategy_doc_claims") or not _column_exists(
+        conn, "strategy_doc_claims", "id"
+    ):
+        return None
     project_scope = scope_int_sql(conn, "scope", "project_id")
     other_rows = conn.execute(
         "SELECT scope FROM work_claims "
