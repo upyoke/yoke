@@ -222,6 +222,7 @@ def auto_reacquire_session_ended_claims(
                     session_id=session_id,
                     actor_id=None,
                     reason="session reactivated",
+                    steering_claim_id=new_id,
                     commit=False,
                 )
             except (StrategyExecutionError, StrategyDocMissingError) as exc:
