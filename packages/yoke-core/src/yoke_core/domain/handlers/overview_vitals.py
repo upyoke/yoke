@@ -19,7 +19,13 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_contracts.board.status import status_to_board_bucket
+from yoke_contracts.deployment_run_lifecycle import OPEN_RUN_STATUSES
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
+
+# Inlined rather than parameterised because this fragment is spliced into a
+# larger composed statement; the values come from the vocabulary contract, so
+# the literal can never disagree with the column's own constraint.
+_OPEN_RUN_STATUS_SQL = ", ".join(f"'{status}'" for status in OPEN_RUN_STATUSES)
 
 
 class OverviewVitalsRequest(BaseModel):
@@ -133,7 +139,7 @@ def _state_counts(conn: Any, project_ids: list[int]) -> Dict[str, int]:
         "EXISTS("
         "SELECT 1 FROM deployment_run_items dri "
         "JOIN deployment_runs dr ON dr.id = dri.run_id "
-        "WHERE dri.item_id = i.id AND dr.status IN ('created', 'executing')"
+        f"WHERE dri.item_id = i.id AND dr.status IN ({_OPEN_RUN_STATUS_SQL})"
         ")"
         if (
             _table_exists(conn, "deployment_run_items")

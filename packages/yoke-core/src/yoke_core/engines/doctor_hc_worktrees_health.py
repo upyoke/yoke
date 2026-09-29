@@ -10,15 +10,20 @@ unregistered directory (...)") ahead of the per-lane detail, so an operator
 sees what needs a decision before reading the list.
 
 Both halves of that answer must run on the machine holding the checkout,
-because only it can see the lanes. The control-plane half therefore reads
-through the registered relayed surface — ``item_worktrees.inventory`` for
-lane ownership and ``merge.prune.authority_verdict`` for the idle-authority
-proof — never local SQL. A project that relays to a control plane over
-https has a checkout but no local database, so a SQL-reading version of
-this check could never run for a hosted or external project at all, and
-their released lanes accumulated unseen. A control plane that cannot serve
-those reads is reported N/A with that reason, never as a pass or a failure
-about the project.
+because only it can see the lanes. The control-plane half is read through the
+registered relayed surfaces in ``doctor_worktree_lane_authority``, never local
+SQL. A project that relays to a control plane over https has a checkout but no
+local database, so a SQL-reading version of this check could never run for a
+hosted or external project at all, and their released lanes accumulated
+unseen. A control plane that cannot serve those reads is reported N/A with
+that reason, never as a pass or a failure about the project.
+
+Item lanes are not the only managed worktrees here. A self-deploy run pins its
+driver source in a detached ``.worktrees/deploy-<run-id>`` tree that no item
+owns, so the ownership reads above have nothing to say about it and it used to
+be reported as nothing at all — while still consuming the checkout's lane cap.
+Those are reported from their run's own status instead, and retired under
+``--fix`` once the run is over.
 """
 
 from __future__ import annotations
@@ -26,7 +31,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List
 
-from yoke_core.domain.control_plane_transport import relay
+from yoke_core.engines.deploy_run_worktree_naming import (
+    run_id_for_driver_worktree,
+)
+from yoke_core.engines.deploy_run_worktree_retirement import (
+    assess_deploy_run_worktrees,
+    retire_terminal_deploy_run_worktrees,
+)
+from yoke_core.engines.doctor_worktree_lane_authority import (
+    LaneRow,
+    authority_block,
+    lane_inventory,
+)
 from yoke_core.engines.merge_landed_lane_cleanup import (
     assess_landed_lane,
     prune_landed_lane,
@@ -44,8 +60,13 @@ from yoke_core.engines.doctor_tree_scan import list_directory
 
 _TERMINAL = ("done", "cancelled")
 # Summary order: what needs an operator first, what the next landing sweeps last.
+_DEPLOY_RUN_CATEGORY = "finished deploy run"
+_DEPLOY_RUN_RETIRABLE_LABEL = (
+    "verified-safe; --fix retires it, as does the next landing on this machine"
+)
 _STRANDED_ORDER = (
     "dirty",
+    _DEPLOY_RUN_CATEGORY,
     "locked",
     "unregistered directory",
     "claimed",
@@ -60,63 +81,6 @@ def _git_for_repo(repo_root: str):
         return _base._run(["git", "-C", repo_root, *command])
 
     return run
-
-
-class _Lane:
-    """One control-plane lane row, as this check consumes it."""
-
-    __slots__ = (
-        "item_id",
-        "public_ref",
-        "status",
-        "branch",
-        "path",
-        "state",
-        "target_branch",
-    )
-
-    def __init__(self, row: Dict[str, object]) -> None:
-        self.item_id = int(row.get("item_id") or 0)
-        self.public_ref = str(row.get("public_ref") or "")
-        self.status = str(row.get("status") or "")
-        self.branch = str(row.get("branch") or "")
-        self.path = str(row.get("path") or "")
-        self.state = str(row.get("state") or "")
-        self.target_branch = str(row.get("target_branch") or "main")
-
-
-def _lane_inventory(project: str) -> List[_Lane] | None:
-    """Every registered lane for *project*, or None when unreadable.
-
-    None is the honest "cannot answer" that becomes an N/A, never an empty
-    inventory: a caller that read zero lanes from an unreachable control
-    plane would conclude the machine has nothing to retire.
-    """
-    try:
-        result = relay("item_worktrees.inventory", {"project": str(project)})
-    except Exception:  # noqa: BLE001 - unreachable authority == cannot answer
-        return None
-    rows = result.get("lanes")
-    if not isinstance(rows, list):
-        return None
-    return [_Lane(row) for row in rows if isinstance(row, dict)]
-
-
-def _authority_block(branch: str, path: str) -> str:
-    """Why cleanup authority forbids pruning this lane, or empty when idle."""
-    payload: Dict[str, object] = {"branch": branch}
-    if path:
-        payload["path"] = path
-    try:
-        verdict = relay("merge.prune.authority_verdict", payload)
-    except Exception:  # noqa: BLE001 - fail closed: unprovable == still held
-        return "cleanup authority is active or unreadable"
-    if verdict.get("prunable"):
-        return ""
-    reason = str(verdict.get("reason") or "")
-    if reason == "active_authority":
-        return "cleanup authority is active or unreadable"
-    return f"no unique terminal owner ({reason or 'unproven'})"
 
 
 def _worktree_entries(porcelain: str) -> List[dict]:
@@ -187,7 +151,7 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
     registered_paths = {e.get("path", "") for e in entries}
     repo_root = _base._resolve_repo_root()
 
-    lanes = _lane_inventory(args.project)
+    lanes = lane_inventory(args.project)
     if lanes is None:
         rec.record(
             "HC-worktree-health",
@@ -198,8 +162,8 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
             "proven from here",
         )
         return
-    by_branch: Dict[str, List[_Lane]] = {}
-    by_path: Dict[str, List[_Lane]] = {}
+    by_branch: Dict[str, List[LaneRow]] = {}
+    by_path: Dict[str, List[LaneRow]] = {}
     for lane in lanes:
         by_branch.setdefault(lane.branch, []).append(lane)
         if lane.path:
@@ -211,6 +175,11 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
         if branch in ("main", "master") or not wt_path:
             continue
         root = str(repo_root or Path(wt_path).parents[1])
+        if run_id_for_driver_worktree(Path(wt_path), Path(root)):
+            # A deploy-run driver tree has no branch and no owning item, so
+            # every reading below would describe it as a nameless lane nobody
+            # owns. Its own pass answers for it.
+            continue
 
         # Named or project-declared ignored caches are disposable; anything
         # else is lane content.
@@ -240,7 +209,7 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 target=owner.target_branch,
                 run_git=_git_for_repo(root),
                 refresh_target=False,
-                authority_block=_authority_block(branch, wt_path),
+                authority_block=authority_block(branch, wt_path),
             )
             category, detail = _stranded_category(entry, residue, assessment)
             label = assessment.reason
@@ -268,6 +237,30 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
             )
             issues.append(
                 f"- Terminal-item lane: {branch} at {wt_path} — {public_ref} is {owner.status}; {label}"
+            )
+
+    # Self-deploy driver trees, answered from their run's status rather than
+    # from an owning item. Without --fix nothing here touches the tree; a run
+    # still going is not reported at all, because its pin is in use.
+    if repo_root:
+        sweep = (
+            retire_terminal_deploy_run_worktrees
+            if args.fix
+            else assess_deploy_run_worktrees
+        )
+        for lane in sweep(repo_root=str(repo_root)):
+            if lane.retired:
+                fixed.append(
+                    f"- Fixed: retired finished deploy-run worktree "
+                    f"{lane.path} — {lane.run_id}"
+                )
+                continue
+            if lane.run_is_open:
+                continue
+            stranded.setdefault(_DEPLOY_RUN_CATEGORY, []).append(lane.run_id)
+            issues.append(
+                f"- Finished deploy-run worktree: {lane.path} — {lane.run_id}; "
+                + (lane.reason or _DEPLOY_RUN_RETIRABLE_LABEL)
             )
 
     # Directories under .worktrees that git no longer registers.
@@ -305,7 +298,7 @@ def hc_worktree_health(_conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 target=lane.target_branch,
                 run_git=_git_for_repo(str(repo_root)),
                 refresh_target=False,
-                authority_block=_authority_block(branch, lane.path),
+                authority_block=authority_block(branch, lane.path),
             )
             if args.fix and assessment.safe:
                 preserved = prune_landed_lane(

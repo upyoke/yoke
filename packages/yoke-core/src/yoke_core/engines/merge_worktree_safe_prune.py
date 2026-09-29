@@ -18,6 +18,13 @@ applies, so the two boundaries never disagree about the same lane.
 Unreachable authority skips everything. What was removed and what was kept,
 each with its reason, comes back as a :class:`WorktreeSweep` so the landing
 that ran the sweep can show it instead of burying it in progress output.
+
+The sweep also covers the one managed worktree that is not an item lane: a
+self-deploy run's detached driver tree, retired by
+``deploy_run_worktree_retirement`` once its run is over. It consumes the same
+per-checkout cap an item lane does, and being detached it is invisible to the
+branch-bearing registry the lane pass reads, so this is the only landing
+boundary that can reach it.
 """
 
 from __future__ import annotations
@@ -32,6 +39,9 @@ from yoke_contracts.codex_hook_trust_store import worktree_cleanup_warning
 from yoke_core.engines.branch_landed_evidence import (
     assess_branch_landed,
     delete_landed_branch,
+)
+from yoke_core.engines.deploy_run_worktree_retirement import (
+    retire_terminal_deploy_run_worktrees,
 )
 from yoke_core.engines.git_worktree_registry import (
     first_output_line,
@@ -187,6 +197,19 @@ def prune_managed_worktrees(
     def keep(path: Path, reason: str) -> None:
         say(f"Preserving worktree {path}: {reason}")
         preserved.append(PreservedLane(str(path), reason))
+
+    # A self-deploy run's pinned driver tree is detached, so it is absent from
+    # the branch-bearing registry the lane pass below walks and no landing
+    # would ever reach it. It occupies the same cap an item lane does, so it
+    # retires on the same sweep, first — the item pass can return early on
+    # unreachable authority, and a finished run's directory should not wait
+    # for the next landing because of that.
+    for lane in retire_terminal_deploy_run_worktrees(repo_root=repo_root):
+        if lane.retired:
+            say(f"Retired finished deploy-run worktree: {lane.path}")
+            removed.append(str(lane.path))
+        else:
+            keep(lane.path, lane.reason)
 
     state = {"unavailable": False}
     checked_out = {entry.branch for entry in entries}

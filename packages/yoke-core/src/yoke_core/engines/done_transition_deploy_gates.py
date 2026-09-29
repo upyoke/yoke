@@ -23,6 +23,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.deployment_run_lifecycle import run_is_open
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.engines.done_transition_delivery_default import (
     freeze_resolved_delivery_flow as _freeze_resolved_delivery_flow,
@@ -226,7 +227,7 @@ def _check_deployment_flow_guard(
                 "Deployment flow guard: run succeeded, QA satisfied — proceeding to done."
             )
             return None
-        elif run_status in ("created", "executing"):
+        elif run_is_open(run_status):
             print("\n=== Deployment run guard ===")
             print(
                 f"Blocked: Item {public_ref} has a deployment run at "
