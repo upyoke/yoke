@@ -181,9 +181,7 @@ def ensure_qa_review_request(
     review_context = qa_review_artifact_context(
         conn, requirement_id=requirement_id, run_id=run_id
     )
-    require_servable_review_evidence(
-        requirement_id, review_context["artifacts"], project_id=project_id
-    )
+    require_servable_review_evidence(requirement_id, review_context["artifacts"])
     return create_decision_request(
         conn,
         kind="qa_needs_review",

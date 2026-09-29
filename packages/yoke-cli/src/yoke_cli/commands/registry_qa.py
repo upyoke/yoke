@@ -11,6 +11,7 @@ from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands.adapters import qa as _qa
 from yoke_cli.commands.adapters import qa_browser as _qa_browser
+from yoke_cli.commands.adapters import qa_artifact_rehome_cli as _qa_rehome
 from yoke_cli.commands.adapters import qa_crud as _qa_crud
 from yoke_cli.commands.adapters import qa_post_deploy as _qa_post_deploy
 from yoke_cli.commands.adapters import qa_crud_batch as _qa_crud_batch
@@ -61,6 +62,10 @@ QA_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("qa", "artifact", "presign"): (
         "qa.artifact.presign",
         _qa_browser.qa_artifact_presign,
+    ),
+    ("qa", "artifact", "rehome"): (
+        "qa.artifact.rehome",
+        _qa_rehome.qa_artifact_rehome,
     ),
     ("qa", "requirement", "list"): (
         "qa.requirement.list",

@@ -249,10 +249,11 @@ def _artifact_read_to_path(parsed: Any) -> int:
                 "yoke qa artifact read: artifact "
                 f"{parsed.artifact_id} has no portable bytes to land "
                 f"(disposition={result.get('disposition') or 'unknown'}"
-                f"{_disposition_detail(result)}). Re-run the case on the "
-                "machine holding the evidence, or record the bytes with "
-                "`yoke qa artifact add --content-file PATH` so the read "
-                "surface can serve them.",
+                f"{_disposition_detail(result)}). On the machine that "
+                "captured it, run `yoke qa artifact rehome --requirement-id "
+                f"{parsed.requirement_id} --artifact-id {parsed.artifact_id}` "
+                "to move the recorded bytes into the store the read surface "
+                "serves; if the bytes are gone, re-run the case.",
                 file=sys.stderr,
             )
             return 1

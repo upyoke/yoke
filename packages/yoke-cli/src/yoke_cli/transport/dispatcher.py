@@ -19,6 +19,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     TargetRef,
 )
+from yoke_contracts import qa_evidence_plane
 from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.session_identity import (
     ANCHORS_DIR_NAME,
@@ -150,6 +151,15 @@ def call_dispatcher(
         return _redact_response(
             _call_local(request, _local_dispatch, client_local=True), sensitive_values,
         )
+    if relay_env is None:
+        # Evidence belongs in the store of the build serving the universe,
+        # which a database door is not (see yoke_contracts.qa_evidence_plane).
+        try:
+            relay_env = qa_evidence_plane.evidence_relay_env(function_id)
+        except qa_evidence_plane.EvidencePlaneUnresolved as exc:
+            return _redact_response(
+                _error_response(request, exc.code, str(exc)), sensitive_values
+            )
     try:
         # Only a caller that named a plane changes how the connection is
         # resolved; the ordinary path keeps the plain call it always made.

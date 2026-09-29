@@ -141,6 +141,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke qa run complete", "qa.run"),
     _w("yoke qa artifact add", "qa.artifact"),
     _w("yoke qa artifact presign", "qa.artifact"),
+    _w("yoke qa artifact rehome", "qa.artifact"),
     # dispatcher-backed qa CRUD conversion: requirement reads + item-attached
     # creation + run list + the gate-entry summary. The db_router gate-summary
     # leg was checkout-shaped and broke over https; qa.gate_summary.run is the

@@ -1,4 +1,4 @@
-"""QA artifact write, upload, and authorized evidence-read registrations."""
+"""QA artifact write, upload, rehome, and authorized evidence-read registrations."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from yoke_core.domain.handlers import (
     qa_artifact_add as _add,
     qa_artifact_presign as _presign,
     qa_artifact_read as _read,
+    qa_artifact_rehome as _rehome,
 )
 
 
@@ -37,6 +38,21 @@ def register(registry) -> None:
         guardrails=["claim_required"],
         adapter_status="live",
         claim_required_kind="qa_subject",
+    )
+    registry.register(
+        "qa.artifact.rehome",
+        _rehome.handle_qa_artifact_rehome,
+        _rehome.QaArtifactRehomeRequest,
+        _rehome.QaArtifactRehomeResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.qa_artifact_rehome",
+        target_kinds=["qa_requirement"],
+        side_effects=["qa_artifacts_update"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["claim_required"],
+        adapter_status="live",
+        claim_required_kind="qa_subject",
+        minimum_serving_version="next-release",
     )
     registry.register(
         "qa.artifact.read",
