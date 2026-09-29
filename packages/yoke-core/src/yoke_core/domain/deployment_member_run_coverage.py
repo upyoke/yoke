@@ -51,6 +51,7 @@ from yoke_core.domain.deployment_run_composition_freeze import (
     requires_release_admission,
 )
 from yoke_core.domain.deployment_run_project_sources import run_source_sha
+from yoke_core.domain.deployment_run_unheld_candidates import held_candidate_ids
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_item_stage_plan_gate import item_scoped_qa_stage_names
 from yoke_core.domain.workflow_delivery_binding_validation import (
@@ -277,15 +278,22 @@ def unclosable_final_member_refusal(conn: Any, run_id: str) -> str | None:
     of another flow holds the member, runs its QA, turns green, and cannot
     close it — the member then waits for a delivery that already happened.
     Said before execution, while the item's flow or the run can still change.
+
+    A member another live or succeeded release already holds is not one of
+    them. That run owes the delivery and answers for the close; this one is
+    only carrying its ancestor code, so refusing here would block every
+    release cut over a live one for a member it was never delivering.
     """
     if not _final_delivery_run(conn, run_id):
         return None
+    held = held_candidate_ids(conn, run_id)
     unclosable = [
         coverage
         for coverage in (
             member_run_coverage(conn, run_id=str(run_id), item_id=int(item_id))
             for item_id in member_ids(conn, run_id)
-            if _final_open_member(conn, run_id, int(item_id))
+            if int(item_id) not in held
+            and _final_open_member(conn, run_id, int(item_id))
         )
         # No completion flow at all is completion_flow_refusal's to name.
         if coverage.completion_flow and not coverage.closes

@@ -177,8 +177,14 @@ def landed_at(record: Mapping[str, Any]) -> str:
     return min(present) if present else ""
 
 
-def _member_runs(conn: Any, item_ids: Sequence[int]) -> dict[int, list[dict[str, Any]]]:
-    """Each item's live and succeeded member runs, newest membership first."""
+def _member_runs(
+    conn: Any, item_ids: Sequence[int], *, exclude_run_id: str = ""
+) -> dict[int, list[dict[str, Any]]]:
+    """Each item's live and succeeded member runs, newest membership first.
+
+    ``exclude_run_id`` drops one run, because a run asking about its own
+    members would otherwise read every one of them as already held.
+    """
     if not item_ids:
         return {}
     if not all(
@@ -190,6 +196,7 @@ def _member_runs(conn: Any, item_ids: Sequence[int]) -> dict[int, list[dict[str,
     statuses = sorted(HOLDING_RUN_STATUSES)
     item_holes = ", ".join(marker for _ in item_ids)
     status_holes = ", ".join(marker for _ in statuses)
+    other = f"AND dr.id <> {marker} " if exclude_run_id else ""
     rows = conn.execute(
         f"SELECT dri.item_id AS item_id, dr.id AS run_id, dr.status AS status, "
         f"dr.project_id AS project_id, "
@@ -198,8 +205,13 @@ def _member_runs(conn: Any, item_ids: Sequence[int]) -> dict[int, list[dict[str,
         f"FROM deployment_run_items dri "
         f"JOIN deployment_runs dr ON dr.id = dri.run_id "
         f"WHERE dri.item_id IN ({item_holes}) AND dr.status IN ({status_holes}) "
+        f"{other}"
         f"ORDER BY dri.added_at DESC, dr.id DESC",
-        (*(int(value) for value in item_ids), *statuses),
+        (
+            *(int(value) for value in item_ids),
+            *statuses,
+            *((str(exclude_run_id),) if exclude_run_id else ()),
+        ),
     ).fetchall()
     grouped: dict[int, list[dict[str, Any]]] = {}
     for row in rows:
@@ -289,19 +301,25 @@ def _custody_for(
 
 
 def landing_custody(
-    conn: Any, *, project_id: int, item_ids: Sequence[int]
+    conn: Any,
+    *,
+    project_id: int,
+    item_ids: Sequence[int],
+    exclude_run_id: str = "",
 ) -> dict[int, LandingCustody]:
     """Answer custody for every one of ``item_ids`` in one pass.
 
     Batched because both callers ask about a whole project's landed items at
     once, and the membership read is the part worth doing once. Containment
     is still asked per item: it is a comparison against that item's own
-    commit, and there is no cheaper shape for it.
+    commit, and there is no cheaper shape for it. ``exclude_run_id`` asks who
+    OTHER than that run holds it, the only sound question a run can ask while
+    reasoning about its own composition.
     """
     ids = [int(value) for value in item_ids]
     if not ids:
         return {}
-    runs = _member_runs(conn, ids)
+    runs = _member_runs(conn, ids, exclude_run_id=str(exclude_run_id))
     shas = _landing_shas(conn, ids)
     return {
         item_id: _custody_for(

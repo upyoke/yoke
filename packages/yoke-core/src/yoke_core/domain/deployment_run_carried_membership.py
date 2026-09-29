@@ -5,14 +5,16 @@ anyone attached its item. This module answers at start and composition freeze.
 
 :func:`enroll_carried_members` reads the run's own pinned ``release_lineage``
 and admits what that commit carries, so an ordinary start completes its own
-membership instead of asking a human to type the list back. It draws on two
-candidate sources, because the carried range alone has a floor at the previous
-succeeded release and a landing behind that floor is invisible to it forever:
-the carried work itself, and the unheld landings this candidate carries
-(:mod:`deployment_run_unheld_candidates`). Both are filtered by the same
-admission rules below.
+membership instead of asking a human to type the list back. Its candidate set
+is :mod:`deployment_run_unheld_candidates` reconciled with the carried range:
+that range has a floor at the previous succeeded release, so the unheld
+landings are unioned in to reach what it cannot see, and the landings a live or
+succeeded release already holds are subtracted, because commit arithmetic
+happily proposes an ancestor another run is mid-delivery on. Everything left is
+filtered by the same admission rules below.
 :func:`carried_membership_refusal` is the invariant behind it — what enrollment
-could not resolve still stops the run, so nothing is waived by silence.
+could not resolve still stops the run, so nothing is waived by silence, and it
+makes the same subtraction so the two can never disagree.
 
 :func:`admit_run_item` is the single connection-scoped write both entrances
 share: validated project/flow/stage binding, validated delivery intent, an
@@ -30,8 +32,8 @@ Two things enrollment deliberately does not do. It never invents attribution:
 an underivable carried set or an unattributed commit stays a refusal, because
 enrolling from a set nobody could compute would waive coverage silently. And
 it never recomputes membership a previous run already froze — a retry inherits
-its predecessor's members precisely so the same candidate keeps delivering the
-same items, and re-deriving would let a moved baseline rewrite that answer.
+its predecessor's members so the same candidate keeps delivering the same
+items, and re-deriving would let a moved baseline rewrite that answer.
 """
 
 from __future__ import annotations
@@ -63,7 +65,8 @@ from yoke_core.domain.deployment_run_composition_guard import (
     has_frozen_composition,
 )
 from yoke_core.domain.deployment_run_unheld_candidates import (
-    unheld_candidate_ids,
+    candidate_custody,
+    held_candidate_ids,
 )
 from yoke_core.domain.deployment_run_unattributed_commits import (
     unattributed_commits_refusal,
@@ -114,8 +117,8 @@ def admit_run_item(
     A derived list is validated here but not stored: it answers "what does
     this item still owe", and an obligation minted between this row and the
     composition freeze belongs in it. The column is therefore left null,
-    which is what tells the freeze to derive again. An explicit selection is
-    stored as given, and the freeze takes it as given.
+    which tells the freeze to derive again. An explicit selection is stored
+    as given, and the freeze takes it as given.
     """
     validate_deployment_run_item(conn, run_id=run_id, item_id=int(item_id))
     if requires_release_admission(conn, run_id):
@@ -196,20 +199,19 @@ def enroll_carried_members(
     if not str(row[0] or "").strip():
         return ()
     payload = dict(carried_work or carried_work_for_enrollment(conn, run_id))
-    carried = sorted(
-        {
-            int(entry["item_id"])
-            for project_set in project_carried_sets(payload)
-            # An underivable carried set names no items to enroll. The refusal
-            # owner reports it, so silence here is deferral, not a waiver.
-            if bool((project_set.get("derivation") or {}).get("contents_known"))
-            for entry in project_set.get("items") or []
-            # A landing older than the carried range's floor is still this run's to
-            # deliver when nothing else holds it, so the second source is unioned in
-            # before any lock is taken.
-        }
-        | set(unheld_candidate_ids(conn, run_id))
-    )
+    custody = candidate_custody(conn, run_id)
+    # An underivable carried set names no items to enroll. The refusal owner
+    # reports it, so silence here is deferral, not a waiver.
+    range_ids = {
+        int(entry["item_id"])
+        for project_set in project_carried_sets(payload)
+        if bool((project_set.get("derivation") or {}).get("contents_known"))
+        for entry in project_set.get("items") or []
+    }
+    # A held landing belongs to the release already delivering it; an unheld
+    # one below the range's floor is still this run's to deliver. Both are
+    # reconciled into one candidate set before any lock is taken.
+    carried = sorted((range_ids - custody.held_ids) | set(custody.enrollable))
     if not carried:
         return ()
     # Item workflow bindings first, then the run row: the same order
@@ -314,6 +316,7 @@ def carried_membership_refusal(
             for entry in project_set.get("items") or []
             if item_requires_release_membership(conn, int(entry["item_id"]))
         }
+        - held_candidate_ids(conn, run_id)
     )
     for item_id in eligible:
         if refusal := completion_flow_refusal(conn, item_id):

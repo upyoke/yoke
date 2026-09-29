@@ -29,6 +29,9 @@ from yoke_core.domain.deployment_run_carried_membership import (
     describe_enrollment,
     enroll_carried_members,
 )
+from yoke_core.domain.deployment_run_unheld_candidates import (
+    held_candidate_notice,
+)
 from yoke_core.domain.deployment_run_pair_obligations import (
     split_pending_pair_merges,
 )
@@ -222,15 +225,21 @@ def cmd_validate_composition(
         # bury the membership that will receive nothing.
         inert = inert_membership_notice(conn, run_id)
 
+        # Composition silently narrowed by another release's custody is the
+        # one omission an operator cannot reconstruct from this run alone.
+        held = held_candidate_notice(conn, run_id)
+
         if errors:
-            trailing = [note for note in (inert, unadmitted) if note]
+            trailing = [note for note in (held, inert, unadmitted) if note]
             error_text = "\n".join(errors + trailing)
             if connection is None:
                 conn.rollback()
             return False, f"FAIL: Composition validation failed:\n{error_text}"
 
         notes = [
-            note for note in (describe_enrollment(enrolled), inert, unadmitted) if note
+            note
+            for note in (describe_enrollment(enrolled), held, inert, unadmitted)
+            if note
         ]
         if connection is None:
             conn.commit()

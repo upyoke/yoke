@@ -20,6 +20,12 @@ def test_create_description_states_composition_precedes_run_commit() -> None:
     assert "candidate" in CREATE_DESCRIPTION
 
 
+def test_create_description_teaches_that_a_held_item_is_skipped_by_name() -> None:
+    """An operator must be able to tell "left out" from "refused"."""
+    assert "already holds is not composed" in CREATE_DESCRIPTION
+    assert "naming the run that holds it" in CREATE_DESCRIPTION
+
+
 def test_release_role_recipe_teaches_validate_composition_composes_now() -> None:
     assert "optional preview" not in RELEASE_ROLE_RECIPE
     assert "composes the run now" in RELEASE_ROLE_RECIPE
