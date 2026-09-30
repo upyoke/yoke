@@ -33,6 +33,13 @@ class MacosSessionContextFailure:
     reason: str
 
 
+_LOGIN_KEYCHAIN_CONTEXT_FAILURE = MacosSessionContextFailure(
+    "macos_login_keychain_context_unavailable",
+    "macOS login-keychain context is unavailable to this process",
+)
+
+# Each row names output fragments, the diagnosis, and whether plain SSH exec
+# is required: a GUI program's login prompt can be a real sign-in failure.
 _KNOWN_FAILURES = (
     (
         ("could not create image from display",),
@@ -40,6 +47,7 @@ _KNOWN_FAILURES = (
             "macos_window_server_context_unavailable",
             "macOS window-server context is unavailable to this process",
         ),
+        False,
     ),
     (
         ("could not switch to audit session", "operation not permitted"),
@@ -47,33 +55,40 @@ _KNOWN_FAILURES = (
             "macos_gui_audit_session_unavailable",
             "macOS GUI audit-session context is unavailable to this process",
         ),
+        False,
     ),
     (
         ("user interaction is not allowed",),
-        MacosSessionContextFailure(
-            "macos_login_keychain_context_unavailable",
-            "macOS login-keychain context is unavailable to this process",
-        ),
+        _LOGIN_KEYCHAIN_CONTEXT_FAILURE,
+        False,
     ),
     (
         ("errsecinteractionnotallowed",),
-        MacosSessionContextFailure(
-            "macos_login_keychain_context_unavailable",
-            "macOS login-keychain context is unavailable to this process",
-        ),
+        _LOGIN_KEYCHAIN_CONTEXT_FAILURE,
+        False,
     ),
     (
         ("oauth", "expired", "unrefreshable"),
-        MacosSessionContextFailure(
-            "macos_login_keychain_context_unavailable",
-            "macOS login-keychain context is unavailable to this process",
-        ),
+        _LOGIN_KEYCHAIN_CONTEXT_FAILURE,
+        False,
+    ),
+    (
+        ("login keychain is locked",),
+        _LOGIN_KEYCHAIN_CONTEXT_FAILURE,
+        True,
+    ),
+    (
+        ("not logged in", "please run /login"),
+        _LOGIN_KEYCHAIN_CONTEXT_FAILURE,
+        True,
     ),
 )
 
 
 def classify_macos_session_context_failure(
     result: subprocess.CompletedProcess[str],
+    *,
+    ssh_exec: bool = False,
 ) -> MacosSessionContextFailure | None:
     """Translate known privilege-poor SSH failures into accurate causes."""
     text = "\n".join((result.stdout or "", result.stderr or "")).casefold()
@@ -82,7 +97,9 @@ def classify_macos_session_context_failure(
             "macos_gui_session_context_unavailable",
             GUI_SESSION_UNAVAILABLE_REASON,
         )
-    for fragments, failure in _KNOWN_FAILURES:
+    for fragments, failure, requires_ssh_exec in _KNOWN_FAILURES:
+        if requires_ssh_exec and not ssh_exec:
+            continue
         if all(fragment in text for fragment in fragments):
             return failure
     return None

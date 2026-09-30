@@ -163,6 +163,11 @@ skips the user's SSH config and pins host keys in
 `~/.yoke/test-machine/known_hosts`. It takes no lease and records no receipt,
 but refuses with `test_machine_leased` while another session holds the host;
 a QA mission walker uses `yoke qa mission host-command` instead.
+On macOS, keychain-backed harness CLIs (`claude`, `cursor-agent`) run through
+`yoke qa mission host-command --execution-id ID --requirement-id N --gui-session -- ARGV...`
+under an awaiting mission's retained lease; verify sign-in there first when SSH
+reports `macos_login_keychain_context_unavailable`, an SSH session-context
+failure rather than a sign-in diagnosis.
 
 | Refusal | What to do |
 | --- | --- |

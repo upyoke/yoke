@@ -25,9 +25,14 @@ AGENT = {"SSH_AUTH_SOCK": "/tmp/agent.sock"}
 
 
 def _runner(returncode: int, calls: list[list[str]]):
-    def run(argv: list[str], check: bool) -> subprocess.CompletedProcess:
+    def run(argv: list[str], check: bool, **kwargs) -> subprocess.CompletedProcess:
         calls.append(argv)
-        return subprocess.CompletedProcess(argv, returncode)
+        assert kwargs == {
+            "capture_output": True,
+            "text": True,
+            "errors": "backslashreplace",
+        }
+        return subprocess.CompletedProcess(argv, returncode, "output", "error")
 
     return run
 
@@ -63,7 +68,9 @@ def test_exit_status_passes_through_and_the_known_hosts_home_exists(
         run=_runner(7, calls),
     )
 
-    assert code == 7
+    assert code.returncode == 7
+    assert code.stdout == "output"
+    assert code.stderr == "error"
     assert calls[0][-1] == "exit 7"
     assert known_hosts_path(tmp_path).parent.is_dir()
 
@@ -104,14 +111,16 @@ def test_a_connection_failure_names_the_pinned_key_reset(tmp_path) -> None:
     )
 
 
-def _detail(lease: dict[str, Any] | None) -> FunctionCallResponse:
+def _detail(
+    lease: dict[str, Any] | None, os_name: str = "macos"
+) -> FunctionCallResponse:
     return FunctionCallResponse(
         success=True,
         function="test_machine.get",
         version="v1",
         result={
             "machine": "test-mac",
-            "settings": {"host": HOST, "user": USER},
+            "settings": {"host": HOST, "user": USER, "os": os_name},
             "active_lease": lease,
         },
     )
@@ -129,11 +138,17 @@ def cli(monkeypatch, tmp_path):
     monkeypatch.setattr(adapter.machine_config, "yoke_home", lambda: Path(tmp_path))
     monkeypatch.setattr(
         "yoke_harness.test_machine_remote_exec.run_remote_command",
-        lambda **kwargs: ran.append(kwargs) or 0,
+        lambda **kwargs: (
+            ran.append(kwargs) or subprocess.CompletedProcess([], 0, "", "")
+        ),
     )
 
-    def invoke(argv: list[str], *, lease: dict[str, Any] | None = None) -> int:
-        monkeypatch.setattr(adapter, "call_dispatcher", lambda **_: _detail(lease))
+    def invoke(
+        argv: list[str], *, lease: dict[str, Any] | None = None, os_name: str = "macos"
+    ) -> int:
+        monkeypatch.setattr(
+            adapter, "call_dispatcher", lambda **_: _detail(lease, os_name)
+        )
         return adapter.test_machine_exec(argv)
 
     invoke.ran = ran  # type: ignore[attr-defined]
@@ -179,3 +194,69 @@ def test_the_lease_holder_itself_may_run_commands(cli) -> None:
 def test_a_missing_remote_command_is_a_usage_error(cli, capsys) -> None:
     assert cli(["--project", "yoke"]) == 2
     assert "after `--`" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        "Your macOS login keychain is locked",
+        "Not logged in · Please run /login",
+        "User interaction is not allowed",
+    ],
+)
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+def test_macos_ssh_exec_names_keychain_context_and_gui_recovery(
+    cli, monkeypatch, capsys, output, stream
+) -> None:
+    result = subprocess.CompletedProcess([], 7, "", "")
+    setattr(result, stream, output)
+    monkeypatch.setattr(
+        "yoke_harness.test_machine_remote_exec.run_remote_command",
+        lambda **_: result,
+    )
+
+    assert cli(["--project", "yoke", "--", "claude", "-p", "hello"]) == 1
+
+    captured = capsys.readouterr()
+    assert output in getattr(captured, "out" if stream == "stdout" else "err")
+    assert "macos_login_keychain_context_unavailable" in captured.err
+    assert "not a sign-in diagnosis" in captured.err
+    assert "Verify the command through the GUI Terminal bridge first" in captured.err
+    assert "yoke qa mission host-command --execution-id ID" in captured.err
+    assert "--requirement-id N --gui-session -- ARGV..." in captured.err
+    assert captured.err.count("recovery:") == 1
+
+
+@pytest.mark.parametrize(
+    ("os_name", "returncode", "stderr"),
+    [
+        ("macos", 7, "unrelated failure"),
+        ("macos", 7, "Not logged in"),
+        ("macos", 0, "Your macOS login keychain is locked"),
+        ("linux", 7, "Not logged in · Please run /login"),
+        ("linux", 7, "User interaction is not allowed"),
+    ],
+)
+def test_unrelated_successful_and_non_macos_exec_keep_output_and_exit(
+    cli, monkeypatch, capsys, os_name, returncode, stderr
+) -> None:
+    monkeypatch.setattr(
+        "yoke_harness.test_machine_remote_exec.run_remote_command",
+        lambda **_: subprocess.CompletedProcess(
+            [], returncode, "original output", stderr
+        ),
+    )
+
+    assert cli(["--project", "yoke", "--", "command"], os_name=os_name) == returncode
+    captured = capsys.readouterr()
+    assert captured.out == "original output"
+    assert captured.err == stderr
+
+
+def test_exec_help_teaches_keychain_harnesses_use_the_gui_bridge(capsys) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        adapter.test_machine_exec(["--help"])
+    assert exit_info.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "claude, cursor-agent" in help_text
+    assert "--gui-session" in help_text
