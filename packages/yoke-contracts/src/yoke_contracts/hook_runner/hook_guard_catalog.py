@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Tuple
 
+from yoke_contracts.hook_runner.shell_guard_repairs import RIPGREP_REPLACE_CHECK_ID
+
 
 NESTED_CLAUDE_CLI_GUARD = "lint_db_cmd_nested_claude_cli"
 REMOTE_CLAUDE_CLI_GUARD = "lint_db_cmd_remote_claude_cli"
@@ -226,6 +228,7 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
         False,
         "Refuse unquoted path globs that match no files; teach rg --files.",
         check_id="lint-unmatched-path-glob",
+        accepted_check_ids=(RIPGREP_REPLACE_CHECK_ID,),
     ),
     GuardSpec(
         "lint_no_agent_runtime_api_import_from_c",

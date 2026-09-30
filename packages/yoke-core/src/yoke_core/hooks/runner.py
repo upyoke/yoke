@@ -25,6 +25,7 @@ from typing import Any, Optional
 from yoke_contracts.hook_runner.chain_registry import chain_for
 from yoke_contracts.hook_runner.failures import FAILURE_PREFIX
 from yoke_contracts.hook_runner.hook_ordering import matchers_for
+from yoke_core.domain.lint_session_cwd_target_extract import extract_payload_command
 from yoke_core.domain.hook_runner_deadline import (
     HookDeadline,
     resolve_module_timeout_ms,
@@ -201,7 +202,9 @@ def run_event(
         )
         # Apply registered policy mode and denial identity before STOP.
         decision = _mode_gate.apply_mode(decision, module_id, context=context)
-        decision = _guard_denial_identity.bind(decision, module_id)
+        decision = _guard_denial_identity.bind(
+            decision, module_id, command=extract_payload_command(payload),
+        )
         if (
             controls is not None
             and decision.outcome is Outcome.DENY

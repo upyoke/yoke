@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_contracts.hook_runner.shell_guard_repairs import RIPGREP_REPLACE_CHECK_ID, glob_repair, ripgrep_replace_repair
 from yoke_core.domain.lint_session_cwd_target_extract import resolve_payload_cwd
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     strip_heredoc_body_lines,
@@ -129,6 +130,7 @@ def _format_reason(
     *,
     execution_cwd: str = "",
     payload_cwd: str = "",
+    command: str = "",
 ) -> str:
     body = (
         "BLOCKED: unquoted path glob matches no files under the command cwd.\n\n"
@@ -147,6 +149,13 @@ def _format_reason(
         "Do not pass an optional unmatched path glob such as `docs/deploy*` "
         "directly to zsh."
     )
+    if command:
+        repair = glob_repair(command, token, execution_cwd)
+        if repair is not None:
+            repaired, matches = repair
+            body += "\n\nRepaired command: `" + repaired + "`"
+            body += "\nFiles matching the stem: " + (", ".join(matches) if matches else "none")
+            body += "\nIf `rg` is absent, enumerate tracked files with `git ls-files`."
     if mode == "warn":
         body += "\n\n[mode=warn] this hook would block in deny mode."
     elif suppression_seen:
@@ -170,6 +179,15 @@ def evaluate_payload(
     command = _extract_command(payload)
     if not command:
         return None
+    repair = ripgrep_replace_repair(command)
+    if repair is not None:
+        mode = _read_mode(payload)
+        reason = attach_check_id(
+            "BLOCKED: `rg -r` means `--replace`, not recursive search. "
+            f"Repaired command: `{repair}`",
+            check_id=RIPGREP_REPLACE_CHECK_ID,
+        )
+        return mode, reason, "denied"
     execution_cwd = _extract_cwd(payload, fallback=fallback_cwd)
     token = _find_unmatched(command, execution_cwd)
     if token is None:
@@ -182,6 +200,7 @@ def evaluate_payload(
         mode,
         execution_cwd=execution_cwd,
         payload_cwd=_payload_cwd(payload),
+        command=command,
     )
     outcome = "suppression_attempted" if suppression_seen else "denied"
     return mode, reason, outcome
@@ -215,7 +234,12 @@ def evaluate(record: HookContext) -> HookDecision:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     mode, reason, outcome = verdict
     _emit_audit_event(payload, reason, mode, outcome)
-    audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
+    audit = {
+        "mode": mode,
+        "reason": reason,
+        "audit_outcome": outcome,
+        "check_id": RIPGREP_REPLACE_CHECK_ID if f"Yoke check id: {RIPGREP_REPLACE_CHECK_ID}" in reason else CHECK_ID,
+    }
     if mode == "deny":
         envelope = json.dumps(
             {

@@ -17,6 +17,7 @@ from yoke_contracts.hook_runner.hook_ordering import (
     ordered_pipeline_for,
 )
 from yoke_contracts.hook_runner import lint_policy
+from yoke_contracts.hook_runner.shell_guard_repairs import RIPGREP_REPLACE_CHECK_ID
 from yoke_contracts.hook_runner.session_cwd import (
     client_claude_job_tmp_fact,
     client_machine_home_fact,
@@ -97,7 +98,7 @@ def _denial_audit(module_id: str, mode: str, payload: dict, reason: str) -> dict
     turn_id = payload.get("turn_id") or payload.get("message_id") or ""
     return {
         "hook": module_id,
-        "check_id": module_id,
+        "check_id": RIPGREP_REPLACE_CHECK_ID if f"Yoke check id: {RIPGREP_REPLACE_CHECK_ID}" in reason else module_id,
         "guard_key": module_id,
         "mode": mode,
         "reason": reason,
@@ -276,13 +277,18 @@ def evaluate_local_subset(
                     or f"{module_id} would block, but lint-config mode is warn."
                 )
                 continue
-            stdout, exit_code = deny_stdout(result.message, event_name, executor)
+            from yoke_contracts.hook_runner.shell_guard_repairs import NOTHING_RAN, is_compound
+
+            reason = result.message
+            if is_compound(command_from_payload(payload)) and NOTHING_RAN not in reason:
+                reason += f"\n\n{NOTHING_RAN}"
+            stdout, exit_code = deny_stdout(reason, event_name, executor)
             return LocalSubsetEvaluation(
                 stdout=stdout,
                 exit_code=exit_code,
                 denied=True,
                 payload_extra=payload_extra,
-                denial_audit=_denial_audit(module_id, mode, payload, result.message),
+                denial_audit=_denial_audit(module_id, mode, payload, reason),
             )
         if result.outcome == ADVISORY and result.additional_context:
             contexts.append(result.additional_context)

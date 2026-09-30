@@ -53,6 +53,54 @@ def test_relative_touch_from_lane_workdir_allows(tmp_path):
     assert verdict.allow is True
 
 
+def test_leading_absolute_cd_resolves_relative_write_in_lane(tmp_path):
+    repo = tmp_path / "repo"
+    (repo / ".worktrees").mkdir(parents=True)
+    with test_database() as conn:
+        worktree = _seed_lane(conn, repo)
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
+            "sid-lane", f"cd {worktree} && touch probe.txt", cwd=str(repo),
+        ))
+    assert verdict.allow is True
+
+
+def test_leading_absolute_cd_to_main_still_denies(tmp_path):
+    repo = tmp_path / "repo"
+    (repo / ".worktrees").mkdir(parents=True)
+    with test_database() as conn:
+        _seed_lane(conn, repo)
+        with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
+                "sid-lane", f"cd {repo} && touch probe.txt", cwd=str(tmp_path),
+            ))
+    assert verdict.allow is False
+    assert str(repo / "probe.txt") in verdict.reason
+
+
+def test_tilde_expands_before_classifying_absolute_main_target(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    (repo / ".worktrees").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    with test_database() as conn:
+        _seed_lane(conn, repo)
+        with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
+                "sid-lane", "touch ~/repo/probe.txt", cwd=str(tmp_path),
+            ))
+    assert verdict.allow is False
+
+
+def test_literal_tmp_write_remains_allowed(tmp_path):
+    repo = tmp_path / "repo"
+    (repo / ".worktrees").mkdir(parents=True)
+    with test_database() as conn:
+        _seed_lane(conn, repo)
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
+            "sid-lane", "touch /tmp/probe-guard-check.txt", cwd=str(repo),
+        ))
+    assert verdict.allow is True
+
+
 def test_relative_touch_from_session_cwd_denies(tmp_path):
     repo = tmp_path / "repo"
     (repo / ".worktrees").mkdir(parents=True)

@@ -186,11 +186,8 @@ def format_derivation_guidance(
     """Render the next move, which differs by how the path was derived.
 
     The cwd-fallback branch names a recovery the caller can actually run.
-    A leading ``cd`` inside the command body is the obvious reading of
-    "run it from the lane" and it does not work: the fallback is the
-    working directory the CALL declares, so a computed argument still
-    resolves against the main checkout and is refused again. The recovery
-    therefore names the lane on the command itself.
+    A leading absolute ``cd`` in the command body and the call's declared
+    workdir both determine where a relative destination lands.
     """
     if derivation.fell_back_to_cwd:
         lane = lane_path or "<lane path>"
@@ -200,10 +197,9 @@ def format_derivation_guidance(
             "computed value — so it fell back to the working directory above. "
             "A path the command only mentions as string data is never treated "
             "as a write target, and an unreadable destination is refused "
-            "rather than guessed. A leading `cd` in the command body does not "
-            "move that fallback: the guard reads the working directory the "
-            "call itself declares. Name the lane on the command instead of "
-            "in front of it. For a commit whose message is computed, write "
+            "rather than guessed. Name the lane as the call's workdir or "
+            "use a leading absolute `cd` when retrying. For a commit whose "
+            "message is computed, write "
             "the message to a free temp file and run "
             f"`git -C {lane} commit -F {RECOVERY_MESSAGE_FILE}`; "
             "otherwise spell "
