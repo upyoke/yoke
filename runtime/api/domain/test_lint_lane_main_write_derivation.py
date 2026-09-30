@@ -225,10 +225,8 @@ class TestComputedCommitMessageRecovery:
     """The refusal must name a recovery the refused caller can run.
 
     A commit whose message is built by a command substitution has no
-    readable write target, so the guard falls back to the call's declared
-    working directory. Telling that caller to "run it from the lane" is
-    the advice they already followed with a leading ``cd``, which the
-    guard never reads — so the refusal names the lane on the command.
+    readable write target, so the guard falls back to the effective
+    working directory, including a leading absolute ``cd``.
     """
 
     def _computed_commit(self, lane: Path) -> str:
@@ -241,29 +239,34 @@ class TestComputedCommitMessageRecovery:
             ")\""
         )
 
-    def test_computed_commit_message_falls_back_to_the_declared_cwd(
+    def test_computed_commit_message_uses_leading_lane_cd(
         self, conn, repo,
     ):
         lane = _seed_lane(conn, repo)
         verdict = _evaluate(self._computed_commit(lane), repo)
+        assert verdict.allow is True
+
+    def test_computed_commit_on_main_still_denies(self, conn, repo):
+        _seed_lane(conn, repo)
+        verdict = _evaluate(self._computed_commit(repo), repo)
         assert verdict.allow is False
         assert verdict.derivation.source == WORKING_DIRECTORY
         assert f"fell back to the working directory {repo}" in verdict.reason
 
     def test_computed_commit_refusal_names_the_lane_recovery(self, conn, repo):
         lane = _seed_lane(conn, repo)
-        verdict = _evaluate(self._computed_commit(lane), repo)
+        verdict = _evaluate(self._computed_commit(repo), repo)
         assert (
             f"git -C {lane} commit -F {RECOVERY_MESSAGE_FILE}"
             in verdict.reason
         )
 
-    def test_refusal_says_a_leading_cd_does_not_move_the_fallback(
+    def test_refusal_teaches_the_effective_workdir(
         self, conn, repo,
     ):
-        lane = _seed_lane(conn, repo)
-        verdict = _evaluate(self._computed_commit(lane), repo)
-        assert "leading `cd` in the command body does not move" in verdict.reason
+        _seed_lane(conn, repo)
+        verdict = _evaluate(self._computed_commit(repo), repo)
+        assert "use a leading absolute `cd`" in verdict.reason
 
     def test_recovery_message_file_is_readable_from_a_claimed_lane(self):
         assert is_free_path(RECOVERY_MESSAGE_FILE)
