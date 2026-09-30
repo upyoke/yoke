@@ -76,7 +76,8 @@ ACTIVITY_COLUMNS = (
     "q.host_baseline, p.slug AS plan, pr.slug AS project, "
     "q.method_id, q.method_name, m.proof_kind, r.id AS run_id, "
     "r.performed_by, "
-    "r.verdict, r.verdict_reason, r.case_outcome, r.capture_degraded_reason, "
+    "r.verdict, r.verdict_reason, r.case_outcome, r.execution_status, "
+    "r.capture_degraded_reason, "
     "r.raw_result, "
     f"{HAPPENED_AT} AS happened_at"
 )
@@ -102,7 +103,9 @@ EXECUTABLE_REQUIREMENT = (
 #: inherits its plan's project, and a planless row takes its item or run.
 #: projects join stays inner, so a row whose project cannot be resolved this
 #: way is readable by nobody rather than by every tenant.
-PROJECT_OF_REQUIREMENT = "COALESCE(mi.project_id, p.project_id, si.project_id, dr.project_id)"
+PROJECT_OF_REQUIREMENT = (
+    "COALESCE(mi.project_id, p.project_id, si.project_id, dr.project_id)"
+)
 
 #: What a project-scoped read filters on. It is the resolved project above,
 #: read off the joined row, so plan-backed and planless rows are scoped by

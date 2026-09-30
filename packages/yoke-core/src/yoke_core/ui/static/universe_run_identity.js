@@ -55,7 +55,10 @@ export function runIdentityCard(context, row, environment) {
   );
   factRow(
     documentNode, facts, "Artifact",
-    row.artifact_identity ? String(row.artifact_identity) : "not recorded",
+    row.artifact_identity ? String(row.artifact_identity)
+      : row.release_lineage
+        ? "No artifact identity recorded; this run pins a source revision."
+        : "No artifact identity or source revision recorded for this run.",
     { mono: Boolean(row.artifact_identity) },
   );
   // Freezing is what makes the member list answerable later: before it, the

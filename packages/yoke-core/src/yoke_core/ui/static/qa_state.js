@@ -199,6 +199,9 @@ export function classifyQaRow(row, rows = []) {
   if (outcome === "undetermined" || outcome === "needs review") {
     return state(QA_STATE.NEEDS_REVIEW);
   }
+  if (["captured", "capture failed", "running", "waiting", "completed"].includes(outcome)) {
+    return { id: outcome.replaceAll(" ", "_"), label: outcome, pill: outcome, detail: "" };
+  }
   return state(QA_STATE.QUEUED);
 }
 

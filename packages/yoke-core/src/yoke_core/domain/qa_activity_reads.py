@@ -185,6 +185,7 @@ def _list_activity(
                 "method_id": row["method_id"],
                 "method_name": row["method_name"],
                 "outcome": outcome,
+                "execution_status": row["execution_status"],
                 "artifacts": artifacts,
                 "evidence_count": len(artifacts),
                 "recorded_head_sha": recorded_head_sha(stored_raw),
@@ -237,7 +238,8 @@ def _activity_summary(
         conn,
         # The same source the row read uses, so a day's counts cover exactly
         # the checks the rows show rather than a narrower set of their own.
-        f"SELECT q.waived_at, r.verdict, r.case_outcome {ACTIVITY_SOURCE} {where}",
+        f"SELECT q.qa_kind, q.waived_at, r.verdict, r.case_outcome, "
+        f"r.execution_status {ACTIVITY_SOURCE} {where}",
         tuple(params),
     )
     counts = Counter(qa_run_outcome(row) for row in rows)

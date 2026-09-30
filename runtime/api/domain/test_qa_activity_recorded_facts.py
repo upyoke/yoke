@@ -17,7 +17,8 @@ from runtime.api.fixtures.backlog_qa_inserts import (
 )
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.item_detail_qa import qa_rows
-from yoke_core.domain.qa_activity_reads import list_activity
+from yoke_core.domain.qa_activity_reads import list_activity, read_activity
+from yoke_core.domain.qa_run_outcome import qa_run_outcome
 
 
 def test_activity_includes_recorded_post_deploy_facts() -> None:
@@ -48,6 +49,7 @@ def test_activity_includes_recorded_post_deploy_facts() -> None:
         assert none["id"] in by_id
         assert waived["id"] in by_id
         assert by_id[int(none["id"])]["qa_kind"] == "post_deploy_no_obligation"
+        assert by_id[int(none["id"])]["outcome"] == "no_obligation"
         assert by_id[int(waived["id"])]["qa_kind"] == "post_deploy_not_required"
         assert by_id[int(waived["id"])]["waiver_rationale"] == "declining it on cost"
 
@@ -116,3 +118,51 @@ def test_activity_returns_execution_target_json() -> None:
         rows = list_activity(conn, project="yoke", item_ids=[4830])
         row = next(r for r in rows if r["requirement_id"] == int(requirement["id"]))
         assert row["execution_target_json"] == target
+
+
+def test_latest_planless_capture_is_visible_in_item_activity_and_summary() -> None:
+    from datetime import date
+
+    with test_database() as conn:
+        insert_item(conn, id=4840, title="Captured item")
+        requirement = insert_qa_requirement(
+            conn,
+            item_id=4840,
+            qa_kind="method_case",
+            method_id="browser-inspection",
+            created_at="2026-09-20T10:00:00Z",
+        )
+        insert_qa_run(
+            conn,
+            qa_requirement_id=requirement["id"],
+            verdict="fail",
+            created_at="2026-09-20T10:01:00Z",
+        )
+        current = insert_qa_run(
+            conn,
+            qa_requirement_id=requirement["id"],
+            verdict=None,
+            execution_status="captured",
+            created_at="2026-09-20T10:02:00Z",
+        )
+        conn.commit()
+        item_row = next(
+            row for row in qa_rows(conn, 4840) if row["id"] == requirement["id"]
+        )
+        activity = read_activity(conn, project="yoke", day=date(2026, 9, 20))
+        row = next(
+            row
+            for row in activity["rows"]
+            if row["requirement_id"] == requirement["id"]
+        )
+        assert row["run_id"] == item_row["run_id"] == current["id"]
+        assert row["outcome"] == item_row["outcome"] == "captured"
+        assert row["execution_status"] == "captured"
+        assert activity["summary"]["counts"] == {"captured": 1}
+
+
+def test_recorded_verdict_takes_precedence_over_capture_bookkeeping() -> None:
+    assert (
+        qa_run_outcome({"verdict": "pass", "execution_status": "captured"}) == "passed"
+    )
+    assert qa_run_outcome({"execution_status": "capture_failed"}) == "capture_failed"
