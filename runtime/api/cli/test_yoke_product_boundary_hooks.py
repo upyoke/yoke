@@ -77,13 +77,15 @@ def _repo(tmp_path: Path) -> Path:
 
 
 def _payload(repo: Path, command: str) -> str:
-    return json.dumps({
-        "tool_name": "Bash",
-        "tool_input": {"command": command},
-        "cwd": str(repo),
-        "session_id": "sid-product",
-        "identity_stamped": True,
-    })
+    return json.dumps(
+        {
+            "tool_name": "Bash",
+            "tool_input": {"command": command},
+            "cwd": str(repo),
+            "session_id": "sid-product",
+            "identity_stamped": True,
+        }
+    )
 
 
 def test_bound_local_hook_reports_missing_engine_loudly(
@@ -159,7 +161,7 @@ def test_local_subset_denies_git_commit_on_main_without_authority_imports(
     assert run.returncode == 2
     assert "Implementation commit on main branch" in run.stdout
     assert "impl.py" in run.stdout
-    assert "yoke-provenance" in run.stderr
+    assert run.stderr == ""
     _assert_clean_client_boundary(run)
 
 
@@ -179,7 +181,7 @@ def test_local_subset_honors_main_commit_bypass_without_authority_imports(
 
     assert run.returncode == 0
     assert run.stdout == ""
-    assert run.stderr == ""
+    assert "yoke-provenance" in run.stderr
     _assert_clean_client_boundary(run)
 
 
@@ -220,7 +222,7 @@ def test_local_subset_denies_destructive_git_without_authority_imports(
     assert run.returncode == 2
     assert "destructive git command" in run.stdout
     assert "base.txt" in run.stdout
-    assert "yoke-provenance" in run.stderr
+    assert run.stderr == ""
     _assert_clean_client_boundary(run)
 
 
@@ -241,4 +243,5 @@ def test_relay_short_circuits_before_http_when_local_subset_denies(
     assert run.returncode == 2
     assert "destructive git command" in run.stdout
     assert "degraded to no-op allow" not in run.stderr
+    assert run.stderr == ""
     _assert_clean_client_boundary(run)

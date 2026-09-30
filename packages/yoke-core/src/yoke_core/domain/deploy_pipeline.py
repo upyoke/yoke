@@ -40,6 +40,9 @@ from yoke_core.domain.deploy_product_source import (
     validate_itemless_product_source,
 )
 from yoke_core.domain.deploy_pipeline_cli import _build_parser  # noqa: F401
+from yoke_core.domain.deployment_run_completion_preconditions import (
+    held_stage_report_lines,
+)
 
 
 EXIT_SUCCESS = 0
@@ -88,8 +91,6 @@ def run_pipeline(
     project = str(run.get("project") or "")
     flow_id = str(run.get("flow") or "")
     release_lineage = str(run.get("release_lineage") or "")
-    # Resolved once at start and recorded on the run; a stage substitutes
-    # these rather than asking a branch what it names now.
     bound_inputs = bound_input_values(parse_bound_sources(run.get("bound_sources")))
     qa_result = (
         json.dumps({"verification_tree": {"head_sha": release_lineage}})
@@ -151,9 +152,6 @@ def run_pipeline(
         f"flow={flow_id} run={run_id}"
     )
 
-    # The branch this flow gates on: the referenced environment's declared
-    # deploy branch (environments.settings.git.branch), else the project
-    # base branch. Consumed by the merged gate and the CI gate.
     gate_branch = resolve_flow_gate_branch(
         project,
         target_tier,
@@ -178,7 +176,6 @@ def run_pipeline(
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_USAGE
 
-    # --- Determine start position ---
     start_stage = from_stage
     if not start_stage and current_stage:
         if current_stage.endswith("-failed"):
@@ -201,7 +198,6 @@ def run_pipeline(
         if resume_exit is not None:
             return resume_exit
 
-    # --- Stage iteration ---
     found_start = not start_stage  # True if no resume point
     # Same-run --from-stage of a failed/cancelled run must re-enter executing
     # before stage_receipt_allocate; skipped completed stages are not replayed.
@@ -295,10 +291,14 @@ def run_pipeline(
             control_plane.record_qa_pass(run_id, s_name, qa_result)
             continue
         if exec_rc == -4:
-            print(
-                f"  Stage '{s_name}' is awaiting scoped QA: {exec_diag}",
-                file=sys.stderr,
-            )
+            try:
+                unresolved = control_plane.unresolved_qa(run_id)
+            except control_plane.DeploymentControlPlaneError as exc:
+                print(f"Error: {exc}", file=sys.stderr)
+                return EXIT_USAGE
+            for line in held_stage_report_lines(run_id, s_name, unresolved):
+                print(line, file=sys.stderr)
+            print(exec_diag, file=sys.stderr)
             return EXIT_AWAITING_QA
         if exec_rc == -5:
             print(exec_diag, file=sys.stderr)

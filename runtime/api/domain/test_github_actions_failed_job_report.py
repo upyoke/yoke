@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+import pytest
+
 from yoke_core.domain.github_actions_failed_job_report import build_failed_job_report
 from yoke_core.domain.github_actions_failed_jobs import (
     LOG_AVAILABLE,
@@ -41,15 +43,36 @@ def _failed(name: str, body: str, **overrides: Any) -> FailedJob:
 
 
 class TestBuildFailedJobReport:
+    @pytest.mark.parametrize("marker", ["##[group]Post checkout", "Post job cleanup."])
+    def test_failure_tail_excludes_post_job_cleanup(self, marker):
+        body = "\n".join(
+            [
+                *(f"test output {i}" for i in range(60)),
+                "FAILED: useful assertion",
+                f"2026-09-30T15:00:00Z {marker}",
+                *(f"cleanup {i}" for i in range(100)),
+            ]
+        )
+        report = build_failed_job_report(
+            [_failed("tests", body)],
+            repo="o/r",
+            run_id="123",
+            tail_lines=50,
+        )
+        assert "FAILED: useful assertion" in report.output
+        assert "cleanup" not in report.output
+        assert "test output 10\n" not in report.output
+        assert "test output 11\n" in report.output
+        assert report.jobs[0]["log_line_count"] == 61
+        assert report.jobs[0]["shown_line_count"] == 50
+
     def test_distinct_failures_survive_the_bound_on_every_shard(self):
         jobs = [
             _failed(name, "\n".join(f"{name} line {i}" for i in range(200)))
             for name in SHARD_NAMES
         ]
 
-        report = build_failed_job_report(
-            jobs, repo="o/r", run_id="123", tail_lines=50
-        )
+        report = build_failed_job_report(jobs, repo="o/r", run_id="123", tail_lines=50)
 
         assert report.failed_job_count == 4
         assert report.logs_available_count == 4
@@ -102,9 +125,7 @@ class TestBuildFailedJobReport:
             ),
         ]
 
-        report = build_failed_job_report(
-            jobs, repo="o/r", run_id="123", tail_lines=50
-        )
+        report = build_failed_job_report(jobs, repo="o/r", run_id="123", tail_lines=50)
 
         assert report.failed_job_count == 2
         assert report.logs_available_count == 1

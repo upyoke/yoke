@@ -112,9 +112,8 @@ def test_timed_out_record_names_the_queue_wait_it_was_not_charged(
     assert "932s" in summary
     assert "compute" in summary
     assert "not failing tests" in summary
-    assert (
-        "yoke qa case run --requirement-id 41 --timeout-seconds 34" in summary
-    )
+    assert "rerun the same command with --timeout-seconds 34" in summary
+    assert "yoke qa case run" not in summary
     # The durable record carries it too, not just the returned dict.
     record = json.loads(captured["qa.run.complete"]["raw_result"])
     assert record["timeout_summary"] == summary
@@ -200,9 +199,7 @@ def test_cli_restates_a_timeout_alongside_the_failing_verdict(
 def test_unwatched_command_keeps_its_parent_timeout() -> None:
     env: dict[str, str] = {}
 
-    timeout = qa_gate_timeout.process_timeout_for_command(
-        "ruff check package", 17, env
-    )
+    timeout = qa_gate_timeout.process_timeout_for_command("ruff check package", 17, env)
 
     assert timeout == 17
     assert env == {}

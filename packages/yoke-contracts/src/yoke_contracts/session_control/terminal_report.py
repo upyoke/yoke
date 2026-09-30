@@ -78,7 +78,7 @@ def parse_terminal_report(body: str) -> ParsedTerminalReport | None:
         return None
     if len(parts) < 2:
         return ParsedTerminalReport(item_ref=None)
-    prefix, sequence = parse_public_item_ref(parts[1])
+    prefix, sequence = parse_public_item_ref(parts[1].rstrip(":"))
     if prefix is None or sequence is None:
         return ParsedTerminalReport(item_ref=None)
     return ParsedTerminalReport(item_ref=f"{prefix}-{sequence}")
