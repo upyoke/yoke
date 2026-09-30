@@ -35,6 +35,9 @@ CONCEPTUAL_CLI_NAMES: dict[tuple[str, ...], tuple[tuple[str, str], ...]] = {
         ("yoke direct-workflow conflict-survey status", CONFLICT_SURVEY_STATUS_USAGE),
     ),
     ("messages", "send"): (("yoke say", SAY_USAGE),),
+    ("say", "inbox"): (
+        ("yoke messages get MESSAGE-ID", "Messages arrive through the session hook; read a known message with `yoke messages get MESSAGE-ID` and acknowledge it with `yoke messages acknowledge MESSAGE-ID`."),
+    ),
     ("sessions", "register"): (
         (
             "yoke sessions identity",

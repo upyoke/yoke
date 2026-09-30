@@ -8,9 +8,19 @@ from yoke_core.domain.handlers import (
     qa_artifact_read as _read,
     qa_artifact_rehome as _rehome,
 )
+from yoke_core.domain.handlers import qa_artifact_metadata as _metadata
 
 
 def register(registry) -> None:
+    registry.register(
+        "qa.artifact.get", _metadata.handle_artifact_get,
+        _metadata.ArtifactGetRequest, _metadata.ArtifactGetResponse,
+        stability="stable", owner_module="yoke_core.domain.handlers.qa_artifact_metadata",
+        target_kinds=["qa_requirement"], side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"], guardrails=["metadata_only"],
+        adapter_status="live", claim_required_kind=None, ambient_session_required=False,
+        minimum_serving_version="next-release",
+    )
     registry.register(
         "qa.artifact.add",
         _add.handle_qa_artifact_add,

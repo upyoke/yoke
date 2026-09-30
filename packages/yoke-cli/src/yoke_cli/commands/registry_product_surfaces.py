@@ -21,6 +21,8 @@ from yoke_cli.commands.registry_direct_workflows import (
     DIRECT_WORKFLOW_SUBCOMMAND_ALIAS_REGISTRY,
     DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY,
 )
+from yoke_cli.commands.adapters.qa_artifact_metadata import qa_artifact_get
+from yoke_cli.commands.adapters.items_section import items_progress_log_get
 from yoke_cli.commands.registry_item_pages import ITEM_PAGE_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_project_structure import (
     PROJECT_STRUCTURE_SUBCOMMAND_REGISTRY,
@@ -34,6 +36,7 @@ from yoke_cli.commands.registry_workflow_execution_instructions import (
 
 
 QA_CATALOG_SUBCOMMAND_REGISTRY = {
+    ("qa", "artifact", "get"): ("qa.artifact.get", qa_artifact_get),
     ("qa", "method", "list"): ("qa.method.list", qa_catalog.qa_method_list),
     ("qa", "method", "get"): ("qa.method.get", qa_catalog.qa_method_get),
     ("qa", "project-method", "register"): (
@@ -129,6 +132,7 @@ TEST_MACHINE_SUBCOMMAND_REGISTRY = {
 
 INBOX_DECISION_SUBCOMMAND_REGISTRY = {
     ("inbox", "list"): ("inbox.list", inbox_decisions.inbox_list),
+    ("decision-requests", "get"): ("decision_requests.get", inbox_decisions.decision_requests_get),
     ("merge-review", "candidate", "evaluate"): (
         "merge_review.candidate.evaluate",
         merge_review.merge_review_candidate_evaluate,
@@ -221,6 +225,7 @@ OVERVIEW_SUBCOMMAND_REGISTRY = {
 }
 
 PRODUCT_SURFACE_SUBCOMMAND_REGISTRY = {
+    ("items", "progress-log", "get"): ("items.progress_log.get", items_progress_log_get),
     **DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY,
     **ACTORS_SUBCOMMAND_REGISTRY,
     **MACHINE_SUBCOMMAND_REGISTRY,
@@ -235,6 +240,11 @@ PRODUCT_SURFACE_SUBCOMMAND_REGISTRY = {
     **QA_CATALOG_SUBCOMMAND_REGISTRY,
     **STRATEGY_SURFACE_SUBCOMMAND_REGISTRY,
     **TEST_MACHINE_SUBCOMMAND_REGISTRY,
+}
+
+PRODUCT_SURFACE_QA_ALIASES = {
+    ("qa", "methods", "list"): ("qa.method.list", qa_catalog.qa_method_list),
+    ("qa", "methods", "get"): ("qa.method.get", qa_catalog.qa_method_get),
 }
 PRODUCT_SURFACE_SUBCOMMAND_ALIAS_REGISTRY = {
     **DIRECT_WORKFLOW_SUBCOMMAND_ALIAS_REGISTRY,

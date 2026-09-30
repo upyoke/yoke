@@ -123,7 +123,7 @@ USAGE_BY_FUNCTION_ID = {
     ),
     "qa.plan.list": "yoke qa plan list --project P",
     "qa.plan.get": (
-        "yoke qa plan get PLAN_ID --project P [--deployment-run-id RUN] "
+        "yoke qa plan get (PLAN_ID_OR_SLUG | --plan-id PLAN_ID_OR_SLUG) --project P [--deployment-run-id RUN] "
         "[--full] [--json]"
     ),
     "qa.activity.list": (

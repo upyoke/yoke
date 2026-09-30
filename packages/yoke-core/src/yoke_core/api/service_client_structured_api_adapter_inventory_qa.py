@@ -59,7 +59,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="qa.plan.get",
         cli_invocation=(
-            "yoke qa plan get PLAN_ID --project P [--deployment-run-id RUN]"
+            "yoke qa plan get (PLAN_ID_OR_SLUG | --plan-id PLAN_ID_OR_SLUG) --project P [--deployment-run-id RUN]"
         ),
     ),
     _read_entry(
@@ -72,6 +72,10 @@ QA_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="qa.artifact.read",
         cli_invocation="yoke qa artifact read --requirement-id N --artifact-id N",
+    ),
+    _read_entry(
+        function_id="qa.artifact.get",
+        cli_invocation="yoke qa artifact get ARTIFACT_ID --requirement-id N",
     ),
     AdapterEntry("qa.plan.create", "yoke qa plan create SLUG --project P"),
     AdapterEntry("qa.plan.edit", "yoke qa plan edit PLAN_SLUG --project P"),
@@ -174,7 +178,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="qa.requirement.get",
         cli_invocation=(
-            "yoke qa requirement get --requirement-id N [--session-id S] [--json]"
+            "yoke qa requirement get (N | --requirement-id N) [--session-id S] [--json]"
         ),
     ),
     AdapterEntry(

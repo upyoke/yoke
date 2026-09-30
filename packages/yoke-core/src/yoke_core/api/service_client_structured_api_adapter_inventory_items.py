@@ -155,6 +155,10 @@ ITEMS_ADAPTERS = [
             "YOK-N 'Progress Log' --content-file PATH"
         ),
     ),
+    read_entry(
+        function_id="items.progress_log.get",
+        cli_invocation="yoke items progress-log get PREFIX-N [--json]",
+    ),
     AdapterEntry(
         function_id="items.scalar.update",
         cli_invocation=(

@@ -13,6 +13,7 @@ from yoke_cli.commands.adapters.projects_lane_summary import (
     projects_lane_summary_get,
 )
 from yoke_cli.commands.adapters.release_pin_record import release_pin_record
+from yoke_cli.commands.adapters.projects_infrastructure import projects_environment_list
 
 
 AdapterFn = Callable[[List[str]], int]
@@ -35,6 +36,9 @@ PROJECTS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("projects", "environment", "create"): (
         "projects.environment.create",
         _adapters.projects_environment_create,
+    ),
+    ("projects", "environment", "list"): (
+        "projects.environment.list", projects_environment_list,
     ),
     ("projects", "environment", "update"): (
         "projects.environment.update",

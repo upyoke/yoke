@@ -199,6 +199,7 @@ QA_RUN_RECORD_VERDICT_USAGE = (
 
 
 def qa_run_record_verdict(args: List[str]) -> int:
+    from yoke_contracts.qa_verdicts import VALID_VERDICTS
     parser = argparse.ArgumentParser(
         prog="yoke qa run record-verdict",
         description=QA_RUN_RECORD_VERDICT_USAGE,
@@ -221,7 +222,8 @@ def qa_run_record_verdict(args: List[str]) -> int:
         help="Who or what ran the QA check.",
     )
     parser.add_argument(
-        "--verdict", required=True, help="One of the registered QA verdicts."
+        "--verdict", required=True, choices=VALID_VERDICTS,
+        help="One of the registered QA verdicts."
     )
     parser.add_argument(
         "--verdict-reason",

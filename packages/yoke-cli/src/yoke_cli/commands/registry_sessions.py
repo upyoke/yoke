@@ -8,7 +8,7 @@ from yoke_cli.commands.adapters.sessions_maintenance import (
     sessions_reclaim_stale,
 )
 from yoke_cli.commands.adapters.sessions_hook_overhead import sessions_hook_overhead
-from yoke_cli.commands.adapters.sessions_read import sessions_steering_groups_list
+from yoke_cli.commands.adapters.sessions_read import sessions_get, sessions_steering_groups_list
 
 
 SESSIONS_SUBCOMMAND_REGISTRY = {
@@ -50,5 +50,8 @@ SESSIONS_SUBCOMMAND_REGISTRY = {
     ),
 }
 
+SESSIONS_SUBCOMMAND_ALIAS_REGISTRY = {
+    ("sessions", "get"): ("sessions.list", sessions_get),
+}
 
-__all__ = ["SESSIONS_SUBCOMMAND_REGISTRY"]
+__all__ = ["SESSIONS_SUBCOMMAND_REGISTRY", "SESSIONS_SUBCOMMAND_ALIAS_REGISTRY"]

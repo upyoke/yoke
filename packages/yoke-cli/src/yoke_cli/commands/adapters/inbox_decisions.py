@@ -21,6 +21,7 @@ DECISION_REQUESTS_RESOLVE_USAGE = (
     "yoke decision-requests resolve REQUEST_ID ACTION [--note TEXT] "
     "[--session-id S] [--json]"
 )
+DECISION_REQUESTS_GET_USAGE = "yoke decision-requests get REQUEST_ID [--json]"
 DECISION_REQUESTS_DISPOSE_ENDED_USAGE = (
     "yoke decision-requests dispose-ended [--project-id N ...] "
     "[--session-id S] [--json]"
@@ -28,9 +29,30 @@ DECISION_REQUESTS_DISPOSE_ENDED_USAGE = (
 
 USAGE_BY_FUNCTION_ID = {
     "inbox.list": INBOX_LIST_USAGE,
+    "decision_requests.get": DECISION_REQUESTS_GET_USAGE,
     "decision_requests.resolve": DECISION_REQUESTS_RESOLVE_USAGE,
     "decision_requests.dispose_ended": DECISION_REQUESTS_DISPOSE_ENDED_USAGE,
 }
+
+
+def decision_requests_get(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke decision-requests get",
+        description="Read one request and its decisions when you are its originator or an authorized reviewer.",
+    )
+    parser.add_argument("request_id", type=int)
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, DECISION_REQUESTS_GET_USAGE)
+    if parsed is None:
+        return 2
+    return dispatch_and_emit(
+        function_id="decision_requests.get",
+        target=TargetRef(kind="global"),
+        payload={"request_id": parsed.request_id},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+    )
 
 
 def inbox_list(args: List[str]) -> int:
@@ -165,11 +187,13 @@ def decision_requests_dispose_ended(args: List[str]) -> int:
 
 
 __all__ = [
+    "DECISION_REQUESTS_GET_USAGE",
     "DECISION_REQUESTS_DISPOSE_ENDED_USAGE",
     "DECISION_REQUESTS_RESOLVE_USAGE",
     "INBOX_LIST_USAGE",
     "USAGE_BY_FUNCTION_ID",
     "decision_requests_dispose_ended",
+    "decision_requests_get",
     "decision_requests_resolve",
     "inbox_list",
 ]

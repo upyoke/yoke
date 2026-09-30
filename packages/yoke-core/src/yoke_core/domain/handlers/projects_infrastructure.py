@@ -23,6 +23,22 @@ class ProjectsInfrastructureListResponse(BaseModel):
     environments: list[dict[str, Any]]
 
 
+class ProjectsEnvironmentListResponse(BaseModel):
+    project: str
+    environments: list[dict[str, Any]]
+
+
+def handle_projects_environment_list(request: FunctionCallRequest) -> HandlerOutcome:
+    """Project's environment rows without the site's separate inventory."""
+    outcome = handle_projects_infrastructure_list(request)
+    if not outcome.primary_success:
+        return outcome
+    payload = outcome.result_payload
+    return HandlerOutcome(primary_success=True, result_payload={
+        "project": payload["project"], "environments": payload["environments"],
+    })
+
+
 def handle_projects_infrastructure_list(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:

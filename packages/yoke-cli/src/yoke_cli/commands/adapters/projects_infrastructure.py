@@ -51,6 +51,30 @@ def projects_infrastructure_list(args: List[str]) -> int:
     )
 
 
+def projects_environment_list(args: List[str]) -> int:
+    """Project environment inventory without the sibling site rows."""
+    parser = argparse.ArgumentParser(prog="yoke projects environment list")
+    parser.add_argument("--project", required=True)
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, "yoke projects environment list --project P [--json]")
+    if parsed is None:
+        return 2
+
+    def _writer(response, stdout, stderr) -> None:
+        if response.success:
+            print(json.dumps((response.result or {}).get("environments", []), sort_keys=True), file=stdout)
+
+    return dispatch_and_emit(
+        function_id="projects.environment.list",
+        target=TargetRef(kind="global"),
+        payload={"project": parsed.project},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+        human_writer=_writer,
+    )
+
+
 __all__ = [
     "PROJECTS_INFRASTRUCTURE_LIST_USAGE",
     "projects_infrastructure_list",

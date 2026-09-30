@@ -33,6 +33,7 @@ PRODUCT_AUTHZ_BY_ID = {
     # withdrawals still pass through the request's live org-admin authority.
     "machine_approval.lifecycle.apply": AuthzSpec(ACTOR_SESSION, None),
     "decision_requests.create": AuthzSpec(ACTOR_SESSION, None),
+    "decision_requests.get": AuthzSpec(ACTOR_SESSION, None),
     "decision_requests.resolve": AuthzSpec(ACTOR_SESSION, None),
     "decision_requests.withdraw": AuthzSpec(ACTOR_SESSION, None),
     # Convergence withdraws only what the subject-state contract already

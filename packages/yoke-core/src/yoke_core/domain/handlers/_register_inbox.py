@@ -5,6 +5,7 @@ from __future__ import annotations
 from yoke_core.domain.handlers import decision_request_disposition as _disposition
 from yoke_core.domain.handlers import inbox_decisions as _inbox
 from yoke_core.domain.handlers import inbox_decision_models as _models
+from yoke_core.domain.handlers import decision_request_get as _get
 from yoke_core.domain import machine_approval_requests as _machine
 
 
@@ -38,6 +39,15 @@ def _register(
 
 
 def register(registry) -> None:
+    registry.register(
+        "decision_requests.get", _get.handle_decision_request_get,
+        _get.DecisionRequestGetRequest, _get.DecisionRequestGetResponse,
+        stability="stable", owner_module="yoke_core.domain.handlers.decision_request_get",
+        target_kinds=["global"], side_effects=[], emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["actor_required", "authority_union"], adapter_status="live",
+        claim_required_kind=None, ambient_session_required=False,
+        minimum_serving_version="next-release",
+    )
     _register(
         registry,
         "inbox.list",

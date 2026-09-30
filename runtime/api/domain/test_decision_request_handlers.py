@@ -32,6 +32,7 @@ def test_registration_leaf_declares_every_engine_action():
     registry = Registry()
     _register_inbox.register(registry)
     assert [row[0][0] for row in registry.rows] == [
+        "decision_requests.get",
         "inbox.list",
         "machine_approval.lifecycle.apply",
         "decision_requests.create",
@@ -39,7 +40,8 @@ def test_registration_leaf_declares_every_engine_action():
         "decision_requests.withdraw",
         "decision_requests.dispose_ended",
     ]
-    assert all(row[1]["adapter_status"] == "internal" for row in registry.rows)
+    assert registry.rows[0][1]["adapter_status"] == "live"
+    assert all(row[1]["adapter_status"] == "internal" for row in registry.rows[1:])
     withdraw = next(
         row for row in registry.rows if row[0][0] == "decision_requests.withdraw"
     )

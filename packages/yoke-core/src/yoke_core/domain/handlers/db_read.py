@@ -24,6 +24,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain import db_backend, db_helpers, json_helper
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
+from yoke_core.domain.db_read_column_hints import column_hint
 from yoke_core.domain.handlers.db_read_sql import (
     DbReadRefusal,
     validate_read_only_sql,
@@ -257,7 +258,7 @@ def _schema_hint_for_error(sql: str, exc: Exception) -> str:
         if columns:
             parts.append(
                 f"Live columns for {table}: "
-                + ", ".join(f"{name} {dtype}" for name, dtype in columns)
+                + ", ".join(column_hint(table, name, dtype) for name, dtype in columns)
             )
         if canonical:
             notes = _compact_text(str(canonical.get("notes") or ""))
