@@ -33,6 +33,17 @@ def _installer(*, runner, dry_run=False):
     return module, instance
 
 
+def _capture_distribution(runner):
+    """Isolate uv setup while retaining real distribution registration."""
+
+    def run(argv):
+        if list(argv) == ["uv", "tool", "update-shell"]:
+            return subprocess.CompletedProcess(argv, 0, "shell configured", "")
+        return runner(argv)
+
+    return run
+
+
 def test_install_records_actual_selection_before_ready(monkeypatch, tmp_path):
     monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(tmp_path / "config.json"))
     runner = RecordingRunner()
@@ -49,7 +60,7 @@ def test_install_records_actual_selection_before_ready(monkeypatch, tmp_path):
         return subprocess.CompletedProcess(argv, rc, "", "")
 
     monkeypatch.setattr(instance, "_repair_credential_helper", lambda _: None)
-    instance.capture_runner = record
+    instance.capture_runner = _capture_distribution(record)
     instance.run()
     assert distribution.recorded() == {
         "origin": "https://fork.example",
@@ -66,6 +77,7 @@ def test_record_failure_prevents_ready(monkeypatch):
     monkeypatch.setattr(instance, "_smoke_yoke", lambda _: "1.2.3")
     monkeypatch.setattr(instance, "_product_boundary_audit", lambda **_: None)
     monkeypatch.setattr(instance, "_repair_credential_helper", lambda _: None)
+    instance.capture_runner = _capture_distribution(runner)
     with pytest.raises(
         module.InstallError, match="distribution_record_failed"
     ) as raised:
