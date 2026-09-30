@@ -79,8 +79,9 @@ def test_installed_hooks_register_emit_and_deny(
         },
     )
     assert denied.returncode == 2, _format(denied)
-    assert "destructive git command" in denied.stdout
-    assert "base.txt" in denied.stdout
+    assert "destructive git command" in denied.stderr
+    assert "base.txt" in denied.stderr
+    assert denied.stdout == ""
 
 
 def test_installed_hook_chain_imports_and_missing_member_is_loud(
@@ -178,24 +179,29 @@ def _installed_env(
     machine_home.mkdir(parents=True)
     config = machine_home / "config.json"
     config.write_text(
-        json.dumps({
-            "schema_version": 1,
-            "active_env": "local",
-            "connections": {
-                "local": {
-                    "transport": "local-postgres",
-                    "credential_source": {
-                        "kind": "env",
-                        "name": db_backend.PG_DSN_ENV,
+        json.dumps(
+            {
+                "schema_version": 1,
+                "active_env": "local",
+                "connections": {
+                    "local": {
+                        "transport": "local-postgres",
+                        "credential_source": {
+                            "kind": "env",
+                            "name": db_backend.PG_DSN_ENV,
+                        },
                     },
                 },
-            },
-            "projects": [{
-                "checkout": str(repo.resolve()),
-                "project_id": 1,
-                "env": "local",
-            }],
-        }) + "\n",
+                "projects": [
+                    {
+                        "checkout": str(repo.resolve()),
+                        "project_id": 1,
+                        "env": "local",
+                    }
+                ],
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
     # A born universe records which actor this machine operates it as, and

@@ -29,7 +29,7 @@ def write_hook_output(text: str, exit_code: int, executor: str) -> None:
                 reason = inner.get("permissionDecisionReason")
                 if isinstance(reason, str) and reason:
                     text = reason
-        sys.stderr.write(text)
+        sys.stderr.write(text if text.endswith("\n") else f"{text}\n")
     else:
         sys.stdout.write(text)
 

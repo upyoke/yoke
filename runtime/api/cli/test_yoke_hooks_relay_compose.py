@@ -85,9 +85,8 @@ def test_client_local_deny_short_circuits_without_post(
 
     out = capsys.readouterr()
     assert rc == 2
-    assert (
-        out.err if executor == "claude" else out.out
-    ) == "BLOCKED: destructive git verb"
+    expected = "BLOCKED: destructive git verb" + ("\n" if executor == "claude" else "")
+    assert (out.err if executor == "claude" else out.out) == expected
     assert local_subset.calls == [("PreToolUse", executor, None, True, {})]
 
 
@@ -212,7 +211,8 @@ def test_server_deny_relays_verbatim_and_drops_client_advisory(
 
     out = capsys.readouterr()
     assert rc == 2
-    assert (out.err if executor == "claude" else out.out) == "DENY: server policy"
+    expected = "DENY: server policy" + ("\n" if executor == "claude" else "")
+    assert (out.err if executor == "claude" else out.out) == expected
     assert (out.out if executor == "claude" else out.err) == ""
 
 

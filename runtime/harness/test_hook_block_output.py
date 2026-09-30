@@ -10,16 +10,17 @@ from yoke_harness.hooks.local_policies import deny_stdout
 
 
 @pytest.mark.parametrize("executor", ["claude", "claude-code", "claude-desktop"])
-def test_claude_local_envelope_emits_reason_on_stderr(executor, capsys) -> None:
+@pytest.mark.parametrize("ending", ["", "\n"])
+def test_claude_local_envelope_emits_reason_on_stderr(executor, ending, capsys) -> None:
     text, exit_code = deny_stdout(
-        "BLOCKED: reason and recovery", "PreToolUse", executor
+        f"BLOCKED: reason and recovery{ending}", "PreToolUse", executor
     )
 
     write_hook_output(text, exit_code, executor)
 
     output = capsys.readouterr()
     assert exit_code == 2
-    assert output.err == "BLOCKED: reason and recovery"
+    assert output.err == "BLOCKED: reason and recovery\n"
     assert output.out == ""
 
 
@@ -46,7 +47,7 @@ def test_relayed_denial_preserves_version_notice_on_stderr(capsys) -> None:
 
     output = capsys.readouterr()
     assert output.out == ""
-    assert output.err == text
+    assert output.err == f"{text}\n"
     assert "server revision" in output.err
 
 

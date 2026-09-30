@@ -207,7 +207,7 @@ def test_client_deny_is_not_diluted_by_orientation(
     local_subset,
     oriented,
 ) -> None:
-    """A deny's stdout is the block message the agent reads; appending
+    """A deny's stderr is the block message the agent reads; appending
     orientation to it would bury the reason the call was refused."""
     local_subset.result = LocalSubsetEvaluation(
         stdout="BLOCKED: destructive git verb",
@@ -223,7 +223,8 @@ def test_client_deny_is_not_diluted_by_orientation(
 
     out = capsys.readouterr()
     assert rc == 2
-    assert out.out == "BLOCKED: destructive git verb"
+    assert out.err == "BLOCKED: destructive git verb\n"
+    assert out.out == ""
 
 
 def test_server_deny_is_not_diluted_by_orientation(
@@ -248,4 +249,5 @@ def test_server_deny_is_not_diluted_by_orientation(
 
     out = capsys.readouterr()
     assert rc == 2
-    assert out.out == "DENY: server policy"
+    assert out.err == "DENY: server policy\n"
+    assert out.out == ""
