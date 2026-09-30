@@ -148,7 +148,7 @@ test("Shipping reads QA for every carried member, not the first three", async ()
   }
 });
 
-test("carried items show required QA and leave no-obligation items silent", async () => {
+test("carried items show required QA and recorded no-obligation reasons", async () => {
   const documentNode = new FakeDocument();
   const host = documentNode.createElement("div");
   const rows = [
@@ -216,11 +216,12 @@ test("carried items show required QA and leave no-obligation items silent", asyn
   assert.equal(byClass(lead, "run-qa-check-outcome")[0].textContent, "Passed");
   assert.equal(byClass(lead, "run-qa-check-mark")[0].textContent, "✓");
   assert.match(byRef["YOK-3294"], /Waived/);
-  // An item with no QA requirement, or no QA at all, shows no QA block.
-  assert.equal(byRef["YOK-3297"], "");
+  assert.match(byRef["YOK-3297"], /No obligation/);
+  assert.match(byRef["YOK-3297"], /Nothing about this item is observable/);
+  // An item with no QA at all shows no QA block.
   assert.equal(byRef["YOK-3290"], "");
   assert.doesNotMatch(host.textContent,
-    /no obligation|verified before merge|not the revision that is deployed|deployed revision/);
+    /verified before merge|not the revision that is deployed|deployed revision/);
 });
 
 function ancestorHidden(node) {

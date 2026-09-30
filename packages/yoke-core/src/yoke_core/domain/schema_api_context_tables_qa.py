@@ -34,6 +34,11 @@ QA_TABLES: dict[str, dict] = {
             ("retracted_at", "TEXT"),
             ("retraction_rationale", "TEXT"),
             ("retraction_source", "TEXT"),
+            ("replacement_requirement_id", "INTEGER"),
+            ("superseded_by_requirement_id", "INTEGER"),
+            ("superseded_at", "TEXT"),
+            ("supersession_rationale", "TEXT"),
+            ("supersession_source", "TEXT"),
             ("plan_id", "INTEGER"),
             ("plan_case_key", "TEXT"),
             ("case_position", "INTEGER"),
@@ -68,6 +73,14 @@ QA_TABLES: dict[str, dict] = {
             "is NO `is_blocking` column. Primary key is `id`, not "
             "`requirement_id`; requirement rows do not carry `status` "
             "or `last_known_result`. "
+            "`replacement_requirement_id` names a declared corrected case; "
+            "`superseded_by_requirement_id` records its completed discharge. "
+            "A disposable preview missing these columns predates additive "
+            "boot convergence; it does not prove the columns are absent from "
+            "the model. Their owner is `yoke_core.domain.qa_catalog_schema`, "
+            "not a guessed `qa_requirements_schema` module. The serving boot "
+            "calls `yoke_core.api.server_entrypoint.ensure_core_schema`, "
+            "not a guessed `server_boot` module. "
             "A retracted row (`retracted_at`) is withdrawn history from "
             "`yoke qa item-plan retract`, not a waiver and not a "
             "supersession. "
@@ -150,6 +163,8 @@ QA_TABLES: dict[str, dict] = {
             ("completed_at", "TEXT"),
             ("created_at", "TEXT"),
             ("execution_status", "TEXT"),
+            ("case_outcome", "TEXT"),
+            ("capture_degraded_reason", "TEXT"),
         ],
         "notes": (
             "Recorded results. Join to qa_requirements via "
@@ -171,6 +186,8 @@ QA_TABLES: dict[str, dict] = {
             "epic_reviews / epic_task_reviews table. There is NO "
             "`requirement_id` column and NO `result` column; use "
             "`qa_requirement_id`, `verdict`, and `raw_result`. "
+            "Serialize JSON values with `json_helper.dumps_compact` or "
+            "`dumps_pretty`; `json_helper` has no `dumps` export. "
             "`execution_status` is capture-stage bookkeeping for browser and "
             "agent-mission runs (captured | capture_failed), distinct from the quality "
             "`verdict`. `captured` requires at least one `qa_artifacts` row, or a "
