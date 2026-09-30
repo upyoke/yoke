@@ -105,9 +105,7 @@ class TestVerdictResolvesThePendingCapture(unittest.TestCase):
             ).fetchone()["n"]
 
             self.assertEqual(runs, 1)
-            self.assertEqual(
-                int(outcome.result_payload["qa_run_id"]), capture_run_id
-            )
+            self.assertEqual(int(outcome.result_payload["qa_run_id"]), capture_run_id)
 
     def test_the_latest_run_still_names_the_verified_candidate(self):
         with test_database() as conn:
@@ -118,9 +116,7 @@ class TestVerdictResolvesThePendingCapture(unittest.TestCase):
             self.assertEqual(int(latest["id"]), capture_run_id)
             self.assertEqual(latest["performed_by"], "browser_substrate")
             self.assertEqual(latest["verdict"], "pass")
-            self.assertEqual(
-                recorded_head_sha(latest["raw_result"]), CANDIDATE_SHA
-            )
+            self.assertEqual(recorded_head_sha(latest["raw_result"]), CANDIDATE_SHA)
 
     def test_the_release_gate_accepts_the_capture_its_review_settled(self):
         with test_database() as conn:

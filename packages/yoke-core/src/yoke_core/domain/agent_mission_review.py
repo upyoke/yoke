@@ -172,7 +172,9 @@ def _walker_dispatch(
 
 
 def agent_mission_dispatch_contract(
-    bundle: Mapping[str, Any], *, allowed_verdicts: tuple[str, ...] = ALL_REVIEW_VERDICTS
+    bundle: Mapping[str, Any],
+    *,
+    allowed_verdicts: tuple[str, ...] = ALL_REVIEW_VERDICTS,
 ) -> dict[str, Any]:
     """Return instructions that keep mission ownership in the main agent."""
     bundle_id = str(bundle["bundle_id"])

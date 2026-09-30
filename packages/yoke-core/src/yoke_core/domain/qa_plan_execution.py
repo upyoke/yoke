@@ -97,9 +97,7 @@ def execute_plan(
         return discharged
     execution_id = begun_execution_id(execution)
     try:
-        begun = validate_begun_execution(
-            execution, machine=machine, base_url=base_url
-        )
+        begun = validate_begun_execution(execution, machine=machine, base_url=base_url)
     except QaPlanExecutionError as exc:
         raise release_unusable_execution(
             _call_plan_function,

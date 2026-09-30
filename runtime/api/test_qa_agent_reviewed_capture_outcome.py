@@ -36,6 +36,7 @@ from runtime.api.qa_agent_reviewed_capture_test_support import (
     seed_case as _seed_case,
 )
 
+
 def _link_passing_review(conn, *, requirement_id: int, capture_run_id: int):
     """Record the reviewer's verdict the way the review submission does."""
     review_run_id = conn.execute(

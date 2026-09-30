@@ -34,7 +34,8 @@ class TestReasonCarriesTheDiagnosis:
 
     def test_pre_host_continuation_keeps_its_own_code(self) -> None:
         reason = continuation_abort_reason(
-            {"continues_execution_id": "prior"}, _PreHostError("no lease"),
+            {"continues_execution_id": "prior"},
+            _PreHostError("no lease"),
         )
         assert abort_reason_code(reason) == CONTINUATION_PRE_HOST_ERROR_REASON
         assert "no lease" in reason
