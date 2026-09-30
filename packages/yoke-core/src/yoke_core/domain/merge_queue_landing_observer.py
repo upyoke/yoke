@@ -53,7 +53,11 @@ from yoke_core.domain.merge_queue_landing_refresh import (
     complete_projects,
     fail_projects,
 )
-from yoke_core.domain.merge_queue_landing_notice import landing_message, push_notice
+from yoke_core.domain.merge_queue_landing_notice import (
+    landing_message,
+    notice_already_sent,
+    push_notice,
+)
 from yoke_core.domain.merge_queue_landing_observation import (
     EJECTED,
     LANDED,
@@ -159,17 +163,10 @@ def observe_pending_landings(
         notice_in_progress = False
         try:
             if observation.kind == EJECTED:
-                # The notice carries the dedupe, not a column: its key names
-                # the head this observation read, so repeating it for the
-                # same commit accepts the existing intent rather than saying
-                # so twice. That is what lets an armed pull request the queue
-                # will never admit be reported at all — it has no admission
-                # to clear, and keying the report on one silenced it.
-                #
-                # The item stays a candidate either way: its pull request is
-                # still open, and a queue that merges it after the rebase is
-                # a landing this observer must still see.
-                notice_in_progress = True
+                # The notice's own identity carries the dedupe, not a column.
+                # That is what lets an armed pull request the queue will never
+                # admit be reported at all: it has no admission to clear, and
+                # keying the report on one silenced it entirely.
                 # Keyed on the head this observation read, not just the pull
                 # request: the same PR number survives a force-push, so a
                 # fresh commit that fails its own required checks is a new
@@ -178,6 +175,16 @@ def observe_pending_landings(
                 # first one's already-acknowledged message and the holder
                 # never heard the queue had dropped it again.
                 head_sha = readback.state.head_sha if readback.state else ""
+                key = f"merge-queue-ejected:{item_id}:{pr_number}:{head_sha}"
+                if notice_already_sent(conn, idempotency_key=key):
+                    # Already reported for this exact head. The item stays a
+                    # candidate — a queue that merges it after the rebase is
+                    # a landing this observer must still see — but the stop
+                    # is not news, and counting it again would report work
+                    # that is not there.
+                    conn.commit()
+                    continue
+                notice_in_progress = True
                 delivery = push_notice(
                     conn,
                     item_id=item_id,
@@ -185,9 +192,7 @@ def observe_pending_landings(
                     body_for_route=lambda route: ejection_message(
                         public_ref, pr_number, observation, route
                     ),
-                    idempotency_key=(
-                        f"merge-queue-ejected:{item_id}:{pr_number}:{head_sha}"
-                    ),
+                    idempotency_key=key,
                     now=current,
                 )
                 notice_in_progress = False
