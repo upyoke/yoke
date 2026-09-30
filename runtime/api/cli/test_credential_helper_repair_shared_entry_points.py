@@ -24,7 +24,6 @@ from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL
 from yoke_contracts.server_image import pinned_server_image
 
 
-
 def test_public_installer_completion_repairs_bundle_and_git_works(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
