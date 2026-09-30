@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from typing import Optional, TextIO
+from typing import Any, Optional, TextIO
 
 from yoke_core.domain.backlog_status_write_precondition import (
     WORKFLOW_STATUS_PRECONDITION_FAILED,
@@ -26,8 +26,21 @@ def execute_update(
     out: TextIO = sys.stdout,
     expected_status: Optional[str] = None,
     originator_actor_id: Optional[int] = None,
+    conn: Any = None,
 ) -> dict:
-    """Repeat the complete status preflight and update once after drift."""
+    """Repeat the complete status preflight and update once after drift.
+
+    ``conn`` runs the update inside the caller's open transaction: nothing
+    is committed, rolled back, or synced to GitHub here, and success returns
+    the ``effect_receipt`` the caller runs through
+    ``backlog_update_effects.run_post_commit_update_effects`` once it has
+    committed. A refusal leaves the caller to roll back.
+    """
+    if conn is not None and dry_run:
+        raise ValueError(
+            "dry_run previews and rolls back on its own connection; "
+            "it cannot run inside a caller's transaction"
+        )
     if field == "status" and value == "cancelled":
         from yoke_core.domain.backlog_cancellation import normalize_cancellation_reason
 
@@ -55,6 +68,7 @@ def execute_update(
                 out=out,
                 expected_status=expected_status,
                 originator_actor_id=originator_actor_id,
+                conn=conn,
             )
         except BlitzDocumentArchiveError as exc:
             return {

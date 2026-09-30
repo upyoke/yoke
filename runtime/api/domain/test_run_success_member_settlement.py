@@ -1,9 +1,9 @@
 """A run reads succeeded only after every cleared member has closed.
 
 Settlement is durable and non-terminal: a real close-out refusal or an
-interrupted process leaves the run executing and settling, the members that
-closed done, and the rest at their release wait with their claims. The next
-re-drive replays settlement from there.
+interrupted process leaves the run executing and settling, and every member
+at its release wait with its claim. The next re-drive replays settlement
+from there.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ from runtime.api.domain.test_no_obligation_member_close_out import (
 from runtime.api.domain.test_status_transition_preflight import (
     _isolate_status_effects,
 )
-from yoke_core.domain import no_obligation_member_close_out as close_out
+from yoke_core.domain import delivery_member_close_steps as close_out
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
 from yoke_core.domain.project_identity import render_item_ref
@@ -65,9 +65,9 @@ def _run(conn: Any, run_id: str) -> tuple[str, bool]:
 
 
 def _status(conn: Any, item_id: int) -> str:
-    return conn.execute(
-        "SELECT status FROM items WHERE id=%s", (item_id,)
-    ).fetchone()["status"]
+    return conn.execute("SELECT status FROM items WHERE id=%s", (item_id,)).fetchone()[
+        "status"
+    ]
 
 
 def _claim_held(conn: Any, item_id: int) -> bool:
@@ -127,40 +127,40 @@ def test_a_refused_close_out_holds_every_member_until_re_driven(
         assert not _claim_held(test_db, item_id)
 
 
-def test_an_interrupted_settlement_replays_on_the_next_re_drive(
+def test_an_interrupted_settlement_closes_nothing_and_replays(
     test_db: Any, monkeypatch
 ) -> None:
+    """A process that dies after writing one member's close commits none of
+    them: every member is written in one transaction, so the next re-drive
+    starts from members that are all still at their wait."""
     _isolate_status_effects(monkeypatch)
     release = _two_ready_members(test_db)
     _executing_run(test_db, "run-interrupted", (FIRST_ITEM, SECOND_ITEM))
-    real = close_out.close_out_satisfied_delivery_member
-    closed: list[int] = []
+    real = close_out.stage_member_close
+    written: list[int] = []
 
     def _crash_after_first(conn, **kwargs):
-        if closed:
-            raise RuntimeError("settling process died")
-        outcome = real(conn, **kwargs)
-        closed.append(int(kwargs["item_id"]))
-        return outcome
+        if written:
+            raise SystemExit("settling process died")
+        staged = real(conn, **kwargs)
+        written.append(int(kwargs["item_id"]))
+        return staged
 
-    monkeypatch.setattr(
-        close_out, "close_out_satisfied_delivery_member", _crash_after_first
-    )
-    with pytest.raises(RuntimeError, match="settling process died"):
+    monkeypatch.setattr(close_out, "stage_member_close", _crash_after_first)
+    with pytest.raises(SystemExit, match="settling process died"):
         cmd_update("run-interrupted", "status", "succeeded")
 
-    [first] = closed
-    second = SECOND_ITEM if first == FIRST_ITEM else FIRST_ITEM
     assert _run(test_db, "run-interrupted") == ("executing", True)
-    assert _status(test_db, first) == "done"
-    assert _status(test_db, second) == release
-    assert _claim_held(test_db, second)
+    for item_id in (FIRST_ITEM, SECOND_ITEM):
+        assert _status(test_db, item_id) == release
+        assert _claim_held(test_db, item_id)
 
-    monkeypatch.setattr(close_out, "close_out_satisfied_delivery_member", real)
+    monkeypatch.setattr(close_out, "stage_member_close", real)
     assert cmd_update("run-interrupted", "status", "succeeded") is None
 
     assert _run(test_db, "run-interrupted") == ("succeeded", True)
-    assert _status(test_db, second) == "done"
+    for item_id in (FIRST_ITEM, SECOND_ITEM):
+        assert _status(test_db, item_id) == "done"
 
 
 def test_run_success_closes_every_ready_member_with_it(

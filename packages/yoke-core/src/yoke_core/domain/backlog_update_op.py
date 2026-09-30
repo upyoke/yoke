@@ -9,7 +9,7 @@ cascades epic tasks, and triggers the post-DB GitHub sync side effects.
 from __future__ import annotations
 
 import sys
-from typing import Optional, TextIO
+from typing import Any, Optional, TextIO
 
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.backlog_queries import (
@@ -53,13 +53,16 @@ def _execute_update_once(
     out: TextIO = sys.stdout,
     expected_status: Optional[str] = None,
     originator_actor_id: Optional[int] = None,
+    conn: Any = None,
 ) -> dict:
     """Validate, write, and execute side effects for one update attempt."""
     from yoke_core.domain import mutations
 
+    owns_conn = conn is None
     db_path = _resolve_write_db_path()
-    _assert_write_db_ready(db_path)
-    conn = connect(db_path)
+    if owns_conn:
+        _assert_write_db_ready(db_path)
+        conn = connect(db_path)
     sync_fail_count = 0
 
     try:
@@ -78,6 +81,7 @@ def _execute_update_once(
                 originator_actor_id=originator_actor_id,
                 session_id=session_id or "",
                 expected_status=expected_status,
+                commit=owns_conn,
             )
             if preflight.failure is not None:
                 return preflight.failure
@@ -307,6 +311,8 @@ def _execute_update_once(
             workflow_version_id=validated_workflow_version_id,
             actor_id=originator_actor_id,
         )
+        if not owns_conn:
+            return {"success": True, "effect_receipt": effect_receipt}
         if field == "status":
             conn.commit()
         print(f"Updated: {render_item_ref(conn, item_id)} {field} → {value}", file=out)
@@ -316,7 +322,8 @@ def _execute_update_once(
             out=out,
         )
     finally:
-        conn.close()
+        if owns_conn:
+            conn.close()
 
     # Post-DB side effects (outside conn context to avoid holding locks)
 

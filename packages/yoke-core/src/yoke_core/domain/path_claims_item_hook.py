@@ -111,6 +111,7 @@ def cancel_claims_on_item_terminal(
                     conn=conn,
                     claim=get_claim(conn, claim_id),
                     reason=reason,
+                    transactional=not commit,
                 )
             except Exception:
                 # Event emission is best-effort; never fail the
