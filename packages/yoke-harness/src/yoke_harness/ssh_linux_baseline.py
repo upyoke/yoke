@@ -31,8 +31,8 @@ operation, expected_home, golden = sys.argv[1:]
 home = pathlib.Path(os.environ["HOME"])
 baseline = pathlib.Path(golden)
 absent = json.loads(sys.stdin.read())
-def refuse(reason):
-    print(json.dumps({"ok": False, "reason": reason})); sys.exit(64)
+def refuse(reason, entry=None):
+    print(json.dumps({"ok": False, "reason": reason, "refused_entry": entry})); sys.exit(64)
 if os.getuid() == 0 or str(home) != expected_home or len(home.parts) < 3 or home.is_symlink():
     refuse("linux_test_user_required")
 if not baseline.is_absolute() or baseline == home or home in baseline.parents:
@@ -46,15 +46,15 @@ def validate_archive(archive):
         path = pathlib.PurePosixPath(member.name)
         name = str(path)
         if any(parent in links for parent in path.parents):
-            refuse("golden_baseline_archive_unsafe")
+            refuse("golden_baseline_archive_unsafe", member.name)
         if path.is_absolute() or ".." in path.parts or not path.parts or path.parts[0] == ".ssh":
-            refuse("golden_baseline_archive_unsafe")
-        if member.isdev() or member.isfifo() or member.islnk():
-            refuse("golden_baseline_archive_unsafe")
+            refuse("golden_baseline_archive_unsafe", member.name)
+        if not (member.isfile() or member.isdir() or member.issym()):
+            refuse("golden_baseline_archive_unsafe", member.name)
         if member.issym():
             target = pathlib.Path(os.path.normpath(home / path.parent / member.linkname))
             if target != home and home not in target.parents:
-                refuse("golden_baseline_archive_unsafe")
+                refuse("golden_baseline_archive_unsafe", member.name)
         if any(name == value or name.startswith(value + "/") for value in absent):
             refuse("golden_baseline_contains_yoke")
     return members
@@ -67,6 +67,9 @@ if operation == "capture":
     baseline.parent.mkdir(parents=True, exist_ok=True)
     temporary = pathlib.Path(tempfile.mkdtemp(prefix=".yoke-golden-", dir=baseline.parent))
     try:
+        def persistent_entry(member):
+            # Socket links point into a live daemon's /tmp namespace, not saved login state.
+            return None if member.issym() and member.name.endswith(".sock") else member
         with tarfile.open(temporary / "home.tar.gz", "w:gz") as archive:
             for entry in sorted(home.iterdir()):
                 if entry.name == ".ssh": continue
@@ -75,7 +78,7 @@ if operation == "capture":
                         if pathlib.Path(value).lstat().st_uid != os.getuid():
                             refuse("golden_capture_foreign_owner")
                 if entry.lstat().st_uid != os.getuid(): refuse("golden_capture_foreign_owner")
-                archive.add(entry, arcname=entry.name)
+                archive.add(entry, arcname=entry.name, filter=persistent_entry)
         with tarfile.open(temporary / "home.tar.gz", "r:gz") as archive:
             validate_archive(archive)
         digest = hashlib.file_digest((temporary / "home.tar.gz").open("rb"), "sha256").hexdigest()

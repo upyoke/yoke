@@ -74,7 +74,9 @@ would restore the very residue the fresh-host gate must prove absent.
 The home archive and its digest/identity manifest are private and live outside
 the home, for example beneath `/var/lib/yoke-golden/yoketest`. Capture into a
 new directory; never overwrite a golden. `.ssh` is preserved from the live home,
-so rotating SSH access does not get undone by restore.
+so rotating SSH access does not get undone by restore. Live Unix sockets and
+`.sock` links are ephemeral daemon state and are omitted; signed-in regular
+files and persistent CLI links are retained.
 
 Declare a probes JSON document with absolute argv for every required CLI,
 credential file and relevant user service. Example entries (resolve the actual

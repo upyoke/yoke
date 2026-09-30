@@ -113,6 +113,7 @@ def test_archive_roundtrip_restores_credentials_preserves_ssh_and_proves_absence
     home.mkdir()
     (home / ".claude").mkdir()
     (home / ".claude/.credentials.json").write_text("signed-in-state")
+    (home / ".claude/daemon.sock").symlink_to("/tmp/live-daemon.sock")
     (home / ".ssh").mkdir()
     (home / ".ssh/authorized_keys").write_text("original")
     (home / ".local/bin").mkdir(parents=True)
@@ -129,6 +130,7 @@ def test_archive_roundtrip_restores_credentials_preserves_ssh_and_proves_absence
     restored = _archive_run(home, golden, "reset")
     assert restored.returncode == 0, restored.stderr
     assert (home / ".claude/.credentials.json").read_text() == "signed-in-state"
+    assert not (home / ".claude/daemon.sock").is_symlink()
     assert (home / ".ssh/authorized_keys").read_text() == "new-authorized-key"
     assert not (home / ".yoke").exists()
     assert (home / ".local/bin/cli").read_text() == "vendor CLI"
