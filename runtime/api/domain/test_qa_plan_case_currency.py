@@ -148,7 +148,6 @@ def test_a_refresh_refuses_while_a_live_execution_holds_the_roster() -> None:
     """A walk in progress is a frozen copy; the refresh refuses before writing."""
     with test_database() as conn:
         plan_id, requirement_id = _materialized(conn, item_id=8604)
-        _correct_the_case(conn, plan_id)
         execution = begin_plan_execution(
             conn,
             item_id=8604,
@@ -156,6 +155,7 @@ def test_a_refresh_refuses_while_a_live_execution_holds_the_roster() -> None:
             actor_id="op",
             session_id="session-currency",
         )
+        _correct_the_case(conn, plan_id)
 
         with pytest.raises(QaPlanError) as excinfo:
             rematerialize_for_item(conn, item_id=8604, transition_id=TRANSITION)

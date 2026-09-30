@@ -292,9 +292,28 @@ def annotate_requirement_currency(
     return annotate_plan_currency(conn, annotate_admitted_currency(conn, rows))
 
 
-def require_current_plan_case(conn: Any, requirement_id: int) -> None:
-    """Raise the named refusal when this row's plan case has moved under it."""
-    divergence = plan_case_divergence(conn, int(requirement_id))
+def require_current_requirement(conn: Any, requirement_id: int) -> None:
+    """Refuse a row that is behind either copy edge above it, in chain order.
+
+    A QA walk freezes the row it will run, so this is the check a runner
+    makes before it does: an admitted copy whose source moved, or an item
+    row whose plan case was amended after materialization, raises the named
+    refusal carrying the refresh command that reaches it.
+
+    A deployment-stage row answers to the plan snapshot its stage
+    materializes from -- frozen at admission for a pinned stage -- not to
+    the live plan, so its plan edge is checked where that snapshot is read:
+    stage materialization refuses an unjudged row whose snapshot case moved.
+    """
+    from yoke_core.domain.qa_admitted_case_currency import (
+        require_current_admitted_case,
+    )
+
+    require_current_admitted_case(conn, int(requirement_id))
+    row = _row(conn, int(requirement_id))
+    if row is None or row["deployment_run_id"] is not None:
+        return
+    divergence = _divergence_for_row(conn, row)
     if divergence is not None:
         raise PlanCaseCurrencyError(divergence.message())
 
@@ -312,6 +331,6 @@ __all__ = [
     "annotate_requirement_currency",
     "plan_case_divergence",
     "plan_drift_report",
-    "require_current_plan_case",
+    "require_current_requirement",
     "rows_behind_plan",
 ]

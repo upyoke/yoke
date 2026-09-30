@@ -144,9 +144,7 @@ def register(registry) -> None:
         _registered_command.RegisteredCommandSetRequest,
         _registered_command.RegisteredCommandSetResponse,
         stability="stable",
-        owner_module=(
-            "yoke_core.domain.handlers.qa_registered_command_writes"
-        ),
+        owner_module=("yoke_core.domain.handlers.qa_registered_command_writes"),
         target_kinds=["global"],
         side_effects=[
             "qa_plans_upsert",
@@ -165,9 +163,7 @@ def register(registry) -> None:
         _no_tests_posture.NoTestsAttestRequest,
         _no_tests_posture.NoTestsAttestResponse,
         stability="stable",
-        owner_module=(
-            "yoke_core.domain.handlers.qa_no_tests_posture_writes"
-        ),
+        owner_module=("yoke_core.domain.handlers.qa_no_tests_posture_writes"),
         target_kinds=["global"],
         side_effects=[
             "project_structure_put",
@@ -186,9 +182,7 @@ def register(registry) -> None:
         _no_tests_posture.NoTestsClearRequest,
         _no_tests_posture.NoTestsClearResponse,
         stability="stable",
-        owner_module=(
-            "yoke_core.domain.handlers.qa_no_tests_posture_writes"
-        ),
+        owner_module=("yoke_core.domain.handlers.qa_no_tests_posture_writes"),
         target_kinds=["global"],
         side_effects=["project_structure_remove"],
         emitted_event_names=["YokeFunctionCalled"],
@@ -286,7 +280,11 @@ def register(registry) -> None:
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["snapshot_replacement", "claim_required"],
         adapter_status="live",
-        claim_required_kind="item",
+        # The same subject authority as qa.plan.materialize: an item or an
+        # item-scoped stage member needs that item's claim, while a run-scoped
+        # stage is authorized by the run itself, so the recovery that
+        # qa.plan_cases.replace prints works for a run's QA agent.
+        claim_required_kind="qa_subject",
     )
 
 

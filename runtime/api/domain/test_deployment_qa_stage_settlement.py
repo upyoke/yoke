@@ -19,10 +19,12 @@ from yoke_core.domain.deployment_qa_stage_materialization import (
 )
 from yoke_core.domain.deployment_qa_stage_settlement import (
     continuation_message,
+    member_settled_message,
     settle_execution,
     settle_subject,
 )
 from yoke_core.domain.deployment_qa_stage_wake import run_stage_wait_message
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 
 
@@ -199,6 +201,11 @@ def test_item_verdict_requests_same_run_driver_once_per_outcome(monkeypatch):
         "yoke_core.domain.deployment_run_driver_notice.push_run_scoped_notice",
         lambda *args, **kwargs: calls.append(kwargs) or "delivered",
     )
+    # The last member to settle is what settles the stage itself.
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_qa_stage_settlement.members_still_owing",
+        lambda *args, **kwargs: (),
+    )
     conn = mock.Mock()
     for _ in range(2):
         settle_subject(conn, run_id="run-frozen", stage="item-qa", member=42)
@@ -235,3 +242,65 @@ def test_continuation_keeps_existing_run_and_lock():
     )
     assert "Continue this same run" in message
     assert "watch deploy -- run-existing" in message
+
+
+def test_one_member_passing_names_the_members_still_owing_without_redrive(test_db):
+    """A member's acceptance is not the stage's; the notice says so.
+
+    The stage stays current while a sibling still owes QA, so the notice
+    names this member and the sibling, and hands nobody a re-drive recipe.
+    """
+    run_id = "run-settlement-member-progress"
+    passed, owing = 9893, 9894
+    _seed_run(
+        test_db,
+        run_id=run_id,
+        stages=_stages(_plan(test_db, "member-progress-smoke")),
+        members=(passed, owing),
+    )
+    materialize_deployment_qa_stage(
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage="item-qa",
+        deployment_member_item_id=passed,
+    )
+    execution = begin_plan_execution(
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage="item-qa",
+        deployment_member_item_id=passed,
+        actor_id="2",
+        session_id="member-qa",
+    )
+    with mock.patch(
+        "yoke_core.domain.deployment_run_driver_notice.push_run_scoped_notice",
+        return_value="delivered",
+    ) as notify:
+        _complete_case(test_db, execution)
+    notify.assert_called_once()
+    body = notify.call_args.kwargs["body_for_route"]("driver")
+    assert f"member {render_item_ref(test_db, passed)} settled passed" in body
+    assert f"Still owing QA: {render_item_ref(test_db, owing)}" in body
+    assert "The stage itself has not settled" in body
+    assert "Continue this same run" not in body
+    assert "watch deploy" not in body
+    assert "member-settled" in notify.call_args.kwargs["idempotency_key"]
+    assert (
+        test_db.execute(
+            "SELECT current_stage FROM deployment_runs WHERE id=%s", (run_id,)
+        ).fetchone()[0]
+        == "item-qa"
+    )
+
+
+def test_member_notice_with_unreadable_owing_withholds_the_redrive_verdict():
+    message = member_settled_message(
+        run_id="run-unread",
+        stage="item-qa",
+        member_ref="YOK-1",
+        outcome="passed",
+        owing_refs=None,
+    )
+    assert "could not be read" in message
+    assert "yoke deployment-runs stages run-unread" in message
+    assert "nothing to re-drive" not in message

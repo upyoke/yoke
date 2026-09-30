@@ -91,6 +91,23 @@ def settle_subject(
         if attempt.completed:
             return status
         completion_failure = attempt.failure
+        if member is not None:
+            owing = members_still_owing(conn, run_id=run_id, stage=stage)
+            if owing != ():
+                # One member's acceptance is not the stage's: the gate stays
+                # current until every member settles, so there is nothing
+                # to re-drive and the notice says whose QA it still waits on.
+                _notify_member_settled(
+                    conn,
+                    run_id=run_id,
+                    stage=stage,
+                    member=member,
+                    outcome=outcome,
+                    owing=owing,
+                    status=status,
+                    completion_failure=completion_failure,
+                )
+                return status
     from yoke_core.domain.deployment_run_driver_notice import push_run_scoped_notice
     from yoke_core.domain.project_identity import resolve_project
 
@@ -125,6 +142,101 @@ def settle_subject(
             f"the same run with `yoke watch deploy -- {run_id}`."
         )
     return status
+
+
+def members_still_owing(
+    conn: Any, *, run_id: str, stage: str
+) -> tuple[int | None, ...] | None:
+    """Subjects the stage still waits on; ``None`` when that cannot be read."""
+    from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
+
+    outstanding = qa_stage_outstanding(conn, run_id=run_id, stage_name=stage)
+    return None if outstanding is None else outstanding.waiting_members
+
+
+def _notify_member_settled(
+    conn: Any,
+    *,
+    run_id: str,
+    stage: str,
+    member: int,
+    outcome: str,
+    owing: tuple[int | None, ...] | None,
+    status: Mapping[str, Any],
+    completion_failure: str,
+) -> None:
+    from yoke_core.domain.deployment_run_driver_notice import push_run_scoped_notice
+    from yoke_core.domain.item_ref_render import render_item_refs
+    from yoke_core.domain.project_identity import render_item_ref, resolve_project
+
+    project = resolve_project(conn, int(status_project_id(conn, run_id)))
+    ids = [int(value) for value in (member, *(owing or ())) if value is not None]
+    refs = render_item_refs(conn, ids)
+    owing_refs = (
+        None
+        if owing is None
+        else [
+            "the run"
+            if value is None
+            else (refs.get(int(value)) or render_item_ref(conn, int(value)))
+            for value in owing
+        ]
+    )
+    body = member_settled_message(
+        run_id=run_id,
+        stage=stage,
+        member_ref=refs.get(member) or render_item_ref(conn, member),
+        outcome=outcome,
+        owing_refs=owing_refs,
+        completion_failure=completion_failure,
+    )
+    owing_key = "unread" if owing is None else ",".join(map(str, owing))
+    delivery = push_run_scoped_notice(
+        conn,
+        project_id=project.id,
+        body_for_route=lambda _route: body,
+        idempotency_key=(
+            f"deployment-qa-member-settled:{run_id}:{stage}:{member}:"
+            f"{status.get('target_digest') or ''}:{outcome}:{owing_key}"
+        ),
+    )
+    conn.commit()
+    if not delivery:
+        print(body)
+
+
+def member_settled_message(
+    *,
+    run_id: str,
+    stage: str,
+    member_ref: str,
+    outcome: str,
+    owing_refs: list[str] | None,
+    completion_failure: str = "",
+) -> str:
+    """One member's QA settled; the stage's own gate is not known settled."""
+    head = (
+        f"Deployment run {run_id} QA stage {stage!r}: member {member_ref} "
+        f"settled {outcome} against its frozen target."
+    )
+    failure = (
+        f" Automatic completion failed: {completion_failure}."
+        if completion_failure
+        else ""
+    )
+    gate = f"`yoke deployment-runs stages {run_id}`"
+    if owing_refs is None:
+        return (
+            f"{head} Which members still owe QA could not be read.{failure} "
+            f"Read the live gate with {gate}: re-drive the run only once "
+            "that shows the stage settled."
+        )
+    return (
+        f"{head} The stage itself has not settled. Still owing QA: "
+        f"{', '.join(owing_refs)}.{failure} There is nothing to re-drive: "
+        "the stage settles when those members' QA is accepted, and the run "
+        f"continues from there. Read the live gate with {gate}."
+    )
 
 
 def status_project_id(conn: Any, run_id: str) -> int:
@@ -169,4 +281,10 @@ def continuation_message(
     )
 
 
-__all__ = ["continuation_message", "settle_execution", "settle_subject"]
+__all__ = [
+    "continuation_message",
+    "member_settled_message",
+    "members_still_owing",
+    "settle_execution",
+    "settle_subject",
+]

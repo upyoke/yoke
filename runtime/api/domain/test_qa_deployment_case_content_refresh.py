@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import pytest
+
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     ITEM_QA_STAGE,
     create_smoke_plan,
@@ -27,6 +29,7 @@ from yoke_core.domain.qa_deployment_case_content_refresh import (
     base_case_key,
     case_content_digest,
 )
+from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.qa_requirement_ops import waive_requirement
 
 MEMBER = 9821
@@ -142,15 +145,20 @@ def test_unchanged_case_stays_idempotent_after_a_waiver(test_db) -> None:
     assert len(_rows(test_db, run_id)) == 1
 
 
-def test_changed_case_still_answered_stays_idempotent(test_db) -> None:
+def test_changed_case_still_unjudged_refuses_and_names_the_refresh(test_db) -> None:
     run_id = "run-refresh-live"
-    slug, _requirement_id = _seed(test_db, run_id)
+    slug, requirement_id = _seed(test_db, run_id)
     # Neither waived nor failed: the row is still the live obligation, so a
-    # corrected plan must not race a second row alongside it.
+    # corrected plan must not race a second row alongside it -- and walking
+    # the row as it stands would judge against the replaced content.
     _edit_plan_case(test_db, slug, "probe --corrected")
 
-    result = _materialize(test_db, run_id, plan=slug)
-    assert result["created_requirement_ids"] == []
+    with pytest.raises(QaPlanError) as refusal:
+        _materialize(test_db, run_id, plan=slug)
+    message = str(refusal.value)
+    assert "plan_case_superseded" in message
+    assert f"QA requirement {requirement_id}" in message
+    assert "yoke qa plan rematerialize --deployment-run-id run-refresh-live" in message
     assert len(_rows(test_db, run_id)) == 1
 
 
