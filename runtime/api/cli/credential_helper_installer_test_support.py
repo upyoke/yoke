@@ -64,10 +64,9 @@ def _configured_repo_with_wiped_bundle(
     helper_support.write_github_app_config(config, token_file, token)
     payload = json.loads(config.read_text(encoding="utf-8"))
     payload["connections"]["local"] = {
-        "transport": "https",
+        "transport": "local-postgres",
         "prod": False,
-        "api_url": "https://yoke.example.test",
-        "credential_source": {"kind": "token_file", "path": str(token_file)},
+        "credential_source": {"kind": "dsn_file", "path": str(home / "fixture.dsn")},
     }
     payload["projects"] = [{"checkout": str(repo), "project_id": 1, "env": "local"}]
     config.write_text(json.dumps(payload), encoding="utf-8")
