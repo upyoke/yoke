@@ -27,10 +27,9 @@ Write handlers carry ``claim_required_kind="qa_subject"`` exactly like
 ``qa.run.record_verdict``; this read carries no claim and tolerates absent
 ambient sessions (board.data.get precedent).
 
-A materialized Browser case names exactly one subject — the item it
-verifies, or the deployment run it verifies — so this read accepts an
-``item`` target or a ``deployment_run`` target and scopes the requirement
-lookup to whichever the caller named.
+A materialized Browser case belongs to an item, a deployment run, or a
+standalone plan execution. The last uses a requirement target and carries
+its execution identity for evidence storage; every lookup stays subject-scoped.
 """
 
 from __future__ import annotations

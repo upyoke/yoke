@@ -163,7 +163,8 @@ def converge_qa_plan_execution_schema(conn: Any) -> None:
         add_deployment_scope_columns(conn)
     add_standalone_columns(conn)
     execute_schema_script(conn, QA_PLAN_EXECUTION_SCHEMA_SQL)
-    execute_schema_script(conn, STANDALONE_REQUIREMENT_INDEX_SQL)
+    if _column_exists(conn, "qa_requirements", "plan_id"):
+        execute_schema_script(conn, STANDALONE_REQUIREMENT_INDEX_SQL)
 
 
 def converge_qa_plan_execution_subject_schema(conn: Any) -> None:

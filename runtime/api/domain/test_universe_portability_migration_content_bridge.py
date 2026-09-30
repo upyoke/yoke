@@ -10,6 +10,7 @@ from runtime.api.fixtures import pg_testdb
 from yoke_core.domain import universe_portability as portability
 from yoke_core.domain.schema_fingerprint import (
     fingerprint_portable_postgres_schema,
+    _postgres_schema_rows,
 )
 from yoke_core.domain.source_authority_receipts import authority_receipt
 
@@ -45,6 +46,9 @@ def test_pre_content_archive_restores_and_converges_to_current_schema(tmp_path) 
     with _canonical_test_universe() as (source, source_dsn):
         with _canonical_test_universe() as (reference, _reference_dsn):
             expected_fingerprint = fingerprint_portable_postgres_schema(reference)
+            expected_rows = set(
+                _postgres_schema_rows(reference, order_table_columns_by_name=True)
+            )
         source.execute(
             "INSERT INTO projects (id, slug, name, public_item_prefix, created_at) "
             "VALUES (88901, 'portable-content', 'Portable Content', 'PCM', now())"
@@ -68,11 +72,22 @@ def test_pre_content_archive_restores_and_converges_to_current_schema(tmp_path) 
                     "SELECT COUNT(*) FROM migration_content_adoptions"
                 ).fetchone() == (0,)
 
-            result = portability.converge_and_validate_restored_universe(
-                target_dsn,
-                expected_org_slug="default",
-                expected_schema_fingerprint=expected_fingerprint,
-            )
+            try:
+                result = portability.converge_and_validate_restored_universe(
+                    target_dsn,
+                    expected_org_slug="default",
+                    expected_schema_fingerprint=expected_fingerprint,
+                )
+            except portability.ArchiveCompatibilityError:
+                with psycopg.connect(target_dsn) as restored:
+                    actual_rows = set(
+                        _postgres_schema_rows(
+                            restored, order_table_columns_by_name=True
+                        )
+                    )
+                print("Missing schema objects:", sorted(expected_rows - actual_rows))
+                print("Unexpected schema objects:", sorted(actual_rows - expected_rows))
+                raise
             assert result["org"] == "default"
             with psycopg.connect(target_dsn) as converged:
                 assert converged.execute(

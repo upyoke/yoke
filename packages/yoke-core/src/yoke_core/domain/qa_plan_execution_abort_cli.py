@@ -58,7 +58,6 @@ def run(args: List[str]) -> int:
         key: result.get(key)
         for key in (
             "execution_id",
-            "standalone_plan_id",
             "item_id",
             "deployment_run_id",
             "transition_id",
@@ -67,6 +66,8 @@ def run(args: List[str]) -> int:
             "machine_lease_id",
         )
     }
+    if result.get("standalone_plan_id") is not None:
+        receipt["standalone_plan_id"] = result["standalone_plan_id"]
     print(json.dumps(receipt, sort_keys=True))
     return 0
 

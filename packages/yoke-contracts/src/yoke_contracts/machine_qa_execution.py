@@ -26,9 +26,6 @@ AGENT_MISSION_ARTIFACT_LIMIT = 100
 REQUIRED_SESSION_CONTEXT_FIELD = "required_session_context"
 VERIFICATION_CHECKS = ("connection", "terminal_bridge")
 HOST_BASELINES = ("fresh-host", "shell-preconfigured")
-# What a machine is left in once a baseline is reached. Verification runs both
-# in order, so the box it hands back is the LAST one -- which is not fresh, and
-# said plainly here rather than inferred from a baseline name.
 HOST_BASELINE_END_STATE = {
     HOST_BASELINES[0]: ("the host carries its captured user state and no Yoke at all"),
     HOST_BASELINES[1]: (
@@ -68,6 +65,7 @@ class MachineQaCaseContract(BaseModel):
     requirement_id: int = Field(ge=1)
     item_id: int | None = Field(default=None, ge=1)
     deployment_run_id: str | None = None
+    standalone_execution_id: str | None = Field(default=None, min_length=1)
     deployment_stage: str | None = None
     deployment_member_item_id: int | None = Field(default=None, ge=1)
     deployment_member_ref: str | None = None
@@ -96,15 +94,29 @@ class MachineQaCaseContract(BaseModel):
 
     @model_validator(mode="after")
     def _one_subject(self) -> "MachineQaCaseContract":
-        if (self.item_id is None) == (self.deployment_run_id is None):
-            raise ValueError(
-                "Machine QA case requires one item or deployment-run subject"
+        if (
+            sum(
+                value is not None
+                for value in (
+                    self.item_id,
+                    self.deployment_run_id,
+                    self.standalone_execution_id,
+                )
             )
-        if self.item_id is not None and (
+            != 1
+        ):
+            raise ValueError(
+                "Machine QA case requires one item, deployment-run, or standalone subject"
+            )
+        if self.deployment_run_id is None and (
             self.deployment_stage is not None
             or self.deployment_member_item_id is not None
         ):
-            raise ValueError("item Machine QA cases cannot name deployment scope")
+            raise ValueError(
+                "non-deployment Machine QA cases cannot name deployment scope"
+            )
+        if self.standalone_execution_id is not None and self.plan_id is None:
+            raise ValueError("standalone Machine QA cases require a saved plan")
         if self.deployment_member_item_id is not None and not self.deployment_stage:
             raise ValueError(
                 "deployment member Machine QA cases require a deployment stage"
@@ -137,9 +149,7 @@ class HostControlExecutionContract(BaseModel):
     checks: list[str] = Field(default_factory=list)
     baselines: list[str] = Field(default_factory=list)
     cases: list[MachineQaCaseContract] = Field(default_factory=list)
-    # Where a golden capture writes. The server chooses it so the digest binds
-    # the destination: a client that picked its own could write the host's
-    # captured state anywhere and still submit a contract-shaped receipt.
+    # The server-selected golden destination is bound by the contract digest.
     golden_destination: str | None = None
     plan_execution_id: str | None = None
     continues_execution_id: str | None = None
@@ -237,7 +247,6 @@ class HostControlExecutionContract(BaseModel):
 
 
 def _digest_payload(contract: HostControlExecutionContract) -> dict[str, Any]:
-    # Admission narration is operator context, not host-target authority.
     return contract.model_dump(
         mode="json",
         exclude={"contract_digest", "selection_reason"},
@@ -257,12 +266,7 @@ def execution_contract_digest(
 
 
 def _validated_case(case: dict[str, Any]) -> MachineQaCaseContract:
-    """Validate one case, re-raising its refusal without pydantic's dump.
-
-    A rejected case otherwise arrives as a validation error carrying a
-    truncated copy of everything it was handed, burying the sentence that
-    says what is wrong and what to do about it.
-    """
+    """Validate one case and report its refusal without dumping its inputs."""
     try:
         return MachineQaCaseContract.model_validate(case)
     except ValidationError as exc:

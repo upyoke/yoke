@@ -120,18 +120,36 @@ def test_a_plan_environment_target_still_executes() -> None:
     assert MachineQaCaseContract.model_validate(case).item_id == 3400
 
 
+def test_a_standalone_case_has_one_saved_plan_owner() -> None:
+    case = _case(
+        _environment_target(),
+        deployment_run_id=None,
+        deployment_stage=None,
+        deployment_member_item_id=None,
+        standalone_execution_id="standalone-walk",
+    )
+    assert (
+        MachineQaCaseContract.model_validate(case).standalone_execution_id
+        == "standalone-walk"
+    )
+    for overrides in (
+        {"item_id": 3400},
+        {"plan_id": None},
+        {"deployment_stage": "item-qa"},
+    ):
+        with pytest.raises(ValueError):
+            MachineQaCaseContract.model_validate({**case, **overrides})
+
+
 def test_a_foreign_project_target_names_the_field_and_both_values() -> None:
     target = _deployment_target()
     target["project"] = {"id": 9, "slug": "other", "name": "Other"}
 
-    problems = case_target_mismatches(
-        target, project_id=PROJECT_ID, project=PROJECT
-    )
+    problems = case_target_mismatches(target, project_id=PROJECT_ID, project=PROJECT)
 
     assert any(problem.startswith("project.id: target names 9") for problem in problems)
     assert any(
-        problem.startswith("project.slug: target names 'other'")
-        for problem in problems
+        problem.startswith("project.slug: target names 'other'") for problem in problems
     )
 
 
@@ -139,9 +157,7 @@ def test_an_unregistered_target_shape_names_the_shapes_that_execute() -> None:
     target = _deployment_target()
     target["schema"] = 99
 
-    problems = case_target_mismatches(
-        target, project_id=PROJECT_ID, project=PROJECT
-    )
+    problems = case_target_mismatches(target, project_id=PROJECT_ID, project=PROJECT)
 
     assert problems == [
         "schema: target declares 99; a Test Machine executes only an "

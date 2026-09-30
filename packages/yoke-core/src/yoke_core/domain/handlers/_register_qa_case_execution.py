@@ -114,6 +114,7 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.qa_case_execution",
         target_kinds=["qa_requirement"],
+        minimum_serving_version="next-release",
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[

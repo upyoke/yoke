@@ -41,8 +41,8 @@ from yoke_core.domain.strategy_docs_schema import (
 from yoke_core.domain.workflow_schema import ensure_workflow_registry_tables
 from yoke_core.domain.qa_deployment_scope_schema import (
     REQUIREMENT_SUBJECT_CONSTRAINT,
-    REQUIREMENT_SUBJECT_EXPRESSION,
 )
+from yoke_core.domain.qa_standalone_schema import REQUIREMENT_SUBJECT_EXPRESSION
 
 
 def create_core_tables(conn: Any) -> None:
@@ -239,6 +239,9 @@ def create_core_tables(conn: Any) -> None:
           epic_id INTEGER,
           task_num INTEGER,
           deployment_run_id TEXT,
+          standalone_execution_id TEXT,
+          plan_id INTEGER,
+          workflow_transition_id TEXT,
           deployment_stage TEXT,
           deployment_member_item_id INTEGER,
           qa_kind TEXT NOT NULL,

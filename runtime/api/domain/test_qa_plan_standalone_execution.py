@@ -4,6 +4,9 @@ import pytest
 
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
+from yoke_core.domain.qa_requirement_snapshot_convergence import (
+    assert_requirement_execution_snapshot_invariants,
+)
 from yoke_core.domain.qa_plan_execution_state import (
     advance_plan_execution,
     finish_plan_execution,
@@ -80,6 +83,7 @@ def test_fresh_manual_runs_keep_order_and_never_acquire_gate_subjects():
         ][0]
         assert proof["standalone_execution_id"] == fresh["id"]
         assert fresh["id"] != execution["id"]
+        assert_requirement_execution_snapshot_invariants(conn)
         assert {case["requirement_id"] for case in fresh["roster"]}.isdisjoint(
             case["requirement_id"] for case in execution["roster"]
         )

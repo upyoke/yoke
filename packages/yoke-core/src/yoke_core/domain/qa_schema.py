@@ -207,6 +207,7 @@ def _migrate_qa_vocab(conn) -> None:
         return
 
     snapshot_columns = (
+        "standalone_execution_id",
         "deployment_stage",
         "deployment_member_item_id",
         "plan_id",
@@ -239,6 +240,7 @@ def _migrate_qa_vocab(conn) -> None:
 
         CREATE TABLE qa_requirements (
             id INTEGER PRIMARY KEY,
+            standalone_execution_id TEXT,
             item_id INTEGER,
             epic_id INTEGER,
             task_num INTEGER,
@@ -280,7 +282,7 @@ def _migrate_qa_vocab(conn) -> None:
             id, item_id, epic_id, task_num, deployment_run_id, qa_kind, qa_phase,
             target_env, blocking_mode, requirement_source, success_policy,
             capability_requirements, suite_id, waived_at, waiver_rationale,
-            waiver_source, deployment_stage, deployment_member_item_id,
+            waiver_source, standalone_execution_id, deployment_stage, deployment_member_item_id,
             plan_id, plan_case_key, case_position,
             baseline_position, method_id, method_name, runner_id,
             verdict_path, host_baseline,

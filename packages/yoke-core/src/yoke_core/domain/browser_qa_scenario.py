@@ -150,6 +150,12 @@ def execute_scenario(
         print(result.to_json())
         return result
 
+    if standalone and not context.get("standalone_execution_id"):
+        result.verdict = "error"
+        result.note = "subject_invalid"
+        print(result.to_json())
+        return result
+
     # Refs resolve server-side; everything downstream (artifact paths,
     # run rows, daemon failure events) uses the resolved numeric id.
     resolved = context.get("item_id")

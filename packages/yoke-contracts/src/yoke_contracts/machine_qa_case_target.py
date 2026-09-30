@@ -107,6 +107,7 @@ def case_target_recovery(
     deployment_stage: str | None = None,
     deployment_member: str | None = None,
     workflow_transition_id: str | None = None,
+    standalone_execution_id: str | None = None,
 ) -> str:
     """Name the registered command that re-binds this case to a live target.
 
@@ -131,6 +132,13 @@ def case_target_recovery(
             "Recovery: re-bind the case's own environment with `yoke qa "
             "requirement update` and name an environment this project has "
             "registered."
+        )
+    if standalone_execution_id:
+        return (
+            f"Recovery: edit the plan target with `yoke qa plan edit --plan {plan_id}`, "
+            f"abort its immutable snapshot with `yoke qa plan abort --project {project} "
+            f"--execution-id {standalone_execution_id} --reason target-changed`, then "
+            f"run `yoke qa plan run --plan {plan_id} --project {project}`."
         )
     transition = str(workflow_transition_id or "<transition>")
     return (
@@ -166,6 +174,7 @@ def require_case_execution_target(case: Any) -> None:
             deployment_stage=case.deployment_stage,
             deployment_member=case.deployment_member_item_id,
             workflow_transition_id=case.workflow_transition_id,
+            standalone_execution_id=case.standalone_execution_id,
         )
     )
 

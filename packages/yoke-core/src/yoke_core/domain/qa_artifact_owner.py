@@ -16,19 +16,28 @@ def requirement_storage_owner(conn: Any, requirement_id: int) -> dict[str, Any]:
     row = query_one(
         conn,
         "SELECT r.item_id, r.epic_id, r.task_num, r.deployment_run_id, "
-        "r.target_env, r.standalone_execution_id, COALESCE(m.project_id,i.project_id,qp.project_id) "
+        "r.target_env, r.standalone_execution_id, r.plan_id, COALESCE(m.project_id,i.project_id) "
         "AS project_id, p.slug AS project "
         "FROM qa_requirements r "
         "LEFT JOIN items i ON i.id=r.item_id "
         "LEFT JOIN items m ON m.id=r.deployment_member_item_id "
-        "LEFT JOIN qa_plans qp ON qp.id=r.plan_id "
-        "LEFT JOIN projects p ON p.id=COALESCE(m.project_id,i.project_id,qp.project_id) "
+        "LEFT JOIN projects p ON p.id=COALESCE(m.project_id,i.project_id) "
         f"WHERE r.id = {marker}",
         (int(requirement_id),),
     )
     if row is None:
         raise LookupError(f"requirement {requirement_id} not found")
     owner = dict(row)
+    if owner["standalone_execution_id"] is not None:
+        plan_owner = query_one(
+            conn,
+            "SELECT qp.project_id, p.slug AS project FROM qa_plans qp "
+            "JOIN projects p ON p.id=qp.project_id "
+            f"WHERE qp.id={marker}",
+            (owner["plan_id"],),
+        )
+        if plan_owner is not None:
+            owner.update(dict(plan_owner))
     if owner["project"] is None and owner["deployment_run_id"] is not None:
         deployment_owner = query_one(
             conn,
@@ -46,7 +55,7 @@ def requirement_storage_owner(conn: Any, requirement_id: int) -> dict[str, Any]:
             f"owner (item_id={owner['item_id']!r}, "
             f"epic_id={owner['epic_id']!r}, "
             f"deployment_run_id={owner['deployment_run_id']!r}); durable "
-            "evidence requires an item-owned or deployment-run-owned requirement"
+            "evidence requires an item, deployment-run, or standalone plan owner"
         )
     return owner
 
