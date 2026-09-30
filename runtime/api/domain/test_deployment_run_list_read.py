@@ -127,3 +127,69 @@ def test_run_list_exposes_carried_work_as_a_structured_object():
         "commits": ["abc"],
     }
     assert rows[0]["overview_priority"] == 2
+
+
+def test_overview_members_keep_their_own_qa_even_in_compact_presentation():
+    from yoke_core.domain.deployment_run_list_read import present_deployment_runs
+
+    members = {
+        "run-batch": [
+            {
+                "id": 51,
+                "ref": "ITEM-1",
+                "status": "done",
+                "title": "first",
+                "project_id": 1,
+                "project_sequence": 1,
+            },
+            {
+                "id": 52,
+                "ref": "ITEM-2",
+                "status": "release",
+                "title": "second",
+                "project_id": 1,
+                "project_sequence": 2,
+            },
+        ]
+    }
+    accepted = {"state": "accepted", "failed_requirement_ids": []}
+    rejected = {"state": "cases unresolved", "failed_requirement_ids": [91]}
+    with (
+        patch(
+            "yoke_core.domain.deployment_run_list_read._member_items",
+            return_value=members,
+        ),
+        patch("yoke_core.domain.deployment_run_list_read.run_gates", return_value={}),
+        patch(
+            "yoke_core.domain.deployment_run_list_read.candidate_delivery_items",
+            return_value={},
+        ),
+        patch(
+            "yoke_core.domain.deployment_qa_run_acceptance.member_qa_standings",
+            return_value={("run-batch", 51): accepted, ("run-batch", 52): rejected},
+        ) as read,
+    ):
+        rows = present_deployment_runs(
+            object(),
+            [
+                {
+                    "id": "run-batch",
+                    "current_stage": "item-qa",
+                    "status": "executing",
+                    "stages": '["item-qa"]',
+                }
+            ],
+            actor_id=None,
+            visible_project_ids=None,
+            include_carried_work=False,
+            compact=True,
+            include_item_delivery=True,
+        )
+    assert [member["item_qa"] for member in rows[0]["member_items"]] == [
+        accepted,
+        rejected,
+    ]
+    assert read.call_args.args[1] == [
+        ("run-batch", 51, "item-qa"),
+        ("run-batch", 52, "item-qa"),
+    ]

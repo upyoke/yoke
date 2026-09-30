@@ -173,6 +173,7 @@
  * reads as its own object rather than as three more lines of card copy —
  * which is what the flat grey list this replaced looked like. */
 .universe-app-root .item-delivery {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -189,24 +190,14 @@
   color: var(--yoke-muted);
   font-size: 12px;
 }
-.universe-app-root .item-delivery-flow,
-.universe-app-root .item-delivery-merges {
+.universe-app-root .item-delivery-flow {
   margin: 0;
   overflow-wrap: anywhere;
 }
-/* No run yet: the same truck, muted, saying so on one line. A sub-card here
-   would draw a box around a run that does not exist. */
-.universe-app-root .item-delivery-empty {
-  display: flex;
-  align-items: center;
-  gap: 6px 10px;
-  color: var(--yoke-muted);
-  font-size: 11px;
-}
 .universe-app-root .item-deployment {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(45px, auto) minmax(0, 1fr) auto auto;
   align-items: center;
-  flex-wrap: wrap;
   gap: 6px 10px;
   padding: 9px;
   border: 1px solid var(--yoke-border);
@@ -219,33 +210,28 @@
 .universe-app-root .item-deployment:hover {
   border-color: color-mix(in srgb, var(--yoke-border) 45%, var(--yoke-accent));
 }
-.universe-app-root .item-deployment-icon {
-  display: grid;
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-  place-items: center;
-  color: var(--yoke-accent);
-  line-height: 1;
-}
-.universe-app-root .item-deployment-icon.is-muted {
-  color: var(--yoke-muted);
-}
-.universe-app-root .item-deployment-icon svg {
-  width: 18px;
-  height: 18px;
-}
 .universe-app-root .item-deployment-environment {
   color: var(--yoke-ink-2);
   font-weight: 650;
 }
-.universe-app-root .item-deployment-time,
-.universe-app-root .item-deployment-flow,
-.universe-app-root .item-deployment-run {
-  flex-basis: 100%;
+.universe-app-root .item-deployment-outcome {
+  color: var(--yoke-ink-2);
+  overflow-wrap: anywhere;
 }
-.universe-app-root .item-deployment-time.is-unavailable {
-  font-style: italic;
+.universe-app-root .item-deployment-wait {
+  grid-column: 2 / -1;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .item-deployment-run {
+  color: var(--yoke-accent);
+  overflow-wrap: anywhere;
+}
+@container (max-width: 380px) {
+  .universe-app-root .item-deployment {
+    grid-template-columns: minmax(45px, auto) minmax(0, 1fr);
+  }
+  .universe-app-root .item-deployment-run { grid-column: 2; }
+  .universe-app-root .item-deployment-relation { grid-column: 1; grid-row: 2; }
 }
 
 /* The project-wide deploy lock a waiting run is serialized behind. It is a

@@ -54,11 +54,11 @@ test("the delivery box is a white container lifted off the card fill", () => {
     !/background: var\(--yoke-surface\)/.test(box),
     "the box must not be the same fill as the card it sits on",
   );
-  // The per-run sub-card keeps its own boxed form inside it.
+  // Each environment's outcome keeps its own boxed form inside it.
   const subCard = rule(signals, "\\.item-deployment");
   assert.match(subCard, /border: 1px solid var\(--yoke-border\);/);
   assert.match(subCard, /border-radius: 8px;/);
-  assert.match(rule(signals, "\\.item-deployment-icon\\.is-muted"), /--yoke-muted/);
+  assert.match(rule(signals, "\\.item-deployment-run"), /--yoke-accent/);
 });
 
 test("no stylesheet still carries the flat-line Release rendering", () => {

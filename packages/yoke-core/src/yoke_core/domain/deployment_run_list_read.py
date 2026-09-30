@@ -143,6 +143,24 @@ def present_deployment_runs(
         run_ids,
         visible_project_ids=visible_project_ids,
     )
+    from yoke_core.domain.deployment_qa_run_acceptance import member_qa_standings
+
+    qa = (
+        member_qa_standings(
+            conn,
+            [
+                (str(row["id"]), int(member["id"]), str(row.get("current_stage") or ""))
+                for row in base
+                for member in members.get(str(row["id"]), [])
+            ],
+        )
+        if include_item_delivery
+        else {}
+    )
+    if include_item_delivery:
+        for run_id, run_members in members.items():
+            for member in run_members:
+                member["item_qa"] = qa.get((run_id, int(member["id"])))
     gates = run_gates(conn, run_ids, actor_id=actor_id)
     delivery_items = (
         candidate_delivery_items(conn, base) if include_item_delivery else {}
@@ -154,10 +172,7 @@ def present_deployment_runs(
         if include_carried_work:
             carried = parse_carried_work(row.get("carried_work"))
             if compact and carried:
-                # The compact shape drops commits and warnings, but never the
-                # fact that the comparison ran: an empty item list beside a
-                # missing derivation reads as "this release carries nothing",
-                # which is the opposite of "nobody could look".
+                # Preserve the derivation: absent proof is not an empty release.
                 derivation = carried.get("derivation") or {}
                 carried = {
                     "derivation": {
@@ -183,8 +198,7 @@ def present_deployment_runs(
                 }
             row["carried_work"] = carried
         if "bound_sources" in row:
-            # What this run pinned for every project it ships but does not
-            # own. Run detail reads the same record delivery is judged on.
+            # Pinned sources are the same record delivery is judged on.
             row["bound_sources"] = parse_bound_sources(row.get("bound_sources"))
         recorded_containment = row.pop("candidate_containment", None)
         containment = parse_candidate_containment(recorded_containment)
@@ -199,9 +213,6 @@ def present_deployment_runs(
             run_members = [
                 {
                     key: member[key]
-                    # ``id`` travels even in the compact shape: it is what a
-                    # reader joins this member's own QA evidence and reviews
-                    # on, and a ref cannot stand in for it.
                     for key in (
                         "id",
                         "ref",
@@ -209,12 +220,13 @@ def present_deployment_runs(
                         "status",
                         "project_id",
                         "project_sequence",
+                        "item_qa",
                     )
+                    if key in member
                 }
                 for member in run_members
             ]
-        # In-flight runs with no members still need a join key for the
-        # Frontier box: candidate containment, never a membership row.
+        # Candidate containment joins memberless in-flight runs to cards.
         contained: list[dict[str, Any]] = []
         if (
             str(row.get("status") or "") not in TERMINAL_RUN_STATUSES
@@ -269,15 +281,9 @@ def list_deployment_runs(
     actor_id: Optional[int] = None,
     relevance: Optional[str] = None,
 ) -> list[dict[str, Any]]:
-    """Return newest runs with member, stage, and gate relationships.
+    """Return authorized runs with member QA, stages, and gates.
 
-    ``actor_id`` scopes runs by projects this reader may see,
-    and decides whether each gate offers the reader its actions. The gate
-    itself is reported either way, because a run halted on somebody else is
-    still halted.
-
-    ``relevance='overview'`` keeps every non-terminal run plus terminals
-    completed in the last 24 hours, applied before ``limit``.
+    Overview keeps live runs and the last 24 hours of completions before limit.
     """
     conn = connect()
     try:

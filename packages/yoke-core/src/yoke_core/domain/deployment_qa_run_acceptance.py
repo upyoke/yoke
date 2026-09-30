@@ -142,6 +142,7 @@ class ItemStageQa:
     stage: str
     state: str
     blockers: tuple[str, ...]
+    failed_requirement_ids: tuple[int, ...] = ()
 
     @property
     def accepted(self) -> bool:
@@ -214,7 +215,56 @@ def current_item_qa(
         stage=stage_name,
         state=acceptance.state,
         blockers=acceptance.blockers,
+        failed_requirement_ids=acceptance.failed_requirement_ids,
     )
+
+
+def member_qa_standings(
+    conn: Any, subjects: list[tuple[str, int, str]]
+) -> dict[tuple[str, int], dict[str, Any]]:
+    """Each member's standing at the item QA stage now answering for it.
+
+    The authority is the same per-stage acceptance the release gate reads, so
+    "accepted" means here exactly what it means there. Two narrowings make it
+    an item fact rather than a release one: only item-scoped stages count,
+    because a run-scoped gate is the batch's shared wait and the run half
+    already reports it; and only a stage the run has reached counts, because
+    a production check nobody has run yet is not this member's outstanding
+    work. Within that stage, history stays history — a case that failed and
+    was rerun to a pass is accepted.
+    """
+    # The stages a run pinned are a fact about the run, not about the member,
+    # so two members riding one release ask it once between them.
+    stages_by_run: dict[str, list[dict[str, Any]]] = {}
+    standing: dict[tuple[str, int], dict[str, Any]] = {}
+    for run_id, item_id, current_stage in subjects:
+        try:
+            if run_id not in stages_by_run:
+                stages_by_run[run_id] = pinned_stages(conn, run_id)
+            answer = current_item_qa(
+                conn,
+                run_id=run_id,
+                item_id=item_id,
+                current_stage=current_stage,
+                stages=stages_by_run[run_id],
+            )
+        except (LookupError, ValueError) as exc:
+            standing[(run_id, item_id)] = {
+                "state": "unreadable",
+                "stage": current_stage,
+                "reason": str(exc),
+                "failed_requirement_ids": [],
+            }
+            continue
+        if answer is None:
+            continue
+        standing[(run_id, item_id)] = {
+            "state": answer.state,
+            "stage": answer.stage,
+            "reason": answer.reason,
+            "failed_requirement_ids": list(answer.failed_requirement_ids),
+        }
+    return standing
 
 
 def item_qa_acceptance_blockers(conn: Any, *, run_id: str, item_id: int) -> list[str]:
@@ -262,6 +312,7 @@ def _stage_blockers(
 __all__ = [
     "ItemStageQa",
     "current_item_qa",
+    "member_qa_standings",
     "item_qa_acceptance_blockers",
     "pinned_stages",
 ]
