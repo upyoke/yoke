@@ -25,7 +25,7 @@ from runtime.api.domain.session_launch_test_support import (
 
 
 DIAGNOSTIC_REF = "nd-11111111-1111-4111-8111-111111111111"
-REFUSAL = "cursor-agent: authentication required"
+REFUSAL = "API 400: model requires a newer CLI version"
 
 
 def _awaiting_registration(conn, *, key: str = "unregistered-death"):

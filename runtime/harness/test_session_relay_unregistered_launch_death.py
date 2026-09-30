@@ -19,7 +19,7 @@ from yoke_harness.session_relay_native_diagnostics import native_diagnostic_path
 
 
 LAUNCH_ID = "33333333-3333-4333-8333-333333333333"
-REFUSAL = "cursor-agent: authentication required"
+REFUSAL = "API 400: model requires a newer CLI version"
 
 
 class _Inventory:

@@ -161,9 +161,14 @@ def validate_launch_model_selection(
     if accepted_models is not None and model:
         exact = set(accepted_models)
         if model not in exact:
+            suggestion = (
+                f"did you mean 'cursor-{model}'? "
+                if surface == "cursor-cli" and f"cursor-{model}" in exact
+                else ""
+            )
             raise LaunchModelSelectionError(
                 f"{prefix}_model_unsupported",
-                f"{surface} did not publish model {model!r}; refresh this "
+                f"{surface} did not publish model {model!r}; {suggestion}refresh this "
                 "machine's native availability with "
                 "`yoke relay probe-models --surface "
                 f"{surface}`",

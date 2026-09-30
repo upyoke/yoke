@@ -7,8 +7,8 @@ import json
 import pytest
 
 from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
-from yoke_core.domain.session_launch_execution import reconcile_launch
-from yoke_core.domain.session_launch_requests import cancel_launch
+from yoke_core.domain.session_launch_execution import reconcile_launch, report_launch_attempt
+from yoke_core.domain.session_launch_requests import cancel_launch, retry_launch
 from yoke_core.domain.session_launch_store import get_launch
 from yoke_core.domain.session_launch_types import SessionLaunchError
 from yoke_core.domain.session_relay import claim_relay_job
@@ -238,3 +238,42 @@ def test_repeat_reconciliation_repairs_a_legacy_attempt_once() -> None:
     assert first.completed_at == second.completed_at == "2026-08-22T12:05:02Z"
     assert tuple(attempt) == ("2026-08-22T12:06:00Z", "not_created")
     assert tuple(relay) == ("newer-lease", "2026-08-22T12:10:00Z")
+
+
+def test_cancelled_native_creation_can_be_reconciled_then_retried() -> None:
+    conn = _connection()
+    launch, job = _claimed_launch(conn, key="cancelled-native-reconcile")
+    pending = report_launch_attempt(
+        conn,
+        launch_id=launch.launch_id,
+        lease_id=job.lease_id,
+        result_code="native_created",
+        native_session_id="native-session",
+        now="2026-08-22T12:00:10Z",
+    )
+    assert pending.state == "awaiting_registration"
+    cancelled = cancel_launch(
+        conn,
+        launch_id=launch.launch_id,
+        auth=authorization(),
+        now="2026-08-22T12:00:11Z",
+    )
+    assert cancelled.result_code == "cancelled_after_native_create"
+
+    reconciled = reconcile_launch(
+        conn,
+        launch_id=launch.launch_id,
+        auth=authorization(),
+        observed_native_id=None,
+        now="2026-08-22T12:00:12Z",
+    )
+    assert reconciled.state == "failed"
+    assert reconciled.result_code == "reconciled_not_created"
+    assert reconciled.native_session_id is None
+    retried = retry_launch(
+        conn,
+        launch_id=launch.launch_id,
+        auth=authorization(),
+        now="2026-08-22T12:00:13Z",
+    )
+    assert retried.state == "assigned"
