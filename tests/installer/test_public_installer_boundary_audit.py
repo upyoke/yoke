@@ -156,7 +156,7 @@ def test_product_boundary_audit_rejects_source_dev_authority() -> None:
         raise AssertionError("expected product-boundary audit failure")
 
 
-def test_advise_path_points_at_yoke_path_fix() -> None:
+def test_advise_path_points_at_uv_shell_setup() -> None:
     installer_mod = load_installer()
     output = io.StringIO()
     installer = installer_mod.Installer(
@@ -167,4 +167,4 @@ def test_advise_path_points_at_yoke_path_fix() -> None:
 
     installer._advise_path()
 
-    assert "yoke path fix" in output.getvalue()
+    assert "uv tool update-shell" in output.getvalue()

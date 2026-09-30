@@ -212,19 +212,17 @@ PATH_REPAIR = terminal_case(
     "path-repair",
     "terminal-check",
     instructions=(
-        "Install the current public Stage release, run the product-owned PATH "
-        "repair command, and verify both fresh-login and SSH shell resolution."
+        "Install the current public Stage release, run the uv-delegated PATH "
+        "repair command, and verify fresh-login shell resolution."
     ),
     expected_outcome=(
-        "The managed PATH block is applied idempotently and both the login-shell "
-        "and SSH-command probes report verified."
+        "uv updates shell configuration and the actual login-shell probe reports verified."
     ),
     method_config=terminal_recipe(
         actions=(action("path-repaired"),),
         expected_text=(
-            '"verified": true',
-            '"ssh_verified": true',
-            '"files":',
+            '"login_verified": true',
+            '"command": "uv tool update-shell"',
         ),
         capture_checkpoints=("path-repaired",),
         notes=(

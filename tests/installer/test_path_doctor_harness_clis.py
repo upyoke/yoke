@@ -23,6 +23,12 @@ def _uv_update(home, shell, monkeypatch):
     uv = shutil.which("uv")
     assert uv, "uv is an installer prerequisite"
     env = _env(home, shell)
+    bindir = home / ".local/bin"
+    bindir.mkdir(parents=True)
+    yoke = bindir / "yoke"
+    yoke.write_text("#!/bin/sh\nexit 0\n")
+    yoke.chmod(0o755)
+    monkeypatch.setattr(doctor, "verify_fresh_login", lambda **kw: [])
     original = doctor.shutil.which
     monkeypatch.setattr(
         doctor.shutil,
