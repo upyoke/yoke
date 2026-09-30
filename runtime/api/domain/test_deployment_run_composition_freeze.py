@@ -284,7 +284,7 @@ def test_plan_content_and_candidate_stay_frozen_across_cancel_and_retry(
     assert "frozen composition" in str(
         cmd_update("run-plan", "release_lineage", "e" * 40)
     )
-    with pytest.raises(ValueError, match="membership is mutable only"):
+    with pytest.raises(ValueError, match="not at an item-scoped QA stage"):
         cmd_remove_item("run-plan", 9412, reason="test removal")
     assert cmd_update("run-plan", "status", "cancelled") is None
     with pytest.raises(ValueError, match="membership is mutable only"):

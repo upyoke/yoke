@@ -253,6 +253,12 @@ class TestAddRemoveItem:
         assert len(lines) == 2
 
     def test_remove_item(self, db_path):
+        from yoke_core.domain.qa_schema import cmd_init
+        from yoke_core.domain.qa_catalog_schema import create_qa_catalog_tables
+
+        cmd_init(db_path=db_path)
+        with _conn(db_path) as conn:
+            create_qa_catalog_tables(conn)
         rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
         _insert_delivery_ready_item(db_path, 100)
         _insert_delivery_ready_item(db_path, 200)
@@ -299,7 +305,12 @@ class TestAddRemoveItem:
 
         with pytest.raises(ValueError, match="membership is mutable only"):
             dr.cmd_add_item(rid, 200, db_path=db_path)
-        with pytest.raises(ValueError, match="membership is mutable only"):
+        refusal = (
+            "not at an item-scoped QA stage"
+            if status == "executing"
+            else "removal is allowed only"
+        )
+        with pytest.raises(ValueError, match=refusal):
             dr.cmd_remove_item(rid, 100, reason="test removal", db_path=db_path)
 
         item_row = dr.cmd_items(rid, db_path=db_path).strip().split("|")
