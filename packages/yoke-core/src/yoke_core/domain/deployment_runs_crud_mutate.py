@@ -26,6 +26,10 @@ from yoke_core.domain.deployment_run_composition_guard import (
     mutable_field_refusal,
     terminal_run_refusal,
 )
+from yoke_core.domain.deployment_run_membership_removals import (
+    clear_membership_removal,
+    record_membership_removal,
+)
 from yoke_core.domain.deployment_runs_lock import (
     lock_run,
     lock_run_with_stable_membership,
@@ -78,6 +82,9 @@ def cmd_add_item(
             requirement_ids=requirement_ids,
             plan_ids=plan_ids,
         )
+        # Attaching reverses an earlier removal; left in place it would keep
+        # composition subtracting the member this call just admitted.
+        clear_membership_removal(conn, run_id, int(item_id))
         from yoke_core.domain.deployment_member_post_deploy_admission import (
             unadmitted_post_deploy_notice,
         )
@@ -102,18 +109,55 @@ def cmd_add_item(
         conn.close()
 
 
-def cmd_remove_item(run_id: str, item_id: int, db_path: Optional[str] = None) -> str:
-    """Remove item from run. Returns confirmation message."""
+def cmd_remove_item(
+    run_id: str,
+    item_id: int,
+    *,
+    reason: str,
+    session_id: Optional[str] = None,
+    actor_id: Optional[int] = None,
+    db_path: Optional[str] = None,
+) -> str:
+    """Take one member out of a still-composable run and record why.
+
+    The removal is recorded on the run, so composition does not enroll the
+    item straight back from the code the candidate still carries.
+    """
+    reason = str(reason or "").strip()
+    if not reason:
+        raise ValueError(
+            "a membership removal needs --reason naming why this run must not "
+            "deliver the item; it is recorded on the run for audit"
+        )
     conn = connect(db_path)
     try:
         lock_item_workflow_bindings(conn, (int(item_id),))
         _require_composable_run(conn, run_id)
-        conn.execute(
+        ref = render_item_ref(conn, int(item_id))
+        deleted = conn.execute(
             "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
-            (run_id, item_id),
+            (run_id, int(item_id)),
+        )
+        if not getattr(deleted, "rowcount", 0):
+            raise LookupError(
+                f"{ref} is not a member of deployment run '{run_id}'; read "
+                f"`yoke deployment-runs get {run_id}` for its members"
+            )
+        record_membership_removal(
+            conn,
+            run_id,
+            int(item_id),
+            reason=reason,
+            session_id=session_id,
+            actor_id=actor_id,
         )
         conn.commit()
-        return f"Removed {render_item_ref(conn, item_id)} from run {run_id}"
+        return (
+            f"Removed {ref} from run {run_id} ({reason}). Composition will not "
+            "re-enroll it; its landed code still ships with this candidate and "
+            f"a later release enrolls it. Re-attach with `yoke deployment-runs "
+            f"add-item {run_id} {ref}`."
+        )
     finally:
         conn.close()
 

@@ -215,37 +215,6 @@ def held_candidate_ids(
     return (custody or resolve_candidate_custody(conn, run_id)).held_ids
 
 
-def held_candidate_notice(
-    conn: Any, run_id: str, *, custody: CustodyResolution | None = None
-) -> str:
-    """Name every carried landing this run left out because a release holds it.
-
-    Said whenever composition reports itself, because "why is my item not a
-    member" is otherwise answerable only by reading two runs' membership by
-    hand. Silent when this run may not enroll at all: nothing was skipped.
-
-    Pass *custody* to reuse a resolution the caller already walked.
-    """
-    from yoke_core.domain.deployment_run_carried_membership import (
-        carried_enrollment_blocked,
-    )
-
-    if carried_enrollment_blocked(conn, run_id):
-        return ""
-    held = (custody or resolve_candidate_custody(conn, run_id)).held
-    if not held:
-        return ""
-    named = "; ".join(
-        f"{record.item_ref} held by {record.run_id} ({record.run_status})"
-        for record in held
-    )
-    return (
-        f"Skipped {len(held)} delivery-ready item(s) this candidate carries "
-        f"that a release already holds: {named}. Each is that run's delivery "
-        "to finish; this one composes nothing for it"
-    )
-
-
 def _project_custody(
     conn: Any, run_id: str, *, project_id: int, lineage: str
 ) -> tuple[set[int], list[HeldCandidate]]:
@@ -309,7 +278,6 @@ __all__ = [
     "HeldCandidate",
     "candidate_custody",
     "held_candidate_ids",
-    "held_candidate_notice",
     "resolve_candidate_custody",
     "unheld_candidate_ids",
 ]

@@ -33,6 +33,7 @@ from yoke_cli.commands.adapters.deployment_run_create import (
 )
 from yoke_cli.commands.adapters.deployment_run_membership import (
     ADD_ITEM_USAGE,
+    REMOVE_ITEM_USAGE,
     VALIDATE_COMPOSITION_USAGE,
 )
 from yoke_cli.commands.adapters.deployment_run_terminalize import (
@@ -64,6 +65,7 @@ DEPLOYMENT_USAGE = {
     "merge_receipt.commits.attest": MERGE_RECEIPT_COMMITS_ATTEST_USAGE,
     "deployment_runs.create": DEPLOYMENT_RUNS_CREATE_USAGE,
     "deployment_runs.add_item": ADD_ITEM_USAGE,
+    "deployment_runs.remove_item": REMOVE_ITEM_USAGE,
     "deployment_runs.approve": DEPLOYMENT_RUNS_APPROVE_USAGE,
     "deployment_runs.stage_approval.evaluate": (
         DEPLOYMENT_RUNS_STAGE_APPROVAL_EVALUATE_USAGE

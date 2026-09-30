@@ -129,6 +129,11 @@ def test_unbound_existing_member_case_recovers_on_case_run(test_db) -> None:
     # The contract carries the member as a ref, so the case's own command can
     # name its subject instead of hardcoding a run that already happened.
     assert context["deployment_member_ref"] == "YOK-9811"
+    # A same-project member answers to the run's own lineage.
+    lineage = test_db.execute(
+        "SELECT release_lineage FROM deployment_runs WHERE id='run-direct-recover'"
+    ).fetchone()["release_lineage"]
+    assert context["deployment_source_revision"] == lineage
     stored = test_db.execute(
         "SELECT execution_target_digest FROM qa_requirements WHERE id=%s",
         (int(row["id"]),),
@@ -304,3 +309,4 @@ def test_unbound_run_attached_case_refuses_at_composition_freeze(
     frozen = apply_requirement_update(test_db, int(row["id"]), "target_env", "prod")
     assert not frozen.ok
     assert frozen.error_code == "frozen_requirement_immutable"
+

@@ -20,6 +20,10 @@ ADD_ITEM_USAGE = (
     "[--project P] [--intent progress|final] [--requirement-id N ...] "
     "[--plan-id N ...] [--session-id S] [--json]"
 )
+REMOVE_ITEM_USAGE = (
+    "yoke deployment-runs remove-item RUN-ID PREFIX-N --reason TEXT "
+    "[--project P] [--session-id S] [--json]"
+)
 VALIDATE_COMPOSITION_USAGE = (
     "yoke deployment-runs validate-composition RUN-ID [--session-id S] [--json]"
 )
@@ -100,6 +104,41 @@ def deployment_runs_add_item(args: List[str]) -> int:
     )
 
 
+def deployment_runs_remove_item(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke deployment-runs remove-item",
+        description=(
+            "Take one member out of a run that is still `created`, recording "
+            "the reason on the run. Composition then never re-enrolls it; its "
+            "landed code still ships with the candidate and a later release "
+            "enrolls it. Re-attaching with `add-item` clears the removal. "
+            "Requires the caller's project deploy lock."
+        ),
+    )
+    parser.add_argument("run_id")
+    parser.add_argument("item")
+    parser.add_argument("--reason", required=True)
+    parser.add_argument("--project")
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, REMOVE_ITEM_USAGE)
+    if parsed is None:
+        return 2
+
+    def _human_writer(response, stdout, stderr) -> None:
+        del stderr
+        print((response.result or {}).get("message", ""), file=stdout)
+
+    return dispatch_and_emit(
+        function_id="deployment_runs.remove_item",
+        target=item_target("item", parsed.item, parsed.project),
+        payload={"run_id": parsed.run_id, "reason": parsed.reason},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+        human_writer=_human_writer,
+    )
+
+
 def deployment_runs_validate_composition(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs validate-composition",
@@ -135,7 +174,9 @@ def deployment_runs_validate_composition(args: List[str]) -> int:
 
 __all__ = [
     "ADD_ITEM_USAGE",
+    "REMOVE_ITEM_USAGE",
     "VALIDATE_COMPOSITION_USAGE",
     "deployment_runs_add_item",
+    "deployment_runs_remove_item",
     "deployment_runs_validate_composition",
 ]

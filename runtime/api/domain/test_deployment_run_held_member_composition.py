@@ -156,7 +156,7 @@ def test_a_landing_a_live_run_holds_is_skipped_rather_than_refused(
     assert custody.enrollable == ()
     assert ok is True, message
     assert _members(test_db) == []
-    assert "Skipped 1 delivery-ready item(s)" in message
+    assert "Skipped 1 carried item(s)" in message
     assert f"{ref} held by run-live (executing)" in message
     assert "no authority to close" not in message
 

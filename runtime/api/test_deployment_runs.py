@@ -106,7 +106,7 @@ class TestItemManagement:
         conn.close()
 
         dr.cmd_add_item(run_id, 200, db_path=db_path)
-        dr.cmd_remove_item(run_id, 200, db_path=db_path)
+        dr.cmd_remove_item(run_id, 200, reason="test removal", db_path=db_path)
 
         result = dr.cmd_items(run_id, db_path=db_path)
         assert result == ""

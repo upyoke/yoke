@@ -7,18 +7,15 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
-from yoke_core.domain.item_worktree_resolution import (
-    recorded_item_worktree_value_sql,
-)
+from yoke_core.domain.deployment_run_project_sources import run_source_sha
+from yoke_core.domain.item_worktree_resolution import recorded_item_worktree_value_sql
 from yoke_core.domain.qa_method_capabilities import (
     QaMethodCapabilityError,
     capability_kinds,
     host_provisioned_capability_kinds,
     missing_capability_kinds,
 )
-from yoke_core.domain.qa_requirement_pass_currency import (
-    METHOD_CONFIG_REVISION_KEY,
-)
+from yoke_core.domain.qa_requirement_pass_currency import METHOD_CONFIG_REVISION_KEY
 from yoke_contracts.public_ref import format_item_ref
 from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_CAPABILITY,
@@ -242,6 +239,13 @@ def get_case_execution_context(
         "project_id": int(row["project_id"]),
         "project": str(row["project"]),
         "lane_branch": row["lane_branch"],
+        # The commit the run shipped for this case's own project: a bound
+        # project's member answers to its bound source, not the carrier's.
+        "deployment_source_revision": (
+            run_source_sha(conn, str(row["deployment_run_id"]), int(row["project_id"]))
+            if row["deployment_run_id"]
+            else None
+        ),
     }
     if str(method_snapshot["runner_id"]) == "ci_run":
         context["lane_commit_sha"] = row["lane_commit_sha"]
@@ -250,12 +254,8 @@ def get_case_execution_context(
         and not context["lane_commit_sha"]
         and context["item_id"] is not None
     ):
-        from yoke_core.domain.dash_execution import (
-            DASH_EVIDENCE_SECTION,
-        )
-        from yoke_core.domain.item_json_sections import (
-            read_json_section,
-        )
+        from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
+        from yoke_core.domain.item_json_sections import read_json_section
 
         evidence = read_json_section(
             conn,

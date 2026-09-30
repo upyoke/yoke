@@ -31,6 +31,9 @@ from yoke_core.domain.deployment_run_composition_freeze import (
     member_ids,
     requires_release_admission,
 )
+from yoke_core.domain.deployment_run_membership_removals import (
+    removed_item_ids,
+)
 from yoke_core.domain.deployment_run_unattributed_commits import (
     unattributed_commits_refusal,
 )
@@ -112,6 +115,7 @@ def carried_membership_refusal(
             if item_requires_release_membership(conn, int(entry["item_id"]))
         }
         - held_candidate_ids(conn, run_id, custody=custody)
+        - removed_item_ids(conn, run_id)
     )
     for item_id in eligible:
         if refusal := completion_flow_refusal(conn, item_id):

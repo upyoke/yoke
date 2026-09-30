@@ -52,6 +52,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 requirement_snapshot TEXT,
                 driver_attachment TEXT,
                 settling_at TEXT,
+                membership_removals TEXT,
                 CONSTRAINT deployment_runs_target_tier_vocabulary
                     CHECK (target_tier IS NULL
                            OR target_tier IN ('persistent','ephemeral')),
@@ -112,6 +113,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
             "driver_attachment",
             "candidate_containment",
             "settling_at",
+            "membership_removals",
             KEY_COLUMN,
             REQUEST_COLUMN,
         ):

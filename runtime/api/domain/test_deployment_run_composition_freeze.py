@@ -284,7 +284,7 @@ def test_plan_content_and_candidate_stay_frozen_across_cancel_and_retry(
         cmd_update("run-plan", "release_lineage", "e" * 40)
     )
     with pytest.raises(ValueError, match="membership is mutable only"):
-        cmd_remove_item("run-plan", 9412)
+        cmd_remove_item("run-plan", 9412, reason="test removal")
     assert cmd_update("run-plan", "status", "cancelled") is None
     with pytest.raises(ValueError, match="membership is mutable only"):
         cmd_add_item("run-plan", 9412)

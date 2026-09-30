@@ -88,7 +88,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0
 
         elif args.command == "remove-item":
-            print(cmd_remove_item(args.run_id, args.item_id))
+            print(cmd_remove_item(args.run_id, args.item_id, reason=args.reason))
             return 0
 
         elif args.command == "get":

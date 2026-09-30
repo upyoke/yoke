@@ -57,7 +57,7 @@ def test_frozen_marker_prevents_status_reset_and_composition_edits(
     )
     test_db.commit()
     with pytest.raises(ValueError, match="frozen composition"):
-        cmd_remove_item("run-immutable", 9511)
+        cmd_remove_item("run-immutable", 9511, reason="test removal")
     assert "frozen composition" in str(
         cmd_update("run-immutable", "artifact_identity", "replacement")
     )

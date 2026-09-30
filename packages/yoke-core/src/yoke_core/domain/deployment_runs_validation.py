@@ -5,8 +5,6 @@ Owns: ``cmd_validate_composition`` (provisional and explicit membership check) a
 project alignment, item-status floor, and
 unsatisfied hard-block dependency detection. Selected flow is completion
 authority: a final-delivery release refuses a member it could not close.
-SQL bodies preserved verbatim
-from the pre-split state-machine — no reordering, no early-return refactor.
 """
 
 from __future__ import annotations
@@ -25,15 +23,17 @@ from yoke_core.domain.deployment_member_run_coverage import (
     unclosable_final_member_refusal,
 )
 from yoke_core.domain.deployment_run_carried_membership import (
+    carried_enrollment_blocked,
     describe_enrollment,
     enroll_carried_members,
 )
 from yoke_core.domain.deployment_run_carried_membership_refusal import (
     carried_membership_refusal,
 )
+from yoke_core.domain.deployment_run_carried_work import carried_work_for_enrollment
+from yoke_core.domain.deployment_run_skipped_candidates import skipped_candidate_notice
 from yoke_core.domain.deployment_run_unheld_candidates import (
     CustodyResolution,
-    held_candidate_notice,
     resolve_candidate_custody,
 )
 from yoke_core.domain.deployment_run_pair_obligations import (
@@ -142,6 +142,7 @@ def cmd_validate_composition(
         # handed None walks custody itself, which is the honest fallback when
         # recording those sources is the thing that failed.
         custody: CustodyResolution | None = None
+        carried = None
         try:
             # The run's source commit per project is resolved and recorded
             # before anything reads it, so enrollment and every check below
@@ -156,7 +157,12 @@ def cmd_validate_composition(
             # terminated its backend. Custody excludes this run, so enrolling
             # its own members cannot invalidate the answer.
             custody = resolve_candidate_custody(conn, run_id)
-            enrolled = enroll_carried_members(conn, run_id, custody=custody)
+            # Derived once: enrollment and the skipped notice read one answer.
+            if not carried_enrollment_blocked(conn, run_id):
+                carried = carried_work_for_enrollment(conn, run_id)
+            enrolled = enroll_carried_members(
+                conn, run_id, carried_work=carried, custody=custody
+            )
         except (LookupError, ValueError) as exc:
             errors.append(str(exc))
         run_project_id = int(run_project_id)
@@ -242,9 +248,11 @@ def cmd_validate_composition(
         # bury the membership that will receive nothing.
         inert = inert_membership_notice(conn, run_id)
 
-        # Composition silently narrowed by another release's custody is the
-        # one omission an operator cannot reconstruct from this run alone.
-        held = held_candidate_notice(conn, run_id, custody=custody)
+        # Carried items left out -- held elsewhere, back in rework, or
+        # removed -- are omissions an operator cannot reconstruct from here.
+        held = skipped_candidate_notice(
+            conn, run_id, custody=custody, carried_work=carried
+        )
 
         if errors:
             trailing = [note for note in (held, inert, unadmitted) if note]

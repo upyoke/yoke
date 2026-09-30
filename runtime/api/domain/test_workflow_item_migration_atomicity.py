@@ -301,6 +301,7 @@ def test_migration_first_serializes_deployment_membership_removal(
             outcomes["remove"] = deployment_runs_crud_mutate.cmd_remove_item(
                 "run-migration",
                 ITEM_ID,
+                reason="test removal",
             )
         except BaseException as exc:  # noqa: BLE001 - thread evidence
             outcomes["remove"] = exc

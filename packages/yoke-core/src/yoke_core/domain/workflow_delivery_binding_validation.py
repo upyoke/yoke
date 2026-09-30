@@ -35,7 +35,15 @@ def delivery_ready_for_stage(runtime: WorkflowRuntime, status: str) -> bool:
             if str(binding["through_stage_id"]) in runtime.terminal_stage_ids
         ]
         valid = [value for value in starts if value is not None]
-        return bool(valid) and position >= min(valid)
+        if not valid or position < min(valid):
+            return False
+        # A binding that runs from filing to done (Dash) makes every stage
+        # "after its start", so the start alone would call an item back in
+        # rework deliverable. Inside an implementation segment only the
+        # release wait itself has landed code to ship.
+        return runtime.stage_implies_merge(status) or not (
+            runtime.implementation_has_started(status)
+        )
     if policy in ("continuous_slice_actions", WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE):
         return runtime.implementation_has_started(status)
     if policy == "after_merge_action":
