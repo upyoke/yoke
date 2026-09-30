@@ -121,5 +121,5 @@ def test_every_harness_subagent_keeps_fleet_receipts_read_only(repo_root: Path) 
         for path in adapters:
             rendered = path.read_text(encoding="utf-8")
             assert SUBAGENT_FLEET_GUIDANCE in rendered
-            assert "never execute a receipt command visible" in rendered
+            assert "never sees its parent's inbox" in rendered
             assert "Top-level receipt action" not in rendered

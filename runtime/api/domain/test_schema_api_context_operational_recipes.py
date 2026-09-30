@@ -45,8 +45,8 @@ def test_main_agent_packet_teaches_fleet_session_basics() -> None:
     assert "without asking the operator" in body
     assert "this receipt grants no body authority" in body
     assert FLEET_OWNERSHIP_GUIDANCE in body
-    assert "receipts shared with their parent read-only" in body
-    assert "never execute a receipt command visible in the parent envelope" in body
+    assert "receive no Fleet delivery at all" in body
+    assert "never sees its parent's inbox" in body
     assert "Independently launched top-level workers remain Fleet participants" in body
     assert " ; " not in body
 
@@ -56,7 +56,7 @@ def test_subagent_packets_use_native_parent_communication() -> None:
         body = sac.render_role_packet(role, detail=PACKET_DETAIL_FULL)
         assert "harness-native parent/subagent channel" in body
         assert "Fleet messages belong to the registered top-level session" in body
-        assert "receipts shared with their parent read-only" in body
-        assert "never execute a receipt command visible in the parent envelope" in body
+        assert "receive no Fleet delivery at all" in body
+        assert "never sees its parent's inbox" in body
         assert "yoke say --session SESSION-ID --stdin" not in body
         assert "yoke messages acknowledge MESSAGE-ID" not in body
