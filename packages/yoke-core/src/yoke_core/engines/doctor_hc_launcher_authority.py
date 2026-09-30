@@ -33,14 +33,26 @@ TITLE = "Machine launcher resolves to canonical editable install"
 
 
 def _login_shell_yoke() -> str:
+    env = dict(os.environ)
+    tool_dir = str(canonical_shim_path().parent)
+    env["PATH"] = (
+        os.pathsep.join(
+            part
+            for part in env.get("PATH", "").split(os.pathsep)
+            if part.rstrip("/") != tool_dir.rstrip("/")
+        )
+        or os.defpath
+    )
     try:
         result = subprocess.run(
             [os.environ.get("SHELL") or "/bin/sh", "-lc", "command -v yoke"],
             check=False,
             capture_output=True,
             text=True,
+            timeout=10,
+            env=env,
         )
-    except OSError:
+    except (OSError, subprocess.SubprocessError):
         return ""
     return (result.stdout or "").strip() if result.returncode == 0 else ""
 

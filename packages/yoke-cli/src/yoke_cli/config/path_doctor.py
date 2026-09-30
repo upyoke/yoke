@@ -210,11 +210,7 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
         )
         for tool in PATH_TOOLS
     ]
-    required_tools = (
-        "yoke",
-        "uv",
-        *(resolution.executable for resolution in harness_clis if resolution.path),
-    )
+    required_tools = ("yoke",)
     preferred_yoke = _preferred_yoke_path(bindir)
     yoke_shadowed_by = _shadowing_yoke_path(current_resolved, bindir=bindir)
 
