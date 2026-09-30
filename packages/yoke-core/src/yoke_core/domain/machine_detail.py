@@ -9,6 +9,8 @@ from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.actors import ActorError
 from yoke_contracts.harness_hook_approval import hook_approval
 from yoke_core.domain.harness_machine_state import read_harness_machine_reports
+from yoke_contracts.machine_config.test_machine import TestMachineCapabilityError
+from yoke_core.domain.machine_qa_capability_rows import test_machine_capability_rows
 from yoke_core.domain.machine_registry import MachineRecord, marker
 from yoke_core.domain.overview_harness_hook_health import (
     harness_targets,
@@ -114,6 +116,44 @@ def _project_reports(
     return rows
 
 
+def _host_label(value: str) -> str:
+    """The first DNS label, lower-cased: ``Mini.tailnet.ts.net`` -> ``mini``."""
+    return value.strip().split(".", 1)[0].lower()
+
+
+def _test_machines(
+    conn: Any, names: set[str], visible: set[int]
+) -> list[dict[str, Any]]:
+    """Test-machine capabilities whose host is this machine, with their route.
+
+    The capability, not the machine row, records how to reach a Test Mac: its
+    host and login user. A capability matches when its host's first DNS label
+    is this machine's name or relay hostname, so an agent reading the machine
+    finds the command that drives it.
+    """
+    if not names or not _table_exists(conn, "project_capabilities"):
+        return []
+    try:
+        rows = test_machine_capability_rows(conn)
+    except TestMachineCapabilityError as exc:
+        return [{"error": str(exc)}]
+    return [
+        {
+            "project": row.project,
+            "machine": row.machine,
+            "capability_type": row.capability_type,
+            "host": row.settings["host"],
+            "user": row.settings["user"],
+            "exec_command": (
+                f"yoke test-machine exec --project {row.project} "
+                f"--machine {row.machine} -- <command>"
+            ),
+        }
+        for row in rows
+        if row.project_id in visible and _host_label(row.settings["host"]) in names
+    ]
+
+
 def _projects(
     conn: Any,
     ids: set[int],
@@ -180,6 +220,11 @@ def machine_detail(
     project_ids = {row["project_id"] for row in sessions + launches}
     if relay:
         project_ids.update(relay.get("project_ids") or [])
+    host_names = {
+        _host_label(name)
+        for name in (record.name, str((relay or {}).get("hostname") or ""))
+        if name.strip()
+    }
     machine = record.to_dict()
     try:
         machine["owner"] = actor_name(conn, record.owner_actor_id)
@@ -194,6 +239,7 @@ def machine_detail(
             installed_surfaces=(relay or {}).get("surface_versions") or {},
         ),
         "projects": _projects(conn, project_ids, reports, sessions),
+        "test_machines": _test_machines(conn, host_names, visible),
         "running_sessions": [row for row in sessions if row["ended_at"] is None],
         "recent_sessions": sessions[:20],
         "recent_launches": launches[:20],
