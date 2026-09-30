@@ -90,9 +90,12 @@ def _two_ready_members(conn: Any) -> str:
     return _status(conn, FIRST_ITEM)
 
 
-def test_a_refused_close_out_keeps_the_run_settling_until_re_driven(
+def test_a_refused_close_out_holds_every_member_until_re_driven(
     test_db: Any, monkeypatch
 ) -> None:
+    """One member that cannot close holds the whole run. The sibling that
+    could close keeps its claim and lane instead of being closed alone, so a
+    shared gate never lands on part of what it covered."""
     _isolate_status_effects(monkeypatch)
     _project(test_db)
     _ready_member(test_db, FIRST_ITEM, HOLDER_A)
@@ -108,18 +111,20 @@ def test_a_refused_close_out_keeps_the_run_settling_until_re_driven(
 
     assert refusal is not None and "is settling" in refusal
     assert render_item_ref(test_db, SECOND_ITEM) in refusal
+    assert "landing evidence is missing" in refusal
     assert "yoke deployment-runs update run-settling status succeeded" in refusal
     assert _run(test_db, "run-settling") == ("executing", True)
-    assert _status(test_db, FIRST_ITEM) == "done"
-    assert _status(test_db, SECOND_ITEM) == release
-    assert _claim_held(test_db, SECOND_ITEM)
+    for item_id in (FIRST_ITEM, SECOND_ITEM):
+        assert _status(test_db, item_id) == release
+        assert _claim_held(test_db, item_id)
 
     _landing_evidence(test_db, SECOND_ITEM)
     assert cmd_update("run-settling", "status", "succeeded") is None
 
     assert _run(test_db, "run-settling") == ("succeeded", True)
-    assert _status(test_db, SECOND_ITEM) == "done"
-    assert not _claim_held(test_db, SECOND_ITEM)
+    for item_id in (FIRST_ITEM, SECOND_ITEM):
+        assert _status(test_db, item_id) == "done"
+        assert not _claim_held(test_db, item_id)
 
 
 def test_an_interrupted_settlement_replays_on_the_next_re_drive(

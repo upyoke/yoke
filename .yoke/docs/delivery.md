@@ -57,12 +57,25 @@ succeeds, it stamps each member's delivery evidence and closes every member
 whose item and shared gates have passed, with no holder re-running a merge.
 The run reads `succeeded` only after those close-outs have happened. Until
 then it stays `executing` and settling (`settling_at`), a durable state that
-counts as delivered for its members' own gates. A refusal or an interrupted
-process leaves it there: members that closed stay done, and the rest keep
-their claims and lanes. The refusal names each member, its reason, and the
-re-drive, `yoke deployment-runs update RUN status succeeded`, which replays
-settlement. A final member the run could not even try to close, such as one
-whose post-deploy obligations are unanswered, holds the run the same way.
+counts as delivered for its members' own gates. Closing is all-or-nothing:
+every cleared member is asked whether it could close before any of them
+does, so one member's refusal holds the whole run with no member closed and
+every claim and lane kept. The refusal names each member — the blocked ones
+with their own reason, the rest as held with the run so nobody repairs a
+member that has nothing wrong. A final member the run could not even try to
+close, such as one whose post-deploy obligations are unanswered, holds the
+run the same way. Settlement replays by itself when the blocking record is
+cleared, so no hand re-drive is normally needed; if the run stays
+`executing`, `yoke deployment-runs update RUN status succeeded` replays it.
+
+Residue is cleared on the way through. A member's own release walk opens an
+item-level QA execution, and when the run scopes that member its own item
+QA, the run-bound execution is the one that produces evidence while the
+older row stays live under a parked holder. An item-level execution whose
+cursor never advanced and that owns no result row has produced nothing, so
+settlement aborts it with `superseded-by-run-scoped-item-qa` and closes the
+member. One that did record a result keeps refusing, and its own walker
+still owns it.
 When a no-change Dash that never opened a lane is left at its release wait,
 its holder closes it with `yoke lifecycle transition PREFIX-N --to done`.
 That transition still requires the succeeded run, QA, and approval.
