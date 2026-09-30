@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 from dataclasses import dataclass
 import json
 import os
@@ -39,7 +41,7 @@ def _identifier(value: object) -> str | None:
 def _directory(state_dir: Path | None = None) -> Path:
     root = state_dir or machine_config.cache_dir()
     directory = root / HANDOFF_DIRECTORY_NAME
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(directory)
     directory.chmod(0o700)
     return directory
 

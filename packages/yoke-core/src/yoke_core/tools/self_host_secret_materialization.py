@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 from dataclasses import dataclass
 import os
 from pathlib import Path
@@ -124,7 +126,7 @@ def _prepare_runtime_directory(
     bootstrap_gid: int,
 ) -> None:
     try:
-        path.mkdir(mode=0o700, parents=True, exist_ok=True)
+        create_private_directory(path)
         info = path.lstat()
         if not stat.S_ISDIR(info.st_mode):
             raise SelfHostServerBootstrapError(

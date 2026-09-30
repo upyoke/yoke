@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 from contextlib import contextmanager
 import fcntl
 import os
 from pathlib import Path
+import shlex
 import stat
 import tempfile
 from typing import Iterator
@@ -25,7 +28,7 @@ def ensure_owner_only_directory(path: str | Path) -> Path:
     selected = Path(path).expanduser()
     descriptor = -1
     try:
-        selected.mkdir(mode=0o700, parents=True, exist_ok=True)
+        create_private_directory(selected)
         flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
         flags |= getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
         descriptor = os.open(selected, flags)
@@ -67,7 +70,7 @@ def exclusive_lock(config_path: str | Path) -> Iterator[None]:
     """Hold the stable owner-only lock associated with ``config_path``."""
     selected = Path(config_path).expanduser()
     try:
-        selected.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        create_private_directory(selected.parent)
         _assert_secure_parent(selected.parent)
         lock_path = config_lock_path(selected)
         flags = (
@@ -215,7 +218,8 @@ def _assert_secure_parent(path: Path) -> None:
         )
     if stat.S_IMODE(info.st_mode) & 0o022:
         raise MachineConfigFileError(
-            f"machine-config parent must not be group- or world-writable: {path}"
+            f"machine-config parent must not be group- or world-writable: {path}; "
+            f"run chmod 700 {shlex.quote(str(path))}, then retry"
         )
 
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -80,7 +82,7 @@ def pin_relay_release(
         raise refusal from exc
 
     try:
-        selected.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        create_private_directory(selected.state_dir)
         with _release_lock(selected.state_dir):
             runtime_python = ensure_relay_runtime(
                 selected.state_dir,
@@ -191,7 +193,7 @@ def _install_candidate(
     runner: Runner,
 ) -> None:
     releases = instance.state_dir / RELAY_RELEASES_DIR_NAME
-    releases.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(releases)
     token = uuid.uuid4().hex
     candidate = releases / token
     link = instance.state_dir / f".{RELAY_ACTIVE_RELEASE_NAME}-{token}"
@@ -300,7 +302,7 @@ def _record_failure(
     instance: RelayInstance, code: str, message: str, served_build: str
 ) -> None:
     try:
-        instance.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        create_private_directory(instance.state_dir)
         write_release_json(
             instance.state_dir / RELAY_RELEASE_ERROR_NAME,
             {

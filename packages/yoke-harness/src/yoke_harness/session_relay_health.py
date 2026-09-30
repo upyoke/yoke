@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -44,7 +46,7 @@ def _load(path: Path) -> dict[str, object]:
 
 
 def _write(path: Path, value: Mapping[str, object]) -> None:
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(path.parent)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(
         json.dumps(dict(value), separators=(",", ":"), sort_keys=True) + "\n",
@@ -175,7 +177,7 @@ def quarantine_report(
 ) -> dict[str, object]:
     """Move one rejected payload aside and retain body-free diagnostic facts."""
     directory = _root(state_dir) / QUARANTINED_REPORT_DIR_NAME
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(directory)
     directory.chmod(0o700)
     report_id = report_path.stem[:64]
     destination = directory / f"{report_id}.json"

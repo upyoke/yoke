@@ -20,6 +20,7 @@ BUNDLE_TOKEN_CONTRACT_NAME = "_yoke_github_app_tokens.py"
 BUNDLE_RESPONSE_SAFETY_NAME = "_yoke_github_response_safety.py"
 BUNDLE_OAUTH_TRANSPORT_NAME = "_yoke_github_oauth_transport.py"
 BUNDLE_SERVICE_PROFILE_PROOF_NAME = "_yoke_github_service_profile_proof.py"
+BUNDLE_PRIVATE_DIRECTORIES_NAME = "_yoke_private_directories.py"
 BUNDLE_FILE_IO_NAME = "_yoke_github_git_credential_file.py"
 BUNDLE_DOCUMENT_NAME = "_yoke_github_git_credential_document.py"
 BUNDLE_ACCESS_CACHE_NAME = "_yoke_github_git_credential_access_cache.py"
@@ -31,6 +32,7 @@ BUNDLE_MODULE_NAMES = (
     BUNDLE_RESPONSE_SAFETY_NAME,
     BUNDLE_OAUTH_TRANSPORT_NAME,
     BUNDLE_SERVICE_PROFILE_PROOF_NAME,
+    BUNDLE_PRIVATE_DIRECTORIES_NAME,
     BUNDLE_FILE_IO_NAME,
     BUNDLE_DOCUMENT_NAME,
     BUNDLE_ACCESS_CACHE_NAME,
@@ -51,9 +53,14 @@ def selected_bundle(site_dir: str | Path | None = None) -> Path:
     root = Path(site_dir) if site_dir is not None else Path(__file__).parent
     pointer = root / BUNDLE_POINTER_NAME
     try:
-        bundle_name = _read_regular(
-            pointer, maximum=BUNDLE_POINTER_MAX_BYTES,
-        ).decode("ascii").strip()
+        bundle_name = (
+            _read_regular(
+                pointer,
+                maximum=BUNDLE_POINTER_MAX_BYTES,
+            )
+            .decode("ascii")
+            .strip()
+        )
     except (OSError, UnicodeError, GitHubCredentialLauncherError) as exc:
         raise GitHubCredentialLauncherError(
             "GitHub credential helper bundle pointer is unavailable"
@@ -93,13 +100,16 @@ def main() -> None:
 
 
 def _verified_bundle_sources(
-    bundle: Path, *, expected_hash: str,
+    bundle: Path,
+    *,
+    expected_hash: str,
 ) -> dict[str, bytes]:
     digest = hashlib.sha256()
     sources: dict[str, bytes] = {}
     for filename in BUNDLE_MODULE_NAMES:
         payload = _read_regular(
-            bundle / filename, maximum=BUNDLE_MODULE_MAX_BYTES,
+            bundle / filename,
+            maximum=BUNDLE_MODULE_MAX_BYTES,
         )
         sources[filename] = payload
         digest.update(filename.encode("utf-8"))
@@ -114,11 +124,7 @@ def _verified_bundle_sources(
 
 
 def _read_regular(path: Path, *, maximum: int) -> bytes:
-    flags = (
-        os.O_RDONLY
-        | getattr(os, "O_NOFOLLOW", 0)
-        | getattr(os, "O_NONBLOCK", 0)
-    )
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     try:
         descriptor = os.open(path, flags)
     except OSError as exc:

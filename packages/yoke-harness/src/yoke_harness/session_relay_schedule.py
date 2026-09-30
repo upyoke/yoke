@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 from contextlib import contextmanager
 import fcntl
 import os
@@ -25,7 +27,7 @@ def relay_state_dir() -> Path:
 
 
 def _prepare_state_dir(path: Path) -> None:
-    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(path)
     try:
         path.chmod(0o700)
     except OSError:

@@ -29,6 +29,8 @@ not have been enough, are recorded in
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import fcntl
 import json
 import os
@@ -93,7 +95,7 @@ def lifecycle_lock(
     would block on itself, so no code holding this may take it again.
     """
     path = coordination_dir(local_port) / LIFECYCLE_LOCK_NAME
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(path.parent)
     descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
     deadline = time.monotonic() + timeout
     try:
@@ -196,7 +198,7 @@ def use_lease(local_port: int, reason: str) -> Iterator[Path]:
     path = directory / f"{os.getpid()}-{uuid4().hex}.json"
     payload = {"pid": os.getpid(), "reason": reason, "started_at": time.time()}
     with lifecycle_lock(local_port):
-        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        create_private_directory(directory)
         descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
         try:
             fcntl.flock(descriptor, fcntl.LOCK_EX)

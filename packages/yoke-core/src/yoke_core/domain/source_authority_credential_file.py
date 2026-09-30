@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import json
 import os
 import secrets
@@ -29,7 +31,7 @@ def write_atomic_owner_only(path: Path, payload: dict[str, Any]) -> bool:
     fsynced winning file.  A check followed by ``os.replace`` is deliberately
     insufficient here because two attended ``begin`` processes may overlap.
     """
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(path.parent)
     require_owner_only_directory(path.parent)
     temporary = path.with_name(f".{path.name}.{secrets.token_hex(8)}.tmp")
     try:
@@ -103,9 +105,7 @@ def require_owner_only_directory(path: Path) -> None:
         or info.st_uid != os.getuid()
         or stat.S_IMODE(info.st_mode) & 0o077
     ):
-        raise SourceCredentialError(
-            "cutover credential directory must be owner-only"
-        )
+        raise SourceCredentialError("cutover credential directory must be owner-only")
 
 
 def delete_owner_only(path: Path) -> None:
@@ -123,6 +123,10 @@ def fsync_directory(path: Path) -> None:
 
 
 __all__ = [
-    "SourceCredentialError", "delete_owner_only", "replace_atomic_owner_only",
-    "require_owner_only_regular", "selected_path", "write_atomic_owner_only",
+    "SourceCredentialError",
+    "delete_owner_only",
+    "replace_atomic_owner_only",
+    "require_owner_only_regular",
+    "selected_path",
+    "write_atomic_owner_only",
 ]

@@ -26,6 +26,8 @@ already the thing about to serve.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import hashlib
 import importlib
 import importlib.util
@@ -185,7 +187,7 @@ def _write_receipt(receipt: Dict[str, Any]) -> None:
     payload["schema"] = RECEIPT_SCHEMA
     path = receipt_path()
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        create_private_directory(path.parent)
         path.write_text(
             json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n",
             encoding="utf-8",

@@ -11,6 +11,8 @@ keeps ssh from reaching for default key files there.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import os
 from pathlib import Path
 import subprocess
@@ -96,7 +98,7 @@ def run_remote_command(
             f"{SSH_AUTH_SOCK_ENV}.",
         )
     known_hosts = known_hosts_path(yoke_home)
-    known_hosts.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(known_hosts.parent)
     argv = remote_exec_argv(
         host=host,
         user=user,

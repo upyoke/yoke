@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import json
 import os
 from contextlib import contextmanager
@@ -18,7 +20,7 @@ LOCK_NAME = "active-run.lock"
 @contextmanager
 def acquire(run_id: str = "") -> Iterator[None]:
     path = lock_path()
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(path.parent)
     _remove_stale(path)
     fd = _open_lock(path, run_id)
     try:
@@ -29,7 +31,9 @@ def acquire(run_id: str = "") -> Iterator[None]:
 
 
 def lock_path() -> Path:
-    return onboard_checklist.runs_dir() / onboard_apply_report.REPORTS_DIR_NAME / LOCK_NAME
+    return (
+        onboard_checklist.runs_dir() / onboard_apply_report.REPORTS_DIR_NAME / LOCK_NAME
+    )
 
 
 def _open_lock(path: Path, run_id: str) -> int:
@@ -44,7 +48,8 @@ def _open_lock(path: Path, run_id: str) -> int:
     payload = {
         "pid": os.getpid(),
         "run_id": str(run_id or ""),
-        "created_at": datetime.now(timezone.utc).replace(microsecond=0)
+        "created_at": datetime.now(timezone.utc)
+        .replace(microsecond=0)
         .isoformat()
         .replace("+00:00", "Z"),
     }

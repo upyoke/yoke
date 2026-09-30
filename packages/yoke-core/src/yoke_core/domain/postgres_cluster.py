@@ -18,6 +18,8 @@ claimed.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import os
 import shutil
 import stat
@@ -96,8 +98,11 @@ def _env() -> dict:
 
 def _run(argv, *, env: dict | None = None, **kw) -> subprocess.CompletedProcess:
     return subprocess.run(
-        argv, env=env if env is not None else _env(),
-        text=True, capture_output=True, **kw,
+        argv,
+        env=env if env is not None else _env(),
+        text=True,
+        capture_output=True,
+        **kw,
     )
 
 
@@ -230,7 +235,7 @@ def ensure_started(spec: ClusterSpec) -> int:
 def _ensure_private_socket_dir(path: Path) -> None:
     """Create and validate the trust-auth socket directory without symlinks."""
     try:
-        path.mkdir(mode=0o700, parents=True, exist_ok=True)
+        create_private_directory(path)
         flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
         flags |= getattr(os, "O_NOFOLLOW", 0)
         fd = os.open(path, flags)

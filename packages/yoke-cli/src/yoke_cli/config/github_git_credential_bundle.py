@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.machine_config import directories
+
 from contextlib import contextmanager
 import fcntl
 import hashlib
@@ -33,15 +36,9 @@ STABLE_API_URLS_NAME = github_git_credential_launcher.BUNDLE_API_URLS_NAME
 STABLE_FILE_IO_NAME = github_git_credential_launcher.BUNDLE_FILE_IO_NAME
 STABLE_DOCUMENT_NAME = github_git_credential_launcher.BUNDLE_DOCUMENT_NAME
 STABLE_ACCESS_CACHE_NAME = github_git_credential_launcher.BUNDLE_ACCESS_CACHE_NAME
-STABLE_TOKEN_CONTRACT_NAME = (
-    github_git_credential_launcher.BUNDLE_TOKEN_CONTRACT_NAME
-)
-STABLE_RESPONSE_SAFETY_NAME = (
-    github_git_credential_launcher.BUNDLE_RESPONSE_SAFETY_NAME
-)
-STABLE_OAUTH_TRANSPORT_NAME = (
-    github_git_credential_launcher.BUNDLE_OAUTH_TRANSPORT_NAME
-)
+STABLE_TOKEN_CONTRACT_NAME = github_git_credential_launcher.BUNDLE_TOKEN_CONTRACT_NAME
+STABLE_RESPONSE_SAFETY_NAME = github_git_credential_launcher.BUNDLE_RESPONSE_SAFETY_NAME
+STABLE_OAUTH_TRANSPORT_NAME = github_git_credential_launcher.BUNDLE_OAUTH_TRANSPORT_NAME
 STABLE_SERVICE_PROFILE_PROOF_NAME = (
     github_git_credential_launcher.BUNDLE_SERVICE_PROFILE_PROOF_NAME
 )
@@ -56,7 +53,7 @@ MAX_HELPER_SOURCE_BYTES = 2 * 1024 * 1024
 
 def install(target_dir: Path) -> Path:
     """Atomically select one complete immutable helper bundle."""
-    target_dir.mkdir(parents=True, exist_ok=True)
+    create_private_directory(target_dir)
     helper_path = target_dir / STABLE_HELPER_FILE_NAME
     sources = _bundle_sources()
     bundle_name = _bundle_name(sources)
@@ -77,6 +74,10 @@ def _bundle_sources() -> tuple[tuple[Path, str], ...]:
         (
             Path(github_service_profile_proof.__file__),
             STABLE_SERVICE_PROFILE_PROOF_NAME,
+        ),
+        (
+            Path(directories.__file__),
+            github_git_credential_launcher.BUNDLE_PRIVATE_DIRECTORIES_NAME,
         ),
         (Path(github_git_credential_file.__file__), STABLE_FILE_IO_NAME),
         (Path(github_git_credential_document.__file__), STABLE_DOCUMENT_NAME),
@@ -173,16 +174,13 @@ def _publish_bundle_pointer(target_dir: Path, bundle_name: str) -> None:
 
 def _publish_launcher(helper_path: Path) -> None:
     _atomic_replace_bytes(
-        _safe_read_source(Path(github_git_credential_launcher.__file__)), helper_path,
+        _safe_read_source(Path(github_git_credential_launcher.__file__)),
+        helper_path,
     )
 
 
 def _safe_read_source(path: Path) -> bytes:
-    flags = (
-        os.O_RDONLY
-        | getattr(os, "O_NOFOLLOW", 0)
-        | getattr(os, "O_NONBLOCK", 0)
-    )
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     try:
         descriptor = os.open(path, flags)
     except OSError as exc:
@@ -196,9 +194,7 @@ def _safe_read_source(path: Path) -> bytes:
             or stat.S_IMODE(info.st_mode) & 0o022
             or info.st_size > MAX_HELPER_SOURCE_BYTES
         ):
-            raise GitHubCredentialBundleError(
-                "GitHub helper bundle source is unsafe"
-            )
+            raise GitHubCredentialBundleError("GitHub helper bundle source is unsafe")
         remaining = MAX_HELPER_SOURCE_BYTES + 1
         chunks: list[bytes] = []
         while remaining:
@@ -221,7 +217,9 @@ def _safe_read_source(path: Path) -> bytes:
 def _bundle_install_lock(target_dir: Path) -> Iterator[None]:
     lock_path = target_dir / ".yoke-github-helper-install.lock"
     descriptor = os.open(
-        lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600,
+        lock_path,
+        os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
+        0o600,
     )
     try:
         os.fchmod(descriptor, 0o600)
@@ -234,7 +232,9 @@ def _bundle_install_lock(target_dir: Path) -> Iterator[None]:
 
 def _atomic_replace_bytes(payload: bytes, target: Path) -> None:
     descriptor, raw_tmp = tempfile.mkstemp(
-        prefix=f".{target.name}.", suffix=".tmp", dir=target.parent,
+        prefix=f".{target.name}.",
+        suffix=".tmp",
+        dir=target.parent,
     )
     tmp_path = Path(raw_tmp)
     try:
@@ -262,11 +262,17 @@ def _fsync_directory(path: Path) -> None:
 
 
 __all__ = [
-    "STABLE_API_URLS_NAME", "STABLE_DOCUMENT_NAME", "STABLE_FILE_IO_NAME",
+    "STABLE_API_URLS_NAME",
+    "STABLE_DOCUMENT_NAME",
+    "STABLE_FILE_IO_NAME",
     "STABLE_HELPER_FILE_NAME",
-    "STABLE_OAUTH_TRANSPORT_NAME", "STABLE_ORIGIN_FILE_NAME",
-    "STABLE_RESPONSE_SAFETY_NAME", "STABLE_STORE_FILE_NAME",
+    "STABLE_OAUTH_TRANSPORT_NAME",
+    "STABLE_ORIGIN_FILE_NAME",
+    "STABLE_RESPONSE_SAFETY_NAME",
+    "STABLE_STORE_FILE_NAME",
     "STABLE_SERVICE_PROFILE_PROOF_NAME",
-    "STABLE_TOKEN_CONTRACT_NAME", "install",
-    "GitHubCredentialBundleError", "MAX_HELPER_SOURCE_BYTES",
+    "STABLE_TOKEN_CONTRACT_NAME",
+    "install",
+    "GitHubCredentialBundleError",
+    "MAX_HELPER_SOURCE_BYTES",
 ]

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +10,8 @@ from typing import Any, Mapping, Sequence
 from uuid import uuid4
 
 from yoke_cli.config import machine_config
+from yoke_cli.config.onboard_checklist_files import write_json as _write_json
+from yoke_cli.config.onboard_checklist_files import write_text as _write_text
 from yoke_cli.config.onboard_checklist_model import (
     CHECKLIST_LAYERS,
     CHECKLIST_STATUSES,
@@ -138,23 +139,30 @@ def _new_record(run_id: str) -> dict[str, Any]:
 
 
 def _merge_rows(existing: Any, branch: str) -> list[dict[str, Any]]:
-    existing_by_id = {
-        str(row.get("row_id")): row for row in existing
-        if isinstance(row, dict) and row.get("row_id") in ROW_IDS
-    } if isinstance(existing, list) else {}
+    existing_by_id = (
+        {
+            str(row.get("row_id")): row
+            for row in existing
+            if isinstance(row, dict) and row.get("row_id") in ROW_IDS
+        }
+        if isinstance(existing, list)
+        else {}
+    )
     rows: list[dict[str, Any]] = []
     for spec in ROW_SPECS:
         current = dict(existing_by_id.get(spec.row_id, {}))
-        current.update({
-            "row_id": spec.row_id,
-            "step": spec.step,
-            "phase": spec.title,
-            "label": spec.title,
-            "layer": spec.layer,
-            "owner": spec.owner,
-            "exit_condition": spec.hint,
-            "hint": spec.hint,
-        })
+        current.update(
+            {
+                "row_id": spec.row_id,
+                "step": spec.step,
+                "phase": spec.title,
+                "label": spec.title,
+                "layer": spec.layer,
+                "owner": spec.owner,
+                "exit_condition": spec.hint,
+                "hint": spec.hint,
+            }
+        )
         current.setdefault("status", _default_status(spec.row_id, branch))
         current.setdefault("evidence", "")
         current.setdefault("blocker", "")
@@ -214,7 +222,9 @@ def _parse_assignments(values: Sequence[str], label: str) -> dict[str, str]:
     return parsed
 
 
-def _apply_row_values(rows: list[dict[str, Any]], key: str, values: Mapping[str, str]) -> None:
+def _apply_row_values(
+    rows: list[dict[str, Any]], key: str, values: Mapping[str, str]
+) -> None:
     if not values:
         return
     by_id = {row["row_id"]: row for row in rows}
@@ -251,7 +261,9 @@ def _summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _doctor(record: Mapping[str, Any], record_path: Path, view_path: Path | None) -> dict[str, Any]:
+def _doctor(
+    record: Mapping[str, Any], record_path: Path, view_path: Path | None
+) -> dict[str, Any]:
     summary = record.get("summary") or {}
     blocked = int(summary.get("blocked_row_count") or 0)
     open_count = int(summary.get("open_row_count") or 0)
@@ -267,13 +279,17 @@ def _doctor(record: Mapping[str, Any], record_path: Path, view_path: Path | None
     }
 
 
-def _resolve_view_path(project_root: str | Path | None, view_path: str | Path | None) -> Path | None:
+def _resolve_view_path(
+    project_root: str | Path | None, view_path: str | Path | None
+) -> Path | None:
     if view_path is not None:
         selected = Path(view_path).expanduser()
         if selected.is_absolute():
             return selected
         if project_root is None:
-            raise OnboardChecklistError("--view-path must be absolute without --project-root")
+            raise OnboardChecklistError(
+                "--view-path must be absolute without --project-root"
+            )
         return Path(project_root).expanduser() / selected
     if project_root is None:
         return None
@@ -284,23 +300,12 @@ def _load_record(path: Path) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise OnboardChecklistError(f"cannot read onboarding run {path}: {exc}") from exc
+        raise OnboardChecklistError(
+            f"cannot read onboarding run {path}: {exc}"
+        ) from exc
     if not isinstance(payload, dict) or payload.get("schema") != SCHEMA_NAME:
         raise OnboardChecklistError(f"{path} is not a Yoke onboarding checklist run")
     return payload
-
-
-def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    tmp_path = path.with_name(path.name + ".tmp")
-    tmp_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    tmp_path.chmod(0o600)
-    os.replace(tmp_path, path)
-
-
-def _write_text(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
 
 
 def _normalize_run_id(run_id: str) -> str:
@@ -313,11 +318,13 @@ def _normalize_run_id(run_id: str) -> str:
 
 
 def _new_run_id() -> str:
-    return f"run-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:8]}"
+    return f"run-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{uuid4().hex[:8]}"
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return (
+        datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    )
 
 
 __all__ = [

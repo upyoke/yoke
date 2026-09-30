@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 from dataclasses import replace
 from hashlib import sha256
 import json
@@ -42,7 +44,7 @@ _REPORT_REQUIRED_FIELDS = (*_REPORT_IDENTITY_FIELDS, "result")
 
 def _directory(state_dir: Path | None) -> Path:
     directory = (state_dir or relay_state_dir()) / PENDING_REPORT_DIR_NAME
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(directory)
     directory.chmod(0o700)
     return directory
 

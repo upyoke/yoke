@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import json
 import os
 from contextlib import contextmanager
@@ -72,7 +74,7 @@ def save_state(
     machine_home: str | Path | None = None,
 ) -> Path:
     directory = state_dir(machine_home)
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(directory)
     selected = state_path(machine_home)
     body = dict(payload)
     body["schema_version"] = SCHEMA_VERSION
@@ -93,7 +95,7 @@ def write_env_file(
     machine_home: str | Path | None = None,
 ) -> Path:
     directory = state_dir(machine_home)
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(directory)
     selected = env_path(machine_home)
     lines = [f"{key}={value}" for key, value in sorted(values.items())]
     tmp_path = selected.with_name(selected.name + ".tmp")
