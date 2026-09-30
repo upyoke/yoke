@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import fcntl
 import hashlib
 import os
@@ -71,7 +73,7 @@ class ResidentUnavailable(RuntimeError):
 
 def resident_paths() -> ResidentPaths:
     state_dir = machine_config.cache_dir() / "hook-evaluator"
-    state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(state_dir)
     try:
         state_dir.chmod(0o700)
     except OSError:

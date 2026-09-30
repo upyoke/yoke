@@ -9,6 +9,8 @@ no longer exist, while preserving every unrelated TOML byte.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
@@ -170,7 +172,7 @@ def mint_installed_checkout_trust(
             str(selected), skipped_reason=f"Codex hooks file is absent: {hooks_path}"
         )
     try:
-        selected.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        create_private_directory(selected.parent)
     except OSError as exc:
         raise CodexHookTrustStoreError(f"could not prepare {selected}: {exc}") from exc
     try:

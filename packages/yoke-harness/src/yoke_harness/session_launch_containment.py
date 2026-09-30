@@ -19,6 +19,8 @@ launch handle's job, in :mod:`session_relay_termination`.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import json
 import os
 from pathlib import Path
@@ -40,7 +42,7 @@ MAX_RECORD_BYTES = 4096
 def _directory(state_dir: Path | None = None) -> Path:
     root = state_dir or machine_config.cache_dir()
     directory = root / SUPERVISION_DIRECTORY_NAME
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(directory)
     return directory
 
 

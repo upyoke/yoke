@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import argparse
 import os
 import signal
@@ -322,7 +324,7 @@ def main() -> int:
         sys.stderr.write(lock_invalid_error())
         return 2
     os.set_inheritable(args.lock_fd, True)
-    socket_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(socket_path.parent)
     if not _serve(socket_path, args.lock_fd):
         os.close(args.lock_fd)
         return 0

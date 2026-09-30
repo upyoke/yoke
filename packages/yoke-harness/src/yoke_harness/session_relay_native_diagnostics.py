@@ -8,6 +8,8 @@ nothing has to record a second mapping to find it again.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 from dataclasses import dataclass
 import hashlib
 import os
@@ -112,7 +114,7 @@ def model_combo_rejection_detail(output: bytes) -> str | None:
 def _require_private_directory(path: Path, *, create: bool) -> Path:
     if create:
         try:
-            path.mkdir(mode=0o700, parents=True, exist_ok=True)
+            create_private_directory(path)
         except OSError as exc:
             raise NativeDiagnosticError("diagnostic directory is unavailable") from exc
     try:

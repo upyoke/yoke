@@ -19,6 +19,8 @@ has exactly one resolver here, and no caller recomposes it.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 from pathlib import Path
 
 from yoke_cli.config import machine_config
@@ -30,7 +32,7 @@ NATIVE_HANDLE_DIRECTORY_NAME = "session-native-handles"
 def native_handle_directory() -> Path:
     """The one machine-wide directory every launch handle is written to and read from."""
     directory = machine_config.cache_dir() / NATIVE_HANDLE_DIRECTORY_NAME
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(directory)
     directory.chmod(0o700)
     return directory
 

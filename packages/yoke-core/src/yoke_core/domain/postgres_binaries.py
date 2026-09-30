@@ -19,6 +19,8 @@ fixture releases).
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import platform
 import shutil
 import tarfile
@@ -38,9 +40,7 @@ from yoke_cli.resilient_fetch import (
 #: upstream major.minor plus a build suffix).
 POSTGRES_VERSION = "17.10.0"
 
-RELEASE_BASE_URL = (
-    "https://github.com/theseus-rs/postgresql-binaries/releases/download"
-)
+RELEASE_BASE_URL = "https://github.com/theseus-rs/postgresql-binaries/releases/download"
 
 #: Directory under the machine runtime dir holding fetched engines,
 #: one subdirectory per version.
@@ -63,7 +63,8 @@ class PostgresBinariesError(RuntimeError):
 
 
 def platform_target(
-    system: Optional[str] = None, machine: Optional[str] = None,
+    system: Optional[str] = None,
+    machine: Optional[str] = None,
 ) -> str:
     """Map this host to a release target triple, or raise."""
     sys_name = (system or platform.system()).lower()
@@ -83,7 +84,10 @@ def release_asset_name(version: str, target: str) -> str:
 
 
 def release_asset_url(
-    version: str, target: str, *, base_url: str = RELEASE_BASE_URL,
+    version: str,
+    target: str,
+    *,
+    base_url: str = RELEASE_BASE_URL,
 ) -> str:
     return f"{base_url}/{version}/{release_asset_name(version, target)}"
 
@@ -128,7 +132,7 @@ def fetch_binaries(
     resolved_target = target or platform_target()
     url = release_asset_url(version, resolved_target, base_url=base_url)
     dest = version_dir(version)
-    dest.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(dest.parent)
     staging = Path(tempfile.mkdtemp(prefix=".fetch-", dir=dest.parent))
     try:
         tarball = staging / release_asset_name(version, resolved_target)
@@ -152,7 +156,10 @@ def fetch_binaries(
 
 
 def _download(
-    url: str, dest: Path, *, expected_sha256: str,
+    url: str,
+    dest: Path,
+    *,
+    expected_sha256: str,
 ) -> FetchResult:
     try:
         return fetch_file(

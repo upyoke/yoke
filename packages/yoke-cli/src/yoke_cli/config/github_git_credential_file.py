@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+if __package__:
+    from yoke_contracts.machine_config.directories import create_private_directory
+else:
+    from _yoke_private_directories import create_private_directory
+
 from contextlib import contextmanager
 import fcntl
 import json
@@ -14,10 +19,7 @@ from typing import Any, Iterator, Mapping
 
 
 MAX_CREDENTIAL_DOCUMENT_BYTES = 64 * 1024
-# Waiters queue politely for the credential lock instead of blocking forever:
-# every holder does bounded work (one refresh exchange at most), so a wait this
-# long means the machine is contended, which is a retryable answer a caller can
-# report rather than a hang a caller cannot.
+# One refresh exchange per holder; a bounded wait reports retryable contention.
 CREDENTIAL_LOCK_WAIT_SECONDS = 20.0
 _LOCK_POLL_SECONDS = 0.05
 _LOCK_POLL_MAX_SECONDS = 0.5
@@ -93,7 +95,7 @@ def write_json_document(path: str | Path, payload: Mapping[str, Any]) -> Path:
         raise CredentialFileError(
             "GitHub App credential document is too large; reconnect GitHub"
         )
-    selected.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(selected.parent)
     _assert_secure_parent(selected.parent)
     descriptor, raw_tmp = tempfile.mkstemp(
         prefix=f".{selected.name}.", suffix=".tmp", dir=selected.parent
@@ -191,7 +193,7 @@ def exclusive_lock(
     selected = Path(path).expanduser()
     selected_lock_path = lock_path(selected)
     try:
-        selected.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        create_private_directory(selected.parent)
         _assert_secure_parent(selected.parent)
         flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
         descriptor = os.open(selected_lock_path, flags, 0o600)

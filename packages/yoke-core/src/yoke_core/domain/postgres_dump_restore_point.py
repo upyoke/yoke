@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import os
 import re
 import stat
@@ -93,7 +95,7 @@ def _ensure_private_directory(backup_dir: Path) -> None:
         raise RuntimeError(
             f"Postgres backup directory must not be a symlink: {backup_dir}"
         )
-    backup_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(backup_dir)
     if backup_dir.is_symlink() or not backup_dir.is_dir():
         raise RuntimeError(
             f"Postgres backup path is not a private directory: {backup_dir}"

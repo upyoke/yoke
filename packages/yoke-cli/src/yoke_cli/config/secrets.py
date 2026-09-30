@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import os
 import sys
 from pathlib import Path
@@ -48,7 +50,7 @@ def replace_secret_file(path: str | Path, label: str, secret: str) -> Path:
     if not value:
         raise MachineSecretError(f"{label} is empty")
     selected = Path(path).expanduser()
-    selected.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(selected.parent)
     _write_secret(selected, value)
     return selected
 
@@ -63,8 +65,7 @@ def secret_path_no_create(name: str, suffix: str) -> Path:
 
 def _secret_path(name: str, suffix: str, *, create_parent: bool) -> Path:
     safe = "".join(
-        char if char.isalnum() or char in "._-" else "_"
-        for char in name.strip()
+        char if char.isalnum() or char in "._-" else "_" for char in name.strip()
     ).strip("._-")
     if not safe:
         raise MachineSecretError("secret name must include a filesystem-safe label")
@@ -78,7 +79,7 @@ def _secret_path(name: str, suffix: str, *, create_parent: bool) -> Path:
 
 def secrets_dir() -> Path:
     directory = machine_config.yoke_home() / contract.SECRETS_DIR_NAME
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(directory)
     return directory
 
 

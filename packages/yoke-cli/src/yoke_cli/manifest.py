@@ -14,6 +14,8 @@ registry is the authority there.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import json
 import time
 import urllib.request
@@ -184,7 +186,7 @@ def _stale(path: Path) -> bool:
 
 def _write_cache(path: Path, manifest: Dict[str, Any]) -> None:
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        create_private_directory(path.parent)
         path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
     except OSError:
         return

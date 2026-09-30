@@ -23,6 +23,8 @@ package manager they did not have.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import os
 import platform
 import shutil
@@ -193,7 +195,7 @@ def provision_managed_toolchain(
     name = f"node-{version}-{slug}.tar.gz"
     url = f"{base_url}/{version}/{name}"
     destination = managed_version_dir(version)
-    destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(destination.parent)
     staging = Path(tempfile.mkdtemp(prefix=".fetch-", dir=destination.parent))
     try:
         archive = staging / name
@@ -276,8 +278,7 @@ def _download(url: str, destination: Path, *, expected_sha256: str) -> None:
         )
     except FetchVerificationError as exc:
         raise NodeToolchainError(
-            f"the downloaded Node.js release did not match its pinned "
-            f"checksum: {exc}",
+            f"the downloaded Node.js release did not match its pinned checksum: {exc}",
             code=DIGEST_MISMATCH_CODE,
             recovery=(
                 "nothing was installed; rerun `yoke qa browser setup` in case "

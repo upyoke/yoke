@@ -20,6 +20,8 @@ count) is covered by that one comparison.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import io
 import tarfile
 import tempfile
@@ -101,9 +103,7 @@ def pack_universe_archive(
     """
     receipt_bytes = (json_helper.dumps_pretty(receipt) + "\n").encode("utf-8")
     try:
-        output = universe_archive_output.prepare_private_archive_output(
-            destination
-        )
+        output = universe_archive_output.prepare_private_archive_output(destination)
     except universe_archive_output.PrivateArchiveOutputError as exc:
         raise UniverseArchiveError(str(exc)) from exc
     try:
@@ -151,20 +151,23 @@ def unpack_universe_archive(
         raise UniverseArchiveError(
             "the portable universe artifact is not a regular file"
         )
-    work_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(work_dir)
     try:
         with tarfile.open(archive, mode="r:") as reader:
             members: dict[str, tarfile.TarInfo] = {}
             for member in reader:
                 if member.name in members:
                     raise UniverseArchiveError(
-                        "the universe archive repeats a member: "
-                        f"{member.name}"
+                        f"the universe archive repeats a member: {member.name}"
                     )
-                if member.name not in (
-                    ARCHIVE_MEMBER_DUMP,
-                    ARCHIVE_MEMBER_RECEIPT,
-                ) or not member.isreg():
+                if (
+                    member.name
+                    not in (
+                        ARCHIVE_MEMBER_DUMP,
+                        ARCHIVE_MEMBER_RECEIPT,
+                    )
+                    or not member.isreg()
+                ):
                     raise UniverseArchiveError(
                         "the universe archive holds an unexpected member; "
                         f"expected exactly {ARCHIVE_MEMBER_DUMP} and "
@@ -201,9 +204,7 @@ def unpacked_universe_archive(
     max_dump_bytes: int,
 ) -> Iterator[tuple[Path, dict[str, Any]]]:
     """Yield ``(dump_path, receipt)`` from a private temporary directory."""
-    with tempfile.TemporaryDirectory(
-        prefix="yoke-universe-archive-"
-    ) as work_dir:
+    with tempfile.TemporaryDirectory(prefix="yoke-universe-archive-") as work_dir:
         yield unpack_universe_archive(
             archive,
             Path(work_dir),
@@ -234,9 +235,7 @@ def verify_receipt_binds_dump(
     expected_sha = str(binding.get("sha256") or "")
     expected_bytes = binding.get("bytes")
     if len(expected_sha) != 64 or not isinstance(expected_bytes, int):
-        raise UniverseArchiveError(
-            "the universe archive receipt binding is malformed"
-        )
+        raise UniverseArchiveError("the universe archive receipt binding is malformed")
     actual_bytes = dump.stat().st_size
     actual_sha = file_sha256(dump)
     if actual_sha != expected_sha or actual_bytes != expected_bytes:

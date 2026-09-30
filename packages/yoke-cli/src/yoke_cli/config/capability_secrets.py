@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import os
 from pathlib import Path
 
@@ -86,7 +88,7 @@ def ensure_private_capability_dir(directory: Path) -> Path:
     readable through a loose parent.
     """
     _refuse_unisolated_test_write(directory)
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(directory)
     _chmod_private_dirs(directory)
     return directory
 

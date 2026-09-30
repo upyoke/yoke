@@ -41,6 +41,8 @@ in, which is what keeps the rate honest when a harness is added.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import json
 import os
 from pathlib import Path
@@ -170,7 +172,7 @@ def _append_bounded(
 ) -> None:
     try:
         path = resolve_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
+        create_private_directory(path.parent)
         room = cap - _record_count(path, cap)
         if room <= 0:
             return

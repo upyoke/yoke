@@ -12,6 +12,8 @@ the one thing that is certainly untrue.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import json
@@ -129,7 +131,7 @@ def _write_cache(document: Mapping[str, Any], state_dir: Path | None) -> None:
     path = _cache_path(state_dir)
     if path is None:
         return
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(path.parent)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(document, sort_keys=True), encoding="utf-8")
     temporary.chmod(0o600)

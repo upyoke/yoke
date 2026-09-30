@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 from dataclasses import dataclass
 import json
 from pathlib import Path
@@ -58,7 +60,7 @@ def _read_cache(state_dir: Path | None = None) -> dict[str, object]:
 
 def _write_cache(document: Mapping[str, object], state_dir: Path | None) -> None:
     path = _cache_path(state_dir)
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(path.parent)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(document, sort_keys=True), encoding="utf-8")
     temporary.chmod(0o600)

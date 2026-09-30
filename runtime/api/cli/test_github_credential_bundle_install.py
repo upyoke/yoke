@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -14,6 +16,25 @@ from yoke_cli.config import github_git_credential_launcher
 from yoke_cli.config import github_git_credential_store
 from yoke_cli.config import github_git_credentials, github_response_safety
 from yoke_contracts import github_app_tokens, github_origin
+from yoke_contracts.machine_config import directories
+
+
+def test_installed_bundle_loads_private_directory_writer_without_packages(
+    tmp_path: Path,
+):
+    helper = github_git_credentials.install_stable_helper(tmp_path / "site")
+    bundle = github_git_credential_launcher.selected_bundle(helper.parent)
+    shipped = bundle / github_git_credential_launcher.BUNDLE_PRIVATE_DIRECTORIES_NAME
+    assert shipped.read_bytes() == Path(directories.__file__).read_bytes()
+    result = subprocess.run(
+        [sys.executable, "-I", "-S", str(helper), "store"],
+        input="",
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def _next_sources(tmp_path: Path) -> list[tuple[Path, str]]:
@@ -27,7 +48,8 @@ def _next_sources(tmp_path: Path) -> list[tuple[Path, str]]:
 
 
 def test_helper_bundle_failure_keeps_old_entrypoint_and_pointer(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     site = tmp_path / "site"
     helper = github_git_credentials.install_stable_helper(site)
@@ -37,7 +59,9 @@ def test_helper_bundle_failure_keeps_old_entrypoint_and_pointer(
     real_write = github_git_credential_bundle._write_unpublished_source
     sources = _next_sources(tmp_path)
     monkeypatch.setattr(
-        github_git_credential_bundle, "_bundle_sources", lambda: tuple(sources),
+        github_git_credential_bundle,
+        "_bundle_sources",
+        lambda: tuple(sources),
     )
 
     def fail_before_store(source: Path, target: Path) -> None:
@@ -54,20 +78,23 @@ def test_helper_bundle_failure_keeps_old_entrypoint_and_pointer(
         github_git_credentials.install_stable_helper(site)
     assert helper.read_bytes() == old_entrypoint
     assert pointer.read_bytes() == old_pointer
-    assert not list((site / github_git_credential_launcher.BUNDLE_ROOT_NAME).glob(
-        ".bundle-*"
-    ))
+    assert not list(
+        (site / github_git_credential_launcher.BUNDLE_ROOT_NAME).glob(".bundle-*")
+    )
 
 
 def test_pointer_switch_before_launcher_failure_selects_complete_new_bundle(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     site = tmp_path / "site"
     github_git_credentials.install_stable_helper(site)
     old_bundle = github_git_credential_launcher.selected_bundle(site)
     sources = _next_sources(tmp_path)
     monkeypatch.setattr(
-        github_git_credential_bundle, "_bundle_sources", lambda: tuple(sources),
+        github_git_credential_bundle,
+        "_bundle_sources",
+        lambda: tuple(sources),
     )
     monkeypatch.setattr(
         github_git_credential_bundle,
@@ -90,10 +117,12 @@ def test_concurrent_helper_bundle_installs_publish_complete_sources(
 ) -> None:
     site = tmp_path / "site"
     with ThreadPoolExecutor(max_workers=4) as pool:
-        paths = list(pool.map(
-            lambda _index: github_git_credentials.install_stable_helper(site),
-            range(8),
-        ))
+        paths = list(
+            pool.map(
+                lambda _index: github_git_credentials.install_stable_helper(site),
+                range(8),
+            )
+        )
     assert len(set(paths)) == 1
     expected = {
         github_git_credentials.STABLE_ORIGIN_FILE_NAME: Path(github_origin.__file__),
@@ -116,13 +145,15 @@ def test_concurrent_helper_bundle_installs_publish_complete_sources(
     bundle = github_git_credential_launcher.selected_bundle(site)
     for name, source in expected.items():
         assert (bundle / name).read_bytes() == source.read_bytes()
-    assert paths[0].read_bytes() == Path(
-        github_git_credential_launcher.__file__
-    ).read_bytes()
+    assert (
+        paths[0].read_bytes()
+        == Path(github_git_credential_launcher.__file__).read_bytes()
+    )
 
 
 def test_refresh_installed_helper_upgrades_legacy_store_bundle(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     site = tmp_path / "site"
     site.mkdir()

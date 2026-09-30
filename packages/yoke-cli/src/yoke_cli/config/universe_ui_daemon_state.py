@@ -16,6 +16,8 @@ never reaches the daemon record, and never reaches a log.
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
@@ -58,7 +60,7 @@ class UiDaemonRecord:
 
 def state_dir() -> Path:
     directory = machine_config.yoke_home() / UI_STATE_DIR_NAME
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(directory)
     return directory
 
 
@@ -126,14 +128,20 @@ def write_record(
     supervised: bool,
 ) -> None:
     """Publish the serving process's own identity. Never carries the token."""
-    _write_private(record_path(), json.dumps({
-        "pid": int(pid),
-        "host": host,
-        "port": int(port),
-        "env": env,
-        "started_at": _now_iso(),
-        "supervised": bool(supervised),
-    }, sort_keys=True))
+    _write_private(
+        record_path(),
+        json.dumps(
+            {
+                "pid": int(pid),
+                "host": host,
+                "port": int(port),
+                "env": env,
+                "started_at": _now_iso(),
+                "supervised": bool(supervised),
+            },
+            sort_keys=True,
+        ),
+    )
 
 
 def clear_record() -> None:

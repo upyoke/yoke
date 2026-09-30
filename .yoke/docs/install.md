@@ -10,6 +10,12 @@ Prerequisites: a shell, `curl`, and `uv` (the installer can install `uv` with
 consent). You are not asked to bring your own Python. Native Windows is
 unsupported; WSL follows the Linux path.
 
+Yoke creates `~/.yoke` and missing private state and secret directories with
+mode `0700`, including when the shell uses umask `002`. Existing directories
+keep their permissions. If the machine-config lock refuses a group- or
+world-writable `~/.yoke`, run `chmod 700 ~/.yoke` and retry. For a custom machine
+home, use the exact directory and `chmod` command named in the refusal.
+
 ## Onboard wizard
 
 `yoke onboard` is a full-screen wizard:

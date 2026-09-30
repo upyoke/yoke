@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 import os
 import json
 from dataclasses import dataclass
@@ -158,7 +160,9 @@ class ApplyReportWriter:
         self.write()
 
     def step_outcome(
-        self, step_id: str, detail: Mapping[str, Any],
+        self,
+        step_id: str,
+        detail: Mapping[str, Any],
     ) -> None:
         """Mark one step done and attach what it actually did."""
         step = self._steps.get(str(step_id))
@@ -183,7 +187,7 @@ class ApplyReportWriter:
     def write(self) -> None:
         onboard_checkout_ownership.refresh_snapshot(self.payload.get("input_snapshot"))
         try:
-            self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            create_private_directory(self.path.parent)
             tmp_path = self.path.with_name(self.path.name + ".tmp")
             serialized = json.dumps(self.payload, indent=2, sort_keys=True) + "\n"
             tmp_path.write_text(serialized, encoding="utf-8")

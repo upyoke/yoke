@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.directories import create_private_directory
+
 from dataclasses import dataclass
 import os
 from pathlib import Path
@@ -152,7 +154,7 @@ def _run(
 
 
 def _write_plist(path: Path, document: dict[str, object]) -> None:
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(path.parent)
     temporary = path.with_suffix(".tmp")
     temporary.write_bytes(plistlib.dumps(document, sort_keys=True))
     temporary.chmod(0o600)
@@ -251,7 +253,7 @@ def install_relay_launchd(
         )
     except relay_legacy.LegacyRelayError as exc:
         raise RelayInstallError(str(exc)) from exc
-    paths.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(paths.state_dir)
     target = launchd_target(paths.label, uid)
 
     def run(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
