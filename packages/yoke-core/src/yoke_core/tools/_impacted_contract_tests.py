@@ -265,6 +265,7 @@ PATH_CONTRACT_TESTS = (
                 "packages/yoke-core/src/yoke_core/engines/done_transition_cleanup.py",
                 "packages/yoke-core/src/yoke_core/engines/done_transition_github_sync.py",
                 "packages/yoke-core/src/yoke_core/engines/done_transition_runner.py",
+                "packages/yoke-core/src/yoke_core/domain/gate_satisfier_item_facts.py",
             }
         ),
         DONE_TRANSITION_CLOSE_OUT_TESTS,
