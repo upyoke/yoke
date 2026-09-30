@@ -25,6 +25,7 @@ from runtime.api.fixtures.qa_declared_replacement_fixture import (
 )
 from runtime.api.domain.test_deployment_run_auto_completion import _held_lock
 from runtime.api.domain.test_status_transition_preflight import _isolate_status_effects
+from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.qa_deployment_case_content_refresh import (
     declare_refreshed_replacements,
@@ -39,6 +40,7 @@ from yoke_core.domain.qa_requirement_replacement import (
     QaReplacementError,
     declare_existing_replacement,
 )
+from yoke_core.domain.qa_run_verdict_record import insert_qa_run
 
 MEMBER = 9811
 
@@ -272,7 +274,18 @@ def test_deployment_replacement_requires_fail_or_error_verdict(
     run_id = "run-replacement-verdict-refusal"
     failed_id = seed_member_qa_case(test_db, run_id=run_id, member_item_id=MEMBER)
     if verdict is not None:
-        record_case_verdict(test_db, failed_id, verdict, evidence=True)
+        insert_qa_run(
+            test_db,
+            qa_requirement_id=failed_id,
+            performed_by="worktree_run",
+            qa_kind="plan_case",
+            verdict=verdict,
+            verdict_reason="Capture could not be judged"
+            if verdict == "undetermined"
+            else None,
+            created_at=iso8601_now(),
+        )
+        test_db.commit()
     corrected_id = corrected_case(test_db, failed_id=failed_id, case_key="smoke-fixed")
     reason = (
         "already passed"
