@@ -67,6 +67,14 @@ class FleetLineClassifier:
         self._held = []
         self._in_report = False
 
+    def has_open_block(self) -> bool:
+        """Whether a report block is open and still receiving lines.
+
+        A periodic progress-stall check asks this before it flushes: a
+        block mid-arrival is progress in flight, not an abandoned one.
+        """
+        return self._in_report and bool(self._held)
+
     def flush_held(self, *, partial: bool = False) -> str | None:
         """Return a closed or abandoned report block as one progress write.
 
