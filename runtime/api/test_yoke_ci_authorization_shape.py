@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from yoke_core.domain.yaml_helper import load_document
 from yoke_core.tools import ci_shards
 from yoke_core.engines.doctor_hc_branch_protection import (
@@ -59,6 +61,29 @@ def test_declared_required_contexts_match_workflow_jobs() -> None:
     for context in EXPECTED_CHECKS:
         assert context_matches_job(context, job_names), context
     assert orphan_required_contexts(EXPECTED_CHECKS, job_names) == ()
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        "    name: named-check\n    timeout-minutes: 5\n",
+        "    timeout-minutes: 5\n    name: named-check\n",
+        "    runs-on: ubuntu-latest\n    timeout-minutes: 5\n    name: named-check\n",
+    ],
+)
+def test_workflow_job_names_ignore_field_order(tmp_path, fields) -> None:
+    (tmp_path / "checks.yml").write_text(
+        "name: workflow-name\njobs:\n  check_job:\n"
+        + fields
+        + "    env:\n      name: environment-name\n"
+        "    steps:\n      - name: step-name\n        run: echo checked\n",
+        encoding="utf-8",
+    )
+
+    names = workflow_job_names(tmp_path)
+
+    assert names == ("check_job", "named-check")
+    assert orphan_required_contexts(("named-check",), names) == ()
 
 
 def test_reuse_coverage_runs_on_merge_group_as_well_as_main_push() -> None:
@@ -137,9 +162,7 @@ def test_every_required_context_reports_on_the_reuse_skip_path() -> None:
             ):
                 assert "skip_suite" not in condition, context
             else:
-                assert (
-                    not condition or "skip_suite" in condition
-                ), context
+                assert not condition or "skip_suite" in condition, context
 
 
 def test_a_matrix_job_carries_the_reuse_verdict_on_its_steps() -> None:
@@ -174,9 +197,7 @@ def test_a_matrix_job_carries_the_reuse_verdict_on_its_steps() -> None:
 
 def test_long_work_jobs_use_cancellation_aware_conditions() -> None:
     jobs = _yoke_ci()["jobs"]
-    contracts_ok = (
-        "${{ !cancelled() && needs.repo_contracts.result == 'success' }}"
-    )
+    contracts_ok = "${{ !cancelled() && needs.repo_contracts.result == 'success' }}"
     assert " ".join(str(jobs["test_shard"]["if"]).split()) == contracts_ok
     assert " ".join(str(jobs["browser_runtime"]["if"]).split()) == contracts_ok
     assert " ".join(str(jobs["container"]["if"]).split()) == (

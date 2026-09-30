@@ -1,8 +1,8 @@
 # Testing and Verification
 
-Yoke presents QA as test plans, methods, capabilities, and readable outcomes.
-Requirements, runs, and artifacts remain execution records created by Yoke and
-its harnesses.
+QA uses test plans, methods, capabilities, and readable outcomes. Requirements, runs, and artifacts remain execution records created by Yoke and its harnesses.
+
+CI limits and recovery: [CI job timeouts](testing-verification/ci-job-timeouts.md).
 
 ## Methods
 

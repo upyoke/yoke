@@ -58,6 +58,7 @@ permissions: {}
 
 jobs:
   build:
+    timeout-minutes: 5
     name: build
     permissions:
       contents: read
@@ -127,6 +128,7 @@ jobs:
           overwrite: true
 
   attest:
+    timeout-minutes: 5
     name: attest-validated-release-provenance
     needs: build
     if: >-

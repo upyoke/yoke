@@ -61,6 +61,7 @@ permissions:
 
 jobs:
   plan:
+    timeout-minutes: 5
     name: plan
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     outputs:
@@ -107,6 +108,7 @@ jobs:
           --pytest-args="$SELECTION_PYTEST_ARGS"
 
   selection:
+    timeout-minutes: 20
     name: selection (shard ${{ matrix.shard }})
     needs: plan
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
