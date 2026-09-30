@@ -33,6 +33,7 @@ from yoke_cli.commands.adapters.deployment_run_create import (
 )
 from yoke_cli.commands.adapters.deployment_run_membership import (
     ADD_ITEM_USAGE,
+    REMOVE_ITEM_USAGE,
     VALIDATE_COMPOSITION_USAGE,
 )
 from yoke_cli.commands.adapters.deployment_run_terminalize import (
@@ -55,15 +56,14 @@ DEPLOYMENT_USAGE = {
     "deployment_flows.list": DEPLOYMENT_FLOWS_LIST_USAGE,
     "deployment_flows.set_status": DEPLOYMENT_FLOWS_SET_STATUS_USAGE,
     "deployment_flows.stages": DEPLOYMENT_FLOWS_STAGES_USAGE,
-    "deployment_runs.carried_work.repair": (
-        DEPLOYMENT_RUNS_CARRIED_WORK_REPAIR_USAGE
-    ),
+    "deployment_runs.carried_work.repair": (DEPLOYMENT_RUNS_CARRIED_WORK_REPAIR_USAGE),
     "deployment_runs.release_output.record": (
         DEPLOYMENT_RUNS_RELEASE_OUTPUT_RECORD_USAGE
     ),
     "merge_receipt.commits.attest": MERGE_RECEIPT_COMMITS_ATTEST_USAGE,
     "deployment_runs.create": DEPLOYMENT_RUNS_CREATE_USAGE,
     "deployment_runs.add_item": ADD_ITEM_USAGE,
+    "deployment_runs.remove_item": REMOVE_ITEM_USAGE,
     "deployment_runs.approve": DEPLOYMENT_RUNS_APPROVE_USAGE,
     "deployment_runs.stage_approval.evaluate": (
         DEPLOYMENT_RUNS_STAGE_APPROVAL_EVALUATE_USAGE
@@ -76,9 +76,7 @@ DEPLOYMENT_USAGE = {
     "deployment_runs.update": DEPLOYMENT_RUNS_UPDATE_USAGE,
     "deployment_runs.terminalize": DEPLOYMENT_RUNS_TERMINALIZE_USAGE,
     "deployment_runs.validate_composition": VALIDATE_COMPOSITION_USAGE,
-    "deployment_runs.resolve_target": (
-        DEPLOYMENT_RUNS_RESOLVE_TARGET_USAGE
-    ),
+    "deployment_runs.resolve_target": (DEPLOYMENT_RUNS_RESOLVE_TARGET_USAGE),
 }
 
 

@@ -76,19 +76,29 @@ def _stages(*, with_qa: bool) -> str:
 def _run(conn: Any, *, flow: str = QA_FLOW) -> None:
     stage_environment(conn)
     cmd_create(
-        conn, QA_FLOW, "yoke", "Release with item QA", "",
-        _stages(with_qa=True), status="disabled",
+        conn,
+        QA_FLOW,
+        "yoke",
+        "Release with item QA",
+        "",
+        _stages(with_qa=True),
+        status="disabled",
     )
     cmd_create(
-        conn, NO_QA_FLOW, "yoke", "Release without item QA", "",
-        _stages(with_qa=False), status="disabled",
+        conn,
+        NO_QA_FLOW,
+        "yoke",
+        "Release without item QA",
+        "",
+        _stages(with_qa=False),
+        status="disabled",
     )
     insert_item(
         conn,
         id=ITEM_ID,
         project_sequence=ITEM_ID,
         workflow_id="dash",
-        status="implementing",
+        status="release",
         deployment_flow=flow,
     )
     insert_run(conn, RUN_ID, lineage=LINEAGE, status="created", flow=flow)
@@ -103,9 +113,7 @@ def _run(conn: Any, *, flow: str = QA_FLOW) -> None:
 
 
 def _release_stage(conn: Any) -> str:
-    return str(
-        delivery_redirect_stage(load_item_workflow_runtime(conn, ITEM_ID))
-    )
+    return str(delivery_redirect_stage(load_item_workflow_runtime(conn, ITEM_ID)))
 
 
 def _obligation(conn: Any, **overrides: Any) -> int:
@@ -155,15 +163,15 @@ def test_a_silent_membership_selects_the_items_outstanding_obligations(test_db):
 def test_a_waived_or_run_bound_row_is_not_an_outstanding_obligation(test_db):
     _run(test_db)
     live = _obligation(test_db, target_env=TARGET_ENVIRONMENT)
-    _obligation(test_db, target_env=TARGET_ENVIRONMENT, waived_at="2026-09-18T00:00:00Z")
+    _obligation(
+        test_db, target_env=TARGET_ENVIRONMENT, waived_at="2026-09-18T00:00:00Z"
+    )
     _obligation(test_db, item_id=None, deployment_run_id=RUN_ID)
 
     admit_run_item(test_db, run_id=RUN_ID, item_id=ITEM_ID)
 
     assert _stored_selection(test_db) is None
-    admitted, _ = post_deploy_admission_split(
-        test_db, run_id=RUN_ID, item_id=ITEM_ID
-    )
+    admitted, _ = post_deploy_admission_split(test_db, run_id=RUN_ID, item_id=ITEM_ID)
     assert admitted == (live,)
 
 
@@ -172,9 +180,7 @@ def test_an_explicit_selection_is_used_verbatim(test_db):
     chosen = _obligation(test_db, target_env=TARGET_ENVIRONMENT)
     _obligation(test_db, target_env=TARGET_ENVIRONMENT)
 
-    admit_run_item(
-        test_db, run_id=RUN_ID, item_id=ITEM_ID, requirement_ids=(chosen,)
-    )
+    admit_run_item(test_db, run_id=RUN_ID, item_id=ITEM_ID, requirement_ids=(chosen,))
 
     assert _stored_selection(test_db)["requirement_ids"] == [chosen]
 
@@ -202,9 +208,7 @@ def test_an_obligation_no_stage_targets_is_named_rather_than_dropped(test_db):
 
     notice = unadmitted_post_deploy_notice(test_db, RUN_ID)
 
-    admitted, _ = post_deploy_admission_split(
-        test_db, run_id=RUN_ID, item_id=ITEM_ID
-    )
+    admitted, _ = post_deploy_admission_split(test_db, run_id=RUN_ID, item_id=ITEM_ID)
     assert admitted == ()
     assert f"#{unreachable}" in notice
     assert "target_env=production" in notice
@@ -291,9 +295,7 @@ def test_an_explicit_selection_is_not_widened_by_the_freeze(test_db):
     """A list somebody chose stays the list they chose."""
     _run(test_db)
     chosen = _obligation(test_db, target_env=TARGET_ENVIRONMENT)
-    admit_run_item(
-        test_db, run_id=RUN_ID, item_id=ITEM_ID, requirement_ids=(chosen,)
-    )
+    admit_run_item(test_db, run_id=RUN_ID, item_id=ITEM_ID, requirement_ids=(chosen,))
     _obligation(test_db, target_env=TARGET_ENVIRONMENT)
 
     freeze_run_composition(test_db, RUN_ID)

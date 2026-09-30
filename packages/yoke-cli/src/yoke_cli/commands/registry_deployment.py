@@ -107,6 +107,10 @@ DEPLOYMENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "deployment_runs.add_item",
         _membership.deployment_runs_add_item,
     ),
+    ("deployment-runs", "remove-item"): (
+        "deployment_runs.remove_item",
+        _membership.deployment_runs_remove_item,
+    ),
     ("deployment-runs", "validate-composition"): (
         "deployment_runs.validate_composition",
         _membership.deployment_runs_validate_composition,

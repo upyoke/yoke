@@ -160,6 +160,17 @@ def inherited_frozen_membership(conn: Any, run_id: str) -> bool:
     return bool(row and int(_cell(row, "count", 0) or 0))
 
 
+#: Delivery policies whose items a release run delivers as members.
+RELEASE_MEMBERSHIP_POLICIES = frozenset(
+    {
+        "release_stage",
+        "continuous_slice_actions",
+        "after_merge_action",
+        WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
+    }
+)
+
+
 def item_requires_release_membership(conn: Any, item_id: int) -> bool:
     row = conn.execute(
         f"SELECT status FROM items WHERE id={_p(conn)}",
@@ -175,12 +186,7 @@ def item_requires_release_membership(conn: Any, item_id: int) -> bool:
         # the environment under this run's pinned release lineage
         # instead. Listing it would demand an attach that cannot happen.
         return False
-    if str(runtime.policies.get("delivery")) not in {
-        "release_stage",
-        "continuous_slice_actions",
-        "after_merge_action",
-        WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
-    }:
+    if str(runtime.policies.get("delivery")) not in RELEASE_MEMBERSHIP_POLICIES:
         return False
     from yoke_core.domain.workflow_delivery_binding_validation import (
         delivery_ready_for_stage,

@@ -101,9 +101,7 @@ def _carried_landing(
     record_landing_receipt(conn, LANDED_ITEM_ID, branch=ref, tip=landing)
     stage_environment(conn)
     for flow in (CARRIER_FLOW, HOLDER_FLOW):
-        cmd_create(
-            conn, flow, "yoke", flow, "", RELEASE_STAGES, status="disabled"
-        )
+        cmd_create(conn, flow, "yoke", flow, "", RELEASE_STAGES, status="disabled")
     insert_run(
         conn, "run-previous", lineage=baseline, status="succeeded", flow=CARRIER_FLOW
     )
@@ -140,9 +138,7 @@ def test_a_landing_a_live_run_holds_is_skipped_rather_than_refused(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The reported failure: creation rejected over a member of a live run."""
-    ref = _carried_landing(
-        test_db, tmp_path, monkeypatch, item_flow=HOLDER_FLOW
-    )
+    ref = _carried_landing(test_db, tmp_path, monkeypatch, item_flow=HOLDER_FLOW)
     _holder(test_db, "run-live", status="executing")
     # Proves the carried range really does propose it, so the exclusion below
     # is what leaves it out rather than an accident of the comparison.
@@ -156,7 +152,7 @@ def test_a_landing_a_live_run_holds_is_skipped_rather_than_refused(
     assert custody.enrollable == ()
     assert ok is True, message
     assert _members(test_db) == []
-    assert "Skipped 1 delivery-ready item(s)" in message
+    assert "Skipped 1 carried item(s)" in message
     assert f"{ref} held by run-live (executing)" in message
     assert "no authority to close" not in message
 
@@ -165,9 +161,7 @@ def test_an_unheld_member_on_another_flow_is_still_refused(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The narrowing must not retire the refusal it narrows."""
-    ref = _carried_landing(
-        test_db, tmp_path, monkeypatch, item_flow=HOLDER_FLOW
-    )
+    ref = _carried_landing(test_db, tmp_path, monkeypatch, item_flow=HOLDER_FLOW)
 
     ok, message = cmd_validate_composition("run-candidate")
 
@@ -179,9 +173,7 @@ def test_a_landing_only_a_terminal_run_named_is_composed_normally(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A cancelled run holds nothing, so its landing is this release's to take."""
-    ref = _carried_landing(
-        test_db, tmp_path, monkeypatch, item_flow=CARRIER_FLOW
-    )
+    ref = _carried_landing(test_db, tmp_path, monkeypatch, item_flow=CARRIER_FLOW)
     _holder(test_db, "run-cancelled", status="cancelled", flow=CARRIER_FLOW)
 
     enrolled = enroll_carried_members(test_db, "run-candidate")

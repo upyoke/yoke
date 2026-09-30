@@ -18,7 +18,9 @@ a command in a checkout, and some of those commands read the repository; a
 verdict collected from a tree that is not the candidate cannot speak for the
 candidate's code, and saying nothing about it is how a silent pass happens.
 So the tree comparison is not removed but re-pointed: the authority is the
-run's own candidate revision, which the execution target records. A checkout
+revision the run shipped for the case's own project -- its release lineage,
+or, for a member of a project the run binds, the source it recorded for that
+project. A checkout
 sitting at that revision needs no flag, which is the ordinary case for an
 owner supplying evidence right after the release. A checkout that has moved
 is refused and names both revisions, with ``--allow-tree-mismatch`` reserved
@@ -63,7 +65,17 @@ def session_lane_binds_case(case: Mapping[str, Any]) -> bool:
 
 
 def candidate_revision(case: Mapping[str, Any]) -> str:
-    """The revision this run deployed, as its execution target recorded it."""
+    """The revision this run shipped for the case's own project.
+
+    A run carries one commit per project: its own lineage, plus the source it
+    bound for each other project. A member of a bound project is checked out
+    in that project's repository, so its checkout answers to the bound
+    commit the server names as ``deployment_source_revision``. A server that
+    predates that field leaves only the run's own lineage to compare against.
+    """
+    source = str(case.get("deployment_source_revision") or "").strip()
+    if source:
+        return source
     target = case.get("execution_target")
     target = target if isinstance(target, Mapping) else {}
     deployment = target.get("deployment")
@@ -130,8 +142,10 @@ def evaluate_deployment_binding(
                 "covers. No claimed worktree binds it."
             )
         )
+    project = str(case.get("project") or "").strip()
+    shipped = f"{project} at {candidate[:_SHORT]}" if project else candidate[:_SHORT]
     divergence = (
-        f"{subject} deployed candidate {candidate[:_SHORT]}, but this run "
+        f"{subject} deployed {shipped}, but this run "
         f"would execute in '{tree}', which is at {head_sha[:_SHORT]}"
     )
     if allow_mismatch:

@@ -63,6 +63,9 @@ from yoke_core.domain.deployment_run_composition_freeze import (
 from yoke_core.domain.deployment_run_composition_guard import (
     has_frozen_composition,
 )
+from yoke_core.domain.deployment_run_membership_removals import (
+    removed_item_ids,
+)
 from yoke_core.domain.deployment_run_unheld_candidates import (
     CustodyResolution,
     resolve_candidate_custody,
@@ -212,7 +215,12 @@ def enroll_carried_members(
     # A held landing belongs to the release already delivering it; an unheld
     # one below the range's floor is still this run's to deliver. Both are
     # reconciled into one candidate set before any lock is taken.
-    carried = sorted((range_ids - resolved.held_ids) | set(resolved.enrollable))
+    # An operator's recorded removal outranks both sources: the code still
+    # ships, but this run was told the item is not its to deliver.
+    carried = sorted(
+        ((range_ids - resolved.held_ids) | set(resolved.enrollable))
+        - removed_item_ids(conn, run_id)
+    )
     if not carried:
         return ()
     # Item workflow bindings first, then the run row: the same order

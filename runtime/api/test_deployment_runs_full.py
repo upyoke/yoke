@@ -258,7 +258,7 @@ class TestAddRemoveItem:
         _insert_delivery_ready_item(db_path, 200)
         dr.cmd_add_item(rid, 100, db_path=db_path)
         dr.cmd_add_item(rid, 200, db_path=db_path)
-        dr.cmd_remove_item(rid, 100, db_path=db_path)
+        dr.cmd_remove_item(rid, 100, reason="test removal", db_path=db_path)
 
         items_out = dr.cmd_items(rid, db_path=db_path)
         assert "200" in items_out
@@ -300,7 +300,7 @@ class TestAddRemoveItem:
         with pytest.raises(ValueError, match="membership is mutable only"):
             dr.cmd_add_item(rid, 200, db_path=db_path)
         with pytest.raises(ValueError, match="membership is mutable only"):
-            dr.cmd_remove_item(rid, 100, db_path=db_path)
+            dr.cmd_remove_item(rid, 100, reason="test removal", db_path=db_path)
 
         item_row = dr.cmd_items(rid, db_path=db_path).strip().split("|")
         assert item_row[:2] == [rid, "100"]

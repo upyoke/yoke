@@ -60,9 +60,7 @@ def _failed_run(db_path: str, *, run_id: str, member_ids: tuple[int, ...]) -> No
             completed_at=iso8601_now(),
         )
         for item_id in member_ids:
-            insert_item(
-                conn, id=item_id, workflow_id="dash", status="reviewing-implementation"
-            )
+            insert_item(conn, id=item_id, workflow_id="dash", status="release")
             conn.execute(
                 "INSERT INTO deployment_run_items (run_id, item_id, added_at, "
                 "delivery_intent, requirement_selection, requirement_snapshot) "

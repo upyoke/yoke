@@ -31,6 +31,12 @@
    When the instruction asks for a screenshot or other visual evidence, pass
    `--verification-method browser-inspection` on that same file command.
 
+   When the item will ship in a release on a flow other than the project
+   default — a shared release the operator named, say — pass
+   `--deployment-flow FLOW` on that same command. The create validates it
+   against the project's flows (`yoke deployment-flows list --project
+   PROJECT`); choosing it here avoids a flow mismatch at composition.
+
 5. Keep the returned item reference as `ITEM`.
 
 ## If the argument is a reference

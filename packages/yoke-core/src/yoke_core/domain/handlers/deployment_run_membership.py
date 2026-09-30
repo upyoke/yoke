@@ -27,6 +27,18 @@ class DeploymentRunAddItemResponse(BaseModel):
     plan_ids: List[int] = Field(default_factory=list)
 
 
+class DeploymentRunRemoveItemRequest(BaseModel):
+    run_id: str
+    reason: str
+
+
+class DeploymentRunRemoveItemResponse(BaseModel):
+    run_id: str
+    item_id: int
+    reason: str
+    message: str
+
+
 class DeploymentRunValidateCompositionRequest(BaseModel):
     run_id: Optional[str] = None
 
@@ -151,6 +163,65 @@ def handle_deployment_run_add_item(
     )
 
 
+def handle_deployment_run_remove_item(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    if request.target.kind != "item" or request.target.item_id is None:
+        return error(
+            "target_invalid",
+            "deployment_runs.remove_item requires a resolved item target",
+            jsonpath="$.target.kind",
+        )
+    payload = request.payload or {}
+    raw_run_id = payload.get("run_id")
+    if not isinstance(raw_run_id, str) or not raw_run_id.strip():
+        return error(
+            "payload_invalid",
+            "run_id must be a non-empty string",
+            jsonpath="$.payload.run_id",
+        )
+    reason = payload.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        return error(
+            "payload_invalid",
+            "reason must name why this run must not deliver the item; it is "
+            "recorded on the run for audit",
+            jsonpath="$.payload.reason",
+        )
+    resolved_run_id = raw_run_id.strip()
+    if refusal := _require_deploy_lock(
+        request,
+        resolved_run_id,
+        run_id_jsonpath="$.payload.run_id",
+    ):
+        return refusal
+
+    from yoke_core.domain.deployment_runs_crud_mutate import cmd_remove_item
+
+    actor_id = request.actor.actor_id
+    try:
+        message = cmd_remove_item(
+            resolved_run_id,
+            int(request.target.item_id),
+            reason=reason.strip(),
+            session_id=request.actor.session_id,
+            actor_id=int(actor_id) if actor_id and str(actor_id).isdigit() else None,
+        )
+    except LookupError as exc:
+        return error("not_found", str(exc))
+    except ValueError as exc:
+        return error("membership_rejected", str(exc))
+    return HandlerOutcome(
+        result_payload={
+            "run_id": resolved_run_id,
+            "item_id": int(request.target.item_id),
+            "reason": reason.strip(),
+            "message": message,
+        },
+        primary_success=True,
+    )
+
+
 def handle_deployment_run_validate_composition(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
@@ -184,8 +255,11 @@ def handle_deployment_run_validate_composition(
 __all__ = [
     "DeploymentRunAddItemRequest",
     "DeploymentRunAddItemResponse",
+    "DeploymentRunRemoveItemRequest",
+    "DeploymentRunRemoveItemResponse",
     "DeploymentRunValidateCompositionRequest",
     "DeploymentRunValidateCompositionResponse",
     "handle_deployment_run_add_item",
+    "handle_deployment_run_remove_item",
     "handle_deployment_run_validate_composition",
 ]

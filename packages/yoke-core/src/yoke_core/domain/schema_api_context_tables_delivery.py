@@ -85,6 +85,7 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("settling_at", "TEXT"),
             ("create_idempotency_key", "TEXT"),
             ("create_request", "TEXT"),
+            ("membership_removals", "TEXT"),
         ],
         "notes": (
             "One row per deployment-flow execution. Primary key is the "
@@ -145,6 +146,11 @@ DELIVERY_TABLES: dict[str, dict] = {
             "attachment is still live refuses by name; an empty or stale "
             "attachment is an interrupted driver, recovered by re-driving "
             "the same run id. "
+            "`membership_removals` is a JSON array of members taken out "
+            "of the run while it was `created` (`item_id`, `reason`, "
+            "`removed_at`, `session_id`, `actor_id`), written by `yoke "
+            "deployment-runs remove-item`; composition never re-enrolls "
+            "them, and re-attaching with `add-item` clears the entry. "
             "`settling_at` marks an `executing` run whose shared gates "
             "passed and which is closing its cleared members before it may "
             "read `succeeded`; completion authority treats it as delivered, "

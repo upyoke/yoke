@@ -98,9 +98,7 @@ def register(registry) -> None:
         _carried_work_repair.DeploymentRunCarriedWorkRepairRequest,
         _carried_work_repair.DeploymentRunCarriedWorkRepairResponse,
         stability="stable",
-        owner_module=(
-            "yoke_core.domain.handlers.deployment_run_carried_work_repair"
-        ),
+        owner_module=("yoke_core.domain.handlers.deployment_run_carried_work_repair"),
         target_kinds=["workflow_run"],
         side_effects=["deployment_runs_update"],
         emitted_event_names=["YokeFunctionCalled"],
@@ -145,6 +143,21 @@ def register(registry) -> None:
         ],
         adapter_status="live",
         claim_required_kind=None,
+    )
+    registry.register(
+        "deployment_runs.remove_item",
+        _run_membership.handle_deployment_run_remove_item,
+        _run_membership.DeploymentRunRemoveItemRequest,
+        _run_membership.DeploymentRunRemoveItemResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.deployment_run_membership",
+        target_kinds=["item"],
+        side_effects=["deployment_run_items_delete", "deployment_runs_update"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["deploy_lock_required", "created_only_membership"],
+        adapter_status="live",
+        claim_required_kind=None,
+        minimum_serving_version="next-release",
     )
     registry.register(
         "deployment_runs.validate_composition",

@@ -150,3 +150,38 @@ def test_carried_code_without_membership_does_not_satisfy(
         workflow=WORKFLOW,
     )
     assert result.satisfied is False
+
+
+def test_another_projects_release_satisfies_its_bound_member(
+    dependency_conn: Any,
+) -> None:
+    """A project-2 blocker delivered inside a project-1 release is deployed."""
+    insert_dependency_item(
+        dependency_conn, 2, status="implemented", project_id=2, merged=True
+    )
+    # The carrier's prod (101) is seeded; the bound project registers its own.
+    dependency_conn.execute(
+        "INSERT INTO sites (id,project_id,name) VALUES (22,2,'bound')"
+    )
+    dependency_conn.execute(
+        "INSERT INTO environments (id,site,project_id,name) VALUES (202,22,2,'prod')"
+    )
+    _insert_run(
+        dependency_conn,
+        "carrier-run",
+        project_id=1,
+        environment_id=101,
+        status="succeeded",
+        member_ids=(2,),
+    )
+
+    deployed = evaluate_persisted_satisfaction(
+        dependency_conn,
+        blocking_item_id=2,
+        satisfaction="fact:deployed:prod",
+        blocking_status="implemented",
+        blocking_merged=True,
+        workflow=WORKFLOW,
+    )
+
+    assert deployed.satisfied is True

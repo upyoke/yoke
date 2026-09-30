@@ -115,6 +115,12 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         function_id="deployment_runs.add_item",
         cli_invocation="yoke deployment-runs add-item RUN-ID PREFIX-N",
     ),
+    AdapterEntry(
+        function_id="deployment_runs.remove_item",
+        cli_invocation=(
+            "yoke deployment-runs remove-item RUN-ID PREFIX-N --reason TEXT"
+        ),
+    ),
     _read_entry(
         function_id="deployment_runs.validate_composition",
         cli_invocation="yoke deployment-runs validate-composition RUN-ID",

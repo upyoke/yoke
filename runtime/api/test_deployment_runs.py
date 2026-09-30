@@ -52,18 +52,14 @@ class TestNextIdAndCreateRun:
     def test_create_run_copies_target_from_flow(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
         tier = dr.cmd_get(run_id, field="target_tier", db_path=db_path)
-        environment = dr.cmd_get(
-            run_id, field="target_environment", db_path=db_path
-        )
+        environment = dr.cmd_get(run_id, field="target_environment", db_path=db_path)
         assert (tier, environment) == ("persistent", "prod")
 
     def test_create_run_with_environment_override(self, db_path: str) -> None:
         run_id = dr.cmd_create_run(
             "yoke", "flow-main", environment="stage", db_path=db_path
         )
-        environment = dr.cmd_get(
-            run_id, field="target_environment", db_path=db_path
-        )
+        environment = dr.cmd_get(run_id, field="target_environment", db_path=db_path)
         assert environment == "stage"
 
     def test_create_run_with_lineage(self, db_path: str) -> None:
@@ -86,8 +82,12 @@ class TestItemManagement:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
         # Insert test items
         conn = connect_test_db(db_path)
-        conn.execute("INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (100, 'Test', 'implemented', 1, 100)")
-        conn.execute("INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (101, 'Test2', 'implemented', 1, 101)")
+        conn.execute(
+            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (100, 'Test', 'implemented', 1, 100)"
+        )
+        conn.execute(
+            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (101, 'Test2', 'implemented', 1, 101)"
+        )
         conn.commit()
         conn.close()
 
@@ -101,12 +101,14 @@ class TestItemManagement:
     def test_remove_item(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
         conn = connect_test_db(db_path)
-        conn.execute("INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (200, 'Test', 'implemented', 1, 200)")
+        conn.execute(
+            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (200, 'Test', 'implemented', 1, 200)"
+        )
         conn.commit()
         conn.close()
 
         dr.cmd_add_item(run_id, 200, db_path=db_path)
-        dr.cmd_remove_item(run_id, 200, db_path=db_path)
+        dr.cmd_remove_item(run_id, 200, reason="test removal", db_path=db_path)
 
         result = dr.cmd_items(run_id, db_path=db_path)
         assert result == ""
@@ -229,7 +231,9 @@ class TestFindByItem:
     def test_find_by_item(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
         conn = connect_test_db(db_path)
-        conn.execute("INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (300, 'T', 'implemented', 1, 300)")
+        conn.execute(
+            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (300, 'T', 'implemented', 1, 300)"
+        )
         conn.commit()
         conn.close()
         dr.cmd_add_item(run_id, 300, db_path=db_path)
@@ -240,7 +244,9 @@ class TestFindByItem:
     def test_find_by_item_with_status_filter(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
         conn = connect_test_db(db_path)
-        conn.execute("INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (301, 'T', 'implemented', 1, 301)")
+        conn.execute(
+            "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (301, 'T', 'implemented', 1, 301)"
+        )
         conn.commit()
         conn.close()
         dr.cmd_add_item(run_id, 301, db_path=db_path)

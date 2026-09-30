@@ -35,8 +35,19 @@ def delivery_ready_for_stage(runtime: WorkflowRuntime, status: str) -> bool:
             if str(binding["through_stage_id"]) in runtime.terminal_stage_ids
         ]
         valid = [value for value in starts if value is not None]
-        return bool(valid) and position >= min(valid)
-    if policy in ("continuous_slice_actions", WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE):
+        if not valid or position < min(valid):
+            return False
+        # A binding that runs from filing to done (Dash) makes every stage
+        # "after its start", so the start alone would call an item back in
+        # rework deliverable. Inside an implementation segment only the
+        # release wait itself has landed code to ship.
+        return runtime.stage_implies_merge(status) or not (
+            runtime.implementation_has_started(status)
+        )
+    if policy in (
+        "continuous_slice_actions",
+        WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
+    ):
         return runtime.implementation_has_started(status)
     if policy == "after_merge_action":
         return position >= len(runtime.stage_ids) - 2
@@ -66,9 +77,7 @@ def _validate_deployment_run_item_state(
     try:
         carried = carried_project_ids(conn, run_id)
     except LookupError as exc:
-        raise WorkflowItemBindingError(
-            f"deployment run {run_id!r} not found"
-        ) from exc
+        raise WorkflowItemBindingError(f"deployment run {run_id!r} not found") from exc
     if item_project not in carried:
         raise WorkflowItemBindingError(
             f"{render_item_ref(conn, item_id)} belongs to a project deployment "

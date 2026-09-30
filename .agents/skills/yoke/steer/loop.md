@@ -343,7 +343,12 @@ is for the other case — an item whose code the candidate does not carry but
 which the run should still deliver — and `... validate-composition {RUN_ID}`
 composes the run now. Both hold the same deploy lock
 and refuse an item whose project the run ships no source for, an incompatible
-flow binding, or enrollment after the run has left `created`.
+flow binding, or enrollment after the run has left `created`. Composition names
+every carried item it skipped — held by another release, back in rework before
+its release stage, or removed — in one notice. A member composed by mistake
+comes out of a still-`created` run with `yoke --env <cp> deployment-runs
+remove-item {RUN_ID} PREFIX-N --reason R`, never by cancelling the pair: the
+reason is recorded on the run and composition does not re-enroll it.
 
 **A run can deploy a second project's code without carrying its items.** A
 `github-actions-workflow` stage may declare an `input_bindings` map, resolving

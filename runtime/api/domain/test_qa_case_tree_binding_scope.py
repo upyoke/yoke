@@ -56,6 +56,7 @@ def _deployment_case(**overrides) -> dict:
 
 def _repository(root: Path, *, content: str) -> str:
     """Create a one-commit git repository and return its HEAD sha."""
+
     def git(*args: str) -> str:
         return subprocess.run(
             ["git", "-C", str(root), *args],
@@ -215,3 +216,28 @@ def test_a_deployment_case_runs_when_the_checkout_is_the_candidate(
 
     assert result["verdict"] == "pass"
     assert result["verification_tree"]["head_sha"] == head
+
+
+def test_a_bound_project_member_answers_to_its_bound_source() -> None:
+    """A Platform member of a Yoke run is checked out at Platform's commit."""
+    case = _deployment_case(
+        project_id=3, project="platform", deployment_source_revision=OTHER_REVISION
+    )
+
+    at_bound_source = evaluate_deployment_binding(
+        surface="qa plan run", case=case, tree="/platform", head_sha=OTHER_REVISION
+    )
+    at_carrier_lineage = evaluate_deployment_binding(
+        surface="qa plan run", case=case, tree="/platform", head_sha=CANDIDATE
+    )
+
+    assert candidate_revision(case) == OTHER_REVISION
+    assert at_bound_source.refusal == ""
+    assert OTHER_REVISION[:12] in at_bound_source.notice
+    assert f"deployed platform at {OTHER_REVISION[:12]}" in at_carrier_lineage.refusal
+
+
+def test_a_case_from_a_server_without_the_source_field_keeps_the_lineage() -> None:
+    case = _deployment_case(deployment_source_revision=None)
+
+    assert candidate_revision(case) == CANDIDATE
