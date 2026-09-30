@@ -250,6 +250,7 @@ def current_native_process_observation(
     row: Mapping[str, Any],
     *,
     landing_wait: bool = False,
+    include_expected_exit: bool = False,
 ) -> dict[str, Any] | None:
     """Return process-gone evidence unless something accounts for the death.
 
@@ -258,7 +259,9 @@ def current_native_process_observation(
     posture are on the row itself.  A clean native exit after the turn
     already stopped is the wait, not a disappearance, even when mode is
     still dash and a claim is held.  It defaults to the alerting side, so a
-    caller that never asked cannot silence an alarm by omission.
+    caller that never asked cannot silence an alarm by omission. Delivery
+    callers set ``include_expected_exit``: a clean exit explains a wait,
+    but still leaves no process to receive the next message.
     """
     observed = parse_timestamp(row.get(NATIVE_PROCESS_GONE_AT_COLUMN))
     if observed is None:
@@ -277,7 +280,7 @@ def current_native_process_observation(
     declared_wait = (
         landing_wait or session_is_parked(row.get("mode")) or _current_waiting_turn(row)
     )
-    if declared_wait and _exited_normally(evidence):
+    if not include_expected_exit and declared_wait and _exited_normally(evidence):
         return None
     return {
         "state": NATIVE_PROCESS_GONE_STATE,

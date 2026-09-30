@@ -27,6 +27,13 @@ Harness-neutral rules are in the repo rules file, not here.
 - **Episode-scoped audit goes through `--current-episode`.** `yoke events query --session <id> --current-episode` returns only events whose `created_at` is at or after the most recent `HarnessSessionResumed` / `HarnessSessionStarted` row for that session. The flag REQUIRES an explicit session and fails closed with a usage error otherwise; when neither boundary event exists for the session it returns the empty set rather than implicitly widening to "all events for the session". **Failing closed in silence is the trap** — a session that crossed a transient end/resume mid-work keeps its earlier evidence in the prior episode, so the result carries `elided_prior_episode_rows` whenever the boundary hid same-filter rows. Read it: an empty `rows` beside a non-zero count means "ask again without the flag", not "nothing happened". Filter composition is AND across every other query predicate. The portable claim-holder read is `yoke claims work holder-get PREFIX-N`; it carries no episode-scoping flag, and inherited claims stay visible there — they are intentionally inherited across episodes, so audit must show that inheritance fact rather than hide it. Resolver: `yoke_core.domain.events_current_episode.resolve_current_episode_boundary` is the single source of truth for the boundary every episode-scoped surface reads.
 - **Cross-harness policy commentary.** Codex sessions today do not exhibit the transient-signal class that motivates the resumption marker, so `AGENTS.md` carries no cross-harness policy bullet by default; the rules file above remains the live emit surface.
 
+A measured clean exit during a declared wait stays quiet in the fleet alarm,
+but the next pending message immediately qualifies for the existing native
+resume path with the same stored identity. The delivery check includes that
+exit even when an orphaned open tool call remains; newer session activity
+still supersedes it. Refused or exhausted wakes retain the original pending
+receipt and notify its covering steering role with the exact diagnostic.
+
 ## Long commands — the tier router
 
 The long-command rule has **two distinct tiers** with different authority. Apply only the rule that matches your session tier. **Do not cross-apply.**

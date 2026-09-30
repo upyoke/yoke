@@ -18,11 +18,10 @@ inside the liveness window reads ``active`` while its process is recorded
 gone -- the heartbeat outlives the process that stopped refreshing it -- and
 an ``active`` recipient is handed to the hook route it no longer has.
 
-The verdict itself is not re-derived here. The reader this calls is the one
-the fleet report's undelivered rows already use, so an escalation from here
-and a ``gone`` row there can never disagree, and its own rule -- that later
-activity retires the death -- is what keeps a session that has since been
-resumed from being escalated over a stale report.
+The verdict itself is not re-derived here. The shared reader retires a death
+after later activity, but delivery includes expected clean exits: parking
+explains why a native stopped, not how it can receive another message.
+Alarm readers still suppress those exits during declared waits.
 
 Escalating is still only a proposal. The machine that would start the second
 native checks its own custody records first, in
@@ -76,7 +75,7 @@ def native_process_gone(
     """
     if not awaiting_injection(row):
         return False
-    if current_native_process_observation(row) is None:
+    if current_native_process_observation(row, include_expected_exit=True) is None:
         return False
     if not surface_operation_supported(
         str(row.get("executor_surface") or ""),

@@ -175,7 +175,10 @@ def delivery_state(
     if failed_count >= REPEATED_FAILURE_COUNT:
         return ATTEMPT_FAILED
     if str(record.get(OPEN_TOOL_CALL_COLUMN) or ""):
-        if current_native_process_observation(record) is None:
+        if (
+            current_native_process_observation(record, include_expected_exit=True)
+            is None
+        ):
             return TURN_IN_FLIGHT
     if result_code:
         if delivery_attempt_failed(result_code):

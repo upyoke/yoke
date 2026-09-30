@@ -243,7 +243,7 @@ def record_process_gone(
         "native_process_gone_evidence=? WHERE session_id=?",
         (
             when.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            json.dumps({"native_exit_code": exit_code}),
+            json.dumps({"exit_code": exit_code}),
             session_id,
         ),
     )

@@ -25,6 +25,7 @@ from yoke_core.domain.session_message_delivery import (
 )
 from yoke_core.domain.session_message_wake_skip import record_wake_skip
 from yoke_core.domain.session_wake_meter import skip_exhausted_wake
+from yoke_core.domain.session_wake_failure_notice import notify_failed_wake
 from yoke_core.domain.session_operator_wake_notice import notify_operator_to_wake
 from yoke_core.domain.session_message_routing import (
     latest_observed_activity,
@@ -194,6 +195,9 @@ def wake_eligible_recipients(
             if skip_ended_recipient(conn, row, now=current):
                 continue
             policy = project_policy(conn, int(row["project_id"]))
+            notify_failed_wake(
+                conn, row, now=current, max_attempts=policy.max_wake_attempts
+            )
             liveness = session_liveness(row, now=current)
             explicit_wake = explicit_stopped_wake_requested(row.get("routing_snapshot"))
             attempt_count = int(row["wake_attempt_count"] or 0)
@@ -223,10 +227,8 @@ def wake_eligible_recipients(
             )
             escalation = ""
             if not explicit_wake and liveness == "active":
-                # A tool call that has started and not returned runs no hook
-                # until it does, so a session inside a long one is silent
-                # and working at the same time. Its hook is coming; a
-                # resume would be a second turn on the same conversation.
+                # A live open call will deliver on its return; an orphaned
+                # one left by a verified exit cannot.
                 if turn_in_flight(row) is not None:
                     continue
                 # An active session is served by its own hooks — unless the
