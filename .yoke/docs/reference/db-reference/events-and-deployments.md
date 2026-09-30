@@ -122,10 +122,7 @@ repository binding. `derivation.source` names which answered (`checkout`,
 `repository_provider`, or `none`).
 
 **An empty release and an unanswerable comparison are different facts.**
-`derivation.contents_known` is true only when the comparison actually ran, and
-`derivation.status` is derived from it: `derived` when commits were attributed,
-`empty` when the run genuinely carries nothing, and `unknown` when nobody could
-look. `derivation.reason` names the case and `derivation.recovery` names the
+`derivation.contents_known` is true when the answer is determinate: a comparison that ran, or a first run with no predecessor to compare against, which carries nothing and owes nothing — reporting that baseline as unknown would strand a project behind a blocker no repair could clear. `derivation.status` is derived from it: `derived` when commits were attributed, `empty` when the run genuinely carries nothing, and `unknown` when a comparison was owed and nobody could look. `derivation.reason` names the case and `derivation.recovery` names the
 repair. Readers must not treat `unknown` as `empty`: an unknown record
 suppresses both automatic enrollment and the omitted-delivery-ready-member scan
 at composition freeze, because a set nobody computed can neither be admitted

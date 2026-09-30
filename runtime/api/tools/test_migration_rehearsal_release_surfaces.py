@@ -4,16 +4,22 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
+from runtime.api.fixtures.bound_source_release import (
+    CARRIER_FLOW,
+    two_project_release,
+)
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_api_release_pin_record_route import (
     release_pin_db,  # noqa: F401 -- imported fixture
 )
 from runtime.api.tools import migration_rehearsal_release_surfaces as surfaces
+from yoke_core.domain.deployment_runs_crud_mutate import CompositionRefused
 from runtime.api.tools.yoke_migration_fleet import rehearsal_plan
 from yoke_core.domain import db_backend
 
@@ -177,3 +183,101 @@ def test_driver_target_disagreement_fails_closed(monkeypatch: Any) -> None:
 
     with pytest.raises(AssertionError, match="resolved"):
         surfaces._exercise_deployment_run_drivers(_Connection(handler))
+
+
+def test_composition_verdict_counts_as_a_driver_answer(monkeypatch: Any) -> None:
+    def handler(sql: str, _params: tuple[Any, ...]) -> list[Any]:
+        if "FROM deployment_flows df" in sql:
+            return [{"project": "yoke", "flow": "release-stage"}]
+        raise AssertionError(f"refused create must not be read back: {sql}")
+
+    def refuse(*_args: Any, **_kwargs: Any) -> str:
+        raise CompositionRefused(
+            "FAIL: Composition validation failed:\nrun project carried-code "
+            "membership is current_release_lineage_unreachable."
+        )
+
+    monkeypatch.setattr(
+        surfaces,
+        "cmd_resolve_target",
+        lambda *_args: ("persistent", 7, "stage"),
+    )
+    monkeypatch.setattr(surfaces, "cmd_create_run", refuse)
+
+    surfaces._exercise_deployment_run_drivers(_Connection(handler))
+
+
+def test_broken_run_driver_still_fails_the_rehearsal(monkeypatch: Any) -> None:
+    def handler(sql: str, _params: tuple[Any, ...]) -> list[Any]:
+        if "FROM project_capabilities ORDER BY" in sql:
+            return []
+        if "FROM deployment_flows df" in sql:
+            return [{"project": "yoke", "flow": "release-stage"}]
+        raise AssertionError(sql)
+
+    def crash(*_args: Any, **_kwargs: Any) -> str:
+        raise LookupError("deployment_runs.composition_resolution is missing")
+
+    monkeypatch.setattr(
+        surfaces,
+        "cmd_resolve_target",
+        lambda *_args: ("persistent", 7, "stage"),
+    )
+    monkeypatch.setattr(surfaces, "cmd_create_run", crash)
+
+    detail = surfaces.verify_migrated_release_surfaces(
+        _Connection(handler), "password=secret"
+    )
+
+    assert detail is not None
+    assert "LookupError" in detail
+    assert "composition_resolution is missing" in detail
+
+
+def test_custody_flow_with_a_prior_release_does_not_fail_the_rehearsal(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The shape that broke a prod preflight: custody flow, prior release.
+
+    Carried-work derivation compares the run's lineage against the preceding
+    succeeded run's. The rehearsal lineage names no real commit, so a flow
+    that takes delivery custody and has already shipped once cannot resolve
+    it and composition refuses. The migrated rows were read and judged, which
+    is what the rehearsal asked, so the verdict must not fail it.
+    """
+    two_project_release(test_db, tmp_path, monkeypatch)
+    environment = test_db.execute(
+        "SELECT id FROM environments WHERE project_id=1 AND name='stage'"
+    ).fetchone()[0]
+    test_db.execute(
+        "UPDATE deployment_flows SET status='active',target_tier='persistent',"
+        "target_environment_id=%s WHERE id=%s",
+        (environment, CARRIER_FLOW),
+    )
+    # The preceding run is only this run's predecessor when it shipped to the
+    # same environment, so without this the rehearsal run would be a baseline
+    # rather than the comparison this test is about.
+    test_db.execute(
+        "UPDATE deployment_runs SET target_tier='persistent',"
+        "target_environment_id=%s WHERE id='run-previous'",
+        (environment,),
+    )
+    test_db.commit()
+    before = test_db.execute("SELECT count(*) FROM deployment_runs").fetchone()[0]
+
+    # Establish that this flow really does refuse, so the rehearsal below is
+    # proving tolerance rather than passing because nothing refused.
+    with pytest.raises(CompositionRefused) as refusal:
+        surfaces.cmd_create_run(
+            "yoke",
+            CARRIER_FLOW,
+            release_lineage=surfaces._REHEARSAL_LINEAGE,
+            created_by="migration-rehearsal",
+        )
+    assert "current_release_lineage_unreachable" in str(refusal.value)
+
+    surfaces._exercise_deployment_run_drivers(test_db)
+
+    assert (
+        test_db.execute("SELECT count(*) FROM deployment_runs").fetchone()[0] == before
+    )

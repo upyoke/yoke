@@ -23,6 +23,18 @@ from yoke_core.domain.deployment_run_retry_membership import copy_frozen_members
 from yoke_core.domain.project_identity import resolve_project_id
 
 
+class CompositionRefused(ValueError):
+    """The composition validator answered no, so the run row was rolled back.
+
+    A caller that only wants to know whether the release surfaces can read and
+    judge a database needs to tell this verdict apart from a driver that broke
+    reaching it. Matching the refusal text would couple that caller to a
+    message the validator owns, so the distinction is carried by the type.
+    ``ValueError`` stays the base class because a refused composition is still
+    the bad-argument answer every existing caller already handles.
+    """
+
+
 class CreatedRun(NamedTuple):
     """The run a create returned, and how a keyed create identified it."""
 
@@ -229,11 +241,17 @@ def create_run(
             connection=conn,
         )
         if not valid:
-            raise ValueError(message)
+            raise CompositionRefused(message)
         conn.commit()
         return CreatedRun(run_id, False, basis)
     finally:
         conn.close()
 
 
-__all__ = ["CreatedRun", "cmd_create_run", "cmd_next_id", "create_run"]
+__all__ = [
+    "CompositionRefused",
+    "CreatedRun",
+    "cmd_create_run",
+    "cmd_next_id",
+    "create_run",
+]

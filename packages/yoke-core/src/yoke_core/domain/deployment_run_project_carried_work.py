@@ -91,9 +91,11 @@ def empty_carried_work(
 ) -> dict[str, Any]:
     # An empty answer and an unanswerable question are different facts, and a
     # reader that conflates them tells an approver a release is empty when the
-    # deriver simply could not look. `contents_known` is true only when the
-    # comparison actually ran: a run whose lineage matches its predecessor
-    # genuinely carries nothing, while a missing checkout carries an unknown.
+    # deriver simply could not look. `contents_known` is true when the answer
+    # is determinate: a run whose lineage matches its predecessor genuinely
+    # carries nothing, and a run with no predecessor at all has nothing a
+    # comparison could add. A missing checkout carries an unknown instead —
+    # there a comparison was owed and could not be made.
     derivation: dict[str, Any] = {
         "status": STATUS_EMPTY if contents_known else STATUS_UNKNOWN,
         "contents_known": contents_known,
@@ -141,10 +143,16 @@ def derive_project_carried_work(
             run_id=run_id,
         )
     if previous is None:
+        # A baseline run is a determinate answer, not a failed lookup: there is
+        # no predecessor to compare against, so nothing is carried and nothing
+        # is owed. Reporting it as unknown made every gate that reads
+        # `contents_known` treat a project's first release as an unresolved
+        # blocker, which no repair could clear.
         return empty_carried_work(
             "no_prior_succeeded_run",
             "No action is required; this run establishes the lineage baseline.",
             run_id=run_id,
+            contents_known=True,
             release_lineage=release_lineage,
         )
     previous_run_id = str(_cell(previous, "id", 0))

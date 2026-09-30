@@ -121,10 +121,10 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
         "carried": {
             "schema": 3,
             "derivation": {
-                # No predecessor means the comparison could not run, a
-                # different fact from a release that carries nothing.
-                "status": "unknown",
-                "contents_known": False,
+                # No predecessor is a determinate answer: this run establishes
+                # the baseline, so it carries nothing and owes nothing.
+                "status": "empty",
+                "contents_known": True,
                 "source": "none",
                 "reason": "no_prior_succeeded_run",
                 "recovery": (

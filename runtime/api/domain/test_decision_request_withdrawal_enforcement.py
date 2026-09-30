@@ -201,7 +201,7 @@ def test_deployment_withdraw_requires_run_stage_to_end(conn) -> None:
                 "schema": 1,
                 "derivation": {
                     "status": "empty",
-                    "contents_known": False,
+                    "contents_known": True,
                     "reason": "no_prior_succeeded_run",
                     "recovery": "This run establishes the lineage baseline.",
                 },
