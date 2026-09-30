@@ -9,6 +9,7 @@ from pathlib import Path
 from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_core.domain import session_message_delivery as delivery
 from yoke_core.domain.session_message_service import send_message
+from yoke_core.domain.session_message_types import timestamp
 from yoke_core.domain.session_relay_jobs import claim_wake_job
 from yoke_core.domain.session_relay_types import RelayHeartbeat
 from yoke_harness import session_relay_claude as claude
@@ -73,7 +74,7 @@ def test_each_message_resumes_stored_native_identity_and_is_injected(monkeypatch
             body=f"Continue parked work {index}.",
             now=sent_at,
         )["message_id"]
-        job = claim_wake_job(conn, heartbeat, now=sent_at.isoformat())
+        job = claim_wake_job(conn, heartbeat, now=timestamp(sent_at))
         assert job is not None and job.target_session_id == NATIVE_WAKE_SESSION_ID
         assert job.target_parked and job.target_liveness == "active"
         monkeypatch.setattr(delivery, "utc_now", lambda: sent_at + timedelta(seconds=1))
