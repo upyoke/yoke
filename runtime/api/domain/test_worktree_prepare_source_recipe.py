@@ -58,7 +58,10 @@ def _install_prepare_fakes(monkeypatch, worktree_path):
     monkeypatch.setattr(
         preflight,
         "lane_orientation",
-        lambda item_id, tree_root: {"package_roots": [], "test_roots": [tree_root]},
+        lambda item_id, tree_root, project_id="": {
+            "package_roots": [],
+            "test_roots": [tree_root],
+        },
     )
 
 

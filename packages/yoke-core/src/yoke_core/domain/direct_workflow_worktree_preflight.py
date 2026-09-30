@@ -301,7 +301,9 @@ def _prepare(parser: argparse.ArgumentParser, parsed: argparse.Namespace) -> int
         worktree_path = str(envelope.get("worktree_path") or "")
         envelope["run_recipes"] = _run_recipes(worktree_path)
         envelope["lane_orientation"] = lane_orientation(
-            item_id, worktree_path or os.getcwd()
+            item_id,
+            worktree_path or os.getcwd(),
+            str((item.get("project") or {}).get("id") or ""),
         )
     if advisories:
         envelope["advisories"] = advisories

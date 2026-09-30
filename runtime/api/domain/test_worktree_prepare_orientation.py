@@ -15,7 +15,7 @@ from yoke_core.tools._source_pythonpath import FOCUSED_PYTEST_RUN_RECIPE
 def _stub_roots(monkeypatch, *, package_roots=(), test_roots=()) -> None:
     monkeypatch.setattr(
         "yoke_core.domain.worktree_dirty_main_classify.lane_source_root_prefixes",
-        lambda _item_id: tuple(package_roots),
+        lambda _item_id, _project_id="": tuple(package_roots),
     )
     monkeypatch.setattr(
         "yoke_core.tools.impacted_project_test_roots.resolve_test_roots",
@@ -83,7 +83,7 @@ def test_a_lane_that_was_skipped_has_no_tree_to_read_test_roots_from(
 ) -> None:
     monkeypatch.setattr(
         "yoke_core.domain.worktree_dirty_main_classify.lane_source_root_prefixes",
-        lambda _item_id: ("packages/yoke-core/src",),
+        lambda _item_id, _project_id="": ("packages/yoke-core/src",),
     )
     monkeypatch.setattr(
         "yoke_core.tools.impacted_project_test_roots.resolve_test_roots",

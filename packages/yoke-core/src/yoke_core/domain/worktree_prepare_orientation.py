@@ -25,28 +25,36 @@ from typing import Any, Dict
 from yoke_core.tools._source_pythonpath import FOCUSED_PYTEST_RUN_RECIPE
 
 
-def lane_orientation(item_id: int, tree_root: str) -> Dict[str, Any]:
+def lane_orientation(
+    item_id: int,
+    tree_root: str,
+    project_id: str = "",
+) -> Dict[str, Any]:
     """The receipt's orientation section for *item_id*'s lane at *tree_root*.
+
+    A caller that already resolved the item's project passes it, because
+    the package roots are the project's and re-reading the item to name it
+    is a round trip nobody needs.
 
     Both root reads degrade to an empty list rather than failing
     preparation: a lane that exists is worth reporting even where the
     declarations behind it could not be read.
     """
     return {
-        "package_roots": list(_package_roots(item_id)),
+        "package_roots": list(_package_roots(item_id, project_id)),
         "test_roots": list(_test_roots(tree_root)),
         "focused_test_command": FOCUSED_PYTEST_RUN_RECIPE,
     }
 
 
-def _package_roots(item_id: int) -> tuple[str, ...]:
+def _package_roots(item_id: int, project_id: str) -> tuple[str, ...]:
     """Declared ``architecture_model`` package roots for the item's project."""
     from yoke_core.domain.worktree_dirty_main_classify import (
         lane_source_root_prefixes,
     )
 
     try:
-        return lane_source_root_prefixes(int(item_id))
+        return lane_source_root_prefixes(int(item_id), project_id)
     except Exception:  # noqa: BLE001 — orientation never blocks preparation
         return ()
 

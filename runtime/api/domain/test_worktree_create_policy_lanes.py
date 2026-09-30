@@ -17,7 +17,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain import direct_workflow_worktree_preflight
 from yoke_core.domain.item_worktree_schema import ensure_item_worktree_schema
 from yoke_core.domain.item_worktrees import list_item_worktrees
-from yoke_core.domain import worktree_create
+from yoke_core.domain import worktree_create, worktree_create_provisioning
 from yoke_core.domain.worktree import create_worktree
 from runtime.api.domain.worktree_test_helpers import pin_test_item_workflow
 
@@ -178,7 +178,7 @@ def test_worktree_creation_reports_lane_persistence_failure(
         raise RuntimeError("registry unavailable")
 
     monkeypatch.setattr(
-        worktree_create,
+        worktree_create_provisioning,
         "persist_item_worktrees",
         refuse_persistence,
     )
