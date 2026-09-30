@@ -70,27 +70,22 @@ def record_machine_case_result(
         case.get("method_config"),
         execution_target_digest=case.get("execution_target_digest"),
     )
-    row = conn.execute(
-        "INSERT INTO qa_runs("
-        "qa_requirement_id,performed_by,qa_kind,verdict,case_outcome,"
-        "capture_degraded_reason,raw_result,duration_ms,started_at,"
-        "completed_at,created_at"
-        f") VALUES({', '.join([marker] * 11)}) RETURNING id",
-        (
-            int(case["requirement_id"]),
-            "host_control",
-            str(case["qa_kind"]),
-            verdict,
-            result.case_outcome,
-            result.capture_degraded_reason,
-            raw_result,
-            duration_ms,
-            now,
-            None if waiting else now,
-            now,
-        ),
-    ).fetchone()
-    run_id = int(row[0])
+    from yoke_core.domain.qa_run_verdict_record import insert_qa_run
+
+    run_id = insert_qa_run(
+        conn,
+        qa_requirement_id=int(case["requirement_id"]),
+        performed_by="host_control",
+        qa_kind=str(case["qa_kind"]),
+        verdict=verdict,
+        case_outcome=result.case_outcome,
+        capture_degraded_reason=result.capture_degraded_reason,
+        raw_result=raw_result,
+        duration_ms=duration_ms,
+        started_at=now,
+        completed_at=None if waiting else now,
+        created_at=now,
+    ).run_id
     touch_for_qa_requirement(conn, int(case["requirement_id"]))
     recorded: list[int] = []
 

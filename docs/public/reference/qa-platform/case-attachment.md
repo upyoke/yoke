@@ -173,11 +173,14 @@ receipt so a replaced candidate on the same run row cannot be written over.
 A deployment-run case is not bound to the session's claimed lane: its subject
 is the candidate the run deployed, already built and observed at that
 endpoint, which no member's worktree contributed to. It is bound to that
-candidate instead. A checkout sitting at the run's `release_lineage` runs
-with no flag — the ordinary case for an owner supplying evidence after the
-release. A checkout that has moved is refused, naming both revisions, because
-a command that reads the repository would otherwise report on code the run
-never deployed; `--allow-tree-mismatch` remains available and here declares
-that the case reads nothing from the checkout, as a probe against the
-deployed endpoint does. The tree the command ran in is recorded on the
-verdict either way.
+candidate instead, and the runner holds it there itself: with no
+`--checkout-path`, each Command case runs in a disposable clone of its
+project checkout at the candidate revision, outside every lane and shared
+tree, removed once its verdict is recorded. The owner needs no flag and no
+claim on another session's tree however far the default branch has moved.
+An explicit `--checkout-path` at a different revision is refused, naming both
+revisions, because a command that reads the repository would otherwise report
+on code the run never deployed; `--allow-tree-mismatch` remains available and
+here declares that the case reads nothing from the checkout, as a probe
+against the deployed endpoint does. The tree the command ran in is recorded on
+the verdict either way.

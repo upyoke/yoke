@@ -20,12 +20,13 @@ candidate's code, and saying nothing about it is how a silent pass happens.
 So the tree comparison is not removed but re-pointed: the authority is the
 revision the run shipped for the case's own project -- its release lineage,
 or, for a member of a project the run binds, the source it recorded for that
-project. A checkout
-sitting at that revision needs no flag, which is the ordinary case for an
-owner supplying evidence right after the release. A checkout that has moved
-is refused and names both revisions, with ``--allow-tree-mismatch`` reserved
-for its true meaning here — a case that reads nothing from the checkout,
-such as a probe against a deployed endpoint.
+project. With no explicit tree the runner checks that revision out itself
+(:mod:`yoke_core.domain.qa_candidate_checkout`), so the ordinary run needs no
+flag however far the default branch has moved. An explicit
+``--checkout-path`` at another revision is refused and names both, with
+``--allow-tree-mismatch`` reserved for its true meaning here — a case that
+reads nothing from the checkout, such as a probe against a deployed
+endpoint.
 
 A binding this cannot evaluate refuses rather than proceeding. Elsewhere an
 unanswerable lookup is a notice, because the thing being checked is a
@@ -161,16 +162,10 @@ def evaluate_deployment_binding(
             f"{surface} TREE-BINDING REFUSAL: {divergence}. A command that "
             "reads the repository would report on code this run never "
             "deployed.\n"
-            "To verify the candidate, materialize a separate checkout pinned "
-            f"to that revision and pass {CHECKOUT_PATH_FLAG} to "
-            "`yoke qa plan run` or `yoke qa case run`. Do not mutate a shared "
-            "project checkout other sessions depend on. Example against a "
-            "disposable tree:\n"
-            f'  git -C "/path/to/candidate-checkout" fetch origin {candidate}\n'
-            f'  git -C "/path/to/candidate-checkout" checkout {candidate}\n'
-            f"  yoke qa plan run ... {CHECKOUT_PATH_FLAG} "
-            f"/path/to/candidate-checkout\n"
-            f"Or pass {ALLOW_TREE_MISMATCH_FLAG} when this case reads nothing "
+            f"Re-run the same command without {CHECKOUT_PATH_FLAG}: the runner "
+            "then checks the candidate out into a disposable tree, runs the "
+            "case there and removes it, with no claim on any shared checkout. "
+            f"Pass {ALLOW_TREE_MISMATCH_FLAG} only when this case reads nothing "
             "from the checkout, such as a probe against the deployed endpoint."
         )
     )

@@ -23,6 +23,7 @@ from yoke_core.domain.qa_capture_agreement import (
     run_artifact_count,
 )
 from yoke_core.domain.qa_pending_agent_review import pending_review_verdict_refusal
+from yoke_core.domain.qa_run_verdict_record import insert_qa_run, update_qa_run
 from yoke_core.domain.qa_constants import (
     NEEDS_REVIEW_OUTCOME,
     VALID_VERDICTS,
@@ -144,30 +145,22 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         else:
             case_outcome_val = None
 
-        cur = conn.execute(
-            "INSERT INTO qa_runs "
-            "(qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
-            "execution_status, case_outcome, capture_degraded_reason, raw_result, "
-            "duration_ms, started_at, completed_at, created_at) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
-            "RETURNING id",
-            (
-                int(req_id),
-                performed_by,
-                stored_kind,
-                verdict,
-                verdict_reason,
-                execution_status,
-                case_outcome_val,
-                capture_degraded_reason,
-                raw_result,
-                duration_ms,
-                now_iso,
-                completed_at_value,
-                now_iso,
-            ),
-        )
-        run_id = int(cur.fetchone()[0])
+        run_id = insert_qa_run(
+            conn,
+            qa_requirement_id=int(req_id),
+            performed_by=performed_by,
+            qa_kind=stored_kind,
+            verdict=verdict,
+            verdict_reason=verdict_reason,
+            execution_status=execution_status,
+            case_outcome=case_outcome_val,
+            capture_degraded_reason=capture_degraded_reason,
+            raw_result=raw_result,
+            duration_ms=duration_ms,
+            started_at=now_iso,
+            completed_at=completed_at_value,
+            created_at=now_iso,
+        ).run_id
         conn.commit()
         event_name = (
             "QARunCompleted"
@@ -281,40 +274,32 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
                 issue,
                 jsonpath="$.payload.execution_status",
             )
-        params: list = [iso8601_now()]
-        set_parts = [f"completed_at = {p}"]
+        columns: dict = {"completed_at": iso8601_now()}
         if verdict is not None:
-            set_parts.extend(
-                [f"verdict = {p}", f"verdict_reason = {p}", f"case_outcome = {p}"]
+            columns.update(
+                verdict=verdict,
+                verdict_reason=verdict_reason,
+                case_outcome=case_outcome_for_verdict(verdict),
             )
-            params.extend([verdict, verdict_reason, case_outcome_for_verdict(verdict)])
         elif execution_status == CAPTURED and is_agent_reviewed_case(
             row["verdict_path"], row["method_id"]
         ):
-            set_parts.append(f"case_outcome = {p}")
-            params.append(NEEDS_REVIEW_OUTCOME)
+            columns["case_outcome"] = NEEDS_REVIEW_OUTCOME
         if execution_status is not None:
-            set_parts.append(f"execution_status = {p}")
-            params.append(execution_status)
+            columns["execution_status"] = execution_status
         if capture_degraded_reason is not None:
-            set_parts.append(f"capture_degraded_reason = {p}")
-            params.append(capture_degraded_reason)
+            columns["capture_degraded_reason"] = capture_degraded_reason
         if raw_result is not None:
             from yoke_core.domain.qa_requirement_pass_currency import (
                 retain_start_bound_method_config,
             )
 
-            raw_result = retain_start_bound_method_config(row["raw_result"], raw_result)
-            set_parts.append(f"raw_result = {p}")
-            params.append(raw_result)
+            columns["raw_result"] = retain_start_bound_method_config(
+                row["raw_result"], raw_result
+            )
         if duration_ms is not None:
-            set_parts.append(f"duration_ms = {p}")
-            params.append(duration_ms)
-        params.append(int(run_id))
-        conn.execute(
-            f"UPDATE qa_runs SET {', '.join(set_parts)} WHERE id = {p}",
-            tuple(params),
-        )
+            columns["duration_ms"] = duration_ms
+        update_qa_run(conn, int(run_id), columns)
         conn.commit()
         event_name = "QARunCompleted" if verdict is not None else "QARunCaptured"
         qa_events.emit_qa_run_event(

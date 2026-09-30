@@ -3,7 +3,8 @@
 The failed case keeps blocking but leaves the roster, so no later execution
 captures or reviews it again; the corrected case's passing independent
 verdict supersedes it on that verdict's own transaction, and a failing one
-leaves it blocking with its evidence.
+leaves it blocking with its evidence. Every verdict here is written through
+the production run writer, so no test discharges anything by hand.
 """
 
 from __future__ import annotations
@@ -37,14 +38,13 @@ from yoke_core.domain.qa_plan_execution_state import (
 from yoke_core.domain.qa_requirement_replacement import (
     QaReplacementError,
     declare_existing_replacement,
-    discharge_declared_replacements,
 )
 
 MEMBER = 9811
 
 
-def _pass(conn: Any, run_id: str) -> list[dict[str, Any]]:
-    """Execute the member's roster to a pass, discharging on the same commit."""
+def _pass(conn: Any, run_id: str) -> list[int]:
+    """Execute the member's roster to a pass; return the rows it discharged."""
     execution = begin_plan_execution(
         conn,
         deployment_run_id=run_id,
@@ -70,10 +70,16 @@ def _pass(conn: Any, run_id: str) -> list[dict[str, Any]]:
             },
         )
         passed.append(requirement_id)
-    discharged = discharge_declared_replacements(conn, passed)
     finish_plan_execution(conn, execution, state="completed", reason="test-complete")
     conn.commit()
-    return [receipt for receipt, _ in discharged]
+    return [
+        int(row["id"])
+        for row in conn.execute(
+            "SELECT id FROM qa_requirements WHERE superseded_by_requirement_id = ANY(%s) "
+            "ORDER BY id",
+            (passed,),
+        ).fetchall()
+    ]
 
 
 def _roster(conn: Any, run_id: str) -> list[int]:
@@ -106,7 +112,10 @@ def test_declared_case_leaves_the_roster_but_keeps_blocking(test_db) -> None:
     run_id = "run-replacement-declared"
     failed_id, corrected_id = _failed_with_correction(test_db, run_id)
 
-    assert requirement_row(test_db, failed_id)["replacement_requirement_id"] == corrected_id
+    assert (
+        requirement_row(test_db, failed_id)["replacement_requirement_id"]
+        == corrected_id
+    )
     assert _roster(test_db, run_id) == [corrected_id]
     status = _status(test_db, run_id)
     assert not status["accepted"]
@@ -120,9 +129,7 @@ def test_passing_replacement_supersedes_the_failed_case(test_db) -> None:
     run_id = "run-replacement-pass"
     failed_id, corrected_id = _failed_with_correction(test_db, run_id)
 
-    receipts = _pass(test_db, run_id)
-
-    assert [receipt["requirement_id"] for receipt in receipts] == [failed_id]
+    assert _pass(test_db, run_id) == [failed_id]
     row = requirement_row(test_db, failed_id)
     assert row["superseded_by_requirement_id"] == corrected_id
     assert row["supersession_source"] == "agent"
@@ -138,8 +145,6 @@ def test_failing_replacement_leaves_the_failed_case_blocking(test_db) -> None:
     failed_id, corrected_id = _failed_with_correction(test_db, run_id)
 
     record_case_verdict(test_db, corrected_id, "fail", evidence=True)
-    assert discharge_declared_replacements(test_db, []) == []
-    test_db.commit()
 
     row = requirement_row(test_db, failed_id)
     assert row["superseded_by_requirement_id"] is None
@@ -158,14 +163,15 @@ def test_retry_correction_inherits_every_earlier_attempt(test_db) -> None:
 
     declare(test_db, first_fix, "smoke-fixed-2", [second_fix])
 
-    assert requirement_row(test_db, failed_id)["replacement_requirement_id"] == second_fix
-    assert requirement_row(test_db, first_fix)["replacement_requirement_id"] == second_fix
+    assert (
+        requirement_row(test_db, failed_id)["replacement_requirement_id"] == second_fix
+    )
+    assert (
+        requirement_row(test_db, first_fix)["replacement_requirement_id"] == second_fix
+    )
     assert _roster(test_db, run_id) == [second_fix]
 
-    receipts = _pass(test_db, run_id)
-    assert sorted(receipt["requirement_id"] for receipt in receipts) == sorted(
-        [failed_id, first_fix]
-    )
+    assert _pass(test_db, run_id) == sorted([failed_id, first_fix])
     status = _status(test_db, run_id)
     assert status["accepted"], status["reasons"]
 
@@ -200,7 +206,10 @@ def test_refreshed_case_is_declared_the_replacement_of_its_failed_rows(test_db) 
     declare_refreshed_replacements(test_db, [refreshed_id])
     test_db.commit()
 
-    assert requirement_row(test_db, failed_id)["replacement_requirement_id"] == refreshed_id
+    assert (
+        requirement_row(test_db, failed_id)["replacement_requirement_id"]
+        == refreshed_id
+    )
     assert _roster(test_db, run_id) == [refreshed_id]
 
 
@@ -212,23 +221,29 @@ def test_existing_corrected_case_replaces_failed_capture_with_sibling_pending(
     run_id = "run-direct-correction-and-sibling"
     failed_id = seed_member_qa_case(test_db, run_id=run_id, member_item_id=MEMBER)
     record_case_verdict(test_db, failed_id, "fail", evidence=True)
-    corrected_id = corrected_case(test_db, failed_id=failed_id, case_key="selector-scoped")
+    corrected_id = corrected_case(
+        test_db, failed_id=failed_id, case_key="selector-scoped"
+    )
     sibling_id = corrected_case(test_db, failed_id=failed_id, case_key="other-check")
 
     declared = declare_existing_replacement(
         test_db, failed_id=failed_id, replacement_id=corrected_id
     )
     test_db.commit()
-    assert declare_existing_replacement(
-        test_db, failed_id=failed_id, replacement_id=corrected_id
-    ) == declared
+    assert (
+        declare_existing_replacement(
+            test_db, failed_id=failed_id, replacement_id=corrected_id
+        )
+        == declared
+    )
     assert failed_id not in _roster(test_db, run_id)
     assert set(_roster(test_db, run_id)) == {corrected_id, sibling_id}
 
     record_case_verdict(test_db, corrected_id, "pass", evidence=True)
-    discharge_declared_replacements(test_db, [corrected_id])
-    test_db.commit()
-    assert requirement_row(test_db, failed_id)["superseded_by_requirement_id"] == corrected_id
+    assert (
+        requirement_row(test_db, failed_id)["superseded_by_requirement_id"]
+        == corrected_id
+    )
     assert not _status(test_db, run_id)["accepted"]
 
     _pass(test_db, run_id)

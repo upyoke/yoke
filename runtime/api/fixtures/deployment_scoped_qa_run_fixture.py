@@ -215,7 +215,6 @@ def seed_run_standing_on_qa_stage(
     conn.commit()
 
 
-
 #: The one item-scoped QA stage these helpers seed, named once so a test and
 #: the fixture cannot drift apart on the string. Flows with two item-scoped
 #: stages live in test_deployment_qa_multi_item_scoped_stages.
@@ -297,16 +296,21 @@ def seed_member_qa_case(
 def record_case_verdict(
     conn: Any, requirement_id: int, verdict: str, *, evidence: bool
 ) -> int:
-    """Record one verdict, with or without the evidence the gate looks for."""
+    """Record one verdict through the production write path, with or without
+    the evidence the gate looks for."""
+    from yoke_core.domain.qa_run_verdict_record import insert_qa_run
+
     now = "2026-09-18T00:02:00Z"
-    qa_run_id = int(
-        conn.execute(
-            "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
-            "started_at,completed_at,created_at) "
-            "VALUES (%s,'worktree_run','plan_case',%s,%s,%s,%s) RETURNING id",
-            (int(requirement_id), verdict, now, now, now),
-        ).fetchone()[0]
-    )
+    qa_run_id = insert_qa_run(
+        conn,
+        qa_requirement_id=int(requirement_id),
+        performed_by="worktree_run",
+        qa_kind="plan_case",
+        verdict=verdict,
+        started_at=now,
+        completed_at=now,
+        created_at=now,
+    ).run_id
     if evidence:
         conn.execute(
             "INSERT INTO qa_artifacts(qa_run_id,artifact_type,content_type,"

@@ -29,6 +29,7 @@ from yoke_core.domain.qa_command_plans import (
     list_registered_commands_for_project_id,
 )
 from yoke_core.domain.qa_method_config_validation import validate_method_config
+from yoke_core.domain.qa_run_verdict_record import insert_qa_run
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
@@ -93,13 +94,18 @@ def _ensure_merge_gate_ci_requirement(
     if item is None:
         raise LookupError(ITEM_NOT_FOUND)
     project_id = int(item["project_id"])
-    config = validate_method_config("command-ci", {
-        "command": command or list_registered_commands_for_project_id(
-            conn, project_id,
-        ).get(scope, ""),
-        "registered_scope": scope,
-        "ci_workflow": workflow or declared_ci_workflow(conn, project_id),
-    })
+    config = validate_method_config(
+        "command-ci",
+        {
+            "command": command
+            or list_registered_commands_for_project_id(
+                conn,
+                project_id,
+            ).get(scope, ""),
+            "registered_scope": scope,
+            "ci_workflow": workflow or declared_ci_workflow(conn, project_id),
+        },
+    )
     rows = query_rows(
         conn,
         "SELECT id, method_config FROM qa_requirements "
@@ -109,9 +115,7 @@ def _ensure_merge_gate_ci_requirement(
     )
     for row in rows:
         stored_config = _loads_config(row.get("method_config"))
-        registered_scope = str(
-            stored_config.get("registered_scope") or ""
-        ).strip()
+        registered_scope = str(stored_config.get("registered_scope") or "").strip()
         if registered_scope and registered_scope != scope:
             continue
         try:
@@ -136,10 +140,7 @@ def _ensure_merge_gate_ci_requirement(
             "command-ci",
             "Command (CI)",
             "ci_run",
-            (
-                "Merge-gate CI verification of the integrated candidate "
-                f"tree ({scope})."
-            ),
+            (f"Merge-gate CI verification of the integrated candidate tree ({scope})."),
             "CI workflow concludes successfully for the candidate head.",
             json.dumps(config, sort_keys=True),
             now,
@@ -216,28 +217,19 @@ def handle_record_post_rebase_ci_run(request: FunctionCallRequest) -> HandlerOut
                 raise LookupError(f"requirement {requirement_id} disappeared")
             qa_kind = str(req["qa_kind"])
             now = iso8601_now()
-            marker = _marker(conn)
-            cur = conn.execute(
-                "INSERT INTO qa_runs ("
-                "qa_requirement_id, performed_by, qa_kind, verdict, "
-                "case_outcome, raw_result, duration_ms, started_at, "
-                "completed_at, created_at"
-                f") VALUES ({', '.join([marker] * 10)}) RETURNING id",
-                (
-                    requirement_id,
-                    body.performed_by or "ci_run",
-                    qa_kind,
-                    body.verdict,
-                    case_outcome_for_verdict(body.verdict),
-                    body.raw_result,
-                    body.duration_ms,
-                    now,
-                    now,
-                    now,
-                ),
-            )
-            run_row = cur.fetchone()
-            run_id = int(run_row["id"] if isinstance(run_row, dict) else run_row[0])
+            run_id = insert_qa_run(
+                conn,
+                qa_requirement_id=requirement_id,
+                performed_by=body.performed_by or "ci_run",
+                qa_kind=qa_kind,
+                verdict=body.verdict,
+                case_outcome=case_outcome_for_verdict(body.verdict),
+                raw_result=body.raw_result,
+                duration_ms=body.duration_ms,
+                started_at=now,
+                completed_at=now,
+                created_at=now,
+            ).run_id
             conn.commit()
             qa_events.emit_qa_run_event(
                 conn,

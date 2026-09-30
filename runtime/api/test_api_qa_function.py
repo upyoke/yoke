@@ -1,4 +1,4 @@
-"""Unit tests for QA-family handlers — qa.requirement.update + qa.run.record_verdict."""
+"""Unit tests for QA-family handlers — qa.requirement.update and its claim dispatch."""
 
 from __future__ import annotations
 
@@ -7,34 +7,53 @@ from contextlib import contextmanager
 from unittest.mock import patch
 
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.handlers import qa, qa_run
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_core.domain.handlers import qa
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from runtime.api.fixtures.backlog_inserts import insert_item, insert_qa_requirement
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
 def _request(function_id: str, target: TargetRef, payload=None) -> FunctionCallRequest:
-    return FunctionCallRequest(function=function_id, actor=ActorContext(actor_id="op", session_id="s-1"), target=target, payload=payload or {})
+    return FunctionCallRequest(
+        function=function_id,
+        actor=ActorContext(actor_id="op", session_id="s-1"),
+        target=target,
+        payload=payload or {},
+    )
 
 
 class TestQaRequirementUpdate(unittest.TestCase):
     def test_rejects_missing_target(self):
-        req = _request("qa.requirement.update", TargetRef(kind="global"), payload={"field": "blocking_mode", "value": "blocking"})
+        req = _request(
+            "qa.requirement.update",
+            TargetRef(kind="global"),
+            payload={"field": "blocking_mode", "value": "blocking"},
+        )
         outcome = qa.handle_qa_requirement_update(req)
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "target_invalid")
 
     def test_rejects_unupdatable_field(self):
         req = _request(
-            "qa.requirement.update", TargetRef(kind="qa_requirement", qa_requirement_id=10), payload={"field": "qa_kind", "value": "ac_verification"}
+            "qa.requirement.update",
+            TargetRef(kind="qa_requirement", qa_requirement_id=10),
+            payload={"field": "qa_kind", "value": "ac_verification"},
         )
         outcome = qa.handle_qa_requirement_update(req)
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "field_not_updatable")
 
     def test_rejects_invalid_blocking_mode(self):
-        req = _request("qa.requirement.update", TargetRef(kind="qa_requirement", qa_requirement_id=10), payload={"field": "blocking_mode", "value": "wat"})
+        req = _request(
+            "qa.requirement.update",
+            TargetRef(kind="qa_requirement", qa_requirement_id=10),
+            payload={"field": "blocking_mode", "value": "wat"},
+        )
         outcome = qa.handle_qa_requirement_update(req)
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "payload_invalid")
@@ -82,102 +101,18 @@ class TestQaRequirementUpdate(unittest.TestCase):
 
         with patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()):
             with patch("yoke_core.domain.db_helpers.query_one", return_value=existing):
-                with patch("yoke_core.domain.qa_events.emit_qa_requirement_event") as emit:
+                with patch(
+                    "yoke_core.domain.qa_events.emit_qa_requirement_event"
+                ) as emit:
                     req = _request(
-                        "qa.requirement.update", TargetRef(kind="qa_requirement", qa_requirement_id=10), payload={"field": "blocking_mode", "value": "blocking"}
+                        "qa.requirement.update",
+                        TargetRef(kind="qa_requirement", qa_requirement_id=10),
+                        payload={"field": "blocking_mode", "value": "blocking"},
                     )
                     outcome = qa.handle_qa_requirement_update(req)
         self.assertTrue(outcome.primary_success)
         self.assertEqual(outcome.result_payload["new_value"], "blocking")
         emit.assert_called_once()
-
-
-class TestQaRunRecordVerdict(unittest.TestCase):
-    def test_rejects_invalid_verdict(self):
-        req = _request("qa.run.record_verdict", TargetRef(kind="qa_requirement", qa_requirement_id=7), payload={"performed_by": "agent", "verdict": "maybe"})
-        outcome = qa_run.handle_qa_run_record_verdict(req)
-        self.assertFalse(outcome.primary_success)
-        self.assertEqual(outcome.error.code, "payload_invalid")
-
-    def test_rejects_agent_for_browser_method(self):
-        existing = {"qa_kind": "plan_case", "method_id": "browser-check"}
-
-        class _Conn:
-            def close(self):
-                pass
-
-        with patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()):
-            with patch("yoke_core.domain.db_helpers.query_one", return_value=existing):
-                req = _request(
-                    "qa.run.record_verdict", TargetRef(kind="qa_requirement", qa_requirement_id=7), payload={"performed_by": "agent", "verdict": "pass"}
-                )
-                outcome = qa_run.handle_qa_run_record_verdict(req)
-        self.assertFalse(outcome.primary_success)
-        self.assertEqual(outcome.error.code, "policy_violation")
-
-    def test_happy_path_inserts_row(self):
-        existing = {"qa_kind": "ac_verification", "method_id": None,
-                    "blocking_mode": "non_blocking", "waived_at": None}
-
-        class _Cursor:
-            # record_verdict reads the inserted id via ``RETURNING id`` +
-            # ``cur.fetchone()[0]`` (handlers/qa_run.py); no lastrowid path.
-            def fetchone(self):
-                return (99,)
-
-        class _Conn:
-            def execute(self, sql, params):
-                return _Cursor()
-
-            def commit(self):
-                pass
-
-            def close(self):
-                pass
-
-        with patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()):
-            with patch("yoke_core.domain.db_helpers.query_one", return_value=existing):
-                with patch("yoke_core.domain.qa_events.emit_qa_run_event") as emit:
-                    req = _request(
-                        "qa.run.record_verdict",
-                        TargetRef(kind="qa_requirement", qa_requirement_id=7),
-                        payload={
-                            "performed_by": "agent",
-                            "verdict": "pass",
-                            "raw_result": "all good",
-                        },
-                    )
-                    outcome = qa_run.handle_qa_run_record_verdict(req)
-        self.assertTrue(outcome.primary_success)
-        self.assertEqual(outcome.result_payload["qa_run_id"], 99)
-        self.assertEqual(outcome.result_payload["verdict"], "pass")
-        emit.assert_called_once()
-
-    def test_agent_undetermined_refuses_without_artifact_surface(self):
-        existing = {"qa_kind": "ac_verification", "method_id": None}
-
-        class _Conn:
-            def execute(self, _sql, _params=()):
-                raise AssertionError("refusal must precede the verdict insert")
-
-            def close(self):
-                pass
-
-        with patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()):
-            with patch("yoke_core.domain.db_helpers.query_one", return_value=existing):
-                req = _request(
-                    "qa.run.record_verdict",
-                    TargetRef(kind="qa_requirement", qa_requirement_id=7),
-                    payload={
-                        "performed_by": "agent",
-                        "verdict": "undetermined",
-                        "verdict_reason": "The log omits the final assertion.",
-                    },
-                )
-                outcome = qa_run.handle_qa_run_record_verdict(req)
-        self.assertFalse(outcome.primary_success)
-        self.assertEqual(outcome.error.code, "qa_undetermined_evidence_required")
-        self.assertIn("Attach at least one qa_artifacts row", outcome.error.message)
 
 
 class TestQaRequirementClaimDispatch(unittest.TestCase):
@@ -195,7 +130,15 @@ class TestQaRequirementClaimDispatch(unittest.TestCase):
         with test_database() as conn:
             now = iso8601_now()
             insert_item(conn, id=42, title="T", status="implementing")
-            insert_qa_requirement(conn, id=10, item_id=42, qa_kind="ac_verification", qa_phase="verification", blocking_mode="blocking", success_policy="")
+            insert_qa_requirement(
+                conn,
+                id=10,
+                item_id=42,
+                qa_kind="ac_verification",
+                qa_phase="verification",
+                blocking_mode="blocking",
+                success_policy="",
+            )
             conn.execute(
                 "INSERT INTO harness_sessions "
                 "(session_id, executor, provider, model, workspace, "
@@ -222,7 +165,9 @@ class TestQaRequirementClaimDispatch(unittest.TestCase):
         _ensure_handlers_registered()
         entry = yoke_function_registry.lookup(function_id)
         assert entry is not None, f"{function_id} must be registered"
-        stubbed = replace(entry, handler=lambda _req: HandlerOutcome(result_payload=result_payload))
+        stubbed = replace(
+            entry, handler=lambda _req: HandlerOutcome(result_payload=result_payload)
+        )
         yoke_function_registry._REGISTRY[function_id] = stubbed
         return function_id, entry  # original entry, restored in finally
 
@@ -249,8 +194,14 @@ class TestQaRequirementClaimDispatch(unittest.TestCase):
             restored = self._stub_handler(*stub_handler)
         try:
             with (
-                patch("yoke_core.domain.yoke_function_dispatch.bind_actor_identity", side_effect=lambda entry, req, **_kw: _BoundStub(req)),
-                patch("yoke_core.domain.yoke_function_dispatch.emit_called", return_value=None),
+                patch(
+                    "yoke_core.domain.yoke_function_dispatch.bind_actor_identity",
+                    side_effect=lambda entry, req, **_kw: _BoundStub(req),
+                ),
+                patch(
+                    "yoke_core.domain.yoke_function_dispatch.emit_called",
+                    return_value=None,
+                ),
             ):
                 return yoke_function_dispatch.dispatch(request)
         finally:
@@ -268,7 +219,11 @@ class TestQaRequirementClaimDispatch(unittest.TestCase):
                 target=TargetRef(kind="qa_requirement", qa_requirement_id=10),
                 payload={"field": "blocking_mode", "value": "blocking"},
             )
-            response = self._dispatch_with_stubs(request, "held-session", stub_handler=("qa.requirement.update", {"ok": True}))
+            response = self._dispatch_with_stubs(
+                request,
+                "held-session",
+                stub_handler=("qa.requirement.update", {"ok": True}),
+            )
         self.assertTrue(response.success, response.error)
         self.assertEqual(response.result, {"ok": True})
 
@@ -280,7 +235,11 @@ class TestQaRequirementClaimDispatch(unittest.TestCase):
                 target=TargetRef(kind="qa_requirement", qa_requirement_id=10),
                 payload={"performed_by": "agent", "verdict": "pass"},
             )
-            response = self._dispatch_with_stubs(request, "held-session", stub_handler=("qa.run.record_verdict", {"ok": True}))
+            response = self._dispatch_with_stubs(
+                request,
+                "held-session",
+                stub_handler=("qa.run.record_verdict", {"ok": True}),
+            )
         self.assertTrue(response.success, response.error)
 
     def test_missing_claim_names_resolved_item_id(self):

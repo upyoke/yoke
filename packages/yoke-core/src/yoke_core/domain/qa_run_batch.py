@@ -25,7 +25,7 @@ from yoke_core.domain.db_helpers import (
     query_one,
     query_scalar,
 )
-from yoke_core.domain.qa_artifact_ops import linked_artifact_handle
+from yoke_core.domain.qa_artifact_ops import attach_linked_screenshot
 from yoke_core.domain.qa_artifact_storage import ArtifactStorageError
 from yoke_core.domain.qa_constants import (
     _normalize_qa_kind,
@@ -204,59 +204,33 @@ def cmd_run_add_batch(
                 requirement_id=int(row["requirement_id"]),
             )
 
-            sql = """INSERT INTO qa_runs
-                      (qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason,
-                       score, confidence, raw_result, duration_ms,
-                       started_at, completed_at, created_at)
-                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"""
-            cur = conn.execute(
-                sql,
-                (
-                    row["requirement_id"],
-                    row["performed_by"],
-                    row["qa_kind"],
-                    verdict,
-                    row.get("verdict_reason"),
-                    row.get("score"),
-                    row.get("confidence"),
-                    raw_result,
-                    row.get("duration_ms"),
-                    now_iso,
-                    completed_at_value,
-                    now_iso,
-                ),
-            )
-            inserted_id = int(cur.fetchone()[0])
+            from yoke_core.domain.qa_run_verdict_record import insert_qa_run
+
+            inserted_id = insert_qa_run(
+                conn,
+                qa_requirement_id=row["requirement_id"],
+                performed_by=row["performed_by"],
+                qa_kind=row["qa_kind"],
+                verdict=verdict,
+                verdict_reason=row.get("verdict_reason"),
+                score=row.get("score"),
+                confidence=row.get("confidence"),
+                raw_result=raw_result,
+                duration_ms=row.get("duration_ms"),
+                started_at=now_iso,
+                completed_at=completed_at_value,
+                created_at=now_iso,
+            ).run_id
             inserted_ids.append(inserted_id)
 
             # optional one-step artifact creation
             artifact_path = row.get("artifact_path")
             if artifact_path is not None:
-                _ext = os.path.splitext(artifact_path)[1].lower()
-                _content_type = {
-                    ".png": "image/png",
-                    ".jpg": "image/jpeg",
-                    ".jpeg": "image/jpeg",
-                    ".webp": "image/webp",
-                    ".gif": "image/gif",
-                }.get(_ext, "application/octet-stream")
-                _handle = linked_artifact_handle(
+                attach_linked_screenshot(
                     conn,
                     requirement_id=int(row["requirement_id"]),
                     run_id=inserted_id,
                     artifact_path=str(artifact_path),
-                )
-                conn.execute(
-                    """INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, artifact_handle, metadata, created_at)
-                       VALUES (%s, %s, %s, %s, %s, %s)""",
-                    (
-                        inserted_id,
-                        "screenshot",
-                        _content_type,
-                        _handle,
-                        None,
-                        iso8601_now(),
-                    ),
                 )
 
         # QA run writes are real item activity (R1 semantics).

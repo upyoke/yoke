@@ -106,7 +106,8 @@ def run(args: List[str]) -> int:
         "--checkout-path",
         help=(
             "Execute the case in this checkout instead of the default tree. "
-            "For a deployment candidate, pin a separate tree to that revision."
+            "A deployment case needs none: the runner checks out its run's "
+            "candidate into a disposable tree and removes it afterwards."
         ),
     )
     parser.add_argument(

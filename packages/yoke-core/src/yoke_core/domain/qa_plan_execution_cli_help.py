@@ -42,9 +42,12 @@ atomic correction binds each case to the same run, stage, member and target;
 it does not add an unrelated second set of obligations.
 Materialization stamps the run's own deployed target
 onto the cases, so a plan authored before this release still verifies it. A
-deployment case is bound to the candidate the run deployed, not to your lane:
-pass --checkout-path at a separate checkout pinned to that revision, or pass
---allow-tree-mismatch when the case reads nothing from the checkout.
+deployment case is bound to the candidate the run deployed, not to your lane
+or the project checkout: each case runs in a disposable checkout the runner
+clones at that revision and removes afterwards, so no flag is needed however
+far the default branch has moved. --checkout-path overrides that tree and is
+refused unless it sits at the candidate; --allow-tree-mismatch declares the
+case reads nothing from the checkout.
 
 Who runs it, and what follows
 -----------------------------
