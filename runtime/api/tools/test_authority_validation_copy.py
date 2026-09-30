@@ -35,7 +35,9 @@ def test_refuses_the_authoritative_database_as_validation(monkeypatch) -> None:
 
 def test_copies_with_no_owner_or_privilege_restore(monkeypatch) -> None:
     authority_dsn = "host=authority password=top-secret dbname=yoke"
-    validation_dsn = "host=validation user=test dbname=yoke_validation"
+    validation_dsn = (
+        "host=validation user=test password=restore-secret dbname=yoke_validation"
+    )
     monkeypatch.setattr(
         copy_tool.db_backend,
         "resolve_pg_dsn",
@@ -81,9 +83,13 @@ def test_copies_with_no_owner_or_privilege_restore(monkeypatch) -> None:
     assert "--exit-on-error" in restore_argv
     assert authority_dsn not in dump_argv
     assert validation_dsn not in restore_argv
-    assert "top-secret" not in " ".join(dump_argv)
+    for argv, _env in calls:
+        assert all("password=" not in arg for arg in argv)
+        assert all(
+            "top-secret" not in arg and "restore-secret" not in arg for arg in argv
+        )
     assert dump_env["PGPASSWORD"] == "top-secret"
-    assert restore_env.get("PGPASSWORD") is None
+    assert restore_env["PGPASSWORD"] == "restore-secret"
     assert resets == [validation_dsn]
 
 
@@ -92,9 +98,7 @@ def test_restore_passes_the_staged_extension_list(monkeypatch, tmp_path) -> None
     validation_dsn = "host=validation dbname=yoke_validation"
     list_path = tmp_path / "restore.list"
     list_path.write_text(";1; SCHEMA - statement_statistics\n")
-    monkeypatch.setattr(
-        copy_tool.db_backend, "resolve_pg_dsn", lambda: authority_dsn
-    )
+    monkeypatch.setattr(copy_tool.db_backend, "resolve_pg_dsn", lambda: authority_dsn)
     monkeypatch.setattr(
         copy_tool,
         "_database_identity",
@@ -137,9 +141,7 @@ def test_restore_list_comments_staged_schema_create(monkeypatch, tmp_path) -> No
     )
     monkeypatch.setattr(
         "runtime.api.tools.authority_validation_extension_restore.subprocess.run",
-        lambda *_a, **_k: SimpleNamespace(
-            returncode=0, stdout=listing, stderr=""
-        ),
+        lambda *_a, **_k: SimpleNamespace(returncode=0, stdout=listing, stderr=""),
     )
     path = tmp_path / "list"
     write_restore_list_omitting_schemas(
