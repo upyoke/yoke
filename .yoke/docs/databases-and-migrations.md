@@ -68,6 +68,12 @@ five minutes, preflight kills the stalled copy, removes the partial archive,
 and names the source database or SSH tunnel to check before rerunning. A
 dropped tunnel still gets the existing connection recovery and retry path.
 
+Fleet preflight and validation-copy rehearsal pass database passwords through
+`PGPASSWORD` in each client's environment. Connection strings containing
+passwords stay out of process arguments; fleet dumps use the shared libpq
+environment mapping, while local copy clients name only the socket, user, and
+database in their arguments. Dump failure diagnostics redact the password.
+
 The fleet is tenant databases only. Names carrying the reserved
 `yoke_test_run` scratch prefix are disposable by construction — a test or
 rehearsal run created them and nothing owns them once it exits — so the

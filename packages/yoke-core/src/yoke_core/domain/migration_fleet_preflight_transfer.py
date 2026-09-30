@@ -17,6 +17,7 @@ from yoke_core.domain.connected_env_readiness_connector import (
     CONNECTION_FAILURE_MARKERS,
 )
 from yoke_core.domain.postgres_cluster import ClusterSpec
+from yoke_core.domain.universe_portability_common import postgres_client_env
 
 DUMP_STALL_TIMEOUT_SECONDS = 300
 DUMP_PROGRESS_POLL_SECONDS = 5
@@ -120,6 +121,8 @@ def run_transfer(
     stderr = (result.stderr or "").strip()
     if redact:
         stderr = stderr.replace(redact, "<dsn>")
+    if env and env.get("PGPASSWORD"):
+        stderr = stderr.replace(env["PGPASSWORD"], "<redacted-secret>")
     raise RuntimeError(f"{Path(argv[0]).name} failed ({result.returncode}): {stderr}")
 
 
@@ -158,7 +161,6 @@ def dump_database(
         "--format=custom",
         "--file",
         str(dump),
-        source_dsn,
     ]
     last_error: Exception | None = None
     for attempt in range(1, DUMP_ATTEMPTS + 1):
@@ -167,7 +169,7 @@ def dump_database(
                 argv,
                 redact=source_dsn,
                 timeout=DUMP_STALL_TIMEOUT_SECONDS,
-                env=dump_env(),
+                env=dump_env(postgres_client_env(source_dsn)),
                 progress_file=dump,
             )
             return
