@@ -70,7 +70,7 @@ test("one-argument mount preserves the local client and DOM shape", async (t) =>
     .map((entry) => JSON.parse(entry.init.body))
     .find((request) => request.function === "projects.list");
   assert.deepEqual(projectRosterRequest.payload, {
-    fields: ["id", "slug", "name", "emoji", "public_item_prefix"],
+    fields: ["id", "slug", "name", "emoji", "public_item_prefix", "github_repo"],
   });
   const assetFetch = fetches.find((entry) => !entry.init);
   assert.match(assetFetch.url, /\/static\/yoke-wordmark\.svg$/);

@@ -105,11 +105,11 @@ export function loadWordmark(brand, assetUrl, isMounted) {
 
 // The routing roster: every screen's scope resolves against it, so the first
 // render waits on this one read. Projected to exactly the fields the pickers,
-// the nav hrefs, and the drill-ins need.
+// the nav hrefs, delivery PR links, and the drill-ins need.
 export function loadProjectRoster(client, apply) {
   return Promise.resolve().then(() => callFunction(
     client, "projects.list", {
-      fields: ["id", "slug", "name", "emoji", "public_item_prefix"],
+      fields: ["id", "slug", "name", "emoji", "public_item_prefix", "github_repo"],
     },
   )).then((callResult) => {
     if (!callResult.envelope?.success) throw new Error("projects unavailable");
