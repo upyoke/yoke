@@ -81,7 +81,10 @@ def test_relay_refuses_a_refused_loopback_on_the_first_attempt(
     assert response.error.code == "https_transport_failed"
     assert "could not reach" in response.error.message
     assert "retrying will not help" in response.error.recovery_hint
-    assert "docker compose up -d" in response.error.recovery_hint
+    assert (
+        "yoke self-host init --dir <bundle> --protect-existing --start"
+        in response.error.recovery_hint
+    )
 
 
 def test_relay_still_retries_a_refused_named_endpoint(

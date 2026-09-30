@@ -148,7 +148,7 @@ def test_plan_is_read_only_and_names_every_step(
         "install Yoke CLI 0.1.1+launch.400 from stable",
         f"replace YOKE_SERVER_IMAGE with {selected_release.image}",
         "run docker compose pull core",
-        "run docker compose up -d",
+        "restart through the private host secret handoff",
     )
     assert (initialized_bundle / ".env").read_bytes() == before
 
@@ -169,6 +169,11 @@ def test_upgrade_moves_cli_pin_pull_and_restart_as_one_ordered_pair(
 
     monkeypatch.setattr(upgrade, "_RUN", run)
     monkeypatch.setattr(release_target, "_RUN", run)
+    monkeypatch.setattr(
+        upgrade.runtime,
+        "start_bundle",
+        lambda **kwargs: calls.append((("private-handoff",), kwargs["directory"])),
+    )
     report = upgrade.execute_upgrade(_plan(initialized_bundle, selected_release))
 
     assert calls[0][0][0] == sys.executable
@@ -177,7 +182,7 @@ def test_upgrade_moves_cli_pin_pull_and_restart_as_one_ordered_pair(
         ("/usr/bin/docker", "compose", "pull", "core"),
         initialized_bundle,
     )
-    assert calls[2] == (("/usr/bin/docker", "compose", "up", "-d"), initialized_bundle)
+    assert calls[2] == (("private-handoff",), initialized_bundle)
     env_text = env_path.read_text(encoding="utf-8")
     assert f"YOKE_SERVER_IMAGE={selected_release.image}" in env_text
     assert stat.S_IMODE(env_path.stat().st_mode) == 0o600

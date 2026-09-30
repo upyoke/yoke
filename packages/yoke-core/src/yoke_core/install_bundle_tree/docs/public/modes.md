@@ -40,8 +40,9 @@ Run Yoke core and Postgres on your own server.
 - Wizard on another machine: pick **A team server** and enter its reachable URL
   plus either a pasted token or token-file path in the same form. The guided host screen teaches the handoff without configuring
   VPN/tailnet, LAN, port-forwarding, or TLS for you.
-- Manual/operator path: `yoke self-host init` writes the same published Compose
-  bundle; [`docs/self-host.md`](https://github.com/upyoke/yoke/blob/main/docs/self-host.md)
+- Manual/operator path: `yoke self-host init --start` writes and starts the same Compose
+  bundle through the private host secret handoff. Restart with
+  `yoke self-host init --dir PATH --protect-existing --start`; [`docs/self-host.md`](https://github.com/upyoke/yoke/blob/main/docs/self-host.md)
   remains the full reference.
 - Same product surfaces as Cloud for Yoke-owned tabs; platform Member/Billing
   sections depend on how you host the shell

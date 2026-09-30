@@ -39,36 +39,19 @@ def _password(target: Path) -> str:
     return (target / "secrets" / "db-password").read_text(encoding="utf-8").strip()
 
 
-def test_init_creates_the_owner_only_first_boot_token_file(target, capsys):
-    """Compose bind-mounts this path, so the bundle has to create it first.
-
-    A path Compose materializes itself becomes a root-owned directory, and
-    the operator can neither read the credential nor delete the mount.
-    """
+def test_init_does_not_create_an_empty_token_file(target, capsys):
     assert commands.self_host_init(["--dir", str(target)]) == 0
-
-    token_file = first_boot_token.token_drop_path(target)
-    assert token_file.is_file()
-    assert token_file.read_bytes() == b""
-    assert _mode(token_file) == 0o600
-
-    compose = (target / "docker-compose.yml").read_text(encoding="utf-8")
-    assert (
-        "- ./secrets/first-boot-admin-token:/run/yoke-first-boot-admin-token"
-        in compose
-    )
-    assert "YOKE_FIRST_BOOT_TOKEN_FILE: /run/yoke-first-boot-admin-token" in compose
-    assert "YOKE_API_PUBLISH: ${YOKE_API_PUBLISH:-127.0.0.1:8765}" in compose
-
-    out = capsys.readouterr().out
-    assert str(token_file) in out
-    assert f"yoke connect http://127.0.0.1:8765 --token-stdin < {token_file}" in out
-    assert "docker compose logs core" not in out
+    assert not first_boot_token.token_drop_path(target).exists()
+    compose = (target / "docker-compose.yml").read_text()
+    assert "YOKE_SELF_HOST_HANDOFF: required" in compose
+    assert "first-boot-admin-token:/run" not in compose
+    assert "--protect-existing --start" in capsys.readouterr().out
 
 
 def test_init_never_truncates_an_already_delivered_token(target):
     assert commands.self_host_init(["--dir", str(target)]) == 0
     token_file = first_boot_token.token_drop_path(target)
+    token_file.touch(mode=0o600)
     token_file.write_text("yoke_v1_" + ("A" * 43) + "\n", encoding="utf-8")
 
     assert commands.self_host_init(["--dir", str(target), "--force"]) == 0
@@ -76,23 +59,11 @@ def test_init_never_truncates_an_already_delivered_token(target):
     assert first_boot_token.read_first_boot_token(target) == "yoke_v1_" + ("A" * 43)
 
 
-def test_protect_existing_adds_a_missing_token_file(target):
+def test_existing_bundle_needs_no_token_until_first_boot(target):
     assert commands.self_host_init(["--dir", str(target)]) == 0
-    first_boot_token.token_drop_path(target).unlink()
-
     assert commands.self_host_init(["--dir", str(target), "--protect-existing"]) == 0
-
-    assert _mode(first_boot_token.token_drop_path(target)) == 0o600
-
-
-def test_validating_a_bundle_without_a_token_file_names_the_repair(target):
-    assert commands.self_host_init(["--dir", str(target)]) == 0
-    first_boot_token.token_drop_path(target).unlink()
-
-    with pytest.raises(bundle.SelfHostBundleError) as raised:
-        bundle.validate_existing_bundle(directory=str(target))
-
-    assert "--protect-existing" in str(raised.value)
+    assert not first_boot_token.token_drop_path(target).exists()
+    assert bundle.validate_existing_bundle(directory=str(target)) == target.resolve()
 
 
 def test_init_writes_bundle_file_set_with_owner_only_secrets(target, capsys):
@@ -152,7 +123,7 @@ def test_init_writes_bundle_file_set_with_owner_only_secrets(target, capsys):
     assert password not in out.out
     assert password not in out.err
     assert password not in env_text
-    assert "docker compose up -d" in out.out
+    assert "--protect-existing --start" in out.out
     assert "yoke connect" in out.out
 
 
@@ -167,8 +138,8 @@ def test_init_ships_browser_sign_in_wiring_disabled(target):
     assert "YOKE_OIDC_ISSUER: ${YOKE_OIDC_ISSUER:-}" in compose
     assert "YOKE_OIDC_CLIENT_SECRET_FILE: ${YOKE_OIDC_CLIENT_SECRET_FILE:-}" in compose
     # The secret mount stays commented until the operator creates the file.
-    assert "#- yoke-oidc-client-secret" in compose
-    assert "#yoke-oidc-client-secret:" in compose
+    assert "secrets:" not in compose
+    assert "file: ./secrets" not in compose
 
     env_text = (target / ".env").read_text(encoding="utf-8")
     assert "#YOKE_OIDC_ISSUER=" in env_text
@@ -187,8 +158,8 @@ def test_init_ships_github_app_secret_wiring_disabled(target):
     assert "YOKE_GITHUB_APP_ID: ${YOKE_GITHUB_APP_ID:-}" in compose
     assert "YOKE_GITHUB_APP_WEB_URL: ${YOKE_GITHUB_APP_WEB_URL:-}" in compose
     assert "YOKE_GITHUB_APP_PRIVATE_KEY_FILE:" in compose
-    assert "#- yoke-github-app-private-key" in compose
-    assert "#yoke-github-app-private-key:" in compose
+    assert "secrets:" not in compose
+    assert "file: ./secrets" not in compose
 
     env_text = (target / ".env").read_text(encoding="utf-8")
     assert "#YOKE_GITHUB_APP_ISSUER=" in env_text
@@ -217,14 +188,14 @@ def test_init_uses_self_host_only_root_bootstrap_for_core_secrets(target):
     )
     assert "command: []" in compose
     assert "cap_drop:\n      - ALL" in compose
-    assert "cap_add:\n      - CHOWN\n      - SETGID\n      - SETUID" in compose
+    assert "cap_add:\n      - SETGID\n      - SETUID" in compose
     assert "security_opt:\n      - no-new-privileges:true" in compose
     assert (
         "- yoke_core.tools.self_host_server_bootstrap\n        - --healthcheck"
         in compose
     )
-    assert "YOKE_PG_DSN_FILE: /run/secrets/yoke-db-dsn" in compose
-    assert "- /run/yoke-runtime-secrets:mode=0700" in compose
+    assert "YOKE_PG_DSN_FILE: /dev/shm/yoke-runtime-secrets/yoke-db-dsn" in compose
+    assert "CHOWN" not in compose
 
 
 def test_init_json_report_omits_secrets(target, capsys):

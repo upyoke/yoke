@@ -56,15 +56,17 @@ def server_status(
             relevant=True,
             reachable=False,
             authority=api_url,
-            issues=[_issue(
-                "error",
-                "server_unreachable",
-                f"health probe failed against {api_url}",
-                "This machine has no working control plane: every relayed "
-                "command will fail until the server answers. Start it "
-                "(`cd <bundle> && docker compose up -d`), or select a "
-                "reachable authority with `yoke env use NAME`.",
-            )],
+            issues=[
+                _issue(
+                    "error",
+                    "server_unreachable",
+                    f"health probe failed against {api_url}",
+                    "This machine has no working control plane: every relayed "
+                    "command will fail until the server answers. Start it "
+                    "(`yoke self-host init --dir <bundle> --protect-existing --start`), or select a "
+                    "reachable authority with `yoke env use NAME`.",
+                )
+            ],
         )
 
     try:
@@ -92,13 +94,15 @@ def server_status(
             build=str(health.get("build") or ""),
             authority=api_url,
             identity_verified=False,
-            issues=[_issue(
-                "error",
-                "server_identity_unverified",
-                f"authenticated identity probe failed against {api_url}: {exc}",
-                "Run `yoke connect` and select the intended authority; "
-                "a green health endpoint alone does not prove the tenant.",
-            )],
+            issues=[
+                _issue(
+                    "error",
+                    "server_identity_unverified",
+                    f"authenticated identity probe failed against {api_url}: {exc}",
+                    "Run `yoke connect` and select the intended authority; "
+                    "a green health endpoint alone does not prove the tenant.",
+                )
+            ],
         )
 
     summary = server_connect.server_identity_summary(identity)

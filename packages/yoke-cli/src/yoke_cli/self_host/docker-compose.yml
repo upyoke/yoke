@@ -5,13 +5,29 @@
 services:
   db:
     image: postgres:17
-    restart: unless-stopped
+    restart: "no"
     environment:
       POSTGRES_DB: yoke
       POSTGRES_USER: yoke
-      POSTGRES_PASSWORD_FILE: /run/secrets/yoke-db-password
-    secrets:
-      - yoke-db-password
+      POSTGRES_PASSWORD_FILE: /run/yoke-db-bootstrap/password
+    # PostgreSQL has no Python runtime. Its existing entrypoint waits for the
+    # host operator to stream the password into this private tmpfs over exec.
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        attempts=0;
+        until test -s "$$POSTGRES_PASSWORD_FILE"; do
+          attempts=$$((attempts + 1));
+          if test "$$attempts" -ge __HANDOFF_TIMEOUT_SECONDS__; then
+            echo 'self_host_database_handoff_timeout: restart with yoke self-host init --protect-existing --start' >&2;
+            exit 1;
+          fi;
+          sleep 1;
+        done;
+        exec docker-entrypoint.sh postgres
+    tmpfs:
+      - /run/yoke-db-bootstrap:mode=0700
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -23,15 +39,14 @@ services:
   core:
     image: ${YOKE_SERVER_IMAGE}
     # The public image remains USER yoke. This self-host-only bootstrap starts
-    # as root just long enough to copy root-only Compose secret mounts into a
-    # private tmpfs, drops every group/uid privilege, then execs the server.
+    # as root to accept the private exec handoff, then drops every group/uid
+    # privilege before writing runtime-owned tmpfs inputs and execing the server.
     user: "0:0"
     entrypoint: ["python", "-m", "yoke_core.tools.self_host_server_bootstrap"]
     command: []
     cap_drop:
       - ALL
     cap_add:
-      - CHOWN
       - SETGID
       - SETUID
     security_opt:
@@ -43,32 +58,27 @@ services:
         - -m
         - yoke_core.tools.self_host_server_bootstrap
         - --healthcheck
-    restart: unless-stopped
+    restart: "no"
     depends_on:
       db:
         condition: service_healthy
     environment:
       YOKE_SERVER_MODE: self-host
-      YOKE_PG_DSN_FILE: /run/secrets/yoke-db-dsn
-      # Where the one-time first-boot admin token lands. The root bootstrap
-      # opens this bind-mounted, operator-owned file and hands the open
-      # descriptor to the server, which is how an unprivileged process
-      # writes a credential the operator can still read — and why the token
-      # never reaches this service's log.
-      YOKE_FIRST_BOOT_TOKEN_FILE: /run/yoke-first-boot-admin-token
+      YOKE_PG_DSN_FILE: /dev/shm/yoke-runtime-secrets/yoke-db-dsn
+      YOKE_SELF_HOST_HANDOFF: required
       YOKE_FIRST_BOOT_TOKEN_HOST_PATH: ./secrets/first-boot-admin-token
       # The publish spec, so the boot banner prints a real connect URL
       # instead of a placeholder the operator has to translate.
       YOKE_API_PUBLISH: ${YOKE_API_PUBLISH:-127.0.0.1:8765}
       # Browser sign-in door (optional). Set the values in .env to
       # enable; blank keeps the door disabled. The client secret rides
-      # a mounted secret file — see the commented blocks below.
+      # a host-opened secret file — see the commented blocks below.
       YOKE_OIDC_ISSUER: ${YOKE_OIDC_ISSUER:-}
       YOKE_OIDC_CLIENT_ID: ${YOKE_OIDC_CLIENT_ID:-}
       YOKE_OIDC_REDIRECT_URL: ${YOKE_OIDC_REDIRECT_URL:-}
       YOKE_OIDC_CLIENT_SECRET_FILE: ${YOKE_OIDC_CLIENT_SECRET_FILE:-}
       # GitHub App installation-token authority (optional). Nonsecret values
-      # live in .env; the private key is a mounted owner-only file.
+      # live in .env; the private key is a host-opened owner-only file.
       YOKE_GITHUB_APP_ISSUER: ${YOKE_GITHUB_APP_ISSUER:-}
       YOKE_GITHUB_APP_API_URL: ${YOKE_GITHUB_APP_API_URL:-}
       YOKE_GITHUB_APP_WEB_URL: ${YOKE_GITHUB_APP_WEB_URL:-}
@@ -76,37 +86,8 @@ services:
       YOKE_GITHUB_APP_CLIENT_ID: ${YOKE_GITHUB_APP_CLIENT_ID:-}
       YOKE_GITHUB_APP_SLUG: ${YOKE_GITHUB_APP_SLUG:-}
       YOKE_GITHUB_APP_PRIVATE_KEY_FILE: ${YOKE_GITHUB_APP_PRIVATE_KEY_FILE:-}
-    secrets:
-      - yoke-db-dsn
-      # Uncomment after writing ./secrets/oidc-client-secret (0600) and
-      # setting YOKE_OIDC_CLIENT_SECRET_FILE in .env:
-      #- yoke-oidc-client-secret
-      # Uncomment after installing the key with `yoke self-host init
-      # --dir . --protect-existing --github-app-private-key PATH` and
-      # setting the GitHub App values in .env:
-      #- yoke-github-app-private-key
-    volumes:
-      # A single owner-only file, created by `yoke self-host init`. Compose
-      # would materialize a missing path as a root-owned directory, so the
-      # bundle always creates it first.
-      - ./secrets/first-boot-admin-token:/run/yoke-first-boot-admin-token
-    tmpfs:
-      - /run/yoke-runtime-secrets:mode=0700
     ports:
       - "${YOKE_API_PUBLISH:-127.0.0.1:8765}:8765"
-
-secrets:
-  yoke-db-password:
-    file: ./secrets/db-password
-  yoke-db-dsn:
-    file: ./secrets/dsn
-  # Browser sign-in client secret (optional): the operator creates the
-  # file only when enabling OIDC — compose requires it to exist once
-  # this block is uncommented.
-  #yoke-oidc-client-secret:
-  #  file: ./secrets/oidc-client-secret
-  #yoke-github-app-private-key:
-  #  file: ./secrets/github-app-private-key.pem
 
 volumes:
   pgdata:

@@ -100,7 +100,7 @@ def _preview_lines(setup: server.SelfHostSetup) -> list[str]:
     return [
         f"Docker Compose · local-only URL {setup.url}",
         f"Files: {setup.directory}",
-        "Start writes the bundle and runs `docker compose up -d`.",
+        "Start writes the bundle and privately hands host-opened secrets to Docker.",
         "Requires Docker + Compose; Yoke does not install them.",
         "You own reachable networking and TLS for team access.",
     ]

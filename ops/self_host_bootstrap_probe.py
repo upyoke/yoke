@@ -1,27 +1,24 @@
-"""Manual Ubuntu/rootful Docker confirmation of self-host private handoffs.
+"""Manual Ubuntu/rootful Docker proof of the real self-host bootstrap path.
 
-Run via self-host-bootstrap-probe.yml after that workflow lands on the default
-branch. The JSON artifact records both handoffs, including expected refusals;
-a successful diagnostic run is not a healthy-server claim. It builds the exact
-candidate image and uses its unmodified generated Compose security policy.
-No rootless/user-namespace or Fedora/SELinux coverage is claimed. Generated
-credentials and bundle files are disposable and never enter the artifact.
+Builds the candidate image/wheels and starts as the non-root runner operator.
+Artifacts contain identities and verdicts, never generated credentials.
+Rootless Docker and Fedora/SELinux remain unproved.
 """
 
 from __future__ import annotations
 
-import argparse
-import contextlib
 from importlib.metadata import version
-import io
 import json
 import os
 from pathlib import Path
 import platform
-import pwd
 import stat
 import subprocess
 import tempfile
+import time
+import urllib.request
+
+from ops.self_host_bootstrap_diagnostics import retain_failure_diagnostics
 
 
 def file_identity(path: Path) -> dict:
@@ -34,149 +31,114 @@ def file_identity(path: Path) -> dict:
     }
 
 
-def failure(exc: Exception) -> dict:
-    cause = exc.__cause__
-    return {
-        "status": "refused",
-        "reason": str(exc),
-        "cause": str(cause) if cause else None,
-        "errno": getattr(cause or exc, "errno", None),
-    }
-
-
-def process_identity() -> dict:
-    status = Path("/proc/self/status").read_text().splitlines()
-    return {
-        "uid": os.getuid(),
-        "gid": os.getgid(),
-        "groups": os.getgroups(),
-        "uid_map": Path("/proc/self/uid_map").read_text().strip(),
-        "gid_map": Path("/proc/self/gid_map").read_text().strip(),
-        "capabilities": {
-            key: value.strip()
-            for line in status
-            for key, _, value in [line.partition(":")]
-            if key.startswith("Cap") or key == "NoNewPrivs"
-        },
-    }
-
-
-def container_probe() -> dict:
-    from yoke_core.tools import self_host_server_bootstrap as bootstrap
-    from yoke_core.api.first_boot_admin_token_delivery import (
-        deliver_first_boot_admin_token,
+def command(args: list[str], *, cwd: Path, timeout: int = 180) -> str:
+    result = subprocess.run(
+        args, cwd=cwd, capture_output=True, timeout=timeout, check=False
     )
-    from yoke_contracts.self_host_bootstrap_output import FIRST_BOOT_TOKEN_FD_ENV
-
-    account = pwd.getpwnam(bootstrap.SELF_HOST_RUNTIME_USER)
-    paths = [Path("/run/secrets/yoke-db-dsn"), Path("/run/yoke-first-boot-admin-token")]
-    report = {
-        "bootstrap_identity": process_identity(),
-        "runtime_account": {"uid": account.pw_uid, "gid": account.pw_gid},
-        "files": {str(path): file_identity(path) for path in paths},
-        "mountinfo": [
-            line
-            for line in Path("/proc/self/mountinfo").read_text().splitlines()
-            if any(line.split()[4] == str(path) for path in paths)
-        ],
-    }
-    try:
-        env, targets = bootstrap.materialize_self_host_runtime_secrets(
-            os.environ,
-            runtime_uid=account.pw_uid,
-            runtime_gid=account.pw_gid,
-            require_read_only_sources=True,
+    if result.returncode:
+        # Output may contain a credential; retain only command identity/status.
+        refusal = RuntimeError(
+            f"probe_command_failed: {args[:2]} exited {result.returncode}; inspect retained diagnostics and retry"
         )
-        report["input_materialization"] = {
-            "status": "opened",
-            "targets": [str(path) for path in targets],
-        }
-    except Exception as exc:
-        report["input_materialization"] = failure(exc)
+        refusal.command_output = result.stdout + result.stderr
+        raise refusal
+    return result.stdout.decode().strip()
 
-    # This is independent: the earlier input refusal must not hide this open.
-    try:
-        token_env = bootstrap.open_first_boot_token_drop(dict(os.environ))
-        report["output_open"] = {"status": "opened"}
-    except Exception as exc:
-        report["output_open"] = failure(exc)
-        token_env = None
-    bootstrap.drop_to_self_host_runtime_identity(uid=account.pw_uid, gid=account.pw_gid)
-    bootstrap.assert_no_effective_linux_capabilities()
-    report["post_drop_identity"] = process_identity()
-    if report["input_materialization"]["status"] == "opened":
+
+def assert_healthy(url: str, token: str, sha: str) -> dict:
+    deadline = time.monotonic() + 120
+    while True:
         try:
-            bootstrap.assert_runtime_secrets_readable(targets)
-            report["post_drop_input_read"] = {"status": "readable"}
-        except Exception as exc:
-            report["post_drop_input_read"] = failure(exc)
-    if token_env is None:
-        report["output_write"] = {
-            "status": "not_possible",
-            "reason": "output open refused",
-        }
-    else:
-        try:
-            # Synthetic marker, not a credential minted by any universe.
-            with contextlib.redirect_stdout(io.StringIO()):
-                deliver_first_boot_admin_token("bootstrap-probe-marker", env=token_env)
-            report["output_write"] = {"status": "written"}
-        except Exception as exc:
-            report["output_write"] = failure(exc)
-        finally:
-            os.close(int(token_env[FIRST_BOOT_TOKEN_FD_ENV]))
-    return report
-
-
-def command(
-    args: list[str], *, cwd: Path, timeout: int = 120
-) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        args, cwd=cwd, text=True, capture_output=True, timeout=timeout
+            with urllib.request.urlopen(url + "/v1/health", timeout=2) as response:
+                health = json.load(response)
+            break
+        except OSError:
+            if time.monotonic() > deadline:
+                raise RuntimeError(
+                    "probe_health_timeout: inspect core logs and retry"
+                ) from None
+            time.sleep(1)
+    if health.get("build") != sha:
+        raise RuntimeError(
+            "probe_build_mismatch: rebuild the exact candidate and retry"
+        )
+    # The authenticated identity route is read-only; a 200 proves token use.
+    request = urllib.request.Request(
+        url + "/v1/auth/identity", headers={"Authorization": "Bearer " + token}
     )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        authenticated = response.status
+        response.read()
+    return {
+        "health": "passed",
+        "served_build": health["build"],
+        "authenticated_status": authenticated,
+    }
 
 
-def required(args: list[str], *, cwd: Path) -> str:
-    result = command(args, cwd=cwd)
+def build_candidate(root: Path, evidence: Path, sha: str, wheel_dir: Path) -> str:
+    image = f"localhost:5200/yoke-bootstrap:{sha[:12]}"
+    with (evidence / "image-build.log").open("w") as capture:
+        result = subprocess.run(
+            [
+                "docker",
+                "build",
+                "--build-arg",
+                f"YOKE_BUILD_SHA={sha}",
+                "--build-arg",
+                f"YOKE_ENGINE_VERSION={version('yoke-core')}",
+                "-t",
+                image,
+                ".",
+            ],
+            cwd=root,
+            stdout=capture,
+            stderr=subprocess.STDOUT,
+            timeout=1200,
+            check=False,
+        )
     if result.returncode:
         raise RuntimeError(
-            f"probe_command_failed: {args[0:2]}: {result.stderr.strip()}; restore the tool and retry"
+            "probe_image_build_failed: inspect image-build.log and fix the candidate build"
         )
-    return result.stdout.strip()
+    command(["docker", "push", image], cwd=root)
+    for package in ("yoke-contracts", "yoke-cli"):
+        command(
+            [
+                "uv",
+                "build",
+                "--wheel",
+                "--package",
+                package,
+                "--out-dir",
+                str(wheel_dir),
+            ],
+            cwd=root,
+        )
+    return image
 
 
 def host_probe(evidence: Path, report: dict) -> None:
-    from yoke_cli.self_host.bundle import write_bundle
+    from yoke_cli.self_host import bundle, first_boot_token, runtime
 
     root = Path(__file__).resolve().parent.parent
     if platform.system() != "Linux" or os.geteuid() == 0:
         raise RuntimeError(
-            "probe_host_unsupported: use a non-root ubuntu-latest runner user"
+            "probe_host_unsupported: run as the non-root ubuntu-latest operator"
         )
-    docker = json.loads(
-        required(["docker", "info", "--format", "{{json .}}"], cwd=root)
-    )
-    security = docker["SecurityOptions"]
-    if any("rootless" in option or "userns" in option for option in security):
+    docker = json.loads(command(["docker", "info", "--format", "{{json .}}"], cwd=root))
+    if any(
+        "rootless" in option or "userns" in option
+        for option in docker["SecurityOptions"]
+    ):
         raise RuntimeError(
             "probe_docker_unsupported: use rootful Docker without userns remapping"
         )
-    sha = required(["git", "rev-parse", "HEAD"], cwd=root)
+    sha = command(["git", "rev-parse", "HEAD"], cwd=root)
     report.update(
         {
-            "scope": "Ubuntu rootful Docker only; rootless and Fedora/SELinux are not covered",
+            "scope": "Ubuntu rootful Docker; rootless Docker and Fedora/SELinux remain unproved",
             "candidate_sha": sha,
-            "runner": {
-                key: os.environ.get(key)
-                for key in (
-                    "ImageOS",
-                    "ImageVersion",
-                    "RUNNER_OS",
-                    "RUNNER_ARCH",
-                    "GITHUB_RUN_ID",
-                    "GITHUB_RUN_ATTEMPT",
-                )
-            },
             "host": {
                 "uid": os.getuid(),
                 "gid": os.getgid(),
@@ -193,128 +155,142 @@ def host_probe(evidence: Path, report: dict) -> None:
                     "KernelVersion",
                 )
             },
-            "compose_version": required(["docker", "compose", "version"], cwd=root),
+            "compose_version": command(["docker", "compose", "version"], cwd=root),
+            "runner": {
+                key: os.environ.get(key)
+                for key in (
+                    "ImageOS",
+                    "ImageVersion",
+                    "GITHUB_RUN_ID",
+                    "GITHUB_RUN_ATTEMPT",
+                )
+            },
         }
-    )
-    image = f"yoke-bootstrap-probe:{sha[:12]}"
-    with (evidence / "image-build.log").open("w") as capture:
-        built = subprocess.run(
-            [
-                "docker",
-                "build",
-                "--build-arg",
-                f"YOKE_BUILD_SHA={sha}",
-                "--build-arg",
-                f"YOKE_ENGINE_VERSION={version('yoke-core')}",
-                "-t",
-                image,
-                ".",
-            ],
-            cwd=root,
-            stdout=capture,
-            stderr=subprocess.STDOUT,
-            timeout=1200,
-        )
-    if built.returncode:
-        raise RuntimeError(
-            "probe_image_build_failed: inspect image-build.log, fix build prerequisites, then retry"
-        )
-    report["image_id"] = required(
-        ["docker", "image", "inspect", image, "--format", "{{.Id}}"], cwd=root
     )
     with tempfile.TemporaryDirectory(prefix="yoke-bootstrap-probe-") as temporary:
-        bundle = Path(temporary) / "bundle"
-        write_bundle(directory=str(bundle), image=image)
-        secrets_dir = bundle / "secrets"
-        report["host_files_before"] = {
-            path.name: file_identity(path) for path in secrets_dir.iterdir()
+        temporary = Path(temporary)
+        wheel_dir = temporary / "wheels"
+        image = build_candidate(root, evidence, sha, wheel_dir)
+        target = temporary / "bundle"
+        bundle.write_bundle(directory=str(target), port=18765, image=image)
+        before = {
+            path.name: file_identity(path) for path in (target / "secrets").iterdir()
         }
-        compose = ["docker", "compose", "-p", f"bootstrap-probe-{os.getpid()}"]
-        container_name = f"bootstrap-probe-{os.getpid()}"
+        report["host_inputs_before"] = before
         try:
-            # Run the unchanged default bootstrap first; no DB is needed to
-            # characterize the file opens that occur before server execution.
-            try:
-                actual = command(
-                    compose + ["run", "--no-deps", "--name", container_name, "core"],
-                    cwd=bundle,
-                    timeout=45,
+            # This is the same host ingress used by init --start and the wizard.
+            runtime.start_bundle(directory=target)
+            token_path = first_boot_token.token_drop_path(target)
+            token = first_boot_token.read_first_boot_token(target)
+            if not token:
+                raise RuntimeError(
+                    "probe_token_missing: repair the descriptor handoff and retry"
                 )
-                report["default_bootstrap"] = {
-                    "exit_code": actual.returncode,
-                    "stdout": actual.stdout,
-                    "stderr": actual.stderr,
-                }
-            except subprocess.TimeoutExpired:
-                report["default_bootstrap"] = {
-                    "status": "timeout",
-                    "reason": "bootstrap exceeded the 45-second observation window",
-                }
-                required(["docker", "stop", container_name], cwd=bundle)
-            inspected = json.loads(
-                required(["docker", "inspect", container_name], cwd=bundle)
-            )[0]
-            report["container_configuration"] = {
-                "user": inspected["Config"]["User"],
-                "entrypoint": inspected["Config"]["Entrypoint"],
+            report["first_boot"] = assert_healthy("http://127.0.0.1:18765", token, sha)
+            identity = file_identity(token_path)
+            assert identity["uid"] == os.getuid() and identity["mode"] == "0o600"
+            report["host_token"] = {**identity, "operator_readable": True}
+            for name, identity in before.items():
+                assert file_identity(target / "secrets" / name) == identity
+            report["host_inputs_unchanged"] = True
+            core_id = command(["docker", "compose", "ps", "-q", "core"], cwd=target)
+            inspected = json.loads(command(["docker", "inspect", core_id], cwd=target))[
+                0
+            ]
+            report["container_security"] = {
                 "cap_drop": inspected["HostConfig"]["CapDrop"],
                 "cap_add": inspected["HostConfig"]["CapAdd"],
                 "security_opt": inspected["HostConfig"]["SecurityOpt"],
-                "mounts": inspected["Mounts"],
-            }
-            diagnostic = command(
-                compose
-                + [
-                    "run",
-                    "--rm",
-                    "--no-deps",
-                    "--entrypoint",
-                    "python",
-                    "--volume",
-                    f"{Path(__file__).resolve()}:/probe.py:ro",
-                    "core",
-                    "/probe.py",
-                    "--container",
+                "secret_bind_mounts": [
+                    m["Destination"] for m in inspected["Mounts"] if m["Type"] == "bind"
                 ],
-                cwd=bundle,
-            )
-            if diagnostic.returncode:
-                raise RuntimeError(
-                    f"probe_container_failed: {diagnostic.stderr}; inspect runner logs and retry"
-                )
-            report["handoffs"] = json.loads(diagnostic.stdout)
-            token = secrets_dir / "first-boot-admin-token"
-            report["host_token_after"] = {
-                **file_identity(token),
-                "host_readable": os.access(token, os.R_OK),
-                "marker_received": token.read_text().strip()
-                == "bootstrap-probe-marker",
-                "owner_only": token.stat().st_uid == os.getuid()
-                and stat.S_IMODE(token.stat().st_mode) == 0o600,
             }
+            assert not report["container_security"]["secret_bind_mounts"]
+            # PID 1 is the real server after the irreversible identity drop.
+            status = command(
+                ["docker", "compose", "exec", "-T", "core", "cat", "/proc/1/status"],
+                cwd=target,
+            )
+            report["runtime_identity"] = {
+                line.partition(":")[0]: line.partition(":")[2].strip()
+                for line in status.splitlines()
+                if line.startswith(
+                    ("Uid:", "Gid:", "Groups:", "CapEff:", "NoNewPrivs:")
+                )
+            }
+            assert set(report["runtime_identity"]["Uid"].split()) != {"0"}
+            assert int(report["runtime_identity"]["CapEff"], 16) == 0
+            runtime.start_bundle(directory=target)
+            assert first_boot_token.read_first_boot_token(target) == token
+            report["restart"] = assert_healthy("http://127.0.0.1:18765", token, sha)
+            probe_upgrade(root, temporary, wheel_dir, target, image, sha)
+            assert first_boot_token.read_first_boot_token(target) == token
+            report["upgrade"] = {
+                **assert_healthy("http://127.0.0.1:18765", token, sha),
+                "distribution": "candidate wheel/installer fixture and local registry; production publication not exercised",
+            }
+            logs = command(
+                ["docker", "compose", "logs", "--no-color", "core", "db"], cwd=target
+            )
+            assert token not in logs
+            report["token_absent_from_logs"] = True
+        except Exception as exc:
+            retain_failure_diagnostics(target, evidence, exc)
+            raise
         finally:
-            command(compose + ["down", "--volumes", "--remove-orphans"], cwd=bundle)
+            command(
+                ["docker", "compose", "down", "--volumes", "--remove-orphans"],
+                cwd=target,
+            )
+
+
+def probe_upgrade(
+    root: Path, temporary: Path, wheels: Path, target: Path, image: str, sha: str
+) -> None:
+    environment = temporary / "client"
+    command(["uv", "venv", "--seed", str(environment)], cwd=root)
+    python = str(environment / "bin" / "python")
+    command(
+        ["uv", "pip", "install", "--python", python, *map(str, wheels.glob("*.whl"))],
+        cwd=root,
+    )
+    cli_wheel = next(wheels.glob("yoke_cli-*.whl"))
+    installer = temporary / "install.py"
+    installer.write_text(
+        "import argparse, subprocess, sys\n"
+        "p=argparse.ArgumentParser(); p.add_argument('--version'); p.add_argument('--yes',action='store_true'); p.add_argument('--no-onboard',action='store_true'); p.add_argument('--base-url'); p.add_argument('--channel'); a=p.parse_args()\n"
+        f"raise SystemExit(subprocess.call([sys.executable,'-m','pip','install','--force-reinstall','--no-deps',{str(cli_wheel)!r}]))\n"
+    )
+    command(
+        [
+            python,
+            str(root / "ops/self_host_upgrade_probe.py"),
+            str(target),
+            image,
+            sha,
+            str(installer),
+        ],
+        cwd=temporary,
+    )
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--container", action="store_true")
-    args = parser.parse_args()
-    if args.container:
-        print(json.dumps(container_probe(), indent=2))
-        return 0
     evidence = Path(os.environ["PROBE_EVIDENCE_DIR"])
     evidence.mkdir(parents=True, exist_ok=True)
-    report: dict = {}
+    report = {}
     try:
         host_probe(evidence, report)
-        report["diagnostic_status"] = "complete"
+        report["status"] = "passed"
     except Exception as exc:
-        report["diagnostic_status"] = "failed"
-        report["error"] = str(exc)
+        report["status"] = "failed"
+        # Only our named refusals are safe evidence. Unexpected assertions/HTTP
+        # failures are recorded by type so no credential can reach an artifact.
+        report["error"] = (
+            str(exc) if isinstance(exc, RuntimeError) else type(exc).__name__
+        )
     (evidence / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
-    return 0 if report["diagnostic_status"] == "complete" else 1
+    return 0 if report["status"] == "passed" else 1
 
 
 if __name__ == "__main__":

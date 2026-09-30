@@ -60,7 +60,7 @@ _MALFORMED_HINT = (
 # here is what turns a five-second fix into a five-minute one.
 _CONCLUSIVE_HINT = (
     "Nothing is listening on that address, so retrying will not help. "
-    "Start the server (`cd <bundle> && docker compose up -d`), or select a "
+    "Start the server (`yoke self-host init --dir <bundle> --protect-existing --start`), or select a "
     "different authority with `yoke env use NAME`; `yoke status` reports "
     "which connection this machine is pointed at."
 )

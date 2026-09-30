@@ -25,6 +25,7 @@ from yoke_cli.self_host import bundle, first_boot_token, teardown
 def target(tmp_path) -> Path:
     directory = tmp_path / "yoke-server"
     assert commands.self_host_init(["--dir", str(directory)]) == 0
+    first_boot_token.token_drop_path(directory).write_text("delivered credential\n")
     return directory
 
 
@@ -85,7 +86,6 @@ def test_default_teardown_stops_the_stack_and_keeps_the_data(target, docker):
 
     assert docker == [("/usr/bin/docker", "compose", "down")]
     assert report["universe_destroyed"] is False
-    # The bundle survives, so `docker compose up -d` brings it all back.
     assert (target / bundle.COMPOSE_FILE_NAME).is_file()
     assert first_boot_token.token_drop_path(target).is_file()
 

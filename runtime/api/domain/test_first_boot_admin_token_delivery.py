@@ -1,155 +1,106 @@
-"""Where a newborn universe's one-time admin token actually lands."""
+"""Private token delivery requires the host's durable-storage acknowledgment."""
 
-from __future__ import annotations
-
-import os
-from pathlib import Path
+import socket
+import threading
 
 import pytest
 
 from yoke_core.api import first_boot_admin_token_delivery as subject
-from yoke_core.tools import self_host_server_bootstrap as bootstrap
+from yoke_contracts.self_host_handoff import HANDOFF_ACK
 from yoke_contracts.self_host_bootstrap_output import (
     API_PUBLISH_ENV,
     FIRST_BOOT_TOKEN_FD_ENV,
-    FIRST_BOOT_TOKEN_FILE_ENV,
     FIRST_BOOT_TOKEN_HOST_PATH_ENV,
     FIRST_BOOT_TOKEN_MARKER,
-    TOKEN_BODY_LENGTH,
     TOKEN_PREFIX,
+    TOKEN_BODY_LENGTH,
 )
 
-RAW_TOKEN = TOKEN_PREFIX + ("B" * TOKEN_BODY_LENGTH)
+RAW_TOKEN = TOKEN_PREFIX + "B" * TOKEN_BODY_LENGTH
 
 
-@pytest.fixture()
-def token_file(tmp_path: Path) -> Path:
-    target = tmp_path / "first-boot-admin-token"
-    target.touch(mode=0o600)
-    return target
+def test_token_returns_over_private_socket_and_never_enters_logs(capsys):
+    server, host = socket.socketpair()
+    received = []
 
+    def store():
+        received.append(host.recv(256))
+        host.sendall(HANDOFF_ACK)
 
-def test_token_goes_to_the_file_and_never_to_the_log(
-    token_file: Path, capsys,
-) -> None:
-    descriptor = os.open(token_file, os.O_WRONLY)
+    worker = threading.Thread(target=store)
+    worker.start()
     try:
         banner = subject.deliver_first_boot_admin_token(
             RAW_TOKEN,
             env={
-                FIRST_BOOT_TOKEN_FILE_ENV: "/run/yoke-first-boot-admin-token",
-                FIRST_BOOT_TOKEN_FD_ENV: str(descriptor),
+                FIRST_BOOT_TOKEN_FD_ENV: str(server.fileno()),
                 FIRST_BOOT_TOKEN_HOST_PATH_ENV: "./secrets/first-boot-admin-token",
                 API_PUBLISH_ENV: "0.0.0.0:9100",
             },
         )
     finally:
-        os.close(descriptor)
-
-    assert token_file.read_text(encoding="utf-8") == RAW_TOKEN + "\n"
+        worker.join(timeout=2)
+        host.close()
+        server.close()
+    assert received == [(RAW_TOKEN + "\n").encode()]
     printed = capsys.readouterr().out
     assert RAW_TOKEN not in printed
-    assert FIRST_BOOT_TOKEN_MARKER in printed
-    assert "./secrets/first-boot-admin-token" in printed
-    # The publish spec is a bind address; the operator needs a URL to paste.
-    assert "yoke connect http://127.0.0.1:9100 --token-stdin" in printed
-    assert banner in printed
+    assert FIRST_BOOT_TOKEN_MARKER in banner
+    assert "yoke connect http://127.0.0.1:9100 --token-stdin" in banner
 
 
-def test_an_existing_token_file_is_overwritten_not_appended(
-    token_file: Path,
-) -> None:
-    token_file.write_text("x" * 4096, encoding="utf-8")
-    descriptor = os.open(token_file, os.O_WRONLY)
-    try:
+def test_missing_handoff_refuses_without_printing_token(capsys):
+    with pytest.raises(
+        subject.FirstBootTokenDeliveryError, match="self_host_token_handoff_missing"
+    ):
         subject.deliver_first_boot_admin_token(
-            RAW_TOKEN,
-            env={
-                FIRST_BOOT_TOKEN_FILE_ENV: "/run/token",
-                FIRST_BOOT_TOKEN_FD_ENV: str(descriptor),
-            },
+            RAW_TOKEN, env={FIRST_BOOT_TOKEN_HOST_PATH_ENV: "./secrets/token"}
         )
-    finally:
-        os.close(descriptor)
-
-    assert token_file.read_text(encoding="utf-8") == RAW_TOKEN + "\n"
+    assert RAW_TOKEN not in capsys.readouterr().out
 
 
-def test_a_declared_file_with_no_descriptor_fails_the_boot() -> None:
-    with pytest.raises(subject.FirstBootTokenDeliveryError) as raised:
-        subject.deliver_first_boot_admin_token(
-            RAW_TOKEN,
-            env={FIRST_BOOT_TOKEN_FILE_ENV: "/run/yoke-first-boot-admin-token"},
-        )
-
-    # Falling back to stdout here would print the credential into the log the
-    # file exists to keep it out of.
-    assert "carries no open descriptor" in str(raised.value)
-    assert "docker compose up -d" in str(raised.value)
-
-
-def test_an_unwritable_descriptor_names_the_bundle_repair(
-    token_file: Path,
-) -> None:
-    descriptor = os.open(token_file, os.O_RDONLY)
+def test_closed_handoff_refuses_without_printing_token(capsys):
+    server, host = socket.socketpair()
+    host.close()
     try:
-        with pytest.raises(subject.FirstBootTokenDeliveryError) as raised:
+        with pytest.raises(
+            subject.FirstBootTokenDeliveryError, match="self_host_token_handoff_failed"
+        ):
             subject.deliver_first_boot_admin_token(
-                RAW_TOKEN,
-                env={
-                    FIRST_BOOT_TOKEN_FILE_ENV: "/run/token",
-                    FIRST_BOOT_TOKEN_FD_ENV: str(descriptor),
-                },
+                RAW_TOKEN, env={FIRST_BOOT_TOKEN_FD_ENV: str(server.fileno())}
             )
     finally:
-        os.close(descriptor)
+        server.close()
+    assert RAW_TOKEN not in capsys.readouterr().out
 
-    assert "--protect-existing" in str(raised.value)
+
+def test_unacknowledged_storage_refuses(capsys):
+    server, host = socket.socketpair()
+
+    def refuse_storage():
+        host.recv(256)
+        host.shutdown(socket.SHUT_RDWR)
+
+    worker = threading.Thread(target=refuse_storage)
+    worker.start()
+    try:
+        with pytest.raises(
+            subject.FirstBootTokenDeliveryError, match="self_host_token_handoff_failed"
+        ):
+            subject.deliver_first_boot_admin_token(
+                RAW_TOKEN, env={FIRST_BOOT_TOKEN_FD_ENV: str(server.fileno())}
+            )
+    finally:
+        worker.join(timeout=2)
+        host.close()
+        server.close()
+    assert RAW_TOKEN not in capsys.readouterr().out
 
 
-def test_a_server_outside_a_bundle_still_surrenders_its_token(capsys) -> None:
+def test_server_outside_bundle_still_delivers_its_token(capsys):
     subject.deliver_first_boot_admin_token(
-        RAW_TOKEN, env={API_PUBLISH_ENV: "127.0.0.1:8765"},
+        RAW_TOKEN, env={API_PUBLISH_ENV: "127.0.0.1:8765"}
     )
-
     printed = capsys.readouterr().out
     assert RAW_TOKEN in printed
-    # No file to point at, so the banner says where the token now is.
     assert "This log now holds the token" in printed
-    assert "yoke connect http://127.0.0.1:8765 --token-stdin" in printed
-
-
-def test_bootstrap_opens_the_drop_before_privileges_are_dropped(
-    token_file: Path,
-) -> None:
-    env = bootstrap.open_first_boot_token_drop(
-        {FIRST_BOOT_TOKEN_FILE_ENV: str(token_file)}
-    )
-
-    descriptor = int(env[FIRST_BOOT_TOKEN_FD_ENV])
-    try:
-        # Inheritable, or the descriptor would not survive the exec into the
-        # server process that has to write through it.
-        assert os.get_inheritable(descriptor) is True
-        os.write(descriptor, b"probe")
-    finally:
-        os.close(descriptor)
-    assert token_file.read_bytes() == b"probe"
-
-
-def test_bootstrap_refuses_a_bundle_whose_token_file_is_missing(
-    tmp_path: Path,
-) -> None:
-    missing = tmp_path / "secrets" / "first-boot-admin-token"
-
-    with pytest.raises(bootstrap.SelfHostServerBootstrapError) as raised:
-        bootstrap.open_first_boot_token_drop({FIRST_BOOT_TOKEN_FILE_ENV: str(missing)})
-
-    assert str(missing) in str(raised.value)
-    assert "--protect-existing" in str(raised.value)
-
-
-def test_bootstrap_leaves_a_server_with_no_declared_drop_alone() -> None:
-    assert bootstrap.open_first_boot_token_drop({"YOKE_SERVER_MODE": "self-host"}) == {
-        "YOKE_SERVER_MODE": "self-host"
-    }

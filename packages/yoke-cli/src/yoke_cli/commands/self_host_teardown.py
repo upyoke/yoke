@@ -37,7 +37,7 @@ def self_host_teardown(args: List[str]) -> int:
             "Take a self-host bundle off this machine. Always stops and "
             "removes the stack; everything further is opt-in and named for "
             "what it destroys. Without --destroy-universe the database "
-            "volume survives, so `docker compose up -d` from the bundle "
+            "volume survives, so `yoke self-host init --protect-existing --start` from the bundle "
             "brings the same universe back. The machine connection pointing "
             "at this bundle's server is retired unless --keep-connection. "
             "Every alias for that server is retired together, so no dead "
@@ -135,7 +135,7 @@ def _print_teardown_summary(report: Dict[str, object]) -> None:
     print(
         "database volume: destroyed"
         if universe
-        else "database volume: kept (docker compose up -d restores the universe)"
+        else "database volume: kept (self-host init --protect-existing --start restores the universe)"
     )
     for label, key in (
         ("images removed", "images_removed"),

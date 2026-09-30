@@ -36,8 +36,8 @@ ITEMS_TABLE: dict[str, dict] = {
         "notes": (
             "Backlog row keyed by global bare-integer id for internal joins. "
             "The primary key is `id`; items has NO `item_id` or `public_id` column. "
-            "Read the specification via items.get spec or body; description is "
-            "not an accepted items.get field. "
+            "Read the specification or Dash instruction via items.get spec or body. "
+            "Wrong guesses: description and instruction are not accepted items.get fields. "
             "`item_id` is a foreign-key column on OTHER tables. "
             "To resolve a public `PREFIX-N` ref in raw SQL use "
             "`WHERE project_id = <p> AND project_sequence = <n>` "
@@ -86,7 +86,11 @@ ITEMS_TABLE: dict[str, dict] = {
             "`qa_plan_attachments` or `db_claim` to `items get` as fields. "
             "db_compatibility_attestation, architecture_impact, "
             "resolution, resolution_ref, resolution_comment, "
-            "spec_updated_at, spec_updated_by, merged_at, deployed_to. Worktree branches and paths live exclusively in "
+            "spec_updated_at, spec_updated_by, merged_at, deployed_to. "
+            "Merge evidence: read `yoke items get PREFIX-N merged_at` for landing "
+            "and the merge command receipt for its commit identity. Wrong guess: "
+            "`merge_commit` or `merge_receipt` is an items.get field; both are refused. "
+            "Worktree branches and paths live exclusively in "
             "item_worktrees; task and dispatch rows reference those lanes "
             "through item_worktree_id."
         ),

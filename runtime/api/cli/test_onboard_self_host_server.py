@@ -12,11 +12,8 @@ from yoke_cli.config import onboard_self_host_server as subject
 from yoke_cli.config import server_connect
 from yoke_cli.self_host import bundle, first_boot_token
 from yoke_contracts.self_host_bootstrap_output import (
-    FIRST_BOOT_TOKEN_MARKER,
     TOKEN_BODY_LENGTH,
     TOKEN_PREFIX,
-    connect_url_from_publish_spec,
-    first_boot_admin_token_notice,
 )
 
 
@@ -44,21 +41,6 @@ def _deliver_token(directory: Path) -> None:
     target.write_text(RAW_TOKEN + "\n", encoding="utf-8")
 
 
-def test_boot_notice_names_the_token_file_and_never_the_token() -> None:
-    notice = first_boot_admin_token_notice(
-        host_path="./secrets/first-boot-admin-token",
-        connect_url="http://127.0.0.1:8765",
-    )
-
-    assert FIRST_BOOT_TOKEN_MARKER in notice
-    assert RAW_TOKEN not in notice
-    assert "./secrets/first-boot-admin-token" in notice
-    assert (
-        "yoke connect http://127.0.0.1:8765 --token-stdin "
-        "< ./secrets/first-boot-admin-token"
-    ) in notice
-
-
 def test_docker_preflight_export_delegates_to_shared_probe(monkeypatch) -> None:
     receipt = docker.DockerPrerequisites("/usr/bin/docker")
     monkeypatch.setattr(subject, "_check_docker_prerequisites", lambda: receipt)
@@ -84,23 +66,6 @@ def test_docker_preflight_export_preserves_setup_error_contract(monkeypatch) -> 
     assert raised.value.code == refusal.code
     assert str(raised.value) == str(refusal)
     assert raised.value.detail_lines == refusal.detail_lines
-
-
-@pytest.mark.parametrize(
-    ("publish_spec", "expected"),
-    [
-        ("127.0.0.1:8765", "http://127.0.0.1:8765"),
-        ("0.0.0.0:8765", "http://127.0.0.1:8765"),
-        ("192.168.1.10:9000", "http://192.168.1.10:9000"),
-        ("[::]:8765", "http://127.0.0.1:8765"),
-        ("", "http://127.0.0.1:8765"),
-    ],
-)
-def test_publish_spec_becomes_a_pasteable_connect_url(
-    publish_spec: str,
-    expected: str,
-) -> None:
-    assert connect_url_from_publish_spec(publish_spec) == expected
 
 
 def test_existing_bundle_collision_is_left_untouched(tmp_path, monkeypatch) -> None:
@@ -131,15 +96,21 @@ def test_success_uses_safe_compose_argv_and_connects_loopback(
 
     def run(argv, **kwargs):
         calls.append((tuple(argv), kwargs["cwd"]))
-        if "up" in argv:
-            _deliver_token(kwargs["cwd"])
+        if "handoff" in argv:
+            _deliver_token(kwargs.get("cwd", kwargs.get("directory")))
         return _completed(tuple(argv))
 
     def connect(url, **kwargs):
         connected.append({"url": url, **kwargs})
         return {"ok": True, "env": kwargs["env"], "api_url": url}
 
-    monkeypatch.setattr(subject, "_RUN", run)
+    monkeypatch.setattr(
+        subject.runtime,
+        "start_bundle",
+        lambda **kwargs: run(
+            (kwargs["executable"], "handoff"), cwd=kwargs["directory"]
+        ),
+    )
     monkeypatch.setattr(server_connect, "connect_server", connect)
     setup = subject.new_setup(
         config_path=str(tmp_path / "config.json"),
@@ -153,7 +124,7 @@ def test_success_uses_safe_compose_argv_and_connects_loopback(
     assert result.raw_token == RAW_TOKEN
     assert repr(result).find(RAW_TOKEN) == -1
     assert calls[0] == (
-        ("/usr/bin/docker", "compose", "up", "-d"),
+        ("/usr/bin/docker", "handoff"),
         setup.directory,
     )
     # The token came from the bundle file, so the wizard never had to read
@@ -169,13 +140,10 @@ def test_success_uses_safe_compose_argv_and_connects_loopback(
 def test_compose_failure_preserves_bundle_and_redacts_diagnostics(
     tmp_path, monkeypatch
 ) -> None:
-    monkeypatch.setattr(
-        subject,
-        "_RUN",
-        lambda argv, **kwargs: _completed(
-            tuple(argv), returncode=1, stderr=f"daemon refused {RAW_TOKEN}"
-        ),
-    )
+    def refuse(**kwargs):
+        raise subject.runtime.SelfHostRuntimeError(f"daemon refused {RAW_TOKEN}")
+
+    monkeypatch.setattr(subject.runtime, "start_bundle", refuse)
     setup = subject.new_setup(
         config_path=str(tmp_path / "config.json"),
         directory=str(tmp_path / "server"),
@@ -185,10 +153,10 @@ def test_compose_failure_preserves_bundle_and_redacts_diagnostics(
         subject.provision(setup, _prerequisites())
 
     evidence = f"{raised.value} {' '.join(raised.value.detail_lines)}"
-    assert raised.value.code == "compose-start"
+    assert raised.value.code == "self-host-handoff"
     assert setup.bundle_created is True
     assert (setup.directory / bundle.COMPOSE_FILE_NAME).is_file()
-    assert "docker compose up -d" in evidence
+    assert "--protect-existing --start" in evidence
     assert RAW_TOKEN not in evidence
 
 
@@ -204,15 +172,21 @@ def test_token_timeout_retry_reuses_only_this_wizards_bundle(
         return real_write(**kwargs)
 
     def run(argv, **kwargs):
-        if "up" in argv:
+        if "handoff" in argv:
             # The first boot is still coming up; the second has written it.
             if booted:
-                _deliver_token(kwargs["cwd"])
+                _deliver_token(kwargs.get("cwd", kwargs.get("directory")))
             booted.append(True)
         return _completed(tuple(argv))
 
     monkeypatch.setattr(bundle, "write_bundle", write)
-    monkeypatch.setattr(subject, "_RUN", run)
+    monkeypatch.setattr(
+        subject.runtime,
+        "start_bundle",
+        lambda **kwargs: run(
+            (kwargs["executable"], "handoff"), cwd=kwargs["directory"]
+        ),
+    )
     monkeypatch.setattr(
         server_connect,
         "connect_server",
@@ -243,8 +217,8 @@ def test_connect_failure_retains_token_for_in_memory_retry(
     attempts: list[str] = []
 
     def run(argv, **kwargs):
-        if "up" in argv:
-            _deliver_token(kwargs["cwd"])
+        if "handoff" in argv:
+            _deliver_token(kwargs.get("cwd", kwargs.get("directory")))
         return _completed(tuple(argv))
 
     def connect(url, **kwargs):
@@ -253,7 +227,13 @@ def test_connect_failure_retains_token_for_in_memory_retry(
             raise server_connect.ServerConnectError(f"not ready {RAW_TOKEN}")
         return {"ok": True, "api_url": url}
 
-    monkeypatch.setattr(subject, "_RUN", run)
+    monkeypatch.setattr(
+        subject.runtime,
+        "start_bundle",
+        lambda **kwargs: run(
+            (kwargs["executable"], "handoff"), cwd=kwargs["directory"]
+        ),
+    )
     monkeypatch.setattr(server_connect, "connect_server", connect)
     setup = subject.new_setup(
         config_path=str(tmp_path / "config.json"),
@@ -282,8 +262,8 @@ def test_post_start_health_wait_retries_until_the_server_answers(
     clock, probes, connected = [0.0], [False, True], []
 
     def run(argv, **kwargs):
-        if "up" in argv:
-            _deliver_token(kwargs["cwd"])
+        if "handoff" in argv:
+            _deliver_token(kwargs.get("cwd", kwargs.get("directory")))
         return _completed(tuple(argv))
 
     def health(_url, *, timeout_s=0):
@@ -291,7 +271,13 @@ def test_post_start_health_wait_retries_until_the_server_answers(
             raise server_connect.ServerConnectError("unreachable")
         return {"status": "ok"}
 
-    monkeypatch.setattr(subject, "_RUN", run)
+    monkeypatch.setattr(
+        subject.runtime,
+        "start_bundle",
+        lambda **kwargs: run(
+            (kwargs["executable"], "handoff"), cwd=kwargs["directory"]
+        ),
+    )
     monkeypatch.setattr(subject, "_MONOTONIC", lambda: clock[0])
     monkeypatch.setattr(subject, "_SLEEP", lambda s: clock.__setitem__(0, clock[0] + s))
     monkeypatch.setattr(server_connect, "verify_server_health", health)
@@ -315,14 +301,20 @@ def test_post_start_health_wait_times_out_before_connect(tmp_path, monkeypatch) 
     clock, connected = [0.0], []
 
     def run(argv, **kwargs):
-        if "up" in argv:
-            _deliver_token(kwargs["cwd"])
+        if "handoff" in argv:
+            _deliver_token(kwargs.get("cwd", kwargs.get("directory")))
         return _completed(tuple(argv))
 
     def health(*_a, **_k):
         raise server_connect.ServerConnectError("JSON request endpoint is unreachable")
 
-    monkeypatch.setattr(subject, "_RUN", run)
+    monkeypatch.setattr(
+        subject.runtime,
+        "start_bundle",
+        lambda **kwargs: run(
+            (kwargs["executable"], "handoff"), cwd=kwargs["directory"]
+        ),
+    )
     monkeypatch.setattr(subject, "_MONOTONIC", lambda: clock[0])
     monkeypatch.setattr(subject, "_SLEEP", lambda s: clock.__setitem__(0, clock[0] + s))
     monkeypatch.setattr(server_connect, "verify_server_health", health)
