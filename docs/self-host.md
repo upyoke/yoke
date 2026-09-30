@@ -20,17 +20,17 @@ curl -fsSL https://upyoke.com/install | sh
 yoke self-host init --start
 cd yoke-server
 
-# 4. First boot writes the reusable administrator token to an owner-only
+# 3. First boot writes the reusable administrator token to an owner-only
 #    file. The log names the path and never carries the token itself.
 docker compose logs core
 
-# 5. Attach your CLI (verifies the server and token before persisting
+# 4. Attach your CLI (verifies the server and token before persisting
 #    anything), then remove the file — it is the only raw copy on disk.
 #    The token itself stays valid until you revoke it.
 yoke connect http://127.0.0.1:8765 --token-stdin < secrets/first-boot-admin-token
 rm secrets/first-boot-admin-token
 
-# 6. Confirm the machine is wired up. This fails if the server is not
+# 5. Confirm the machine is wired up. This fails if the server is not
 #    answering, so a green run means the whole path works.
 yoke status
 ```
@@ -142,7 +142,7 @@ Minting additional tokens is an admin operation on the server host
 (operator-shaped surface today):
 
 ```bash
-docker compose exec core python3 -m yoke_core.domain.api_tokens_cli \
+docker compose exec --user yoke core python3 -m yoke_core.domain.api_tokens_cli \
   mint --actor <actor-id> --name <engineer-label>
 ```
 
