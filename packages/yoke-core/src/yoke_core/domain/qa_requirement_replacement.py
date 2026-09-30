@@ -34,6 +34,7 @@ from yoke_core.domain.qa_requirement_supersession import (
     record_supersession,
     same_scope,
 )
+from yoke_core.domain.schema_common import _column_exists
 
 DISCHARGE_RATIONALE = (
     "declared replacement requirement {replacement_id} recorded a passing "
@@ -244,9 +245,13 @@ def discharge_declared_replacements(
     """Supersede every row waiting on a replacement that just passed.
 
     Runs on the verdict's own open transaction. Returns ``(receipt, row)``
-    pairs for :func:`announce_discharges` once the caller has committed.
+    pairs for :func:`announce_discharges` once the caller has committed. A
+    database that has not converged the replacement column yet cannot hold a
+    row waiting on a replacement, so its verdict writes discharge nothing.
     """
     discharged: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    if not _column_exists(conn, "qa_requirements", "replacement_requirement_id"):
+        return discharged
     for replacement_id in sorted({int(rid) for rid in passing_requirement_ids}):
         waiting = query_rows(
             conn,
