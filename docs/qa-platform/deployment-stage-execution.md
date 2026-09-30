@@ -205,7 +205,10 @@ it sits beside the frozen one rather than replacing it, and is declared the
 replacement of every earlier row for that case that failed without being
 settled (see *Declared replacement* below). An unchanged case stays idempotent however its row was
 discharged, and a case whose row is still answering never gets a second row
-racing it.
+racing it. When that still-answering row has not been judged and its case
+changed, materialization refuses as `plan_case_superseded` rather than walk
+the replaced content, naming the `yoke qa plan rematerialize` that brings it
+current.
 
 Once a case has answered, its snapshot is frozen for good and there are two
 discharges, both recorded and both distinguishable from a passing result.
