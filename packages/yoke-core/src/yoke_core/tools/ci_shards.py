@@ -47,6 +47,7 @@ uses every core inside each shard.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import math
 import os
@@ -85,10 +86,33 @@ def shard_list(count: int = SHARD_COUNT) -> list[int]:
     return list(range(1, count + 1))
 
 
+def python_versions() -> list[str]:
+    """CI endpoints from the standalone installer's support declaration."""
+    root = Path(__file__).resolve().parents[5]
+    helper = root / "packaging/public-installer/install.py"
+    tree = ast.parse(helper.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "SUPPORTED_PYTHON"
+            for target in node.targets
+        ):
+            endpoints = ast.literal_eval(node.value)
+            return [f"{major}.{minor}" for major, minor in endpoints]
+    raise SystemExit(
+        "supported_python_declaration_missing: restore SUPPORTED_PYTHON in "
+        "packaging/public-installer/install.py before running CI."
+    )
+
+
 def fan_out_lines() -> list[str]:
     """The ``key=value`` lines the workflow reads back as a job output."""
     shards = ",".join(str(shard) for shard in shard_list())
-    return [f"shards=[{shards}]"]
+    versions = python_versions()
+    return [
+        f"shards=[{shards}]",
+        f"python_versions={json.dumps(versions)}",
+        f"python_latest={versions[-1]}",
+    ]
 
 
 def emit_output_lines(lines: Sequence[str], *, write_github_output: bool) -> None:
@@ -132,7 +156,9 @@ def normalize_profile_target(root: Path, target: str) -> str | None:
     if not relative or relative == ".":
         candidate = root
     else:
-        candidate = Path(relative) if Path(relative).is_absolute() else (root / relative)
+        candidate = (
+            Path(relative) if Path(relative).is_absolute() else (root / relative)
+        )
     try:
         rel = candidate.resolve().relative_to(root)
     except ValueError:
@@ -152,9 +178,7 @@ def profiled_size(root: Path, targets: Sequence[str]) -> tuple[float, int]:
     underestimate costs a shard, never coverage.
     """
     try:
-        durations = json.loads(
-            (root / DURATIONS_PATH).read_text(encoding="utf-8")
-        )
+        durations = json.loads((root / DURATIONS_PATH).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return 0.0, 0
     normalized = [
@@ -210,13 +234,24 @@ def split_count(profiled_seconds: float, profiled_tests: int) -> int:
 def pytest_command(group: int) -> list[str]:
     """The exact suite invocation for one shard."""
     return [
-        "uv", "run", "python", "-m", "pytest", *SUITE_PATHS,
-        "-n", "auto",
-        "--dist", "worksteal",
-        "--splits", str(SHARD_COUNT),
-        "--group", str(group),
-        "--splitting-algorithm", "least_duration",
-        "--durations-path", DURATIONS_PATH,
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "pytest",
+        *SUITE_PATHS,
+        "-n",
+        "auto",
+        "--dist",
+        "worksteal",
+        "--splits",
+        str(SHARD_COUNT),
+        "--group",
+        str(group),
+        "--splitting-algorithm",
+        "least_duration",
+        "--durations-path",
+        DURATIONS_PATH,
         "--tb=short",
         "--durations=25",
         f"--junitxml={JUNIT_REPORT}",
@@ -261,9 +296,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     if args.command == "fan-out":
-        emit_output_lines(
-            fan_out_lines(), write_github_output=args.write_github_output
-        )
+        emit_output_lines(fan_out_lines(), write_github_output=args.write_github_output)
         return 0
     return _run_shard(args.group)
 

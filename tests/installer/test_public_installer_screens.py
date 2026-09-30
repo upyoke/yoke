@@ -132,8 +132,8 @@ def test_already_installed_screen_when_uv_reports_no_op(
     installer.run()
 
     rendered = output.getvalue()
-    assert runner.commands[0][:4] == ["uv", "tool", "install", "yoke-cli==2.0.0"]
-    assert "--config-file" in runner.commands[0]
+    assert runner.commands[1][:4] == ["uv", "tool", "install", "yoke-cli==2.0.0"]
+    assert "--config-file" in runner.commands[1]
     assert "☀ Yoke v2.0.0 already installed" in rendered
     assert "☀ Yoke v2.0.0 is ready" not in rendered
     assert "☀ Starting Yoke onboard…" not in rendered

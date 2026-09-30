@@ -46,14 +46,14 @@ env:
   REUSE_WINDOW_HOURS: "24"
 
 jobs:
-  # Tree-only contracts on one runner before the shard matrix; shards keep
-  # their own copies as defense in depth.
+  # Tree-only contracts precede shards, which also enforce them.
   repo_contracts:
     timeout-minutes: 5
     name: repo-contracts
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     outputs:
       shards: ${{ steps.fan_out.outputs.shards }}
+      python_versions: ${{ steps.fan_out.outputs.python_versions }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -69,7 +69,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
-          python-version: '3.13'
+          python-version: ${{ steps.fan_out.outputs.python_latest }}
           cache: pip
           cache-dependency-path: uv.lock
 
@@ -146,7 +146,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', '3.13']
+        python-version: ${{ fromJSON(needs.repo_contracts.outputs.python_versions) }}
         shard: ${{ fromJSON(needs.repo_contracts.outputs.shards) }}
 
     steps:

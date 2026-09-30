@@ -40,9 +40,9 @@ flowchart LR
 
 The only prerequisites are a shell, `curl`, and `uv`. The public installer
 ensures `uv` is present (installing it on consent when missing), then installs
-`yoke` with a single uv invocation. uv provisions a managed Python, resolves
-dependencies, and links `yoke` onto PATH — you are never asked to bring your
-own Python.
+`yoke` on Python 3.10–3.13, resolves dependencies, and links it onto PATH.
+If no supported Python is available, run `uv python install ">=3.10,<3.14"`
+and rerun the installer; `yoke update` uses the same supported range.
 
 ```bash
 curl -fsSL https://upyoke.com/install | sh

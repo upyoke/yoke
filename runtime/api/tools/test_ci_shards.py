@@ -21,7 +21,7 @@ def _workflow() -> str:
 
 def test_fan_out_is_the_shard_list_as_json() -> None:
     lines = ci_shards.fan_out_lines()
-    assert len(lines) == 1
+    assert len(lines) == 3
     key, _, value = lines[0].partition("=")
     assert key == "shards"
     assert json.loads(value) == ci_shards.shard_list()
@@ -122,14 +122,14 @@ def test_profiled_size_matches_files_directories_and_node_ids(tmp_path) -> None:
     root = _profile(tmp_path)
     assert ci_shards.profiled_size(root, ["runtime/api/test_a.py"]) == (3.0, 2)
     assert ci_shards.profiled_size(root, ["runtime/harness/"]) == (4.0, 1)
-    assert ci_shards.profiled_size(
-        root, ["tests/test_c.py::test_four"]
-    ) == (8.0, 1)
-    assert ci_shards.profiled_size(
-        root, ["runtime/harness/test_b.py::TestB"]
-    ) == (4.0, 1)
+    assert ci_shards.profiled_size(root, ["tests/test_c.py::test_four"]) == (8.0, 1)
+    assert ci_shards.profiled_size(root, ["runtime/harness/test_b.py::TestB"]) == (
+        4.0,
+        1,
+    )
     assert ci_shards.profiled_size(root, ["runtime/api/test_a.py", "tests/"]) == (
-        11.0, 3,
+        11.0,
+        3,
     )
 
 
@@ -141,9 +141,10 @@ def test_profiled_size_treats_equivalent_path_spellings_as_the_same_work(
     assert expected == (3.0, 2)
     assert ci_shards.profiled_size(root, ["./runtime/api/"]) == expected
     assert ci_shards.profiled_size(root, [str(root / "runtime" / "api")]) == expected
-    assert ci_shards.profiled_size(
-        root, ["./runtime/api/test_a.py::test_one"]
-    ) == (1.0, 1)
+    assert ci_shards.profiled_size(root, ["./runtime/api/test_a.py::test_one"]) == (
+        1.0,
+        1,
+    )
     whole = (15.0, 4)
     assert ci_shards.profiled_size(root, ["."]) == whole
     assert ci_shards.profiled_size(root, [str(root)]) == whole
@@ -154,9 +155,7 @@ def test_profiled_size_drops_targets_outside_the_checkout(tmp_path) -> None:
     outsider = tmp_path / "elsewhere" / "runtime" / "api"
     outsider.mkdir(parents=True)
     assert ci_shards.profiled_size(root, [str(outsider)]) == (0.0, 0)
-    assert ci_shards.profiled_size(
-        root, [str(outsider), "runtime/api/"]
-    ) == (3.0, 2)
+    assert ci_shards.profiled_size(root, [str(outsider), "runtime/api/"]) == (3.0, 2)
 
 
 def test_a_selection_the_profile_has_never_seen_is_sized_at_zero(tmp_path) -> None:
@@ -190,7 +189,9 @@ def test_the_suite_is_all_three_anchors() -> None:
     # A partial anchor demotes a package's top-level conftest and collection
     # fails, so the roots are asserted rather than left to a caller.
     assert ci_shards.SUITE_PATHS == (
-        "runtime/api/", "runtime/harness/", "tests/",
+        "runtime/api/",
+        "runtime/harness/",
+        "tests/",
     )
     command = ci_shards.pytest_command(1)
     for root in ci_shards.SUITE_PATHS:
@@ -202,9 +203,7 @@ def test_the_workflow_names_neither_the_shard_list_nor_the_split() -> None:
     # of the suite and still reports green, because each job passes the slice
     # it was handed. Neither number may be written in the workflow.
     workflow = _workflow()
-    assert (
-        "shard: ${{ fromJSON(needs.repo_contracts.outputs.shards) }}" in workflow
-    )
+    assert "shard: ${{ fromJSON(needs.repo_contracts.outputs.shards) }}" in workflow
     assert "yoke_core.tools.ci_shards fan-out --write-github-output" in workflow
     assert "yoke_core.tools.ci_shards run" in workflow
     assert re.search(r"--splits\s+\d", workflow) is None
@@ -217,14 +216,16 @@ def test_the_queue_requires_every_shard_the_fan_out_produces() -> None:
         (REPO_ROOT / ".yoke" / "merge-queue.json").read_text(encoding="utf-8")
     )
     rules = declaration["ruleset"]["rules"]
-    checks = next(
-        rule for rule in rules if rule["type"] == "required_status_checks"
-    )["parameters"]["required_status_checks"]
+    checks = next(rule for rule in rules if rule["type"] == "required_status_checks")[
+        "parameters"
+    ]["required_status_checks"]
     required = {row["context"] for row in checks}
     workflow = _workflow()
-    versions = re.search(
-        r"python-version: \[([^\]]+)\]", workflow
-    ).group(1).replace("'", "").split(", ")
+    assert (
+        "python-version: ${{ fromJSON(needs.repo_contracts.outputs.python_versions) }}"
+        in workflow
+    )
+    versions = ci_shards.python_versions()
     expected = {
         f"test-shard ({version}, {shard})"
         for version in versions

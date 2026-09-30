@@ -34,7 +34,7 @@ on consent when missing). Everything else is deferred until it is needed:
   no git.
 - Optional: a Yoke GitHub App connection for GitHub product commands.
 
-Python is uv-provisioned, not a user prerequisite, and neither is Node.js:
+Yoke supports Python 3.10–3.13. If none is available, run `uv python install ">=3.10,<3.14"` and rerun the installer or `yoke update`.
 Node, npm, and the Playwright browser runtime are provisioned on first
 `yoke qa browser` use — a pinned Node release is downloaded and checksum-
 verified when the host has none, so a clean machine needs no package manager
@@ -42,9 +42,9 @@ of its own. See [docs/browser-substrate.md](browser-substrate.md).
 
 ### 1. Install the CLI
 
-The public installer ensures `uv` is present, then installs `yoke` with a
-single uv invocation: uv provisions a managed Python, resolves dependencies,
-and links `yoke` onto PATH. It auto-launches `yoke onboard` when interactive.
+The public installer ensures `uv` is present, then uses it to install `yoke`
+on a supported Python and link it onto PATH. It auto-launches
+`yoke onboard` when interactive.
 
 ```bash
 curl -fsSL https://upyoke.com/install | sh

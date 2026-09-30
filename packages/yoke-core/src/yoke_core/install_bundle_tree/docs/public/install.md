@@ -7,8 +7,9 @@ yoke status
 ```
 
 Prerequisites: a shell, `curl`, and `uv` (the installer can install `uv` with
-consent). You are not asked to bring your own Python. Native Windows is
-unsupported; WSL follows the Linux path.
+consent). Yoke supports Python 3.10–3.13. When no supported interpreter is
+available, run `uv python install ">=3.10,<3.14"` and rerun the installer or
+`yoke update`. Native Windows is unsupported; WSL follows the Linux path.
 
 Yoke creates `~/.yoke` and missing private state and secret directories with
 mode `0700`, including when the shell uses umask `002`. Existing directories
