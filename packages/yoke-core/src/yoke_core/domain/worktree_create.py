@@ -21,7 +21,6 @@ from yoke_cli.config.repo_upstream_freshness import refresh_base_branch
 from yoke_core.domain.worktree_create_db import (
     check_path_claim_gate,
     item_worktree_authority_is_https,
-    persist_item_worktrees,
     prepare_authoritative_item_worktrees,
     provisioning_project,
 )
@@ -29,6 +28,9 @@ from yoke_core.domain.worktree_create_plan import (
     WorktreeCreationEntry,
     dirty_main_error,
     preflight_worktree_plan,
+)
+from yoke_core.domain.worktree_create_provisioning import (
+    provision_planned_lanes,
 )
 from yoke_core.domain.worktree_naming import ItemWorktreeIdentityUnresolved
 from yoke_core.domain.worktree_lane_plan import (
@@ -42,10 +44,6 @@ from yoke_core.domain.worktree_paths import (
 from yoke_core.domain.worktree_provision import (
     count_active_worktrees as _count_active_worktrees,
     project_field as _project_field,
-    provision_worktree as _provision_worktree,
-    provision_worktree_folder_trust as _provision_worktree_folder_trust,
-    provision_worktree_harness_enablement as _provision_worktree_harness_enablement,
-    provision_worktree_test_environment as _provision_worktree_test_environment,
 )
 
 
@@ -256,7 +254,7 @@ def create_worktree(
                 failed_branch=primary.branch,
             )
 
-    # --- Per-worktree provisioning loop ---
+    # --- Per-worktree provisioning, in the order the sequence owns ---
     os.makedirs(worktrees_dir, exist_ok=True)
     project_for_install, project_error = provisioning_project(
         item_id, project, db_path
@@ -268,80 +266,22 @@ def create_worktree(
             created=False,
             error=project_error,
         )
-    for entry in plan.worktrees:
-        if entry.preexisting:
-            continue
-        err = _provision_worktree(
-            entry, repo_root, base_branch, project_for_install, scripts_dir
-        )
-        if err:
-            entry.error = err
-            return CreateWorktreeResult(
-                path="",
-                branch=entry.branch,
-                created=False,
-                error=err,
-                worktrees=tuple(plan.worktrees),
-                failed_branch=entry.branch,
-            )
-        entry.created = True
-
-    # Every harness contributes its lane-enablement operations through its
-    # manifest. This runs for reused lanes as well as new ones so a lane
-    # prepared before an adapter update is repaired on the next preparation.
-    for entry in plan.worktrees:
-        _provision_worktree_harness_enablement(repo_root, entry.path)
-        _provision_worktree_folder_trust(entry.path)
-
-    # --- Stable primary result plus universal lane persistence ---
-    primary = plan.primary or plan.worktrees[0]
-    any_created = any(entry.created for entry in plan.worktrees)
-    try:
-        persist_item_worktrees(
-            int(item_id),
-            [
-                (entry.lane_id, entry.branch, entry.path, entry.lane_role)
-                for entry in plan.worktrees
-            ],
-            db_path,
-        )
-    except Exception as exc:  # noqa: BLE001 - preserve physical lane evidence
-        return CreateWorktreeResult(
-            path=primary.path,
-            branch=primary.branch,
-            created=any_created,
-            error=(
-                "worktree provisioning completed but item-lane persistence "
-                f"failed: {exc}"
-            ),
-            worktrees=tuple(plan.worktrees),
-            failed_branch=primary.branch,
-        )
-
-    # A lane is ready when its tests can run in it. This runs for reused
-    # lanes as well as new ones, so a lane prepared before this step
-    # existed — or one whose environment drifted from the lockfile — is
-    # repaired on the next preparation rather than failing at the first
-    # test command.
-    for entry in plan.worktrees:
-        environment_error = _provision_worktree_test_environment(
-            entry.path, project=project_for_install
-        )
-        if environment_error:
-            return CreateWorktreeResult(
-                path=entry.path,
-                branch=entry.branch,
-                created=any_created,
-                error=environment_error,
-                worktrees=tuple(plan.worktrees),
-                failed_branch=entry.branch,
-            )
-
+    provisioned = provision_planned_lanes(
+        plan,
+        item_id=int(item_id),
+        repo_root=repo_root,
+        base_branch=base_branch,
+        project=project_for_install,
+        scripts_dir=scripts_dir,
+        db_path=db_path,
+    )
     return CreateWorktreeResult(
-        path=primary.path,
-        branch=primary.branch,
-        created=any_created,
+        path=provisioned.path,
+        branch=provisioned.branch,
+        created=provisioned.created,
+        error=provisioned.error or None,
         worktrees=tuple(plan.worktrees),
+        failed_branch=provisioned.failed_branch,
     )
 
 

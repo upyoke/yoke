@@ -21,6 +21,14 @@ An absent or empty capability is the default: `uv sync --frozen` and
 `uv_project` is passed as `uv run --project <path>` only when that path
 is itself a uv project from the current working directory.
 
+That sync owns the lane's Python dependencies outright. Lane preparation's
+convention detection — `requirements.txt`, `Pipfile.lock`, and their nested
+variants — is for a lane nothing else provisions, so it skips the Python axis
+entirely wherever a `pyproject.toml`/`uv.lock` pair is found, naming the skip
+on stderr. Running both installed a second unpinned dependency set beside the
+pinned one. Other ecosystems are unaffected: a nested Node app in a
+uv-managed repository is still detected and installed.
+
 Sanctioned run surface:
 
 ```text

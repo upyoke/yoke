@@ -29,6 +29,13 @@ class SurveyPathSize(BaseModel):
     at_or_over_limit: bool
     limit: int = Field(..., gt=0)
     classification: str
+    #: Whether the path exists in the tree the client sized, so a reader
+    #: can tell a file the work will create from one it will change.
+    #: Optional because only the client can answer it: a request from a
+    #: build that predates the field carries no marker, and the receipt
+    #: then reports the same sizing it always did rather than claiming
+    #: every surveyed path is new.
+    exists: Optional[bool] = None
 
 
 class SurveyRequest(BaseModel):

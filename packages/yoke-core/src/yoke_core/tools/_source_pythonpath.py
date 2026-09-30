@@ -26,6 +26,8 @@ AMBIENT_PYTHON_NAMES = frozenset({"python", "python3"})
 #: The installed launcher's command name.
 YOKE_LAUNCHER_NAME = "yoke"
 PYTEST_RUN_RECIPE = "yoke watch pytest -- <pytest args>"
+#: The focused check an agent runs while implementing, over named files.
+FOCUSED_PYTEST_RUN_RECIPE = "yoke watch pytest --local -- <files>"
 INSTALL_BUNDLE_SYNC_RECIPE = (
     "yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync "
     "sync --target-root <checkout>"

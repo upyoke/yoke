@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pathlib
 import subprocess
-from typing import Any
+from typing import Any, Mapping
 
 
 def _repo_root() -> pathlib.Path | None:
@@ -53,8 +53,27 @@ def survey_path_sizes(
             "at_or_over_limit": count >= policy.limit,
             "limit": policy.limit,
             "classification": classification.value,
+            # A surveyed path the work will CREATE is indistinguishable from
+            # an existing one by size alone: both a new file and an empty
+            # file count zero lines. Saying so stops the next reader from
+            # opening a file that is not there yet, or selecting it as a
+            # test target before the change authors it.
+            "exists": (root / path).exists(),
         })
     return results
 
 
-__all__ = ["survey_path_sizes"]
+EXISTENCE_LABELS = {True: "existing", False: "new", None: "unknown"}
+
+
+def path_existence_label(size: Mapping[str, Any]) -> str:
+    """How a receipt names one sized path: ``existing``, ``new``, ``unknown``.
+
+    ``unknown`` belongs to a sizing row composed without the marker, and
+    is deliberately not ``new``: a missing answer is not the claim that
+    the work will create the file.
+    """
+    return EXISTENCE_LABELS.get(size.get("exists"), "unknown")
+
+
+__all__ = ["EXISTENCE_LABELS", "path_existence_label", "survey_path_sizes"]

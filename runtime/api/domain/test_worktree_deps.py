@@ -142,6 +142,70 @@ class TestNestedDetectorRespectsPath:
         assert "pip not on PATH" in captured.err
 
 
+class TestUvManagedLanesKeepTheirPythonAxis:
+    """Regression: a uv-managed lane had pip run beside its lockfile.
+
+    The root ``pyproject.toml``/``uv.lock`` pair was invisible to the
+    convention detectors, so detection fell through to the nested search,
+    found a ``requirements.txt`` left from before the uv migration, and ran
+    pip against it on every single preparation — building pinned wheels from
+    source, and failing outright on an interpreter the pinned build predated.
+    """
+
+    @staticmethod
+    def _uv_project(directory: Path) -> None:
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "pyproject.toml").write_text('[project]\nname = "t"\n')
+        (directory / "uv.lock").write_text("version = 1\n")
+
+    def test_root_uv_project_skips_convention_python_install(
+        self, tmp_path: Path, capsys,
+    ) -> None:
+        self._uv_project(tmp_path)
+
+        specs = detect_deps(str(tmp_path))
+
+        assert specs == []
+        captured = capsys.readouterr()
+        assert "uv-managed" in captured.err
+        assert "uv sync" in captured.err
+
+    def test_nested_requirements_are_not_installed_beside_a_uv_lockfile(
+        self, tmp_path: Path,
+    ) -> None:
+        self._uv_project(tmp_path)
+        nested = tmp_path / "runtime" / "api"
+        nested.mkdir(parents=True)
+        (nested / "requirements.txt").write_text("pydantic==2.0\n")
+
+        assert detect_deps(str(tmp_path)) == []
+
+    def test_a_nested_node_app_is_still_detected_in_a_uv_lane(
+        self, tmp_path: Path,
+    ) -> None:
+        self._uv_project(tmp_path)
+        nested = tmp_path / "webapp"
+        nested.mkdir()
+        (nested / "package-lock.json").write_text("{}")
+
+        specs = detect_deps(str(tmp_path))
+
+        assert [spec.command for spec in specs] == [["npm", "ci"]]
+
+    def test_a_lane_without_a_lockfile_still_uses_the_conventions(
+        self, tmp_path: Path,
+    ) -> None:
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "t"\n')
+        nested = tmp_path / "service"
+        nested.mkdir()
+        (nested / "requirements.txt").write_text("flask\n")
+
+        specs = detect_deps(str(tmp_path))
+
+        assert [spec.tool for spec in specs] == ["pip"]
+        assert specs[0].cwd == str(nested)
+
+
 class TestRunSurfaces:
     """Regression: ``_run`` previously caught ``FileNotFoundError`` and
     returned an empty ``stderr``, so the install-deps caller printed a

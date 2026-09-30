@@ -45,7 +45,12 @@ yoke direct-workflow worktree prepare ITEM --workflow dash --json
 yoke merge item ITEM --result "<what changed>" --verification "<checks run>"
 ```
 
-The first delegates to the local engine worktree preflight. The second is the
+The first delegates to the local engine worktree preflight. It prints exactly
+one JSON envelope last, success or refusal — an unexpected failure inside
+preparation reports `block_kind="worktree-prepare-failed"` with the lane read
+and the retry, rather than a bare traceback. A successful receipt adds
+`run_recipes` and `lane_orientation` (`package_roots`, `test_roots`,
+`focused_test_command`). The second is the
 standalone-item merge boundary: it takes the merge lock, lands the branch on
 the project base branch, stamps `merged_at`, publishes, records execution
 evidence with the merge identity it just resolved, and then transitions the

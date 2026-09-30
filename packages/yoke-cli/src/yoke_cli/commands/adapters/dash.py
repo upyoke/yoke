@@ -17,7 +17,10 @@ from yoke_contracts.dash_evidence_status import status_argument_kwargs
 from yoke_cli.commands.adapters.dash_survey_recovery import (
     build_survey_timeout_recovery,
 )
-from yoke_cli.commands.adapters.file_line_sizing import survey_path_sizes
+from yoke_cli.commands.adapters.file_line_sizing import (
+    path_existence_label,
+    survey_path_sizes,
+)
 from yoke_cli.commands.adapters.lane_tree import (
     LaneTree,
     item_lane_tree,
@@ -90,7 +93,8 @@ def dash_survey(args: List[str]) -> int:
                 + "|".join(str(size.get(key)) for key in (
                     "path", "current_line_count", "remaining_headroom",
                     "at_or_over_limit", "limit", "classification",
-                )),
+                ))
+                + f"|{path_existence_label(size)}",
                 file=stdout,
             )
         for blocker in result.get("blockers") or []:

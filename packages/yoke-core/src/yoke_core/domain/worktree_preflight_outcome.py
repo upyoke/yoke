@@ -50,4 +50,34 @@ class WorktreePreflightOutcome:
         }
 
 
-__all__ = ["WorktreePreflightOutcome"]
+#: What the receipt calls a preparation that raised instead of returning.
+BLOCK_PREPARE_FAILED = "worktree-prepare-failed"
+
+
+def unexpected_failure_envelope(item: str, exc: BaseException) -> Dict[str, Any]:
+    """The refusal envelope for a preparation that raised.
+
+    Callers print this so that every invocation ends in exactly one
+    envelope. A traceback alone told the caller nothing about the lane it
+    had left behind, and a caller that read no receipt could not tell a
+    crash from a preparation that never started.
+    """
+    return {
+        "ok": False,
+        "block_kind": BLOCK_PREPARE_FAILED,
+        "item": item,
+        "narrative": (
+            f"Worktree preparation raised {type(exc).__name__}: {exc}\n"
+            "The lane may already exist with its path recorded. Read "
+            f"`yoke item-worktrees list {item}`, then re-run the same "
+            "preparation command — it reuses a recorded lane rather than "
+            "creating a second one."
+        ),
+    }
+
+
+__all__ = [
+    "BLOCK_PREPARE_FAILED",
+    "WorktreePreflightOutcome",
+    "unexpected_failure_envelope",
+]
