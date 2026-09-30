@@ -59,8 +59,17 @@ def _still_member(conn):
     )
 
 
-def test_red_member_removal_retracts_only_its_outstanding_run_qa(test_db, monkeypatch):
+@pytest.mark.parametrize("failed", [False, True])
+def test_red_member_removal_retracts_only_its_outstanding_run_qa(
+    test_db, monkeypatch, failed
+):
     requirement = _red_member(test_db)
+    if failed:
+        test_db.execute(
+            "UPDATE deployment_runs SET status='failed',current_stage=%s WHERE id=%s",
+            (f"{ITEM_QA_STAGE}-failed", RUN),
+        )
+        test_db.commit()
     assert unresolved_blocking_qa(test_db, RUN)
     assert (
         qa_stage_outstanding(test_db, run_id=RUN, stage_name=ITEM_QA_STAGE).waiting == 1
@@ -69,12 +78,11 @@ def test_red_member_removal_retracts_only_its_outstanding_run_qa(test_db, monkey
     message = cmd_remove_item(
         RUN, ITEM, reason=REASON, session_id="remover", actor_id=2
     )
-    assert (
-        test_db.execute(
-            "SELECT status FROM deployment_runs WHERE id=%s", (RUN,)
-        ).fetchone()["status"]
-        == "succeeded"
-    )
+    assert test_db.execute(
+        "SELECT status FROM deployment_runs WHERE id=%s", (RUN,)
+    ).fetchone()["status"] == ("failed" if failed else "succeeded")
+    if failed:
+        assert f"-- {RUN} --from-stage {ITEM_QA_STAGE}" in message
     assert "a later release enrolls it" in message
     assert not _still_member(test_db)
     row = test_db.execute(
@@ -108,6 +116,8 @@ def test_red_member_removal_retracts_only_its_outstanding_run_qa(test_db, monkey
     [
         ("current_stage='deploy'", "not at an item-scoped"),
         ("status='succeeded'", "only while status='created'"),
+        ("status='failed',current_stage='deploy-failed'", "only at item-qa-failed"),
+        ("status='failed',current_stage='item-qa'", "only at item-qa-failed"),
         ("settling_at='2026-09-30T00:00:00Z'", "not at an item-scoped"),
     ],
 )
@@ -144,6 +154,76 @@ def test_closed_member_refuses_removal(test_db):
     with pytest.raises(ValueError, match="already closed"):
         cmd_remove_item(RUN, ITEM, reason=REASON)
     assert _still_member(test_db)
+
+
+def test_failed_item_qa_resume_excludes_removed_member(test_db, monkeypatch):
+    from yoke_core.domain import deploy_pipeline, deploy_pipeline_run_updates
+
+    _red_member(test_db)
+    test_db.execute(
+        "UPDATE deployment_runs SET status='failed',current_stage=%s WHERE id=%s",
+        (f"{ITEM_QA_STAGE}-failed", RUN),
+    )
+    test_db.commit()
+    _held_lock(monkeypatch)
+    cmd_remove_item(RUN, ITEM, reason=REASON)
+    stages = pinned_stages(test_db, RUN)
+    context = {
+        "run": {
+            **dict(
+                test_db.execute(
+                    "SELECT * FROM deployment_runs WHERE id=%s", (RUN,)
+                ).fetchone()
+            ),
+            "project": "yoke",
+        },
+        "members": [
+            dict(row)
+            for row in test_db.execute(
+                "SELECT item_id FROM deployment_run_items WHERE run_id=%s", (RUN,)
+            ).fetchall()
+        ],
+        "stages": stages,
+    }
+    control = deploy_pipeline.control_plane
+    monkeypatch.setattr(control, "execution_context", lambda _: context)
+    monkeypatch.setattr(control, "project_field", lambda *_: "")
+    monkeypatch.setattr(control, "seed_qa", lambda _: 0)
+    monkeypatch.setattr(
+        control, "unresolved_qa", lambda _: unresolved_blocking_qa(test_db, RUN)
+    )
+    monkeypatch.setattr(control, "record_qa_pass", lambda *_: None)
+    monkeypatch.setattr(
+        deploy_pipeline, "resolve_project_checkout_path", lambda _: "/repo"
+    )
+    monkeypatch.setattr(deploy_pipeline, "resolve_flow_gate_branch", lambda *_: "main")
+    monkeypatch.setattr(deploy_pipeline, "_emit_run_event", lambda *_a, **_k: None)
+    monkeypatch.setattr(deploy_pipeline, "_set_deploy_stage", lambda *_a, **_k: None)
+    monkeypatch.setattr(deploy_pipeline, "_finalize", lambda *_a, **_k: 0)
+    monkeypatch.setattr(
+        deploy_pipeline.stage_checks, "check_resume_qa_gate", lambda **_: None
+    )
+    monkeypatch.setattr(
+        deploy_pipeline_run_updates,
+        "start_run",
+        lambda *_: test_db.execute(
+            "UPDATE deployment_runs SET status='executing' WHERE id=%s", (RUN,)
+        ),
+    )
+    dispatched = []
+
+    def dispatch(stage, **kwargs):
+        dispatched.append((stage["name"], kwargs["member_items"]))
+        return materialize_and_gate_deployment_qa_stage(test_db, stage, run_id=RUN)
+
+    monkeypatch.setattr(
+        deploy_pipeline.stage_receipt, "dispatch_step_runner_with_receipt", dispatch
+    )
+    assert (
+        deploy_pipeline.run_pipeline(RUN, from_stage=ITEM_QA_STAGE, sd="/tmp/sd") == 0
+    )
+    assert dispatched == [(ITEM_QA_STAGE, [])]
+    assert not _still_member(test_db)
 
 
 def test_settlement_releases_a_later_correction_without_closing_it(

@@ -91,7 +91,7 @@ learns the other's part from its own skill. The split is the whole rule:
   `created` comes out with `yoke deployment-runs remove-item RUN-ID PREFIX-N
   --reason R` under the deploy lock: the reason is recorded on the run,
   composition never re-enrolls it, its code still ships, and a later release
-  enrolls it; `add-item` reverses the removal. Before creating a release pair, inspect the
+  enrolls it; `add-item` reverses the removal while created. Unsettled independent members may also be removed while executing at item QA or failed at `item-qa-failed`, with the same shared-gate guards: outstanding run-bound member requirements are retracted; standing plans and passing evidence remain. Resume the failed run with `yoke watch deploy -- RUN-ID --from-stage item-qa`; every other failed stage still refuses removal. Before creating a release pair, inspect the
   delivery-ready items' selected completion flows and choose their flow. A
   refused creation or start names independent blockers together, including
   each mismatched member flow and unattributed commits. Use a run of the

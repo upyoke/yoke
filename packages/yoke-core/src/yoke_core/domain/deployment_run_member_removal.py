@@ -22,19 +22,19 @@ from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindings
 
 
-def _require_removable(conn: Any, run_id: str, item_id: int) -> bool:
-    """Keep ordinary composition mutable; narrow executing edits to owed item QA."""
+def _require_removable(conn: Any, run_id: str, item_id: int) -> str:
+    """Keep ordinary composition mutable; narrow frozen edits to owed item QA."""
     status = lock_run(conn, run_id)
     if status is None:
         raise LookupError(f"deployment run '{run_id}' not found")
     if status == "created":
         if has_frozen_composition(conn, run_id):
             raise ValueError(frozen_mutation_refusal(run_id, "membership")[7:])
-        return False
-    if status != "executing":
+        return status
+    if status not in {"executing", "failed"}:
         raise ValueError(
             f"deployment run '{run_id}' is {status}; removal is allowed only while "
-            "status='created' or executing at item QA. Use a later release."
+            "status='created', executing at item QA, or failed at item-qa-failed. Use a later release."
         )
     from yoke_core.domain.deployment_qa_run_acceptance import (
         current_item_qa,
@@ -47,7 +47,15 @@ def _require_removable(conn: Any, run_id: str, item_id: int) -> bool:
         (run_id,),
     )
     stages = pinned_stages(conn, run_id)
-    current = next((s for s in stages if s.get("name") == row["current_stage"]), {})
+    stage_name = str(row["current_stage"] or "")
+    if status == "failed":
+        if stage_name != "item-qa-failed":
+            raise ValueError(
+                f"deployment run '{run_id}' failed at {stage_name!r}; removal from "
+                "a failed run is allowed only at item-qa-failed. Repair the failed stage or use a later release."
+            )
+        stage_name = stage_name.removesuffix("-failed")
+    current = next((s for s in stages if s.get("name") == stage_name), {})
     if (
         row["settling_at"]
         or current.get("step_runner") != "qa"
@@ -79,7 +87,7 @@ def _require_removable(conn: Any, run_id: str, item_id: int) -> bool:
         (run_id, item_id),
     )
     if member is None:
-        return True  # The shared write reports the public non-member identity.
+        return status  # The shared write reports the public non-member identity.
     if item["status"] in {"done", "cancelled", "stopped"}:
         raise ValueError(
             f"member {render_item_ref(conn, item_id)} is already closed; retain its delivery evidence."
@@ -88,7 +96,7 @@ def _require_removable(conn: Any, run_id: str, item_id: int) -> bool:
         conn,
         run_id=run_id,
         item_id=item_id,
-        current_stage=str(row["current_stage"]),
+        current_stage=stage_name,
         stages=stages,
     )
     if answer is None or answer.accepted:
@@ -96,7 +104,7 @@ def _require_removable(conn: Any, run_id: str, item_id: int) -> bool:
         raise ValueError(
             f"member {render_item_ref(conn, item_id)}: {reason}; retain its evidence and inspect `yoke deployment-runs get {run_id}`."
         )
-    return True
+    return status
 
 
 def remove_member_on(
@@ -155,7 +163,7 @@ def cmd_remove_item(
     actor_id: int | None = None,
     db_path: str | None = None,
 ) -> str:
-    """Remove a created member, or one still owing QA on an independent item stage."""
+    """Remove a created member or one owing executing/failed independent item QA."""
     reason = str(reason or "").strip()
     if not reason:
         raise ValueError(
@@ -164,7 +172,7 @@ def cmd_remove_item(
     conn = connect(db_path)
     try:
         lock_item_workflow_bindings(conn, (int(item_id),))
-        executing = _require_removable(conn, run_id, int(item_id))
+        status = _require_removable(conn, run_id, int(item_id))
         ref = remove_member_on(
             conn,
             run_id,
@@ -175,7 +183,12 @@ def cmd_remove_item(
         )
         conn.commit()
         recovery = f"Re-attach while created with `yoke deployment-runs add-item {run_id} {ref}`."
-        if executing:
+        if status == "failed":
+            recovery = (
+                f"Resume this same run with `yoke watch deploy -- {run_id} "
+                "--from-stage item-qa` under the project deploy lock."
+            )
+        elif status == "executing":
             from yoke_core.domain.deployment_run_auto_completion import (
                 continue_after_settlement,
             )
