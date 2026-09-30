@@ -286,7 +286,11 @@ def register(registry) -> None:
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["snapshot_replacement", "claim_required"],
         adapter_status="live",
-        claim_required_kind="item",
+        # The same subject authority as qa.plan.materialize: an item or an
+        # item-scoped stage member needs that item's claim, while a run-scoped
+        # stage is authorized by the run itself, so the recovery that
+        # qa.plan_cases.replace prints works for a run's QA agent.
+        claim_required_kind="qa_subject",
     )
 
 

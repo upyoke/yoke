@@ -8,12 +8,19 @@ an acceptance record, not a draft.
 
 from __future__ import annotations
 
+from unittest import mock
+
 import pytest
 
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
     ITEM_QA_STAGE,
     record_case_verdict,
     seed_member_qa_case,
+)
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
 )
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.qa_plan_management import QaPlanError
@@ -140,3 +147,55 @@ def test_rematerialize_refuses_while_a_live_execution_walks_the_stage(
         "SELECT instructions FROM qa_requirements WHERE id=%s", (requirement_id,)
     ).fetchone()
     assert str(row["instructions"]) == "run the frozen smoke command"
+
+
+def _rematerialize_request(payload: dict) -> FunctionCallRequest:
+    return FunctionCallRequest(
+        function="qa.plan.rematerialize",
+        actor=ActorContext(actor_id="1", session_id="run-qa-agent"),
+        target=TargetRef(kind="deployment_run", deployment_run_id="run-recovery"),
+        payload=payload,
+    )
+
+
+def test_run_scoped_rematerialize_is_authorized_by_the_run_not_an_item_claim(
+    test_db,
+) -> None:
+    """The recovery qa.plan_cases.replace prints works for a run's QA agent.
+
+    A run-scoped stage has no member, so an item claim cannot exist for it;
+    the run itself authorizes the refresh, exactly as it authorizes the
+    materialization being refreshed. A member stage still needs its claim.
+    """
+    from yoke_core.domain import yoke_function_registry
+    from yoke_core.domain.handlers import __init_register__ as init_register
+    from yoke_core.domain.yoke_function_dispatch_claims import verify_claim
+
+    init_register.register_all_handlers()
+    entry = yoke_function_registry.lookup("qa.plan.rematerialize")
+    assert entry is not None and entry.claim_required_kind == "qa_subject"
+
+    with mock.patch(
+        "yoke_core.domain.qa_deployment_function_subject.resolve_run_qa_subject",
+        return_value=(1, "yoke", None),
+    ):
+        refusal = verify_claim(
+            entry, _rematerialize_request({"deployment_stage": "run-qa"})
+        )
+    assert refusal is None
+
+    with mock.patch(
+        "yoke_core.domain.qa_deployment_function_subject.resolve_run_qa_subject",
+        return_value=(1, "yoke", MEMBER),
+    ), mock.patch(
+        "yoke_core.domain.yoke_function_dispatch_claims.who_claims_for_item",
+        return_value={"id": 5, "session_id": "another-session"},
+    ):
+        refusal = verify_claim(
+            entry,
+            _rematerialize_request(
+                {"deployment_stage": STAGE, "deployment_member": str(MEMBER)}
+            ),
+        )
+    assert refusal is not None and refusal.error is not None
+    assert refusal.error.code == "claim_required"
