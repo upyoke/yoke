@@ -21,7 +21,6 @@ from fastapi.routing import APIRouter
 
 from yoke_core.api.http_auth import (
     HttpAuthContext,
-    bind_actor_from_auth,
     record_function_authz,
     require_auth_context,
 )
@@ -50,6 +49,7 @@ from yoke_core.domain.yoke_function_registry import (
 )
 from yoke_core.domain.api_tokens import INITIAL_ADMIN_TOKEN_NAME
 from yoke_core.api.machine_function_auth import machine_credential_refusal
+from yoke_core.api.launch_machine_actor import bind_actor_for_session
 
 
 router = APIRouter()
@@ -138,7 +138,7 @@ def call_function(request: Request, envelope: Dict[str, Any]) -> JSONResponse:
         if machine_denial is not None:
             body = machine_denial.model_dump()
             return JSONResponse(content=body, status_code=_status_for_response(body))
-        bound_envelope, ambient = bind_actor_from_auth(envelope, auth)
+        bound_envelope, ambient = bind_actor_for_session(envelope, auth)
         _record_pre_dispatch_authz(request, bound_envelope, auth)
         dispatch_started = start_duration_measurement()
         response = dispatch(bound_envelope, ambient_session_id=ambient or "")

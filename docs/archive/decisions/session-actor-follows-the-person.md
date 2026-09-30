@@ -32,6 +32,16 @@ worker:
 - the verified bearer-token actor over https, which on a relayed
   registration is the machine relay's owner.
 
+After registration, an HTTPS function call from that relay still presents
+the machine owner's token. The API substitutes the registered requester's
+actor only when the token is bound to the current machine owner and the
+session has an active, exact launch binding: matching registered and native
+session ids, project, assigned machine, requester actor, and consumed
+attestation. Ended sessions, retired machines, and failed launches do not
+delegate. The dispatcher then rechecks the substituted actor against the
+session row and applies the function's normal permission and claim gates.
+The authenticated machine token remains in the HTTP audit trail.
+
 A launch id that names no readable row **refuses** rather than falling
 back to either of those. Falling back is the misattribution this exists to
 prevent, and a worker that binds the wrong actor does not fail visibly —
