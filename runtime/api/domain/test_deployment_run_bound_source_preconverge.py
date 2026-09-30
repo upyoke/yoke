@@ -27,8 +27,10 @@ from yoke_core.domain.deployment_run_bound_sources import (
     record_bound_sources,
 )
 from yoke_core.domain.deployment_run_carried_membership import (
-    carried_membership_refusal,
     enroll_carried_members,
+)
+from yoke_core.domain.deployment_run_carried_membership_refusal import (
+    carried_membership_refusal,
 )
 from yoke_core.domain.deployment_run_carried_work import derive_carried_work
 from yoke_core.domain.deployment_run_project_sources import (

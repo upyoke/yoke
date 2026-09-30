@@ -24,9 +24,11 @@ from runtime.api.fixtures.carried_release_candidate import (
 from yoke_core.domain import deployment_run_carried_membership as carried_membership
 from yoke_core.domain.deployment_run_carried_membership import (
     carried_enrollment_blocked,
-    carried_membership_refusal,
     describe_enrollment,
     enroll_carried_members,
+)
+from yoke_core.domain.deployment_run_carried_membership_refusal import (
+    carried_membership_refusal,
 )
 from yoke_core.domain.deployment_run_carried_work import derive_carried_work
 from yoke_core.domain.deployment_run_composition_freeze import (

@@ -37,6 +37,17 @@ Custody is always asked with this run excluded. A run reasoning about its own
 composition that counted its own membership would read every member it already
 holds as held elsewhere, which would silently retire the final-member
 completion-authority refusal rather than narrow it.
+
+Answering it costs a source walk per carried project -- a GitHub containment
+question, so network I/O with no bound of its own. Four different composition
+readers need the same answer, and asking four times once put three of those
+walks inside the run row lock that enrollment had already taken: a laptop that
+hibernated mid-walk pinned the row until a human terminated the backend.
+:func:`resolve_candidate_custody` hands every reader one
+:class:`CustodyResolution`, which walks at most once and only when a reader
+that got past its own preconditions actually asks. Because custody is asked
+with ``exclude_run_id`` set to this run, enrolling its own members cannot
+change the answer, so one resolution stays valid for the whole composition.
 """
 
 from __future__ import annotations
@@ -111,31 +122,109 @@ def candidate_custody(conn: Any, run_id: str) -> CandidateCustody:
     )
 
 
+class CustodyResolution:
+    """One candidate-custody answer, walked at most once and shared by readers.
+
+    Lazy on purpose, and that is the whole contract. Every reader gates on its
+    own preconditions first -- a run with no release lineage, a frozen or
+    inherited composition, a delivery that is not this run's final one -- and
+    several return before custody is relevant at all. Walking eagerly on the
+    caller's behalf would reach the project source for runs that never asked,
+    which is both a wasted round trip and a new failure mode: a universe whose
+    schema cannot answer the question would start refusing compositions that
+    never needed it. Resolving on first use keeps each reader's precondition
+    exactly where it was while still costing one walk for all of them.
+
+    The walk is therefore triggered by whichever reader needs it first, and
+    enrollment -- the only reader that takes the run row lock -- needs it
+    before it locks. So the network round trip stays outside the lock whether
+    enrollment resolves it or skips it.
+    """
+
+    __slots__ = ("_conn", "_run_id", "_custody", "_refusal", "_walked")
+
+    def __init__(self, conn: Any, run_id: str) -> None:
+        self._conn = conn
+        self._run_id = run_id
+        self._custody: CandidateCustody | None = None
+        self._refusal: str | None = None
+        self._walked = False
+
+    def _resolve(self) -> None:
+        """Walk custody once, keeping an unanswerable one as a named refusal.
+
+        Enrollment must raise on that -- it would otherwise compose a
+        membership it could not justify -- while the readers that only *narrow*
+        a report must not, because a lost narrowing beats a raised reader.
+        Holding both lets each keep the behaviour it already had.
+        """
+        if self._walked:
+            return
+        self._walked = True
+        try:
+            self._custody = candidate_custody(self._conn, self._run_id)
+        except (LookupError, ValueError) as exc:
+            self._refusal = str(exc)
+
+    def require(self) -> CandidateCustody:
+        """Return the custody, or raise the refusal that prevented answering."""
+        self._resolve()
+        if self._custody is None:
+            raise ValueError(self._refusal or "candidate custody is undetermined")
+        return self._custody
+
+    @property
+    def held_ids(self) -> frozenset[int]:
+        """Held landings, empty when custody could not be determined."""
+        self._resolve()
+        return self._custody.held_ids if self._custody is not None else frozenset()
+
+    @property
+    def held(self) -> tuple[HeldCandidate, ...]:
+        """Held landings in item order, empty when custody is undetermined."""
+        self._resolve()
+        return self._custody.held if self._custody is not None else ()
+
+
+def resolve_candidate_custody(conn: Any, run_id: str) -> CustodyResolution:
+    """Hand back the shared custody answer for *run_id*, unwalked.
+
+    Build this before taking any run or binding lock and pass it to every
+    consumer: the walk it defers reaches the project source, and no network
+    round trip belongs inside a row lock a deploy is holding.
+    """
+    return CustodyResolution(conn, run_id)
+
+
 def unheld_candidate_ids(conn: Any, run_id: str) -> tuple[int, ...]:
     """Item ids this run should enroll that its carried range cannot see."""
     return candidate_custody(conn, run_id).enrollable
 
 
-def held_candidate_ids(conn: Any, run_id: str) -> frozenset[int]:
+def held_candidate_ids(
+    conn: Any, run_id: str, *, custody: CustodyResolution | None = None
+) -> frozenset[int]:
     """Carried landings another release holds, empty when custody cannot say.
 
     A composition reader must not be turned into a raise by a custody question
-    it does not own: :func:`candidate_custody` refuses an unanswerable custody
-    by name and enrollment reports that refusal, so withholding the exclusion
-    here loses the narrowing rather than the error.
+    it does not own: enrollment reports an unanswerable custody by name, so
+    withholding the exclusion here loses the narrowing rather than the error.
+
+    Pass *custody* to reuse a resolution the caller already walked.
     """
-    try:
-        return candidate_custody(conn, run_id).held_ids
-    except (LookupError, ValueError):
-        return frozenset()
+    return (custody or resolve_candidate_custody(conn, run_id)).held_ids
 
 
-def held_candidate_notice(conn: Any, run_id: str) -> str:
+def held_candidate_notice(
+    conn: Any, run_id: str, *, custody: CustodyResolution | None = None
+) -> str:
     """Name every carried landing this run left out because a release holds it.
 
     Said whenever composition reports itself, because "why is my item not a
     member" is otherwise answerable only by reading two runs' membership by
     hand. Silent when this run may not enroll at all: nothing was skipped.
+
+    Pass *custody* to reuse a resolution the caller already walked.
     """
     from yoke_core.domain.deployment_run_carried_membership import (
         carried_enrollment_blocked,
@@ -143,10 +232,7 @@ def held_candidate_notice(conn: Any, run_id: str) -> str:
 
     if carried_enrollment_blocked(conn, run_id):
         return ""
-    try:
-        held = candidate_custody(conn, run_id).held
-    except (LookupError, ValueError):
-        return ""
+    held = (custody or resolve_candidate_custody(conn, run_id)).held
     if not held:
         return ""
     named = "; ".join(
@@ -219,9 +305,11 @@ def _project_custody(
 
 __all__ = [
     "CandidateCustody",
+    "CustodyResolution",
     "HeldCandidate",
     "candidate_custody",
     "held_candidate_ids",
     "held_candidate_notice",
+    "resolve_candidate_custody",
     "unheld_candidate_ids",
 ]

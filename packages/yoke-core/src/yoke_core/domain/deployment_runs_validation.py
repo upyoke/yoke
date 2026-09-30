@@ -25,12 +25,16 @@ from yoke_core.domain.deployment_member_run_coverage import (
     unclosable_final_member_refusal,
 )
 from yoke_core.domain.deployment_run_carried_membership import (
-    carried_membership_refusal,
     describe_enrollment,
     enroll_carried_members,
 )
+from yoke_core.domain.deployment_run_carried_membership_refusal import (
+    carried_membership_refusal,
+)
 from yoke_core.domain.deployment_run_unheld_candidates import (
+    CustodyResolution,
     held_candidate_notice,
+    resolve_candidate_custody,
 )
 from yoke_core.domain.deployment_run_pair_obligations import (
     split_pending_pair_merges,
@@ -134,12 +138,25 @@ def cmd_validate_composition(
         # them would validate a composition the start no longer has.
         errors: List[str] = []
         enrolled: tuple[str, ...] = ()
+        # Unresolved until the bound sources it reads are recorded. A reader
+        # handed None walks custody itself, which is the honest fallback when
+        # recording those sources is the thing that failed.
+        custody: CustodyResolution | None = None
         try:
             # The run's source commit per project is resolved and recorded
             # before anything reads it, so enrollment and every check below
             # judge the commits this run will actually ship.
             record_bound_sources(conn, run_id)
-            enrolled = enroll_carried_members(conn, run_id)
+            # Custody walks GitHub containment once per carried project, and
+            # every reader below needs the same answer. Resolving it here --
+            # after the bound sources it reads, before enrollment takes the run
+            # row -- is what keeps the network out of that lock: asking each
+            # reader to walk for itself put three round trips inside it, and a
+            # client that hibernated mid-walk pinned the row until a human
+            # terminated its backend. Custody excludes this run, so enrolling
+            # its own members cannot invalidate the answer.
+            custody = resolve_candidate_custody(conn, run_id)
+            enrolled = enroll_carried_members(conn, run_id, custody=custody)
         except (LookupError, ValueError) as exc:
             errors.append(str(exc))
         run_project_id = int(run_project_id)
@@ -204,13 +221,13 @@ def cmd_validate_composition(
             )
             errors.append(f"Unsatisfied hard-block dependencies: {items_str}")
 
-        carried_refusal = carried_membership_refusal(conn, run_id)
+        carried_refusal = carried_membership_refusal(conn, run_id, custody=custody)
         if carried_refusal:
             errors.append(carried_refusal)
 
         # A release that would turn green over a final member it cannot
         # close strands that member at its release wait, so it never starts.
-        if unclosable := unclosable_final_member_refusal(conn, run_id):
+        if unclosable := unclosable_final_member_refusal(conn, run_id, custody=custody):
             errors.append(unclosable)
 
         # An obligation no stage on this run targets is not a composition
@@ -227,7 +244,7 @@ def cmd_validate_composition(
 
         # Composition silently narrowed by another release's custody is the
         # one omission an operator cannot reconstruct from this run alone.
-        held = held_candidate_notice(conn, run_id)
+        held = held_candidate_notice(conn, run_id, custody=custody)
 
         if errors:
             trailing = [note for note in (held, inert, unadmitted) if note]

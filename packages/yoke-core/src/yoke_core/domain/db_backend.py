@@ -17,6 +17,7 @@ from typing import Optional
 from yoke_contracts import control_plane_locality
 from yoke_contracts.control_plane_locality import PG_DSN_ENV, PG_DSN_FILE_ENV
 from yoke_core.domain.db_row import PostgresRow, postgres_row_factory
+from yoke_core.domain.postgres_control_plane_connection import open_guarded_postgres
 
 POSTGRES = "postgres"
 POSTGRES_TEST_DB_PREFIX = "yoke_test_"
@@ -119,10 +120,10 @@ def resolve_pg_dsn(dbname: Optional[str] = None) -> str:
 
 def _open_native_postgres(dsn: str, *, autocommit: bool = False):
     """Open a native psycopg authority connection with name-aware rows."""
-    import psycopg
-
     return _track_test_connection(
-        psycopg.connect(dsn, autocommit=autocommit, row_factory=postgres_row_factory)
+        open_guarded_postgres(
+            dsn, autocommit=autocommit, row_factory=postgres_row_factory
+        )
     )
 
 
@@ -261,16 +262,14 @@ def connect_psycopg(dsn: Optional[str] = None, *, autocommit: bool = False):
     connection — so it is the caller's authority to open, not the ambient one.
     """
     if dsn is None:
-        control_plane_locality.refuse_direct_connection(
-            "db_backend.connect_psycopg()"
-        )
-
-    import psycopg
+        control_plane_locality.refuse_direct_connection("db_backend.connect_psycopg()")
 
     from yoke_core.domain import connected_env_readiness as _readiness
 
     def _open_target(target: str):
-        return _track_test_connection(psycopg.connect(target, autocommit=autocommit))
+        return _track_test_connection(
+            open_guarded_postgres(target, autocommit=autocommit)
+        )
 
     def _open():
         target = dsn if dsn is not None else resolve_pg_dsn()

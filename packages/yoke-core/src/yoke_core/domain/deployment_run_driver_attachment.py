@@ -31,6 +31,10 @@ PHASE_EXECUTING = "executing"
 VALID_PHASES = frozenset({PHASE_FREEZING_SOURCE, PHASE_EXECUTING})
 LIVE_HEARTBEAT = timedelta(seconds=600)
 
+#: Error code a relayed attach or release carries when the run row was busy.
+#: The caller skips the tick and reports the named reason rather than retrying.
+ROW_LOCK_BUSY_CODE = "driver_row_lock_busy"
+
 
 @dataclass(frozen=True)
 class DriverAttachment:
@@ -146,9 +150,16 @@ def _column_ready(conn: Any) -> bool:
 
 
 def _locked_row(conn: Any, run_id_value: str) -> tuple[str, Any] | None:
-    from yoke_core.domain.deployment_runs_lock import lock_run
+    """Lock the run row without waiting, so a liveness write can never queue.
 
-    status = lock_run(conn, run_id_value)
+    Raises :class:`DeploymentRunRowLockBusy` when another transaction holds the
+    row. Attaching and releasing are both liveness bookkeeping: a tick that
+    waits stops reporting, and a release that waits keeps the process alive
+    through its own shutdown.
+    """
+    from yoke_core.domain.deployment_runs_lock import lock_run_bounded
+
+    status = lock_run_bounded(conn, run_id_value)
     if status is None:
         return None
     if not _column_ready(conn):
@@ -175,6 +186,9 @@ def attach_driver(
 
     ``None`` means the additive column has not converged; the caller
     proceeds. Same pid+session refreshes heartbeat and phase.
+
+    Raises :class:`DeploymentRunRowLockBusy` rather than waiting for a run row
+    another transaction holds -- see :func:`_locked_row`.
     """
     if phase not in VALID_PHASES:
         raise ValueError(f"driver phase {phase!r} is not registered")
@@ -214,7 +228,12 @@ def release_driver(
     session_id: str,
     pid: int,
 ) -> bool:
-    """Clear the attachment when this process still holds it."""
+    """Clear the attachment when this process still holds it.
+
+    Raises :class:`DeploymentRunRowLockBusy` rather than waiting, so shutdown
+    always completes: a release that blocked on the run row is what left a
+    SIGTERMed watcher alive in its own cleanup.
+    """
     locked = _locked_row(conn, run_id_value)
     if locked is None or not _column_ready(conn):
         return False
@@ -282,6 +301,7 @@ def live_attachment_for_capture(
 
 __all__ = [
     "ATTACH_FUNCTION_ID",
+    "ROW_LOCK_BUSY_CODE",
     "COLUMN",
     "DriverAlreadyAttached",
     "DriverAttachment",

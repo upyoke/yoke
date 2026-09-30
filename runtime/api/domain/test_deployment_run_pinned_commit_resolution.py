@@ -27,7 +27,7 @@ from runtime.api.fixtures.carried_release_candidate import (
 )
 from yoke_core.domain import deployment_run_carried_work_repository as provider
 from yoke_core.domain.deployment_run_bound_sources import record_bound_sources
-from yoke_core.domain.deployment_run_carried_membership import (
+from yoke_core.domain.deployment_run_carried_membership_refusal import (
     carried_membership_refusal,
 )
 from yoke_core.domain.deployment_run_carried_work import derive_carried_work

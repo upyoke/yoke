@@ -12,6 +12,7 @@ from yoke_core.domain.control_plane_function_degradation import REGISTRY_SKEW_CO
 from yoke_core.domain.deployment_run_driver_attachment import (
     ATTACH_FUNCTION_ID,
     RELEASE_FUNCTION_ID,
+    ROW_LOCK_BUSY_CODE,
 )
 from yoke_core.domain.session_liveness_pump import (
     HEARTBEAT_INTERVAL_SECONDS,
@@ -221,6 +222,13 @@ def attach_driver(
 
     A registry-skew answer means this client is ahead of the plane; the
     caller proceeds without recording, matching an unconverged column.
+
+    A busy run row is also not a failure to retry: the plane refused rather
+    than queueing, so this attempt prints the named holder and returns nothing
+    recorded. Saying it out loud is the point -- the driver's own liveness
+    stream is the only progress signal a deploy watcher has, and the silence
+    while one waited on an abandoned transaction is what made an eleven-minute
+    stall unreadable.
     """
     response = call_dispatcher(
         function_id=ATTACH_FUNCTION_ID,
@@ -237,6 +245,9 @@ def attach_driver(
     if code in REGISTRY_SKEW_CODES:
         return {}
     message = response.error.message if response.error else "request failed"
+    if code == ROW_LOCK_BUSY_CODE:
+        print(message, file=sys.stderr)
+        return {}
     raise DeploymentControlPlaneError(f"{ATTACH_FUNCTION_ID} failed: {message}")
 
 

@@ -8,12 +8,10 @@ from typing import Any
 from psycopg import sql
 
 from yoke_core.domain import db_backend
-
-
-# The relay's bounded poll is shorter than this guard. Two minutes preserves
-# headroom for normal request cleanup while terminating a stranded transaction
-# soon enough to bound lock blocking and vacuum horizon retention.
-IDLE_IN_TRANSACTION_SESSION_TIMEOUT = "2min"
+from yoke_core.domain.postgres_control_plane_connection import (
+    IDLE_IN_TRANSACTION_SESSION_TIMEOUT,
+    IDLE_IN_TRANSACTION_SETTING,
+)
 
 APPLICATION_ROLE_DEFAULT_NOT_PERSISTED = "application_role_default_not_persisted"
 APPLICATION_ROLE_DEFAULT_RECOVERY = (
@@ -21,8 +19,6 @@ APPLICATION_ROLE_DEFAULT_RECOVERY = (
     "permission to ALTER its own database-specific defaults, or connect as a "
     "role that can"
 )
-
-_SETTING_NAME = "idle_in_transaction_session_timeout"
 
 
 class ApplicationRoleSettingsError(RuntimeError):
@@ -48,7 +44,10 @@ def _role_default_already_persisted(conn: Any, database: str) -> bool:
     if not row:
         return False
     setconfig = list(row[0] or [])
-    return f"{_SETTING_NAME}={IDLE_IN_TRANSACTION_SESSION_TIMEOUT}" in setconfig
+    return (
+        f"{IDLE_IN_TRANSACTION_SETTING}={IDLE_IN_TRANSACTION_SESSION_TIMEOUT}"
+        in setconfig
+    )
 
 
 def _persist_role_default(conn: Any, database: str) -> None:
@@ -65,7 +64,7 @@ def _persist_role_default(conn: Any, database: str) -> None:
         conn.execute(
             sql.SQL("ALTER ROLE CURRENT_USER IN DATABASE {} SET {} = {}").format(
                 sql.Identifier(database),
-                sql.Identifier(_SETTING_NAME),
+                sql.Identifier(IDLE_IN_TRANSACTION_SETTING),
                 sql.Literal(IDLE_IN_TRANSACTION_SESSION_TIMEOUT),
             )
         )
@@ -76,7 +75,7 @@ def _persist_role_default(conn: Any, database: str) -> None:
         conn.rollback()
         sys.stderr.write(
             f"{APPLICATION_ROLE_DEFAULT_NOT_PERSISTED}: could not record "
-            f"{_SETTING_NAME}={IDLE_IN_TRANSACTION_SESSION_TIMEOUT} as the "
+            f"{IDLE_IN_TRANSACTION_SETTING}={IDLE_IN_TRANSACTION_SESSION_TIMEOUT} as the "
             f"role default for database {database} ({exc}). This session is "
             f"still guarded. Recover: {APPLICATION_ROLE_DEFAULT_RECOVERY}.\n"
         )
@@ -90,6 +89,16 @@ def converge_application_role_settings(conn: Any) -> None:
     the same value as the role's database default is best-effort, so neither a
     role that cannot alter its own defaults nor a concurrent boot racing on the
     catalog row can stop the universe from serving.
+
+    The default is scoped to CURRENT_USER in one database, so it reaches
+    sessions Yoke did not open as this role -- ``psql``, a maintenance client
+    -- and nothing else. That scoping is why it cannot be the only guard: a
+    Yoke client authenticating as a different role inherits that role's value,
+    and on the production control plane the admin role a deploy driver uses
+    carried a whole day where the serving role carried two minutes. Yoke's own
+    connections therefore no longer depend on this converge having run:
+    :func:`yoke_core.domain.postgres_control_plane_connection.guarded_conninfo`
+    declares the same bound as a startup option on every connection it opens.
     """
     if not db_backend.connection_is_postgres(conn):
         return
@@ -100,15 +109,15 @@ def converge_application_role_settings(conn: Any) -> None:
     try:
         conn.execute(
             sql.SQL("SET {} = {}").format(
-                sql.Identifier(_SETTING_NAME),
+                sql.Identifier(IDLE_IN_TRANSACTION_SETTING),
                 sql.Literal(IDLE_IN_TRANSACTION_SESSION_TIMEOUT),
             )
         )
     except Exception as exc:
         raise ApplicationRoleSettingsError(
             "application role setting convergence failed for "
-            f"{_SETTING_NAME}; ensure the configured PostgreSQL role can SET "
-            f"{_SETTING_NAME}, then restart Yoke"
+            f"{IDLE_IN_TRANSACTION_SETTING}; ensure the configured PostgreSQL role can SET "
+            f"{IDLE_IN_TRANSACTION_SETTING}, then restart Yoke"
         ) from exc
 
 
@@ -116,6 +125,5 @@ __all__ = [
     "APPLICATION_ROLE_DEFAULT_NOT_PERSISTED",
     "APPLICATION_ROLE_DEFAULT_RECOVERY",
     "ApplicationRoleSettingsError",
-    "IDLE_IN_TRANSACTION_SESSION_TIMEOUT",
     "converge_application_role_settings",
 ]

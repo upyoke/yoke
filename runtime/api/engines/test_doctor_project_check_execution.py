@@ -41,18 +41,27 @@ def _local_context(*, source_checkout: Path | None) -> DoctorContext:
 
 
 def _run_checks(checks, conn) -> None:
+    """Execute every check the way ``doctor_check_execution`` does.
+
+    Isolation is a rollback *before* each check, not a savepoint held across
+    one. That is the runner's own shape, and the difference is not stylistic: a
+    project check spends most of its time reading the tree and shelling out, so
+    a transaction opened before it runs sits idle in transaction for as long as
+    that takes. Control-plane connections bound exactly that state, so holding
+    one here had the server close the connection partway through the sweep --
+    a harness artifact, reported as though a check had failed.
+    """
     args = DoctorArgs(project="yoke", quick=True)
     for check in checks:
         recorder = RecordCollector()
         if conn is None:
             check.fn(conn, args, recorder)
             continue
-        conn.execute("SAVEPOINT project_check_execution")
+        conn.rollback()
         try:
             check.fn(conn, args, recorder)
         finally:
-            conn.execute("ROLLBACK TO SAVEPOINT project_check_execution")
-            conn.execute("RELEASE SAVEPOINT project_check_execution")
+            conn.rollback()
 
 
 def _seed_migration_model(conn) -> None:

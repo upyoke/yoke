@@ -26,7 +26,7 @@ from runtime.api.fixtures.carried_release_candidate import (
     stage_environment,
 )
 from yoke_core.domain.deployment_run_carried_work import derive_carried_work
-from yoke_core.domain.deployment_run_carried_membership import (
+from yoke_core.domain.deployment_run_carried_membership_refusal import (
     carried_membership_refusal,
 )
 from yoke_core.domain.deployment_run_composition_freeze import freeze_run_composition
