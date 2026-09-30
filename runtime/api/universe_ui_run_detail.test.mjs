@@ -187,7 +187,7 @@ test("the run page reads the run by id and draws it in the page's shape", async 
   const identityValues = byClass(identity, "run-fact-value")
     .map((node) => node.textContent);
   assert.equal(identityValues[0], "0.1.1+launch.379");
-  assert.equal(identityValues[1], "not recorded");
+  assert.equal(identityValues[1], "No artifact identity recorded; this run pins a source revision.");
   assert.equal(identityValues[2], "not frozen");
   assert.equal(identityValues[3], "prod · https://upyoke.com");
   const qa = byClass(root, "run-qa-section")[0];
