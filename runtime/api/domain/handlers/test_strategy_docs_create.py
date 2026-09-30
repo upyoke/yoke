@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+
+from yoke_contracts.project_contract.strategy_doc_fields import (
+    insert_fields,
+    normalize_fields,
+)
 from unittest.mock import patch
 
 import pytest
@@ -34,7 +39,12 @@ def tmp_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 def _request(slug: str, content: str, session_id: str = SESSION_WITHOUT_CLAIM):
     return build_request(
         "strategy.doc.create",
-        {"slug": slug, "content": content},
+        {
+            "slug": slug,
+            "content": content,
+            "summary": "Operations guide.",
+            "state": "draft",
+        },
         session_id=session_id,
         actor_id="7",
     )
@@ -42,7 +52,8 @@ def _request(slug: str, content: str, session_id: str = SESSION_WITHOUT_CLAIM):
 
 class TestDocCreate:
     def test_creates_new_doc_without_requiring_process_claim(
-        self, tmp_db: str,
+        self,
+        tmp_db: str,
     ) -> None:
         conn = connect_test_db(tmp_db)
         try:
@@ -52,19 +63,20 @@ class TestDocCreate:
 
         content = "# OPERATIONS NOTES\n\nInitial body.\n"
         with patch.object(
-            handlers._events, "emit_event", return_value=ok_emit(),
+            handlers._events,
+            "emit_event",
+            return_value=ok_emit(),
         ) as emit:
-            outcome = handlers.handle_doc_create(
-                _request("OPERATIONS-NOTES", content)
-            )
+            outcome = handlers.handle_doc_create(_request("OPERATIONS-NOTES", content))
 
+        content = normalize_fields(
+            insert_fields(content, Summary="Operations guide.", State="draft")[0]
+        )
         assert outcome.primary_success is True
         assert outcome.result_payload["project_id"] == PROJECT_ID
         assert outcome.result_payload["project_slug"] == PROJECT_SLUG
         assert outcome.result_payload["slug"] == "OPERATIONS-NOTES"
-        assert outcome.result_payload["new_bytes"] == len(
-            content.encode("utf-8")
-        )
+        assert outcome.result_payload["new_bytes"] == len(content.encode("utf-8"))
         emit.assert_called_once()
         assert emit.call_args.args[0] == handlers.STRATEGY_DOC_CREATED_EVENT_NAME
         assert emit.call_args.kwargs["context"]["slug"] == "OPERATIONS-NOTES"
@@ -82,7 +94,8 @@ class TestDocCreate:
         assert int(row["updated_by_actor_id"]) == 7
 
     def test_terminal_session_may_create_when_no_live_claim(
-        self, tmp_db: str,
+        self,
+        tmp_db: str,
     ) -> None:
         conn = connect_test_db(tmp_db)
         try:
@@ -91,7 +104,9 @@ class TestDocCreate:
             conn.close()
 
         with patch.object(
-            handlers._events, "emit_event", return_value=ok_emit(),
+            handlers._events,
+            "emit_event",
+            return_value=ok_emit(),
         ) as emit:
             outcome = handlers.handle_doc_create(
                 _request("OPERATIONS-NOTES", "# Operations\n", session_id="")
@@ -117,12 +132,8 @@ class TestDocCreate:
         assert "doc replace" in outcome.error.message
 
     def test_invalid_slug_and_empty_content_codes(self, tmp_db: str) -> None:
-        invalid = handlers.handle_doc_create(
-            _request("../escape", "# content\n")
-        )
-        empty = handlers.handle_doc_create(
-            _request("EMPTY", "  \n")
-        )
+        invalid = handlers.handle_doc_create(_request("../escape", "# content\n"))
+        empty = handlers.handle_doc_create(_request("EMPTY", "  \n"))
         assert invalid.error.code == "unknown_slug"
         assert empty.error.code == "empty_content_refused"
 
@@ -143,7 +154,8 @@ class TestDocCreate:
         assert SESSION_WITH_CLAIM in outcome.error.message
 
     def test_terminal_session_blocks_when_live_claim_exists(
-        self, tmp_db: str,
+        self,
+        tmp_db: str,
     ) -> None:
         conn = connect_test_db(tmp_db)
         try:
@@ -169,11 +181,14 @@ class TestDocCreate:
             conn.close()
 
         with patch.object(
-            handlers._events, "emit_event", return_value=ok_emit(),
+            handlers._events,
+            "emit_event",
+            return_value=ok_emit(),
         ):
             outcome = handlers.handle_doc_create(
                 _request(
-                    "OPERATIONS-NOTES", "# Operations\n",
+                    "OPERATIONS-NOTES",
+                    "# Operations\n",
                     session_id=SESSION_WITH_CLAIM,
                 )
             )
@@ -183,14 +198,10 @@ class TestDocCreate:
 def test_registration_shape() -> None:
     (entry,) = handlers.REGISTRATIONS
     assert entry["function_id"] == "strategy.doc.create"
-    assert entry["owner_module"] == (
-        "yoke_core.domain.handlers.strategy_docs_create"
-    )
+    assert entry["owner_module"] == ("yoke_core.domain.handlers.strategy_docs_create")
     assert entry["target_kinds"] == ["global"]
     assert entry["side_effects"] == ["db_write", "event_emit"]
-    assert entry["emitted_event_names"] == [
-        handlers.STRATEGY_DOC_CREATED_EVENT_NAME
-    ]
+    assert entry["emitted_event_names"] == [handlers.STRATEGY_DOC_CREATED_EVENT_NAME]
     assert "unique_slug" in entry["guardrails"]
     assert "foreign_process_claim_refused" in entry["guardrails"]
     assert entry["ambient_session_required"] is False

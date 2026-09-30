@@ -10,6 +10,8 @@ helpers are that module's, reused here unchanged.
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.strategy_doc_fields import fields_recipe
+
 import argparse
 import sys
 from typing import Any, Dict, List
@@ -41,6 +43,7 @@ STRATEGY_DOC_SECTION_REPLACE_USAGE = (
 def strategy_doc_section_replace(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke strategy doc section-replace",
+        epilog=fields_recipe(),
         description=(
             "Replace the body of ONE heading in a strategy doc, leaving the "
             "rest of the document byte-identical, then re-render the local "
@@ -63,16 +66,21 @@ def strategy_doc_section_replace(args: List[str]) -> int:
     )
     parser.add_argument("slug", help="Strategy doc slug, e.g. CURRENT-PLAN.")
     parser.add_argument(
-        "--heading", required=True,
+        "--heading",
+        required=True,
         help="Heading text of the section to replace, e.g. 'Live status'.",
     )
     parser.add_argument(
-        "--base-updated-at", dest="base_updated_at", required=True,
+        "--base-updated-at",
+        dest="base_updated_at",
+        required=True,
         help="The updated_at the new section was authored against.",
     )
     content_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
-        content_group, "--content", "--content-file",
+        content_group,
+        "--content",
+        "--content-file",
         dest="content",
         help_text=(
             "New section body, without its heading line. Use --content-file "
@@ -80,15 +88,19 @@ def strategy_doc_section_replace(args: List[str]) -> int:
         ),
     )
     content_group.add_argument(
-        "--stdin", action="store_true",
+        "--stdin",
+        action="store_true",
         help="Read the new section body from stdin.",
     )
     parser.add_argument(
-        "--force", action="store_true",
+        "--force",
+        action="store_true",
         help="Bypass the shrink guard for an intentional rewrite.",
     )
     parser.add_argument(
-        "--target-root", dest="target_root", default=None,
+        "--target-root",
+        dest="target_root",
+        default=None,
         help=(
             "Checkout root receiving the refreshed .yoke/strategy/ files "
             "(defaults like `yoke strategy render`)."
@@ -105,7 +117,9 @@ def strategy_doc_section_replace(args: List[str]) -> int:
     else:
         try:
             content = resolve_text_file(
-                parsed.content, parsed.content_file, "--content-file",
+                parsed.content,
+                parsed.content_file,
+                "--content-file",
             )
         except ValueError as exc:
             return usage_error(str(exc))
@@ -121,15 +135,22 @@ def strategy_doc_section_replace(args: List[str]) -> int:
     target = strategy_target(parsed.project)
 
     early_exit, target_root, anchor_error = resolve_before_mutation(
-        parsed.target_root, actor=actor, target=target, json_mode=parsed.json_mode,
+        parsed.target_root,
+        actor=actor,
+        target=target,
+        json_mode=parsed.json_mode,
     )
     if early_exit is not None:
         return early_exit
 
     return dispatch_and_render(
-        function_id="strategy.doc.section_replace", payload=payload,
-        actor=actor, target=target, json_mode=parsed.json_mode,
-        target_root=target_root, anchor_error=anchor_error,
+        function_id="strategy.doc.section_replace",
+        payload=payload,
+        actor=actor,
+        target=target,
+        json_mode=parsed.json_mode,
+        target_root=target_root,
+        anchor_error=anchor_error,
         skipped_verb="section replaced in the DB",
     )
 

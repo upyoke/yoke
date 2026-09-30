@@ -23,7 +23,6 @@ export const STANDING_DOC_ORDER = [
 ];
 
 const STANDING_DOCS = new Set(STANDING_DOC_ORDER);
-const DRAWN_STATES = new Set(["locked", "deferred", "reference"]);
 const DAY_MS = 86_400_000;
 
 export function isStandingDoc(doc) {
@@ -118,8 +117,8 @@ export function strategyDocumentCard(
   head.appendChild(el(
     documentNode, "span", "strategy-doc-slug", doc.slug || "Strategy",
   ));
-  const state = String(doc.state || "").toLowerCase();
-  if (DRAWN_STATES.has(state)) {
+  const state = String(doc.state || "");
+  if (state) {
     head.appendChild(el(documentNode, "span", "strategy-doc-state", state));
   }
   const age = el(

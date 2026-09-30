@@ -9,10 +9,12 @@ Project-aware destination checks live in
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.strategy_doc_fields import fields_recipe
+
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from yoke_cli.commands import _helpers as _helpers
 from yoke_cli.commands._helpers import (
@@ -25,7 +27,6 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.commands.adapters.strategy import (
     resolve_target_root_for_cli,
     strategy_target,
-    write_rendered_files,
 )
 from yoke_cli.commands.adapters.strategy_render_client import (
     apply_and_fill_missing,
@@ -34,6 +35,7 @@ from yoke_cli.commands.adapters.strategy_render_client import (
 )
 from yoke_cli.commands.adapters.strategy_render_response import (
     compact_file_text_response,
+    _write_returned_files,
 )
 from yoke_cli.commands.adapters.strategy_target_project import (
     reject_known_target_root_mismatch,
@@ -76,7 +78,7 @@ def strategy_ingest(args: List[str]) -> int:
             "whose body still matches the header hash."
         ),
         epilog=(
-            "Example:\n"
+            fields_recipe() + "\n\n" + "Example:\n"
             "  # edit .yoke/strategy/MASTER-PLAN.md in your editor, then:\n"
             "  yoke strategy ingest MASTER-PLAN --dry-run   # preview\n"
             "  yoke strategy ingest MASTER-PLAN             # CAS write-back\n"
@@ -85,19 +87,27 @@ def strategy_ingest(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "slugs", nargs="*", metavar="SLUG",
+        "slugs",
+        nargs="*",
+        metavar="SLUG",
         help="Doc slugs to ingest; default is the project's full corpus.",
     )
     parser.add_argument(
-        "--dry-run", dest="dry_run", action="store_true",
+        "--dry-run",
+        dest="dry_run",
+        action="store_true",
         help="Print per-doc changed/unchanged + line deltas; write nothing.",
     )
     parser.add_argument(
-        "--target-root", dest="target_root", default=None,
+        "--target-root",
+        dest="target_root",
+        default=None,
         help="Checkout root whose rendered .yoke/strategy/ files to read.",
     )
     parser.add_argument(
-        "--content-file", dest="content_file", default=None,
+        "--content-file",
+        dest="content_file",
+        default=None,
         help=(
             "Rendered file for exactly one explicit slug, read from a free "
             "or claim-covered path instead of --target-root."
@@ -122,28 +132,33 @@ def strategy_ingest(args: List[str]) -> int:
     slugs = list(parsed.slugs)
     if parsed.content_file:
         if len(slugs) != 1:
-            return usage_error(
-                "--content-file requires exactly one explicit SLUG."
-            )
+            return usage_error("--content-file requires exactly one explicit SLUG.")
         content_path = Path(parsed.content_file).expanduser().resolve()
         try:
             content = resolve_text_file(
-                None, str(content_path), "--content-file",
+                None,
+                str(content_path),
+                "--content-file",
             )
         except ValueError as exc:
             return usage_error(str(exc))
-        files = [{
-            "slug": slugs[0],
-            "path": str(content_path),
-            "text": str(content),
-        }]
+        files = [
+            {
+                "slug": slugs[0],
+                "path": str(content_path),
+                "text": str(content),
+            }
+        ]
     else:
         # Reading from target_root: resolve project identity and reject a
         # KNOWN mismatch before reading any file or dispatching the
         # mutation — never redirect the read location itself, since the
         # operator's edits live wherever target_root already points.
         identity_response = call_dispatcher(
-            function_id="strategy.doc.list", target=target, payload={}, actor=actor,
+            function_id="strategy.doc.list",
+            target=target,
+            payload={},
+            actor=actor,
         )
         if not identity_response.success:
             return emit_response(identity_response, json_mode=parsed.json_mode)
@@ -186,7 +201,9 @@ def strategy_ingest(args: List[str]) -> int:
     # outcome — on a partial conflict the docs written before it stay
     # written, and rewriting their headers makes a retry no-op them.
     render_report = _write_returned_files(
-        target_root, response, explicit_target_root=explicit_target_root,
+        target_root,
+        response,
+        explicit_target_root=explicit_target_root,
     )
 
     def _human_writer(human_response, stdout, stderr) -> None:
@@ -202,43 +219,14 @@ def strategy_ingest(args: List[str]) -> int:
 
     rc = emit_response(
         compact_file_text_response(
-            response, target_root=target_root, render_report=render_report,
+            response,
+            target_root=target_root,
+            render_report=render_report,
         ),
         json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
     return rc
-
-
-def _write_returned_files(
-    target_root, response, *, explicit_target_root: bool = True,
-) -> Dict[str, str]:
-    """Write any ``file_text`` entries the ingest response carries.
-
-    The written docs already landed in the DB by the time this runs, so a
-    project mismatch on ``target_root`` warns and skips the local
-    header-advance write rather than unwinding anything.
-    """
-    result = (response.result or {}) if response else {}
-    docs = result.get("docs", [])
-    entries = [d for d in docs if d.get("file_text")]
-    if not entries:
-        return {}
-    try:
-        target_root = resolve_and_validate_target_root(
-            target_root,
-            explicit=explicit_target_root,
-            project_id=result.get("project_id"),
-            project_slug=result.get("project_slug"),
-        )
-    except StrategyTargetRootMismatchError as exc:
-        print(
-            "warning: strategy doc(s) ingested in the DB; skipped local "
-            f"header refresh — {exc}",
-            file=sys.stderr,
-        )
-        return {}
-    return write_rendered_files(target_root, entries)
 
 
 STRATEGY_RENDER_USAGE = (
@@ -260,15 +248,21 @@ def strategy_render(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "slugs", nargs="*", metavar="SLUG",
+        "slugs",
+        nargs="*",
+        metavar="SLUG",
         help="Doc slugs to render; default is the project's active corpus.",
     )
     parser.add_argument(
-        "--include-archives", dest="include_archives", action="store_true",
+        "--include-archives",
+        dest="include_archives",
+        action="store_true",
         help="When no SLUG is given, include archived docs in the refresh.",
     )
     parser.add_argument(
-        "--target-root", dest="target_root", default=None,
+        "--target-root",
+        dest="target_root",
+        default=None,
         help="Checkout root receiving the rendered .yoke/strategy/ files.",
     )
     add_project_arg(parser)
@@ -287,7 +281,10 @@ def strategy_render(args: List[str]) -> int:
     actor = build_actor(session_id=parsed.session_id)
     target = strategy_target(parsed.project)
     identity_response = call_dispatcher(
-        function_id="strategy.doc.list", target=target, payload={}, actor=actor,
+        function_id="strategy.doc.list",
+        target=target,
+        payload={},
+        actor=actor,
     )
     if not identity_response.success:
         return emit_response(identity_response, json_mode=parsed.json_mode)
@@ -321,13 +318,15 @@ def strategy_render(args: List[str]) -> int:
         def _fetch_missing(slugs: List[str]):
             follow = call_dispatcher(
                 function_id="strategy.render.run",
-                target=target_ref, payload={"slugs": list(slugs)},
+                target=target_ref,
+                payload={"slugs": list(slugs)},
                 actor=actor_ref,
             )
             return (follow.result or {}).get("docs") or []
 
         report, conflicts = apply_and_fill_missing(
-            target_root, (response.result or {}).get("docs", []),
+            target_root,
+            (response.result or {}).get("docs", []),
             fetch_docs=_fetch_missing,
         )
 
@@ -337,7 +336,9 @@ def strategy_render(args: List[str]) -> int:
 
     rc = emit_response(
         compact_file_text_response(
-            response, target_root=target_root, render_report=report,
+            response,
+            target_root=target_root,
+            render_report=report,
         ),
         json_mode=parsed.json_mode,
         human_writer=_human_writer,

@@ -41,7 +41,15 @@ def strategy_test_database(
 
 
 def seed_strategy_doc(conn, slug: str, content: str) -> dict:
-    return create_doc(conn, 1, slug, content, actor_id=1)
+    return create_doc(
+        conn,
+        1,
+        slug,
+        content,
+        actor_id=1,
+        summary="Seeded strategy document.",
+        state="draft",
+    )
 
 
 def seed_blitz_item(conn, item_id: int, sequence: int) -> None:

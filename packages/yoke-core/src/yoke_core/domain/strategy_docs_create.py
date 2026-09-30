@@ -10,6 +10,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from yoke_contracts.project_contract.strategy_doc_fields import (
+    insert_fields,
+    normalize_fields,
+)
 from yoke_core.domain.strategy_docs import (
     STRATEGY_DOCS_TABLE,
     EmptyStrategyDocError,
@@ -30,6 +34,9 @@ def create_doc(
     slug: str,
     content: str,
     actor_id: Optional[int],
+    *,
+    summary: str,
+    state: str,
 ) -> Dict[str, Any]:
     """Insert one new strategy doc row and return its byte report."""
     _require_valid_slug(slug)
@@ -38,9 +45,10 @@ def create_doc(
             f"refusing to create strategy doc {slug!r} with empty content; "
             "strategy docs are never blanked through this surface."
         )
+    content, replaced = insert_fields(content, Summary=summary, State=state)
+    content = normalize_fields(content)
     existing = conn.execute(
-        f"SELECT 1 FROM {STRATEGY_DOCS_TABLE} "
-        "WHERE project_id = %s AND slug = %s",
+        f"SELECT 1 FROM {STRATEGY_DOCS_TABLE} WHERE project_id = %s AND slug = %s",
         (project_id, slug),
     ).fetchone()
     if existing is not None:
@@ -57,16 +65,21 @@ def create_doc(
         (project_id, slug, content, updated_at, actor_id),
     )
     record_doc_revision(
-        conn, project_id, slug, content,
-        source_operation="create", actor_id=actor_id, created_at=updated_at,
+        conn,
+        project_id,
+        slug,
+        content,
+        source_operation="create",
+        actor_id=actor_id,
+        created_at=updated_at,
     )
     conn.commit()
     return {
         "slug": slug,
+        "replaced_body_fields": replaced,
         "new_bytes": _byte_len(content),
         "updated_at": updated_at,
     }
 
 
 __all__ = ["DuplicateStrategyDocError", "create_doc"]
-

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.strategy_doc_fields import StrategyDocFieldError
+
 from typing import Any, Dict, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from yoke_core.domain import events as _events
 from yoke_core.domain import strategy_docs as _docs
@@ -26,8 +28,23 @@ STRATEGY_DOC_CREATED_EVENT_NAME = "StrategyDocCreated"
 
 
 class DocCreateRequest(BaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def require_card_fields(cls, values):
+        if isinstance(values, dict) and any(
+            name not in values for name in ("summary", "state")
+        ):
+            from yoke_contracts.project_contract.strategy_doc_fields import (
+                fields_recipe,
+            )
+
+            raise ValueError(fields_recipe())
+        return values
+
     slug: str = Field(..., min_length=1, description="New strategy doc slug.")
     content: str = Field(..., description="Initial full doc content.")
+    summary: str = Field(..., description="Required --summary; one plain-text line.")
+    state: str = Field(..., description="Required --state; one free-text line.")
 
 
 class DocCreateResponse(BaseModel):
@@ -36,10 +53,14 @@ class DocCreateResponse(BaseModel):
     slug: str
     new_bytes: int
     updated_at: str
+    replaced_body_fields: List[str] = Field(default_factory=list)
 
 
 def emit_doc_created(
-    *, session_id: str, project: Any, result: Dict[str, Any],
+    *,
+    session_id: str,
+    project: Any,
+    result: Dict[str, Any],
 ) -> None:
     """Telemetry after the durable create; best-effort."""
     _events.emit_event(
@@ -61,6 +82,10 @@ def emit_doc_created(
 
 
 def handle_doc_create(request: FunctionCallRequest) -> HandlerOutcome:
+    if any(name not in (request.payload or {}) for name in ("summary", "state")):
+        from yoke_contracts.project_contract.strategy_doc_fields import fields_recipe
+
+        return _err("strategy_fields_required", fields_recipe())
     payload, err = _validate(request, DocCreateRequest, "strategy.doc.create")
     if err is not None:
         return err
@@ -89,9 +114,13 @@ def handle_doc_create(request: FunctionCallRequest) -> HandlerOutcome:
                 payload.slug,
                 payload.content,
                 _numeric_actor_id(request.actor.actor_id),
+                summary=payload.summary,
+                state=payload.state,
             )
         except _docs.UnknownStrategyDocError as exc:
             return _err("unknown_slug", str(exc))
+        except StrategyDocFieldError as exc:
+            return _err("invalid_strategy_fields", str(exc))
         except _docs.EmptyStrategyDocError as exc:
             return _err("empty_content_refused", str(exc))
         except _create.DuplicateStrategyDocError as exc:
@@ -100,7 +129,9 @@ def handle_doc_create(request: FunctionCallRequest) -> HandlerOutcome:
     emit_doc_created(session_id=session_id, project=project, result=result)
     return HandlerOutcome(
         result_payload=DocCreateResponse(
-            project_id=project.id, project_slug=project.slug, **result,
+            project_id=project.id,
+            project_slug=project.slug,
+            **result,
         ).model_dump(),
         primary_success=True,
     )
@@ -113,6 +144,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "request_model": DocCreateRequest,
         "response_model": DocCreateResponse,
         "stability": "stable",
+        "minimum_serving_version": "next-release",
         "owner_module": "yoke_core.domain.handlers.strategy_docs_create",
         "target_kinds": ["global"],
         "side_effects": ["db_write", "event_emit"],

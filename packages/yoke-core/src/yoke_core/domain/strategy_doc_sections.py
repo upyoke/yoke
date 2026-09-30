@@ -17,6 +17,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from yoke_contracts.project_contract.strategy_doc_fields import field_name
+
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 
@@ -50,10 +52,14 @@ def section_headings(content: str) -> tuple[str, ...]:
 def find_section(content: str, heading: str) -> SectionSpan | None:
     """The span of the first section titled *heading*, or ``None``."""
     lines = content.splitlines()
-    wanted = heading.strip().casefold()
+    wanted = (field_name(heading) or heading.strip()).casefold()
     for index, line in enumerate(lines):
         match = _HEADING_RE.match(line)
-        if match is None or match.group(2).strip().casefold() != wanted:
+        if (
+            match is None
+            or (field_name(match.group(2)) or match.group(2).strip()).casefold()
+            != wanted
+        ):
             continue
         level = len(match.group(1))
         body_end = len(lines)

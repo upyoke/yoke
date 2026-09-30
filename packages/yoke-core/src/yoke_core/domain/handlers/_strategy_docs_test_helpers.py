@@ -12,6 +12,7 @@ a same-slug row for isolation coverage.
 from __future__ import annotations
 
 from yoke_core.domain import strategy_docs as sd
+from runtime.api.domain.strategy_docs_test_helpers import card_document
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.events import EmitResult
 from yoke_contracts.api.function_call import (
@@ -31,7 +32,8 @@ SEED_UPDATED_AT = "2026-06-10T00:00:00Z"
 SEED_SLUGS = ("MISSION", "VISION", "MASTER-PLAN", "LANDSCAPE", "PAD", "WISPS")
 
 SEED_CONTENT = {
-    slug: f"# {slug}\n\nseeded body for {slug}.\nLine two.\n" for slug in SEED_SLUGS
+    slug: card_document(f"# {slug}\n\n## Body\n\nseeded body for {slug}.\nLine two.\n")
+    for slug in SEED_SLUGS
 }
 
 # Baseline test-fixture project rows (project_seed_test_helpers.seed_project_identities).

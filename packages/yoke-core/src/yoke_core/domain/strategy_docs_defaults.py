@@ -20,6 +20,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from yoke_contracts.project_contract.strategy_doc_fields import (
+    insert_fields,
+    normalize_fields,
+)
+
 #: The near-term plan every project seeds; steering seats commonly narrow
 #: to it, and the seed corpus and placeholder renderer both key on it.
 NEAR_TERM_PLAN_SLUG = "CURRENT-PLAN"
@@ -135,7 +140,17 @@ def placeholder_content(slug: str, display_name: str) -> str:
             f"no placeholder renderer for slug {slug!r}; default canon: "
             f"{', '.join(DEFAULT_STRATEGY_DOC_SLUGS)}"
         ) from None
-    return renderer(display_name)
+    summaries = {
+        "MISSION": "Purpose and audience are not yet defined.",
+        "VISION": "Near- and long-term direction are not yet defined.",
+        "MASTER-PLAN": "The ordered development frontier is not yet defined.",
+        "LANDSCAPE": "Competitors and constraints are not yet mapped.",
+        NEAR_TERM_PLAN_SLUG: "The next executable work is not yet defined.",
+    }
+    content, _ = insert_fields(
+        renderer(display_name), Summary=summaries[slug], State="draft"
+    )
+    return normalize_fields(content)
 
 
 def seed_default_docs(

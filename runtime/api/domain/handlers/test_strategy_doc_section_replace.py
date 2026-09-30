@@ -9,6 +9,7 @@ heading the document lacks, and the same process-claim gate.
 from __future__ import annotations
 
 from pathlib import Path
+from runtime.api.domain.strategy_docs_test_helpers import card_document
 from unittest.mock import patch
 
 import pytest
@@ -33,7 +34,7 @@ SLUG = "MISSION"
 #: The tail carries most of the bytes, so replacing it is what the shrink
 #: guard is there to catch; replacing the short status section is not.
 TAIL = "Tail that must survive.\n" * 20
-SECTIONED = (
+SECTIONED = card_document(
     "# MISSION\n\nIntro that must survive.\n\n"
     "## Live status\n\nStale status line.\nAnother stale line.\n\n"
     f"## Next up\n\n{TAIL}"

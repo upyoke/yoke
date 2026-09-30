@@ -7,6 +7,8 @@ commands share no state — each is a standalone dispatch.
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.strategy_doc_fields import fields_recipe
+
 import argparse
 from typing import List
 
@@ -31,6 +33,7 @@ STRATEGY_SEED_DEFAULTS_USAGE = (
 def strategy_seed_defaults(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke strategy seed-defaults",
+        epilog=fields_recipe(),
         description=(
             "Top up a project's default strategy docs: mint a placeholder "
             "row for each missing default slug (MISSION, VISION, "

@@ -28,7 +28,7 @@ STRATEGY_ADAPTERS = [
         function_id="strategy.revision.restore",
         cli_invocation=(
             "yoke strategy revision restore SLUG --revision N "
-            "--base-updated-at TS --project P"
+            "--base-updated-at TS [--summary TEXT] [--state TEXT] --project P"
         ),
     ),
     AdapterEntry(
@@ -85,8 +85,7 @@ STRATEGY_ADAPTERS = [
     AdapterEntry(
         function_id="strategy.claim.break_glass_release",
         cli_invocation=(
-            "yoke strategy claim break-glass-release ITEM "
-            "--reason TEXT --project P"
+            "yoke strategy claim break-glass-release ITEM --reason TEXT --project P"
         ),
     ),
     _read_entry(
@@ -101,8 +100,8 @@ STRATEGY_ADAPTERS = [
     ),
     AdapterEntry(
         function_id="strategy.doc.create",
-        cli_invocation="yoke strategy doc create <slug> --content-file PATH --target-root PATH",
-        notes="Create a new DB-authoritative strategy doc, then render the gitignored local .yoke/strategy/ view into target_root.",
+        cli_invocation="yoke strategy doc create <slug> --summary TEXT --state TEXT --content-file PATH --target-root PATH",
+        notes="Create with separate bounded Summary and free-text State fields; --help prints limits. Explicit fields replace body copies, reported in replaced_body_fields. Render the gitignored local view into target_root.",
     ),
     AdapterEntry(
         function_id="strategy.doc.replace",

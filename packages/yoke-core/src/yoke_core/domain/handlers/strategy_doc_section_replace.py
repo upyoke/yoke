@@ -23,6 +23,8 @@ never saw.
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.strategy_doc_fields import StrategyDocFieldError
+
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 
 from yoke_core.domain import strategy_docs as _docs
@@ -129,6 +131,8 @@ def handle_doc_section_replace(request: FunctionCallRequest) -> HandlerOutcome:
                 force=payload.force,
                 session_id=session_id,
             )
+        except StrategyDocFieldError as exc:
+            return _err("invalid_strategy_fields", str(exc))
         except _docs.EmptyStrategyDocError as exc:
             return _err("empty_content_refused", str(exc))
         except _docs.StrategyHeaderError as exc:

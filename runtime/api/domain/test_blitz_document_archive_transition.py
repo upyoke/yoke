@@ -32,8 +32,24 @@ def _isolated_transition(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _seed_document(conn, slug: str, *, parent_slug: str | None = None) -> None:
     if parent_slug is not None:
-        create_doc(conn, 1, parent_slug, f"# {parent_slug}\n", actor_id=1)
-    create_doc(conn, 1, slug, f"# {slug}\n", actor_id=1)
+        create_doc(
+            conn,
+            1,
+            parent_slug,
+            f"# {parent_slug}\n",
+            actor_id=1,
+            summary="Strategy document.",
+            state="draft",
+        )
+    create_doc(
+        conn,
+        1,
+        slug,
+        f"# {slug}\n",
+        actor_id=1,
+        summary="Strategy document.",
+        state="draft",
+    )
     if parent_slug is not None:
         conn.execute(
             "UPDATE strategy_docs SET parent_slug=%s WHERE project_id=1 AND slug=%s",

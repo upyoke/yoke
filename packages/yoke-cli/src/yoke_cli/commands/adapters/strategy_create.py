@@ -7,6 +7,12 @@ import json
 import sys
 from typing import List
 
+from yoke_contracts.project_contract.strategy_doc_fields import (
+    SUMMARY_MAX_CHARS,
+    STATE_MAX_CHARS,
+    fields_recipe,
+)
+
 from yoke_cli.commands import _helpers as _helpers
 from yoke_cli.commands._helpers import (
     add_json_arg,
@@ -28,7 +34,7 @@ from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_res
 
 
 STRATEGY_DOC_CREATE_USAGE = (
-    "yoke strategy doc create <slug> "
+    "yoke strategy doc create <slug> --summary TEXT --state TEXT "
     "(--content TEXT | --content-file PATH | --stdin) "
     "[--target-root PATH] [--project P] [--session-id S] [--json]"
 )
@@ -37,6 +43,7 @@ STRATEGY_DOC_CREATE_USAGE = (
 def strategy_doc_create(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke strategy doc create",
+        epilog=fields_recipe(),
         description=(
             "Create a new DB-authoritative strategy doc from full content, "
             "then re-render the strategy corpus into .yoke/strategy/. "
@@ -46,18 +53,33 @@ def strategy_doc_create(args: List[str]) -> int:
         ),
     )
     parser.add_argument("slug", help="New strategy doc slug, e.g. OPERATIONS-NOTES.")
+    parser.add_argument(
+        "--summary",
+        required=True,
+        help=f"One plain-text line, at most {SUMMARY_MAX_CHARS} characters.",
+    )
+    parser.add_argument(
+        "--state",
+        required=True,
+        help=f"One free-text line, at most {STATE_MAX_CHARS} characters.",
+    )
     content_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
-        content_group, "--content", "--content-file",
+        content_group,
+        "--content",
+        "--content-file",
         dest="content",
         help_text="Initial doc content. Use --content-file to read from a path.",
     )
     content_group.add_argument(
-        "--stdin", action="store_true",
+        "--stdin",
+        action="store_true",
         help="Read initial doc content from stdin.",
     )
     parser.add_argument(
-        "--target-root", dest="target_root", default=None,
+        "--target-root",
+        dest="target_root",
+        default=None,
         help=(
             "Checkout root receiving the refreshed .yoke/strategy/ files "
             "(defaults like `yoke strategy render`)."
@@ -74,7 +96,9 @@ def strategy_doc_create(args: List[str]) -> int:
     else:
         try:
             content = resolve_text_file(
-                parsed.content, parsed.content_file, "--content-file",
+                parsed.content,
+                parsed.content_file,
+                "--content-file",
             )
         except ValueError as exc:
             return usage_error(str(exc))
@@ -85,7 +109,12 @@ def strategy_doc_create(args: List[str]) -> int:
     create_response = call_dispatcher(
         function_id="strategy.doc.create",
         target=target,
-        payload={"slug": parsed.slug, "content": content},
+        payload={
+            "slug": parsed.slug,
+            "content": content,
+            "summary": parsed.summary,
+            "state": parsed.state,
+        },
         actor=actor,
     )
     if not create_response.success:
@@ -95,8 +124,7 @@ def strategy_doc_create(args: List[str]) -> int:
         target_root = resolve_target_root_for_cli(parsed.target_root)
     except RuntimeError as exc:
         print(
-            "warning: strategy doc created in the DB; skipped local "
-            f"render -- {exc}",
+            f"warning: strategy doc created in the DB; skipped local render -- {exc}",
             file=sys.stderr,
         )
         return emit_response(create_response, json_mode=parsed.json_mode)
@@ -111,7 +139,8 @@ def strategy_doc_create(args: List[str]) -> int:
         return emit_response(render_response, json_mode=parsed.json_mode)
 
     report, _conflicts = apply_rendered_docs(
-        target_root, (render_response.result or {}).get("docs", []),
+        target_root,
+        (render_response.result or {}).get("docs", []),
     )
 
     def _human_writer(response, stdout, stderr) -> None:
@@ -120,8 +149,7 @@ def strategy_doc_create(args: List[str]) -> int:
             print(f"{slug}\t{status}", file=stdout)
         for warning in response.warnings:
             print(
-                f"warning: {warning.code} ({warning.step}): "
-                f"{warning.detail}",
+                f"warning: {warning.code} ({warning.step}): {warning.detail}",
                 file=stderr,
             )
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.strategy_doc_fields import StrategyDocFieldError
+
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 
 from yoke_core.domain import strategy_docs as _docs
@@ -61,9 +63,8 @@ def handle_doc_replace(request: FunctionCallRequest) -> HandlerOutcome:
             )
         except StrategyDocClaimAuthorizationError as exc:
             return _err("strategy_document_claim_denied", str(exc))
-        if (
-            not claimed_document
-            and not session_holds_strategy_claim(conn, session_id, project.slug)
+        if not claimed_document and not session_holds_strategy_claim(
+            conn, session_id, project.slug
         ):
             group = conflict_group_for(PROCESS_STRATEGIZE, project.slug)
             return _err(
@@ -89,6 +90,8 @@ def handle_doc_replace(request: FunctionCallRequest) -> HandlerOutcome:
             return _err("unknown_slug", str(exc))
         except _docs.StrategyDocMissingError as exc:
             return _err("doc_not_seeded", str(exc))
+        except StrategyDocFieldError as exc:
+            return _err("invalid_strategy_fields", str(exc))
         except _docs.EmptyStrategyDocError as exc:
             return _err("empty_content_refused", str(exc))
         except _docs.StrategyHeaderError as exc:

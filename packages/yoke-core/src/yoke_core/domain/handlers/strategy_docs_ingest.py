@@ -35,6 +35,8 @@ corpus edits. Events share the ``StrategyDocReplaced`` name with
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.strategy_doc_fields import StrategyDocFieldError
+
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -67,10 +69,12 @@ from yoke_contracts.api.function_call import (
 class IngestFileEntry(BaseModel):
     slug: str = Field(..., min_length=1, description="Strategy doc slug.")
     path: str = Field(
-        "", description="Client-side file path (error-message context only).",
+        "",
+        description="Client-side file path (error-message context only).",
     )
     text: str = Field(
-        ..., description="The rendered file's full text (header line + body).",
+        ...,
+        description="The rendered file's full text (header line + body).",
     )
 
 
@@ -133,7 +137,8 @@ def handle_ingest(request: FunctionCallRequest) -> HandlerOutcome:
             if perr is not None:
                 return perr
             plans = _ingest.plan_ingest(
-                conn, project_id=project.id,
+                conn,
+                project_id=project.id,
                 files=[entry.model_dump() for entry in payload.files],
             )
             if payload.dry_run:
@@ -153,7 +158,9 @@ def handle_ingest(request: FunctionCallRequest) -> HandlerOutcome:
                     return _err("strategy_document_claim_denied", str(exc))
                 if unclaimed_change:
                     holder = foreign_strategy_claim_holder(
-                        conn, session_id, project.slug,
+                        conn,
+                        session_id,
+                        project.slug,
                     )
                     if holder is not None:
                         return _err(
@@ -183,6 +190,8 @@ def handle_ingest(request: FunctionCallRequest) -> HandlerOutcome:
         return _err("unknown_slug", str(exc))
     except _docs.StrategyDocMissingError as exc:
         return _err("doc_not_seeded", str(exc))
+    except StrategyDocFieldError as exc:
+        return _err("invalid_strategy_fields", str(exc))
     except _docs.EmptyStrategyDocError as exc:
         return _err("empty_content_refused", str(exc))
     except StrategyHeaderError as exc:
@@ -200,12 +209,16 @@ def handle_ingest(request: FunctionCallRequest) -> HandlerOutcome:
         # write-back re-render lands an edited archived doc back under
         # .yoke/strategy/archive/ instead of the active location.
         doc["file_text"] = render_file_text(
-            doc["slug"], doc["updated_at"], bodies[doc["slug"]],
+            doc["slug"],
+            doc["updated_at"],
+            bodies[doc["slug"]],
             updated_by=ingest_label,
         )
         doc["archived"] = archived_by_slug.get(doc["slug"], False)
         emit_doc_replaced(
-            session_id=session_id, project=project, result=doc,
+            session_id=session_id,
+            project=project,
+            result=doc,
             source="ingest",
         )
 
@@ -241,6 +254,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "request_model": IngestRequest,
         "response_model": IngestResponse,
         "stability": "stable",
+        "minimum_serving_version": "next-release",
         "owner_module": "yoke_core.domain.handlers.strategy_docs_ingest",
         "target_kinds": ["global"],
         "side_effects": ["db_write", "event_emit"],

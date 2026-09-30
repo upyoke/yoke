@@ -1,28 +1,4 @@
-"""Strategy-doc authority: per-project DB-owned docs + rendered repo views.
-
-The Yoke DB ``strategy_docs`` table is the single authority for every
-project's strategy documents, keyed ``(project_id, slug)`` — a project's
-corpus is exactly its rows, with no global slug canon (cold starts mint
-the :data:`yoke_core.domain.strategy_docs_defaults.DEFAULT_STRATEGY_DOC_SLUGS`
-placeholders). Each project's ``.yoke/strategy/`` directory holds
-**gitignored local rendered views** — the ``.yoke/BOARD.md`` precedent,
-NOT the tracked ``docs/atlas.md`` one: the files are regenerated caches
-(the DB is the revision store), :func:`render_docs` is the only writer of
-those files, and reads always come from the DB. The seeded
-``.yoke/.gitignore`` ``strategy/`` rule keeps the whole subtree out of
-git. The directory location resolves through
-:mod:`yoke_core.domain.strategy_docs_paths` (the future per-project
-override seam), which also routes archived docs one level down into
-``.yoke/strategy/archive/``.
-
-Each rendered file begins with the idempotent strategy-doc header (slug,
-row ``updated_at``, content sha256, and DB-is-authoritative notice).
-Operator edits to rendered files write back through the compare-and-swap
-``strategy.ingest.run`` path.
-
-The renderer takes an explicit ``target_root`` kwarg and never resolves
-an ambient cwd.
-"""
+"""DB-authoritative strategy documents and CAS writes; files are rendered views."""
 
 from __future__ import annotations
 
@@ -34,6 +10,7 @@ from yoke_contracts.project_contract.strategy_docs_io import (
     StrategyDocSlugError,
     require_strategy_doc_slug,
 )
+from yoke_contracts.project_contract.strategy_doc_fields import normalize_fields
 from yoke_core.domain import strategy_docs_header as _header
 from yoke_core.domain.strategy_doc_presentation import summary_from_row
 from yoke_core.domain.strategy_docs_defaults import DEFAULT_STRATEGY_DOC_SLUGS
@@ -194,7 +171,8 @@ def replace_doc(
     actor_id: Optional[int],
     *,
     base_updated_at: str,
-    force: bool = False, session_id: Optional[str] = None,
+    force: bool = False,
+    session_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """CAS-replace one of the project's docs; return the byte report.
 
@@ -226,24 +204,12 @@ def replace_doc(
             f"refusing to replace strategy doc {slug!r} with empty content; "
             "strategy docs are never blanked through this surface."
         )
+    content = normalize_fields(content)
     old = get_doc(conn, project_id, slug)
     old_bytes = _byte_len(old["content"])
     new_bytes = _byte_len(content)
     if content == old["content"] and str(base_updated_at) == old["updated_at"]:
-        # No-op write: identical content from a caller whose base is still
-        # the live row. Skip the UPDATE so updated_at / updated_by_actor_id
-        # are NOT advanced — a write that changes nothing must not move the
-        # row, or the gitignored .yoke/strategy/ view churns (a fresh CAS
-        # timestamp lands in the render header) with no real edit.
-        #
-        # The base-freshness half of the guard is load-bearing: a STALE base
-        # whose content only coincidentally equals the current row is still a
-        # lost-update hazard (the caller authored against an older version
-        # they never re-read) and MUST conflict, not silently no-op. Dropping
-        # that check lets the stale write return success here and skip the CAS
-        # entirely. When
-        # the base is stale we fall through to the UPDATE below, whose
-        # ``WHERE updated_at = base`` clause matches zero rows and raises.
+        # Only a fresh identical write is a no-op; stale bases still hit CAS.
         return {
             "slug": slug,
             "old_bytes": old_bytes,
@@ -267,8 +233,13 @@ def replace_doc(
     if cur.rowcount == 0:
         raise StrategyDocConflictError(replace_conflict_teaching(slug))
     record_doc_revision(
-        conn, project_id, slug, content,
-        source_operation="replace", actor_id=actor_id, created_at=updated_at,
+        conn,
+        project_id,
+        slug,
+        content,
+        source_operation="replace",
+        actor_id=actor_id,
+        created_at=updated_at,
         session_id=session_id,
     )
     conn.commit()

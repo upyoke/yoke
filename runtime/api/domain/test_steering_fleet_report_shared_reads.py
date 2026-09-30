@@ -74,8 +74,24 @@ def two_seats(test_db):
     )
     test_db.commit()
     seed_default_docs(test_db, PROJECT_ID, "Yoke")
-    create_doc(test_db, PROJECT_ID, FIRST_DOCUMENT, "# one\n", actor_id=ACTOR_ID)
-    create_doc(test_db, PROJECT_ID, SECOND_DOCUMENT, "# two\n", actor_id=ACTOR_ID)
+    create_doc(
+        test_db,
+        PROJECT_ID,
+        FIRST_DOCUMENT,
+        "# one\n",
+        actor_id=ACTOR_ID,
+        summary="Strategy document.",
+        state="draft",
+    )
+    create_doc(
+        test_db,
+        PROJECT_ID,
+        SECOND_DOCUMENT,
+        "# two\n",
+        actor_id=ACTOR_ID,
+        summary="Strategy document.",
+        state="draft",
+    )
     _link(test_db, 1, FIRST_DOCUMENT)
     _link(test_db, 2, SECOND_DOCUMENT)
     test_db.commit()
@@ -117,9 +133,7 @@ def _wire_github(monkeypatch, *, queue_error: str = "") -> Counter:
             return None, queue_error
         return [QueueMember("1", "YOK-1", state="AWAITING_CHECKS")], None
 
-    monkeypatch.setattr(
-        reads_mod, "read_pr_landing_and_required_checks", projection
-    )
+    monkeypatch.setattr(reads_mod, "read_pr_landing_and_required_checks", projection)
     monkeypatch.setattr(reads_mod, "read_queue_members", queue_members)
     return calls
 

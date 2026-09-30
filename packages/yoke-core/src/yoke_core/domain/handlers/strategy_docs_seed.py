@@ -78,7 +78,8 @@ def handle_seed_defaults(request: FunctionCallRequest) -> HandlerOutcome:
         )
     return HandlerOutcome(
         result_payload=SeedDefaultsResponse(
-            project_id=project.id, project_slug=project.slug,
+            project_id=project.id,
+            project_slug=project.slug,
             seeded=report["seeded"],
             already_present=report["already_present"],
             existing_rows=report["existing_rows"],
@@ -95,6 +96,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "request_model": SeedDefaultsRequest,
         "response_model": SeedDefaultsResponse,
         "stability": "stable",
+        "minimum_serving_version": "next-release",
         "owner_module": "yoke_core.domain.handlers.strategy_docs_seed",
         "target_kinds": ["global"],
         "side_effects": ["db_write", "event_emit"],
