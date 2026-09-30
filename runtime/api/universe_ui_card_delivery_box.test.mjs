@@ -17,7 +17,8 @@ import {
 import { workbenchClient } from "./universe_ui_workbench_test_support.mjs";
 
 const HOUR = 60 * 60 * 1000;
-const ago = (hours) => new Date(Date.now() - hours * HOUR).toISOString();
+const REFERENCE_TIME = Date.now();
+const ago = (hours) => new Date(REFERENCE_TIME - hours * HOUR).toISOString();
 
 const FLOW = "yoke-hosted-production";
 

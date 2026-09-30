@@ -7,8 +7,15 @@ yoke status
 ```
 
 Prerequisites: a shell, `curl`, and `uv` (the installer can install `uv` with
-consent). You are not asked to bring your own Python. Native Windows is
+consent). Yoke supports Python 3.10–3.13. When no supported interpreter is
+available, uv downloads a managed one automatically for the installer and
+`yoke update`, without changing your system Python. Native Windows is
 unsupported; WSL follows the Linux path.
+
+If Python's automatic download fails or downloads are disabled, the installer
+reports `supported_python_unavailable`. Check network access and uv's Python
+download settings, or run `uv python install ">=3.10,<3.14"`, then rerun the
+installer or `yoke update`.
 
 Yoke creates `~/.yoke` and missing private state and secret directories with
 mode `0700`, including when the shell uses umask `002`. Existing directories

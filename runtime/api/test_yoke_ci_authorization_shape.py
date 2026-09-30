@@ -139,7 +139,7 @@ def test_every_required_context_reports_on_the_reuse_skip_path() -> None:
     # Pinned as a set rather than a count: the shard half is whatever the
     # fan-out produces, so widening the shards moves this expectation with it
     # while dropping a context still fails.
-    versions = workflow["jobs"]["test_shard"]["strategy"]["matrix"]["python-version"]
+    versions = ci_shards.python_versions()
     assert set(contexts) == {
         "repo-contracts",
         "container",

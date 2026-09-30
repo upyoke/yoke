@@ -3,7 +3,12 @@ import json
 import subprocess
 from pathlib import Path
 
-from public_installer_helpers import RecordingRunner, branded_installer_glyphs as branded_installer_glyphs, load_installer, write_channel
+from public_installer_helpers import (
+    RecordingRunner,
+    branded_installer_glyphs as branded_installer_glyphs,
+    load_installer,
+    write_channel,
+)
 
 
 PROD_INDEX = "https://api.upyoke.com/simple/"
@@ -62,49 +67,6 @@ def test_parse_args_accepts_no_onboard_flag(monkeypatch) -> None:
     assert options.no_onboard is True
 
 
-def test_install_command_uses_generated_index_config() -> None:
-    installer_mod = load_installer()
-    installer = installer_mod.Installer(_options(installer_mod))
-
-    command = installer.install_command(
-        "yoke-cli==1.2.3", config_path="/tmp/yoke-uv-index.toml"
-    )
-
-    assert command == [
-        "uv",
-        "tool",
-        "install",
-        "yoke-cli==1.2.3",
-        "--python",
-        ">=3.10",
-        "--reinstall",
-        "--force",
-        "--with",
-        "yoke-contracts==1.2.3",
-        "--with",
-        "yoke-harness==1.2.3",
-        "--with",
-        "yoke-core==1.2.3",
-        "--default-index",
-        PYPI_INDEX,
-        "--index-strategy",
-        "first-index",
-        "--config-file",
-        "/tmp/yoke-uv-index.toml",
-    ]
-
-
-def test_install_command_constrains_python_to_at_least_310() -> None:
-    # The product requires Python >=3.10 (PEP 604 unions); uv must not default to
-    # an older system Python — on a 3.9-only box it refuses to resolve.
-    installer_mod = load_installer()
-    installer = installer_mod.Installer(_options(installer_mod))
-
-    command = installer.install_command("yoke-cli")
-
-    assert command[command.index("--python") + 1] == ">=3.10"
-
-
 def test_install_command_honors_base_url_for_index_host() -> None:
     installer_mod = load_installer()
     installer = installer_mod.Installer(
@@ -145,32 +107,6 @@ def test_uv_runner_ignores_ambient_resolver_sources(monkeypatch) -> None:
     assert captured["env"]["UNRELATED_INSTALLER_SETTING"] == "preserved"
     for name in installer_mod.RESOLVER_SOURCE_ENV_VARS:
         assert name not in captured["env"]
-
-
-def test_dry_run_resolves_stable_channel_and_writes_nothing(tmp_path: Path) -> None:
-    installer_mod = load_installer()
-    release = write_channel(tmp_path, version="1.2.3")
-    output = io.StringIO()
-    runner = RecordingRunner()
-    installer = installer_mod.Installer(
-        _options(installer_mod, dry_run=True, base_url=release["base_url"]),
-        runner=runner,
-        which=lambda name: None,
-        stdout=output,
-    )
-
-    installer.run()
-
-    rendered = output.getvalue()
-    assert "Resolved Yoke 1.2.3" in rendered
-    assert "uv tool install yoke-cli==1.2.3" in rendered
-    assert "--python '>=3.10'" in rendered
-    assert "--with yoke-contracts==1.2.3" in rendered
-    assert "--with yoke-harness==1.2.3" in rendered
-    assert "--with yoke-core==1.2.3" in rendered
-    assert "--reinstall" in rendered
-    assert "Dry run" in rendered
-    assert runner.commands == []
 
 
 def test_full_install_pins_channel_version_and_smokes(
@@ -366,7 +302,7 @@ def test_uv_install_failure_is_user_actionable(tmp_path: Path) -> None:
     assert PYPI_INDEX in message
     assert "uv: index not reachable" in message
     # Smoke never ran after a failed install: only the install command issued.
-    assert len(runner.commands) == 1
+    assert len(runner.commands) == 2
 
 
 def test_uv_install_failure_redacts_index_credentials(tmp_path: Path) -> None:

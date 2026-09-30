@@ -46,7 +46,12 @@ def _paint(text: str, key: str, *, enabled: bool) -> str:
 _DEV_VERSION_RE = re.compile(r"^(?P<base>\d+\.\d+(?:\.\d+)?)\.dev\d+\+(?P<local>.+)$")
 PRODUCT_PACKAGE = "yoke-cli"
 LOCKSTEP_PRODUCT_PACKAGES = ("yoke-contracts", "yoke-harness", "yoke-core")
-PYTHON_CONSTRAINT = ">=3.10"
+# Inclusive endpoints: CI reads this declaration without importing the helper.
+SUPPORTED_PYTHON = ((3, 10), (3, 13))
+PYTHON_CONSTRAINT = (
+    f">={SUPPORTED_PYTHON[0][0]}.{SUPPORTED_PYTHON[0][1]},"
+    f"<{SUPPORTED_PYTHON[1][0]}.{SUPPORTED_PYTHON[1][1] + 1}"
+)
 PYPI_INDEX_URL = "https://pypi.org/simple/"
 INDEX_STRATEGY = "first-index"
 # The public installer owns resolver sources completely. Ambient uv index
@@ -344,6 +349,17 @@ class Installer:
     def _run_uv_install(self, command: Sequence[str]) -> bool:
         result = self.capture_runner(list(command))
         if result.returncode != 0:
+            probe = self.capture_runner(
+                ["uv", "python", "find", "--no-python-downloads", PYTHON_CONSTRAINT]
+            )
+            if probe.returncode != 0:
+                raise InstallError(
+                    f"supported_python_unavailable: Yoke supports Python {PYTHON_CONSTRAINT}. "
+                    "Automatic managed-Python download failed or is disabled. "
+                    "Check network access and uv's Python download settings, or run "
+                    f"uv python install {shlex.quote(PYTHON_CONSTRAINT)}, then rerun "
+                    "the installer or yoke update. " + _failure_reason(result)
+                )
             print(self._say("Install failed"), file=self.stdout)
             print(
                 _paint("✗ Couldn't install Yoke.", "danger", enabled=self.color),
