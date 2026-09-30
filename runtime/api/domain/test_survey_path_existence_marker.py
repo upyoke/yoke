@@ -51,6 +51,16 @@ def test_the_label_distinguishes_new_from_an_unanswered_marker() -> None:
     assert path_existence_label({"exists": None}) == "unknown"
 
 
+def test_an_echo_without_the_marker_keeps_the_clients_own_measurement() -> None:
+    echo = {"path": "pkg/planned.py"}
+
+    assert path_existence_label(echo, {"pkg/planned.py": False}) == "new"
+    assert path_existence_label(echo, {"pkg/present.py": True}) == "unknown"
+    assert path_existence_label({"path": "p", "exists": True}, {"p": False}) == (
+        "existing"
+    )
+
+
 def test_a_request_composed_without_the_marker_is_still_accepted() -> None:
     row = SurveyPathSize.model_validate({
         "path": "pkg/file.py",
