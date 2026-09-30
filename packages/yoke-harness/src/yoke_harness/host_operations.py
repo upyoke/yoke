@@ -1,10 +1,10 @@
-"""One operation contract, one implementation per kind of host.
+"""One operation contract, one implementation per operating system.
 
 Every operator-run test-machine operation -- verify, reset, capture a golden
 baseline, diagnose the terminal bridge -- is expressed once here as a contract,
-and each kind of host implements it. The kind is declared on the machine's own
-settings rather than inferred, so adding a kind is a new implementation plus a
-new enum value: no command, function id, handler, or receipt shape changes.
+and each operating system implements it. The kind is declared on the machine's own
+settings rather than inferred, so adding an OS is a new implementation plus a
+new supported OS value: no command, function id, handler, or receipt shape changes.
 """
 
 from __future__ import annotations
@@ -12,9 +12,8 @@ from __future__ import annotations
 from typing import Callable, Protocol, Sequence
 
 from yoke_contracts.machine_config.test_machine import (
-    MAC_SSH_HOST_KIND,
     TestMachineCapabilityError,
-    validate_test_machine_host_kind,
+    validate_test_machine_os,
 )
 from yoke_contracts.machine_qa_execution import HostControlExecutionContract
 from yoke_harness.test_machine_types import HostActionResult
@@ -52,27 +51,34 @@ def _mac_ssh_operations(
     return SshMacHostOperations.from_contract(contract)
 
 
-HOST_OPERATIONS_BY_KIND: dict[str, HostOperationsFactory] = {
-    MAC_SSH_HOST_KIND: _mac_ssh_operations,
+def _linux_ssh_operations(contract: HostControlExecutionContract) -> HostOperations:
+    from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
+
+    return SshLinuxHostOperations.from_contract(contract)
+
+
+HOST_OPERATIONS_BY_OS: dict[str, HostOperationsFactory] = {
+    "macos": _mac_ssh_operations,
+    "linux": _linux_ssh_operations,
 }
 
 
 def host_operations_for(
     contract: HostControlExecutionContract,
 ) -> HostOperations:
-    """Return the implementation the contract's declared host kind names."""
-    kind = validate_test_machine_host_kind(contract.settings.get("host_kind"))
-    factory = HOST_OPERATIONS_BY_KIND.get(kind)
+    """Return the implementation the contract's declared operating system names."""
+    kind = validate_test_machine_os(contract.settings.get("os"))
+    factory = HOST_OPERATIONS_BY_OS.get(kind)
     if factory is None:
         raise TestMachineCapabilityError(
-            f"host kind {kind!r} has no operations implementation on this "
+            f"operating system {kind!r} has no operations implementation on this "
             "machine; upgrade Yoke or register a machine of a supported kind"
         )
     return factory(contract)
 
 
 __all__ = [
-    "HOST_OPERATIONS_BY_KIND",
+    "HOST_OPERATIONS_BY_OS",
     "HostOperations",
     "HostOperationsFactory",
     "host_operations_for",

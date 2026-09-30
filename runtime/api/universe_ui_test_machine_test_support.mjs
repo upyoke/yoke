@@ -9,13 +9,13 @@ export const detail = {
   kind: "test-machine",
   machine: "mac-mini-lab",
   capability_type: "test-machine:mac-mini-lab",
-  display_name: "Test Mac",
+  display_name: "Test Machine",
   runner_id: "host_control",
   settings: {
     resource_name: "mac-mini-lab",
     host: "test-mac.local",
     user: "yoke-test",
-    host_kind: "mac-ssh",
+    os: "macos",
     operating_notes:
       "Do not interrupt an active lease; keep Terminal region unobscured.",
   },
@@ -27,7 +27,7 @@ export const detail = {
     "shell-preconfigured":
       "the host carries its captured user state plus the current Yoke launcher on both shell surfaces; it is NOT a fresh host",
   },
-  host_kinds: ["mac-ssh"],
+  supported_oses: ["macos"],
   concurrency: { limit: 1, mode: "serial" },
   verification: {
     status: "verified",

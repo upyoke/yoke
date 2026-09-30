@@ -131,7 +131,7 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
     ],
   );
   // The list keeps the stored identifier in its payload while rendering the
-  // prototype's compact display slug for the composite Test Mac resource.
+  // prototype's compact display slug for the composite Test Machine resource.
   const monoCells = allNodes(root)
     .filter((node) => node.tagName === "TD" &&
       node.classList && node.classList.contains("mono"))

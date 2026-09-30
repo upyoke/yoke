@@ -7,6 +7,8 @@ noise. The machine-readable projection of the same report lives in
 
 from __future__ import annotations
 
+from yoke_core.domain.steering_fleet_report_test_machines import test_machine_lines
+
 from yoke_core.domain.machine_registry import display_name
 from yoke_core.domain.steering_fleet_report import ClaimHolder, FleetReport
 from yoke_core.domain.steering_fleet_report_balance import (
@@ -293,6 +295,7 @@ def scope_inner_body(report: FleetReport) -> str:
             _project_header(report),
             "",
             *_scope_work_lines(report),
+            *test_machine_lines(report.test_machines),
             *launch_balance_lines(report, note=False),
         ]
     )
@@ -306,6 +309,7 @@ def report_body(report: FleetReport) -> str:
         REPORT_PREAMBLE,
         "",
         *_scope_work_lines(report),
+        *test_machine_lines(report.test_machines),
         launchable_line(report.launchable, machine_names=dict(report.machine_names)),
         *relay_health_lines(report.relay_health),
         *launch_balance_lines(report, note=True),

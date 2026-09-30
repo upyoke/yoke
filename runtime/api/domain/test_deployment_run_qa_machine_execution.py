@@ -1,4 +1,4 @@
-"""Deployment-run QA execution through the serial Test Mac."""
+"""Deployment-run QA execution through the serial Test Machine."""
 
 from runtime.api.domain.deployment_run_qa_plan_execution_test_support import (
     RUN_ID,

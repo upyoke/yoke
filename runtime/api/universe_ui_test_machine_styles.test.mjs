@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-test("Test Mac callout borders remain theme-relative", () => {
+test("Test Machine callout borders remain theme-relative", () => {
   const css = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/test_machine.css",
     import.meta.url,
@@ -21,7 +21,7 @@ test("Test Mac callout borders remain theme-relative", () => {
   );
 });
 
-test("Test Mac layout keeps the shared prototype geometry", () => {
+test("Test Machine layout keeps the shared prototype geometry", () => {
   const css = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/test_machine.css",
     import.meta.url,
@@ -81,7 +81,7 @@ test("Test Mac layout keeps the shared prototype geometry", () => {
   );
 });
 
-test("Test Mac settings footer stacks and stretches at phone width", () => {
+test("Test Machine settings footer stacks and stretches at phone width", () => {
   const css = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/test_machine.css",
     import.meta.url,

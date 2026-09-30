@@ -1,4 +1,4 @@
-"""Process-table helpers for the dedicated Test Mac reset program."""
+"""Process-table helpers for the dedicated Test Machine reset program."""
 
 REAP_FUNCTIONS = r"""
 reap_candidate_pids() {

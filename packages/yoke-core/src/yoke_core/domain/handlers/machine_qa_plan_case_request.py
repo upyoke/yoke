@@ -1,4 +1,4 @@
-"""Request parsing and subject selection for Test Mac plan cases."""
+"""Request parsing and subject selection for Test Machine plan cases."""
 
 from __future__ import annotations
 

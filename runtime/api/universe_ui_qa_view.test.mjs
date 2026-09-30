@@ -67,7 +67,7 @@ test("Plans labels a project target as intentionally environmentless", async () 
   assert.equal(byClass(main, "qa-baseline-count")[0].textContent, "1 req × baseline");
 });
 
-test("Pack sources and Test Mac capability relations keep their prototype routes", () => {
+test("Pack sources and Test Machine capability relations keep their prototype routes", () => {
   const documentNode = new FakeDocument();
   const primitiveContext = {
     document: documentNode,

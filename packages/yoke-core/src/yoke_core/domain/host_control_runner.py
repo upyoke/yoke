@@ -212,7 +212,7 @@ def materialize_test_machine_contract(
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise TestMachineCapabilityError(
-                "host-control contract contains invalid project settings"
+                f"host-control contract contains invalid project settings: {exc}"
             ) from exc
     secrets: dict[str, str] = {}
     secret_paths: dict[str, str] = {}

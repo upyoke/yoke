@@ -32,7 +32,7 @@ const machineCapabilities = {
   required_capability_kinds: ["test-machine"],
   required_capabilities: [{
     kind: "test-machine",
-    label: "Test Mac",
+    label: "Test Machine",
     state: "in_use",
     context: machineContext,
   }],
@@ -49,7 +49,7 @@ const missionCapabilities = {
     },
     {
       kind: "test-machine",
-      label: "Test Mac",
+      label: "Test Machine",
       state: "in_use",
       context: machineContext,
     },

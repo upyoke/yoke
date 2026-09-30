@@ -1,4 +1,4 @@
-"""Compatibility imports for the client-side Test Mac reset contract."""
+"""Compatibility imports for the client-side Test Machine reset contract."""
 
 from yoke_harness.ssh_mac_full_reset_contract import (
     FULL_DISK_ACCESS_PROBE_PATH,

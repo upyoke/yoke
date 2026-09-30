@@ -35,7 +35,7 @@ def _path_state(control: HostControl) -> path_doctor.PathStateContract:
 
 
 def reach_fresh_host(control: HostControl) -> HostBaselineResult:
-    """Reach the registered user-equivalent baseline for the dedicated Test Mac.
+    """Reach the registered user-equivalent baseline for the dedicated Test Machine.
 
     The operation restores the host's declared golden baseline and gates its own
     success on proving the result: a real user arrives with harness apps
@@ -154,6 +154,9 @@ HOST_BASELINE_OPERATIONS: dict[str, Callable[[HostControl], HostBaselineResult]]
 
 def run_host_baseline(control: HostControl, name: str) -> HostBaselineResult:
     """Run one registered operation; unknown prose-shaped names are refused."""
+    if getattr(control, "os", None) == "linux":
+        result = control.reach_baseline(name)
+        return HostBaselineResult(name, result.ok, result.evidence, result.error_code)
     operation = HOST_BASELINE_OPERATIONS.get(str(name))
     if operation is None:
         raise ValueError(f"unknown host baseline {name!r}")

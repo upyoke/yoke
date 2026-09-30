@@ -45,7 +45,7 @@ test("item verification renders current proof with truthful outcome labels", asy
       method_id: "terminal-check",
       method_name: "Terminal check",
       outcome: "running",
-      lease_summary: "Test Mac leased",
+      lease_summary: "Test Machine leased",
       evidence_summary: "transcript + screenshots",
     },
     {
@@ -95,7 +95,7 @@ test("item verification renders current proof with truthful outcome labels", asy
   );
   assert.match(
     rendered,
-    /Terminal check — Test Mac leased · transcript \+ screenshots/,
+    /Terminal check — Test Machine leased · transcript \+ screenshots/,
   );
   assert.match(
     rendered,

@@ -74,7 +74,7 @@ CAPABILITY_TYPE_DEFINITIONS: dict[str, dict[str, Any]] = {
         "display_order": 60,
     },
     TEST_MACHINE_CAPABILITY: {
-        "display_label": "Test Mac",
+        "display_label": "Test Machine",
         "display_type": "test-mac",
         "display_order": 0,
         "detail_view": TEST_MACHINE_CAPABILITY,
@@ -96,7 +96,7 @@ def capability_type_definition(capability_type: str) -> dict[str, Any]:
     result = dict(_DEFAULT_DEFINITION)
     result.update(definition or {})
     if machine is not None:
-        result["display_label"] = f"Test Mac · {machine}"
+        result["display_label"] = f"Test Machine · {machine}"
         result["display_type"] = capability_type
     result["display_label"] = result["display_label"] or capability_type.replace(
         "-", " "

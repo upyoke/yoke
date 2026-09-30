@@ -111,6 +111,7 @@ class MachineQaFixtureRuntime:
         home: str,
         path_state: PathStateContract | None = None,
         prepare_terminal_size: Callable[[int, int], None] | None = None,
+        execution_shell: str = "/bin/zsh",
     ) -> None:
         selected_home = PurePosixPath(home)
         if (
@@ -121,6 +122,7 @@ class MachineQaFixtureRuntime:
             raise MachineQaFixtureOperationError(
                 "fixture runner requires a bounded absolute host home"
             )
+        self.execution_shell = execution_shell
         self._run_remote = run_remote
         self._upload_remote = upload_text
         self._prepare_terminal_size = prepare_terminal_size
@@ -324,7 +326,7 @@ class MachineQaFixtureRuntime:
             'exec "$interpreter" "$@"'
         )
         return shell_command(
-            "/bin/zsh",
+            self.execution_shell,
             "-fc",
             script,
             "yoke-machine-qa",

@@ -29,7 +29,7 @@ function renderDetail(context, main, detail, reload, showFleet = null) {
   );
   const copy = el(documentNode, "div", "h test-machine-head-copy");
   copy.appendChild(el(
-    documentNode, "h1", "title", detail.display_name || "Test Mac",
+    documentNode, "h1", "title", detail.display_name || "Test Machine",
   ));
   copy.appendChild(el(
     documentNode,
@@ -142,7 +142,7 @@ function renderDetail(context, main, detail, reload, showFleet = null) {
     ["Resource name", detail.settings.resource_name],
     ["Host", el(documentNode, "span", "mono", detail.settings.host)],
     ["User", el(documentNode, "span", "mono", detail.settings.user)],
-    ["Host kind", el(documentNode, "span", "mono", detail.settings.host_kind)],
+    ["Operating system", el(documentNode, "span", "mono", detail.settings.os || "Unavailable: requires the next-release OS contract")],
     ["Features", detail.features.join(" · ")],
     ["Host baselines", baselineSummary],
     ["Operating notes", detail.settings.operating_notes],
@@ -236,7 +236,7 @@ function renderMachineChooser(
   navigation,
 ) {
   const documentNode = context.document;
-  const fleet = panel(documentNode, `Test Macs · ${machines.length}`);
+  const fleet = panel(documentNode, `Test Machines · ${machines.length}`);
   fleet.body.classList.add("stack");
   fleet.body.appendChild(el(
     documentNode,
@@ -266,6 +266,7 @@ function renderMachineChooser(
       "dl-sub",
       [
         detail.settings.host,
+        detail.settings.os || "OS requires next-release serving build",
         detail.verification.status,
         lastOperationSummary(detail),
       ].filter(Boolean).join(" · "),
@@ -320,7 +321,7 @@ export async function renderTestMachineDetail(
   }
   if (machines.length > 1) {
     if (typeof navigation.setDetailLabel === "function") {
-      navigation.setDetailLabel("Test Macs");
+      navigation.setDetailLabel("Test Machines");
     }
     renderMachineChooser(context, main, project, machines, navigation);
     return;

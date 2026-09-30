@@ -1,4 +1,4 @@
-"""Compatibility imports for the client-side Test Mac reset program."""
+"""Compatibility imports for the client-side Test Machine reset program."""
 
 from yoke_harness.ssh_mac_full_reset_script import (
     FULL_RESET_SCRIPT,

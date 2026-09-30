@@ -1,4 +1,4 @@
-"""A machine's detail names the Test Mac capability that reaches it."""
+"""A machine's detail names the Test Machine capability that reaches it."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def _register(conn, machine: str, host: str) -> None:
             "resource_name": machine,
             "host": host,
             "user": "tester",
-            "host_kind": "mac-ssh",
+            "os": "macos",
             "operating_notes": "",
         },
         base_settings=None,

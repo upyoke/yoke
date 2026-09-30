@@ -1,4 +1,4 @@
-"""Ad hoc remote commands on a registered Test Mac, over the agent's own SSH.
+"""Ad hoc remote commands on a registered Test Machine, over the agent's own SSH.
 
 The test-machine capability records the host and login user; this is the
 route an agent uses to run a command there outside a QA case. It never reads
@@ -41,7 +41,7 @@ class RemoteExecRefusal(RuntimeError):
 
 
 def known_hosts_path(yoke_home: Path) -> Path:
-    """Where this machine pins every Test Mac host key it has accepted."""
+    """Where this machine pins every Test Machine host key it has accepted."""
     return yoke_home / KNOWN_HOSTS_DIR_NAME / KNOWN_HOSTS_FILE_NAME
 
 

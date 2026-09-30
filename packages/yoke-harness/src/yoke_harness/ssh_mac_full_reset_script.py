@@ -1,4 +1,4 @@
-"""Guaranteed-macOS-primitive program for the dedicated Test Mac reset."""
+"""Guaranteed-macOS-primitive program for the dedicated Test Machine reset."""
 
 from __future__ import annotations
 

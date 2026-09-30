@@ -1,4 +1,4 @@
-"""Independent storage and admission across a project's Test Mac fleet."""
+"""Independent storage and admission across a project's Test Machine fleet."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ def _settings(machine: str, *, notes: str = "") -> dict[str, str]:
         "resource_name": machine,
         "host": f"{machine}.local",
         "user": "yoke-test",
-        "host_kind": "mac-ssh",
+        "os": "macos",
         "operating_notes": notes,
     }
 

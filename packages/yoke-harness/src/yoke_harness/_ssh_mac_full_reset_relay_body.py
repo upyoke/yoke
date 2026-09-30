@@ -1,4 +1,4 @@
-"""Relay-service teardown for the dedicated Test Mac reset program.
+"""Relay-service teardown for the dedicated Test Machine reset program.
 
 The golden restore replaces one home. launchd's registry is not inside it: a
 loaded relay job survives the clear in launchd itself, and because the job

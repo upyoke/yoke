@@ -2,7 +2,7 @@
 
 Rows retain their stored capability type while deriving the user-facing kind,
 availability, safe settings summary, usage, and trusted verification stamp.
-GitHub freshness overlays only from active installation channels; Test Mac
+GitHub freshness overlays only from active installation channels; Test Machine
 readiness also reflects its receipt and serial lease. Secret storage is never
 selected or joined.
 """
@@ -28,7 +28,7 @@ from yoke_core.domain.project_github_binding_state import INSTALLATION_ACTIVE
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.machine_qa_capability import (
     TEST_MACHINE_BASELINES,
-    TEST_MACHINE_FEATURES,
+    TEST_MACHINE_FEATURES_BY_OS,
 )
 
 
@@ -137,9 +137,15 @@ def _migration_model_summary(settings: Dict[str, Any]) -> str:
 def _test_machine_summary(settings: Dict[str, Any]) -> str:
     resource = _display_safe(settings.get("resource_name"))
     features = " + ".join(
-        feature.replace(".app", "") for feature in TEST_MACHINE_FEATURES[:2]
+        feature.replace(".app", "")
+        for feature in TEST_MACHINE_FEATURES_BY_OS.get(settings.get("os"), ())[:2]
     )
-    parts = [resource, features, f"baselines ×{len(TEST_MACHINE_BASELINES)}"]
+    parts = [
+        resource,
+        _display_safe(settings.get("os")) or "OS requires next-release",
+        features,
+        f"baselines ×{len(TEST_MACHINE_BASELINES)}",
+    ]
     return " · ".join(part for part in parts if part)
 
 

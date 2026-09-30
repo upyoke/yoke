@@ -29,7 +29,7 @@ from yoke_core.domain.work_claim_targets import (
 
 # The capability row names the machine resolved by the roster's host lease.
 MACHINE_SETTINGS = (
-    '{"host":"test-mac.local","host_kind":"mac-ssh",'
+    '{"host":"test-mac.local","os":"macos",'
     '"operating_notes":"","resource_name":"mac-mini-lab",'
     '"user":"yoke-test"}'
 )
@@ -159,7 +159,7 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
         ensure_test_machine_schema(conn)
         create_governed_tables(conn)
         item = insert_item(
-            conn, id=2101, project_sequence=2101, title="Exercise the Test Mac"
+            conn, id=2101, project_sequence=2101, title="Exercise the Test Machine"
         )
         plan = create_plan(
             conn, project="yoke", slug="machine-readiness", name="Machine readiness"
@@ -295,7 +295,7 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
         == [
             {
                 "kind": "test-machine",
-                "label": "Test Mac",
+                "label": "Test Machine",
                 "state": "in_use",
                 "context": expected_context,
             }
@@ -314,7 +314,7 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
         },
         {
             "kind": "test-machine",
-            "label": "Test Mac",
+            "label": "Test Machine",
             "state": "in_use",
             "context": expected_context,
         },
@@ -322,7 +322,7 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
     assert detail["cases"][0]["required_capabilities"] == [
         {
             "kind": "test-machine",
-            "label": "Test Mac",
+            "label": "Test Machine",
             "state": "in_use",
             "context": expected_context,
         }

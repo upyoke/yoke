@@ -69,7 +69,7 @@ class TestScopeAndSummary:
             summarize_settings(
                 _machine_type("mac-mini-lab"),
                 '{"resource_name":"mac-mini-lab","host":"mac",'
-                '"user":"yoke","host_kind":"mac-ssh","operating_notes":""}',
+                '"user":"yoke","os":"macos","operating_notes":""}',
             )
             == "mac-mini-lab · Terminal + PTY · baselines ×2"
         )
@@ -98,7 +98,7 @@ class TestScopeAndSummary:
         _insert_capability(test_db, machine_type)
         row = list_capabilities()[0]
         assert (row["display_label"], row["display_order"], row["detail_view"]) == (
-            "Test Mac · mac-mini-lab",
+            "Test Machine · mac-mini-lab",
             0,
             "test-machine",
         )

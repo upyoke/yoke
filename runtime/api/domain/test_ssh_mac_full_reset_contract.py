@@ -1,4 +1,4 @@
-"""Rendered-program contract coverage for the dedicated Test Mac restore."""
+"""Rendered-program contract coverage for the dedicated Test Machine restore."""
 
 from __future__ import annotations
 

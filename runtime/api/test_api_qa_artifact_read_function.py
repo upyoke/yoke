@@ -67,7 +67,7 @@ def test_missing_machine_local_evidence_is_reported_honestly(tmp_path) -> None:
                 "backend": "local",
                 "path": str(tmp_path / "missing.png"),
             },
-            metadata={"machine": "Test Mac"},
+            metadata={"machine": "Test Machine"},
         )
         with (
             patch(
@@ -83,12 +83,13 @@ def test_missing_machine_local_evidence_is_reported_honestly(tmp_path) -> None:
 
     assert outcome.primary_success
     assert outcome.result_payload["disposition"] == "evidence_on_machine"
-    assert outcome.result_payload["machine"] == "Test Mac"
+    assert outcome.result_payload["machine"] == "Test Machine"
     assert "content_base64" not in outcome.result_payload
 
 
 def test_failed_ci_artifact_round_trips_across_scratch_runs(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     monkeypatch.setenv(project_scratch_dir.ENV_KEY, str(tmp_path / "scratch"))
     monkeypatch.setenv("YOKE_SESSION_ID", "capture-session")
@@ -104,12 +105,14 @@ def test_failed_ci_artifact_round_trips_across_scratch_runs(
         ).fetchone()
         run_id = int(row["qa_run_id"])
         evidence = artifact_file_path(
-            "yoke", 42, run_id, "ci-run-output.txt",
+            "yoke",
+            42,
+            run_id,
+            "ci-run-output.txt",
         )
         evidence.write_bytes(b"failed CI output")
         conn.execute(
-            "UPDATE qa_runs SET performed_by='ci_run', verdict='fail' "
-            "WHERE id=%s",
+            "UPDATE qa_runs SET performed_by='ci_run', verdict='fail' WHERE id=%s",
             (run_id,),
         )
         conn.execute(
@@ -123,13 +126,10 @@ def test_failed_ci_artifact_round_trips_across_scratch_runs(
 
         monkeypatch.setenv("YOKE_RUN_ID", "reader-run")
         with patch(
-            "yoke_core.domain.project_checkout_locations."
-            "checkout_for_project_id",
+            "yoke_core.domain.project_checkout_locations.checkout_for_project_id",
             return_value=tmp_path / "checkout",
         ):
-            outcome = handle_qa_artifact_read(
-                artifact_read_request(10, artifact_id)
-            )
+            outcome = handle_qa_artifact_read(artifact_read_request(10, artifact_id))
 
     assert outcome.primary_success, outcome.error
     assert outcome.result_payload["disposition"] == "ready"
@@ -188,13 +188,16 @@ def test_s3_evidence_returns_authorized_presigned_download() -> None:
             handle={"backend": "s3", "bucket": bucket, "key": key},
         )
         seed_s3_configuration(conn, bucket=bucket)
-        with patch(
-            "yoke_core.domain.handlers.qa_artifact_presign._capability_credentials",
-            return_value=CREDS,
-        ), patch(
-            "yoke_core.domain.handlers.qa_artifact_read.inline_text_base64",
-            return_value=INLINE_OUTPUT,
-        ) as fetch:
+        with (
+            patch(
+                "yoke_core.domain.handlers.qa_artifact_presign._capability_credentials",
+                return_value=CREDS,
+            ),
+            patch(
+                "yoke_core.domain.handlers.qa_artifact_read.inline_text_base64",
+                return_value=INLINE_OUTPUT,
+            ) as fetch,
+        ):
             outcome = handle_qa_artifact_read(artifact_read_request(10, artifact_id))
 
     assert outcome.primary_success
@@ -231,12 +234,15 @@ def test_s3_read_matches_real_http_function_boundary() -> None:
             auth = mint_api_auth_context(conn)
             client = TestClient(app)
             client.headers.update(auth.headers)
-            with patch(
-                "yoke_core.domain.handlers.qa_artifact_presign._capability_credentials",
-                return_value=CREDS,
-            ), patch(
-                "yoke_core.domain.handlers.qa_artifact_read.inline_text_base64",
-                return_value=INLINE_OUTPUT,
+            with (
+                patch(
+                    "yoke_core.domain.handlers.qa_artifact_presign._capability_credentials",
+                    return_value=CREDS,
+                ),
+                patch(
+                    "yoke_core.domain.handlers.qa_artifact_read.inline_text_base64",
+                    return_value=INLINE_OUTPUT,
+                ),
             ):
                 response = client.post(
                     "/v1/functions/call",

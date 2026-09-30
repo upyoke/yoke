@@ -1,4 +1,4 @@
-"""Shared transport double and program harness for Test Mac reset tests."""
+"""Shared transport double and program harness for Test Machine reset tests."""
 
 from __future__ import annotations
 

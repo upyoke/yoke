@@ -1,4 +1,4 @@
-"""Login and SSH PATH-surface coverage for the Test Mac reset program."""
+"""Login and SSH PATH-surface coverage for the Test Machine reset program."""
 
 from __future__ import annotations
 

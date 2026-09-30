@@ -21,7 +21,7 @@ const LEGACY_METHOD_ICONS = {
 
 const LEGACY_CAPABILITY_LABELS = {
   "browser-control": "Browser control",
-  "test-machine": "Test Mac",
+  "test-machine": "Test Machine",
 };
 
 const OUTCOME_EXPLANATIONS = {
@@ -131,15 +131,15 @@ export function capabilityStateNode(
   const itemRef = capabilityContext?.active_lease?.item_ref;
   if (caseContext) {
     attachTooltip(documentNode, pill, itemRef
-      ? `All registered Test Macs are occupied; one is in use by ${itemRef}. ` +
+      ? `All registered Test Machines are occupied; one is in use by ${itemRef}. ` +
         "this case queues; nothing about the plan is blocked."
-      : "All registered Test Macs are held by active executions; " +
+      : "All registered Test Machines are held by active executions; " +
         "this case queues without blocking its plan.");
   } else {
     attachTooltip(documentNode, pill, itemRef
-      ? `All registered Test Macs are occupied; one is in use by ${itemRef}. ` +
+      ? `All registered Test Machines are occupied; one is in use by ${itemRef}. ` +
         "New machine cases queue without blocking their plans."
-      : "All registered Test Macs are held by active executions. " +
+      : "All registered Test Machines are held by active executions. " +
         "New machine cases queue without blocking their plans.");
   }
   return pill;

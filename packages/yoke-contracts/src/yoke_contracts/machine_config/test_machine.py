@@ -13,16 +13,8 @@ from yoke_contracts.machine_config.capability_secrets import (
 
 _RESOURCE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
 _REMOTE_USER = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._-]{0,63}$")
-# The kind of host the machine is, and therefore which implementation of the
-# host-operation contract reaches it. It is declared rather than inferred: a
-# document that does not say what it controls would have to be guessed at by
-# every operation that drives it, and the first wrong guess runs a destructive
-# restore against a machine it does not understand.
-MAC_SSH_HOST_KIND = "mac-ssh"
-TEST_MACHINE_HOST_KINDS = (MAC_SSH_HOST_KIND,)
-_SETTING_KEYS = frozenset(
-    {"resource_name", "host", "user", "host_kind", "operating_notes"}
-)
+TEST_MACHINE_OSES = ("macos", "linux")
+_SETTING_KEYS = frozenset({"resource_name", "host", "user", "os", "operating_notes"})
 # Declaring a golden baseline is what turns the destructive host reset into a
 # restore instead of an enumeration, so its absence means the machine has opted
 # out of that reset rather than that the settings are incomplete.
@@ -76,12 +68,14 @@ def is_test_machine_capability_type(capability_type: Any) -> bool:
     return True
 
 
-def validate_test_machine_host_kind(value: Any) -> str:
-    """Return one registered host kind or name every kind that exists."""
+def validate_test_machine_os(value: Any) -> str:
+    """Return one implemented operating system or name every kind that exists."""
     normalized = str(value or "").strip()
-    if normalized not in TEST_MACHINE_HOST_KINDS:
+    if normalized not in TEST_MACHINE_OSES:
         raise TestMachineCapabilityError(
-            "host_kind must be one of " + ", ".join(TEST_MACHINE_HOST_KINDS)
+            "test_machine_os_unsupported: os must be one of "
+            + ", ".join(TEST_MACHINE_OSES)
+            + "; declare a supported os and retry"
         )
     return normalized
 
@@ -112,6 +106,12 @@ def validate_golden_baseline_path(value: Any) -> str:
 
 def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]:
     """Return the canonical, non-secret settings document."""
+    if "os" not in payload:
+        raise TestMachineCapabilityError(
+            "test_machine_os_serving_floor_required: this client requires the next-release "
+            "test-machine os contract; deploy the OS-capable serving build and converge "
+            "stored settings before retrying"
+        )
     present = set(payload)
     allowed = _SETTING_KEYS | _OPTIONAL_SETTING_KEYS
     if not _SETTING_KEYS <= present or not present <= allowed:
@@ -124,7 +124,7 @@ def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]
             detail.append("unknown " + ", ".join(unknown))
         raise TestMachineCapabilityError(
             "test-machine settings require exactly resource_name, host, user, "
-            "host_kind, and operating_notes, and optionally "
+            "os, and operating_notes, and optionally "
             "golden_baseline_path (" + "; ".join(detail) + ")"
         )
     values = {key: str(payload[key] or "").strip() for key in present}
@@ -137,12 +137,16 @@ def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]
     values["resource_name"] = validate_test_machine_resource_name(
         values["resource_name"]
     )
-    values["host_kind"] = validate_test_machine_host_kind(values["host_kind"])
+    values["os"] = validate_test_machine_os(values["os"])
     host = values["host"]
     if not host or len(host) > 253 or any(ch.isspace() for ch in host):
         raise TestMachineCapabilityError("host must be a non-empty host name")
     if not _REMOTE_USER.fullmatch(values["user"]):
         raise TestMachineCapabilityError("user is not a safe remote user name")
+    if values["os"] == "linux" and values["user"] == "root":
+        raise TestMachineCapabilityError(
+            "linux_test_user_required: declare a non-root SSH test user"
+        )
     if len(values["operating_notes"]) > 500:
         raise TestMachineCapabilityError(
             "operating_notes must be at most 500 characters"
@@ -151,15 +155,14 @@ def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]
 
 
 __all__ = [
-    "MAC_SSH_HOST_KIND",
     "TEST_MACHINE_CAPABILITY_PREFIX",
-    "TEST_MACHINE_HOST_KINDS",
+    "TEST_MACHINE_OSES",
     "TestMachineCapabilityError",
     "is_test_machine_capability_type",
     "test_machine_capability_type",
     "test_machine_resource_name",
     "validate_golden_baseline_path",
-    "validate_test_machine_host_kind",
+    "validate_test_machine_os",
     "validate_test_machine_resource_name",
     "validate_test_machine_settings",
 ]

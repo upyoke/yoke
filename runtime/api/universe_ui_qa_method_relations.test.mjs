@@ -257,7 +257,7 @@ test("test-machine method plan subtitles show counts and bounded case names", as
     required_capability_kinds: ["test-machine"],
     required_capabilities: [{
       kind: "test-machine",
-      label: "Test Mac",
+      label: "Test Machine",
       state: "ready",
       context: { state: "ready" },
     }],

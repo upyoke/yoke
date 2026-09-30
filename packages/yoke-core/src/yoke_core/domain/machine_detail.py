@@ -126,7 +126,7 @@ def _test_machines(
 ) -> list[dict[str, Any]]:
     """Test-machine capabilities whose host is this machine, with their route.
 
-    The capability, not the machine row, records how to reach a Test Mac: its
+    The capability, not the machine row, records how to reach a Test Machine: its
     host and login user. A capability matches when its host's first DNS label
     is this machine's name or relay hostname, so an agent reading the machine
     finds the command that drives it.
@@ -144,6 +144,7 @@ def _test_machines(
             "capability_type": row.capability_type,
             "host": row.settings["host"],
             "user": row.settings["user"],
+            "os": row.settings["os"],
             "exec_command": (
                 f"yoke test-machine exec --project {row.project} "
                 f"--machine {row.machine} -- <command>"

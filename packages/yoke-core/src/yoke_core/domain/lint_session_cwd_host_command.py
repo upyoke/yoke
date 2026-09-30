@@ -116,15 +116,21 @@ def remote_argv_indexes(command_base: str, tokens: Sequence[str]) -> set[int]:
     return set(range(separator + 1, len(tokens)))
 
 
-_AWS_VALUE_FLAGS = frozenset({
-    "--region", "--profile", "--output", "--endpoint-url",
-})
+_AWS_VALUE_FLAGS = frozenset(
+    {
+        "--region",
+        "--profile",
+        "--output",
+        "--endpoint-url",
+    }
+)
 _LOG_GROUP_FLAGS = frozenset({"--log-group-name", "--log-group"})
 _LOG_GROUP_EQUALS = ("--log-group-name=", "--log-group=")
 
 
 def _aws_cli_argv(
-    command_base: str, tokens: Sequence[str],
+    command_base: str,
+    tokens: Sequence[str],
 ) -> Optional[Tuple[List[str], int]]:
     """Return AWS CLI argv and its start index for ``aws`` / ``yoke aws exec``."""
     inner = list(tokens)
@@ -137,9 +143,9 @@ def _aws_cli_argv(
         aws_at = inner.index("aws", 1, sep)
     except ValueError:
         return None
-    if inner[aws_at:aws_at + 2] != ["aws", "exec"]:
+    if inner[aws_at : aws_at + 2] != ["aws", "exec"]:
         return None
-    return inner[sep + 1:], sep + 1
+    return inner[sep + 1 :], sep + 1
 
 
 def _aws_service(inner: Sequence[str]) -> str:
@@ -175,10 +181,11 @@ def aws_log_group_indexes(command_base: str, tokens: Sequence[str]) -> set[int]:
                 indexes.add(offset + i + 1)
             continue
         eq = next((p for p in _LOG_GROUP_EQUALS if tok.startswith(p)), "")
-        if eq and unwrap_cli_file_param(tok[len(eq):]) == tok[len(eq):]:
+        if eq and unwrap_cli_file_param(tok[len(eq) :]) == tok[len(eq) :]:
             indexes.add(offset + i)
         if (
-            tok == "logs" and i + 2 < len(inner)
+            tok == "logs"
+            and i + 2 < len(inner)
             and inner[i + 1] == "tail"
             and not inner[i + 2].startswith("-")
             and unwrap_cli_file_param(inner[i + 2]) == inner[i + 2]

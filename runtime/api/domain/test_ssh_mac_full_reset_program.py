@@ -1,4 +1,4 @@
-"""Filesystem behavior coverage for the uploaded Test Mac zsh program."""
+"""Filesystem behavior coverage for the uploaded Test Machine zsh program."""
 
 from __future__ import annotations
 

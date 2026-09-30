@@ -32,7 +32,7 @@ MACHINE_SETTINGS = {
     "resource_name": "mac-mini-lab",
     "host": "test-mac.local",
     "user": "yoke-test",
-    "host_kind": "mac-ssh",
+    "os": "macos",
     "operating_notes": "",
 }
 

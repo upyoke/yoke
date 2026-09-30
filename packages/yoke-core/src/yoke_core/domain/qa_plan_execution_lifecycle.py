@@ -70,7 +70,7 @@ def set_plan_machine_lease(
     *,
     lease_id: int,
 ) -> None:
-    """Attach the server-acquired Test Mac lease to the durable plan."""
+    """Attach the server-acquired Test Machine lease to the durable plan."""
     placeholder = marker(conn)
     now = iso8601_now()
     cursor = conn.execute(

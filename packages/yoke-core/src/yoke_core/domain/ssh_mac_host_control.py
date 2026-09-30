@@ -15,7 +15,6 @@ from yoke_core.domain import machine_config
 from yoke_core.domain.host_control_runner import (
     HostActionResult,
     TestMachineMaterial,
-    register_host_control_factory,
 )
 from yoke_core.domain.machine_qa_fixture_operations import (
     MachineQaFixtureOperationRunner,
@@ -120,13 +119,7 @@ class SshMacHostControl(SshMacTransport):
         )
 
 
-def register_ssh_mac_host_control() -> None:
-    """Install the core-approved machine-local adapter factory."""
-    register_host_control_factory(SshMacHostControl)
-
-
 __all__ = [
     "SSH_OPTIONS",
     "SshMacHostControl",
-    "register_ssh_mac_host_control",
 ]

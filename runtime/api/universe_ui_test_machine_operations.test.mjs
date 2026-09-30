@@ -21,8 +21,8 @@ async function renderDetail() {
 test("the machine says which implementation drives it", async () => {
   const rendered = text(await renderDetail());
 
-  assert.match(rendered, /Host kind/);
-  assert.match(rendered, /mac-ssh/);
+  assert.match(rendered, /Operating system/);
+  assert.match(rendered, /macos/);
 });
 
 test("verification says in words what state it left the machine in", async () => {

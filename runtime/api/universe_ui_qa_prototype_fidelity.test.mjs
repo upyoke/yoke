@@ -100,7 +100,7 @@ test("all method details retain the prototype contract anatomy", async () => {
     if (method.id === "exploratory-mission") {
       assert.deepEqual(
         byClass(host, "qa-capability-link").map((node) => node.textContent),
-        ["Browser control →", "Test Mac →"],
+        ["Browser control →", "Test Machine →"],
       );
       assert.match(text, /agent — pass, fail, or undetermined/);
       assert.match(text, /ranked findings plus deliberate proof artifacts/);
@@ -185,7 +185,7 @@ test("every evidence disposition renders an honest terminal state", async () => 
     },
     4: {
       disposition: "evidence_on_machine",
-      machine: "Test Mac",
+      machine: "Test Machine",
       detail: "the evidence bytes are not present on this machine",
     },
     5: {
@@ -247,7 +247,7 @@ test("every evidence disposition renders an honest terminal state", async () => 
   );
   assert.deepEqual(
     actions.map((node) => node.textContent),
-    ["", "", "", "on Test Mac", "not portable", "too large", "retry →"],
+    ["", "", "", "on Test Machine", "not portable", "too large", "retry →"],
   );
   const text = allNodes(host).map((node) => node.textContent).join(" ");
   assert.match(text, /bytes are not present/);
