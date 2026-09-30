@@ -99,11 +99,20 @@ class TestItemManagement:
         assert "101" in result
 
     def test_remove_item(self, db_path: str) -> None:
+        from yoke_core.domain.qa_schema import cmd_init
+        from yoke_core.domain.qa_catalog_schema import create_qa_catalog_tables
+        from runtime.api.api_workflow_test_helpers import (
+            install_workflow_registry_and_pin_items,
+        )
+
+        cmd_init(db_path=db_path)
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
         conn = connect_test_db(db_path)
         conn.execute(
             "INSERT INTO items (id, title, status, project_id, project_sequence) VALUES (200, 'Test', 'implemented', 1, 200)"
         )
+        install_workflow_registry_and_pin_items(conn)
+        create_qa_catalog_tables(conn)
         conn.commit()
         conn.close()
 
