@@ -99,8 +99,10 @@ appears the first time the case runs against the real deployed target. An
 `undetermined` or `error` verdict does not close the window; neither reached
 a judgement.
 
-A member's post-deploy obligation is admitted as a *copy* of the item's own
-requirement, keyed `admitted-requirement-<source id>`, so correcting the item
+A plan-owned member requirement is admitted through its plan snapshot, preserving
+case and host-baseline positions; it is never copied as an ad-hoc requirement.
+A plan-less grouped host baseline still refuses and asks for its attached plan.
+A plan-less obligation is copied under `admitted-requirement-<source id>`, so correcting the item
 row and correcting what the stage runs are two different writes. They are
 reconciled rather than left to drift. `yoke qa requirement update` resolves
 the source row's admitted copies and, for each one on a run that is still

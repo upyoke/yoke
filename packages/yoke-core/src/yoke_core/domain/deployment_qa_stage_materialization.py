@@ -6,15 +6,15 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from yoke_core.domain.qa_deployment_member_attached_plans import (
-    attached_member_plans, plan_matches_stage_environment,
-    stage_environment_id_for_plan_selection,
-)
+from yoke_core.domain.deployment_qa_frozen_plan_selection import frozen_stage_plans
 from yoke_core.domain.qa_deployment_case_content_refresh import (
-    declare_refreshed_replacements, refreshed_case_keys,
+    declare_refreshed_replacements,
+    refreshed_case_keys,
 )
 from yoke_core.domain.db_helpers import iso8601_now, query_rows
-from yoke_core.domain.deployment_qa_execution_target import deployment_qa_execution_target
+from yoke_core.domain.deployment_qa_execution_target import (
+    deployment_qa_execution_target,
+)
 from yoke_core.domain.deployment_qa_stage_contract import deployment_qa_stage_subject
 from yoke_core.domain.deployment_qa_stage_named_cases import (
     AGENT_PLAN_ALREADY_NAMED_REFUSAL,
@@ -43,43 +43,6 @@ from yoke_core.domain.qa_plan_requirement_snapshot import (
 )
 
 
-def _flow_plan(subject: Mapping[str, Any]) -> list[dict[str, Any]]:
-    stage = str(subject["stage"]["name"])
-    return [
-        dict(selection)
-        for selection in subject["flow_snapshot"].get("selections") or []
-        if isinstance(selection, Mapping) and str(selection.get("stage") or "") == stage
-    ]
-
-
-def _member_plans(
-    conn: Any,
-    subject: Mapping[str, Any],
-    *,
-    target: Mapping[str, Any],
-) -> list[dict[str, Any]]:
-    snapshot = subject.get("member_snapshot")
-    if not isinstance(snapshot, Mapping):
-        return []
-    stage_environment_id = stage_environment_id_for_plan_selection(conn, target)
-    selected: list[dict[str, Any]] = []
-    for value in snapshot.get("plans") or []:
-        if not isinstance(value, Mapping):
-            continue
-        attachment = value.get("attachment")
-        plan = value.get("plan")
-        if not isinstance(attachment, Mapping) or not isinstance(plan, Mapping):
-            continue
-        if str(attachment.get("qa_phase") or "") != "post_deploy":
-            continue
-        if not plan_matches_stage_environment(
-            plan.get("target_environment_id"), stage_environment_id
-        ):
-            continue
-        selected.append(dict(value))
-    return selected
-
-
 class QaCasesNotSelectedError(QaPlanError):
     """No cases are selected for this stage subject yet.
 
@@ -105,18 +68,14 @@ def _selected_plans(
     allow_empty: bool = False,
     replacement_keys: set[str] | None = None,
 ) -> list[dict[str, Any]]:
-    frozen = [*_flow_plan(subject), *_member_plans(conn, subject, target=target)]
-    if not frozen:
-        frozen = attached_member_plans(conn, subject, target=target)
+    frozen = frozen_stage_plans(conn, subject, target=target, admitted=admitted)
     named = agent_plan is not None and stage_names_cases(
         conn, subject, frozen_plans=frozen, admitted=admitted
     )
     if named and not replacement_keys:
         raise QaPlanError(AGENT_PLAN_ALREADY_NAMED_REFUSAL)
     if agent_plan is not None:
-        plan_project_id = int(
-            subject.get("member_project_id") or subject["project_id"]
-        )
+        plan_project_id = int(subject.get("member_project_id") or subject["project_id"])
         row = conn.execute(
             "SELECT id FROM qa_plans WHERE project_id=%s "
             "AND (slug=%s OR CAST(id AS TEXT)=%s) AND retired_at IS NULL",
@@ -227,6 +186,8 @@ def materialize_deployment_qa_stage(
             declared_none = answer.reasons
         existing.extend(bound_direct)
         for requirement in admitted:
+            if requirement.get("plan_id") is not None:
+                continue  # Its ordered cases are materialized through snapshots below.
             requirement_id, was_created = materialize_admitted_requirement(
                 conn,
                 subject=subject,
