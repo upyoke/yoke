@@ -259,7 +259,8 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
     return state !== QA_STATE.NO_OBLIGATION && state !== QA_STATE.RUN_MACHINERY;
   });
   // An item with no QA requirement and no decision shows no QA block at all.
-  if (!hasQa && !gates.length) return null;
+  const noObligation = memberState.id === QA_STATE.NO_OBLIGATION;
+  if (!hasQa && !noObligation && !gates.length) return null;
   const documentNode = context.document;
   const wrap = el(
     documentNode,
@@ -278,6 +279,13 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
     project: item.project_id,
     className: "item-qa-section",
   });
+  if (noObligation) {
+    const head = Array.from(section.children).find(
+      (node) => node.classList.contains("run-qa-head"),
+    );
+    head.appendChild(el(documentNode, "span", "run-verdict is-approved", "No obligation"));
+    section.appendChild(el(documentNode, "p", "run-qa-check-reason", memberState.detail));
+  }
   wrap.appendChild(section);
   if (hasQa) appendTruncationNote(documentNode, section, facts, itemId, runId);
   const decisions = decisionList(context, gates, onDecide || null, {

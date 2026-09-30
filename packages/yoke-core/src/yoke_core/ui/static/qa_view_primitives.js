@@ -28,6 +28,9 @@ const OUTCOME_EXPLANATIONS = {
   needs_review:
     "The recorded evidence does not yet have a conclusive verdict. Review " +
     "and Inbox state are shown only when their runner records exist.",
+  captured: "Evidence was captured; a review verdict has not been recorded yet.",
+  capture_failed: "Capture failed; inspect this run and repair the capture before retrying.",
+  no_obligation: "This item records no post-deploy obligation; its reason is shown with Item QA.",
   queued: "This materialized case is queued and has not started yet.",
   waiting:
     "This case is waiting for its required capability or serial lease.",

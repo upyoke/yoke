@@ -34,6 +34,7 @@ QA_TABLES: dict[str, dict] = {
             ("retracted_at", "TEXT"),
             ("retraction_rationale", "TEXT"),
             ("retraction_source", "TEXT"),
+            ("replacement_requirement_id", "INTEGER"),
             ("plan_id", "INTEGER"),
             ("plan_case_key", "TEXT"),
             ("case_position", "INTEGER"),
@@ -68,6 +69,12 @@ QA_TABLES: dict[str, dict] = {
             "is NO `is_blocking` column. Primary key is `id`, not "
             "`requirement_id`; requirement rows do not carry `status` "
             "or `last_known_result`. "
+            "`replacement_requirement_id` declares a corrected case; "
+            "`superseded_by_requirement_id` records discharge. Missing preview "
+            "columns need serving boot convergence through "
+            "`yoke_core.api.server_entrypoint.ensure_core_schema`. Schema owner: "
+            "`yoke_core.domain.qa_catalog_schema`; `qa_requirements_schema` "
+            "and `server_boot` are guessed, nonexistent modules. "
             "A retracted row (`retracted_at`) is withdrawn history from "
             "`yoke qa item-plan retract`, not a waiver and not a "
             "supersession. "
@@ -150,6 +157,8 @@ QA_TABLES: dict[str, dict] = {
             ("completed_at", "TEXT"),
             ("created_at", "TEXT"),
             ("execution_status", "TEXT"),
+            ("case_outcome", "TEXT"),
+            ("capture_degraded_reason", "TEXT"),
         ],
         "notes": (
             "Recorded results. Join to qa_requirements via "
@@ -171,6 +180,7 @@ QA_TABLES: dict[str, dict] = {
             "epic_reviews / epic_task_reviews table. There is NO "
             "`requirement_id` column and NO `result` column; use "
             "`qa_requirement_id`, `verdict`, and `raw_result`. "
+            "JSON: `json_helper.dumps_compact` / `dumps_pretty`, no `dumps` export. "
             "`execution_status` is capture-stage bookkeeping for browser and "
             "agent-mission runs (captured | capture_failed), distinct from the quality "
             "`verdict`. `captured` requires at least one `qa_artifacts` row, or a "

@@ -264,7 +264,7 @@ deployment run at all: `qa.activity.list` also takes `item_ids` (absent reads th
 empty list matches nothing), and every row reports `item_id`, `deployment_member_item_id`,
 `deployment_stage`, and `deployment_run_id`. A surface showing a known set of subjects — the
 items a deployment card carries — reads their evidence rather than whatever QA is most recent,
-and can tell an item's own proof from what it proved inside a release. With `item_ids`, `limit`
+and can tell an item's own proof from what it proved inside a release. Latest captured runs stay `captured` until reviewed; no-obligation members show their settled answer and reason in Item QA. Run Identity shows the recorded artifact identity, or explains that the run pins only a source revision. With `item_ids`, `limit`
 bounds each item's checks **within each deployment run they name**, and its run-less checks as
 their own group, so neither another item nor another release can take the rows a given card
 needs; `deployment_run_ids` keeps the answer to the run groups a caller draws (an item's run-less

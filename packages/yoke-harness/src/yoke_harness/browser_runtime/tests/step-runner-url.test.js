@@ -88,7 +88,7 @@ async function testResolveUrl() {
   // after the query instead, producing '?token=X/#/route' -- a URL the server
   // reads as a path under the token.
   assertEqual(
-    resolveUrl('#/route', 'http://localhost:3000/?token=abc123'),
+    resolveUrl('/#/route', 'http://localhost:3000/?token=abc123'),
     'http://localhost:3000/?token=abc123#/route',
     'Fragment route keeps the base query and does not gain a slash'
   );

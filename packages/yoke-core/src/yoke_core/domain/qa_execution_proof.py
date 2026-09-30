@@ -9,15 +9,7 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.qa_run_conclusion import conclusion_proof_summary
-
-
-def _row_value(row: Any, key: str) -> Any:
-    if isinstance(row, Mapping):
-        return row.get(key)
-    try:
-        return row[key]
-    except (IndexError, KeyError, TypeError):
-        return None
+from yoke_core.domain.qa_run_outcome import _row_value, qa_run_outcome
 
 
 def _payload(raw_result: Any) -> dict[str, Any]:
@@ -30,26 +22,6 @@ def _payload(raw_result: Any) -> dict[str, Any]:
     except (TypeError, ValueError):
         return {}
     return parsed if isinstance(parsed, dict) else {}
-
-
-def qa_run_outcome(row: Any) -> str:
-    """Return the canonical QA outcome without changing activity vocabulary."""
-    if _row_value(row, "waived_at"):
-        return "waived"
-    case_outcome = str(_row_value(row, "case_outcome") or "").strip()
-    if case_outcome:
-        return case_outcome.replace(" ", "_")
-    verdict = str(_row_value(row, "verdict") or "").strip().lower()
-    if verdict == "pass":
-        return "passed"
-    if verdict in {"fail", "error"}:
-        return "failed"
-    if verdict in {"undetermined", "needs review", "needs_review"}:
-        return "needs_review"
-    execution_status = str(_row_value(row, "execution_status") or "").strip().lower()
-    if execution_status in {"queued", "running", "waiting"}:
-        return execution_status
-    return "queued"
 
 
 def qa_precondition_reason(raw_result: Any) -> str | None:
