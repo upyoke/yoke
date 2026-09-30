@@ -21,7 +21,6 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional
 
 from yoke_contracts.machine_config.schema_connections import (
-    ENV_OVERRIDE,
     connection_is_prod,
     local_postgres_envs,
 )
@@ -30,16 +29,17 @@ from yoke_contracts.machine_config.schema_transport import (
     TRANSPORT_HTTPS,
 )
 
-#: The command the recovery recipe names. Callers reached through a
-#: different entrypoint pass their own so the recipe stays runnable.
-VIEW_SERVE_COMMAND = "yoke ui up"
+#: The ``yoke`` subcommand the recovery recipe names. The recipe selects the
+#: env with the per-invocation ``--env`` flag rather than the machine-global
+#: ``yoke env use``, which would retarget every other session and the relay
+#: on this machine.
+VIEW_SERVE_SUBCOMMAND = "ui up"
 
 
 def view_serving_refusal(
     connection: Mapping[str, Any],
     *,
     payload: Optional[Mapping[str, Any]] = None,
-    command: str = VIEW_SERVE_COMMAND,
 ) -> Optional[str]:
     """Return why ``connection`` may not be served as a view, or ``None``.
 
@@ -58,27 +58,24 @@ def view_serving_refusal(
             "over it would answer every read from the hosted universe "
             "while naming none of it on the page. A view serves the "
             "machine-local universe only, and the hosted/self-host web "
-            f"surfaces arrive with the platform. {_switch_recipe(payload, command)}"
+            f"surfaces arrive with the platform. {_switch_recipe(payload)}"
         )
     if transport in POSTGRES_TRANSPORTS:
         return (
             f"the connection {env_label!r} is a prod-flagged Postgres "
             "connection: direct prod authority is operator-only, so it is "
-            f"not served as a view. {_switch_recipe(payload, command)}"
+            f"not served as a view. {_switch_recipe(payload)}"
         )
     return (
         f"the connection {env_label!r} (transport "
         f"{transport or '<unset>'!r}) is not a mode a view can be served "
         "over: only a non-prod local-postgres connection is served, because "
         "it is the only one this process reads directly. "
-        f"{_switch_recipe(payload, command)}"
+        f"{_switch_recipe(payload)}"
     )
 
 
-def _switch_recipe(
-    payload: Optional[Mapping[str, Any]],
-    command: str,
-) -> str:
+def _switch_recipe(payload: Optional[Mapping[str, Any]]) -> str:
     """The one-line way to serve a database this machine holds."""
     candidates = local_postgres_envs(payload)
     if not candidates:
@@ -87,10 +84,10 @@ def _switch_recipe(
             "`yoke init --local` creates a local universe to view."
         )
     return (
-        f"Serve one this machine holds: {ENV_OVERRIDE}={candidates[0]} "
-        f"{command} (configured local-postgres envs: "
-        f"{', '.join(candidates)})."
+        "Serve one this machine holds for this invocation only: "
+        f"`yoke --env {candidates[0]} {VIEW_SERVE_SUBCOMMAND}` (configured "
+        f"local-postgres envs: {', '.join(candidates)})."
     )
 
 
-__all__ = ["VIEW_SERVE_COMMAND", "view_serving_refusal"]
+__all__ = ["VIEW_SERVE_SUBCOMMAND", "view_serving_refusal"]

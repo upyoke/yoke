@@ -51,7 +51,8 @@ def resolve_local_import_dsn() -> str:
     if env.environment != "local" or env.backend != "postgres":
         raise LocalUniverseImportError(
             f"the active connection {env.environment!r} is not the machine-local "
-            "universe; switch with `yoke env use local` before importing"
+            "universe; name it for this invocation with "
+            "`yoke --env local universe import ARCHIVE`"
         )
     if connection_is_prod(env.config):
         raise LocalUniverseImportError(

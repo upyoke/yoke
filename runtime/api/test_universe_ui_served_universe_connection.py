@@ -89,7 +89,7 @@ class TestTheServerRefusesAUniverseItWouldOnlyRelayTo:
         assert "https-transport" in message
         # A refusal that does not say how to render honestly just moves
         # the hand-assembly one step later.
-        assert "YOKE_ENV=local-dev yoke ui up" in message
+        assert "`yoke --env local-dev ui up`" in message
 
     def test_a_prod_flagged_postgres_binding_refuses(self, bind):
         bind(PROD_POSTGRES)

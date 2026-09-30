@@ -21,12 +21,6 @@ from yoke_contracts.machine_config.served_view_connection import (
     view_serving_refusal,
 )
 
-#: Recovery recipe for a refusal raised from inside the serving process.
-#: ``yoke ui up`` pins the env it was started with into the daemon, so the
-#: override reaches the child that actually opens the universe.
-SERVE_COMMAND = "yoke ui up"
-
-
 def serving_connection() -> Tuple[str, Optional[str]]:
     """Return ``(environment name, refusal)`` for the connection served.
 
@@ -53,9 +47,7 @@ def serving_connection() -> Tuple[str, Optional[str]]:
         payload = machine_config.load_config(env.binding_path)
     except Exception:  # noqa: BLE001 - the recipe degrades, the refusal does not
         payload = None
-    return env.environment, view_serving_refusal(
-        env.config, payload=payload, command=SERVE_COMMAND
-    )
+    return env.environment, view_serving_refusal(env.config, payload=payload)
 
 
 def environment_display_label(environment: str) -> Optional[str]:
@@ -69,7 +61,6 @@ def environment_display_label(environment: str) -> Optional[str]:
 
 
 __all__ = [
-    "SERVE_COMMAND",
     "environment_display_label",
     "serving_connection",
 ]

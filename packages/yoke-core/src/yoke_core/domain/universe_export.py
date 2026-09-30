@@ -94,8 +94,9 @@ def resolve_export_dsn() -> str:
             "DSN possession. A hosted org admin downloads from the "
             "dashboard's `Move universe` action; a self-host connection uses "
             "the authenticated server export endpoint. To export a machine-local "
-            "universe, switch to its "
-            "env (`yoke env use local`) or create one (`yoke init --local`)."
+            "universe, name its env for this invocation "
+            "(`yoke --env local universe export`) or create one "
+            "(`yoke init --local`)."
         )
     if connection_is_prod(env.config):
         raise UniverseExportError(

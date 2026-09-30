@@ -58,6 +58,25 @@ class TestConnectionModeGate:
         assert "hosted/self-host" in err
         assert "machine-local universe" in err
 
+    def test_https_refusal_names_the_per_invocation_env_not_a_global_switch(
+        self, machine_home, capsys,
+    ):
+        from yoke_cli.config import writer
+
+        write_local_connection("local")
+        writer.set_connection(
+            "upyoke", transport="https", api_url="https://api.example",
+            token="t" * 40,
+        )
+        writer.set_active_env("upyoke")
+
+        assert commands.ui_up(["--no-browser"]) == 1
+        err = capsys.readouterr().err
+        # Switching the machine's active env would retarget every other
+        # session and the relay on this machine; the recipe scopes to one run.
+        assert "`yoke --env local ui up`" in err
+        assert "env use" not in err
+
     def test_prod_postgres_connection_stays_operator_only(
         self, machine_home, capsys,
     ):
