@@ -1,12 +1,4 @@
-"""Run a Command-method QA case on the project's CI workflow.
-
-The gate asks what already covers the lane's candidate, and only an
-unexamined one is rebased and published; either way it then adopts,
-attaches to, or dispatches a run for that exact commit. Merge-queue
-projects use the landing pull request's entry run. ``ci_run_source``
-records which path produced the verdict, and an empty diff is
-inapplicable CI.
-"""
+"""Run Command QA through CI, preserving item proofs and manual commit bindings."""
 
 from __future__ import annotations
 
@@ -72,6 +64,15 @@ def execute_ci_case(
     actor: Optional[ActorContext] = None,
 ) -> dict[str, Any]:
     """Push the lane, reuse or run its CI workflow, and record the verdict."""
+    if case.get("standalone_execution_id"):
+        from yoke_core.domain.qa_standalone_ci import execute_standalone_ci
+
+        return execute_standalone_ci(
+            case,
+            timeout_seconds=timeout_seconds,
+            checkout_path=checkout_path,
+            actor=actor,
+        )
     # Refuse an incomplete case before publishing anything.
     required_case_command(case)
     workflow = qa_case_ci_lane.workflow_file(case)

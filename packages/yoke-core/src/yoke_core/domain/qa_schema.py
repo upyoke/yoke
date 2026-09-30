@@ -27,6 +27,8 @@ from yoke_core.domain.qa_plan_review_schema import (
 )
 from yoke_core.domain.qa_deployment_scope_schema import (
     REQUIREMENT_SUBJECT_CONSTRAINT,
+)
+from yoke_core.domain.qa_standalone_schema import (
     REQUIREMENT_SUBJECT_EXPRESSION,
 )
 from yoke_core.domain.schema_common import (
@@ -49,6 +51,7 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
     epic_id INTEGER,
     task_num INTEGER,
     deployment_run_id TEXT,
+    standalone_execution_id TEXT,
     deployment_stage TEXT,
     deployment_member_item_id INTEGER,
     qa_kind TEXT NOT NULL,

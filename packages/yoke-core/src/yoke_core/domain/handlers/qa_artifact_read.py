@@ -212,15 +212,16 @@ def handle_qa_artifact_read(
             conn,
             "SELECT a.id, a.content_type, a.artifact_handle, a.metadata, "
             "a.qa_run_id AS run_id, r.qa_requirement_id, q.item_id, "
-            "q.deployment_run_id, q.target_env, "
-            "COALESCE(m.project_id,i.project_id,d.project_id) AS project_id, "
+            "q.deployment_run_id, q.target_env, q.standalone_execution_id, "
+            "COALESCE(m.project_id,i.project_id,d.project_id,qp.project_id) AS project_id, "
             "p.slug AS project "
             "FROM qa_artifacts a JOIN qa_runs r ON r.id=a.qa_run_id "
             "JOIN qa_requirements q ON q.id=r.qa_requirement_id "
             "LEFT JOIN items i ON i.id=q.item_id "
             "LEFT JOIN items m ON m.id=q.deployment_member_item_id "
             "LEFT JOIN deployment_runs d ON d.id=q.deployment_run_id "
-            "JOIN projects p ON p.id=COALESCE(m.project_id,i.project_id,d.project_id) "
+            "LEFT JOIN qa_plans qp ON qp.id=q.plan_id "
+            "JOIN projects p ON p.id=COALESCE(m.project_id,i.project_id,d.project_id,qp.project_id) "
             f"WHERE a.id={marker}",
             (payload.artifact_id,),
         )

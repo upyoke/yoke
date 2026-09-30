@@ -46,6 +46,10 @@ def _owned_case(
     )
 
     execution = lock_plan_execution(conn, parsed.execution_id)
+    if request.target.kind == "global":
+        from yoke_core.domain.qa_standalone_execution import require_standalone_project
+
+        require_standalone_project(conn, execution, str(request.target.project_id))
     require_plan_execution_owner(
         execution,
         conn=conn,

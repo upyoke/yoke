@@ -307,6 +307,7 @@ def plan_execution_view(
             int(execution["item_id"]) if execution.get("item_id") is not None else None
         ),
         "deployment_run_id": execution.get("deployment_run_id"),
+        "standalone_plan_id": execution.get("standalone_plan_id"),
         "deployment_stage": execution.get("deployment_stage"),
         "deployment_member_item_id": execution.get("deployment_member_item_id"),
         "transition_id": execution.get("transition_id"),

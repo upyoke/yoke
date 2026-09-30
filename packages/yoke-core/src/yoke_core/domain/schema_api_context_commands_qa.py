@@ -1,10 +1,7 @@
 """``qa`` topic wrapper-command recipes for the agent-context packet.
 
-Sibling of :mod:`schema_api_context_commands` (which combines per-topic
-lists into the canonical ``WRAPPER_COMMANDS``). Holds the ``qa`` topic
-entries: QA requirement/run reads, run-verdict recording, gate preview,
-gate summary, method-case materialization/execution, and the events read
-recipe.
+Holds QA reads, verdicts, gates, case execution, and events recipes for
+the canonical ``WRAPPER_COMMANDS`` packet.
 
 Recipe shape doctrine:
     The qa family teaches registered ``yoke`` forms — requirement
@@ -186,12 +183,15 @@ QA_COMMANDS: list[dict] = [
     },
     {
         "topic": "qa",
-        "purpose": "Execute an item's materialized QA plans in snapshot order",
+        "purpose": "Execute immutable QA plans for an item, deployment, or project",
         "recipe": (
             "yoke qa plan run --item PREFIX-N --transition TRANSITION "
             "--base-url https://preview.example"
         ),
         "notes": (
+            "For standalone project evidence use `yoke qa plan run --plan PLAN --project P`; "
+            "it never credits an item or deployment gate. Read `yoke qa plan run --help` "
+            "for exact-commit source flags, direct CI dispatch, abort and continuation. "
             "Begins or resumes a server-authorized execution before any "
             "local runner runs. Stage pins the immutable roster, digest, "
             "durable cursor, actor/session owner, and any machine lease; "

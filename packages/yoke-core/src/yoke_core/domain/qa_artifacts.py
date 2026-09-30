@@ -125,9 +125,7 @@ def stage_recovery_copy(content: bytes, filename: str) -> Path:
     path.
     """
 
-    staged = private_free_path(
-        safe_segment(filename), prefix=_RECOVERY_COPY_PREFIX
-    )
+    staged = private_free_path(safe_segment(filename), prefix=_RECOVERY_COPY_PREFIX)
     staged.write_bytes(content)
     return staged
 
@@ -188,6 +186,9 @@ def case_artifact_subject(case: dict[str, Any]) -> int | str:
     """Return a collision-safe storage segment for one QA case subject."""
     item_id = case.get("item_id")
     deployment_run_id = case.get("deployment_run_id")
+    standalone_id = case.get("standalone_execution_id")
+    if standalone_id and item_id is None and deployment_run_id is None:
+        return f"standalone-{safe_segment(str(standalone_id))}"
     if item_id is not None and deployment_run_id is None:
         return int(item_id)
     if item_id is None and deployment_run_id is not None:

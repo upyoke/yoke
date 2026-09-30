@@ -62,6 +62,7 @@ class QaBrowserContextGetRequest(BaseModel):
 class QaBrowserContextGetResponse(BaseModel):
     item_id: Optional[int] = None
     deployment_run_id: Optional[str] = None
+    standalone_execution_id: Optional[str] = None
     requirements: List[Dict[str, Any]]
     deployed_sha: Optional[str] = None
     deployment_recorded: bool = False
@@ -86,7 +87,10 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
     target = request.target
     item_id = target.item_id
     deployment_run_id = target.deployment_run_id
-    if (item_id is None) == (deployment_run_id is None):
+    standalone = (
+        target.kind == "qa_requirement" and target.qa_requirement_id is not None
+    )
+    if not standalone and (item_id is None) == (deployment_run_id is None):
         return _error(
             "target_invalid",
             "qa.browser_context.get requires exactly one subject: "
@@ -109,19 +113,26 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
             "requirement_id is required",
             jsonpath="$.payload.requirement_id",
         )
+    if standalone and requirement_id != target.qa_requirement_id:
+        return _error(
+            "target_invalid", "standalone requirement must match the named target"
+        )
 
     subject_column = "item_id" if item_id is not None else "deployment_run_id"
     subject_value: Any = int(item_id) if item_id is not None else str(deployment_run_id)
+    if standalone:
+        subject_column, subject_value = "id", int(requirement_id)
     conn = connect()
     try:
         p = _p(conn)
         req_rows = query_rows(
             conn,
-            "SELECT id, qa_kind, method_id, method_config, "
+            "SELECT id, qa_kind, method_id, method_config, standalone_execution_id, "
             "expected_outcome FROM qa_requirements "
             f"WHERE {subject_column} = {p} "
             "AND method_id IN ('browser-check', 'browser-inspection') "
-            f"AND waived_at IS NULL AND id = {p}",
+            f"AND waived_at IS NULL AND id = {p} "
+            + ("AND standalone_execution_id IS NOT NULL" if standalone else ""),
             (subject_value, int(requirement_id)),
         )
         requirements = [
@@ -164,7 +175,7 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
             deployment_target = resolve_deployment_under_test(
                 conn, str(deployment_run_id)
             ).as_payload()
-        elif expected_branch:
+        elif expected_branch and not standalone:
             project_id = resolve_project_id(conn, project)
             env_rows = query_rows(
                 conn,
@@ -203,6 +214,9 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
                 str(deployment_run_id) if deployment_run_id is not None else None
             ),
             "requirements": requirements,
+            "standalone_execution_id": req_rows[0]["standalone_execution_id"]
+            if standalone and req_rows
+            else None,
             "deployed_sha": deployed_sha,
             "deployment_recorded": deployment_recorded,
             "ephemeral_url": ephemeral_url,

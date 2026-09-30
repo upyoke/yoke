@@ -39,6 +39,7 @@ _PROOF_FIELDS = (
     "requirement_id",
     "run_id",
     "deployment_run_id",
+    "standalone_execution_id",
     "host_baseline",
     "outcome",
     "happened_at",
@@ -60,15 +61,11 @@ def _case(case: dict[str, Any]) -> dict[str, Any]:
 def plan_summary(plan: dict[str, Any], *, project: str) -> dict[str, Any]:
     """Project one full plan document down to its scannable summary."""
     summary = {
-        key: value
-        for key, value in plan.items()
-        if key not in {"cases", "attachments"}
+        key: value for key, value in plan.items() if key not in {"cases", "attachments"}
     }
     summary["cases"] = [_case(case) for case in plan.get("cases") or []]
     summary["attachment_count"] = len(plan.get("attachments") or [])
-    summary["detail_read"] = (
-        f"yoke qa plan get {plan['id']} --project {project} --full"
-    )
+    summary["detail_read"] = f"yoke qa plan get {plan['id']} --project {project} --full"
     return summary
 
 

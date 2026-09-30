@@ -135,6 +135,7 @@ def _list_activity(
                 "requirement_id": int(row["requirement_id"]),
                 "run_id": run_id,
                 "deployment_run_id": row["deployment_run_id"],
+                "standalone_execution_id": row["standalone_execution_id"],
                 "deployment_stage": row["deployment_stage"],
                 "item_id": (
                     int(row["item_id"]) if row["item_id"] is not None else None

@@ -1,13 +1,5 @@
 """Continue a mission walk whose execution was settled while it was parked.
 
-A walker told to hold parks, and a parked walker stops heartbeating. When
-that silence outlives the session -- a sleep, a reload, an end -- the stale
-sweep settles the execution and terminal settlement stamps its captures with
-an error verdict. The walk itself is not lost: the Test Machine still holds
-the partial state the walk built. What is lost is the way back in, because a
-fresh execution re-runs the case's host baseline and wipes exactly that
-state.
-
 A continuation is the way back in. It is an ordinary new execution over the
 same roster, recording its own runs, with one difference carried on the row
 itself: ``continues_execution_id`` names the settled execution it resumes,
@@ -51,14 +43,7 @@ def contract_baselines(
     execution: Mapping[str, Any],
     case: Mapping[str, Any],
 ) -> tuple[str, ...]:
-    """Return the host baselines this case's issued contract may reach.
-
-    A continuation reaches none: it exists because the host still holds the
-    state a settled walk built, and running the case's baseline would destroy
-    exactly that. The suppression is read from the execution row rather than
-    from the roster, so the immutable case snapshot still matches its live
-    requirement when the protocol re-checks it.
-    """
+    """Return baselines unless the continuation preserves the prior host state."""
     if skips_host_baseline(execution):
         return ()
     baseline = str(case.get("host_baseline") or "")
@@ -122,6 +107,7 @@ def latest_plan_execution(
     conn: Any,
     *,
     item_id: int | None = None,
+    standalone_plan_id: int | None = None,
     transition_id: str | None = None,
     deployment_run_id: str | None = None,
     deployment_stage: str | None = None,
@@ -129,6 +115,13 @@ def latest_plan_execution(
 ) -> dict[str, Any] | None:
     """Return the most recent execution recorded for one QA subject."""
     placeholder = marker(conn)
+    if standalone_plan_id is not None:
+        row = conn.execute(
+            f"SELECT id FROM qa_plan_executions WHERE standalone_plan_id={placeholder} "
+            "ORDER BY created_at DESC,id DESC LIMIT 1",
+            (standalone_plan_id,),
+        ).fetchone()
+        return select_plan_execution(conn, str(row[0]), lock=False) if row else None
     if (item_id is None) == (deployment_run_id is None):
         raise QaPlanExecutionStateError(
             "exactly one QA plan execution subject is required"
@@ -162,6 +155,7 @@ def require_continuable_execution(
     conn: Any,
     *,
     item_id: int | None = None,
+    standalone_plan_id: int | None = None,
     transition_id: str | None = None,
     deployment_run_id: str | None = None,
     deployment_stage: str | None = None,
@@ -175,6 +169,7 @@ def require_continuable_execution(
     """
     prior = latest_plan_execution(
         conn,
+        standalone_plan_id=standalone_plan_id,
         item_id=item_id,
         transition_id=transition_id,
         deployment_run_id=deployment_run_id,
@@ -264,6 +259,10 @@ def continuation_recipe(conn: Any, execution: Mapping[str, Any]) -> str:
         subject = (
             f"--item {public_ref} "
             f"--transition {str(execution.get('transition_id') or '')}"
+        )
+    elif execution.get("standalone_plan_id") is not None:
+        subject = (
+            f"--plan {_plan_slug(conn, execution)} --project {_project_slug(execution)}"
         )
     else:
         stage = str(execution.get("deployment_stage") or "")

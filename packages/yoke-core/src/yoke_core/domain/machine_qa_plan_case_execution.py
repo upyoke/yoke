@@ -73,13 +73,18 @@ def execute_plan_machine_case(
     requirement_id = int(case.get("requirement_id") or 0)
     item_id = case.get("item_id")
     deployment_run_id = case.get("deployment_run_id")
-    if requirement_id < 1 or bool(item_id) == bool(deployment_run_id):
+    if requirement_id < 1 or (
+        bool(item_id) == bool(deployment_run_id)
+        and not case.get("standalone_execution_id")
+    ):
         raise MachinePlanCaseDispatchError(
             "plan-scoped Machine QA requires one subject and a requirement id"
         )
     target = (
         TargetRef(kind="item", item_id=int(item_id))
         if item_id is not None
+        else TargetRef(kind="global", project_id=str(case["project"]))
+        if case.get("standalone_execution_id")
         else TargetRef(
             kind="deployment_run",
             deployment_run_id=str(deployment_run_id),
@@ -174,13 +179,18 @@ def execute_plan_agent_mission_case(
     requirement_id = int(case.get("requirement_id") or 0)
     item_id = case.get("item_id")
     deployment_run_id = case.get("deployment_run_id")
-    if requirement_id < 1 or bool(item_id) == bool(deployment_run_id):
+    if requirement_id < 1 or (
+        bool(item_id) == bool(deployment_run_id)
+        and not case.get("standalone_execution_id")
+    ):
         raise MachinePlanCaseDispatchError(
             "plan-scoped agent mission requires one subject and a requirement id"
         )
     target = (
         TargetRef(kind="item", item_id=int(item_id))
         if item_id is not None
+        else TargetRef(kind="global", project_id=str(case["project"]))
+        if case.get("standalone_execution_id")
         else TargetRef(kind="deployment_run", deployment_run_id=str(deployment_run_id))
     )
     request = {

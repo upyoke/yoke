@@ -22,6 +22,7 @@ from yoke_core.domain.handlers.machine_qa_plan_case_request import (
     target_plan_subject,
 )
 from yoke_core.domain.machine_qa_plan_protocol import plan_case_contract_arguments
+from yoke_core.domain.qa_standalone_execution import require_standalone_project
 
 
 def _recorded_result(
@@ -254,6 +255,8 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
     conn = connect()
     try:
         execution = lock_plan_execution(conn, parsed.execution_id)
+        if request.target.kind == "global":
+            require_standalone_project(conn, execution, str(request.target.project_id))
         require_plan_execution_owner(
             execution,
             conn=conn,
@@ -307,7 +310,6 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def register(registry: Any) -> None:
-    """Register the mission-specific plan protocol beside Test Machine."""
     for function_id, handler, request_model, response_model, events in (
         (
             "test_machine.mission.ready",
@@ -331,7 +333,8 @@ def register(registry: Any) -> None:
             response_model,
             stability="stable",
             owner_module=__name__,
-            target_kinds=["item", "deployment_run"],
+            target_kinds=["item", "deployment_run", "global"],
+            minimum_serving_version="next-release",
             side_effects=["qa_plan_execution_write", "coordination_claim_heartbeat"],
             emitted_event_names=events,
             guardrails=[
@@ -344,6 +347,3 @@ def register(registry: Any) -> None:
             claim_required_kind="qa_subject",
             ambient_session_required=True,
         )
-
-
-__all__ = ["handle_agent_mission_access", "handle_agent_mission_ready", "register"]

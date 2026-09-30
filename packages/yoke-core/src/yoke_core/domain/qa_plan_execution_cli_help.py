@@ -6,7 +6,17 @@
 QA_PLAN_RUN_EPILOG = """\
 Pick the subject, then the scope
 --------------------------------
-Exactly one subject flag is required, and it decides everything else.
+Select an item, deployment run, or manual project plan.
+
+  yoke qa plan run --plan PLAN --project P
+      Run a project plan now, recording standalone evidence without changing
+      any item or deployment gate. Command cases require --checkout-path and
+      --expected-sha (full SHA); command-ci also requires --expected-branch
+      naming a published branch or tag at that commit. Its named workflow
+      dispatches with the case's declared inputs; no lane is pushed.
+      Abort with `yoke qa plan abort --project P --execution-id ID --reason TEXT`;
+      --continue-mission resumes a
+      walk settled by the stale sweep while preserving its host state.
 
   --item PREFIX-N --transition TRANSITION
       An item's own attached plans, for a lifecycle transition's QA gate.

@@ -17,6 +17,10 @@ class PlanExecutionBeginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     transition_id: str | None = Field(default=None, min_length=1)
+    plan: str | None = Field(default=None, min_length=1)
+    source_revision: str | None = None
+    source_ref: str | None = None
+    checkout_path: str | None = None
     deployment_stage: str | None = Field(default=None, min_length=1)
     deployment_member: str | None = Field(default=None, min_length=1)
     machine: str | None = Field(default=None, min_length=1)
@@ -43,6 +47,7 @@ class PlanExecutionAbortRequest(PlanExecutionStateRequest):
 
 class PlanExecutionStateResponse(BaseModel):
     execution_id: str
+    standalone_plan_id: int | None = None
     item_id: int | None = None
     deployment_run_id: str | None = None
     deployment_stage: str | None = None
@@ -77,9 +82,11 @@ def _subject(
         return int(request.target.item_id), None
     if request.target.kind == "deployment_run" and request.target.deployment_run_id:
         return None, str(request.target.deployment_run_id)
+    if request.target.kind == "global" and request.target.project_id:
+        return None, None
     return _error(
         "target_invalid",
-        f"{function_id} requires an item or deployment-run target",
+        f"{function_id} requires an item, deployment run, or standalone project target",
         "$.target",
     )
 
@@ -127,18 +134,36 @@ def handle_plan_execution_begin(
                 raise QaPlanExecutionStateError(
                     f"deployment member {parsed.deployment_member!r} not found"
                 )
-        execution = begin_plan_execution(
-            conn,
-            item_id=item_id,
-            deployment_run_id=deployment_run_id,
-            transition_id=parsed.transition_id,
-            deployment_stage=parsed.deployment_stage,
-            deployment_member_item_id=member_item_id,
-            machine=parsed.machine,
-            continue_mission=parsed.continue_mission,
-            actor_id=request.actor.actor_id,
-            session_id=request.actor.session_id,
-        )
+        if request.target.kind == "global":
+            from yoke_core.domain.qa_standalone_execution import (
+                begin_requested_standalone_execution,
+            )
+
+            execution = begin_requested_standalone_execution(conn, request, parsed)
+        else:
+            if any(
+                (
+                    parsed.plan,
+                    parsed.source_revision,
+                    parsed.source_ref,
+                    parsed.checkout_path,
+                )
+            ):
+                raise QaPlanExecutionStateError(
+                    "standalone_subject_invalid: source bindings require a standalone project target"
+                )
+            execution = begin_plan_execution(
+                conn,
+                item_id=item_id,
+                deployment_run_id=deployment_run_id,
+                transition_id=parsed.transition_id,
+                deployment_stage=parsed.deployment_stage,
+                deployment_member_item_id=member_item_id,
+                machine=parsed.machine,
+                continue_mission=parsed.continue_mission,
+                actor_id=request.actor.actor_id,
+                session_id=request.actor.session_id,
+            )
         result = plan_execution_view(conn, execution)
     except QaPlanRosterDischarged as exc:
         conn.rollback()
@@ -171,6 +196,12 @@ def _owned_execution(
     conn = connect()
     try:
         execution = lock_plan_execution(conn, parsed.execution_id)
+        if request.target.kind == "global":
+            from yoke_core.domain.qa_standalone_execution import (
+                require_standalone_project,
+            )
+
+            require_standalone_project(conn, execution, str(request.target.project_id))
         subject = {
             "item_id": item_id,
             "deployment_run_id": deployment_run_id,

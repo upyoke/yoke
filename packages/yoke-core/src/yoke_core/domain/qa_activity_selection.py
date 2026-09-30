@@ -67,7 +67,7 @@ HAPPENED_AT = "COALESCE(r.completed_at, r.created_at, q.created_at)"
 
 ACTIVITY_COLUMNS = (
     "q.id AS requirement_id, q.plan_id, q.plan_case_key, "
-    "q.deployment_run_id, q.deployment_stage, q.item_id, "
+    "q.deployment_run_id, q.standalone_execution_id, q.deployment_stage, q.item_id, "
     "q.deployment_member_item_id, q.qa_kind, q.qa_phase, "
     "q.execution_target_json, "
     "q.waived_at, q.waiver_rationale, q.instructions, "

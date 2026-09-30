@@ -89,6 +89,16 @@ one rather than opening another. A rebase conflict stops the gate before
 anything is published; resolve it on the lane and re-run, which invalidates
 nothing because no evidence exists yet.
 
+## Manual project QA
+
+For an operator-requested check outside an item's gates, run
+`yoke qa plan run --plan PLAN --project P`. It records a standalone execution
+and cannot satisfy this item's attached verification or delivery obligations.
+Commands require a clean checkout and full SHA; CI requires a published ref at
+that SHA and the case's named workflow. Machine, browser, and mission methods
+retain their ordinary leases and reviews. Read `yoke qa plan run --help` for
+source flags, abort, and continuation before executing.
+
 ## Materialize the attached plan and run its cases
 
 The `implementing` → `reviewing-implementation` preflight materializes every

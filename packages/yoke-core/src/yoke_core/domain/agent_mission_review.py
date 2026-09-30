@@ -20,7 +20,9 @@ from yoke_core.domain.qa_review_verdict_modes import (
 )
 
 
-def _subject_flag(subject: Mapping[str, Any]) -> str:
+def _subject_flag(subject: Mapping[str, Any], target: Mapping[str, Any] | None) -> str:
+    if subject.get("standalone_plan_id") is not None:
+        return f"--project {(target or {})['project']['slug']}"
     return (
         f"--item-id {int(subject['item_id'])}"
         if subject.get("item_id") is not None
@@ -181,8 +183,8 @@ def agent_mission_dispatch_contract(
     digest = str(bundle["bundle_digest"])
     execution_id = str(bundle["execution_id"])
     subject = bundle["subject"]
-    subject_flag = _subject_flag(subject)
     execution_target = bundle.get("execution_target")
+    subject_flag = _subject_flag(subject, execution_target)
     target_digest = str(bundle.get("execution_target_digest") or "")
     environment = (
         execution_target.get("environment")

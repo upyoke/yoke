@@ -16,12 +16,13 @@ def requirement_storage_owner(conn: Any, requirement_id: int) -> dict[str, Any]:
     row = query_one(
         conn,
         "SELECT r.item_id, r.epic_id, r.task_num, r.deployment_run_id, "
-        "r.target_env, COALESCE(m.project_id,i.project_id) "
+        "r.target_env, r.standalone_execution_id, COALESCE(m.project_id,i.project_id,qp.project_id) "
         "AS project_id, p.slug AS project "
         "FROM qa_requirements r "
         "LEFT JOIN items i ON i.id=r.item_id "
         "LEFT JOIN items m ON m.id=r.deployment_member_item_id "
-        "LEFT JOIN projects p ON p.id=COALESCE(m.project_id,i.project_id) "
+        "LEFT JOIN qa_plans qp ON qp.id=r.plan_id "
+        "LEFT JOIN projects p ON p.id=COALESCE(m.project_id,i.project_id,qp.project_id) "
         f"WHERE r.id = {marker}",
         (int(requirement_id),),
     )

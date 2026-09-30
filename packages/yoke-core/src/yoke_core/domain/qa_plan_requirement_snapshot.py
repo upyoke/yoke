@@ -130,6 +130,7 @@ def insert_requirement(
     conn: Any,
     *,
     item_id: Optional[int] = None,
+    standalone_execution_id: Optional[str] = None,
     deployment_run_id: Optional[str] = None,
     deployment_stage: Optional[str] = None,
     deployment_member_item_id: Optional[int] = None,
@@ -155,6 +156,7 @@ def insert_requirement(
     )
     require_case_target(case_target_subject(case, definition), execution_target)
     subject = {
+        "standalone_execution_id": standalone_execution_id,
         "item_id": item_id,
         "deployment_run_id": deployment_run_id,
         "deployment_stage": deployment_stage,

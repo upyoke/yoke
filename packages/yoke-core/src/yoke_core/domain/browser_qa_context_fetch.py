@@ -44,6 +44,12 @@ def _fetch_browser_context(
             deployment_run_id=str(deployment_run_id),
             project_id=project,
         )
+    elif item_id is None:
+        target = TargetRef(
+            kind="qa_requirement",
+            qa_requirement_id=int(requirement_id),
+            project_id=project,
+        )
     else:
         try:
             target = TargetRef(kind="item", item_id=int(item_id))

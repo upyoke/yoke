@@ -51,7 +51,7 @@ def _case_result(
     row = query_one(
         conn,
         "SELECT q.id AS requirement_id, q.host_baseline, "
-        "q.deployment_run_id, q.waived_at, "
+        "q.deployment_run_id, q.standalone_execution_id, q.waived_at, "
         "r.id AS run_id, r.performed_by, r.verdict, r.verdict_reason, "
         "r.execution_status, "
         "r.case_outcome, r.raw_result, "
@@ -109,6 +109,7 @@ def _case_result(
         "requirement_id": int(row["requirement_id"]),
         "run_id": int(row["run_id"]) if row["run_id"] is not None else None,
         "deployment_run_id": row["deployment_run_id"],
+        "standalone_execution_id": row["standalone_execution_id"],
         "host_baseline": row["host_baseline"],
         "outcome": _outcome(row),
         "capture_degraded_reason": row["capture_degraded_reason"],

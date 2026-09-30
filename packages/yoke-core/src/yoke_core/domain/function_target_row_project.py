@@ -202,7 +202,8 @@ def resolve_qa_requirement_project(
             "FROM qa_requirements q "
             "LEFT JOIN items i ON i.id = COALESCE(q.item_id, q.epic_id) "
             "LEFT JOIN deployment_runs dr ON dr.id = q.deployment_run_id "
-            "JOIN projects p ON p.id = COALESCE(i.project_id, dr.project_id) "
+            "LEFT JOIN qa_plans qp ON qp.id = q.plan_id "
+            "JOIN projects p ON p.id = COALESCE(i.project_id, dr.project_id, qp.project_id) "
             f"WHERE q.id = {p}",
             (qa_requirement_id,),
         ).fetchone()
