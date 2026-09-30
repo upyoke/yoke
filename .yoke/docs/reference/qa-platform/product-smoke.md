@@ -20,7 +20,8 @@ the harness's denial wire format, and affirmative allow/deny evaluation receipts
 from nonempty chains without timeouts. A zero CLI exit alone cannot pass.
 Missing diagnostic telemetry means insufficient proof, not proof of a product
 fault. It then runs `yoke dev setup --editable-install` and a small
-`yoke watch pytest --local` subset. The local cluster is stopped in cleanup.
+`yoke watch pytest --local` subset. Cleanup uninstalls macOS's disposable local
+relay before stopping the local cluster and removing its scratch directory.
 
 Run through `qa.plan_execution.begin` using the standalone adapter:
 
@@ -40,12 +41,15 @@ command startup errors, and hook assertions. Onboarding's initialization
 diagnostics go to stderr so its `--json` stdout remains one JSON document.
 Local relay discovery preserves a virtualenv interpreter's directory when
 finding its installed `yoke` console script, even when Python is a symlink.
+Fresh local setup records the actor returned by universe birth after writing
+the local connection, so every installed harness can register against it.
 
 Read `yoke qa plan get product-smoke --project yoke --full` for the saved case
 and evidence. Each job uploads `product-smoke-evidence`: `report.json`, session
 and evaluation reads, exact command captures, and failure diagnostics.
-No hosted Yoke token, harness account, provider secret, or relay supervisor
-is needed by the smoke jobs. Harness login happens only when refreshing fixtures.
+No hosted Yoke token, harness account, provider secret, or preinstalled relay
+supervisor is needed by the smoke jobs. macOS onboarding installs its own
+local relay. Harness login happens only when refreshing fixtures.
 Self-host bring-up and relay supervision are separate checks.
 
 ## Refresh native recordings

@@ -112,10 +112,11 @@ def observed_runner() -> dict[str, str]:
 
 
 def smoke(root: Path, output: Path) -> None:
-    report = {"ok": False, "runner": observed_runner()}
+    report = {"ok": False}
     report_path = output / "report.json"
     commands = None
     try:
+        report["runner"] = observed_runner()
         expected = {
             "os": os.environ.get("SMOKE_EXPECTED_OS"),
             "architecture": os.environ.get("SMOKE_EXPECTED_ARCHITECTURE"),
@@ -253,12 +254,29 @@ def smoke(root: Path, output: Path) -> None:
                 )
                 report["ok"] = True
             except Exception as exc:
-                if isinstance(exc, SmokeFailure) and "step=" in str(exc):
-                    raise
-                raise commands.failure("smoke_assertion_failed", str(exc)) from exc
+                failure = (
+                    exc
+                    if isinstance(exc, SmokeFailure) and "step=" in str(exc)
+                    else commands.failure("smoke_assertion_failed", str(exc))
+                )
+                try:
+                    commands.run(
+                        "failure-events",
+                        [yoke, "events", "query", "--limit", "50", "--json"],
+                        cwd=project,
+                    )
+                except SmokeFailure:
+                    pass  # The diagnostic capture cannot replace the primary failure.
+                raise failure from exc
             finally:
                 primary_failure = sys.exc_info()[0] is not None
                 try:
+                    if sys.platform == "darwin":
+                        commands.run(
+                            "uninstall-local-relay",
+                            [yoke, "relay", "uninstall", "--json"],
+                            cwd=project,
+                        )
                     commands.run(
                         "stop-local-postgres",
                         [yoke, "postgres", "stop", "--json"],
