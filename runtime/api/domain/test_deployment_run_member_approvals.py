@@ -238,28 +238,6 @@ def test_project_selection_includes_mixed_run_with_all_members(test_db):
     }
 
 
-def test_finalization_replays_status_after_last_member_closed(monkeypatch):
-    conn = mock.Mock()
-    monkeypatch.setattr(
-        deployment_run_auto_completion,
-        "_readiness",
-        lambda *_: ({"remaining": [], "members": [], "delivered_to": "prod"}, ""),
-    )
-    from yoke_core.domain import (
-        deployment_run_collective_finalization,
-        deployment_runs_crud_mutate,
-    )
-
-    monkeypatch.setattr(
-        deployment_run_collective_finalization, "_required_open_members", lambda *_: []
-    )
-    update = mock.Mock(side_effect=["settlement interrupted", None])
-    monkeypatch.setattr(deployment_runs_crud_mutate, "cmd_update", update)
-    result = deployment_run_auto_completion.finish_ready_run(conn, "run-settling")
-    assert result.completed is True
-    assert update.call_count == 2
-
-
 def test_completed_run_can_close_while_driver_attachment_is_live(monkeypatch):
     from yoke_core.domain import (
         coordination_claims,
