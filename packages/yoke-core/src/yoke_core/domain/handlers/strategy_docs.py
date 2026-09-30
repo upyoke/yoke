@@ -70,7 +70,9 @@ def _bad_request(message: str, *, jsonpath: str = "$.payload") -> HandlerOutcome
         result_payload={},
         primary_success=False,
         error=FunctionError(
-            code="invalid_payload", message=message, jsonpath=jsonpath,
+            code="invalid_payload",
+            message=message,
+            jsonpath=jsonpath,
         ),
     )
 
@@ -110,7 +112,9 @@ def handle_doc_list(request: FunctionCallRequest) -> HandlerOutcome:
         docs = _docs.list_docs(conn, project.id)
     return HandlerOutcome(
         result_payload=DocListResponse(
-            project_id=project.id, project_slug=project.slug, docs=docs,
+            project_id=project.id,
+            project_slug=project.slug,
+            docs=docs,
         ).model_dump(),
         primary_success=True,
     )
@@ -134,7 +138,9 @@ def handle_doc_get(request: FunctionCallRequest) -> HandlerOutcome:
             return _err("doc_not_seeded", str(exc))
     return HandlerOutcome(
         result_payload=DocGetResponse(
-            project_id=project.id, project_slug=project.slug, **doc,
+            project_id=project.id,
+            project_slug=project.slug,
+            **doc,
         ).model_dump(),
         primary_success=True,
     )
@@ -146,7 +152,11 @@ def _numeric_actor_id(value: Any) -> Optional[int]:
 
 
 def emit_doc_replaced(
-    *, session_id: str, project: Any, result: Dict[str, Any], source: str,
+    *,
+    session_id: str,
+    project: Any,
+    result: Dict[str, Any],
+    source: str,
 ) -> None:
     """Telemetry after the durable write; best-effort (the row is
     authoritative)."""
@@ -210,7 +220,9 @@ def handle_render(request: FunctionCallRequest) -> HandlerOutcome:
         except _docs.StrategyDocMissingError as exc:
             return _err("doc_not_seeded", str(exc))
     response = RenderResponse(
-        project_id=project.id, project_slug=project.slug, docs=files,
+        project_id=project.id,
+        project_slug=project.slug,
+        docs=files,
     )
     return HandlerOutcome(
         result_payload=response.model_dump(exclude_none=True),
@@ -253,6 +265,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "request_model": DocReplaceRequest,
         "response_model": DocReplaceResponse,
         "stability": "stable",
+        "minimum_serving_version": "next-release",
         "owner_module": "yoke_core.domain.handlers.strategy_docs",
         "target_kinds": ["global"],
         "side_effects": ["db_write", "event_emit"],

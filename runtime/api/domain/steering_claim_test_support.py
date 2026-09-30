@@ -26,7 +26,15 @@ def seed_project(conn: Any, project_id: int, slug: str) -> None:
 
 
 def seed_strategy_doc(conn: Any, project_id: int, slug: str) -> None:
-    create_doc(conn, project_id, slug, f"# {slug}\n", actor_id=2)
+    create_doc(
+        conn,
+        project_id,
+        slug,
+        f"# {slug}\n",
+        actor_id=2,
+        summary="Strategy document.",
+        state="draft",
+    )
 
 
 def seed_session(conn: Any, session_id: str, project_id: int) -> None:

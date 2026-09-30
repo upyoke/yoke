@@ -20,6 +20,7 @@ from yoke_core.domain.strategy_docs_create import create_doc
 from yoke_core.domain.strategy_docs_header import content_sha256
 from yoke_core.domain.strategy_docs_schema import STRATEGY_DOC_REVISIONS_TABLE
 from runtime.api.domain.strategy_docs_test_helpers import (
+    card_document,
     PROJECT_A,
     PROJECT_B,
     SEED_CONTENT,
@@ -56,7 +57,11 @@ class TestReplace:
         try:
             seed_docs(conn)
             result = sd.replace_doc(
-                conn, PROJECT_A, "MISSION", new_content, 42,
+                conn,
+                PROJECT_A,
+                "MISSION",
+                new_content,
+                42,
                 base_updated_at=SEED_UPDATED_AT,
             )
             (rev,) = fetch_revisions(conn, PROJECT_A, "MISSION")
@@ -77,16 +82,28 @@ class TestReplace:
             insert_doc(conn, PROJECT_B, "PAD", "# B PAD\n\nproject B body.\n")
             conn.commit()
             first = sd.replace_doc(
-                conn, PROJECT_A, "PAD", SEED_CONTENT["PAD"] + "Edit one.\n",
-                None, base_updated_at=SEED_UPDATED_AT,
+                conn,
+                PROJECT_A,
+                "PAD",
+                SEED_CONTENT["PAD"] + "Edit one.\n",
+                None,
+                base_updated_at=SEED_UPDATED_AT,
             )
             sd.replace_doc(
-                conn, PROJECT_A, "PAD", SEED_CONTENT["PAD"] + "Edit two.\n",
-                None, base_updated_at=first["updated_at"],
+                conn,
+                PROJECT_A,
+                "PAD",
+                SEED_CONTENT["PAD"] + "Edit two.\n",
+                None,
+                base_updated_at=first["updated_at"],
             )
             sd.replace_doc(
-                conn, PROJECT_B, "PAD", "# B PAD\n\nproject B rewrite.\n",
-                None, base_updated_at=SEED_UPDATED_AT,
+                conn,
+                PROJECT_B,
+                "PAD",
+                card_document("# B PAD\n\nproject B rewrite.\n"),
+                None,
+                base_updated_at=SEED_UPDATED_AT,
             )
             a_revs = fetch_revisions(conn, PROJECT_A, "PAD")
             b_revs = fetch_revisions(conn, PROJECT_B, "PAD")
@@ -106,16 +123,23 @@ class TestReplace:
             seed_docs(conn)
             with pytest.raises(sd.StrategyDocConflictError):
                 sd.replace_doc(
-                    conn, PROJECT_A, "MISSION",
+                    conn,
+                    PROJECT_A,
+                    "MISSION",
                     SEED_CONTENT["MISSION"] + "Stale-base edit.\n",
-                    None, base_updated_at="2020-01-01T00:00:00Z",
+                    None,
+                    base_updated_at="2020-01-01T00:00:00Z",
                 )
             conn.rollback()
             # No-op write (identical content, fresh base) is not a content
             # write either.
             sd.replace_doc(
-                conn, PROJECT_A, "MISSION", SEED_CONTENT["MISSION"],
-                None, base_updated_at=SEED_UPDATED_AT,
+                conn,
+                PROJECT_A,
+                "MISSION",
+                SEED_CONTENT["MISSION"],
+                None,
+                base_updated_at=SEED_UPDATED_AT,
             )
             revs = fetch_revisions(conn, PROJECT_A, "MISSION")
         finally:
@@ -139,7 +163,16 @@ class TestCreate:
         conn = connect_test_db(tmp_db)
         try:
             seed_docs(conn)
-            result = create_doc(conn, PROJECT_A, "PLAYBOOK", content, 7)
+            result = create_doc(
+                conn,
+                PROJECT_A,
+                "PLAYBOOK",
+                content,
+                7,
+                summary="Seeded strategy document.",
+                state="draft",
+            )
+            content = card_document(content)
             (rev,) = fetch_revisions(conn, PROJECT_A, "PLAYBOOK")
         finally:
             conn.close()
@@ -164,20 +197,26 @@ class TestIngest:
         return root
 
     def test_written_doc_gains_revision(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         new_body = SEED_CONTENT["VISION"] + "Sharper vision.\n"
         edit_body(checkout, "VISION", new_body)
         conn = connect_test_db(tmp_db)
         try:
             plans = ing.plan_ingest(
-                conn, project_id=PROJECT_A,
+                conn,
+                project_id=PROJECT_A,
                 files=ing.read_ingest_files(checkout, ["VISION", "MISSION"]),
             )
             results = {
                 r["slug"]: r
                 for r in ing.execute_ingest(
-                    conn, plans, project_id=PROJECT_A, actor_id=9,
+                    conn,
+                    plans,
+                    project_id=PROJECT_A,
+                    actor_id=9,
                 )
             }
             (rev,) = fetch_revisions(conn, PROJECT_A, "VISION")
@@ -196,18 +235,24 @@ class TestIngest:
         assert unchanged_revs == []
 
     def test_conflict_records_nothing(
-        self, tmp_db: str, checkout: Path,
+        self,
+        tmp_db: str,
+        checkout: Path,
     ) -> None:
         edit_body(checkout, "PAD", SEED_CONTENT["PAD"] + "Local edit.\n")
         bump_db_row(tmp_db, "PAD")
         conn = connect_test_db(tmp_db)
         try:
             plans = ing.plan_ingest(
-                conn, project_id=PROJECT_A,
+                conn,
+                project_id=PROJECT_A,
                 files=ing.read_ingest_files(checkout, ["PAD"]),
             )
             (result,) = ing.execute_ingest(
-                conn, plans, project_id=PROJECT_A, actor_id=None,
+                conn,
+                plans,
+                project_id=PROJECT_A,
+                actor_id=None,
             )
             revs = fetch_revisions(conn, PROJECT_A, "PAD")
         finally:

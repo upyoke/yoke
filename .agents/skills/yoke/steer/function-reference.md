@@ -1,5 +1,7 @@
 # /yoke steer — registered operation authority
 
+Strategy document writes: create with `--summary TEXT` and `--state TEXT`, one non-empty plain-text line each. Summary is bounded by `SUMMARY_MAX_CHARS` and State by `STATE_MAX_CHARS` from `yoke_contracts.project_contract.strategy_doc_fields`; the command’s `--help` prints both current limits. Replace, section-replace, and ingest keep exactly one Summary and one State heading, with the current `(N chars max)` suffix; legacy headings normalize on save. State is free text. Revision restore accepts optional `--summary` / `--state` to repair an invalid old revision; coordination append cannot target these fields. Read the write command’s `--help` before acting.
+
 Read this when you need a steering operation's function id or exact
 adapter shape. It is a lookup, not a phase step.
 
@@ -9,7 +11,7 @@ adapter shape. It is a lookup, not a phase step.
 | `claims.steering.release` | `yoke claims steering release CLAIM_ID --reason TEXT` |
 | `claims.steering.list` | `yoke claims steering list --project P --active-only` |
 | `strategy.doc.get` | `yoke strategy doc get SLUG [--project P]` |
-| `strategy.doc.create` | `yoke strategy doc create SLUG --stdin [--project P]` |
+| `strategy.doc.create` | `yoke strategy doc create SLUG --summary TEXT --state TEXT --stdin [--project P]` |
 | `strategy.execution.link` | `yoke strategy execution link ITEM --slug SLUG --project P` |
 | `items.create` (Dash) | `yoke dash "TITLE" "INSTRUCTION" --strategy-doc SLUG --execution-instructions-considered` |
 | `items.detail.get` | `yoke items detail get PREFIX-N --json` |

@@ -10,6 +10,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_contracts.project_contract.strategy_doc_fields import (
+    insert_fields,
+    normalize_fields,
+)
+
 from yoke_core.domain import strategy_docs as sd
 from yoke_core.domain.strategy_docs_paths import strategy_view_path
 from runtime.api.fixtures.file_test_db import connect_test_db
@@ -20,8 +25,21 @@ SEED_UPDATED_AT = "2026-06-10T00:00:00Z"
 # ordering (defaults first, extras alphabetical after) is observable.
 SEED_SLUGS = ("MISSION", "VISION", "MASTER-PLAN", "LANDSCAPE", "PAD", "WISPS")
 
+
+def card_document(content: str) -> str:
+    return normalize_fields(
+        insert_fields(content, Summary="Seeded strategy document.", State="draft")[0]
+    )
+
+
 SEED_CONTENT = {
-    slug: f"# {slug}\n\nseeded body for {slug}.\nLine two.\n"
+    slug: normalize_fields(
+        insert_fields(
+            f"# {slug}\n\n## Body\n\nseeded body for {slug}.\nLine two.\n",
+            Summary="Seeded strategy document.",
+            State="draft",
+        )[0]
+    )
     for slug in SEED_SLUGS
 }
 
@@ -30,7 +48,10 @@ PROJECT_B = 2
 
 
 def insert_doc(
-    conn, project_id: int, slug: str, content: str,
+    conn,
+    project_id: int,
+    slug: str,
+    content: str,
     updated_at: str = SEED_UPDATED_AT,
 ) -> None:
     conn.execute(
@@ -63,8 +84,12 @@ def bump_db_row(tmp_db: str, slug: str, project_id: int = PROJECT_A) -> None:
             f"UPDATE {sd.STRATEGY_DOCS_TABLE} "
             "SET content = %s, updated_at = %s "
             "WHERE project_id = %s AND slug = %s",
-            (SEED_CONTENT[slug] + "\nDB moved on.\n", "2026-06-11T11:11:11Z",
-             project_id, slug),
+            (
+                SEED_CONTENT[slug] + "\nDB moved on.\n",
+                "2026-06-11T11:11:11Z",
+                project_id,
+                slug,
+            ),
         )
         conn.commit()
     finally:

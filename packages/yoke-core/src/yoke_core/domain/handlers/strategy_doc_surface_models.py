@@ -41,6 +41,8 @@ class StrategyRevisionDiffResponse(BaseModel):
 
 
 class StrategyRevisionRestoreRequest(BaseModel):
+    summary: Optional[str] = None
+    state: Optional[str] = None
     slug: str = Field(..., min_length=1)
     revision: int = Field(..., gt=0)
     base_updated_at: str = Field(..., min_length=1)

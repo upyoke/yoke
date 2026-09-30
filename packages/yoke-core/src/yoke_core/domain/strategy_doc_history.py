@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.strategy_doc_fields import (
+    StrategyDocFieldError,
+    body_without_fields,
+    insert_fields,
+    normalize_fields,
+)
 import difflib
 from typing import Any, Optional
 
@@ -58,7 +64,11 @@ def _operation_label(source_operation: str) -> str:
 
 
 def _is_title_only(slug: str, content: str) -> bool:
-    lines = [line.strip() for line in str(content).splitlines() if line.strip()]
+    lines = [
+        line.strip()
+        for line in body_without_fields(str(content)).splitlines()
+        if line.strip()
+    ]
     return lines == [f"# {slug}"]
 
 
@@ -215,6 +225,8 @@ def restore_doc_revision(
     base_updated_at: str,
     actor_id: Optional[int],
     session_id: Optional[str] = None,
+    summary: Optional[str] = None,
+    state: Optional[str] = None,
 ) -> dict[str, Any]:
     """Restore old content by appending a new immutable revision."""
     current = get_doc(conn, project_id, slug)
@@ -222,6 +234,19 @@ def restore_doc_revision(
         raise StrategyDocConflictError(replace_conflict_teaching(slug))
     snapshot = get_doc_revision(conn, project_id, slug, revision)
     content = str(snapshot["content"])
+    overrides = {
+        name: value
+        for name, value in (("Summary", summary), ("State", state))
+        if value is not None
+    }
+    if overrides:
+        content, _ = insert_fields(content, **overrides)
+    try:
+        content = normalize_fields(content)
+    except StrategyDocFieldError as exc:
+        raise StrategyDocFieldError(
+            f"Revision {revision} cannot be restored: {exc} Supply --summary / --state to repair the restored fields."
+        ) from exc
     updated_at = next_updated_at()
     marker = _marker(conn)
     cursor = conn.execute(

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.strategy_doc_fields import StrategyDocFieldError
+
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.strategy_doc_surface_models import (
     EmptyRequest,
@@ -53,6 +55,7 @@ def handle_surface_list(request: FunctionCallRequest) -> HandlerOutcome:
     if invalid:
         return invalid
     from yoke_core.domain.db_helpers import connect
+
     with connect() as conn:
         project, error = _project(conn, request)
         if error:
@@ -75,6 +78,7 @@ def handle_surface_get(request: FunctionCallRequest) -> HandlerOutcome:
     if invalid:
         return invalid
     from yoke_core.domain.db_helpers import connect
+
     with connect() as conn:
         project, error = _project(conn, request)
         if error:
@@ -98,14 +102,18 @@ def handle_revision_diff(request: FunctionCallRequest) -> HandlerOutcome:
     if invalid:
         return invalid
     from yoke_core.domain.db_helpers import connect
+
     with connect() as conn:
         project, error = _project(conn, request)
         if error:
             return error
         try:
             comparison = diff_doc_revisions(
-                conn, project.id, payload.slug,
-                payload.from_revision, payload.to_revision,
+                conn,
+                project.id,
+                payload.slug,
+                payload.from_revision,
+                payload.to_revision,
             )
         except StrategyDocRevisionMissingError as exc:
             return _error("unknown_revision", str(exc))
@@ -124,6 +132,7 @@ def handle_revision_restore(request: FunctionCallRequest) -> HandlerOutcome:
     if invalid:
         return invalid
     from yoke_core.domain.db_helpers import connect
+
     with connect() as conn:
         project, error = _project(conn, request)
         if error:
@@ -133,11 +142,18 @@ def handle_revision_restore(request: FunctionCallRequest) -> HandlerOutcome:
             return denied
         try:
             result = restore_doc_revision(
-                conn, project.id, payload.slug, payload.revision,
+                conn,
+                project.id,
+                payload.slug,
+                payload.revision,
                 base_updated_at=payload.base_updated_at,
                 actor_id=_actor_id(request),
                 session_id=str(request.actor.session_id or "") or None,
+                summary=payload.summary,
+                state=payload.state,
             )
+        except StrategyDocFieldError as exc:
+            return _error("invalid_strategy_fields", str(exc))
         except StrategyDocRevisionMissingError as exc:
             return _error("unknown_revision", str(exc))
         except StrategyDocConflictError as exc:
@@ -145,7 +161,9 @@ def handle_revision_restore(request: FunctionCallRequest) -> HandlerOutcome:
     _emit(REVISION_RESTORED_EVENT, request, project.slug, result)
     return HandlerOutcome(
         result_payload=StrategyRevisionRestoreResponse(
-            project_id=project.id, project_slug=project.slug, result=result,
+            project_id=project.id,
+            project_slug=project.slug,
+            result=result,
         ).model_dump(),
         primary_success=True,
     )
@@ -156,6 +174,7 @@ def handle_parent_set(request: FunctionCallRequest) -> HandlerOutcome:
     if invalid:
         return invalid
     from yoke_core.domain.db_helpers import connect
+
     with connect() as conn:
         project, error = _project(conn, request)
         if error:
@@ -174,7 +193,9 @@ def handle_parent_set(request: FunctionCallRequest) -> HandlerOutcome:
             return _error("invalid_parent", str(exc))
     return HandlerOutcome(
         result_payload=StrategyParentSetResponse(
-            project_id=project.id, project_slug=project.slug, result=result,
+            project_id=project.id,
+            project_slug=project.slug,
+            result=result,
         ).model_dump(),
         primary_success=True,
     )
@@ -189,6 +210,7 @@ def handle_coordination_append(
     if not request.actor.session_id:
         return _error("actor_required", "actor.session_id is required")
     from yoke_core.domain.db_helpers import connect
+
     with connect() as conn:
         project, error = _project(conn, request)
         if error:
@@ -210,7 +232,9 @@ def handle_coordination_append(
     _emit(COORDINATION_APPENDED_EVENT, request, project.slug, result)
     return HandlerOutcome(
         result_payload=StrategyCoordinationAppendResponse(
-            project_id=project.id, project_slug=project.slug, result=result,
+            project_id=project.id,
+            project_slug=project.slug,
+            result=result,
         ).model_dump(),
         primary_success=True,
     )

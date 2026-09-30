@@ -118,7 +118,15 @@ def _seed_strategy_doc(
 ) -> None:
     from yoke_core.domain.strategy_docs_create import create_doc
 
-    create_doc(conn, project_id, slug, content, actor_id=None)
+    create_doc(
+        conn,
+        project_id,
+        slug,
+        content,
+        actor_id=None,
+        summary="Strategy document.",
+        state="draft",
+    )
 
 
 def _link_item_strategy(

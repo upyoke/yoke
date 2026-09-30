@@ -8,6 +8,7 @@ shared seeds live in ``_strategy_docs_test_helpers.py``.
 from __future__ import annotations
 
 from pathlib import Path
+from runtime.api.domain.strategy_docs_test_helpers import card_document
 from unittest.mock import patch
 
 import pytest
@@ -53,8 +54,11 @@ class TestDocReplaceGuards:
         outcome = handlers.handle_doc_replace(
             build_request(
                 "strategy.doc.replace",
-                {"slug": "../escape", "content": "# long enough body here\n",
-                 "base_updated_at": SEED_UPDATED_AT},
+                {
+                    "slug": "../escape",
+                    "content": "# long enough body here\n",
+                    "base_updated_at": SEED_UPDATED_AT,
+                },
                 session_id=SESSION_WITH_CLAIM,
             )
         )
@@ -65,8 +69,11 @@ class TestDocReplaceGuards:
         outcome = handlers.handle_doc_replace(
             build_request(
                 "strategy.doc.replace",
-                {"slug": "NOT-A-DOC", "content": "# long enough body here\n",
-                 "base_updated_at": SEED_UPDATED_AT},
+                {
+                    "slug": "NOT-A-DOC",
+                    "content": card_document("# long enough body here\n"),
+                    "base_updated_at": SEED_UPDATED_AT,
+                },
                 session_id=SESSION_WITH_CLAIM,
             )
         )
@@ -77,8 +84,11 @@ class TestDocReplaceGuards:
         outcome = handlers.handle_doc_replace(
             build_request(
                 "strategy.doc.replace",
-                {"slug": "MISSION", "content": "  \n",
-                 "base_updated_at": SEED_UPDATED_AT},
+                {
+                    "slug": "MISSION",
+                    "content": "  \n",
+                    "base_updated_at": SEED_UPDATED_AT,
+                },
                 session_id=SESSION_WITH_CLAIM,
             )
         )
@@ -88,16 +98,23 @@ class TestDocReplaceGuards:
         self._claimed(tmp_db)
         new_content = SEED_CONTENT["MISSION"] + "\nRendered-file edit.\n"
         rendered_content = render_file_text(
-            "MISSION", SEED_UPDATED_AT, new_content,
+            "MISSION",
+            SEED_UPDATED_AT,
+            new_content,
         )
         with patch.object(
-            handlers._events, "emit_event", return_value=ok_emit(),
+            handlers._events,
+            "emit_event",
+            return_value=ok_emit(),
         ):
             outcome = handlers.handle_doc_replace(
                 build_request(
                     "strategy.doc.replace",
-                    {"slug": "MISSION", "content": rendered_content,
-                     "base_updated_at": SEED_UPDATED_AT},
+                    {
+                        "slug": "MISSION",
+                        "content": rendered_content,
+                        "base_updated_at": SEED_UPDATED_AT,
+                    },
                     session_id=SESSION_WITH_CLAIM,
                 )
             )
@@ -117,13 +134,18 @@ class TestDocReplaceGuards:
     def test_rendered_file_for_other_slug_code(self, tmp_db: str) -> None:
         self._claimed(tmp_db)
         rendered_content = render_file_text(
-            "VISION", SEED_UPDATED_AT, SEED_CONTENT["VISION"],
+            "VISION",
+            SEED_UPDATED_AT,
+            SEED_CONTENT["VISION"],
         )
         outcome = handlers.handle_doc_replace(
             build_request(
                 "strategy.doc.replace",
-                {"slug": "MISSION", "content": rendered_content,
-                 "base_updated_at": SEED_UPDATED_AT},
+                {
+                    "slug": "MISSION",
+                    "content": rendered_content,
+                    "base_updated_at": SEED_UPDATED_AT,
+                },
                 session_id=SESSION_WITH_CLAIM,
             )
         )
@@ -133,24 +155,42 @@ class TestDocReplaceGuards:
 
     def test_shrink_guard_code_and_force_bypass(self, tmp_db: str) -> None:
         self._claimed(tmp_db)
+        conn = connect_test_db(tmp_db)
+        try:
+            conn.execute(
+                "UPDATE strategy_docs SET content = content || %s WHERE project_id = %s AND slug = %s",
+                ("large body\n" * 100, PROJECT_ID, "MISSION"),
+            )
+            conn.commit()
+        finally:
+            conn.close()
         denied = handlers.handle_doc_replace(
             build_request(
                 "strategy.doc.replace",
-                {"slug": "MISSION", "content": "# tiny\n",
-                 "base_updated_at": SEED_UPDATED_AT},
+                {
+                    "slug": "MISSION",
+                    "content": card_document("# tiny\n"),
+                    "base_updated_at": SEED_UPDATED_AT,
+                },
                 session_id=SESSION_WITH_CLAIM,
             )
         )
         assert denied.error.code == "shrink_guard_refused"
 
         with patch.object(
-            handlers._events, "emit_event", return_value=ok_emit(),
+            handlers._events,
+            "emit_event",
+            return_value=ok_emit(),
         ):
             forced = handlers.handle_doc_replace(
                 build_request(
                     "strategy.doc.replace",
-                    {"slug": "MISSION", "content": "# tiny\n", "force": True,
-                     "base_updated_at": SEED_UPDATED_AT},
+                    {
+                        "slug": "MISSION",
+                        "content": card_document("# tiny\n"),
+                        "force": True,
+                        "base_updated_at": SEED_UPDATED_AT,
+                    },
                     session_id=SESSION_WITH_CLAIM,
                 )
             )
@@ -159,14 +199,18 @@ class TestDocReplaceGuards:
     def test_stale_base_conflict_code(self, tmp_db: str) -> None:
         self._claimed(tmp_db)
         with patch.object(
-            handlers._events, "emit_event", return_value=ok_emit(),
+            handlers._events,
+            "emit_event",
+            return_value=ok_emit(),
         ):
             first = handlers.handle_doc_replace(
                 build_request(
                     "strategy.doc.replace",
-                    {"slug": "MISSION",
-                     "content": SEED_CONTENT["MISSION"] + "first\n",
-                     "base_updated_at": SEED_UPDATED_AT},
+                    {
+                        "slug": "MISSION",
+                        "content": SEED_CONTENT["MISSION"] + "first\n",
+                        "base_updated_at": SEED_UPDATED_AT,
+                    },
                     session_id=SESSION_WITH_CLAIM,
                 )
             )
@@ -174,9 +218,11 @@ class TestDocReplaceGuards:
         stale = handlers.handle_doc_replace(
             build_request(
                 "strategy.doc.replace",
-                {"slug": "MISSION",
-                 "content": SEED_CONTENT["MISSION"] + "second\n",
-                 "base_updated_at": SEED_UPDATED_AT},
+                {
+                    "slug": "MISSION",
+                    "content": SEED_CONTENT["MISSION"] + "second\n",
+                    "base_updated_at": SEED_UPDATED_AT,
+                },
                 session_id=SESSION_WITH_CLAIM,
             )
         )
@@ -193,7 +239,9 @@ class TestRender:
         assert "seed-defaults" in outcome.error.message
 
     def test_render_returns_file_texts_client_writes(
-        self, tmp_db: str, tmp_path: Path,
+        self,
+        tmp_db: str,
+        tmp_path: Path,
     ) -> None:
         conn = connect_test_db(tmp_db)
         try:
@@ -201,9 +249,7 @@ class TestRender:
         finally:
             conn.close()
 
-        outcome = handlers.handle_render(
-            build_request("strategy.render.run", {})
-        )
+        outcome = handlers.handle_render(build_request("strategy.render.run", {}))
 
         assert outcome.primary_success is True
         assert outcome.result_payload["project_id"] == PROJECT_ID
@@ -223,9 +269,7 @@ class TestRender:
         report = write_rendered_files(target_root, docs)
         assert report == {slug: "written" for slug in SEED_SLUGS}
         parsed = parse_file_text(
-            strategy_view_path(target_root, "MISSION").read_text(
-                encoding="utf-8"
-            )
+            strategy_view_path(target_root, "MISSION").read_text(encoding="utf-8")
         )
         assert parsed.slug == "MISSION"
         assert parsed.body == SEED_CONTENT["MISSION"]

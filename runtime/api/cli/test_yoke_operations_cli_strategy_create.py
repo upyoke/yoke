@@ -47,13 +47,9 @@ def _run(
             "yoke_core.domain.yoke_function_dispatch.dispatch",
             side_effect=_stub_ok,
         ):
-            with patch(
-                "yoke_cli.commands._helpers."
-                "ensure_handlers_loaded"
-            ):
+            with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
                 with patch("sys.stdin", io.StringIO(stdin_text or "")):
-                    with redirect_stdout(io.StringIO()), \
-                            redirect_stderr(io.StringIO()):
+                    with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                         return cli_main(list(argv))
 
 
@@ -63,35 +59,57 @@ class TestDocCreate:
         content_file.write_text("# OPERATIONS NOTES\n\nBody.\n", encoding="utf-8")
 
         rc = _run(
-            "strategy", "doc", "create", "OPERATIONS-NOTES",
-            "--content-file", str(content_file),
-            "--target-root", str(tmp_path),
+            "strategy",
+            "doc",
+            "create",
+            "OPERATIONS-NOTES",
+            "--summary",
+            "Operations guide.",
+            "--state",
+            "draft",
+            "--content-file",
+            str(content_file),
+            "--target-root",
+            str(tmp_path),
         )
 
         assert rc == 0
         assert [r.function for r in _CAPTURED_REQUESTS] == [
-            "strategy.doc.create", "strategy.render.run",
+            "strategy.doc.create",
+            "strategy.render.run",
         ]
         req = _CAPTURED_REQUESTS[0]
         assert req.target.kind == "global"
         assert req.payload == {
             "slug": "OPERATIONS-NOTES",
+            "summary": "Operations guide.",
+            "state": "draft",
             "content": "# OPERATIONS NOTES\n\nBody.\n",
         }
         assert _CAPTURED_REQUESTS[1].payload == {"slugs": ["OPERATIONS-NOTES"]}
 
     def test_dispatches_with_stdin(self, tmp_path: Path) -> None:
         rc = _run(
-            "strategy", "doc", "create", "OPERATIONS-NOTES",
+            "strategy",
+            "doc",
+            "create",
+            "OPERATIONS-NOTES",
+            "--summary",
+            "Operations guide.",
+            "--state",
+            "draft",
             "--stdin",
-            "--target-root", str(tmp_path),
+            "--target-root",
+            str(tmp_path),
             stdin_text="# From stdin\n",
         )
         assert rc == 0
         assert _CAPTURED_REQUESTS[0].payload["content"] == "# From stdin\n"
 
     def test_writes_full_render_after_success(
-        self, tmp_path: Path, capsys,
+        self,
+        tmp_path: Path,
+        capsys,
     ) -> None:
         def _stub(request: FunctionCallRequest) -> FunctionCallResponse:
             _CAPTURED_REQUESTS.append(request)
@@ -109,8 +127,10 @@ class TestDocCreate:
                     ],
                 }
             return FunctionCallResponse(
-                success=True, function=request.function,
-                version=request.version, request_id=request.request_id,
+                success=True,
+                function=request.function,
+                version=request.version,
+                request_id=request.request_id,
                 result=result,
             )
 
@@ -120,15 +140,23 @@ class TestDocCreate:
                 "yoke_core.domain.yoke_function_dispatch.dispatch",
                 side_effect=_stub,
             ):
-                with patch(
-                    "yoke_cli.commands._helpers."
-                    "ensure_handlers_loaded"
-                ):
-                    rc = cli_main([
-                        "strategy", "doc", "create", "OPERATIONS-NOTES",
-                        "--content", "# Operations\n",
-                        "--target-root", str(tmp_path),
-                    ])
+                with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
+                    rc = cli_main(
+                        [
+                            "strategy",
+                            "doc",
+                            "create",
+                            "OPERATIONS-NOTES",
+                            "--summary",
+                            "Operations guide.",
+                            "--state",
+                            "draft",
+                            "--content",
+                            "# Operations\n",
+                            "--target-root",
+                            str(tmp_path),
+                        ]
+                    )
         assert rc == 0
         rendered = tmp_path / ".yoke" / "strategy" / "OPERATIONS-NOTES.md"
         assert rendered.read_text(encoding="utf-8") == (
@@ -138,13 +166,20 @@ class TestDocCreate:
 
     def test_unresolvable_anchor_skips_render_after_create(self) -> None:
         with patch(
-            "yoke_cli.commands.adapters.strategy_create."
-            "resolve_target_root_for_cli",
+            "yoke_cli.commands.adapters.strategy_create.resolve_target_root_for_cli",
             side_effect=RuntimeError("no anchor"),
         ):
             rc = _run(
-                "strategy", "doc", "create", "OPERATIONS-NOTES",
-                "--content", "# Operations\n",
+                "strategy",
+                "doc",
+                "create",
+                "OPERATIONS-NOTES",
+                "--summary",
+                "Operations guide.",
+                "--state",
+                "draft",
+                "--content",
+                "# Operations\n",
             )
         assert rc == 0
         assert [r.function for r in _CAPTURED_REQUESTS] == [

@@ -1,5 +1,7 @@
 # Onboard Step 1: Strategy Conversation
 
+Strategy document writes: create with `--summary TEXT` and `--state TEXT`, one non-empty plain-text line each. Summary is bounded by `SUMMARY_MAX_CHARS` and State by `STATE_MAX_CHARS` from `yoke_contracts.project_contract.strategy_doc_fields`; the command’s `--help` prints both current limits. Replace, section-replace, and ingest keep exactly one Summary and one State heading, with the current `(N chars max)` suffix; legacy headings normalize on save. State is free text. Revision restore accepts optional `--summary` / `--state` to repair an invalid old revision; coordination append cannot target these fields. Read the write command’s `--help` before acting.
+
 Strategy is the root: everything later — the execution profile, Packs, environments, the first work items — derives from and is justified by these docs. This step fills all five default strategy docs in one conversation: `MISSION`, `VISION`, `MASTER-PLAN`, `LANDSCAPE`, and `CURRENT-PLAN`.
 
 - **Entry:** wire-up verified; checklist run active.
@@ -108,7 +110,7 @@ yoke strategy doc replace {SLUG} --project {project} \
 Docs the operator explicitly accepts as-is (already non-placeholder) are left untouched. If `CURRENT-PLAN` unexpectedly has no row (a corpus older than the seed top-up on a control plane that has not run it), create it instead:
 
 ```bash
-yoke strategy doc create CURRENT-PLAN --project {project} --content-file {draft_path}
+yoke strategy doc create CURRENT-PLAN --summary "Near-term executable work." --state "draft" --project {project} --content-file {draft_path}
 ```
 
 After the writes, release the process claim (resolve the claim id from `yoke claims work holder-list` if needed):

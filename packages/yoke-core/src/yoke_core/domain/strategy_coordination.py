@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.strategy_doc_fields import (
+    field_name,
+    normalize_fields,
+)
 import re
 from typing import Any, Optional
 
@@ -36,25 +40,32 @@ def _append_to_markdown_section(
     span = find_section("\n".join(lines), section)
     entry_lines = entry.strip().splitlines()
     if span is None:
-        return "\n".join([
-            *lines,
-            "",
-            f"## {section}",
-            "",
-            *entry_lines,
-            "",
-        ])
+        return "\n".join(
+            [
+                *lines,
+                "",
+                f"## {section}",
+                "",
+                *entry_lines,
+                "",
+            ]
+        )
     prefix = lines[: span.body_end]
     suffix = lines[span.body_end :]
     while prefix and not prefix[-1].strip():
         prefix.pop()
-    return "\n".join([
-        *prefix,
-        "",
-        *entry_lines,
-        "",
-        *suffix,
-    ]).rstrip() + "\n"
+    return (
+        "\n".join(
+            [
+                *prefix,
+                "",
+                *entry_lines,
+                "",
+                *suffix,
+            ]
+        ).rstrip()
+        + "\n"
+    )
 
 
 def append_strategy_coordination(
@@ -69,6 +80,10 @@ def append_strategy_coordination(
 ) -> dict[str, Any]:
     """Append a log entry without granting revision authority over the plan."""
     clean_section = str(section).strip()
+    if field_name(clean_section):
+        raise ValueError(
+            "coordination append refuses Summary and State; use yoke strategy doc replace or section-replace to edit these fields."
+        )
     if clean_section not in COORDINATION_SECTIONS:
         raise ValueError(
             f"coordination section must be one of {sorted(COORDINATION_SECTIONS)}"
@@ -77,22 +92,25 @@ def append_strategy_coordination(
     if not clean_entry:
         raise ValueError("coordination entry must be non-empty")
     if any(re.match(r"^\s*#", line) for line in clean_entry.splitlines()):
-        raise ValueError(
-            "coordination entries cannot contain Markdown headings"
-        )
+        raise ValueError("coordination entries cannot contain Markdown headings")
     marker = _marker(conn)
-    row = _row(conn.execute(
-        "SELECT content, updated_at FROM strategy_docs "
-        f"WHERE project_id = {marker} AND slug = {marker} FOR UPDATE",
-        (int(project_id), slug),
-    ))
+    row = _row(
+        conn.execute(
+            "SELECT content, updated_at FROM strategy_docs "
+            f"WHERE project_id = {marker} AND slug = {marker} FOR UPDATE",
+            (int(project_id), slug),
+        )
+    )
     if row is None:
         raise StrategyDocMissingError(
             f"project {project_id} has no strategy doc {slug!r}"
         )
     content = _append_to_markdown_section(
-        str(row["content"]), clean_section, clean_entry,
+        str(row["content"]),
+        clean_section,
+        clean_entry,
     )
+    content = normalize_fields(content)
     updated_at = next_updated_at()
     conn.execute(
         f"UPDATE {STRATEGY_DOCS_TABLE} "
@@ -128,11 +146,7 @@ def _blitz_completion_section(content: str) -> str:
     level = 0
     for index, line in enumerate(lines):
         match = heading_pattern.match(line)
-        if (
-            match
-            and match.group(2).strip().casefold()
-            in _COMPLETION_SECTION_TITLES
-        ):
+        if match and match.group(2).strip().casefold() in _COMPLETION_SECTION_TITLES:
             start = index + 1
             level = len(match.group(1))
             break
@@ -150,13 +164,15 @@ def _blitz_completion_section(content: str) -> str:
 def blitz_completion_evidence(conn: Any, item_id: int) -> dict[str, Any]:
     """Derive the document-owned evidence needed to close a Blitz."""
     marker = _marker(conn)
-    row = _row(conn.execute(
-        "SELECT d.slug, d.content FROM item_strategy_docs l "
-        "JOIN strategy_docs d ON d.project_id = l.project_id "
-        "AND d.slug = l.strategy_doc_slug "
-        f"WHERE l.item_id = {marker}",
-        (int(item_id),),
-    ))
+    row = _row(
+        conn.execute(
+            "SELECT d.slug, d.content FROM item_strategy_docs l "
+            "JOIN strategy_docs d ON d.project_id = l.project_id "
+            "AND d.slug = l.strategy_doc_slug "
+            f"WHERE l.item_id = {marker}",
+            (int(item_id),),
+        )
+    )
     if row is None:
         return {
             "item_id": int(item_id),

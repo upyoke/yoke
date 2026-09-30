@@ -285,7 +285,7 @@ def test_non_holder_cannot_replace_while_coordination_append_keeps_holds(
                 conn,
                 1,
                 DOC,
-                standing + "stale overwrite\n",
+                live["content"] + "stale overwrite\n",
                 2,
                 base_updated_at="2000-01-01T00:00:00Z",
             )

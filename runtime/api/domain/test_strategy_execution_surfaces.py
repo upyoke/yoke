@@ -10,6 +10,7 @@ from runtime.api.domain.strategy_execution_test_support import (
     seed_strategy_doc as _seed_doc,
     strategy_test_database,
 )
+from runtime.api.domain.strategy_docs_test_helpers import card_document
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain import strategy_docs, strategy_docs_ingest
 from yoke_core.domain.strategy_doc_history import (
@@ -39,7 +40,7 @@ def test_history_diff_and_restore_append_new_revision(tmp_db: str) -> None:
             conn,
             1,
             "EXECUTION-PLAN",
-            "# Plan\n\nfirst\nsecond\n",
+            card_document("# Plan\n\nfirst\nsecond\n"),
             actor_id=2,
             base_updated_at=created["updated_at"],
         )
@@ -61,9 +62,13 @@ def test_history_diff_and_restore_append_new_revision(tmp_db: str) -> None:
     assert "+second" in comparison["diff"]
     assert restored["revision"] == 3
     assert [row["revision"] for row in revisions] == [3, 2, 1]
-    assert [row["line_count"] for row in revisions] == [3, 4, 3]
+    assert [row["line_count"] for row in revisions] == [
+        len(card_document("# Plan\n\nfirst\n").splitlines()),
+        len(card_document("# Plan\n\nfirst\nsecond\n").splitlines()),
+        len(card_document("# Plan\n\nfirst\n").splitlines()),
+    ]
     assert revisions[0]["source_operation"] == "restore:1"
-    assert current["content"] == "# Plan\n\nfirst\n"
+    assert current["content"] == card_document("# Plan\n\nfirst\n")
 
 
 def test_history_describes_title_only_create_and_full_plan_ingest(
@@ -71,7 +76,7 @@ def test_history_describes_title_only_create_and_full_plan_ingest(
     tmp_path: Path,
 ) -> None:
     title = "# WORKFLOW-TYPES"
-    implementation_plan = (
+    implementation_plan = card_document(
         f"{title}\n\n"
         "## Purpose\n\nBuild the workflow registry.\n\n"
         "## Decisions\n\nKeep one authority.\n"
@@ -107,7 +112,7 @@ def test_history_describes_title_only_create_and_full_plan_ingest(
     assert revisions[0]["byte_length"] == len(implementation_plan.encode("utf-8"))
     assert revisions[1]["operation_label"] == "created"
     assert revisions[1]["change_summary"] == "Initial title only"
-    assert revisions[1]["byte_length"] == 16
+    assert revisions[1]["byte_length"] == len(card_document(title).encode())
 
 
 def test_single_parent_rejects_cycles_and_surfaces_ancestry(tmp_db: str) -> None:

@@ -257,6 +257,8 @@ def test_blitz_lifecycle_claims_refuses_conflict_and_releases_terminally(
             "DIRECT-EXECUTION",
             "# Direct execution\n\n## Outcomes\nShip it.\n",
             actor_id=1,
+            summary="Strategy document.",
+            state="draft",
         )
         link_execution_document(
             conn,

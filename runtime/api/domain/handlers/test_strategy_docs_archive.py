@@ -22,6 +22,7 @@ from yoke_core.domain.handlers._strategy_docs_test_helpers import (
     seed_session,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+from runtime.api.domain.strategy_docs_test_helpers import card_document
 
 
 @pytest.fixture
@@ -56,7 +57,9 @@ class TestArchiveHandler:
         finally:
             conn.close()
 
-        with patch.object(handlers._events, "emit_event", return_value=ok_emit()) as emit:
+        with patch.object(
+            handlers._events, "emit_event", return_value=ok_emit()
+        ) as emit:
             out = handlers.handle_doc_archive(_request("strategy.doc.archive", "PAD"))
         assert out.primary_success is True
         assert out.result_payload["archived"] is True
@@ -66,8 +69,12 @@ class TestArchiveHandler:
         assert emit.call_count == 1
         assert emit.call_args.args[0] == handlers.STRATEGY_DOC_ARCHIVED_EVENT_NAME
 
-        with patch.object(handlers._events, "emit_event", return_value=ok_emit()) as emit:
-            out = handlers.handle_doc_unarchive(_request("strategy.doc.unarchive", "PAD"))
+        with patch.object(
+            handlers._events, "emit_event", return_value=ok_emit()
+        ) as emit:
+            out = handlers.handle_doc_unarchive(
+                _request("strategy.doc.unarchive", "PAD")
+            )
         assert out.result_payload["archived"] is False
         assert out.result_payload["changed"] is True
         assert _archived_at(tmp_db, "PAD") is None
@@ -82,7 +89,9 @@ class TestArchiveHandler:
 
         with patch.object(handlers._events, "emit_event", return_value=ok_emit()):
             handlers.handle_doc_archive(_request("strategy.doc.archive", "PAD"))
-        with patch.object(handlers._events, "emit_event", return_value=ok_emit()) as emit:
+        with patch.object(
+            handlers._events, "emit_event", return_value=ok_emit()
+        ) as emit:
             out = handlers.handle_doc_archive(_request("strategy.doc.archive", "PAD"))
         # A no-op flip advances nothing and emits no event.
         assert out.result_payload["changed"] is False
@@ -112,7 +121,9 @@ class TestArchiveHandler:
         # the live STRATEGIZE claim — refused.
         with patch.object(handlers._events, "emit_event", return_value=ok_emit()):
             out = handlers.handle_doc_archive(
-                _request("strategy.doc.archive", "PAD", session_id=SESSION_WITHOUT_CLAIM)
+                _request(
+                    "strategy.doc.archive", "PAD", session_id=SESSION_WITHOUT_CLAIM
+                )
             )
         assert out.primary_success is False
         assert out.error.code == "archive_blocked_by_live_process_claim"
@@ -139,7 +150,9 @@ class TestArchiveHandler:
 
 
 class TestArchivedStateSurfaces:
-    def test_set_doc_archived_and_get_doc_surface_archived_at(self, tmp_db: str) -> None:
+    def test_set_doc_archived_and_get_doc_surface_archived_at(
+        self, tmp_db: str
+    ) -> None:
         conn = connect_test_db(tmp_db)
         try:
             seed_docs(conn)
@@ -157,7 +170,9 @@ class TestArchivedStateSurfaces:
 
 class TestIngestOfArchivedDoc:
     def test_ingesting_edited_archived_doc_stays_in_archive(
-        self, tmp_db: str, tmp_path: Path,
+        self,
+        tmp_db: str,
+        tmp_path: Path,
     ) -> None:
         """Editing an archived doc's file and ingesting must re-render it back
         under archive/ — not relocate it to the active path and delete the
@@ -167,8 +182,12 @@ class TestIngestOfArchivedDoc:
         from yoke_core.domain.handlers._strategy_docs_test_helpers import (
             ingest_files_payload,
         )
-        from yoke_contracts.project_contract.strategy_docs_io import write_rendered_files
-        from yoke_contracts.project_contract.strategy_docs_paths import strategy_view_path
+        from yoke_contracts.project_contract.strategy_docs_io import (
+            write_rendered_files,
+        )
+        from yoke_contracts.project_contract.strategy_docs_paths import (
+            strategy_view_path,
+        )
 
         conn = connect_test_db(tmp_db)
         try:
@@ -186,7 +205,10 @@ class TestIngestOfArchivedDoc:
 
         # Operator edits the archived rendered file's body, then ingests it.
         first_line, _, _ = archived.read_text(encoding="utf-8").partition("\n")
-        archived.write_text(first_line + "\n# PAD\n\nEDITED archived body.\n", encoding="utf-8")
+        archived.write_text(
+            first_line + "\n" + card_document("# PAD\n\nEDITED archived body.\n"),
+            encoding="utf-8",
+        )
         payload = ingest_files_payload(root, ["PAD"])
 
         with patch.object(_events_mod, "emit_event", return_value=ok_emit()):
@@ -208,7 +230,8 @@ class TestIngestOfArchivedDoc:
 
 class TestBundleRenderUnification:
     def test_bundle_matches_render_including_updated_by_and_archive_path(
-        self, tmp_db: str,
+        self,
+        tmp_db: str,
     ) -> None:
         from yoke_core.domain.project_install_strategy import bundle_strategy_files
         from yoke_core.domain.strategy_docs_render import render_file_map
@@ -229,7 +252,10 @@ class TestBundleRenderUnification:
             conn.commit()
             sd.set_doc_archived(conn, PROJECT_ID, "PAD", archived=True)
 
-            bundle = {e["path"]: e["content"] for e in bundle_strategy_files(conn, PROJECT_ID, "yoke")}
+            bundle = {
+                e["path"]: e["content"]
+                for e in bundle_strategy_files(conn, PROJECT_ID, "yoke")
+            }
             rendered = render_file_map(conn, PROJECT_ID)
         finally:
             conn.close()

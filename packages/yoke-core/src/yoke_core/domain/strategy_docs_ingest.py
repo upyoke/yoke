@@ -25,7 +25,8 @@ handler works identically in-process and on a server with no checkout.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from yoke_contracts.project_contract.strategy_doc_fields import normalize_fields
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
@@ -147,7 +148,8 @@ def plan_ingest(
                 kind="mangled",
             )
         row = get_doc(conn, project_id, slug)
-        changed = content_sha256(header.body) != header.content_sha256
+        body = normalize_fields(header.body) if header.body.strip() else header.body
+        changed = content_sha256(body) != header.content_sha256
         if changed and not header.body.strip():
             raise EmptyStrategyDocError(
                 f"{path}: refusing to ingest empty content for strategy "
@@ -159,12 +161,12 @@ def plan_ingest(
                 path=path,
                 base_updated_at=header.updated_at,
                 db_updated_at=row["updated_at"],
-                file_body=header.body,
+                file_body=body,
                 changed=changed,
                 old_lines=_line_count(row["content"]),
-                new_lines=_line_count(header.body),
+                new_lines=_line_count(body),
                 old_bytes=len(row["content"].encode("utf-8")),
-                new_bytes=len(header.body.encode("utf-8")),
+                new_bytes=len(body.encode("utf-8")),
                 archived=row.get("archived_at") is not None,
             )
         )
@@ -197,7 +199,8 @@ def dry_run_report(plans: Sequence[IngestDocPlan]) -> List[Dict[str, Any]]:
         elif plan.stale_base:
             report.append(
                 _doc_report(
-                    plan, "conflict",
+                    plan,
+                    "conflict",
                     base_updated_at=plan.base_updated_at,
                     db_updated_at=plan.db_updated_at,
                 )
@@ -225,6 +228,19 @@ def execute_ingest(
     so a retry after recovery no-ops them).
     ``session_id`` is stored as revision provenance when present.
     """
+    # Prevalidate even a programmatically composed plan before any row writes.
+    validated = []
+    for plan in plans:
+        if plan.changed:
+            body = normalize_fields(plan.file_body)
+            plan = replace(
+                plan,
+                file_body=body,
+                new_lines=_line_count(body),
+                new_bytes=len(body.encode("utf-8")),
+            )
+        validated.append(plan)
+    plans = validated
     results: List[Dict[str, Any]] = []
     for plan in plans:
         if not plan.changed:
@@ -247,21 +263,27 @@ def execute_ingest(
         if cur.rowcount == 0:
             results.append(
                 _doc_report(
-                    plan, "conflict",
+                    plan,
+                    "conflict",
                     base_updated_at=plan.base_updated_at,
                 )
             )
             continue
         record_doc_revision(
-            conn, project_id, plan.slug, plan.file_body,
-            source_operation="ingest", actor_id=actor_id,
+            conn,
+            project_id,
+            plan.slug,
+            plan.file_body,
+            source_operation="ingest",
+            actor_id=actor_id,
             session_id=session_id,
             created_at=new_updated_at,
         )
         conn.commit()
         results.append(
             _doc_report(
-                plan, "written",
+                plan,
+                "written",
                 updated_at=new_updated_at,
                 old_bytes=plan.old_bytes,
                 new_bytes=plan.new_bytes,

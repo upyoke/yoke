@@ -6,6 +6,8 @@ argument-hint: "[--lane LANE] [--model MODEL]"
 
 # /yoke strategize
 
+Strategy document writes: create with `--summary TEXT` and `--state TEXT`, one non-empty plain-text line each. Summary is bounded by `SUMMARY_MAX_CHARS` and State by `STATE_MAX_CHARS` from `yoke_contracts.project_contract.strategy_doc_fields`; the command’s `--help` prints both current limits. Replace, section-replace, and ingest keep exactly one Summary and one State heading, with the current `(N chars max)` suffix; legacy headings normalize on save. State is free text. Revision restore accepts optional `--summary` / `--state` to repair an invalid old revision; coordination append cannot target these fields. Read the write command’s `--help` before acting.
+
 Guided interactive loop for Strategic Markdown Layer (SML) coherence. Refreshes the SML docs against recent reality, performs source-backed research, proposes changes, obtains operator approval, and records audit trail.
 
 The strategy authority is the Yoke DB `strategy_docs` table, scoped per project; the checkout's `.yoke/strategy/*.md` files are gitignored local rendered caches (the seeded `.yoke/.gitignore` `strategy/` rule keeps them out of git, so they are not tracked or committed). Reads go through `yoke strategy doc get <SLUG>`, writes through `yoke strategy doc replace <SLUG> --base-updated-at <TS>` (compare-and-swap; auto-renders the latest full strategy corpus into the checkout). The durable record of an approved change is the DB write plus the `SMLChangeApproved` event.

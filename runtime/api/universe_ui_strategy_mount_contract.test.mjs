@@ -57,6 +57,7 @@ test("strategy cards carry the corpus facts from one read", async (t) => {
                 {
                   slug: "MISSION", title: "Mission statement",
                   summary: "What this is for.",
+                  state: "Needs review",
                   updated_at: "2026-07-01", updated_by: "ben",
                   parent_slug: null, revisions: 4,
                   execution_state: "available", archived: false,
@@ -64,6 +65,7 @@ test("strategy cards carry the corpus facts from one read", async (t) => {
                 {
                   slug: "CURRENT-PLAN", title: "Current plan",
                   summary: "What is happening now.",
+                  state: "In progress",
                   updated_at: "2026-06-30", updated_by: null,
                   execution_owner_kind: "session",
                   execution_owner_session_id: "seat-1",
@@ -95,6 +97,10 @@ test("strategy cards carry the corpus facts from one read", async (t) => {
   assert.deepEqual(
     byClass(root, "strategy-doc-summary").map(ownTextContent),
     ["What this is for.", "What is happening now.", "No ## Summary heading"],
+  );
+  assert.deepEqual(
+    byClass(root, "strategy-doc-state").map(ownTextContent),
+    ["Needs review", "In progress"],
   );
   assert.deepEqual(
     byClass(root, "strategy-doc-prefix").map(ownTextContent),

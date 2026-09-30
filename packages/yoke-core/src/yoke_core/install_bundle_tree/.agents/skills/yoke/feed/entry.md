@@ -1,5 +1,7 @@
 # /yoke feed steps 1–3 — parse, claim, emit, dispatch
 
+Strategy document writes: create with `--summary TEXT` and `--state TEXT`, one non-empty plain-text line each. Summary is bounded by `SUMMARY_MAX_CHARS` and State by `STATE_MAX_CHARS` from `yoke_contracts.project_contract.strategy_doc_fields`; the command’s `--help` prints both current limits. Replace, section-replace, and ingest keep exactly one Summary and one State heading, with the current `(N chars max)` suffix; legacy headings normalize on save. State is free text. Revision restore accepts optional `--summary` / `--state` to repair an invalid old revision; coordination append cannot target these fields. Read the write command’s `--help` before acting.
+
 ## 1. Parse Arguments
 
 Extract `--no-new-items`, optional `PREFIX-N` scope IDs, `--lane`, and `--model` from the user prompt. Apply defaults:
