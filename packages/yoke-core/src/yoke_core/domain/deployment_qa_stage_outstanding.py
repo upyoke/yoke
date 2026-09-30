@@ -45,11 +45,16 @@ from yoke_core.domain.steering_fleet_report_detectors import marker
 
 @dataclass(frozen=True)
 class QaStageOutstanding:
-    """One current QA stage's subjects, and the wait lines a drive would print."""
+    """One current QA stage's subjects, and the wait lines a drive would print.
+
+    ``waiting_members`` names each subject still owed QA: a member item id on
+    an item-scoped stage, ``None`` for the run itself on a run-scoped one.
+    """
 
     lines: tuple[str, ...]
     subjects: int
     waiting: int
+    waiting_members: tuple[int | None, ...] = ()
 
 
 def qa_stage_outstanding(
@@ -113,9 +118,7 @@ def _subjects(conn: Any, run_id: str, stage: Mapping[str, Any]) -> list[int | No
             "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",
             (run_id,),
         ).fetchall()
-        return [
-            int(row["item_id"] if hasattr(row, "keys") else row[0]) for row in rows
-        ]
+        return [int(row["item_id"] if hasattr(row, "keys") else row[0]) for row in rows]
     return [None]
 
 
@@ -170,9 +173,7 @@ def _unselected_reason(
 ) -> str | None:
     admitted = member_requirements(subject, target=target)
     frozen = _frozen_plans(conn, subject, target=target)
-    if stage_names_cases(
-        conn, subject, frozen_plans=frozen, admitted=admitted
-    ):
+    if stage_names_cases(conn, subject, frozen_plans=frozen, admitted=admitted):
         return None
     if member_post_deploy_answer(conn, subject).discharges_without_cases:
         return None
@@ -225,18 +226,17 @@ def _evaluate(
             waiting=1,
         )
     lines: list[str] = []
-    waiting = 0
+    waiting_members: list[int | None] = []
     for member in members:
-        member_lines = _member_lines(
-            conn, run_id=run_id, stage=stage, member=member
-        )
+        member_lines = _member_lines(conn, run_id=run_id, stage=stage, member=member)
         if member_lines:
-            waiting += 1
+            waiting_members.append(member)
             lines.extend(member_lines)
     return QaStageOutstanding(
         lines=tuple(lines),
         subjects=len(members),
-        waiting=waiting,
+        waiting=len(waiting_members),
+        waiting_members=tuple(waiting_members),
     )
 
 

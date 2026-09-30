@@ -74,8 +74,7 @@ def test_rematerialize_refreshes_an_unanswered_deployment_case(test_db) -> None:
     )
     assert result["refreshed_requirement_ids"] == [requirement_id]
     row = test_db.execute(
-        "SELECT instructions,execution_target_digest FROM qa_requirements "
-        "WHERE id=%s",
+        "SELECT instructions,execution_target_digest FROM qa_requirements WHERE id=%s",
         (requirement_id,),
     ).fetchone()
     assert str(row["instructions"]) == "run the corrected smoke command"
@@ -170,10 +169,13 @@ def test_a_walk_refuses_a_case_its_plan_has_since_amended(test_db) -> None:
     assert f"QA requirement {requirement_id}" in message
     assert "yoke qa plan rematerialize" in message
     assert f"--deployment-run-id {run_id}" in message
-    assert test_db.execute(
-        "SELECT COUNT(*) FROM qa_plan_executions WHERE deployment_run_id=%s",
-        (run_id,),
-    ).fetchone()[0] == 0
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) FROM qa_plan_executions WHERE deployment_run_id=%s",
+            (run_id,),
+        ).fetchone()[0]
+        == 0
+    )
 
     rematerialize_for_deployment_stage(test_db, **subject)
     execution = begin_plan_execution(
@@ -218,12 +220,15 @@ def test_run_scoped_rematerialize_is_authorized_by_the_run_not_an_item_claim(
         )
     assert refusal is None
 
-    with mock.patch(
-        "yoke_core.domain.qa_deployment_function_subject.resolve_run_qa_subject",
-        return_value=(1, "yoke", MEMBER),
-    ), mock.patch(
-        "yoke_core.domain.yoke_function_dispatch_claims.who_claims_for_item",
-        return_value={"id": 5, "session_id": "another-session"},
+    with (
+        mock.patch(
+            "yoke_core.domain.qa_deployment_function_subject.resolve_run_qa_subject",
+            return_value=(1, "yoke", MEMBER),
+        ),
+        mock.patch(
+            "yoke_core.domain.yoke_function_dispatch_claims.who_claims_for_item",
+            return_value={"id": 5, "session_id": "another-session"},
+        ),
     ):
         refusal = verify_claim(
             entry,
