@@ -110,6 +110,26 @@ def test_registering_a_handler_selects_the_authorization_classification(tmp_path
     assert f"handler_registration_contract:{registrar}" in selection.telemetry()
 
 
+def test_registering_a_handler_selects_the_serving_floor_contract(tmp_path):
+    """A new function id declares its floor twice; the registry binds the pair.
+
+    The engine registration and the client-readable floor map are compared by
+    walking the live registry, so no import edge leads from a registrar to
+    that contract.
+    """
+    root = _tiny_repo(tmp_path)
+    registrar = "packages/yoke-core/src/yoke_core/domain/handlers/_register_widgets.py"
+    floor_test = "runtime/api/domain/test_yoke_function_registry.py"
+    _write(root, registrar, "def register(registry): pass\n")
+    _write(root, floor_test, "def test_engine_floors_match(): pass\n")
+
+    selection = select([registrar], build_import_index(root))
+
+    assert selection.full_sweep is False
+    assert floor_test in selection.files
+    assert f"handler_registration_contract:{registrar}" in selection.telemetry()
+
+
 def test_repo_cleanliness_floor_names_its_global_widening_trigger(tmp_path):
     root = _tiny_repo(tmp_path)
     payload = "packages/yoke-cli/src/yoke_cli/transport/control_plane_payload.py"

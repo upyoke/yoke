@@ -142,6 +142,12 @@ HANDLER_REGISTRATION_CONTRACT_TESTS = (
     # the registrar reaches the contract through the live registry rather than
     # an import edge, so reachability cannot see the pairing.
     "runtime/api/domain/test_function_authz_scope_routing.py",
+    # The same shape, one contract over: an id absent from the previous serving
+    # set declares a floor on its registration AND in the client-readable map,
+    # and the two are bound by walking the live registry. A registration that
+    # declared only the engine side passed impacted selection and failed the
+    # pull request's own required checks.
+    "runtime/api/domain/test_yoke_function_registry.py",
 )
 
 HANDLER_REGISTRATION_SOURCE_PREFIXES = (
