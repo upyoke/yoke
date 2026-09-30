@@ -200,6 +200,9 @@ def run_progress(
             unresolved = facts.unresolved.get(run_id, ())
             outstanding = len(unresolved)
             total_blocking = facts.totals.get(run_id, 0)
+        # Receipt evidence dates the current stage; the run's own start is
+        # the last resort, truthful only while nothing has produced a
+        # receipt yet — a run that has not left its first stage.
         entered = facts.entered_at.get(run_id) or str(
             run.get("started_at") or run.get("created_at") or ""
         )
