@@ -139,17 +139,17 @@ test("Done says its lifecycle once and names where the work went", async (t) => 
   assert.doesNotMatch(text, /done ·/);
   assert.match(text, /finished/);
 
-  // Real carried membership, with the run's own completion as the time.
+  // The member's environment outcome carries a separately linked run.
   const deployment = byClass(done, "item-deployment")[0];
   assert.ok(deployment);
-  assert.equal(deployment.href, "#/deployments/runs/run-0?project=1");
-  assert.match(descendantText(deployment), /succeeded/);
+  assert.equal(byClass(deployment, "item-deployment-run")[0].href,
+    "#/deployments/runs/run-0?project=1");
   assert.match(descendantText(deployment), /stage/);
-  assert.match(descendantText(deployment), /Deployed/);
+  assert.match(descendantText(deployment), /✓ deployed/);
   mounted.unmount();
 });
 
-test("Done lists where the work landed, naming a flow only when it differs", async (t) => {
+test("Done lists every environment under the item's single flow", async (t) => {
   stubFetch(t);
   const { root, mounted } = await mountAt(
     "#/frontier?project=1",
@@ -178,16 +178,15 @@ test("Done lists where the work landed, naming a flow only when it differs", asy
     }),
   );
 
-  // Both environments are where this item actually is, so the card names
-  // both — and a run shipped by a flow that is not the item's own says so.
+  // Both environments are visible beneath one selected-flow header.
   const box = byClass(band(root, "done"), "item-delivery")[0];
   assert.deepEqual(
     byClass(box, "item-deployment-run").map((node) => node.textContent),
     ["run-preview", "run-0"],
   );
   assert.deepEqual(
-    byClass(box, "item-deployment-flow").map((node) => node.textContent),
-    ["yoke-hosted-preview"],
+    byClass(box, "item-delivery-flow").map((node) => node.textContent),
+    ["yoke-hosted-stage"],
   );
   mounted.unmount();
 });

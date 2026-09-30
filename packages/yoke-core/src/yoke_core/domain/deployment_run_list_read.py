@@ -157,9 +157,10 @@ def present_deployment_runs(
         if include_item_delivery
         else {}
     )
-    for run_id, run_members in members.items():
-        for member in run_members:
-            member["item_qa"] = qa.get((run_id, int(member["id"])))
+    if include_item_delivery:
+        for run_id, run_members in members.items():
+            for member in run_members:
+                member["item_qa"] = qa.get((run_id, int(member["id"])))
     gates = run_gates(conn, run_ids, actor_id=actor_id)
     delivery_items = (
         candidate_delivery_items(conn, base) if include_item_delivery else {}
@@ -197,8 +198,7 @@ def present_deployment_runs(
                 }
             row["carried_work"] = carried
         if "bound_sources" in row:
-            # What this run pinned for every project it ships but does not
-            # own. Run detail reads the same record delivery is judged on.
+            # Pinned sources are the same record delivery is judged on.
             row["bound_sources"] = parse_bound_sources(row.get("bound_sources"))
         recorded_containment = row.pop("candidate_containment", None)
         containment = parse_candidate_containment(recorded_containment)
@@ -222,11 +222,11 @@ def present_deployment_runs(
                         "project_sequence",
                         "item_qa",
                     )
+                    if key in member
                 }
                 for member in run_members
             ]
-        # In-flight runs with no members still need a join key for the
-        # Frontier box: candidate containment, never a membership row.
+        # Candidate containment joins memberless in-flight runs to cards.
         contained: list[dict[str, Any]] = []
         if (
             str(row.get("status") or "") not in TERMINAL_RUN_STATUSES
