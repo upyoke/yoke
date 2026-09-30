@@ -164,3 +164,30 @@ def test_compose_failure_names_operation_without_exposing_output(target, monkeyp
     assert "private-input" not in str(refusal.value)
     assert "private-error" not in str(refusal.value)
     assert refusal.value.compose_output == b"private-inputprivate-error"
+
+
+@pytest.mark.parametrize("exit_code", (b"0", b"1"))
+def test_import_receipt_requires_successful_container_exit(
+    target, monkeypatch, exit_code
+):
+    monkeypatch.setattr(runtime, "bootstrap_inputs", lambda *_a: (b"password", b"{}\n"))
+    monkeypatch.setattr(runtime, "start_database", lambda *_a: None)
+    monkeypatch.setattr(runtime, "compose", lambda *_a: b"container")
+    _child(
+        monkeypatch, "import sys; sys.stdin.buffer.read(); print('receipt',flush=True)"
+    )
+    calls = []
+
+    def execute(command, **_kwargs):
+        calls.append(command[:2])
+        return subprocess.CompletedProcess(command, 0, exit_code, b"")
+
+    monkeypatch.setattr(runtime.subprocess, "run", execute)
+    if exit_code == b"0":
+        assert runtime.import_universe(target, recover=True) == b"receipt\n"
+    else:
+        with pytest.raises(
+            runtime.SelfHostRuntimeError, match="self_host_import_handoff_failed"
+        ):
+            runtime.import_universe(target, recover=True)
+    assert calls == [("docker", "wait"), ("docker", "rm")]

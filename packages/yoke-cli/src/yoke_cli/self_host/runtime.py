@@ -268,7 +268,19 @@ def import_universe(directory: Path, *, archive=None, recover: bool = False) -> 
         sender.start()
         output, _ = process.communicate(timeout=HANDOFF_TIMEOUT_SECONDS)
         sender.join(timeout=HANDOFF_TIMEOUT_SECONDS)
-        if process.returncode or errors or sender.is_alive():
+        completion = subprocess.run(
+            ("docker", "wait", name),
+            capture_output=True,
+            timeout=HANDOFF_TIMEOUT_SECONDS,
+            check=False,
+        )
+        if (
+            process.returncode
+            or errors
+            or sender.is_alive()
+            or completion.returncode
+            or completion.stdout.strip() != b"0"
+        ):
             raise _refuse("self_host_import_handoff_failed", directory)
         return output
     except (OSError, subprocess.TimeoutExpired):
