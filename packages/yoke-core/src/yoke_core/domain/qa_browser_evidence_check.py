@@ -33,6 +33,7 @@ from yoke_core.domain.qa_artifact_handle import (
     is_present,
     parse_handle,
 )
+from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
 from yoke_core.domain.qa_gate_definitions import GateResult
 from yoke_core.domain.qa_constants import (
     INVALID_BROWSER_METHOD_LABEL,
@@ -48,6 +49,10 @@ _REMEDIATION_LINES = (
     "  Re-run each named materialized case through the shared runner:",
     "       yoke qa case run --requirement-id <REQ_ID> --base-url <URL> \\",
     "         --expected-branch <BRANCH> --expected-sha <SHA>",
+    f"  <URL> must serve this project's own build, which answers at "
+    f"{SERVED_BUILD_PATH};",
+    "  a target publishing nothing there refuses as identity_proof_unavailable",
+    "  and records no run, and an uncommitted tree publishes <sha>-dirty.",
     "  For substrate diagnosis only, capture the URL without recording a",
     "  parallel QA verdict:",
     "       yoke qa browser screenshot <URL> --output <path.png>",
@@ -147,7 +152,8 @@ def check_browser_evidence_present(
         "  Browser inspection requires a captured browser_substrate artifact linked",
         "  to its completed passing agent-review verdict.",
         "  Record that review with `yoke qa run record-verdict --requirement-id <id> "
-        "--performed-by agent --verdict pass --verdict-reason TEXT` after the capture.",
+        "--performed-by agent --verdict pass --verdict-reason TEXT` after the",
+        "  capture; it resolves that capture in place and needs no --raw-result.",
         "  Do not begin a plan against hosts.app to attach a local-preview review.",
         f"  Remediation (harness skill): `/yoke advance {name} {transition_name}` runs browser QA automatically before the status change.",
         "  Remediation (terminal CLI): `yoke qa case run --requirement-id <id>` records the case; `/yoke advance` is not a CLI command.",

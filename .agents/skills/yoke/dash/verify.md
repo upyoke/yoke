@@ -117,6 +117,33 @@ An empty listing means no effective plan is attached at that transition. For
 optional Dash QA that is an honest absence; do not invent a substitute command
 or a hand-written run.
 
+A Browser case at this transition is captured against a target that serves
+**your committed candidate**, and the case pins that candidate:
+
+```text
+yoke qa case run --requirement-id <requirement-id> \
+  --base-url <candidate url> --expected-branch <lane branch> --expected-sha <lane HEAD>
+```
+
+The expected pair is checked by asking the target what it serves at
+`/served-build`, so pass a target that answers there. For this project's
+workbench that is
+`yoke dev run -- python3 -m runtime.api.tools.serve_workbench_for_review`,
+which prints a loopback URL and publishes the commit of the checkout it was
+launched from. Commit before starting it: an uncommitted tree publishes
+`<sha>-dirty` and fails the match closed. Without the expected pair the
+capture records no commit, and the merge gate refuses it as `<missing>`;
+against a target that publishes nothing the run refuses as
+`identity_proof_unavailable` and records nothing at all.
+
+Record that capture's review with one command, which resolves the capture in
+place rather than opening an identity-less run beside it:
+
+```text
+yoke qa run record-verdict --requirement-id <id> --performed-by agent \
+  --verdict pass --verdict-reason "what the screenshots showed"
+```
+
 ## Say what your deploy needs verified
 
 When the item's resolved deployment flow carries an **item-scoped QA stage**,
@@ -158,13 +185,24 @@ environment the runner exports — `BASE_URL`, plus `DEPLOYMENT_RUN_ID` and
 `DEPLOYMENT_MEMBER_REF` once the case is bound to a run and member — so never
 write a run id or a member ref into the command as a literal: it would be
 right for one release and quietly wrong for every one after. Materialize the
-attached cases before the dry run; `qa plan run` refuses an empty transition.
-Then dry-run the plan once against your own candidate, before merging, while a defect still
-costs an edit:
+attached cases so the attachment is real: `qa plan run` refuses an empty
+transition.
 
 ```text
-yoke qa plan run --item ITEM --transition release \
-  --base-url <your candidate>
+yoke qa plan materialize --item ITEM --transition release
+```
+
+**Do not try to run that plan here.** It is bound to the deployment
+environment it was attached for, and `qa plan run` refuses a `--base-url`
+outside that immutable target by name — your candidate is not that
+environment until the release deploys it. A post-deploy plan is proven after
+the deploy, at the stage that asks for it, and that is not a gap in your
+verification: the pre-merge proof is the committed tree's own cases above.
+What is worth doing here is reading the cases once as text, because a case
+that names the wrong route or expectation is an edit now and a waiver later:
+
+```text
+yoke qa plan get <plan-id> --project P --full
 ```
 
 `yoke merge item` refuses an item whose flow has an item-scoped QA stage and

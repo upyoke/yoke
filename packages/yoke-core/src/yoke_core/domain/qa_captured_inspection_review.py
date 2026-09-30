@@ -31,10 +31,13 @@ class CapturedInspectionReviewError(ValueError):
 CAPTURED_INSPECTION_REVIEW_RECOVERY = (
     "A captured browser-inspection (case_outcome=needs_review) is reviewed "
     "with `yoke qa run record-verdict --requirement-id N --performed-by agent "
-    "--verdict pass --verdict-reason TEXT`. Do not run qa.plan_execution.begin "
+    "--verdict pass --verdict-reason TEXT`, which resolves that capture in "
+    "place and takes no --raw-result. Do not run qa.plan_execution.begin "
     "or bind --target-env for that review when the project has no hosts.app; "
     "a local target name owned by another project is refused. Capture first "
-    "with `yoke qa case run --requirement-id N --base-url http://127.0.0.1:PORT`."
+    "with `yoke qa case run --requirement-id N --base-url http://127.0.0.1:PORT "
+    "--expected-branch BRANCH --expected-sha SHA`, against a target serving "
+    "this project's own committed build."
 )
 
 AGENT_IS_NOT_A_BROWSER_CAPTURE_RUNNER = (
