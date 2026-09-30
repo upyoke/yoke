@@ -23,8 +23,7 @@ from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 
 
 EXEC_USAGE = (
-    "yoke test-machine exec --project P [--machine NAME] [--session-id S] "
-    "-- ARGV..."
+    "yoke test-machine exec --project P [--machine NAME] [--session-id S] -- ARGV..."
 )
 _REFUSED_EXIT = 1
 

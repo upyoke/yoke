@@ -56,8 +56,7 @@ def resolve_local_import_dsn() -> str:
         )
     if connection_is_prod(env.config):
         raise LocalUniverseImportError(
-            "the active local connection is marked production; direct import "
-            "is refused"
+            "the active local connection is marked production; direct import is refused"
         )
     try:
         resolved = yoke_connected_env.resolve_postgres_dsn(
@@ -88,10 +87,7 @@ def import_universe(
         ) as (dump, receipt):
             binding = universe_archive.verify_receipt_binds_dump(receipt, dump)
             receipt_org = str(
-                receipt.get("freeze_intent", {})
-                .get("database", {})
-                .get("org")
-                or ""
+                receipt.get("freeze_intent", {}).get("database", {}).get("org") or ""
             )
 
             def finalize(conn: psycopg.Connection) -> None:
@@ -173,9 +169,7 @@ def _prepare_local_owner(conn: psycopg.Connection) -> dict[str, object]:
             (name, now),
         ).fetchone()
         if row is None:
-            raise LocalUniverseImportError(
-                "the local owner actor could not be created"
-            )
+            raise LocalUniverseImportError("the local owner actor could not be created")
         actor_id = int(row[0])
     else:
         name = actors.actor_name(conn, actor_id) or name

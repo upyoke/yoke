@@ -29,9 +29,7 @@ def test_a_tailnet_host_matches_the_machine_name_by_its_first_label() -> None:
     assert _host_label("Testers-Mac-mini") == "testers-mac-mini"
 
 
-def test_the_capability_whose_host_is_this_machine_is_listed_with_its_route() -> (
-    None
-):
+def test_the_capability_whose_host_is_this_machine_is_listed_with_its_route() -> None:
     conn = make_conn()
     _register(conn, "test-mac", "testers-mac-mini.tail0000.ts.net")
     _register(conn, "other-mac", "other-mini.tail0000.ts.net")
@@ -46,8 +44,7 @@ def test_the_capability_whose_host_is_this_machine_is_listed_with_its_route() ->
             "host": "testers-mac-mini.tail0000.ts.net",
             "user": "tester",
             "exec_command": (
-                "yoke test-machine exec --project yoke --machine test-mac "
-                "-- <command>"
+                "yoke test-machine exec --project yoke --machine test-mac -- <command>"
             ),
         }
     ]

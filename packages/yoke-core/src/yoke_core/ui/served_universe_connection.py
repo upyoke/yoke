@@ -21,6 +21,7 @@ from yoke_contracts.machine_config.served_view_connection import (
     view_serving_refusal,
 )
 
+
 def serving_connection() -> Tuple[str, Optional[str]]:
     """Return ``(environment name, refusal)`` for the connection served.
 
