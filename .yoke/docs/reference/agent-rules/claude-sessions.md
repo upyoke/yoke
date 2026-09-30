@@ -32,7 +32,10 @@ but the next pending message immediately qualifies for the existing native
 resume path with the same stored identity. The delivery check includes that
 exit even when an orphaned open tool call remains; newer session activity
 still supersedes it. Refused or exhausted wakes retain the original pending
-receipt and notify its covering steering role with the exact diagnostic.
+receipt and notify its covering steering role with the exact diagnostic. An
+`outcome_unknown` wake waits until the target completes another tool call
+without acknowledging the message; a live open call defers the notice, and an
+acknowledged receipt never escalates.
 
 ## Long commands — the tier router
 

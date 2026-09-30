@@ -292,8 +292,10 @@ declaration before the deploy.
 A completed item-scoped execution with a determinate failing case sends a
 notice to that member's work-claim holder. If the holder is gone, the notice
 uses the **member's project** steering seat, even when the run carries members
-from several projects. The notice names the run, stage, and failed requirement
-ids, and gives the commands to inspect the durable QA evidence. A repeated
+from several projects. The one-line notice names the run, stage, member and
+failed requirement ids, then points to `yoke qa plan run --help` for the full
+recovery recipe. It skips verdicts produced by the recipient session, which
+already holds the result. A repeated
 check of the same failed verdict deduplicates; a new failed verdict or run
 can send a fresh handoff. If nobody is addressable, the stage remains blocked
 and the runner names the missing recipient so the member can be staffed.

@@ -7,6 +7,8 @@ from datetime import timedelta
 
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
+from yoke_core.domain.session_message_receipts import acknowledge_message
+from yoke_core.domain.session_wake_failure_notice import notify_failed_wake
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
 from yoke_core.domain.steering_message_recipients import drainable_rows
 from runtime.api.domain.test_session_message_support import (
@@ -131,3 +133,46 @@ def test_failure_notices_do_not_recursively_generate_notices() -> None:
     conn.commit()
     wake_eligible_recipients(conn, now=SWEEP + timedelta(seconds=2))
     assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 2
+
+
+def test_unknown_wake_waits_for_a_hook_and_never_escalates_an_acknowledgement() -> None:
+    conn = message_connection()
+    message_id = _parked_recipient(conn)
+    candidate = wake_eligible_recipients(conn, now=SWEEP)[0]
+    _fail(conn, candidate, result="outcome_unknown", reason="outcome_unknown")
+    later = SWEEP + timedelta(seconds=1)
+    # Neither the sweep nor a still-running call proves a failed delivery.
+    wake_eligible_recipients(conn, now=later)
+    row = dict(candidate, last_tool_call_at=SWEEP.isoformat())
+    assert notify_failed_wake(conn, row, now=later, max_attempts=3) is None
+    row.update(
+        last_tool_call_at=later.isoformat(), open_tool_call_since=later.isoformat()
+    )
+    assert notify_failed_wake(conn, row, now=later, max_attempts=3) is None
+    assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 1
+
+    acknowledge_message(
+        conn, message_id=message_id, session_id=NATIVE_WAKE_SESSION_ID, now=later
+    )
+    row["open_tool_call_since"] = None
+    # Recheck the durable receipt, even if a sweep captured pending state.
+    assert notify_failed_wake(conn, row, now=later, max_attempts=3) is None
+    wake_eligible_recipients(conn, now=later + ACK_GRACE)
+    assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 1
+
+
+def test_unknown_wake_escalates_when_a_later_hook_left_it_unacknowledged() -> None:
+    conn = message_connection()
+    _parked_recipient(conn)
+    candidate = wake_eligible_recipients(conn, now=SWEEP)[0]
+    _fail(conn, candidate, result="outcome_unknown", reason="outcome_unknown")
+    later = SWEEP + timedelta(seconds=1)
+    conn.execute(
+        "UPDATE harness_sessions SET last_tool_call_at=? WHERE session_id=?",
+        (later.isoformat(), NATIVE_WAKE_SESSION_ID),
+    )
+    conn.commit()
+    wake_eligible_recipients(conn, now=later)
+    notices = drainable_rows(conn, scope={"project_id": 1}, project_id=1)
+    assert len(notices) == 1
+    assert "outcome_unknown" in notices[0]["body"]

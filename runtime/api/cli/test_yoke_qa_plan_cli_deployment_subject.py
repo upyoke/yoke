@@ -5,7 +5,25 @@ from __future__ import annotations
 import json
 from unittest import mock
 
+import pytest
+
 from yoke_core.domain import qa_plan_execution_cli
+
+
+def test_plan_help_carries_the_failed_member_notice_recovery(capsys) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        qa_plan_execution_cli.run(["--help"])
+    assert exit_info.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "Failed member QA recovery" in help_text
+    assert "qa run list --requirement-id FAILED_REQUIREMENT_ID" in help_text
+    assert (
+        "yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member ITEM"
+        in help_text
+    )
+    assert "--replaces CASE_KEY=FAILED_REQUIREMENT_ID" in help_text
+    assert "--from release --to implementing" in help_text
+    assert "new run must deploy the corrected commit" in help_text
 
 
 def test_plan_engine_cli_accepts_deployment_run_subject(capsys) -> None:

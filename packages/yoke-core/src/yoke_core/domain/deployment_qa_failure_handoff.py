@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 
 from yoke_core.domain.deployment_run_driver_notice import push_member_notice
-from yoke_core.domain.merge_queue_landing_notice import HOLDER
+from yoke_core.domain.json_helper import loads_text
+from yoke_core.domain.merge_queue_landing_notice import resolve_lane_recipient
 from yoke_core.domain.project_identity import render_item_ref, resolve_project
 
 
@@ -25,52 +26,13 @@ def failure_handoff_message(
     run_id: str,
     stage: str,
     item_ref: str,
-    project_slug: str,
     requirement_ids: tuple[int, ...],
-    route: str,
 ) -> str:
-    """State the evidence and the two correction routes without guessing cause."""
+    """Keep the hook notice inline; the command help owns recovery."""
     failed = ", ".join(f"#{value}" for value in requirement_ids)
-    evidence = " ".join(
-        f"`yoke qa requirement get --requirement-id {value}` and "
-        f"`yoke qa run list --requirement-id {value}`"
-        for value in requirement_ids
-    )
-    owner = (
-        "You hold this item's work claim."
-        if route == HOLDER
-        else "The item holder is gone; staff or claim this item before changing it."
-    )
     return (
         f"Deployment run {run_id} stage {stage!r} has failed item QA "
-        f"requirement(s) {failed} for {item_ref}. {owner} Read "
-        f"`yoke deployment-runs get {run_id}` and {evidence} to determine "
-        "whether the deployed environment or member code caused the failure. "
-        "If the environment failed, keep the item in release and run fresh "
-        "QA against this same deployed revision: `yoke watch qa-plan -- "
-        f"--deployment-run-id {run_id} --stage {stage} --member {item_ref} "
-        f"--project {project_slug}`. If the case itself is defective, create a "
-        "plan containing only its corrected case, then run `yoke watch qa-plan "
-        f"-- --deployment-run-id {run_id} --stage {stage} --member {item_ref} "
-        f"--plan CORRECTED_PLAN --project {project_slug} "
-        "--replaces CORRECTED_CASE_KEY=FAILED_REQUIREMENT_ID`. Use the failed "
-        "requirement id above; this records the replacement on the same "
-        "pinned stage and target, then runs the corrected case. If the "
-        "corrected direct requirement already exists, declare it with "
-        "`yoke qa requirement supersede --requirement-id "
-        "FAILED_REQUIREMENT_ID --superseded-by-requirement-id "
-        "CORRECTED_REQUIREMENT_ID --rationale 'corrected case' "
-        "--declare-replacement`, then run the scoped QA plan without --plan. "
-        "If the "
-        "evidence establishes a member "
-        "code defect, refresh any survey required by the pinned workflow, "
-        "then use its ordinary rework route: "
-        f"`yoke lifecycle transition {item_ref} --from release --to "
-        "implementing --reason 'Post-deploy QA found a member code defect'`. "
-        "Keep the same work claim and worktree; verify and merge the correction. "
-        "Have the run driver settle the old run without changing its pin. "
-        "The failed run and QA remain history, and a new run must deploy the "
-        "corrected commit. This backward transition needs no operator approval."
+        f"requirement(s) {failed} for {item_ref}; recovery: `yoke qa plan run --help`."
     )
 
 
@@ -109,12 +71,39 @@ def notify_member_qa_failure(
     project_id = int(item["project_id"] if hasattr(item, "keys") else item[0])
     project = resolve_project(conn, project_id)
     item_ref = render_item_ref(conn, int(item_id))
+    recipient, _, _ = resolve_lane_recipient(
+        conn, item_id=item_id, project_id=project_id
+    )
     placeholders = ",".join("%s" for _ in requirement_ids)
-    row = conn.execute(
-        f"SELECT MAX(id) AS latest_id FROM qa_runs WHERE qa_requirement_id IN ({placeholders})",
+    verdicts = conn.execute(
+        "SELECT qa_requirement_id,MAX(id) FROM qa_runs "
+        f"WHERE qa_requirement_id IN ({placeholders}) GROUP BY qa_requirement_id",
         requirement_ids,
-    ).fetchone()
-    latest = int((row["latest_id"] if hasattr(row, "keys") else row[0]) or 0)
+    ).fetchall()
+    latest_by_requirement = {int(row[0]): int(row[1]) for row in verdicts}
+    if recipient:
+        # The execution records own the verdict producer; performed_by names
+        # a runner, not the session that already received its result.
+        results = conn.execute(
+            "SELECT r.requirement_id,r.result_json FROM qa_plan_execution_results r "
+            "JOIN qa_plan_executions e ON e.id=r.execution_id "
+            f"WHERE e.session_id=%s AND r.requirement_id IN ({placeholders})",
+            (recipient, *requirement_ids),
+        ).fetchall()
+        self_verdicts = {
+            int(row[0])
+            for row in results
+            if loads_text(str(row[1])).get("run_id")
+            == latest_by_requirement.get(int(row[0]))
+        }
+        requirement_ids = tuple(
+            value for value in requirement_ids if value not in self_verdicts
+        )
+        if not requirement_ids:
+            return ""
+    latest = max(
+        (latest_by_requirement.get(value, 0) for value in requirement_ids), default=0
+    )
     key = failure_handoff_key(
         run_id, stage, item_id, str(status.get("target_digest") or ""), latest
     )
@@ -129,9 +118,7 @@ def notify_member_qa_failure(
                 run_id=run_id,
                 stage=stage,
                 item_ref=item_ref,
-                project_slug=project.slug,
                 requirement_ids=requirement_ids,
-                route=route,
             ),
             idempotency_key=key,
             now=datetime.now(timezone.utc),

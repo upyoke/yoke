@@ -4,6 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
+from yoke_contracts.hook_inline_context import INLINE_CONTEXT_BYTES
+from yoke_core.hooks.session_message_delivery_port import (
+    LeasedSessionMessage,
+    SessionMessageLease,
+)
+from yoke_core.hooks.session_message_rendering import render_lease
+
 from runtime.api.domain.test_deployment_qa_stage_execution import (
     _complete_case,
     _plan,
@@ -52,8 +61,10 @@ def _red_status(requirement_id: int) -> dict[str, Any]:
     }
 
 
-def test_completed_failed_execution_wakes_the_member_with_two_real_routes(
+@pytest.mark.parametrize("producer", [HOLDER_A, "separate-qa-session"])
+def test_failure_notice_is_inline_and_skips_its_verdict_producer(
     test_db: Any,
+    producer: str,
 ) -> None:
     _project(test_db)
     member = 9901
@@ -83,7 +94,7 @@ def test_completed_failed_execution_wakes_the_member_with_two_real_routes(
         deployment_stage="item-qa",
         deployment_member_item_id=member,
         actor_id="2",
-        session_id=HOLDER_A,
+        session_id=producer,
     )
     requirement_id = int(execution["roster"][0]["requirement_id"])
     stamp = "2026-09-14T00:02:00Z"
@@ -116,18 +127,36 @@ def test_completed_failed_execution_wakes_the_member_with_two_real_routes(
     key = failure_handoff_key(
         run_id, "item-qa", member, status["target_digest"], verdict_run_id
     )
-    assert _recipients(test_db, key) == [HOLDER_A]
-    [body] = _bodies(test_db, key)
-    assert f"#{requirement_id}" in body
-    assert f"--requirement-id {requirement_id}" in body
-    assert f"qa run list --requirement-id {requirement_id}" in body
-    assert f"--deployment-run-id {run_id} --stage item-qa" in body
-    assert "--from release --to implementing" in body
-    assert "new run must deploy the corrected commit" in body
-    assert notify_member_qa_failure(
+    delivery = notify_member_qa_failure(
         test_db, run_id=run_id, stage="item-qa", item_id=member, status=status
-    ) in {"delivered", "undelivered"}
-    assert len(_bodies(test_db, key)) == 1
+    )
+    if producer == HOLDER_A:
+        assert delivery == ""
+        assert _recipients(test_db, key) == []
+        assert _bodies(test_db, key) == []
+    else:
+        assert delivery in {"delivered", "undelivered"}
+        assert _recipients(test_db, key) == [HOLDER_A]
+        [body] = _bodies(test_db, key)
+        assert f"#{requirement_id}" in body
+        assert run_id in body and "item-qa" in body
+        assert "yoke qa plan run --help" in body
+        assert "\n" not in body
+        message_id = test_db.execute(
+            "SELECT message_id FROM session_messages WHERE idempotency_key=%s", (key,)
+        ).fetchone()[0]
+        rendered, _ = render_lease(
+            SessionMessageLease(
+                lease_id="inline-notice",
+                messages=(
+                    LeasedSessionMessage(
+                        message_id=str(message_id), body=body, sender_actor_id=2
+                    ),
+                ),
+            ),
+            session_id=HOLDER_A,
+        )
+        assert len(rendered.encode()) < min(INLINE_CONTEXT_BYTES.values())
 
     retry = begin_plan_execution(
         test_db,
@@ -201,8 +230,8 @@ def test_missing_holder_uses_member_project_steering_and_can_retry(
     ) in {"delivered", "undelivered"}
     assert _recipients(test_db, key) == [HOLDER_A]
     [body] = _bodies(test_db, key)
-    assert "--project other" in body
-    assert "holder is gone" in body
+    assert "yoke qa plan run --help" in body
+    assert f"#{requirement['id']}" in body
 
 
 def test_run_recheck_reaches_a_holder_who_arrived_after_failure(test_db: Any) -> None:
