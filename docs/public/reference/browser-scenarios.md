@@ -68,8 +68,9 @@ repair the named failure and rerun the case after restoring external state.
 | `type` | `target`, `value` | Type into an input. |
 | `fill_form` | `fields` | Fill several target/value pairs. |
 | `assert` | `target`, `check` | Evaluate an observable condition. |
-| `screenshot` | `capture: true` | Save screenshot evidence. Optional `label` names the capture. |
+| `screenshot` | `capture: true` | Save screenshot evidence. Optional `label` names the capture, `target` frames it on one element, `fullPage` captures the whole document. |
 | `wait_for` | `target` | Wait for a visible element. |
+| `ready` | `target`, `text`, or both | Wait for a loading placeholder to go away. |
 | `delay` | optional `duration` or `duration_ms` | Wait a number of milliseconds. |
 | `scroll` | optional `target`, `x`, `y` | Scroll to an element or offset. |
 | `hover` | `target` | Hover over an element. |
@@ -118,6 +119,51 @@ Every assertion honours `timeout_ms` (default 5000ms): `count_gte` and
 `count_eq` poll until the count holds or that budget expires. `wait_for`
 waits for a visible target. `delay` waits `duration` / `duration_ms`; it
 does not take a destination.
+
+### Presence questions accept a selector matching many elements
+
+`wait_for`, `visible`, and `hidden` ask whether the screen shows something,
+so they resolve the first match. A selector naming a repeated component —
+`.shipping-run-card` on a page holding a dozen of them — is a correct way to
+ask "did the cards render", and it is honoured as "at least one".
+
+The checks that read a value stay strict: `text_contains`, `text_equals`,
+`count_gte`, and `count_eq` refuse a selector matching more than one element
+rather than reporting one element's text as the page's answer. Narrow the
+target, or use a count check when the number is the point.
+
+### Waiting for a screen to settle
+
+`wait_for` waits for something to appear. `ready` is the opposite question —
+waiting for the placeholder to leave — and it is what keeps a capture or an
+assertion off a skeleton that has already rendered its container. State the
+placeholder as a selector, as the text it shows, or both; every one named
+must be gone before the step passes.
+
+```json
+{"action": "ready", "target": ".skeleton", "text": "Loading"}
+```
+
+A `ready` step naming neither is refused: it would pass instantly and read
+as proof that the page had settled.
+
+### Framing a capture
+
+`fullPage` grows with the document, so it is the right framing for a page
+that scrolls the document itself. An app that scrolls an inner container
+leaves the document at viewport height, and an element below the fold does
+not appear at all — a capture that looks complete and is not.
+
+Name the element instead, and the capture is scrolled into view and framed on
+its own box:
+
+```json
+{"action": "screenshot", "capture": true, "target": "#run-panel", "label": "run panel"}
+```
+
+The box is what the element shows, not its scrollable content: a capture
+cannot photograph pixels the page never painted. A case covering a long
+inner-scrolling list pairs `scroll` with a capture per screenful.
 
 The runner rejects aliases such as `url` for `route`, `selector` for
 `target`, and `wait` for `delay` or `wait_for`. A navigate step that sets
@@ -228,6 +274,27 @@ yoke qa artifact read \
 It lands the bytes under this machine's temp root and reports that path as
 `path`; open that, not the capture's own `artifacts` scratch paths. Add
 `--output PATH` to choose the destination yourself.
+
+A full-page capture of a long screen is one very tall image, and a viewer
+that scales it to fit makes every label in it unreadable. Read the part being
+judged instead:
+
+```bash
+yoke qa artifact read \
+  --requirement-id <requirement-id> \
+  --artifact-id <artifact-id> \
+  --region 0,900,1440,600 \
+  --scale 1.5
+```
+
+`--region x,y,w,h` is a pixel rectangle measured from the top-left of the
+capture; `--scale` multiplies the rendered size and applies after the region,
+so one panel can be enlarged to read its small text. The stored artifact is
+never modified — a view is a way of reading evidence — and the response
+reports the `artifact_view` it rendered (source size, region, scale, rendered
+size), so a finding can name the region it was seen in. A region falling
+outside the image, an unreadable scale, and a non-image artifact each refuse
+by name and say where the recorded bytes landed.
 
 Captures store their screenshots through the build serving the universe, so a
 hosted reviewer sees the same images: from a `*-db-admin` connection the

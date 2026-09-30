@@ -66,6 +66,31 @@ report.
 Re-running the same requirement creates a new evidence run. It does not mutate
 the case snapshot.
 
+## Read the evidence you are judging
+
+The runner reports scratch paths a claimed lane cannot open. Read evidence
+through the recorded artifact id:
+
+```bash
+yoke qa artifact read --requirement-id <id> --artifact-id <id>
+```
+
+A full-page capture of a long screen is one very tall image, and a viewer
+that scales it to fit makes every label unreadable — so judging it as-is is
+judging a blur. Read the part the case is about:
+
+```bash
+yoke qa artifact read --requirement-id <id> --artifact-id <id> \
+  --region 0,900,1440,600 --scale 1.5
+```
+
+`--region x,y,w,h` is a pixel rectangle from the capture's top-left; `--scale`
+multiplies the rendered size and applies after the region. The stored artifact
+is never modified, and the response reports the `artifact_view` it rendered —
+name that region in the finding, so a reader knows which pixels you judged.
+Read the whole capture once first to choose a region; one falling outside the
+image refuses and names the image's size.
+
 <!-- YOKE:FIELD-NOTE -->
 
 ## Important Notes
