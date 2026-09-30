@@ -26,6 +26,7 @@ from yoke_harness.hooks.deadline import start_hook_deadline
 from yoke_harness.hooks.decision_render import (
     merge_allow_stdout,
     render_context_stdout,
+    write_hook_output,
 )
 from yoke_harness.hooks.identity import (
     canonical_harness_id,
@@ -140,8 +141,7 @@ def evaluate_hook_event(
             cursor=is_cursor(executor),
             harness_id=canonical_harness_id(executor),
         )
-    if stdout:
-        sys.stdout.write(stdout)
+    write_hook_output(stdout, local.exit_code, executor)
     settle_projection(stdout, launch_projection)
     return local.exit_code
 
@@ -190,8 +190,7 @@ def relay_hook_event(
         lint_config_snapshot=policy_snapshot,
     )
     if local.denied:
-        if local.stdout:
-            sys.stdout.write(local.stdout)
+        write_hook_output(local.stdout, local.exit_code, executor)
         relay_denial_audit(connection, local.denial_audit or {})
         return local.exit_code
 
@@ -295,8 +294,7 @@ def relay_hook_event(
             payload,
             identity["project_id"],
         )
-        if stdout:
-            sys.stdout.write(stdout)
+        write_hook_output(stdout, exit_code, executor)
         return exit_code
 
     print_execution_provenance(server_fp if isinstance(server_fp, dict) else None)

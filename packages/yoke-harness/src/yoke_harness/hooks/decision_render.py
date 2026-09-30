@@ -3,12 +3,35 @@
 from __future__ import annotations
 
 import json
+import sys
 
 from yoke_contracts.executor_labels import canonical_harness_id
 from yoke_contracts.hook_context_compose import compose_context_list
 
 
 HOOK_SPECIFIC_OUTPUT_KEY = "hookSpecificOutput"
+
+
+def write_hook_output(text: str, exit_code: int, executor: str) -> None:
+    """Emit Claude blocking reasons on stderr; other wire output on stdout."""
+    if not text:
+        return
+    if exit_code == 2 and canonical_harness_id(executor) == "claude-code":
+        # Local policies may supply a deny envelope, while the server supplies
+        # plain text. Claude ignores stdout on exit 2 in either case.
+        try:
+            payload = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            payload = None
+        if isinstance(payload, dict):
+            inner = payload.get(HOOK_SPECIFIC_OUTPUT_KEY)
+            if isinstance(inner, dict) and inner.get("permissionDecision") == "deny":
+                reason = inner.get("permissionDecisionReason")
+                if isinstance(reason, str) and reason:
+                    text = reason
+        sys.stderr.write(text)
+    else:
+        sys.stdout.write(text)
 
 
 def _render_additional_context_envelope(
@@ -92,7 +115,9 @@ def merge_allow_stdout(
     if not body:
         return json.dumps({"additional_context": ""}) if emit_cursor else ""
     return _render_additional_context_envelope(
-        [body], event_name, cursor=emit_cursor,
+        [body],
+        event_name,
+        cursor=emit_cursor,
     )
 
 
@@ -121,4 +146,5 @@ __all__ = [
     "HOOK_SPECIFIC_OUTPUT_KEY",
     "merge_allow_stdout",
     "render_context_stdout",
+    "write_hook_output",
 ]
