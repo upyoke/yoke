@@ -131,12 +131,8 @@ def timeout_summary(
         timeout_seconds * 2,
         MAX_CASE_COMMAND_TIMEOUT_SECONDS,
     )
-    retry = "yoke qa case run"
-    if requirement_id is not None:
-        retry += f" --requirement-id {requirement_id}"
-    retry += f" --timeout-seconds {retry_budget}"
     return (
         summary
         + "; the run was reaped at the deadline, not failing tests; "
-        + f"retry with `{retry}`"
+        + f"rerun the same command with --timeout-seconds {retry_budget}"
     )

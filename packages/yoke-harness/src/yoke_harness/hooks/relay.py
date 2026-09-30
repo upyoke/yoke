@@ -86,7 +86,11 @@ def _with_extra_context(
     if not rendered:
         return stdout
     return merge_allow_stdout(
-        stdout, rendered, event_name, cursor=cursor, harness_id=harness_id,
+        stdout,
+        rendered,
+        event_name,
+        cursor=cursor,
+        harness_id=harness_id,
     )
 
 
@@ -127,12 +131,14 @@ def evaluate_hook_event(
         lint_config_snapshot=policy_snapshot,
     )
     stdout = local.stdout
-    if local.denied:
-        print_execution_provenance()
     if not local.denied:
+        print_execution_provenance()
         stdout = _with_extra_context(
-            stdout, extra_context, event_name,
-            cursor=is_cursor(executor), harness_id=canonical_harness_id(executor),
+            stdout,
+            extra_context,
+            event_name,
+            cursor=is_cursor(executor),
+            harness_id=canonical_harness_id(executor),
         )
     if stdout:
         sys.stdout.write(stdout)
@@ -158,9 +164,7 @@ def relay_hook_event(
     policy_snapshot = _client_lint_config_snapshot(payload)
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
-    original_stdin = (
-        stdin_data if capture_stdin_data is None else capture_stdin_data
-    )
+    original_stdin = stdin_data if capture_stdin_data is None else capture_stdin_data
     if anchor_from_payload:
         _record_client_anchor(
             payload,
@@ -186,15 +190,17 @@ def relay_hook_event(
         lint_config_snapshot=policy_snapshot,
     )
     if local.denied:
-        print_execution_provenance()
         if local.stdout:
             sys.stdout.write(local.stdout)
         relay_denial_audit(connection, local.denial_audit or {})
         return local.exit_code
 
     allow_stdout = _with_extra_context(
-        local.stdout, extra_context, event_name,
-        cursor=is_cursor(executor), harness_id=canonical_harness_id(executor),
+        local.stdout,
+        extra_context,
+        event_name,
+        cursor=is_cursor(executor),
+        harness_id=canonical_harness_id(executor),
     )
 
     denied = deny_unstamped_relay(parse_hook_payload(stdin_data))
@@ -275,10 +281,6 @@ def relay_hook_event(
     # A deferred resident response intentionally carries no confirmation.
     record_model_facts_shipped(payload, response.get(HOOK_MODEL_CONFIRMATION_FIELD))
     server_fp = response.get("execution_provenance")
-    if isinstance(server_fp, dict):
-        print_execution_provenance(server_fp)
-    else:
-        print_execution_provenance()
     failure_warning = render_failure_warning(response.get("degraded", ()))
     if failure_warning:
         sys.stderr.write(failure_warning)
@@ -289,15 +291,21 @@ def relay_hook_event(
             server=server_fp,
         )
         stdout = annotate_checkout_env_mismatch(
-            stdout, payload, identity["project_id"],
+            stdout,
+            payload,
+            identity["project_id"],
         )
         if stdout:
             sys.stdout.write(stdout)
         return exit_code
 
+    print_execution_provenance(server_fp if isinstance(server_fp, dict) else None)
     merged = merge_allow_stdout(
-        allow_stdout, stdout, event_name,
-        cursor=is_cursor(executor), harness_id=canonical_harness_id(executor),
+        allow_stdout,
+        stdout,
+        event_name,
+        cursor=is_cursor(executor),
+        harness_id=canonical_harness_id(executor),
     )
     if merged:
         sys.stdout.write(merged)

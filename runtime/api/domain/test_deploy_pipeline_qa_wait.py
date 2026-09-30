@@ -94,3 +94,58 @@ def test_zero_timeout_performs_one_probe() -> None:
     assert result[0] == AWAITING_SCOPED_QA
     assert calls == 1
     assert clock.sleeps == []
+
+
+def test_pipeline_scoped_qa_park_is_a_designed_watcher_wait(
+    monkeypatch, capsys, tmp_path
+):
+    from yoke_core.domain import deploy_pipeline as pipeline
+    from yoke_core.tools._watch_designed_waits import designed_wait
+
+    run_id = "run-scoped-qa"
+    context = {
+        "run": {
+            "id": run_id,
+            "project": "example",
+            "flow": "qa-flow",
+            "status": "executing",
+        },
+        "members": [{"item_id": 42}],
+        "stages": [{"name": "member-qa", "step_runner": "deployment-qa"}],
+    }
+    monkeypatch.setattr(pipeline.control_plane, "execution_context", lambda _r: context)
+    monkeypatch.setattr(pipeline.control_plane, "project_field", lambda *a: "")
+    monkeypatch.setattr(pipeline.control_plane, "seed_qa", lambda _r: None)
+    monkeypatch.setattr(
+        pipeline.control_plane,
+        "unresolved_qa",
+        lambda _r: ["requirement 1 pending", "requirement 2 pending"],
+    )
+    monkeypatch.setattr(pipeline, "resolve_project_checkout_path", lambda _p: "/repo")
+    monkeypatch.setattr(pipeline, "resolve_flow_gate_branch", lambda *a: "main")
+    monkeypatch.setattr(
+        pipeline, "_resolve_and_verify_branch", lambda *a, **k: (True, "42", "main")
+    )
+    monkeypatch.setattr(
+        pipeline.stage_checks, "check_completion_stage_qa", lambda *a, **k: None
+    )
+    monkeypatch.setattr(pipeline, "_set_deploy_stage", lambda *a, **k: None)
+    monkeypatch.setattr(pipeline, "_emit_run_event", lambda *a, **k: None)
+    monkeypatch.setattr(
+        pipeline,
+        "dispatch_until_qa_resolves",
+        lambda *a, **k: (AWAITING_SCOPED_QA, "timed out awaiting scoped QA"),
+    )
+
+    rc = pipeline.run_pipeline(run_id, sd="/tmp/sd")
+
+    assert rc == pipeline.EXIT_AWAITING_QA
+    report = capsys.readouterr().err
+    assert "2 blocking QA obligation(s)" in report
+    assert "timed out awaiting scoped QA" in report
+    capture = tmp_path / "deploy.log"
+    capture.write_text(report)
+    wait = designed_wait(kind="deploy", exit_code=rc, raw_capture=capture)
+    assert wait is not None
+    assert f"for run {run_id}" in wait.cause
+    assert run_id in wait.continuation

@@ -120,6 +120,10 @@ def _section(
 
 def _tail(text: str, tail_lines: int) -> tuple[List[str], int, bool]:
     lines = text.strip("\n").splitlines()
+    for index, line in enumerate(lines):
+        if "##[group]Post " in line or "Post job cleanup." in line:
+            lines = lines[:index]
+            break
     if not any(line.strip() for line in lines):
         return [], 0, False
     if len(lines) <= tail_lines:

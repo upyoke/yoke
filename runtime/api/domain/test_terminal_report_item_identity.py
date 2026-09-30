@@ -53,6 +53,15 @@ def test_parse_reads_only_the_heading_prefix_n() -> None:
     assert missing is not None and missing.item_ref is None
 
 
+def test_colon_after_item_ref_preserves_report_identity() -> None:
+    parsed = parse_terminal_report("DONE ALP-1: close-out landed.")
+    assert parsed is not None and parsed.item_ref == "ALP-1"
+    conn = message_connection()
+    _seat(conn, claim_id=10, session_id="s2")
+    sent = _say_steering(conn, body="DONE ALP-1: close-out landed.")
+    assert _steering_row(conn, sent["message_id"])["sender_item_id"] == 101
+
+
 def test_released_a_while_holding_b_keys_and_addresses_a() -> None:
     conn = message_connection()
     _seat(conn, claim_id=10, session_id="s2")
