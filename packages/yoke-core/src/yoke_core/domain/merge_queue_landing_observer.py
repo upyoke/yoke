@@ -176,12 +176,19 @@ def observe_pending_landings(
                 # never heard the queue had dropped it again.
                 head_sha = readback.state.head_sha if readback.state else ""
                 key = f"merge-queue-ejected:{item_id}:{pr_number}:{head_sha}"
-                if notice_already_sent(conn, idempotency_key=key):
-                    # Already reported for this exact head. The item stays a
-                    # candidate — a queue that merges it after the rebase is
-                    # a landing this observer must still see — but the stop
-                    # is not news, and counting it again would report work
-                    # that is not there.
+                if not row.get("merge_queue_enqueued_at") and notice_already_sent(
+                    conn, idempotency_key=key
+                ):
+                    # This candidate has no admission to clear, so clearing
+                    # one cannot be what stops the report repeating; the
+                    # notice's own identity is. An admission still standing
+                    # means the opposite — a stale marker left beside an
+                    # already-sent notice, which this pass heals by clearing
+                    # it below, and which then stops repeating on its own.
+                    #
+                    # The item stays a candidate either way: its pull request
+                    # is still open, and a queue that merges it after the
+                    # rebase is a landing this observer must still see.
                     conn.commit()
                     continue
                 notice_in_progress = True
