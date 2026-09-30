@@ -9,8 +9,8 @@
  *   executeStep(page, step, options) -> { success, duration_ms, viewport, url, error?, artifacts?, vacuous_absence? }
  *   resolveUrl(route, baseUrl) -> string
  *
- * Supported actions: navigate, click, fill_form, wait_for, delay, assert,
- *   screenshot, scroll, hover, type, select
+ * Supported actions: navigate, click, fill_form, wait_for, ready, delay,
+ *   assert, screenshot, scroll, hover, type, select
  */
 
 const { buildRefMap } = require('./snapshot');
@@ -167,6 +167,9 @@ async function executeStep(page, step, options) {
       case 'wait_for':
         result = await inter.executeWaitFor(page, step, options, refMap);
         break;
+      case 'ready':
+        result = await inter.executeReady(page, step, options, refMap);
+        break;
       case 'delay':
         result = await inter.executeDelay(page, step);
         break;
@@ -174,7 +177,7 @@ async function executeStep(page, step, options) {
         result = await assertions.executeAssert(page, step, options, refMap);
         break;
       case 'screenshot':
-        result = await capture.executeScreenshot(page, step, options);
+        result = await capture.executeScreenshot(page, step, options, refMap);
         break;
       case 'scroll':
         result = await nav.executeScroll(page, step, options, refMap);
@@ -229,7 +232,12 @@ async function executeStep(page, step, options) {
 
 function shouldProbeAuthenticationWall(step) {
   const action = step && step.action;
-  return action === 'navigate' || action === 'wait_for' || action === 'assert';
+  return (
+    action === 'navigate'
+    || action === 'wait_for'
+    || action === 'ready'
+    || action === 'assert'
+  );
 }
 
 module.exports = { executeStep, resolveUrl };

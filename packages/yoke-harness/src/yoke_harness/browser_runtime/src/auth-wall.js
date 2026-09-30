@@ -5,8 +5,8 @@
  * affordance is Sign in, rather than the screen a case asked for.
  *
  * A navigate that lands here is still a successful navigate — login-form
- * cases start on this page on purpose. A wait_for or assert that times
- * out here is not a missing selector on the requested screen.
+ * cases start on this page on purpose. A wait_for, ready or assert that
+ * times out here is not a missing selector on the requested screen.
  */
 
 const PROBE_TIMEOUT_MS = 200;
@@ -43,7 +43,7 @@ async function pageShowsAuthenticationWall(page) {
  */
 function isSelectorWaitTimeout(step, err) {
   const action = step && step.action;
-  if (action !== 'wait_for' && action !== 'assert') {
+  if (action !== 'wait_for' && action !== 'ready' && action !== 'assert') {
     return false;
   }
   const message = String((err && err.message) || err || '');
