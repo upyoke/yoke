@@ -9,7 +9,7 @@ used across more than one widget submodule (``_CHART``, ``_FIRE``).
 from __future__ import annotations
 
 import math
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -33,7 +33,6 @@ from yoke_contracts.board.widgets_code_days import (
 )
 from yoke_contracts.machine_config import runtime as machine_config
 
-UTC = timezone.utc  # datetime.UTC is Python 3.11+; this alias also works on 3.10
 
 # ---------------------------------------------------------------------------
 # Sparkline block characters (level 0-5)
@@ -46,7 +45,7 @@ _BLOCKS = "\u2581\u2582\u2583\u2585\u2587\u2588"  # ▁▂▃▅▇█
 # ---------------------------------------------------------------------------
 
 _CHART = "\U0001f4ca"  # 📊 (used by sparkline + velocity meter)
-_FIRE = "\U0001f525"   # 🔥 (used by sparkline streak indicator)
+_FIRE = "\U0001f525"  # 🔥 (used by sparkline streak indicator)
 
 
 def _utc_today() -> date:
@@ -62,7 +61,9 @@ def _date_range(days: int) -> List[str]:
     return [(today - timedelta(days=d)).isoformat() for d in range(days - 1, -1, -1)]
 
 
-def _merge_counts(day_counts: Dict[str, int], date_list: List[str]) -> List[Tuple[str, int]]:
+def _merge_counts(
+    day_counts: Dict[str, int], date_list: List[str]
+) -> List[Tuple[str, int]]:
     """Map a date list to counts, filling missing days with 0."""
     return [(d, day_counts.get(d, 0)) for d in date_list]
 
@@ -97,10 +98,7 @@ def _resolve_repos(
     if scope == "all":
         visibility, params = project_id_filter()
         rows = db.query_quiet(f"SELECT id FROM projects WHERE 1=1{visibility}", params)
-        repos = [
-            mapped[int(r[0])] for r in rows
-            if r and int(r[0]) in mapped
-        ]
+        repos = [mapped[int(r[0])] for r in rows if r and int(r[0]) in mapped]
         if repos:
             return repos
         return [repo_root] if repo_root else []
@@ -176,11 +174,11 @@ def render_weather(db: BoardDBLike, config: BoardConfig, scope: str) -> str:
     backlog = int(backlog)
 
     if backlog < 10:
-        return "🌞 Clear"   # sun (Clear)
+        return "🌞 Clear"  # sun (Clear)
     elif backlog < 25:
-        return "\u26c5 Fair"           # ⛅ Fair
+        return "\u26c5 Fair"  # ⛅ Fair
     else:
-        return "☔ Stormy"   # umbrella (Stormy)
+        return "☔ Stormy"  # umbrella (Stormy)
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +207,8 @@ def render_velocity_sparkline(
     # sourced from the canonical activity event set.
     cutoff = (_utc_today() - timedelta(days=14)).isoformat()
     day_counts: Dict[str, int] = {
-        day: count for day, count in _activity_day_counts(db, scope).items()
+        day: count
+        for day, count in _activity_day_counts(db, scope).items()
         if day >= cutoff
     }
 
@@ -235,7 +234,10 @@ def render_velocity_sparkline(
         fire_cap = min(streak, 14)
         fires = _FIRE * fire_cap
         active_days, project_days = _compute_lifetime_activity(
-            db, scope, commits=commits, project_age=(first_iso, project_days),
+            db,
+            scope,
+            commits=commits,
+            project_age=(first_iso, project_days),
         )
         if project_days > 0:
             # Cap at 100%: active_days can exceed project_days (append-only
@@ -263,10 +265,7 @@ def _active_day_set(
     pre-fetched dict — when omitted the helper loads the rollup.
     """
     cutoff = (_utc_today() - timedelta(days=lookback_days)).isoformat()
-    active_days: set = {
-        day for day in _activity_day_counts(db, scope)
-        if day >= cutoff
-    }
+    active_days: set = {day for day in _activity_day_counts(db, scope) if day >= cutoff}
 
     if commits is None:
         commits = code_commits_by_day(db, scope, lookback_days)

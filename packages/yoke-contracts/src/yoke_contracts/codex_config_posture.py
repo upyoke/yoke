@@ -13,7 +13,6 @@ edit cannot preserve, and only when that key's value is actually changing.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -25,10 +24,7 @@ from yoke_contracts.harness_unattended_posture import (
     codex_project_trust_key,
 )
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:  # pragma: no cover - exercised on the older interpreter only
-    import tomli as tomllib
+import tomllib
 
 
 class CodexConfigUnreadable(ValueError):
@@ -97,7 +93,12 @@ def _key_line(lines: List[str], end: int, key: str) -> Optional[int]:
 
 
 def _new_record() -> Dict[str, Any]:
-    return {"set_keys": [], "conflicts": [], "trusted_checkout": "", "created_file": False}
+    return {
+        "set_keys": [],
+        "conflicts": [],
+        "trusted_checkout": "",
+        "created_file": False,
+    }
 
 
 def changed(record: Dict[str, Any]) -> bool:

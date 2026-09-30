@@ -4,15 +4,11 @@ from __future__ import annotations
 
 import os
 import stat
-import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Callable, Optional, TypeVar
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:  # pragma: no cover - exercised by Python 3.10 CI
-    import tomli as tomllib
+import tomllib
 
 
 TRUSTED_HASH_KEY = "trusted_hash"

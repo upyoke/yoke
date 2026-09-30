@@ -1,9 +1,7 @@
 [build-system]
-# Exact backends keep PEP 517 builds reproducible. Setuptools 83 is current;
-# 82.0.1 is the final exact line compatible with supported Python 3.9.
+# Exact backends keep PEP 517 builds reproducible.
 requires = [
-    "setuptools==82.0.1; python_version < '3.10'",
-    "setuptools==83.0.0; python_version >= '3.10'",
+    "setuptools==83.0.0",
     "setuptools-scm[toml]==10.2.0",
 ]
 build-backend = "setuptools.build_meta"
@@ -14,17 +12,12 @@ dynamic = ["version"]
 description = "Yoke control plane — domain layer and API service"
 license = "FSL-1.1-ALv2"
 license-files = ["LICENSE.md"]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
     "yoke-contracts",
     "yoke-cli",
     "yoke-core",
     "yoke-harness",
-    # fastapi 0.129+ and uvicorn 0.40+ dropped Python 3.9 support upstream.
-    # Pinning to the last 3.9-compatible versions of each keeps Yoke installable
-    # on macOS's stock Apple Python 3.9 (Xcode CLT), which is the path the older
-    # generation of operator Macs are running. Both pins still install cleanly on
-    # Python 3.10–3.14 via prebuilt wheels.
     "fastapi==0.128.8",
     "uvicorn[standard]==0.39.0",
     "pydantic==2.13.4",

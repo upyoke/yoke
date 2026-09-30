@@ -41,12 +41,13 @@ def no_candidate_review(monkeypatch):
     The candidate review runs before either route and has its own cases; an
     item that does not select the posture answers exactly this.
     """
-    monkeypatch.setattr(
-        selection_mod, "candidate_review_refusal", lambda **_kw: ""
-    )
+    monkeypatch.setattr(selection_mod, "candidate_review_refusal", lambda **_kw: "")
 
 
 def _declared(monkeypatch) -> None:
+    monkeypatch.setattr(
+        selection_mod, "_find_worktree", lambda branch, repo_root: repo_root
+    )
     monkeypatch.setattr(
         selection_mod,
         "project_declares_merge_queue",
@@ -187,8 +188,10 @@ def _wire_close_out(monkeypatch, *, pr_files) -> dict:
     monkeypatch.setattr(
         close_out_mod,
         "observe_batch",
-        lambda _ctx, *, pr_num, member_snapshot, drift_check=None,
-        landed_merge_sha="": (None, None),
+        lambda _ctx, *, pr_num, member_snapshot, drift_check=None, landed_merge_sha="": (
+            None,
+            None,
+        ),
     )
     monkeypatch.setattr(
         close_out_mod, "read_pr_changed_files", lambda _ctx, _pr: pr_files

@@ -180,8 +180,7 @@ def test_all_product_build_backends_are_exactly_pinned():
     pyprojects = [_ROOT / "pyproject.toml"]
     pyprojects.extend(sorted((_ROOT / "packages").glob("yoke-*/pyproject.toml")))
     expected = {
-        "setuptools==82.0.1; python_version < '3.10'",
-        "setuptools==83.0.0; python_version >= '3.10'",
+        "setuptools==83.0.0",
         "setuptools-scm[toml]==10.2.0",
     }
     for path in pyprojects:

@@ -51,8 +51,8 @@ def test_install_command_uses_only_supported_python() -> None:
     command = installer_mod.Installer(_options(installer_mod)).install_command(
         "yoke-cli"
     )
-    assert command[command.index("--python") + 1] == ">=3.10,<3.14"
-    assert ci_shards.python_versions() == ["3.10", "3.13"]
+    assert command[command.index("--python") + 1] == ">=3.11,<3.15"
+    assert ci_shards.python_versions() == ["3.11", "3.14"]
     output = dict(line.split("=", 1) for line in ci_shards.fan_out_lines())
     assert json.loads(output["python_versions"]) == ci_shards.python_versions()
 
@@ -74,7 +74,7 @@ def test_dry_run_resolves_stable_channel_and_writes_nothing(tmp_path) -> None:
     rendered = output.getvalue()
     assert "Resolved Yoke 1.2.3" in rendered
     assert "uv tool install yoke-cli==1.2.3" in rendered
-    assert "--python '>=3.10,<3.14'" in rendered
+    assert "--python '>=3.11,<3.15'" in rendered
     assert "--with yoke-contracts==1.2.3" in rendered
     assert "--with yoke-harness==1.2.3" in rendered
     assert "--with yoke-core==1.2.3" in rendered
@@ -83,7 +83,7 @@ def test_dry_run_resolves_stable_channel_and_writes_nothing(tmp_path) -> None:
     assert runner.commands == []
 
 
-@pytest.mark.parametrize("host_version", ["3.9", "3.14", "3.15"])
+@pytest.mark.parametrize("host_version", ["3.9", "3.10", "3.15"])
 def test_unsupported_only_host_allows_managed_supported_python(host_version):
     module = load_installer()
     commands = []
@@ -94,7 +94,7 @@ def test_unsupported_only_host_allows_managed_supported_python(host_version):
         assert command[command.index("--python") + 1] == module.PYTHON_CONSTRAINT
         assert "--no-python-downloads" not in command
         return subprocess.CompletedProcess(
-            command, 0, f"Host {host_version}; downloaded managed Python 3.13", ""
+            command, 0, f"Host {host_version}; downloaded managed Python 3.14", ""
         )
 
     installer = module.Installer(_options(module), runner=runner)
@@ -122,13 +122,13 @@ def test_unavailable_python_after_install_failure_names_recovery(reason):
         installer.install_command("yoke-cli"),
         ["uv", "python", "find", "--no-python-downloads", module.PYTHON_CONSTRAINT],
     ]
-    assert "supports Python >=3.10,<3.14" in str(failure.value)
-    assert "uv python install '>=3.10,<3.14'" in str(failure.value)
+    assert "supports Python >=3.11,<3.15" in str(failure.value)
+    assert "uv python install '>=3.11,<3.15'" in str(failure.value)
     assert "yoke update" in str(failure.value)
     assert reason in str(failure.value)
 
 
-@pytest.mark.parametrize("host_version", ["3.10", "3.13"])
+@pytest.mark.parametrize("host_version", ["3.11", "3.14"])
 def test_supported_host_reaches_install(host_version):
     module = load_installer()
     runner = RecordingRunner(stdout=host_version)
@@ -154,11 +154,11 @@ def test_package_install_failure_with_available_python_keeps_package_diagnostic(
     "version,supported",
     [
         ("3.9", False),
-        ("3.10", True),
+        ("3.10", False),
         ("3.11", True),
         ("3.12", True),
         ("3.13.9", True),
-        ("3.14", False),
+        ("3.14", True),
         ("3.15", False),
     ],
 )

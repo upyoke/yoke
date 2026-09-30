@@ -34,7 +34,7 @@ on consent when missing). Everything else is deferred until it is needed:
   no git.
 - Optional: a Yoke GitHub App connection for GitHub product commands.
 
-Yoke supports Python 3.10–3.13. If none is available, the installer and `yoke update` let uv download a managed interpreter automatically without changing your system Python.
+Yoke supports Python 3.11–3.14. If none is available, the installer and `yoke update` let uv download a managed interpreter automatically without changing your system Python.
 Node, npm, and the Playwright browser runtime are provisioned on first
 `yoke qa browser` use — a pinned Node release is downloaded and checksum-
 verified when the host has none, so a clean machine needs no package manager

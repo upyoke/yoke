@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import sysconfig
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple
@@ -23,7 +24,7 @@ TARGET_PRIORITY: Tuple[Tuple[str, str], ...] = (
     ("~/.local/bin", "fallback_user_local"),
 )
 
-MIN_PYTHON: Tuple[int, int] = (3, 9)
+MIN_PYTHON: Tuple[int, int] = (3, 11)
 YOKE_PACKAGE_NAME = "yoke"
 LAUNCHER_FILENAME = "yoke"
 LAUNCHER_SOURCE = Path(__file__).resolve().parent / "yoke_launcher.py"
@@ -60,9 +61,7 @@ def _is_externally_managed() -> bool:
 def verify_repo_root(cwd: Path) -> Path:
     pyproject = cwd / "pyproject.toml"
     if not pyproject.is_file():
-        raise InstallError(
-            f"no pyproject.toml in {cwd}; run from the Yoke repo root."
-        )
+        raise InstallError(f"no pyproject.toml in {cwd}; run from the Yoke repo root.")
     text = pyproject.read_text(encoding="utf-8", errors="replace")
     needle = f'name = "{YOKE_PACKAGE_NAME}"'
     if needle not in text:
@@ -92,30 +91,17 @@ def read_pyproject_deps(cwd: Path) -> List[str]:
     """Return the ``[project] dependencies`` array from ``cwd/pyproject.toml``."""
     pyproject = cwd / "pyproject.toml"
     text = pyproject.read_text(encoding="utf-8")
-    try:
-        import tomllib
-
-        data = tomllib.loads(text)
-        deps = data.get("project", {}).get("dependencies", [])
-        if isinstance(deps, list) and deps:
-            return _runtime_dependency_strings(deps)
-    except ImportError:
-        pass
-    match = re.search(
-        r"^dependencies\s*=\s*\[(.*?)^\]",
-        text,
-        re.MULTILINE | re.DOTALL,
-    )
-    if not match:
+    data = tomllib.loads(text)
+    dependencies = data.get("project", {}).get("dependencies")
+    if not isinstance(dependencies, list):
         raise InstallError(
             f"pyproject.toml at {pyproject} has no top-level "
             f"[project] dependencies array."
         )
-    deps = _runtime_dependency_strings(re.findall(r'"([^"]+)"', match.group(1)))
+    deps = _runtime_dependency_strings(dependencies)
     if not deps:
         raise InstallError(
-            f"pyproject.toml at {pyproject} has an empty "
-            f"[project] dependencies array."
+            f"pyproject.toml at {pyproject} has an empty [project] dependencies array."
         )
     return deps
 
@@ -207,7 +193,9 @@ def auto_detect_target(
     env_path: Optional[str] = None,
 ) -> TargetChoice:
     if override:
-        return TargetChoice(Path(override).expanduser().resolve(strict=False), "override")
+        return TargetChoice(
+            Path(override).expanduser().resolve(strict=False), "override"
+        )
     if force_user:
         path, label = TARGET_PRIORITY[2]
         return TargetChoice(Path(path).expanduser().resolve(strict=False), label)
@@ -297,8 +285,8 @@ def verify_path_includes(
     snippet_dir = str(target_dir)
     out.write(
         f"WARNING: {snippet_dir} is not on PATH.\n"
-        f"  Add to ~/.bashrc:  export PATH=\"{snippet_dir}:$PATH\"\n"
-        f"  Add to ~/.zshrc:   export PATH=\"{snippet_dir}:$PATH\"\n"
+        f'  Add to ~/.bashrc:  export PATH="{snippet_dir}:$PATH"\n'
+        f'  Add to ~/.zshrc:   export PATH="{snippet_dir}:$PATH"\n'
     )
     return False
 

@@ -16,10 +16,7 @@ from pathlib import Path
 
 import pytest
 
-try:
-    import tomllib
-except ImportError:  # Python < 3.11 fallback
-    import tomli as tomllib  # type: ignore
+import tomllib
 
 from yoke_core.domain.agents_render import AGENTS, CANONICAL_DIR, CODEX_OUT_DIR
 from yoke_core.domain.agents_render_codex import (
@@ -154,7 +151,8 @@ def _write_minimal_canonical(tmp_path: Path, role: str, sidecar: str) -> Path:
 def test_model_policy_pinned_emits_model(tmp_path: Path) -> None:
     """An explicit pinned policy emits the named model verbatim."""
     canonical = _write_minimal_canonical(
-        tmp_path, "architect",
+        tmp_path,
+        "architect",
         '{"name": "yoke-architect", "description": "x", '
         '"model_policy": "pinned", "model": "gpt-fixed-1"}',
     )

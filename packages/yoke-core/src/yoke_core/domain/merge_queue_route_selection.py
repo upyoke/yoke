@@ -33,7 +33,11 @@ from yoke_core.domain.standalone_item_merge import (
     StandaloneMergeOutcome,
     merge_standalone_branch,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+from yoke_core.engines.merge_worktree_prepare import (
+    MergeArgs,
+    MergeContext,
+    _find_worktree,
+)
 
 
 _PROBE_SAFE_SLUG = re.compile(r"[a-z0-9][a-z0-9_-]*\Z")
@@ -225,6 +229,7 @@ def route_standalone_landing(
         MergeContext(
             args=MergeArgs(branch=branch, target=target),
             repo_root=repo_root,
+            worktree_path=_find_worktree(branch, repo_root),
             project=project,
         ),
         item_id=item_id,

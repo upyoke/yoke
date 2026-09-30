@@ -69,10 +69,7 @@ def _json_error(text: str) -> Optional[str]:
 
 
 def _toml_error(text: str) -> Optional[str]:
-    try:
-        import tomllib
-    except ImportError:  # Python 3.9-3.10 ship no stdlib tomllib
-        import tomli as tomllib  # type: ignore[no-redef]
+    import tomllib
 
     try:
         tomllib.loads(text)

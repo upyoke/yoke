@@ -6,7 +6,9 @@
     "enforcement": "active",
     "conditions": {
       "ref_name": {
-        "include": ["refs/heads/main"],
+        "include": [
+          "refs/heads/main"
+        ],
         "exclude": []
       }
     },
@@ -39,22 +41,22 @@
             {"context": "repo-contracts"},
             {"context": "container"},
             {"context": "browser_runtime / browser-runtime"},
-            {"context": "test-shard (3.10, 1)"},
-            {"context": "test-shard (3.10, 2)"},
-            {"context": "test-shard (3.10, 3)"},
-            {"context": "test-shard (3.10, 4)"},
-            {"context": "test-shard (3.10, 5)"},
-            {"context": "test-shard (3.10, 6)"},
-            {"context": "test-shard (3.10, 7)"},
-            {"context": "test-shard (3.10, 8)"},
-            {"context": "test-shard (3.13, 1)"},
-            {"context": "test-shard (3.13, 2)"},
-            {"context": "test-shard (3.13, 3)"},
-            {"context": "test-shard (3.13, 4)"},
-            {"context": "test-shard (3.13, 5)"},
-            {"context": "test-shard (3.13, 6)"},
-            {"context": "test-shard (3.13, 7)"},
-            {"context": "test-shard (3.13, 8)"}
+            {"context": "test-shard (3.11, 1)"},
+            {"context": "test-shard (3.11, 2)"},
+            {"context": "test-shard (3.11, 3)"},
+            {"context": "test-shard (3.11, 4)"},
+            {"context": "test-shard (3.11, 5)"},
+            {"context": "test-shard (3.11, 6)"},
+            {"context": "test-shard (3.11, 7)"},
+            {"context": "test-shard (3.11, 8)"},
+            {"context": "test-shard (3.14, 1)"},
+            {"context": "test-shard (3.14, 2)"},
+            {"context": "test-shard (3.14, 3)"},
+            {"context": "test-shard (3.14, 4)"},
+            {"context": "test-shard (3.14, 5)"},
+            {"context": "test-shard (3.14, 6)"},
+            {"context": "test-shard (3.14, 7)"},
+            {"context": "test-shard (3.14, 8)"}
           ]
         }
       }

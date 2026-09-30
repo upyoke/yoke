@@ -20,13 +20,7 @@ from yoke_contracts.codex_hook_trust import (
     normalized_codex_hook_hashes,
 )
 
-try:
-    import tomllib
-except ImportError:  # Python < 3.11
-    try:
-        import tomli as tomllib  # type: ignore[no-redef]
-    except ImportError:
-        tomllib = None  # type: ignore[assignment]
+import tomllib
 
 
 def _exists(path: Path) -> bool:
@@ -62,7 +56,7 @@ def _codex_hooks(checkout: Path) -> Path:
 def _codex_trust_entries(hooks: Path) -> dict[str, str]:
     home = Path(os.environ.get("CODEX_HOME") or (Path.home() / ".codex"))
     config = home / "config.toml"
-    if tomllib is None or not _exists(config):
+    if not _exists(config):
         return {}
     try:
         with config.open("rb") as handle:

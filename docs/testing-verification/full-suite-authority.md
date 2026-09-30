@@ -322,7 +322,7 @@ anything else:
   **and add a regression test to the selector's own tests in the same fix**.
   The selector only stays trustworthy if every counterexample tightens it.
 - **The failing test was selected and passed locally** — an environment
-  difference, not a selection miss: CI runs Python 3.10 and 3.13 shards
+  difference, not a selection miss: CI runs Python 3.11 and 3.14 shards
   on Linux while local runs one interpreter on macOS, plus concurrency,
   ordering, and neighbor-merge interactions. No local selection can catch
   this class; it is exactly why CI is the authority.

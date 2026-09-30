@@ -57,21 +57,33 @@ def test_a_fold_holds_accumulators_rather_than_the_bytes_it_read(
 def test_one_wide_character_does_not_multiply_the_whole_artifact(
     tmp_path: Path,
 ) -> None:
-    """Python stores a string containing one emoji four bytes per character."""
-    artifact = write_rows(
-        tmp_path / "wide.jsonl", [padded_row(i, 200_000, "a") for i in range(4)]
-    )
-    with artifact.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(padded_row(9, 200_000, "a") | {"emoji": "🙂"}) + "\n")
+    """Unicode decoding costs one record even as the artifact grows."""
+    peaks = []
+    for count in (5, 20):
+        artifact = write_rows(
+            tmp_path / "wide.jsonl",
+            [padded_row(i, 200_000, "a") for i in range(count - 1)],
+        )
+        with artifact.open("a", encoding="utf-8") as handle:
+            handle.write(
+                json.dumps(padded_row(count, 200_000, "a") | {"emoji": "🙂"}) + "\n"
+            )
 
-    tracemalloc.start()
-    try:
-        scan_rows(artifact, 0, lambda row: None)
-        _, peak = tracemalloc.get_traced_memory()
-    finally:
-        tracemalloc.stop()
+        tracemalloc.start()
+        try:
+            result = scan_rows(artifact, 0, lambda row: None)
+            _, peak = tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+        assert result.records_decoded == count
+        assert result.caught_up
+        peaks.append(peak)
 
-    assert peak < artifact.stat().st_size
+    # Decoder overhead varies between supported Python releases. Increasing
+    # artifact size fourfold must leave the peak bounded by the same record,
+    # rather than making this a brittle byte threshold for one interpreter.
+    assert peaks[1] < 2 * peaks[0]
+    assert peaks[1] < artifact.stat().st_size
 
 
 def test_an_oversized_record_is_skipped_and_said_out_loud(
