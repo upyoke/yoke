@@ -33,9 +33,11 @@ resume path with the same stored identity. The delivery check includes that
 exit even when an orphaned open tool call remains; newer session activity
 still supersedes it. Refused or exhausted wakes retain the original pending
 receipt and notify its covering steering role with the exact diagnostic. An
-`outcome_unknown` wake waits until the target completes another tool call
+`outcome_unknown` or skipped wake waits until the target completes another tool call
 without acknowledging the message; a live open call defers the notice, and an
-acknowledged receipt never escalates.
+acknowledged receipt never escalates. A skip naming `surface_wake_operator_driven`
+never raises this notice on its own: that surface intentionally waits for the
+operator's next turn to deliver through its hook.
 
 ## Long commands — the tier router
 
