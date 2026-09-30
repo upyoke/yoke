@@ -14,6 +14,14 @@ import json
 
 from runtime.api.domain.merge_queue_observer_test_helpers import (
     GITHUB_MERGED_AT,
+    armed_awaiting_checks,
+    armed_awaiting_checks_new_head,
+    check_failed,
+    message_id_for_prefix,
+    not_queued,
+    observe,
+    open_unarmed,
+    unreadable,
     INJECTED_AT,
     MERGE_COMMIT,
     dirty,
@@ -30,7 +38,10 @@ from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 import yoke_core.domain.merge_queue_landing_observer as landing_observer
 from yoke_core.domain.merge_queue_landing_observer import observe_pending_landings
 from yoke_core.domain.merge_queue_landing_record import read_landing_record
-from yoke_core.domain.merge_queue_landing_record_state import LANDED
+from yoke_core.domain.merge_queue_landing_record_state import (
+    ENTRY_CHECKS_FAILED,
+    LANDED,
+)
 
 
 def test_landing_notification_is_sent_once_to_the_claim_holder():
@@ -245,3 +256,95 @@ def test_ended_holder_still_receives_the_landing_push():
         "WHERE m.idempotency_key='merge-queue-landed:101:42'"
     ).fetchone()
     assert recipient[0] == "s1"
+
+
+def test_an_armed_landing_the_queue_will_never_admit_reaches_its_holder():
+    """A red required check means the queue entry can never be created.
+
+    GitHub creates the entry only once a pull request's own required checks
+    pass, so such a candidate never records an admission. Asking it only
+    "did it merge" answered "not yet" on every sweep while its holder sat
+    parked on a landing that was already over — a steering seat reading the
+    pull request by hand was the only thing that noticed.
+    """
+    conn = never_armed(observer_connection())
+
+    observed = observe(
+        conn,
+        read_state=armed_awaiting_checks,
+        read_membership=not_queued,
+        read_checks=check_failed,
+    )
+
+    assert observed["ejected"] == 1
+    message_id = message_id_for_prefix(conn, "merge-queue-ejected:101:42:")
+    body = message_body(conn, message_id)
+    assert "Landing stopped for ALP-1" in body
+    assert "repo-contracts" in body
+    recipient = conn.execute(
+        "SELECT session_id, routing_snapshot FROM session_message_recipients "
+        "WHERE message_id=?",
+        (message_id,),
+    ).fetchone()
+    assert recipient[0] == "s1"
+    assert json.loads(str(recipient[1]))[EXPLICIT_WAKE_ROUTING_FLAG] is True
+    record = read_landing_record(conn, 101)
+    assert record is not None
+    assert record.state == ENTRY_CHECKS_FAILED
+
+
+def test_re_observing_that_same_head_does_not_report_it_again():
+    """The notice is keyed on the head, so the candidate has no column to clear."""
+    conn = never_armed(observer_connection())
+    reads = dict(
+        read_state=armed_awaiting_checks,
+        read_membership=not_queued,
+        read_checks=check_failed,
+    )
+
+    observe(conn, **reads)
+    observe(conn, **reads)
+
+    assert message_count(conn) == 1
+
+
+def test_a_fresh_head_that_fails_its_own_checks_is_reported_again():
+    """A force-push reuses the pull request number; the stoppage is new."""
+    conn = never_armed(observer_connection())
+
+    observe(
+        conn,
+        read_state=armed_awaiting_checks,
+        read_membership=not_queued,
+        read_checks=check_failed,
+    )
+    observe(
+        conn,
+        read_state=armed_awaiting_checks_new_head,
+        read_membership=not_queued,
+        read_checks=check_failed,
+    )
+
+    assert message_count(conn) == 2
+
+
+def test_an_unarmed_pull_request_is_still_asked_only_whether_it_merged():
+    """Armedness decides the cost; an unoffered pull request stays one read."""
+    conn = never_armed(observer_connection())
+
+    observed = observe(
+        conn,
+        read_state=open_unarmed,
+        read_membership=unreadable,
+        read_checks=unreadable,
+    )
+
+    assert observed == {
+        "checked": 1,
+        "landed": 0,
+        "notified": 0,
+        "ejected": 0,
+        "unrouted": 0,
+    }
+    assert message_count(conn) == 0
+    assert read_landing_record(conn, 101) is None

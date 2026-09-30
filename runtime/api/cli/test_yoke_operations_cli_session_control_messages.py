@@ -247,7 +247,7 @@ def test_say_help_teaches_the_complete_top_level_workflow(capsys) -> None:
     assert "yoke messages acknowledge MESSAGE-ID" in rendered
     assert "Top-level sender recovery for an undelivered message" in rendered
     assert "yoke messages cancel MESSAGE-ID" in rendered
-    assert "receipts shared with their parent read-only" in rendered
+    assert "receive no Fleet delivery at all" in rendered
     assert "handle Fleet wake requests" in rendered
 
 

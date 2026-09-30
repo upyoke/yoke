@@ -49,6 +49,24 @@ def _emit_digest(
     emit_immediate(carried)
 
 
+def _block_still_arriving(classifier: object) -> bool:
+    """Whether the classifier holds a block that is still receiving lines.
+
+    A periodic progress-stall check must not treat such a block as
+    abandoned. The fleet report is written as one multi-line payload, and
+    on a quiet fleet the report interval and the stall bound coincide, so
+    the stall fell due on the very line that opened the block. Flushing it
+    there emitted a lone opening marker claiming the probe had ended
+    before the closing marker — while the probe was mid-write — and reset
+    the classifier, so the real report never reached the progress stream.
+
+    Classifiers that buffer nothing omit the predicate and are never
+    holding.
+    """
+    holding = getattr(classifier, "has_open_block", None)
+    return bool(holding()) if callable(holding) else False
+
+
 def _emit_classifier_held(
     classifier: object,
     *,
@@ -280,7 +298,15 @@ def drain_watched_child(
                 )
                 if summary is not None:
                     last_summary = summary
-            stall_line = progress_watch.report_if_stalled(now)
+            # A block still arriving is progress in flight: neither report
+            # a stall against it nor tear it open as abandoned. Genuine
+            # abandonment still flushes at child exit, timeout, and the
+            # quiet-period abort above.
+            stall_line = (
+                None
+                if _block_still_arriving(classifier)
+                else progress_watch.report_if_stalled(now)
+            )
             if stall_line is not None:
                 _emit_classifier_held(
                     classifier,

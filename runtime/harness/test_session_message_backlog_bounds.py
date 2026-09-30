@@ -64,9 +64,6 @@ class _ConnectionPort:
     def __init__(self, conn) -> None:
         self.conn = conn
 
-    def read_for_hook(self, *, session_id: str, hook_event: str, limit: int):
-        raise AssertionError("the parent path never reads a child view")
-
     def lease_for_hook(
         self, *, session_id: str, hook_event: str, limit: int
     ) -> SessionMessageLease | None:

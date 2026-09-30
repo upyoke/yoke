@@ -38,6 +38,37 @@ class DocGetResponse(BaseModel):
     archived_at: Optional[str] = None
 
 
+class DocSectionReplaceRequest(BaseModel):
+    slug: str = Field(..., min_length=1, description="Strategy doc slug.")
+    heading: str = Field(
+        ..., min_length=1,
+        description=(
+            "Heading text of the section to replace, matched "
+            "case-insensitively at any level. The section runs to the next "
+            "heading at the same level or shallower, so its subsections are "
+            "replaced with it. A heading the document does not have is "
+            "refused rather than appended."
+        ),
+    )
+    content: str = Field(
+        ...,
+        description=(
+            "Replacement body for that section, without its heading line; "
+            "the stored heading is kept as written."
+        ),
+    )
+    base_updated_at: str = Field(
+        ..., min_length=1,
+        description=(
+            "The row updated_at this section was authored against (from "
+            "strategy.doc.get); the write is compare-and-swap on it."
+        ),
+    )
+    force: bool = Field(
+        False, description="Bypass the shrink guard for an intentional rewrite.",
+    )
+
+
 class DocReplaceRequest(BaseModel):
     slug: str = Field(..., min_length=1, description="Strategy doc slug.")
     content: str = Field(
@@ -134,6 +165,7 @@ __all__ = [
     "DocListResponse",
     "DocReplaceRequest",
     "DocReplaceResponse",
+    "DocSectionReplaceRequest",
     "RenderKnownDoc",
     "RenderRequest",
     "RenderResponse",

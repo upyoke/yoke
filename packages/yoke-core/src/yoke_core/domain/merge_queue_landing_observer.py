@@ -36,13 +36,12 @@ from typing import Any, Callable, Iterable
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
-from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.merge_queue_enqueue_verification import (
-    LandingReadback,
-    read_landing,
-)
 from yoke_core.domain.merge_queue_entry_checks import disarm_merge_when_ready
+from yoke_core.domain.merge_queue_landing_candidates import (
+    pending_landing_rows,
+    read_candidate,
+)
 from yoke_core.domain.merge_queue_landing_record import (
     from_readback,
     write_landing_record,
@@ -54,90 +53,25 @@ from yoke_core.domain.merge_queue_landing_refresh import (
     complete_projects,
     fail_projects,
 )
-from yoke_core.domain.merge_queue_landing_notice import landing_message, push_notice
+from yoke_core.domain.merge_queue_landing_notice import (
+    landing_message,
+    notice_already_sent,
+    push_notice,
+)
 from yoke_core.domain.merge_queue_landing_observation import (
     EJECTED,
     LANDED,
     classify_pending_landing,
     ejection_message,
 )
-from yoke_core.domain.schema_common import _column_exists
-from yoke_core.domain.session_message_types import row_dict, timestamp, utc_now
+from yoke_core.domain.session_message_types import timestamp, utc_now
 from yoke_core.engines.merge_worktree_pr_check_runs import read_required_checks
 from yoke_core.engines.merge_worktree_pr_membership import read_pr_queue_membership
 from yoke_core.engines.merge_worktree_pr_queue import read_pr_landing_state
-from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _pending_rows(conn: Any, project_ids: Iterable[int]) -> list[dict[str, Any]]:
-    """Every non-terminal item that has a landing pull request to read.
-
-    The pull request is the candidate key rather than the queue admission,
-    because the admission exists on only one of the two landing routes. The
-    set stays bounded by live work: a notified landing drops out at once,
-    and close-out clears the pull request number outright.
-    """
-    projects = tuple(sorted({int(value) for value in project_ids}))
-    if not projects or not _column_exists(conn, "items", "merge_queue_enqueued_at"):
-        return []
-    marker = _p(conn)
-    slots = ",".join(marker for _ in projects)
-    terminal = sorted(TERMINAL_STATUSES)
-    terminal_slots = ",".join(marker for _ in terminal)
-    rows = conn.execute(
-        "SELECT i.id, i.project_id, i.project_sequence, i.merge_queue_pr_number, "
-        "i.merge_queue_enqueued_at, i.merge_queue_landed_at, p.slug, "
-        "p.public_item_prefix, p.default_branch "
-        "FROM items i JOIN projects p ON p.id=i.project_id "
-        f"WHERE i.project_id IN ({slots}) "
-        "AND i.merge_queue_pr_number IS NOT NULL "
-        "AND i.merge_queue_notified_at IS NULL "
-        f"AND i.status NOT IN ({terminal_slots}) ORDER BY i.id",
-        (*projects, *terminal),
-    ).fetchall()
-    return [row_dict(row) for row in rows]
-
-
-def _read_candidate(
-    row: dict[str, Any],
-    pr_number: str,
-    *,
-    target: str,
-    read_state: Callable[..., Any],
-    read_membership: Callable[..., Any],
-    read_checks: Callable[..., Any],
-) -> tuple[MergeContext, LandingReadback]:
-    """Ask GitHub only what this candidate's landing route can answer.
-
-    An item with a recorded queue admission is owed the full four-fact
-    read: it can be ejected, and only this observer would notice. An item
-    that merely has a pull request open is asked whether it merged, and a
-    readback carrying no queue standing classifies as still waiting — so a
-    pull request that was never armed is never mistaken for one the queue
-    has dropped.
-    """
-    ctx = MergeContext(
-        args=MergeArgs(branch="", target=target),
-        repo_root="",
-        project=str(row["slug"]),
-    )
-    if row.get("merge_queue_enqueued_at"):
-        return (
-            ctx,
-            read_landing(
-                ctx,
-                pr_number,
-                read_state=read_state,
-                read_membership=read_membership,
-                read_checks=read_checks,
-            ),
-        )
-    state, state_error = read_state(ctx, pr_number)
-    return ctx, LandingReadback(state=state, state_error=state_error or "")
 
 
 def observe_pending_landings(
@@ -178,7 +112,7 @@ def observe_pending_landings(
     if not projects:
         return result
     try:
-        rows = _pending_rows(conn, projects)
+        rows = pending_landing_rows(conn, projects)
         conn.commit()
     except Exception as exc:
         conn.rollback()
@@ -193,7 +127,7 @@ def observe_pending_landings(
         pr_number = str(row["merge_queue_pr_number"])
         target = str(row.get("default_branch") or "main")
         try:
-            ctx, readback = _read_candidate(
+            ctx, readback = read_candidate(
                 row,
                 pr_number,
                 target=target,
@@ -201,7 +135,7 @@ def observe_pending_landings(
                 read_membership=read_membership,
                 read_checks=read_checks,
             )
-            if row.get("merge_queue_enqueued_at") or readback.merged:
+            if readback.membership is not None or readback.merged:
                 record = from_readback(
                     item_id=item_id,
                     project_id=project_id,
@@ -229,15 +163,10 @@ def observe_pending_landings(
         notice_in_progress = False
         try:
             if observation.kind == EJECTED:
-                # An ejection whose admission is already cleared has been
-                # reported once. The item stays a candidate — its pull
-                # request is still open, and a queue that merges it after
-                # the rebase is a landing this observer must still see — but
-                # saying so again is noise, and the notice was idempotent
-                # anyway.
-                if not row.get("merge_queue_enqueued_at"):
-                    continue
-                notice_in_progress = True
+                # The notice's own identity carries the dedupe, not a column.
+                # That is what lets an armed pull request the queue will never
+                # admit be reported at all: it has no admission to clear, and
+                # keying the report on one silenced it entirely.
                 # Keyed on the head this observation read, not just the pull
                 # request: the same PR number survives a force-push, so a
                 # fresh commit that fails its own required checks is a new
@@ -246,6 +175,23 @@ def observe_pending_landings(
                 # first one's already-acknowledged message and the holder
                 # never heard the queue had dropped it again.
                 head_sha = readback.state.head_sha if readback.state else ""
+                key = f"merge-queue-ejected:{item_id}:{pr_number}:{head_sha}"
+                if not row.get("merge_queue_enqueued_at") and notice_already_sent(
+                    conn, idempotency_key=key
+                ):
+                    # This candidate has no admission to clear, so clearing
+                    # one cannot be what stops the report repeating; the
+                    # notice's own identity is. An admission still standing
+                    # means the opposite — a stale marker left beside an
+                    # already-sent notice, which this pass heals by clearing
+                    # it below, and which then stops repeating on its own.
+                    #
+                    # The item stays a candidate either way: its pull request
+                    # is still open, and a queue that merges it after the
+                    # rebase is a landing this observer must still see.
+                    conn.commit()
+                    continue
+                notice_in_progress = True
                 delivery = push_notice(
                     conn,
                     item_id=item_id,
@@ -253,9 +199,7 @@ def observe_pending_landings(
                     body_for_route=lambda route: ejection_message(
                         public_ref, pr_number, observation, route
                     ),
-                    idempotency_key=(
-                        f"merge-queue-ejected:{item_id}:{pr_number}:{head_sha}"
-                    ),
+                    idempotency_key=key,
                     now=current,
                 )
                 notice_in_progress = False
@@ -264,12 +208,16 @@ def observe_pending_landings(
                     result["unrouted"] += 1
                     continue
                 # Acceptance ends the observer's responsibility. Delivery is
-                # owned by the ordinary pending-message path.
-                conn.execute(
-                    f"UPDATE items SET merge_queue_enqueued_at=NULL "
-                    f"WHERE id={marker} AND merge_queue_pr_number={marker}",
-                    (item_id, pr_number),
-                )
+                # owned by the ordinary pending-message path. Only a recorded
+                # admission is cleared: there is no queued landing left to
+                # wait for, and a candidate that never reached the queue has
+                # nothing to clear.
+                if row.get("merge_queue_enqueued_at"):
+                    conn.execute(
+                        f"UPDATE items SET merge_queue_enqueued_at=NULL "
+                        f"WHERE id={marker} AND merge_queue_pr_number={marker}",
+                        (item_id, pr_number),
+                    )
                 result["ejected"] += 1
                 conn.commit()
                 continue

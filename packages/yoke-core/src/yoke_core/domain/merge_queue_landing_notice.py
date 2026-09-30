@@ -113,6 +113,23 @@ def _receipt_delivered(conn: Any, message_id: str, session_id: str) -> bool:
     return False
 
 
+def notice_already_sent(conn: Any, *, idempotency_key: str) -> bool:
+    """Whether this exact notice has already been accepted.
+
+    The key names what the notice is about — for an ejection, the head the
+    observation read — so this answers "has the owner already been told
+    about this?" without composing or sending anything. The observer needs
+    it because a stop it cannot clear a marker for would otherwise be
+    re-counted as newly reported on every sweep.
+    """
+    marker = _p(conn)
+    row = conn.execute(
+        f"SELECT 1 FROM session_messages WHERE idempotency_key={marker} LIMIT 1",
+        (idempotency_key,),
+    ).fetchone()
+    return row is not None
+
+
 def push_notice(
     conn: Any,
     *,
@@ -157,6 +174,7 @@ def push_notice(
 __all__ = [
     "HOLDER",
     "STEERING",
+    "notice_already_sent",
     "landing_message",
     "push_notice",
     "resolve_lane_recipient",

@@ -15,23 +15,10 @@ from yoke_core.tools._watch_throttle import LineClass
 from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
 from yoke_core.tools.watch_inventory import EXCLUDE_PATHS, FALLBACK_TOKENS
 
-
-class _RecordingStream:
-    """Capture each write so a report's one-wake contract is observable."""
-
-    def __init__(self) -> None:
-        self.writes: list[str] = []
-        self._buf = io.StringIO()
-
-    def write(self, s: str) -> int:
-        self.writes.append(s)
-        return self._buf.write(s)
-
-    def flush(self) -> None:
-        self._buf.flush()
-
-    def getvalue(self) -> str:
-        return self._buf.getvalue()
+from runtime.api.tools.watch_fleet_test_harness import (
+    RecordingStream,
+    run_probe_script,
+)
 
 
 def test_the_wrapper_is_registered_on_every_roster() -> None:
@@ -119,25 +106,10 @@ def test_a_traceback_inside_a_report_preempts_and_marks_the_partial() -> None:
     assert REPORT_END not in held
 
 
-def _run_probe_script(tmp_path: Path, source: str, stdout: _RecordingStream) -> int:
-    from yoke_core.tools import _watch_runner
-
-    script = tmp_path / "emit.py"
-    script.write_text(source, encoding="utf-8")
-    return _watch_runner.run_watcher(
-        argv=[sys.executable, str(script)],
-        classifier=watch_fleet.make_fleet_classifier(),
-        raw_capture=tmp_path / "raw.log",
-        progress_capture=tmp_path / "progress.log",
-        kind="fleet",
-        stdout_stream=stdout,
-    )
-
-
 def test_the_follower_receives_the_whole_report_in_one_wake(
     tmp_path: Path,
 ) -> None:
-    stdout = _RecordingStream()
+    stdout = RecordingStream()
     lines = [
         REPORT_BEGIN,
         "composed now · 1 held scopes · hook digest",
@@ -145,7 +117,7 @@ def test_the_follower_receives_the_whole_report_in_one_wake(
         REPORT_END,
         "fleet item YOK-1 status idea -> implementing",
     ]
-    rc = _run_probe_script(
+    rc = run_probe_script(
         tmp_path,
         f"for line in {lines!r}:\n    print(line)\n",
         stdout,
@@ -183,7 +155,7 @@ def test_a_delayed_report_body_arrives_in_the_same_wake_as_its_header(
         f"print({REPORT_END!r})\n",
         encoding="utf-8",
     )
-    stdout = _RecordingStream()
+    stdout = RecordingStream()
     result: dict[str, int] = {}
 
     def _run() -> None:
@@ -219,8 +191,8 @@ def test_a_delayed_report_body_arrives_in_the_same_wake_as_its_header(
 def test_an_unclosed_report_reaches_the_follower_marked_partial(
     tmp_path: Path,
 ) -> None:
-    stdout = _RecordingStream()
-    rc = _run_probe_script(
+    stdout = RecordingStream()
+    rc = run_probe_script(
         tmp_path,
         f"print({REPORT_BEGIN!r})\n"
         "print('composed now · 1 held scopes · hook digest')\n",
@@ -237,8 +209,8 @@ def test_an_unclosed_report_reaches_the_follower_marked_partial(
 def test_a_traceback_inside_a_watched_report_still_preempts(
     tmp_path: Path,
 ) -> None:
-    stdout = _RecordingStream()
-    rc = _run_probe_script(
+    stdout = RecordingStream()
+    rc = run_probe_script(
         tmp_path,
         f"print({REPORT_BEGIN!r})\n"
         "print('composed now · 1 held scopes · hook digest')\n"

@@ -37,6 +37,7 @@ from yoke_core.domain.deployment_run_driver_attachment import (
 )
 from yoke_core.domain.deployment_runs_lock import RUN_ROW_LOCK_BLOCKED_PREFIX
 from yoke_core.tools import _watch_runner, watch_preflight
+from yoke_core.tools._watch_designed_waits import DEPLOY_WATCH_KIND
 from yoke_core.tools._watch_terminal_outcome import (
     OUTCOME_ONLY_WATCH_KINDS,
     PYTHON_EXCEPTION_PATTERN,
@@ -51,7 +52,7 @@ from yoke_core.tools.deploy_pipeline_pinned_driver import (
 )
 
 WRAPPER_MODULE = "yoke_core.tools.watch_deploy"
-KIND = "deploy"
+KIND = DEPLOY_WATCH_KIND
 # argparse prog for a direct module invocation; the CLI adapter passes
 # the ``yoke watch deploy`` form so help reads back the command as typed.
 DEFAULT_PROG = "watch_deploy"

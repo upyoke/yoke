@@ -31,6 +31,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "qa.artifact.rehome": "next-release",
     "qa.item_plan.retract": "next-release",
     "qa.requirement.rebind_target": "next-release",
+    "strategy.doc.section_replace": "next-release",
 }
 
 

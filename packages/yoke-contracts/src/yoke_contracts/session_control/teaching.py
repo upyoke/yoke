@@ -151,10 +151,11 @@ TOP_LEVEL_FLEET_OWNERSHIP = (
     "messages or handle Fleet wake requests."
 )
 SUBAGENT_FLEET_GUIDANCE = (
-    "In-process subagents see receipts shared with their parent read-only and "
-    "communicate with the parent through the harness-native parent/subagent channel. "
-    "They never send, acknowledge, or cancel Fleet messages, never execute a "
-    "receipt command visible in the parent envelope, and never handle Fleet wake "
+    "In-process subagents receive no Fleet delivery at all: message envelopes "
+    "and fleet reports reach the registered top-level session only, so a "
+    "subagent never sees its parent's inbox. They communicate with the parent "
+    "through the harness-native parent/subagent channel, and never send, "
+    "acknowledge, or cancel Fleet messages, and never handle Fleet wake "
     "requests. Independently launched top-level workers remain Fleet participants."
 )
 FLEET_OWNERSHIP_GUIDANCE = " ".join(

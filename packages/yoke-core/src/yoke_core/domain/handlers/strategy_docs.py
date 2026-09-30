@@ -48,6 +48,7 @@ from yoke_core.domain.handlers.strategy_docs_models import (
     DocListRequest,
     DocListResponse,
     DocReplaceRequest,
+    DocSectionReplaceRequest,
     DocReplaceResponse,
     RenderRequest,
     RenderResponse,
@@ -177,6 +178,14 @@ def handle_doc_replace(request: FunctionCallRequest) -> HandlerOutcome:
     return replace(request)
 
 
+def handle_doc_section_replace(request: FunctionCallRequest) -> HandlerOutcome:
+    from yoke_core.domain.handlers.strategy_doc_section_replace import (
+        handle_doc_section_replace as section_replace,
+    )
+
+    return section_replace(request)
+
+
 def handle_render(request: FunctionCallRequest) -> HandlerOutcome:
     payload, err = _validate(request, RenderRequest, "strategy.render.run")
     if err is not None:
@@ -257,6 +266,25 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "claim_required_kind": None,
     },
     {
+        "function_id": "strategy.doc.section_replace",
+        "handler": handle_doc_section_replace,
+        "request_model": DocSectionReplaceRequest,
+        "response_model": DocReplaceResponse,
+        "stability": "stable",
+        "minimum_serving_version": "next-release",
+        "owner_module": "yoke_core.domain.handlers.strategy_docs",
+        "target_kinds": ["global"],
+        "side_effects": ["db_write", "event_emit"],
+        "emitted_event_names": [STRATEGY_DOC_REPLACED_EVENT_NAME],
+        "guardrails": [
+            "strategy_process_claim_required",
+            "shrink_guard",
+            "compare_and_swap_base",
+        ],
+        "adapter_status": "live",
+        "claim_required_kind": None,
+    },
+    {
         "function_id": "strategy.render.run",
         "handler": handle_render,
         "request_model": RenderRequest,
@@ -290,5 +318,6 @@ __all__ = [
     "handle_doc_get",
     "handle_doc_list",
     "handle_doc_replace",
+    "handle_doc_section_replace",
     "handle_render",
 ]

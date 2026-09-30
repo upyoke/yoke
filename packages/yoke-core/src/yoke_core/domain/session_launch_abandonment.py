@@ -88,9 +88,15 @@ def _entered_mandate(
 def _worked(conn: Any, session_id: str) -> bool:
     """Report whether this session ever performed an act only work performs.
 
-    A completed tool call counts here and not at session end: a worker killed
-    mid-tool-call was working, while one that ran a wrong first command and
-    was then reaped idle was not.
+    Both settlement paths ask this one question, because "the worker
+    started" cannot depend on how the session finished. A claim is not the
+    only evidence of starting: a mandate may legitimately forbid claiming
+    anything — a delivery probe told to read and acknowledge one message,
+    then stop — and such a session completed its work with no claim and no
+    message sent. Deciding at session end on the claim alone flipped those
+    launches to ``abandoned_without_claim`` and told the requester to
+    restaff work that was already done, while the same session dying
+    natively was judged correctly.
 
     The completed-work marker on the session row is what answers this,
     because the answer must outlive both the telemetry ledger and the
@@ -193,7 +199,7 @@ def settle_abandoned_launch(
         if launch is None or launch.state not in _REVIEWABLE_STATES:
             conn.commit()
             return None
-        if _entered_mandate(conn, session_id):
+        if _worked(conn, session_id):
             conn.commit()
             return None
         evidence = {

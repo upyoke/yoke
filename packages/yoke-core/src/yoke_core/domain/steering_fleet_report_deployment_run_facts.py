@@ -5,16 +5,18 @@ Facts are retrieved once for the live set; scoped QA uses qa_stage_outstanding.
 
 from __future__ import annotations
 
-import json
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
 from yoke_contracts.public_ref import format_item_ref
-from yoke_core.domain.deployment_flow_policy import QA_STEP_RUNNER, STAGE_KIND_QA
 from yoke_core.domain.deployment_qa_case_failure_kinds import RED_VERDICTS
 from yoke_core.domain.deployment_run_completion_preconditions import (
     RESOLVED_RUN_QA_STATUSES,
+)
+from yoke_core.domain.deployment_run_stage_entry import (
+    is_scoped_qa_stage,
+    parse_stage_plan,
+    stage_entry_times,
 )
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
@@ -87,11 +89,12 @@ def load_live_run_facts(
     run_ids = [str(run["id"]) for run in runs]
     if not run_ids:
         return LiveRunFactMaps(frozenset(), {}, {}, {}, {}, {})
-    qa_stage_run_ids = _qa_stage_run_ids(conn, runs=runs, tables=tables)
+    plans = _flow_stage_plans(conn, runs=runs, tables=tables)
+    qa_stage_run_ids = _qa_stage_run_ids(runs=runs, plans=plans)
     unresolved, totals = _completion_boundary(conn, run_ids=run_ids, tables=tables)
     return LiveRunFactMaps(
         qa_stage_run_ids=qa_stage_run_ids,
-        entered_at=_latest_receipts(conn, runs=runs, tables=tables),
+        entered_at=_stage_entry_times(conn, runs=runs, tables=tables, plans=plans),
         red=_red_requirements(conn, run_ids=run_ids, tables=tables),
         decisions=_resolved_decisions(conn, runs=runs, tables=tables),
         unresolved=unresolved,
@@ -104,84 +107,71 @@ def _holes(conn: Any, values: list[Any]) -> tuple[str, tuple[Any, ...]]:
     return ", ".join(p for _ in values), tuple(values)
 
 
-def _qa_stage_run_ids(
+def _flow_stage_plans(
     conn: Any, *, runs: list[dict[str, Any]], tables: _Tables
-) -> frozenset[str]:
+) -> dict[str, tuple[dict[str, Any], ...]]:
+    """Each live run's pinned flow stages, in order, read once."""
     if not tables.has("deployment_flows"):
-        return frozenset()
+        return {}
     run_ids = [str(run["id"]) for run in runs]
     holes, params = _holes(conn, run_ids)
     rows = conn.execute(
-        f"""SELECT dr.id, dr.current_stage, df.stages
+        f"""SELECT dr.id, df.stages
               FROM deployment_runs dr
               JOIN deployment_flows df ON df.id = dr.flow
              WHERE dr.id IN ({holes})""",
         params,
     ).fetchall()
-    found: set[str] = set()
-    by_id = {str(run["id"]): str(run["current_stage"]) for run in runs}
+    plans: dict[str, tuple[dict[str, Any], ...]] = {}
     for raw in rows:
         row = row_dict(raw)
-        run_id = str(row["id"])
-        stage_name = by_id.get(run_id, "")
-        if stage_name and _is_scoped_qa_stage(row.get("stages"), stage_name):
+        plans[str(row["id"])] = parse_stage_plan(row.get("stages"))
+    return plans
+
+
+def _qa_stage_run_ids(
+    *,
+    runs: list[dict[str, Any]],
+    plans: dict[str, tuple[dict[str, Any], ...]],
+) -> frozenset[str]:
+    found: set[str] = set()
+    for run in runs:
+        run_id = str(run["id"])
+        stage_name = str(run["current_stage"])
+        if stage_name and is_scoped_qa_stage(plans.get(run_id, ()), stage_name):
             found.add(run_id)
     return frozenset(found)
 
 
-def _is_scoped_qa_stage(raw: Any, stage_name: str) -> bool:
-    try:
-        stages = json.loads(str(raw or "[]"))
-    except (TypeError, ValueError):
-        return False
-    if not isinstance(stages, list):
-        return False
-    matches = [
-        dict(stage)
-        for stage in stages
-        if isinstance(stage, Mapping) and str(stage.get("name") or "") == stage_name
-    ]
-    if len(matches) != 1:
-        return False
-    stage = matches[0]
-    return (
-        stage.get("stage_kind") == STAGE_KIND_QA
-        and stage.get("step_runner") == QA_STEP_RUNNER
-    )
-
-
-def _latest_receipts(
-    conn: Any, *, runs: list[dict[str, Any]], tables: _Tables
+def _stage_entry_times(
+    conn: Any,
+    *,
+    runs: list[dict[str, Any]],
+    tables: _Tables,
+    plans: dict[str, tuple[dict[str, Any], ...]],
 ) -> dict[str, str]:
+    """When each live run entered the stage it is at, from its own receipts."""
     if not tables.has("deployment_stage_receipts"):
         return {}
-    run_ids = [str(run["id"]) for run in runs]
-    wanted = {
-        (str(run["id"]), str(run["current_stage"]))
+    current = {
+        str(run["id"]): str(run["current_stage"])
         for run in runs
         if str(run["current_stage"])
     }
-    if not wanted:
+    if not current:
         return {}
-    holes, params = _holes(conn, run_ids)
+    holes, params = _holes(conn, [str(run["id"]) for run in runs])
     rows = conn.execute(
-        f"""SELECT run_id, stage_name, created_at, id
+        f"""SELECT run_id, stage_name, created_at, completed_at, id
               FROM deployment_stage_receipts
              WHERE run_id IN ({holes})""",
         params,
     ).fetchall()
-    best: dict[tuple[str, str], tuple[str, int]] = {}
-    for raw in rows:
-        row = row_dict(raw)
-        key = (str(row["run_id"]), str(row["stage_name"] or ""))
-        if key not in wanted:
-            continue
-        stamp = str(row.get("created_at") or "")
-        receipt_id = int(row["id"])
-        previous = best.get(key)
-        if previous is None or (stamp, receipt_id) > previous:
-            best[key] = (stamp, receipt_id)
-    return {run_id: stamp for (run_id, _stage), (stamp, _id) in best.items() if stamp}
+    return stage_entry_times(
+        [row_dict(raw) for raw in rows],
+        current_stage_by_run=current,
+        stage_plan_by_run=plans,
+    )
 
 
 def _red_requirements(

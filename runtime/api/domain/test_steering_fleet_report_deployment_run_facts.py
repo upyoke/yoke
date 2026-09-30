@@ -8,6 +8,7 @@ read does not grow as a sequence of per-run queries.
 
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
@@ -103,6 +104,85 @@ def _resolve_decision(conn, *, run_id: str, request_id: int, stage: str, action:
         "'resolved',%s,%s,'any',%s)",
         (request_id, f"{run_id}:{stage}", action, STARTED, STARTED),
     )
+
+
+STAGE_BUILD = "hosted-build"
+ENTERED_QA = "2026-08-26T11:50:00Z"
+
+
+def _seed_flow(conn, *, flow_id: str = "prod-release") -> None:
+    """A flow whose scoped-QA stage follows a receipt-producing build stage."""
+    conn.execute(
+        "INSERT INTO deployment_flows(id,project_id,name,stages,created_at) "
+        "VALUES (%s,1,%s,%s,%s)",
+        (
+            flow_id,
+            flow_id,
+            json.dumps(
+                [
+                    {"name": STAGE_BUILD, "step_runner": "command"},
+                    {"name": STAGE_QA, "stage_kind": "qa", "step_runner": "qa"},
+                ]
+            ),
+            STARTED,
+        ),
+    )
+
+
+def _complete_receipt(conn, *, run_id: str, stage: str, at: str) -> None:
+    conn.execute(
+        "UPDATE deployment_stage_receipts SET status='ready',completed_at=%s,"
+        "observed_release_lineage='lineage' "
+        "WHERE run_id=%s AND stage_name=%s",
+        (at, run_id, stage),
+    )
+
+
+def test_a_qa_stage_ages_from_the_receipt_of_the_stage_before_it(test_db) -> None:
+    """A QA stage produces no receipt, so its predecessor's dates the wait.
+
+    Reading the run clock instead reported the whole run's age as the
+    stage's, so a run ten minutes into item QA looked like a stall.
+    """
+    conn = seed_steering_scope(test_db)
+    _seed_flow(conn)
+    _seed_run(conn, run_id="run-20260826-020", stage=STAGE_BUILD)
+    _complete_receipt(
+        conn, run_id="run-20260826-020", stage=STAGE_BUILD, at=ENTERED_QA
+    )
+    conn.execute(
+        "UPDATE deployment_runs SET current_stage=%s WHERE id=%s",
+        (STAGE_QA, "run-20260826-020"),
+    )
+    conn.commit()
+
+    run = compose(conn).deployment_runs[0]
+    assert run.stage == STAGE_QA
+    assert run.stage_seconds == 600
+
+
+def test_a_receipt_from_a_later_stage_never_dates_the_current_one(test_db) -> None:
+    """Only stages the flow orders before the current one are evidence."""
+    conn = seed_steering_scope(test_db)
+    _seed_flow(conn)
+    _seed_run(conn, run_id="run-20260826-021", stage=STAGE_QA, receipt_at=None)
+    conn.execute(
+        "INSERT INTO deployment_stage_receipts"
+        "(run_id,stage_name,attempt_number,correlation_id,target_kind,"
+        "target_name,status,executor,created_at,completed_at) "
+        "VALUES (%s,%s,1,%s,'environment','prod','running','operator',%s,%s)",
+        (
+            "run-20260826-021",
+            "post-qa-promotion",
+            "run-20260826-021:post:1",
+            STARTED,
+            ENTERED_QA,
+        ),
+    )
+    conn.commit()
+
+    run = compose(conn).deployment_runs[0]
+    assert run.stage_seconds == 4 * 3600
 
 
 def test_a_run_without_a_stage_receipt_ages_from_the_run_clock(test_db) -> None:

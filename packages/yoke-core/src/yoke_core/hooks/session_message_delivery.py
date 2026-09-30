@@ -29,13 +29,11 @@ from yoke_core.domain.session_message_delivery_probe import (
 from yoke_core.hooks.fleet_watcher_presence import maybe_append_fleet_watcher_nudge
 from yoke_core.hooks.session_message_delivery_port import (
     CoreSessionMessageDeliveryPort,
-    LeasedSessionMessage,
     SessionMessageDeliveryPort,
     SessionMessageLease,
 )
 from yoke_core.hooks.session_message_report_only import report_only_decision
 from yoke_core.hooks.session_message_rendering import (
-    render_child_view,
     render_lease,
 )
 from yoke_core.hooks.session_message_settlement import classify_lease_settlement
@@ -158,16 +156,6 @@ def _decision_for_event(
     return _context_decision(context, rendered, audit, extra_fields=extra or None)
 
 
-def _child_decision_for_event(
-    messages: tuple[LeasedSessionMessage, ...], context: HookContext
-) -> HookDecision:
-    return _context_decision(
-        context,
-        render_child_view(messages),
-        {"read_only_child_view": True},
-    )
-
-
 def _noop() -> HookDecision:
     return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
 
@@ -219,19 +207,15 @@ def evaluate(context: HookContext) -> HookDecision:
         or not _event_is_model_visible(context)
     ):
         return _noop()
-    port = _delivery_port()
     if is_subagent_execution(context.payload, env={}):
-        try:
-            messages = port.read_for_hook(
-                session_id=session_id,
-                hook_event=context.event_name,
-                limit=DEFAULT_LEASE_LIMIT,
-            )
-        except Exception:
-            return _noop()
-        if not messages:
-            return _noop()
-        return _child_decision_for_event(messages, context)
+        # A subagent shares its parent's session id, so reading that inbox
+        # here put the parent's envelopes and fleet reports into the context
+        # of agents they were never addressed to — read-only searchers were
+        # handed a deployment run's QA messages. Fleet delivery belongs to
+        # the registered top-level session; the envelope stays pending for
+        # it, so nothing is consumed and nothing needs declining.
+        return _noop()
+    port = _delivery_port()
     try:
         lease = port.lease_for_hook(
             session_id=session_id,

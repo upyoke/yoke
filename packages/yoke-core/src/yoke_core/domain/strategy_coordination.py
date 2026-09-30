@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any, Optional
 
+from yoke_core.domain.strategy_doc_sections import find_section
 from yoke_core.domain.strategy_docs import (
     StrategyDocMissingError,
     next_updated_at,
@@ -32,17 +33,9 @@ def _append_to_markdown_section(
     entry: str,
 ) -> str:
     lines = content.rstrip().splitlines()
-    heading_pattern = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
-    target_index = None
-    target_level = 2
-    for index, line in enumerate(lines):
-        match = heading_pattern.match(line)
-        if match and match.group(2).strip().casefold() == section.casefold():
-            target_index = index
-            target_level = len(match.group(1))
-            break
+    span = find_section("\n".join(lines), section)
     entry_lines = entry.strip().splitlines()
-    if target_index is None:
+    if span is None:
         return "\n".join([
             *lines,
             "",
@@ -51,14 +44,8 @@ def _append_to_markdown_section(
             *entry_lines,
             "",
         ])
-    insert_at = len(lines)
-    for index in range(target_index + 1, len(lines)):
-        match = heading_pattern.match(lines[index])
-        if match and len(match.group(1)) <= target_level:
-            insert_at = index
-            break
-    prefix = lines[:insert_at]
-    suffix = lines[insert_at:]
+    prefix = lines[: span.body_end]
+    suffix = lines[span.body_end :]
     while prefix and not prefix[-1].strip():
         prefix.pop()
     return "\n".join([
