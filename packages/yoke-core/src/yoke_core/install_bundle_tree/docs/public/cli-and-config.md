@@ -69,7 +69,8 @@ environment is active, API URLs, local paths. Secrets for capabilities live
 under `~/.yoke/secrets/` (not in the repo).
 
 Launch defaults retain the scalar `preferred_session_models` map that the
-previous release can read. Context stays encoded in each native model
+previous release can read. The model ids below are illustrative selector
+syntax, not recommended models. Context stays encoded in each native model
 selector, while effort lives in the additive
 `preferred_session_reasoning_efforts` map:
 
@@ -107,8 +108,13 @@ a fact about a provider account, so it is read from the machine composing the
 launch — unlike the two default maps above, which come from the machine that
 will run it:
 
-The example preserves an approved operator route. Refreshing sourced model
-tiers does not change these configured selectors or an active session.
+**The block below is illustrative, not a current route.** Its model ids
+show the selector syntax each surface accepts — the `[1m]` context suffix,
+the `-high` effort suffix — and nothing about which models a machine
+routes to or which tier the catalog puts them in today. Read the live
+routing default for a surface with `--list-models`, and a model's live
+tier with `yoke models lookup <model-id>`. Refreshing sourced model tiers
+changes neither a configured selector nor an active session.
 
 ```json
 {
@@ -134,11 +140,12 @@ tiers does not change these configured selectors or an active session.
 
 Tiers are global capability relative to the absolute frontier, not a vendor
 ladder and not the best model a harness happens to offer. `tier1` is
-frontier-equivalent (Fable/Astra or successors); `tier2` is the band
-immediately below (Opus 5.5, GPT-6 Sol, and Grok 4.7). Models below that,
-including Sonnet, are `excluded` — not extra usable ranks. Cursor currently
-has no `tier1` model; latest Grok stays `tier2`. The researched tier is
-advisory: an explicit operator route can still name an older model. A
+frontier-equivalent; `tier2` is the band immediately below it. Models under
+that band are `excluded` — not extra usable ranks. Which models sit in each
+band is the model catalog's answer, read with `yoke models get` or
+`yoke models lookup <model-id>`; naming them here would duplicate a value
+the catalog owns and go stale on its next revision. The researched tier is
+advisory: an explicit operator route can still name an excluded model. A
 `fallbacks` entry is reachable only when the preferred model's own billing
 pool is confirmed empty. An unreadable meter, a low headroom reading, or
 room in a different pool is not confirmation, so a fallback never starts

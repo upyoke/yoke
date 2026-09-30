@@ -46,15 +46,21 @@ this file teaching a ladder the surface no longer has.
 
 Tiers are **global capability**, not a provider product ladder and not the
 best model a harness happens to offer. Tier 1 is the absolute frontier
-(Fable/Astra or equivalent successors). Tier 2 is the band immediately
-below (Opus 5.5, GPT-6 Sol, and Grok 4.7). Anything below that — including
-Sonnet — is excluded, not ranked. Cursor currently has no tier 1 model;
-do not relabel latest Grok as tier 1 because it is Cursor's best offering.
+across providers. Tier 2 is the band immediately below it. Anything under
+that band is excluded — not an extra usable rank. A vendor flagship label,
+a larger version number, or being the best a harness offers is not evidence
+of a tier.
+
+Which models sit in each band today is the model catalog's answer, not this
+file's: read the revision with `yoke models get`, or one model's tier with
+`yoke models lookup <model-id>`. Naming them here duplicates a value the
+catalog owns, so the next reclassification would leave this prose teaching a
+tier the catalog has already moved.
 
 On this installation, `claude-cli` and `codex-cli` set `worker_tier` to
 `tier2`. Their new worker launches use the models named by the operator's
-`tier2` routing keys for all three work kinds, not Sonnet. Steering may use
-tier 1, and
+`tier2` routing keys for all three work kinds — whichever models those keys
+name, never an excluded one. Steering may use tier 1, and
 an explicit operator request for tier 1 or a specific tier-1 model is
 direct authorization for that launch. If the configured tier-2 model is
 unavailable, report that fact; never promote silently. Cursor has no
@@ -63,34 +69,32 @@ worker-tier override and keeps the Grok-first policy below.
 ## Which model each tier means
 
 The operator's per-surface routing preference answers that, in
-`~/.yoke/config.json`. The teaching example below preserves the approved
-route from September 7. Research now proposes newer tier-2 models, but a
-reference refresh does not rewrite operator routing or move already-started
+`~/.yoke/config.json`. **The block below is a shape example only — every
+model id in it is a placeholder, not a current route.** The live routing
+default for a surface is printed by the same `--list-models` read above,
+and a model's live tier by `yoke models lookup <model-id>`; a catalog
+refresh does not rewrite operator routing or move already-started
 sessions:
 
 ```json
 "session_model_routing": {
-  "claude-cli": {
-    "tier1": "claude-fable-5-1",
-    "tier2": "claude-opus-5",
+  "<surface-id>": {
+    "tier1": "<a tier1 model id from the catalog>",
+    "tier2": "<a tier2 model id from the catalog>",
     "worker_tier": "tier2"
   },
-  "codex-cli": {
-    "tier1": "gpt-6-astra",
-    "tier2": "gpt-5.6-sol",
-    "worker_tier": "tier2"
-  },
-  "cursor-cli": {
-    "tier2": "cursor-grok-4.6-high",
-    "excluded": ["cursor-auto"],
-    "fallbacks": ["claude-opus-5-thinking-high"]
+  "<another-surface-id>": {
+    "tier2": "<a tier2 model id from the catalog>",
+    "excluded": ["<a model id never to launch>"],
+    "fallbacks": ["<a model id the preferred one may hand off to>"]
   }
 }
 ```
 
 Models named in the routing policy's `excluded` list are never launched.
-The reference's `proposed_tier` is advisory and does not override a named
-operator route, including the retained Grok 4.6 selection. `fallbacks` are
+The catalog's `proposed_tier` is advisory and does not override a named
+operator route, so an operator may keep routing a model the catalog has
+since moved out of that tier. `fallbacks` are
 the only models a preferred model may hand off to, and only under the rule
 below. A surface with no entry keeps whatever per-surface default it already
 had — blank is a
@@ -126,8 +130,10 @@ the models previously observed and remains visibly stale.
 
 Cursor bills two included pools at once. `cursor-grok-*` and `composer-*`
 selections draw on **Cursor Models**; everything else draws on **Other
-Models**. Grok 4.7 is global tier 2; approved routing still makes Grok 4.6
-the ordinary Cursor worker. Opus on Cursor is a fallback and nothing else.
+Models**. Whatever the catalog's current tier for each Grok release, the
+approved routing keeps a Grok the ordinary Cursor worker — read which one
+from the surface's `--list-models` default. Opus on Cursor is a fallback
+and nothing else.
 
 Reach for the fallback only when the **Cursor Models** pool is confirmed
 empty. Three things that are not confirmation:
