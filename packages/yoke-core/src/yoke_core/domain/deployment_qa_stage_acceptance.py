@@ -1,17 +1,6 @@
-"""Read whether one pinned deployment QA stage subject is already accepted.
+"""Read a pinned deployment QA subject's existing acceptance without writes.
 
-:mod:`deployment_qa_stage_gate` answers the same question while the
-pipeline is standing on the stage, and *settles* it: it materializes the
-acceptance requirement, records an agent verdict when the stage's mode
-allows one, and opens the human review request when it does not. A
-later reader -- the release-to-done gate, which runs long after the run
-left the stage -- must not do any of that: it needs the answer as it
-already stands, with no write and no assumption that the stage is the
-run's active one.
-
-Both directions share these readers so "accepted" means one thing in
-both places. Nothing here writes, and nothing here requires the stage to
-be active.
+The active stage gate and later release readers share this authority.
 """
 
 from __future__ import annotations
@@ -194,6 +183,7 @@ class StageAcceptance:
 
     state: str
     blockers: tuple[str, ...]
+    failed_requirement_ids: tuple[int, ...] = ()
 
     @property
     def accepted(self) -> bool:
@@ -232,15 +222,15 @@ def stage_acceptance(
         member_item_id=member_item_id,
         execution_target_digest=digest,
     )
-    failures = failure_reasons(
-        case_failures(
-            conn,
-            run_id=run_id,
-            stage_name=stage_name,
-            member_item_id=member_item_id,
-            execution_target_digest=digest,
-        )
+    cases = case_failures(
+        conn,
+        run_id=run_id,
+        stage_name=stage_name,
+        member_item_id=member_item_id,
+        execution_target_digest=digest,
     )
+    failures = failure_reasons(cases)
+    red_ids = tuple(case.requirement_id for case in cases if case.red)
     if execution is None:
         if obligations_fully_discharged(
             conn,
@@ -260,9 +250,9 @@ def stage_acceptance(
         state, reason = missing_execution_blocker(
             conn, run_id, stage_name, member_item_id, digest
         )
-        return StageAcceptance(state, (reason, *failures))
+        return StageAcceptance(state, (reason, *failures), red_ids)
     if failures:
-        return StageAcceptance(STAGE_CASES_UNRESOLVED, tuple(failures))
+        return StageAcceptance(STAGE_CASES_UNRESOLVED, tuple(failures), red_ids)
     obligation_failures = fulfill_admitted_obligations(
         conn,
         run_id=run_id,
@@ -298,6 +288,7 @@ def stage_acceptance(
         return StageAcceptance(
             STAGE_REJECTED,
             (f"stage acceptance requirement #{requirement_id} was rejected",),
+            (requirement_id,),
         )
     return StageAcceptance(
         STAGE_AWAITING_REVIEW,

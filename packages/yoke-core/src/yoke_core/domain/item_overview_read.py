@@ -261,12 +261,9 @@ def _card_delivery(
     *,
     compact: bool,
 ) -> dict[int, dict[str, Any]]:
-    """Merge counts for the rows that draw a delivery box, and no others.
+    """Resolve flow environments and delivery summaries for drawn cards.
 
-    Release and the last day of finished work share this read. The same
-    24-hour window :func:`append_overview_window` selects on bounds the
-    finished side here. Releases are resolved once per project, environment
-    and completion flow rather than per card.
+    Releases are resolved once per project, environment and completion flow.
     """
     if compact:
         return {}
@@ -282,23 +279,30 @@ def _card_delivery(
     )
 
     apply_effective_flows(conn, drawn)
-    flows = sorted({
-        str(row.get("completion_flow") or "").strip()
-        for row in drawn
-        if str(row.get("completion_flow") or "").strip()
-    })
+    flows = sorted(
+        {
+            str(row.get("completion_flow") or "").strip()
+            for row in drawn
+            if str(row.get("completion_flow") or "").strip()
+        }
+    )
     environment_by_flow: dict[str, Any] = {}
     if flows:
         marker = _p(conn)
         flow_placeholders = ", ".join(marker for _ in flows)
         flow_cursor = conn.execute(
-            "SELECT id, target_environment_id FROM deployment_flows "
-            f"WHERE id IN ({flow_placeholders})",
+            "SELECT df.id, df.target_environment_id, e.name AS environment "
+            "FROM deployment_flows df LEFT JOIN environments e "
+            "ON e.id=df.target_environment_id "
+            f"WHERE df.id IN ({flow_placeholders})",
             tuple(flows),
         )
+        flow_rows = _dict_rows(flow_cursor)
+        names = {str(flow["id"]): flow["environment"] for flow in flow_rows}
+        for row in drawn:
+            row["completion_environment"] = names.get(str(row.get("completion_flow")))
         environment_by_flow = {
-            str(flow["id"]): flow["target_environment_id"]
-            for flow in _dict_rows(flow_cursor)
+            str(flow["id"]): flow["target_environment_id"] for flow in flow_rows
         }
     ids = [int(row["internal_id"]) for row in drawn]
     merges_by_item = recorded_merge_shas_for_items(conn, ids)
@@ -307,8 +311,7 @@ def _card_delivery(
     for row in drawn:
         item_id = int(row["internal_id"])
         merges = merges_by_item.get(item_id, ())
-        # Nothing landed means no release carried it, so this card's release
-        # line is never resolved on its behalf.
+        # Resolve release lines only for recorded landings.
         summary = DeliverySummary()
         if merges:
             flow = str(row.get("completion_flow") or "").strip()
@@ -319,7 +322,10 @@ def _card_delivery(
             )
             if line not in by_release_line:
                 by_release_line[line] = ReleaseCandidates(
-                    conn, project_id=line[0], environment_id=line[1], flow=flow,
+                    conn,
+                    project_id=line[0],
+                    environment_id=line[1],
+                    flow=flow,
                 )
             summary = delivery_summary(
                 merges=merges,

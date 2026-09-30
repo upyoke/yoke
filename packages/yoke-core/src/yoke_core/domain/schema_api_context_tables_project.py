@@ -109,7 +109,9 @@ PROJECT_TABLES: dict[str, dict] = {
             ("settings", "TEXT"),
         ],
         "notes": (
-            "Deployment environments use numeric internal keys. `name` is the "
+            "Deployment environments use numeric internal keys. The site FK is "
+            "`site`, not `site_id`; creation time is `created_at`, with no "
+            "`updated_at` column. `name` is the "
             "sole human environment identifier and is unique within "
             "`project_id`; the composite foreign key `(site, project_id)` keeps "
             "the numeric site and project ownership aligned. Deployment metadata such as "

@@ -80,65 +80,20 @@ def _member_runs(conn: Any, item_ids: Sequence[int]) -> dict[int, list[dict[str,
 
 
 def _chosen_run(
-    runs: list[dict[str, Any]], *, completion_flow: str,
+    runs: list[dict[str, Any]],
+    *,
+    completion_flow: str,
 ) -> dict[str, Any] | None:
     """The selected-flow release this item is riding, or the last one it rode."""
-    matching = [
-        run for run in runs
-        if completion_flow and run.get("flow") == completion_flow
-    ] if completion_flow else []
+    matching = (
+        [run for run in runs if completion_flow and run.get("flow") == completion_flow]
+        if completion_flow
+        else []
+    )
     for run in matching:
         if run["status"] not in TERMINAL_RUN_STATUSES:
             return {**run, "live": True}
     return {**matching[0], "live": False} if matching else None
-
-
-def _member_qa(
-    conn: Any, subjects: Sequence[tuple[str, int, str]]
-) -> dict[tuple[str, int], dict[str, Any]]:
-    """Each member's standing at the item QA stage now answering for it.
-
-    The authority is the same per-stage acceptance the release gate reads, so
-    "accepted" means here exactly what it means there. Two narrowings make it
-    an item fact rather than a release one: only item-scoped stages count,
-    because a run-scoped gate is the batch's shared wait and the run half
-    already reports it; and only a stage the run has reached counts, because
-    a production check nobody has run yet is not this member's outstanding
-    work. Within that stage, history stays history — a case that failed and
-    was rerun to a pass is accepted.
-    """
-    from yoke_core.domain.deployment_qa_run_acceptance import (
-        current_item_qa,
-        pinned_stages,
-    )
-
-    # The stages a run pinned are a fact about the run, not about the member,
-    # so two members riding one release ask it once between them.
-    stages_by_run: dict[str, list[dict[str, Any]]] = {}
-    standing: dict[tuple[str, int], dict[str, Any]] = {}
-    for run_id, item_id, current_stage in subjects:
-        try:
-            if run_id not in stages_by_run:
-                stages_by_run[run_id] = pinned_stages(conn, run_id)
-            answer = current_item_qa(
-                conn,
-                run_id=run_id,
-                item_id=item_id,
-                current_stage=current_stage,
-                stages=stages_by_run[run_id],
-            )
-        except (LookupError, ValueError):
-            # An unreadable gate is not a passing one; the card says nothing
-            # rather than implying this member's QA is clear.
-            continue
-        if answer is None:
-            continue
-        standing[(run_id, item_id)] = {
-            "state": answer.state,
-            "stage": answer.stage,
-            "reason": answer.reason,
-        }
-    return standing
 
 
 def primary_item_delivery_by_session(
@@ -152,11 +107,14 @@ def primary_item_delivery_by_session(
     chosen = {}
     for item_id, runs in by_item.items():
         run = _chosen_run(
-            runs, completion_flow=completion_flows.get(item_id, ""),
+            runs,
+            completion_flow=completion_flows.get(item_id, ""),
         )
         if run is not None:
             chosen[item_id] = run
-    qa = _member_qa(
+    from yoke_core.domain.deployment_qa_run_acceptance import member_qa_standings
+
+    qa = member_qa_standings(
         conn,
         [(run["run_id"], item_id, run["stage"]) for item_id, run in chosen.items()],
     )

@@ -39,7 +39,7 @@ def _release_row(conn, item_id: int, *, deployment_flow: str = "") -> dict:
     return row
 
 
-def _active_flow(conn, flow_id: str) -> None:
+def _active_flow(conn, flow_id: str, *, environment: str | None = None) -> None:
     cmd_create(
         conn,
         flow_id,
@@ -48,6 +48,8 @@ def _active_flow(conn, flow_id: str) -> None:
         "",
         json.dumps([{"name": "deploy", "step_runner": "auto"}]),
         status="active",
+        target_tier="persistent" if environment else None,
+        environment=environment,
     )
 
 
@@ -67,7 +69,10 @@ def test_an_unpinned_item_inherits_the_project_default() -> None:
         _active_flow(conn, FLOW)
         insert_item(conn, id=8500, title="unpinned", status="release")
         set_delivery_default(
-            conn, project="yoke", workflow_id="issue", flow_id=FLOW,
+            conn,
+            project="yoke",
+            workflow_id="issue",
+            flow_id=FLOW,
         )
         conn.commit()
         enriched = enrich_item_overview_rows([_release_row(conn, 8500)])
@@ -80,16 +85,24 @@ def test_a_stored_flow_is_the_items_own() -> None:
     with test_database() as conn:
         _active_flow(conn, FLOW)
         insert_item(
-            conn, id=8501, title="pinned", status="release",
+            conn,
+            id=8501,
+            title="pinned",
+            status="release",
             deployment_flow=FLOW,
         )
         set_delivery_default(
-            conn, project="yoke", workflow_id="issue", flow_id=FLOW,
+            conn,
+            project="yoke",
+            workflow_id="issue",
+            flow_id=FLOW,
         )
         conn.commit()
-        enriched = enrich_item_overview_rows([
-            _release_row(conn, 8501, deployment_flow=FLOW),
-        ])
+        enriched = enrich_item_overview_rows(
+            [
+                _release_row(conn, 8501, deployment_flow=FLOW),
+            ]
+        )
 
     assert enriched[0]["completion_flow"] == FLOW
     assert enriched[0]["completion_flow_source"] == "item"
@@ -125,7 +138,10 @@ def test_delivery_counts_key_off_the_effective_flow(monkeypatch) -> None:
         _active_flow(conn, FLOW)
         insert_item(conn, id=8503, title="unpinned landing", status="release")
         set_delivery_default(
-            conn, project="yoke", workflow_id="issue", flow_id=FLOW,
+            conn,
+            project="yoke",
+            workflow_id="issue",
+            flow_id=FLOW,
         )
         _landing(conn, 8503, "a" * 40)
         conn.commit()
@@ -147,14 +163,19 @@ def test_an_unreadable_default_is_named_and_does_not_blank_the_roster(
         _active_flow(conn, FLOW)
         insert_item(conn, id=8504, title="unreadable", status="release")
         insert_item(
-            conn, id=8505, title="pinned sibling", status="release",
+            conn,
+            id=8505,
+            title="pinned sibling",
+            status="release",
             deployment_flow=FLOW,
         )
         conn.commit()
-        enriched = enrich_item_overview_rows([
-            _release_row(conn, 8504),
-            _release_row(conn, 8505, deployment_flow=FLOW),
-        ])
+        enriched = enrich_item_overview_rows(
+            [
+                _release_row(conn, 8504),
+                _release_row(conn, 8505, deployment_flow=FLOW),
+            ]
+        )
 
     by_id = {int(row["internal_id"]): row for row in enriched}
     assert by_id[8504]["completion_flow"] == ""
@@ -162,3 +183,28 @@ def test_an_unreadable_default_is_named_and_does_not_blank_the_roster(
     assert by_id[8505]["completion_flow"] == FLOW
     assert by_id[8505]["completion_flow_source"] == "item"
     assert by_id[8505]["public_ref"]
+
+
+def test_a_selected_environment_is_named_before_the_item_has_a_run() -> None:
+    from yoke_core.domain.db_helpers import iso8601_now
+
+    with test_database() as conn:
+        conn.execute(
+            "INSERT INTO environments(site,project_id,name,settings,created_at) "
+            "VALUES ((SELECT id FROM sites WHERE project_id=1 ORDER BY id LIMIT 1),1,'preview','{}',%s) RETURNING id",
+            (iso8601_now(),),
+        )
+        _active_flow(conn, FLOW, environment="preview")
+        insert_item(
+            conn,
+            id=8506,
+            title="awaiting first release",
+            status="release",
+            deployment_flow=FLOW,
+        )
+        conn.commit()
+        enriched = enrich_item_overview_rows(
+            [_release_row(conn, 8506, deployment_flow=FLOW)]
+        )
+
+    assert enriched[0]["completion_environment"] == "preview"

@@ -26,6 +26,8 @@ from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.deployment_flow_versioning import cmd_create
 from yoke_core.domain.deployment_qa_run_acceptance import (
     item_qa_acceptance_blockers,
+    current_item_qa,
+    member_qa_standings,
 )
 from yoke_core.domain.deployment_qa_stage_contract import (
     DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
@@ -107,9 +109,9 @@ def test_settled_stage_clears_the_item(test_db) -> None:
     _settle(test_db, run_id="run-settled", stage="item-qa", member=9811)
     _finish_run(test_db, "run-settled")
 
-    assert item_qa_acceptance_blockers(
-        test_db, run_id="run-settled", item_id=9811
-    ) == []
+    assert (
+        item_qa_acceptance_blockers(test_db, run_id="run-settled", item_id=9811) == []
+    )
 
 
 def test_rejection_recorded_after_the_run_finished_blocks(test_db) -> None:
@@ -123,9 +125,9 @@ def test_rejection_recorded_after_the_run_finished_blocks(test_db) -> None:
     )
     _settle(test_db, run_id="run-revoked", stage="item-qa", member=9812)
     _finish_run(test_db, "run-revoked")
-    assert item_qa_acceptance_blockers(
-        test_db, run_id="run-revoked", item_id=9812
-    ) == []
+    assert (
+        item_qa_acceptance_blockers(test_db, run_id="run-revoked", item_id=9812) == []
+    )
 
     requirement_id = _acceptance_requirement_id(test_db, "run-revoked", "item-qa")
     # Later than the acceptance the pipeline recorded: newest verdict wins,
@@ -148,10 +150,15 @@ def test_rejection_recorded_after_the_run_finished_blocks(test_db) -> None:
     )
     test_db.commit()
 
-    blockers = item_qa_acceptance_blockers(
-        test_db, run_id="run-revoked", item_id=9812
-    )
+    blockers = item_qa_acceptance_blockers(test_db, run_id="run-revoked", item_id=9812)
     assert any("was rejected" in reason for reason in blockers)
+    standing = current_item_qa(
+        test_db,
+        run_id="run-revoked",
+        item_id=9812,
+        current_stage="complete",
+    )
+    assert standing.failed_requirement_ids == (requirement_id,)
 
 
 def test_each_member_answers_only_for_its_own_item_scoped_stage(test_db) -> None:
@@ -165,12 +172,10 @@ def test_each_member_answers_only_for_its_own_item_scoped_stage(test_db) -> None
     _settle(test_db, run_id="run-members", stage="item-qa", member=9813)
     _finish_run(test_db, "run-members")
 
-    assert item_qa_acceptance_blockers(
-        test_db, run_id="run-members", item_id=9813
-    ) == []
-    assert item_qa_acceptance_blockers(
-        test_db, run_id="run-members", item_id=9814
+    assert (
+        item_qa_acceptance_blockers(test_db, run_id="run-members", item_id=9813) == []
     )
+    assert item_qa_acceptance_blockers(test_db, run_id="run-members", item_id=9814)
 
 
 def test_run_scoped_stage_blocks_every_member_until_it_settles(test_db) -> None:
@@ -190,9 +195,7 @@ def test_run_scoped_stage_blocks_every_member_until_it_settles(test_db) -> None:
         _settle(test_db, run_id="run-shared", stage=stage, member=9815)
     _finish_run(test_db, "run-shared")
 
-    blockers = item_qa_acceptance_blockers(
-        test_db, run_id="run-shared", item_id=9815
-    )
+    blockers = item_qa_acceptance_blockers(test_db, run_id="run-shared", item_id=9815)
     assert any("release-qa" in reason for reason in blockers)
     assert not any("member-qa" in reason for reason in blockers)
 
@@ -225,9 +228,7 @@ def test_legacy_flow_owes_no_scoped_verdicts(test_db) -> None:
     )
     test_db.commit()
 
-    assert item_qa_acceptance_blockers(
-        test_db, run_id="run-legacy", item_id=9816
-    ) == []
+    assert item_qa_acceptance_blockers(test_db, run_id="run-legacy", item_id=9816) == []
 
 
 def test_ancillary_run_cannot_borrow_selected_flow_qa_or_reopen_done(
@@ -237,20 +238,33 @@ def test_ancillary_run_cannot_borrow_selected_flow_qa_or_reopen_done(
     stages = _stages(plan_id)
     member = 9817
     _seed_run(
-        test_db, run_id="run-selected-prod", stages=stages, members=(member,),
+        test_db,
+        run_id="run-selected-prod",
+        stages=stages,
+        members=(member,),
     )
     _settle(test_db, run_id="run-selected-prod", stage="item-qa", member=member)
     _finish_run(test_db, "run-selected-prod")
     _seed_run(
-        test_db, run_id="run-ancillary-stage", stages=stages,
-        members=(), existing_members=(member,),
+        test_db,
+        run_id="run-ancillary-stage",
+        stages=stages,
+        members=(),
+        existing_members=(member,),
     )
 
+    assert (
+        item_qa_acceptance_blockers(
+            test_db,
+            run_id="run-selected-prod",
+            item_id=member,
+        )
+        == []
+    )
     assert item_qa_acceptance_blockers(
-        test_db, run_id="run-selected-prod", item_id=member,
-    ) == []
-    assert item_qa_acceptance_blockers(
-        test_db, run_id="run-ancillary-stage", item_id=member,
+        test_db,
+        run_id="run-ancillary-stage",
+        item_id=member,
     )
     materialize_deployment_qa_stage(
         test_db,
@@ -268,10 +282,38 @@ def test_ancillary_run_cannot_borrow_selected_flow_qa_or_reopen_done(
     )
     _complete_failed(test_db, execution)
     status = test_db.execute(
-        "SELECT status FROM items WHERE id=%s", (member,),
+        "SELECT status FROM items WHERE id=%s",
+        (member,),
     ).fetchone()[0]
     assert status == "done"
     assert not deployment_qa_stage_status(
-        test_db, run_id="run-ancillary-stage", stage_name="item-qa",
+        test_db,
+        run_id="run-ancillary-stage",
+        stage_name="item-qa",
         member_item_id=member,
     )["accepted"]
+
+
+def test_member_standings_read_pinned_stages_once_and_preserve_red_ids(monkeypatch):
+    from yoke_core.domain import deployment_qa_run_acceptance as authority
+
+    calls = []
+    monkeypatch.setattr(
+        authority, "pinned_stages", lambda conn, run_id: calls.append(run_id) or []
+    )
+
+    def standing(conn, *, item_id, **kwargs):
+        return authority.ItemStageQa(
+            "item-qa",
+            "accepted" if item_id == 1 else "cases unresolved",
+            () if item_id == 1 else ("failed case",),
+            () if item_id == 1 else (91,),
+        )
+
+    monkeypatch.setattr(authority, "current_item_qa", standing)
+    result = member_qa_standings(
+        object(), [("run-batch", 1, "item-qa"), ("run-batch", 2, "item-qa")]
+    )
+    assert calls == ["run-batch"]
+    assert result[("run-batch", 1)]["state"] == "accepted"
+    assert result[("run-batch", 2)]["failed_requirement_ids"] == [91]

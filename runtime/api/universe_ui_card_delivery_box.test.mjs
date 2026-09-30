@@ -1,5 +1,4 @@
-// The delivery box a Frontier card carries: which flow ships this item, how
-// much of it has landed, and which runs have picked it up.
+// The delivery box names one flow and one item outcome per environment.
 //
 // Release and Done draw it through one component, so every shape below is
 // asserted on both bands from the same expectation: a box that told a
@@ -15,7 +14,7 @@ import {
   response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
-import { descendantText, workbenchClient } from "./universe_ui_workbench_test_support.mjs";
+import { workbenchClient } from "./universe_ui_workbench_test_support.mjs";
 
 const HOUR = 60 * 60 * 1000;
 const ago = (hours) => new Date(Date.now() - hours * HOUR).toISOString();
@@ -102,247 +101,79 @@ async function mountBand(band, runsFor = () => [], facts = {}) {
   return { mounted, root, box: byClass(cards[0], "item-delivery")[0] };
 }
 
+
 for (const band of BANDS) {
-  test(`${band.key}: the box names the flow and what has landed`, async (t) => {
-    stubFetch(t);
-    const { mounted, box } = await mountBand(
-      band,
-      (itemId) => [run("run-1", itemId)],
-      { delivery: { merges: 3, deployed: 1, not_deployed: 2 } },
-    );
-
-    assert.ok(box, "the band draws a delivery box");
-    assert.equal(byClass(box, "item-delivery-flow")[0].textContent, FLOW);
-    assert.equal(
-      byClass(box, "item-delivery-merges")[0].textContent,
-      "3 recorded merges · 1 deployed · 2 not deployed",
-    );
-    mounted.unmount();
-  });
-
-  test(`${band.key}: a run is a sub-card with its truck, state and time`, async (t) => {
-    stubFetch(t);
-    const { mounted, box } = await mountBand(band, (itemId) => [run("run-1", itemId)]);
-
-    const cards = byClass(box, "item-deployment");
-    assert.equal(cards.length, 1);
-    assert.equal(cards[0].href, "#/deployments/runs/run-1?project=1");
-    assert.equal(byClass(cards[0], "item-deployment-icon").length, 1);
-    assert.match(descendantText(cards[0]), /succeeded/);
-    assert.equal(
-      byClass(cards[0], "item-deployment-environment")[0].textContent, "prod",
-    );
-    assert.match(
-      byClass(cards[0], "item-deployment-time")[0].textContent, /^Deployed .+ ago$/,
-    );
-    assert.equal(byClass(cards[0], "item-deployment-run")[0].textContent, "run-1");
-    // Same flow as the item's own, so repeating it would say nothing.
-    assert.equal(byClass(cards[0], "item-deployment-flow").length, 0);
-    assert.equal(byClass(box, "item-delivery-empty").length, 0);
-    mounted.unmount();
-  });
-
-  test(`${band.key}: no run yet is a muted truck saying so`, async (t) => {
-    stubFetch(t);
-    const { mounted, box } = await mountBand(band);
-
-    assert.ok(box, "the box is drawn even with no run");
-    const empty = byClass(box, "item-delivery-empty")[0];
-    assert.equal(descendantText(empty), "Not in a run yet");
-    assert.equal(byClass(empty, "is-muted").length, 1, "the truck is greyed");
-    // An empty sub-card would draw a box around a run that does not exist.
-    assert.equal(byClass(box, "item-deployment").length, 0);
-    mounted.unmount();
-  });
-
-  test(`${band.key}: several runs cap at the live one plus the newest success per environment`, async (t) => {
+  test(`${band.key}: one flow header and one linked outcome per environment`, async (t) => {
     stubFetch(t);
     const { mounted, box } = await mountBand(band, (itemId) => [
-      run("run-live", itemId, {
-        status: "executing", created_at: ago(1), completed_at: "",
+      run("run-prod", itemId),
+      run("run-stage", itemId, {
+        target_environment: "stage", member_items: [],
+        carried_work: { items: [{ item_id: itemId }] },
       }),
-      run("run-prod-new", itemId, { created_at: ago(2) }),
-      // Superseded by the newer success to the same environment.
-      run("run-prod-old", itemId, { created_at: ago(9) }),
-      // A different environment keeps its own newest success.
-      run("run-stage", itemId, { target_environment: "stage", created_at: ago(4) }),
-      // A failure a later success replaced is history, not a sub-card.
-      run("run-failed", itemId, { status: "failed", created_at: ago(5) }),
-      // Another flow's run still counts as carrying, and names that flow.
-      run("run-other-flow", itemId, {
-        flow: "yoke-hosted-ancillary",
-        target_environment: "sandbox",
-        created_at: ago(6),
-      }),
-    ]);
-
-    assert.deepEqual(
-      byClass(box, "item-deployment-run").map((node) => node.textContent),
-      ["run-live", "run-prod-new", "run-stage", "run-other-flow"],
-    );
-    assert.deepEqual(
-      byClass(box, "item-deployment-flow").map((node) => node.textContent),
-      ["yoke-hosted-ancillary"],
-    );
-    mounted.unmount();
-  });
-
-  test(`${band.key}: a run still moving is present tense, not "Deployed"`, async (t) => {
-    stubFetch(t);
-    const { mounted, box } = await mountBand(band, (itemId) => [
-      run("run-live", itemId, {
-        status: "executing", created_at: ago(0.25), completed_at: "",
-      }),
-    ]);
-
-    const when = byClass(box, "item-deployment-time")[0];
-    assert.match(when.textContent, /^Deploying since .+ ago$/);
-    assert.ok(when.getAttribute("datetime"));
-    mounted.unmount();
-  });
-
-  test(`${band.key}: one recorded merge is "1 recorded merge"`, async (t) => {
-    stubFetch(t);
-    const { mounted, box } = await mountBand(band, () => [], {
-      delivery: { merges: 1, deployed: 1, not_deployed: 0 },
-    });
-
-    assert.equal(
-      byClass(box, "item-delivery-merges")[0].textContent,
-      "1 recorded merge · 1 deployed · 0 not deployed",
-    );
-    mounted.unmount();
-  });
-
-  test(`${band.key}: an item that has landed nothing says so rather than showing zeroes`, async (t) => {
-    stubFetch(t);
-    const { mounted, box } = await mountBand(band, () => [], {
-      delivery: { merges: 0, deployed: 0, not_deployed: 0 },
-    });
-
-    assert.equal(byClass(box, "item-delivery-merges")[0].textContent, "no recorded merge");
-    mounted.unmount();
-  });
-
-  test(`${band.key}: a projection that carried no delivery block still draws the line`, async (t) => {
-    stubFetch(t);
-    // An older serving build answers without the field; the card must not
-    // render "undefined recorded merges" at a reader while that rolls out.
-    const { mounted, box } = await mountBand(band);
-
-    assert.equal(byClass(box, "item-delivery-merges")[0].textContent, "no recorded merge");
-    mounted.unmount();
-  });
-
-  test(`${band.key}: an item with no stored flow names the one that shipped it`, async (t) => {
-    stubFetch(t);
-    // Platform items store no flow, yet a run of their own project carried
-    // and shipped the merge. "no flow" there reported a missing field as a
-    // missing delivery.
-    const { mounted, box } = await mountBand(
-      band,
-      (itemId) => [run("run-1", itemId)],
-      {
-        deployment_flow: "",
-        delivery: { merges: 1, deployed: 1, not_deployed: 0, flow: FLOW },
-      },
-    );
+    ], { delivery: { merges: 3, deployed: 1, not_deployed: 2 } });
+    t.after(() => mounted.unmount());
 
     assert.equal(byClass(box, "item-delivery-flow")[0].textContent, FLOW);
-    assert.equal(
-      byClass(box, "item-delivery-merges")[0].textContent,
-      "1 recorded merge · 1 deployed · 0 not deployed",
-    );
-    // The head already names that flow, so the sub-card repeating it says
-    // nothing — the same rule an item with its own flow gets.
+    assert.equal(byClass(box, "item-delivery-merges").length, 0);
+    assert.deepEqual(byClass(box, "item-deployment-environment").map((node) => node.textContent), ["prod", "stage"]);
+    assert.deepEqual(byClass(box, "item-deployment-outcome").map((node) => node.textContent), ["✓ deployed", "✓ in build"]);
+    assert.deepEqual(byClass(box, "item-deployment-relation").map((node) => node.textContent), ["member", "carried"]);
+    assert.equal(byClass(box, "item-deployment-run")[0].href, "#/deployments/runs/run-prod?project=1");
+    assert.equal(byClass(box, "state-pill").length, 0);
     assert.equal(byClass(box, "item-deployment-flow").length, 0);
-    mounted.unmount();
+    assert.equal(byClass(box, "item-deployment-wait").length, 0);
   });
 
-  test(`${band.key}: no stored flow and nothing shipped still says "no flow"`, async (t) => {
+  test(`${band.key}: the selected environment awaits its next release`, async (t) => {
     stubFetch(t);
     const { mounted, box } = await mountBand(band, () => [], {
-      deployment_flow: "",
-      delivery: { merges: 1, deployed: 0, not_deployed: 1, flow: "" },
+      completion_environment: "prod",
     });
-
-    assert.equal(byClass(box, "item-delivery-flow")[0].textContent, "no flow");
-    assert.equal(
-      byClass(box, "item-delivery-merges")[0].textContent,
-      "1 recorded merge · 0 deployed · 1 not deployed",
-    );
-    mounted.unmount();
+    t.after(() => mounted.unmount());
+    assert.equal(byClass(box, "item-deployment-environment")[0].textContent, "prod");
+    assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "○ not yet · next release");
+    assert.equal(byClass(box, "item-deployment-placeholder")[0].textContent, "—");
+    assert.equal(byClass(box, "item-deployment-run").length, 0);
   });
 
-  test(`${band.key}: the flat-line rendering is gone`, async (t) => {
+  test(`${band.key}: a stage run does not hide the production wait`, async (t) => {
     stubFetch(t);
-    const { mounted, root } = await mountBand(band, (itemId) => [run("run-1", itemId)]);
+    const { mounted, box } = await mountBand(band, (itemId) => [
+      run("run-stage", itemId, { target_environment: "stage" }),
+    ], { completion_environment: "prod" });
+    t.after(() => mounted.unmount());
+    assert.deepEqual(byClass(box, "item-deployment-environment").map((node) => node.textContent), ["stage", "prod"]);
+    assert.equal(byClass(box, "item-deployment-outcome")[1].textContent, "○ not yet · next release");
+  });
 
-    for (const gone of [
-      "release-delivery",
-      "release-delivery-flow",
-      "release-delivery-merges",
-      "release-delivery-empty",
-      "release-delivery-run",
-      "release-delivery-run-id",
-      "release-delivery-run-environment",
-      "release-delivery-run-flow",
-    ]) assert.equal(byClass(root, gone).length, 0, gone);
-    mounted.unmount();
+  test(`${band.key}: only the newest attempt in each environment is shown`, async (t) => {
+    stubFetch(t);
+    const { mounted, box } = await mountBand(band, (itemId) => [
+      run("run-live", itemId, {
+        status: "executing", current_stage: "item-qa",
+        created_at: ago(1), completed_at: "",
+      }),
+      run("run-prod-old", itemId, { created_at: ago(2) }),
+      run("run-stage", itemId, { target_environment: "stage", created_at: ago(4) }),
+    ]);
+    t.after(() => mounted.unmount());
+    assert.deepEqual(byClass(box, "item-deployment-run").map((node) => node.textContent), ["run-live", "run-stage"]);
+    assert.match(byClass(box, "item-deployment-outcome")[0].textContent, /^◐ deploying · at item-qa · 1h$/);
   });
 }
 
-async function flowLabel(t, facts, runsFor = () => []) {
+test("the header resolves the item's single flow without repeating its source", async (t) => {
   stubFetch(t);
-  const { mounted, box } = await mountBand(BANDS[0], runsFor, facts);
-  const label = byClass(box, "item-delivery-flow")[0].textContent;
-  const runFlows = byClass(box, "item-deployment-flow").length;
-  mounted.unmount();
-  return { label, runFlows };
-}("completion-flow labels: own pin, project default, none, carried, unread", async (t) => {
-  assert.equal(
-    (await flowLabel(t, {
-      completion_flow: FLOW, completion_flow_source: "item",
-    })).label,
-    FLOW,
-  );
-  const inherited = await flowLabel(
-    t,
-    {
-      deployment_flow: "",
-      completion_flow: FLOW,
-      completion_flow_source: "project_default",
-      delivery: { merges: 1, deployed: 1, not_deployed: 0, flow: FLOW },
-    },
-    (itemId) => [run("run-1", itemId)],
-  );
-  assert.equal(inherited.label, `${FLOW} (project default)`);
-  assert.equal(inherited.runFlows, 0);
-  assert.equal(
-    (await flowLabel(t, {
-      deployment_flow: "",
-      completion_flow: "",
-      completion_flow_source: "none",
-      delivery: { merges: 0, deployed: 0, not_deployed: 0, flow: "" },
-    })).label,
-    "no flow",
-  );
-  assert.equal(
-    (await flowLabel(t, {
-      deployment_flow: "",
-      completion_flow: "",
-      completion_flow_source: "none",
-      delivery: { merges: 1, deployed: 1, not_deployed: 0, flow: FLOW },
-    })).label,
-    FLOW,
-  );
-  assert.equal(
-    (await flowLabel(t, {
-      deployment_flow: "",
-      completion_flow: "",
-      completion_flow_source: "unreadable",
-      delivery: { merges: 0, deployed: 0, not_deployed: 0, flow: "" },
-    })).label,
-    "its project default could not be read",
-  );
+  for (const [facts, expected] of [
+    [{ completion_flow: FLOW, completion_flow_source: "item" }, FLOW],
+    [{ deployment_flow: "", completion_flow: FLOW, completion_flow_source: "project_default" }, FLOW],
+    [{ deployment_flow: "", completion_flow: "", completion_flow_source: "none" }, "no flow"],
+    [{ deployment_flow: "", delivery: { flow: FLOW } }, FLOW],
+    [{ completion_flow_source: "unreadable" }, "its project default could not be read"],
+  ]) {
+    const { mounted, box } = await mountBand(BANDS[0], () => [], facts);
+    assert.equal(byClass(box, "item-delivery-flow")[0].textContent, expected);
+    mounted.unmount();
+  }
 });

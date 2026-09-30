@@ -83,8 +83,8 @@ test("an in-flight run with no members still draws from contained_items", async 
   try {
     assert.equal(byClass(box, "item-deployment-run")[0].textContent, "run-stage");
     assert.match(
-      byClass(box, "item-deployment-time")[0].textContent,
-      /^Deploying since .+ ago$/,
+      byClass(box, "item-deployment-outcome")[0].textContent,
+      /^◐ deploying · at item-qa · \d+[mhd]$/,
     );
     assert.equal(
       byClass(box, "item-deployment-environment")[0].textContent, "stage",
@@ -150,10 +150,10 @@ test("a mixed project run keeps candidate delivery beside real membership", asyn
     );
     assert.equal(
       byClass(box, "item-deployment-relation")[0].textContent,
-      "candidate contains landing",
+      "carried",
     );
     assert.equal(
-      byClass(box, "item-deployment")[0].href,
+      byClass(box, "item-deployment-run")[0].href,
       "#/deployments/runs/run-mixed?project=2",
     );
   } finally {
@@ -171,8 +171,8 @@ test("a later containing candidate does not revive delivered work", async () => 
     }),
   ]);
   try {
-    assert.equal(byClass(box, "item-deployment").length, 0);
-    assert.equal(byClass(box, "item-delivery-empty").length, 1);
+    assert.equal(byClass(box, "item-deployment-run").length, 0);
+    assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "○ not yet · next release");
   } finally {
     mounted.unmount();
     restore();
@@ -188,7 +188,7 @@ test("a run member remains visible when candidate delivery is settled", async ()
   ]);
   try {
     assert.equal(byClass(box, "item-deployment-run")[0].textContent, "run-member");
-    assert.equal(byClass(box, "item-deployment-relation")[0].textContent, "run member");
+    assert.equal(byClass(box, "item-deployment-relation")[0].textContent, "member");
   } finally {
     mounted.unmount();
     restore();
