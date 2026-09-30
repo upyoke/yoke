@@ -22,6 +22,8 @@ from yoke_core.domain.session_message_steering import (
 )
 from yoke_core.domain.session_message_selectors import resolve_recipients
 from yoke_core.domain.session_message_store import insert_message
+from yoke_core.domain.session_message_starvation import turn_in_flight
+from yoke_core.domain.session_message_types import parse_timestamp
 from yoke_core.domain.session_relay_storage import marker
 from yoke_core.domain.steering_message_recipients import record_steering_recipient
 
@@ -40,7 +42,7 @@ def notify_failed_wake(
     p = marker(conn)
     message_id, session_id = str(row["message_id"]), str(row["session_id"])
     attempt = conn.execute(
-        "SELECT result_code,evidence FROM session_message_attempts "
+        "SELECT result_code,evidence,completed_at FROM session_message_attempts "
         f"WHERE message_id={p} AND target_session_id={p} "
         "AND attempt_kind IN ('wake_relay','wake_broker') "
         "AND completed_at IS NOT NULL ORDER BY started_at DESC,attempt_id DESC LIMIT 1",
@@ -54,11 +56,30 @@ def notify_failed_wake(
     if not reason:
         return None
     original = conn.execute(
-        f"SELECT idempotency_key FROM session_messages WHERE message_id={p}",
-        (message_id,),
+        "SELECT m.idempotency_key,r.state,r.acknowledged_at FROM session_messages m "
+        "JOIN session_message_recipients r ON r.message_id=m.message_id "
+        f"WHERE m.message_id={p} AND r.session_id={p}",
+        (message_id, session_id),
     ).fetchone()
-    if original is None or str(original[0] or "").startswith(f"{NOTICE_PREFIX}:"):
+    if (
+        original is None
+        or original[1] == "acknowledged"
+        or original[2] is not None
+        or str(original[0] or "").startswith(f"{NOTICE_PREFIX}:")
+    ):
         return None
+    if attempt[0] == "outcome_unknown":
+        # A busy target still has a hook coming. Only a completed tool call
+        # after the uncertain wake proves another delivery opportunity passed.
+        completed = parse_timestamp(attempt[2])
+        opportunity = parse_timestamp(row.get("last_tool_call_at"))
+        if (
+            turn_in_flight(row) is not None
+            or completed is None
+            or opportunity is None
+            or opportunity <= completed
+        ):
+            return None
     failure = "wake_attempts_exhausted" if exhausted else str(attempt[0])
     held = session_item_scope(conn, session_id)
     project_id = held.project_id if held is not None else int(row["project_id"])

@@ -76,6 +76,37 @@ requirement supersede --requirement-id FAILED_ID
 --superseded-by-requirement-id CORRECTED_ID --rationale 'corrected case'
 --declare-replacement`, then run the scoped plan without --plan. The old case
 leaves its roster immediately; the corrected case still needs a pass.
+
+Failed member QA recovery
+-------------------------
+The one-line notice names RUN, STAGE, ITEM and each failed requirement ID.
+No notice is sent back to the session whose execution produced that verdict;
+it already holds the result. A holder or steering recipient should read:
+
+  yoke deployment-runs get RUN
+  yoke qa requirement get --requirement-id FAILED_REQUIREMENT_ID
+  yoke qa run list --requirement-id FAILED_REQUIREMENT_ID
+
+Determine whether the environment, case, or member code caused the failure.
+Claim or staff ITEM before changing it if its holder is gone.
+For an environment failure, leave the item in release and run fresh QA on the
+same deployed revision:
+
+  yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member ITEM \\
+      --project PROJECT
+
+For a defective case, use the correction-only plan and --replaces recipe
+above (through yoke watch qa-plan --), or declare the corrected direct
+requirement before running the scoped plan without --plan.
+For a member code defect, refresh any survey required by its pinned workflow,
+then take the ordinary backward transition, without operator approval:
+
+  yoke lifecycle transition ITEM --from release --to implementing \\
+      --reason 'Post-deploy QA found a member code defect'
+
+Keep the claim and worktree; correct, verify and merge the item. Have the run
+driver settle the old run without changing its pin. The failed run and QA
+remain history; a new run must deploy the corrected commit.
 """
 
 
