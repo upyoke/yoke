@@ -13,21 +13,20 @@ from typing import BinaryIO, Callable, Dict, List, Tuple
 
 from yoke_contracts.self_host_bootstrap import (
     IMPORT_UNIVERSE_ARG,
-    RECOVER_IMPORT_CREDENTIAL_ARG,
 )
 from yoke_contracts.self_host_bootstrap_output import (
     TOKEN_PREFIX,
     connect_url_from_publish_spec,
 )
 from yoke_cli.commands._helpers import parse_or_usage_error
-from yoke_cli.self_host import bundle, env_file
+from yoke_cli.self_host import bundle, env_file, runtime
 
 
 AdapterFn = Callable[[List[str]], int]
 
 IMPORT_USAGE = "yoke self-host import ARCHIVE [--dir D] [--yes] [--json]"
 _CONSENT_WORD = "replace"
-_RECOVERY_COMMAND = f"docker compose run --rm core {RECOVER_IMPORT_CREDENTIAL_ARG}"
+_RECOVERY_COMMAND = "yoke self-host import --dir . --recover-credential"
 _CORE_IMPORT_COMMAND = (IMPORT_UNIVERSE_ARG,)
 _SUBPROCESS_RUN = subprocess.run
 
@@ -184,27 +183,10 @@ def _parse_success(stdout: bytes | str | None) -> Dict[str, object]:
 
 def _execute_import(directory: Path, archive: BinaryIO) -> Dict[str, object]:
     _require_core_stopped(directory)
-    database = _run_compose(
-        directory,
-        ("up", "-d", "--wait", "--wait-timeout", "120", "db"),
-    )
-    if database.returncode != 0:
-        diagnostic = _safe_diagnostic(database.stderr)
-        suffix = f": {diagnostic}" if diagnostic else ""
-        raise SelfHostImportError(
-            f"the self-host database did not become healthy{suffix}"
-        )
-    _require_core_stopped(directory)
-    result = _run_compose(
-        directory,
-        ("run", "--rm", "-T", "core", *_CORE_IMPORT_COMMAND),
-        stdin=archive,
-    )
-    if result.returncode != 0:
-        diagnostic = _safe_diagnostic(result.stderr)
-        suffix = f": {diagnostic}" if diagnostic else ""
-        raise SelfHostImportError(f"the universe import was refused or failed{suffix}")
-    return _parse_success(result.stdout)
+    try:
+        return _parse_success(runtime.import_universe(directory, archive=archive))
+    except runtime.SelfHostRuntimeError as exc:
+        raise SelfHostImportError(str(exc)) from exc
 
 
 def _print_summary(payload: Dict[str, object], directory: Path) -> None:
@@ -221,7 +203,7 @@ def _print_summary(payload: Dict[str, object], directory: Path) -> None:
     print("")
     connect_url = connect_url_from_publish_spec(env_file.read_publish_spec(directory))
     print("Save it now. Then start and connect to the restored server:")
-    print(f"    cd {directory} && docker compose up -d core")
+    print(f"    yoke self-host init --dir {directory} --protect-existing --start")
     print(f"    yoke connect {connect_url} --token-stdin")
     print(border)
 
@@ -265,7 +247,14 @@ def self_host_import(args: List[str]) -> int:
             "org-admin token is shown exactly once."
         ),
     )
-    parser.add_argument("archive", help="Owner-only portable universe .tar archive.")
+    parser.add_argument(
+        "--recover-credential",
+        action="store_true",
+        help="Recover the credential after a committed import whose response was lost.",
+    )
+    parser.add_argument(
+        "archive", nargs="?", help="Owner-only portable universe .tar archive."
+    )
     parser.add_argument(
         "--dir",
         dest="directory",
@@ -281,6 +270,30 @@ def self_host_import(args: List[str]) -> int:
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parse_or_usage_error(parser, args, IMPORT_USAGE)
     if parsed is None:
+        return 2
+    if parsed.recover_credential:
+        if parsed.archive:
+            raise SelfHostImportError(
+                "choose an archive or --recover-credential, then retry"
+            )
+        try:
+            directory = bundle.validate_existing_bundle(directory=parsed.directory)
+            _require_core_stopped(directory)
+            payload = _parse_success(runtime.import_universe(directory, recover=True))
+            if parsed.json_mode:
+                print(json.dumps(payload, indent=2, sort_keys=True))
+            else:
+                _print_summary(payload, directory)
+            return 0
+        except (
+            bundle.SelfHostBundleError,
+            SelfHostImportError,
+            runtime.SelfHostRuntimeError,
+        ) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+    if not parsed.archive:
+        print("error: name an archive or --recover-credential", file=sys.stderr)
         return 2
     try:
         directory = bundle.validate_existing_bundle(directory=parsed.directory)

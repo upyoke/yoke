@@ -109,7 +109,7 @@ def test_picker_preview_is_exact_and_does_not_mutate_before_start(
             assert server.LOCAL_SERVER_URL in text
             assert "local-only URL" in text
             assert "Requires Docker + Compose" in text
-            assert "docker compose up -d" in text
+            assert "privately hands host-opened secrets" in text
             assert "reachable networking and TLS" in text
             assert calls == []
             await pilot.press("down", "enter")

@@ -8,8 +8,7 @@ every per-install knob rides ``.env`` or ``secrets/``.
 
 Secret handling: the Postgres password is generated hex-only and never
 printed or returned — compose interpolates ``$`` inside ``.env`` values,
-so credentials live in mounted files (``POSTGRES_PASSWORD_FILE`` on the
-db service, ``YOKE_PG_DSN_FILE`` on the core service), never in ``.env``.
+so credentials live in host-opened stdin handoffs to private runtime files, never in ``.env``.
 """
 
 from __future__ import annotations
@@ -31,6 +30,7 @@ from yoke_contracts.github_app_public import (
     GITHUB_APP_WEB_URL_ENV,
 )
 from yoke_contracts.self_host_bootstrap_output import API_PUBLISH_ENV
+from yoke_contracts.self_host_handoff import HANDOFF_TIMEOUT_SECONDS
 
 #: Default bundle directory, created under the invoking directory. The
 #: bundle is an operator-managed working directory (``docker compose``
@@ -46,9 +46,7 @@ GITIGNORE_FILE_NAME = ".gitignore"
 DB_PASSWORD_FILE_NAME = "db-password"
 DSN_FILE_NAME = "dsn"
 
-#: Owner-only files under ``secrets/``. The first-boot token file is one of
-#: them: Compose bind-mounts it into the core service, so it has to exist,
-#: owned by the operator, before the server ever starts.
+#: Operator-owned inputs and the token delivered back to the host command.
 BUNDLE_SECRET_NAMES = (
     DB_PASSWORD_FILE_NAME,
     DSN_FILE_NAME,
@@ -143,9 +141,6 @@ def write_bundle(
         )
         _write_secret_file(secrets_dir / DB_PASSWORD_FILE_NAME, password)
         _write_secret_file(secrets_dir / DSN_FILE_NAME, dsn)
-        # Never truncated: a bundle whose universe is already born holds the
-        # only copy of its admin credential here.
-        first_boot_token.ensure_token_drop(target)
     except protection.SelfHostProtectionError as exc:
         raise SelfHostBundleError(str(exc)) from exc
 
@@ -174,13 +169,10 @@ def protect_existing_bundle(
     target = Path(directory or DEFAULT_BUNDLE_DIR).expanduser()
     _prepare_layout(target, create=False)
     try:
-        # Repair before validation: this is the command that adds what an
-        # earlier bundle never had.
-        first_boot_token.ensure_token_drop(target)
         secure_layout.validate_existing_bundle_files(
             target,
             public_names=(COMPOSE_FILE_NAME, ENV_FILE_NAME),
-            secret_names=BUNDLE_SECRET_NAMES,
+            secret_names=_existing_secret_names(target),
         )
         protection.assert_sensitive_paths_untracked(target)
     except (
@@ -192,6 +184,8 @@ def protect_existing_bundle(
     try:
         protection.assert_sensitive_paths_untracked(target)
         gitignore_changed = protection.reconcile_gitignore(target / GITIGNORE_FILE_NAME)
+        if (target / COMPOSE_FILE_NAME).read_text(encoding="utf-8") != _compose_text():
+            _write_bundle_file(target / COMPOSE_FILE_NAME, _compose_text())
         key_path = None
         if github_app_private_key is not None:
             key_path = protection.install_github_app_private_key(
@@ -220,11 +214,10 @@ def validate_existing_bundle(*, directory: Optional[str] = None) -> Path:
     target = Path(directory or DEFAULT_BUNDLE_DIR).expanduser()
     _prepare_layout(target, create=False)
     try:
-        first_boot_token.require_token_drop(target)
         secure_layout.validate_existing_bundle_files(
             target,
             public_names=(COMPOSE_FILE_NAME, ENV_FILE_NAME),
-            secret_names=BUNDLE_SECRET_NAMES,
+            secret_names=_existing_secret_names(target),
         )
         protection.assert_sensitive_paths_untracked(target)
     except (
@@ -236,11 +229,19 @@ def validate_existing_bundle(*, directory: Optional[str] = None) -> Path:
     return target.resolve()
 
 
+def _existing_secret_names(target: Path) -> tuple[str, ...]:
+    token = first_boot_token.token_drop_path(target)
+    return (DB_PASSWORD_FILE_NAME, DSN_FILE_NAME) + (
+        (token.name,) if token.exists() or token.is_symlink() else ()
+    )
+
+
 def _compose_text() -> str:
     return (
         resources.files("yoke_cli.self_host")
         .joinpath(COMPOSE_FILE_NAME)
         .read_text(encoding="utf-8")
+        .replace("__HANDOFF_TIMEOUT_SECONDS__", str(HANDOFF_TIMEOUT_SECONDS))
     )
 
 
@@ -258,7 +259,7 @@ def _env_text(*, image: str, publish_spec: str) -> str:
         "# --- Browser sign-in via your OIDC provider (optional) ----------\n"
         "# Uncomment and fill to enable the web sign-in door; leave\n"
         "# commented to keep it disabled (API tokens work either way).\n"
-        '# Walkthrough: docs/self-host-browser-sign-in.md.\n'
+        "# Walkthrough: docs/self-host-browser-sign-in.md.\n"
         "#YOKE_OIDC_ISSUER=https://accounts.example.com\n"
         "#YOKE_OIDC_CLIENT_ID=yoke\n"
         "# The server's external base URL; the callback path is derived\n"
@@ -267,13 +268,12 @@ def _env_text(*, image: str, publish_spec: str) -> str:
         "# The client secret rides an owner-only file (never a .env value):\n"
         "#   printf '%s\\n' '<client-secret>' > secrets/oidc-client-secret\n"
         "#   chmod 600 secrets/oidc-client-secret\n"
-        "# then uncomment the yoke-oidc-client-secret blocks in\n"
-        "# docker-compose.yml and this line:\n"
-        "#YOKE_OIDC_CLIENT_SECRET_FILE=/run/secrets/yoke-oidc-client-secret\n"
+        "# then uncomment this line:\n"
+        "#YOKE_OIDC_CLIENT_SECRET_FILE=/dev/shm/yoke-runtime-secrets/yoke-oidc-client-secret\n"
         "\n"
         "# --- GitHub App server automation (optional) ------------------\n"
         "# Configure one App for this control plane. The issuer and API URL\n"
-        "# are nonsecret; the App private key remains a mounted file.\n"
+        "# are nonsecret; the App private key remains a host-opened file.\n"
         "#YOKE_GITHUB_APP_ISSUER=123456\n"
         "#YOKE_GITHUB_APP_API_URL=https://api.github.com\n"
         "# Optional product-facing Connect profile: set every field or\n"
@@ -286,10 +286,9 @@ def _env_text(*, image: str, publish_spec: str) -> str:
         "#   chmod 600 /secure/path/app-key.pem\n"
         "#   yoke self-host init --dir . --protect-existing \\\n"
         "#     --github-app-private-key /secure/path/app-key.pem\n"
-        "# then uncomment the yoke-github-app-private-key blocks in\n"
-        "# docker-compose.yml and this line:\n"
+        "# then uncomment this line:\n"
         "#YOKE_GITHUB_APP_PRIVATE_KEY_FILE="
-        "/run/secrets/yoke-github-app-private-key\n"
+        "/dev/shm/yoke-runtime-secrets/yoke-github-app-private-key\n"
     )
 
 

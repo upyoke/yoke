@@ -17,10 +17,8 @@ curl -fsSL https://upyoke.com/install | sh
 #    and generated database credentials as owner-only secret files —
 #    the generated password is never printed. A marked block in
 #    .gitignore protects .env and secrets/ without replacing your rules.
-yoke self-host init
-
-# 3. Start the server.
-cd yoke-server && docker compose up -d
+yoke self-host init --start
+cd yoke-server
 
 # 4. First boot writes the reusable administrator token to an owner-only
 #    file. The log names the path and never carries the token itself.
@@ -37,21 +35,32 @@ rm secrets/first-boot-admin-token
 yoke status
 ```
 
-The token file is bind-mounted into the core service, and the container
-writes through a descriptor the root bootstrap opened before dropping
-privileges — so the credential reaches a file you own without ever passing
-through `docker compose logs`. `yoke self-host init` creates the file, so
-run `--protect-existing` on any bundle that predates it.
+The host command opens each mode `0600` input as its non-root operator and
+streams it on stdin through Docker exec. The container drops to its runtime
+user and writes private tmpfs copies; no host file is mounted or chowned and
+no credential is placed in an environment variable. The admin token returns
+over that same private handoff, outside Docker logs; the host atomically writes
+its owner-only token file and acknowledges durable storage before token creation
+commits. A failed handoff refuses with a reason and retry command.
+
+Start/restart an existing bundle with `yoke self-host init --dir PATH
+--protect-existing --start`. This refreshes the packaged Compose template,
+preserving `.env`, database credentials, and the Postgres volume. Keep runtime
+settings in `.env`; reapply any custom Compose changes after a template refresh.
+Automatic container restart is disabled: after a host/daemon restart, run that
+host command again so it can reopen the protected inputs. Raw Compose starts
+alone cannot supply the handoff. Native Ubuntu rootful Docker is exercised by
+the manual bootstrap probe; rootless Docker and Fedora/SELinux remain unproved.
 
 `yoke self-host init` takes `--dir`, `--port`, and `--image` overrides. By
 default it resolves the installed CLI's immutable release manifest and writes
 that release's exact `ghcr.io/upyoke/yoke-server:<sha12>` image to `.env`.
 Every fresh bundle therefore starts with matching CLI and server versions, and
 a later container restart keeps the same server. `--image` remains an explicit
-operator override. Generated credentials ride mounted files under `secrets/`
+operator override. Generated credentials stay in host-owned files under `secrets/`
 rather than `.env`, whose values Compose `$`-interpolates.
 
-Protect older bundles in place without rewriting `.env`, Compose, or database credentials:
+Refresh older bundles while preserving `.env` and database credentials:
 
 ```bash
 yoke self-host init --dir /path/to/yoke-server --protect-existing
@@ -76,14 +85,14 @@ The command requires Docker with Compose, validates the bundle, and refuses whil
 
 Uploaded DDL never runs. Yoke creates the trusted destination schema, validates the bounded archive, and restores approved data and sequences in one transaction; retry replaces a failed or interrupted attempt.
 
-Archives can contain raw capability secrets plus hashed credentials. Keep them owner-only and rotate secrets when custody changes. Restore revokes imported API tokens and browser sessions, grants neutral `admin` org-admin access, and mints one replacement token. Save its one-time success output, then run the printed `docker compose up -d core` and `yoke connect` steps.
+Archives can contain raw capability secrets plus hashed credentials. Keep them owner-only and rotate secrets when custody changes. Restore revokes imported API tokens and browser sessions, grants neutral `admin` org-admin access, and mints one replacement token. Save its one-time success output, then run the printed `yoke self-host init --protect-existing --start` and `yoke connect` steps.
 
 If the restore reported success but its one-time result was lost before you
 could save it, mint a recovery credential while `core` remains stopped:
 
 ```bash
 cd /path/to/yoke-server
-docker compose run --rm core --recover-import-credential
+yoke self-host import --dir . --recover-credential
 ```
 
 Save that command's `raw_token`, then start the service. Recovery atomically
@@ -185,7 +194,7 @@ Then set these non-secret/runtime bindings in `.env`:
 ```text
 YOKE_GITHUB_APP_ISSUER=<numeric-app-id>
 YOKE_GITHUB_APP_API_URL=https://api.github.com
-YOKE_GITHUB_APP_PRIVATE_KEY_FILE=/run/secrets/yoke-github-app-private-key
+YOKE_GITHUB_APP_PRIVATE_KEY_FILE=/dev/shm/yoke-runtime-secrets/yoke-github-app-private-key
 
 # Optional product-facing Connect GitHub profile; set all four or none.
 YOKE_GITHUB_APP_WEB_URL=https://github.com
@@ -194,23 +203,14 @@ YOKE_GITHUB_APP_CLIENT_ID=<public-client-id>
 YOKE_GITHUB_APP_SLUG=<app-slug>
 ```
 
-Uncomment the `yoke-github-app-private-key` service mount and top-level secret
-definition in `docker-compose.yml`, then run `docker compose up -d`. The
-bundled GitHub App block is disabled until all three values and the mounted key
+Enable the file binding in `.env`, then run `yoke self-host init --protect-existing --start`. The
+GitHub App is disabled until all three values and the host key
 are present. GitHub Enterprise Server uses its HTTPS API origin in
 `YOKE_GITHUB_APP_API_URL`; redirects to another origin are rejected.
-The key stays mode `0600` in the host bundle. The self-host bootstrap copies it
-to the core service's private tmpfs with runtime-user ownership before dropping
-root; it never weakens the host file to make a bind mount readable.
-The public profile is all-or-none. Whenever private App configuration is
-present, startup performs one bounded, no-redirect App identity check—even
-when the public profile is omitted. Missing, partial, unreadable, or identity-
-mismatched public configuration remains a detail-free `available: false` in
-health, so onboarding offers disabled. Partial or invalid public settings
-also emit a value-free startup warning that tells the operator to set every
-public field consistently or unset all of them. Health never performs a network
-request. After repairing a key or identity mismatch, restart the core service
-so startup can attest the repaired authority before it is advertised.
+The key stays mode `0600` in the host bundle. The host command opens it and
+streams it to the bootstrap alongside the database DSN and optional OIDC secret.
+The runtime user writes mode `0600` copies in private tmpfs after the privilege
+drop; host ownership and modes stay unchanged.
 
 Hosted/stage deployments use the same runtime contract but source the key from
 AWS Secrets Manager. The deploy environment's `environments.settings` contains
@@ -240,7 +240,7 @@ The origin instance role resolves that ARN locally. Deployment writes
 `github-app-private-key.pem` as mode `0640`, owned by the deploy user and a
 dedicated host secrets group, and grants only that numeric supplemental group
 to the non-root container that mounts it at
-`/run/secrets/yoke-github-app-private-key`. Secret values never cross SSH and
+`/dev/shm/yoke-runtime-secrets/yoke-github-app-private-key`. Secret values never cross SSH and
 are not placed in Compose environment variables, command arguments, Pulumi
 state, or project-engine databases.
 
@@ -257,7 +257,7 @@ The command performs a read-only preflight and shows the current image, target
 release, exact target image, and ordered actions before asking you to type
 `upgrade`. It then installs that release's CLI through the public installer
 channel, atomically rewrites `YOKE_SERVER_IMAGE`, runs `docker compose pull
-core`, and runs `docker compose up -d`. Use `--yes` only when an automated run
+core`, refreshes the Compose template, and restarts through the private host handoff. Use `--yes` only when an automated run
 has already accepted that same plan.
 
 An active source-checkout CLI refuses this command before preview or install,
@@ -306,7 +306,7 @@ yoke self-host teardown --remove-images \
 ```
 
 Without `--destroy-universe` the `pgdata` volume survives, so
-`docker compose up -d` brings the same universe back. With it, the volume and
+`yoke self-host init --protect-existing --start` brings the same universe back. With it, the volume and
 every item, event, and credential in it are gone; the command asks for consent
 unless you pass `--yes`. `--remove-images` removes the images this bundle uses
 and reports any another container still needs. `--remove-bundle` deletes the

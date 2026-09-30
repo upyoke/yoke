@@ -1,18 +1,4 @@
-"""Dependency-light contract for a self-host server's first-boot output.
-
-The one-time admin token is the only credential a fresh universe has, and
-where it lands decides whether "shown once" is true. Written to the
-container's stdout it is durably readable by anyone who can run
-``docker compose logs`` for as long as the container lives — a claim of
-secrecy the delivery did not keep. So the bundle hands the server an open
-descriptor onto an owner-only host file, and the boot log carries only the
-path plus the paste-ready connect command.
-
-A server booted outside a bundle has no such descriptor and still needs to
-surrender its token somewhere; there stdout remains the delivery, and the
-banner says plainly that the token is in the log until the operator clears
-it rather than claiming otherwise.
-"""
+"""Safe self-host boot banners and dependency-light token wire validation."""
 
 from __future__ import annotations
 
@@ -23,14 +9,9 @@ TOKEN_PREFIX = "yoke_v1_"
 TOKEN_BODY_LENGTH = 43
 FIRST_BOOT_TOKEN_MARKER = "FIRST-BOOT ADMIN TOKEN"
 
-#: Container path of the owner-only host file the bundle bind-mounts for the
-#: first-boot token, and the descriptor the root bootstrap opens onto it
-#: before dropping privileges. The server writes through the descriptor
-#: because by then it is the unprivileged runtime user and the host file
-#: belongs to the operator.
-FIRST_BOOT_TOKEN_FILE_ENV = "YOKE_FIRST_BOOT_TOKEN_FILE"
+#: Private socket descriptor passed through the bootstrap privilege drop.
 FIRST_BOOT_TOKEN_FD_ENV = "YOKE_FIRST_BOOT_TOKEN_FD"
-#: Bundle-relative path of that same file, for a log line the operator can act on.
+#: Operator token destination, written only by the host command.
 FIRST_BOOT_TOKEN_HOST_PATH_ENV = "YOKE_FIRST_BOOT_TOKEN_HOST_PATH"
 #: Host publish spec the bundle already carries, so the boot log can print the
 #: real connect URL instead of a ``<server-url>`` placeholder.
@@ -124,7 +105,6 @@ __all__ = [
     "API_PUBLISH_ENV",
     "DEFAULT_API_PUBLISH_SPEC",
     "FIRST_BOOT_TOKEN_FD_ENV",
-    "FIRST_BOOT_TOKEN_FILE_ENV",
     "FIRST_BOOT_TOKEN_HOST_PATH_ENV",
     "FIRST_BOOT_TOKEN_MARKER",
     "TOKEN_BODY_LENGTH",

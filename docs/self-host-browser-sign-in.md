@@ -30,24 +30,19 @@ chmod 600 secrets/oidc-client-secret
 
 Then uncomment the OIDC lines in `.env` (`YOKE_OIDC_ISSUER`,
 `YOKE_OIDC_CLIENT_ID`, `YOKE_OIDC_REDIRECT_URL`,
-`YOKE_OIDC_CLIENT_SECRET_FILE`) and the two `yoke-oidc-client-secret`
-blocks in `docker-compose.yml`, and `docker compose up -d`. Setting
-some vars but not all fails loudly: the door answers 409 naming what is
-missing.
+`YOKE_OIDC_CLIENT_SECRET_FILE`), then run
+`yoke self-host init --dir PATH --protect-existing --start`. Setting
+some vars but not all fails loudly: the door answers 409 naming what is missing.
 
-The Compose service mounts the owner-only source secret as root, copies it into a container-private tmpfs as mode `0600` owned by the image's `yoke`
-user, rewrites the file binding, seals the original mount directory as
-root-only, clears supplementary groups, and drops to that user before starting
-the server. Every source must be a read-only mount; this also handles Compose
-implementations that normalize the in-container source-file mode. The same
-bootstrap protects the core database DSN and optional GitHub App key; host
-copies remain owner-only.
-Compose drops every ambient container capability, grants only the three needed
-for this handoff (`CHOWN`, `SETGID`, and `SETUID`), enables
-`no-new-privileges`, and the bootstrap refuses to start the server if any
-effective Linux capability remains after the drop. The Compose healthcheck
-uses the same immediate drop, so the service-level root override does not leave
-periodic root healthcheck processes running beside the server.
+The host operator opens the mode `0600` client secret and streams it through
+Docker exec stdin. After receiving the inputs privately, the bootstrap clears
+supplementary groups and drops to the image's `yoke` user, which writes private
+mode `0600` copies in tmpfs before starting the server. Host files are never
+mounted or chowned. The same handoff protects the database DSN and GitHub App key.
+Compose drops every ambient capability, grants only `SETGID` and `SETUID`, and
+enables `no-new-privileges`. Bootstrap and healthchecks prove the runtime has
+no effective Linux capabilities after the drop. Restart through the same host
+command so it can reopen the inputs; automatic restart is disabled.
 
 **3. Decide who gets in.** Visiting `https://yoke.internal/` offers
 "Sign in"; after the provider round-trip the server admits the verified

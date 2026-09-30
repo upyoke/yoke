@@ -262,11 +262,12 @@ def birth_universe() -> None:
     with db_helpers.connect() as conn:
         org = org_schema.ensure_org_identity_card(conn, org_name)
         created = bootstrap_admin_token(conn)
+        # The credential transaction commits only after durable host delivery.
+        deliver_first_boot_admin_token(created.raw_token)
     _log.info("universe born: org %r", org["name"])
     # Sanctioned one-time credential handoff: this is the only copy of the
     # raw token in existence (the DB stores a hash), and the credential
     # probe guarantees no boot after a completed birth re-enters it.
-    deliver_first_boot_admin_token(created.raw_token)
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:

@@ -16,7 +16,7 @@ from yoke_cli.config.onboard_docker_prerequisites import (
     DockerPrerequisites,
     check_docker_prerequisites as _check_docker_prerequisites,
 )
-from yoke_cli.self_host import bundle, first_boot_token
+from yoke_cli.self_host import bundle, first_boot_token, runtime
 from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
 
 
@@ -89,23 +89,14 @@ def provision(
     if setup.raw_token:
         return retry_connection(setup, health_wait_seconds=health_wait_seconds)
     _ensure_wizard_bundle(setup)
-    started = _compose(
-        prerequisites.executable,
-        setup.directory,
-        ("up", "-d"),
-        timeout=120.0,
-    )
-    if started.returncode != 0:
-        diagnostic = _diagnostic(started.stderr or started.stdout)
-        detail = ["The bundle was preserved. Run these commands to recover:"]
-        detail.extend(recovery_commands(setup))
-        if diagnostic:
-            detail.append(f"Docker reported: {diagnostic}")
-        raise SelfHostSetupError(
-            "compose-start",
-            "Docker Compose could not start the Yoke server.",
-            detail,
+    try:
+        runtime.start_bundle(
+            directory=setup.directory, executable=prerequisites.executable
         )
+    except runtime.SelfHostRuntimeError as exc:
+        raise SelfHostSetupError(
+            "self-host-handoff", str(exc), recovery_commands(setup)
+        ) from exc
     setup.raw_token = _wait_for_first_boot_token(
         setup,
         timeout_s=token_wait_seconds,
@@ -284,7 +275,7 @@ def _compose(
 def recovery_commands_for_directory(directory: Path) -> list[str]:
     return [
         f"cd {shlex.quote(str(directory))}",
-        "docker compose up -d",
+        "yoke self-host init --dir . --protect-existing --start",
         f"docker compose logs --no-color --tail {COMPOSE_LOG_TAIL} core",
     ]
 

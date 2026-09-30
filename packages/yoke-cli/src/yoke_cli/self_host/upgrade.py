@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from yoke_cli.config import install_binding, onboard_self_host_server
-from yoke_cli.self_host import bundle
+from yoke_cli.self_host import bundle, runtime
 from yoke_cli.self_host import protection
 from yoke_cli.self_host import release_target
 from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
@@ -46,7 +46,7 @@ class UpgradePlan:
             f"install Yoke CLI {self.target.version} from {self.target.channel}",
             f"replace YOKE_SERVER_IMAGE with {self.target.image}",
             "run docker compose pull core",
-            "run docker compose up -d",
+            "restart through the private host secret handoff",
         )
 
 
@@ -89,7 +89,13 @@ def execute_upgrade(plan: UpgradePlan) -> dict[str, Any]:
     _install_cli(plan, installer)
     _replace_server_image(plan)
     _run_compose_step(plan, ("pull", "core"), code="compose-pull")
-    _run_compose_step(plan, ("up", "-d"), code="compose-up")
+    try:
+        bundle.protect_existing_bundle(directory=str(plan.directory))
+        runtime.start_bundle(
+            directory=plan.directory, executable=plan.docker_executable
+        )
+    except (runtime.SelfHostRuntimeError, bundle.SelfHostBundleError) as exc:
+        raise _compose_error(plan, "self-host-handoff", str(exc)) from exc
     return {
         "ok": True,
         "directory": str(plan.directory),
@@ -242,7 +248,7 @@ def _compose_recovery(plan: UpgradePlan) -> tuple[str, ...]:
     return (
         "Retry the preserved pinned bundle:",
         f"cd {directory} && docker compose pull core",
-        f"cd {directory} && docker compose up -d",
+        f"yoke self-host init --dir {directory} --protect-existing --start",
     )
 
 

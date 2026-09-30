@@ -25,7 +25,7 @@ from yoke_cli.commands.self_host_teardown import (
 )
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.self_host import bundle, first_boot_token
-from yoke_cli.self_host import upgrade
+from yoke_cli.self_host import upgrade, runtime
 from yoke_contracts.self_host_bootstrap_output import (
     connect_url_from_publish_spec,
 )
@@ -34,7 +34,7 @@ AdapterFn = Callable[[List[str]], int]
 
 INIT_USAGE = (
     "yoke self-host init [--dir D] [--port N] [--image REF] "
-    "[--force | --protect-existing] [--github-app-private-key PATH] [--json]"
+    "[--force | --protect-existing] [--github-app-private-key PATH] [--start] [--json]"
 )
 UPGRADE_USAGE = "yoke self-host upgrade [--dir D] [--channel C] [--yes] [--json]"
 
@@ -58,8 +58,8 @@ def self_host_init(args: List[str]) -> int:
             "The generated password is never printed. --protect-existing "
             "instead preserves an existing bundle and its DB credentials "
             "while repairing secret protection or rotating the GitHub App "
-            "key. Then `docker compose up -d` from the bundle directory "
-            "starts the server; first boot writes the reusable administrator "
+            "key. Add --start to stream host-opened secrets and "
+            "start or restart the server; first boot writes the reusable administrator "
             "token to an owner-only file under the bundle's secrets/ "
             "directory, and prints its path — never the token — to the log."
         ),
@@ -107,7 +107,7 @@ def self_host_init(args: List[str]) -> int:
         action="store_true",
         help=(
             "Idempotently merge Yoke's marked .gitignore protection into an "
-            "existing bundle. Preserves docker-compose.yml, .env, and database "
+            "existing bundle. Refreshes the Compose template; preserves .env and database "
             "credential files; never regenerates database credentials."
         ),
     )
@@ -121,6 +121,11 @@ def self_host_init(args: List[str]) -> int:
             "access (use chmod 600), through a same-directory owner-only temp "
             "file."
         ),
+    )
+    parser.add_argument(
+        "--start",
+        action="store_true",
+        help="Start/restart through the private host secret handoff; with --protect-existing, refresh the Compose template and preserve database credentials.",
     )
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parse_or_usage_error(parser, args, INIT_USAGE)
@@ -151,7 +156,10 @@ def self_host_init(args: List[str]) -> int:
                 image=parsed.image,
                 force=parsed.force,
             )
-    except bundle.SelfHostBundleError as exc:
+        if parsed.start:
+            runtime.start_bundle(directory=str(report["directory"]))
+            report["healthy"] = True
+    except (bundle.SelfHostBundleError, runtime.SelfHostRuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     if parsed.json_mode:
@@ -238,7 +246,7 @@ def _print_summary(report: Dict[str, object]) -> None:
     token_file = first_boot_token.token_drop_path(str(directory))
     connect_url = connect_url_from_publish_spec(str(report.get("publish") or ""))
     print("next steps:")
-    print(f"  1. cd {directory} && docker compose up -d")
+    print(f"  1. yoke self-host init --dir {directory} --protect-existing --start")
     print("  2. first boot writes the reusable administrator token to:")
     print(f"       {token_file}")
     print("  3. connect this machine's CLI, then remove that file:")
@@ -266,6 +274,8 @@ def _print_upgrade_error(error: upgrade.SelfHostUpgradeError) -> None:
     print(f"error [{error.code}]: {error}", file=sys.stderr)
     for line in error.detail_lines:
         print(f"  {line}", file=sys.stderr)
+
+
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("self-host", "init"): self_host_init,
     ("self-host", "upgrade"): self_host_upgrade,
