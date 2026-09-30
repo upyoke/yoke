@@ -123,7 +123,14 @@ evaluator/client-wall coverage, are labelled incomparable.
   approval, a work approval, or a QA review), the messages sent to you, and
   what you decided while on the page. An agent that needs you to know
   something sends a message, with context and a specific ask. A run's own QA
-  review is titled **Run QA · <run ID>**, linking the run, and lists the run's
+  evidence review is titled **Run QA evidence · <case name>**, linking the run,
+  and asks to settle evidence the independent review could not decide with
+  **Accept evidence**, **Reject evidence**, and **Waive evidence review**.
+  The flow's separate release sign-off is titled **Run approval · <run ID>**
+  and asks to approve or reject the release with **Approve release**,
+  **Reject release**, and **Waive run approval**. These titles, prompts and
+  action labels are identical on Shipping and the run page; answering either
+  decision settles only its own requirement. Each card lists the run's
   checks the way Shipping does — each with its own screenshots, earlier
   attempts folded — then the decision. A work approval for a carried item
   shows the screenshots its current release captured for that item —

@@ -30,6 +30,27 @@ export function kindLabel(row) {
   return KIND_LABELS[row.kind] || "Decision";
 }
 
+// Flow acceptance signs off the run; an independent review settles one
+// case's evidence. Both use qa_needs_review, so read the frozen subject.
+export function runStageDecisionPresentation(row) {
+  const facts = row.subject_context || {};
+  const subject = facts.subject || {};
+  if (row.kind !== "qa_needs_review" || subject.kind !== "deployment_run"
+    || !subject.deployment_run_id || subject.deployment_member_item_id != null) return null;
+  if (facts.qa_kind === "deployment_stage_acceptance") {
+    return {
+      title: `Run approval · ${subject.deployment_run_id}`,
+      prompt: "Approve or reject this release.",
+      actions: { approve: "Approve release", reject: "Reject release", waive: "Waive run approval" },
+    };
+  }
+  return {
+    title: `Run QA evidence · ${facts.case_name || facts.method_name || "QA case"}`,
+    prompt: "The independent review could not decide. Accept or reject this evidence.",
+    actions: { approve: "Accept evidence", reject: "Reject evidence", waive: "Waive evidence review" },
+  };
+}
+
 // What resolving this does, in one sentence. The QA card carries its own
 // body instead: what was checked and what the agent said are the effect.
 export function effectLine(row) {
@@ -146,6 +167,7 @@ export const reviewRequestPresentation = {
   effectLine,
   evidenceOf,
   kindLabel,
+  runStageDecisionPresentation,
   qaFacts,
   reviewerLine,
 };
