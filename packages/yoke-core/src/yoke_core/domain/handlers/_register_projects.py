@@ -39,6 +39,15 @@ _PROJECT_WRITE_SURFACES = (
 def register(registry) -> None:
     """Register project registry writes via the given registry module."""
     registry.register(
+        "projects.environment.list", _infrastructure.handle_projects_environment_list,
+        _infrastructure.ProjectsInfrastructureListRequest,
+        _infrastructure.ProjectsEnvironmentListResponse,
+        stability="stable", owner_module="yoke_core.domain.handlers.projects_infrastructure",
+        target_kinds=["global"], side_effects=[], emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["metadata_only"], adapter_status="live", claim_required_kind=None,
+        minimum_serving_version="next-release",
+    )
+    registry.register(
         "projects.infrastructure.list",
         _infrastructure.handle_projects_infrastructure_list,
         _infrastructure.ProjectsInfrastructureListRequest,

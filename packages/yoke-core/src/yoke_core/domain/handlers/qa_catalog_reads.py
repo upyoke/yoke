@@ -23,7 +23,7 @@ class MethodGetRequest(ProjectReadRequest):
 
 
 class PlanGetRequest(ProjectReadRequest):
-    plan_id: int
+    plan_id: int | str
     deployment_run_id: Optional[str] = Field(default=None, min_length=1)
     detail: ReadDetail = Field(
         default=DETAIL_SUMMARY,
@@ -174,9 +174,25 @@ def handle_plan_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     try:
         with connect() as conn:
+            plan_ref = str(payload.plan_id)
+            if not plan_ref.isdecimal():
+                from yoke_core.domain.project_identity import resolve_project_id
+                from yoke_core.domain.db_helpers import query_one
+                from yoke_core.domain import db_backend
+
+                project_id = resolve_project_id(conn, payload.project)
+                marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+                row = query_one(
+                    conn,
+                    f"SELECT id FROM qa_plans WHERE project_id={marker} AND slug={marker}",
+                    (project_id, plan_ref),
+                )
+                if row is None:
+                    raise LookupError(f"QA plan {plan_ref!r} not found in project {payload.project}")
+                plan_ref = str(row["id"])
             plan = get_plan(
                 conn,
-                plan_id=payload.plan_id,
+                plan_id=int(plan_ref),
                 deployment_run_id=payload.deployment_run_id,
             )
     except LookupError as exc:

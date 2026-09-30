@@ -42,7 +42,7 @@ from yoke_cli.commands.registry_db_claim import DB_CLAIM_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_readiness import READINESS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_item_dependency import ITEM_DEPENDENCY_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_shepherd import SHEPHERD_SUBCOMMAND_REGISTRY
-from yoke_cli.commands.registry_sessions import SESSIONS_SUBCOMMAND_REGISTRY
+from yoke_cli.commands.registry_sessions import SESSIONS_SUBCOMMAND_ALIAS_REGISTRY, SESSIONS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands import registry_session_control as _session_control
 from yoke_cli.commands.registry_strategy_event import STRATEGY_EVENT_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_workflows import WORKFLOW_SUBCOMMAND_REGISTRY
@@ -267,6 +267,8 @@ SUBCOMMAND_ALIAS_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "claims.work.holder_get",
         _adapters.claims_work_current,
     ),
+    **SESSIONS_SUBCOMMAND_ALIAS_REGISTRY,
+    **_product_surfaces.PRODUCT_SURFACE_QA_ALIASES,
 }
 SUBCOMMAND_ALIAS_REGISTRY.update(GITHUB_ACTIONS_SUBCOMMAND_ALIAS_REGISTRY)
 SUBCOMMAND_ALIAS_REGISTRY.update(CLAIMS_SUBCOMMAND_ALIAS_REGISTRY)

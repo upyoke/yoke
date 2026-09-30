@@ -22,6 +22,19 @@ Harness skills (`/yoke do`, `/yoke idea`, …) call the same function-call
 surface; CLI adapters are the operator/debug shape. Prefer
 `yoke <subcommand> --help` for flags.
 
+For one-record reads, use `yoke sessions get SESSION`, `yoke decision-requests
+get REQUEST_ID`, `yoke items progress-log get PREFIX-N`, or `yoke qa artifact
+get ARTIFACT_ID --requirement-id N`. The artifact `get` command returns metadata;
+`yoke qa artifact read` retrieves evidence. `yoke projects environment list
+--project P` lists one project's environments. `yoke qa requirement get` accepts
+the id positionally or as `--requirement-id`; `yoke qa plan get` accepts an id
+or project-local slug, positionally or as `--plan-id`. `yoke db read` schema
+suggestions name the column storage type and label structured text columns.
+`yoke items get` rejects unknown field names and prints its field catalog.
+Common singular and plural guesses such as `claims work-claim`, `claims work
+list`, and `qa methods` route to the registered read or claim commands. A
+`say inbox` guess explains session-hook delivery and the `messages get` read.
+
 ### Model catalog revisions
 
 The sourced model catalog lives in `model_reference_revisions` in the control

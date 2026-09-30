@@ -220,6 +220,7 @@ _PAYLOAD_NAMED_PROJECT_FUNCTIONS = frozenset(
         "projects.environment_settings.get",
         "projects.environment_settings.merge",
         "projects.infrastructure.list",
+        "projects.environment.list",
         "packs.list",
         "packs.bundle.get",
         "packs.project.report",

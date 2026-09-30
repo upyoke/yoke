@@ -86,7 +86,8 @@ def items_section_upsert(args: List[str]) -> int:
     parser.add_argument("--ordering", type=int, default=None,
                         help="Optional section ordering rank.")
     parser.add_argument("--source", default=None, help="Optional source tag.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_SECTION_UPSERT_USAGE)
     if parsed is None:
         return 2
@@ -119,7 +120,8 @@ def items_section_get(args: List[str]) -> int:
     )
     parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
     parser.add_argument("--section", required=True, help="Section heading.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_SECTION_GET_USAGE)
     if parsed is None:
         return 2
@@ -143,6 +145,31 @@ def items_section_get(args: List[str]) -> int:
     )
 
 
+def items_progress_log_get(args: List[str]) -> int:
+    """Read the canonical Progress Log section of one item."""
+    parser = argparse.ArgumentParser(prog="yoke items progress-log get")
+    parser.add_argument("item")
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, "yoke items progress-log get PREFIX-N [--json]")
+    if parsed is None:
+        return 2
+
+    def _writer(response, stdout, stderr) -> None:
+        if response.success:
+            content = str((response.result or {}).get("content") or "")
+            stdout.write(content)
+            if content and not content.endswith("\n"):
+                stdout.write("\n")
+
+    return dispatch_and_emit(
+        function_id="items.progress_log.get",
+        target=item_target("item", parsed.item, parsed.project),
+        payload={}, session_id=parsed.session_id,
+        json_mode=parsed.json_mode, human_writer=_writer,
+    )
+
+
 ITEMS_SECTION_DELETE_USAGE = (
     "yoke items section delete <PREFIX-N> --section NAME [--session-id S] [--json]"
 )
@@ -154,7 +181,8 @@ def items_section_delete(args: List[str]) -> int:
     )
     parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
     parser.add_argument("--section", required=True, help="Section heading to delete.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_SECTION_DELETE_USAGE)
     if parsed is None:
         return 2
@@ -188,7 +216,8 @@ def items_structured_field_append_addendum(args: List[str]) -> int:
     parser.add_argument("--heading", required=True, help="Addendum '## heading' text.")
     _add_content_group(parser)
     parser.add_argument("--source", default="", help="Optional source tag.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STRUCTURED_FIELD_APPEND_ADDENDUM_USAGE)
     if parsed is None:
         return 2
@@ -231,7 +260,8 @@ def items_structured_field_section_upsert(args: List[str]) -> int:
     parser.add_argument("--ordering", type=int, default=None,
                         help="Optional section ordering rank.")
     parser.add_argument("--source", default=None, help="Optional source tag.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STRUCTURED_FIELD_SECTION_UPSERT_USAGE)
     if parsed is None:
         return 2
@@ -276,7 +306,8 @@ def items_structured_field_section_append(args: List[str]) -> int:
     parser.add_argument("--ordering", type=int, default=None,
                         help="Optional section ordering rank.")
     parser.add_argument("--source", default=None, help="Optional source tag.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, STRUCTURED_FIELD_SECTION_APPEND_USAGE)
     if parsed is None:
         return 2

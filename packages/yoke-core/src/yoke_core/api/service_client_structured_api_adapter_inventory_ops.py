@@ -22,6 +22,10 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 
 OPS_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
+        function_id="decision_requests.get",
+        cli_invocation="yoke decision-requests get REQUEST_ID [--json]",
+    ),
+    _read_entry(
         function_id=FUNCTION_ID,
         cli_invocation=("yoke migration content-identity verify --entries-json JSON"),
     ),

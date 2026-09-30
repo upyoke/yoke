@@ -172,13 +172,16 @@ def qa_plan_get(args: List[str]) -> int:
     usage = USAGE_BY_FUNCTION_ID["qa.plan.get"]
 
     def configure(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("plan_id", type=int)
+        parser.add_argument("plan", nargs="?", help="Plan id or project-local slug.")
+        parser.add_argument("--plan-id", help="Plan id or project-local slug.")
         parser.add_argument("--deployment-run-id")
         add_full_arg(parser, "each probe's source and every proof's evidence")
 
     def payload(parsed: argparse.Namespace) -> dict[str, Any]:
+        if (parsed.plan is None) == (parsed.plan_id is None):
+            raise ValueError("provide exactly one plan id or slug, positionally or with --plan-id")
         detail = detail_of(parsed)
-        result: dict[str, Any] = {"plan_id": parsed.plan_id, "detail": detail}
+        result: dict[str, Any] = {"plan_id": parsed.plan if parsed.plan is not None else parsed.plan_id, "detail": detail}
         if parsed.deployment_run_id:
             result["deployment_run_id"] = parsed.deployment_run_id
         return result

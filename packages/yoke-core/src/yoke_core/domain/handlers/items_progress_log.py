@@ -58,6 +58,31 @@ class AppendResponse(BaseModel):
     body_sync_elapsed_ms: int
 
 
+class GetRequest(BaseModel):
+    pass
+
+
+class GetResponse(BaseModel):
+    item_id: int
+    content: str
+
+
+def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
+    target = request.target
+    if target.kind != "item" or target.item_id is None:
+        return _bad_request("items.progress_log.get requires an item target")
+    from yoke_core.domain.sections import get_section
+
+    content = get_section(int(target.item_id), PROGRESS_LOG_SECTION)
+    if content is None:
+        return HandlerOutcome(primary_success=False, error=FunctionError(
+            code="not_found", message=f"Progress Log not found on item {target.item_id}",
+        ))
+    return HandlerOutcome(primary_success=True, result_payload={
+        "item_id": int(target.item_id), "content": content,
+    })
+
+
 def _bad_request(message: str) -> HandlerOutcome:
     return HandlerOutcome(
         result_payload={}, primary_success=False,
@@ -118,6 +143,21 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 REGISTRATIONS: List[Dict[str, Any]] = [
+    {
+        "function_id": "items.progress_log.get",
+        "handler": handle_get,
+        "request_model": GetRequest,
+        "response_model": GetResponse,
+        "stability": "stable",
+        "owner_module": "yoke_core.domain.handlers.items_progress_log",
+        "target_kinds": ["item"],
+        "side_effects": [],
+        "emitted_event_names": ["YokeFunctionCalled"],
+        "guardrails": [],
+        "adapter_status": "live",
+        "claim_required_kind": None,
+        "minimum_serving_version": "next-release",
+    },
     {
         "function_id": "items.progress_log.append",
         "handler": handle_append,

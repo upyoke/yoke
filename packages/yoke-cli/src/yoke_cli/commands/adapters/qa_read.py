@@ -96,7 +96,7 @@ def qa_requirement_list(args: List[str]) -> int:
 
 
 QA_REQUIREMENT_GET_USAGE = (
-    "yoke qa requirement get --requirement-id N [--session-id S] [--json]"
+    "yoke qa requirement get (N | --requirement-id N) [--session-id S] [--json]"
 )
 
 _REQUIREMENT_GET_HELP_DEEP = """\
@@ -109,7 +109,7 @@ Worked example:
 Flag matrix:
 
   flag              required  value shape
-  --requirement-id  yes       qa_requirements.id (integer)
+  N or --requirement-id  yes  qa_requirements.id (integer)
   --session-id      no        opaque session id (operator-debug)
   --json            no        flag (typed envelope on stdout)
 
@@ -123,23 +123,21 @@ def qa_requirement_get(args: List[str]) -> int:
         description=(f"{QA_REQUIREMENT_GET_USAGE}\n\n{_REQUIREMENT_GET_HELP_DEEP}"),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "--requirement-id",
-        dest="requirement_id",
-        type=int,
-        required=True,
-        help="Target qa_requirements.id.",
-    )
+    parser.add_argument("requirement", nargs="?", type=int, help="Target qa_requirements.id.")
+    parser.add_argument("--requirement-id", type=int, help="Target qa_requirements.id.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_GET_USAGE)
     if parsed is None:
         return 2
+    if (parsed.requirement is None) == (parsed.requirement_id is None):
+        return usage_error("provide exactly one requirement id, positionally or with --requirement-id")
+    requirement_id = parsed.requirement if parsed.requirement is not None else parsed.requirement_id
     return dispatch_and_emit(
         function_id="qa.requirement.get",
         target=TargetRef(
             kind="qa_requirement",
-            qa_requirement_id=int(parsed.requirement_id),
+            qa_requirement_id=int(requirement_id),
         ),
         payload={},
         session_id=parsed.session_id,

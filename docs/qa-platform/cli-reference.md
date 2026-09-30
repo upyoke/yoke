@@ -62,7 +62,7 @@ yoke qa requirement list --epic-id 833 --json
 yoke qa requirement list --deployment-run-id run-20260616-001 --json
 
 # Get or update a single requirement
-yoke qa requirement get --requirement-id 1
+yoke qa requirement get 1
 yoke qa requirement update --requirement-id 1 --field blocking_mode --value non_blocking
 yoke qa requirement update --requirement-id 1 --field method_config --value '{"steps":[{"action":"navigate","route":"/dashboard"},{"action":"assert","target":"[data-ready=true]","check":"visible"}]}'
 yoke qa requirement update --requirement-id 1 --field target_env --value local
@@ -130,7 +130,8 @@ the exact deployed candidate; a newer deployment cannot certify an older run.
 | `yoke qa plan review-submit` | `(--item-id N \| --deployment-run-id RUN) --execution-id ID --bundle-id ID --bundle-digest SHA256 --stdin` | Persist one complete agent-verdict batch for an immutable review bundle |
 | `yoke qa case run` | `--requirement-id N [runner opts]` | Authorize and execute one immutable case snapshot locally |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements, each materialized row reporting `plan_currency` and `plan_diverging_fields` against its plan case |
-| `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
+| `yoke qa requirement get` | `N` or `--requirement-id N` | Get one requirement |
+| `yoke qa plan get` | `PLAN_ID_OR_SLUG --project P` or `--plan-id PLAN_ID_OR_SLUG --project P` | Get one project plan |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
 | `yoke qa requirement waive` | `--requirement-id N --rationale TEXT` | Authorize progress without recording a passing verdict |
 | `yoke qa run add` | `--requirement-id N --performed-by T [--qa-kind K] [--verdict V] [--verdict-reason R] [--head-sha SHA] [opts]` | Start a run before attaching evidence; blocking passes stamp `verification_tree.head_sha` |
@@ -140,6 +141,7 @@ the exact deployed candidate; a newer deployment cannot certify an older run.
 | `yoke qa artifact presign` | `--requirement-id N --run-id N --filename NAME [--content-type CT]` | Mint a durable upload target |
 | `yoke qa artifact add` | `--requirement-id N --run-id N --artifact-type T (--artifact-handle JSON \| --content-base64 B64 --filename NAME \| --content-file PATH) [opts]` | Insert artifact evidence from a typed handle or inline bytes |
 | `yoke qa artifact rehome` | `--requirement-id N --artifact-id N [--artifact-id N ...]` | On the capture machine, store recorded local-only evidence through the serving build and swap the handle in place |
+| `yoke qa artifact get` | `ARTIFACT_ID --requirement-id N` | Read artifact metadata without fetching evidence or issuing a download URL |
 | `yoke qa artifact read` | `--requirement-id N --artifact-id N [--output PATH] [--json]` | Land one artifact's bytes at a readable path (default under the machine temp root) and report it; stranded or on-machine evidence is named explicitly |
 
 Dispatcher commands use 0 for success, 1 for a dispatch/not-found failure,
@@ -274,7 +276,7 @@ registered `yoke qa ...` adapter is present in this branch:
 | Missing adapter | Disposition |
 |---|---|
 | QA init | Schema setup belongs to DB initialization/migrations, not a public QA adapter |
-| Artifact list | Evidence is discovered through requirement/plan reads; `yoke qa artifact read` resolves one selected artifact |
+| Artifact list | Evidence is discovered through requirement/plan reads; `yoke qa artifact get` describes one artifact, and `yoke qa artifact read` resolves its bytes |
 
 Public requirement creation is item-scoped. Epic-task and deployment-run
 requirements are materialized by their owning lifecycle/deployment flows; the

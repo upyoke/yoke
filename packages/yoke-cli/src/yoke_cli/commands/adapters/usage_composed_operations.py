@@ -45,6 +45,7 @@ USAGE_BY_FUNCTION_ID = {
     "deployment_runs.project_snapshot": DEPLOYMENT_RUNS_PROJECT_SNAPSHOT_USAGE,
     "ephemeral_env.create": EPHEMERAL_ENV_CREATE_USAGE,
     "projects.infrastructure.list": PROJECTS_INFRASTRUCTURE_LIST_USAGE,
+    "projects.environment.list": "yoke projects environment list --project P [--json]",
 }
 
 

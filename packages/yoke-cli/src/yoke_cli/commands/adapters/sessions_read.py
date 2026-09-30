@@ -17,6 +17,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.session_control.liveness import ENDED_CAUSES, LIVENESS_STATES
 
 
 SESSIONS_LIST_USAGE = (
@@ -43,8 +44,8 @@ def sessions_list(args: List[str]) -> int:
         description=SESSIONS_LIST_USAGE,
     )
     parser.add_argument("--project", default=None)
-    parser.add_argument("--liveness", default=None)
-    parser.add_argument("--ended-cause", dest="ended_cause", default=None)
+    parser.add_argument("--liveness", choices=LIVENESS_STATES, default=None)
+    parser.add_argument("--ended-cause", dest="ended_cause", choices=ENDED_CAUSES, default=None)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument(
         "--session",
@@ -86,6 +87,23 @@ def sessions_list(args: List[str]) -> int:
         json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
+
+
+def sessions_get(args: List[str]) -> int:
+    """Read one session through the roster's exact-session projection."""
+    parser = argparse.ArgumentParser(prog="yoke sessions get")
+    parser.add_argument("session")
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, "yoke sessions get SESSION [--json]")
+    if parsed is None:
+        return 2
+    forwarded = ["--session", parsed.session]
+    if parsed.session_id:
+        forwarded.extend(("--session-id", parsed.session_id))
+    if parsed.json_mode:
+        forwarded.append("--json")
+    return sessions_list(forwarded)
 
 
 def sessions_steering_groups_list(args: List[str]) -> int:
