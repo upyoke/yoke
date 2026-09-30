@@ -306,6 +306,9 @@ def settle_members(conn: Any, run_id: str) -> Optional[str]:
     cleared — the run may not succeed and no member closes. Returns the
     refusal that keeps the run settling, or ``None`` once it may succeed.
     """
+    from yoke_core.domain.deployment_run_member_removal import release_replaced_members
+
+    release_replaced_members(conn, run_id, _final_members(conn, run_id, at_wait=True))
     staged, refusal = _commit_phase(conn, run_id)
     if refusal:
         return refusal

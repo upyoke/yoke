@@ -6,6 +6,8 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
+
 from yoke_core.domain.deployment_stage_receipts import (
     deployment_stage_receipt_for_qa,
 )
@@ -147,9 +149,12 @@ def _stage_subject_discharged(
     member, or every case at this stage waived or superseded. Absence of
     an acceptance row for an unasked member is not discharge.
     """
-    if member is not None and member_post_deploy_answer(
-        conn, {"member_item_id": member}
-    ).discharges_without_cases:
+    if (
+        member is not None
+        and member_post_deploy_answer(
+            conn, {"member_item_id": member}
+        ).discharges_without_cases
+    ):
         return True
     from yoke_core.domain.deployment_qa_execution_target import (
         deployment_qa_execution_target,
@@ -198,7 +203,7 @@ def prior_stage_refusals(
         if stage.get("stage_kind") != "qa" or stage.get("step_runner") != "qa":
             continue
         subjects = _subjects(conn, run_id, stage)
-        if not subjects:
+        if not subjects and not removed_item_ids(conn, run_id):
             refusals.append(f"stage {stage['name']!r} has no attached item subjects")
             continue
         for member in subjects:

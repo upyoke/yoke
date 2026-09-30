@@ -108,11 +108,18 @@ def deployment_runs_remove_item(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs remove-item",
         description=(
-            "Take one member out of a run that is still `created`, recording "
+            "Take one member out of a created run or an executing item-QA stage, recording "
             "the reason on the run. Composition then never re-enrolls it; its "
             "landed code still ships with the candidate and a later release "
-            "enrolls it. Re-attaching with `add-item` clears the removal. "
-            "Requires the caller's project deploy lock."
+            "enrolls it. Re-attaching while created with `add-item` clears the removal. "
+            "Requires the caller's project deploy lock. Use remove-item RUN ITEM "
+            "--reason R to let a run finish while a red member rides the next release. "
+            "Executing removal refuses shared run QA/approval, settled members, and "
+            "any stage other than item QA; outstanding run-bound member requirements "
+            "are retracted, while standing plans and passing evidence remain. "
+            "At settlement, a member whose current candidate is definitely outside "
+            "the frozen lineage is removed automatically for a later release; "
+            "unknown containment still blocks."
         ),
     )
     parser.add_argument("run_id")

@@ -1,4 +1,4 @@
-"""Members an operator took out of a still-composable run, and why.
+"""Members released from a deployment run, and why.
 
 Enrollment completes a run's membership from the code its candidate carries,
 so deleting a membership row alone is undone by the next composition pass:
@@ -14,7 +14,9 @@ landing; the item simply is not this run's to close. Because no run holds it,
 the next release's unheld-custody pass enrolls it again, which is where an item
 removed for being in rework belongs once it returns to its release stage.
 
-Re-attaching the item with ``deployment_runs.add_item`` clears the entry: the
+Removal also releases outstanding run-bound QA at independent item QA, or
+a member outside the frozen candidate at settlement, without closing it.
+Re-attaching while created with ``deployment_runs.add_item`` clears the entry: the
 operator reversed the decision, and a stale exclusion would silently drop the
 item from the run it was just attached to.
 """
