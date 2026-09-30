@@ -1,6 +1,6 @@
 """In-process integration coverage for the advance preflight gate evals.
 
-Exercises the four ``advance.preflight.*`` internal handlers against a
+Exercises the three ``advance.preflight.*`` internal handlers against a
 seeded Postgres authority. Each handler is a thin wrapper over an existing
 gate domain function; these tests prove the wrapper resolves the item
 target, runs the gate server-side against real DB state, and returns the
@@ -210,8 +210,9 @@ class TestSpecCoverageEval:
         conn = connect_test_db(db)
         try:
             actor = seed_human_actor(conn)
-            insert_item(conn, id=8241, source=str(actor), spec=self._budget_spec)
+            insert_item(conn, id=8241, project="buzz", source=str(actor), spec=self._budget_spec)
             pid = _project_id(conn, 8241)
+            conn.execute("UPDATE projects SET public_item_prefix=%s WHERE id=%s", ("BUZ", pid))
             t1 = _seed_target(conn, pid, "runtime/api/domain/foo.py")
             _seed_planned_claim(conn, item_id=8241, actor_id=actor, target_ids=[t1])
         finally:
@@ -221,4 +222,5 @@ class TestSpecCoverageEval:
         )
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload["is_blocked"] is True
+        assert outcome.result_payload["public_ref"] == f"BUZ-{8241}"
         assert outcome.result_payload["missing_paths"] == ["runtime/api/domain/bar.py"]

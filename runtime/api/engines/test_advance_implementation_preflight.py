@@ -232,15 +232,19 @@ def test_file_budget_block_narrative_preserved(monkeypatch):
     ]
 
 
-def test_spec_coverage_block_narrative_preserved(monkeypatch):
+@pytest.mark.parametrize("serves_public_ref", [False, True])
+def test_spec_coverage_block_narrative_preserved(monkeypatch, serves_public_ref):
+    coverage = {
+        "is_blocked": True,
+        "missing_paths": ["runtime/api/x.py", "runtime/api/y.py"],
+    }
+    if serves_public_ref:
+        coverage["public_ref"] = f"BUZ-{TEST_ITEM_ID}"
     calls = _install(
         monkeypatch,
         {
-            _SPEC_COVERAGE: {
-                "is_blocked": True,
-                "public_ref": f"BUZ-{TEST_ITEM_ID}",
-                "missing_paths": ["runtime/api/x.py", "runtime/api/y.py"],
-            }
+            _SPEC_COVERAGE: coverage,
+            "items.detail.get": {"item": {"public_ref": f"BUZ-{TEST_ITEM_ID}"}},
         },
     )
     ok, narrative = gates._run_preflight_gates(TEST_ITEM_ID, force=False)
@@ -249,12 +253,15 @@ def test_spec_coverage_block_narrative_preserved(monkeypatch):
         f"BLOCKED: BUZ-{TEST_ITEM_ID} File Budget lists 2 path(s) not covered by any "
         "active path_claim.\nMissing: runtime/api/x.py, runtime/api/y.py"
     )
-    assert [c["function_id"] for c in calls] == [
+    expected = [
         _HARD_BLOCKS,
         _WORKFLOW,
         _FILE_BUDGET,
         _SPEC_COVERAGE,
     ]
+    if not serves_public_ref:
+        expected.append("items.detail.get")
+    assert [c["function_id"] for c in calls] == expected
 
 
 def test_gate_relay_failure_fails_closed(monkeypatch):

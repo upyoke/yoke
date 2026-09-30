@@ -117,7 +117,12 @@ def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
     cov = _relay_gate("advance.preflight.spec_coverage", item_id)
     if cov.get("is_blocked"):
         missing = cov.get("missing_paths") or []
-        cov_ref = cov["public_ref"]
+        cov_ref = cov.get("public_ref")
+        if not cov_ref:
+            # Older serving builds omit this new response field. Their
+            # existing detail read still supplies the item's own public ref.
+            detail = _relay_gate("items.detail.get", item_id)
+            cov_ref = detail["item"]["public_ref"]
         return False, (
             f"BLOCKED: {cov_ref} File Budget lists "
             f"{len(missing)} path(s) not covered by any active "
