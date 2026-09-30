@@ -15,6 +15,12 @@ one — so an operator sees uncommitted retunes — and otherwise fetches it
 from the repository at the default branch head, which is what lets a
 hosted runner holding no checkout run the same parameter diff.
 
+Landing admission compares the live ruleset with the candidate worktree's
+declaration, falling back to the main checkout only when no lane exists.
+A required-check retune must be applied before that candidate can enter the
+queue; reading main's previous declaration would refuse the very change
+that makes the new checks authoritative.
+
 The declared ruleset carries a `merge_queue` rule (merge method MERGE,
 HEADGREEN grouping, trains of five entries with a one-minute wait to gather
 them, capped at 5, 60-minute check timeout) and `required_status_checks`
