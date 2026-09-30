@@ -18,6 +18,8 @@ import tempfile
 import time
 import urllib.request
 
+from ops.self_host_bootstrap_diagnostics import retain_failure_diagnostics
+
 
 def file_identity(path: Path) -> dict:
     info = path.stat()
@@ -35,9 +37,11 @@ def command(args: list[str], *, cwd: Path, timeout: int = 180) -> str:
     )
     if result.returncode:
         # Output may contain a credential; retain only command identity/status.
-        raise RuntimeError(
-            f"probe_command_failed: {args[:2]} exited {result.returncode}; inspect container logs and retry"
+        refusal = RuntimeError(
+            f"probe_command_failed: {args[:2]} exited {result.returncode}; inspect retained diagnostics and retry"
         )
+        refusal.command_output = result.stdout + result.stderr
+        raise refusal
     return result.stdout.decode().strip()
 
 
@@ -240,57 +244,6 @@ def host_probe(evidence: Path, report: dict) -> None:
             )
 
 
-def retain_failure_diagnostics(
-    target: Path, evidence: Path, failure: Exception
-) -> None:
-    """Keep the failed operation and container logs without any bundle secrets."""
-    secrets = [path.read_bytes().strip() for path in (target / "secrets").iterdir()]
-    output = bytearray(getattr(failure, "compose_output", b""))
-    for args in (
-        ("ps", "--all", "--format", "json"),
-        ("logs", "--no-color", "--tail", "200", "core", "db"),
-    ):
-        result = subprocess.run(
-            ("docker", "compose", *args),
-            cwd=target,
-            capture_output=True,
-            timeout=30,
-            check=False,
-        )
-        output.extend(result.stdout + result.stderr)
-    containers = (
-        subprocess.run(
-            ("docker", "compose", "ps", "--all", "-q", "core"),
-            cwd=target,
-            capture_output=True,
-            timeout=30,
-            check=False,
-        )
-        .stdout.decode()
-        .split()
-    )
-    for container in containers:
-        result = subprocess.run(
-            ("docker", "inspect", "--format", "{{json .State.Health}}", container),
-            capture_output=True,
-            timeout=30,
-            check=False,
-        )
-        output.extend(result.stdout + result.stderr)
-    try:
-        with urllib.request.urlopen(
-            "http://127.0.0.1:18765/v1/health", timeout=5
-        ) as response:
-            output.extend(response.read())
-    except OSError:
-        output.extend(b"probe_health_response_unavailable\n")
-    redacted = bytes(output)
-    for secret in sorted(secrets, key=len, reverse=True):
-        if secret:
-            redacted = redacted.replace(secret, b"[redacted]")
-    (evidence / "bootstrap-failure.log").write_bytes(redacted)
-
-
 def probe_upgrade(
     root: Path, temporary: Path, wheels: Path, target: Path, image: str, sha: str
 ) -> None:
@@ -305,7 +258,7 @@ def probe_upgrade(
     installer = temporary / "install.py"
     installer.write_text(
         "import argparse, subprocess, sys\n"
-        "p=argparse.ArgumentParser(); p.add_argument('--version'); p.add_argument('--yes',action='store_true'); p.add_argument('--no-onboard',action='store_true'); p.add_argument('--base-url'); a=p.parse_args()\n"
+        "p=argparse.ArgumentParser(); p.add_argument('--version'); p.add_argument('--yes',action='store_true'); p.add_argument('--no-onboard',action='store_true'); p.add_argument('--base-url'); p.add_argument('--channel'); a=p.parse_args()\n"
         f"raise SystemExit(subprocess.call([sys.executable,'-m','pip','install','--force-reinstall','--no-deps',{str(cli_wheel)!r}]))\n"
     )
     command(

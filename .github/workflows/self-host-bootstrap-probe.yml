@@ -38,7 +38,7 @@ jobs:
       - name: Prove boot, private token, authenticated API, restart, and upgrade
         env:
           PROBE_EVIDENCE_DIR: ${{ runner.temp }}/self-host-bootstrap-evidence
-        run: uv run --frozen python3 ops/self_host_bootstrap_probe.py
+        run: uv run --frozen python3 -m ops.self_host_bootstrap_probe
       - name: Retain redacted evidence even when the probe fails
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
