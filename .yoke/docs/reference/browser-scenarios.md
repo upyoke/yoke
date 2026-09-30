@@ -231,14 +231,13 @@ is no screenshot-to-AC bridge; the Browser case itself is the blocking proof.
 
 `--expected-branch` / `--expected-sha` are verified by asking the target what
 it serves at `/served-build`; a target that cannot answer refuses as
-`identity_proof_unavailable` and records no run. A plain static preview
-publishes nothing there, so a pre-merge capture needs a target that serves
-this project's own build from a committed checkout — for the Yoke workbench,
-`yoke dev run -- python3 -m runtime.api.tools.serve_workbench_for_review`,
-which prints a loopback URL and publishes the commit of the checkout it was
-launched from. Commit first: an uncommitted tree publishes `<sha>-dirty`,
-which fails the match closed because it is not the committed contents it
-would be certified as.
+`identity_proof_unavailable` and records no run. A static or third-party
+preview publishes nothing there however current it is, so a pre-merge capture
+needs a target running this project's own build from a committed checkout —
+the same build that answers that path in its deployed environments. Commit
+first: a checkout with uncommitted changes publishes `<sha>-dirty`, which
+fails the match closed because it is not the committed contents it would be
+certified as.
 
 ## Evidence and gates
 

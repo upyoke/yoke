@@ -251,6 +251,11 @@ def test_missing_runtime_base_url_prevents_case_side_effects() -> None:
     execute.assert_not_called()
 
 
+#: The item ref the refused-run cases pass in; asserted back out of the
+#: recovery recipe, so it stays one value rather than a literal per site.
+REFUSED_ITEM_REF = "PREFIX-42"
+
+
 def _refused_base_url_calls(abort_result: object) -> tuple[list[dict], str]:
     """Drive a plan run the immutable target refuses, and report what it did."""
     calls: list[dict] = []
@@ -283,7 +288,7 @@ def _refused_base_url_calls(abort_result: object) -> tuple[list[dict], str]:
         pytest.raises(qa_plan_execution.QaPlanExecutionError) as caught,
     ):
         qa_plan_execution.execute_plan(
-            public_ref="YOK-42",
+            public_ref=REFUSED_ITEM_REF,
             transition_id="implemented",
             base_url="http://localhost:3000",
             actor=ActorContext(actor_id="7", session_id="refused-base-url"),
@@ -331,7 +336,7 @@ class TestRefusedRunLeavesNoActiveExecution:
         )
         assert "still holds this subject" in message
         assert (
-            "yoke qa plan abort --item YOK-42 "
+            f"yoke qa plan abort --item {REFUSED_ITEM_REF} "
             "--execution-id execution-refused-base-url" in message
         )
 

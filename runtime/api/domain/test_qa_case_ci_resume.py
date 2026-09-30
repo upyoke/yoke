@@ -131,6 +131,12 @@ def test_a_concluded_run_on_the_candidate_is_adopted_without_rebasing(
 def test_adopted_run_upload_failure_names_same_run_recovery(
     live_lane, monkeypatch,
 ) -> None:
+    """The upload failure is reported; the decided verdict is still recorded.
+
+    Skipping the completion left an adopted CI run's earned verdict looking
+    like a run still in flight, so the recovery had to re-settle a verdict
+    nothing had disputed. Only the unattached artifact is outstanding now.
+    """
     checkout, recorder, _ = live_lane
     _queue_project(monkeypatch)
     rebase = _rebase_spy(monkeypatch)
@@ -149,10 +155,14 @@ def test_adopted_run_upload_failure_names_same_run_recovery(
         _run(checkout)
 
     message = str(error.value)
-    assert "recorded QA run #77" in message
+    assert "QA run #77" in message
     assert "--requirement-id 41 --run-id 77" in message
-    assert "yoke qa run complete" in message
-    assert not any(name == "qa.run.complete" for name, _, _ in recorder.calls)
+    assert "The verdict needs no second write" in message
+    assert "yoke qa run complete" not in message
+    completions = [
+        payload for name, _, payload in recorder.calls if name == "qa.run.complete"
+    ]
+    assert [entry["verdict"] for entry in completions] == ["pass"]
     rebase.assert_not_called()
 
 

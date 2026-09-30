@@ -126,15 +126,15 @@ yoke qa case run --requirement-id <requirement-id> \
 ```
 
 The expected pair is checked by asking the target what it serves at
-`/served-build`, so pass a target that answers there. For this project's
-workbench that is
-`yoke dev run -- python3 -m runtime.api.tools.serve_workbench_for_review`,
-which prints a loopback URL and publishes the commit of the checkout it was
-launched from. Commit before starting it: an uncommitted tree publishes
+`/served-build`, so pass a target running this project's own build out of a
+committed checkout — a static preview publishes nothing there. Commit before
+starting that server: a checkout with uncommitted changes publishes
 `<sha>-dirty` and fails the match closed. Without the expected pair the
 capture records no commit, and the merge gate refuses it as `<missing>`;
 against a target that publishes nothing the run refuses as
 `identity_proof_unavailable` and records nothing at all.
+
+Yoke source repo only: the workbench server for this is `yoke dev run -- python3 -m runtime.api.tools.serve_workbench_for_review`, which prints a loopback URL and publishes the commit of the checkout it was launched from.
 
 Record that capture's review with one command, which resolves the capture in
 place rather than opening an identity-less run beside it:
