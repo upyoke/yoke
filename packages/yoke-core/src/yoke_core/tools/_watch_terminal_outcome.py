@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
+from yoke_core.tools._watch_designed_waits import DEPLOY_WATCH_KIND, designed_wait
+
 _JSON_ERROR_FIELD_RE = re.compile(r'^\s*"error"\s*:\s*(.+)\s*$')
 _TERMINAL_LINE_RE = re.compile(
     r"^\s*(?:(?:\[tests\]\s*)?(?:Error:|ERROR:|fatal:|"
@@ -23,7 +25,7 @@ _TERMINAL_SUMMARY_RE = re.compile(
 PYTHON_EXCEPTION_PATTERN = re.compile(
     r"^\s*(?:[A-Za-z_][\w.]*?(?:Error|Exception)|SystemExit|KeyboardInterrupt):"
 )
-OUTCOME_ONLY_WATCH_KINDS = frozenset({"merge", "deploy"})
+OUTCOME_ONLY_WATCH_KINDS = frozenset({"merge", DEPLOY_WATCH_KIND})
 _WATCH_FAILURE_RE = re.compile(
     r"^\s*# watch_\w+ (?:launch_error|timed out|aborted|interrupted by signal)\b",
     re.IGNORECASE,
@@ -107,6 +109,14 @@ def format_terminal_outcome(
         return (
             f"# watch_{kind} outcome: completed successfully{detail}; "
             f"exit=0; raw={raw_capture}\n"
+        )
+
+    wait = designed_wait(kind=kind, exit_code=exit_code, raw_capture=raw_capture)
+    if wait is not None:
+        return (
+            f"# watch_{kind} outcome: waiting — {wait.cause}; "
+            f"exit={exit_code}; continue: {wait.continuation}; "
+            f"raw={raw_capture}\n"
         )
 
     cause = _terminal_cause(raw_capture)
