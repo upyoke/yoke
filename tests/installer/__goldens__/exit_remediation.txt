@@ -1,5 +1,5 @@
-Skipped adding Yoke to your PATH.
+Open a new terminal to use Yoke.
 To add it later, run:
-  ~/.local/bin/yoke path fix
+  uv tool update-shell
 
 Run yoke onboard to finish setting up your machine & projects.

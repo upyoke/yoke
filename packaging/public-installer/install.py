@@ -251,6 +251,13 @@ class Installer:
             )
         finally:
             os.unlink(config_path)
+        shell_update = self.capture_runner(["uv", "tool", "update-shell"])
+        if shell_update.returncode:
+            raise InstallError(
+                "uv_shell_update_failed: "
+                + shell_update.stderr.strip()
+                + "; run `uv tool update-shell`, then rerun the installer."
+            )
         yoke_bin = self._resolve_installed_yoke_bin()
         installed_version = self._smoke_yoke(yoke_bin)
         display = _display_version(installed_version)
@@ -528,9 +535,10 @@ class Installer:
         if self.which("yoke") is not None:
             return
         print(
-            self._say("Yoke isn't on your PATH yet — to add it, run:"), file=self.stdout
+            self._say("Open a new terminal to use Yoke. If it is still missing, run:"),
+            file=self.stdout,
         )
-        print(self._say("~/.local/bin/yoke path fix"), file=self.stdout)
+        print(self._say("uv tool update-shell"), file=self.stdout)
 
 
 def product_spec(version: str | None) -> str:
@@ -669,6 +677,10 @@ def run_command_capture(command: Sequence[str]) -> subprocess.CompletedProcess[s
         for key, value in os.environ.items()
         if key not in RESOLVER_SOURCE_ENV_VARS
     }
+    if list(command) == ["uv", "tool", "update-shell"]:
+        uv = shutil.which("uv") or "uv"
+        command = [uv, "tool", "update-shell"]
+        env["PATH"] = env.pop("YOKE_INSTALL_INHERITED_PATH", env.get("PATH", ""))
     return subprocess.run(
         list(command),
         check=False,

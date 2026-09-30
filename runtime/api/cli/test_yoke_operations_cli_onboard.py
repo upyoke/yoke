@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from yoke_cli import main as yoke_operations_cli
-from yoke_cli.config import onboard_session_relay
+from yoke_cli.config import onboard_session_relay, path_doctor
 
 # The wizard module imports textual lazily; the wizard-driving tests need it.
 textual = pytest.importorskip("textual")
@@ -20,6 +20,13 @@ textual = pytest.importorskip("textual")
 def _isolate_machine_side_effects(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path / "shell-home"))
     monkeypatch.setenv("SHELL", "/bin/zsh")
+    # Config/identity coverage isolates the separately tested shell boundary.
+    monkeypatch.setattr(path_doctor, "update_shell", lambda: "already configured")
+    monkeypatch.setattr(
+        path_doctor,
+        "verify_fresh_login",
+        lambda *_args, **_kwargs: [path_doctor.ToolResolution("yoke", "/tmp/bin/yoke")],
+    )
     monkeypatch.setattr(
         onboard_session_relay,
         "install",
@@ -46,16 +53,22 @@ def test_onboard_dry_run_prints_write_plan_without_mutation(
     token = tmp_path / "token"
     token.write_text("actor-token\n", encoding="utf-8")
 
-    rc = yoke_operations_cli.main([
-        "onboard",
-        "--non-interactive",
-        "--advanced",
-        "--config", str(config),
-        "--env", "prod",
-        "--api-url", "https://api.example.test",
-        "--token-file", str(token),
-        "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "onboard",
+            "--non-interactive",
+            "--advanced",
+            "--config",
+            str(config),
+            "--env",
+            "prod",
+            "--api-url",
+            "https://api.example.test",
+            "--token-file",
+            str(token),
+            "--json",
+        ]
+    )
 
     assert rc == 0
     out = capsys.readouterr().out
@@ -65,7 +78,8 @@ def test_onboard_dry_run_prints_write_plan_without_mutation(
     assert payload["config_path"] == str(config)
     assert payload["plan"]["active_env"] == "prod"
     assert payload["plan"]["token_source"] == {
-        "kind": "token_file", "path": str(token),
+        "kind": "token_file",
+        "path": str(token),
     }
     assert payload["plan"]["connection"]["credential_source"]["path"].endswith(
         "secrets/prod.token"
@@ -85,15 +99,20 @@ def test_onboard_non_interactive_defaults_config_path(
     token = tmp_path / "token"
     token.write_text("actor-token\n", encoding="utf-8")
 
-    rc = yoke_operations_cli.main([
-        "onboard",
-        "--non-interactive",
-        "--quick",
-        "--env", "stage",
-        "--api-url", "https://api.example.test",
-        "--token-file", str(token),
-        "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "onboard",
+            "--non-interactive",
+            "--quick",
+            "--env",
+            "stage",
+            "--api-url",
+            "https://api.example.test",
+            "--token-file",
+            str(token),
+            "--json",
+        ]
+    )
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
@@ -108,17 +127,22 @@ def test_onboard_yes_writes_machine_config_after_identity_check(
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     config = tmp_path / "home" / "config.json"
     with _registry_server(expected_token="actor-token") as api_url:
-        rc = yoke_operations_cli.main([
-            "onboard",
-            "actor-token",
-            "--non-interactive",
-            "--quick",
-            "--config", str(config),
-            "--env", "prod",
-            "--api-url", api_url,
-            "--yes",
-            "--json",
-        ])
+        rc = yoke_operations_cli.main(
+            [
+                "onboard",
+                "actor-token",
+                "--non-interactive",
+                "--quick",
+                "--config",
+                str(config),
+                "--env",
+                "prod",
+                "--api-url",
+                api_url,
+                "--yes",
+                "--json",
+            ]
+        )
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
@@ -145,17 +169,22 @@ def test_onboard_yes_accepts_versioned_api_base(
     config = tmp_path / "home" / "config.json"
     with _registry_server(expected_token="actor-token") as api_url:
         versioned_api_url = api_url + "/v1"
-        rc = yoke_operations_cli.main([
-            "onboard",
-            "actor-token",
-            "--non-interactive",
-            "--quick",
-            "--config", str(config),
-            "--env", "stage",
-            "--api-url", versioned_api_url,
-            "--yes",
-            "--json",
-        ])
+        rc = yoke_operations_cli.main(
+            [
+                "onboard",
+                "actor-token",
+                "--non-interactive",
+                "--quick",
+                "--config",
+                str(config),
+                "--env",
+                "stage",
+                "--api-url",
+                versioned_api_url,
+                "--yes",
+                "--json",
+            ]
+        )
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
@@ -165,7 +194,9 @@ def test_onboard_yes_accepts_versioned_api_base(
 
 
 def test_onboard_yes_refuses_to_replace_existing_token(
-    tmp_path: Path, monkeypatch, capsys,
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
 ) -> None:
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
@@ -173,17 +204,22 @@ def test_onboard_yes_refuses_to_replace_existing_token(
     saved.parent.mkdir(parents=True)
     saved.write_text("yoke_v1_existing\n", encoding="utf-8")
 
-    rc = yoke_operations_cli.main([
-        "onboard",
-        "yoke_v1_new",
-        "--non-interactive",
-        "--quick",
-        "--config", str(home / "config.json"),
-        "--env", "prod",
-        "--api-url", "https://api.example.test",
-        "--yes",
-        "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "onboard",
+            "yoke_v1_new",
+            "--non-interactive",
+            "--quick",
+            "--config",
+            str(home / "config.json"),
+            "--env",
+            "prod",
+            "--api-url",
+            "https://api.example.test",
+            "--yes",
+            "--json",
+        ]
+    )
 
     assert rc == 1
     err = capsys.readouterr().err
@@ -202,7 +238,9 @@ def test_onboard_missing_required_flags_exits_nonzero(capsys) -> None:
 
 
 def test_onboard_json_missing_flags_does_not_launch_wizard(
-    tmp_path: Path, monkeypatch, capsys,
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
 ) -> None:
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
@@ -219,7 +257,9 @@ def test_onboard_json_missing_flags_does_not_launch_wizard(
 
 
 def test_onboard_non_tty_does_not_launch_wizard(
-    tmp_path: Path, monkeypatch, capsys,
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
 ) -> None:
     """A non-TTY interactive request must not start Textual; it errors out."""
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
@@ -264,7 +304,8 @@ class _RegistryServer:
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.thread = threading.Thread(
-            target=self.server.serve_forever, daemon=True,
+            target=self.server.serve_forever,
+            daemon=True,
         )
         self.thread.start()
         host, port = self.server.server_address

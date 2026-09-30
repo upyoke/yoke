@@ -203,9 +203,7 @@ def test_preview_back_returns_to_path_diagnosis(stub_path) -> None:
                 assert app._history[-1] is diagnosis_view
                 assert len(app._history) == diagnosis_depth
                 assert app.query_one(Stepper).active == STEP_INSTALL
-                assert "Put Yoke and your harness CLIs on PATH" in (
-                    _visible_static_text(app)
-                )
+                assert "Put Yoke on PATH" in (_visible_static_text(app))
 
     asyncio.run(scenario())
 
@@ -224,7 +222,7 @@ def test_add_path_reviews_both_files_then_applies(monkeypatch, stub_path) -> Non
         async with app.run_test() as pilot:
             await pilot.pause()
             text = _visible_static_text(app)
-            assert "/home/u/.zprofile" in text and "/home/u/.zshenv" in text
+            assert "uv tool update-shell" in text
             await pilot.press("enter")  # Add to PATH and continue
             await pilot.pause()
             assert applied["ok"]

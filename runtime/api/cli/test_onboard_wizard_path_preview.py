@@ -1,4 +1,4 @@
-"""The PATH preview leads with what each shell file does; the block is a toggle away."""
+"""The PATH preview names the uv shell setup command."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def stub_path(monkeypatch):
     monkeypatch.setattr("yoke_cli.config.onboard_apply_path.apply", apply)
 
 
-def test_preview_shows_exact_managed_block_before_immediate_repair(stub_path) -> None:
+def test_preview_shows_uv_shell_setup_before_immediate_repair(stub_path) -> None:
     app = _app()
 
     async def scenario() -> None:
@@ -43,28 +43,18 @@ def test_preview_shows_exact_managed_block_before_immediate_repair(stub_path) ->
             await pilot.pause()
             # Plan lines wrap at the window edge; compare the words, not the rows.
             text = " ".join(_visible_static_text(app).split())
-            assert (
-                "Write /home/u/.zprofile: prepend /home/u/.local/bin (uv, uvx, yoke) "
-                "to PATH for login shells." in text
-            )
-            assert (
-                "Write /home/u/.zshenv: prepend /home/u/.local/bin (uv, uvx, yoke) to "
-                "PATH for SSH and non-login shells, which never read "
-                "/home/u/.zprofile." in text
-            )
-            assert "delete the block to undo" in text
+            assert "uv tool update-shell" in text
+            assert "uv selects the shell files" in text
             await pilot.press("enter")  # preview: write, verify, and continue
             await pilot.pause()
 
     asyncio.run(scenario())
     assert app.result.path_repair["targets"] == [
-        {"surface": "login", "path": "/home/u/.zprofile"},
-        {"surface": "ssh", "path": "/home/u/.zshenv"},
+        {"surface": "shell", "path": "uv tool update-shell"},
     ]
 
 
-def test_preview_keeps_the_exact_block_visible_with_apply_and_back(stub_path) -> None:
-    from yoke_cli.config.path_state_contract import MANAGED_BEGIN, MANAGED_END
+def test_preview_keeps_uv_command_visible_with_apply_and_back(stub_path) -> None:
 
     app = _app()
 
@@ -75,9 +65,7 @@ def test_preview_keeps_the_exact_block_visible_with_apply_and_back(stub_path) ->
             await pilot.press("enter")
             await pilot.pause()
             text = _visible_static_text(app)
-            assert MANAGED_BEGIN in text
-            assert "unset _yoke_managed_path" in text
-            assert text.index(MANAGED_BEGIN) < text.index(MANAGED_END)
+            assert "uv tool update-shell" in text
             assert "Add to PATH and continue" in text
             assert "Back" in text
 

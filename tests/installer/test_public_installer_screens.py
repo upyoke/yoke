@@ -92,7 +92,7 @@ def test_advise_path_uses_absolute_remediation_when_off_path() -> None:
 
     installer._advise_path()
 
-    assert "~/.local/bin/yoke path fix" in output.getvalue()
+    assert "uv tool update-shell" in output.getvalue()
 
 
 def test_display_version_normalizes_dev_build() -> None:

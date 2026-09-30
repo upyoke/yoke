@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 
@@ -16,70 +15,25 @@ from yoke_cli.main import main as yoke_main
 from yoke_cli.product_boundary_teaching import generate_teaching_audit
 
 
-def test_render_block_has_markers_and_dir():
-    block = doctor.render_managed_block(("/home/u/.local/bin",))
-    assert doctor.MANAGED_BEGIN in block
-    assert doctor.MANAGED_END in block
-    assert "/home/u/.local/bin" in block
-
-
-def test_apply_fix_creates_and_is_idempotent(tmp_path):
-    target = tmp_path / ".zprofile"
-    assert doctor.apply_fix(target, ("/home/u/.local/bin",)) is True
-    assert target.exists()
-    before = target.read_bytes()
-    # A second consecutive call is a no-op.
-    assert doctor.apply_fix(target, ("/home/u/.local/bin",)) is False
-    assert target.read_bytes() == before
-    assert target.read_text().count(doctor.MANAGED_BEGIN) == 1
-
-
-def test_apply_fix_preserves_user_content(tmp_path):
-    target = tmp_path / ".zprofile"
-    target.write_text("export FOO=1\n")
-    doctor.apply_fix(target, ("/opt/bin",))
-    text = target.read_text()
-    assert "export FOO=1" in text
-    assert text.count(doctor.MANAGED_BEGIN) == 1
-
-
-def test_apply_fix_replaces_old_block(tmp_path):
-    target = tmp_path / ".zprofile"
-    doctor.apply_fix(target, ("/old/bin",))
-    doctor.apply_fix(target, ("/new/bin",))
-    text = target.read_text()
-    assert text.count(doctor.MANAGED_BEGIN) == 1
-    assert "/new/bin" in text
-    assert "/old/bin" not in text
-
-
-def test_managed_block_moves_tool_bin_to_front_without_duplicates(tmp_path):
-    block = doctor.render_managed_block((str(tmp_path / ".local" / "bin"),))
-    script = tmp_path / "profile"
-    script.write_text(
-        f'PATH="/usr/bin:{tmp_path / ".local" / "bin"}:/bin";\n'
-        f"{block}\n"
-        'printf "%s" "$PATH"\n',
-        encoding="utf-8",
+def test_update_shell_failure_names_recovery(monkeypatch):
+    monkeypatch.setattr(
+        doctor.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args, 1, "", "permission denied"
+        ),
     )
-
-    result = subprocess.run(
-        ["bash", str(script)],
-        check=True,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
-    entries = result.stdout.split(os.pathsep)
-    assert entries[0] == str(tmp_path / ".local" / "bin")
-    assert entries.count(str(tmp_path / ".local" / "bin")) == 1
+    with pytest.raises(OSError, match="uv_shell_update_failed.*uv tool update-shell"):
+        doctor.update_shell(env={"PATH": "/usr/bin:/bin", "HOME": "/tmp"})
 
 
 def test_default_startup_file_per_shell(tmp_path):
     assert doctor.default_startup_file("zsh", tmp_path) == tmp_path / ".zprofile"
-    assert doctor.default_startup_file("bash", tmp_path) == tmp_path / ".bash_profile"
-    assert doctor.default_startup_file("fish", tmp_path) == tmp_path / ".profile"
+    assert doctor.default_startup_file("bash", tmp_path) == tmp_path / ".profile"
+    assert (
+        doctor.default_startup_file("fish", tmp_path)
+        == tmp_path / ".config/fish/config.fish"
+    )
     assert doctor.default_ssh_startup_file("zsh", tmp_path) == tmp_path / ".zshenv"
     assert doctor.default_ssh_startup_file("bash", tmp_path) == tmp_path / ".bashrc"
     assert doctor.startup_files_for_shell("zsh", tmp_path) == (
@@ -104,7 +58,7 @@ def test_path_state_contract_closes_xdg_tools_markers_and_startup_files(tmp_path
     assert contract.shell == "bash"
     assert contract.shell_path == "/bin/bash"
     assert contract.tool_bin_dir == str(tool_dir)
-    assert contract.startup_file == str(tmp_path / ".bash_profile")
+    assert contract.startup_file == str(tmp_path / ".profile")
     assert contract.ssh_startup_file == str(tmp_path / ".bashrc")
     assert contract.managed_begin == doctor.MANAGED_BEGIN
     assert contract.managed_end == doctor.MANAGED_END
@@ -142,13 +96,11 @@ def test_diagnose_ignores_installer_prepended_path(tmp_path, monkeypatch):
     observed_probe_env: dict[str, str] = {}
 
     seeded_homes: list[tuple[str, str]] = []
-    seeded_blocks: list[str] = []
 
     def fake_run(command, *, capture_output, text, timeout, env):
         del capture_output, text, timeout
         observed_probe_env.update(env)
-        seeded_homes.append((env["HOME"], env["ZDOTDIR"]))
-        seeded_blocks.append((Path(env["HOME"]) / ".zprofile").read_text())
+        seeded_homes.append((env["HOME"], env.get("ZDOTDIR", env["HOME"])))
         return subprocess.CompletedProcess(command, 0, "", "")
 
     monkeypatch.setattr(doctor.subprocess, "run", fake_run)
@@ -165,9 +117,8 @@ def test_diagnose_ignores_installer_prepended_path(tmp_path, monkeypatch):
     assert diag.needs_fix is True
     assert seeded_homes
     assert all(
-        home != str(tmp_path) and home == zdotdir for home, zdotdir in seeded_homes
+        home == str(tmp_path) and home == zdotdir for home, zdotdir in seeded_homes
     )
-    assert all(doctor.MANAGED_BEGIN in block for block in seeded_blocks)
 
 
 def test_diagnose_reports_yoke_shadowing(tmp_path, monkeypatch):
@@ -210,7 +161,7 @@ def test_diagnose_reports_yoke_shadowing(tmp_path, monkeypatch):
     assert diag.needs_fix is True
 
 
-def test_fresh_login_probe_does_not_source_operator_rc(tmp_path):
+def test_fresh_login_probe_observes_operator_rc(tmp_path):
     zsh = shutil.which("zsh")
     if not zsh:
         pytest.skip("zsh is required to exercise login-shell isolation")
@@ -237,9 +188,9 @@ def test_fresh_login_probe_does_not_source_operator_rc(tmp_path):
     )
     ssh = doctor.verify_ssh_command("zsh", env=env, managed_path_dirs=(str(tool_dir),))
 
-    assert not sentinel.exists()
-    assert {row.name: row.path for row in login}["yoke"] == str(yoke)
-    assert {row.name: row.path for row in ssh}["yoke"] == str(yoke)
+    assert sentinel.exists()
+    assert {row.name: row.path for row in login}["yoke"] is None
+    assert {row.name: row.path for row in ssh}["yoke"] is None
 
 
 def test_path_check_json_is_parseable(capsys):
@@ -247,13 +198,6 @@ def test_path_check_json_is_parseable(capsys):
     payload = json.loads(capsys.readouterr().out)
     assert "needs_fix" in payload
     assert "current_resolved" in payload
-
-
-def test_path_fix_print_block_writes_nothing(capsys):
-    assert cli.path_fix(["--print-block"]) == 0
-    out = capsys.readouterr().out
-    assert doctor.MANAGED_BEGIN in out
-    assert doctor.MANAGED_END in out
 
 
 def test_top_level_help_teaches_concrete_path_commands(capsys):

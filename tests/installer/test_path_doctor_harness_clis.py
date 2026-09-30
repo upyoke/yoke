@@ -1,104 +1,108 @@
-"""Integration coverage for manifest-driven harness CLI PATH repair."""
+"""Regression coverage for uv-owned shell configuration."""
 
 from __future__ import annotations
-
 import os
 from pathlib import Path
 import shutil
-
-import pytest
-
-from yoke_cli.config import path_doctor as doctor
-from yoke_cli.config import path_repair_plan
+import subprocess
+from yoke_cli.config import path_doctor as doctor, path_repair_plan
 
 
-def _resolution(executable: str, path: str | None):
-    harness_id = {
-        "claude": "claude-code",
-        "codex": "codex",
-        "cursor-agent": "cursor",
-    }[executable]
-    return doctor.HarnessCliResolution(
-        harness_id,
-        f"{harness_id.removesuffix('-code')}-cli",
-        executable,
-        path,
-        "path" if path else "missing",
-    )
-
-
-def _write_executable(path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    path.chmod(0o755)
-
-
-def test_repair_makes_installed_harness_resolve_in_login_and_ssh(
-    tmp_path,
-    monkeypatch,
-):
-    zsh = shutil.which("zsh")
-    if not zsh:
-        pytest.skip("zsh is required to exercise login and non-login startup files")
-    tool_dir = tmp_path / ".local" / "bin"
-    harness_dir = tmp_path / "vendor" / "bin"
-    for executable in (tool_dir / "yoke", tool_dir / "uv", harness_dir / "codex"):
-        _write_executable(executable)
-    monkeypatch.setattr(
-        doctor,
-        "resolve_harness_clis",
-        lambda _path: (
-            _resolution("claude", None),
-            _resolution("codex", str(harness_dir / "codex")),
-            _resolution("cursor-agent", None),
-        ),
-    )
-    env = {
-        "HOME": str(tmp_path),
-        "SHELL": zsh,
-        "PATH": os.pathsep.join((str(tool_dir), str(harness_dir), "/usr/bin", "/bin")),
+def _env(home: Path, shell: str) -> dict[str, str]:
+    return {
+        "HOME": str(home),
+        "SHELL": f"/bin/{shell}",
+        "PATH": "/usr/bin:/bin",
+        "XDG_CONFIG_HOME": str(home / ".config"),
+        "XDG_BIN_HOME": str(home / ".local/bin"),
+        "UV_TOOL_BIN_DIR": str(home / ".local/bin"),
     }
 
-    diagnosis = doctor.diagnose(env=env, home=tmp_path)
-    plan = path_repair_plan.build(diagnosis)
-    targets = [Path(raw) for raw in path_repair_plan.target_paths(plan)]
-    assert targets == [tmp_path / ".zprofile", tmp_path / ".zshenv"]
-    for target in targets:
-        assert doctor.apply_fix(target, plan["directories"])
-    for target in targets:
-        assert not doctor.apply_fix(target, plan["directories"])
 
-    login = doctor.verify_fresh_login(
-        "zsh", env=env, managed_path_dirs=plan["directories"]
+def _uv_update(home, shell, monkeypatch):
+    uv = shutil.which("uv")
+    assert uv, "uv is an installer prerequisite"
+    env = _env(home, shell)
+    bindir = home / ".local/bin"
+    bindir.mkdir(parents=True)
+    yoke = bindir / "yoke"
+    yoke.write_text("#!/bin/sh\nexit 0\n")
+    yoke.chmod(0o755)
+    monkeypatch.setattr(doctor, "verify_fresh_login", lambda **kw: [])
+    original = doctor.shutil.which
+    monkeypatch.setattr(
+        doctor.shutil,
+        "which",
+        lambda name, **kw: uv if name == "uv" else original(name, **kw),
     )
-    ssh = doctor.verify_ssh_command(
-        "zsh", env=env, managed_path_dirs=plan["directories"]
-    )
-    assert path_repair_plan.verification_ok(login, plan)
-    assert path_repair_plan.verification_ok(ssh, plan)
-    assert {row.name: row.path for row in login}["codex"] == str(harness_dir / "codex")
+    doctor.update_shell(env=env)
+    return env
 
 
-def test_repair_empty_harness_case_is_idempotent_and_rerunnable(
-    tmp_path,
-    monkeypatch,
-):
+def test_uv_preserves_bash_profile_and_bashrc(tmp_path, monkeypatch):
+    profile = tmp_path / ".profile"
+    bashrc = tmp_path / ".bashrc"
+    profile.write_text("export PROFILE_KEPT=yes\n")
+    bashrc.write_text("export BASHRC_KEPT=yes\n")
+    env = _uv_update(tmp_path, "bash", monkeypatch)
+    assert not (tmp_path / ".bash_profile").exists()
+    assert profile.read_text().startswith("export PROFILE_KEPT=yes\n")
+    assert bashrc.read_text().startswith("export BASHRC_KEPT=yes\n")
+    for file, variable in ((profile, "PROFILE_KEPT"), (bashrc, "BASHRC_KEPT")):
+        result = subprocess.run(
+            [
+                "bash",
+                "--noprofile",
+                "--norc",
+                "-c",
+                f'. "{file}"; printf "%s\\n%s" "${variable}" "$PATH"',
+            ],
+            env=env,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        value, path = result.stdout.split("\n", 1)
+        assert value == "yes"
+        assert str(tmp_path / ".local/bin") in path.split(os.pathsep)
     monkeypatch.setattr(
         doctor,
-        "resolve_harness_clis",
-        lambda _path: tuple(
-            _resolution(executable, None) for executable in doctor.HARNESS_CLIS
-        ),
+        "verify_fresh_login",
+        lambda **kw: [doctor.ToolResolution("yoke", str(tmp_path / ".local/bin/yoke"))],
     )
-    diagnosis = doctor.diagnose(
-        env={"HOME": str(tmp_path), "SHELL": "/bin/zsh", "PATH": "/usr/bin:/bin"},
-        home=tmp_path,
-    )
-    plan = path_repair_plan.build(diagnosis)
+    before = (profile.read_bytes(), bashrc.read_bytes())
+    env["PATH"] = str(tmp_path / ".local/bin") + os.pathsep + env["PATH"]
+    doctor.update_shell(env=env)
+    assert (profile.read_bytes(), bashrc.read_bytes()) == before
 
-    for target in map(Path, path_repair_plan.target_paths(plan)):
-        assert doctor.apply_fix(target, plan["directories"])
-        assert not doctor.apply_fix(target, plan["directories"])
-    assert "Not installed yet: claude, codex, cursor-agent" in " ".join(
-        path_repair_plan.description_lines(plan)
-    )
+
+def test_uv_adds_tool_directory_to_fish(tmp_path, monkeypatch):
+    env = _uv_update(tmp_path, "fish", monkeypatch)
+    config = tmp_path / ".config/fish/config.fish"
+    assert f'fish_add_path "{tmp_path / ".local/bin"}"' in config.read_text()
+    assert not (tmp_path / ".zprofile").exists()
+    fish = shutil.which("fish")
+    if fish:
+        env["SHELL"] = fish
+        result = subprocess.run(
+            [fish, "-lc", "string join : $PATH"],
+            env=env,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        assert str(tmp_path / ".local/bin") in result.stdout.strip().split(":")
+
+
+def test_probe_uses_fish_without_substituting_zsh(monkeypatch):
+    seen = []
+
+    def run(command, **kwargs):
+        seen.append(command)
+        return subprocess.CompletedProcess(command, 0, "/tmp/bin/yoke\n", "")
+
+    monkeypatch.setattr(doctor.subprocess, "run", run)
+    rows = doctor.verify_fresh_login("fish", env=_env(Path("/tmp"), "fish"))
+    assert seen[0][0] == "/bin/fish"
+    assert "; or true" in seen[0][2]
+    assert path_repair_plan.verification_ok(rows, {})

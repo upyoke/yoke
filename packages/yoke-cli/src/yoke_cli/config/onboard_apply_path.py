@@ -1,18 +1,13 @@
-"""Apply and verify the PATH writes previewed by onboarding Review."""
+"""Apply uv shell setup and verify the real fresh login shell."""
 
 from __future__ import annotations
-
-from pathlib import Path
 from typing import Any
-
-from yoke_cli.config import onboard_apply_progress
-from yoke_cli.config import onboard_path_plan
-from yoke_cli.config import path_doctor
-from yoke_cli.config import path_repair_plan
-
-
-def _resolutions(rows: list[path_doctor.ToolResolution]) -> dict[str, str | None]:
-    return {row.name: row.path for row in rows}
+from yoke_cli.config import (
+    onboard_apply_progress,
+    onboard_path_plan,
+    path_doctor,
+    path_repair_plan,
+)
 
 
 def apply(
@@ -23,33 +18,20 @@ def apply(
 ) -> None:
     if not plan:
         return
-    directories = tuple(str(path) for path in plan.get("directories", []))
-    changed_files = []
-    applied_files = []
-    for target in plan.get("targets", []):
-        path = Path(str(target["path"]))
+    output = ""
+    if plan.get("targets"):
+        target = path_repair_plan.UPDATE_SHELL_COMMAND
         onboard_apply_progress.emit(
-            progress, onboard_path_plan.PATH_REPAIR_ACTION, str(path), "running"
+            progress, onboard_path_plan.PATH_REPAIR_ACTION, target, "running"
         )
-        if path_doctor.apply_fix(path, directories):
-            changed_files.append(str(path))
-        applied_files.append(str(path))
+        output = path_doctor.update_shell()
         onboard_apply_progress.emit(
-            progress, onboard_path_plan.PATH_REPAIR_ACTION, str(path), "done"
+            progress, onboard_path_plan.PATH_REPAIR_ACTION, target, "done"
         )
-
-    shell = str(plan.get("shell") or "") or None
-    login = path_doctor.verify_fresh_login(shell, managed_path_dirs=directories)
-    ssh = path_doctor.verify_ssh_command(shell, managed_path_dirs=directories)
+    login = path_doctor.verify_fresh_login(str(plan.get("shell") or "") or None)
     report["path_repair"] = {
         **plan,
-        "applied_files": applied_files,
-        "changed_files": changed_files,
+        "output": output,
         "login_verified": path_repair_plan.verification_ok(login, plan),
-        "ssh_verified": path_repair_plan.verification_ok(ssh, plan),
-        "login_resolved": _resolutions(login),
-        "ssh_resolved": _resolutions(ssh),
+        "login_resolved": {row.name: row.path for row in login},
     }
-
-
-__all__ = ["apply"]
