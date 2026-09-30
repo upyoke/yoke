@@ -1,4 +1,4 @@
-"""Declare a corrected QA case as the replacement for an exact failed one.
+"""Declare a corrected QA case for one that failed or could not be judged.
 
 A case whose capture or config was wrong cannot be edited once it has
 answered, so the fix is a corrected case beside it. Left there, every later
@@ -151,9 +151,11 @@ def declare_existing_replacement(
             f"requirement {failed_id} is settled or already replaced; "
             "inspect its current replacement before retrying"
         )
-    if latest_verdict(conn, failed_id) != "fail":
+    if latest_verdict(conn, failed_id) not in {"fail", "error"}:
         raise QaReplacementError(
-            f"requirement {failed_id} has no failed verdict; run it before correction"
+            f"requirement {failed_id} has no fail or error verdict; "
+            "run its admitted case before correction and replace only a case "
+            "that failed or could not be judged."
         )
     if latest_verdict(conn, replacement_id):
         raise QaReplacementError(
@@ -219,12 +221,12 @@ def declare_replacements(
                 f"requirement {failed_id} already passed; declare a replacement "
                 "only for a case that failed or could not be judged."
             )
-        if (
-            failed.get("deployment_run_id")
-            and latest_verdict(conn, failed_id) != "fail"
-        ):
+        if failed.get("deployment_run_id") and latest_verdict(conn, failed_id) not in {
+            "fail",
+            "error",
+        }:
             raise QaReplacementError(
-                f"deployment requirement {failed_id} has no failed verdict; "
+                f"deployment requirement {failed_id} has no fail or error verdict; "
                 "run its admitted case before declaring a correction."
             )
         if failed.get("replacement_requirement_id"):
