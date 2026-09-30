@@ -24,12 +24,18 @@ class TestSystemSimulationAgentPrompts:
             "Rendered agent prompts: all `.claude/agents/yoke-*.md`, "
             "`.codex/agents/yoke-*.toml`, and `.cursor/agents/yoke-*.md`"
         ) in text
-        assert "{contents of each rendered agent prompt, labeled with its installed filename}" in text
+        assert (
+            "{contents of each rendered agent prompt, labeled with its installed filename}"
+            in text
+        )
 
     def test_system_simulation_does_not_treat_claude_agents_as_canonical(self):
         text = _read(SKILLS / "simulate" / "system.md")
         assert "Agent definitions: all `.claude/agents/yoke-*.md`" not in text
-        assert "{contents of each .claude/agents/yoke-*.md file, labeled with filename}" not in text
+        assert (
+            "{contents of each .claude/agents/yoke-*.md file, labeled with filename}"
+            not in text
+        )
 
     def test_system_simulation_uses_system_scope_attestation(self):
         system = _read(SKILLS / "simulate" / "system.md")
@@ -44,6 +50,7 @@ class TestSystemSimulationAgentPrompts:
         assert "operators may invoke" in text
         assert "no terminal `yoke simulate` adapter" in text
         assert "Not operator-facing" not in text
+
 
 class TestReflectionCaptureDocs:
     """Reflection-capture docs must stay aligned on parent-owned persistence."""
@@ -81,7 +88,9 @@ class TestReflectionCaptureDocs:
     def test_agent_prompts_do_not_name_legacy_direct_insert_path(self, docs):
         legacy = "python3 -m yoke_core.cli.db_router ouroboros insert-entry"
         for key in ("engineer", "tester", "simulator"):
-            assert legacy not in _read(docs[key]), f"legacy insert path still present in {key}"
+            assert legacy not in _read(docs[key]), (
+                f"legacy insert path still present in {key}"
+            )
 
     def test_agents_doc_states_hook_captured_contract(self, docs):
         # Post-YOK-1832: docs/agents.md teaches the hook-captured
@@ -111,84 +120,24 @@ def test_advance_skill_does_not_depend_on_private_strategy_files() -> None:
     ("document", "target"),
     (
         ("docs/qa-platform/cli-reference.md", ".yoke/docs/reference/qa-platform.md"),
-        ("docs/qa-platform/cli-reference.md", ".yoke/docs/reference/db-reference/functions.md"),
-        ("docs/session-offer-contract/event-shapes.md", ".yoke/docs/reference/session-offer.md"),
-        ("docs/session-offer-contract/action-payloads.md", ".yoke/docs/reference/session-offer.md"),
+        (
+            "docs/qa-platform/cli-reference.md",
+            ".yoke/docs/reference/db-reference/functions.md",
+        ),
+        (
+            "docs/session-offer-contract/event-shapes.md",
+            ".yoke/docs/reference/session-offer.md",
+        ),
+        (
+            "docs/session-offer-contract/action-payloads.md",
+            ".yoke/docs/reference/session-offer.md",
+        ),
     ),
 )
 def test_cross_tree_document_links_resolve(document: str, target: str) -> None:
     text = _read(REPO / document)
     assert target in text
     assert (REPO / target).is_file()
-
-
-class TestNoDescopeForActivePathClaims:
-    """Active path claims must not narrow work-item scope.
-
-    A work item's correct implementation scope must never be narrowed,
-    descoped, or rewritten solely because a required path is already
-    claimed. Active path claims are coordination/dependency/blocking
-    facts about who currently coordinates work on a path — never
-    permission to omit a required file from a work item.
-    """
-
-    @pytest.fixture
-    def docs(self) -> dict[str, Path]:
-        idea = SKILLS / "idea"
-        return {
-            "agents": REPO / "AGENTS.md",
-            "idea_skill": idea / "SKILL.md",
-            "idea_path_closure": idea / "path-closure.md",
-            "idea_infer": idea / "infer-and-create.md",
-        }
-
-    def test_agents_has_path_claims_hard_rule_section(self, docs):
-        text = _read(docs["agents"])
-        assert "## Path Claims — Hard Rule" in text
-
-    def test_agents_forbids_scope_narrowing_for_claimed_paths(self, docs):
-        text = _read(docs["agents"])
-        assert "Claimed paths do not narrow work item scope" in text
-        assert (
-            "must never be narrowed, descoped, or rewritten solely because"
-            in text
-        )
-        assert "the file stays in the work item" in text
-
-    def test_agents_states_path_claims_are_coordination_facts(self, docs):
-        text = _read(docs["agents"])
-        assert "coordination/dependency/blocking facts" in text
-        assert "never authorizes omitting a required file" in text
-
-    def test_agents_enumerates_accepted_remediations(self, docs):
-        text = _read(docs["agents"])
-        for phrase in (
-            "classify the overlap",
-            "coordination_only",
-            "--gate-point activation",
-            'state="blocked"',
-            "wait for the holder to release",
-            "coordinate with the holder",
-            "ask the holder to narrow or cancel",
-            "operator override",
-            "last resort",
-        ):
-            assert phrase in text, (
-                f"missing accepted-remediation phrase in AGENTS.md: {phrase!r}"
-            )
-
-    def test_idea_skill_phase_3_preserves_claimed_files(self, docs):
-        text = _read(docs["idea_skill"]) + _read(docs["idea_path_closure"])
-        assert "Claim overlap does NOT narrow scope" in text
-        assert "the file stays in the File Budget" in text
-        assert "coordination/dependency/blocking facts" in text
-
-    def test_idea_infer_create_states_no_descope_rule(self, docs):
-        text = _read(docs["idea_infer"])
-        assert "claimed paths do not narrow work item scope" in text
-        assert "do **not** remove the file from the work item" in text
-        assert "coordination/dependency/blocking facts" in text
-        assert "## Path Claims — Hard Rule" in text
 
 
 class TestSameSessionWorktreeScopeDocs:
@@ -341,6 +290,8 @@ class TestPortableOwnerReferences:
         start = text.index("**Runnable-elsewhere branch.**")
         end = text.index("**Lane-filtered branch.**")
         branch = text[start:end]
-        for field in "runnable_elsewhere group.project group.public_refs checkout_path".split():
+        for (
+            field
+        ) in "runnable_elsewhere group.project group.public_refs checkout_path".split():
             assert field in branch
         assert "No actionable work exists" not in branch

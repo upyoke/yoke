@@ -50,7 +50,7 @@ To release on abort:
 }
 ```
 
-Operator/debug adapter: `yoke claims work release --claim-id <claim_id> --reason "strategize abort"` (the unified CLI takes `--claim-id` / `--item` / `--epic-id`+`--task-num` / `--all-mine`, not `--process`; resolve the STRATEGIZE work-claim id first via `yoke claims work holder-list` or by reading the process-claim row).
+Operator/debug adapter: `yoke claims work release --process STRATEGIZE --project <project> --reason "strategize abort"`. The process key and project identify this session's claim; use the claim id returned at acquisition when releasing by `--claim-id`.
 
 ## 2. Emit StrategizeStarted Event
 

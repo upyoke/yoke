@@ -39,6 +39,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_onboard_deferred_hosting.py",
     "runtime/api/test_onboard_delivery_choice.py",
     "runtime/api/test_onboard_test_setup_profiles.py",
+    "runtime/api/test_path_claim_scope_teaching.py",
     "runtime/api/test_polish_skill_framing.py",
     "runtime/api/test_release_wait_retention_teaching.py",
     "runtime/api/test_safe_operator_surface_drift.py",
@@ -70,6 +71,8 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_skill_prose_schema_drift.py",
     "runtime/api/test_steer_prompt.py",
     "runtime/api/test_steer_prompt_worker_lifecycle.py",
+    # Keep the roster's own completeness check in every skill selection.
+    "runtime/api/tools/test_impacted_skill_contracts.py",
 )
 
 AGENT_SKILL_SOURCE_PREFIXES = (

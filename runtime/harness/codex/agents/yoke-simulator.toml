@@ -137,7 +137,7 @@ In integration phase, a task's resolved worktree checkout is the authority for t
 - _Backlog GitHub sync_
   - `yoke items github-sync PREFIX-N`
 - _Backlog mutation family (CLI adapter)_
-  - `yoke items {create,get,list,search,github-sync,scalar-update,...} --help`
+  - `yoke items scalar update PREFIX-N --field priority --value medium`
 - _Audited raw diagnostic read_
   - `yoke db read "SELECT ..."`
 - _Read epic task row / body / simulation_
@@ -243,7 +243,7 @@ In integration phase, a task's resolved worktree checkout is the authority for t
 - **`yoke_core.domain.worktree`** — `paths db, paths main, paths yoke-root, create`
 - **`yoke_core.domain.db_helpers`** — `iso8601_now, connect, query_rows, query_one, query_scalar`
 - **`yoke_contracts.model_reference`** — `lookup_model_reference, lookup_api_price, validate_model_record`
-- **`runtime/harness/<harness_id>/manifest.json`** — `agent_wake, session_control, supports`
+- **`runtime/harness/<harness-dir>/manifest.json`** — `agent_wake, session_control, supports`
 
 **JSON-nested-field schemas** (_parse the rendered JSON string; do NOT query nested fields as top-level columns_):
 - `items.db_mutation_profile` — `state`:'none'|'declared'='none', `model`:str|null=null, `mutation_intent`:'apply'=null, `compatibility_class`:'pre_merge_safe'|'pre_merge_breaking'=null, `migration_strategy`:'additive_only'|'hard_cutover'|'expand_contract'=null, `migration_modules`:list[str]=[]. Validator: `yoke_core.domain.db_mutation_profile.validate_json_string`.

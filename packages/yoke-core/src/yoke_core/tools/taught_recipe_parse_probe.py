@@ -26,6 +26,7 @@ from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from typing import Iterator, List, Optional, Sequence, Tuple
 
 from yoke_cli.commands.registry import resolve
+from yoke_contracts.items_projection import ALLOWED_GET_FIELDS, unknown_field_message
 
 
 # A shell operator ends the yoke invocation; everything past it belongs to
@@ -37,7 +38,7 @@ from yoke_cli.commands.registry import resolve
 # it as escaping the next flag and the argv silently loses a token.
 _CONTINUATION_RE = re.compile(r"\\{1,2}\s+")
 _COMMAND_SUBSTITUTION_RE = re.compile(r"\$\((?:[^()]|\([^()]*\))*\)")
-_TRAILING_SHELL_RE = re.compile(r"\s(?:\|\||\||&&|;|>>?|2>&1|<<[-']?\s*\S+).*$")
+_TRAILING_SHELL_RE = re.compile(r"\s(?:\|\||\||&&|;|>>?|<\s+|2>&1|<<[-']?\s*\S+).*$")
 _HEREDOC_RE = re.compile(r"<<-?['\"]?\w+['\"]?")
 # Placeholder notations the teaching trees use. ``[...]`` is grammar
 # rather than a value — an optional group in a usage line — so it is
@@ -82,6 +83,8 @@ def normalize(recipe: str, *, numeric: bool = False) -> str:
     text = _HEREDOC_RE.sub("", _TRAILING_SHELL_RE.sub("", text)).strip()
     text = _DOC_REF_RE.sub(_REF_STANDIN, text)
     text = _OPTIONAL_GROUP_RE.sub(" ", text)
+    text = re.sub(r"\{\w+_flag\}", "", text)
+    text = text.split(" / ", 1)[0]
     if numeric:
         text = _PLACEHOLDER_RE.sub("1", text)
     else:
@@ -128,17 +131,41 @@ class _ParsedOK(Exception):
     """Raised the moment an adapter's parser accepts the literal."""
 
 
+class _ProjectionError(Exception):
+    """A parsed item read names a field the shared projection refuses."""
+
+
+def _check_projection(
+    parser: argparse.ArgumentParser, parsed: argparse.Namespace
+) -> None:
+    if parser.prog != "yoke items get":
+        return
+    for field in parsed.fields:
+        if field not in ALLOWED_GET_FIELDS and field not in _STANDINS:
+            raise _ProjectionError(unknown_field_message(field))
+
+
 @contextmanager
 def _abort_after_parse() -> Iterator[None]:
     real_parse = argparse.ArgumentParser.parse_args
     real_known = argparse.ArgumentParser.parse_known_args
+    parsing_args = False
 
     def parse_args(self, args=None, namespace=None):
-        real_parse(self, args, namespace)
+        nonlocal parsing_args
+        parsing_args = True
+        try:
+            parsed = real_parse(self, args, namespace)
+        finally:
+            parsing_args = False
+        _check_projection(self, parsed)
         raise _ParsedOK()
 
     def parse_known_args(self, args=None, namespace=None):
-        real_known(self, args, namespace)
+        parsed, remaining = real_known(self, args, namespace)
+        if parsing_args:
+            return parsed, remaining
+        _check_projection(self, parsed)
         raise _ParsedOK()
 
     argparse.ArgumentParser.parse_args = parse_args
@@ -163,6 +190,8 @@ def _usage_error(command_argv: List[str]) -> Tuple[Optional[str], Optional[str]]
                 rc = adapter(rest)
     except _ParsedOK:
         return function_id, None
+    except _ProjectionError as exc:
+        return function_id, str(exc)
     except SystemExit as exc:
         rc = exc.code if isinstance(exc.code, int) else 0
     except KeyboardInterrupt:

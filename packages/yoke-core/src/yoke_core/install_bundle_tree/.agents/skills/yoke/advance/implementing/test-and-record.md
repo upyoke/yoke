@@ -227,7 +227,7 @@ After completing implementation and running tests and verification, record a `qa
 ```bash
 # Record a passing run. The write stamps verification_tree.head_sha from the
 # claimed lane HEAD on a clean tree. --raw-result is evidence text, not identity.
-# Pass --head-sha <commit> to override. A dirty tree or missing lane refuses.
+# A dirty tree or missing lane refuses; commit the candidate before recording.
 yoke qa run add \
  --requirement-id {req-id} \
  --performed-by "agent" \

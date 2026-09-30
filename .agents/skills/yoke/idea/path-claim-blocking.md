@@ -169,7 +169,7 @@ The same satisfaction choice applies to directional edges: merge order
 uses `fact:merged`; a live-build consumer uses
 `fact:deployed:<environment-name>` for the required environment.
 
-Then re-run `register` without `--upstream-claim-id`; the resolver walks
+Then re-run `register` without an explicit upstream pin; the resolver walks
 `item_dependencies` and lands the candidate in `state='blocked'` with
 `blocked_reason="serial-via-dependency on path_claims.id=N"`.
 
@@ -184,13 +184,16 @@ overlapping blocker has released, not just the one named in the current
 
 When no dependency edge fits (e.g. you are coordinating with a single
 upstream claim that does not represent a true ordering relationship and
-the operator wants to make the pin explicit), `register` accepts an
-explicit pin:
+the operator wants to make the pin explicit), dispatch
+`claims.path.register` with the explicit upstream payload field:
 
-```bash
-yoke claims path register \
-    --item PREFIX-{id-number} \
-    --paths file1.py --upstream-claim-id {claim_id}
+```json
+{
+  "function": "claims.path.register",
+  "actor": {"session_id": "<this-session>"},
+  "target": {"kind": "item", "item_id": 42},
+  "payload": {"paths": ["file1.py"], "upstream_claim_id": 123}
+}
 ```
 
 When `--integration-target` is omitted, the register handler defaults
@@ -214,7 +217,7 @@ they declare an exception:
 yoke claims path register \
     --item PREFIX-{id-number} \
     --mode exception \
-    --reason "validation-only work item: verifies PREFIX-{other-id} end-to-end"
+    --exception-reason "validation-only work item: verifies PREFIX-{other-id} end-to-end"
 ```
 
 ## 6. Item-level block (LAST RESORT)

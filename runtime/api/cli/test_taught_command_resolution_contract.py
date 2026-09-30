@@ -21,6 +21,8 @@ from yoke_cli.product_boundary_teaching import (
     generate_teaching_audit,
 )
 from yoke_core.tools.taught_recipe_parse_probe import parse_probe
+from yoke_cli.product_boundary_teaching_extract import _teaching_files
+from yoke_cli.product_boundary_teaching_sources import TEACHING_GLOBS
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -63,3 +65,18 @@ def test_audit_reads_the_surfaces_that_teach_commands() -> None:
         assert expected in sources, f"{expected} teaches commands but is unread"
     assert any(s.startswith(".agents/skills/yoke/") for s in sources)
     assert any(s.startswith("docs/") for s in sources)
+
+
+def test_taught_manifest_and_router_paths_resolve():
+    """An executor id and a home directory are not checkout path roots."""
+    import re
+
+    for path in _teaching_files(REPO_ROOT, TEACHING_GLOBS):
+        text = path.read_text()
+        assert "runtime/harness/<harness_id>/manifest.json" not in text, path
+        assert "~/.agents/skills/yoke/SKILL.md" not in text, path
+        for match in re.finditer(r"runtime/harness/([\w-]+)/manifest\.json", text):
+            assert (REPO_ROOT / match[0]).is_file(), (path, match[0])
+    assert (REPO_ROOT / ".agents/skills/yoke/SKILL.md").is_file()
+    entry = (REPO_ROOT / ".agents/skills/yoke/strategize/entry.md").read_text()
+    assert "not `--process`" not in entry

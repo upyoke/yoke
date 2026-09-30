@@ -6,7 +6,7 @@ The reasoning, recovery paths, watcher inventory, and worked failure modes behin
 
 Paths here are repo-root-relative, because this file is read from `.claude/rules/` in an installed project and from `runtime/harness/claude/rules/` in the Yoke source tree.
 
-What stays Claude-specific depends on a primitive Codex lacks per its `agent_wake` fact in `runtime/harness/<harness_id>/manifest.json`: the `Monitor` wake-as-turn primitive, plus the `PreToolUse`/`PostToolUse` hook surface, the Claude `settings.json` schema, and the `AskUserQuestion` tool name.
+What stays Claude-specific depends on a primitive Codex lacks per its `agent_wake` fact in `runtime/harness/codex/manifest.json`: the `Monitor` wake-as-turn primitive, plus the `PreToolUse`/`PostToolUse` hook surface, the Claude `settings.json` schema, and the `AskUserQuestion` tool name.
 
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
@@ -54,7 +54,7 @@ Cross-harness behavior you author must match what each harness declares, not wha
 
 <!-- BEGIN GENERATED: harness-wake-capability -->
 Wake capability is a manifest fact, not prose. Source of truth:
-`agent_wake` in `runtime/harness/<harness_id>/manifest.json`, rendered from
+`agent_wake` in `runtime/harness/<harness-dir>/manifest.json`, rendered from
 `yoke_contracts.harness_wake_capability`. Change the contract and re-render; never
 restate one of these facts on a document's own authority.
 
