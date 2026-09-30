@@ -24,6 +24,10 @@ from yoke_cli.commands.adapters.github_credential_helper import (
     github_credential_helper_refresh,
 )
 from yoke_cli.commands.adapters.self_update import UPDATE_USAGE, update
+from yoke_cli.commands.adapters.distribution import (
+    DISTRIBUTION_SET_USAGE,
+    distribution_set,
+)
 from yoke_cli.commands.adapters.path_doctor import (
     path_check,
     path_fix,
@@ -53,6 +57,7 @@ from yoke_cli.commands.flag_adapters import (
 )
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
+    ("config", "distribution", "set"): distribution_set,
     ("aws", "admin-link"): aws_admin_link,
     ("aws", "admin-status"): aws_admin_status,
     ("aws", "exec"): aws_exec,
@@ -84,6 +89,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
 }
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
+    "yoke config distribution set": DISTRIBUTION_SET_USAGE,
     "yoke vps status": (
         "yoke vps status --stack STACK [--project PROJECT] [--region REGION]"
     ),

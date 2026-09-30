@@ -46,7 +46,13 @@ yoke ui up           # local workbench (local mode), detached from this terminal
 Upgrade later with `yoke update` — it reruns the official installer with
 onboarding disabled, honors this machine's already-configured distribution
 origin and channel, and reports the verified old and new version (or that
-you're already current). The installer itself repairs the git credential
+you're already current). The installer saves its origin and channel in
+`settings.distribution` in `~/.yoke/config.json`, so a fresh shell uses the
+same distribution. An install without that record refuses updates; explicitly
+select one with `yoke config distribution set --origin URL --channel NAME`
+before retrying. `yoke update --channel NAME` selects another channel at the
+recorded origin; a successful reinstall saves that channel for later updates.
+The installer itself repairs the git credential
 helper a reinstall wipes from site-packages, as the last step of every
 successful run — so re-running the curl installer directly still resolves
 the same channel version for every Yoke product package and still repairs
