@@ -44,14 +44,10 @@ class SelfUpdateError(RuntimeError):
 def run_update(*, channel: str | None = None) -> dict[str, Any]:
     """Rerun the official installer for this machine, then verify and repair."""
 
-    binding = install_binding.detect()
-    if binding["kind"] == install_binding.KIND_SOURCE_CHECKOUT:
-        raise SelfUpdateError(
-            "yoke update does not run against a source checkout "
-            f"({binding['checkout_root']}). Update this Yoke source tree "
-            "with your normal git workflow instead of reinstalling a "
-            "packaged release over it."
-        )
+    try:
+        binding = install_binding.require_packaged_install("yoke update")
+    except install_binding.SourceCheckoutError as exc:
+        raise SelfUpdateError(str(exc)) from exc
     old_version = binding["version"]
     if not old_version:
         raise SelfUpdateError(

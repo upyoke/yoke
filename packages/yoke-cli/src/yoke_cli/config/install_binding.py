@@ -55,6 +55,26 @@ def detect(module_file: str | Path | None = None) -> dict[str, Any]:
     }
 
 
+class SourceCheckoutError(RuntimeError):
+    """A packaged-release installer would replace an active source checkout."""
+
+
+def require_packaged_install(command: str) -> dict[str, Any]:
+    """Refuse replacing source code; otherwise return the running binding."""
+
+    binding = detect()
+    if binding["kind"] == KIND_SOURCE_CHECKOUT:
+        raise SourceCheckoutError(
+            f"{command} does not run against a source checkout "
+            f"({binding['checkout_root']}); a packaged release would replace "
+            "the active source install. Update the checkout with your normal "
+            "git workflow and rebuild the server with "
+            "`yoke core upgrade --from-checkout PATH --build`, using that "
+            "checkout's path."
+        )
+    return binding
+
+
 def distribution_version(
     module_file: str | Path | None = None,
     *,
@@ -74,8 +94,10 @@ __all__ = [
     "CLI_DISTRIBUTION_NAME",
     "KIND_PACKAGED_WHEEL",
     "KIND_SOURCE_CHECKOUT",
+    "SourceCheckoutError",
     "detect",
     "distribution_version",
     "label",
+    "require_packaged_install",
     "source_checkout_root",
 ]

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
-from yoke_cli.config import onboard_self_host_server
+from yoke_cli.config import install_binding, onboard_self_host_server
 from yoke_cli.self_host import bundle
 from yoke_cli.self_host import protection
 from yoke_cli.self_host import release_target
@@ -54,6 +54,7 @@ def plan_upgrade(
     *, directory: str | None = None, channel: str | None = None
 ) -> UpgradePlan:
     """Resolve and validate the complete plan without changing machine state."""
+    _require_packaged_install()
     try:
         target_dir = bundle.validate_existing_bundle(directory=directory)
         target = release_target.channel_release_target(channel=channel)
@@ -83,6 +84,7 @@ def plan_upgrade(
 
 def execute_upgrade(plan: UpgradePlan) -> dict[str, Any]:
     """Execute a consented plan in CLI → pin → pull → restart order."""
+    _require_packaged_install()
     installer = _fetch_installer(plan)
     _install_cli(plan, installer)
     _replace_server_image(plan)
@@ -98,6 +100,13 @@ def execute_upgrade(plan: UpgradePlan) -> dict[str, Any]:
         "image": plan.target.image,
         "steps": list(plan.steps),
     }
+
+
+def _require_packaged_install() -> None:
+    try:
+        install_binding.require_packaged_install("yoke self-host upgrade")
+    except install_binding.SourceCheckoutError as exc:
+        raise SelfHostUpgradeError("source-checkout", str(exc), ()) from exc
 
 
 def _fetch_installer(plan: UpgradePlan) -> bytes:
