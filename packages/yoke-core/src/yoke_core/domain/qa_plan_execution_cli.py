@@ -165,8 +165,6 @@ def _qualify_review_dispatch(result: dict[str, Any]) -> None:
     )
 
 
-
-
 def run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa plan run",
@@ -196,8 +194,8 @@ def run(args: List[str]) -> int:
     parser.add_argument(
         "--checkout-path",
         help=(
-            "Execute cases in this checkout; for a deployment candidate, "
-            "pin a separate tree to that revision."
+            "Execute cases in this checkout. A deployment case needs none: "
+            "the runner checks out its run's candidate itself."
         ),
     )
     parser.add_argument(

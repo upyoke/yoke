@@ -82,7 +82,6 @@ def _insert_docket(
         qa_requirement_id=int(case["requirement_id"]),
         performed_by="agent_mission",
         qa_kind=str(case["qa_kind"]),
-        verdict=None,
         execution_status="captured",
         case_outcome="needs_review",
         capture_degraded_reason=AGENT_MISSION_DOCKET_REASON,

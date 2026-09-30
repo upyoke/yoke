@@ -20,9 +20,9 @@ from __future__ import annotations
 ALLOW_TREE_MISMATCH_FLAG = "--allow-tree-mismatch"
 
 #: Flag that points a QA case or plan run at a specific checkout. Accepted by
-#: ``yoke qa case run`` and ``yoke qa plan run``; a deployment refusal that
-#: needs a candidate-pinned tree names this recovery rather than mutating the
-#: shared project checkout the reader is standing in.
+#: ``yoke qa case run`` and ``yoke qa plan run``. A deployment case needs no
+#: such tree — the runner pins its own at the candidate — so its refusal names
+#: dropping this flag when the tree it points at is not the candidate.
 CHECKOUT_PATH_FLAG = "--checkout-path"
 
 #: Refusal for a claimed lane that still exists on disk: the reader can go
