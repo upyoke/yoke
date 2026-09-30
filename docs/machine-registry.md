@@ -115,6 +115,15 @@ while the balance and pair rows have only the id.
 
 ## Related surfaces
 
+On macOS, the relay's launchd plist uses the Standard default process type.
+The relay launches requested harness workers and QA browsers, which inherit
+its CPU and I/O policy; declaring it Background throttles cold page creation
+and navigation even after the browser reports healthy. After updating an
+existing installation, run `yoke --env ENV relay install` for the relay's
+registered connection to regenerate and reload its plist. Verify the loaded
+relay with `yoke --env ENV relay status`. Browser request and navigation
+timeouts stay unchanged.
+
 `harness_machine_state` records which harnesses are installed and approved per
 project on a machine; the machines row records the machine's identity, owner,
 liveness, and access. A per-machine harness-connection fact — "which harnesses

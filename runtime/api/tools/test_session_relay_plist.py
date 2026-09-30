@@ -92,6 +92,9 @@ def test_plist_keeps_one_standing_relay_alive_without_scheduling_it(
     assert document["KeepAlive"] is RELAY_KEEP_ALIVE is True
     assert document["RunAtLoad"] is True
     assert "StartInterval" not in document
+    # launchd's Standard default lets requested workers and their browsers run
+    # without inheriting Background's CPU and I/O clamp.
+    assert "ProcessType" not in document
     assert str(paths.stdout_log).startswith(str(tmp_path / ".yoke" / "relay"))
 
 
@@ -145,6 +148,7 @@ def test_install_bootstraps_and_uninstall_boots_out_then_deletes(
     with installed.plist_path.open("rb") as handle:
         document = plistlib.load(handle)
     assert document["Label"] == RELAY_LAUNCHD_LABEL
+    assert "ProcessType" not in document
     assert [call[1] for call in calls[:4]] == ["bootout", "print", "bootstrap", "print"]
 
     removed = uninstall_relay_launchd(
