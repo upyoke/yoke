@@ -239,16 +239,15 @@ def get_case_execution_context(
         "project_id": int(row["project_id"]),
         "project": str(row["project"]),
         "lane_branch": row["lane_branch"],
-        # The commit the run shipped for this case's own project: a bound
-        # project's member answers to its bound source, not the carrier's.
-        "deployment_source_revision": (
-            run_source_sha(conn, str(row["deployment_run_id"]), int(row["project_id"]))
-            if row["deployment_run_id"]
-            else None
-        ),
     }
     if str(method_snapshot["runner_id"]) == "ci_run":
         context["lane_commit_sha"] = row["lane_commit_sha"]
+    # A checkout-bound runner compares its tree with the commit the run shipped
+    # for this case's own project -- a bound project's source, not the carrier's.
+    if row["deployment_run_id"] and context["runner_id"] in ("worktree_run", "ci_run"):
+        context["deployment_source_revision"] = run_source_sha(
+            conn, str(row["deployment_run_id"]), int(row["project_id"])
+        )
     if (
         "lane_commit_sha" in context
         and not context["lane_commit_sha"]

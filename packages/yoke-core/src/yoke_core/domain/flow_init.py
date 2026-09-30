@@ -121,6 +121,7 @@ def _ensure_flow_schema(conn) -> None:
             "requirement_snapshot",
             "driver_attachment",
             "settling_at",
+            "membership_removals",
             KEY_COLUMN,
             REQUEST_COLUMN,
         ):

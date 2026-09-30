@@ -16,6 +16,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "deployment_runs.driver.for_capture": "next-release",
     "deployment_runs.execution.attach_driver": "next-release",
     "deployment_runs.execution.release_driver": "next-release",
+    "deployment_runs.remove_item": "next-release",
     "item_landings.list": "next-release",
     "item_landings.record": "next-release",
     "merge_receipt.commits.attest": "next-release",
