@@ -6,6 +6,7 @@ import sys
 from typing import Any, Dict, Optional
 
 from yoke_harness import browser_client
+from yoke_harness.browser_client_readiness import DAEMON_LOG_NAME
 
 
 def _log(message: str) -> None:
@@ -73,8 +74,8 @@ def ensure_daemon_running(project: Optional[str] = None) -> Optional[str]:
             _log(f"Browser daemon startup failed (attempt {attempt}/3): {exc}")
     diagnostics = collect_daemon_diagnostics()
     parts = [f"Browser daemon failed to start after 3 attempts: {last_error}"]
-    if diagnostics.get("stderr_tail"):
-        parts.append(f"stderr tail: {diagnostics['stderr_tail'][-500:]}")
+    if diagnostics.get("log_tail"):
+        parts.append(f"daemon log tail: {diagnostics['log_tail'][-500:]}")
     if diagnostics.get("daemon_status"):
         parts.append(f"daemon status: {diagnostics['daemon_status']}")
     if diagnostics.get("daemon_health"):
@@ -84,11 +85,11 @@ def ensure_daemon_running(project: Optional[str] = None) -> Optional[str]:
 
 def collect_daemon_diagnostics() -> Dict[str, Any]:
     diagnostics: Dict[str, Any] = {}
-    stderr_log = browser_client._browser_dir() / ".daemon-stderr.log"
+    daemon_log = browser_client._browser_dir() / DAEMON_LOG_NAME
     try:
-        if stderr_log.exists():
-            diagnostics["stderr_tail"] = "\n".join(
-                stderr_log.read_text(encoding="utf-8").splitlines()[-40:]
+        if daemon_log.exists():
+            diagnostics["log_tail"] = "\n".join(
+                daemon_log.read_text(encoding="utf-8").splitlines()[-40:]
             )
     except OSError:
         pass

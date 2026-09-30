@@ -148,6 +148,40 @@ def _block_live_github_rest_calls(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _forbid_real_browser_daemon(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fail a test that would spawn the real Browser QA daemon.
+
+    The daemon is a machine singleton on a fixed default port and outlives
+    the test for its idle timeout, so one unstubbed start leaves the port held
+    and every real managed-daemon start on the machine fails with
+    ``EADDRINUSE`` until it idles out. Stub ``daemon_start`` or ``Popen``.
+    """
+    import subprocess
+
+    from yoke_harness.browser_runtime_home import RUNTIME_DIR_NAME
+
+    current_popen = subprocess.Popen
+
+    class _DaemonGuardedPopen(current_popen):
+        def __init__(self, *popen_args, **kwargs):
+            args = popen_args[0] if popen_args else kwargs.get("args", ())
+            for arg in args if isinstance(args, (list, tuple)) else ():
+                if pathlib.PurePath(str(arg)).parts[-3:] == (
+                    RUNTIME_DIR_NAME,
+                    "src",
+                    "daemon.js",
+                ):
+                    pytest.fail(
+                        "Automated tests may not spawn the real browser daemon: "
+                        f"{arg}. It holds the machine's daemon port after the "
+                        "test ends; stub daemon_start or subprocess.Popen."
+                    )
+            super().__init__(*popen_args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "Popen", _DaemonGuardedPopen)
+
+
+@pytest.fixture(autouse=True)
 def _clear_ci_authority_selection_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Require tests to opt into GitHub Actions credential authority.
 

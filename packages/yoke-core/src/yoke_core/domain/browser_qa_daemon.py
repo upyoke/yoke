@@ -12,6 +12,7 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, Optional
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
+from yoke_harness.browser_client_readiness import DAEMON_LOG_NAME
 
 
 _DAEMON_MAX_RETRIES = 2  # additional attempts after the first failure
@@ -20,7 +21,7 @@ _DAEMON_MAX_RETRIES = 2  # additional attempts after the first failure
 def _collect_daemon_diagnostics() -> Dict[str, Any]:
     """Collect diagnostics from the browser daemon for failure reporting.
 
-    Gathers stderr log tail, daemon state, and health check results when
+    Gathers the daemon log tail, daemon state, and health check results when
     available.  Never raises — returns whatever diagnostics it can collect.
     """
     from yoke_core.domain.browser_client import (
@@ -31,14 +32,14 @@ def _collect_daemon_diagnostics() -> Dict[str, Any]:
 
     diag: Dict[str, Any] = {}
 
-    # Stderr log tail
-    stderr_log = _browser_dir() / ".daemon-stderr.log"
+    # Daemon log tail
+    daemon_log = _browser_dir() / DAEMON_LOG_NAME
     try:
-        if stderr_log.exists():
-            text = stderr_log.read_text()
+        if daemon_log.exists():
+            text = daemon_log.read_text()
             # Last 40 lines
             lines = text.splitlines()[-40:]
-            diag["stderr_tail"] = "\n".join(lines)
+            diag["log_tail"] = "\n".join(lines)
     except OSError:
         pass
 
@@ -130,15 +131,13 @@ def _ensure_daemon_running(
             return None
         except RuntimeError as retry_err:
             last_err = str(retry_err)
-            _bqa._log(
-                f"Retry {attempt}/{_DAEMON_MAX_RETRIES + 1} failed: {retry_err}"
-            )
+            _bqa._log(f"Retry {attempt}/{_DAEMON_MAX_RETRIES + 1} failed: {retry_err}")
 
     # All retries exhausted — collect diagnostics and emit event.
     diagnostics = _bqa._collect_daemon_diagnostics()
     _bqa._log(f"Browser daemon failed after {_DAEMON_MAX_RETRIES + 1} attempts")
-    if diagnostics.get("stderr_tail"):
-        _bqa._log(f"Daemon stderr tail:\n{diagnostics['stderr_tail']}")
+    if diagnostics.get("log_tail"):
+        _bqa._log(f"Daemon log tail:\n{diagnostics['log_tail']}")
     if diagnostics.get("daemon_status"):
         _bqa._log(f"Daemon status: {diagnostics['daemon_status']}")
     if diagnostics.get("daemon_health"):
@@ -159,8 +158,8 @@ def _ensure_daemon_running(
     parts = [
         f"Browser daemon failed to start after {_DAEMON_MAX_RETRIES + 1} attempts: {last_err}"
     ]
-    if diagnostics.get("stderr_tail"):
-        parts.append(f"stderr tail: {diagnostics['stderr_tail'][-500:]}")
+    if diagnostics.get("log_tail"):
+        parts.append(f"daemon log tail: {diagnostics['log_tail'][-500:]}")
     if diagnostics.get("daemon_status"):
         parts.append(f"daemon status: {diagnostics['daemon_status']}")
     if diagnostics.get("daemon_health"):

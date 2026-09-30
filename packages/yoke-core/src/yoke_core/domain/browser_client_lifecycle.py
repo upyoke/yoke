@@ -47,7 +47,7 @@ def daemon_start(
     from yoke_cli import browser_node_toolchain
     from yoke_core.domain import browser_client as _bc
     from yoke_core.domain.worktree import resolve_playwright_cache
-    from yoke_harness import browser_runtime_home
+    from yoke_harness import browser_client_readiness, browser_runtime_home
 
     requested_profile = str(profile_dir or "")
     state = _bc.DaemonState.load()
@@ -92,33 +92,51 @@ def daemon_start(
                 "[browser-auto-bootstrap] BLOCKED: node_modules or playwright missing "
                 "and YOKE_BROWSER_AUTOINSTALL=0"
             )
-        _bc._log("[browser-auto-bootstrap] node_modules or playwright missing — auto-installing...")
+        _bc._log(
+            "[browser-auto-bootstrap] node_modules or playwright missing — auto-installing..."
+        )
         r = subprocess.run(
-            [str(toolchain.npm), "install"], cwd=str(browser),
-            capture_output=True, text=True, env=env,
+            [str(toolchain.npm), "install"],
+            cwd=str(browser),
+            capture_output=True,
+            text=True,
+            env=env,
         )
         if r.returncode != 0:
-            raise RuntimeError(f"[browser-auto-bootstrap] npm install failed: {r.stderr}")
+            raise RuntimeError(
+                f"[browser-auto-bootstrap] npm install failed: {r.stderr}"
+            )
         _bc._log("[browser-auto-bootstrap] npm install completed successfully")
 
     # Auto-bootstrap Chromium
     r = subprocess.run(
         [str(toolchain.node), "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS],
         cwd=str(browser),
-        capture_output=True, text=True, env=env,
+        capture_output=True,
+        text=True,
+        env=env,
     )
     chromium_status = r.stdout.strip() if r.returncode == 0 else "error"
 
     if chromium_status != "ok":
         if autoinstall == "0":
-            raise RuntimeError("[browser-auto-bootstrap] BLOCKED: Chromium binary missing")
-        _bc._log("[browser-auto-bootstrap] Chromium binary not found — auto-installing...")
+            raise RuntimeError(
+                "[browser-auto-bootstrap] BLOCKED: Chromium binary missing"
+            )
+        _bc._log(
+            "[browser-auto-bootstrap] Chromium binary not found — auto-installing..."
+        )
         r = subprocess.run(
             [str(toolchain.npx), "playwright", "install", "chromium"],
-            cwd=str(browser), capture_output=True, text=True, env=env,
+            cwd=str(browser),
+            capture_output=True,
+            text=True,
+            env=env,
         )
         if r.returncode != 0:
-            raise RuntimeError(f"[browser-auto-bootstrap] Chromium auto-install failed: {r.stderr}")
+            raise RuntimeError(
+                f"[browser-auto-bootstrap] Chromium auto-install failed: {r.stderr}"
+            )
         _bc._log("[browser-auto-bootstrap] Chromium installed successfully")
 
     # Build daemon args
@@ -133,36 +151,17 @@ def daemon_start(
         cmd.extend(["--profile-dir", requested_profile])
     cmd.extend(["--state-file", str(state_path)])
 
-    # Launch
+    # Launch and wait through the harness readiness helper, so a cold start is
+    # judged by the same deadline and daemon log on both clients.
     state_path.parent.mkdir(parents=True, exist_ok=True)
-    log_file = browser / ".daemon-stderr.log"
-
-    with open(log_file, "w") as stderr_log:
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=stderr_log,
-            env=env,
-        )
-
-    # Wait for healthy state (up to 10 seconds)
-    for _ in range(10):
-        st = _bc.DaemonState.load()
-        if st and st.health == "healthy":
-            return {"status": "started", "endpoint": st.endpoint, "pid": proc.pid}
-        try:
-            proc.wait(timeout=0)
-            # Process exited
-            stderr_content = log_file.read_text() if log_file.exists() else ""
-            raise RuntimeError(f"daemon process exited unexpectedly\n{stderr_content}")
-        except subprocess.TimeoutExpired:
-            pass
-        time.sleep(1)
-
-    # Timeout
-    proc.kill()
-    stderr_content = log_file.read_text() if log_file.exists() else ""
-    raise RuntimeError(f"timeout waiting for daemon to become healthy\n{stderr_content}")
+    return browser_client_readiness.start_daemon(
+        cmd,
+        env,
+        browser,
+        load_state=_bc.DaemonState.load,
+        probe_health=lambda _state: _bc.daemon_health(),
+        sleep=time.sleep,
+    )
 
 
 def daemon_stop() -> str:

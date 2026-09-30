@@ -8,11 +8,13 @@ from typing import Any, Dict, List
 from unittest import mock
 
 from yoke_core.domain import browser_qa
+from yoke_harness.browser_client_readiness import DAEMON_LOG_NAME
 
 
 # ---------------------------------------------------------------------------
 # Daemon auto-retry and diagnostics
 # ---------------------------------------------------------------------------
+
 
 class TestDaemonRetry:
     """_ensure_daemon_running performs bounded auto-recovery."""
@@ -28,10 +30,18 @@ class TestDaemonRetry:
                 raise RuntimeError("port in use")
             return {"status": "started"}
 
-        with mock.patch("yoke_core.domain.browser_qa.time.sleep"), \
-             mock.patch("yoke_core.domain.browser_client.daemon_running", return_value=False), \
-             mock.patch("yoke_core.domain.browser_client.daemon_start", side_effect=_fake_start), \
-             mock.patch("yoke_core.domain.browser_client.daemon_stop", return_value="stopped"):
+        with (
+            mock.patch("yoke_core.domain.browser_qa.time.sleep"),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_running", return_value=False
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_start", side_effect=_fake_start
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_stop", return_value="stopped"
+            ),
+        ):
             result = browser_qa._ensure_daemon_running()
 
         assert result is None  # success
@@ -39,16 +49,31 @@ class TestDaemonRetry:
 
     def test_retry_exhausted_returns_error_with_diagnostics(self) -> None:
         """After max retries, returns error with diagnostics."""
-        with mock.patch("yoke_core.domain.browser_client.daemon_running", return_value=False), \
-             mock.patch("yoke_core.domain.browser_client.daemon_start", side_effect=RuntimeError("persistent failure")), \
-             mock.patch("yoke_core.domain.browser_client.daemon_stop", return_value="stopped"), \
-             mock.patch.object(browser_qa, "_collect_daemon_diagnostics", return_value={
-                 "stderr_tail": "Error: EADDRINUSE",
-                 "daemon_status": {"status": "crashed"},
-                 "daemon_health": {"status": "degraded"},
-             }), \
-             mock.patch.object(browser_qa, "_emit_daemon_startup_failed_event") as mock_emit, \
-             mock.patch("yoke_core.domain.browser_qa.time.sleep"):
+        with (
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_running", return_value=False
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_start",
+                side_effect=RuntimeError("persistent failure"),
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_stop", return_value="stopped"
+            ),
+            mock.patch.object(
+                browser_qa,
+                "_collect_daemon_diagnostics",
+                return_value={
+                    "log_tail": "Error: EADDRINUSE",
+                    "daemon_status": {"status": "crashed"},
+                    "daemon_health": {"status": "degraded"},
+                },
+            ),
+            mock.patch.object(
+                browser_qa, "_emit_daemon_startup_failed_event"
+            ) as mock_emit,
+            mock.patch("yoke_core.domain.browser_qa.time.sleep"),
+        ):
             result = browser_qa._ensure_daemon_running()
 
         assert result is not None
@@ -78,11 +103,19 @@ class TestDaemonRetry:
                 raise RuntimeError(f"failure #{call_count}")
             return {"status": "started"}
 
-        with mock.patch.object(browser_qa, "_log", side_effect=_capture_log), \
-             mock.patch("yoke_core.domain.browser_client.daemon_running", return_value=False), \
-             mock.patch("yoke_core.domain.browser_client.daemon_start", side_effect=_fake_start), \
-             mock.patch("yoke_core.domain.browser_client.daemon_stop", return_value="stopped"), \
-             mock.patch("yoke_core.domain.browser_qa.time.sleep"):
+        with (
+            mock.patch.object(browser_qa, "_log", side_effect=_capture_log),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_running", return_value=False
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_start", side_effect=_fake_start
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_stop", return_value="stopped"
+            ),
+            mock.patch("yoke_core.domain.browser_qa.time.sleep"),
+        ):
             result = browser_qa._ensure_daemon_running()
 
         assert result is None  # third attempt succeeds
@@ -92,25 +125,55 @@ class TestDaemonRetry:
 
     def test_daemon_already_running_skips_retry(self) -> None:
         """Baseline: if daemon is already running, no retry logic executes."""
-        with mock.patch("yoke_core.domain.browser_client.daemon_running", return_value=True):
+        with (
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_start",
+                return_value={"status": "already_running"},
+            ) as start,
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_stop",
+            ) as stop,
+        ):
             result = browser_qa._ensure_daemon_running()
         assert result is None
+        start.assert_called_once()
+        stop.assert_not_called()
 
     def test_first_attempt_success_skips_retry(self) -> None:
         """Baseline: if first start succeeds, no retry logic executes."""
-        with mock.patch("yoke_core.domain.browser_client.daemon_running", return_value=False), \
-             mock.patch("yoke_core.domain.browser_client.daemon_start", return_value={"status": "started"}):
+        with (
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_running", return_value=False
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_start",
+                return_value={"status": "started"},
+            ),
+        ):
             result = browser_qa._ensure_daemon_running()
         assert result is None
 
     def test_emit_event_called_on_exhausted_retries(self) -> None:
         """BrowserDaemonStartupFailed event emitted on final failure."""
-        with mock.patch("yoke_core.domain.browser_client.daemon_running", return_value=False), \
-             mock.patch("yoke_core.domain.browser_client.daemon_start", side_effect=RuntimeError("boom")), \
-             mock.patch("yoke_core.domain.browser_client.daemon_stop", return_value="stopped"), \
-             mock.patch.object(browser_qa, "_collect_daemon_diagnostics", return_value={}), \
-             mock.patch.object(browser_qa, "_emit_daemon_startup_failed_event") as mock_emit, \
-             mock.patch("yoke_core.domain.browser_qa.time.sleep"):
+        with (
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_running", return_value=False
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_start",
+                side_effect=RuntimeError("boom"),
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_stop", return_value="stopped"
+            ),
+            mock.patch.object(
+                browser_qa, "_collect_daemon_diagnostics", return_value={}
+            ),
+            mock.patch.object(
+                browser_qa, "_emit_daemon_startup_failed_event"
+            ) as mock_emit,
+            mock.patch("yoke_core.domain.browser_qa.time.sleep"),
+        ):
             result = browser_qa._ensure_daemon_running(subject=1407, project="yoke")
 
         assert result is not None
@@ -124,19 +187,35 @@ class TestDaemonRetry:
 
     def test_emit_event_failure_does_not_mask_error(self) -> None:
         """Event emission failure should not prevent the error from being returned."""
-        with mock.patch("yoke_core.domain.browser_client.daemon_running", return_value=False), \
-             mock.patch("yoke_core.domain.browser_client.daemon_start", side_effect=RuntimeError("boom")), \
-             mock.patch("yoke_core.domain.browser_client.daemon_stop", return_value="stopped"), \
-             mock.patch.object(browser_qa, "_collect_daemon_diagnostics", return_value={}), \
-             mock.patch.object(browser_qa, "_emit_daemon_startup_failed_event", side_effect=Exception("emit broken")), \
-             mock.patch("yoke_core.domain.browser_qa.time.sleep"):
+        with (
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_running", return_value=False
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_start",
+                side_effect=RuntimeError("boom"),
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_stop", return_value="stopped"
+            ),
+            mock.patch.object(
+                browser_qa, "_collect_daemon_diagnostics", return_value={}
+            ),
+            mock.patch.object(
+                browser_qa,
+                "_emit_daemon_startup_failed_event",
+                side_effect=Exception("emit broken"),
+            ),
+            mock.patch("yoke_core.domain.browser_qa.time.sleep"),
+        ):
             result = browser_qa._ensure_daemon_running()
 
         assert result is not None
         assert "boom" in result
 
     def test_emit_event_uses_native_runtime_emitter(
-        self, harness_family,
+        self,
+        harness_family,
     ) -> None:
         """Event helper uses the native runtime emitter with item context."""
         harness_family("codex")
@@ -146,13 +225,15 @@ class TestDaemonRetry:
             "YOKE_SESSION_ID": "",
             "CLAUDE_CODE_SESSION_ID": "",
         }
-        with mock.patch.dict(os.environ, env_override), \
-             mock.patch("yoke_core.domain.events.emit_event") as mock_emit:
+        with (
+            mock.patch.dict(os.environ, env_override),
+            mock.patch("yoke_core.domain.events.emit_event") as mock_emit,
+        ):
             browser_qa._emit_daemon_startup_failed_event(
                 attempt_count=3,
                 last_error="boom",
                 diagnostics={
-                    "stderr_tail": "tail",
+                    "log_tail": "tail",
                     "daemon_status": {"status": "crashed"},
                     "daemon_health": {"status": "degraded"},
                 },
@@ -174,7 +255,7 @@ class TestDaemonRetry:
                 "attempt_count": 3,
                 "last_error": "boom",
                 "diagnostics": {
-                    "stderr_tail": "tail",
+                    "log_tail": "tail",
                     "daemon_status": {"status": "crashed"},
                     "daemon_health": {"status": "degraded"},
                 },
@@ -186,27 +267,47 @@ class TestDaemonRetry:
 class TestCollectDaemonDiagnostics:
     """Diagnostics collection."""
 
-    def test_collects_stderr_tail(self, tmp_path: Path) -> None:
-        """Stderr log content is captured in diagnostics."""
-        stderr_log = tmp_path / ".daemon-stderr.log"
-        stderr_log.write_text("line1\nline2\nERROR: port already in use\n")
+    def test_collects_daemon_log_tail(self, tmp_path: Path) -> None:
+        """Daemon log content is captured in diagnostics."""
+        daemon_log = tmp_path / DAEMON_LOG_NAME
+        daemon_log.write_text("line1\nline2\nERROR: port already in use\n")
 
-        with mock.patch("yoke_core.domain.browser_client._browser_dir", return_value=tmp_path), \
-             mock.patch("yoke_core.domain.browser_client.daemon_status", return_value={"status": "crashed"}), \
-             mock.patch("yoke_core.domain.browser_client.daemon_health", side_effect=RuntimeError("not running")):
+        with (
+            mock.patch(
+                "yoke_core.domain.browser_client._browser_dir", return_value=tmp_path
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_status",
+                return_value={"status": "crashed"},
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_health",
+                side_effect=RuntimeError("not running"),
+            ),
+        ):
             diag = browser_qa._collect_daemon_diagnostics()
 
-        assert "stderr_tail" in diag
-        assert "port already in use" in diag["stderr_tail"]
+        assert "log_tail" in diag
+        assert "port already in use" in diag["log_tail"]
         assert "daemon_status" in diag
         assert diag["daemon_status"]["status"] == "crashed"
 
-    def test_handles_missing_stderr_log(self, tmp_path: Path) -> None:
-        """Graceful when no stderr log exists."""
-        with mock.patch("yoke_core.domain.browser_client._browser_dir", return_value=tmp_path), \
-             mock.patch("yoke_core.domain.browser_client.daemon_status", return_value={"status": "not_running"}), \
-             mock.patch("yoke_core.domain.browser_client.daemon_health", side_effect=RuntimeError("not running")):
+    def test_handles_missing_daemon_log(self, tmp_path: Path) -> None:
+        """Graceful when no daemon log exists."""
+        with (
+            mock.patch(
+                "yoke_core.domain.browser_client._browser_dir", return_value=tmp_path
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_status",
+                return_value={"status": "not_running"},
+            ),
+            mock.patch(
+                "yoke_core.domain.browser_client.daemon_health",
+                side_effect=RuntimeError("not running"),
+            ),
+        ):
             diag = browser_qa._collect_daemon_diagnostics()
 
-        assert "stderr_tail" not in diag
+        assert "log_tail" not in diag
         assert diag["daemon_status"]["status"] == "not_running"
