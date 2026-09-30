@@ -36,6 +36,14 @@ def _text() -> str:
     return workflows_dir.joinpath(_WORKFLOW).read_text(encoding="utf-8")
 
 
+def _declared_uv_version() -> str:
+    project = _ROOT.joinpath("pyproject.toml").read_text(encoding="utf-8")
+    versions = re.findall(r'^    "uv==([0-9.]+)",$', project, re.MULTILINE)
+    assert len(versions) == 2, "test extra and dev group must each pin uv"
+    assert len(set(versions)) == 1, "test extra and dev group must use the same uv"
+    return versions[0]
+
+
 def _attested_subject_sets(text: str) -> list[tuple[str, ...]]:
     blocks = re.findall(
         r"^          subject-path: \|\n((?:^            .+\n)+)",
@@ -105,7 +113,7 @@ def test_untrusted_build_has_no_signing_authority():
     assert "packages: write" not in text
     assert "artifact-metadata" not in text
     assert "persist-credentials: false" in build_block
-    assert 'python -m pip install "uv==0.11.28"' in build_block
+    assert f'python -m pip install "uv=={_declared_uv_version()}"' in build_block
 
 
 def test_only_trusted_ref_signer_attests_without_repository_code():
@@ -161,11 +169,11 @@ def test_factory_uv_pin_matches_project_dependencies_and_lock():
     workflow = _text()
     project = _ROOT.joinpath("pyproject.toml").read_text(encoding="utf-8")
     lock = _ROOT.joinpath("uv.lock").read_text(encoding="utf-8")
-    assert 'python -m pip install "uv==0.11.28"' in workflow
-    assert project.count('"uv==0.11.28"') == 2
-    assert 'name = "uv"\nversion = "0.11.28"' in lock
-    assert 'specifier = "==0.11.28"' in lock
-    assert set(re.findall(r"uv==([0-9.]+)", workflow + project)) == {"0.11.28"}
+    version = _declared_uv_version()
+    assert f'python -m pip install "uv=={version}"' in workflow
+    assert f'name = "uv"\nversion = "{version}"' in lock
+    assert f'specifier = "=={version}"' in lock
+    assert set(re.findall(r"uv==([0-9.]+)", workflow + project)) == {version}
 
 
 def test_all_product_build_backends_are_exactly_pinned():
