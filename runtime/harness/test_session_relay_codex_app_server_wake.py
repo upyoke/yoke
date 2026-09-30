@@ -88,8 +88,21 @@ def test_app_server_uses_exact_status_and_id_with_fake_transport(
     mutation_params = next(
         params for method, params in client.calls if method == mutation
     )
-    assert INSTRUCTION in repr(mutation_params)
+    # Read the delivered text itself. `repr` of the params dict escapes
+    # quotes inside the instruction, so a substring check against it fails
+    # the moment the mandate text carries both quote characters — a
+    # rendering artifact, not a delivery defect. The absence check stays on
+    # `repr`, because it must cover the whole payload and not one field.
+    assert INSTRUCTION in _delivered_text(mutation_params)
     assert SECRET not in repr(mutation_params)
+
+
+def _delivered_text(params: dict) -> str:
+    return "".join(
+        part.get("text", "")
+        for part in params.get("input", [])
+        if isinstance(part, dict)
+    )
 
 
 def test_app_server_create_requires_vendor_thread_session_equality(
