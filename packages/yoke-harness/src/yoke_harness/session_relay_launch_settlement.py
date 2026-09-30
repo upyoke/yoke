@@ -1,4 +1,4 @@
-"""Report the launched natives that died before their session ever registered.
+"""Report fatal native results and deaths before their sessions register.
 
 Two things are true at once for a launch whose native is gone: the machine
 that started it knows within seconds, and the control plane knows nothing for
@@ -12,9 +12,9 @@ whole time.
 The custody record is what makes this readable without a second registry:
 the relay writes one for every native it starts and delivery removes it, so a
 record that still exists names a launch whose instruction never reached a
-registered session. A record whose recorded pid is no longer the recorded
-process therefore names exactly the shape this reports — on every harness,
-because every harness writes the same record.
+registered session. A record whose capture records a fatal exit, or whose
+recorded pid is no longer the recorded process, names the shape this reports
+on every harness because every harness writes the same record and capture.
 
 Reporting is all this does. Whether the launch may be closed is the control
 plane's judgment, made against the launch row rather than against the file:
@@ -44,7 +44,7 @@ StartTimeOf = Callable[[int], str | None]
 
 @dataclass(frozen=True)
 class UnregisteredLaunchDeath:
-    """One launch this machine started whose native is gone unregistered."""
+    """One launch with a fatal result or a gone native before registration."""
 
     launch_id: str
     evidence: dict[str, Any]
@@ -56,7 +56,7 @@ def unregistered_launch_deaths(
     diagnostic_state_dir: Path | None = None,
     start_time_of: StartTimeOf = process_start_time,
 ) -> tuple[UnregisteredLaunchDeath, ...]:
-    """Return every still-supervised launch whose native process is gone."""
+    """Return launches with a fatal capture or a verified gone native."""
     deaths: list[UnregisteredLaunchDeath] = []
     for _path, payload in supervised_records(state_dir):
         if str(payload.get("supervision_kind") or "launch") != "launch":
@@ -65,19 +65,28 @@ def unregistered_launch_deaths(
         pid = payload.get("pid")
         if not launch_id or not isinstance(pid, int) or pid <= 0:
             continue
-        # A reused pid names a different process, so the native this record
-        # was written for is gone either way.
-        if start_time_of(pid) == payload.get("process_start_time"):
+        account = native_account(
+            launch_id,
+            state_dir=diagnostic_state_dir or state_dir,
+        )
+        exit_code = account.get("exit_code")
+        fatal_result = (
+            isinstance(exit_code, int)
+            and not isinstance(exit_code, bool)
+            and exit_code != 0
+            and bool(account.get("native_exit_at"))
+        )
+        # A finalized fatal capture is authoritative even if the supervisor
+        # process has not disappeared yet. Otherwise require proof that its
+        # recorded pid is gone (or has been reused).
+        if start_time_of(pid) == payload.get("process_start_time") and not fatal_result:
             continue
         deaths.append(
             UnregisteredLaunchDeath(
                 launch_id,
                 {
                     "native_pid": pid,
-                    **native_account(
-                        launch_id,
-                        state_dir=diagnostic_state_dir or state_dir,
-                    ),
+                    **account,
                 },
             )
         )

@@ -173,7 +173,9 @@ model's `[1m]` selector and effort to `--effort`; Codex maps effort to
 `-c model_reasoning_effort=...` and refuses explicit context. Cursor passes an
 exact advertised selector, such as `cursor-grok-4.6-high`; a separate matching
 effort is encoded once, and a conflicting effort refuses. A base name plus
-effort resolves only to an advertised variant. Cursor context is model-specific:
+effort resolves only to an advertised variant. If a selector omits `cursor-`
+and the matching prefixed selector is advertised, the refusal suggests it.
+Cursor context is model-specific:
 an explicit window requires that exact variant's native display label to name
 it. Grok has no advertised 1M window; omit the context flag. A label establishes
 a selectable option, never a served-session measurement, so unattested context

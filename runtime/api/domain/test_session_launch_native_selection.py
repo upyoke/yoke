@@ -183,6 +183,14 @@ def test_retry_revalidates_against_the_current_machine_observation():
     assert raised.value.code == "cursor_model_unsupported"
 
 
+def test_cursor_model_refusal_suggests_the_published_prefix():
+    conn = _connection()
+    with pytest.raises(SessionLaunchError) as raised:
+        _create(conn, model="grok-4.6-high")
+    assert raised.value.code == "cursor_model_unsupported"
+    assert "did you mean 'cursor-grok-4.6-high'?" in str(raised.value)
+
+
 def test_configured_knobs_cannot_bypass_native_validation():
     conn = _connection(
         preferred_models={SURFACE: "cursor-grok-4.6[context=1m]"},

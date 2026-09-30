@@ -8,7 +8,9 @@ to the launches that never reached a session at all.
 ## Decision
 
 The relay poll reports every launch it still supervises whose native process
-is verifiably gone. A supervision record exists only until the launch's
+is verifiably gone or whose capture already records a nonzero exit and exit
+time. The latter closes on the next poll even if the supervisor PID has not
+disappeared yet. A supervision record exists only until the launch's
 instruction reaches a registered session, so a live record plus a dead process
 names a launch whose worker never started.
 

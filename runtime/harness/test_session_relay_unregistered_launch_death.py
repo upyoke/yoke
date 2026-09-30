@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from yoke_contracts.process_ancestry import process_start_time
 from yoke_harness.session_launch_containment import (
     record_supervised_native,
     supervision_record_path,
@@ -19,7 +20,7 @@ from yoke_harness.session_relay_native_diagnostics import native_diagnostic_path
 
 
 LAUNCH_ID = "33333333-3333-4333-8333-333333333333"
-REFUSAL = "cursor-agent: authentication required"
+REFUSAL = "API 400: model requires a newer CLI version"
 
 
 class _Inventory:
@@ -115,3 +116,25 @@ def test_a_running_launch_native_is_not_reported_at_all(tmp_path: Path) -> None:
     )
     assert dispatcher.payloads == []
     assert supervision_record_path(LAUNCH_ID, tmp_path).exists()
+
+
+def test_fatal_native_capture_reports_before_supervisor_pid_disappears(
+    tmp_path: Path,
+) -> None:
+    custody = tmp_path / "custody"
+    relay = tmp_path / "relay"
+    _supervised(custody)
+    _capture(relay)
+    dispatcher = _Dispatcher()
+
+    reported = report_unregistered_launch_deaths(
+        dispatcher,
+        _Inventory(),
+        state_dir=relay,
+        custody_state_dir=custody,
+        start_time_of=process_start_time,
+    )
+
+    assert reported == (LAUNCH_ID,)
+    assert dispatcher.payloads[0]["launches"][0]["evidence"]["native_stderr_tail"] == REFUSAL
+    assert not supervision_record_path(LAUNCH_ID, custody).exists()
