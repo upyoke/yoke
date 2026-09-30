@@ -23,7 +23,9 @@ from yoke_contracts.machine_qa_execution import (
     GOLDEN_CAPTURE_OPERATION,
     HostControlExecutionContract,
     HostControlOperation,
+    VERIFY_OPERATION,
 )
+from yoke_contracts.test_machine_verification_surfaces import verification_surfaces
 from yoke_core.domain import db_helpers
 from yoke_core.domain.handlers.machine_qa import _failure, _invalid
 from yoke_core.domain.handlers.machine_qa_operation_result import (
@@ -89,6 +91,7 @@ class TestMachineOperationResponse(BaseModel):
     checks: list[dict[str, Any]]
     error_code: str | None
     golden_baseline_path: str | None = None
+    surfaces: dict[str, dict[str, Any]] | None = None
 
 
 def _operation(operation: str) -> HostControlOperation:
@@ -219,6 +222,12 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
             "golden_baseline_path": golden_baseline_path,
             **performed_at_row(recorded),
         }
+        if parsed.operation == VERIFY_OPERATION:
+            result["surfaces"] = verification_surfaces(
+                recorded["checks"],
+                project=contract.project,
+                machine=machine,
+            )
     except (
         MachineQaProtocolError,
         TestMachineCapabilityError,

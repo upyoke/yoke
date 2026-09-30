@@ -19,6 +19,7 @@ from yoke_contracts.machine_qa_execution import (
     HOST_BASELINE_END_STATE,
     HOST_BASELINES,
 )
+from yoke_contracts.test_machine_verification_surfaces import verification_surfaces
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_method_capabilities import capability_kinds
@@ -224,6 +225,11 @@ def _test_machine_detail(
             "error_code": verification[3] if verification else None,
             "checks": list(receipt.get("checks") or []),
             "host_end_state": host_end_state(list(receipt.get("checks") or [])),
+            "surfaces": verification_surfaces(
+                list(receipt.get("checks") or []),
+                project=row.project,
+                machine=row.machine,
+            ),
             "status_meaning": (
                 "bookkeeping: verified_at is unset; not a health or "
                 "authorization diagnosis. Browser profile authorization is "
