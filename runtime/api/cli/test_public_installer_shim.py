@@ -167,6 +167,8 @@ class _InstallPyRunner:
             return subprocess.CompletedProcess(command, 0, f"{self.version}\n", "")
         if command[1:] == ["--help"]:
             return subprocess.CompletedProcess(command, 0, "usage: yoke\n", "")
+        if command[1:4] == ["config", "distribution", "set"]:
+            return subprocess.CompletedProcess(command, 0, "", "")
         if command[1:] == ["github", "credential-helper", "refresh", "--json"]:
             # Every install.py completion calls this unconditionally; nothing
             # is configured to repair on this fixture machine.
