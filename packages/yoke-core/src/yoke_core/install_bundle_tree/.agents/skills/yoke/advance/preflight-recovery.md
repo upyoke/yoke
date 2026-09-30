@@ -125,11 +125,17 @@ After all reconciliation checks pass (or emit advisories), return to router for 
 
 Skip if target is not `release`. **If `--force`:** skip with warning.
 
+A project's checkout is machine-scoped, so it comes from this machine's
+registered project mappings — the `projects` table carries no path.
+
 ```bash
 _item_project=$(yoke items get {N} project 2>/dev/null)
-if [ -n "$_item_project" ] && [ "$_item_project" != "null" ] && [ "$_item_project" != "" ]; then
- _merge_repo=$(yoke projects get --project "$_item_project" --field repo_path)
-else
+_merge_repo=$(yoke machine detail --json \
+ | python3 -c 'import json,sys
+rows = json.load(sys.stdin)["result"]["projects"]
+print(next((r["checkout"] for r in rows if r["slug"] == sys.argv[1]), ""))' \
+ "$_item_project")
+if [ -z "$_merge_repo" ]; then
  _merge_repo=$(git rev-parse --show-toplevel)
 fi
 

@@ -127,15 +127,13 @@ for _task_id in $_task_ids; do
 
  # 2. Resolve worktree from dispatch chain
  _chain_row=$(yoke workflow-item epic-dispatch-chain get --epic "$_epic_id" --worktree "$_worktree_branch")
- # Resolve every project through the same project registry, including Yoke.
- _item_project=$(yoke items get "${N}" project)
- if [ -n "$_item_project" ] && [ "$_item_project" != "null" ]; then
- _project_root=$(yoke projects get --project "$_item_project" --field repo_path)
- else
- _project_root="${MAIN_ROOT}"
- fi
- _slug=$(echo "$_worktree_branch" | sed 's|/|-|g')
- # Fallback worktree path: {_project_root}/.worktrees/{_slug}
+ # When the chain row carries no path, the lane's own registered row
+ # does — for every project including Yoke. Never compose one from a
+ # root; an unregistered lane is a record to repair, not a path to guess.
+ _worktree_path=$(yoke item-worktrees list "${N}" --json \
+ | python3 -c 'import json,sys
+rows = json.load(sys.stdin)["result"]["worktrees"]
+print(next((r["path"] for r in rows if r["branch"] == sys.argv[1]), ""))' "$_worktree_branch")
 
  # 3. Record per-task baseline. The unified creator (above) has already
  # provisioned every lane; `git rev-parse` here is a verification step,

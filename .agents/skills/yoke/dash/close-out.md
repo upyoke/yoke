@@ -167,7 +167,15 @@ The command does not clean the lane or declare those commits delivered.
 
 Steering does not gate your landing; it vets the work after it lands and
 before the item is admitted to a release. When that vetting finds a problem,
-steering moves the item back to `implementing` and names what to correct.
+steering names what to correct and asks you to move the item back to
+`implementing` — that transition is yours, because `lifecycle.transition`
+requires the calling session to hold the item's work claim and steering
+holds no claim on a lane you are working:
+
+```text
+yoke lifecycle transition PREFIX-N --to implementing --reason "steering rework: <what to correct>"
+```
+
 That is a rework leg on this same item: correct it in the same lane,
 re-verify, re-land through the same `yoke merge item` command, and re-enter
 the release wait. Evidence recorded against the earlier revision does not

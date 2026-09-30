@@ -119,6 +119,28 @@ Codex unchanged.
   `yoke claims work acquire --item PREFIX-N --reason "..."`; the positional form
   is refused.
 
+## Tool use on Codex
+
+Two Codex tool behaviours cost whole turns when they are met for the first
+time mid-task. Both are harness-owned: nothing in Yoke changes them, so the
+handling is yours.
+
+- **Run a long `yoke` command alone in its own `exec_command`, and keep the
+  `session_id` it returns.** A long command shares its call with nothing:
+  no `&&` chain, no second command after it, no surrounding pipeline. The
+  call returns while the child is still alive, and that returned
+  `session_id` is the only handle to it — continue the SAME session with
+  `write_stdin` until the command exits and you have read its outcome. A
+  second `exec_command` beside a live one spends the shared resource twice
+  and can cancel work the first was about to finish, and a turn that ends
+  before the child exits kills it with no recorded verdict.
+- **Replace a whole file with one `Update` hunk, and re-read a file after
+  running a formatter.** `apply_patch` matches context exactly, so a
+  rewrite expressed as many hunks fails on the first line that moved, and
+  every hunk authored against pre-formatter context is stale the moment a
+  formatter, codegen step, or bundle sync rewrites the file. Read the file
+  back and author the next patch against what is actually there.
+
 ## Identity
 
 The Codex adapter sets these environment variables:

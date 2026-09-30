@@ -18,12 +18,31 @@ reasoning, cost/benefit, and applicable quota still decide.
 |---|---|---|
 | Simple edits, documentation, routine cleanup | tier 2 | `medium` |
 | Normal development or research | tier 1 | `high` |
-| Difficult debugging or architectural decisions | tier 1 | `xhigh` |
+| Difficult debugging or architectural decisions | tier 1 | the surface's step above `high` |
 
 The ceiling is deliberate. `max` is never an automatic choice: buying the
 vendor's highest level for work that does not need it changes nothing about
-the outcome and empties a shared allowance faster. Where `xhigh` is not
-published for the model you chose, ask for `high` instead.
+the outcome and empties a shared allowance faster.
+
+**The third row's effort is per surface, and the surface you are launching
+answers it — not this table.** Each harness publishes its own accepted
+efforts, and a name one surface publishes is refused by another: asking
+`codex-cli` for `xhigh` is the step above `high`, while asking `claude-cli`
+for it is refused by name (`claude_reasoning_effort_unsupported`) because
+that surface's ladder steps straight from `high` to `max`. Read the accepted
+list for the surface and pick its next step above `high`; where no such step
+is published, ask for `high`:
+
+```text
+yoke session-control launch create --project {_project} --surface {_surface} --list-models
+```
+
+That prints nothing and launches nothing — it reports the operator's routing
+default for the surface plus the efforts and context windows the CLI accepts
+for it. The manifest `session_control.launch_model_selection` at
+`runtime/harness/<harness_id>/manifest.json` is the fact it reads; never
+restate one of those lists here, because a refreshed manifest would leave
+this file teaching a ladder the surface no longer has.
 
 Tiers are **global capability**, not a provider product ladder and not the
 best model a harness happens to offer. Tier 1 is the absolute frontier

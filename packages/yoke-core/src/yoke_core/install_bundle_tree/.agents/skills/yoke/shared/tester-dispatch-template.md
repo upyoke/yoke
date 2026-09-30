@@ -115,18 +115,14 @@ git diff main...{_wt_branch}
 ### 4. Worktree path
 
 Read the item's project via the `items.get.run` function call (or
-reuse the `_item_project` shell variable from step 2). For every
-project-owned item, read the project's repo path from the wrapped
-`projects.get` adapter:
+reuse the `_item_project` shell variable from step 2). Read the lane's
+own absolute path from its registered row rather than composing one: the
+item's project may be checked out anywhere on this machine, and the row
+already records where its lane landed.
 
 ```bash
-# {_item_project} comes from items.get.run above.
-if [ -n "$_item_project" ] && [ "$_item_project" != "null" ]; then
- _wt_repo=$(yoke projects get --project "$_item_project" --field repo_path)
-else
- _wt_repo="{REPO_ROOT}"
-fi
-_worktree_path="$_wt_repo/.worktrees/PREFIX-{N}"
+_worktree_path=$(yoke item-worktrees get PREFIX-{N} \
+ --lane-role implementation --field path)
 ```
 
 Include in the prompt:

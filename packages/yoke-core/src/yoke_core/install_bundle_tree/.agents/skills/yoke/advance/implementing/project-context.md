@@ -17,8 +17,15 @@ _item_project=$(yoke items get {N} project 2>/dev/null)
 
 If `_item_project` is empty or `null` -> skip this phase silently. Yoke uses the same registered project context as every other project.
 
+A project's checkout is machine-scoped, so it comes from this machine's
+registered project mappings — the `projects` table carries no path.
+
 ```bash
-_repo_path=$(yoke projects get --project "$_item_project" --field repo_path 2>/dev/null)
+_repo_path=$(yoke machine detail --json \
+ | python3 -c 'import json,sys
+rows = json.load(sys.stdin)["result"]["projects"]
+print(next((r["checkout"] for r in rows if r["slug"] == sys.argv[1]), ""))' \
+ "$_item_project")
 # Source-dev/admin reads: populate _always_docs and _context_topics from the
 # context_routing Project Structure family. No registered product CLI wrapper
 # exists yet.

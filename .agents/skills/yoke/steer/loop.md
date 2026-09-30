@@ -276,17 +276,33 @@ yoke qa requirement list --item PREFIX-N --json
 ```
 
 When vetting finds a problem, the item goes back to the worker to correct —
-fix, re-verify, re-land, re-enter release. That is the registered rework
-transition, a backward move the declared-transition gate leaves to rework
-rather than refusing:
+fix, re-verify, re-land, re-enter release. The registered rework transition
+is a backward move the declared-transition gate leaves to rework rather
+than refusing.
+
+`lifecycle.transition` requires the calling session to hold the item's
+work claim, so the steering seat does not make this move on a worker-held
+item — it would be refused `claim_required`, and taking the claim to force
+it would evict the worker mid-lane. Steering names the correction to the
+holder; the holder transitions its own item:
+
+```text
+yoke say --item PREFIX-N --stdin <<'EOF'
+REWORK PREFIX-N: <what to correct, and the evidence it fails>
+EOF
+```
 
 ```text
 yoke lifecycle transition PREFIX-N --to implementing --reason "steering rework: <what to correct>"
 ```
 
-Then tell its owner what to correct. **An item with an unresolved vetting
-problem is not admitted to a release** — leave it out of the batch below
-rather than deploying it and correcting afterwards.
+The first command is steering's; the second is the holder's. When the item
+has no live holder, steering acquires the claim itself and then transitions
+— `yoke claims work holder-get PREFIX-N` answers which case this is.
+
+**An item with an unresolved vetting problem is not admitted to a
+release** — leave it out of the batch below rather than deploying it and
+correcting afterwards.
 
 ### 6. Deploy merged work in batches
 
