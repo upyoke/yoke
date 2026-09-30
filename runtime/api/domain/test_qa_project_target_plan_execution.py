@@ -12,6 +12,10 @@ from runtime.api.qa_catalog_test_support import CATALOG_CASES
 from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain import qa_case_execution, qa_plan_execution
 from yoke_core.domain.qa_execution_environment_target import QaExecutionTargetError
+from yoke_core.domain.qa_plan_execution_abort_reason import (
+    UNUSABLE_BEGIN_REASON,
+    abort_reason_code,
+)
 from yoke_core.domain.qa_plan_attachments import (
     materialize_for_item,
     set_project_default,
@@ -245,3 +249,95 @@ def test_missing_runtime_base_url_prevents_case_side_effects() -> None:
             actor=ActorContext(actor_id="7", session_id="project-target"),
         )
     execute.assert_not_called()
+
+
+def _refused_base_url_calls(abort_result: object) -> tuple[list[dict], str]:
+    """Drive a plan run the immutable target refuses, and report what it did."""
+    calls: list[dict] = []
+
+    def dispatch(**kwargs):
+        calls.append(kwargs)
+        if kwargs["function_id"] == "qa.plan_execution.begin":
+            return {
+                "execution_id": "execution-refused-base-url",
+                "item_id": 42,
+                "cursor_ordinal": 0,
+                "execution_target": {
+                    "schema": 2,
+                    "environment": {"name": "production"},
+                    "endpoints": {"app_url": "https://app.example.test"},
+                },
+                "requirements": [_requirement()],
+                "results": [],
+            }
+        if kwargs["function_id"] == "qa.plan_execution.abort":
+            if isinstance(abort_result, Exception):
+                raise abort_result
+            return {}
+        return {}
+
+    with (
+        mock.patch.object(
+            qa_plan_execution, "_call_plan_function", side_effect=dispatch
+        ),
+        pytest.raises(qa_plan_execution.QaPlanExecutionError) as caught,
+    ):
+        qa_plan_execution.execute_plan(
+            public_ref="YOK-42",
+            transition_id="implemented",
+            base_url="http://localhost:3000",
+            actor=ActorContext(actor_id="7", session_id="refused-base-url"),
+        )
+    return calls, str(caught.value)
+
+
+class TestRefusedRunLeavesNoActiveExecution:
+    """A refusal raised after begin must not keep holding the subject.
+
+    ``qa.plan_execution.begin`` has already persisted an ACTIVE row, so a
+    base URL the immutable target disallows used to leave one that reads
+    exactly like a walk somebody is driving -- blocking the deployment run's
+    settlement until a holder aborted it by hand.
+    """
+
+    def test_refusal_aborts_the_execution_it_could_not_use(self) -> None:
+        calls, _ = _refused_base_url_calls(abort_result=None)
+        aborts = [
+            call
+            for call in calls
+            if call["function_id"] == "qa.plan_execution.abort"
+        ]
+        assert len(aborts) == 1
+        assert aborts[0]["payload"]["execution_id"] == "execution-refused-base-url"
+
+    def test_abort_reason_carries_the_code_and_the_diagnosis(self) -> None:
+        calls, _ = _refused_base_url_calls(abort_result=None)
+        reason = next(
+            call["payload"]["reason"]
+            for call in calls
+            if call["function_id"] == "qa.plan_execution.abort"
+        )
+        assert abort_reason_code(reason) == UNUSABLE_BEGIN_REASON
+        assert "does not belong" in reason
+
+    def test_refusal_says_the_subject_is_no_longer_held(self) -> None:
+        _, message = _refused_base_url_calls(abort_result=None)
+        assert "does not belong" in message
+        assert "has been released" in message
+
+    def test_unreleasable_execution_names_the_manual_abort(self) -> None:
+        _, message = _refused_base_url_calls(
+            abort_result=qa_plan_execution.QaPlanExecutionError("relay unavailable")
+        )
+        assert "still holds this subject" in message
+        assert (
+            "yoke qa plan abort --item YOK-42 "
+            "--execution-id execution-refused-base-url" in message
+        )
+
+    def test_no_case_runs_before_the_refusal(self) -> None:
+        calls, _ = _refused_base_url_calls(abort_result=None)
+        assert [call["function_id"] for call in calls] == [
+            "qa.plan_execution.begin",
+            "qa.plan_execution.abort",
+        ]
