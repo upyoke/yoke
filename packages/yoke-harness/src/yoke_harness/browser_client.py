@@ -24,7 +24,7 @@ from yoke_cli.transport.bounded_json_http import (
 from yoke_cli import browser_node_toolchain
 from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_harness import browser_runtime_home
-from yoke_harness.browser_client_readiness import launch_daemon, wait_for_daemon_ready
+from yoke_harness.browser_client_readiness import start_daemon
 from yoke_harness.browser_linux_deps import (
     amazon_linux_chromium_deps_command,
     is_amazon_linux,
@@ -225,7 +225,9 @@ def daemon_start(
                 "[browser-auto-bootstrap] BLOCKED: node_modules or playwright "
                 "missing and YOKE_BROWSER_AUTOINSTALL=0"
             )
-        _log("[browser-auto-bootstrap] node_modules or playwright missing; auto-installing...")
+        _log(
+            "[browser-auto-bootstrap] node_modules or playwright missing; auto-installing..."
+        )
         result = subprocess.run(
             [str(toolchain.npm), "install"],
             cwd=str(browser),
@@ -249,10 +251,14 @@ def daemon_start(
     chromium_status = result.stdout.strip() if result.returncode == 0 else "error"
     if chromium_status != "ok":
         if autoinstall == "0":
-            raise RuntimeError("[browser-auto-bootstrap] BLOCKED: Chromium binary missing")
+            raise RuntimeError(
+                "[browser-auto-bootstrap] BLOCKED: Chromium binary missing"
+            )
         deps_command = amazon_linux_chromium_deps_command()
         if deps_command:
-            _log("[browser-auto-bootstrap] installing Amazon Linux Chromium dependencies...")
+            _log(
+                "[browser-auto-bootstrap] installing Amazon Linux Chromium dependencies..."
+            )
             result = subprocess.run(
                 deps_command,
                 capture_output=True,
@@ -298,9 +304,7 @@ def daemon_start(
     command.extend(["--state-file", str(state_path)])
 
     state_path.parent.mkdir(parents=True, exist_ok=True)
-    log_file = browser / ".daemon-stderr.log"
-    proc = launch_daemon(command, env, log_file)
-    return wait_for_daemon_ready(proc, log_file)
+    return start_daemon(command, env, browser)
 
 
 def daemon_stop() -> str:
