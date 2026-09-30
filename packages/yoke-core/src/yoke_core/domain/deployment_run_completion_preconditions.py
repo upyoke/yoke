@@ -153,7 +153,11 @@ def redrive_recovery(run_id: str, *, unresolved: int) -> str:
         return (
             "Settle or waive each one; the run finishes automatically after "
             "its remaining gates and members clear. If it stays executing, "
-            f"read `yoke deployment-runs get {run_id}` and re-drive {run_id}."
+            f"read `yoke deployment-runs get {run_id}` and re-drive {run_id}. "
+            f"At independent item QA, use `yoke deployment-runs remove-item {run_id} "
+            "ITEM --reason R` to let the run finish while a red member rides the "
+            "next release (depth: `remove-item --help`); settlement automatically "
+            "releases members whose current candidate is outside the frozen lineage."
         )
     return (
         "Nothing is outstanding; automatic completion should finish this run. "
@@ -209,8 +213,7 @@ def refuse_succeeded(
     return (
         f"Error: cannot set status=succeeded -- {len(unresolved)} blocking QA "
         f"obligation(s) unresolved for run {run_id}: {detail}. "
-        "Settle or waive each one through its registered QA surface; "
-        f"automatic completion will then finish {run_id}."
+        + redrive_recovery(run_id, unresolved=len(unresolved))
     )
 
 

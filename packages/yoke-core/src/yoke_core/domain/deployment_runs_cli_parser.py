@@ -41,7 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     ri = sub.add_parser(
         "remove-item",
-        help="Take a member out of a created run and record why",
+        help="Remove a created or unsettled independent item-QA member and record why",
     )
     ri.add_argument("run_id")
     ri.add_argument("item_id", type=int)

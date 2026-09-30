@@ -242,8 +242,7 @@ def stage_acceptance(
             # Waiving or superseding every case leaves no case to run, so
             # demanding a scoped execution here would block on evidence the
             # discharge already stood in for -- the trap that made a
-            # fully-waived member unreleasable without removing it from the
-            # run, which deployment membership has no way to do.
+            # fully-waived member unreleasable until its discharge was read.
             return StageAcceptance(STAGE_DISCHARGED, ())
         if member_post_deploy_answer(conn, subject).discharges_without_cases:
             return StageAcceptance(STAGE_DISCHARGED, ())

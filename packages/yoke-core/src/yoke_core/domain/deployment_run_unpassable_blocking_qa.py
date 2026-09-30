@@ -108,6 +108,10 @@ class PinQaDiagnosis:
     def supersede_recovery(self, run_id: str) -> str:
         return (
             f"Re-drive cannot help: it re-executes against the same pin. "
+            f"At independent item QA, use `yoke deployment-runs remove-item {run_id} "
+            "ITEM --reason R` to let the run finish while the red member rides "
+            "the next release (depth: `remove-item --help`); settlement automatically "
+            "releases a member outside the frozen lineage. For shared gates: "
             f"Supersede {run_id} with a run pinned above the remediation. "
             "Terminalizing stays an operator action."
         )
@@ -226,7 +230,9 @@ def _project_walker(
     if not pin:
         return "", None
     walker = (containment_cls or CandidateContainment)(
-        conn, project_id, candidate_lineage=pin,
+        conn,
+        project_id,
+        candidate_lineage=pin,
     )
     return pin, walker
 

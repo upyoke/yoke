@@ -25,6 +25,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
+
 from yoke_core.domain.deployment_qa_result_notice import (
     REPORTABLE_OUTCOMES,
     notify_qa_stage_result,
@@ -206,7 +208,7 @@ def materialize_and_gate_deployment_qa_stage(
         members = [
             int(row["item_id"] if hasattr(row, "keys") else row[0]) for row in rows
         ]
-        if not members:
+        if not members and not removed_item_ids(conn, run_id):
             return 1, "item-scoped QA stage has no attached run members"
     else:
         members = [None]
@@ -316,7 +318,6 @@ def dispatch_deployment_qa_stage(
     stage: Mapping[str, Any], *, run_id: str
 ) -> tuple[int, str]:
     """Deployment step-runner adapter for one scoped QA stage.
-
     Dispatches through the connection-keyed function-call transport: an
     admin-bootstrapped driver executes the registered handler locally, an
     ordinary HTTPS-connected driver relays to whatever build is actively

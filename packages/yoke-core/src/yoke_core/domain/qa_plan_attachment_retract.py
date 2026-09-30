@@ -9,6 +9,27 @@ from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.schema_common import _column_exists
 
 
+def retract_requirements(
+    conn: Any,
+    requirement_ids: list[int],
+    *,
+    reason: str,
+    source: str,
+) -> None:
+    """Retire the selected requirements in the caller's transaction, keeping rows."""
+    now = iso8601_now()
+    for req_id in requirement_ids:
+        conn.execute(
+            "UPDATE qa_requirements SET retracted_at=%s, "
+            "retraction_rationale=%s, retraction_source=%s, "
+            "waived_at=NULL, waiver_rationale=NULL, waiver_source=NULL, "
+            "superseded_by_requirement_id=NULL, superseded_at=NULL, "
+            "supersession_rationale=NULL, supersession_source=NULL "
+            "WHERE id=%s",
+            (now, reason, source, req_id),
+        )
+
+
 def retract_plan_from_item(
     conn: Any,
     *,
@@ -87,19 +108,8 @@ def retract_plan_from_item(
         "AND plan_id=%s",
         (now, reason, source, actor_id, int(item_id), str(transition_id), int(plan_id)),
     )
-    retired: list[int] = []
-    for row in requirements:
-        req_id = int(row["id"])
-        conn.execute(
-            "UPDATE qa_requirements SET retracted_at=%s, "
-            "retraction_rationale=%s, retraction_source=%s, "
-            "waived_at=NULL, waiver_rationale=NULL, waiver_source=NULL, "
-            "superseded_by_requirement_id=NULL, superseded_at=NULL, "
-            "supersession_rationale=NULL, supersession_source=NULL "
-            "WHERE id=%s",
-            (now, reason, source, req_id),
-        )
-        retired.append(req_id)
+    retired = [int(row["id"]) for row in requirements]
+    retract_requirements(conn, retired, reason=reason, source=source)
     if commit:
         conn.commit()
     from yoke_core.domain.qa_events import emit_qa_requirement_event
@@ -126,4 +136,4 @@ def retract_plan_from_item(
     }
 
 
-__all__ = ["retract_plan_from_item"]
+__all__ = ["retract_plan_from_item", "retract_requirements"]

@@ -16,6 +16,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
+
 from yoke_core.domain.deployment_flow_policy import QA_STEP_RUNNER, STAGE_KIND_QA
 from yoke_core.domain.deployment_qa_admission_materialization import (
     member_requirements,
@@ -219,7 +221,11 @@ def _evaluate(
     conn: Any, *, run_id: str, stage: Mapping[str, Any]
 ) -> QaStageOutstanding:
     members = _subjects(conn, run_id, stage)
-    if stage.get("scope") == "item" and not members:
+    if (
+        stage.get("scope") == "item"
+        and not members
+        and not removed_item_ids(conn, run_id)
+    ):
         return QaStageOutstanding(
             lines=("item-scoped QA stage has no attached run members",),
             subjects=1,

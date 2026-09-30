@@ -378,6 +378,8 @@ A create that yielded is still running — continue that invocation; only if it
 exited without a run id, repeat it verbatim with the SAME key to get the
 original run back. A new key is a deliberate new run.
 
+For red member QA, `yoke deployment-runs remove-item RUN ITEM --reason R` lets an independent run finish while the member waits for its next release; see `remove-item --help`. Settlement automatically releases members whose current candidate is outside the frozen lineage.
+
 **A member's item QA is that member's own, not yours.** A QA stage is credited
 only by requirements bound to its own stage name — an item-scoped one by ones
 bound to the member too — so a run-wide pass you issue records nothing the
