@@ -98,9 +98,7 @@ def register(registry) -> None:
         _carried_work_repair.DeploymentRunCarriedWorkRepairRequest,
         _carried_work_repair.DeploymentRunCarriedWorkRepairResponse,
         stability="stable",
-        owner_module=(
-            "yoke_core.domain.handlers.deployment_run_carried_work_repair"
-        ),
+        owner_module=("yoke_core.domain.handlers.deployment_run_carried_work_repair"),
         target_kinds=["workflow_run"],
         side_effects=["deployment_runs_update"],
         emitted_event_names=["YokeFunctionCalled"],

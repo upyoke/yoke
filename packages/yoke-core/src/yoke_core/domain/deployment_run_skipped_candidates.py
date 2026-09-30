@@ -51,7 +51,9 @@ from yoke_core.domain.workflow_runtime import (
 
 def _rework_status(conn: Any, item_id: int) -> str:
     """The status of a carried item back before its release stage, else ``''``."""
-    row = conn.execute("SELECT status FROM items WHERE id=%s", (int(item_id),)).fetchone()
+    row = conn.execute(
+        "SELECT status FROM items WHERE id=%s", (int(item_id),)
+    ).fetchone()
     if row is None:
         return ""
     status = str(row["status"] if hasattr(row, "keys") else row[0])

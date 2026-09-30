@@ -56,6 +56,7 @@ def _deployment_case(**overrides) -> dict:
 
 def _repository(root: Path, *, content: str) -> str:
     """Create a one-commit git repository and return its HEAD sha."""
+
     def git(*args: str) -> str:
         return subprocess.run(
             ["git", "-C", str(root), *args],

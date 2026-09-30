@@ -202,3 +202,81 @@ def test_external_public_ref_round_trip_keeps_internal_item_identity(
 
 if __name__ == "__main__":
     unittest.main()
+
+
+REMOVE_ITEM = "yoke_core.domain.deployment_runs_crud_mutate.cmd_remove_item"
+
+
+def _remove_request(payload: dict, *, actor_id: str = "2"):
+    return _request(
+        function="deployment_runs.remove_item",
+        target=TargetRef(kind="item", item_id=47),
+        payload=payload,
+        actor_id=actor_id,
+    )
+
+
+class TestDeploymentRunRemoveItem(unittest.TestCase):
+    def test_remove_item_is_registered_under_the_deploy_lock(self):
+        from yoke_core.domain.handlers.__init_register__ import (
+            register_all_handlers,
+        )
+        from yoke_core.domain.yoke_function_registry import lookup
+
+        register_all_handlers()
+        spec = lookup("deployment_runs.remove_item")
+        self.assertIsNotNone(spec)
+        self.assertEqual(spec.target_kinds, ("item",))
+        self.assertIn("deploy_lock_required", spec.guardrails)
+
+    def test_remove_item_records_reason_and_audit_identity(self):
+        with (
+            patch(RUN_PROJECT, return_value="yoke"),
+            patch(DEPLOY_LOCK, return_value=None) as lock,
+            patch(REMOVE_ITEM, return_value="Removed item 47") as remove,
+        ):
+            outcome = membership.handle_deployment_run_remove_item(
+                _remove_request({"run_id": RUN_ID, "reason": " in rework "})
+            )
+
+        self.assertTrue(outcome.primary_success)
+        self.assertEqual(outcome.result_payload["reason"], "in rework")
+        remove.assert_called_once_with(
+            RUN_ID, 47, reason="in rework", session_id="s-1", actor_id=2
+        )
+        lock.assert_called_once_with(
+            "yoke", operation="deployment_runs.remove_item", session_id="s-1"
+        )
+
+    def test_remove_item_refuses_without_a_reason_or_the_lock(self):
+        with patch(REMOVE_ITEM) as remove:
+            missing = membership.handle_deployment_run_remove_item(
+                _remove_request({"run_id": RUN_ID, "reason": "  "})
+            )
+        with (
+            patch(RUN_PROJECT, return_value="yoke"),
+            patch(DEPLOY_LOCK, return_value="Take DEPLOY:yoke first"),
+            patch(REMOVE_ITEM) as locked_out,
+        ):
+            unlocked = membership.handle_deployment_run_remove_item(
+                _remove_request({"run_id": RUN_ID, "reason": "in rework"})
+            )
+
+        self.assertEqual(missing.error.code, "payload_invalid")
+        self.assertEqual(missing.error.jsonpath, "$.payload.reason")
+        self.assertEqual(unlocked.error.code, "deploy_lock_required")
+        remove.assert_not_called()
+        locked_out.assert_not_called()
+
+    def test_remove_item_names_a_non_member_as_not_found(self):
+        with (
+            patch(RUN_PROJECT, return_value="yoke"),
+            patch(DEPLOY_LOCK, return_value=None),
+            patch(REMOVE_ITEM, side_effect=LookupError("YOK-47 is not a member")),
+        ):
+            outcome = membership.handle_deployment_run_remove_item(
+                _remove_request({"run_id": RUN_ID, "reason": "in rework"})
+            )
+
+        self.assertEqual(outcome.error.code, "not_found")
+        self.assertIn("not a member", outcome.error.message)

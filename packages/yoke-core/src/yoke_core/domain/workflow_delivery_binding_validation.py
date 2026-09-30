@@ -44,7 +44,10 @@ def delivery_ready_for_stage(runtime: WorkflowRuntime, status: str) -> bool:
         return runtime.stage_implies_merge(status) or not (
             runtime.implementation_has_started(status)
         )
-    if policy in ("continuous_slice_actions", WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE):
+    if policy in (
+        "continuous_slice_actions",
+        WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
+    ):
         return runtime.implementation_has_started(status)
     if policy == "after_merge_action":
         return position >= len(runtime.stage_ids) - 2
@@ -74,9 +77,7 @@ def _validate_deployment_run_item_state(
     try:
         carried = carried_project_ids(conn, run_id)
     except LookupError as exc:
-        raise WorkflowItemBindingError(
-            f"deployment run {run_id!r} not found"
-        ) from exc
+        raise WorkflowItemBindingError(f"deployment run {run_id!r} not found") from exc
     if item_project not in carried:
         raise WorkflowItemBindingError(
             f"{render_item_ref(conn, item_id)} belongs to a project deployment "

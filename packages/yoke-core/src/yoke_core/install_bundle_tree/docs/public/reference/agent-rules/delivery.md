@@ -85,7 +85,13 @@ learns the other's part from its own skill. The split is the whole rule:
   `yoke deployment-runs add-item RUN-ID PREFIX-N` is for the other case, an
   item whose code the candidate does not carry but which the run should still
   deliver, and `validate-composition` composes the run now and reports what
-  it enrolled or why it refused. Before creating a release pair, inspect the
+  it enrolled or why it refused. One notice names every carried item it
+  skipped and why: held by another release, back in rework (status before
+  its release stage), or removed. A wrongly composed member of a run still
+  `created` comes out with `yoke deployment-runs remove-item RUN-ID PREFIX-N
+  --reason R` under the deploy lock: the reason is recorded on the run,
+  composition never re-enrolls it, its code still ships, and a later release
+  enrolls it; `add-item` reverses the removal. Before creating a release pair, inspect the
   delivery-ready items' selected completion flows and choose their flow. A
   refused creation or start names independent blockers together, including
   each mismatched member flow and unattributed commits. Use a run of the

@@ -34,7 +34,8 @@ DASH_FILE_USAGE = (
     "--execution-instructions-considered "
     "[--project P] [--priority P] "
     "[--verification-plan ID_OR_SLUG | --verification-method ID] [--path-claims] "
-    "[--approval-on-done] [--deployment] [--strategy-doc SLUG] "
+    "[--approval-on-done] [--deployment] [--deployment-flow FLOW] "
+    "[--strategy-doc SLUG] "
     "[--session-id S] [--json]"
 )
 DASH_PRIORITY_CHOICES = ("high", "medium", "low")
@@ -75,6 +76,17 @@ def dash_file(args: List[str]) -> int:
     parser.add_argument("--path-claims", action="store_true")
     parser.add_argument("--approval-on-done", action="store_true")
     parser.add_argument("--deployment", action="store_true")
+    parser.add_argument(
+        "--deployment-flow",
+        metavar="FLOW",
+        help=(
+            "Completion flow this Dash is delivered by, validated against the "
+            "project's registered flows at filing. Choose it up front when "
+            "the release that will carry the item runs a flow other than the "
+            "project default; `yoke deployment-flows list --project P` lists "
+            "them."
+        ),
+    )
     # Posture here is a convenience, not a one-shot: an item filed without a
     # selection, or with the wrong one, is amended in place afterwards.
     parser.epilog = WORKFLOWS_ITEM_POSTURE_AMEND_HINT
@@ -136,9 +148,7 @@ def dash_file(args: List[str]) -> int:
         "workflow_posture": posture,
         # Passed through, never inferred: the flag attests what the filer
         # did before authoring, which this adapter cannot observe.
-        "execution_instructions_considered": (
-            parsed.execution_instructions_considered
-        ),
+        "execution_instructions_considered": (parsed.execution_instructions_considered),
     }
     if project is not None:
         payload["project"] = project
@@ -146,6 +156,8 @@ def dash_file(args: List[str]) -> int:
         payload["priority"] = parsed.priority
     if parsed.strategy_doc:
         payload["strategy_doc"] = parsed.strategy_doc
+    if parsed.deployment_flow:
+        payload["deployment_flow"] = parsed.deployment_flow
     return dispatch_and_emit(
         function_id="items.create",
         target=TargetRef(kind="global", project_id=project),
@@ -153,7 +165,6 @@ def dash_file(args: List[str]) -> int:
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
     )
-
 
 
 __all__ = ["DASH_FILE_USAGE", "DASH_PRIORITY_CHOICES", "dash_file"]

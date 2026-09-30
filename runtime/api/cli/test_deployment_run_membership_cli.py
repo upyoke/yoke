@@ -134,3 +134,33 @@ def test_validate_composition_routes_run_target() -> None:
     assert request.target.kind == "workflow_run"
     assert request.target.workflow_run_id == "run-20260909-001"
     assert request.payload == {}
+
+
+def test_remove_item_routes_reason_to_the_registered_function() -> None:
+    rc, out, err = _run(
+        "deployment-runs",
+        "remove-item",
+        "run-20260909-001",
+        "YOK-3048",
+        "--reason",
+        "back in rework",
+    )
+
+    assert rc == 0, err
+    assert out == "OK\n"
+    request = CAPTURED[-1]
+    assert request.function == "deployment_runs.remove_item"
+    assert request.target.public_ref == "YOK-3048"
+    assert request.payload == {
+        "run_id": "run-20260909-001",
+        "reason": "back in rework",
+    }
+
+
+def test_remove_item_requires_a_reason() -> None:
+    rc, _out, err = _run(
+        "deployment-runs", "remove-item", "run-20260909-001", "YOK-3048"
+    )
+
+    assert rc == 2
+    assert "--reason" in err

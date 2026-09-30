@@ -23,7 +23,11 @@ from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 
 
 COMMAND_CASE = {
@@ -165,7 +169,9 @@ def test_flow_without_cases_materializes_direct_member_case(test_db) -> None:
         deployment_stage="item-qa",
         deployment_member_item_id=9812,
     )
-    assert created.result_payload["requirement_id"] in result["existing_requirement_ids"]
+    assert (
+        created.result_payload["requirement_id"] in result["existing_requirement_ids"]
+    )
     execution = begin_plan_execution(
         test_db,
         deployment_run_id="run-direct-empty-flow",
@@ -174,9 +180,10 @@ def test_flow_without_cases_materializes_direct_member_case(test_db) -> None:
         actor_id="2",
         session_id="direct-qa",
     )
-    assert execution["roster"][0]["requirement_id"] == created.result_payload[
-        "requirement_id"
-    ]
+    assert (
+        execution["roster"][0]["requirement_id"]
+        == created.result_payload["requirement_id"]
+    )
 
 
 def test_frozen_membership_stays_refused_while_existing_member_recovers(
@@ -231,8 +238,10 @@ def test_named_prod_refuses_when_stage_declares_stage_before_receipt(
         "SELECT id,1,'prod','https://prod.example.test',%s,%s FROM sites "
         "WHERE project_id=1 ORDER BY id LIMIT 1 "
         "ON CONFLICT(project_id,name) DO UPDATE SET url=EXCLUDED.url",
-        (json.dumps({"hosts": {"app": "https://prod.example.test"}}),
-         "2026-09-16T00:00:00Z"),
+        (
+            json.dumps({"hosts": {"app": "https://prod.example.test"}}),
+            "2026-09-16T00:00:00Z",
+        ),
     )
     test_db.commit()
     outcome = qa_requirement_create.handle_qa_requirement_add(
@@ -294,11 +303,11 @@ def test_unbound_run_attached_case_refuses_at_composition_freeze(
         method_config=json.dumps({"command": "true"}),
     )
     test_db.commit()
-    with pytest.raises(ValueError, match=rf"requirement {int(row['id'])}.*before this run starts"):
+    with pytest.raises(
+        ValueError, match=rf"requirement {int(row['id'])}.*before this run starts"
+    ):
         composition.freeze_run_composition(test_db, "run-unbound-direct")
-    updated = apply_requirement_update(
-        test_db, int(row["id"]), "target_env", "stage"
-    )
+    updated = apply_requirement_update(test_db, int(row["id"]), "target_env", "stage")
     assert updated.ok
     digest = test_db.execute(
         "SELECT execution_target_digest FROM qa_requirements WHERE id=%s",
@@ -309,4 +318,3 @@ def test_unbound_run_attached_case_refuses_at_composition_freeze(
     frozen = apply_requirement_update(test_db, int(row["id"]), "target_env", "prod")
     assert not frozen.ok
     assert frozen.error_code == "frozen_requirement_immutable"
-

@@ -94,7 +94,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         elif args.command == "get":
             result = cmd_get(args.run_id, field=args.field)
             if result is None:
-                print(f"Error: deployment run '{args.run_id}' not found", file=sys.stderr)
+                print(
+                    f"Error: deployment run '{args.run_id}' not found", file=sys.stderr
+                )
                 return 1
             print(result)
             return 0
@@ -133,7 +135,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         elif args.command == "lineage":
             result = cmd_lineage(args.run_id)
             if result is None:
-                print(f"Error: run '{args.run_id}' has no release_lineage", file=sys.stderr)
+                print(
+                    f"Error: run '{args.run_id}' has no release_lineage",
+                    file=sys.stderr,
+                )
                 return 1
             if result:
                 print(result)
@@ -174,7 +179,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 return 1
 
         elif args.command == "check-batch-compatibility":
-            ok, msg = cmd_check_batch_compatibility(args.project, args.flow, args.item_ids)
+            ok, msg = cmd_check_batch_compatibility(
+                args.project, args.flow, args.item_ids
+            )
             if ok:
                 print(msg)
                 return 0
@@ -199,10 +206,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0
 
         elif args.command == "claim-preview":
-            print(cmd_claim_preview(
-                args.run_id, args.project, args.env_name,
-                env_type=args.env_type,
-            ))
+            print(
+                cmd_claim_preview(
+                    args.run_id,
+                    args.project,
+                    args.env_name,
+                    env_type=args.env_type,
+                )
+            )
             return 0
 
         elif args.command == "can-cleanup-preview":
@@ -212,7 +223,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         elif args.command == "resolve-target":
             tier, _environment_id, environment_name = cmd_resolve_target(
-                args.project, args.flow, environment_override=args.environment,
+                args.project,
+                args.flow,
+                environment_override=args.environment,
             )
             print(f"{tier}|{environment_name}")
             return 0

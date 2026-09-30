@@ -31,8 +31,9 @@ ADVANCED_STAGES = json.dumps(
             "step_runner": "qa",
             "stage_kind": "qa",
             "scope": "item",
-            "target": dict(kind="persistent_environment", environment="stage",
-                           source_stage="stage"),
+            "target": dict(
+                kind="persistent_environment", environment="stage", source_stage="stage"
+            ),
             "verdict": {"mode": "agent_only"},
         },
     ]
