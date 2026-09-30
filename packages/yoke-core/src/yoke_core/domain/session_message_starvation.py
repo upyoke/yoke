@@ -86,7 +86,9 @@ past the window while the turn is very much alive. A worker sitting in a
 twenty-one-minute ``merge-item --wait`` was escalated to a native resume
 on that reading. The open call is the proof that the route is only
 mid-stride — a hook is coming when it returns — so the envelope waits for
-it and no resume is spawned.
+it and no resume is spawned. A measured process exit newer than the
+last activity retires an orphaned open call: no native remains to return
+and run that hook.
 
 That test catches only the silence an open row can prove. A turn between
 tool calls — reasoning, streaming, or holding an armed wake subscription —
@@ -110,6 +112,9 @@ from yoke_contracts.session_control.surface_versions import (
 )
 from yoke_core.domain.session_message_types import parse_timestamp
 from yoke_core.domain.session_mode import session_is_parked
+from yoke_core.domain.session_native_process_observation import (
+    current_native_process_observation,
+)
 
 
 #: Recorded on the receipt and wake attempt this escalation authorized.
@@ -129,10 +134,12 @@ def turn_in_flight(row: Mapping[str, Any]) -> datetime | None:
     against a turn already executing is a second turn on the same
     conversation, which is the fork this refuses.
 
-    Only a live session can hold one. A session that ends has every open
-    row closed by the orphan sweep, and every caller here has already
-    established that the session reads active.
+    A verified process exit retires an orphaned open call even while the
+    session remains live under its work claim. Later activity retires that
+    exit, so a replacement process's open call still blocks a second turn.
     """
+    if current_native_process_observation(row, include_expected_exit=True) is not None:
+        return None
     return parse_timestamp(row.get("open_tool_call_since"))
 
 

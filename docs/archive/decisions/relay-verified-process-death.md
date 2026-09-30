@@ -126,6 +126,23 @@ there is something to report.
 
 ## Related
 
+Delivery reads every current verified exit, including a clean native exit
+while parked or waiting for landing. Such an exit is expected and remains
+quiet in alarm views, but it leaves no hook route for the next message.
+Later session activity still retires the observation. An open tool-call row
+left by the exited native is an orphan, not evidence of a running turn;
+the machine's existing native custody check remains the final guard against
+starting two turns on the same conversation.
+
+Messages use the existing stopped-session vendor resume with the stored
+native identity and wake instruction. The per-recipient attempt budget and
+cooldown bound retries. A terminal refusal, unavailable route, or exhausted
+budget produces one role-addressed notice per failure for the covering
+steering seat, naming the original envelope, target session, diagnosed
+reason, and recovery reads. The original receipt remains available for
+recovery, and an absent seat parks the notice for its successor. Failure
+notices never generate further failure notices.
+
 A dead process is the easy half. The same relay poll also handles a session
 that is unmistakably alive and will still never speak again, because the
 model provider ended its turn:
