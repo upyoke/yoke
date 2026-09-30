@@ -51,8 +51,8 @@ def _require_removable(conn: Any, run_id: str, item_id: int) -> str:
     if status == "failed":
         if stage_name != "item-qa-failed":
             raise ValueError(
-                f"deployment run '{run_id}' failed at {stage_name!r}; removal from "
-                "a failed run is allowed only at item-qa-failed. Repair the failed stage or use a later release."
+                f"deployment run '{run_id}' failed at {stage_name!r}; removal is "
+                "allowed only at item-qa-failed for a failed run. Repair the failed stage or use a later release."
             )
         stage_name = stage_name.removesuffix("-failed")
     current = next((s for s in stages if s.get("name") == stage_name), {})
