@@ -291,6 +291,7 @@ jobs:
 
       - name: Upload pytest output
         if: always() && env.SUITE_ALREADY_PROVEN != 'true'
+        continue-on-error: true # reporting only: an artifact 403 must not conclude a green shard red
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: pytest-output-${{ matrix.python-version }}-${{ matrix.shard }}

@@ -76,7 +76,12 @@ from the session's claimed source checkout with:
 yoke dev ruff-changed --base <ref>
 ```
 
-Add `--format-check` to also run `ruff format --check`. The command resolves the
+Add `--format-check` to also run `ruff format --check`, or `--fix-format` to
+write that formatting over the same changed files and lint the formatted result
+— formatting first, because a formatter rewrite can itself introduce or clear a
+lint diagnostic. The two are mutually exclusive: `--format-check` reports the
+reformatting, `--fix-format` performs it, and the formatting it writes is yours
+to commit. The command resolves the
 merge-base and HEAD SHAs, reads a NUL-delimited diff from that base through the
 current working tree, adds the untracked non-ignored paths Git would commit,
 excludes deleted or otherwise nonexistent paths, and runs the locked Ruff
@@ -107,6 +112,23 @@ comes from the session's claimed lane, or from an explicit `--workdir
 <checkout>`; when neither names one, the command refuses instead of guessing
 and prints the working directory it declined to use. Every line it prints
 names the tree it read, so a result is always attributable to a checkout.
+
+To answer "do the modules I just added import, and did they import from *my*
+lane?" without paying for test collection:
+
+```bash
+yoke dev import-check yoke_core.domain.<module> [<module> ...]
+```
+
+Each module is imported in the order given, in one interpreter, and every
+verdict names the file that answered the import. Both halves are the point: a
+probe that succeeded against an installed copy proves nothing about the
+checkout under edit, so an origin resolved outside the checkout is a refusal
+rather than a pass. A failure is diagnosed rather than dumped — a circular
+import, a dependency that is not importable, a namespace package with no source
+file, and module-level code that raises each get their own named reason plus the
+recovery step, alongside the deepest frame inside the checkout. There is no
+path argument: the authority is the live `sys.path` the claimed lane supplied.
 
 For a changed-test fallback, first list candidates with:
 

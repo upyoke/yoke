@@ -15,6 +15,7 @@ TOOL_CLI_ROWS: Tuple[_Row, ...] = (
     _t("yoke advance implementation-entry", "tools.advance_implementation_entry"),
     _t("yoke dev run", "tools.source_dev_run"),
     _t("yoke dev ruff-changed", "tools.ruff_changed"),
+    _t("yoke dev import-check", "tools.import_check"),
     _t("yoke watch pytest", "tools.watch"),
     _t("yoke watch doctor", "tools.watch"),
     _t("yoke watch merge", "tools.watch"),
