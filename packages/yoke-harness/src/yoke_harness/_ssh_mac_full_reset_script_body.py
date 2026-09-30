@@ -1,4 +1,4 @@
-"""Static shell body for the dedicated Test Mac reset program."""
+"""Static shell body for the dedicated Test Machine reset program."""
 
 SCRIPT_BODY = r"""
 

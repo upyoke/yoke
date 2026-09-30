@@ -81,9 +81,7 @@ def host_provisioned_capability_kinds(
         RUNNER_HOST_PROVISIONED_CAPABILITY_KINDS.get(str(runner_id or ""), ())
     )
     return tuple(
-        kind
-        for kind in capability_kinds(value, subject=subject)
-        if kind in provisioned
+        kind for kind in capability_kinds(value, subject=subject) if kind in provisioned
     )
 
 

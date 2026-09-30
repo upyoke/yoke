@@ -28,7 +28,7 @@ model values are temporary SDK placeholders and should be upgraded by later
 concrete registration.
 
 For hosted API logs, check CloudWatch from the operator machine with AWS operator
-credentials, not from the test Mac:
+credentials, not from the test machine:
 
 ```bash
 aws logs filter-log-events --log-group-name /yoke/stage/core \

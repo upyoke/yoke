@@ -134,7 +134,7 @@ COLD_START_HOSTED = terminal_case(
     "cold-start-hosted",
     "terminal-check",
     instructions=(
-        "Run the public Stage installer; choose stage.upyoke.com. Let the Test Mac's "
+        "Run the public Stage installer; choose stage.upyoke.com. Let the Test Machine's "
         "visible Safari approve the one-time code automatically; no operator browser "
         "action is needed or wanted. Finish onboarding and the parent handoff for both "
         "PATH states. Parallel manual approval consumes the code and breaks the gate."

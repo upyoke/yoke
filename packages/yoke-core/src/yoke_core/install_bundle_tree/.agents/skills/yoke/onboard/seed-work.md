@@ -57,7 +57,7 @@ yoke qa item-plan attach --item {ITEM} --project {project} --plan-id {plan_id} \
 For Yoke installer, onboarding-wizard, or machine-connection work, the
 project-owned `installer-campaign` plan is the required physical proof. Attach
 it to every seeded item whose completion claims one of those behaviors. Its
-Test Mac cases materialize one requirement per case and per declared host
+Test Machine cases materialize one requirement per case and per declared host
 baseline; do not replace them with prose, a generic `ac_verification`
 requirement, or a runbook checklist.
 

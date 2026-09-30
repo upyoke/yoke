@@ -129,11 +129,11 @@ def _execute_issued_contract(
         from yoke_core.domain.machine_qa_local_execution import (
             execute_machine_case_contract,
         )
-        from yoke_core.domain.ssh_mac_host_control import (
-            register_ssh_mac_host_control,
+        from yoke_core.domain.machine_qa_host_control import (
+            register_test_machine_host_control,
         )
 
-        register_ssh_mac_host_control()
+        register_test_machine_host_control()
         submission = execute_machine_case_contract(execution)
     except BaseException as exc:
         released = _abort_issued_contract(

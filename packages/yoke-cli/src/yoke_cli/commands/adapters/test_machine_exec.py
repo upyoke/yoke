@@ -1,4 +1,4 @@
-"""``yoke test-machine exec``: run one ad hoc command on a registered Test Mac.
+"""``yoke test-machine exec``: run one ad hoc command on a registered Test Machine.
 
 The endpoint is the test-machine capability's own host and user, read through
 the registered ``test_machine.get``; SSH runs from this machine with its
@@ -57,7 +57,7 @@ def test_machine_exec(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke test-machine exec",
         description=(
-            "Run one command on a registered Test Mac over SSH, as the "
+            "Run one command on a registered Test Machine over SSH, as the "
             "capability's user at its host. The words after `--` reach the "
             "remote login shell exactly as `ssh` sends them. Uses this "
             "machine's ssh-agent identity and pins host keys in a "

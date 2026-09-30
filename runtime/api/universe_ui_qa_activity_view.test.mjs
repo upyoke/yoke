@@ -27,7 +27,7 @@ test("Evidence view actions expose local and stranded dispositions honestly", as
           ? {
               artifact_id: 4,
               disposition: "evidence_on_machine",
-              machine: "Test Mac",
+              machine: "Test Machine",
               detail: "Open this evidence from its capture machine.",
             }
           : {
@@ -72,7 +72,7 @@ test("Evidence view actions expose local and stranded dispositions honestly", as
   const actions = byClass(host, "qa-evidence-action");
   assert.deepEqual(
     actions.map((node) => node.textContent),
-    ["on Test Mac", "not portable"],
+    ["on Test Machine", "not portable"],
   );
   assert.deepEqual(
     requests.map((request) => request.target),

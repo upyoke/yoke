@@ -1,4 +1,4 @@
-"""Receipt coverage for the Test Mac reset's relay-service unload phase.
+"""Receipt coverage for the Test Machine reset's relay-service unload phase.
 
 Companion to `test_ssh_mac_full_reset_relay_service.py`, which drives the
 phase's shell functions directly. These tests instead exercise the Python

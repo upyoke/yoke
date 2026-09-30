@@ -1,4 +1,4 @@
-"""Closed stdout parsing for the dedicated Test Mac reset receipt."""
+"""Closed stdout parsing for the dedicated Test Machine reset receipt."""
 
 from __future__ import annotations
 

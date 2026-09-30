@@ -13,13 +13,32 @@ asking the person who did it.
 
 ## Which implementation drives the host
 
-Every machine declares a `host_kind` in its settings, and each kind implements
-the same four operations behind one contract. `mac-ssh` — a macOS machine
-reached over SSH and driven through its logged-in Terminal session — is the
-registered kind. The kind is declared rather than inferred because the first
-wrong guess runs a destructive restore against a machine it does not
-understand; adding a kind is a new implementation plus a new enum value, and
-changes no command, function id, or receipt shape.
+Every Test Machine declares `os=macos|linux`. Both are persistent SSH hosts;
+`os` selects restore, terminal bridge and verification behavior. macOS uses
+its logged-in Terminal.app session; Linux uses a non-root user and tmux.
+Unsupported values refuse with `test_machine_os_unsupported` and list the
+supported values. Settings without `os` refuse with
+`test_machine_os_serving_floor_required`: deploy the next-release serving
+build and converge stored settings before running the OS-aware client.
+
+A Test Machine capability owns settings, credentials, QA leases and receipts.
+A registered capacity machine owns agent-launch capacity and relay identity.
+One physical host may have both records; the capacity registry does not grant
+QA readiness. Do not launch ordinary work into the dedicated test user's home
+while a reset or QA lease holds it. A reset owns that home, so use a different
+user for launch capacity. Machine detail links matching hostnames to capability
+commands; it does not merge either identity or lease.
+
+Linux golden directories contain a private home archive and a manifest binding
+its SHA-256 digest to the test user/home. They stay outside the home. Restore
+validates identity, digest and every archive entry before clearing the home,
+preserves `.ssh`, compares restored file digests, and proves Yoke state and
+launcher paths absent on SSH and login shells. Declared probes then check
+CLI authentication, credential files and relevant user services over SSH.
+Linux terminal evidence is a tmux transcript. Screenshot or GUI-session cases
+refuse with `headless_linux_screenshot_unavailable` and a designed deferral;
+use a macOS Test Machine for that proof. Browser-approval recipes likewise
+name `headless_linux_browser_approval_unavailable`.
 
 ## verify — the readiness gate, and what it leaves behind
 

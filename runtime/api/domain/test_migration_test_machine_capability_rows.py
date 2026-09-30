@@ -1,4 +1,4 @@
-"""Hard-cutover migration coverage for independently keyed Test Macs."""
+"""Hard-cutover migration coverage for independently keyed Test Machines."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def _settings(*, host: str = "test-mac.local") -> str:
             "resource_name": MACHINE,
             "host": host,
             "user": "yoke-test",
-            "host_kind": "mac-ssh",
+            "os": "macos",
             "operating_notes": "",
         },
         separators=(",", ":"),

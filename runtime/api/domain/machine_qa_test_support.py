@@ -334,7 +334,7 @@ def register_test_machine(
                     "resource_name": resource_name,
                     "host": "test-mac.local",
                     "user": "yoke-test",
-                    "host_kind": "mac-ssh",
+                    "os": "macos",
                     "operating_notes": "Do not interrupt an active lease.",
                 },
                 separators=(",", ":"),

@@ -1,4 +1,4 @@
-"""A machine's detail names the Test Mac capability that reaches it."""
+"""A machine's detail names the Test Machine capability that reaches it."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def _register(conn, machine: str, host: str) -> None:
             "resource_name": machine,
             "host": host,
             "user": "tester",
-            "host_kind": "mac-ssh",
+            "os": "macos",
             "operating_notes": "",
         },
         base_settings=None,
@@ -43,6 +43,7 @@ def test_the_capability_whose_host_is_this_machine_is_listed_with_its_route() ->
             "capability_type": "test-machine:test-mac",
             "host": "testers-mac-mini.tail0000.ts.net",
             "user": "tester",
+            "os": "macos",
             "exec_command": (
                 "yoke test-machine exec --project yoke --machine test-mac -- <command>"
             ),

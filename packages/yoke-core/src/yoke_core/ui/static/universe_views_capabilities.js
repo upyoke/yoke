@@ -153,7 +153,7 @@ export function renderCapabilitiesView(context, main, scope) {
   ));
   const calloutCopy = el(documentNode, "span");
   calloutCopy.appendChild(el(
-    documentNode, "strong", null, "Each Test Mac is one composite capability. ",
+    documentNode, "strong", null, "Each Test Machine is one composite capability. ",
   ));
   calloutCopy.appendChild(el(
     documentNode,

@@ -1,4 +1,4 @@
-"""Structured API adapter inventory for Test Mac operations."""
+"""Structured API adapter inventory for Test Machine operations."""
 
 from yoke_core.api.service_client_structured_api_adapter_inventory_types import (
     AdapterEntry,

@@ -119,7 +119,7 @@ test("a lease-waiting case explains contention without offering actions", async 
       required_capability_kinds: ["test-machine"],
       required_capabilities: [{
         kind: "test-machine",
-        label: "Test Mac",
+        label: "Test Machine",
         state: "in_use",
         context: {
           state: "in_use",

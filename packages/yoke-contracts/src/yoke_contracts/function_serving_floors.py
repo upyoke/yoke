@@ -58,6 +58,22 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "strategy.ingest.run": "next-release",
     "strategy.revision.restore": "next-release",
     "strategy.seed_defaults.run": "next-release",
+    "test_machine.baseline_group.abort": "next-release",
+    "test_machine.baseline_group.submit": "next-release",
+    "test_machine.baseline_group_execute": "next-release",
+    "test_machine.bridge_diagnose": "next-release",
+    "test_machine.case.abort": "next-release",
+    "test_machine.case.submit": "next-release",
+    "test_machine.case_execute": "next-release",
+    "test_machine.get": "next-release",
+    "test_machine.golden_capture": "next-release",
+    "test_machine.list": "next-release",
+    "test_machine.operation.abort": "next-release",
+    "test_machine.operation.begin": "next-release",
+    "test_machine.operation.submit": "next-release",
+    "test_machine.reset": "next-release",
+    "test_machine.settings_replace": "next-release",
+    "test_machine.verify": "next-release",
 }
 
 

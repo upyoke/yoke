@@ -107,6 +107,17 @@ class MachineQaLease:
             required_completion=required_completion,
         )
         blocker = config.get("execution_blocker")
+        if self.material.settings.get("os") == "linux" and (
+            definition["proof_kind"] == "terminal-inspection"
+            or any(
+                row.get("required_session_context")
+                for row in config.get("assertions", [])
+            )
+        ):
+            blocker = {
+                "code": "headless_linux_screenshot_unavailable",
+                "reason": "Designed deferral: Linux QA records tmux transcripts; use a macOS Test Machine for GUI evidence.",
+            }
         if isinstance(blocker, Mapping):
             return MachineCaseResult(
                 case_outcome="blocked_on_precondition",

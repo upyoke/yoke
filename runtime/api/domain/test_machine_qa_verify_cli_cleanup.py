@@ -1,4 +1,4 @@
-"""Cleanup coverage for rejected Test Mac verification submissions."""
+"""Cleanup coverage for rejected Test Machine verification submissions."""
 
 from __future__ import annotations
 

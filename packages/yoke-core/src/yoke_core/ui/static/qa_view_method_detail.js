@@ -47,7 +47,7 @@ function capabilityContract(context, method, project) {
       documentNode,
       "a",
       "qa-capability-link",
-      `${capabilityLabel(capability.kind, capability.label)} →`,
+      `${capabilityLabel(capability.kind, capability.label, capability.context)} →`,
     );
     link.href = capabilityRoute(context, project, capability.kind);
     node.appendChild(link);

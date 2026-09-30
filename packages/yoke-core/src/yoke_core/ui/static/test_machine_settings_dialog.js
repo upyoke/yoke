@@ -43,10 +43,10 @@ export function machineSettingsDialog(context, detail, close, saved) {
   dialog.setAttribute("role", "dialog");
   dialog.setAttribute("aria-modal", "true");
   dialog.setAttribute(
-    "aria-label", `Edit Test Mac ${detail.machine} settings`,
+    "aria-label", `Edit Test Machine ${detail.machine} settings`,
   );
   dialog.appendChild(el(
-    documentNode, "h2", null, `Edit Test Mac · ${detail.machine}`,
+    documentNode, "h2", null, `Edit Test Machine · ${detail.machine}`,
   ));
   dialog.appendChild(el(
     documentNode,
@@ -60,7 +60,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
     ["resource_name", "Resource name"],
     ["host", "Host"],
     ["user", "User"],
-    ["host_kind", "Host kind"],
+    ["os", "Operating system"],
     ["operating_notes", "Operating notes"],
     ["golden_baseline_path", "Golden baseline path"],
   ]) {
@@ -72,10 +72,10 @@ export function machineSettingsDialog(context, detail, close, saved) {
       input.readOnly = true;
       explanation = "The resource name is this capability row's identity.";
     }
-    if (key === "host_kind") {
+    if (key === "os") {
       explanation =
-        "Which implementation drives this host. Registered kinds: "
-        + (detail.host_kinds || []).join(", ");
+        "Persistent SSH host. Supported operating systems: "
+        + (detail.supported_oses || []).join(", ");
     }
     wrapper.appendChild(
       explanation ? tooltipHost(documentNode, input, explanation) : input,

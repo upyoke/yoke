@@ -26,7 +26,7 @@ test("machine timestamps use compact prototype-relative labels", () => {
   assert.equal(machineRelativeAge(null, now), "recently");
 });
 
-test("Test Mac detail matches capability, lease, method, and receipt prototype", async () => {
+test("Test Machine detail matches capability, lease, method, and receipt prototype", async () => {
   const prepared = context();
   const main = prepared.documentNode.createElement("main");
   await renderTestMachineDetail(prepared.value, main, "yoke");
@@ -34,7 +34,7 @@ test("Test Mac detail matches capability, lease, method, and receipt prototype",
   const rendered = text(main);
   const header = byClass(main, "test-machine-head")[0];
   assert.equal(header.classList.contains("page-head"), true);
-  assert.equal(byClass(header, "title")[0].textContent, "Test Mac");
+  assert.equal(byClass(header, "title")[0].textContent, "Test Machine");
   assert.equal(
     byClass(header, "test-machine-actions")[0]
       .classList.contains("head-actions"),
@@ -141,7 +141,7 @@ test("Test Mac detail matches capability, lease, method, and receipt prototype",
     [
       "test-mac.local",
       "yoke-test",
-      "mac-ssh",
+      "macos",
       "fresh-host",
       "shell-preconfigured",
       "host_control",
@@ -204,7 +204,7 @@ test("verification errors use the critical callout treatment", async () => {
   }
 });
 
-test("a rejected Test Mac read renders an error instead of loading forever", async () => {
+test("a rejected Test Machine read renders an error instead of loading forever", async () => {
   const documentNode = new FakeDocument();
   const main = documentNode.createElement("main");
   await renderTestMachineDetail({
@@ -219,7 +219,7 @@ test("a rejected Test Mac read renders an error instead of loading forever", asy
 
   const rendered = text(main);
   assert.match(rendered, /read failed \(HTTP 0\): Error: network unavailable/);
-  assert.doesNotMatch(rendered, /loading Test Mac/);
+  assert.doesNotMatch(rendered, /loading Test Machine/);
 });
 
 test("settings modal keeps secrets terminal-only and invalidates through typed write", async () => {
@@ -233,7 +233,7 @@ test("settings modal keeps secrets terminal-only and invalidates through typed w
   const dialog = byClass(main, "test-machine-dialog")[0];
   assert.equal(
     dialog.attributes.get("aria-label"),
-    "Edit Test Mac mac-mini-lab settings",
+    "Edit Test Machine mac-mini-lab settings",
   );
   const rendered = text(main);
   assert.match(rendered, /Secret values never enter the browser/);
@@ -275,11 +275,11 @@ test("settings modal keeps secrets terminal-only and invalidates through typed w
   );
 });
 
-test("Test Mac fleet chooser opens the selected machine", async () => {
+test("Test Machine fleet chooser opens the selected machine", async () => {
   const second = structuredClone(detail);
   second.machine = "mac-studio-lab";
   second.capability_type = "test-machine:mac-studio-lab";
-  second.display_name = "Test Mac · mac-studio-lab";
+  second.display_name = "Test Machine · mac-studio-lab";
   second.settings.resource_name = second.machine;
   second.settings.host = "mac-studio-lab.local";
   const prepared = context([detail, second]);

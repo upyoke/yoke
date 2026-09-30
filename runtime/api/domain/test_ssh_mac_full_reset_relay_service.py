@@ -1,4 +1,4 @@
-"""Executed-program coverage for the Test Mac relay-service unload phase.
+"""Executed-program coverage for the Test Machine relay-service unload phase.
 
 Every case drives a fake launchctl. A test never reaches the operator's real
 launchd domain, which is the same boundary the local relay lifecycle keeps.

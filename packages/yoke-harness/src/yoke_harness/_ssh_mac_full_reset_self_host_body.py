@@ -1,4 +1,4 @@
-"""Self-host stack teardown for the dedicated Test Mac reset program.
+"""Self-host stack teardown for the dedicated Test Machine reset program.
 
 The golden restore replaces one home and nothing else. A self-hosting server
 walk leaves state on both sides of that boundary: the bundle directory and the

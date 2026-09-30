@@ -35,7 +35,7 @@ def _verification_contract() -> dict[str, object]:
             "resource_name": "mac-mini-lab",
             "host": "test-mac.local",
             "user": "yoke-test",
-            "host_kind": "mac-ssh",
+            "os": "macos",
             "operating_notes": "",
         },
         checks=list(VERIFICATION_CHECKS),

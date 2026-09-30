@@ -70,7 +70,7 @@ function capabilityCell(context, row, project) {
   for (const capability of capabilities) {
     const link = el(
       documentNode, "a", "qa-capability-link",
-      capabilityLabel(capability.kind, capability.label),
+      capabilityLabel(capability.kind, capability.label, capability.context),
     );
     link.href = capabilityRoute(context, project, capability.kind);
     wrap.appendChild(link);

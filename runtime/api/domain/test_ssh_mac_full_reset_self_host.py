@@ -1,4 +1,4 @@
-"""Self-host teardown coverage for the dedicated Test Mac reset."""
+"""Self-host teardown coverage for the dedicated Test Machine reset."""
 
 from __future__ import annotations
 

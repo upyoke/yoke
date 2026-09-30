@@ -116,11 +116,11 @@ def run(args: list[str]) -> int:
         from yoke_core.domain.machine_qa_local_execution import (
             execute_agent_mission_host_command,
         )
-        from yoke_core.domain.ssh_mac_host_control import (
-            register_ssh_mac_host_control,
+        from yoke_core.domain.machine_qa_host_control import (
+            register_test_machine_host_control,
         )
 
-        register_ssh_mac_host_control()
+        register_test_machine_host_control()
         result = execute_agent_mission_host_command(
             contract,
             argv=command,

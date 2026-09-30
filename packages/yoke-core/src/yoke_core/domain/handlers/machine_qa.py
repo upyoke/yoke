@@ -1,4 +1,4 @@
-"""Registered reads and authority-checked operations for the Test Mac screen."""
+"""Registered reads and authority-checked operations for the Test Machine screen."""
 
 from __future__ import annotations
 
@@ -62,7 +62,8 @@ class TestMachineResponse(BaseModel):
     features: list[str]
     host_baselines: list[str]
     host_baseline_end_states: dict[str, str]
-    host_kinds: list[str]
+    supported_oses: list[str]
+    os: str
     concurrency: dict[str, Any]
     verification: dict[str, Any]
     operations: list[dict[str, Any]]

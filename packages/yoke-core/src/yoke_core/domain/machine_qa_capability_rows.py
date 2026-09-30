@@ -63,7 +63,7 @@ def test_machine_capability_rows(
         except (TypeError, ValueError, TestMachineCapabilityError) as exc:
             raise TestMachineCapabilityError(
                 f"stored capability {capability_type!r} is invalid; replace its "
-                "settings through yoke test-machine settings-replace"
+                f"settings through yoke test-machine settings-replace; {exc}"
             ) from exc
         if settings["resource_name"] != machine:
             raise TestMachineCapabilityError(

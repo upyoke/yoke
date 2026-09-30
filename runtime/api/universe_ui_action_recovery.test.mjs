@@ -68,7 +68,7 @@ test("a rejected waiver keeps its rationale and restores confirmation", async ()
   );
 });
 
-test("a rejected Test Mac save restores its label and reports retryable state", async () => {
+test("a rejected Test Machine save restores its label and reports retryable state", async () => {
   const prepared = rejectedContext("Settings service is unreachable.");
   const host = prepared.documentNode.createElement("div");
   let closes = 0;

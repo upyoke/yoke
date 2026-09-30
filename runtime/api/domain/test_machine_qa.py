@@ -29,7 +29,7 @@ from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_con
 
 def test_pack_owns_serial_machine_and_exploratory_method_definitions() -> None:
     version, methods = load_machine_qa_methods()
-    assert version == "1.1.1"
+    assert version == "1.2.0"
     assert {row["id"] for row in methods} == {
         "terminal-check",
         "terminal-inspection",
@@ -104,7 +104,7 @@ def test_test_machine_is_typed_and_secret_presence_only(
             "resource_name": "mac-mini-lab",
             "host": "test-mac.local",
             "user": "yoke-test",
-            "host_kind": "mac-ssh",
+            "os": "macos",
             "operating_notes": "Do not interrupt an active lease.",
         },
         base_settings=None,
@@ -143,7 +143,7 @@ def test_active_machine_lease_projects_its_owning_work_item() -> None:
             "resource_name": "mac-mini-lab",
             "host": "test-mac.local",
             "user": "yoke-test",
-            "host_kind": "mac-ssh",
+            "os": "macos",
             "operating_notes": "Do not interrupt an active lease.",
         },
         base_settings=None,

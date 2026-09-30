@@ -68,7 +68,7 @@ def test_the_machine_detail_carries_each_surface_beside_the_overall_status() -> 
             "resource_name": MACHINE,
             "host": "test-mac.example.ts.net",
             "user": "tester",
-            "host_kind": "mac-ssh",
+            "os": "macos",
             "operating_notes": "",
         },
         base_settings=None,

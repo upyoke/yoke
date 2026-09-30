@@ -193,18 +193,12 @@ def test_a_machine_declares_which_implementation_drives_it() -> None:
     # guessing, and the first wrong guess runs a destructive restore.
     with pytest.raises(TestMachineCapabilityError) as missing:
         validate_test_machine_settings(
-            {
-                key: value
-                for key, value in TEST_MACHINE_SETTINGS.items()
-                if key != "host_kind"
-            }
+            {key: value for key, value in TEST_MACHINE_SETTINGS.items() if key != "os"}
         )
 
-    assert "missing host_kind" in str(missing.value)
+    assert "test_machine_os_serving_floor_required" in str(missing.value)
 
     with pytest.raises(TestMachineCapabilityError) as unknown:
-        validate_test_machine_settings(
-            {**TEST_MACHINE_SETTINGS, "host_kind": "linux-ssh"}
-        )
+        validate_test_machine_settings({**TEST_MACHINE_SETTINGS, "os": "windows"})
 
-    assert "host_kind must be one of mac-ssh" in str(unknown.value)
+    assert "test_machine_os_unsupported" in str(unknown.value)

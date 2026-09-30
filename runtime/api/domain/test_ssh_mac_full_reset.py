@@ -1,4 +1,4 @@
-"""Driver coverage for the dedicated Test Mac golden-baseline restore."""
+"""Driver coverage for the dedicated Test Machine golden-baseline restore."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from runtime.api.domain.ssh_mac_full_reset_test_support import (
     closed_reset_stdout,
 )
 from yoke_cli.config import path_doctor
-from yoke_core.domain.ssh_mac_full_reset import execute_full_test_mac_reset
+from yoke_core.domain.ssh_mac_full_reset import execute_full_test_machine_reset
 from yoke_core.domain.ssh_mac_full_reset_contract import (
     FULL_DISK_ACCESS_PROBE_PATH,
     FULL_RESET_REMOTE_PATH,
@@ -41,7 +41,7 @@ def _run(transport: FakeResetTransport, **overrides):
         "golden_baseline_path": GOLDEN_BASELINE_PATH,
     }
     arguments.update(overrides)
-    return execute_full_test_mac_reset(**arguments)
+    return execute_full_test_machine_reset(**arguments)
 
 
 @pytest.mark.parametrize(

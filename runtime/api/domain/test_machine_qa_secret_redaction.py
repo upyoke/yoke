@@ -31,7 +31,7 @@ def _issued_case_contract():
             "resource_name": "test-mac",
             "host": "test-mac.local",
             "user": "tester",
-            "host_kind": "mac-ssh",
+            "os": "macos",
             "operating_notes": "",
         },
         cases=[

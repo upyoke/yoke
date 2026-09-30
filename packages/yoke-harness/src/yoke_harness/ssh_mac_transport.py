@@ -1,24 +1,19 @@
-"""Client-side SSH transport and host primitives for the dedicated Test Mac."""
+"""Client-side SSH transport and host primitives for the dedicated Test Machine."""
 
 from __future__ import annotations
 
 import base64
-from pathlib import Path
 import shlex
 import subprocess
 from typing import Any, Mapping, Sequence
 
-from yoke_cli.config.path_doctor import (
-    PathStateContract,
-    resolve_path_state_contract,
-)
 from yoke_contracts.machine_qa_execution import (
     GUI_SESSION_CONTEXT,
     REQUIRED_SESSION_CONTEXT_FIELD,
 )
 from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_harness.ssh_mac_baseline_probes import prove_declared_probes
-from yoke_harness.ssh_mac_full_reset import execute_full_test_mac_reset
+from yoke_harness.ssh_mac_full_reset import execute_full_test_machine_reset
 from yoke_harness.ssh_mac_golden_capture import capture_golden_baseline
 from yoke_harness.ssh_mac_terminal_bridge_diagnose import (
     diagnose_terminal_app_control,
@@ -33,73 +28,11 @@ from yoke_harness.ssh_mac_terminal_bridge_check import (
 from yoke_harness.test_machine_types import HostActionResult
 
 
-SSH_OPTIONS = (
-    "StrictHostKeyChecking=accept-new",
-    "UserKnownHostsFile=/dev/null",
-    "ConnectTimeout=10",
-    "BatchMode=yes",
-)
+from yoke_harness.ssh_test_machine_transport import SSH_OPTIONS, SshTestMachineTransport
 
 
-class SshMacTransport:
+class SshMacTransport(SshTestMachineTransport):
     """Bounded SSH operations shared by Test Machine client adapters."""
-
-    def __init__(
-        self,
-        *,
-        settings: Mapping[str, str],
-        key_path: str | Path,
-    ) -> None:
-        self._key_path = Path(key_path)
-        self._host = str(settings["host"])
-        self._user = str(settings["user"])
-        self.golden_baseline_path = (
-            str(settings.get("golden_baseline_path") or "") or None
-        )
-        facts = self._host_facts()
-        self.home = str(facts["home"])
-        self.shell = str(facts["shell"])
-        self.xdg_bin_home = str(facts.get("xdg_bin_home") or "") or None
-        path_env = {"HOME": self.home, "SHELL": self.shell}
-        if self.xdg_bin_home:
-            path_env["XDG_BIN_HOME"] = self.xdg_bin_home
-        self.path_state: PathStateContract = resolve_path_state_contract(env=path_env)
-
-    def _ssh_argv(self, command: str) -> list[str]:
-        return [
-            "ssh",
-            "-i",
-            str(self._key_path),
-            *[part for option in SSH_OPTIONS for part in ("-o", option)],
-            f"{self._user}@{self._host}",
-            command,
-        ]
-
-    def _run(
-        self,
-        command: str,
-        *,
-        input_text: str | None = None,
-        timeout: int = 60,
-    ) -> subprocess.CompletedProcess[str]:
-        argv = self._ssh_argv(command)
-        try:
-            return subprocess.run(
-                argv,
-                input=input_text,
-                encoding="utf-8",
-                errors="backslashreplace",
-                capture_output=True,
-                timeout=timeout,
-                check=False,
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            return subprocess.CompletedProcess(
-                argv,
-                returncode=124,
-                stdout="",
-                stderr="host_control subprocess unavailable",
-            )
 
     def _host_facts(self) -> dict[str, Any]:
         script = (
@@ -189,15 +122,6 @@ class SshMacTransport:
             probes_document=probes_document,
         )
 
-    def run_remote_command(
-        self,
-        command: str,
-        *,
-        timeout: int = 60,
-    ) -> subprocess.CompletedProcess[str]:
-        """Run one prepared shell command on the host."""
-        return self._run(command, timeout=timeout)
-
     def upload_remote_text(self, path: str, content: str) -> None:
         """Write one owner-only text file to the host."""
         result = self._run(
@@ -209,7 +133,7 @@ class SshMacTransport:
 
     def reset_installer_test_host(self) -> HostActionResult:
         """Restore the declared golden baseline over the dedicated host's home."""
-        return execute_full_test_mac_reset(
+        return execute_full_test_machine_reset(
             run_remote=self._run,
             upload_text=self.upload_remote_text,
             home=self.home,
@@ -256,17 +180,6 @@ class SshMacTransport:
             input_text=base64.b64encode(content).decode("ascii"),
         )
         return result.returncode == 0
-
-    def probe_path(self, surface: str) -> Sequence[str]:
-        flag = "-lic" if surface == "login" else "-c"
-        probe = "printf '%s' \"$PATH\""
-        result = self._run(
-            f"{shlex.quote(self.shell)} {flag} {shlex.quote(probe)}",
-            timeout=20,
-        )
-        if result.returncode:
-            raise RuntimeError(f"host_control {surface} PATH probe failed")
-        return tuple(entry for entry in result.stdout.strip().split(":") if entry)
 
     def run_command(
         self,

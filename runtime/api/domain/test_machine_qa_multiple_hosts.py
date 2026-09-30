@@ -1,4 +1,4 @@
-"""Independent storage and admission across a project's Test Mac fleet."""
+"""Independent storage and admission across a project's Test Machine fleet."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ def _settings(machine: str, *, notes: str = "") -> dict[str, str]:
         "resource_name": machine,
         "host": f"{machine}.local",
         "user": "yoke-test",
-        "host_kind": "mac-ssh",
+        "os": "macos",
         "operating_notes": notes,
     }
 
@@ -155,6 +155,7 @@ def test_mission_admission_selects_the_first_free_machine() -> None:
         "concurrency_mode": "serial_per_machine",
         "machines_total": 2,
         "machines_in_use": 1,
+        "oses": ["macos"],
     }
 
     second = begin_host_control_execution(

@@ -1,4 +1,4 @@
-"""Client-side paths and product-derived shell state for the Test Mac reset.
+"""Client-side paths and product-derived shell state for the Test Machine reset.
 
 The reset restores one captured golden home rather than enumerating residue to
 delete. Enumeration cannot be proven complete, and a host that is only mostly
@@ -224,7 +224,7 @@ def _relative_home_target(path: str, *, home: PurePosixPath) -> str:
         or selected == home
         or home not in selected.parents
     ):
-        raise ValueError("reset target escapes the explicit Test Mac home")
+        raise ValueError("reset target escapes the explicit Test Machine home")
     return str(selected.relative_to(home))
 
 

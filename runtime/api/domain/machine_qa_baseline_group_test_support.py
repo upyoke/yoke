@@ -29,7 +29,7 @@ TEST_MACHINE_SETTINGS = {
     "resource_name": "mac-mini-lab",
     "host": "test-mac.local",
     "user": "yoke-test",
-    "host_kind": "mac-ssh",
+    "os": "macos",
     "operating_notes": "",
 }
 _MACHINE_STATE_CASE_KEYS = frozenset(
@@ -152,7 +152,7 @@ def materialize_installer_campaign(
     insert_item(
         conn,
         id=item_id,
-        title="Execute one Test Mac baseline group",
+        title="Execute one Test Machine baseline group",
         workflow_id="issue",
         status="implementing",
     )

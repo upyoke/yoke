@@ -20,9 +20,9 @@ def register(registry) -> None:
         _plan_case.TestMachinePlanCaseBeginRequest,
         _plan_case.TestMachinePlanCaseBeginResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["item", "deployment_run", "global"],
-        minimum_serving_version="next-release",
         side_effects=[
             "qa_plan_execution_write",
             "coordination_claim",
@@ -45,9 +45,9 @@ def register(registry) -> None:
         _plan_case.TestMachinePlanCaseSubmitRequest,
         _plan_case.TestMachinePlanCaseSubmitResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["item", "deployment_run", "global"],
-        minimum_serving_version="next-release",
         side_effects=[
             "qa_plan_execution_write",
             "coordination_claim_heartbeat",
@@ -77,6 +77,7 @@ def register(registry) -> None:
         _abort.TestMachineCaseAbortRequest,
         _abort.TestMachineExecutionAbortResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
         side_effects=["coordination_claim_release"],
@@ -91,6 +92,7 @@ def register(registry) -> None:
         _case.TestMachineBaselineGroupExecuteRequest,
         _case.TestMachineBaselineGroupExecuteResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
         side_effects=[],
@@ -107,6 +109,7 @@ def register(registry) -> None:
         _abort.TestMachineCaseAbortRequest,
         _abort.TestMachineExecutionAbortResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
         side_effects=["coordination_claim_release"],
@@ -121,6 +124,7 @@ def register(registry) -> None:
         _case.TestMachineCaseExecuteRequest,
         _case.TestMachineCaseExecuteResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
         side_effects=[],
@@ -137,9 +141,9 @@ def register(registry) -> None:
         _case.TestMachineBaselineGroupExecuteRequest,
         _case.TestMachineBaselineGroupBeginResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
-        minimum_serving_version="next-release",
         side_effects=["coordination_claim", "qa_run_write"],
         emitted_event_names=["LeaseAcquired", "QARunStarted", "YokeFunctionCalled"],
         guardrails=[
@@ -158,6 +162,7 @@ def register(registry) -> None:
         _case.TestMachineBaselineGroupSubmitRequest,
         _case.TestMachineBaselineGroupExecuteResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
         side_effects=[
@@ -181,9 +186,9 @@ def register(registry) -> None:
         _case.TestMachineCaseExecuteRequest,
         _case.TestMachineCaseBeginResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
-        minimum_serving_version="next-release",
         side_effects=["coordination_claim", "qa_run_write"],
         emitted_event_names=["LeaseAcquired", "QARunStarted", "YokeFunctionCalled"],
         guardrails=[
@@ -201,6 +206,7 @@ def register(registry) -> None:
         _case.TestMachineCaseSubmitRequest,
         _case.TestMachineCaseExecuteResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
         side_effects=[
@@ -224,6 +230,7 @@ def register(registry) -> None:
         _list.TestMachineListRequest,
         _list.TestMachineListResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["global"],
         side_effects=[],
@@ -238,6 +245,7 @@ def register(registry) -> None:
         _handlers.TestMachineGetRequest,
         _handlers.TestMachineResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["global"],
         side_effects=[],
@@ -252,6 +260,7 @@ def register(registry) -> None:
         _handlers.TestMachineSettingsReplaceRequest,
         _handlers.TestMachineSettingsReplaceResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["global"],
         side_effects=["project_capability_write", "verification_invalidation"],
@@ -262,15 +271,15 @@ def register(registry) -> None:
         ambient_session_required=False,
     )
     for operation in TEST_MACHINE_OPERATIONS:
-        # One operator-facing id per operation, so authorization, the CLI
-        # grammar, and the hosted refusal all name the operation a person
-        # actually asked for.
+        # Authorization, CLI grammar and hosted refusals name the operation
+        # the operator requested.
         registry.register(
             f"test_machine.{operation}",
             _handlers.handle_operation_on_control_plane,
             _handlers.TestMachineGetRequest,
             _handlers.TestMachineVerifyResponse,
             stability="stable",
+            minimum_serving_version="next-release",
             owner_module=__name__,
             target_kinds=["global"],
             side_effects=[],
@@ -285,6 +294,7 @@ def register(registry) -> None:
         _abort.TestMachineOperationAbortRequest,
         _abort.TestMachineExecutionAbortResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["global"],
         side_effects=["coordination_claim_release"],
@@ -299,6 +309,7 @@ def register(registry) -> None:
         _operation.TestMachineOperationBeginRequest,
         _operation.TestMachineOperationBeginResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["global"],
         side_effects=["coordination_claim"],
@@ -317,6 +328,7 @@ def register(registry) -> None:
         _operation.TestMachineOperationSubmitRequest,
         _operation.TestMachineOperationResponse,
         stability="stable",
+        minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["global"],
         side_effects=[

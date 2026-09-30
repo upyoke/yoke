@@ -1,4 +1,4 @@
-"""Absence-roster coverage for installer temp residue on the Test Mac reset."""
+"""Absence-roster coverage for installer temp residue on the Test Machine reset."""
 
 from __future__ import annotations
 

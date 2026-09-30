@@ -1,4 +1,4 @@
-"""Authority-side persistence of Test Mac verification receipts."""
+"""Authority-side persistence of Test Machine verification receipts."""
 
 from __future__ import annotations
 

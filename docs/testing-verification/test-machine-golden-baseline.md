@@ -1,6 +1,6 @@
 # A fresh host is a user's machine, not an empty one
 
-What the Test Mac's golden baseline is, how its probes sidecar declares which
+What the Test Machine's golden baseline is, how its probes sidecar declares which
 programs it must carry signed in, and how to read a probe that fails. Companion
 to
 [`docs/testing-verification.md`](../testing-verification.md); the command that
@@ -118,7 +118,7 @@ taken while any declared program is signed out restores a host that Yoke
 itself rejects as not user-equivalent, and the missions that depend on it park
 on a machine no user has.
 
-As an illustrative snapshot, the current Test Mac sidecar has three probes:
+As an illustrative snapshot, the current Test Machine sidecar has three probes:
 `claude auth status`, `codex login status`, and `cursor-agent status`. That
 list can change with the baseline. The latter two commands report output
 containing `Logged in` when authenticated, matching their current sidecar

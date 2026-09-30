@@ -1,4 +1,4 @@
-"""`yoke test-machine exec` reaches a Test Mac without the operator's ~/.ssh."""
+"""`yoke test-machine exec` reaches a Test Machine without the operator's ~/.ssh."""
 
 from __future__ import annotations
 

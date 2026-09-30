@@ -105,7 +105,7 @@ yoke qa plan run \
 The command verifies that the run and plan belong to the same project,
 idempotently snapshots the plan cases onto
 `qa_requirements.deployment_run_id`, and executes the server-issued roster.
-The durable cursor and selected Test Mac lease are bound to that deployment
+The durable cursor and selected Test Machine lease are bound to that deployment
 run; normal QA runs, artifacts, and verdicts remain attached to the
 materialized requirements. Host control always uses the registered
 two-phase execution protocol.
@@ -163,7 +163,7 @@ CLIs, each with an observable check — ships in the
 `docs/packs/machine-qa/host-provisioning.md`. Follow it there; a second copy
 here is how this checklist went stale before.
 
-This project's Test Mac fleet adds only host-specific facts:
+This project's Test Machine fleet adds only host-specific facts:
 
 | Resource | Host/user | Golden baseline and fixture notes |
 | --- | --- | --- |
@@ -177,10 +177,10 @@ browser action is needed; redeeming the one-time code in another browser
 consumes it and breaks the gate (`machine_browser_tab_missing`).
 
 The saved settings document contains `resource_name`, `host`, `user`,
-`host_kind`, `operating_notes`, and an optional `golden_baseline_path`. No
-credentials. `host_kind` names which implementation drives the host (`mac-ssh`
-is the registered kind), declared rather than inferred because a guessing
-operation runs a destructive restore. `ssh_private_key` is the only Test Mac
+`os`, `operating_notes`, and an optional `golden_baseline_path`. No
+credentials. `os` names which implementation drives the host (`macos` and `linux`
+are supported; every machine is persistent over SSH), declared rather than inferred because a guessing
+operation runs a destructive restore. `ssh_private_key` is the only Test Machine
 credential. Store it on the machine that runs `host_control`:
 
 ```text

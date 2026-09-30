@@ -1,4 +1,4 @@
-"""Upload, execute, and verify the dedicated Test Mac full reset."""
+"""Upload, execute, and verify the dedicated Test Machine full reset."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ def _command(*argv: str) -> str:
     return shlex.join(argv)
 
 
-def execute_full_test_mac_reset(
+def execute_full_test_machine_reset(
     *,
     run_remote: ResetRunner,
     upload_text: ResetUploader,
@@ -230,6 +230,6 @@ def execute_full_test_mac_reset(
 
 
 __all__ = [
-    "execute_full_test_mac_reset",
+    "execute_full_test_machine_reset",
     "is_safe_test_mac_home",
 ]

@@ -14,7 +14,7 @@ from yoke_contracts.machine_config.test_machine import (
     validate_test_machine_resource_name,
     validate_test_machine_settings,
 )
-from yoke_contracts.machine_config.test_machine import TEST_MACHINE_HOST_KINDS
+from yoke_contracts.machine_config.test_machine import TEST_MACHINE_OSES
 from yoke_contracts.machine_qa_execution import (
     HOST_BASELINE_END_STATE,
     HOST_BASELINES,
@@ -50,12 +50,10 @@ from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 
 HOST_CONTROL_EXECUTOR_ID = "host_control"
-TEST_MACHINE_FEATURES = (
-    "Terminal.app",
-    "PTY",
-    "screenshots",
-    "post-install shell",
-)
+TEST_MACHINE_FEATURES_BY_OS = {
+    "macos": ("Terminal.app", "PTY", "screenshots", "post-install shell"),
+    "linux": ("tmux", "PTY", "transcripts", "post-install shell"),
+}
 TEST_MACHINE_BASELINES = HOST_BASELINES
 
 
@@ -172,7 +170,7 @@ def _test_machine_detail(
     *,
     row: TestMachineCapabilityRow,
 ) -> dict[str, Any]:
-    """Return the exact secret-free projection needed by the Test Mac screen."""
+    """Return the exact secret-free projection needed by the Test Machine screen."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     verification = conn.execute(
         "SELECT status,checked_at,receipt_json,error_code "
@@ -214,10 +212,11 @@ def _test_machine_detail(
         "runner_id": HOST_CONTROL_EXECUTOR_ID,
         "settings": row.settings,
         "settings_token": row.settings_token,
-        "features": list(TEST_MACHINE_FEATURES),
+        "features": list(TEST_MACHINE_FEATURES_BY_OS[row.settings["os"]]),
         "host_baselines": list(TEST_MACHINE_BASELINES),
         "host_baseline_end_states": dict(HOST_BASELINE_END_STATE),
-        "host_kinds": list(TEST_MACHINE_HOST_KINDS),
+        "supported_oses": list(TEST_MACHINE_OSES),
+        "os": row.settings["os"],
         "concurrency": {"limit": 1, "mode": "serial", "scope": "machine"},
         "verification": {
             "status": status,
@@ -302,7 +301,7 @@ __all__ = [
     "HOST_CONTROL_EXECUTOR_ID",
     "host_end_state",
     "TEST_MACHINE_BASELINES",
-    "TEST_MACHINE_FEATURES",
+    "TEST_MACHINE_FEATURES_BY_OS",
     "TestMachineCapabilityError",
     "host_claim_key",
     "host_claim_target",

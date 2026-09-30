@@ -99,7 +99,7 @@ REVIEW_FRAME = terminal_case(
     "review-frame",
     "terminal-inspection",
     instructions=(
-        "Let the Test Mac's visible Safari session automatically approve the "
+        "Let the Test Machine's visible Safari session automatically approve the "
         "live Stage machine authorization; no operator browser action is "
         "needed or wanted. Stay disabled for GitHub and inspect the machine-only "
         "Review frame without choosing Apply. A parallel manual approval "

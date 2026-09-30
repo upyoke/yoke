@@ -291,7 +291,7 @@ def test_machine_lease_redacts_typed_recipe_evidence_before_submission() -> None
                 "resource_name": "test-mac",
                 "host": "test-mac.local",
                 "user": "tester",
-                "host_kind": "mac-ssh",
+                "os": "macos",
                 "operating_notes": "",
             },
             secrets={"ssh_private_key": "top-secret"},

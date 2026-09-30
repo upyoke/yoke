@@ -23,6 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
+from yoke_core.domain.steering_fleet_report_test_machines import read_test_machines
 from yoke_core.domain.machine_registry import machine_names
 from yoke_core.domain.merge_queue_read_reuse import MergeQueueReads
 from yoke_core.domain.session_launch_capacity import MachineCapacity
@@ -104,6 +105,7 @@ class ProjectFleetFacts:
     machine_capacity: tuple[MachineCapacity, ...]
     relay_health: tuple[RelayHealthCondition, ...]
     machine_names: Mapping[str, str]
+    test_machines: tuple[tuple[str, str], ...] = ()
 
 
 def read_project_facts(
@@ -151,6 +153,7 @@ def read_project_facts(
         machine_capacity=machine_capacities(conn, project_id=project_id, now=now),
         relay_health=relay_health_conditions(conn, project_id=project_id, now=now),
         machine_names=registered_names,
+        test_machines=read_test_machines(conn, project_id),
     )
 
 

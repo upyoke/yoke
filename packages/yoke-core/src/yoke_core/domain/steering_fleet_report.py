@@ -129,6 +129,7 @@ class FleetReport:
     #: Registered machine names keyed by machine id, so every per-machine row
     #: shows the name its operator gave the box rather than a bare UUID.
     machine_names: tuple[tuple[str, str], ...] = ()
+    test_machines: tuple[tuple[str, str], ...] = ()
     origin_counts: tuple[tuple[str, int], ...] = ()
     #: Live sessions whose last turn the model provider ended. Every other
     #: detector reads one of these as a worker quietly thinking.
@@ -326,6 +327,7 @@ def compose_report(
             )
         ),
         machine_names=tuple(sorted(facts.machine_names.items())),
+        test_machines=facts.test_machines,
         relay_health=facts.relay_health,
         messages_awaiting_seat=awaiting_seat_count(
             conn,

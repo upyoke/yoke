@@ -240,7 +240,7 @@ def test_detail_proof_summarizes_current_runs_and_no_run_fallback(monkeypatch):
                 None,
                 "running",
                 None,
-                '{"lease_summary":"Test Mac leased",'
+                '{"lease_summary":"Test Machine leased",'
                 '"evidence_summary":"transcript + screenshots"}',
             ),
             (
@@ -275,7 +275,7 @@ def test_detail_proof_summarizes_current_runs_and_no_run_fallback(monkeypatch):
     )
     assert rows["cold-start-hosted"]["outcome"] == "running"
     assert rows["cold-start-hosted"]["proof_summary"] == (
-        "Test Mac leased · transcript + screenshots"
+        "Test Machine leased · transcript + screenshots"
     )
     assert "raw_result" not in rows["cold-start-hosted"]
     assert rows["not-started"]["outcome"] == "queued"

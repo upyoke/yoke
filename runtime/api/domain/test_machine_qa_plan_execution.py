@@ -1,4 +1,4 @@
-"""One uninterrupted Test Mac lease across an ordered QA plan."""
+"""One uninterrupted Test Machine lease across an ordered QA plan."""
 
 from __future__ import annotations
 

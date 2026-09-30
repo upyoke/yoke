@@ -1,4 +1,4 @@
-"""Per-surface reading of one Test Mac verification receipt.
+"""Per-surface reading of one Test Machine verification receipt.
 
 Verification runs named checks that prove different routes into the host:
 ``connection`` proves SSH -- the route remote exec, resets, and machine
