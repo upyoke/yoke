@@ -21,7 +21,7 @@ import shutil
 import subprocess
 from typing import Any
 
-from yoke_cli.config import github_repo_helper_reconnect, install_binding
+from yoke_cli.config import distribution, github_repo_helper_reconnect, install_binding
 from yoke_cli.self_host import release_target
 
 VERSION_PROBE_TIMEOUT_SECONDS = 30.0
@@ -60,7 +60,12 @@ def run_update(*, channel: str | None = None) -> dict[str, Any]:
         raise SelfUpdateError("could not resolve the `yoke` executable on PATH")
 
     try:
-        target = release_target.channel_release_target(channel=channel)
+        selected = distribution.recorded()
+        target = release_target.channel_release_target(
+            channel=channel or selected["channel"], base_url=selected["origin"]
+        )
+    except distribution.DistributionError as exc:
+        raise SelfUpdateError(str(exc)) from exc
     except release_target.ReleaseTargetError as exc:
         raise SelfUpdateError(f"could not resolve the release channel: {exc}") from exc
 

@@ -259,6 +259,7 @@ class Installer:
         # print a "ready" screen before raising.
         self._product_boundary_audit(expected_version=version, yoke_bin=yoke_bin)
         self._repair_credential_helper(yoke_bin)
+        self._record_distribution(yoke_bin)
         if already:
             print(self._say(f"Yoke v{display} already installed"), file=self.stdout)
         else:
@@ -504,6 +505,23 @@ class Installer:
                     "Rebuilt the git credential helper bundle this install wiped."
                 ),
                 file=self.stdout,
+            )
+
+    def _record_distribution(self, yoke_bin: str) -> None:
+        argv = [
+            yoke_bin,
+            "config",
+            "distribution",
+            "set",
+            "--origin",
+            self.options.base_url,
+            "--channel",
+            self.options.channel,
+        ]
+        result = self.capture_runner(argv)
+        if result.returncode != 0:
+            raise InstallError(
+                "distribution_record_failed: " + _format_command_failure(argv, result)
             )
 
     def _advise_path(self) -> None:

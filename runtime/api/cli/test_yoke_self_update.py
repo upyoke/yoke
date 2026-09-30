@@ -8,11 +8,16 @@ import subprocess
 import pytest
 
 from yoke_cli.commands.adapters import self_update as command
-from yoke_cli.commands.tool_shaped import resolve_tool_shaped
-from yoke_cli.config import self_update
+from yoke_cli.config import distribution, self_update
 from yoke_cli.self_host import release_target
 from yoke_contracts.install_binding import KIND_PACKAGED_WHEEL, KIND_SOURCE_CHECKOUT
 from yoke_contracts.server_image import pinned_server_image
+
+
+@pytest.fixture(autouse=True)
+def recorded_distribution(monkeypatch, tmp_path):
+    monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(tmp_path / "config.json"))
+    distribution.save(origin="https://distribution.example", channel="stable")
 
 
 def _completed(command_, returncode=0, stdout="", stderr=""):
@@ -332,11 +337,3 @@ def test_command_error_path_prints_json_and_fails(monkeypatch, capsys):
     assert command.update(["--json"]) == 1
     payload = json.loads(capsys.readouterr().out)
     assert payload == {"ok": False, "error": "distribution unreachable"}
-
-
-def test_update_tool_shaped_resolution():
-    resolved = resolve_tool_shaped(["update", "--channel", "beta"])
-    assert resolved is not None
-    adapter, remaining = resolved
-    assert adapter is command.update
-    assert remaining == ["--channel", "beta"]

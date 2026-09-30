@@ -118,6 +118,8 @@ def test_run_installer_writes_pinned_args_and_cleans_up_temp_file(
         "--no-onboard",
         "--base-url",
         selected_release.base_url,
+        "--channel",
+        selected_release.channel,
         "--dry-run",
     )
     assert not Path(command[1]).exists(), "temp installer file must be cleaned up"

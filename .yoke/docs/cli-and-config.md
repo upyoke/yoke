@@ -81,6 +81,12 @@ the surface API; tier-to-model routing still comes from
 environment is active, API URLs, local paths. Secrets for capabilities live
 under `~/.yoke/secrets/` (not in the repo).
 
+The installer records `settings.distribution` as `{"origin": "https://api.upyoke.com",
+"channel": "stable"}` using the actual install selection. `yoke update` requires
+that record and uses it in a fresh shell. Select or repair it explicitly with
+`yoke config distribution set --origin URL --channel NAME`; run that command's
+`--help` for flags. This does not change the active control-plane connection.
+
 Launch defaults retain the scalar `preferred_session_models` map that the
 previous release can read. The model ids below are illustrative selector
 syntax, not recommended models. Context stays encoded in each native model

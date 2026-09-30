@@ -56,7 +56,7 @@ def current_release_target(*, base_url: str | None = None) -> ReleaseTarget:
     their exact wheel version. A source checkout has no owning wheel version,
     so development runs derive the same image tag directly from Git HEAD.
     """
-    selected_base = _distribution_base_url(base_url)
+    selected_base = distribution_base_url(base_url)
     version = local_handshake_version().strip()
     if not version:
         return _source_checkout_target(selected_base)
@@ -91,14 +91,12 @@ def channel_release_target(
     *, channel: str | None = None, base_url: str | None = None
 ) -> ReleaseTarget:
     """Resolve one distribution channel to its lockstep upgrade target."""
-    selected_channel = str(
-        channel or os.environ.get(RELEASE_CHANNEL_ENV) or DEFAULT_RELEASE_CHANNEL
-    ).strip()
-    if not _CHANNEL.fullmatch(selected_channel):
-        raise ReleaseTargetError(
-            f"invalid release channel {selected_channel!r}; use a published channel name"
-        )
-    selected_base = _distribution_base_url(base_url)
+    selected_channel = release_channel(
+        str(
+            channel or os.environ.get(RELEASE_CHANNEL_ENV) or DEFAULT_RELEASE_CHANNEL
+        ).strip()
+    )
+    selected_base = distribution_base_url(base_url)
     channel_url = f"{selected_base}/dist/channels/{selected_channel}.json"
     payload = _fetch_json(channel_url, f"{selected_channel} release channel")
     if payload.get("schema_version") != 3:
@@ -185,6 +183,8 @@ def run_installer(
             "--no-onboard",
             "--base-url",
             target.base_url,
+            "--channel",
+            target.channel or DEFAULT_RELEASE_CHANNEL,
             *extra_args,
         )
         return _RUN(
@@ -261,7 +261,17 @@ def _require_source_commit(value: object, label: str) -> str:
     return source_commit
 
 
-def _distribution_base_url(override: str | None) -> str:
+def release_channel(value: str) -> str:
+    """Validate an explicit channel without selecting a default."""
+    if not _CHANNEL.fullmatch(value):
+        raise ReleaseTargetError(
+            "invalid release channel; use a published channel name"
+        )
+    return value
+
+
+def distribution_base_url(override: str | None) -> str:
+    """Select and validate one credential-free distribution origin."""
     selected = (
         str(
             override
@@ -271,7 +281,10 @@ def _distribution_base_url(override: str | None) -> str:
         .strip()
         .rstrip("/")
     )
-    parsed = urllib.parse.urlparse(selected)
+    try:
+        parsed = urllib.parse.urlparse(selected)
+    except ValueError as exc:
+        raise ReleaseTargetError("invalid Yoke distribution origin") from exc
     if (
         parsed.scheme not in {"http", "https"}
         or not parsed.netloc
@@ -315,6 +328,8 @@ __all__ = [
     "ReleaseTargetError",
     "channel_release_target",
     "current_release_target",
+    "distribution_base_url",
     "fetch_installer",
+    "release_channel",
     "run_installer",
 ]
