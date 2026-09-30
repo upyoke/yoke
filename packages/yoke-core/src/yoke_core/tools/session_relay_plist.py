@@ -128,7 +128,6 @@ def relay_plist_document(
             machine_config.CONFIG_FILE_ENV: str(resolved.config_path),
             machine_config.HOME_ENV: str(resolved.yoke_home),
         },
-        "ProcessType": "Background",
         "RunAtLoad": True,
         "KeepAlive": RELAY_KEEP_ALIVE,
         "StandardOutPath": str(resolved.stdout_log),
