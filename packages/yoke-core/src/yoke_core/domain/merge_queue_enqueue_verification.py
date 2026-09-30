@@ -195,23 +195,24 @@ class LandingReadback:
         return template.format(target=target)
 
 
-def read_landing(
+def admission_facts_for_state(
     ctx: MergeContext,
     pr_num: str,
+    state: Optional[PrLandingState],
+    state_error: str = "",
     *,
-    read_state: Callable[..., object] = read_pr_landing_state,
     read_membership: Callable[..., object] = read_pr_queue_membership,
     read_checks: Callable[..., object] = read_required_checks,
 ) -> LandingReadback:
-    """Read the four admission facts for ``pr_num`` in one pass.
+    """Complete the admission facts for a landing state already read.
 
     A merged or unreadable pull request stops there: the queue standing
     and required checks of a landing that is already over answer nothing
-    the caller is about to decide.
+    the caller is about to decide. Callers that read the state for their
+    own reasons first finish the set here instead of reading it twice.
     """
-    state, state_error = read_state(ctx, pr_num)
     if state is None or state.merged:
-        return LandingReadback(state=state, state_error=state_error or "")
+        return LandingReadback(state=state, state_error=state_error)
     membership, membership_error = read_membership(ctx, pr_num)
     checks, checks_error = read_checks(ctx, pr_num)
     return LandingReadback(
@@ -220,6 +221,26 @@ def read_landing(
         required_checks=checks,
         membership_error=membership_error or "",
         checks_error=checks_error or "",
+    )
+
+
+def read_landing(
+    ctx: MergeContext,
+    pr_num: str,
+    *,
+    read_state: Callable[..., object] = read_pr_landing_state,
+    read_membership: Callable[..., object] = read_pr_queue_membership,
+    read_checks: Callable[..., object] = read_required_checks,
+) -> LandingReadback:
+    """Read the four admission facts for ``pr_num`` in one pass."""
+    state, state_error = read_state(ctx, pr_num)
+    return admission_facts_for_state(
+        ctx,
+        pr_num,
+        state,
+        state_error or "",
+        read_membership=read_membership,
+        read_checks=read_checks,
     )
 
 
@@ -299,6 +320,7 @@ def red_entry_checks_refusal(
 __all__ = [
     "ADMISSION_CONFIRM_SECONDS",
     "LandingReadback",
+    "admission_facts_for_state",
     "landing_eligible",
     "read_landing",
     "red_entry_checks_refusal",

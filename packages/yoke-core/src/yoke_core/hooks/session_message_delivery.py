@@ -29,7 +29,6 @@ from yoke_core.domain.session_message_delivery_probe import (
 from yoke_core.hooks.fleet_watcher_presence import maybe_append_fleet_watcher_nudge
 from yoke_core.hooks.session_message_delivery_port import (
     CoreSessionMessageDeliveryPort,
-    LeasedSessionMessage,
     SessionMessageDeliveryPort,
     SessionMessageLease,
 )

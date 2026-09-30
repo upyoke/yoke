@@ -66,6 +66,17 @@ ARMED_AWAITING_CHECKS_NEW_HEAD = PrLandingState(
     head_sha="ef" * 20,
 )
 
+#: An open pull request nobody armed. The route that hands nothing off,
+#: and the one candidate shape still worth a single question: it cannot have
+#: been dropped by a queue it was never offered to.
+OPEN_UNARMED = PrLandingState(
+    merged=False,
+    closed=False,
+    auto_merge_active=False,
+    merge_state_status="blocked",
+    head_sha="ab" * 20,
+)
+
 OUT_OF_QUEUE = PrQueueMembership(in_queue=False, mergeable="CONFLICTING")
 NOT_QUEUED = PrQueueMembership(in_queue=False, mergeable="MERGEABLE")
 IN_QUEUE = PrQueueMembership(
@@ -135,6 +146,15 @@ def armed_awaiting_checks(_ctx, _pr_number):
 
 def armed_awaiting_checks_new_head(_ctx, _pr_number):
     return ARMED_AWAITING_CHECKS_NEW_HEAD, None
+
+
+def open_unarmed(_ctx, _pr_number):
+    return OPEN_UNARMED, None
+
+
+def unreadable(_ctx, _pr_number):
+    """A reader that must not be called, so the cheap route stays cheap."""
+    raise AssertionError("an unarmed pull request costs one question")
 
 
 def out_of_queue(_ctx, _pr_number):
@@ -259,6 +279,8 @@ __all__ = [
     "message_id_for",
     "message_id_for_prefix",
     "never_armed",
+    "open_unarmed",
+    "unreadable",
     "not_queued",
     "observe",
     "observer_connection",
