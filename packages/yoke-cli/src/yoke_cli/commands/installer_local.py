@@ -30,7 +30,11 @@ from yoke_cli.commands.adapters.path_doctor import (
     path_group,
     path_verify,
 )
-from yoke_cli.commands.adapters.source_dev_run import ruff_changed, source_dev_run
+from yoke_cli.commands.adapters.source_dev_run import (
+    import_check,
+    ruff_changed,
+    source_dev_run,
+)
 from yoke_cli.commands.adapters.runner_fleet import runner_fleet_exec
 from yoke_cli.commands.adapters.pulumi import pulumi_exec
 from yoke_cli.commands.adapters.vps import vps_start, vps_status, vps_stop
@@ -60,6 +64,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("dev", "setup"): dev_setup,
     ("dev", "run"): source_dev_run,
     ("dev", "ruff-changed"): ruff_changed,
+    ("dev", "import-check"): import_check,
     ("dev", "db-admin", "setup"): dev_db_admin_setup,
     ("dev", "path-snapshot-prewarm"): dev_path_snapshot_prewarm,
     ("onboard",): onboard,
@@ -98,7 +103,10 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke github credential-helper refresh": GITHUB_CREDENTIAL_HELPER_REFRESH_USAGE,
     "yoke dev setup": "yoke dev setup [CHECKOUT]",
     "yoke dev run": "yoke dev run -- <command>",
-    "yoke dev ruff-changed": ("yoke dev ruff-changed --base REF [--format-check]"),
+    "yoke dev ruff-changed": (
+        "yoke dev ruff-changed --base REF [--format-check] [--fix-format]"
+    ),
+    "yoke dev import-check": "yoke dev import-check MODULE [MODULE ...]",
     "yoke dev db-admin setup": (
         "yoke dev db-admin setup <env> [--control-plane-env CONNECTION_ENV] [--yes]"
     ),

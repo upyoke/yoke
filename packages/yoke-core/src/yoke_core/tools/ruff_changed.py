@@ -111,7 +111,13 @@ def resolve_tree(workdir: str | None) -> tuple[Path | None, str | None]:
     return source_dev_run.claimed_lane_root()
 
 
-def run(base: str, *, format_check: bool = False, root: Path) -> int:
+def run(
+    base: str,
+    *,
+    format_check: bool = False,
+    fix_format: bool = False,
+    root: Path,
+) -> int:
     checkout = Path(root).resolve()
     try:
         selection = select_changed_python_paths(base, checkout)
@@ -142,6 +148,17 @@ def run(base: str, *, format_check: bool = False, root: Path) -> int:
         f"{base} in {checkout}"
     )
     print(f"ruff-changed: {coverage}")
+    if fix_format:
+        # Format before linting so the check sees the bytes a commit will carry:
+        # a formatter rewrite can itself introduce or clear a lint diagnostic.
+        format_status = _run_ruff(checkout, ("format",), paths)
+        if format_status:
+            print(
+                f"ruff-changed: ruff format failed with status {format_status}; "
+                "no formatting was applied",
+                file=sys.stderr,
+            )
+            return format_status
     check_status = _run_ruff(checkout, ("check",), paths)
     if check_status:
         print(
@@ -159,6 +176,12 @@ def run(base: str, *, format_check: bool = False, root: Path) -> int:
             )
             return format_status
 
+    if fix_format:
+        print(
+            f"ruff-changed: formatted and check passed for {count} {noun} in "
+            f"{checkout}; commit the formatting this wrote"
+        )
+        return 0
     suffix = " and format" if format_check else ""
     print(f"ruff-changed: check{suffix} passed for {count} {noun} in {checkout}")
     return 0
@@ -191,10 +214,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             "lane; the working directory is never used."
         ),
     )
-    parser.add_argument(
+    formatting = parser.add_mutually_exclusive_group()
+    formatting.add_argument(
         "--format-check",
         action="store_true",
         help="Also run `ruff format --check` on the changed files.",
+    )
+    formatting.add_argument(
+        "--fix-format",
+        action="store_true",
+        help=(
+            "Write `ruff format` over the same changed files, then lint the "
+            "formatted result. Use this instead of --format-check to repair "
+            "the formatting that check would report."
+        ),
     )
     parsed = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
     tree, error = resolve_tree(parsed.workdir)
@@ -214,7 +247,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-    return run(parsed.base, format_check=parsed.format_check, root=tree)
+    return run(
+        parsed.base,
+        format_check=parsed.format_check,
+        fix_format=parsed.fix_format,
+        root=tree,
+    )
 
 
 __all__ = [

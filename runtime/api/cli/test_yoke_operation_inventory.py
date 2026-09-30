@@ -124,6 +124,7 @@ class TestRegistryShape:
             "yoke advance implementation-entry",
             "yoke dev run",
             "yoke dev ruff-changed",
+            "yoke dev import-check",
             "yoke watch pytest",
             "yoke watch doctor",
             "yoke watch merge",

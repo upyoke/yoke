@@ -5,6 +5,25 @@ repository's simplify doctrine and governed database rules. Run focused
 checks while editing. Capture every non-trivial test or build before
 inspecting its tail.
 
+## Two checks that cost seconds
+
+Run both before you commit, so verification meets no failure the lane could
+have answered:
+
+```text
+yoke dev import-check <module> [<module> ...]
+yoke dev ruff-changed --base <base-branch> --fix-format
+```
+
+`import-check` imports the modules you added or moved and names the file that
+answered each one — a circular import, a missing dependency, or module-level
+code that raises surfaces here instead of in test collection.
+
+`--fix-format` writes the formatting over the same changed-path set the
+required CI contract checks, then lints the formatted result. Use it rather
+than `--format-check`, which only reports the reformatting you would then have
+to apply by hand. Commit the formatting it writes.
+
 Size is not a reason to leave Dash. Plan, coordinate across files, and
 implement in as many incremental steps as the instruction needs — all here.
 The operator chose this workflow; never propose another because the work

@@ -229,3 +229,38 @@ def test_help_skips_github_and_control_plane_authority(monkeypatch) -> None:
 
     assert local_runtime.main(["--help"]) == 0
     assert seen == [["--help"]]
+
+
+def test_help_resolves_no_secret(monkeypatch) -> None:
+    """``--help`` printed nothing for over two minutes while the control-plane
+    database secret loaded. Help is a contract read: it must not reach a secret
+    store, a tunnel, or the AWS SDK to describe its own flags."""
+    monkeypatch.setattr(
+        local_runtime.machine_config,
+        "active_env",
+        lambda *_a, **_k: pytest.fail("help must not select a control plane"),
+    )
+    monkeypatch.setattr(
+        local_runtime.merge_path_binding,
+        "resolve_selection",
+        lambda: pytest.fail("help must not bind GitHub"),
+    )
+
+    forbidden = (
+        "yoke_core.domain.connected_env_readiness",
+        "yoke_core.domain.aws_machine_client",
+        "yoke_core.domain.close_out_control_plane_authority",
+    )
+    real_import = local_runtime.importlib.import_module
+
+    def import_module(name: str):
+        if name in forbidden:
+            pytest.fail(f"help must not import {name}")
+        if name == "yoke_core.domain.standalone_item_merge_cli":
+            return SimpleNamespace(main=lambda _argv: 0)
+        return real_import(name)
+
+    monkeypatch.setattr(local_runtime.importlib, "import_module", import_module)
+
+    assert local_runtime.run(["--help"]) == 0
+    assert local_runtime.run(["-h"]) == 0

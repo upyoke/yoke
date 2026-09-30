@@ -3,10 +3,16 @@
 The capability resolver owns credential selection and custody. Callers receive
 an in-process SDK client configured with only the selected values; credentials
 are never exported into the operator shell or included in diagnosed errors.
+
+"Only the selected values" is enforced, not assumed: the client is built on a
+botocore session with the shared config and credentials files detached, so the
+operator's ambient AWS setup can neither answer a lookup the resolver owns nor
+make a client build wait on the filesystem behind ``~/.aws``.
 """
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Any, Callable, Mapping
 
@@ -77,10 +83,35 @@ def _client_config() -> Any:
     )
 
 
+#: Overrides for the botocore session variables that would otherwise reach the
+#: operator's ambient AWS setup. Each value is botocore's
+#: ``(config_file_key, env_var_names, default, conversion_func)`` tuple, so
+#: ``None`` for the env-var slot detaches the variable from the environment and
+#: the third slot replaces botocore's ``~/.aws`` default. Credentials, region,
+#: and timeouts all arrive from the capability resolver, so nothing here is a
+#: lost input — but reading the shared files is an active hazard: on a machine
+#: where ``~/.aws`` is a cloud-synced directory, materialising an evicted file
+#: blocked a client build for minutes, and an ambient profile could silently
+#: answer a lookup the resolver is supposed to own.
+_DETACHED_SESSION_VARS: dict[str, tuple[None, None, Any, None]] = {
+    "config_file": (None, None, os.devnull, None),
+    "credentials_file": (None, None, os.devnull, None),
+    "profile": (None, None, None, None),
+}
+
+
+def _isolated_botocore_session() -> Any:
+    """Build a botocore session that consults no shared AWS config on disk."""
+    from botocore.session import Session
+
+    return Session(session_vars=dict(_DETACHED_SESSION_VARS))
+
+
 def _boto3_client(service_name: str, **kwargs: Any) -> Any:
     import boto3
 
-    return boto3.client(service_name, **kwargs)
+    session = boto3.Session(botocore_session=_isolated_botocore_session())
+    return session.client(service_name, **kwargs)
 
 
 __all__ = ["machine_aws_client", "safe_aws_error_reason"]

@@ -8,10 +8,11 @@ the script at ``/tmp/<name>.py`` and then fail at run time with
 not the caller's cwd.
 
 The structural fix is to refuse the ``Write`` call before the bad file
-lands. The deny reason teaches the canonical alternatives: place the
-script under ``runtime/api/tools/<name>.py`` (in-tree, supports imports
-natively), or use the registered ``yoke <subcommand>`` CLI adapter for
-the underlying operation (no Python authoring needed).
+lands. The deny reason teaches the canonical alternatives: use the
+registered ``yoke <subcommand>`` CLI adapter for the underlying operation
+(no Python authoring needed), reach for ``yoke dev import-check`` when the
+script would only have probed whether a module imports, or place the script
+under ``runtime/api/tools/<name>.py`` (in-tree, supports imports natively).
 
 Allowed shapes the lint stays out of:
 
@@ -89,9 +90,13 @@ _DENY_REASON = (
     "  1. Registered CLI adapter — most one-off DB writes need no Python at all:\n"
     "       printf '%s' \"$content\" | yoke items structured-field replace "
     "YOK-N --field <field> --stdin\n"
-    "  2. In-tree Python — place the script under runtime/api/tools/<name>.py "
+    "  2. Probing whether source imports — `yoke dev import-check "
+    "<module> ...` imports named modules from your claimed lane and names "
+    "the file that answered each one, so no scratch script is needed to "
+    "smoke-test a new module.\n"
+    "  3. In-tree Python — place the script under runtime/api/tools/<name>.py "
     "where the package layout supports imports natively.\n"
-    "  3. Editable install — `pip install -e /Users/<...>/yoke` once; "
+    "  4. Editable install — `pip install -e /Users/<...>/yoke` once; "
     "scripts then run from any cwd.\n\n"
     "For ephemeral scratch files (capture, payload, sentinel) Yoke code "
     "needs alongside the script, prefer the helper-resolved root from "
@@ -221,9 +226,7 @@ def evaluate_fields(file_path: str, content: str) -> Optional[str]:
         return None
     if not _content_imports_runtime(content):
         return None
-    return attach_check_id(
-        _DENY_REASON, check_id="lint-python-runtime-import-in-tmp"
-    )
+    return attach_check_id(_DENY_REASON, check_id="lint-python-runtime-import-in-tmp")
 
 
 def evaluate_payload(payload: dict) -> Optional[str]:
