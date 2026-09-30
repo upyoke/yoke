@@ -6,7 +6,7 @@ The reasoning, recovery paths, watcher inventory, and worked failure modes behin
 
 Paths here are repo-root-relative, because this file is read from `.claude/rules/` in an installed project and from `runtime/harness/claude/rules/` in the Yoke source tree.
 
-What stays Claude-specific depends on a primitive Codex lacks per its `agent_wake` fact in `runtime/harness/<harness_id>/manifest.json`: the `Monitor` wake-as-turn primitive, plus the `PreToolUse`/`PostToolUse` hook surface, the Claude `settings.json` schema, and the `AskUserQuestion` tool name.
+What stays Claude-specific depends on a primitive Codex lacks per its `agent_wake` fact in `runtime/harness/claude/manifest.json`: the `Monitor` wake-as-turn primitive, plus the `PreToolUse`/`PostToolUse` hook surface, the Claude `settings.json` schema, and the `AskUserQuestion` tool name.
 
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
