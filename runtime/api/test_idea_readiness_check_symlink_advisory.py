@@ -54,6 +54,12 @@ def test_readiness_check_reports_advisory_without_blocking(
         "item_project_checkout",
         lambda conn, item_id: symlink_repo,
     )
+    # This focused fixture models only path advisories, not pinned workflows.
+    monkeypatch.setattr(
+        idea_readiness_check,
+        "verify_refine_acceptance_criteria",
+        lambda conn, item_id, spec: [],
+    )
     db_name = pg_testdb.create_test_database()
     conn = pg_testdb.connect_test_database(db_name)
     pg_testdb.drop_database_on_close(conn, db_name)
