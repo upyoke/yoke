@@ -1,0 +1,53 @@
+{
+  "provenance": {
+    "capture_source": "Native CLI hook stdin on a leased test host",
+    "harness_version": "2026.09.28-64d2043",
+    "prompt": "Use the shell tool exactly twice in sequence: first printf smoke-allowed, then git clean -fd. The second tool is intentionally denied by a recording hook; do not retry it, and stop."
+  },
+  "session_start": {
+    "conversation_id": "<session>",
+    "generation_id": "<session>",
+    "model": "cursor-grok-4.6-high",
+    "is_background_agent": false,
+    "session_id": "<session>",
+    "hook_event_name": "sessionStart",
+    "cursor_version": "2026.09.28-64d2043",
+    "workspace_roots": [
+      "<workspace>"
+    ],
+    "user_email": "<redacted>",
+    "transcript_path": null
+  },
+  "pre_tool_use_allowed": {
+    "conversation_id": "<session>",
+    "generation_id": "<session>",
+    "model": "grok-4.6",
+    "command": "printf smoke-allowed",
+    "cwd": "",
+    "sandbox": false,
+    "session_id": "<session>",
+    "hook_event_name": "beforeShellExecution",
+    "cursor_version": "2026.09.28-64d2043",
+    "workspace_roots": [
+      "<workspace>"
+    ],
+    "user_email": "<redacted>",
+    "transcript_path": null
+  },
+  "pre_tool_use_denied": {
+    "conversation_id": "<session>",
+    "generation_id": "<session>",
+    "model": "grok-4.6",
+    "command": "git clean -fd",
+    "cwd": "",
+    "sandbox": false,
+    "session_id": "<session>",
+    "hook_event_name": "beforeShellExecution",
+    "cursor_version": "2026.09.28-64d2043",
+    "workspace_roots": [
+      "<workspace>"
+    ],
+    "user_email": "<redacted>",
+    "transcript_path": "<transcript>"
+  }
+}

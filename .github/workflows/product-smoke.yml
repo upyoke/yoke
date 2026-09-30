@@ -1,0 +1,62 @@
+name: product-smoke
+run-name: product-smoke [yoke-dispatch:${{ inputs.yoke_dispatch_id }}]
+
+on:
+  workflow_dispatch:
+    inputs:
+      yoke_dispatch_id:
+        description: Yoke standalone QA correlation id
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: product-smoke-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: ${{ matrix.os }} ${{ matrix.architecture }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            os: Ubuntu 24.04
+            architecture: x86_64
+          - runner: macos-latest
+            os: macOS 26
+            architecture: arm64
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.13'
+      - name: Install build tool
+        run: python3 -m pip install uv
+      - name: Register Python for clean-environment subprocesses
+        if: runner.os == 'Linux'
+        run: |
+          printf '%s\n' "${pythonLocation}/lib" | sudo tee /etc/ld.so.conf.d/yoke-product-smoke-python.conf >/dev/null
+          sudo ldconfig
+          env -i "${pythonLocation}/bin/python3" -c 'import sys; print(sys.version)'
+      - name: Install, onboard, replay hooks, and check source development
+        env:
+          SMOKE_EXPECTED_OS: ${{ matrix.os }}
+          SMOKE_EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
+        run: python3 runtime/api/tools/product_runner_smoke.py --output product-smoke-evidence
+      - name: Preserve proof and failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: product-smoke-${{ matrix.runner }}-${{ matrix.architecture }}
+          path: product-smoke-evidence
+          if-no-files-found: error
+          retention-days: 14

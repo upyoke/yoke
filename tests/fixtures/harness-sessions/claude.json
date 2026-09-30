@@ -1,0 +1,42 @@
+{
+  "provenance": {
+    "capture_source": "Native CLI hook stdin on a leased test host",
+    "harness_version": "2.1.286 (Claude Code)",
+    "prompt": "Use the shell tool exactly twice in sequence: first printf smoke-allowed, then git clean -fd. The second tool is intentionally denied by a recording hook; do not retry it, and stop."
+  },
+  "session_start": {
+    "session_id": "<session>",
+    "transcript_path": "<transcript>",
+    "cwd": "<workspace>",
+    "hook_event_name": "SessionStart",
+    "source": "startup"
+  },
+  "pre_tool_use_allowed": {
+    "session_id": "<session>",
+    "transcript_path": "<transcript>",
+    "cwd": "<workspace>",
+    "prompt_id": "<session>",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "printf smoke-allowed",
+      "description": "Run printf smoke-allowed"
+    },
+    "tool_use_id": "<session>"
+  },
+  "pre_tool_use_denied": {
+    "session_id": "<session>",
+    "transcript_path": "<transcript>",
+    "cwd": "<workspace>",
+    "prompt_id": "<session>",
+    "permission_mode": "default",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "git clean -fd",
+      "description": "Run git clean -fd"
+    },
+    "tool_use_id": "<session>"
+  }
+}
