@@ -94,8 +94,9 @@ def resolve_export_dsn() -> str:
             "DSN possession. A hosted org admin downloads from the "
             "dashboard's `Move universe` action; a self-host connection uses "
             "the authenticated server export endpoint. To export a machine-local "
-            "universe, switch to its "
-            "env (`yoke env use local`) or create one (`yoke init --local`)."
+            "universe, name its env for this invocation "
+            "(`yoke --env local universe export`) or create one "
+            "(`yoke init --local`)."
         )
     if connection_is_prod(env.config):
         raise UniverseExportError(
@@ -149,16 +150,9 @@ def export_universe(
             identity = _universe_identity(conn)
             selected_org = str(identity["org"])
             dest = resolve_export_destination(out, selected_org)
-            emit(
-                f"  [universe-export] dumping org {selected_org!r} universe"
-                f" -> {dest}"
-            )
-            frozen_at = (
-                datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-            )
-            snapshot_id = str(
-                conn.execute("SELECT pg_export_snapshot()").fetchone()[0]
-            )
+            emit(f"  [universe-export] dumping org {selected_org!r} universe -> {dest}")
+            frozen_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            snapshot_id = str(conn.execute("SELECT pg_export_snapshot()").fetchone()[0])
             before = authority_receipt(conn)
             staged_dump = _staged_dump_path(dest)
             inspection = _dump_payload(
@@ -184,7 +178,9 @@ def export_universe(
         )
         try:
             artifact_bytes = universe_archive.pack_universe_archive(
-                staged_dump, receipt, dest,
+                staged_dump,
+                receipt,
+                dest,
             )
         except universe_archive.UniverseArchiveError as exc:
             raise UniverseExportError(str(exc)) from exc

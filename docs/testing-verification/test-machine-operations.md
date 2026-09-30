@@ -1,13 +1,13 @@
-# The four things you can do to a test machine
+# What you can do to a test machine
 
-`verify`, `reset`, `golden capture`, and `bridge diagnose` are commands every
-Yoke user runs, not procedures each seat reinvents. Companion to
+`verify`, `reset`, `golden capture`, `bridge diagnose`, and `exec` are
+commands every Yoke user runs, not procedures each seat reinvents. Companion to
 [`docs/testing-verification.md`](../testing-verification.md); the host-side
 provisioning contract they assume ships in the
 [`machine-qa` Pack](../packs/machine-qa).
 
-Each takes the machine's one lease, refuses by name while another execution
-holds it, and records its own receipt. The machine's page shows the last
+The first four each take the machine's one lease, refuse by name while
+another execution holds it, and record their own receipt. The machine's page shows the last
 receipt per operation, so what was last done to a box is readable without
 asking the person who did it.
 
@@ -33,6 +33,14 @@ whatever the last one leaves: `shell-preconfigured` ends with the current Yoke
 launcher installed on both shell surfaces. **That is not a fresh host**, and
 the receipt says so in words rather than leaving it to be inferred from a
 baseline name. Reset afterwards when you need the machine to look untouched.
+
+The receipt also reports each route separately under `surfaces`: `ssh` (the
+transport every command, reset, and machine assertion rides) and
+`terminal_bridge` (the Terminal.app route GUI captures ride), each `passed`,
+`failed`, or `not_run`. A failed bridge leaves the overall status `error`, but
+`surfaces.ssh` still reads `passed`, so the machine is not mistaken for
+unreachable; the failed surface carries its own recovery.
+`yoke test-machine get` shows the same map for the last verification.
 
 ## reset — one baseline, and stop
 
@@ -120,6 +128,32 @@ describing what to change on the host:
 | `terminal_window_off_screen` | The window would not stay inside the display's visible frame |
 | `terminal_screen_recording_required` | Screen Recording for Terminal.app; captures currently hold wallpaper |
 | `terminal_screen_capture_failed` | Read the recorded capture command, exit code, and stderr in the row |
+
+## exec — one ad hoc command, outside any QA case
+
+```text
+yoke test-machine exec --project <project> --machine <resource-name> -- <command...>
+```
+
+Runs one command on the host as the capability's `user` at its `host`, with
+this machine's own ssh-agent identity, and exits with the command's status.
+The words after `--` reach the remote login shell exactly as `ssh` sends
+them, so `-- 'ls ~/.yoke && cat ~/.zshrc'` expands on the host. It never
+reads `~/.ssh` — a relay-launched session is denied that directory — so it
+skips the user's SSH config and pins host keys in
+`~/.yoke/test-machine/known_hosts`. It takes no lease and records no receipt,
+but refuses with `test_machine_leased` while another session holds the host;
+a QA mission walker uses `yoke qa mission host-command` instead.
+
+| Refusal | What to do |
+| --- | --- |
+| `test_machine_ssh_agent_unavailable` | Run from a shell whose `SSH_AUTH_SOCK` reaches an agent holding a key the host authorizes (`ssh-add -l`) |
+| `test_machine_ssh_failed` | Check reachability and the agent's key; after a host rebuild, remove the stale pin with the `ssh-keygen -R <host> -f ~/.yoke/test-machine/known_hosts` the refusal prints |
+| `test_machine_leased` | Wait for the named session's lease to release, or ask it to run the command |
+
+`yoke machine detail` on the host's own relay machine lists the capability
+under `test_machines` with this exact command, so the route is found from
+either side.
 
 ## Why the bridge waits, and why the waits are not fixed
 

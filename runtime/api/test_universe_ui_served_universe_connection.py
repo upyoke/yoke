@@ -41,9 +41,7 @@ class _Binding:
     def __init__(self, *, environment: str, transport: str, prod: bool = False):
         self.environment = environment
         self.backend = (
-            db_backend.POSTGRES
-            if transport in POSTGRES_TRANSPORTS
-            else transport
+            db_backend.POSTGRES if transport in POSTGRES_TRANSPORTS else transport
         )
         self.config = {"env": environment, "transport": transport, "prod": prod}
         self.binding_path = None
@@ -55,15 +53,21 @@ def bind(monkeypatch):
 
     def _bind(binding):
         monkeypatch.setattr(
-            yoke_connected_env, "load_active", lambda *a, **k: binding,
+            yoke_connected_env,
+            "load_active",
+            lambda *a, **k: binding,
         )
         # The recipe's env inventory is not what these tests are about;
         # the refusal must stand without a readable config either way.
         monkeypatch.setattr(
             "yoke_core.domain.machine_config.load_config",
-            lambda *a, **k: {"connections": {"local-dev": {
-                "transport": DEFAULT_TRANSPORT,
-            }}},
+            lambda *a, **k: {
+                "connections": {
+                    "local-dev": {
+                        "transport": DEFAULT_TRANSPORT,
+                    }
+                }
+            },
         )
         return binding
 
@@ -73,7 +77,9 @@ def bind(monkeypatch):
 LOCAL = _Binding(environment="local-dev", transport=DEFAULT_TRANSPORT)
 HOSTED = _Binding(environment="prod", transport=TRANSPORT_HTTPS)
 PROD_POSTGRES = _Binding(
-    environment="prod-db-admin", transport=DEFAULT_TRANSPORT, prod=True,
+    environment="prod-db-admin",
+    transport=DEFAULT_TRANSPORT,
+    prod=True,
 )
 
 
@@ -89,7 +95,7 @@ class TestTheServerRefusesAUniverseItWouldOnlyRelayTo:
         assert "https-transport" in message
         # A refusal that does not say how to render honestly just moves
         # the hand-assembly one step later.
-        assert "YOKE_ENV=local-dev yoke ui up" in message
+        assert "`yoke --env local-dev ui up`" in message
 
     def test_a_prod_flagged_postgres_binding_refuses(self, bind):
         bind(PROD_POSTGRES)
@@ -108,7 +114,8 @@ class TestTheServerRefusesAUniverseItWouldOnlyRelayTo:
         assert "quantum-relay" in str(refusal.value)
 
     def test_an_unreadable_binding_refuses_rather_than_guessing(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ):
         def _unreadable(*args, **kwargs):
             raise yoke_connected_env.ConnectedEnvError("binding unreadable")
@@ -134,11 +141,14 @@ class TestTheServerRefusesAUniverseItWouldOnlyRelayTo:
 
 class TestTheServedConnectionIsTheOneTheDispatcherReads:
     @pytest.mark.parametrize(
-        "binding", [LOCAL, HOSTED, PROD_POSTGRES],
+        "binding",
+        [LOCAL, HOSTED, PROD_POSTGRES],
         ids=lambda b: b.environment,
     )
     def test_the_guard_refuses_exactly_what_the_transport_would_relay(
-        self, bind, binding,
+        self,
+        bind,
+        binding,
     ):
         """Both read one authority, so neither can admit what the other
         would route elsewhere. A guard resolving the connection its own

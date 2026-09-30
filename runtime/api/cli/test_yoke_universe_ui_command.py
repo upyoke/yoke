@@ -43,12 +43,16 @@ class TestConnectionModeGate:
         assert "yoke init --local" in err
 
     def test_https_connection_refuses_in_mode_language(
-        self, machine_home, capsys,
+        self,
+        machine_home,
+        capsys,
     ):
         from yoke_cli.config import writer
 
         writer.set_connection(
-            "stage", transport="https", api_url="https://api.example",
+            "stage",
+            transport="https",
+            api_url="https://api.example",
             token="t" * 40,
         )
         writer.set_active_env("stage")
@@ -58,8 +62,33 @@ class TestConnectionModeGate:
         assert "hosted/self-host" in err
         assert "machine-local universe" in err
 
+    def test_https_refusal_names_the_per_invocation_env_not_a_global_switch(
+        self,
+        machine_home,
+        capsys,
+    ):
+        from yoke_cli.config import writer
+
+        write_local_connection("local")
+        writer.set_connection(
+            "upyoke",
+            transport="https",
+            api_url="https://api.example",
+            token="t" * 40,
+        )
+        writer.set_active_env("upyoke")
+
+        assert commands.ui_up(["--no-browser"]) == 1
+        err = capsys.readouterr().err
+        # Switching the machine's active env would retarget every other
+        # session and the relay on this machine; the recipe scopes to one run.
+        assert "`yoke --env local ui up`" in err
+        assert "env use" not in err
+
     def test_prod_postgres_connection_stays_operator_only(
-        self, machine_home, capsys,
+        self,
+        machine_home,
+        capsys,
     ):
         write_local_connection("prod-pg", prod=True)
 
@@ -69,7 +98,9 @@ class TestConnectionModeGate:
         assert "operator-only" in err
 
     def test_invalid_json_config_names_the_config_problem(
-        self, machine_home, capsys,
+        self,
+        machine_home,
+        capsys,
     ):
         config_file = machine_home / "config.json"
         config_file.parent.mkdir(parents=True, exist_ok=True)
@@ -83,15 +114,22 @@ class TestConnectionModeGate:
         assert "yoke init --local" not in err
 
     def test_contract_error_on_existing_config_is_not_missing_config(
-        self, machine_home, capsys,
+        self,
+        machine_home,
+        capsys,
     ):
         config_file = machine_home / "config.json"
         config_file.parent.mkdir(parents=True, exist_ok=True)
-        config_file.write_text(json.dumps({
-            "schema_version": 1,
-            "active_env": "local",
-            "connections": {"local": {"transport": "carrier-pigeon"}},
-        }), encoding="utf-8")
+        config_file.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "active_env": "local",
+                    "connections": {"local": {"transport": "carrier-pigeon"}},
+                }
+            ),
+            encoding="utf-8",
+        )
 
         assert commands.ui_up(["--no-browser"]) == 1
         err = capsys.readouterr().err
@@ -100,12 +138,16 @@ class TestConnectionModeGate:
         assert "yoke init --local" not in err
 
     def test_unrecognized_connection_mode_fails_closed(
-        self, monkeypatch, machine_home, capsys,
+        self,
+        monkeypatch,
+        machine_home,
+        capsys,
     ):
         # The allowlist admits only non-prod local-postgres; a transport
         # this adapter has never heard of must refuse, not serve.
         monkeypatch.setattr(
-            connection.machine_config, "active_connection",
+            connection.machine_config,
+            "active_connection",
             lambda: {"env": "future", "transport": "quantum-relay"},
         )
 
@@ -115,7 +157,9 @@ class TestConnectionModeGate:
         assert "quantum-relay" in err
 
     def test_the_serving_child_re_checks_the_connection(
-        self, machine_home, capsys,
+        self,
+        machine_home,
+        capsys,
     ):
         # A launch agent registered while local can be brought back after
         # the machine switched to a hosted connection; the process that
@@ -123,7 +167,9 @@ class TestConnectionModeGate:
         from yoke_cli.config import writer
 
         writer.set_connection(
-            "stage", transport="https", api_url="https://api.example",
+            "stage",
+            transport="https",
+            api_url="https://api.example",
             token="t" * 40,
         )
         writer.set_active_env("stage")
@@ -132,13 +178,17 @@ class TestConnectionModeGate:
         assert "hosted/self-host" in capsys.readouterr().err
 
     def test_status_and_down_carry_no_connection_gate(
-        self, monkeypatch, machine_home, capsys,
+        self,
+        monkeypatch,
+        machine_home,
+        capsys,
     ):
         # Nothing is configured at all; reporting on and stopping a
         # process still answers, because neither opens a universe.
         monkeypatch.setattr(commands.daemon, "status", lambda: {"running": False})
         monkeypatch.setattr(
-            commands.daemon, "down",
+            commands.daemon,
+            "down",
             lambda: {"running": False, "stopped": False},
         )
         assert commands.ui_status([]) == 0
@@ -148,7 +198,10 @@ class TestConnectionModeGate:
 
 class TestStatusSurface:
     def test_bare_ui_reports_status_and_never_serves(
-        self, monkeypatch, machine_home, capsys,
+        self,
+        monkeypatch,
+        machine_home,
+        capsys,
     ):
         served: dict = {}
         monkeypatch.setattr(connection, "ui_server", lambda: stub_server(served))
@@ -161,7 +214,10 @@ class TestStatusSurface:
         assert served == {}
 
     def test_status_json_reports_the_door_when_running(
-        self, monkeypatch, machine_home, capsys,
+        self,
+        monkeypatch,
+        machine_home,
+        capsys,
     ):
         monkeypatch.setattr(commands.daemon, "status", running_report)
 
@@ -172,7 +228,10 @@ class TestStatusSurface:
         assert report["private_url"] == "http://127.0.0.1:9999/?token=stub-token"
 
     def test_human_status_prints_the_door(
-        self, monkeypatch, machine_home, capsys,
+        self,
+        monkeypatch,
+        machine_home,
+        capsys,
     ):
         monkeypatch.setattr(commands.daemon, "status", running_report)
 
@@ -184,13 +243,16 @@ class TestStatusSurface:
 
 
 class TestRegistration:
-    @pytest.mark.parametrize("tokens,adapter", [
-        (["ui"], "ui"),
-        (["ui", "up"], "ui_up"),
-        (["ui", "down"], "ui_down"),
-        (["ui", "status"], "ui_status"),
-        (["ui", "serve-process"], "ui_serve_process"),
-    ])
+    @pytest.mark.parametrize(
+        "tokens,adapter",
+        [
+            (["ui"], "ui"),
+            (["ui", "up"], "ui_up"),
+            (["ui", "down"], "ui_down"),
+            (["ui", "status"], "ui_status"),
+            (["ui", "serve-process"], "ui_serve_process"),
+        ],
+    )
     def test_tool_shaped_resolution_covers_every_ui_verb(self, tokens, adapter):
         resolved = resolve_tool_shaped([*tokens, "--json"])
         assert resolved is not None
@@ -201,8 +263,11 @@ class TestRegistration:
         from yoke_cli import operation_inventory as inv
 
         for command in (
-            "yoke ui", "yoke ui up", "yoke ui down",
-            "yoke ui status", "yoke ui serve-process",
+            "yoke ui",
+            "yoke ui up",
+            "yoke ui down",
+            "yoke ui status",
+            "yoke ui serve-process",
         ):
             row = inv.lookup(command)
             assert row is not None, command

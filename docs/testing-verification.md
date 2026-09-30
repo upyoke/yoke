@@ -153,7 +153,7 @@ yoke test-machine bridge-diagnose --project <project> --machine <resource-name>
 
 The last three are the operations verification is not: **reset** reaches one
 baseline and stops, **golden capture** produces a new restorable baseline, and
-**bridge diagnose** names the host condition behind a bridge failure. What each does, refuses, and records: [`test-machine-operations.md`](testing-verification/test-machine-operations.md).
+**bridge diagnose** names the host condition behind a bridge failure, and `yoke test-machine exec` runs one ad hoc command on the host. What each does, refuses, and records: [`test-machine-operations.md`](testing-verification/test-machine-operations.md).
 
 Provision the host once before saving the capability. The general procedure —
 disk encryption, automatic login, sleep, remote access and its separate full

@@ -32,6 +32,7 @@ class MachineDetailResponse(common.OffersDisclosureResponse):
     relay: Optional[Dict[str, Any]] = None
     harnesses: List[Dict[str, Any]]
     projects: List[Dict[str, Any]]
+    test_machines: List[Dict[str, Any]] = []
     running_sessions: List[Dict[str, Any]]
     recent_sessions: List[Dict[str, Any]]
     recent_launches: List[Dict[str, Any]]
