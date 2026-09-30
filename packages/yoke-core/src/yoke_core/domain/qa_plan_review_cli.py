@@ -12,6 +12,10 @@ from yoke_core.domain.qa_plan_execution import (
     QaPlanExecutionError,
     _call_plan_function,
 )
+from yoke_core.domain.qa_review_verdict_modes import (
+    ALL_REVIEW_VERDICTS,
+    verdict_enum_text,
+)
 
 
 def _verdicts(raw: str) -> list[dict[str, Any]]:
@@ -30,8 +34,41 @@ def _verdicts(raw: str) -> list[dict[str, Any]]:
     return value
 
 
+def _help_epilogue() -> str:
+    """The stdin contract, so it is readable before a batch is composed.
+
+    A reviewer discovering the schema from a rejection has already spent the
+    review. The verdict set a *given* stage accepts is narrower than this
+    superset and is named by that bundle's own dispatch contract, which is
+    the authority; ``agent_only`` stages accept only the conclusive two.
+    """
+    return (
+        "stdin: one complete batch, either a verdict list or an object with a\n"
+        '  "verdicts" key. Every bundle case needs exactly one row:\n'
+        "\n"
+        "    {\"verdicts\": [\n"
+        '      {"requirement_id": 123, "verdict": "pass", '
+        '"rationale": "what the evidence showed"}\n'
+        "    ]}\n"
+        "\n"
+        f"  requirement_id  integer, a case in this bundle\n"
+        f"  verdict         {verdict_enum_text(ALL_REVIEW_VERDICTS)} "
+        "(this stage may accept fewer --\n"
+        "                  read dispatch.result_schema on the bundle)\n"
+        "  rationale       non-empty string; for an inconclusive verdict, what\n"
+        "                  could not be established and why\n"
+        "\n"
+        "A partial batch is refused: the bundle settles as one submission."
+    )
+
+
 def run(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke qa plan review-submit")
+    parser = argparse.ArgumentParser(
+        prog="yoke qa plan review-submit",
+        description=__doc__,
+        epilog=_help_epilogue(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     subject = parser.add_mutually_exclusive_group(required=True)
     subject.add_argument("--item-id", type=int)
     subject.add_argument("--deployment-run-id")

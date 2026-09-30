@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any
+from typing import Any, Optional
 from uuid import uuid4
 
 from yoke_core.domain.db_helpers import iso8601_now, query_one
@@ -44,6 +44,44 @@ AGENT_IS_NOT_A_BROWSER_CAPTURE_RUNNER = (
 )
 
 
+#: The browser capture an agent review attaches to. Both the review write
+#: and the reader that decides whether a verdict resolves one read this same
+#: definition, so what a review binds to and what the caller was told it
+#: would bind to cannot drift apart.
+_REVIEWABLE_CAPTURE_SQL = (
+    "SELECT id, verdict FROM qa_runs "
+    "WHERE qa_requirement_id={p} AND performed_by='browser_substrate' "
+    "AND execution_status='captured' "
+    "AND case_outcome IN ({p}, 'passed') AND completed_at IS NOT NULL "
+    "ORDER BY id DESC LIMIT 1"
+)
+
+
+def _reviewable_capture(conn: Any, requirement_id: int) -> Any:
+    placeholder = marker(conn)
+    return query_one(
+        conn,
+        _REVIEWABLE_CAPTURE_SQL.format(p=placeholder),
+        (int(requirement_id), NEEDS_REVIEW_OUTCOME),
+    )
+
+
+def unreviewed_capture_run_id(conn: Any, requirement_id: int) -> Optional[int]:
+    """The captured browser run this requirement is still owed a verdict on.
+
+    A verdict recorded for such a capture resolves that run rather than
+    opening a second one. The distinction is not cosmetic: the capture is
+    the run that carries the commit its evidence was taken against, and an
+    agent review row recorded beside it carries none, so it becomes the
+    requirement's latest run and every merge-time identity read sees a
+    passing requirement with no tree behind it.
+    """
+    capture = _reviewable_capture(conn, requirement_id)
+    if capture is None or capture["verdict"] is not None:
+        return None
+    return int(capture["id"])
+
+
 def attach_agent_review_to_capture(
     conn: Any,
     *,
@@ -69,15 +107,7 @@ def attach_agent_review_to_capture(
     path = str(requirement["verdict_path"] or "")
     if path and path != AGENT_VERDICT_PATH:
         raise CapturedInspectionReviewError(AGENT_IS_NOT_A_BROWSER_CAPTURE_RUNNER)
-    capture = query_one(
-        conn,
-        "SELECT id FROM qa_runs "
-        f"WHERE qa_requirement_id={p} AND performed_by='browser_substrate' "
-        "AND execution_status='captured' "
-        f"AND case_outcome IN ({p}, 'passed') AND completed_at IS NOT NULL "
-        "ORDER BY id DESC LIMIT 1",
-        (int(requirement_id), NEEDS_REVIEW_OUTCOME),
-    )
+    capture = _reviewable_capture(conn, requirement_id)
     if capture is None:
         raise CapturedInspectionReviewError(CAPTURED_INSPECTION_REVIEW_RECOVERY)
     now = iso8601_now()
@@ -184,4 +214,5 @@ __all__ = [
     "CAPTURED_INSPECTION_REVIEW_RECOVERY",
     "CapturedInspectionReviewError",
     "attach_agent_review_to_capture",
+    "unreviewed_capture_run_id",
 ]

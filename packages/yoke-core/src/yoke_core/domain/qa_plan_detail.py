@@ -14,7 +14,10 @@ from yoke_core.domain.qa_catalog_reads import (
     _outcome,
     _required_capability_details,
 )
-from yoke_core.domain.qa_execution_proof import qa_evidence_run_id, qa_prior_agent_run
+from yoke_core.domain.qa_execution_proof import (
+    qa_evidence_run_id,
+    qa_overridden_verdict_run,
+)
 from yoke_core.domain.qa_method_capabilities import capability_kinds
 from yoke_core.domain.schema_common import _table_exists
 
@@ -130,17 +133,17 @@ def _review_state(
     agent_verdict = run["verdict"] if performed_by == "agent" else None
     agent_run_id = int(run["run_id"]) if performed_by == "agent" else None
     if performed_by == "human_review" and run["run_id"] is not None:
-        agent = qa_prior_agent_run(
+        overridden = qa_overridden_verdict_run(
             conn,
             requirement_id=requirement_id,
             before_run_id=int(run["run_id"]),
         )
-        if agent is not None:
-            agent_run_id = int(agent["id"])
-            agent_raw = _decode(agent["raw_result"], {})
-            capture_run_id = agent_raw.get("capture_run_id")
-            agent_verdict = agent["verdict"]
-            rationale = agent["verdict_reason"]
+        if overridden is not None:
+            agent_run_id = int(overridden["id"])
+            overridden_raw = _decode(overridden["raw_result"], {})
+            capture_run_id = overridden_raw.get("capture_run_id")
+            agent_verdict = overridden["verdict"]
+            rationale = overridden["verdict_reason"]
     request = None
     if performed_by in {"agent", "human_review"} and _table_exists(
         conn, "decision_requests"

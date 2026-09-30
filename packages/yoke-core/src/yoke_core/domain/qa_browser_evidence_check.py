@@ -66,6 +66,12 @@ def _qualifying_capture(requirement: str, capture: str) -> str:
     # definition, so what this gate matches on and what the substrate writes
     # cannot drift apart.
     agent_case = agent_reviewed_case_predicate(requirement)
+    # The reviewing run is either a separate agent run -- what a plan-review
+    # bundle submits -- or the capture itself, which is what a verdict
+    # recorded against a still-unreviewed capture resolves in place. The
+    # second shape exists so the run carrying the capture's own
+    # ``code_identity.sha`` stays the requirement's latest; requiring a
+    # distinct agent row here would reject exactly that.
     linked_agent_pass = f"""
         EXISTS (
           SELECT 1 FROM qa_plan_review_verdicts prv
@@ -75,8 +81,11 @@ def _qualifying_capture(requirement: str, capture: str) -> str:
             AND prv.capture_run_id = {capture}.id
             AND prv.verdict = 'pass'
             AND prb.state = 'completed'
-            AND review_run.performed_by = 'agent'
             AND review_run.verdict = 'pass'
+            AND (
+              review_run.performed_by = 'agent'
+              OR review_run.id = {capture}.id
+            )
         )
     """
     return f"""

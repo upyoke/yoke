@@ -11,9 +11,7 @@ boundary, and the checkout a runner runs against.
 
 from __future__ import annotations
 
-import base64
 import json
-import shlex
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -24,6 +22,11 @@ from yoke_cli.transport.control_plane_payload import (
 from yoke_contracts.api.function_call import ActorContext, TargetRef
 
 from yoke_core.domain import qa_start_bound_authority
+
+#: The evidence-and-verdict write pair lives in
+#: :mod:`yoke_core.domain.qa_command_run_recording`. It is re-exported here
+#: because this module is the call surface every runner reaches it through.
+from yoke_core.domain.qa_command_run_recording import record_command_run
 
 
 class QaCaseExecutionError(RuntimeError):
@@ -98,92 +101,6 @@ def recording_leg(
         )
 
     return dispatch_leg
-
-
-def record_command_run(
-    case: dict,
-    *,
-    performed_by: str,
-    raw_result: str,
-    duration_ms: int,
-    verdict: str,
-    output: str,
-    filename: str,
-    metadata: dict,
-    actor: Optional[ActorContext] = None,
-) -> tuple[int, int]:
-    """Upload command evidence bytes, then settle their durable run."""
-    from yoke_core.domain.qa_artifacts import (
-        artifact_file_path,
-        case_artifact_subject,
-        stage_recovery_copy,
-    )
-    from yoke_core.domain.qa_requirement_pass_currency import (
-        stamp_executed_method_config,
-    )
-
-    raw_result = stamp_executed_method_config(
-        raw_result,
-        case.get("method_config"),
-        execution_target_digest=case.get("execution_target_digest"),
-    )
-    call_qa = recording_leg(case, actor=actor)
-    run = call_qa(
-        "qa.run.add",
-        {
-            "performed_by": performed_by,
-            "raw_result": raw_result,
-            "duration_ms": duration_ms,
-        },
-    )
-    run_id = int(run["qa_run_id"])
-    requirement_id = int(case["requirement_id"])
-    output_path = artifact_file_path(
-        str(case["project"]),
-        case_artifact_subject(case),
-        run_id,
-        filename,
-    )
-    output_bytes = output.encode("utf-8")
-    output_path.write_bytes(output_bytes)
-    metadata_json = json.dumps(metadata, sort_keys=True)
-    try:
-        artifact = call_qa(
-            "qa.artifact.add",
-            {
-                "run_id": run_id,
-                "artifact_type": "command_output",
-                "content_type": "text/plain",
-                "content_base64": base64.b64encode(output_bytes).decode("ascii"),
-                "filename": filename,
-                "metadata": metadata_json,
-            },
-        )
-    except QaCaseExecutionError as exc:
-        recovery_path = stage_recovery_copy(output_bytes, filename)
-        evidence_path = shlex.quote(str(recovery_path))
-        raise QaCaseExecutionError(
-            f"command evidence upload failed for recorded QA run #{run_id}: "
-            f"{exc}. The evidence is staged for recovery at {recovery_path} "
-            f"(the capture itself stays at {output_path}, which a session "
-            "holding a lane claim is not allowed to read). Recover this same "
-            "run with `yoke qa artifact add "
-            f"--requirement-id {requirement_id} --run-id {run_id} "
-            "--artifact-type command_output --content-type text/plain "
-            f"--content-file {evidence_path}`, then `yoke qa run complete "
-            f"--requirement-id {requirement_id} --run-id {run_id} "
-            f"--verdict {verdict}`."
-        ) from exc
-    call_qa(
-        "qa.run.complete",
-        {
-            "run_id": run_id,
-            "verdict": verdict,
-            "raw_result": raw_result,
-            "duration_ms": duration_ms,
-        },
-    )
-    return run_id, int(artifact["qa_artifact_id"])
 
 
 def fetch_case_execution_context(
@@ -332,5 +249,6 @@ __all__ = [
     "execute_case",
     "execute_case_context",
     "fetch_case_execution_context",
+    "record_command_run",
     "required_case_command",
 ]

@@ -214,7 +214,7 @@ def submit_plan_review(
         )
         if stored is None or str(stored["bundle_digest"]) != bundle_digest:
             raise QaPlanReviewError("agent review bundle identity does not match")
-        bundle = _public_bundle(stored)
+        bundle = _public_bundle(conn, stored)
         validated = _validated_verdicts(bundle["cases"], verdicts)
         existing = {
             int(row["requirement_id"]): row

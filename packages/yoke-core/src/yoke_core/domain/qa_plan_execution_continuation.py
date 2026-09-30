@@ -21,6 +21,12 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from yoke_core.domain.qa_plan_execution_abort_reason import (
+    CASE_EXECUTION_ERROR_REASON,
+    CONTINUATION_PRE_HOST_ERROR_REASON,
+    REASON_DETAIL_SEPARATOR,
+    abort_reason_code,
+)
 from yoke_core.domain.qa_plan_execution_lifecycle import (
     STALE_PLAN_EXECUTION_REASON,
 )
@@ -34,8 +40,6 @@ from yoke_core.domain.qa_plan_execution_store import (
 )
 
 CONTINUATION_FLAG = "--continue-mission"
-CASE_EXECUTION_ERROR_REASON = "case-execution-or-recording-error"
-CONTINUATION_PRE_HOST_ERROR_REASON = "continuation-pre-host-error"
 
 
 def skips_host_baseline(execution: Mapping[str, Any]) -> bool:
@@ -64,19 +68,29 @@ def contract_baselines(
 def continuation_abort_reason(
     execution: Mapping[str, Any], error: BaseException
 ) -> str:
-    """Return a durable reason that preserves proven pre-host retries."""
+    """Return a durable reason that preserves proven pre-host retries.
+
+    The reason carries what failed as well as which class of failure it was.
+    Without the diagnosis, an execution's release evidence names only that
+    "a case execution or recording error" happened, and the one reader who
+    has to repair it -- the person the refusal sends to inspect that
+    evidence -- has nothing to inspect.
+    """
     if skips_host_baseline(execution) and not getattr(
         error, "host_contact_possible", True
     ):
-        return CONTINUATION_PRE_HOST_ERROR_REASON
-    return CASE_EXECUTION_ERROR_REASON
+        code = CONTINUATION_PRE_HOST_ERROR_REASON
+    else:
+        code = CASE_EXECUTION_ERROR_REASON
+    detail = " ".join(str(error).split())
+    return f"{code}{REASON_DETAIL_SEPARATOR}{detail}" if detail else code
 
 
 def _failed_before_host(conn: Any, execution: Mapping[str, Any]) -> bool:
     """Recognize explicit failures and the original zero-result row shape."""
     if not execution.get("continues_execution_id"):
         return False
-    reason = str(execution.get("release_reason") or "")
+    reason = abort_reason_code(execution.get("release_reason"))
     if reason == CONTINUATION_PRE_HOST_ERROR_REASON:
         return True
     if reason != CASE_EXECUTION_ERROR_REASON or int(execution["cursor_ordinal"]):
@@ -317,6 +331,8 @@ def _project_slug(execution: Mapping[str, Any]) -> str:
 
 __all__ = [
     "CASE_EXECUTION_ERROR_REASON",
+    "REASON_DETAIL_SEPARATOR",
+    "abort_reason_code",
     "CONTINUATION_FLAG",
     "CONTINUATION_PRE_HOST_ERROR_REASON",
     "contract_baselines",

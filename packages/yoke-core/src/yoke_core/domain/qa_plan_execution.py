@@ -20,9 +20,12 @@ from yoke_core.domain.qa_plan_execution_dispatch import (
     call_plan_function,
     execution_actor,
 )
+from yoke_core.domain.qa_plan_execution_begin_validation import (
+    begun_execution_id,
+    release_unusable_execution,
+    validate_begun_execution,
+)
 from yoke_core.domain.qa_plan_execution_target import build_plan_execution_target
-from yoke_core.domain.qa_project_execution_target import resolve_execution_base_url
-from yoke_core.domain.machine_qa_case_machine import resolve_plan_machine
 from yoke_core.domain.qa_plan_execution_continuation import continuation_abort_reason
 from yoke_core.domain.qa_plan_execution_roster import ordered_plan_requirements
 
@@ -92,45 +95,31 @@ def execute_plan(
             raise
         print(f"yoke qa plan run: {discharged['message']}", file=sys.stderr)
         return discharged
-    requirements = execution.get("requirements")
-    if not isinstance(requirements, list) or any(
-        not isinstance(row, dict) for row in requirements
-    ):
-        raise QaPlanExecutionError(
-            "qa.plan_execution.begin returned an invalid requirement roster"
-        )
+    execution_id = begun_execution_id(execution)
     try:
-        selected_machine = resolve_plan_machine(requirements, machine)
-    except ValueError as exc:
-        raise QaPlanExecutionError(str(exc)) from exc
-    machine_options = {"machine": selected_machine} if selected_machine else {}
-    execution_id = str(execution.get("execution_id") or "")
-    cursor = int(execution.get("cursor_ordinal") or 0)
-    if not execution_id or cursor < 0 or cursor > len(requirements):
-        raise QaPlanExecutionError(
-            "qa.plan_execution.begin returned an invalid durable cursor"
+        begun = validate_begun_execution(
+            execution, machine=machine, base_url=base_url
         )
-    stored_results = execution.get("results") or []
-    if not isinstance(stored_results, list):
-        raise QaPlanExecutionError(
-            "qa.plan_execution.begin returned invalid recorded results"
-        )
-    execution_target = execution.get("execution_target")
-    if not isinstance(execution_target, dict):
-        raise QaPlanExecutionError("qa.plan_execution.begin returned no target")
-    try:
-        resolved_base_url = resolve_execution_base_url(
-            execution_target,
-            requirements,
-            base_url,
-        )
-    except ValueError as exc:
-        raise QaPlanExecutionError(str(exc)) from exc
-    recorded_results = [
-        dict(entry["result"])
-        for entry in stored_results
-        if isinstance(entry, dict) and isinstance(entry.get("result"), dict)
-    ]
+    except QaPlanExecutionError as exc:
+        raise release_unusable_execution(
+            _call_plan_function,
+            target=target,
+            execution_id=execution_id,
+            subject_flag=(
+                f"--deployment-run-id {deployment_run_id}"
+                if deployment_run_id
+                else f"--item {public_ref}"
+            ),
+            actor=resolved_actor,
+            error=exc,
+        ) from exc
+    requirements = begun.requirements
+    cursor = begun.cursor
+    resolved_base_url = begun.resolved_base_url
+    machine_options = (
+        {"machine": begun.selected_machine} if begun.selected_machine else {}
+    )
+    recorded_results = begun.recorded_results
     baseline_group_results: dict[int, dict[str, Any]] = {}
     for recorded in recorded_results:
         cached = recorded.get(_BASELINE_GROUP_RESULTS)

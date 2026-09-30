@@ -13,6 +13,11 @@ from yoke_contracts.machine_qa_terminal_bridge import (
 from yoke_contracts.qa_mission_scratch import mission_scratch_path
 from yoke_core.domain.dispatch_descriptors import DispatchDescriptor
 from yoke_core.domain.qa_review_evidence import case_artifact_read_commands
+from yoke_core.domain.qa_review_verdict_modes import (
+    ALL_REVIEW_VERDICTS,
+    inconclusive_verdict_guidance,
+    verdict_enum_text,
+)
 
 
 def _subject_flag(subject: Mapping[str, Any]) -> str:
@@ -166,7 +171,9 @@ def _walker_dispatch(
     }
 
 
-def agent_mission_dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
+def agent_mission_dispatch_contract(
+    bundle: Mapping[str, Any], *, allowed_verdicts: tuple[str, ...] = ALL_REVIEW_VERDICTS
+) -> dict[str, Any]:
     """Return instructions that keep mission ownership in the main agent."""
     bundle_id = str(bundle["bundle_id"])
     digest = str(bundle["bundle_digest"])
@@ -226,8 +233,7 @@ def agent_mission_dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]
             "artifact-read commands. Aggregate each ranked written mission "
             "report, choose every final verdict, and submit exactly one row "
             f"for each of the {len(cases)} bundle cases in one complete batch. "
-            "Undetermined halts the item for owner/operator review, so choose "
-            "it only with attached evidence and name what remains undecidable."
+            + inconclusive_verdict_guidance(allowed_verdicts)
             + _screen_recording_warning(cases)
         )
         submit_command = (
@@ -256,7 +262,7 @@ def agent_mission_dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]
             "verdicts": [
                 {
                     "requirement_id": "integer",
-                    "verdict": "pass|fail|undetermined",
+                    "verdict": verdict_enum_text(allowed_verdicts),
                     "rationale": "non-empty written report",
                 }
             ]

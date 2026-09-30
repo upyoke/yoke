@@ -103,12 +103,13 @@ def record_inflight_case_failure(
     execution the stale sweep settled is deliberately excluded: nobody was
     driving it, so whether its first case had begun is unknown.
     """
-    from yoke_core.domain.qa_plan_execution_continuation import (
+    from yoke_core.domain.qa_plan_execution_abort_reason import (
         CASE_EXECUTION_ERROR_REASON,
         CONTINUATION_PRE_HOST_ERROR_REASON,
+        abort_reason_code,
     )
 
-    if reason not in {
+    if abort_reason_code(reason) not in {
         CASE_EXECUTION_ERROR_REASON,
         CONTINUATION_PRE_HOST_ERROR_REASON,
     }:
