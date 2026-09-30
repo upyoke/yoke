@@ -158,8 +158,13 @@ def evaluate_lifecycle_approval(
     approval_source: Mapping[str, str],
     originator_actor_id: Optional[int] = None,
     session_id: str = "",
+    commit: bool = True,
 ) -> ApprovalGateVerdict:
-    """Fail closed and create once until an authorized approval resolves."""
+    """Fail closed and create once until an authorized approval resolves.
+
+    ``commit=False`` leaves the verdict's writes, and any request it creates,
+    in the caller's open transaction.
+    """
     target = to_stage_id.strip()
     if not target:
         raise ValueError("to_stage_id is required")
@@ -184,7 +189,8 @@ def evaluate_lifecycle_approval(
         rejected_reason="the transition was rejected",
     )
     if verdict is not None:
-        conn.commit()
+        if commit:
+            conn.commit()
         return verdict
 
     request, _ = create_decision_request(
@@ -208,6 +214,7 @@ def evaluate_lifecycle_approval(
             approval_source,
         ),
         session_id=session_id,
+        commit=commit,
     )
     return ApprovalGateVerdict(
         False,

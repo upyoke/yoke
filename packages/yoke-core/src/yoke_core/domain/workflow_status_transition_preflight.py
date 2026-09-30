@@ -49,8 +49,13 @@ def prepare_status_transition(
     originator_actor_id: Optional[int],
     session_id: str,
     expected_status: Optional[str] = None,
+    commit: bool = True,
 ) -> StatusTransitionPreflight:
-    """Materialize QA and evaluate approval against one workflow snapshot."""
+    """Materialize QA and evaluate approval against one workflow snapshot.
+
+    ``commit=False`` leaves every write in the caller's open transaction,
+    for a status write whose caller commits it together with others.
+    """
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     lock_item_workflow_bindings(conn, (int(item_id),))
     item = conn.execute(
@@ -183,7 +188,8 @@ def prepare_status_transition(
         )
         approval_source = item_posture_approval_source()
     if policy is None:
-        conn.commit()
+        if commit:
+            conn.commit()
         return StatusTransitionPreflight(
             workflow_version_id=workflow_version_id,
             source_status=current_status,
@@ -199,11 +205,13 @@ def prepare_status_transition(
         approval_source=approval_source,
         originator_actor_id=originator_actor_id,
         session_id=session_id,
+        commit=commit,
     )
     # Approval evaluation may return an already-resolved decision without
     # creating a new row. End the preflight transaction in every verdict
     # branch so downstream gates can safely use their own connections.
-    conn.commit()
+    if commit:
+        conn.commit()
     if verdict.satisfied:
         return StatusTransitionPreflight(
             workflow_version_id=workflow_version_id,

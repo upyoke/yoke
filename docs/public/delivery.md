@@ -57,16 +57,25 @@ succeeds, it stamps each member's delivery evidence and closes every member
 whose item and shared gates have passed, with no holder re-running a merge.
 The run reads `succeeded` only after those close-outs have happened. Until
 then it stays `executing` and settling (`settling_at`), a durable state that
-counts as delivered for its members' own gates. Closing is all-or-nothing:
-every cleared member is asked whether it could close before any of them
-does, so one member's refusal holds the whole run with no member closed and
-every claim and lane kept. The refusal names each member — the blocked ones
-with their own reason, the rest as held with the run so nobody repairs a
-member that has nothing wrong. A final member the run could not even try to
-close, such as one whose post-deploy obligations are unanswered, holds the
-run the same way. Settlement replays by itself when the blocking record is
-cleared, so no hand re-drive is normally needed; if the run stays
-`executing`, `yoke deployment-runs update RUN status succeeded` replays it.
+counts as delivered for its members' own gates. Settlement then runs in two
+phases. First, each cleared member's prerequisites are committed — its
+delivery evidence stamped and its status preflight run — which closes
+nothing and is safe to repeat. Then every member's terminal status and claim
+release is written in one transaction and committed once, so members close
+together or not at all, even if the process stops part way. One member's
+refusal rolls the whole set back: no member closes, and every claim and lane
+is kept. The refusal names each member — the
+blocked ones with their own reason, the rest as held with the run so nobody
+repairs a member that has nothing wrong. A final member the run could not
+even try to close, such as one whose post-deploy obligations are unanswered,
+holds the run the same way. Second, after that commit, the closed members'
+effects run: GitHub sync, lane cleanup, and ending the holders' now-empty
+sessions. They are idempotent, and a failure among them never reopens a
+closed member. It keeps the run settling, naming the member and the failure,
+until a replay finishes the effects and marks the run `succeeded`.
+Settlement replays by itself when the blocking record is cleared, so no hand
+re-drive is normally needed; if the run stays `executing`, `yoke
+deployment-runs update RUN status succeeded` replays it.
 
 Residue is cleared on the way through. A member's own release walk opens an
 item-level QA execution, and when the run scopes that member its own item

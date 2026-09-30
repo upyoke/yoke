@@ -53,6 +53,7 @@ def _emit(
     project: Optional[str],
     session_id: Optional[str],
     context: Dict[str, Any],
+    transactional: bool = False,
 ) -> Optional[str]:
     """Best-effort emit; return event id or ``None`` on failure."""
     try:
@@ -72,6 +73,7 @@ def _emit(
             item_id=item_id,
             context=context,
             conn=conn,
+            transactional=transactional,
         )
     except Exception:
         return None
@@ -81,7 +83,7 @@ def _emit(
 
 
 def emit_registered(
-    *, conn, claim: Dict[str, Any], project: Optional[str] = None,
+    *, conn, claim: Dict[str, Any], project: Optional[str] = None
 ) -> Optional[str]:
     return _emit(
         name="PathClaimRegistered",
@@ -131,7 +133,7 @@ def emit_registration_blocked(
 
 
 def emit_activated(
-    *, conn, claim: Dict[str, Any], project: Optional[str] = None,
+    *, conn, claim: Dict[str, Any], project: Optional[str] = None
 ) -> Optional[str]:
     return _emit(
         name="PathClaimActivated",
@@ -237,14 +239,14 @@ def emit_amendment_blocked(
 
 
 def emit_released(
-    *, conn, claim: Dict[str, Any], reason: str,
-    project: Optional[str] = None,
+    *, conn, claim: Dict[str, Any], reason: str, project=None, transactional=False
 ) -> Optional[str]:
     return _emit(
         name="PathClaimReleased",
         severity="INFO",
         outcome="completed",
         conn=conn,
+        transactional=transactional,
         item_id=claim.get("owner_item_id"),
         project=project,
         session_id=claim.get("registered_by_session_id"),
@@ -257,14 +259,14 @@ def emit_released(
 
 
 def emit_cancelled(
-    *, conn, claim: Dict[str, Any], reason: str,
-    project: Optional[str] = None,
+    *, conn, claim: Dict[str, Any], reason: str, project=None, transactional=False
 ) -> Optional[str]:
     return _emit(
         name="PathClaimCancelled",
         severity="INFO",
         outcome="completed",
         conn=conn,
+        transactional=transactional,
         item_id=claim.get("owner_item_id"),
         project=project,
         session_id=claim.get("registered_by_session_id"),
