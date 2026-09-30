@@ -31,7 +31,13 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "qa.artifact.rehome": "next-release",
     "qa.item_plan.retract": "next-release",
     "qa.requirement.rebind_target": "next-release",
+    "strategy.coordination.append": "next-release",
+    "strategy.doc.create": "next-release",
+    "strategy.doc.replace": "next-release",
     "strategy.doc.section_replace": "next-release",
+    "strategy.ingest.run": "next-release",
+    "strategy.revision.restore": "next-release",
+    "strategy.seed_defaults.run": "next-release",
 }
 
 

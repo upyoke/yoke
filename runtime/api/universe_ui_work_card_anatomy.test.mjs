@@ -83,7 +83,7 @@ test("strategy cards carry badge, slug, age, claim and summary once", async (t) 
   );
   assert.deepEqual(
     byClass(root, "strategy-doc-state").map((node) => node.textContent),
-    ["locked"],
+    ["available", "locked", "available"],
   );
   assert.deepEqual(
     byClass(root, "strategy-doc-summary").map((node) => node.textContent),
