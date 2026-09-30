@@ -21,36 +21,18 @@ was already populated by the owning skill's handoff. If an exemption
 becomes mechanically necessary, add a real relation first; do not infer one
 from `epic_task_files` or another indirect signal.
 
-### 1. Deployment flow: recover or block
+### 1. Deployment flow: block when none resolves
 
-```bash
-_item_flow=$(yoke items get {N} deployment_flow 2>/dev/null)
-_item_project=$(yoke items get {N} project 2>/dev/null)
-```
+Read the item's effective flow with `yoke items get {N} deployment_flow --json`.
+`result.fields.deployment_flow` is `{value, source}`: the explicit item pin,
+else the project's `deploy_defaults` entry. The plain read prints
+`flow (source)` for people, so never capture it as a flow id.
 
-If `_item_flow` is empty or null:
-- Look up project default from the `deploy_defaults` Project Structure
-  family. The helper prints the flow id and exits 0 when configured; it
-  exits 1 when no default is set:
- ```bash
- # Source-dev/admin read: populate _default_flow from the deploy_defaults
- # Project Structure family for "$_item_project".
- ```
-- If `_default_flow` is non-empty → auto-fill via `items.scalar.update`:
-
-  ```json
-  {
-    "function": "items.scalar.update",
-    "actor": {"session_id": "<this-session>"},
-    "target": {"kind": "item", "public_ref": "PREFIX-{N}"},
-    "intent": "advance_recover_deployment_flow",
-    "payload": {"field": "deployment_flow", "value": "<_default_flow>"}
-  }
-  ```
-
-  Emit: `Reconciled: deployment_flow auto-filled to '{_default_flow}' from project default.`
-- If `_default_flow` is empty → **hard block**:
- > **Blocked:** PREFIX-{N} has no `deployment_flow` and project '{_item_project}' has no configured `deploy_defaults` entry. Set a flow before advancing to `implementing`. Use the registered item scalar wrapper (`yoke items scalar update PREFIX-{N} --field deployment_flow --value <flow-name>`) for the item value. Project-wide deploy-default repair is source-dev/admin only today; no registered product CLI wrapper exists for that helper.
+- `value` non-empty → the gate passes; nothing is written onto the item.
+- `source` is `unreadable` → stop and name the unreadable project default;
+  it is not the same fact as an unconfigured item.
+- `source` is `none` → **hard block**:
+ > **Blocked:** PREFIX-{N} has no `deployment_flow` and its project has no configured `deploy_defaults` entry. Set a flow before advancing to `implementing`. Use the registered item scalar wrapper (`yoke items scalar update PREFIX-{N} --field deployment_flow --value <flow-name>`) for the item value. Project-wide deploy-default repair is source-dev/admin only today; no registered product CLI wrapper exists for that helper.
 
  Do NOT update status. Do NOT create worktree. **Stop.**
 

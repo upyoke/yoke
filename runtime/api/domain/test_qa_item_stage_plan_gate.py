@@ -139,15 +139,21 @@ def test_an_explicit_pin_still_answers_when_nothing_resolved_it(
     assert _refusal(monkeypatch, pinned, ITEM_SCOPED_STAGES) != ""
 
 
+def test_the_projected_flow_mapping_answers_as_its_value() -> None:
+    """Item reads project ``deployment_flow`` as ``{value, source}``."""
+    projected = _item(flow_id="")
+    projected["deployment_flow"] = {"value": "flow-item-scoped", "source": "item"}
+    assert gate.completion_flow(projected) == "flow-item-scoped"
+    projected["deployment_flow"] = {"value": "", "source": "none"}
+    assert gate.completion_flow(projected) == ""
+
+
 def test_the_refusal_names_recording_no_obligation_as_its_own_answer(
     monkeypatch,
 ) -> None:
     """Demanding a plan would make "nothing to verify" unrepresentable."""
     refusal = _refusal(monkeypatch, _item(), ITEM_SCOPED_STAGES)
-    assert (
-        f"yoke qa post-deploy record-no-obligation --item {PUBLIC_REF}"
-        in refusal
-    )
+    assert f"yoke qa post-deploy record-no-obligation --item {PUBLIC_REF}" in refusal
     assert "not a waiver" in refusal
     # And the run-scoped choice is named as the different thing it is,
     # rather than silently defaulted to or left out.
@@ -186,9 +192,7 @@ def test_an_unwaived_post_deploy_requirement_is_already_an_answer(
     monkeypatch,
 ) -> None:
     """An ad-hoc post-deploy case is verification, even with no plan attached."""
-    item = _item(
-        requirements=[{"qa_phase": "post_deploy", "waived_at": None}]
-    )
+    item = _item(requirements=[{"qa_phase": "post_deploy", "waived_at": None}])
     assert _refusal(monkeypatch, item, ITEM_SCOPED_STAGES) == ""
 
 

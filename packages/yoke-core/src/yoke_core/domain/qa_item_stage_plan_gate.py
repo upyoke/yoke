@@ -49,6 +49,7 @@ import sys
 from collections.abc import Mapping
 from typing import Any, Iterable
 
+from yoke_core.domain.item_completion_flow_projection import flow_id
 from yoke_core.domain.qa_deployment_member_attached_plans import (
     DEPLOYMENT_ATTACHMENT_PHASE,
 )
@@ -102,8 +103,7 @@ def has_attached_member_plan(attachments: Iterable[Any]) -> bool:
     """True when the item already attached a plan the QA stage will run."""
     return any(
         isinstance(attachment, Mapping)
-        and str(attachment.get("qa_phase") or "").strip()
-        == DEPLOYMENT_ATTACHMENT_PHASE
+        and str(attachment.get("qa_phase") or "").strip() == DEPLOYMENT_ATTACHMENT_PHASE
         for attachment in attachments
     )
 
@@ -120,9 +120,7 @@ def _relay(function_id: str, payload: dict[str, Any]) -> tuple[Any, str]:
         payload=payload,
     )
     if not response.success:
-        return None, (
-            response.error.message if response.error else "read failed"
-        )
+        return None, (response.error.message if response.error else "read failed")
     return response.result or {}, ""
 
 
@@ -169,9 +167,7 @@ def attachment_transition(item: Mapping[str, Any]) -> str:
 
 def flow_stages(flow_id: str) -> tuple[Any, str]:
     """Relay one flow's stage definitions. Returns ``(stages, notice)``."""
-    result, error = _relay(
-        "deployment_flows.stages", {"flow_id": str(flow_id)}
-    )
+    result, error = _relay("deployment_flows.stages", {"flow_id": str(flow_id)})
     if error:
         return None, (
             f"could not read the stages of delivery flow {flow_id!r}, so "
@@ -184,11 +180,12 @@ def flow_stages(flow_id: str) -> tuple[Any, str]:
 def completion_flow(item: Mapping[str, Any]) -> str:
     """The flow that will close this item, as the detail read resolved it.
 
-    ``deployment_flow`` is only the explicit pin and is empty on almost every
-    item before it merges, so it is the fallback rather than the answer.
+    ``deployment_flow`` is the fallback for a detail read that carries no
+    ``completion_flow``. It may be the projected ``{value, source}`` mapping
+    or, from an older serving build, the bare explicit pin.
     """
     resolved = str(item.get("completion_flow") or "").strip()
-    return resolved or str(item.get("deployment_flow") or "").strip()
+    return resolved or flow_id(item.get("deployment_flow"))
 
 
 def missing_item_qa_plan_refusal(

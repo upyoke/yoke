@@ -125,9 +125,9 @@ current stage to `release`. The handler runs the target's gates and emits
 
 ### 7c. Pre-merge ephemeral verification
 
-Check if flow has `ephemeral-verify` stage:
+Check if flow has `ephemeral-verify` stage. `_item_flow` is `result.fields.deployment_flow.value` from `yoke items get {N} deployment_flow --json` (the plain read prints `flow (source)`, not an id):
 ```bash
-_item_flow=$(yoke items get {N} deployment_flow 2>/dev/null) || true
+_item_flow="<that value>"
 _pre_merge_verified=0
 _eph_next_stage=""
 

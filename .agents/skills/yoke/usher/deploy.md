@@ -14,7 +14,7 @@ If `_MERGE_ONLY`: report merge-only complete, **stop**.
 
 ## Step 8a: Group items by (project, deployment_flow)
 
-For each merged item, read `deployment_flow` and `project` through the typed `items.get` function (typed reads, not shell `items get`). For every non-empty, non-`-internal` value, read `target_tier` through the registered `deployment_flows.get` function. A successful empty target tier is merge-only; an unavailable read is unresolved and must not be guessed merge-only.
+For each merged item, read `deployment_flow` and `project` through the typed `items.get` function (typed reads, not shell `items get`); the flow id is the `value` of the projected `{value, source}` field. For every non-empty, non-`-internal` value, read `target_tier` through the registered `deployment_flows.get` function. A successful empty target tier is merge-only; an unavailable read is unresolved and must not be guessed merge-only.
 
 Categories:
 - **Route A, no run:** `deployment_flow` is empty/null, ends in the registered
