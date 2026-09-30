@@ -1,7 +1,7 @@
 """Append client-side explanation to a relayed denial without corrupting it.
 
-A denial reaches the operator as the hook's stdout, which is either plain
-text or a harness deny envelope. Facts only the client holds — the guard
+A denial's wire text is either plain text or a harness deny envelope. The
+client emits Claude exit-2 reasons on stderr. Client-only facts — the guard
 revision it is running, the machine-config mapping the server cannot see —
 belong in that same output, so the appending has to understand both shapes.
 """
@@ -32,7 +32,9 @@ def _annotate_hook_envelope(payload: dict[str, Any], notice: str, marker: str) -
     return True
 
 
-def _annotate_cursor_envelope(payload: dict[str, Any], notice: str, marker: str) -> bool:
+def _annotate_cursor_envelope(
+    payload: dict[str, Any], notice: str, marker: str
+) -> bool:
     if payload.get("permission") != "deny":
         return False
     changed = False
@@ -45,7 +47,7 @@ def _annotate_cursor_envelope(payload: dict[str, Any], notice: str, marker: str)
 
 
 def annotate_denial(stdout: str, notice: str, *, marker: str) -> str:
-    """Add ``notice`` to a denial's stdout, plain text or deny envelope."""
+    """Add ``notice`` to denial wire text, plain text or deny envelope."""
     if not notice:
         return stdout
     try:

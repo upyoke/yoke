@@ -27,37 +27,54 @@ pytest_plugins = ("runtime.api.cli.test_yoke_operations_cli_hooks",)
 
 
 def _context_envelope(body: str, event_name: str = "PreToolUse") -> str:
-    return json.dumps({
-        HOOK_SPECIFIC_OUTPUT_KEY: {
-            "hookEventName": event_name,
-            "additionalContext": body,
+    return json.dumps(
+        {
+            HOOK_SPECIFIC_OUTPUT_KEY: {
+                "hookEventName": event_name,
+                "additionalContext": body,
+            }
         }
-    })
+    )
 
 
 def _server_response(**overrides) -> bytes:
     payload = {
-        "hook_schema": 1, "stdout": "", "exit_code": 0,
-        "wait_ms": 1, "degraded": [], "outcome": "completed",
+        "hook_schema": 1,
+        "stdout": "",
+        "exit_code": 0,
+        "wait_ms": 1,
+        "degraded": [],
+        "outcome": "completed",
     }
     payload.update(overrides)
     return json.dumps(payload).encode("utf-8")
 
 
+@pytest.mark.parametrize("executor", ["claude", "codex", "cursor"])
 def test_client_local_deny_short_circuits_without_post(
-    monkeypatch, capsys, https_connection, local_subset,
+    monkeypatch,
+    capsys,
+    https_connection,
+    local_subset,
+    executor,
 ) -> None:
     """A client-side local-state deny wins outright and skips the POST —
     the server verdict could not flip it."""
     monkeypatch.setattr(
-        sys, "stdin",
-        io.StringIO('{"tool_name": "Bash", "tool_input": {"command": "git reset --hard"}}'),
+        sys,
+        "stdin",
+        io.StringIO(
+            '{"tool_name": "Bash", "tool_input": {"command": "git reset --hard"}}'
+        ),
     )
     monkeypatch.setattr(
-        "yoke_harness.hooks.relay.detect_executor", lambda: "claude",
+        "yoke_harness.hooks.relay.detect_executor",
+        lambda: executor,
     )
     local_subset.result = LocalSubsetEvaluation(
-        stdout="BLOCKED: destructive git verb", exit_code=2, denied=True,
+        stdout="BLOCKED: destructive git verb",
+        exit_code=2,
+        denied=True,
     )
     monkeypatch.setattr(
         "urllib.request.urlopen",
@@ -68,16 +85,22 @@ def test_client_local_deny_short_circuits_without_post(
 
     out = capsys.readouterr()
     assert rc == 2
-    assert out.out == "BLOCKED: destructive git verb"
-    assert local_subset.calls == [("PreToolUse", "claude", None, True, {})]
+    expected = "BLOCKED: destructive git verb" + ("\n" if executor == "claude" else "")
+    assert (out.err if executor == "claude" else out.out) == expected
+    assert local_subset.calls == [("PreToolUse", executor, None, True, {})]
 
 
 def test_both_allow_advisory_envelopes_merge_into_one(
-    monkeypatch, capsys, https_connection, local_subset,
+    monkeypatch,
+    capsys,
+    https_connection,
+    local_subset,
 ) -> None:
     monkeypatch.setattr(sys, "stdin", io.StringIO('{"tool_name": "Edit"}'))
     local_subset.result = LocalSubsetEvaluation(
-        stdout=_context_envelope("client hint"), exit_code=0, denied=False,
+        stdout=_context_envelope("client hint"),
+        exit_code=0,
+        denied=False,
     )
     monkeypatch.setattr(
         "urllib.request.urlopen",
@@ -97,11 +120,17 @@ def test_both_allow_advisory_envelopes_merge_into_one(
 
 
 def test_client_payload_extra_posts_to_server(
-    monkeypatch, capsys, https_connection, local_subset,
+    monkeypatch,
+    capsys,
+    https_connection,
+    local_subset,
 ) -> None:
     monkeypatch.setattr(sys, "stdin", io.StringIO('{"tool_name": "Bash"}'))
     local_subset.result = LocalSubsetEvaluation(
-        stdout="", exit_code=0, denied=False, payload_extra={"client_fact": 7},
+        stdout="",
+        exit_code=0,
+        denied=False,
+        payload_extra={"client_fact": 7},
     )
     captured: dict = {}
 
@@ -119,7 +148,10 @@ def test_client_payload_extra_posts_to_server(
 
 
 def test_client_plain_stdout_relays_through_empty_server_allow(
-    monkeypatch, capsys, https_connection, local_subset,
+    monkeypatch,
+    capsys,
+    https_connection,
+    local_subset,
 ) -> None:
     """Lifecycle shape: the orientation block is client-rendered plain text
     and the server's lifecycle chain is empty — the client half must reach
@@ -130,7 +162,9 @@ def test_client_plain_stdout_relays_through_empty_server_allow(
         lambda *_a, **_k: None,
     )
     local_subset.result = LocalSubsetEvaluation(
-        stdout="## Yoke Orientation\n", exit_code=0, denied=False,
+        stdout="## Yoke Orientation\n",
+        exit_code=0,
+        denied=False,
     )
     monkeypatch.setattr(
         "urllib.request.urlopen",
@@ -144,40 +178,65 @@ def test_client_plain_stdout_relays_through_empty_server_allow(
     assert out.out == "## Yoke Orientation\n"
 
 
+@pytest.mark.parametrize("executor", ["claude", "codex", "cursor"])
 def test_server_deny_relays_verbatim_and_drops_client_advisory(
-    monkeypatch, capsys, https_connection, local_subset,
+    monkeypatch,
+    capsys,
+    https_connection,
+    local_subset,
+    executor,
 ) -> None:
     """Mirror of the in-chain renderer rule: deny text is never diluted by
     sibling advisories — the server deny renders alone."""
     monkeypatch.setattr(sys, "stdin", io.StringIO('{"tool_name": "Bash"}'))
+    monkeypatch.setenv("YOKE_HOOK_CONFIG_OWNER", executor)
+    monkeypatch.setattr("yoke_harness.hooks.relay.detect_executor", lambda: executor)
     local_subset.result = LocalSubsetEvaluation(
-        stdout=_context_envelope("client hint"), exit_code=0, denied=False,
+        stdout=_context_envelope("client hint"),
+        exit_code=0,
+        denied=False,
     )
     monkeypatch.setattr(
         "urllib.request.urlopen",
-        lambda *_a, **_k: _FakeResponse(_server_response(
-            stdout="DENY: server policy", exit_code=2, outcome="denied",
-        )),
+        lambda *_a, **_k: _FakeResponse(
+            _server_response(
+                stdout="DENY: server policy",
+                exit_code=2,
+                outcome="denied",
+            )
+        ),
     )
 
     rc = cli_main(["hook", "evaluate", "PreToolUse"])
 
     out = capsys.readouterr()
     assert rc == 2
-    assert out.out == "DENY: server policy"
+    expected = "DENY: server policy" + ("\n" if executor == "claude" else "")
+    assert (out.err if executor == "claude" else out.out) == expected
+    assert (out.out if executor == "claude" else out.err) == ""
 
 
 def test_missing_outcome_is_non_contract_and_preserves_client_stdout(
-    monkeypatch, capsys, https_connection, local_subset,
+    monkeypatch,
+    capsys,
+    https_connection,
+    local_subset,
 ) -> None:
     """The structured ``outcome`` is required: a response without it is
     not the contract, degrades the server half, and keeps the client half."""
     monkeypatch.setattr(sys, "stdin", io.StringIO('{"tool_name": "Bash"}'))
     local_subset.result = LocalSubsetEvaluation(
-        stdout="client advisory\n", exit_code=0, denied=False,
+        stdout="client advisory\n",
+        exit_code=0,
+        denied=False,
     )
-    legacy = {"hook_schema": 1, "stdout": "", "exit_code": 0,
-              "wait_ms": 1, "degraded": []}
+    legacy = {
+        "hook_schema": 1,
+        "stdout": "",
+        "exit_code": 0,
+        "wait_ms": 1,
+        "degraded": [],
+    }
     monkeypatch.setattr(
         "urllib.request.urlopen",
         lambda *_a, **_k: _FakeResponse(json.dumps(legacy).encode("utf-8")),
@@ -192,13 +251,18 @@ def test_missing_outcome_is_non_contract_and_preserves_client_stdout(
 
 
 def test_unreachable_server_degrades_but_preserves_client_stdout(
-    monkeypatch, capsys, https_connection, local_subset,
+    monkeypatch,
+    capsys,
+    https_connection,
+    local_subset,
 ) -> None:
     import urllib.error
 
     monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
     local_subset.result = LocalSubsetEvaluation(
-        stdout="client advisory\n", exit_code=0, denied=False,
+        stdout="client advisory\n",
+        exit_code=0,
+        denied=False,
     )
 
     def fake_urlopen(request, timeout=None):
@@ -216,7 +280,10 @@ def test_unreachable_server_degrades_but_preserves_client_stdout(
 
 
 def test_non_200_degrades_to_noop_with_empty_client_half(
-    monkeypatch, capsys, https_connection, local_subset,
+    monkeypatch,
+    capsys,
+    https_connection,
+    local_subset,
 ) -> None:
     import urllib.error
 
@@ -224,7 +291,11 @@ def test_non_200_degrades_to_noop_with_empty_client_half(
 
     def fake_urlopen(request, timeout=None):
         raise urllib.error.HTTPError(
-            request.full_url, 500, "boom", hdrs=None, fp=None,
+            request.full_url,
+            500,
+            "boom",
+            hdrs=None,
+            fp=None,
         )
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
@@ -238,11 +309,13 @@ def test_non_200_degrades_to_noop_with_empty_client_half(
 
 
 def test_cursor_degradation_is_visible_in_context_and_stderr(
-    monkeypatch, capsys,
+    monkeypatch,
+    capsys,
 ) -> None:
     """Cursor surfaces relay degradation instead of hiding a sandbox failure."""
     monkeypatch.setattr(
-        "yoke_harness.hooks.relay_degrade.detect_executor", lambda: "cursor",
+        "yoke_harness.hooks.relay_degrade.detect_executor",
+        lambda: "cursor",
     )
 
     rc = degrade_to_noop(
@@ -261,10 +334,12 @@ def test_cursor_degradation_is_visible_in_context_and_stderr(
 
 
 def test_cursor_degradation_with_empty_preserved_stays_empty(
-    monkeypatch, capsys,
+    monkeypatch,
+    capsys,
 ) -> None:
     monkeypatch.setattr(
-        "yoke_harness.hooks.relay_degrade.detect_executor", lambda: "cursor",
+        "yoke_harness.hooks.relay_degrade.detect_executor",
+        lambda: "cursor",
     )
 
     rc = degrade_to_noop("PostToolUse", "HTTP 500", preserved_stdout="")

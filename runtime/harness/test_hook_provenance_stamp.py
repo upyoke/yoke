@@ -106,5 +106,7 @@ def test_hook_provenance_is_printed_only_on_allow(path, denied, monkeypatch, cap
         )
     output = capsys.readouterr()
     assert rc == (2 if denied else 0)
-    assert output.out == reason
+    assert output.out == ""
+    if denied:
+        assert output.err == f"{reason}\n"
     assert ("yoke-provenance" in output.err) is not denied

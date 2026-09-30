@@ -20,7 +20,7 @@ from yoke_harness.hooks.cursor_lifecycle_hooks import (
     ensure_user_lifecycle_hooks_for_executor,
 )
 from yoke_contracts.executor_labels import canonical_harness_id
-from yoke_harness.hooks.decision_render import merge_allow_stdout
+from yoke_harness.hooks.decision_render import merge_allow_stdout, write_hook_output
 from yoke_harness.hooks.identity import detect_executor, is_cursor
 from yoke_harness.hooks.identity_relay import (
     record_model_facts_shipped,
@@ -99,8 +99,7 @@ def evaluate_local_hook(
             cursor=cursor,
             harness_id=canonical_harness_id(executor),
         )
-    if stdout:
-        sys.stdout.write(stdout)
+    write_hook_output(stdout, exit_code, executor)
     settle_projection(stdout, launch_projection)
     return exit_code
 

@@ -172,7 +172,7 @@ def test_hook_evaluate_https_posts_contract_and_relays(
     assert 0 < body["deadline_ms"] <= 10000
     assert 0 < captured["timeout"] <= 10.0
     out = capsys.readouterr()
-    assert out.out == "DENY: blocked by policy"
+    assert out.err == "DENY: blocked by policy\n"
     assert rc == 2
 
 

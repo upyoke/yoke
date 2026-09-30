@@ -146,8 +146,8 @@ started it (`yoke_harness.cursor_native_result_usage`).
 
 | Concern | Claude Code | Codex | Cursor |
 |---|---|---|---|
-| Deny | exit 2 + stderr/stdout narrative | exit 0 + `hookSpecificOutput.permissionDecision: "deny"` | exit 0 + `{"permission": "deny"}` (also `"allow"` / `"ask"`); exit 2 equivalent |
-| Denial narrative to model | stdout text | JSON field | `agent_message` (model) + `user_message` (operator) |
+| Deny | exit 2 + stderr narrative | exit 0 + `hookSpecificOutput.permissionDecision: "deny"` | exit 0 + `{"permission": "deny"}` (also `"allow"` / `"ask"`); exit 2 equivalent |
+| Denial narrative to model | stderr text | JSON field | `agent_message` (model) + `user_message` (operator) |
 | Allow-time advisory | `hookSpecificOutput.additionalContext` | same | `postToolUse.additional_context`; no allow-time channel on `preToolUse` — advisory-only chain output needs rerouting or omission via `AdapterCapability.pretool_omissions` |
 | Rewrite tool input | — | — | `preToolUse.updated_input` |
 | Orientation injection | `UserPromptSubmit` additionalContext | `SessionStart` | `sessionStart.additional_context` (measured working; only channel in `-p` mode, where `beforeSubmitPrompt` never fires) |

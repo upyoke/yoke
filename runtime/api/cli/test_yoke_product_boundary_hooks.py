@@ -159,9 +159,9 @@ def test_local_subset_denies_git_commit_on_main_without_authority_imports(
     )
 
     assert run.returncode == 2
-    assert "Implementation commit on main branch" in run.stdout
-    assert "impl.py" in run.stdout
-    assert run.stderr == ""
+    assert "Implementation commit on main branch" in run.stderr
+    assert "impl.py" in run.stderr
+    assert run.stdout == ""
     _assert_clean_client_boundary(run)
 
 
@@ -220,9 +220,9 @@ def test_local_subset_denies_destructive_git_without_authority_imports(
     )
 
     assert run.returncode == 2
-    assert "destructive git command" in run.stdout
-    assert "base.txt" in run.stdout
-    assert run.stderr == ""
+    assert "destructive git command" in run.stderr
+    assert "base.txt" in run.stderr
+    assert run.stdout == ""
     _assert_clean_client_boundary(run)
 
 
@@ -241,7 +241,7 @@ def test_relay_short_circuits_before_http_when_local_subset_denies(
     )
 
     assert run.returncode == 2
-    assert "destructive git command" in run.stdout
+    assert "destructive git command" in run.stderr
     assert "degraded to no-op allow" not in run.stderr
-    assert run.stderr == ""
+    assert run.stdout == ""
     _assert_clean_client_boundary(run)

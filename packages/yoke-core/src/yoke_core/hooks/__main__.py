@@ -17,6 +17,7 @@ from yoke_core.hooks.helpers_identity import detect_executor
 from yoke_core.hooks.capability_resolve import resolve_capability
 from yoke_core.hooks.remote_policy import RunControls
 from yoke_core.hooks.runner import run_event
+from yoke_harness.hooks.decision_render import write_hook_output
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -33,7 +34,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     stdin_data = "" if args.dry_run else sys.stdin.read()
-    capability = resolve_capability(detect_executor(), args.dry_run)
+    executor = detect_executor()
+    capability = resolve_capability(executor, args.dry_run)
     controls = RunControls()
     stdout_text, exit_code = run_event(
         args.event_name,
@@ -45,8 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     failure_warning = render_failure_warning(controls.degraded)
     if failure_warning:
         sys.stderr.write(failure_warning)
-    if stdout_text:
-        sys.stdout.write(stdout_text)
+    write_hook_output(stdout_text, exit_code, executor)
     return exit_code
 
 

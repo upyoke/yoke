@@ -23,7 +23,7 @@ aggregation rule:
   tool call.
 
 For the Claude harness, deny is signaled by exit code 2 with the narrative
-on stdout (Claude's documented PreToolUse blocking shape). Allow is exit 0
+on stderr at the client output boundary. Allow is exit 0
 with empty stdout. Allow-with-context is exit 0 with the
 ``hookSpecificOutput.additionalContext`` JSON envelope on stdout.
 
@@ -111,7 +111,8 @@ def _join_narratives(narratives: list[str]) -> str:
 
 
 def _render_additional_context_envelope(
-    contexts: list[str], event_name: str,
+    contexts: list[str],
+    event_name: str,
 ) -> str:
     """Render the ``hookSpecificOutput.additionalContext`` JSON envelope.
 
@@ -133,8 +134,7 @@ def render_claude_decision(
     decisions: list[HookDecision],
     event_name: str,
 ) -> tuple[str, int]:
-    """Render decisions into Claude Code's hook stdout/exit-code shape.
-
+    """Render decisions into text/exit-code; the client emits blocks on stderr.
     Three outcomes:
 
     * Deny present → ``(<narrative>, 2)`` (Claude's blocking shape).
@@ -231,10 +231,12 @@ def _plain_deny_narrative(text: str) -> str:
         return reason
     return text
 
+
 # Cursor events whose allow-time reply may carry ``additional_context``.
 # Measured on Cursor IDE 3.14.7 / cursor-agent 2026.07.23: sessionStart and
 # postToolUse accept it; preToolUse has no allow-time injection channel.
 _CURSOR_CONTEXT_EVENTS = frozenset({"SessionStart", "PostToolUse"})
+
 
 # Empty allow stdout on these events previously left Cursor with no JSON
 # body; stop in particular is happier with an explicit ``{}`` (and must
@@ -267,9 +269,7 @@ def render_cursor_decision(
         from yoke_core.hooks.turn_end_decision_render import render_cursor_stop
 
         return render_cursor_stop(decisions)
-    narratives = [
-        _plain_deny_narrative(n) for n in _collect_deny_narratives(decisions)
-    ]
+    narratives = [_plain_deny_narrative(n) for n in _collect_deny_narratives(decisions)]
     if narratives:
         message = _join_narratives(narratives)
         envelope = {
@@ -330,9 +330,7 @@ def merge_allow_stdout(
     if first_body is not None and second_body is not None:
         from yoke_contracts.hook_context_compose import compose_context_list
 
-        body = compose_context_list(
-            [first_body, second_body], harness_id=harness_id
-        )
+        body = compose_context_list([first_body, second_body], harness_id=harness_id)
         if not body:
             return ""
         return _render_additional_context_envelope([body], event_name)
