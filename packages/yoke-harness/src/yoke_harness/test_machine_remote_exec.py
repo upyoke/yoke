@@ -74,8 +74,8 @@ def run_remote_command(
     yoke_home: Path,
     environ: Mapping[str, str] = os.environ,
     run: Callable[..., subprocess.CompletedProcess] = subprocess.run,
-) -> int:
-    """Run one command on the host with inherited stdio; return its exit code.
+) -> subprocess.CompletedProcess[str]:
+    """Run one command with inherited stdin; return output for CLI diagnosis.
 
     Raises :class:`RemoteExecRefusal` before connecting when no ssh-agent is
     reachable, and after ssh itself fails to connect (exit 255), so the
@@ -106,7 +106,9 @@ def run_remote_command(
         command=command,
     )
     try:
-        completed = run(argv, check=False)
+        completed = run(
+            argv, check=False, capture_output=True, text=True, errors="backslashreplace"
+        )
     except OSError as exc:
         raise RemoteExecRefusal(
             "test_machine_ssh_unavailable",
@@ -117,14 +119,15 @@ def run_remote_command(
         raise RemoteExecRefusal(
             "test_machine_ssh_failed",
             f"ssh exited {SSH_CONNECTION_FAILURE_EXIT} reaching {user}@{host}: "
-            "ssh's own failure status (its message is above), unless the "
-            f"remote command itself exited {SSH_CONNECTION_FAILURE_EXIT}",
+            "ssh's own failure status, unless the "
+            f"remote command itself exited {SSH_CONNECTION_FAILURE_EXIT}: "
+            + "\n".join((completed.stdout or "", completed.stderr or "")).strip(),
             "Check the host is reachable from this machine and that the "
             "ssh-agent holds a key it authorizes. If the host was rebuilt its "
             "host key changed: remove the pinned entry with "
             f"`ssh-keygen -R {host} -f {known_hosts}` and retry.",
         )
-    return int(completed.returncode)
+    return completed
 
 
 __all__ = [

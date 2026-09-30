@@ -258,3 +258,16 @@ def test_machine_assertion_contract_accepts_only_gui_session_context() -> None:
             entry_surface=None,
             required_completion=None,
         )
+
+
+@pytest.mark.parametrize(
+    "output",
+    ["Your macOS login keychain is locked", "Not logged in · Please run /login"],
+)
+def test_ssh_login_signatures_do_not_diagnose_gui_sign_in(output) -> None:
+    result = subprocess.CompletedProcess([], 1, stdout="", stderr=output)
+    classify = ssh_mac_gui_session.classify_macos_session_context_failure
+
+    assert classify(result) is None
+    failure = classify(result, ssh_exec=True)
+    assert failure.error_code == "macos_login_keychain_context_unavailable"

@@ -62,6 +62,9 @@ def test_machine_exec(args: List[str]) -> int:
             "remote login shell exactly as `ssh` sends them. Uses this "
             "machine's ssh-agent identity and pins host keys in a "
             "Yoke-managed known_hosts file; ~/.ssh is never read."
+            " On macOS, keychain-backed harness CLIs (claude, cursor-agent) "
+            "run through `yoke qa mission host-command --gui-session` "
+            "under an awaiting mission's retained lease."
         ),
     )
     parser.add_argument("--project", required=True)
@@ -102,7 +105,7 @@ def test_machine_exec(args: List[str]) -> int:
     )
 
     try:
-        return run_remote_command(
+        completed = run_remote_command(
             host=str(settings["host"]),
             user=str(settings["user"]),
             command=command,
@@ -110,6 +113,26 @@ def test_machine_exec(args: List[str]) -> int:
         )
     except RemoteExecRefusal as refusal:
         return _refuse(refusal.code, str(refusal), refusal.recovery)
+    print(completed.stdout or "", end="")
+    print(completed.stderr or "", end="", file=sys.stderr)
+    if completed.returncode and settings["os"] == "macos":
+        from yoke_harness.ssh_mac_gui_session import (
+            classify_macos_session_context_failure,
+        )
+
+        failure = classify_macos_session_context_failure(completed, ssh_exec=True)
+        if failure is not None:
+            return _refuse(
+                failure.error_code,
+                failure.reason + "; this is an SSH session-context failure, "
+                "not a sign-in diagnosis",
+                "Verify the command through the GUI Terminal bridge first: "
+                "`yoke qa mission host-command --execution-id ID "
+                "--requirement-id N --gui-session -- ARGV...` under an awaiting "
+                "mission's retained lease; diagnose sign-in only if it also "
+                "fails there.",
+            )
+    return int(completed.returncode)
 
 
 TOOL_SHAPED_SUBCOMMANDS = {("test-machine", "exec"): test_machine_exec}

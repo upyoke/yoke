@@ -17,9 +17,11 @@ from yoke_core.domain.machine_qa_method_contracts import (
     validate_machine_method_config,
 )
 from yoke_core.domain.machine_qa_pack import (
+    MACHINE_QA_PACK,
     load_machine_qa_methods,
     sync_machine_qa_pack_methods,
 )
+from yoke_core.domain.pack_catalog import load_pack_descriptor
 from yoke_core.domain.machine_qa_capability import (
     replace_test_machine_settings,
     test_machine_detail as read_test_machine_detail,
@@ -29,7 +31,7 @@ from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_con
 
 def test_pack_owns_serial_machine_and_exploratory_method_definitions() -> None:
     version, methods = load_machine_qa_methods()
-    assert version == "1.2.0"
+    assert version == load_pack_descriptor(MACHINE_QA_PACK)["latest_version"]
     assert {row["id"] for row in methods} == {
         "terminal-check",
         "terminal-inspection",
