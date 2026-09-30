@@ -172,7 +172,7 @@ def test_qa_packet_carries_per_requirement_browser_case_run_example() -> None:
 
 def test_qa_packet_carries_ordered_plan_run_example() -> None:
     body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
-    assert "Execute an item's materialized QA plans in snapshot order" in body
+    assert "Execute immutable QA plans for an item, deployment, or project" in body
     assert (
         "yoke qa plan run --item PREFIX-N --transition TRANSITION "
         "--base-url https://preview.example"
@@ -181,6 +181,8 @@ def test_qa_packet_carries_ordered_plan_run_example() -> None:
     assert "immutable roster, digest, durable cursor" in body
     assert "Waiting runs resume from the same cursor" in body
     assert "completion or abort releases the lease" in body
+    assert "yoke qa plan run --plan PLAN --project P" in body
+    assert "it never credits an item or deployment gate" in body
 
 
 def test_qa_packet_drops_retired_browser_execution_teaching() -> None:
