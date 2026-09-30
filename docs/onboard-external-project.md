@@ -15,9 +15,9 @@ Source-dev/admin and server-only leftovers are named at the end.
 
 The only prerequisites are a shell, `curl`, and `uv`. The public installer
 ensures `uv` is present (installing it on consent when missing), then installs
-`yoke` on Python 3.10–3.13 and links it onto PATH. If no supported Python is
-available, run `uv python install ">=3.10,<3.14"` and rerun the installer or
-`yoke update`. The installer auto-launches `yoke onboard` when interactive.
+`yoke` on Python 3.10–3.13 and links it onto PATH. If none is available, uv
+downloads a managed interpreter automatically; `yoke update` does the same.
+Your system Python is unchanged. The installer launches `yoke onboard` when interactive.
 
 ```bash
 curl -fsSL https://upyoke.com/install | sh

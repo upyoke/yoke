@@ -130,12 +130,12 @@ def test_full_install_pins_channel_version_and_smokes(
 
     installer.run()
 
-    assert runner.commands[1][:4] == ["uv", "tool", "install", "yoke-cli==2.0.0"]
-    assert "--reinstall" in runner.commands[1]
-    assert "yoke-contracts==2.0.0" in runner.commands[1]
-    assert "yoke-harness==2.0.0" in runner.commands[1]
-    assert "yoke-core==2.0.0" in runner.commands[1]
-    assert "--config-file" in runner.commands[1]
+    assert runner.commands[0][:4] == ["uv", "tool", "install", "yoke-cli==2.0.0"]
+    assert "--reinstall" in runner.commands[0]
+    assert "yoke-contracts==2.0.0" in runner.commands[0]
+    assert "yoke-harness==2.0.0" in runner.commands[0]
+    assert "yoke-core==2.0.0" in runner.commands[0]
+    assert "--config-file" in runner.commands[0]
     assert [yoke_bin, "--version"] in runner.commands
     assert [yoke_bin, "--help"] in runner.commands
     assert [yoke_bin, "status", "--json"] in runner.commands
@@ -242,10 +242,10 @@ def test_explicit_version_skips_channel_fetch(tmp_path: Path, monkeypatch) -> No
     installer.run()
 
     assert fetched == []
-    assert runner.commands[1][:4] == ["uv", "tool", "install", "yoke-cli==9.9.9"]
-    assert "yoke-contracts==9.9.9" in runner.commands[1]
-    assert "yoke-harness==9.9.9" in runner.commands[1]
-    assert "yoke-core==9.9.9" in runner.commands[1]
+    assert runner.commands[0][:4] == ["uv", "tool", "install", "yoke-cli==9.9.9"]
+    assert "yoke-contracts==9.9.9" in runner.commands[0]
+    assert "yoke-harness==9.9.9" in runner.commands[0]
+    assert "yoke-core==9.9.9" in runner.commands[0]
     assert "Starting Yoke onboard" not in output.getvalue()
 
 

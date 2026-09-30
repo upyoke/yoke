@@ -347,18 +347,19 @@ class Installer:
         return version
 
     def _run_uv_install(self, command: Sequence[str]) -> bool:
-        probe = self.capture_runner(
-            ["uv", "python", "find", "--no-python-downloads", PYTHON_CONSTRAINT]
-        )
-        if probe.returncode != 0:
-            raise InstallError(
-                f"supported_python_unavailable: Yoke supports Python {PYTHON_CONSTRAINT}. "
-                f"Install a supported interpreter with uv python install "
-                f"{shlex.quote(PYTHON_CONSTRAINT)}, then rerun the installer "
-                "or yoke update. " + _failure_reason(probe)
-            )
         result = self.capture_runner(list(command))
         if result.returncode != 0:
+            probe = self.capture_runner(
+                ["uv", "python", "find", "--no-python-downloads", PYTHON_CONSTRAINT]
+            )
+            if probe.returncode != 0:
+                raise InstallError(
+                    f"supported_python_unavailable: Yoke supports Python {PYTHON_CONSTRAINT}. "
+                    "Automatic managed-Python download failed or is disabled. "
+                    "Check network access and uv's Python download settings, or run "
+                    f"uv python install {shlex.quote(PYTHON_CONSTRAINT)}, then rerun "
+                    "the installer or yoke update. " + _failure_reason(result)
+                )
             print(self._say("Install failed"), file=self.stdout)
             print(
                 _paint("✗ Couldn't install Yoke.", "danger", enabled=self.color),
