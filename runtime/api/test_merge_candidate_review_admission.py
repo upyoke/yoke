@@ -50,6 +50,9 @@ def _dispatch_for(verdict, seen=None):
 @pytest.fixture(autouse=True)
 def quiet_git(monkeypatch):
     """The repository is not the subject here; the clearance is."""
+    monkeypatch.setattr(
+        selection_mod, "_find_worktree", lambda branch, repo_root: repo_root
+    )
     monkeypatch.setattr(selection_mod.git, "head_of", lambda *_a: HEAD)
     monkeypatch.setattr(
         admission_mod.git, "changed_files", lambda *_a: ("packages/a.py",)
@@ -78,7 +81,8 @@ def _route(dispatch, *, project="yoke"):
 
 def test_the_queue_route_never_arms_an_uncleared_candidate(monkeypatch):
     monkeypatch.setattr(
-        selection_mod, "project_declares_merge_queue",
+        selection_mod,
+        "project_declares_merge_queue",
         lambda project, dispatch=None: (True, None),
     )
     _forbid(monkeypatch, "an uncleared candidate must not reach the queue")
@@ -94,7 +98,8 @@ def test_the_queue_route_never_arms_an_uncleared_candidate(monkeypatch):
 def test_the_direct_merge_route_never_lands_an_uncleared_candidate(monkeypatch):
     """A project with no merge queue is held by the same review."""
     monkeypatch.setattr(
-        selection_mod, "project_declares_merge_queue",
+        selection_mod,
+        "project_declares_merge_queue",
         lambda project, dispatch=None: (False, None),
     )
     _forbid(monkeypatch, "an uncleared candidate must not merge locally")
@@ -105,7 +110,8 @@ def test_the_direct_merge_route_never_lands_an_uncleared_candidate(monkeypatch):
 
 def test_a_cleared_candidate_lands(monkeypatch):
     monkeypatch.setattr(
-        selection_mod, "project_declares_merge_queue",
+        selection_mod,
+        "project_declares_merge_queue",
         lambda project, dispatch=None: (False, None),
     )
     landed = {}
@@ -122,14 +128,18 @@ def test_a_cleared_candidate_lands(monkeypatch):
 
 def test_an_item_that_needs_no_review_is_unaffected(monkeypatch):
     monkeypatch.setattr(
-        selection_mod, "project_declares_merge_queue",
+        selection_mod,
+        "project_declares_merge_queue",
         lambda project, dispatch=None: (True, None),
     )
     monkeypatch.setattr(
         selection_mod,
         "land_item_through_merge_queue",
         lambda _ctx, **kwargs: QueueLandingOutcome(
-            ok=True, exit_code=0, pr_num="42", commit_sha=kwargs["commit_sha"],
+            ok=True,
+            exit_code=0,
+            pr_num="42",
+            commit_sha=kwargs["commit_sha"],
         ),
     )
     outcome = _route(
@@ -141,7 +151,8 @@ def test_an_item_that_needs_no_review_is_unaffected(monkeypatch):
 
 def test_the_review_is_asked_about_the_exact_head_and_its_files(monkeypatch):
     monkeypatch.setattr(
-        selection_mod, "project_declares_merge_queue",
+        selection_mod,
+        "project_declares_merge_queue",
         lambda project, dispatch=None: (False, None),
     )
     monkeypatch.setattr(
@@ -162,14 +173,13 @@ def test_the_review_is_asked_about_the_exact_head_and_its_files(monkeypatch):
 
 def test_a_rejected_candidate_is_refused_with_its_verdict(monkeypatch):
     monkeypatch.setattr(
-        selection_mod, "project_declares_merge_queue",
+        selection_mod,
+        "project_declares_merge_queue",
         lambda project, dispatch=None: (False, None),
     )
     _forbid(monkeypatch, "a rejected candidate must not land")
     outcome = _route(
-        _dispatch_for(
-            _verdict(request_status="resolved", resolution_action="reject")
-        )
+        _dispatch_for(_verdict(request_status="resolved", resolution_action="reject"))
     )
     assert not outcome.ok
     assert "reviewed and rejected" in outcome.error
@@ -177,7 +187,7 @@ def test_a_rejected_candidate_is_refused_with_its_verdict(monkeypatch):
 
 
 def test_a_control_plane_without_the_function_lands_normally(monkeypatch):
-    """The slice has to survive its own rollout.
+    """The review function has to survive its own rollout.
 
     A universe learns the posture key and this function in one deploy, so a
     server that does not serve it has no item that can require a review.
@@ -185,7 +195,8 @@ def test_a_control_plane_without_the_function_lands_normally(monkeypatch):
     deploy landed -- including the merge that ships it.
     """
     monkeypatch.setattr(
-        selection_mod, "project_declares_merge_queue",
+        selection_mod,
+        "project_declares_merge_queue",
         lambda project, dispatch=None: (False, None),
     )
     landed = {}
@@ -216,7 +227,8 @@ def test_a_control_plane_without_the_function_lands_normally(monkeypatch):
 def test_an_unreadable_answer_refuses_rather_than_landing(monkeypatch):
     """A boundary that cannot ask must not answer with a landing."""
     monkeypatch.setattr(
-        selection_mod, "project_declares_merge_queue",
+        selection_mod,
+        "project_declares_merge_queue",
         lambda project, dispatch=None: (False, None),
     )
     _forbid(monkeypatch, "an unreadable review must not land")
