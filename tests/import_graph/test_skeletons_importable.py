@@ -14,10 +14,7 @@ import pytest
 from runtime.api.product_boundary_isolation import write_sitecustomize
 from runtime.api.load_tolerant_subprocess import run_load_tolerant_subprocess
 
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python 3.9/3.10 test hosts.
-    import tomli as tomllib  # type: ignore[no-redef]
+import tomllib
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -266,9 +263,7 @@ def _imported_modules(path: Path) -> list[str]:
 
 
 def _matches_any(value: str, prefixes: tuple[str, ...]) -> bool:
-    return any(
-        value == prefix or value.startswith(f"{prefix}.") for prefix in prefixes
-    )
+    return any(value == prefix or value.startswith(f"{prefix}.") for prefix in prefixes)
 
 
 def _project_dependencies(project: dict[str, object]) -> list[str]:

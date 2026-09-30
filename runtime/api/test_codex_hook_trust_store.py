@@ -7,10 +7,7 @@ from pathlib import Path
 
 import pytest
 
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python 3.10 CI
-    import tomli as tomllib  # type: ignore[no-redef]
+import tomllib
 
 from yoke_contracts.codex_hook_trust import codex_hook_hashes
 from yoke_contracts.codex_hook_trust_store import (

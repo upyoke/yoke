@@ -36,14 +36,10 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Tuple
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:  # pragma: no cover - exercised on the older interpreter only
-    import tomli as tomllib
+import tomllib
 
 from yoke_contracts.executor_labels import CANONICAL_HARNESS_IDS
 from yoke_contracts.session_control.launch_permission_bypass import (
@@ -189,7 +185,8 @@ POSTURE_ABSENT = "absent"
 
 
 def read_posture_config(
-    harness_id: str, path: Optional[Path] = None,
+    harness_id: str,
+    path: Optional[Path] = None,
 ) -> Tuple[Optional[Dict[str, Any]], str]:
     """Parsed config for one harness, or ``(None, reason)`` when unreadable.
 
@@ -218,8 +215,10 @@ def posture_state(harness_id: str, path: Optional[Path] = None) -> str:
     config, _reason = read_posture_config(harness_id, path)
     if config is None:
         return POSTURE_ABSENT
-    return POSTURE_PROMPTS if posture_problems(harness_id, config) else (
-        POSTURE_UNATTENDED
+    return (
+        POSTURE_PROMPTS
+        if posture_problems(harness_id, config)
+        else (POSTURE_UNATTENDED)
     )
 
 

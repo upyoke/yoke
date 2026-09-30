@@ -12,15 +12,13 @@ proportional allocation, project filter SQL, and date range.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from yoke_contracts.board.widgets import (
     _allocate_proportional,
     _build_sparkline,
     _date_range,
     _project_filter,
 )
-
-UTC = timezone.utc  # datetime.UTC is Python 3.11+; this alias also works on 3.10
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +133,3 @@ class TestDateRange:
         Greenwich."""
         dates = _date_range(1)
         assert dates[0] == datetime.now(UTC).date().isoformat()
-
-
-

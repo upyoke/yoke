@@ -4,7 +4,7 @@ FastAPI control plane service for Yoke's software delivery state. Runs as a loca
 
 ## Prerequisites
 
-- Python 3.9+
+- Python 3.11–3.14
 - pip
 
 ## Setup

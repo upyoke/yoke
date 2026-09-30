@@ -47,7 +47,7 @@ _DEV_VERSION_RE = re.compile(r"^(?P<base>\d+\.\d+(?:\.\d+)?)\.dev\d+\+(?P<local>
 PRODUCT_PACKAGE = "yoke-cli"
 LOCKSTEP_PRODUCT_PACKAGES = ("yoke-contracts", "yoke-harness", "yoke-core")
 # Inclusive endpoints: CI reads this declaration without importing the helper.
-SUPPORTED_PYTHON = ((3, 10), (3, 13))
+SUPPORTED_PYTHON = ((3, 11), (3, 14))
 PYTHON_CONSTRAINT = (
     f">={SUPPORTED_PYTHON[0][0]}.{SUPPORTED_PYTHON[0][1]},"
     f"<{SUPPORTED_PYTHON[1][0]}.{SUPPORTED_PYTHON[1][1] + 1}"

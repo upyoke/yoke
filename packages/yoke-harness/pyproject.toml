@@ -1,9 +1,7 @@
 [build-system]
-# Exact backends keep PEP 517 builds reproducible. Setuptools 83 is current;
-# 82.0.1 is the final exact line compatible with supported Python 3.9.
+# Exact backends keep PEP 517 builds reproducible.
 requires = [
-    "setuptools==82.0.1; python_version < '3.10'",
-    "setuptools==83.0.0; python_version >= '3.10'",
+    "setuptools==83.0.0",
     "setuptools-scm[toml]==10.2.0",
 ]
 build-backend = "setuptools.build_meta"
@@ -14,7 +12,7 @@ dynamic = ["version"]
 description = "Yoke harness — client-side agent-runtime adapters + fast local guardrails"
 license = "FSL-1.1-ALv2"
 license-files = ["LICENSE.md"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "yoke-contracts",
     # Shared client substrate (transport/config) lives in yoke-cli per Decision 1.
