@@ -181,7 +181,8 @@ def qa_plan_get(args: List[str]) -> int:
         if (parsed.plan is None) == (parsed.plan_id is None):
             raise ValueError("provide exactly one plan id or slug, positionally or with --plan-id")
         detail = detail_of(parsed)
-        result: dict[str, Any] = {"plan_id": parsed.plan if parsed.plan is not None else parsed.plan_id, "detail": detail}
+        plan = parsed.plan if parsed.plan is not None else parsed.plan_id
+        result: dict[str, Any] = {"plan_id": int(plan) if plan.isdecimal() else plan, "detail": detail}
         if parsed.deployment_run_id:
             result["deployment_run_id"] = parsed.deployment_run_id
         return result

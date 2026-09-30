@@ -199,7 +199,7 @@ QA_RUN_RECORD_VERDICT_USAGE = (
 
 
 def qa_run_record_verdict(args: List[str]) -> int:
-    from yoke_core.domain.qa_constants import VALID_VERDICTS
+    from yoke_contracts.qa_verdicts import VALID_VERDICTS
     parser = argparse.ArgumentParser(
         prog="yoke qa run record-verdict",
         description=QA_RUN_RECORD_VERDICT_USAGE,

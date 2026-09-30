@@ -57,7 +57,7 @@ def _run(*argv):
 @pytest.mark.parametrize("argv,function_id,payload", [
     (("sessions", "get", "session-123"), "sessions.list", {"session_id": "session-123"}),
     (("qa", "plan", "get", "smoke", "--project", "demo"), "qa.plan.get", {"project": "demo", "plan_id": "smoke", "detail": "summary"}),
-    (("qa", "plan", "get", "--plan-id", "12", "--project", "demo"), "qa.plan.get", {"project": "demo", "plan_id": "12", "detail": "summary"}),
+    (("qa", "plan", "get", "--plan-id", "12", "--project", "demo"), "qa.plan.get", {"project": "demo", "plan_id": 12, "detail": "summary"}),
     (("decision-requests", "get", "9"), "decision_requests.get", {"request_id": 9}),
     (("qa", "artifact", "get", "7", "--requirement-id", "4"), "qa.artifact.get", {"artifact_id": 7}),
     (("projects", "environment", "list", "--project", "demo"), "projects.environment.list", {"project": "demo"}),

@@ -6,12 +6,14 @@ these symbols in a leaf module prevents import cycles between the parent
 shims and the ops modules.
 
 This module deliberately imports nothing from any ``yoke_core.domain.qa*``
-sibling. Its only allowed dependencies are the standard library.
+sibling. Shared verdict values live in the client contract package.
 """
 
 from __future__ import annotations
 
 from typing import Any, Optional, Sequence
+
+from yoke_contracts.qa_verdicts import UNDETERMINED_VERDICT, VALID_VERDICTS as VALID_VERDICTS
 
 
 # ---------------------------------------------------------------------------
@@ -21,8 +23,6 @@ from typing import Any, Optional, Sequence
 VALID_QA_PHASES = ("verification", "post_deploy", "manual_acceptance")
 VALID_BLOCKING_MODES = ("blocking", "non_blocking")
 VALID_REQUIREMENT_SOURCES = ("explicit", "seeded_default", "ac_derived", "flow_derived")
-UNDETERMINED_VERDICT = "undetermined"
-VALID_VERDICTS = ("pass", "fail", UNDETERMINED_VERDICT, "error")
 BROWSER_CHECK_METHOD_ID = "browser-check"
 BROWSER_INSPECTION_METHOD_ID = "browser-inspection"
 BROWSER_METHOD_IDS = (BROWSER_CHECK_METHOD_ID, BROWSER_INSPECTION_METHOD_ID)

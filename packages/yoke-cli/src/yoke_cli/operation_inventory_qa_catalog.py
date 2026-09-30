@@ -6,6 +6,8 @@ from yoke_cli.operation_inventory_model import _Row, _w
 WRAPPED_ROWS: tuple[_Row, ...] = (
     _w("yoke qa method list", "qa.method"),
     _w("yoke qa method get", "qa.method"),
+    _w("yoke qa methods list", "qa.method"),
+    _w("yoke qa methods get", "qa.method"),
     _w("yoke qa project-method register", "qa.project_method"),
     _w("yoke qa plan list", "qa.plan"),
     _w("yoke qa plan get", "qa.plan"),
@@ -23,6 +25,7 @@ WRAPPED_ROWS: tuple[_Row, ...] = (
     _w("yoke qa plan materialize", "qa.plan"),
     _w("yoke qa plan rematerialize", "qa.plan"),
     _w("yoke qa artifact read", "qa.artifact"),
+    _w("yoke qa artifact get", "qa.artifact"),
 )
 
 

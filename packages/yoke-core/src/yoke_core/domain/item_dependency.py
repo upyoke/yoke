@@ -4,6 +4,8 @@ from __future__ import annotations
 import sys
 from typing import List, Optional
 
+from yoke_contracts.dependency_values import VALID_GATE_POINTS, VALID_SOURCES
+
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_scalar
 from yoke_core.domain.dependency_satisfaction import require_authorable_satisfaction
@@ -37,11 +39,7 @@ def _refresh_blocked_reasons(conn, dep_id: int, blk_id: int) -> None:
         blocking_item_id=blk_id,
     )
 
-VALID_GATE_POINTS = frozenset({"activation", "integration", "closure", "coordination_only"})
 HARD_BLOCK_GATE_POINTS = VALID_GATE_POINTS - {"coordination_only"}
-VALID_SOURCES = frozenset(
-    {"operator", "shepherd", "conduct", "feed", "migration", "idea", "refine"}
-)
 
 _DEFAULT_SATISFACTION = {
     "activation": "status:done",
@@ -325,4 +323,3 @@ def cmd_dependency_remove(
     conn.commit()
     _refresh_blocked_reasons(conn, dep_id, blk_id)
     return "OK"
-

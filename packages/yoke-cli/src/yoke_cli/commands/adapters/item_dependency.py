@@ -118,7 +118,7 @@ def items_dependency_add(args: List[str]) -> int:
         "blocking",
         help="Blocking item id (usually PREFIX-N).",
     )
-    from yoke_core.domain.item_dependency import VALID_GATE_POINTS, VALID_SOURCES
+    from yoke_contracts.dependency_values import VALID_GATE_POINTS, VALID_SOURCES
     parser.add_argument("source", choices=sorted(VALID_SOURCES), help="Dependency source.")
     parser.add_argument("--gate-point", choices=sorted(VALID_GATE_POINTS), default="activation")
     parser.add_argument(
