@@ -84,7 +84,17 @@ def compose(
             check=False,
         )
         if result.returncode:
-            raise _refuse("self_host_compose_failed", directory)
+            operation = (
+                args[0] if args[0] in {"config", "up", "exec", "run"} else "operation"
+            )
+            refusal = _refuse(
+                f"self_host_compose_failed ({operation}, exit {result.returncode})",
+                directory,
+            )
+            # Private diagnostic payload for callers that can redact their own
+            # known inputs. Never include captured Docker output in the message.
+            refusal.compose_output = result.stdout + result.stderr
+            raise refusal
         return result.stdout
     except (OSError, subprocess.TimeoutExpired):
         raise _refuse("self_host_compose_unavailable", directory) from None

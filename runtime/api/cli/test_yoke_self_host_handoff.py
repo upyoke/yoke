@@ -147,3 +147,20 @@ def test_existing_init_command_owns_start_option(target, monkeypatch, capsys):
     )
     assert json.loads(capsys.readouterr().out)["healthy"] is True
     assert calls == [{"directory": str(target)}]
+
+
+def test_compose_failure_names_operation_without_exposing_output(target, monkeypatch):
+    monkeypatch.setattr(
+        runtime.subprocess,
+        "run",
+        lambda *_a, **_k: subprocess.CompletedProcess(
+            [], 17, b"private-input", b"private-error"
+        ),
+    )
+    with pytest.raises(
+        runtime.SelfHostRuntimeError, match=r"self_host_compose_failed \(up, exit 17\)"
+    ) as refusal:
+        runtime.compose(target, "docker", ("up", "--wait", "db"))
+    assert "private-input" not in str(refusal.value)
+    assert "private-error" not in str(refusal.value)
+    assert refusal.value.compose_output == b"private-inputprivate-error"
