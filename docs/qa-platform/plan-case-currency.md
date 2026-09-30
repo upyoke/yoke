@@ -65,6 +65,15 @@ Each refusal names a command that is actually reachable for the case that
 raised it. A recovery that would answer with a usage error, or that names a
 field no write surface can reach, is not a recovery.
 
+## A walk refuses a row behind its plan
+
+`yoke qa plan run` freezes the rows it will execute when it builds its roster,
+and a machine case re-checks its row before each step. Both refuse a row that
+is behind either link above it — its plan case (`plan_case_superseded`) or,
+for an admitted deployment copy, its source row — rather than execute the
+superseded body. The refusal names the row, the fields that moved, and the
+refresh that reaches it; run that, then start the walk again.
+
 ## Reading drift without two bodies
 
 `yoke qa requirement list` reports, for every materialized row:

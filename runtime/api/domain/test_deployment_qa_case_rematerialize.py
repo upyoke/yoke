@@ -8,6 +8,7 @@ an acceptance record, not a draft.
 
 from __future__ import annotations
 
+import json
 from unittest import mock
 
 import pytest
@@ -21,6 +22,10 @@ from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
     TargetRef,
+)
+from yoke_core.domain.qa_plan_case_currency import (
+    STALE_PLAN_CASE_CODE,
+    PlanCaseCurrencyError,
 )
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.qa_plan_management import QaPlanError
@@ -43,19 +48,23 @@ def _record_verdict(conn, requirement_id: int, verdict: str, *, evidence: bool) 
 STAGE = ITEM_QA_STAGE
 
 
-def test_rematerialize_refreshes_an_unanswered_deployment_case(test_db) -> None:
-    run_id = "run-rematerialize-open"
-    requirement_id = _seed(test_db, run_id)
+def _amend_plan_case(conn, requirement_id: int) -> None:
     plan_id = int(
-        test_db.execute(
+        conn.execute(
             "SELECT plan_id FROM qa_requirements WHERE id=%s", (requirement_id,)
         ).fetchone()["plan_id"]
     )
-    test_db.execute(
+    conn.execute(
         "UPDATE qa_plan_cases SET instructions=%s WHERE plan_id=%s",
         ("run the corrected smoke command", plan_id),
     )
-    test_db.commit()
+    conn.commit()
+
+
+def test_rematerialize_refreshes_an_unanswered_deployment_case(test_db) -> None:
+    run_id = "run-rematerialize-open"
+    requirement_id = _seed(test_db, run_id)
+    _amend_plan_case(test_db, requirement_id)
 
     result = rematerialize_for_deployment_stage(
         test_db,
@@ -111,16 +120,6 @@ def test_rematerialize_refuses_while_a_live_execution_walks_the_stage(
     """A walk in progress froze these rows; the refresh refuses before writing."""
     run_id = "run-rematerialize-walking"
     requirement_id = _seed(test_db, run_id)
-    plan_id = int(
-        test_db.execute(
-            "SELECT plan_id FROM qa_requirements WHERE id=%s", (requirement_id,)
-        ).fetchone()["plan_id"]
-    )
-    test_db.execute(
-        "UPDATE qa_plan_cases SET instructions=%s WHERE plan_id=%s",
-        ("run the corrected smoke command", plan_id),
-    )
-    test_db.commit()
     execution = begin_plan_execution(
         test_db,
         deployment_run_id=run_id,
@@ -129,6 +128,7 @@ def test_rematerialize_refuses_while_a_live_execution_walks_the_stage(
         actor_id="op",
         session_id="session-walking",
     )
+    _amend_plan_case(test_db, requirement_id)
 
     with pytest.raises(QaPlanError) as excinfo:
         rematerialize_for_deployment_stage(
@@ -147,6 +147,40 @@ def test_rematerialize_refuses_while_a_live_execution_walks_the_stage(
         "SELECT instructions FROM qa_requirements WHERE id=%s", (requirement_id,)
     ).fetchone()
     assert str(row["instructions"]) == "run the frozen smoke command"
+
+
+def test_a_walk_refuses_a_case_its_plan_has_since_amended(test_db) -> None:
+    """A row behind its plan never runs; the refusal names the refresh.
+
+    Once the stale row is rematerialized from the amended plan, the same walk
+    begins and freezes the corrected body.
+    """
+    run_id = "run-rematerialize-stale-walk"
+    requirement_id = _seed(test_db, run_id)
+    _amend_plan_case(test_db, requirement_id)
+    subject = {
+        "deployment_run_id": run_id,
+        "deployment_stage": STAGE,
+        "deployment_member_item_id": MEMBER,
+    }
+    with pytest.raises(PlanCaseCurrencyError) as excinfo:
+        begin_plan_execution(test_db, **subject, actor_id="op", session_id="s-1")
+    message = str(excinfo.value)
+    assert STALE_PLAN_CASE_CODE in message
+    assert f"QA requirement {requirement_id}" in message
+    assert "yoke qa plan rematerialize" in message
+    assert f"--deployment-run-id {run_id}" in message
+    assert test_db.execute(
+        "SELECT COUNT(*) FROM qa_plan_executions WHERE deployment_run_id=%s",
+        (run_id,),
+    ).fetchone()[0] == 0
+
+    rematerialize_for_deployment_stage(test_db, **subject)
+    execution = begin_plan_execution(
+        test_db, **subject, actor_id="op", session_id="s-1"
+    )
+    frozen = json.loads(str(execution["roster_json"]))
+    assert frozen[0]["instructions"] == "run the corrected smoke command"
 
 
 def _rematerialize_request(payload: dict) -> FunctionCallRequest:

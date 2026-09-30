@@ -184,8 +184,11 @@ A materialized case is unique on
 `(run, stage, member, plan_id, plan_case_key, host_baseline, target)`, so a
 corrected plan case cannot arrive as a second row under the same key —
 refreshing in place is the route, and before this there was none for a
-deployment subject at all. The claim this checks is the member's, resolved
-from `--member`, since a deployment target carries no item of its own.
+deployment subject at all. Authority follows the subject, as it does for
+`yoke qa plan materialize`: an item-scoped stage checks the member's claim,
+resolved from `--member`, since a deployment target carries no item of its
+own; a run-scoped stage has no member to claim, so the run itself authorizes
+the refresh and a run's QA agent can follow the recovery a plan edit printed.
 The refresh keeps the deployment target the stage receipt pinned; it never
 re-points a frozen run at whatever environment the plan names today. It
 refuses as a whole, naming each row, when any case in the subject has already
