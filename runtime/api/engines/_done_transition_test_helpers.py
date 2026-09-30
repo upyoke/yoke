@@ -172,9 +172,11 @@ def dt_db(tmp_path, monkeypatch):
         )
         from yoke_core.domain.workflow_registry import converge_builtin_workflows
         from yoke_core.domain.workflow_schema import ensure_workflow_schema
+        from yoke_core.domain.project_structure import create_project_structure_tables
 
         ensure_workflow_schema(conn)
         converge_builtin_workflows(conn)
+        create_project_structure_tables(conn)
         conn.execute(
             "INSERT INTO projects "
             "(id, slug, name, github_repo, public_item_prefix, "

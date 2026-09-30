@@ -20,6 +20,10 @@ from typing import Any, Dict
 from yoke_core.domain.deployment_item_completion_runs import (
     succeeded_completion_runs,
 )
+from yoke_core.domain.deployment_item_flow_resolution import (
+    FLOW_SOURCE_UNREADABLE,
+    item_completion_flow_facts,
+)
 from yoke_core.domain.deployment_member_independent_close_out import (
     independent_member_delivery_ready,
 )
@@ -78,10 +82,10 @@ def _fact(key: str, count: int, present_detail: str, absent_detail: str) -> Fact
 def _no_deployment_target(conn: Any, item_id: int) -> Fact:
     """Whether this item has anywhere to deploy other than the trunk.
 
-    An empty ``deployment_flow``, a ``*-internal`` flow, or a registered
-    flow whose ``target_tier`` is empty all mean the same thing: landing
-    on the trunk IS the delivery. That is a real satisfier, and naming
-    it is what stops it from reading as an obligation that evaporated.
+    Resolve the explicit flow or project/workflow default before asking
+    its registered target tier. No effective flow, or a registered flow
+    with no tier, means landing on the trunk IS the delivery. An unreadable
+    default or unregistered flow cannot prove that delivery is merge-only.
     A flow with a real target tier makes this fact ABSENT, which is what
     keeps the merge-only rung out of reach for an item that owes a
     deployment.
@@ -93,20 +97,23 @@ def _no_deployment_target(conn: Any, item_id: int) -> Fact:
             detail="items.deployment_flow could not be read",
         )
     p = _p(conn)
-    row = conn.execute(
-        f"SELECT deployment_flow FROM items WHERE id = {p}", (item_id,)
-    ).fetchone()
-    flow = str((row[0] if row else "") or "").strip()
-    if not flow or flow.endswith("-internal"):
+    completion = item_completion_flow_facts(conn, (item_id,)).get(item_id)
+    if completion is None or completion.source == FLOW_SOURCE_UNREADABLE:
+        return Fact(
+            key=ITEM_NO_DEPLOYMENT_TARGET,
+            verdict=FactVerdict.UNKNOWN,
+            detail=(
+                "the item's effective deployment flow could not be read; "
+                "repair its project/workflow delivery default and retry"
+            ),
+        )
+    flow = completion.flow
+    if not flow:
         return Fact(
             key=ITEM_NO_DEPLOYMENT_TARGET,
             verdict=FactVerdict.PRESENT,
             value=flow,
-            detail=(
-                "the item declares no deployment flow"
-                if not flow
-                else f"the item's flow {flow!r} is merge-only by name"
-            ),
+            detail="the item and its project/workflow default declare no deployment flow",
         )
     if not _column_exists(conn, "deployment_flows", "target_tier"):
         return Fact(
@@ -117,7 +124,17 @@ def _no_deployment_target(conn: Any, item_id: int) -> Fact:
     tier_row = conn.execute(
         f"SELECT target_tier FROM deployment_flows WHERE id = {p}", (flow,)
     ).fetchone()
-    tier = str((tier_row[0] if tier_row else "") or "").strip()
+    if tier_row is None:
+        return Fact(
+            key=ITEM_NO_DEPLOYMENT_TARGET,
+            verdict=FactVerdict.UNKNOWN,
+            value=flow,
+            detail=(
+                f"the effective flow {flow!r} is not registered; select a "
+                "registered deployment flow and retry"
+            ),
+        )
+    tier = str(tier_row[0] or "").strip()
     if tier:
         return Fact(
             key=ITEM_NO_DEPLOYMENT_TARGET,
