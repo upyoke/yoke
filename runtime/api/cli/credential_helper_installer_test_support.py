@@ -114,6 +114,8 @@ def _in_process_repair_runner(config: Path, yoke_bin: str):
         cmd = list(command)
         if cmd[:3] == ["uv", "tool", "install"]:
             return subprocess.CompletedProcess(cmd, 0, "+ yoke-cli==2.0.0", "")
+        if cmd == ["uv", "tool", "update-shell"]:
+            return subprocess.CompletedProcess(cmd, 0, "shell configured", "")
         if cmd[:3] == ["uv", "tool", "dir"]:
             # Unresolved on purpose: falls through to the injected `which`.
             return subprocess.CompletedProcess(cmd, 1, "", "")
