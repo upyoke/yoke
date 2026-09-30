@@ -6,6 +6,7 @@ name: yoke-ci
 # runners). merge_group runs are the merge queue's one integration gate
 # per train of queued PRs; its ruleset requires the same named checks.
 # repo-contracts fast-fails; identical trees may reuse recent coverage.
+# Executable job timeouts: docs/testing-verification/ci-job-timeouts.md.
 # consumer_advisory is an independent, non-blocking job (no `needs`, no
 # required context) so repo-contracts and the shard matrix never wait on it.
 run-name: >-
@@ -48,6 +49,7 @@ jobs:
   # Tree-only contracts on one runner before the shard matrix; shards keep
   # their own copies as defense in depth.
   repo_contracts:
+    timeout-minutes: 5
     name: repo-contracts
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     outputs:
@@ -86,7 +88,6 @@ jobs:
         run: >-
           uv run python -m yoke_core.tools.ci_repo_contracts
           --base "origin/${{ github.event.repository.default_branch }}"
-
   consumer_advisory:
     name: consumer-advisory
     # No `needs`: runs independent of and in parallel with repo-contracts and
@@ -101,8 +102,8 @@ jobs:
     uses: ./.github/workflows/consumer-compatibility-advisory.yml
     secrets:
       YOKE_PLATFORM_RELEASE_API_TOKEN: ${{ secrets.YOKE_PLATFORM_RELEASE_API_TOKEN }}
-
   reuse_coverage:
+    timeout-minutes: 5
     name: reuse-coverage
     # A main push re-proves its own tree; a train carrying a rebased item
     # builds the tree its entry run proved. Consumers skip per step, never
@@ -128,8 +129,8 @@ jobs:
         run: >-
           PYTHONPATH=packages/yoke-core/src python3 -m
           yoke_core.tools.yoke_ci_tree_reuse --write-github-output
-
   test_shard:
+    timeout-minutes: 35
     name: test-shard
     needs: [repo_contracts, reuse_coverage]
     # Reuse is gated per STEP below, never here: skipping a matrix job leaves
@@ -307,13 +308,12 @@ jobs:
         # would have had reaped. `|| true` tolerates an already-gone container.
         if: always()
         run: docker rm -f "$PG_CONTAINER" || true
-
   browser_runtime:
     needs: [repo_contracts, reuse_coverage]
     if: ${{ !cancelled() && needs.repo_contracts.result == 'success' }}
     uses: ./.github/workflows/browser-runtime-tests.yml
-
   container:
+    timeout-minutes: 10
     name: container
     needs: [reuse_coverage]
     if: ${{ !cancelled() && needs.reuse_coverage.outputs.skip_suite != 'true' }}

@@ -26,6 +26,7 @@ permissions: {}
 
 jobs:
   validate-tag:
+    timeout-minutes: 5
     name: validate-release-tag-and-notes
     runs-on: ubuntu-latest
     permissions:
@@ -88,6 +89,7 @@ jobs:
       id-token: write
 
   release:
+    timeout-minutes: 5
     name: publish-github-release
     needs: [validate-tag, build]
     runs-on: ubuntu-latest

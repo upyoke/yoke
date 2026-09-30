@@ -1,9 +1,12 @@
-"""Immutable action revisions for the broad CI workflows."""
+"""Immutable CI action revisions and bounded executable workflow jobs."""
 
 from __future__ import annotations
 
 from pathlib import Path
 import re
+
+import pytest
+import yaml
 
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -23,12 +26,39 @@ _WORKFLOWS = ("yoke-ci.yml", "browser-runtime-tests.yml")
 def test_ci_actions_use_immutable_revisions() -> None:
     found: set[str] = set()
     for workflow in _WORKFLOWS:
-        text = (_ROOT / ".github" / "workflows" / workflow).read_text(
-            encoding="utf-8"
-        )
+        text = (_ROOT / ".github" / "workflows" / workflow).read_text(encoding="utf-8")
         for action, revision in _REMOTE_USE.findall(text):
             assert action in _EXPECTED_ACTIONS, f"unreviewed CI action: {action}"
             assert len(revision) == 40
             assert all(character in "0123456789abcdef" for character in revision)
             found.add(action)
     assert found == _EXPECTED_ACTIONS
+
+
+def _workflow_jobs():
+    directory = _ROOT / ".github" / "workflows"
+    for path in sorted((*directory.glob("*.yml"), *directory.glob("*.yaml"))):
+        document = yaml.safe_load(path.read_text(encoding="utf-8"))
+        for name, job in document["jobs"].items():
+            yield pytest.param(path, job, id=f"{path.name}:{name}")
+
+
+@pytest.mark.parametrize("path,job", list(_workflow_jobs()))
+def test_workflow_jobs_have_explicit_timeouts(path, job):
+    if "uses" in job:
+        # GitHub forbids timeout-minutes on reusable-workflow callers. Their
+        # executable jobs are independently inventoried by this same test.
+        called = job["uses"]
+        assert called.startswith("./.github/workflows/"), (
+            f"{path.name}: timeout coverage requires a local reusable workflow"
+        )
+        assert (_ROOT / called).is_file(), f"missing called workflow: {called}"
+        assert "timeout-minutes" not in job, (
+            f"{path.name}: set the timeout on the called executable jobs"
+        )
+        return
+    timeout = job.get("timeout-minutes")
+    assert type(timeout) is int and 0 < timeout <= 360, (
+        f"{path.name}: executable job needs a positive literal timeout-minutes "
+        "at or below GitHub's 360-minute limit; size it from observed run durations"
+    )

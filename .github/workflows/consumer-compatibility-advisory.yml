@@ -23,6 +23,7 @@ permissions:
 
 jobs:
   advisory:
+    timeout-minutes: 20
     name: consumer-compatibility-advisory
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     # Job-level (not just the one advise step below): a setup-step failure

@@ -51,6 +51,7 @@ permissions:
 
 jobs:
   signature-check:
+    timeout-minutes: 5
     # Required pull-request checks always run. Comment-triggered checks only
     # start for a pull request and one of the action's recognized phrases.
     if: >-
@@ -77,6 +78,7 @@ jobs:
   # CLA check at queue entry, so this run is a pass-through success; without
   # it the queue waits forever on a check that never reports.
   train-pass-through:
+    timeout-minutes: 5
     name: signature-check
     if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest

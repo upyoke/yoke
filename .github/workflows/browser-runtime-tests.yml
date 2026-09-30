@@ -11,6 +11,7 @@ env:
 
 jobs:
   browser-runtime:
+    timeout-minutes: 5
     name: browser-runtime
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     steps:

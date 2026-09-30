@@ -48,6 +48,7 @@ permissions:
 
 jobs:
   dispatch-platform-release:
+    timeout-minutes: 60
     name: dispatch and await Platform release
     runs-on: ubuntu-24.04
     env:
