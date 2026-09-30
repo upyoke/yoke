@@ -103,8 +103,7 @@ function runWait(run) {
   const ownId = memberItemId(run.delivery_item || {});
   const pending = (run.member_items || []).filter((member) => (
     memberItemId(member) !== ownId
-    && !ACCEPTED_QA.has(member.item_qa?.state)
-    && member.status !== "done"
+    && (member.item_qa ? !ACCEPTED_QA.has(member.item_qa.state) : member.status !== "done")
   )).map((member) => member.ref).filter(Boolean);
   if (pending.length) return `run still open: waiting on ${pending.join(", ")}`;
   const gate = (run.gates || []).find((entry) => entry.status === "pending");

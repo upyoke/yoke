@@ -173,6 +173,7 @@
  * reads as its own object rather than as three more lines of card copy —
  * which is what the flat grey list this replaced looked like. */
 .universe-app-root .item-delivery {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -223,12 +224,14 @@
 }
 .universe-app-root .item-deployment-run {
   color: var(--yoke-accent);
+  overflow-wrap: anywhere;
 }
-@media (max-width: 540px) {
+@container (max-width: 380px) {
   .universe-app-root .item-deployment {
     grid-template-columns: minmax(45px, auto) minmax(0, 1fr);
   }
-  .universe-app-root .item-deployment-wait { grid-column: 1 / -1; }
+  .universe-app-root .item-deployment-run { grid-column: 2; }
+  .universe-app-root .item-deployment-relation { grid-column: 1; grid-row: 2; }
 }
 
 /* The project-wide deploy lock a waiting run is serialized behind. It is a

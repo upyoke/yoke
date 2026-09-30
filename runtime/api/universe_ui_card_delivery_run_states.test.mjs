@@ -139,6 +139,15 @@ test("a discharge remains distinct from a passing QA result", () => {
   assert.equal(byClass(box, "item-deployment-outcome")[0].textContent, "✓ deployed · QA discharged");
 });
 
+test("a sibling's rejected QA is a run wait even after its item finished", () => {
+  const siblingRef = `YOK-${ITEM_SEQUENCE + 1}`;
+  const box = deliveryBox({ item_qa: { state: "accepted" } }, [{
+    id: ITEM_ID + 1, ref: siblingRef, status: "done", item_qa: { state: "rejected" },
+  }]);
+  assert.equal(byClass(box, "item-deployment-wait")[0].textContent,
+    `run still open: waiting on ${siblingRef}`);
+});
+
 test("an unreadable member QA reports why rather than implying success", () => {
   const box = deliveryBox({ item_qa: { state: "unreadable", reason: "target missing; re-drive the release" } });
   const outcome = byClass(box, "item-deployment-outcome")[0];
