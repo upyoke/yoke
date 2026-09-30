@@ -40,12 +40,13 @@ def test_deployment_inspection_reads_existing_run(test_db) -> None:
     )
     stages = [
         {"name": "build", "runner": "local_command"},
-        {"name": "deploy", "runner": "local_command"},
+        {"name": "deploy", "runner": "local_command", "command": "build | deploy"},
         {"name": "verify", "runner": "local_command"},
     ]
+    stored_stages = json.dumps(stages, indent=2)
     test_db.execute(
         "UPDATE deployment_flows SET stages=%s WHERE id=%s",
-        (json.dumps(stages), "flow-inspect"),
+        (stored_stages, "flow-inspect"),
     )
     test_db.execute(
         "INSERT INTO deployment_run_items (run_id, item_id, added_at) "
@@ -75,13 +76,21 @@ def test_deployment_inspection_reads_existing_run(test_db) -> None:
     )
 
     assert flows.primary_success
-    assert any(row["id"] == "flow-inspect" for row in flows.result_payload["rows"])
+    flow_rows = [
+        row for row in flows.result_payload["rows"] if row["id"] == "flow-inspect"
+    ]
+    assert len(flow_rows) == 1
+    assert flow_rows[0]["stages"] == stored_stages
+    assert json.loads(flow_rows[0]["stages"]) == stages
+    assert flow_rows[0]["project"] == "yoke"
+    assert flow_rows[0]["status"] == "active"
     assert found.result_payload["rows"][0]["id"] == "run-inspect-001"
     assert found.result_payload["rows"][0]["flow"] == "flow-inspect"
     assert found.result_payload["rows"][0]["target_environment"] == "prod"
     assert found.result_payload["rows"][0]["target_tier"] == "persistent"
     assert found.result_payload["fields"][-2:] == [
-        "target_environment", "target_tier",
+        "target_environment",
+        "target_tier",
     ]
     assert found.result_payload["fields"][-3] == "flow"
     assert [stage["state"] for stage in run_stages.result_payload["stages"]] == [

@@ -54,6 +54,13 @@ function flowLine(documentNode, item, resolved) {
 // The effective binding, read from the same delivery defaults the Workflows
 // mechanics screen shows. An unreadable read is reported as unreadable.
 async function resolveFlow(context, item) {
+  if (Object.prototype.hasOwnProperty.call(item, "completion_flow_source")) {
+    return {
+      flowId: String(item.completion_flow || "") || null,
+      source: item.completion_flow_source,
+      reason: item.completion_flow_source === "unreadable" ? "unreadable" : "none_declared",
+    };
+  }
   if (item.deployment_flow) {
     return { flowId: String(item.deployment_flow), source: "item" };
   }

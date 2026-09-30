@@ -2,14 +2,14 @@
 
 The acting-session probe must fail before claim or lane creation unless the
 write guards' canonical ambient resolver corroborates the session.
-``_run_preflight_gates`` then evaluates its four DB refusal gates through the
+``_run_preflight_gates`` then evaluates its policy-selected DB refusal gates through the
 transport-aware ``call_dispatcher`` facade (registered ``advance.preflight.*``
 internal functions) so the DB reads run server-side over an https control
 plane as well as in-process against local Postgres — never a bare local
 ``db_helpers.connect()`` on the gate path. These tests monkeypatch
 ``call_dispatcher`` in the gate namespace, assert each gate relays with the
 right function id and short-circuit ordering, and prove the operator-facing
-block narratives are unchanged. A poisoned ``db_helpers.connect`` proves no
+block narratives are bound to the item project. A poisoned ``db_helpers.connect`` proves no
 bare local connection is opened on the gate path.
 """
 
@@ -36,7 +36,7 @@ from yoke_core.engines import advance_implementation_preflight_gates as gates
 from yoke_core.domain.work_claim_targets import make_item_target
 
 _HARD_BLOCKS = "advance.preflight.hard_blocks"
-_AC_PRESENCE = "advance.preflight.ac_presence"
+_WORKFLOW = "workflows.item.get"
 _FILE_BUDGET = "advance.preflight.file_budget"
 _SPEC_COVERAGE = "advance.preflight.spec_coverage"
 
@@ -46,14 +46,13 @@ TEST_ITEM_ID = 42
 
 _PASS_RESULTS: Dict[str, Dict[str, Any]] = {
     _HARD_BLOCKS: {"blockers": []},
-    _AC_PRESENCE: {
-        "canonical": 3,
-        "unlabeled": 0,
-        "title": "T",
-        "public_ref": f"YOK-{TEST_ITEM_ID}",
-    },
+    _WORKFLOW: {"effective_policies": {"file_budget": "required"}},
     _FILE_BUDGET: {"verdict": "pass", "reason": "covered"},
-    _SPEC_COVERAGE: {"is_blocked": False, "missing_paths": []},
+    _SPEC_COVERAGE: {
+        "is_blocked": False,
+        "missing_paths": [],
+        "public_ref": f"BUZ-{TEST_ITEM_ID}",
+    },
 }
 
 
@@ -173,7 +172,7 @@ def test_all_gates_pass_relays_each_in_order(monkeypatch):
     assert (ok, narrative) == (True, "")
     assert [c["function_id"] for c in calls] == [
         _HARD_BLOCKS,
-        _AC_PRESENCE,
+        _WORKFLOW,
         _FILE_BUDGET,
         _SPEC_COVERAGE,
     ]
@@ -199,43 +198,15 @@ def test_hard_blocks_short_circuits_before_later_gates(monkeypatch):
     assert [c["function_id"] for c in calls] == [_HARD_BLOCKS]
 
 
-def test_missing_item_narrative_preserved(monkeypatch):
-    _install(
-        monkeypatch,
-        {
-            _AC_PRESENCE: {
-                "canonical": 0,
-                "unlabeled": 0,
-                "title": None,
-                "public_ref": f"YOK-{TEST_ITEM_ID}",
-            }
-        },
-    )
-    ok, narrative = gates._run_preflight_gates(TEST_ITEM_ID, force=False)
-    assert ok is False
-    assert narrative == f"YOK-{TEST_ITEM_ID} not found in DB."
-
-
-def test_no_acceptance_criteria_narrative_preserved(monkeypatch):
+def test_optional_budget_skips_budget_and_coverage(monkeypatch):
     calls = _install(
         monkeypatch,
         {
-            _AC_PRESENCE: {
-                "canonical": 0,
-                "unlabeled": 0,
-                "title": "T",
-                "public_ref": f"YOK-{TEST_ITEM_ID}",
-            }
+            _WORKFLOW: {"effective_policies": {"file_budget": "optional"}},
         },
     )
-    ok, narrative = gates._run_preflight_gates(TEST_ITEM_ID, force=False)
-    assert ok is False
-    assert narrative == (
-        f"YOK-{TEST_ITEM_ID} has no acceptance criteria. Add "
-        "`## Acceptance Criteria` with `- [ ] AC-N: ...` checkboxes."
-    )
-    # short-circuits before the File Budget + coverage gates
-    assert [c["function_id"] for c in calls] == [_HARD_BLOCKS, _AC_PRESENCE]
+    assert gates._run_preflight_gates(TEST_ITEM_ID, force=False) == (True, "")
+    assert [c["function_id"] for c in calls] == [_HARD_BLOCKS, _WORKFLOW]
 
 
 def test_file_budget_block_narrative_preserved(monkeypatch):
@@ -256,7 +227,7 @@ def test_file_budget_block_narrative_preserved(monkeypatch):
     # blocks before the spec-coverage gate
     assert [c["function_id"] for c in calls] == [
         _HARD_BLOCKS,
-        _AC_PRESENCE,
+        _WORKFLOW,
         _FILE_BUDGET,
     ]
 
@@ -267,6 +238,7 @@ def test_spec_coverage_block_narrative_preserved(monkeypatch):
         {
             _SPEC_COVERAGE: {
                 "is_blocked": True,
+                "public_ref": f"BUZ-{TEST_ITEM_ID}",
                 "missing_paths": ["runtime/api/x.py", "runtime/api/y.py"],
             }
         },
@@ -274,12 +246,12 @@ def test_spec_coverage_block_narrative_preserved(monkeypatch):
     ok, narrative = gates._run_preflight_gates(TEST_ITEM_ID, force=False)
     assert ok is False
     assert narrative == (
-        f"BLOCKED: YOK-{TEST_ITEM_ID} File Budget lists 2 path(s) not covered by any "
+        f"BLOCKED: BUZ-{TEST_ITEM_ID} File Budget lists 2 path(s) not covered by any "
         "active path_claim.\nMissing: runtime/api/x.py, runtime/api/y.py"
     )
     assert [c["function_id"] for c in calls] == [
         _HARD_BLOCKS,
-        _AC_PRESENCE,
+        _WORKFLOW,
         _FILE_BUDGET,
         _SPEC_COVERAGE,
     ]

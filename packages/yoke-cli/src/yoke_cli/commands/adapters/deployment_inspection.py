@@ -56,7 +56,12 @@ def deployment_flows_list(args: List[str]) -> int:
         result = response.result or {}
         fields = result.get("fields") or []
         for row in result.get("rows") or []:
-            print(_pipe(fields, row), file=stdout)
+            rendered = dict(row)
+            rendered["stages"] = json.dumps(
+                json.loads(str(row["stages"])),
+                separators=(",", ":"),
+            )
+            print(_pipe(fields, rendered), file=stdout)
 
     return dispatch_and_emit(
         function_id="deployment_flows.list",

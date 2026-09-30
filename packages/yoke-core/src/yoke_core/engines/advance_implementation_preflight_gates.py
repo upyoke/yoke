@@ -2,7 +2,8 @@
 
 Owns the pre-worktree refusal gates run before an item advances into
 ``implementing``: acting-session identity, upstream hard-block dependencies,
-acceptance-criteria presence, File Budget, and path-claim spec coverage. Kept
+effective File Budget and path-claim spec coverage. Acceptance criteria
+are checked at Refine closure by the shared PRD validator. Kept
 separate from the orchestrator module so it stays within the authored-file
 line cap.
 
@@ -19,7 +20,6 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.public_ref import unresolved_item_ref
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
@@ -68,7 +68,9 @@ def _probe_session_identity(
 
 
 def _relay_gate(
-    function_id: str, item_id: int, payload: Dict[str, Any] | None = None,
+    function_id: str,
+    item_id: int,
+    payload: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     """Evaluate one gate server-side through the transport-aware relay.
 
@@ -82,42 +84,31 @@ def _relay_gate(
     )
     if not response.success:
         code = response.error.code if response.error else "unknown"
-        message = (
-            response.error.message if response.error else "gate evaluation failed"
-        )
+        message = response.error.message if response.error else "gate evaluation failed"
         raise RuntimeError(f"{function_id} failed ({code}): {message}")
     return response.result or {}
 
 
 def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
-    """Hard-block dep + AC presence + spec coverage. Returns (ok, narrative)."""
+    """Dependencies plus policy-selected budget checks before activation."""
     if force:
         return True, ""
 
-    blockers = _relay_gate(
-        "advance.preflight.hard_blocks", item_id,
-        {"gate_filter": "activation"},
-    ).get("blockers") or []
+    blockers = (
+        _relay_gate(
+            "advance.preflight.hard_blocks",
+            item_id,
+            {"gate_filter": "activation"},
+        ).get("blockers")
+        or []
+    )
     if blockers:
         return False, "Blocked by dependencies:\n  " + "\n  ".join(blockers)
 
-    ac = _relay_gate("advance.preflight.ac_presence", item_id)
-    title = ac.get("title")
-    canonical = int(ac.get("canonical") or 0)
-    # No-conn fallback: this gate path must not open a bare local connect
-    # (https control planes relay gate reads server-side). Prefer an
-    # public_ref the relay already returned; otherwise format from the id.
-    public_ref = (
-        ac.get("public_ref")
-        or unresolved_item_ref()
-    )
-    if title is None:
-        return False, f"{public_ref} not found in DB."
-    if canonical <= 0:
-        return False, (
-            f"{public_ref} has no acceptance criteria. Add "
-            f"`## Acceptance Criteria` with `- [ ] AC-N: ...` checkboxes."
-        )
+    workflow = _relay_gate("workflows.item.get", item_id)
+    policy = workflow["effective_policies"]["file_budget"]
+    if policy == "optional":
+        return True, ""
 
     budget = _relay_gate("advance.preflight.file_budget", item_id)
     if budget.get("verdict") != "pass":
@@ -126,10 +117,7 @@ def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
     cov = _relay_gate("advance.preflight.spec_coverage", item_id)
     if cov.get("is_blocked"):
         missing = cov.get("missing_paths") or []
-        cov_ref = (
-            cov.get("public_ref")
-            or public_ref
-        )
+        cov_ref = cov["public_ref"]
         return False, (
             f"BLOCKED: {cov_ref} File Budget lists "
             f"{len(missing)} path(s) not covered by any active "

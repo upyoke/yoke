@@ -2,7 +2,7 @@
 
 The wiring contract: importing ``_register_advance_preflight`` in the
 domain import block AND listing it in ``_DOMAIN_REGISTRARS`` must both
-happen for ``register_all_handlers()`` to register the four
+happen for ``register_all_handlers()`` to register the three
 ``advance.preflight.*`` function ids. They are internal (no CLI adapter),
 item-scoped, side-effect-free reads.
 """
@@ -16,7 +16,6 @@ from yoke_core.domain.handlers import __init_register__ as init_register
 
 _PREFLIGHT_FUNCTION_IDS = (
     "advance.preflight.hard_blocks",
-    "advance.preflight.ac_presence",
     "advance.preflight.file_budget",
     "advance.preflight.spec_coverage",
 )

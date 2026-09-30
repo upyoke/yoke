@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_cli.commands.adapters.item_flow_output import render_item_field
+
 import argparse
 import json
 import sys
@@ -107,7 +109,7 @@ def items_get(args: List[str]) -> int:
                 ))
             for field in requested_fields:
                 value = fields.get(field)
-                text = "" if value is None else str(value)
+                text = render_item_field(value)
                 stdout.write(text)
                 if not text.endswith("\n"):
                     stdout.write("\n")

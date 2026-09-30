@@ -28,7 +28,7 @@ The phase reference docs ([`preflight.md`](preflight.md), [`activation.md`](acti
 **Non-implementing targets** (manual advance to `reviewing-implementation`, `reviewed-implementation`, `polishing-implementation`, `implemented`, `release`, `done`, or any planning-phase target) still run through the legacy phase docs below. The orchestrator only covers implementation entry today; the post-implementation phases retain their existing doc-driven flow.
 
 **Preflight Gates:** Read `.agents/skills/yoke/advance/preflight.md`
-- Applies to: all non-implementing transitions (hard-block dependency, AC,
+- Applies to: all non-implementing transitions (hard-block dependency,
   coverage, pinned-skill handoff, generated-task, merge-verification, and
   done-redirect gates).
 - Generated-task gates run only when
@@ -64,8 +64,8 @@ independent may run in parallel.
 **Preflight — Reconciliation gate:**
 - `items get {N} deployment_flow`, `items get {N} project`, `items get {N} github_issue` — all independent reads
 
-**Preflight — Dependency + AC gates:**
-- `evaluate-gate "PREFIX-N" "activation"` and `check_ac_presence "PREFIX-N"` — independent gate evaluations
+**Preflight — Dependency and budget gates:**
+- Implementation entry retains activation dependencies and selects File Budget and spec coverage from `workflows.item.get` effective policies. Acceptance criteria use PRD-9 at Refine closure through `readiness.check.run`; they are not an implementation-entry gate.
 
 **Environment — Ephemeral setup:**
 - `yoke ephemeral-env update "$_env_id" url "$_ephemeral_url"` and `yoke ephemeral-env update "$_env_id" deployed_sha "$_deployed_sha"` — independent writes to the same env record (different fields)
