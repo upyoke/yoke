@@ -109,6 +109,8 @@ def relay_connection(
 ) -> sqlite3.Connection:
     """Launch fixture widened with the session columns relay claiming reads."""
     conn = launch_connection()
+    # The role-delivery ledger references items even for itemless notices.
+    conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY)")
     conn.execute("ALTER TABLE projects ADD COLUMN org_id INTEGER DEFAULT 1")
     conn.execute("CREATE TABLE organizations (id INTEGER PRIMARY KEY, settings TEXT)")
     conn.execute(
