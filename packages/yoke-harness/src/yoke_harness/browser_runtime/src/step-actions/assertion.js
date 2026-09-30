@@ -11,6 +11,10 @@
  * those checks are satisfied by a page holding no matching element at all,
  * so the match count is read at the one place that already resolved the
  * locator and travels with the result as `vacuous_absence`.
+ *
+ * `visible` and `hidden` ask about presence and so resolve the first match;
+ * the text and count checks stay strict, because an ambiguous locator makes
+ * the value they read ambiguous too.
  */
 
 const {
@@ -18,6 +22,7 @@ const {
   waitForVisibleText,
   truncateForError,
   resolveTarget,
+  resolvePresenceTarget,
 } = require('./target-helpers');
 
 // Default timeout for scenario assertion actions.
@@ -114,11 +119,16 @@ async function executeAssert(page, step, options, refMap) {
 
   switch (check) {
     case 'visible':
-      await locator.waitFor({ state: 'visible', timeout });
+      await resolvePresenceTarget(page, step.target, refMap)
+        .waitFor({ state: 'visible', timeout });
       return { success: true };
 
     case 'hidden': {
-      await locator.waitFor({ state: 'hidden', timeout });
+      await resolvePresenceTarget(page, step.target, refMap)
+        .waitFor({ state: 'hidden', timeout });
+      // Counted on the unnarrowed locator: how many elements the selector
+      // named is what decides whether this observed anything, and the
+      // first-match form can only ever answer zero or one.
       return assertionResult(step, await locator.count());
     }
 

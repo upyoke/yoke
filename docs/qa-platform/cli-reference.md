@@ -100,6 +100,13 @@ yoke qa artifact rehome --requirement-id 1 --artifact-id 10 --artifact-id 11
 # It lands the bytes under this machine's temp root and reports that
 # path as `path`; --output PATH chooses a different destination.
 yoke qa artifact read --requirement-id 1 --artifact-id 10 --json
+
+# Read one part of a tall full-page screenshot, enlarged enough to judge.
+# --region x,y,w,h is measured from the capture's top-left; --scale applies
+# after it. The stored artifact is untouched and the response reports the
+# `artifact_view` it rendered.
+yoke qa artifact read --requirement-id 1 --artifact-id 10 \
+  --region 0,900,1440,600 --scale 1.5
 ```
 
 Every item-attached requirement must name a stage in the item's pinned
@@ -142,7 +149,7 @@ the exact deployed candidate; a newer deployment cannot certify an older run.
 | `yoke qa artifact add` | `--requirement-id N --run-id N --artifact-type T (--artifact-handle JSON \| --content-base64 B64 --filename NAME \| --content-file PATH) [opts]` | Insert artifact evidence from a typed handle or inline bytes |
 | `yoke qa artifact rehome` | `--requirement-id N --artifact-id N [--artifact-id N ...]` | On the capture machine, store recorded local-only evidence through the serving build and swap the handle in place |
 | `yoke qa artifact get` | `ARTIFACT_ID --requirement-id N` | Read artifact metadata without fetching evidence or issuing a download URL |
-| `yoke qa artifact read` | `--requirement-id N --artifact-id N [--output PATH] [--json]` | Land one artifact's bytes at a readable path (default under the machine temp root) and report it; stranded or on-machine evidence is named explicitly |
+| `yoke qa artifact read` | `--requirement-id N --artifact-id N [--output PATH] [--region x,y,w,h] [--scale N] [--json]` | Land one artifact's bytes at a readable path (default under the machine temp root) and report it; `--region`/`--scale` render a readable view of a tall screenshot without touching the stored artifact; stranded or on-machine evidence is named explicitly |
 
 Dispatcher commands use 0 for success, 1 for a dispatch/not-found failure,
 and 2 for usage errors. The client-local case runners use 0 for pass, 1 for

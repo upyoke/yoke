@@ -6,6 +6,7 @@
  *
  * Exports (CommonJS):
  *   resolveTarget(page, target, refMap) -> Locator
+ *   resolvePresenceTarget(page, target, refMap) -> Locator
  *   isDocumentWideTarget(target) -> boolean
  *   getVisibleText(page) -> Promise<string>
  *   waitForVisibleText(page, timeout, matches) -> Promise<string>
@@ -120,6 +121,31 @@ function resolveTarget(page, target, refMap) {
   return page.locator(target);
 }
 
+/**
+ * Resolve a target for a question about presence rather than identity.
+ *
+ * Playwright's waiting operations are strict: a locator resolving to more
+ * than one element refuses instead of answering. That is the right rule for
+ * acting on an element or reading its text -- an ambiguous click or an
+ * ambiguous `text_equals` is a case that does not know what it is about --
+ * but it is the wrong rule for asking whether a screen shows something. A
+ * selector naming a repeated component (`.shipping-run-card` on a page
+ * holding a dozen of them) is a correct way to ask "did the cards render",
+ * and under strict mode it failed for matching too well.
+ *
+ * Presence questions therefore ask the first match. "At least one" is what
+ * the question means, and it is what a count check would have to be written
+ * as anyway.
+ *
+ * @param {import('playwright').Page} page
+ * @param {string} target
+ * @param {Object|null} refMap
+ * @returns {import('playwright').Locator}
+ */
+function resolvePresenceTarget(page, target, refMap) {
+  return resolveTarget(page, target, refMap).first();
+}
+
 module.exports = {
   MAX_ERROR_TEXT_LENGTH,
   isDocumentWideTarget,
@@ -127,4 +153,5 @@ module.exports = {
   waitForVisibleText,
   truncateForError,
   resolveTarget,
+  resolvePresenceTarget,
 };

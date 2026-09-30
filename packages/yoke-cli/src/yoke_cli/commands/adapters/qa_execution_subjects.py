@@ -26,6 +26,14 @@ from yoke_cli.transport.dispatcher import (
 from yoke_cli.commands.adapters.qa_catalog_usage import PLAN_REMATERIALIZE_EPILOG
 from yoke_cli.qa_artifact_download import ArtifactDownloadError, download_artifact
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.qa_artifact_image_view import (
+    ArtifactViewError,
+    REGION_FORMAT,
+    apply_artifact_view,
+    parse_region,
+    parse_scale,
+    refuse_unsupported_content_type,
+)
 from yoke_contracts.qa_artifact_read import artifact_read_destination
 from yoke_contracts.qa_requirement_replacement import (
     REPLACES_METAVAR,
@@ -184,7 +192,7 @@ def qa_plan_rematerialize(args: List[str]) -> int:
 def qa_artifact_read(args: List[str]) -> int:
     usage = (
         "yoke qa artifact read --requirement-id N --artifact-id N "
-        "[--output PATH] [--json]"
+        f"[--output PATH] [--region {REGION_FORMAT}] [--scale N] [--json]"
     )
     parser = argparse.ArgumentParser(
         prog="yoke qa artifact read",
@@ -202,15 +210,48 @@ def qa_artifact_read(args: List[str]) -> int:
             "read it back from the reported path rather than composing it."
         ),
     )
+    parser.add_argument(
+        "--region",
+        metavar=REGION_FORMAT,
+        help=(
+            "Render only this pixel rectangle of a screenshot, measured from "
+            "the top-left of the capture. A full-page screenshot of a long "
+            "screen is unreadable once scaled to fit a viewer, so name the "
+            "part being judged. The stored artifact is unchanged; only the "
+            "landed file is the view."
+        ),
+    )
+    parser.add_argument(
+        "--scale",
+        help=(
+            "Multiply the rendered size, applied after --region. Use 0.5 to "
+            "fit a tall capture into a viewer, or 2 to read small text. "
+            "Combines with --region to enlarge one panel."
+        ),
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
-    return _artifact_read_to_path(parsed)
+    try:
+        view_region = parse_region(parsed.region) if parsed.region else None
+        view_scale = parse_scale(parsed.scale) if parsed.scale else None
+    except ArtifactViewError as exc:
+        return usage_error(f"yoke qa artifact read: {exc}", usage)
+    return _artifact_read_to_path(
+        parsed,
+        region=view_region,
+        scale=view_scale,
+    )
 
 
-def _artifact_read_to_path(parsed: Any) -> int:
+def _artifact_read_to_path(
+    parsed: Any,
+    *,
+    region: Any = None,
+    scale: Any = None,
+) -> int:
     """Dispatch the read, then land the bytes where the caller can open them."""
     ensure_handlers_loaded()
     response = call_dispatcher(
@@ -261,6 +302,24 @@ def _artifact_read_to_path(parsed: Any) -> int:
         # The file IS the delivery, so the inline copy would only make the
         # reader page a base64 blob to reach the path that already holds it.
         result.pop("content_base64", None)
+        if region is not None or scale is not None:
+            try:
+                refuse_unsupported_content_type(result.get("content_type"))
+                result["artifact_view"] = apply_artifact_view(
+                    dest,
+                    region=region,
+                    scale=scale,
+                )
+            except ArtifactViewError as exc:
+                # The recorded bytes are already on disk, so the reader is
+                # told where they are rather than losing the read along with
+                # the view it asked for.
+                print(
+                    f"yoke qa artifact read: {exc} The bytes as recorded are "
+                    f"at {dest.resolve()}.",
+                    file=sys.stderr,
+                )
+                return 1
     return emit_response(response, json_mode=parsed.json_mode)
 
 

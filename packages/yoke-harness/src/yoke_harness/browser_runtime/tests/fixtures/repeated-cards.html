@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Repeated cards with a loading placeholder</title>
+  <style>
+    body { margin: 0; font-family: sans-serif; }
+    /* The list scrolls inside its own container, so the document stays at
+       viewport height and a fullPage capture sees only one screenful. */
+    #scroller { height: 300px; overflow-y: auto; border: 1px solid #333; }
+    .card { height: 200px; background: #cfe; border-bottom: 2px solid #048; }
+    #placeholder { padding: 8px; background: #fee; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div id="placeholder">Loading evidence</div>
+  <div id="scroller">
+    <div class="card">card one</div>
+    <div class="card">card two</div>
+    <div class="card">card three</div>
+    <div class="card">card four</div>
+    <div class="card">card five</div>
+    <div class="card">card six</div>
+  </div>
+  <button id="settle">settle</button>
+  <!-- Pushes #below-fold past the viewport, so a viewport-bounded capture
+       cannot show it and a targeted capture must scroll to reach it. -->
+  <div style="height: 1200px"></div>
+  <div id="below-fold" style="height: 150px; background: #ffd">
+    below the fold
+  </div>
+  <script>
+    // Readiness is provable only if the placeholder is present first and
+    // leaves later, so a `ready` step has something real to wait out.
+    document.getElementById('settle').addEventListener('click', function () {
+      document.getElementById('placeholder').classList.add('hidden');
+    });
+    var delay = Number(new URL(window.location.href).searchParams.get('settle_ms'));
+    if (Number.isFinite(delay) && delay > 0) {
+      setTimeout(function () {
+        document.getElementById('placeholder').classList.add('hidden');
+      }, delay);
+    }
+  </script>
+</body>
+</html>

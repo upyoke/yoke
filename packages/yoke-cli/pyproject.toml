@@ -26,7 +26,8 @@ dependencies = [
 yoke = "yoke_cli.main:main"
 
 [project.optional-dependencies]
-# Board-art image onboarding (preview/apply `--image PATH`).
+# Retained so `yoke-cli[images]` keeps resolving for anything that names it;
+# Pillow arrives as a required yoke-contracts dependency.
 images = ["Pillow>=10.0,<12"]
 
 [tool.setuptools_scm]
