@@ -1,0 +1,74 @@
+# Manual product smoke on Linux and macOS
+
+The Yoke project plan `product-smoke` has one `command-ci` case bound to
+`product-smoke.yml`. Its manually dispatched matrix runs the complete smoke on
+both GitHub-hosted disposable runners. Nothing schedules it or attaches it to
+changes, pull requests, merges, or deployment gates.
+
+The jobs declare Ubuntu 24.04 x86_64 (`ubuntu-latest`) and macOS 26 arm64
+(`macos-latest`). These labels follow [GitHub's runner image catalog](https://github.com/actions/runner-images).
+The smoke verifies the actual OS and architecture first; a label migration
+refuses with `runner_identity_mismatch` until its declaration is reviewed.
+
+Each job builds and installs the tree's product wheels into a fresh environment,
+onboards a Git project non-interactively into a fresh local universe with GitHub
+adoption disabled, and replays native SessionStart and allowed/denied shell
+payloads through the exact commands in its installed `.claude/settings.json`,
+`.codex/hooks.json`, and `.cursor/hooks.json`. The proposed denied command is
+never executed. It asserts a stored session with the correct executor/workspace,
+the harness's denial wire format, and affirmative allow/deny evaluation receipts
+from nonempty chains without timeouts. A zero CLI exit alone cannot pass.
+Missing diagnostic telemetry means insufficient proof, not proof of a product
+fault. It then runs `yoke dev setup --editable-install` and a small
+`yoke watch pytest --local` subset. The local cluster is stopped in cleanup.
+
+Run through `qa.plan_execution.begin` using the standalone adapter:
+
+```text
+yoke watch qa-plan -- --plan product-smoke --project yoke --checkout-path /absolute/clean/checkout --expected-branch PUBLISHED_REF --expected-sha FULL_SHA
+```
+
+Read `yoke qa plan run --help` before choosing source bindings or continuation.
+The published ref must already name that exact commit. The runner records one
+standalone execution, frozen case, CI run URL, actual head SHA, and conclusion;
+both jobs must pass for the case to pass. It publishes no lane and changes no
+item or deployment gate. GitHub registers a new dispatch workflow from the
+default branch, so its first real run follows its merge there.
+
+Read `yoke qa plan get product-smoke --project yoke --full` for the saved case
+and evidence. Each job uploads `product-smoke-evidence`: `report.json`, session
+and evaluation reads, exact command captures, and failure diagnostics.
+No hosted Yoke token, harness account, provider secret, or relay supervisor
+is needed by the smoke jobs. Harness login happens only when refreshing fixtures.
+Self-host bring-up and relay supervision are separate checks.
+
+## Refresh native recordings
+
+Yoke source repo only: the corpus in `tests/fixtures/harness-sessions/` records native hook stdin,
+its harness version, and the harmless one-line prompt. Refresh it when a
+harness minimum version changes or a native payload shape changes.
+Use an operator-authorized test account on a registered test host and hold
+its `QA_HOST:<machine>` coordination claim. Wait when another session owns it.
+
+```text
+yoke dev run -- python3 runtime/api/tools/native_hook_capture.py --machine TEST_MACHINE --harness claude --output tests/fixtures/harness-sessions/claude.json # Yoke source repo only
+```
+
+Repeat for `codex` and `cursor`, then release the host claim. The helper copies
+locally authored recorder code to an isolated remote scratch Git project and
+opens exactly one native session. Its recorder allows a harmless shell call
+and denies the second call; it does not execute the denied command. Codex trusts
+only the two known recorder handlers for that invocation using the existing
+hook hash implementation. No sandbox/permission bypass flags are used.
+
+On macOS, add `--gui-session` when the SSH security session cannot access the
+test account's unlocked login keychain. This runs the same recorder through
+Terminal.app in the normal GUI login session. It does not unlock a keychain,
+copy credentials, or change authentication settings.
+
+Review the redacted recordings before committing: session/conversation/tool ids,
+machine/account ids, paths, and account-bound data must not remain. The replay
+substitutes fresh session identities, disposable workspace/transcript paths,
+and probe commands while preserving native wire structure and other fields.
+If a harness is signed out or its keychain is locked, ask the test-account
+operator to restore access; capture must not enter or extract credentials.
