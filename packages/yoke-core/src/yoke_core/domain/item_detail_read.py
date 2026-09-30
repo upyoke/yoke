@@ -16,7 +16,7 @@ from typing import Any, Sequence
 from yoke_contracts.public_ref import format_item_ref
 from yoke_contracts.merge_queue_status import render_merge_queue_status
 from yoke_core.domain import db_backend, db_helpers
-from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow
+from yoke_core.domain.item_completion_flow_projection import completion_flow_values
 from yoke_core.domain.file_budget_paths import extract_file_budget_paths
 from yoke_core.domain.field_note_dash_promotion import (
     source_field_note_for_dash,
@@ -150,9 +150,7 @@ def _workflow_model(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def get_item_detail(
-    item_id: int, *, include: Sequence[str] = ()
-) -> dict[str, Any]:
+def get_item_detail(item_id: int, *, include: Sequence[str] = ()) -> dict[str, Any]:
     """Return the item's posture and proof, plus the content sections named.
 
     ``include`` names sections from
@@ -207,6 +205,10 @@ def get_item_detail(
         )
         claim = active_item_claims(conn, [item_id]).get(item_id)
         qa_requirements = qa_rows(conn, item_id)
+        flow = completion_flow_values(conn, [item_id]).get(
+            item_id,
+            {"value": "", "source": "none"},
+        )
         return {
             "id": int(row["id"]),
             "public_ref": public_ref,
@@ -218,8 +220,9 @@ def get_item_detail(
             "blocked_reason": str(row.get("blocked_reason") or ""),
             "created_at": row.get("created_at"),
             "updated_at": row.get("updated_at"),
-            "deployment_flow": row.get("deployment_flow"),
-            "completion_flow": item_completion_flow(conn, item_id),
+            "deployment_flow": flow,
+            "completion_flow": flow["value"],
+            "completion_flow_source": flow["source"],
             "merge_queue": {
                 "pr_number": str(row.get("merge_queue_pr_number") or ""),
                 "enqueued_at": str(row.get("merge_queue_enqueued_at") or ""),
@@ -249,9 +252,7 @@ def get_item_detail(
             "content_index": build_content_index(
                 public_ref, narrative=stored, progress_log=progress_log
             ),
-            "progress_log": (
-                progress_log if "progress_log" in wanted else None
-            ),
+            "progress_log": (progress_log if "progress_log" in wanted else None),
             "source_field_note": source_field_note_for_dash(conn, item_id),
             "qa_requirements": qa_requirements,
             "gate_satisfactions": read_rungs(conn, item_id),

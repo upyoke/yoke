@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from io import StringIO
 from unittest.mock import Mock, patch
+
+import pytest
 
 from yoke_cli.commands.adapters.deployment_inspection import (
     deployment_flows_list,
@@ -55,6 +58,41 @@ def test_deployment_inspection_registry_entries() -> None:
     assert SUBCOMMAND_REGISTRY[("deployment-runs", "failure-trace")][0] == (
         "deployment_runs.failure_trace"
     )
+
+
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_flow_list_preserves_multiline_stages(json_mode) -> None:
+    stages = [{"name": "deploy", "command": "build | deploy"}]
+    stored_stages = json.dumps(stages, indent=2)
+    result = {
+        "fields": ["id", "stages", "status"],
+        "rows": [
+            {"id": "flow-test", "stages": stored_stages, "status": "active"},
+        ],
+    }
+    stdout = StringIO()
+
+    def dispatch(**kwargs):
+        assert kwargs["json_mode"] is json_mode
+        if kwargs["json_mode"]:
+            print(json.dumps(result), file=stdout)
+        else:
+            kwargs["human_writer"](Mock(result=result), stdout, StringIO())
+        return 0
+
+    with patch(
+        "yoke_cli.commands.adapters.deployment_inspection.dispatch_and_emit",
+        side_effect=dispatch,
+    ):
+        assert deployment_flows_list(["--json"] if json_mode else []) == 0
+    if json_mode:
+        row = json.loads(stdout.getvalue())["rows"][0]
+        assert row["stages"] == stored_stages
+    else:
+        assert (
+            stdout.getvalue()
+            == "flow-test|" + json.dumps(stages, separators=(",", ":")) + "|active\n"
+        )
 
 
 def test_failure_trace_human_output_names_terminal_cause_and_chain() -> None:

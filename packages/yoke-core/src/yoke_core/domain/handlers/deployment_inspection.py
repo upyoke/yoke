@@ -50,11 +50,7 @@ class DeploymentRunStagesResponse(BaseModel):
 
 
 def _pipe_rows(raw: str, fields: tuple[str, ...]) -> List[Dict[str, Any]]:
-    return [
-        pipe_to_dict(line, fields)
-        for line in raw.splitlines()
-        if line.strip()
-    ]
+    return [pipe_to_dict(line, fields) for line in raw.splitlines() if line.strip()]
 
 
 def handle_deployment_flow_list(request: FunctionCallRequest) -> HandlerOutcome:
@@ -64,11 +60,11 @@ def handle_deployment_flow_list(request: FunctionCallRequest) -> HandlerOutcome:
     payload = DeploymentFlowListRequest.model_validate(request.payload or {})
 
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.flow import cmd_list
+    from yoke_core.domain.flow_crud import list_flow_rows
 
     try:
         with connect() as conn:
-            raw = cmd_list(
+            rows = list_flow_rows(
                 conn,
                 payload.project,
                 include_disabled=payload.include_disabled,
@@ -78,7 +74,7 @@ def handle_deployment_flow_list(request: FunctionCallRequest) -> HandlerOutcome:
     return HandlerOutcome(
         result_payload={
             "fields": list(FLOW_ROW_FIELDS),
-            "rows": _pipe_rows(raw, FLOW_ROW_FIELDS),
+            "rows": [dict(zip(FLOW_ROW_FIELDS, tuple(row))) for row in rows],
         },
         primary_success=True,
     )
@@ -98,8 +94,13 @@ def handle_deployment_runs_find_by_item(
     from yoke_core.domain.deployment_runs_crud_query import cmd_find_by_item
 
     fields = (
-        "id", "status", "current_stage", "created_at", "flow",
-        "target_environment", "target_tier",
+        "id",
+        "status",
+        "current_stage",
+        "created_at",
+        "flow",
+        "target_environment",
+        "target_tier",
     )
     raw = cmd_find_by_item(int(request.target.item_id), status=payload.status)
     return HandlerOutcome(
@@ -112,9 +113,7 @@ def handle_deployment_runs_find_by_item(
     )
 
 
-def _stage_state(
-    *, index: int, current_index: int, run_status: str
-) -> str:
+def _stage_state(*, index: int, current_index: int, run_status: str) -> str:
     if run_status == "succeeded":
         return "completed"
     if index < current_index:

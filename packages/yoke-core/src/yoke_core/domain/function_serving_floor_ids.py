@@ -7,7 +7,7 @@ must declare ``minimum_serving_version`` at registration.
 from __future__ import annotations
 
 ALREADY_SERVED_FUNCTION_IDS: frozenset[str] = frozenset((
-    'advance.preflight.ac_presence', 'advance.preflight.file_budget', 'advance.preflight.hard_blocks', 'advance.preflight.spec_coverage',
+    'advance.preflight.file_budget', 'advance.preflight.hard_blocks', 'advance.preflight.spec_coverage',
     'agents.render.check', 'agents.render.run', 'agents.render_relationships.record', 'auth.set.run',
     'board.data.get', 'board.rebuild.run', 'charge.schedule', 'claims.coordination_claim.acquire',
     'claims.coordination_claim.heartbeat', 'claims.coordination_claim.list', 'claims.coordination_claim.operator_release', 'claims.coordination_claim.release',

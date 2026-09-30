@@ -324,7 +324,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--item", required=True,
                         help="Item ID (YOK-N, N, or padded form)")
     parser.add_argument("--no-worktree", action="store_true")
-    parser.add_argument("--force", action="store_true")
+    parser.add_argument("--force", action="store_true", help=(
+        "Override dependency and effective File Budget preflight; "
+        "acceptance criteria are checked at Refine closure."))
     parser.add_argument("--qa-bypass", action="store_true")
     parser.add_argument("--session-id", default=None)
     args = parser.parse_args(argv)

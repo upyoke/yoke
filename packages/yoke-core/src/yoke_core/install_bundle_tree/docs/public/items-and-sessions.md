@@ -172,3 +172,17 @@ evaluator/client-wall coverage, are labelled incomparable.
   the message was delivered, acknowledged, cancelled, or expired, or that
   conversation ended — and the card leaves the Inbox with the reason on
   record. Nothing else is dismissed for you
+
+## Effective completion flow reads
+
+`yoke items get PREFIX-N deployment_flow` resolves the item's selected flow
+or its project workflow default and prints the source, for example
+`flow-name (project default)`. Read `--help` for the field projection.
+The JSON field is `{value, source}`; sources are `item`, `project_default`,
+`none`, or `unreadable`. Item listings and detail views carry the same
+effective value and provenance. An unreadable default stays named rather
+than appearing to be an unconfigured item.
+
+`yoke deployment-flows list` keeps each stored stages document in one row;
+JSON preserves the complete stored value and text renders stages compactly.
+Read `--help` for project and disabled-flow filters.

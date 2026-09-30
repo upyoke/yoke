@@ -130,12 +130,13 @@ def cmd_get(conn, flow_id: str, field: Optional[str] = None) -> str:
         return _format_row(row)
 
 
-def cmd_list(
+def list_flow_rows(
     conn,
     project: Optional[str] = None,
     *,
     include_disabled: bool = False,
-) -> str:
+):
+    """Read complete rows without serializing multiline values as records."""
     status_clause = "" if include_disabled else " AND df.status='active'"
     if project:
         ident = resolve_project(conn, project)
@@ -156,7 +157,14 @@ def cmd_list(
             "LEFT JOIN environments e ON e.id=df.target_environment_id "
             f"WHERE 1=1{status_clause} ORDER BY df.id ASC",
         )
-    return "\n".join(_format_row(row) for row in rows)
+    return rows
+
+
+def cmd_list(conn, project: Optional[str] = None, *, include_disabled=False) -> str:
+    return "\n".join(
+        _format_row(row)
+        for row in list_flow_rows(conn, project, include_disabled=include_disabled)
+    )
 
 
 def cmd_stages(conn, flow_id: str) -> str:

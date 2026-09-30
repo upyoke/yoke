@@ -62,47 +62,13 @@ If no blockers (kernel says `is_blocked=false` or check-hard-blocks exits 0), pr
 
 ---
 
-## AC Presence Gate (step 4-ac)
+## Acceptance Criteria Ownership
 
-Skip if `_generated_children` is `epic_tasks`; the generated-task skill
-enforces task-level ACs before dispatch.
-
-Skip if target is `idea`, `refining-idea`, `refined-idea`, `planning`, `refining-plan`, or `planned` (pre-implementation statuses where ACs are not yet required).
-
-Applies to targets: `implementing`, `reviewing-implementation`, `reviewed-implementation`, `polishing-implementation`, `implemented`, `release` — any status at or past `implementing`.
-
-**If `--force`:** Skip with warning:
-> **Warning:** AC presence gate overridden with --force.
-
-Run the shared AC presence checker (accepts both canonical `- [ ] AC-N:` and unlabeled `- [ ] ` under `## Acceptance Criteria`):
-```bash
-_ac_output_file=$(mktemp "${TMPDIR:-/tmp}/advance-ac-check.XXXXXX")
-_ac_stderr_file=$(mktemp "${TMPDIR:-/tmp}/advance-ac-stderr.XXXXXX")
-if python3 -m yoke_core.domain.check_ac_presence "PREFIX-{N}" >"$_ac_output_file" 2>"$_ac_stderr_file"; then
- _ac_exit=0
-else
- _ac_exit=$?
-fi
-_ac_output=$(cat "$_ac_output_file")
-_ac_stderr=$(cat "$_ac_stderr_file")
-rm -f "$_ac_output_file" "$_ac_stderr_file"
-```
-
-If `_ac_exit` is non-zero (no ACs found), **block**:
-
-> **Blocked:** PREFIX-{N} has no acceptance criteria.
-> No checkbox ACs found in the item spec or body — neither canonical `- [ ] AC-N:` nor unlabeled `- [ ] ` under `## Acceptance Criteria`.
-> Conduct requires ACs to verify each item.
->
-> **Remediation:** Add a `## Acceptance Criteria` section with `- [ ] AC-{N}: {description}` checkboxes to the item spec, then retry.
-> Or run `/yoke shepherd PREFIX-{N}` to drive the item through the full quality pipeline.
-
-Do NOT update status. Do NOT create worktree. Do NOT run any subsequent gates. **Stop.**
-
-If `_ac_exit` is 0 (ACs present):
-- If `_ac_stderr` contains "unlabeled checkbox AC", emit advisory:
- > **Advisory:** PREFIX-{N} has unlabeled checkbox ACs under `## Acceptance Criteria`. Canonical format is `- [ ] AC-N: {description}`. Consider normalizing via `/yoke shepherd PREFIX-{N}`; the direct label-normalization helper is source-dev/admin only and has no registered product CLI wrapper.
-- Proceed regardless (unlabeled ACs satisfy the gate).
+Acceptance criteria are checked where they are authored: Refine closure
+runs `yoke readiness check PREFIX-N`, whose PRD-9 check refuses missing
+checkboxes before leaving the pinned Refine segment. Implementation entry
+carries no hardcoded AC-presence check. Workflows without a Refine binding,
+including the floor Task workflow, do not owe this authoring check.
 
 ---
 

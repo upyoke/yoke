@@ -24,20 +24,16 @@ from yoke_contracts.api.function_call import FunctionCallResponse
 
 
 READINESS_CHECK_USAGE = (
-    "yoke readiness check PREFIX-N [--skip-readiness-check] "
-    "[--session-id S] [--json]"
+    "yoke readiness check PREFIX-N [--skip-readiness-check] [--session-id S] [--json]"
 )
 READINESS_PRD_VALIDATE_USAGE = (
-    "yoke readiness prd-validate PREFIX-N [--strict] "
-    "[--session-id S] [--json]"
+    "yoke readiness prd-validate PREFIX-N [--strict] [--session-id S] [--json]"
 )
 READINESS_REPAIR_STALE_COUNT_USAGE = (
-    "yoke readiness repair-stale-count --item PREFIX-N "
-    "[--session-id S] [--json]"
+    "yoke readiness repair-stale-count --item PREFIX-N [--session-id S] [--json]"
 )
 READINESS_REPAIR_CLAIM_COVERAGE_USAGE = (
-    "yoke readiness repair-claim-coverage --item PREFIX-N "
-    "[--session-id S] [--json]"
+    "yoke readiness repair-claim-coverage --item PREFIX-N [--session-id S] [--json]"
 )
 
 # One round answers a check. A repair needs a second, because its own
@@ -58,6 +54,10 @@ rewritten underneath a reading is reported unperformed rather than
 passed. The checkout revision travels too, but it is this machine's own
 report and the control plane has no tree to check it against: it catches
 a tree edited mid-read, not a machine that misreports.
+
+At the in-progress stage of a pinned Refine binding, closure also checks
+acceptance criteria using PRD-9. Missing checkboxes block with a named
+recovery; idea-time authoring and workflows without Refine are exempt.
 
 Reports one of three verdicts in the result payload:
 
@@ -223,6 +223,7 @@ def _dispatch_observing_locally(
     repeats. The rounds are bounded because the loop is driven by the
     host asking, and a host that kept asking would otherwise spin.
     """
+
     def observe_then_redispatch(response, actor):
         from yoke_cli.commands.adapters import readiness_local_compose as local
 

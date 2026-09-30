@@ -36,6 +36,7 @@ from yoke_core.domain.file_budget_paths import (
 from yoke_core.domain.attestation_rehearsal_dryrun import verify_attestation_rehearsal_commands
 from yoke_core.domain import db_backend
 from yoke_core.domain.idea_readiness_check_architecture import verify_architecture_impact_resolved
+from yoke_core.domain.idea_readiness_acceptance_criteria import verify_refine_acceptance_criteria
 from yoke_core.domain.idea_readiness_check_rg import rg_available
 from yoke_core.domain.idea_readiness_check_refs import (
     function_refs_to_verify as _function_refs_to_verify,
@@ -264,6 +265,7 @@ def run_all_checks(
     issues.extend(verify_architecture_impact_resolved(conn, item_id))
     issues.extend(probe_cross_item_overlap(conn, item_id))
     issues.extend(verify_done_means_agent_shape(spec_text))
+    issues.extend(verify_refine_acceptance_criteria(conn, item_id, spec_text))
     return ReadinessOutcome(
         issues=issues, unavailable=unavailable, advisories=advisories,
     )

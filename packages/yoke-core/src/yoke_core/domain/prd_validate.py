@@ -101,6 +101,25 @@ def resolve_body(public_ref: Optional[str], body_text: Optional[str]) -> tuple[s
     return body, item_label
 
 
+def check_acceptance_criteria(body: str, report: Report) -> None:
+    """Run the shared PRD-9 acceptance-criteria presence rule."""
+    rec = report.record
+    ac_canonical_count = len(re.findall(r"^\- \[ \] AC-", body, re.MULTILINE))
+    if ac_canonical_count > 0:
+        rec("PRD-9", "Acceptance Criteria", "PASS", f"{ac_canonical_count} canonical AC checkbox(es) found.")
+    else:
+        ac_section = extract_section(body, "Acceptance Criteria")
+        ac_unlabeled_count = len(re.findall(r"^\- \[ \] ", ac_section, re.MULTILINE)) if has_content(ac_section) else 0
+        if ac_unlabeled_count > 0:
+            rec("PRD-9", "Acceptance Criteria", "WARN",
+                f"{ac_unlabeled_count} unlabeled AC checkbox(es) under ## Acceptance Criteria.",
+                "Use canonical format: '- [ ] AC-N: {description}' for each acceptance criterion.")
+        else:
+            rec("PRD-9", "Acceptance Criteria", "FAIL", "No acceptance criteria checkboxes found.",
+                "Add a '## Acceptance Criteria' section with '- [ ] AC-1: {description}' checkboxes. Each AC must be specific and independently testable.")
+
+
+
 def validate_prd(body: str, item_label: str) -> Report:
     report = Report()
     rec = report.record
@@ -233,19 +252,7 @@ def validate_prd(body: str, item_label: str) -> Report:
     else:
         rec("PRD-8", "Blast Radius Discovery", "PASS", "No rename/removal-heavy trigger detected.")
 
-    ac_canonical_count = len(re.findall(r"^\- \[ \] AC-", body, re.MULTILINE))
-    if ac_canonical_count > 0:
-        rec("PRD-9", "Acceptance Criteria", "PASS", f"{ac_canonical_count} canonical AC checkbox(es) found.")
-    else:
-        ac_section = extract_section(body, "Acceptance Criteria")
-        ac_unlabeled_count = len(re.findall(r"^\- \[ \] ", ac_section, re.MULTILINE)) if has_content(ac_section) else 0
-        if ac_unlabeled_count > 0:
-            rec("PRD-9", "Acceptance Criteria", "WARN",
-                f"{ac_unlabeled_count} unlabeled AC checkbox(es) under ## Acceptance Criteria.",
-                "Use canonical format: '- [ ] AC-N: {description}' for each acceptance criterion.")
-        else:
-            rec("PRD-9", "Acceptance Criteria", "FAIL", "No acceptance criteria checkboxes found.",
-                "Add a '## Acceptance Criteria' section with '- [ ] AC-1: {description}' checkboxes. Each AC must be specific and independently testable.")
+    check_acceptance_criteria(body, report)
 
     return report
 

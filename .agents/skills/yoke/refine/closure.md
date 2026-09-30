@@ -21,6 +21,10 @@ The exit condition is the same as idea's policy-aware path closure:
 - When path claims are enabled, coverage is complete from the enabled File
   Budget or, when budget is off, from the execution artifact/investigation.
 - Only when both axes are enabled does this phase require parity between them.
+- Acceptance criteria are present: the shared PRD-9 check runs at the
+  in-progress stage of the pinned Refine binding. Missing checkbox criteria
+  return `MISSING_ACCEPTANCE_CRITERIA` with this item's own public ref and
+  the add-criteria/rerun recovery. Workflows without Refine are exempt.
 - The readiness check reports `verdict=pass`. A `verdict=unavailable` is not a
   pass: it names checks this host could not perform, and re-running it here
   cannot change that (see [`readiness-repair.md`](readiness-repair.md)).

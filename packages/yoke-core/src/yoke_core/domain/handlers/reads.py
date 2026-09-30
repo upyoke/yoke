@@ -47,7 +47,7 @@ class ItemsGetRequest(BaseModel):
 
 class ItemsGetResponse(BaseModel):
     item_id: int
-    fields: Dict[str, str]
+    fields: Dict[str, str | Dict[str, str]]
     # Present only when the projection includes the rendered body: the
     # operator execution-instruction block readers prepend above it. A
     # separate field so structured-field writes can never round-trip it
@@ -73,7 +73,7 @@ def handle_items_get(request: FunctionCallRequest) -> HandlerOutcome:
     if section is not None:
         return _items_get_section(item_id, requested, str(section))
     cols = requested or list(DEFAULT_GET_FIELDS)
-    out: Dict[str, str] = {}
+    out: Dict[str, Any] = {}
     for col in cols:
         if col not in ALLOWED_GET_FIELDS:
             return HandlerOutcome(
@@ -84,7 +84,19 @@ def handle_items_get(request: FunctionCallRequest) -> HandlerOutcome:
                     jsonpath=f"$.payload.fields[{cols.index(col)}]",
                 ),
             )
-        out[col] = query_item(item_id, col)
+        if col == "deployment_flow":
+            from yoke_core.domain.db_helpers import connect
+            from yoke_core.domain.item_completion_flow_projection import (
+                completion_flow_values,
+            )
+
+            with connect() as conn:
+                out[col] = completion_flow_values(conn, [item_id]).get(
+                    item_id,
+                    {"value": "", "source": "none"},
+                )
+        else:
+            out[col] = query_item(item_id, col)
     result: Dict[str, Any] = {"item_id": item_id, "fields": out}
     if "body" in cols:
         from yoke_core.domain.db_helpers import connect
@@ -213,6 +225,10 @@ def handle_epic_tasks_list(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 __all__ = [
-    "ItemsGetRequest", "ItemsGetResponse", "handle_items_get",
-    "EpicTasksListRequest", "EpicTasksListResponse", "handle_epic_tasks_list",
+    "ItemsGetRequest",
+    "ItemsGetResponse",
+    "handle_items_get",
+    "EpicTasksListRequest",
+    "EpicTasksListResponse",
+    "handle_epic_tasks_list",
 ]

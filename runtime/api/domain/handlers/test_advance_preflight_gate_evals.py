@@ -1,6 +1,6 @@
 """In-process integration coverage for the advance preflight gate evals.
 
-Exercises the four ``advance.preflight.*`` internal handlers against a
+Exercises the three ``advance.preflight.*`` internal handlers against a
 seeded Postgres authority. Each handler is a thin wrapper over an existing
 gate domain function; these tests prove the wrapper resolves the item
 target, runs the gate server-side against real DB state, and returns the
@@ -109,8 +109,11 @@ class TestHardBlocksEval:
         finally:
             conn.close()
         outcome = gates.handle_hard_blocks(
-            _envelope("advance.preflight.hard_blocks", item_id=8201,
-                      payload={"gate_filter": "activation"})
+            _envelope(
+                "advance.preflight.hard_blocks",
+                item_id=8201,
+                payload={"gate_filter": "activation"},
+            )
         )
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload["blockers"] == []
@@ -123,13 +126,15 @@ class TestHardBlocksEval:
             actor = seed_human_actor(conn)
             insert_item(conn, id=8202, source=str(actor))
             insert_item(conn, id=8210, status="implementing", source=str(actor))
-            _insert_dep(conn, dependent=8202, blocking=8210,
-                        satisfaction="status:done")
+            _insert_dep(conn, dependent=8202, blocking=8210, satisfaction="status:done")
         finally:
             conn.close()
         outcome = gates.handle_hard_blocks(
-            _envelope("advance.preflight.hard_blocks", item_id=8202,
-                      payload={"gate_filter": "activation"})
+            _envelope(
+                "advance.preflight.hard_blocks",
+                item_id=8202,
+                payload={"gate_filter": "activation"},
+            )
         )
         assert outcome.primary_success, outcome.error
         blockers = outcome.result_payload["blockers"]
@@ -137,52 +142,14 @@ class TestHardBlocksEval:
         assert "YOK-8210" in blockers[0]
 
 
-class TestAcPresenceEval:
-    def test_pass_with_canonical_acs(self, db):
-        conn = connect_test_db(db)
-        try:
-            insert_item(
-                conn, id=8220, source=str(seed_human_actor(conn)),
-                spec="## Acceptance Criteria\n- [ ] AC-1: does X\n",
-            )
-        finally:
-            conn.close()
-        outcome = gates.handle_ac_presence(
-            _envelope("advance.preflight.ac_presence", item_id=8220)
-        )
-        assert outcome.primary_success, outcome.error
-        assert outcome.result_payload["canonical"] == 1
-        assert outcome.result_payload["title"] is not None
-        gates.AcPresenceEvalResponse(**outcome.result_payload)
-
-    def test_block_without_acs(self, db):
-        conn = connect_test_db(db)
-        try:
-            insert_item(conn, id=8221, source=str(seed_human_actor(conn)),
-                        spec="no checkboxes here")
-        finally:
-            conn.close()
-        outcome = gates.handle_ac_presence(
-            _envelope("advance.preflight.ac_presence", item_id=8221)
-        )
-        assert outcome.primary_success, outcome.error
-        assert outcome.result_payload["canonical"] == 0
-        assert outcome.result_payload["title"] is not None
-
-    def test_missing_item_reports_null_title(self, db):
-        outcome = gates.handle_ac_presence(
-            _envelope("advance.preflight.ac_presence", item_id=999999)
-        )
-        assert outcome.primary_success, outcome.error
-        assert outcome.result_payload["title"] is None
-
-
 class TestFileBudgetEval:
     def test_pass_with_resolved_file_budget(self, db):
         conn = connect_test_db(db)
         try:
             insert_item(
-                conn, id=8230, source=str(seed_human_actor(conn)),
+                conn,
+                id=8230,
+                source=str(seed_human_actor(conn)),
                 spec="## File Budget\n\n- `runtime/api/domain/foo.py` — does X.\n",
             )
         finally:
@@ -197,8 +164,12 @@ class TestFileBudgetEval:
     def test_block_without_file_budget_section(self, db):
         conn = connect_test_db(db)
         try:
-            insert_item(conn, id=8231, source=str(seed_human_actor(conn)),
-                        spec="## Acceptance Criteria\n- [ ] AC-1: x\n")
+            insert_item(
+                conn,
+                id=8231,
+                source=str(seed_human_actor(conn)),
+                spec="## Acceptance Criteria\n- [ ] AC-1: x\n",
+            )
         finally:
             conn.close()
         outcome = gates.handle_file_budget(
@@ -224,8 +195,7 @@ class TestSpecCoverageEval:
             pid = _project_id(conn, 8240)
             t1 = _seed_target(conn, pid, "runtime/api/domain/foo.py")
             t2 = _seed_target(conn, pid, "runtime/api/domain/bar.py")
-            _seed_planned_claim(conn, item_id=8240, actor_id=actor,
-                                target_ids=[t1, t2])
+            _seed_planned_claim(conn, item_id=8240, actor_id=actor, target_ids=[t1, t2])
         finally:
             conn.close()
         outcome = gates.handle_spec_coverage(
@@ -240,11 +210,11 @@ class TestSpecCoverageEval:
         conn = connect_test_db(db)
         try:
             actor = seed_human_actor(conn)
-            insert_item(conn, id=8241, source=str(actor), spec=self._budget_spec)
+            insert_item(conn, id=8241, project="buzz", source=str(actor), spec=self._budget_spec)
             pid = _project_id(conn, 8241)
+            conn.execute("UPDATE projects SET public_item_prefix=%s WHERE id=%s", ("BUZ", pid))
             t1 = _seed_target(conn, pid, "runtime/api/domain/foo.py")
-            _seed_planned_claim(conn, item_id=8241, actor_id=actor,
-                                target_ids=[t1])
+            _seed_planned_claim(conn, item_id=8241, actor_id=actor, target_ids=[t1])
         finally:
             conn.close()
         outcome = gates.handle_spec_coverage(
@@ -252,6 +222,5 @@ class TestSpecCoverageEval:
         )
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload["is_blocked"] is True
-        assert outcome.result_payload["missing_paths"] == [
-            "runtime/api/domain/bar.py"
-        ]
+        assert outcome.result_payload["public_ref"] == f"BUZ-{8241}"
+        assert outcome.result_payload["missing_paths"] == ["runtime/api/domain/bar.py"]
