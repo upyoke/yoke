@@ -110,6 +110,11 @@ STRATEGY_ADAPTERS = [
         notes="Process-claim-gated CAS write (STRATEGIZE/FEED conflict group; base_updated_at from doc get); re-renders the written slug into target_root; shrink guard bypass via --force.",
     ),
     AdapterEntry(
+        function_id="strategy.doc.section_replace",
+        cli_invocation="printf '%s' \"$BODY\" | yoke strategy doc section-replace <slug> --heading TEXT --stdin --base-updated-at TS --target-root PATH",
+        notes="Replace ONE heading's body, leaving the rest of the document byte-identical; same process-claim gate, CAS base, and shrink guard as doc replace. The heading matches case-insensitively at any level and takes its deeper subsections with it; one the document lacks is refused rather than appended.",
+    ),
+    AdapterEntry(
         function_id="strategy.doc.archive",
         cli_invocation="yoke strategy doc archive <slug> --target-root PATH",
         notes="Stamp archived_at on the strategy_docs row and re-render so the view relocates to .yoke/strategy/archive/<slug>.md; the doc stays a full editable row. Refused only while a foreign session holds the live STRATEGIZE/FEED process claim.",

@@ -7,6 +7,9 @@ render shape.
 
 - ``doc replace`` -> ``strategy.doc.replace`` (process-claim-gated write),
   then ``strategy.render.run`` for the written slug.
+- ``doc section-replace`` lives in
+  :mod:`yoke_cli.commands.adapters.strategy_doc_section_write` and reuses
+  the two helpers this module exports, for the same line cap.
 - ``doc archive`` / ``doc unarchive`` -> ``strategy.doc.archive`` /
   ``strategy.doc.unarchive`` (flip the archived state), then
   ``strategy.render.run`` for that slug so the file relocates to/from
@@ -57,6 +60,8 @@ from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_res
 
 
 __all__ = [
+    "resolve_before_mutation",
+    "dispatch_and_render",
     "strategy_doc_replace",
     "strategy_doc_archive",
     "strategy_doc_unarchive",
@@ -66,7 +71,7 @@ __all__ = [
 ]
 
 
-def _resolve_before_mutation(
+def resolve_before_mutation(
     target_root_arg, *, actor, target, json_mode,
 ) -> Tuple[Optional[int], Optional[Any], Optional[str]]:
     """Resolve and validate ``target_root`` BEFORE any mutating dispatch.
@@ -105,7 +110,7 @@ def _resolve_before_mutation(
     return None, target_root, None
 
 
-def _dispatch_and_render(
+def dispatch_and_render(
     *, function_id, payload, actor, target, json_mode,
     target_root, anchor_error, skipped_verb: str,
 ) -> int:
@@ -234,13 +239,13 @@ def strategy_doc_replace(args: List[str]) -> int:
     actor = build_actor(session_id=parsed.session_id)
     target = strategy_target(parsed.project)
 
-    early_exit, target_root, anchor_error = _resolve_before_mutation(
+    early_exit, target_root, anchor_error = resolve_before_mutation(
         parsed.target_root, actor=actor, target=target, json_mode=parsed.json_mode,
     )
     if early_exit is not None:
         return early_exit
 
-    return _dispatch_and_render(
+    return dispatch_and_render(
         function_id="strategy.doc.replace", payload=payload,
         actor=actor, target=target, json_mode=parsed.json_mode,
         target_root=target_root, anchor_error=anchor_error,
@@ -303,13 +308,13 @@ def _strategy_doc_set_archived(
     actor = build_actor(session_id=parsed.session_id)
     target = strategy_target(parsed.project)
 
-    early_exit, target_root, anchor_error = _resolve_before_mutation(
+    early_exit, target_root, anchor_error = resolve_before_mutation(
         parsed.target_root, actor=actor, target=target, json_mode=parsed.json_mode,
     )
     if early_exit is not None:
         return early_exit
 
-    return _dispatch_and_render(
+    return dispatch_and_render(
         function_id=function_id, payload={"slug": parsed.slug},
         actor=actor, target=target, json_mode=parsed.json_mode,
         target_root=target_root, anchor_error=anchor_error,

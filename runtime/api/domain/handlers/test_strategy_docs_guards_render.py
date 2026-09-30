@@ -254,6 +254,7 @@ def test_registrations_shape() -> None:
         "strategy.doc.list",
         "strategy.doc.get",
         "strategy.doc.replace",
+        "strategy.doc.section_replace",
         "strategy.render.run",
     }
     for entry in by_id.values():
@@ -268,5 +269,11 @@ def test_registrations_shape() -> None:
     assert by_id["strategy.doc.replace"]["emitted_event_names"] == [
         handlers.STRATEGY_DOC_REPLACED_EVENT_NAME
     ]
+    section = by_id["strategy.doc.section_replace"]
+    assert section["side_effects"] == ["db_write", "event_emit"]
+    assert section["emitted_event_names"] == [handlers.STRATEGY_DOC_REPLACED_EVENT_NAME]
+    # The section write composes the whole-document content, so it inherits
+    # every guard that path declares rather than naming a weaker set.
+    assert section["guardrails"] == by_id["strategy.doc.replace"]["guardrails"]
     assert by_id["strategy.render.run"]["side_effects"] == []
     assert "client_side_file_io" in by_id["strategy.render.run"]["guardrails"]

@@ -183,23 +183,7 @@ from yoke_cli.commands.adapters.packets import (
     PACKETS_STARTUP_DELIVERY_GET_USAGE,
 )
 from yoke_cli.commands.adapters.usage_extensions import extend_adapter_usage
-from yoke_cli.commands.adapters.strategy import (
-    STRATEGY_DOC_GET_USAGE,
-    STRATEGY_DOC_LIST_USAGE,
-)
-from yoke_cli.commands.adapters.strategy_create import STRATEGY_DOC_CREATE_USAGE
-from yoke_cli.commands.adapters.strategy_doc_write import (
-    STRATEGY_DOC_ARCHIVE_USAGE,
-    STRATEGY_DOC_REPLACE_USAGE,
-    STRATEGY_DOC_UNARCHIVE_USAGE,
-)
-from yoke_cli.commands.adapters.strategy_render import (
-    STRATEGY_INGEST_USAGE,
-    STRATEGY_RENDER_USAGE,
-)
-from yoke_cli.commands.adapters.strategy_seed_defaults import (
-    STRATEGY_SEED_DEFAULTS_USAGE,
-)
+from yoke_cli.commands.adapters.usage_strategy import STRATEGY_USAGE
 from yoke_cli.commands.adapters.packs import (
     PACKS_GET_USAGE,
     PACKS_LIST_USAGE,
@@ -307,15 +291,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "ouroboros.field_note.get": OUROBOROS_FIELD_NOTE_GET_USAGE,
     "ouroboros.entry.list": OUROBOROS_ENTRY_LIST_USAGE,
     "ouroboros.entry.get": OUROBOROS_ENTRY_GET_USAGE,
-    "strategy.doc.list": STRATEGY_DOC_LIST_USAGE,
-    "strategy.doc.get": STRATEGY_DOC_GET_USAGE,
-    "strategy.doc.create": STRATEGY_DOC_CREATE_USAGE,
-    "strategy.doc.replace": STRATEGY_DOC_REPLACE_USAGE,
-    "strategy.doc.archive": STRATEGY_DOC_ARCHIVE_USAGE,
-    "strategy.doc.unarchive": STRATEGY_DOC_UNARCHIVE_USAGE,
-    "strategy.render.run": STRATEGY_RENDER_USAGE,
-    "strategy.ingest.run": STRATEGY_INGEST_USAGE,
-    "strategy.seed_defaults.run": STRATEGY_SEED_DEFAULTS_USAGE,
+    **STRATEGY_USAGE,
     "github.connect.run": GITHUB_CONNECT_USAGE,
     "github.disconnect.run": GITHUB_DISCONNECT_USAGE,
     "github.pr.create": GITHUB_PR_CREATE_USAGE,

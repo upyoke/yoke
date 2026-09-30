@@ -195,22 +195,8 @@ from yoke_cli.commands.adapters.github_actions import (
 from yoke_cli.commands.adapters.github_actions_run_wait import (
     github_actions_wait_run,
 )
-from yoke_cli.commands.adapters.strategy import strategy_doc_get, strategy_doc_list
-from yoke_cli.commands.adapters.strategy_create import strategy_doc_create
-from yoke_cli.commands.adapters.strategy_doc_write import (
-    strategy_doc_archive, strategy_doc_replace, strategy_doc_unarchive,
-)
-from yoke_cli.commands.adapters.strategy_render import strategy_ingest, strategy_render
-from yoke_cli.commands.adapters.strategy_seed_defaults import strategy_seed_defaults
-from yoke_cli.commands.adapters.strategy_ops import (
-    strategy_carry_candidate_set,
-    strategy_carry_mark,
-    strategy_carry_register_new,
-    strategy_carry_summary,
-    strategy_checkpoint_latest,
-    strategy_checkpoint_record,
-    strategy_master_plan_check,
-)
+from yoke_cli.commands.flag_adapters_strategy import *  # noqa: F401,F403
+from yoke_cli.commands import flag_adapters_strategy as _strategy
 from yoke_cli.commands.adapters.hooks import (
     hook_evaluate,
 )
@@ -434,22 +420,7 @@ __all__ = [
     "github_actions_wait_run",
     "github_actions_variable_get",
     "github_actions_variable_set",
-    "strategy_doc_list",
-    "strategy_doc_get",
-    "strategy_doc_create",
-    "strategy_doc_replace",
-    "strategy_doc_archive",
-    "strategy_doc_unarchive",
-    "strategy_render",
-    "strategy_ingest",
-    "strategy_seed_defaults",
-    "strategy_carry_register_new",
-    "strategy_carry_candidate_set",
-    "strategy_carry_summary",
-    "strategy_carry_mark",
-    "strategy_checkpoint_record",
-    "strategy_checkpoint_latest",
-    "strategy_master_plan_check",
+    *_strategy.__all__,
     "github_connect",
     "github_disconnect",
     "github_pr_create",
