@@ -52,6 +52,23 @@ def test_unmatched_path_glob_denies_and_names_rg_files(tmp_path: Path) -> None:
     assert outcome == "denied"
     assert "docs/deploy*" in reason
     assert "rg --files" in reason
+    assert "rg -n PATTERN docs --glob 'deploy*'" in reason
+
+
+def test_glob_denial_lists_bounded_stem_matches(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "deploy-guide.md").write_text("ok\n", encoding="utf-8")
+    reason = _eval("rg PAT docs/deploy*.py", cwd=str(tmp_path))[1]
+    assert "docs/deploy-guide.md" in reason
+    assert "git ls-files" in reason
+
+
+def test_ripgrep_replace_flag_refused_with_search_repair(tmp_path: Path) -> None:
+    result = _eval("rg -rn PAT docs", cwd=str(tmp_path))
+    assert result is not None
+    assert "rg -n PAT docs" in result[1]
+    assert "lint-ripgrep-replace" in result[1]
 
 
 def test_field_note_unquoted_test_glob_is_denied(tmp_path: Path) -> None:

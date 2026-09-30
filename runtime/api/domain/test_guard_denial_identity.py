@@ -71,3 +71,9 @@ def test_db_command_guard_accepts_registered_nested_claude_check_id() -> None:
 
     assert bound.audit_fields["check_id"] == NESTED_CLAUDE_CLI_CHECK_ID
     assert check_id_line(NESTED_CLAUDE_CLI_CHECK_ID) in bound.message
+
+
+def test_compound_refusal_says_no_segment_ran() -> None:
+    spec = next(spec for spec in GUARD_CATALOG if spec.guard == "lint_unmatched_path_glob")
+    bound = bind(_deny(), spec.module, command="cat > output.txt <<'EOF'\nhello\nEOF\nrg PAT missing/*")
+    assert "Nothing in this invocation ran" in bound.message

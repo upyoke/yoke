@@ -6,6 +6,7 @@ import json
 
 from yoke_contracts.hook_runner import lint_policy
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_contracts.hook_runner.shell_guard_repairs import NOTHING_RAN, is_compound
 from yoke_core.hooks.types import HookDecision, Outcome
 
 
@@ -33,7 +34,7 @@ def _annotate_message(message: str, check_id: str) -> tuple[str, str]:
     return json.dumps(rendered), reason
 
 
-def bind(decision: HookDecision, module_id: str) -> HookDecision:
+def bind(decision: HookDecision, module_id: str, *, command: str = "") -> HookDecision:
     """Attach the registered guard's id to every denial boundary.
 
     A guard with condition-specific ids may select one through
@@ -52,6 +53,8 @@ def bind(decision: HookDecision, module_id: str) -> HookDecision:
     if candidate and candidate != check_id:
         audit["reported_check_id_mismatch"] = candidate
     message, reason = _annotate_message(decision.message, check_id)
+    if command and is_compound(command) and NOTHING_RAN not in reason:
+        message, reason = _annotate_message(f"{reason}\n\n{NOTHING_RAN}", check_id)
     audit.update({"check_id": check_id, "denial_reason": reason})
     return HookDecision(
         outcome=decision.outcome,

@@ -23,6 +23,7 @@ from yoke_core.domain.lint_session_cwd_path_authority import (
     repo_root_from_worktree_path,
     resolve_for_display,
 )
+from yoke_core.domain.lint_session_cwd_home import expand_machine_home
 from yoke_core.domain.lint_session_cwd_read_only_signatures import (
     GIT_MUTATING_SUBS,
     git_subcommand,
@@ -282,7 +283,7 @@ def collect_main_write_targets(
     for raw in raw_targets:
         if not isinstance(raw, str) or not raw.strip():
             continue
-        target = raw
+        target = expand_machine_home(raw, machine_home=None)
         if not os.path.isabs(target) and fallback_cwd.strip():
             target = os.path.join(fallback_cwd, target)
         target = resolve_for_display(target)
