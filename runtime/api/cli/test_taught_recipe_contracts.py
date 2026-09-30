@@ -59,3 +59,9 @@ def test_process_release_recipe_is_supported():
     assert parse_probe(
         'yoke claims work release --process STRATEGIZE --project PROJECT --reason "abort"'
     )[0]
+
+
+def test_probe_waits_for_parse_args_to_reject_unknown_flags():
+    ok, _function, error = parse_probe("yoke items get PREFIX-N --invented-option")
+    assert not ok
+    assert "unrecognized arguments" in error

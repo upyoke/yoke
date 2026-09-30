@@ -147,14 +147,22 @@ def _check_projection(
 def _abort_after_parse() -> Iterator[None]:
     real_parse = argparse.ArgumentParser.parse_args
     real_known = argparse.ArgumentParser.parse_known_args
+    parsing_args = False
 
     def parse_args(self, args=None, namespace=None):
-        parsed = real_parse(self, args, namespace)
+        nonlocal parsing_args
+        parsing_args = True
+        try:
+            parsed = real_parse(self, args, namespace)
+        finally:
+            parsing_args = False
         _check_projection(self, parsed)
         raise _ParsedOK()
 
     def parse_known_args(self, args=None, namespace=None):
-        parsed, _remaining = real_known(self, args, namespace)
+        parsed, remaining = real_known(self, args, namespace)
+        if parsing_args:
+            return parsed, remaining
         _check_projection(self, parsed)
         raise _ParsedOK()
 
