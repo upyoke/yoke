@@ -58,8 +58,8 @@ test = [
     "pytest-xdist==3.8.0",
     "filelock>=3.13,<4",
     "httpx==0.28.1",
-    # Release/distribution tests build product wheelhouses through uv.
-    "uv==0.11.28",
+    # uv 0.12.1 flushes shell-file updates before exit, preserving user config.
+    "uv==0.12.1",
 ]
 # Retained so `yoke[images]` keeps resolving for anything that names it;
 # Pillow is now a required dependency above.
@@ -76,8 +76,8 @@ dev = [
     "ruff==0.15.20",
     "filelock>=3.13,<4",
     "httpx==0.28.1",
-    # Release/distribution tests build product wheelhouses through uv.
-    "uv==0.11.28",
+    # uv 0.12.1 flushes shell-file updates before exit, preserving user config.
+    "uv==0.12.1",
 ]
 
 [project.scripts]

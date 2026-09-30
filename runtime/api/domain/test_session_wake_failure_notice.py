@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from datetime import timedelta
 
+import pytest
+
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_message_receipts import acknowledge_message
@@ -45,7 +47,14 @@ def _parked_recipient(conn):
     )["message_id"]
 
 
-def _fail(conn, candidate, *, result="failed", reason="native_transcript_missing"):
+def _fail(
+    conn,
+    candidate,
+    *,
+    result="failed",
+    reason="native_transcript_missing",
+    skip_reason=None,
+):
     claim = claim_wake_attempt(conn, candidate=candidate, now=SWEEP.isoformat())
     assert claim is not None
     conn.execute(
@@ -54,7 +63,7 @@ def _fail(conn, candidate, *, result="failed", reason="native_transcript_missing
         (
             SWEEP.isoformat(),
             result,
-            json.dumps({"result_code": reason}),
+            json.dumps({"result_code": reason, "skip_reason": skip_reason}),
             claim.attempt_id,
         ),
     )
@@ -135,11 +144,20 @@ def test_failure_notices_do_not_recursively_generate_notices() -> None:
     assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 2
 
 
-def test_unknown_wake_waits_for_a_hook_and_never_escalates_an_acknowledgement() -> None:
+@pytest.mark.parametrize("result", ["outcome_unknown", "skipped_operation"])
+def test_wake_waits_for_a_hook_and_never_escalates_an_acknowledgement(result) -> None:
     conn = message_connection()
     message_id = _parked_recipient(conn)
     candidate = wake_eligible_recipients(conn, now=SWEEP)[0]
-    _fail(conn, candidate, result="outcome_unknown", reason="outcome_unknown")
+    _fail(
+        conn,
+        candidate,
+        result=result,
+        reason=result,
+        skip_reason="surface_operation_unsupported"
+        if result.startswith("skipped_")
+        else None,
+    )
     later = SWEEP + timedelta(seconds=1)
     # Neither the sweep nor a still-running call proves a failed delivery.
     wake_eligible_recipients(conn, now=later)
@@ -161,11 +179,20 @@ def test_unknown_wake_waits_for_a_hook_and_never_escalates_an_acknowledgement() 
     assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 1
 
 
-def test_unknown_wake_escalates_when_a_later_hook_left_it_unacknowledged() -> None:
+@pytest.mark.parametrize("result", ["outcome_unknown", "skipped_operation"])
+def test_wake_escalates_when_a_later_hook_left_it_unacknowledged(result) -> None:
     conn = message_connection()
     _parked_recipient(conn)
     candidate = wake_eligible_recipients(conn, now=SWEEP)[0]
-    _fail(conn, candidate, result="outcome_unknown", reason="outcome_unknown")
+    _fail(
+        conn,
+        candidate,
+        result=result,
+        reason=result,
+        skip_reason="surface_operation_unsupported"
+        if result.startswith("skipped_")
+        else None,
+    )
     later = SWEEP + timedelta(seconds=1)
     conn.execute(
         "UPDATE harness_sessions SET last_tool_call_at=? WHERE session_id=?",
@@ -175,4 +202,33 @@ def test_unknown_wake_escalates_when_a_later_hook_left_it_unacknowledged() -> No
     wake_eligible_recipients(conn, now=later)
     notices = drainable_rows(conn, scope={"project_id": 1}, project_id=1)
     assert len(notices) == 1
-    assert "outcome_unknown" in notices[0]["body"]
+    assert result in notices[0]["body"]
+
+
+@pytest.mark.parametrize("acknowledged", [False, True])
+def test_operator_driven_wake_skip_never_escalates_on_its_own(acknowledged) -> None:
+    conn = message_connection()
+    message_id = _parked_recipient(conn)
+    candidate = wake_eligible_recipients(conn, now=SWEEP)[0]
+    _fail(
+        conn,
+        candidate,
+        result="skipped_operation",
+        reason="skipped_operation",
+        skip_reason="surface_wake_operator_driven",
+    )
+    later = SWEEP + timedelta(seconds=1)
+    conn.execute(
+        "UPDATE harness_sessions SET last_tool_call_at=? WHERE session_id=?",
+        (later.isoformat(), NATIVE_WAKE_SESSION_ID),
+    )
+    conn.commit()
+    if acknowledged:
+        acknowledge_message(
+            conn, message_id=message_id, session_id=NATIVE_WAKE_SESSION_ID, now=later
+        )
+    # Even a later hook that left the receipt pending is no relay-wake defect.
+    row = dict(candidate, last_tool_call_at=later.isoformat(), wake_attempt_count=3)
+    assert notify_failed_wake(conn, row, now=later, max_attempts=3) is None
+    wake_eligible_recipients(conn, now=later)
+    assert drainable_rows(conn, scope={"project_id": 1}, project_id=1) == []

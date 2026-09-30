@@ -68,9 +68,14 @@ def notify_failed_wake(
         or str(original[0] or "").startswith(f"{NOTICE_PREFIX}:")
     ):
         return None
-    if attempt[0] == "outcome_unknown":
+    skipped = str(attempt[0]).startswith("skipped_")
+    if skipped and evidence.get("skip_reason") == "surface_wake_operator_driven":
+        # Hook delivery on the operator's next turn is this surface's route.
+        # Having no relay wake is intentional, not a failed delivery.
+        return None
+    if attempt[0] == "outcome_unknown" or skipped:
         # A busy target still has a hook coming. Only a completed tool call
-        # after the uncertain wake proves another delivery opportunity passed.
+        # after the uncertain or skipped wake proves another opportunity passed.
         completed = parse_timestamp(attempt[2])
         opportunity = parse_timestamp(row.get("last_tool_call_at"))
         if (
