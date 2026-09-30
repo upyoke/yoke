@@ -166,6 +166,16 @@ def finish_plan_execution(
             )
 
             settle_execution(conn, execution)
+        if terminal_settlement and execution.get("item_id") is not None:
+            # This row may be the one thing holding a settling run's member
+            # open. Its terminalization is the event that unblocks the run,
+            # so settlement replays here rather than waiting for a hand
+            # re-drive of a gate that already passed.
+            from yoke_core.domain.settling_run_replay import (
+                replay_settling_runs_for_item,
+            )
+
+            replay_settling_runs_for_item(conn, item_id=int(execution["item_id"]))
 
 
 def reap_stale_plan_executions(

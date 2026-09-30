@@ -201,11 +201,18 @@ def cmd_update(
                     )
 
                     # Every cleared member closes before the run may read
-                    # succeeded. Settling is durable and non-terminal, so a
-                    # refusal or an interruption here is replayed by the
-                    # next re-drive rather than leaving a green run behind.
+                    # succeeded, and they close together or not at all.
+                    # Settling is durable and non-terminal, so a refusal or an
+                    # interruption here is replayed by the next re-drive
+                    # rather than leaving a green run behind.
+                    from yoke_core.domain.settling_run_replay import (
+                        settlement_in_progress,
+                    )
+
                     mark_settling(conn, run_id)
-                    if refusal := settle_members(conn, run_id):
+                    with settlement_in_progress():
+                        refusal = settle_members(conn, run_id)
+                    if refusal:
                         return refusal
                 completed_at = iso8601_now()
                 conn.execute(

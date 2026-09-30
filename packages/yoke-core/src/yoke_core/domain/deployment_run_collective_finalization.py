@@ -7,12 +7,16 @@ between left a green run over members still at their release wait.
 Settlement reverses that order through one durable, non-terminal state. The
 run stays ``executing`` and records ``settling_at``; completion authority
 reads a settling run as delivered, so each member's own done gates can pass.
-Every cleared member is then closed for real, each committed on its own. Only
-when none is left does the caller write ``succeeded``.
 
-Anything that stops settlement part way leaves exactly that state behind: the
-run ``executing`` and settling, the members that closed done, and every other
-member at its release wait with its claim and lane. Re-driving ``status
+Closing is then all-or-nothing. A shared gate passes for the run, not for one
+member at a time, so every cleared member is asked whether it *could* close
+before any of them does. If even one cannot, none is closed and the refusal
+names each blocker: a run whose members half-closed is a worse state to
+recover from than one that did not start, because the members that closed
+have already released their claims and lanes.
+
+Anything that stops settlement after that check leaves the run ``executing``
+and settling with its members' own states intact. Re-driving ``status
 succeeded`` replays settlement from there — a member already done is no longer
 at its wait, so nothing is closed twice.
 """
@@ -22,6 +26,14 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import iso8601_now
+
+
+#: Why a member that could itself close is still open. Reported instead of a
+#: blocker of its own, so nobody repairs a member that has nothing wrong.
+HELD_WITH_RUN = (
+    "it could close, and is held only because a sibling member could not; "
+    "a shared gate closes every member or none"
+)
 
 
 def mark_settling(conn: Any, run_id: str) -> None:
@@ -88,13 +100,47 @@ def _required_open_members(conn: Any, run_id: str) -> list[dict[str, Any]]:
     return open_members
 
 
+def _blocked_members(
+    conn: Any, run_id: str, members: list[dict[str, Any]]
+) -> dict[int, str]:
+    """Name every cleared member that could not close, closing none of them.
+
+    Residue is cleared first: an item-level execution that recorded nothing
+    is superseded here, because the walk that would abort it is the one that
+    already finished as this run's own scoped item QA. Only then is each
+    member asked whether its close-out would pass.
+    """
+    from yoke_core.domain.deployment_member_close_readiness import (
+        member_close_blocker,
+    )
+    from yoke_core.domain.qa_resultless_execution_supersession import (
+        supersede_resultless_item_executions,
+    )
+
+    blocked: dict[int, str] = {}
+    for member in members:
+        item_id = int(member["item_id"])
+        public_ref = str(member["public_ref"])
+        unresolved = supersede_resultless_item_executions(
+            conn, item_id=item_id, run_id=run_id, public_ref=public_ref
+        )
+        if unresolved:
+            blocked[item_id] = "; ".join(unresolved)
+            continue
+        if blocker := member_close_blocker(
+            conn, item_id=item_id, public_ref=public_ref
+        ):
+            blocked[item_id] = blocker
+    return blocked
+
+
 def settle_members(conn: Any, run_id: str) -> Optional[str]:
-    """Close every cleared member; name each required member still open.
+    """Close every cleared member together, or none of them.
 
     Call after :func:`mark_settling`. A required member is one this run is
     the final delivery of and has completion authority for; while any is
-    still at its release wait — its close-out refused, or it was never
-    cleared — the run may not succeed. Members that did close stay done.
+    still at its release wait — its close-out would refuse, or it was never
+    cleared — the run may not succeed and no member closes.
     """
     from yoke_core.domain.deployment_delivery_close_out_notice import (
         cleared_release_waits,
@@ -103,21 +149,25 @@ def settle_members(conn: Any, run_id: str) -> Optional[str]:
         close_out_satisfied_delivery_member,
     )
 
-    refusals: dict[int, str] = {}
-    for member in cleared_release_waits(conn, run_id):
-        outcome = close_out_satisfied_delivery_member(
-            conn,
-            item_id=int(member["item_id"]),
-            public_ref=str(member["public_ref"]),
-            run_id=run_id,
-            continue_run=False,
-        )
-        if outcome.applies and not outcome.ok:
-            refusals[int(member["item_id"])] = outcome.detail
+    cleared = cleared_release_waits(conn, run_id)
+    refusals = _blocked_members(conn, run_id, cleared)
+    held_with_run = bool(refusals)
+    if not held_with_run:
+        for member in cleared:
+            outcome = close_out_satisfied_delivery_member(
+                conn,
+                item_id=int(member["item_id"]),
+                public_ref=str(member["public_ref"]),
+                run_id=run_id,
+                continue_run=False,
+            )
+            if outcome.applies and not outcome.ok:
+                refusals[int(member["item_id"])] = outcome.detail
     unsettled = [
         f"{member['public_ref']}: "
         + (
             refusals.get(member["item_id"])
+            or (HELD_WITH_RUN if held_with_run else "")
             or _unsettled_reason(conn, run_id, member["item_id"])
         )
         for member in _required_open_members(conn, run_id)
@@ -127,13 +177,14 @@ def settle_members(conn: Any, run_id: str) -> Optional[str]:
     return (
         f"Error: cannot set status=succeeded -- run {run_id} is settling and "
         f"{len(unsettled)} member(s) it must close remain at their release "
-        f"wait: {'; '.join(unsettled)}. A run reads succeeded only after every "
-        "member it finally delivers has closed, so it stays executing and "
-        "settling; members that closed stay done, and every other member "
-        "keeps its claim and lane. Repair each named member, then re-drive "
-        f"under the project deploy lock with `yoke deployment-runs update "
-        f"{run_id} status succeeded`, which replays settlement from here."
+        f"wait: {'; '.join(unsettled)}. A shared gate passes for the run, not "
+        "for one member at a time, so while any named member cannot close, "
+        "none is closed: the run stays executing and settling and every "
+        "member keeps its claim and lane. Repair each named member; "
+        "settlement replays on its own once the last blocker clears. If the "
+        "run stays executing, re-drive it under the project deploy lock with "
+        f"`yoke deployment-runs update {run_id} status succeeded`."
     )
 
 
-__all__ = ["mark_settling", "settle_members"]
+__all__ = ["HELD_WITH_RUN", "mark_settling", "settle_members"]

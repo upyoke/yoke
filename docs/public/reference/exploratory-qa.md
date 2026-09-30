@@ -289,6 +289,21 @@ session on its subject — the session that owned a stranded execution is by
 definition the one that is no longer there — while a live execution, or one
 whose owner is parked and still holding it, keeps its owner-only guard.
 
+That parked-owner exemption leaves one execution nobody can end. A member
+parked on a release wait holds an item-level execution its own walk opened,
+and when the run delivering that member scopes it a run-bound execution
+instead, the run-bound one produces the evidence while the item-level row
+stays live forever: the done gate reads any live item-level execution as
+unsettled, so the member can never close. Release settlement resolves it
+without touching the owner-only guard, because the only rows it takes are
+ones that recorded nothing at all — cursor still at zero and no
+`qa_plan_execution_results` row. Such a row carries no evidence, so aborting
+it discards none; it ends with `release_reason`
+`superseded-by-run-scoped-item-qa`. An execution that recorded any result
+keeps blocking and keeps its owner. Terminalizing one of these blockers by
+any route replays the settling run's settlement on that same event, so a
+shared gate that already passed never waits on a hand re-drive.
+
 Reaping and withdrawal run together whenever the Inbox is read, so a reader
 never sees a blocking row that blocks nothing. Run the same convergence
 deliberately, with a receipt naming what was reaped, withdrawn, and retained:
