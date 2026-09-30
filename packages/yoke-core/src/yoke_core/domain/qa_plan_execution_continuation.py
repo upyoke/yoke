@@ -29,6 +29,7 @@ from yoke_core.domain.qa_plan_execution_store import (
     QaPlanExecutionStateError,
     marker,
     select_plan_execution,
+    STANDALONE_HISTORY_ORDER_SQL,
 )
 
 CONTINUATION_FLAG = "--continue-mission"
@@ -118,7 +119,7 @@ def latest_plan_execution(
     if standalone_plan_id is not None:
         row = conn.execute(
             f"SELECT id FROM qa_plan_executions WHERE standalone_plan_id={placeholder} "
-            "ORDER BY created_at DESC,id DESC LIMIT 1",
+            f"ORDER BY {STANDALONE_HISTORY_ORDER_SQL} LIMIT 1",
             (standalone_plan_id,),
         ).fetchone()
         return select_plan_execution(conn, str(row[0]), lock=False) if row else None

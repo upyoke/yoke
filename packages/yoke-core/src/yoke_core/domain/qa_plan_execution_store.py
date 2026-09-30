@@ -10,6 +10,12 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 
+# Snapshot requirement ids preserve creation order within canonical timestamp seconds.
+STANDALONE_HISTORY_ORDER_SQL = (
+    "created_at DESC, (SELECT MAX(r.id) FROM qa_requirements r "
+    "WHERE r.standalone_execution_id=qa_plan_executions.id) DESC, id DESC"
+)
+
 
 class QaPlanExecutionStateError(ValueError):
     """A durable ordered-plan execution transition is invalid."""

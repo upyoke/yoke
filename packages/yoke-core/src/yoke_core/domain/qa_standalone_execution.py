@@ -15,8 +15,12 @@ from yoke_core.domain.qa_plan_execution_store import (
     roster_digest,
     same_owner,
     resume_owned_plan_execution,
+    STANDALONE_HISTORY_ORDER_SQL,
 )
-from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_STATES
+from yoke_core.domain.qa_plan_execution_schema import (
+    LIVE_PLAN_EXECUTION_STATES,
+    LIVE_PLAN_EXECUTION_SQL,
+)
 
 
 def require_standalone_project(conn: Any, execution: dict, project: str) -> None:
@@ -72,7 +76,8 @@ def _latest(conn: Any, plan_id: int) -> dict | None:
     row = conn.execute(
         "SELECT id FROM qa_plan_executions "
         f"WHERE standalone_plan_id={marker(conn)} "
-        "ORDER BY created_at DESC,id DESC LIMIT 1",
+        f"ORDER BY CASE WHEN state IN ({LIVE_PLAN_EXECUTION_SQL}) THEN 0 ELSE 1 END, "
+        f"{STANDALONE_HISTORY_ORDER_SQL} LIMIT 1",
         (plan_id,),
     ).fetchone()
     return select_plan_execution(conn, str(row[0]), lock=True) if row else None
