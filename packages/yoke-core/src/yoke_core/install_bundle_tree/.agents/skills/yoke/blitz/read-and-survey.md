@@ -74,6 +74,11 @@ Prepare the item worktree:
 yoke direct-workflow worktree prepare ITEM --workflow blitz
 ```
 
+The receipt is one JSON envelope, printed last whether preparation succeeded
+or refused. On success read `lane_orientation` for the project's declared
+`package_roots` and `test_roots` plus the `focused_test_command`, rather than
+inferring any of the three.
+
 Then activate:
 
 ```text

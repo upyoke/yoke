@@ -7,21 +7,24 @@ import sys
 from typing import Optional
 
 from yoke_core.domain.worktree_create_plan import WorktreeCreationEntry
-from yoke_core.domain.worktree_deps import install_worktree_deps
 from yoke_core.domain.worktree_paths import _run, captured_process_detail
 from yoke_contracts.project_contract.file_line_policy import item_base_config_key
 
 GIT_WORKTREE_ADD_TIMEOUT_SECONDS = 600
 
 
-def provision_worktree(
+def create_worktree_lane(
     entry: WorktreeCreationEntry,
     repo_root: str,
     base_branch: str,
-    project: str,
-    scripts_dir: str,
 ) -> Optional[str]:
-    """Provision one planned lane, returning a blocking git error if any."""
+    """Create one planned lane's git worktree, returning a blocking error.
+
+    Creation stops at the checkout on purpose. Dependency installation is
+    :func:`install_lane_dependencies`, which the creator runs only after the
+    lane's path is recorded, so a slow or failing install cannot leave a
+    lane row nobody can locate.
+    """
     ref_check = _run(
         [
             "git",
@@ -83,28 +86,6 @@ def provision_worktree(
             f"git worktree add failed for worktree '{entry.branch}': "
             f"{captured_process_detail(result)}"
         )
-    try:
-        install_exit = install_worktree_deps(
-            entry.path,
-            project_id=project,
-            scripts_dir=scripts_dir,
-        )
-    except Exception as exc:  # noqa: BLE001 — non-fatal best-effort install
-        print(
-            f"Warning: dependency install failed for worktree "
-            f"'{entry.branch}' (non-fatal)",
-            file=sys.stderr,
-        )
-        print(str(exc), file=sys.stderr)
-    else:
-        if install_exit != 0:
-            print(
-                f"Warning: dependency install failed for worktree "
-                f"'{entry.branch}' (non-fatal)",
-                file=sys.stderr,
-            )
-
-    provision_worktree_validation_surfaces(entry.path, project)
     return None
 
 
@@ -328,8 +309,8 @@ def project_field(
 
 __all__ = [
     "count_active_worktrees",
+    "create_worktree_lane",
     "project_field",
-    "provision_worktree",
     "provision_worktree_folder_trust",
     "provision_worktree_harness_enablement",
     "provision_worktree_hook_trust",

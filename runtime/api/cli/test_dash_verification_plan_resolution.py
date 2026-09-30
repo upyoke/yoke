@@ -169,6 +169,10 @@ def test_worktree_prepare_accepts_json_and_emits_envelope(
                 },
                 error=None,
             )
+        if function_id == "project_structure.get":
+            # The receipt's lane orientation reads the project's declared
+            # package roots.
+            return SimpleNamespace(success=True, result={"entries": []}, error=None)
         pytest.fail(f"unexpected function {function_id}")
 
     monkeypatch.setattr(

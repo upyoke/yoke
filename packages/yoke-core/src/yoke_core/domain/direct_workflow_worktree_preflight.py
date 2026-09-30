@@ -20,6 +20,10 @@ from yoke_core.domain.path_claims_overlap_survey import (
     SURVEY_ADVISORY_YIELD,
 )
 from yoke_contracts.item_worktrees import runs_without_git_lane
+from yoke_core.domain.worktree_prepare_orientation import lane_orientation
+from yoke_core.domain.worktree_preflight_outcome import (
+    unexpected_failure_envelope,
+)
 from yoke_core.domain.worktree_preflight import run_preflight
 from yoke_core.tools._source_pythonpath import (
     INSTALL_BUNDLE_SYNC_RECIPE,
@@ -105,12 +109,7 @@ def _run_recipes(worktree_path: str) -> dict[str, str]:
     return recipes
 
 
-def run(args: List[str]) -> int:
-    """Validate the recorded survey, then prepare the ordinary item lane.
-
-    A recorded no-changes survey skips git-lane creation; re-survey with
-    paths before any later edit. That skip is not ``worktrees=none``.
-    """
+def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="yoke direct-workflow worktree prepare",
     )
@@ -126,8 +125,35 @@ def run(args: List[str]) -> int:
         action="store_true",
         help="Emit the stable worktree-preparation JSON envelope.",
     )
-    parsed = parser.parse_args(args)
+    return parser
 
+
+def run(args: List[str]) -> int:
+    """Validate the recorded survey, then prepare the ordinary item lane.
+
+    A recorded no-changes survey skips git-lane creation; re-survey with
+    paths before any later edit. That skip is not ``worktrees=none``.
+
+    Every path out of here prints exactly one JSON envelope last, success
+    or refusal, including an unexpected failure inside preparation.
+    """
+    parser = _parser()
+    parsed = parser.parse_args(args)
+    try:
+        return _prepare(parser, parsed)
+    except Exception as exc:  # noqa: BLE001 — a receipt is owed either way
+        print(
+            json.dumps(
+                unexpected_failure_envelope(str(parsed.item), exc),
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 1
+
+
+def _prepare(parser: argparse.ArgumentParser, parsed: argparse.Namespace) -> int:
+    """Run the preparation the caller asked for, returning its exit status."""
     # Route control-plane reads through the transport-aware dispatcher so an
     # https-connected session relays them to the server instead of opening a
     # local Postgres connection (which the https transport refuses). Item-ref
@@ -272,7 +298,13 @@ def run(args: List[str]) -> int:
             )
     envelope = outcome.to_envelope()
     if outcome.ok:
-        envelope["run_recipes"] = _run_recipes(str(envelope.get("worktree_path") or ""))
+        worktree_path = str(envelope.get("worktree_path") or "")
+        envelope["run_recipes"] = _run_recipes(worktree_path)
+        envelope["lane_orientation"] = lane_orientation(
+            item_id,
+            worktree_path or os.getcwd(),
+            str((item.get("project") or {}).get("id") or ""),
+        )
     if advisories:
         envelope["advisories"] = advisories
     print(json.dumps(envelope, indent=2, sort_keys=True))

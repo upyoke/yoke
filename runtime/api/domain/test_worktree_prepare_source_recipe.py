@@ -1,4 +1,9 @@
-"""The worktree receipt teaches the sanctioned claimed-lane run surfaces."""
+"""The worktree receipt teaches the sanctioned claimed-lane run surfaces.
+
+Lane orientation is stubbed here: its own composition is covered by
+``test_worktree_prepare_orientation``, and a receipt test must not depend
+on reading a project's declarations from the control plane.
+"""
 
 from __future__ import annotations
 
@@ -50,6 +55,14 @@ def _install_prepare_fakes(monkeypatch, worktree_path):
         },
     )()
     monkeypatch.setattr(preflight, "run_preflight", lambda **_kwargs: outcome)
+    monkeypatch.setattr(
+        preflight,
+        "lane_orientation",
+        lambda item_id, tree_root, project_id="": {
+            "package_roots": [],
+            "test_roots": [tree_root],
+        },
+    )
 
 
 def test_successful_yoke_prepare_receipt_names_run_surfaces(
@@ -83,3 +96,16 @@ def test_external_project_prepare_receipt_omits_yoke_source_recipe(
         "pytest": PYTEST_RUN_RECIPE,
         "install_bundle_sync": INSTALL_BUNDLE_SYNC_RECIPE,
     }
+
+
+def test_the_receipt_carries_lane_orientation_for_the_prepared_tree(
+    monkeypatch,
+    capsys,
+    tmp_path,
+):
+    _install_prepare_fakes(monkeypatch, tmp_path)
+
+    assert preflight.run(["YOK-7", "--workflow", "dash"]) == 0
+
+    receipt = json.loads(capsys.readouterr().out)
+    assert receipt["lane_orientation"]["test_roots"] == [str(tmp_path)]

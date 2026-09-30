@@ -36,9 +36,16 @@ the live survey at path-widening time, run
 and echoes the complete stored set.
 
 The response's `path_sizes` carries `current_line_count`, `remaining_headroom`,
-`at_or_over_limit`, `limit`, and `classification` for every path. Treat an
-at/over-limit path as a pre-implementation split or alternate-home decision;
-do not wait for the commit gate.
+`at_or_over_limit`, `limit`, `classification`, and `exists` for every path.
+Treat an at/over-limit path as a pre-implementation split or alternate-home
+decision; do not wait for the commit gate.
+
+`exists` is the file's own answer, not an inference from its size: a path the
+work will create and an existing empty file both count zero lines. Read it
+before opening or test-selecting a surveyed path — `false` means the change
+authors that file, so there is nothing there to read yet. The human receipt
+prints the same fact as a trailing `existing` / `new` on each `survey-size`
+line.
 
 ## File Budget and path claims
 
@@ -102,7 +109,11 @@ silently. Governed migration rehearsal remains the validation authority when
 the instruction changes a database model.
 
 Use the returned absolute `worktree_path` for every read, edit, test, and git
-command. Keep the Cursor agent rooted on the main project checkout — do not call
+command. The receipt's `lane_orientation` answers where the work goes without
+guessing: `package_roots` are the project's declared source roots,
+`test_roots` its declared test roots, and `focused_test_command` the exact
+focused check to run over named files. `run_recipes` names the run surfaces
+for the lane. Keep the Cursor agent rooted on the main project checkout — do not call
 `move_agent_to_root` (or otherwise remount the chat) into `.worktrees/...`. Yoke
 worktrees are code lanes, not the conversation home; remounting assigns a new
 Cursor conversation id and, after the lane is removed, leaves Shell stuck on a

@@ -15,6 +15,10 @@ from pathlib import Path
 from typing import List, Optional
 
 from yoke_core.domain import runtime_settings
+from yoke_core.domain.worktree_python_dependency_owner import (
+    uv_provisioned_projects,
+    uv_provisioned_skip_note,
+)
 
 
 DEPS_INSTALL_TIMEOUT_CONFIG = "worktree_dep_install_timeout_seconds"
@@ -69,6 +73,8 @@ _ROOT_DETECTORS = [
     ("package.json",      "npm",   ["npm", "install"],                      "npm install"),
 ]
 
+# Convention detectors for a lane whose Python dependencies nothing else
+# owns. A uv-managed lane is NOT one of those: see `uv_provisioned_projects`.
 _PYTHON_DETECTORS = [
     ("requirements.txt", "pip",    ["pip", "install", "-r", "requirements.txt"], "pip install -r requirements.txt"),
     ("Pipfile.lock",     "pipenv", ["pipenv", "install"],                        "pipenv install"),
@@ -117,16 +123,21 @@ def detect_deps(worktree_path: str) -> List[DepInstallSpec]:
             node_found = True
             break  # First match wins (lockfile priority)
 
-    # --- Root-level Python ---
-    python_found = False
-    for filename, tool, cmd, label in _PYTHON_DETECTORS:
-        if os.path.isfile(os.path.join(worktree_path, filename)):
-            specs.append(DepInstallSpec(
-                tool=tool, command=cmd, cwd=worktree_path,
-                label=f"Detected {filename} — running {label}",
-            ))
-            python_found = True
-            break
+    # --- Python: uv-managed projects first, conventions only otherwise ---
+    uv_projects = uv_provisioned_projects(worktree_path)
+    python_found = bool(uv_projects)
+    if uv_projects:
+        for label in uv_projects:
+            print(uv_provisioned_skip_note(label), file=sys.stderr)
+    else:
+        for filename, tool, cmd, label in _PYTHON_DETECTORS:
+            if os.path.isfile(os.path.join(worktree_path, filename)):
+                specs.append(DepInstallSpec(
+                    tool=tool, command=cmd, cwd=worktree_path,
+                    label=f"Detected {filename} — running {label}",
+                ))
+                python_found = True
+                break
 
     # --- Root-level other (Ruby, Go) ---
     for filename, tool, cmd, label in _OTHER_DETECTORS:
@@ -137,15 +148,23 @@ def detect_deps(worktree_path: str) -> List[DepInstallSpec]:
             ))
 
     # --- Nested fallback ---
-    if not node_found and not python_found and not specs:
-        nested_spec = _detect_nested_deps(worktree_path)
+    # A uv-managed lane keeps its Python axis owned while still allowing a
+    # nested Node app to be detected: the two are independent.
+    if not node_found and not specs:
+        nested_spec = _detect_nested_deps(
+            worktree_path, skip_python=python_found
+        )
         if nested_spec:
             specs.extend(nested_spec)
 
     return specs
 
 
-def _detect_nested_deps(worktree_path: str) -> List[DepInstallSpec]:
+def _detect_nested_deps(
+    worktree_path: str,
+    *,
+    skip_python: bool = False,
+) -> List[DepInstallSpec]:
     """Search up to 3 levels deep for dependency files.
 
     A nested lockfile carried by the repo does not by itself prove the
@@ -153,6 +172,11 @@ def _detect_nested_deps(worktree_path: str) -> List[DepInstallSpec]:
     PATH, emit one informational line and skip — the prior behavior
     queued the install, hit FileNotFoundError, and surfaced N
     signal-less "non-fatal" warnings (one per worktree).
+
+    ``skip_python`` is set when something else already owns the lane's
+    Python environment. Without it, a uv-managed repository that happens
+    to carry a nested ``requirements.txt`` for another purpose had that
+    file installed with pip on every single preparation.
     """
     specs: List[DepInstallSpec] = []
 
@@ -185,7 +209,7 @@ def _detect_nested_deps(worktree_path: str) -> List[DepInstallSpec]:
             break
 
     # Python nested detection
-    if not node_found:
+    if not node_found and not skip_python:
         found_req = _find_nested(worktree_path, "requirements.txt", max_depth=3)
         if found_req:
             nested_dir = os.path.dirname(found_req)

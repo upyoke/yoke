@@ -17,7 +17,10 @@ from yoke_contracts.dash_evidence_status import status_argument_kwargs
 from yoke_cli.commands.adapters.dash_survey_recovery import (
     build_survey_timeout_recovery,
 )
-from yoke_cli.commands.adapters.file_line_sizing import survey_path_sizes
+from yoke_cli.commands.adapters.file_line_sizing import (
+    path_existence_label,
+    survey_path_sizes,
+)
 from yoke_cli.commands.adapters.lane_tree import (
     LaneTree,
     item_lane_tree,
@@ -76,6 +79,14 @@ def dash_survey(args: List[str]) -> int:
         except RuntimeError as exc:
             return usage_error(str(exc))
 
+    # The client measured existence; the echo may be from a server build
+    # that does not carry the field yet, so keep the local answer.
+    sized_existence = {
+        str(size["path"]): bool(size["exists"])
+        for size in path_sizes
+        if size.get("exists") is not None
+    }
+
     def _human(response, stdout, stderr) -> None:
         result = response.result or {}
         if result.get("clear"):
@@ -90,7 +101,8 @@ def dash_survey(args: List[str]) -> int:
                 + "|".join(str(size.get(key)) for key in (
                     "path", "current_line_count", "remaining_headroom",
                     "at_or_over_limit", "limit", "classification",
-                )),
+                ))
+                + f"|{path_existence_label(size, sized_existence)}",
                 file=stdout,
             )
         for blocker in result.get("blockers") or []:

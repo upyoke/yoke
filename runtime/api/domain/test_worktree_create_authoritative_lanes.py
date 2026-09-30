@@ -8,7 +8,11 @@ from types import SimpleNamespace
 from runtime.api.domain.test_worktree_create_multiworktree import _config_path
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.api import service_client_structured_api_adapter
-from yoke_core.domain import worktree_create, worktree_create_db
+from yoke_core.domain import (
+    worktree_create,
+    worktree_create_db,
+    worktree_create_provisioning,
+)
 from yoke_core.domain.item_worktree_lane_creation import (
     create_additional_item_worktree_lane,
 )
@@ -122,7 +126,7 @@ def test_hosted_blitz_materializes_every_authoritative_lane_locally(
         lambda _item_id: remote_lanes,
     )
     monkeypatch.setattr(
-        worktree_create,
+        worktree_create_provisioning,
         "persist_item_worktrees",
         lambda item_id, lanes, db_path: persisted.update(
             item_id=item_id,

@@ -71,23 +71,29 @@ def scratch_warning_note(paths: Sequence[str]) -> str:
     )
 
 
-def lane_source_root_prefixes(item_id: int) -> tuple[str, ...]:
-    """Architecture-model package roots, or empty for nested-path fallback."""
+def lane_source_root_prefixes(item_id: int, project_id: str = "") -> tuple[str, ...]:
+    """Architecture-model package roots, or empty for nested-path fallback.
+
+    ``project_id`` skips the item read for a caller that already resolved
+    the item's project — the roots belong to the project, and re-reading
+    the item to name it is a round trip nobody needs.
+    """
     from yoke_core.api.service_client_structured_api_adapter import (
         call_dispatcher,
     )
     from yoke_core.domain.architecture_context_data import package_roots_from_model
 
-    try:
-        detail = call_dispatcher(
-            function_id="items.detail.get",
-            target=TargetRef(kind="item", item_id=int(item_id)),
-            payload={},
-        )
-        project = ((detail.result or {}).get("item") or {}).get("project") or {}
-        project_id = str(project.get("id") or project.get("slug") or "")
-    except Exception:  # noqa: BLE001 - missing roots still exempt repo-root scratch
-        return ()
+    if not project_id:
+        try:
+            detail = call_dispatcher(
+                function_id="items.detail.get",
+                target=TargetRef(kind="item", item_id=int(item_id)),
+                payload={},
+            )
+            project = ((detail.result or {}).get("item") or {}).get("project") or {}
+            project_id = str(project.get("id") or project.get("slug") or "")
+        except Exception:  # noqa: BLE001 - missing roots still exempt scratch
+            return ()
     if not project_id:
         return ()
     try:

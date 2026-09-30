@@ -9,7 +9,7 @@ from yoke_core.domain.worktree import create_worktree
 from yoke_core.domain.worktree_create_plan import WorktreeCreationEntry
 from yoke_core.domain.worktree_provision import (
     GIT_WORKTREE_ADD_TIMEOUT_SECONDS,
-    provision_worktree,
+    create_worktree_lane,
 )
 from yoke_core.domain.worktree_reuse import classify_reusable_worktree
 from runtime.api.domain.worktree_test_helpers import seed_lane_item
@@ -111,13 +111,7 @@ def test_git_worktree_add_failure_keeps_stderr(monkeypatch, tmp_path: Path) -> N
         branch="YOK-2412",
         path=str(tmp_path / "lane"),
     )
-    err = provision_worktree(
-        entry,
-        str(tmp_path),
-        "main",
-        "yoke",
-        str(tmp_path),
-    )
+    err = create_worktree_lane(entry, str(tmp_path), "main")
     assert err is not None
     assert "fatal: already used by worktree" in err
     assert seen_timeout == [GIT_WORKTREE_ADD_TIMEOUT_SECONDS]
@@ -137,13 +131,7 @@ def test_git_worktree_add_empty_output_is_visible(monkeypatch, tmp_path: Path) -
         branch="YOK-2412",
         path=str(tmp_path / "lane"),
     )
-    err = provision_worktree(
-        entry,
-        str(tmp_path),
-        "main",
-        "yoke",
-        str(tmp_path),
-    )
+    err = create_worktree_lane(entry, str(tmp_path), "main")
     assert err is not None
     assert "(no git output)" in err
     assert err.startswith("git worktree add failed")
