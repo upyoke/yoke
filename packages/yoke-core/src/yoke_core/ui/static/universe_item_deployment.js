@@ -27,7 +27,6 @@ import { el, statePill } from "./universe_view_support.js";
 const SUCCEEDED = "succeeded";
 const FAILED = "failed";
 const TERMINAL_RUN_STATES = new Set([SUCCEEDED, FAILED, "cancelled"]);
-const STALLED_AFTER_MS = 30 * 60 * 1000;
 
 function runItems(run) {
   const members = (run.member_items || []).map((item) => ({ item, relation: "member" }));
@@ -254,12 +253,6 @@ function runTiming(documentNode, run, status) {
   const started = String(run.started_at || run.created_at || "");
   if (!started) {
     return el(documentNode, "span", "item-deployment-time", "Deploying now");
-  }
-  const startedAt = Date.parse(started);
-  if (Number.isFinite(startedAt) && Date.now() - startedAt > STALLED_AFTER_MS) {
-    return timeNode(
-      documentNode, started, `Deployment delayed · started ${relativeAgePhrase(started)}`,
-    );
   }
   return timeNode(
     documentNode, started, `Deploying since ${relativeAgePhrase(started)}`,

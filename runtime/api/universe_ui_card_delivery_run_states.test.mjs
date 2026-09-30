@@ -50,7 +50,7 @@ test("a newer success supersedes the environment's older failure", () => {
   assert.deepEqual(shown.map(({ id }) => id), ["run-succeeded"]);
 });
 
-test("an in-flight run older than thirty minutes is labeled delayed", async (t) => {
+test("an older in-flight run keeps its deploying label", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -63,7 +63,7 @@ test("an in-flight run older than thirty minutes is labeled delayed", async (t) 
         project: "yoke",
         project_id: 1,
         project_sequence: ITEM_SEQUENCE,
-        title: "Show delayed runs",
+        title: "Show active runs",
         workflow_id: "dash",
         status: "release",
         completion_flow: "flow",
@@ -76,11 +76,11 @@ test("an in-flight run older than thirty minutes is labeled delayed", async (t) 
     "sessions.list": { rows: [] },
     "deployment_runs.list": {
       rows: [{
-        ...run("run-delayed", "executing", 45),
+        ...run("run-active", "executing", 45),
         project: "yoke",
         flow: "flow",
         stages: [],
-        member_items: [{ id: ITEM_ID, ref: ITEM_REF, title: "Show delayed runs" }],
+        member_items: [{ id: ITEM_ID, ref: ITEM_REF, title: "Show active runs" }],
       }],
     },
   });
@@ -93,6 +93,6 @@ test("an in-flight run older than thirty minutes is labeled delayed", async (t) 
 
   assert.match(
     byClass(root, "item-deployment-time")[0].textContent,
-    /^Deployment delayed · started .+ ago$/,
+    /^Deploying since .+ ago$/,
   );
 });
