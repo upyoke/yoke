@@ -190,7 +190,7 @@ In integration phase, a task's resolved worktree checkout is the authority for t
 - _Apply a structural patch without duplicate or stale hunks_
   - `Use one `*** Update File:` operation per path per patch; consolidate every hunk for that path under the same operation.`
 - _Subagent communication through its registered parent_
-  - `In-process subagents see receipts shared with their parent read-only and communicate with the parent through the harness-native parent/subagent channel. They never send, acknowledge, or cancel Fleet messages, never execute a receipt command visible in the parent envelope, and never handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.`
+  - `In-process subagents receive no Fleet delivery at all: message envelopes and fleet reports reach the registered top-level session only, so a subagent never sees its parent's inbox. They communicate with the parent through the harness-native parent/subagent channel, and never send, acknowledge, or cancel Fleet messages, and never handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.`
 - _Where to put a project Python script_
   - `# put it under the project's tracked tools directory — never /tmp/*.py`
 - _Verify Python imports/tests against linked worktree source_

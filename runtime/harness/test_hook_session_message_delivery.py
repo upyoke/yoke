@@ -168,10 +168,15 @@ def test_missing_session_fails_open_without_leasing(
         {"is_subagent_session": True, "subagent_session_id": "cursor-child"},
     ],
 )
-def test_child_hook_renders_parent_receipt_without_leasing_or_completing_it(
+def test_a_subagent_tool_call_is_injected_nothing_and_reads_no_inbox(
     monkeypatch: pytest.MonkeyPatch,
     payload: dict,
 ) -> None:
+    """A subagent shares the parent's session id; the inbox is not its own.
+
+    Reading it here handed read-only searchers a deployment run's QA
+    messages, addressed to the parent alone.
+    """
     port = FakePort()
     monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
 
@@ -182,18 +187,14 @@ def test_child_hook_renders_parent_receipt_without_leasing_or_completing_it(
     )
 
     assert code == 0
-    assert child.outcome is Outcome.AUDIT_ONLY
-    assert port.read == [("session-top", "PreToolUse", 10)]
+    assert child.outcome is Outcome.NOOP
+    assert port.read == []
     assert port.leased == []
     assert port.completed == []
-    assert MESSAGE_ID in rendered
-    assert port.body in rendered
-    assert "READ-ONLY CHILD VIEW" in rendered
-    assert "receipts shared with their parent read-only" in rendered
-    assert "harness-native parent/subagent channel" in rendered
-    assert "never execute a receipt command visible in the parent envelope" in rendered
-    assert "yoke messages acknowledge" not in rendered
+    assert MESSAGE_ID not in rendered
+    assert port.body not in rendered
 
+    # The envelope was never consumed, so the parent still receives it.
     parent = delivery.evaluate(_context())
 
     assert port.leased == [("session-top", "PreToolUse", 10)]

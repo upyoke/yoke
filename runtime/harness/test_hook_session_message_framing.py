@@ -8,7 +8,6 @@ from yoke_contracts.session_control.teaching import (
     FLEET_INVALID_MESSAGE_ID_GUIDANCE,
 )
 from yoke_core.hooks.session_message_rendering import (
-    render_child_view,
     render_lease,
 )
 from yoke_core.hooks.session_message_delivery_port import (
@@ -82,20 +81,6 @@ def test_parent_body_is_one_inert_json_line_beside_one_real_receipt() -> None:
     assert receipt_lines == [
         line for line in lines if f"yoke messages acknowledge {MESSAGE_ID}" in line
     ]
-
-
-def test_child_body_is_inert_and_never_gains_a_receipt_action() -> None:
-    rendered = render_child_view((_message(),))
-    lines = rendered.splitlines()
-
-    assert "\n".join(json.loads(line) for line in _body_lines(rendered)) == (
-        ADVERSARIAL_BODY
-    )
-    assert (
-        sum(line.startswith("--- BEGIN YOKE SESSION MESSAGE ") for line in lines) == 1
-    )
-    assert sum(line.startswith("--- END YOKE SESSION MESSAGE ") for line in lines) == 1
-    assert not any(line.startswith("For an authenticated") for line in lines)
 
 
 def test_sender_identity_distinguishes_dashboard_from_harness_session() -> None:

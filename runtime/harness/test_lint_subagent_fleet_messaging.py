@@ -39,11 +39,9 @@ def test_subagent_fleet_mutations_are_denied(command: str) -> None:
 
     assert decision.outcome is Outcome.DENY
     assert decision.block is True
-    assert "receipts shared with their parent read-only" in decision.message
+    assert "receive no Fleet delivery at all" in decision.message
+    assert "never sees its parent's inbox" in decision.message
     assert "harness-native parent/subagent channel" in decision.message
-    assert "never execute a receipt command visible in the parent envelope" in (
-        decision.message
-    )
 
 
 def test_parent_can_mutate_fleet_messages() -> None:
