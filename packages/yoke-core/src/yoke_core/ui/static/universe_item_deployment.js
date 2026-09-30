@@ -2,7 +2,7 @@
 // or candidate containment, even while the carrying run waits on other work.
 import { deploymentRunHref } from "./universe_navigation.js";
 import { NO_ENVIRONMENT_LABEL } from "./deployment_environment_copy.js";
-import { relativeAge } from "./universe_time.js";
+import { relativeAge, relativeAgePhrase } from "./universe_time.js";
 import { el } from "./universe_view_support.js";
 
 const TERMINAL_RUN_STATES = new Set(["succeeded", "failed", "cancelled"]);
@@ -132,12 +132,24 @@ function environmentRow(documentNode, environment, outcome, run, row) {
   return card;
 }
 
-export function appendItemDelivery(documentNode, card, row, deployments) {
+export function appendItemDelivery(documentNode, card, row, deployments, projects = []) {
   const box = el(documentNode, "div", "item-delivery");
   const head = el(documentNode, "div", "item-delivery-head");
   head.appendChild(el(documentNode, "span", "item-delivery-label", "Delivery"));
   head.appendChild(el(documentNode, "span", "item-delivery-flow", deliveryFlowLabel(row)));
   box.appendChild(head);
+  if (row.merged_at) {
+    const merged = el(documentNode, "small", "item-delivery-merged", `merged ${relativeAgePhrase(row.merged_at)}`);
+    const number = row.merge_queue_pr_number;
+    if (number) {
+      merged.appendChild(documentNode.createTextNode(" · "));
+      const repository = projects.find((project) => String(project.id) === String(row.project_id))?.github_repo;
+      const pr = el(documentNode, repository ? "a" : "span", "item-delivery-pr", `PR ${number}`);
+      if (repository) pr.href = `https://github.com/${repository}/pull/${number}`;
+      merged.appendChild(pr);
+    }
+    box.appendChild(merged);
+  }
   const itemId = row.internal_id ?? row.item_id ?? row.id;
   const runs = shownDeliveryRuns(deployments?.get(String(itemId)) || []);
   for (const run of runs) {

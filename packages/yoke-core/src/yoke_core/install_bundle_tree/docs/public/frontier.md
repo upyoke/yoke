@@ -23,7 +23,10 @@ the first successful run settles that landing in that environment. Later runs
 that only contain the same code remain in run history. Stage delivery does not
 settle Production delivery, and a new landing of the same item starts a new
 delivery. The card names the item's single flow once and shows one current
-row per environment. A `member` run owns the item's delivery; a `carried`
+row per environment. Once the item has merged, a sub-line under the flow
+header reads `merged <relative time> · PR <number>`; the PR links to its
+repository when known. Unmerged items have no merge sub-line. A `member`
+run owns the item's delivery; a `carried`
 run contains its code without owning its QA. Member outcomes use that member's
 own QA: a passed item reads `deployed · QA passed` even while its run stays
 open. Only that finished member gets a sub-line naming the run's remaining

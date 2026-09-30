@@ -17,7 +17,12 @@ from yoke_contracts.api.function_call import (
 #: request naming none of them keeps the uncapped shape every existing
 #: caller — the Overview frontier and the CLI adapter — already relies on.
 ROSTER_PAGING_FIELDS = (
-    "projects", "search", "workflow", "status", "page_size", "cursor",
+    "projects",
+    "search",
+    "workflow",
+    "status",
+    "page_size",
+    "cursor",
 )
 
 #: Upper bound on one roster page. The page the product asks for is 50; the
@@ -35,7 +40,9 @@ class ItemsOverviewListRequest(BaseModel):
     workflow: str | None = None
     status: str | None = None
     page_size: int | None = Field(
-        default=None, ge=1, le=MAX_ROSTER_PAGE_SIZE,
+        default=None,
+        ge=1,
+        le=MAX_ROSTER_PAGE_SIZE,
     )
     cursor: str | None = None
 
@@ -99,29 +106,43 @@ def handle_items_overview_list(request: FunctionCallRequest) -> HandlerOutcome:
             "relevance must be 'overview' when present",
             "$.payload.relevance",
         )
-    if any(
-        getattr(payload, field) is not None for field in ROSTER_PAGING_FIELDS
-    ):
+    if any(getattr(payload, field) is not None for field in ROSTER_PAGING_FIELDS):
         return _handle_paged_roster(request, payload)
 
     from yoke_core.domain.handlers.items_listing import handle_items_list
     from yoke_core.domain.item_overview_read import enrich_item_overview_rows
 
-    list_request = request.model_copy(update={
-        "function": "items.list.run",
-        "payload": {
-            "fields": [
-                "id", "internal_id", "title", "workflow_id",
-                "workflow_version_id", "status", "priority", "frozen",
-                "blocked", "blocked_reason", "deployed_to", "merged_at",
-                "deployment_flow", "created_at", "updated_at", "project",
-                "project_id", "project_sequence",
-            ],
-            **({"project": payload.project} if payload.project else {}),
-            **({"limit": payload.limit} if payload.limit else {}),
-            **({"relevance": payload.relevance} if payload.relevance else {}),
-        },
-    })
+    list_request = request.model_copy(
+        update={
+            "function": "items.list.run",
+            "payload": {
+                "fields": [
+                    "id",
+                    "internal_id",
+                    "title",
+                    "workflow_id",
+                    "workflow_version_id",
+                    "status",
+                    "priority",
+                    "frozen",
+                    "blocked",
+                    "blocked_reason",
+                    "deployed_to",
+                    "merged_at",
+                    "merge_queue_pr_number",
+                    "deployment_flow",
+                    "created_at",
+                    "updated_at",
+                    "project",
+                    "project_id",
+                    "project_sequence",
+                ],
+                **({"project": payload.project} if payload.project else {}),
+                **({"limit": payload.limit} if payload.limit else {}),
+                **({"relevance": payload.relevance} if payload.relevance else {}),
+            },
+        }
+    )
     outcome = handle_items_list(list_request)
     if not outcome.primary_success:
         return outcome

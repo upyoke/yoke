@@ -194,6 +194,11 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+.universe-app-root .item-delivery-merged {
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+.universe-app-root .item-delivery-pr { color: var(--yoke-accent); }
 .universe-app-root .item-deployment {
   display: grid;
   grid-template-columns: minmax(45px, auto) minmax(0, 1fr) auto auto;
