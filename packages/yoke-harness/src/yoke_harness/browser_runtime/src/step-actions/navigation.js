@@ -40,6 +40,12 @@ const CREDENTIAL_QUERY_KEYS = new Set([
 // Stands in for a credential value so the shape of the URL still reads.
 const REDACTED_VALUE = 'REDACTED';
 
+// Schemes a scenario can actually be driven against. `file:` is here because
+// the substrate's own fixtures are served from disk. The check exists because
+// the URL parser accepts `localhost:3000` as a URL whose scheme is
+// `localhost:`, which would otherwise fail much later and less clearly.
+const NAVIGABLE_PROTOCOLS = new Set(['http:', 'https:', 'file:']);
+
 /**
  * Render *value* with every credential-bearing query value masked.
  *
@@ -94,11 +100,16 @@ function resolveUrl(route, baseUrl) {
   try {
     base = new URL(baseUrl);
   } catch (_) {
+    base = null;
+  }
+  if (base === null || !NAVIGABLE_PROTOCOLS.has(base.protocol)) {
+    const named = base === null
+      ? 'is not an absolute URL'
+      : `uses the ${base.protocol} scheme, which cannot be navigated`;
     throw new Error(
-      `options.baseUrl ${JSON.stringify(String(baseUrl))} is not an absolute `
-      + 'URL, so route ' + JSON.stringify(String(route)) + ' cannot be '
-      + 'resolved against it. Pass a base URL including its scheme, such as '
-      + 'http://localhost:3000.'
+      `options.baseUrl ${JSON.stringify(String(baseUrl))} ${named}, so route `
+      + `${JSON.stringify(String(route))} cannot be resolved against it. Pass `
+      + 'a base URL including its scheme, such as http://localhost:3000.'
     );
   }
 
@@ -106,13 +117,17 @@ function resolveUrl(route, baseUrl) {
   // and drop the route's leading slashes so `/route` and `route` mean the
   // same place under that prefix. Stripping them also means a
   // protocol-relative `//host/path` stays on the base origin.
-  const directory = base.pathname.endsWith('/')
-    ? base.pathname
-    : `${base.pathname}/`;
-  const resolved = new URL(
-    route.replace(/^\/+/, ''),
-    `${base.origin}${directory}`
-  );
+  //
+  // The directory is set on a copy of the parsed base rather than rebuilt
+  // from `origin`, because `origin` is the string "null" for a `file:` URL --
+  // composing one would discard the scheme the fixtures are served on.
+  const resolutionBase = new URL(base.toString());
+  resolutionBase.hash = '';
+  resolutionBase.search = '';
+  if (!resolutionBase.pathname.endsWith('/')) {
+    resolutionBase.pathname = `${resolutionBase.pathname}/`;
+  }
+  const resolved = new URL(route.replace(/^\/+/, ''), resolutionBase);
 
   // The route's own parameters win; the base contributes the rest.
   for (const [key, value] of base.searchParams) {

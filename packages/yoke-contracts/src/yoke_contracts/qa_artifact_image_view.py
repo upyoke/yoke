@@ -14,15 +14,20 @@ version of it -- and the reported ``artifact_view`` says exactly which
 pixels the reader is holding, so a finding can name the region it was seen
 in.
 
-Backend follows the same rule as the project's other raster path: Pillow if
-it is installed, else macOS ``sips``, else a refusal naming both fixes
-rather than a silent pass-through of an image nobody can read.
+Rendering is Pillow, which is a required dependency rather than an extra.
+The project's other raster path (board-art emoji grids) falls back to macOS
+``sips`` when Pillow is absent, and that fallback deliberately does not
+apply here: ``sips --cropOffset`` exits zero and leaves the file untouched
+for some offsets, so a cropped-then-resampled view would carry the whole
+tall capture at exactly the dimensions asked for, labelled as the region the
+reviewer chose. A wrong answer shaped like a right one is worse than no
+answer. The rendered file is measured against what was asked for before any
+view is reported, so a renderer that silently under-delivers is refused
+rather than reported as success.
 """
 
 from __future__ import annotations
 
-import shutil
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
@@ -149,8 +154,8 @@ def apply_artifact_view(
             "called with neither, which would rewrite the file for nothing."
         )
 
-    backend = _select_backend()
-    source_width, source_height = backend.dimensions(path)
+    renderer = _PillowRenderer()
+    source_width, source_height = renderer.dimensions(path)
 
     if region is not None:
         if region.right > source_width or region.bottom > source_height:
@@ -171,30 +176,39 @@ def apply_artifact_view(
         target_width = max(1, round(view_width * scale))
         target_height = max(1, round(view_height * scale))
 
-    backend.render(
+    renderer.render(
         path,
         region=region,
         target_size=(target_width, target_height),
     )
+
+    rendered = renderer.dimensions(path)
+    if rendered != (target_width, target_height):
+        raise ArtifactViewError(
+            f"the {renderer.name} renderer reported success but produced a "
+            f"{rendered[0]}x{rendered[1]} image where "
+            f"{target_width}x{target_height} was asked for, so this file is "
+            "not the view it would be labelled as. Re-read without "
+            "--region/--scale to land the bytes as recorded."
+        )
 
     return {
         "source_size": [source_width, source_height],
         "region": region.as_list() if region is not None else None,
         "scale": scale,
         "size": [target_width, target_height],
-        "backend": backend.name,
+        "backend": renderer.name,
     }
 
 
-class _PillowBackend:
-    """Render with Pillow, which handles every format it opened."""
+class _PillowRenderer:
+    """Crop and resample with Pillow, reading the size it actually wrote."""
 
     name = "pillow"
 
     def dimensions(self, path: Path) -> tuple[int, int]:
-        from PIL import Image  # type: ignore
-
-        with Image.open(path) as image:
+        image_module = _image_module()
+        with image_module.open(path) as image:
             return image.size
 
     def render(
@@ -204,9 +218,8 @@ class _PillowBackend:
         region: Optional[ImageRegion],
         target_size: tuple[int, int],
     ) -> None:
-        from PIL import Image  # type: ignore
-
-        with Image.open(path) as image:
+        image_module = _image_module()
+        with image_module.open(path) as image:
             image.load()
             view = image
             if region is not None:
@@ -214,93 +227,22 @@ class _PillowBackend:
                     (region.x, region.y, region.right, region.bottom)
                 )
             if view.size != target_size:
-                view = view.resize(target_size, Image.LANCZOS)
+                view = view.resize(target_size, image_module.LANCZOS)
             view.save(path)
 
 
-class _SipsBackend:
-    """Render with macOS ``sips``, in one crop call and one resample call."""
-
-    name = "sips"
-
-    def dimensions(self, path: Path) -> tuple[int, int]:
-        output = _run_sips(
-            ["-g", "pixelWidth", "-g", "pixelHeight", str(path)]
-        )
-        width = height = None
-        for line in output.splitlines():
-            stripped = line.strip()
-            if stripped.startswith("pixelWidth:"):
-                width = int(stripped.split(":", 1)[1])
-            elif stripped.startswith("pixelHeight:"):
-                height = int(stripped.split(":", 1)[1])
-        if width is None or height is None:
-            raise ArtifactViewError(
-                f"sips did not report pixel dimensions for {path}, so the "
-                "region cannot be checked against the image. Install Pillow "
-                "(`pip install 'yoke-cli[images]'`) to render this view."
-            )
-        return width, height
-
-    def render(
-        self,
-        path: Path,
-        *,
-        region: Optional[ImageRegion],
-        target_size: tuple[int, int],
-    ) -> None:
-        if region is not None:
-            # sips crops around the image centre unless an offset is given,
-            # so the offset is what makes this the named rectangle.
-            _run_sips([
-                "--cropOffset", str(region.y), str(region.x),
-                "-c", str(region.height), str(region.width),
-                str(path), "--out", str(path),
-            ])
-            current = (region.width, region.height)
-        else:
-            current = self.dimensions(path)
-        if current != target_size:
-            # -z takes height then width, unlike every other pair here.
-            _run_sips([
-                "-z", str(target_size[1]), str(target_size[0]),
-                str(path), "--out", str(path),
-            ])
-
-
-def _run_sips(arguments: list[str]) -> str:
+def _image_module() -> Any:
+    """Return Pillow's Image module, or refuse naming the install."""
     try:
-        completed = subprocess.run(
-            ["sips", *arguments],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-    except subprocess.CalledProcessError as exc:
-        raise ArtifactViewError(
-            "sips could not render this view: "
-            f"{(exc.stderr or exc.stdout or '').strip() or 'no output'}. "
-            "Install Pillow (`pip install 'yoke-cli[images]'`) for a "
-            "platform-independent renderer."
-        ) from None
-    return completed.stdout
-
-
-def _select_backend() -> Any:
-    try:
-        import PIL  # type: ignore  # noqa: F401
+        from PIL import Image  # type: ignore
     except ImportError:
-        pass
-    else:
-        return _PillowBackend()
-    if shutil.which("sips"):
-        return _SipsBackend()
-    raise ArtifactViewError(
-        "no image renderer is available, so --region and --scale cannot be "
-        "applied. Install Pillow with `pip install 'yoke-cli[images]'`, or "
-        "run the read on macOS where `sips` provides the fallback. Re-reading "
-        "without those flags still lands the recorded bytes."
-    )
+        raise ArtifactViewError(
+            "--region and --scale need Pillow, which is a required Yoke "
+            "dependency that is missing from this environment. Reinstall the "
+            "CLI (`pip install --upgrade yoke-cli`) to repair it. Re-reading "
+            "without those flags still lands the recorded bytes."
+        ) from None
+    return Image
 
 
 __all__ = [

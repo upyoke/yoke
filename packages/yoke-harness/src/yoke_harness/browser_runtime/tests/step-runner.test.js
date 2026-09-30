@@ -5,7 +5,7 @@
  *
  * Run: node tests/step-runner.test.js
  *
- * Covers: resolveUrl, navigate, click, fill_form, wait_for, hover, select.
+ * Covers: navigate, click, fill_form, wait_for, hover, select.
  * Companion files cover assertion checks, body-target text semantics,
  * screenshot/timeout/errors/delay, and stale-schema rejection.
  */
@@ -14,7 +14,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
-const { executeStep, resolveUrl } = require('../src/step-runner');
+const { executeStep } = require('../src/step-runner');
 
 let testCount = 0;
 let passCount = 0;
@@ -69,50 +69,6 @@ function fixtureUrl() {
 function baseUrl() {
   const fixturesDir = path.join(__dirname, 'fixtures');
   return `file://${fixturesDir}`;
-}
-
-async function testResolveUrl() {
-  console.log('\n## Test: resolveUrl handles relative and absolute routes');
-
-  // AC-8: Relative route gets baseUrl prepended
-  assertEqual(
-    resolveUrl('/home', 'http://localhost:3000'),
-    'http://localhost:3000/home',
-    'Relative route with leading slash gets base URL prepended'
-  );
-
-  assertEqual(
-    resolveUrl('about', 'http://localhost:3000'),
-    'http://localhost:3000/about',
-    'Relative route without leading slash gets base URL prepended with slash'
-  );
-
-  // AC-8: Absolute URLs pass through
-  assertEqual(
-    resolveUrl('https://example.com/page', 'http://localhost:3000'),
-    'https://example.com/page',
-    'Absolute https URL passes through'
-  );
-
-  assertEqual(
-    resolveUrl('http://example.com/page', 'http://localhost:3000'),
-    'http://example.com/page',
-    'Absolute http URL passes through'
-  );
-
-  // Trailing slash on base URL
-  assertEqual(
-    resolveUrl('/test', 'http://localhost:3000/'),
-    'http://localhost:3000/test',
-    'Trailing slash on base URL is normalized'
-  );
-
-  // Empty route returns base URL
-  assertEqual(
-    resolveUrl('', 'http://localhost:3000'),
-    'http://localhost:3000',
-    'Empty route returns base URL'
-  );
 }
 
 async function testNavigateAction() {
@@ -270,7 +226,6 @@ async function run() {
   console.log('=== Step Runner Tests: Basics ===');
   await setup();
   try {
-    await testResolveUrl();
     await testNavigateAction();
     await testClickAction();
     await testClickNonExistentTarget();

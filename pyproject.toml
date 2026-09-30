@@ -45,6 +45,9 @@ dependencies = [
     # Runtime dependency: project install seeds .yoke/board-art ASCII
     # variants with deterministic FIGlet-style banners.
     "pyfiglet>=1.0.4,<2",
+    # Runtime dependency: `yoke qa artifact read --region/--scale` renders a
+    # recorded screenshot into the part a reviewer is judging.
+    "Pillow>=10.0,<12",
 ]
 
 [project.optional-dependencies]
@@ -58,9 +61,8 @@ test = [
     # Release/distribution tests build product wheelhouses through uv.
     "uv==0.11.28",
 ]
-# Optional: board-art image onboarding (`yoke board art variant create
-# --image`) decodes PNG/JPEG to emoji grids. The converter is Pillow-optional —
-# it falls back to macOS `sips` — so Pillow is an extra, not a hard dependency.
+# Retained so `yoke[images]` keeps resolving for anything that names it;
+# Pillow is now a required dependency above.
 images = [
     "Pillow>=10.0,<12",
 ]

@@ -23,11 +23,18 @@ dependencies = [
     # trust keys. Stdlib tomllib from 3.11; a 3.10 wheel needs the backport,
     # and without it every command crashes at import rather than at use.
     "tomli>=2.0,<3; python_version < '3.11'",
+    # Renders a recorded QA screenshot into the region and size a reviewer
+    # can read (`yoke qa artifact read --region/--scale`). A required
+    # dependency, not an extra: evidence a reviewer cannot open is evidence
+    # that proves nothing, and the only alternative renderer on this path
+    # (macOS `sips --cropOffset`) exits zero without cropping for some
+    # offsets, which would label the whole capture as the chosen region.
+    "Pillow>=10.0,<12",
 ]
 
 [project.optional-dependencies]
-# Board-art image onboarding decodes PNG/JPEG to emoji grids. Pillow-optional —
-# falls back to macOS `sips` — so it is an extra, never a hard dependency.
+# Retained so `yoke-contracts[images]` keeps resolving for anything that
+# names it; Pillow is now a required dependency above.
 images = ["Pillow>=10.0,<12"]
 
 [tool.setuptools_scm]

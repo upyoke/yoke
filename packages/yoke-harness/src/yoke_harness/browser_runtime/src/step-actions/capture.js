@@ -35,13 +35,17 @@ function screenshotBasename(step) {
  * Captures a screenshot when capture is true, returns the path in artifacts.
  * `label` names the file so the capture matches the step's own account.
  *
- * Three framings, because `fullPage` only means "the whole content" for a
- * page that scrolls the document itself. An app that scrolls an inner
- * container leaves the document at viewport height, so `fullPage` there
- * photographs one screenful and silently drops everything below the fold --
- * a capture that looks complete and is not. Such a case names the scrolling
- * container as `target`: the element is scrolled into view and captured at
- * its own full size, whatever the viewport is showing.
+ * `target` frames the capture on one element instead of on the screen. A
+ * page capture can only ever show what is in view -- `fullPage` grows with
+ * the document, so on an app that scrolls an inner container it photographs
+ * the container's first screenful and silently drops the rest, and an
+ * element below the fold does not appear at all. Naming the element scrolls
+ * it into view and captures its own box, so the evidence is the panel being
+ * judged at the size it renders at, wherever it sits on the page.
+ *
+ * The box is what the element shows, not its scrollable content: a capture
+ * cannot honestly photograph pixels the page never painted. A case covering
+ * a long inner-scrolling list pairs `scroll` with a capture per screenful.
  */
 async function executeScreenshot(page, step, options, refMap) {
   if (!step.capture) {
