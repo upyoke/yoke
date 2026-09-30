@@ -27,9 +27,9 @@ Each fix should be verifiable — the fix should be testable or the deletion sho
 yoke items get "$ITEM_REF" db_mutation_profile
 
 yoke db-claim amend \
-    --item "$ITEM_REF" \
+    "$ITEM_REF" \
     --reason "polish discovered governed DB mutation" \
-    --payload -  # stream the unified DB claim payload on stdin
+    --stdin  # stream the unified DB claim payload on stdin
 ```
 
 The handler demultiplexes the claim payload into the `db_mutation_profile` and `db_compatibility_attestation` columns atomically, and records a best-effort `DbClaimAmended` event alongside them; see [.yoke/docs/reference/db-reference.md](../../../../.yoke/docs/reference/db-reference.md) for the unified shape. The advance to `implemented` runs the prose-vs-claim gate (`GATE_DB_CLAIM_PROSE_MISMATCH`) plus the polish evidence gate, both of which would block the transition with a stale negative claim.

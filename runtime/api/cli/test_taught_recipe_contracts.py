@@ -37,8 +37,8 @@ def test_packet_string_recipes_are_audited_as_values(tmp_path):
     )
     seed.parent.mkdir(parents=True)
     seed.write_text(
-        'RECIPES = ("yoke items " "db-claim amend PREFIX-N",\n'
-        '           "yoke items scalar-update PREFIX-N")\n'
+        'RECIPES = ({"recipe": "yoke items " "db-claim amend PREFIX-N"},\n'
+        '           {"recipe": "yoke items scalar-update PREFIX-N"})\n'
     )
     rows = list(extract_recipe_rows(tmp_path, ("**/*.py",)))
     assert [row[2] for row in rows] == [
@@ -47,6 +47,18 @@ def test_packet_string_recipes_are_audited_as_values(tmp_path):
     ]
     audit = generate_teaching_audit(repo_root=tmp_path, smoke_yoke=parse_probe)
     assert len([row for row in audit.surfaces if row.drift_type]) == 2
+
+
+def test_packet_extracts_each_command_and_ignores_refusal_prose(tmp_path):
+    (tmp_path / "seed.py").write_text(
+        'ROWS = {"recipe": "yoke items get PREFIX-N status\\n'
+        'yoke items get PREFIX-N spec", "notes": "yoke absent (retired)"}\n'
+    )
+    rows = list(extract_recipe_rows(tmp_path, ("*.py",)))
+    assert [row[2] for row in rows] == [
+        "yoke items get PREFIX-N status",
+        "yoke items get PREFIX-N spec",
+    ]
 
 
 def test_inline_item_projection_is_audited(tmp_path):
@@ -65,3 +77,25 @@ def test_probe_waits_for_parse_args_to_reject_unknown_flags():
     ok, _function, error = parse_probe("yoke items get PREFIX-N --invented-option")
     assert not ok
     assert "unrecognized arguments" in error
+
+
+@pytest.mark.parametrize(
+    "recipe",
+    [
+        "yoke charge schedule {project_flag} {item_flag} --wip-cap {wip_cap}",
+        "yoke items structured-field replace PREFIX-N --field test_results --stdin < PATH",
+        "yoke items cancel PREFIX-N --reason TEXT [--ref PREFIX-M]",
+        "yoke items freeze PREFIX-N / yoke items thaw PREFIX-N",
+    ],
+)
+def test_probe_accepts_documentation_grammar_and_shell_redirects(recipe):
+    assert parse_probe(recipe)[0]
+
+
+def test_packet_preserves_multiline_quoted_arguments(tmp_path):
+    (tmp_path / "seed.py").write_text(
+        'ROW = {"recipe": \'yoke db read "\\nSELECT 1\\n"\'}\n'
+    )
+    rows = list(extract_recipe_rows(tmp_path, ("*.py",)))
+    assert len(rows) == 1
+    assert rows[0][2] == 'yoke db read " SELECT 1 "'

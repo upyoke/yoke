@@ -306,7 +306,7 @@ classify the overlap via `yoke claims path coordination-decision-build`; for
 independent same-file edits author `--gate-point coordination_only`
 (compatible overlap, no lifecycle gate); for order-dependent edits author
 explicit `--gate-point activation` with directional rationale; fall
-back to `--upstream-claim-id` pin, `mode="exception"`, or last-resort
+back to an `upstream_claim_id` payload pin, `mode="exception"`, or last-resort
 item-level block via `items.scalar.update` on the `blocked` field
 (see your `items` packet stanza for the column) only when none of those
 fit (do NOT mutate `status` to `'blocked'`).

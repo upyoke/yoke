@@ -38,7 +38,7 @@ from yoke_contracts.items_projection import ALLOWED_GET_FIELDS, unknown_field_me
 # it as escaping the next flag and the argv silently loses a token.
 _CONTINUATION_RE = re.compile(r"\\{1,2}\s+")
 _COMMAND_SUBSTITUTION_RE = re.compile(r"\$\((?:[^()]|\([^()]*\))*\)")
-_TRAILING_SHELL_RE = re.compile(r"\s(?:\|\||\||&&|;|>>?|2>&1|<<[-']?\s*\S+).*$")
+_TRAILING_SHELL_RE = re.compile(r"\s(?:\|\||\||&&|;|>>?|<\s+|2>&1|<<[-']?\s*\S+).*$")
 _HEREDOC_RE = re.compile(r"<<-?['\"]?\w+['\"]?")
 # Placeholder notations the teaching trees use. ``[...]`` is grammar
 # rather than a value — an optional group in a usage line — so it is
@@ -83,6 +83,8 @@ def normalize(recipe: str, *, numeric: bool = False) -> str:
     text = _HEREDOC_RE.sub("", _TRAILING_SHELL_RE.sub("", text)).strip()
     text = _DOC_REF_RE.sub(_REF_STANDIN, text)
     text = _OPTIONAL_GROUP_RE.sub(" ", text)
+    text = re.sub(r"\{\w+_flag\}", "", text)
+    text = text.split(" / ", 1)[0]
     if numeric:
         text = _PLACEHOLDER_RE.sub("1", text)
     else:

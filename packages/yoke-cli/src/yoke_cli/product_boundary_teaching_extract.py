@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import re
+import shlex
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -31,13 +32,38 @@ def extract_recipe_rows(
         for line_number, recipe, standalone in _recipes_from_text(text):
             yield rel, line_number, recipe, standalone
         if path.suffix == ".py":
-            # Packet seeds teach from string values, often concatenated
-            # across source lines. Read the value, never execute the seed.
+            # Packet recipe values may concatenate strings and carry
+            # several commands. Notes and refusal text are not recipes.
             for node in ast.walk(ast.parse(text, filename=rel)):
-                if isinstance(node, ast.Constant) and isinstance(node.value, str):
-                    recipe = _clean_recipe(node.value)
-                    if _command_like(recipe):
-                        yield rel, node.lineno, recipe, False
+                if not isinstance(node, ast.Dict):
+                    continue
+                for key, value in zip(node.keys, node.values):
+                    if not isinstance(key, ast.Constant) or key.value != "recipe":
+                        continue
+                    if not isinstance(value, ast.Constant) or not isinstance(
+                        value.value, str
+                    ):
+                        continue
+                    for line in _packet_recipe_lines(value.value):
+                        recipe = _command_from_line(line)
+                        if recipe:
+                            yield rel, value.lineno, recipe, False
+
+
+def _packet_recipe_lines(value: str) -> Iterable[str]:
+    """Split commands while keeping multiline quoted SQL/JSON together."""
+    pending = ""
+    for _offset, line in _join_continuations(value):
+        current = pending + " " + line if pending else line
+        try:
+            shlex.split(current)
+        except ValueError:
+            pending = current
+            continue
+        yield current
+        pending = ""
+    if pending:
+        yield pending
 
 
 def _teaching_files(root: Path, globs: Sequence[str]) -> tuple[Path, ...]:
@@ -122,7 +148,7 @@ def _clean_recipe(recipe: str) -> str:
         if len(recipe) > 1 and recipe[0] == recipe[-1] and recipe[0] in "'\""
         else recipe
     )
-    return recipe.split(" #", 1)[0].strip().rstrip(",:)]")
+    return recipe.split(" #", 1)[0].strip().rstrip(",:")
 
 
 def _generic_recipe(recipe: str) -> bool:
