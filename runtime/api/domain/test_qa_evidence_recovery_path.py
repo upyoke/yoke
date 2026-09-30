@@ -53,31 +53,39 @@ def lane_claimed_session(conn, tmp_path):
     return SESSION
 
 
-def _failing_upload_leg(case, *, actor=None):
+def _failing_upload_leg(*, complete_fails: bool = False):
     """Answer the run leg, then fail the artifact leg the recipe recovers."""
+    calls: list[tuple[str, dict]] = []
 
-    def dispatch_leg(function_id: str, payload: dict) -> dict:
-        if function_id == "qa.run.add":
-            return {"qa_run_id": 7781}
-        if function_id == "qa.artifact.add":
-            raise qa_case_execution.QaCaseExecutionError(
-                "qa.artifact.add failed (relay_unavailable): no route"
-            )
-        return {}
+    def recording_leg(case, *, actor=None):
+        def dispatch_leg(function_id: str, payload: dict) -> dict:
+            calls.append((function_id, payload))
+            if function_id == "qa.run.add":
+                return {"qa_run_id": 7781}
+            if function_id == "qa.artifact.add":
+                raise qa_case_execution.QaCaseExecutionError(
+                    "qa.artifact.add failed (relay_unavailable): no route"
+                )
+            if function_id == "qa.run.complete" and complete_fails:
+                raise qa_case_execution.QaCaseExecutionError(
+                    "qa.run.complete failed (relay_unavailable): no route"
+                )
+            return {}
 
-    return dispatch_leg
+        return dispatch_leg
+
+    return recording_leg, calls
 
 
-def _upload_failure_message() -> str:
+def _upload_failure(*, complete_fails: bool = False) -> tuple[str, list]:
     case = {
         "requirement_id": 4471,
         "item_id": ITEM_ID,
         "project": "yoke",
         "project_id": 1,
     }
-    with mock.patch.object(
-        qa_case_execution, "recording_leg", _failing_upload_leg,
-    ):
+    leg, calls = _failing_upload_leg(complete_fails=complete_fails)
+    with mock.patch.object(qa_case_execution, "recording_leg", leg):
         with pytest.raises(qa_case_execution.QaCaseExecutionError) as caught:
             qa_case_execution.record_command_run(
                 case,
@@ -89,7 +97,11 @@ def _upload_failure_message() -> str:
                 filename=ARTIFACT_FILENAME,
                 metadata={},
             )
-    return str(caught.value)
+    return str(caught.value), calls
+
+
+def _upload_failure_message() -> str:
+    return _upload_failure()[0]
 
 
 def _recovery_operand(message: str) -> str:
@@ -148,4 +160,34 @@ class TestUploadFailureRecipe:
     def test_message_still_names_the_capture_for_the_operator(self):
         message = _upload_failure_message()
         assert "the capture itself stays at" in message
+
+
+class TestDecidedVerdictSurvivesTheUploadFailure:
+    """The command ran and decided; the upload is a separate obligation.
+
+    Skipping the run's own completion left a decided verdict that every
+    latest-run projection reads as still running -- one recoverable problem
+    turned into two, with no recipe for the second.
+    """
+
+    def test_the_run_is_completed_with_the_decided_verdict(self):
+        _, calls = _upload_failure()
+        completions = [
+            payload for function_id, payload in calls
+            if function_id == "qa.run.complete"
+        ]
+        assert len(completions) == 1
+        assert completions[0]["verdict"] == "pass"
+        assert completions[0]["run_id"] == 7781
+
+    def test_a_settled_verdict_asks_for_no_second_write(self):
+        message = _upload_failure_message()
+        assert "the run itself is completed with that verdict" in message
+        assert "The verdict needs no second write" in message
+        assert "yoke qa run complete" not in message
+
+    def test_an_unsettled_verdict_names_both_recoveries(self):
+        message, _ = _upload_failure(complete_fails=True)
+        assert "recorded neither its evidence nor its verdict" in message
+        assert "yoke qa artifact add" in message
         assert "yoke qa run complete" in message

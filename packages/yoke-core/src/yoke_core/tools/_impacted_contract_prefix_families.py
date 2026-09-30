@@ -188,9 +188,6 @@ INSTALL_BUNDLE_SHIPPED_SURFACE_TESTS = (
     "runtime/api/test_install_bundle_surface_neutrality.py",
 )
 
-SOURCE_RECIPE_CONTRACT_TESTS = ("runtime/api/test_external_project_recipe_contract.py",)
-SOURCE_RECIPE_SOURCE_PREFIXES = ("docs/testing-verification.md",)
-
 FIXTURE_SCHEMA_CONTRACT_TESTS = ("runtime/api/test_fixture_schema_ddl_apply.py",)
 FIXTURE_SCHEMA_SOURCE_PREFIXES = ("runtime/api/fixtures/schema_ddl",)
 
@@ -214,6 +211,21 @@ INSTALL_BUNDLE_SHIPPED_SURFACE_PREFIXES = tuple(
             f"{PACKAGED_INSTALL_BUNDLE_TREE_REL}/{root}/",
         )
     )
+)
+
+SOURCE_RECIPE_CONTRACT_TESTS = ("runtime/api/test_external_project_recipe_contract.py",)
+#: Every surface the recipe contract reads, not only the prose that names its
+#: repairs. The clean-room half scans each shipped teaching tree for a
+#: checkout-only recipe, so a markdown edit anywhere in them can break it while
+#: having no import edge to it; binding only the prose left that edit to the
+#: full suite to catch, after the branch had already been armed to land.
+SOURCE_RECIPE_SOURCE_PREFIXES = (
+    "AGENTS.md",
+    "docs/source-dev-doctrine.md",
+    "docs/testing-verification.md",
+    "docs/testing-verification/source-development.md",
+    "packages/yoke-core/src/yoke_core/domain/schema_api_context",
+    *INSTALL_BUNDLE_SHIPPED_SURFACE_PREFIXES,
 )
 
 PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (

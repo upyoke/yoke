@@ -248,17 +248,42 @@ Without linked evidence, execution fails and no human review is requested.
 
 The runner writes the run and evidence on the materialized Browser
 requirement. Do not create a second requirement or run to mirror that result.
-When an inspection flow needs the low-level completion surface, it uses:
+
+### Reviewing a capture
+
+One command records a `browser-inspection` review:
 
 ```bash
-yoke qa run complete \
+yoke qa run record-verdict \
   --requirement-id <requirement-id> \
-  --run-id <run-id> \
-  --verdict pass
+  --performed-by agent \
+  --verdict pass \
+  --verdict-reason "what the screenshots showed"
 ```
 
+It resolves the capture the review judged, in place — the capture stays the
+requirement's latest run, keeping the commit its screenshots were taken
+against — and writes the capture-to-review link the evidence gate requires.
+Pass no `--raw-result`: the capture's payload already names that commit, and
+replacing it is refused rather than discarding the only proof of which tree
+the evidence shows.
+
+`yoke qa run complete` settles a run's verdict and writes no review link, so
+it does not satisfy a `browser-inspection` gate and is not the review command.
 Review resolves that same Browser requirement to pass, fail, or waived. There
 is no screenshot-to-AC bridge; the Browser case itself is the blocking proof.
+
+### Proving which candidate the evidence shows
+
+`--expected-branch` / `--expected-sha` are verified by asking the target what
+it serves at `/served-build`; a target that cannot answer refuses as
+`identity_proof_unavailable` and records no run. A static or third-party
+preview publishes nothing there however current it is, so a pre-merge capture
+needs a target running this project's own build from a committed checkout —
+the same build that answers that path in its deployed environments. Commit
+first: a checkout with uncommitted changes publishes `<sha>-dirty`, which
+fails the match closed because it is not the committed contents it would be
+certified as.
 
 ## Evidence and gates
 

@@ -21,6 +21,7 @@ from yoke_core.domain.qa_plan_attachments import materialize_for_deployment_run
 from yoke_core.domain.qa_plan_detail import get_plan
 from yoke_core.domain.qa_plan_execution_continuation import (
     CASE_EXECUTION_ERROR_REASON,
+    continuation_abort_reason,
 )
 from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
 from yoke_core.domain.qa_plan_execution_state import (
@@ -29,7 +30,9 @@ from yoke_core.domain.qa_plan_execution_state import (
 )
 
 
-def _abandoned_execution(conn: Any) -> tuple[int, int]:
+def _abandoned_execution(
+    conn: Any, *, reason: str = CASE_EXECUTION_ERROR_REASON
+) -> tuple[int, int]:
     """Start a deployment-run execution that records nothing, then abort it."""
     deployment_run(conn)
     plan_id = command_plan(conn)
@@ -50,7 +53,7 @@ def _abandoned_execution(conn: Any) -> tuple[int, int]:
         conn,
         lock_plan_execution(conn, str(execution["id"])),
         state="aborted",
-        reason=CASE_EXECUTION_ERROR_REASON,
+        reason=reason,
     )
     return plan_id, requirement_id
 
@@ -117,3 +120,24 @@ def test_a_case_that_recorded_its_own_run_is_left_alone() -> None:
         ).fetchall()
 
     assert [row["verdict"] for row in runs] == ["fail"]
+
+
+def test_reason_carrying_its_diagnosis_still_settles_the_case() -> None:
+    """A diagnosis in the reason column must not hide the code behind it.
+
+    Settlement routes on the reason a client wrote after its own case
+    execution raised. Reading the whole column as the code would drop every
+    reason that names what failed -- and those are the only ones worth
+    reading -- leaving the case pending forever.
+    """
+    reason = continuation_abort_reason({}, RuntimeError("relay unavailable"))
+    with test_database() as conn:
+        _, requirement_id = _abandoned_execution(conn, reason=reason)
+        run = conn.execute(
+            "SELECT verdict,verdict_reason FROM qa_runs WHERE qa_requirement_id=%s",
+            (requirement_id,),
+        ).fetchone()
+
+    assert run is not None
+    assert run["verdict"] == "error"
+    assert "relay unavailable" in run["verdict_reason"]

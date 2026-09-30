@@ -6,6 +6,10 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.qa_constants import UNDETERMINED_VERDICT
+from yoke_core.domain.qa_review_verdict_modes import (
+    allowed_review_verdicts,
+    verdict_enum_text,
+)
 from yoke_core.domain.qa_plan_execution_store import marker
 from yoke_core.domain.qa_plan_review import QaPlanReviewError
 
@@ -57,10 +61,17 @@ def ensure_plan_review_requests(
                     member_item_id=int(member) if member is not None else None,
                 )
                 verdict_policy = stage_subject["stage"]["verdict"]
-                if verdict_policy["mode"] == "agent_only":
+                allowed = allowed_review_verdicts(verdict_policy.get("mode"))
+                if UNDETERMINED_VERDICT not in allowed:
                     raise QaPlanReviewError(
-                        "agent_only deployment QA requires a conclusive pass or fail; "
-                        "inspect the missing evidence and resubmit the review"
+                        f"deployment stage {stage_name!r} decides on the agent "
+                        f"verdict alone, so it accepts only "
+                        f"{verdict_enum_text(allowed)}; requirement "
+                        f"{requirement_id} was submitted as "
+                        f"{UNDETERMINED_VERDICT!r}. The dispatch contract for "
+                        "this stage names the same set. Fail the case naming "
+                        "the missing evidence in its rationale, or re-capture "
+                        "and review again"
                     )
                 policy = parse_approval_policy(
                     verdict_policy["reviewers"],

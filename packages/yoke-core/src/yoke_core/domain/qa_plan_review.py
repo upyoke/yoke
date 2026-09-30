@@ -17,6 +17,11 @@ from yoke_core.domain.qa_plan_execution_store import (
     canonical,
     marker,
 )
+from yoke_core.domain.qa_review_verdict_modes import (
+    inconclusive_verdict_guidance,
+    stage_review_verdicts,
+    verdict_enum_text,
+)
 
 
 class QaPlanReviewError(ValueError):
@@ -130,13 +135,17 @@ def _execution_capture_run_id(
     return run_id
 
 
-def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
+def _dispatch_contract(
+    bundle: Mapping[str, Any], *, allowed_verdicts: tuple[str, ...]
+) -> dict[str, Any]:
     if any(case.get("capture_runner") == "agent_mission" for case in bundle["cases"]):
         from yoke_core.domain.agent_mission_review import (
             agent_mission_dispatch_contract,
         )
 
-        return agent_mission_dispatch_contract(bundle)
+        return agent_mission_dispatch_contract(
+            bundle, allowed_verdicts=allowed_verdicts
+        )
     descriptor = DispatchDescriptor("tester")
     bundle_id = str(bundle["bundle_id"])
     digest = str(bundle["bundle_digest"])
@@ -177,9 +186,9 @@ def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
             "and visual artifact against that case's instructions and "
             "expected outcome. Return exactly one independent verdict and "
             f"rationale for each of the {len(cases)} cases. Do not infer a "
-            "verdict from capture status. Undetermined spends an owner/operator "
-            "review and halts the item; choose it only for attached evidence, "
-            "and name what could not be established and why. Use only the "
+            "verdict from capture status. "
+            + inconclusive_verdict_guidance(allowed_verdicts)
+            + " Use only the "
             "supplied artifact-read commands for bytes that are not directly "
             "available — each lands the file and reports its path under the "
             "result path key, which is the only address you may open; "
@@ -208,7 +217,7 @@ def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
             "verdicts": [
                 {
                     "requirement_id": "integer",
-                    "verdict": "pass|fail|undetermined",
+                    "verdict": verdict_enum_text(allowed_verdicts),
                     "rationale": "non-empty string",
                 }
             ]
@@ -218,7 +227,7 @@ def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _public_bundle(stored: Mapping[str, Any]) -> dict[str, Any]:
+def _public_bundle(conn: Any, stored: Mapping[str, Any]) -> dict[str, Any]:
     payload = _json_object(stored["bundle_json"])
     result = {
         **payload,
@@ -226,7 +235,10 @@ def _public_bundle(stored: Mapping[str, Any]) -> dict[str, Any]:
         "bundle_digest": str(stored["bundle_digest"]),
         "state": str(stored["state"]),
     }
-    result["dispatch"] = _dispatch_contract(result)
+    result["dispatch"] = _dispatch_contract(
+        result,
+        allowed_verdicts=stage_review_verdicts(conn, result.get("subject")),
+    )
     return result
 
 
@@ -246,7 +258,7 @@ def begin_plan_review(
         (str(execution["id"]),),
     )
     if existing is not None:
-        return _public_bundle(existing)
+        return _public_bundle(conn, existing)
     from yoke_core.domain.qa_plan_execution_store import result_rows
 
     recorded = {
@@ -320,7 +332,7 @@ def begin_plan_review(
         (bundle_id,),
     )
     assert stored is not None
-    return _public_bundle(stored)
+    return _public_bundle(conn, stored)
 
 
 __all__ = [

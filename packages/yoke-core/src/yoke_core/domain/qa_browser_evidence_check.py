@@ -33,6 +33,7 @@ from yoke_core.domain.qa_artifact_handle import (
     is_present,
     parse_handle,
 )
+from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
 from yoke_core.domain.qa_gate_definitions import GateResult
 from yoke_core.domain.qa_constants import (
     INVALID_BROWSER_METHOD_LABEL,
@@ -48,6 +49,10 @@ _REMEDIATION_LINES = (
     "  Re-run each named materialized case through the shared runner:",
     "       yoke qa case run --requirement-id <REQ_ID> --base-url <URL> \\",
     "         --expected-branch <BRANCH> --expected-sha <SHA>",
+    f"  <URL> must serve this project's own build, which answers at "
+    f"{SERVED_BUILD_PATH};",
+    "  a target publishing nothing there refuses as identity_proof_unavailable",
+    "  and records no run, and an uncommitted tree publishes <sha>-dirty.",
     "  For substrate diagnosis only, capture the URL without recording a",
     "  parallel QA verdict:",
     "       yoke qa browser screenshot <URL> --output <path.png>",
@@ -66,6 +71,12 @@ def _qualifying_capture(requirement: str, capture: str) -> str:
     # definition, so what this gate matches on and what the substrate writes
     # cannot drift apart.
     agent_case = agent_reviewed_case_predicate(requirement)
+    # The reviewing run is either a separate agent run -- what a plan-review
+    # bundle submits -- or the capture itself, which is what a verdict
+    # recorded against a still-unreviewed capture resolves in place. The
+    # second shape exists so the run carrying the capture's own
+    # ``code_identity.sha`` stays the requirement's latest; requiring a
+    # distinct agent row here would reject exactly that.
     linked_agent_pass = f"""
         EXISTS (
           SELECT 1 FROM qa_plan_review_verdicts prv
@@ -75,8 +86,11 @@ def _qualifying_capture(requirement: str, capture: str) -> str:
             AND prv.capture_run_id = {capture}.id
             AND prv.verdict = 'pass'
             AND prb.state = 'completed'
-            AND review_run.performed_by = 'agent'
             AND review_run.verdict = 'pass'
+            AND (
+              review_run.performed_by = 'agent'
+              OR review_run.id = {capture}.id
+            )
         )
     """
     return f"""
@@ -138,7 +152,8 @@ def check_browser_evidence_present(
         "  Browser inspection requires a captured browser_substrate artifact linked",
         "  to its completed passing agent-review verdict.",
         "  Record that review with `yoke qa run record-verdict --requirement-id <id> "
-        "--performed-by agent --verdict pass --verdict-reason TEXT` after the capture.",
+        "--performed-by agent --verdict pass --verdict-reason TEXT` after the",
+        "  capture; it resolves that capture in place and needs no --raw-result.",
         "  Do not begin a plan against hosts.app to attach a local-preview review.",
         f"  Remediation (harness skill): `/yoke advance {name} {transition_name}` runs browser QA automatically before the status change.",
         "  Remediation (terminal CLI): `yoke qa case run --requirement-id <id>` records the case; `/yoke advance` is not a CLI command.",

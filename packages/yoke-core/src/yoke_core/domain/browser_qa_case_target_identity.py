@@ -146,7 +146,9 @@ def verify_case_target_identity(
             FreshnessFailure(
                 IDENTITY_PROOF_UNAVAILABLE,
                 "This case names no target host to ask, so nothing can say "
-                "which commit its evidence would be captured against.",
+                "which commit its evidence would be captured against. Give it "
+                f"a --base-url serving this project's own build, which answers "
+                f"at {SERVED_BUILD_PATH}.",
             ),
             "",
         )
@@ -163,8 +165,12 @@ def verify_case_target_identity(
                 f"The target at {outcome.url} could not say which commit it "
                 f"is serving: {outcome.detail}. Nothing here proves what the "
                 "evidence would be captured against, so this is unverified "
-                "rather than stale; run this case against a target that "
-                f"publishes its own commit at {SERVED_BUILD_PATH}.",
+                "rather than stale. An expected branch and SHA are provable "
+                "only against a target running this project's own build, "
+                f"which publishes its commit at {SERVED_BUILD_PATH}: a static "
+                "or third-party preview answers nothing there, however "
+                "current it is. Serve the committed candidate and re-run, or "
+                "run this case against the deployment that already serves it.",
             ),
             "",
         )

@@ -19,6 +19,9 @@ from pydantic import BaseModel
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.handlers.qa import _error
+from yoke_core.domain.qa_captured_inspection_review import (
+    unreviewed_capture_run_id,
+)
 from yoke_core.domain.qa_undetermined_evidence import (
     QaUndeterminedEvidenceError,
     require_agent_undetermined_evidence,
@@ -170,28 +173,48 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
 
         now_iso = iso8601_now()
         p = _p(conn)
-        cur = conn.execute(
-            "INSERT INTO qa_runs "
-            "(qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
-            "case_outcome, raw_result, duration_ms, started_at, "
-            "completed_at, created_at) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
-            "RETURNING id",
-            (
-                int(req_id),
-                performed_by,
-                qa_kind,
-                verdict,
-                verdict_reason,
-                case_outcome_for_verdict(verdict),
-                raw_result,
-                duration_ms,
-                now_iso,
-                now_iso,
-                now_iso,
-            ),
+        resolved_capture_id = (
+            unreviewed_capture_run_id(conn, int(req_id)) if agent_browser else None
         )
-        run_id = int(cur.fetchone()[0])
+        if resolved_capture_id is not None:
+            if str(payload.get("raw_result") or "").strip():
+                return _error(
+                    "payload_invalid",
+                    "this verdict resolves captured browser run "
+                    f"#{resolved_capture_id}, whose raw_result already names "
+                    "the commit its evidence was captured against. Replacing "
+                    "that payload would discard the only proof of which tree "
+                    "the screenshot shows. Record the review with "
+                    "--verdict-reason and no --raw-result",
+                    jsonpath="$.payload.raw_result",
+                )
+            # The capture IS the run this verdict settles; the review linkage
+            # below stamps it. Opening a second row here would make an
+            # identity-less agent run the requirement's latest.
+            run_id = resolved_capture_id
+        else:
+            cur = conn.execute(
+                "INSERT INTO qa_runs "
+                "(qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
+                "case_outcome, raw_result, duration_ms, started_at, "
+                "completed_at, created_at) "
+                f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
+                "RETURNING id",
+                (
+                    int(req_id),
+                    performed_by,
+                    qa_kind,
+                    verdict,
+                    verdict_reason,
+                    case_outcome_for_verdict(verdict),
+                    raw_result,
+                    duration_ms,
+                    now_iso,
+                    now_iso,
+                    now_iso,
+                ),
+            )
+            run_id = int(cur.fetchone()[0])
         if agent_browser:
             from yoke_core.domain.qa_captured_inspection_review import (
                 CapturedInspectionReviewError,
