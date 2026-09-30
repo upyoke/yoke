@@ -20,6 +20,7 @@ from yoke_core.domain.delivery_discharge_read import (
     DeliveryDischarge,
     delivery_discharge,
 )
+from yoke_core.domain.item_completion_flow_projection import flow_id
 from yoke_core.domain.merge_review_readiness import pinned_workflow_for_item
 from yoke_core.domain.standalone_item_merge_evidence import CLOSED_OUT_STATUS
 from yoke_core.domain.workflow_behavior import delivery_redirect_stage
@@ -137,7 +138,7 @@ def close_out_route(
         return CloseOutRoute(stages=(CLOSED_OUT_STATUS,))
     try:
         clearance = resolve_delivery_clearance(
-            deploy_flow=str(item.get("deployment_flow") or ""),
+            deploy_flow=flow_id(item.get("deployment_flow")),
             item_project=str((item.get("project") or {}).get("slug") or ""),
             workflow_id=workflow.workflow_id,
         )
@@ -153,9 +154,7 @@ def close_out_route(
         # delivered member's close-out recorded its evidence and was then
         # refused done for a ceremony nobody could perform.
         if clearance.merge_only:
-            return CloseOutRoute(
-                stages=(CLOSED_OUT_STATUS,), delivery_discharged=True
-            )
+            return CloseOutRoute(stages=(CLOSED_OUT_STATUS,), delivery_discharged=True)
         discharge = delivery_discharge(item)
         if discharge.unread:
             # Never assert a ceremony on an unread delivery — but never hide
@@ -203,7 +202,8 @@ def close_out_route(
             )
         )
     return CloseOutRoute(
-        stages=(release_stage_id, CLOSED_OUT_STATUS), delivery_discharged=True,
+        stages=(release_stage_id, CLOSED_OUT_STATUS),
+        delivery_discharged=True,
     )
 
 

@@ -6,13 +6,11 @@ AC presence is enforced upstream by the internal PRD validator (runs at `refined
 
 ## Gate 0a (Hard Block): Missing Deployment Flow
 
-Check:
+Check `yoke items get PREFIX-$_num deployment_flow --json`:
+`result.fields.deployment_flow` is `{value, source}` (the item pin, else the
+project default). The plain read prints `flow (source)` for people, not a flow id.
 
-```bash
-_item_flow=$(yoke items get PREFIX-$_num deployment_flow 2>/dev/null || true)
-```
-
-If `_item_flow` is empty, block and require a flow assignment. Show available flows for the item's project and wait for the operator to pick one.
+If `source` is `unreadable`, stop and name it. If `value` is empty, block and require a flow assignment. Show available flows for the item's project and wait for the operator to pick one.
 
 ## Gate 0b (Advisory): Missing Pack-Reuse Stance
 

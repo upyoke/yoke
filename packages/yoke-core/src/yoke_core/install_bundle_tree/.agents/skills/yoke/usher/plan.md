@@ -10,10 +10,10 @@ Steps 5-6: Dry run display and operator confirmation.
 
 If `--dry-run`:
 
-For each item in merge order, read deployment flow and project:
+For each item in merge order, read deployment flow and project (the flow is
+`result.fields.deployment_flow.value`; the plain read prints `flow (source)`):
 ```bash
-yoke items get PREFIX-N deployment_flow
-yoke items get PREFIX-N project
+yoke items get PREFIX-N deployment_flow project --json
 ```
 
 Group by `(project, deployment_flow)`. Resolve target env per group:
