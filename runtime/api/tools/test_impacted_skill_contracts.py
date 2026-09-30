@@ -35,6 +35,10 @@ def test_skill_change_keeps_prose_contracts_when_selection_is_bounded(
 
     assert selection.bounded_deferral is True
     assert set(impacted_tests.AGENT_SKILL_CONTRACT_TESTS) <= set(selection.files)
+    assert {
+        "runtime/api/test_path_claim_scope_teaching.py",
+        "runtime/api/tools/test_impacted_skill_contracts.py",
+    } <= set(selection.files)
     assert f"agent_skill_contract:{changed}" in selection.widening_triggers
 
 
