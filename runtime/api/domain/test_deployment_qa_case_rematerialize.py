@@ -8,7 +8,6 @@ an acceptance record, not a draft.
 
 from __future__ import annotations
 
-import json
 from unittest import mock
 
 import pytest
@@ -23,10 +22,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.qa_plan_case_currency import (
-    STALE_PLAN_CASE_CODE,
-    PlanCaseCurrencyError,
-)
+from yoke_core.domain.qa_plan_case_currency import STALE_PLAN_CASE_CODE
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.qa_plan_refresh_safety import LIVE_EXECUTION_CODE
@@ -148,41 +144,72 @@ def test_rematerialize_refuses_while_a_live_execution_walks_the_stage(
     assert str(row["instructions"]) == "run the frozen smoke command"
 
 
-def test_a_walk_refuses_a_case_its_plan_has_since_amended(test_db) -> None:
-    """A row behind its plan never runs; the refusal names the refresh.
+def test_a_walk_refuses_an_unjudged_case_its_selected_plan_has_since_amended(
+    test_db,
+) -> None:
+    """An unjudged row behind its selected plan never runs; the refusal
+    names the refresh, and once refreshed the walk freezes the new body.
 
-    Once the stale row is rematerialized from the amended plan, the same walk
-    begins and freezes the corrected body.
+    The stage selects its plan at walk time, so the walk re-reads that plan:
+    a failed row would be re-minted beside it, but a row nobody has judged
+    still answers for the case and must be brought current instead.
     """
-    run_id = "run-rematerialize-stale-walk"
-    requirement_id = _seed(test_db, run_id)
-    _amend_plan_case(test_db, requirement_id)
+    from runtime.api.domain.test_deployment_qa_stage_execution import (
+        _plan,
+        _seed_run,
+        _stages,
+    )
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        materialize_deployment_qa_stage,
+    )
+    from yoke_core.domain.project_identity import render_item_ref
+    from yoke_core.domain.qa_plan_management import replace_plan_cases
+
+    run_id, member = "run-selected-plan-amended", 9895
+    plan_id = _plan(test_db, "selected-amended-smoke")
+    stages = _stages(plan_id)
+    del stages[1]["cases"]
+    _seed_run(test_db, run_id=run_id, stages=stages, members=(member,))
     subject = {
         "deployment_run_id": run_id,
-        "deployment_stage": STAGE,
-        "deployment_member_item_id": MEMBER,
+        "deployment_stage": "item-qa",
+        "deployment_member_item_id": member,
     }
-    with pytest.raises(PlanCaseCurrencyError) as excinfo:
-        begin_plan_execution(test_db, **subject, actor_id="op", session_id="s-1")
+    materialize_deployment_qa_stage(
+        test_db, **subject, agent_plan="selected-amended-smoke"
+    )
+    corrected = {
+        "case_key": "command-smoke",
+        "position": 1,
+        "method_id": "command",
+        "instructions": "run the corrected smoke command",
+        "expected_outcome": "the command passes",
+        "method_config": {"command": "true --corrected"},
+    }
+    replace_plan_cases(test_db, plan_id=plan_id, cases=[corrected])
+    test_db.commit()
+
+    with pytest.raises(QaPlanError) as excinfo:
+        materialize_deployment_qa_stage(
+            test_db, **subject, agent_plan="selected-amended-smoke"
+        )
     message = str(excinfo.value)
     assert STALE_PLAN_CASE_CODE in message
-    assert f"QA requirement {requirement_id}" in message
-    assert "yoke qa plan rematerialize" in message
-    assert f"--deployment-run-id {run_id}" in message
     assert (
-        test_db.execute(
-            "SELECT COUNT(*) FROM qa_plan_executions WHERE deployment_run_id=%s",
-            (run_id,),
-        ).fetchone()[0]
-        == 0
-    )
+        f"yoke qa plan rematerialize --deployment-run-id {run_id} --stage item-qa "
+        f"--member {render_item_ref(test_db, member)}"
+    ) in message
 
     rematerialize_for_deployment_stage(test_db, **subject)
+    materialize_deployment_qa_stage(
+        test_db, **subject, agent_plan="selected-amended-smoke"
+    )
     execution = begin_plan_execution(
         test_db, **subject, actor_id="op", session_id="s-1"
     )
-    frozen = json.loads(str(execution["roster_json"]))
-    assert frozen[0]["instructions"] == "run the corrected smoke command"
+    assert [case["instructions"] for case in execution["roster"]] == [
+        "run the corrected smoke command"
+    ]
 
 
 def _rematerialize_request(payload: dict) -> FunctionCallRequest:

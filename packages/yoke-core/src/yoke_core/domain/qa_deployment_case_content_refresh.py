@@ -31,6 +31,10 @@ import json
 from typing import Any, Mapping
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.qa_deployment_case_correction_window import (
+    determinate_verdict,
+)
+from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.qa_obligation_settlement import (
     obligation_settled,
     requirement_retracted_at_select,
@@ -100,7 +104,7 @@ def _discharged_or_failed(conn: Any, row: Mapping[str, Any]) -> bool:
     return bool(verdict) and str(verdict[0]["verdict"] or "") == "fail"
 
 
-def refreshed_case_keys(
+def _rows_by_case(
     conn: Any,
     *,
     run_id: str,
@@ -108,13 +112,8 @@ def refreshed_case_keys(
     member_item_id: int | None,
     plan_id: int,
     execution_target_digest: str,
-    cases: list[Mapping[str, Any]],
-) -> dict[str, str]:
-    """Map each case key that needs a fresh row to the key it takes.
-
-    Empty when every case is either still answered by its row or unchanged
-    since it was materialized -- which is the ordinary idempotent outcome.
-    """
+) -> dict[str, list[dict[str, Any]]]:
+    """This subject's rows for one plan, grouped by their authored case key."""
     rows = query_rows(
         conn,
         "SELECT id,plan_case_key,method_id,method_config,instructions,"
@@ -130,13 +129,41 @@ def refreshed_case_keys(
             execution_target_digest,
         ),
     )
-    if not rows:
-        return {}
     by_key: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         by_key.setdefault(base_case_key(row["plan_case_key"]), []).append(dict(row))
+    return by_key
 
+
+def refreshed_case_keys(
+    conn: Any,
+    *,
+    run_id: str,
+    stage_name: str,
+    member_item_id: int | None,
+    plan_id: int,
+    execution_target_digest: str,
+    cases: list[Mapping[str, Any]],
+) -> dict[str, str]:
+    """Map each case key that needs a fresh row to the key it takes.
+
+    Empty when every case is either still answered by its row or unchanged
+    since it was materialized -- which is the ordinary idempotent outcome.
+    Refuses, before anything is written, when a row nobody has judged still
+    stands for a case whose content has since moved: no fresh row may compete
+    with it, and walking it as it stands would judge against content the
+    plan replaced. The refusal names the refresh that brings it current.
+    """
+    by_key = _rows_by_case(
+        conn,
+        run_id=run_id,
+        stage_name=stage_name,
+        member_item_id=member_item_id,
+        plan_id=plan_id,
+        execution_target_digest=execution_target_digest,
+    )
     refreshed: dict[str, str] = {}
+    behind: list[int] = []
     for case in cases:
         key = str(case["case_key"])
         materialized = by_key.get(key)
@@ -150,9 +177,32 @@ def refreshed_case_keys(
         if not all(_discharged_or_failed(conn, row) for row in materialized):
             # Something still answers for this case; a correction would be
             # competing with live work rather than replacing spent work.
+            behind.extend(
+                int(row["id"])
+                for row in materialized
+                if not obligation_settled(row)
+                and not determinate_verdict(conn, int(row["id"]))
+            )
             continue
         refreshed[key] = refreshed_case_key(key, digest)
+    if behind:
+        raise QaPlanError(_behind_plan_refusal(conn, plan_id, behind))
     return refreshed
+
+
+def _behind_plan_refusal(conn: Any, plan_id: int, requirement_ids: list[int]) -> str:
+    from yoke_core.domain.qa_plan_case_currency import STALE_PLAN_CASE_CODE
+    from yoke_core.domain.qa_plan_refresh_safety import plan_refresh_invocation
+
+    ids = ", ".join(str(requirement_id) for requirement_id in requirement_ids)
+    return (
+        f"{STALE_PLAN_CASE_CODE}: QA requirement {ids} has not been judged, and "
+        f"its case in QA plan {plan_id} has changed since it was materialized. "
+        "Running it would judge against a definition the plan has already "
+        "replaced. Refresh it from the plan with "
+        f"`{plan_refresh_invocation(conn, requirement_ids[0])}`, then run the "
+        "stage again."
+    )
 
 
 def declare_refreshed_replacements(conn: Any, created_ids: list[int]) -> None:
