@@ -72,11 +72,9 @@ particular harness happens to offer.
   selections, including superseded families. Not an extra usable rank.
   An explicit operator route can still name one.
 
-Which models sit in each band is the catalog's own answer, so read it
-rather than naming them here: `yoke models get` for the whole revision,
-`yoke models lookup <model-id>` for one. A band named in prose is a copy
-of a value this very skill republishes, and the next reclassification
-would falsify it with no lane to correct it in.
+Never name which models sit in a band here: this skill republishes that
+value, so the next refresh would falsify its own prose. Read it instead —
+`yoke models get`, or `yoke models lookup <model-id>` for one.
 
 A vendor flagship label, a larger version number, a higher price, or a
 new harness selector is not evidence of global tier1. Re-evaluate older
