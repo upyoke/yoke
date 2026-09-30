@@ -9,7 +9,8 @@ The timeout belongs to each executable job in the called workflow.
 The repository contract in `runtime/api/domain/test_ci_action_pins.py` inventories
 all `.yml` and `.yaml` workflows, rejects a missing or invalid executable-job
 limit, and requires callers to reference an existing local workflow whose jobs
-are included in that inventory. See
+are included in that inventory. The doctor's check-name inventory recognizes
+job-level `name` regardless of whether the timeout or runner comes first. See
 [GitHub's supported caller keywords](https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workflow-configurations#supported-keywords-for-jobs-that-call-a-reusable-workflow).
 
 ## Sizing evidence

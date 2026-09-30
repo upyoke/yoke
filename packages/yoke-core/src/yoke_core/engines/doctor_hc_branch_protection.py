@@ -1,35 +1,14 @@
-"""Doctor health check — branch protection auto-mode.
+"""Doctor health check for remote branch-protection enforcement.
 
-HC-branch-protection-required-check auto-detects the project's remote CI
-enforcement posture and classifies the outcome. Pairs with
-``.github/workflows/yoke-ci.yml`` / ``cla.yml`` and the operator runbook at
-the operator's private branch-protection runbook.
-
-Two-mode model (operator decision recorded 2026-05-26):
-
-- **Required-checks mode** (preferred): the repo plan / visibility lets
-  GitHub host branch-protection rules. When the configured checks are
-  in ``required_status_checks.contexts``, PASS — remote merge blocking
-  is in place. When checks are missing or branch protection is absent
-  entirely, FAIL and emit ``BranchProtectionCheckFailed`` with the
-  reason. When a live required context matches no workflow job name,
-  FAIL as stale-protection drift.
-- **Notify-only mode**: the repo plan / visibility does NOT permit
-  branch protection (the canonical GitHub response is HTTP 403 with the
-  ``Upgrade to GitHub Pro or make this repository public`` message).
-  In this mode, CI still runs and the operator still receives GitHub
-  Actions failure notifications, but GitHub will not block remote
-  merges. WARN (INFO-style guidance) — not a failure, because remote
-  blocking is unavailable for plan reasons, not configuration drift.
-
-The HC SKIPs cleanly (not FAIL) on a no-auth host so bare-laptop runs
-do not register as failures.
-
-Emits ``BranchProtectionCheckFailed`` (WARN) on drift / unavailability
-so the events ledger carries a structured trail. The ``reason`` field
-distinguishes ``branch_protection_absent``,
-``missing_required_checks``, ``stale_required_checks``, and
-``branch_protection_unavailable``.
+Required-checks mode passes when GitHub enforces the declared contexts.
+Missing protection, missing required checks, or orphan contexts fail and emit
+BranchProtectionCheckFailed with the matching drift reason.
+A plan-gated HTTP 403 warns in notify-only mode: failure notifications still
+work, but GitHub cannot block merges. Missing authentication skips cleanly.
+Drift events carry branch_protection_absent, missing_required_checks,
+stale_required_checks, or branch_protection_unavailable as their reason.
+Workflow check names are inventoried independently of job-field order.
+Pairs with yoke-ci.yml, cla.yml, and the operator's branch-protection runbook.
 """
 
 from __future__ import annotations
@@ -56,7 +35,11 @@ from yoke_core.domain.project_github_auth import (
     repair_command_hint,
     resolve_project_github_auth,
 )
-from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector, _resolve_repo_root
+from yoke_core.engines.doctor_report import (
+    DoctorArgs,
+    RecordCollector,
+    _resolve_repo_root,
+)
 from yoke_core.domain.project_attribution import resolved_project
 
 
@@ -78,7 +61,8 @@ _PLAN_GATED_MARKERS: Tuple[str, ...] = (
 )
 
 _JOB_ID_RE = re.compile(r"(?m)^  ([A-Za-z0-9_-]+):\n")
-_JOB_NAME_RE = re.compile(r"(?m)^  [A-Za-z0-9_-]+:\n    name: (.+)$")
+# Job fields may precede name; its indentation excludes nested step/env names.
+_JOB_NAME_RE = re.compile(r"(?m)^    name: (.+)$")
 
 
 def _is_plan_gated_unavailable(exc: RestAuthError) -> bool:
@@ -135,7 +119,8 @@ def context_matches_job(context: str, job_names: Sequence[str]) -> bool:
 
 
 def orphan_required_contexts(
-    actual: Sequence[str], job_names: Sequence[str],
+    actual: Sequence[str],
+    job_names: Sequence[str],
 ) -> Tuple[str, ...]:
     """Live required contexts that no workflow job name can produce."""
     if not job_names:
@@ -151,7 +136,9 @@ def _workflows_dir_from_checkout() -> Optional[Path]:
 
 
 def hc_branch_protection_required_check(
-    conn, args: DoctorArgs, rec: RecordCollector,
+    conn,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     """HC-branch-protection-required-check (project-scoped, --full only)."""
     project = resolved_project(args.project)
@@ -164,7 +151,9 @@ def hc_branch_protection_required_check(
         )
     except ProjectGithubAuthError as err:
         rec.record(
-            CHECK_ID, CHECK_NAME, "SKIP",
+            CHECK_ID,
+            CHECK_NAME,
+            "SKIP",
             (
                 f"Project GitHub auth unavailable for '{project}' "
                 f"({err.code}): {err}\n"
@@ -183,7 +172,9 @@ def hc_branch_protection_required_check(
         resp = request_with_retry(req, token=auth.token)
     except RestNotFoundError:
         rec.record(
-            CHECK_ID, CHECK_NAME, "FAIL",
+            CHECK_ID,
+            CHECK_NAME,
+            "FAIL",
             (
                 f"Branch protection is not configured on "
                 f"{auth.repo}@{PROTECTED_BRANCH}.\n"
@@ -201,7 +192,9 @@ def hc_branch_protection_required_check(
     except RestAuthError as exc:
         if _is_plan_gated_unavailable(exc):
             rec.record(
-                CHECK_ID, CHECK_NAME, "WARN",
+                CHECK_ID,
+                CHECK_NAME,
+                "WARN",
                 (
                     f"Branch protection is unavailable on "
                     f"{auth.repo}@{PROTECTED_BRANCH} for plan/visibility "
@@ -221,7 +214,9 @@ def hc_branch_protection_required_check(
             )
             return
         rec.record(
-            CHECK_ID, CHECK_NAME, "WARN",
+            CHECK_ID,
+            CHECK_NAME,
+            "WARN",
             (
                 f"Could not query branch protection on "
                 f"{auth.repo}@{PROTECTED_BRANCH}: {exc}"
@@ -230,7 +225,9 @@ def hc_branch_protection_required_check(
         return
     except RestTransportError as exc:
         rec.record(
-            CHECK_ID, CHECK_NAME, "WARN",
+            CHECK_ID,
+            CHECK_NAME,
+            "WARN",
             (
                 f"Could not query branch protection on "
                 f"{auth.repo}@{PROTECTED_BRANCH}: {exc}"
@@ -250,7 +247,9 @@ def hc_branch_protection_required_check(
             reason="missing_required_checks",
         )
         rec.record(
-            CHECK_ID, CHECK_NAME, "FAIL",
+            CHECK_ID,
+            CHECK_NAME,
+            "FAIL",
             (
                 f"Branch protection on {auth.repo}@{PROTECTED_BRANCH} is missing "
                 f"required check(s): {', '.join(missing)}.\n"
@@ -274,7 +273,9 @@ def hc_branch_protection_required_check(
             reason="stale_required_checks",
         )
         rec.record(
-            CHECK_ID, CHECK_NAME, "FAIL",
+            CHECK_ID,
+            CHECK_NAME,
+            "FAIL",
             (
                 f"Branch protection on {auth.repo}@{PROTECTED_BRANCH} requires "
                 f"context(s) no workflow job produces: {', '.join(orphans)}.\n"
@@ -287,7 +288,9 @@ def hc_branch_protection_required_check(
         return
 
     rec.record(
-        CHECK_ID, CHECK_NAME, "PASS",
+        CHECK_ID,
+        CHECK_NAME,
+        "PASS",
         (
             f"Branch protection on {auth.repo}@{PROTECTED_BRANCH} "
             f"requires the declared context(s): "
@@ -328,8 +331,9 @@ def _emit_drift_event(
             "actual_contexts": list(actual),
             "missing_checks": list(missing),
             "reason": reason,
-            "drift_detected_at": datetime.now(timezone.utc)
-                .strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "drift_detected_at": datetime.now(timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
         },
     )
 
