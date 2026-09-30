@@ -25,16 +25,21 @@ from yoke_core.domain.qa_artifact_ops import (  # noqa: F401  (re-exported)
     _ART_SELECT,
     cmd_artifact_add,
     cmd_artifact_list,
+    attach_linked_screenshot,
     linked_artifact_handle,
 )
 from yoke_core.domain.qa_run_batch import cmd_run_add_batch  # noqa: F401  (re-exported)
-from yoke_core.domain.qa_capture_agreement import abort_if_captured_without_evidence, run_artifact_count
+from yoke_core.domain.qa_capture_agreement import (
+    abort_if_captured_without_evidence,
+    run_artifact_count,
+)
 from yoke_core.domain.qa_run_reads import (  # noqa: F401  (re-exported)
     _RUN_SELECT,
     cmd_run_get,
     cmd_run_list,
 )
 from yoke_core.domain import qa_undetermined_evidence as _qa_review_evidence
+from yoke_core.domain.qa_run_verdict_record import insert_qa_run, update_qa_run
 
 _resolve_requirement_event_target = qa_events.resolve_requirement_event_target
 _emit_qa_requirement_event = qa_events.emit_qa_requirement_event
@@ -156,59 +161,49 @@ def cmd_run_add(
                         sys.exit(2)
 
         _qa_review_evidence.require_cli_agent_undetermined_evidence(
-            conn, performed_by=performed_by, verdict=verdict,
+            conn,
+            performed_by=performed_by,
+            verdict=verdict,
             artifact_will_be_attached=artifact_path is not None,
         )
         from yoke_core.domain.qa_run_commit_binding import bind_cli_raw_result
 
         raw_result = bind_cli_raw_result(
-            verdict=verdict, raw_result=raw_result, performed_by=performed_by,
-            requirement_id=requirement_id, db_path=db_path, head_sha=head_sha,
+            verdict=verdict,
+            raw_result=raw_result,
+            performed_by=performed_by,
+            requirement_id=requirement_id,
+            db_path=db_path,
+            head_sha=head_sha,
         )
         now_iso = iso8601_now()
         completed_at_value = (
             now_iso if (verdict is not None or execution_status is not None) else None
         )
 
-        sql = """INSERT INTO qa_runs
-                  (qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason,
-                   execution_status, case_outcome, score, confidence, raw_result,
-                   duration_ms, started_at, completed_at, created_at)
-                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"""
-        cur = conn.execute(
-            sql,
-            (
-                requirement_id,
-                performed_by,
-                qa_kind,
-                verdict,
-                verdict_reason,
-                execution_status,
-                case_outcome_for_verdict(verdict),
-                score,
-                confidence,
-                raw_result,
-                duration_ms,
-                now_iso,
-                completed_at_value,
-                now_iso,
-            ),
-        )
-        inserted_id = int(cur.fetchone()[0])
+        inserted_id = insert_qa_run(
+            conn,
+            qa_requirement_id=requirement_id,
+            performed_by=performed_by,
+            qa_kind=qa_kind,
+            verdict=verdict,
+            verdict_reason=verdict_reason,
+            execution_status=execution_status,
+            case_outcome=case_outcome_for_verdict(verdict),
+            score=score,
+            confidence=confidence,
+            raw_result=raw_result,
+            duration_ms=duration_ms,
+            started_at=now_iso,
+            completed_at=completed_at_value,
+            created_at=now_iso,
+        ).run_id
         from yoke_core.domain.item_activity import touch_for_qa_requirement
 
         touch_for_qa_requirement(conn, requirement_id)  # R1 item activity
         if artifact_path is not None:
-            _ext = os.path.splitext(artifact_path)[1].lower()
-            _content_type = {
-                ".png": "image/png",
-                ".jpg": "image/jpeg",
-                ".jpeg": "image/jpeg",
-                ".webp": "image/webp",
-                ".gif": "image/gif",
-            }.get(_ext, "application/octet-stream")
             try:
-                _handle = linked_artifact_handle(
+                attach_linked_screenshot(
                     conn,
                     requirement_id=requirement_id,
                     run_id=inserted_id,
@@ -216,24 +211,21 @@ def cmd_run_add(
                 )
             except Exception as exc:
                 conn.rollback()
-                print(f"Error: {getattr(exc, 'code', 'artifact_storage_failed')}: {exc}", file=sys.stderr)
+                print(
+                    f"Error: {getattr(exc, 'code', 'artifact_storage_failed')}: {exc}",
+                    file=sys.stderr,
+                )
                 sys.exit(2)
-            conn.execute(
-                """INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, artifact_handle, metadata, created_at)
-                   VALUES (%s, %s, %s, %s, %s, %s)""",
-                (
-                    inserted_id,
-                    "screenshot",
-                    _content_type,
-                    _handle,
-                    None,
-                    iso8601_now(),
-                ),
-            )
-        abort_if_captured_without_evidence(execution_status=execution_status, artifact_count=1 if artifact_path is not None else 0, rollback=conn.rollback)
+        abort_if_captured_without_evidence(
+            execution_status=execution_status,
+            artifact_count=1 if artifact_path is not None else 0,
+            rollback=conn.rollback,
+        )
         conn.commit()
-        _event_name = "QARunCompleted" if verdict is not None else (
-            "QARunCaptured" if execution_status is not None else "QARunStarted"
+        _event_name = (
+            "QARunCompleted"
+            if verdict is not None
+            else ("QARunCaptured" if execution_status is not None else "QARunStarted")
         )
         qa_events.emit_qa_run_event(
             conn,
@@ -242,7 +234,8 @@ def cmd_run_add(
             run_id=inserted_id,
             requirement_id=requirement_id,
             qa_kind=qa_kind,
-            verdict=verdict, verdict_reason=verdict_reason,
+            verdict=verdict,
+            verdict_reason=verdict_reason,
         )
     finally:
         conn.close()
@@ -290,37 +283,36 @@ def cmd_run_complete(
             sys.exit(1)
 
         _qa_review_evidence.require_cli_agent_undetermined_evidence(
-            conn, performed_by=str(row["performed_by"]), verdict=verdict,
+            conn,
+            performed_by=str(row["performed_by"]),
+            verdict=verdict,
             run_ids=(run_id,),
         )
-        abort_if_captured_without_evidence(execution_status=execution_status, artifact_count=run_artifact_count(conn, run_id))
+        abort_if_captured_without_evidence(
+            execution_status=execution_status,
+            artifact_count=run_artifact_count(conn, run_id),
+        )
 
-        params: list = [iso8601_now()]
-        set_parts = ["completed_at = %s"]
+        columns: dict = {"completed_at": iso8601_now()}
         if verdict is not None:
-            set_parts.extend(
-                ("verdict = %s", "verdict_reason = %s", "case_outcome = %s")
+            columns.update(
+                verdict=verdict,
+                verdict_reason=verdict_reason,
+                case_outcome=case_outcome_for_verdict(verdict),
             )
-            params.extend((verdict, verdict_reason, case_outcome_for_verdict(verdict)))
         if execution_status is not None:
-            set_parts.append("execution_status = %s")
-            params.append(execution_status)
+            columns["execution_status"] = execution_status
         if raw_result is not None:
             from yoke_core.domain.qa_requirement_pass_currency import (
                 retain_start_bound_method_config,
             )
-            set_parts.append("raw_result = %s")
-            params.append(
-                retain_start_bound_method_config(row["raw_result"], raw_result)
+
+            columns["raw_result"] = retain_start_bound_method_config(
+                row["raw_result"], raw_result
             )
         if duration_ms is not None:
-            set_parts.append("duration_ms = %s")
-            params.append(duration_ms)
-
-        params.append(run_id)
-        conn.execute(
-            f"UPDATE qa_runs SET {', '.join(set_parts)} WHERE id = %s", tuple(params)
-        )
+            columns["duration_ms"] = duration_ms
+        update_qa_run(conn, run_id, columns)
         conn.commit()
 
         if verdict is not None:
@@ -338,7 +330,8 @@ def cmd_run_complete(
             run_id=run_id,
             requirement_id=int(row["qa_requirement_id"]),
             qa_kind=str(row["qa_kind"]),
-            verdict=verdict, verdict_reason=verdict_reason,
+            verdict=verdict,
+            verdict_reason=verdict_reason,
         )
     finally:
         conn.close()

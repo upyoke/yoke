@@ -120,9 +120,8 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
         if row is None:
             return _error("not_found", f"requirement {req_id} not found")
         qa_kind = str(row["qa_kind"])
-        agent_browser = (
-            performed_by == "agent"
-            and is_browser_method_requirement(row["method_id"])
+        agent_browser = performed_by == "agent" and is_browser_method_requirement(
+            row["method_id"]
         )
         if agent_browser and str(row["method_id"]) != "browser-inspection":
             from yoke_core.domain.qa_captured_inspection_review import (
@@ -144,9 +143,7 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
         except QaUndeterminedEvidenceError as exc:
             return _error(exc.code, str(exc), jsonpath="$.payload.verdict")
 
-        if (not agent_browser) and _names_no_verified_tree(
-            verdict, row, raw_result
-        ):
+        if (not agent_browser) and _names_no_verified_tree(verdict, row, raw_result):
             return _error(
                 "payload_invalid",
                 "a passing verdict on a blocking requirement must name the "
@@ -172,7 +169,6 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
         )
 
         now_iso = iso8601_now()
-        p = _p(conn)
         resolved_capture_id = (
             unreviewed_capture_run_id(conn, int(req_id)) if agent_browser else None
         )
@@ -193,28 +189,22 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
             # identity-less agent run the requirement's latest.
             run_id = resolved_capture_id
         else:
-            cur = conn.execute(
-                "INSERT INTO qa_runs "
-                "(qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
-                "case_outcome, raw_result, duration_ms, started_at, "
-                "completed_at, created_at) "
-                f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
-                "RETURNING id",
-                (
-                    int(req_id),
-                    performed_by,
-                    qa_kind,
-                    verdict,
-                    verdict_reason,
-                    case_outcome_for_verdict(verdict),
-                    raw_result,
-                    duration_ms,
-                    now_iso,
-                    now_iso,
-                    now_iso,
-                ),
-            )
-            run_id = int(cur.fetchone()[0])
+            from yoke_core.domain.qa_run_verdict_record import insert_qa_run
+
+            run_id = insert_qa_run(
+                conn,
+                qa_requirement_id=int(req_id),
+                performed_by=performed_by,
+                qa_kind=qa_kind,
+                verdict=verdict,
+                verdict_reason=verdict_reason,
+                case_outcome=case_outcome_for_verdict(verdict),
+                raw_result=raw_result,
+                duration_ms=duration_ms,
+                started_at=now_iso,
+                completed_at=now_iso,
+                created_at=now_iso,
+            ).run_id
         if agent_browser:
             from yoke_core.domain.qa_captured_inspection_review import (
                 CapturedInspectionReviewError,

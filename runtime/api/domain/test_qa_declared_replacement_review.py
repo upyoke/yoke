@@ -27,7 +27,6 @@ from yoke_core.domain.qa_plan_execution_state import (
 )
 from yoke_core.domain.qa_plan_review import begin_plan_review
 from yoke_core.domain.qa_plan_review_submission import submit_plan_review
-from yoke_core.domain.qa_requirement_replacement import discharge_declared_replacements
 
 
 def _item_case_with_failed_attempt(conn: Any, item_id: int) -> tuple[dict, int, int]:
@@ -78,10 +77,13 @@ def test_item_review_pass_supersedes_the_failed_item_case_in_its_commit() -> Non
 
         result = _review(conn, execution, corrected_id, "pass")
 
-        assert [entry["requirement_id"] for entry in result["superseded_by_replacement"]] == [
-            failed_id
-        ]
-        assert requirement_row(conn, failed_id)["superseded_by_requirement_id"] == corrected_id
+        assert [
+            entry["requirement_id"] for entry in result["superseded_by_replacement"]
+        ] == [failed_id]
+        assert (
+            requirement_row(conn, failed_id)["superseded_by_requirement_id"]
+            == corrected_id
+        )
         assert failed_id not in _unsatisfied_ids(conn, 4621)
 
 
@@ -99,7 +101,7 @@ def test_item_review_fail_keeps_the_failed_item_case_blocking() -> None:
 
 
 def _run_stage_execution(conn: Any, run_id: str, verdict: str) -> list[int]:
-    """Execute a run-scoped stage's roster to one verdict; discharge on a pass."""
+    """Execute a run-scoped stage's roster to one verdict; a pass discharges."""
     execution = begin_plan_execution(
         conn,
         deployment_run_id=run_id,
@@ -124,14 +126,14 @@ def _run_stage_execution(conn: Any, run_id: str, verdict: str) -> list[int]:
             },
         )
         ran.append(requirement_id)
-    if verdict == "pass":
-        discharge_declared_replacements(conn, ran)
     finish_plan_execution(conn, execution, state="completed", reason="test-complete")
     conn.commit()
     return ran
 
 
-def test_human_acceptance_is_requested_only_after_the_replacement_passes(test_db) -> None:
+def test_human_acceptance_is_requested_only_after_the_replacement_passes(
+    test_db,
+) -> None:
     from runtime.api.domain.test_deployment_qa_stage_execution import (
         _plan,
         _seed_run,
@@ -170,7 +172,10 @@ def test_human_acceptance_is_requested_only_after_the_replacement_passes(test_db
     assert not waiting["accepted"] and waiting["request_id"] is None
 
     assert _run_stage_execution(test_db, run_id, "pass") == [corrected_id]
-    assert requirement_row(test_db, failed_id)["superseded_by_requirement_id"] == corrected_id
+    assert (
+        requirement_row(test_db, failed_id)["superseded_by_requirement_id"]
+        == corrected_id
+    )
     pending = status()
     assert not pending["accepted"] and pending["request_id"] is not None
 

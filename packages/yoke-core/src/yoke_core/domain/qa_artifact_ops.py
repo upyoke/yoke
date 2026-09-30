@@ -12,6 +12,7 @@ refused with the handle vocabulary in the error.
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import List, Optional
 
@@ -83,6 +84,16 @@ def ensure_artifact_capacity(conn, run_id: int | None) -> int | None:
     return int(row["qa_requirement_id"])
 
 
+#: Content types a one-step screenshot attachment is stored under, by extension.
+_SCREENSHOT_CONTENT_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+}
+
+
 def linked_artifact_handle(
     conn,
     *,
@@ -101,6 +112,31 @@ def linked_artifact_handle(
             run_id=run_id,
             path=artifact_path,
         )
+    )
+
+
+def attach_linked_screenshot(
+    conn, *, requirement_id: int, run_id: int, artifact_path: str
+) -> None:
+    """Store a one-step screenshot and link it to its run on this transaction."""
+    extension = os.path.splitext(str(artifact_path))[1].lower()
+    handle = linked_artifact_handle(
+        conn,
+        requirement_id=requirement_id,
+        run_id=run_id,
+        artifact_path=str(artifact_path),
+    )
+    conn.execute(
+        "INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, "
+        "artifact_handle, metadata, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
+        (
+            run_id,
+            "screenshot",
+            _SCREENSHOT_CONTENT_TYPES.get(extension, "application/octet-stream"),
+            handle,
+            None,
+            iso8601_now(),
+        ),
     )
 
 
@@ -275,5 +311,6 @@ __all__ = [
     "cmd_artifact_add",
     "cmd_artifact_list",
     "ensure_artifact_capacity",
+    "attach_linked_screenshot",
     "linked_artifact_handle",
 ]

@@ -293,47 +293,46 @@ def apply_qa_review_resolution(
         recorded_method_config,
         stamp_executed_method_config,
     )
+
     evidence = None
     run_id = int(reviewed_run_id or 0)
     if run_id > 0:
         capture = conn.execute(
-            f"SELECT raw_result FROM qa_runs WHERE id={p} "
-            f"AND qa_requirement_id={p}",
+            f"SELECT raw_result FROM qa_runs WHERE id={p} AND qa_requirement_id={p}",
             (run_id, int(requirement_id)),
         ).fetchone()
         if capture is not None:
-            evidence = (
-                capture["raw_result"] if hasattr(capture, "keys") else capture[0]
-            )
+            evidence = capture["raw_result"] if hasattr(capture, "keys") else capture[0]
     recorded = recorded_method_config(evidence)
     live = conn.execute(
         f"SELECT method_config FROM qa_requirements WHERE id={p}",
         (int(requirement_id),),
     ).fetchone()
     live_config = None if live is None else live["method_config"]
-    if action == "approve" and executable_method_config(live_config) and recorded is None:
+    if (
+        action == "approve"
+        and executable_method_config(live_config)
+        and recorded is None
+    ):
         raise ValueError(
             "human review approve requires the reviewed capture's recorded method_config. Recapture the live case, then resolve that review."
         )
-    conn.execute(
-        "INSERT INTO qa_runs "
-        "(qa_requirement_id, performed_by, qa_kind, verdict, raw_result, "
-        "started_at, completed_at, created_at) "
-        f"VALUES ({p}, 'human_review', {p}, {p}, {p}, {p}, {p}, {p})",
-        (
-            int(requirement_id),
-            str(requirement["qa_kind"]),
-            verdict,
-            stamp_executed_method_config(
-                note,
-                recorded,
-                execution_target_digest=recorded_execution_target_digest(evidence)
-                or None,
-            ),
-            stamp,
-            stamp,
-            stamp,
+    from yoke_core.domain.qa_run_verdict_record import insert_qa_run
+
+    insert_qa_run(
+        conn,
+        qa_requirement_id=int(requirement_id),
+        performed_by="human_review",
+        qa_kind=str(requirement["qa_kind"]),
+        verdict=verdict,
+        raw_result=stamp_executed_method_config(
+            note,
+            recorded,
+            execution_target_digest=recorded_execution_target_digest(evidence) or None,
         ),
+        started_at=stamp,
+        completed_at=stamp,
+        created_at=stamp,
     )
 
 

@@ -7,6 +7,7 @@ from typing import Any, Mapping
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.qa_constants import case_outcome_for_verdict
 from yoke_core.domain.qa_plan_execution_store import marker
+from yoke_core.domain.qa_run_verdict_record import insert_qa_run, update_qa_run
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -14,8 +15,7 @@ CAPTURE_RUNNERS = ("browser_substrate", "host_control", "agent_mission")
 INFLIGHT_CASE_FAILURE_VERDICT = "error"
 UNREVIEWED_CAPTURE_VERDICT = "error"
 UNREVIEWED_CAPTURE_REASON = (
-    "execution ended without a review verdict; capture settled by "
-    "execution termination"
+    "execution ended without a review verdict; capture settled by execution termination"
 )
 
 
@@ -34,14 +34,12 @@ def stamp_reviewed_capture(
     linked passing review row. The first stamp is allowed; a replay no-ops
     because the immutability trigger only fires once a verdict exists.
     """
-    placeholder = marker(conn)
-    conn.execute(
-        "UPDATE qa_runs SET verdict="
-        f"{placeholder},verdict_reason={placeholder},"
-        "completed_at=COALESCE(completed_at, "
-        f"{placeholder}) "
-        f"WHERE id={placeholder} AND verdict IS NULL",
-        (verdict, rationale, created_at, int(case["capture_run_id"])),
+    update_qa_run(
+        conn,
+        int(case["capture_run_id"]),
+        {"verdict": verdict, "verdict_reason": rationale},
+        unjudged_only=True,
+        default_completed_at=created_at,
     )
 
 
@@ -68,22 +66,23 @@ def settle_unreviewed_execution_captures(
     placeholder = marker(conn)
     runners = ", ".join(placeholder for _ in CAPTURE_RUNNERS)
     req_placeholders = ", ".join(placeholder for _ in requirement_ids)
-    conn.execute(
-        "UPDATE qa_runs SET verdict="
-        f"{placeholder},verdict_reason={placeholder},"
-        "completed_at=COALESCE(completed_at, "
-        f"{placeholder}) "
-        f"WHERE qa_requirement_id IN ({req_placeholders}) "
-        f"AND performed_by IN ({runners}) "
-        "AND verdict IS NULL",
-        (
-            UNREVIEWED_CAPTURE_VERDICT,
-            UNREVIEWED_CAPTURE_REASON,
-            iso8601_now(),
-            *requirement_ids,
-            *CAPTURE_RUNNERS,
-        ),
-    )
+    unjudged = conn.execute(
+        f"SELECT id FROM qa_runs WHERE qa_requirement_id IN ({req_placeholders}) "
+        f"AND performed_by IN ({runners}) AND verdict IS NULL ORDER BY id",
+        (*requirement_ids, *CAPTURE_RUNNERS),
+    ).fetchall()
+    now = iso8601_now()
+    for row in unjudged:
+        update_qa_run(
+            conn,
+            int(row["id"] if hasattr(row, "keys") else row[0]),
+            {
+                "verdict": UNREVIEWED_CAPTURE_VERDICT,
+                "verdict_reason": UNREVIEWED_CAPTURE_REASON,
+            },
+            unjudged_only=True,
+            default_completed_at=now,
+        )
 
 
 def record_inflight_case_failure(
@@ -134,24 +133,20 @@ def record_inflight_case_failure(
     if existing is not None:
         return
     now = iso8601_now()
-    conn.execute(
-        "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
-        "verdict_reason,execution_status,case_outcome,started_at,completed_at,"
-        f"created_at) VALUES({','.join([placeholder] * 10)})",
-        (
-            int(requirement_id),
-            str(case.get("runner_id") or ""),
-            str(case.get("qa_kind") or ""),
-            INFLIGHT_CASE_FAILURE_VERDICT,
-            f"case execution ended before it recorded a run: {reason}",
-            # No capture stage was reached, so the row carries a verdict
-            # and no execution_status rather than a capture outcome.
-            None,
-            case_outcome_for_verdict(INFLIGHT_CASE_FAILURE_VERDICT),
-            started_at or now,
-            now,
-            now,
-        ),
+    insert_qa_run(
+        conn,
+        qa_requirement_id=int(requirement_id),
+        performed_by=str(case.get("runner_id") or ""),
+        qa_kind=str(case.get("qa_kind") or ""),
+        verdict=INFLIGHT_CASE_FAILURE_VERDICT,
+        verdict_reason=f"case execution ended before it recorded a run: {reason}",
+        # No capture stage was reached, so the row carries a verdict and no
+        # execution_status rather than a capture outcome.
+        execution_status=None,
+        case_outcome=case_outcome_for_verdict(INFLIGHT_CASE_FAILURE_VERDICT),
+        started_at=started_at or now,
+        completed_at=now,
+        created_at=now,
     )
 
 

@@ -59,8 +59,10 @@ def _insert_docket(
         host_control_submission_receipt,
     )
     from yoke_core.domain.qa_capture_agreement import AGENT_MISSION_DOCKET_REASON
-    from yoke_core.domain.qa_plan_execution_store import canonical, marker
-    from yoke_core.domain.qa_requirement_pass_currency import stamp_executed_method_config
+    from yoke_core.domain.qa_plan_execution_store import canonical
+    from yoke_core.domain.qa_requirement_pass_currency import (
+        stamp_executed_method_config,
+    )
 
     now = iso8601_now()
     executor = str(case["method_config"]["executor"])
@@ -73,27 +75,26 @@ def _insert_docket(
             contract_digest,
         ),
     }
-    p = marker(conn)
-    row = conn.execute(
-        "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
-        "execution_status,case_outcome,capture_degraded_reason,raw_result,"
-        "started_at,completed_at,created_at) "
-        f"VALUES({', '.join([p] * 11)}) RETURNING id",
-        (
-            int(case["requirement_id"]),
-            "agent_mission",
-            str(case["qa_kind"]),
-            None,
-            "captured",
-            "needs_review",
-            AGENT_MISSION_DOCKET_REASON,
-            stamp_executed_method_config(canonical(transcript), case.get("method_config"), execution_target_digest=case.get("execution_target_digest")),
-            now,
-            now,
-            now,
+    from yoke_core.domain.qa_run_verdict_record import insert_qa_run
+
+    run_id = insert_qa_run(
+        conn,
+        qa_requirement_id=int(case["requirement_id"]),
+        performed_by="agent_mission",
+        qa_kind=str(case["qa_kind"]),
+        verdict=None,
+        execution_status="captured",
+        case_outcome="needs_review",
+        capture_degraded_reason=AGENT_MISSION_DOCKET_REASON,
+        raw_result=stamp_executed_method_config(
+            canonical(transcript),
+            case.get("method_config"),
+            execution_target_digest=case.get("execution_target_digest"),
         ),
-    ).fetchone()
-    run_id = int(row[0])
+        started_at=now,
+        completed_at=now,
+        created_at=now,
+    ).run_id
     result = {
         "requirement_id": int(case["requirement_id"]),
         "runner_id": "agent_mission",

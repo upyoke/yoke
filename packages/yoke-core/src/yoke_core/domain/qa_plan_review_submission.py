@@ -13,10 +13,8 @@ from yoke_core.domain.qa_constants import (
 from yoke_core.domain.qa_plan_execution_result_state import aggregate_state
 from yoke_core.domain.qa_plan_execution_store import canonical, marker
 from yoke_core.domain.qa_plan_review import QaPlanReviewError, _public_bundle
-from yoke_core.domain.qa_requirement_replacement import (
-    announce_discharges,
-    discharge_declared_replacements,
-)
+from yoke_core.domain.qa_requirement_replacement import announce_discharges
+from yoke_core.domain.qa_run_verdict_record import QaRunWrite, insert_qa_run
 from yoke_core.domain.qa_undetermined_evidence import (
     require_agent_undetermined_evidence,
 )
@@ -84,7 +82,7 @@ def _record_verdict(
     verdict: str,
     rationale: str,
     created_at: str,
-) -> int:
+) -> QaRunWrite:
     p = marker(conn)
     require_agent_undetermined_evidence(
         conn,
@@ -116,25 +114,20 @@ def _record_verdict(
         )
         or None,
     )
-    run = conn.execute(
-        "INSERT INTO qa_runs("
-        "qa_requirement_id,performed_by,qa_kind,verdict,verdict_reason,"
-        "case_outcome,raw_result,started_at,completed_at,created_at"
-        f") VALUES({', '.join([p] * 10)}) RETURNING id",
-        (
-            int(case["requirement_id"]),
-            "agent",
-            str(case["qa_kind"]),
-            verdict,
-            rationale,
-            case_outcome_for_verdict(verdict),
-            raw_result,
-            created_at,
-            created_at,
-            created_at,
-        ),
-    ).fetchone()
-    run_id = int(run[0])
+    write = insert_qa_run(
+        conn,
+        qa_requirement_id=int(case["requirement_id"]),
+        performed_by="agent",
+        qa_kind=str(case["qa_kind"]),
+        verdict=verdict,
+        verdict_reason=rationale,
+        case_outcome=case_outcome_for_verdict(verdict),
+        raw_result=raw_result,
+        started_at=created_at,
+        completed_at=created_at,
+        created_at=created_at,
+    )
+    run_id = write.run_id
     conn.execute(
         "INSERT INTO qa_plan_review_verdicts("
         "bundle_id,requirement_id,capture_run_id,review_run_id,verdict,"
@@ -159,7 +152,7 @@ def _record_verdict(
     from yoke_core.domain.item_activity import touch_for_qa_requirement
 
     touch_for_qa_requirement(conn, int(case["requirement_id"]))
-    return run_id
+    return write
 
 
 def _emit_review_events(
@@ -227,6 +220,7 @@ def submit_plan_review(
         now = iso8601_now()
         run_ids: dict[int, int] = {}
         created_run_ids: dict[int, int] = {}
+        discharged: list[tuple[dict[str, Any], dict[str, Any]]] = []
         for case in bundle["cases"]:
             requirement_id = int(case["requirement_id"])
             verdict, rationale = validated[requirement_id]
@@ -243,7 +237,7 @@ def submit_plan_review(
                     created_at=now,
                 )
             else:
-                run_id = _record_verdict(
+                write = _record_verdict(
                     conn,
                     bundle_id=bundle_id,
                     case=case,
@@ -251,6 +245,8 @@ def submit_plan_review(
                     rationale=rationale,
                     created_at=now,
                 )
+                run_id = write.run_id
+                discharged.extend(write.discharged)
                 run_ids[requirement_id] = run_id
                 created_run_ids[requirement_id] = run_id
         completed_replay = str(stored["state"]) == "completed"
@@ -295,9 +291,6 @@ def submit_plan_review(
         settled_state = _reviewed_execution_state(
             result_rows(conn, str(execution["id"])),
             validated,
-        )
-        discharged = discharge_declared_replacements(
-            conn, [rid for rid, (verdict, _) in validated.items() if verdict == "pass"]
         )
         conn.commit()
     except Exception:

@@ -104,24 +104,21 @@ def _record_acceptance(
     verdict: str,
     reason: str,
 ) -> int:
+    from yoke_core.domain.qa_run_verdict_record import insert_qa_run
+
     now = iso8601_now()
-    row = conn.execute(
-        "INSERT INTO qa_runs("
-        "qa_requirement_id,performed_by,qa_kind,verdict,verdict_reason,"
-        "raw_result,started_at,completed_at,created_at"
-        ") VALUES (%s,'agent',%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-        (
-            requirement_id,
-            ACCEPTANCE_QA_KIND,
-            verdict,
-            reason,
-            json.dumps({"execution_id": execution_id}, sort_keys=True),
-            now,
-            now,
-            now,
-        ),
-    ).fetchone()
-    return int(row["id"] if hasattr(row, "keys") else row[0])
+    return insert_qa_run(
+        conn,
+        qa_requirement_id=requirement_id,
+        performed_by="agent",
+        qa_kind=ACCEPTANCE_QA_KIND,
+        verdict=verdict,
+        verdict_reason=reason,
+        raw_result=json.dumps({"execution_id": execution_id}, sort_keys=True),
+        started_at=now,
+        completed_at=now,
+        created_at=now,
+    ).run_id
 
 
 def deployment_qa_stage_status(

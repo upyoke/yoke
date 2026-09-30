@@ -71,15 +71,6 @@ def _apply_qa_review(
         resolved_at=stamp,
         reviewed_run_id=reviewed_run_id,
     )
-    if action == "approve":
-        # A human approval is an independent pass: discharge the failed cases
-        # this one was declared to replace, on the resolution's transaction.
-        # The supersession columns are the durable record of it.
-        from yoke_core.domain.qa_requirement_replacement import (
-            discharge_declared_replacements,
-        )
-
-        discharge_declared_replacements(conn, [int(request["subject_key"])])
 
 
 def _notify_qa_review(
