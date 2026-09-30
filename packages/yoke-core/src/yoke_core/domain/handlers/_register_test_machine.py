@@ -23,7 +23,6 @@ def register(registry) -> None:
         minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["item", "deployment_run", "global"],
-        minimum_serving_version="next-release",
         side_effects=[
             "qa_plan_execution_write",
             "coordination_claim",
@@ -49,7 +48,6 @@ def register(registry) -> None:
         minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["item", "deployment_run", "global"],
-        minimum_serving_version="next-release",
         side_effects=[
             "qa_plan_execution_write",
             "coordination_claim_heartbeat",
@@ -146,7 +144,6 @@ def register(registry) -> None:
         minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
-        minimum_serving_version="next-release",
         side_effects=["coordination_claim", "qa_run_write"],
         emitted_event_names=["LeaseAcquired", "QARunStarted", "YokeFunctionCalled"],
         guardrails=[
@@ -192,7 +189,6 @@ def register(registry) -> None:
         minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
-        minimum_serving_version="next-release",
         side_effects=["coordination_claim", "qa_run_write"],
         emitted_event_names=["LeaseAcquired", "QARunStarted", "YokeFunctionCalled"],
         guardrails=[

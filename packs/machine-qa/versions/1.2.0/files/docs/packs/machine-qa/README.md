@@ -107,3 +107,18 @@ are designed deferrals with a macOS recovery, never successful screenshot proof.
 A test host may also register as a capacity machine using a separate user/home.
 The capability owns QA leases; capacity registration owns launches and relays.
 See the provisioning index for this boundary and shared-key setup.
+
+## Run a saved plan without an item
+
+`yoke qa plan run --plan PLAN --project P` creates a standalone execution.
+Cases and baselines keep their saved order, and terminal, machine-state,
+inspection, and exploratory methods retain the same serial lease and evidence
+contracts. Results use ordinary QA runs and artifacts without crediting an item
+or deployment gate. Unsupported capabilities refuse before cases execute.
+
+Commands require a clean checkout at the full declared SHA; CI also names a
+published ref and the case's workflow. Manual CI dispatch keeps declared inputs
+and never publishes a lane. Abort with
+`yoke qa plan abort --project P --execution-id ID --reason TEXT`.
+A stale-settled mission can use `--continue-mission` with its unchanged plan
+snapshot to preserve host state. Read `yoke qa plan run --help` before executing.

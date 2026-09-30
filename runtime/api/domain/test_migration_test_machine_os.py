@@ -7,7 +7,7 @@ import json
 import sqlite3
 import pytest
 
-MIGRATION = importlib.import_module("yoke_core.domain.migrations.0049_test_machine_os")
+MIGRATION = importlib.import_module("yoke_core.domain.migrations.0050_test_machine_os")
 
 
 def database(*documents):
