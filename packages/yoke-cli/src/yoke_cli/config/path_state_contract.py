@@ -1,4 +1,4 @@
-"""Product-owned shell and startup-file contract for Yoke's tool directory."""
+"""Observed shell configuration and fixture reset roster for uv tools."""
 
 from __future__ import annotations
 
@@ -10,15 +10,15 @@ from typing import Mapping
 from yoke_contracts.harness_cli_manifest import harness_cli_executables
 
 
-# Marker text is a product contract used by reset and idempotent repair.
-# Do not reword it without updating both consumers.
+# Historical markers remain in the fixture reset contract so old installs can
+# be cleaned before testing; shell configuration is written only by uv.
 MANAGED_BEGIN = "# >>> BEGIN YOKE MANAGED PATH >>>"
 MANAGED_END = "# <<< END YOKE MANAGED PATH <<<"
 
 TOOLS = ("uv", "uvx", "yoke")
 HARNESS_CLIS = harness_cli_executables()
 PATH_TOOLS = (*TOOLS, *HARNESS_CLIS)
-SUPPORTED_SHELLS = ("zsh", "bash")
+SUPPORTED_SHELLS = ("zsh", "bash", "fish")
 
 
 @dataclass(frozen=True)
@@ -51,7 +51,7 @@ class PathStateContract:
 
 def tool_bin_dir(env: Mapping[str, str] | None = None) -> str:
     environ = os.environ if env is None else env
-    xdg = environ.get("XDG_BIN_HOME")
+    xdg = environ.get("UV_TOOL_BIN_DIR") or environ.get("XDG_BIN_HOME")
     if xdg:
         return xdg
     home = environ.get("HOME") or str(Path.home())
@@ -68,7 +68,16 @@ def default_startup_file(shell: str, home: Path) -> Path:
     if shell == "zsh":
         return home / ".zprofile"
     if shell == "bash":
-        return home / ".bash_profile"
+        return next(
+            (
+                home / name
+                for name in (".bash_profile", ".bash_login", ".profile")
+                if (home / name).exists()
+            ),
+            home / ".profile",
+        )
+    if shell == "fish":
+        return home / ".config" / "fish" / "config.fish"
     return home / ".profile"
 
 
@@ -86,11 +95,15 @@ def startup_files_for_shell(shell: str, home: Path) -> tuple[Path, ...]:
     files = [login] if ssh is None else [login, ssh]
     if shell == "zsh":
         # A login-interactive zsh also reads both files. They must share the
-        # reset roster even though Yoke writes its managed block elsewhere:
+        # reset roster for shell configuration:
         # handwritten tool-bin PATH traces in either file change the exact
         # fresh-login branch the installer campaign proves.
         files.extend((home / ".zshrc", home / ".zlogin"))
-    return tuple(files)
+    if shell == "bash":
+        files.extend(
+            home / name for name in (".bash_profile", ".bash_login", ".profile")
+        )
+    return tuple(dict.fromkeys(files))
 
 
 def supported_startup_files(home: Path) -> tuple[Path, ...]:

@@ -1,4 +1,4 @@
-"""Translate a PATH repair plan into onboarding write-plan steps."""
+"""Translate uv shell setup into onboarding plan steps."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any
 from yoke_cli.config import path_repair_plan
 
 
-PATH_REPAIR_ACTION = "write-shell-path"
+PATH_REPAIR_ACTION = "update-shell-path"
 
 
 def steps(plan: dict[str, Any] | None) -> list[dict[str, Any]]:

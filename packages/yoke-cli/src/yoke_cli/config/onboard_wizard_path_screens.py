@@ -2,7 +2,7 @@
 
 Pure functions that turn a PATH diagnosis or repair plan into the widgets a
 step mounts. The readiness screen summarizes the affected files; its optional
-preview shows the complete managed block before the one-confirmation repair.
+preview shows the uv command before the one-confirmation repair.
 """
 
 from __future__ import annotations
@@ -21,7 +21,6 @@ from yoke_cli.config.onboard_wizard_palette import (
     DIM,
 )
 from yoke_cli.config.onboard_wizard_widgets import SelectionList, SelectionRow
-from yoke_cli.config.path_state_contract import MANAGED_BEGIN, MANAGED_END
 
 
 # The apply row is first so the safe, idempotent fix is the default.
@@ -29,7 +28,7 @@ PATH_FIX_ROWS = [
     SelectionRow(
         "fix",
         "Add to PATH and continue",
-        "Writes and verifies the named shell files now",
+        "uv updates shell configuration; verifies a fresh login shell",
     ),
     SelectionRow("preview", "See exactly what changes", ""),
 ]
@@ -77,21 +76,10 @@ def _tool_readiness_lines(diagnosis: path_doctor.PathDiagnosis) -> list[Static]:
 
 
 def _shell_files_summary(diagnosis: path_doctor.PathDiagnosis) -> list[Static]:
-    """Compact count + exact paths of the shell files the fix will touch."""
-    files = []
-    if diagnosis.login_needs_fix and diagnosis.startup_file:
-        files.append(f"{escape(diagnosis.startup_file)} (login)")
-    if diagnosis.ssh_needs_fix and diagnosis.ssh_startup_file:
-        files.append(f"{escape(diagnosis.ssh_startup_file)} (SSH/non-login)")
-    if not files:
+    """Name the delegated shell update rather than predicting uv's writes."""
+    if not diagnosis.needs_fix:
         return []
-    noun = "shell file" if len(files) == 1 else "shell files"
-    return [
-        Static(
-            f"Will update {len(files)} {noun}: {', '.join(files)}",
-            classes="onboard-plan-line",
-        )
-    ]
+    return [Static("Will run uv tool update-shell", classes="onboard-plan-line")]
 
 
 def _shadowing_lines(diagnosis: path_doctor.PathDiagnosis) -> list[Static]:
@@ -113,8 +101,7 @@ def _shadowing_lines(diagnosis: path_doctor.PathDiagnosis) -> list[Static]:
     if warnings:
         warnings.append(
             Static(
-                "  The PATH fix moves Yoke's bin directory to the front and "
-                "removes duplicate entries.",
+                "  Run uv tool update-shell and check startup files that override PATH.",
                 classes="onboard-plan-line",
             )
         )
@@ -127,15 +114,12 @@ def path_diagnosis_body(
     installed_version: bool = False,
 ) -> list[Static]:
     if diagnosis.needs_fix:
-        title = f"Put {_BRAND} and your harness CLIs on PATH."
-        subtitle = (
-            "The installer will keep login and non-login/SSH shells "
-            "independently resolvable."
-        )
+        title = f"Put {_BRAND} on PATH."
+        subtitle = "uv will update your shell configuration."
         rows = PATH_FIX_ROWS
     else:
         title = f"{_BRAND} is already on your PATH."
-        subtitle = "Nothing to change — Terminal and SSH can already find it."
+        subtitle = "Nothing to change — a fresh login shell can already find it."
         rows = PATH_OK_ROWS
     widgets = _heading(title, subtitle)
     if installed_version:
@@ -166,40 +150,29 @@ def path_preview_body(
     plan: dict[str, Any],
 ) -> list[Static]:
     """Optional exact-change view reached from PATH readiness."""
-    title = f"Exact PATH changes {_BRAND} will write."
-    subtitle = "Add to PATH updates and verifies these shell files before continuing."
-    widgets = _heading(title, subtitle)
+    widgets = _heading(
+        f"PATH setup for {_BRAND}.",
+        "uv selects the shell files to update; Yoke verifies a fresh login shell.",
+    )
     for line in path_repair_plan.description_lines(plan):
-        widgets.append(Static(f"  • {escape(line)}", classes="onboard-plan-line"))
+        widgets.append(Static(escape(line), classes="onboard-plan-line"))
     widgets.append(
-        Static(
-            f"  • Each file gets one block between the {escape(MANAGED_BEGIN)} and "
-            f"{escape(MANAGED_END)} markers; delete the block to undo.",
-            classes="onboard-plan-line",
-        )
+        Static("Open a new terminal after setup.", classes="onboard-plan-line")
     )
-    widgets.append(Static("", classes="onboard-spacer"))
-    block = path_doctor.render_managed_block(tuple(plan["directories"]))
-    widgets.extend(
-        Static(f"  {escape(line)}", classes="onboard-plan-line")
-        for line in block.splitlines()
-    )
-    widgets.append(Static("", classes="onboard-spacer"))
     widgets.append(SelectionList(path_preview_rows()))
     return widgets
 
 
 def path_apply_error_body(message: str) -> list[Static]:
     widgets = _heading(
-        "PATH files were written, but a shell probe failed.",
-        "yoke is not yet resolvable in a new login or SSH shell.",
+        "Shell PATH setup needs attention.",
+        "yoke must resolve in a fresh login shell.",
     )
     widgets.append(Static(f"Cause: {escape(message)}", classes="onboard-plan-line"))
     widgets.append(Static("What to do", classes="onboard-title"))
     widgets.append(
         Static(
-            "Rerun `yoke path fix`, then open a new terminal "
-            "or `ssh host 'command -v yoke'`.",
+            "Run `uv tool update-shell`, then open a new terminal.",
             classes="onboard-plan-line",
         )
     )

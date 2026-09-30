@@ -21,7 +21,9 @@ class _Rec:
         self.rows.append((slug, status, detail))
 
 
-def test_hc_fails_when_login_shell_misses_canonical(monkeypatch, tmp_path: Path) -> None:
+def test_hc_fails_when_login_shell_misses_canonical(
+    monkeypatch, tmp_path: Path
+) -> None:
     canon = tmp_path / "yoke"
     monkeypatch.setattr(
         "yoke_core.engines.doctor_hc_launcher_authority.canonical_shim_path",
@@ -116,13 +118,19 @@ def test_hook_config_flags_non_canonical_absolute_yoke(tmp_path: Path) -> None:
     shadow = tmp_path / "uv" / "tools" / "yoke"
     shadow.write_text("shadow\n")
     settings.write_text(
-        json.dumps({
-            "hooks": {
-                "PreToolUse": [{
-                    "hooks": [{"command": f"{shadow} hook evaluate PreToolUse"}],
-                }],
-            },
-        }),
+        json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "hooks": [
+                                {"command": f"{shadow} hook evaluate PreToolUse"}
+                            ],
+                        }
+                    ],
+                },
+            }
+        ),
         encoding="utf-8",
     )
     canon = tmp_path / "canonical" / "yoke"
@@ -143,3 +151,19 @@ def test_hook_config_accepts_bare_yoke_command(tmp_path: Path) -> None:
     canon = tmp_path / "yoke"
     canon.write_text("canon\n")
     assert hook_config_yoke_problems(tmp_path, canon) == []
+
+
+def test_login_shell_uses_configured_shell(monkeypatch):
+    from subprocess import CompletedProcess
+    from yoke_core.engines import doctor_hc_launcher_authority as check
+
+    calls = []
+    monkeypatch.setenv("SHELL", "/usr/bin/fish")
+
+    def run(command, **kwargs):
+        calls.append(command)
+        return CompletedProcess(command, 0, "/tmp/bin/yoke\n", "")
+
+    monkeypatch.setattr(check.subprocess, "run", run)
+    assert check._login_shell_yoke() == "/tmp/bin/yoke"
+    assert calls == [["/usr/bin/fish", "-lc", "command -v yoke"]]

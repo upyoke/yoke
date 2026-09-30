@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 from typing import List
 
 from yoke_cli.config import path_doctor as doctor
@@ -84,7 +83,9 @@ def _render_diagnosis(diag: doctor.PathDiagnosis) -> str:
                 f"{label:14}: {diag.preferred_yoke_path} exists, but {winner} wins"
             )
     if diag.needs_fix:
-        lines.append("fix           : run `yoke path fix`")
+        lines.append(
+            "fix           : run `uv tool update-shell`, then open a new terminal"
+        )
     return "\n".join(lines)
 
 
@@ -103,33 +104,10 @@ def path_check(args: List[str]) -> int:
 def path_fix(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke path fix")
     parser.add_argument("--yes", action="store_true")
-    parser.add_argument("--file", dest="file", default=None)
-    parser.add_argument("--print-block", dest="print_block", action="store_true")
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parser.parse_args(args)
-
-    diag = doctor.diagnose()
-    plan = path_repair_plan.build(diag)
-    directories = tuple(plan["directories"])
-    block = doctor.render_managed_block(directories)
-    if parsed.print_block:
-        print(block)
-        return 0
-
-    shell = diag.current_shell
-    target_list = (
-        [Path(parsed.file)]
-        if parsed.file
-        else [Path(path) for path in path_repair_plan.target_paths(plan)]
-    )
-    print("Yoke keeps login and non-login/SSH PATH outcomes separate:")
-    for line in path_repair_plan.description_lines(plan):
-        print(f"  {line}")
-    if not target_list:
-        print("  Both startup surfaces already contain the current managed block.")
-    print()
-    print(block + "\n")
     if not parsed.yes:
+        print("Run uv tool update-shell; uv selects the shell configuration to update.")
         try:
             answer = input("Apply this change? [y/N] ").strip().lower()
         except EOFError:
@@ -137,49 +115,33 @@ def path_fix(args: List[str]) -> int:
         if answer not in ("y", "yes"):
             print("No changes made.")
             return 0
-
-    changes = [doctor.apply_fix(item, directories) for item in target_list]
-    changed = any(changes)
-    resolved = doctor.verify_fresh_login(shell, managed_path_dirs=directories)
-    ssh_resolved = doctor.verify_ssh_command(shell, managed_path_dirs=directories)
-    login_verified = path_repair_plan.verification_ok(resolved, plan)
-    ssh_verified = path_repair_plan.verification_ok(ssh_resolved, plan)
+    try:
+        output = doctor.update_shell()
+    except OSError as exc:
+        print(str(exc))
+        return 1
+    resolved = doctor.verify_fresh_login()
+    verified = path_repair_plan.verification_ok(resolved, {})
     if parsed.json_mode:
         print(
             json.dumps(
                 {
-                    "applied": changed,
-                    "files": [str(item) for item in target_list],
-                    "directories": list(directories),
-                    "login_verified": login_verified,
-                    "ssh_verified": ssh_verified,
+                    "command": path_repair_plan.UPDATE_SHELL_COMMAND,
+                    "output": output,
+                    "login_verified": verified,
                     "resolved": _resolutions(resolved),
-                    "ssh_resolved": _resolutions(ssh_resolved),
-                },
-                indent=2,
+                }
             )
         )
-        return 0
-    print(("Applied." if changed else "Already up to date."))
-    for item in target_list:
-        print(f"  {item}")
-    for res in resolved:
-        print(f"  {res.name:6} -> {res.path or 'not found'}")
-    if ssh_resolved:
-        print("  SSH command probe:")
-        for res in ssh_resolved:
-            print(f"  {res.name:6} -> {res.path or 'not found'}")
-    if not login_verified:
+    else:
+        print(output.strip())
+        print("Open a new terminal to use the updated PATH.")
+    if not verified:
         print(
-            "Note: a fresh login shell could not resolve yoke/uv yet; "
-            "open a new terminal to confirm."
+            "fresh_login_path_unresolved: run `uv tool update-shell`, "
+            "check shell configuration that overrides PATH, then open a new terminal."
         )
-    if not ssh_verified:
-        print(
-            "Note: an SSH one-shot command could not resolve yoke/uv yet; "
-            "try `ssh host 'yoke status'` to confirm."
-        )
-    return 0
+    return 0 if verified else 1
 
 
 def path_verify(args: List[str]) -> int:
@@ -210,21 +172,26 @@ def path_verify(args: List[str]) -> int:
             print("  SSH command probe:")
             for res in ssh_resolved:
                 print(f"  {res.name:6} -> {res.path or 'not found'}")
+    if not any(row.name == "yoke" and row.path for row in resolved):
+        print(
+            "fresh_login_path_unresolved: run `uv tool update-shell`, then open a new terminal."
+        )
+        return 1
     return 0
 
 
 def path_group(args: List[str]) -> int:
-    print("yoke path — repair login and SSH PATH for Yoke and harness CLIs")
+    print("yoke path — diagnose shell PATH and delegate setup to uv")
     print()
     print("Subcommands:")
     print(
         "  yoke path check [--json]                       diagnose current + future shell PATH"
     )
     print(
-        "  yoke path fix [--yes] [--file PATH] [--print-block]  preview, consent, write a managed block, verify"
+        "  yoke path fix [--yes] [--json]                   run uv tool update-shell and verify"
     )
     print(
-        "  yoke path verify [--json]                      probe login PATH via Yoke-seeded startup files"
+        "  yoke path verify [--json]                      probe the actual fresh login shell PATH"
     )
     return 0
 

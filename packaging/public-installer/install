@@ -33,6 +33,8 @@ onboard_launched=0
 # remaining evidence of whether that shell could already resolve yoke — which is
 # what decides whether the hand-off has to tell the user to reload it.
 inherited_path="${PATH:-}"
+YOKE_INSTALL_INHERITED_PATH="$inherited_path"
+export YOKE_INSTALL_INHERITED_PATH
 
 # Resolver sources are installer-owned.  Remove ambient index, find-links,
 # constraint, override, and requirement inputs before either the bootstrap
@@ -236,25 +238,6 @@ onboard_terminal_ready() {
   )
 }
 
-startup_file_for_current_shell() {
-  shell_name="${SHELL##*/}"
-  home_dir="${HOME:-~}"
-  case "$shell_name" in
-    zsh) printf '%s\n' "$home_dir/.zprofile" ;;
-    bash) printf '%s\n' "$home_dir/.bash_profile" ;;
-    *) printf '%s\n' "$home_dir/.profile" ;;
-  esac
-}
-
-source_command_for_current_shell() {
-  startup_file=$(startup_file_for_current_shell)
-  shell_name="${SHELL##*/}"
-  case "$shell_name" in
-    zsh|bash) printf 'source "%s"\n' "$startup_file" ;;
-    *) printf '. "%s"\n' "$startup_file" ;;
-  esac
-}
-
 # True when the shell that invoked the installer already resolved the tool bin
 # dir, so the terminal the user is returned to can run yoke as-is and the reload
 # step is noise. Tested against the entry snapshot because our own PATH was
@@ -300,8 +283,8 @@ print_path_guidance_after_onboard() {
   handoff_step=1
   if ! inherited_shell_has_bin_dir; then
     printf '%s  %s  %s%s%s\n' "$(handoff_bar)" "$handoff_step" \
-      "$(c_bright)$(c_bold)" "$(source_command_for_current_shell)" "$(sgr_reset)"
-    printf '%s     %s(this terminal only; new windows already have it)%s\n' \
+      "$(c_bright)$(c_bold)" "open a new terminal" "$(sgr_reset)"
+    printf '%s     %s(uv updated your shell configuration)%s\n' \
       "$(handoff_bar)" "$(c_dim)" "$(sgr_reset)"
     handoff_step=$((handoff_step + 1))
   fi

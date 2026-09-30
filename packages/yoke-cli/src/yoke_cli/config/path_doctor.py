@@ -1,12 +1,10 @@
-"""Own and repair current, login, and SSH PATH state for Yoke and harnesses."""
+"""Diagnose real shell PATH state and delegate tool-directory setup to uv."""
 
 from __future__ import annotations
 
 import os
-import shlex
 import shutil
 import subprocess
-import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Sequence
@@ -20,9 +18,9 @@ from yoke_cli.config.path_harness_clis import (
 from yoke_cli.config.path_state_contract import (
     HARNESS_CLIS as HARNESS_CLIS,
     MANAGED_BEGIN,
-    MANAGED_END,
+    MANAGED_END as MANAGED_END,
     PATH_TOOLS,
-    SUPPORTED_SHELLS,
+    SUPPORTED_SHELLS as SUPPORTED_SHELLS,
     TOOLS as TOOLS,
     PathStateContract as PathStateContract,
     current_shell,
@@ -69,62 +67,34 @@ class PathDiagnosis:
     harness_clis: tuple[HarnessCliResolution, ...] = ()
 
 
-def render_managed_block(path_dirs: Sequence[str]) -> str:
-    """The full managed block, BEGIN..END inclusive, with no trailing newline."""
-    if isinstance(path_dirs, str) or not path_dirs:
-        raise ValueError("managed PATH directories must be a non-empty sequence")
-    managed_path = os.pathsep.join(dict.fromkeys(map(str, path_dirs)))
-    return "\n".join(
-        [
-            MANAGED_BEGIN,
-            "# Managed by Yoke — safe to delete this whole block.",
-            f"_yoke_managed_path={shlex.quote(managed_path)}",
-            '_yoke_existing_path="$PATH"',
-            '_yoke_new_path=""',
-            '_yoke_old_ifs="$IFS"',
-            "IFS=:",
-            "for _yoke_entry in $_yoke_managed_path $_yoke_existing_path; do",
-            '  [ -n "$_yoke_entry" ] || continue',
-            '  case ":$_yoke_new_path:" in',
-            '    *":$_yoke_entry:"*) ;;',
-            '    *) _yoke_new_path="${_yoke_new_path:+$_yoke_new_path:}$_yoke_entry" ;;',
-            "  esac",
-            "done",
-            'IFS="$_yoke_old_ifs"',
-            'PATH="$_yoke_new_path"',
-            "export PATH",
-            "unset _yoke_managed_path _yoke_existing_path _yoke_new_path",
-            "unset _yoke_old_ifs _yoke_entry",
-            MANAGED_END,
-        ]
-    )
-
-
-def _strip_managed_block(text: str) -> str:
-    """Return ``text`` with any MANAGED_BEGIN..MANAGED_END region removed."""
-    out: list[str] = []
-    skipping = False
-    for line in text.splitlines(keepends=True):
-        stripped = line.strip()
-        if stripped in {MANAGED_BEGIN, MANAGED_END}:
-            skipping = stripped == MANAGED_BEGIN
-        elif not skipping:
-            out.append(line)
-    return "".join(out)
-
-
-def apply_fix(startup_file: Path, path_dirs: Sequence[str]) -> bool:
-    """Idempotently replace the product-managed block in one startup file."""
-    existing = startup_file.read_text() if startup_file.exists() else ""
-    body = _strip_managed_block(existing)
-    if body and not body.endswith("\n"):
-        body += "\n"
-    new_text = body + render_managed_block(path_dirs) + "\n"
-    if new_text == existing:
-        return False
-    startup_file.parent.mkdir(parents=True, exist_ok=True)
-    startup_file.write_text(new_text)
-    return True
+def update_shell(*, env: dict[str, str] | None = None) -> str:
+    """Let uv select and update the user's shell configuration."""
+    environ = dict(os.environ if env is None else env)
+    uv = shutil.which("uv", path=environ.get("PATH"))
+    if not uv:
+        uv = str(Path(tool_bin_dir(environ)) / "uv")
+    if not any(
+        row.name == "yoke" and row.path for row in verify_fresh_login(env=environ)
+    ):
+        environ = _probe_env_without_managed_paths((tool_bin_dir(environ),), environ)
+    try:
+        result = subprocess.run(
+            [uv, "tool", "update-shell"],
+            capture_output=True,
+            text=True,
+            timeout=_VERIFY_TIMEOUT_S,
+            env=environ,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise OSError(
+            f"uv_shell_update_failed: {exc}; run `uv tool update-shell`."
+        ) from exc
+    if result.returncode:
+        raise OSError(
+            f"uv_shell_update_failed: {result.stderr.strip()}; "
+            "run `uv tool update-shell` and check shell-file permissions."
+        )
+    return result.stdout + result.stderr
 
 
 def _probe_env_without_managed_paths(
@@ -141,20 +111,6 @@ def _probe_env_without_managed_paths(
     return environ
 
 
-def _seeded_probe_home(
-    shell: str, path_dirs: Sequence[str]
-) -> tempfile.TemporaryDirectory[str]:
-    """Isolated HOME/ZDOTDIR containing only the startup files Yoke writes."""
-    home = tempfile.TemporaryDirectory(prefix="yoke-path-probe-")
-    root = Path(home.name)
-    block = render_managed_block(path_dirs) + "\n"
-    default_startup_file(shell, root).write_text(block)
-    ssh = default_ssh_startup_file(shell, root)
-    if ssh is not None:
-        ssh.write_text(block)
-    return home
-
-
 def _verify_shell(
     flag: str,
     shell: str | None = None,
@@ -166,23 +122,24 @@ def _verify_shell(
     path_dirs = tuple(managed_path_dirs or (tool_bin_dir(environ),))
     probe_env = _probe_env_without_managed_paths(path_dirs, environ)
     sh = shell or current_shell(probe_env)
-    if sh not in SUPPORTED_SHELLS:
-        sh = "zsh"
-    shell_path = shutil.which(sh, path=probe_env.get("PATH")) or f"/bin/{sh}"
-    script = "; ".join(f"command -v {tool} || true" for tool in PATH_TOOLS)
-    with _seeded_probe_home(sh, path_dirs) as probe_home:
-        probe_env["HOME"] = probe_home
-        probe_env["ZDOTDIR"] = probe_home
-        try:
-            proc = subprocess.run(
-                [shell_path, flag, script],
-                capture_output=True,
-                text=True,
-                timeout=_VERIFY_TIMEOUT_S,
-                env=probe_env,
-            )
-        except (OSError, subprocess.SubprocessError):
-            return [ToolResolution(tool, None) for tool in PATH_TOOLS]
+    shell_path = (
+        probe_env.get("SHELL")
+        if Path(probe_env.get("SHELL", "")).name == sh
+        else shutil.which(sh, path=probe_env.get("PATH")) or f"/bin/{sh}"
+    )
+    separator = "; or true; " if sh == "fish" else " || true; "
+    script = separator.join(f"command -v {tool}" for tool in PATH_TOOLS)
+    script += "; or true" if sh == "fish" else " || true"
+    try:
+        proc = subprocess.run(
+            [shell_path, flag, script],
+            capture_output=True,
+            text=True,
+            timeout=_VERIFY_TIMEOUT_S,
+            env=probe_env,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return [ToolResolution(tool, None) for tool in PATH_TOOLS]
     resolved: dict[str, str] = {}
     for candidate in map(str.strip, proc.stdout.splitlines()):
         base = Path(candidate).name
@@ -197,15 +154,7 @@ def verify_fresh_login(
     env: dict[str, str] | None = None,
     managed_path_dirs: Sequence[str] | None = None,
 ) -> list[ToolResolution]:
-    """Resolve tools in a login-interactive shell that sources Yoke's files only.
-
-    Still uses ``-lic`` so the probe observes login-shell init order, including
-    system files such as ``/etc/zprofile``. It does not source the operator's
-    real rc files: HOME/ZDOTDIR are a temp tree seeded with the managed block.
-    Combined with ``diagnose``'s static read of the real startup file, this
-    proves the block works as a login PATH, not that other operator rc content
-    is harmless.
-    """
+    """Resolve tools using the user's actual fresh login-shell configuration."""
     return _verify_shell("-lic", shell, env=env, managed_path_dirs=managed_path_dirs)
 
 
@@ -243,6 +192,7 @@ def _shadowing_yoke_path(resolved: list[ToolResolution], *, bindir: str) -> str:
 def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagnosis:
     environ = dict(os.environ if env is None else env)
     home_path = home or Path(environ.get("HOME") or str(Path.home()))
+    environ["HOME"] = str(home_path)
     bindir = tool_bin_dir(environ)
     shell = current_shell(environ)
     path_value = environ.get("PATH", "")
@@ -272,7 +222,6 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
     startup_text = startup.read_text() if startup.exists() else ""
     managed_block_present = MANAGED_BEGIN in startup_text
     future_adds_bin = bindir in startup_text
-    desired_block = render_managed_block(path_dirs)
     future_resolved = verify_fresh_login(
         shell, env=environ, managed_path_dirs=path_dirs
     )
@@ -282,10 +231,7 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
     )
     future_ok = _resolves_required_tools(future_resolved, required_tools)
     login_needs_fix = (
-        desired_block not in startup_text
-        or not future_ok
-        or bool(yoke_shadowed_by)
-        or bool(future_yoke_shadowed_by)
+        not future_ok or bool(yoke_shadowed_by) or bool(future_yoke_shadowed_by)
     )
     ssh_startup = default_ssh_startup_file(shell, home_path)
     ssh_adds_bin = False
@@ -301,9 +247,7 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
         )
         ssh_yoke_shadowed_by = _shadowing_yoke_path(ssh_resolved, bindir=bindir)
         ssh_ok = _resolves_required_tools(ssh_resolved, required_tools)
-        ssh_needs_fix = (
-            desired_block not in ssh_text or not ssh_ok or bool(ssh_yoke_shadowed_by)
-        )
+        ssh_needs_fix = not ssh_ok or bool(ssh_yoke_shadowed_by)
     else:
         ssh_yoke_shadowed_by = ""
 
@@ -316,7 +260,7 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
         future_adds_bin=future_adds_bin,
         managed_block_present=managed_block_present,
         future_resolved=future_resolved,
-        needs_fix=login_needs_fix or ssh_needs_fix,
+        needs_fix=login_needs_fix,
         ssh_startup_file=str(ssh_startup) if ssh_startup is not None else "",
         ssh_adds_bin=ssh_adds_bin,
         ssh_managed_block_present=ssh_managed_block_present,
@@ -335,8 +279,8 @@ def diagnose(*, env: dict | None = None, home: Path | None = None) -> PathDiagno
 __all__ = (
     "HARNESS_CLIS MANAGED_BEGIN MANAGED_END PATH_TOOLS SUPPORTED_SHELLS TOOLS "
     "HarnessCliResolution PathDiagnosis "
-    "PathStateContract ToolResolution apply_fix current_shell default_startup_file "
-    "default_ssh_startup_file diagnose render_managed_block "
+    "PathStateContract ToolResolution update_shell current_shell default_startup_file "
+    "default_ssh_startup_file diagnose "
     "resolve_path_state_contract startup_files_for_shell supported_startup_files "
     "tool_bin_dir verify_fresh_login verify_ssh_command"
 ).split()

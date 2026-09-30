@@ -9,6 +9,7 @@ shim and quarantine shadows, never delete).
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -34,7 +35,7 @@ TITLE = "Machine launcher resolves to canonical editable install"
 def _login_shell_yoke() -> str:
     try:
         result = subprocess.run(
-            ["/bin/zsh", "-lc", "command -v yoke"],
+            [os.environ.get("SHELL") or "/bin/sh", "-lc", "command -v yoke"],
             check=False,
             capture_output=True,
             text=True,
@@ -113,7 +114,9 @@ def hc_launcher_authority(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     shadows = enumerate_shadow_installs(canonical=canonical)
     problems: list[str] = []
     if not login:
-        problems.append("login shell (`/bin/zsh -lc 'command -v yoke'`) resolved nothing")
+        problems.append(
+            "fresh login shell resolved no yoke; run `uv tool update-shell`, then open a new terminal"
+        )
     elif Path(login).resolve() != canonical.resolve():
         problems.append(
             f"login shell resolved {login!r}, not canonical {str(canonical)!r}"
@@ -130,14 +133,19 @@ def hc_launcher_authority(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         problems.extend(hook_config_yoke_problems(checkout, canonical))
     if problems:
         rec.record(
-            SLUG, TITLE, "FAIL",
-            "Machine launcher is not canonical.\n  " + "\n  ".join(problems)
+            SLUG,
+            TITLE,
+            "FAIL",
+            "Machine launcher is not canonical.\n  "
+            + "\n  ".join(problems)
             + "\n  Repair: python3 -m yoke_core.tools.install_yoke_launcher --repair"
             + "  (or `yoke doctor run --quick --fix`). Shadows are quarantined, never deleted.",
         )
         return
     rec.record(
-        SLUG, TITLE, "PASS",
+        SLUG,
+        TITLE,
+        "PASS",
         f"Login-shell yoke is the canonical shim ({canonical}).",
     )
 

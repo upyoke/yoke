@@ -169,12 +169,12 @@ should usually run alone because they may intentionally leave partial state.
 
 | ID | Profile | Flow | Assertions |
 | --- | --- | --- | --- |
-| `PATH-001` | `prepared-path-broken` | Default `Add yoke to my PATH` | One confirmation writes and verifies the managed block; login and SSH command results render |
-| `PATH-002` | `prepared-path-broken` | Preview then Add | Preview names exact startup files and block; apply succeeds |
+| `PATH-001` | `prepared-path-broken` | Default `Add yoke to my PATH` | One confirmation runs uv tool update-shell and verifies the real login shell |
+| `PATH-002` | `prepared-path-broken` | Preview then Add | Preview names uv tool update-shell; apply succeeds |
 | `PATH-003` | `prepared-path-broken` | Skip PATH repair | Account destination picker still reachable; no write |
 | `PATH-004` | `prepared-yoke` | Already on PATH | All-clear screen; Continue advances |
 | `PATH-005` | `prepared-path-broken` | SSH-only PATH missing | Writes `.zshenv` or SSH startup file when needed |
-| `PATH-006` | `prepared-path-broken` | Re-run after path fix | Block not duplicated |
+| `PATH-006` | `prepared-path-broken` | Re-run after path fix | uv configuration not duplicated after opening a new terminal |
 | `PATH-007` | `prepared-screen-term` | PATH screens in plain glyph mode | ASCII text only; no box drawing artifacts |
 | `PATH-008` | `prepared-yoke` | Ctrl-C from installer-launched PATH readiness | Exits through the terminal interrupt path with durable code 130; no post-install congratulations screen exists |
 
@@ -325,7 +325,7 @@ The canonical append-only `GITHUB-*` table lives in [Installer GitHub App live t
 | `STATE-004` | `prepared-stored-state` | Multiple stored project checkouts | Picker appears |
 | `STATE-005` | `prepared-stored-state` | Stored project no longer visible | Friendly lookup error and alternate path |
 | `STATE-006` | `prepared-stored-state` | Stage and prod credentials on same machine | Env switch works; `YOKE_ENV` override works |
-| `STATE-007` | `prepared-stored-state` | Re-run onboarding after success | No duplicate config; no duplicate PATH block |
+| `STATE-007` | `prepared-stored-state` | Re-run onboarding after success | No duplicate config; no duplicate uv PATH entries |
 | `STATE-008` | `prepared-stored-state` | One-shot SSH command after PATH repair | `ssh host 'command -v yoke; yoke --version'` works |
 | `STATE-009` | `prepared-stored-state` | Reset script then reinstall | Host returns to clean state and smoke passes |
 
@@ -426,7 +426,7 @@ Each EC2 host gets exactly one starting profile:
 | `prepared-no-git` | Git prerequisite branch | Yoke installed, Git absent |
 | `prepared-no-git-no-sudo` | Manual Git prerequisite branch | Yoke installed, Git and sudo absent |
 | `prepared-git` | Project checkout branches | Yoke and Git installed |
-| `prepared-path-broken` | PATH repair | Yoke installed but startup files lack managed PATH block |
+| `prepared-path-broken` | PATH repair | Yoke installed but fresh login PATH does not resolve it |
 | `prepared-stored-state` | Stored token/project reuse | Preloaded machine config and token files |
 | `prepared-screen-term` | Plain glyphs | Run under `TERM=screen-256color`, GNU screen, or tmux screen mode |
 | `fault-injection` | Expected failures | Local proxy, fake endpoint, or constrained token |

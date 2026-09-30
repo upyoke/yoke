@@ -1,9 +1,6 @@
 """PATH-readiness flow for the ``yoke onboard`` wizard.
 
-The flow diagnoses PATH and can apply its exact managed-shell-block plan in one
-confirmation. The optional preview shows the complete login and non-login/SSH
-writes before that same immediate repair. All screens remain in the Install
-stepper segment; their builders live in :mod:`onboard_wizard_path_screens`.
+The flow diagnoses PATH and delegates shell configuration to uv.
 """
 
 from __future__ import annotations
@@ -103,28 +100,18 @@ class PathFlow:
             onboard_apply_path.apply(plan, progress=None, report=report)
         except OSError as exc:
             self._goto_path_apply_error(
-                f"Could not write the shell files ({exc}). "
+                f"uv could not update the shell configuration ({exc}). "
                 "Check permissions, then Apply again or run `yoke path fix`."
             )
             return False
         outcome = report.get("path_repair") or {}
         self.result.path_repair = {**plan, **outcome}
-        if outcome.get("login_verified") and outcome.get("ssh_verified"):
+        if outcome.get("login_verified"):
             return True
-        missing = [
-            name
-            for name, ok in (
-                ("login", outcome.get("login_verified")),
-                ("SSH", outcome.get("ssh_verified")),
-            )
-            if not ok
-        ]
         self._goto_path_apply_error(
-            "Could not resolve yoke/uv in a "
-            + " or ".join(missing)
-            + " shell after writing. "
-            "Rerun `yoke path fix`, then open a new terminal "
-            "or `ssh host 'command -v yoke'`."
+            "fresh_login_path_unresolved: yoke was not found after uv shell setup. "
+            "Run `uv tool update-shell`, check your shell configuration, "
+            "then open a new terminal."
         )
         return False
 
