@@ -85,6 +85,13 @@ server through `gate_satisfier.rung.resolve`, and only genuinely
 machine-local observations — does this ref resolve in this worktree, did
 this merge run — travel from the caller.
 
+`item:no_deployment_target` resolves the item's explicit flow or its
+project/workflow delivery default through `item_completion_flow_facts`.
+A NULL stored flow does not discharge delivery when that default targets a
+tier. Only no effective flow, or a registered flow with no target tier,
+proves merge-only delivery; a flow's name never proves it. An unreadable
+default or unregistered flow is UNKNOWN and cannot satisfy `merge_only`.
+
 ## Why the rung is stamped
 
 Without a durable record, every degrade is either a silent lie or an
