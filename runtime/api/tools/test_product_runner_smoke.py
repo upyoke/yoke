@@ -15,7 +15,42 @@ from runtime.api.tools.product_runner_hooks import (
     require_dispatch,
     require_wire,
 )
-from runtime.api.tools.product_runner_smoke import isolated_environment
+from runtime.api.tools.product_runner_smoke import (
+    Commands,
+    SmokeFailure,
+    isolated_environment,
+)
+
+
+@pytest.mark.parametrize("stdout", ["", "initialization noise\n{}", "[]"])
+def test_document_failure_names_the_step_and_existing_capture(
+    tmp_path, monkeypatch, stdout
+):
+    monkeypatch.setattr(
+        "runtime.api.tools.product_runner_smoke.subprocess.run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout=stdout, stderr=""),
+    )
+    commands = Commands(tmp_path, {})
+    with pytest.raises(SmokeFailure, match="command_json_invalid: step=onboard") as exc:
+        commands.document("onboard", ["yoke", "onboard"], cwd=tmp_path)
+    capture = tmp_path / "01-onboard.txt"
+    assert str(capture) in str(exc.value)
+    assert f"stdout:\n{stdout}" in capture.read_text()
+
+
+def test_command_start_failure_is_captured_and_named(tmp_path, monkeypatch):
+    def missing(*args, **kwargs):
+        raise FileNotFoundError("executable missing")
+
+    monkeypatch.setattr(
+        "runtime.api.tools.product_runner_smoke.subprocess.run", missing
+    )
+    commands = Commands(tmp_path, {})
+    with pytest.raises(SmokeFailure, match="command_start_failed: step=onboard") as exc:
+        commands.run("onboard", ["missing"], cwd=tmp_path)
+    capture = tmp_path / "01-onboard.txt"
+    assert str(capture) in str(exc.value)
+    assert "executable missing" in capture.read_text()
 
 
 def receipt(outcome="allow", *, chain_length=10, timed_out=False):

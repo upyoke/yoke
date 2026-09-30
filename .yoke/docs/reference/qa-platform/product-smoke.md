@@ -35,6 +35,12 @@ both jobs must pass for the case to pass. It publishes no lane and changes no
 item or deployment gate. GitHub registers a new dispatch workflow from the
 default branch, so its first real run follows its merge there.
 
+Every failure names its step and capture file, including malformed JSON,
+command startup errors, and hook assertions. Onboarding's initialization
+diagnostics go to stderr so its `--json` stdout remains one JSON document.
+Local relay discovery preserves a virtualenv interpreter's directory when
+finding its installed `yoke` console script, even when Python is a symlink.
+
 Read `yoke qa plan get product-smoke --project yoke --full` for the saved case
 and evidence. Each job uploads `product-smoke-evidence`: `report.json`, session
 and evaluation reads, exact command captures, and failure diagnostics.

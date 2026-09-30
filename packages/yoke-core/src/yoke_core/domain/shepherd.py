@@ -5,6 +5,7 @@ implementation lives in focused sibling modules.
 
 CLI usage: ``python3 -m yoke_core.domain.shepherd <subcmd> [args...]``.
 """
+
 from __future__ import annotations
 
 import sys
@@ -62,7 +63,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     conn = connect()
     try:
         if subcmd == "init":
-            print(cmd_init(conn))
+            print(cmd_init(conn), file=sys.stderr)
         elif subcmd == "verdict":
             if len(rest) < 4:
                 _cli_usage_error(
@@ -115,7 +116,9 @@ def main(argv: Optional[List[str]] = None) -> None:
     except LookupError as exc:
         _cli_error(f"Error: {exc}", 1)
     except ValueError as exc:
-        code = 2 if "invalid" in str(exc).lower() or "must be" in str(exc).lower() else 1
+        code = (
+            2 if "invalid" in str(exc).lower() or "must be" in str(exc).lower() else 1
+        )
         _cli_error(f"Error: {exc}", code)
     except RuntimeError as exc:
         _cli_error(f"Error: {exc}", 1)

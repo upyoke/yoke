@@ -106,7 +106,7 @@ class TestEventScanRoot:
 
 
 class TestRunBootstrapRealDb:
-    def test_bootstraps_empty_db_to_complete_shape(self, tmp_path):
+    def test_bootstraps_empty_db_to_complete_shape(self, tmp_path, capsys):
         """THE empty-env proof: a fresh disposable Postgres database reaches
         the complete control-plane shape through run_bootstrap alone."""
         from pathlib import Path
@@ -128,6 +128,7 @@ class TestRunBootstrapRealDb:
             )
 
         with init_test_db(tmp_path, apply_schema=bootstrap) as db_path:
+            assert capsys.readouterr().out == ""
             assert counts["roles"] >= 4
             assert counts["permissions"] >= 10
             assert counts["organizations"] >= 1

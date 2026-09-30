@@ -26,10 +26,19 @@ class Commands:
     def __init__(self, output: Path, env: dict[str, str]):
         self.output, self.env = output, env
         self.sequence = 0
+        self.step = "runner-identity"
+        self.capture = output / "report.json"
+
+    def failure(self, reason, detail):
+        return SmokeFailure(
+            f"{reason}: step={self.step}: {detail}; inspect {self.capture}, "
+            "correct the named step and rerun the plan"
+        )
 
     def run(self, name, command, *, cwd, stdin=None, accepted=(0,), shell=False):
         self.sequence += 1
         capture = self.output / f"{self.sequence:02d}-{name}.txt"
+        self.step, self.capture = name, capture
         print(f"product-smoke step={name} capture={capture}", flush=True)
         try:
             result = subprocess.run(
@@ -43,30 +52,33 @@ class Commands:
                 shell=shell,
                 check=False,
             )
-        except subprocess.TimeoutExpired as exc:
+        except (subprocess.TimeoutExpired, OSError) as exc:
             capture.write_text(str(exc), encoding="utf-8")
-            raise SmokeFailure(
-                f"command_timeout: {name}; inspect {capture}, correct the named step and rerun the plan"
-            ) from exc
+            reason = (
+                "command_timeout"
+                if isinstance(exc, subprocess.TimeoutExpired)
+                else "command_start_failed"
+            )
+            raise self.failure(reason, str(exc)) from exc
         capture.write_text(
             f"command={command!r}\nexit_code={result.returncode}\n"
             f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}",
             encoding="utf-8",
         )
         if result.returncode not in accepted:
-            raise SmokeFailure(
-                f"command_failed: {name} exit={result.returncode}; "
-                f"inspect {capture}, correct the named step and rerun the plan"
-            )
+            raise self.failure("command_failed", f"exit={result.returncode}")
         return result
 
     def document(self, name, command, *, cwd):
         result = self.run(name, command, cwd=cwd)
-        payload = json.loads(result.stdout)
+        try:
+            payload = json.loads(result.stdout)
+            if not isinstance(payload, dict):
+                raise ValueError("expected a JSON object")
+        except ValueError as exc:
+            raise self.failure("command_json_invalid", str(exc)) from exc
         if payload.get("success") is False:
-            raise SmokeFailure(
-                f"command_refused: {name}: {payload.get('error')}; inspect its capture"
-            )
+            raise self.failure("command_refused", payload.get("error"))
         return payload.get("result", payload)
 
 
@@ -102,6 +114,7 @@ def observed_runner() -> dict[str, str]:
 def smoke(root: Path, output: Path) -> None:
     report = {"ok": False, "runner": observed_runner()}
     report_path = output / "report.json"
+    commands = None
     try:
         expected = {
             "os": os.environ.get("SMOKE_EXPECTED_OS"),
@@ -239,6 +252,10 @@ def smoke(root: Path, output: Path) -> None:
                     cwd=root,
                 )
                 report["ok"] = True
+            except Exception as exc:
+                if isinstance(exc, SmokeFailure) and "step=" in str(exc):
+                    raise
+                raise commands.failure("smoke_assertion_failed", str(exc)) from exc
             finally:
                 primary_failure = sys.exc_info()[0] is not None
                 try:
@@ -250,9 +267,18 @@ def smoke(root: Path, output: Path) -> None:
                 except SmokeFailure:
                     if not primary_failure:
                         raise
-    except (SmokeFailure, OSError, ValueError, KeyError) as exc:
-        report["failure"] = str(exc)
-        raise SmokeFailure(str(exc)) from exc
+    except Exception as exc:
+        failure = str(exc)
+        if "inspect " not in failure or "step=" not in failure:
+            failure = (
+                str(commands.failure("smoke_failed", failure))
+                if commands
+                else (
+                    f"smoke_failed: step=runner-identity: {failure}; inspect {report_path}, correct the named step and rerun the plan"
+                )
+            )
+        report["failure"] = failure
+        raise SmokeFailure(failure) from exc
     finally:
         report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 

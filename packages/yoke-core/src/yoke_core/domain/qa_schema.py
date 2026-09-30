@@ -16,6 +16,8 @@ import between this module and ``yoke_core.domain.schema``.
 
 from __future__ import annotations
 
+import sys
+
 from typing import Optional
 
 from yoke_core.domain.db_helpers import connect, query_scalar
@@ -153,7 +155,7 @@ def cmd_init(*, db_path: Optional[str] = None) -> None:
         conn.commit()
     finally:
         conn.close()
-    print("QA tables initialized")
+    print("QA tables initialized", file=sys.stderr)
 
 
 def _qa_requirements_structurally_stale(conn) -> bool:
