@@ -129,7 +129,7 @@ def _execute_issued_contract(
         from yoke_core.domain.machine_qa_local_execution import (
             execute_machine_case_contract,
         )
-        from yoke_core.domain.test_machine_host_control import (
+        from yoke_core.domain.machine_qa_host_control import (
             register_test_machine_host_control,
         )
 

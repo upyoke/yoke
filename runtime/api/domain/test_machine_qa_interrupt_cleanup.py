@@ -38,7 +38,7 @@ def test_baseline_group_interrupt_aborts_issued_contract(
         dispatch,
     )
     monkeypatch.setattr(
-        "yoke_core.domain.test_machine_host_control.register_test_machine_host_control",
+        "yoke_core.domain.machine_qa_host_control.register_test_machine_host_control",
         lambda: None,
     )
     monkeypatch.setattr(

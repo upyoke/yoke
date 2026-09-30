@@ -232,7 +232,7 @@ def test_unsafe_golden_refuses_before_deleting_home(tmp_path, unsafe_kind):
         member.size = 3
         archive.addfile(member, io.BytesIO(b"bad"))
     with archive_path.open("rb") as stream:
-        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        digest = hashlib.sha256(stream.read()).hexdigest()
     (golden / "manifest.json").write_text(
         json.dumps(
             {

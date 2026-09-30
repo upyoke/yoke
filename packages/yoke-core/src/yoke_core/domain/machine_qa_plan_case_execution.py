@@ -122,7 +122,7 @@ def execute_plan_machine_case(
         from yoke_core.domain.machine_qa_local_execution import (
             execute_machine_case_contract,
         )
-        from yoke_core.domain.test_machine_host_control import (
+        from yoke_core.domain.machine_qa_host_control import (
             register_test_machine_host_control,
         )
 
@@ -224,7 +224,7 @@ def execute_plan_agent_mission_case(
         from yoke_core.domain.machine_qa_local_execution import (
             prepare_agent_mission_contract,
         )
-        from yoke_core.domain.test_machine_host_control import (
+        from yoke_core.domain.machine_qa_host_control import (
             register_test_machine_host_control,
         )
 

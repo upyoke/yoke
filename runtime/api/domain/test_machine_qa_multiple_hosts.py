@@ -155,6 +155,7 @@ def test_mission_admission_selects_the_first_free_machine() -> None:
         "concurrency_mode": "serial_per_machine",
         "machines_total": 2,
         "machines_in_use": 1,
+        "oses": ["macos"],
     }
 
     second = begin_host_control_execution(

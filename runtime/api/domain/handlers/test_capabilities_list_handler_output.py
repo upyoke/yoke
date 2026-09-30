@@ -71,7 +71,7 @@ class TestScopeAndSummary:
                 '{"resource_name":"mac-mini-lab","host":"mac",'
                 '"user":"yoke","os":"macos","operating_notes":""}',
             )
-            == "mac-mini-lab · Terminal + PTY · baselines ×2"
+            == "mac-mini-lab · macos · Terminal + PTY · baselines ×2"
         )
 
     def test_path_and_key_material_shaped_values_are_suppressed(self, test_db):

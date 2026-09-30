@@ -282,6 +282,7 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
         "machines_in_use": 1,
         "wait_reason": "all_machine_leases_in_use",
         "active_lease": {"public_ref": "YOK-2101"},
+        "oses": ["macos"],
     }
     machine_methods = [
         row for row in methods if "test-machine" in row["required_capability_kinds"]

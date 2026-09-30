@@ -11,8 +11,8 @@ def read_test_machines(conn: Any, project_id: int) -> tuple[tuple[str, str], ...
         return ()
     rows = conn.execute(
         "SELECT type, settings FROM project_capabilities WHERE project_id = %s "
-        "AND type LIKE 'test-machine:%' ORDER BY type",
-        (project_id,),
+        "AND type LIKE %s ORDER BY type",
+        (project_id, "test-machine:%"),
     ).fetchall()
     result = []
     for row in rows:

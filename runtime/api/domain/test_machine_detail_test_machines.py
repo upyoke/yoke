@@ -43,6 +43,7 @@ def test_the_capability_whose_host_is_this_machine_is_listed_with_its_route() ->
             "capability_type": "test-machine:test-mac",
             "host": "testers-mac-mini.tail0000.ts.net",
             "user": "tester",
+            "os": "macos",
             "exec_command": (
                 "yoke test-machine exec --project yoke --machine test-mac -- <command>"
             ),

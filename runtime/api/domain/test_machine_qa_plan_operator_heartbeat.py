@@ -45,7 +45,7 @@ def test_plan_case_progress_heartbeats_before_submission(
         execute,
     )
     monkeypatch.setattr(
-        "yoke_core.domain.test_machine_host_control.register_test_machine_host_control",
+        "yoke_core.domain.machine_qa_host_control.register_test_machine_host_control",
         lambda: None,
     )
 
@@ -81,7 +81,7 @@ def test_plan_case_preserves_local_connection_diagnostics(
         ),
     )
     monkeypatch.setattr(
-        "yoke_core.domain.test_machine_host_control.register_test_machine_host_control",
+        "yoke_core.domain.machine_qa_host_control.register_test_machine_host_control",
         lambda: None,
     )
 

@@ -50,7 +50,7 @@ def test_machine_leaf_dispatches_begin_then_submit_for_target() -> None:
             side_effect=[begin, submit],
         ) as dispatch,
         mock.patch(
-            "yoke_core.domain.test_machine_host_control.register_test_machine_host_control",
+            "yoke_core.domain.machine_qa_host_control.register_test_machine_host_control",
         ),
         mock.patch(
             "yoke_core.domain.machine_qa_local_execution.execute_machine_case_contract",
@@ -123,7 +123,7 @@ def test_machine_leaf_local_failure_dispatches_abort() -> None:
             side_effect=[begin, abort],
         ) as dispatch,
         mock.patch(
-            "yoke_core.domain.test_machine_host_control.register_test_machine_host_control",
+            "yoke_core.domain.machine_qa_host_control.register_test_machine_host_control",
         ),
         mock.patch(
             "yoke_core.domain.machine_qa_local_execution.execute_machine_case_contract",

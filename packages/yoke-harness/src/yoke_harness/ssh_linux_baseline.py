@@ -31,6 +31,14 @@ operation, expected_home, golden = sys.argv[1:]
 home = pathlib.Path(os.environ["HOME"])
 baseline = pathlib.Path(golden)
 absent = json.loads(sys.stdin.read())
+def stream_sha256(stream):
+    digest = hashlib.sha256()
+    for chunk in iter(lambda: stream.read(65536), b""):
+        digest.update(chunk)
+    return digest.hexdigest()
+def file_sha256(path):
+    with path.open("rb") as stream:
+        return stream_sha256(stream)
 def refuse(reason, entry=None):
     print(json.dumps({"ok": False, "reason": reason, "refused_entry": entry})); sys.exit(64)
 if os.getuid() == 0 or str(home) != expected_home or len(home.parts) < 3 or home.is_symlink():
@@ -81,7 +89,7 @@ if operation == "capture":
                 archive.add(entry, arcname=entry.name, filter=persistent_entry)
         with tarfile.open(temporary / "home.tar.gz", "r:gz") as archive:
             validate_archive(archive)
-        digest = hashlib.file_digest((temporary / "home.tar.gz").open("rb"), "sha256").hexdigest()
+        digest = file_sha256(temporary / "home.tar.gz")
         (temporary / "manifest.json").write_text(json.dumps({"os":"linux", "home": str(home), "uid": os.getuid(), "sha256":digest}))
         temporary.rename(baseline)
     finally:
@@ -89,7 +97,7 @@ if operation == "capture":
 else:
     if not baseline.is_dir(): refuse("golden_baseline_unavailable")
     manifest = json.loads((baseline / "manifest.json").read_text())
-    digest = hashlib.file_digest((baseline / "home.tar.gz").open("rb"), "sha256").hexdigest()
+    digest = file_sha256(baseline / "home.tar.gz")
     if manifest != {"os":"linux", "home":str(home), "uid":os.getuid(), "sha256":digest}:
         refuse("golden_baseline_identity_mismatch")
     with tarfile.open(baseline / "home.tar.gz", "r:gz") as archive:
@@ -104,7 +112,7 @@ else:
             restored = home / member.name
             if member.isfile():
                 with archive.extractfile(member) as original, restored.open("rb") as actual:
-                    if hashlib.file_digest(original, "sha256").digest() != hashlib.file_digest(actual, "sha256").digest():
+                    if stream_sha256(original) != stream_sha256(actual):
                         refuse("linux_golden_restore_not_proved")
             elif member.issym() and os.readlink(restored) != member.linkname:
                 refuse("linux_golden_restore_not_proved")

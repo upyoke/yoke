@@ -115,7 +115,7 @@ def test_host_command_forwards_python_probe_argv_exactly(capsys) -> None:
             return_value=response,
         ),
         mock.patch(
-            "yoke_core.domain.test_machine_host_control.register_test_machine_host_control",
+            "yoke_core.domain.machine_qa_host_control.register_test_machine_host_control",
         ),
         mock.patch(
             "yoke_core.domain.machine_qa_local_execution."
@@ -162,7 +162,7 @@ def test_host_command_result_does_not_echo_sensitive_argv(capsys) -> None:
             return_value=response,
         ),
         mock.patch(
-            "yoke_core.domain.test_machine_host_control.register_test_machine_host_control",
+            "yoke_core.domain.machine_qa_host_control.register_test_machine_host_control",
         ),
         mock.patch(
             "yoke_core.domain.machine_qa_local_execution."
