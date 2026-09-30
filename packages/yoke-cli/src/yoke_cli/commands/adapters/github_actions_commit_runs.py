@@ -20,14 +20,14 @@ from yoke_cli.transport.dispatcher import emit_response
 
 
 GITHUB_ACTIONS_COMMIT_RUNS_USAGE = (
-    "yoke github-actions commit-runs <commit-sha> [--workflow NAME] "
+    "yoke github-actions commit-runs list <commit-sha> [--workflow NAME] "
     "[--repo owner/name] --project P [--session-id S] [--json]"
 )
 
 
 def github_actions_commit_runs(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke github-actions commit-runs",
+        prog="yoke github-actions commit-runs list",
         description=(
             "List every GitHub Actions run whose head commit is exactly this "
             "sha. --workflow matches the workflow's own name, not a run's "

@@ -145,7 +145,8 @@ def test_a_malformed_response_yields_no_matches_rather_than_raising():
 
 
 @pytest.mark.parametrize(
-    "conclusion", ["success", "failure", "cancelled", "timed_out"],
+    "conclusion",
+    ["success", "failure", "cancelled", "timed_out"],
 )
 def test_every_terminal_conclusion_is_announced(conclusion: str):
     """A watch that ends without saying how is the failure mode."""
@@ -164,8 +165,7 @@ def test_every_terminal_conclusion_is_announced(conclusion: str):
     assert len(concluded) == 1
     assert conclusion in concluded[0]
     assert code == (
-        watch.EXIT_SUCCESS if conclusion == "success"
-        else watch.EXIT_CONCLUDED_FAILURE
+        watch.EXIT_SUCCESS if conclusion == "success" else watch.EXIT_CONCLUDED_FAILURE
     )
 
 
@@ -209,7 +209,10 @@ def test_a_commit_that_runs_nothing_is_reported_at_the_appearance_deadline():
     emitted: list[str] = []
 
     code = _watch(
-        lambda: [], clock, emitted, appearance_timeout_seconds=90,
+        lambda: [],
+        clock,
+        emitted,
+        appearance_timeout_seconds=90,
     )
 
     assert code == watch.EXIT_NO_RUN_FOUND
@@ -262,6 +265,40 @@ def test_the_target_line_names_what_is_being_watched():
     )
 
     assert emitted[0] == (
-        f"CI run target: repo=owner/name sha={'a' * 40} ref=HEAD "
-        "workflow=(any)"
+        f"CI run target: repo=owner/name sha={'a' * 40} ref=HEAD workflow=(any)"
     )
+
+
+@pytest.mark.parametrize("failure", ["unknown subcommand", "invalid response"])
+def test_child_failures_exit_with_their_own_reason(monkeypatch, capsys, failure):
+    monkeypatch.setattr(watch, "resolve_commit", lambda *args, **kwargs: "a" * 40)
+
+    def fetch(*args):
+        raise watch.CommitRunCommandError(f"commit_runs_command_failed: {failure}")
+
+    monkeypatch.setattr(watch, "matching_runs", fetch)
+    assert watch.main(["HEAD", "--project", "yoke"]) == watch.EXIT_COMMAND_FAILURE
+    assert failure in capsys.readouterr().err
+
+
+def test_a_child_failure_during_polling_stops_with_the_command_verdict():
+    emitted = []
+
+    def fetch():
+        raise watch.CommitRunCommandError(
+            "commit_runs_command_failed: unknown subcommand"
+        )
+
+    assert _watch(fetch, FakeClock(), emitted) == watch.EXIT_COMMAND_FAILURE
+    assert "unknown subcommand" in emitted[-1]
+
+
+def test_diagnosed_auth_failures_keep_the_auth_verdict(monkeypatch, capsys):
+    monkeypatch.setattr(watch, "resolve_commit", lambda *args, **kwargs: "a" * 40)
+
+    def fetch(*args):
+        raise watch.CommitRunAuthorityError("project_auth_error: missing installation")
+
+    monkeypatch.setattr(watch, "matching_runs", fetch)
+    assert watch.main(["HEAD", "--project", "yoke"]) == watch.EXIT_AUTH
+    assert "missing installation" in capsys.readouterr().err
