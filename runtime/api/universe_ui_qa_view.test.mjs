@@ -6,6 +6,7 @@ import {
 } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import {
   capabilityRoute,
+  capabilityLabel,
   sourceNode,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_primitives.js";
 import {
@@ -335,4 +336,9 @@ test("Plans renders the durable objects and the full case-detail composition", a
     },
   );
   mounted.unmount();
+});
+
+ test("QA capability labels show the served fleet OS values and tolerate older summaries", () => {
+  assert.equal(capabilityLabel("test-machine", null, { oses: ["linux", "macos"] }), "Test Machine · OS: linux, macos");
+  assert.equal(capabilityLabel("test-machine", null, {}), "Test Machine");
 });

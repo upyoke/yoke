@@ -248,7 +248,7 @@ def test_initial_ssh_failure_preserves_bounded_redacted_diagnostics(
 
     with pytest.raises(HostControlLocalError) as caught:
         SshMacTransport(
-            settings={"host": "test-mac.local", "user": "yoke-test"},
+            settings={"host": "test-mac.local", "user": "yoke-test", "os": "macos"},
             key_path=tmp_path / "ssh_private_key",
         )
 
@@ -277,7 +277,7 @@ def test_malformed_host_facts_are_distinct_from_connection_failure(
 
     with pytest.raises(HostControlLocalError) as caught:
         SshMacTransport(
-            settings={"host": "test-mac.local", "user": "yoke-test"},
+            settings={"host": "test-mac.local", "user": "yoke-test", "os": "macos"},
             key_path=tmp_path / "ssh_private_key",
         )
 

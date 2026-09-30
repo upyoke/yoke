@@ -47,10 +47,12 @@ export function methodIcon(method) {
   return LEGACY_METHOD_ICONS[methodId] || "◉";
 }
 
-export function capabilityLabel(kind, definitionLabel = null) {
-  return definitionLabel || (
+export function capabilityLabel(kind, definitionLabel = null, context = null) {
+  const label = definitionLabel || (
     kind ? (LEGACY_CAPABILITY_LABELS[kind] || kind) : "none"
   );
+  return kind === "test-machine" && context?.oses?.length
+    ? `${label} · OS: ${context.oses.join(", ")}` : label;
 }
 
 export function sourceLabel(method) {

@@ -40,6 +40,7 @@ def test_machine_capability_context(
         "state": STATE_CONFIGURED_UNVERIFIED,
         "concurrency_mode": "serial_per_machine",
         "machines_total": len(keys),
+        "oses": sorted({row.settings["os"] for row in rows}),
         "machines_in_use": len(busy),
     }
     if len(busy) == len(keys):

@@ -52,6 +52,14 @@ def _interactive(
                 {"recovery": "Install tmux and repair the non-root user's SSH shell."},
                 "linux_tmux_unavailable",
             )
+        initial_wait = float(config["start_delay"])
+        if initial_wait > max(0, deadline - time.monotonic()):
+            return HostActionResult(
+                False,
+                {"recovery": "Keep start_delay inside max_wall_seconds."},
+                "terminal_recipe_timed_out",
+            )
+        time.sleep(initial_wait)
         for action in config["actions"]:
             if action.get("operator_gate"):
                 return HostActionResult(
@@ -187,7 +195,15 @@ def _interactive(
         )
         return result
     finally:
-        terminal.close()
+        if not terminal.close():
+            return HostActionResult(
+                False,
+                {
+                    "session": terminal.session,
+                    "recovery": "Restore SSH reachability and terminate the named yoke-qa tmux session before retrying.",
+                },
+                "linux_tmux_cleanup_failed",
+            )
 
 
 def execute_linux_recipe(

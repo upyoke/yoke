@@ -36,9 +36,11 @@ class LinuxTerminal:
         )
         if result.returncode:
             return False
-        self.command("set-option", "-t", self.session, "history-limit", "100000")
-        self.send(entry_surface + "; printf '\\n__YOKE_EXIT_%s\\n' \"$?\"")
-        return True
+        if self.command(
+            "set-option", "-t", self.session, "history-limit", "100000"
+        ).returncode:
+            return False
+        return self.send(entry_surface + "; printf '\\n__YOKE_EXIT_%s\\n' \"$?\"")
 
     def send(self, text: str) -> bool:
         if text in {"Enter", "C-c", "C-d", "Escape", "Tab", "Up", "Down"}:
@@ -67,8 +69,9 @@ class LinuxTerminal:
             time.sleep(0.2)
         return None
 
-    def close(self) -> None:
+    def close(self) -> bool:
         self.command("kill-session", "-t", self.session)
+        return self.command("has-session", "-t", self.session).returncode == 1
 
 
 def run_linux_terminal_case(
@@ -105,7 +108,14 @@ def run_linux_terminal_case(
                 time.monotonic() + int(step.get("timeout_seconds", 30)),
                 progress_callback,
             )
-            rows.append({"key": step["key"], "ok": transcript is not None})
+            rows.append(
+                {
+                    "key": step["key"],
+                    "ok": transcript is not None,
+                    "reached": transcript is not None,
+                    "transcript": transcript or "",
+                }
+            )
             if transcript is None:
                 return HostActionResult(
                     False,
@@ -134,7 +144,15 @@ def run_linux_terminal_case(
             None if completed else "terminal_completion_not_proved",
         )
     finally:
-        terminal.close()
+        if not terminal.close():
+            return HostActionResult(
+                False,
+                {
+                    "recovery": "Restore SSH reachability and terminate the named yoke-qa tmux session before retrying.",
+                    "session": terminal.session,
+                },
+                "linux_tmux_cleanup_failed",
+            )
 
 
 def diagnose_linux_terminal(control: Any) -> HostActionResult:
@@ -167,4 +185,12 @@ def diagnose_linux_terminal(control: Any) -> HostActionResult:
             None if ok else "linux_tmux_bridge_unavailable",
         )
     finally:
-        terminal.close()
+        if not terminal.close():
+            return HostActionResult(
+                False,
+                {
+                    "recovery": "Restore SSH reachability and terminate the named yoke-qa tmux session before retrying.",
+                    "session": terminal.session,
+                },
+                "linux_tmux_cleanup_failed",
+            )

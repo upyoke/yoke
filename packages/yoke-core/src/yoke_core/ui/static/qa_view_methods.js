@@ -120,7 +120,7 @@ function methodCard(context, method, scope) {
   for (const capability of capabilities) {
     foot.appendChild(el(
       documentNode, "strong", "qa-capability-name",
-      capabilityLabel(capability.kind, capability.label),
+      capabilityLabel(capability.kind, capability.label, capability.context),
     ));
     const state = capabilityStateNode(
       documentNode, capability.context, capability.state,

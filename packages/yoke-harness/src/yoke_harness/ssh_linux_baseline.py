@@ -41,17 +41,21 @@ if baseline.is_symlink() or baseline.resolve() != baseline:
     refuse("golden_baseline_symlink_refused")
 def validate_archive(archive):
     members = archive.getmembers()
+    links = {pathlib.PurePosixPath(member.name) for member in members if member.issym()}
     for member in members:
         path = pathlib.PurePosixPath(member.name)
+        name = str(path)
+        if any(parent in links for parent in path.parents):
+            refuse("golden_baseline_archive_unsafe")
         if path.is_absolute() or ".." in path.parts or not path.parts or path.parts[0] == ".ssh":
             refuse("golden_baseline_archive_unsafe")
         if member.isdev() or member.isfifo() or member.islnk():
             refuse("golden_baseline_archive_unsafe")
         if member.issym():
-            target = pathlib.PurePosixPath(member.linkname)
-            if ".." in target.parts or (target.is_absolute() and home not in pathlib.Path(target).parents):
+            target = pathlib.Path(os.path.normpath(home / path.parent / member.linkname))
+            if target != home and home not in target.parents:
                 refuse("golden_baseline_archive_unsafe")
-        if any(member.name == value or member.name.startswith(value + "/") for value in absent):
+        if any(name == value or name.startswith(value + "/") for value in absent):
             refuse("golden_baseline_contains_yoke")
     return members
 if operation not in {"capture", "reset"}: refuse("linux_golden_operation_unknown")
