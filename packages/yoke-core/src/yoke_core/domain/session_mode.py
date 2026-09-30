@@ -5,37 +5,17 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from yoke_contracts.session_queue_posture import (
+    SESSION_MODE_DEFAULT,
+    SESSION_MODE_PARKED,
+    SESSION_MODES,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
 from yoke_core.domain.session_turn_posture import posture_timestamp
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.sessions_ended_recovery import session_ended_message
 from yoke_core.domain.sessions_queries_base import _row_to_dict
-
-SESSION_MODE_PARKED = "parked"
-SESSION_MODE_DEFAULT = "wait"
-# Grounded stamps: skill ``--mode`` values, NextAction kinds, and packet posture.
-SESSION_MODES = frozenset(
-    (
-        SESSION_MODE_DEFAULT,
-        SESSION_MODE_PARKED,
-        "busy",
-        "charge",
-        "dash",
-        "escalate",
-        "feed",
-        "idea",
-        "operator",
-        "plan",
-        "polish",
-        "refine",
-        "resume",
-        "shepherd",
-        "steer",
-        "strategize",
-        "wrapup",
-    )
-)
 
 
 def _p(conn: Any) -> str:

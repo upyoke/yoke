@@ -77,6 +77,14 @@ def test_live_recipes_do_not_read_or_mutate_a_deleted_item_field(
 def test_advance_and_qa_recipes_read_the_active_implementation_lane(
     root: Path,
 ) -> None:
+    """Each recipe reads the lane from its registered row.
+
+    Either projection satisfies the contract: the branch, or the lane's
+    own absolute ``path``. What the contract forbids is composing a lane
+    location out of a project root, because the item's project can be
+    checked out anywhere on the machine and the row already records
+    where its lane landed.
+    """
     for relative_path in (
         "advance/reentry.md",
         "advance/finalize.md",
@@ -85,7 +93,10 @@ def test_advance_and_qa_recipes_read_the_active_implementation_lane(
     ):
         text = (root / relative_path).read_text()
         assert "yoke item-worktrees get" in text
-        assert "--lane-role implementation --field branch" in text
+        assert (
+            "--lane-role implementation --field branch" in text
+            or "--lane-role implementation --field path" in text
+        ), relative_path
 
 
 @pytest.mark.parametrize("root", (SOURCE_SKILLS, PACKAGED_SKILLS))

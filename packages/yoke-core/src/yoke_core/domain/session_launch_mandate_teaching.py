@@ -112,8 +112,13 @@ CANDIDATE_REVIEW_TEACHING = (
 STEERING_REWORK_TEACHING = (
     "Steering does not gate your landing — it vets your work after it lands "
     "and before the item is admitted to a release. If that vetting finds a "
-    "problem, steering moves the item back to implementing and tells you "
-    "what to correct. That is a rework leg on the SAME item, not a new one "
+    "problem, steering tells you what to correct and asks you to move the "
+    "item back to implementing — that transition is yours, because "
+    "lifecycle.transition requires the calling session to hold the item's "
+    "work claim and you are the holder: "
+    '`yoke lifecycle transition PREFIX-N --to implementing --reason '
+    '"steering rework: <what to correct>"`. '
+    "That is a rework leg on the SAME item, not a new one "
     "and not a refusal to argue with: correct it, re-verify, re-land through "
     "the same merge command, and re-enter the release wait. Previous "
     "evidence covered the revision it was taken on and does not carry over "

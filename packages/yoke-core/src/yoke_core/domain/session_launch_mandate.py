@@ -116,7 +116,9 @@ def compose_single_item_mandate(
     mandate = (
         f"{entrypoint}\n\n"
         f"Single-item mandate (steering): acquire the {public_ref} work claim "
-        f"as your FIRST action, then execute only {public_ref} through "
+        f"as your FIRST action — `yoke claims work acquire --item {public_ref} "
+        f'--reason "<why you are claiming it>"` — then execute only '
+        f"{public_ref} through "
         f"{remaining_legs}. Do NOT create or dispatch any deployment run — "
         "the orchestrator batches deploys. Message the orchestrator ONLY for "
         "substantive updates — a red gate and what failed, a blocker, a conflict "

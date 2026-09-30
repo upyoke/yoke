@@ -10,21 +10,19 @@ When the advance target triggers re-entry into the current worktree:
 Locates the existing worktree, prepares `WORKTREE_PATH`, and resumes the implementation/review loop. Do **not** stop after surfacing the path.
 
 ```bash
-_item_project=$(yoke items get {N} project 2>/dev/null)
-if [ -n "$_item_project" ] && [ "$_item_project" != "null" ] && [ "$_item_project" != "" ]; then
- _wt_repo=$(yoke projects get --project "$_item_project" --field repo_path)
-else
- _wt_repo=$(git rev-parse --show-toplevel)
-fi
-
 if [ "$_worktree_policy" = "none" ]; then
  # Laneless workflow: there is no worktree to re-enter. The work happens
  # in place under the session's existing write authority.
  _wt_branch=""
  WORKTREE_PATH=""
 elif [ "$_worktree_policy" = "single_implementation_lane" ]; then
+ # The registered lane row carries its own absolute path. Read it rather
+ # than composing one from a project root: the lane may live in another
+ # project's checkout, and a composed path is a guess either way.
  _wt_branch=$(yoke item-worktrees get PREFIX-N \
   --lane-role implementation --field branch 2>/dev/null)
+ _wt_path=$(yoke item-worktrees get PREFIX-N \
+  --lane-role implementation --field path 2>/dev/null)
 elif [ "$_worktree_policy" = "worker_and_integration_lanes" ] \
  || [ "$_worktree_policy" = "worker_lanes_optional_integration" ]; then
  if [ "$_current_skill" = "conduct" ]; then
@@ -41,10 +39,10 @@ fi
 ```
 
 - If the policy is `none` → leave `WORKTREE_PATH` empty and continue; never create a lane for a laneless workflow.
-- If `_wt_branch` set → check `$_wt_repo/.worktrees/$_wt_branch`.
- - Directory exists → set `WORKTREE_PATH` to the absolute path and continue.
+- If `_wt_path` set → check that directory.
+ - Directory exists → set `WORKTREE_PATH` to it and continue.
  - Missing → recreate through the source-dev/admin worktree helper, update DB, set `WORKTREE_PATH`, and continue. No registered product CLI wrapper exists for direct worktree creation; normal operators use `/yoke advance PREFIX-N implementation`.
-- If `_wt_branch` empty under a lane-bearing policy → create new worktree, update DB, set `WORKTREE_PATH`, and continue.
+- If `_wt_branch` empty under a lane-bearing policy → create new worktree, update DB, set `WORKTREE_PATH`, and continue. A lane row with no `path` is a broken record, not a path to compose: repair it with `yoke item-worktrees path-record`.
 
 After `WORKTREE_PATH` is ready:
 - If current status is `implementing`, continue with step 4 as the normal single-lane implementation loop selected by the pinned `advance` binding.

@@ -77,7 +77,7 @@ Worked examples:
     --instructions "Open the login route and capture its ready state." \\
     --expected-outcome "The login form is aligned and usable." \\
     --method-config '{"steps":[{"action":"navigate","route":"/login"},
-      {"action":"screenshot","capture":true,"name":"login"}]}' \\
+      {"action":"screenshot","capture":true,"label":"login"}]}' \\
     --workflow-transition reviewed-implementation
 
   yoke qa requirement add --deployment-run run-YYYYMMDD-NNN \\
@@ -86,7 +86,7 @@ Worked examples:
     --instructions "Open the released home route and capture it." \\
     --expected-outcome "The home page renders the new build." \\
     --method-config '{"steps":[{"action":"navigate","route":"/"},
-      {"action":"screenshot","capture":true,"name":"home"}]}'
+      {"action":"screenshot","capture":true,"label":"home"}]}'
 
 Flag matrix:
 

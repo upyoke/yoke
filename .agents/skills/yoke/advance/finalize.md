@@ -143,19 +143,13 @@ The status-change comment and body sync are downstream side effects of the `life
 ```bash
 if [ -z "$WORKTREE_PATH" ] \
  && [ "$_worktree_policy" = "single_implementation_lane" ]; then
- _wt_branch=$(yoke item-worktrees get PREFIX-{N} \
-  --lane-role implementation --field branch 2>/dev/null)
- if [ -n "$_wt_branch" ] && [ "$_wt_branch" != "null" ]; then
- _item_project=$(yoke items get {N} project 2>/dev/null)
- if [ -n "$_item_project" ] && [ "$_item_project" != "null" ] && [ "$_item_project" != "" ]; then
- _wt_repo=$(yoke projects get --project "$_item_project" --field repo_path)
- else
- _wt_repo=$(git rev-parse --show-toplevel)
- fi
- _candidate="$_wt_repo/.worktrees/$_wt_branch"
- if [ -d "$_candidate" ]; then
+ # The lane row carries its own absolute path, wherever the item's
+ # project is checked out. Read it; never compose one from a root.
+ _candidate=$(yoke item-worktrees get PREFIX-{N} \
+  --lane-role implementation --field path 2>/dev/null)
+ if [ -n "$_candidate" ] && [ "$_candidate" != "null" ] \
+ && [ -d "$_candidate" ]; then
  WORKTREE_PATH="$_candidate"
- fi
  fi
 fi
 ```

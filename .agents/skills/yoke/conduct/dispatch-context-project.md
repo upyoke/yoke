@@ -34,10 +34,18 @@ For each matched topic that appears in `$_topics`, fetch its docs (one path per 
 _topic_docs=$(python3 -m yoke_core.domain.context_routing get-topic "${_project}" "${_topic}" 2>/dev/null) || true
 ```
 
-c. Read `repo_path`:
+c. Read the project's checkout on this machine. It is machine-scoped, so
+it comes from the registered project mappings — the `projects` table
+carries no path:
 ```bash
-_repo_path=$(yoke projects get --project "${_project}" --field repo_path)
+_repo_path=$(yoke machine detail --json \
+ | python3 -c 'import json,sys
+rows = json.load(sys.stdin)["result"]["projects"]
+print(next((r["checkout"] for r in rows if r["slug"] == sys.argv[1]), ""))' \
+ "${_project}")
 ```
+An empty result means this machine has no checkout registered for that
+project; `yoke project register <checkout> --project-id <id>` records one.
 
 d. Read attached test plans and materialized case snapshots:
 ```bash

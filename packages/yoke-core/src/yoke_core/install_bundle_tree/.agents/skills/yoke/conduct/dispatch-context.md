@@ -133,21 +133,17 @@ Resolve the worktree path from the dispatch chain:
 ```bash
 _chain_row=$(yoke workflow-item epic-dispatch-chain get --epic "$_epic_id" --worktree "$_worktree_branch")
 ```
-Parse `worktree_path` from the chain row. Fallback: resolve the project-specific repo root and compute the path there:
+Parse `worktree_path` from the chain row. When the row carries none, read the lane's own registered path instead of composing one:
 
 ```bash
-# Fallback: resolve project-aware repo root for worktree path
-_item_project=$(yoke items get "${_id}" project)
-if [ -n "$_item_project" ] && [ "$_item_project" != "null" ]; then
- _project_root=$(yoke projects get --project "$_item_project" --field repo_path)
-else
- _project_root="${MAIN_ROOT}"
-fi
-_slug=$(echo "$_worktree_branch" | sed 's|/|-|g')
-_worktree_path="${_project_root}/.worktrees/${_slug}"
+# Fallback: the lane row records where the lane actually landed.
+_worktree_path=$(yoke item-worktrees list "${_id}" --json \
+ | python3 -c 'import json,sys
+rows = json.load(sys.stdin)["result"]["worktrees"]
+print(next((r["path"] for r in rows if r["branch"] == sys.argv[1]), ""))' "$_worktree_branch")
 ```
 
-This ensures every project, including Yoke, resolves through the same registered repo root instead of assuming `MAIN_ROOT`.
+Every project, including Yoke, resolves through that same registered row, so nothing assumes `MAIN_ROOT` or that a lane sits under its project's `.worktrees/`. An empty result is a missing lane record, not a path to guess: repair it with `yoke item-worktrees path-record` and escalate rather than dispatching into a directory nothing registered.
 
 Defense-in-depth: persist all three worktree fields to `epic_tasks`. This ensures that even if the activation step in `entry-activation-resolution.md` S6f is bypassed during re-entry recovery, the context preparation step writes all three fields. Since `metadata-update` is idempotent, redundant writes are harmless.
 

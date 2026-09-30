@@ -50,7 +50,10 @@ LAUNCH_BOOTSTRAP_MESSAGE_READ = (
 LAUNCH_BOOTSTRAP_CLAIM_FIRST = (
     "If your message assigns you a work item, acquire that item's work claim "
     "as your first work action after this handoff, before any item survey or "
-    "repository reading."
+    "repository reading: `yoke claims work acquire --item PREFIX-N --reason "
+    '"<why you are claiming it>"`, with the assigned ref in place of '
+    "PREFIX-N. That exact command is the claim surface; a spelling built "
+    "from the noun phrase is not registered and the claim does not happen."
 )
 
 

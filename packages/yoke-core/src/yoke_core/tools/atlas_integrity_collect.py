@@ -212,10 +212,20 @@ def collect_recipes(target_root: Path) -> Dict[str, Any]:
 
 
 def collect_taught_commands(target_root: Path) -> Dict[str, Any]:
-    """Resolve every command spelling extracted from live teaching surfaces."""
-    from yoke_cli.product_boundary_teaching import generate_teaching_audit
+    """Resolve every command spelling extracted from live teaching surfaces.
 
-    audit = generate_teaching_audit(repo_root=target_root, include_help=True)
+    The parse probe supplies the argument-shape half: it substitutes
+    documentation placeholders and asks each resolved adapter's parser
+    about the recipe, so a flag or value the CLI no longer accepts
+    surfaces here as ``stale_argument_shape`` rather than as a failed
+    call in somebody's session.
+    """
+    from yoke_cli.product_boundary_teaching import generate_teaching_audit
+    from yoke_core.tools.taught_recipe_parse_probe import parse_probe
+
+    audit = generate_teaching_audit(
+        repo_root=target_root, smoke_yoke=parse_probe, include_help=True
+    )
     surfaces = [asdict(row) for row in audit.surfaces]
     return {
         "count": len(surfaces),

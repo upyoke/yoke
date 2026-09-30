@@ -17,6 +17,7 @@ from yoke_cli.commands.session_begin_corroboration import (
     uncorroborated_reason,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.session_queue_posture import SESSION_MODES
 from yoke_contracts.machine_config.checkout_env_mismatch import with_mismatch_note
 
 
@@ -83,7 +84,7 @@ def sessions_touch(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions touch", description=SESSIONS_TOUCH_USAGE,
     )
-    parser.add_argument("--mode", default=None)
+    parser.add_argument("--mode", default=None, choices=sorted(SESSION_MODES))
     parser.add_argument("--reason", default=None)
     add_session_arg(parser)
     add_json_arg(parser)
@@ -204,7 +205,7 @@ def sessions_begin(args: List[str]) -> int:
         "--project", metavar="ID", default=None,
         help="numeric project id; otherwise resolve the workspace mapping",
     )
-    parser.add_argument("--mode", default="wait")
+    parser.add_argument("--mode", default="wait", choices=sorted(SESSION_MODES))
     parser.add_argument("--entrypoint", default=None)
     add_session_arg(parser)
     add_json_arg(parser)
