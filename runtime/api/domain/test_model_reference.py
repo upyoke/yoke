@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from functools import partial
 from pathlib import Path
 
@@ -59,20 +60,70 @@ def test_global_tiers_match_operator_approved_frontier() -> None:
     assert "tier1" not in cursor_tiers
 
 
-def test_reference_teaching_agrees_with_global_tiers() -> None:
+_TEACHING_FILES = (
+    ".agents/skills/yoke/models/SKILL.md",
+    ".agents/skills/yoke/steer/model-selection.md",
+    "docs/public/cli-and-config.md",
+)
+_FENCED_BLOCK_RE = re.compile(r"^```.*?^```", re.MULTILINE | re.DOTALL)
+_TIER_CLAIM_RE = re.compile(r"tier\s?-?[12]\b|\bexcluded\b", re.IGNORECASE)
+
+
+def _prose_sentences(path: Path) -> list[str]:
+    """Return the file's sentences with fenced blocks removed.
+
+    A fenced block is a syntax example — the ``[1m]`` context suffix, the
+    ``-high`` effort suffix — and each one says in prose that its model
+    ids are illustrative. Only the prose makes claims.
+    """
+    prose = " ".join(_FENCED_BLOCK_RE.sub(" ", path.read_text()).split())
+    return re.split(r"(?<=[.!?])\s+", prose)
+
+
+def test_teaching_prose_never_claims_a_models_tier() -> None:
+    """Tier membership belongs to the catalog, never to taught prose.
+
+    The catalog publishes ``proposed_tier`` per model and a refresh is
+    DB-only by design, so prose naming which models sit in a tier goes
+    stale with no lane to correct it in — which is how ``gpt-6-sol`` went
+    on being taught as tier2 after the catalog moved it to excluded.
+    Naming a model as a selector-syntax example stays fine; claiming its
+    tier in the same sentence does not.
+    """
     root = Path(__file__).resolve().parents[3]
-    joined = "\n".join(
-        (root / rel).read_text()
-        for rel in (
-            ".agents/skills/yoke/models/SKILL.md",
-            ".agents/skills/yoke/steer/model-selection.md",
-            "docs/public/cli-and-config.md",
-        )
+    names = sorted(
+        {record.display_name for record in MODEL_RECORDS}
+        | {record.model_id for record in MODEL_RECORDS},
+        key=len,
+        reverse=True,
     )
+    claims: list[str] = []
+    for rel in _TEACHING_FILES:
+        for sentence in _prose_sentences(root / rel):
+            named = [name for name in names if name in sentence]
+            if named and _TIER_CLAIM_RE.search(sentence):
+                claims.append(f"{rel}: {named} in {sentence!r}")
+    assert not claims, (
+        "taught prose claims a tier for a specific model; state the tier's "
+        "meaning and send the reader to `yoke models get` instead:\n"
+        + "\n".join(claims)
+    )
+
+
+def test_reference_teaching_sends_readers_to_the_catalog() -> None:
+    """Each tier-teaching surface names the read that answers membership."""
+    root = Path(__file__).resolve().parents[3]
+    for rel in _TEACHING_FILES:
+        body = (root / rel).read_text()
+        assert "yoke models get" in body or "yoke models lookup" in body, rel
+
+
+def test_reference_teaching_retains_its_settled_corrections() -> None:
+    root = Path(__file__).resolve().parents[3]
+    joined = "\n".join((root / rel).read_text() for rel in _TEACHING_FILES)
     assert "Grok 4.6 is tier 1" not in joined
     assert "bounded-work default" not in joined
     assert "do not exclude" not in joined.lower()
-    assert "Cursor currently has no" in joined
     assert "claude-sonnet-5" not in joined.split("session_model_routing", 1)[-1]
 
 
