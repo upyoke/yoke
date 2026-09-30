@@ -260,6 +260,11 @@ channel, atomically rewrites `YOKE_SERVER_IMAGE`, runs `docker compose pull
 core`, and runs `docker compose up -d`. Use `--yes` only when an automated run
 has already accepted that same plan.
 
+An active source-checkout CLI refuses this command before preview or install,
+just as `yoke update` does. Update the checkout with git, then rebuild its
+source server with `yoke core upgrade --from-checkout /path/to/yoke --build`.
+The refusal preserves the CLI install, bundle image pin, and running server.
+
 Failures name the stage and exact retry. The pin is unchanged when CLI install
 fails; after the CLI and pin advance, a pull or restart failure leaves both
 durable identities on the target and prints the two Compose recovery commands.

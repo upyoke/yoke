@@ -12,11 +12,19 @@ import pytest
 
 from yoke_cli.commands import self_host as commands
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
+from yoke_cli.config import install_binding
 from yoke_cli.config.onboard_self_host_server import DockerPrerequisites
 from yoke_cli.self_host import bundle
 from yoke_cli.self_host import release_target
 from yoke_cli.self_host import upgrade
 from yoke_contracts.server_image import pinned_server_image
+
+
+@pytest.fixture(autouse=True)
+def packaged_install(monkeypatch):
+    monkeypatch.setattr(
+        install_binding, "detect", lambda: {"kind": install_binding.KIND_PACKAGED_WHEEL}
+    )
 
 
 @pytest.fixture()
