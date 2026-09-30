@@ -26,6 +26,7 @@ from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from typing import Iterator, List, Optional, Sequence, Tuple
 
 from yoke_cli.commands.registry import resolve
+from yoke_contracts.items_projection import ALLOWED_GET_FIELDS, unknown_field_message
 
 
 # A shell operator ends the yoke invocation; everything past it belongs to
@@ -128,17 +129,33 @@ class _ParsedOK(Exception):
     """Raised the moment an adapter's parser accepts the literal."""
 
 
+class _ProjectionError(Exception):
+    """A parsed item read names a field the shared projection refuses."""
+
+
+def _check_projection(
+    parser: argparse.ArgumentParser, parsed: argparse.Namespace
+) -> None:
+    if parser.prog != "yoke items get":
+        return
+    for field in parsed.fields:
+        if field not in ALLOWED_GET_FIELDS and field not in _STANDINS:
+            raise _ProjectionError(unknown_field_message(field))
+
+
 @contextmanager
 def _abort_after_parse() -> Iterator[None]:
     real_parse = argparse.ArgumentParser.parse_args
     real_known = argparse.ArgumentParser.parse_known_args
 
     def parse_args(self, args=None, namespace=None):
-        real_parse(self, args, namespace)
+        parsed = real_parse(self, args, namespace)
+        _check_projection(self, parsed)
         raise _ParsedOK()
 
     def parse_known_args(self, args=None, namespace=None):
-        real_known(self, args, namespace)
+        parsed, _remaining = real_known(self, args, namespace)
+        _check_projection(self, parsed)
         raise _ParsedOK()
 
     argparse.ArgumentParser.parse_args = parse_args
@@ -163,6 +180,8 @@ def _usage_error(command_argv: List[str]) -> Tuple[Optional[str], Optional[str]]
                 rc = adapter(rest)
     except _ParsedOK:
         return function_id, None
+    except _ProjectionError as exc:
+        return function_id, str(exc)
     except SystemExit as exc:
         rc = exc.code if isinstance(exc.code, int) else 0
     except KeyboardInterrupt:

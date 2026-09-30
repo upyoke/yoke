@@ -40,7 +40,7 @@ yoke session-control launch create --project {_project} --surface {_surface} --l
 That prints nothing and launches nothing — it reports the operator's routing
 default for the surface plus the efforts and context windows the CLI accepts
 for it. The manifest `session_control.launch_model_selection` at
-`runtime/harness/<harness_id>/manifest.json` is the fact it reads; never
+`runtime/harness/<harness-dir>/manifest.json` is the fact it reads; never
 restate one of those lists here, because a refreshed manifest would leave
 this file teaching a ladder the surface no longer has.
 

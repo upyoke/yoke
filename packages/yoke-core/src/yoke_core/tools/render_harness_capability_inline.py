@@ -4,7 +4,7 @@ Four teaching surfaces used to assert independently what each harness can do,
 and two of the four had drifted into stating the opposite of the measured
 answer. The facts now live once, in
 :mod:`yoke_contracts.harness_wake_capability`; the substrate renderer copies
-them into each ``runtime/harness/<harness_id>/manifest.json`` under
+them into each ``runtime/harness/<harness-dir>/manifest.json`` under
 ``agent_wake``, and this module renders the same entries into every markdown
 surface that shows the capability to a reader.
 
@@ -49,17 +49,13 @@ BEGIN_MARKER: str = begin_marker(SLUG)
 END_MARKER: str = end_marker(SLUG)
 
 MANIFEST_FIELD: str = "agent_wake"
-MANIFEST_PATH_TEMPLATE: str = "runtime/harness/<harness_id>/manifest.json"
+MANIFEST_PATH_TEMPLATE: str = "runtime/harness/<harness-dir>/manifest.json"
 CANONICAL_MODULE: str = "yoke_contracts.harness_wake_capability"
-REPAIR_COMMAND: str = (
-    "python3 -m yoke_core.tools.render_harness_capability_inline"
-)
+REPAIR_COMMAND: str = "python3 -m yoke_core.tools.render_harness_capability_inline"
 
 # Surfaces carrying the full table: the reference documents a reader consults
 # to learn the capability itself.
-TABLE_SURFACES: tuple[str, ...] = (
-    "docs/hook-parity-map.md",
-)
+TABLE_SURFACES: tuple[str, ...] = ("docs/hook-parity-map.md",)
 
 # Surfaces carrying the compact list: working documents where an agent needs
 # the answer in passing, not a reference table.
@@ -89,7 +85,8 @@ _WAKE_PRIMITIVES = ("Monitor", "ScheduleWakeup", "notify_on_output")
 _CITATION_TOKENS = (MANIFEST_FIELD, "manifest.json", CANONICAL_MODULE)
 
 _HARNESS_RE = re.compile(
-    "|".join(re.escape(name) for name in _HARNESS_NAMES), re.IGNORECASE,
+    "|".join(re.escape(name) for name in _HARNESS_NAMES),
+    re.IGNORECASE,
 )
 _PRIMITIVE_RE = re.compile(
     "|".join(re.escape(name) for name in _WAKE_PRIMITIVES),
@@ -142,17 +139,14 @@ def build_table_block() -> str:
     lines = [
         *_provenance_lines(),
         "",
-        "| Harness | Idle wake (resume an ended turn) | Timer wake "
-        "| Verified on |",
+        "| Harness | Idle wake (resume an ended turn) | Timer wake | Verified on |",
         "|---|---|---|---|",
     ]
     for harness_id, cap in HARNESS_WAKE_CAPABILITIES.items():
         idle = _wake_phrase(cap.idle_wake, cap.idle_wake_mechanism)
         timer = _wake_phrase(cap.timer_wake, cap.timer_wake_mechanism)
         verified = cap.verified_on_surface or "not verified"
-        lines.append(
-            f"| `{harness_id}` | {idle} | {timer} | `{verified}` |"
-        )
+        lines.append(f"| `{harness_id}` | {idle} | {timer} | `{verified}` |")
     lines.append("")
     lines.append("Evidence behind each row:")
     lines.append("")
@@ -169,7 +163,9 @@ def content_for_path(rel_path: str) -> str:
 
 
 def render(
-    target_root: pathlib.Path, *, check: bool = False,
+    target_root: pathlib.Path,
+    *,
+    check: bool = False,
 ) -> RenderResult:
     """Render the capability block into every inventory surface."""
     return render_blocks(
@@ -209,7 +205,8 @@ def uncited_capability_claims(
             continue
         inside_block = False
         for number, line in enumerate(
-            abs_path.read_text(encoding="utf-8").splitlines(), start=1,
+            abs_path.read_text(encoding="utf-8").splitlines(),
+            start=1,
         ):
             if BEGIN_MARKER in line:
                 inside_block = True

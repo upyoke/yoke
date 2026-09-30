@@ -199,7 +199,7 @@ events fire on the non-interactive terminal surface, where `subagentStart` /
 | `Edit` / `Write` | `Edit`, `Write` | `apply_patch` | `Write` (gate at `preToolUse`; `afterFileEdit` supplies the post-hoc diff) |
 | `Read` | `Read` | — | `Read` (plus `beforeReadFile`) |
 | Subagent dispatch | `Agent` | custom-agent spawn | `Task` — `tool_input.subagent_type` names the target, so dispatch is gateable at `preToolUse` even where lifecycle events are absent |
-| `Monitor` / `ScheduleWakeup` / `TaskOutput` | Claude tool names for wake | n/a (PTY streaming) | **`notify_on_output`** is Cursor's idle-wake equivalent — read `agent_wake` in each `runtime/harness/<harness_id>/manifest.json` for the authoritative per-harness answer, never this table |
+| `Monitor` / `ScheduleWakeup` / `TaskOutput` | Claude tool names for wake | n/a (PTY streaming) | **`notify_on_output`** is Cursor's idle-wake equivalent — read `agent_wake` in each `runtime/harness/<harness-dir>/manifest.json` for the authoritative per-harness answer, never this table |
 
 Also observed: `Grep` as a distinct tool name. MCP tools surface as
 `MCP: <server>` matcher forms with their own before/after events.

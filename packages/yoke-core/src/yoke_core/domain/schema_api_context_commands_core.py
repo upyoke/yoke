@@ -263,9 +263,7 @@ CORE_COMMANDS: list[dict] = [
     {
         "topic": "core",
         "purpose": "Backlog mutation family (CLI adapter)",
-        "recipe": (
-            "yoke items {create,get,list,search,github-sync,scalar-update,...} --help"
-        ),
+        "recipe": ("yoke items scalar update PREFIX-N --field priority --value medium"),
         "notes": (
             "Use the registered `yoke items` family named by command help. "
             "Item refs accept PREFIX-N, or a bare project sequence with "

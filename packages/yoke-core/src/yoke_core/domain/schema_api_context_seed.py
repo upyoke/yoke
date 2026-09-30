@@ -152,7 +152,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         # The harness capability authority. Every role gets `core`, so no
         # agent has to discover from prose that manifests, not documents,
         # decide what a harness can do.
-        "runtime/harness/<harness_id>/manifest.json",
+        "runtime/harness/<harness-dir>/manifest.json",
     ),
     "claims": (
         "harness_sessions",

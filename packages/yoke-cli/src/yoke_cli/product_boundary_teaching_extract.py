@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -12,7 +13,9 @@ _FENCED_RE = re.compile(
     re.MULTILINE | re.DOTALL,
 )
 _INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")
-_COMMAND_PREFIX_RE = re.compile(r"^(?:[$>]\s*)?(yoke\s+|python3?\s+-m\s+yoke_core(?:\.|\s))")
+_COMMAND_PREFIX_RE = re.compile(
+    r"^(?:[$>]\s*)?(yoke\s+|python3?\s+-m\s+yoke_core(?:\.|\s))"
+)
 
 
 def extract_recipe_rows(
@@ -27,6 +30,14 @@ def extract_recipe_rows(
             continue
         for line_number, recipe, standalone in _recipes_from_text(text):
             yield rel, line_number, recipe, standalone
+        if path.suffix == ".py":
+            # Packet seeds teach from string values, often concatenated
+            # across source lines. Read the value, never execute the seed.
+            for node in ast.walk(ast.parse(text, filename=rel)):
+                if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    recipe = _clean_recipe(node.value)
+                    if _command_like(recipe):
+                        yield rel, node.lineno, recipe, False
 
 
 def _teaching_files(root: Path, globs: Sequence[str]) -> tuple[Path, ...]:
@@ -55,7 +66,7 @@ def _recipes_from_text(text: str) -> Iterable[tuple[int, str, bool]]:
     fenced_ranges: list[tuple[int, int]] = []
     for match in _FENCED_RE.finditer(text):
         fenced_ranges.append((match.start(), match.end()))
-        block_start_line = text[:match.start(1)].count("\n") + 1
+        block_start_line = text[: match.start(1)].count("\n") + 1
         for relative_line, line in _join_continuations(match.group(1)):
             recipe = _command_from_line(line)
             if recipe:
@@ -68,7 +79,7 @@ def _recipes_from_text(text: str) -> Iterable[tuple[int, str, bool]]:
             continue
         recipe = _clean_recipe(match.group(1))
         if _command_like(recipe):
-            key = (text[:match.start(1)].count("\n") + 1, recipe)
+            key = (text[: match.start(1)].count("\n") + 1, recipe)
             if key not in yielded:
                 yielded.add(key)
                 yield key[0], recipe, False
@@ -106,7 +117,11 @@ def _inside_any(offset: int, ranges: Sequence[tuple[int, int]]) -> bool:
 
 def _clean_recipe(recipe: str) -> str:
     recipe = recipe.strip().strip("`")
-    recipe = recipe[1:-1] if len(recipe) > 1 and recipe[0] == recipe[-1] and recipe[0] in "'\"" else recipe
+    recipe = (
+        recipe[1:-1]
+        if len(recipe) > 1 and recipe[0] == recipe[-1] and recipe[0] in "'\""
+        else recipe
+    )
     return recipe.split(" #", 1)[0].strip().rstrip(",:)]")
 
 

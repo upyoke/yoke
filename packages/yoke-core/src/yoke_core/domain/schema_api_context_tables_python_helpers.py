@@ -74,13 +74,15 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "envelope."
         ),
     },
-    "runtime/harness/<harness_id>/manifest.json": {
+    "runtime/harness/<harness-dir>/manifest.json": {
         "columns": [
             ("agent_wake", "object"),
             ("session_control", "object"),
             ("supports", "object"),
         ],
         "notes": (
+            "Manifest directories are claude, codex, and cursor; executor "
+            "claude-code resolves to claude, not a claude-code directory. "
             "The harness manifest is where harness capability truth lives — "
             "not any doc, skill, rules file, or agent body. Before stating "
             "what a harness can do, read the field: `agent_wake` answers "

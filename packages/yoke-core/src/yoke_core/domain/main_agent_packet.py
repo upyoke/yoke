@@ -81,7 +81,7 @@ MAIN_AGENT_STARTUP_READS = (
     "generated truth, never hand-copied.\n"
     "- This machine's control-plane connections — `yoke env list`.\n"
     "- What a harness can do — its own "
-    "`runtime/harness/<harness_id>/manifest.json`, never a document's claim "
+    "`runtime/harness/<harness-dir>/manifest.json` (claude-code → claude; codex/cursor unchanged), never a document's claim "
     "about it.\n"
     "- An operation's flags and narrow reads — its `--help`.\n"
     "Work-item entry surfaces: every create names a workflow plus a typed "

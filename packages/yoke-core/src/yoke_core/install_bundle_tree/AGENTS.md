@@ -35,15 +35,15 @@ Deep homes, at `.yoke/docs/reference/agent-rules/`: `code-and-cli.md` · `databa
 - **Environment settings are projected, never dumped:** `yoke projects environment-settings get --project P --environment E --path key.path`; the read refuses root or container projections.
 
 ## Deployment Runs — Hard Rule
-- **One deploy lock per project; a flow id is not a run id.** Hold `DEPLOY:<project-slug>` before creating or executing a run (`yoke claims coordination-claim acquire --project P --key DEPLOY:P --reason R`), release after. A stranded hold clears only via the human-only `yoke coordination-claim release`. Run ids look like `run-YYYYMMDD-NNN`.
+- **Hold `DEPLOY:<project>` before creating/executing runs, release afterward:** `yoke claims coordination-claim acquire --project P --key DEPLOY:P --reason R`. Run ids differ from flow ids. Stranded holds require human release; read `delivery.md` first.
 - **The HTTPS product/API environment is the normal relayed authority** and drives ordinary delivery end to end. A local `*-db-admin` environment is needed only when the run replaces that control plane's own serving API, which the executor refuses by name. Never seek control-plane database credentials to deploy a project.
 - **Disable definitions; retain history** (`yoke deployment-flows set-status <flow-id> disabled`); a definition a run has referenced is immutable. Depth: `delivery.md`.
 
 ## Path Claims — Hard Rule
 Read `lanes-and-claims.md` before resolving any overlap — accepted remediations, edge direction, owner-kind shape, the override last resort.
 - **File Budget and path claims are independent axes — never fuse them.** Read `result.effective_policies.file_budget` and `.path_claims` from registered `workflows.item.get`, never from raw policies or posture. **The universal 350-line authored-file limit always applies**, even with File Budget off.
-- **Claimed paths do not narrow work item scope.** A work item's scope must never be narrowed, descoped, or rewritten solely because a required path is already claimed. If the right fix touches a file, the file stays in the work item and in every enabled budget or claim surface, whoever holds an overlapping claim. "Avoid the overlap" never authorizes omitting a required file — only coordinating with the holder or recording a dependency; removing the required file is never an option.
-- **Active claims are coordination/dependency/blocking facts, not scope facts.** `item_dependencies` rows are directional — the dependent waits, the blocker does not. Read them with `yoke items dependency list PREFIX-N`. Accepted remediations: classify the overlap (independent same-file edits → `coordination_only`, no gate; order-dependent → `--gate-point activation` with directional evidence; ambiguous → escalate), leave the candidate `state="blocked"` only as the dependent side of real upstream coordination, wait for the holder to release, coordinate with the holder, ask the holder to narrow or cancel, or operator override as last resort.
+- **Claimed paths do not narrow scope.** Every required file stays in the item and every enabled budget/claim surface regardless of its holder. Resolve overlap by coordination or dependency; never omit, descope, or rewrite away a required file.
+- **Active claims are coordination/dependency/blocking facts, not scope facts.** Read `yoke items dependency list PREFIX-N`; the dependent waits, the blocker does not. Resolve independent edits with attested `coordination_only`, ordered edits with directional activation evidence, ambiguity by escalation. Keep only real dependents blocked. Holder coordination, waiting, and operator override follow `lanes-and-claims.md`.
 - **Coordination-only edges are agent-attested,** authored only by authoring-phase agents (Architect at `/yoke shepherd plan`, or Idea/Refine) via `yoke claims path coordination-decision-build` with a rationale. Every other role routes a runtime collision back to `/yoke refine`; un-attested overlap stays strict `INCOMPATIBLE`.
 - **Claims coordinate on physical files, not path strings** — an in-repo symlink and its canonical target are one coordination unit.
 
@@ -58,9 +58,9 @@ tail -80 <raw-capture>          # the capture a watcher prints, once it exits
 ```
 <!-- END GENERATED: read-recipe -->
 - **Capture-first: any non-trivial command is captured to a temp file, which then answers every question.** Applies wherever output matters on failure (roughly >5s): tests, merges, deploys, syncs, QA, renders, installs, builds, git. Use `_tmp=$(mktemp /tmp/yoke-cmd.XXXXXX); <command> >"$_tmp" 2>&1; _rc=$?`, inspect the file, exit `$_rc`.
-- **A read serves the routine answer and names what it withheld** — never by size, never quietly. The `--full` reads: `code-and-cli.md`. One field of one mutation that restates state you did not ask it to change prints as `<not printed: N bytes …>` named on stderr; everything else, `--json`, and refusals print in full. A receipt prints after the command ran, so `--json` is a flag on an invocation, never a reason to repeat a write.
+- **Reads name withheld content; refusals and `--json` print in full.** Read `code-and-cli.md` for `--full` projections and receipt markers. A receipt follows execution: request `--json` on the original write, never repeat it to change output.
 - **Stream long commands through the watcher wrappers** (`yoke watch pytest|merge|deploy|fleet|preflight|qa-case|qa-plan|ci-run|doctor|tail`), which capture internally. Doctor's one shape: `yoke watch doctor -- (--quick|--full|--only <slugs>)`.
-- **A command that outlives its yield is still running — continue it, never relaunch it.** Every harness hands a long command back before it finishes; no such handoff is an interruption, and a quiet watcher is not a dead one. Re-run only once the process is verifiably gone: a relaunch beside a live invocation spends the shared resource twice and can cancel work the first was about to finish. Taught exception, for an overlong *local* check only: interrupt past a minute, keep the capture, commit, continue on CI.
+- **A yielded command still runs: continue its handle until exit, never relaunch beside it.** The sole taught interruption is an overlong local check: after about a minute, interrupt, preserve the incomplete capture, commit, continue on CI. Read `verification.md` before using that exception.
 - **Do not manually poll a running long command** — the streaming surface is the progress signal. Subagents run them foreground in one tool call. Filters, exit statuses, anti-patterns: `verification.md`.
 
 ## Verification Failure Ownership — Hard Rule
@@ -106,16 +106,11 @@ Idea, refine, advance, conduct, shepherd, and polish each apply **reuse** (name 
 - **Execution context goes in a `Progress Log` section** (exact name, `--ordering 200`) via `items.progress_log.append`, which stamps the timestamp and preserves prior entries. **Never write `shepherd_log`, `shepherd_caveats`, or `worktree_plan`** on a workflow with `generated_children=none` — they are task-graph fields readers treat as authoritative planning output.
 
 ## Governed DB Mutation
-Applies to any project declaring a `migration_model` capability. Before any schema or bulk-data change read `databases.md`. These bind regardless:
-- **Pure-additive net-new tables and columns need no governed migration** — they self-propagate on the boot converge. **Data-transforming changes and bulk data go only through a governed path;** ad hoc write SQL against a declared authoritative DB is banned. Read-only SQL is always fine.
-- **Authority to converge or apply belongs to the connection, not the command** — both refuse on a prod-flagged connection. A process that genuinely serves or owns the database declares `schema_authority.serving_build_authority()` at the call site.
-- **Applying is the boot converge's job** — no work item applies anything, no flow carries an apply stage, boot is fail-hard. A work item owes authorship and rehearsal: add the entry to the ordered history, then `yoke migration rehearse PREFIX-N`.
-- **Never apply a destructive migration without a named restore point** — the applier refuses. **An entry removing a surface declares `MINIMUM_SERVING_VERSION`; a new entry declares `"next-release"`, never a literal version.**
-- **An entry that transforms rows must be idempotent against its own output already existing,** not merely against having already run — while unapplied, the running code can publish the very row it would produce. **One rewriting rows under a digest or immutability guarantee must use its readers' canonical serializer,** or it manufactures drift indistinguishable from corruption.
-- **Code and tests validate against the model's declared validation surface** (`model.runner.connection_env_var`); `/yoke` control-plane commands always use `CANONICAL_YOKE_DB`. Every audit-fingerprint exception call site needs a paired `docs/archive/decisions/<helper-name>.md` and a populated `exception_reason`.
-- **Rehearsal against the validation surface proves nothing about the universes that need the entry.** Before releasing a build carrying an unapplied entry, run the fleet migration preflight over a throwaway copy of every live database and record its receipt; the release refuses when an entry has no receipt for that environment.
-- **Client-side code reaches control-plane rows by relaying, never by connecting.** Over https there is no local database; `db_backend.connect()` refuses with `RemoteControlPlaneConnectionError`, deliberately outside the `Exception` hierarchy. Genuine local authority declares `local_authority_exempt()` at the call site.
-- Serving floor: `code-and-cli.md`.
+Read `databases.md` before schema or bulk-data changes on a project declaring `migration_model`; it owns the restore-point, serving-floor, serializer, idempotency, exception-record, and fleet-rehearsal requirements.
+- **Pure-additive tables/columns converge on boot; data transforms and bulk data require the governed path.** Ad hoc write SQL against the authoritative DB is banned; diagnostic reads are permitted.
+- **Converge/apply authority belongs to the connection** and refuses prod-flagged connections; serving owners declare `schema_authority.serving_build_authority()`. **Boot applies, fail-hard; items author and rehearse, flows never apply:** add the permanent history entry, then `yoke migration rehearse PREFIX-N`.
+- **Code/tests use the model's validation binding; control-plane commands use `CANONICAL_YOKE_DB`.** HTTPS clients relay instead of connecting; genuine local authority declares `local_authority_exempt()`.
+- **Rehearse every live universe before release.** The release requires each environment's receipt; a validation-surface rehearsal alone does not cover the fleet.
 
 ## Architecture Model
 A project may declare an `architecture_model` Project Structure family: the one policy document carrying the layer map, area patterns, dependency rules, cross-cutting gateways, exemptions, and the `package_roots` mapping.
@@ -123,12 +118,10 @@ A project may declare an `architecture_model` Project Structure family: the one 
 - **Every item declares `architecture_impact`** (`none` / `path_context_only` / `architecture_model_change` / `uncertain`); `uncertain` blocks `refining-idea → refined-idea`.
 
 ## Testing
-Read `verification.md` before an item's first verification run — impacted selection, unbounded verdicts, merge-queue gating, CI wake delivery, exit statuses.
-- **One canonical verification execution — the QA case run IS the final full gate.** Iterate freely while implementing with the single failing test and `yoke watch pytest --impacted main --bounded`. When ready the **full** run happens once, through the item's Command case: `yoke qa case run --requirement-id <id>`.
-- **Never run a project's full sweep by hand and then re-execute the same tree through QA.** The gate re-runs the identical command, so the hand-run buys nothing while doubling compute and queue pressure. Re-running after the tree changes is a different execution and stays required.
-- **The gate runs where the project's suite already runs.** With `ci_workflow_file` declared, registered scopes bind to CI, so **commit before running the gate** — item branches stay local until then, and workers never push by hand.
-- **A gate whose watcher was killed did not lose its CI run.** It asks GitHub about the exact commit first — a concluded run is adopted, one in flight rejoined, only an unexamined commit rebased. Re-run the same command; never poll GitHub yourself.
-- **Every local full-suite execution takes the machine-wide admission slot.** A bare `python3 -m pytest <dirs>` takes nothing and stays invisible to runs that queue politely, and a lint denies it outside the wrapper. **No hardcoded drifting IDs in tests** — use variables, generated values, or matchers, never a literal `PREFIX-N`.
+Read `verification.md` before verification; it owns impacted/unbounded selection, CI re-entry, merge-queue gates, admission, and exit statuses.
+- **The QA case is the one full execution:** iterate with failing tests or `yoke watch pytest --impacted main --bounded`, then `yoke qa case run --requirement-id <id>`. Re-run after tree changes; avoid a duplicate full sweep on the same tree.
+- **Commit before CI gates; workers never push by hand.** Re-enter a killed watcher with the same command to adopt/rejoin its exact-commit run; never poll GitHub yourself.
+- **Local full suites take the machine-wide admission slot through the wrapper.** Tests use variables/generated values/matchers for work-item IDs.
 
 ## Hooks
 - Hook configuration lives in your harness settings files (`.claude/settings.json`, `.codex/hooks.json`); both route through `yoke hook evaluate <event>`. Pre-tool guardrails, post-tool telemetry, session start, and session end are Python-owned — never reintroduce shell scripts or per-policy choreography for hook execution. Emergency status repair is operator/debug only; route lifecycle repair through registered Yoke surfaces.
@@ -148,7 +141,7 @@ Observe → `ouroboros_entries` → `/yoke curate` → `/yoke doctor` → `/yoke
 - Canonical guide: `.yoke/docs/reference/lifecycle.md`. Each item pins immutable `workflow_id` / `workflow_version_id`; that definition owns stages, transitions, gates, policies, entry surfaces, skill bindings.
 - **Never route by a remembered workflow name or copied progression.** Read `yoke workflows item get PREFIX-N`, then `yoke workflows version get WORKFLOW VERSION`; the binding whose half-open interval contains the live stage selects `/yoke <skill_id>`.
 - A binding's `through_stage_id` is a fresh command and claim handoff. Worktree and task-graph shape come from `policies.worktrees` and `policies.generated_children`, not from a workflow-id branch.
-- **Harness capability truth lives in the manifest,** `runtime/harness/<harness_id>/manifest.json` (contract: `runtime/harness/manifest-schema.md`). Read it before stating what a harness can do; never restate one of its facts in prose.
+- **Harness capability truth lives in the manifest,** `runtime/harness/<harness-dir>/manifest.json` (`claude`, `codex`, or `cursor`; executor `claude-code` uses `claude`; contract: `runtime/harness/manifest-schema.md`). Read it before stating what a harness can do; never restate one of its facts in prose.
 
 ## Worktree Discipline
 - **NEVER use `--no-worktree` unless the user explicitly asks. NEVER write implementation code on main.**

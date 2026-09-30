@@ -125,30 +125,22 @@ def test_render_main_agent_block_full_leads_with_its_heading() -> None:
     assert "yoke packets render --role main_agent" in block
 
 
-def test_render_compact_injects_main_agent_block(
-    repo_root: Path, spec: dict
-) -> None:
+def test_render_compact_injects_main_agent_block(repo_root: Path, spec: dict) -> None:
     """The shared bootstrap render path injects the startup block."""
 
     rendered = render_compact(repo_root, spec)
     assert "main_agent" in rendered
     for line in render_main_agent_block().splitlines():
         if line.strip():
-            assert line in rendered, (
-                f"compact orientation missing block line: {line!r}"
-            )
+            assert line in rendered, f"compact orientation missing block line: {line!r}"
 
 
-def test_render_full_injects_main_agent_block(
-    repo_root: Path, spec: dict
-) -> None:
+def test_render_full_injects_main_agent_block(repo_root: Path, spec: dict) -> None:
     rendered = render_full(repo_root, spec)
     assert "main_agent" in rendered
     for line in render_main_agent_block_full().splitlines():
         if line.strip():
-            assert line in rendered, (
-                f"full orientation missing block line: {line!r}"
-            )
+            assert line in rendered, f"full orientation missing block line: {line!r}"
 
 
 def test_main_agent_block_separates_schema_from_substrate_authority() -> None:
@@ -162,7 +154,8 @@ def test_main_agent_block_separates_schema_from_substrate_authority() -> None:
 
     block = render_main_agent_block()
     assert "yoke packets render --role main_agent" in block
-    assert "runtime/harness/<harness_id>/manifest.json" in block
+    assert "runtime/harness/<harness-dir>/manifest.json" in block
+    assert "claude-code → claude" in block
     assert "never a document's claim" in block
 
 
@@ -339,5 +332,6 @@ def test_full_variant_includes_interpreter_advisory(monkeypatch) -> None:
 def test_advisory_fail_open_on_probe_exception(monkeypatch) -> None:
     def _boom():
         raise RuntimeError("wedged")
+
     monkeypatch.setattr(python_interpreter_probe, "probe", _boom)
     assert render_interpreter_advisory_block() == ""
