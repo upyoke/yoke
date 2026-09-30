@@ -140,3 +140,23 @@ def test_start_context_refuses_before_returning_dispatchable_stages(
     assert outcome.error.code == "composition_invalid"
     assert "selects completion flow 'different-release-flow'" in outcome.error.message
     assert unexplained in outcome.error.message
+
+
+def test_first_release_through_a_custody_flow_is_not_a_composition_blocker(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A flow's very first run has no predecessor, and that is an answer.
+
+    Carried work is derived by comparing against the preceding succeeded run.
+    With none, there is nothing to carry and nothing to repair, so composition
+    must not report the baseline as unresolved deliverable code — a project
+    could otherwise never create its first release through such a flow.
+    """
+    two_project_release(test_db, tmp_path, monkeypatch)
+    test_db.execute("UPDATE deployment_runs SET status='failed' WHERE id='run-previous'")
+    test_db.commit()
+
+    valid, message = cmd_validate_composition("run-candidate")
+
+    assert valid, message
+    assert "no_prior_succeeded_run" not in message

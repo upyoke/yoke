@@ -215,6 +215,11 @@ def test_first_item_bound_run_records_empty_without_touching_item_lifecycle(
     assert error is None
     carried = _stored(test_db, "run-carried-003")
     assert carried["derivation"]["reason"] == "no_prior_succeeded_run"
+    # A baseline run has a determinate answer, so every gate reading
+    # `contents_known` sees a resolved empty set rather than an unresolved
+    # blocker no repair could clear.
+    assert carried["derivation"]["contents_known"] is True
+    assert carried["derivation"]["status"] == "empty"
     assert carried["items"] == []
     assert carried["commits"] == []
     item = test_db.execute("SELECT status FROM items WHERE id=9102").fetchone()

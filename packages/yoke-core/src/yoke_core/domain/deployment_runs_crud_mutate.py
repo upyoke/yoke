@@ -11,6 +11,7 @@ from yoke_core.domain import (
     deployment_run_completion_preconditions as completion_preconditions,
 )
 from yoke_core.domain.deployment_run_create_write import (
+    CompositionRefused,
     cmd_create_run,
     cmd_next_id,
     create_run,
@@ -273,6 +274,7 @@ def cmd_update(
 
 
 __all__ = [
+    "CompositionRefused",
     "cmd_add_item",
     "cmd_create_run",
     "create_run",
