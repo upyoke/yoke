@@ -1,4 +1,4 @@
-// A run QA review in the Inbox is titled for its run, lists the run's own
+// A run approval in the Inbox is titled for its run, lists the run's own
 // checks with their own screenshots, folds earlier attempts, and ends with the
 // person's decision. Release and work approvals keep their own card.
 
@@ -19,6 +19,7 @@ function runReview(overrides = {}) {
     subject_context: {
       ...row.subject_context,
       requirement_id: 32070,
+      qa_kind: "deployment_stage_acceptance", case_name: null, plan_id: null,
       subject: { kind: "deployment_run", item_id: null, deployment_member_item_id: null,
         deployment_run_id: RUN, qa_phase: "post_deploy" },
       expected_outcome: "Every admitted case passed against the pinned deployment target.",
@@ -76,7 +77,7 @@ test("an open run QA review lists the run's checks, then asks for the decision",
   await settle();
   const card = byClass(inboxSection(main, "waiting"), "review-card")[0];
   const title = byClass(card, "review-title")[0];
-  assert.equal(title.textContent, `Run QA · ${RUN}`);
+  assert.equal(title.textContent, `Run approval · ${RUN}`);
   assert.equal(title.children[0].href, `#/deployments/runs/${RUN}?project=10`);
   assert.ok(client.requests.some((request) => request.function === "qa.activity.list"
     && request.payload.deployment_run_id === RUN && request.payload.project === "10"));
@@ -96,9 +97,9 @@ test("an open run QA review lists the run's checks, then asks for the decision",
   assert.deepEqual(shotIds(history), [22800]);
 
   const ask = byClass(card, "run-decision-ask")[0];
-  assert.equal(ask.children[0].textContent, "Approve or reject the visual result.");
+  assert.equal(ask.children[0].textContent, "Approve or reject this release.");
   assert.deepEqual(byClass(ask, "review-action").map((node) => node.textContent),
-    ["Waive", "Reject", "Approve"]);
+    ["Waive run approval", "Reject release", "Approve release"]);
   // No boilerplate, no request-wide strip, no footer run link.
   assert.doesNotMatch(card.textContent, /Every admitted case passed|authorized human acceptance/);
   assert.equal(byClass(card, "review-qa").length, 0);

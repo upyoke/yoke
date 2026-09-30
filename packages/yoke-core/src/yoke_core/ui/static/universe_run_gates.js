@@ -6,7 +6,7 @@
 
 import { appendActions, reviewRequestCard } from "./review_request_card.js";
 import { normalizedArtifacts, evidenceStrip } from "./review_evidence_strip.js";
-import { KIND_LABELS, evidenceOf, reviewerLine } from "./review_request_presentation.js";
+import { KIND_LABELS, evidenceOf, reviewerLine, runStageDecisionPresentation } from "./review_request_presentation.js";
 import { el } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
 
@@ -57,14 +57,21 @@ export function resolvedDecisionRecord(documentNode, gate) {
 // The person's side of a run QA review, after the evidence it rests on:
 // a plain request with the answer buttons while it is open, the recorded
 // answer once decided. The checks above already carry what was captured, so
-// nothing here repeats the evidence, the run, or a restatement of the stage.
+// the title distinguishes evidence review from the flow's release sign-off.
 export function runQaDecision(context, gate, onAct) {
   const documentNode = context.document;
-  const record = resolvedDecisionRecord(documentNode, gate);
-  if (record) return record;
-  const request = gateAsRequest(gate);
+  const presentation = runStageDecisionPresentation(gate);
   const ask = el(documentNode, "div", "run-decision-ask");
-  ask.appendChild(el(documentNode, "p", null, "Approve or reject the visual result."));
+  if (presentation) ask.appendChild(el(documentNode, "div", "review-title", presentation.title));
+  const record = resolvedDecisionRecord(documentNode, gate);
+  if (record) {
+    if (!presentation) return record;
+    ask.appendChild(record);
+    return ask;
+  }
+  const request = gateAsRequest(gate);
+  ask.appendChild(el(documentNode, "p", null,
+    presentation?.prompt || "Approve or reject the visual result."));
   const actions = Array.isArray(request.actions) ? request.actions : [];
   if (onAct && request.can_act !== false && actions.length) {
     appendActions(documentNode, ask, ask, request,

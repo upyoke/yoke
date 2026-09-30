@@ -36,6 +36,9 @@ function row(gateStatus, resolution = "approve") {
     gates: [{
       request_id: 91, kind: "qa_needs_review", status: gateStatus,
       subject_context: { requirement_id: 8,
+        qa_kind: "deployment_stage_acceptance", case_name: null, plan_id: null,
+        subject: { kind: "deployment_run", deployment_run_id: runId,
+          deployment_member_item_id: null },
         artifacts: [image(82), image(83), image(91), image(71)],
         expected_outcome: "Every admitted case passed against the pinned deployment target.",
         verdict_reason: "configured deployment stage requires authorized human acceptance" },
@@ -163,9 +166,10 @@ test("an open human verdict reads as awaiting approval with a plain request", ()
     assert.equal(byClass(line, "run-qa-check-outcome")[0].textContent, "Passed");
   }
   const ask = byClass(qa, "run-decision-ask")[0];
-  assert.equal(ask.children[0].textContent, "Approve or reject the visual result.");
+  assert.equal(ask.children[0].textContent, `Run approval · ${runId}`);
+  assert.equal(ask.children[1].textContent, "Approve or reject this release.");
   assert.deepEqual(byClass(ask, "review-action").map((button) => button.textContent),
-    ["Reject", "Approve"]);
+    ["Reject release", "Approve release"]);
   assert.doesNotMatch(qa.textContent, /Every admitted case passed|authorized human acceptance/);
   assert.equal(byClass(qa, "run-request-kind").length, 0);
   assert.equal(byClass(qa, "review-links").length, 0);

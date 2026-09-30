@@ -1,7 +1,6 @@
-// A run QA review in the Inbox: the visual checks one deployment run
-// captured, and the person's decision on them.
+// Run evidence review and release sign-off in the Inbox, beside the checks.
 //
-// The card is titled for the run it asks about and links it. Its body is the
+// The card names the decision's subject and links its run. Its body is the
 // same check list Shipping and the run page draw — each current check with
 // its linked name, result, reason and own screenshots, earlier attempts
 // folded — then the decision: a plain request with Reject and Approve while
@@ -10,7 +9,7 @@
 
 import { effectiveRunChecks } from "./universe_run_evidence.js";
 import { appendActions } from "./review_request_card.js";
-import { decidedLabel, reviewerLine } from "./review_request_presentation.js";
+import { decidedLabel, reviewerLine, runStageDecisionPresentation } from "./review_request_presentation.js";
 import { deploymentRunHref } from "./universe_navigation.js";
 import { resolvedDecisionRecord } from "./universe_run_gates.js";
 import { appendRunChecks } from "./universe_run_qa_checks.js";
@@ -47,7 +46,7 @@ function appendHead(documentNode, card, row, options) {
   }
   const title = el(documentNode, "div", "review-title");
   const runId = reviewRunId(row);
-  const link = el(documentNode, "a", "run-review-link", `Run QA · ${runId}`);
+  const link = el(documentNode, "a", "run-review-link", runStageDecisionPresentation(row).title);
   link.href = deploymentRunHref(row.project_id, runId);
   title.appendChild(link);
   copy.appendChild(title);
@@ -73,7 +72,7 @@ function appendDecision(documentNode, main, card, row, options) {
     && !options.compact && Array.isArray(row.actions) && row.actions.length;
   if (canAct) {
     const ask = el(documentNode, "div", "run-decision-ask");
-    ask.appendChild(el(documentNode, "p", null, "Approve or reject the visual result."));
+    ask.appendChild(el(documentNode, "p", null, runStageDecisionPresentation(row).prompt));
     appendActions(documentNode, ask, card, row, options.onAct);
     main.appendChild(ask);
     return;

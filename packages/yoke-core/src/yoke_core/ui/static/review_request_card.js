@@ -25,6 +25,7 @@ import {
   kindLabel,
   qaFacts,
   reviewerLine,
+  runStageDecisionPresentation,
 } from "./review_request_presentation.js";
 
 const NO_QA_EVIDENCE = "No evidence attached. This run recorded no artifacts, "
@@ -148,6 +149,7 @@ function composer(documentNode, card, row, action, onAct) {
 // request's note composer opens.
 export function appendActions(documentNode, foot, card, row, onAct) {
   const actions = el(documentNode, "div", "review-actions");
+  const labels = runStageDecisionPresentation(row)?.actions || ACTION_LABELS;
   const ordered = [...(Array.isArray(row.actions) ? row.actions : [])].sort(
     (left, right) => Number(ACTION_RANK[left] ?? 1) - Number(ACTION_RANK[right] ?? 1),
   );
@@ -156,7 +158,7 @@ export function appendActions(documentNode, foot, card, row, onAct) {
       documentNode,
       "button",
       `item-button review-action${action === "approve" ? " primary" : ""}`,
-      ACTION_LABELS[action] || action,
+      labels[action] || ACTION_LABELS[action] || action,
     );
     button.type = "button";
     button.setAttribute("data-action", action);
