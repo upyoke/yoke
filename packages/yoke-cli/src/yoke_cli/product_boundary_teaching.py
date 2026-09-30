@@ -35,20 +35,6 @@ _SKILL_ROUTER_ONLY = frozenset({"idea"})
 _SMOKE_UNSAFE_PREFIXES = ("yoke board rebuild", "yoke strategy render", "yoke strategy ingest")
 
 _PY_MODULE_RE = re.compile(r"^python3?\s+-m\s+yoke_core(?:\.[A-Za-z_]\w*)+")
-_TEMPLATE_RE = re.compile(
-    r"\{[^}]+\}"
-    r"|\$[A-Za-z_][\w]*"
-    r"|\$\{[^}]+\}"
-    r"|\$\("
-    r"|\bYOK-N\b"
-    r"|\b[A-Z_]*PATH\b"
-    r"|<[^>]+>"
-    r"|\\$"
-    r"|2>&1"
-    r"|[<>]/?\S*"
-    r"|\|\|"
-    r"|&&"
-)
 
 
 @dataclass(frozen=True)
@@ -272,7 +258,13 @@ def _smoke_error(
     standalone: bool,
     smoke_yoke: SmokeRunner | None,
 ) -> str | None:
-    if smoke_yoke is None or _TEMPLATE_RE.search(recipe) or not standalone:
+    # Only a fenced line is offered to be run as written, so only its
+    # argument set is taught; prose properly names ``yoke lifecycle
+    # transition`` without the flags a real transition needs. A runner
+    # decides for itself what it can judge about a templated recipe —
+    # most taught recipes carry a placeholder, and that is precisely
+    # where a flag the CLI no longer accepts hides.
+    if smoke_yoke is None or not standalone:
         return None
     if any(recipe.startswith(prefix) for prefix in _SMOKE_UNSAFE_PREFIXES):
         return None
