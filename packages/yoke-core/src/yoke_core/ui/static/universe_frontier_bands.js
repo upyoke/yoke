@@ -307,7 +307,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
       const card = workItemCard(documentNode, row, scope, {
         timestamp: row.updated_at,
       });
-      appendItemDelivery(documentNode, card, row, deployments);
+      appendItemDelivery(documentNode, card, row, deployments, projects);
       return withClaimants(card, row);
     }), "Nothing is waiting to ship.");
 
@@ -322,7 +322,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
         timestamp: finishedAt(row),
         timeLabel: "finished",
       });
-      appendItemDelivery(documentNode, card, row, deployments);
+      appendItemDelivery(documentNode, card, row, deployments, projects);
       return withClaimants(card, row);
     });
     if (done.length > visible.length) visible.push(seeMoreCard(documentNode, scope));

@@ -71,6 +71,7 @@ def test_overview_composes_through_actor_scoped_listing(monkeypatch):
         "blocked_reason",
         "deployed_to",
         "merged_at",
+        "merge_queue_pr_number",
         "deployment_flow",
         "created_at",
         "updated_at",
@@ -172,9 +173,7 @@ def _instructions(monkeypatch, conn, rows):
 
     import yoke_core.domain.workflow_execution_instructions as instruction_reads
 
-    monkeypatch.setattr(
-        instruction_reads, "resolve_for_item", lambda *_args: rows
-    )
+    monkeypatch.setattr(instruction_reads, "resolve_for_item", lambda *_args: rows)
     monkeypatch.setattr(
         item_detail_read.db_helpers,
         "connect",
