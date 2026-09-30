@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import subprocess
+import io
+from contextlib import redirect_stderr, redirect_stdout
 from typing import Any
 
 import pytest
@@ -31,7 +33,9 @@ def _completed(returncode: int, stdout: str = "", stderr: str = ""):
 
 
 def _envelope(runs: list[dict[str, Any]]) -> str:
-    return json.dumps({"result": {"repo": "owner/name", "head_sha": HEAD, "runs": runs}})
+    return json.dumps(
+        {"result": {"repo": "owner/name", "head_sha": HEAD, "runs": runs}}
+    )
 
 
 def test_the_listing_is_asked_of_the_project_actions_authority(
@@ -58,18 +62,26 @@ def test_the_listing_is_asked_of_the_project_actions_authority(
 
     assert [run["id"] for run in runs] == ["7"]
     assert calls["project"] == "yoke"
-    assert calls["args"][:2] == ["commit-runs", HEAD]
+    assert calls["args"][:3] == ["commit-runs", "list", HEAD]
     assert "--workflow" in calls["args"]
 
 
 def test_a_refused_authority_is_named_rather_than_read_as_no_runs(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    """"No runs" and "nobody could look" must not be the same answer."""
+    """ "No runs" and "nobody could look" must not be the same answer."""
     monkeypatch.setattr(
         "yoke_core.domain.deploy_pipeline_reporting._github_actions",
         lambda *args, project, **kwargs: _completed(
-            4, stderr="Error: no GitHub Actions authority selected\n"
+            4,
+            stdout=json.dumps(
+                {
+                    "error": {
+                        "code": "project_auth_error",
+                        "message": "no GitHub Actions authority selected",
+                    }
+                }
+            ),
         ),
     )
 
@@ -77,6 +89,75 @@ def test_a_refused_authority_is_named_rather_than_read_as_no_runs(
         read_module.matching_runs("yoke", HEAD, "")
 
     assert "no GitHub Actions authority selected" in str(raised.value)
+    assert not isinstance(raised.value, read_module.CommitRunCommandError)
+
+
+@pytest.mark.parametrize("returncode", [1, 2, 4])
+def test_failed_children_are_not_diagnosed_as_auth(monkeypatch, returncode):
+    monkeypatch.setattr(
+        "yoke_core.domain.deploy_pipeline_reporting._github_actions",
+        lambda *args, project, **kwargs: _completed(
+            returncode, stderr="unknown subcommand: commit-runs\n"
+        ),
+    )
+    with pytest.raises(read_module.CommitRunCommandError) as raised:
+        read_module.matching_runs("yoke", HEAD, "")
+    assert "commit_runs_command_failed" in str(raised.value)
+    assert "unknown subcommand: commit-runs" in str(raised.value)
+    assert "commit-runs list --help" in str(raised.value)
+
+
+def test_child_argv_reaches_the_registered_cli_and_typed_read(monkeypatch):
+    """Run the actual child argv through the CLI; only the server is stubbed."""
+    from yoke_cli.main import main as cli_main
+    from yoke_cli.commands.adapters import github_actions_commit_runs as adapter
+    from yoke_cli.transport.https import HttpsConnection
+    from yoke_contracts.api.function_call import FunctionCallResponse
+    from yoke_core.domain import deploy_pipeline_reporting as reporting
+
+    seen = {}
+
+    def call(function_id, payload, **kwargs):
+        seen.update(function=function_id, payload=payload)
+        return FunctionCallResponse(
+            success=True,
+            function=function_id,
+            version="v1",
+            result={"runs": [{"id": "7", "name": "yoke-ci", "head_sha": HEAD}]},
+        )
+
+    def run_child(argv, **kwargs):
+        with (
+            redirect_stdout(io.StringIO()) as out,
+            redirect_stderr(io.StringIO()) as err,
+        ):
+            code = cli_main(argv[3:])
+        return _completed(code, stdout=out.getvalue(), stderr=err.getvalue())
+
+    monkeypatch.delenv("YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY", raising=False)
+    monkeypatch.setattr(
+        reporting.poll_authority, "resolve_status_relay_env", lambda: ("prod", "test")
+    )
+    monkeypatch.setattr(
+        "yoke_cli.transport.https.resolve_https_connection",
+        lambda **kwargs: HttpsConnection(
+            api_url="https://control.example", token="test", env="prod"
+        ),
+    )
+    monkeypatch.setattr(reporting, "_run_cmd", run_child)
+    monkeypatch.setattr(adapter, "_call", call)
+
+    assert [
+        run["id"] for run in read_module.matching_runs("yoke", HEAD, "yoke-ci")
+    ] == ["7"]
+    assert seen == {
+        "function": "github_actions.commit_runs.list",
+        "payload": {
+            "project": "yoke",
+            "head_sha": HEAD,
+            "workflow": "yoke-ci",
+        },
+    }
 
 
 def test_unreadable_authority_output_is_named_too(monkeypatch: pytest.MonkeyPatch):

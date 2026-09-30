@@ -109,7 +109,8 @@ def _parse_args(
             "matches the workflow's name, not the run's display title.\n\n"
             "Exit codes: 0 every run succeeded, 1 a run concluded otherwise, "
             "2 the ref does not resolve, 3 still running at the deadline, "
-            "4 project GitHub auth failure, 5 no run appeared."
+            "4 diagnosed project GitHub auth failure, 5 no run appeared, "
+            "6 child command or response failure (error text names the recovery)."
         ),
         allow_abbrev=False,
     )

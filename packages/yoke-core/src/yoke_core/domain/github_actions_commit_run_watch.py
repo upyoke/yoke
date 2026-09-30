@@ -42,6 +42,7 @@ from yoke_contracts.project_defaults import default_project_for_directory
 from yoke_core.domain.gh_rest_transport import RestTransportError
 from yoke_core.domain.github_actions_commit_runs_read import (
     CommitRunAuthorityError,
+    CommitRunCommandError,
     matching_runs,
 )
 from yoke_core.domain.github_poll_schedule import (
@@ -58,6 +59,7 @@ EXIT_STILL_RUNNING = 3
 #: across every command that resolves project GitHub auth.
 EXIT_AUTH = 4
 EXIT_NO_RUN_FOUND = 5
+EXIT_COMMAND_FAILURE = 6
 
 DEFAULT_TIMEOUT_SECONDS = 1800
 #: How long to wait for a run to REGISTER before accepting that the commit
@@ -94,9 +96,7 @@ def resolve_commit(ref: str, *, cwd: Path) -> str:
     )
     resolved = completed.stdout.strip()
     if completed.returncode != 0 or not resolved:
-        raise CommitResolutionError(
-            f"'{ref}' does not name a commit in {cwd}"
-        )
+        raise CommitResolutionError(f"'{ref}' does not name a commit in {cwd}")
     return resolved
 
 
@@ -127,10 +127,7 @@ def watch_commit_runs(
     ending the watch — the deadline is what bounds it.
     """
     selector = workflow_name or "(any)"
-    emit(
-        f"CI run target: repo={repo} sha={head_sha} ref={ref} "
-        f"workflow={selector}"
-    )
+    emit(f"CI run target: repo={repo} sha={head_sha} ref={ref} workflow={selector}")
 
     start = now()
     last_status: Dict[Any, str] = {}
@@ -141,6 +138,9 @@ def watch_commit_runs(
         elapsed = int(now() - start)
         try:
             runs = fetch_runs()
+        except CommitRunCommandError as exc:
+            emit(f"Error: {exc}")
+            return EXIT_COMMAND_FAILURE
         except (RestTransportError, CommitRunAuthorityError) as exc:
             emit(f"Error: failed to read runs for {head_sha}: {exc}")
             runs = []
@@ -172,9 +172,7 @@ def watch_commit_runs(
         current_ids = {run.get("id") for run in runs}
         if runs and current_ids <= set(conclusions):
             verdicts = [conclusions[run_id] for run_id in current_ids]
-            failed = sorted(
-                value for value in verdicts if value != SUCCESS_CONCLUSION
-            )
+            failed = sorted(value for value in verdicts if value != SUCCESS_CONCLUSION)
             if failed:
                 emit(
                     f"CI run verdict: {len(failed)} of {len(verdicts)} run(s) "
@@ -252,8 +250,7 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "--repo-root",
         type=Path,
         default=None,
-        help="Checkout to resolve the ref in (defaults to the working "
-        "directory).",
+        help="Checkout to resolve the ref in (defaults to the working directory).",
     )
     return parser.parse_args(list(argv))
 
@@ -282,6 +279,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         # told which authority is missing instead of watching a commit it can
         # never see runs for until the deadline.
         fetch_runs()
+    except CommitRunCommandError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_COMMAND_FAILURE
     except CommitRunAuthorityError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_AUTH

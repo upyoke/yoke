@@ -36,7 +36,7 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
     _read_entry(
         function_id="github_actions.commit_runs.list",
         cli_invocation=(
-            "yoke github-actions commit-runs <commit-sha> [--workflow NAME] "
+            "yoke github-actions commit-runs list <commit-sha> [--workflow NAME] "
             "--project <project>"
         ),
     ),
