@@ -75,6 +75,8 @@ QA_TABLES: dict[str, dict] = {
             "`yoke_core.api.server_entrypoint.ensure_core_schema`. Schema owner: "
             "`yoke_core.domain.qa_catalog_schema`; `qa_requirements_schema` "
             "and `server_boot` are guessed, nonexistent modules. "
+            "Plan bindings live in qa_plan_item_attachments; its timestamp is "
+            "attached_at, not created_at. Attachment fixture inserts use attached_at. "
             "A retracted row (`retracted_at`) is withdrawn history from "
             "`yoke qa item-plan retract`, not a waiver and not a "
             "supersession. "
