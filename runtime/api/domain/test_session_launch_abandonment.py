@@ -14,15 +14,6 @@ from yoke_core.domain.session_launch_abandonment import (
     settle_and_notify,
     settle_launch_native_death,
 )
-from yoke_core.domain.session_launch_execution import (
-    claim_assigned_launch,
-    report_launch_attempt,
-)
-from yoke_core.domain.session_launch_registration import (
-    complete_launch_for_message,
-    complete_launch_injection,
-    prepare_launch_registration,
-)
 from yoke_core.domain.session_launch_store import get_launch
 from runtime.api.domain.session_launch_test_support import (
     NOW,
@@ -30,27 +21,12 @@ from runtime.api.domain.session_launch_test_support import (
     assigned_launch,
     launch_connection,
 )
+from runtime.api.domain.session_launch_worker_test_support import (
+    LAUNCH_WORKER_SESSION as WORKER,
+    add_worker_activity_tables as _worker_tables,
+    delivered_launch as _delivered_launch,
+)
 from runtime.api.domain.test_session_message_support import message_connection
-
-
-WORKER = "session-worker"
-
-
-def _worker_tables(conn) -> None:
-    """Add the work and activity state read by the abandonment backstop."""
-    conn.execute(
-        """CREATE TABLE IF NOT EXISTS work_claims (
-            id INTEGER PRIMARY KEY,
-            session_id TEXT NOT NULL,
-            released_at TEXT
-        )"""
-    )
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_tool_call_at TEXT")
-    conn.execute(
-        "ALTER TABLE harness_sessions ADD COLUMN tool_call_count "
-        "INTEGER NOT NULL DEFAULT 0"
-    )
-    conn.commit()
 
 
 def _capture_notifications(monkeypatch) -> list[tuple[str, str]]:
@@ -66,65 +42,6 @@ def _capture_notifications(monkeypatch) -> list[tuple[str, str]]:
         record_notification,
     )
     return notifications
-
-
-def _delivered_launch(conn, *, key: str = "mandate"):
-    """Drive one launch all the way to succeeded, as a real worker does."""
-    launch = assigned_launch(conn, key=key)
-    claim = claim_assigned_launch(
-        conn,
-        launch_id=launch.launch_id,
-        relay_id="relay-1",
-        machine_id="machine-1",
-        now=NOW,
-    )
-    report_launch_attempt(
-        conn,
-        launch_id=launch.launch_id,
-        lease_id=claim.lease_id,
-        result_code="native_created",
-        native_session_id=WORKER,
-        now="2026-08-22T12:00:30Z",
-    )
-    conn.execute(
-        "INSERT INTO harness_sessions "
-        "(session_id, project_id, executor_surface, executor_version, "
-        "machine_id, model) VALUES (?, 10, 'codex-cli', '0.148.0a15', "
-        "'machine-1', 'gpt-5')",
-        (WORKER,),
-    )
-    conn.commit()
-    prepare_launch_registration(
-        conn,
-        launch_id=launch.launch_id,
-        attestation=claim.attestation,
-        session_id=WORKER,
-        now="2026-08-22T12:00:31Z",
-    )
-    conn.execute(
-        "UPDATE session_message_recipients SET state='injected' "
-        "WHERE message_id=? AND session_id=?",
-        (launch.message_id, WORKER),
-    )
-    conn.commit()
-    complete_launch_injection(
-        conn,
-        launch_id=launch.launch_id,
-        session_id=WORKER,
-        injected=True,
-        now="2026-08-22T12:00:32Z",
-    )
-    conn.execute(
-        "UPDATE session_message_recipients SET state='acknowledged' WHERE message_id=?",
-        (launch.message_id,),
-    )
-    conn.commit()
-    return complete_launch_for_message(
-        conn,
-        message_id=launch.message_id,
-        session_id=WORKER,
-        now="2026-08-22T12:00:33Z",
-    )
 
 
 def test_worker_that_ended_without_claiming_flips_its_launch() -> None:
