@@ -29,6 +29,11 @@ def _read(
         stability="stable",
         owner_module="yoke_core.domain.handlers.qa_catalog_reads",
         target_kinds=["global"],
+        minimum_serving_version=(
+            "next-release"
+            if function_id in {"qa.plan.list", "qa.plan.get", "qa.activity.list"}
+            else ""
+        ),
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["project_scope_required"],

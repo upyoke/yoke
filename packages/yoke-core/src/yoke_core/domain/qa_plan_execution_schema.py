@@ -9,10 +9,8 @@ from yoke_core.domain.qa_deployment_scope_schema import (
     EXECUTION_SCOPE_INDEX_NAMES,
     EXECUTION_SCOPE_INDEX_SQL,
     EXECUTION_SUBJECT_CONSTRAINT,
-    EXECUTION_SUBJECT_EXPRESSION,
     LIVE_EXECUTION_STATES,
     add_deployment_scope_columns,
-    assert_deployment_scope_contract,
 )
 from yoke_core.domain.schema_common import (
     _column_exists,
@@ -20,6 +18,12 @@ from yoke_core.domain.schema_common import (
     _table_exists,
 )
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.qa_standalone_schema import (
+    EXECUTION_SUBJECT_EXPRESSION,
+    STANDALONE_EXECUTION_INDEX_SQL,
+    STANDALONE_REQUIREMENT_INDEX_SQL,
+    add_standalone_columns,
+)
 
 
 QA_PLAN_EXECUTION_TABLE = "qa_plan_executions"
@@ -55,7 +59,8 @@ QA_PLAN_EXECUTION_TARGET_COLUMNS = (
 #: execution built, so no case in this execution reaches a host baseline.
 QA_PLAN_EXECUTION_CONTINUATION_COLUMNS = ("continues_execution_id",)
 QA_PLAN_EXECUTION_ADDITIVE_COLUMNS = (
-    QA_PLAN_EXECUTION_TARGET_COLUMNS
+    ("standalone_plan_id",)
+    + QA_PLAN_EXECUTION_TARGET_COLUMNS
     + QA_PLAN_EXECUTION_CONTINUATION_COLUMNS
     + tuple(column for column, _definition in DEPLOYMENT_SCOPE_COLUMNS)
 )
@@ -84,6 +89,7 @@ CREATE TABLE IF NOT EXISTS qa_plan_executions (
     id TEXT PRIMARY KEY,
     item_id INTEGER,
     deployment_run_id TEXT,
+    standalone_plan_id INTEGER,
     transition_id TEXT,
     actor_id TEXT,
     session_id TEXT NOT NULL,
@@ -111,6 +117,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_plan_executions_active
     WHERE item_id IS NOT NULL
         AND state IN ('active','waiting','awaiting_agent_review');
 {EXECUTION_SCOPE_INDEX_SQL}
+{STANDALONE_EXECUTION_INDEX_SQL}
 
 CREATE TABLE IF NOT EXISTS qa_plan_execution_results (
     execution_id TEXT NOT NULL,
@@ -144,13 +151,20 @@ def converge_qa_plan_execution_schema(conn: Any) -> None:
     if _table_exists(conn, QA_PLAN_EXECUTION_TABLE):
         for column in QA_PLAN_EXECUTION_ADDITIVE_COLUMNS:
             if not _column_exists(conn, QA_PLAN_EXECUTION_TABLE, column):
-                definition = dict(DEPLOYMENT_SCOPE_COLUMNS).get(column, "TEXT")
+                definition = (
+                    "INTEGER"
+                    if column == "standalone_plan_id"
+                    else dict(DEPLOYMENT_SCOPE_COLUMNS).get(column, "TEXT")
+                )
                 conn.execute(
                     f"ALTER TABLE {QA_PLAN_EXECUTION_TABLE} "
                     f"ADD COLUMN {column} {definition}"
                 )
         add_deployment_scope_columns(conn)
+    add_standalone_columns(conn)
     execute_schema_script(conn, QA_PLAN_EXECUTION_SCHEMA_SQL)
+    if _column_exists(conn, "qa_requirements", "plan_id"):
+        execute_schema_script(conn, STANDALONE_REQUIREMENT_INDEX_SQL)
 
 
 def converge_qa_plan_execution_subject_schema(conn: Any) -> None:
@@ -160,7 +174,9 @@ def converge_qa_plan_execution_subject_schema(conn: Any) -> None:
 
 def assert_qa_plan_execution_subject_invariants(conn: Any) -> None:
     """Require the complete deployment-scoped subject contract."""
-    assert_deployment_scope_contract(conn)
+    from yoke_core.domain.qa_standalone_schema import assert_standalone_subjects
+
+    assert_standalone_subjects(conn)
 
 
 def assert_qa_plan_execution_schema_invariants(conn: Any) -> None:

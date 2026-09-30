@@ -239,7 +239,8 @@ def handle_qa_run_get(request: FunctionCallRequest) -> HandlerOutcome:
                 "LEFT JOIN items i ON i.id = COALESCE(q.item_id, q.epic_id) "
                 "LEFT JOIN items m ON m.id = q.deployment_member_item_id "
                 "LEFT JOIN deployment_runs dr ON dr.id = q.deployment_run_id "
-                f"WHERE r.id = {p} AND COALESCE(m.project_id,i.project_id,dr.project_id) = {p}",
+                "LEFT JOIN qa_plans qp ON qp.id=q.plan_id "
+                f"WHERE r.id = {p} AND COALESCE(m.project_id,i.project_id,dr.project_id,qp.project_id) = {p}",
                 (int(run_id), int(project_id)),
             )
             if (

@@ -19,7 +19,19 @@ def build_plan_execution_target(
     project: Optional[str],
 ) -> tuple[TargetRef, dict[str, str]]:
     """Validate one execution subject and build its function-call target."""
-    if bool(public_ref) == bool(deployment_run_id):
+    if not public_ref and not deployment_run_id:
+        if (
+            not plan
+            or not project
+            or transition_id
+            or deployment_stage
+            or deployment_member
+        ):
+            raise QaPlanExecutionError(
+                "standalone_subject_invalid: use --plan PLAN --project P without item, transition, stage or member"
+            )
+        return TargetRef(kind="global", project_id=project), {"plan": plan}
+    if public_ref and deployment_run_id:
         raise QaPlanExecutionError(
             "exactly one of public_ref or deployment_run_id is required"
         )

@@ -42,7 +42,8 @@ def register(registry) -> None:
             _plan.PlanExecutionStateResponse,
             stability="stable",
             owner_module="yoke_core.domain.handlers.qa_plan_execution",
-            target_kinds=["item", "deployment_run"],
+            target_kinds=["item", "deployment_run", "global"],
+            minimum_serving_version="next-release",
             side_effects=[
                 "qa_plan_execution_write",
                 "coordination_claim_heartbeat_or_release",
@@ -83,7 +84,8 @@ def register(registry) -> None:
             response_model,
             stability="stable",
             owner_module="yoke_core.domain.handlers.qa_plan_review",
-            target_kinds=["item", "deployment_run"],
+            target_kinds=["item", "deployment_run", "global"],
+            minimum_serving_version="next-release",
             side_effects=[
                 "qa_plan_review_write",
                 "qa_run_write",
@@ -112,6 +114,7 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.qa_case_execution",
         target_kinds=["qa_requirement"],
+        minimum_serving_version="next-release",
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[

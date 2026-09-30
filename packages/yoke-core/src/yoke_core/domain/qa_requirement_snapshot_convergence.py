@@ -227,13 +227,18 @@ def assert_requirement_execution_snapshot_invariants(conn: Any) -> None:
             )
         except QaMethodCapabilityError as exc:
             raise AssertionError(str(exc)) from exc
+    standalone_owner = (
+        "standalone_execution_id, "
+        if _column_exists(conn, "qa_requirements", "standalone_execution_id")
+        else ""
+    )
     duplicate_positions = int(
         conn.execute(
             "SELECT COUNT(*) FROM ("
-            "SELECT item_id, deployment_run_id, workflow_transition_id, plan_id, "
+            f"SELECT {standalone_owner}item_id, deployment_run_id, workflow_transition_id, plan_id, "
             "case_position, baseline_position "
             "FROM qa_requirements WHERE plan_id IS NOT NULL "
-            "GROUP BY item_id, deployment_run_id, workflow_transition_id, plan_id, "
+            f"GROUP BY {standalone_owner}item_id, deployment_run_id, workflow_transition_id, plan_id, "
             "case_position, baseline_position HAVING COUNT(*) > 1"
             ") duplicates"
         ).fetchone()[0]

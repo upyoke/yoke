@@ -63,6 +63,12 @@ def execute_plan(
         project=project,
     )
     resolved_actor = execution_actor(actor)
+    if target.kind == "global":
+        begin_payload.update(
+            source_revision=expected_sha,
+            source_ref=expected_branch,
+            checkout_path=str(checkout_path) if checkout_path else None,
+        )
     if deployment_run_id:
         materialize_payload = {"plan": plan, "project": project}
         if deployment_stage:
@@ -98,6 +104,14 @@ def execute_plan(
     execution_id = begun_execution_id(execution)
     try:
         begun = validate_begun_execution(execution, machine=machine, base_url=base_url)
+        from yoke_core.domain.qa_standalone_command import preflight_standalone_runners
+
+        preflight_standalone_runners(
+            begun.requirements,
+            checkout_path=checkout_path,
+            expected_branch=expected_branch,
+            expected_sha=expected_sha,
+        )
     except QaPlanExecutionError as exc:
         raise release_unusable_execution(
             _call_plan_function,
@@ -107,6 +121,8 @@ def execute_plan(
                 f"--deployment-run-id {deployment_run_id}"
                 if deployment_run_id
                 else f"--item {public_ref}"
+                if public_ref
+                else f"--project {project}"
             ),
             actor=resolved_actor,
             error=exc,
@@ -309,6 +325,7 @@ def execute_plan(
             int(execution["item_id"]) if execution.get("item_id") is not None else None
         ),
         "deployment_run_id": execution.get("deployment_run_id"),
+        "standalone_plan_id": execution.get("standalone_plan_id"),
         "deployment_stage": execution.get("deployment_stage"),
         "deployment_member_item_id": execution.get("deployment_member_item_id"),
         "transition_id": transition_id,

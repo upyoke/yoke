@@ -25,9 +25,7 @@ def _verdicts(raw: str) -> list[dict[str, Any]]:
         raise ValueError(f"stdin is not valid JSON: {exc}") from exc
     if isinstance(value, dict):
         value = value.get("verdicts")
-    if not isinstance(value, list) or any(
-        not isinstance(row, dict) for row in value
-    ):
+    if not isinstance(value, list) or any(not isinstance(row, dict) for row in value):
         raise ValueError(
             "stdin must be a verdict list or an object containing verdicts"
         )
@@ -46,7 +44,7 @@ def _help_epilogue() -> str:
         "stdin: one complete batch, either a verdict list or an object with a\n"
         '  "verdicts" key. Every bundle case needs exactly one row:\n'
         "\n"
-        "    {\"verdicts\": [\n"
+        '    {"verdicts": [\n'
         '      {"requirement_id": 123, "verdict": "pass", '
         '"rationale": "what the evidence showed"}\n'
         "    ]}\n"
@@ -72,6 +70,7 @@ def run(args: List[str]) -> int:
     subject = parser.add_mutually_exclusive_group(required=True)
     subject.add_argument("--item-id", type=int)
     subject.add_argument("--deployment-run-id")
+    subject.add_argument("--project")
     parser.add_argument("--execution-id", required=True)
     parser.add_argument("--bundle-id", required=True)
     parser.add_argument("--bundle-digest", required=True)
@@ -86,6 +85,8 @@ def run(args: List[str]) -> int:
     target = (
         TargetRef(kind="item", item_id=int(parsed.item_id))
         if parsed.item_id is not None
+        else TargetRef(kind="global", project_id=parsed.project)
+        if parsed.project
         else TargetRef(
             kind="deployment_run",
             deployment_run_id=str(parsed.deployment_run_id),

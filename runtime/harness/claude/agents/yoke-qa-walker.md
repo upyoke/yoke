@@ -512,7 +512,7 @@ _Compact depth. Per-table and per-command notes for this topic — the caveats a
   - `yoke qa plan edit release-readiness`
 - _Add a QA run verdict — agent × ac_verification (inline raw_result)_
   - `yoke qa run add --requirement-id R --performed-by agent --qa-kind ac_verification --verdict pass --head-sha <commit> --raw-result 'Full backend pytest passed: N passed, K skipped.'`
-- _Execute an item's materialized QA plans in snapshot order_
+- _Execute immutable QA plans for an item, deployment, or project_
   - `yoke qa plan run --item PREFIX-N --transition TRANSITION --base-url https://preview.example`
 - _Execute one frozen deployment QA stage subject_
   - `yoke qa plan run --deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan AGENT_SELECTED_PLAN] --project PROJECT`

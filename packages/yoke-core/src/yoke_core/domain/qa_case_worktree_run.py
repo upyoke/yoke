@@ -70,6 +70,10 @@ def execute_worktree_case(
             "Command case timeout_seconds must be between 1 and "
             f"{qa_constants.MAX_CASE_COMMAND_TIMEOUT_SECONDS}"
         )
+    if case.get("standalone_execution_id"):
+        from yoke_core.domain.qa_standalone_command import standalone_checkout
+
+        checkout_path = standalone_checkout(case, checkout_path)
     # A deployment case with no explicit tree runs in a disposable checkout
     # at its run's candidate, removed once its verdict is recorded.
     with qa_candidate_checkout.case_checkout(case, checkout_path) as checkout:
@@ -89,7 +93,11 @@ def execute_worktree_case(
         # recorded, so the refusal belongs before the command, not after. A
         # deployment-run case answers for the candidate its run deployed
         # instead, so that revision is what its checkout is held to.
-        if qa_case_tree_binding_scope.session_lane_binds_case(case):
+        if case.get("standalone_execution_id"):
+            from yoke_core.domain.qa_case_tree_binding_scope import DeploymentBinding
+
+            binding = DeploymentBinding()
+        elif qa_case_tree_binding_scope.session_lane_binds_case(case):
             binding = verification_tree_binding.evaluate_run(
                 surface=_TREE_BINDING_SURFACE,
                 tree=str(checkout),

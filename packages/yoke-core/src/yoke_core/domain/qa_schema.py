@@ -27,6 +27,8 @@ from yoke_core.domain.qa_plan_review_schema import (
 )
 from yoke_core.domain.qa_deployment_scope_schema import (
     REQUIREMENT_SUBJECT_CONSTRAINT,
+)
+from yoke_core.domain.qa_standalone_schema import (
     REQUIREMENT_SUBJECT_EXPRESSION,
 )
 from yoke_core.domain.schema_common import (
@@ -49,6 +51,7 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
     epic_id INTEGER,
     task_num INTEGER,
     deployment_run_id TEXT,
+    standalone_execution_id TEXT,
     deployment_stage TEXT,
     deployment_member_item_id INTEGER,
     qa_kind TEXT NOT NULL,
@@ -204,6 +207,7 @@ def _migrate_qa_vocab(conn) -> None:
         return
 
     snapshot_columns = (
+        "standalone_execution_id",
         "deployment_stage",
         "deployment_member_item_id",
         "plan_id",
@@ -236,6 +240,7 @@ def _migrate_qa_vocab(conn) -> None:
 
         CREATE TABLE qa_requirements (
             id INTEGER PRIMARY KEY,
+            standalone_execution_id TEXT,
             item_id INTEGER,
             epic_id INTEGER,
             task_num INTEGER,
@@ -277,7 +282,7 @@ def _migrate_qa_vocab(conn) -> None:
             id, item_id, epic_id, task_num, deployment_run_id, qa_kind, qa_phase,
             target_env, blocking_mode, requirement_source, success_policy,
             capability_requirements, suite_id, waived_at, waiver_rationale,
-            waiver_source, deployment_stage, deployment_member_item_id,
+            waiver_source, standalone_execution_id, deployment_stage, deployment_member_item_id,
             plan_id, plan_case_key, case_position,
             baseline_position, method_id, method_name, runner_id,
             verdict_path, host_baseline,

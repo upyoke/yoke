@@ -13,7 +13,7 @@ from yoke_core.domain.qa_plan_execution import QaPlanExecutionError, _call_plan_
 
 def run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke qa plan abort")
-    subject = parser.add_mutually_exclusive_group(required=True)
+    subject = parser.add_mutually_exclusive_group()
     subject.add_argument("--item")
     subject.add_argument("--deployment-run-id")
     parser.add_argument("--execution-id", required=True)
@@ -21,6 +21,8 @@ def run(args: List[str]) -> int:
     parser.add_argument("--project")
     parser.add_argument("--session-id")
     parsed = parser.parse_args(args)
+    if not parsed.item and not parsed.deployment_run_id and not parsed.project:
+        parser.error("standalone abort requires --project P")
 
     from yoke_core.api.service_client_structured_api_adapter import build_actor
 
@@ -31,6 +33,8 @@ def run(args: List[str]) -> int:
             project_id=parsed.project,
         )
         if parsed.item
+        else TargetRef(kind="global", project_id=parsed.project)
+        if not parsed.deployment_run_id
         else TargetRef(
             kind="deployment_run",
             deployment_run_id=str(parsed.deployment_run_id),
@@ -62,6 +66,8 @@ def run(args: List[str]) -> int:
             "machine_lease_id",
         )
     }
+    if result.get("standalone_plan_id") is not None:
+        receipt["standalone_plan_id"] = result["standalone_plan_id"]
     print(json.dumps(receipt, sort_keys=True))
     return 0
 

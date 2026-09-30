@@ -162,16 +162,15 @@ def _subject_constraints(conn: Any, table: str) -> list[str]:
         "SELECT conname,pg_get_constraintdef(oid) FROM pg_constraint "
         f"WHERE conrelid='{table}'::regclass AND contype='c' ORDER BY conname"
     ).fetchall()
-    candidates = [row for row in rows if all(column in str(row[1]) for column in required)]
-    legacy = {
-        "qa_plan_executions": LEGACY_EXECUTION_SUBJECT_EXPRESSION,
-        "qa_requirements": LEGACY_REQUIREMENT_SUBJECT_EXPRESSION,
-    }[table]
-    current = {
-        "qa_plan_executions": EXECUTION_SUBJECT_EXPRESSION,
-        "qa_requirements": REQUIREMENT_SUBJECT_EXPRESSION,
-    }[table]
-    supported = {_canonical_sql(f"CHECK ({value})") for value in (legacy, current)}
+    candidates = [
+        row for row in rows if all(column in str(row[1]) for column in required)
+    ]
+    from yoke_core.domain.qa_standalone_schema import supported_subject_expressions
+
+    supported = {
+        _canonical_sql(f"CHECK ({value})")
+        for value in supported_subject_expressions(table)
+    }
     unknown = [
         (str(row[0]), str(row[1]))
         for row in candidates
@@ -310,14 +309,19 @@ def assert_deployment_scope_contract(conn: Any) -> None:
         if row is None or _canonical_sql(str(row[0])) != _canonical_sql(
             f"CHECK ({expression})"
         ):
-            raise AssertionError(f"{constraint} does not match the scoped subject contract")
+            raise AssertionError(
+                f"{constraint} does not match the scoped subject contract"
+            )
     _assert_indexes(conn, "qa_plan_executions", _EXECUTION_INDEX_SPECS)
     _assert_indexes(conn, "qa_requirements", _REQUIREMENT_INDEX_SPECS)
     for obsolete in (
         "idx_qa_plan_executions_deployment_active",
         "idx_qa_requirement_deployment_materialization",
     ):
-        if conn.execute("SELECT to_regclass(%s)", (obsolete,)).fetchone()[0] is not None:
+        if (
+            conn.execute("SELECT to_regclass(%s)", (obsolete,)).fetchone()[0]
+            is not None
+        ):
             raise AssertionError(f"obsolete index {obsolete} still exists")
 
 

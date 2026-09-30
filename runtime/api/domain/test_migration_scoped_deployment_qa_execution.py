@@ -26,6 +26,12 @@ MIGRATION = importlib.import_module(
 )
 
 
+@pytest.fixture(autouse=True)
+def scoped_contract(test_db):
+    """Reconstruct the historical cutover before testing its invariants."""
+    MIGRATION.apply(test_db)
+
+
 def _constraint_names(conn, table: str) -> set[str]:
     return {
         str(row[0])
@@ -195,7 +201,7 @@ def test_cutover_preserves_legacy_waits_results_runs_and_artifacts(test_db) -> N
     assert "idx_qa_requirement_deployment_materialization" not in all_indexes
 
 
-def test_fresh_schema_has_exact_scoped_contract_and_serving_floor(test_db) -> None:
+def test_scoped_migration_has_exact_contract_and_serving_floor(test_db) -> None:
     assert_deployment_scope_contract(test_db)
     assert MIGRATION.MINIMUM_SERVING_VERSION == NEXT_RELEASE
 
@@ -304,7 +310,9 @@ def test_invariant_rejects_legacy_shape_under_current_constraint_name(test_db) -
         assert_deployment_scope_contract(test_db)
 
 
-def test_cutover_refuses_unrecognized_subject_check_instead_of_dropping(test_db) -> None:
+def test_cutover_refuses_unrecognized_subject_check_instead_of_dropping(
+    test_db,
+) -> None:
     _install_legacy_contract(test_db)
     name = "qa_plan_executions_stricter_subject_check"
     test_db.execute(

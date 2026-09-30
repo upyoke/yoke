@@ -18,6 +18,8 @@ def target_plan_subject(
         return int(request.target.item_id), None
     if request.target.kind == "deployment_run" and request.target.deployment_run_id:
         return None, str(request.target.deployment_run_id)
+    if request.target.kind == "global" and request.target.project_id:
+        return None, None
     return _failure(
         "target_invalid",
         f"{function_id} requires an item or deployment-run target",

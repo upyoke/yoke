@@ -79,7 +79,7 @@ def get_case_execution_context(
     row = query_one(
         conn,
         "SELECT q.id AS requirement_id, q.item_id, q.deployment_run_id, "
-        "q.deployment_stage,q.deployment_member_item_id, "
+        "q.deployment_stage,q.deployment_member_item_id,q.standalone_execution_id, "
         "q.plan_id, q.target_env, "
         "q.plan_case_key, q.method_id, q.qa_kind, q.instructions, "
         "q.expected_outcome, q.method_config, q.host_baseline, "
@@ -97,9 +97,10 @@ def get_case_execution_context(
         "FROM qa_requirements q "
         "LEFT JOIN items i ON i.id=q.item_id "
         "LEFT JOIN deployment_runs dr ON dr.id=q.deployment_run_id "
+        "LEFT JOIN qa_plans qp ON qp.id=q.plan_id "
         "LEFT JOIN items m ON m.id=q.deployment_member_item_id "
         "LEFT JOIN projects mp ON mp.id=m.project_id "
-        "JOIN projects p ON p.id=COALESCE(m.project_id,i.project_id,dr.project_id) "
+        "JOIN projects p ON p.id=COALESCE(m.project_id,i.project_id,dr.project_id,qp.project_id) "
         f"WHERE q.id={marker} AND q.waived_at IS NULL",
         (int(requirement_id),),
     )
@@ -209,6 +210,7 @@ def get_case_execution_context(
         "requirement_id": int(row["requirement_id"]),
         "item_id": (int(row["item_id"]) if row["item_id"] is not None else None),
         "deployment_run_id": row["deployment_run_id"],
+        "standalone_execution_id": row["standalone_execution_id"],
         "deployment_stage": row["deployment_stage"],
         "deployment_member_item_id": (
             int(row["deployment_member_item_id"])
@@ -313,10 +315,6 @@ def get_case_execution_context(
         except (LookupError, TypeError, ValueError) as exc:
             raise QaCaseExecutionError(str(exc)) from exc
     elif str(row["target_env"] or "").strip():
-        # A draft --target-env label that was not an authorized environment
-        # at authoring time stays unbound on the row. Resolve it here when
-        # that environment exists now, rather than forbidding the supported
-        # deferred binding.
         from yoke_core.domain.qa_environment_execution_target import (
             require_case_endpoint,
             resolve_named_environment_execution_target,
@@ -339,6 +337,10 @@ def get_case_execution_context(
             raise QaCaseExecutionError(str(exc)) from exc
         context["execution_target"] = execution_target
         context["execution_target_digest"] = target_digest(execution_target)
+    if context.get("standalone_execution_id"):
+        from yoke_core.domain.qa_standalone_context import restore_standalone_source
+
+        restore_standalone_source(conn, context)
     return context
 
 

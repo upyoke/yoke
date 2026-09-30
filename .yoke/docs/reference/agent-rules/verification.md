@@ -2,6 +2,17 @@
 
 The rules file every session loads carries the short normative form of each rule. This document is the deep home the rules file points at: the same rules with the reasoning, the worked failure modes, the flag matrices, and the edge cases that decide close calls. Read the section you need before the action it governs — nothing here is optional background, it is simply longer than a startup channel can carry.
 
+## Run a project QA plan on demand
+
+`yoke qa plan run --plan PLAN --project P` records standalone evidence without
+an item or deployment gate. Commands require a clean `--checkout-path` at
+`--expected-sha FULL_SHA`; CI also requires `--expected-branch REF` at that
+published commit and the case's named workflow. Manual CI carries declared inputs
+and never publishes or rebases a lane. Machine and browser methods keep their
+target, lease, capture, and review contracts.
+Abort with `yoke qa plan abort --project P --execution-id ID --reason TEXT`.
+Read `yoke qa plan run --help` before selecting source and continuation options.
+
 ## Testing
 
 - **No hardcoded drifting IDs in tests.** Tests must never contain literal `PREFIX-N`-style work item IDs that drift over time. Use variables, dynamically generated values, or pattern matchers instead.

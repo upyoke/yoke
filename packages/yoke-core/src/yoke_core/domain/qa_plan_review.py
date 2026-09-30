@@ -175,6 +175,8 @@ def _dispatch_contract(
     subject_flag = (
         f"--item-id {int(subject['item_id'])}"
         if subject.get("item_id") is not None
+        else f"--project {execution_target['project']['slug']}"
+        if subject.get("standalone_plan_id") is not None
         else f"--deployment-run-id {subject['deployment_run_id']}"
     )
     artifact_read_commands = case_artifact_read_commands(cases)
@@ -293,6 +295,7 @@ def begin_plan_review(
         "execution_target": execution.get("execution_target"),
         "execution_target_digest": str(execution.get("execution_target_digest") or ""),
         "subject": {
+            "standalone_plan_id": execution.get("standalone_plan_id"),
             "item_id": execution.get("item_id"),
             "deployment_run_id": execution.get("deployment_run_id"),
             "deployment_stage": execution.get("deployment_stage"),

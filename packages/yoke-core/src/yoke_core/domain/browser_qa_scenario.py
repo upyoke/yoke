@@ -102,7 +102,8 @@ def execute_scenario(
     # anything had been proved.
     freshness_validated = False
 
-    if (item_id is None) == (deployment_run_id is None):
+    standalone = item_id is None and deployment_run_id is None and requirement_id > 0
+    if not standalone and (item_id is None) == (deployment_run_id is None):
         _bqa._log(
             "ERROR: a Browser case names exactly one subject — pass "
             "item_id for an item case or deployment_run_id for a "
@@ -126,6 +127,8 @@ def execute_scenario(
     named_subject = (
         item_subject_ref(item_id)
         if item_id is not None
+        else f"standalone requirement {requirement_id}"
+        if standalone
         else f"deployment run {deployment_run_id}"
     )
     _bqa._log(
@@ -147,13 +150,23 @@ def execute_scenario(
         print(result.to_json())
         return result
 
+    if standalone and not context.get("standalone_execution_id"):
+        result.verdict = "error"
+        result.note = "subject_invalid"
+        print(result.to_json())
+        return result
+
     # Refs resolve server-side; everything downstream (artifact paths,
     # run rows, daemon failure events) uses the resolved numeric id.
     resolved = context.get("item_id")
     if resolved is not None:
         item_id = int(resolved)
     subject = case_artifact_subject(
-        {"item_id": item_id, "deployment_run_id": deployment_run_id},
+        {
+            "item_id": item_id,
+            "deployment_run_id": deployment_run_id,
+            "standalone_execution_id": context.get("standalone_execution_id"),
+        },
     )
 
     req_rows = context.get("requirements") or []

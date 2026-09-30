@@ -13,7 +13,10 @@ from __future__ import annotations
 
 from typing import Any, Optional, Sequence
 
-from yoke_contracts.qa_verdicts import UNDETERMINED_VERDICT, VALID_VERDICTS as VALID_VERDICTS
+from yoke_contracts.qa_verdicts import (
+    UNDETERMINED_VERDICT,
+    VALID_VERDICTS as VALID_VERDICTS,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +144,7 @@ REQ_COLUMNS = (
     "epic_id",
     "task_num",
     "deployment_run_id",
+    "standalone_execution_id",
     "deployment_stage",
     "deployment_member_item_id",
     "qa_kind",
@@ -175,7 +179,7 @@ REQ_COLUMNS = (
 _REQ_SELECT = (
     "id, COALESCE(CAST(item_id AS TEXT),''), COALESCE(CAST(epic_id AS TEXT),''), "
     "COALESCE(CAST(task_num AS TEXT),''), "
-    "COALESCE(deployment_run_id,''), COALESCE(deployment_stage,''), "
+    "COALESCE(deployment_run_id,''), COALESCE(standalone_execution_id,''), COALESCE(deployment_stage,''), "
     "COALESCE(CAST(deployment_member_item_id AS TEXT),''), "
     "qa_kind, qa_phase, COALESCE(target_env,''), "
     "blocking_mode, requirement_source, COALESCE(success_policy,''), "

@@ -169,13 +169,13 @@ def run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa plan run",
         description=(
-            "Execute a materialized transition's cases in immutable "
+            "Execute item, deployment, or standalone project cases in immutable "
             "plan/case/baseline order through their registered runners."
         ),
         epilog=QA_PLAN_RUN_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    subject = parser.add_mutually_exclusive_group(required=True)
+    subject = parser.add_mutually_exclusive_group()
     subject.add_argument("--item")
     subject.add_argument("--deployment-run-id")
     parser.add_argument("--stage")
@@ -214,7 +214,10 @@ def run(args: List[str]) -> int:
     add_replaces_argument(parser)
     parser.add_argument("--session-id")
     parsed = parser.parse_args(args)
-    if bool(parsed.expected_branch) != bool(parsed.expected_sha):
+    standalone = not parsed.item and not parsed.deployment_run_id
+    if standalone and (not parsed.plan or not parsed.project):
+        parser.error("standalone run requires --plan PLAN --project P")
+    if bool(parsed.expected_branch) != bool(parsed.expected_sha) and not standalone:
         parser.error("--expected-branch and --expected-sha must be paired")
     if parsed.item and not parsed.transition:
         parser.error("--item requires --transition")
@@ -228,6 +231,12 @@ def run(args: List[str]) -> int:
         parser.error("--deployment-run-id requires --project")
     if parsed.member and not parsed.stage:
         parser.error("--member requires --stage")
+    if standalone and (
+        parsed.stage or parsed.member or parsed.transition or parsed.replaces
+    ):
+        parser.error(
+            "standalone run does not accept transition, stage, member or replacements"
+        )
     if parsed.replaces and not parsed.deployment_run_id:
         parser.error(
             "--replaces declares at materialization; for --item run "

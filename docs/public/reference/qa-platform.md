@@ -8,7 +8,7 @@ Yoke's QA platform replaces the legacy `reviews` table with a unified, requireme
 are the retained operator/debug adapters that dispatch the matching function ids. See
 [.yoke/docs/reference/db-reference/functions.md](db-reference/functions.md) for the envelope. Render
 the operator-readable Atlas of registered surfaces locally with
-`python3 -m yoke_core.tools.atlas_render_docs render`.
+`python3 -m yoke_core.tools.atlas_render_docs render`. For standalone project QA, run `yoke qa plan run --plan PLAN --project P`; read its `--help` and [standalone plan contracts](qa-platform/standalone-plans.md) before execution.
 
 ## Four-Layer Model
 
@@ -234,6 +234,7 @@ Epic tasks may carry task-level requirements for task execution and verification
 
 An epic parent item cannot become `reviewed-implementation` until every blocking epic-task
 verification requirement and every blocking epic-level requirement is satisfied.
+
 
 ### Deployment Run Requirements
 

@@ -91,6 +91,12 @@ def require_plan_execution_subject(
     deployment_member_item_id: int | None = None,
 ) -> None:
     """Bind an execution mutation to exactly the subject the caller named."""
+    if (
+        item_id is None
+        and deployment_run_id is None
+        and execution.get("standalone_plan_id") is not None
+    ):
+        return
     if (item_id is None) == (deployment_run_id is None):
         _fail("exactly one QA plan execution subject is required")
     if item_id is not None and (

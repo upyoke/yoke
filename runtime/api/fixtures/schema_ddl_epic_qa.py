@@ -19,7 +19,10 @@ from yoke_core.domain.qa_plan_execution_schema import (
 from yoke_core.domain.qa_plan_review_schema import QA_PLAN_REVIEW_SCHEMA_SQL
 from yoke_core.domain.qa_deployment_scope_schema import (
     REQUIREMENT_SUBJECT_CONSTRAINT,
+)
+from yoke_core.domain.qa_standalone_schema import (
     REQUIREMENT_SUBJECT_EXPRESSION,
+    STANDALONE_REQUIREMENT_INDEX_SQL,
 )
 
 
@@ -95,6 +98,7 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
     epic_id INTEGER,
     task_num INTEGER,
     deployment_run_id TEXT,
+    standalone_execution_id TEXT,
     deployment_stage TEXT,
     deployment_member_item_id INTEGER,
     qa_kind TEXT NOT NULL,
@@ -186,6 +190,7 @@ CREATE TABLE IF NOT EXISTS deployment_stage_receipts (
 );
 """
     + qa_plan_execution_schema_sql(include_foreign_keys=False)
+    + STANDALONE_REQUIREMENT_INDEX_SQL
     + QA_PLAN_REVIEW_SCHEMA_SQL.replace(" REFERENCES qa_plan_executions(id)", "")
     .replace(" REFERENCES qa_requirements(id)", "")
     .replace(" REFERENCES qa_runs(id)", "")

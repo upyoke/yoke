@@ -238,6 +238,15 @@ SOURCE_RECIPE_SOURCE_PREFIXES = (
 )
 
 PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    # Packet consumers import the renderer; seed fragments have no import edge.
+    (
+        "qa_packet_contract",
+        ("packages/yoke-core/src/yoke_core/domain/schema_api_context",),
+        (
+            "runtime/api/domain/test_schema_api_context_qa_examples.py",
+            "runtime/api/tools/test_impacted_qa_packet_contract.py",
+        ),
+    ),
     (
         "product_cli_boundary_contract",
         PRODUCT_CLI_SOURCE_PREFIXES,

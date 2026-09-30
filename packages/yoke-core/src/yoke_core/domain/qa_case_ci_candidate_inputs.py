@@ -56,8 +56,7 @@ def normalize(raw: Any) -> dict[str, str]:
         name = str(key).strip()
         if not name:
             raise CandidateInputsError(
-                f"method_config.{CI_WORKFLOW_INPUTS_KEY} has an input with "
-                "no name"
+                f"method_config.{CI_WORKFLOW_INPUTS_KEY} has an input with no name"
             )
         if name == WORKFLOW_DISPATCH_CORRELATION_INPUT:
             raise CandidateInputsError(
@@ -92,7 +91,7 @@ def case_inputs(case: Mapping[str, Any], *, project: str) -> dict[str, str]:
     inputs = normalize(
         _decoded_config(case.get("method_config")).get(CI_WORKFLOW_INPUTS_KEY)
     )
-    if inputs:
+    if inputs and not case.get("standalone_execution_id"):
         _refuse_queue_routed(project, inputs)
     return inputs
 

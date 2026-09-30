@@ -114,6 +114,41 @@ def qa_subject_claim_verdict(
     target = request.target
     payload = request.payload
     actor_session = request.actor.session_id
+    if (
+        target.kind == "global"
+        and target.project_id
+        and request.function.startswith(
+            (
+                "qa.plan_execution.",
+                "qa.plan_review.",
+                "test_machine.plan_case.",
+                "test_machine.mission.",
+            )
+        )
+    ):
+        # Project permission is checked separately; the handler binds every
+        # existing cursor to this project, actor and owning session.
+        return True, None, None
+    if target.kind == "qa_requirement" and target.qa_requirement_id is not None:
+        from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.schema_common import _column_exists
+
+        with connect() as conn:
+            if _column_exists(conn, "qa_requirements", "standalone_execution_id"):
+                row = conn.execute(
+                    "SELECT e.session_id FROM qa_requirements q "
+                    "JOIN qa_plan_executions e ON e.id=q.standalone_execution_id "
+                    f"WHERE q.id={_placeholder(conn)}",
+                    (target.qa_requirement_id,),
+                ).fetchone()
+                if row is not None:
+                    if str(row[0]) == actor_session:
+                        return True, None, None
+                    return (
+                        False,
+                        "standalone_execution_owned",
+                        "This standalone case belongs to another session; have its owner record the evidence",
+                    )
     if target.kind == "deployment_run" and target.deployment_run_id:
         try:
             from yoke_core.domain.db_helpers import connect
