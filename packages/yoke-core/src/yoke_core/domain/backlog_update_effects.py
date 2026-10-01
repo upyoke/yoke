@@ -195,6 +195,12 @@ def run_post_commit_update_effects(
     if receipt.status_event is None:
         return
     item_id, old_status, new_status, source = receipt.status_event
+    if new_status == "done":
+        from yoke_core.domain.settling_run_replay import (
+            replay_settling_runs_for_item,
+        )
+
+        replay_settling_runs_for_item(conn, item_id=item_id)
     if receipt.terminal_holder_session_ids:
         try:
             from yoke_core.domain.sessions_terminal_chain_checkpoint import (
