@@ -195,6 +195,20 @@ def run_post_commit_update_effects(
     if receipt.status_event is None:
         return
     item_id, old_status, new_status, source = receipt.status_event
+    if new_status == "done":
+        from yoke_core.domain.settling_run_replay import (
+            replay_settling_runs_for_item,
+        )
+
+        try:
+            replay_settling_runs_for_item(conn, item_id=item_id)
+        except Exception as exc:  # noqa: BLE001 - committed close-out stays durable
+            conn.rollback()
+            print(
+                f"Advisory: settling-run continuation deferred for item {item_id}: {exc}; "
+                "read its completion run and re-drive it under the project deploy lock.",
+                file=out,
+            )
     if receipt.terminal_holder_session_ids:
         try:
             from yoke_core.domain.sessions_terminal_chain_checkpoint import (

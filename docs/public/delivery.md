@@ -73,8 +73,10 @@ effects run: GitHub sync, lane cleanup, and ending the holders' now-empty
 sessions. They are idempotent, and a failure among them never reopens a
 closed member. It keeps the run settling, naming the member and the failure,
 until a replay finishes the effects and marks the run `succeeded`.
-Settlement replays by itself when the blocking record is cleared, so no hand
-re-drive is normally needed; if the run stays `executing`, `yoke
+Settlement replays by itself when the blocking record is cleared or a
+member's merge close-out commits `done`. The last recovered member therefore
+finishes its settling run without a hand re-drive; remaining gates still
+hold the run open. If the run stays `executing`, `yoke
 deployment-runs update RUN status succeeded` replays it.
 
 Residue is cleared on the way through. A member's own release walk opens an
