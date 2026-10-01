@@ -191,3 +191,35 @@ def test_native_corpus_has_all_events_without_account_data(harness):
     )
     if harness == "cursor":
         assert replayed["workspace_roots"] == ["/project"]
+
+
+def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_path):
+    from runtime.api.tools.product_runner_source_tests import run_source_tests
+
+    home = tmp_path / "home"
+    home.mkdir()
+    output = tmp_path / "evidence"
+    output.mkdir()
+    seen = []
+
+    def run(name, argv, *, cwd):
+        seen.append((name, argv))
+        if name == "pytest-subset":
+            (home / "yoke-pytest.raw.failure.log").write_text("pytest diagnostic")
+            (Path(commands.env["YOKE_PG_CLUSTER_ROOT"]) / "server.log").write_text(
+                "server diagnostic"
+            )
+            raise ValueError("primary test failure")
+        if name == "stop-test-postgres":
+            raise RuntimeError("cleanup failure")
+
+    commands = SimpleNamespace(
+        env={"YOKE_MACHINE_HOME": str(home)}, output=output, run=run
+    )
+    with pytest.raises(ValueError, match="primary test failure"):
+        run_source_tests(tmp_path, commands)
+
+    assert (output / "yoke-pytest.raw.failure.log").read_text() == "pytest diagnostic"
+    assert (output / "server.log").read_text() == "server diagnostic"
+    assert seen[1][1][:4] == ["uv", "run", "--frozen", "yoke"]
+    assert seen[-1][0] == "stop-test-postgres"

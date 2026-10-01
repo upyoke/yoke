@@ -14,8 +14,10 @@ import tempfile
 
 try:
     from .product_runner_hooks import replay_hooks
+    from .product_runner_source_tests import run_source_tests
 except ImportError:
     from product_runner_hooks import replay_hooks
+    from product_runner_source_tests import run_source_tests
 
 
 class SmokeFailure(RuntimeError):
@@ -238,34 +240,7 @@ def smoke(root: Path, output: Path) -> None:
                     raise SmokeFailure(
                         "editable_install_failed: inspect dev-setup capture and repair its named dependency"
                     )
-                commands.run(
-                    "install-test-dependencies",
-                    ["uv", "sync", "--all-packages", "--all-groups", "--locked"],
-                    cwd=root,
-                )
-                postgres = commands.document(
-                    "local-postgres-status",
-                    [yoke, "local-postgres", "status", "--json"],
-                    cwd=project,
-                )
-                binaries = Path(postgres["binaries"])
-                if not (binaries / "initdb").is_file():
-                    raise commands.failure("postgres_binaries_missing", str(binaries))
-                commands.env["PATH"] = f"{binaries}:{commands.env['PATH']}"
-                commands.run(
-                    "pytest-subset",
-                    [
-                        yoke,
-                        "watch",
-                        "pytest",
-                        "--local",
-                        "--",
-                        "runtime/harness/test_hook_runner_decision_render.py",
-                        "tests/import_graph/test_yoke_cli_dev_setup_contract.py",
-                        "-q",
-                    ],
-                    cwd=root,
-                )
+                run_source_tests(root, commands)
                 report["ok"] = True
             except Exception as exc:
                 failure = (

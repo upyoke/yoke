@@ -3,7 +3,7 @@
 One cluster-lifecycle core, two frontends:
 
 * :mod:`yoke_core.tools.pg_testcluster` — the disposable test cluster
-  (system binaries, scratch root, durability turned off).
+  (installed embedded binaries or PATH, scratch root, durability turned off).
 * :mod:`yoke_core.domain.local_universe` — the embedded local-mode engine
   (machine-runtime binaries, durable data under ``~/.yoke/``).
 
