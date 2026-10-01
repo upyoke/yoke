@@ -79,7 +79,7 @@ class Commands:
 
 def native_argv(harness: str, prompt: str) -> list[str]:
     if harness == "claude":
-        return ["claude", "--print", "--allowedTools", "Bash", prompt]
+        return ["claude", "--print", prompt, "--allowedTools", "Bash"]
     if harness == "codex":
         return ["codex", "exec", "--sandbox", "workspace-write", "--json", prompt]
     return ["cursor-agent", "--print", "--trust", "--force", prompt]
@@ -311,11 +311,14 @@ def main() -> int:
     parser.add_argument("--versions-file", type=Path, required=True)
     parser.add_argument("--wheels", type=Path, required=True)
     args = parser.parse_args()
+    print("REAL_HARNESS_STARTED", flush=True)
     try:
         run(args)
     except (ProofFailure, OSError, ValueError) as exc:
         print(f"real-harness failed: {exc}", flush=True)
         return 1
+    finally:
+        print("REAL_HARNESS_COMPLETE", flush=True)
     return 0
 
 

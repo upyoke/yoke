@@ -54,6 +54,8 @@ and workspace, evaluated native hook records, and affirmative allow/deny
 `PreToolUse` decisions. Model prose and native CLI exit status are diagnostic only.
 Missing telemetry is unavailable evidence, never a passing product verdict.
 The driver emits `REAL_HARNESS_PROVED` only after those assertions and cleanup.
+`REAL_HARNESS_COMPLETE` also appears on failure so the terminal recipe captures
+the final diagnostic report; that marker alone cannot pass the case.
 The existing Machine QA runner records its transcript and verdict in the project
 QA execution; local session ids and event ids are retained in the transcript.
 

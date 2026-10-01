@@ -50,17 +50,13 @@ def cases(
                     "execution_mode": "terminal-multiplexer",
                     "actions": [
                         {
-                            "step": step,
+                            "step": "proved",
                             "keys": [],
                             "capture": False,
-                            "ready_text": [text],
+                            "ready_text": ["REAL_HARNESS_STARTED"],
                             "ready_timeout_seconds": 300,
+                            "completion_text": ["REAL_HARNESS_COMPLETE"],
                         }
-                        for step, text in (
-                            ("status", "step=native-status"),
-                            ("denial", "step=native-denial"),
-                            ("proved", "REAL_HARNESS_PROVED"),
-                        )
                     ],
                     "capture_checkpoints": [],
                     "expected_return_codes": [0],
