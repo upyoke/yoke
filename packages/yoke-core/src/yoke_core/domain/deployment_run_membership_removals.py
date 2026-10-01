@@ -51,7 +51,12 @@ def membership_removals(conn: Any, run_id: str) -> tuple[dict[str, Any], ...]:
     ).fetchone()
     if row is None:
         return ()
-    stored = loads_text(_cell(row, MEMBERSHIP_REMOVALS_FIELD, 0) or "[]")
+    return parse_membership_removals(_cell(row, MEMBERSHIP_REMOVALS_FIELD, 0), run_id)
+
+
+def parse_membership_removals(value: Any, run_id: str) -> tuple[dict[str, Any], ...]:
+    """Decode the durable removal record for composition and presentation."""
+    stored = value if isinstance(value, list) else loads_text(value or "[]")
     if not isinstance(stored, list):
         raise ValueError(
             f"deployment run {run_id!r} has an unreadable "

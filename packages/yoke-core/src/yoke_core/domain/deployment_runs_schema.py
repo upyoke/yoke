@@ -235,6 +235,7 @@ def _run_named_columns(conn: Any, alias: str = "dr") -> tuple[str, str]:
             col("requirement_snapshot"),
             col("candidate_containment"),
             col("settling_at"),
+            col("membership_removals"),
         )
     )
     return columns, env_join

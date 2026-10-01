@@ -100,6 +100,9 @@ learns the other's part from its own skill. The split is the whole rule:
   needs no attaching, and `yoke steering report get` names any landed item no
   release holds so nobody has to notice one going stale. The driving seat does
   not run a member's item QA and does not close a member out.
+  Deployment-run cards exclude recorded removals from carried counts and
+  member QA. A separate Removed section says "QA cancelled — rides" and names
+  the newer run holding the item, or "a later release" when none holds it yet.
   For red member QA, `yoke deployment-runs remove-item RUN ITEM --reason R` lets an independent run finish while the member waits for its next release; see `remove-item --help`. Settlement automatically releases members whose current candidate is outside the frozen lineage.
 - **An unattributed carried commit is named, never waived blind.** Composition
   refuses with each commit's SHA and subject. An item's own commit its receipt

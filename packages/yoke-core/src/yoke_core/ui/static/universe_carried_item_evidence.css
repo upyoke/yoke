@@ -53,3 +53,16 @@
   color: var(--yoke-muted);
   font-size: 10.5px;
 }
+
+/* Removed custody is a notice, with no failed/queued member QA underneath. */
+.universe-app-root .release-removed-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px;
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}
+.universe-app-root .release-removed-note {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}
