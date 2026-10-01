@@ -2,8 +2,8 @@
 
 A Codex turn that ends on a vendor error fires no ``Stop`` hook, so
 nothing tells the control plane that it finished. Its own rollout does:
-the last line of
-``~/.codex/sessions/YYYY/MM/DD/rollout-<started>-<session_id>.jsonl`` is a
+the newest terminal event in
+``~/.codex/sessions/YYYY/MM/DD/rollout-<started>-<session_id>.jsonl`` contains a
 ``task_complete`` event once the turn ends, and that event carries an
 ``error`` payload when the turn ended on a vendor failure rather than on
 an answer. The failing case observed live was
@@ -56,27 +56,39 @@ def _rollout_path(session_id: str, roots: list[Path] | None) -> Path | None:
 
 
 def _tail_event(path: Path) -> Mapping[str, Any] | None:
-    """Return the last complete JSON line, or ``None`` when there is none."""
+    """Newest terminal event, allowing only tool settlement records after it.
+
+    Codex can kill a command after ending the turn and append item_completed.
+    A new prompt, tool call, or malformed record makes that end stale instead.
+    """
     try:
         size = path.stat().st_size
         with open(path, "rb") as handle:
             if size > _TAIL_BYTES:
                 handle.seek(size - _TAIL_BYTES)
                 handle.readline()
-            last = b""
+            terminal = None
             for raw in handle:
-                stripped = raw.strip()
-                if stripped:
-                    last = stripped
+                if not raw.strip():
+                    continue
+                try:
+                    event = json.loads(raw)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    terminal = None
+                    continue
+                payload = event.get("payload") if isinstance(event, Mapping) else None
+                kind = payload.get("type") if isinstance(payload, Mapping) else None
+                if kind == "task_complete":
+                    terminal = event
+                elif not (
+                    kind == "item_completed"
+                    and terminal is not None
+                    and payload.get("turn_id") == terminal["payload"].get("turn_id")
+                ):
+                    terminal = None
     except OSError:
         return None
-    if not last:
-        return None
-    try:
-        event = json.loads(last)
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        return None
-    return event if isinstance(event, Mapping) else None
+    return terminal
 
 
 def error_terminal_turn(

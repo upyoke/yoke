@@ -174,9 +174,8 @@ def interruption_reaps_process_group(
 ) -> Iterator[None]:
     """Reap *proc*'s group when the guarded block is interrupted.
 
-    Covers all three ways a long watcher actually dies: an exception in the
-    reading loop, a Ctrl-C, and the ``SIGTERM`` a harness sends when it gives
-    up on a run. ``SIGKILL`` cannot be handled by anyone, which is why the
+    Covers exceptions, Ctrl-C, harness ``SIGTERM``, and terminal-close
+    ``SIGHUP``. ``SIGKILL`` cannot be handled by anyone, which is why the
     orphan sweep remains the backstop rather than the primary mechanism.
 
     Handlers are installed only on the main thread, since that is the only
@@ -184,6 +183,8 @@ def interruption_reaps_process_group(
     reaps.
     """
     handled = (signal.SIGINT, signal.SIGTERM)
+    if hasattr(signal, "SIGHUP"):
+        handled += (signal.SIGHUP,)
     installable = threading.current_thread() is threading.main_thread()
     previous: dict[int, object] = {}
 
@@ -230,9 +231,7 @@ def run_in_process_group(
     except subprocess.TimeoutExpired:
         terminate_process_group(proc, grace_seconds=grace_seconds)
         stdout, stderr = proc.communicate()
-        raise subprocess.TimeoutExpired(
-            argv, timeout, output=stdout, stderr=stderr
-        )
+        raise subprocess.TimeoutExpired(argv, timeout, output=stdout, stderr=stderr)
     except BaseException:
         terminate_process_group(proc, grace_seconds=grace_seconds)
         raise

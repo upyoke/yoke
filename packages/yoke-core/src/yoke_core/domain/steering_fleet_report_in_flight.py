@@ -9,7 +9,10 @@ that was working.
 So a holder whose newest open ``session_tool_calls`` row invokes a known
 long-running shape -- the watcher wrappers and the inline merge-queue landing
 wait -- is reported as in flight rather than counted toward the idle alarm.
-Three facts must hold together, because each alone has been observed lying:
+Four facts must hold together, because each alone has been observed lying:
+
+- **The session must still be running.** Unknown or waiting posture and a
+  machine-observed process exit cannot excuse an unfinished call row.
 
 - **The command must be a long-running shape.** An ordinary call that left its
   row open is residue, not work.
@@ -35,7 +38,7 @@ from typing import Any, Sequence
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS
 from yoke_core.domain.session_activity_state import has_session_tool_calls_table
-from yoke_core.domain.session_reclaim_progress import open_tool_call_is_live
+from yoke_core.domain.session_tool_call_liveness import session_call_is_live
 from yoke_core.domain.steering_fleet_report_detectors import (
     age_seconds,
     marker,
@@ -122,12 +125,18 @@ def _newest_open_calls(
     p = marker(conn)
     slots = ",".join(p for _ in session_ids)
     rows = conn.execute(
-        f"""SELECT DISTINCT ON (session_id)
-                   session_id, tool_use_id, tool_name, started_at, command_summary
-              FROM session_tool_calls
-             WHERE session_id IN ({slots})
-               AND completed_at IS NULL
-             ORDER BY session_id, started_at DESC, tool_use_id DESC""",
+        f"""SELECT DISTINCT ON (tc.session_id)
+                   tc.session_id, tc.started_at, tc.command_summary,
+                   hs.turn_posture, hs.ended_at, hs.terminated_at,
+                   hs.last_tool_call_at, hs.last_heartbeat, hs.episode_started_at,
+                   hs.native_process_gone_at, hs.native_process_gone_evidence
+              FROM session_tool_calls tc
+              JOIN harness_sessions hs ON hs.session_id=tc.session_id
+             WHERE tc.session_id IN ({slots})
+               AND tc.completed_at IS NULL
+               AND tc.id=(SELECT MAX(newest.id) FROM session_tool_calls newest
+                          WHERE newest.session_id=tc.session_id)
+             ORDER BY tc.session_id, tc.id DESC""",
         tuple(session_ids),
     ).fetchall()
     found: dict[str, dict[str, Any]] = {}
@@ -159,7 +168,7 @@ def in_flight_calls(
         if command is None:
             continue
         started_at = str(open_call.get("started_at") or "")
-        if not open_tool_call_is_live(started_at, holder.last_activity_at):
+        if not session_call_is_live(open_call, started_at=started_at):
             continue
         open_seconds = age_seconds(started_at, now) or 0
         if open_seconds >= IN_FLIGHT_CEILING_SECONDS:

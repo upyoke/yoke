@@ -21,9 +21,7 @@ from yoke_core.domain import process_group_reaping
 
 # A shell that reports its grandchild's PID, then blocks forever. Without
 # group reaping the grandchild outlives a kill aimed at the shell alone.
-_SPAWN_GRANDCHILD_THEN_BLOCK = (
-    "sleep 300 & echo $!; while true; do sleep 0.05; done"
-)
+_SPAWN_GRANDCHILD_THEN_BLOCK = "sleep 300 & echo $!; while true; do sleep 0.05; done"
 
 
 def _process_is_alive(pid: int) -> bool:
@@ -131,9 +129,7 @@ def test_reaping_reaches_a_grandchild_that_started_its_own_session(tmp_path):
         f"pathlib.Path({str(pid_file)!r}).write_text(str(child.pid))\n"
         "time.sleep(300)\n"
     )
-    proc = process_group_reaping.popen_in_process_group(
-        [sys.executable, "-c", middle]
-    )
+    proc = process_group_reaping.popen_in_process_group([sys.executable, "-c", middle])
     detached_pid = int(_wait_for_nonempty_text(pid_file).strip())
     try:
         assert _process_is_alive(detached_pid)
@@ -156,7 +152,10 @@ def test_run_in_process_group_returns_completed_process_on_success():
     assert completed.stdout == "hello"
 
 
-def test_signal_during_guarded_block_reaps_then_raises():
+@pytest.mark.parametrize(
+    "signal_number", [signal.SIGINT, signal.SIGTERM, signal.SIGHUP]
+)
+def test_signal_during_guarded_block_reaps_then_raises(signal_number):
     proc = process_group_reaping.popen_in_process_group(
         _SPAWN_GRANDCHILD_THEN_BLOCK,
         shell=True,
@@ -168,10 +167,10 @@ def test_signal_during_guarded_block_reaps_then_raises():
     try:
         with pytest.raises(process_group_reaping.ProcessGroupInterrupted) as caught:
             with process_group_reaping.interruption_reaps_process_group(proc):
-                os.kill(os.getpid(), signal.SIGTERM)
+                os.kill(os.getpid(), signal_number)
                 time.sleep(2.0)  # handler fires well before this returns
 
-        assert caught.value.signal_number == signal.SIGTERM
+        assert caught.value.signal_number == signal_number
         assert _wait_until_gone(grandchild_pid)
     finally:
         _kill_if_alive(grandchild_pid)
@@ -180,9 +179,7 @@ def test_signal_during_guarded_block_reaps_then_raises():
 
 def test_guard_restores_prior_signal_handlers():
     previous = signal.getsignal(signal.SIGTERM)
-    proc = process_group_reaping.popen_in_process_group(
-        ["/bin/sh", "-c", "exit 0"]
-    )
+    proc = process_group_reaping.popen_in_process_group(["/bin/sh", "-c", "exit 0"])
     try:
         with process_group_reaping.interruption_reaps_process_group(proc):
             assert signal.getsignal(signal.SIGTERM) is not previous
@@ -213,9 +210,7 @@ def test_exception_in_guarded_block_still_reaps():
 
 
 def test_terminate_is_safe_on_an_already_finished_child():
-    proc = process_group_reaping.popen_in_process_group(
-        ["/bin/sh", "-c", "exit 3"]
-    )
+    proc = process_group_reaping.popen_in_process_group(["/bin/sh", "-c", "exit 3"])
     proc.wait()
 
     process_group_reaping.terminate_process_group(proc)

@@ -218,3 +218,58 @@ def test_the_ceiling_is_the_widest_budget_these_commands_give_themselves():
     from yoke_core.domain.merge_queue_landing_wait import DEFAULT_DEADLINE_SECONDS
 
     assert IN_FLIGHT_CEILING_SECONDS == int(DEFAULT_DEADLINE_SECONDS)
+
+
+@pytest.mark.parametrize("posture", ["waiting", "unknown"])
+def test_unverified_or_stopped_turn_does_not_excuse_an_open_call(fleet, posture):
+    _open_call(fleet, MERGE_WAIT)
+    fleet.execute(
+        "UPDATE harness_sessions SET turn_posture=%s WHERE session_id=%s",
+        (posture, WORKER_SESSION),
+    )
+    fleet.commit()
+    report = _compose(fleet)
+    assert report.in_flight == ()
+    assert {h.session_id for h in report.idle} == {WORKER_SESSION}
+
+
+def test_completed_latest_call_does_not_revive_an_older_open_one(fleet):
+    _open_call(fleet, MERGE_WAIT)
+    seed_tool_call(
+        fleet,
+        WORKER_SESSION,
+        tool_use_id="call-2",
+        started_at=CALL_STARTED,
+        command_summary="git status",
+        completed_at=CALL_STARTED,
+    )
+    fleet.commit()
+    assert _compose(fleet).in_flight == ()
+
+
+def test_native_exit_excludes_even_an_unclosed_running_call(fleet):
+    import json
+
+    _open_call(fleet, MERGE_WAIT)
+    fleet.execute(
+        "UPDATE harness_sessions SET native_process_gone_at=%s, "
+        "native_process_gone_evidence=%s, last_heartbeat=%s WHERE session_id=%s",
+        (NOW, json.dumps({"exit_code": 0}), NOW, WORKER_SESSION),
+    )
+    fleet.commit()
+    assert _compose(fleet).in_flight == ()
+
+
+def test_a_turn_that_ended_mid_call_alarms_before_the_idle_threshold(fleet):
+    just_started = "2026-08-26T11:59:30Z"
+    _open_call(fleet, MERGE_WAIT, started_at=just_started)
+    fleet.execute(
+        "UPDATE harness_sessions SET turn_posture='waiting', turn_posture_at=%s, "
+        "last_tool_call_at=%s WHERE session_id=%s",
+        (NOW, just_started, WORKER_SESSION),
+    )
+    fleet.commit()
+    report = _compose(fleet)
+    assert report.in_flight == ()
+    assert {h.session_id for h in report.idle} == {WORKER_SESSION}
+    assert report.idle[0].idle_seconds == 30

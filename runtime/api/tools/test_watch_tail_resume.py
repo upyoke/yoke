@@ -22,9 +22,7 @@ DEAD_PID = 2**31 - 1
 
 def _stamped(progress: Path, kind: str = "pytest", pid: int | None = None) -> None:
     """Claim *progress* for *pid* the way a bound watcher run does."""
-    progress.write_text(
-        binding.writer_marker_line(kind, pid=pid), encoding="utf-8"
-    )
+    progress.write_text(binding.writer_marker_line(kind, pid=pid), encoding="utf-8")
 
 
 class _ClosingStream:
@@ -127,9 +125,7 @@ def test_an_unreadable_marker_replays_rather_than_skips(tmp_path: Path) -> None:
     with progress.open("a", encoding="utf-8") as handle:
         handle.write("progress line\n")
         handle.write(SENTINEL)
-    watch_tail.delivered_marker(progress).write_text(
-        "not-a-number", encoding="utf-8"
-    )
+    watch_tail.delivered_marker(progress).write_text("not-a-number", encoding="utf-8")
 
     assert "progress line" in _served(progress)
 
@@ -148,9 +144,8 @@ def test_a_resumed_follower_still_learns_the_writer(tmp_path: Path) -> None:
     _served(progress, grace_seconds=5.0)
 
     out = io.StringIO()
-    rc = watch_tail.follow(
-        progress, out=out, poll_interval=0.01, grace_seconds=5.0
-    )
+    rc = watch_tail.follow(progress, out=out, poll_interval=0.01, grace_seconds=5.0)
 
     assert rc == binding.UNWRITTEN_CAPTURE_EXIT
     assert f"watcher pid {DEAD_PID}" in out.getvalue()
+    assert "watcher interrupted" in out.getvalue()

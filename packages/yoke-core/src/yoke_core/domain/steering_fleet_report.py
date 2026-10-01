@@ -270,7 +270,8 @@ def compose_report(
     quiet = tuple(
         holder
         for holder in holders
-        if holder.native_process_gone or holder.idle_seconds >= int(idle_after_seconds)
+        if holder.requires_immediate_alarm
+        or holder.idle_seconds >= int(idle_after_seconds)
     )
     split = partition_quiet(conn, quiet=quiet, now=now)
     stranded = item_facts.stranded if seat_scope.get("document") else facts.stranded

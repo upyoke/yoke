@@ -173,3 +173,53 @@ def test_a_server_that_refuses_the_report_leaves_the_poll_working(
 
     assert _report(dispatcher, probes, monkeypatch, observed) == ()
     assert dispatcher.calls
+
+
+def _settled_item(turn_id=TURN_ID):
+    return {
+        "type": "event_msg",
+        "payload": {
+            "type": "item_completed",
+            "turn_id": turn_id,
+            "item": {"type": "CommandExecution", "exit_code": -1},
+        },
+    }
+
+
+def test_vendor_error_survives_killed_tool_settlement(tmp_path):
+    _rollout(
+        tmp_path,
+        _task_complete({"message": "at capacity"}),
+        _settled_item(),
+        _settled_item(),
+    )
+    assert _read(tmp_path).observed_at == OBSERVED_AT
+
+
+def test_a_later_turn_invalidates_the_previous_error(tmp_path):
+    _rollout(
+        tmp_path,
+        _task_complete({"message": "at capacity"}),
+        _settled_item(),
+        _tool_call(),
+    )
+    assert _read(tmp_path) is None
+
+
+def test_only_settlements_of_the_ended_turn_preserve_it(tmp_path):
+    _rollout(
+        tmp_path,
+        _task_complete({"message": "at capacity"}),
+        _settled_item("another-turn"),
+    )
+    assert _read(tmp_path) is None
+
+
+def test_a_new_clean_turn_supersedes_an_older_vendor_error(tmp_path):
+    _rollout(
+        tmp_path,
+        _task_complete({"message": "at capacity"}),
+        _task_complete(None),
+        _settled_item(),
+    )
+    assert _read(tmp_path) is None

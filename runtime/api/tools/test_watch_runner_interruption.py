@@ -56,8 +56,9 @@ class TestRunWatcherInterruption:
     process group precisely so an interruption can take the whole tree down.
     """
 
+    @pytest.mark.parametrize("signal_number", [signal.SIGTERM, signal.SIGHUP])
     def test_interruption_reaps_the_tree_and_reports_on_every_surface(
-        self, tmp_path
+        self, tmp_path, signal_number
     ):
         pid_file = tmp_path / "grandchild.pid"
         raw = tmp_path / "raw.log"
@@ -67,7 +68,7 @@ class TestRunWatcherInterruption:
         def interrupt_once(line: str) -> Classification:
             # Fires while the child is mid-stream, standing in for the SIGTERM
             # a harness sends when it gives up on a run.
-            os.kill(os.getpid(), signal.SIGTERM)
+            os.kill(os.getpid(), signal_number)
             return Classification(LineClass.NOISE)
 
         rc = _watch_runner.run_watcher(
@@ -84,7 +85,7 @@ class TestRunWatcherInterruption:
             policy=PASSTHROUGH_POLICY,
         )
 
-        assert rc == 128 + signal.SIGTERM
+        assert rc == 128 + signal_number
         grandchild_pid = int(pid_file.read_text().strip())
         deadline = time.monotonic() + 5.0
         while time.monotonic() < deadline:
@@ -103,7 +104,6 @@ class TestRunWatcherInterruption:
         assert "child process group reaped" in progress_text
         assert f"# watch_interrupted exit={rc}" in progress_text
         assert "child process group reaped" in stdout.getvalue()
-
 
 
 class TestRunWatcherTimeout:
@@ -190,5 +190,3 @@ class TestRunWatcherExitCodePreservation:
             policy=PASSTHROUGH_POLICY,
         )
         assert rc == code
-
-

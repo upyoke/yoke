@@ -134,6 +134,11 @@ def test_a_session_inside_an_unreturned_tool_call_is_never_resumed():
     )
     conn.commit()
 
+    conn.execute(
+        "UPDATE harness_sessions SET turn_posture='running' WHERE session_id=?",
+        (SESSION_ID,),
+    )
+    conn.commit()
     state = one_state(conn, now=TURN_ENDED_AT + timedelta(minutes=30))
     assert state["status"] == "turn_in_flight"
     assert state["in_flight_since"] == stamp(TURN_ENDED_AT + timedelta(minutes=1))
@@ -177,3 +182,16 @@ def test_states_are_scoped_to_the_asking_machine_and_its_projects():
         )
         == []
     )
+
+
+def test_an_unclosed_call_from_a_vendor_ended_turn_does_not_block_recovery():
+    conn = worker_connection()
+    observe_turn_end(conn)
+    conn.execute(
+        "INSERT INTO session_tool_calls "
+        "(session_id,tool_use_id,tool_name,started_at,completed_at) "
+        "VALUES (?,'call-1','Bash',?,NULL)",
+        (SESSION_ID, stamp(TURN_ENDED_AT - timedelta(seconds=18))),
+    )
+    conn.commit()
+    assert one_state(conn, now=TURN_ENDED_AT + timedelta(minutes=30))["status"] == "due"
