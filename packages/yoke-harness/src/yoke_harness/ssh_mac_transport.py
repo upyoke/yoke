@@ -188,10 +188,10 @@ class SshMacTransport(SshTestMachineTransport):
         required_session_context: str | None = None,
         timeout: int = 60,
     ) -> subprocess.CompletedProcess[str]:
-        """Run bounded argv through SSH or the declared GUI session."""
+        """Run argv through SSH or the GUI session, preserving empty option values."""
         normalized = tuple(str(value) for value in argv)
-        if not normalized or any(not value for value in normalized):
-            raise ValueError("host_control command requires non-empty argv")
+        if not normalized or not normalized[0]:
+            raise ValueError("host_control command requires a non-empty executable")
         if required_session_context == GUI_SESSION_CONTEXT:
             return run_terminal_app_command(
                 self._run,

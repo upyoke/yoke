@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import base64
+import shlex
+import subprocess
 from types import SimpleNamespace
 
 import pytest
@@ -15,6 +18,9 @@ from yoke_harness.ssh_mac_baseline_probes import (
     prove_probes_document,
 )
 from yoke_harness.ssh_mac_golden_capture import capture_golden_baseline
+from yoke_harness import ssh_mac_gui_session
+from yoke_harness.ssh_mac_transport import SshMacTransport
+from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
 
 
 def _document(program):
@@ -88,6 +94,59 @@ def test_status_sidecars_execute_a_real_request_without_recording_identity(
         {"required_session_context": GUI_SESSION_CONTEXT} if platform == "macos" else {}
     )
     assert "private-account" not in repr(result.evidence)
+
+
+@pytest.mark.parametrize("platform", ["macos", "linux"])
+def test_real_transport_preserves_empty_tool_option_in_claude_probe(
+    monkeypatch, platform
+):
+    commands = []
+
+    def run(command, **kwargs):
+        if command.startswith("if /bin/test -f "):
+            stdout = "0\n"
+        elif command.startswith("/usr/bin/base64 < "):
+            output = _response("claude") if command.endswith(".stdout") else ""
+            stdout = base64.b64encode(output.encode()).decode()
+        elif command.startswith("/bin/rm -f "):
+            stdout = ""
+        else:
+            commands.append(command)
+            stdout = _response("claude")
+        return subprocess.CompletedProcess(command, 0, stdout, "")
+
+    def open_window(_run, *, command, **kwargs):
+        commands.append(command)
+        return SimpleNamespace(window_id=445)
+
+    monkeypatch.setattr(ssh_mac_gui_session, "open_terminal_app_window", open_window)
+    monkeypatch.setattr(
+        ssh_mac_gui_session, "close_terminal_app_window", lambda *a, **k: None
+    )
+    transport = SshMacTransport if platform == "macos" else SshLinuxHostOperations
+    control = transport.__new__(transport)
+    control._run = run
+    document = _document("claude")
+    result = (
+        prove_probes_document(control, document)
+        if platform == "macos"
+        else prove_linux_probes(control, document)
+    )
+
+    assert result.ok, result.evidence
+    request = harness_request(["/home/test/.local/bin/claude"])
+    assert len(commands) == 1
+    assert shlex.join(request.argv) in commands[0]
+    if platform == "linux":
+        assert shlex.split(commands[0]) == list(request.argv)
+
+
+@pytest.mark.parametrize("transport", [SshMacTransport, SshLinuxHostOperations])
+@pytest.mark.parametrize("argv", [[], [""], ["", "--tools", ""]])
+def test_host_command_still_refuses_an_empty_executable(transport, argv):
+    control = transport.__new__(transport)
+    with pytest.raises(ValueError, match="command requires"):
+        control.run_command(argv)
 
 
 @pytest.mark.parametrize(

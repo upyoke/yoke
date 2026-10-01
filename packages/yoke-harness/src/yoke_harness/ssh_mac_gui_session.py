@@ -142,10 +142,10 @@ def run_terminal_app_command(
     timeout: int = 60,
     bounds: tuple[int, int, int, int] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Execute argv through Terminal.app and return its output and exit code."""
+    """Execute argv through Terminal.app, preserving empty option values."""
     normalized = tuple(str(value) for value in argv)
-    if not normalized or any(not value for value in normalized):
-        raise ValueError("GUI-session command requires non-empty argv")
+    if not normalized or not normalized[0]:
+        raise ValueError("GUI-session command requires a non-empty executable")
     if timeout < 1:
         raise ValueError("GUI-session command timeout must be positive")
     session = "yoke-gui-session-" + uuid4().hex[:12]
