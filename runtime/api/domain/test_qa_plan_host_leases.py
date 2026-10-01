@@ -137,6 +137,97 @@ def test_lost_companion_lease_refuses_before_case_continuation(
     assert "abort" in response.error.message
 
 
+def test_failed_finish_rolls_back_the_entire_host_set(test_db, tmp_path, monkeypatch):
+    _seed(test_db, tmp_path, monkeypatch, simultaneous=True)
+    execution = _begin(test_db)
+    assert _case_begin(execution).primary_success
+    current = lock_plan_execution(test_db, execution["id"])
+    lease_ids = [claim.id for claim in execution_host_leases(test_db, current)]
+    with mock.patch(
+        "yoke_core.domain.qa_plan_execution_lifecycle.dispose_execution_decisions",
+        side_effect=ValueError("settlement failed"),
+    ):
+        with pytest.raises(ValueError, match="settlement failed"):
+            finish_plan_execution(
+                test_db, current, state="aborted", reason="rollback-check"
+            )
+    test_db.rollback()
+    reloaded = lock_plan_execution(test_db, execution["id"])
+    assert reloaded["state"] == "active"
+    assert [claim.id for claim in execution_host_leases(test_db, reloaded)] == lease_ids
+
+
+def test_failed_contract_issue_rolls_back_partial_acquisitions(
+    test_db, tmp_path, monkeypatch
+):
+    _seed(test_db, tmp_path, monkeypatch, simultaneous=True)
+    execution = _begin(test_db)
+    with mock.patch(
+        "yoke_core.domain.machine_qa_execution_protocol._issue",
+        side_effect=ValueError("contract failed"),
+    ):
+        response = _case_begin(execution)
+    assert not response.primary_success
+    assert "contract failed" in response.error.message
+    assert not execution_host_leases(test_db, execution)
+    assert lock_plan_execution(test_db, execution["id"])["machine_lease_id"] is None
+
+
+@pytest.mark.parametrize("parked,ended", [(False, True), (True, False)])
+def test_stale_owner_cleanup_respects_parked_sessions_and_releases_full_set(
+    test_db, tmp_path, monkeypatch, parked, ended
+):
+    from yoke_core.domain.qa_plan_execution_lifecycle import reap_stale_plan_executions
+
+    _seed(test_db, tmp_path, monkeypatch, simultaneous=True)
+    execution = _begin(test_db)
+    assert _case_begin(execution).primary_success
+    test_db.execute(
+        "UPDATE qa_plan_executions SET heartbeat_at='2020-01-01T00:00:00Z' WHERE id=%s",
+        (execution["id"],),
+    )
+    test_db.execute(
+        "UPDATE harness_sessions SET mode=%s,ended_at=%s WHERE session_id=%s",
+        (
+            "parked" if parked else "dash",
+            "2020-01-01T00:00:00Z" if ended else None,
+            SESSION,
+        ),
+    )
+    test_db.commit()
+    reaped = reap_stale_plan_executions(test_db)
+    assert bool(reaped) is ended
+    assert len(execution_host_leases(test_db, execution)) == (2 if parked else 0)
+
+
+def test_concurrent_begin_reuses_one_complete_host_set(test_db, tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    from runtime.api.fixtures.pg_testdb import connect_test_database
+
+    _seed(test_db, tmp_path, monkeypatch, simultaneous=True)
+    execution = _begin(test_db)
+    monkeypatch.setattr(
+        "yoke_core.domain.db_helpers.connect",
+        lambda: connect_test_database(str(test_db.info.dbname)),
+    )
+    barrier = Barrier(2)
+
+    def begin():
+        barrier.wait(timeout=10)
+        return _case_begin(execution)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(begin) for _ in range(2)]
+        responses = [future.result(timeout=20) for future in futures]
+    assert all(response.primary_success for response in responses), responses
+    assert (
+        responses[0].result_payload["execution"]["lease_id"]
+        == responses[1].result_payload["execution"]["lease_id"]
+    )
+    assert len(execution_host_leases(test_db, execution)) == 2
+
+
 @pytest.mark.parametrize(
     "config",
     [

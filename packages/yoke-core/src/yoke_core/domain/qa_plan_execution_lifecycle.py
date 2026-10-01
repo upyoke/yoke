@@ -145,7 +145,7 @@ def finish_plan_execution(
             conn,
             int(execution["machine_lease_id"]),
             reason,
-            commit=commit,
+            commit=False,
         )
     placeholder = marker(conn)
     now = iso8601_now()
