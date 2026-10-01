@@ -425,7 +425,9 @@ validate_uv_bootstrap_timeout() {
 terminate_uv_process_tree() {
   uv_tree_frontier="$1"
   uv_tree_pids="$1"
-  while [ -n "$uv_tree_frontier" ]; do
+  # Child enumeration is best-effort: slim images may omit ps. The tracked
+  # installer itself is always stopped, so the bootstrap wait stays bounded.
+  while need_command ps && [ -n "$uv_tree_frontier" ]; do
     uv_tree_next=""
     set -- $(ps -Ao pid=,ppid= 2>/dev/null)
     while [ "$#" -ge 2 ]; do
@@ -465,7 +467,7 @@ run_uv_installer_with_timeout() {
       : > "$uv_timeout_marker"
       terminate_uv_process_tree "$uv_install_pid"
     fi
-  ) &
+  ) < /dev/null > /dev/null 2>&1 &
   uv_watchdog_pid=$!
   wait "$uv_install_pid" 2>/dev/null
   uv_install_rc=$?
@@ -484,7 +486,6 @@ run_uv_installer_with_timeout() {
 install_uv_or_fail() {
   need_command curl || fail "uv/uvx is required and curl is missing. Install curl first, then install uv with '${astral_cmd}' and rerun: ${rerun_cmd}"
   need_command sleep || fail "uv bootstrap cannot be time-bounded because sleep is missing. Install a POSIX sleep command, then rerun: ${rerun_cmd}"
-  need_command ps || fail "uv bootstrap cannot stop timed-out child processes because ps is missing. Install a POSIX ps command, then rerun: ${rerun_cmd}"
   uv_download_dir=$(mktemp -d "${TMPDIR:-/tmp}/yoke-uv-install.XXXXXX") \
     || fail "could not create a private uv installer directory"
   uv_download_file="$uv_download_dir/install.sh"
@@ -562,6 +563,22 @@ case "$os_name" in
   Darwin|Linux) : ;;
   *) decline_unsupported_os_and_exit ;;
 esac
+
+if [ "$os_name" = Linux ]; then
+  musl_detected=0
+  libc_banner=$(ldd --version 2>&1 || :)
+  case "$libc_banner" in
+    *musl*) musl_detected=1 ;;
+    *GLIBC*|*GNU*libc*) : ;;
+    *)
+      # Recognize the musl loader when a slim image has no ldd command.
+      for musl_loader in /lib/ld-musl-*.so.1; do
+        [ ! -e "$musl_loader" ] || musl_detected=1
+      done
+      ;;
+  esac
+  [ "$musl_detected" -eq 0 ] || fail "unsupported_libc: musl Linux (including Alpine) is unsupported. Use glibc Linux, such as Ubuntu, Debian, or Fedora, then rerun the installer."
+fi
 
 ensure_uv
 

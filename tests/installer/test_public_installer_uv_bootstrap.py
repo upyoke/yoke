@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import shutil
 import time
 from pathlib import Path
 
 import pytest
 
-from public_installer_helpers import linux_stub_bin, run_shim, write_executable
+from public_installer_helpers import (
+    FAKE_INSTALL_PY,
+    linux_stub_bin,
+    run_shim,
+    write_executable,
+    write_uv_stub,
+)
 
 
 @pytest.mark.parametrize("force_color", ["0", "1"])
@@ -89,3 +96,39 @@ def test_uv_installer_download_timeout_is_named(tmp_path: Path) -> None:
     assert "uv bootstrap download timed out after 1s" in result.stderr
     assert "Check access to astral.sh" in result.stderr
     assert "then rerun" in result.stderr
+
+
+@pytest.mark.parametrize("times_out", [False, True])
+def test_uv_bootstrap_without_ps(tmp_path: Path, times_out: bool) -> None:
+    bin_dir = linux_stub_bin(tmp_path)
+    # Restrict PATH to the bootstrap's actual commands; ps is absent, rather
+    # than a stub that would still satisfy command -v.
+    for name in ("cat", "chmod", "cp", "env", "mktemp", "rm", "rmdir", "sleep"):
+        executable = shutil.which(name)
+        assert executable is not None
+        (bin_dir / name).symlink_to(executable)
+    staged_dir = tmp_path / "staged"
+    staged_dir.mkdir()
+    staged_uv = write_uv_stub(staged_dir, install_py_body=FAKE_INSTALL_PY)
+    bootstrap = "exec sleep 30" if times_out else f"cp '{staged_uv}' '{bin_dir / 'uv'}'"
+    write_executable(
+        bin_dir / "curl",
+        f"#!/bin/sh\ncat <<'BOOTSTRAP'\n#!/bin/sh\n{bootstrap}\nBOOTSTRAP\n",
+    )
+
+    started = time.monotonic()
+    result = run_shim(
+        bin_dir,
+        args=("--yes", "--no-onboard"),
+        env_extra={"PATH": str(bin_dir), "YOKE_UV_BOOTSTRAP_TIMEOUT_SECONDS": "1"},
+    )
+
+    assert time.monotonic() - started < 5
+    assert "ps is missing" not in result.stderr
+    if times_out:
+        assert result.returncode == 1
+        assert "uv bootstrap timed out after 1s" in result.stderr
+        assert "then rerun" in result.stderr
+    else:
+        assert result.returncode == 0, result.stderr
+        assert "FAKE_INSTALL_RAN" in result.stdout
