@@ -179,9 +179,11 @@ class TestDeclarationTable(unittest.TestCase):
             )
             self.assertTrue(declaration.requires_source_checkout)
 
-    def test_session_relay_needs_https_and_the_local_runtime(self):
+    def test_session_relay_checks_both_control_planes_in_the_local_runtime(self):
         declaration = applicability_for("session-relay")
-        self.assertTrue(declaration.requires_https_control_plane)
+        self.assertFalse(declaration.requires_https_control_plane)
+        for https in (False, True):
+            self.assertIsNone(not_applicable_reason(declaration, _context(https_control_plane=https)))
         self.assertEqual(declaration.runtimes, frozenset({RUNTIME_LOCAL}))
 
     def test_local_operating_actor_authority_needs_the_local_control_plane(self):
