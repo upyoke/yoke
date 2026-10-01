@@ -10,7 +10,7 @@ from runtime.api.cli.browser_toolchain_test_support import (
     install_fake_toolchain,
 )
 from yoke_cli.browser_node_toolchain import NodeToolchainError
-from yoke_harness import browser_client
+from yoke_harness import browser_client, browser_setup
 from yoke_harness import browser_linux_deps
 from yoke_harness.browser_linux_deps import AMAZON_LINUX_CHROMIUM_DEPS
 
@@ -22,7 +22,9 @@ def _prepare_browser_start(tmp_path, monkeypatch):
     browser.joinpath("node_modules", "playwright").mkdir(parents=True)
 
     monkeypatch.setattr(browser_client, "_browser_dir", lambda: browser)
-    monkeypatch.setattr(browser_client, "_state_file_path", lambda: tmp_path / "state.json")
+    monkeypatch.setattr(
+        browser_client, "_state_file_path", lambda: tmp_path / "state.json"
+    )
     monkeypatch.setattr(browser_client.sys, "platform", "linux")
     monkeypatch.setattr(browser_client.time, "sleep", lambda _seconds: None)
 
@@ -63,52 +65,50 @@ def _prepare_browser_start(tmp_path, monkeypatch):
             "data": {"health": "healthy"},
         },
     )
-    monkeypatch.setattr(browser_client.subprocess, "Popen", lambda *args, **kwargs: FakeProcess())
+    monkeypatch.setattr(
+        browser_setup.subprocess, "Popen", lambda *args, **kwargs: FakeProcess()
+    )
     toolchain = install_fake_toolchain(monkeypatch, tmp_path / "node-bin")
     return browser, fake_run, toolchain
 
 
-def test_linux_chromium_install_asks_playwright_for_os_deps(tmp_path, monkeypatch) -> None:
-    _browser, base_fake_run, toolchain = _prepare_browser_start(tmp_path, monkeypatch)
-    commands: list[list[str]] = []
-    monkeypatch.setattr(browser_client, "is_amazon_linux", lambda: False)
-    monkeypatch.setattr(browser_client, "amazon_linux_chromium_deps_command", lambda: [])
+def test_linux_download_is_user_space_then_shared_dependency_check(
+    tmp_path, monkeypatch
+):
+    browser, base_fake_run, toolchain = _prepare_browser_start(tmp_path, monkeypatch)
+    calls = []
 
     def fake_run(command, **kwargs):
-        commands.append(list(command))
+        calls.append(list(command))
         return base_fake_run(command, **kwargs)
 
-    monkeypatch.setattr(browser_client.subprocess, "run", fake_run)
-
-    assert browser_client.daemon_start() == {
-        "status": "started",
-        "endpoint": "http://127.0.0.1:9000",
-        "pid": 123,
-    }
-    assert [
-        str(toolchain.npx), "playwright", "install", "--with-deps", "chromium",
-    ] in commands
-
-
-def test_amazon_linux_installs_dnf_deps_before_chromium(tmp_path, monkeypatch) -> None:
-    _browser, base_fake_run, toolchain = _prepare_browser_start(tmp_path, monkeypatch)
-    commands: list[list[str]] = []
-    deps = ["sudo", "dnf", "install", "-y", *AMAZON_LINUX_CHROMIUM_DEPS]
-    monkeypatch.setattr(browser_client, "is_amazon_linux", lambda: True)
-    monkeypatch.setattr(browser_client, "amazon_linux_chromium_deps_command", lambda: deps)
-
-    def fake_run(command, **kwargs):
-        commands.append(list(command))
-        return base_fake_run(command, **kwargs)
-
-    monkeypatch.setattr(browser_client.subprocess, "run", fake_run)
-
+    monkeypatch.setattr(browser_setup.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        browser_setup,
+        "ensure_system_dependencies",
+        lambda *args, **kwargs: calls.append("dependencies"),
+    )
     assert browser_client.daemon_start()["status"] == "started"
-    assert deps in commands
-    assert [str(toolchain.npx), "playwright", "install", "chromium"] in commands
-    assert [
-        str(toolchain.npx), "playwright", "install", "--with-deps", "chromium",
-    ] not in commands
+    install = [str(toolchain.npx), "playwright", "install", "chromium"]
+    assert calls.index(install) < calls.index("dependencies")
+    assert all("--with-deps" not in call for call in calls)
+
+
+def test_existing_browser_still_checks_system_libraries(tmp_path, monkeypatch):
+    browser, _, toolchain = _prepare_browser_start(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        browser_setup.subprocess,
+        "run",
+        lambda command, **kwargs: subprocess.CompletedProcess(command, 0, "ok", ""),
+    )
+    calls = []
+    monkeypatch.setattr(
+        browser_setup,
+        "ensure_system_dependencies",
+        lambda *args, **kwargs: calls.append(args),
+    )
+    browser_setup.ensure_browser_runtime(browser, toolchain)
+    assert calls == [(browser, toolchain)]
 
 
 def test_daemon_start_surfaces_the_toolchain_refusal(tmp_path, monkeypatch) -> None:
@@ -118,10 +118,14 @@ def test_daemon_start_surfaces_the_toolchain_refusal(tmp_path, monkeypatch) -> N
     browser.joinpath("src", "daemon.js").write_text("", encoding="utf-8")
     monkeypatch.setattr(browser_client, "_browser_dir", lambda: browser)
     monkeypatch.setattr(
-        browser_client, "_state_file_path", lambda: tmp_path / "state.json",
+        browser_client,
+        "_state_file_path",
+        lambda: tmp_path / "state.json",
     )
     monkeypatch.setattr(
-        browser_client.DaemonState, "load", staticmethod(lambda path=None: None),
+        browser_client.DaemonState,
+        "load",
+        staticmethod(lambda path=None: None),
     )
     refusal = NodeToolchainError(
         "the pinned Node.js release could not be fetched.",
@@ -143,10 +147,9 @@ def test_daemon_start_surfaces_the_toolchain_refusal(tmp_path, monkeypatch) -> N
     assert "nodejs.org/dist" in str(raised.value)
 
 
-def test_amazon_linux_deps_command_uses_sudo_dnf_when_packages_missing(monkeypatch) -> None:
+def test_amazon_linux_deps_command_names_dnf_when_packages_missing(monkeypatch) -> None:
     monkeypatch.setattr(browser_linux_deps, "_os_release_id", lambda: "amzn")
     monkeypatch.setattr(browser_linux_deps.sys, "platform", "linux")
-    monkeypatch.setattr(browser_linux_deps.os, "geteuid", lambda: 1000)
     monkeypatch.setattr(
         browser_linux_deps.shutil,
         "which",
@@ -159,7 +162,6 @@ def test_amazon_linux_deps_command_uses_sudo_dnf_when_packages_missing(monkeypat
     )
 
     assert browser_linux_deps.amazon_linux_chromium_deps_command() == [
-        "sudo",
         "/usr/bin/dnf",
         "install",
         "-y",
@@ -170,7 +172,9 @@ def test_amazon_linux_deps_command_uses_sudo_dnf_when_packages_missing(monkeypat
 def test_amazon_linux_deps_command_skips_when_packages_installed(monkeypatch) -> None:
     monkeypatch.setattr(browser_linux_deps, "_os_release_id", lambda: "amzn")
     monkeypatch.setattr(browser_linux_deps.sys, "platform", "linux")
-    monkeypatch.setattr(browser_linux_deps.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(
+        browser_linux_deps.shutil, "which", lambda name: f"/usr/bin/{name}"
+    )
     monkeypatch.setattr(
         browser_linux_deps.subprocess,
         "run",

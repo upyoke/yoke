@@ -127,6 +127,7 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
 
     assert actions == [
         "harness-unattended-posture",
+        "browser-setup",
         "register-machine",
         "project-refresh-scaffold",
         "project-install-agent-rules",
@@ -140,6 +141,7 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
     # Cursor lifecycle hooks rather than with the project's own writes.
     assert grouped["machine"] == [
         friendly_line(harness_unattended_posture.POSTURE_PLAN_ACTION, "detected"),
+        friendly_line("browser-setup", "machine"),
         CURSOR_USER_LIFECYCLE_LINE,
     ]
     assert grouped["core"] == ["Register this machine in the machine registry"]

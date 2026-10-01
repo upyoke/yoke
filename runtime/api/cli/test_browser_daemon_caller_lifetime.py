@@ -70,7 +70,7 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
-from yoke_harness import browser_client
+from yoke_harness import browser_client, browser_setup
 
 browser = Path(sys.argv[1])
 state = browser / '.daemon-state.json'
@@ -78,7 +78,8 @@ toolchain = SimpleNamespace(node=Path(sys.executable), command_env=lambda: os.en
 with patch.object(browser_client, '_browser_dir', return_value=browser), \\
      patch.object(browser_client, '_state_file_path', return_value=state), \\
      patch('yoke_cli.browser_node_toolchain.ensure_node_toolchain', return_value=toolchain), \\
-     patch.object(browser_client.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'ok', '')):
+     patch.object(browser_setup, 'ensure_system_dependencies'), \
+     patch.object(browser_setup.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'ok', '')):
     result = browser_client.daemon_start()
 print(json.dumps(result), flush=True)
 if sys.argv[2] == 'persistent':
@@ -89,17 +90,25 @@ if sys.argv[2] == 'persistent':
 @pytest.mark.skipif(os.name == "nt", reason="POSIX caller-group teardown")
 @pytest.mark.parametrize("caller_kind", ["short", "persistent"])
 def test_setup_survives_caller_group_exit_and_serves_browser_step(
-    tmp_path: Path, caller_kind: str,
+    tmp_path: Path,
+    caller_kind: str,
 ) -> None:
     browser = tmp_path / "browser-runtime"
     (browser / "src").mkdir(parents=True)
     (browser / "src" / "daemon.js").write_text(
-        textwrap.dedent(FAKE_DAEMON), encoding="utf-8",
+        textwrap.dedent(FAKE_DAEMON),
+        encoding="utf-8",
     )
     (browser / "node_modules" / "playwright").mkdir(parents=True)
     state_file = browser / ".daemon-state.json"
     caller = subprocess.Popen(
-        [sys.executable, "-c", textwrap.dedent(SETUP_CALLER), str(browser), caller_kind],
+        [
+            sys.executable,
+            "-c",
+            textwrap.dedent(SETUP_CALLER),
+            str(browser),
+            caller_kind,
+        ],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -122,10 +131,14 @@ def test_setup_survives_caller_group_exit_and_serves_browser_step(
 
         with patch.object(browser_client, "_state_file_path", return_value=state_file):
             assert browser_client.daemon_status()["status"] == "running"
-            assert browser_client.execute_step(
-                {"action": "assert", "condition": "ready"},
-                "http://127.0.0.1/", page_id="caller-lifetime",
-            )["data"]["step"] == "executed"
+            assert (
+                browser_client.execute_step(
+                    {"action": "assert", "condition": "ready"},
+                    "http://127.0.0.1/",
+                    page_id="caller-lifetime",
+                )["data"]["step"]
+                == "executed"
+            )
 
             if caller_kind == "persistent":
                 caller.communicate(input="\n", timeout=10)
@@ -135,10 +148,14 @@ def test_setup_survives_caller_group_exit_and_serves_browser_step(
             except ProcessLookupError:
                 pass
             assert browser_client.daemon_status()["status"] == "running"
-            assert browser_client.execute_step(
-                {"action": "assert", "condition": "still ready"},
-                "http://127.0.0.1/", page_id="caller-lifetime",
-            )["data"]["step"] == "executed"
+            assert (
+                browser_client.execute_step(
+                    {"action": "assert", "condition": "still ready"},
+                    "http://127.0.0.1/",
+                    page_id="caller-lifetime",
+                )["data"]["step"]
+                == "executed"
+            )
             browser_client.daemon_request("/api/stop")
     finally:
         if caller.poll() is None:
@@ -152,14 +169,26 @@ def test_setup_survives_caller_group_exit_and_serves_browser_step(
 
 
 def test_windows_launch_uses_detached_process_group(tmp_path: Path) -> None:
-    with patch.object(browser_client_readiness.os, "name", "nt"), patch.object(
-        browser_client_readiness.subprocess, "DETACHED_PROCESS", 8, create=True,
-    ), patch.object(
-        browser_client_readiness.subprocess, "CREATE_NEW_PROCESS_GROUP", 512,
-        create=True,
-    ), patch.object(browser_client_readiness.subprocess, "Popen") as launch:
+    with (
+        patch.object(browser_client_readiness.os, "name", "nt"),
+        patch.object(
+            browser_client_readiness.subprocess,
+            "DETACHED_PROCESS",
+            8,
+            create=True,
+        ),
+        patch.object(
+            browser_client_readiness.subprocess,
+            "CREATE_NEW_PROCESS_GROUP",
+            512,
+            create=True,
+        ),
+        patch.object(browser_client_readiness.subprocess, "Popen") as launch,
+    ):
         browser_client_readiness.launch_daemon(
-            ["node", "daemon.js"], {}, tmp_path / "daemon.log",
+            ["node", "daemon.js"],
+            {},
+            tmp_path / "daemon.log",
         )
 
     assert launch.call_args.kwargs["creationflags"] == 520
@@ -168,10 +197,16 @@ def test_windows_launch_uses_detached_process_group(tmp_path: Path) -> None:
 
 
 def test_launch_refusal_names_recovery(tmp_path: Path) -> None:
-    with patch.object(
-        browser_client_readiness.subprocess, "Popen",
-        side_effect=OSError("permission denied"),
-    ), pytest.raises(RuntimeError, match="run `yoke qa browser setup` again"):
+    with (
+        patch.object(
+            browser_client_readiness.subprocess,
+            "Popen",
+            side_effect=OSError("permission denied"),
+        ),
+        pytest.raises(RuntimeError, match="run `yoke qa browser setup` again"),
+    ):
         browser_client_readiness.launch_daemon(
-            ["node", "daemon.js"], {}, tmp_path / "daemon.log",
+            ["node", "daemon.js"],
+            {},
+            tmp_path / "daemon.log",
         )

@@ -86,6 +86,9 @@ class ApplyFlow:
         self.call_from_thread(self._finish_apply, report, None)
 
     def _thread_progress(self, action: str, target: str, status: str) -> None:
+        from yoke_cli.config.onboard_browser_terminal import browser_terminal_progress
+
+        self.call_from_thread(browser_terminal_progress, self, action, status)
         # Runs on the worker thread; marshal the row update onto the event loop.
         self.call_from_thread(self._set_apply_step_status, action, target, status)
 

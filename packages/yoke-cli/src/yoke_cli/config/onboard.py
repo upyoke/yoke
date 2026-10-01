@@ -259,6 +259,7 @@ def build_report(
         report=report,
         local_destination=local_destination,
         environment=env_name,
+        error_cls=OnboardError,
     )
     if reuse.get("machine_github"):
         report["machine_github"] = dict(machine_github)

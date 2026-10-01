@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import signal
-import subprocess
 import sys
 import time
 from dataclasses import dataclass
@@ -25,10 +24,7 @@ from yoke_cli import browser_node_toolchain
 from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_harness import browser_runtime_home
 from yoke_harness.browser_client_readiness import start_daemon
-from yoke_harness.browser_linux_deps import (
-    amazon_linux_chromium_deps_command,
-    is_amazon_linux,
-)
+from yoke_harness.browser_setup import ensure_browser_runtime
 
 
 @dataclass
@@ -215,79 +211,7 @@ def daemon_start(
     if not daemon_js.exists():
         raise RuntimeError(f"daemon.js not found at {daemon_js}")
 
-    env = toolchain.command_env()
-    node_modules = browser / "node_modules"
-    pw_modules = node_modules / "playwright"
-    autoinstall = os.environ.get("YOKE_BROWSER_AUTOINSTALL", "1")
-    if not node_modules.is_dir() or not pw_modules.is_dir():
-        if autoinstall == "0":
-            raise RuntimeError(
-                "[browser-auto-bootstrap] BLOCKED: node_modules or playwright "
-                "missing and YOKE_BROWSER_AUTOINSTALL=0"
-            )
-        _log(
-            "[browser-auto-bootstrap] node_modules or playwright missing; auto-installing..."
-        )
-        result = subprocess.run(
-            [str(toolchain.npm), "install"],
-            cwd=str(browser),
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"[browser-auto-bootstrap] npm install failed: {result.stderr}"
-            )
-        _log("[browser-auto-bootstrap] npm install completed successfully")
-
-    result = subprocess.run(
-        [str(toolchain.node), "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS],
-        cwd=str(browser),
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-    chromium_status = result.stdout.strip() if result.returncode == 0 else "error"
-    if chromium_status != "ok":
-        if autoinstall == "0":
-            raise RuntimeError(
-                "[browser-auto-bootstrap] BLOCKED: Chromium binary missing"
-            )
-        deps_command = amazon_linux_chromium_deps_command()
-        if deps_command:
-            _log(
-                "[browser-auto-bootstrap] installing Amazon Linux Chromium dependencies..."
-            )
-            result = subprocess.run(
-                deps_command,
-                capture_output=True,
-                text=True,
-                env=env,
-            )
-            if result.returncode != 0:
-                raise RuntimeError(
-                    "[browser-auto-bootstrap] Amazon Linux dependency install failed: "
-                    f"{result.stderr or result.stdout}"
-                )
-        _log("[browser-auto-bootstrap] Chromium binary not found; auto-installing...")
-        install_command = [str(toolchain.npx), "playwright", "install"]
-        if sys.platform.startswith("linux") and not is_amazon_linux():
-            install_command.append("--with-deps")
-        install_command.append("chromium")
-        result = subprocess.run(
-            install_command,
-            cwd=str(browser),
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-        if result.returncode != 0:
-            raise RuntimeError(
-                "[browser-auto-bootstrap] Chromium auto-install failed: "
-                f"{result.stderr}"
-            )
-        _log("[browser-auto-bootstrap] Chromium installed successfully")
+    env = ensure_browser_runtime(browser, toolchain, emit=_log)
 
     if requested_profile:
         _keep_profile_sign_in(Path(requested_profile))

@@ -47,6 +47,9 @@ jobs:
           printf '%s\n' "${pythonLocation}/lib" | sudo tee /etc/ld.so.conf.d/yoke-product-smoke-python.conf >/dev/null
           sudo ldconfig
           env -i "${pythonLocation}/bin/python3" -c 'import sys; print(sys.version)'
+      - name: Prepare a missing browser library on the disposable Linux runner
+        if: runner.os == 'Linux'
+        run: sudo -n apt-get remove -y libatk-bridge2.0-0t64
       - name: Install, onboard, replay hooks, and check source development
         env:
           SMOKE_EXPECTED_OS: ${{ matrix.os }}

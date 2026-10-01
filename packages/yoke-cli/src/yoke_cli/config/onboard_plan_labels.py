@@ -76,6 +76,10 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
             "that is absent is written; anything you set yourself is left "
             f"alone. {harness_unattended_posture.POSTURE_REVERSAL}"
         )
+    from yoke_cli.config.onboard_apply_runtime import BROWSER_SETUP_ACTION
+
+    if action == BROWSER_SETUP_ACTION:
+        return "Install the browser and check Linux system libraries"
     if action == "create-runtime-dir":
         return f"Set up the {_RUNTIME_DIR_LABELS.get(target, target)} directory"
     if action == "install-session-relay-plist":

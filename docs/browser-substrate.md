@@ -240,10 +240,9 @@ All shell wrapper scripts use consistent exit codes:
 
 ## Dependencies
 
-The browser substrate's dependencies are **deferred** — none of them are
-installed at product install time. They are needed only the first time a
-Browser method executes through `yoke qa case run` (or another `yoke qa
-browser` operation), and `yoke qa browser setup` provisions them on demand.
+Linux onboarding provisions the browser substrate while a person is present.
+Other platforms provision it on the first Browser operation. Onboarding and
+`yoke qa browser setup` share `yoke_harness.browser_setup.ensure_browser_runtime`.
 
 The deferred set:
 
@@ -259,8 +258,8 @@ All Node.js dependencies are declared in `packages/yoke-harness/src/yoke_harness
 
 ## Setup
 
-Browser setup is on demand, not at install time: the first `yoke qa browser`
-execution provisions everything. QA admission knows that, so a Browser case
+Browser setup runs during Linux onboarding and on demand through
+`yoke qa browser setup`. QA admission knows that, so a Browser case
 needs no `browser-control` project capability row to reach this machine.
 
 `yoke qa browser setup` materializes sources under `~/.yoke/browser-runtime/`,
@@ -282,8 +281,16 @@ When provisioning cannot proceed, setup exits 2 and names why: the refusal
 carries an `error_code` (`node_platform_unsupported`, `node_download_failed`,
 `node_archive_digest_mismatch`, `node_archive_unusable`,
 `node_provisioned_but_unusable`) and the operator action that clears it, both
-in the text message and in the `--json` payload. On Linux, Playwright's OS
-browser libraries may still need package-manager access. Inspect readiness any
+in the text message and in the `--json` payload. Chromium downloads in user
+space before Playwright checks its Linux libraries. Missing libraries are
+installed automatically: root runs the package installer directly; passwordless
+sudo runs non-interactively; an interactive terminal lets sudo ask for the OS
+password once. There is no Yoke confirmation. Without one of these routes,
+setup fails fast naming the missing dependencies and how to enable installation.
+The library check runs even when Chromium is already present and repeats after
+installation. Amazon Linux uses dnf/yum; other supported Linux systems use
+Playwright's own apt dependency installer. Screenshot captures default to the
+platform temporary directory. Inspect readiness any
 time with `yoke qa browser status`, which reports the resolved Node version
 and whether it came from the host (`host_path`) or from Yoke (`managed`).
 

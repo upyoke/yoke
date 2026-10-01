@@ -188,3 +188,12 @@ sweeps are the CI-outage fallback.
 Browser methods use the packaged browser runtime. Scenario schemas live under
 reference. See [reference/qa-platform.md](reference/qa-platform.md) and
 [reference/browser-scenarios.md](reference/browser-scenarios.md).
+
+
+Linux onboarding installs the packaged browser in user space and checks its
+system libraries through Playwright. Missing libraries install automatically
+with root or passwordless sudo. An interactive terminal lets the OS request
+the sudo password once; unattended machines without that authority fail fast
+with the missing dependencies and a repair step. Agent-time setup uses the same
+function through `yoke qa browser setup`. Screenshot captures use the platform
+temporary directory unless an output directory is supplied.

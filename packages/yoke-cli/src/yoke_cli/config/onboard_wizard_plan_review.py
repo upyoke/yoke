@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from yoke_cli.config import onboard_path_plan
+from yoke_cli.config.onboard_apply_runtime import BROWSER_SETUP_ACTION
 from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_machine_registry
@@ -49,6 +50,7 @@ _WRITE_MARKER = "•"
 _REUSE_MARKER = "✔"
 
 _MACHINE_ACTIONS = {
+    BROWSER_SETUP_ACTION,
     "create-or-validate-dir",
     "set-active-env",
     "set-https-api-url",
