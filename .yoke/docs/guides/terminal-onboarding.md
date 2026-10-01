@@ -5,6 +5,16 @@ copy the exact value. A screen with both offers them in sequence; the footer
 names what the next press will take. **Ctrl-O** opens the screen's link in your
 browser on a local desktop.
 
+The Account step opens the approval link with your installed default browser.
+On a Linux desktop without one, it uses Yoke's Chromium runtime, installing it
+through the same setup and cache browser QA uses. The wizard shows a progress
+screen while preparing the browser; the approval link and one-time code remain
+visible, with the copy keys available. Later browser QA reuses that download.
+On a machine without a graphical display, onboarding downloads nothing and
+says “No browser available here. Open this link on any device”. A failed
+installation or open shows the same recovery with the failure reason; it only
+says “The browser was opened for you” after a successful open.
+
 Over SSH, or on Linux without a local display, the footer says **^y show … to
 copy**. Ctrl-Y temporarily suspends the wizard and shows the exact value in
 normal terminal scrollback, followed by “Select and copy, then press Enter to
