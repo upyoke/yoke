@@ -9,7 +9,10 @@ import subprocess
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
-from yoke_contracts.machine_qa_failures import HostControlLocalError
+from yoke_contracts.machine_qa_failures import (
+    HostControlLocalError,
+    bounded_machine_qa_diagnostic,
+)
 from yoke_harness.ssh_host_baselines import SshHostBaselines
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
 from yoke_harness.ssh_linux_baseline import (
@@ -32,6 +35,15 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
     def _host_facts(self) -> dict[str, Any]:
         script = "import os,json,platform; print(json.dumps(dict(home=os.environ['HOME'],shell=os.environ.get('SHELL','/bin/bash'),xdg_bin_home=os.environ.get('XDG_BIN_HOME'),uid=os.getuid(),os=platform.system())))"
         result = self._run(shlex.join(["/usr/bin/python3", "-c", script]), timeout=20)
+        if result.returncode in (124, 255):
+            raise HostControlLocalError(
+                code="ssh_unavailable",
+                phase="host_facts_ssh",
+                detail="SSH could not read the test user's host facts.",
+                recovery_hint="Verify the registered host's current address, running state, SSH listener and authorized key before retrying.",
+                exit_code=result.returncode,
+                stderr=bounded_machine_qa_diagnostic(result.stderr, self.secret_values),
+            )
         try:
             facts = json.loads(result.stdout)
             valid = (

@@ -18,7 +18,9 @@ Persistent Spot with interruption behavior `stop` preserves the test home.
 Query current Windows license-included compute/Spot and EBS prices and obey
 the cost gate before launching. Stop whenever not testing. An automatically
 assigned public IPv4 releases on stop; update the capability host after
-restart. Avoid retaining a billable Elastic IP.
+restart. When stable access across Spot restarts is operator-approved,
+associate an Elastic IP and retain it across stops; its address charge
+continues while compute is stopped.
 
 Start Windows OpenSSH `sshd` automatically, authorize the shared test-machine
 public key, disable password authentication and restrict inbound SSH to the

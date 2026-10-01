@@ -22,7 +22,7 @@ must hold Full Disk Access, which the operation asserts rather than assumes.
 Windows Test Machines restore only the non-root WSL2 Linux home through
 Windows OpenSSH. Their golden path is a Linux path outside that home. Windows
 SSH state and the WSL distro registration survive the restore; Linux probes
-and absence checks run through `wsl.exe -e`.
+and absence checks run in the Linux home through `wsl.exe --cd ~ -e`.
 
 ## What the restore cannot reach, the reset stops first
 

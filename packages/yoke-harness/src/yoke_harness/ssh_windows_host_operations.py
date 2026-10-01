@@ -23,6 +23,8 @@ class SshWindowsHostOperations(SshLinuxHostOperations):
         try:
             facts = super()._host_facts()
         except HostControlLocalError as exc:
+            if exc.code == "ssh_unavailable":
+                raise
             raise HostControlLocalError(
                 code="windows_wsl_user_required",
                 phase="host_facts_ssh",

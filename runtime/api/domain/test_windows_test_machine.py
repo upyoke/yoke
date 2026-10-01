@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_contracts.machine_config.test_machine import validate_test_machine_settings
+from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_core.domain.host_baseline_operations import run_host_baseline
 from yoke_core.domain.machine_qa_host_control import host_control_for
 from yoke_core.domain.ssh_windows_host_control import SshWindowsHostControl
@@ -26,6 +27,24 @@ SETTINGS = {
     "operating_notes": "WSL2",
     "golden_baseline_path": "/var/lib/yoke-golden/tester/home",
 }
+
+
+@pytest.mark.parametrize("exit_code", [124, 255])
+def test_windows_transport_failure_does_not_blame_the_wsl_user(monkeypatch, exit_code):
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda argv, **kw: subprocess.CompletedProcess(
+            argv, exit_code, "", "SSH connection failed opaque-key"
+        ),
+    )
+    with pytest.raises(HostControlLocalError) as raised:
+        SshWindowsHostOperations(
+            settings=SETTINGS, key_path="/private/key", secret_values=("opaque-key",)
+        )
+    assert raised.value.code == "ssh_unavailable"
+    assert raised.value.exit_code == exit_code
+    assert "opaque-key" not in str(raised.value)
 
 
 def _decoded(command):
