@@ -229,6 +229,8 @@ PATH_CONTRACT_TESTS = (
                 "packages/yoke-core/src/yoke_core/domain/qa_schema.py",
                 "packages/yoke-core/src/yoke_core/domain/schema_init_tables.py",
                 "packages/yoke-core/src/yoke_core/domain/schema_expected_catalog.py",
+                "packages/yoke-core/src/yoke_core/domain/deployment_runs_schema_init.py",
+                "packages/yoke-core/src/yoke_core/domain/flow_init.py",
             }
         ),
         MIGRATION_HISTORY_CONTRACT_TESTS,

@@ -1,10 +1,15 @@
-"""QA execution DDL selects boot and Doctor contracts beyond import reachability."""
+"""Additive DDL selects boot and Doctor contracts beyond import reachability."""
+
+import pytest
 
 from yoke_core.tools import _impacted_contract_tests as contracts
 
 
-def test_execution_schema_selects_boot_and_drift_checks():
-    source = "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_schema.py"
+@pytest.mark.parametrize(
+    "module", ["qa_plan_execution_schema", "deployment_runs_schema_init", "flow_init"]
+)
+def test_schema_owner_selects_boot_and_drift_checks(module):
+    source = f"packages/yoke-core/src/yoke_core/domain/{module}.py"
     selection = contracts.contract_selection_for([source])
     assert "runtime/api/engines/test_doctor_schema_drift_expected.py" in selection.tests
     assert (
