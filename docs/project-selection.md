@@ -28,6 +28,23 @@ notice next to the scope picker — rather than silently looking saved. All
 selection and focus IDs are revalidated against the accessible project
 roster on every render.
 
+The same preference pair remembers the actor's last dashboard location,
+including its hash query. The list response carries `last_location`; a
+navigation includes `location` in the set payload alongside the screen's
+selection and focus. It is stored under `screen.location.last` in
+`actor_ui_preferences`, independently of `screen.selection.<view id>`.
+Signing back in or opening a bare dashboard entry restores that location
+before the first page renders. An explicit hash route always wins and
+becomes the remembered location, including an explicit default screen.
+Restoration checks the accessible project roster and the detail's current
+resource authority; unknown, removed, or inaccessible locations silently
+open the default destination. A navigation during restoration wins over
+the saved route. Writes are serialized and repeated renders of the same
+location do not write again. Failed preference reads leave persistence off
+for that mount, and a failed location save displays a reload-to-retry notice.
+An older serving build that omits `last_location` retains the usual default
+entry behavior until the updated server is deployed.
+
 **All and "every project" are one scope, in one form.** A member list covering
 the whole roster is resolved, stored, routed and rendered as All — the All chip
 lights and no project chip does. Two forms of that scope let the stored value,

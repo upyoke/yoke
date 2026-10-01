@@ -332,8 +332,11 @@ test("detail focus preserves multi-selection and inaccessible focus never reads 
   );
   assert.deepEqual(selected(root), ["ALP", "BET"]);
   assert.equal(byClass(root, "breadcrumb-parent")[0].href, "#/strategy?project=1,2");
-  const before = client.requests.length;
+  const resourceCalls = () => client.requests.filter(
+    (request) => !request.function.startsWith("ui_preferences."),
+  ).length;
+  const before = resourceCalls();
   await navigate("#/strategy/PLAN-1?project=removed&selection=1,2");
   assert.match(root.textContent, /Project unavailable/);
-  assert.equal(client.requests.length, before);
+  assert.equal(resourceCalls(), before);
 });
