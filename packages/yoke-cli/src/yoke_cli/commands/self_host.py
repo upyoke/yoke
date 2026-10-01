@@ -11,6 +11,7 @@ dispatch through until the described server is running. These resolve after
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import sys
 from typing import Callable, Dict, List, Tuple
@@ -24,7 +25,7 @@ from yoke_cli.commands.self_host_teardown import (
     TOOL_SHAPED_USAGE as _TEARDOWN_USAGE,
 )
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
-from yoke_cli.self_host import bundle, first_boot_token
+from yoke_cli.self_host import bundle, env_file, first_boot_token
 from yoke_cli.self_host import upgrade, runtime
 from yoke_contracts.self_host_bootstrap_output import (
     connect_url_from_publish_spec,
@@ -156,6 +157,7 @@ def self_host_init(args: List[str]) -> int:
                 image=parsed.image,
                 force=parsed.force,
             )
+        _warn_network_publish(env_file.read_publish_spec(str(report["directory"])))
         if parsed.start:
             runtime.start_bundle(directory=str(report["directory"]))
             report["healthy"] = True
@@ -167,6 +169,21 @@ def self_host_init(args: List[str]) -> int:
     else:
         _print_summary(report)
     return 0
+
+
+def _warn_network_publish(publish_spec: str) -> None:
+    host, _, _ = publish_spec.strip().strip("\"'").rpartition(":")
+    try:
+        if ipaddress.ip_address(host.strip("[]")).is_loopback:
+            return
+    except ValueError:
+        pass
+    print(
+        "warning: self-host API is published beyond loopback. Docker bypasses "
+        "ufw/firewalld for published ports; bind to 127.0.0.1 behind a TLS "
+        "reverse proxy, or restrict access upstream.",
+        file=sys.stderr,
+    )
 
 
 def self_host_upgrade(args: List[str]) -> int:
