@@ -37,7 +37,15 @@ def cmd_get(
     try:
         if field:
             if field not in RUN_FIELDS:
-                raise ValueError(f"invalid field '{field}'")
+                recovery = (
+                    f"Read stages with `yoke deployment-runs stages {run_id}`."
+                    if field == "stages"
+                    else "Select one of the accepted fields."
+                )
+                raise ValueError(
+                    f"invalid field '{field}'. Accepted fields: "
+                    f"{', '.join(sorted(RUN_FIELDS))}. {recovery}"
+                )
             exists = query_scalar(
                 conn, "SELECT COUNT(*) FROM deployment_runs WHERE id=%s", (run_id,)
             )

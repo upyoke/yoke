@@ -13,6 +13,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import deployment_runs as dr
+from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
 from yoke_core.domain.schema_common import _get_tables
 from runtime.api.deployment_runs_test_db import db_path  # noqa: F401, F811 — fixture re-export
 from runtime.api.fixtures.file_test_db import connect_test_db
@@ -142,10 +143,16 @@ class TestGet:
         result = dr.cmd_get("nonexistent", db_path=db_path)
         assert result is None
 
-    def test_get_invalid_field(self, db_path: str) -> None:
+    @pytest.mark.parametrize("field", ["bogus", "stages"])
+    def test_get_invalid_field(self, db_path: str, field: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        with pytest.raises(ValueError, match="invalid field"):
-            dr.cmd_get(run_id, field="bogus", db_path=db_path)
+        with pytest.raises(ValueError, match="invalid field") as refusal:
+            dr.cmd_get(run_id, field=field, db_path=db_path)
+        assert f"Accepted fields: {', '.join(sorted(RUN_FIELDS))}." in str(
+            refusal.value
+        )
+        if field == "stages":
+            assert f"yoke deployment-runs stages {run_id}" in str(refusal.value)
 
 
 class TestUpdate:
