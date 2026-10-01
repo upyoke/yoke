@@ -14,6 +14,7 @@ from yoke_core.domain import (
 SHA = "b" * 40
 RECOVERY = "Refresh origin, then re-drive the run."
 BASIS = {"schema": 1, "primary_project": "yoke", "projects": []}
+FRESH_BASIS = {**BASIS, "basis_digest": "refreshed-after-preparation"}
 
 
 def _drive(capsys, monkeypatch, carried_work):
@@ -42,6 +43,12 @@ def _drive(capsys, monkeypatch, carried_work):
     def fake_dispatch(stage, **kwargs):
         return 0, ""
 
+    def seed_qa(_run_id):
+        assert execution_context.call_count == 1, (
+            "Containment was refreshed before pre-start preparation finished"
+        )
+        return 0
+
     with (
         mock.patch.object(
             deploy_pipeline,
@@ -56,8 +63,8 @@ def _drive(capsys, monkeypatch, carried_work):
         mock.patch.object(
             deploy_pipeline.control_plane,
             "execution_context",
-            return_value=context,
-        ),
+            side_effect=[context, {"candidate_containment_basis": FRESH_BASIS}],
+        ) as execution_context,
         mock.patch.object(deploy_pipeline_run_updates, "start_run") as start_run,
         mock.patch.object(deploy_pipeline_run_updates, "update_run_field"),
         mock.patch.object(
@@ -65,7 +72,11 @@ def _drive(capsys, monkeypatch, carried_work):
             "project_field",
             return_value="",
         ),
-        mock.patch.object(deploy_pipeline.control_plane, "seed_qa", return_value=0),
+        mock.patch.object(
+            deploy_pipeline.control_plane,
+            "seed_qa",
+            side_effect=seed_qa,
+        ),
         mock.patch.object(
             deploy_pipeline,
             "resolve_project_checkout_path",
@@ -108,7 +119,7 @@ def test_pipeline_prints_attestation_warning_cost_and_recovery(
     }
     rc, out, start_call = _drive(capsys, monkeypatch, carried)
     assert rc == deploy_pipeline.EXIT_SUCCESS
-    assert start_call == mock.call("run-attest-001", BASIS, "/repo")
+    assert start_call == mock.call("run-attest-001", FRESH_BASIS, "/repo")
     assert "carried-work attestation: checkout_not_refreshed" in out
     assert SHA in out
     assert "ancestry residual" in out

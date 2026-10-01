@@ -247,6 +247,7 @@ containment question directly instead of reasoning across earlier runs.
 ```
 
 ## Answering "did this release contain that merge"
+The deployment driver reads and attests the containment basis immediately before starting execution, after pre-start preparation. A `candidate_containment_attestation_stale` refusal refreshes the basis and retries start up to three times, with one diagnostic line per retry; any other refusal or exhausted retry preserves the named failure and re-drive recovery.
 
 Completion asks containment of a specific pair: the candidate a succeeded
 run shipped, and the item's merge (then its live lane head). It is two

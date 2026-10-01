@@ -23,6 +23,10 @@ from yoke_core.domain.session_liveness_pump import (
 class DeploymentControlPlaneError(RuntimeError):
     """A required serving control-plane operation was refused."""
 
+    def __init__(self, message: str, *, code: str = "") -> None:
+        super().__init__(message)
+        self.code = code
+
 
 def _call(function_id: str, run_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     response = call_dispatcher(
@@ -32,7 +36,10 @@ def _call(function_id: str, run_id: str, payload: Dict[str, Any]) -> Dict[str, A
     )
     if not response.success:
         message = response.error.message if response.error else "request failed"
-        raise DeploymentControlPlaneError(f"{function_id} failed: {message}")
+        raise DeploymentControlPlaneError(
+            f"{function_id} failed: {message}",
+            code=response.error.code if response.error else "",
+        )
     return dict(response.result or {})
 
 
