@@ -5,9 +5,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from importlib.metadata import version
+from pathlib import Path
 from typing import Sequence
 
 
@@ -93,12 +96,80 @@ def _parser() -> argparse.ArgumentParser:
     verify = commands.add_parser("verify", help="Verify captured image metadata.")
     verify.add_argument("--expected-version", required=True)
     verify.add_argument("--expected-build", required=True)
+    native = commands.add_parser(
+        "verify-native", help="Pull, verify, and export a native image digest."
+    )
+    native.add_argument("--image-ref", required=True)
+    native.add_argument("--expected-arch", required=True)
+    native.add_argument("--expected-version", required=True)
+    native.add_argument("--expected-build", required=True)
+    native.add_argument("--digest-dir", type=Path, required=True)
     return parser
+
+
+def verify_native_image(args: argparse.Namespace) -> str:
+    """Validate the native image before exporting its content-addressed identity."""
+    digest = args.image_ref.rsplit("@", 1)[-1]
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+        raise ServerImageMetadataError(
+            f"native build returned malformed digest: {digest}"
+        )
+
+    def docker(*command: str) -> str:
+        return subprocess.run(
+            ["docker", *command],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        ).stdout
+
+    docker("pull", args.image_ref)
+    arch = docker(
+        "image", "inspect", "--format", "{{.Architecture}}", args.image_ref
+    ).strip()
+    if arch != args.expected_arch:
+        raise ServerImageMetadataError(
+            f"native image architecture mismatch: actual={arch} expected={args.expected_arch}"
+        )
+    output = docker(
+        "run",
+        "--rm",
+        "--entrypoint",
+        "python3",
+        args.image_ref,
+        "-m",
+        "yoke_core.tools.server_image_metadata",
+        "emit",
+    )
+    actual = parse_metadata_output(output)
+    if actual != ServerImageMetadata(args.expected_version, args.expected_build):
+        raise ServerImageMetadataError(
+            f"pushed image metadata mismatch: version={actual.version} build={actual.build} "
+            f"expected version={args.expected_version} build={args.expected_build}"
+        )
+    args.digest_dir.mkdir(parents=True, exist_ok=True)
+    (args.digest_dir / digest.removeprefix("sha256:")).touch()
+    return (
+        f"native image verified: arch={arch} "
+        f"version={actual.version} build={actual.build}"
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Emit installed metadata or verify a captured envelope."""
     args = _parser().parse_args(argv)
+    if args.command == "verify-native":
+        try:
+            print(verify_native_image(args))
+        except (ServerImageMetadataError, OSError, subprocess.SubprocessError) as exc:
+            print(
+                f"native server image verification failed: {exc}. "
+                "Repair the image build or registry access before retrying.",
+                file=sys.stderr,
+            )
+            return 1
+        return 0
     if args.command == "emit":
         try:
             print(format_metadata_line(installed_metadata()))

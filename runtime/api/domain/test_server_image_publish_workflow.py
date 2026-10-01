@@ -117,13 +117,11 @@ def test_every_job_is_github_hosted_and_operator_credentials_are_absent():
 
 def test_remote_annotated_tag_and_exact_workflow_commit_are_checked_twice():
     text = _text()
-    assert "canonical_tag_re='^v" in text
-    assert '"$TAG_NAME" =~ $canonical_tag_re' in text
-    assert "without leading-zero numeric atoms" in text
-    assert text.count("git/ref/tags/$TAG_NAME") == 2
-    assert text.count("git/tags/$tag_object_sha") == 2
-    assert text.count('[[ "$object_type" != "tag"') == 2
-    assert text.count('[[ "$target_type" != "commit"') == 2
+    assert "release_tag_validation.py" in text
+    assert text.count("git/ref/tags/$TAG_NAME") == 1
+    assert text.count("git/tags/$tag_object_sha") == 1
+    assert text.count('[[ "$object_type" != "tag"') == 1
+    assert text.count('[[ "$target_type" != "commit"') == 1
     assert "compare/$source_sha...main" not in text
     assert '"$source_sha" != "$GITHUB_SHA"' in text
     assert "EXPECTED_SOURCE_SHA: ${{ needs.validate-tag.outputs.source_sha }}" in text
@@ -148,7 +146,6 @@ def test_build_uses_native_runners_and_pushes_only_by_digest():
     assert "platform: linux/amd64" in build
     assert "platform: linux/arm64" in build
     assert "platforms: ${{ matrix.platform }}" in build
-    assert 'echo "release_version=${TAG_NAME#v}"' in text
     assert "python -m setuptools_scm" not in build
     assert 'pip install "setuptools-scm' not in build
     assert text.count("uses: docker/build-push-action@") == 1
@@ -162,16 +159,11 @@ def test_build_uses_native_runners_and_pushes_only_by_digest():
         "YOKE_ENGINE_VERSION=${{ needs.validate-tag.outputs.release_version }}" in build
     )
     assert 'source_sha="$(jq -r' in text
-    assert 'sha_tag="${source_sha:0:12}"' in text
-    assert 'echo "sha_ref=$repository:$sha_tag"' in text
-    assert 'echo "latest_ref=$repository:latest"' in text
     assert "Verify native architecture and installed release metadata" in build
-    assert 'image_ref="$REPOSITORY@$PUSHED_DIGEST"' in build
-    assert "docker image inspect" in build
-    assert '"$actual_arch" != "$EXPECTED_ARCH"' in build
-    assert '--entrypoint python3 "$image_ref"' in build
-    assert "yoke_core.tools.server_image_metadata emit" in build
-    assert "server_image_metadata.py verify" in build
+    assert "server_image_metadata.py verify-native" in build
+    assert '--image-ref "$REPOSITORY@$PUSHED_DIGEST"' in build
+    assert '--expected-arch "$EXPECTED_ARCH"' in build
+    assert '--digest-dir "$RUNNER_TEMP/digests"' in build
     assert "sed -n '1p'" not in build
     assert "sed -n '2p'" not in build
     assert "uses: actions/upload-artifact@" in build
