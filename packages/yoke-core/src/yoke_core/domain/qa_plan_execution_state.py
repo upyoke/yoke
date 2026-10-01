@@ -24,6 +24,7 @@ from yoke_core.domain.qa_plan_execution_store import (
     lock_plan_execution,
     marker,
     plan_execution_view,
+    select_plan_execution,
 )
 from yoke_core.domain.qa_plan_execution_target_snapshot import require_execution_target
 from yoke_core.domain.qa_plan_execution_roster import expected_plan_case
@@ -112,6 +113,7 @@ __all__ = [
     "reap_stale_plan_executions",
     "require_plan_execution_abandon_authority",
     "require_plan_execution_owner",
+    "select_plan_execution",
     "set_plan_machine_lease",
     "skips_host_baseline",
 ]
