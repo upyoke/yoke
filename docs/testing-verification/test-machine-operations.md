@@ -13,9 +13,14 @@ asking the person who did it.
 
 ## Which implementation drives the host
 
-Every Test Machine declares `os=macos|linux`. Both are persistent SSH hosts;
+Every Test Machine declares `os=macos|linux|windows`. All are persistent SSH hosts;
 `os` selects restore, terminal bridge and verification behavior. macOS uses
 its logged-in Terminal.app session; Linux uses a non-root user and tmux.
+Windows uses Windows OpenSSH into the SSH account's default WSL2 distro,
+reusing Linux home archives and tmux under a non-root Linux user. Golden
+paths name Linux paths; Windows state and distro registration survive reset.
+Ad hoc `exec` also enters WSL, preserving the Linux command's exit status.
+Provisioning details ship in the machine-qa Pack's Windows guide.
 Unsupported values refuse with `test_machine_os_unsupported` and list the
 supported values. Settings without `os` refuse with
 `test_machine_os_serving_floor_required`: deploy the next-release serving

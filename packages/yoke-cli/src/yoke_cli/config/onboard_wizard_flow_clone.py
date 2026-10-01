@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 from typing import Any, Optional
-import webbrowser
+
+from yoke_cli.config.hosted_machine_browser import open_url
 
 from yoke_contracts import github_origin
 from yoke_contracts.github_app_installation_permissions import ACCESS_WRITE
@@ -125,7 +126,7 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow):
     def _on_private_repo_empty(self: _Shell, choice: str) -> None:
         if choice == "manage":
             try:
-                webbrowser.open(github_state.repository_access_url(self.result))
+                open_url(github_state.repository_access_url(self.result))
             except Exception:
                 pass
             return

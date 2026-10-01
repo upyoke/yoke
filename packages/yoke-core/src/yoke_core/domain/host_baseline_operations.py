@@ -154,7 +154,7 @@ HOST_BASELINE_OPERATIONS: dict[str, Callable[[HostControl], HostBaselineResult]]
 
 def run_host_baseline(control: HostControl, name: str) -> HostBaselineResult:
     """Run one registered operation; unknown prose-shaped names are refused."""
-    if getattr(control, "os", None) == "linux":
+    if getattr(control, "os", None) in {"linux", "windows"}:
         result = control.reach_baseline(name)
         return HostBaselineResult(name, result.ok, result.evidence, result.error_code)
     operation = HOST_BASELINE_OPERATIONS.get(str(name))

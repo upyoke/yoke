@@ -15,6 +15,10 @@ def host_control_for(material: TestMachineMaterial):
         from yoke_core.domain.ssh_mac_host_control import SshMacHostControl
 
         return SshMacHostControl(material)
+    if os_name == "windows":
+        from yoke_core.domain.ssh_windows_host_control import SshWindowsHostControl
+
+        return SshWindowsHostControl(material)
     from yoke_core.domain.ssh_linux_host_control import SshLinuxHostControl
 
     return SshLinuxHostControl(material)

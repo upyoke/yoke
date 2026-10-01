@@ -58,8 +58,10 @@ TEST_ANCHORS = YOKE_SEEDED_TEST_ROOTS
 
 #: A string literal shaped like a dotted module path is treated as a
 #: dependency reference (subprocess ``-m`` targets, patch targets,
-#: registry keys). Single-segment names are far too noisy to count.
-_DOTTED_PATH = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)+$")
+#: registry keys). Dynamic imports can name digit-prefixed migration
+#: modules even though ordinary import syntax cannot. Single-segment
+#: names are far too noisy to count.
+_DOTTED_PATH = re.compile(r"^[A-Za-z_]\w*(\.\w+)+$")
 
 
 def is_test_file(rel_path: str) -> bool:

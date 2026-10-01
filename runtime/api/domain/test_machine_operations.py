@@ -199,6 +199,6 @@ def test_a_machine_declares_which_implementation_drives_it() -> None:
     assert "test_machine_os_serving_floor_required" in str(missing.value)
 
     with pytest.raises(TestMachineCapabilityError) as unknown:
-        validate_test_machine_settings({**TEST_MACHINE_SETTINGS, "os": "windows"})
+        validate_test_machine_settings({**TEST_MACHINE_SETTINGS, "os": "unsupported"})
 
     assert "test_machine_os_unsupported" in str(unknown.value)

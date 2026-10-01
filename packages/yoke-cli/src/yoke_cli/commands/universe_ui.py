@@ -35,6 +35,7 @@ from yoke_cli.commands.universe_ui_serve import (
     ui_serve_process,
 )
 from yoke_cli.config import universe_ui_daemon as daemon
+from yoke_cli.config.hosted_machine_browser import open_url
 from yoke_cli.config.universe_ui_daemon_state import UiDaemonError
 from yoke_cli.config.universe_ui_launchd import UiLaunchdError
 
@@ -113,7 +114,9 @@ def ui_up(args: List[str]) -> int:
     )
     _add_host_port_flags(parser)
     parser.add_argument(
-        "--no-browser", dest="no_browser", action="store_true",
+        "--no-browser",
+        dest="no_browser",
+        action="store_true",
         help="Do not open the default browser on the tokened URL.",
     )
     _add_json_flag(parser)
@@ -140,18 +143,27 @@ def ui_up(args: List[str]) -> int:
         return 1
 
     url = str(report.get("private_url") or "")
-    opened = bool(url) and not parsed.no_browser
+    browser_result = (
+        open_url(url, browser_open=webbrowser.open)
+        if url and not parsed.no_browser
+        else None
+    )
+    opened = bool(browser_result and browser_result.opened)
     if parsed.json_mode:
-        print(json.dumps(
-            {"ok": True, "browser_opened": opened, **report}, sort_keys=True,
-        ), flush=True)
+        print(
+            json.dumps(
+                {"ok": True, "browser_opened": opened, **report},
+                sort_keys=True,
+            ),
+            flush=True,
+        )
     else:
         _print_status(report)
         note = str(report.get("supervisor_note") or "")
         if note:
             print(note, flush=True)
-    if opened:
-        webbrowser.open(url)
+    if browser_result and not opened:
+        print(f"Browser did not open: {browser_result.reason}", file=sys.stderr)
     return 0
 
 
@@ -203,7 +215,9 @@ def _print_status(report: Dict[str, object]) -> None:
 
 def _add_json_flag(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--json", dest="json_mode", action="store_true",
+        "--json",
+        dest="json_mode",
+        action="store_true",
         help=(
             "Print a JSON line naming the daemon state and, when it is "
             "serving, private_url (the tokened URL — private by "
@@ -214,14 +228,17 @@ def _add_json_flag(parser: argparse.ArgumentParser) -> None:
 
 def _add_host_port_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--host", default=None,
+        "--host",
+        default=None,
         help=(
             "Loopback host for the UI server (default: 127.0.0.1; "
             "remote-facing hosts are refused)."
         ),
     )
     parser.add_argument(
-        "--port", type=int, default=None,
+        "--port",
+        type=int,
+        default=None,
         help=(
             "TCP port for the UI server (default: the server's canonical "
             "port; refused with guidance when already in use)."

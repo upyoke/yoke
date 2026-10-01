@@ -10,8 +10,15 @@ Prerequisites: a shell, `curl`, and `uv` (the installer can install `uv` with
 consent). Yoke supports Python 3.11–3.14. When no supported interpreter is
 available, uv downloads a managed one automatically for the installer and
 `yoke update`, without changing your system Python. Native Windows is
-unsupported; use Ubuntu inside WSL2 on Windows. See
-[Yoke on Windows (WSL)](windows-wsl.md) for filesystem, systemd, and agent setup.
+unsupported; WSL follows the Linux path.
+Run installation, onboarding and harness CLIs inside the WSL Linux filesystem
+with systemd enabled. To open a URL in the Windows browser, Yoke tries
+`wslview`, then `explorer.exe` if Python's browser opener fails. Install `wslu`
+or enable Windows interop/PATH when both are unavailable. Verify the local UI
+through Windows localhost forwarding before changing WSL networking modes.
+Keep a WSL terminal open while using the local universe/UI. After the distro
+stops, run `yoke init --local` to restart its Postgres authority.
+See [Yoke on Windows (WSL)](windows-wsl.md) for filesystem, systemd, and agent setup.
 
 Linux requires glibc (for example Ubuntu, Debian, or Fedora); musl hosts such as Alpine are refused before installation.
 Amazon Linux 2 on arm64 is unsupported: its glibc is too old for the aarch64 psycopg wheels.

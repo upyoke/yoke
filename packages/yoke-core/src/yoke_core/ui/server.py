@@ -42,6 +42,7 @@ import webbrowser
 from typing import Any, Dict, Optional
 
 from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
+from yoke_cli.config.hosted_machine_browser import open_url
 from yoke_core.ui.asset_roster import ASSET_CACHE_CONTROL, ASSET_CONTENT_TYPES
 from yoke_core.ui.function_proxy import (
     UI_ACTIVATION_LATCH_FUNCTIONS,
@@ -177,11 +178,7 @@ def _inject_host_identity(html: str, environment: str) -> str:
     end = html.find(_HOST_IDENTITY_MARKER, content_start)
     if end < 0:
         return html
-    return (
-        html[:content_start]
-        + _local_host_identity_json(environment)
-        + html[end:]
-    )
+    return html[:content_start] + _local_host_identity_json(environment) + html[end:]
 
 
 def create_ui_app(token: str, *, port: int = DEFAULT_UI_PORT):
@@ -213,9 +210,7 @@ def create_ui_app(token: str, *, port: int = DEFAULT_UI_PORT):
     @app.middleware("http")
     async def session_token_gate(request, call_next):
         candidate = (
-            request.query_params.get("token")
-            or request.cookies.get(cookie_name)
-            or ""
+            request.query_params.get("token") or request.cookies.get(cookie_name) or ""
         )
         if not token_matches(candidate, token):
             return JSONResponse(
@@ -313,7 +308,7 @@ def serve_ui(
     if open_browser:
         opener = threading.Timer(
             _BROWSER_OPEN_DELAY_S,
-            webbrowser.open,
+            lambda url: open_url(url, browser_open=webbrowser.open),
             [private_url(port, token, host=bind_host)],
         )
         opener.daemon = True

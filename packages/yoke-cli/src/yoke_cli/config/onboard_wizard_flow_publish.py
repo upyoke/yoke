@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import asyncio
 import webbrowser
+
+from yoke_cli.config.hosted_machine_browser import open_url
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -140,7 +142,7 @@ class PublishFlow:
     def _open_repository_creation_page(self: _Shell) -> tuple[str, bool]:
         url = endpoint_pair(self.result).new_repository_url()
         try:
-            opened = bool(webbrowser.open(url))
+            opened = open_url(url, browser_open=webbrowser.open).opened
         except Exception:
             opened = False
         self._manual_repository_url = url
