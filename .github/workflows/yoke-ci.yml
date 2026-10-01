@@ -7,8 +7,8 @@ name: yoke-ci
 # per train of queued PRs; its ruleset requires the same named checks.
 # repo-contracts fast-fails; identical trees may reuse recent coverage.
 # Executable job timeouts: docs/testing-verification/ci-job-timeouts.md.
-# consumer_advisory is an independent, non-blocking job (no `needs`, no
-# required context) so repo-contracts and the shard matrix never wait on it.
+# Consumer evidence runs in consumer-compatibility-advisory.yml separately:
+# its failures and timeouts cannot change this required workflow conclusion.
 run-name: >-
   ${{ inputs.yoke_dispatch_id
       && format('yoke-ci {0} [yoke-dispatch:{1}]', github.ref_name, inputs.yoke_dispatch_id)
@@ -88,20 +88,6 @@ jobs:
         run: >-
           uv run python -m yoke_core.tools.ci_repo_contracts
           --base "origin/${{ github.event.repository.default_branch }}"
-  consumer_advisory:
-    if: github.repository == 'upyoke/yoke'
-    name: consumer-advisory
-    # No `needs`: runs independent of and in parallel with repo-contracts and
-    # the shard matrix. Not a required status-check context; the called
-    # workflow's own job-level continue-on-error (see
-    # consumer-compatibility-advisory.yml) keeps any failure there — a setup
-    # step included, not just its one advisory step — from flipping this
-    # run's overall conclusion, which CI-verdict adoption reads wholesale
-    # rather than by named check context. `continue-on-error` itself is not
-    # a valid key on a job that calls a reusable workflow (`uses:`), so it
-    uses: ./.github/workflows/consumer-compatibility-advisory.yml
-    secrets:
-      YOKE_PLATFORM_RELEASE_API_TOKEN: ${{ secrets.YOKE_PLATFORM_RELEASE_API_TOKEN }}
   reuse_coverage:
     timeout-minutes: 5
     name: reuse-coverage
