@@ -27,9 +27,11 @@ otherwise go.
 Deployment is then one question per merge, asked from records first. Membership
 in a succeeded run to the item's environment is delivery. A merge newer than
 that environment's newest succeeded candidate is not. Honest carried work may
-still name the commit; a payload that could not look is ignored. Ancestry
-answers only the residual — merged before the candidate, never a member —
-through the same containment helper the completion gate uses.
+still name the commit; a payload that could not look is ignored. After those
+checks, a merge after composition freeze is excluded without ancestry: lineage
+is immutable by then, even for runs that bind it after creation. Runs without
+a freeze time retain the ancestry path. Ancestry answers the residual through
+the same containment helper the completion gate uses.
 
 Only the newest release lineage is asked. Releases advance, so a commit an
 older one contained is contained by the newest as well, and the answer is
@@ -85,7 +87,8 @@ class DeliverySummary:
 
 
 def recorded_merge_shas_for_items(
-    conn: Any, item_ids: Sequence[int],
+    conn: Any,
+    item_ids: Sequence[int],
 ) -> dict[int, tuple[str, ...]]:
     """Every distinct commit each item's own landings recorded, newest first.
 
@@ -142,7 +145,9 @@ def succeeded_runs_for_environment(
     runs = query_rows(
         conn,
         "SELECT id, release_lineage, carried_work, COALESCE(flow, '') AS flow, "
-        "COALESCE(completed_at, '') AS completed_at FROM deployment_runs "
+        "COALESCE(completed_at, '') AS completed_at, "
+        "COALESCE(composition_frozen_at, '') AS composition_frozen_at "
+        "FROM deployment_runs "
         f"WHERE project_id={marker} AND target_environment_id={marker} "
         f"AND status={marker} "
         "ORDER BY COALESCE(completed_at, '') DESC, id DESC",
@@ -158,6 +163,7 @@ def succeeded_runs_for_environment(
             # be told which slice of its record is this project's.
             "bound_project_id": int(project_id),
             "completed_at": run["completed_at"],
+            "composition_frozen_at": run["composition_frozen_at"],
         }
         for run in carrying_runs_for_project(
             conn,
@@ -218,7 +224,10 @@ class ReleaseCandidates:
         )
 
     def carrier_for(
-        self, sha: str, *, item_id: int | None = None,
+        self,
+        sha: str,
+        *,
+        item_id: int | None = None,
     ) -> dict[str, str] | None:
         """The release that delivered ``sha``, or ``None`` if none has."""
         return self._index.carrier_for(sha, item_id=item_id)
@@ -247,9 +256,7 @@ def delivery_summary(
             continue
         deployed += 1
         carrying_flow = carrying_flow or carrier["flow"]
-    return DeliverySummary(
-        merges=len(merges), deployed=deployed, flow=carrying_flow
-    )
+    return DeliverySummary(merges=len(merges), deployed=deployed, flow=carrying_flow)
 
 
 __all__ = [

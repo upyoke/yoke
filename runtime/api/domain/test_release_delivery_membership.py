@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from runtime.api.fixtures.backlog_inserts import insert_deployment_run, insert_item
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import release_delivery_summary as summary_module
@@ -78,7 +80,7 @@ def _member(conn, run_id: str, item_id: int = ITEM_ID) -> None:
     )
 
 
-def _summary(conn):
+def _summary(conn, *, flow=FLOW):
     merges = recorded_merge_shas_for_items(conn, [ITEM_ID]).get(ITEM_ID, ())
     return delivery_summary(
         merges=merges,
@@ -86,7 +88,7 @@ def _summary(conn):
             conn,
             project_id=PROJECT_ID,
             environment_id=ENVIRONMENT_ID,
-            flow=FLOW,
+            flow=flow,
         ),
         item_id=ITEM_ID,
     )
@@ -158,6 +160,99 @@ def test_a_merge_before_the_candidate_that_is_not_a_member_still_uses_ancestry(
     assert seen == [MERGE]
 
 
+@pytest.mark.parametrize("route", ["own-environment", "own-persistent", "bound"])
+@pytest.mark.parametrize(
+    "merged_at,frozen_at,recorded,expected_deployed,walks",
+    [
+        ("2026-09-17T12:00:00Z", "2026-09-17T06:00:00Z", "", 0, 0),
+        ("2026-09-17T12:00:00Z", "2026-09-17T06:00:00Z", "carried", 1, 0),
+        ("2026-09-17T12:00:00Z", "2026-09-17T06:00:00Z", "member", 1, 0),
+        ("2026-09-17T12:00:00Z", "", "", 1, 1),
+        ("2026-09-17T06:00:00Z", "2026-09-17T06:00:00Z", "", 1, 1),
+        ("2026-09-17T03:00:00Z", "2026-09-17T06:00:00Z", "", 1, 1),
+        (None, "2026-09-17T06:00:00Z", "", 1, 1),
+    ],
+)
+def test_delivery_uses_freeze_after_recorded_carriage(
+    monkeypatch,
+    route,
+    merged_at,
+    frozen_at,
+    recorded,
+    expected_deployed,
+    walks,
+) -> None:
+    seen: list[str] = []
+
+    class _Walk:
+        def __init__(self, conn, project_id, *, candidate_lineage):
+            assert candidate_lineage == LINEAGE
+
+        def contains(self, commit_sha):
+            seen.append(commit_sha)
+            return ContainmentVerdict(state=CONTAINED)
+
+    monkeypatch.setattr(summary_module, "CandidateContainment", _Walk)
+    with test_database() as conn:
+        insert_item(
+            conn,
+            id=ITEM_ID,
+            title="release cutoff",
+            status="release",
+            merged_at=merged_at,
+            project_id=PROJECT_ID,
+        )
+        _landing(conn)
+        carried = [MERGE] if recorded == "carried" else []
+        slice_payload = {
+            "project_id": PROJECT_ID,
+            "items": [{"commit_shas": carried}],
+        }
+        payload = {
+            "derivation": {"contents_known": True},
+            "items": slice_payload["items"],
+            "bound_projects": [slice_payload],
+        }
+        run_fields = {"project_id": PROJECT_ID}
+        if route == "bound":
+            run_fields = {
+                "project": "carrier",
+                "bound_sources": json.dumps(
+                    {
+                        "projects": [
+                            {
+                                "project_id": PROJECT_ID,
+                                "commit_sha": LINEAGE,
+                            }
+                        ]
+                    }
+                ),
+            }
+        insert_deployment_run(
+            conn,
+            id="run-cutoff",
+            flow=FLOW,
+            status="succeeded",
+            created_at="2026-09-17T00:00:00Z",
+            completed_at=COMPLETED,
+            composition_frozen_at=frozen_at,
+            release_lineage="e" * 40 if route == "bound" else LINEAGE,
+            target_tier="persistent",
+            target_environment_id=ENVIRONMENT_ID,
+            carried_work=json.dumps(payload),
+            **run_fields,
+        )
+        if recorded == "member":
+            _member(conn, "run-cutoff")
+        conn.commit()
+        result = _summary(conn, flow="" if route == "own-persistent" else FLOW)
+
+    assert result.merges == 1
+    assert result.deployed == expected_deployed
+    assert result.not_deployed == 1 - expected_deployed
+    assert seen == [MERGE] * walks
+
+
 def test_unknown_carried_work_forces_the_ancestry_fallback(monkeypatch) -> None:
     seen: list[str] = []
 
@@ -219,11 +314,13 @@ def test_checkout_not_refreshed_is_not_a_fast_delivery(monkeypatch) -> None:
             target_tier="persistent",
             release_lineage=LINEAGE,
             target_environment_id=ENVIRONMENT_ID,
-            carried_work=json.dumps({
-                "derivation": {"contents_known": True},
-                "items": [{"ref": "YOK-1", "commit_shas": [MERGE]}],
-                "warnings": [{"reason": "checkout_not_refreshed"}],
-            }),
+            carried_work=json.dumps(
+                {
+                    "derivation": {"contents_known": True},
+                    "items": [{"ref": "YOK-1", "commit_shas": [MERGE]}],
+                    "warnings": [{"reason": "checkout_not_refreshed"}],
+                }
+            ),
             completed_at=COMPLETED,
         )
         conn.commit()

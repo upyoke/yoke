@@ -43,7 +43,9 @@ PERSISTENT_TARGET_TIER = "persistent"
 _RELEASE_COLUMNS = (
     "SELECT id, COALESCE(release_lineage, '') AS release_lineage, "
     "COALESCE(completed_at, '') AS completed_at, COALESCE(flow, '') AS flow, "
-    "COALESCE(carried_work, '') AS carried_work FROM deployment_runs "
+    "COALESCE(carried_work, '') AS carried_work, "
+    "COALESCE(composition_frozen_at, '') AS composition_frozen_at "
+    "FROM deployment_runs "
 )
 _NEWEST_FIRST = "ORDER BY completed_at DESC, created_at DESC, id DESC LIMIT "
 
@@ -66,6 +68,9 @@ def _releases(rows: Any) -> list[dict[str, Any]]:
             "completed_at": str(row_cell(row, "completed_at", 2) or ""),
             "flow": str(row_cell(row, "flow", 3) or ""),
             "carried_work": row_cell(row, "carried_work", 4),
+            "composition_frozen_at": str(
+                row_cell(row, "composition_frozen_at", 5) or ""
+            ),
         }
         for row in rows
     ]
@@ -83,11 +88,8 @@ def succeeded_flow_runs(
     marker = sql_marker(conn)
     releases = _releases(
         conn.execute(
-            _RELEASE_COLUMNS
-            + f"WHERE project_id = {marker} AND flow = {marker} "
-            "AND status = 'succeeded' "
-            + _NEWEST_FIRST
-            + str(int(limit)),
+            _RELEASE_COLUMNS + f"WHERE project_id = {marker} AND flow = {marker} "
+            "AND status = 'succeeded' " + _NEWEST_FIRST + str(int(limit)),
             (int(project_id), flow),
         ).fetchall()
     )
@@ -98,6 +100,7 @@ def succeeded_flow_runs(
             "completed_at": run["completed_at"],
             "flow": run["flow"],
             "carried_work": run["carried_work"],
+            "composition_frozen_at": run["composition_frozen_at"],
             # The carrier answers for several projects, so a reader of its
             # carried work has to be told which slice belongs to this one.
             "bound_project_id": int(project_id),
@@ -122,11 +125,8 @@ def succeeded_persistent_runs(
     marker = sql_marker(conn)
     return _releases(
         conn.execute(
-            _RELEASE_COLUMNS
-            + f"WHERE project_id = {marker} AND status = 'succeeded' "
-            f"AND target_tier = {marker} "
-            + _NEWEST_FIRST
-            + str(int(limit)),
+            _RELEASE_COLUMNS + f"WHERE project_id = {marker} AND status = 'succeeded' "
+            f"AND target_tier = {marker} " + _NEWEST_FIRST + str(int(limit)),
             (int(project_id), PERSISTENT_TARGET_TIER),
         ).fetchall()
     )

@@ -119,7 +119,8 @@ def carrying_runs_for_project(
         "COALESCE(dr.completed_at,'') AS completed_at,"
         "COALESCE(dr.carried_work,'') AS carried_work,"
         "COALESCE(e.name,'') AS environment_name,"
-        "COALESCE(dr.flow,'') AS flow "
+        "COALESCE(dr.flow,'') AS flow,"
+        "COALESCE(dr.composition_frozen_at,'') AS composition_frozen_at "
         "FROM deployment_runs dr "
         "LEFT JOIN environments e ON e.id=dr.target_environment_id "
         f"WHERE dr.status='succeeded' AND dr.project_id<>{marker} "
@@ -129,9 +130,10 @@ def carrying_runs_for_project(
     ).fetchall()
     carrying: list[dict[str, Any]] = []
     for row in rows:
-        if environment_name and str(
-            _cell(row, "environment_name", 6) or ""
-        ) != environment_name:
+        if (
+            environment_name
+            and str(_cell(row, "environment_name", 6) or "") != environment_name
+        ):
             continue
         sha = recorded_source_sha(
             {
@@ -153,6 +155,9 @@ def carrying_runs_for_project(
                 # The flow that ran, so a reader with no flow of its own can
                 # still name the one that shipped it.
                 "flow": str(_cell(row, "flow", 7) or ""),
+                "composition_frozen_at": str(
+                    _cell(row, "composition_frozen_at", 8) or ""
+                ),
             }
         )
     return carrying
