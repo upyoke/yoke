@@ -103,6 +103,10 @@ TEST_MACHINE_SUBCOMMAND_REGISTRY = {
         "test_machine.desktop_access",
         test_machine_desktop.test_machine_desktop_access,
     ),
+    ("test-machine", "screenshot"): (
+        "test_machine.screenshot",
+        test_machine.test_machine_screenshot,
+    ),
     ("test-machine", "list"): (
         "test_machine.list",
         test_machine.test_machine_list,

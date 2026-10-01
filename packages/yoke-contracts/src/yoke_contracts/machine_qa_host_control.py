@@ -22,11 +22,22 @@ RESET_OPERATION = "reset"
 GOLDEN_CAPTURE_OPERATION = "golden_capture"
 BRIDGE_DIAGNOSE_OPERATION = "bridge_diagnose"
 VERIFY_OPERATION = "verify"
+SCREENSHOT_OPERATION = "screenshot"
+PERSISTENT_TERMINAL_BRIDGE_CHECKS = (
+    "tmux_session",
+    "tmux_input_transcript",
+    "gui_screenshot",
+)
 TEST_MACHINE_OPERATIONS = (
     VERIFY_OPERATION,
     RESET_OPERATION,
     GOLDEN_CAPTURE_OPERATION,
     BRIDGE_DIAGNOSE_OPERATION,
+    SCREENSHOT_OPERATION,
+)
+
+RECORDED_TEST_MACHINE_OPERATIONS = tuple(
+    operation for operation in TEST_MACHINE_OPERATIONS if operation != VERIFY_OPERATION
 )
 
 HostControlOperation = Literal[
@@ -34,6 +45,7 @@ HostControlOperation = Literal[
     "reset",
     "golden_capture",
     "bridge_diagnose",
+    "screenshot",
     "case",
     "baseline_group",
     "plan_case",

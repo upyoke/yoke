@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -36,6 +37,30 @@ from yoke_core.domain.machine_qa_capability import (
 from yoke_core.domain.machine_qa_local_execution import (
     execute_host_operation_contract,
 )
+
+
+@pytest.mark.parametrize("os", ["macos", "linux", "windows"])
+def test_bridge_diagnosis_accepts_only_its_os_capability_sequence(os):
+    from yoke_contracts.machine_qa_host_control import PERSISTENT_TERMINAL_BRIDGE_CHECKS
+    from yoke_core.domain.handlers.machine_qa_operation_result import (
+        validate_operation_result,
+    )
+
+    names = (
+        TERMINAL_BRIDGE_CHECKS if os == "macos" else PERSISTENT_TERMINAL_BRIDGE_CHECKS
+    )
+    result = SimpleNamespace(
+        operation="bridge_diagnose",
+        status="verified",
+        error_code=None,
+        artifacts=[],
+        checks=[{"name": name, "ok": True} for name in names],
+        model_dump=lambda **kwargs: {},
+    )
+    validate_operation_result(result, SimpleNamespace(settings={"os": os}))
+    result.checks.reverse()
+    with pytest.raises(ValueError, match="registered capability in order"):
+        validate_operation_result(result, SimpleNamespace(settings={"os": os}))
 
 
 def test_reset_reaches_one_baseline_and_leaves_verification_alone(

@@ -15,6 +15,11 @@ from yoke_harness.ssh_host_baselines import SshHostBaselines
 class SshMacHostOperations(SshHostBaselines, SshMacTransport):
     """Credential-owning control for every operator-run macOS SSH operation."""
 
+    def capture_screenshot(self):
+        from yoke_harness.ssh_machine_screenshot import capture_desktop
+
+        return capture_desktop(self)
+
     def __init__(
         self,
         *,

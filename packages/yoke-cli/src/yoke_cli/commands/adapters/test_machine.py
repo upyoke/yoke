@@ -42,6 +42,7 @@ GOLDEN_CAPTURE_USAGE = (
     "yoke test-machine golden-capture --project P [--machine NAME] "
     "[--destination /abs/path] [--probes-file FILE] [--component browser-profile] [--json]"
 )
+SCREENSHOT_USAGE = "yoke test-machine screenshot --project P [--machine NAME] [--json]"
 BRIDGE_DIAGNOSE_USAGE = (
     "yoke test-machine bridge-diagnose --project P [--machine NAME] [--json]"
 )
@@ -201,6 +202,15 @@ def test_machine_golden_capture(args: List[str]) -> int:
     )
 
 
+def test_machine_screenshot(args: List[str]) -> int:
+    return run_host_operation(
+        args,
+        prog="yoke test-machine screenshot",
+        usage=SCREENSHOT_USAGE,
+        operation="screenshot",
+    )
+
+
 def test_machine_bridge_diagnose(args: List[str]) -> int:
     return run_host_operation(
         args,
@@ -211,6 +221,7 @@ def test_machine_bridge_diagnose(args: List[str]) -> int:
 
 
 USAGE_BY_FUNCTION_ID = {
+    "test_machine.screenshot": SCREENSHOT_USAGE,
     "test_machine.list": LIST_USAGE,
     "test_machine.get": GET_USAGE,
     "test_machine.settings_replace": SETTINGS_REPLACE_USAGE,
@@ -227,6 +238,7 @@ __all__ = [
     "GOLDEN_CAPTURE_USAGE",
     "LIST_USAGE",
     "RESET_USAGE",
+    "SCREENSHOT_USAGE",
     "SETTINGS_REPLACE_USAGE",
     "USAGE_BY_FUNCTION_ID",
     "VERIFY_USAGE",
@@ -235,6 +247,7 @@ __all__ = [
     "test_machine_golden_capture",
     "test_machine_list",
     "test_machine_reset",
+    "test_machine_screenshot",
     "test_machine_settings_replace",
     "test_machine_verify",
 ]

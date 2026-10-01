@@ -8,8 +8,6 @@ from typing import Any, Mapping, Sequence
 
 from yoke_contracts.machine_config.test_machine import test_machine_capability_type
 from yoke_contracts.machine_qa_execution import (
-    BRIDGE_DIAGNOSE_OPERATION,
-    GOLDEN_CAPTURE_OPERATION,
     HostControlExecutionContract,
     RESET_OPERATION,
 )
@@ -21,11 +19,9 @@ from yoke_core.domain.machine_verification_schema import ensure_test_machine_sch
 
 #: The operations whose receipts live beside the verification row rather than
 #: in it. Verification decides readiness; these record what was last done.
-RECORDED_OPERATIONS = (
-    RESET_OPERATION,
-    GOLDEN_CAPTURE_OPERATION,
-    BRIDGE_DIAGNOSE_OPERATION,
-)
+from yoke_contracts.machine_qa_host_control import RECORDED_TEST_MACHINE_OPERATIONS
+
+RECORDED_OPERATIONS = RECORDED_TEST_MACHINE_OPERATIONS
 
 
 def _marker(conn: Any) -> str:

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.machine_qa_host_control import RECORDED_TEST_MACHINE_OPERATIONS
+
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -33,7 +35,7 @@ CREATE TABLE IF NOT EXISTS test_machine_operation_receipts (
     project_id INTEGER NOT NULL,
     capability_type TEXT NOT NULL,
     operation TEXT NOT NULL
-        CHECK(operation IN ('reset','golden_capture','bridge_diagnose')),
+        CHECK(operation IN (OPERATION_VALUES)),
     status TEXT NOT NULL CHECK(status IN ('verified','error')),
     performed_at TEXT NOT NULL,
     receipt_json TEXT NOT NULL DEFAULT '{}',
@@ -45,7 +47,10 @@ CREATE TABLE IF NOT EXISTS test_machine_operation_receipts (
     FOREIGN KEY(project_id, capability_type)
         REFERENCES project_capabilities(project_id, type) ON DELETE CASCADE
 )
-"""
+""".replace(
+    "OPERATION_VALUES",
+    ",".join(repr(value) for value in RECORDED_TEST_MACHINE_OPERATIONS),
+)
 
 
 def ensure_test_machine_schema(

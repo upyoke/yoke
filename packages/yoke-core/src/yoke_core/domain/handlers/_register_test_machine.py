@@ -23,10 +23,7 @@ def register(registry) -> None:
         minimum_serving_version="next-release",
         owner_module=__name__,
         target_kinds=["item", "deployment_run", "global"],
-        side_effects=[
-            "qa_plan_execution_write",
-            "coordination_claim",
-        ],
+        side_effects=["qa_plan_execution_write", "coordination_claim"],
         emitted_event_names=["LeaseAcquired", "YokeFunctionCalled"],
         guardrails=[
             "qa_subject_authority",
@@ -333,6 +330,7 @@ def register(registry) -> None:
         target_kinds=["global"],
         side_effects=[
             "verification_write",
+            "qa_artifact_write",
             "project_capability_write",
             "coordination_claim_release",
         ],

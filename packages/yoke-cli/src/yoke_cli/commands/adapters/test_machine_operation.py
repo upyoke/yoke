@@ -41,6 +41,15 @@ def run_host_operation(
 ) -> int:
     """Parse the operator's arguments and run one operation end to end."""
     parser = argparse.ArgumentParser(prog=prog)
+    if operation == "screenshot":
+        parser.description = (
+            "Capture the actual desktop as a validated PNG under the machine lease. "
+            "The receipt stores a durable QA artifact handle; artifact_path names a private local PNG. "
+            "macOS needs the test user's unlocked Terminal.app session and Screen Recording grant; "
+            "Linux needs one active XFCE display (provision with ops/machine-qa/provision_linux_desktop.py); "
+            "Windows needs the SSH account logged into an unlocked RDP desktop. "
+            "Close credentials/private windows when the case requires it. Failed or blank capture exits nonzero."
+        )
     parser.add_argument("--project", required=True)
     parser.add_argument("--machine")
     if with_baseline:
@@ -184,7 +193,47 @@ def _execute(
             )
     finally:
         submission.cleanup_artifacts()
-    return emit_response(_as_public(submit, operation), json_mode=json_mode)
+    if (
+        operation == "screenshot"
+        and submit.success
+        and (submit.result or {}).get("status") == "verified"
+    ):
+        try:
+            path = retain_screenshot(submission.payload)
+            submit = submit.model_copy(
+                update={"result": {**submit.result, "artifact_path": str(path)}}
+            )
+        except (OSError, ValueError) as exc:
+            return emit_response(
+                _local_execution_error(
+                    operation,
+                    "Screenshot receipt was recorded, but its local PNG could not be saved: "
+                    + str(exc),
+                    error_code="screenshot_local_save_failed",
+                    recovery_hint="Repair the machine's private temp directory and retry screenshot.",
+                ),
+                json_mode=json_mode,
+            )
+    exit_code = emit_response(_as_public(submit, operation), json_mode=json_mode)
+    if (
+        operation == "screenshot"
+        and submit.success
+        and (submit.result or {}).get("status") == "error"
+    ):
+        return 1
+    return exit_code
+
+
+def retain_screenshot(payload):
+    """Keep accepted PNG bytes in the same private free-path space reviewers use."""
+    from yoke_contracts.free_paths import private_free_path
+    from yoke_contracts.machine_screenshot import screenshot_png
+
+    content, _size = screenshot_png(payload["artifacts"][0]["content_base64"])
+    path = private_free_path("desktop.png", prefix="yoke-desktop.")
+    path.write_bytes(content)
+    path.chmod(0o600)
+    return path
 
 
 def abort_operation(

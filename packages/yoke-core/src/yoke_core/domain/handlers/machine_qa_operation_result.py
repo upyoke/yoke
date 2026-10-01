@@ -91,9 +91,16 @@ def _validate_single_row(
     )
 
 
-def _validate_diagnosis(parsed: Any) -> None:
+def _validate_diagnosis(parsed: Any, contract: HostControlExecutionContract) -> None:
+    from yoke_contracts.machine_qa_host_control import PERSISTENT_TERMINAL_BRIDGE_CHECKS
+
     names, outcomes = _named_rows(parsed.checks)
-    if names != list(TERMINAL_BRIDGE_CHECKS):
+    expected = (
+        TERMINAL_BRIDGE_CHECKS
+        if contract.settings["os"] == "macos"
+        else PERSISTENT_TERMINAL_BRIDGE_CHECKS
+    )
+    if names != list(expected):
         raise ValueError(
             "a bridge diagnosis reports every registered capability in order"
         )
@@ -128,12 +135,26 @@ def validate_operation_result(
                 raise ValueError(
                     "browser profile result must prove the issued sealed snapshot"
                 )
+    elif parsed.operation == "screenshot":
+        _validate_single_row(parsed, expected_name="screenshot")
+        if (
+            parsed.status == "verified"
+            and parsed.checks[0].get("os") != contract.settings["os"]
+        ):
+            raise ValueError("screenshot OS differs from its issued machine contract")
+        from yoke_core.domain.handlers.machine_qa_screenshot_artifact import (
+            validate_screenshot,
+        )
+
+        validate_screenshot(parsed)
     elif parsed.operation == BRIDGE_DIAGNOSE_OPERATION:
-        _validate_diagnosis(parsed)
+        _validate_diagnosis(parsed, contract)
     else:
         raise ValueError(
             f"{parsed.operation!r} is not an operator-run test-machine operation"
         )
+    if parsed.operation != "screenshot" and parsed.artifacts:
+        raise ValueError("only screenshot operations carry artifacts")
     ensure_secret_free_result(parsed.model_dump(mode="json"))
 
 

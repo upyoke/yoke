@@ -66,7 +66,7 @@ def operation_contract_shape(
             "golden_destination": golden_destination,
             "capture_component": capture_component,
         }
-    if operation == BRIDGE_DIAGNOSE_OPERATION:
+    if operation in {BRIDGE_DIAGNOSE_OPERATION, "screenshot"}:
         return {"checks": [], "baselines": [], "golden_destination": None}
     raise TestMachineOperationShapeError(
         f"{operation!r} is not an operator-run test-machine operation"

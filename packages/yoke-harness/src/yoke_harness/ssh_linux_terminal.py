@@ -9,9 +9,6 @@ from typing import Any, Mapping, Sequence
 
 from yoke_harness.test_machine_types import HostActionResult
 
-SCREENSHOT_DEFERRAL = "headless_linux_screenshot_unavailable"
-SCREENSHOT_RECOVERY = "Use a macOS Test Machine for GUI screenshot evidence; Linux QA uses tmux transcripts."
-
 
 class LinuxTerminal:
     """One disposable tmux session inside a persistent, leased test host."""
@@ -57,6 +54,45 @@ class LinuxTerminal:
             raise RuntimeError("linux_tmux_transcript_failed")
         return result.stdout
 
+    def show(self) -> bool:
+        from yoke_harness.linux_desktop_session import desktop_command
+
+        launch = (
+            shlex.join(
+                [
+                    "xfce4-terminal",
+                    "--disable-server",
+                    "--title",
+                    self.session,
+                    "--execute",
+                    "tmux",
+                    "attach-session",
+                    "-t",
+                    self.session,
+                ]
+            )
+            + " >/dev/null 2>&1 &"
+        )
+        try:
+            launched = desktop_command(
+                self.control, ["/bin/sh", "-c", launch], timeout=10
+            )
+            visible = desktop_command(
+                self.control,
+                [
+                    "xdotool",
+                    "search",
+                    "--sync",
+                    "--onlyvisible",
+                    "--name",
+                    self.session,
+                ],
+                timeout=10,
+            )
+            return launched.returncode == 0 and visible.returncode == 0
+        except RuntimeError:
+            return False
+
     def wait_for(
         self, text: str, deadline: float, progress_callback=None
     ) -> str | None:
@@ -93,6 +129,14 @@ def run_linux_terminal_case(
                 {"recovery": "Install tmux and check the non-root SSH user's shell."},
                 "linux_tmux_unavailable",
             )
+        if capture_checkpoints and not terminal.show():
+            return HostActionResult(
+                False,
+                {
+                    "recovery": "Provision and unlock the dedicated XFCE desktop; install xfce4-terminal and xdotool, then rerun.",
+                },
+                "linux_terminal_window_unavailable",
+            )
         for step in steps:
             if step.get("send") and not terminal.send(str(step["send"])):
                 return HostActionResult(
@@ -125,6 +169,15 @@ def run_linux_terminal_case(
                     },
                     "linux_tmux_expectation_timeout",
                 )
+            if str(step["key"]) in capture_checkpoints:
+                try:
+                    rows[-1].update(control.capture_terminal_checkpoint())
+                except RuntimeError as exc:
+                    return HostActionResult(
+                        False,
+                        {"steps": rows, "recovery": str(exc)},
+                        "desktop_screenshot_failed",
+                    )
         completed = any(row["key"] == required_completion and row["ok"] for row in rows)
         return HostActionResult(
             completed,
@@ -132,14 +185,6 @@ def run_linux_terminal_case(
                 "terminal_backend": "tmux",
                 "steps": rows,
                 "transcript": terminal.transcript(),
-                "capture_degraded_reason": SCREENSHOT_DEFERRAL,
-                "designed_deferrals": [
-                    {
-                        "code": SCREENSHOT_DEFERRAL,
-                        "outcome": "deferred",
-                        "recovery": SCREENSHOT_RECOVERY,
-                    }
-                ],
             },
             None if completed else "terminal_completion_not_proved",
         )
@@ -163,26 +208,31 @@ def diagnose_linux_terminal(control: Any) -> HostActionResult:
             "printf '%s%s\\n' " + shlex.join([token[:12], token[12:]])
         )
         transcript = terminal.wait_for(token, time.monotonic() + 10) if opened else None
+        capture = control.capture_screenshot()
+        from yoke_contracts.machine_qa_host_control import (
+            PERSISTENT_TERMINAL_BRIDGE_CHECKS,
+        )
+
         checks = [
-            {"name": "tmux_session", "ok": opened},
+            {"name": PERSISTENT_TERMINAL_BRIDGE_CHECKS[0], "ok": opened},
             {
-                "name": "tmux_input_transcript",
+                "name": PERSISTENT_TERMINAL_BRIDGE_CHECKS[1],
                 "ok": transcript is not None,
                 "transcript": token if transcript is not None else "",
             },
             {
-                "name": "gui_screenshot",
-                "ok": True,
-                "outcome": "deferred",
-                "code": SCREENSHOT_DEFERRAL,
-                "recovery": SCREENSHOT_RECOVERY,
+                "name": PERSISTENT_TERMINAL_BRIDGE_CHECKS[2],
+                "ok": capture.ok,
+                **{
+                    k: v for k, v in capture.evidence.items() if k != "capture_artifact"
+                },
             },
         ]
-        ok = opened and transcript is not None
+        ok = opened and transcript is not None and capture.ok
         return HostActionResult(
             ok,
             {"checks": checks, "terminal_backend": "tmux"},
-            None if ok else "linux_tmux_bridge_unavailable",
+            None if ok else (capture.error_code or "linux_tmux_bridge_unavailable"),
         )
     finally:
         if not terminal.close():

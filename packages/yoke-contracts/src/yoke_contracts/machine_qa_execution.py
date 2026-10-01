@@ -168,7 +168,7 @@ class HostControlExecutionContract(BaseModel):
                 raise ValueError("reset contracts carry one baseline and nothing else")
             if len(self.baselines) != 1 or self.baselines[0] not in (HOST_BASELINES):
                 raise ValueError("reset contract names one registered baseline")
-        elif self.operation in {GOLDEN_CAPTURE_OPERATION, BRIDGE_DIAGNOSE_OPERATION}:
+        elif self.operation in TEST_MACHINE_OPERATIONS:
             if self.cases or self.checks or self.baselines:
                 raise ValueError(
                     f"{self.operation} contracts carry no cases, checks, or baselines"
