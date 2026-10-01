@@ -1,5 +1,9 @@
 # Manual product smoke on Linux and macOS
 
+For signed-in native Claude, Codex and Cursor sessions on persistent test
+machines, use [Real harness Machine QA](real-harness.md). That manual plan
+complements the disposable-runner hook replay below.
+
 The Yoke project plan `product-smoke` has one `command-ci` case bound to
 `product-smoke.yml`. Its manually dispatched matrix runs the complete smoke on
 all three GitHub-hosted disposable runners. Nothing schedules it or attaches it to
