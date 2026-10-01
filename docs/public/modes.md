@@ -47,6 +47,11 @@ Run Yoke core and Postgres on your own server.
 - Same product surfaces as Cloud for Yoke-owned tabs; platform Member/Billing
   sections depend on how you host the shell
 
+`yoke self-host init` warns when `YOKE_API_PUBLISH` in the bundle's `.env`
+publishes beyond loopback. Docker bypasses ufw/firewalld for published ports;
+bind to `127.0.0.1` behind a TLS reverse proxy, or restrict access upstream.
+The warning never blocks setup or startup.
+
 ## Source available
 
 Yoke is Fair Source (FSL-1.1-ALv2). Use, modify, and self-host; the license

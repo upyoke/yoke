@@ -48,6 +48,44 @@ def test_init_does_not_create_an_empty_token_file(target, capsys):
     assert "--protect-existing --start" in capsys.readouterr().out
 
 
+@pytest.mark.parametrize(
+    "publish, warns",
+    [
+        ("127.0.0.1:8765", False),
+        ("127.0.0.2:8765", False),
+        ("[::1]:8765", False),
+        ("0.0.0.0:8765", True),
+        ("192.168.1.10:8765", True),
+        ("[::]:8765", True),
+        ("8765", True),
+    ],
+)
+@pytest.mark.parametrize("start", [False, True])
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_init_warns_once_for_network_publish(
+    target, capsys, monkeypatch, publish, warns, start, json_mode
+):
+    assert commands.self_host_init(["--dir", str(target)]) == 0
+    assert capsys.readouterr().err == ""
+    env_path = target / ".env"
+    env_path.write_text(env_path.read_text().replace("127.0.0.1:8765", publish))
+    monkeypatch.setattr(commands.runtime, "start_bundle", lambda **kwargs: None)
+    args = ["--dir", str(target), "--protect-existing"]
+    if start:
+        args.append("--start")
+    if json_mode:
+        args.append("--json")
+    assert commands.self_host_init(args) == 0
+    output = capsys.readouterr()
+    if json_mode:
+        assert json.loads(output.out)["ok"] is True
+    assert output.err.count("warning:") == int(warns)
+    if warns:
+        assert "Docker bypasses ufw/firewalld for published ports" in output.err
+        assert "127.0.0.1 behind a TLS reverse proxy" in output.err
+        assert "restrict access upstream" in output.err
+
+
 def test_init_never_truncates_an_already_delivered_token(target):
     assert commands.self_host_init(["--dir", str(target)]) == 0
     token_file = first_boot_token.token_drop_path(target)

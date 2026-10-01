@@ -119,6 +119,10 @@ fleet-coordinated download route instead of this self-host boundary.
 By default the API publishes on loopback only (`127.0.0.1:8765`). To
 serve your network, edit `YOKE_API_PUBLISH` in `.env` (for example
 `0.0.0.0:8765`) and put TLS in front — see the operator notes below.
+Docker bypasses ufw/firewalld for published ports; bind to `127.0.0.1`
+behind a TLS reverse proxy, or restrict access upstream. `yoke self-host init`
+warns when the configured publish address is beyond loopback, including on
+`--protect-existing --start`; the warning never blocks setup or startup.
 
 ## Engineer machines
 
