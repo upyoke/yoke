@@ -114,7 +114,8 @@ def test_bundle_holds_session_then_audit_checks_in_order():
     """Session checks precede the ledger audit, then the reflection audits."""
     slugs = [hc.slug for hc in HARNESS_HEALTH_CHECKS]
     assert slugs == (
-        list(_ENGINE_SESSION_SLUGS)
+        ["windows-mount-checkout", "wsl-systemd"]
+        + list(_ENGINE_SESSION_SLUGS)
         + list(_ENGINE_CONFIG_SLUGS)
         + list(_ENGINE_LEDGER_AUDIT_SLUGS)
         + list(_ENGINE_REFLECTION_SLUGS)

@@ -6,7 +6,6 @@ import argparse
 import sys
 
 from yoke_cli.commands._helpers import parse_or_usage_error
-from yoke_harness.wsl_systemd import setup
 
 WSL_SETUP_USAGE = "yoke wsl setup"
 
@@ -20,6 +19,11 @@ def wsl_setup(args: list[str]) -> int:
         ),
     )
     if parse_or_usage_error(parser, args, WSL_SETUP_USAGE) is None:
+        return 2
+    try:
+        from yoke_harness.wsl_systemd import setup
+    except ImportError as exc:
+        print(f"{WSL_SETUP_USAGE} requires yoke-harness: {exc}", file=sys.stderr)
         return 2
     try:
         setup()

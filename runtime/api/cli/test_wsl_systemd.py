@@ -206,6 +206,6 @@ def test_cli_reports_named_setup_failure(monkeypatch, capsys):
     def failure():
         raise RuntimeError("wsl_config_write_failed: recovery step")
 
-    monkeypatch.setattr(adapter, "setup", failure)
+    monkeypatch.setattr(wsl, "setup", failure)
     assert adapter.wsl_setup([]) == 1
     assert "wsl_config_write_failed" in capsys.readouterr().err

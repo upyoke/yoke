@@ -1,8 +1,11 @@
 """Harness / session substrate health-check bundle.
 
 A registry slice carved out of :mod:`doctor_registry` so the parent file stays
-under the 350-line authored-file limit. Four groups of harness-side checks
+under the 350-line authored-file limit. Five groups of harness-side checks
 live here, in this order:
+
+Linux/WSL setup:
+  ``windows-mount-checkout``, ``wsl-systemd``.
 
 Session/harness substrate:
   ``stale-sessions``, ``stale-session-reclaimer-alive``,
