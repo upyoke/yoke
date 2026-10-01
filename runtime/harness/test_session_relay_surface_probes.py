@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import subprocess
+import plistlib
 from threading import Event
 from types import SimpleNamespace
 
@@ -12,6 +13,42 @@ from yoke_harness import session_relay_surface_identity as identity_module
 from yoke_harness import session_relay_surface_probe_cache as probe_cache
 from yoke_harness import session_relay_surface_probes as probes
 from yoke_harness.session_relay_inventory import RelayInventory
+from yoke_harness.session_relay_inventory import probe_surface_version
+from yoke_contracts.session_control.surface_versions import surface_version_meets_floor
+
+
+def test_linux_desktop_versions_reach_inventory_and_existing_floor(monkeypatch) -> None:
+    monkeypatch.setattr(probes.sys, "platform", "linux")
+    monkeypatch.setattr(
+        probes, "read_linux_desktop_version", lambda surface: ("package", "3.18.2")
+    )
+    result = probes.probe_surface("cursor-desktop")
+    assert result.verdict == "ok"
+    assert result.source == "package"
+    assert probe_surface_version("cursor-desktop") == result.version
+    assert surface_version_meets_floor("cursor-desktop", result.version, "3.17.8")
+    assert not surface_version_meets_floor("cursor-desktop", result.version, "3.19.0")
+
+
+def test_macos_desktop_still_reads_bundle(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(probes.sys, "platform", "darwin")
+    path = tmp_path / "Info.plist"
+    path.write_bytes(plistlib.dumps({"CFBundleShortVersionString": "3.18.2"}))
+    result = probes.probe_app_surface("cursor-desktop", path)
+    assert result.verdict == "ok"
+    assert result.version == "3.18.2"
+
+
+def test_linux_metadata_timeout_retains_probe_diagnostic(monkeypatch) -> None:
+    monkeypatch.setattr(probes.sys, "platform", "linux")
+
+    def timeout(_surface):
+        raise subprocess.TimeoutExpired("dpkg-query", 10)
+
+    monkeypatch.setattr(probes, "read_linux_desktop_version", timeout)
+    result = probes.probe_surface("claude-desktop")
+    assert result.verdict == "timeout"
+    assert "desktop_metadata_timeout" in result.error
 
 
 def _result(

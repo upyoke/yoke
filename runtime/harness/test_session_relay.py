@@ -80,7 +80,7 @@ def test_inventory_reports_versions_and_project_ids_without_checkout_paths(
 
     observed = inventory_module.collect_inventory(
         cli_probe=lambda command: "1.2.3" if command[0] == "codex" else None,
-        app_probe=lambda path: "2.3.4" if "Cursor" in str(path) else None,
+        app_probe=lambda surface: "2.3.4" if surface == "cursor-desktop" else None,
     )
 
     payload = observed.claim_payload()
@@ -97,7 +97,7 @@ def test_single_surface_version_uses_matching_probe(monkeypatch) -> None:
     monkeypatch.setattr(
         inventory_module,
         "probe_app_version",
-        lambda path: "26.818.31338" if "ChatGPT" in str(path) else None,
+        lambda surface: "26.818.31338" if surface == "codex-desktop" else None,
     )
 
     assert inventory_module.probe_surface_version("codex-desktop") == "26.818.31338"
