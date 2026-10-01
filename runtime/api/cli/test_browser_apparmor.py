@@ -18,7 +18,6 @@ def setup(tmp_path, monkeypatch):
     directory = tmp_path / "apparmor.d"
     directory.mkdir()
     monkeypatch.setattr(aa, "RESTRICTION", restriction)
-    monkeypatch.setattr(aa, "PROFILES", loaded)
     monkeypatch.setattr(aa, "PROFILE_DIRECTORY", directory)
     monkeypatch.setattr(aa.sys, "platform", "linux")
     monkeypatch.setattr(aa.shutil, "which", lambda name: "/usr/sbin/" + name)
@@ -34,6 +33,13 @@ def setup(tmp_path, monkeypatch):
     def run(command, **kwargs):
         commands.append((command, kwargs))
         if "-e" in command:
+            if aa.SANDBOX_PROBE_JS in command:
+                return subprocess.CompletedProcess(
+                    command,
+                    0 if loaded.read_text() else 1,
+                    "",
+                    "No usable sandbox" if not loaded.read_text() else "",
+                )
             return subprocess.CompletedProcess(command, 0, json.dumps(executables), "")
         destination, content, _ = command[-3:]
         aa.Path(destination).write_text(content)
@@ -80,7 +86,7 @@ def test_unrestricted_hosts_need_no_profile_or_authority(setup, value):
 
 def test_install_exact_paths_and_skip_already_loaded_profile(setup):
     setup.ensure()
-    command, kwargs = setup.commands[-1]
+    command, kwargs = setup.commands[-2]
     assert command[:3] == ["sudo", "-n", "--"]
     assert kwargs["capture_output"] is True
     content = command[-2]
@@ -89,17 +95,17 @@ def test_install_exact_paths_and_skip_already_loaded_profile(setup):
         assert f'"{path}" flags=(unconfined)' in content
     assert "*" not in content
     setup.ensure()
-    assert len(setup.commands) == 3  # only a path probe on the second startup
-    assert "already loaded" in setup.logs[-1]
+    assert len(setup.commands) == 5  # path and sandbox probes on later startup
+    assert "already verified" in setup.logs[-1]
 
 
 def test_browser_update_replaces_old_attachments_in_same_profile(setup):
     setup.ensure()
-    destination = setup.commands[-1][0][-3]
+    destination = setup.commands[-2][0][-3]
     old_paths = list(setup.executables)
     setup.executables[:] = [path.replace("chrome", "new-chrome") for path in old_paths]
     setup.ensure()
-    command = setup.commands[-1][0]
+    command = setup.commands[-2][0]
     assert command[-3] == destination
     assert all(f'"{path}"' not in command[-2] for path in old_paths)
     assert "-r" in aa.INSTALL_PROFILE
@@ -109,7 +115,7 @@ def test_file_alone_does_not_prove_loaded_kernel_profile(setup):
     setup.ensure()
     setup.loaded.write_text("")
     setup.ensure()
-    assert len(setup.commands) == 4
+    assert len(setup.commands) == 7
 
 
 def test_failed_profile_load_stops_setup_with_cause_and_recovery(setup, monkeypatch):
@@ -140,7 +146,7 @@ def test_parser_success_requires_loaded_kernel_profiles(setup, monkeypatch):
             else subprocess.CompletedProcess(command, 0, "", "")
         ),
     )
-    with pytest.raises(RuntimeError, match="not loaded into the kernel"):
+    with pytest.raises(RuntimeError, match="sandbox launch failed"):
         setup.ensure()
 
 

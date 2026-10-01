@@ -12,7 +12,6 @@ from pathlib import Path
 from yoke_harness.system_privileges import command_authority
 
 RESTRICTION = Path("/proc/sys/kernel/apparmor_restrict_unprivileged_userns")
-PROFILES = Path("/sys/kernel/security/apparmor/profiles")
 PROFILE_DIRECTORY = Path("/etc/apparmor.d")
 RECOVERY = (
     "Allow Yoke system setup through root or sudo, ensure AppArmor tooling is installed, "
@@ -53,6 +52,16 @@ finally:
         os.unlink(temporary)
 """
 
+SANDBOX_PROBE_JS = r"""
+const { chromium } = require('playwright');
+(async () => {
+  for (const executablePath of JSON.parse(process.argv[1])) {
+    const browser = await chromium.launch({ executablePath, headless: true, chromiumSandbox: true });
+    await browser.close();
+  }
+})().catch(error => { console.error(error.message); process.exit(1); });
+"""
+
 
 def _failure(detail):
     return RuntimeError(f"browser_apparmor_setup_failed: {detail}. {RECOVERY}")
@@ -62,7 +71,6 @@ def _profile(browser, executables):
     identity = hashlib.sha256(str(browser.resolve()).encode()).hexdigest()[:16]
     name = f"yoke-chromium-{identity}"
     rules = ["abi <abi/4.0>,", "include <tunables/global>", ""]
-    names = []
     for index, executable in enumerate(executables):
         path = Path(executable)
         if not path.is_absolute() or any(c in executable for c in '*?[]{}^"\\\n\r'):
@@ -70,7 +78,6 @@ def _profile(browser, executables):
                 "Chromium path cannot be expressed as an exact AppArmor attachment"
             )
         profile_name = f"{name}-{index}"
-        names.append(profile_name)
         rules.extend(
             [
                 f'profile {profile_name} "{executable}" flags=(unconfined) {{',
@@ -79,17 +86,27 @@ def _profile(browser, executables):
                 "",
             ]
         )
-    return PROFILE_DIRECTORY / name, "\n".join(rules), names
+    return PROFILE_DIRECTORY / name, "\n".join(rules)
 
 
-def _current(destination, content, names):
+def _current(destination, content):
     try:
-        loaded = PROFILES.read_text().splitlines()
-        return destination.read_text() == content and all(
-            f"{name} (unconfined)" in loaded for name in names
-        )
+        return destination.read_text() == content
     except OSError:
         return False
+
+
+def _sandbox_probe(browser, toolchain, env, executables):
+    # The kernel's profile list requires CAP_MAC_ADMIN. Prove actual sandboxed
+    # launches without demanding root on every later browser startup.
+    return subprocess.run(
+        [str(toolchain.node), "-e", SANDBOX_PROBE_JS, json.dumps(executables)],
+        cwd=str(browser),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
 
 
 def ensure_chromium_apparmor(browser, toolchain, *, env, emit, autoinstall=True):
@@ -114,11 +131,12 @@ def ensure_chromium_apparmor(browser, toolchain, *, env, emit, autoinstall=True)
             raise _failure(
                 f"cannot resolve Chromium binaries: {result.stderr or result.stdout}"
             )
-        destination, content, names = _profile(browser, executables)
-        if _current(destination, content, names):
-            emit(
-                "[browser-auto-bootstrap] Chromium AppArmor userns profiles already loaded"
-            )
+        destination, content = _profile(browser, executables)
+        if (
+            _current(destination, content)
+            and _sandbox_probe(browser, toolchain, env, executables).returncode == 0
+        ):
+            emit("[browser-auto-bootstrap] Chromium AppArmor sandbox already verified")
             return
         if not autoinstall:
             raise _failure(
@@ -159,9 +177,16 @@ def ensure_chromium_apparmor(browser, toolchain, *, env, emit, autoinstall=True)
             raise _failure(
                 f"cannot install/load Chromium profile: {result.stderr or result.stdout or result.returncode}"
             )
-        # A parser success alone is insufficient: the kernel must have admitted it.
-        if not _current(destination, content, names):
-            raise _failure("Chromium AppArmor profiles were not loaded into the kernel")
+        # A parser success alone is insufficient: both binaries must sandbox.
+        probe = _sandbox_probe(browser, toolchain, env, executables)
+        if probe.returncode:
+            raise _failure(
+                f"Chromium sandbox launch failed: {probe.stderr or probe.stdout}"
+            )
         emit("[browser-auto-bootstrap] Chromium AppArmor userns profiles verified")
     except (OSError, ValueError) as exc:
         raise _failure(str(exc)) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise _failure(
+            "Chromium sandbox check timed out; check browser process health"
+        ) from exc
