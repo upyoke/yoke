@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import shutil
 import struct
 import subprocess
 from typing import Callable
-
-from yoke_core.domain.json_helper import loads_text
 
 # Type-2 AppImages append SquashFS after a small ELF runtime.
 _RUNTIME_SCAN_BYTES = 4 * 1024 * 1024
@@ -17,7 +16,7 @@ CURSOR_VERSION_FILE = "usr/share/cursor/resources/app/package.json"
 
 def cursor_version(text: str) -> str:
     try:
-        payload = loads_text(text)
+        payload = json.loads(text)
     except ValueError as exc:
         raise ValueError(
             "cursor_version_invalid: reinstall Cursor; package.json is not valid JSON"
