@@ -239,7 +239,7 @@ class TestAddRemoveItem:
         assert "100" in msg
 
         items_out = dr.cmd_items(rid, db_path=db_path)
-        assert "100" in items_out
+        assert [line.split("|")[1] for line in items_out.splitlines()] == ["100"]
 
     def test_add_multiple_items(self, db_path):
         rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
@@ -249,8 +249,7 @@ class TestAddRemoveItem:
         dr.cmd_add_item(rid, 200, db_path=db_path)
 
         items_out = dr.cmd_items(rid, db_path=db_path)
-        lines = items_out.strip().split("\n")
-        assert len(lines) == 2
+        assert [line.split("|")[1] for line in items_out.splitlines()] == ["100", "200"]
 
     def test_remove_item(self, db_path):
         from yoke_core.domain.qa_schema import cmd_init
@@ -267,8 +266,7 @@ class TestAddRemoveItem:
         dr.cmd_remove_item(rid, 100, reason="test removal", db_path=db_path)
 
         items_out = dr.cmd_items(rid, db_path=db_path)
-        assert "200" in items_out
-        assert "100" not in items_out
+        assert [line.split("|")[1] for line in items_out.splitlines()] == ["200"]
 
     @pytest.mark.parametrize(
         "status",

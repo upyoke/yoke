@@ -59,10 +59,8 @@ class TestItems:
         dr.cmd_add_item(rid, 200, db_path=db_path)
         dr.cmd_add_item(rid, 100, db_path=db_path)
         result = dr.cmd_items(rid, db_path=db_path)
-        lines = result.strip().split("\n")
         # Ordered by item_id ASC
-        assert "100" in lines[0]
-        assert "200" in lines[1]
+        assert [line.split("|")[1] for line in result.splitlines()] == ["100", "200"]
 
 
 class TestFindByItem:
@@ -96,12 +94,16 @@ class TestLineage:
 
     def test_lineage_returns_related_runs(self, db_path):
         r1 = dr.cmd_create_run(
-            "yoke", "yoke-internal",
-            release_lineage="rel-001", db_path=db_path,
+            "yoke",
+            "yoke-internal",
+            release_lineage="rel-001",
+            db_path=db_path,
         )
         dr.cmd_create_run(
-            "yoke", "yoke-internal",
-            release_lineage="rel-001", db_path=db_path,
+            "yoke",
+            "yoke-internal",
+            release_lineage="rel-001",
+            db_path=db_path,
         )
         result = dr.cmd_lineage(r1, db_path=db_path)
         assert result is not None
@@ -120,7 +122,8 @@ class TestLineage:
 
     def test_lineage_final_status(self, db_path):
         dr.cmd_create_run(
-            "yoke", "yoke-internal",
+            "yoke",
+            "yoke-internal",
             release_lineage="rel-final",
             environment="prod",
             db_path=db_path,
@@ -134,7 +137,8 @@ class TestLineage:
 
     def test_lineage_final_status_succeeded(self, db_path):
         rid = dr.cmd_create_run(
-            "yoke", "yoke-internal",
+            "yoke",
+            "yoke-internal",
             release_lineage="rel-succ",
             environment="prod",
             db_path=db_path,
