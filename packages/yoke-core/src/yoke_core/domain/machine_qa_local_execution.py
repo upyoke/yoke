@@ -191,6 +191,11 @@ def _mission_contract(
     return contract
 
 
+def _mission_manages_packages(contract: HostControlExecutionContract) -> bool:
+    case = contract.cases[0]
+    return bool(case.host_baseline or case.method_config.get("host_starting_state"))
+
+
 def prepare_agent_mission_contract(
     raw_contract: dict[str, Any],
     *,
@@ -201,18 +206,18 @@ def prepare_agent_mission_contract(
     execution = _execution(contract, progress_callback=progress_callback)
     if progress_callback is not None:
         progress_callback()
-    baseline_name = (
-        contract.baselines[0]
-        if contract.baselines
-        else (None if contract.continues_execution_id else "fresh-host")
-    )
+    baseline_name = contract.baselines[0] if contract.baselines else None
     baseline = execution.reach_baseline(baseline_name) if baseline_name else None
     if progress_callback is not None:
         progress_callback()
     from yoke_harness.qa_host_package_fixture import restore_host_packages
 
     packages = {}
-    if not contract.continues_execution_id and (baseline is None or baseline.ok):
+    if (
+        _mission_manages_packages(contract)
+        and not contract.continues_execution_id
+        and (baseline is None or baseline.ok)
+    ):
         packages = restore_host_packages(
             execution.control,
             contract.cases[0].method_config.get("host_starting_state"),
@@ -262,7 +267,11 @@ def execute_agent_mission_host_command(
             timeout=timeout_seconds,
         )
     finally:
-        packages = record_host_packages(execution.control)
+        packages = (
+            record_host_packages(execution.control)
+            if _mission_manages_packages(contract)
+            else {}
+        )
     context_failure = (
         classify_macos_session_context_failure(completed)
         if completed.returncode != 0 and not gui_session

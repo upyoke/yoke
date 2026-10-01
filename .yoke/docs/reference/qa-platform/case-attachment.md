@@ -228,9 +228,11 @@ Exploratory mission `method_config` can declare an apt package fixture:
 }
 ```
 
-Every fresh mission restores its golden home (default `fresh-host`), undoes the
-preceding mission's package delta, applies the declaration and records proof
-before walking. Linux and WSL fixtures use apt; a declaration on another OS
+Only an explicitly declared host baseline restores the golden home. An empty
+baseline list preserves the live home and, absent `host_starting_state`, leaves
+packages and their journal untouched. A named baseline or explicit fixture
+undoes the preceding mission's package delta, applies the declaration and
+records proof before walking. Linux and WSL fixtures use apt; a declaration on another OS
 refuses with the supported host named. Package changes made through
 `yoke qa mission host-command` are journaled, including transitive installs and
 failed commands. The owner-only journal lives beside the golden archive,

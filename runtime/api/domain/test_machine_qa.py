@@ -72,8 +72,9 @@ def test_pack_owns_serial_machine_and_exploratory_method_definitions() -> None:
             "macOS GUI-session commands."
         ),
         "exploratory-mission": (
-            "Agent-chosen exploration across declared substrates. Do not use "
-            "it for deterministic checks: Command methods are faster, "
+            "Agent-chosen exploration across declared substrates; an empty baseline "
+            "preserves the live host. Do not use it for deterministic checks: "
+            "Command methods are faster, "
             "cheaper, and repeatable."
         ),
     }

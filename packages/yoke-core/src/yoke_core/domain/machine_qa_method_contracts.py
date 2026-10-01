@@ -55,6 +55,37 @@ def validate_machine_method_config(
     definition = machine_method_definition(method_id)
     if not isinstance(config, Mapping):
         raise MachineQaExecutionError("method_config must be an object")
+    from yoke_core.domain.machine_qa_case_machine import (
+        MachineConstraintError,
+        normalize_config_machine,
+    )
+
+    config = dict(config)
+    try:
+        machine = normalize_config_machine(
+            str(definition["config_contract_id"]), config
+        )
+    except MachineConstraintError as exc:
+        raise MachineQaExecutionError(str(exc)) from exc
+    config.pop("machine", None)
+    result = _validate_method_payload(
+        definition,
+        config,
+        entry_surface=entry_surface,
+        required_completion=required_completion,
+        host_baseline=host_baseline,
+    )
+    return {**result, **({"machine": machine} if machine is not None else {})}
+
+
+def _validate_method_payload(
+    definition: Mapping[str, Any],
+    config: Mapping[str, Any],
+    *,
+    entry_surface: str | None,
+    required_completion: str | None,
+    host_baseline: str | None,
+) -> dict[str, Any]:
     if host_baseline is not None and host_baseline not in _REGISTERED_HOST_BASELINES:
         raise MachineQaExecutionError(
             f"unknown registered host baseline {host_baseline!r}"
