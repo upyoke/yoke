@@ -26,6 +26,9 @@ execution machines. Administrator accounts use
 Administrators/SYSTEM. Private keys never belong in user data or evidence.
 WSL distros are per Windows user: install under the SSH account, not an
 unrelated system service account.
+Check the active network profile: the default OpenSSH rule can be Private-only
+on a Public-profile EC2 interface. Set that rule's profile to `Any` while
+keeping the AWS security group's source-IP restriction.
 
 ## WSL2 and the Linux home
 
@@ -45,6 +48,15 @@ default=yoketest
 Restart WSL with `wsl --shutdown`. Prove `wsl -e id -u` is nonzero and
 systemd runs. Install the Linux prerequisites and harness CLIs in that home;
 perform vendor sign-in through documented operator paths.
+If native installation under a service account reports WSL absent, use
+Microsoft's [offline MSI installation](https://learn.microsoft.com/en-us/windows/wsl/install#offline-install)
+with its published digest, then install the distro under the SSH account.
+
+Give the test user passwordless sudo for automatic privileged library setup:
+write `yoketest ALL=(ALL) NOPASSWD: ALL` to
+`/etc/sudoers.d/yoke-test-user`, set mode `0440`, and validate both `visudo -c`
+and `sudo -n true` as the user. Include that system prerequisite in the host
+baseline contract. Full onboarding, including browser QA, must pass.
 
 ## Golden and verification
 
