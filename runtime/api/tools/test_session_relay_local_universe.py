@@ -218,8 +218,8 @@ def test_local_relay_status_reports_the_installed_launcher(
     )
     monkeypatch.setattr(
         install_session_relay,
-        "relay_launchd_status",
-        lambda **_kwargs: SimpleNamespace(
+        "relay_service_operation",
+        lambda _action, **_kwargs: SimpleNamespace(
             supported=True,
             plist_present=True,
             loaded=True,

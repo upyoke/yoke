@@ -1,6 +1,7 @@
 """Friendly labels for ``yoke onboard`` write-plan steps."""
 
 from __future__ import annotations
+from yoke_cli.config import onboard_relay_supervisor
 
 from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
@@ -82,6 +83,10 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
         return "Install the browser and check Linux system libraries"
     if action == "create-runtime-dir":
         return f"Set up the {_RUNTIME_DIR_LABELS.get(target, target)} directory"
+    if action == onboard_relay_supervisor.UNIT_INSTALL_ACTION:
+        return f"Install the machine relay systemd user unit at {target}"
+    if action == onboard_relay_supervisor.UNIT_ENABLE_ACTION:
+        return "Enable the machine relay at login; stop at logout without linger"
     if action == "install-session-relay-plist":
         return f"Install the machine relay plist at {target}"
     if action == "load-session-relay-login-item":

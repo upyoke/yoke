@@ -276,9 +276,11 @@ def test_apply_records_what_the_relay_step_did(monkeypatch) -> None:
     assert {status for _action, _target, status in emitted} == {"running", "done"}
 
 
-def test_relay_is_unsupported_off_darwin_for_every_destination(monkeypatch) -> None:
-    """launchd is the supervisor, so the platform decides -- not the plane."""
-    monkeypatch.setattr(onboard_session_relay.sys, "platform", "linux")
+def test_relay_is_unsupported_off_native_platforms_for_every_destination(
+    monkeypatch,
+) -> None:
+    """The destination does not determine whether a native supervisor exists."""
+    monkeypatch.setattr(onboard_session_relay.sys, "platform", "win32")
 
     for local_destination in (False, True):
         assert not onboard_session_relay.is_supported(

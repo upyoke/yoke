@@ -319,7 +319,9 @@ def test_legacy_status_helper_uses_the_same_health_contract(
         lambda **_kwargs: SimpleNamespace(follows_served_release=True),
     )
     monkeypatch.setattr(
-        install_session_relay, "relay_launchd_status", lambda **_kwargs: status
+        install_session_relay,
+        "relay_service_operation",
+        lambda _action, **_kwargs: status,
     )
     monkeypatch.setattr(
         install_session_relay,

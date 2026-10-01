@@ -11,6 +11,8 @@ Private on your machine. No signup. One human, as many agents as you want.
 - The machine relay is installed here too, so the workbench sees which harnesses
   this machine can start, reports session liveness, and can launch and resume
   sessions. It runs your installed Yoke and needs no account or API token.
+  macOS uses a LaunchAgent; Linux uses a systemd user service that stops at
+  logout without linger. See [Linux relay supervision](reference/linux-relay.md).
 - Open the workbench with `yoke ui up` (detached; `yoke ui` reports it, `yoke ui down` stops it)
 - Members and Billing tabs do not apply (Cloud-only platform features)
 

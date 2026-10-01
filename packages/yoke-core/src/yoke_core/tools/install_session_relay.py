@@ -1,4 +1,4 @@
-"""Operator utility for the macOS machine relay in either build mode."""
+"""Operator utility for the native machine relay in either build mode."""
 
 from __future__ import annotations
 
@@ -14,10 +14,13 @@ from yoke_cli.config.session_relay_instance import (
 )
 from yoke_core.tools.session_relay_plist import (
     RelayInstallError,
-    RelayLaunchdStatus,
-    install_relay_launchd,
-    relay_launchd_status,
-    uninstall_relay_launchd,
+)
+from yoke_core.tools.session_relay_systemd import RelaySystemdStatus
+from yoke_core.tools.session_relay_plist import RelayLaunchdStatus
+from yoke_core.tools.session_relay_service import (
+    relay_service_operation,
+    relay_service_current,
+    relay_service_present,
 )
 from yoke_core.tools.session_relay_local_install import (
     local_launcher_path,
@@ -29,7 +32,7 @@ from yoke_core.tools.session_relay_release import relay_release_status
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="install_session_relay",
-        description="Install, inspect, or uninstall the macOS Yoke relay launch agent.",
+        description="Install, inspect, or uninstall the Yoke relay user service.",
     )
     parser.add_argument("action", choices=("install", "status", "uninstall"))
     parser.add_argument(
@@ -73,19 +76,20 @@ def _runnable(instance: RelayInstance, *, refresh_served: bool) -> bool:
     return runnable
 
 
-def relay_is_satisfied(status: RelayLaunchdStatus, *, runnable: bool) -> bool:
+def relay_is_satisfied(
+    status: RelayLaunchdStatus | RelaySystemdStatus, *, runnable: bool
+) -> bool:
     """Whether this exact relay needs no lifecycle write at all.
 
     Every fact a replacement would change is checked: the login item is
-    loaded, the launchd document matches the one this environment and config
+    loaded, the native service document matches the one this environment and config
     would write now, and the build source it points at is present and
     current. Anything short of that is an upgrade or a repair, never a skip.
     """
     return bool(
         status.supported
-        and status.plist_present
+        and relay_service_current(status)
         and status.loaded
-        and status.plist_current
         and runnable
     )
 
@@ -101,25 +105,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"session relay: {exc}", file=sys.stderr)
         return 1
     try:
-        if parsed.action == "install":
-            status = install_relay_launchd(instance=instance)
-        elif parsed.action == "uninstall":
-            status = uninstall_relay_launchd(instance=instance)
-        else:
-            status = relay_launchd_status(instance=instance)
+        status = relay_service_operation(parsed.action, instance=instance)
     except RelayInstallError as exc:
         print(f"session relay: {exc}", file=sys.stderr)
         return 1
     print(
         "session relay: "
         f"env={status.environment or 'default'}, "
-        f"plist={'present' if status.plist_present else 'missing'}, "
+        f"service={'present' if relay_service_present(status) else 'missing'}, "
         f"loaded={'yes' if status.loaded else 'no'}, "
-        f"current={'yes' if status.plist_current else 'no'}"
+        f"current={'yes' if relay_service_current(status) else 'no'}"
     )
+    if getattr(status, "reason", ""):
+        print(f"session relay: {status.reason}", file=sys.stderr)
     runnable = _runnable(instance, refresh_served=parsed.action != "uninstall")
     if parsed.action == "uninstall":
-        healthy = not status.plist_present and not status.loaded
+        healthy = not relay_service_present(status) and not status.loaded
     else:
         healthy = relay_is_satisfied(status, runnable=runnable)
     return 0 if status.supported and healthy else 1

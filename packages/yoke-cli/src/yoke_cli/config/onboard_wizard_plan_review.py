@@ -9,6 +9,7 @@ write means instead of echoing the internal action/target ids. Consumed by
 """
 
 from __future__ import annotations
+from yoke_cli.config import onboard_relay_supervisor
 
 from typing import TYPE_CHECKING, Any
 
@@ -60,6 +61,8 @@ _MACHINE_ACTIONS = {
     "create-runtime-dir",
     "project-checkout-register",
     "install-cursor-user-lifecycle-hooks",
+    onboard_relay_supervisor.UNIT_INSTALL_ACTION,
+    onboard_relay_supervisor.UNIT_ENABLE_ACTION,
     "install-session-relay-plist",
     "load-session-relay-login-item",
     "reuse-session-relay-token",

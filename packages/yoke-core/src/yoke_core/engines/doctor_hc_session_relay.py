@@ -1,4 +1,4 @@
-"""Doctor health check for the local macOS machine relay."""
+"""Doctor health check for the local machine relay."""
 
 from __future__ import annotations
 
@@ -21,10 +21,11 @@ from yoke_core.domain.session_relay_storage import marker, utc_now
 from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.tools.session_relay_plist import relay_launchd_status
+from yoke_core.tools.session_relay_systemd import relay_systemd_status, LOGOUT_BEHAVIOR
 
 
 SLUG = "session-relay"
-TITLE = "Machine relay launch agent, heartbeat, and API authorization"
+TITLE = "Machine relay user service, heartbeat, and API authorization"
 _RELAY_LIST_FUNCTION_ID = RELAY_FUNCTION_IDS[0]
 
 
@@ -58,7 +59,10 @@ def _missing_credential_reference(*, follows_served_release: bool) -> str:
     except Exception:
         return f"active connection could not be read for its {described}"
     source = connection.get("credential_source")
-    if not isinstance(source, Mapping) or str(source.get("kind") or "") != expected_kind:
+    if (
+        not isinstance(source, Mapping)
+        or str(source.get("kind") or "") != expected_kind
+    ):
         return f"active connection has no {described}"
     raw_path = source.get("path")
     if not (isinstance(raw_path, str) and raw_path.strip()):
@@ -102,12 +106,12 @@ def hc_session_relay(
     rec: RecordCollector,
 ) -> None:
     """HC-session-relay: machine relay is installed and recently authenticated."""
-    if sys.platform != "darwin":
+    if sys.platform not in {"darwin", "linux"}:
         rec.record(
             SLUG,
             TITLE,
             NOT_APPLICABLE,
-            "launchd relay support is macOS-only; systemd is not shipped",
+            "relay supervision requires macOS launchd or Linux systemd",
         )
         return
     try:
@@ -117,14 +121,30 @@ def hc_session_relay(
         # than crashing the check on the refusal.
         rec.record(SLUG, TITLE, NOT_APPLICABLE, str(exc))
         return
-    launchd = relay_launchd_status(instance=instance)
     problems: list[str] = []
-    if not launchd.plist_present:
-        problems.append(f"plist missing at {launchd.plist_path}")
-    elif not launchd.plist_current:
-        problems.append("plist does not match this relay's current contract")
-    if not launchd.loaded:
-        problems.append("launchd login item is not loaded")
+    if sys.platform == "linux":
+        service = relay_systemd_status(instance=instance)
+        if not service.supported:
+            rec.record(SLUG, TITLE, NOT_APPLICABLE, service.reason)
+            return
+        if not service.unit_present:
+            problems.append(f"unit missing at {service.unit_path}")
+        elif not service.unit_current:
+            problems.append("systemd unit does not match this relay's current contract")
+        if not service.enabled:
+            problems.append("systemd user unit is not enabled for login")
+        if not service.loaded:
+            problems.append("systemd user unit is not active")
+        if service.reason:
+            problems.append(service.reason)
+    else:
+        service = relay_launchd_status(instance=instance)
+        if not service.plist_present:
+            problems.append(f"plist missing at {service.plist_path}")
+        elif not service.plist_current:
+            problems.append("plist does not match this relay's current contract")
+        if not service.loaded:
+            problems.append("launchd login item is not loaded")
     machine_id = _machine_id()
     recent = _recent_relay(conn, machine_id, utc_now()) if machine_id else None
     if not machine_id:
@@ -150,7 +170,8 @@ def hc_session_relay(
         SLUG,
         TITLE,
         "PASS",
-        f"{relay_id} is loaded and authenticated; last seen {last_seen}.",
+        f"{relay_id} is active and authenticated; last seen {last_seen}."
+        + (f" {LOGOUT_BEHAVIOR}" if sys.platform == "linux" else ""),
     )
 
 

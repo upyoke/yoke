@@ -66,9 +66,7 @@ def test_doctor_passes_only_when_plist_heartbeat_and_token_are_healthy(
     add_relay(conn, connected_until="2099-01-01T00:00:00Z")
     _bind_instance(monkeypatch, tmp_path)
     monkeypatch.setattr(relay_hc, "_machine_id", lambda: "machine-1")
-    monkeypatch.setattr(
-        relay_hc, "_missing_credential_reference", lambda **_kwargs: ""
-    )
+    monkeypatch.setattr(relay_hc, "_missing_credential_reference", lambda **_kwargs: "")
     rec = RecordCollector()
 
     relay_hc.hc_session_relay(conn, DoctorArgs(), rec)
@@ -86,19 +84,19 @@ def test_doctor_reads_remote_heartbeat_without_a_local_database(
     def list_relays(function, payload):
         calls.append((function, payload))
         return {
-            "relays": [{
-                "relay_id": "relay-remote",
-                "machine_id": "machine-1",
-                "last_seen_at": "2026-08-25T12:00:00Z",
-                "liveness": "connected",
-            }],
+            "relays": [
+                {
+                    "relay_id": "relay-remote",
+                    "machine_id": "machine-1",
+                    "last_seen_at": "2026-08-25T12:00:00Z",
+                    "liveness": "connected",
+                }
+            ],
         }
 
     _bind_instance(monkeypatch, tmp_path)
     monkeypatch.setattr(relay_hc, "_machine_id", lambda: "machine-1")
-    monkeypatch.setattr(
-        relay_hc, "_missing_credential_reference", lambda **_kwargs: ""
-    )
+    monkeypatch.setattr(relay_hc, "_missing_credential_reference", lambda **_kwargs: "")
     monkeypatch.setattr(relay_hc, "relay", list_relays)
     rec = RecordCollector()
 
@@ -106,10 +104,12 @@ def test_doctor_reads_remote_heartbeat_without_a_local_database(
 
     assert rec.results[0].result == "PASS"
     assert "relay-remote" in rec.results[0].detail
-    assert calls == [(
-        relay_hc._RELAY_LIST_FUNCTION_ID,
-        {"state": "active", "limit": 500},
-    )]
+    assert calls == [
+        (
+            relay_hc._RELAY_LIST_FUNCTION_ID,
+            {"state": "active", "limit": 500},
+        )
+    ]
 
 
 def test_doctor_combines_missing_loaded_heartbeat_and_token_findings(
@@ -166,7 +166,9 @@ def test_doctor_reports_a_connection_that_owns_no_relay_as_not_applicable(
     monkeypatch.setattr(relay_hc.sys, "platform", "darwin")
 
     def refuse():
-        raise RelayInstanceError("machine relay refuses a prod local-postgres connection")
+        raise RelayInstanceError(
+            "machine relay refuses a prod local-postgres connection"
+        )
 
     monkeypatch.setattr(relay_hc, "resolve_relay_instance", refuse)
     rec = RecordCollector()
@@ -195,3 +197,60 @@ def test_missing_credential_names_the_reference_each_plane_needs(
     )
 
     assert expected in detail
+
+
+@pytest.mark.parametrize(
+    "active, enabled, reason, expected",
+    [
+        (True, True, "", "PASS"),
+        (False, True, "", "FAIL"),
+        (True, False, "", "FAIL"),
+        (True, True, "relay_linger_enabled", "FAIL"),
+    ],
+)
+def test_linux_doctor_requires_active_enabled_unit_and_teaches_logout(
+    monkeypatch, tmp_path, active, enabled, reason, expected
+):
+    _bind_instance(monkeypatch, tmp_path)
+    monkeypatch.setattr(relay_hc.sys, "platform", "linux")
+    monkeypatch.setattr(
+        relay_hc,
+        "relay_systemd_status",
+        lambda **kw: SimpleNamespace(
+            supported=True,
+            unit_present=True,
+            unit_current=True,
+            enabled=enabled,
+            loaded=active,
+            reason=reason,
+            unit_path=tmp_path / "relay.service",
+        ),
+    )
+    monkeypatch.setattr(relay_hc, "_machine_id", lambda: "machine")
+    monkeypatch.setattr(relay_hc, "_recent_relay", lambda *a: ("relay", "now"))
+    monkeypatch.setattr(relay_hc, "_missing_credential_reference", lambda **kw: "")
+    rec = RecordCollector()
+    relay_hc.hc_session_relay(None, DoctorArgs(), rec)
+    assert rec.results[0].result == expected
+    if expected == "PASS":
+        assert (
+            "logs out" in rec.results[0].detail
+            and "linger is disabled" in rec.results[0].detail
+        )
+
+
+def test_linux_doctor_reports_unsupervised_without_systemd(monkeypatch, tmp_path):
+    _bind_instance(monkeypatch, tmp_path)
+    monkeypatch.setattr(relay_hc.sys, "platform", "linux")
+    monkeypatch.setattr(
+        relay_hc,
+        "relay_systemd_status",
+        lambda **kw: SimpleNamespace(
+            supported=False,
+            reason="relay is not supervised because PID 1 is bash",
+        ),
+    )
+    rec = RecordCollector()
+    relay_hc.hc_session_relay(None, DoctorArgs(), rec)
+    assert rec.results[0].result == "N/A"
+    assert "not supervised" in rec.results[0].detail

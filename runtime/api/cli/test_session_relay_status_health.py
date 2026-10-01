@@ -43,7 +43,7 @@ def test_degraded_report_delivery_is_named_and_exits_nonzero(
     record_report_failure(tmp_path, error_code="transport_error")
     monkeypatch.setattr(
         relay,
-        "_plist_operation",
+        "_service_operation",
         lambda _action: SimpleNamespace(
             supported=True,
             environment="prod",
@@ -79,7 +79,7 @@ def test_build_refusal_status_names_revisions_and_deploy(
     )
     monkeypatch.setattr(
         relay,
-        "_plist_operation",
+        "_service_operation",
         lambda _action: SimpleNamespace(
             supported=True,
             environment="prod",
@@ -185,7 +185,7 @@ def test_quarantined_status_teaches_terminal_recovery_without_replay(
     capsys.readouterr()
     monkeypatch.setattr(
         relay,
-        "_plist_operation",
+        "_service_operation",
         lambda _action: SimpleNamespace(
             supported=True,
             environment="prod",
@@ -208,7 +208,7 @@ def test_quarantined_status_teaches_terminal_recovery_without_replay(
 def _loaded(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
         relay,
-        "_plist_operation",
+        "_service_operation",
         lambda _action: SimpleNamespace(
             supported=True,
             environment="prod",
