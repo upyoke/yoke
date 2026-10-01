@@ -34,10 +34,9 @@ both. The wake that wants a selection prints `--plan` in its recipe; every
 other wake omits it. Correcting an already-materialized selection is
 `yoke qa plan rematerialize` below, not a second run.
 
-An admitted copy belongs to no plan, so it stores no `case_position` and no
-`baseline_position`. The roster selection assigns a plan-less case its order
-when it builds, and a position stored on such a row is read by every
-execution begin as "this requirement joined a plan after the roster froze".
+A direct admitted copy belongs to no plan and stores no case/baseline positions.
+The roster assigns its order; stored positions instead trigger plan drift at
+execution begin: "this requirement joined a plan after the roster froze".
 
 Every requirement and execution carries `deployment_stage`; item scope also
 carries `deployment_member_item_id`. Legacy deployment-run rows keep both NULL.
@@ -100,8 +99,10 @@ appears the first time the case runs against the real deployed target. An
 a judgement.
 
 A plan-owned member requirement is admitted through its plan snapshot, preserving
-case and host-baseline positions; it is never copied as an ad-hoc requirement.
-A plan-less grouped host baseline still refuses and asks for its attached plan.
+case and host-baseline positions. Close-out finds its copies by plan id and
+case key on the completion run and source member. Stage acceptance is required,
+and every host copy must pass or be discharged. Direct sources use their
+source key on that same run/member. Plan-less grouped hosts need an attached plan.
 A plan-less obligation is copied under `admitted-requirement-<source id>`, so correcting the item
 row and correcting what the stage runs are two different writes. They are
 reconciled rather than left to drift. `yoke qa requirement update` resolves

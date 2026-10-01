@@ -8,7 +8,7 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_item_completion_runs import completion_runs
 from yoke_core.domain.deployment_qa_admission_materialization import (
-    admitted_requirement_case_key,
+    admitted_requirement_identity_clause,
 )
 from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
@@ -96,6 +96,8 @@ def source_obligation_consumed(
 
     Failed or cancelled members cannot mask prior success; a newer active
     member holds the wait. A later containment-only release has no QA copy.
+    Plan sources match their plan and case; direct sources match their source
+    key. Both are scoped to the source member on the completion run.
     Zero copies is unmet. Stage acceptance and every copy's pass or discharge
     (waiver or supersession) are required. A bad replacement remains a stage
     blocker, and an unsettled duplicate still holds ``done``.
@@ -115,15 +117,30 @@ def source_obligation_consumed(
         ):
             return False
     run_id = completion["id"]
-    case_key = admitted_requirement_case_key(int(source_requirement_id))
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    source_row = conn.execute(
+        "SELECT id,item_id,plan_id,plan_case_key FROM qa_requirements "
+        f"WHERE id={marker}",
+        (int(source_requirement_id),),
+    ).fetchone()
+    if source_row is None:
+        return False
+    source = {
+        key: _row_value(source_row, key, position)
+        for position, key in enumerate(("id", "item_id", "plan_id", "plan_case_key"))
+    }
+    if source["item_id"] != int(item_id):
+        return False
+    identity, identity_params = admitted_requirement_identity_clause(
+        source, marker=marker
+    )
     rows = conn.execute(
         "SELECT id,deployment_stage,deployment_member_item_id,"
         f"waived_at,superseded_by_requirement_id,{requirement_retracted_at_select(conn)} "
         "FROM qa_requirements WHERE deployment_run_id="
-        f"{marker} AND plan_case_key={marker} AND plan_id IS NULL "
+        f"{marker} AND deployment_member_item_id={marker} AND {identity} "
         "ORDER BY id",
-        (run_id, case_key),
+        (run_id, int(source["item_id"]), *identity_params),
     ).fetchall()
     if not rows:
         return False
