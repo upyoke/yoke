@@ -29,8 +29,8 @@ ITEM_WORKTREE_TABLES: dict[str, dict] = {
             "item get PREFIX-N`; do not infer lane shape from workflow ids. "
             "Read its lane with `yoke item-worktrees get PREFIX-N "
             "--lane-role implementation`; worktree and branch are not items "
-            "columns, so `yoke items get PREFIX-N status worktree branch` "
-            "is not a valid field projection."
+            "columns. Asking items.get for those guessed fields fails; "
+            "branch and path belong to item_worktrees."
         ),
     },
 }
