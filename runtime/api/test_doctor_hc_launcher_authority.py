@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_core.engines.doctor_hc_launcher_authority import (
     SLUG,
     hc_launcher_authority,
@@ -153,12 +155,16 @@ def test_hook_config_accepts_bare_yoke_command(tmp_path: Path) -> None:
     assert hook_config_yoke_problems(tmp_path, canon) == []
 
 
-def test_login_shell_uses_configured_shell(monkeypatch):
+@pytest.mark.parametrize("shell", ["/usr/bin/fish", None])
+def test_login_shell_uses_configured_shell_or_posix_fallback(monkeypatch, shell):
     from subprocess import CompletedProcess
     from yoke_core.engines import doctor_hc_launcher_authority as check
 
     calls = []
-    monkeypatch.setenv("SHELL", "/usr/bin/fish")
+    if shell is None:
+        monkeypatch.delenv("SHELL", raising=False)
+    else:
+        monkeypatch.setenv("SHELL", shell)
 
     def run(command, **kwargs):
         calls.append(command)
@@ -166,4 +172,4 @@ def test_login_shell_uses_configured_shell(monkeypatch):
 
     monkeypatch.setattr(check.subprocess, "run", run)
     assert check._login_shell_yoke() == "/tmp/bin/yoke"
-    assert calls == [["/usr/bin/fish", "-lc", "command -v yoke"]]
+    assert calls == [[shell or "/bin/sh", "-lc", "command -v yoke"]]

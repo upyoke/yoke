@@ -1,4 +1,4 @@
-"""PreToolUse Bash hook: refuse unquoted path globs that match no files.
+"""PreToolUse Bash hook: refuse unmatched path globs only under zsh.
 
 zsh NOMATCH aborts the command before the tool runs when an unquoted path
 glob such as ``docs/deploy*`` expands to nothing. Quoted patterns, heredoc
@@ -16,7 +16,12 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
-from yoke_contracts.hook_runner.shell_guard_repairs import RIPGREP_REPLACE_CHECK_ID, glob_repair, ripgrep_replace_repair
+from yoke_contracts.hook_runner.shell_guard_repairs import (
+    RIPGREP_REPLACE_CHECK_ID,
+    executing_shell,
+    glob_repair,
+    ripgrep_replace_repair,
+)
 from yoke_core.domain.lint_session_cwd_target_extract import resolve_payload_cwd
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     strip_heredoc_body_lines,
@@ -154,7 +159,9 @@ def _format_reason(
         if repair is not None:
             repaired, matches = repair
             body += "\n\nRepaired command: `" + repaired + "`"
-            body += "\nFiles matching the stem: " + (", ".join(matches) if matches else "none")
+            body += "\nFiles matching the stem: " + (
+                ", ".join(matches) if matches else "none"
+            )
             body += "\nIf `rg` is absent, enumerate tracked files with `git ls-files`."
     if mode == "warn":
         body += "\n\n[mode=warn] this hook would block in deny mode."
@@ -188,6 +195,8 @@ def evaluate_payload(
             check_id=RIPGREP_REPLACE_CHECK_ID,
         )
         return mode, reason, "denied"
+    if executing_shell(payload) != "zsh":
+        return None
     execution_cwd = _extract_cwd(payload, fallback=fallback_cwd)
     token = _find_unmatched(command, execution_cwd)
     if token is None:
@@ -238,7 +247,9 @@ def evaluate(record: HookContext) -> HookDecision:
         "mode": mode,
         "reason": reason,
         "audit_outcome": outcome,
-        "check_id": RIPGREP_REPLACE_CHECK_ID if f"Yoke check id: {RIPGREP_REPLACE_CHECK_ID}" in reason else CHECK_ID,
+        "check_id": RIPGREP_REPLACE_CHECK_ID
+        if f"Yoke check id: {RIPGREP_REPLACE_CHECK_ID}" in reason
+        else CHECK_ID,
     }
     if mode == "deny":
         envelope = json.dumps(

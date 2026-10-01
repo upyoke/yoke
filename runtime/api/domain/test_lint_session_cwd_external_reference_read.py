@@ -45,6 +45,7 @@ def _tmp_paths_are_not_free(monkeypatch):
     any of the authority under test is consulted, turning every refusal
     assertion here green while proving nothing.
     """
+    monkeypatch.delenv("TMPDIR", raising=False)
     monkeypatch.setattr(lint_session_cwd_validate, "FREE_PATH_PREFIXES", ())
 
 
@@ -121,9 +122,7 @@ class TestExternalReferenceReadsAllow:
         assert verdict.allow is True
 
     def test_shell_read_of_an_external_reference_file(self, conn, lane, external):
-        verdict = lint_session_cwd.evaluate_pre_tool_use(
-            _bash(f"cat {external}", lane)
-        )
+        verdict = lint_session_cwd.evaluate_pre_tool_use(_bash(f"cat {external}", lane))
 
         assert verdict.allow is True
 
@@ -131,7 +130,11 @@ class TestExternalReferenceReadsAllow:
         "relative", [".cursor/hooks.json", ".local/bin", ".yoke/relay-instances"]
     )
     def test_installed_tool_surfaces_read_through_the_curated_allowlist(
-        self, conn, lane, home, relative,
+        self,
+        conn,
+        lane,
+        home,
+        relative,
     ):
         # Tool state is excluded from the external-reference branch above, so
         # the reported read-only inspections of installed surfaces are covered
@@ -173,11 +176,13 @@ class TestProjectCodeIsNeverExternal:
         assert verdict.allow is False
 
     def test_a_payload_that_names_no_tool_still_refuses(self, conn, lane, external):
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": SESSION,
-            "cwd": str(lane),
-            "tool_input": {"file_path": str(external)},
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": SESSION,
+                "cwd": str(lane),
+                "tool_input": {"file_path": str(external)},
+            }
+        )
 
         assert verdict.allow is False
 
@@ -203,7 +208,10 @@ class TestProjectCodeIsNeverExternal:
         assert verdict.allow is False
 
     def test_read_of_another_items_live_lane_still_refuses(
-        self, conn, lane, repo,
+        self,
+        conn,
+        lane,
+        repo,
     ):
         seed_item(conn, item_id=ITEM_ID + 1, branch="YOK-other", repo_path=repo)
         seed_item_claim(conn, "sid-neighbour", item_id=ITEM_ID + 1)
@@ -218,7 +226,10 @@ class TestProjectCodeIsNeverExternal:
         assert verdict.failure_class == "foreign_lane"
 
     def test_read_of_an_unclaimed_sibling_lane_still_refuses(
-        self, conn, lane, repo,
+        self,
+        conn,
+        lane,
+        repo,
     ):
         sibling = repo / ".worktrees" / "YOK-unclaimed"
         sibling.mkdir(parents=True)
@@ -246,17 +257,22 @@ class TestProjectCodeIsNeverExternal:
 
 class TestWriteShapesStillRefuse:
     def test_write_tool_to_an_external_path_refuses(self, conn, lane, external):
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": SESSION,
-            "cwd": str(lane),
-            "tool_name": "Write",
-            "tool_input": {"file_path": str(external), "content": "x"},
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": SESSION,
+                "cwd": str(lane),
+                "tool_name": "Write",
+                "tool_input": {"file_path": str(external), "content": "x"},
+            }
+        )
 
         assert verdict.allow is False
 
     def test_output_redirect_onto_an_external_path_refuses(
-        self, conn, lane, external,
+        self,
+        conn,
+        lane,
+        external,
     ):
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             _bash(f"cat {external} > {external.parent}/copy.md", lane)
@@ -272,7 +288,10 @@ class TestWriteShapesStillRefuse:
         assert verdict.allow is False
 
     def test_a_mutating_verb_on_an_external_path_refuses(
-        self, conn, lane, external,
+        self,
+        conn,
+        lane,
+        external,
     ):
         verdict = lint_session_cwd.evaluate_pre_tool_use(
             _bash(f"touch {external.parent}/created.md", lane)

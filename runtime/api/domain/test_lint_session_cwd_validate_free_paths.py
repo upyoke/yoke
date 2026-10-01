@@ -87,15 +87,16 @@ class TestFreePathPrefixesContainExpectedRoots:
 class TestDevFamilyAllowed:
     """``/dev/null`` and friends bypass claim authority."""
 
-    @pytest.mark.parametrize("target", [
-        "/dev/null",
-        "/dev/stderr",
-        "/dev/stdout",
-        "/dev/tty",
-    ])
-    def test_dev_targets_allowed(
-        self, conn, session_with_claim, target
-    ) -> None:
+    @pytest.mark.parametrize(
+        "target",
+        [
+            "/dev/null",
+            "/dev/stderr",
+            "/dev/stdout",
+            "/dev/tty",
+        ],
+    )
+    def test_dev_targets_allowed(self, conn, session_with_claim, target) -> None:
         verdict = validate_targets(
             conn,
             session_id=session_with_claim,
@@ -109,9 +110,7 @@ class TestDevFamilyAllowed:
 class TestHarnessInternalAllowed:
     """``~/.claude/projects/<session>/...`` lands in tool-results / persisted-output."""
 
-    def test_tool_results_literal_tilde_allowed(
-        self, conn, session_with_claim
-    ) -> None:
+    def test_tool_results_literal_tilde_allowed(self, conn, session_with_claim) -> None:
         target = "~/.claude/projects/-Users-x-yoke/sess/tool-results/file.txt"
         verdict = validate_targets(
             conn,
@@ -120,9 +119,7 @@ class TestHarnessInternalAllowed:
         )
         assert verdict.allow
 
-    def test_tool_results_expanded_allowed(
-        self, conn, session_with_claim
-    ) -> None:
+    def test_tool_results_expanded_allowed(self, conn, session_with_claim) -> None:
         home = os.path.expanduser("~")
         target = os.path.join(
             home,
@@ -140,9 +137,7 @@ class TestHarnessInternalAllowed:
         )
         assert verdict.allow
 
-    def test_persisted_output_allowed(
-        self, conn, session_with_claim
-    ) -> None:
+    def test_persisted_output_allowed(self, conn, session_with_claim) -> None:
         home = os.path.expanduser("~")
         target = os.path.join(
             home,
@@ -175,9 +170,7 @@ class TestCodexHarnessInternalAllowed:
         )
         assert verdict.allow
 
-    def test_codex_sessions_expanded_allowed(
-        self, conn, session_with_claim
-    ) -> None:
+    def test_codex_sessions_expanded_allowed(self, conn, session_with_claim) -> None:
         home = os.path.expanduser("~")
         target = os.path.join(
             home,
@@ -275,9 +268,7 @@ class TestWatcherMintedCapturePairAllowed:
 class TestClaudeJobTmpAllowed:
     """The current background-job harness temp subtree is claim-free."""
 
-    def test_job_tmp_target_allowed(
-        self, conn, session_with_claim
-    ) -> None:
+    def test_job_tmp_target_allowed(self, conn, session_with_claim) -> None:
         root = Path.home() / ".claude" / "jobs" / "job-123" / "tmp"
         target = root / "verification.log"
 
@@ -290,9 +281,7 @@ class TestClaudeJobTmpAllowed:
 
         assert verdict.allow
 
-    def test_job_sibling_still_denied(
-        self, conn, session_with_claim
-    ) -> None:
+    def test_job_sibling_still_denied(self, conn, session_with_claim) -> None:
         job = Path.home() / ".claude" / "jobs" / "job-123"
         verdict = validate_targets(
             conn,
@@ -307,9 +296,7 @@ class TestClaudeJobTmpAllowed:
 class TestNegativeRegression:
     """Real repo-tree paths outside the session's claim still deny."""
 
-    def test_etc_passwd_still_denied(
-        self, conn, session_with_claim
-    ) -> None:
+    def test_etc_passwd_still_denied(self, conn, session_with_claim) -> None:
         verdict = validate_targets(
             conn,
             session_id=session_with_claim,
@@ -317,3 +304,31 @@ class TestNegativeRegression:
         )
         assert not verdict.allow
         assert "/etc/passwd" in verdict.offending_target
+
+
+@pytest.mark.parametrize("tmpdir", ["/run/user/1234/../5678", "relative/tmp", ""])
+def test_absolute_tmpdir_is_canonical_and_shared_with_guard(
+    conn,
+    session_with_claim,
+    monkeypatch,
+    tmpdir,
+):
+    from yoke_contracts.free_paths import free_path_prefixes, is_under_free_path_prefix
+    from yoke_core.domain.lint_session_cwd_path_authority import is_free_path
+
+    monkeypatch.setenv("TMPDIR", tmpdir)
+    root = Path(tmpdir or "unconfigured/tmp").resolve()
+    target = root / "capture.log"
+    accepted = bool(tmpdir and Path(tmpdir).is_absolute())
+    assert (str(root) in free_path_prefixes()) is accepted
+    assert (
+        is_under_free_path_prefix(target, prefixes=free_path_prefixes()[-1:])
+        is accepted
+    )
+    verdict = validate_targets(
+        conn, session_id=session_with_claim, targets=[str(target)]
+    )
+    assert verdict.allow is accepted
+    if accepted:
+        assert is_free_path(str(target))
+        assert not is_free_path(str(root) + "-sibling/capture.log")

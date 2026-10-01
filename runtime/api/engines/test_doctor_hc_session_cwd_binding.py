@@ -172,6 +172,7 @@ def silenced_emit(monkeypatch):
     # the live FREE_PATH_PREFIXES; tests want a clean slate.
     from yoke_core.domain import lint_session_cwd_validate
 
+    monkeypatch.delenv("TMPDIR", raising=False)
     monkeypatch.setattr(lint_session_cwd_validate, "FREE_PATH_PREFIXES", ())
     return captured
 

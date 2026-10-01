@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest import mock
 
+import pytest
+
 from yoke_core.domain import lint_unmatched_path_glob as lint
 from yoke_core.hooks.types import Outcome
 
@@ -16,7 +18,7 @@ def _payload(
     working_directory: str | None = None,
     **extra: object,
 ) -> dict:
-    tool_input: dict[str, object] = {"command": command}
+    tool_input: dict[str, object] = {"command": command, "shell": "/bin/zsh"}
     if working_directory is not None:
         tool_input["working_directory"] = working_directory
     payload = {
@@ -175,3 +177,33 @@ def test_denial_names_the_execution_tree_when_it_differs_from_payload_cwd(
     assert "Checked tree:" in reason
     assert str(payload_tree) in reason
     assert "Payload cwd was" in reason
+
+
+@pytest.mark.parametrize(
+    "default, explicit, denied",
+    [
+        ("/bin/zsh", "/bin/bash", False),
+        ("/bin/bash", "/bin/zsh", True),
+        ("/bin/bash", None, False),
+        ("/bin/zsh", None, True),
+        ("", None, False),
+    ],
+)
+def test_glob_guard_uses_command_shell_on_both_hook_paths(
+    monkeypatch,
+    tmp_path,
+    default,
+    explicit,
+    denied,
+):
+    from yoke_harness.hooks.unmatched_path_glob import lint_unmatched_path_glob
+    from yoke_harness.hooks.local_policy_common import DENY
+
+    monkeypatch.setenv("SHELL", default)
+    payload = _payload("ls missing/*", cwd=str(tmp_path))
+    payload["tool_input"].pop("shell")
+    if explicit is not None:
+        payload["tool_input"]["shell"] = explicit
+    with mock.patch.object(lint, "_read_mode", return_value="deny"):
+        assert (lint.evaluate_payload(payload) is not None) is denied
+    assert (lint_unmatched_path_glob(payload).outcome == DENY) is denied

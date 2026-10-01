@@ -64,6 +64,7 @@ def fake_yoke_root(monkeypatch):
     # but drop ``/var/folders`` so pytest's ``tmp_path`` fixtures stop
     # incidentally short-circuiting the carve-out logic via the
     # free-path allowlist.
+    monkeypatch.delenv("TMPDIR", raising=False)
     monkeypatch.setattr(
         lint_session_cwd_validate,
         "FREE_PATH_PREFIXES",
@@ -85,7 +86,10 @@ def _seed_claimed_checkout(conn, repo_path, project="externalwebapp"):
         create_checkout=False,
     )
     seed_item(
-        conn, item_id=42, branch="YOK-42", project=project,
+        conn,
+        item_id=42,
+        branch="YOK-42",
+        project=project,
         repo_path=repo_path,
     )
     seed_item_claim(conn, "sid-cross", item_id=42)
@@ -109,27 +113,33 @@ def cross_project_session(conn, fake_yoke_root, cross_project_repo):
 
 class TestYokeControlPlaneCarveOut:
     def test_cross_project_session_may_read_yoke_runtime(
-        self, cross_project_session,
+        self,
+        cross_project_session,
     ):
         fake_yoke_root, _ = cross_project_session
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-cross",
-            "tool_input": {
-                "file_path": str(fake_yoke_root / "runtime" / "api"),
-            },
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-cross",
+                "tool_input": {
+                    "file_path": str(fake_yoke_root / "runtime" / "api"),
+                },
+            }
+        )
         assert verdict.allow is True
 
     def test_cross_project_session_may_test_dir_in_yoke(
-        self, cross_project_session,
+        self,
+        cross_project_session,
     ):
         fake_yoke_root, _ = cross_project_session
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-cross",
-            "tool_input": {
-                "command": f"test -d {fake_yoke_root}/.worktrees/YOK-42",
-            },
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-cross",
+                "tool_input": {
+                    "command": f"test -d {fake_yoke_root}/.worktrees/YOK-42",
+                },
+            }
+        )
         # Sibling-branch worktree remains claim-gated.
         assert verdict.allow is False
         assert ".worktrees/YOK-42" in verdict.offending_target
@@ -137,23 +147,28 @@ class TestYokeControlPlaneCarveOut:
     def test_yoke_data_dir_is_authorized(self, cross_project_session):
         fake_yoke_root, _ = cross_project_session
 
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-cross",
-            "tool_input": {
-                "file_path": str(fake_yoke_root / "data" / "config"),
-            },
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-cross",
+                "tool_input": {
+                    "file_path": str(fake_yoke_root / "data" / "config"),
+                },
+            }
+        )
         assert verdict.allow is True
 
     def test_sibling_branch_worktree_remains_claim_gated(
-        self, cross_project_session,
+        self,
+        cross_project_session,
     ):
         fake_yoke_root, _ = cross_project_session
         sibling = fake_yoke_root / ".worktrees" / "YOK-other" / "runtime"
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-cross",
-            "tool_input": {"file_path": str(sibling)},
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-cross",
+                "tool_input": {"file_path": str(sibling)},
+            }
+        )
         assert verdict.allow is False
 
 
@@ -164,68 +179,79 @@ class TestYokeControlPlaneCarveOut:
 
 class TestPythonPathEquivalence:
     def test_module_invocation_from_foreign_cwd_authorized(
-        self, cross_project_session,
+        self,
+        cross_project_session,
     ):
         fake_yoke_root, _ = cross_project_session
         foreign_cwd = Path("/__foreign_cwd__")
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-cross",
-            "cwd": str(foreign_cwd),
-            "tool_input": {
-                "command": (
-                    f"PYTHONPATH={fake_yoke_root} python3 -m "
-                    f"yoke_core.cli.db_router items get YOK-42 status"
-                ),
-            },
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-cross",
+                "cwd": str(foreign_cwd),
+                "tool_input": {
+                    "command": (
+                        f"PYTHONPATH={fake_yoke_root} python3 -m "
+                        f"yoke_core.cli.db_router items get YOK-42 status"
+                    ),
+                },
+            }
+        )
         assert verdict.allow is True
 
     def test_cd_to_tmp_prefix_still_authorized(self, cross_project_session):
         fake_yoke_root, _ = cross_project_session
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-cross",
-            "cwd": "/tmp",
-            "tool_input": {
-                "command": (
-                    f"cd /tmp && PYTHONPATH={fake_yoke_root} python3 -m "
-                    f"yoke_core.cli.db_router items get YOK-42 status"
-                ),
-            },
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-cross",
+                "cwd": "/tmp",
+                "tool_input": {
+                    "command": (
+                        f"cd /tmp && PYTHONPATH={fake_yoke_root} python3 -m "
+                        f"yoke_core.cli.db_router items get YOK-42 status"
+                    ),
+                },
+            }
+        )
         assert verdict.allow is True
 
     def test_pythonpath_with_non_runtime_module_not_overridden(
-        self, cross_project_session,
+        self,
+        cross_project_session,
     ):
         fake_yoke_root, _ = cross_project_session
         foreign_cwd = Path("/__foreign_cwd__")
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-cross",
-            "cwd": str(foreign_cwd),
-            "tool_input": {
-                "command": (
-                    f"PYTHONPATH={fake_yoke_root} python3 -m pip install foo"
-                ),
-            },
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-cross",
+                "cwd": str(foreign_cwd),
+                "tool_input": {
+                    "command": (
+                        f"PYTHONPATH={fake_yoke_root} python3 -m pip install foo"
+                    ),
+                },
+            }
+        )
         # `pip` is not a Yoke-internal module, so the override does
         # not apply and the foreign cwd is rejected.
         assert verdict.allow is False
 
     def test_foreign_pythonpath_not_overridden(
-        self, cross_project_session,
+        self,
+        cross_project_session,
     ):
         foreign_cwd = Path("/__foreign_cwd__")
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-cross",
-            "cwd": str(foreign_cwd),
-            "tool_input": {
-                "command": (
-                    "PYTHONPATH=/not/yoke python3 -m "
-                    "yoke_core.cli.db_router items get YOK-42 status"
-                ),
-            },
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-cross",
+                "cwd": str(foreign_cwd),
+                "tool_input": {
+                    "command": (
+                        "PYTHONPATH=/not/yoke python3 -m "
+                        "yoke_core.cli.db_router items get YOK-42 status"
+                    ),
+                },
+            }
+        )
         assert verdict.allow is False
 
     def test_override_skips_optional_cd_prefix(self, fake_yoke_root):
@@ -233,9 +259,8 @@ class TestPythonPathEquivalence:
             f"cd /tmp && PYTHONPATH={fake_yoke_root} python3 -m "
             f"yoke_core.cli.db_router items get YOK-42 status"
         )
-        override = (
-            lint_session_cwd_control_plane
-            .extract_pythonpath_yoke_cwd_override(cmd)
+        override = lint_session_cwd_control_plane.extract_pythonpath_yoke_cwd_override(
+            cmd
         )
         assert override == str(fake_yoke_root)
 
@@ -247,15 +272,18 @@ class TestPythonPathEquivalence:
 
 class TestBlockedMessageWording:
     def test_cross_project_session_message_names_yoke_separately(
-        self, cross_project_session,
+        self,
+        cross_project_session,
     ):
         fake_yoke_root, cross_project_repo = cross_project_session
         foreign = Path("/__foreign_target__/file")
 
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-cross",
-            "tool_input": {"file_path": str(foreign)},
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-cross",
+                "tool_input": {"file_path": str(foreign)},
+            }
+        )
         assert verdict.allow is False
         assert "Any project control plane:" in verdict.reason
         assert str(cross_project_repo) in verdict.reason
@@ -263,7 +291,9 @@ class TestBlockedMessageWording:
         assert str(fake_yoke_root) in verdict.reason
 
     def test_yoke_only_session_message_does_not_duplicate(
-        self, conn, fake_yoke_root,
+        self,
+        conn,
+        fake_yoke_root,
     ):
         # When the claimed project IS the Yoke repo itself, the
         # allowed-targets block suppresses the duplicate Yoke line.
@@ -275,16 +305,21 @@ class TestBlockedMessageWording:
             create_checkout=False,
         )
         seed_item(
-            conn, item_id=42, branch="YOK-42", repo_path=fake_yoke_root,
+            conn,
+            item_id=42,
+            branch="YOK-42",
+            repo_path=fake_yoke_root,
         )
         seed_item_claim(conn, "sid-yoke", item_id=42)
 
         foreign = Path("/__foreign_target__/file")
 
-        verdict = lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": "sid-yoke",
-            "tool_input": {"file_path": str(foreign)},
-        })
+        verdict = lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": "sid-yoke",
+                "tool_input": {"file_path": str(foreign)},
+            }
+        )
         assert verdict.allow is False
         assert "Any project control plane:" in verdict.reason
         # No second 'Yoke control plane' line when the project repo
