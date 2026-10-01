@@ -27,9 +27,14 @@ def _plan_step(payload: dict, action: str) -> dict:
 def test_local_dry_run_plans_universe_init_without_sign_in_steps(
     scratch_home: Path, fake_engine, capsys
 ) -> None:
-    rc = yoke_operations_cli.main([
-        "onboard", "--local", "--non-interactive", "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "onboard",
+            "--local",
+            "--non-interactive",
+            "--json",
+        ]
+    )
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
@@ -46,13 +51,22 @@ def test_local_dry_run_plans_universe_init_without_sign_in_steps(
 
 
 def test_local_rerun_verifies_universe_and_keeps_active_env(
-    scratch_home: Path, fake_engine, capsys
+    scratch_home: Path, fake_engine, capsys, stub_onboard_session_relay
 ) -> None:
     payload: dict = {}
     for _ in range(2):
-        assert yoke_operations_cli.main([
-            "onboard", "--local", "--non-interactive", "--yes", "--json",
-        ]) == 0
+        assert (
+            yoke_operations_cli.main(
+                [
+                    "onboard",
+                    "--local",
+                    "--non-interactive",
+                    "--yes",
+                    "--json",
+                ]
+            )
+            == 0
+        )
         payload = json.loads(capsys.readouterr().out)
 
     assert payload["applied"] is True

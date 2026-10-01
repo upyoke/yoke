@@ -37,7 +37,7 @@ def _launchd_status(*, present: bool = True, current: bool = True):
 
 
 def test_relay_lifecycle_reports_release_pin(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(relay, "_plist_operation", lambda _action: _launchd_status())
+    monkeypatch.setattr(relay, "_service_operation", lambda _action: _launchd_status())
     monkeypatch.setattr(
         relay,
         "release_status_payload",
@@ -71,7 +71,7 @@ def test_relay_status_human_output_shows_pinned_and_served_build(
 ) -> None:
     monkeypatch.setattr(
         relay,
-        "_plist_operation",
+        "_service_operation",
         lambda _action: _launchd_status(current=False),
     )
     monkeypatch.setattr(
@@ -100,7 +100,7 @@ def test_relay_status_fails_when_release_fetch_failed(monkeypatch, capsys) -> No
         "release_error": "distribution index unavailable",
         "release_recovery": "retry `yoke --env stage relay install`",
     }
-    monkeypatch.setattr(relay, "_plist_operation", lambda _action: _launchd_status())
+    monkeypatch.setattr(relay, "_service_operation", lambda _action: _launchd_status())
     monkeypatch.setattr(
         relay,
         "release_status_payload",
@@ -120,7 +120,7 @@ def test_relay_status_fails_when_exact_instance_is_absent(
 ) -> None:
     monkeypatch.setattr(
         relay,
-        "_plist_operation",
+        "_service_operation",
         lambda _action: _launchd_status(present=False, current=False),
     )
     monkeypatch.setattr(
@@ -143,7 +143,7 @@ def test_global_env_selects_status_instance_then_restores_previous_env(
         seen.append((action, os.environ.get("YOKE_ENV")))
         return _launchd_status()
 
-    monkeypatch.setattr(relay, "_plist_operation", operation)
+    monkeypatch.setattr(relay, "_service_operation", operation)
     monkeypatch.setattr(
         relay,
         "release_status_payload",
@@ -163,7 +163,7 @@ def test_lifecycle_preserves_named_release_install_error(monkeypatch, capsys) ->
 
     monkeypatch.setattr(
         relay,
-        "_plist_operation",
+        "_service_operation",
         lambda _action: (_ for _ in ()).throw(
             ReleaseInstallFailed("served wheel could not be fetched")
         ),

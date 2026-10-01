@@ -46,10 +46,6 @@ _LOCAL_SRC = CheckApplicability(
     runtimes=frozenset({RUNTIME_LOCAL}),
     requires_source_checkout=True,
 )
-_LOCAL_HTTPS = CheckApplicability(
-    runtimes=frozenset({RUNTIME_LOCAL}),
-    requires_https_control_plane=True,
-)
 _LOCAL_CONTROL_PLANE = CheckApplicability(
     runtimes=frozenset({RUNTIME_LOCAL}),
     requires_local_control_plane=True,
@@ -221,15 +217,12 @@ _SHAPES = (
             "hook-resident",
             "machine-registry",
             "session-relay-orphans",
+            "session-relay",
         ),
     ),
     (
         _LOCAL_CONTROL_PLANE,
         ("local-operating-actor-authority",),
-    ),
-    (
-        _LOCAL_HTTPS,
-        ("session-relay",),
     ),
     (
         _SELF,

@@ -7,7 +7,7 @@ from dataclasses import asdict
 import importlib
 import json
 import sys
-from typing import Any, Callable, List
+from typing import Any, List
 from uuid import UUID
 
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
@@ -36,15 +36,9 @@ RELAY_DIAGNOSTIC_USAGE = "yoke relay diagnostic <opaque-ref>"
 RELAY_PROBE_SURFACE_USAGE = "yoke relay probe-surface [--surface S] [--json]"
 
 
-def _plist_operation(action: str) -> Any:
-    module = importlib.import_module("yoke_core.tools.session_relay_plist")
-
-    operation: dict[str, Callable[[], Any]] = {
-        "install": module.install_relay_launchd,
-        "status": module.relay_launchd_status,
-        "uninstall": module.uninstall_relay_launchd,
-    }
-    return operation[action]()
+def _service_operation(action: str) -> Any:
+    module = importlib.import_module("yoke_core.tools.session_relay_service")
+    return module.relay_service_operation(action)
 
 
 def _contain_stranded_natives() -> None:
@@ -115,7 +109,7 @@ def _relay_lifecycle(args: List[str], action: str) -> int:
     if parsed is None:
         return 2
     try:
-        status = _plist_operation(action)
+        status = _service_operation(action)
     except Exception as exc:
         print(
             json.dumps(
@@ -129,16 +123,8 @@ def _relay_lifecycle(args: List[str], action: str) -> int:
             file=sys.stderr,
         )
         return 1
-    payload = {
-        "supported": bool(status.supported),
-        "environment": str(status.environment),
-        "launchd_label": str(status.label),
-        "plist_present": bool(status.plist_present),
-        "plist_current": bool(status.plist_current),
-        "loaded": bool(status.loaded),
-        "plist_path": str(status.plist_path),
-        "state_dir": str(status.state_dir) if status.state_dir else None,
-    }
+    service = importlib.import_module("yoke_core.tools.session_relay_service")
+    payload = service.relay_service_payload(status)
     if action == "status" and status.state_dir:
         from yoke_harness.session_relay_health import (
             observe_relay_health,
@@ -161,8 +147,7 @@ def _relay_lifecycle(args: List[str], action: str) -> int:
     poll_status = poll.get("status") if isinstance(poll, dict) else "ok"
     health_healthy = health.get("state", "healthy") == "healthy" and poll_status == "ok"
     if action == "status" and not (
-        status.plist_present
-        and status.plist_current
+        service.relay_service_current(status)
         and status.loaded
         and health_healthy
         and release_status_is_healthy(release_payload)

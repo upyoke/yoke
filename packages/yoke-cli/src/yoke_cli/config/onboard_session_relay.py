@@ -1,26 +1,8 @@
-"""Explicit onboard plan and apply bridge for the macOS machine relay.
+"""Onboard plan and convergent install bridge for the native machine relay.
 
-Every destination that can run a relay gets one, because the relay is what
-makes a machine observable and drivable: it registers the harnesses this
-machine can actually start, reports session liveness, and executes launch and
-resume work. Leaving it out of one destination would make that destination's
-install quietly incapable of the operations the product offers everywhere else.
-
-The two destinations differ only in where the relay's build comes from -- an
-https plane serves a release the relay pins, while a local universe is served
-by the machine the relay runs on, so it runs that machine's installed Yoke.
-That difference is owned by the relay installer; onboarding names it in the
-plan and the completion summary so the operator sees which one applied.
-
-Setup runs this step every time it applies, including the on-screen retry
-after a failure, so the step is convergent rather than unconditional. It first
-asks the installer whether this exact relay is already satisfied -- loaded,
-running the launchd document this configuration would write now, and pointed at
-a present, current build -- and leaves a satisfied relay untouched. Anything
-short of satisfied is a real upgrade or repair and installs normally. A retry
-therefore cannot unload the working login item it is trying to install, and a
-failed attempt reports the installer's own diagnosis instead of replacing it
-with a fixed sentence.
+Local universes run the installed Yoke; HTTPS universes pin the served release.
+Setup first asks the installer whether this exact service and build are current,
+so retrying onboarding leaves a satisfied relay running.
 """
 
 from __future__ import annotations
@@ -31,23 +13,18 @@ import subprocess
 import sys
 from typing import Any, Callable, Mapping
 
-from yoke_cli.config import onboard_apply_progress
+from yoke_cli.config import onboard_apply_progress, onboard_relay_supervisor
 from yoke_cli.config.github_response_safety import terminal_safe_text
 from yoke_cli.config.onboard_apply_report_metadata import sanitize_text
 
 
-RELAY_PLIST_TARGET = "~/Library/LaunchAgents/com.upyoke.relay[.<environment-id>].plist"
+RELAY_PLIST_TARGET = onboard_relay_supervisor.RELAY_PLIST_TARGET
 RELAY_INSTALL_TIMEOUT_SECONDS = 300
-#: Reading status only inspects launchd and shakes hands with the plane.
+#: Reading status inspects the user service and shakes hands with the plane.
 RELAY_STATUS_TIMEOUT_SECONDS = 60
 #: How much of the installer's own output the failure carries, from its tail,
 #: where the diagnosis lands.
 RELAY_DETAIL_MAX_CHARS = 1200
-#: Steps every relay install performs, whichever build source it runs.
-RELAY_LIFECYCLE_STEPS = (
-    ("install-session-relay-plist", RELAY_PLIST_TARGET),
-    ("load-session-relay-login-item", "com.upyoke.relay"),
-)
 #: The build-source step, one per destination.
 RELAY_SERVED_RELEASE_STEP = ("reuse-session-relay-token", "existing-api-token")
 RELAY_LOCAL_BUILD_STEP = (
@@ -55,7 +32,6 @@ RELAY_LOCAL_BUILD_STEP = (
     "this machine's installed Yoke",
 )
 
-_SHARED_COMPLETE_LINES = (f"Machine relay plist: {RELAY_PLIST_TARGET}",)
 _SERVED_RELEASE_COMPLETE_LINES = (
     "Machine relay runs the release served by its selected environment.",
     "Machine relay uses one stable relay-owned Python with isolated release packages.",
@@ -91,10 +67,8 @@ def is_supported(
 ) -> bool:
     """Whether this machine can run a relay for the chosen destination."""
     resolved_platform = sys.platform if platform is None else platform
-    # launchd is the only supervisor the relay installs into today; the
-    # destination no longer decides, because both destinations need a relay.
     del local_destination
-    return resolved_platform == "darwin"
+    return resolved_platform in {"darwin", "linux"}
 
 
 def plan_steps(*, local_destination: bool) -> list[dict[str, str]]:
@@ -105,7 +79,7 @@ def plan_steps(*, local_destination: bool) -> list[dict[str, str]]:
     )
     return [
         {"action": action, "target": target}
-        for action, target in (*RELAY_LIFECYCLE_STEPS, build_step)
+        for action, target in (*onboard_relay_supervisor.lifecycle_steps(), build_step)
     ]
 
 
@@ -127,7 +101,7 @@ def setup_complete_lines(
         else _SERVED_RELEASE_COMPLETE_LINES
     )
     reuse_lines = (_REUSED_COMPLETE_LINE,) if reused else ()
-    return (*_SHARED_COMPLETE_LINES, *build_lines, *reuse_lines)
+    return (*onboard_relay_supervisor.complete_lines(), *build_lines, *reuse_lines)
 
 
 def relay_command(
@@ -299,7 +273,7 @@ def report_fragment(
     return {
         "planned": planned,
         "installed": installed,
-        "plist": RELAY_PLIST_TARGET if planned else None,
+        **onboard_relay_supervisor.report_document(planned=planned),
         "local_build": local_destination,
         "reused": reused,
     }
@@ -319,7 +293,6 @@ __all__ = [
     "OnboardSessionRelayError",
     "RELAY_DETAIL_MAX_CHARS",
     "RELAY_INSTALL_TIMEOUT_SECONDS",
-    "RELAY_LIFECYCLE_STEPS",
     "RELAY_LOCAL_BUILD_STEP",
     "RELAY_PLIST_TARGET",
     "RELAY_SERVED_RELEASE_STEP",
