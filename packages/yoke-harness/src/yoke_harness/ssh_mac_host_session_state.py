@@ -11,6 +11,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from yoke_contracts.machine_qa_terminal_bridge import (
+    TERMINAL_DISPLAY_LOCKED_ERROR_CODE,
+    terminal_bridge_recovery,
+)
 from yoke_harness.ssh_mac_terminal_app import RunRemote, run_osascript
 
 
@@ -19,6 +23,10 @@ from yoke_harness.ssh_mac_terminal_app import RunRemote, run_osascript
 #: the bridge reports the keys as delivered.
 SECURE_KEYBOARD_ENTRY_DOMAIN = "com.apple.Terminal"
 SECURE_KEYBOARD_ENTRY_KEY = "SecureKeyboardEntry"
+SCREEN_SHARING_CURTAIN_RECOVERY = (
+    "display is curtained by an active Screen Sharing connection; "
+    "disconnect Screen Sharing (or reconnect without curtain) and retry"
+)
 
 
 def read_console_user(run: RunRemote) -> str | None:
@@ -53,6 +61,21 @@ def read_load_average(run: RunRemote) -> float | None:
         except ValueError:
             continue
     return None
+
+
+def read_screen_sharing_active(run: RunRemote) -> bool | None:
+    """Check for the macOS Screen Sharing processes that curtain a display."""
+    result = run("/usr/bin/pgrep -x '(screensharingd|ScreensharingAgent)'", timeout=10)
+    if result.returncode not in {0, 1}:
+        return None
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
+def display_lock_recovery(context: dict[str, Any]) -> str:
+    """Explain a confirmed curtain, otherwise retain the ordinary lock remedy."""
+    if context.get("screen_sharing_active") is True:
+        return SCREEN_SHARING_CURTAIN_RECOVERY
+    return terminal_bridge_recovery(TERMINAL_DISPLAY_LOCKED_ERROR_CODE)
 
 
 def read_secure_keyboard_entry(run: RunRemote) -> bool:
@@ -98,20 +121,25 @@ def terminal_app_reachable(run: RunRemote) -> tuple[bool, str]:
 
 def probe_host_display_context(run: RunRemote) -> dict[str, Any]:
     """Read the host facts that decide whether any capture could have worked."""
-    return {
+    context = {
         "console_user": read_console_user(run),
         "display_locked": read_display_locked(run),
     }
+    if context["display_locked"] is True:
+        context["screen_sharing_active"] = read_screen_sharing_active(run)
+    return context
 
 
 __all__ = [
     "SECURE_KEYBOARD_ENTRY_DOMAIN",
     "SECURE_KEYBOARD_ENTRY_KEY",
+    "display_lock_recovery",
     "probe_host_display_context",
     "read_console_user",
     "read_display_locked",
     "read_load_average",
     "read_secure_keyboard_entry",
+    "read_screen_sharing_active",
     "system_events_reachable",
     "terminal_app_reachable",
 ]

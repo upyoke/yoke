@@ -132,6 +132,43 @@ def test_a_locked_screen_is_named_before_the_window(
     assert _rows(result)["window_launch"]["outcome"] == "not_run"
 
 
+@pytest.mark.parametrize("process", ["screensharingd", "ScreensharingAgent", None])
+def test_screen_sharing_curtain_has_its_own_recovery(monkeypatch, process):
+    class SharingMac(FakeMac):
+        def __call__(self, command, **kwargs):
+            if command.startswith("/usr/bin/pgrep"):
+                assert process is None or process in command
+                return subprocess.CompletedProcess(
+                    command,
+                    1 if process is None else 0,
+                    "" if process is None else "234\n",
+                    "",
+                )
+            return super().__call__(command, **kwargs)
+
+    result = _diagnose(SharingMac(locked=True), monkeypatch)
+    assert not result.ok
+    assert result.error_code == TERMINAL_DISPLAY_LOCKED_ERROR_CODE
+    row = _rows(result)["console_session"]
+    assert row["observed"]["screen_sharing_active"] is (process is not None)
+    assert result.evidence["host"]["screen_sharing_active"] is (process is not None)
+    if process:
+        assert (
+            "display is curtained by an active Screen Sharing connection"
+            in row["recovery"]
+        )
+        assert (
+            "disconnect Screen Sharing (or reconnect without curtain) and retry"
+            in row["recovery"]
+        )
+    else:
+        assert (
+            row["recovery"]
+            == TERMINAL_BRIDGE_RECOVERY[TERMINAL_DISPLAY_LOCKED_ERROR_CODE]
+        )
+    assert _rows(result)["window_launch"]["outcome"] == "not_run"
+
+
 @pytest.mark.parametrize("diagnose", [True, False])
 def test_window_launch_failure_retains_osascript_cause(monkeypatch, diagnose):
     class LaunchFailureMac(FakeMac):

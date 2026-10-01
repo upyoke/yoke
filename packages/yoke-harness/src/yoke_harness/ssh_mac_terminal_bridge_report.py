@@ -33,13 +33,14 @@ class BridgeDiagnosisReport:
         ok: bool,
         observed: dict[str, Any],
         error_code: str | None = None,
+        recovery: str | None = None,
     ) -> bool:
         """Record one capability's verdict and return whether it passed."""
         row: dict[str, Any] = {"name": name, "ok": ok, "observed": observed}
         if not ok:
             code = error_code or TERMINAL_APP_CONTROL_UNAVAILABLE_ERROR_CODE
             row["error_reason"] = code
-            row["recovery"] = TERMINAL_BRIDGE_RECOVERY[code]
+            row["recovery"] = recovery or TERMINAL_BRIDGE_RECOVERY[code]
             self.blocked_by = self.blocked_by or name
         self.rows.append(row)
         return ok

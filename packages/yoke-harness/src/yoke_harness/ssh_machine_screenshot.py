@@ -24,6 +24,7 @@ def capture_desktop(control) -> HostActionResult:
         elif control.os == "macos":
             from yoke_harness.ssh_mac_gui_session import run_terminal_app_command
             from yoke_harness.ssh_mac_host_session_state import (
+                display_lock_recovery,
                 probe_host_display_context,
             )
             from yoke_contracts.machine_qa_terminal_bridge import (
@@ -37,9 +38,12 @@ def capture_desktop(control) -> HostActionResult:
             elif context["display_locked"] is not False:
                 code = "terminal_display_locked"
             if code:
-                return HostActionResult(
-                    False, {**context, "recovery": terminal_bridge_recovery(code)}, code
+                recovery = (
+                    display_lock_recovery(context)
+                    if code == "terminal_display_locked"
+                    else terminal_bridge_recovery(code)
                 )
+                return HostActionResult(False, {**context, "recovery": recovery}, code)
 
             captured = run_terminal_app_command(
                 control._run,
