@@ -210,6 +210,44 @@ def test_terminal_error_ignores_observer_and_process_wrapper_messages() -> None:
     assert terminal_error(log) is None
 
 
+def test_stalled_dispatch_is_the_bridge_cause_not_a_downstream_failure() -> None:
+    origin = github_run_ref("owner/product", "10")
+    diagnostic = (
+        "stalled_dispatch waiting_on=pending_zero_jobs_stall "
+        "failure_reason=ci_run_never_started run=20 status=pending jobs=0; "
+        "force-cancel with `gh api --method POST repos/owner/consumer/"
+        "actions/runs/20/force-cancel`|"
+        "https://github.com/owner/consumer/actions/runs/20"
+    )
+    snapshot = RunSnapshot(
+        origin,
+        (
+            FailedJob(
+                "30",
+                "dispatch and await release",
+                "2026-10-01T17:49:29.5647713Z " + diagnostic + "\n"
+                "##[error]Process completed with exit code 1.",
+            ),
+        ),
+    )
+    inspected = []
+
+    def inspect(ref):
+        inspected.append(ref)
+        return snapshot
+
+    result = walk_failure_chain(
+        origin,
+        inspect_run=inspect,
+        resolve_job=lambda repo, job_id: github_run_ref(repo, job_id),
+    )
+
+    assert result["complete"] is True
+    assert result["terminal_error"] == diagnostic
+    assert result["terminal_job"] == "dispatch and await release"
+    assert inspected == [origin]
+
+
 def test_unresolved_relay_returns_partial_chain_and_recovery() -> None:
     origin = github_run_ref("owner/repo", "10")
     snapshot = RunSnapshot(

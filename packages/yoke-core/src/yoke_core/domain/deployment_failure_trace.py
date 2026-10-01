@@ -6,6 +6,8 @@ from dataclasses import dataclass
 import re
 from typing import Any, Callable, Iterable
 
+from yoke_core.domain.github_actions_run_stall import STALLED_DISPATCH_TOKEN
+
 
 MAX_TRACE_HOPS = 8
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
@@ -132,6 +134,8 @@ def relay_signal(log: str, current: RunRef) -> RelaySignal:
 
 def _error_score(text: str) -> tuple[int, int]:
     folded = text.casefold()
+    if re.search(r"\b" + re.escape(STALLED_DISPATCH_TOKEN) + r"\b", folded):
+        return 95, len(text)
     if "unauthorized: authentication required" in folded:
         return 100, len(text)
     if "assertionerror:" in folded:

@@ -74,8 +74,11 @@ passing lane is published once and CI runs. Dash branches otherwise stay local
 until this gate. The recorded verdict names the CI run URL and exact head SHA
 it covered.
 
-A run that remains `pending` with zero jobs for 120 seconds is
-`ci_run_never_started`. The gate force-cancels it and redispatches once without
+A run that remains `pending` with zero jobs for 120 seconds is a stall candidate.
+The waiter requires a complete GitHub concurrency-group listing with no configured
+groups before naming it `ci_run_never_started`. Configured concurrency waits keep
+being awaited until completion or the overall timeout; missing queue evidence is
+a read error, never a stall. The gate force-cancels a confirmed stall and redispatches once without
 another push. If the replacement also never starts, the case fails immediately
 with the same name and tells the worker to create an empty commit and rerun the
 case so the gate pushes the new head; the worker still never pushes by hand.
