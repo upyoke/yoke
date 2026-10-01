@@ -159,3 +159,40 @@ def test_convergence_leaves_a_grant_less_schema_and_its_caller_untouched(test_db
 
     still_there = int(test_db.execute("SELECT COUNT(*) FROM actors").fetchone()[0])
     assert still_there == uncommitted
+
+
+def test_birth_actor_binding_uses_its_database_and_survives_reconnection(
+    test_db, tmp_path, monkeypatch
+):
+    import json
+    import os
+
+    from yoke_core.domain.local_universe_operating_actor import record_operating_actor
+    from yoke_core.domain.org_schema import seed_default_org
+    from yoke_core.domain.session_actor_binding import resolve_operating_actor
+    from yoke_core.domain.universe_identity import universe_fingerprint
+
+    seed_default_org(test_db)
+    actor_id, _seeded = ensure_local_operating_actor(test_db)
+    test_db.commit()
+    dsn = os.environ["YOKE_PG_DSN"]
+    config = tmp_path / "config.json"
+    config.write_text(
+        json.dumps(
+            {
+                "active_env": "local",
+                "connections": {"local": {"transport": "local-postgres"}},
+            }
+        )
+    )
+    monkeypatch.delenv("YOKE_PG_DSN")
+
+    recorded = record_operating_actor(
+        actor_id, dsn=dsn, env="local", config_path=config
+    )
+
+    assert recorded == ("local", universe_fingerprint(test_db))
+    assert "YOKE_PG_DSN" not in os.environ
+    binding = resolve_operating_actor(test_db, env="local", config_path=config)
+    assert binding.bound
+    assert binding.actor_id == actor_id
