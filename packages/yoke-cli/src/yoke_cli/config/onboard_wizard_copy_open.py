@@ -4,14 +4,15 @@ A one-time code and a long sign-in URL are the two things onboarding asks a
 person to carry out of the terminal by hand, and a wrapped URL retyped or
 re-selected is where that goes wrong. Every screen showing one registers it as
 a :class:`CopyTarget`; the copy key puts it on the clipboard verbatim and the
-open key hands a URL to the browser, each reporting what happened in the
-footer where the key hints already are.
+open key hands a URL to the browser. Remote sessions temporarily return to
+normal scrollback so the user's terminal can select and copy the exact text.
 """
 
 from __future__ import annotations
 
 from typing import Iterable, Protocol
 
+from textual.app import SuspendNotSupported
 from textual.widgets import Input, Static
 
 from yoke_cli.config import onboard_clipboard
@@ -26,6 +27,7 @@ FOOTER_ID = "onboard-footer"
 
 NOTHING_TO_COPY_NOTE = "Nothing to copy on this screen."
 NOTHING_TO_OPEN_NOTE = "No link on this screen to open."
+COPY_RETURN_PROMPT = "Select and copy, then press Enter to return"
 
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
@@ -80,10 +82,14 @@ class CopyOpenFlow:
 
     def _copy_hint_label(self: _Shell) -> str | None:
         target = self._current_copy_target()
+        if target and onboard_clipboard.remote_session():
+            return f"show {target.label} to copy"
         return f"copy {target.label}" if target else None
 
     def _open_hint_label(self: _Shell) -> str | None:
         target = self._current_open_target()
+        if target and onboard_clipboard.remote_session():
+            return f"show {target.label}"
         return f"open {target.label}" if target else None
 
     def _current_copy_target(self: _Shell) -> CopyTarget | None:
@@ -108,19 +114,51 @@ class CopyOpenFlow:
             self._note(NOTHING_TO_COPY_NOTE)
             return
         marks = glyphs()
-        result = onboard_clipboard.copy(target.value)
-        if not result.copied:
-            self._note(f"{marks.fail} Couldn't copy {target.label}: {result.reason}")
-            return
+        if onboard_clipboard.remote_session():
+            if not self._show_copy_target(target):
+                return
+            note = f"Shown {target.label} for terminal copying."
+        else:
+            result = onboard_clipboard.copy(target.value)
+            if result.copied:
+                note = f"{marks.ok} Copied {target.label}."
+            elif not self._show_copy_target(target):
+                return
+            else:
+                note = f"Shown {target.label} for terminal copying."
         # Advance first, so the footer hint now names what a second press takes
         # — that is how a screen carrying both a code and a URL advertises both.
         self._copy_cursor += 1
-        self._note(f"{marks.ok} Copied {target.label}.")
+        self._note(note)
+
+    def _show_copy_target(self: _Shell, target: CopyTarget) -> bool:
+        error = None
+        try:
+            with self.suspend():
+                # Catch inside the context: Textual must resume even on EOF or
+                # Ctrl-C while the terminal is temporarily outside app mode.
+                try:
+                    print(onboard_clipboard.osc52(target.value), end="", flush=True)
+                    print(target.value)
+                    print(COPY_RETURN_PROMPT, flush=True)
+                    input()
+                except (EOFError, OSError, KeyboardInterrupt) as exc:
+                    error = f"terminal_copy_interrupted ({type(exc).__name__})"
+        except SuspendNotSupported:
+            error = "terminal_copy_suspend_unavailable"
+        if error:
+            self._note(f"{error}: retry Ctrl-Y in a terminal to select and copy.")
+            return False
+        return True
 
     def action_open_target(self: _Shell) -> None:
         target = self._current_open_target()
         if target is None:
             self._note(NOTHING_TO_OPEN_NOTE)
+            return
+        if onboard_clipboard.remote_session():
+            if self._show_copy_target(target):
+                self._note(f"Shown {target.label} for terminal copying.")
             return
         marks = glyphs()
         result = open_url(target.value)
