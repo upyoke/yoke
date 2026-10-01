@@ -17,9 +17,6 @@ from yoke_core.tools import session_relay_release_install as relay_install
 from yoke_core.tools.session_relay_release import RelayReleaseError
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
-LOGOUT_BEHAVIOR = (
-    "The relay stops after the last login session logs out; linger is disabled."
-)
 
 
 @dataclass(frozen=True)

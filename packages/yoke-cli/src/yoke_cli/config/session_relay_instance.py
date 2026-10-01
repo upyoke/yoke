@@ -11,6 +11,10 @@ from yoke_cli.config import machine_config
 from yoke_contracts.machine_config import schema as machine_schema
 
 
+RELAY_LOGOUT_BEHAVIOR = (
+    "The relay stops after the last login session logs out; linger is disabled."
+)
+
 PROD_RELAY_LABEL = "com.upyoke.relay"
 NON_PROD_RELAY_LABEL_PREFIX = f"{PROD_RELAY_LABEL}."
 #: launchd's per-user domain, the one a relay LaunchAgent bootstraps into. It
@@ -174,6 +178,7 @@ __all__ = [
     "PROD_RELAY_LABEL",
     "PROD_RELAY_STATE_DIR_NAME",
     "RELAY_STATE_DIR_ENV",
+    "RELAY_LOGOUT_BEHAVIOR",
     "RelayInstance",
     "RelayInstanceError",
     "prod_https_environments",

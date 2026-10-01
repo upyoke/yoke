@@ -9,6 +9,7 @@ from typing import Any, Mapping
 from yoke_cli.config import machine_config
 from yoke_cli.config.session_relay_instance import (
     RelayInstanceError,
+    RELAY_LOGOUT_BEHAVIOR,
     resolve_relay_instance,
 )
 from yoke_contracts.machine_config.credential_sources import (
@@ -21,7 +22,7 @@ from yoke_core.domain.session_relay_storage import marker, utc_now
 from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.tools.session_relay_plist import relay_launchd_status
-from yoke_core.tools.session_relay_systemd import relay_systemd_status, LOGOUT_BEHAVIOR
+from yoke_core.tools.session_relay_systemd import relay_systemd_status
 
 
 SLUG = "session-relay"
@@ -171,7 +172,7 @@ def hc_session_relay(
         TITLE,
         "PASS",
         f"{relay_id} is active and authenticated; last seen {last_seen}."
-        + (f" {LOGOUT_BEHAVIOR}" if sys.platform == "linux" else ""),
+        + (f" {RELAY_LOGOUT_BEHAVIOR}" if sys.platform == "linux" else ""),
     )
 
 

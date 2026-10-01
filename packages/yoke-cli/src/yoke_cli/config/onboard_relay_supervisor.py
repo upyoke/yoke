@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from yoke_cli.config.session_relay_instance import RELAY_LOGOUT_BEHAVIOR
 
 RELAY_PLIST_TARGET = "~/Library/LaunchAgents/com.upyoke.relay[.<environment-id>].plist"
 UNIT_INSTALL_ACTION = "install-session-relay-unit"
@@ -27,7 +28,7 @@ def complete_lines() -> tuple[str, ...]:
         return (
             f"Machine relay user unit: {RELAY_UNIT_TARGET}",
             "Machine relay starts at login and restarts on failure.",
-            "Machine relay stops after the last login session logs out; linger is disabled.",
+            RELAY_LOGOUT_BEHAVIOR,
         )
     return (f"Machine relay plist: {RELAY_PLIST_TARGET}",)
 

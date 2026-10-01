@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from yoke_cli.config.session_relay_instance import RELAY_LOGOUT_BEHAVIOR
 from typing import Any
 
 from yoke_core.tools import session_relay_plist, session_relay_systemd
@@ -51,9 +52,7 @@ def relay_service_payload(status: Any) -> dict[str, Any]:
             "enabled": status.enabled,
             "unit_path": str(status.unit_path),
             "supervision_reason": status.reason or None,
-            "logout_behavior": session_relay_systemd.LOGOUT_BEHAVIOR
-            if not status.reason
-            else None,
+            "logout_behavior": RELAY_LOGOUT_BEHAVIOR if not status.reason else None,
         }
     else:
         document = {
