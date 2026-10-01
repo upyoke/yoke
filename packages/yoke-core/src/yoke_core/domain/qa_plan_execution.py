@@ -158,7 +158,8 @@ def execute_plan(
                 actor=resolved_actor,
             )
             if requirement.get("runner_id") == "host_control":
-                if requirement.get("host_baseline"):
+                standalone_id = requirement.get("standalone_execution_id")
+                if requirement.get("host_baseline") and not standalone_id:
                     if requirement_id not in baseline_group_results:
                         from yoke_core.domain.machine_qa_case_execution import (
                             execute_materialized_machine_baseline_group,

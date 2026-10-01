@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.handlers.machine_qa_case import _is_machine_case
-
 
 def baseline_group_cases(
     conn: Any,
@@ -15,6 +13,7 @@ def baseline_group_cases(
 ) -> list[dict[str, Any]]:
     """Reread one materialized baseline group from database authority."""
     from yoke_core.domain import db_backend
+    from yoke_core.domain.handlers.machine_qa_case import _is_machine_case
     from yoke_core.domain.machine_qa_method_contracts import MACHINE_METHODS
     from yoke_core.domain.qa_case_execution_context import (
         get_case_execution_context,
@@ -29,14 +28,14 @@ def baseline_group_cases(
         )
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     method_ids = sorted(MACHINE_METHODS)
-    item_id = anchor.get("item_id")
-    deployment_run_id = anchor.get("deployment_run_id")
-    if bool(item_id) == bool(deployment_run_id):
+    subjects = {
+        column: anchor[column]
+        for column in ("item_id", "deployment_run_id", "standalone_execution_id")
+        if anchor.get(column) is not None
+    }
+    if len(subjects) != 1:
         raise ValueError("baseline-group requirement has no unique QA subject")
-    subject_column = "item_id" if item_id is not None else "deployment_run_id"
-    subject_value: int | str = (
-        int(item_id) if item_id is not None else str(deployment_run_id)
-    )
+    subject_column, subject_value = next(iter(subjects.items()))
     rows = conn.execute(
         "SELECT id FROM qa_requirements "
         f"WHERE {subject_column}={marker} AND plan_id={marker} "
@@ -69,6 +68,7 @@ def baseline_group_cases(
         not _is_machine_case(case)
         or case.get("item_id") != anchor.get("item_id")
         or case.get("deployment_run_id") != anchor.get("deployment_run_id")
+        or case.get("standalone_execution_id") != anchor.get("standalone_execution_id")
         or int(case["plan_id"]) != int(plan_id)
         or str(case.get("workflow_transition_id") or "")
         != str(anchor.get("workflow_transition_id") or "")

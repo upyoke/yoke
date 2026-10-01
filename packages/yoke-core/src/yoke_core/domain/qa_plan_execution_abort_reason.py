@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from typing import Any
 
+ABORT_REASON_MAX_LENGTH = 200
+
 #: A case raised while executing or recording, with a host contact possible.
 CASE_EXECUTION_ERROR_REASON = "case-execution-or-recording-error"
 #: A continuation raised before it could reach the host it inherited, so the
@@ -31,6 +33,7 @@ def abort_reason_code(reason: Any) -> str:
 
 
 __all__ = [
+    "ABORT_REASON_MAX_LENGTH",
     "CASE_EXECUTION_ERROR_REASON",
     "CONTINUATION_PRE_HOST_ERROR_REASON",
     "REASON_DETAIL_SEPARATOR",

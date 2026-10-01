@@ -7,6 +7,7 @@ import shlex
 from typing import Any
 
 from yoke_harness.ssh_linux_reset_cleanup import RESET_WRITERS_PROGRAM
+from yoke_harness.ssh_linux_reset_services import YOKE_SERVICE_PATTERNS
 from yoke_harness.ssh_mac_baseline_probes import (
     parse_baseline_probes,
     run_baseline_probes,
@@ -29,7 +30,7 @@ ABSENT_HOME_PATHS = (
 )
 
 _ARCHIVE_PROGRAM = r"""
-import hashlib, json, os, pathlib, shutil, stat, sys, tarfile, tempfile
+import fnmatch, hashlib, json, os, pathlib, shutil, stat, sys, tarfile, tempfile
 operation, expected_home, golden = sys.argv[1:]
 home = pathlib.Path(os.environ["HOME"])
 baseline = pathlib.Path(golden)
@@ -68,6 +69,8 @@ def validate_archive(archive):
                 refuse("golden_baseline_archive_unsafe", member.name)
         if any(name == value or name.startswith(value + "/") for value in absent):
             refuse("golden_baseline_contains_yoke")
+        if any(fnmatch.fnmatchcase(path.name, pattern) for pattern in __YOKE_SERVICE_PATTERNS__):
+            refuse("golden_baseline_contains_yoke_service", member.name)
     return members
 if operation not in {"capture", "reset"}: refuse("linux_golden_operation_unknown")
 if operation == "capture":
@@ -116,8 +119,11 @@ else:
         # STOP_YOKE_WRITERS
         for entry in home.iterdir():
             if entry.name == ".ssh": continue
-            if entry.is_dir() and not entry.is_symlink(): shutil.rmtree(entry)
-            else: entry.unlink()
+            try:
+                if entry.is_dir() and not entry.is_symlink(): shutil.rmtree(entry)
+                else: entry.unlink()
+            except OSError:
+                refuse("linux_golden_home_clear_failed", entry.name)
         archive.extractall(home, filter="fully_trusted")
         for member in members:
             restored = home / member.name
@@ -130,8 +136,9 @@ else:
     for value in absent:
         if (home / value).exists() or (home / value).is_symlink(): refuse("reset_absence_not_proved")
 print(json.dumps({"ok":True, "operation":operation, "golden_baseline_path":str(baseline),
-                  "preserved_entries":[".ssh"], "absent_paths":absent if operation == "reset" else []}))
-"""
+                  "preserved_entries":[".ssh"], "absent_paths":absent if operation == "reset" else [],
+                  "service_cleanup": locals().get("service_cleanup")}))
+""".replace("__YOKE_SERVICE_PATTERNS__", repr(YOKE_SERVICE_PATTERNS))
 
 
 def prove_linux_probes(control: Any, document: str) -> HostActionResult:
@@ -179,7 +186,12 @@ def archive_operation(
     ok = result.returncode == 0 and evidence.get("ok") is True
     if not ok:
         evidence["recovery"] = (
-            "Use a non-root test user and a new literal golden directory outside its home; repair the baseline archive before retrying."
+            "Inspect systemctl --user and systemd-analyze --user unit-paths; repair the named unit or user manager, have an administrator remove a foreign-owned Yoke definition, then retry the sealed baseline."
+            if str(evidence.get("reason", "")).startswith("linux_yoke_service")
+            or evidence.get("reason") == "linux_yoke_linger_unknown"
+            else "Repair the named reset failure and inspect refused_entry; stop surviving home-resident processes if clearing failed, then retry the sealed baseline. Never capture a mixed home."
+            if operation == "reset"
+            else "Use a non-root test user and a new literal golden directory outside its home; repair the baseline archive before retrying."
         )
     return HostActionResult(
         ok,

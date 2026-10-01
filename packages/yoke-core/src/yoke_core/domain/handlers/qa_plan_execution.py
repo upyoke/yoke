@@ -11,6 +11,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_core.domain import qa_plan_execution_abort_reason as abort_reasons
 
 
 class PlanExecutionBeginRequest(BaseModel):
@@ -24,8 +25,7 @@ class PlanExecutionBeginRequest(BaseModel):
     deployment_stage: str | None = Field(default=None, min_length=1)
     deployment_member: str | None = Field(default=None, min_length=1)
     machine: str | None = Field(default=None, min_length=1)
-    #: Resume a mission walk the stale sweep settled while its walker was
-    #: parked: same roster, own runs, and no case reaches a host baseline.
+    #: Resume a stale-settled mission on its existing roster and host.
     continue_mission: bool = False
 
 
@@ -42,7 +42,7 @@ class PlanExecutionAdvanceRequest(PlanExecutionStateRequest):
 
 
 class PlanExecutionAbortRequest(PlanExecutionStateRequest):
-    reason: str = Field(min_length=1, max_length=200)
+    reason: str = Field(min_length=1, max_length=abort_reasons.ABORT_REASON_MAX_LENGTH)
 
 
 class PlanExecutionStateResponse(BaseModel):

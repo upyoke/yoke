@@ -39,9 +39,14 @@ its SHA-256 digest to the test user/home. They stay outside the home. Capture
 omits Unix sockets and symlinks that resolve to sockets or outside the captured
 home, regardless of filename; regular files and safe links named `.sock` stay.
 Restore validates identity, digest and every archive entry before clearing the home,
-preserves `.ssh`, compares restored file digests, and proves Yoke state and
+stops that user's home-resident programs and descendants (including deleted
+harness executables), preserves `.ssh`, compares restored file digests, and proves Yoke state and
 launcher paths absent on SSH and login shells. Declared probes then check
 CLI authentication, credential files and relevant user services over SSH.
+Surviving or respawning home programs refuse before clearing with
+`linux_home_writers_stop_not_proved`. A clear failure reports
+`linux_golden_home_clear_failed` and `refused_entry`: stop the writer and retry
+the sealed archive; never capture the mixed home. OS packages are not restored.
 Linux terminal evidence is a tmux transcript. Screenshot or GUI-session cases
 refuse with `headless_linux_screenshot_unavailable` and a designed deferral;
 use a macOS Test Machine for that proof. Browser-approval recipes likewise
@@ -207,3 +212,11 @@ what the load makes longer, and a wait tuned for an idle Mac expires on a
 merely busy one. Every timeout reports the load that sized it, so it reads as
 "this long, at this load" rather than as a missing privacy grant — which is how
 one focus race was diagnosed as permissions for a day.
+
+Linux reset removes Yoke-owned user service definitions and links, including
+`com.upyoke.*.service`, from the user manager's reported unit search paths.
+It stops loaded units even when their FragmentPath was deleted, reloads the
+manager, then proves loaded units and definitions absent. It checks linger
+without disabling unrelated user services. A foreign-owned definition refuses
+for administrator repair; service absence is never inferred from a missing file.
+A home archive containing a Yoke service definition refuses before clearing.
