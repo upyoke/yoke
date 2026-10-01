@@ -183,7 +183,9 @@ class TestDeclarationTable(unittest.TestCase):
         declaration = applicability_for("session-relay")
         self.assertFalse(declaration.requires_https_control_plane)
         for https in (False, True):
-            self.assertIsNone(not_applicable_reason(declaration, _context(https_control_plane=https)))
+            self.assertIsNone(
+                not_applicable_reason(declaration, _context(https_control_plane=https))
+            )
         self.assertEqual(declaration.runtimes, frozenset({RUNTIME_LOCAL}))
 
     def test_local_operating_actor_authority_needs_the_local_control_plane(self):
