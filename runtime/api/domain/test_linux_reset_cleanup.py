@@ -145,7 +145,9 @@ def test_reset_removes_relay_files_and_reloads_ghost_units(
     assert not relay.exists() and not link.is_symlink()
     assert other.read_text() == "preserve this"
     assert ["systemctl", "--user", "stop", ghost] in commands
-    assert ["systemctl", "--user", "daemon-reload"] in commands
+    reset = ["systemctl", "--user", "reset-failed", ghost, relay.name]
+    reload = ["systemctl", "--user", "daemon-reload"]
+    assert commands.index(reset) < commands.index(reload)
     assert not any("disable-linger" in argv for argv in commands)
 
 

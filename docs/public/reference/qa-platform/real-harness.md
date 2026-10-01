@@ -44,9 +44,12 @@ Linux reset first stops the test user's home-resident programs and descendants,
 including harness daemons whose executables were deleted by an earlier reset.
 A surviving writer refuses before clearing; a clear failure names its entry.
 Retry the sealed archive after stopping the writer, and never reseal a mixed home.
-Reset also stops Yoke user units, removes their owned definitions and links from
-systemd's reported search paths, reloads the user manager to evict deleted
-FragmentPaths, and proves both loaded units and definitions absent. It records
+Reset also stops Yoke user units, including loaded relays whose files are gone,
+removes their owned definitions and links from systemd's reported search paths,
+clears their failed state, and reloads the user manager to evict deleted
+FragmentPaths. An empty unit-file inventory's nonzero exit is accepted only with
+empty output and no diagnostic; manager and inventory outages still refuse.
+Reset proves both loaded units and definitions absent. It records
 linger without changing other user services. System-wide OS packages are outside
 the home golden.
 The case installs the candidate wheels in a separate

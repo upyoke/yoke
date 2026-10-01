@@ -8,12 +8,17 @@ service_cleanup = {"removed_units": [], "linger": None}
 service_patterns = __YOKE_SERVICE_PATTERNS__
 def yoke_service(name):
     return any(fnmatch.fnmatchcase(name, pattern) for pattern in service_patterns)
+def inventory_failed(result, verb):
+    # systemctl list-unit-files returns EXIT_FAILURE for an empty match (ENOENT).
+    empty_files = (verb == "list-unit-files" and result.returncode == 1
+                   and not result.stdout.strip() and not result.stderr.strip())
+    return result.returncode != 0 and not empty_files
 if shutil.which("systemctl"):
     observed = bounded(["systemctl", "--user", "list-units", "--all", "--plain", "--no-legend", *service_patterns])
     if observed.returncode: refuse("linux_yoke_service_manager_unavailable")
     loaded = {line.split()[0] for line in observed.stdout.splitlines() if line.strip()}
     observed = bounded(["systemctl", "--user", "list-unit-files", "--no-legend", *service_patterns])
-    if observed.returncode: refuse("linux_yoke_service_inventory_unavailable")
+    if inventory_failed(observed, "list-unit-files"): refuse("linux_yoke_service_inventory_unavailable")
     definitions = {line.split()[0] for line in observed.stdout.splitlines() if line.strip()}
     observed = bounded(["systemd-analyze", "--user", "unit-paths"])
     if observed.returncode: refuse("linux_yoke_service_paths_unavailable")
@@ -34,13 +39,15 @@ if shutil.which("systemctl"):
         try: path.unlink()
         except FileNotFoundError: pass # disable may already remove a wants link
         except OSError: refuse("linux_yoke_service_remove_failed", str(path))
+    # Clear failed state while fileless units are still loaded, before reloading.
+    # A stop may already unload a unit; final inventories prove cleanup either way.
+    if units: bounded(["systemctl", "--user", "reset-failed", *sorted(units)])
     # A deleted FragmentPath remains loaded and can restart until this reload.
     if bounded(["systemctl", "--user", "daemon-reload"]).returncode:
         refuse("linux_yoke_service_reload_failed")
-    if units: bounded(["systemctl", "--user", "reset-failed", *sorted(units)])
     for verb in ("list-units", "list-unit-files"):
         proof = bounded(["systemctl", "--user", verb, "--no-legend", *service_patterns])
-        if proof.returncode or proof.stdout.strip(): refuse("linux_yoke_service_absence_not_proved")
+        if inventory_failed(proof, verb) or proof.stdout.strip(): refuse("linux_yoke_service_absence_not_proved")
     proof = bounded(["loginctl", "show-user", str(os.getuid()), "--property=Linger", "--value"])
     if proof.returncode or proof.stdout.strip() not in {"yes", "no"}:
         refuse("linux_yoke_linger_unknown")
