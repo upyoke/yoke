@@ -317,9 +317,9 @@ def test_absolute_tmpdir_is_canonical_and_shared_with_guard(
     from yoke_core.domain.lint_session_cwd_path_authority import is_free_path
 
     monkeypatch.setenv("TMPDIR", tmpdir)
-    root = Path(tmpdir or "unconfigured/tmp").resolve()
-    target = root / "capture.log"
     accepted = bool(tmpdir and Path(tmpdir).is_absolute())
+    root = Path(tmpdir).resolve() if accepted else Path("/__unconfigured_tmpdir__")
+    target = root / "capture.log"
     assert (str(root) in free_path_prefixes()) is accepted
     assert (
         is_under_free_path_prefix(target, prefixes=free_path_prefixes()[-1:])
