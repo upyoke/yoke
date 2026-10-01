@@ -14,6 +14,11 @@ from typing import Any
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_mode import session_is_parked
+from yoke_core.domain.session_tool_call_projections import (
+    OPEN_TOOL_CALL_COLUMN,
+    open_tool_call_select,
+)
+from yoke_core.domain.session_reclaim_progress import parse_stamp
 from yoke_core.domain.session_native_process_observation import (
     current_native_process_observation,
 )
@@ -46,6 +51,12 @@ class ClaimHolder:
     #: quiet: something on its own machine decided it had no authority, and
     #: the two want opposite responses from a seat.
     contained_reason: str = ""
+    #: A turn stopped after starting a call whose completion never arrived.
+    call_interrupted: bool = False
+
+    @property
+    def requires_immediate_alarm(self) -> bool:
+        return self.native_process_gone or (self.call_interrupted and not self.parked)
 
     @property
     def native_process_gone(self) -> bool:
@@ -82,6 +93,7 @@ def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
     """
     item_id = scope_int_sql(conn, "wc.scope", "item_id")
     marker = _p(conn)
+    open_call = open_tool_call_select(conn, session_alias="hs")
     try:
         rows = conn.execute(
             f"SELECT {item_id} AS item_id, wc.session_id AS session_id, "
@@ -100,6 +112,7 @@ def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
             "hs.native_process_gone_evidence AS native_process_gone_evidence, "
             "EXISTS(SELECT 1 FROM session_launches l "
             "WHERE l.registered_session_id = hs.session_id) AS launch_recorded "
+            f"{open_call} "
             "FROM work_claims wc "
             f"JOIN items i ON i.id = {item_id} "
             "JOIN projects p ON p.id = i.project_id "
@@ -139,6 +152,14 @@ def claim_holders(
             )
             or {}
         )
+        call_start = parse_stamp(row.get(OPEN_TOOL_CALL_COLUMN))
+        stopped_at = parse_stamp(row.get("turn_posture_at"))
+        interrupted = (
+            row.get("turn_posture") == "waiting"
+            and call_start is not None
+            and stopped_at is not None
+            and stopped_at >= call_start
+        )
         holders.append(
             ClaimHolder(
                 session_id=str(row["session_id"]),
@@ -154,6 +175,7 @@ def claim_holders(
                 native_process_gone_at=str(process.get("observed_at") or ""),
                 contained_reason=_contained_reason(process),
                 hand_started=not bool(row.get("launch_recorded")),
+                call_interrupted=interrupted,
             )
         )
     return tuple(holders)

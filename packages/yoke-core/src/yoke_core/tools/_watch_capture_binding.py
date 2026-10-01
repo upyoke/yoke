@@ -45,9 +45,7 @@ from yoke_core.domain.project_scratch_dir import mint_watcher_capture_pair
 #: First line a bound watcher writes into its progress capture. The
 #: producer (:func:`stamp_writer`) and the consumer (:func:`writer_pid`)
 #: are the only two sides of this literal.
-WRITER_MARKER_RE = re.compile(
-    r"^# watch_(?P<kind>\w+) writer_pid=(?P<pid>\d+)\b"
-)
+WRITER_MARKER_RE = re.compile(r"^# watch_(?P<kind>\w+) writer_pid=(?P<pid>\d+)\b")
 #: How long a follower waits for any writer evidence before refusing.
 #: Covers interpreter start-up and the gap between arming the follower
 #: and pasting the background command; a queued run has already stamped.
@@ -175,7 +173,7 @@ def dead_writer_refusal(path: Path, *, pid: int) -> str:
     return (
         f"# watch_tail refusing: watcher pid {pid} owning {path} exited "
         "without writing an exit sentinel.\n"
-        "#   Cause: the watcher process died before it could report "
+        "#   Cause: watcher interrupted; the process died before it could report "
         "'# watch_<kind> exit=<rc>'.\n"
         "#   Fix: inspect the raw capture named in this file's header line, "
         "then re-run the\n"

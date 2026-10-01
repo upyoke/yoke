@@ -62,6 +62,7 @@ from yoke_contracts.session_control.vendor_error_signatures import (
     classify_vendor_error,
 )
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_tool_call_liveness import session_call_is_live
 from yoke_core.domain.session_tool_call_projections import (
     OPEN_TOOL_CALL_COLUMN,
     open_tool_call_select,
@@ -189,7 +190,7 @@ def _decision(
         return {**state, "status": "seat_required", "reason": signature.summary}
     if attempts >= len(RESUME_BACKOFF_SECONDS):
         return {**state, "status": "budget_spent", "reason": signature.summary}
-    if row.get(OPEN_TOOL_CALL_COLUMN):
+    if session_call_is_live(row, started_at=str(row.get(OPEN_TOOL_CALL_COLUMN) or "")):
         # The turn is executing. Whatever ended the previous one, this
         # session is working now and a resume would fork its conversation.
         return {

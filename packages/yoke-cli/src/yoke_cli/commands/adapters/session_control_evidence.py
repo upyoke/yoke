@@ -61,7 +61,7 @@ def _write_evidence(response: Any, stdout: TextIO, stderr: TextIO) -> None:
         (
             ("SESSION", result.get("session_id")),
             ("MACHINE", result.get("machine_id")),
-            ("STATE", result.get("state")),
+            ("FETCH JOB STATE", result.get("state")),
             ("RESULT", result.get("result_code")),
             ("FILES", len(result.get("files") or [])),
             ("SELECTED", result.get("selected_file")),

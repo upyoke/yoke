@@ -79,7 +79,12 @@ def seed_tool_call(
     completed_at: str | None = None,
     tool_name: str = "Bash",
 ) -> None:
-    """One ``session_tool_calls`` row, open unless ``completed_at`` is given."""
+    """One call and the running posture its accepted hook would stamp."""
+    conn.execute(
+        "UPDATE harness_sessions SET turn_posture='running', "
+        "turn_posture_at=%s WHERE session_id=%s",
+        (started_at, session_id),
+    )
     conn.execute(
         "INSERT INTO session_tool_calls "
         "(session_id, tool_use_id, tool_name, started_at, completed_at, "
