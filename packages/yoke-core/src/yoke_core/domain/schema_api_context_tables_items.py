@@ -90,6 +90,7 @@ ITEMS_TABLE: dict[str, dict] = {
             "Merge evidence: read `yoke items get PREFIX-N merged_at` for landing "
             "and the merge command receipt for its commit identity. Wrong guess: "
             "`merge_commit` or `merge_receipt` is an items.get field; both are refused. "
+            "`pr_url` is also refused; read the merge command receipt for the pull request. "
             "Worktree branches and paths live exclusively in "
             "item_worktrees; task and dispatch rows reference those lanes "
             "through item_worktree_id."

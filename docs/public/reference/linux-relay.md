@@ -5,6 +5,15 @@ connection. A hosted connection runs its pinned served release; a local
 universe runs this machine's installed Yoke. Both reuse the same relay state,
 configuration, logs, and native harness inventory as macOS.
 
+Before installing the relay, onboarding checks Python's `venv` and `ensurepip`
+support during the existing Linux system-package setup. On Debian, Ubuntu and
+WSL Ubuntu, it installs the matching `pythonX.Y-venv` package automatically,
+using root, passwordless sudo, or the terminal's sudo prompt. The release
+installer also checks the stable relay interpreter, including an existing
+runtime whose Python version differs from the onboarding CLI. Missing package
+authority or a failed installation stops setup with the package and recovery
+named; no manual sudo command is required.
+
 The unit lives at
 `~/.config/systemd/user/com.upyoke.relay[.<environment-id>].service`.
 It starts at login, restarts on failure, and stops after the last login session

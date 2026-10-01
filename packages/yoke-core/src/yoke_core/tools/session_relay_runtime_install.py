@@ -6,11 +6,13 @@ from collections.abc import Callable
 import os
 from pathlib import Path
 import shutil
+import sys
 import subprocess
 import uuid
 import venv
 
 from yoke_cli.config.session_relay_instance import RELAY_STATE_DIR_ENV
+from yoke_harness.python_venv_dependencies import ensure_venv_support
 from yoke_core.tools.session_relay_release import (
     PYTHON_ISOLATION_FLAG,
     RELAY_ACTIVE_RELEASE_NAME,
@@ -64,6 +66,12 @@ def activate_relay_runtime(state_dir: Path) -> None:
 
 def create_release_venv(path: Path, runtime_python: Path) -> None:
     """Create an isolated package environment using the stable Python version."""
+    try:
+        ensure_venv_support(
+            runtime_python, emit=lambda line: print(line, file=sys.stderr)
+        )
+    except RuntimeError as exc:
+        raise RelayReleaseError(RELAY_RELEASE_INSTALL_FAILED, str(exc)) from exc
     result = subprocess.run(
         [
             str(runtime_python),

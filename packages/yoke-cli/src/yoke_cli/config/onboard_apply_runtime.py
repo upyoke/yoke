@@ -71,7 +71,9 @@ def _setup_browser(progress, report, *, error_cls=RuntimeError):
         )
         try:
             from yoke_harness.browser_setup import ensure_browser_runtime
+            from yoke_harness.python_venv_dependencies import ensure_venv_support
 
+            ensure_venv_support(emit=lambda line: print(line, file=sys.stderr))
             ensure_browser_runtime(emit=lambda line: print(line, file=sys.stderr))
         except (ImportError, OSError, RuntimeError) as exc:
             onboard_apply_progress.emit(

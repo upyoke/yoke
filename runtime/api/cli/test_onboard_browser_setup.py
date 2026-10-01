@@ -6,6 +6,14 @@ import pytest
 
 from yoke_cli.config import onboard_apply_runtime
 from yoke_harness import browser_setup
+from yoke_harness import python_venv_dependencies
+
+
+@pytest.fixture(autouse=True)
+def stub_venv_setup(monkeypatch):
+    monkeypatch.setattr(
+        python_venv_dependencies, "ensure_venv_support", lambda **kw: None
+    )
 
 
 @pytest.mark.parametrize(
@@ -70,3 +78,41 @@ def test_terminal_handoff_surrounds_browser_setup_and_resumes_on_failure():
     assert events == ["suspended", "resumed"]
     browser_terminal_progress(app, BROWSER_SETUP_ACTION, "done")
     assert events == ["suspended", "resumed"]
+
+
+def test_venv_failure_stops_setup_before_browser_or_relay(
+    stub_onboard_browser_setup, monkeypatch
+):
+    from yoke_cli.config import onboard_session_relay
+
+    monkeypatch.setattr(
+        onboard_apply_runtime, "sys", SimpleNamespace(platform="linux", stderr=None)
+    )
+
+    def refuse(**kwargs):
+        raise RuntimeError(
+            "python_venv_package_install_failed: python3.12-venv: apt lock held"
+        )
+
+    monkeypatch.setattr(python_venv_dependencies, "ensure_venv_support", refuse)
+    monkeypatch.setattr(
+        browser_setup, "ensure_browser_runtime", lambda **kw: pytest.fail("browser ran")
+    )
+    monkeypatch.setattr(
+        onboard_session_relay, "apply", lambda *a, **kw: pytest.fail("relay ran")
+    )
+    monkeypatch.setattr(
+        onboard_apply_runtime, "_setup_browser", stub_onboard_browser_setup
+    )
+    progress = []
+    with pytest.raises(RuntimeError, match="python3.12-venv: apt lock held"):
+        onboard_apply_runtime.apply(
+            config_path=None,
+            reuse={"temp_root": True, "cache_dir": True},
+            harness_posture=False,
+            progress=lambda *args: progress.append(args),
+            report={},
+            local_destination=False,
+            environment="selected",
+        )
+    assert progress[-1][-1] == "failed"
