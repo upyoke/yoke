@@ -24,6 +24,7 @@ from yoke_core.domain.github_actions_identifiers import WorkflowRunId
 from yoke_core.domain.github_actions_run_stall import (
     CI_RUN_NEVER_STARTED_REASON,
     pending_run_message,
+    run_concurrency_groups,
 )
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -62,6 +63,7 @@ def _classify(
     data: Dict[str, Any],
     *,
     jobs_count: Optional[int] = None,
+    concurrency_groups: Optional[tuple[str, ...]] = None,
 ) -> RunGetResponse:
     status = str(data.get("status") or "").strip()
     conclusion = str(data.get("conclusion") or "").strip() or None
@@ -82,6 +84,7 @@ def _classify(
                 run_id=run_id,
                 jobs_count=jobs_count,
                 updated_at=str(data.get("updated_at") or ""),
+                concurrency_groups=concurrency_groups,
             )
             if CI_RUN_NEVER_STARTED_REASON in message:
                 state = "failed"
@@ -136,6 +139,7 @@ def handle_run_get(request: FunctionCallRequest) -> HandlerOutcome:
         return _transport_failed(f"run {payload.run_id} was not found")
 
     jobs_count = None
+    concurrency_groups = None
     if str(data.get("status") or "").strip() == "pending":
         attempt = data.get("run_attempt") or 1
         try:
@@ -151,12 +155,35 @@ def handle_run_get(request: FunctionCallRequest) -> HandlerOutcome:
             return _transport_failed(
                 "pending workflow jobs response omitted a valid total_count"
             )
+        candidate = pending_run_message(
+            repo=payload.repo,
+            run_id=str(payload.run_id),
+            jobs_count=jobs_count,
+            updated_at=str(data.get("updated_at") or ""),
+            concurrency_groups=(),
+        )
+        if CI_RUN_NEVER_STARTED_REASON in candidate:
+            try:
+                groups = rest_get(
+                    f"/repos/{payload.repo}/actions/runs/{payload.run_id}/"
+                    "concurrency_groups",
+                    query={"per_page": "100"},
+                    token=token,
+                )
+                concurrency_groups = run_concurrency_groups(groups)
+            except (RestTransportError, ValueError) as exc:
+                return _transport_failed(
+                    f"pending run concurrency lookup failed: {exc}; "
+                    "restore Actions read access and retry the wait; "
+                    "missing queue evidence is not a stalled dispatch"
+                )
 
     return HandlerOutcome(
         result_payload=_classify(
             payload,
             data,
             jobs_count=jobs_count,
+            concurrency_groups=concurrency_groups,
         ).model_dump(),
         primary_success=True,
     )
