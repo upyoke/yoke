@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shlex
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -56,6 +57,7 @@ class FleetLineClassifier:
         self._in_report = False
         self._held: list[str] = []
         self._ready: str | None = None
+        self.read_failed = False
 
     def _stage_ready(self, *, partial: bool) -> None:
         if not self._held:
@@ -90,6 +92,8 @@ class FleetLineClassifier:
 
     def __call__(self, line: str) -> Classification:
         stripped = line.rstrip("\n")
+        if stripped.startswith("fleet FATAL read failed "):
+            self.read_failed = True
         if PROCESS_FAILURE_RE.search(line):
             self._stage_ready(partial=True)
             return Classification(LineClass.URGENT)
@@ -130,16 +134,18 @@ def _probe_argv(args: Sequence[str]) -> list[str]:
     return [sys.executable, "-m", PROBE_MODULE, *list(args)]
 
 
-HELP_EPILOG = """\
+HELP_EPILOG = f"""\
 Pass bare probe arguments after ``--``; the wrapper supplies
 ``python3 -m yoke_core.domain.fleet_delta_probe``:
 
   --project P    Project to watch. Repeatable. Defaults to the
                  checkout's mapped project.
   --interval N   Seconds between passes (default 60).
-  --duration N   Seconds to poll before exiting cleanly (default 3600;
+  --duration N   Seconds to poll before exiting cleanly (default {fleet_delta_probe.DEFAULT_DURATION_SECONDS}, 8h;
                  0 runs until interrupted). A bounded run always writes
                  the exit sentinel, so an armed follower always ends.
+                 Every exit names its reason and prints the command to
+                 start a fresh pair for the same projects.
 
 The negative-space thresholds are the steering loop's and are not
 flags: a claim holder idle past 20 minutes, an in-flight item unowned
@@ -265,13 +271,36 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         )
 
     raw_path, progress_path = _watch_runner.bind_capture_paths(ns, KIND)
+    classifier = make_fleet_classifier()
+
+    def exit_notice(code: int) -> str:
+        if code == 0:
+            duration = fleet_delta_probe._parse_args(passthrough).duration
+            limit = (
+                f"{duration / 3600:g}h" if duration % 3600 == 0 else f"{duration:g}s"
+            )
+            reason = f"reached its {limit} duration limit"
+        elif code == fleet_delta_probe.READ_FAILURE_EXIT and classifier.read_failed:
+            reason = "stopped after consecutive read failures; check `yoke env list`"
+        elif code < 0 or code >= _watch_runner._EXIT_STATUS_SIGNAL_BASE:
+            signal = (
+                -code if code < 0 else code - _watch_runner._EXIT_STATUS_SIGNAL_BASE
+            )
+            reason = f"interrupted by signal {signal}"
+        else:
+            reason = f"stopped with exit code {code}; inspect the raw capture"
+        rearm = shlex.join(
+            ["yoke", "watch", "fleet", "--print-streaming-pair", "--", *passthrough]
+        )
+        return f"fleet watcher {reason}; start a fresh pair: `{rearm}`"
 
     return _watch_runner.run_watcher(
         argv=_probe_argv(passthrough),
-        classifier=make_fleet_classifier(),
+        classifier=classifier,
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
+        exit_metadata=exit_notice,
         flush_seconds=_watch_digest.resolve_flush_seconds(ns, flush_seconds),
     )
 

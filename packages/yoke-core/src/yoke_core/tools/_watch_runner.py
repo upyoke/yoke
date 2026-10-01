@@ -106,6 +106,7 @@ def run_watcher(
     liveness: Optional[SessionLivenessPump] = None,
     header_metadata: str | None = None,
     footer_metadata: Callable[[], str | None] | None = None,
+    exit_metadata: Callable[[int], str] | None = None,
     flush_seconds: float = DEFAULT_FLUSH_SECONDS,
     digest_label: str | None = None,
     outcome_only: bool = False,
@@ -132,6 +133,9 @@ def run_watcher(
     stale while it waits: a long gate run is activity, and without the
     refresh a claimless session can age out mid-run; an active work claim
     remains protected independently of the heartbeat.
+
+    ``exit_metadata`` adds recovery text before any standard exit sentinel,
+    including launch failures, interrupts, and early drain aborts.
 
     ``outcome_only`` suppresses watcher metadata and routine progress,
     defers summaries until a zero child exit, and reports a final result
@@ -166,11 +170,18 @@ def run_watcher(
     # drop the marker and strand that reader beyond a shortened file.
     progress_f = progress_capture.open("a", encoding="utf-8", buffering=1)
 
+    def emit_immediate(line: str) -> None:
+        prefix = f"# watch_{kind} exit="
+        if exit_metadata is not None and line.startswith(prefix):
+            rc = int(line[len(prefix) :].split()[0])
+            _emit_immediate(exit_metadata(rc) + "\n", progress_f=progress_f, out=out)
+        _emit_immediate(line, progress_f=progress_f, out=out)
+
     def flush_digest() -> None:
         """Release buffered progress ahead of whatever is written next."""
         carried = digest.flush()
         if carried is not None:
-            _emit_immediate(carried, progress_f=progress_f, out=out)
+            emit_immediate(carried)
 
     try:
         emit_watcher_header(
@@ -201,7 +212,7 @@ def run_watcher(
             err_line = f"# watch_{kind} launch_error: {exc}\n"
             # Launch errors must reach all surfaces, including raw.
             raw_f.write(err_line)
-            _emit_immediate(err_line, progress_f=progress_f, out=out)
+            emit_immediate(err_line)
             if outcome_only:
                 emit_terminal_outcome(
                     kind=kind,
@@ -215,7 +226,7 @@ def run_watcher(
                 footer = (
                     f"# watch_{kind} exit={WRAPPER_LAUNCH_ERROR} raw={raw_capture}\n"
                 )
-                _emit_immediate(footer, progress_f=progress_f, out=out)
+                emit_immediate(footer)
             return WRAPPER_LAUNCH_ERROR
 
         assert proc.stdout is not None
@@ -230,9 +241,7 @@ def run_watcher(
                     raw_f=raw_f,
                     progress_f=progress_f,
                     out=out,
-                    emit_immediate=lambda line: _emit_immediate(
-                        line, progress_f=progress_f, out=out
-                    ),
+                    emit_immediate=emit_immediate,
                     pump_tick=pump.tick,
                     clock=clock,
                     deadline=deadline,
@@ -265,7 +274,7 @@ def run_watcher(
                 f"{interruption.signal_number}; child process group reaped\n"
             )
             raw_f.write(reaped)
-            _emit_immediate(reaped, progress_f=progress_f, out=out)
+            emit_immediate(reaped)
             if outcome_only:
                 emit_terminal_outcome(
                     kind=kind,
@@ -277,7 +286,7 @@ def run_watcher(
                 )
             else:
                 footer = f"# watch_{kind} exit={rc} raw={raw_capture}\n"
-                _emit_immediate(footer, progress_f=progress_f, out=out)
+                emit_immediate(footer)
             return rc
         # Completion always flushes: a run that ended mid-window still
         # owes the follower the motion it accumulated.
@@ -298,11 +307,7 @@ def run_watcher(
                 raw_f.flush()
                 terminal_error = terminal_error_from_raw_capture(raw_capture)
                 if terminal_error:
-                    _emit_immediate(
-                        f"# watch_{kind} error: {terminal_error}\n",
-                        progress_f=progress_f,
-                        out=out,
-                    )
+                    emit_immediate(f"# watch_{kind} error: {terminal_error}\n")
         # Re-emit the last SUMMARY line as an explicit terminal footer
         # before the exit sentinel. Mid-stream SUMMARY emits go through
         # `_emit_immediate` above, but agents reading the tail of the
@@ -316,12 +321,12 @@ def run_watcher(
         # immediately before the `# watch_<kind> exit=<rc>` sentinel.
         if last_summary is not None:
             summary_footer = f"# watch_{kind} summary: {last_summary.rstrip()}\n"
-            _emit_immediate(summary_footer, progress_f=progress_f, out=out)
+            emit_immediate(summary_footer)
         if footer_metadata is not None:
             metadata = footer_metadata()
             if metadata:
                 line = metadata if metadata.endswith("\n") else f"{metadata}\n"
-                _emit_immediate(line, progress_f=progress_f, out=out)
+                emit_immediate(line)
         footer_extras = ""
         if gate.total_suppressed > 0:
             footer_extras = (
@@ -329,7 +334,7 @@ def run_watcher(
                 f" suppressed_pending={gate.pending_suppressed}"
             )
         footer = f"# watch_{kind} exit={rc} raw={raw_capture}{footer_extras}\n"
-        _emit_immediate(footer, progress_f=progress_f, out=out)
+        emit_immediate(footer)
         return rc
     finally:
         raw_f.close()
