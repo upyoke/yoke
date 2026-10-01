@@ -1,23 +1,10 @@
 """Deployment runner dispatch for scoped QA stages.
 
-Materializing and gating a scoped QA stage reads/writes qa_requirements and
-qa_runs through the registered function-call dispatcher, the same
-connection-keyed path ``deploy_pipeline_control_plane`` uses for every other
-execution-owned write: an explicitly selected local database authority (an
-admin-bootstrapped driver) dispatches in-process through the registered
-handler, while an ordinary HTTPS-connected driver relays to whatever build
-is actively serving that connection. There is no fallback for an old
-serving build that has not registered this function id — the caller reads
-that refusal like any other unsupported operation.
-``materialize_and_gate_deployment_qa_stage`` is the server-side
-implementation the relayed handler calls; it takes a live connection the
-caller already holds.
-
-Both notices a settled subject owes are sent from that server-side
-function rather than from the client adapter, for the same reason the
-gating is: the connection that can address recipients and write their
-envelopes is the one serving this control plane, not the one the release
-driver happens to hold.
+Scoped QA writes and notices use the registered connection-keyed dispatcher:
+local authority dispatches in-process; HTTPS drivers relay to the serving build.
+An unsupported serving build refuses without fallback. The server-side
+implementation takes the caller's live connection and sends both notices where
+the control plane can address their recipients.
 """
 
 from __future__ import annotations
@@ -260,6 +247,15 @@ def materialize_and_gate_deployment_qa_stage(
                 )
             continue
         except (LookupError, ValueError) as exc:
+            # Removal can commit after the stage loaded its member snapshot.
+            # Only an audited, still-absent member is excused from this run.
+            if member is not None and member in removed_item_ids(conn, run_id):
+                attached = conn.execute(
+                    "SELECT 1 FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
+                    (run_id, member),
+                ).fetchone()
+                if attached is None:
+                    continue
             # Every other refusal is a real stage failure: an invalid
             # pinned plan, an unresolvable target identity, a permission
             # denial. None of those becomes truer by waiting.
