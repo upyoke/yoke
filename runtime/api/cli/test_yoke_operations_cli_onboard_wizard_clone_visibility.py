@@ -18,6 +18,7 @@ pytest.importorskip("textual")
 
 from yoke_cli.config import github_publish  # noqa: E402
 from yoke_cli.config import github_app_machine_access  # noqa: E402
+from yoke_cli.config import hosted_machine_browser  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow_clone as clone_flow  # noqa: E402
 from yoke_cli.config import onboard_wizard_project_screens as screens  # noqa: E402
 from yoke_cli.config import project_git_probe  # noqa: E402
@@ -136,7 +137,7 @@ def test_empty_private_repo_access_has_manage_retry_and_back(
     opened: list[str] = []
     monkeypatch.setattr(clone_flow, "fetch_private_repos", fetch)
     monkeypatch.setattr(
-        clone_flow.webbrowser,
+        hosted_machine_browser.webbrowser,
         "open",
         lambda url: opened.append(url) or True,
     )
