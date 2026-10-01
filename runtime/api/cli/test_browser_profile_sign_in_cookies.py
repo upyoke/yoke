@@ -21,7 +21,7 @@ from yoke_cli.config.browser_profile_cookies import (
     keep_sign_in_cookies,
 )
 from yoke_cli.commands import browser_authorize as authorize_command
-from yoke_harness import browser_client
+from yoke_harness import browser_client, browser_setup
 
 CHROMIUM_EPOCH_OFFSET_SECONDS = 11_644_473_600
 
@@ -286,6 +286,9 @@ def _stub_daemon_launch(monkeypatch, tmp_path, order: list[str]) -> None:
     )
     monkeypatch.setattr(browser_client.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(
+        browser_setup, "ensure_system_dependencies", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
         browser_client.DaemonState,
         "load",
         staticmethod(
@@ -303,7 +306,7 @@ def _stub_daemon_launch(monkeypatch, tmp_path, order: list[str]) -> None:
         lambda state, timeout=1: {"health": "healthy"},
     )
     monkeypatch.setattr(
-        browser_client.subprocess,
+        browser_setup.subprocess,
         "run",
         lambda command, **_kwargs: subprocess.CompletedProcess(
             command,
@@ -323,5 +326,5 @@ def _stub_daemon_launch(monkeypatch, tmp_path, order: list[str]) -> None:
         order.append("launched")
         return FakeProcess()
 
-    monkeypatch.setattr(browser_client.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(browser_setup.subprocess, "Popen", fake_popen)
     install_fake_toolchain(monkeypatch, tmp_path / "node-bin")

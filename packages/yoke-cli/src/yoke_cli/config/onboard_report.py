@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from pathlib import Path
 from typing import Any
 
@@ -103,6 +105,13 @@ def build_plan(
         steps.append({"action": "create-runtime-dir", "target": "temp_root"})
     if not reuse.get("cache_dir"):
         steps.append({"action": "create-runtime-dir", "target": "cache_dir"})
+    if sys.platform.startswith("linux"):
+        from yoke_cli.config.onboard_apply_runtime import (
+            BROWSER_SETUP_ACTION,
+            BROWSER_SETUP_TARGET,
+        )
+
+        steps.append({"action": BROWSER_SETUP_ACTION, "target": BROWSER_SETUP_TARGET})
     steps.extend(onboard_session_relay.plan_steps(local_destination=local_destination))
     steps.extend(onboard_machine_registry.plan_steps())
     if project_mode == PROJECT_MODE_MACHINE_ONLY:

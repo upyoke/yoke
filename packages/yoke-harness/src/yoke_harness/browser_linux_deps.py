@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import sys
@@ -36,10 +35,7 @@ def amazon_linux_chromium_deps_command() -> list[str]:
     manager = shutil.which("dnf") or shutil.which("yum")
     if not manager:
         raise RuntimeError("Amazon Linux Chromium dependencies require dnf or yum")
-    prefix = [] if getattr(os, "geteuid", lambda: 1)() == 0 else ["sudo"]
-    if prefix and not shutil.which("sudo"):
-        raise RuntimeError("Amazon Linux Chromium dependencies require sudo")
-    return [*prefix, manager, "install", "-y", *AMAZON_LINUX_CHROMIUM_DEPS]
+    return [manager, "install", "-y", *AMAZON_LINUX_CHROMIUM_DEPS]
 
 
 def _packages_installed() -> bool:

@@ -7,6 +7,7 @@
  */
 
 const path = require('path');
+const os = require('os');
 
 const { resolvePresenceTarget } = require('./target-helpers');
 
@@ -52,7 +53,7 @@ async function executeScreenshot(page, step, options, refMap) {
     return { success: true };
   }
 
-  const outputDir = options.outputDir || '/tmp';
+  const outputDir = options.outputDir || os.tmpdir();
   const screenshotPath = path.join(outputDir, screenshotBasename(step));
 
   if (typeof step.target === 'string' && step.target.trim()) {
