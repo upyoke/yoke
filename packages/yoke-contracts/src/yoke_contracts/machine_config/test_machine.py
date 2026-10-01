@@ -145,9 +145,11 @@ def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]
             values.pop(key, None)
     values.update(validate_desktop_settings(values))
     if "cloud_instance_id" in values and not re.fullmatch(
-        r"i-[0-9a-f]{8,17}", values["cloud_instance_id"]
+        r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,511}", values["cloud_instance_id"]
     ):
-        raise TestMachineCapabilityError("cloud_instance_id must be an EC2 instance id")
+        raise TestMachineCapabilityError(
+            "cloud_instance_id must be a non-empty provider instance identifier"
+        )
     values["resource_name"] = validate_test_machine_resource_name(
         values["resource_name"]
     )

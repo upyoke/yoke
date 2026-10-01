@@ -78,7 +78,7 @@ def test_passwords_are_machine_owned_and_private(credentials):
         {"desktop_host": "bad host"},
         {"desktop_user": "unsafe;user"},
         {"desktop_password": PASSWORD},
-        {"cloud_instance_id": "invalid"},
+        {"cloud_instance_id": "bad instance"},
     ],
 )
 def test_registration_rejects_invalid_routes_and_password_settings(change):

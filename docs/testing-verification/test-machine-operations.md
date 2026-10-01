@@ -28,7 +28,7 @@ Settings declare `desktop_route` (`direct` or `ssh-forward`),
 `desktop_protocol` (`rdp` or `vnc`), `desktop_port` (1–65535), and
 `desktop_user` together. Optional `desktop_host` names the desktop endpoint:
 it defaults to the registered host for direct access, or `127.0.0.1` on the
-SSH host for forwarding. `cloud_instance_id` records an EC2 id when present.
+SSH host for forwarding. `cloud_instance_id` records the provider's instance id when present.
 Desktop credentials stay separate from the SSH login, including Windows RDP
 as Administrator when SSH enters WSL2. Save routes with
 `yoke test-machine settings-replace`; read its `--help` for the CAS token.

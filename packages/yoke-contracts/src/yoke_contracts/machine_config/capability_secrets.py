@@ -36,7 +36,10 @@ MACHINE_LOCAL_SECRET_KEYS_BY_CAPABILITY = {
 
 def machine_local_capability_secret_keys(cap_type: str) -> frozenset[str]:
     """Return machine-local secret keys for a capability type."""
-    if re.fullmatch(r"test-machine:[A-Za-z0-9][A-Za-z0-9._-]{0,79}", cap_type):
+    if re.fullmatch(
+        re.escape(TEST_MACHINE_CAPABILITY) + r":[A-Za-z0-9][A-Za-z0-9._-]{0,79}",
+        cap_type,
+    ):
         return frozenset({DESKTOP_PASSWORD_KEY})
     return MACHINE_LOCAL_SECRET_KEYS_BY_CAPABILITY.get(cap_type, frozenset())
 
