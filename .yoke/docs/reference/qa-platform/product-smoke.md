@@ -20,6 +20,8 @@ never executed. It creates a disposable untracked file so the denied
 a stored session with the correct executor and canonical workspace path,
 the harness's denial wire format, and affirmative allow/deny evaluation receipts
 from nonempty chains without timeouts. A zero CLI exit alone cannot pass.
+Claude denial uses exit 2 with the blocking reason on stderr; Codex and Cursor
+return their structured denial decisions on stdout.
 Missing diagnostic telemetry means insufficient proof, not proof of a product
 fault. It then runs `yoke dev setup --editable-install` and a small
 `yoke watch pytest --local` subset. Cleanup uninstalls macOS's disposable local

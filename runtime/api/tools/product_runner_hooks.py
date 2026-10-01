@@ -100,7 +100,7 @@ def require_wire(result, *, harness: str, outcome: str) -> None:
     if harness == "claude":
         valid = result.returncode == (2 if outcome == "deny" else 0)
         if outcome == "deny":
-            valid = valid and "BLOCKED" in result.stdout
+            valid = valid and "BLOCKED" in result.stderr
     else:
         payload = json.loads(result.stdout or "{}")
         decision = (

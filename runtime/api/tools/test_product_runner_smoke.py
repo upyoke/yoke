@@ -103,6 +103,20 @@ def test_empty_success_cannot_substitute_for_denial(harness):
         )
 
 
+def test_claude_denial_uses_exit_two_and_stderr():
+    require_wire(
+        SimpleNamespace(returncode=2, stdout="", stderr="BLOCKED: threatened state"),
+        harness="claude",
+        outcome="deny",
+    )
+    with pytest.raises(ValueError, match="hook_wire_mismatch"):
+        require_wire(
+            SimpleNamespace(returncode=2, stdout="BLOCKED", stderr=""),
+            harness="claude",
+            outcome="deny",
+        )
+
+
 def test_replay_remaps_identity_and_paths_without_flattening_native_structure():
     payload = {
         "session_id": "native",
