@@ -183,3 +183,11 @@ defect that would fail again on the next restore.
 Each recorded probe row carries `cause`, `reason`, and `recovery` alongside its
 exit code. Read those rather than inferring from the exit code: the bridge's
 own failure sentinel is a number a program could also return.
+
+Linux reset removes Yoke-owned user service definitions and links, including
+`com.upyoke.*.service`, from the user manager's reported unit search paths.
+It stops loaded units even when their FragmentPath was deleted, reloads the
+manager, then proves loaded units and definitions absent. It checks linger
+without disabling unrelated user services. A foreign-owned definition refuses
+for administrator repair; service absence is never inferred from a missing file.
+A home archive containing a Yoke service definition refuses before clearing.

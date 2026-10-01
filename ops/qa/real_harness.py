@@ -158,6 +158,7 @@ def run(args) -> None:
     }
     commands = Commands(root, env)
     yoke, project = None, root / "project"
+    onboarded = False
     try:
         wheels = root / "wheels"
         wheels.mkdir()
@@ -246,6 +247,7 @@ def run(args) -> None:
             ],
             cwd=project,
         )
+        onboarded = True
         env["YOKE_ROOT"] = str(project)
         env["XDG_BIN_HOME"] = str(venv / "bin")
         resolved = commands.run(
@@ -292,21 +294,17 @@ def run(args) -> None:
         report["failure"] = str(exc)
         raise
     finally:
-        if yoke is not None and project.exists():
-            try:
-                if platform.system() == "Darwin":
-                    commands.run(
-                        "relay-uninstall",
-                        [yoke, "relay", "uninstall", "--json"],
-                        cwd=project,
-                    )
-                commands.run(
-                    "postgres-stop",
-                    [yoke, "local-postgres", "stop", "--json"],
-                    cwd=project,
-                )
-            except ProofFailure as exc:
-                report["cleanup_failure"], report["ok"] = str(exc), False
+        if onboarded:
+            for name, operation in (
+                ("relay-uninstall", ["relay", "uninstall"]),
+                ("machine-retire", ["machine", "retire", "--confirm"]),
+                ("postgres-stop", ["local-postgres", "stop"]),
+            ):
+                try:
+                    commands.run(name, [yoke, *operation, "--json"], cwd=project)
+                except ProofFailure as exc:
+                    report.setdefault("cleanup_failures", []).append(str(exc))
+                    report["ok"] = False
         (root / "report.json").write_text(
             json.dumps(report, indent=2) + "\n", encoding="utf-8"
         )

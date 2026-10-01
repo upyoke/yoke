@@ -1,5 +1,6 @@
 """Quiesce the dedicated test user's home-resident programs before restore."""
 
+from yoke_harness.ssh_linux_reset_services import RESET_SERVICES_PROGRAM
 from yoke_harness.ssh_mac_full_reset_contract import (
     COMPOSE_PROJECT_LABEL,
     SELF_HOST_COMPOSE_PROJECT,
@@ -7,22 +8,14 @@ from yoke_harness.ssh_mac_full_reset_contract import (
 
 # Inserted only in the remote operation, after archive validation. Archive-only
 # fixture tests never operate the execution machine's service/container daemon.
-RESET_WRITERS_PROGRAM = r"""
+RESET_WRITERS_PROGRAM = (
+    r"""
 import signal, subprocess, time
 
 def bounded(argv):
     return subprocess.run(argv, capture_output=True, text=True, timeout=30)
 
-units = []
-if shutil.which("systemctl"):
-    observed = bounded(["systemctl", "--user", "list-units", "--all", "--plain", "--no-legend", "yoke*.service"])
-    if observed.returncode == 0:
-        units = [line.split()[0] for line in observed.stdout.splitlines() if line.strip()]
-        for unit in units:
-            if bounded(["systemctl", "--user", "disable", "--now", unit]).returncode:
-                refuse("linux_yoke_service_stop_failed")
-    elif (home / ".config/systemd/user").is_dir() and any((home / ".config/systemd/user").glob("yoke*.service")):
-        refuse("linux_yoke_service_manager_unavailable")
+# STOP_YOKE_SERVICES
 
 if shutil.which("docker"):
     label = "__COMPOSE_LABEL__=__COMPOSE_PROJECT__"
@@ -98,6 +91,7 @@ if any(home_program(record) and record["state"] != "Z"
        for record in process_inventory().values()):
     refuse("linux_home_writers_stop_not_proved")
 
-""".replace("__COMPOSE_LABEL__", COMPOSE_PROJECT_LABEL).replace(
-    "__COMPOSE_PROJECT__", SELF_HOST_COMPOSE_PROJECT
+""".replace("# STOP_YOKE_SERVICES", RESET_SERVICES_PROGRAM)
+    .replace("__COMPOSE_LABEL__", COMPOSE_PROJECT_LABEL)
+    .replace("__COMPOSE_PROJECT__", SELF_HOST_COMPOSE_PROJECT)
 )

@@ -44,7 +44,11 @@ Linux reset first stops the test user's home-resident programs and descendants,
 including harness daemons whose executables were deleted by an earlier reset.
 A surviving writer refuses before clearing; a clear failure names its entry.
 Retry the sealed archive after stopping the writer, and never reseal a mixed home.
-System-wide OS packages are outside the home golden.
+Reset also stops Yoke user units, removes their owned definitions and links from
+systemd's reported search paths, reloads the user manager to evict deleted
+FragmentPaths, and proves both loaded units and definitions absent. It records
+linger without changing other user services. System-wide OS packages are outside
+the home golden.
 The case installs the candidate wheels in a separate
 environment, onboards a throwaway Git project into a disposable local universe
 with GitHub disabled, and invokes the signed-in native CLI. Linux uses tmux
@@ -72,7 +76,9 @@ The existing Machine QA runner records its transcript and verdict in the project
 QA execution; local session ids and event ids are retained in the transcript.
 Failed probe reports retain the session/event evidence already collected.
 
-The driver stops its local Postgres and removes macOS's disposable local relay.
+The driver uninstalls its disposable relay, retires the machine it onboarded,
+and stops local Postgres on both operating systems. Every cleanup runs even if
+an earlier cleanup fails; any failed cleanup prevents a passing proof.
 Its scratch captures remain for diagnosis until the next golden reset. A native
 authentication or bridge failure is a named prerequisite failure: inspect the
 capture, restore the GUI context or have the operator sign in, refresh the golden,

@@ -1,7 +1,9 @@
 """Remote Linux restore quiesces home programs and scopes service removal."""
 
 import os
+import json
 import subprocess
+import sys
 import pytest
 from types import SimpleNamespace
 from yoke_harness.ssh_linux_baseline import _ARCHIVE_PROGRAM
@@ -20,12 +22,18 @@ def test_remote_reset_program_is_compilable_and_proves_only_yoke_service_removal
 
     commands = []
     inventories = {"containers": ["container-id", ""], "volumes": ["volume-id", ""]}
+    reloaded = False
 
     def run(argv, **kwargs):
+        nonlocal reloaded
         commands.append(argv)
         output = ""
-        if "list-units" in argv:
+        if "daemon-reload" in argv:
+            reloaded = True
+        elif "list-units" in argv and not reloaded:
             output = "yoke-server.service loaded active running Yoke\n"
+        elif argv[0] == "loginctl":
+            output = "no"
         elif argv[:2] == ["docker", "inspect"]:
             output = "image-id"
         elif argv[:3] == ["docker", "ps", "-aq"]:
@@ -66,8 +74,7 @@ def test_remote_reset_program_is_compilable_and_proves_only_yoke_service_removal
     assert [
         "systemctl",
         "--user",
-        "disable",
-        "--now",
+        "stop",
         "yoke-server.service",
     ] in commands
     label = "label=" + COMPOSE_PROJECT_LABEL + "=" + SELF_HOST_COMPOSE_PROJECT
@@ -77,6 +84,96 @@ def test_remote_reset_program_is_compilable_and_proves_only_yoke_service_removal
     assert ["docker", "rm", "--force", "--", "container-id"] in commands
     assert ["docker", "volume", "rm", "--force", "--", "volume-id"] in commands
     assert ["docker", "image", "rm", "--", "image-id"] in commands
+
+
+@pytest.mark.parametrize("survives", [False, True])
+def test_reset_removes_relay_files_and_reloads_ghost_units(
+    monkeypatch, tmp_path, survives
+):
+    import pathlib
+    import shutil
+    from yoke_harness.ssh_linux_reset_services import RESET_SERVICES_PROGRAM
+
+    root = tmp_path / "units"
+    root.mkdir()
+    relay = root / "com.upyoke.relay.local.service"
+    relay.write_text("[Service]\nExecStart=/missing/yoke\n")
+    wants = root / "default.target.wants"
+    wants.mkdir()
+    link = wants / relay.name
+    link.symlink_to(relay)
+    other = root / "another-app.service"
+    other.write_text("preserve this")
+    commands = []
+    reloaded = False
+    ghost = "com.upyoke.relay.deleted.service"
+
+    def bounded(argv):
+        nonlocal reloaded
+        commands.append(argv)
+        output = ""
+        if argv[0] == "systemd-analyze":
+            output = str(root) + "\n"
+        elif "daemon-reload" in argv:
+            reloaded = True
+        elif "list-units" in argv and (not reloaded or survives):
+            output = f"{ghost} loaded activating auto-restart Yoke\n"
+        elif "list-unit-files" in argv and relay.exists():
+            output = relay.name + " enabled\n"
+        elif argv[0] == "loginctl":
+            output = "yes"  # unrelated user services may legitimately use linger
+        return subprocess.CompletedProcess(argv, 0, output, "")
+
+    def refuse(reason, entry=None):
+        raise RuntimeError(reason)
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/" + name)
+    namespace = {
+        "shutil": shutil,
+        "pathlib": pathlib,
+        "home": tmp_path,
+        "os": os,
+        "bounded": bounded,
+        "refuse": refuse,
+    }
+    if survives:
+        with pytest.raises(RuntimeError, match="service_absence_not_proved"):
+            exec(RESET_SERVICES_PROGRAM, namespace)
+    else:
+        exec(RESET_SERVICES_PROGRAM, namespace)
+        assert namespace["service_cleanup"]["linger"] == "yes"
+    assert not relay.exists() and not link.is_symlink()
+    assert other.read_text() == "preserve this"
+    assert ["systemctl", "--user", "stop", ghost] in commands
+    assert ["systemctl", "--user", "daemon-reload"] in commands
+    assert not any("disable-linger" in argv for argv in commands)
+
+
+@pytest.mark.parametrize(
+    "name", ["yoke-server.service", "com.upyoke.relay.local.service"]
+)
+def test_golden_refuses_yoke_service_definitions_before_sealing(tmp_path, name):
+    if os.getuid() == 0:
+        pytest.skip("archive fixture requires the contract's non-root user")
+    home = tmp_path / "home"
+    units = home / ".config/systemd/user"
+    units.mkdir(parents=True)
+    (units / name).write_text("[Service]\nExecStart=/missing/yoke\n")
+    golden = tmp_path / "golden"
+    result = subprocess.run(
+        [sys.executable, "-c", _ARCHIVE_PROGRAM, "capture", str(home), str(golden)],
+        input="[]",
+        capture_output=True,
+        text=True,
+        env={**os.environ, "HOME": str(home)},
+        check=False,
+    )
+    assert result.returncode == 64
+    assert (
+        json.loads(result.stdout)["reason"] == "golden_baseline_contains_yoke_service"
+    )
+    assert not golden.exists()
+    assert (units / name).is_file()
 
 
 @pytest.mark.parametrize("outcome", ["stopped", "pid_reused", "refused", "respawned"])

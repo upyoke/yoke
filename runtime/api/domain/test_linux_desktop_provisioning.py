@@ -68,6 +68,13 @@ def test_service_socket_startup_is_waited_for(provisioner, monkeypatch):
     provisioner.wait_for_listener()
 
 
+def test_terminal_selection_converges_without_erasing_other_helpers(provisioner):
+    original = "WebBrowser=chromium\nTerminalEmulator=missing\nTerminalEmulator=other\n"
+    selected = provisioner.terminal_settings(original)
+    assert selected == "WebBrowser=chromium\nTerminalEmulator=xfce4-terminal\n"
+    assert provisioner.terminal_settings(selected) == selected
+
+
 def test_custom_desktop_session_is_preserved(provisioner, monkeypatch, tmp_path):
     monkeypatch.setattr(provisioner.platform, "system", lambda: "Linux")
     monkeypatch.setattr(provisioner.os, "getuid", lambda: 1001)
