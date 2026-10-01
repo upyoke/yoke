@@ -20,6 +20,17 @@ yoke doctor run --full --fix   # when auto-repair is appropriate
 Checks declare applicability (project scope, capabilities, runtime). Results
 are pass, fail, or not-applicable — N/A is not a silent pass.
 
+The CLI runs machine-local checks on the client even when the control plane
+is hosted. A machine-only `--only` selection stays local; a mixed selection
+relays the control-plane checks and combines their results. New client checks
+do not depend on the server having the same roster. The `hook-resident` check
+reports an unavailable resident as WARN while hooks continue through their
+canonical in-process fallback:
+
+```bash
+yoke watch doctor -- --only hook-resident
+```
+
 ## Ouroboros
 
 Self-improvement loop: field-notes and observations → curate → doctor →

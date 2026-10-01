@@ -24,14 +24,15 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.commands.adapters.doctor_https_receipt import (
     persist_composed_receipt,
 )
+from yoke_cli.commands.adapters.doctor_https_errors import (
+    TRANSPORT_FAILURE_CODE,
+    control_plane_failure_row,
+    partial_error,
+)
 from yoke_cli.commands.adapters.doctor_output import (
     emit_doctor_response,
     emit_relayed_progress,
 )
-
-
-_TRANSPORT_FAILURE_CODE = "https_transport_failed"
-_PARTIAL_FAILURE_CODE = "doctor_control_plane_partial"
 
 
 def dispatch_chunked(
@@ -51,6 +52,7 @@ def dispatch_chunked(
         machine_has_checkout_for,
         merge_relayed_with_local,
         prepare_https_only_payload,
+        partition_only_slugs,
         recount,
         requested_local_machine_slugs,
         run_local_project_checks,
@@ -61,6 +63,13 @@ def dispatch_chunked(
     # Project-local --only slugs live in the caller checkout; strip them from
     # the relayed payload so undeployed checks are not rejected server-side.
     relay_payload, local_project_slugs = prepare_https_only_payload(payload)
+    local_machine, _ = requested_local_machine_slugs(payload)
+    if relay_payload.get("only") and local_machine:
+        _, relay_only = partition_only_slugs(relay_payload["only"], local_machine)
+        if relay_only:
+            relay_payload["only"] = relay_only
+        else:
+            relay_payload.pop("only")
     if not https_relay_needed(relay_payload):
         project = str(payload.get("project") or "")
         local_result = local_project_only_result(
@@ -69,6 +78,22 @@ def dispatch_chunked(
             fix=bool(payload.get("fix")),
             runtime=str(payload.get("runtime") or DESTINATION_LOCAL),
         )
+        if local_machine:
+            rows = merge_relayed_with_local(
+                local_result["results"],
+                run_local_runtime_checks(
+                    project=project,
+                    quick=False,
+                    fix=bool(payload.get("fix")),
+                    slugs=local_machine,
+                ),
+            )
+            local_result.update(results=rows, **recount(rows))
+            local_result["composed"] = (
+                "local_project_checks+local_runtime"
+                if local_project_slugs
+                else "local_runtime"
+            )
         persist_composed_receipt(
             local_result,
             session_id=session_id,
@@ -115,7 +140,9 @@ def dispatch_chunked(
     if relay_failed:
         local_runtime, local_source = requested_local_machine_slugs(payload)
     else:
-        local_runtime = false_na_local_runtime_slugs(results)
+        local_runtime = sorted(
+            set(false_na_local_runtime_slugs(results)) | set(local_machine)
+        )
         local_source = false_na_source_slugs(results)
     if local_runtime:
         results = merge_relayed_with_local(
@@ -143,7 +170,7 @@ def dispatch_chunked(
             )
             composed.append("local_source")
     if relay_failed:
-        results.append(_control_plane_failure_row(response))
+        results.append(control_plane_failure_row(response))
         result["partial"] = True
         result["control_plane_error"] = (
             response.error.model_dump(mode="json") if response.error else {}
@@ -165,7 +192,7 @@ def dispatch_chunked(
         version=response.version,
         request_id=response.request_id,
         result=result,
-        error=_partial_error(response) if relay_failed else None,
+        error=partial_error(response) if relay_failed else None,
         event_ids=response.event_ids,
         warnings=response.warnings,
     )
@@ -186,7 +213,7 @@ def _is_transport_failure(response: FunctionCallResponse) -> bool:
     return bool(
         not response.success
         and response.error
-        and response.error.code == _TRANSPORT_FAILURE_CODE
+        and response.error.code == TRANSPORT_FAILURE_CODE
     )
 
 
@@ -194,42 +221,6 @@ def _scope_label(payload: Dict[str, Any]) -> str:
     if payload.get("only"):
         return "only"
     return "quick" if payload.get("quick") else "full"
-
-
-def _control_plane_failure_row(
-    response: FunctionCallResponse,
-) -> Dict[str, str]:
-    error = response.error
-    code = error.code if error else _TRANSPORT_FAILURE_CODE
-    message = error.message if error else "the relay returned no diagnosis"
-    return {
-        "hc": "HC-doctor-control-plane-batch",
-        "name": "Relayed control-plane Doctor batch",
-        "severity": "FAIL",
-        "detail": (
-            f"{code}: {message}. Machine-local checks and --fix actions "
-            "still ran; retry the same command after ingress or control-plane "
-            "health recovers."
-        ),
-    }
-
-
-def _partial_error(response: FunctionCallResponse) -> FunctionError:
-    original = response.error
-    code = original.code if original else _TRANSPORT_FAILURE_CODE
-    message = original.message if original else "relay failed without detail"
-    return FunctionError(
-        code=_PARTIAL_FAILURE_CODE,
-        message=(
-            f"bounded control-plane Doctor batch failed ({code}); the attached "
-            f"report is partial and machine-local checks completed: {message}"
-        ),
-        recovery_hint=(
-            "Retry the same `yoke doctor run` command after ingress or "
-            "control-plane health recovers; the report remains failing until "
-            "every relayed batch completes."
-        ),
-    )
 
 
 def collect_chunked(
