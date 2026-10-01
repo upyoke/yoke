@@ -24,6 +24,7 @@ from yoke_cli.config import onboard_checkout_ownership
 from yoke_cli.config import project_git_branch
 from yoke_cli.config import project_clone_resume
 from yoke_cli.config import project_git_prerequisite
+from yoke_cli.config import project_git_identity
 from yoke_cli.config import project_local_git
 from yoke_cli.config.project_git_process import NetworkGitBoundaryError
 from yoke_cli.config.github_publish import GitHubPublishError
@@ -136,6 +137,7 @@ def ensure_initial_commit(root: Path, default_branch: str) -> None:
         ) from exc
     if head.returncode == 0:
         return
+    project_git_identity.ensure_configured_identity(root)
     run_git(root, "checkout", "-B", default_branch)
     run_git(root, "add", "-A")
     run_git(root, "commit", "--allow-empty", "-m", "Initial commit")

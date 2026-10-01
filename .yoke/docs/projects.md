@@ -58,6 +58,10 @@ Default is dry-run. `--no-init` / `--no-create-remote` decline a step.
 Existing remotes are never replaced; nested folders inside another repo
 refuse. Create-new and existing-folder installers share the same local
 init (starter `.gitignore` + initial commit).
+If Git has no configured name or email, the initial commit fills each missing
+field with a repository-local Yoke identity and reports the values used.
+Existing local or global identity fields are preserved; global Git configuration
+is unchanged. Setup proceeds automatically without an identity prompt.
 
 ## Execution-ready onboard
 
