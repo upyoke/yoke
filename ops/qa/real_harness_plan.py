@@ -36,7 +36,7 @@ def cases(
                 "instructions": (
                     "Reset to the signed-in golden, install candidate wheels and onboard "
                     "a disposable local project with GitHub disabled. Launch native status "
-                    "and read-only denied-help probes; judge recorded Yoke evidence only."
+                    "and import-only denial probes; judge recorded Yoke evidence only."
                 ),
                 "expected_outcome": (
                     "Each native probe registers exactly one session with the declared "

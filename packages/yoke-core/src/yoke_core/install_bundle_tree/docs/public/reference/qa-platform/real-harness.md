@@ -45,9 +45,9 @@ environment, onboards a throwaway Git project into a disposable local universe
 with GitHub disabled, and invokes the signed-in native CLI. Linux uses tmux
 transcripts; macOS uses the GUI terminal bridge and its login keychain context.
 The driver's first prompt is `run \`yoke status\` in the shell, then stop`.
-A second native session attempts a read-only module help request that Yoke's
-registered-command guard denies. It makes no direct runtime API call and cannot
-mutate state even if the guard breaks.
+A second native session attempts `python3 -c 'import yoke_core.api.service_client'`,
+which the direct-import guard denies. It invokes no API function even if the guard
+breaks. Module help is not a denied probe.
 
 The native environment binds `XDG_BIN_HOME` to the candidate executable directory.
 The driver verifies the hook shell resolves that candidate before either probe;
@@ -65,6 +65,7 @@ terminal recipe waits for `REAL_HARNESS_COMPLETE`, including failed probe report
 That marker alone cannot pass the case.
 The existing Machine QA runner records its transcript and verdict in the project
 QA execution; local session ids and event ids are retained in the transcript.
+Failed probe reports retain the session/event evidence already collected.
 
 The driver stops its local Postgres and removes macOS's disposable local relay.
 Its scratch captures remain for diagnosis until the next golden reset. A native

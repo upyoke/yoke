@@ -13,10 +13,10 @@ import tempfile
 
 
 STATUS_PROMPT = "run `yoke status` in the shell, then stop"
-# A read-only help request: if the guard breaks it cannot mutate anything.
+# Import only: no API function is invoked even if the guard breaks.
 DENIAL_PROMPT = (
     "For a hook diagnostic, attempt exactly once in the shell: "
-    "`python3 -m yoke_core.api.service_client --help`. "
+    "`python3 -c 'import yoke_core.api.service_client'`. "
     "Let the hook refuse it; do not find another route or retry. Then stop."
 )
 EXECUTORS = {"claude": "claude-code", "codex": "codex", "cursor": "cursor"}
@@ -260,7 +260,7 @@ def run(args) -> None:
         if resolved.stdout.strip() != yoke:
             raise ProofFailure("candidate_hook_launcher_not_selected")
         report["candidate_launcher"] = yoke
-        proofs = []
+        proofs = report["proofs"] = []
         for name, prompt in (("status", STATUS_PROMPT), ("denial", DENIAL_PROMPT)):
             before = {
                 row["session_id"]
@@ -277,6 +277,7 @@ def run(args) -> None:
                 timeout=120,
             )
             proof = prove(commands, yoke, project, args.harness, before)
+            proofs.append({"probe": name, **proof})
             expected = "allow" if name == "status" else "deny"
             if not any(
                 row["hook"] == "PreToolUse" and row["decision"] == expected
@@ -286,8 +287,7 @@ def run(args) -> None:
                     f"native_{name}_decision_not_proved: require a recorded {expected} "
                     "PreToolUse decision; inspect hook evidence and rerun"
                 )
-            proofs.append({"probe": name, **proof})
-        report["proofs"], report["ok"] = proofs, True
+        report["ok"] = True
     except Exception as exc:
         report["failure"] = str(exc)
         raise
