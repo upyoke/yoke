@@ -5,7 +5,7 @@ import { renderTestMachineDetail } from
   "../../packages/yoke-core/src/yoke_core/ui/static/universe_view_test_machine.js";
 import { machineSecretState } from
   "../../packages/yoke-core/src/yoke_core/ui/static/test_machine_settings_dialog.js";
-import { byClass } from "./universe_ui_dom_test_support.mjs";
+import { allNodes, byClass } from "./universe_ui_dom_test_support.mjs";
 import {
   context,
   detail,
@@ -43,4 +43,37 @@ test("credential state distinguishes stored, missing, and unknown", () => {
     machineSecretState({ stored: null }),
     { state: "unknown", label: "unknown on this browser" },
   );
+});
+
+test("desktop registration shows its route and secret reference without a value", async () => {
+  const machine = structuredClone(detail);
+  Object.assign(machine.settings, {
+    desktop_route: "ssh-forward", desktop_protocol: "rdp",
+    desktop_port: "3389", desktop_user: "Administrator",
+    cloud_instance_id: "i-07b658cc018669344",
+  });
+  machine.secrets.push({ key: "desktop_password", cap_type: machine.capability_type, stored: null });
+  const prepared = context([machine]);
+  const main = prepared.documentNode.createElement("main");
+  await renderTestMachineDetail(prepared.value, main, "yoke");
+  assert.match(text(main), /rdp · ssh-forward · 127.0.0.1:3389 · Administrator/);
+  assert.match(text(main), /i-07b658cc018669344/);
+  const credential = byClass(main, "test-machine-secret").find(node => /desktop_password/.test(text(node)));
+  assert.match(text(credential), /unknown on this browser/);
+});
+
+test("saving machine settings preserves optional desktop and browser baseline declarations", async () => {
+  const machine = structuredClone(detail);
+  Object.assign(machine.settings, {
+    desktop_route: "direct", desktop_protocol: "vnc", desktop_port: "5900",
+    desktop_user: "testy", browser_profile_baseline_path: "/Users/Shared/golden/profile",
+  });
+  const prepared = context([machine]);
+  const main = prepared.documentNode.createElement("main");
+  await renderTestMachineDetail(prepared.value, main, "yoke");
+  allNodes(main).find(node => node.textContent === "Edit settings").dispatchEvent(new Event("click"));
+  allNodes(main).find(node => node.textContent === "Save non-secret settings").dispatchEvent(new Event("click"));
+  await new Promise(resolve => setImmediate(resolve));
+  const write = prepared.requests.find(request => request.function === "test_machine.settings_replace");
+  assert.deepEqual(write.payload.settings, machine.settings);
 });

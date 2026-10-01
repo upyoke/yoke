@@ -143,6 +143,10 @@ function renderDetail(context, main, detail, reload, showFleet = null) {
     ["Host", el(documentNode, "span", "mono", detail.settings.host)],
     ["User", el(documentNode, "span", "mono", detail.settings.user)],
     ["Operating system", el(documentNode, "span", "mono", detail.settings.os || "Unavailable: requires the next-release OS contract")],
+    ["Desktop route", detail.settings.desktop_route
+      ? `${detail.settings.desktop_protocol} · ${detail.settings.desktop_route} · ${detail.settings.desktop_host || (detail.settings.desktop_route === "ssh-forward" ? "127.0.0.1" : detail.settings.host)}:${detail.settings.desktop_port} · ${detail.settings.desktop_user}`
+      : "Not declared"],
+    ["Cloud instance", detail.settings.cloud_instance_id || "None declared"],
     ["Features", detail.features.join(" · ")],
     ["Host baselines", baselineSummary],
     ["Operating notes", detail.settings.operating_notes],

@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
+
+from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
 
 CAPABILITY_SECRETS_DIR_NAME = "capability-secrets"
 AWS_ADMIN_CAPABILITY = "aws-admin"
-AWS_ADMIN_SECRET_KEYS = frozenset({
-    "access_key_id",
-    "secret_access_key",
-    "session_token",
-})
+AWS_ADMIN_SECRET_KEYS = frozenset(
+    {
+        "access_key_id",
+        "secret_access_key",
+        "session_token",
+    }
+)
 SSH_CAPABILITY = "ssh"
 SSH_PRIVATE_KEY_SECRET_KEY = "private_key"
 SSH_SECRET_KEYS = frozenset({SSH_PRIVATE_KEY_SECRET_KEY})
@@ -31,6 +36,8 @@ MACHINE_LOCAL_SECRET_KEYS_BY_CAPABILITY = {
 
 def machine_local_capability_secret_keys(cap_type: str) -> frozenset[str]:
     """Return machine-local secret keys for a capability type."""
+    if re.fullmatch(r"test-machine:[A-Za-z0-9][A-Za-z0-9._-]{0,79}", cap_type):
+        return frozenset({DESKTOP_PASSWORD_KEY})
     return MACHINE_LOCAL_SECRET_KEYS_BY_CAPABILITY.get(cap_type, frozenset())
 
 
@@ -52,9 +59,7 @@ def capability_secret_relative_path(
 ) -> Path:
     """Return the path under ``~/.yoke/secrets`` for a local secret."""
     if not is_machine_local_capability_secret(cap_type, key):
-        raise ValueError(
-            f"{cap_type}.{key} is not a machine-local capability secret"
-        )
+        raise ValueError(f"{cap_type}.{key} is not a machine-local capability secret")
     return (
         Path(CAPABILITY_SECRETS_DIR_NAME)
         / safe_secret_component(project_slug, "project")

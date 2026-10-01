@@ -7,6 +7,10 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 
 
 TEST_MACHINE_ADAPTERS = [
+    AdapterEntry(
+        function_id="test_machine.desktop_access",
+        cli_invocation="yoke test-machine desktop-access --project P --machine NAME",
+    ),
     read_entry(
         function_id="test_machine.list",
         cli_invocation="yoke test-machine list --project P",

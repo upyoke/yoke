@@ -7,6 +7,7 @@ import {
 
 export const machineSecretNotes = {
   ssh_private_key: "runner subprocess only",
+  desktop_password: "per-machine desktop login · private local file only",
 };
 
 export function orderedMachineSecrets(secrets) {
@@ -63,6 +64,13 @@ export function machineSettingsDialog(context, detail, close, saved) {
     ["os", "Operating system"],
     ["operating_notes", "Operating notes"],
     ["golden_baseline_path", "Golden baseline path"],
+    ["browser_profile_baseline_path", "Browser profile baseline path"],
+    ["cloud_instance_id", "Cloud instance id"],
+    ["desktop_route", "Desktop route (direct or ssh-forward)"],
+    ["desktop_protocol", "Desktop protocol (rdp or vnc)"],
+    ["desktop_host", "Desktop host (optional endpoint override)"],
+    ["desktop_port", "Desktop port"],
+    ["desktop_user", "Desktop login user"],
   ]) {
     const wrapper = el(documentNode, "label", null, label);
     const input = el(documentNode, "input");
@@ -90,7 +98,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
     documentNode,
     "p",
     "muted",
-    "The SSH key is the only credential; macOS Automation and Screen Recording are host permissions, not tokens. Replace it through the registered terminal surface with --value-stdin; raw values never enter browser history.",
+    "The SSH key and each machine's desktop password stay on the executing workstation. Import private files through the terminal; raw values never enter the browser. macOS Automation and Screen Recording are host permissions.",
   ));
   for (const secret of orderedMachineSecrets(detail.secrets)) {
     const row = el(documentNode, "div", "test-machine-command");
@@ -114,7 +122,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
       documentNode,
       "code",
       null,
-      `yoke projects capability secret set --project ${detail.project} --cap-type test-machine --key ${secret.key} --value-stdin`,
+      `yoke projects capability secret set --project ${detail.project} --cap-type ${secret.cap_type || "test-machine"} --key ${secret.key} --value-stdin`,
     ));
     credentials.appendChild(row);
   }
@@ -160,7 +168,12 @@ export function machineSettingsDialog(context, detail, close, saved) {
           project: detail.project,
           machine: detail.machine,
           settings: Object.fromEntries(
-            Object.entries(inputs).map(([key, input]) => [key, input.value]),
+            Object.entries(inputs)
+              .filter(([key, input]) => (
+                ["resource_name", "host", "user", "os", "operating_notes"].includes(key)
+                || input.value.trim()
+              ))
+              .map(([key, input]) => [key, input.value]),
           ),
           base_settings: detail.settings_token,
         },
