@@ -5,9 +5,12 @@ Keep browser authorization separate from this clean home golden. On Linux,
 seals only the stopped profile into a private sibling after desktop logout,
 before any reset. It records `browser_profile_baseline_path` without changing
 `golden_baseline_path`; no probe document is required for this component.
-Ordinary resets never restore it. Browser-authenticated missions install Yoke
-first and explicitly declare `machine.browser-profile-restore` with canonical
-`project` and recorded `baseline_path`. Read the command's `--help` and the
+Ordinary resets never restore it. Exploratory browser missions install Yoke
+first, then explicitly run `yoke qa browser setup --project P --profile-baseline
+/absolute/sealed/snapshot --json` through the lease-routed host-command surface.
+Terminal or machine-state host-control cases instead declare
+`machine.browser-profile-restore` with canonical `project` and recorded
+`baseline_path`. Read the commands' `--help` and the
 Machine QA Pack's `browser-profile-baseline.md` for the complete recipe.
 Prove sign-in by opening the app with the candidate daemon, never by a cookie
 count or archive receipt. The profile archive stays on the private host.

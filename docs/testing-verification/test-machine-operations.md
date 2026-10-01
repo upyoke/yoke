@@ -130,8 +130,12 @@ bind a new private sibling archive to home, UID and project. Success records
 `browser_profile_baseline_path`, preserving the clean `golden_baseline_path`.
 This component refuses active writers, occupied destinations and unsafe
 entries. The profile remains outside all ordinary baseline restoration;
-explicit `machine.browser-profile-restore` setup installs it only into an
-already installed Yoke for a browser-authenticated mission. A sealed receipt
+exploratory missions explicitly run `yoke qa browser setup --project P
+--profile-baseline /absolute/sealed/snapshot --json` through the lease-routed
+host-command surface after installing the candidate. It restores before daemon
+startup; default setup and dry-run never restore. Terminal or machine-state
+host-control cases instead declare `machine.browser-profile-restore` setup.
+A sealed receipt
 does not prove sign-in: use the candidate daemon to open the actual app.
 See the Machine QA Pack's `browser-profile-baseline.md` for the full recipe.
 

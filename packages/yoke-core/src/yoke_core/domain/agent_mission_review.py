@@ -69,7 +69,8 @@ def _walker_dispatch(
     )
     host_command = f"{host_command_base} -- ARGV..."
     browser_setup_command = (
-        f"{host_command_base} [--timeout-seconds N] -- yoke qa browser setup"
+        f"{host_command_base} [--timeout-seconds N] -- yoke qa browser setup "
+        "[--project PROJECT --profile-baseline ABSOLUTE_SEALED_PATH]"
     )
     browser_step_command = (
         f"{host_command_base} -- yoke qa browser step --base-url BASE_URL "

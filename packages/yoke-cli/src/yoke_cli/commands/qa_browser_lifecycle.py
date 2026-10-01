@@ -10,13 +10,13 @@ from pathlib import Path
 from typing import Callable, List
 
 from yoke_cli import browser_node_toolchain
-from yoke_cli.commands._helpers import parse_or_usage_error
+from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 
 
 QA_BROWSER_STATUS_USAGE = "yoke qa browser status [--project PROJECT] [--json]"
 QA_BROWSER_SETUP_USAGE = (
     "yoke qa browser setup [--dry-run] [--project PROJECT] [--port PORT] "
-    "[--headed] [--idle-timeout SECONDS] [--json]"
+    "[--headed] [--idle-timeout SECONDS] [--profile-baseline /abs/path] [--json]"
 )
 MILLISECONDS_PER_SECOND = 1000
 
@@ -43,7 +43,9 @@ def qa_browser_status(args: List[str]) -> int:
         return 2
 
     payload = _browser_readiness(
-        browser_client, browser_runtime_home, project=parsed.project,
+        browser_client,
+        browser_runtime_home,
+        project=parsed.project,
     )
     if parsed.json_mode:
         print(json.dumps(payload))
@@ -99,11 +101,18 @@ def qa_browser_setup(args: List[str]) -> int:
     parser.add_argument("--project", default=None)
     parser.add_argument("--port", type=int, default=None)
     parser.add_argument("--headed", action="store_true")
+    parser.add_argument(
+        "--profile-baseline",
+        help="Explicitly restore a sealed Linux profile for --project before starting the daemon; ordinary setup never restores it.",
+    )
     parser.add_argument("--idle-timeout", type=int, default=None)
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_SETUP_USAGE)
     if parsed is None:
         return 2
+
+    if parsed.profile_baseline and not parsed.project:
+        return usage_error("--profile-baseline requires an explicit --project")
 
     try:
         from yoke_harness import browser_client, browser_runtime_home
@@ -116,6 +125,15 @@ def qa_browser_setup(args: List[str]) -> int:
         return 2
 
     try:
+        profile_restoration = None
+        if parsed.profile_baseline and not parsed.dry_run:
+            from yoke_cli.commands.qa_browser_profile_baseline import (
+                restore_profile_baseline,
+            )
+
+            profile_restoration = restore_profile_baseline(
+                parsed.project, parsed.profile_baseline
+            )
         runtime_dir = browser_runtime_home.ensure_materialized()
         prerequisite_actions: list[dict[str, str]] = []
         if not parsed.dry_run:
@@ -123,7 +141,9 @@ def qa_browser_setup(args: List[str]) -> int:
                 emit=lambda line: print(line, file=sys.stderr)
             )
         readiness = _browser_readiness(
-            browser_client, browser_runtime_home, project=parsed.project,
+            browser_client,
+            browser_runtime_home,
+            project=parsed.project,
         )
         if parsed.dry_run:
             result = {
@@ -161,6 +181,8 @@ def qa_browser_setup(args: List[str]) -> int:
             print(f"yoke qa browser setup: {exc}", file=sys.stderr)
         return 2
 
+    if profile_restoration is not None:
+        result["profile_restore"] = profile_restoration
     if parsed.json_mode:
         print(json.dumps(result))
     else:
@@ -201,7 +223,9 @@ def _profile_readiness(project: str | None) -> dict[str, object]:
 
 
 def _browser_readiness(
-    browser_client, browser_runtime_home, project: str | None = None,
+    browser_client,
+    browser_runtime_home,
+    project: str | None = None,
 ) -> dict[str, object]:
     runtime_dir = browser_runtime_home.runtime_dir()
     expected_hash = browser_runtime_home.source_hash()
@@ -276,9 +300,13 @@ def _repair_hints(
             "none is available."
         )
     if not deps_ready:
-        hints.append("Run `yoke qa browser setup` to install browser runtime npm dependencies.")
+        hints.append(
+            "Run `yoke qa browser setup` to install browser runtime npm dependencies."
+        )
     if chromium != "ready":
-        hints.append("Run `yoke qa browser setup`; on Linux this may need sudo/package-manager access for Playwright OS dependencies.")
+        hints.append(
+            "Run `yoke qa browser setup`; on Linux this may need sudo/package-manager access for Playwright OS dependencies."
+        )
     return hints
 
 
@@ -291,9 +319,7 @@ QA_BROWSER_LIFECYCLE_USAGE = {
     "yoke qa browser setup": (
         "Materialize and optionally start the machine-local Browser QA daemon."
     ),
-    "yoke qa browser status": (
-        "Report the machine-local Browser QA daemon status."
-    ),
+    "yoke qa browser status": ("Report the machine-local Browser QA daemon status."),
 }
 
 

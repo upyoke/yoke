@@ -27,8 +27,21 @@ them into source control, the control plane, QA artifacts or transcripts.
 This receipt proves a sealed capture; it does not prove a signed-in application.
 
 Fresh-host and shell-preconfigured resets restore only the clean home golden.
-For a browser-authenticated mission, install the candidate Yoke first, keep its
-browser daemon stopped, and explicitly declare this setup operation:
+For an exploratory browser mission, install the candidate Yoke first, keep its
+browser daemon stopped, and run this command through the mission's lease-routed
+host-command surface:
+
+```text
+yoke qa browser setup --project P --profile-baseline /absolute/sealed/snapshot --json
+```
+
+Read its `--help` first. Explicit provisioning verifies and restores the
+profile before starting the daemon. Default setup and `--dry-run` never restore
+it; an existing profile, active writer or invalid seal refuses daemon startup.
+Use the machine's recorded snapshot path and the mission's canonical project.
+
+Terminal or machine-state host-control cases instead explicitly declare this
+setup operation after installing the candidate Yoke:
 
 ```json
 {
@@ -43,7 +56,7 @@ browser daemon stopped, and explicitly declare this setup operation:
 Use the machine's recorded snapshot path and the case's canonical project.
 The fixture runs through the installed launcher's interpreter, verifies the
 sealed snapshot before restoring, and refuses an existing profile or active
-writers. Include it only in missions needing browser authorization. It leaves
+writers. Include it only in cases needing browser authorization. It leaves
 the restored profile available to the mission; the next ordinary host reset
 removes it again while the external snapshot survives.
 
