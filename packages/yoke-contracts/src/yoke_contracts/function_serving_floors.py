@@ -65,6 +65,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "test_machine.case.abort": "next-release",
     "test_machine.case.submit": "next-release",
     "test_machine.case_execute": "next-release",
+    "test_machine.desktop_access": "next-release",
     "test_machine.get": "next-release",
     "test_machine.golden_capture": "next-release",
     "test_machine.list": "next-release",

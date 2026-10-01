@@ -19,7 +19,7 @@ from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
     validate_test_machine_settings,
 )
-from yoke_core.domain.handlers import test_machine_desktop as handler
+from yoke_core.domain.handlers import machine_desktop_access as handler
 from yoke_harness import desktop_access as desktop
 
 

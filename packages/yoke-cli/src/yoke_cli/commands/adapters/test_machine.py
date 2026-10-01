@@ -91,8 +91,11 @@ def _attest_secret_presence(
         if not isinstance(detail, dict):
             return detail
         updated = dict(detail)
-        desktop_stored = set(
-            list_machine_capability_secret_keys(project, detail["capability_type"])
+        capability_type = detail.get("capability_type")
+        desktop_stored = (
+            set(list_machine_capability_secret_keys(project, capability_type))
+            if capability_type
+            else set()
         )
         updated["secrets"] = [
             {
