@@ -8,6 +8,7 @@ screen — byte for byte, no shortening and no re-wrapping.
 from __future__ import annotations
 
 import subprocess
+from contextlib import nullcontext
 
 import pytest
 
@@ -22,6 +23,11 @@ LONG_URL = (
     "example.test%2Ftemplates%2Fbootstrap.yaml&param_Purpose=onboarding"
 )
 CODE = "WDJB-MJHT"
+
+
+@pytest.fixture(autouse=True)
+def local_display(monkeypatch):
+    monkeypatch.setattr(onboard_clipboard, "remote_session", lambda: False)
 
 
 class _FooterSpy:
@@ -79,8 +85,10 @@ def test_a_screen_with_a_code_and_a_url_offers_both(monkeypatch) -> None:
         onboard_clipboard,
         "copy",
         lambda value: (
-            copied.append(value) or onboard_clipboard.ClipboardCopyResult(
-                copied=True, command="pbcopy",
+            copied.append(value)
+            or onboard_clipboard.ClipboardCopyResult(
+                copied=True,
+                command="pbcopy",
             )
         ),
     )
@@ -98,22 +106,32 @@ def test_a_screen_with_a_code_and_a_url_offers_both(monkeypatch) -> None:
     assert copied == [CODE, LONG_URL]
 
 
-def test_a_failed_copy_says_why_instead_of_claiming_success(monkeypatch) -> None:
+def test_a_failed_native_copy_shows_selectable_text(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         onboard_clipboard,
         "copy",
         lambda _value: onboard_clipboard.ClipboardCopyResult(
-            copied=False, reason="pbcopy is not installed",
+            copied=False,
+            reason="pbcopy is not installed",
         ),
     )
     shell = _Shell()
+    monkeypatch.setattr(shell, "suspend", nullcontext, raising=False)
+    monkeypatch.setattr("builtins.input", lambda: "")
     shell._set_copy_targets([CopyTarget("the one-time code", CODE)])
 
     shell.action_copy_target()
 
     note = shell.footer.rendered[-1]
-    assert "Couldn't copy the one-time code" in note
-    assert "pbcopy is not installed" in note
+    assert "Shown the one-time code for terminal copying." in note
+    assert "Copied" not in note
+    assert capsys.readouterr().out == (
+        onboard_clipboard.osc52(CODE)
+        + CODE
+        + "\n"
+        + copy_open.COPY_RETURN_PROMPT
+        + "\n"
+    )
 
 
 def test_open_hands_the_url_to_the_browser(monkeypatch) -> None:
@@ -163,9 +181,7 @@ def test_each_platform_uses_its_own_clipboard_command(platform, expected) -> Non
     result = onboard_clipboard.copy(
         CODE,
         platform=platform,
-        run=lambda command, text: (
-            calls.append(tuple(command)) or _completed()
-        ),
+        run=lambda command, text: calls.append(tuple(command)) or _completed(),
         which=lambda name: f"/usr/bin/{name}",
     )
 
@@ -179,9 +195,7 @@ def test_a_missing_clipboard_command_falls_through_to_the_next() -> None:
     result = onboard_clipboard.copy(
         CODE,
         platform="linux",
-        run=lambda command, text: (
-            calls.append(tuple(command)) or _completed()
-        ),
+        run=lambda command, text: calls.append(tuple(command)) or _completed(),
         which=lambda name: None if name == "wl-copy" else f"/usr/bin/{name}",
     )
 

@@ -301,8 +301,8 @@ def run_wizard(
     # Mouse reporting stays on so the wheel/trackpad and the visible scrollbar
     # move an overflowing step on every terminal. That costs native drag-select
     # of a URL or one-time code (the terminal hands drags to the app instead),
-    # but every screen showing one already carries a keyboard-driven copy: ^y
-    # copies the exact string and ^o opens a link, so nothing is lost.
+    # so ^y suspends to selectable scrollback when the local clipboard cannot
+    # help. On SSH, ^o shows the link there too rather than opening remotely.
     app.run()
     if app.cancelled:
         return WizardRunResult(

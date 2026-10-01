@@ -8,11 +8,13 @@ what lands on the clipboard is byte-for-byte what the screen shows.
 
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
+import os
 import shutil
 import subprocess
 import sys
-from typing import Callable, Sequence
+from typing import Callable, Mapping, Sequence
 
 MACOS_PLATFORM = "darwin"
 
@@ -25,6 +27,25 @@ OTHER_COMMANDS: tuple[tuple[str, ...], ...] = (
 )
 
 _TIMEOUT_SECONDS = 5.0
+
+
+def remote_session(
+    env: Mapping[str, str] | None = None,
+    *,
+    platform: str = sys.platform,
+) -> bool:
+    """SSH and displayless Linux have no clipboard/browser local to the user."""
+    values = os.environ if env is None else env
+    return bool(values.get("SSH_CONNECTION") or values.get("SSH_TTY")) or (
+        platform == "linux"
+        and not (values.get("DISPLAY") or values.get("WAYLAND_DISPLAY"))
+    )
+
+
+def osc52(text: str) -> str:
+    """Offer the exact text to the terminal's clipboard without assuming support."""
+    encoded = base64.b64encode(text.encode("utf-8")).decode("ascii")
+    return f"\x1b]52;c;{encoded}\x07"
 
 
 @dataclass(frozen=True)
@@ -80,7 +101,8 @@ def _reason(attempts: Sequence[str], platform: str) -> str:
 
 
 def _run_clipboard_command(
-    command: Sequence[str], text: str,
+    command: Sequence[str],
+    text: str,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         list(command),
@@ -99,4 +121,6 @@ __all__ = [
     "OTHER_COMMANDS",
     "clipboard_commands",
     "copy",
+    "osc52",
+    "remote_session",
 ]
