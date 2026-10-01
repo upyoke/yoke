@@ -3,8 +3,9 @@
 Membership in a succeeded run is delivery. An item whose recorded merge is
 newer than that run cannot have been in it. Honest ``carried_work`` may still
 name a commit; a payload that could not look, or that warns its checkout was
-not refreshed, must not. Ancestry is only the residual: merged before the
-candidate, never a member, not honestly carried.
+not refreshed, must not. A merge after composition freeze cannot be in the
+immutable lineage. Ancestry is only the residual: not ruled out by recorded
+times, never a member, not honestly carried.
 """
 
 from __future__ import annotations
@@ -145,6 +146,7 @@ class ReleaseDeliveryIndex:
         newest = newest_lineage_run(runs)
         self._newest_lineage = str(newest.get("release_lineage") or "").strip()
         self._newest_completed = str(newest.get("completed_at") or "").strip()
+        self._newest_frozen = str(newest.get("composition_frozen_at") or "").strip()
         self._newest_carrier = (
             _carrier(newest)
             if self._newest_lineage
@@ -181,6 +183,12 @@ class ReleaseDeliveryIndex:
         carried = self._carriage.get(commit)
         if carried is not None:
             return dict(carried)
+        # Prepared runs may bind lineage after creation. Freeze is the latest
+        # time it could have been bound, so only merges after it are excluded.
+        if item_id is not None and self._newest_frozen:
+            merged_at = self._item_merged_at(int(item_id))
+            if merged_at and merged_at > self._newest_frozen:
+                return None
         return self._ancestry(commit)
 
     def _merge_is_newer(self, item_id: int) -> bool:
