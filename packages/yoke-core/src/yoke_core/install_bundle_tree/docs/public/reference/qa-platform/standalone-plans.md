@@ -10,6 +10,11 @@ Each fresh run freezes cases and host baselines in saved order in existing QA
 execution, requirement, run, review, and artifact records. Its standalone execution
 owns the evidence and changes no item transition, delivery acceptance, or stage gate.
 An interrupted live run resumes its immutable roster and cursor in its owning session.
+Latest-execution reads select the unique live owner first, then the greatest
+database-assigned execution order. Requirement creation, timestamp precision,
+and random execution ids do not determine that order. The identity column is
+added on boot to existing databases; historical rows receive an order at that
+convergence, which cannot recover their original same-second creation order.
 Unsupported runners or missing capabilities refuse before any case executes.
 
 Commands require `--checkout-path PATH --expected-sha FULL_SHA`: the checkout
@@ -40,4 +45,3 @@ Responses carry `standalone_plan_id`; snapshots and proof reads carry
 owner, and browser context accepts a standalone `qa_requirement` target.
 These changes require the next serving release. They use existing QA records
 and never credit item or deployment gates.
-

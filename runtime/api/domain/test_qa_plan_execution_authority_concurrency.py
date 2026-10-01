@@ -24,7 +24,8 @@ from yoke_core.domain.coordination_claims import (
 )
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.qa_plan_execution_schema import (
-    converge_qa_plan_execution_schema,
+    EXECUTION_ORDER_DEFINITION,
+    qa_plan_execution_schema_sql,
 )
 from yoke_core.domain.qa_plan_execution_state import (
     QaPlanExecutionStateError,
@@ -255,7 +256,12 @@ def test_default_sqlite_rows_advance_replay_and_finish_portably() -> None:
     try:
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("CREATE TABLE qa_requirements (id INTEGER PRIMARY KEY)")
-        converge_qa_plan_execution_schema(conn)
+        # This fixture proves tuple-row handling, not PostgreSQL allocation.
+        conn.executescript(
+            qa_plan_execution_schema_sql().replace(
+                EXECUTION_ORDER_DEFINITION, "INTEGER"
+            )
+        )
         conn.execute("INSERT INTO qa_requirements(id) VALUES (1)")
         target = {"environment": {"name": "development"}}
         digest = target_digest(target)

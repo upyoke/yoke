@@ -19,7 +19,6 @@ from yoke_core.domain.qa_plan_execution_store import (
 )
 from yoke_core.domain.qa_plan_execution_schema import (
     LIVE_PLAN_EXECUTION_STATES,
-    LIVE_PLAN_EXECUTION_SQL,
 )
 
 
@@ -76,8 +75,7 @@ def _latest(conn: Any, plan_id: int) -> dict | None:
     row = conn.execute(
         "SELECT id FROM qa_plan_executions "
         f"WHERE standalone_plan_id={marker(conn)} "
-        f"ORDER BY CASE WHEN state IN ({LIVE_PLAN_EXECUTION_SQL}) THEN 0 ELSE 1 END, "
-        f"{STANDALONE_HISTORY_ORDER_SQL} LIMIT 1",
+        f"ORDER BY {STANDALONE_HISTORY_ORDER_SQL} LIMIT 1",
         (plan_id,),
     ).fetchone()
     return select_plan_execution(conn, str(row[0]), lock=True) if row else None
