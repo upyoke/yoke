@@ -8,12 +8,15 @@ LAST such merge that finally moves — the producer's own merge is not enough
 when a consumer in another project still has to land, and continuing there
 would publish a product whose consumer is still the old one.
 
-Nothing here decides what "landed" means on its own. The run's composition is
-re-validated with no exemption, so the same dependency evaluation that
+Nothing here decides what "landed" means on its own. An unbound run's
+composition is re-validated with no exemption, so the dependency evaluation that
 refused to compose the run before the pair merged is what now says it may
 proceed, reading the blocker's ``merged_at`` rather than a status field. The
 first merge in a pair therefore reports what it is still waiting for and
-changes nothing; the last one binds the lineage.
+changes nothing; the last one binds the lineage. A run that already names
+a lineage is observed without deriving another commit or handing it off
+again. An explicit release lineage still requests hand-off recovery and
+must agree with the immutable pin.
 
 Binding is where this stops. Executing a run needs the project's deploy lock
 and a direct control-plane connection, and a merging worker holds neither —
@@ -51,6 +54,8 @@ OUTCOME_NONE = "no_prepared_run"
 OUTCOME_WAITING = "waiting_for_pair"
 #: The pair is complete and the run now names the commit it will deploy.
 OUTCOME_BOUND = "bound_and_handed_off"
+#: The run already has an immutable pin; automatic close-out only observes it.
+OUTCOME_PINNED = "already_pinned"
 
 
 @dataclass
@@ -132,6 +137,13 @@ def _continue_one_run(
     db_path: Optional[str],
 ) -> ContinueResult:
     """Advance exactly one prepared run, or report why it cannot move."""
+    if not release_lineage and (pinned := lineage_of(conn, run_id)):
+        return ContinueResult(
+            ok=True,
+            outcome=OUTCOME_PINNED,
+            run_id=run_id,
+            release_lineage=pinned,
+        )
     ok, message = cmd_validate_composition(run_id, db_path)
     if not ok:
         return ContinueResult(
@@ -209,7 +221,9 @@ def _aggregate(outcomes: List[ContinueResult]) -> ContinueResult:
     failed = next((entry for entry in outcomes if not entry.ok), None)
     summary = failed or next(
         (entry for entry in outcomes if entry.outcome == OUTCOME_WAITING),
-        outcomes[0],
+        next(
+            (entry for entry in outcomes if entry.outcome == OUTCOME_BOUND), outcomes[0]
+        ),
     )
     return ContinueResult(
         ok=summary.ok,
@@ -279,6 +293,7 @@ def continue_for_item(
 __all__ = [
     "OUTCOME_BOUND",
     "OUTCOME_NONE",
+    "OUTCOME_PINNED",
     "OUTCOME_WAITING",
     "ContinueResult",
     "continue_for_item",

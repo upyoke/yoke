@@ -27,6 +27,10 @@ self-hosted universe still dispatches in-process. This module never opens a
 control-plane database and never names a db-admin retry. Serving-API
 self-deploy restrictions stay on the execute path — continuation only binds
 lineage and hands off.
+
+An already-pinned run is reported without changing or handing it off again.
+Its stored lineage takes precedence over any newer merge evidence. Explicit
+hand-off recovery names that exact pin with ``--release-lineage``.
 """
 
 from __future__ import annotations
@@ -42,6 +46,7 @@ from yoke_core.domain.close_out_control_plane_authority import connected_control
 from yoke_core.engines.runs_continue_for_item import (
     OUTCOME_BOUND,
     OUTCOME_NONE,
+    OUTCOME_PINNED,
     OUTCOME_WAITING,
 )
 
@@ -78,7 +83,9 @@ def _relay_error(response: Any, fallback: str) -> str:
 
 
 def _fragment(
-    result: dict[str, Any], *, public_ref: str,
+    result: dict[str, Any],
+    *,
+    public_ref: str,
 ) -> tuple[dict[str, Any], str]:
     fragment: dict[str, Any] = {
         "run_id": result.get("run_id"),
@@ -90,6 +97,9 @@ def _fragment(
     if result.get("outcome") == OUTCOME_WAITING:
         fragment["waiting_on"] = list(result.get("waiting_on") or [])
         return fragment, ""
+    if result.get("outcome") == OUTCOME_PINNED:
+        fragment["release_lineage"] = result.get("release_lineage")
+        return fragment, ""
     if result.get("outcome") == OUTCOME_BOUND:
         fragment["release_lineage"] = result.get("release_lineage")
         fragment["handed_off_to"] = result.get("handed_off_to")
@@ -98,7 +108,9 @@ def _fragment(
             return fragment, (
                 f"prepared run {result.get('run_id')} now names "
                 f"{result.get('release_lineage')} but the hand-off to the "
-                f"deploy authority was not delivered. {resume}"
+                f"deploy authority was not delivered. {resume} Pass "
+                f"--release-lineage {result.get('release_lineage')} to "
+                "retry the hand-off without changing the pin."
             )
         fragment["message_id"] = result.get("message_id")
     return fragment, ""
