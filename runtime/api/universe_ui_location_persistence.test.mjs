@@ -21,8 +21,8 @@ function preferenceClient(state = { views: {}, last_location: null }) {
       if (request.function === "ui_preferences.screen_selection.set") {
         base.requests.push(request);
         const { view_id, selection, focus, location } = request.payload;
-        state.views[view_id] = { selection, focus };
         if (location !== undefined) state.last_location = location;
+        else state.views[view_id] = { selection, focus };
         return ok({});
       }
       return base.call(request);

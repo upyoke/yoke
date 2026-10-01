@@ -6,10 +6,10 @@ import { scopeForRoute } from "./universe_destinations.js";
 // A denied or failed write resolves normally with `success=false`; it must
 // still reach `createProjectSelection`'s `saveFor` as a rejection, or a save
 // that never landed would silently look saved.
-export function saveScreenSelection(client, viewId, selection, focus, location) {
+export function saveScreenSelection(client, viewId, selection, focus) {
   return Promise.resolve(callFunction(
     client, "ui_preferences.screen_selection.set", {
-      view_id: viewId, selection, focus, ...(location === undefined ? {} : { location }),
+      view_id: viewId, selection, focus,
     },
   )).then((callResult) => {
     if (!callResult.envelope?.success) {

@@ -30,8 +30,9 @@ roster on every render.
 
 The same preference pair remembers the actor's last dashboard location,
 including its hash query. The list response carries `last_location`; a
-navigation includes `location` in the set payload alongside the screen's
-selection and focus. It is stored under `screen.location.last` in
+navigation sends `view_id` and `location` in the set payload. A set payload
+with `location` writes only the location, leaving selection and focus untouched.
+It is stored under `screen.location.last` in
 `actor_ui_preferences`, independently of `screen.selection.<view id>`.
 Signing back in or opening a bare dashboard entry restores that location
 before the first page renders. An explicit hash route always wins and

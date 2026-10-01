@@ -141,8 +141,11 @@ def test_location_survives_navigation_and_selection_only_writes(test_db):
         ).fetchone()[0]
     )
     location = "#/items/example?project=1&selection=all&return=workflows"
-    assert _set({"view_id": "items", "location": location}, actor).primary_success
-    _set({"view_id": "sessions", "selection": ["1"]}, actor)
+    done = _set({"view_id": "items", "location": location}, actor)
+    assert done.primary_success
+    assert done.result_payload == {"view_id": "items", "location": location}
+    assert _list(actor) == {}
+    _set({"view_id": "sessions", "selection": ["1"], "focus": "1"}, actor)
     outcome = handle_screen_selection_list(
         _request(
             "ui_preferences.screen_selection.list",
@@ -150,7 +153,9 @@ def test_location_survives_navigation_and_selection_only_writes(test_db):
         )
     )
     assert outcome.result_payload["last_location"] == location
-    assert set(outcome.result_payload["views"]) == {"items", "sessions"}
+    assert outcome.result_payload["views"] == {
+        "sessions": {"selection": ["1"], "focus": "1"}
+    }
     other = handle_screen_selection_list(
         _request(
             "ui_preferences.screen_selection.list",
@@ -160,6 +165,7 @@ def test_location_survives_navigation_and_selection_only_writes(test_db):
     assert other.result_payload["last_location"] is None
     updated = "#/sessions?project=all"
     _set({"view_id": "sessions", "location": updated}, actor)
+    assert _list(actor) == {"sessions": {"selection": ["1"], "focus": "1"}}
     assert (
         handle_screen_selection_list(
             _request(

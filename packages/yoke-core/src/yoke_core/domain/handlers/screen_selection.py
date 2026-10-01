@@ -13,7 +13,7 @@ screen falls back to its "all" default — and the set refuses, mirroring
 
 The same pair carries ``last_location`` on reads and optional ``location``
 on writes, stored under ``screen.location.last`` in that actor's preference
-store. A navigation saves its current screen selection and location together.
+store. A location write leaves screen selection and focus untouched.
 """
 
 from __future__ import annotations
@@ -54,8 +54,9 @@ class ScreenSelectionSetRequest(BaseModel):
 
 class ScreenSelectionSetResponse(BaseModel):
     view_id: str
-    selection: Selection
+    selection: Optional[Selection] = None
     focus: Optional[str] = None
+    location: Optional[str] = None
 
 
 def _valid_selection(selection: Any) -> bool:
@@ -145,13 +146,17 @@ def handle_screen_selection_set(
             "navigate to a dashboard page and retry",
             jsonpath="$.payload.location",
         )
+    if location is not None:
+        _store.upsert(actor_id, SCREEN_LOCATION_PREF_PREFIX + "last", location)
+        return HandlerOutcome(
+            result_payload={"view_id": view_id, "location": location},
+            primary_success=True,
+        )
     _store.upsert(
         actor_id,
         SCREEN_SELECTION_PREF_PREFIX + view_id,
         {"selection": selection, "focus": focus},
     )
-    if location is not None:
-        _store.upsert(actor_id, SCREEN_LOCATION_PREF_PREFIX + "last", location)
     return HandlerOutcome(
         result_payload={"view_id": view_id, "selection": selection, "focus": focus},
         primary_success=True,

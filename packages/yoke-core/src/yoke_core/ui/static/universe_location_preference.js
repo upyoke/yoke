@@ -1,7 +1,6 @@
 import { NAV, parseUniverseRoute, buildUniverseRoute } from "./universe_navigation.js";
 import { DETAIL_RENDERERS } from "./universe_views.js";
 import { callFunction } from "./universe_view_support.js";
-import { saveScreenSelection } from "./universe_app_shell_support.js";
 
 const bareLocation = (hash) => !hash || /^#\/?$/.test(hash);
 
@@ -120,11 +119,14 @@ export function createLocationPreference({ client, windowNode, selections, isMou
       if (!selections.ready || !location || location === lastSaved) return;
       lastSaved = location;
       const { view } = parseUniverseRoute(location);
-      const selection = selections.selectionFor(view);
-      const focus = selections.focusFor(view);
       // Serialize navigation writes: an earlier request cannot arrive last
       // and turn Back/Forward or a rapid click sequence into stale state.
-      writes = writes.then(() => saveScreenSelection(client, view, selection, focus, location))
+      writes = writes.then(async () => {
+        const result = await callFunction(client, "ui_preferences.screen_selection.set", {
+          view_id: view, location,
+        });
+        if (!result.envelope?.success) throw new Error("location save failed");
+      })
         .catch(() => {
           if (isMounted()) selections.setNotice(
             "Last page could not be saved. Reload to retry.",

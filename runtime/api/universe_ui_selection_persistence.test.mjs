@@ -29,7 +29,7 @@ function preferenceClient(initialViews = {}, universeClient = twoProjectClient) 
       }
       if (request.function === "ui_preferences.screen_selection.set") {
         base.requests.push(request);
-        state.views = {
+        if (request.payload.location === undefined) state.views = {
           ...state.views,
           [request.payload.view_id]: {
             selection: request.payload.selection, focus: request.payload.focus,

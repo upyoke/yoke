@@ -28,7 +28,7 @@ function preferenceClient(initialViews = {}, universeClient = twoProjectClient) 
       }
       if (request.function === "ui_preferences.screen_selection.set") {
         base.requests.push(request);
-        state.views = {
+        if (request.payload.location === undefined) state.views = {
           ...state.views,
           [request.payload.view_id]: {
             selection: request.payload.selection, focus: request.payload.focus,
@@ -113,13 +113,13 @@ test("a route naming every project resolves to All rather than pinning the set",
   assert.deepEqual(app.on(), ["All"]);
   assert.equal(app.windowNode.location.hash, "#/items?project=all");
   // Resolving the existing All scope does not save a selection change.
-  // Navigation saves the last location with that canonical scope once.
-  assert.deepEqual(client.state.views.items, { selection: "all", focus: null });
+  // Navigation saves only the last location with that canonical scope once.
+  assert.equal(client.state.views.items, undefined);
   const saves = client.requests.filter(
     (request) => request.function === "ui_preferences.screen_selection.set",
   );
   assert.equal(saves.length, 1);
-  assert.equal(saves[0].payload.location, "#/items?project=all");
+  assert.deepEqual(saves[0].payload, { view_id: "items", location: "#/items?project=all" });
 });
 
 test("a screen's own links carry the canonical form of what it remembers", async (t) => {
