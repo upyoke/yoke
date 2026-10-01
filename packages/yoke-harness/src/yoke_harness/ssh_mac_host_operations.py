@@ -1,9 +1,9 @@
 """SSH-backed implementation of the host-operation contract for a macOS box.
 
 One class implements every operation a person can run against a macOS SSH test
-machine -- verify, reset, capture a golden baseline, diagnose the terminal
+machine -- verify, reset, capture a golden baseline or desktop, diagnose the terminal
 bridge -- because they share a transport, a credential, and a lease, and
-splitting them by operation would give four adapters four chances to disagree
+splitting them by operation would give separate adapters chances to disagree
 about what the same host is.
 """
 
