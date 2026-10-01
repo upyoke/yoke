@@ -1,4 +1,4 @@
-"""Remote Linux restore cleanup stays confined to Yoke-owned services."""
+"""Remote Linux restore quiesces home programs and scopes service removal."""
 
 import os
 import subprocess
@@ -79,9 +79,10 @@ def test_remote_reset_program_is_compilable_and_proves_only_yoke_service_removal
     assert ["docker", "image", "rm", "--", "image-id"] in commands
 
 
-@pytest.mark.parametrize("outcome", ["stopped", "pid_reused", "refused"])
-def test_linux_reset_stops_yoke_descendants_and_proves_process_identity(
-    monkeypatch, outcome
+@pytest.mark.parametrize("outcome", ["stopped", "pid_reused", "refused", "respawned"])
+@pytest.mark.parametrize("home_program", ["yoke", "deleted_harness"])
+def test_linux_reset_stops_home_program_descendants_and_proves_process_identity(
+    monkeypatch, outcome, home_program
 ):
     import shutil
     import time
@@ -92,11 +93,21 @@ def test_linux_reset_stops_yoke_descendants_and_proves_process_identity(
         11: {
             "parent": 1,
             "start": "100",
-            "args": ["/home/tester/.yoke/bin/server"],
+            "args": ["/home/tester/.yoke/bin/server"]
+            if home_program == "yoke"
+            else ["codex", "app-server", "--managed-daemon"],
+            "executable": "/usr/bin/python3"
+            if home_program == "yoke"
+            else "/home/tester/.codex/bin/codex (deleted)",
             "uid": 1000,
         },
         12: {"parent": 11, "start": "200", "args": ["/usr/bin/sleep"], "uid": 1000},
-        13: {"parent": 1, "start": "300", "args": ["/usr/bin/other"], "uid": 1000},
+        13: {
+            "parent": 1,
+            "start": "300",
+            "args": ["/usr/bin/other", "/home/tester-sibling/data"],
+            "uid": 1000,
+        },
         14: {"parent": 11, "start": "400", "args": ["/usr/bin/foreign"], "uid": 2000},
     }
     killed = []
@@ -132,10 +143,21 @@ def test_linux_reset_stops_yoke_descendants_and_proves_process_identity(
 
     def kill(pid, sig):
         killed.append((pid, sig))
-        if outcome == "stopped" or (outcome == "pid_reused" and pid == 12):
+        if outcome in {"stopped", "respawned"} or (
+            outcome == "pid_reused" and pid == 12
+        ):
             records.pop(pid)
+            if outcome == "respawned":
+                records[15] = {
+                    "parent": 1,
+                    "start": "500",
+                    "args": ["/home/tester/.cursor/bin/node"],
+                    "uid": 1000,
+                }
         elif outcome == "pid_reused":
             records[pid]["start"] = "new-process"
+            records[pid]["args"] = ["/usr/bin/unrelated"]
+            records[pid]["executable"] = "/usr/bin/unrelated"
 
     clock = [0.0]
     monkeypatch.setattr(shutil, "which", lambda value: None)
@@ -150,12 +172,17 @@ def test_linux_reset_stops_yoke_descendants_and_proves_process_identity(
     namespace = {
         "home": Path("/home/tester"),
         "shutil": shutil,
-        "os": SimpleNamespace(getuid=lambda: 1000, getpid=lambda: 99, kill=kill),
+        "os": SimpleNamespace(
+            getuid=lambda: 1000,
+            getpid=lambda: 99,
+            kill=kill,
+            readlink=lambda path: path.record().get("executable", "/usr/bin/program"),
+        ),
         "pathlib": SimpleNamespace(Path=ProcPath),
         "refuse": refuse,
     }
-    if outcome == "refused":
-        with pytest.raises(RuntimeError, match="linux_yoke_writers_stop_not_proved"):
+    if outcome in {"refused", "respawned"}:
+        with pytest.raises(RuntimeError, match="linux_home_writers_stop_not_proved"):
             exec(RESET_WRITERS_PROGRAM, namespace)
     else:
         exec(RESET_WRITERS_PROGRAM, namespace)

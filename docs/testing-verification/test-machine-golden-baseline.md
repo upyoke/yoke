@@ -51,6 +51,17 @@ process survives it. A clear that races a live writer leaves the restore a
 destination it cannot reconcile, which surfaces as a restore failure whose real
 cause was never the restore.
 
+Linux also stops the dedicated user's programs whose executable or arguments
+name the home being restored, plus their descendants. This includes harness
+daemons running from already-deleted executables: `/proc` still identifies their
+home paths. Other users and unrelated system programs remain outside the reap.
+PID start times protect reused process ids, and a fresh inventory must show no
+home program before clearing starts. A respawning writer refuses the reset with
+`linux_home_writers_stop_not_proved`, leaving the home intact. A deletion failure
+names its top-level entry as `linux_golden_home_clear_failed`; stop its writer and
+retry the sealed archive. Never recapture a mixed home after a failed restore.
+System-installed packages remain outside this home-only baseline.
+
 The third is product-owned temp files that never lived in the home. The
 installer writes `/tmp/yoke-install`; the verifier already requires that path
 absent, and the clear removes it from the same declared absence roster rather

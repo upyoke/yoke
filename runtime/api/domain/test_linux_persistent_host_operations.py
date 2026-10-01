@@ -167,6 +167,39 @@ def test_archive_operation_records_malformed_transport_receipt_as_named_failure(
     assert result.evidence["recovery"]
 
 
+def test_home_clear_failure_names_entry_and_preserves_sealed_archive(
+    tmp_path, monkeypatch, capsys
+):
+    import hashlib
+    import io
+    import shutil
+
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "profile").write_text("sealed")
+    golden = tmp_path / "golden"
+    assert _archive_run(home, golden, "capture").returncode == 0
+    before = hashlib.sha256((golden / "home.tar.gz").read_bytes()).hexdigest()
+    (home / "profile").unlink()
+    (home / ".codex").mkdir()
+
+    def clear_failure(path):
+        raise OSError("directory is being recreated")
+
+    monkeypatch.setattr(shutil, "rmtree", clear_failure)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(sys, "argv", ["reset", "reset", str(home), str(golden)])
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(ABSENT_HOME_PATHS)))
+    with pytest.raises(SystemExit) as stopped:
+        exec(_ARCHIVE_PROGRAM, {})
+    assert stopped.value.code == 64
+    receipt = json.loads(capsys.readouterr().out)
+    assert receipt["reason"] == "linux_golden_home_clear_failed"
+    assert receipt["refused_entry"] == ".codex"
+    assert not (home / "profile").exists()
+    assert hashlib.sha256((golden / "home.tar.gz").read_bytes()).hexdigest() == before
+
+
 def test_bridge_proves_transcript_and_records_screenshot_deferral():
     commands = []
     token_parts = []

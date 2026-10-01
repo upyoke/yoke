@@ -116,8 +116,11 @@ else:
         # STOP_YOKE_WRITERS
         for entry in home.iterdir():
             if entry.name == ".ssh": continue
-            if entry.is_dir() and not entry.is_symlink(): shutil.rmtree(entry)
-            else: entry.unlink()
+            try:
+                if entry.is_dir() and not entry.is_symlink(): shutil.rmtree(entry)
+                else: entry.unlink()
+            except OSError:
+                refuse("linux_golden_home_clear_failed", entry.name)
         archive.extractall(home, filter="fully_trusted")
         for member in members:
             restored = home / member.name
@@ -179,7 +182,9 @@ def archive_operation(
     ok = result.returncode == 0 and evidence.get("ok") is True
     if not ok:
         evidence["recovery"] = (
-            "Use a non-root test user and a new literal golden directory outside its home; repair the baseline archive before retrying."
+            "Repair the named reset failure and inspect refused_entry; stop surviving home-resident processes if clearing failed, then retry the sealed baseline. Never capture a mixed home."
+            if operation == "reset"
+            else "Use a non-root test user and a new literal golden directory outside its home; repair the baseline archive before retrying."
         )
     return HostActionResult(
         ok,

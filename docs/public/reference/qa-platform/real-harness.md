@@ -40,6 +40,11 @@ then installs the shell launcher. Standalone Machine QA uses the existing per-ca
 protocol, so every harness starts from its own golden restore rather than sharing
 the preceding harness's local universe. Baseline-group lookup also recognizes a
 standalone execution as its unique subject and never mixes evidence from two runs.
+Linux reset first stops the test user's home-resident programs and descendants,
+including harness daemons whose executables were deleted by an earlier reset.
+A surviving writer refuses before clearing; a clear failure names its entry.
+Retry the sealed archive after stopping the writer, and never reseal a mixed home.
+System-wide OS packages are outside the home golden.
 The case installs the candidate wheels in a separate
 environment, onboards a throwaway Git project into a disposable local universe
 with GitHub disabled, and invokes the signed-in native CLI. Linux uses tmux
