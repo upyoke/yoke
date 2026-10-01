@@ -127,8 +127,8 @@ def skipped_candidate_notice(
         )
     if rework:
         parts.append(
-            "back in rework, before their release stage (a later release "
-            "enrolls each once it returns there): "
+            "WARNING: merged into this candidate but not at release yet — "
+            "wait for it or add-item once it reaches release: "
             + "; ".join(
                 f"{render_item_ref(conn, item_id)} (status={status})"
                 for item_id, status in rework

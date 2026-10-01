@@ -81,7 +81,12 @@ def _update_run_succeeded(run_id: str, sd: Optional[str]) -> None:
         if delay:
             time.sleep(delay)
         try:
+            print(
+                f"Run {run_id}: settling member close-outs before status=succeeded",
+                flush=True,
+            )
             run_updates.update_run_field(run_id, "status", "succeeded")
+            print(f"Run {run_id}: status=succeeded written", flush=True)
             return
         except _STATUS_WRITE_RETRY_ERRORS as exc:
             last_exc = exc
@@ -111,6 +116,10 @@ def finalize_run_success(
         from yoke_core.domain.deployment_item_stamp import stamp_item_field
 
         for raw in member_items:
+            print(
+                f"Run {run_id}: stamping member items.id={raw} deployed_to={delivered_to}",
+                flush=True,
+            )
             stamp_item_field(int(raw), "deployed_to", delivered_to)
         print(f"Auto-set deployed_to={delivered_to} from flow {flow_id}")
     _update_run_succeeded(run_id, sd)

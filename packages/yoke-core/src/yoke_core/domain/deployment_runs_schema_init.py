@@ -39,6 +39,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 status TEXT NOT NULL DEFAULT 'created'
                     CHECK(status IN ('created','executing','succeeded','failed','cancelled')),
                 current_stage TEXT,
+                current_stage_entered_at TEXT,
                 created_at TEXT NOT NULL,
                 started_at TEXT,
                 completed_at TEXT,
@@ -106,6 +107,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
         ):
             conn.execute(statement)
         for column in (
+            "current_stage_entered_at",
             "artifact_identity",
             "composition_resolution",
             "composition_frozen_at",

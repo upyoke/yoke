@@ -118,18 +118,20 @@ def test_an_issue_rolled_back_to_implemented_stays_release_ready(
     assert item_requires_release_membership(test_db, LANDED_ITEM_ID) is True
 
 
-def test_a_carried_dash_back_in_rework_is_skipped_and_named(
-    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("status", ["implementing", "reviewing-implementation"])
+def test_a_carried_dash_before_release_is_skipped_and_warned(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, status: str
 ) -> None:
-    ref = _carried_dash_landing(test_db, tmp_path, monkeypatch, status="implementing")
+    ref = _carried_dash_landing(test_db, tmp_path, monkeypatch, status=status)
 
     ok, message = cmd_validate_composition("run-candidate")
 
     assert ok is True, message
     assert _members(test_db) == []
     assert "Skipped 1 carried item(s)" in message
-    assert "back in rework" in message
-    assert f"{ref} (status=implementing)" in message
+    assert "WARNING: merged into this candidate but not at release yet" in message
+    assert "wait for it or add-item once it reaches release" in message
+    assert f"{ref} (status={status})" in message
 
 
 def test_a_carried_dash_at_its_release_stage_is_enrolled(

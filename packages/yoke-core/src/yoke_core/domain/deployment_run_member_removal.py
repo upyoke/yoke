@@ -115,6 +115,7 @@ def remove_member_on(
     reason: str,
     session_id: str | None = None,
     actor_id: int | None = None,
+    removed_by: str = "steering",
 ) -> str:
     """Apply the audited removal and retire only this run's outstanding member QA.
 
@@ -150,6 +151,16 @@ def remove_member_on(
 
     withdraw_deployment_qa_wait_wakes(
         conn, run_id=run_id, item_id=item_id, reason="member_removed"
+    )
+    from yoke_core.domain.deployment_member_removal_notice import notify_removed_member
+
+    notify_removed_member(
+        conn,
+        run_id=run_id,
+        item_id=item_id,
+        public_ref=ref,
+        reason=reason,
+        removed_by=removed_by,
     )
     return ref
 
@@ -301,6 +312,8 @@ def release_replaced_members(
         ):
             continue
         reason = "current candidate is not contained in this run's frozen lineage; awaiting a later release"
-        ref = remove_member_on(conn, run_id, item_id, reason=reason)
+        ref = remove_member_on(
+            conn, run_id, item_id, reason=reason, removed_by="settlement"
+        )
         print(f"Released {ref} from settling run {run_id}: {reason}.")
     conn.commit()

@@ -16,11 +16,10 @@ from yoke_core.domain.deployment_run_completion_preconditions import (
 from yoke_core.domain.deployment_run_stage_entry import (
     is_scoped_qa_stage,
     parse_stage_plan,
-    stage_entry_times,
 )
 from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
 from yoke_core.domain.runs import TERMINAL_RUN_STATUSES
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.session_message_types import row_dict
 from yoke_core.domain.steering_fleet_report_detectors import marker
 
@@ -28,7 +27,6 @@ from yoke_core.domain.steering_fleet_report_detectors import marker
 _FACT_TABLES = (
     "deployment_runs",
     "deployment_flows",
-    "deployment_stage_receipts",
     "qa_requirements",
     "qa_runs",
     "decision_requests",
@@ -67,9 +65,14 @@ def live_deployment_runs(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
     p = marker(conn)
     terminal = sorted(TERMINAL_RUN_STATUSES)
     holes = ", ".join(p for _ in terminal)
+    entered = (
+        "current_stage_entered_at"
+        if _column_exists(conn, "deployment_runs", "current_stage_entered_at")
+        else "NULL"
+    )
     rows = conn.execute(
         f"""SELECT id, flow, status, COALESCE(current_stage, '') AS current_stage,
-                   started_at, created_at, driver_attachment
+                   {entered} AS current_stage_entered_at, driver_attachment
               FROM deployment_runs
              WHERE project_id = {p}
                AND status NOT IN ({holes})
@@ -85,7 +88,7 @@ def load_live_run_facts(
     runs: list[dict[str, Any]],
     tables: _Tables,
 ) -> LiveRunFactMaps:
-    """Receipts, red verdicts, decisions, and completion-boundary counts."""
+    """Stage clocks, red verdicts, decisions, and completion-boundary counts."""
     run_ids = [str(run["id"]) for run in runs]
     if not run_ids:
         return LiveRunFactMaps(frozenset(), {}, {}, {}, {}, {})
@@ -94,7 +97,11 @@ def load_live_run_facts(
     unresolved, totals = _completion_boundary(conn, run_ids=run_ids, tables=tables)
     return LiveRunFactMaps(
         qa_stage_run_ids=qa_stage_run_ids,
-        entered_at=_stage_entry_times(conn, runs=runs, tables=tables, plans=plans),
+        entered_at={
+            str(run["id"]): str(run["current_stage_entered_at"])
+            for run in runs
+            if run.get("current_stage_entered_at")
+        },
         red=_red_requirements(conn, run_ids=run_ids, tables=tables),
         decisions=_resolved_decisions(conn, runs=runs, tables=tables),
         unresolved=unresolved,
@@ -141,37 +148,6 @@ def _qa_stage_run_ids(
         if stage_name and is_scoped_qa_stage(plans.get(run_id, ()), stage_name):
             found.add(run_id)
     return frozenset(found)
-
-
-def _stage_entry_times(
-    conn: Any,
-    *,
-    runs: list[dict[str, Any]],
-    tables: _Tables,
-    plans: dict[str, tuple[dict[str, Any], ...]],
-) -> dict[str, str]:
-    """When each live run entered the stage it is at, from its own receipts."""
-    if not tables.has("deployment_stage_receipts"):
-        return {}
-    current = {
-        str(run["id"]): str(run["current_stage"])
-        for run in runs
-        if str(run["current_stage"])
-    }
-    if not current:
-        return {}
-    holes, params = _holes(conn, [str(run["id"]) for run in runs])
-    rows = conn.execute(
-        f"""SELECT run_id, stage_name, created_at, completed_at, id
-              FROM deployment_stage_receipts
-             WHERE run_id IN ({holes})""",
-        params,
-    ).fetchall()
-    return stage_entry_times(
-        [row_dict(raw) for raw in rows],
-        current_stage_by_run=current,
-        stage_plan_by_run=plans,
-    )
 
 
 def _red_requirements(

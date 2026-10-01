@@ -16,6 +16,7 @@ from yoke_core.domain.deployment_runs_schema import (
 )
 from yoke_core.domain.json_helper import dumps_compact
 from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.schema_common import _column_exists
 
 
 class DeploymentRunProjectionError(ValueError):
@@ -153,9 +154,7 @@ def project_snapshot(
             records_bound = bound_sources_recorded(authority)
             bound_column = "bound_sources," if records_bound else ""
             bound_value = "%s," if records_bound else ""
-            bound_parameter = (
-                (snapshot["bound_sources"],) if records_bound else ()
-            )
+            bound_parameter = (snapshot["bound_sources"],) if records_bound else ()
             authority.execute(
                 "INSERT INTO deployment_runs("
                 "id,project_id,flow,target_tier,target_environment_id,"
@@ -207,6 +206,15 @@ def project_snapshot(
                     "destination snapshot digest"
                 )
             changed = _changed_fields(existing, snapshot)
+            if "current_stage" in changed and _column_exists(
+                authority, "deployment_runs", "current_stage_entered_at"
+            ):
+                # A portable snapshot does not prove when its source entered
+                # this stage. Discard the previous stage's local clock.
+                authority.execute(
+                    "UPDATE deployment_runs SET current_stage_entered_at=NULL WHERE id=%s",
+                    (snapshot["id"],),
+                )
             authority.execute(
                 "UPDATE deployment_runs SET target_tier=%s,"
                 "target_environment_id=%s,status=%s,"

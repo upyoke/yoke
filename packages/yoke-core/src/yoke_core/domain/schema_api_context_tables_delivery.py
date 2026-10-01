@@ -70,6 +70,7 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("release_lineage", "TEXT"),
             ("status", "TEXT"),
             ("current_stage", "TEXT"),
+            ("current_stage_entered_at", "TEXT"),
             ("created_at", "TEXT"),
             ("started_at", "TEXT"),
             ("completed_at", "TEXT"),
@@ -89,7 +90,9 @@ DELIVERY_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "One row per deployment-flow execution. Primary key is the "
-            "TEXT `id` (run identifier like 'run-YYYYMMDD-NNN'); the "
+            "TEXT `id` (run identifier like 'run-YYYYMMDD-NNN'); "
+            "`current_stage_entered_at` dates the current stage, including "
+            "complete; NULL means age unknown, never the run age or receipt age. The "
             "`flow` column joins to `deployment_flows.id`. There is no "
             "`item_id` column on this table. Item-bound delivery joins "
             "through `deployment_run_items`. Use `deployment_runs.id` in "
