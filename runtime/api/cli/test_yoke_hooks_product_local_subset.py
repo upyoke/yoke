@@ -54,8 +54,9 @@ def test_product_local_subset_downgrades_snapshot_warn(
     assert result.denied is False
     assert result.exit_code == 0
     envelope = json.loads(result.stdout)
-    assert "lint-config mode is warn" in (
-        envelope["hookSpecificOutput"]["additionalContext"]
+    assert (
+        "lint-config mode is warn"
+        in (envelope["hookSpecificOutput"]["additionalContext"])
     )
 
 
@@ -171,7 +172,7 @@ def test_product_local_subset_denies_missing_path_glob(tmp_path: Path) -> None:
         json.dumps(
             {
                 "tool_name": "Bash",
-                "tool_input": {"command": "ls docs/deploy*"},
+                "tool_input": {"command": "ls docs/deploy*", "shell": "/bin/zsh"},
                 "cwd": str(tmp_path),
             }
         ),
@@ -189,11 +190,16 @@ def test_product_local_subset_denies_missing_path_glob(tmp_path: Path) -> None:
 def test_product_local_subset_repairs_ripgrep_replace_flag(tmp_path: Path) -> None:
     result = local_subset.evaluate_local_subset(
         "PreToolUse",
-        json.dumps({
-            "tool_name": "Bash", "cwd": str(tmp_path),
-            "tool_input": {"command": "rg -rn PAT docs"},
-        }),
-        "codex", None, _deadline(),
+        json.dumps(
+            {
+                "tool_name": "Bash",
+                "cwd": str(tmp_path),
+                "tool_input": {"command": "rg -rn PAT docs"},
+            }
+        ),
+        "codex",
+        None,
+        _deadline(),
         lint_config_snapshot={"lint_unmatched_path_glob": {"mode": "deny"}},
     )
     assert result.denied is True
@@ -203,11 +209,19 @@ def test_product_local_subset_repairs_ripgrep_replace_flag(tmp_path: Path) -> No
 def test_product_local_subset_compound_refusal_says_nothing_ran(tmp_path: Path) -> None:
     result = local_subset.evaluate_local_subset(
         "PreToolUse",
-        json.dumps({
-            "tool_name": "Bash", "cwd": str(tmp_path),
-            "tool_input": {"command": "touch /tmp/probe.txt && rg PAT docs/missing*"},
-        }),
-        "codex", None, _deadline(),
+        json.dumps(
+            {
+                "tool_name": "Bash",
+                "cwd": str(tmp_path),
+                "tool_input": {
+                    "command": "touch /tmp/probe.txt && rg PAT docs/missing*",
+                    "shell": "/bin/zsh",
+                },
+            }
+        ),
+        "codex",
+        None,
+        _deadline(),
         lint_config_snapshot={"lint_unmatched_path_glob": {"mode": "deny"}},
     )
     assert result.denied is True
@@ -224,7 +238,7 @@ def test_product_local_subset_allows_matching_path_glob(tmp_path: Path) -> None:
         json.dumps(
             {
                 "tool_name": "Bash",
-                "tool_input": {"command": "ls docs/deploy*"},
+                "tool_input": {"command": "ls docs/deploy*", "shell": "/bin/zsh"},
                 "cwd": str(tmp_path),
             }
         ),

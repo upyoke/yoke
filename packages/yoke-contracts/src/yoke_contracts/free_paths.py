@@ -38,24 +38,33 @@ STATIC_FREE_PATH_PREFIXES = (
 FALLBACK_FREE_TEMP_ROOT = Path(_abs("tmp"))
 
 
+def free_path_prefixes(
+    prefixes: tuple[str, ...] = STATIC_FREE_PATH_PREFIXES,
+) -> tuple[str, ...]:
+    """Include this machine's canonical TMPDIR only when explicitly absolute."""
+    raw = os.environ.get("TMPDIR", "")
+    if not raw or not Path(raw).is_absolute():
+        return prefixes
+    return (*prefixes, str(Path(raw).resolve(strict=False)))
+
+
 def is_under_free_path_prefix(
     target: str | Path,
-    prefixes: tuple[str, ...] = STATIC_FREE_PATH_PREFIXES,
+    prefixes: tuple[str, ...] | None = None,
 ) -> bool:
     """Return whether *target* resolves under one of *prefixes*."""
     resolved = str(Path(target).expanduser().resolve(strict=False))
     return any(
         resolved == prefix or resolved.startswith(prefix + os.sep)
-        for prefix in prefixes
+        for prefix in (free_path_prefixes() if prefixes is None else prefixes)
     )
 
 
 def free_temp_root() -> Path:
     """Return a temp root every Yoke guard already admits.
 
-    ``TMPDIR`` normally resolves under the allowlist already. An operator who
-    has pointed it elsewhere would otherwise get a path their own guard
-    refuses, so an out-of-allowlist temp root falls back to ``/tmp``.
+    An absolute ``TMPDIR`` is admitted by its canonical path. Other OS temp
+    roots outside the allowlist fall back to ``/tmp``.
     """
     root = Path(tempfile.gettempdir())
     return root if is_under_free_path_prefix(root) else FALLBACK_FREE_TEMP_ROOT
@@ -86,6 +95,7 @@ __all__ = [
     "DEV_FAMILY_PREFIX",
     "FALLBACK_FREE_TEMP_ROOT",
     "STATIC_FREE_PATH_PREFIXES",
+    "free_path_prefixes",
     "free_temp_root",
     "is_under_free_path_prefix",
     "private_free_path",

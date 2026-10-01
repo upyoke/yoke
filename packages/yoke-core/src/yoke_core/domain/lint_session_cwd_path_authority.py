@@ -9,6 +9,7 @@ from typing import Any, Iterable, List, Optional, Sequence
 from yoke_contracts.free_paths import (
     DEV_FAMILY_PREFIX,
     STATIC_FREE_PATH_PREFIXES as _STATIC_FREE_PATH_PREFIXES,
+    free_path_prefixes as machine_free_path_prefixes,
 )
 from yoke_core.domain.lint_session_cwd_home import (
     expand_machine_home,
@@ -23,7 +24,7 @@ def _abs(*parts: str) -> str:
     return os.path.join(_ROOT, *parts)
 
 
-# The static free-path allowlist (OS temp dirs and the discard family) is
+# The free-path allowlist (OS temp dirs, absolute TMPDIR, and discard family) is
 # shared with every writer that must choose a destination the guard will
 # admit, so it lives in ``yoke_contracts.free_paths``. Harness
 # transcript/attachment stores and the machine-config file are added here
@@ -32,14 +33,15 @@ def _abs(*parts: str) -> str:
 # separately by :func:`is_yoke_watcher_capture_path` so ``dispatch-inputs``
 # and other scratch subtrees keep their own authority rules.
 
-FREE_PATH_PREFIXES = (*_STATIC_FREE_PATH_PREFIXES, *home_free_path_prefixes())
+FREE_PATH_PREFIXES = (*machine_free_path_prefixes(), *home_free_path_prefixes())
 
 
 def free_path_prefixes(machine_home: str | None = None) -> tuple[str, ...]:
     """Resolve free paths against the local or explicitly evidenced home."""
-    if machine_home is None:
-        return FREE_PATH_PREFIXES
-    return (*_STATIC_FREE_PATH_PREFIXES, *home_free_path_prefixes(machine_home))
+    return (
+        *machine_free_path_prefixes(_STATIC_FREE_PATH_PREFIXES),
+        *home_free_path_prefixes(machine_home),
+    )
 
 
 # Standard tool / system binary directories. An extracted target under one

@@ -35,6 +35,7 @@ def fake_yoke_root(monkeypatch):
         "yoke_main_root",
         lambda: str(yoke_root),
     )
+    monkeypatch.delenv("TMPDIR", raising=False)
     monkeypatch.setattr(
         lint_session_cwd_validate,
         "FREE_PATH_PREFIXES",

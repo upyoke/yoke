@@ -43,8 +43,11 @@ def client_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     home = tmp_path / "client-home"
     home.mkdir()
     monkeypatch.setenv("HOME", str(SERVER_HOME))
+    monkeypatch.delenv("TMPDIR", raising=False)
     monkeypatch.setattr(
-        lint_session_cwd_path_authority, "_STATIC_FREE_PATH_PREFIXES", (),
+        lint_session_cwd_path_authority,
+        "_STATIC_FREE_PATH_PREFIXES",
+        (),
     )
     return home
 
@@ -169,7 +172,9 @@ def test_relayed_bare_cat_fails_closed_without_valid_client_home_evidence(
     )
 
     decision = _remote_evaluation(
-        _cat(reference), client_home=client_home, home_metadata=home_metadata,
+        _cat(reference),
+        client_home=client_home,
+        home_metadata=home_metadata,
     )
     reason = json.loads(decision.message)["hookSpecificOutput"][
         "permissionDecisionReason"

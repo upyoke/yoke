@@ -28,6 +28,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Sequence
 
+from yoke_contracts.free_paths import free_path_prefixes as machine_free_path_prefixes
 from yoke_core.domain.lane_occupancy import LaneOccupant, occupying_claim
 from yoke_core.domain.lint_session_cwd_control_plane import (
     is_under_yoke_control_plane,
@@ -298,10 +299,9 @@ def _is_free_path(
     claude_job_tmp_root: str,
     machine_home: str | None,
 ) -> bool:
-    # FREE_PATH_PREFIXES stays monkeypatchable for tests; watcher-captures
-    # under the live machine scratch root are a separate allowlist entry.
+    # Keep the static roots monkeypatchable; add live TMPDIR at evaluation.
     prefixes = (
-        FREE_PATH_PREFIXES
+        machine_free_path_prefixes(FREE_PATH_PREFIXES)
         if machine_home is None
         else _free_path_prefixes(machine_home)
     )

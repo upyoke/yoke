@@ -6,7 +6,12 @@ import glob
 import re
 from pathlib import Path
 
-from yoke_contracts.hook_runner.shell_guard_repairs import RIPGREP_REPLACE_CHECK_ID, glob_repair, ripgrep_replace_repair
+from yoke_contracts.hook_runner.shell_guard_repairs import (
+    RIPGREP_REPLACE_CHECK_ID,
+    executing_shell,
+    glob_repair,
+    ripgrep_replace_repair,
+)
 from yoke_harness.hooks.local_policy_common import DENY, NOOP, PolicyResult
 
 
@@ -130,7 +135,7 @@ def _unmatched(command: str, cwd: str) -> str:
 
 
 def lint_unmatched_path_glob(payload: dict) -> PolicyResult:
-    """Deny a Bash path glob that matches nothing on this client."""
+    """Deny an unmatched path glob only when the command shell is zsh."""
     tool = payload.get("tool_name") or payload.get("toolName")
     if tool and tool != "Bash":
         return PolicyResult(NOOP)
@@ -142,6 +147,8 @@ def lint_unmatched_path_glob(payload: dict) -> PolicyResult:
             "BLOCKED: `rg -r` means `--replace`, not recursive search. "
             f"Repaired command: `{repair}`\n\nYoke check id: {RIPGREP_REPLACE_CHECK_ID}",
         )
+    if executing_shell(payload) != "zsh":
+        return PolicyResult(NOOP)
     cwd = _execution_cwd(payload)
     token = _unmatched(command, cwd)
     if not token:
@@ -156,7 +163,9 @@ def lint_unmatched_path_glob(payload: dict) -> PolicyResult:
     if repair is not None:
         repaired, matches = repair
         reason += "\n\nRepaired command: `" + repaired + "`"
-        reason += "\nFiles matching the stem: " + (", ".join(matches) if matches else "none")
+        reason += "\nFiles matching the stem: " + (
+            ", ".join(matches) if matches else "none"
+        )
         reason += "\nIf `rg` is absent, enumerate tracked files with `git ls-files`."
     return PolicyResult(DENY, reason)
 
