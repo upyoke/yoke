@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from yoke_core.tools import _impacted_ci_only_contract_floor as _ci_only
+from yoke_core.tools._impacted_ci_workflow_contracts import CI_WORKFLOW_CONTRACTS
 from yoke_core.tools._impacted_contract_tests_hosted_release import (
     HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS,
     HOSTED_RELEASE_WORKFLOW_PATHS,
@@ -169,6 +170,7 @@ CURSOR_SESSION_IDENTITY_DISPATCH_TESTS = (
 )
 
 PATH_CONTRACT_TESTS = (
+    *CI_WORKFLOW_CONTRACTS,
     *PATH_CLAIM_CONTRACTS,
     (
         "hook_guard_policy_contract",
