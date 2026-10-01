@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Tuple
 
@@ -107,7 +108,10 @@ def cursor_config_path() -> Path:
 
 
 def claude_config_path() -> Path:
-    """Resolve the Claude app config file this machine reads."""
+    """Resolve Claude desktop's Electron user-data config on this platform."""
+    if sys.platform == "linux":
+        root = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+        return root / "Claude" / "claude_desktop_config.json"
     return Path(CLAUDE_APP_CONFIG_PATH).expanduser()
 
 
@@ -251,7 +255,7 @@ def posture_plan_summary() -> str:
     return "; ".join(
         [
             (
-                f"claude-code: {CLAUDE_APP_CONFIG_PATH} "
+                f"claude-code: {claude_config_path()} "
                 f"preferences.{CLAUDE_BYPASS_KEY} and {CLAUDE_SETTINGS_PATH} "
                 f"{CLAUDE_PERMISSIONS_CONTAINER}."
                 f"{CLAUDE_SETTINGS_PERMISSION_MODE_KEY}"

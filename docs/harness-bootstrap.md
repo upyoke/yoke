@@ -243,7 +243,7 @@ The keys live in `yoke_contracts.harness_unattended_posture`:
 
 | Harness | Config | Keys |
 |---|---|---|
-| `claude-code` | `claude_desktop_config.json` + `~/.claude/settings.json` | `preferences.bypassPermissionsModeEnabled`, `permissions.defaultMode` |
+| `claude-code` | Platform `claude_desktop_config.json` ([Linux paths](harness-linux.md)) + `~/.claude/settings.json` | `preferences.bypassPermissionsModeEnabled`, `permissions.defaultMode` |
 | `codex` | `$CODEX_HOME/config.toml` | `approval_policy`, `sandbox_mode` |
 | `cursor` | `~/.cursor/cli-config.json` | `approvalMode`, `sandbox.mode` |
 

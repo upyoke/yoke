@@ -7,8 +7,10 @@ from yoke_contracts.machine_config.directories import create_private_directory
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import subprocess
+import sys
 import time
 from typing import Any, Callable, Mapping, Sequence
 
@@ -89,6 +91,8 @@ def _write_cache(document: Mapping[str, Any], state_dir: Path | None) -> None:
 
 
 def _keychain_password(service: str) -> str | None:
+    if sys.platform != "darwin":
+        return None
     try:
         completed = subprocess.run(
             ["security", "find-generic-password", "-s", service, "-w"],
@@ -138,8 +142,24 @@ def probe_claude_cli(*, observed_at: str) -> dict[str, Any]:
     return parse_claude_usage(credentials, usage, observed_at=observed_at)
 
 
+def _cursor_access_token() -> str | None:
+    if sys.platform == "darwin":
+        return _keychain_password("cursor-access-token")
+    if sys.platform != "linux":
+        return None
+    root = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    try:
+        credentials = json.loads(
+            (root / "cursor" / "auth.json").read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError):
+        return None
+    token = credentials.get("accessToken") if isinstance(credentials, dict) else None
+    return token if isinstance(token, str) and token.strip() else None
+
+
 def probe_cursor_cli(*, observed_at: str) -> dict[str, Any]:
-    token = _keychain_password("cursor-access-token")
+    token = _cursor_access_token()
     if not token:
         return unknown_reading(
             "cursor-cli", "stale_credential", observed_at=observed_at

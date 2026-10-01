@@ -48,7 +48,7 @@ def configure_harness_unattended_posture(
     # the other two have no equivalent of), so it reports and this adds the
     # one-line summary; the other two report only, and are printed here.
     if configure_claude_app_bypass_permissions(stream=out):
-        actions.append("claude-code: enabled bypass permissions in Claude.app")
+        actions.append("claude-code: enabled bypass permissions in Claude desktop")
     reported = (
         list(configure_claude_cli_permission_mode(stream=out))
         + list(configure_codex_unattended_posture(checkout=checkout))
