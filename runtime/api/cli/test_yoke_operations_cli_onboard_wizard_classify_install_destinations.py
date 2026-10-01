@@ -75,7 +75,9 @@ def test_build_plan_clone_just_clone_has_no_remote_rehome_step() -> None:
 def test_build_plan_reused_existing_project_lists_missing_art_write(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("yoke_cli.config.onboard_session_relay.sys.platform", "win32")
+    monkeypatch.setattr(
+        "yoke_cli.config.onboard_session_relay.is_supported", lambda **kw: False
+    )
     project_inputs = {
         "mode": onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
         "checkout": "/home/code/externalwebapp",

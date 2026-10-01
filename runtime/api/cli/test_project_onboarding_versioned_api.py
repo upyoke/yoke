@@ -16,6 +16,7 @@ from yoke_cli.config import onboard, onboard_destinations, onboard_project
 def test_onboard_existing_project_clone_accepts_versioned_api_url(
     tmp_path: Path,
     monkeypatch,
+    stub_onboard_session_relay,
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
     remote = seed_remote(tmp_path)

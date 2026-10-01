@@ -166,3 +166,21 @@ def _format_result(result: subprocess.CompletedProcess[str]) -> str:
         f"stdout:\n{result.stdout}\n"
         f"stderr:\n{result.stderr}"
     )
+
+
+def _stub_relay_installer(venv_python: Path, *, cwd: Path) -> None:
+    """Keep the wheel smoke off separately covered native/release provisioning."""
+    result = _run(
+        [
+            str(venv_python),
+            "-c",
+            "import sysconfig; print(sysconfig.get_path('purelib'))",
+        ],
+        cwd=cwd,
+    )
+    site_packages = Path(result.stdout.strip())
+    (site_packages / "onboard_relay_test_stub.pth").write_text(
+        "import yoke_cli.config.onboard_session_relay as relay; "
+        "relay.install = lambda **kwargs: relay.RelayInstallOutcome(installed=True, reused=False)\n",
+        encoding="utf-8",
+    )

@@ -8,6 +8,7 @@ import subprocess
 
 import pytest
 
+from yoke_cli.config import machine_config
 from yoke_cli.config.session_relay_instance import RelayInstance
 from yoke_core.tools import session_relay_systemd as service
 from yoke_core.tools import session_relay_service as lifecycle
@@ -82,7 +83,7 @@ def test_install_uses_existing_launcher_and_user_unit_without_linger(
     assert "--env" in document and '"lab"' in document
     assert str(instance.stdout_log) in document
     payload = lifecycle.relay_service_payload(status)
-    assert payload["enabled"] and "logout" in payload["logout_behavior"]
+    assert payload["enabled"] and "logs out" in payload["logout_behavior"]
     assert "plist_path" not in payload
 
 
@@ -93,7 +94,7 @@ def test_unit_quotes_paths_and_prevents_expansion(instance, monkeypatch):
     )
     document = service.relay_unit_document(instance, environ={"PATH": "/bin"})
     assert '100%%/$$HOME/\\"yoke\\"' in document
-    assert 'Environment="YOKE_CONFIG_FILE=' in document
+    assert f'Environment="{machine_config.CONFIG_FILE_ENV}=' in document
     assert "shell" not in document
     with pytest.raises(RelayInstallError, match="relay_unit_value_invalid"):
         service.relay_unit_document(

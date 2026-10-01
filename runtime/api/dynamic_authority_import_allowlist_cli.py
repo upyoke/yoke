@@ -171,10 +171,10 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/session_control_relay.py",
-        "yoke_core.tools.session_relay_plist",
+        "yoke_core.tools.session_relay_service",
     ): (
         "client_local_machine_state",
-        "manage the machine-local relay login item without engine authority",
+        "manage the machine-local relay native supervisor without engine authority",
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/session_control_relay_release.py",

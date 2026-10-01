@@ -258,7 +258,7 @@ def test_local_flow_applies_local_destination_field_set() -> None:
 
 
 def test_wizard_local_apply_lands_config_like_yoke_init_local(
-    tmp_path: Path, monkeypatch, capsys
+    tmp_path: Path, monkeypatch, capsys, stub_onboard_session_relay
 ) -> None:
     """Drive picker → local → Apply against the REAL apply seam.
 

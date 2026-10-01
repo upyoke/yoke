@@ -18,6 +18,7 @@ from onboard_wheel_smoke_support import (
     _registry_server,
     _run,
     _tree_snapshot,
+    _stub_relay_installer,
 )
 
 
@@ -45,6 +46,7 @@ def test_onboard_product_wheel_plans_and_writes_machine_config_with_inert_engine
         timeout=180,
     )
     assert yoke.is_file()
+    _stub_relay_installer(venv_python, cwd=tmp_path)
 
     checkout = tmp_path / "external-project"
     checkout.mkdir()
