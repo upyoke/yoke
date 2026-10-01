@@ -19,6 +19,7 @@ from runtime.api.tools.product_runner_smoke import (
     Commands,
     SmokeFailure,
     isolated_environment,
+    observed_runner,
     require_browser_installation,
 )
 
@@ -248,3 +249,28 @@ def test_product_smoke_accepts_recorded_passwordless_installation(tmp_path):
         "Linux system libraries verified"
     )
     require_browser_installation({"browser_setup": {"status": "ready"}}, capture)
+
+
+@pytest.mark.parametrize(
+    ("system", "machine", "expected"),
+    [
+        ("linux", "x86_64", {"os": "Ubuntu 24.04", "architecture": "x86_64"}),
+        ("linux", "aarch64", {"os": "Ubuntu 24.04", "architecture": "arm64"}),
+        ("darwin", "arm64", {"os": "macOS 26", "architecture": "arm64"}),
+        ("linux", "riscv64", {"os": "Ubuntu 24.04", "architecture": "riscv64"}),
+    ],
+)
+def test_runner_identity_uses_declared_architecture_names(
+    monkeypatch, system, machine, expected
+):
+    from runtime.api.tools import product_runner_smoke as runner
+
+    monkeypatch.setattr(runner.sys, "platform", system)
+    monkeypatch.setattr(runner.platform, "machine", lambda: machine)
+    monkeypatch.setattr(
+        runner.platform,
+        "freedesktop_os_release",
+        lambda: {"NAME": "Ubuntu", "VERSION_ID": "24.04"},
+    )
+    monkeypatch.setattr(runner.platform, "mac_ver", lambda: ("26.0", (), ""))
+    assert observed_runner() == expected

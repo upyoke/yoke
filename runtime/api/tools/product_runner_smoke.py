@@ -128,7 +128,10 @@ def observed_runner() -> dict[str, str]:
         os_name = f"{release['NAME']} {release['VERSION_ID']}"
     else:
         os_name = platform.system()
-    return {"os": os_name, "architecture": platform.machine()}
+    architecture = platform.machine()
+    if architecture == "aarch64":
+        architecture = "arm64"
+    return {"os": os_name, "architecture": architecture}
 
 
 def smoke(root: Path, output: Path) -> None:

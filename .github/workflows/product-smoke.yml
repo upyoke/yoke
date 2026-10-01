@@ -28,6 +28,9 @@ jobs:
           - runner: ubuntu-latest
             os: Ubuntu 24.04
             architecture: x86_64
+          - runner: ubuntu-24.04-arm
+            os: Ubuntu 24.04
+            architecture: arm64
           - runner: macos-latest
             os: macOS 26
             architecture: arm64
