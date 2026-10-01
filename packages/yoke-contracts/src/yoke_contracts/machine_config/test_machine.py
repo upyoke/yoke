@@ -13,7 +13,7 @@ from yoke_contracts.machine_config.capability_secrets import (
 
 _RESOURCE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
 _REMOTE_USER = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._-]{0,63}$")
-TEST_MACHINE_OSES = ("macos", "linux")
+TEST_MACHINE_OSES = ("macos", "linux", "windows")
 _SETTING_KEYS = frozenset({"resource_name", "host", "user", "os", "operating_notes"})
 # Declaring a golden baseline is what turns the destructive host reset into a
 # restore instead of an enumeration, so its absence means the machine has opted

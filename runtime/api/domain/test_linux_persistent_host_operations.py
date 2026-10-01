@@ -39,7 +39,7 @@ def test_linux_settings_refuse_root_and_unimplemented_os():
     with pytest.raises(ValueError, match="linux_test_user_required"):
         validate_test_machine_settings({**SETTINGS, "user": "root"})
     with pytest.raises(ValueError, match="test_machine_os_unsupported.*macos, linux"):
-        validate_test_machine_settings({**SETTINGS, "os": "windows"})
+        validate_test_machine_settings({**SETTINGS, "os": "unsupported"})
     with pytest.raises(ValueError, match="serving_floor_required"):
         validate_test_machine_settings(
             {key: value for key, value in SETTINGS.items() if key != "os"}

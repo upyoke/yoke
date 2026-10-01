@@ -9,6 +9,8 @@ from typing import Any, Callable, Mapping
 import urllib.request
 import webbrowser
 
+from yoke_cli.config.hosted_machine_browser import open_url
+
 from yoke_cli.config import github_git_credential_store as credential_store
 from yoke_cli.config import github_device_transport
 from yoke_cli.config import github_response_safety
@@ -75,7 +77,8 @@ def authorize(
     try:
         payload = github_device_transport.post_form(
             f"{base}{token_contract.GITHUB_OAUTH_DEVICE_CODE_PATH}",
-            {"client_id": selected_client_id}, opener=opener or _urlopen,
+            {"client_id": selected_client_id},
+            opener=opener or _urlopen,
             timeout_seconds=timeout_seconds,
             deadline=monotonic() + timeout_seconds,
             monotonic=monotonic,
@@ -86,26 +89,25 @@ def authorize(
             f"{exc}. {token_contract.GITHUB_APP_USER_AUTH_CONFIGURATION_HINT}"
         ) from exc
     _raise_initial_oauth_error(payload, client_id=selected_client_id)
-    authorization = _parse_authorization(
-        payload, expected_origin=configured_origin
-    )
+    authorization = _parse_authorization(payload, expected_origin=configured_origin)
     if notify is not None:
         notify({"phase": "device_authorization", **authorization.public_dict()})
     browser_opened = _open_browser(
-        authorization.verification_uri, browser_open or webbrowser.open
+        authorization.verification_uri,
+        lambda url: open_url(url, browser_open=browser_open or webbrowser.open).opened,
     )
     if notify is not None:
-        notify({
-            "phase": "device_browser",
-            "browser_opened": browser_opened,
-            **authorization.public_dict(),
-        })
+        notify(
+            {
+                "phase": "device_browser",
+                "browser_opened": browser_opened,
+                **authorization.public_dict(),
+            }
+        )
     token_response = _poll_for_token(
         authorization,
         client_id=selected_client_id,
-        token_url=(
-            f"{base}{token_contract.GITHUB_OAUTH_ACCESS_TOKEN_PATH}"
-        ),
+        token_url=(f"{base}{token_contract.GITHUB_OAUTH_ACCESS_TOKEN_PATH}"),
         opener=opener,
         sleep=sleep,
         monotonic=monotonic,
@@ -174,7 +176,9 @@ def _poll_for_token(
         description = github_response_safety.safe_error_text(
             payload.get("error_description") or error_code,
             secrets=(
-                authorization.device_code, authorization.user_code, client_id,
+                authorization.device_code,
+                authorization.user_code,
+                client_id,
             ),
         )
         raise GitHubDeviceFlowError(
@@ -184,14 +188,14 @@ def _poll_for_token(
 
 
 def _parse_authorization(
-    payload: Mapping[str, Any], *, expected_origin: str,
+    payload: Mapping[str, Any],
+    *,
+    expected_origin: str,
 ) -> DeviceAuthorization:
     if isinstance(payload.get("expires_in"), bool) or isinstance(
         payload.get("interval"), bool
     ):
-        raise GitHubDeviceFlowError(
-            "GitHub device authorization timing is invalid"
-        )
+        raise GitHubDeviceFlowError("GitHub device authorization timing is invalid")
     try:
         expires_in = int(payload.get("expires_in"))
         interval = int(payload.get("interval") or 5)
@@ -215,7 +219,8 @@ def _parse_authorization(
     )
     return DeviceAuthorization(
         device_code=_required_string(
-            payload.get("device_code"), "device_code",
+            payload.get("device_code"),
+            "device_code",
             maximum_chars=_MAX_DEVICE_CODE_CHARS,
         ),
         user_code=_validated_user_code(payload.get("user_code")),
@@ -226,13 +231,16 @@ def _parse_authorization(
 
 
 def _raise_initial_oauth_error(
-    payload: Mapping[str, Any], *, client_id: str,
+    payload: Mapping[str, Any],
+    *,
+    client_id: str,
 ) -> None:
     raw_error_code = str(payload.get("error") or "").strip()
     if not raw_error_code:
         return
     error_code = github_response_safety.safe_oauth_error_code(
-        raw_error_code, secrets=(client_id,),
+        raw_error_code,
+        secrets=(client_id,),
     )
     description = github_response_safety.safe_error_text(
         payload.get("error_description") or error_code,
@@ -275,8 +283,10 @@ def _same_origin_verification_uri(value: Any, *, expected_origin: str) -> str:
     if (
         len(candidate) > _MAX_VERIFICATION_URI_CHARS
         or github_response_safety.terminal_safe_text(
-            candidate, maximum_chars=len(candidate),
-        ) != candidate
+            candidate,
+            maximum_chars=len(candidate),
+        )
+        != candidate
     ):
         raise GitHubDeviceFlowError(
             "verification_uri contains unsupported characters or is too long"
@@ -304,7 +314,10 @@ def _validated_user_code(value: Any) -> str:
 
 
 def _required_string(
-    value: Any, label: str, *, maximum_chars: int | None = None,
+    value: Any,
+    label: str,
+    *,
+    maximum_chars: int | None = None,
 ) -> str:
     if not isinstance(value, str):
         raise GitHubDeviceFlowError(f"{label} must be a string")

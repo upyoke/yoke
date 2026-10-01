@@ -107,7 +107,7 @@ class MachineQaLease:
             required_completion=required_completion,
         )
         blocker = config.get("execution_blocker")
-        if self.material.settings.get("os") == "linux" and (
+        if self.material.settings.get("os") in {"linux", "windows"} and (
             definition["proof_kind"] == "terminal-inspection"
             or any(
                 row.get("required_session_context")

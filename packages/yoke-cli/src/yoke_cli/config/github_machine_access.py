@@ -67,11 +67,13 @@ def discover_access_with_unauthorized_retry(
                 raise
             attempts += 1
             if notify is not None:
-                notify({
-                    "phase": "github_access_propagation_retry",
-                    "attempt": attempts,
-                    "retry_in_seconds": delay_seconds,
-                })
+                notify(
+                    {
+                        "phase": "github_access_propagation_retry",
+                        "attempt": attempts,
+                        "retry_in_seconds": delay_seconds,
+                    }
+                )
             sleep(delay_seconds)
     raise AssertionError("GitHub access retry loop ended unexpectedly")
 
@@ -106,6 +108,7 @@ def open_install_page(
 ) -> None:
     """Open the profile-derived App installation page, if available."""
     import webbrowser
+    from yoke_cli.config.hosted_machine_browser import open_url
 
     install_url = str(report.get("install_url") or "").strip()
     if not install_url:
@@ -115,18 +118,22 @@ def open_install_page(
         )
     opened = False
     try:
-        opened = bool((browser_open or webbrowser.open)(install_url))
+        opened = open_url(
+            install_url, browser_open=browser_open or webbrowser.open
+        ).opened
     except Exception:
         pass
     report.update({"install_url": install_url, "install_browser_opened": opened})
     if pending:
         report["state"] = "pending_installation"
     if notify is not None:
-        notify({
-            "phase": "app_installation",
-            "install_url": install_url,
-            "browser_opened": opened,
-        })
+        notify(
+            {
+                "phase": "app_installation",
+                "install_url": install_url,
+                "browser_opened": opened,
+            }
+        )
 
 
 __all__ = [

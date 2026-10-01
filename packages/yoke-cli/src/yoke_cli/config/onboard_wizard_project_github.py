@@ -6,6 +6,8 @@ import asyncio
 from typing import Any
 import webbrowser
 
+from yoke_cli.config.hosted_machine_browser import open_url
+
 from yoke_contracts import github_app_installation_permissions
 from yoke_cli.config import github_machine
 from yoke_cli.config import machine_config
@@ -94,7 +96,7 @@ class ProjectGithubAccessFlow:
     def _open_project_github_access(self) -> tuple[str, bool]:
         url = self._project_github_access_url()
         try:
-            opened = bool(webbrowser.open(url))
+            opened = open_url(url, browser_open=webbrowser.open).opened
         except Exception:
             opened = False
         self._project_github_access_opened = opened

@@ -107,6 +107,10 @@ def test_machine_exec(args: List[str]) -> int:
     )
 
     try:
+        if settings["os"] == "windows":
+            from yoke_harness.windows_wsl_command import windows_wsl_command
+
+            command = [windows_wsl_command(" ".join(command))]
         completed = run_remote_command(
             host=str(settings["host"]),
             user=str(settings["user"]),

@@ -53,6 +53,7 @@ HOST_CONTROL_EXECUTOR_ID = "host_control"
 TEST_MACHINE_FEATURES_BY_OS = {
     "macos": ("Terminal.app", "PTY", "screenshots", "post-install shell"),
     "linux": ("tmux", "PTY", "transcripts", "post-install shell"),
+    "windows": ("WSL2", "tmux", "PTY", "transcripts", "post-install shell"),
 }
 TEST_MACHINE_BASELINES = HOST_BASELINES
 
