@@ -184,9 +184,13 @@ ImageMagick `import(1)`, not Python). `python3`, `python`, and
 running the case runner (`YOKE_PYTHON`); do not use `yoke dev run`
 (source-dev only, and unavailable on an installed machine). A leftover
 `QA_HOST:<machine>` claim is released by its holder with
-`yoke claims coordination-claim release --claim-id N --reason TEXT`
-(permission follows the holding session's project; the scope names only
-the machine). Its
+`yoke claims coordination-claim release --claim-id N --reason TEXT`.
+The holder may also use `yoke claims work release --claim-id N --reason TEXT`,
+including after the deployment run completes (permission follows the holding
+session's project; the scope names only the machine). Requirement reads and
+artifact uploads resolve the persisted member's project even after run
+membership ends; starting or reviewing stage QA still requires the active
+admitted subject. Its
 combined output
 streams to **stderr** line by line as it arrives, preceded by a banner naming
 the raw capture file, so a long registered command is followable while it runs

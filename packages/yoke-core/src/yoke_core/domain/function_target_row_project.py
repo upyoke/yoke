@@ -20,6 +20,7 @@ from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
     TARGET_KIND_PROCESS,
+    TARGET_KIND_QA_ADMISSION,
     TARGET_KIND_STEERING,
     from_row as work_claim_target_from_row,
 )
@@ -138,7 +139,8 @@ def resolve_work_claim_project(
     the client must not pre-read tenant state just to manufacture an authz
     hint. Item and epic-task claims resolve through their owning item. Process
     claims encode their registered per-project conflict group as
-    ``<group>:<project>``.
+    ``<group>:<project>``. Machine-scoped QA admission leases use the holding
+    session's project, independently of the deployment run's state.
     """
     p = _p(conn)
     row = conn.execute(
@@ -150,6 +152,15 @@ def resolve_work_claim_project(
     target = work_claim_target_from_row({"target_kind": row[0], "scope": row[1]})
     if target.kind in {TARGET_KIND_ITEM, TARGET_KIND_EPIC_TASK}:
         return resolve_item_project(conn, int(target.item_id or target.epic_id))
+    if target.kind == TARGET_KIND_QA_ADMISSION:
+        row = conn.execute(
+            "SELECT p.id, p.slug FROM work_claims wc "
+            "JOIN harness_sessions hs ON hs.session_id = wc.session_id "
+            "JOIN projects p ON p.id = hs.project_id "
+            f"WHERE wc.id = {p}",
+            (claim_id,),
+        ).fetchone()
+        return (int(row[0]), str(row[1])) if row is not None else None
     if target.kind == TARGET_KIND_STEERING:
         project_id = int(target.project_id)
         return project_id, slug_for_project_id(conn, project_id)
@@ -177,26 +188,15 @@ def resolve_qa_requirement_project(
     p = _p(conn)
     try:
         subject_row = conn.execute(
-            "SELECT deployment_run_id,deployment_stage,deployment_member_item_id "
-            f"FROM qa_requirements WHERE id = {p}",
+            f"SELECT deployment_member_item_id FROM qa_requirements WHERE id = {p}",
             (qa_requirement_id,),
         ).fetchone()
         if subject_row is None:
             return None
-        if subject_row[2] is not None:
-            from yoke_core.domain.deployment_qa_stage_contract import (
-                deployment_qa_stage_subject,
-            )
-
-            subject = deployment_qa_stage_subject(
-                conn,
-                run_id=str(subject_row[0]),
-                stage_name=str(subject_row[1] or ""),
-                member_item_id=int(subject_row[2]),
-                require_active=False,
-            )
-            project_id = int(subject["member_project_id"])
-            return project_id, slug_for_project_id(conn, project_id)
+        if subject_row[0] is not None:
+            # Evidence outlives run membership. Execution admission validates
+            # the active stage separately; tenancy belongs to the stored member.
+            return resolve_item_project(conn, int(subject_row[0]))
         row = conn.execute(
             "SELECT p.id, p.slug "
             "FROM qa_requirements q "
