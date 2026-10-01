@@ -223,3 +223,12 @@ def test_linux_lifecycle_routes_all_operations_to_systemd(monkeypatch):
         assert (
             lifecycle.relay_service_operation(action, instance="selected") == "selected"
         )
+
+
+def test_uninstall_cannot_report_success_while_owned_unit_remains_active(
+    tmp_path, instance, pid1
+):
+    with pytest.raises(RelayInstallError, match="relay_systemd_not_stopped"):
+        service.uninstall_relay_systemd(
+            instance=instance, home=tmp_path, runner=runner([]), pid1_path=pid1
+        )

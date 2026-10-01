@@ -264,6 +264,13 @@ def uninstall_relay_systemd(
         _checked(["systemctl", "--user", "disable", "--now", path.name], runner)
         path.unlink()
         _checked(["systemctl", "--user", "daemon-reload"], runner)
-    return relay_systemd_status(
+    status = relay_systemd_status(
         instance=selected, home=home, runner=runner, pid1_path=pid1_path
     )
+    if status.loaded or status.enabled or status.unit_present:
+        raise RelayInstallError(
+            "relay_systemd_not_stopped: the relay user unit remains active or enabled. "
+            "Repair it with `yoke relay install`, then retry `yoke relay uninstall`.",
+            code="relay_systemd_not_stopped",
+        )
+    return status
