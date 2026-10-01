@@ -52,6 +52,7 @@ import { createProjectSelection, knownProjectId, selectionParam } from "./univer
 import { createSelectionNavigation, selectionRoute } from "./universe_selection_routes.js";
 import { routeLoadingLine } from "./universe_route_loading.js";
 import { createSteeringGroupColors } from "./universe_steering_group_color.js";
+import { createLocationPreference } from "./universe_location_preference.js";
 export { withProjectSelection } from "./universe_selection_routes.js";
 // A host owns its slot DOM, so it cannot inherit the app's own dismissal —
 // and should not write a second one. Contract: `contracts/universe-app.ts`.
@@ -75,7 +76,6 @@ export function mountUniverseApp(rootNode, options = {}) {
   }
   const capabilities = options.capabilities || {};
   const slots = options.slots || {};
-  // Slots and sections share one duplicate-node ledger.
   const hostContentNodes = new Set();
   const resolvedSlots = materializeSlots(slots, rootNode, hostContentNodes);
   const resolvedSections = materializeSections(
@@ -94,9 +94,12 @@ export function mountUniverseApp(rootNode, options = {}) {
     () => renderRoute(),
   );
   const navigation = createSelectionNavigation(rootNode, windowNode, scopeSelections);
+  const locationPreference = createLocationPreference({
+    client, windowNode, selections: scopeSelections, isMounted: () => mounted, onFallback: renderRoute,
+  });
   const steeringColors = createSteeringGroupColors(client, () => mounted);
   const context = {
-    client,
+    client: locationPreference.client,
     document: documentNode,
     isMounted: () => mounted,
     navigate: navigation.navigate,
@@ -130,15 +133,12 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   const detachRootClass = attachMountRootClass(rootNode);
   rootNode.replaceChildren(header, shell);
-  // Said, not left blank, until the first render or the failure banner below.
   main.replaceChildren(routeLoadingLine(documentNode));
 
   // The mark uses currentColor, so it must live in the DOM (an <img src>
   // would not inherit color); the brand container's ink flips in dark mode.
   loadWordmark(brand, WORDMARK_ASSET_URL, () => mounted);
 
-  // The org read exists only to fill the app's own org naming, so a
-  // suppressed org-context skips the call entirely.
   loadOrganizationName(client, orgContext, () => mounted);
 
   // A host section renders inside the view host, after whatever the view
@@ -163,6 +163,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     const scope = scopeForEntry(entry, route.project, projects, scopeSelections, route.selection);
     const project = route.detail ? route.project : (entry.scope === SCOPE_SINGLE ? scope : null);
     navigation.replace(selectionRoute(route, scopeSelections, project, windowNode.location.hash));
+    locationPreference.remember();
     return scope;
   }
 
@@ -325,16 +326,14 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   const preferencesFetched = loadScreenSelections(client, scopeSelections);
 
-  // Steering-group colors are decoration and tint cards a render at a time,
-  // so they are started here but never waited on: gating the first content
-  // paint on them held every screen behind a read it did not need.
-  // Projects and remembered selections stay in the gate — routing resolves
-  // against the project roster, and a screen that paints before its saved
-  // selection arrives paints once and then jumps.
+  // Decoration does not gate the first content paint.
   steeringColors.refresh();
 
   Promise.all([projectsFetched, preferencesFetched])
-    .then(() => { if (mounted && projectsLoaded) renderRoute(); });
+    .then(async () => {
+      await locationPreference.restore(projects, resolvedSections);
+      if (mounted && projectsLoaded) renderRoute();
+    });
 
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
     mounted = false;

@@ -8,7 +8,9 @@ import { scopeForRoute } from "./universe_destinations.js";
 // that never landed would silently look saved.
 export function saveScreenSelection(client, viewId, selection, focus) {
   return Promise.resolve(callFunction(
-    client, "ui_preferences.screen_selection.set", { view_id: viewId, selection, focus },
+    client, "ui_preferences.screen_selection.set", {
+      view_id: viewId, selection, focus,
+    },
   )).then((callResult) => {
     if (!callResult.envelope?.success) {
       throw new Error(callResult.envelope?.error?.message || "screen selection save failed");
@@ -32,6 +34,7 @@ export function loadScreenSelections(client, scopeSelections) {
       throw new Error(callResult.envelope?.error?.message || "screen selection list failed");
     }
     const views = callResult.envelope.result?.views || {};
+    scopeSelections.lastLocation = callResult.envelope.result?.last_location || null;
     for (const [viewId, view] of Object.entries(views)) {
       scopeSelections.seed(viewId, view.selection, view.focus);
     }

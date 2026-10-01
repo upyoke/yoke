@@ -132,3 +132,55 @@ def test_set_then_list_scopes_per_actor_and_stays_independent_per_view(test_db):
     ).fetchone()[0]
     assert int(count) == 2
     assert _list(actor_id=str(actor))["sessions"] == {"selection": "all", "focus": None}
+
+
+def test_location_survives_navigation_and_selection_only_writes(test_db):
+    actor = str(
+        test_db.execute(
+            "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1"
+        ).fetchone()[0]
+    )
+    location = "#/items/example?project=1&selection=all&return=workflows"
+    done = _set({"view_id": "items", "location": location}, actor)
+    assert done.primary_success
+    assert done.result_payload == {"view_id": "items", "location": location}
+    assert _list(actor) == {}
+    _set({"view_id": "sessions", "selection": ["1"], "focus": "1"}, actor)
+    outcome = handle_screen_selection_list(
+        _request(
+            "ui_preferences.screen_selection.list",
+            actor_id=actor,
+        )
+    )
+    assert outcome.result_payload["last_location"] == location
+    assert outcome.result_payload["views"] == {
+        "sessions": {"selection": ["1"], "focus": "1"}
+    }
+    other = handle_screen_selection_list(
+        _request(
+            "ui_preferences.screen_selection.list",
+            actor_id="999999",
+        )
+    )
+    assert other.result_payload["last_location"] is None
+    updated = "#/sessions?project=all"
+    _set({"view_id": "sessions", "location": updated}, actor)
+    assert _list(actor) == {"sessions": {"selection": ["1"], "focus": "1"}}
+    assert (
+        handle_screen_selection_list(
+            _request(
+                "ui_preferences.screen_selection.list",
+                actor_id=actor,
+            )
+        ).result_payload["last_location"]
+        == updated
+    )
+
+
+@pytest.mark.parametrize(
+    "location", ["https://example.com", "", 4, "#/items\n", "#/" + "a" * 4096]
+)
+def test_location_refuses_invalid_payload_before_writing(test_db, location):
+    refused = _set({"view_id": "items", "location": location}, "1")
+    assert refused.error.code == "payload_invalid"
+    assert _list("1") == {}

@@ -28,7 +28,7 @@ function preferenceClient(initialViews = {}, universeClient = twoProjectClient) 
       }
       if (request.function === "ui_preferences.screen_selection.set") {
         base.requests.push(request);
-        state.views = {
+        if (request.payload.location === undefined) state.views = {
           ...state.views,
           [request.payload.view_id]: {
             selection: request.payload.selection, focus: request.payload.focus,
@@ -112,9 +112,14 @@ test("a route naming every project resolves to All rather than pinning the set",
   const app = await mountAt(t, "#/items?project=1,2,3", client);
   assert.deepEqual(app.on(), ["All"]);
   assert.equal(app.windowNode.location.hash, "#/items?project=all");
-  // Nothing to write: the route named the scope this screen already
-  // defaults to, so resolving it is not a change.
+  // Resolving the existing All scope does not save a selection change.
+  // Navigation saves only the last location with that canonical scope once.
   assert.equal(client.state.views.items, undefined);
+  const saves = client.requests.filter(
+    (request) => request.function === "ui_preferences.screen_selection.set",
+  );
+  assert.equal(saves.length, 1);
+  assert.deepEqual(saves[0].payload, { view_id: "items", location: "#/items?project=all" });
 });
 
 test("a screen's own links carry the canonical form of what it remembers", async (t) => {

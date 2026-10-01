@@ -10,6 +10,10 @@ dispatch; ``ui_preferences.screen_selection.set`` writes one view's
 value. Without a resolved actor the list reads back empty — every
 screen falls back to its "all" default — and the set refuses, mirroring
 ``overview_activation.py``'s dismiss/restore contract.
+
+The same pair carries ``last_location`` on reads and optional ``location``
+on writes, stored under ``screen.location.last`` in that actor's preference
+store. A location write leaves screen selection and focus untouched.
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ from yoke_core.domain.handlers import actor_ui_preference_store as _store
 
 #: ``actor_ui_preferences.pref_key`` prefix for per-view selections.
 SCREEN_SELECTION_PREF_PREFIX = "screen.selection."
+SCREEN_LOCATION_PREF_PREFIX = "screen.location."
 
 _LIST_ID = "ui_preferences.screen_selection.list"
 _SET_ID = "ui_preferences.screen_selection.set"
@@ -37,24 +42,36 @@ class ScreenSelectionListRequest(BaseModel):
 
 class ScreenSelectionListResponse(BaseModel):
     views: Dict[str, Dict[str, Any]]
+    last_location: Optional[str] = None
 
 
 class ScreenSelectionSetRequest(BaseModel):
     view_id: str
     selection: Selection = "all"
     focus: Optional[str] = None
+    location: Optional[str] = None
 
 
 class ScreenSelectionSetResponse(BaseModel):
     view_id: str
-    selection: Selection
+    selection: Optional[Selection] = None
     focus: Optional[str] = None
+    location: Optional[str] = None
 
 
 def _valid_selection(selection: Any) -> bool:
     if selection == "all":
         return True
     return isinstance(selection, list) and all(isinstance(v, str) for v in selection)
+
+
+def _valid_location(location: Any) -> bool:
+    return (
+        isinstance(location, str)
+        and location.startswith("#/")
+        and len(location) <= 4096
+        and not any(ord(char) < 32 for char in location)
+    )
 
 
 def handle_screen_selection_list(
@@ -65,7 +82,9 @@ def handle_screen_selection_list(
         return invalid
     actor_id = _store.actor_id(request)
     if actor_id is None:
-        return HandlerOutcome(result_payload={"views": {}}, primary_success=True)
+        return HandlerOutcome(
+            result_payload={"views": {}, "last_location": None}, primary_success=True
+        )
     stored = _store.read_prefixed(actor_id, SCREEN_SELECTION_PREF_PREFIX)
     views: Dict[str, Dict[str, Any]] = {}
     for view_id, parsed in stored.items():
@@ -78,7 +97,14 @@ def handle_screen_selection_list(
             "selection": parsed["selection"],
             "focus": focus if isinstance(focus, str) else None,
         }
-    return HandlerOutcome(result_payload={"views": views}, primary_success=True)
+    location = _store.read_prefixed(actor_id, SCREEN_LOCATION_PREF_PREFIX).get("last")
+    return HandlerOutcome(
+        result_payload={
+            "views": views,
+            "last_location": location if _valid_location(location) else None,
+        },
+        primary_success=True,
+    )
 
 
 def handle_screen_selection_set(
@@ -112,6 +138,20 @@ def handle_screen_selection_set(
     actor_id = _store.actor_id(request)
     if actor_id is None:
         return _store.actor_required(_SET_ID)
+    location = payload.get("location")
+    if location is not None and not _valid_location(location):
+        return _store.error(
+            "payload_invalid",
+            "location must be a dashboard hash route of at most 4096 characters; "
+            "navigate to a dashboard page and retry",
+            jsonpath="$.payload.location",
+        )
+    if location is not None:
+        _store.upsert(actor_id, SCREEN_LOCATION_PREF_PREFIX + "last", location)
+        return HandlerOutcome(
+            result_payload={"view_id": view_id, "location": location},
+            primary_success=True,
+        )
     _store.upsert(
         actor_id,
         SCREEN_SELECTION_PREF_PREFIX + view_id,
