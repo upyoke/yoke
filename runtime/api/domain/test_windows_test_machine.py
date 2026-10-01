@@ -37,7 +37,7 @@ def test_shell_metacharacters_survive_the_windows_shell():
     wrapped = windows_wsl_command(command)
     script = _decoded(wrapped)
     assert script == (
-        "& wsl.exe -e /bin/bash -lc '"
+        "& wsl.exe --cd '~' -e /bin/bash -lc '"
         + command.replace("'", "''")
         + "'; exit $LASTEXITCODE"
     )
@@ -78,7 +78,7 @@ def test_windows_ssh_requires_wsl2_and_non_root_facts(monkeypatch, kernel):
     result = control.run_command(["printf", "%s", "two words"])
     assert result.returncode == 0
     assert "two words" in _decoded(calls[-1][0][-1])
-    assert all("wsl.exe -e" in _decoded(argv[-1]) for argv, _ in calls)
+    assert all("wsl.exe --cd '~' -e" in _decoded(argv[-1]) for argv, _ in calls)
 
 
 def test_windows_baselines_use_the_linux_restore_boundary():
@@ -125,4 +125,6 @@ def test_ad_hoc_exec_windows_command_enters_wsl(monkeypatch, tmp_path):
         lambda **kw: calls.append(kw) or subprocess.CompletedProcess([], 7, "", ""),
     )
     assert adapter.test_machine_exec(["--project", "yoke", "--", "exit 7"]) == 7
-    assert "wsl.exe -e /bin/bash -lc 'exit 7'" in _decoded(calls[0]["command"][0])
+    assert "wsl.exe --cd '~' -e /bin/bash -lc 'exit 7'" in _decoded(
+        calls[0]["command"][0]
+    )

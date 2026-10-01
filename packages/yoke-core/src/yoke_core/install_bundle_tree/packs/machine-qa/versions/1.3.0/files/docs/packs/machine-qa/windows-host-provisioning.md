@@ -1,7 +1,8 @@
 # Provisioning a persistent Windows WSL2 Test Machine
 
 Declare `os=windows`; SSH reaches Windows OpenSSH and test operations run
-through `wsl.exe -e /bin/bash -lc` in that account's default WSL2 distro.
+through `wsl.exe --cd ~ -e /bin/bash -lc` in that account's default WSL2 distro,
+starting in the Linux home instead of the Windows SSH directory.
 The SSH account is a Windows account; the Linux default user must be non-root.
 Use Ubuntu 24.04, systemd and tmux, following the
 [Linux tooling, sign-in and golden instructions](linux-host-provisioning.md).
@@ -48,6 +49,9 @@ default=yoketest
 Restart WSL with `wsl --shutdown`. Prove `wsl -e id -u` is nonzero and
 systemd runs. Install the Linux prerequisites and harness CLIs in that home;
 perform vendor sign-in through documented operator paths.
+WSL's distro lifecycle can stop background daemons when its last Windows
+client exits. Keep a WSL terminal open while testing the local universe/UI;
+after a distro restart, `yoke init --local` restarts its Postgres authority.
 If native installation under a service account reports WSL absent, use
 Microsoft's [offline MSI installation](https://learn.microsoft.com/en-us/windows/wsl/install#offline-install)
 with its published digest, then install the distro under the SSH account.
