@@ -148,13 +148,6 @@ def browser_authorize(args: List[str]) -> int:
     except ProjectSlugLookupError as exc:
         return _fail(parsed.json_mode, str(exc), code=2)
     runtime_dir = browser_runtime_home.ensure_materialized()
-    try:
-        toolchain = browser_node_toolchain.ensure_node_toolchain()
-        browser_setup.ensure_browser_runtime(
-            runtime_dir, toolchain, emit=lambda message: print(message, file=sys.stderr)
-        )
-    except RuntimeError as exc:
-        return _fail(parsed.json_mode, str(exc), code=2)
     authorize_js = runtime_dir / "src" / "authorize.js"
     if not authorize_js.is_file():
         return _fail(
@@ -163,6 +156,14 @@ def browser_authorize(args: List[str]) -> int:
             "Run `yoke qa browser setup` to materialize it, then retry.",
             code=2,
         )
+
+    try:
+        toolchain = browser_node_toolchain.ensure_node_toolchain()
+        browser_setup.ensure_browser_runtime(
+            runtime_dir, toolchain, emit=lambda message: print(message, file=sys.stderr)
+        )
+    except RuntimeError as exc:
+        return _fail(parsed.json_mode, str(exc), code=2)
 
     _stop_daemon_holding_profile(browser_client)
 
