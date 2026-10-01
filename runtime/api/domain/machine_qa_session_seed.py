@@ -14,7 +14,9 @@ from typing import Any
 from yoke_core.domain.db_helpers import iso8601_now
 
 
-def seed_qa_session(conn: Any, *session_ids: str, actor_id: int = 2) -> None:
+def seed_qa_session(
+    conn: Any, *session_ids: str, actor_id: int = 2, messageable: bool = False
+) -> None:
     """Register the sessions a host-control execution claims the host as.
 
     A coordination claim reads its actor from the session row that holds
@@ -48,6 +50,29 @@ def seed_qa_session(conn: Any, *session_ids: str, actor_id: int = 2) -> None:
                 "(session_id,actor_id,executor,last_heartbeat) "
                 "VALUES(?,?,'codex',?)",
                 (session_id, actor_id, iso8601_now()),
+            )
+    if messageable:
+        from yoke_contracts.session_control.capabilities import capability_for_surface
+        from yoke_core.domain.actor_permissions import (
+            ROLE_OPERATOR,
+            grant_actor_project_role,
+            seed_roles_and_permissions,
+        )
+
+        seed_roles_and_permissions(conn)
+        grant_actor_project_role(
+            conn, actor_id=actor_id, project_id=1, role_name=ROLE_OPERATOR
+        )
+        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        for session_id in session_ids:
+            conn.execute(
+                f"UPDATE harness_sessions SET executor_surface={p},executor_version={p} "
+                f"WHERE session_id={p}",
+                (
+                    "codex-cli",
+                    capability_for_surface("codex-cli").minimum_version,
+                    session_id,
+                ),
             )
     conn.commit()
 

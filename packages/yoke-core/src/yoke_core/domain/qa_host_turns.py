@@ -186,6 +186,8 @@ def release_host_reservations(conn: Any, execution_id: str) -> None:
         f"UPDATE qa_plan_executions SET release_reason=NULL WHERE id={p}",
         (execution_id,),
     )
+    if not _table_exists(conn, "work_claims"):
+        return
     rows = query_rows(
         conn,
         f"SELECT id FROM work_claims WHERE reason={p} AND released_at IS NULL",
