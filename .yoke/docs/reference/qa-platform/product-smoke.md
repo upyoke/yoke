@@ -82,7 +82,8 @@ copy credentials, or change authentication settings.
 
 Review the redacted recordings before committing: session/conversation/tool ids,
 machine/account ids, paths, and account-bound data must not remain. The replay
-substitutes fresh session identities, disposable workspace/transcript paths,
+substitutes fresh session identities and disposable workspace/transcript paths,
+preserving absent transcript paths and matching transcript filenames to the fresh session,
 and probe commands while preserving native wire structure and other fields.
 If a harness is signed out or its keychain is locked, ask the test-account
 operator to restore access; capture must not enter or extract credentials.

@@ -142,6 +142,18 @@ def test_replay_remaps_identity_and_paths_without_flattening_native_structure():
     assert payload["tool_input"]["command"] == "native command"
 
 
+@pytest.mark.parametrize("transcript", [None, "", "/native/transcript.jsonl"])
+def test_replay_transcript_identity_matches_session_or_stays_absent(transcript):
+    from yoke_contracts.cursor_session_map import transcript_session_id
+
+    replayed = remap_recording(
+        {"transcript_path": transcript}, project=Path("/project"), session="fresh"
+    )["transcript_path"]
+    assert transcript_session_id(replayed or "") == ("fresh" if transcript else "")
+    if not transcript:
+        assert replayed == transcript
+
+
 def test_rendered_command_is_consumed_verbatim(tmp_path):
     command = "/bin/sh -c 'env YOKE_ROOT=\"$PWD\" yoke hook evaluate PreToolUse'"
     config = tmp_path / "hooks.json"

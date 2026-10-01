@@ -48,7 +48,9 @@ def remap_recording(
             if key == "workspace_roots"
             else str(project)
             if key in roots
-            else str(project / "recorded-transcript.jsonl")
+            else str(project / "agent-transcripts" / session / f"{session}.jsonl")
+            if key in {"transcript_path", "transcriptPath"} and part
+            else part
             if key in {"transcript_path", "transcriptPath"}
             else str(uuid.uuid4())
             if key == "tool_use_id"
