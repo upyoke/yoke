@@ -22,8 +22,6 @@ from yoke_harness.ssh_linux_baseline import (
 )
 from yoke_harness.ssh_linux_terminal import (
     diagnose_linux_terminal,
-    SCREENSHOT_DEFERRAL,
-    SCREENSHOT_RECOVERY,
 )
 from yoke_harness.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_harness.test_machine_types import HostActionResult
@@ -31,6 +29,11 @@ from yoke_harness.test_machine_types import HostActionResult
 
 class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
     """Home restore, user probes and tmux on one credential-bound SSH host."""
+
+    def capture_screenshot(self):
+        from yoke_harness.ssh_machine_screenshot import capture_desktop
+
+        return capture_desktop(self)
 
     def _host_facts(self) -> dict[str, Any]:
         script = "import os,json,platform; print(json.dumps(dict(home=os.environ['HOME'],shell=os.environ.get('SHELL','/bin/bash'),xdg_bin_home=os.environ.get('XDG_BIN_HOME'),uid=os.getuid(),os=platform.system())))"
@@ -186,9 +189,12 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
         if not argv or not str(argv[0]):
             raise ValueError("host_control command requires a non-empty executable")
         if required_session_context == GUI_SESSION_CONTEXT:
-            return subprocess.CompletedProcess(
-                list(argv), 69, "", SCREENSHOT_DEFERRAL + ": " + SCREENSHOT_RECOVERY
-            )
+            from yoke_harness.linux_desktop_session import desktop_command
+
+            try:
+                return desktop_command(self, list(argv), timeout=timeout)
+            except RuntimeError as exc:
+                return subprocess.CompletedProcess(list(argv), 69, "", str(exc))
         if required_session_context is not None:
             raise ValueError(
                 f"unknown host_control session context {required_session_context!r}"
@@ -212,16 +218,14 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
                     "exit_code": result.returncode,
                     "stdout": result.stdout,
                     "stderr": result.stderr,
-                    "execution_context": "ssh",
+                    "execution_context": context or "ssh",
                 }
             )
-            if context is not None or result.returncode != expected:
+            if result.returncode != expected:
                 return HostActionResult(
                     False,
                     {"assertions": rows},
-                    SCREENSHOT_DEFERRAL
-                    if context is not None
-                    else "machine_assertion_failed",
+                    "machine_assertion_failed",
                 )
         return HostActionResult(
             True, {"assertions": rows, "secret_scan": "pending-redaction"}

@@ -70,7 +70,10 @@ def _write_permanent_local(
     )
 
     target = permanent_artifact_file_path(
-        str(owner["project"]), case_artifact_subject(owner), int(run_id), filename
+        str(owner["project"]),
+        owner.get("artifact_subject") or case_artifact_subject(owner),
+        int(run_id),
+        filename,
     )
     if before_write is not None:
         before_write(target)
@@ -146,6 +149,28 @@ def store_artifact_bytes(
     downgrade to disk.
     """
 
+    return store_owned_artifact_bytes(
+        conn,
+        owner=requirement_storage_owner(conn, requirement_id),
+        run_id=run_id,
+        filename=filename,
+        content=content,
+        content_type=content_type,
+        before_local_write=before_local_write,
+    )
+
+
+def store_owned_artifact_bytes(
+    conn: Any,
+    *,
+    owner: dict[str, Any],
+    run_id: int,
+    filename: str,
+    content: bytes,
+    content_type: Optional[str] = None,
+    before_local_write: Callable[[Path], None] | None = None,
+) -> dict[str, Any]:
+    """Store evidence for an authority-resolved requirement or machine receipt."""
     from yoke_core.domain.handlers.qa_artifact_presign import (
         _aws_region,
         _capability_credentials,
@@ -160,7 +185,6 @@ def store_artifact_bytes(
     from yoke_core.domain.s3_presign import presign_s3_url
 
     checked = _checked_bytes(content)
-    owner = requirement_storage_owner(conn, requirement_id)
     configured = _configured_store(conn, owner)
     if configured is None:
         refusal = local_store_refusal(str(owner["project"]))
@@ -184,7 +208,7 @@ def store_artifact_bytes(
 
     _environment, bucket, storage_prefix = configured
     project = str(owner["project"])
-    subject = case_artifact_subject(owner)
+    subject = owner.get("artifact_subject") or case_artifact_subject(owner)
     key = build_artifact_key(
         project, subject, int(run_id), filename, storage_prefix=storage_prefix
     )
@@ -266,7 +290,7 @@ def validate_s3_handle_owner(
     _environment, bucket, storage_prefix = configured
     expected = artifact_key_prefix(
         str(owner["project"]),
-        case_artifact_subject(owner),
+        owner.get("artifact_subject") or case_artifact_subject(owner),
         int(run_id),
         storage_prefix=storage_prefix,
     )
@@ -311,4 +335,4 @@ def store_artifact_file(
     )
 
 
-__all__ = "ArtifactStorageError ARTIFACT_PRESIGN_EXPIRES_S MAX_ARTIFACT_BYTES store_artifact_bytes store_artifact_file validate_s3_handle_owner".split()
+__all__ = "ArtifactStorageError ARTIFACT_PRESIGN_EXPIRES_S MAX_ARTIFACT_BYTES store_artifact_bytes store_owned_artifact_bytes store_artifact_file validate_s3_handle_owner".split()

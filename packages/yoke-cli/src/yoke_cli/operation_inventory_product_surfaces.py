@@ -53,6 +53,7 @@ WRAPPED_ROWS = (
     _w("yoke test-machine golden-capture", "test_machine"),
     _w("yoke test-machine list", "test_machine"),
     _w("yoke test-machine reset", "test_machine"),
+    _w("yoke test-machine screenshot", "test_machine"),
     _w("yoke test-machine settings-replace", "test_machine"),
     _w("yoke test-machine verify", "test_machine"),
     _w("yoke overview activation get", "overview"),

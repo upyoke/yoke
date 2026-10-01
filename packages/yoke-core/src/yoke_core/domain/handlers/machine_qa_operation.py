@@ -32,6 +32,7 @@ from yoke_core.domain.handlers.machine_qa_operation_result import (
     validate_operation_result,
 )
 from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
+from yoke_core.domain.machine_qa_submission_artifacts import MachineQaSubmissionArtifact
 from yoke_core.domain.handlers.machine_qa_operation_receipt import (
     performed_at_row,
     record_capture_destination,
@@ -49,7 +50,9 @@ from yoke_core.domain.machine_qa_operation_shape import (
 )
 
 
-OperatorOperation = Literal["verify", "reset", "golden_capture", "bridge_diagnose"]
+OperatorOperation = Literal[
+    "verify", "reset", "golden_capture", "bridge_diagnose", "screenshot"
+]
 
 
 class TestMachineOperationBeginRequest(BaseModel):
@@ -83,6 +86,7 @@ class TestMachineOperationSubmitRequest(BaseModel):
     status: Literal["verified", "error"]
     checks: list[dict[str, Any]]
     error_code: str | None = None
+    artifacts: list[MachineQaSubmissionArtifact] = Field(default_factory=list)
 
 
 class TestMachineOperationResponse(BaseModel):
@@ -202,6 +206,12 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
             machine=machine,
         )
         if recorded is not None:
+            if parsed.operation == "screenshot":
+                from yoke_core.domain.handlers.machine_qa_screenshot_artifact import (
+                    replay_screenshot,
+                )
+
+                replay_screenshot(parsed, recorded)
             if any(
                 recorded[key] != getattr(parsed, key)
                 for key in ("status", "checks", "error_code")
@@ -217,6 +227,21 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
                 raise ValueError(
                     "host-control lease is released without a recorded receipt"
                 )
+            if parsed.operation == "screenshot":
+                from yoke_core.domain.handlers.machine_qa_screenshot_artifact import (
+                    store_screenshot,
+                )
+                from yoke_core.domain.qa_artifact_storage import ArtifactStorageError
+
+                try:
+                    store_screenshot(conn, parsed, contract)
+                except ArtifactStorageError as exc:
+                    conn.rollback()
+                    return _failure(
+                        exc.code,
+                        str(exc)
+                        + "; repair the configured QA artifact store and retry screenshot",
+                    )
             recorded = record_operation_receipt(
                 commit_deferred_connection(conn),
                 parsed=parsed,

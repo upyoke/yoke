@@ -20,7 +20,7 @@ from yoke_harness.ssh_linux_baseline import (
     capture_linux_golden,
 )
 from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
-from yoke_harness.ssh_linux_terminal import SCREENSHOT_DEFERRAL, diagnose_linux_terminal
+from yoke_harness.ssh_linux_terminal import diagnose_linux_terminal
 from yoke_harness.test_machine_types import HostActionResult
 
 
@@ -200,7 +200,7 @@ def test_home_clear_failure_names_entry_and_preserves_sealed_archive(
     assert hashlib.sha256((golden / "home.tar.gz").read_bytes()).hexdigest() == before
 
 
-def test_bridge_proves_transcript_and_records_screenshot_deferral():
+def test_bridge_proves_transcript_and_desktop_screenshot():
     commands = []
     token_parts = []
 
@@ -218,10 +218,17 @@ def test_bridge_proves_transcript_and_records_screenshot_deferral():
             argv, 1 if "has-session" in argv else 0, output, ""
         )
 
-    result = diagnose_linux_terminal(SimpleNamespace(_run=run))
+    result = diagnose_linux_terminal(
+        SimpleNamespace(
+            _run=run,
+            capture_screenshot=lambda: HostActionResult(
+                True, {"width": 1280, "height": 720}
+            ),
+        )
+    )
     assert result.ok
     assert any(
-        row.get("code") == SCREENSHOT_DEFERRAL and row["outcome"] == "deferred"
+        row["name"] == "gui_screenshot" and row["ok"] and row["width"] == 1280
         for row in result.evidence["checks"]
     )
     assert any("kill-session" in argv for argv in commands)

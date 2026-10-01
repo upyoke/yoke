@@ -82,6 +82,9 @@ class _CoreHostOperations:
         self._execution = execution
         self.secret_values = tuple(execution.material.secrets.values())
 
+    def capture_screenshot(self) -> Any:
+        return self._execution.control.capture_screenshot()
+
     def check_connection(self) -> Any:
         return self._execution.control.check_connection()
 

@@ -14,8 +14,6 @@ from yoke_core.domain.ssh_mac_terminal_recipe_support import (
 from yoke_core.domain.ssh_mac_terminal_recipe_cleanup import with_staged_cleanup
 from yoke_harness.ssh_linux_terminal import (
     LinuxTerminal,
-    SCREENSHOT_DEFERRAL,
-    SCREENSHOT_RECOVERY,
 )
 from yoke_harness.test_machine_types import HostActionResult
 
@@ -51,6 +49,14 @@ def _interactive(
                 False,
                 {"recovery": "Install tmux and repair the non-root user's SSH shell."},
                 "linux_tmux_unavailable",
+            )
+        if config["capture_checkpoints"] and not terminal.show():
+            return HostActionResult(
+                False,
+                {
+                    "recovery": "Provision and unlock the dedicated XFCE desktop; install xfce4-terminal and xdotool, then rerun.",
+                },
+                "linux_terminal_window_unavailable",
             )
         initial_wait = float(config["start_delay"])
         if initial_wait > max(0, deadline - time.monotonic()):
@@ -148,6 +154,15 @@ def _interactive(
                     "transcript": transcript,
                 }
             )
+            if str(action["step"]) in config["capture_checkpoints"]:
+                try:
+                    rows[-1].update(control.capture_terminal_checkpoint())
+                except RuntimeError as exc:
+                    return HostActionResult(
+                        False,
+                        {"steps": rows, "recovery": str(exc)},
+                        "desktop_screenshot_failed",
+                    )
         combined = "\n".join(row["transcript"] for row in rows)
         import re
 
@@ -179,14 +194,6 @@ def _interactive(
                 "required_completion": required_completion,
                 "exit_code": exit_code,
                 "assertion_failures": failures,
-                "capture_degraded_reason": SCREENSHOT_DEFERRAL,
-                "designed_deferrals": [
-                    {
-                        "code": SCREENSHOT_DEFERRAL,
-                        "outcome": "deferred",
-                        "recovery": SCREENSHOT_RECOVERY,
-                    }
-                ],
                 "recovery": "Repair the named recipe assertions and rerun."
                 if failures
                 else None,

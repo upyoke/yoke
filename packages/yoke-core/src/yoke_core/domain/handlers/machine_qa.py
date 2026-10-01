@@ -17,6 +17,7 @@ from yoke_contracts.machine_qa_execution import (
     RESET_OPERATION,
     VERIFY_OPERATION,
 )
+from yoke_contracts.machine_qa_host_control import SCREENSHOT_OPERATION
 from yoke_core.domain import db_helpers
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 from yoke_core.domain.machine_qa_capability import (
@@ -32,6 +33,7 @@ OPERATION_COMMANDS = {
     RESET_OPERATION: "reset",
     GOLDEN_CAPTURE_OPERATION: "golden-capture",
     BRIDGE_DIAGNOSE_OPERATION: "bridge-diagnose",
+    SCREENSHOT_OPERATION: "screenshot",
 }
 
 
@@ -146,7 +148,7 @@ def handle_operation_on_control_plane(
     except ValidationError as exc:
         return _invalid(exc)
     # The operation is the function id the caller dispatched, not a payload
-    # field: one refusal handler serves four ids, and each must name the
+    # field: one refusal handler serves these ids, and each must name the
     # command the caller actually asked for.
     operation = str(request.function).rsplit(".", 1)[-1]
     command = OPERATION_COMMANDS.get(operation)

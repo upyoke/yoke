@@ -30,6 +30,9 @@ from yoke_harness.machine_qa_result_safety import (
 from yoke_harness.test_machine_types import HostActionResult
 
 
+from yoke_contracts.machine_qa_host_control import SCREENSHOT_OPERATION
+
+
 HostOperationsFactory = Callable[[HostControlExecutionContract], HostOperations]
 
 
@@ -159,6 +162,9 @@ OPERATION_RUNNERS: dict[
         tuple[list[dict[str, Any]], str | None],
     ],
 ] = {
+    SCREENSHOT_OPERATION: lambda contract, operations, probes: _single_row(
+        SCREENSHOT_OPERATION, operations.capture_screenshot()
+    ),
     VERIFY_OPERATION: _verify,
     RESET_OPERATION: _reset,
     GOLDEN_CAPTURE_OPERATION: _golden_capture,
@@ -182,7 +188,11 @@ def execute_host_operation_contract(
         )
     operations = operations_factory(contract)
     checks, error_code = runner(contract, operations, probes_document)
+    artifacts = [
+        row.pop("capture_artifact") for row in checks if "capture_artifact" in row
+    ]
     payload = {
+        **({"artifacts": artifacts} if artifacts else {}),
         "lease_id": contract.lease_id,
         "contract_digest": contract.contract_digest,
         "operation": contract.operation,

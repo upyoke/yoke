@@ -44,6 +44,10 @@ TEST_MACHINE_ADAPTERS = [
         function_id="test_machine.bridge_diagnose",
         cli_invocation=("yoke test-machine bridge-diagnose --project P --machine NAME"),
     ),
+    AdapterEntry(
+        function_id="test_machine.screenshot",
+        cli_invocation="yoke test-machine screenshot --project P --machine NAME",
+    ),
 ]
 
 

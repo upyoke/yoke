@@ -1,12 +1,13 @@
 # What you can do to a test machine
 
-`verify`, `reset`, `golden capture`, `bridge diagnose`, `exec`, and `desktop-access` are
+`verify`, `reset`, `golden capture`, `bridge diagnose`, `screenshot`, `exec`, and
+`desktop-access` are
 commands every Yoke user runs, not procedures each seat reinvents. Companion to
 [`docs/testing-verification.md`](../testing-verification.md); the host-side
 provisioning contract they assume ships in the
 [`machine-qa` Pack](../packs/machine-qa).
 
-The first four each take the machine's one lease, refuse by name while
+The first five each take the machine's one lease, refuse by name while
 another execution holds it, and record their own receipt. The machine's page shows the last
 receipt per operation, so what was last done to a box is readable without
 asking the person who did it.
@@ -90,10 +91,36 @@ Surviving or respawning home programs refuse before clearing with
 `linux_home_writers_stop_not_proved`. A clear failure reports
 `linux_golden_home_clear_failed` and `refused_entry`: stop the writer and retry
 the sealed archive; never capture the mixed home. OS packages are not restored.
-Linux terminal evidence is a tmux transcript. Screenshot or GUI-session cases
-refuse with `headless_linux_screenshot_unavailable` and a designed deferral;
-use a macOS Test Machine for that proof. Browser-approval recipes likewise
-name `headless_linux_browser_approval_unavailable`.
+Linux terminal evidence combines tmux transcripts with PNG checkpoints from the
+test user's active XFCE display. Provision the machine-qa Pack desktop when no
+session exists, then connect through tunnel-only RDP and keep that desktop unlocked.
+Browser-approval recipes still name `headless_linux_browser_approval_unavailable`.
+
+## screenshot — the actual desktop as a QA artifact
+
+```text
+yoke test-machine screenshot --project <project> --machine <resource-name> --json
+```
+
+This operation takes the ordinary machine lease and stores one validated PNG
+through the configured QA artifact store. The CLI also saves the accepted PNG
+in a fresh private temp directory and returns `artifact_path` for immediate review.
+Its durable receipt contains the typed artifact
+handle, SHA-256 digest, dimensions and OS. Submission retries return that same
+handle without uploading a second image. Failed, malformed or blank captures
+record an error without an artifact.
+
+macOS captures the primary display through Terminal.app, requiring its Screen
+Recording grant and the dedicated test user's unlocked graphical login. Linux
+finds exactly one XFCE session owned by the SSH user and uses its actual DISPLAY
+and XAUTHORITY; it never assumes display :0. Install the Pack's Linux desktop
+provisioner and open its tunnel-only RDP session before retrying a missing desktop.
+Windows enters WSL2, then invokes Windows PowerShell and a temporary scheduled task
+using the SSH account's existing interactive token. Log into that same Windows
+account via RDP and keep the desktop open/unlocked. No password is passed to the
+capture task; task and temporary files are removed after capture or failure.
+A Session 0 service or a disconnected desktop cannot substitute for that proof.
+Close credentials and private windows before capturing when the case requires it.
 
 ## verify — the readiness gate, and what it leaves behind
 

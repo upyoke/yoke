@@ -1,9 +1,9 @@
 """SSH-backed implementation of the host-operation contract for a macOS box.
 
 One class implements every operation a person can run against a macOS SSH test
-machine -- verify, reset, capture a golden baseline, diagnose the terminal
+machine -- verify, reset, capture a golden baseline or desktop, diagnose the terminal
 bridge -- because they share a transport, a credential, and a lease, and
-splitting them by operation would give four adapters four chances to disagree
+splitting them by operation would give separate adapters chances to disagree
 about what the same host is.
 """
 
@@ -14,6 +14,11 @@ from yoke_harness.ssh_host_baselines import SshHostBaselines
 
 class SshMacHostOperations(SshHostBaselines, SshMacTransport):
     """Credential-owning control for every operator-run macOS SSH operation."""
+
+    def capture_screenshot(self):
+        from yoke_harness.ssh_machine_screenshot import capture_desktop
+
+        return capture_desktop(self)
 
     def __init__(
         self,
