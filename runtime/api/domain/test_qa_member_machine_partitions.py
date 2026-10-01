@@ -40,7 +40,9 @@ MEMBER = 9820
 SESSION = "session-machine-plan"
 
 
-def _seed(conn, tmp_path, monkeypatch, *, split_plans=False):
+def _seed(
+    conn, tmp_path, monkeypatch, *, split_plans=False, simultaneous=False, driver=None
+):
     configure_test_machine(conn, tmp_path, monkeypatch)
     replace_test_machine_settings(
         conn,
@@ -57,7 +59,13 @@ def _seed(conn, tmp_path, monkeypatch, *, split_plans=False):
             slug=f"host-check-{index}",
             infer_target_environment=False,
         )
-        machines = [MACHINES[index]] if split_plans else MACHINES
+        machines = (
+            [driver or MACHINES[0]]
+            if simultaneous
+            else [MACHINES[index]]
+            if split_plans
+            else MACHINES
+        )
         replace_plan_cases(
             conn,
             plan_id=int(plan["id"]),
@@ -68,7 +76,11 @@ def _seed(conn, tmp_path, monkeypatch, *, split_plans=False):
                     "method_id": "terminal-check",
                     "instructions": "Run a host-specific check.",
                     "expected_outcome": "The check passes.",
-                    "method_config": {**_terminal_recipe(), "machine": machine},
+                    "method_config": {
+                        **_terminal_recipe(),
+                        "machine": machine,
+                        **({"machines": list(MACHINES)} if simultaneous else {}),
+                    },
                     "entry_surface": "printf done",
                     "required_completion": "complete",
                 }

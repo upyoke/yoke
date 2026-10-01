@@ -35,6 +35,9 @@ class MachineConstraintError(ValueError):
 
 def normalize_config_machine(config_contract_id: str, config: dict) -> str | None:
     """Validate and normalize an optional ``method_config.machine`` value."""
+    from yoke_core.domain.machine_qa_case_hosts import normalize_config_machines
+
+    normalize_config_machines(config)
     if "machine" not in config:
         return None
     if config_contract_id not in MACHINE_CONFIG_CONTRACTS:

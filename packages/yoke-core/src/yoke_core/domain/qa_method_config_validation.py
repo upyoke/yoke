@@ -95,6 +95,11 @@ def validate_method_config(
                 project_id=project_id,
                 machine=machine,
             )
+            for companion in config.get("machines") or []:
+                require_registered_machine(
+                    conn, project_id=project_id, machine=companion
+                )
+
     except MachineConstraintError as exc:
         raise QaMethodConfigError(str(exc)) from exc
     if config_contract_id in {"command", "command-ci"}:
@@ -180,7 +185,7 @@ def validate_method_config(
         executor = config.get("executor")
         if (
             "executor" not in config
-            or set(config) - {"executor", "machine", "host_starting_state"}
+            or set(config) - {"executor", "machine", "machines", "host_starting_state"}
             or executor
             not in {
                 "informed_subagent",
@@ -188,7 +193,7 @@ def validate_method_config(
             }
         ):
             raise QaMethodConfigError(
-                "Agent missions require one executor and may name one machine: "
+                "Agent missions require one executor, may name a driving machine and its simultaneous machines: "
                 "informed_subagent or naive_target_session"
             )
         config["executor"] = str(executor)

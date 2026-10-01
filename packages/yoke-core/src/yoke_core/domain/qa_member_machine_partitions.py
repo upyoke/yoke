@@ -6,9 +6,9 @@ import json
 from typing import Any
 
 from yoke_core.domain.machine_qa_case_machine import (
-    required_case_machine,
     resolve_case_machine,
 )
+from yoke_core.domain.machine_qa_case_hosts import case_machines
 from yoke_core.domain.qa_plan_execution_store import (
     live_plan_execution_id,
     marker,
@@ -31,11 +31,19 @@ def member_machine_partition(
     execution covers only its own requirements whose current scoped verdict
     and artifacts still pass the stage's existing evidence checks.
     """
-    machines = {
-        required_case_machine(row.get("required_capability_kinds")) for row in roster
-    }
-    machines.discard(None)
-    if not deployment_stage or deployment_member_item_id is None or len(machines) < 2:
+
+    def host_group(row):
+        return resolve_case_machine(row, None), case_machines(row)
+
+    host_sets = {host_group(row) for row in roster if case_machines(row)}
+    if (
+        not deployment_stage
+        or deployment_member_item_id is None
+        or (
+            len(host_sets) < 2
+            and not any(len(hosts) > 1 for _driver, hosts in host_sets)
+        )
+    ):
         return roster, None, None
     for row in roster:
         resolve_case_machine(row, machine)
@@ -91,21 +99,13 @@ def member_machine_partition(
         row = history[0]
         execution_id = str(row["id"] if hasattr(row, "keys") else row[0])
         return [], 0, select_plan_execution(conn, execution_id, lock=False)
-    selected_machine = next(
-        (
-            name
-            for row in pending
-            if (name := required_case_machine(row.get("required_capability_kinds")))
-        ),
-        None,
+    selected_hosts = next(
+        (host_group(row) for row in pending if case_machines(row)), (None, ())
     )
     selected = [
         {**row, "ordinal": ordinal}
         for ordinal, row in enumerate(
-            row
-            for row in pending
-            if required_case_machine(row.get("required_capability_kinds"))
-            in {None, selected_machine}
+            row for row in pending if host_group(row) in {(None, ()), selected_hosts}
         )
     ]
     return selected, len(pending) - len(selected), None

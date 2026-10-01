@@ -68,6 +68,7 @@ def validate_machine_method_config(
     except MachineConstraintError as exc:
         raise MachineQaExecutionError(str(exc)) from exc
     config.pop("machine", None)
+    machines = config.pop("machines", None)
     result = _validate_method_payload(
         definition,
         config,
@@ -75,7 +76,11 @@ def validate_machine_method_config(
         required_completion=required_completion,
         host_baseline=host_baseline,
     )
-    return {**result, **({"machine": machine} if machine is not None else {})}
+    return {
+        **result,
+        **({"machine": machine} if machine is not None else {}),
+        **({"machines": machines} if machines is not None else {}),
+    }
 
 
 def _validate_method_payload(

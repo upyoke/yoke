@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
@@ -31,19 +30,13 @@ def _recorded_result(
     execution_id: str,
     ordinal: int,
 ) -> dict[str, Any] | None:
-    from yoke_core.domain.db_helpers import query_one
-    from yoke_core.domain.qa_plan_execution_store import marker
+    from yoke_core.domain.qa_plan_execution_store import result_rows
 
-    row = query_one(
-        conn,
-        "SELECT result_json FROM qa_plan_execution_results "
-        f"WHERE execution_id={marker(conn)} AND ordinal={marker(conn)}",
-        (execution_id, ordinal),
-    )
-    if row is None:
-        return None
-    value = json.loads(str(row["result_json"] or "{}"))
-    return dict(value) if isinstance(value, dict) else None
+    for row in result_rows(conn, execution_id):
+        if row["ordinal"] == ordinal:
+            value = row["result"]
+            return dict(value) if isinstance(value, dict) else None
+    return None
 
 
 def _insert_docket(
@@ -277,6 +270,9 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
             raise ValueError("mission case has no active plan machine lease")
         ordinal, case = matches[0]
         _assert_current_snapshot(conn, case)
+        from yoke_core.domain.qa_plan_host_leases import require_case_host_leases
+
+        require_case_host_leases(conn, execution, case)
         arguments = plan_case_contract_arguments(execution, case, ordinal=ordinal)
         contract = continue_plan_host_control_execution(
             conn,

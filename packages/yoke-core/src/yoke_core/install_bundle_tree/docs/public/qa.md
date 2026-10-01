@@ -203,4 +203,7 @@ Scoped release QA can require several Test Machines. Use `yoke watch qa-plan --
 pin. The command gives each machine its own ordered execution and FIFO lease,
 then credits all results to the same member. After a host wait or independent
 review, repeat that command to continue. Every required host must pass before
-member acceptance. See [case attachment](reference/qa-platform/case-attachment.md).
+member acceptance. A case needing several hosts at once declares
+`method_config.machines` alongside its driving `machine`; its plan execution
+holds the complete set through the case and review. See
+[case attachment](reference/qa-platform/case-attachment.md).

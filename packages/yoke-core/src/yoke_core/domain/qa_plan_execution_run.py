@@ -68,6 +68,7 @@ def execute_begun_plan(
                     requirement.get("host_baseline")
                     and not standalone_id
                     and execution.get("remaining_requirement_count") is None
+                    and not (requirement.get("method_config") or {}).get("machines")
                 ):
                     if requirement_id not in baseline_group_results:
                         from yoke_core.domain.machine_qa_case_execution import (
