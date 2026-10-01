@@ -165,14 +165,19 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Advance the prepared run this item's merge completes: bind the "
             "merge commit once every coordinated partner has landed, then "
-            "hand the run to the project's deploy authority."
+            "hand the run to the project's deploy authority. Already-pinned "
+            "runs are only observed unless --release-lineage requests recovery."
         ),
     )
     cfi.add_argument("item_id", type=int)
     cfi.add_argument(
         "--release-lineage",
         default=None,
-        help="Merge commit to bind; defaults to the recorded merge identity",
+        help=(
+            "Merge commit to bind; defaults to the recorded merge identity "
+            "for an unbound run. For a pinned run, pass its exact commit to "
+            "retry the hand-off; a different commit is refused."
+        ),
     )
 
     return p

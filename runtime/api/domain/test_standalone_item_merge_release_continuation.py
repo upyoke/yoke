@@ -20,6 +20,7 @@ from yoke_core.engines.runs_continue_for_item import (
     ContinueResult,
     OUTCOME_BOUND,
     OUTCOME_NONE,
+    OUTCOME_PINNED,
     OUTCOME_WAITING,
 )
 
@@ -31,7 +32,9 @@ SESSION = "merge-session"
 
 def _ok(result: dict) -> FunctionCallResponse:
     return FunctionCallResponse(
-        success=True, function=release_flow.CONTINUE_FUNCTION, version="v1",
+        success=True,
+        function=release_flow.CONTINUE_FUNCTION,
+        version="v1",
         result=result,
     )
 
@@ -51,10 +54,12 @@ def _forbid_local_db(monkeypatch) -> None:
 
     monkeypatch.setattr("yoke_core.domain.db_helpers.connect", boom)
     monkeypatch.setattr(
-        "yoke_core.engines.runs_continue_for_item.continue_for_item", boom,
+        "yoke_core.engines.runs_continue_for_item.continue_for_item",
+        boom,
     )
     monkeypatch.setattr(
-        "yoke_core.domain.project_identity_item_ref.item_ref_for_id", boom,
+        "yoke_core.domain.project_identity_item_ref.item_ref_for_id",
+        boom,
     )
 
 
@@ -70,13 +75,40 @@ def _patch_dispatch(monkeypatch, handler):
 
 
 class TestDispatcherResultShape:
+    def test_existing_pin_is_reported_without_missing_handoff_warning(
+        self, monkeypatch
+    ):
+        _forbid_local_db(monkeypatch)
+        payload = ContinueResult(
+            ok=True,
+            outcome=OUTCOME_PINNED,
+            run_id="run-1",
+            release_lineage=LINEAGE,
+        ).to_dict()
+        _patch_dispatch(monkeypatch, lambda _k: _ok(payload))
+
+        fragment, warning = release_flow.continue_prepared_release(
+            item_id=ITEM_ID,
+            session_id=SESSION,
+            public_ref=PUBLIC_REF,
+        )
+
+        assert warning == ""
+        assert fragment == {
+            "run_id": "run-1",
+            "outcome": OUTCOME_PINNED,
+            "release_lineage": LINEAGE,
+        }
+
     def test_none_from_continue_result_is_quiet(self, monkeypatch):
         _forbid_local_db(monkeypatch)
         payload = ContinueResult(ok=True, outcome=OUTCOME_NONE).to_dict()
         calls = _patch_dispatch(monkeypatch, lambda _k: _ok(payload))
 
         fragment, warning = release_flow.continue_prepared_release(
-            item_id=ITEM_ID, session_id=SESSION, public_ref=PUBLIC_REF,
+            item_id=ITEM_ID,
+            session_id=SESSION,
+            public_ref=PUBLIC_REF,
         )
 
         assert fragment is None
@@ -92,13 +124,17 @@ class TestDispatcherResultShape:
     def test_waiting_maps_continue_result(self, monkeypatch):
         _forbid_local_db(monkeypatch)
         payload = ContinueResult(
-            ok=True, outcome=OUTCOME_WAITING, run_id="run-1",
+            ok=True,
+            outcome=OUTCOME_WAITING,
+            run_id="run-1",
             waiting_on=["ITEM-8"],
         ).to_dict()
         _patch_dispatch(monkeypatch, lambda _k: _ok(payload))
 
         fragment, warning = release_flow.continue_prepared_release(
-            item_id=ITEM_ID, session_id=SESSION, public_ref=PUBLIC_REF,
+            item_id=ITEM_ID,
+            session_id=SESSION,
+            public_ref=PUBLIC_REF,
         )
 
         assert warning == ""
@@ -111,14 +147,19 @@ class TestDispatcherResultShape:
     def test_bound_maps_continue_result(self, monkeypatch):
         _forbid_local_db(monkeypatch)
         payload = ContinueResult(
-            ok=True, outcome=OUTCOME_BOUND, run_id="run-1",
-            release_lineage=LINEAGE, handed_off_to="session-holder",
+            ok=True,
+            outcome=OUTCOME_BOUND,
+            run_id="run-1",
+            release_lineage=LINEAGE,
+            handed_off_to="session-holder",
             message_id="msg-1",
         ).to_dict()
         _patch_dispatch(monkeypatch, lambda _k: _ok(payload))
 
         fragment, warning = release_flow.continue_prepared_release(
-            item_id=ITEM_ID, session_id=SESSION, public_ref=PUBLIC_REF,
+            item_id=ITEM_ID,
+            session_id=SESSION,
+            public_ref=PUBLIC_REF,
         )
 
         assert warning == ""
@@ -138,7 +179,9 @@ class TestDispatcherResultShape:
         )
 
         fragment, warning = release_flow.continue_prepared_release(
-            item_id=ITEM_ID, session_id=SESSION, public_ref=PUBLIC_REF,
+            item_id=ITEM_ID,
+            session_id=SESSION,
+            public_ref=PUBLIC_REF,
         )
 
         assert fragment is None
@@ -152,13 +195,18 @@ class TestDispatcherResultShape:
     def test_missing_hand_off_maps_continue_result(self, monkeypatch):
         _forbid_local_db(monkeypatch)
         payload = ContinueResult(
-            ok=True, outcome=OUTCOME_BOUND, run_id="run-1",
-            release_lineage=LINEAGE, handed_off_to="session-holder",
+            ok=True,
+            outcome=OUTCOME_BOUND,
+            run_id="run-1",
+            release_lineage=LINEAGE,
+            handed_off_to="session-holder",
         ).to_dict()
         _patch_dispatch(monkeypatch, lambda _k: _ok(payload))
 
         fragment, warning = release_flow.continue_prepared_release(
-            item_id=ITEM_ID, session_id=SESSION, public_ref=PUBLIC_REF,
+            item_id=ITEM_ID,
+            session_id=SESSION,
+            public_ref=PUBLIC_REF,
         )
 
         assert fragment["run_id"] == "run-1"
@@ -166,6 +214,7 @@ class TestDispatcherResultShape:
         assert PUBLIC_REF in warning
         assert "continue-for-item" in warning
         assert "not delivered" in warning
+        assert f"--release-lineage {LINEAGE}" in warning
         assert "re-run this command" not in warning.lower()
         assert "db-admin" not in warning
 
@@ -176,7 +225,9 @@ class TestHttpsAndLocalAuthority:
         from yoke_cli.transport import https as https_mod
 
         conn = HttpsConnection(
-            api_url="https://api.example", token="tok", env="prod",
+            api_url="https://api.example",
+            token="tok",
+            env="prod",
         )
         monkeypatch.setattr(https_mod, "resolve_https_connection", lambda: conn)
         captured: dict = {}
@@ -188,7 +239,8 @@ class TestHttpsAndLocalAuthority:
 
         monkeypatch.setattr(https_mod, "relay_https", fake_relay)
         monkeypatch.setattr(
-            dispatcher_mod, "_call_local",
+            dispatcher_mod,
+            "_call_local",
             lambda *_a, **_k: (_ for _ in ()).throw(
                 AssertionError("https continuation must not dispatch locally")
             ),
@@ -208,7 +260,8 @@ class TestHttpsAndLocalAuthority:
 
         monkeypatch.setattr(dispatcher_mod, "_call_local", fake_local)
         monkeypatch.setattr(
-            https_mod, "relay_https",
+            https_mod,
+            "relay_https",
             lambda *_a, **_k: (_ for _ in ()).throw(
                 AssertionError("local continuation must not relay https")
             ),
@@ -221,7 +274,9 @@ class TestHttpsAndLocalAuthority:
         captured = self._https(monkeypatch, payload)
 
         fragment, warning = release_flow.continue_prepared_release(
-            item_id=ITEM_ID, session_id=SESSION, public_ref=PUBLIC_REF,
+            item_id=ITEM_ID,
+            session_id=SESSION,
+            public_ref=PUBLIC_REF,
         )
 
         assert fragment is None and warning == ""
@@ -234,14 +289,19 @@ class TestHttpsAndLocalAuthority:
     def test_local_authority_binds_the_merge_session(self, monkeypatch):
         _forbid_local_db(monkeypatch)
         payload = ContinueResult(
-            ok=True, outcome=OUTCOME_BOUND, run_id="run-1",
-            release_lineage=LINEAGE, handed_off_to="holder",
+            ok=True,
+            outcome=OUTCOME_BOUND,
+            run_id="run-1",
+            release_lineage=LINEAGE,
+            handed_off_to="holder",
             message_id="msg-1",
         ).to_dict()
         captured = self._local(monkeypatch, payload)
 
         fragment, warning = release_flow.continue_prepared_release(
-            item_id=ITEM_ID, session_id=SESSION, public_ref=PUBLIC_REF,
+            item_id=ITEM_ID,
+            session_id=SESSION,
+            public_ref=PUBLIC_REF,
         )
 
         assert warning == ""
