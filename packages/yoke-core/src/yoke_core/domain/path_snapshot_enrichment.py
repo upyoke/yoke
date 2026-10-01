@@ -21,10 +21,10 @@ the six ``path_snapshot_entries`` enrichment columns:
   non-Python. Python parse failures store one sentinel edge with a
   ``scan_error`` key so Doctor can report the path later.
 
-The orchestrator never opens files. Callers (currently the snapshot
-writer) read the project tree once and pass content in. This keeps the
-enrichment helper independent of ``git``, the project's working copy,
-and the snapshot transaction.
+``compute_entries`` reads and parses the committed tree before the write
+transaction. ``write_entries`` adds preloaded inherited context using the
+resolved target identities and inserts the prepared rows. ``enrich_entry``
+also accepts caller-provided source for individual context-aware scans.
 
 Parse / scan errors are surfaced via the returned ``scan_error`` field
 rather than raised, so the Doctor scan keeps going even when one file
@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -44,6 +44,7 @@ from yoke_contracts.path_snapshot import (
     compute_module_name as _contract_module_name,
     extract_edges as _extract_edges,
     infer_language as _contract_language,
+    file_entry_from_source,
 )
 from yoke_core.domain.path_context import (
     FAMILY_GENERATED,
@@ -93,7 +94,8 @@ def compute_module_name(path_string: str) -> Optional[str]:
 
 
 def compute_dependency_edges(
-    source: str, path_string: str,
+    source: str,
+    path_string: str,
 ) -> Dict[str, Any]:
     """Return ``{"edges": [...], "scan_error": Optional[str]}``.
 
@@ -108,7 +110,8 @@ def compute_dependency_edges(
 
 
 def _read_inherited_area(
-    conn: Any, target_id: int,
+    conn: Any,
+    target_id: int,
 ) -> Optional[str]:
     """Read inherited ``posture.area`` value (string) or ``None``."""
     value = read_context_value(
@@ -126,7 +129,8 @@ def _read_inherited_area(
 
 
 def _read_inherited_generated(
-    conn: Any, target_id: int,
+    conn: Any,
+    target_id: int,
 ) -> int:
     """Return ``1`` if the path inherits a non-empty
     ``architecture_generated`` value, else ``0``."""
@@ -162,12 +166,14 @@ def enrich_entry(
     edges = deps["edges"]
     module_name = compute_module_name(path_string)
     if deps["scan_error"]:
-        edges = [{
-            "source_module": module_name or path_string,
-            "imported_module": "",
-            "imported_name": "",
-            "scan_error": deps["scan_error"],
-        }]
+        edges = [
+            {
+                "source_module": module_name or path_string,
+                "imported_module": "",
+                "imported_name": "",
+                "scan_error": deps["scan_error"],
+            }
+        ]
     return EnrichmentColumns(
         line_count=compute_line_count(source),
         language=infer_language(path_string),
@@ -216,19 +222,21 @@ def _executemany(conn: Any, sql: str, rows: List[Tuple]) -> None:
 
 
 def _read_file_at_commit(
-    repo_path: Path, commit_sha: str, path_string: str,
+    repo_path: Path,
+    commit_sha: str,
+    path_string: str,
 ) -> str:
     """Return the UTF-8 decoded file text at ``commit_sha:path_string``.
 
     Returns the empty string when the blob is missing, unreadable, or
     not UTF-8 — enrichment columns degrade gracefully to file-shape
-    defaults rather than raising from inside the snapshot transaction.
+    defaults rather than raising during snapshot preparation.
     """
     try:
         proc = subprocess.run(
-            ["git", "-C", str(repo_path), "show",
-             f"{commit_sha}:{path_string}"],
-            capture_output=True, check=False,
+            ["git", "-C", str(repo_path), "show", f"{commit_sha}:{path_string}"],
+            capture_output=True,
+            check=False,
         )
         if proc.returncode != 0:
             return ""
@@ -240,41 +248,62 @@ def _read_file_at_commit(
         return ""
 
 
+def compute_entries(
+    *,
+    repo_path: Path,
+    commit_sha: str,
+    targets: List[Tuple[str, str]],
+) -> Dict[str, EnrichmentColumns]:
+    """Read and parse every file before the snapshot write transaction."""
+    entries: Dict[str, EnrichmentColumns] = {}
+    for path_string, kind in targets:
+        if kind != KIND_FILE:
+            continue
+        entry = file_entry_from_source(
+            path_string,
+            _read_file_at_commit(repo_path, commit_sha, path_string),
+        )
+        entries[path_string] = EnrichmentColumns(
+            line_count=entry.line_count,
+            language=entry.language,
+            module_name=entry.module_name,
+            area=None,
+            is_generated=0,
+            dependency_edges=json.dumps(entry.dependency_edges, sort_keys=True),
+            scan_error=entry.scan_error,
+        )
+    return entries
+
+
 def write_entries(
     conn: Any,
     *,
     snapshot_id: int,
-    repo_path: Path,
-    commit_sha: str,
     targets: List[Tuple[str, str]],
     target_ids: Dict[str, int],
+    entries: Dict[str, EnrichmentColumns],
+    context_values: Dict[Tuple[int, str, str], str],
 ) -> None:
-    """Compute enrichment columns and insert ``path_snapshot_entries``.
+    """Insert prepared entries with inherited context; never read files.
 
-    Files (``kind == 'file'``) read content via ``git show
-    <commit>:<path>`` and route through :func:`enrich_entry`.
-    Directories are inserted with the DDL defaults (``is_generated=0``,
-    ``dependency_edges='[]'``, other columns ``NULL``).
-
-    The caller owns the surrounding transaction; this helper performs
-    only the entry INSERTs plus the per-file ``git show`` reads.
+    The caller owns the atomic snapshot transaction. Context was loaded
+    before file preparation; inheritance uses the resolved target identities.
+    Directories retain their DDL defaults.
     """
     rows: List[Tuple] = []
     context_cache = build_snapshot_context_cache(
-        conn, targets=targets, target_ids=target_ids,
+        conn,
+        targets=targets,
+        target_ids=target_ids,
+        values=context_values,
     )
     for path_string, kind in targets:
         target_id = target_ids[path_string]
         if kind == KIND_FILE:
-            source = _read_file_at_commit(
-                repo_path, commit_sha, path_string,
-            )
-            cols = enrich_entry(
-                conn,
-                target_id=target_id,
-                source=source,
-                path_string=path_string,
-                context_cache=context_cache,
+            cols = replace(
+                entries[path_string],
+                area=context_cache.area_for(target_id),
+                is_generated=context_cache.is_generated(target_id),
             )
             rows.append((snapshot_id, target_id, *as_db_tuple(cols)))
         else:
@@ -293,6 +322,7 @@ __all__ = [
     "EnrichmentColumns",
     "as_db_tuple",
     "compute_dependency_edges",
+    "compute_entries",
     "compute_line_count",
     "compute_module_name",
     "enrich_entry",

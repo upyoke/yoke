@@ -23,7 +23,7 @@ def _p(conn: Any) -> str:
 
 def _chunks(values: Sequence[Any]) -> Iterable[Sequence[Any]]:
     for idx in range(0, len(values), _QUERY_CHUNK_SIZE):
-        yield values[idx: idx + _QUERY_CHUNK_SIZE]
+        yield values[idx : idx + _QUERY_CHUNK_SIZE]
 
 
 def _get(row: Any, key: str, index: int) -> Any:
@@ -80,13 +80,16 @@ def build_snapshot_context_cache(
     *,
     targets: Sequence[Tuple[str, str]],
     target_ids: Dict[str, int],
+    values: Optional[Dict[Tuple[int, str, str], str]] = None,
 ) -> SnapshotContextCache:
     parent_ids: Dict[int, Optional[int]] = {}
     for path_string, _kind in targets:
         parent = _parent_path_string(path_string)
         target_id = target_ids[path_string]
         parent_ids[target_id] = None if parent is None else target_ids[parent]
-    values: Dict[Tuple[int, str, str], str] = {}
+    if values is not None:
+        return SnapshotContextCache(parent_ids=parent_ids, values=values)
+    values = {}
     ids = list(parent_ids)
     if not ids:
         return SnapshotContextCache(parent_ids=parent_ids, values=values)
@@ -110,4 +113,34 @@ def build_snapshot_context_cache(
     return SnapshotContextCache(parent_ids=parent_ids, values=values)
 
 
-__all__ = ["SnapshotContextCache", "build_snapshot_context_cache"]
+def read_snapshot_context_values(
+    conn: Any,
+    *,
+    project_id: int,
+    targets: Sequence[Tuple[str, str]],
+) -> Dict[Tuple[int, str, str], str]:
+    """Load context for candidate paths before slow file preparation.
+
+    Keep values keyed by identity, including older generations: the write
+    transaction resolves which identities survive and ignores the rest.
+    """
+    values: Dict[Tuple[int, str, str], str] = {}
+    p = _p(conn)
+    for chunk in _chunks([path for path, _kind in targets]):
+        placeholders = ",".join(p for _ in chunk)
+        rows = conn.execute(
+            "SELECT v.target_id, v.context_family, v.entry_key, v.value "
+            "FROM path_context_values v JOIN path_targets t ON t.id = v.target_id "
+            f"WHERE t.project_id = {p} AND t.path_string IN ({placeholders})",
+            (project_id, *chunk),
+        ).fetchall()
+        for row in rows:
+            values[(int(row[0]), str(row[1]), str(row[2]))] = str(row[3] or "")
+    return values
+
+
+__all__ = [
+    "SnapshotContextCache",
+    "build_snapshot_context_cache",
+    "read_snapshot_context_values",
+]

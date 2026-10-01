@@ -4,7 +4,8 @@ Materializes observed git tree state into ``path_targets``,
 ``path_snapshots``, and ``path_snapshot_entries``. The scanner is
 observation-only: no Project Structure reads and no rename inference.
 Snapshot creation is transactional and idempotent for
-``(project_id, commit_sha)``.
+``(project_id, commit_sha)``. File reads and parsing finish before the
+atomic write transaction opens, so slow git reads cannot idle it out.
 """
 
 from __future__ import annotations
@@ -23,7 +24,8 @@ from yoke_core.domain.path_registry import (
     ROOT_PATH_SENTINEL,
     _all_paths_with_kinds,
 )
-from yoke_core.domain.path_snapshot_enrichment import write_entries
+from yoke_core.domain.path_snapshot_enrichment import compute_entries, write_entries
+from yoke_core.domain.path_snapshot_context_cache import read_snapshot_context_values
 from yoke_core.domain.path_snapshot_targets import resolve_snapshot_target_ids
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
@@ -46,13 +48,11 @@ def _resolve_repo_path(conn: Any, project_id: int) -> Path:
     checkout = checkout_for_project_id(project_id)
     if checkout is None:
         raise PathSnapshotError(
-            f"project '{project_id}' has no machine-local checkout mapping; "
-            "cannot scan"
+            f"project '{project_id}' has no machine-local checkout mapping; cannot scan"
         )
     if not checkout.is_dir():
         raise PathSnapshotError(
-            f"project '{project_id}' checkout '{checkout}' is not a "
-            "readable directory"
+            f"project '{project_id}' checkout '{checkout}' is not a readable directory"
         )
     return checkout
 
@@ -75,9 +75,7 @@ def _git(repo_path: Path, *args: str) -> str:
 def _resolve_head_sha(repo_path: Path) -> str:
     sha = _git(repo_path, "rev-parse", "HEAD").strip()
     if not sha:
-        raise PathSnapshotError(
-            f"git rev-parse HEAD returned empty SHA in {repo_path}"
-        )
+        raise PathSnapshotError(f"git rev-parse HEAD returned empty SHA in {repo_path}")
     return sha
 
 
@@ -88,22 +86,17 @@ def _walk_files_at(repo_path: Path, ref: str) -> List[str]:
     git tree state.  No rename / similarity detection (C5).
     """
     raw = _git(repo_path, "ls-tree", "-r", "--name-only", ref)
-    return [
-        line for line in raw.splitlines() if line and not line.startswith(":")
-    ]
+    return [line for line in raw.splitlines() if line and not line.startswith(":")]
 
 
 def _walk_head_files(repo_path: Path) -> List[str]:
     return _walk_files_at(repo_path, "HEAD")
 
 
-def _existing_snapshot_id(
-    conn: Any, project_id: int, commit_sha: str
-) -> Optional[int]:
+def _existing_snapshot_id(conn: Any, project_id: int, commit_sha: str) -> Optional[int]:
     p = _p(conn)
     row = conn.execute(
-        "SELECT id FROM path_snapshots "
-        f"WHERE project_id = {p} AND commit_sha = {p}",
+        f"SELECT id FROM path_snapshots WHERE project_id = {p} AND commit_sha = {p}",
         (project_id, commit_sha),
     ).fetchone()
     if row is None:
@@ -122,14 +115,27 @@ def _materialize_snapshot(
 
     Caller must have already verified that no row exists for
     ``(project_id, commit_sha)`` and that the file list reflects that
-    commit's tree. Wraps the mint+entries+materialize work in a single
-    transaction; rolls back on any failure.
+    commit's tree. Loads context and computes file entries before wrapping
+    mint+entries+materialize in one transaction; rolls back any write failure.
     """
     targets = _all_paths_with_kinds(files)
     now_iso = _utc_now_iso()
     p = _p(conn)
 
     try:
+        context_values = read_snapshot_context_values(
+            conn,
+            project_id=project_id,
+            targets=targets,
+        )
+        # SELECTs start an implicit psycopg transaction. End that read phase
+        # too, before git reads and parsing; no snapshot state exists yet.
+        conn.commit()
+        entries = compute_entries(
+            repo_path=repo_path,
+            commit_sha=commit_sha,
+            targets=targets,
+        )
         conn.execute("BEGIN")
         # Re-check inside the transaction in case a concurrent scan
         # raced ahead of us.
@@ -139,7 +145,10 @@ def _materialize_snapshot(
             return existing
 
         resolution = resolve_snapshot_target_ids(
-            conn, project_id=project_id, targets=targets, now_iso=now_iso,
+            conn,
+            project_id=project_id,
+            targets=targets,
+            now_iso=now_iso,
         )
 
         cur = conn.execute(
@@ -149,13 +158,18 @@ def _materialize_snapshot(
         )
         snapshot_id = int(cur.fetchone()[0])
         write_entries(
-            conn, snapshot_id=snapshot_id, repo_path=repo_path,
-            commit_sha=commit_sha, targets=targets,
+            conn,
+            snapshot_id=snapshot_id,
+            targets=targets,
             target_ids=resolution.target_ids,
+            entries=entries,
+            context_values=context_values,
         )
         for tid in resolution.materialize_target_ids:
             materialize_planned_target(
-                conn, target_id=tid, commit_sha=commit_sha,
+                conn,
+                target_id=tid,
+                commit_sha=commit_sha,
             )
         conn.commit()
         return snapshot_id
@@ -183,9 +197,7 @@ def build_head_snapshot(conn: Any, project_id: int | str) -> int:
     return _materialize_snapshot(conn, project_id, commit_sha, files, repo_path)
 
 
-def build_snapshot_at_sha(
-    conn: Any, project_id: int | str, commit_sha: str
-) -> int:
+def build_snapshot_at_sha(conn: Any, project_id: int | str, commit_sha: str) -> int:
     """Build a snapshot for ``project_id`` at ``commit_sha`` (any commit).
 
     Walks ``git ls-tree -r --name-only <commit_sha>`` rather than HEAD,
@@ -202,8 +214,7 @@ def build_snapshot_at_sha(
     repo_path = _resolve_repo_path(conn, project_id)
     if not commit_sha:
         raise PathSnapshotError(
-            f"commit_sha is required for build_snapshot_at_sha "
-            f"(project '{project_id}')"
+            f"commit_sha is required for build_snapshot_at_sha (project '{project_id}')"
         )
 
     existing = _existing_snapshot_id(conn, project_id, commit_sha)
@@ -214,9 +225,7 @@ def build_snapshot_at_sha(
     return _materialize_snapshot(conn, project_id, commit_sha, files, repo_path)
 
 
-def ensure_snapshot_at(
-    conn: Any, project_id: int | str, commit_sha: str
-) -> int:
+def ensure_snapshot_at(conn: Any, project_id: int | str, commit_sha: str) -> int:
     """Return the snapshot id for ``(project_id, commit_sha)``, building it
     if absent.
 
@@ -262,8 +271,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     project_id = args.ensure_head_project or args.project_id
     if not project_id:
         parser.error(
-            "either a positional project_id or --ensure-head <project_id> "
-            "is required"
+            "either a positional project_id or --ensure-head <project_id> is required"
         )
 
     from yoke_core.domain.path_claims_integration_resolver import (
