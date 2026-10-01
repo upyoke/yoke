@@ -2,11 +2,14 @@
 
 The Yoke project plan `product-smoke` has one `command-ci` case bound to
 `product-smoke.yml`. Its manually dispatched matrix runs the complete smoke on
-both GitHub-hosted disposable runners. Nothing schedules it or attaches it to
+all three GitHub-hosted disposable runners. Nothing schedules it or attaches it to
 changes, pull requests, merges, or deployment gates.
 
-The jobs declare Ubuntu 24.04 x86_64 (`ubuntu-latest`) and macOS 26 arm64
-(`macos-latest`). These labels follow [GitHub's runner image catalog](https://github.com/actions/runner-images).
+The jobs declare Ubuntu 24.04 x86_64 (`ubuntu-latest`), Ubuntu 24.04 arm64
+(`ubuntu-24.04-arm`), and macOS 26 arm64 (`macos-latest`). These labels follow
+[GitHub's runner image catalog](https://github.com/actions/runner-images) and
+[ARM runner catalog](https://github.com/actions/partner-runner-images). Linux's
+`aarch64` machine name is reported as `arm64` to match the matrix declaration.
 The smoke verifies the actual OS and architecture first; a label migration
 refuses with `runner_identity_mismatch` until its declaration is reviewed.
 
@@ -47,7 +50,7 @@ yoke watch qa-plan -- --plan product-smoke --project yoke --checkout-path /absol
 Read `yoke qa plan run --help` before choosing source bindings or continuation.
 The published ref must already name that exact commit. The runner records one
 standalone execution, frozen case, CI run URL, actual head SHA, and conclusion;
-both jobs must pass for the case to pass. It publishes no lane and changes no
+all three jobs must pass for the case to pass. It publishes no lane and changes no
 item or deployment gate. GitHub registers a new dispatch workflow from the
 default branch, so its first real run follows its merge there.
 
