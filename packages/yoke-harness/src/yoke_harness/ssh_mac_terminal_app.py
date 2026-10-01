@@ -137,13 +137,31 @@ def set_terminal_app_window_bounds(
         return None
 
 
+@dataclass(frozen=True)
+class TerminalWindowLaunch:
+    """Window identity and the AppleScript evidence that produced it."""
+
+    window_id: int | None
+    returncode: int
+    stdout: str
+    stderr: str
+
+    @property
+    def diagnostics(self) -> dict[str, object]:
+        return {
+            "osascript_exit_code": self.returncode,
+            "osascript_stdout": self.stdout,
+            "osascript_stderr": self.stderr,
+        }
+
+
 def open_terminal_app_window(
     run: RunRemote,
     *,
     command: str,
     terminal_size: tuple[int, int] | None = None,
     bounds: tuple[int, int, int, int] | None = None,
-) -> int | None:
+) -> TerminalWindowLaunch:
     """Start *command* in a new Terminal.app window, placed when told where.
 
     Callers that will capture the window pass bounds derived from the live
@@ -175,12 +193,14 @@ def open_terminal_app_window(
     try:
         window_id = int(result.stdout.strip())
     except (AttributeError, TypeError, ValueError):
-        return None
-    if result.returncode or window_id <= 0:
-        return None
-    if bounds is not None:
+        window_id = None
+    if result.returncode or (window_id is not None and window_id <= 0):
+        window_id = None
+    if window_id is not None and bounds is not None:
         set_terminal_app_window_bounds(run, window_id=window_id, bounds=bounds)
-    return window_id
+    return TerminalWindowLaunch(
+        window_id, result.returncode, result.stdout, result.stderr
+    )
 
 
 def close_terminal_app_window(
@@ -309,6 +329,7 @@ def send_terminal_app_keys(
 __all__ = [
     "KeystrokeDelivery",
     "RunRemote",
+    "TerminalWindowLaunch",
     "capture_terminal_app_transcript",
     "close_terminal_app_window",
     "open_terminal_app_window",

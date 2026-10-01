@@ -77,16 +77,17 @@ def probe_driven_window(report: BridgeDiagnosisReport, run: RunRemote) -> None:
             "display_count": frame.display_count,
         },
     )
-    window_id = open_terminal_app_window(
+    launch = open_terminal_app_window(
         run,
         command=driven_window_command(identity),
         bounds=layout.target,
     )
+    window_id = launch.window_id
     try:
         if not report.record(
             WINDOW_LAUNCH_CHECK,
             ok=window_id is not None,
-            observed={"window_id": window_id},
+            observed={"window_id": window_id, **launch.diagnostics},
         ):
             return
         assert window_id is not None

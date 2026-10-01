@@ -143,13 +143,18 @@ def verify_terminal_app_control(
         )
         return False, checks, TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE
     layout = window_layout(frame)
-    window_id = open_terminal_app_window(
+    launch = open_terminal_app_window(
         run,
         command=driven_window_command(identity),
         bounds=layout.target,
     )
+    window_id = launch.window_id
+    checks["launch_diagnostics"] = launch.diagnostics
     try:
         if window_id is None:
+            checks["capture_diagnostics"] = named_failure(
+                TERMINAL_APP_CONTROL_UNAVAILABLE_ERROR_CODE, launch.diagnostics
+            )
             return False, checks, TERMINAL_APP_CONTROL_UNAVAILABLE_ERROR_CODE
         checks["terminal_app_launch"] = True
         if not wait_for_transcript(

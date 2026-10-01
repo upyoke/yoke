@@ -105,17 +105,19 @@ def run_terminal_app_recipe(
             display_frame_detail=str(exc),
         )
     try:
-        window_id = open_terminal_app_window(
+        launch = open_terminal_app_window(
             run,
             command=wrapped,
             terminal_size=terminal_size,
             bounds=window_layout(display_frame).target,
         )
+        window_id = launch.window_id
         if window_id is None:
             return _failure(
                 "terminal_app_launch_failed",
                 captures=captures,
                 staged_files=staged,
+                **launch.diagnostics,
             )
 
         def read_transcript() -> str:
