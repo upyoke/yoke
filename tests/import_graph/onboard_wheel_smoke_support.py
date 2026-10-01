@@ -181,6 +181,6 @@ def _stub_relay_installer(venv_python: Path, *, cwd: Path) -> None:
     site_packages = Path(result.stdout.strip())
     (site_packages / "onboard_relay_test_stub.pth").write_text(
         "import yoke_cli.config.onboard_session_relay as relay; "
-        "relay.install = lambda **kwargs: relay.RelayInstallOutcome(installed=True, reused=False)\n",
+        "relay.install = lambda _outcome=relay.RelayInstallOutcome, **kwargs: _outcome(installed=True, reused=False)\n",
         encoding="utf-8",
     )
