@@ -100,6 +100,13 @@ typed review continuation must run now. It is not itself a human-review state,
 and it is not a pass: the result carries `review_status="pending"` and no QA
 verdict exists until the reviewer submits the bundle.
 
+For deployment item-scoped QA, reaching `awaiting_agent_review` automatically
+wakes the capturing session through the item-QA notice path with the exact
+`yoke watch qa-plan` re-entry command. It resumes the pending bundle without
+recapturing. A gone owner routes to steering for normal idle/gone-holder
+restaffing. The review notice has its own execution key; the earlier stage
+wait notice cannot suppress it.
+
 While parked, the execution retains and heartbeats its Test Machine lease. The
 returned dispatch has `dispatch_kind=main_agent_mission`. The main agent owns:
 

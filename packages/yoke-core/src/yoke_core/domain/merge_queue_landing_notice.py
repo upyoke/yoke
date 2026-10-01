@@ -33,7 +33,7 @@ def _p(conn: Any) -> str:
 
 
 def resolve_lane_recipient(
-    conn: Any, *, item_id: int, project_id: int
+    conn: Any, *, item_id: int, project_id: int, owner_session_id: str | None = None
 ) -> tuple[str, int, str]:
     """The session to tell, its actor, and which route found it.
 
@@ -41,6 +41,8 @@ def resolve_lane_recipient(
     ones. A lane nobody holds falls back to the project's steering seat,
     which is what turns an abandoned landing into staffing work instead of
     silence. ``("", 0, "")`` means nobody is addressable at all.
+    An explicit execution owner replaces claim lookup, retaining the same
+    steering fallback and native-resume delivery path.
     """
     marker = _p(conn)
     item_scope = scope_int_sql(conn, "wc.scope", "item_id")
@@ -52,13 +54,22 @@ def resolve_lane_recipient(
     liveness = (
         "ORDER BY CASE WHEN hs.ended_at IS NULL THEN 0 ELSE 1 END, wc.id DESC LIMIT 1"
     )
-    row = conn.execute(
-        "SELECT wc.session_id, hs.actor_id"
-        + common
-        + f"AND wc.target_kind='item' AND {item_scope}={marker} "
-        + liveness,
-        (item_id,),
-    ).fetchone()
+    if owner_session_id is not None:
+        # An execution can belong to a delegated session rather than the
+        # claim holder. Only that owner can resume its immutable capture.
+        row = conn.execute(
+            "SELECT session_id, actor_id FROM harness_sessions "
+            f"WHERE session_id={marker} AND terminated_at IS NULL",
+            (owner_session_id,),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT wc.session_id, hs.actor_id"
+            + common
+            + f"AND wc.target_kind='item' AND {item_scope}={marker} "
+            + liveness,
+            (item_id,),
+        ).fetchone()
     route = HOLDER
     if row is None:
         row = conn.execute(
@@ -138,6 +149,7 @@ def push_notice(
     body_for_route: Callable[[str], str],
     idempotency_key: str,
     now: datetime,
+    owner_session_id: str | None = None,
 ) -> str:
     """Send one notice to whoever owns the lane; report what delivery did.
 
@@ -150,6 +162,7 @@ def push_notice(
         conn,
         item_id=item_id,
         project_id=project_id,
+        owner_session_id=owner_session_id,
     )
     if not session_id:
         return ""
