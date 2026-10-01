@@ -1,11 +1,8 @@
 name: cla
 
-# Classification: FACTORY. Contributor governance for the public repo —
-# no operator cloud access, runs on GitHub-hosted runners, and stays with
-# the product repo when it becomes public. The document link and the
-# signature branch are addressed relative to the repository the workflow
-# runs in, so publication needs no edit here beyond the operator setup
-# notes below.
+# Classification: FACTORY. Upstream contributor governance only.
+# Forks and other copies skip upstream's CLA and maintainer allowlist.
+# No operator cloud access; runs on GitHub-hosted runners.
 #
 # Contributor License Agreement gate.
 #
@@ -55,10 +52,11 @@ jobs:
     # Required pull-request checks always run. Comment-triggered checks only
     # start for a pull request and one of the action's recognized phrases.
     if: >-
-      github.event_name == 'pull_request_target' ||
+      github.repository == 'upyoke/yoke' &&
+      (github.event_name == 'pull_request_target' ||
       (github.event.issue.pull_request &&
       (github.event.comment.body == 'recheck' ||
-      github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA'))
+      github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA')))
     runs-on: ubuntu-latest
     steps:
       - name: CLA assistant
@@ -80,7 +78,7 @@ jobs:
   train-pass-through:
     timeout-minutes: 5
     name: signature-check
-    if: github.event_name == 'merge_group'
+    if: github.repository == 'upyoke/yoke' && github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     steps:
       - name: Merge-queue pass-through

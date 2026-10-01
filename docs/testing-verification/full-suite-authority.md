@@ -11,7 +11,7 @@ and the merged commit on `main` (`.github/workflows/yoke-ci.yml` triggers on
 `reuse-coverage` finds a recent successful dispatch/push yoke-ci run whose
 head commit shares HEAD's tree object id (fail-open otherwise; merge commits
 that rewrite the tree still run the matrix). Branch protection on main
-requires only `signature-check` (CLA); Yoke-owned gates — the QA CI run
+requires upstream's `signature-check` (CLA) only in `upyoke/yoke`; the doctor reads the project GitHub binding before expecting it. Yoke-owned gates — the QA CI run
 conclusion and the merge engine's all-check-runs poll — authorize the suite.
 Local verification stays change-scoped:
 
