@@ -11,36 +11,51 @@ from yoke_core.domain.qa_plan_execution_schema import (
     converge_qa_plan_execution_schema,
 )
 from yoke_core.domain.qa_plan_execution_state import finish_plan_execution
-from yoke_core.domain.qa_plan_execution_store import roster_digest
+from yoke_core.domain.qa_plan_execution_store import (
+    roster_digest,
+    select_plan_execution,
+)
+
+
+def _empty_execution(conn, plan_id, execution_id, state, created_at):
+    conn.execute(
+        "INSERT INTO qa_plan_executions "
+        "(id, standalone_plan_id, session_id, roster_digest, roster_json, "
+        "state, created_at, heartbeat_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+        (
+            execution_id,
+            plan_id,
+            "manual-owner",
+            roster_digest([]),
+            "[]",
+            state,
+            created_at,
+            created_at,
+        ),
+    )
+    return select_plan_execution(conn, execution_id, lock=False)
 
 
 @pytest.mark.parametrize("new_state", ["active", "aborted"])
+@pytest.mark.parametrize("older_has_requirements", [True, False])
 def test_same_second_new_execution_without_requirements_is_latest(
-    monkeypatch, new_state
+    monkeypatch, new_state, older_has_requirements
 ):
     identifiers = iter(("f" * 32, "1" * 32))
     monkeypatch.setattr(standalone, "uuid4", lambda: next(identifiers))
     monkeypatch.setattr(standalone, "iso8601_now", lambda: "2026-09-30T12:00:00Z")
     with test_database() as conn:
         plan = _plan(conn)
-        old = _begin(conn)
+        old = (
+            _begin(conn)
+            if older_has_requirements
+            else _empty_execution(
+                conn, plan["id"], "f" * 32, "active", standalone.iso8601_now()
+            )
+        )
         finish_plan_execution(conn, old, state="aborted", reason="restart")
         # A new execution is durable before its requirement roster is populated.
-        conn.execute(
-            "INSERT INTO qa_plan_executions "
-            "(id, standalone_plan_id, session_id, roster_digest, roster_json, "
-            "state, created_at, heartbeat_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-            (
-                "1" * 32,
-                plan["id"],
-                "manual-owner",
-                roster_digest([]),
-                "[]",
-                new_state,
-                old["created_at"],
-                old["created_at"],
-            ),
-        )
+        _empty_execution(conn, plan["id"], "1" * 32, new_state, old["created_at"])
         assert (
             conn.execute(
                 "SELECT COUNT(*) FROM qa_requirements WHERE standalone_execution_id=%s",
@@ -76,20 +91,8 @@ def test_live_owner_precedes_later_terminal_history():
     with test_database() as conn:
         plan = _plan(conn)
         live = _begin(conn)
-        conn.execute(
-            "INSERT INTO qa_plan_executions "
-            "(id, standalone_plan_id, session_id, roster_digest, roster_json, "
-            "state, created_at, heartbeat_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-            (
-                "later-terminal",
-                plan["id"],
-                "manual-owner",
-                roster_digest([]),
-                "[]",
-                "aborted",
-                live["created_at"],
-                live["created_at"],
-            ),
+        _empty_execution(
+            conn, plan["id"], "later-terminal", "aborted", live["created_at"]
         )
         assert standalone._latest(conn, plan["id"])["id"] == live["id"]
         assert (
