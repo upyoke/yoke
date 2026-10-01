@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
+import platform
 import re
 import shlex
 import shutil
@@ -228,6 +230,17 @@ class Installer:
         return f"{self.options.base_url}/simple/"
 
     def run(self) -> None:
+        libc = (
+            platform.libc_ver()[0].lower() if sys.platform.startswith("linux") else ""
+        )
+        if sys.platform.startswith("linux") and (
+            libc == "musl" or (libc != "glibc" and glob.glob("/lib/ld-musl-*.so.1"))
+        ):
+            raise InstallError(
+                "unsupported_libc: musl Linux (including Alpine) is unsupported. "
+                "Use glibc Linux, such as Ubuntu, Debian, or Fedora, "
+                "then rerun the installer."
+            )
         try:
             version = self._resolve_version()
         except InstallError as exc:

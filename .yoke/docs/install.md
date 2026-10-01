@@ -12,6 +12,9 @@ available, uv downloads a managed one automatically for the installer and
 `yoke update`, without changing your system Python. Native Windows is
 unsupported; WSL follows the Linux path.
 
+Linux requires glibc (for example Ubuntu, Debian, or Fedora); musl hosts such as Alpine are refused before installation.
+Amazon Linux 2 on arm64 is unsupported: its glibc is too old for the aarch64 psycopg wheels.
+
 If Python's automatic download fails or downloads are disabled, the installer
 reports `supported_python_unavailable`. Check network access and uv's Python
 download settings, or run `uv python install ">=3.11,<3.15"`, then rerun the
