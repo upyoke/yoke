@@ -69,8 +69,8 @@ Local verification stays change-scoped:
 
   Selection is reverse-import reachability, hardened four ways: dotted module
   paths in string literals (subprocess `-m` targets, patch targets, registry
-  keys) are dependency edges; so is a `.py` path a file names, whole or
-  composed (`ROOT / "pkg" / "thing.py"`), when it names one file; an imported
+  keys, digit-prefixed migration modules) are edges; so is a `.py` path named
+  (`ROOT / "pkg" / "thing.py"`) when it names one file; an imported
   NAME resolves through re-export chains to its defining module (aliases and
   star re-exports too); and an always-run floor of contract tests runs on
   every selection (CLI registry, operation inventory, adapter parity, Atlas

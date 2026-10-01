@@ -32,8 +32,14 @@ def database(*documents):
     return conn
 
 
-def test_convergence_covers_legacy_removed_history_and_already_published_linux():
-    conn = database({"host_kind": "mac-ssh"}, {}, {"os": "linux"}, {"os": "macos"})
+def test_convergence_covers_legacy_and_supported_operating_systems():
+    conn = database(
+        {"host_kind": "mac-ssh"},
+        {},
+        {"os": "linux"},
+        {"os": "macos"},
+        {"os": "windows"},
+    )
     MIGRATION.apply(conn)
     MIGRATION.invariants(conn)
     first = [
@@ -47,6 +53,7 @@ def test_convergence_covers_legacy_removed_history_and_already_published_linux()
         "macos",
         "linux",
         "macos",
+        "windows",
     ]
     assert all("host_kind" not in json.loads(row[2]) for row in first)
     MIGRATION.apply(conn)
@@ -59,10 +66,11 @@ def test_convergence_covers_legacy_removed_history_and_already_published_linux()
 
 
 def test_invalid_settings_refuse_before_rewriting_any_row():
-    conn = database({}, {"os": "windows"})
+    conn = database({}, {"os": "plan9"})
     before = list(conn.execute("SELECT settings FROM project_capabilities"))
     with pytest.raises(
-        AssertionError, match="test_machine_os_convergence_refused.*one of macos, linux"
+        AssertionError,
+        match="test_machine_os_convergence_refused.*test_machine_os_unsupported",
     ):
         MIGRATION.apply(conn)
     assert before == list(conn.execute("SELECT settings FROM project_capabilities"))
