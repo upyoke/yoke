@@ -298,7 +298,7 @@ def test_wizard_screen_helpers_never_emit_the_raw_token(tmp_path) -> None:
     setup.raw_token = RAW_TOKEN
     rendered = "\n".join(
         [
-            *flow._preview_lines(setup),
+            *flow.images.preview_lines(setup),
             *flow._admin_token_file_lines(setup),
             *flow._complete_lines(setup),
         ]

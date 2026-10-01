@@ -8,6 +8,7 @@ from yoke_cli import main as yoke_cli_main
 from yoke_cli import operation_inventory as op_inventory
 from yoke_cli import product_boundary_inventory as boundary_inventory
 from yoke_cli.local_core.launcher import LocalCoreLauncher
+from yoke_cli.local_core.checkout_build import identity
 from yoke_cli.local_core.runner import CommandResult
 
 
@@ -94,9 +95,7 @@ def test_status_json_reports_missing_runtime_and_machine_state(tmp_path: Path) -
 def test_build_dry_run_plans_without_writing_machine_state(
     tmp_path: Path, monkeypatch
 ) -> None:
-    monkeypatch.setattr(
-        "yoke_cli.local_core.docker_plan.port_free", lambda _port: True
-    )
+    monkeypatch.setattr("yoke_cli.local_core.docker_plan.port_free", lambda _port: True)
     machine_home = tmp_path / "machine-home"
     launcher = LocalCoreLauncher(
         runner=FakeRunner(),
@@ -115,9 +114,14 @@ def test_build_dry_run_plans_without_writing_machine_state(
     assert payload["ok"] is True
     assert payload["dry_run"] is True
     assert [
-        "docker", "build",
-        "--build-arg", "YOKE_BUILD_SHA=local",
-        "-t", "example/yoke-core:test",
+        "docker",
+        "build",
+        "--build-arg",
+        f"YOKE_BUILD_SHA={identity(str(REPO_ROOT))[0]}",
+        "--build-arg",
+        f"YOKE_ENGINE_VERSION={identity(str(REPO_ROOT))[1]}",
+        "-t",
+        "example/yoke-core:test",
         str(REPO_ROOT),
     ] in payload["plan"]
     assert not any(cmd[:2] == ["docker", "pull"] for cmd in payload["plan"])
@@ -127,9 +131,7 @@ def test_build_dry_run_plans_without_writing_machine_state(
 def test_start_builds_from_checkout_and_writes_config_without_leaking_token(
     tmp_path: Path, monkeypatch
 ) -> None:
-    monkeypatch.setattr(
-        "yoke_cli.local_core.docker_plan.port_free", lambda _port: True
-    )
+    monkeypatch.setattr("yoke_cli.local_core.docker_plan.port_free", lambda _port: True)
     machine_home = tmp_path / "machine-home"
     config_path = machine_home / "config.json"
     launcher = LocalCoreLauncher(

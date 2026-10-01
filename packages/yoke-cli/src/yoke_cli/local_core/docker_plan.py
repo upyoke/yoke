@@ -9,12 +9,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from yoke_cli.local_core import state
+from yoke_cli.local_core import state, checkout_build
 
 DEFAULT_API_PORT = 8765
 DEFAULT_POSTGRES_PORT = 55432
 LOCAL_IMAGE_REPOSITORY = "yoke-core-local"
-LOCAL_BUILD_SHA = "local"
 POSTGRES_IMAGE = "postgres:16-alpine"
 ENV_NAME = "local-core"
 NETWORK = "yoke-local-core"
@@ -67,13 +66,31 @@ def local_image_for_checkout(checkout_path: str) -> str:
     return f"{LOCAL_IMAGE_REPOSITORY}:{suffix}"
 
 
-def build_plan(checkout_path: str, image: str) -> list[list[str]]:
-    return [[
-        "docker", "build",
-        "--build-arg", f"YOKE_BUILD_SHA={LOCAL_BUILD_SHA}",
-        "-t", image,
-        str(Path(checkout_path).expanduser().resolve()),
-    ]]
+def build_plan(checkout_path: str, image: str, issues: list[Issue]) -> list[list[str]]:
+    try:
+        commit, version = checkout_build.identity(checkout_path)
+    except ValueError as exc:
+        issues.append(
+            issue(
+                "checkout_build_identity",
+                str(exc),
+                "Repair Git HEAD, then retry the checkout build.",
+            )
+        )
+        return []
+    return [
+        [
+            "docker",
+            "build",
+            "--build-arg",
+            f"YOKE_BUILD_SHA={commit}",
+            "--build-arg",
+            f"YOKE_ENGINE_VERSION={version}",
+            "-t",
+            image,
+            str(Path(checkout_path).expanduser().resolve()),
+        ]
+    ]
 
 
 def start_plan(
@@ -95,35 +112,87 @@ def start_plan(
 
 def db_run_cmd(env_file: str, postgres_port: int) -> list[str]:
     return [
-        "docker", "run", "-d", "--name", DB_CONTAINER, "--label", LABEL,
-        "--network", NETWORK, "--env-file", env_file,
-        "-p", f"127.0.0.1:{postgres_port}:5432",
-        "-v", f"{DB_VOLUME}:/var/lib/postgresql/data", POSTGRES_IMAGE,
+        "docker",
+        "run",
+        "-d",
+        "--name",
+        DB_CONTAINER,
+        "--label",
+        LABEL,
+        "--network",
+        NETWORK,
+        "--env-file",
+        env_file,
+        "-p",
+        f"127.0.0.1:{postgres_port}:5432",
+        "-v",
+        f"{DB_VOLUME}:/var/lib/postgresql/data",
+        POSTGRES_IMAGE,
     ]
 
 
 def bootstrap_plan(image: str, env_file: str) -> list[list[str]]:
-    return [[
-        "docker", "run", "--rm", "--network", NETWORK, "--env-file", env_file,
-        image, "python3", "-m", "yoke_core.domain.environment_bootstrap",
-    ]]
+    return [
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--network",
+            NETWORK,
+            "--env-file",
+            env_file,
+            image,
+            "python3",
+            "-m",
+            "yoke_core.domain.environment_bootstrap",
+        ]
+    ]
 
 
 def api_plan(image: str, env_file: str, api_port: int) -> list[list[str]]:
-    return [[
-        "docker", "run", "-d", "--name", API_CONTAINER, "--label", LABEL,
-        "--network", NETWORK, "--env-file", env_file,
-        "-p", f"127.0.0.1:{api_port}:{API_PORT_IN_CONTAINER}",
-        image, "python3", "-m", "yoke_core.api.server_entrypoint",
-    ]]
+    return [
+        [
+            "docker",
+            "run",
+            "-d",
+            "--name",
+            API_CONTAINER,
+            "--label",
+            LABEL,
+            "--network",
+            NETWORK,
+            "--env-file",
+            env_file,
+            "-p",
+            f"127.0.0.1:{api_port}:{API_PORT_IN_CONTAINER}",
+            image,
+            "python3",
+            "-m",
+            "yoke_core.api.server_entrypoint",
+        ]
+    ]
 
 
 def token_plan(image: str, env_file: str) -> list[str]:
     return [
-        "docker", "run", "--rm", "--network", NETWORK, "--env-file", env_file,
-        image, "python3", "-m", "yoke_core.domain.api_tokens_cli",
-        "bootstrap-admin", "--actor-label", "local-core",
-        "--project", "yoke", "--name", "local-core-admin",
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        NETWORK,
+        "--env-file",
+        env_file,
+        image,
+        "python3",
+        "-m",
+        "yoke_core.domain.api_tokens_cli",
+        "bootstrap-admin",
+        "--actor-label",
+        "local-core",
+        "--project",
+        "yoke",
+        "--name",
+        "local-core-admin",
     ]
 
 
@@ -179,16 +248,17 @@ def planned_payload(
     *,
     ok: bool = False,
 ) -> dict[str, Any]:
-    base.update({
-        "ok": (ok or dry_run) and not issues,
-        "dry_run": dry_run,
-        "plan": [redact(cmd) for cmd in plan],
-        "issues": [issue.as_dict() for issue in issues],
-    })
+    base.update(
+        {
+            "ok": (ok or dry_run) and not issues,
+            "dry_run": dry_run,
+            "plan": [redact(cmd) for cmd in plan],
+            "issues": [issue.as_dict() for issue in issues],
+        }
+    )
     if results:
         base["commands"] = [
-            {"args": redact(r.args), "returncode": r.returncode}
-            for r in results
+            {"args": redact(r.args), "returncode": r.returncode} for r in results
         ]
     return base
 

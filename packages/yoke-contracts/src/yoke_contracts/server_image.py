@@ -23,12 +23,11 @@ def canonical_server_image_tag(source_commit: str) -> str:
     return normalized[:CANONICAL_IMAGE_TAG_LENGTH]
 
 
-def pinned_server_image(source_commit: str) -> str:
+def pinned_server_image(
+    source_commit: str, *, repository: str = PUBLISHED_SERVER_IMAGE_REPOSITORY
+) -> str:
     """Return the published immutable image reference for *source_commit*."""
-    return (
-        f"{PUBLISHED_SERVER_IMAGE_REPOSITORY}:"
-        f"{canonical_server_image_tag(source_commit)}"
-    )
+    return f"{repository}:{canonical_server_image_tag(source_commit)}"
 
 
 __all__ = [

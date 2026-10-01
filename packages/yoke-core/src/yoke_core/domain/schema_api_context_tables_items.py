@@ -36,7 +36,7 @@ ITEMS_TABLE: dict[str, dict] = {
         "notes": (
             "Backlog row keyed by global bare-integer id for internal joins. "
             "The primary key is `id`; items has NO `item_id` or `public_id` column. "
-            "Read the specification or Dash instruction via items.get spec or body. "
+            "Read the specification or Dash instruction via items.get spec; items.detail.get serves narrative and execution instructions. "
             "Wrong guesses: description and instruction are not accepted items.get fields. "
             "`item_id` is a foreign-key column on OTHER tables. "
             "To resolve a public `PREFIX-N` ref in raw SQL use "

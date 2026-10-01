@@ -22,6 +22,7 @@ from yoke_contracts.api_urls import (
 from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.install_binding import source_checkout_root
 from yoke_contracts.server_image import pinned_server_image
+from yoke_cli.config.server_image_repository import configured, validate
 
 DEFAULT_RELEASE_CHANNEL = "stable"
 FETCH_TIMEOUT_SECONDS = 60.0
@@ -49,17 +50,17 @@ class ReleaseTarget:
     installer_url: str = ""
 
 
-def current_release_target(*, base_url: str | None = None) -> ReleaseTarget:
+def current_release_target(
+    *, base_url: str | None = None, image_repository: str | None = None
+) -> ReleaseTarget:
     """Resolve the running CLI build to its release image.
 
-    Installed clients use the immutable migration manifest published beside
-    their exact wheel version. A source checkout has no owning wheel version,
-    so development runs derive the same image tag directly from Git HEAD.
+    Installed clients resolve their wheel manifest; source checkouts use Git HEAD.
     """
     selected_base = distribution_base_url(base_url)
     version = local_handshake_version().strip()
     if not version:
-        return _source_checkout_target(selected_base)
+        return _source_checkout_target(selected_base, image_repository)
     encoded_version = urllib.parse.quote(version, safe="")
     manifest_url = (
         f"{selected_base}/dist/releases/{encoded_version}/migration-history.json"
@@ -84,6 +85,7 @@ def current_release_target(*, base_url: str | None = None) -> ReleaseTarget:
         version=version,
         source_commit=source_commit,
         base_url=selected_base,
+        image_repository=image_repository,
     )
 
 
@@ -205,7 +207,9 @@ def run_installer(
                 pass
 
 
-def _source_checkout_target(base_url: str) -> ReleaseTarget:
+def _source_checkout_target(
+    base_url: str, image_repository: str | None
+) -> ReleaseTarget:
     root = source_checkout_root(__file__)
     if root is None:
         raise ReleaseTargetError(
@@ -231,6 +235,7 @@ def _source_checkout_target(base_url: str) -> ReleaseTarget:
         version=f"source-{source_commit[:12]}",
         source_commit=source_commit,
         base_url=base_url,
+        image_repository=image_repository,
     )
 
 
@@ -241,11 +246,18 @@ def _target(
     base_url: str,
     channel: str = "",
     installer_url: str = "",
+    image_repository: str | None = None,
 ) -> ReleaseTarget:
+    try:
+        repository = (
+            validate(image_repository) if image_repository is not None else configured()
+        )
+    except ValueError as exc:
+        raise ReleaseTargetError(str(exc)) from exc
     return ReleaseTarget(
         version=version,
         source_commit=source_commit,
-        image=pinned_server_image(source_commit),
+        image=pinned_server_image(source_commit, repository=repository),
         base_url=base_url,
         channel=channel,
         installer_url=installer_url,

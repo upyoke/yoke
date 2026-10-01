@@ -54,7 +54,11 @@ the manual bootstrap probe; rootless Docker and Fedora/SELinux remain unproved.
 
 `yoke self-host init` takes `--dir`, `--port`, and `--image` overrides. By
 default it resolves the installed CLI's immutable release manifest and writes
-that release's exact `ghcr.io/upyoke/yoke-server:<sha12>` image to `.env`.
+that release's exact `<repository>:<sha12>` image to `.env`. The repository defaults
+to `ghcr.io/upyoke/yoke-server`; set `settings.server_image_repository` in machine
+config, or choose **Image repository** in the self-host onboarding preview, to
+use a fork, mirror, or private registry. Enter a lowercase registry/repository
+without a tag or digest; it must carry the same release commit tags.
 Every fresh bundle therefore starts with matching CLI and server versions, and
 a later container restart keeps the same server. `--image` remains an explicit
 operator override. Generated credentials stay in host-owned files under `secrets/`
@@ -247,7 +251,7 @@ state, or project-engine databases.
 ## Upgrades
 
 Running bundles stay on their exact image pin until you deliberately advance
-the pair. From any directory, run:
+the pair. Upgrades use the configured image repository. From any directory, run:
 
 ```bash
 yoke self-host upgrade --dir /path/to/yoke-server
@@ -263,6 +267,8 @@ has already accepted that same plan.
 An active source-checkout CLI refuses this command before preview or install,
 just as `yoke update` does. Update the checkout with git, then rebuild its
 source server with `yoke core upgrade --from-checkout /path/to/yoke --build`.
+Checkout builds pass Git HEAD and a `0.dev0+g<sha12>` snapshot version into
+the image, so installed wheels pass the same version check as release images.
 The refusal preserves the CLI install, bundle image pin, and running server.
 
 Failures name the stage and exact retry. The pin is unchanged when CLI install
