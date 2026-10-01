@@ -42,6 +42,10 @@ from yoke_core.engines.doctor_applicability import (
 
 _DB = UNIVERSAL
 _LOCAL = CheckApplicability(runtimes=frozenset({RUNTIME_LOCAL}))
+_LOCAL_SRC = CheckApplicability(
+    runtimes=frozenset({RUNTIME_LOCAL}),
+    requires_source_checkout=True,
+)
 _LOCAL_HTTPS = CheckApplicability(
     runtimes=frozenset({RUNTIME_LOCAL}),
     requires_https_control_plane=True,
@@ -72,6 +76,8 @@ _EXT_VPS = CheckApplicability(
 
 
 _SHAPES = (
+    (_LOCAL_SRC, ("windows-mount-checkout",)),
+    (_LOCAL, ("wsl-systemd",)),
     (
         _DB,
         (

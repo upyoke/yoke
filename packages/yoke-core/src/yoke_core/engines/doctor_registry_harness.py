@@ -37,6 +37,8 @@ from __future__ import annotations
 
 from typing import List
 
+from yoke_core.engines.doctor_hc_wsl import hc_windows_mount_checkout, hc_wsl_systemd
+
 from yoke_core.engines.doctor_hc_agents_sessions import (
     hc_stale_reclaim_collision,
     hc_stale_session_reclaimer_alive,
@@ -106,6 +108,12 @@ from yoke_core.engines.doctor_hc_hook_resident import (
 
 
 HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
+    HealthCheck(
+        "windows-mount-checkout",
+        "Checkout on a Windows mount",
+        hc_windows_mount_checkout,
+    ),
+    HealthCheck("wsl-systemd", "WSL systemd readiness", hc_wsl_systemd),
     # Group A — session/harness substrate (task 13)
     HealthCheck(
         "stale-sessions",
