@@ -324,6 +324,7 @@ def plan_execution_view(
         "continues_execution_id": execution.get("continues_execution_id"),
         "execution_target": execution.get("execution_target"),
         "execution_target_digest": execution.get("execution_target_digest"),
+        "remaining_requirement_count": execution.get("remaining_requirement_count"),
         "requirements": list(execution["roster"]),
         "results": result_rows(conn, str(execution["id"])),
     }

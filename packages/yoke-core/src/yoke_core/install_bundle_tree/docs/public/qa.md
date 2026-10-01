@@ -197,3 +197,10 @@ the sudo password once; unattended machines without that authority fail fast
 with the missing dependencies and a repair step. Agent-time setup uses the same
 function through `yoke qa browser setup`. Screenshot captures use the platform
 temporary directory unless an output directory is supplied.
+
+Scoped release QA can require several Test Machines. Use `yoke watch qa-plan --
+--deployment-run-id RUN --stage STAGE --member ITEM --project P` without a host
+pin. The command gives each machine its own ordered execution and FIFO lease,
+then credits all results to the same member. After a host wait or independent
+review, repeat that command to continue. Every required host must pass before
+member acceptance. See [case attachment](reference/qa-platform/case-attachment.md).

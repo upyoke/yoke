@@ -133,7 +133,9 @@ def resolve_plan_machine(
         raise MachineConstraintError(
             "test_machine_plan_constraints_conflict: one plan execution holds "
             f"one uninterrupted machine lease, but its cases require {names}; "
-            "split those cases into one plan per machine"
+            "for deployment member QA, rerun with --stage STAGE --member ITEM "
+            "and omit --machine to execute separate host rosters; other subjects "
+            "require one plan execution per machine"
         )
     plan_machine = next(iter(constrained), None)
     return resolve_case_machine(
