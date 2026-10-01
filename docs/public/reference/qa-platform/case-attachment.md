@@ -228,6 +228,11 @@ Exploratory mission `method_config` can declare an apt package fixture:
 }
 ```
 
+`method_config.machine` selects that registered host even when this direct
+requirement has only the generic `test-machine` capability. Admitted deployment
+copies retain the pin; omitting `--machine` does not permit another host, and a
+conflicting run pin is refused before a lease is acquired.
+
 Only an explicitly declared host baseline restores the golden home. An empty
 baseline list preserves the live home and, absent `host_starting_state`, leaves
 packages and their journal untouched. A named baseline or explicit fixture
