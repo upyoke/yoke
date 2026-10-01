@@ -101,7 +101,39 @@ def test_complete_run_finalization_returns_pending_exit(monkeypatch, capsys):
     assert rc == deploy_pipeline.EXIT_FINALIZATION_PENDING
     assert rc != deploy_pipeline.EXIT_STAGE_FAILED
     assert update.call_count == 3
-    assert "re-drive run-9 to finalize" in capsys.readouterr().err
+    output = capsys.readouterr()
+    assert "re-drive run-9 to finalize" in output.err
+    assert "status=succeeded written" not in output.out
+
+
+def test_member_wrap_up_is_visible_before_each_slow_write(monkeypatch, capsys):
+    from yoke_core.domain import deployment_item_stamp
+
+    members = ["441", "442"]
+    seen = []
+
+    def stamp(item_id, field, value):
+        output = capsys.readouterr().out
+        assert f"stamping member items.id={item_id} deployed_to=prod" in output
+        seen.append(item_id)
+
+    def succeed(run_id, field, value):
+        assert seen == [int(member) for member in members]
+        assert "settling member close-outs" in capsys.readouterr().out
+
+    monkeypatch.setattr(deployment_item_stamp, "stamp_item_field", stamp)
+    monkeypatch.setattr(run_updates, "update_run_field", succeed)
+    monkeypatch.setattr(run_context, "_emit_run_event", lambda *a, **k: None)
+
+    assert (
+        run_context.complete_run_finalization(
+            "run-wrap-up", "flow", "yoke", members, "persistent", "prod"
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert "Run run-wrap-up: status=succeeded written" in output
+    assert "Pipeline complete for run run-wrap-up" in output
 
 
 def _run_resumed(monkeypatch, *, status: str, stage: str, finish=None):

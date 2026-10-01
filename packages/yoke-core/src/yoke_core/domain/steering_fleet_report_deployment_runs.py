@@ -107,9 +107,8 @@ class DeploymentRunProgress:
     flow: str
     status: str
     stage: str
-    #: Seconds since this stage's most recent receipt, or since the run
-    #: started when the stage has produced none. ``None`` when neither is
-    #: readable — reported as unknown rather than guessed at as zero.
+    #: Seconds since the run's durable current-stage entry timestamp.
+    #: ``None`` means the stage age is unknown, including older runs.
     stage_seconds: Optional[int]
     outstanding: int
     total_blocking: int
@@ -200,12 +199,7 @@ def run_progress(
             unresolved = facts.unresolved.get(run_id, ())
             outstanding = len(unresolved)
             total_blocking = facts.totals.get(run_id, 0)
-        # Receipt evidence dates the current stage; the run's own start is
-        # the last resort, truthful only while nothing has produced a
-        # receipt yet — a run that has not left its first stage.
-        entered = facts.entered_at.get(run_id) or str(
-            run.get("started_at") or run.get("created_at") or ""
-        )
+        entered = facts.entered_at.get(run_id, "")
         red = tuple(
             RedRequirement(
                 requirement_id=int(item["requirement_id"]),

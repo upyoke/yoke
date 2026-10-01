@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS deployment_runs (
     release_lineage TEXT,
     status TEXT NOT NULL DEFAULT 'created'
         CHECK(status IN ('created','executing','succeeded','failed','cancelled')),
-    current_stage TEXT,
+    current_stage TEXT, current_stage_entered_at TEXT,
     created_at TEXT NOT NULL,
     started_at TEXT,
     completed_at TEXT,

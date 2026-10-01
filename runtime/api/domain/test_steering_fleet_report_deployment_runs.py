@@ -23,9 +23,9 @@ STAGE_STARTED = "2026-08-26T08:00:00Z"
 def _seed_run(conn, *, stage: str = STAGE, status: str = "executing") -> None:
     conn.execute(
         "INSERT INTO deployment_runs"
-        "(id,project_id,flow,status,current_stage,created_at,started_at) "
-        "VALUES (%s,1,'prod-release',%s,%s,%s,%s)",
-        (RUN_ID, status, stage, STAGE_STARTED, STAGE_STARTED),
+        "(id,project_id,flow,status,current_stage,created_at,started_at,current_stage_entered_at) "
+        "VALUES (%s,1,'prod-release',%s,%s,%s,%s,%s)",
+        (RUN_ID, status, stage, STAGE_STARTED, STAGE_STARTED, STAGE_STARTED),
     )
     conn.execute(
         "INSERT INTO deployment_stage_receipts"

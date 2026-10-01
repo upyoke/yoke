@@ -50,12 +50,13 @@ def _seed_run(
     status: str = "executing",
     receipt_at: str | None = STARTED,
     started_at: str = STARTED,
+    entered_at: str | None = STARTED,
 ) -> None:
     conn.execute(
         "INSERT INTO deployment_runs"
-        "(id,project_id,flow,status,current_stage,created_at,started_at) "
-        "VALUES (%s,1,'prod-release',%s,%s,%s,%s)",
-        (run_id, status, stage, started_at, started_at),
+        "(id,project_id,flow,status,current_stage,created_at,started_at,current_stage_entered_at) "
+        "VALUES (%s,1,'prod-release',%s,%s,%s,%s,%s)",
+        (run_id, status, stage, started_at, started_at, entered_at),
     )
     if receipt_at is None:
         return
@@ -69,8 +70,13 @@ def _seed_run(
 
 
 def _seed_requirement(
-    conn, *, run_id: str, requirement_id: int, member_item_id: int | None,
-    waived_at: str | None = None, superseded_by: int | None = None,
+    conn,
+    *,
+    run_id: str,
+    requirement_id: int,
+    member_item_id: int | None,
+    waived_at: str | None = None,
+    superseded_by: int | None = None,
 ) -> None:
     conn.execute(
         "INSERT INTO qa_requirements"
@@ -80,13 +86,20 @@ def _seed_requirement(
         "VALUES (%s,%s,%s,%s,'browser','post_deploy','blocking','flow_derived',"
         "%s,%s,%s)",
         (
-            requirement_id, run_id, STAGE_QA, member_item_id, STARTED,
-            waived_at, superseded_by,
+            requirement_id,
+            run_id,
+            STAGE_QA,
+            member_item_id,
+            STARTED,
+            waived_at,
+            superseded_by,
         ),
     )
 
 
-def _record_verdict(conn, *, requirement_id: int, verdict: str, at: str = STARTED) -> None:
+def _record_verdict(
+    conn, *, requirement_id: int, verdict: str, at: str = STARTED
+) -> None:
     conn.execute(
         "INSERT INTO qa_runs"
         "(qa_requirement_id,performed_by,qa_kind,verdict,created_at,completed_at) "
@@ -95,7 +108,9 @@ def _record_verdict(conn, *, requirement_id: int, verdict: str, at: str = STARTE
     )
 
 
-def _resolve_decision(conn, *, run_id: str, request_id: int, stage: str, action: str) -> None:
+def _resolve_decision(
+    conn, *, run_id: str, request_id: int, stage: str, action: str
+) -> None:
     conn.execute(
         "INSERT INTO decision_requests"
         "(id,kind,subject_type,subject_key,project_id,status,"
@@ -138,21 +153,14 @@ def _complete_receipt(conn, *, run_id: str, stage: str, at: str) -> None:
     )
 
 
-def test_a_qa_stage_ages_from_the_receipt_of_the_stage_before_it(test_db) -> None:
-    """A QA stage produces no receipt, so its predecessor's dates the wait.
-
-    Reading the run clock instead reported the whole run's age as the
-    stage's, so a run ten minutes into item QA looked like a stall.
-    """
+def test_a_qa_stage_ages_from_its_own_entry_clock(test_db) -> None:
     conn = seed_steering_scope(test_db)
     _seed_flow(conn)
     _seed_run(conn, run_id="run-20260826-020", stage=STAGE_BUILD)
-    _complete_receipt(
-        conn, run_id="run-20260826-020", stage=STAGE_BUILD, at=ENTERED_QA
-    )
+    _complete_receipt(conn, run_id="run-20260826-020", stage=STAGE_BUILD, at=ENTERED_QA)
     conn.execute(
-        "UPDATE deployment_runs SET current_stage=%s WHERE id=%s",
-        (STAGE_QA, "run-20260826-020"),
+        "UPDATE deployment_runs SET current_stage=%s,current_stage_entered_at=%s WHERE id=%s",
+        (STAGE_QA, ENTERED_QA, "run-20260826-020"),
     )
     conn.commit()
 
@@ -185,25 +193,33 @@ def test_a_receipt_from_a_later_stage_never_dates_the_current_one(test_db) -> No
     assert run.stage_seconds == 4 * 3600
 
 
-def test_a_run_without_a_stage_receipt_ages_from_the_run_clock(test_db) -> None:
+def test_a_legacy_run_without_an_entry_clock_has_unknown_age(test_db) -> None:
     conn = seed_steering_scope(test_db)
-    _seed_run(conn, run_id="run-20260826-010", receipt_at=None)
+    _seed_run(conn, run_id="run-20260826-010", entered_at=None)
     conn.commit()
 
     run = compose(conn).deployment_runs[0]
-    assert run.stage_seconds == 4 * 3600
+    assert run.stage_seconds is None
 
 
 def test_waived_and_superseded_requirements_are_not_red(test_db) -> None:
     conn = seed_steering_scope(test_db)
     _seed_run(conn, run_id="run-20260826-011")
-    _seed_requirement(conn, run_id="run-20260826-011", requirement_id=911, member_item_id=1)
     _seed_requirement(
-        conn, run_id="run-20260826-011", requirement_id=912, member_item_id=1,
+        conn, run_id="run-20260826-011", requirement_id=911, member_item_id=1
+    )
+    _seed_requirement(
+        conn,
+        run_id="run-20260826-011",
+        requirement_id=912,
+        member_item_id=1,
         waived_at=STARTED,
     )
     _seed_requirement(
-        conn, run_id="run-20260826-011", requirement_id=913, member_item_id=1,
+        conn,
+        run_id="run-20260826-011",
+        requirement_id=913,
+        member_item_id=1,
         superseded_by=911,
     )
     _record_verdict(conn, requirement_id=911, verdict="fail")
@@ -220,7 +236,9 @@ def test_waived_and_superseded_requirements_are_not_red(test_db) -> None:
 def test_a_later_pass_replaces_an_earlier_fail_on_the_same_requirement(test_db) -> None:
     conn = seed_steering_scope(test_db)
     _seed_run(conn, run_id="run-20260826-012")
-    _seed_requirement(conn, run_id="run-20260826-012", requirement_id=921, member_item_id=1)
+    _seed_requirement(
+        conn, run_id="run-20260826-012", requirement_id=921, member_item_id=1
+    )
     _record_verdict(conn, requirement_id=921, verdict="fail", at=OLDER)
     _record_verdict(conn, requirement_id=921, verdict="pass", at=STARTED)
     conn.commit()
@@ -235,16 +253,27 @@ def test_simultaneous_runs_keep_per_run_receipts_decisions_and_reds(test_db) -> 
     conn = seed_steering_scope(test_db)
     _seed_run(conn, run_id="run-20260826-021", stage=STAGE_QA)
     _seed_run(conn, run_id="run-20260826-022", stage=STAGE_RELEASE)
-    _seed_requirement(conn, run_id="run-20260826-021", requirement_id=931, member_item_id=1)
-    _seed_requirement(conn, run_id="run-20260826-022", requirement_id=932, member_item_id=2)
+    _seed_requirement(
+        conn, run_id="run-20260826-021", requirement_id=931, member_item_id=1
+    )
+    _seed_requirement(
+        conn, run_id="run-20260826-022", requirement_id=932, member_item_id=2
+    )
     _record_verdict(conn, requirement_id=931, verdict="fail")
     _record_verdict(conn, requirement_id=932, verdict="error")
     _resolve_decision(
-        conn, run_id="run-20260826-021", request_id=8401, stage=STAGE_QA, action="approve",
+        conn,
+        run_id="run-20260826-021",
+        request_id=8401,
+        stage=STAGE_QA,
+        action="approve",
     )
     _resolve_decision(
-        conn, run_id="run-20260826-022", request_id=8402,
-        stage="earlier-gate", action="approve",
+        conn,
+        run_id="run-20260826-022",
+        request_id=8402,
+        stage="earlier-gate",
+        action="approve",
     )
     conn.commit()
 
@@ -272,12 +301,18 @@ def _seed_scaled_run(conn, index: int) -> None:
     run_id = f"run-20260826-{index:03d}"
     _seed_run(conn, run_id=run_id, stage=STAGE_RELEASE)
     _seed_requirement(
-        conn, run_id=run_id, requirement_id=2000 + index, member_item_id=1,
+        conn,
+        run_id=run_id,
+        requirement_id=2000 + index,
+        member_item_id=1,
     )
     _record_verdict(conn, requirement_id=2000 + index, verdict="pass")
     _resolve_decision(
-        conn, run_id=run_id, request_id=9000 + index,
-        stage=STAGE_RELEASE, action="approve",
+        conn,
+        run_id=run_id,
+        request_id=9000 + index,
+        stage=STAGE_RELEASE,
+        action="approve",
     )
 
 

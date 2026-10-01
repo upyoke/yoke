@@ -164,7 +164,7 @@ def test_an_interrupted_settlement_closes_nothing_and_replays(
 
 
 def test_run_success_closes_every_ready_member_with_it(
-    test_db: Any, monkeypatch
+    test_db: Any, monkeypatch, capsys
 ) -> None:
     _isolate_status_effects(monkeypatch)
     _two_ready_members(test_db)
@@ -176,6 +176,11 @@ def test_run_success_closes_every_ready_member_with_it(
     for item_id in (FIRST_ITEM, SECOND_ITEM):
         assert _status(test_db, item_id) == "done"
         assert not _claim_held(test_db, item_id)
+    output = capsys.readouterr().out
+    for item_id in (FIRST_ITEM, SECOND_ITEM):
+        ref = render_item_ref(test_db, item_id)
+        assert f"Run run-settled: preparing {ref} close-out" in output
+        assert f"Run run-settled: finishing {ref} close-out effects" in output
 
 
 def test_an_uncleared_member_holds_the_run_until_answered(

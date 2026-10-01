@@ -140,6 +140,7 @@ def _prepared_members(
     for member in members:
         item_id = int(member["item_id"])
         public_ref = str(member["public_ref"])
+        print(f"Run {run_id}: preparing {public_ref} close-out", flush=True)
         unresolved = supersede_resultless_item_executions(
             conn, item_id=item_id, run_id=run_id, public_ref=public_ref
         )
@@ -280,6 +281,10 @@ def _effects_phase(conn: Any, run_id: str, staged: list[Any]) -> Optional[str]:
     failed: list[str] = []
     for member in _final_members(conn, run_id, at_wait=False):
         item_id = int(member["item_id"])
+        print(
+            f"Run {run_id}: finishing {member['public_ref']} close-out effects",
+            flush=True,
+        )
         failure = run_closed_member_effects(
             conn,
             item_id=item_id,

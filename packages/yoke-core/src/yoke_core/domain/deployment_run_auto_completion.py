@@ -196,6 +196,7 @@ def finish_ready_run(conn: Any, run_id: str) -> CompletionAttempt:
     """
     from yoke_core.domain.backlog_item_db_writes import _update_item_multi
     from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
+    from yoke_core.domain.deployment_run_stage_entry import set_current_stage
 
     try:
         ready, reason = _readiness(conn, run_id)
@@ -204,21 +205,13 @@ def finish_ready_run(conn: Any, run_id: str) -> CompletionAttempt:
         for stage in ready["remaining"]:
             for item_id in ready["members"]:
                 _update_item_multi(conn, item_id, {"deploy_stage": stage}, commit=False)
-            conn.execute(
-                "UPDATE deployment_runs SET current_stage=%s "
-                "WHERE id=%s AND status='executing'",
-                (stage, run_id),
-            )
+            set_current_stage(conn, run_id, stage, only_executing=True)
         for item_id in ready["members"]:
             fields = {"deploy_stage": "complete"}
             if ready["delivered_to"]:
                 fields["deployed_to"] = ready["delivered_to"]
             _update_item_multi(conn, item_id, fields, commit=False)
-        conn.execute(
-            "UPDATE deployment_runs SET current_stage='complete' "
-            "WHERE id=%s AND status='executing'",
-            (run_id,),
-        )
+        set_current_stage(conn, run_id, "complete", only_executing=True)
         conn.commit()
         refusal = cmd_update(run_id, "status", "succeeded")
         if refusal:

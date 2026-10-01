@@ -1,31 +1,38 @@
-"""When a live deployment run entered the stage it is currently sitting at.
-
-A stage's own receipt is allocated as that stage starts, so the newest
-receipt's ``created_at`` is when the run entered it. A QA stage has no
-receipt of its own to read at all —
-:func:`~yoke_core.domain.deployment_stage_receipts.allocate_deployment_stage_receipt`
-refuses a QA stage by name — so a run parked at scoped QA is dated from the
-newest completion among the receipt-producing stages its flow orders before
-that stage: the moment the run advanced into the stage it is now waiting at.
-
-Dating such a run from its own ``started_at`` reported the age of the whole
-run as the age of its current stage, so a run ten minutes into item QA was
-shown as an hour-long stall and read as one. That reading is truthful only
-while no receipt exists at all, which is a run that has not left its first
-stage, so callers keep it as the last resort and nothing else.
-
-The ordering here is the flow's pinned stage list, never elapsed time: a
-stage name the run's flow does not pin cannot be placed relative to the
-current one, and contributes no evidence rather than a guessed order.
-"""
+"""Durable stage-entry clocks and pinned stage classification for live runs."""
 
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.deployment_flow_policy import QA_STEP_RUNNER, STAGE_KIND_QA
+from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.schema_common import _column_exists
+
+
+def set_current_stage(
+    conn: Any, run_id: str, stage: str, *, only_executing: bool = False
+) -> None:
+    """Write the stage and its entry clock together in the caller's transaction.
+
+    Re-driving the same stage preserves its age. Before the additive column
+    converges, the stage still advances; readers show an unknown age rather
+    than guessing from another clock. No old run is backfilled.
+    """
+    guard = " AND status='executing'" if only_executing else ""
+    if _column_exists(conn, "deployment_runs", "current_stage_entered_at"):
+        conn.execute(
+            "UPDATE deployment_runs SET current_stage_entered_at=CASE "
+            "WHEN current_stage IS DISTINCT FROM %s THEN %s "
+            f"ELSE current_stage_entered_at END,current_stage=%s WHERE id=%s{guard}",
+            (stage, iso8601_now(), stage, run_id),
+        )
+    else:
+        conn.execute(
+            f"UPDATE deployment_runs SET current_stage=%s WHERE id=%s{guard}",
+            (stage, run_id),
+        )
 
 
 def parse_stage_plan(raw: Any) -> tuple[dict[str, Any], ...]:
@@ -42,9 +49,7 @@ def parse_stage_plan(raw: Any) -> tuple[dict[str, Any], ...]:
 def _uniquely_pinned(
     stages: tuple[dict[str, Any], ...], stage_name: str
 ) -> dict[str, Any] | None:
-    matches = [
-        stage for stage in stages if str(stage.get("name") or "") == stage_name
-    ]
+    matches = [stage for stage in stages if str(stage.get("name") or "") == stage_name]
     return matches[0] if len(matches) == 1 else None
 
 
@@ -59,71 +64,8 @@ def is_scoped_qa_stage(stages: tuple[dict[str, Any], ...], stage_name: str) -> b
     )
 
 
-def preceding_stage_names(
-    stages: tuple[dict[str, Any], ...], stage_name: str
-) -> frozenset[str]:
-    """Stage names the flow orders before ``stage_name``.
-
-    A stage the flow does not uniquely pin cannot be ordered against, so the
-    answer is empty rather than an assumed position.
-    """
-    if _uniquely_pinned(stages, stage_name) is None:
-        return frozenset()
-    before: set[str] = set()
-    for stage in stages:
-        name = str(stage.get("name") or "")
-        if name == stage_name:
-            break
-        if name:
-            before.add(name)
-    return frozenset(before)
-
-
-def stage_entry_times(
-    receipts: Iterable[Mapping[str, Any]],
-    *,
-    current_stage_by_run: Mapping[str, str],
-    stage_plan_by_run: Mapping[str, tuple[dict[str, Any], ...]],
-) -> dict[str, str]:
-    """Each run's current-stage entry timestamp, from receipt evidence only.
-
-    ``receipts`` carries ``run_id``, ``stage_name``, ``created_at``,
-    ``completed_at`` and ``id`` for every receipt of the runs in question. A
-    run with no usable receipt is absent from the result, which is the
-    caller's signal that receipts prove nothing about its stage age.
-    """
-    own: dict[str, tuple[str, int]] = {}
-    after_prior: dict[str, str] = {}
-    for receipt in receipts:
-        run_id = str(receipt["run_id"])
-        at_stage = current_stage_by_run.get(run_id)
-        if not at_stage:
-            continue
-        stage_name = str(receipt["stage_name"] or "")
-        if stage_name == at_stage:
-            started = str(receipt.get("created_at") or "")
-            if not started:
-                continue
-            attempt = (started, int(receipt["id"]))
-            if attempt > own.get(run_id, ("", 0)):
-                own[run_id] = attempt
-            continue
-        if stage_name not in preceding_stage_names(
-            stage_plan_by_run.get(run_id, ()), at_stage
-        ):
-            continue
-        finished = str(receipt.get("completed_at") or "")
-        if finished > after_prior.get(run_id, ""):
-            after_prior[run_id] = finished
-    entered = {run_id: started for run_id, (started, _id) in own.items()}
-    for run_id, finished in after_prior.items():
-        entered.setdefault(run_id, finished)
-    return entered
-
-
 __all__ = [
     "is_scoped_qa_stage",
     "parse_stage_plan",
-    "preceding_stage_names",
-    "stage_entry_times",
+    "set_current_stage",
 ]

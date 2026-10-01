@@ -260,10 +260,15 @@ def cmd_update(
             ):
                 return refusal
 
-        conn.execute(
-            f"UPDATE deployment_runs SET {field}=%s WHERE id=%s",
-            (value, run_id),
-        )
+        if field == "current_stage":
+            from yoke_core.domain.deployment_run_stage_entry import set_current_stage
+
+            set_current_stage(conn, run_id, value)
+        else:
+            conn.execute(
+                f"UPDATE deployment_runs SET {field}=%s WHERE id=%s",
+                (value, run_id),
+            )
         conn.commit()
         return None
     finally:
