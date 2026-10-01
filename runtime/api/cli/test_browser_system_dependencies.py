@@ -139,6 +139,19 @@ def test_present_libraries_still_provision_chromium_sandbox(setup, monkeypatch):
     assert calls[0]["autoinstall"] is True
 
 
+def test_missing_libraries_are_installed_before_sandbox_launch_probe(
+    setup, monkeypatch
+):
+    ensure, commands, _ = setup
+
+    def sandbox(*args, **kwargs):
+        assert any("install-deps" in command for command, _ in commands)
+        assert sum("-e" in command for command, _ in commands) == 2
+
+    monkeypatch.setattr(deps, "ensure_chromium_apparmor", sandbox)
+    ensure()
+
+
 def test_failed_install_is_diagnosed_and_does_not_report_success(setup, monkeypatch):
     ensure, commands, logs = setup
     original = deps.subprocess.run

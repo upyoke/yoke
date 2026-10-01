@@ -64,7 +64,9 @@ const { chromium } = require('playwright');
 
 
 def _failure(detail):
-    return RuntimeError(f"browser_apparmor_setup_failed: {detail}. {RECOVERY}")
+    # Provisioning failures are one plain diagnostic, not a Chromium log dump.
+    reason = " ".join(str(detail).splitlines()[0].split())
+    return RuntimeError(f"browser_apparmor_setup_failed: {reason}. {RECOVERY}")
 
 
 def _profile(browser, executables):
