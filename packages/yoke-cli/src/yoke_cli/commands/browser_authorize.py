@@ -41,6 +41,10 @@ credential is read, stored, or logged by Yoke — the profile is Chromium's own,
 kept with the project's machine-local capability secrets at owner-only
 permissions.
 
+Authorization runs the normal browser setup first, including Linux libraries
+and Chromium's AppArmor sandbox allowance when the host restricts user namespaces.
+That refreshes the allowance for updated browser paths before the window opens.
+
 Close every authorization window to finish. On macOS, where Chromium may stay
 running without a window, Yoke checks the spawned browser's windows and asks
 it to shut down after the last one closes. If no macOS window opens in 30 seconds,
@@ -127,7 +131,7 @@ def browser_authorize(args: List[str]) -> int:
         return 2
 
     try:
-        from yoke_harness import browser_client, browser_runtime_home
+        from yoke_harness import browser_client, browser_runtime_home, browser_setup
     except ImportError as exc:
         print(
             "yoke browser authorize requires yoke-harness in the "
@@ -153,6 +157,14 @@ def browser_authorize(args: List[str]) -> int:
             code=2,
         )
 
+    try:
+        toolchain = browser_node_toolchain.ensure_node_toolchain()
+        browser_setup.ensure_browser_runtime(
+            runtime_dir, toolchain, emit=lambda message: print(message, file=sys.stderr)
+        )
+    except RuntimeError as exc:
+        return _fail(parsed.json_mode, str(exc), code=2)
+
     _stop_daemon_holding_profile(browser_client)
 
     removed = (
@@ -167,7 +179,6 @@ def browser_authorize(args: List[str]) -> int:
         )
     profile = browser_profile.ensure_profile_dir(parsed.project)
 
-    toolchain = browser_node_toolchain.ensure_node_toolchain()
     command = [str(toolchain.node), str(authorize_js), "--profile-dir", str(profile)]
     if parsed.url:
         command.extend(["--url", parsed.url])

@@ -38,6 +38,8 @@ ITEMS_TABLE: dict[str, dict] = {
             "The primary key is `id`; items has NO `item_id` or `public_id` column. "
             "Read the specification or Dash instruction via items.get spec; items.detail.get serves narrative and execution instructions. "
             "Wrong guesses: description and instruction are not accepted items.get fields. "
+            "Progress Log is a section, not an items.get progress_log column; "
+            "read it via items.get body, and append via items.progress_log.append. "
             "`item_id` is a foreign-key column on OTHER tables. "
             "To resolve a public `PREFIX-N` ref in raw SQL use "
             "`WHERE project_id = <p> AND project_sequence = <n>` "

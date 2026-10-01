@@ -14,6 +14,19 @@ runtime whose Python version differs from the onboarding CLI. Missing package
 authority or a failed installation stops setup with the package and recovery
 named; no manual sudo command is required.
 
+Browser setup uses the same OS authority to provision Chromium's sandbox on
+hosts enforcing `kernel.apparmor_restrict_unprivileged_userns` (including
+Ubuntu 23.10+). It installs and loads an AppArmor `userns` allowance attached
+only to Yoke's current Chromium and headless-shell executable paths. Updates
+replace those attachments when Playwright changes its browser paths.
+Authorization and browser QA invoke this setup before launching Chromium.
+The sign-in window and browser QA run with Chromium's sandbox enabled; the
+host restriction stays enabled. Missing system authority or AppArmor tooling,
+or a profile that cannot load, stops browser setup with
+`browser_apparmor_setup_failed` and the recovery step. Retry
+`yoke qa browser setup` in a terminal with sudo access after repairing the
+named cause; Yoke handles the system command and password prompt itself.
+
 The unit lives at
 `~/.config/systemd/user/com.upyoke.relay[.<environment-id>].service`.
 It starts at login, restarts on failure, and stops after the last login session

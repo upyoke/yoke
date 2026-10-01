@@ -225,6 +225,10 @@ def test_ensure_daemon_running_uses_the_projects_profile(
 
 def _stub_authorize_runtime(tmp_path, monkeypatch) -> list[dict]:
     """Stand in for the browser runtime and the window subprocess."""
+    monkeypatch.setattr(
+        "yoke_harness.browser_setup.ensure_browser_runtime",
+        lambda *args, **kwargs: None,
+    )
     runtime_dir = tmp_path / "browser-runtime"
     runtime_dir.joinpath("src").mkdir(parents=True)
     runtime_dir.joinpath("src", "authorize.js").write_text("", encoding="utf-8")

@@ -106,6 +106,9 @@ def test_an_unusable_cookie_store_names_its_recovery(tmp_path) -> None:
 
 
 def _stub_authorize_runtime(tmp_path, monkeypatch) -> list[dict]:
+    monkeypatch.setattr(
+        browser_setup, "ensure_browser_runtime", lambda *args, **kwargs: None
+    )
     runtime_dir = tmp_path / "browser-runtime"
     runtime_dir.joinpath("src").mkdir(parents=True)
     runtime_dir.joinpath("src", "authorize.js").write_text("", encoding="utf-8")
