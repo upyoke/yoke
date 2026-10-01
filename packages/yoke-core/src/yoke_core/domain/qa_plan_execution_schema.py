@@ -28,6 +28,7 @@ from yoke_core.domain.qa_standalone_schema import (
 
 QA_PLAN_EXECUTION_TABLE = "qa_plan_executions"
 QA_PLAN_EXECUTION_RESULT_TABLE = "qa_plan_execution_results"
+EXECUTION_ORDER_DEFINITION = "BIGINT GENERATED ALWAYS AS IDENTITY"
 LIVE_PLAN_EXECUTION_STATES = LIVE_EXECUTION_STATES
 TERMINAL_PLAN_EXECUTION_STATES = frozenset({"completed", "aborted", "error"})
 LIVE_PLAN_EXECUTION_SQL = ", ".join(map(repr, sorted(LIVE_PLAN_EXECUTION_STATES)))
@@ -59,7 +60,7 @@ QA_PLAN_EXECUTION_TARGET_COLUMNS = (
 #: execution built, so no case in this execution reaches a host baseline.
 QA_PLAN_EXECUTION_CONTINUATION_COLUMNS = ("continues_execution_id",)
 QA_PLAN_EXECUTION_ADDITIVE_COLUMNS = (
-    ("standalone_plan_id",)
+    ("standalone_plan_id", "execution_order")
     + QA_PLAN_EXECUTION_TARGET_COLUMNS
     + QA_PLAN_EXECUTION_CONTINUATION_COLUMNS
     + tuple(column for column, _definition in DEPLOYMENT_SCOPE_COLUMNS)
@@ -87,6 +88,7 @@ _QA_PLAN_EXECUTION_FOREIGN_KEYS = """,
 QA_PLAN_EXECUTION_SCHEMA_SQL = f"""
 CREATE TABLE IF NOT EXISTS qa_plan_executions (
     id TEXT PRIMARY KEY,
+    execution_order {EXECUTION_ORDER_DEFINITION},
     item_id INTEGER,
     deployment_run_id TEXT,
     standalone_plan_id INTEGER,
@@ -152,7 +154,9 @@ def converge_qa_plan_execution_schema(conn: Any) -> None:
         for column in QA_PLAN_EXECUTION_ADDITIVE_COLUMNS:
             if not _column_exists(conn, QA_PLAN_EXECUTION_TABLE, column):
                 definition = (
-                    "INTEGER"
+                    EXECUTION_ORDER_DEFINITION
+                    if column == "execution_order"
+                    else "INTEGER"
                     if column == "standalone_plan_id"
                     else dict(DEPLOYMENT_SCOPE_COLUMNS).get(column, "TEXT")
                 )

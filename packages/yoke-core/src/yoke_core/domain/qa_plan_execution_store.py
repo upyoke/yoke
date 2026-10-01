@@ -10,10 +10,10 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 
-# Snapshot requirement ids preserve creation order within canonical timestamp seconds.
+# The unique live owner wins; history follows execution allocation, not snapshots.
 STANDALONE_HISTORY_ORDER_SQL = (
-    "created_at DESC, (SELECT MAX(r.id) FROM qa_requirements r "
-    "WHERE r.standalone_execution_id=qa_plan_executions.id) DESC, id DESC"
+    f"CASE WHEN state IN ({LIVE_PLAN_EXECUTION_SQL}) THEN 0 ELSE 1 END, "
+    "execution_order DESC"
 )
 
 
