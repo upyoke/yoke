@@ -26,7 +26,11 @@ ITEM_WORKTREE_TABLES: dict[str, dict] = {
             "Lanes do not own sessions. Session authority is derived from "
             "active work_claims joined through the claimed item or task. "
             "Read an item's exact interpreted policy with `yoke workflows "
-            "item get PREFIX-N`; do not infer lane shape from workflow ids."
+            "item get PREFIX-N`; do not infer lane shape from workflow ids. "
+            "Read its lane with `yoke item-worktrees get PREFIX-N "
+            "--lane-role implementation`; worktree and branch are not items "
+            "columns. Asking items.get for those guessed fields fails; "
+            "branch and path belong to item_worktrees."
         ),
     },
 }
