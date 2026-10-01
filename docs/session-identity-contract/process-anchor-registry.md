@@ -11,10 +11,17 @@ app shell — into `<machine-home>/session-anchors/<anchor-pid>.json`
 (`yoke_core.domain.session_process_anchors`; atomic tmp+rename, no
 locking). Each record carries `session_id`, `transcript_path` (when the
 hook payload had one), `anchor_pid`, `anchor_start_time` (opaque
-`ps -o lstart=` string, equality-compared to defeat pid reuse),
+platform start token: macOS `ps -o lstart=` or Linux `/proc/<pid>/stat`
+start ticks, equality-compared to defeat pid reuse),
 `anchor_process_name`, and `registered_at`. The anchor write is
 best-effort and independent of DB registration success, so shell-side
 identity survives a briefly unreachable control plane.
+
+Linux ancestry reads parent links from `/proc/<pid>/stat` and full process
+names from `/proc/<pid>/cmdline` (argv[0], including pooled-host titles),
+using the `exe` link when argv[0] is unavailable. It needs no `ps` binary
+and never classifies a shared host using Linux's truncated 15-byte `comm`.
+macOS continues to use `ps`. Both platforms reject zombie start tokens.
 
 ## A pid is only an anchor when it belongs to one session
 
