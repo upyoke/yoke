@@ -18,8 +18,9 @@ Browser setup uses the same OS authority to provision Chromium's sandbox on
 hosts enforcing `kernel.apparmor_restrict_unprivileged_userns` (including
 Ubuntu 23.10+). It installs and loads an AppArmor `userns` allowance attached
 only to Yoke's current Chromium and headless-shell executable paths. Updates
-replace those attachments when Playwright changes its browser paths. Both
-the sign-in window and browser QA run with Chromium's sandbox enabled; the
+replace those attachments when Playwright changes its browser paths.
+Authorization and browser QA invoke this setup before launching Chromium.
+The sign-in window and browser QA run with Chromium's sandbox enabled; the
 host restriction stays enabled. Missing system authority or AppArmor tooling,
 or a profile that cannot load, stops browser setup with
 `browser_apparmor_setup_failed` and the recovery step. Retry
