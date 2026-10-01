@@ -95,6 +95,7 @@ def test_python_helper_honors_plain_glyph_env(monkeypatch) -> None:
     assert "* Setting up Yoke" in text
     assert "* Yoke v1.2.3 is ready" in text
     assert install_py.GUTTER_ICON not in text
+    assert sum(command[1:] == ["wsl", "setup"] for command in runner.commands) == 1
 
 
 def test_python_helper_prefers_uv_tool_bin_dir_for_installed_yoke(
@@ -159,8 +160,10 @@ def _installer_env(tmp_path: Path, *, with_fake_curl: bool) -> dict[str, str]:
 class _InstallPyRunner:
     def __init__(self, version: str) -> None:
         self.version = version
+        self.commands: list[list[str]] = []
 
     def __call__(self, command):  # noqa: ANN001, ANN204
+        self.commands.append(list(command))
         if command[0] == "uv":
             return subprocess.CompletedProcess(command, 0, "", "")
         if command[1:] == ["--version"]:
@@ -168,6 +171,8 @@ class _InstallPyRunner:
         if command[1:] == ["--help"]:
             return subprocess.CompletedProcess(command, 0, "usage: yoke\n", "")
         if command[1:4] == ["config", "distribution", "set"]:
+            return subprocess.CompletedProcess(command, 0, "", "")
+        if command[1:] == ["wsl", "setup"]:
             return subprocess.CompletedProcess(command, 0, "", "")
         if command[1:] == ["github", "credential-helper", "refresh", "--json"]:
             # Every install.py completion calls this unconditionally; nothing
