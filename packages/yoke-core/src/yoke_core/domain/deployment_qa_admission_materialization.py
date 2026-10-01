@@ -24,13 +24,7 @@ def admitted_requirement_case_key(source_id: int) -> str:
 
 
 def admitted_source_requirement_id(case_key: Any) -> int | None:
-    """The intake requirement an admitted case key names, or ``None``.
-
-    The inverse of :func:`admitted_requirement_case_key`, and its neighbour
-    on purpose: the key is the only link an admitted copy keeps back to the
-    row it was frozen from, so both directions live in one place. Every
-    other case key -- a plan's own, or ``ad-hoc-`` -- names no source row.
-    """
+    """Invert a direct copy's source key; plan and ad-hoc keys name no source."""
     key = str(case_key or "")
     if not key.startswith(ADMITTED_REQUIREMENT_CASE_PREFIX):
         return None
@@ -39,6 +33,25 @@ def admitted_source_requirement_id(case_key: Any) -> int | None:
         return None
     source_id = int(tail)
     return source_id if source_id > 0 else None
+
+
+def admitted_requirement_identity_clause(
+    requirement: Mapping[str, Any], *, marker: str = "%s"
+) -> tuple[str, tuple[Any, ...]]:
+    """Match the identity admission preserves for a source obligation.
+
+    Plans retain plan/case identity; direct copies use the source key.
+    Callers scope the member, run, and target.
+    """
+    plan_id = requirement.get("plan_id")
+    if plan_id is not None:
+        return f"plan_id={marker} AND plan_case_key={marker}", (
+            int(plan_id),
+            str(requirement["plan_case_key"]),
+        )
+    return f"plan_id IS NULL AND plan_case_key={marker}", (
+        admitted_requirement_case_key(int(requirement["id"])),
+    )
 
 
 def _target_environment(target: Mapping[str, Any]) -> str:
@@ -89,33 +102,28 @@ def materialize_admitted_requirement(
     target: Mapping[str, Any],
     now: str,
 ) -> tuple[int, bool]:
-    """Copy one frozen obligation without importing its former item subject.
+    """Copy one frozen direct obligation without its former item subject.
 
-    The copy belongs to no plan, so it stores no ``case_position`` and no
-    ``baseline_position``. Only a plan assigns those, and the roster
-    selection (:func:`qa_plan_execution_roster.ordered_plan_requirements`)
-    gives a plan-less case its order at selection time. Writing numbers
-    here would make the row claim an ordering authority nothing declared,
-    and the drift check that every execution begin runs
-    (:func:`machine_qa_plan_case_snapshot.case_positions`) reads such a
-    number as "this requirement joined a plan after the roster froze" and
-    refuses the case for good -- a rebuilt roster reads the same row, so
-    abort-and-restart cannot clear it either.
+    A direct copy belongs to no plan, so case/baseline positions stay null.
+    The execution roster assigns its order. Stored positions would instead
+    claim plan ordering authority and trigger permanent case-position drift
+    on execution begin, even after rebuilding the roster.
     """
     source_id = int(requirement.get("id") or 0)
     if source_id < 1:
         raise QaPlanError("frozen member QA requirement has no source identity")
     case_key = admitted_requirement_case_key(source_id)
+    identity, identity_params = admitted_requirement_identity_clause(requirement)
     existing = conn.execute(
         "SELECT id,execution_target_json,execution_target_digest "
         "FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage=%s "
-        "AND COALESCE(deployment_member_item_id,0)=%s AND plan_id IS NULL "
-        "AND plan_case_key=%s AND execution_target_digest=%s ORDER BY id",
+        "AND COALESCE(deployment_member_item_id,0)=%s "
+        f"AND {identity} AND execution_target_digest=%s ORDER BY id",
         (
             str(subject["id"]),
             str(subject["stage"]["name"]),
             int(subject.get("member_item_id") or 0),
-            case_key,
+            *identity_params,
             target_digest(target),
         ),
     ).fetchall()
@@ -123,15 +131,10 @@ def materialize_admitted_requirement(
         ids = require_existing_target(
             [
                 {
-                    "id": row["id"],
-                    "execution_target_json": row["execution_target_json"],
-                    "execution_target_digest": row["execution_target_digest"],
-                }
-                if hasattr(row, "keys")
-                else {
-                    "id": row[0],
-                    "execution_target_json": row[1],
-                    "execution_target_digest": row[2],
+                    key: row[key] if hasattr(row, "keys") else row[position]
+                    for position, key in enumerate(
+                        ("id", "execution_target_json", "execution_target_digest")
+                    )
                 }
                 for row in existing
             ],
@@ -303,9 +306,7 @@ def fulfill_admitted_obligations(
                 or not isinstance(artifact_ids, list)
                 or not artifact_ids
                 or any(
-                    isinstance(value, bool)
-                    or not isinstance(value, int)
-                    or value < 1
+                    isinstance(value, bool) or not isinstance(value, int) or value < 1
                     for value in artifact_ids
                 )
             ):
