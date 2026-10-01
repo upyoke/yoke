@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
-import re
-import subprocess
+import shlex
 from pathlib import Path
+
+import pytest
 
 from packaging.version import Version
 
+from yoke_core.domain.yaml_helper import load_document
+from yoke_core.tools.release_tag_validation import validate_tag_spelling
+
 
 _ROOT = Path(__file__).resolve().parents[3]
-_WORKFLOWS = (
-    _ROOT / ".github" / "workflows" / "yoke-release.yml",
-    _ROOT / ".github" / "workflows" / "yoke-server-image.yml",
-)
+_RELEASE_WORKFLOW = _ROOT / ".github" / "workflows" / "yoke-release.yml"
+_IMAGE_WORKFLOW = _ROOT / ".github" / "workflows" / "yoke-server-image.yml"
 _RELEASE_DOC = _ROOT / "docs" / "releases" / "README.md"
 _CANONICAL_TAGS = (
     "v0.0.0+0",
@@ -30,37 +32,26 @@ _NORMALIZING_ALIASES = (
 )
 
 
-def _pattern(path: Path) -> str:
-    text = path.read_text(encoding="utf-8")
-    match = re.search(r"^\s*canonical_tag_re='([^']+)'$", text, re.MULTILINE)
-    assert match is not None, f"missing canonical tag validator: {path}"
-    assert '"$TAG_NAME" =~ $canonical_tag_re' in text
-    return match.group(1)
-
-
-def _bash_accepts(pattern: str, tag: str) -> bool:
-    result = subprocess.run(
-        ["bash", "-c", '[[ "$1" =~ $2 ]]', "canonical-tag", tag, pattern],
-        check=False,
-    )
-    return result.returncode == 0
-
-
 def test_release_and_image_factories_share_the_canonical_tag_language():
-    patterns = [_pattern(path) for path in _WORKFLOWS]
-    assert len(set(patterns)) == 1
-    pattern = patterns[0]
+    script = "packages/yoke-core/src/yoke_core/tools/release_tag_validation.py"
+    for workflow in (_RELEASE_WORKFLOW, _IMAGE_WORKFLOW):
+        steps = load_document(workflow)["jobs"]["validate-tag"]["steps"]
+        validation = next(step for step in steps if step.get("id") == "tag")
+        command = shlex.split(validation["run"])
+        expected = ["python3", script]
+        if workflow == _RELEASE_WORKFLOW:
+            expected.append("--require-note-heading")
+        assert command == expected, f"factory bypasses the shared validator: {workflow}"
 
     for tag in _CANONICAL_TAGS:
         assert str(Version(tag.removeprefix("v"))) == tag.removeprefix("v")
-        assert re.fullmatch(pattern, tag), f"canonical tag rejected: {tag}"
-        assert _bash_accepts(pattern, tag), f"Bash validator rejected: {tag}"
+        validate_tag_spelling(tag)
 
     for tag in _NORMALIZING_ALIASES:
         raw_version = tag.removeprefix("v")
         assert str(Version(raw_version)) != raw_version
-        assert not re.fullmatch(pattern, tag), f"noncanonical alias accepted: {tag}"
-        assert not _bash_accepts(pattern, tag), f"Bash validator accepted: {tag}"
+        with pytest.raises(ValueError, match="without leading-zero numeric atoms"):
+            validate_tag_spelling(tag)
 
     operator_doc = _RELEASE_DOC.read_text(encoding="utf-8")
     assert "Use canonical decimal atoms" in operator_doc

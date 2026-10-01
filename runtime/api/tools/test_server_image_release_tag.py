@@ -7,7 +7,7 @@ import subprocess
 import pytest
 
 from yoke_core.tools import server_image_metadata as metadata
-from yoke_core.tools import server_image_release_tag as tags
+from yoke_core.tools import release_tag_validation as tags
 
 
 @pytest.fixture
@@ -21,7 +21,14 @@ def release_env():
     }
 
 
-def patch_tag_api(monkeypatch, *, object_type="tag", target_type="commit", source=None):
+def patch_tag_api(
+    monkeypatch,
+    *,
+    object_type="tag",
+    target_type="commit",
+    source=None,
+    message="Yoke 1.2.3+launch.4\n\nRelease notes",
+):
     calls = []
 
     def run(command, **kwargs):
@@ -31,7 +38,9 @@ def patch_tag_api(monkeypatch, *, object_type="tag", target_type="commit", sourc
             obj = {"type": object_type, "sha": "b" * 40}
         else:
             obj = {"type": target_type, "sha": source or "a" * 40}
-        return subprocess.CompletedProcess(command, 0, json.dumps({"object": obj}))
+        return subprocess.CompletedProcess(
+            command, 0, json.dumps({"object": obj, "message": message})
+        )
 
     monkeypatch.setattr(tags.subprocess, "run", run)
     return calls
@@ -49,6 +58,25 @@ def test_annotated_tag_outputs_exact_release_identity(monkeypatch, release_env):
         "tag_object_sha": "b" * 40,
     }
     assert len(calls) == 2
+
+
+@pytest.mark.parametrize("message", ["Yoke 1.2.3+launch.4\nRelease notes", "", "Wrong"])
+def test_wheel_factory_requires_matching_note_heading(
+    monkeypatch, release_env, message
+):
+    patch_tag_api(monkeypatch, message=message)
+    if message.startswith("Yoke 1.2.3+launch.4\n"):
+        assert (
+            tags.validate_release_tag(release_env, require_note_heading=True)[
+                "release_version"
+            ]
+            == "1.2.3+launch.4"
+        )
+    else:
+        with pytest.raises(
+            ValueError, match="annotated release tag message must start with"
+        ):
+            tags.validate_release_tag(release_env, require_note_heading=True)
 
 
 @pytest.mark.parametrize(

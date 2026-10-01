@@ -117,7 +117,7 @@ def test_every_job_is_github_hosted_and_operator_credentials_are_absent():
 
 def test_remote_annotated_tag_and_exact_workflow_commit_are_checked_twice():
     text = _text()
-    assert "server_image_release_tag.py" in text
+    assert "release_tag_validation.py" in text
     assert text.count("git/ref/tags/$TAG_NAME") == 1
     assert text.count("git/tags/$tag_object_sha") == 1
     assert text.count('[[ "$object_type" != "tag"') == 1

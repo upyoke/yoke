@@ -41,20 +41,15 @@ def test_release_authority_is_isolated_to_final_hosted_job():
 
 def test_tag_must_have_local_version_exact_commit_and_tag_notes():
     text = _text()
-    assert "canonical_tag_re='^v" in text
-    assert '[[ ! "$TAG_NAME" =~ $canonical_tag_re ]]' in text
-    assert "without leading-zero numeric atoms" in text
-    assert text.count("git/ref/tags/$TAG_NAME") == 2
-    assert text.count("git/tags/$tag_object_sha") == 2
+    assert "release_tag_validation.py --require-note-heading" in text
+    assert "ref: ${{ github.sha }}" in text
+    assert "persist-credentials: false" in text
+    assert text.count("git/ref/tags/$TAG_NAME") == 1
+    assert text.count("git/tags/$tag_object_sha") == 1
     assert '[[ "$object_type" != "tag"' in text
     assert '[[ "$target_type" != "commit"' in text
-    assert '[[ "$source_sha" != "$GITHUB_SHA" ]]' in text
+    assert '"$source_sha" != "$GITHUB_SHA"' in text
     assert "compare/$source_sha...main" not in text
-    assert 'echo "source_sha=$source_sha"' in text
-    assert 'echo "tag_object_sha=$tag_object_sha"' in text
-    assert 'tag_message="$(jq -r' in text
-    assert 'expected_heading="Yoke ${TAG_NAME#v}"' in text
-    assert '"${tag_message%%$\'\\n\'*}" != "$expected_heading"' in text
     assert "docs/releases/$TAG_NAME.md" not in text
 
 
@@ -112,7 +107,7 @@ def test_release_creation_uses_tag_notes_and_validated_assets():
     assert '"${wheels[@]}"' in text
     assert '"$ARTIFACT_DIR/release-records.json"' in text
     assert "--verify-tag" in text
-    assert "jq -r '.message // \"\"' <<< \"$tag_object\"" in text
+    assert 'jq -r \'.message // ""\' <<< "$tag_object"' in text
     assert '--notes-file "$release_notes"' in text
 
 

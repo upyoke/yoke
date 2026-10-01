@@ -35,48 +35,18 @@ jobs:
       source_sha: ${{ steps.tag.outputs.source_sha }}
       tag_object_sha: ${{ steps.tag.outputs.tag_object_sha }}
     steps:
+      - name: Check out the exact workflow commit for read-only tag validation
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - name: Require an immutable annotated release tag and note
         id: tag
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
-          canonical_tag_re='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\+([a-z0-9]*[a-z][a-z0-9]*|0|[1-9][0-9]*)(\.([a-z0-9]*[a-z][a-z0-9]*|0|[1-9][0-9]*))*$'
-          if [[ ! "$TAG_NAME" =~ $canonical_tag_re ]]; then
-            echo "release tags must use canonical vX.Y.Z+local.N spelling without leading-zero numeric atoms: $TAG_NAME" >&2
-            exit 1
-          fi
-
-          remote_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG_NAME")"
-          object_type="$(jq -r '.object.type' <<< "$remote_ref")"
-          tag_object_sha="$(jq -r '.object.sha' <<< "$remote_ref")"
-          if [[ "$object_type" != "tag" || ! "$tag_object_sha" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "release tag must be an annotated tag object: $TAG_NAME" >&2
-            exit 1
-          fi
-
-          tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object_sha")"
-          target_type="$(jq -r '.object.type' <<< "$tag_object")"
-          source_sha="$(jq -r '.object.sha' <<< "$tag_object")"
-          tag_message="$(jq -r '.message // ""' <<< "$tag_object")"
-          if [[ "$target_type" != "commit" || ! "$source_sha" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "release tag must point directly to one commit: $TAG_NAME" >&2
-            exit 1
-          fi
-          expected_heading="Yoke ${TAG_NAME#v}"
-          if [[ "${tag_message%%$'\n'*}" != "$expected_heading" ]]; then
-            echo "annotated release tag message must start with: $expected_heading" >&2
-            exit 1
-          fi
-          if [[ "$source_sha" != "$GITHUB_SHA" ]]; then
-            echo "remote tag commit $source_sha differs from workflow commit $GITHUB_SHA" >&2
-            exit 1
-          fi
-
-          {
-            echo "source_sha=$source_sha"
-            echo "tag_object_sha=$tag_object_sha"
-          } >> "$GITHUB_OUTPUT"
+          python3 packages/yoke-core/src/yoke_core/tools/release_tag_validation.py --require-note-heading
 
   build:
     name: build-validate-and-attest

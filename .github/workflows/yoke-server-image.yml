@@ -45,7 +45,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
-          python3 packages/yoke-core/src/yoke_core/tools/server_image_release_tag.py
+          python3 packages/yoke-core/src/yoke_core/tools/release_tag_validation.py
   build:
     timeout-minutes: 10
     name: build-native-${{ matrix.arch }}
