@@ -72,10 +72,24 @@ def _installed_launcher(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path
     launcher = tmp_path / "bin" / "yoke"
     launcher.parent.mkdir(parents=True, exist_ok=True)
     launcher.touch(mode=0o755)
-    monkeypatch.setattr(
-        local_install, "local_launcher_candidates", lambda: (launcher,)
-    )
+    monkeypatch.setattr(local_install, "local_launcher_candidates", lambda: (launcher,))
     return launcher
+
+
+def test_venv_python_symlink_keeps_its_installed_console_script(tmp_path, monkeypatch):
+    base_python = tmp_path / "base" / "python3"
+    base_python.parent.mkdir()
+    base_python.touch(mode=0o755)
+    venv_bin = tmp_path / "venv" / "bin"
+    venv_bin.mkdir(parents=True)
+    interpreter = venv_bin / "python3"
+    interpreter.symlink_to(base_python)
+    launcher = venv_bin / "yoke"
+    launcher.touch(mode=0o755)
+    monkeypatch.setattr(local_install.sys, "executable", str(interpreter))
+    monkeypatch.setattr(local_install, "TARGET_PRIORITY", ())
+
+    assert local_install.local_launcher_path() == launcher
 
 
 def test_local_universe_owns_a_relay_that_runs_the_installed_yoke(
@@ -118,9 +132,7 @@ def test_local_relay_install_refuses_by_name_without_an_installed_launcher(
 ) -> None:
     """A missing component is named with its repair, never silently skipped."""
     missing = tmp_path / "bin" / "yoke"
-    monkeypatch.setattr(
-        local_install, "local_launcher_candidates", lambda: (missing,)
-    )
+    monkeypatch.setattr(local_install, "local_launcher_candidates", lambda: (missing,))
     calls: list[list[str]] = []
 
     with pytest.raises(RelayInstallError) as raised:

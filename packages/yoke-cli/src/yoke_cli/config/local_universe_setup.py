@@ -109,9 +109,27 @@ def run_local_init(
     report["connection"] = connection
     if connection["written"] or not _active_env(config_path):
         writer.set_active_env(LOCAL_ENV, path=config_path)
+    _record_operating_actor(report, config_path)
     report["active_env"] = _active_env(config_path)
     report["ok"] = True
     return report
+
+
+def _record_operating_actor(report, config_path):
+    """Bind the actor birth returned after its local connection is configured."""
+    binding = importlib.import_module("yoke_core.domain.local_universe_operating_actor")
+    try:
+        binding.record_operating_actor(
+            report["human_actor_id"],
+            dsn=report["dsn"],
+            env=LOCAL_ENV,
+            config_path=config_path,
+        )
+    except Exception as exc:
+        raise LocalUniverseSetupError(
+            f"local_actor_binding_failed: {exc}; retry `yoke init --local` "
+            "to record the operating actor before starting a session"
+        ) from exc
 
 
 def inspect_local_state(config_path: Optional[str] = None) -> Dict[str, Any]:

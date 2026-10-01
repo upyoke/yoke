@@ -15,7 +15,42 @@ from runtime.api.tools.product_runner_hooks import (
     require_dispatch,
     require_wire,
 )
-from runtime.api.tools.product_runner_smoke import isolated_environment
+from runtime.api.tools.product_runner_smoke import (
+    Commands,
+    SmokeFailure,
+    isolated_environment,
+)
+
+
+@pytest.mark.parametrize("stdout", ["", "initialization noise\n{}", "[]"])
+def test_document_failure_names_the_step_and_existing_capture(
+    tmp_path, monkeypatch, stdout
+):
+    monkeypatch.setattr(
+        "runtime.api.tools.product_runner_smoke.subprocess.run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout=stdout, stderr=""),
+    )
+    commands = Commands(tmp_path, {})
+    with pytest.raises(SmokeFailure, match="command_json_invalid: step=onboard") as exc:
+        commands.document("onboard", ["yoke", "onboard"], cwd=tmp_path)
+    capture = tmp_path / "01-onboard.txt"
+    assert str(capture) in str(exc.value)
+    assert f"stdout:\n{stdout}" in capture.read_text()
+
+
+def test_command_start_failure_is_captured_and_named(tmp_path, monkeypatch):
+    def missing(*args, **kwargs):
+        raise FileNotFoundError("executable missing")
+
+    monkeypatch.setattr(
+        "runtime.api.tools.product_runner_smoke.subprocess.run", missing
+    )
+    commands = Commands(tmp_path, {})
+    with pytest.raises(SmokeFailure, match="command_start_failed: step=onboard") as exc:
+        commands.run("onboard", ["missing"], cwd=tmp_path)
+    capture = tmp_path / "01-onboard.txt"
+    assert str(capture) in str(exc.value)
+    assert "executable missing" in capture.read_text()
 
 
 def receipt(outcome="allow", *, chain_length=10, timed_out=False):
@@ -68,6 +103,20 @@ def test_empty_success_cannot_substitute_for_denial(harness):
         )
 
 
+def test_claude_denial_uses_exit_two_and_stderr():
+    require_wire(
+        SimpleNamespace(returncode=2, stdout="", stderr="BLOCKED: threatened state"),
+        harness="claude",
+        outcome="deny",
+    )
+    with pytest.raises(ValueError, match="hook_wire_mismatch"):
+        require_wire(
+            SimpleNamespace(returncode=2, stdout="BLOCKED", stderr=""),
+            harness="claude",
+            outcome="deny",
+        )
+
+
 def test_replay_remaps_identity_and_paths_without_flattening_native_structure():
     payload = {
         "session_id": "native",
@@ -91,6 +140,18 @@ def test_replay_remaps_identity_and_paths_without_flattening_native_structure():
     }
     assert replayed["sandbox"] == "enabled"
     assert payload["tool_input"]["command"] == "native command"
+
+
+@pytest.mark.parametrize("transcript", [None, "", "/native/transcript.jsonl"])
+def test_replay_transcript_identity_matches_session_or_stays_absent(transcript):
+    from yoke_contracts.cursor_session_map import transcript_session_id
+
+    replayed = remap_recording(
+        {"transcript_path": transcript}, project=Path("/project"), session="fresh"
+    )["transcript_path"]
+    assert transcript_session_id(replayed or "") == ("fresh" if transcript else "")
+    if not transcript:
+        assert replayed == transcript
 
 
 def test_rendered_command_is_consumed_verbatim(tmp_path):
@@ -130,3 +191,35 @@ def test_native_corpus_has_all_events_without_account_data(harness):
     )
     if harness == "cursor":
         assert replayed["workspace_roots"] == ["/project"]
+
+
+def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_path):
+    from runtime.api.tools.product_runner_source_tests import run_source_tests
+
+    home = tmp_path / "home"
+    home.mkdir()
+    output = tmp_path / "evidence"
+    output.mkdir()
+    seen = []
+
+    def run(name, argv, *, cwd):
+        seen.append((name, argv))
+        if name == "pytest-subset":
+            (home / "yoke-pytest.raw.failure.log").write_text("pytest diagnostic")
+            (Path(commands.env["YOKE_PG_CLUSTER_ROOT"]) / "server.log").write_text(
+                "server diagnostic"
+            )
+            raise ValueError("primary test failure")
+        if name == "stop-test-postgres":
+            raise RuntimeError("cleanup failure")
+
+    commands = SimpleNamespace(
+        env={"YOKE_MACHINE_HOME": str(home)}, output=output, run=run
+    )
+    with pytest.raises(ValueError, match="primary test failure"):
+        run_source_tests(tmp_path, commands)
+
+    assert (output / "yoke-pytest.raw.failure.log").read_text() == "pytest diagnostic"
+    assert (output / "server.log").read_text() == "server diagnostic"
+    assert seen[1][1][:4] == ["uv", "run", "--frozen", "yoke"]
+    assert seen[-1][0] == "stop-test-postgres"

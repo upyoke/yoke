@@ -14,8 +14,10 @@ import tempfile
 
 try:
     from .product_runner_hooks import replay_hooks
+    from .product_runner_source_tests import run_source_tests
 except ImportError:
     from product_runner_hooks import replay_hooks
+    from product_runner_source_tests import run_source_tests
 
 
 class SmokeFailure(RuntimeError):
@@ -26,10 +28,19 @@ class Commands:
     def __init__(self, output: Path, env: dict[str, str]):
         self.output, self.env = output, env
         self.sequence = 0
+        self.step = "runner-identity"
+        self.capture = output / "report.json"
+
+    def failure(self, reason, detail):
+        return SmokeFailure(
+            f"{reason}: step={self.step}: {detail}; inspect {self.capture}, "
+            "correct the named step and rerun the plan"
+        )
 
     def run(self, name, command, *, cwd, stdin=None, accepted=(0,), shell=False):
         self.sequence += 1
         capture = self.output / f"{self.sequence:02d}-{name}.txt"
+        self.step, self.capture = name, capture
         print(f"product-smoke step={name} capture={capture}", flush=True)
         try:
             result = subprocess.run(
@@ -43,30 +54,33 @@ class Commands:
                 shell=shell,
                 check=False,
             )
-        except subprocess.TimeoutExpired as exc:
+        except (subprocess.TimeoutExpired, OSError) as exc:
             capture.write_text(str(exc), encoding="utf-8")
-            raise SmokeFailure(
-                f"command_timeout: {name}; inspect {capture}, correct the named step and rerun the plan"
-            ) from exc
+            reason = (
+                "command_timeout"
+                if isinstance(exc, subprocess.TimeoutExpired)
+                else "command_start_failed"
+            )
+            raise self.failure(reason, str(exc)) from exc
         capture.write_text(
             f"command={command!r}\nexit_code={result.returncode}\n"
             f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}",
             encoding="utf-8",
         )
         if result.returncode not in accepted:
-            raise SmokeFailure(
-                f"command_failed: {name} exit={result.returncode}; "
-                f"inspect {capture}, correct the named step and rerun the plan"
-            )
+            raise self.failure("command_failed", f"exit={result.returncode}")
         return result
 
     def document(self, name, command, *, cwd):
         result = self.run(name, command, cwd=cwd)
-        payload = json.loads(result.stdout)
+        try:
+            payload = json.loads(result.stdout)
+            if not isinstance(payload, dict):
+                raise ValueError("expected a JSON object")
+        except ValueError as exc:
+            raise self.failure("command_json_invalid", str(exc)) from exc
         if payload.get("success") is False:
-            raise SmokeFailure(
-                f"command_refused: {name}: {payload.get('error')}; inspect its capture"
-            )
+            raise self.failure("command_refused", payload.get("error"))
         return payload.get("result", payload)
 
 
@@ -100,9 +114,11 @@ def observed_runner() -> dict[str, str]:
 
 
 def smoke(root: Path, output: Path) -> None:
-    report = {"ok": False, "runner": observed_runner()}
+    report = {"ok": False}
     report_path = output / "report.json"
+    commands = None
     try:
+        report["runner"] = observed_runner()
         expected = {
             "os": os.environ.get("SMOKE_EXPECTED_OS"),
             "architecture": os.environ.get("SMOKE_EXPECTED_ARCHITECTURE"),
@@ -113,7 +129,7 @@ def smoke(root: Path, output: Path) -> None:
                 "check the latest-label rollout and update the declared job identities before rerunning"
             )
         with tempfile.TemporaryDirectory(prefix="yoke-product-smoke-") as raw:
-            scratch = Path(raw)
+            scratch = Path(raw).resolve()
             venv, wheels, project = (
                 scratch / part for part in ("venv", "wheels", "project")
             )
@@ -197,6 +213,11 @@ def smoke(root: Path, output: Path) -> None:
                     raise SmokeFailure(
                         "onboard_not_born: fresh local onboarding did not apply and birth the universe; inspect onboard capture"
                     )
+                # The destructive guard refuses threatened state. Give the
+                # denied clean probe an untracked file; never execute it.
+                (project / "untracked-probe.txt").write_text(
+                    "Preserve this probe.\n", encoding="utf-8"
+                )
                 report["hooks"] = replay_hooks(root, project, commands, yoke)
                 dev = commands.document(
                     "dev-setup",
@@ -219,40 +240,53 @@ def smoke(root: Path, output: Path) -> None:
                     raise SmokeFailure(
                         "editable_install_failed: inspect dev-setup capture and repair its named dependency"
                     )
-                commands.run(
-                    "install-test-dependencies",
-                    ["uv", "sync", "--all-packages", "--all-groups", "--locked"],
-                    cwd=root,
-                )
-                commands.run(
-                    "pytest-subset",
-                    [
-                        yoke,
-                        "watch",
-                        "pytest",
-                        "--local",
-                        "--",
-                        "runtime/harness/test_hook_runner_decision_render.py",
-                        "tests/import_graph/test_yoke_cli_dev_setup_contract.py",
-                        "-q",
-                    ],
-                    cwd=root,
-                )
+                run_source_tests(root, commands)
                 report["ok"] = True
+            except Exception as exc:
+                failure = (
+                    exc
+                    if isinstance(exc, SmokeFailure) and "step=" in str(exc)
+                    else commands.failure("smoke_assertion_failed", str(exc))
+                )
+                try:
+                    commands.run(
+                        "failure-events",
+                        [yoke, "events", "query", "--limit", "50", "--json"],
+                        cwd=project,
+                    )
+                except SmokeFailure:
+                    pass  # The diagnostic capture cannot replace the primary failure.
+                raise failure from exc
             finally:
                 primary_failure = sys.exc_info()[0] is not None
                 try:
+                    if sys.platform == "darwin":
+                        commands.run(
+                            "uninstall-local-relay",
+                            [yoke, "relay", "uninstall", "--json"],
+                            cwd=project,
+                        )
                     commands.run(
                         "stop-local-postgres",
-                        [yoke, "postgres", "stop", "--json"],
+                        [yoke, "local-postgres", "stop", "--json"],
                         cwd=project,
                     )
                 except SmokeFailure:
                     if not primary_failure:
                         raise
-    except (SmokeFailure, OSError, ValueError, KeyError) as exc:
-        report["failure"] = str(exc)
-        raise SmokeFailure(str(exc)) from exc
+    except Exception as exc:
+        report["ok"] = False
+        failure = str(exc)
+        if "inspect " not in failure or "step=" not in failure:
+            failure = (
+                str(commands.failure("smoke_failed", failure))
+                if commands
+                else (
+                    f"smoke_failed: step=runner-identity: {failure}; inspect {report_path}, correct the named step and rerun the plan"
+                )
+            )
+        report["failure"] = failure
+        raise SmokeFailure(failure) from exc
     finally:
         report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 

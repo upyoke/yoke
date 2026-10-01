@@ -19,6 +19,7 @@ CLI usage::
 
 Exit codes: 0 success, 1 error/not-found, 2 usage error.
 """
+
 from __future__ import annotations
 
 import sys
@@ -99,7 +100,7 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     try:
         if subcmd == "init":
-            print(cmd_init(conn))
+            print(cmd_init(conn), file=sys.stderr)
 
         elif subcmd == "create":
             if len(rest) < 5:
@@ -107,7 +108,11 @@ def main(argv: Optional[List[str]] = None) -> None:
                     "Usage: flow create <id> <project> <name> <desc> <stages_json> [on_failure]"
                 )
             on_failure = rest[5] if len(rest) > 5 else "halt"
-            print(cmd_create(conn, rest[0], rest[1], rest[2], rest[3], rest[4], on_failure))
+            print(
+                cmd_create(
+                    conn, rest[0], rest[1], rest[2], rest[3], rest[4], on_failure
+                )
+            )
 
         elif subcmd == "get":
             if not rest:
@@ -145,8 +150,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         elif subcmd == "update-stages":
             if len(rest) < 2:
                 _cli_usage_error(
-                    "Usage: flow update-stages <id> <stages_json> "
-                    "[--description D]"
+                    "Usage: flow update-stages <id> <stages_json> [--description D]"
                 )
             description = None
             i = 2

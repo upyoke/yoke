@@ -272,6 +272,9 @@ def test_wizard_local_apply_lands_config_like_yoke_init_local(
         "_engine",
         lambda: _FakeEngine(),
     )
+    monkeypatch.setattr(
+        local_universe_setup, "_record_operating_actor", lambda report, path: None
+    )
     wizard_home = tmp_path / "wizard-home"
     init_home = tmp_path / "init-home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(wizard_home))

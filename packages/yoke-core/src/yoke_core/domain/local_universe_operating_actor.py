@@ -30,17 +30,13 @@ def _os_login_name() -> Optional[str]:
 def _ensure_human_actor(emit: Callable[[str], None]) -> int:
     """Return the machine owner's actor id, seeding and granting org admin.
 
-    Birth is where the machine learns who it operates this universe as, so
-    it records the binding here rather than leaving every later session to
-    infer it. A machine whose config cannot take the binding still gets a
-    working universe; the refusal a later session reads names the one
-    command that records it.
+    The client records this returned identity after writing the local
+    connection. Before that write, a fresh machine has no connection to bind.
     """
     from yoke_core.domain import actors, db_helpers
     from yoke_core.domain.local_operating_actor import (
         ensure_local_operating_actor,
     )
-    from yoke_core.domain.session_actor_binding_write import persist_operating_actor
 
     conn = db_helpers.connect()
     try:
@@ -49,22 +45,25 @@ def _ensure_human_actor(emit: Callable[[str], None]) -> int:
         )
         if seeded:
             emit(f"  [local-universe] seeded local human actor {actor_id}")
-        try:
-            env, _universe = persist_operating_actor(conn, actor_id)
-            emit(
-                f"  [local-universe] bound actor {actor_id} as this machine's "
-                f"operator for connection {env!r}"
-            )
-        except Exception as exc:  # noqa: BLE001 — birth outlives a config miss
-            emit(
-                "  [local-universe] could not record the operating-actor "
-                f"binding ({exc}); run `yoke config bind-actor --actor-id "
-                f"{actor_id}` once this machine's connection is configured"
-            )
         return actor_id
     finally:
         conn.close()
 
 
+def record_operating_actor(actor_id, *, dsn, env, config_path=None):
+    """Persist birth's actor against its own universe and configured connection."""
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.local_universe import pinned_authority
+    from yoke_core.domain.session_actor_binding_write import persist_operating_actor
 
-__all__ = ["_ensure_human_actor", "_os_login_name"]
+    with pinned_authority(dsn):
+        conn = db_helpers.connect()
+        try:
+            return persist_operating_actor(
+                conn, actor_id, env=env, config_path=config_path
+            )
+        finally:
+            conn.close()
+
+
+__all__ = ["_ensure_human_actor", "_os_login_name", "record_operating_actor"]

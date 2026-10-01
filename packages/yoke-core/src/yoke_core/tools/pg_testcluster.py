@@ -1,7 +1,8 @@
 """Disposable local PostgreSQL cluster for Yoke tests.
 
 Frontend of the shared cluster-lifecycle core
-(:mod:`yoke_core.domain.postgres_cluster`): system binaries from ``PATH``,
+(:mod:`yoke_core.domain.postgres_cluster`): already-installed embedded binaries
+with a system ``PATH`` fallback,
 a throwaway data directory under the shared scratch root, and durability
 turned off. This is the *local* equivalent of CI's GitHub Actions
 ``postgres`` service — it lets a developer run the suite against Postgres
@@ -42,7 +43,7 @@ import os
 import sys
 from pathlib import Path
 
-from yoke_core.domain import postgres_cluster
+from yoke_core.domain import postgres_binaries, postgres_cluster
 from yoke_core.domain.postgres_cluster import ClusterSpec
 
 PGUSER = "yoketest"
@@ -85,7 +86,7 @@ def _spec() -> ClusterSpec:
         root=_root(),
         superuser=PGUSER,
         server_settings=DISPOSABLE_SERVER_SETTINGS,
-        bin_dir=None,  # system binaries from PATH
+        bin_dir=postgres_binaries.installed_bin_dir(),
         stop_mode="immediate",  # throwaway data: skip the shutdown checkpoint
     )
 
@@ -209,10 +210,13 @@ def main(argv=None) -> int:
     args = list(argv if argv is not None else sys.argv[1:])
     cmd = args[0] if args else "status"
     dispatch = {
-        "start": start, "stop": stop, "destroy": destroy,
+        "start": start,
+        "stop": stop,
+        "destroy": destroy,
         "prune": sweep_orphaned_test_databases,
         "prepare": prepare_for_pytest,
-        "status": status, "env": lambda: (print(env_block()) or 0),
+        "status": status,
+        "env": lambda: print(env_block()) or 0,
     }
     handler = dispatch.get(cmd)
     if handler is None:

@@ -182,6 +182,13 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/config/local_universe_setup.py",
+        "yoke_core.domain.local_universe_operating_actor",
+    ): (
+        "local_engine_activation",
+        "local setup binds birth's actor after configuring its connection",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/config/local_universe_setup.py",
         "yoke_core.domain.universe_export",
     ): (
         "local_engine_activation",

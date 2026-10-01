@@ -201,9 +201,15 @@ def isolate_from_administering_machine_config(env: dict[str, str]) -> dict[str, 
     an endpoint-only inventory still lets concrete target guards recognize an
     explicitly named administered cluster.
     """
-    from yoke_core.domain import administered_postgres
+    from yoke_core.domain import administered_postgres, postgres_binaries
 
     isolated = administered_postgres.environment_with_administered_target_inventory(env)
+    # Keep executable access after hiding the machine config that owns it.
+    binaries = postgres_binaries.installed_bin_dir()
+    if binaries is not None:
+        isolated["PATH"] = os.pathsep.join(
+            [str(binaries), isolated.get("PATH", os.defpath)]
+        )
     isolated[machine_config_runtime.HOME_ENV] = tempfile.mkdtemp(
         prefix="yoke-pytest-non-admin-"
     )

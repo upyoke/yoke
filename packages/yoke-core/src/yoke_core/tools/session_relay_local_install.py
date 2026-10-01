@@ -47,7 +47,9 @@ def local_launcher_candidates() -> tuple[Path, ...]:
     ]
     # A pipx or virtualenv install owns a console script beside its
     # interpreter even when no canonical shim was ever written.
-    candidates.append(Path(sys.executable).resolve().parent / LAUNCHER_FILENAME)
+    # Preserve the venv path: resolving its Python symlink moves to the base
+    # interpreter, whose directory does not own this install's console script.
+    candidates.append(Path(sys.executable).absolute().parent / LAUNCHER_FILENAME)
     unique: list[Path] = []
     for candidate in candidates:
         if candidate.is_absolute() and candidate not in unique:

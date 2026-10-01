@@ -15,12 +15,22 @@ onboards a Git project non-interactively into a fresh local universe with GitHub
 adoption disabled, and replays native SessionStart and allowed/denied shell
 payloads through the exact commands in its installed `.claude/settings.json`,
 `.codex/hooks.json`, and `.cursor/hooks.json`. The proposed denied command is
-never executed. It asserts a stored session with the correct executor/workspace,
+never executed. It creates a disposable untracked file so the denied
+`git clean -fd` probe threatens real state the guard must preserve. It asserts
+a stored session with the correct executor and canonical workspace path,
 the harness's denial wire format, and affirmative allow/deny evaluation receipts
 from nonempty chains without timeouts. A zero CLI exit alone cannot pass.
+Claude denial uses exit 2 with the blocking reason on stderr; Codex and Cursor
+return their structured denial decisions on stdout.
 Missing diagnostic telemetry means insufficient proof, not proof of a product
 fault. It then runs `yoke dev setup --editable-install` and a small
-`yoke watch pytest --local` subset. The local cluster is stopped in cleanup.
+`yoke watch pytest --local` subset through `uv run --frozen` in the source
+environment. The product test cluster resolves already-installed embedded
+Postgres binaries, falling back to system PATH when none are installed. The
+pytest wrapper preserves executable access when it isolates machine config. The
+smoke uses a short disposable socket root, retains failed watcher/server
+captures, and stops that test cluster. Cleanup uninstalls macOS's disposable local
+relay before stopping the local cluster and removing its scratch directory.
 
 Run through `qa.plan_execution.begin` using the standalone adapter:
 
@@ -35,11 +45,20 @@ both jobs must pass for the case to pass. It publishes no lane and changes no
 item or deployment gate. GitHub registers a new dispatch workflow from the
 default branch, so its first real run follows its merge there.
 
+Every failure names its step and capture file, including malformed JSON,
+command startup errors, and hook assertions. Onboarding's initialization
+diagnostics go to stderr so its `--json` stdout remains one JSON document.
+Local relay discovery preserves a virtualenv interpreter's directory when
+finding its installed `yoke` console script, even when Python is a symlink.
+Fresh local setup records the actor returned by universe birth after writing
+the local connection, so every installed harness can register against it.
+
 Read `yoke qa plan get product-smoke --project yoke --full` for the saved case
 and evidence. Each job uploads `product-smoke-evidence`: `report.json`, session
 and evaluation reads, exact command captures, and failure diagnostics.
-No hosted Yoke token, harness account, provider secret, or relay supervisor
-is needed by the smoke jobs. Harness login happens only when refreshing fixtures.
+No hosted Yoke token, harness account, provider secret, or preinstalled relay
+supervisor is needed by the smoke jobs. macOS onboarding installs its own
+local relay. Harness login happens only when refreshing fixtures.
 Self-host bring-up and relay supervision are separate checks.
 
 ## Refresh native recordings
@@ -70,5 +89,6 @@ Review the redacted recordings before committing: session/conversation/tool ids,
 machine/account ids, paths, and account-bound data must not remain. The replay
 substitutes fresh session identities, disposable workspace/transcript paths,
 and probe commands while preserving native wire structure and other fields.
+Absent transcript paths stay absent; present transcript filenames match the fresh session.
 If a harness is signed out or its keychain is locked, ask the test-account
 operator to restore access; capture must not enter or extract credentials.
