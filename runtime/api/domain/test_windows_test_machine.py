@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 import subprocess
 from types import SimpleNamespace
 
@@ -51,15 +52,19 @@ def _decoded(command):
     return base64.b64decode(command.rsplit(" ", 1)[1]).decode("utf-16-le")
 
 
+def _linux_command(command):
+    payload = re.search(r"printf %s ([A-Za-z0-9+/=]+) \| base64 -d", _decoded(command))
+    assert payload is not None
+    return base64.b64decode(payload[1]).decode("utf-8")
+
+
 def test_shell_metacharacters_survive_the_windows_shell():
-    command = "printf '%s' \"$HOME & %PATH%\"; exit 7"
+    command = "printf '%s' \"$HOME & %PATH% café\"\nexit 7"
     wrapped = windows_wsl_command(command)
     script = _decoded(wrapped)
-    assert script == (
-        "& wsl.exe --cd '~' -e /bin/bash -lc '"
-        + command.replace("'", "''")
-        + "'; exit $LASTEXITCODE"
-    )
+    assert _linux_command(wrapped) == command
+    assert "wsl.exe --cd '~' -e /bin/bash -lc" in script
+    assert script.endswith("; exit $LASTEXITCODE")
     assert "%PATH%" not in wrapped and "$HOME" not in wrapped
 
 
@@ -69,7 +74,7 @@ def test_windows_ssh_requires_wsl2_and_non_root_facts(monkeypatch, kernel):
 
     def run(argv, **kwargs):
         calls.append((argv, kwargs))
-        script = _decoded(argv[-1])
+        script = _linux_command(argv[-1])
         output = (
             kernel
             if "osrelease" in script
@@ -96,7 +101,7 @@ def test_windows_ssh_requires_wsl2_and_non_root_facts(monkeypatch, kernel):
     assert receipt.evidence["execution_context"] == "wsl2"
     result = control.run_command(["printf", "%s", "two words"])
     assert result.returncode == 0
-    assert "two words" in _decoded(calls[-1][0][-1])
+    assert "two words" in _linux_command(calls[-1][0][-1])
     assert all("wsl.exe --cd '~' -e" in _decoded(argv[-1]) for argv, _ in calls)
 
 
@@ -144,6 +149,4 @@ def test_ad_hoc_exec_windows_command_enters_wsl(monkeypatch, tmp_path):
         lambda **kw: calls.append(kw) or subprocess.CompletedProcess([], 7, "", ""),
     )
     assert adapter.test_machine_exec(["--project", "yoke", "--", "exit 7"]) == 7
-    assert "wsl.exe --cd '~' -e /bin/bash -lc 'exit 7'" in _decoded(
-        calls[0]["command"][0]
-    )
+    assert _linux_command(calls[0]["command"][0]) == "exit 7"
