@@ -172,6 +172,12 @@ def finish_plan_execution(
     if terminal_settlement:
         dispose_execution_decisions(conn, execution, commit=False)
     if commit:
+        if state == "awaiting_agent_review":
+            from yoke_core.domain.qa_plan_agent_review_wake import (
+                notify_scoped_agent_review,
+            )
+
+            notify_scoped_agent_review(conn, execution)
         conn.commit()
         if state == "completed" and execution.get("deployment_stage"):
             from yoke_core.domain.deployment_qa_stage_settlement import (
