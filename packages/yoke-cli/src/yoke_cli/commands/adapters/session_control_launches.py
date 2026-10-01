@@ -168,7 +168,12 @@ def _launch_create_parser(
         action="store_true",
         help="Use --stdin as the full instruction body, including itemless launches.",
     )
-    parser.add_argument("--idempotency-key", default=None)
+    parser.add_argument(
+        "--idempotency-key",
+        default=None,
+        help="Replays the same launch; if its session ended, no new worker starts. "
+        "Use a new key to relaunch.",
+    )
     parser.add_argument("--item", default=None)
     parser.add_argument(
         "--presentation",

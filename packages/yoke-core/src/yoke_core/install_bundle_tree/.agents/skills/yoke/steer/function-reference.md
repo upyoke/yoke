@@ -23,7 +23,7 @@ adapter shape. It is a lookup, not a phase step.
 | `claims.coordination_claim.release` | `yoke claims coordination-claim release (--project P --key K \| --claim-id N) --reason TEXT` |
 | `steering.report.get` | `yoke steering report get [--project P]` |
 | `session_control.launch.preview` | `yoke session-control launch preview --project P --surface S [--machine M] [--model M] [--reasoning-effort E] [--context-window N] --json` |
-| `session_control.launch.create` | Preview first. Item-bound: `yoke session-control launch create --project P --surface S --item PREFIX-N --idempotency-key K`. Itemless: `yoke session-control launch create --project P --surface S --raw-instructions --stdin --idempotency-key K` with a nonempty stdin body. Both accept `[--machine M] [--model M] [--reasoning-effort E] [--context-window N]`. |
+| `session_control.launch.create` | Preview first. Item-bound: `yoke session-control launch create --project P --surface S --item PREFIX-N --idempotency-key K`. Itemless: `yoke session-control launch create --project P --surface S --raw-instructions --stdin --idempotency-key K` with a nonempty stdin body. Both accept `[--machine M] [--model M] [--reasoning-effort E] [--context-window N]`. A replay whose session ended refuses as `launch_replay_finished`: no new worker started; relaunch with a new key. |
 
 | `session_control.launch.get` | `yoke session-control launch get LAUNCH-ID --json` |
 | `session_control.launch.list` | `yoke session-control launch list --project P` |
