@@ -40,6 +40,7 @@ from yoke_core.domain.handlers.machine_qa_operation_receipt import (
 )
 from yoke_core.domain.machine_qa_golden_destination import (
     resolve_golden_capture_destination,
+    resolve_browser_profile_capture_destination,
     selected_test_machine_row,
 )
 from yoke_core.domain.machine_qa_operation_shape import (
@@ -59,6 +60,7 @@ class TestMachineOperationBeginRequest(BaseModel):
     operation: OperatorOperation
     baseline: str | None = None
     destination: str | None = None
+    capture_component: Literal["browser-profile"] | None = None
 
 
 class TestMachineOperationBeginResponse(BaseModel):
@@ -77,6 +79,7 @@ class TestMachineOperationSubmitRequest(BaseModel):
     # taken on trust.
     baseline: str | None = None
     destination: str | None = None
+    capture_component: Literal["browser-profile"] | None = None
     status: Literal["verified", "error"]
     checks: list[dict[str, Any]]
     error_code: str | None = None
@@ -91,6 +94,7 @@ class TestMachineOperationResponse(BaseModel):
     checks: list[dict[str, Any]]
     error_code: str | None
     golden_baseline_path: str | None = None
+    browser_profile_baseline_path: str | None = None
     surfaces: dict[str, dict[str, Any]] | None = None
 
 
@@ -115,7 +119,12 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         destination = parsed.destination
         if parsed.operation == GOLDEN_CAPTURE_OPERATION:
-            destination = resolve_golden_capture_destination(
+            resolver = (
+                resolve_browser_profile_capture_destination
+                if parsed.capture_component
+                else resolve_golden_capture_destination
+            )
+            destination = resolver(
                 selected_test_machine_row(
                     conn, project=parsed.project, machine=parsed.machine
                 ),
@@ -132,6 +141,7 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 parsed.operation,
                 baseline=parsed.baseline,
                 golden_destination=destination,
+                capture_component=parsed.capture_component,
             ),
         )
     except (
@@ -179,6 +189,7 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
                 parsed.operation,
                 baseline=parsed.baseline,
                 golden_destination=parsed.destination,
+                capture_component=parsed.capture_component,
             ),
         )
         validate_operation_result(parsed, contract)
@@ -190,6 +201,17 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
             lease_id=lease.id,
             machine=machine,
         )
+        if recorded is not None:
+            if any(
+                recorded[key] != getattr(parsed, key)
+                for key in ("status", "checks", "error_code")
+            ):
+                raise ValueError("replayed result differs from the recorded receipt")
+            if parsed.operation == GOLDEN_CAPTURE_OPERATION and (
+                recorded["checks"][0].get("capture_component")
+                != contract.capture_component
+            ):
+                raise ValueError("replayed capture component differs from its receipt")
         if recorded is None:
             if not lease.is_active:
                 raise ValueError(
@@ -202,11 +224,17 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
                 lease_id=lease.id,
                 machine=machine,
             )
-        golden_baseline_path = record_capture_destination(
-            conn,
-            contract=contract,
-            parsed=parsed,
-            machine=machine,
+        golden_baseline_path = (
+            record_capture_destination(
+                conn, contract=contract, parsed=parsed, machine=machine
+            )
+            if lease.is_active
+            else (
+                contract.golden_destination
+                if parsed.operation == GOLDEN_CAPTURE_OPERATION
+                and parsed.status == "verified"
+                else None
+            )
         )
         if lease.is_active:
             complete_host_control_execution(
@@ -219,7 +247,9 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
         result = {
             "project": contract.project,
             "machine": machine,
-            "golden_baseline_path": golden_baseline_path,
+            "browser_profile_baseline_path"
+            if contract.capture_component
+            else "golden_baseline_path": golden_baseline_path,
             **performed_at_row(recorded),
         }
         if parsed.operation == VERIFY_OPERATION:

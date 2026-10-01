@@ -30,6 +30,7 @@ class TestMachineOperationAbortRequest(BaseModel):
     # is releasing.
     baseline: str | None = None
     destination: str | None = None
+    capture_component: Literal["browser-profile"] | None = None
     reason: AbortReason
 
 
@@ -60,6 +61,7 @@ def _release(
     baselines: Sequence[str] = (),
     cases: Sequence[dict[str, Any]] = (),
     golden_destination: str | None = None,
+    capture_component: Literal["browser-profile"] | None = None,
 ) -> dict[str, Any]:
     from yoke_core.domain.machine_qa_execution_protocol import (
         complete_host_control_execution,
@@ -78,6 +80,7 @@ def _release(
         baselines=baselines,
         cases=cases,
         golden_destination=golden_destination,
+        capture_component=capture_component,
     )
     complete_host_control_execution(
         conn,
@@ -122,6 +125,7 @@ def handle_operation_abort(request: FunctionCallRequest) -> HandlerOutcome:
                 parsed.operation,
                 baseline=parsed.baseline,
                 golden_destination=parsed.destination,
+                capture_component=parsed.capture_component,
             ),
         )
     except (

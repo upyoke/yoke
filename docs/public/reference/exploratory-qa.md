@@ -223,6 +223,15 @@ the walker receives already carry those sessions. An expired session lands the
 walker on a sign-in page, which it raises as a human gate naming the site — it
 never finds, types, or reuses a credential.
 
+On Linux, a [separately sealed profile](qa-platform/browser-profile-baseline.md)
+can survive clean-home resets. After installing the candidate, explicitly run
+`yoke qa browser setup --project P --profile-baseline /absolute/sealed/snapshot --json`
+through the lease-routed host-command surface; read its `--help` first. This
+restores the verified profile before daemon startup. Default setup and dry-run
+never restore it. Host-control `setup_operations` do not run for exploratory
+missions. Open the actual app with the candidate daemon to prove sign-in; a
+sealed receipt or cookie count cannot establish that proof.
+
 ## Evidence Discipline
 
 Perception is disposable. A walker may inspect hundreds of screens, DOM states,

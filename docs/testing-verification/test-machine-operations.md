@@ -120,6 +120,25 @@ the captured files keep exactly the modes and ACLs they had, because the
 restore restores modes from the golden and rewriting them here would make every
 restored home wrong.
 
+## Browser profile capture — separate from the clean home
+
+For a separately sealed Linux browser profile, use
+`yoke test-machine golden-capture --project P --machine NAME --component browser-profile --json`.
+Read its `--help` first. Capture after desktop logout and browser-daemon stop,
+before any reset; no probes file is required. The same host lease and receipt
+bind a new private sibling archive to home, UID and project. Success records
+`browser_profile_baseline_path`, preserving the clean `golden_baseline_path`.
+This component refuses active writers, occupied destinations and unsafe
+entries. The profile remains outside all ordinary baseline restoration;
+exploratory missions explicitly run `yoke qa browser setup --project P
+--profile-baseline /absolute/sealed/snapshot --json` through the lease-routed
+host-command surface after installing the candidate. It restores before daemon
+startup; default setup and dry-run never restore. Terminal or machine-state
+host-control cases instead declare `machine.browser-profile-restore` setup.
+A sealed receipt
+does not prove sign-in: use the candidate daemon to open the actual app.
+See the Machine QA Pack's `browser-profile-baseline.md` for the full recipe.
+
 ## bridge diagnose — which capability broke, and why
 
 ```text

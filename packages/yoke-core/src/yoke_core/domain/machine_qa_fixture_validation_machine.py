@@ -19,6 +19,9 @@ from yoke_core.domain.machine_qa_fixture_constants import (
     STAGE_TOKEN_PATH,
     YOKE_BIN,
 )
+from yoke_core.domain.machine_qa_browser_profile_fixture import (
+    validate_browser_profile_restore,
+)
 from yoke_core.domain.machine_qa_fixture_assets import FAKE_SERVICE_VARIANTS
 from yoke_core.domain.machine_qa_fixture_validation_common import (
     Validator,
@@ -314,6 +317,7 @@ def _yoke_api(parameters: Mapping[str, Any]) -> dict[str, Any]:
 
 
 MACHINE_SETUP_VALIDATORS: dict[str, Validator] = {
+    "machine.browser-profile-restore": validate_browser_profile_restore,
     "fixture.yoke-api-start": _yoke_api,
     "installer-campaign.workspace-reset": _workspace_reset,
     "installer.current-release-prepare": _current_release,

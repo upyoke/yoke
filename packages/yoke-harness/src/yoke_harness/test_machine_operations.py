@@ -127,6 +127,12 @@ def _golden_capture(
     probes_document: str | None,
 ) -> tuple[list[dict[str, Any]], str | None]:
     assert contract.golden_destination is not None
+    if contract.capture_component:
+        from yoke_harness.ssh_browser_profile_capture import capture_browser_profile
+
+        return _single_row(
+            GOLDEN_CAPTURE_OPERATION, capture_browser_profile(contract, operations)
+        )
     return _single_row(
         GOLDEN_CAPTURE_OPERATION,
         operations.capture_golden_baseline(
