@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import Dict, Tuple
 
+from yoke_cli.commands.adapters.wsl import WSL_SETUP_USAGE, wsl_setup
+
 from yoke_cli.commands.adapters.aws import (
     aws_admin_link,
     aws_admin_status,
@@ -57,6 +59,7 @@ from yoke_cli.commands.flag_adapters import (
 )
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
+    ("wsl", "setup"): wsl_setup,
     ("config", "distribution", "set"): distribution_set,
     ("aws", "admin-link"): aws_admin_link,
     ("aws", "admin-status"): aws_admin_status,
@@ -89,6 +92,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
 }
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
+    "yoke wsl setup": WSL_SETUP_USAGE,
     "yoke config distribution set": DISTRIBUTION_SET_USAGE,
     "yoke vps status": (
         "yoke vps status --stack STACK [--project PROJECT] [--region REGION]"

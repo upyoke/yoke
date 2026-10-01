@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 from yoke_harness import browser_linux_deps
+from yoke_harness.system_privileges import command_authority
 
 # The packaged Playwright version owns both validation and the apt package list.
 # Validate the actual executable directories, without its successful-check cache.
@@ -55,24 +55,6 @@ def _probe(browser, toolchain, env):
         ) from exc
 
 
-def _authority(missing):
-    if os.geteuid() == 0:
-        return [], False
-    sudo = shutil.which("sudo")
-    if sudo:
-        result = subprocess.run([sudo, "-n", "true"], capture_output=True, text=True)
-        if result.returncode == 0:
-            return [sudo, "-n", "--"], False
-        if sys.stdin.isatty() and sys.stderr.isatty():
-            return [sudo, "--"], True
-    raise RuntimeError(
-        f"browser_system_packages_unavailable: {missing}\n"
-        "This machine offers no way to install system packages. "
-        "Run yoke qa browser setup in an interactive terminal with sudo access, "
-        "or configure passwordless sudo for system package installation."
-    )
-
-
 def ensure_system_dependencies(
     browser: Path, toolchain, *, env, emit, autoinstall=True
 ):
@@ -92,7 +74,12 @@ def ensure_system_dependencies(
         raise RuntimeError(
             f"browser_system_libraries_missing: {missing}; YOKE_BROWSER_AUTOINSTALL=0"
         )
-    prefix, interactive = _authority(missing)
+    prefix, interactive = command_authority(
+        f"browser_system_packages_unavailable: {missing}\n"
+        "This machine offers no way to install system packages. "
+        "Run yoke qa browser setup in an interactive terminal with sudo access, "
+        "or configure passwordless sudo for system package installation."
+    )
     if browser_linux_deps.is_amazon_linux():
         commands = [browser_linux_deps.amazon_linux_chromium_deps_command()]
     else:

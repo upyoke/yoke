@@ -178,6 +178,7 @@ class Installer:
         self.options = options
         self.fetcher = fetcher or fetch_url
         self.capture_runner = runner or run_command_capture
+        self.terminal_runner = runner or subprocess.run
         self.which = which or shutil.which
         self.stdout = stdout or sys.stdout
         self.color = self._resolve_color(self.stdout) if color is None else color
@@ -285,6 +286,19 @@ class Installer:
         self._product_boundary_audit(expected_version=version, yoke_bin=yoke_bin)
         self._repair_credential_helper(yoke_bin)
         self._record_distribution(yoke_bin)
+        try:
+            wsl_setup = self.terminal_runner([yoke_bin, "wsl", "setup"])
+        except OSError as exc:
+            raise InstallError(
+                f"wsl_systemd_setup_unavailable: {exc}. "
+                "Rerun the installer to repair the installed yoke executable."
+            ) from exc
+        if wsl_setup.returncode:
+            raise InstallError(
+                "wsl_systemd_setup_failed: See the WSL setup reason above. "
+                "Rerun yoke wsl setup in an Ubuntu terminal with administrator access, "
+                "then rerun the installer."
+            )
         if already:
             print(self._say(f"Yoke v{display} already installed"), file=self.stdout)
         else:
