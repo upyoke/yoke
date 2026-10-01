@@ -156,6 +156,9 @@ yoke test-machine exec --project <project> --machine <resource-name> -- <command
 
 Runs one command on the host as the capability's `user` at its `host`, with
 this machine's own ssh-agent identity, and exits with the command's status.
+Stdout and stderr stream live as they arrive. Only the last 64 KiB of each
+stream is retained for failure diagnosis, so long commands do not accumulate
+their full output in memory.
 The words after `--` reach the remote login shell exactly as `ssh` sends
 them, so `-- 'ls ~/.yoke && cat ~/.zshrc'` expands on the host. It never
 reads `~/.ssh` — a relay-launched session is denied that directory — so it

@@ -13,9 +13,13 @@ from __future__ import annotations
 
 from yoke_contracts.machine_config.directories import create_private_directory
 
+import codecs
+import locale
 import os
 from pathlib import Path
+import selectors
 import subprocess
+import sys
 from typing import Callable, Mapping, Sequence
 
 
@@ -23,6 +27,8 @@ KNOWN_HOSTS_DIR_NAME = "test-machine"
 KNOWN_HOSTS_FILE_NAME = "known_hosts"
 SSH_AUTH_SOCK_ENV = "SSH_AUTH_SOCK"
 SSH_CONNECTION_FAILURE_EXIT = 255
+DIAGNOSTIC_TAIL_BYTES = 64 * 1024
+_READ_CHUNK_BYTES = 8192
 SSH_OPTIONS = (
     "IdentityFile=none",
     "StrictHostKeyChecking=accept-new",
@@ -73,9 +79,9 @@ def run_remote_command(
     command: Sequence[str],
     yoke_home: Path,
     environ: Mapping[str, str] = os.environ,
-    run: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+    popen: Callable[..., subprocess.Popen] = subprocess.Popen,
 ) -> subprocess.CompletedProcess[str]:
-    """Run one command with inherited stdin; return output for CLI diagnosis.
+    """Tee output live with inherited stdin; return bounded diagnostic tails.
 
     Raises :class:`RemoteExecRefusal` before connecting when no ssh-agent is
     reachable, and after ssh itself fails to connect (exit 255), so the
@@ -106,15 +112,14 @@ def run_remote_command(
         command=command,
     )
     try:
-        completed = run(
-            argv, check=False, capture_output=True, text=True, errors="backslashreplace"
-        )
+        process = popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except OSError as exc:
         raise RemoteExecRefusal(
             "test_machine_ssh_unavailable",
             f"could not start ssh: {exc}",
             "Install OpenSSH's `ssh` client on this machine and put it on PATH.",
         ) from exc
+    completed = _stream_command(argv, process=process)
     if completed.returncode == SSH_CONNECTION_FAILURE_EXIT:
         raise RemoteExecRefusal(
             "test_machine_ssh_failed",
@@ -130,7 +135,54 @@ def run_remote_command(
     return completed
 
 
+def _stream_command(
+    argv: list[str], *, process: subprocess.Popen
+) -> subprocess.CompletedProcess[str]:
+    """Drain both pipes without line buffering or retaining the full output."""
+    encoding = locale.getpreferredencoding(False)
+    with process:
+        assert process.stdout is not None and process.stderr is not None
+        tails = {process.stdout: bytearray(), process.stderr: bytearray()}
+        with selectors.DefaultSelector() as selector:
+            try:
+                for stream, destination in (
+                    (process.stdout, sys.stdout),
+                    (process.stderr, sys.stderr),
+                ):
+                    decoder = codecs.getincrementaldecoder(encoding)(
+                        errors="backslashreplace"
+                    )
+                    selector.register(
+                        stream, selectors.EVENT_READ, (destination, decoder)
+                    )
+                while selector.get_map():
+                    for key, _ in selector.select():
+                        stream = key.fileobj
+                        chunk = os.read(stream.fileno(), _READ_CHUNK_BYTES)
+                        destination, decoder = key.data
+                        destination.write(decoder.decode(chunk, final=not chunk))
+                        destination.flush()
+                        if not chunk:
+                            selector.unregister(stream)
+                            continue
+                        tail = tails[stream]
+                        tail.extend(chunk)
+                        del tail[:-DIAGNOSTIC_TAIL_BYTES]
+                returncode = process.wait()
+            except BaseException:
+                process.kill()
+                process.wait()
+                raise
+        return subprocess.CompletedProcess(
+            argv,
+            returncode,
+            tails[process.stdout].decode(encoding, errors="backslashreplace"),
+            tails[process.stderr].decode(encoding, errors="backslashreplace"),
+        )
+
+
 __all__ = [
+    "DIAGNOSTIC_TAIL_BYTES",
     "KNOWN_HOSTS_DIR_NAME",
     "KNOWN_HOSTS_FILE_NAME",
     "RemoteExecRefusal",
