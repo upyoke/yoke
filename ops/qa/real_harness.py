@@ -175,7 +175,9 @@ def run(args) -> None:
             "native-version", [BINARIES[args.harness], "--version"], cwd=root
         )
         report["native_version"] = version.stdout.strip()
-        versions = json.loads(args.versions)
+        versions = json.loads(args.versions_file.read_text(encoding="utf-8"))[
+            args.harness
+        ]
         if report["native_version"] != versions.get(platform.system()):
             raise ProofFailure(
                 "native_version_mismatch: refresh the declared golden/version and rerun"
@@ -306,11 +308,7 @@ def run(args) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--harness", choices=EXECUTORS, required=True)
-    parser.add_argument(
-        "--versions",
-        required=True,
-        help="JSON mapping of OS name to exact native version",
-    )
+    parser.add_argument("--versions-file", type=Path, required=True)
     parser.add_argument("--wheels", type=Path, required=True)
     args = parser.parse_args()
     try:

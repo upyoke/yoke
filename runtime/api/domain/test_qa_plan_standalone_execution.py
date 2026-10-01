@@ -178,3 +178,140 @@ def test_bad_source_refuses_before_materialization_commits():
             ).fetchone()[0]
             == 0
         )
+
+
+def test_machine_baseline_group_selects_only_its_standalone_execution(
+    test_db, tmp_path, monkeypatch
+):
+    from runtime.api.domain.machine_qa_baseline_group_test_support import (
+        configure_test_machine,
+    )
+    from yoke_core.domain.handlers.machine_qa_baseline_group_context import (
+        baseline_group_cases,
+    )
+
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    plan = _plan(test_db)
+    replace_plan_cases(
+        test_db,
+        plan_id=plan["id"],
+        cases=[
+            {
+                "case_key": key,
+                "method_id": "terminal-check",
+                "instructions": "Check the terminal",
+                "expected_outcome": "Done",
+                "entry_surface": "/usr/bin/true",
+                "required_completion": "done",
+                "host_baselines": ["fresh-host"],
+                "method_config": {"steps": [{"key": "done", "expect": "done"}]},
+            }
+            for key in ("first", "second")
+        ],
+    )
+    old = _begin(test_db)
+    finish_plan_execution(test_db, old, state="aborted", reason="new-run")
+    current = _begin(test_db)
+    anchor = get_case_execution_context(
+        test_db,
+        requirement_id=current["roster"][0]["requirement_id"],
+    )
+    grouped = baseline_group_cases(test_db, anchor=anchor)
+    assert [case["requirement_id"] for case in grouped] == [
+        case["requirement_id"] for case in current["roster"]
+    ]
+    assert {case["standalone_execution_id"] for case in grouped} == {current["id"]}
+    assert {case["requirement_id"] for case in grouped}.isdisjoint(
+        case["requirement_id"] for case in old["roster"]
+    )
+
+
+def test_standalone_machine_cases_restore_each_baseline(test_db, tmp_path, monkeypatch):
+    from runtime.api.domain.machine_qa_baseline_group_test_support import (
+        configure_test_machine,
+    )
+    from runtime.api.domain.machine_qa_test_support import FakeHostControl
+    from yoke_contracts.api.function_call import (
+        ActorContext,
+        FunctionCallRequest,
+        TargetRef,
+    )
+    from yoke_core.domain.handlers.machine_qa_plan_case import (
+        handle_plan_case_begin,
+        handle_plan_case_submit,
+    )
+    from yoke_core.domain.host_control_runner import (
+        clear_host_control_factory,
+        register_host_control_factory,
+    )
+    from yoke_core.domain.machine_qa_local_execution import (
+        execute_machine_case_contract,
+    )
+
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    plan = _plan(test_db)
+    replace_plan_cases(
+        test_db,
+        plan_id=plan["id"],
+        cases=[
+            {
+                "case_key": key,
+                "method_id": "terminal-check",
+                "instructions": "Check the terminal",
+                "expected_outcome": "Done",
+                "entry_surface": "/usr/bin/true",
+                "required_completion": "done",
+                "host_baselines": ["fresh-host"],
+                "method_config": {"steps": [{"key": "done", "expect": "done"}]},
+            }
+            for key in ("first", "second")
+        ],
+    )
+    actor = ActorContext(actor_id="2", session_id="session-machine-plan")
+    execution = begin_standalone_execution(
+        test_db,
+        plan="manual-proof",
+        project="yoke",
+        actor_id=actor.actor_id,
+        session_id=actor.session_id,
+        source_revision=SHA,
+    )
+    control = FakeHostControl()
+    register_host_control_factory(lambda _material: control)
+    try:
+        for ordinal, case in enumerate(execution["roster"]):
+            payload = {
+                "execution_id": execution["id"],
+                "ordinal": ordinal,
+                "requirement_id": case["requirement_id"],
+            }
+            begun = handle_plan_case_begin(
+                FunctionCallRequest(
+                    function="test_machine.plan_case.begin",
+                    actor=actor,
+                    target=TargetRef(kind="global", project_id="yoke"),
+                    payload=payload,
+                )
+            )
+            assert begun.primary_success, begun.error
+            submission = execute_machine_case_contract(
+                begun.result_payload["execution"]
+            )
+            submitted = handle_plan_case_submit(
+                FunctionCallRequest(
+                    function="test_machine.plan_case.submit",
+                    actor=actor,
+                    target=TargetRef(kind="global", project_id="yoke"),
+                    payload={**payload, **submission.payload},
+                )
+            )
+            assert submitted.primary_success, submitted.error
+        assert control.full_reset_calls == len(execution["roster"])
+        finish_plan_execution(
+            test_db,
+            lock_plan_execution(test_db, execution["id"]),
+            state="aborted",
+            reason="test-complete",
+        )
+    finally:
+        clear_host_control_factory()

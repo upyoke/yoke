@@ -9,7 +9,9 @@ import shlex
 import tarfile
 
 
-def cases(driver: Path, wheels: Path, versions: dict) -> list[dict]:
+def cases(
+    driver: Path, wheels: Path, versions: dict, versions_file: Path
+) -> list[dict]:
     rows = []
     for harness in ("claude", "codex", "cursor"):
         native_versions = versions[harness]
@@ -21,8 +23,8 @@ def cases(driver: Path, wheels: Path, versions: dict) -> list[dict]:
                 "/tmp/yoke-real-harness.py",
                 "--harness",
                 harness,
-                "--versions",
-                json.dumps(native_versions),
+                "--versions-file",
+                "/tmp/yoke-harness-versions.json",
                 "--wheels",
                 "/tmp/yoke-harness-wheels.tar",
             ]
@@ -82,6 +84,10 @@ def cases(driver: Path, wheels: Path, versions: dict) -> list[dict]:
                             "source_path": str(wheels),
                             "remote_path": "/tmp/yoke-harness-wheels.tar",
                         },
+                        {
+                            "source_path": str(versions_file),
+                            "remote_path": "/tmp/yoke-harness-versions.json",
+                        },
                     ],
                 },
             }
@@ -111,6 +117,7 @@ def main() -> None:
                 Path(__file__).with_name("real_harness.py").resolve(),
                 args.wheel_archive.resolve(),
                 versions,
+                args.versions_file.resolve(),
             ),
             indent=2,
         )

@@ -36,7 +36,11 @@ through any continuation. The source checkout, candidate wheels and recorded QA
 execution must be named together in the work item's evidence.
 
 Each case restores `shell-preconfigured`, which first restores the golden and
-then installs the shell launcher. It installs the candidate wheels in a separate
+then installs the shell launcher. Standalone Machine QA uses the existing per-case
+protocol, so every harness starts from its own golden restore rather than sharing
+the preceding harness's local universe. Baseline-group lookup also recognizes a
+standalone execution as its unique subject and never mixes evidence from two runs.
+The case installs the candidate wheels in a separate
 environment, onboards a throwaway Git project into a disposable local universe
 with GitHub disabled, and invokes the signed-in native CLI. Linux uses tmux
 transcripts; macOS uses the GUI terminal bridge and its login keychain context.
