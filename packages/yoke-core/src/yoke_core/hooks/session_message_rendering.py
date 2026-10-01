@@ -88,12 +88,7 @@ def _parent_blocks(
     *,
     session_id: str,
 ) -> list[str]:
-    """Expand every leased body; only unleased messages are summarized.
-
-    Fitting later admits whole messages that fit the harness cap and
-    leaves the rest pending. Dropping a body here would still exclude it
-    from that retry, so this renderer expands every leased message.
-    """
+    """Expand leased messages before the composer admits bodies or stubs."""
     blocks = [
         _render_message(
             message,
@@ -118,8 +113,8 @@ def render_lease(
     """Return the whole lease as model context, plus its settlement token.
 
     Bounding happens where delivery is actually decided: the harness
-    context composer admits whole messages that fit, points at a body that
-    cannot fit even alone, and leaves the rest pending for the next hook.
+    context composer admits whole messages that fit, substitutes a stub for
+    an oversized body, and leaves the rest pending for the next hook.
     Trimming it here instead would make those outcomes look identical to
     settlement.
     """

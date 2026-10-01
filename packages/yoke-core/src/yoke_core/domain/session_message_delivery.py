@@ -8,10 +8,6 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from yoke_contracts.session_control.capabilities import capability_for_surface
-from yoke_contracts.session_control.wake_delivery import (
-    INLINE_OVERFLOW_ATTEMPT_BOUND,
-    INLINE_OVERFLOW_RESULT,
-)
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_delivery_projection import (
     delivery_message_projection,
@@ -125,15 +121,11 @@ def _lease_candidates(
         "AND m.cancelled_at IS NULL AND m.expires_at>" + marker + " "
         "AND (r.injection_lease_id IS NULL "
         "OR r.injection_lease_expires_at<=" + marker + ") "
-        "AND (SELECT COUNT(*) FROM session_message_attempts a "
-        "WHERE a.message_id=r.message_id AND a.target_session_id=r.session_id "
-        "AND a.result_code=" + marker + ") < " + str(INLINE_OVERFLOW_ATTEMPT_BOUND) + " "
         "ORDER BY m.created_at,r.message_id LIMIT " + marker + lock,
         (
             session_id,
             stamp,
             stamp,
-            INLINE_OVERFLOW_RESULT,
             max(1, min(int(limit), 50)),
         ),
     ).fetchall()

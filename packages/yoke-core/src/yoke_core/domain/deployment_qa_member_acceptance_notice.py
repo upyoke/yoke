@@ -18,6 +18,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from yoke_core.domain.deployment_close_out_failure_summary import (
+    close_out_failure_summary,
+)
 from yoke_core.domain.db_optional_queries import rollback_savepoint
 from yoke_core.domain.deployment_qa_run_acceptance import (
     item_qa_acceptance_blockers,
@@ -52,7 +55,7 @@ def item_qa_accepted_message(
         "shared QA and approval gates decide whether sibling QA delays completion."
     )
     if close_out_failure:
-        lead += f" Automatic close-out failed: {close_out_failure}."
+        lead += " " + close_out_failure_summary(public_ref, close_out_failure)
     recovery = (
         "Automatic close-out needs recovery before this item can finish. "
         if close_out_failure

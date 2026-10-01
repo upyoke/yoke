@@ -1,4 +1,4 @@
-"""Long-session proof that a receipt is injected only when its body ships.
+"""Long-session proof that a receipt settles when its body or stub ships.
 
 Every test here drives the whole path a live hook drives — durable lease,
 render, harness composition, settlement — because the defect this file
@@ -11,12 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_contracts.hook_context_compose import POINTER_BEGIN
 from yoke_contracts.session_control.wake_delivery import (
     HOOK_DEFERRED_FOR_BUDGET_RESULT,
-    INLINE_OVERFLOW_ATTEMPT_BOUND,
-    INLINE_OVERFLOW_RESULT,
-    inline_overflow_skip_reason,
 )
 from yoke_core.domain.session_message_delivery import (
     complete_hook_lease,
@@ -181,7 +177,7 @@ def test_a_backlog_is_not_truncated_by_a_message_count() -> None:
         rendered = _hook(conn, monkeypatch)
 
     assert all(message_id in rendered for message_id in message_ids)
-    assert POINTER_BEGIN not in rendered
+    assert "delivered as a stub" not in rendered
     assert set(_receipts(conn).values()) == {"injected"}
 
 
@@ -201,11 +197,10 @@ def test_a_lease_too_large_for_the_ceiling_ships_only_what_fits() -> None:
         assert f"--- BEGIN YOKE SESSION MESSAGE {message_id} ---" in rendered
     for message_id in pending:
         assert f"--- BEGIN YOKE SESSION MESSAGE {message_id} ---" not in rendered
-    assert INLINE_OVERFLOW_RESULT not in _attempt_results(conn)
     assert HOOK_DEFERRED_FOR_BUDGET_RESULT in _attempt_results(conn)
 
 
-def test_an_oversized_body_keeps_its_own_receipt_pending_and_named() -> None:
+def test_an_oversized_body_delivers_a_stub_and_keeps_the_full_body_readable() -> None:
     conn = message_connection()
     body = "x" * 12_000
     (message_id,) = _send(conn, 1, body=body)
@@ -214,18 +209,15 @@ def test_an_oversized_body_keeps_its_own_receipt_pending_and_named() -> None:
         rendered = _hook(conn, monkeypatch)
 
     command = f"yoke messages get {message_id}"
-    assert POINTER_BEGIN in rendered
-    assert f"Read: {command}" in rendered
+    assert "delivered as a stub" in rendered
+    assert f"Read the full body: {command}" in rendered
     assert f"{command} --json" not in rendered
-    assert _receipts(conn) == {message_id: "pending"}
-    assert INLINE_OVERFLOW_RESULT in _attempt_results(conn)
+    assert _receipts(conn) == {message_id: "injected"}
+    assert _attempt_results(conn) == {"injected"}
     details = get_message(
         conn, message_id=message_id, actor_id=10, session_id=RECIPIENT
     )
     assert details["body"] == f"message 0: {body}"
-    assert details["attempts"][-1]["evidence"]["skip_reason"] == (
-        inline_overflow_skip_reason(message_id)
-    )
 
 
 def test_a_small_message_is_never_blocked_by_an_oversized_sibling() -> None:
@@ -237,10 +229,10 @@ def test_a_small_message_is_never_blocked_by_an_oversized_sibling() -> None:
         rendered = _hook(conn, monkeypatch)
 
     assert f"--- BEGIN YOKE SESSION MESSAGE {small_id} ---" in rendered
-    assert POINTER_BEGIN in rendered
-    assert f"Read: yoke messages get {oversized_id}" in rendered
-    assert _receipts(conn) == {small_id: "injected", oversized_id: "pending"}
-    assert INLINE_OVERFLOW_RESULT in _attempt_results(conn)
+    assert "delivered as a stub" in rendered
+    assert f"Read the full body: yoke messages get {oversized_id}" in rendered
+    assert _receipts(conn) == {small_id: "injected", oversized_id: "injected"}
+    assert _attempt_results(conn) == {"injected"}
 
 
 def test_a_backlog_drains_across_hooks_and_never_receipts_a_missing_body() -> None:
@@ -272,17 +264,54 @@ def test_a_backlog_drains_across_hooks_and_never_receipts_a_missing_body() -> No
     )
 
 
-def test_overflow_retries_are_bounded_and_named() -> None:
+def test_an_oversized_message_settles_once_and_is_not_retried() -> None:
     conn = message_connection()
     (message_id,) = _send(conn, 1, body="x" * 12_000)
     with pytest.MonkeyPatch.context() as monkeypatch:
-        for index in range(INLINE_OVERFLOW_ATTEMPT_BOUND + 2):
+        for index in range(5):
             _hook(conn, monkeypatch, EVENTS[index % 2])
-    overflowed = conn.execute(
-        "SELECT COUNT(*) FROM session_message_attempts "
-        "WHERE result_code=? AND completed_at IS NOT NULL",
-        (INLINE_OVERFLOW_RESULT,),
+    attempts = conn.execute(
+        "SELECT COUNT(*) FROM session_message_attempts WHERE completed_at IS NOT NULL"
     ).fetchone()
-    assert int(overflowed[0]) == INLINE_OVERFLOW_ATTEMPT_BOUND
-    assert _receipts(conn) == {message_id: "pending"}
+    assert int(attempts[0]) == 1
+    assert _receipts(conn) == {message_id: "injected"}
 
+
+def test_oversized_stub_injection_settles_its_native_wake() -> None:
+    from datetime import timedelta
+    from runtime.api.domain.test_session_wake_reconciliation import _add_events_table
+    from yoke_contracts.session_control.wake_delivery import (
+        NATIVE_RESUME_ACCEPTED_RESULT,
+        WAKE_DELIVERED_RESULT,
+    )
+    from yoke_core.domain.session_wake_reconciliation import (
+        reconcile_spawned_wake_attempts,
+    )
+
+    conn = message_connection()
+    _add_events_table(conn)
+    (message_id,) = _send(conn, 1, body="x" * 12_000)
+    started = (NOW - timedelta(seconds=1)).isoformat()
+    conn.execute(
+        "INSERT INTO session_message_attempts (attempt_id,message_id,target_session_id,attempt_kind,adapter_revision,started_at,result_code,evidence) VALUES (?,?,?,?,?,?,?,?)",
+        (
+            "native-wake",
+            message_id,
+            RECIPIENT,
+            "wake_relay",
+            "test-native",
+            started,
+            NATIVE_RESUME_ACCEPTED_RESULT,
+            "{}",
+        ),
+    )
+    conn.commit()
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        rendered = _hook(conn, monkeypatch)
+    assert "delivered as a stub" in rendered
+    assert reconcile_spawned_wake_attempts(conn, now=NOW.isoformat()) == 1
+    row = conn.execute(
+        "SELECT completed_at,result_code FROM session_message_attempts WHERE attempt_id='native-wake'"
+    ).fetchone()
+    assert row[0] is not None
+    assert row[1] == WAKE_DELIVERED_RESULT

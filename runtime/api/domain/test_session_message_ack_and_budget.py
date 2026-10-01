@@ -1,4 +1,4 @@
-"""Recipient ack teaching and inline-overflow lease settlement."""
+"""Recipient ack teaching and budget-deferred lease settlement."""
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def test_get_and_list_print_the_ack_command_for_the_recipient() -> None:
     assert "acknowledgement_command" not in sender
 
 
-def test_inline_overflow_releases_the_lease_and_leaves_the_receipt_pending() -> None:
+def test_budget_deferral_releases_the_lease_and_leaves_the_receipt_pending() -> None:
     conn = message_connection()
     _send(conn)
     lease = lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10)
@@ -57,7 +57,7 @@ def test_inline_overflow_releases_the_lease_and_leaves_the_receipt_pending() -> 
         conn,
         lease_id=lease["lease_id"],
         injected=False,
-        result="inline_overflow",
+        result="deferred_for_budget",
     )
     receipt = conn.execute(
         "SELECT state,injection_count,injection_lease_id "
@@ -65,4 +65,4 @@ def test_inline_overflow_releases_the_lease_and_leaves_the_receipt_pending() -> 
     ).fetchone()
     assert tuple(receipt) == ("pending", 0, None)
     result = conn.execute("SELECT result_code FROM session_message_attempts").fetchone()
-    assert result["result_code"] == "inline_overflow"
+    assert result["result_code"] == "deferred_for_budget"

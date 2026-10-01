@@ -15,8 +15,8 @@ What the report gives you is a finding; what to do with each one is yours:
   actions must already be recorded in the standing plan before handoff.
 - **Unacked injected (this session)** — your inbox, already shown, still
   awaiting `yoke messages acknowledge MESSAGE-ID`. Not the seat-awaiting
-  count above. An overflow pointer means the body never injected: read
-  `yoke messages get MESSAGE-ID` and ack; the row stays pending.
+  count above. An oversized-message stub counts as injected: read
+  `yoke messages get MESSAGE-ID` for the full body and acknowledge it.
 - **Idle holders** — probe and revive. A holder that stamped `--mode parked`
   declared its wait, one inside a long call is listed under **In flight**, one
   the provider stopped under **Vendor-stopped sessions**, and one that cannot

@@ -140,8 +140,8 @@ def _decision_for_event(
     )
     if output_field == STDOUT_CHANNEL:
         # Raw stdout never reaches the decision renderer's composition, so
-        # this is the only place the harness inline ceiling and the overflow
-        # pointer can reach a lease delivered on it. Without them an
+        # this is the only place the harness inline ceiling and the oversized-message
+        # stub can reach a lease delivered on it. Without them an
         # oversized lease settles as injected on text no harness carries
         # whole. Folding the report in here too keeps one coherent block:
         # a report riding the additionalContext channel beside raw text

@@ -40,6 +40,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from yoke_core.domain.deployment_close_out_failure_summary import (
+    close_out_failure_summary,
+)
 from yoke_core.domain.db_optional_queries import rollback_savepoint
 from yoke_core.domain.gate_satisfier_facts import FactVerdict
 from yoke_core.domain.gate_satisfier_item_facts import (
@@ -71,7 +74,7 @@ def delivery_cleared_message(
         f"and the item is still at its release wait."
     )
     if close_out_failure:
-        lead += f" Automatic close-out failed: {close_out_failure}."
+        lead += " " + close_out_failure_summary(public_ref, close_out_failure)
     if route == HOLDER:
         return (
             f"{lead} You hold its work claim and parked on this wait, so this "
@@ -238,7 +241,7 @@ def notify_delivery_cleared(
     succeeded (:mod:`deployment_run_collective_finalization`), so this finds
     them done; what remains here is the member whose holder still owes
     post-deploy work. If a close-out does refuse, the ordinary isolated
-    notice carries its detail and recovery to the holder or steering seat. Returns one record per member with what
+    notice carries a compact gate summary and recovery to the holder or steering seat. Returns one record per member with what
     delivery did, so a caller can report a notice or close-out that did not
     land without treating it as a run failure. Call it only after the run's
     own status is committed.
