@@ -267,8 +267,8 @@ has already accepted that same plan.
 An active source-checkout CLI refuses this command before preview or install,
 just as `yoke update` does. Update the checkout with git, then rebuild its
 source server with `yoke core upgrade --from-checkout /path/to/yoke --build`.
-Checkout builds pass Git HEAD and a `0.dev0+g<sha12>` snapshot version into
-the image, so installed wheels pass the same version check as release images.
+Checkout builds pass Git HEAD and the checkout's setuptools-scm version into
+the image, so installed wheels pass version and migration-readiness checks.
 The refusal preserves the CLI install, bundle image pin, and running server.
 
 Failures name the stage and exact retry. The pin is unchanged when CLI install

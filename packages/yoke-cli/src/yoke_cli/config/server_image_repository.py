@@ -4,7 +4,10 @@ from pathlib import Path
 import re
 
 from yoke_cli.config import machine_config, machine_config_mutation as mutation
-from yoke_contracts.server_image import PUBLISHED_SERVER_IMAGE_REPOSITORY
+from yoke_contracts.server_image import (
+    PUBLISHED_SERVER_IMAGE_REPOSITORY,
+    canonical_server_image_tag,
+)
 
 SETTING_KEY = "server_image_repository"
 _REPOSITORY = re.compile(
@@ -50,3 +53,9 @@ def save(value: str, *, path: str | Path | None = None) -> None:
         )
     settings[SETTING_KEY] = selected
     mutation.write_payload(payload, cfg_path, allow_unconfigured=True)
+
+
+def image_for_commit(source_commit: str, *, repository: str | None = None) -> str:
+    """Keep configured repository selection local to the self-host client."""
+    selected = validate(repository) if repository is not None else configured()
+    return f"{selected}:{canonical_server_image_tag(source_commit)}"

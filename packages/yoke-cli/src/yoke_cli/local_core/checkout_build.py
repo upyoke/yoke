@@ -27,4 +27,13 @@ def identity(checkout_path: str) -> tuple[str, str]:
             "checkout_build_identity_invalid: Git HEAD is not a full source commit; "
             "repair the checkout, then retry the core build"
         )
-    return commit, f"0.dev0+g{commit[:12]}"
+    try:
+        from setuptools_scm import get_version
+
+        version = get_version(root=str(root))
+    except (ImportError, OSError, ValueError, LookupError) as exc:
+        raise ValueError(
+            "checkout_build_version_unavailable: cannot resolve the checkout's SCM version; "
+            "sync the CLI dependencies, fetch its release tags and repair Git metadata, then retry the core build"
+        ) from exc
+    return commit, version

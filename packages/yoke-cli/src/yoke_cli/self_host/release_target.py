@@ -21,8 +21,7 @@ from yoke_contracts.api_urls import (
 )
 from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.install_binding import source_checkout_root
-from yoke_contracts.server_image import pinned_server_image
-from yoke_cli.config.server_image_repository import configured, validate
+from yoke_cli.config.server_image_repository import image_for_commit
 
 DEFAULT_RELEASE_CHANNEL = "stable"
 FETCH_TIMEOUT_SECONDS = 60.0
@@ -249,15 +248,13 @@ def _target(
     image_repository: str | None = None,
 ) -> ReleaseTarget:
     try:
-        repository = (
-            validate(image_repository) if image_repository is not None else configured()
-        )
+        image = image_for_commit(source_commit, repository=image_repository)
     except ValueError as exc:
         raise ReleaseTargetError(str(exc)) from exc
     return ReleaseTarget(
         version=version,
         source_commit=source_commit,
-        image=pinned_server_image(source_commit, repository=repository),
+        image=image,
         base_url=base_url,
         channel=channel,
         installer_url=installer_url,
