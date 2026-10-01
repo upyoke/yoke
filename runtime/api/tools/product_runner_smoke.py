@@ -268,7 +268,7 @@ def smoke(root: Path, output: Path) -> None:
                         )
                     commands.run(
                         "stop-local-postgres",
-                        [yoke, "postgres", "stop", "--json"],
+                        [yoke, "local-postgres", "stop", "--json"],
                         cwd=project,
                     )
                 except SmokeFailure:

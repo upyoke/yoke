@@ -27,6 +27,7 @@ fault. It then runs `yoke dev setup --editable-install` and a small
 `yoke watch pytest --local` subset through `uv run --frozen` in the source
 environment. The product test cluster resolves already-installed embedded
 Postgres binaries, falling back to system PATH when none are installed. The
+pytest wrapper preserves executable access when it isolates machine config. The
 smoke uses a short disposable socket root, retains failed watcher/server
 captures, and stops that test cluster. Cleanup uninstalls macOS's disposable local
 relay before stopping the local cluster and removing its scratch directory.
