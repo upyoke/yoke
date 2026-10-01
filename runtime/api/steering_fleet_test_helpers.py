@@ -79,12 +79,16 @@ def seed_tool_call(
     completed_at: str | None = None,
     tool_name: str = "Bash",
 ) -> None:
-    """One call and the running posture its accepted hook would stamp."""
-    conn.execute(
-        "UPDATE harness_sessions SET turn_posture='running', "
-        "turn_posture_at=%s WHERE session_id=%s",
-        (started_at, session_id),
-    )
+    """One call; unfinished calls also stamp their accepted hook's posture.
+
+    Completed history leaves the session's current turn posture intact.
+    """
+    if completed_at is None:
+        conn.execute(
+            "UPDATE harness_sessions SET turn_posture='running', "
+            "turn_posture_at=%s WHERE session_id=%s",
+            (started_at, session_id),
+        )
     conn.execute(
         "INSERT INTO session_tool_calls "
         "(session_id, tool_use_id, tool_name, started_at, completed_at, "

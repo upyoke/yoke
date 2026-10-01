@@ -16,7 +16,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.session_mode import session_is_parked
 from yoke_core.domain.session_tool_call_projections import (
     OPEN_TOOL_CALL_COLUMN,
-    open_tool_call_select,
+    open_tool_call_expression,
 )
 from yoke_core.domain.session_reclaim_progress import parse_stamp
 from yoke_core.domain.session_native_process_observation import (
@@ -93,7 +93,7 @@ def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
     """
     item_id = scope_int_sql(conn, "wc.scope", "item_id")
     marker = _p(conn)
-    open_call = open_tool_call_select(conn, session_alias="hs")
+    open_call = open_tool_call_expression(session_alias="hs")
     try:
         rows = conn.execute(
             f"SELECT {item_id} AS item_id, wc.session_id AS session_id, "

@@ -60,6 +60,15 @@ def open_tool_call_select(conn: Any, *, session_alias: str) -> str:
     """
     if not has_session_tool_calls_table(conn):
         return f",NULL AS {OPEN_TOOL_CALL_COLUMN}"
+    return open_tool_call_expression(session_alias=session_alias)
+
+
+def open_tool_call_expression(*, session_alias: str) -> str:
+    """The open-call select fragment for readers requiring the converged schema.
+
+    Unlike the fixture-tolerant wrapper, this performs no schema read, keeping
+    a holder read to one statement while sharing the latest-call semantics.
+    """
     return (
         ",(SELECT tc.started_at FROM session_tool_calls tc "
         f"WHERE tc.session_id={session_alias}.session_id "
@@ -108,5 +117,6 @@ __all__ = [
     "MONITOR_TOOL_NAME",
     "OPEN_TOOL_CALL_COLUMN",
     "last_completed_tool_select",
+    "open_tool_call_expression",
     "open_tool_call_select",
 ]
