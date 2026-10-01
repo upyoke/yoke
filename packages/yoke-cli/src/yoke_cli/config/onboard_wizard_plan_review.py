@@ -14,7 +14,7 @@ from yoke_cli.config import onboard_relay_supervisor
 from typing import TYPE_CHECKING, Any
 
 from yoke_cli.config import onboard_path_plan
-from yoke_cli.config.onboard_apply_runtime import BROWSER_SETUP_ACTION
+from yoke_cli.config.onboard_machine_setup import BROWSER_SETUP_ACTION
 from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_machine_registry

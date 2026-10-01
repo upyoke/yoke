@@ -105,12 +105,11 @@ def write_payload(
 ) -> None:
     """Validate and atomically replace one machine-config payload.
 
-    ``allow_unconfigured`` tolerates the one invalid shape a legitimate
-    mutation can produce: retiring the last connection leaves a machine with
-    no connections and no authority to name, and refusing that write would
-    leave the removed server's entry behind with no command able to delete
-    it. The shape stays an error for ``yoke status``, which is where an
-    unconfigured machine should be reported.
+    ``allow_unconfigured`` supports machine-local preparation before a
+    connection is selected and retirement of the last connection. Neither
+    operation may invent authority just to persist directories or identity.
+    The shape stays an error for ``yoke status``, where an unconfigured
+    machine should be reported.
     """
     payload.setdefault(contract.MACHINE_ID_KEY, str(uuid.uuid4()))
     tolerated = (

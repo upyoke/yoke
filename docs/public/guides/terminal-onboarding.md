@@ -5,12 +5,21 @@ copy the exact value. A screen with both offers them in sequence; the footer
 names what the next press will take. **Ctrl-O** opens the screen's link in your
 browser on a local desktop.
 
+Before opening the wizard, onboarding prepares its scratch and cache directories.
+On Linux it also runs the existing Python venv and browser runtime setup,
+including Linux library checks, regardless of whether a display is available.
+These deterministic steps need no choice and are absent from Review's consent
+plan. A preparation failure reports its reason and still opens the wizard;
+Apply verifies and repairs the same setup. GitHub, harness permission settings,
+tokens, machine registration, and the relay remain after your choices. The relay
+unit depends on the connection you selected.
+
 The Account step opens the approval link with your installed default browser.
 On a Linux desktop without one, it uses Yoke's Chromium runtime, installing it
 through the same setup and cache browser QA uses. The wizard shows a progress
 screen while preparing the browser; the approval link and one-time code remain
 visible, with the copy keys available. Later browser QA reuses that download.
-On a machine without a graphical display, onboarding downloads nothing and
+On a machine without a graphical display, opening the link attempts nothing and
 says “No browser available here. Open this link on any device”. A failed
 installation or open shows the same recovery with the failure reason; it only
 says “The browser was opened for you” after a successful open.

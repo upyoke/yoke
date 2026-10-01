@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.config import onboard_apply_runtime
+from yoke_cli.config import onboard_machine_setup
 from yoke_harness import browser_setup
 from yoke_harness import python_venv_dependencies
 
@@ -25,7 +26,7 @@ def test_onboarding_sets_up_browser_on_linux(
     calls = []
     report = {}
     monkeypatch.setattr(
-        onboard_apply_runtime, "sys", SimpleNamespace(platform=platform, stderr=None)
+        onboard_machine_setup, "sys", SimpleNamespace(platform=platform, stderr=None)
     )
     monkeypatch.setattr(
         browser_setup, "ensure_browser_runtime", lambda **kwargs: calls.append(kwargs)
@@ -39,7 +40,7 @@ def test_onboarding_preserves_named_browser_setup_failure(
     stub_onboard_browser_setup, monkeypatch
 ):
     monkeypatch.setattr(
-        onboard_apply_runtime, "sys", SimpleNamespace(platform="linux", stderr=None)
+        onboard_machine_setup, "sys", SimpleNamespace(platform="linux", stderr=None)
     )
 
     def refuse(**kwargs):
@@ -56,7 +57,7 @@ def test_onboarding_preserves_named_browser_setup_failure(
 
 def test_terminal_handoff_surrounds_browser_setup_and_resumes_on_failure():
     from contextlib import contextmanager
-    from yoke_cli.config.onboard_apply_runtime import BROWSER_SETUP_ACTION
+    from yoke_cli.config.onboard_machine_setup import BROWSER_SETUP_ACTION
     from yoke_cli.config.onboard_browser_terminal import browser_terminal_progress
 
     events = []
@@ -86,7 +87,7 @@ def test_venv_failure_stops_setup_before_browser_or_relay(
     from yoke_cli.config import onboard_session_relay
 
     monkeypatch.setattr(
-        onboard_apply_runtime, "sys", SimpleNamespace(platform="linux", stderr=None)
+        onboard_machine_setup, "sys", SimpleNamespace(platform="linux", stderr=None)
     )
 
     def refuse(**kwargs):
@@ -102,7 +103,7 @@ def test_venv_failure_stops_setup_before_browser_or_relay(
         onboard_session_relay, "apply", lambda *a, **kw: pytest.fail("relay ran")
     )
     monkeypatch.setattr(
-        onboard_apply_runtime, "_setup_browser", stub_onboard_browser_setup
+        onboard_machine_setup, "setup_browser", stub_onboard_browser_setup
     )
     progress = []
     with pytest.raises(RuntimeError, match="python3.12-venv: apt lock held"):

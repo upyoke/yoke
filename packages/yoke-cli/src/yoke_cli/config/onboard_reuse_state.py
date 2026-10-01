@@ -30,8 +30,8 @@ def detect(
     connection = _connection_entry(payload, env_name)
     planned_token_path = _path_text(credential_source.get("path"))
     source_token_path = _path_text(source.get("path"))
-    temp_root = cfg_path.parent / "tmp"
-    cache_dir = cfg_path.parent / "cache"
+    from yoke_cli.config import onboard_machine_setup
+
     checkout = project_inputs.get("checkout")
     project_id = _positive_int(project_inputs.get("existing_project_id"))
     mode = str(project_inputs.get("mode") or "")
@@ -62,14 +62,7 @@ def detect(
                 env_name == local_universe_setup.LOCAL_ENV and not api_url
             ),
         ),
-        "temp_root": (
-            _effective_path(machine_config.temp_root(cfg_path)) == _effective_path(temp_root)
-            and temp_root.is_dir()
-        ),
-        "cache_dir": (
-            _effective_path(machine_config.cache_dir(cfg_path)) == _effective_path(cache_dir)
-            and cache_dir.is_dir()
-        ),
+        **onboard_machine_setup.directory_readiness(cfg_path),
         # The hosting credential lands on disk during the wizard's Hosting
         # step, before Review, so its presence — not the answer given — is what
         # the review reports.
@@ -84,7 +77,10 @@ def detect(
         ),
         "project_existing_remote": bool(project_inputs.get("keep_existing_remote")),
         "project_clone_checkout": _project_clone_checkout_reused(
-            checkout, remote_url, mode, web_url=clone_web_url,
+            checkout,
+            remote_url,
+            mode,
+            web_url=clone_web_url,
         ),
         # What the checkout on disk actually holds, so the review describes the
         # repository rather than the intent that named it.
@@ -111,13 +107,11 @@ def _connection_entry(payload: Mapping[str, Any], env_name: str) -> Mapping[str,
 def _connection_matches(connection: Mapping[str, Any], api_url: str) -> bool:
     if not api_url:
         return (
-            str(connection.get("transport") or "")
-            in machine_schema.POSTGRES_TRANSPORTS
+            str(connection.get("transport") or "") in machine_schema.POSTGRES_TRANSPORTS
         )
-    return (
-        str(connection.get("transport") or "") == "https"
-        and _clean_url(connection.get("api_url")) == _clean_url(api_url)
-    )
+    return str(connection.get("transport") or "") == "https" and _clean_url(
+        connection.get("api_url")
+    ) == _clean_url(api_url)
 
 
 def _credential_source_matches(
@@ -127,10 +121,9 @@ def _credential_source_matches(
     source = connection.get("credential_source")
     if not isinstance(source, Mapping):
         return False
-    return (
-        str(source.get("kind") or "") == str(planned.get("kind") or "")
-        and _path_text(source.get("path")) == _path_text(planned.get("path"))
-    )
+    return str(source.get("kind") or "") == str(
+        planned.get("kind") or ""
+    ) and _path_text(source.get("path")) == _path_text(planned.get("path"))
 
 
 def _machine_github_matches(
@@ -158,7 +151,8 @@ def _machine_github_matches(
         local_connection_selected
         and not selected_service
         and not saved_service
-        and profile_source in {
+        and profile_source
+        in {
             machine_schema.GITHUB_PROFILE_SOURCE_LOCAL_EXPLICIT,
             machine_schema.GITHUB_PROFILE_SOURCE_LOCAL_PRODUCT,
         }
@@ -213,12 +207,18 @@ def _project_clone_checkout_reused(
     *,
     web_url: str,
 ) -> bool:
-    if mode not in onboard_project.PROJECT_REMOTE_MODES or not checkout or not remote_url:
+    if (
+        mode not in onboard_project.PROJECT_REMOTE_MODES
+        or not checkout
+        or not remote_url
+    ):
         return False
     try:
         root = Path(str(checkout)).expanduser()
         return project_clone_resume.existing_clone_matches(
-            root, remote_url, web_url=web_url or None,
+            root,
+            remote_url,
+            web_url=web_url or None,
         )
     except Exception:
         return False
