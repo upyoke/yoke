@@ -10,6 +10,12 @@ logout and browser-daemon shutdown, before any reset. Read the command's
 The capture uses existing host lease and receipt authority. It records the
 private sibling snapshot as `browser_profile_baseline_path`, leaving
 `golden_baseline_path` unchanged. Ordinary resets never restore the profile.
+Capture and restoration inspect every same-user process for profile writers.
+Protected systemd, PAM and SSH descriptors require a read-only root inventory
+through noninteractive `sudo`; archive reads and writes still run as the test
+user. Unavailable inventory refuses: configure the test machine's noninteractive
+sudo, keep the live profile intact, and retry before any reset. Only the verdict
+leaves the inventory; it does not open profile files or terminate processes.
 For an exploratory mission needing browser authentication, install the
 candidate Yoke and stop its browser daemon, then run
 `yoke qa browser setup --project P --profile-baseline /absolute/sealed/snapshot --json`
