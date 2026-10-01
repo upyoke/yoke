@@ -53,6 +53,8 @@ Passing requires exactly one new session for each probe with the correct executo
 and workspace, evaluated native hook records, and affirmative allow/deny
 `PreToolUse` decisions. Model prose and native CLI exit status are diagnostic only.
 Missing telemetry is unavailable evidence, never a passing product verdict.
+Runner exceptions close the execution with a bounded diagnostic reason; the
+returned case result retains the full error for repair before a fresh run.
 The driver emits `REAL_HARNESS_PROVED` only after those assertions and cleanup.
 `REAL_HARNESS_COMPLETE` also appears on failure so the terminal recipe captures
 the final diagnostic report; that marker alone cannot pass the case.

@@ -27,6 +27,21 @@ class _PreHostError(RuntimeError):
 
 
 class TestReasonCarriesTheDiagnosis:
+    def test_long_case_error_can_be_recorded_without_losing_its_code(self) -> None:
+        from yoke_core.domain.handlers.qa_plan_execution import (
+            PlanExecutionAbortRequest,
+        )
+        from yoke_core.domain.qa_plan_execution_abort_reason import (
+            ABORT_REASON_MAX_LENGTH,
+        )
+
+        error = RuntimeError("SSH unavailable: " + "diagnostic detail " * 100)
+        reason = continuation_abort_reason({}, error)
+        recorded = PlanExecutionAbortRequest(execution_id="execution", reason=reason)
+        assert len(recorded.reason) == ABORT_REASON_MAX_LENGTH
+        assert abort_reason_code(recorded.reason) == CASE_EXECUTION_ERROR_REASON
+        assert "SSH unavailable" in recorded.reason
+
     def test_case_execution_error_keeps_what_failed(self) -> None:
         reason = continuation_abort_reason({}, RuntimeError("relay unavailable"))
         assert reason.startswith(CASE_EXECUTION_ERROR_REASON)
