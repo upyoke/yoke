@@ -22,8 +22,8 @@ def test_runner_fleet_patch_keeps_the_published_pack_contract_stable(
     previous = descriptor["versions"]["1.3.0"]
     latest = descriptor["versions"][descriptor["latest_version"]]
 
-    assert descriptor["latest_version"] == "1.3.1"
-    assert latest["source"] == "versions/1.3.1/files"
+    assert descriptor["latest_version"] == "1.3.2"
+    assert latest["source"] == "versions/1.3.2/files"
     stable_keys = (
         "documentation",
         "dependencies",
@@ -65,7 +65,7 @@ def test_runner_fleet_latest_renders_identically_from_source_and_install_bundle(
         render_values=render_values,
     )
 
-    assert canonical["version"] == "1.3.1"
+    assert canonical["version"] == "1.3.2"
     assert canonical["content_digest"] == packaged["content_digest"]
     assert canonical["files"] == packaged["files"]
     files = {row["path"]: row for row in canonical["files"]}

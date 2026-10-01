@@ -1,0 +1,199 @@
+#!/usr/bin/env sh
+# update-firewall.sh — Generate firewall rules to allow only CloudFront edge IPs
+#
+# Fetches the current AWS IP ranges and extracts CloudFront EDGE prefixes,
+# then generates UFW or iptables rules for ports 80 and 443.
+#
+# Usage:
+#   sh update-firewall.sh [--format ufw|iptables] [--apply]
+#
+# Without --apply, prints the rules to stdout for review.
+# With --apply, executes the rules (requires root/sudo on the VPS).
+#
+# Designed to run ON the project VPS via SSH.
+
+set -e
+
+FORMAT="ufw"
+APPLY=false
+AWS_IP_RANGES_URL="https://ip-ranges.amazonaws.com/ip-ranges.json"
+
+# Parse arguments
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --format)
+      FORMAT="$2"
+      shift 2
+      ;;
+    --format=*)
+      FORMAT="${1#--format=}"
+      shift
+      ;;
+    --apply)
+      APPLY=true
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: sh update-firewall.sh [--format ufw|iptables] [--apply]"
+      echo ""
+      echo "Generates firewall rules to allow HTTP/HTTPS from CloudFront edge IPs only."
+      echo ""
+      echo "Options:"
+      echo "  --format ufw|iptables   Output format (default: ufw)"
+      echo "  --apply                 Execute rules instead of printing them"
+      echo "  -h, --help              Show this help"
+      exit 0
+      ;;
+    *)
+      echo "Error: unknown option '$1'" >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [ "$FORMAT" != "ufw" ] && [ "$FORMAT" != "iptables" ]; then
+  echo "Error: --format must be 'ufw' or 'iptables'" >&2
+  exit 1
+fi
+
+# Check for required tools
+if ! command -v curl >/dev/null 2>&1; then
+  echo "Error: curl is required but not found" >&2
+  exit 1
+fi
+
+if ! command -v python3 >/dev/null 2>&1 && ! command -v jq >/dev/null 2>&1; then
+  echo "Error: either python3 or jq is required to parse JSON" >&2
+  exit 1
+fi
+
+echo "Fetching AWS IP ranges from $AWS_IP_RANGES_URL ..." >&2
+
+RANGES_JSON=$(curl -s "$AWS_IP_RANGES_URL")
+
+if [ -z "$RANGES_JSON" ]; then
+  echo "Error: failed to fetch AWS IP ranges" >&2
+  exit 1
+fi
+
+# Extract CloudFront IPv4 prefixes (CLOUDFRONT service, GLOBAL or edge locations)
+if command -v jq >/dev/null 2>&1; then
+  CF_PREFIXES=$(echo "$RANGES_JSON" | jq -r '.prefixes[] | select(.service == "CLOUDFRONT") | .ip_prefix')
+  CF_V6_PREFIXES=$(echo "$RANGES_JSON" | jq -r '.ipv6_prefixes[] | select(.service == "CLOUDFRONT") | .ipv6_prefix')
+else
+  CF_PREFIXES=$(echo "$RANGES_JSON" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for p in data['prefixes']:
+    if p['service'] == 'CLOUDFRONT':
+        print(p['ip_prefix'])
+")
+  CF_V6_PREFIXES=$(echo "$RANGES_JSON" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for p in data['ipv6_prefixes']:
+    if p['service'] == 'CLOUDFRONT':
+        print(p['ipv6_prefix'])
+")
+fi
+
+PREFIX_COUNT=$(echo "$CF_PREFIXES" | wc -l | tr -d ' ')
+V6_COUNT=$(echo "$CF_V6_PREFIXES" | wc -l | tr -d ' ')
+echo "Found $PREFIX_COUNT IPv4 and $V6_COUNT IPv6 CloudFront prefixes" >&2
+
+# Generate rules
+generate_ufw_rules() {
+  echo "# CloudFront edge IP firewall rules"
+  echo "# Generated: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  echo "# Source: $AWS_IP_RANGES_URL"
+  echo ""
+  echo "# Step 1: Reset existing HTTP/HTTPS rules (review before running)"
+  echo "# sudo ufw reset  # WARNING: removes ALL rules — use with care"
+  echo ""
+  echo "# Step 2: Default deny incoming, allow outgoing"
+  echo "sudo ufw default deny incoming"
+  echo "sudo ufw default allow outgoing"
+  echo ""
+  echo "# Step 3: Allow SSH (keep Tailscale or direct SSH access)"
+  echo "sudo ufw allow ssh"
+  echo ""
+  echo "# Step 4: Allow HTTP/HTTPS from CloudFront IPv4 ranges"
+  echo "$CF_PREFIXES" | while read -r prefix; do
+    [ -z "$prefix" ] && continue
+    echo "sudo ufw allow from $prefix to any port 80 proto tcp"
+    echo "sudo ufw allow from $prefix to any port 443 proto tcp"
+  done
+  echo ""
+  echo "# Step 5: Allow HTTP/HTTPS from CloudFront IPv6 ranges"
+  echo "$CF_V6_PREFIXES" | while read -r prefix; do
+    [ -z "$prefix" ] && continue
+    echo "sudo ufw allow from $prefix to any port 80 proto tcp"
+    echo "sudo ufw allow from $prefix to any port 443 proto tcp"
+  done
+  echo ""
+  echo "# Step 6: Enable UFW"
+  echo "sudo ufw enable"
+  echo ""
+  echo "# Step 7: Verify"
+  echo "sudo ufw status verbose"
+}
+
+generate_iptables_rules() {
+  echo "# CloudFront edge IP firewall rules"
+  echo "# Generated: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  echo "# Source: $AWS_IP_RANGES_URL"
+  echo ""
+  echo "# Flush existing HTTP/HTTPS rules (be careful with existing rules)"
+  echo "# iptables -F INPUT  # WARNING: flushes ALL input rules"
+  echo ""
+  echo "# Allow established connections"
+  echo "iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT"
+  echo ""
+  echo "# Allow loopback"
+  echo "iptables -A INPUT -i lo -j ACCEPT"
+  echo ""
+  echo "# Allow SSH"
+  echo "iptables -A INPUT -p tcp --dport 22 -j ACCEPT"
+  echo ""
+  echo "# Allow HTTP/HTTPS from CloudFront IPv4 ranges"
+  echo "$CF_PREFIXES" | while read -r prefix; do
+    [ -z "$prefix" ] && continue
+    echo "iptables -A INPUT -p tcp --dport 80 -s $prefix -j ACCEPT"
+    echo "iptables -A INPUT -p tcp --dport 443 -s $prefix -j ACCEPT"
+  done
+  echo ""
+  echo "# Allow HTTP/HTTPS from CloudFront IPv6 ranges"
+  echo "$CF_V6_PREFIXES" | while read -r prefix; do
+    [ -z "$prefix" ] && continue
+    echo "ip6tables -A INPUT -p tcp --dport 80 -s $prefix -j ACCEPT"
+    echo "ip6tables -A INPUT -p tcp --dport 443 -s $prefix -j ACCEPT"
+  done
+  echo ""
+  echo "# Drop all other HTTP/HTTPS traffic"
+  echo "iptables -A INPUT -p tcp --dport 80 -j DROP"
+  echo "iptables -A INPUT -p tcp --dport 443 -j DROP"
+  echo "ip6tables -A INPUT -p tcp --dport 80 -j DROP"
+  echo "ip6tables -A INPUT -p tcp --dport 443 -j DROP"
+}
+
+if [ "$FORMAT" = "ufw" ]; then
+  if [ "$APPLY" = true ]; then
+    echo "Applying UFW rules..." >&2
+    generate_ufw_rules | grep -v '^#' | grep -v '^$' | while read -r cmd; do
+      echo "Running: $cmd" >&2
+      eval "$cmd"
+    done
+  else
+    generate_ufw_rules
+  fi
+elif [ "$FORMAT" = "iptables" ]; then
+  if [ "$APPLY" = true ]; then
+    echo "Applying iptables rules..." >&2
+    generate_iptables_rules | grep -v '^#' | grep -v '^$' | while read -r cmd; do
+      echo "Running: $cmd" >&2
+      eval "$cmd"
+    done
+  else
+    generate_iptables_rules
+  fi
+fi

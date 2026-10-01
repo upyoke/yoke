@@ -9,7 +9,7 @@ modes:
   committed tree of the tag and push. Proven local-Docker/Colima path.
 - **wait-for-prewarm** (``YOKE_DEPLOY_IMAGE_WAIT=1``; CI): never build —
   poll the registry for the exact-SHA tag the prewarm workflow
-  (``.github/workflows/yoke-core-image.yml``) pushes, with a bounded
+  configured by the project pushes, with a bounded
   budget. GitHub runners lack the buildx/QEMU arm64 setup the prewarm
   workflow carries, so an in-pipeline runner build can never succeed; the
   workflow that invokes the pipeline selects this mode explicitly (no
@@ -86,9 +86,7 @@ def resolve_image_tag(
                 f"{resolved.stderr.strip()}"
             )
         return canonical_image_tag(resolved.stdout)
-    result = runner.run(
-        ["git", "-C", repo_path, "rev-parse", "HEAD"], timeout=30
-    )
+    result = runner.run(["git", "-C", repo_path, "rev-parse", "HEAD"], timeout=30)
     if not result.ok or not result.stdout.strip():
         raise CoreDeployError(
             f"[core-deploy] could not resolve HEAD of {repo_path}: "
@@ -106,9 +104,13 @@ def _describe_image(
     """Probe the project registry for ``<repo>:<tag>``."""
     return runner.run(
         [
-            "aws", "ecr", "describe-images",
-            "--repository-name", env.repository_name,
-            "--image-ids", f"imageTag={tag}",
+            "aws",
+            "ecr",
+            "describe-images",
+            "--repository-name",
+            env.repository_name,
+            "--image-ids",
+            f"imageTag={tag}",
         ],
         env=aws_env,
         timeout=60,
@@ -156,8 +158,8 @@ def _wait_for_prewarmed_image(
     raise CoreDeployError(
         f"[core-deploy] {IMAGE_WAIT_ENV_VAR}=1 wait exhausted: {image_ref} "
         f"never appeared within {budget_s}s ({max_attempts} polls). CI "
-        "deploys never build images — the prewarm workflow "
-        "(.github/workflows/yoke-core-image.yml) owns the buildx/QEMU "
+        "deploys never build images — the project's prewarm workflow "
+        "owns the buildx/QEMU "
         "arm64 build; check its run for tag "
         f"{tag} (failed or still running). Once the image exists, resume "
         "the deployment run that owns this stage."
@@ -182,8 +184,14 @@ def _build_and_push_image(
     archive = build_dir / "src.tar"
     archived = runner.run(
         [
-            "git", "-C", repo_path, "archive", "--format=tar",
-            "-o", str(archive), tag,
+            "git",
+            "-C",
+            repo_path,
+            "archive",
+            "--format=tar",
+            "-o",
+            str(archive),
+            tag,
         ],
         timeout=300,
     )
@@ -205,9 +213,15 @@ def _build_and_push_image(
 
     built = runner.run(
         [
-            "docker", "build", "--platform", "linux/arm64",
-            "--build-arg", f"YOKE_BUILD_SHA={tag}",
-            "-t", image_ref, str(src_dir),
+            "docker",
+            "build",
+            "--platform",
+            "linux/arm64",
+            "--build-arg",
+            f"YOKE_BUILD_SHA={tag}",
+            "-t",
+            image_ref,
+            str(src_dir),
         ],
         timeout=1800,
     )
@@ -227,8 +241,12 @@ def _build_and_push_image(
         )
     login = runner.run(
         [
-            "docker", "login", "--username", "AWS",
-            "--password-stdin", env.registry_host,
+            "docker",
+            "login",
+            "--username",
+            "AWS",
+            "--password-stdin",
+            env.registry_host,
         ],
         input_text=login_password.stdout.strip(),
         timeout=60,
@@ -277,8 +295,13 @@ def ensure_image_in_registry(
 
     if os.environ.get(IMAGE_WAIT_ENV_VAR, "0") == "1":
         return _wait_for_prewarmed_image(
-            runner, env, aws_env, tag=tag, emit=emit,
-            budget_s=wait_budget_s, poll_interval_s=wait_poll_interval_s,
+            runner,
+            env,
+            aws_env,
+            tag=tag,
+            emit=emit,
+            budget_s=wait_budget_s,
+            poll_interval_s=wait_poll_interval_s,
             sleeper=sleeper,
         )
 

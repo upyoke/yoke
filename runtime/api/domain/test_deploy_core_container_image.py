@@ -27,9 +27,7 @@ class TestResolveImageTag:
         # Break-glass override beats the env's declared branch; no git
         # commands run at all.
         runner = FakeRunner()
-        tag = resolve_image_tag(
-            runner, "/repo", "pinned", declared_branch="stage"
-        )
+        tag = resolve_image_tag(runner, "/repo", "pinned", declared_branch="stage")
         assert tag == "pinned"
         assert runner.calls == []
 
@@ -39,7 +37,11 @@ class TestResolveImageTag:
         )
         assert resolve_image_tag(runner, "/repo") == "abcdef012345"
         assert runner.calls[0]["argv"] == [
-            "git", "-C", "/repo", "rev-parse", "HEAD",
+            "git",
+            "-C",
+            "/repo",
+            "rev-parse",
+            "HEAD",
         ]
 
     def test_declared_branch_pins_to_fetched_remote_head(self):
@@ -56,10 +58,19 @@ class TestResolveImageTag:
         tag = resolve_image_tag(runner, "/repo", declared_branch="stage")
         assert tag == "1234567890ab"
         assert runner.calls[0]["argv"] == [
-            "git", "-C", "/repo", "fetch", "origin", "stage",
+            "git",
+            "-C",
+            "/repo",
+            "fetch",
+            "origin",
+            "stage",
         ]
         assert runner.calls[1]["argv"] == [
-            "git", "-C", "/repo", "rev-parse", "FETCH_HEAD",
+            "git",
+            "-C",
+            "/repo",
+            "rev-parse",
+            "FETCH_HEAD",
         ]
 
     def test_declared_branch_fetch_failure_is_loud(self):
@@ -78,8 +89,12 @@ class TestEnsureImageInRegistry:
     def test_present_image_skips_build(self):
         runner = FakeRunner([CommandResult(0, "{}", "")])
         ref = ensure_image_in_registry(
-            runner, _env(), {"AWS_REGION": "us-east-1"},
-            repo_path="/repo", tag="abc123", emit=lambda _line: None,
+            runner,
+            _env(),
+            {"AWS_REGION": "us-east-1"},
+            repo_path="/repo",
+            tag="abc123",
+            emit=lambda _line: None,
         )
         assert ref.endswith("yoke-core:abc123")
         assert len(runner.calls) == 1
@@ -98,8 +113,12 @@ class TestEnsureImageInRegistry:
             ]
         )
         ref = ensure_image_in_registry(
-            runner, _env(), {"AWS_REGION": "us-east-1"},
-            repo_path="/repo", tag="abc123", emit=lambda _line: None,
+            runner,
+            _env(),
+            {"AWS_REGION": "us-east-1"},
+            repo_path="/repo",
+            tag="abc123",
+            emit=lambda _line: None,
             build_dir=tmp_path,
         )
         argvs = [c["argv"] for c in runner.calls]
@@ -126,8 +145,12 @@ class TestEnsureImageInRegistry:
         )
         with pytest.raises(CoreDeployError) as exc:
             ensure_image_in_registry(
-                runner, _env(), {},
-                repo_path="/repo", tag="abc", emit=lambda _line: None,
+                runner,
+                _env(),
+                {},
+                repo_path="/repo",
+                tag="abc",
+                emit=lambda _line: None,
                 build_dir=tmp_path,
             )
         assert "docker build failed" in str(exc.value)
@@ -227,17 +250,22 @@ class TestEnsureImageWaitMode:
         monkeypatch.setenv(IMAGE_WAIT_ENV_VAR, "1")
         runner = FakeRunner(
             [
-                _ABSENT,                    # initial describe
-                _ABSENT,                    # poll attempt 1
+                _ABSENT,  # initial describe
+                _ABSENT,  # poll attempt 1
                 CommandResult(0, "{}", ""),  # poll attempt 2 — appeared
             ]
         )
         sleeps: list[float] = []
         lines: list[str] = []
         ref = ensure_image_in_registry(
-            runner, _env(), {"AWS_REGION": "us-east-1"},
-            repo_path="/repo", tag="abc123", emit=lines.append,
-            wait_budget_s=300, wait_poll_interval_s=30.0,
+            runner,
+            _env(),
+            {"AWS_REGION": "us-east-1"},
+            repo_path="/repo",
+            tag="abc123",
+            emit=lines.append,
+            wait_budget_s=300,
+            wait_poll_interval_s=30.0,
             sleeper=sleeps.append,
         )
         assert ref.endswith("yoke-core:abc123")
@@ -246,14 +274,11 @@ class TestEnsureImageWaitMode:
         for call in runner.calls:
             assert call["argv"][:3] == ["aws", "ecr", "describe-images"]
         assert sleeps == [30.0, 30.0]
-        waiting = [
-            line for line in lines if "waiting for prewarmed image" in line
-        ]
+        waiting = [line for line in lines if "waiting for prewarmed image" in line]
         assert len(waiting) == 1
         assert "yoke-core:abc123 (attempt 1, 30s elapsed)" in waiting[0]
         assert any(
-            "prewarmed image appeared" in line
-            and "attempt 2, 60s elapsed" in line
+            "prewarmed image appeared" in line and "attempt 2, 60s elapsed" in line
             for line in lines
         )
 
@@ -264,23 +289,26 @@ class TestEnsureImageWaitMode:
         runner = FakeRunner([_ABSENT] * 4)
         with pytest.raises(CoreDeployError) as exc:
             ensure_image_in_registry(
-                runner, _env(env_name="stage"), {},
-                repo_path="/repo", tag="abc123", emit=lambda _line: None,
-                wait_budget_s=90, wait_poll_interval_s=30.0,
+                runner,
+                _env(env_name="stage"),
+                {},
+                repo_path="/repo",
+                tag="abc123",
+                emit=lambda _line: None,
+                wait_budget_s=90,
+                wait_poll_interval_s=30.0,
                 sleeper=lambda _s: None,
             )
         message = str(exc.value)
         assert "wait exhausted" in message
-        assert ".github/workflows/yoke-core-image.yml" in message
+        assert "project's prewarm workflow" in message
         assert "deployment run that owns this stage" in message
         # The runner-build path is unreachable: probes only, no docker.
         assert len(runner.calls) == 4
         for call in runner.calls:
             assert call["argv"][:3] == ["aws", "ecr", "describe-images"]
 
-    def test_disabled_value_keeps_operator_build_path(
-        self, monkeypatch, tmp_path
-    ):
+    def test_disabled_value_keeps_operator_build_path(self, monkeypatch, tmp_path):
         monkeypatch.setenv(IMAGE_WAIT_ENV_VAR, "0")
         runner = FakeRunner(
             [
@@ -292,8 +320,12 @@ class TestEnsureImageWaitMode:
         )
         with pytest.raises(CoreDeployError, match="docker build failed"):
             ensure_image_in_registry(
-                runner, _env(), {},
-                repo_path="/repo", tag="abc", emit=lambda _line: None,
+                runner,
+                _env(),
+                {},
+                repo_path="/repo",
+                tag="abc",
+                emit=lambda _line: None,
                 build_dir=tmp_path,
             )
         assert runner.calls[3]["argv"][:2] == ["docker", "build"]
