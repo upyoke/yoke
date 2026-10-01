@@ -43,6 +43,9 @@ from dataclasses import dataclass
 from typing import Any, Sequence
 
 from yoke_core.domain.close_out_evidence_gate import close_out_command
+from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow_facts
+from yoke_core.domain.deployment_flow_state import FLOW_STATUS_ACTIVE
+from yoke_core.domain import db_backend
 from yoke_core.domain.delivery_landing_custody import (
     ENROLLABLE_CUSTODY_STATES,
     HELD,
@@ -78,8 +81,8 @@ class LandedItem:
     #: The parked holder's own words for what it waits on, when it left any.
     holder_quiet_reason: str = ""
     #: Seconds since that holder's last tool call. Quiet past the report's
-    #: idle threshold means they are not driving the close-out, even if
-    #: parked waiting on a delivery.
+    #: idle threshold means a working holder is not driving the close-out;
+    #: a declared release wait expects tool silence.
     holder_idle_seconds: int = 0
     #: The workflow the item pins, because close-out is composed from it: an
     #: evidence-gated terminal transition refuses the bare command.
@@ -92,6 +95,26 @@ class LandedItem:
     #: The run the state is about: the holder, or the run a re-merge left
     #: behind. Empty when no release names the item at all.
     custody_run_id: str = ""
+    #: The resolved closing flow is active; an absent/disabled flow cannot deliver.
+    completion_flow_available: bool = False
+    holder_native_process_gone: bool = False
+    holder_contained_reason: str = ""
+
+    @property
+    def delivery_wait(self) -> bool:
+        """A live parked release holder waiting for enrollment or delivery.
+
+        Tool silence is expected during this wait; only a recorded death or
+        an unavailable delivery path makes the declared park actionable.
+        """
+        return bool(
+            self.status == "release"
+            and self.holder_session_id
+            and self.holder_parked
+            and not self.holder_native_process_gone
+            and self.completion_flow_available
+            and self.custody_state in {HELD, UNHELD}
+        )
 
     @property
     def stranded(self) -> bool:
@@ -101,25 +124,24 @@ class LandedItem:
 
 def _holder_is_quiet(entry: LandedItem, idle_after_seconds: int | None) -> bool:
     """True when a live holder has been quiet past the report's idle threshold."""
-    if not entry.holder_session_id or idle_after_seconds is None:
+    if entry.delivery_wait or not entry.holder_session_id or idle_after_seconds is None:
         return False
     return entry.holder_idle_seconds >= int(idle_after_seconds)
 
 
-def holder_phrase(
-    entry: LandedItem, *, idle_after_seconds: int | None = None
-) -> str:
+def holder_phrase(entry: LandedItem, *, idle_after_seconds: int | None = None) -> str:
     """Who holds the item, and whether they are waiting, working, or quiet.
 
-    A bare session id said only that somebody was there. Whether that somebody
-    is parked decides whether the row needs anything at all, so the row says
-    it rather than leaving a reader to go and look. A parked holder that has
-    gone quiet past the idle threshold is not waiting by design — they are
-    not driving the close-out, and the row has to say so.
+    A parked release holder waits by design, so tool silence during that
+    wait is expected. Working holders still use the report's idle threshold.
     """
     if not entry.holder_session_id:
         return "no live holder"
     held = f"held by {entry.holder_session_id}"
+    if entry.holder_native_process_gone:
+        if entry.holder_contained_reason:
+            return f"{held}, contained by sweep: {entry.holder_contained_reason}, claims held"
+        return f"{held}, process gone, claims held — terminate deliberately if dead"
     if _holder_is_quiet(entry, idle_after_seconds):
         quiet = f"quiet {entry.holder_idle_seconds // 60}m"
         parked = ", parked" if entry.holder_parked else ""
@@ -130,9 +152,7 @@ def holder_phrase(
     return f"{held}, parked — {entry.holder_quiet_reason or 'waiting on delivery'}"
 
 
-def landed_recovery(
-    entry: LandedItem, *, idle_after_seconds: int | None = None
-) -> str:
+def landed_recovery(entry: LandedItem, *, idle_after_seconds: int | None = None) -> str:
     """What a seat does about this row, or ``""`` when it needs nothing.
 
     Close-out is a claim-holding step, so a seat can only run it on a landing
@@ -142,7 +162,8 @@ def landed_recovery(
     correct command offered for a situation that needs no command is still
     noise, and it costs every reader the time it takes to try.
 
-    A holder quiet past the idle threshold is not that live owner. The claim
+    Outside a declared release wait, a holder quiet past the idle threshold
+    is not that live owner. The claim
     still blocks close-out until the sweep releases it, so the row names a
     wake (the holder may yet return) and the close-out that runs once the
     claim is free.
@@ -153,6 +174,13 @@ def landed_recovery(
     denial.
     """
     command = close_out_command(entry.public_ref, workflow_id=entry.workflow_id)
+    if entry.holder_native_process_gone:
+        return f"finish close-out with `{command}` once the claim is free"
+    if entry.status == "release" and not entry.completion_flow_available:
+        return (
+            "no active completion flow; repair the item's deployment flow or "
+            "project workflow delivery default, then compose its release"
+        )
     if _holder_is_quiet(entry, idle_after_seconds):
         return (
             f"wake `yoke say --item {entry.public_ref} --stdin`; "
@@ -211,10 +239,22 @@ def landed_without_closeout(
     counts as merged and still open.
     """
     records = list(merged_open_items(conn, int(project_id)))
+    if not records:
+        return ()
     item_ids = [int(record["id"]) for record in records]
     refs = render_item_refs(conn, item_ids)
     held_by = {holder.item_id: holder for holder in holders}
     custody = landing_custody(conn, project_id=int(project_id), item_ids=item_ids)
+    flows = item_completion_flow_facts(conn, item_ids)
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    active_flows = {
+        str(row[0])
+        for row in conn.execute(
+            f"SELECT id FROM deployment_flows WHERE project_id = {marker} "
+            f"AND status = {marker}",
+            (int(project_id), FLOW_STATUS_ACTIVE),
+        ).fetchall()
+    }
     landed = []
     for record in records:
         stamp = landed_at(record)
@@ -237,6 +277,11 @@ def landed_without_closeout(
                 workflow_id=str(record.get("workflow_id") or ""),
                 custody_state=held.state,
                 custody_run_id=held.run_id,
+                completion_flow_available=bool(
+                    item_id in flows and flows[item_id].flow in active_flows
+                ),
+                holder_native_process_gone=bool(holder and holder.native_process_gone),
+                holder_contained_reason=holder.contained_reason if holder else "",
             )
         )
     return tuple(

@@ -219,8 +219,8 @@ def test_a_document_linked_landing_is_named_on_its_document_seat(steering_scope)
     assert 4 in {entry.item_id for entry in report.landed_open}
     assert 4 in {holder_row.item_id for holder_row in report.idle}
     assert "YOK-4" in body
-    assert "holder is not driving this" in body
-    assert "yoke say --item YOK-4" in body
+    assert "no active completion flow" in body
+    assert sum("YOK-4" in line for line in body.splitlines()) == 1
 
     plan_seat = _compose(
         steering_scope, scope={"project_id": 1, "document": "CURRENT-PLAN"}
