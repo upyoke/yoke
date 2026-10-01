@@ -25,7 +25,10 @@ jobs:
         run: |
           base_ref="origin/${{ github.event.repository.default_branch }}"
           base_sha="$(git merge-base HEAD "$base_ref")"
-          if git diff --quiet "$base_sha" HEAD -- "$BROWSER_RUNTIME_DIR"; then
+          if git diff --quiet "$base_sha" HEAD -- "$BROWSER_RUNTIME_DIR" \
+            packages/yoke-harness/src/yoke_harness/browser_apparmor.py \
+            packages/yoke-harness/src/yoke_harness/system_privileges.py \
+            .github/workflows/browser-runtime-tests.yml; then
             echo "should_run=false" >> "$GITHUB_OUTPUT"
             echo "Browser runtime unchanged; skipping Node suite."
           else
@@ -50,6 +53,28 @@ jobs:
         if: steps.change_scope.outputs.should_run == 'true'
         working-directory: ${{ env.BROWSER_RUNTIME_DIR }}
         run: npx --no-install playwright install --with-deps chromium
+
+      - name: Provision Chromium sandbox
+        if: steps.change_scope.outputs.should_run == 'true'
+        env:
+          PYTHONPATH: packages/yoke-harness/src
+        # Use the shipped provisioner against this checkout's Playwright builds.
+        # Its two real sandbox probes must pass before the daemon suite starts.
+        run: |
+          python3 - <<'PY'
+          import os
+          import shutil
+          from pathlib import Path
+          from types import SimpleNamespace
+          from yoke_harness.browser_apparmor import ensure_chromium_apparmor
+
+          ensure_chromium_apparmor(
+              Path(os.environ["BROWSER_RUNTIME_DIR"]),
+              SimpleNamespace(node=Path(shutil.which("node"))),
+              env=os.environ.copy(),
+              emit=print,
+          )
+          PY
 
       - name: Run browser-runtime tests
         if: steps.change_scope.outputs.should_run == 'true'
