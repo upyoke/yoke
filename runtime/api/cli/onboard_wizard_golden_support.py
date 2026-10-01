@@ -30,6 +30,7 @@ import os
 import re
 from pathlib import Path
 from typing import Any, Awaitable, Callable
+from unittest.mock import patch
 
 from runtime.api.cli.onboard_wizard_golden_capture import _stable_screenshot
 from yoke_cli.config import github_publish
@@ -48,7 +49,8 @@ TERMINAL_SIZE = (100, 32)
 _TERMINAL_ID_RE = re.compile(r"terminal-\d+")
 _VERSION_RE = re.compile(r"\d+\.\d+\.\d+(?:\.dev\d+\+g[0-9a-f]+(?:\.d\d+)?)?")
 _TERMINAL_STYLE_RE = re.compile(
-    r"^[ \t]*\.terminal-YOKE-(r\d+) \{[^}\n]*\}\n", re.MULTILINE,
+    r"^[ \t]*\.terminal-YOKE-(r\d+) \{[^}\n]*\}\n",
+    re.MULTILINE,
 )
 _TERMINAL_CLASS_RE = re.compile(r'class="terminal-YOKE-(r\d+)"')
 _INVISIBLE_TERMINAL_TEXT_RE = re.compile(
@@ -206,18 +208,21 @@ FINISH_PLAN_FULL = {
             {"action": "project-install-tool-permissions", "target": ""},
             {"action": "project-install-git-hooks", "target": ""},
             {"action": "project-write-board-art", "target": ""},
-        ]
+        ],
     },
 }
 
 FINISH_PLAN_EMPTY: dict[str, Any] = {"plan": {"steps": []}}
 
 
-def make_app(*, post_install: bool = False, env_name: str = "prod",
-             api_url: str = "https://yoke.example.test",
-             token: str | None = "actor-token",
-             apply_report: Callable[[dict[str, Any]], Any] | None = None,
-             ) -> OnboardWizardApp:
+def make_app(
+    *,
+    post_install: bool = False,
+    env_name: str = "prod",
+    api_url: str = "https://yoke.example.test",
+    token: str | None = "actor-token",
+    apply_report: Callable[[dict[str, Any]], Any] | None = None,
+) -> OnboardWizardApp:
     with golden_color_env():
         app = OnboardWizardApp(
             defaults=WizardDefaults(
@@ -237,9 +242,12 @@ def make_app(*, post_install: bool = False, env_name: str = "prod",
     return app
 
 
-def render(app: OnboardWizardApp,
-           drive: Callable[[OnboardWizardApp, Any], Awaitable[None]],
-           *, title: str) -> str:
+def render(
+    app: OnboardWizardApp,
+    drive: Callable[[OnboardWizardApp, Any], Awaitable[None]],
+    *,
+    title: str,
+) -> str:
     """Run ``app`` to the screen ``drive`` lands on and export it to SVG.
 
     ``drive`` is awaited inside the pilot context after the front screen mounts;
@@ -264,7 +272,12 @@ def render(app: OnboardWizardApp,
             await pilot.pause()
             return await _stable_screenshot(pilot, app, title)
 
-    with golden_color_env():
+    # Blessed frames represent a local desktop, independent of a CI host's
+    # display or SSH environment; remote hints have their own behavior tests.
+    with (
+        golden_color_env(),
+        patch("yoke_cli.config.onboard_clipboard.remote_session", return_value=False),
+    ):
         return asyncio.run(scenario())
 
 
@@ -299,7 +312,7 @@ def gate_screen_names() -> set[str]:
                 continue
             if name == "test_catalog_golden_gate_parity":
                 continue
-            names.add(name[len("test_"):])
+            names.add(name[len("test_") :])
     return names
 
 
