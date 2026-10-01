@@ -1,6 +1,6 @@
 """Carried items a run's composition left out, and why, in one notice.
 
-A run's candidate carries more landed code than the run delivers. Three
+A run's candidate carries more landed code than the run delivers. Four
 reasons keep a carried item out of its membership, and "why is my item not a
 member" is otherwise answerable only by reading several runs and item
 histories by hand:
@@ -13,8 +13,9 @@ histories by hand:
   later release enrolls it once it returns;
 * **removed** -- an operator took it out of this run with a recorded reason
   (:mod:`deployment_run_membership_removals`).
+* **blocked** -- an open dependency needs a blocker that has not shipped yet.
 
-Composition reports all three together whenever it reports itself, so an
+Composition reports them together whenever it reports itself, so an
 operator reads one notice rather than reconciling three. It is silent when the
 run may not enroll at all, because then nothing was skipped.
 """
@@ -30,7 +31,11 @@ from yoke_core.domain.deployment_run_carried_membership import (
 )
 from yoke_core.domain.deployment_run_composition_freeze import (
     RELEASE_MEMBERSHIP_POLICIES,
+    item_requires_release_membership,
     member_ids,
+)
+from yoke_core.domain.deployment_run_dependency_readiness import (
+    unshipped_dependency_pairs,
 )
 from yoke_core.domain.deployment_run_membership_removals import (
     membership_removals,
@@ -98,7 +103,7 @@ def skipped_candidate_notice(
     custody: CustodyResolution | None = None,
     carried_work: Mapping[str, Any] | None = None,
 ) -> str:
-    """Name every carried item this run left out: held, in rework, removed.
+    """Name every carried item this run left out, including unshipped blockers.
 
     Pass *custody* and *carried_work* to reuse what composition already
     resolved; without *carried_work* the in-rework part is not reported,
@@ -106,7 +111,8 @@ def skipped_candidate_notice(
     """
     if carried_enrollment_blocked(conn, run_id):
         return ""
-    held = (custody or resolve_candidate_custody(conn, run_id)).held
+    resolved = custody or resolve_candidate_custody(conn, run_id)
+    held = resolved.held
     removed = membership_removals(conn, run_id)
     excluded = frozenset(record.item_id for record in held) | frozenset(
         int(entry["item_id"]) for entry in removed
@@ -116,7 +122,35 @@ def skipped_candidate_notice(
         if carried_work is not None
         else ()
     )
+    range_ids = {
+        int(entry["item_id"])
+        for project_set in project_carried_sets(carried_work or {})
+        if bool((project_set.get("derivation") or {}).get("contents_known"))
+        for entry in project_set.get("items") or []
+    }
+    candidates = sorted(
+        (range_ids | set(resolved.enrollable))
+        - excluded
+        - set(member_ids(conn, run_id))
+    )
+    blocked = unshipped_dependency_pairs(
+        conn,
+        [
+            item_id
+            for item_id in candidates
+            if item_requires_release_membership(conn, item_id)
+        ],
+    )
     parts: list[str] = []
+    if blocked:
+        parts.append(
+            "open dependencies on unshipped items; the first release after the blocker ships enrolls them: "
+            + "; ".join(
+                f"{render_item_ref(conn, dependent)} blocked by "
+                f"{render_item_ref(conn, blocker)} ({verdict.reason})"
+                for dependent, blocker, verdict in blocked
+            )
+        )
     if held:
         parts.append(
             "held by a release that owes their delivery: "
@@ -145,7 +179,7 @@ def skipped_candidate_notice(
         )
     if not parts:
         return ""
-    count = len(held) + len(rework) + len(removed)
+    count = len(held) + len(rework) + len(removed) + len({d for d, _, _ in blocked})
     return (
         f"Skipped {count} carried item(s) this run does not deliver -- "
         + " | ".join(parts)

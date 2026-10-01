@@ -12,6 +12,7 @@ from yoke_core.domain.function_target_row_project import (
     slug_for_project_id,
 )
 from yoke_core.domain.project_identity import resolve_item_id, resolve_project_id
+from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
 
 
 class QaSubjectProjectError(ValueError):
@@ -116,7 +117,26 @@ def resolve_run_qa_subject(
         raise QaSubjectProjectError(
             "deployment member requires a pinned QA stage; pass --stage"
         )
-    if stage:
+    removed_abort = (
+        request.function == "qa.plan_execution.abort"
+        and execution_id
+        and member_id in removed_item_ids(conn, run_id)
+    )
+    if removed_abort:
+        # The persisted cursor and audited removal retain the subject after
+        # membership ends. Claim verification still requires this item's
+        # holder, and the handler still checks execution ownership.
+        marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        row = conn.execute(
+            f"SELECT project_id FROM items WHERE id={marker}", (member_id,)
+        ).fetchone()
+        if row is None:
+            raise QaSubjectProjectError(
+                "removed QA member was not found; inspect its execution"
+            )
+        project_id = int(row[0])
+        slug = slug_for_project_id(conn, project_id)
+    elif stage:
         try:
             subject = deployment_qa_stage_subject(
                 conn,

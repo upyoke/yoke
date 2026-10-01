@@ -9,6 +9,7 @@ from uuid import uuid4
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.qa_plan_execution_authority import (
+    lock_member_admission,
     PLAN_EXECUTION_STALE_SECONDS,
     plan_execution_is_abandoned,
     require_plan_execution_abandon_authority,
@@ -99,6 +100,7 @@ def begin_plan_execution(
     expected_deployment_target = None
     expected_deployment_target_digest = None
     if deployment_stage is not None:
+        lock_member_admission(conn, deployment_run_id, deployment_member_item_id)
         from yoke_core.domain.deployment_qa_execution_target import (
             deployment_qa_execution_target,
         )
@@ -190,6 +192,7 @@ def begin_plan_execution(
 
             if item_id is not None:
                 lock_item_workflow_bindings(conn, (int(item_id),))
+            lock_member_admission(conn, deployment_run_id, deployment_member_item_id)
             roster = build_execution_roster(
                 conn,
                 item_id=item_id,

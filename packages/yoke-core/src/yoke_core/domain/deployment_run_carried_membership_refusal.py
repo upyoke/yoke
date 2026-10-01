@@ -34,6 +34,9 @@ from yoke_core.domain.deployment_run_composition_freeze import (
 from yoke_core.domain.deployment_run_membership_removals import (
     removed_item_ids,
 )
+from yoke_core.domain.deployment_run_dependency_readiness import (
+    unshipped_dependency_pairs,
+)
 from yoke_core.domain.deployment_run_unattributed_commits import (
     unattributed_commits_refusal,
 )
@@ -117,6 +120,10 @@ def carried_membership_refusal(
         - held_candidate_ids(conn, run_id, custody=custody)
         - removed_item_ids(conn, run_id)
     )
+    blocked = {
+        dependent for dependent, _, _ in unshipped_dependency_pairs(conn, eligible)
+    }
+    eligible = [item_id for item_id in eligible if item_id not in blocked]
     for item_id in eligible:
         if refusal := completion_flow_refusal(conn, item_id):
             return f"deployment run {run_id!r} carries {refusal}"

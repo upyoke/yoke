@@ -174,6 +174,12 @@ class CustodyResolution:
         return self._custody
 
     @property
+    def enrollable(self) -> tuple[int, ...]:
+        """Unheld landings, empty when custody could not be determined."""
+        self._resolve()
+        return self._custody.enrollable if self._custody is not None else ()
+
+    @property
     def held_ids(self) -> frozenset[int]:
         """Held landings, empty when custody could not be determined."""
         self._resolve()
