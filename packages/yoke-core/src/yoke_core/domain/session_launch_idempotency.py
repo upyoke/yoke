@@ -11,7 +11,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.session_launch_store import instruction_message, sha256_text
+from yoke_contracts.session_control.liveness import ended_session_sql
+from yoke_core.domain.refusal_recovery import compose_refusal
+from yoke_core.domain.session_launch_store import (
+    instruction_message,
+    marker,
+    sha256_text,
+)
 from yoke_core.domain.session_launch_types import (
     LaunchCreateOutcome,
     LaunchPreview,
@@ -54,6 +60,24 @@ def deduplicated_outcome(
             "idempotency_conflict",
             "idempotency key already names a different launch request",
         )
+    session_id = existing.registered_session_id or existing.native_session_id
+    if session_id:
+        ended = conn.execute(
+            f"SELECT 1 FROM harness_sessions s WHERE s.session_id = {marker(conn)} "
+            f"AND {ended_session_sql('s')}",
+            (session_id,),
+        ).fetchone()
+        if ended is not None:
+            raise SessionLaunchError(
+                "launch_replay_finished",
+                compose_refusal(
+                    f"Idempotency replay of finished launch {existing.launch_id}; "
+                    "no new worker started",
+                    evaluated=f"session {session_id} is no longer live",
+                    recovery="To relaunch, repeat launch create with a new "
+                    "--idempotency-key",
+                ),
+            )
     return LaunchCreateOutcome(existing, preview, True)
 
 

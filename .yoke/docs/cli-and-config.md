@@ -194,6 +194,9 @@ in the pool `M` actually bills to, under `REQUESTED MODEL POOL`, and ranks
 machines by that pool's meter rather than by whichever window reads lowest.
 
 `yoke session-control launch preview` and `create` accept the three flags.
+`create --idempotency-key K` replays the launch already named by K. If its
+session ended or was terminated, `launch_replay_finished` names that launch
+and says no new worker started. Repeat create with a new key to relaunch.
 `--context-window` accepts a token count or compact form such as `1m`.
 `--list-models --surface SURFACE` prints this machine's configured defaults
 beside its observed native availability (below), plus accepted effort and
