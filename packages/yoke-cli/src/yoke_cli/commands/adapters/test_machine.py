@@ -22,6 +22,7 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.config.capability_secrets import (
     list_machine_capability_secret_keys,
 )
+from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
 from yoke_cli.commands.adapters.test_machine_operation import run_host_operation
 
 
@@ -90,8 +91,22 @@ def _attest_secret_presence(
         if not isinstance(detail, dict):
             return detail
         updated = dict(detail)
+        capability_type = detail.get("capability_type")
+        desktop_stored = (
+            set(list_machine_capability_secret_keys(project, capability_type))
+            if capability_type
+            else set()
+        )
         updated["secrets"] = [
-            {**secret, "stored": secret.get("key") in stored}
+            {
+                **secret,
+                "stored": secret.get("key")
+                in (
+                    desktop_stored
+                    if secret.get("key") == DESKTOP_PASSWORD_KEY
+                    else stored
+                ),
+            }
             for secret in detail.get("secrets") or []
             if isinstance(secret, dict)
         ]

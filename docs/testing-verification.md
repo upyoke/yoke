@@ -176,12 +176,11 @@ session (`self_approving: true` on `machine_qa.operator_gate`). No operator
 browser action is needed; redeeming the one-time code in another browser
 consumes it and breaks the gate (`machine_browser_tab_missing`).
 
-The saved settings document contains `resource_name`, `host`, `user`,
-`os`, `operating_notes`, and an optional `golden_baseline_path`. No
-credentials. `os` names which implementation drives the host (`macos` and `linux`
-are supported; every machine is persistent over SSH), declared rather than inferred because a guessing
-operation runs a destructive restore. `ssh_private_key` is the only Test Machine
-credential. Store it on the machine that runs `host_control`:
+Settings contain `resource_name`, `host`, `user`, `os`, `operating_notes`,
+optional baseline paths, a desktop route and cloud instance id; no credentials.
+Desktop routes and password import use [`desktop-access`](testing-verification/test-machine-operations.md#desktop-access--connect-to-a-registered-desktop).
+Declare `os=macos|linux|windows` to select restore behavior on the SSH host.
+`ssh_private_key` is shared; desktop passwords are per-machine. Store the SSH key on the `host_control` workstation:
 
 ```text
 printf '%s' "$SSH_PRIVATE_KEY" | yoke projects capability secret set \

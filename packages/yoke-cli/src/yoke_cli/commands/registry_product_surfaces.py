@@ -16,6 +16,7 @@ from yoke_cli.commands.adapters import (
     qa_item_plan_retract,
     qa_plan_edit,
     test_machine,
+    test_machine_desktop,
 )
 from yoke_cli.commands.registry_direct_workflows import (
     DIRECT_WORKFLOW_SUBCOMMAND_ALIAS_REGISTRY,
@@ -98,6 +99,10 @@ QA_CATALOG_SUBCOMMAND_REGISTRY = {
 }
 
 TEST_MACHINE_SUBCOMMAND_REGISTRY = {
+    ("test-machine", "desktop-access"): (
+        "test_machine.desktop_access",
+        test_machine_desktop.test_machine_desktop_access,
+    ),
     ("test-machine", "list"): (
         "test_machine.list",
         test_machine.test_machine_list,
@@ -132,7 +137,10 @@ TEST_MACHINE_SUBCOMMAND_REGISTRY = {
 
 INBOX_DECISION_SUBCOMMAND_REGISTRY = {
     ("inbox", "list"): ("inbox.list", inbox_decisions.inbox_list),
-    ("decision-requests", "get"): ("decision_requests.get", inbox_decisions.decision_requests_get),
+    ("decision-requests", "get"): (
+        "decision_requests.get",
+        inbox_decisions.decision_requests_get,
+    ),
     ("merge-review", "candidate", "evaluate"): (
         "merge_review.candidate.evaluate",
         merge_review.merge_review_candidate_evaluate,
@@ -225,7 +233,10 @@ OVERVIEW_SUBCOMMAND_REGISTRY = {
 }
 
 PRODUCT_SURFACE_SUBCOMMAND_REGISTRY = {
-    ("items", "progress-log", "get"): ("items.progress_log.get", items_progress_log_get),
+    ("items", "progress-log", "get"): (
+        "items.progress_log.get",
+        items_progress_log_get,
+    ),
     **DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY,
     **ACTORS_SUBCOMMAND_REGISTRY,
     **MACHINE_SUBCOMMAND_REGISTRY,

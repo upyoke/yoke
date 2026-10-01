@@ -200,6 +200,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "qa.plan_review.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.plan_review.submit": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "test_machine.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    "test_machine.desktop_access": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "test_machine.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "test_machine.settings_replace": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "test_machine.verify": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),

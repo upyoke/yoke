@@ -1,6 +1,6 @@
 # What you can do to a test machine
 
-`verify`, `reset`, `golden capture`, `bridge diagnose`, and `exec` are
+`verify`, `reset`, `golden capture`, `bridge diagnose`, `exec`, and `desktop-access` are
 commands every Yoke user runs, not procedures each seat reinvents. Companion to
 [`docs/testing-verification.md`](../testing-verification.md); the host-side
 provisioning contract they assume ships in the
@@ -10,6 +10,49 @@ The first four each take the machine's one lease, refuse by name while
 another execution holds it, and record their own receipt. The machine's page shows the last
 receipt per operation, so what was last done to a box is readable without
 asking the person who did it.
+
+## desktop-access — connect to a registered desktop
+
+```text
+yoke test-machine desktop-access --project P --machine NAME
+```
+
+Run this on the workstation holding the capability secrets. It authorizes the
+registered route, refuses another session's machine lease, checks the RDP/VNC
+handshake, and prints only `address`, `user`, and `password_file`. Open that
+address in your RDP or Screen Sharing client, and use the desktop user and
+password from the private mode-600 file under `/tmp`. No password goes through
+the control plane, events, operation receipts, or command output.
+
+Settings declare `desktop_route` (`direct` or `ssh-forward`),
+`desktop_protocol` (`rdp` or `vnc`), `desktop_port` (1–65535), and
+`desktop_user` together. Optional `desktop_host` names the desktop endpoint:
+it defaults to the registered host for direct access, or `127.0.0.1` on the
+SSH host for forwarding. `cloud_instance_id` records the provider's instance id when present.
+Desktop credentials stay separate from the SSH login, including Windows RDP
+as Administrator when SSH enters WSL2. Save routes with
+`yoke test-machine settings-replace`; read its `--help` for the CAS token.
+
+Import each password from a private file, never from a literal argument:
+
+```text
+yoke projects capability secret set --project P --cap-type test-machine:NAME \
+  --key desktop_password --value-file /tmp/NAME-desktop-password.txt
+```
+
+`--value-stdin` also works. Passwords live in the existing capability secret
+store, keyed by machine, beside the shared `test-machine.ssh_private_key`.
+`test-machine get/list` reports presence on the executing workstation and
+the route, never a secret value. Missing passwords refuse with
+`desktop_password_missing` and the import command.
+
+SSH forwarding chooses a free loopback port, uses the capability SSH key and
+Yoke's pinned host keys, and keeps its listener open after the command exits.
+The control socket is `PASSWORD_FILE.ssh`. Close the forward after use with
+`ssh -F /dev/null -S PASSWORD_FILE.ssh -O exit SSH_USER@SSH_HOST`, using the
+registered SSH host/user, then remove the temporary password copy. A failed
+open removes the copy and closes its tunnel. This command changes no host
+password, firewall, desktop service, or auto-login setting.
 
 ## Which implementation drives the host
 

@@ -122,7 +122,17 @@ def test_test_machine_is_typed_and_secret_presence_only(
         "post-install shell",
     ]
     assert detail["host_baselines"] == ["fresh-host", "shell-preconfigured"]
-    assert {row["key"] for row in detail["secrets"]} == TEST_MACHINE_SECRET_KEYS
+    assert {row["key"] for row in detail["secrets"]} == {
+        *TEST_MACHINE_SECRET_KEYS,
+        "desktop_password",
+    }
+    desktop_secret = next(
+        row for row in detail["secrets"] if row["key"] == "desktop_password"
+    )
+    assert desktop_secret["cap_type"] == "test-machine:mac-mini-lab"
+    assert is_machine_local_capability_secret(
+        desktop_secret["cap_type"], desktop_secret["key"]
+    )
     assert all(row["stored"] is None for row in detail["secrets"])
     assert {row["scope"] for row in detail["secrets"]} == {"executing_machine"}
     assert all(

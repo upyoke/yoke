@@ -9,6 +9,7 @@ from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_CAPABILITY,
     TEST_MACHINE_SECRET_KEYS,
 )
+from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
     validate_test_machine_resource_name,
@@ -246,6 +247,14 @@ def _test_machine_detail(
         "secrets": [
             {"key": key, "stored": None, "scope": "executing_machine"}
             for key in sorted(TEST_MACHINE_SECRET_KEYS)
+        ]
+        + [
+            {
+                "key": DESKTOP_PASSWORD_KEY,
+                "cap_type": row.capability_type,
+                "stored": None,
+                "scope": "executing_machine",
+            }
         ],
         "active_lease": (
             {

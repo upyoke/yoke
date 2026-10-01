@@ -237,13 +237,10 @@ test("settings modal keeps secrets terminal-only and invalidates through typed w
   );
   const rendered = text(main);
   assert.match(rendered, /Secret values never enter the browser/);
+  assert.match(rendered, /The SSH key and each machine's desktop password stay on the executing workstation/);
   assert.match(
     rendered,
-    /The SSH key is the only credential/,
-  );
-  assert.match(
-    rendered,
-    /macOS Automation and Screen Recording are host permissions, not tokens/,
+    /macOS Automation and Screen Recording are host permissions/,
   );
   assert.match(
     rendered,

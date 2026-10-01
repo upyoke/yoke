@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import sys
+
+from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
+
 from yoke_core.domain.projects_capabilities import (
     capability_secret_value_from_args,
     cmd_capability_get_secret,
@@ -39,6 +43,13 @@ def register_capability_secret_parsers(sub) -> None:
 def run_capability_secret_command(args) -> int:
     """Run a capability secret CLI command."""
     if args.command == "capability-get-secret":
+        if args.key == DESKTOP_PASSWORD_KEY:
+            print(
+                "desktop_password_not_printable: use yoke test-machine desktop-access "
+                "to write a private password file instead",
+                file=sys.stderr,
+            )
+            return 1
         result = cmd_capability_get_secret(args.project, args.type, args.key)
         if result is None:
             return 1
@@ -46,10 +57,14 @@ def run_capability_secret_command(args) -> int:
         return 0
 
     if args.command == "capability-set-secret":
-        print(cmd_capability_set_secret(
-            args.project, args.type, args.key,
-            value=capability_secret_value_from_args(args),
-        ))
+        print(
+            cmd_capability_set_secret(
+                args.project,
+                args.type,
+                args.key,
+                value=capability_secret_value_from_args(args),
+            )
+        )
         return 0
 
     if args.command == "capability-list-secrets":
