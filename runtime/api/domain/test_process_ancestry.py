@@ -126,11 +126,14 @@ class TestAnchorCandidatePids(unittest.TestCase):
             "  300   200 zsh",
             "  200     1 cursor-agent",
         ]
-        with patch.object(
-            process_ancestry,
-            "ps_lines",
-            return_value=rows,
-        ) as ps_lines:
+        with (
+            patch.object(process_ancestry.sys, "platform", "darwin"),
+            patch.object(
+                process_ancestry,
+                "ps_lines",
+                return_value=rows,
+            ) as ps_lines,
+        ):
             self.assertEqual(anchor_candidate_pids(400), [300])
         self.assertEqual(ps_lines.call_count, 1)
 
@@ -254,6 +257,7 @@ class TestFindNearestNamedProcessAnchor(unittest.TestCase):
         self.assertEqual(anchor.process_name, "claude")
 
 
+@patch.object(process_ancestry.sys, "platform", "darwin")
 class TestPsParsing(unittest.TestCase):
     def test_parent_map_parses_pid_ppid_pairs(self):
         with patch.object(

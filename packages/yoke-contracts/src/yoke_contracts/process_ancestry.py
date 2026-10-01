@@ -1,6 +1,6 @@
 """Portable process-ancestry walk for session identity (shared contract).
 
-Pure standard library (subprocess ``ps``; works on macOS and Linux). Both
+Pure standard library (macOS ``ps``, Linux procfs). Both
 sides of the ambient-identity contract walk the same body:
 
 - **Anchor write (hook side):** a Yoke hook runs as a child of the
@@ -11,9 +11,7 @@ sides of the ambient-identity contract walk the same body:
   that ancestor, so :func:`anchor_candidate_pids` enumerates the pids whose
   registry records may name this process's session.
 
-Lives in ``yoke-contracts`` so the product CLI client (which depends only
-on this package) and the engine core resolve identity through one
-implementation.
+The product CLI client and engine share this ``yoke-contracts`` implementation.
 
 The harness basename set is deliberately small: the per-session Claude agent
 binary is ``.../claude-code/<version>/claude.app/Contents/MacOS/claude``
@@ -37,7 +35,7 @@ conversation, or through a mapping its own hooks record
 (:mod:`yoke_contracts.cursor_session_map`); ambient resolution failing
 outright is the correct outcome when neither reached the process.
 
-Start times are opaque ``ps -o lstart=`` strings compared for equality only;
+Start times are opaque platform tokens compared for equality only;
 a reused pid fails that comparison, and so does a defunct one.
 """
 
@@ -45,9 +43,11 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from dataclasses import dataclass
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
+from yoke_contracts import linux_process_snapshot
 
 HARNESS_PROCESS_BASENAMES = frozenset({"claude", "claude-code"})
 #: The process title of a Claude daemon spare, which becomes one session's host.
@@ -115,14 +115,13 @@ def ps_lines(args: List[str]) -> List[str]:
 def process_table() -> Dict[int, Tuple[int, str]]:
     """Return ``pid -> (ppid, executable basename)`` for every live process.
 
-    One ``ps`` call for both facts, so a walk that needs parents *and*
-    names — every walk that must stop at a multiplexed host — costs no
-    more process-table access than one that needs parents alone. ``comm``
-    is requested last because it is the only column that can contain
-    spaces (macOS reports a full path), which the bounded split keeps
-    whole. A process reporting no command name maps to ``""`` rather than
-    dropping out, so a missing name never breaks the parent chain.
+    One platform snapshot supplies parents and names. Linux reads procfs
+    for untruncated names
+    and needs no ``ps``. macOS requests ``comm`` last to preserve spaces
+    in full paths. A nameless process retains its parent link.
     """
+    if sys.platform == "linux":
+        return linux_process_snapshot.process_table()
     table: Dict[int, Tuple[int, str]] = {}
     for line in ps_lines(["-axo", "pid=,ppid=,comm="]):
         fields = line.split(None, 2)
@@ -137,17 +136,17 @@ def process_table() -> Dict[int, Tuple[int, str]]:
 
 
 def parent_map() -> Dict[int, int]:
-    """Return a ``pid -> ppid`` map for every live process (one ``ps`` call)."""
+    """Return a ``pid -> ppid`` map from one platform process snapshot."""
     return {pid: entry[0] for pid, entry in process_table().items()}
 
 
 def process_start_time(pid: int) -> Optional[str]:
-    """Return the ``ps -o lstart=`` string for a *running* ``pid``, else ``None``.
+    """Return the platform start token for a running pid, else ``None``.
 
-    A zombie keeps both facts this compares, so the state comes back in the
-    same call and a defunct process answers exactly as a gone one; state leads
-    because ``lstart`` is the only column here containing spaces. Why:
-    ``docs/archive/decisions/defunct-process-is-an-exited-process.md``."""
+    Zombies answer as gone. macOS reads state before the spaced ``lstart``.
+    Why: ``docs/archive/decisions/defunct-process-is-an-exited-process.md``."""
+    if sys.platform == "linux":
+        return linux_process_snapshot.process_start_time(pid)
     lines = ps_lines(["-o", "stat=,lstart=", "-p", str(pid)])
     fields = lines[0].strip().split(None, 1) if lines else []
     if len(fields) < 2 or fields[0].startswith(_DEFUNCT_PROCESS_STATE):
@@ -158,10 +157,11 @@ def process_start_time(pid: int) -> Optional[str]:
 def process_command_name(pid: int) -> Optional[str]:
     """Return the executable basename for ``pid`` or ``None``.
 
-    ``ps -o comm=`` yields the full executable path on macOS (which may
-    contain spaces) and the bare command name on Linux; taking the whole
-    line and basenaming it handles both.
+    Linux reads the full argv[0] or exe link; macOS basenames the whole
+    ``ps -o comm=`` line, preserving spaces in executable paths.
     """
+    if sys.platform == "linux":
+        return linux_process_snapshot.process_command_name(pid)
     lines = ps_lines(["-o", "comm=", "-p", str(pid)])
     if not lines:
         return None
