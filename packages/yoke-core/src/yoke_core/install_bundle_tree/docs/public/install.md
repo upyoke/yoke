@@ -139,6 +139,7 @@ told the remote has a layer it never received.
 
 ## Related
 
+- [Maintaining a private fork](private-forks.md)
 - [Modes](modes.md)
 - [CLI and config](cli-and-config.md)
 - [Projects](projects.md)

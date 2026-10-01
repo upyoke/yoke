@@ -86,6 +86,9 @@ The installer records `settings.distribution` as `{"origin": "https://api.upyoke
 that record and uses it in a fresh shell. Select or repair it explicitly with
 `yoke config distribution set --origin URL --channel NAME`; run that command's
 `--help` for flags. This does not change the active control-plane connection.
+Relays connected to a private API host also require this record and install
+from `origin/simple/`; they do not infer an index from the API host. See
+[Maintaining a private fork](private-forks.md) for artifacts and recovery.
 
 Launch defaults retain the scalar `preferred_session_models` map that the
 previous release can read. The model ids below are illustrative selector

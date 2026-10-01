@@ -33,4 +33,5 @@ system to pick the next useful move. Direct commands remain available.
 
 - [Modes](modes.md) — Local, Cloud, Self-hosted
 - [Install](install.md) — one installer, then onboard
+- [Maintaining a private fork](private-forks.md) — operator-supplied releases and indexes
 - [Concepts](concepts.md) — universe, projects, items, workflows

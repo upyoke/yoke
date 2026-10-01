@@ -9,12 +9,12 @@ import os
 from pathlib import Path
 import subprocess
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit
 import uuid
 
 from packaging.version import InvalidVersion, Version
 from yoke_cli import manifest
-from yoke_cli.config import machine_config
+from yoke_cli.config import distribution, machine_config
 from yoke_cli.config.session_relay_instance import (
     RelayInstance,
     resolve_relay_instance,
@@ -139,7 +139,7 @@ def release_version_from_build(build: str) -> str:
 
 
 def distribution_index_for_instance(instance: RelayInstance) -> str:
-    """Resolve the wheel index belonging to the selected environment."""
+    """Use hosted environment indexes or the install's declared fork origin."""
     try:
         connection = machine_config.active_connection(
             instance.config_path,
@@ -165,16 +165,13 @@ def distribution_index_for_instance(instance: RelayInstance) -> str:
         base = DISTRIBUTION_STAGE_URL
     else:
         try:
-            port = parsed.port
-        except ValueError as exc:
+            base = distribution.recorded(path=instance.config_path)["origin"]
+        except distribution.DistributionError as exc:
             raise RelayReleaseError(
                 RELAY_RELEASE_FETCH_FAILED,
-                f"environment {instance.environment!r} has an invalid API port",
+                f"environment {instance.environment!r} requires a declared "
+                f"install distribution for its relay: {exc}",
             ) from exc
-        hostname = str(parsed.hostname or "")
-        host = f"[{hostname}]" if ":" in hostname else hostname
-        netloc = f"{host}:{port}" if port else host
-        base = urlunsplit((parsed.scheme, netloc, "", "", "")).rstrip("/")
     return f"{base}/simple/"
 
 

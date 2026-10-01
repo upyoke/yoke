@@ -11,7 +11,6 @@ being chosen, and isolation keeps the inherited environment out on top of that.
 
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 import subprocess
@@ -20,7 +19,7 @@ import venv
 
 import pytest
 
-from yoke_cli.config.session_relay_instance import resolve_relay_instance
+from runtime.api.tools.session_relay_release_test_support import relay_instance
 from yoke_core.tools import session_relay_runtime_install
 from yoke_core.tools.session_relay_release import (
     PYTHON_ISOLATION_FLAG,
@@ -31,36 +30,6 @@ from yoke_core.tools.session_relay_release_install import pin_relay_release
 
 CANDIDATE_RELEASE = "0.1.1+launch.365"
 RUNNING_RELEASE = "0.1.1+launch.300"
-
-
-def _instance(tmp_path: Path):
-    config = tmp_path / "config.json"
-    config.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "active_env": "prod",
-                "connections": {
-                    "prod": {
-                        "transport": "https",
-                        "prod": True,
-                        "api_url": "https://relay.example.test/api",
-                        "credential_source": {
-                            "kind": "token_file",
-                            "path": str(tmp_path / "token"),
-                        },
-                    }
-                },
-                "projects": [],
-            }
-        ),
-        encoding="utf-8",
-    )
-    return resolve_relay_instance(
-        config_path=config,
-        environment="prod",
-        yoke_home=tmp_path / "state",
-    )
 
 
 def _site_packages(prefix: Path) -> Path:
@@ -128,7 +97,7 @@ def _installing_runner(donor: Path, argv_log: list[list[str]]):
 def test_candidate_verification_reads_the_candidate_not_the_running_release(
     tmp_path: Path, donor_pythonpath: Path
 ) -> None:
-    instance = _instance(tmp_path)
+    instance = relay_instance(tmp_path)
     argv_log: list[list[str]] = []
 
     status = pin_relay_release(
@@ -168,7 +137,7 @@ def test_candidate_verification_reads_the_candidate_not_the_running_release(
 def test_candidate_installation_runs_isolated_from_the_running_release(
     tmp_path: Path, donor_pythonpath: Path
 ) -> None:
-    instance = _instance(tmp_path)
+    instance = relay_instance(tmp_path)
     argv_log: list[list[str]] = []
 
     pin_relay_release(
