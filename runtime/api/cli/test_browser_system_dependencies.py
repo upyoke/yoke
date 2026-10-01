@@ -9,12 +9,13 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_harness import browser_system_dependencies as deps
+from yoke_harness import system_privileges as privileges
 
 
 @pytest.fixture
 def setup(tmp_path, monkeypatch):
     monkeypatch.setattr(deps.sys, "platform", "linux")
-    monkeypatch.setattr(deps.os, "geteuid", lambda: 1000)
+    monkeypatch.setattr(privileges.os, "geteuid", lambda: 1000)
     monkeypatch.setattr(deps.shutil, "which", lambda name: "/usr/bin/" + name)
     monkeypatch.setattr(deps.sys, "stdin", SimpleNamespace(isatty=lambda: False))
     monkeypatch.setattr(deps.sys, "stderr", SimpleNamespace(isatty=lambda: False))
@@ -51,7 +52,7 @@ def _install(commands):
 
 def test_root_invokes_playwright_package_installer_directly(setup, monkeypatch):
     ensure, commands, _ = setup
-    monkeypatch.setattr(deps.os, "geteuid", lambda: 0)
+    monkeypatch.setattr(privileges.os, "geteuid", lambda: 0)
     ensure()
     command, _ = _install(commands)
     assert command[0].endswith("/node")
