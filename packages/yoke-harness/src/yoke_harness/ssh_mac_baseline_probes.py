@@ -1,18 +1,9 @@
 """User-equivalence probes declared alongside one captured golden baseline.
 
-A restored home is provably the captured one, but structure is not liveness: a
-credential file can come back byte-identical and still hold an expired token.
-The probes close that gap, and they live beside the golden rather than in this
-engine because which programs must report themselves signed in is a fact about
-one machine's baseline, not about every project Yoke serves. Recapturing a
-baseline with a new tool updates its probes in the same motion.
-
-A probe answers one of three ways, and the runner keeps them apart because
-their recoveries differ. The program reported itself signed in; the program ran
-and did not; or the bridge never delivered the probe, so the program has said
-nothing at all. Only the second is a fact about the golden. Collapsing the
-third into it sends an operator to recapture a whole home over a host defect
-that would fail again on the next restore.
+Restored credentials can be byte-identical but expired: declared harnesses must
+answer a real request. Other probes retain their declared argv and expectation.
+An undelivered host-session command is distinct from a delivered failing probe,
+because repairing the session and re-signing-in have different recoveries.
 """
 
 from __future__ import annotations
@@ -23,6 +14,7 @@ from pathlib import PurePosixPath
 from typing import Any, Callable, Sequence
 
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
+from yoke_harness.baseline_harness_requests import harness_request
 from yoke_harness.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_harness.ssh_mac_gui_session import (
     classify_macos_session_context_failure,
@@ -167,30 +159,20 @@ def run_baseline_probes(
     probes: Sequence[BaselineProbe],
     *,
     run_gui_command: Callable[..., Any],
+    classify_gui_failures: bool = True,
 ) -> HostActionResult:
-    """Run every probe in the logged-in GUI session and close the outcome.
+    """Run probes through the supplied host session, recording no account output.
 
-    Probes run through the GUI bridge because an SSH session cannot reach the
-    login keychain, and a keychain-backed program answering from the wrong
-    session reports expired credentials whose files are perfectly intact.
-
-    Probe output is summarized rather than recorded: a signed-in report names
-    the account it is signed in as, and that identity has no business in QA
-    evidence. A failure is therefore explained by a classified cause, reason,
-    and recovery drawn from fixed text, never by the output itself.
-
-    A failing probe and an undelivered one are different answers. The bridge
-    reports its own failure as an exit code on a synthetic result rather than
-    by raising, so a bridge that never reached the program looks exactly like a
-    program reporting itself signed out unless the result is classified. The
-    two close under different error codes because they have different
-    recoveries: repair the host, or recapture the golden.
+    Harness executables must answer a real request, including for sealed
+    sidecars originally declaring login status. GUI bridge failures remain
+    distinct from a delivered request that cannot authenticate.
     """
     rows: list[dict[str, Any]] = []
     for probe in probes:
+        request = harness_request(probe.argv)
         try:
             result = run_gui_command(
-                list(probe.argv),
+                list(request.argv if request else probe.argv),
                 timeout=PROBE_TIMEOUT_SECONDS,
             )
         except Exception:
@@ -203,12 +185,29 @@ def run_baseline_probes(
                     reason=BRIDGE_CALL_RAISED_REASON,
                 )
             )
-            return HostActionResult(False, {"probes": rows}, NO_VERDICT_ERROR_CODE)
+            if not classify_gui_failures:
+                rows[-1].update(
+                    cause="host_session_command_unavailable",
+                    reason="the SSH user-session command did not return",
+                    recovery="Check SSH reachability and retry the baseline probe.",
+                )
+            if request:
+                rows[-1]["reason"] = (
+                    f"{request.name} real request did not return. {request.recovery}"
+                )
+            evidence = {
+                "probes": rows,
+                "reason": rows[-1]["reason"],
+                "recovery": rows[-1]["recovery"],
+            }
+            return HostActionResult(False, evidence, NO_VERDICT_ERROR_CODE)
         exit_code = int(result.returncode)
         expectation = probe.expect_output_contains
         matched = expectation is None or expectation in "\n".join(
             (result.stdout or "", result.stderr or "")
         )
+        if request:
+            matched = request.answered(result.stdout or "")
         if exit_code == 0 and matched:
             rows.append(
                 {
@@ -220,7 +219,11 @@ def run_baseline_probes(
                 }
             )
             continue
-        classified = classify_macos_session_context_failure(result)
+        classified = (
+            classify_macos_session_context_failure(result)
+            if classify_gui_failures
+            else None
+        )
         cause, reason = (
             (NOT_SIGNED_IN_CAUSE, NOT_SIGNED_IN_REASON)
             if classified is None
@@ -235,9 +238,18 @@ def run_baseline_probes(
                 reason=reason,
             )
         )
+        if request and classified is None:
+            message = f"{request.name} real request failed. {request.recovery}"
+            rows[-1].update(
+                cause="harness_request_failed",
+                reason=message,
+                recovery=request.recovery,
+            )
+        else:
+            message = rows[-1]["reason"]
         return HostActionResult(
             False,
-            {"probes": rows},
+            {"probes": rows, "reason": message, "recovery": rows[-1]["recovery"]},
             NO_VERDICT_ERROR_CODE
             if cause == BRIDGE_UNDELIVERED_CAUSE
             else FAILED_ERROR_CODE,

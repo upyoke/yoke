@@ -15,7 +15,7 @@ is provably complete where enumerating residue never can be, and a host
 declaring no `golden_baseline_path` cannot reach this baseline. Success is
 gated on proof: no Yoke state, launcher, or tool file present, no Yoke tool
 resolving in the login or SSH shell, every captured entry returned, and every
-declared probe reporting its program signed in. The live `.ssh` directory and
+declared harness answering a real request. The live `.ssh` directory and
 `com.apple.TCC` privacy database survive the clear, and the restoring process
 must hold Full Disk Access, which the operation asserts rather than assumes.
 
@@ -98,16 +98,16 @@ proves the home is the captured one and the probes prove that home still
 works.
 
 The probes are declared in a sidecar document next to the golden itself —
-`<golden_baseline_path>.probes` — because which programs must report themselves
+`<golden_baseline_path>.probes` — because which programs must be
 signed in is a fact about one machine's baseline, not about every project Yoke
 serves. The document is a bounded argv contract: an object with a `probes`
 list, each entry naming the probe, an absolute-program argv, and an optional
 `expect_output_contains` string.
 
-They run through the Terminal.app GUI-session bridge rather than over SSH,
+On macOS they run through the Terminal.app GUI-session bridge,
 because an SSH session cannot reach the login keychain and a keychain-backed
 program answering from the wrong session reports expired credentials whose
-files are perfectly intact.
+files are perfectly intact. Linux and WSL run them in the SSH user's Linux session.
 
 Probe output is summarized rather than recorded. A signed-in report names the
 account it is signed in as, and that identity has no business in QA evidence,
@@ -123,11 +123,24 @@ taken while any declared program is signed out restores a host that Yoke
 itself rejects as not user-equivalent, and the missions that depend on it park
 on a machine no user has.
 
-As an illustrative snapshot, the current Test Machine sidecar has three probes:
-`claude auth status`, `codex login status`, and `cursor-agent status`. That
-list can change with the baseline. The latter two commands report output
-containing `Logged in` when authenticated, matching their current sidecar
-expectations.
+For an absolute executable named `claude`, `codex`, or `cursor-agent`, the
+runner replaces the declared argv and output expectation with a tiny native
+request: “Reply exactly OK. Do not use any tools.” This applies to already
+sealed sidecars too: login-status output never proves that a credential can
+refresh or that a request succeeds. Other CLI and service probes keep their
+declared argv and expectation.
+
+The request uses native noninteractive output, limits tools where the CLI
+allows it, and requires a successful completion containing `OK` with no
+tool-call events. Claude uses safe mode to preserve OAuth/keychain authentication
+while suppressing customization; its built-in tools and MCP configuration are disabled;
+Codex ignores user configuration, disables its shell tool, and runs read-only;
+Cursor runs in Ask mode. Codex and Cursor use `/tmp` as their workspace so
+project instructions cannot turn the probe into project work. No permission
+bypass or harness account data is recorded. The native CLI flag contracts are
+documented in the [Claude reference](https://code.claude.com/docs/en/cli-reference),
+[Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference),
+and [Cursor output format](https://cursor.com/docs/cli/reference/output-format).
 
 Recapturing a baseline with a new tool updates its probes in the same motion.
 Adding a harness to the host without adding its probe leaves a signed-out
@@ -145,8 +158,8 @@ their recoveries differ:
 
 | Outcome | What happened | Recovery |
 | --- | --- | --- |
-| passed | the program reported itself signed in | none |
-| `baseline_probe_failed` | the program ran and did not report itself signed in | recapture the golden with it signed in, or correct the probe argv or expectation |
+| passed | the harness answered the real request, or another declared probe passed | none |
+| `baseline_probe_failed` | a harness request or another declared probe failed | for a harness, re-sign-in with the exact absolute command in `reason`, then retry; for another probe, correct its argv or expectation |
 | `baseline_probe_bridge_unavailable` | the bridge never delivered the probe, so the program said nothing | run `yoke test-machine bridge-diagnose --project <project> --machine <resource-name>`; it names which bridge capability broke and what to change |
 
 The third row is the one worth knowing about. The bridge reports its own
