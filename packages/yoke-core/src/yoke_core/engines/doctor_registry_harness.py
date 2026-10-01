@@ -13,7 +13,7 @@ Session/harness substrate:
 
 Project harness config:
   ``project-hook-config-validity``, ``harness-unattended-posture``,
-  ``pack-prerequisites``.
+  ``hook-resident``, ``pack-prerequisites``.
 
 Ledger audit:
   ``claim-boundary-audit``.
@@ -106,7 +106,6 @@ from yoke_core.engines.doctor_hc_hook_resident import (
 
 
 HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
-    HealthCheck(HOOK_RESIDENT_SLUG, HOOK_RESIDENT_TITLE, hc_hook_resident),
     # Group A — session/harness substrate (task 13)
     HealthCheck(
         "stale-sessions",
@@ -164,6 +163,7 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
         UNATTENDED_POSTURE_TITLE,
         hc_harness_unattended_posture,
     ),
+    HealthCheck(HOOK_RESIDENT_SLUG, HOOK_RESIDENT_TITLE, hc_hook_resident),
     HealthCheck(
         "project-hook-config-validity",
         "Project hook configs are regular and schema-valid",
