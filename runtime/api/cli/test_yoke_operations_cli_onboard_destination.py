@@ -39,6 +39,7 @@ class _FakeEngine:
         return {
             "dsn": FAKE_DSN,
             "born": True,
+            "human_actor_id": 1,
             "cluster": {"root": "/fake/local-universe", "running": True},
             "org": {"name": org_name or "Local Org", "slug": "local-org"},
         }
@@ -47,6 +48,9 @@ class _FakeEngine:
 @pytest.fixture()
 def fake_engine(monkeypatch):
     monkeypatch.setattr(local_universe_setup, "_engine", lambda: _FakeEngine())
+    monkeypatch.setattr(
+        local_universe_setup, "_record_operating_actor", lambda report, path: None
+    )
 
 
 @pytest.fixture()

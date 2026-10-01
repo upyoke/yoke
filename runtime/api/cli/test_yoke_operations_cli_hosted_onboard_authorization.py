@@ -27,6 +27,7 @@ class _FakeEngine:
         return {
             "dsn": FAKE_DSN,
             "born": True,
+            "human_actor_id": 1,
             "cluster": {"root": "/fake/local-universe", "running": True},
             "org": {"name": org_name or "Local Org", "slug": "local-org"},
         }
@@ -157,6 +158,9 @@ def test_hosted_api_url_rejects_manual_token_without_touching_local_connection(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setattr(local_universe_setup, "_engine", lambda: _FakeEngine())
+    monkeypatch.setattr(
+        local_universe_setup, "_record_operating_actor", lambda report, path: None
+    )
     config = scratch_home / "config.json"
     local_universe_setup.run_local_init(config_path=str(config))
 
