@@ -4,6 +4,8 @@ import io
 import json
 import os
 import shutil
+import subprocess
+import sys
 import tarfile
 
 import pytest
@@ -127,3 +129,97 @@ def test_capture_never_overwrites_snapshot(snapshot):
     with pytest.raises(snapshots.ProfileArchiveError, match="destination_occupied"):
         snapshots.capture(home, baseline, "project", RELATIVE)
     assert (baseline / snapshots.ARCHIVE_NAME).read_bytes() == original
+
+
+@pytest.mark.parametrize("writer", ["command", "descriptor", "unrelated"])
+def test_privileged_inventory_checks_same_user_commands_and_descriptors(
+    tmp_path, monkeypatch, capsys, writer
+):
+    proc = tmp_path / "proc"
+    process = proc / "101"
+    descriptors = process / "fd"
+    descriptors.mkdir(parents=True)
+    profile = tmp_path / "private-profile"
+    command = str(profile) if writer == "command" else "systemd"
+    (process / "cmdline").write_bytes(command.encode())
+    target = profile / "opaque (deleted)" if writer == "descriptor" else tmp_path
+    (descriptors / "3").symlink_to(target)
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(
+        sys, "argv", ["inventory", str(os.getuid()), str(profile), "102"]
+    )
+    program = snapshots.WRITER_INVENTORY_PROGRAM.replace(
+        'Path("/proc")', f"Path({str(proc)!r})"
+    )
+    if writer == "unrelated":
+        exec(compile(program, "writer-inventory", "exec"), {})
+        assert json.loads(capsys.readouterr().out) == {"ok": True}
+    else:
+        with pytest.raises(SystemExit) as stopped:
+            exec(compile(program, "writer-inventory", "exec"), {})
+        assert stopped.value.code == 64
+        assert json.loads(capsys.readouterr().out) == {
+            "ok": False,
+            "reason": "browser_profile_writer_active",
+        }
+
+
+def test_archive_uses_noninteractive_read_only_privileged_inventory(monkeypatch):
+    profile = snapshots.Path("/home/testuser/private-profile")
+
+    def inventory(argv, **options):
+        assert argv[:4] == ["sudo", "-n", "/usr/bin/python3", "-c"]
+        assert argv[4] == snapshots.WRITER_INVENTORY_PROGRAM
+        assert argv[5:] == [str(os.getuid()), str(profile), str(os.getpid())]
+        assert options == {
+            "capture_output": True,
+            "text": True,
+            "timeout": 30,
+            "check": False,
+        }
+        return subprocess.CompletedProcess(argv, 0, '{"ok":true}', "")
+
+    monkeypatch.setattr(subprocess, "run", inventory)
+    snapshots.profile_writers_absent(profile)
+
+
+@pytest.mark.parametrize(
+    "stdout,code,reason",
+    [
+        (
+            '{"ok":false,"reason":"browser_profile_writer_active"}',
+            64,
+            "browser_profile_writer_active",
+        ),
+        ('{"ok":true}', 1, "browser_profile_writer_inventory_unavailable"),
+        ("not-json", 1, "browser_profile_writer_inventory_unavailable"),
+        ("[]", 0, "browser_profile_writer_inventory_unavailable"),
+    ],
+)
+def test_inventory_failure_refuses_without_masking_writer_reason(
+    monkeypatch, stdout, code, reason
+):
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda argv, **_: subprocess.CompletedProcess(
+            argv, code, stdout, "private diagnostic"
+        ),
+    )
+    with pytest.raises(snapshots.ProfileArchiveError, match=reason):
+        snapshots.profile_writers_absent(
+            snapshots.Path("/home/testuser/private-profile")
+        )
+
+
+def test_inventory_timeout_refuses_without_mutating_profile(monkeypatch):
+    def timeout(*_, **__):
+        raise subprocess.TimeoutExpired("metadata-inventory", 30)
+
+    monkeypatch.setattr(subprocess, "run", timeout)
+    with pytest.raises(
+        snapshots.ProfileArchiveError, match="writer_inventory_unavailable"
+    ):
+        snapshots.profile_writers_absent(
+            snapshots.Path("/home/testuser/private-profile")
+        )
