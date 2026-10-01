@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
@@ -32,14 +32,10 @@ from yoke_core.domain.api_tokens import (
 from yoke_core.domain import db_backend
 
 
-#: One blocked credential check. Long enough that serializing several is
-#: unmistakable, short enough to keep the test bounded.
-SLOW_AUTH_SECONDS = 0.4
 CONCURRENT_SLOW_REQUESTS = 5
-
-#: The lightweight request must land far below the serialized cost
-#: (5 x 0.4s) and far above any plausible scheduling jitter.
-STALL_BUDGET_SECONDS = 1.0
+#: A deadlock bound, not a latency target: ordering proves the offload even
+#: when unrelated CI load delays scheduling.
+WAIT_TIMEOUT_SECONDS = 10
 
 BEARER_HEADERS = {"authorization": "Bearer test-token"}
 
@@ -66,10 +62,12 @@ def _sync_client() -> Iterator[TestClient]:
         client.close()
 
 
-async def _race_light_request_against_slow_auth() -> tuple[float, float, list[int]]:
-    """Return light-request latency, total wall time, and slow statuses."""
+async def _race_light_request_against_slow_auth(
+    started: threading.Barrier,
+    released: threading.Event,
+) -> list[int]:
+    """Health completes while all credential checks are still blocked."""
     async with _client() as client:
-        started = time.perf_counter()
 
         async def slow() -> int:
             response = await client.get(
@@ -77,39 +75,43 @@ async def _race_light_request_against_slow_auth() -> tuple[float, float, list[in
             )
             return response.status_code
 
-        async def light() -> tuple[float, int]:
-            response = await client.get("/v1/health")
-            return time.perf_counter() - started, response.status_code
-
         slow_tasks = [
             asyncio.create_task(slow()) for _ in range(CONCURRENT_SLOW_REQUESTS)
         ]
-        # Queued last on purpose: a credential check that blocks the loop
-        # holds this request behind every one of them.
-        light_task = asyncio.create_task(light())
-        statuses = await asyncio.gather(*slow_tasks)
-        light_latency, light_status = await light_task
-        total = time.perf_counter() - started
-
-    assert light_status == 200
-    return light_latency, total, list(statuses)
+        try:
+            # All checks must enter concurrently before any may finish.
+            await asyncio.to_thread(started.wait, WAIT_TIMEOUT_SECONDS)
+            response = await asyncio.wait_for(
+                client.get("/v1/health"),
+                timeout=WAIT_TIMEOUT_SECONDS,
+            )
+            assert response.status_code == 200
+            assert all(not task.done() for task in slow_tasks)
+        finally:
+            released.set()
+            statuses = await asyncio.wait_for(
+                asyncio.gather(*slow_tasks),
+                timeout=WAIT_TIMEOUT_SECONDS,
+            )
+    return list(statuses)
 
 
 def test_slow_credential_check_does_not_stall_unrelated_request(monkeypatch) -> None:
+    started = threading.Barrier(CONCURRENT_SLOW_REQUESTS + 1)
+    released = threading.Event()
+    event_loop_thread = threading.get_ident()
+
     def slow_authenticate(request: Any) -> HttpAuthContext:
-        time.sleep(SLOW_AUTH_SECONDS)
+        assert threading.get_ident() != event_loop_thread, "auth blocked the event loop"
+        started.wait(WAIT_TIMEOUT_SECONDS)
+        assert released.wait(WAIT_TIMEOUT_SECONDS), "health did not finish during auth"
         return _auth_context()
 
     monkeypatch.setattr(app_factory, "authenticate_request", slow_authenticate)
 
-    light_latency, total, statuses = asyncio.run(
-        _race_light_request_against_slow_auth()
-    )
+    statuses = asyncio.run(_race_light_request_against_slow_auth(started, released))
 
     assert statuses == [200] * CONCURRENT_SLOW_REQUESTS
-    assert light_latency < STALL_BUDGET_SECONDS
-    # The slow checks also ran alongside each other rather than in a queue.
-    assert total < SLOW_AUTH_SECONDS * CONCURRENT_SLOW_REQUESTS
 
 
 def test_missing_credential_is_denied_with_bearer_challenge() -> None:
@@ -209,8 +211,11 @@ def test_token_verify_audit_keeps_a_caller_supplied_request_id(monkeypatch) -> N
 
 
 def _request_context(caplog) -> dict[str, Any]:
-    records = [r for r in caplog.records if getattr(r, "event_name", "") ==
-               "HttpRequestCompleted"]
+    records = [
+        r
+        for r in caplog.records
+        if getattr(r, "event_name", "") == "HttpRequestCompleted"
+    ]
     assert records, "no completed-request log record was emitted"
     return getattr(records[-1], "context")
 
@@ -222,9 +227,7 @@ def test_request_log_times_auth_and_admission(monkeypatch, caplog) -> None:
 
     with caplog.at_level(logging.INFO, logger="yoke.api.http"):
         with _sync_client() as client:
-            response = client.get(
-                "/v1/functions/registry", headers=BEARER_HEADERS
-            )
+            response = client.get("/v1/functions/registry", headers=BEARER_HEADERS)
 
     assert response.status_code == 200
     context = _request_context(caplog)
