@@ -100,7 +100,10 @@ def inconclusive_verdict_guidance(allowed_verdicts: tuple[str, ...]) -> str:
         "This stage decides on the agent verdict alone, so undetermined is not "
         f"submittable here -- return one of {verdict_enum_text(allowed_verdicts)}. "
         "If the supplied evidence cannot settle a case, fail it and name in the "
-        "rationale what was missing, which is the answer a re-capture acts on."
+        "rationale what was missing, which is the answer a re-capture acts on. "
+        "A host occupied by another mission is not missing acceptance evidence: "
+        "submit host_wait with its machine and holder evidence instead of a verdict; "
+        "the requirement stays open and resumes on its FIFO host turn."
     )
 
 

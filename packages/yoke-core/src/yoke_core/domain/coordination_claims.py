@@ -135,10 +135,29 @@ def acquire(
     ``last_heartbeat`` starts at the acquisition timestamp so liveness
     reads treat a fresh claim as fully heartbeated.
     """
+    from yoke_core.domain.qa_host_turns import (
+        HOST_TURN_REASON,
+        lock_host_turn,
+        reservation_for,
+        reserve_host_turn,
+    )
+
+    lock_host_turn(conn, target)
+    if not str(reason or "").startswith(HOST_TURN_REASON):
+        reserve_host_turn(conn, target)
     now = now or iso8601_now()
     p = _p(conn)
     existing = active_claim(conn, target)
     if existing is not None:
+        if target.machine_id and reservation_for(conn, existing, session_id):
+            from yoke_core.domain.claim_chain_state import record_claim_reason
+
+            record_claim_reason(
+                conn, claim_id=existing.id, reason=reason or "qa-host-turn-consumed"
+            )
+            if commit:
+                conn.commit()
+            return existing
         raise held_error(conn, existing)
     use_savepoint = db_backend.connection_is_postgres(conn)
     if use_savepoint:
@@ -229,6 +248,9 @@ def release(
     claim = get_claim(conn, claim_id)
     if not claim.is_active:
         return claim
+    from yoke_core.domain.qa_host_turns import lock_host_turn, reserve_host_turn
+
+    lock_host_turn(conn, claim.target)
     conn.execute(
         f"UPDATE work_claims SET released_at = {p}, release_reason = {p} "
         f"WHERE id = {p} AND released_at IS NULL",
@@ -237,6 +259,7 @@ def release(
     from yoke_core.domain.claim_chain_state import record_release_intent
 
     record_release_intent(conn, claim_id=int(claim_id), intent=reason)
+    reserve_host_turn(conn, claim.target)
     if commit:
         conn.commit()
     released = get_claim(conn, claim_id)

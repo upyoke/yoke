@@ -120,7 +120,6 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
         plan_case_contract_arguments,
     )
     from yoke_core.domain.qa_plan_execution_state import (
-        finish_plan_execution,
         set_plan_machine_lease,
     )
 
@@ -176,24 +175,18 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                     machine=machine,
                 )
         except MachineQaProtocolLeaseHeld as held:
-            finish_plan_execution(
+            from yoke_core.domain.qa_host_turns import record_host_wait
+
+            waiting = record_host_wait(
                 conn,
                 execution,
-                state="waiting",
-                reason="test-machine-lease-waiting",
+                machine=held.machine,
+                rationale=f"lease {held.lease.id} held by {held.lease.session_id}",
             )
-            return HandlerOutcome(
-                primary_success=True,
-                result_payload={
-                    "state": "waiting",
-                    "execution_id": str(execution["id"]),
-                    "cursor_ordinal": int(execution["cursor_ordinal"]),
-                    "lease_context": waiting_claim_evidence(
-                        held.lease,
-                        held.contention,
-                    ),
-                },
+            waiting["lease_context"] = waiting_claim_evidence(
+                held.lease, held.contention
             )
+            return HandlerOutcome(primary_success=True, result_payload=waiting)
     except (MachineQaProtocolError, TestMachineCapabilityError, ValueError) as exc:
         conn.rollback()
         return _failure("test_machine_plan_case_begin_failed", str(exc))

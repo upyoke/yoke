@@ -178,18 +178,31 @@ def validate_method_config(
                 raise QaMethodConfigError(violation.message)
     elif config_contract_id == "agent-mission":
         executor = config.get("executor")
-        if set(config) not in (
-            {"executor"},
-            {"executor", "machine"},
-        ) or executor not in {
-            "informed_subagent",
-            "naive_target_session",
-        }:
+        if (
+            "executor" not in config
+            or set(config) - {"executor", "machine", "host_starting_state"}
+            or executor
+            not in {
+                "informed_subagent",
+                "naive_target_session",
+            }
+        ):
             raise QaMethodConfigError(
                 "Agent missions require one executor and may name one machine: "
                 "informed_subagent or naive_target_session"
             )
         config["executor"] = str(executor)
+        if "host_starting_state" in config:
+            from yoke_contracts.qa_host_starting_state import (
+                validate_host_starting_state,
+            )
+
+            try:
+                config["host_starting_state"] = validate_host_starting_state(
+                    config["host_starting_state"]
+                )
+            except ValueError as exc:
+                raise QaMethodConfigError(str(exc)) from exc
     elif config_contract_id in {"terminal-check", "terminal-inspection"}:
         from yoke_core.domain.machine_qa_action_readiness_contract import (
             bound_ready_timeout_seconds,

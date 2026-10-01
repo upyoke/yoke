@@ -196,7 +196,7 @@ def test_machine_lease_waiting_state_resumes_at_the_same_cursor(
         session_id=ACTOR.session_id,
     )
     case = execution["roster"][0]
-    seed_qa_session(test_db, "another-session")
+    seed_qa_session(test_db, ACTOR.session_id, "another-session", messageable=True)
     held = acquire(
         test_db,
         make_qa_admission_target("mac-mini-lab"),

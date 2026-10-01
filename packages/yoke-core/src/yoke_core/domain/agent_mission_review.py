@@ -110,7 +110,12 @@ def _walker_dispatch(
         "Walk this mission atomically. Choose the sequence and use every "
         "available declared substrate that helps. Do not issue the verdict; "
         "return a ranked findings report as the primary deliverable to the "
-        "main mission owner. Routine "
+        "main mission owner. If another item holds a required host, do nothing "
+        "on that host and return WALK_STATUS: HOST_WAIT with its registered "
+        "machine name and lease evidence; the main owner submits host_wait, "
+        "never fail or undetermined for contention. Record OS package changes "
+        "through the declared starting-state fixture; do not use SSH around "
+        "this lease. Routine "
         "screen perception is disposable. Attach only deliberate proof of a "
         "finding, never more than "
         f"{AGENT_MISSION_ARTIFACT_LIMIT} artifacts for the entire run using "
@@ -165,8 +170,9 @@ def _walker_dispatch(
         "artifact_limit": AGENT_MISSION_ARTIFACT_LIMIT,
         "prompt": prompt,
         "result_schema": {
-            "walk_status": "COMPLETE|HUMAN_GATE|UNDETERMINED",
+            "walk_status": "COMPLETE|HUMAN_GATE|HOST_WAIT|UNDETERMINED",
             "report": "ranked findings and unverified areas",
+            "host_wait": "machine name and holder evidence for HOST_WAIT",
             "needed_action": "required for HUMAN_GATE",
             "resume_state": "required for HUMAN_GATE",
         },
@@ -272,6 +278,9 @@ def agent_mission_dispatch_contract(
             ]
         },
         "prompt": prompt,
+        "host_wait_schema": {
+            "host_wait": {"machine": "registered name", "rationale": "lease evidence"}
+        },
         "submit_command": submit_command,
     }
 
