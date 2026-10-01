@@ -29,7 +29,7 @@ from yoke_core.domain.fleet_delta_snapshot import (
 )
 
 DEFAULT_INTERVAL_SECONDS = 60
-DEFAULT_DURATION_SECONDS = 3600
+DEFAULT_DURATION_SECONDS = 8 * 60 * 60
 PROJECT_POLICY_FUNCTION = "projects.capability_settings.get"
 STEERING_REPORT_FUNCTION = "steering.report.get"
 STEERING_REPORT_INTERVAL_KEY = "steering_report_interval_minutes"
@@ -192,7 +192,10 @@ def _append_steering_reports(
             call(STEERING_REPORT_FUNCTION, {}), STEERING_REPORT_FUNCTION
         )
         fingerprint = str(result.get("fingerprint") or "").strip()
-        payload = str(result.get("digest") or "").strip() or str(result.get("body") or "").strip()
+        payload = (
+            str(result.get("digest") or "").strip()
+            or str(result.get("body") or "").strip()
+        )
         if not fingerprint or not payload:
             raise FleetReadError(
                 STEERING_REPORT_FUNCTION,
