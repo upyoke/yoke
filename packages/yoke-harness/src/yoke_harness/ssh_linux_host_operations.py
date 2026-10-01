@@ -182,8 +182,9 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
         required_session_context: str | None = None,
         timeout: int = 60,
     ) -> subprocess.CompletedProcess[str]:
-        if not argv or any(not str(value) for value in argv):
-            raise ValueError("host_control command requires non-empty argv")
+        """Run SSH argv with a non-empty executable and preserve empty option values."""
+        if not argv or not str(argv[0]):
+            raise ValueError("host_control command requires a non-empty executable")
         if required_session_context == GUI_SESSION_CONTEXT:
             return subprocess.CompletedProcess(
                 list(argv), 69, "", SCREENSHOT_DEFERRAL + ": " + SCREENSHOT_RECOVERY
