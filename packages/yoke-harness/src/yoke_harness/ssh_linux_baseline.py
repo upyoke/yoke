@@ -45,6 +45,19 @@ def file_sha256(path):
         return stream_sha256(stream)
 def refuse(reason, entry=None):
     print(json.dumps({"ok": False, "reason": reason, "refused_entry": entry})); sys.exit(64)
+terminal_preferences_path = pathlib.Path(".config/xfce4/helpers.rc")
+def terminal_preference_lines():
+    path = home
+    for part in terminal_preferences_path.parts:
+        path = path / part
+        if path.is_symlink(): refuse("linux_desktop_preference_unsafe", str(terminal_preferences_path))
+        if not path.exists(): return []
+        if path.stat().st_uid != os.getuid():
+            refuse("linux_desktop_preference_foreign_owner", str(terminal_preferences_path))
+    if not path.is_file(): refuse("linux_desktop_preference_unsafe", str(terminal_preferences_path))
+    return path.read_text().splitlines()
+def selects_terminal(line):
+    return line.partition("=")[0].strip() == "TerminalEmulator"
 if os.getuid() == 0 or str(home) != expected_home or len(home.parts) < 3 or home.is_symlink():
     refuse("linux_test_user_required")
 if not baseline.is_absolute() or baseline == home or home in baseline.parents:
@@ -116,6 +129,9 @@ else:
         refuse("golden_baseline_identity_mismatch")
     with tarfile.open(baseline / "home.tar.gz", "r:gz") as archive:
         members = validate_archive(archive)
+        # Desktop provisioning can follow the clean golden's capture. Keep its
+        # terminal selection, not other live desktop or browser preferences.
+        terminal_selection = [line for line in terminal_preference_lines() if selects_terminal(line)]
         # STOP_YOKE_WRITERS
         for entry in home.iterdir():
             if entry.name == ".ssh": continue
@@ -133,10 +149,19 @@ else:
                         refuse("linux_golden_restore_not_proved")
             elif member.issym() and os.readlink(restored) != member.linkname:
                 refuse("linux_golden_restore_not_proved")
+    if terminal_selection:
+        lines = [line for line in terminal_preference_lines() if not selects_terminal(line)]
+        preferences = home / terminal_preferences_path
+        preferences.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        preferences.write_text("\n".join([*lines, *terminal_selection]) + "\n")
+        preferences.chmod(0o600)
+        if [line for line in terminal_preference_lines() if selects_terminal(line)] != terminal_selection:
+            refuse("linux_desktop_preference_restore_not_proved", str(terminal_preferences_path))
     for value in absent:
         if (home / value).exists() or (home / value).is_symlink(): refuse("reset_absence_not_proved")
 print(json.dumps({"ok":True, "operation":operation, "golden_baseline_path":str(baseline),
                   "preserved_entries":[".ssh"], "absent_paths":absent if operation == "reset" else [],
+                  "desktop_terminal_preference_preserved":bool(locals().get("terminal_selection")),
                   "service_cleanup": locals().get("service_cleanup")}))
 """.replace("__YOKE_SERVICE_PATTERNS__", repr(YOKE_SERVICE_PATTERNS))
 

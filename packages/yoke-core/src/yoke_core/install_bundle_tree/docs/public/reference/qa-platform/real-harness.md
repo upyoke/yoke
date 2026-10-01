@@ -52,6 +52,11 @@ empty output and no diagnostic; manager and inventory outages still refuse.
 Reset proves both loaded units and definitions absent. It records
 linger without changing other user services. System-wide OS packages are outside
 the home golden.
+Linux reset also retains the current XFCE `TerminalEmulator` selection from
+`~/.config/xfce4/helpers.rc`, including when desktop provisioning followed the
+golden capture. Other desktop preferences still come from the golden. Symlinks
+or foreign-owned preference paths refuse before home clearing; the receipt
+reports whether the terminal selection was retained.
 The case installs the candidate wheels in a separate
 environment, onboards a throwaway Git project into a disposable local universe
 with GitHub disabled, and invokes the signed-in native CLI. Linux uses tmux
