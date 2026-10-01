@@ -70,10 +70,10 @@ def stub_onboard_session_relay(monkeypatch):
 @pytest.fixture(autouse=True)
 def stub_onboard_browser_setup(monkeypatch):
     """Generic onboarding tests must not provision host packages or use the network."""
-    from yoke_cli.config import onboard_apply_runtime
+    from yoke_cli.config import onboard_machine_setup
 
-    original = onboard_apply_runtime._setup_browser
+    original = onboard_machine_setup.setup_browser
     monkeypatch.setattr(
-        onboard_apply_runtime, "_setup_browser", lambda *args, **kwargs: None
+        onboard_machine_setup, "setup_browser", lambda *args, **kwargs: None
     )
     return original

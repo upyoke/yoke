@@ -88,7 +88,7 @@ def apply_step_line(step: dict[str, Any]) -> str:
 
 
 def apply_step_group(action: str) -> str:
-    from yoke_cli.config.onboard_apply_runtime import BROWSER_SETUP_ACTION
+    from yoke_cli.config.onboard_machine_setup import BROWSER_SETUP_ACTION
 
     if action == BROWSER_SETUP_ACTION:
         return "machine"

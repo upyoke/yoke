@@ -195,11 +195,11 @@ def set_runtime_paths(
     cache_dir: str | Path,
     path: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Set machine-local runtime dirs explicitly."""
+    """Set runtime dirs, including before onboarding selects a connection."""
     payload, cfg_path = _load_payload(path)
     payload["temp_root"] = str(temp_root)
     payload["cache_dir"] = str(cache_dir)
-    _write_payload(payload, cfg_path)
+    _write_payload(payload, cfg_path, allow_unconfigured=True)
     return {
         "temp_root": payload["temp_root"],
         "cache_dir": payload["cache_dir"],

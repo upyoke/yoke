@@ -158,14 +158,17 @@ def test_every_approval_view_names_the_complete_url_and_the_browser_outcome(
             await pilot.pause()
             first = _body_text(app)
             assert f"Open: {COMPLETE_URL}" in first
-            assert f"The browser did not open ({FAILURE_REASON})" in first
+            assert "No browser available here. Open this link on any device" in first
+            assert FAILURE_REASON in first
             assert "onboard-wizard.log" in first
             await pilot.press("enter")
             await pilot.pause()
             waiting = _body_text(app)
             assert f"Open: {COMPLETE_URL}" in waiting
             assert "One-time code: ABCD-2345" in waiting
-            assert f"The browser did not open ({FAILURE_REASON})" in waiting
+            assert "No browser available here. Open this link on any device" in waiting
+            assert "opened for you" not in waiting
+            assert FAILURE_REASON in waiting
             seen["released"].set()
             await pilot.press("escape")
             await pilot.pause()
@@ -233,5 +236,56 @@ def test_escape_from_a_preset_hosted_run_steps_back_without_a_picker(
             # No picker was ever shown on this run, so leaving the wait opens
             # one rather than re-entering the preset lane.
             assert "Where should this Yoke universe live?" in _body_text(app)
+
+    asyncio.run(scenario())
+
+
+def test_browser_setup_keeps_the_link_and_code_visible_and_copyable(
+    monkeypatch, tmp_path
+):
+    from yoke_cli.config import onboard_clipboard
+
+    _stub_start(monkeypatch, opened=True)
+    started, release = threading.Event(), threading.Event()
+    copied = []
+
+    def open_browser(_pending):
+        started.set()
+        assert release.wait(10)
+        return hosted_machine_authorization.BrowserOpenResult(
+            opened=True, method="yoke-chromium"
+        )
+
+    def copy(value):
+        copied.append(value)
+        return onboard_clipboard.ClipboardCopyResult(copied=True)
+
+    monkeypatch.setattr(hosted_machine_authorization, "open_browser", open_browser)
+    monkeypatch.setattr(onboard_clipboard, "remote_session", lambda: False)
+    monkeypatch.setattr(onboard_clipboard, "copy", copy)
+    app, _spy = _app(tmp_path)
+
+    async def scenario():
+        async with app.run_test() as pilot:
+            try:
+                await advance_past_path(pilot)
+                await pilot.press("down", "down", "down", "enter")
+                for _ in range(100):
+                    if started.is_set():
+                        break
+                    await asyncio.sleep(0.01)
+                assert started.is_set()
+                assert app._checking
+                body = _body_text(app)
+                assert "preparing Yoke's browser runtime" in body
+                assert COMPLETE_URL in body and "ABCD-2345" in body
+                assert "opened for you" not in body
+                await pilot.press("ctrl+y", "ctrl+y")
+                assert copied == ["ABCD-2345", COMPLETE_URL]
+            finally:
+                release.set()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert "The browser was opened for you." in _body_text(app)
 
     asyncio.run(scenario())

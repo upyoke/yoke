@@ -50,7 +50,9 @@ def browser_status_line(
     """One line every approval view carries: opened, or why not and where that is logged."""
     if browser.opened:
         return "The browser was opened for you."
-    line = f"The browser did not open ({browser.reason}); open the URL above yourself."
+    line = (
+        f"No browser available here. Open this link on any device. ({browser.reason})"
+    )
     if log_path:
         line += f" Logged to {log_path}."
     return line
@@ -93,18 +95,27 @@ class HostedMachineConnectFlow:
             pending: hosted_machine_authorization.PendingMachineAuthorization,
         ) -> None:
             self._hosted_machine_authorization = pending
-            browser = hosted_machine_authorization.open_browser(pending)
-            log_path = onboard_wizard_diagnostics.record(
-                self.result.config_path,
-                "browser-open",
-                platform=pending.platform_url,
-                opened=browser.opened,
-                method=browser.method,
-                reason=browser.reason,
-            )
-            self._goto_hosted_machine_approval(
-                pending,
-                browser_status_line(browser, log_path),
+
+            def _opened(browser) -> None:
+                self._record_browser_open(pending, browser)
+
+            self._run_checking(
+                step=STEP_CONNECT,
+                title="Opening your approval link.",
+                message="Checking for a browser; preparing Yoke's browser runtime if needed.",
+                detail_lines=self._approval_detail_lines(
+                    pending, "You can also open this link on any device."
+                ),
+                copy_targets=self._approval_copy_targets(pending),
+                work=lambda: hosted_machine_authorization.open_browser(pending),
+                on_success=_opened,
+                on_error=lambda exc: _opened(
+                    hosted_machine_authorization.BrowserOpenResult(
+                        opened=False, reason=str(exc)
+                    )
+                ),
+                on_cancel=self._abandon_hosted_machine_authorization,
+                group="onboard-browser-open",
             )
 
         title = (
@@ -132,6 +143,19 @@ class HostedMachineConnectFlow:
             on_cancel=self._abandon_hosted_machine_authorization,
             group="onboard-hosted-machine-start",
             replace_current=replace_current,
+        )
+
+    def _record_browser_open(self, pending, browser) -> None:
+        log_path = onboard_wizard_diagnostics.record(
+            self.result.config_path,
+            "browser-open",
+            platform=pending.platform_url,
+            opened=browser.opened,
+            method=browser.method,
+            reason=browser.reason,
+        )
+        self._goto_hosted_machine_approval(
+            pending, browser_status_line(browser, log_path)
         )
 
     def _abandon_hosted_machine_authorization(self: _Shell) -> None:

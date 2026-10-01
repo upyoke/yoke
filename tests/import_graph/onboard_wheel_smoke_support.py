@@ -168,7 +168,7 @@ def _format_result(result: subprocess.CompletedProcess[str]) -> str:
     )
 
 
-def _stub_relay_installer(venv_python: Path, *, cwd: Path) -> None:
+def _stub_native_provisioning(venv_python: Path, *, cwd: Path) -> None:
     """Keep the wheel smoke off separately covered native/release provisioning."""
     result = _run(
         [
@@ -179,8 +179,12 @@ def _stub_relay_installer(venv_python: Path, *, cwd: Path) -> None:
         cwd=cwd,
     )
     site_packages = Path(result.stdout.strip())
-    (site_packages / "onboard_relay_test_stub.pth").write_text(
+    (site_packages / "onboard_native_test_stub.pth").write_text(
         "import yoke_cli.config.onboard_session_relay as relay; "
-        "relay.install = lambda _outcome=relay.RelayInstallOutcome, **kwargs: _outcome(installed=True, reused=False)\n",
+        "relay.install = lambda _outcome=relay.RelayInstallOutcome, **kwargs: _outcome(installed=True, reused=False); "
+        "import yoke_harness.browser_setup as browser; "
+        "browser.ensure_browser_runtime = lambda **kwargs: {}; "
+        "import yoke_harness.python_venv_dependencies as venv; "
+        "venv.ensure_venv_support = lambda **kwargs: None\n",
         encoding="utf-8",
     )

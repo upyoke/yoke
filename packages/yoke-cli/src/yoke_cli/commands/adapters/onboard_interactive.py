@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from yoke_cli.config import machine_config
+from yoke_cli.config import onboard_machine_setup
 from yoke_cli.config import onboard_wizard
 
 
@@ -19,6 +20,7 @@ def run_wizard(
     apply_with_report: Callable[..., dict],
     print_failure: Callable[[Any], None],
 ) -> int:
+    onboard_machine_setup.prepare(machine_config.config_path(parsed.config_path))
     defaults = onboard_wizard.WizardDefaults(
         config_path=str(machine_config.config_path(parsed.config_path)),
         env_name=env_name or None,
