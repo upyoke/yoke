@@ -34,12 +34,19 @@ from yoke_core.domain.qa_case_execution import (
 #: Runner id recorded on runs this module produces.
 EXECUTOR_ID = "ci_run"
 
-#: Wall-clock ceiling for one dispatched CI run, distinct from the local
-#: process timeout a ``worktree_run`` case applies to its command.
 DEFAULT_CI_RUN_TIMEOUT_SECONDS = qa_case_budget.DEFAULT_CI_RUN_TIMEOUT_SECONDS
 
 
 def _resolve_checkout(case: dict, checkout_path: Optional[str | Path]) -> Path:
+    if case.get("deployment_run_id"):
+        raise QaCaseExecutionError(
+            "deployment_ci_candidate_unverified: command-ci verifies an item "
+            "lane, not the candidate pinned by deployment run "
+            f"{case['deployment_run_id']!r}. No checkout, push, or verdict was "
+            "produced. Replace this post-deploy case with the command method "
+            "and run the same stage/member QA plan; without --checkout-path "
+            "that runner checks out the run's pinned candidate."
+        )
     from yoke_core.domain.qa_case_execution import _execution_checkout
 
     checkout = (
@@ -49,9 +56,6 @@ def _resolve_checkout(case: dict, checkout_path: Optional[str | Path]) -> Path:
     )
     if not checkout.is_dir():
         raise QaCaseExecutionError(f"CI execution checkout does not exist: {checkout}")
-    # CI verifies a pushed commit on a remote runner. The checkout is only a
-    # Git transport, so local claim-tree binding does not apply to this
-    # runner; the recorded source SHA is the binding authority instead.
     return checkout
 
 
@@ -98,9 +102,7 @@ def execute_ci_case(
         if checked_out_branch == branch
         else ""
     )
-    # Ask what already covers this candidate before rebasing it away: on
-    # re-entry the run found here is this gate's own earlier invocation, and
-    # rebasing would supersede it for a second identical answer.
+    # Resume an existing proof before a rebase moves its candidate.
     lane = qa_case_ci_resume.prepare_lane_preserving_covering_run(
         checkout,
         project=project,
@@ -170,8 +172,6 @@ def execute_ci_case(
             checkout, branch, project=project, target=target, source_ref=source_ref
         )
         with qa_case_ci_lane.github_actions_authority():
-            # A resumed run is the lookup lane preparation already made, so
-            # neither route asks GitHub the same question a second time.
             covering_run = lane.resumed_run
             if entry_run_base is not None:
                 qa_case_ci_entry_run.open_landing_pull_request(

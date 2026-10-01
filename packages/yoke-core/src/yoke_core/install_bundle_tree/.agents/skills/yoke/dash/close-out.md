@@ -99,11 +99,12 @@ than recording a pass the stage ignores, and `yoke qa case run
 Depth: `yoke qa plan run --help` for the subject/scope matrix, `yoke merge
 item --help` for the close-out routes. Materialization stamps the run's own
 deployed target onto the cases, so a plan authored before this release still
-verifies it. A deployment case is bound to the candidate the run deployed, not
+verifies it. A `command` deployment case is bound to the candidate the run deployed, not
 to your lane: the runner checks that revision out into a disposable tree for
 each case and removes it afterwards, so no `--checkout-path` or flag is needed
 when main has moved on; `--allow-tree-mismatch` declares the case reads
-nothing from the checkout.
+nothing from the checkout. `command-ci` refuses deployment-bound cases as
+`deployment_ci_candidate_unverified`; use `command` to check the pinned candidate.
 
 **Any prompt that wakes you clears the park**, including one that does not
 finish the item. The close-out re-stamps it for you when it refuses, but a
