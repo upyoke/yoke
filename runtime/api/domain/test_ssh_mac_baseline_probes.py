@@ -20,7 +20,7 @@ from yoke_harness.test_machine_types import HostActionResult
 def _document(**overrides) -> str:
     probe = {
         "name": "harness cli signed in",
-        "argv": ["/Users/testy/.local/bin/claude", "auth", "status"],
+        "argv": ["/Users/testy/.local/bin/service", "auth", "status"],
         "expect_output_contains": "loggedIn",
     }
     probe.update(overrides)
@@ -47,7 +47,7 @@ def test_declared_probes_parse_into_bounded_argv() -> None:
     assert probes == (
         BaselineProbe(
             name="harness cli signed in",
-            argv=("/Users/testy/.local/bin/claude", "auth", "status"),
+            argv=("/Users/testy/.local/bin/service", "auth", "status"),
             expect_output_contains="loggedIn",
         ),
     )
@@ -84,7 +84,7 @@ def test_probes_run_in_the_gui_session_and_summarize_without_the_account() -> No
 
     assert result.ok
     assert recorder.calls[0][0] == [
-        "/Users/testy/.local/bin/claude",
+        "/Users/testy/.local/bin/service",
         "auth",
         "status",
     ]

@@ -7,7 +7,10 @@ import shlex
 from typing import Any
 
 from yoke_harness.ssh_linux_reset_cleanup import RESET_WRITERS_PROGRAM
-from yoke_harness.ssh_mac_baseline_probes import parse_baseline_probes
+from yoke_harness.ssh_mac_baseline_probes import (
+    parse_baseline_probes,
+    run_baseline_probes,
+)
 from yoke_harness.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_harness.test_machine_types import HostActionResult
 
@@ -141,33 +144,9 @@ def prove_linux_probes(control: Any, document: str) -> HostActionResult:
             {"recovery": "Correct the baseline probes document."},
             "baseline_probes_invalid",
         )
-    rows = []
-    for probe in probes:
-        result = control.run_command(probe.argv, timeout=120)
-        matched = (
-            probe.expect_output_contains is None
-            or probe.expect_output_contains
-            in ((result.stdout or "") + (result.stderr or ""))
-        )
-        ok = result.returncode == 0 and matched
-        rows.append(
-            {
-                "name": probe.name,
-                "ok": ok,
-                "exit_code": result.returncode,
-                "expectation_met": matched,
-            }
-        )
-        if not ok:
-            return HostActionResult(
-                False,
-                {
-                    "probes": rows,
-                    "recovery": "Sign in again or repair the declared CLI/service, then recapture the golden.",
-                },
-                "baseline_probe_failed",
-            )
-    return HostActionResult(True, {"probes": rows})
+    return run_baseline_probes(
+        probes, run_gui_command=control.run_command, classify_gui_failures=False
+    )
 
 
 def archive_operation(
