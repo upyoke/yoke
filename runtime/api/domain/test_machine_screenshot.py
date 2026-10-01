@@ -72,8 +72,8 @@ def test_blank_desktop_is_not_evidence():
 def test_capture_uses_os_display_and_removes_remote_file(monkeypatch, os):
     commands = []
     monkeypatch.setattr(
-        "yoke_harness.ssh_mac_host_session_state.probe_host_display_context",
-        lambda run: {"console_user": "test", "display_locked": False},
+        "yoke_harness.ssh_mac_host_session_state.read_console_user",
+        lambda run: "test",
     )
 
     def run(command, **kwargs):
@@ -109,8 +109,8 @@ def test_capture_uses_os_display_and_removes_remote_file(monkeypatch, os):
 def test_capture_failure_is_named_and_cleanup_still_runs(monkeypatch):
     commands = []
     monkeypatch.setattr(
-        "yoke_harness.ssh_mac_host_session_state.probe_host_display_context",
-        lambda run: {"console_user": "test", "display_locked": False},
+        "yoke_harness.ssh_mac_host_session_state.read_console_user",
+        lambda run: "test",
     )
 
     def run(command, **kwargs):
@@ -189,21 +189,11 @@ def test_failing_screenshot_records_error_without_artifact(tmp_path, monkeypatch
     assert receipt["status"] == "error" and receipt["error_code"] == "desktop_locked"
 
 
-@pytest.mark.parametrize(
-    "context,code",
-    [
-        (
-            {"console_user": "other", "display_locked": False},
-            "terminal_console_user_mismatch",
-        ),
-        ({"console_user": "test", "display_locked": True}, "terminal_display_locked"),
-    ],
-)
-def test_mac_private_or_locked_session_is_not_captured(monkeypatch, context, code):
+def test_mac_other_console_is_not_captured(monkeypatch):
     commands = []
     monkeypatch.setattr(
-        "yoke_harness.ssh_mac_host_session_state.probe_host_display_context",
-        lambda run: context,
+        "yoke_harness.ssh_mac_host_session_state.read_console_user",
+        lambda run: "other",
     )
 
     def run(command, **kwargs):
@@ -211,7 +201,7 @@ def test_mac_private_or_locked_session_is_not_captured(monkeypatch, context, cod
         return subprocess.CompletedProcess(command, 0, "", "")
 
     result = capture_desktop(SimpleNamespace(os="macos", _run=run, _user="test"))
-    assert not result.ok and result.error_code == code
+    assert not result.ok and result.error_code == "terminal_console_user_mismatch"
     assert all(command.startswith("rm -f") for command in commands)
 
 
