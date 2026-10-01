@@ -60,3 +60,9 @@ adding an unsupported key to a reusable-workflow caller.
 The release bridge includes the time it awaits Platform's release, so its
 limit covers the downstream run as well as its own setup. No timeout handler
 converts a timed-out required job into a passing check.
+
+The consumer advisory runs in its own workflow. A cancelled or timed-out
+advisory remains visible as advisory evidence in that run and cannot change
+the required `yoke-ci` conclusion adopted by QA. Do not reintroduce it as a
+reusable job inside required CI: job-level `continue-on-error` does not isolate
+a timeout cancellation from the caller's aggregate conclusion.

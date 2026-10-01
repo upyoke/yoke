@@ -155,11 +155,16 @@ def test_an_unreadable_scope_reports_rather_than_going_quiet(
     assert "::warning" in printed
 
 
+@pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
 def test_a_refusal_is_reported_as_a_warning_and_a_non_zero_status(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    conclusion: str,
 ) -> None:
     _scope_of(monkeypatch, *MODEL_REFERENCE_REVISION_CHANGE)
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
     monkeypatch.setenv(gate.CONSUMER_TOKEN_ENV, "scoped-token")
 
     consumer_revision = "b" * 40
@@ -178,7 +183,7 @@ def test_a_refusal_is_reported_as_a_warning_and_a_non_zero_status(
         return gate.classify(
             {
                 "state": "failed",
-                "conclusion": "failure",
+                "conclusion": conclusion,
                 "head_sha": consumer_revision,
                 "html_url": "https://example.invalid/platform-run/42",
             },
@@ -200,7 +205,8 @@ def test_a_refusal_is_reported_as_a_warning_and_a_non_zero_status(
     assert code == gate.UNPROVEN
     assert CANDIDATE in printed
     assert consumer_revision in printed
-    assert "concluded failure" in printed
+    assert f"concluded {conclusion}" in printed
+    assert f"concluded {conclusion}" in summary.read_text()
     assert "https://example.invalid/platform-run/42" in printed
     assert "::warning" in printed
 
@@ -210,59 +216,58 @@ CONSUMER_ADVISORY_WORKFLOW = (
 )
 
 
-def test_the_advisory_runs_as_an_independent_job() -> None:
-    # An independent job beats a gate of its own: no new required context,
-    # no ruleset, and the job carries no `needs`, so repo-contracts and the
-    # shard matrix never wait on it finishing.
-    workflow = load_document(YOKE_CI)
-    call_job = workflow["jobs"]["consumer_advisory"]
-    token = gate.CONSUMER_TOKEN_ENV
-
-    assert workflow["permissions"] == {"contents": "read"}
-    assert not call_job.get("needs")
-    assert call_job["uses"] == "./.github/workflows/consumer-compatibility-advisory.yml"
-    # Exactly the one scoped secret the called workflow declares — never
-    # `secrets: inherit`, which would pass every repo/org secret through.
-    assert call_job["secrets"] == {
-        token: "${{ secrets." + token + " }}",
+def test_advisory_timeout_cannot_cancel_the_required_qa_workflow() -> None:
+    # QA adopts the WHOLE yoke-ci run conclusion. Job-level continue-on-error
+    # did not isolate a reusable advisory's timeout from that conclusion.
+    required = load_document(YOKE_CI)
+    evidence = load_document(CONSUMER_ADVISORY_WORKFLOW)
+    assert evidence["name"] != required["name"]
+    assert set(evidence[True]) == {
+        "pull_request",
+        "merge_group",
+        "push",
+        "workflow_dispatch",
     }
-    # Not a valid key alongside `uses:` (actionlint-verified); the called
-    # job's own continue-on-error is what protects this run's conclusion.
-    assert "continue-on-error" not in call_job
-
-    repo_contracts = workflow["jobs"]["repo_contracts"]
-    assert token not in (repo_contracts.get("env") or {})
-    assert not any(token in (step.get("env") or {}) for step in repo_contracts["steps"])
-    assert not any(
-        ADVISORY_MODULE in str(step.get("run", "")) for step in repo_contracts["steps"]
+    assert evidence[True]["pull_request"]["branches"] == ["main"]
+    assert evidence[True]["push"]["branches"] == ["main"]
+    assert evidence["concurrency"]["group"] == (
+        "${{ github.workflow }}-${{ github.ref }}"
     )
+    assert set(required["jobs"]) == {
+        "repo_contracts",
+        "reuse_coverage",
+        "test_shard",
+        "browser_runtime",
+        "container",
+    }
+    for job in required["jobs"].values():
+        assert "consumer" not in str(job)
+        assert not job.get("continue-on-error")
+    assert required["permissions"] == {"contents": "read"}
 
 
-def test_the_called_workflow_carries_the_scoped_credential_on_one_step() -> None:
-    called = load_document(CONSUMER_ADVISORY_WORKFLOW)
-    job = called["jobs"]["advisory"]
+def test_advisory_records_its_own_failures_with_one_scoped_credential() -> None:
+    workflow = load_document(CONSUMER_ADVISORY_WORKFLOW)
+    job = workflow["jobs"]["advisory"]
     token = gate.CONSUMER_TOKEN_ENV
 
-    assert called["name"] == "consumer-compatibility-advisory"
-    assert called["permissions"] == {"contents": "read"}
-    # PyYAML's default (YAML 1.1) safe loader reads the bare `on:` trigger
-    # key as the boolean True, not the string "on".
-    assert called[True]["workflow_call"]["secrets"] == {token: {"required": False}}
+    assert workflow["name"] == "consumer-compatibility-advisory"
+    assert workflow["permissions"] == {"contents": "read"}
+    assert job["if"] == "github.repository == 'upyoke/yoke'"
+    assert not job.get("needs")
+    assert not job.get("continue-on-error")
     assert token not in (job.get("env") or {})
     carrying = [step for step in job["steps"] if token in (step.get("env") or {})]
     assert len(carrying) == 1
     step = carrying[0]
     assert ADVISORY_MODULE in str(step["run"])
-    # Job-level: a setup-step failure (checkout, Python/uv install) must
-    # stay advisory too, not just the one step that runs the report.
-    assert job["continue-on-error"] is True
-    assert step["continue-on-error"] is True
+    assert step["env"][token] == "${{ secrets." + token + " }}"
+    assert not step.get("continue-on-error")
 
 
 def test_no_other_workflow_carries_the_scoped_consumer_credential() -> None:
-    # It belongs to the release bridge, the one advisory step, and the
-    # explicit caller mapping that passes it through. Anywhere else would be
-    # a second place to reason about who can reach the consumer.
+    # It belongs to the release bridge and the one advisory step. Anywhere
+    # else would be a second place to reason about who can reach the consumer.
     workflows = sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml"))
     carrying = {
         path.name
@@ -271,7 +276,6 @@ def test_no_other_workflow_carries_the_scoped_consumer_credential() -> None:
     }
 
     assert carrying == {
-        "yoke-ci.yml",
         "consumer-compatibility-advisory.yml",
         "platform-release-bridge.yml",
     }

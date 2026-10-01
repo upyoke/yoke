@@ -64,21 +64,25 @@ downstream of it publishes. The gate is unconditional there, because a
 release publishes whatever trunk carries and there is no candidate diff to
 consult.
 
-The same candidate is advised earlier from an independent reusable workflow
-called by required CI on every pull request and merge group. It resolves the
+The same candidate is advised earlier from its own workflow on every pull
+request, merge group, and main push; it also permits manual dispatch. It resolves the
 event's changed-path scope through the same repository contract helper: when
 the change touches a host-consumed UI contract, control-plane schema, governed
 migration, or boot-seeded model-reference data it asks the consumer, and
 otherwise it says so and stops.
 
-It is advisory in the literal sense — its caller has no dependency on the
-reusable job, its job and reporting step both continue on error, and it has no
-required status context. The required repository-contract and shard jobs run
-in parallel and the normal release path gains no wait. A fast landing can
-therefore finish before this advisory does; this improves early visibility but
-does not promise a pre-merge block. Reaching for a required status context and
-a ruleset entry instead was considered and rejected: those would make every
-landing depend on a credential a fork cannot have.
+Its GitHub run, logs, warnings, and job summary record advisory evidence.
+Required CI adopts only its own workflow conclusion. An advisory failure,
+cancellation, or timeout therefore cannot change that QA verdict or delay
+landing. Job-level continue-on-error in a reusable call did not provide this
+isolation: a job reaching its timeout cancelled the whole required run after
+all required jobs passed. Separate workflow runs remove that causal path
+without changing how required jobs gate.
+
+A fast landing can finish before this advisory does; the mandatory exact-pair
+release proof remains the publication authority. A required status context and
+ruleset entry were rejected because they would make every landing depend on a
+credential a fork cannot have.
 
 Three outcomes, and keeping them distinct is the point. *Not applicable* is
 an honest absence. *Checked* carries the consumer's own conclusion with both

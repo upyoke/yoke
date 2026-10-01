@@ -3,7 +3,7 @@
 Publication is where consumer proof is mandatory — see
 :mod:`require_platform_consumer_compatibility`, which the release bridge runs
 before it allocates the annotated tag. This is the earlier, advisory half:
-it runs in its own independent CI job (see
+it runs in its own independent CI workflow (see
 ``.github/workflows/consumer-compatibility-advisory.yml``) so an author
 changing a surface the hosted service consumes gets an early signal rather
 than first learning at the release, and it never decides any required check's
@@ -22,8 +22,8 @@ Three outcomes, and the difference between them is the point:
   this exact candidate, and its conclusion is reported. A refusal names both
   revisions and the run.
 
-Only the third outcome can be a non-zero exit, and the step that runs this
-continues past it: this is a warning, not a gate.
+Only the third outcome can be a non-zero exit. That conclusion belongs to
+the advisory workflow alone; required CI and its QA verdict stay independent.
 
 Usage::
 
