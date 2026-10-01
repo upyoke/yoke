@@ -29,8 +29,8 @@ from yoke_harness.session_relay_surface_probes import (
     APP_SURFACE_PROBES,
     CLI_SURFACE_PROBES,
     ResolvedNativeCli,
-    probe_app_surface,
     probe_cli_surface,
+    probe_surface,
     resolve_native_cli,
     resolve_native_cli_source,
 )
@@ -92,8 +92,8 @@ def probe_cli_version(command: tuple[str, ...]) -> str | None:
     return result.version if result.verdict == "ok" else None
 
 
-def probe_app_version(path: Path) -> str | None:
-    result = probe_app_surface("app", path)
+def probe_app_version(surface: str) -> str | None:
+    result = probe_surface(surface)
     return result.version if result.verdict == "ok" else None
 
 
@@ -102,7 +102,7 @@ def probe_surface_version(surface: str) -> str | None:
     if surface in CLI_SURFACE_PROBES:
         return probe_cli_version(CLI_SURFACE_PROBES[surface])
     if surface in APP_SURFACE_PROBES:
-        return probe_app_version(APP_SURFACE_PROBES[surface])
+        return probe_app_version(surface)
     return None
 
 
@@ -167,15 +167,15 @@ def _inventory(
 def collect_inventory(
     *,
     cli_probe: Callable[[tuple[str, ...]], str | None] = probe_cli_version,
-    app_probe: Callable[[Path], str | None] = probe_app_version,
+    app_probe: Callable[[str], str | None] = probe_app_version,
 ) -> RelayInventory:
     versions: dict[str, str] = {}
     for surface, command in CLI_SURFACE_PROBES.items():
         version = cli_probe(command)
         if version:
             versions[surface] = version
-    for surface, path in APP_SURFACE_PROBES.items():
-        version = app_probe(path)
+    for surface in APP_SURFACE_PROBES:
+        version = app_probe(surface)
         if version:
             versions[surface] = version
     return _inventory(versions, observe_plan_limits(tuple(versions)))

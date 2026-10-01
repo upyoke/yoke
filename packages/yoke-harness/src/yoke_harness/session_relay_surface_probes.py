@@ -10,6 +10,7 @@ import plistlib
 import re
 import shutil
 import subprocess
+import sys
 import time
 from typing import Callable, Sequence
 
@@ -18,6 +19,7 @@ from yoke_contracts.harness_cli_manifest import (
     harness_cli_probe_commands,
 )
 from yoke_harness.session_relay_environment import strip_relay_owned_python_state
+from yoke_harness.linux_desktop_apps import read_linux_desktop_version
 
 SURFACE_PROBE_TIMEOUT_SECONDS = 30.0
 _VERSION_PATTERN = re.compile(r"\d+(?:\.\d+)+(?:[-+._A-Za-z0-9]*)?")
@@ -192,6 +194,40 @@ def probe_app_surface(
 ) -> SurfaceProbeResult:
     started_at = monotonic()
     observed_at = clock()
+    if sys.platform == "linux" and surface in ("claude-desktop", "cursor-desktop"):
+        source = "file"
+        try:
+            source, raw_version = read_linux_desktop_version(surface)
+            version = _version_token(raw_version)
+            verdict = "ok" if version else "invalid_output"
+            error = None if version else "desktop_version_invalid: reinstall the app"
+        except FileNotFoundError as exc:
+            verdict, version, error = "missing", None, str(exc)
+        except subprocess.TimeoutExpired:
+            verdict, version, error = (
+                "timeout",
+                None,
+                (
+                    "desktop_metadata_timeout: retry the probe after checking package-manager health"
+                ),
+            )
+        except (OSError, ValueError, RuntimeError) as exc:
+            verdict, version, error = (
+                "error",
+                None,
+                (
+                    f"desktop_metadata_unreadable: {exc}; check install permissions and retry"
+                ),
+            )
+        return SurfaceProbeResult(
+            surface,
+            source,
+            verdict,
+            version,
+            _duration_ms(started_at, monotonic),
+            error,
+            observed_at,
+        )
     try:
         with path.open("rb") as handle:
             payload = plistlib.load(handle)
