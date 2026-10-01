@@ -12,7 +12,7 @@ from uuid import uuid4
 
 import pytest
 
-from yoke_cli.config.session_relay_instance import resolve_relay_instance
+from runtime.api.tools.session_relay_release_test_support import relay_instance
 from yoke_core.tools.session_relay_plist import (
     relay_launchd_paths,
     relay_plist_document,
@@ -29,36 +29,6 @@ from yoke_harness.session_relay_environment import native_session_environment
 
 FIRST_RELEASE = "0.1.1+launch.365"
 SECOND_RELEASE = "0.1.1+launch.366"
-
-
-def _instance(tmp_path: Path):
-    config = tmp_path / "config.json"
-    config.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "active_env": "prod",
-                "connections": {
-                    "prod": {
-                        "transport": "https",
-                        "prod": True,
-                        "api_url": "https://relay.example.test/api",
-                        "credential_source": {
-                            "kind": "token_file",
-                            "path": str(tmp_path / "token"),
-                        },
-                    }
-                },
-                "projects": [],
-            }
-        ),
-        encoding="utf-8",
-    )
-    return resolve_relay_instance(
-        config_path=config,
-        environment="prod",
-        yoke_home=tmp_path / "state",
-    )
 
 
 def _fake_release(path: Path, release: str) -> None:
@@ -146,7 +116,7 @@ def _start_from_plist(
 def test_failed_first_upgrade_keeps_the_existing_launch_target(
     tmp_path: Path,
 ) -> None:
-    instance = _instance(tmp_path)
+    instance = relay_instance(tmp_path)
     prior_release = instance.state_dir / "releases" / "prior"
     _fake_release(prior_release, FIRST_RELEASE)
     write_release_json(
@@ -182,7 +152,7 @@ def test_release_updates_keep_one_runtime_and_supervised_children_on_the_pin(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    instance = _instance(tmp_path)
+    instance = relay_instance(tmp_path)
     first = pin_relay_release(
         instance=instance,
         served_build=f"v{FIRST_RELEASE}",
@@ -272,7 +242,7 @@ def test_recovery_from_a_broken_matching_release_starts_the_rebuilt_pin(
     Even after the reuse check catches a broken matching release and rebuilds
     it, the stable launcher must still start on the freshly promoted pin.
     """
-    instance = _instance(tmp_path)
+    instance = relay_instance(tmp_path)
     pin_relay_release(
         instance=instance,
         served_build=f"v{FIRST_RELEASE}",
