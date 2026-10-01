@@ -26,7 +26,7 @@ ABSENT_HOME_PATHS = (
 )
 
 _ARCHIVE_PROGRAM = r"""
-import hashlib, json, os, pathlib, shutil, sys, tarfile, tempfile
+import hashlib, json, os, pathlib, shutil, stat, sys, tarfile, tempfile
 operation, expected_home, golden = sys.argv[1:]
 home = pathlib.Path(os.environ["HOME"])
 baseline = pathlib.Path(golden)
@@ -76,8 +76,16 @@ if operation == "capture":
     temporary = pathlib.Path(tempfile.mkdtemp(prefix=".yoke-golden-", dir=baseline.parent))
     try:
         def persistent_entry(member):
-            # Socket links point into a live daemon's /tmp namespace, not saved login state.
-            return None if member.issym() and member.name.endswith(".sock") else member
+            source = home / member.name
+            if stat.S_ISSOCK(source.lstat().st_mode): return None
+            if member.issym():
+                try:
+                    target = source.resolve()
+                except (OSError, RuntimeError):
+                    return None
+                if target != home and home not in target.parents: return None
+                if target.is_socket(): return None
+            return member
         with tarfile.open(temporary / "home.tar.gz", "w:gz") as archive:
             for entry in sorted(home.iterdir()):
                 if entry.name == ".ssh": continue

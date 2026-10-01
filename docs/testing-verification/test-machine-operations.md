@@ -30,8 +30,10 @@ user for launch capacity. Machine detail links matching hostnames to capability
 commands; it does not merge either identity or lease.
 
 Linux golden directories contain a private home archive and a manifest binding
-its SHA-256 digest to the test user/home. They stay outside the home. Restore
-validates identity, digest and every archive entry before clearing the home,
+its SHA-256 digest to the test user/home. They stay outside the home. Capture
+omits Unix sockets and symlinks that resolve to sockets or outside the captured
+home, regardless of filename; regular files and safe links named `.sock` stay.
+Restore validates identity, digest and every archive entry before clearing the home,
 preserves `.ssh`, compares restored file digests, and proves Yoke state and
 launcher paths absent on SSH and login shells. Declared probes then check
 CLI authentication, credential files and relevant user services over SSH.

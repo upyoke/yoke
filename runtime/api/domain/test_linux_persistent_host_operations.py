@@ -284,14 +284,16 @@ def test_linux_terminal_refuses_failed_entry_or_unproved_cleanup(failure):
     assert any("kill-session" in argv for argv in commands)
 
 
-def test_capture_refuses_link_outside_the_home(tmp_path):
+def test_capture_omits_link_outside_the_home(tmp_path):
     home = tmp_path / "home"
     home.mkdir()
     (home / "keep").write_text("untouched")
     (home / "escaped").symlink_to("../outside")
     golden = tmp_path / "golden"
     result = _archive_run(home, golden, "capture")
-    assert result.returncode != 0
-    assert json.loads(result.stdout)["reason"] == "golden_baseline_archive_unsafe"
-    assert not golden.exists()
+    assert result.returncode == 0, result.stderr
+    assert golden.exists()
+    restored = _archive_run(home, golden, "reset")
+    assert restored.returncode == 0, restored.stderr
+    assert not (home / "escaped").is_symlink()
     assert (home / "keep").read_text() == "untouched"
