@@ -34,7 +34,9 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Releases need a completed verdict for their exact main commit, even after
+  # the next merge lands. Superseded PR and lane runs can still be cancelled.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 # Read-only token everywhere; fork PRs must never see an elevated token.
 # reuse-coverage elevates actions:read at job scope only.

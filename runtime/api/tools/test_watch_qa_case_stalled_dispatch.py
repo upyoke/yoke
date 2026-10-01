@@ -25,6 +25,7 @@ def _stalled_line() -> str:
         jobs_count=0,
         updated_at=updated.isoformat(),
         observed_at=observed,
+        concurrency_groups=(),
     )
     return f"  Workflow status: {message}\n"
 

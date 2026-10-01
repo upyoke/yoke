@@ -52,7 +52,9 @@ Write one case with broad instructions and an observable good outcome:
 
 Omit `machine` when any registered host can run the mission. When present, it
 is validated during plan authoring and becomes the case's durable
-`test-machine:<name>` capability constraint.
+`test-machine:<name>` capability constraint. Execution also reads the pin from
+`method_config` for direct requirements and their admitted deployment copies;
+omitting `--machine` preserves that pin, and a conflicting run pin is refused.
 
 For a mission that needs two hosts at once, also declare
 `"machines":["linux-lab","test-mac"]` with `"machine":"test-mac"` naming the

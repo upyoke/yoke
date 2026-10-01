@@ -37,6 +37,7 @@ from yoke_core.domain.qa_plan_case_definition import (
 from yoke_core.domain.qa_plan_execution_store import canonical, marker
 from yoke_core.domain.qa_plan_refresh_safety import refresh_recovery
 from yoke_core.domain.qa_plan_management import QaPlanError, _plan_row
+from yoke_core.domain.qa_requirement_pass_currency import canonical_method_config
 
 #: The executable columns a refresh would rewrite from the plan. Everything
 #: materialization decides for itself is excluded on purpose: ``qa_phase``
@@ -192,7 +193,12 @@ def _divergence_for_row(conn: Any, row: Any) -> Optional[PlanCaseDivergence]:
     fields = tuple(
         column
         for column in PLAN_DEFINITION_COLUMNS
-        if _comparable(row[column]) != _comparable(definition[column])
+        if (
+            canonical_method_config(row[column])
+            != canonical_method_config(definition[column])
+            if column == "method_config"
+            else _comparable(row[column]) != _comparable(definition[column])
+        )
     )
     if not fields:
         return None

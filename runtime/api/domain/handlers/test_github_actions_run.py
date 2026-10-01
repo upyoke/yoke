@@ -74,7 +74,9 @@ def _auth_resolved(monkeypatch):
 class TestClassify:
     def test_completed_success(self):
         payload = github_actions_run.RunGetRequest(
-            repo="o/r", run_id="123", project="yoke",
+            repo="o/r",
+            run_id="123",
+            project="yoke",
         )
         out = _classify(
             payload,
@@ -85,7 +87,9 @@ class TestClassify:
 
     def test_completed_failure(self):
         payload = github_actions_run.RunGetRequest(
-            repo="o/r", run_id="123", project="yoke",
+            repo="o/r",
+            run_id="123",
+            project="yoke",
         )
         out = _classify(
             payload,
@@ -96,7 +100,9 @@ class TestClassify:
 
     def test_running_statuses(self):
         payload = github_actions_run.RunGetRequest(
-            repo="o/r", run_id="123", project="yoke",
+            repo="o/r",
+            run_id="123",
+            project="yoke",
         )
         assert _classify(payload, {"status": "queued"}).state == "waiting"
         assert _classify(payload, {"status": "pending"}).state == "waiting"
@@ -113,6 +119,7 @@ class TestClassify:
             jobs_count=0,
             updated_at=updated.isoformat(),
             observed_at=observed,
+            concurrency_groups=(),
         )
 
         assert STALLED_DISPATCH_TOKEN in message
@@ -122,7 +129,9 @@ class TestClassify:
 
     def test_stale_pending_zero_jobs_is_terminal_for_the_polling_client(self):
         payload = github_actions_run.RunGetRequest(
-            repo="o/r", run_id="123", project="yoke",
+            repo="o/r",
+            run_id="123",
+            project="yoke",
         )
         out = _classify(
             payload,
@@ -132,6 +141,7 @@ class TestClassify:
                 "updated_at": "2000-01-01T00:00:00Z",
             },
             jobs_count=0,
+            concurrency_groups=(),
         )
 
         assert out.state == "failed"
@@ -158,18 +168,22 @@ class TestHandleRunGet:
             }
 
         monkeypatch.setattr(
-            "yoke_core.domain.github_actions_rest.rest_get", fake_rest_get,
+            "yoke_core.domain.github_actions_rest.rest_get",
+            fake_rest_get,
         )
-        outcome = handle_run_get(_make_request({
-            "repo": "upyoke/yoke", "run_id": "123",
-        }))
+        outcome = handle_run_get(
+            _make_request(
+                {
+                    "repo": "upyoke/yoke",
+                    "run_id": "123",
+                }
+            )
+        )
 
         assert outcome.primary_success is True
         assert outcome.result_payload["state"] == "running"
         assert outcome.result_payload["message"] == "in_progress"
-        assert calls == [
-            ("/repos/upyoke/yoke/actions/runs/123", "ghs_test_token")
-        ]
+        assert calls == [("/repos/upyoke/yoke/actions/runs/123", "ghs_test_token")]
         assert _auth_resolved == [
             (
                 "yoke",
@@ -200,7 +214,8 @@ class TestHandleRunGet:
             }
 
         monkeypatch.setattr(
-            "yoke_core.domain.github_actions_rest.rest_get", fake_rest_get,
+            "yoke_core.domain.github_actions_rest.rest_get",
+            fake_rest_get,
         )
         outcome = handle_run_get(_make_request())
 
@@ -214,6 +229,71 @@ class TestHandleRunGet:
         outcome = handle_run_get(_make_request({"repo": "no-slash", "run_id": "1"}))
         assert outcome.primary_success is False
         assert outcome.error.code == "invalid_payload"
+
+    @pytest.mark.parametrize("configured", [True, False])
+    def test_stale_pending_checks_concurrency_before_declaring_stall(
+        self,
+        monkeypatch,
+        configured,
+    ):
+        calls = []
+
+        def fake_rest_get(path, *, token, query=None):
+            calls.append((path, query))
+            if path.endswith("/jobs"):
+                return {"total_count": 0, "jobs": []}
+            if path.endswith("/concurrency_groups"):
+                groups = [{"group_name": "release", "group_members": []}]
+                return {
+                    "total_count": int(configured),
+                    "concurrency_groups": groups if configured else [],
+                }
+            return {
+                "id": 123,
+                "status": "pending",
+                "updated_at": "2000-01-01T00:00:00Z",
+            }
+
+        monkeypatch.setattr(
+            "yoke_core.domain.github_actions_rest.rest_get",
+            fake_rest_get,
+        )
+        result = handle_run_get(_make_request()).result_payload
+
+        assert result["state"] == ("waiting" if configured else "failed")
+        assert (CI_RUN_NEVER_STARTED_REASON in result["message"]) is not configured
+        assert result["jobs_count"] == 0
+        assert calls[-1] == (
+            "/repos/upyoke/yoke/actions/runs/123/concurrency_groups",
+            {"per_page": "100"},
+        )
+
+    @pytest.mark.parametrize(
+        "groups", [None, {}, {"total_count": 1, "concurrency_groups": []}]
+    )
+    def test_missing_queue_evidence_does_not_fail_the_run(self, monkeypatch, groups):
+        def fake_rest_get(path, *, token, query=None):
+            if path.endswith("/jobs"):
+                return {"total_count": 0}
+            if path.endswith("/concurrency_groups"):
+                return groups
+            return {
+                "id": 123,
+                "status": "pending",
+                "updated_at": "2000-01-01T00:00:00Z",
+            }
+
+        monkeypatch.setattr(
+            "yoke_core.domain.github_actions_rest.rest_get",
+            fake_rest_get,
+        )
+        outcome = handle_run_get(_make_request())
+
+        assert outcome.primary_success is False
+        assert outcome.error.code == "rest_transport_error"
+        assert (
+            "missing queue evidence is not a stalled dispatch" in outcome.error.message
+        )
 
     def test_transport_error_surfaces(self, monkeypatch):
         from yoke_core.domain.gh_rest_transport import RestServerError

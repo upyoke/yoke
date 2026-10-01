@@ -32,14 +32,19 @@ def pending_run_message(
     jobs_count: int,
     updated_at: str,
     observed_at: Optional[datetime] = None,
+    concurrency_groups: Optional[tuple[str, ...]] = None,
 ) -> str:
-    """Describe a pending run, naming a stale zero-job dispatch as a stall."""
+    """Name a stall only after a complete read rules out concurrency waits."""
     now = observed_at or datetime.now(timezone.utc)
     updated = _timestamp(updated_at)
     age_seconds = (now - updated).total_seconds() if updated is not None else -1
     detail = (
         f"pending run={run_id} jobs={jobs_count} updated_at={updated_at or 'unknown'}"
     )
+    if concurrency_groups is None:
+        return detail
+    if concurrency_groups:
+        return f"{detail} waiting_on=concurrency groups={','.join(concurrency_groups)}"
     if jobs_count != 0 or age_seconds < PENDING_ZERO_JOBS_STALL_SECONDS:
         return detail
     return (
@@ -52,10 +57,36 @@ def pending_run_message(
     )
 
 
+def run_concurrency_groups(data: object) -> tuple[str, ...]:
+    """Require complete queue evidence; missing evidence cannot prove a stall.
+
+    A configured group still explains waiting when its membership is empty:
+    GitHub can be between releasing the holder and admitting this run.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("concurrency response must be an object")
+    groups = data.get("concurrency_groups")
+    count = data.get("total_count")
+    if (
+        not isinstance(groups, list)
+        or isinstance(count, bool)
+        or not isinstance(count, int)
+        or count != len(groups)
+    ):
+        raise ValueError("concurrency response omitted a complete group listing")
+    names = []
+    for group in groups:
+        if not isinstance(group, dict) or not group.get("group_name"):
+            raise ValueError("concurrency response omitted a group name")
+        names.append(str(group["group_name"]))
+    return tuple(names)
+
+
 __all__ = [
     "CI_RUN_NEVER_STARTED_REASON",
     "PENDING_ZERO_JOBS_STALL_REASON",
     "PENDING_ZERO_JOBS_STALL_SECONDS",
     "STALLED_DISPATCH_TOKEN",
     "pending_run_message",
+    "run_concurrency_groups",
 ]

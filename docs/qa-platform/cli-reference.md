@@ -228,9 +228,15 @@ prints `force-cancelled superseded run=RUN_ID` and stores that id as
 already cancelled during the lookup-to-cancel race is a silent no-op.
 
 A run that remains `pending` with zero jobs and an unchanged GitHub
-`updated_at` for two minutes is reported as `stalled_dispatch` with
+`updated_at` for two minutes is a stall candidate. The waiter reads the run's
+GitHub concurrency groups before reporting `stalled_dispatch` with
 `waiting_on=pending_zero_jobs_stall` and
-`failure_reason=ci_run_never_started`. The case gate force-cancels that run and
+`failure_reason=ci_run_never_started`: only a complete listing with no configured
+groups permits that verdict. Configured concurrency waits remain pending until
+completion or the caller's overall timeout, including between queue admissions.
+An unreadable or incomplete listing is a read error, never proof of a stall.
+The failure trace recognizes the stall line as the bridge's terminal cause.
+The case gate force-cancels a confirmed stalled run and
 redispatches once against the same already-pushed head; it does not push the
 lane again. If the replacement also never creates a job, the gate force-cancels
 it and fails immediately as `ci_run_never_started` instead of consuming the

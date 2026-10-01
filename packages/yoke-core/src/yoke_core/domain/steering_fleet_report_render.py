@@ -19,11 +19,8 @@ from yoke_core.domain.steering_fleet_report_capacity import SurfaceReadiness
 from yoke_core.domain.steering_fleet_report_deployment_runs import (
     DeploymentRunProgress,
 )
-from yoke_core.domain.steering_fleet_report_landed_open import (
-    custody_phrase,
-    holder_phrase,
-    landed_recovery,
-)
+from yoke_core.domain.steering_fleet_report_render_landed import landed_lines
+
 from yoke_core.domain.steering_fleet_report_render_launches import (
     abandoned_launch_lines,
     unregistered_launch_lines,
@@ -92,31 +89,6 @@ def _holder_lines(
             line += f"  wake `yoke say --item {holder.public_ref} --stdin`"
         lines.append(line)
     return capped(lines, len(holders))
-
-
-def _landed_lines(report: FleetReport) -> list[str]:
-    """One line per landing: what it is, then an action only if there is one.
-
-    State is always said and the recovery is conditional, because the two
-    answer different questions. A row whose holder is parked on its delivery
-    is reporting health, and a command printed beside it reads as work the
-    seat owes — which is how nine healthy waits came to look like nine
-    outstanding close-outs.
-    """
-    lines = []
-    idle_after = report.idle_after_seconds
-    for entry in report.landed_open[:SECTION_LIMIT]:
-        line = (
-            f"  {entry.public_ref}  still {entry.status}  "
-            f"landed {minutes(entry.landed_seconds)} ago  "
-            f"{holder_phrase(entry, idle_after_seconds=idle_after)}  "
-            f"{custody_phrase(entry)}"
-        )
-        recovery = landed_recovery(entry, idle_after_seconds=idle_after)
-        if recovery:
-            line += f"  {recovery}"
-        lines.append(line)
-    return capped(lines, len(report.landed_open))
 
 
 def _run_lines(report: FleetReport) -> list[str]:
@@ -202,6 +174,7 @@ def _project_header(report: FleetReport) -> str:
 
 def _scope_work_lines(report: FleetReport) -> list[str]:
     idle = minutes(report.idle_after_seconds)
+    landed_ids = {entry.item_id for entry in report.landed_open}
     available = available_lines(report)
     return [
         *(
@@ -213,7 +186,7 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
         *_section(
             f"idle holders — claim held, no tool call in over {idle}; process-gone "
             "holders included even when parked",
-            _holder_lines(report.idle),
+            _holder_lines(tuple(h for h in report.idle if h.item_id not in landed_ids)),
         ),
         *_in_flight.in_flight_section(report.in_flight),
         *_section(
@@ -225,7 +198,14 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
         ),
         *_section(
             "suspected orphaned waiter — Monitor completed, waiting past idle",
-            _holder_lines(report.suspected_orphaned_waiters, with_wake=True),
+            _holder_lines(
+                tuple(
+                    h
+                    for h in report.suspected_orphaned_waiters
+                    if h.item_id not in landed_ids
+                ),
+                with_wake=True,
+            ),
         ),
         *_section(
             "undelivered messages — sent, not yet read, with why each is "
@@ -248,7 +228,7 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
         ),
         *_section(
             "landed without close-out — branch merged, item still open; each row names which release holds it",
-            _landed_lines(report),
+            landed_lines(report),
         ),
         *_section(
             "dead waits — idle holder's last question, and whether an answer "

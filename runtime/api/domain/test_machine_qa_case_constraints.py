@@ -45,10 +45,12 @@ def _machine_case(machine: str) -> dict[str, Any]:
     }
 
 
-def test_plan_case_machine_materializes_as_a_specific_capability(
+@pytest.mark.parametrize("specific_capability_snapshot", [True, False])
+def test_execution_honors_case_machine_with_or_without_specific_capability_snapshot(
     test_db: Any,
     tmp_path: Path,
     monkeypatch: Any,
+    specific_capability_snapshot: bool,
 ) -> None:
     configure_test_machine(test_db, tmp_path, monkeypatch)
     plan = create_plan(
@@ -91,12 +93,22 @@ def test_plan_case_machine_materializes_as_a_specific_capability(
         "test-machine:mac-mini-lab",
     ]
     assert json.loads(stored["method_config"])["machine"] == "mac-mini-lab"
+    if not specific_capability_snapshot:
+        # Direct requirements retain the pin in method_config without adding
+        # a machine-specific capability token, including admitted copies.
+        test_db.execute(
+            "UPDATE qa_requirements SET capability_requirements=%s,"
+            "plan_id=NULL,plan_case_key=NULL WHERE id=%s",
+            (json.dumps(["test-machine"]), requirement_id),
+        )
+        test_db.commit()
     context = get_case_execution_context(
         test_db,
         requirement_id=requirement_id,
         host_capability_kinds=["test-machine"],
     )
-    assert context["required_capability_kinds"][-1] == ("test-machine:mac-mini-lab")
+    assert resolve_case_machine(context, None) == "mac-mini-lab"
+    assert resolve_plan_machine([context], None) == "mac-mini-lab"
     with pytest.raises(MachineConstraintError, match=MACHINE_CONSTRAINT_MISMATCH):
         begin_plan_execution(
             test_db,
@@ -186,4 +198,26 @@ def test_run_pin_must_satisfy_case_and_roster_constraints() -> None:
                 },
             ],
             None,
+        )
+
+
+def test_configured_machine_conflicts_are_refused_without_a_run_pin() -> None:
+    case = {
+        "case_key": "configured-host-check",
+        "required_capability_kinds": ["test-machine"],
+        "method_config": {"machine": "linux-lab"},
+    }
+    assert resolve_case_machine(case, None) == "linux-lab"
+    with pytest.raises(MachineConstraintError, match=MACHINE_CONSTRAINT_MISMATCH):
+        resolve_plan_machine([case], "windows-lab")
+    with pytest.raises(MachineConstraintError, match="multiple specific Test Machines"):
+        resolve_case_machine(
+            {**case, "required_capability_kinds": ["test-machine:windows-lab"]},
+            None,
+        )
+    with pytest.raises(
+        MachineConstraintError, match="test_machine_plan_constraints_conflict"
+    ):
+        resolve_plan_machine(
+            [case, {"method_config": {"machine": "windows-lab"}}], None
         )
