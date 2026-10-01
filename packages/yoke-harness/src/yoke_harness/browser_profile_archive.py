@@ -13,6 +13,7 @@ import os
 from pathlib import Path, PurePosixPath
 import shutil
 import stat
+import subprocess
 import tarfile
 import tempfile
 
@@ -60,35 +61,69 @@ def no_symlink_parents(path: Path) -> None:
         require(not parent.is_symlink(), "browser_profile_symlink_path")
 
 
-def profile_writers_absent(profile: Path) -> None:
-    """Refuse active Chromium writers without terminating any process."""
-    proc = Path("/proc")
-    require(proc.is_dir(), "browser_profile_os_unsupported")
+WRITER_INVENTORY_PROGRAM = r"""
+import json, os, sys
+from pathlib import Path
+uid, profile, caller = int(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
+def refuse(code):
+    print(json.dumps({"ok": False, "reason": code})); sys.exit(64)
+if os.geteuid() != 0: refuse("browser_profile_writer_inventory_unavailable")
+proc = Path("/proc")
+if not proc.is_dir(): refuse("browser_profile_os_unsupported")
+try:
     for process in proc.iterdir():
-        if not process.name.isdigit() or process.name == str(os.getpid()):
+        if not process.name.isdigit() or process.name == caller:
             continue
         try:
-            if process.stat().st_uid != os.getuid():
+            if process.stat().st_uid != uid:
                 continue
             command = (process / "cmdline").read_bytes()
-            require(
-                os.fsencode(profile) not in command, "browser_profile_writer_active"
-            )
+            if os.fsencode(profile) in command: refuse("browser_profile_writer_active")
             for fd in (process / "fd").iterdir():
                 try:
                     target = Path(os.readlink(fd).removesuffix(" (deleted)"))
                 except FileNotFoundError:
                     continue
-                require(
-                    target != profile and profile not in target.parents,
-                    "browser_profile_writer_active",
-                )
+                if target == profile or profile in target.parents:
+                    refuse("browser_profile_writer_active")
         except FileNotFoundError:
             continue
-        except PermissionError:
-            raise ProfileArchiveError(
-                "browser_profile_writer_inventory_unavailable"
-            ) from None
+except OSError:
+    refuse("browser_profile_writer_inventory_unavailable")
+print(json.dumps({"ok": True}))
+"""
+
+
+def profile_writers_absent(profile: Path) -> None:
+    """Read protected same-user descriptors; never elevate archive writes."""
+    try:
+        result = subprocess.run(
+            [
+                "sudo",
+                "-n",
+                "/usr/bin/python3",
+                "-c",
+                WRITER_INVENTORY_PROGRAM,
+                str(os.getuid()),
+                str(profile),
+                str(os.getpid()),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        evidence = json.loads(result.stdout)
+        if not isinstance(evidence, dict):
+            raise ValueError("inventory must return a verdict")
+    except (OSError, ValueError, subprocess.SubprocessError):
+        raise ProfileArchiveError(
+            "browser_profile_writer_inventory_unavailable"
+        ) from None
+    require(
+        result.returncode == 0 and evidence.get("ok") is True,
+        evidence.get("reason", "browser_profile_writer_inventory_unavailable"),
+    )
 
 
 def digest(path: Path) -> str:

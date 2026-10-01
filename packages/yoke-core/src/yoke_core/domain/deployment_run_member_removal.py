@@ -134,6 +134,11 @@ def remove_member_on(
     record_membership_removal(
         conn, run_id, item_id, reason=reason, session_id=session_id, actor_id=actor_id
     )
+    from yoke_core.domain.qa_deployment_member_removal import (
+        abort_removed_member_executions,
+    )
+
+    abort_removed_member_executions(conn, run_id=run_id, item_id=item_id)
     rows = query_rows(
         conn,
         "SELECT r.id FROM qa_requirements r WHERE r.deployment_run_id=%s "

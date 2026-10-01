@@ -6,6 +6,8 @@ import pytest
 
 from runtime.api.domain.test_qa_member_machine_partitions import (
     MACHINES,
+    MEMBER,
+    RUN,
     SESSION,
     _begin,
     _case_begin,
@@ -226,6 +228,27 @@ def test_concurrent_begin_reuses_one_complete_host_set(test_db, tmp_path, monkey
         == responses[1].result_payload["execution"]["lease_id"]
     )
     assert len(execution_host_leases(test_db, execution)) == 2
+
+
+def test_removed_member_cleanup_releases_both_hosts_atomically(
+    test_db, tmp_path, monkeypatch
+):
+    from yoke_core.domain.qa_deployment_member_removal import (
+        abort_removed_member_executions,
+    )
+
+    _seed(test_db, tmp_path, monkeypatch, simultaneous=True)
+    execution = _begin(test_db)
+    assert _case_begin(execution).primary_success
+    abort_removed_member_executions(test_db, run_id=RUN, item_id=MEMBER)
+    assert not execution_host_leases(test_db, execution)
+    test_db.rollback()
+    assert len(execution_host_leases(test_db, execution)) == 2
+    assert lock_plan_execution(test_db, execution["id"])["state"] == "active"
+    abort_removed_member_executions(test_db, run_id=RUN, item_id=MEMBER)
+    test_db.commit()
+    assert not execution_host_leases(test_db, execution)
+    assert lock_plan_execution(test_db, execution["id"])["state"] == "aborted"
 
 
 @pytest.mark.parametrize(
