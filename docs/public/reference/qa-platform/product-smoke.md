@@ -15,7 +15,9 @@ onboards a Git project non-interactively into a fresh local universe with GitHub
 adoption disabled, and replays native SessionStart and allowed/denied shell
 payloads through the exact commands in its installed `.claude/settings.json`,
 `.codex/hooks.json`, and `.cursor/hooks.json`. The proposed denied command is
-never executed. It asserts a stored session with the correct executor/workspace,
+never executed. It creates a disposable untracked file so the denied
+`git clean -fd` probe threatens real state the guard must preserve. It asserts
+a stored session with the correct executor and canonical workspace path,
 the harness's denial wire format, and affirmative allow/deny evaluation receipts
 from nonempty chains without timeouts. A zero CLI exit alone cannot pass.
 Missing diagnostic telemetry means insufficient proof, not proof of a product

@@ -127,7 +127,7 @@ def smoke(root: Path, output: Path) -> None:
                 "check the latest-label rollout and update the declared job identities before rerunning"
             )
         with tempfile.TemporaryDirectory(prefix="yoke-product-smoke-") as raw:
-            scratch = Path(raw)
+            scratch = Path(raw).resolve()
             venv, wheels, project = (
                 scratch / part for part in ("venv", "wheels", "project")
             )
@@ -211,6 +211,11 @@ def smoke(root: Path, output: Path) -> None:
                     raise SmokeFailure(
                         "onboard_not_born: fresh local onboarding did not apply and birth the universe; inspect onboard capture"
                     )
+                # The destructive guard refuses threatened state. Give the
+                # denied clean probe an untracked file; never execute it.
+                (project / "untracked-probe.txt").write_text(
+                    "Preserve this probe.\n", encoding="utf-8"
+                )
                 report["hooks"] = replay_hooks(root, project, commands, yoke)
                 dev = commands.document(
                     "dev-setup",
@@ -286,6 +291,7 @@ def smoke(root: Path, output: Path) -> None:
                     if not primary_failure:
                         raise
     except Exception as exc:
+        report["ok"] = False
         failure = str(exc)
         if "inspect " not in failure or "step=" not in failure:
             failure = (
