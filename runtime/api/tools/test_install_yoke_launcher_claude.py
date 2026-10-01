@@ -1,10 +1,12 @@
-"""Claude.app preference tests for ``install_yoke_launcher``."""
+"""Claude desktop preference tests for ``install_yoke_launcher``."""
 
 from __future__ import annotations
 
 import io
 import json
 from pathlib import Path
+
+import pytest
 
 from yoke_core.tools import install_yoke_launcher as isl
 
@@ -16,24 +18,29 @@ def _claude_config_at(tmp_path: Path, payload: dict | None) -> Path:
     return p
 
 
-def test_claude_bypass_noop_on_non_darwin(tmp_path: Path, monkeypatch):
+def test_claude_bypass_patches_existing_linux_config(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(isl.sys, "platform", "linux")
     cfg = _claude_config_at(tmp_path, {"preferences": {}})
     stream = io.StringIO()
-    assert isl.configure_claude_app_bypass_permissions(
-        config_path=cfg, stream=stream
-    ) is False
-    assert stream.getvalue() == ""
-    assert json.loads(cfg.read_text()) == {"preferences": {}}
+    assert (
+        isl.configure_claude_app_bypass_permissions(config_path=cfg, stream=stream)
+        is True
+    )
+    assert "Claude desktop" in stream.getvalue()
+    assert json.loads(cfg.read_text()) == {
+        "preferences": {"bypassPermissionsModeEnabled": True}
+    }
 
 
-def test_claude_bypass_noop_when_config_missing(tmp_path: Path, monkeypatch):
-    monkeypatch.setattr(isl.sys, "platform", "darwin")
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+def test_claude_bypass_noop_when_config_missing(tmp_path: Path, monkeypatch, platform):
+    monkeypatch.setattr(isl.sys, "platform", platform)
     cfg = tmp_path / "absent.json"
     stream = io.StringIO()
-    assert isl.configure_claude_app_bypass_permissions(
-        config_path=cfg, stream=stream
-    ) is False
+    assert (
+        isl.configure_claude_app_bypass_permissions(config_path=cfg, stream=stream)
+        is False
+    )
     assert stream.getvalue() == ""
 
 
@@ -45,23 +52,26 @@ def test_claude_bypass_noop_when_already_true(tmp_path: Path, monkeypatch):
     )
     before = cfg.read_text()
     stream = io.StringIO()
-    assert isl.configure_claude_app_bypass_permissions(
-        config_path=cfg, stream=stream
-    ) is False
+    assert (
+        isl.configure_claude_app_bypass_permissions(config_path=cfg, stream=stream)
+        is False
+    )
     assert stream.getvalue() == ""
     assert cfg.read_text() == before
 
 
-def test_claude_bypass_respects_explicit_false(tmp_path: Path, monkeypatch):
-    monkeypatch.setattr(isl.sys, "platform", "darwin")
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+def test_claude_bypass_respects_explicit_false(tmp_path: Path, monkeypatch, platform):
+    monkeypatch.setattr(isl.sys, "platform", platform)
     cfg = _claude_config_at(
         tmp_path,
         {"preferences": {"bypassPermissionsModeEnabled": False, "other": "kept"}},
     )
     stream = io.StringIO()
-    assert isl.configure_claude_app_bypass_permissions(
-        config_path=cfg, stream=stream
-    ) is False
+    assert (
+        isl.configure_claude_app_bypass_permissions(config_path=cfg, stream=stream)
+        is False
+    )
     assert stream.getvalue() == ""
     data = json.loads(cfg.read_text())
     assert data["preferences"]["bypassPermissionsModeEnabled"] is False
@@ -79,26 +89,23 @@ def test_claude_bypass_sets_when_absent(tmp_path: Path, monkeypatch):
         },
     )
     stream = io.StringIO()
-    assert isl.configure_claude_app_bypass_permissions(
-        config_path=cfg, stream=stream
-    ) is True
+    assert (
+        isl.configure_claude_app_bypass_permissions(config_path=cfg, stream=stream)
+        is True
+    )
     data = json.loads(cfg.read_text())
     assert data["preferences"]["bypassPermissionsModeEnabled"] is True
     assert data["preferences"]["remoteToolsDeviceName"] == "current-mac"
     assert data["preferences"]["sidebarMode"] == "epitaxy"
     out = stream.getvalue().lower()
     assert "bypasspermissionsmodeenabled" in out
-    assert "claude.app" in out
+    assert "claude desktop" in out
 
 
-def test_claude_bypass_atomic_write_no_tmp_left_behind(
-    tmp_path: Path, monkeypatch
-):
+def test_claude_bypass_atomic_write_no_tmp_left_behind(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(isl.sys, "platform", "darwin")
     cfg = _claude_config_at(tmp_path, {"preferences": {}})
-    isl.configure_claude_app_bypass_permissions(
-        config_path=cfg, stream=io.StringIO()
-    )
+    isl.configure_claude_app_bypass_permissions(config_path=cfg, stream=io.StringIO())
     tmp_leftover = cfg.with_suffix(cfg.suffix + ".yoke-tmp")
     assert not tmp_leftover.exists()
 
@@ -108,8 +115,9 @@ def test_claude_bypass_handles_malformed_json(tmp_path: Path, monkeypatch):
     cfg = tmp_path / "claude_desktop_config.json"
     cfg.write_text("not valid json{", encoding="utf-8")
     stream = io.StringIO()
-    assert isl.configure_claude_app_bypass_permissions(
-        config_path=cfg, stream=stream
-    ) is False
+    assert (
+        isl.configure_claude_app_bypass_permissions(config_path=cfg, stream=stream)
+        is False
+    )
     assert "could not parse" in stream.getvalue().lower()
     assert cfg.read_text() == "not valid json{"

@@ -1,4 +1,4 @@
-"""Claude.app preference helper for ``install_yoke_launcher``."""
+"""Claude desktop preference helper for ``install_yoke_launcher``."""
 
 from __future__ import annotations
 
@@ -29,13 +29,11 @@ def configure_claude_app_bypass_permissions(
     config_path: Optional[Path] = None,
     stream=None,
 ) -> bool:
-    """Set ``bypassPermissionsModeEnabled=true`` in Claude.app prefs.
+    """Set ``bypassPermissionsModeEnabled=true`` in Claude desktop prefs.
 
-    The patch is macOS-only, conservative, and respects explicit ``False``.
-    It only writes when the key is absent.
+    Patch an existing platform config only when the key is absent;
+    respect an explicit ``False``.
     """
-    if sys.platform != "darwin":
-        return False
     target = config_path if config_path is not None else CLAUDE_APP_CONFIG_PATH
     if not target.is_file():
         return False
@@ -44,7 +42,7 @@ def configure_claude_app_bypass_permissions(
         data = json.loads(target.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         out.write(
-            f"Could not parse Claude.app config at {target}: {exc}\n"
+            f"Could not parse Claude desktop config at {target}: {exc}\n"
             f"Skipping bypass-permissions patch.\n"
         )
         return False
@@ -69,11 +67,11 @@ def configure_claude_app_bypass_permissions(
                 tmp.unlink()
             except OSError:
                 pass
-        out.write(f"Could not write Claude.app config at {target}: {exc}\n")
+        out.write(f"Could not write Claude desktop config at {target}: {exc}\n")
         return False
     out.write(
-        f"Enabled Claude.app {CLAUDE_BYPASS_KEY} in {target}.\n"
-        f"Quit and relaunch Claude.app to pick up the change.\n"
+        f"Enabled Claude desktop {CLAUDE_BYPASS_KEY} in {target}.\n"
+        f"Quit and relaunch Claude desktop to pick up the change.\n"
         f"(Pass --skip-harness-permissions on future runs to opt out.)\n\n"
     )
     return True
@@ -96,7 +94,9 @@ def configure_claude_cli_permission_mode(
         return []
     out = stream if stream is not None else sys.stdout
     try:
-        data = json.loads(target.read_text(encoding="utf-8")) if target.is_file() else {}
+        data = (
+            json.loads(target.read_text(encoding="utf-8")) if target.is_file() else {}
+        )
     except (OSError, json.JSONDecodeError) as exc:
         return [f"claude-code: {target} could not be read ({exc})"]
     if not isinstance(data, dict):
