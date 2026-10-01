@@ -62,6 +62,8 @@ def test_machine_exec(args: List[str]) -> int:
             "remote login shell exactly as `ssh` sends them. Uses this "
             "machine's ssh-agent identity and pins host keys in a "
             "Yoke-managed known_hosts file; ~/.ssh is never read."
+            " Streams stdout and stderr live, retaining only the last 64 KiB "
+            "of each for failure diagnosis."
             " On macOS, keychain-backed harness CLIs (claude, cursor-agent) "
             "run through `yoke qa mission host-command --gui-session` "
             "under an awaiting mission's retained lease."
@@ -113,8 +115,6 @@ def test_machine_exec(args: List[str]) -> int:
         )
     except RemoteExecRefusal as refusal:
         return _refuse(refusal.code, str(refusal), refusal.recovery)
-    print(completed.stdout or "", end="")
-    print(completed.stderr or "", end="", file=sys.stderr)
     if completed.returncode and settings["os"] == "macos":
         from yoke_harness.ssh_mac_gui_session import (
             classify_macos_session_context_failure,

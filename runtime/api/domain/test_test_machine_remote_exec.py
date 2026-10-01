@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -25,16 +26,20 @@ AGENT = {"SSH_AUTH_SOCK": "/tmp/agent.sock"}
 
 
 def _runner(returncode: int, calls: list[list[str]]):
-    def run(argv: list[str], check: bool, **kwargs) -> subprocess.CompletedProcess:
+    def popen(argv: list[str], **kwargs) -> subprocess.Popen:
         calls.append(argv)
-        assert kwargs == {
-            "capture_output": True,
-            "text": True,
-            "errors": "backslashreplace",
-        }
-        return subprocess.CompletedProcess(argv, returncode, "output", "error")
+        assert kwargs == {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE}
+        return subprocess.Popen(
+            [
+                sys.executable,
+                "-c",
+                "import sys; sys.stdout.write('output'); "
+                f"sys.stderr.write('error'); sys.exit({returncode})",
+            ],
+            **kwargs,
+        )
 
-    return run
+    return popen
 
 
 def test_argv_skips_ssh_config_and_pins_keys_under_the_yoke_home(tmp_path) -> None:
@@ -65,7 +70,7 @@ def test_exit_status_passes_through_and_the_known_hosts_home_exists(
         command=["exit 7"],
         yoke_home=tmp_path,
         environ=AGENT,
-        run=_runner(7, calls),
+        popen=_runner(7, calls),
     )
 
     assert code.returncode == 7
@@ -85,7 +90,7 @@ def test_no_ssh_agent_refuses_before_connecting(tmp_path) -> None:
             command=["true"],
             yoke_home=tmp_path,
             environ={},
-            run=_runner(0, calls),
+            popen=_runner(0, calls),
         )
 
     assert refusal.value.code == "test_machine_ssh_agent_unavailable"
@@ -101,7 +106,7 @@ def test_a_connection_failure_names_the_pinned_key_reset(tmp_path) -> None:
             command=["true"],
             yoke_home=tmp_path,
             environ=AGENT,
-            run=_runner(255, []),
+            popen=_runner(255, []),
         )
 
     assert refusal.value.code == "test_machine_ssh_failed"
@@ -196,6 +201,12 @@ def test_a_missing_remote_command_is_a_usage_error(cli, capsys) -> None:
     assert "after `--`" in capsys.readouterr().err
 
 
+def _streamed_result(result):
+    print(result.stdout or "", end="")
+    print(result.stderr or "", end="", file=sys.stderr)
+    return result
+
+
 @pytest.mark.parametrize(
     "output",
     [
@@ -212,7 +223,7 @@ def test_macos_ssh_exec_names_keychain_context_and_gui_recovery(
     setattr(result, stream, output)
     monkeypatch.setattr(
         "yoke_harness.test_machine_remote_exec.run_remote_command",
-        lambda **_: result,
+        lambda **_: _streamed_result(result),
     )
 
     assert cli(["--project", "yoke", "--", "claude", "-p", "hello"]) == 1
@@ -242,8 +253,8 @@ def test_unrelated_successful_and_non_macos_exec_keep_output_and_exit(
 ) -> None:
     monkeypatch.setattr(
         "yoke_harness.test_machine_remote_exec.run_remote_command",
-        lambda **_: subprocess.CompletedProcess(
-            [], returncode, "original output", stderr
+        lambda **_: _streamed_result(
+            subprocess.CompletedProcess([], returncode, "original output", stderr)
         ),
     )
 
