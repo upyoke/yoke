@@ -9,6 +9,13 @@ from yoke_cli.commands import qa_browser_profile_baseline as profiles
 from yoke_harness import browser_client, browser_runtime_home
 
 
+def test_invalid_project_is_a_closed_restore_refusal():
+    with pytest.raises(
+        RuntimeError, match="^browser_profile_baseline_restore_refused$"
+    ):
+        profiles.restore_profile_baseline("../other", "/var/lib/goldens/profile")
+
+
 @pytest.fixture
 def provisioning(tmp_path, monkeypatch):
     events = []
