@@ -112,9 +112,14 @@ test("a route naming every project resolves to All rather than pinning the set",
   const app = await mountAt(t, "#/items?project=1,2,3", client);
   assert.deepEqual(app.on(), ["All"]);
   assert.equal(app.windowNode.location.hash, "#/items?project=all");
-  // Nothing to write: the route named the scope this screen already
-  // defaults to, so resolving it is not a change.
-  assert.equal(client.state.views.items, undefined);
+  // Resolving the existing All scope does not save a selection change.
+  // Navigation saves the last location with that canonical scope once.
+  assert.deepEqual(client.state.views.items, { selection: "all", focus: null });
+  const saves = client.requests.filter(
+    (request) => request.function === "ui_preferences.screen_selection.set",
+  );
+  assert.equal(saves.length, 1);
+  assert.equal(saves[0].payload.location, "#/items?project=all");
 });
 
 test("a screen's own links carry the canonical form of what it remembers", async (t) => {
