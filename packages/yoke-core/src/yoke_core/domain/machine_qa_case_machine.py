@@ -106,7 +106,11 @@ def required_case_machine(required: Any) -> str | None:
 
 def resolve_case_machine(case: Mapping[str, Any], requested: str | None) -> str | None:
     """Apply case-constraint precedence and validate an optional run pin."""
-    required = required_case_machine(case.get("required_capability_kinds"))
+    required = required_case_machine(
+        materialized_capability_kinds(
+            case.get("required_capability_kinds"), case.get("method_config") or {}
+        )
+    )
     pinned = validate_test_machine_resource_name(requested) if requested else None
     if required and pinned and required != pinned:
         key = str(case.get("case_key") or case.get("requirement_id") or "unknown")
@@ -124,9 +128,7 @@ def resolve_plan_machine(
 ) -> str | None:
     """Resolve the one machine usable by an uninterrupted plan lease."""
     constrained = {
-        machine
-        for row in requirements
-        if (machine := required_case_machine(row.get("required_capability_kinds")))
+        machine for row in requirements if (machine := resolve_case_machine(row, None))
     }
     if len(constrained) > 1:
         names = ", ".join(sorted(constrained))
