@@ -27,7 +27,10 @@ FOOTER_ID = "onboard-footer"
 
 NOTHING_TO_COPY_NOTE = "Nothing to copy on this screen."
 NOTHING_TO_OPEN_NOTE = "No link on this screen to open."
-COPY_RETURN_PROMPT = "Select and copy, then press Enter to return"
+COPY_RETURN_PROMPT = (
+    "Copy with your terminal if supported, or type this value on the other device.\n"
+    "Press Enter to return"
+)
 
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only

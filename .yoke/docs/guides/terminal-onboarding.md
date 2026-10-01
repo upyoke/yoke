@@ -26,13 +26,13 @@ says “The browser was opened for you” after a successful open.
 
 Over SSH, or on Linux without a local display, the footer says **^y show … to
 copy**. Ctrl-Y temporarily suspends the wizard and shows the exact value in
-normal terminal scrollback, followed by “Select and copy, then press Enter to
-return”. Select the value and use your terminal's Copy command (Cmd-C in
-stock macOS Terminal.app), then press Enter. The wizard returns to the same
+normal terminal scrollback. If selection is supported, select the value and
+use your terminal's Copy command (Cmd-C in stock macOS Terminal.app).
+Otherwise, type the code on the other device. Press Enter to return to the same
 screen with your entered values and focus preserved. Ctrl-O shows the link
 the same way on a remote session.
 
 The same selectable view appears if local clipboard commands cannot copy.
-Terminals supporting OSC 52 may also copy automatically; manual selection
-works without changing terminal settings. Nothing is printed above the
+Terminals supporting OSC 52 may also copy automatically; selection depends
+on the terminal and remote desktop client. Nothing is printed above the
 wizard until you request it with a key.
