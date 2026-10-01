@@ -144,6 +144,8 @@ def hc_branch_protection_required_check(
         )
         return
 
+    # Repository identity comes from the project's existing GitHub binding.
+    expected_checks = EXPECTED_CHECKS if auth.repo.casefold() == "upyoke/yoke" else ()
     owner, repo = gh_rest_transport.split_repo(auth.repo)
     req = RestRequest(
         method="GET",
@@ -165,9 +167,9 @@ def hc_branch_protection_required_check(
         )
         _emit_drift_event(
             repo=auth.repo,
-            expected=EXPECTED_CHECKS,
+            expected=expected_checks,
             actual=(),
-            missing=EXPECTED_CHECKS,
+            missing=expected_checks,
             reason="branch_protection_absent",
         )
         return
@@ -189,7 +191,7 @@ def hc_branch_protection_required_check(
             )
             _emit_drift_event(
                 repo=auth.repo,
-                expected=EXPECTED_CHECKS,
+                expected=expected_checks,
                 actual=(),
                 missing=(),
                 reason="branch_protection_unavailable",
@@ -218,12 +220,12 @@ def hc_branch_protection_required_check(
         return
 
     actual = _extract_contexts(resp.body if isinstance(resp.body, dict) else {})
-    missing = tuple(c for c in EXPECTED_CHECKS if c not in actual)
+    missing = tuple(c for c in expected_checks if c not in actual)
 
     if missing:
         _emit_drift_event(
             repo=auth.repo,
-            expected=EXPECTED_CHECKS,
+            expected=expected_checks,
             actual=actual,
             missing=missing,
             reason="missing_required_checks",
@@ -249,7 +251,7 @@ def hc_branch_protection_required_check(
     if orphans:
         _emit_drift_event(
             repo=auth.repo,
-            expected=EXPECTED_CHECKS,
+            expected=expected_checks,
             actual=actual,
             missing=orphans,
             reason="stale_required_checks",
@@ -261,7 +263,7 @@ def hc_branch_protection_required_check(
             (
                 f"Branch protection on {auth.repo}@{PROTECTED_BRANCH} requires "
                 f"context(s) no workflow job produces: {', '.join(orphans)}.\n"
-                f"  Declared expectation: {', '.join(EXPECTED_CHECKS)}.\n"
+                f"  Declared expectation: {', '.join(expected_checks) or '(none)'}.\n"
                 f"  Configured contexts: {', '.join(actual)}.\n"
                 "  Remove the stale context(s) from branch protection or restore "
                 "the matching workflow job."
@@ -276,7 +278,7 @@ def hc_branch_protection_required_check(
         (
             f"Branch protection on {auth.repo}@{PROTECTED_BRANCH} "
             f"requires the declared context(s): "
-            f"{', '.join(EXPECTED_CHECKS)}."
+            f"{', '.join(expected_checks) or '(none)'}."
         ),
     )
 

@@ -48,6 +48,8 @@ permissions:
 
 jobs:
   dispatch-platform-release:
+    # This bridge targets upstream's hosted service and Platform repository.
+    if: github.repository == 'upyoke/yoke'
     timeout-minutes: 60
     name: dispatch and await Platform release
     runs-on: ubuntu-24.04
