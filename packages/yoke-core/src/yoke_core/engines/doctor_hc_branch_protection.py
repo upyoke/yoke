@@ -13,7 +13,6 @@ Pairs with yoke-ci.yml, cla.yml, and the operator's branch-protection runbook.
 
 from __future__ import annotations
 
-import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Optional, Sequence, Tuple
@@ -23,6 +22,7 @@ from yoke_contracts.github_app_installation_permissions import (
 )
 from yoke_core.domain import events as _events
 from yoke_core.domain import gh_rest_transport
+from yoke_core.domain.yaml_helper import load_document
 from yoke_core.domain.gh_rest_transport import (
     RestAuthError,
     RestNotFoundError,
@@ -60,10 +60,6 @@ _PLAN_GATED_MARKERS: Tuple[str, ...] = (
     "make this repository public",
 )
 
-_JOB_ID_RE = re.compile(r"(?m)^  ([A-Za-z0-9_-]+):\n")
-# Job fields may precede name; its indentation excludes nested step/env names.
-_JOB_NAME_RE = re.compile(r"(?m)^    name: (.+)$")
-
 
 def _is_plan_gated_unavailable(exc: RestAuthError) -> bool:
     """True when a 403 body indicates branch protection is plan-gated."""
@@ -74,7 +70,7 @@ def _is_plan_gated_unavailable(exc: RestAuthError) -> bool:
 
 
 def workflow_job_names(workflows_dir: Path) -> Tuple[str, ...]:
-    """Return check-run bases from workflow job ids and explicit ``name:`` values.
+    """Return check-run bases from parsed workflow jobs.
 
     GitHub uses a job's ``name:`` when present, otherwise the job id, as the
     check-run context base (matrix legs append `` (… )``).
@@ -84,23 +80,9 @@ def workflow_job_names(workflows_dir: Path) -> Tuple[str, ...]:
     names: list[str] = []
     seen: set[str] = set()
     for path in sorted(workflows_dir.glob("*.yml")):
-        text = path.read_text(encoding="utf-8")
-        # Only scan the jobs: block so top-level keys are not treated as jobs.
-        jobs_idx = text.find("\njobs:\n")
-        if jobs_idx < 0:
-            if text.startswith("jobs:\n"):
-                jobs_block = text
-            else:
-                continue
-        else:
-            jobs_block = text[jobs_idx + 1 :]
-        for match in _JOB_ID_RE.finditer(jobs_block):
-            job_id = match.group(1)
-            if job_id not in seen:
-                seen.add(job_id)
-                names.append(job_id)
-        for match in _JOB_NAME_RE.finditer(jobs_block):
-            name = match.group(1).strip()
+        document = load_document(path) or {}
+        for job_id, job in (document.get("jobs") or {}).items():
+            name = job.get("name", job_id)
             if name not in seen:
                 seen.add(name)
                 names.append(name)

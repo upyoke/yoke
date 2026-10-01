@@ -82,7 +82,7 @@ def test_workflow_job_names_ignore_field_order(tmp_path, fields) -> None:
 
     names = workflow_job_names(tmp_path)
 
-    assert names == ("check_job", "named-check")
+    assert names == ("named-check",)
     assert orphan_required_contexts(("named-check",), names) == ()
 
 

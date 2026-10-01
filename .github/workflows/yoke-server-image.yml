@@ -1,22 +1,25 @@
 name: yoke-server-image
-
-# FACTORY: native GHCR server images; no cloud credentials or operator registry.
-# Only canonical annotated tags peeling to this workflow commit may build.
-# Native builds push digests; assembly verifies both platforms before signing.
-# The signer has no checkout/run; publication waits for its attestation.
-# sha12 is immutable; latest moves only for the highest canonical launch tag.
+# Classification: FACTORY. Publishes the GHCR Yoke server image referenced by
+# the self-host compose .env (yoke_contracts.server_image); stays in the public product repo.
+# Tag-driven publication builds every validated release's complete image set;
+# branch pushes cannot move latest to a development version.
+# Fork safety: only annotated release tags peeling to their exact workflow commit build.
+# Validation has read-only repository scope; native builds, manifest assembly,
+# signing, and tag publication are separate GitHub-hosted jobs. The signer has
+# no checkout/run; sha12/latest become visible only after digest attestation succeeds.
+# No cloud credentials or operator registry are available in this lane.
 # Job limits and recovery: docs/testing-verification/ci-job-timeouts.md.
-
 on:
   push:
     tags:
       - "v*"
 concurrency:
+  # Immutable releases build concurrently; latest moves only for the highest
+  # canonical launch tag, so an older slow build cannot roll the pointer backward.
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 permissions: {}
 jobs:
-
   validate-tag:
     timeout-minutes: 5
     name: validate-release-tag
@@ -31,46 +34,25 @@ jobs:
       source_sha: ${{ steps.tag.outputs.source_sha }}
       tag_object_sha: ${{ steps.tag.outputs.tag_object_sha }}
     steps:
+      - name: Check out the exact workflow commit for read-only tag validation
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - name: Require an immutable annotated release tag
         id: tag
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
-          canonical_tag_re='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\+([a-z0-9]*[a-z][a-z0-9]*|0|[1-9][0-9]*)(\.([a-z0-9]*[a-z][a-z0-9]*|0|[1-9][0-9]*))*$'
-          if [[ "$GITHUB_REF" != "refs/tags/$TAG_NAME" || ! "$TAG_NAME" =~ $canonical_tag_re ]]; then
-            echo "image release tags must use canonical vX.Y.Z+local.N spelling without leading-zero numeric atoms: $TAG_NAME" >&2; exit 1
-          fi
-          remote_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG_NAME")"
-          object_type="$(jq -r '.object.type' <<< "$remote_ref")"
-          tag_object_sha="$(jq -r '.object.sha' <<< "$remote_ref")"
-          if [[ "$object_type" != "tag" || ! "$tag_object_sha" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "image release tag must be an annotated tag object: $TAG_NAME" >&2; exit 1
-          fi
-          tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object_sha")"
-          target_type="$(jq -r '.object.type' <<< "$tag_object")"
-          source_sha="$(jq -r '.object.sha' <<< "$tag_object")"
-          if [[ "$target_type" != "commit" || "$source_sha" != "$GITHUB_SHA" ]]; then
-            echo "remote image tag does not peel to workflow commit $GITHUB_SHA" >&2; exit 1
-          fi
-          {
-            owner="${GITHUB_REPOSITORY_OWNER,,}"
-            repository="ghcr.io/$owner/yoke-server"
-            sha_tag="${source_sha:0:12}"
-            echo "repository=$repository"
-            echo "sha_tag=$sha_tag"
-            echo "sha_ref=$repository:$sha_tag"
-            echo "latest_ref=$repository:latest"
-            echo "release_version=${TAG_NAME#v}"
-            echo "source_sha=$source_sha"
-            echo "tag_object_sha=$tag_object_sha"
-          } >> "$GITHUB_OUTPUT"
-
+          python3 packages/yoke-core/src/yoke_core/tools/server_image_release_tag.py
   build:
     timeout-minutes: 10
     name: build-native-${{ matrix.arch }}
     needs: validate-tag
     permissions: {contents: read, packages: write}
+    # GHCR publishing carries no operator state: hosted runners can do it all.
+    # Hard-pinning avoids operator fleets even where runner-routing is configured.
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -99,11 +81,15 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push the native content-addressed image
         id: push
+        # Push without sha12/latest. /v1/health exposes the baked full source SHA;
+        # package versions use the validated release tag, not a branch development version.
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           push: true
           platforms: ${{ matrix.platform }}
+          # Push content-addressed images first without changing human-facing tags;
+          # post-attestation publication refuses a conflicting immutable sha12.
           outputs: type=image,name=${{ needs.validate-tag.outputs.repository }},push-by-digest=true,name-canonical=true,push=true
           provenance: false
           build-args: |
@@ -117,23 +103,12 @@ jobs:
           PUSHED_DIGEST: ${{ steps.push.outputs.digest }}
           REPOSITORY: ${{ needs.validate-tag.outputs.repository }}
         run: |
-          image_ref="$REPOSITORY@$PUSHED_DIGEST"
-          docker pull "$image_ref"
-          actual_arch="$(docker image inspect  --format '{{.Architecture}}' "$image_ref")"
-          if [[ "$actual_arch" != "$EXPECTED_ARCH" ]]; then
-            echo "native image architecture mismatch: actual=$actual_arch expected=$EXPECTED_ARCH" >&2; exit 1
-          fi
-          metadata="$(docker run --rm --entrypoint python3 "$image_ref"  -m yoke_core.tools.server_image_metadata emit)"
-          python3 packages/yoke-core/src/yoke_core/tools/server_image_metadata.py verify  --expected-version "$EXPECTED_VERSION"  --expected-build "$EXPECTED_BUILD" <<< "$metadata"
-          echo "native image verified: arch=$actual_arch version=$EXPECTED_VERSION build=$EXPECTED_BUILD"
-      - name: Export the native image digest
-        run: |
-          digest="${{ steps.push.outputs.digest }}"
-          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-            echo "native build returned malformed digest: $digest" >&2; exit 1
-          fi
-          mkdir -p "$RUNNER_TEMP/digests"
-          touch "$RUNNER_TEMP/digests/${digest#sha256:}"
+          python3 packages/yoke-core/src/yoke_core/tools/server_image_metadata.py verify-native \
+            --image-ref "$REPOSITORY@$PUSHED_DIGEST" \
+            --expected-arch "$EXPECTED_ARCH" \
+            --expected-version "$EXPECTED_VERSION" \
+            --expected-build "$EXPECTED_BUILD" \
+            --digest-dir "$RUNNER_TEMP/digests"
       - name: Upload the native image digest
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -141,7 +116,6 @@ jobs:
           path: ${{ runner.temp }}/digests/*
           if-no-files-found: error
           retention-days: 1
-
   assemble:
     timeout-minutes: 5
     name: assemble-content-addressed-image
@@ -175,34 +149,44 @@ jobs:
             find "$RUNNER_TEMP/digests" -maxdepth 1 -type f -print | sort
           )
           if [[ "${#digest_files[@]}" -ne 2 ]]; then
-            echo "expected two native image digests, found ${#digest_files[@]}" >&2; exit 1
+            echo "expected two native image digests, found ${#digest_files[@]}" >&2
+            exit 1
           fi
           sources=()
           for digest_file in "${digest_files[@]}"; do
             digest="$(basename "$digest_file")"
             if [[ ! "$digest" =~ ^[0-9a-f]{64}$ ]]; then
-              echo "malformed native image digest filename: $digest" >&2; exit 1
+              echo "malformed native image digest filename: $digest" >&2
+              exit 1
             fi
             sources+=("$REPOSITORY@sha256:$digest")
           done
           staging_ref="$REPOSITORY:build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           metadata="$RUNNER_TEMP/manifest-metadata.json"
-          docker buildx imagetools create  --tag "$staging_ref"  --metadata-file "$metadata"  "${sources[@]}"
+          docker buildx imagetools create \
+            --tag "$staging_ref" \
+            --metadata-file "$metadata" \
+            "${sources[@]}"
           digest="$(jq -er '."containerimage.descriptor".digest' "$metadata")"
-          registry_digest="$(docker buildx imagetools inspect  "$staging_ref" --format '{{ .Manifest.Digest }}')"
+          registry_digest="$(docker buildx imagetools inspect \
+            "$staging_ref" --format '{{ .Manifest.Digest }}')"
           if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ || "$registry_digest" != "$digest" ]]; then
-            echo "assembled manifest digest mismatch: metadata=$digest registry=$registry_digest" >&2; exit 1
+            echo "assembled manifest digest mismatch: metadata=$digest registry=$registry_digest" >&2
+            exit 1
           fi
-          manifest="$(docker buildx imagetools inspect  "$staging_ref" --format '{{json .Manifest}}')"
-          platforms="$(jq -r  '[.manifests[]?.platform | select(.os != "unknown") | "\(.os)/\(.architecture)"] | unique | sort | join(",")'  <<< "$manifest")"
+          manifest="$(docker buildx imagetools inspect \
+            "$staging_ref" --format '{{json .Manifest}}')"
+          platforms="$(jq -r \
+            '[.manifests[]?.platform | select(.os != "unknown") | "\(.os)/\(.architecture)"] | unique | sort | join(",")' \
+            <<< "$manifest")"
           if [[ "$platforms" != "linux/amd64,linux/arm64" ]]; then
-            echo "assembled image lacks the required linux platforms: $platforms" >&2; exit 1
+            echo "assembled image lacks the required linux platforms: $platforms" >&2
+            exit 1
           fi
           {
             echo "digest=$digest"
             echo "staging_ref=$staging_ref"
           } >> "$GITHUB_OUTPUT"
-
   attest:
     timeout-minutes: 5
     name: attest-content-addressed-image
@@ -210,6 +194,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions: {attestations: write, contents: read, id-token: write, packages: write}
     steps:
+      # Deliberately no checkout and no run step: repository code never shares
+      # the OIDC identity or attestation write scope.
       - name: Login to GHCR
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
@@ -245,7 +231,6 @@ jobs:
           subject-digest: ${{ needs.assemble.outputs.digest }}
           push-to-registry: true
           create-storage-record: false
-
   publish-tags:
     timeout-minutes: 5
     name: publish-and-verify-image-tags
@@ -275,22 +260,29 @@ jobs:
           object_type="$(jq -r '.object.type' <<< "$remote_ref")"
           tag_object_sha="$(jq -r '.object.sha' <<< "$remote_ref")"
           if [[ "$object_type" != "tag" || "$tag_object_sha" != "$EXPECTED_TAG_OBJECT_SHA" ]]; then
-            echo "remote image tag changed before publication: $TAG_NAME" >&2; exit 1
+            echo "remote image tag changed before publication: $TAG_NAME" >&2
+            exit 1
           fi
           tag_object="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object_sha")"
           target_type="$(jq -r '.object.type' <<< "$tag_object")"
           source_sha="$(jq -r '.object.sha' <<< "$tag_object")"
           if [[ "$target_type" != "commit" || "$source_sha" != "$EXPECTED_SOURCE_SHA" || "$source_sha" != "$GITHUB_SHA" ]]; then
-            echo "remote image tag no longer peels to the workflow commit" >&2; exit 1
+            echo "remote image tag no longer peels to the workflow commit" >&2
+            exit 1
           fi
           inspect_error="$RUNNER_TEMP/sha12-inspect-error"
           existing_digest=""
-          if existing_digest="$(docker buildx imagetools inspect  "$SHA_REF" --format '{{ .Manifest.Digest }}'  2>"$inspect_error")"; then
+          if existing_digest="$(docker buildx imagetools inspect \
+            "$SHA_REF" --format '{{ .Manifest.Digest }}' \
+            2>"$inspect_error")"; then
             if [[ "$existing_digest" != "$PUSHED_DIGEST" ]]; then
-              echo "refusing conflicting immutable sha12: $SHA_REF is $existing_digest, build is $PUSHED_DIGEST" >&2; exit 1
+              echo "refusing conflicting immutable sha12: $SHA_REF is $existing_digest, build is $PUSHED_DIGEST" >&2
+              exit 1
             fi
           elif grep -Eqi 'manifest unknown|not found' "$inspect_error"; then
-            docker buildx imagetools create  --prefer-index=false  --tag "$SHA_REF" "$REPOSITORY@$PUSHED_DIGEST"
+            docker buildx imagetools create \
+              --prefer-index=false \
+              --tag "$SHA_REF" "$REPOSITORY@$PUSHED_DIGEST"
           else
             cat "$inspect_error" >&2
             exit 1
@@ -298,10 +290,13 @@ jobs:
           latest_tag=""
           latest_key=""
           for page in $(seq 1 100); do
-            release_refs="$(gh api  "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v?per_page=100&page=$page")"
+            release_refs="$(gh api \
+              "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v?per_page=100&page=$page")"
             while IFS= read -r candidate_ref; do
               if [[ "$candidate_ref" =~ ^refs/tags/(v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\+launch\.(0|[1-9][0-9]*))$ ]]; then
-                printf -v candidate_key '%010d%010d%010d%010d'  "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"  "${BASH_REMATCH[4]}" "${BASH_REMATCH[5]}"
+                printf -v candidate_key '%010d%010d%010d%010d' \
+                  "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" \
+                  "${BASH_REMATCH[4]}" "${BASH_REMATCH[5]}"
                 if [[ -z "$latest_key" || "$candidate_key" > "$latest_key" ]]; then
                   latest_key="$candidate_key"
                   latest_tag="${BASH_REMATCH[1]}"
@@ -314,7 +309,9 @@ jobs:
             fi
           done
           if [[ "$TAG_NAME" = "$latest_tag" ]]; then
-            docker buildx imagetools create  --prefer-index=false  --tag "$LATEST_REF" "$REPOSITORY@$PUSHED_DIGEST"
+            docker buildx imagetools create \
+              --prefer-index=false \
+              --tag "$LATEST_REF" "$REPOSITORY@$PUSHED_DIGEST"
             echo "published_latest=true" >> "$GITHUB_OUTPUT"
           else
             echo "Keeping latest on newer release $latest_tag; published immutable $SHA_REF"
@@ -327,18 +324,26 @@ jobs:
           PUSHED_DIGEST: ${{ needs.assemble.outputs.digest }}
           SHA_REF: ${{ needs.validate-tag.outputs.sha_ref }}
         run: |
-          sha_digest="$(docker buildx imagetools inspect  "$SHA_REF" --format '{{ .Manifest.Digest }}')"
+          sha_digest="$(docker buildx imagetools inspect \
+            "$SHA_REF" --format '{{ .Manifest.Digest }}')"
           if [[ "$sha_digest" != "$PUSHED_DIGEST" ]]; then
-            echo "published sha12 differs from built digest: sha12=$sha_digest built=$PUSHED_DIGEST" >&2; exit 1
+            echo "published sha12 differs from built digest: sha12=$sha_digest built=$PUSHED_DIGEST" >&2
+            exit 1
           fi
           if [[ "$PUBLISHED_LATEST" = "true" ]]; then
-            latest_digest="$(docker buildx imagetools inspect  "$LATEST_REF" --format '{{ .Manifest.Digest }}')"
+            latest_digest="$(docker buildx imagetools inspect \
+              "$LATEST_REF" --format '{{ .Manifest.Digest }}')"
             if [[ "$latest_digest" != "$PUSHED_DIGEST" ]]; then
-              echo "published latest differs from built digest: latest=$latest_digest built=$PUSHED_DIGEST" >&2; exit 1
+              echo "published latest differs from built digest: latest=$latest_digest built=$PUSHED_DIGEST" >&2
+              exit 1
             fi
           fi
-          manifest="$(docker buildx imagetools inspect  "$SHA_REF" --format '{{json .Manifest}}')"
-          platforms="$(jq -r  '[.manifests[]?.platform | select(.os != "unknown") | "\(.os)/\(.architecture)"] | unique | sort | join(",")'  <<< "$manifest")"
+          manifest="$(docker buildx imagetools inspect \
+            "$SHA_REF" --format '{{json .Manifest}}')"
+          platforms="$(jq -r \
+            '[.manifests[]?.platform | select(.os != "unknown") | "\(.os)/\(.architecture)"] | unique | sort | join(",")' \
+            <<< "$manifest")"
           if [[ "$platforms" != "linux/amd64,linux/arm64" ]]; then
-            echo "published image lacks the required linux platforms: $platforms" >&2; exit 1
+            echo "published image lacks the required linux platforms: $platforms" >&2
+            exit 1
           fi
