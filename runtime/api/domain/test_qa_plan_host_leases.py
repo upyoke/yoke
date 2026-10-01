@@ -87,6 +87,7 @@ def test_mission_review_retains_and_heartbeats_every_host(
     test_db, tmp_path, monkeypatch
 ):
     _seed(test_db, tmp_path, monkeypatch, simultaneous=True)
+    seed_qa_session(test_db, SESSION, messageable=True)
     execution = _begin(test_db)
     assert _case_begin(execution).primary_success
     current = lock_plan_execution(test_db, execution["id"])
@@ -106,6 +107,11 @@ def test_mission_review_retains_and_heartbeats_every_host(
     finish_plan_execution(
         test_db, current, state="awaiting_agent_review", reason="review"
     )
+    assert test_db.execute(
+        "SELECT session_id FROM session_message_recipients r JOIN session_messages m "
+        "ON m.message_id=r.message_id WHERE m.idempotency_key=%s",
+        (f"qa-plan-agent-review:{execution['id']}",),
+    ).fetchone()[0] == SESSION
     assert len(execution_host_leases(test_db, current)) == 2
     for claim in leases:
         test_db.execute(
