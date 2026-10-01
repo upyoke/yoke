@@ -55,9 +55,9 @@ yoke watch pytest -- runtime/api/ runtime/harness/ tests/
   required CI check; each result names that scope's tracked and untracked
   counts.
 - The suite starts its own disposable Postgres cluster on first use; no
-  database setup is required beyond having the Postgres server binaries
-  (`initdb`, `pg_ctl`) on `PATH` — e.g. `brew install postgresql@17` on
-  macOS or `apt install postgresql` on Debian/Ubuntu.
+  database setup is required. It uses the embedded Postgres binaries fetched
+  during onboarding, falling back to system binaries (`initdb`, `pg_ctl`,
+  `pg_isready`) on `PATH` when no embedded installation is available.
 
 ## Activate a source checkout (explicit source-dev step)
 
