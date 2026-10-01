@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+import subprocess
 
 import pytest
 
@@ -12,6 +13,7 @@ from runtime.api.domain.terminal_bridge_host_test_support import (
 )
 from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_AUTOMATION_UNAVAILABLE_ERROR_CODE,
+    TERMINAL_APP_CONTROL_UNAVAILABLE_ERROR_CODE,
     TERMINAL_BRIDGE_CHECKS,
     TERMINAL_BRIDGE_RECOVERY,
     TERMINAL_CONSOLE_USER_MISMATCH_ERROR_CODE,
@@ -126,6 +128,39 @@ def test_a_locked_screen_is_named_before_the_window(
 
     assert result.error_code == TERMINAL_DISPLAY_LOCKED_ERROR_CODE
     assert _rows(result)["console_session"]["observed"]["display_locked"] is True
+    assert "unlock" in _rows(result)["console_session"]["recovery"]
+    assert _rows(result)["window_launch"]["outcome"] == "not_run"
+
+
+@pytest.mark.parametrize("diagnose", [True, False])
+def test_window_launch_failure_retains_osascript_cause(monkeypatch, diagnose):
+    class LaunchFailureMac(FakeMac):
+        def __call__(self, command, **kwargs):
+            if "set targetTab" in command and "terminal-app-ready" in command:
+                return subprocess.CompletedProcess(
+                    command,
+                    1,
+                    "",
+                    "execution error: Terminal got an error (-600)",
+                )
+            return super().__call__(command, **kwargs)
+
+    if diagnose:
+        result = _diagnose(LaunchFailureMac(), monkeypatch)
+        assert result.error_code == TERMINAL_APP_CONTROL_UNAVAILABLE_ERROR_CODE
+        evidence = _rows(result)["window_launch"]["observed"]
+    else:
+        ok, checks, error = ssh_mac_terminal_bridge_check.verify_terminal_app_control(
+            LaunchFailureMac(),
+            expected_console_user="yoke-test",
+        )
+        assert not ok
+        assert error == TERMINAL_APP_CONTROL_UNAVAILABLE_ERROR_CODE
+        evidence = checks["capture_diagnostics"]
+    assert evidence["osascript_exit_code"] == 1
+    assert (
+        evidence["osascript_stderr"] == "execution error: Terminal got an error (-600)"
+    )
 
 
 def test_a_window_that_never_becomes_frontmost_names_what_held_focus(

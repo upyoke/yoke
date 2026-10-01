@@ -137,7 +137,11 @@ A capability whose precondition failed is reported as **not run**, naming the
 check that stopped it, rather than as a second failure — one missing privacy
 grant used to produce five red lines that each read like an independent
 problem. Every failing row carries the condition's name and the sentence
-describing what to change on the host:
+describing what to change on the host. The console check reads the lock flag
+inside macOS's `IOConsoleUsers` root property, including compact `=Yes` output.
+A locked console reports `terminal_display_locked`: unlock the Mac before
+retrying. The `window_launch` row retains the osascript exit code, stdout, and
+stderr, so a Terminal AppleScript failure carries its cause:
 
 | Condition | What to change |
 | --- | --- |

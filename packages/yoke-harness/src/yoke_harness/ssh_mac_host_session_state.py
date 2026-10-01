@@ -8,6 +8,7 @@ recoveries differ: one sends a person to the screen, the other to the probe.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from yoke_harness.ssh_mac_terminal_app import RunRemote, run_osascript
@@ -29,12 +30,15 @@ def read_console_user(run: RunRemote) -> str | None:
 def read_display_locked(run: RunRemote) -> bool | None:
     """Return whether the host's screen is locked."""
     result = run(
-        "/usr/sbin/ioreg -n Root -d1 -k CGSSessionScreenIsLocked",
+        "/usr/sbin/ioreg -n Root -d1",
         timeout=10,
     )
     if result.returncode:
         return None
-    return '"CGSSessionScreenIsLocked" = Yes' in result.stdout
+    # macOS nests this flag in IOConsoleUsers; -k hides that parent property.
+    return (
+        re.search(r'"CGSSessionScreenIsLocked"\s*=\s*Yes\b', result.stdout) is not None
+    )
 
 
 def read_load_average(run: RunRemote) -> float | None:

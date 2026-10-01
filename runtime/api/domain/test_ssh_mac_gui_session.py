@@ -76,6 +76,21 @@ def test_terminal_app_command_returns_output_and_exit_code(
     assert any("close window id 445" in command for command in commands)
 
 
+def test_terminal_command_launch_failure_names_osascript_cause():
+    def run(command, **_kwargs):
+        return _completed(
+            command,
+            returncode=1,
+            stderr="execution error: Not authorized to send Apple events (-1743)",
+        )
+
+    result = run_terminal_app_command(run, argv=("/usr/bin/true",))
+
+    assert result.returncode == 125
+    assert "osascript exit 1" in result.stderr
+    assert "Not authorized to send Apple events (-1743)" in result.stderr
+
+
 def test_machine_assertion_declares_gui_session_context(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

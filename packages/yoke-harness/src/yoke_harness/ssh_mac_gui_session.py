@@ -166,13 +166,18 @@ def run_terminal_app_command(
     )
     window_id: int | None = None
     try:
-        window_id = open_terminal_app_window(
+        launch = open_terminal_app_window(
             run,
             command=wrapped,
             bounds=bounds,
         )
+        window_id = launch.window_id
         if window_id is None:
-            return _bridge_failure(normalized, detail="Terminal.app launch failed")
+            return _bridge_failure(
+                normalized,
+                detail=f"Terminal.app launch failed (osascript exit {launch.returncode}): "
+                f"{launch.stderr or launch.stdout or 'no window id returned'}",
+            )
         deadline = time.monotonic() + timeout
         exit_code: int | None = None
         while time.monotonic() < deadline:
