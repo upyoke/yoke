@@ -6,6 +6,9 @@ from typing import Any, Mapping
 
 from yoke_core.domain import deploy_pipeline_control_plane
 
+_MAX_START_RETRIES = 3
+_STALE_ATTESTATION = "candidate_containment_attestation_stale"
+
 
 class DeployPipelineRunUpdateError(RuntimeError):
     """A deployment-run bookkeeping write did not land."""
@@ -29,32 +32,45 @@ def start_run(
     basis: Any,
     primary_checkout: str,
 ) -> None:
-    """Attest candidate containment locally and atomically start the run."""
+    """Attest and start; refresh a stale basis at most three times."""
     try:
-        attestation = None
-        if isinstance(basis, Mapping):
-            from yoke_core.domain.deployment_run_contained_items import (
-                attest_candidate_containment,
-            )
-            from yoke_core.domain.project_checkout_locations import (
-                checkout_for_project_slug,
-            )
+        for attempt in range(_MAX_START_RETRIES + 1):
+            attestation = None
+            if isinstance(basis, Mapping):
+                from yoke_core.domain.deployment_run_contained_items import (
+                    attest_candidate_containment,
+                )
+                from yoke_core.domain.project_checkout_locations import (
+                    checkout_for_project_slug,
+                )
 
-            primary_project = str(basis.get("primary_project") or "")
+                primary_project = str(basis.get("primary_project") or "")
 
-            def _checkout(project: str) -> str:
-                if primary_checkout and project == primary_project:
-                    return primary_checkout
-                found = checkout_for_project_slug(project)
-                return str(found) if found is not None else ""
+                def _checkout(project: str) -> str:
+                    if primary_checkout and project == primary_project:
+                        return primary_checkout
+                    found = checkout_for_project_slug(project)
+                    return str(found) if found is not None else ""
 
-            attestation = attest_candidate_containment(basis, _checkout)
-        deploy_pipeline_control_plane.update_run_field(
-            run_id,
-            "status",
-            "executing",
-            candidate_containment=attestation,
-        )
+                attestation = attest_candidate_containment(basis, _checkout)
+            try:
+                deploy_pipeline_control_plane.update_run_field(
+                    run_id,
+                    "status",
+                    "executing",
+                    candidate_containment=attestation,
+                )
+                return
+            except deploy_pipeline_control_plane.DeploymentControlPlaneError as exc:
+                if exc.code != _STALE_ATTESTATION or attempt == _MAX_START_RETRIES:
+                    raise
+                print(
+                    f"Run {run_id}: {_STALE_ATTESTATION}; retry "
+                    f"{attempt + 1}/{_MAX_START_RETRIES} with a fresh containment basis"
+                )
+                basis = deploy_pipeline_control_plane.execution_context(run_id).get(
+                    "candidate_containment_basis"
+                )
     except Exception as exc:
         detail = str(exc).strip() or type(exc).__name__
         raise DeployPipelineRunUpdateError(

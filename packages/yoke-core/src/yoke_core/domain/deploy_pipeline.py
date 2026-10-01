@@ -86,7 +86,6 @@ def run_pipeline(
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_USAGE
     run = context.get("run") or {}
-    containment_basis = context.get("candidate_containment_basis")
     members = context.get("members") or []
     project = str(run.get("project") or "")
     flow_id = str(run.get("flow") or "")
@@ -220,8 +219,10 @@ def run_pipeline(
 
         print(f"--- Stage: {s_name} (step_runner: {stage['step_runner']}) ---")
 
-        # Start run execution on first stage
         if not run_started:
+            containment_basis = control_plane.execution_context(run_id).get(
+                "candidate_containment_basis"
+            )
             run_updates.start_run(run_id, containment_basis, project_repo_path)
             _emit_run_event(
                 "DeploymentRunExecuting",
@@ -231,7 +232,6 @@ def run_pipeline(
                 project=project,
                 sd=sd,
             )
-            # Transition member items to release
             for sri_item in member_items:
                 if member_statuses.get(sri_item) == "implemented":
                     transition_member_to_release(int(sri_item), run_id)
