@@ -247,6 +247,19 @@ def run(args) -> None:
             cwd=project,
         )
         env["YOKE_ROOT"] = str(project)
+        env["XDG_BIN_HOME"] = str(venv / "bin")
+        resolved = commands.run(
+            "hook-launcher",
+            [
+                "/bin/sh",
+                "-c",
+                'PATH="${XDG_BIN_HOME:-$HOME/.local/bin}:$PATH"; command -v yoke',
+            ],
+            cwd=project,
+        )
+        if resolved.stdout.strip() != yoke:
+            raise ProofFailure("candidate_hook_launcher_not_selected")
+        report["candidate_launcher"] = yoke
         proofs = []
         for name, prompt in (("status", STATUS_PROMPT), ("denial", DENIAL_PROMPT)):
             before = {
@@ -261,7 +274,7 @@ def run(args) -> None:
                 native_argv(args.harness, prompt),
                 cwd=project,
                 accepted=tuple(range(256)),
-                timeout=300,
+                timeout=120,
             )
             proof = prove(commands, yoke, project, args.harness, before)
             expected = "allow" if name == "status" else "deny"
