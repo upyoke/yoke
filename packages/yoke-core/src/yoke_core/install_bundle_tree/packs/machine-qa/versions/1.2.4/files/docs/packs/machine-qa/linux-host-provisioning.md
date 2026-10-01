@@ -20,11 +20,31 @@ sudo install -d -m 0700 -o yoketest -g yoketest /var/lib/yoke-golden/yoketest
 Install the project's shared test-machine public key in this user's `.ssh`
 `authorized_keys` (directory 0700, file 0600). Disable SSH password and
 keyboard-interactive authentication. Restrict network access to the project's
-execution machines. The test user needs no sudo; Docker-group access is for
-this dedicated test host. Log in again after group changes.
+execution machines. Log in again after group changes.
+
+The dedicated Linux test user needs passwordless sudo, like a typical cloud VM
+user. Yoke installs Chromium system libraries automatically during onboarding;
+a human never enters a sudo password. Docker-group access alone is insufficient.
+As the administrator, create this single drop-in (replace `yoketest` with the
+actual WSL user when provisioning Ubuntu inside Windows):
+
+```text
+printf '%s\n' 'yoketest ALL=(ALL) NOPASSWD: ALL' > /tmp/yoke-test-user.sudoers
+sudo -n visudo -c -f /tmp/yoke-test-user.sudoers
+sudo -n install -o root -g root -m 0440 /tmp/yoke-test-user.sudoers /etc/sudoers.d/yoke-test-user
+sudo -n visudo -c
+sudo -n -u yoketest sudo -n true
+```
+
+Confirm the final command succeeds as the test user before onboarding; a sudo
+password prompt is a provisioning failure. Repair the drop-in as administrator
+and rerun validation. Keep this host setting in the project's provisioning
+record. It lives outside the captured home, so home-golden restore preserves it
+and this change alone needs no re-seal. If signed-in home state or declared
+probes change, capture a new golden through the existing procedure.
 
 Observe `id -u` is nonzero, `/etc/os-release` says Ubuntu 24.04, and
-`git --version`, `tmux -V`, `python3 --version`, `docker info` all succeed as
+`git --version`, `tmux -V`, `python3 --version`, `docker info`, `sudo -n true` all succeed as
 the test user. Store the shared SSH private key through the capability secret
 command in [the provisioning index](host-provisioning.md), never in settings.
 
@@ -75,7 +95,8 @@ The home archive and its digest/identity manifest are private and live outside
 the home, for example beneath `/var/lib/yoke-golden/yoketest`. Capture into a
 new directory; never overwrite a golden. `.ssh` is preserved from the live home,
 so rotating SSH access does not get undone by restore. Live Unix sockets and
-`.sock` links are ephemeral daemon state and are omitted; signed-in regular
+links resolving to sockets or outside the captured home are omitted regardless
+of filename. Regular files and safe links named `.sock` are retained; signed-in regular
 files and persistent CLI links are retained.
 
 Declare a probes JSON document with absolute argv for every required CLI,
