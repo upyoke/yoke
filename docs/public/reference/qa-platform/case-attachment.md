@@ -33,6 +33,29 @@ Until it does, no deployment run can admit the row, and the item's `done`
 transition keeps blocking on it.
 Do not guess the phase from a URL or environment name.
 
+When item QA needs another item's shipped fix, record the wait on the existing
+dependency edge before retrying:
+
+```text
+yoke items dependency add DEPENDENT BLOCKER operator --gate-point closure \
+  --satisfaction status:done --rationale "QA requires the blocker's shipped fix"
+```
+
+Read `yoke items dependency add --help` for satisfaction and direction. Use
+`fact:deployed:<environment-name>` when QA needs a registered environment
+before the blocker reaches done. Composition skips release items with an open
+blocking edge to an unshipped item and names the blocker in its receipt; the
+first release after the blocker ships enrolls the waiting item automatically.
+Coordination-only and satisfied edges do not delay composition.
+
+Removing a release member also aborts its live run/member QA executions and
+releases their queued host turns and leases in the removal transaction. Standing
+item plans and passing evidence remain. A holder cleaning residue from an older
+removal can use `yoke qa plan abort --deployment-run-id RUN --execution-id ID
+--reason TEXT --project P`; read `yoke qa plan abort --help` first. The audited
+removal preserves abort authority under the member's item claim and execution
+ownership; it does not authorize continuing QA for a removed member.
+
 ```text
 yoke qa requirement add --deployment-run run-YYYYMMDD-NNN \
   --method-id browser-inspection --qa-phase post_deploy \

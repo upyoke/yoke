@@ -11,6 +11,29 @@ from yoke_core.domain import db_backend
 PLAN_EXECUTION_STALE_SECONDS = 30 * 60
 
 
+def lock_member_admission(conn: Any, run_id: str | None, member: int | None) -> None:
+    """Serialize member cursor admission with audited membership removal."""
+    if run_id is None or member is None:
+        return
+    from yoke_core.domain.deployment_runs_lock import lock_run
+    from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindings
+
+    lock_item_workflow_bindings(conn, (int(member),))
+    lock_run(conn, str(run_id))
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    if (
+        conn.execute(
+            f"SELECT 1 FROM deployment_run_items WHERE run_id={marker} AND item_id={marker}",
+            (str(run_id), int(member)),
+        ).fetchone()
+        is None
+    ):
+        _fail(
+            f"QA member {member} is no longer attached to run {run_id!r}; "
+            "wait for its next release instead of starting this execution"
+        )
+
+
 def _fail(message: str) -> None:
     from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
 

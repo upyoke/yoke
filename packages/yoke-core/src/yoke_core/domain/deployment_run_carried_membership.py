@@ -66,6 +66,9 @@ from yoke_core.domain.deployment_run_composition_guard import (
 from yoke_core.domain.deployment_run_membership_removals import (
     removed_item_ids,
 )
+from yoke_core.domain.deployment_run_dependency_readiness import (
+    unshipped_dependency_pairs,
+)
 from yoke_core.domain.deployment_run_unheld_candidates import (
     CustodyResolution,
     resolve_candidate_custody,
@@ -243,8 +246,13 @@ def enroll_carried_members(
         for item_id in carried
         if item_id not in members and item_requires_release_membership(conn, item_id)
     ]
+    blocked = {
+        dependent for dependent, _, _ in unshipped_dependency_pairs(conn, candidates)
+    }
     enrolled: list[str] = []
     for item_id in candidates:
+        if item_id in blocked:
+            continue
         try:
             enrolled.append(admit_run_item(conn, run_id=run_id, item_id=item_id))
         except (LookupError, ValueError) as exc:

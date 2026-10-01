@@ -87,10 +87,21 @@ learns the other's part from its own skill. The split is the whole rule:
   deliver, and `validate-composition` composes the run now and reports what
   it enrolled or why it refused. One notice names every carried item it
   skipped and why: held by another release, back in rework (status before
-  its release stage), or removed. A wrongly composed member of a run still
+  its release stage), removed, or blocked by an open dependency on an unshipped
+  item. Composition skips that dependent until its blocker ships or reaches
+  done; the first subsequent release enrolls it, including landings below
+  the prior release baseline. Satisfied and coordination-only edges do not
+  delay enrollment. Workers finding blocked item QA record the dependency
+  with `yoke items dependency add DEPENDENT BLOCKER operator --gate-point
+  closure --satisfaction status:done --rationale R`; read its `--help` for
+  direction and named-environment delivery facts. A wrongly composed member of a run still
   `created` comes out with `yoke deployment-runs remove-item RUN-ID PREFIX-N
   --reason R` under the deploy lock: the reason is recorded on the run,
-  composition never re-enrolls it, its code still ships, and a later release
+  removal also aborts this run/member's live QA executions and releases queued
+  host reservations and held leases in the same transaction. A removed member's
+  holder may abort its own leftover execution with `yoke qa plan abort
+  --deployment-run-id RUN --execution-id ID --reason R --project P`; read its
+  `--help` first. Composition never re-enrolls it, its code still ships, and a later release
   enrolls it; `add-item` reverses the removal while created. Unsettled independent members may also be removed while executing at item QA or failed at `item-qa-failed`, with the same shared-gate guards: outstanding run-bound member requirements are retracted; standing plans and passing evidence remain. A live item QA runner skips a member only when its membership row is absent and the run records its removal, then continues the remaining members; an unrecorded missing member still fails loudly. Resume the failed run with `yoke watch deploy -- RUN-ID --from-stage item-qa`; every other failed stage still refuses removal. Before creating a release pair, inspect the
   delivery-ready items' selected completion flows and choose their flow. A
   refused creation or start names independent blockers together, including
