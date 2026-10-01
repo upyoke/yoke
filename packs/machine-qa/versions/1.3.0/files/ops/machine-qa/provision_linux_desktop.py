@@ -142,7 +142,13 @@ def verify(home: Path) -> dict:
         raise ProvisionFailure(
             "linux_desktop_session_not_proved: rerun provisioning to select XFCE"
         )
-    command(["xfce4-session", "--version"])
+    packages = command(
+        ["dpkg-query", "-W", "-f=${db:Status-Status}\n", "xfce4-session", "xorgxrdp"]
+    ).stdout.splitlines()
+    if packages != ["installed", "installed"]:
+        raise ProvisionFailure(
+            "linux_desktop_packages_not_proved: reinstall XFCE and xorgxrdp"
+        )
     status = command(["passwd", "-S"]).stdout.split()
     return {
         "ok": True,
