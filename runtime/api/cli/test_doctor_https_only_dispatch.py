@@ -151,29 +151,6 @@ def test_https_only_still_relays_unknown_slug() -> None:
 
 
 def test_https_only_composes_local_runtime_verdict() -> None:
-    relayed = FunctionCallResponse(
-        success=True,
-        function="doctor.run.run",
-        version="v1",
-        request_id="r2",
-        result={
-            "results": [
-                {
-                    "hc": "HC-session-relay",
-                    "name": "Machine relay",
-                    "severity": "N/A",
-                    "detail": "declared for the local runtime; this run is hosted",
-                }
-            ],
-            "scope": "only",
-            "project": "yoke",
-            "runtime": "hosted",
-            "fail_count": 0,
-            "warn_count": 0,
-            "pass_count": 0,
-            "na_count": 1,
-        },
-    )
     local = [
         {
             "hc": "HC-session-relay",
@@ -186,7 +163,7 @@ def test_https_only_composes_local_runtime_verdict() -> None:
     with (
         patch(
             "yoke_cli.commands.adapters.doctor_https_run.collect_chunked",
-            return_value=relayed,
+            side_effect=AssertionError("machine-only selection must not relay"),
         ),
         patch(
             "yoke_cli.commands.adapters.doctor_https_compose.run_local_runtime_checks",
@@ -221,6 +198,6 @@ def test_https_only_composes_local_runtime_verdict() -> None:
     assert result["results"] == local
     assert result["pass_count"] == 1
     assert result["na_count"] == 0
-    assert result["composed"] == "local_runtime+relayed_control_plane"
+    assert result["composed"] == "local_runtime"
     persist.assert_called_once()
     assert persist.call_args.args[0]["pass_count"] == 1

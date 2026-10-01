@@ -136,6 +136,7 @@ def hook_evaluate(args: List[str]) -> int:
         ResidentUnavailable,
         evaluate_with_resident,
     )
+    from yoke_cli.hook_resident_health import claim_fallback_warning
 
     try:
         result = evaluate_with_resident(
@@ -145,10 +146,12 @@ def hook_evaluate(args: List[str]) -> int:
             client_started_monotonic=client_timing.started_monotonic,
         )
     except ResidentUnavailable as exc:
-        sys.stderr.write(
-            f"WARNING: {exc.code}: {exc.detail}; using canonical in-process "
-            f"fallback (resident log: {exc.log_path})\n"
-        )
+        if claim_fallback_warning(exc.log_path.parent):
+            sys.stderr.write(
+                f"WARNING: {exc.code}: {exc.detail}; using canonical in-process "
+                f"fallback (resident log: {exc.log_path}; "
+                "check: yoke watch doctor -- --only hook-resident)\n"
+            )
         fallback_ms: list[int] = []
         exit_code = _evaluate_inprocess(
             parsed.event_name,

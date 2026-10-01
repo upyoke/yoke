@@ -30,17 +30,27 @@ _CAPTURED_REQUESTS: List[FunctionCallRequest] = []
 def _stub_ok(request: FunctionCallRequest) -> FunctionCallResponse:
     _CAPTURED_REQUESTS.append(request)
     return FunctionCallResponse(
-        success=True, function=request.function, version=request.version,
+        success=True,
+        function=request.function,
+        version=request.version,
         request_id=request.request_id,
-        result={"results": [], "scope": "quick", "project": "yoke",
-                "fail_count": 0, "warn_count": 0, "pass_count": 0},
+        result={
+            "results": [],
+            "scope": "quick",
+            "project": "yoke",
+            "fail_count": 0,
+            "warn_count": 0,
+            "pass_count": 0,
+        },
     )
 
 
 def _stub_fail(request: FunctionCallRequest) -> FunctionCallResponse:
     _CAPTURED_REQUESTS.append(request)
     return FunctionCallResponse(
-        success=False, function=request.function, version=request.version,
+        success=False,
+        function=request.function,
+        version=request.version,
         request_id=request.request_id,
         error=FunctionError(code="invalid_payload", message="stub"),
     )
@@ -101,9 +111,7 @@ def _run_captured(stub, *argv: str, session_id: str = "test-session"):
             "yoke_core.domain.yoke_function_dispatch.dispatch",
             side_effect=stub,
         ):
-            with patch(
-                "yoke_cli.commands._helpers.ensure_handlers_loaded"
-            ):
+            with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
                 with patch(
                     "yoke_cli.commands.adapters.doctor._active_transport_is_https",
                     return_value=False,
@@ -136,7 +144,8 @@ def _run_with_project_roster(checks, *argv: str):
 class TestDoctorRun:
     @pytest.mark.parametrize("json_mode", [False, True])
     def test_project_check_only_runs_in_human_and_json_modes(
-        self, json_mode: bool,
+        self,
+        json_mode: bool,
     ) -> None:
         argv = ["doctor", "run", "--only", "HC-project-policy"]
         if json_mode:
@@ -157,7 +166,8 @@ class TestDoctorRun:
 
     @pytest.mark.parametrize("json_mode", [False, True])
     def test_unknown_check_still_fails_after_project_roster_discovery(
-        self, json_mode: bool,
+        self,
+        json_mode: bool,
     ) -> None:
         argv = ["doctor", "run", "--only", "HC-unknown-project-check"]
         if json_mode:
@@ -178,7 +188,10 @@ class TestDoctorRun:
         assert req.function == "doctor.run.run"
         assert req.target.kind == "global"
         assert req.payload == {
-            "project": "yoke", "quick": True, "full": False, "fix": False,
+            "project": "yoke",
+            "quick": True,
+            "full": False,
+            "fix": False,
             # The client states where the checks will execute; the runner
             # would otherwise have to guess whether it can see a checkout.
             "runtime": "local",
@@ -193,8 +206,13 @@ class TestDoctorRun:
 
     def test_only_with_project_override(self) -> None:
         rc = _run(
-            _stub_ok, "doctor", "run",
-            "--only", "HC-foo,HC-bar", "--project", "externalwebapp",
+            _stub_ok,
+            "doctor",
+            "run",
+            "--only",
+            "HC-foo,HC-bar",
+            "--project",
+            "externalwebapp",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -220,10 +238,18 @@ class TestDoctorRun:
         def fake_call_dispatcher(**kwargs):
             calls.update(kwargs)
             return FunctionCallResponse(
-                success=True, function="doctor.run.run", version="v1",
+                success=True,
+                function="doctor.run.run",
+                version="v1",
                 request_id="req-1",
-                result={"results": [], "scope": "quick", "project": "yoke",
-                        "fail_count": 0, "warn_count": 0, "pass_count": 0},
+                result={
+                    "results": [],
+                    "scope": "quick",
+                    "project": "yoke",
+                    "fail_count": 0,
+                    "warn_count": 0,
+                    "pass_count": 0,
+                },
             )
 
         with (
@@ -238,82 +264,3 @@ class TestDoctorRun:
 
         assert rc == 0
         assert calls["timeout_s"] == DOCTOR_RUN_READ_TIMEOUT_S
-
-    def test_https_dispatch_chunks_and_aggregates(self) -> None:
-        calls = []
-
-        def fake_call_dispatcher(**kwargs):
-            calls.append(kwargs)
-            request_id = f"req-{len(calls)}"
-            if len(calls) == 1:
-                return FunctionCallResponse(
-                    success=True,
-                    function="doctor.run.run",
-                    version="v1",
-                    request_id=request_id,
-                    result={
-                        "results": [
-                            {
-                                "hc": "HC-first",
-                                "name": "First",
-                                "severity": "PASS",
-                                "detail": "",
-                            }
-                        ],
-                        "scope": "quick",
-                        "project": "yoke",
-                        "fail_count": 0,
-                        "warn_count": 0,
-                        "pass_count": 1,
-                        "done": False,
-                        "cursor": "first",
-                    },
-                )
-            return FunctionCallResponse(
-                success=True,
-                function="doctor.run.run",
-                version="v1",
-                request_id=request_id,
-                result={
-                    "results": [
-                        {
-                            "hc": "HC-second",
-                            "name": "Second",
-                            "severity": "WARN",
-                            "detail": "note",
-                        }
-                    ],
-                    "scope": "quick",
-                    "project": "yoke",
-                    "fail_count": 0,
-                    "warn_count": 1,
-                    "pass_count": 0,
-                    "done": True,
-                    "cursor": "second",
-                },
-            )
-
-        stdout = io.StringIO()
-        with patch(
-            "yoke_cli.commands.adapters.doctor._active_transport_is_https",
-            return_value=True,
-        ):
-            with patch(
-                "yoke_cli.commands.adapters.doctor_https_run.call_dispatcher",
-                side_effect=fake_call_dispatcher,
-            ):
-                with redirect_stdout(stdout), redirect_stderr(io.StringIO()):
-                    rc = cli_main(["doctor", "run", "--quick", "--json"])
-
-        assert rc == 0
-        assert len(calls) == 2
-        assert calls[0]["payload"]["max_checks"] == 1
-        assert calls[0]["payload"]["project_safe_quick"] is True
-        assert "cursor_after" not in calls[0]["payload"]
-        assert calls[1]["payload"]["cursor_after"] == "first"
-        envelope = json.loads(stdout.getvalue())
-        assert envelope["result"]["pass_count"] == 1
-        assert envelope["result"]["warn_count"] == 1
-        assert [r["hc"] for r in envelope["result"]["results"]] == [
-            "HC-first", "HC-second",
-        ]

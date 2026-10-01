@@ -212,6 +212,7 @@ _SHAPES = (
         (
             "administered-scratch-databases",
             "harness-unattended-posture",
+            "hook-resident",
             "machine-registry",
             "session-relay-orphans",
         ),

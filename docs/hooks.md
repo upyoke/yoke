@@ -75,8 +75,16 @@ and one undeliverable batch must never pin a machine to an old revision or keep
 an idle resident alive. In-flight evaluations still finish first: handler
 threads are non-daemon and are joined on close. Concurrent connections evaluate
 in isolated caller contexts. An unreachable socket, protocol error, startup
-refusal, or mid-request crash is named on stderr and falls back to the same
-canonical in-process evaluator for that invocation; `HookDispatchTelemetry`
+refusal, or mid-request crash falls back to the same canonical in-process
+evaluator for that invocation. The named stderr warning is limited to once
+every five minutes across hook processes using one timestamp in the existing
+evaluator state directory; suppression never skips evaluation. If that state
+cannot be written, the diagnostic stays quiet and evaluation continues.
+`yoke watch doctor -- --only hook-resident` independently reports a down
+resident as WARN, including its log path and startup recovery guidance; the
+check runs on the client machine for local and HTTPS control planes, and is
+N/A on server/hosted runtimes. An idle resident may have retired normally;
+the next hook invocation retries startup. `HookDispatchTelemetry`
 records `evaluator=inprocess` and the fallback reason. Absence of the resident
 can therefore never manufacture an allow verdict.
 
