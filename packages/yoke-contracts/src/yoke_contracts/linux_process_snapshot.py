@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 _PROC_ROOT = Path("/proc")
@@ -35,9 +36,20 @@ def process_command_name(pid: int) -> str | None:
 
 
 def process_start_time(pid: int) -> str | None:
-    """An opaque boot-relative start token; zombies answer as exited processes."""
+    """The established calendar start string, derived without ps; no zombies."""
     facts = _stat(pid)
-    return f"proc:{facts[2]}" if facts and facts[1] != "Z" else None
+    if facts is None or facts[1] == "Z":
+        return None
+    try:
+        boot_time = next(
+            int(line.split()[1])
+            for line in (_PROC_ROOT / "stat").read_text().splitlines()
+            if line.startswith("btime ")
+        )
+        started = boot_time + int(facts[2]) / os.sysconf("SC_CLK_TCK")
+        return time.ctime(started)
+    except (OSError, ValueError, IndexError, StopIteration, OverflowError):
+        return None
 
 
 def process_table() -> dict[int, tuple[int, str]]:

@@ -1,6 +1,7 @@
 """Procfs process identity stays safe with truncated comm and no ps binary."""
 
 from pathlib import Path
+import time
 from unittest.mock import patch
 
 import pytest
@@ -10,10 +11,12 @@ from yoke_contracts import linux_process_snapshot, process_ancestry
 
 @pytest.fixture
 def proc(tmp_path):
+    (tmp_path / "stat").write_text("cpu 1 2 3\nbtime 1000\n")
     with (
         patch.object(linux_process_snapshot, "_PROC_ROOT", tmp_path),
         patch.object(process_ancestry.sys, "platform", "linux"),
         patch.object(process_ancestry.subprocess, "run", side_effect=FileNotFoundError),
+        patch.object(linux_process_snapshot.os, "sysconf", return_value=100),
     ):
         yield tmp_path
 
@@ -45,17 +48,25 @@ def test_per_session_anchor_resolves_without_ps(proc):
     add_process(proc, 200, 1, "/opt/Claude App/claude", start="777")
     add_process(proc, 300, 200, "bash")
     anchor = process_ancestry.find_nearest_harness_anchor(300)
-    assert anchor == process_ancestry.ProcessAnchor(200, "proc:777", "claude")
+    assert anchor == process_ancestry.ProcessAnchor(200, time.ctime(1007.77), "claude")
+    # Existing idle-host cleanup parses the same calendar format as ps lstart.
+    assert time.strptime(anchor.start_time, "%a %b %d %H:%M:%S %Y")
 
 
 def test_stat_parentheses_and_pid_reuse(proc):
     directory = add_process(proc, 200, 100, "weird ) name", start="111")
     assert process_ancestry.parent_map() == {200: 100}
-    assert process_ancestry.process_start_time(200) == "proc:111"
+    assert process_ancestry.process_start_time(200) == time.ctime(1001.11)
     (directory / "stat").write_text(
         (directory / "stat").read_text().replace("111", "222")
     )
-    assert process_ancestry.process_start_time(200) == "proc:222"
+    assert process_ancestry.process_start_time(200) == time.ctime(1002.22)
+
+
+def test_missing_boot_time_cannot_supply_start_identity(proc):
+    add_process(proc, 200, 1, "claude")
+    (proc / "stat").write_text("cpu 1 2 3\n")
+    assert process_ancestry.process_start_time(200) is None
 
 
 def test_zombie_and_disappeared_processes_are_not_live(proc):
