@@ -1,6 +1,7 @@
 // Card renderers for the three live objects on the Overview frontier: items,
 // sessions (rendered by the Sessions module), and deployment runs.
 
+import { appendRemovedMembers, carriedRunItems } from "./universe_run_removed_members.js";
 import { appendCarriedItemHeading } from "./universe_carried_item_titles.js";
 import {
   buildUniverseRoute,
@@ -120,8 +121,7 @@ export function workItemCard(documentNode, row, scope, options = {}) {
 }
 
 export function carriedItems(row) {
-  if ((row.member_items || []).length) return row.member_items;
-  return row.carried_work?.items || [];
+  return carriedRunItems(row);
 }
 
 function carriedReference(item) {
@@ -284,7 +284,7 @@ export function shippingRunCard(context, row, scope, options = {}) {
   card.appendChild(el(documentNode, "span", "shipping-run-card-meta", [
     items.length
       ? `${items.length} ${items.length === 1 ? "item" : "items"}`
-      : "environment run",
+      : (row.removed_member_items || []).length ? "0 items" : "environment run",
     row.release_lineage ? `release ${String(row.release_lineage).slice(0, 12)}` : null,
     timing ? relativeAgePhrase(timing) : null,
   ].filter(Boolean).join(" · ")));
@@ -293,6 +293,7 @@ export function shippingRunCard(context, row, scope, options = {}) {
     facts: options.itemFacts,
     onDecide: options.onItemDecision,
   });
+  appendRemovedMembers(context, card, row, runProjectId(context, row, scope));
   const derivation = row.carried_work?.derivation;
   if (derivation && !items.length) {
     card.appendChild(el(

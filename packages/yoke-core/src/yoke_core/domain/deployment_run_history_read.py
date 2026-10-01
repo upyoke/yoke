@@ -29,6 +29,7 @@ RUN_HISTORY_FIELDS = (
     "artifact_identity",
     "composition_frozen_at",
     "member_items",
+    "removed_member_items",
     "stages",
     "gates",
 )
@@ -122,6 +123,7 @@ def _source(conn: Any) -> tuple[str, str]:
             f"{column('started_at')} AS started_at",
             f"{column('completed_at')} AS completed_at",
             f"{column('carried_work')} AS carried_work",
+            f"{column('membership_removals')} AS membership_removals",
             # The identity a run froze. Without these three scalars a reader
             # cannot tell whether evidence still answers for the run.
             f"{column('release_lineage')} AS release_lineage",

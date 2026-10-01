@@ -5,8 +5,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.deployment_run_member_presentation import (
+    _member_items,
+    removed_member_items,
+)
 from yoke_core.domain.deployment_run_bound_sources import parse_bound_sources
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 from yoke_core.domain.deployment_run_contained_items import (
@@ -41,6 +44,7 @@ def append_overview_run_window(
 
 RUN_PRESENTATION_FIELDS = (
     "member_items",
+    "removed_member_items",
     "contained_items",
     "delivery_candidate_items",
     "stages",
@@ -78,54 +82,6 @@ def _stage_rows(
     return rows, current_index
 
 
-def _member_items(
-    conn: Any,
-    run_ids: list[str],
-    *,
-    visible_project_ids: Optional[set[int]] = None,
-) -> dict[str, list[dict[str, Any]]]:
-    if not run_ids or visible_project_ids == set():
-        return {}
-    markers = ", ".join("%s" for _ in run_ids)
-    visibility = ""
-    params: list[Any] = list(run_ids)
-    if visible_project_ids is not None:
-        project_ids = sorted(visible_project_ids)
-        visibility = (
-            " AND i.project_id IN (" + ", ".join("%s" for _ in project_ids) + ")"
-        )
-        params.extend(project_ids)
-    rows = conn.execute(
-        "SELECT dri.run_id, i.id, i.title, i.status, i.project_sequence, "
-        "p.id AS project_id, p.slug AS project, p.public_item_prefix "
-        "FROM deployment_run_items dri "
-        "JOIN items i ON i.id = dri.item_id "
-        "JOIN projects p ON p.id = i.project_id "
-        f"WHERE dri.run_id IN ({markers}){visibility} "
-        "ORDER BY dri.run_id, i.id",
-        tuple(params),
-    ).fetchall()
-    result: dict[str, list[dict[str, Any]]] = {}
-    for row in rows:
-        item_id = int(row["id"])
-        result.setdefault(str(row["run_id"]), []).append(
-            {
-                "id": item_id,
-                "ref": format_item_ref(
-                    str(row["project"]),
-                    str(row["public_item_prefix"] or ""),
-                    int(row["project_sequence"]),
-                ),
-                "title": str(row["title"]),
-                "status": str(row["status"]),
-                "project_id": int(row["project_id"]),
-                "project_sequence": int(row["project_sequence"]),
-                "project": str(row["project"]),
-            }
-        )
-    return result
-
-
 def present_deployment_runs(
     conn: Any,
     base: list[dict[str, Any]],
@@ -143,6 +99,12 @@ def present_deployment_runs(
         run_ids,
         visible_project_ids=visible_project_ids,
     )
+    removed = removed_member_items(conn, base, visible_project_ids=visible_project_ids)
+    for run_id, entries in removed.items():
+        excluded = {entry["id"] for entry in entries}
+        members[run_id] = [
+            m for m in members.get(run_id, []) if m["id"] not in excluded
+        ]
     from yoke_core.domain.deployment_qa_run_acceptance import member_qa_standings
 
     qa = (
@@ -169,6 +131,7 @@ def present_deployment_runs(
     for source in base:
         row = dict(source)
         run_id = str(row["id"])
+        row.pop("membership_removals", None)
         if include_carried_work:
             carried = parse_carried_work(row.get("carried_work"))
             if compact and carried:
@@ -240,6 +203,7 @@ def present_deployment_runs(
             ]
         presentation = {
             "member_items": run_members,
+            "removed_member_items": removed.get(run_id, []),
             "contained_items": contained,
             "stages": stages,
             "gates": gates.get(run_id, []),
