@@ -174,7 +174,7 @@ A deployment-run case is not bound to the session's claimed lane: its subject
 is the candidate the run deployed, already built and observed at that
 endpoint, which no member's worktree contributed to. It is bound to that
 candidate instead, and the runner holds it there itself: with no
-`--checkout-path`, each Command case runs in a disposable clone of its
+`--checkout-path`, each `command` case runs in a disposable clone of its
 project checkout at the candidate revision, outside every lane and shared
 tree, removed once its verdict is recorded. The owner needs no flag and no
 claim on another session's tree however far the default branch has moved.
@@ -184,6 +184,13 @@ on code the run never deployed; `--allow-tree-mismatch` remains available and
 here declares that the case reads nothing from the checkout, as a probe
 against the deployed endpoint does. The tree the command ran in is recorded on
 the verdict either way.
+
+`command-ci` verifies and publishes an item lane. Deployment-bound cases
+refuse as `deployment_ci_candidate_unverified` before checkout, rebase, push,
+or verdict; an empty diff against main proves nothing about the deployed
+candidate. Replace such a post-deploy case with the `command` method and rerun
+the same stage/member plan to check the pinned candidate.
+`--allow-tree-mismatch` does not waive this CI refusal.
 
 
 ## Shared host turns and starting state

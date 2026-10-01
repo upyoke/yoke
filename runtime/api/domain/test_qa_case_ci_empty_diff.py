@@ -181,3 +181,45 @@ def test_non_empty_lane_still_dispatches(wired, monkeypatch) -> None:
     assert result["ci_run_id"] == "9182736"
     evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
     assert "empty_diff" not in evidence
+
+
+@pytest.mark.parametrize("candidate", [None, LANE_HEAD, "b" * 40])
+@pytest.mark.parametrize("explicit_checkout", [False, True])
+def test_deployment_case_refuses_before_empty_diff_pass(
+    wired,
+    monkeypatch,
+    candidate,
+    explicit_checkout,
+) -> None:
+    checkout, recorder, _ = wired
+    empty = mock.Mock(return_value=True)
+    monkeypatch.setattr(empty_diff, "lane_has_no_commits_against_target", empty)
+    prepare = mock.Mock(side_effect=AssertionError("must not rebase"))
+    monkeypatch.setattr(
+        qa_case_ci_run.qa_case_ci_resume,
+        "prepare_lane_preserving_covering_run",
+        prepare,
+    )
+    push = mock.Mock(side_effect=AssertionError("must not push"))
+    monkeypatch.setattr(qa_case_ci_lane, "push_lane", push)
+    case = ci_case(
+        item_id=None,
+        deployment_member_item_id=9,
+        deployment_run_id="run-candidate",
+        deployment_source_revision=candidate,
+    )
+
+    with pytest.raises(
+        qa_case_ci_run.QaCaseExecutionError,
+        match="deployment_ci_candidate_unverified.*pinned candidate",
+    ):
+        qa_case_ci_run.execute_ci_case(
+            case,
+            checkout_path=checkout if explicit_checkout else None,
+            allow_tree_mismatch=True,
+        )
+
+    empty.assert_not_called()
+    prepare.assert_not_called()
+    push.assert_not_called()
+    assert recorder.calls == []
