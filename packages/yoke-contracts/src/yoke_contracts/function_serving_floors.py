@@ -73,6 +73,7 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "test_machine.operation.begin": "next-release",
     "test_machine.operation.submit": "next-release",
     "test_machine.reset": "next-release",
+    "test_machine.screenshot": "next-release",
     "test_machine.settings_replace": "next-release",
     "test_machine.verify": "next-release",
 }
