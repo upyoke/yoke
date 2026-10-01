@@ -29,12 +29,19 @@ class AgentVerdict(BaseModel):
     rationale: str = Field(min_length=1, max_length=8000)
 
 
+class HostWait(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    machine: str = Field(min_length=1, max_length=128)
+    rationale: str = Field(min_length=1, max_length=8000)
+
+
 class PlanReviewSubmitRequest(PlanExecutionStateRequest):
     model_config = ConfigDict(extra="forbid")
 
     bundle_id: str = Field(min_length=1)
     bundle_digest: str = Field(min_length=64, max_length=64)
-    verdicts: list[AgentVerdict] = Field(min_length=1)
+    verdicts: list[AgentVerdict] = Field(default_factory=list)
+    host_wait: HostWait | None = None
 
 
 class PlanReviewBeginResponse(BaseModel):
@@ -113,15 +120,30 @@ def handle_plan_review_submit(request: FunctionCallRequest) -> HandlerOutcome:
             submit_plan_review,
         )
 
-        result = submit_plan_review(
-            conn,
-            execution,
-            bundle_id=parsed.bundle_id,
-            bundle_digest=parsed.bundle_digest,
-            verdicts=[row.model_dump() for row in parsed.verdicts],
-            reviewer_actor_id=request.actor.actor_id,
-            reviewer_session_id=request.actor.session_id,
-        )
+        if parsed.host_wait is not None:
+            if parsed.verdicts:
+                raise QaPlanReviewError(
+                    "host_wait_and_verdicts_exclusive: submit the hold without verdicts"
+                )
+            from yoke_core.domain.qa_host_wait_submission import submit_host_wait
+
+            result = submit_host_wait(
+                conn,
+                execution,
+                bundle_id=parsed.bundle_id,
+                bundle_digest=parsed.bundle_digest,
+                **parsed.host_wait.model_dump(),
+            )
+        else:
+            result = submit_plan_review(
+                conn,
+                execution,
+                bundle_id=parsed.bundle_id,
+                bundle_digest=parsed.bundle_digest,
+                verdicts=[row.model_dump() for row in parsed.verdicts],
+                reviewer_actor_id=request.actor.actor_id,
+                reviewer_session_id=request.actor.session_id,
+            )
     except (QaPlanReviewError, ValueError) as exc:
         conn.rollback()
         return _error("plan_review_submit_failed", str(exc))

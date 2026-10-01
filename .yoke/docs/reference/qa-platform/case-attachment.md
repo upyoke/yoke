@@ -184,3 +184,50 @@ on code the run never deployed; `--allow-tree-mismatch` remains available and
 here declares that the case reads nothing from the checkout, as a probe
 against the deployed endpoint does. The tree the command ran in is recorded on
 the verdict either way.
+
+
+## Shared host turns and starting state
+
+An occupied Test Machine is a wait, never a FAIL. Plan acquisition keeps its
+cursor open and queues the host on the existing durable execution. FIFO order
+starts at the first host-wait request and survives retries. Lease release
+reserves the next live waiter's turn and sends its owner the exact resume
+command; stopped owners use the same harness-neutral wake route as other
+control-plane notices. Ended owners leave the queue. A reserved sticky lease
+still uses the documented human-only recovery if its owner dies.
+
+If a walker discovers a second required host is occupied, return
+`WALK_STATUS: HOST_WAIT` and its registered name plus holder evidence. Submit
+through the current bundle's `yoke qa plan review-submit ... --stdin`:
+
+```json
+{"host_wait":{"machine":"linux-lab","rationale":"lease holder and resume point"}}
+```
+
+Submit this object alone. It records no verdict or human review request,
+retains the old capture and bundle as history, and queues a new capture against
+the identical immutable target. The same scoped plan-run command resumes it.
+Use a verdict only after the required host was available and the walk ran.
+
+Exploratory mission `method_config` can declare an apt package fixture:
+
+```json
+{
+  "executor":"informed_subagent",
+  "machine":"linux-lab",
+  "host_starting_state":{"os_packages":{
+    "absent":["python3-venv","python3.12-venv"],"present":[]
+  }}
+}
+```
+
+Every fresh mission restores its golden home (default `fresh-host`), undoes the
+preceding mission's package delta, applies the declaration and records proof
+before walking. Linux and WSL fixtures use apt; a declaration on another OS
+refuses with the supported host named. Package changes made through
+`yoke qa mission host-command` are journaled, including transitive installs and
+failed commands. The owner-only journal lives beside the golden archive,
+outside the reset home. No arbitrary package cleanup command is accepted.
+Restoring missing or changed packages requires the recorded versions to remain
+available; a failed restore names apt access and journal reconciliation and
+blocks execution. Continuations preserve the existing walk and journal.

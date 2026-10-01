@@ -71,6 +71,9 @@ def set_plan_machine_lease(
     lease_id: int,
 ) -> None:
     """Attach the server-acquired Test Machine lease to the durable plan."""
+    from yoke_core.domain.qa_host_turns import release_host_reservations
+
+    release_host_reservations(conn, str(execution["id"]))
     placeholder = marker(conn)
     now = iso8601_now()
     cursor = conn.execute(
@@ -122,6 +125,9 @@ def finish_plan_execution(
         )
     terminal_settlement = state in TERMINAL_PLAN_EXECUTION_STATES
     if terminal_settlement:
+        from yoke_core.domain.qa_host_turns import release_host_reservations
+
+        release_host_reservations(conn, str(execution["id"]))
         settle_unreviewed_execution_captures(conn, execution)
         record_inflight_case_failure(conn, execution, reason=reason)
     retain_lease = state == "awaiting_agent_review" and _mission_needs_retained_lease(

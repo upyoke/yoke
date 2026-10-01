@@ -18,18 +18,22 @@ from yoke_core.domain.qa_review_verdict_modes import (
 )
 
 
-def _verdicts(raw: str) -> list[dict[str, Any]]:
+def _submission(raw: str) -> dict[str, Any]:
     try:
         value = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise ValueError(f"stdin is not valid JSON: {exc}") from exc
+    if isinstance(value, dict) and "host_wait" in value:
+        if set(value) != {"host_wait"}:
+            raise ValueError("host_wait is submitted alone, without verdicts")
+        return value
     if isinstance(value, dict):
         value = value.get("verdicts")
     if not isinstance(value, list) or any(not isinstance(row, dict) for row in value):
         raise ValueError(
             "stdin must be a verdict list or an object containing verdicts"
         )
-    return value
+    return {"verdicts": value}
 
 
 def _help_epilogue() -> str:
@@ -56,7 +60,10 @@ def _help_epilogue() -> str:
         "  rationale       non-empty string; for an inconclusive verdict, what\n"
         "                  could not be established and why\n"
         "\n"
-        "A partial batch is refused: the bundle settles as one submission."
+        "A partial batch is refused: the bundle settles as one submission.\n"
+        "Host contention is a hold, never a verdict (including agent_only).\n"
+        'Submit {"host_wait":{"machine":"NAME","rationale":"holder evidence"}}\n'
+        "alone to keep requirements open and queue a fresh mission in FIFO order."
     )
 
 
@@ -78,7 +85,7 @@ def run(args: List[str]) -> int:
     parser.add_argument("--session-id")
     parsed = parser.parse_args(args)
     try:
-        verdicts = _verdicts(sys.stdin.read())
+        submission = _submission(sys.stdin.read())
     except ValueError as exc:
         print(f"yoke qa plan review-submit: {exc}", file=sys.stderr)
         return 2
@@ -102,7 +109,7 @@ def run(args: List[str]) -> int:
                 "execution_id": parsed.execution_id,
                 "bundle_id": parsed.bundle_id,
                 "bundle_digest": parsed.bundle_digest,
-                "verdicts": verdicts,
+                **submission,
             },
             actor=build_actor(session_id=parsed.session_id),
         )

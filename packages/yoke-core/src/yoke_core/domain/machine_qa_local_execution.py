@@ -201,10 +201,22 @@ def prepare_agent_mission_contract(
     execution = _execution(contract, progress_callback=progress_callback)
     if progress_callback is not None:
         progress_callback()
-    baseline_name = contract.baselines[0] if contract.baselines else None
+    baseline_name = (
+        contract.baselines[0]
+        if contract.baselines
+        else (None if contract.continues_execution_id else "fresh-host")
+    )
     baseline = execution.reach_baseline(baseline_name) if baseline_name else None
     if progress_callback is not None:
         progress_callback()
+    from yoke_harness.qa_host_package_fixture import restore_host_packages
+
+    packages = {}
+    if not contract.continues_execution_id and (baseline is None or baseline.ok):
+        packages = restore_host_packages(
+            execution.control,
+            contract.cases[0].method_config.get("host_starting_state"),
+        )
     scratch_path = create_mission_scratch(
         execution.control,
         execution_id=str(contract.plan_execution_id),
@@ -213,7 +225,10 @@ def prepare_agent_mission_contract(
         "baseline": baseline.name if baseline else None,
         "ok": baseline.ok if baseline else True,
         "error_code": baseline.error_code if baseline else None,
-        "evidence": baseline.evidence if baseline else {},
+        "evidence": {
+            **(baseline.evidence if baseline else {}),
+            "os_packages": packages,
+        },
         "scratch_path": scratch_path,
     }
     payload = {
@@ -238,17 +253,23 @@ def execute_agent_mission_host_command(
     """Run one lease-authorized walker command and return redacted output."""
     contract = _mission_contract(raw_contract)
     execution = _execution(contract)
-    completed = execution.control.run_command(
-        argv,
-        required_session_context=GUI_SESSION_CONTEXT if gui_session else None,
-        timeout=timeout_seconds,
-    )
+    from yoke_harness.qa_host_package_fixture import record_host_packages
+
+    try:
+        completed = execution.control.run_command(
+            argv,
+            required_session_context=GUI_SESSION_CONTEXT if gui_session else None,
+            timeout=timeout_seconds,
+        )
+    finally:
+        packages = record_host_packages(execution.control)
     context_failure = (
         classify_macos_session_context_failure(completed)
         if completed.returncode != 0 and not gui_session
         else None
     )
     result = {
+        "os_packages": packages,
         "exit_code": int(completed.returncode),
         "stdout": completed.stdout or "",
         "stderr": completed.stderr or "",

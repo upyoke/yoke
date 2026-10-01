@@ -80,6 +80,19 @@ When a human gate appears:
 Never wait in the tool loop for the person. Never retain a foreground process
 whose progress depends on that response.
 
+### A host occupied by another mission
+
+Return `WALK_STATUS: HOST_WAIT`, its registered machine name, holder lease
+and an exact resume point. Do nothing on the occupied host. The main owner
+submits a `host_wait` object through the bundle's review-submit command,
+without verdicts. Host contention keeps requirements open even when a stage
+accepts only pass/fail; it is never a product finding or an undetermined verdict.
+The durable execution queues a FIFO turn and wakes its owner when reserved.
+A fresh mission restores its golden home and declared OS-package fixture;
+a `--continue-mission` walk preserves the held walk's starting state instead.
+All package-changing commands must use the leased host-command surface so
+its journal records direct and transitive packages outside the golden home.
+
 ### Re-entering a walk after a hold
 
 A held walk can outlive the execution carrying it. A parked owner is left
@@ -577,6 +590,7 @@ Begin the final response with exactly one actual status line:
   point;
 - `WALK_STATUS: HUMAN_GATE` when a person must act before exploration can
   continue;
+- `WALK_STATUS: HOST_WAIT` when another mission holds a required host;
 - `WALK_STATUS: UNDETERMINED` when an essential fact could not be established
   for a reason other than a pending human action.
 
