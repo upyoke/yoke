@@ -20,6 +20,7 @@ def setup(tmp_path, monkeypatch):
     monkeypatch.setattr(deps.sys, "stdin", SimpleNamespace(isatty=lambda: False))
     monkeypatch.setattr(deps.sys, "stderr", SimpleNamespace(isatty=lambda: False))
     monkeypatch.setattr(deps.browser_linux_deps, "is_amazon_linux", lambda: False)
+    monkeypatch.setattr(deps, "ensure_chromium_apparmor", lambda *args, **kwargs: None)
     toolchain = SimpleNamespace(node=tmp_path / "node")
     commands, logs = [], []
     probes = iter(["Missing libraries: libX11.so.6", ""])
@@ -124,6 +125,18 @@ def test_present_libraries_need_no_privilege_probe(setup, monkeypatch):
     monkeypatch.setattr(deps, "_probe", lambda *args: {"missing": ""})
     ensure()
     assert commands == []
+
+
+def test_present_libraries_still_provision_chromium_sandbox(setup, monkeypatch):
+    ensure, _, _ = setup
+    calls = []
+    monkeypatch.setattr(deps, "_probe", lambda *args: {"missing": ""})
+    monkeypatch.setattr(
+        deps, "ensure_chromium_apparmor", lambda *args, **kwargs: calls.append(kwargs)
+    )
+    ensure()
+    assert len(calls) == 1
+    assert calls[0]["autoinstall"] is True
 
 
 def test_failed_install_is_diagnosed_and_does_not_report_success(setup, monkeypatch):

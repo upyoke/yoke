@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from yoke_harness import browser_linux_deps
+from yoke_harness.browser_apparmor import ensure_chromium_apparmor
 from yoke_harness.system_privileges import command_authority
 
 # The packaged Playwright version owns both validation and the apt package list.
@@ -60,6 +61,9 @@ def ensure_system_dependencies(
 ):
     if not sys.platform.startswith("linux"):
         return
+    ensure_chromium_apparmor(
+        browser, toolchain, env=env, emit=emit, autoinstall=autoinstall
+    )
     if not shutil.which("ldd"):
         raise RuntimeError(
             "browser_dependency_check_unavailable: ldd is missing. "
