@@ -24,7 +24,9 @@ Claude denial uses exit 2 with the blocking reason on stderr; Codex and Cursor
 return their structured denial decisions on stdout.
 Missing diagnostic telemetry means insufficient proof, not proof of a product
 fault. It then runs `yoke dev setup --editable-install` and a small
-`yoke watch pytest --local` subset. Cleanup uninstalls macOS's disposable local
+`yoke watch pytest --local` subset. That source-development step reads the
+embedded binary directory from `yoke local-postgres status --json` and adds it
+to the disposable child PATH so the separate test cluster can start. Cleanup uninstalls macOS's disposable local
 relay before stopping the local cluster and removing its scratch directory.
 
 Run through `qa.plan_execution.begin` using the standalone adapter:
@@ -82,8 +84,8 @@ copy credentials, or change authentication settings.
 
 Review the redacted recordings before committing: session/conversation/tool ids,
 machine/account ids, paths, and account-bound data must not remain. The replay
-substitutes fresh session identities and disposable workspace/transcript paths,
-preserving absent transcript paths and matching transcript filenames to the fresh session,
+substitutes fresh session identities, disposable workspace/transcript paths,
 and probe commands while preserving native wire structure and other fields.
+Absent transcript paths stay absent; present transcript filenames match the fresh session.
 If a harness is signed out or its keychain is locked, ask the test-account
 operator to restore access; capture must not enter or extract credentials.

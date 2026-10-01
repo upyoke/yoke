@@ -243,6 +243,15 @@ def smoke(root: Path, output: Path) -> None:
                     ["uv", "sync", "--all-packages", "--all-groups", "--locked"],
                     cwd=root,
                 )
+                postgres = commands.document(
+                    "local-postgres-status",
+                    [yoke, "local-postgres", "status", "--json"],
+                    cwd=project,
+                )
+                binaries = Path(postgres["binaries"])
+                if not (binaries / "initdb").is_file():
+                    raise commands.failure("postgres_binaries_missing", str(binaries))
+                commands.env["PATH"] = f"{binaries}:{commands.env['PATH']}"
                 commands.run(
                     "pytest-subset",
                     [
