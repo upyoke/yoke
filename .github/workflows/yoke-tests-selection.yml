@@ -17,7 +17,7 @@ name: yoke-tests-selection
 # + npm-ci TypeScript toolchain as yoke-ci: contract tests fail without it.
 #
 # Its concurrency group is keyed by dispatch id and never
-# cancels: yoke-ci cancels in-progress runs per ref, and a selection
+# cancels: yoke-ci cancels in-progress runs on refs other than main, and a selection
 # dispatched on a lane branch must never take that lane's gate down.
 #
 # GitHub registers a workflow_dispatch workflow only from the DEFAULT branch:
