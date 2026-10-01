@@ -70,6 +70,8 @@ The golden is an absolute **Linux** path outside the Linux home, for example
 `/var/lib/yoke-golden/yoketest/home`. Windows state, SSH access and distro
 registration survive reset. The existing Linux archive, digest, owner, probes
 and absence gates apply.
+The adapter streams long Linux programs over SSH stdin, keeping Windows command
+text bounded and preserving the program's original stdin for golden operations.
 Declare positive authentication output expectations in the probes. For example,
 Cursor `agent status` can exit zero while signed out; require
 `"expect_output_contains":"Logged in"` rather than exit status alone.

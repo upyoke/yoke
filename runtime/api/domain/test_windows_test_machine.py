@@ -5,7 +5,9 @@ from __future__ import annotations
 import base64
 import json
 import re
+import shlex
 import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -17,7 +19,7 @@ from yoke_core.domain.machine_qa_host_control import host_control_for
 from yoke_core.domain.ssh_windows_host_control import SshWindowsHostControl
 from yoke_harness.ssh_windows_host_operations import SshWindowsHostOperations
 from yoke_harness.test_machine_types import HostActionResult
-from yoke_harness.windows_wsl_command import windows_wsl_command
+from yoke_harness.windows_wsl_command import windows_wsl_command, windows_wsl_input
 
 
 SETTINGS = {
@@ -68,13 +70,36 @@ def test_shell_metacharacters_survive_the_windows_shell():
     assert "%PATH%" not in wrapped and "$HOME" not in wrapped
 
 
+@pytest.mark.skipif(
+    sys.platform != "linux",
+    reason="Executes the Linux Bash process-substitution semantics used by WSL2",
+)
+def test_long_commands_preserve_original_stdin_and_exit_status():
+    stdin = '{"absent_paths": ["café", "two words"]}'
+    program = "# long golden-like program\n" * 1000
+    program += "import sys; print(sys.stdin.read()); sys.exit(7)"
+    command = shlex.join(["/usr/bin/python3", "-c", program])
+    reader, framed_input = windows_wsl_input(command, stdin)
+    assert len(windows_wsl_command(reader)) < 8191
+    result = subprocess.run(
+        ["/bin/bash", "-lc", reader],
+        input=framed_input,
+        text=True,
+        capture_output=True,
+        timeout=10,
+    )
+    assert result.returncode == 7
+    assert result.stdout == stdin + "\n"
+
+
 @pytest.mark.parametrize("kernel", ["6.6.87.2-microsoft-standard-WSL2", "legacy"])
 def test_windows_ssh_requires_wsl2_and_non_root_facts(monkeypatch, kernel):
     calls = []
 
     def run(argv, **kwargs):
         calls.append((argv, kwargs))
-        script = _linux_command(argv[-1])
+        assert "read -r payload" in _linux_command(argv[-1])
+        script = base64.b64decode(kwargs["input"].split("\n", 1)[0]).decode()
         output = (
             kernel
             if "osrelease" in script
@@ -101,7 +126,10 @@ def test_windows_ssh_requires_wsl2_and_non_root_facts(monkeypatch, kernel):
     assert receipt.evidence["execution_context"] == "wsl2"
     result = control.run_command(["printf", "%s", "two words"])
     assert result.returncode == 0
-    assert "two words" in _linux_command(calls[-1][0][-1])
+    assert (
+        "two words"
+        in base64.b64decode(calls[-1][1]["input"].split("\n", 1)[0]).decode()
+    )
     assert all("wsl.exe --cd '~' -e" in _decoded(argv[-1]) for argv, _ in calls)
 
 

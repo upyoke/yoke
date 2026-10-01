@@ -5,7 +5,7 @@ from __future__ import annotations
 from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
 from yoke_harness.test_machine_types import HostActionResult
-from yoke_harness.windows_wsl_command import windows_wsl_command
+from yoke_harness.windows_wsl_command import windows_wsl_command, windows_wsl_input
 
 
 class SshWindowsHostOperations(SshLinuxHostOperations):
@@ -18,6 +18,10 @@ class SshWindowsHostOperations(SshLinuxHostOperations):
 
     def _ssh_argv(self, command: str) -> list[str]:
         return super()._ssh_argv(windows_wsl_command(command))
+
+    def _run(self, command: str, *, input_text: str | None = None, timeout: int = 60):
+        reader, framed_input = windows_wsl_input(command, input_text)
+        return super()._run(reader, input_text=framed_input, timeout=timeout)
 
     def _host_facts(self):
         try:
