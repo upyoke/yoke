@@ -42,10 +42,10 @@ def test_handshake_build_is_an_exact_immutable_wheel_version() -> None:
             "https://app.stage.upyoke.com/api/orgs/demo",
             "https://api.stage.upyoke.com/simple/",
         ),
-        ("https://relay.example.test/api", "https://relay.example.test/simple/"),
+        ("https://relay.example.test/api", "https://wheels.example.test/simple/"),
         (
             "https://ignored:secret@relay.example.test:8443/api",
-            "https://relay.example.test:8443/simple/",
+            "https://wheels.example.test/simple/",
         ),
     ),
 )
@@ -88,7 +88,7 @@ def test_successful_pin_installs_a_wheel_then_repoints_the_active_release(
     install = calls[0]
     assert install[-1] == f"yoke-core=={RELEASE}"
     assert install[install.index("--extra-index-url") + 1] == (
-        "https://relay.example.test/simple/"
+        "https://wheels.example.test/simple/"
     )
     assert install[install.index("--only-binary") + 1] == ":all:"
 

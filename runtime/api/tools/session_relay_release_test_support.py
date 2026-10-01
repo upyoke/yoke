@@ -39,6 +39,12 @@ def write_relay_config(tmp_path: Path, api_url: str = DEFAULT_API_URL) -> Path:
                     }
                 },
                 "projects": [],
+                "settings": {
+                    "distribution": {
+                        "origin": "https://wheels.example.test",
+                        "channel": "private",
+                    }
+                },
             }
         ),
         encoding="utf-8",
