@@ -165,6 +165,11 @@ def begin_host_control_execution(
         raise MachineQaProtocolError(
             "host-control execution requires an owning session"
         )
+    if any((case.get("method_config") or {}).get("machines") for case in cases):
+        raise MachineQaProtocolError(
+            "test_machine_set_requires_plan: run this simultaneous-host case "
+            "through yoke qa plan run so every declared host is leased together"
+        )
     try:
         admission = acquire_test_machine_admission(
             conn,

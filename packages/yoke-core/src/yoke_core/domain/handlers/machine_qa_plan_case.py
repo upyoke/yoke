@@ -67,6 +67,10 @@ def _owned_case(
     if expected_runner is not None and case.get("runner_id") != expected_runner:
         raise ValueError(f"the ordered plan case is not a {expected_runner} case")
     _assert_current_snapshot(conn, case)
+    if replay and parsed.ordinal >= int(execution["cursor_ordinal"]):
+        from yoke_core.domain.qa_plan_host_leases import require_case_host_leases
+
+        require_case_host_leases(conn, execution, case)
     return execution, case
 
 
@@ -112,15 +116,6 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.machine_qa_execution_protocol import (
         MachineQaProtocolError,
         MachineQaProtocolLeaseHeld,
-        begin_host_control_execution,
-        commit_deferred_connection,
-    )
-    from yoke_core.domain.machine_qa_plan_protocol import (
-        continue_plan_host_control_execution,
-        plan_case_contract_arguments,
-    )
-    from yoke_core.domain.qa_plan_execution_state import (
-        set_plan_machine_lease,
     )
 
     conn = connect()
@@ -136,44 +131,19 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
         )
         if case.get("runner_id") not in {"host_control", "agent_mission"}:
             raise ValueError("the ordered plan case is not machine-backed")
-        arguments = plan_case_contract_arguments(
-            execution, case, ordinal=parsed.ordinal
-        )
-        from yoke_core.domain.machine_qa_case_machine import resolve_case_machine
+        selection_new = execution.get("machine_lease_id") is None
+        from yoke_core.domain.qa_plan_host_leases import begin_case_host_contract
 
-        machine = resolve_case_machine(case, parsed.machine)
-        lease_id = execution.get("machine_lease_id")
         try:
-            if lease_id is None:
-                contract = begin_host_control_execution(
-                    commit_deferred_connection(conn),
-                    project=str(case["project"]),
-                    session_id=request.actor.session_id,
-                    machine=machine,
-                    **arguments,
-                )
-                set_plan_machine_lease(
-                    conn,
-                    execution,
-                    lease_id=contract.lease_id,
-                )
-            else:
-                contract = continue_plan_host_control_execution(
-                    conn,
-                    project=str(case["project"]),
-                    session_id=request.actor.session_id,
-                    actor_id=request.actor.actor_id,
-                    lease_id=int(lease_id),
-                    baselines=arguments["baselines"],
-                    cases=arguments["cases"],
-                    plan_execution_id=arguments["plan_execution_id"],
-                    continues_execution_id=arguments["continues_execution_id"],
-                    roster_digest=arguments["roster_digest"],
-                    ordinal=arguments["ordinal"],
-                    case_position=arguments["case_position"],
-                    baseline_position=arguments["baseline_position"],
-                    machine=machine,
-                )
+            contract = begin_case_host_contract(
+                conn,
+                execution,
+                case,
+                ordinal=parsed.ordinal,
+                machine=parsed.machine,
+                actor_id=request.actor.actor_id,
+                session_id=request.actor.session_id,
+            )
         except MachineQaProtocolLeaseHeld as held:
             from yoke_core.domain.qa_host_turns import record_host_wait
 
@@ -199,7 +169,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             "execution_id": str(execution["id"]),
             "cursor_ordinal": int(execution["cursor_ordinal"]),
             "execution": contract.model_dump(mode="json"),
-            "selection_new": lease_id is None,
+            "selection_new": selection_new,
         },
     )
 
@@ -232,8 +202,8 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.machine_qa_execution_protocol import (
         MachineQaProtocolError,
-        commit_deferred_connection,
         validate_host_control_submission,
+        commit_deferred_connection,
     )
     from yoke_core.domain.qa_plan_execution_state import advance_plan_execution
 

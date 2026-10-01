@@ -20,9 +20,24 @@ def plan_case_contract_arguments(
 ) -> dict[str, Any]:
     """Build the execution-bound arguments for one immutable plan case."""
     contract_case = {key: value for key, value in case.items() if key != "ordinal"}
+    baselines = contract_baselines(execution, case)
+    if (
+        execution.get("deployment_member_item_id")
+        and case.get("runner_id") == "host_control"
+    ):
+        earlier = execution["roster"][:ordinal]
+        if any(
+            previous.get("runner_id") == "host_control"
+            and all(
+                previous.get(key) == case.get(key)
+                for key in ("plan_id", "baseline_position", "host_baseline")
+            )
+            for previous in earlier
+        ):
+            baselines = ()
     return {
         "operation": "plan_case",
-        "baselines": contract_baselines(execution, case),
+        "baselines": baselines,
         "cases": (contract_case,),
         "plan_execution_id": str(execution["id"]),
         "continues_execution_id": execution.get("continues_execution_id"),

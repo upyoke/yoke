@@ -59,6 +59,16 @@ far the default branch has moved. --checkout-path overrides that tree and is
 refused unless it sits at the candidate; --allow-tree-mismatch declares the
 case reads nothing from the checkout.
 
+For a deployment member whose cases require several Test Machines, the scoped
+command automatically executes one immutable roster per machine. Each roster
+holds its own lease and participates in that host's FIFO. It keeps the same
+run, stage, member and frozen target, including cases on different plans.
+A waiting host or independent review stops the command; after the wait or
+review settles, rerun the same scoped command to continue the remaining hosts.
+Completed scoped cases with passing evidence are retained. The member is
+accepted only when every required case passes. Omit --machine for this
+multi-machine form: a single host pin cannot satisfy conflicting constraints.
+
 Who runs it, and what follows
 -----------------------------
 The item owner parked at its release wait runs its own stage when the

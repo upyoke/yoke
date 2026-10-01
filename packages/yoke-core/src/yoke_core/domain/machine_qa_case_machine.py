@@ -35,6 +35,9 @@ class MachineConstraintError(ValueError):
 
 def normalize_config_machine(config_contract_id: str, config: dict) -> str | None:
     """Validate and normalize an optional ``method_config.machine`` value."""
+    from yoke_core.domain.machine_qa_case_hosts import normalize_config_machines
+
+    normalize_config_machines(config)
     if "machine" not in config:
         return None
     if config_contract_id not in MACHINE_CONFIG_CONTRACTS:
@@ -135,7 +138,9 @@ def resolve_plan_machine(
         raise MachineConstraintError(
             "test_machine_plan_constraints_conflict: one plan execution holds "
             f"one uninterrupted machine lease, but its cases require {names}; "
-            "split those cases into one plan per machine"
+            "for deployment member QA, rerun with --stage STAGE --member ITEM "
+            "and omit --machine to execute separate host rosters; other subjects "
+            "require one plan execution per machine"
         )
     plan_machine = next(iter(constrained), None)
     return resolve_case_machine(

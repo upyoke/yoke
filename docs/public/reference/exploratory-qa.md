@@ -56,6 +56,14 @@ is validated during plan authoring and becomes the case's durable
 `method_config` for direct requirements and their admitted deployment copies;
 omitting `--machine` preserves that pin, and a conflicting run pin is refused.
 
+For a mission that needs two hosts at once, also declare
+`"machines":["linux-lab","test-mac"]` with `"machine":"test-mac"` naming the
+driving host. Every name must be registered and listed once. The plan runner
+acquires the complete set in sorted name order through each host's FIFO;
+contention releases partial acquisitions before waiting. Both leases remain
+held and heartbeated through the walk and independent review. Mission access
+refuses if either lease has been lost; completion or abort releases both.
+
 Omit `host_baselines` or set it to `[]` to preserve the live host. Preparation
 then reaches no baseline and restores no packages unless `host_starting_state`
 explicitly declares a fixture. It creates only the owner-only mission scratch

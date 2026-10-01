@@ -57,6 +57,9 @@ def heartbeat_plan_execution(
         f"{placeholder} WHERE id={placeholder}",
         (now, str(execution["id"])),
     )
+    from yoke_core.domain.qa_plan_host_leases import heartbeat_execution_hosts
+
+    heartbeat_execution_hosts(conn, execution, now=now)
     if execution.get("machine_lease_id") is not None:
         heartbeat(conn, int(execution["machine_lease_id"]), now=now)
     else:
@@ -133,12 +136,16 @@ def finish_plan_execution(
     retain_lease = state == "awaiting_agent_review" and _mission_needs_retained_lease(
         execution
     )
+    if not retain_lease:
+        from yoke_core.domain.qa_plan_host_leases import release_execution_hosts
+
+        release_execution_hosts(conn, execution, reason=reason)
     if execution.get("machine_lease_id") is not None and not retain_lease:
         release(
             conn,
             int(execution["machine_lease_id"]),
             reason,
-            commit=commit,
+            commit=False,
         )
     placeholder = marker(conn)
     now = iso8601_now()

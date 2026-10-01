@@ -216,6 +216,26 @@ the same stage/member plan to check the pinned candidate.
 `--allow-tree-mismatch` does not waive this CI refusal.
 
 
+For a deployment member whose cases require several Test Machines, the scoped
+command automatically executes one immutable roster per machine. Each roster
+holds its own lease and participates in that host's FIFO. It keeps the same
+run, stage, member and frozen target, including cases on different plans.
+A waiting host or independent review stops the command; after the wait or
+review settles, rerun the same scoped command to continue the remaining hosts.
+Completed scoped cases with passing evidence are retained. The member is
+accepted only when every required case passes. Omit --machine for this
+multi-machine form: a single host pin cannot satisfy conflicting constraints.
+
+For one case that needs several hosts simultaneously, declare its driving host
+as `method_config.machine` and every required host in `method_config.machines`:
+`{"machine":"test-mac","machines":["linux-lab","test-mac"]}`. Names must be
+registered, unique, and include the driving host. Run this case through
+`yoke qa plan run`; direct case and baseline-group execution refuse it. The
+runner acquires every host through its FIFO in sorted name order, releases
+partial acquisitions on contention, and retains the full set through case
+execution and mission review. Completion or abort releases the set. Cases
+with different driving hosts or declared sets use separate execution rosters.
+
 ## Shared host turns and starting state
 
 An occupied Test Machine is a wait, never a FAIL. Plan acquisition keeps its
