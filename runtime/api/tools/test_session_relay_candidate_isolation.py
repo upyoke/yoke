@@ -162,6 +162,11 @@ def test_candidate_environment_is_created_isolated(
         return subprocess.CompletedProcess(argv, 0, "", "")
 
     monkeypatch.setattr(session_relay_runtime_install.subprocess, "run", record)
+    monkeypatch.setattr(
+        session_relay_runtime_install,
+        "ensure_venv_support",
+        lambda python, **kwargs: None,
+    )
     session_relay_runtime_install.create_release_venv(
         tmp_path / "candidate", tmp_path / "runtime" / "bin" / "python"
     )
