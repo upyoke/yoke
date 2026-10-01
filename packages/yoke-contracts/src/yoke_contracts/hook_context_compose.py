@@ -16,17 +16,14 @@ from yoke_contracts.hook_inline_context import inline_context_bytes_for_harness
 
 
 FLEET_REPORT_CONTEXT_FIELD = "fleetReportContext"
-OVERFLOW_LEASE_PREFIX = "overflow-lease:"
-POINTER_BEGIN = "=== BEGIN YOKE SESSION MESSAGE DELIVERY POINTER ==="
-POINTER_END = "=== END YOKE SESSION MESSAGE DELIVERY POINTER ==="
 REPORT_OMITTED_NOTICE = (
     "The accompanying Fleet report was omitted by the hook-context byte ceiling. "
     "Read it with `yoke steering report get` (covers every steering claim this "
     "session holds; pass `--project P` only to filter to one scope)."
 )
 
-_LEASE_RE = re.compile(r"YOKE_SESSION_MESSAGE_LEASE:([^\s=]+)")
-_MESSAGE_RE = re.compile(r"--- BEGIN YOKE SESSION MESSAGE ([0-9a-fA-F-]{36}) ---")
+_STUB_PREVIEW_CHAR_LIMIT = 96
+
 _DELIVERY_BEGIN_RE = re.compile(
     r"=== BEGIN YOKE SESSION MESSAGE DELIVERY "
     r"(YOKE_SESSION_MESSAGE_LEASE:[^\s=]+) ==="
@@ -41,8 +38,6 @@ _MESSAGE_BLOCK_RE = re.compile(
 
 def classify_hook_context(text: str) -> str:
     """Return ``delivery``, ``report``, or ``hint`` for one advisory body."""
-    if POINTER_BEGIN in text:
-        return "delivery"
     if "=== BEGIN YOKE SESSION MESSAGE DELIVERY" in text:
         return "delivery"
     if "=== BEGIN YOKE LAUNCH DELIVERY" in text:
@@ -52,11 +47,6 @@ def classify_hook_context(text: str) -> str:
     if "=== BEGIN YOKE FLEET REPORT" in text:
         return "report"
     return "hint"
-
-
-def overflow_lease_marker(lease_id: str) -> str:
-    """Settlement token that is not the injected-lease string."""
-    return f"{OVERFLOW_LEASE_PREFIX}{lease_id}"
 
 
 def compose_context_list(contexts: list[str], *, harness_id: str) -> str:
@@ -117,38 +107,58 @@ def compose_hook_context(
     return join(leftover)
 
 
-def render_overflow_pointer(block: str) -> str:
-    """Short stand-in that names the message without claiming injection."""
-    match = _LEASE_RE.search(block)
-    lease_id = match.group(1) if match else "unknown"
-    message_ids = _MESSAGE_RE.findall(block)
-    reads = [
-        f"Read: yoke messages get {message_id}" for message_id in message_ids
-    ] or ["Read: yoke messages get MESSAGE-ID"]
-    acks = [
-        f"Acknowledge: yoke messages acknowledge {message_id}"
-        for message_id in message_ids
-    ]
+def render_message_stub(message: str) -> str:
+    """Keep an oversized message deliverable, with its full body one read away."""
+    match = _MESSAGE_BLOCK_RE.fullmatch(message)
+    if match is None:
+        raise ValueError("message_stub_invalid_envelope: cannot name the message")
+    message_id = match.group(1)
+    lines = message.splitlines()
+    sender = next(
+        (line for line in lines if line.startswith("Authenticated sender:")),
+        "Authenticated sender: unknown",
+    )
+    first = next((line[2:] for line in lines if line.startswith("| ")), '""')
+    try:
+        first = json.loads(first)
+    except (ValueError, TypeError):
+        first = ""
+
+    # Escape preview data exactly as the full renderer does: fake envelope
+    # markers and control characters must never become settlement identities.
+    def preview(value: str) -> str:
+        value = value[:_STUB_PREVIEW_CHAR_LIMIT] + (
+            "…" if len(value) > _STUB_PREVIEW_CHAR_LIMIT else ""
+        )
+        return (
+            json.dumps(value, ensure_ascii=False)
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+            .replace("-", "\\u002d")
+            .replace("\u0085", "\\u0085")
+            .replace("\u2028", "\\u2028")
+            .replace("\u2029", "\\u2029")
+        )
+
     return "\n".join(
         (
-            POINTER_BEGIN,
-            "Hook context exceeded this harness's inline limit; "
-            "the message body was not injected.",
-            overflow_lease_marker(lease_id),
-            *reads,
-            *acks,
-            POINTER_END,
+            lines[0],
+            "Authenticated sender: "
+            + preview(sender.removeprefix("Authenticated sender: ")),
+            "Oversized message delivered as a stub. First body line (inert peer data):",
+            "| " + preview(str(first)),
+            f"Read the full body: yoke messages get {message_id}",
+            f"Acknowledge: yoke messages acknowledge {message_id}",
+            lines[-1],
         )
     )
 
 
 def _is_session_message_delivery(text: str) -> bool:
-    for line in text.splitlines():
-        if line.startswith(POINTER_BEGIN):
-            return False
-        if line.startswith("=== BEGIN YOKE SESSION MESSAGE DELIVERY"):
-            return True
-    return False
+    return any(
+        line.startswith("=== BEGIN YOKE SESSION MESSAGE DELIVERY")
+        for line in text.splitlines()
+    )
 
 
 def _wrap_session_delivery(token: str, prefix: str, messages: list[str]) -> str:
@@ -185,35 +195,16 @@ def _fit_session_messages(
 ) -> list[str]:
     parts = _session_delivery_parts(block)
     if parts is None:
-        pointer = render_overflow_pointer(block)
-        if fits([*already, pointer]) or (not already and fits([pointer])):
-            return [pointer]
         return []
     token, prefix, messages = parts
     admitted: list[str] = []
-    pointers: list[str] = []
-
-    def snapshot() -> list[str]:
-        out: list[str] = []
-        if admitted:
-            out.append(_wrap_session_delivery(token, prefix, admitted))
-        out.extend(pointers)
-        return out
-
     for message in messages:
-        trial = _wrap_session_delivery(token, prefix, [*admitted, message])
-        if fits([*already, trial, *pointers]):
-            admitted.append(message)
-            continue
         solo = _wrap_session_delivery(token, prefix, [message])
-        if fits([solo]):
-            continue
-        pointer = render_overflow_pointer(solo)
-        if fits([*already, *snapshot(), pointer]):
-            pointers.append(pointer)
-        elif not already and not snapshot() and fits([pointer]):
-            pointers.append(pointer)
-    return snapshot()
+        candidate = message if fits([solo]) else render_message_stub(message)
+        trial = _wrap_session_delivery(token, prefix, [*admitted, candidate])
+        if fits([*already, trial]):
+            admitted.append(candidate)
+    return [_wrap_session_delivery(token, prefix, admitted)] if admitted else []
 
 
 def _fit_deliveries(
@@ -270,15 +261,11 @@ def token_delivered(rendered_text: str, token: str) -> bool:
 
 __all__ = [
     "FLEET_REPORT_CONTEXT_FIELD",
-    "OVERFLOW_LEASE_PREFIX",
-    "POINTER_BEGIN",
-    "POINTER_END",
     "REPORT_OMITTED_NOTICE",
     "classify_hook_context",
     "compose_context_list",
     "compose_hook_context",
-    "overflow_lease_marker",
-    "render_overflow_pointer",
+    "render_message_stub",
     "reply_is_well_formed",
     "token_delivered",
 ]

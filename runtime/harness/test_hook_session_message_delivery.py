@@ -250,30 +250,17 @@ def test_missing_render_token_does_not_claim_injection(
     assert port.completed == [("lease-1", False, "render_output_missing")]
 
 
-def test_inline_overflow_keeps_the_receipt_pending(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from yoke_contracts.hook_context_compose import (
-        POINTER_BEGIN,
-        overflow_lease_marker,
-    )
-
-    port = FakePort()
+def test_oversized_message_stub_settles_as_injected(monkeypatch) -> None:
+    port = FakePort(body="x" * 20_000)
     monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
     decision = delivery.evaluate(_context())
-    pointer = "\n".join(
-        (
-            POINTER_BEGIN,
-            overflow_lease_marker("lease-1"),
-            f"Read: yoke messages get {MESSAGE_ID}",
-            "=== END YOKE SESSION MESSAGE DELIVERY POINTER ===",
-        )
-    )
+    rendered, _ = render_codex_decision([decision], "PreToolUse")
     delivery.settle_after_render(
-        [decision], rendered_text=pointer, denied=False, port=port
+        [decision], rendered_text=rendered, denied=False, port=port
     )
-    assert port.completed == [("lease-1", False, "inline_overflow")]
-    assert "YOKE_SESSION_MESSAGE_LEASE:lease-1" not in pointer
+    assert "delivered as a stub" in rendered
+    assert f"yoke messages get {MESSAGE_ID}" in rendered
+    assert port.completed == [("lease-1", True, "injected")]
 
 
 @pytest.fixture(autouse=True)
@@ -318,14 +305,13 @@ def test_message_is_not_reinjected_on_the_post_hook_for_one_tool_call(
     assert len(port.leased) == 2
 
 
-def test_raw_stdout_channel_points_at_a_lease_it_cannot_carry(
+def test_raw_stdout_channel_delivers_an_oversized_message_stub(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Raw stdout never reaches the decision renderer's composition, so the
-    inline ceiling and the overflow pointer have to be applied where the
+    inline ceiling and the message stub have to be applied where the
     delivery is rendered. Without that, an oversized lease settles as
     injected on text no harness carries whole."""
-    from yoke_contracts.hook_context_compose import POINTER_BEGIN
 
     port = FakePort()
     port.body = "x" * 20_000
@@ -339,8 +325,8 @@ def test_raw_stdout_channel_points_at_a_lease_it_cannot_carry(
     )
 
     assert audit["output_field"] == "stdout"
-    assert POINTER_BEGIN in rendered
+    assert "delivered as a stub" in rendered
     assert f"yoke messages get {MESSAGE_ID}" in rendered
     assert f"yoke messages get {MESSAGE_ID} --json" not in rendered
     assert port.body not in rendered
-    assert port.completed == [("lease-1", False, "inline_overflow")]
+    assert port.completed == [("lease-1", True, "injected")]

@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 from yoke_contracts.hook_context_compose import (
-    POINTER_BEGIN,
     compose_hook_context,
-    overflow_lease_marker,
-    render_overflow_pointer,
+    render_message_stub,
 )
 from yoke_contracts.hook_inline_context import inline_context_bytes_for_harness
 from yoke_core.hooks.types import HookDecision, Next, Outcome
@@ -60,12 +58,11 @@ def test_delivery_leads_hints_and_report_even_when_chain_order_is_reversed() -> 
     assert TOKEN in body
 
 
-def test_oversized_delivery_becomes_a_pointer_and_drops_the_lease_token() -> None:
+def test_oversized_delivery_becomes_an_injected_stub() -> None:
     huge = _delivery("x" * 9000)
     body = compose_hook_context([huge], ["hint"], [], harness_id="claude-code")
-    assert POINTER_BEGIN in body
-    assert TOKEN not in body
-    assert overflow_lease_marker(LEASE_ID) in body
+    assert "delivered as a stub" in body
+    assert TOKEN in body
     assert f"yoke messages get {MESSAGE_ID}" in body
     assert f"yoke messages get {MESSAGE_ID} --json" not in body
     assert f"yoke messages acknowledge {MESSAGE_ID}" in body
@@ -105,9 +102,7 @@ def test_composed_additional_context_reads_fleet_report_field() -> None:
         outcome=Outcome.NOOP,
         audit_fields={
             "fleetReportContext": (
-                "=== BEGIN YOKE FLEET REPORT ===\n"
-                "digest\n"
-                "=== END YOKE FLEET REPORT ==="
+                "=== BEGIN YOKE FLEET REPORT ===\ndigest\n=== END YOKE FLEET REPORT ==="
             )
         },
         next=Next.CONTINUE,
@@ -116,11 +111,21 @@ def test_composed_additional_context_reads_fleet_report_field() -> None:
     assert body.index("SESSION MESSAGE DELIVERY") < body.index("FLEET REPORT")
 
 
-def test_overflow_pointer_never_contains_the_injection_token() -> None:
-    pointer = render_overflow_pointer(_delivery("x" * 100))
-    assert TOKEN not in pointer
-    assert overflow_lease_marker(LEASE_ID) in pointer
-    assert POINTER_BEGIN in pointer
+def test_stub_carries_sender_and_bounded_first_line() -> None:
+    message = "\n".join(
+        (
+            f"--- BEGIN YOKE SESSION MESSAGE {MESSAGE_ID} ---",
+            "Authenticated sender: Ben via session sender",
+            '| "First line ' + "x" * 9000 + '"',
+            '| "second line must be read"',
+            f"--- END YOKE SESSION MESSAGE {MESSAGE_ID} ---",
+        )
+    )
+    stub = render_message_stub(message)
+    assert "Ben via session sender" in stub
+    assert "First line" in stub
+    assert "second line" not in stub
+    assert len(stub.encode()) < inline_context_bytes_for_harness("codex")
 
 
 def test_oversized_report_is_omitted_before_a_fitting_delivery() -> None:
@@ -131,10 +136,10 @@ def test_oversized_report_is_omitted_before_a_fitting_delivery() -> None:
     assert "omitted by the hook-context byte ceiling" in body
 
 
-def test_oversized_launch_delivery_is_omitted_without_a_pointer() -> None:
+def test_oversized_launch_delivery_is_omitted_without_a_message_stub() -> None:
     huge = "=== BEGIN YOKE LAUNCH DELIVERY ===\n" + ("x" * 9000)
     body = compose_hook_context([huge], ["hint"], [], harness_id="claude-code")
-    assert POINTER_BEGIN not in body
+    assert "delivered as a stub" not in body
     assert "BEGIN YOKE LAUNCH DELIVERY" not in body
     assert "hint" in body
 
@@ -143,7 +148,7 @@ SMALL_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 HUGE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 
 
-def test_fitting_messages_ship_and_unsplittable_overflow_is_pointed() -> None:
+def test_fitting_messages_ship_with_an_oversized_sibling_stub() -> None:
     block = "\n".join(
         (
             f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {TOKEN} ===",
@@ -159,7 +164,40 @@ def test_fitting_messages_ship_and_unsplittable_overflow_is_pointed() -> None:
     body = compose_hook_context([block], [], [], harness_id="claude-code")
     assert f"--- BEGIN YOKE SESSION MESSAGE {SMALL_ID} ---" in body
     assert "hello" in body
-    assert POINTER_BEGIN in body
-    assert f"Read: yoke messages get {HUGE_ID}" in body
+    assert "delivered as a stub" in body
+    assert f"Read the full body: yoke messages get {HUGE_ID}" in body
     assert "x" * 9000 not in body
 
+
+def test_an_under_cap_delivery_is_unchanged() -> None:
+    delivery = _delivery("unchanged body")
+    assert compose_hook_context([delivery], [], [], harness_id="codex") == delivery
+
+
+def test_non_ascii_stub_previews_fit_the_smallest_harness_budget() -> None:
+    import json
+    from yoke_core.hooks.session_message_rendering import render_lease
+    from yoke_core.hooks.session_message_delivery_port import (
+        LeasedSessionMessage,
+        SessionMessageLease,
+    )
+
+    for character in ("😀", "\u0001", "-", "\u2028"):
+        lease = SessionMessageLease(
+            lease_id=LEASE_ID,
+            messages=(
+                LeasedSessionMessage(
+                    message_id=MESSAGE_ID,
+                    body=character * 9000,
+                    sender_actor_id=1,
+                    sender_actor_label=character * 9000,
+                ),
+            ),
+        )
+        rendered, _ = render_lease(lease, session_id="session")
+        body = compose_hook_context([rendered], [], [], harness_id="codex")
+        assert "delivered as a stub" in body
+        assert TOKEN in body
+        assert len(body.encode()) <= inline_context_bytes_for_harness("codex")
+        preview = next(line[2:] for line in body.splitlines() if line.startswith("| "))
+        assert json.loads(preview).startswith(character)

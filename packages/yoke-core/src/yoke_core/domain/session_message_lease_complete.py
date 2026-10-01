@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
@@ -10,8 +9,6 @@ from typing import Any
 from yoke_contracts.session_control.wake_delivery import (
     HOOK_DEFERRED_FOR_BUDGET_RESULT,
     HOOK_INJECTED_RESULT,
-    INLINE_OVERFLOW_RESULT,
-    inline_overflow_skip_reason,
 )
 from yoke_core.domain.session_message_types import row_dict, timestamp
 
@@ -21,7 +18,6 @@ HOOK_RESULT_CODES = frozenset(
         "dropped_by_sibling_denial",
         "empty_lease",
         HOOK_INJECTED_RESULT,
-        INLINE_OVERFLOW_RESULT,
         HOOK_DEFERRED_FOR_BUDGET_RESULT,
         "render_output_missing",
     }
@@ -41,17 +37,6 @@ def _complete_launches(conn: Any, rows: list[dict[str, Any]], *, now: datetime) 
             now=timestamp(now),
             commit=False,
         )
-
-
-def _merged_evidence(raw: Any, extra: Mapping[str, Any]) -> str:
-    try:
-        document = json.loads(raw) if raw else {}
-    except (TypeError, ValueError, json.JSONDecodeError):
-        document = {}
-    if not isinstance(document, dict):
-        document = {}
-    document.update(extra)
-    return json.dumps(document, sort_keys=True)
 
 
 def complete_hook_lease(
@@ -81,7 +66,7 @@ def complete_hook_lease(
         lock = " FOR UPDATE OF r" if _postgres(conn) else ""
         rows = conn.execute(
             "SELECT a.attempt_id,a.message_id,a.target_session_id,"
-            "r.injection_lease_id,r.state,a.evidence FROM session_message_attempts a "
+            "r.injection_lease_id,r.state FROM session_message_attempts a "
             "JOIN session_message_recipients r ON r.message_id=a.message_id "
             "AND r.session_id=a.target_session_id WHERE a.lease_id="
             + marker
@@ -101,36 +86,15 @@ def complete_hook_lease(
                 result=result,
                 per_message=per_message,
             )
-            extra: dict[str, str] = {}
-            if result_code == INLINE_OVERFLOW_RESULT:
-                extra["skip_reason"] = inline_overflow_skip_reason(message_id)
-            if extra:
-                conn.execute(
-                    "UPDATE session_message_attempts SET completed_at="
-                    + marker
-                    + ", result_code="
-                    + marker
-                    + ", evidence="
-                    + marker
-                    + " WHERE attempt_id="
-                    + marker,
-                    (
-                        stamp,
-                        result_code,
-                        _merged_evidence(row.get("evidence"), extra),
-                        row["attempt_id"],
-                    ),
-                )
-            else:
-                conn.execute(
-                    "UPDATE session_message_attempts SET completed_at="
-                    + marker
-                    + ", result_code="
-                    + marker
-                    + " WHERE attempt_id="
-                    + marker,
-                    (stamp, result_code, row["attempt_id"]),
-                )
+            conn.execute(
+                "UPDATE session_message_attempts SET completed_at="
+                + marker
+                + ", result_code="
+                + marker
+                + " WHERE attempt_id="
+                + marker,
+                (stamp, result_code, row["attempt_id"]),
+            )
             if current_lease != lease_id:
                 continue
             if injected_this:

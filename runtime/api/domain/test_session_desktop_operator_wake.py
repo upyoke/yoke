@@ -258,7 +258,7 @@ def test_a_hook_attempt_does_not_page_the_operator() -> None:
             "lease-1",
             NOW_TEXT,
             NOW_TEXT,
-            "inline_overflow",
+            "deferred_for_budget",
             "{}",
         ),
     )
