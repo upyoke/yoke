@@ -10,6 +10,7 @@ import platform
 import re
 import subprocess
 import tempfile
+import time
 
 
 LISTEN_ADDRESS = "127.0.0.1:3389"
@@ -136,7 +137,7 @@ def provision(home: Path) -> None:
 
 def verify(home: Path) -> dict:
     command(["systemctl", "is-active", "xrdp", "xrdp-sesman"])
-    prove_listener(command(["ss", "-H", "-ltn", "sport = :3389"]).stdout)
+    wait_for_listener()
     if (home / ".xsession").read_text() != SESSION_CONTENT:
         raise ProvisionFailure(
             "linux_desktop_session_not_proved: rerun provisioning to select XFCE"
@@ -153,6 +154,17 @@ def verify(home: Path) -> dict:
             "tunnel and sign into the browser yourself. SSH remains key-only."
         ),
     }
+
+
+def wait_for_listener() -> None:
+    # systemctl restart returns before xrdp has opened its listening socket.
+    deadline = time.monotonic() + 10
+    while True:
+        output = command(["ss", "-H", "-ltn", "sport = :3389"]).stdout
+        if output.strip() or time.monotonic() >= deadline:
+            prove_listener(output)
+            return
+        time.sleep(0.2)
 
 
 def main() -> int:

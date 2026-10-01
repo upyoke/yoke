@@ -57,6 +57,17 @@ def test_listener_proof_accepts_only_loopback(provisioner):
     provisioner.prove_listener("LISTEN 0 2 127.0.0.1:3389 0.0.0.0:*")
 
 
+def test_service_socket_startup_is_waited_for(provisioner, monkeypatch):
+    outputs = iter(["", "LISTEN 0 2 127.0.0.1:3389 0.0.0.0:*"])
+    monkeypatch.setattr(
+        provisioner,
+        "command",
+        lambda argv: subprocess.CompletedProcess(argv, 0, stdout=next(outputs)),
+    )
+    monkeypatch.setattr(provisioner.time, "sleep", lambda seconds: None)
+    provisioner.wait_for_listener()
+
+
 def test_custom_desktop_session_is_preserved(provisioner, monkeypatch, tmp_path):
     monkeypatch.setattr(provisioner.platform, "system", lambda: "Linux")
     monkeypatch.setattr(provisioner.os, "getuid", lambda: 1001)
