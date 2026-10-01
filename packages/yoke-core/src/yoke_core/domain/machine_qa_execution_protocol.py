@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hmac
-from typing import Any, Mapping, Sequence
+from typing import Any, Literal, Sequence
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.coordination_claim_record import (
@@ -35,6 +35,10 @@ from yoke_core.domain.machine_qa_execution_contract import (
 from yoke_core.domain.machine_qa_capability import (
     host_claim_key,
 )
+from yoke_core.domain.host_control_submission_receipt import (
+    host_control_submission_receipt,
+    host_control_submission_receipt_matches,
+)
 
 HOST_CONTROL_SUBMISSION_RECEIPT_KEY = "host_control_submission"
 
@@ -60,8 +64,6 @@ class MachineQaProtocolLeaseHeld(MachineQaProtocolError):
 
 
 class _CommitDeferredConnection:
-    """Delegate SQL while reserving commit/rollback for the submit handler."""
-
     def __init__(self, conn: Any) -> None:
         self._connection = conn
         self._inner = getattr(conn, "_inner", conn)
@@ -79,38 +81,6 @@ class _CommitDeferredConnection:
 def commit_deferred_connection(conn: Any) -> Any:
     """Adapt commit-owning leaf writers to one lease-release transaction."""
     return _CommitDeferredConnection(conn)
-
-
-def host_control_submission_receipt(
-    lease_id: int,
-    contract_digest: str,
-) -> dict[str, Any]:
-    """Return the durable identity shared by result and verification records."""
-    return {
-        "lease_id": int(lease_id),
-        "contract_digest": str(contract_digest),
-    }
-
-
-def host_control_submission_receipt_matches(
-    value: Any,
-    *,
-    lease_id: int,
-    contract_digest: str,
-) -> bool:
-    """Return whether a stored receipt identifies this issued submission."""
-    if not isinstance(value, Mapping):
-        return False
-    try:
-        stored_lease_id = int(value.get("lease_id"))
-    except (TypeError, ValueError):
-        return False
-    stored_digest = value.get("contract_digest")
-    return (
-        stored_lease_id == int(lease_id)
-        and isinstance(stored_digest, str)
-        and hmac.compare_digest(stored_digest, str(contract_digest))
-    )
 
 
 def _lock_submission_claim(conn: Any, claim_id: int) -> CoordinationClaim:
@@ -139,6 +109,7 @@ def _issue(
     baselines: Sequence[str],
     cases: Sequence[dict[str, Any]],
     golden_destination: str | None = None,
+    capture_component: Literal["browser-profile"] | None = None,
     selection_reason: str | None = None,
     plan_execution_id: str | None = None,
     continues_execution_id: str | None = None,
@@ -159,6 +130,7 @@ def _issue(
         baselines=list(baselines),
         cases=list(cases),
         golden_destination=golden_destination,
+        capture_component=capture_component,
         plan_execution_id=plan_execution_id,
         continues_execution_id=continues_execution_id,
         roster_digest=roster_digest,
@@ -178,6 +150,7 @@ def begin_host_control_execution(
     baselines: Sequence[str] = (),
     cases: Sequence[dict[str, Any]] = (),
     golden_destination: str | None = None,
+    capture_component: Literal["browser-profile"] | None = None,
     plan_execution_id: str | None = None,
     continues_execution_id: str | None = None,
     roster_digest: str | None = None,
@@ -217,6 +190,7 @@ def begin_host_control_execution(
         baselines=baselines,
         cases=cases,
         golden_destination=golden_destination,
+        capture_component=capture_component,
         selection_reason=admission.selection_reason,
         plan_execution_id=plan_execution_id,
         continues_execution_id=continues_execution_id,
@@ -283,6 +257,7 @@ def validate_host_control_submission(
     baselines: Sequence[str] = (),
     cases: Sequence[dict[str, Any]] = (),
     golden_destination: str | None = None,
+    capture_component: Literal["browser-profile"] | None = None,
     allow_recorded_replay: bool = False,
     plan_execution_id: str | None = None,
     continues_execution_id: str | None = None,
@@ -308,6 +283,7 @@ def validate_host_control_submission(
         baselines=baselines,
         cases=cases,
         golden_destination=golden_destination,
+        capture_component=capture_component,
         plan_execution_id=plan_execution_id,
         continues_execution_id=continues_execution_id,
         roster_digest=roster_digest,

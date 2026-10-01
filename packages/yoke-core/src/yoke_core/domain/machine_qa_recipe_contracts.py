@@ -27,6 +27,7 @@ REGISTERED_SETUP_OPERATION_IDS = frozenset(
         "installer.current-release-prepare",
         "installer.product-state-reset",
         "machine.path-idempotence-prepare",
+        "machine.browser-profile-restore",
         "machine.path-prepare",
         "machine.token-file-prepare",
         "machine.yoke-auth-clear",
@@ -307,9 +308,7 @@ def validate_terminal_recipe(
             raise MachineQaRecipeError(
                 "stage file paths must be bounded and remote must be absolute"
             )
-        if source_key == "source_path" and not (
-            source.startswith("/") or source.startswith("~/")
-        ):
+        if source_key == "source_path" and not source.startswith(("/", "~/")):
             raise MachineQaRecipeError(
                 "stage source_path must be absolute or home-relative"
             )

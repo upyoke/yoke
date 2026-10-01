@@ -30,6 +30,7 @@ from yoke_core.domain.project_identity import resolve_project
 
 
 GOLDEN_BASELINE_PATH_KEY = "golden_baseline_path"
+BROWSER_PROFILE_BASELINE_PATH_KEY = "browser_profile_baseline_path"
 
 
 def selected_test_machine_row(
@@ -86,11 +87,36 @@ def resolve_golden_capture_destination(
     return validate_golden_baseline_path(candidate)
 
 
+def resolve_browser_profile_capture_destination(
+    row: TestMachineCapabilityRow, *, requested: str | None = None
+) -> str:
+    """Keep a private profile snapshot beside, never inside, the home golden."""
+    if row.settings["os"] != "linux":
+        raise TestMachineCapabilityError("browser_profile_os_unsupported: Linux only")
+    declared = row.settings.get(GOLDEN_BASELINE_PATH_KEY)
+    if not declared:
+        raise TestMachineCapabilityError(
+            "capture a clean home golden before its browser profile"
+        )
+    parent = PurePosixPath(validate_golden_baseline_path(declared)).parent
+    stamp = iso8601_now().replace("-", "").replace(":", "")
+    destination = requested or str(
+        parent / f"{row.settings['user']}-browser-profile-{stamp}"
+    )
+    selected = PurePosixPath(validate_golden_baseline_path(destination))
+    if selected.parent != parent or str(selected) == declared:
+        raise TestMachineCapabilityError(
+            "browser profile capture must be a new sibling of the home golden"
+        )
+    return str(selected)
+
+
 def record_captured_golden_baseline(
     conn: Any,
     row: TestMachineCapabilityRow,
     *,
     destination: str,
+    setting_key: str = GOLDEN_BASELINE_PATH_KEY,
 ) -> bool:
     """Point the machine at the baseline a capture just produced.
 
@@ -98,10 +124,12 @@ def record_captured_golden_baseline(
     server just proved, so it must not reset the machine's verification the way
     an operator's settings edit does.
     """
-    if row.settings.get(GOLDEN_BASELINE_PATH_KEY) == destination:
+    if setting_key not in {GOLDEN_BASELINE_PATH_KEY, BROWSER_PROFILE_BASELINE_PATH_KEY}:
+        raise TestMachineCapabilityError("unknown captured baseline setting")
+    if row.settings.get(setting_key) == destination:
         return False
     document = validate_test_machine_settings(
-        {**row.settings, GOLDEN_BASELINE_PATH_KEY: destination}
+        {**row.settings, setting_key: destination}
     )
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     updated = conn.execute(
@@ -120,7 +148,7 @@ def record_captured_golden_baseline(
         raise TestMachineCapabilityError(
             f"test machine {row.machine!r} settings changed while its golden "
             "baseline was being captured; re-read the machine and record "
-            f"{destination} as its {GOLDEN_BASELINE_PATH_KEY}"
+            f"{destination} as its {setting_key}"
         )
     return True
 

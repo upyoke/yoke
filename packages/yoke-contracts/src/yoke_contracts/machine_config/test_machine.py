@@ -18,7 +18,9 @@ _SETTING_KEYS = frozenset({"resource_name", "host", "user", "os", "operating_not
 # Declaring a golden baseline is what turns the destructive host reset into a
 # restore instead of an enumeration, so its absence means the machine has opted
 # out of that reset rather than that the settings are incomplete.
-_OPTIONAL_SETTING_KEYS = frozenset({"golden_baseline_path"})
+_OPTIONAL_SETTING_KEYS = frozenset(
+    {"golden_baseline_path", "browser_profile_baseline_path"}
+)
 TEST_MACHINE_CAPABILITY_PREFIX = f"{TEST_MACHINE_CAPABILITY}:"
 
 
@@ -125,15 +127,16 @@ def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]
         raise TestMachineCapabilityError(
             "test-machine settings require exactly resource_name, host, user, "
             "os, and operating_notes, and optionally "
-            "golden_baseline_path (" + "; ".join(detail) + ")"
+            "golden_baseline_path and browser_profile_baseline_path ("
+            + "; ".join(detail)
+            + ")"
         )
     values = {key: str(payload[key] or "").strip() for key in present}
-    if values.get("golden_baseline_path"):
-        values["golden_baseline_path"] = validate_golden_baseline_path(
-            values["golden_baseline_path"]
-        )
-    else:
-        values.pop("golden_baseline_path", None)
+    for key in _OPTIONAL_SETTING_KEYS:
+        if values.get(key):
+            values[key] = validate_golden_baseline_path(values[key])
+        else:
+            values.pop(key, None)
     values["resource_name"] = validate_test_machine_resource_name(
         values["resource_name"]
     )

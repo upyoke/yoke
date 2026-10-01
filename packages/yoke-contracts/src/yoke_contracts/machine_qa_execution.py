@@ -7,7 +7,14 @@ import hmac
 import json
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    model_validator,
+    model_serializer,
+)
 
 from yoke_contracts.machine_config.test_machine import (
     validate_golden_baseline_path,
@@ -19,42 +26,22 @@ from yoke_contracts.machine_qa_case_target import (
 )
 
 
-HOST_CONTROL_PROTOCOL = "host-control-v1"
-HOST_TEST_COMMAND = "/bin/test"
-GUI_SESSION_CONTEXT = "gui"
-AGENT_MISSION_ARTIFACT_LIMIT = 100
-REQUIRED_SESSION_CONTEXT_FIELD = "required_session_context"
-VERIFICATION_CHECKS = ("connection", "terminal_bridge")
-HOST_BASELINES = ("fresh-host", "shell-preconfigured")
-HOST_BASELINE_END_STATE = {
-    HOST_BASELINES[0]: ("the host carries its captured user state and no Yoke at all"),
-    HOST_BASELINES[1]: (
-        "the host carries its captured user state plus the current Yoke "
-        "launcher on both shell surfaces; it is NOT a fresh host"
-    ),
-}
-# The destructive operations a person runs against one machine, each recorded
-# against the machine under its own name so the last one is always readable.
-RESET_OPERATION = "reset"
-GOLDEN_CAPTURE_OPERATION = "golden_capture"
-BRIDGE_DIAGNOSE_OPERATION = "bridge_diagnose"
-VERIFY_OPERATION = "verify"
-TEST_MACHINE_OPERATIONS = (
-    VERIFY_OPERATION,
+from yoke_contracts.machine_qa_host_control import (
+    HOST_CONTROL_PROTOCOL,
+    HOST_TEST_COMMAND,
+    GUI_SESSION_CONTEXT,
+    AGENT_MISSION_ARTIFACT_LIMIT,
+    REQUIRED_SESSION_CONTEXT_FIELD,
+    VERIFICATION_CHECKS,
+    HOST_BASELINES,
+    HOST_BASELINE_END_STATE,
     RESET_OPERATION,
     GOLDEN_CAPTURE_OPERATION,
     BRIDGE_DIAGNOSE_OPERATION,
+    VERIFY_OPERATION,
+    TEST_MACHINE_OPERATIONS,
+    HostControlOperation,
 )
-
-HostControlOperation = Literal[
-    "verify",
-    "reset",
-    "golden_capture",
-    "bridge_diagnose",
-    "case",
-    "baseline_group",
-    "plan_case",
-]
 
 
 class MachineQaCaseContract(BaseModel):
@@ -149,8 +136,8 @@ class HostControlExecutionContract(BaseModel):
     checks: list[str] = Field(default_factory=list)
     baselines: list[str] = Field(default_factory=list)
     cases: list[MachineQaCaseContract] = Field(default_factory=list)
-    # The server-selected golden destination is bound by the contract digest.
     golden_destination: str | None = None
+    capture_component: Literal["browser-profile"] | None = None
     plan_execution_id: str | None = None
     continues_execution_id: str | None = None
     roster_digest: str | None = None
@@ -158,6 +145,13 @@ class HostControlExecutionContract(BaseModel):
     case_position: int | None = Field(default=None, ge=1)
     baseline_position: int | None = Field(default=None, ge=1)
     contract_digest: str
+
+    @model_serializer(mode="wrap")
+    def _compatible_capture_shape(self, serialize):
+        result = serialize(self)
+        if self.capture_component is None:
+            result.pop("capture_component", None)
+        return result
 
     @model_validator(mode="after")
     def _registered_shape(self) -> "HostControlExecutionContract":
@@ -208,6 +202,11 @@ class HostControlExecutionContract(BaseModel):
                 "a golden destination belongs to a golden-capture contract and "
                 "to no other operation"
             )
+        if (
+            self.capture_component is not None
+            and self.operation != GOLDEN_CAPTURE_OPERATION
+        ):
+            raise ValueError("a capture component belongs only to golden capture")
         if self.golden_destination is not None:
             self.golden_destination = validate_golden_baseline_path(
                 self.golden_destination
@@ -266,7 +265,6 @@ def execution_contract_digest(
 
 
 def _validated_case(case: dict[str, Any]) -> MachineQaCaseContract:
-    """Validate one case and report its refusal without dumping its inputs."""
     try:
         return MachineQaCaseContract.model_validate(case)
     except ValidationError as exc:
@@ -291,6 +289,7 @@ def issue_execution_contract(
     baselines: list[str] | None = None,
     cases: list[dict[str, Any]] | None = None,
     golden_destination: str | None = None,
+    capture_component: Literal["browser-profile"] | None = None,
     plan_execution_id: str | None = None,
     continues_execution_id: str | None = None,
     roster_digest: str | None = None,
@@ -312,6 +311,7 @@ def issue_execution_contract(
         baselines=list(baselines or []),
         cases=[_validated_case(case) for case in (cases or [])],
         golden_destination=golden_destination,
+        capture_component=capture_component,
         plan_execution_id=plan_execution_id,
         continues_execution_id=continues_execution_id,
         roster_digest=roster_digest,
