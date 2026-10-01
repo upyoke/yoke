@@ -38,6 +38,8 @@ ITEMS_TABLE: dict[str, dict] = {
             "The primary key is `id`; items has NO `item_id` or `public_id` column. "
             "Read the specification or Dash instruction via items.get spec; items.detail.get serves narrative and execution instructions. "
             "Wrong guesses: description and instruction are not accepted items.get fields. "
+            "Read landing time via items.get merged_at; merge_commit is not an "
+            "accepted field. Read the merge identity from its recorded receipt or Git ancestry. "
             "Progress Log is a section, not an items.get progress_log column; "
             "read it via items.get body, and append via items.progress_log.append. "
             "`item_id` is a foreign-key column on OTHER tables. "

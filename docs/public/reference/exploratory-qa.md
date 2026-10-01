@@ -54,6 +54,13 @@ Omit `machine` when any registered host can run the mission. When present, it
 is validated during plan authoring and becomes the case's durable
 `test-machine:<name>` capability constraint.
 
+Omit `host_baselines` or set it to `[]` to preserve the live host. Preparation
+then reaches no baseline and restores no packages unless `host_starting_state`
+explicitly declares a fixture. It creates only the owner-only mission scratch
+outside the home. To reset, explicitly name `fresh-host` or
+`shell-preconfigured`; an empty baseline never means reset. A preserve-live-host
+mission must also instruct its walker to leave the home untouched.
+
 Do not turn likely landmarks into steps. The worked Machine QA Pack case
 `installer-exploration` deliberately replaces the territory of the ten-case
 scripted installer campaign with one agent-chosen mission.
@@ -154,8 +161,8 @@ would reset the very host a continuation inherits. Each refusal names the
 condition that failed and the command that does apply. `yoke qa mission
 host-command` refuses a settled execution with that exact continuation command
 rather than a bare state mismatch, so a resuming walker is never left to guess
-— and must never start an ordinary plan run to get back in, which resets the
-host.
+— and must never start an ordinary plan run to get back in when its case
+declares a baseline, because that resets the host.
 
 ## Substrate Access
 
@@ -245,7 +252,7 @@ parallel run to evade the cap, and never attach credentials or secret-bearing
 content.
 
 A mission attaches evidence as bytes, never as a path on the test host. That
-host's home is restored to its baseline between missions, so an artifact row
+host's home can be restored by a later mission's baseline, so an artifact row
 naming one of its paths outlives its own file: the row survives and the
 evidence does not. The artifact-add surface refuses a mission handle this
 control plane cannot read and names the byte-carrying recipe instead — the
