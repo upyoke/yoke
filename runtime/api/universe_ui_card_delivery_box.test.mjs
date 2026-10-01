@@ -95,9 +95,12 @@ async function mountBand(band, runsFor = () => [], facts = {}, repository = "") 
     "deployment_runs.list": { rows: runsFor(band.itemId) },
   });
   const call = client.call.bind(client);
+  const project = { id: 1, slug: "yoke", name: "Yoke", github_repo: repository };
   client.call = (request) => request.function === "projects.list"
     ? Promise.resolve({ status: 200, envelope: { success: true, result: {
-      rows: [{ id: 1, slug: "yoke", name: "Yoke", github_repo: repository }],
+      rows: [Object.fromEntries(request.payload.fields.map(
+        (field) => [field, project[field]],
+      ))],
     } } }) : call(request);
   const documentNode = new FakeDocument();
   documentNode.defaultView.location.hash = "#/frontier?project=1";
