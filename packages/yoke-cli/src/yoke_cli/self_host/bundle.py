@@ -85,6 +85,7 @@ def write_bundle(
     directory: Optional[str] = None,
     port: Optional[int] = None,
     image: Optional[str] = None,
+    image_repository: str | None = None,
     force: bool = False,
 ) -> Dict[str, Any]:
     """Write the compose bundle; refuse to clobber unless ``force``.
@@ -97,7 +98,11 @@ def write_bundle(
     matched_release = None
     if image is None:
         try:
-            matched_release = release_target.current_release_target()
+            matched_release = (
+                release_target.current_release_target(image_repository=image_repository)
+                if image_repository is not None
+                else release_target.current_release_target()
+            )
         except release_target.ReleaseTargetError as exc:
             raise SelfHostBundleError(
                 "could not select the server image matched to this CLI: "

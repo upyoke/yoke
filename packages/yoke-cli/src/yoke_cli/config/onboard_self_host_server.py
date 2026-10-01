@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from yoke_cli.config import secrets as machine_secrets
-from yoke_cli.config import server_connect
+from yoke_cli.config import server_connect, server_image_repository
 from yoke_cli.config.onboard_docker_prerequisites import (
     DockerPrerequisiteError,
     DockerPrerequisites,
@@ -41,6 +41,7 @@ class SelfHostSetup:
     config_path: str
     env_name: str = server_connect.DEFAULT_ENV_NAME
     port: int = bundle.DEFAULT_API_PORT
+    image_repository: str = server_image_repository.PUBLISHED_SERVER_IMAGE_REPOSITORY
     bundle_created: bool = False
     raw_token: str | None = field(default=None, repr=False)
     connection: dict[str, Any] | None = None
@@ -67,7 +68,11 @@ class SelfHostSetupError(RuntimeError):
 
 def new_setup(*, config_path: str, directory: str | None = None) -> SelfHostSetup:
     target = Path(directory or bundle.DEFAULT_BUNDLE_DIR).expanduser().resolve()
-    return SelfHostSetup(directory=target, config_path=config_path)
+    return SelfHostSetup(
+        directory=target,
+        config_path=config_path,
+        image_repository=server_image_repository.configured(path=config_path),
+    )
 
 
 def check_docker_prerequisites() -> DockerPrerequisites:
@@ -172,12 +177,18 @@ def _ensure_wizard_bundle(setup: SelfHostSetup) -> None:
             ),
         )
     try:
+        server_image_repository.save(setup.image_repository, path=setup.config_path)
         report = bundle.write_bundle(
             directory=str(setup.directory),
             port=setup.port,
+            image_repository=setup.image_repository,
             force=False,
         )
-    except bundle.SelfHostBundleError as exc:
+    except (
+        bundle.SelfHostBundleError,
+        ValueError,
+        server_image_repository.mutation.MachineConfigWriteError,
+    ) as exc:
         raise SelfHostSetupError(
             "bundle-write",
             "The self-host bundle could not be created.",

@@ -18,6 +18,8 @@ dependencies = [
     # Full-screen `yoke onboard` wizard. Imported lazily so non-interactive
     # and import-graph paths never require it; resolved from PyPI by uv.
     "textual>=0.60",
+    # Checkout Docker builds resolve the same SCM version as the wheel backend.
+    "setuptools-scm>=10.2,<11",
 ]
 
 [project.scripts]

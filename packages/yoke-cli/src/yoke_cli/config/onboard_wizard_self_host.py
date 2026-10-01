@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 from yoke_cli.config import onboard_docker_prerequisites as docker
+from yoke_cli.config import onboard_wizard_image_repository as images
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import onboard_self_host_server as server
 from yoke_cli.config.onboard_destinations import DESTINATION_SERVER
@@ -33,6 +34,9 @@ _FINISH = "finish-handoff"
 PREVIEW_ROWS = [
     SelectionRow(_START, "Start", "create and start the local server"),
     SelectionRow(_BACK, "Back", "choose another Yoke home"),
+    SelectionRow(
+        "image-repository", "Image repository", "fork, mirror, or private registry"
+    ),
 ]
 RETRY_ROWS = [
     SelectionRow(_RETRY, "Try again", "resume this wizard's bundle safely"),
@@ -79,7 +83,9 @@ def goto_self_host_server(shell: _Shell) -> None:
 
     setup = getattr(shell, "_self_host_setup", None)
     if setup is None:
-        setup = server.new_setup(config_path=shell.result.config_path)
+        setup = images.load_setup(shell)
+        if setup is None:
+            return
         shell._self_host_setup = setup
     shell._goto(
         _View(
@@ -87,7 +93,7 @@ def goto_self_host_server(shell: _Shell) -> None:
             lambda: steps.verification_body(
                 "Set up this machine as a self-hosting server?",
                 "Review the local server plan before Yoke changes anything.",
-                _preview_lines(setup),
+                images.preview_lines(setup),
                 PREVIEW_ROWS,
                 ok=True,
             ),
@@ -96,17 +102,10 @@ def goto_self_host_server(shell: _Shell) -> None:
     )
 
 
-def _preview_lines(setup: server.SelfHostSetup) -> list[str]:
-    return [
-        f"Docker Compose · local-only URL {setup.url}",
-        f"Files: {setup.directory}",
-        "Start writes the bundle and privately hands host-opened secrets to Docker.",
-        "Requires Docker + Compose; Yoke does not install them.",
-        "You own reachable networking and TLS for team access.",
-    ]
-
-
 def _on_preview(shell: _Shell, setup: server.SelfHostSetup, choice: str) -> None:
+    if choice == "image-repository":
+        images.prompt(shell, setup)
+        return
     if choice == _BACK:
         _back_to_destination(shell)
         return

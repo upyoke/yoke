@@ -133,9 +133,7 @@ def build_records_manifest(
     """Stable per-wheel record list (project/sha256/size) for publish-verify."""
 
     product_records = [
-        record
-        for record in records
-        if record.canonical_name in PRODUCT_PACKAGE_NAMES
+        record for record in records if record.canonical_name in PRODUCT_PACKAGE_NAMES
     ]
     return [
         record.to_record_entry()
@@ -242,14 +240,14 @@ def _read_wheel_record(path: Path) -> WheelRecord:
 def _wheel_metadata(path: Path) -> tuple[dict[str, str], str]:
     with zipfile.ZipFile(path) as wheel:
         metadata_files = [
-            name for name in wheel.namelist()
-            if name.endswith(".dist-info/METADATA")
+            name
+            for name in wheel.namelist()
+            # Vendored distributions can carry their own nested metadata.
+            if name.count("/") == 1 and name.endswith(".dist-info/METADATA")
         ]
         if len(metadata_files) != 1:
             raise ValueError(f"wheel has no single METADATA file: {path}")
-        message = Parser().parsestr(
-            wheel.read(metadata_files[0]).decode("utf-8")
-        )
+        message = Parser().parsestr(wheel.read(metadata_files[0]).decode("utf-8"))
     return (
         {key: value for key, value in message.items()},
         metadata_files[0],
@@ -267,17 +265,13 @@ def _validate_wheel_identity(
     metadata_name = canonicalize_package_name(name)
     metadata_version = Version(version)
     if metadata_name != filename_name or metadata_version != filename_version:
-        raise ValueError(
-            f"wheel filename identity does not match METADATA: {path}"
-        )
+        raise ValueError(f"wheel filename identity does not match METADATA: {path}")
     dist_info_name = str(metadata_name).replace("-", "_")
     expected_metadata_arcname = (
         f"{dist_info_name}-{metadata_version}.dist-info/METADATA"
     )
     if metadata_arcname != expected_metadata_arcname:
-        raise ValueError(
-            f"wheel dist-info identity does not match METADATA: {path}"
-        )
+        raise ValueError(f"wheel dist-info identity does not match METADATA: {path}")
 
 
 def build_parser() -> argparse.ArgumentParser:
