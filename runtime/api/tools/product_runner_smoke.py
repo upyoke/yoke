@@ -84,6 +84,24 @@ class Commands:
         return payload.get("result", payload)
 
 
+def require_browser_installation(onboard: dict, capture: Path) -> None:
+    """An already-provisioned runner cannot prove unattended package installation."""
+    output = capture.read_text(encoding="utf-8")
+    if onboard.get("browser_setup", {}).get("status") != "ready" or not all(
+        proof in output
+        for proof in (
+            "installing missing Linux system libraries via passwordless sudo",
+            "Linux system libraries verified",
+        )
+    ):
+        raise SmokeFailure(
+            "browser_installation_unproven: onboarding did not install and verify "
+            "missing libraries through passwordless sudo. Run the product-smoke "
+            "workflow with its disposable-runner missing-package fixture; "
+            f"inspect {capture}."
+        )
+
+
 def isolated_environment(scratch: Path, venv: Path) -> dict[str, str]:
     """Explicit child environment: no tokens, DSNs, session identity, or API URLs."""
     home = scratch / "home"
@@ -213,6 +231,9 @@ def smoke(root: Path, output: Path) -> None:
                     raise SmokeFailure(
                         "onboard_not_born: fresh local onboarding did not apply and birth the universe; inspect onboard capture"
                     )
+                if sys.platform.startswith("linux"):
+                    require_browser_installation(onboard, commands.capture)
+                    report["browser_install_authority"] = "passwordless sudo"
                 # The destructive guard refuses threatened state. Give the
                 # denied clean probe an untracked file; never execute it.
                 (project / "untracked-probe.txt").write_text(

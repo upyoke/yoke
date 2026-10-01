@@ -19,6 +19,7 @@ from runtime.api.tools.product_runner_smoke import (
     Commands,
     SmokeFailure,
     isolated_environment,
+    require_browser_installation,
 )
 
 
@@ -223,3 +224,27 @@ def test_source_test_failure_retains_nested_capture_and_survives_cleanup(tmp_pat
     assert (output / "server.log").read_text() == "server diagnostic"
     assert seen[1][1][:4] == ["uv", "run", "--frozen", "yoke"]
     assert seen[-1][0] == "stop-test-postgres"
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        "Linux system libraries already present",
+        "installing missing Linux system libraries via root; Linux system libraries verified",
+        "installing missing Linux system libraries via passwordless sudo",
+    ],
+)
+def test_product_smoke_requires_passwordless_install_and_recheck(tmp_path, output):
+    capture = tmp_path / "onboard.txt"
+    capture.write_text(output)
+    with pytest.raises(SmokeFailure, match="browser_installation_unproven"):
+        require_browser_installation({"browser_setup": {"status": "ready"}}, capture)
+
+
+def test_product_smoke_accepts_recorded_passwordless_installation(tmp_path):
+    capture = tmp_path / "onboard.txt"
+    capture.write_text(
+        "installing missing Linux system libraries via passwordless sudo\n"
+        "Linux system libraries verified"
+    )
+    require_browser_installation({"browser_setup": {"status": "ready"}}, capture)

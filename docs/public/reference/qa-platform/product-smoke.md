@@ -10,6 +10,12 @@ The jobs declare Ubuntu 24.04 x86_64 (`ubuntu-latest`) and macOS 26 arm64
 The smoke verifies the actual OS and architecture first; a label migration
 refuses with `runner_identity_mismatch` until its declaration is reviewed.
 
+The Ubuntu job removes one Chromium library package from its disposable runner
+before onboarding. It then requires captured proof that onboarding installed
+missing libraries through passwordless sudo and validated them afterwards;
+"already present" cannot pass this branch check. The fixture never runs on the
+operator machine. macOS retains its ordinary browser setup path.
+
 Each job builds and installs the tree's product wheels into a fresh environment,
 onboards a Git project non-interactively into a fresh local universe with GitHub
 adoption disabled, and replays native SessionStart and allowed/denied shell
