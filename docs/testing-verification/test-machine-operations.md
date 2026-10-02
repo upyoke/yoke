@@ -181,7 +181,8 @@ one never silently retires a directory another host may still restore from.
 Pass `--destination` for a machine's first golden, or to place one
 deliberately. Without `--probes-file`, capture runs and seals the standard OS
 checks. A supplied file must name every standard check; canonical programs
-always run, plus its extra checks. Follow [Prepare a test machine](../public/reference/qa-platform/prepare-test-machine.md).
+always run, plus its extra checks. Follow the Machine QA Pack's per-OS
+provisioning guide for preparation and the standard check names.
 
 It refuses rather than producing a baseline nothing can restore:
 

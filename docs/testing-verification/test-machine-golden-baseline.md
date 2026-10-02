@@ -201,13 +201,12 @@ documented in the [Claude reference](https://code.claude.com/docs/en/cli-referen
 [Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference),
 and [Cursor output format](https://cursor.com/docs/cli/reference/output-format).
 
-Capture without `--probes-file` runs the standard per-OS checks: real requests
-from Claude, Codex and Cursor, Claude bypass acceptance, macOS GUI keychain
-readability, and Linux desktop input availability. A supplied file must name
+Capture without `--probes-file` runs the standard per-OS checks named in the
+Machine QA Pack's provisioning guides. A supplied file must name
 all standard checks; capture always runs and seals their canonical programs,
 plus the supplied additional checks. It refuses before saving unless every
-check passes. Follow [Prepare a test machine](../public/reference/qa-platform/prepare-test-machine.md),
-then capture and prove the reset/verify roundtrip. Old sidecars are never
+check passes. Follow the corresponding per-OS guide, then capture and prove
+the reset/verify roundtrip. Old sidecars are never
 carried forward implicitly.
 
 ## Reading a failed probe

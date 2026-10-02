@@ -84,6 +84,10 @@ The operator signs in through a terminal/tmux session as the test user:
 Check authentication with `claude auth status`, `codex login status` and
 `agent status` using the installed CLI's documented commands. Observe status,
 never copy account identities or credential content into a QA receipt.
+Each harness must also answer a real request; status text alone is insufficient.
+Have the operator accept Claude's one-time dangerous-mode bypass prompt on the
+isolated account. The standard check reads `skipDangerousModePermissionPrompt`
+without writing the setting or accepting a prompt.
 
 ## Desktop for screenshots and operator browser authorization
 
@@ -105,10 +109,29 @@ provisioning. No cloud firewall or security-group change is needed. Installed
 OS packages and services are outside the home golden; the XFCE session selection
 is inside it. Provisioning is independent of the Linux QA transcript bridge.
 
-RDP uses normal local-account authentication. If verification reports
+The desktop uses normal local-account authentication. If verification reports
 `login_password_set=false`, the operator sets a password interactively through
 SSH with `sudo passwd <test-user>`. Keep SSH key-only. Do not disable PAM
 checks or put the password in a script, a message or evidence.
+
+For unattended desktop QA, start the test user's real XFCE/Xorg session without
+an RDP client using the installed xrdp session launcher:
+
+```text
+xrdp-sesrun -s ::1 -t Xorg -F 0 <test-user>
+```
+
+This is verified on Ubuntu with xrdp 0.9.24 and sesman listening on `[::1]:3350`.
+Omitting `-s ::1` uses IPv4 and failed there with
+`connect error - Operation now in progress`. Supply the registered desktop
+password on stdin through the capability-owned credential route; never put it
+in argv, log it or write it remotely. No root session is needed. Reuse an
+existing desktop rather than starting a second one. Confirm one XFCE session,
+Xorg and xfdesktop are active and that a registered screenshot succeeds.
+Automatic session startup by registered operations is separate work; this
+recipe does not claim they already start one. A human RDP login is needed for
+cases specifically testing a person's login, or as fallback when sesrun is
+missing or refuses. Personal browser authorization still requires the operator.
 
 On the operator's Mac, keep this tunnel running (substitute the registered host
 and user; this is an example, not Pack configuration):
@@ -151,29 +174,19 @@ links resolving to sockets or outside the captured home are omitted regardless
 of filename. Regular files and safe links named `.sock` are retained; signed-in regular
 files and persistent CLI links are retained.
 
-Declare a probes JSON document with absolute argv for every required CLI,
-credential file and relevant user service. Example entries (resolve the actual
-binary and credential paths from the provisioned user's installation):
-
-```json
-{"probes":[
-  {"name":"Claude authenticated","argv":["/home/yoketest/.local/bin/claude","auth","status"]},
-  {"name":"Codex authenticated","argv":["/home/yoketest/.local/bin/codex","login","status"]},
-  {"name":"Cursor authenticated","argv":["/home/yoketest/.local/bin/agent","status"]},
-  {"name":"Codex credential file","argv":["/usr/bin/test","-s","/home/yoketest/.codex/auth.json"]},
-  {"name":"Docker ready","argv":["/usr/bin/docker","info"]}
-]}
-```
-
-For any required user unit, add `/usr/bin/systemctl --user is-active UNIT`.
-Run each declared probe before sealing it; a present credential file alone
-cannot prove its login is live. Probes run over SSH on Linux.
+Omit `--probes-file` to seal the standard real-request, bypass-acceptance and
+desktop-input checks. For extra checks, add entries to the captured `.probes`
+sidecar while retaining every standard name: for example `/usr/bin/docker info`
+or `/usr/bin/systemctl --user is-active UNIT`. Capture runs canonical standard
+programs plus the extra checks over SSH; credential files alone do not prove
+a live login. Remove Yoke installation/session residue before capture, retaining
+signed-in harnesses and remote-access credentials.
 
 ```text
 yoke test-machine golden-capture --project P --machine NAME --destination /var/lib/yoke-golden/yoketest/home
+yoke test-machine reset --project P --machine NAME --baseline fresh-host
 yoke test-machine verify --project P --machine NAME
 yoke test-machine bridge-diagnose --project P --machine NAME
-yoke test-machine reset --project P --machine NAME --baseline fresh-host
 ```
 
 Verify restores the golden and exercises both baselines, ending with Yoke
@@ -188,7 +201,8 @@ checkpoints. Run `yoke test-machine screenshot --project P --machine NAME --json
 to capture the actual desktop as a validated PNG artifact. The capture discovers
 exactly one XFCE session owned by the SSH user and uses that session's DISPLAY,
 XAUTHORITY and D-Bus address. A missing or ambiguous session requires provisioning
-and one unlocked RDP login; no dummy display or transcript earns screenshot credit.
+and one unlocked desktop session, started with sesrun or the RDP fallback above;
+no dummy display or transcript earns screenshot credit.
 The provisioner installs `scrot` and `xdotool` alongside XFCE. Provision these
 before capturing a new golden so they belong to the package baseline. QA
 package restoration purges additions to its journal's baseline inventory;
@@ -204,6 +218,20 @@ probes, remove Yoke residue and capture a **new** golden with the updated probes
 The capture records its new path only after success. Do not edit a sealed
 archive or its manifest to make expired authentication appear ready.
 
-Before saving, follow the [preparation checklist](../../../.yoke/docs/reference/qa-platform/prepare-test-machine.md).
-Capture defaults to the standard OS probes. A supplied `--probes-file` must
-include their names; canonical standard checks still run, plus extra checks.
+Retain capture, fresh-host reset and verify receipts. A headless Linux host
+needs no desktop input tool; desktop hosts must pass the sealed input check
+after reset, not only before capture.
+
+### Standard capture checks
+
+- `Claude real request`, `Codex real request`, `Cursor real request`: each CLI answers.
+- `Claude bypass accepted`: the operator accepted its one-time warning.
+- `Linux desktop input available`: desktop hosts have xdotool after restore;
+  headless hosts pass without it.
+
+A supplied probe document must include every name above; missing names refuse
+as `baseline_standard_probes_missing`. Start from the current `.probes` sidecar
+for extra checks. Capture always runs/seals canonical standard programs plus
+the extras; it never carries an older sidecar forward implicitly. A failed
+standard check names the provisioning repair and cannot register a new golden.
+Harness output stays on the host; retain only readiness results in evidence.

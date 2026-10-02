@@ -1,17 +1,9 @@
 # Provisioning a controlled macOS host
 
-Machine QA drives a real macOS machine: it opens Terminal windows, reads the
-screen, injects keystrokes, and reaches the host over SSH from a private
-network. This document is the general provisioning contract for that host. It
-names no host, credential, account, or project — those live in the installing
-project's own capability record and machine-local secret files.
-
-Follow it once per physical host, in order, before saving its
-`test-machine:<resource-name>` capability row. Every step ends in an observable
-check. A host that skips a step
-usually fails later in a way that reads as agent confusion rather than as
-missing machine state, which is why each check is stated as a command whose
-output you can look at rather than as something to remember doing.
+Machine QA drives Terminal, screenshots and keystrokes over private-network
+SSH. Host identity, credentials and settings belong to the installing project's
+capability record and machine-local secret files. Follow these steps in order
+before saving its `test-machine:<resource-name>` row; prove every check.
 
 The capability row declares `os=macos`: a persistent macOS Test Machine
 reached over SSH and driven through its logged-in Terminal session.
@@ -99,11 +91,9 @@ fdesetup status
 
 Enable **automatic login** for the test user, and turn the screen lock off.
 
-This is the mechanism that makes "keep the machine logged in" survive a
-restart, and it does a second job that is easy to overlook: it unlocks the
-login keychain. Without an unlocked login keychain, a harness CLI invoked over
-SSH fails to reach stored credentials — the observed message is a locked-login-
-keychain error from a command that works fine at the GUI Terminal.
+Automatic login survives restart and unlocks the login keychain. Harness
+credentials still require the GUI Terminal context; bare SSH can refuse
+keychain interaction with OSStatus `-25308` even when GUI sign-in works.
 
 Check:
 
@@ -113,22 +103,27 @@ security show-keychain-info ~/Library/Keychains/login.keychain-db
 ```
 
 The keychain check should report no timeout.
+Whenever the account login password changes, the operator must re-key the
+login keychain **before signing in**: run `security set-keychain-password`
+interactively in GUI Terminal for `~/Library/Keychains/login.keychain-db`,
+supplying the old keychain password and new login password at its prompts.
+Never put passwords in argv, scripts or evidence. If the old password is lost,
+create a new login keychain and sign in again; its old credentials are lost.
+Prove the GUI credential is readable, then save a new golden: restoring the
+old golden brings back its old-password keychain and can fail with `-25293`.
 
 ## 6. Sleep, disabled permanently
 
-Disable system sleep, display sleep, and disk sleep — permanently, not for a
-test interval:
+Disable system, display and disk sleep permanently. In System Settings set
+the screen saver to **Never**. Disconnect Screen Sharing after provisioning
+and prove the test account remains unlocked and reachable without it:
 
 ```text
 sudo pmset -a sleep 0 displaysleep 0 disksleep 0
 ```
 
-A permanent rig is not the same as a borrowed desk machine. The default sleep
-timer on a freshly installed macOS can be as short as one minute, and while an
-operator is connected over screen sharing that timer is held off, so the host
-looks stable right up until the operator disconnects — at which point it sleeps
-and drops off the private network. Restoring "normal sleep policy afterwards"
-is the wrong instinct here: there is no afterwards for a permanent host.
+Screen Sharing can suppress sleep, hiding a broken permanent-host policy
+until the operator disconnects. Do not restore a temporary sleep policy.
 
 Check:
 
@@ -217,6 +212,11 @@ Run the authentication checks through the GUI Terminal bridge, not a bare SSH
 shell — see the wrong-session boundary in the Pack README. An SSH session
 cannot reach the login keychain, so a signed-in CLI can report itself signed
 out there.
+Sign in each harness from **Terminal.app in the logged-in GUI account** and
+prove a real request; status text alone is insufficient. Have the operator
+accept Claude's one-time dangerous-mode bypass warning on this isolated
+account. Its check reads `skipDangerousModePermissionPrompt` without writing
+the setting or accepting the warning automatically.
 
 Whether the harness CLIs also resolve on the SSH `PATH` is an installer
 concern rather than a provisioning one. Leave the host with exactly what each
@@ -283,29 +283,23 @@ full disk access granted for remote sessions
 FileVault off
 automatic login enabled
 login keychain unlocked, no timeout
-system, display, and disk sleep all disabled
+system, display, and disk sleep disabled; screen saver Never; Screen Sharing disconnected
 Command Line Tools present; `git --version` returns with no dialog
 Screen Recording granted to Terminal
 Accessibility and Automation granted to the process attributed for Remote Login
 SSH AppleEvents reach Terminal and System Events without -25211 or -1743
 screen captures show real window content, not wallpaper
-every harness CLI reports authenticated
+each harness answers a real request through GUI Terminal; Claude bypass accepted
 ```
 
-The screen-capture line deserves its own check rather than being folded into
-the Screen Recording grant. A grant that is present but not effective produces
-byte-identical wallpaper-only captures, and an agent choosing its next action
-from a blind capture cannot proceed at all. Prove it by capturing two frames
-across a window-state change: the digests must differ, and the frames must show
-window content and the menu bar.
+Prove screen capture separately from its privacy grant: capture two frames
+across a window change. Their digests must differ and show windows and menu bar;
+wallpaper-only captures do not prove readiness.
 
 ## Capturing a restorable baseline
 
-Capturing a golden is a command, not a procedure. Run it only while the
-acceptance set above is green, and only after Command Line Tools are installed
-— tools installed on first use raise their dialog inside the first mission
-instead of during provisioning, which puts the trap back exactly where a
-baseline was supposed to remove it.
+Capture only with the acceptance set green and Command Line Tools installed,
+so first use cannot raise an installation dialog inside the mission.
 
 ```text
 yoke test-machine golden-capture --project <project> --machine <resource-name>
@@ -316,7 +310,18 @@ and records that path on the machine once the capture succeeds, so a failed
 capture never destroys the baseline it was taken beside. Pass `--destination`
 for a machine's first golden, or to place one deliberately; pass
 `--probes-file` only for extra checks, including all standard names. Without it,
-capture seals the standard OS checks. Follow [preparation](../../../.yoke/docs/reference/qa-platform/prepare-test-machine.md).
+capture seals the standard checks below.
+Remove Yoke installation/session residue before capture, retaining signed-in
+harnesses and remote access. Then reset with `--baseline fresh-host` and verify;
+retain all three receipts and require the sealed checks to pass after restore.
+
+Standard checks: `Claude real request`, `Codex real request`, `Cursor real request`,
+`Claude bypass accepted`, and `macOS login keychain readable` (GUI Terminal).
+Start from the current `.probes` sidecar for extras; all standard names are
+required (`baseline_standard_probes_missing` names omissions). Capture seals
+canonical standard programs plus extras, never implicitly carrying an older
+sidecar forward. A failed check names its provisioning repair and cannot
+register a golden. Harness output and keychain contents stay on the host.
 
 The command refuses rather than producing a baseline nothing can restore:
 
@@ -334,13 +339,9 @@ each entry naming the probe, an absolute-program argv, and an optional
 bridge, not SSH. Use macOS's guaranteed `/bin/test` for filesystem assertions;
 `/usr/bin/test` is absent on some supported macOS releases.
 
-What the capture writes beside the golden directory: a `.manifest` recording
-when it was captured, from which home and user, how many top-level entries and
-kilobytes, and the digest of the probes sealed with it; and a `.probes` sidecar
-holding that document. Both are read-only, and so is the golden directory
-itself — the captured files keep exactly the modes and ACLs they had, because
-the restore restores modes from the golden and rewriting them here would make
-every restored home wrong.
+Capture writes a read-only `.manifest` (capture time, home/user, top-level
+entries, kilobytes and probe digest) and `.probes` document beside the read-only
+golden. Captured files retain their modes and ACLs, which restore must preserve.
 
 Reset may encounter read-only package caches and standard macOS directories
 whose ACL denies deleting the directory object. It prepares only non-preserved

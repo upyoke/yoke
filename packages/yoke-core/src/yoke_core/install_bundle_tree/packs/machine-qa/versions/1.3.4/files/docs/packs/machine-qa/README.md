@@ -142,6 +142,4 @@ A Linux test machine without a desktop must be provisioned before screenshot QA.
 See [Linux host provisioning](linux-host-provisioning.md) before operator browser authorization.
 For browser-authenticated missions, use the [separate sealed profile recipe](browser-profile-baseline.md); keep the home golden free of Yoke.
 
-Before saving, follow the [preparation checklist](../../../.yoke/docs/reference/qa-platform/prepare-test-machine.md).
-Capture defaults to the standard OS probes. A supplied `--probes-file` must
-include their names; canonical standard checks still run, plus extra checks.
+Before saving, follow the [per-OS provisioning guide](host-provisioning.md).

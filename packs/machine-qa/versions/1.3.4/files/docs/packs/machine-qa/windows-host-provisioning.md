@@ -51,6 +51,11 @@ default=yoketest
 Restart WSL with `wsl --shutdown`. Prove `wsl -e id -u` is nonzero and
 systemd runs. Install the Linux prerequisites and harness CLIs in that home;
 perform vendor sign-in through documented operator paths.
+Sign in Claude, Codex and Cursor as that WSL user and prove a real request
+from each. Have the operator accept Claude's one-time dangerous-mode bypass
+warning there; the standard check reads `skipDangerousModePermissionPrompt`
+without writing it or accepting the warning. Windows credentials, desktop
+state and WSL registration are outside the saved Linux home.
 WSL's distro lifecycle can stop background daemons when its last Windows
 client exits. Keep a WSL terminal open while testing the local universe/UI;
 after a distro restart, `yoke init --local` restarts its Postgres authority.
@@ -72,15 +77,17 @@ registration survive reset. The existing Linux archive, digest, owner, probes
 and absence gates apply.
 The adapter streams long Linux programs over SSH stdin, keeping Windows command
 text bounded and preserving the program's original stdin for golden operations.
-Declare positive authentication output expectations in the probes. For example,
-Cursor `agent status` can exit zero while signed out; require
-`"expect_output_contains":"Logged in"` rather than exit status alone.
+Capture defaults to real-request and bypass-acceptance checks for the WSL user;
+status text alone is insufficient. Remove Yoke installation/session residue
+before capture, retaining signed-in harnesses and remote-access credentials.
+The Linux XFCE/xrdp session-start recipe is unverified for WSL and does not
+establish a native Windows session. Provision that desktop separately below.
 
 ```text
 yoke test-machine golden-capture --project P --machine NAME --destination /var/lib/yoke-golden/yoketest/home
+yoke test-machine reset --project P --machine NAME --baseline fresh-host
 yoke test-machine verify --project P --machine NAME
 yoke test-machine exec --project P --machine NAME -- uname -a
-yoke test-machine reset --project P --machine NAME --baseline fresh-host
 ```
 
 Registered terminal QA uses tmux transcripts. Desktop screenshot proof uses
@@ -104,6 +111,15 @@ host before claiming mirrored networking is required or supported.
 When Python's opener fails, Yoke tries `wslview`, then `explorer.exe`; install
 `wslu` or enable Windows interop/PATH if both are missing.
 
-Before saving, follow the [preparation checklist](../../../.yoke/docs/reference/qa-platform/prepare-test-machine.md).
-Capture defaults to the standard OS probes. A supplied `--probes-file` must
-include their names; canonical standard checks still run, plus extra checks.
+### Standard capture checks
+
+- `Claude real request`, `Codex real request`, `Cursor real request`: each WSL CLI answers.
+- `Claude bypass accepted`: the operator accepted its one-time warning in WSL.
+
+A supplied probe document must include every name above; missing names refuse
+as `baseline_standard_probes_missing`. Start from the current `.probes` sidecar
+for extra checks. Capture always runs/seals canonical standard programs plus
+the extras; it never carries an older sidecar forward implicitly. A failed
+standard check names the provisioning repair and cannot register a new golden.
+Harness output stays on the host. Require the checks to pass after the reset
+roundtrip, and keep capture, reset and verify receipts.

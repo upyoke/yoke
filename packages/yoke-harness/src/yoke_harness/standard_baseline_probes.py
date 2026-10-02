@@ -8,7 +8,7 @@ from pathlib import Path
 from yoke_harness import baseline_harness_requests
 from yoke_harness.test_machine_types import HostActionResult
 
-CHECKLIST = ".yoke/docs/reference/qa-platform/prepare-test-machine.md"
+CHECKLIST = "docs/packs/machine-qa/host-provisioning.md"
 RECOVERIES = {
     "Claude real request": "Sign in Claude with claude auth login in the test user's session.",
     "Codex real request": "Sign in Codex with codex login in the test user's session.",
