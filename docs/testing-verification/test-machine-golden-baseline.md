@@ -22,6 +22,13 @@ The archive is private fixture material, not a QA artifact. Whole-home content,
 CLI liveness, persistent OS grants and the actual visible desktop are separate
 proofs: a passing one cannot establish the others.
 
+macOS capture omits sockets and FIFOs while retaining resource forks, extended
+attributes, ACLs and file flags. Its tar stream carries extended attributes in
+AppleDouble metadata rather than duplicate PAX xattr headers: sandbox container
+attributes can exceed the tar reader's 1 MiB special-header limit. Any copy
+error still fails capture and reports its path and message in the receipt;
+partial destinations cannot be registered as a baseline.
+
 Restore cannot govern objects outside the home merely by copying files.
 Product-owned Compose resources, running home writers, service-manager jobs
 and declared temporary residue have independent ownership/absence checks.

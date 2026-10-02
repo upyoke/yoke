@@ -85,11 +85,13 @@ copy_home() {
   /bin/mkdir -p -- "$destination" 2>>"$copy_error_log" || return 1
   # Recursion belongs to find, not the copier: a socket or FIFO can occur
   # inside any directory. NUL-delimited relative paths preserve unusual names.
-  # macOS tar retains resource forks, extended attributes, ACLs and file flags.
+  # AppleDouble retains resource forks and xattrs without duplicating them in
+  # PAX headers: sandbox container xattrs can exceed libarchive's 1 MiB header
+  # limit. Keep mac metadata explicit and disable only the PAX xattr encoding.
   (
     builtin cd -q -- "$home" || exit 1
     /usr/bin/find . -mindepth 1 ! -type s ! -type p -print0 |
-      /usr/bin/tar -cpf - --no-recursion --null -T - |
+      /usr/bin/tar -cpf - --mac-metadata --no-xattrs --no-recursion --null -T - |
       /usr/bin/tar -xpf - --mac-metadata --xattrs --acls -C "$destination"
   ) 2>>"$copy_error_log" || return 1
   # The reset treats any restore stderr as failure and this is its mirror: a
