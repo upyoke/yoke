@@ -1,6 +1,7 @@
 """Conflict classification and trial-merge helpers."""
 
 from __future__ import annotations
+from yoke_core.engines.merge_worktree_base import target_ref
 
 import os
 from pathlib import Path
@@ -16,7 +17,9 @@ from yoke_core.engines.merge_worktree_union import (
 
 def _parent():
     from yoke_core.engines import merge_worktree as _mw
+
     return _mw
+
 
 def classify_conflict(
     filepath: str,
@@ -105,7 +108,9 @@ def resolve_conflict(info: ConflictInfo, ctx: MergeContext) -> bool:
         # Keep main's version (ours during rebase)
         _run_git(["checkout", "--ours", info.path], cwd=cwd, capture=True)
         _run_git(["add", info.path], cwd=cwd, capture=True)
-        _print(f"Auto-resolving doc file conflict: {info.path} (keeping main's version)...")
+        _print(
+            f"Auto-resolving doc file conflict: {info.path} (keeping main's version)..."
+        )
         return True
 
     if info.classification.startswith("yoke-gen"):
@@ -138,7 +143,9 @@ def _resolve_additive_conflict(filepath: str, cwd: str) -> bool:
     target = os.path.join(cwd, filepath)
     Path(target).write_text(union.text)
     _run_git(["add", filepath], cwd=cwd, capture=True)
-    _print(f"Auto-resolving additive conflict: {filepath} (both sides preserved via union merge)")
+    _print(
+        f"Auto-resolving additive conflict: {filepath} (both sides preserved via union merge)"
+    )
     return True
 
 
@@ -154,7 +161,9 @@ def auto_resolve_conflicts(ctx: MergeContext) -> Tuple[int, list[ConflictInfo]]:
     _run_git = mw._run_git
     _print = mw._print
 
-    result = _run_git(["diff", "--name-only", "--diff-filter=U"], cwd=ctx.worktree_path, capture=True)
+    result = _run_git(
+        ["diff", "--name-only", "--diff-filter=U"], cwd=ctx.worktree_path, capture=True
+    )
     if not result.stdout.strip():
         return (2, [])
 
@@ -198,7 +207,7 @@ def trial_merge(ctx: MergeContext) -> Optional[Tuple[int, list[ConflictInfo]]]:
             "merge",
             "--no-commit",
             "--no-ff",
-            f"origin/{ctx.args.target}",
+            target_ref(ctx),
         ],
         cwd=cwd,
         capture=True,
@@ -206,8 +215,12 @@ def trial_merge(ctx: MergeContext) -> Optional[Tuple[int, list[ConflictInfo]]]:
 
     if merge_result.returncode != 0:
         # Check conflicts
-        conflicts = _run_git(["diff", "--name-only", "--diff-filter=U"], cwd=cwd, capture=True)
-        conflict_files = conflicts.stdout.strip().splitlines() if conflicts.stdout.strip() else []
+        conflicts = _run_git(
+            ["diff", "--name-only", "--diff-filter=U"], cwd=cwd, capture=True
+        )
+        conflict_files = (
+            conflicts.stdout.strip().splitlines() if conflicts.stdout.strip() else []
+        )
 
         if conflict_files:
             infos = [classify_conflict(f, ctx) for f in conflict_files]
@@ -227,9 +240,18 @@ def trial_merge(ctx: MergeContext) -> Optional[Tuple[int, list[ConflictInfo]]]:
 
                 # Emit structured output
                 _print("", err=True)
-                _print("\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557", err=True)
-                _print("\u2551  TRIAL MERGE \u2014 conflicts require agent resolution          \u2551", err=True)
-                _print("\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d", err=True)
+                _print(
+                    "\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557",
+                    err=True,
+                )
+                _print(
+                    "\u2551  TRIAL MERGE \u2014 conflicts require agent resolution          \u2551",
+                    err=True,
+                )
+                _print(
+                    "\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d",
+                    err=True,
+                )
                 _print("", err=True)
                 _print(f"Branch:    {ctx.args.branch}", err=True)
                 _print(f"Target:    {ctx.args.target}", err=True)
@@ -239,17 +261,25 @@ def trial_merge(ctx: MergeContext) -> Optional[Tuple[int, list[ConflictInfo]]]:
                 for info in infos:
                     _print(f"  CONFLICT|{info.path}|{info.classification}", err=True)
                 _print("", err=True)
-                _print("The real branch is untouched \u2014 no cleanup needed.", err=True)
+                _print(
+                    "The real branch is untouched \u2014 no cleanup needed.", err=True
+                )
 
                 return (3, infos)
 
         # Abort the detached trial before restoring the real branch.
-        aborted = _run_git(["merge", "--abort"], cwd=cwd, capture=True)
+        merge_head = _run_git(
+            ["rev-parse", "-q", "--verify", "MERGE_HEAD"], cwd=cwd, capture=True
+        )
+        aborted = (
+            _run_git(["merge", "--abort"], cwd=cwd, capture=True)
+            if merge_head.returncode == 0
+            else None
+        )
         restored = _run_git(["checkout", ctx.args.branch], cwd=cwd, capture=True)
         if restored.returncode != 0:
             _print(
-                "Error: trial merge failed and the real branch was not "
-                "restored.",
+                "Error: trial merge failed and the real branch was not restored.",
                 err=True,
             )
             return (1, infos if conflict_files else [])
@@ -258,11 +288,15 @@ def trial_merge(ctx: MergeContext) -> Optional[Tuple[int, list[ConflictInfo]]]:
             _print(
                 "Error: trial merge failed without merge conflicts"
                 + (f": {detail}" if detail else ".")
-                + (" Merge abort also failed." if aborted.returncode else ""),
+                + (
+                    " Merge abort also failed."
+                    if aborted is not None and aborted.returncode
+                    else ""
+                ),
                 err=True,
             )
             return (1, [])
-        if aborted.returncode != 0:
+        if aborted is not None and aborted.returncode != 0:
             _print("Error: trial merge abort failed.", err=True)
             return (1, infos)
         _print("Trial merge clean — proceeding with real merge.")
@@ -276,9 +310,7 @@ def trial_merge(ctx: MergeContext) -> Optional[Tuple[int, list[ConflictInfo]]]:
     if merge_head.returncode == 0:
         aborted = _run_git(["merge", "--abort"], cwd=cwd, capture=True)
         if aborted.returncode != 0:
-            restored = _run_git(
-                ["checkout", ctx.args.branch], cwd=cwd, capture=True
-            )
+            restored = _run_git(["checkout", ctx.args.branch], cwd=cwd, capture=True)
             _print(
                 "Error: successful trial merge could not be aborted"
                 + (" or restore the real branch." if restored.returncode else "."),
@@ -289,7 +321,9 @@ def trial_merge(ctx: MergeContext) -> Optional[Tuple[int, list[ConflictInfo]]]:
         restored = _run_git(["checkout", ctx.args.branch], cwd=cwd, capture=True)
         _print(
             "Error: trial merge state could not be verified"
-            + (" and the real branch was not restored." if restored.returncode else "."),
+            + (
+                " and the real branch was not restored." if restored.returncode else "."
+            ),
             err=True,
         )
         return (1, [])
