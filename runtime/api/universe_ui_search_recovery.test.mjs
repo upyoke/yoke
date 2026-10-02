@@ -20,6 +20,43 @@ async function query(root, text) {
   return input;
 }
 
+test("closed search ignores input and a dismissed debounce, then opens the real factory", async (t) => {
+  const calls = [];
+  const { root } = await mountShell(t, fixtureClient({ calls }));
+  await query(root, "rebaseline");
+  assert.equal(calls.some((call) => call.function === "items.search.run"), false);
+  click(control(root, "header-search"));
+  const input = control(root, "header-search-input");
+  input.value = "rebaseline";
+  input.dispatchEvent(new Event("input"));
+  click(control(root, "header-search-close"));
+  await settleSearch();
+  assert.equal(calls.some((call) => call.function === "items.search.run"), false);
+  click(control(root, "header-search"));
+  await query(root, "rebaseline");
+  assert.ok(byClass(root, "header-search-result").length > 0);
+  assert.equal(calls.filter((call) => call.function === "items.search.run").length, 1);
+});
+
+test("a late response cannot repaint or record a dismissed search", async (t) => {
+  let finish;
+  const calls = [];
+  const pending = new Promise((resolve) => { finish = resolve; });
+  const { root } = await mountShell(t, fixtureClient({ calls, overrides: {
+    "items.search.run": () => pending,
+  } }));
+  click(control(root, "header-search"));
+  await query(root, "rebaseline");
+  const body = control(root, "header-search-body");
+  const before = visibleText(body);
+  click(control(root, "header-search-close"));
+  finish(ok({ matches: [{ id: ["DEMO", 1].join("-"), title: "Late arrival", project_id: 1 }] }));
+  await settle();
+  assert.equal(visibleText(body), before);
+  assert.equal(calls.some((call) => call.function === "ui_preferences.search_history.record"), false);
+  assert.equal(control(root, "header-search-overlay").hidden, true);
+});
+
 test("reopening search loads fresh catalogues while queries within one open reuse them", async (t) => {
   let name = "rebaseline first";
   const calls = [];

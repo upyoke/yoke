@@ -17,8 +17,14 @@ def test_shared_content_styles_only_signal_interactive_rows() -> None:
     assert ".panel:hover" not in source
     assert ".panel-body:has(> table.items)" in source
     assert "overflow-x: auto" in source
-    assert "tr:has(a.row-link):hover" in source
+    # A link inside a generic row does not make its other cells navigable.
+    # The Items roster deliberately wires the whole row and keeps its own
+    # affordance alongside native link hover, outside these shared styles.
+    assert "tr:has(a.row-link):hover" not in source
     assert "tr:has(td):hover" not in source
+    roster = _asset("item_roster.css")
+    assert ".item-roster-row:hover .item-title-link" in roster
+    assert ".item-title-link:hover" in roster
     assert ".mono {" in source
     assert ".ago {" in source
     assert ".raw-toggle" not in source

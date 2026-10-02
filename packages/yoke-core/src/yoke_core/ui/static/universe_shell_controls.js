@@ -192,6 +192,7 @@ function createSearch(documentNode, client) {
     if (focusedLink && resultLinks.includes(focusedLink)) focusedLink.focus?.();
   };
   const runQuery = async () => {
+    if (!dialog.isOpen()) return;
     const query = dialog.input.value.trim();
     const token = ++renderToken;
     resultNodes.clear();
@@ -212,11 +213,11 @@ function createSearch(documentNode, client) {
     const answers = new Map();
     renderProgress(query, answers);
     await search(query, (domain, entries) => {
-      if (token !== renderToken) return;
+      if (token !== renderToken || !dialog.isOpen()) return;
       answers.set(domain.key, entries);
       renderProgress(query, answers);
     });
-    if (token !== renderToken) return;
+    if (token !== renderToken || !dialog.isOpen()) return;
     // Remembering a query that found nothing would offer it back as though
     // it had worked.
     if (resultLinks.length) history.record(query);
