@@ -126,3 +126,8 @@
   text-decoration: underline;
   padding: 3px 0;
 }
+
+.universe-app-root .profile-token-name,
+.universe-app-root .profile-time-zone-field { display: grid; gap: 5px; min-width: 0; }
+.universe-app-root .profile-token-name { flex: 1; }
+.universe-app-root .profile-new-token { align-items: end; }

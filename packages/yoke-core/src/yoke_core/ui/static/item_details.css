@@ -10,7 +10,10 @@
   grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.75fr);
   gap: 14px;
   align-items: start;
+  grid-template-areas: "narrative operations";
 }
+.universe-app-root .item-detail-narrative { grid-area: narrative; }
+.universe-app-root .item-detail-operations { grid-area: operations; }
 
 .universe-app-root .item-detail .panel-body:has(> .table-wrap) {
   padding: 0;
@@ -228,13 +231,13 @@
 
 @media (max-width: 1080px) {
   .universe-app-root .issue-detail .item-detail-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; grid-template-areas: "operations" "narrative";
   }
 }
 
 @media (max-width: 860px) {
   .universe-app-root .item-detail-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; grid-template-areas: "operations" "narrative";
   }
 }
 

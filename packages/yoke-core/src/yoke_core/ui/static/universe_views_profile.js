@@ -129,7 +129,10 @@ function newTokenForm(context, body, redraw) {
   name.maxLength = 80;
   const create = el(documentNode, "button", "item-button primary", "New token");
   create.type = "submit";
-  form.appendChild(name);
+  const nameField = el(documentNode, "label", "profile-token-name");
+  nameField.appendChild(el(documentNode, "span", null, "Token name"));
+  nameField.appendChild(name);
+  form.appendChild(nameField);
   form.appendChild(create);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -217,9 +220,12 @@ function preferencesCard(context, profile) {
     }
   });
   const wrap = el(documentNode, "div", "profile-time-zone-row");
-  wrap.appendChild(select);
+  const zoneField = el(documentNode, "label", "profile-time-zone-field");
+  zoneField.appendChild(el(documentNode, "span", null, "Time zone"));
+  zoneField.appendChild(select);
+  wrap.appendChild(zoneField);
   wrap.appendChild(status);
-  return keyValueRows(documentNode, [["Time zone", wrap]]);
+  return wrap;
 }
 
 function resetCard(context, body, profile) {
