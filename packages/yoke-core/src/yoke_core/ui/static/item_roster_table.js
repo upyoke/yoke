@@ -1,5 +1,5 @@
 import { attachTooltip } from "./universe_tooltip.js";
-import { el, statePill, withProjectColumn } from "./universe_view_support.js";
+import { el, labelCellsByColumn, statePill, withProjectColumn } from "./universe_view_support.js";
 import { relativeAgePhrase, relativeTime } from "./universe_time.js";
 import { sortHeader } from "./item_roster_sort.js";
 
@@ -49,7 +49,7 @@ function makeRowNavigable(documentNode, row, href) {
 }
 
 export function itemTable(documentNode, rows, rowHref, scope, projects, sort, onSort) {
-  const table = el(documentNode, "table", "items item-roster");
+  const table = el(documentNode, "table", "items item-roster table-stacks-narrow");
   const columns = withProjectColumn([
     { label: "ID" },
     { label: "Title" },
@@ -60,7 +60,7 @@ export function itemTable(documentNode, rows, rowHref, scope, projects, sort, on
     { label: "Last updated" },
   ], scope, (row) => projectLabel(projects, row));
   const projectColumn = columns.find((column) => column.label === "project");
-  const head = el(documentNode, "tr");
+  const head = el(documentNode, "tr", "item-roster-sort");
   for (const column of columns) {
     head.appendChild(sortHeader(documentNode, column.label, sort, onSort));
   }
@@ -125,15 +125,17 @@ export function itemTable(documentNode, rows, rowHref, scope, projects, sort, on
     const claimCell = el(documentNode, "td", "item-muted");
     const claimedBy = claimLabel(row);
     if (claimedBy) {
-      claimCell.appendChild(el(
+      const claimContent = el(documentNode, "span");
+      claimContent.appendChild(el(
         documentNode,
         "span",
         "item-claim-avatar",
         claimedBy.slice(0, 1).toUpperCase(),
       ));
-      claimCell.appendChild(el(
+      claimContent.appendChild(el(
         documentNode, "span", null, claimedBy,
       ));
+      claimCell.appendChild(claimContent);
     } else {
       claimCell.textContent = "—";
     }
@@ -141,6 +143,7 @@ export function itemTable(documentNode, rows, rowHref, scope, projects, sort, on
     const updated = el(documentNode, "td", "item-updated");
     updated.appendChild(row.updated_at ? relativeTime(documentNode, row.updated_at, Date.now(), { relativeAgeFn: relativeAgePhrase }) : el(documentNode, "span", null, "—"));
     tr.appendChild(updated);
+    labelCellsByColumn(tr, columns.map((column) => column.label));
     if (href) makeRowNavigable(documentNode, tr, href);
     table.appendChild(tr);
   }
@@ -149,4 +152,3 @@ export function itemTable(documentNode, rows, rowHref, scope, projects, sort, on
   if (!rows.length) wrap.appendChild(el(documentNode, "p", "empty", "No items match this view."));
   return wrap;
 }
-
