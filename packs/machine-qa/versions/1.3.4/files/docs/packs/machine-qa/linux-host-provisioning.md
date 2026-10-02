@@ -189,7 +189,13 @@ to capture the actual desktop as a validated PNG artifact. The capture discovers
 exactly one XFCE session owned by the SSH user and uses that session's DISPLAY,
 XAUTHORITY and D-Bus address. A missing or ambiguous session requires provisioning
 and one unlocked RDP login; no dummy display or transcript earns screenshot credit.
-The provisioner installs `scrot` and `xdotool` alongside XFCE. A browser approval
+The provisioner installs `scrot` and `xdotool` alongside XFCE. Provision these
+before capturing a new golden so they belong to the package baseline. QA
+package restoration purges additions to its journal's baseline inventory;
+installing `xdotool` during a mission does not establish a durable prerequisite.
+Prove `Linux desktop input available` after a `fresh-host` reset roundtrip.
+For XTEST keys, focus the target window, omit `--window`, and allow several
+seconds for delivery before deciding that input failed. A browser approval
 recipe still records `headless_linux_browser_approval_unavailable`; browser sign-in
 is the operator's provisioning step. Keep private windows out of capture when required.
 

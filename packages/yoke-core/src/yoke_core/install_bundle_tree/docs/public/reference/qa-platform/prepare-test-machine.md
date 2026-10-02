@@ -20,13 +20,20 @@ after passwords, credentials, harness installs, or desktop tools change.
 
 ## Linux
 
-- On a desktop host, install `xdotool` along with the desktop provisioning
-  prerequisites. Desktop packages persist outside the saved home. The input
-  check also runs when the desktop is logged out; a headless Linux host needs
-  no desktop input tool.
+- On a desktop host, provision `xdotool` with the desktop prerequisites **before
+  capturing a new golden**. Treat it as baseline provisioning, not as a package
+  added by a QA mission. QA package restoration purges additions relative to
+  the package journal's baseline inventory; one successful reset does not prove
+  that a QA-installed tool will survive the next one. A home archive does not
+  preserve the system package inventory.
+- Capture a new golden after baseline provisioning, then run the `fresh-host`
+  reset and verify below. Require `Linux desktop input available` to pass in
+  the restored state, not just before capture. The check also detects desktop
+  provisioning after logout; a headless Linux host needs no desktop input tool.
 - Leave the test user's desktop available when its QA needs GUI input. Harness
   requests execute in the SSH user session; the GUI case uses the provisioned
-  desktop.
+  desktop. For XTEST key delivery, focus the target window and send keys without
+  `xdotool --window`; allow several seconds before judging a key undelivered.
 
 ## macOS
 

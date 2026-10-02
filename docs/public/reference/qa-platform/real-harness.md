@@ -53,7 +53,9 @@ FragmentPaths. An empty unit-file inventory's nonzero exit is accepted only with
 empty output and no diagnostic; manager and inventory outages still refuse.
 Reset proves both loaded units and definitions absent. It records
 linger without changing other user services. System-wide OS packages are outside
-the home golden.
+the home golden; QA package restoration can remove mission-installed packages.
+Provision desktop input tools as baseline packages before capture and prove
+the sealed input check after a `fresh-host` reset roundtrip.
 Linux reset also retains the current XFCE `TerminalEmulator` selection from
 `~/.config/xfce4/helpers.rc`, including when desktop provisioning followed the
 golden capture. Other desktop preferences still come from the golden. Symlinks

@@ -15,7 +15,7 @@ RECOVERIES = {
     "Cursor real request": "Sign in Cursor with agent login in the test user's session.",
     "Claude bypass accepted": "Have the operator accept Claude's one-time bypass prompt in the test user's session.",
     "macOS login keychain readable": "Use GUI Terminal to unlock/re-key the login keychain after a password change, sign in Claude again, and re-save.",
-    "Linux desktop input available": "Install xdotool on the Linux desktop host, then re-save.",
+    "Linux desktop input available": "Provision xdotool as a baseline package before capture, not as a QA package; capture a new golden and prove the fresh-host reset roundtrip.",
 }
 
 
@@ -96,7 +96,7 @@ sys.exit(0 if ok else 1)
                 "Linux desktop input available",
                 """
 import pathlib, shutil, sys
-# Desktop packages persist outside the home archive, including after logout.
+# Detect desktop provisioning after logout; the home archive does not own OS packages.
 desktop = any(pathlib.Path('/usr/share/xsessions').glob('*.desktop')) or shutil.which('xfce4-session') is not None
 sys.exit(0 if not desktop or shutil.which('xdotool') else 1)
 """,
