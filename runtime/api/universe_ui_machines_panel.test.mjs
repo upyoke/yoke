@@ -271,6 +271,7 @@ test("an exhausted pool draws the wall, and an unreadable one says so", () => {
             remaining_percent: null,
             resets_at: null,
             reason: "stale_credential",
+            guidance: "re-authenticate the CLI on that machine",
           },
         ],
       },
@@ -303,7 +304,7 @@ test("an exhausted pool draws the wall, and an unreadable one says so", () => {
   assert.equal(byClass(host, "machine-limit-name")[0].textContent, "no reading");
   assert.match(
     byClass(host, "machine-limit-note")[0].textContent,
-    /stale_credential — launches still attempt and fail/,
+    /^stale_credential — re-authenticate the CLI on that machine$/,
   );
   // No published cap means no bar, and the relay's own reason stays visible.
   assert.equal(byClass(host, "machine-capacity-fill").length, 0);

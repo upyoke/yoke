@@ -19,6 +19,9 @@ from yoke_core.domain.session_relay_types import SessionRelayError
 from yoke_contracts.session_control.relay_health import sanitize_relay_health
 from yoke_contracts.session_control.native_models import sanitize_native_models
 from yoke_contracts.session_control.plan_limits import sanitize_plan_limits
+from yoke_contracts.session_control.plan_limit_unreadable_guidance import (
+    with_unreadable_guidance,
+)
 from yoke_contracts.session_control.credential_presence import (
     sanitize_credential_presence,
 )
@@ -179,8 +182,10 @@ def list_visible_relays(
                 "relay_health": sanitize_relay_health(
                     _document(_value(row, "relay_health", 12), {})
                 ),
-                "plan_limits": sanitize_plan_limits(
-                    _document(_value(row, "surface_plan_limits", 13), {})
+                "plan_limits": with_unreadable_guidance(
+                    sanitize_plan_limits(
+                        _document(_value(row, "surface_plan_limits", 13), {})
+                    )
                 ),
                 "native_models": sanitize_native_models(
                     _document(_value(row, "surface_native_models", 16), {})

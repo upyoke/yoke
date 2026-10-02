@@ -27,15 +27,18 @@ import {
   windowLabel,
 } from "./universe_machines_meters.js";
 
-const UNREADABLE_RECOVERY =
-  " — launches still attempt and fail; re-authenticate the CLI";
-
 // The reason a reading is missing, drawn where the meters would be: an empty
-// meter says nothing is left, and this says nobody knows.
-export function limitNote(documentNode, reason) {
+// meter says nothing is left, and this says nobody knows. What the reason
+// establishes and the recovery it earns arrive with the window as `guidance`,
+// composed by the server, so this card and the steering report cannot
+// disagree; a window without it shows its reason alone rather than advice
+// invented here.
+export function limitNote(documentNode, reason, guidance) {
   const note = el(documentNode, "p", "machine-limit-note");
   note.appendChild(el(documentNode, "span", "machine-limit-reason", reason));
-  note.appendChild(el(documentNode, "span", null, UNREADABLE_RECOVERY));
+  if (guidance) {
+    note.appendChild(el(documentNode, "span", null, ` — ${guidance}`));
+  }
   return note;
 }
 
@@ -201,7 +204,9 @@ export function surfaceRow(documentNode, relay, surface) {
     for (const window of sortPlanWindows(reading.windows)) {
       limits.appendChild(planWindowRow(documentNode, window, stale));
       if (window.status !== "ok" && window.reason) {
-        limits.appendChild(limitNote(documentNode, window.reason));
+        limits.appendChild(
+          limitNote(documentNode, window.reason, window.guidance),
+        );
       }
     }
     row.appendChild(limits);

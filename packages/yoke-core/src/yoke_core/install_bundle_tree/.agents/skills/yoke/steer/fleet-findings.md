@@ -124,7 +124,12 @@ What the report gives you is a finding; what to do with each one is yours:
   Claude and Codex likewise name the counter their vendor enforces. A row only
   answers for the models its own scope covers, so read a model against its own
   pool; only that pool's quota at zero is exhaustion, and unreadable is not
-  empty ([`model-selection.md`](model-selection.md)). Compare headroom across
+  empty ([`model-selection.md`](model-selection.md)). An unreadable row's
+  Headroom cell names the probe's reason beside what that reason establishes:
+  only a credential reason (`stale_credential`) means the CLI needs a sign-in;
+  a throttled (`http_429`) or failed read retries on the next refresh and says
+  nothing about whether the surface can launch, so never route work away from
+  a surface on an unreadable row alone. Compare headroom across
   every surface and window; under 100% can hit a wall before its reset, and
   approaching walls go to the operator. These numbers never gate a launch.
 - **Capacity** — unlike plan limits, the line under each machine's launch
