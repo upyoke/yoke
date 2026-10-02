@@ -159,7 +159,6 @@ Observe → `ouroboros_entries` → `/yoke curate` → `/yoke doctor` → `/yoke
 
 ## Documentation Discipline
 - When a feature or rule changes, update ALL docs referencing it. Undocumented features are invisible.
-- **Sync install-bundle edits — this file included — in the same commit:** edit docs in `docs/public/`, never `.yoke/docs`; run `yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync sync --target-root <checkout>`, then stage every path `git status` shows. Byte drift fails CI.
 
 ## Bug Discipline
 - Capture bugs via `/yoke idea`; DO NOT FIX without knowing root cause. Minor observations go to a field-note.
@@ -182,6 +181,7 @@ Observe → `ouroboros_entries` → `/yoke curate` → `/yoke doctor` → `/yoke
 <!-- END YOKE MANAGED BLOCK -->
 # Yoke Repo Internals
 <!-- Not shipped. -->
+- **Sync install-bundle edits in this Yoke source checkout — this file included — in the same commit:** author docs under `docs/public/`; run `yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync sync --target-root <checkout>`, then stage every changed path. Byte drift fails CI.
 ## Source-Dev Doctrine
 [`docs/source-dev-doctrine.md`](docs/source-dev-doctrine.md). **Read it before a test selection, release, render, deploy, preflight, or cleanup.** One rule inline, because violating it silently verifies the wrong code:
 - **Run lane-source commands through `yoke dev run -- <command>`** — installed `yoke` and `python3 -m ...` resolve main, never the lane. `--local`: small targeted check expected to finish in about one minute; uncommitted work does not justify a slow one; inject xdist `-n auto`. CI: `yoke watch pytest -- runtime/api/ runtime/harness/ tests/` (`python3 -m yoke_core.tools.run_tests`); `yoke dev ruff-changed --base <ref>`.

@@ -3,34 +3,12 @@
 ``yoke_core.install_bundle_tree`` is a committed snapshot of the repo-root
 sources served through ``server_tree_root()`` — byte-exact for source dirs and
 limited to the managed, project-agnostic region of the root doctrine files.
-Those sources include the Yoke skill tree, rendered agent adapters, rules, and
-the Pack catalog
-(:data:`install_bundle.INSTALL_BUNDLE_SOURCE_DIRS`). setuptools cannot ship
-files from outside the ``yoke_core`` package as package-data, so the wheel
-carries this in-package copy; :func:`install_bundle.server_tree_root` falls
-back to it via ``importlib.resources`` whenever the ``runtime`` source package
-is not importable (product-wheel mode).
-
-The snapshot is DERIVED, not authored. It has no automated regenerator prior to
-this module: an adapter/skill/rules edit that skipped the hand-copy silently
-drifted the shipped wheel from source, caught only by a buried pytest. This
-module makes the snapshot machine-maintained:
-
-* :func:`sync` regenerates it from the source dirs and shippable doctrine
-  regions — the canonical repair, replacing manual file surgery.
-* :func:`detect_drift` reports any divergence and backs both
-  ``HC-install-bundle-drift`` and the ``test_install_bundle`` invariant, so
-  drift is caught by ``/yoke doctor`` and CI before merge.
-
-Enumeration follows symlinks and materializes them as regular files (the
-``references/`` adapter tree symlinks a canonical body that lives outside the
-snapshot), so the packaged copy is self-contained and byte-identical to what a
-reader sees through the source symlink.
-
-Writes flow through the same ``workspace_authority`` guard the substrate
-renderer uses: authorized under the calling session's worktree work-claim, a
-no-op for operator/CI contexts with no session, and always allowed for the
-free-path temp roots the tests drive.
+The wheel carries this derived copy because setuptools cannot package the
+repo-root sources directly. Sync is restricted to Yoke source checkouts and
+validates required sources before writing; installed projects never run it.
+Enumeration materializes source symlinks as regular files, and writes use the
+substrate renderer's ``workspace_authority`` guard. Drift checking backs
+``HC-install-bundle-drift`` and CI.
 """
 
 from __future__ import annotations
@@ -40,6 +18,7 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
+from yoke_contracts.install_binding import is_yoke_source_checkout
 from yoke_contracts.project_contract.install_manifest import (
     PACKAGED_INSTALL_BUNDLE_TREE_REL,
 )
@@ -185,15 +164,28 @@ def sync(*, target_root: Path, dry_run: bool = False) -> Dict[str, List[str]]:
     Raises :class:`InstallBundleTreeError` when a declared source dir is absent.
     """
     repo = Path(target_root)
+    if not is_yoke_source_checkout(repo):
+        raise InstallBundleTreeError(
+            f"install_bundle_target_not_yoke_source: {repo}. "
+            "Run sync only with --target-root pointing to a Yoke source checkout; "
+            "refresh installed project files with yoke project install."
+        )
+    for rel in INSTALL_BUNDLE_SOURCE_DIRS:
+        if not (repo / rel).is_dir():
+            raise InstallBundleTreeError(
+                f"install-bundle source dir is missing: {repo / rel}"
+            )
+    for rel in INSTALL_BUNDLE_SOURCE_FILES:
+        if not (repo / rel).is_file():
+            raise InstallBundleTreeError(
+                f"install-bundle source file is missing: {repo / rel}"
+            )
+        _project_agnostic_source_file_bytes(repo / rel)
     packaged = repo / PACKAGED_TREE_REL
     written: List[str] = []
     removed: List[str] = []
     for rel in INSTALL_BUNDLE_SOURCE_DIRS:
         source = repo / rel
-        if not source.is_dir():
-            raise InstallBundleTreeError(
-                f"install-bundle source dir is missing: {source}"
-            )
         packed = packaged / rel
         source_files = _relative_files(source)
         source_set = set(source_files)
@@ -219,10 +211,6 @@ def sync(*, target_root: Path, dry_run: bool = False) -> Dict[str, List[str]]:
                 os.replace(str(tmp), str(dst))
     for rel in INSTALL_BUNDLE_SOURCE_FILES:
         source_file = repo / rel
-        if not source_file.is_file():
-            raise InstallBundleTreeError(
-                f"install-bundle source file is missing: {source_file}"
-            )
         data = _project_agnostic_source_file_bytes(source_file)
         dst = packaged / rel
         if dst.is_file() and dst.read_bytes() == data:
@@ -319,7 +307,11 @@ def run_cli(argv: Optional[Sequence[str]] = None) -> int:
         )
         return 1
 
-    report = sync(target_root=root, dry_run=args.dry_run)
+    try:
+        report = sync(target_root=root, dry_run=args.dry_run)
+    except InstallBundleTreeError as exc:
+        print(str(exc))
+        return 1
     verb = "would-write" if args.dry_run else "wrote"
     verb_rm = "would-remove" if args.dry_run else "removed"
     if not report["written"] and not report["removed"]:
