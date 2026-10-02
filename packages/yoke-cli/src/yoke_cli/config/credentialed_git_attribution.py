@@ -28,6 +28,7 @@ class CredentialDecision:
     url: str = ""
     web_url: str | None = None
     token_applied: bool = False
+    own_credentials: bool = False
 
 
 LOCAL_COMMAND = CredentialDecision(network=False)
@@ -38,6 +39,12 @@ def attribution(decision: CredentialDecision) -> str:
 
     if not decision.network:
         return ""
+    if decision.own_credentials:
+        return (
+            f"No Yoke GitHub authorization is stored for {decision.url}; "
+            "your own git credentials did not work. Run `yoke github status`, "
+            "then `yoke github connect` to authorize this machine."
+        )
     if not decision.url:
         return (
             "No credential was applied: the remote this command would contact "

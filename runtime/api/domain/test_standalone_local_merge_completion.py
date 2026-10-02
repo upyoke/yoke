@@ -139,6 +139,8 @@ def test_local_merge_item_records_evidence_and_reaches_done(
     assert envelope["status"] == "done"
     assert envelope["evidence_recorded"] is True
     assert envelope["published"] is False
+    assert envelope.get("error", "") == ""
+    assert "not pushed because GitHub is not connected" in stdout
     assert transitions == ["release", "done"]
     assert (
         test_db.execute("SELECT status FROM items WHERE id=%s", (item_id,)).fetchone()[

@@ -3,8 +3,9 @@
 Review names the setup commit's remote and branch before Apply. With stored
 GitHub authorization, Apply commits Yoke setup and attempts to push it; branch
 protection can require a review proposal instead. Without that authorization,
-a GitHub remote leaves the setup committed locally and Review shows the exact
-command to push later. A checkout without a remote stays local-only. Skipping
+Review names an optional push with your own git credentials and the exact
+command to push later. If no helper or SSH key works, Apply completes with the
+setup committed locally and not pushed; it never asks for credentials. A checkout without a remote stays local-only. Skipping
 GitHub shows no GitHub App binding in Review; it disables GitHub automation,
 and does not change the existing setup-publication behavior. Cancel at Review
 to leave Apply's writes undone.

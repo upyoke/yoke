@@ -72,7 +72,9 @@ def test_command_cwd_prefers_the_dash_c_target():
 
 def test_contact_url_resolves_a_named_remote_through_the_checkout(monkeypatch):
     monkeypatch.setattr(
-        cgc, "remote_url", lambda repo, remote: f"{repo}:{remote}",
+        cgc,
+        "remote_url",
+        lambda repo, remote: f"{repo}:{remote}",
     )
     assert cgc.contact_url(["-C", "/repo", "fetch", "origin"], None) == "/repo:origin"
     assert cgc.contact_url(["push", "--force"], "/repo") == "/repo:origin"
@@ -100,14 +102,17 @@ def test_a_non_github_remote_runs_without_a_github_credential(monkeypatch):
     monkeypatch.setattr(cg, "resolve_token", _refuse)
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
     monkeypatch.setattr(
-        cgc, "remote_url", lambda repo, remote: "https://gitlab.example/a/b.git",
+        cgc,
+        "remote_url",
+        lambda repo, remote: "https://gitlab.example/a/b.git",
     )
     with cg.git_environment(["-C", "/repo", "fetch", "origin"], cwd=None) as env:
         assert env["GIT_TERMINAL_PROMPT"] == "0"
 
 
 def test_a_github_push_carries_the_stored_token_as_a_scoped_header(
-    monkeypatch, stored_token,
+    monkeypatch,
+    stored_token,
 ):
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
     monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
@@ -117,7 +122,8 @@ def test_a_github_push_carries_the_stored_token_as_a_scoped_header(
         # URL cannot survive alongside the one this environment injects.
         header = values[f"http.{HTTPS_ORIGIN}.extraheader"]
         assert header == [
-            "", "AUTHORIZATION: basic " + _expected_basic(stored_token),
+            "",
+            "AUTHORIZATION: basic " + _expected_basic(stored_token),
         ]
         assert values["credential.helper"] == [""]
         # The hermetic environment is what keeps an ambient helper, a global
@@ -134,7 +140,8 @@ def _expected_basic(token: str) -> str:
 
 
 def test_an_ssh_origin_is_rewritten_onto_https_so_the_token_serves_it(
-    monkeypatch, stored_token,
+    monkeypatch,
+    stored_token,
 ):
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
     monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: SSH_ORIGIN)
@@ -146,6 +153,10 @@ def test_an_ssh_origin_is_rewritten_onto_https_so_the_token_serves_it(
 
 
 def test_no_credential_refuses_by_name_with_its_recovery(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_cli.config.machine_config.github_config",
+        lambda _path: {"authorization": {"status": "authorized"}},
+    )
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
     monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
 
@@ -166,6 +177,10 @@ def test_no_credential_refuses_by_name_with_its_recovery(monkeypatch):
 
 
 def test_an_empty_credential_refuses_rather_than_running_uncredentialed(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_cli.config.machine_config.github_config",
+        lambda _path: {"authorization": {"status": "authorized"}},
+    )
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
     monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
     monkeypatch.setattr(
@@ -202,7 +217,8 @@ def test_the_credential_comes_from_the_store_the_git_helper_reads(monkeypatch):
         _store,
     )
     monkeypatch.setattr(
-        "yoke_cli.config.github_local_user_access.access_token", _api_reader,
+        "yoke_cli.config.github_local_user_access.access_token",
+        _api_reader,
     )
     with cg.git_environment(["-C", "/repo", "push", "origin", "main"]) as env:
         values = _config_values(env)
@@ -213,6 +229,10 @@ def test_the_credential_comes_from_the_store_the_git_helper_reads(monkeypatch):
 
 
 def test_run_reports_a_refusal_as_a_failed_command_not_a_crash(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_cli.config.machine_config.github_config",
+        lambda _path: {"authorization": {"status": "authorized"}},
+    )
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
     monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
 
@@ -227,6 +247,10 @@ def test_run_reports_a_refusal_as_a_failed_command_not_a_crash(monkeypatch):
 
 
 def test_run_with_check_raises_the_refusal_for_callers_that_want_it(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_cli.config.machine_config.github_config",
+        lambda _path: {"authorization": {"status": "authorized"}},
+    )
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
     monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
     monkeypatch.setattr(

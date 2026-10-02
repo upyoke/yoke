@@ -64,8 +64,10 @@ def publish_installed_layer(
     reports what it actually published.
     """
     if not publish:
-        return {"status": outcome_layer.SKIPPED,
-                "reason": outcome_layer.DISABLED_REASON}
+        return {
+            "status": outcome_layer.SKIPPED,
+            "reason": outcome_layer.DISABLED_REASON,
+        }
     if commit.get("status") == outcome_layer.SKIPPED:
         return {
             "status": outcome_layer.SKIPPED,
@@ -78,11 +80,14 @@ def publish_installed_layer(
             "reason": "no publish branch was resolved for this checkout",
         }
     remote, configured = reconcile_layer.resolve_publish_remote(
-        repo_root, branch,
+        repo_root,
+        branch,
     )
     if remote is None and configured == 0:
-        return {"status": outcome_layer.SKIPPED,
-                "reason": outcome_layer.LOCAL_ONLY_REASON}
+        return {
+            "status": outcome_layer.SKIPPED,
+            "reason": outcome_layer.LOCAL_ONLY_REASON,
+        }
     if remote is None:
         return outcome_layer.pending(
             repo_root,
@@ -109,7 +114,9 @@ def publish_installed_layer(
         regenerate=regenerate,
         project_slug=project_slug,
         territory=ownership.installer_territory(
-            repo_root, report, own_commits=(str(commit.get("sha") or ""),),
+            repo_root,
+            report,
+            own_commits=(str(commit.get("sha") or ""),),
         ),
     )
 
@@ -151,12 +158,18 @@ def _publish_to_remote(
     reconciled: dict[str, Any] | None = None
     for attempt in range(1, MAX_PUSH_ATTEMPTS + 1):
         eligible = eligibility.push_eligibility(
-            repo_root, branch=branch, remote=remote, territory=territory,
+            repo_root,
+            branch=branch,
+            remote=remote,
+            territory=territory,
         )
         if eligible["status"] != outcome_layer.ELIGIBLE:
             return outcome_layer.with_reconcile(eligible, reconciled)
         pushed = reconcile_layer.network_git(
-            repo_root, "push", remote, f"{branch}:refs/heads/{branch}",
+            repo_root,
+            "push",
+            remote,
+            f"{branch}:refs/heads/{branch}",
         )
         if pushed.returncode == 0:
             return outcome_layer.with_reconcile(
@@ -165,6 +178,7 @@ def _publish_to_remote(
                     "remote": remote,
                     "branch": branch,
                     "commit": outcome_layer.head(repo_root),
+                    "detail": getattr(pushed, "credential_source", ""),
                 },
                 reconciled,
             )
@@ -207,7 +221,9 @@ def _publish_to_remote(
                 branch=branch,
                 detail=detail,
                 recovery=outcome_layer.push_recovery(
-                    failure, remote=remote, branch=branch,
+                    failure,
+                    remote=remote,
+                    branch=branch,
                 ),
             ),
             reconciled,
@@ -219,7 +235,9 @@ def _publish_to_remote(
             branch=branch,
             detail=f"the remote refused the push {MAX_PUSH_ATTEMPTS} times",
             recovery=outcome_layer.push_recovery(
-                outcome_layer.FAILED, remote=remote, branch=branch,
+                outcome_layer.FAILED,
+                remote=remote,
+                branch=branch,
             ),
         ),
         reconciled,
@@ -296,5 +314,4 @@ def _reconcile_stale_branch(
     )
 
 
-__all__ = ["MAX_PUSH_ATTEMPTS", "publish_installed_layer",
-           "publish_onboarded_layer"]
+__all__ = ["MAX_PUSH_ATTEMPTS", "publish_installed_layer", "publish_onboarded_layer"]

@@ -8,7 +8,7 @@ hunt only in `.github/` or only in the App settings.
 | Use | What | Where to configure |
 |---|---|---|
 | **GitHub App (machine)** | Product commands that inspect/write GitHub from this machine | `yoke github connect` / `yoke github status`; GitHub Settings → Applications |
-| **Git over the network** | Every push, fetch, and remote read Yoke itself runs | Nothing to configure — the connected App authorization above carries them |
+| **Git over the network** | Every push, fetch, and remote read Yoke itself runs | Connected App authorization; optional own git credentials when no authorization is stored |
 | **Repo binding** | Which repo a project maps to | Project create/import; workbench **GitHub** tab |
 | **Issue sync** | Backlog ↔ GitHub issues (labels, body, close) | Project `github_sync_mode` (e.g. disabled / sync modes); see [reference/github-sync.md](reference/github-sync.md) |
 | **CI** | PR and push checks; full-suite authority on protected merge | Repo Actions workflows; branch protection; project `ci_workflow_file` capability naming the **test** workflow — it must be dispatchable with a `yoke_dispatch_id` input, or the binding is refused ([qa.md](qa.md)) |
@@ -21,16 +21,22 @@ Yoke's own git operations — the merge push, the QA lane push, the doctor's
 remote reads, the deploy pipeline's tag resolution — authenticate with the
 authorization `yoke github connect` stores. You do not need an SSH key or a
 `gh` login for them, and an `https` or `ssh` origin works the same way. When
-no authorization is stored, those operations refuse by name and tell you to
-run `yoke github connect` rather than stalling on a prompt.
+no authorization is stored, Git may try your existing credential helper or SSH
+key without prompting. This is optional: onboarding and disconnected standalone
+merges still finish locally when it fails. Successful pushes name “pushed with
+your own git credentials” or “pushed with Yoke GitHub access”. A broken stored
+authorization never falls back to your own credentials; GitHub API features
+still require the App connection.
 
 ## Merging with GitHub skipped
 
 A project with `github_sync_mode=disabled` merges finished work locally through
 both the engine and `yoke merge item`. It needs no GitHub App authorization,
 SSH key, or git credential, even when the checkout has a remote. The outcome
-says the merge was not pushed because GitHub is not connected; item evidence
-and lifecycle close-out still run. No push or post-push App checks run.
+says the merge was not pushed because GitHub is not connected when publication
+is unavailable; item evidence and lifecycle close-out still run. Standalone
+completion attempts an optional push, while engine-local completion stays local.
+Post-push App checks and GitHub sync stay off, even if your credentials push it.
 
 The trial and real integration use `origin/<default-branch>` when that ref
 exists, otherwise the local default branch. A checkout with no remote does

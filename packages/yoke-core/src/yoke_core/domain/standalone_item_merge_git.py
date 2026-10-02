@@ -198,9 +198,7 @@ def lane_adds_nothing(repo_root: str, commit: str, base: str) -> Optional[bool]:
     return merged_tree[0].strip() == base_tree
 
 
-def lane_merge_conflicts(
-    repo_root: str, commit: str, base: str
-) -> tuple[str, ...]:
+def lane_merge_conflicts(repo_root: str, commit: str, base: str) -> tuple[str, ...]:
     """Paths where merging ``commit`` into ``base`` conflicts.
 
     The companion to :func:`lane_adds_nothing`, which answers ``None`` for a
@@ -273,7 +271,8 @@ def publish(repo_root: str, target: str) -> tuple[bool, str]:
         return False, ""
     pushed = _git(repo_root, "push", "origin", target)
     if pushed.returncode == 0:
-        return True, ""
+        source = getattr(pushed, "credential_source", "")
+        return True, f"Publication: {source}." if source else ""
     detail = (pushed.stderr or pushed.stdout or "").strip()
     return False, (f"merge landed locally but publishing '{target}' failed: {detail}")
 

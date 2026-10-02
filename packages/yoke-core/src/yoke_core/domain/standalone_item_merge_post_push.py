@@ -1,7 +1,4 @@
-"""Post-push proof for a queue-less standalone landing.
-
-Disconnected projects close locally; connected projects prove published checks.
-"""
+"""Prove connected publication; disconnected projects can always close locally."""
 
 from __future__ import annotations
 
@@ -262,12 +259,12 @@ def complete(
             error=f"github_merge_mode_unreadable: {exc}. The merge is landed; retry {resume_command or f'yoke merge item {branch}'} after repairing the project GitHub binding status read.",
             warnings=tuple(notes),
         )
-    pushed, push_warning = (
-        (False, "Merged locally; not pushed because GitHub is not connected.")
-        if disconnected
-        else git.publish(repo_root, target)
-    )
-    if push_warning and not disconnected:
+    pushed, push_warning = git.publish(repo_root, target)
+    if disconnected and not pushed:
+        push_warning = "Merged locally; not pushed because GitHub is not connected." + (
+            f" {push_warning}" if push_warning else ""
+        )
+    if push_warning and not disconnected and not pushed:
         notes.append(push_warning)
     stamp_error = stamp_merged_at(item_id, repo_root=repo_root, merge_sha=merge_sha)
     if stamp_error:
@@ -290,9 +287,9 @@ def complete(
 
     record()
     observed: Optional[PostPushVerdict] = None
-    if pushed and not merge_sha:
+    if pushed and not disconnected and not merge_sha:
         notes.append(missing_merge_identity_message(branch, target))
-    if pushed and merge_sha:
+    if pushed and not disconnected and merge_sha:
         observed = await_post_push_checks(project, merge_sha, authority)
         if observed.runs:
             record(observed.evidence)
@@ -317,9 +314,11 @@ def complete(
 
     narration = publication_narration(
         pushed=pushed,
-        push_warning=push_warning,
+        push_warning=push_warning if not pushed else "",
         verdict=observed,
     )
+    if pushed and push_warning:
+        narration = f"{push_warning} {narration}".strip()
     if narration:
         output = f"{output}\n{narration}".strip() if output else narration
     if not disconnected and git.has_remote(repo_root):

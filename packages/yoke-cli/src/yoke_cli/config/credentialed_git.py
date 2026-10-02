@@ -1,38 +1,12 @@
-"""Every git command that reaches the network runs with the stored credential.
-
-Yoke clones a project with the machine's stored GitHub authorization and then,
-before this module existed, handed every later remote operation to whatever
-credentials the surrounding shell happened to carry. On a machine onboarded
-through the wizard a repo-local credential helper hid that gap; a fresh user
-with no SSH key and no ``gh`` login hit it directly, and a lane publish, a
-merge push, or a doctor fetch stalled until its timeout and reported nothing
-anyone could act on.
-
-This module is the one place an engine reaches a remote. It classifies the
-command (:mod:`yoke_cli.config.credentialed_git_command`), decides which URL
-the command will actually contact, and for the machine's configured GitHub
-origin builds the same credentialed environment the clone path uses: the
-stored token as a URL-scoped ``http.extraheader``, injected through
-``GIT_CONFIG_*`` so it never reaches argv, ``.git/config``, or the stored
-remote.
-
-An SSH origin is contacted over HTTPS. ``url.<https>.insteadOf`` rewrites both
-the scp-style and ``ssh://`` forms of the configured origin, so a checkout
-cloned with an SSH remote authenticates with the stored token instead of
-needing a key the user may never have created.
-
-A command contacting anything else — another host, a file remote, a checkout
-with no remote at all — runs non-interactively with no credential, because a
-missing GitHub credential is not what is wrong with it. When the target *is*
-the configured GitHub origin and no credential resolves, the command is
-refused with the credential's name and the command that restores it, instead
-of hanging on a prompt that no one is there to answer.
+"""Prefer isolated Yoke authorization; absent authorization permits bounded,
+non-interactive Git with the user's own credentials. GitHub API authority stays
+independent, and failed stored authorization never falls back.
 """
 
 from __future__ import annotations
 
 import subprocess
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from typing import Any, Iterator, Mapping, Sequence
 
 from yoke_cli.config import credentialed_git_attribution as attribution
@@ -42,8 +16,7 @@ from yoke_cli.config.credentialed_git_command import (
 )
 from yoke_contracts.github_auth_transience import GITHUB_AUTH_RETRY_RECIPE
 
-# git's own fatal exit code, so a refusal reads to callers exactly like the
-# remote failure it stands in for and no call site needs a second branch.
+# Return refusals in Git's existing failed-command shape.
 REFUSAL_EXIT_CODE = 128
 TIMEOUT_EXIT_CODE = 124
 
@@ -52,10 +25,7 @@ RECONNECT_RECOVERY = (
     "and nothing else stands in for it. Run `yoke github status` to see what "
     "is stored, then `yoke github connect` to authorize this machine."
 )
-# Reserved for failures a retry cannot clear. Reconnecting rotates the
-# authorization and revokes the access token every other running command
-# holds, so advising it for contention converts one blocked command into a
-# machine-wide outage.
+# Reconnect only for permanent failure: it revokes other in-flight tokens.
 TRANSIENT_RECOVERY = (
     "The stored authorization still stands: this read collided with another "
     "local GitHub operation or could not reach GitHub, so "
@@ -78,37 +48,47 @@ def run(
     timeout: int | None = None,
     env: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
-    """Run one git command with the credential its target requires.
-
-    Never raises for a missing credential or a timeout: both come back as a
-    failed :class:`~subprocess.CompletedProcess` whose stderr names what could
-    not be done and what restores it, so every existing return-code branch
-    surfaces the diagnosis instead of an empty failure.
-    """
+    """Run Git with its selected credential; failures name their recovery."""
     argv = ["git", *(str(item) for item in args)]
     try:
         with _decided_environment(args, cwd=cwd, base=env) as (
-            resolved_env, decision,
+            resolved_env,
+            decision,
         ):
-            result = _run(
-                argv,
-                cwd=cwd,
-                capture=capture,
-                check=check,
-                timeout=timeout,
-                env=resolved_env,
-            )
+            if decision.own_credentials:
+                result = _run_own_credentials(argv, cwd, resolved_env, timeout)
+            else:
+                result = _run(
+                    argv,
+                    cwd=cwd,
+                    capture=capture,
+                    check=check,
+                    timeout=timeout,
+                    env=resolved_env,
+                )
         if result.returncode != 0:
             result = attribution.attributed(result, decision)
+        result.credential_source = (
+            "pushed with Yoke GitHub access"
+            if decision.token_applied
+            else "pushed with your own git credentials"
+            if decision.own_credentials
+            else ""
+        )
+        if check and result.returncode:
+            raise subprocess.CalledProcessError(
+                result.returncode, argv, output=result.stdout, stderr=result.stderr
+            )
         return result
     except CredentialedGitError as exc:
         if check:
             raise subprocess.CalledProcessError(
-                REFUSAL_EXIT_CODE, argv, output="", stderr=str(exc),
+                REFUSAL_EXIT_CODE,
+                argv,
+                output="",
+                stderr=str(exc),
             ) from exc
-        return subprocess.CompletedProcess(
-            argv, returncode=REFUSAL_EXIT_CODE, stdout="", stderr=str(exc),
-        )
+        return subprocess.CompletedProcess(argv, REFUSAL_EXIT_CODE, "", str(exc))
 
 
 @contextmanager
@@ -131,15 +111,7 @@ def _decided_environment(
     cwd: str | None,
     base: Mapping[str, str] | None,
 ) -> Iterator[tuple[dict[str, str], attribution.CredentialDecision]]:
-    """Yield the environment for ``args`` and the decision that produced it.
-
-    Local commands get a prompt-free environment and nothing else. A command
-    contacting the configured GitHub origin gets the credentialed, hermetic
-    one; a command contacting anything else gets the prompt-free environment
-    without a credential, because no GitHub credential belongs on that wire.
-    The decision travels with the environment so a failure is attributed from
-    what this run did rather than from what a later re-derivation would guess.
-    """
+    """Carry the credential decision alongside its environment."""
     from yoke_cli.config.project_git_environment import non_interactive_git_env
 
     if not is_network_command(args):
@@ -148,13 +120,49 @@ def _decided_environment(
     url = contact_url(args, cwd)
     web_url = configured_web_url()
     if not url or not is_configured_github(url, web_url):
-        yield non_interactive_git_env(base), attribution.CredentialDecision(
-            network=True, url=url or "", web_url=web_url,
+        yield (
+            non_interactive_git_env(base),
+            attribution.CredentialDecision(
+                network=True, url=url or "", web_url=web_url
+            ),
         )
         return
-    with credentialed_github_env(url, web_url=web_url, base=base) as env:
-        yield env, attribution.CredentialDecision(
-            network=True, url=url, web_url=web_url, token_applied=True,
+    with ExitStack() as stack:
+        try:
+            env = stack.enter_context(
+                credentialed_github_env(url, web_url=web_url, base=base)
+            )
+        except CredentialedGitError:
+            from yoke_cli.config import machine_config
+            from yoke_cli.config.project_git_environment import git_config_env
+
+            try:
+                github = machine_config.github_config(None)
+            except machine_config.MachineConfigError as exc:
+                raise CredentialedGitError(str(exc)) from exc
+            if github.get("authorization") is not None:
+                raise
+            yield (
+                git_config_env(
+                    ("credential.interactive=false", "core.askPass="),
+                    base=base,
+                ),
+                attribution.CredentialDecision(
+                    network=True,
+                    url=url,
+                    web_url=web_url,
+                    own_credentials=True,
+                ),
+            )
+            return
+        yield (
+            env,
+            attribution.CredentialDecision(
+                network=True,
+                url=url,
+                web_url=web_url,
+                token_applied=True,
+            ),
         )
 
 
@@ -165,12 +173,7 @@ def credentialed_github_env(
     web_url: str | None,
     base: Mapping[str, str] | None = None,
 ) -> Iterator[dict[str, str]]:
-    """Yield the hermetic environment carrying the stored token for ``url``.
-
-    Raises :class:`CredentialedGitError` when no credential resolves, naming
-    the credential and its recovery, so the caller refuses in the open rather
-    than falling through to an ambient one that may not exist.
-    """
+    """Yield the isolated stored-token environment or refuse with recovery."""
     from yoke_cli.config.project_git_environment import isolated_network_git_env
     from yoke_cli.config.project_git_remote_url import clean_remote_url
     from yoke_cli.config.project_git_transport import isolated_remote_config
@@ -182,39 +185,22 @@ def credentialed_github_env(
         *_ssh_rewrite_entries(web_url),
     )
     with isolated_network_git_env(
-        entries, base=base, allow_protocols="https",
+        entries,
+        base=base,
+        allow_protocols="https",
     ) as env:
         yield env
 
 
 def resolve_token(https_url: str) -> str:
-    """Return the machine's GitHub token for a git request, or refuse by name.
-
-    Resolution goes through the same credential store the installed git
-    credential helper reads, which serves the machine's stored access token
-    until it is close enough to expiry to renew. Two commands running at once
-    therefore carry the same token instead of each minting one and revoking
-    the other's — refreshing a GitHub App user authorization rotates it and
-    revokes the previous access token, which is a push that fails with a
-    credential prompt on a busy machine and succeeds on a quiet one.
-
-    A read can still lose a race for the machine operation lock, so it is
-    replayed within the shared authorization retry budget. Only a failure that
-    survives the budget refuses, and it names retry or reconnect according to
-    what actually failed.
-    """
+    """Read the shared cached token, retrying transient failures."""
     from yoke_cli.config import github_git_credential_store as store
     from yoke_cli.config import github_local_user_access
     from yoke_cli.config import github_merge_path_binding
     from yoke_cli.config import machine_config
     from yoke_contracts.github_auth_transience import call_with_transient_retry
 
-    # Which Yoke connection the machine profile is proven against is pinned
-    # the same way a merge child pins it: an owner-only admin connection is a
-    # door into one universe's database, not a plane that can answer for the
-    # saved profile, so the https sibling it administers answers instead.
-    # Without this a merge refuses at the moment it tries to publish, by
-    # which point its engine has already switched to the admin connection.
+    # Prove the profile through the HTTPS sibling, even under an admin connection.
     selection = github_merge_path_binding.resolve_selection()
     try:
         credential = call_with_transient_retry(
@@ -245,6 +231,28 @@ def resolve_token(https_url: str) -> str:
     return token
 
 
+def _run_own_credentials(argv, cwd, env, timeout):
+    """Bound the optional child and its helpers as one process group."""
+    from pathlib import Path
+    from yoke_cli.config import project_git_process, repo_upstream_git
+
+    deadline = (
+        timeout if timeout is not None else repo_upstream_git.network_timeout_seconds()
+    )
+    try:
+        result = project_git_process.run_network_git(
+            argv,
+            cwd=Path(cwd) if cwd else None,
+            env=env,
+            timeout_seconds=deadline,
+        )
+        return subprocess.CompletedProcess(
+            argv, result.returncode, result.stdout, result.stderr
+        )
+    except project_git_process.NetworkGitBoundaryError as exc:
+        return subprocess.CompletedProcess(argv, TIMEOUT_EXIT_CODE, "", str(exc))
+
+
 def configured_web_url() -> str | None:
     """Return the machine's configured GitHub web URL, or ``None``."""
     from yoke_cli.config import machine_config
@@ -269,12 +277,7 @@ def is_configured_github(url: str, web_url: str | None) -> bool:
 
 
 def _ssh_rewrite_entries(web_url: str | None) -> tuple[str, ...]:
-    """Rewrite the configured origin's SSH forms onto its HTTPS form.
-
-    A checkout cloned over SSH has no HTTPS remote to attach a header to. The
-    rewrite is what lets the stored token serve that checkout too, instead of
-    requiring a key the machine may not have.
-    """
+    """Rewrite SSH origins to HTTPS so the stored header applies."""
     from yoke_contracts import github_origin
 
     endpoint = github_origin.validate_github_web_endpoint(web_url)
@@ -293,7 +296,10 @@ def _run(
     env: Mapping[str, str],
 ) -> subprocess.CompletedProcess:
     kwargs: dict[str, Any] = {
-        "text": True, "check": check, "env": dict(env), "timeout": timeout,
+        "text": True,
+        "check": check,
+        "env": dict(env),
+        "timeout": timeout,
     }
     if cwd:
         kwargs["cwd"] = str(cwd)
@@ -312,19 +318,17 @@ def _run(
             "prompt, so the remote is unreachable, slow, or refusing this "
             f"machine's credential. {TRANSIENT_RECOVERY}"
         )
-        # Whatever the command managed to say before the deadline is often the
-        # only clue about where it stalled; a timeout must not discard it.
+        # Preserve the child's evidence of where it stalled.
         detail = f"{partial.rstrip()}\n{detail}" if partial.strip() else detail
         if check:
             raise subprocess.CalledProcessError(
-                TIMEOUT_EXIT_CODE, argv, output=exc.output, stderr=detail,
+                TIMEOUT_EXIT_CODE,
+                argv,
+                output=exc.output,
+                stderr=detail,
             ) from exc
-        return subprocess.CompletedProcess(
-            argv,
-            returncode=TIMEOUT_EXIT_CODE,
-            stdout=exc.output if isinstance(exc.output, str) else "",
-            stderr=detail,
-        )
+        output = exc.output if isinstance(exc.output, str) else ""
+        return subprocess.CompletedProcess(argv, TIMEOUT_EXIT_CODE, output, detail)
 
 
 __all__ = [
