@@ -7,6 +7,7 @@ import shlex
 import time
 from typing import Any
 
+from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 from yoke_harness.ssh_linux_reset_cleanup import RESET_WRITERS_PROGRAM
 from yoke_harness.ssh_linux_reset_preconditions import (
     DESKTOP_PROGRAM,
@@ -54,8 +55,8 @@ def stream_sha256(stream):
 def file_sha256(path):
     with path.open("rb") as stream:
         return stream_sha256(stream)
-def refuse(reason, entry=None, recovery=None):
-    print(json.dumps({"ok": False, "reason": reason, "refused_entry": entry, **({"recovery": recovery} if recovery else {})})); sys.exit(64)
+def refuse(reason, entry=None, recovery=None, **details):
+    print(json.dumps({"ok": False, "reason": reason, "refused_entry": entry, **details, **({"recovery": recovery} if recovery else {})})); sys.exit(64)
 # RESET_PRECONDITION_FUNCTIONS
 terminal_preferences_path = pathlib.Path(".config/xfce4/helpers.rc")
 def terminal_preference_lines():
@@ -238,7 +239,7 @@ def archive_operation(
         input_text=json.dumps(ABSENT_HOME_PATHS),
         timeout=GOLDEN_ARCHIVE_TIMEOUT_SECONDS,
     )
-    if result.returncode == 124 and result.stderr == SSH_TIMEOUT_DIAGNOSTIC:
+    if result.returncode == 124 and result.stderr.startswith(SSH_TIMEOUT_DIAGNOSTIC):
         elapsed = round(time.monotonic() - started, 3)
         return HostActionResult(
             False,
@@ -248,6 +249,13 @@ def archive_operation(
                 "elapsed_seconds": elapsed,
                 "timeout_seconds": GOLDEN_ARCHIVE_TIMEOUT_SECONDS,
                 "golden_baseline_path": destination,
+                "exit_code": result.returncode,
+                "stdout": bounded_machine_qa_diagnostic(
+                    result.stdout, getattr(control, "secret_values", ())
+                ),
+                "stderr": bounded_machine_qa_diagnostic(
+                    result.stderr, getattr(control, "secret_values", ())
+                ),
                 "detail": f"Linux golden {operation} timed out after {elapsed} seconds.",
                 "recovery": (
                     f"The remote archive process may still be running. Stop or wait for the {operation} targeting {destination} before retrying. "
@@ -268,6 +276,12 @@ def archive_operation(
         evidence = {"reason": "linux_golden_receipt_invalid"}
     ok = result.returncode == 0 and evidence.get("ok") is True
     if not ok:
+        secrets = getattr(control, "secret_values", ())
+        evidence.update(
+            exit_code=result.returncode,
+            stdout=bounded_machine_qa_diagnostic(result.stdout, secrets),
+            stderr=bounded_machine_qa_diagnostic(result.stderr, secrets),
+        )
         evidence.setdefault(
             "recovery",
             (

@@ -1,5 +1,6 @@
 """Quiesce the dedicated test user's home-resident programs before restore."""
 
+from yoke_contracts.systemd_service import SERVICE_QUERY_TIMEOUT_SECONDS
 from yoke_harness.ssh_linux_reset_services import RESET_SERVICES_PROGRAM
 from yoke_harness.ssh_mac_full_reset_contract import (
     COMPOSE_PROJECT_LABEL,
@@ -12,8 +13,15 @@ RESET_WRITERS_PROGRAM = (
     r"""
 import signal, subprocess, time
 
-def bounded(argv):
-    return subprocess.run(argv, capture_output=True, text=True, timeout=30)
+def bounded(argv, *, timeout_seconds=__QUERY_TIMEOUT_SECONDS__):
+    try:
+        return subprocess.run(argv, capture_output=True, text=True, timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        service = argv[:2] == ["systemctl", "--user"]
+        refuse("linux_yoke_service_command_timeout" if service else "linux_reset_command_timeout",
+               command=argv, timeout_seconds=timeout_seconds,
+               recovery="The systemd job may still be running; inspect systemctl --user list-jobs and unit status before retrying the sealed baseline. Never capture a mixed home." if service
+               else "Inspect the timed-out command and wait for its work to stop before retrying the sealed baseline. Never capture a mixed home.")
 
 # STOP_YOKE_SERVICES
 
@@ -92,6 +100,7 @@ if any(home_program(record) and record["state"] != "Z"
     refuse("linux_home_writers_stop_not_proved")
 
 """.replace("# STOP_YOKE_SERVICES", RESET_SERVICES_PROGRAM)
+    .replace("__QUERY_TIMEOUT_SECONDS__", str(SERVICE_QUERY_TIMEOUT_SECONDS))
     .replace("__COMPOSE_LABEL__", COMPOSE_PROJECT_LABEL)
     .replace("__COMPOSE_PROJECT__", SELF_HOST_COMPOSE_PROJECT)
 )

@@ -45,6 +45,11 @@ process ids; service inventory checks protect against deleted definitions whose
 jobs remain loaded. A failed prerequisite preserves its diagnostic in the
 operation receipt, and a partial restore cannot establish a new baseline.
 
+Linux user-service mutations share the relay's 180-second operation budget;
+inventory probes retain a 30-second limit. Timeout receipts name the command
+and unsettled job. Archive failures preserve bounded, redacted native exit,
+stdout and stderr through mission preparation, including malformed receipts.
+
 The SSH access needed to finish restore remains live. Linux/WSL Claude's
 post-request credential refresh is preserved through the owned restore path;
 other harness credentials and macOS Keychain use their own baseline/context

@@ -1,5 +1,7 @@
 """Remove only Yoke-owned user services before clearing a Linux test home."""
 
+from yoke_contracts.systemd_service import SERVICE_OPERATION_TIMEOUT_SECONDS
+
 # Runs remotely with the archive program's home, bounded, os, pathlib and refuse.
 YOKE_SERVICE_PATTERNS = ("yoke*.service", "com.upyoke.*.service")
 RESET_SERVICES_PROGRAM = r"""
@@ -31,9 +33,9 @@ if shutil.which("systemctl"):
         if path.lstat().st_uid != os.getuid():
             refuse("linux_yoke_service_foreign_owner", str(path))
     for unit in sorted(units):
-        if bounded(["systemctl", "--user", "stop", unit]).returncode:
+        if bounded(["systemctl", "--user", "stop", unit], timeout_seconds=__OPERATION_TIMEOUT_SECONDS__).returncode:
             refuse("linux_yoke_service_stop_failed")
-        if unit in definitions and bounded(["systemctl", "--user", "disable", unit]).returncode:
+        if unit in definitions and bounded(["systemctl", "--user", "disable", unit], timeout_seconds=__OPERATION_TIMEOUT_SECONDS__).returncode:
             refuse("linux_yoke_service_disable_failed")
     for path in files:
         try: path.unlink()
@@ -41,9 +43,9 @@ if shutil.which("systemctl"):
         except OSError: refuse("linux_yoke_service_remove_failed", str(path))
     # Clear failed state while fileless units are still loaded, before reloading.
     # A stop may already unload a unit; final inventories prove cleanup either way.
-    if units: bounded(["systemctl", "--user", "reset-failed", *sorted(units)])
+    if units: bounded(["systemctl", "--user", "reset-failed", *sorted(units)], timeout_seconds=__OPERATION_TIMEOUT_SECONDS__)
     # A deleted FragmentPath remains loaded and can restart until this reload.
-    if bounded(["systemctl", "--user", "daemon-reload"]).returncode:
+    if bounded(["systemctl", "--user", "daemon-reload"], timeout_seconds=__OPERATION_TIMEOUT_SECONDS__).returncode:
         refuse("linux_yoke_service_reload_failed")
     for verb in ("list-units", "list-unit-files"):
         proof = bounded(["systemctl", "--user", verb, "--no-legend", *service_patterns])
@@ -52,4 +54,6 @@ if shutil.which("systemctl"):
     if proof.returncode or proof.stdout.strip() not in {"yes", "no"}:
         refuse("linux_yoke_linger_unknown")
     service_cleanup = {"removed_units": sorted(units), "linger": proof.stdout.strip()}
-""".replace("__YOKE_SERVICE_PATTERNS__", repr(YOKE_SERVICE_PATTERNS))
+""".replace("__YOKE_SERVICE_PATTERNS__", repr(YOKE_SERVICE_PATTERNS)).replace(
+    "__OPERATION_TIMEOUT_SECONDS__", str(SERVICE_OPERATION_TIMEOUT_SECONDS)
+)

@@ -108,7 +108,7 @@ def test_reset_removes_relay_files_and_reloads_ghost_units(
     reloaded = False
     ghost = "com.upyoke.relay.deleted.service"
 
-    def bounded(argv):
+    def bounded(argv, **kwargs):
         nonlocal reloaded
         commands.append(argv)
         output = ""
