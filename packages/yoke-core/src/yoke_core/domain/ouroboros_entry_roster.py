@@ -4,6 +4,7 @@ The operator ``ouroboros.entry.list`` surface still returns full rows with
 offset paging. The browser roster opts into ``shape=roster`` so it can page
 by id with a bounded evidence preview instead of full evidence bodies.
 """
+
 from __future__ import annotations
 
 import base64
@@ -28,12 +29,16 @@ REVIEW_STATES = ("all", "unreviewed", "reviewed")
 ROSTER_SHAPE = "roster"
 ROSTER_PREVIEW_LENGTH = 240
 COMPACT_ENTRY_FIELDS = (
-    "id", "timestamp", "agent", "context", "category",
-    "reviewed_at", "project", "preview",
+    "id",
+    "timestamp",
+    "agent",
+    "context",
+    "category",
+    "reviewed_at",
+    "project",
+    "preview",
 )
-RELOAD_FIRST_PAGE = (
-    "Reload the Ouroboros page to restart paging from the newest match."
-)
+RELOAD_FIRST_PAGE = "Reload the Ouroboros page to restart paging from the newest match."
 
 
 class RosterCursorError(ValueError):
@@ -120,8 +125,7 @@ def parse_review_state(raw: object, *, unreviewed: bool) -> str:
     state = str(raw)
     if state not in REVIEW_STATES:
         raise RosterFilterError(
-            "review_state must be all, unreviewed, or reviewed. "
-            + RELOAD_FIRST_PAGE,
+            "review_state must be all, unreviewed, or reviewed. " + RELOAD_FIRST_PAGE,
             "$.payload.review_state",
         )
     if unreviewed and state != "unreviewed":
@@ -158,17 +162,18 @@ def parse_roster_shape(raw: object) -> bool:
 def _compact_rows(conn: Any, rows: list) -> list[dict[str, Any]]:
     entries = [
         {
-            name: (int(value) if name == "id"
-                   else "" if value is None else str(value))
+            name: (int(value) if name == "id" else "" if value is None else str(value))
             for name, value in zip(COMPACT_ENTRY_FIELDS, tuple(row))
         }
         for row in rows
     ]
     promotions = promoted_dash_by_field_note_ids(
-        conn, (entry["id"] for entry in entries),
+        conn,
+        (entry["id"] for entry in entries),
     )
     links = correction_links_by_entry_ids(
-        conn, (entry["id"] for entry in entries),
+        conn,
+        (entry["id"] for entry in entries),
     )
     for entry in entries:
         preview = entry["preview"]
@@ -176,12 +181,16 @@ def _compact_rows(conn: Any, rows: list) -> list[dict[str, Any]]:
         if len(preview) > ROSTER_PREVIEW_LENGTH:
             entry["preview"] += "…"
         promo = promotions.get(entry["id"])
-        entry["promoted_dash"] = None if promo is None else {
-            "item_id": promo["item_id"],
-            "public_ref": promo["public_ref"],
-            "project_id": promo["project_id"],
-            "project": promo["project"],
-        }
+        entry["promoted_dash"] = (
+            None
+            if promo is None
+            else {
+                "item_id": promo["item_id"],
+                "public_ref": promo["public_ref"],
+                "project_id": promo["project_id"],
+                "project": promo["project"],
+            }
+        )
         link = links.get(entry["id"]) or {}
         entry["corrects"] = link.get("corrects")
         entry["superseded_by"] = link.get("superseded_by")
@@ -212,8 +221,7 @@ def list_roster_page(
         )
     if review_state not in REVIEW_STATES:
         raise RosterFilterError(
-            "review_state must be all, unreviewed, or reviewed. "
-            + RELOAD_FIRST_PAGE,
+            "review_state must be all, unreviewed, or reviewed. " + RELOAD_FIRST_PAGE,
             "$.payload.review_state",
         )
     after_id = decode_cursor(cursor) if cursor else None
@@ -226,11 +234,14 @@ def list_roster_page(
         category_prefix=category_prefix,
         after_id=None,
     )
-    matching_count = int(query_scalar(
-        conn,
-        "SELECT COUNT(*) FROM ouroboros_entries o " + where,
-        tuple(params),
-    ) or 0)
+    matching_count = int(
+        query_scalar(
+            conn,
+            "SELECT COUNT(*) FROM ouroboros_entries o " + where,
+            tuple(params),
+        )
+        or 0
+    )
     page_where, page_params = _roster_filters(
         conn,
         project=project,
@@ -250,10 +261,7 @@ def list_roster_page(
         (ROSTER_PREVIEW_LENGTH + 1, *page_params),
     )
     entries = _compact_rows(conn, rows)
-    next_cursor = (
-        encode_cursor(entries[-1]["id"])
-        if len(entries) == bound else None
-    )
+    next_cursor = encode_cursor(entries[-1]["id"]) if len(entries) == bound else None
     return {
         "entries": entries,
         "matching_count": matching_count,
