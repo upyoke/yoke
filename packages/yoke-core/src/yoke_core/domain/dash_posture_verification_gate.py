@@ -17,6 +17,10 @@ from yoke_core.domain.deployment_qa_source_obligation import (
     blocking_row_unsatisfied_at_done,
 )
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
+from yoke_core.domain.qa_obligation_settlement import obligation_settled
+from yoke_core.domain.qa_merging_identity import recorded_head_sha
+from yoke_core.domain.qa_requirement_replacement import replacement_note
+from yoke_core.domain.qa_requirement_supersession import latest_verdict, same_scope
 from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
@@ -30,15 +34,41 @@ def _requirement_consumed(
     *,
     pre_merge: bool,
     item_id: int,
+    candidate_sha: str,
 ) -> bool:
     """Whether this blocking row is satisfied at the boundary being crossed.
 
-    Pre-merge is the original row's own passing run and nothing else. At done
-    the shared source-obligation reading decides, and it is asked even for a
-    row that has passed: a ``post_deploy`` row's own pass proves the candidate
+    Shared settlement discharges history; a superseding case still needs its
+    own current, same-scope pass. At done the source-obligation reading is
+    asked even for a row that has passed: a ``post_deploy`` pass proves the candidate
     that was deployed when it ran, not the one being closed out.
     """
     passed = bool(row["passed"] if hasattr(row, "keys") else row[2])
+    if obligation_settled(row):
+        if row.get("waived_at") or row.get("retracted_at"):
+            return True
+        replacement_id = int(row["superseded_by_requirement_id"])
+        replacement = conn.execute(
+            f"SELECT * FROM qa_requirements WHERE id={_p(conn)}",
+            (replacement_id,),
+        ).fetchone()
+        latest = conn.execute(
+            "SELECT raw_result FROM qa_runs "
+            f"WHERE qa_requirement_id={_p(conn)} ORDER BY created_at DESC,id DESC LIMIT 1",
+            (replacement_id,),
+        ).fetchone()
+        return bool(
+            replacement
+            and not same_scope(dict(row), dict(replacement))
+            and replacement["blocking_mode"] == "blocking"
+            and not obligation_settled(dict(replacement))
+            and latest_verdict(conn, replacement_id) == "pass"
+            and has_current_passing_run(conn, replacement_id)
+            and (
+                not candidate_sha
+                or (latest and recorded_head_sha(latest["raw_result"]) == candidate_sha)
+            )
+        )
     if pre_merge:
         return passed
     phase = str(row["qa_phase"] if hasattr(row, "keys") else row[1] or "")
@@ -58,6 +88,7 @@ def verification_gate(
     item_id: int,
     verification: Mapping[str, Any],
     target_status: str,
+    candidate_sha: str = "",
 ) -> Optional[dict[str, Any]]:
     if not all(
         _table_exists(conn, table)
@@ -105,7 +136,7 @@ def verification_gate(
     # so an item whose only selected case was waived was refused for having
     # no case at all, which no rerun or authoring could fix.
     cursor = conn.execute(
-        "SELECT r.id, r.qa_phase, r.waived_at "
+        "SELECT r.* "
         "FROM qa_requirements r "
         f"WHERE r.item_id = {marker} AND {selector} "
         "AND r.blocking_mode = 'blocking' "
@@ -146,18 +177,29 @@ def verification_gate(
         # though it never ran. Only the still-open cases belong in this list.
         if not row.get("waived_at")
         and not _requirement_consumed(
-            conn, row, pre_merge=pre_merge, item_id=int(item_id)
+            conn,
+            row,
+            pre_merge=pre_merge,
+            item_id=int(item_id),
+            candidate_sha=candidate_sha,
         )
     ]
     unsatisfied = [
-        int(row["id"] if hasattr(row, "keys") else row[0])
-        for row in unsatisfied_rows
+        int(row["id"] if hasattr(row, "keys") else row[0]) for row in unsatisfied_rows
     ]
     if unsatisfied:
+        replacements = [
+            int(value)
+            for row in unsatisfied_rows
+            if (
+                value := row.get("replacement_requirement_id")
+                or row.get("superseded_by_requirement_id")
+            )
+        ]
         waiting = next(
             (
                 wait
-                for value in unsatisfied
+                for value in [*replacements, *unsatisfied]
                 if (wait := requirement_awaits_human_review(conn, value)) is not None
             ),
             None,
@@ -177,10 +219,25 @@ def verification_gate(
         return _failure(
             "GATE_DASH_VERIFICATION_UNSATISFIED",
             "Selected Dash QA requirement(s) are not satisfied here: "
-            + ", ".join(str(value) for value in unsatisfied),
+            + "; ".join(
+                f"{row['id']}"
+                + replacement_note(
+                    {
+                        "replacement_requirement_id": row.get(
+                            "replacement_requirement_id"
+                        )
+                        or row.get("superseded_by_requirement_id")
+                    }
+                )
+                for row in unsatisfied_rows
+            ),
             POST_DEPLOY_RECOVERY
             if post_deploy
-            else "Execute each requirement through the registered QA case runner.",
+            else (
+                "Execute each declared replacement (or unreplaced requirement) "
+                "through the registered QA case runner and record a passing "
+                "independent verdict against the same candidate and scope."
+            ),
         )
     return None
 

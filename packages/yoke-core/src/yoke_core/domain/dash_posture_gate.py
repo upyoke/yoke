@@ -31,6 +31,8 @@ from yoke_core.domain.dash_lane_head_staleness import (
     head_is_stale_bookkeeping,
 )
 from yoke_core.domain.dash_posture_verification_gate import verification_gate
+from yoke_core.domain.qa_gate_definitions import GateTarget
+from yoke_core.domain.qa_gate_helpers import _resolve_latest_code_ref
 from yoke_core.domain.relayed_containment_attestation import (
     take_relayed_verdict,
 )
@@ -259,6 +261,14 @@ def evaluate(
                 item_id=int(item_id),
                 verification=verification,
                 target_status=target_status,
+                candidate_sha=(
+                    _resolve_latest_code_ref(
+                        GateTarget(item_id=int(item_id)), db_path
+                    ).sha
+                    if target_status == ITEM_POSTURE_VERIFICATION_TRANSITION
+                    else ""
+                )
+                or "",
             )
             if blocked is not None:
                 return blocked
