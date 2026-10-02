@@ -6,7 +6,8 @@ import { renderNewItemForm } from "./item_new_form.js";
 export function renderNewItemView(context, main, initialProjectId) {
   const documentNode = context.document;
   const query = String(documentNode.defaultView?.location?.hash || "").split("?", 2)[1] || "";
-  const draft = { workflowId: new URLSearchParams(query).get("workflow") };
+  const requestedWorkflowId = new URLSearchParams(query).get("workflow");
+  const draft = { workflowId: requestedWorkflowId };
   const selector = el(documentNode, "select", "item-form-control item-project-select");
   selector.required = true;
   let projectId = "";
@@ -102,7 +103,11 @@ export function renderNewItemView(context, main, initialProjectId) {
       }
       const projects = result.envelope.result.rows || [];
       const saved = storage?.read(projects, initialProjectId);
-      if (saved) { Object.assign(draft, saved); restored = true; }
+      if (saved) {
+        Object.assign(draft, saved);
+        draft.workflowId = requestedWorkflowId || saved.workflowId;
+        restored = true;
+      }
       selector.replaceChildren();
       const placeholder = el(documentNode, "option", null, "Choose a project");
       placeholder.value = "";

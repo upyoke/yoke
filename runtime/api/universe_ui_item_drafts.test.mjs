@@ -16,13 +16,13 @@ function fixture({ projects = [{ id: 7, slug: "acme", name: "Acme" }] } = {}) {
     removeItem: (key) => entries.delete(key),
   };
   Object.assign(document.defaultView.location, { origin: "https://example.test", pathname: "/acme/work" });
-  const state = { actor: 7, unavailable: false };
+  const state = { actor: 7, unavailable: false, workflows: ["dash"] };
   const context = itemContext(document, async (request) => {
     if (request.function === "organizations.get") return ok({ slug: "acme" });
     if (request.function === "profile.get") return ok({ actor: { id: state.actor } });
     if (request.function === "workflows.definition.get") return state.unavailable ? failure : ok({
       title_max_length: 100,
-      workflows: [{ id: "dash", name: "Dash", definition: { entry_surfaces: ["web_form"], policies: { item_posture_allowlist: [] } } }],
+      workflows: state.workflows.map((id) => ({ id, name: id, definition: { entry_surfaces: ["web_form"], policies: { item_posture_allowlist: [] } } })),
     });
     if (request.function === "items.create") return ok({ public_ref: "ACM-23" });
     return ok({ rows: [] });
@@ -108,4 +108,14 @@ test("All-project creation restores its chosen project and draft after remount",
   assert.equal(byClass(main, "item-project-select")[0].value, "7");
   assert.equal(input(main, "INPUT").value, "Fix layout");
   assert.equal(input(main, "TEXTAREA").value, "Preserve the useful draft.");
+});
+
+test("an explicit workflow link takes precedence over the saved draft workflow", async () => {
+  const { mount, main, state, document } = fixture();
+  await mount(); fill(main);
+  state.workflows = ["dash", "task"];
+  document.defaultView.location.hash = "#/items/new?workflow=task";
+  await mount();
+  assert.equal(input(main, "INPUT").value, "Fix layout");
+  assert.ok(allNodes(main).some((node) => node.tagName === "BUTTON" && node.textContent === "Create task"));
 });
