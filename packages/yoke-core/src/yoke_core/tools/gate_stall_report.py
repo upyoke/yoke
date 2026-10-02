@@ -51,9 +51,7 @@ class StallReport:
 
     def heartbeat_line(self, *, kind: str, quiet_seconds: float) -> str:
         """Render the progress/raw line a quiet watcher emits."""
-        base = (
-            f"# watch_{kind} still running; waiting on: {self.waiting_on}"
-        )
+        base = f"# watch_{kind} still running; waiting on: {self.waiting_on}"
         if self.detail:
             base = f"{base} ({self.detail})"
         return f"{base}; no child output for {quiet_seconds:g}s\n"
@@ -62,10 +60,7 @@ class StallReport:
         """Render the named abort banner written before the group is reaped."""
         reason = self.reason or NESTED_ADMISSION_DEADLOCK
         extra = f"; {self.detail}" if self.detail else ""
-        return (
-            f"# watch_{kind} aborted: {reason}{extra}; "
-            "child process group reaped\n"
-        )
+        return f"# watch_{kind} aborted: {reason}{extra}; child process group reaped\n"
 
 
 def pid_from_slot_identity(identity: str) -> Optional[int]:
@@ -141,9 +136,7 @@ def _read_slot_parties() -> tuple[list[str], list[str]]:
         return ([], [])
 
 
-def _identities_for_pids(
-    identities: Sequence[str], pids: set[int]
-) -> list[str]:
+def _identities_for_pids(identities: Sequence[str], pids: set[int]) -> list[str]:
     matched: list[str] = []
     for identity in identities:
         parsed = pid_from_slot_identity(identity)
@@ -203,9 +196,7 @@ def diagnose_quiet_run(
         who = ", ".join(holders) if holders else "an unnamed holder"
         return StallReport(
             waiting_on="admission slot",
-            detail=(
-                f"holders={who}; nested_waiter={', '.join(nested_waiters)}"
-            ),
+            detail=(f"holders={who}; nested_waiter={', '.join(nested_waiters)}"),
         )
 
     if holders and not nested_waiters and descendant_set:
@@ -251,7 +242,9 @@ def handle_quiet_period(
     """
     report = diagnose_quiet_run(root_pid)
     heartbeat = report.heartbeat_line(kind=kind, quiet_seconds=quiet_seconds)
-    if not outcome_only:
+    if kind == "fleet":
+        write_raw(heartbeat)
+    elif not outcome_only:
         emit_immediate(heartbeat)
     if not report.abort:
         return None
@@ -260,9 +253,7 @@ def handle_quiet_period(
     emit_immediate(abort_line)
     terminate_child()
     if not outcome_only:
-        emit_immediate(
-            f"# watch_{kind} exit={stall_abort_exit} raw={raw_capture}\n"
-        )
+        emit_immediate(f"# watch_{kind} exit={stall_abort_exit} raw={raw_capture}\n")
     return stall_abort_exit
 
 

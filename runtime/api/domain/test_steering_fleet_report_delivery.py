@@ -212,6 +212,22 @@ def test_changed_content_reports_again_after_the_interval(steering_scope):
     assert "YOK-2" in body
 
 
+def test_unchanged_actionable_content_does_not_repeat(steering_scope):
+    first = steering_report_for_delivery(
+        steering_scope, session_id=STEERING_SESSION, now=NOW
+    )
+    assert first is not None
+    assert "available work" in first
+    assert (
+        steering_report_for_delivery(
+            steering_scope,
+            session_id=STEERING_SESSION,
+            now=NOW + timedelta(minutes=30),
+        )
+        is None
+    )
+
+
 QUIET_PROJECT_ID = 2
 
 

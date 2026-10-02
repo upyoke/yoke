@@ -21,6 +21,7 @@ from yoke_core.tools._watch_throttle import (
 )
 from yoke_core.tools.gate_stall_report import handle_quiet_period
 from yoke_core.tools.watch_progress_stall import ProgressEmitWatch
+from yoke_core.tools.watch_child_lines import ChildLines
 
 QUIET_HEARTBEAT_SECONDS_ENV = "YOKE_WATCH_QUIET_HEARTBEAT_SECONDS"
 
@@ -183,6 +184,7 @@ def drain_watched_child(
     *timed_out* is true.
     """
     assert proc.stdout is not None
+    reader = ChildLines(proc.stdout)
     last_summary: Optional[str] = None
     timed_out = False
     progress_watch = ProgressEmitWatch.start(kind, now=clock())
@@ -220,22 +222,22 @@ def drain_watched_child(
                     while True:
                         if not selector.select(timeout=0):
                             break
-                        line = proc.stdout.readline()
-                        if line == "":
+                        for line in reader.read():
+                            summary = _route_line(
+                                line,
+                                now=clock(),
+                                classifier=classifier,
+                                gate=gate,
+                                digest=digest,
+                                raw_f=raw_f,
+                                progress_watch=progress_watch,
+                                emit_immediate=emit_immediate,
+                                outcome_only=outcome_only,
+                            )
+                            if summary is not None:
+                                last_summary = summary
+                        if reader.ended:
                             break
-                        summary = _route_line(
-                            line,
-                            now=clock(),
-                            classifier=classifier,
-                            gate=gate,
-                            digest=digest,
-                            raw_f=raw_f,
-                            progress_watch=progress_watch,
-                            emit_immediate=emit_immediate,
-                            outcome_only=outcome_only,
-                        )
-                        if summary is not None:
-                            last_summary = summary
                     break
                 if deadline is not None and now >= deadline:
                     process_group_reaping.terminate_process_group(proc)
@@ -280,24 +282,22 @@ def drain_watched_child(
                     )
                     return abort_exit, last_summary, False
             else:
-                line = proc.stdout.readline()
-                if line == "":
-                    if proc.poll() is not None:
-                        break
-                    continue
-                summary = _route_line(
-                    line,
-                    now=now,
-                    classifier=classifier,
-                    gate=gate,
-                    digest=digest,
-                    raw_f=raw_f,
-                    progress_watch=progress_watch,
-                    emit_immediate=emit_immediate,
-                    outcome_only=outcome_only,
-                )
-                if summary is not None:
-                    last_summary = summary
+                for line in reader.read():
+                    summary = _route_line(
+                        line,
+                        now=now,
+                        classifier=classifier,
+                        gate=gate,
+                        digest=digest,
+                        raw_f=raw_f,
+                        progress_watch=progress_watch,
+                        emit_immediate=emit_immediate,
+                        outcome_only=outcome_only,
+                    )
+                    if summary is not None:
+                        last_summary = summary
+                if reader.ended:
+                    break
             # A block still arriving is progress in flight: neither report
             # a stall against it nor tear it open as abandoned. Genuine
             # abandonment still flushes at child exit, timeout, and the
@@ -316,7 +316,9 @@ def drain_watched_child(
                     emit_immediate=emit_immediate,
                     partial=True,
                 )
-                if not outcome_only:
+                if kind == "fleet":
+                    raw_f.write(stall_line)
+                elif not outcome_only:
                     emit_immediate(stall_line)
     _emit_classifier_held(
         classifier,

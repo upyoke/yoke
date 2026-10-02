@@ -49,6 +49,7 @@ from yoke_core.tools._watch_capture_binding import (
     writer_pid,
 )
 from yoke_core.tools._watch_terminal_outcome import OUTCOME_ONLY_WATCH_KINDS
+from yoke_core.domain.steering_fleet_report_render import REPORT_BEGIN, REPORT_END
 
 # Matches the wrapper-side footer format owned by
 # ``_watch_runner.run_watcher`` -- single source of the literal in
@@ -152,6 +153,7 @@ class _Delivery:
         self.stream = stream
         self.delivered = _resume_offset(path)
         self.position = 0
+        self.report: list[str] = []
 
     def forward(self, line: str) -> bool | None:
         """Serve *line*; ``True`` on the sentinel, ``None`` if nobody reads."""
@@ -161,14 +163,17 @@ class _Delivery:
         if not (fresh or sentinel):
             return sentinel
         marker = WRITER_MARKER_RE.match(line)
-        if (
-            marker is not None
-            and marker.group("kind") in OUTCOME_ONLY_WATCH_KINDS
-        ):
+        if marker is not None and marker.group("kind") in OUTCOME_ONLY_WATCH_KINDS:
             if fresh:
                 self.delivered = self.position
                 _record_delivered(self.path, self.delivered)
             return False
+        if line.rstrip("\n") == REPORT_BEGIN or self.report:
+            self.report.append(line)
+            if line.rstrip("\n") != REPORT_END and not sentinel:
+                return False
+            line = "".join(self.report)
+            self.report = []
         try:
             self.stream.write(line)
             self.stream.flush()

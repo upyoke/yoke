@@ -113,7 +113,7 @@ class LandedItem:
             and self.holder_parked
             and not self.holder_native_process_gone
             and self.completion_flow_available
-            and self.custody_state in {HELD, UNHELD}
+            and self.custody_state in {HELD, UNHELD, REMERGED}
         )
 
     @property
