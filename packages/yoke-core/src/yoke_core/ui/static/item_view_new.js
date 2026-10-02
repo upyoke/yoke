@@ -1,3 +1,4 @@
+import { itemDraftStorage } from "./item_draft_storage.js";
 import { callFunction, el, renderError } from "./universe_view_support.js";
 import { itemIntakeField, loadVerificationCatalog, webWorkflowSteer } from "./item_intake_controls.js";
 import { renderNewItemForm } from "./item_new_form.js";
@@ -13,13 +14,23 @@ export function renderNewItemView(context, main, initialProjectId) {
   let instructionSequence = 0;
   let instructions = [];
   let renderForm = null;
+  let storage = null;
+  let restored = false;
+  let retryLoad = () => loadProjects();
+  draft.save = () => storage?.save(projectId, draft);
+  draft.discard = () => storage?.clear();
   const valid = (result) => result.status === 200 && result.envelope.success;
   const showFailure = (result) => {
     main.replaceChildren(itemIntakeField(documentNode, "Project", selector));
     renderError(main, result);
-    main.appendChild(el(documentNode, "p", "item-form-help", "Choose another project or reload to retry. Your draft is preserved."));
+    main.appendChild(el(documentNode, "p", "item-form-help", "Your draft is kept while you retry."));
+    const retry = el(documentNode, "button", "item-button", "Try again");
+    retry.type = "button";
+    retry.addEventListener("click", () => retryLoad());
+    main.appendChild(retry);
   };
   const loadInstructions = async (workflowId) => {
+    retryLoad = () => loadInstructions(workflowId).catch((error) => showFailure({ status: 0, envelope: { error: { message: String(error) } } }));
     const token = ++instructionSequence;
     const result = await callFunction(context.client, "workflow.execution_instruction.resolve", {
       workflow: workflowId, project: projectId, detail: "full",
@@ -31,6 +42,7 @@ export function renderNewItemView(context, main, initialProjectId) {
     renderForm?.();
   };
   const loadProject = async () => {
+    retryLoad = loadProject;
     const token = ++sequence;
     ++instructionSequence;
     draft.title = draft.titleControl?.value ?? draft.title;
@@ -57,7 +69,8 @@ export function renderNewItemView(context, main, initialProjectId) {
       const notice = draft.title !== undefined
         ? "Project settings refreshed. Review this project's settings before creating." + (priorWorkflow && priorWorkflow !== workflow.id ? ` ${priorWorkflow} is unavailable; ${workflow.name || workflow.id} is selected.` : "")
         : "";
-      draft.posture = null;
+      if (!restored) draft.posture = null;
+      restored = false;
       renderForm = () => renderNewItemForm(context, main, projectId, {
         definition, catalog, draft, projectControl: selector, instructions, notice,
         onWorkflowChange: (id) => {
@@ -67,6 +80,7 @@ export function renderNewItemView(context, main, initialProjectId) {
           loadInstructions(id).catch((error) => showFailure({ status: 0, envelope: { error: { message: String(error) } } }));
         },
       });
+      draft.save();
       await loadInstructions(workflow.id);
     } catch (error) {
       if (token === sequence && context.isMounted()) showFailure({ status: 0, envelope: { error: { message: String(error) } } });
@@ -74,8 +88,12 @@ export function renderNewItemView(context, main, initialProjectId) {
   };
   selector.addEventListener("change", () => { projectId = selector.value; loadProject(); });
   main.replaceChildren(el(documentNode, "p", "empty", "Loading projects…"));
-  callFunction(context.client, "projects.list", { fields: ["id", "slug", "name", "emoji"], for_item_creation: true })
-    .then((result) => {
+  const loadProjects = () => Promise.all([
+    callFunction(context.client, "projects.list", { fields: ["id", "slug", "name", "emoji"], for_item_creation: true }),
+    itemDraftStorage(context),
+  ])
+    .then(([result, store]) => {
+      storage = store;
       if (!context.isMounted()) return;
       if (!valid(result)) { showFailure(result); return; }
       if (!result.envelope.result?.creation_scoped) {
@@ -83,6 +101,9 @@ export function renderNewItemView(context, main, initialProjectId) {
         return;
       }
       const projects = result.envelope.result.rows || [];
+      const saved = storage?.read(projects, initialProjectId);
+      if (saved) { Object.assign(draft, saved); restored = true; }
+      selector.replaceChildren();
       const placeholder = el(documentNode, "option", null, "Choose a project");
       placeholder.value = "";
       placeholder.disabled = true;
@@ -96,10 +117,11 @@ export function renderNewItemView(context, main, initialProjectId) {
         main.textContent = "You cannot create items in any project. Ask a project owner for access.";
         return;
       }
-      projectId = projects.some((row) => String(row.id) === String(initialProjectId)) ? String(initialProjectId)
-        : projects.length === 1 ? String(projects[0].id) : "";
+      projectId = saved?.projectId || (projects.some((row) => String(row.id) === String(initialProjectId)) ? String(initialProjectId)
+        : projects.length === 1 ? String(projects[0].id) : "");
       selector.value = projectId;
       if (projectId) loadProject();
       else main.replaceChildren(itemIntakeField(documentNode, "Project", selector), el(documentNode, "p", "item-form-help", "Choose the project this item belongs to."));
     }).catch((error) => { if (context.isMounted()) showFailure({ status: 0, envelope: { error: { message: String(error) } } }); });
+  loadProjects();
 }
