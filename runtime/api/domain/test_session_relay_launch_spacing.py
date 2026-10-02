@@ -215,17 +215,18 @@ def test_wakes_stay_one_per_cycle_even_when_several_are_eligible() -> None:
     assert _claim(conn, now="2026-08-22T12:00:01Z").jobs == ()
 
 
-def test_a_launch_is_claimed_before_an_eligible_wake() -> None:
+def test_an_eligible_wake_is_claimed_before_a_launch() -> None:
     conn = _connection()
-    queued = _queue(conn, 1)
+    _queue(conn, 1)
     _add_waiting_recipient(conn, message_id="message-1", session_id="target-1")
 
     outcome = _claim(conn)
 
-    assert [job.job_id for job in outcome.jobs] == queued
-    assert outcome.jobs[0].job_kind == "launch"
+    assert len(outcome.jobs) == 1
+    assert outcome.jobs[0].job_kind == "wake"
+    assert outcome.jobs[0].target_session_id == "target-1"
     assert (
-        conn.execute("SELECT COUNT(*) FROM session_message_attempts").fetchone()[0] == 0
+        conn.execute("SELECT COUNT(*) FROM session_launch_attempts").fetchone()[0] == 0
     )
 
 
