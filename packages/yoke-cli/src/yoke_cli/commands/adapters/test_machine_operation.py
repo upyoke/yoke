@@ -64,7 +64,7 @@ def run_host_operation(
         parser.add_argument(
             "--component",
             choices=("browser-profile",),
-            help="Seal only the stopped Linux browser profile beside the clean home golden; no probes file required.",
+            help="Seal only the stopped browser profile beside the clean home golden on Linux, macOS, or Windows/WSL; no probes file required.",
         )
         parser.add_argument(
             "--probes-file",

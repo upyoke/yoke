@@ -139,7 +139,7 @@ The walker never issues the verdict. Its turn returns one status:
 ## Human-Gate Handoff
 
 Subagent turns are atomic and cannot pause for the operator. At a permission
-dialog, interactive sign-in, approval, or other human-only action, the walker
+dialog, missing/expired personal sign-in, or other human-only action, the walker
 returns immediately with:
 
 1. the exact action the person must take;
@@ -247,9 +247,14 @@ and a lease-routed `yoke qa browser step --base-url URL --step-json JSON`
 template. The walker chooses and submits one step at a time; no scenario is
 authored in advance.
 
-A walker never signs in. An expired session is a human gate naming the site.
-For test-machine browser authorization, saving, and explicit restoration,
-follow the [Machine QA Pack Linux procedure](../../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/linux-host-provisioning.md).
+A walker never signs in. Missing/expired personal sign-in is a human gate
+naming the machine, site and resume state. With a valid saved sign-in, complete
+the browser approval this case emitted using the dispatch's
+`yoke qa mission browser-flow` command and its live owner-only transcript.
+Read `--help`; it uses the candidate daemon, project-declared origin and the
+immutable case target, proves the control, then the terminal's own completion.
+Follow the [Machine QA Pack per-OS procedures](../../../packs/machine-qa/versions/1.3.8/files/docs/packs/machine-qa/browser-profile-baseline.md)
+and the [project declaration contract](qa-platform/browser-profile-baseline.md).
 The mission execution contract above still governs every host command.
 
 ## Evidence Discipline

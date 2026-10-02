@@ -5,6 +5,11 @@ import pytest
 
 from runtime.api.domain.machine_qa_terminal_recipe_test_support import recipe
 from yoke_core.domain.ssh_linux_terminal_recipe import execute_linux_recipe
+from yoke_core.domain.machine_qa_saved_profile_approval import BrowserApprovalResult
+from runtime.api.domain.machine_qa_browser_flow_test_support import (
+    EXAMPLE_FLOW,
+    EXAMPLE_ORIGIN,
+)
 
 
 @pytest.mark.parametrize(
@@ -71,7 +76,88 @@ def test_linux_recipe_completion_and_failures_use_shared_protocol(monkeypatch, m
             result.error_code
             == {
                 "cleanup_failed": "linux_tmux_cleanup_failed",
-                "operator_gate": "headless_linux_browser_approval_unavailable",
+                "operator_gate": "machine_browser_approval_kind_invalid",
                 "over_budget": "terminal_recipe_timed_out",
             }[mode]
         )
+
+
+def test_linux_browser_gate_uses_registered_candidate_and_terminal_completion(
+    monkeypatch,
+):
+    closed, approvals = [], []
+    code = "AB12-CD34"
+    gate_text = f"ready\nOne-time code: {code}\nOpen: {EXAMPLE_ORIGIN}/connect\n"
+    transcripts = iter((gate_text, gate_text, gate_text + "connected\n"))
+
+    class Terminal:
+        session = "registered-terminal"
+
+        def __init__(self, control):
+            self.control = control
+
+        def open(self, entry_surface, size):
+            return True
+
+        def transcript(self):
+            return next(transcripts, gate_text + "connected\n__YOKE_EXIT_0\n")
+
+        def close(self):
+            closed.append(True)
+            return True
+
+    control = SimpleNamespace(
+        material=SimpleNamespace(project_id=1),
+        secret_values=(),
+        _upload_bytes=lambda *args: True,
+        _run=lambda *args, **kw: None,
+    )
+
+    def approve(actual_control, **kw):
+        assert actual_control is control
+        assert kw["verification_url"] == EXAMPLE_ORIGIN + "/connect"
+        assert kw["user_code"] == code
+        assert kw["flow"] == EXAMPLE_FLOW
+        assert 0 < kw["timeout_seconds"] <= 20
+        approvals.append(True)
+        return BrowserApprovalResult(True, {"browser": "candidate-daemon"})
+
+    monkeypatch.setattr(
+        "yoke_core.domain.ssh_linux_terminal_recipe.LinuxTerminal", Terminal
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.ssh_linux_terminal_recipe.send_recipe_keys",
+        lambda *a, **kw: True,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.ssh_linux_terminal_recipe.time.sleep", lambda seconds: None
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.machine_qa_browser_flow_policy.load_browser_flow",
+        lambda project_id, name: EXAMPLE_FLOW,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.machine_qa_saved_profile_approval.approve_machine_from_profile",
+        approve,
+    )
+    config = recipe(mode="terminal-multiplexer")
+    config["post_checks"] = []
+    config["actions"][0].update(
+        operator_gate="machine_browser_approval",
+        gate_timeout_seconds=20,
+        completion_text=["connected"],
+    )
+    result = execute_linux_recipe(
+        control,
+        entry_surface="candidate onboard",
+        required_completion="done",
+        config=config,
+        size=(120, 40),
+        allowed_operator_urls=(EXAMPLE_ORIGIN,),
+    )
+    assert result.ok
+    assert approvals == [True]
+    assert closed == [True]
+    assert result.evidence["steps"][0]["browser_approval"] == {
+        "browser": "candidate-daemon"
+    }

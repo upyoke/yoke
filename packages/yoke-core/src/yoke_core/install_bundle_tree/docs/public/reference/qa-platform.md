@@ -313,7 +313,7 @@ yoke qa case run \
 
 A case attached to a deployment run needs neither flag: it is judged against the commit that run was pinned to deliver, and refuses by name when the run pins none, when a different commit is named for it, or when the environment cannot prove what it serves.
 
-`yoke qa browser setup`, `status`, `screenshot`, and `step` remain low-level machine-substrate utilities; diagnostic capture creates no parallel verdict. For agent-chosen cross-substrate cases, see [Exploratory QA Missions](exploratory-qa.md); for explicitly restored host authorization, see [separate browser profile baselines](qa-platform/browser-profile-baseline.md).
+`yoke qa browser setup`, `status`, `screenshot`, and `step` are machine-substrate utilities; diagnostic capture creates no parallel verdict. Machine cases complete their own declared browser approvals through the candidate daemon and separate signed-in profile; missing/expired personal sign-in is the human handoff. Authors must not default such approvals to human gates: see [Exploratory QA Missions](exploratory-qa.md) and the [project declaration and per-OS profile procedures](qa-platform/browser-profile-baseline.md).
 
 ## AC-Derived Requirements and Suite Graduation
 

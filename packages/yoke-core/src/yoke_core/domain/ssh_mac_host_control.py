@@ -103,6 +103,23 @@ class SshMacHostControl(SshMacTransport):
             execute_terminal_recipe,
         )
 
+        from yoke_core.domain.ssh_mac_browser_approval import (
+            approve_machine_in_safari,
+        )
+
+        from yoke_core.domain.machine_qa_browser_flow_policy import load_browser_flow
+
+        try:
+            browser_flow = (
+                load_browser_flow(self.material.project_id, "machine_browser_approval")
+                if any(action.get("operator_gate") for action in config["actions"])
+                else None
+            )
+        except ValueError as exc:
+            return HostActionResult(
+                False, {"recovery": str(exc)}, "browser_flow_declaration_unavailable"
+            )
+
         terminal_size = self._pending_terminal_size
         self._pending_terminal_size = None
         return execute_terminal_recipe(
@@ -116,6 +133,10 @@ class SshMacHostControl(SshMacTransport):
             terminal_size=terminal_size,
             progress_callback=progress_callback,
             allowed_operator_urls=tuple(allowed_operator_urls),
+            browser_flow=browser_flow,
+            approve_browser=lambda url, code: approve_machine_in_safari(
+                self._run, verification_url=url, user_code=code
+            ),
         )
 
 

@@ -32,6 +32,10 @@ MAX_ARCHIVE_MEMBERS = 100_000
 class ProfileArchiveError(ValueError):
     """A snapshot cannot be safely captured or restored."""
 
+    def __init__(self, code: str, *, path=None):
+        super().__init__(code)
+        self.path = path
+
 
 def require(condition: bool, code: str) -> None:
     if not condition:
@@ -46,6 +50,15 @@ def private_owned(path: Path, *, directory: bool = False) -> None:
         stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode),
         "browser_profile_unsafe_entry",
     )
+
+
+def capture_parent_owned(path: Path) -> None:
+    """A readable golden parent is safe; other users must not replace snapshots."""
+    info = path.lstat()
+    if info.st_uid != os.getuid() or not stat.S_ISDIR(info.st_mode):
+        raise ProfileArchiveError("browser_profile_parent_unsafe", path=path)
+    if info.st_mode & 0o022:
+        raise ProfileArchiveError("browser_profile_parent_writable", path=path)
 
 
 def literal_path(value: str) -> Path:
@@ -199,11 +212,12 @@ def capture(home: Path, baseline: Path, project: str, relative: str) -> dict:
     )
     require(not baseline.exists(), "browser_profile_destination_occupied")
     create_private_directory(baseline.parent)
-    private_owned(baseline.parent, directory=True)
+    capture_parent_owned(baseline.parent)
     profile_writers_absent(profile)
     before = profile_inventory(profile)
     temporary = Path(tempfile.mkdtemp(prefix=".browser-profile-", dir=baseline.parent))
     try:
+        private_owned(temporary, directory=True)
         with tarfile.open(temporary / ARCHIVE_NAME, "w:gz") as archive:
             for name in sorted(before):
                 member = archive.gettarinfo(str(profile / name), arcname=name)
@@ -310,7 +324,15 @@ def main() -> int:
             args.profile_relative_path,
         )
     except ProfileArchiveError as exc:
-        print(json.dumps({"ok": False, "reason": str(exc)}))
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "reason": str(exc),
+                    **({"unsafe_path": str(exc.path)} if exc.path is not None else {}),
+                }
+            )
+        )
         return 1
     except (OSError, ValueError, tarfile.TarError):
         print(json.dumps({"ok": False, "reason": "browser_profile_archive_refused"}))

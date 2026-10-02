@@ -13,6 +13,7 @@ from yoke_cli.transport.dispatcher import build_actor
 
 _QA_MISSION_HOST_COMMAND_MODULE = "yoke_core.domain.agent_mission_host_command_cli"
 _QA_MISSION_SCRATCH_MODULE = "yoke_core.domain.agent_mission_scratch_cli"
+_QA_MISSION_BROWSER_FLOW_MODULE = "yoke_core.domain.agent_mission_browser_flow_cli"
 
 
 QA_CASE_RUN_USAGE = (
@@ -50,6 +51,12 @@ QA_MISSION_SCRATCH_TEARDOWN_USAGE = (
     "yoke qa mission scratch-teardown "
     "(--item PREFIX-N | --item-id N | --deployment-run-id RUN) "
     "--execution-id ID --requirement-id N [--timeout-seconds N]"
+)
+QA_MISSION_BROWSER_FLOW_USAGE = (
+    "yoke qa mission browser-flow "
+    "(--item PREFIX-N | --item-id N | --deployment-run-id RUN) "
+    "--execution-id ID --requirement-id N --transcript-path PATH "
+    "--completion-text TEXT [--timeout-seconds N]"
 )
 
 
@@ -93,6 +100,10 @@ def qa_mission_scratch_teardown(args: List[str]) -> int:
         _QA_MISSION_SCRATCH_MODULE,
         args,
     )
+
+
+def qa_mission_browser_flow(args: List[str]) -> int:
+    return _run_execution_module(_QA_MISSION_BROWSER_FLOW_MODULE, args)
 
 
 def _pin_execution_session(args: List[str]) -> Tuple[List[str], str]:
@@ -176,6 +187,7 @@ TOOL_COMMANDS = {
     ("qa", "plan", "run"): qa_plan_run,
     ("qa", "mission", "host-command"): qa_mission_host_command,
     ("qa", "mission", "scratch-teardown"): qa_mission_scratch_teardown,
+    ("qa", "mission", "browser-flow"): qa_mission_browser_flow,
 }
 
 USAGE = {
@@ -185,6 +197,7 @@ USAGE = {
     "yoke qa plan run": QA_PLAN_RUN_USAGE,
     "yoke qa mission host-command": QA_MISSION_HOST_COMMAND_USAGE,
     "yoke qa mission scratch-teardown": QA_MISSION_SCRATCH_TEARDOWN_USAGE,
+    "yoke qa mission browser-flow": QA_MISSION_BROWSER_FLOW_USAGE,
 }
 
 
@@ -195,11 +208,13 @@ __all__ = [
     "QA_PLAN_REVIEW_SUBMIT_USAGE",
     "QA_MISSION_HOST_COMMAND_USAGE",
     "QA_MISSION_SCRATCH_TEARDOWN_USAGE",
+    "QA_MISSION_BROWSER_FLOW_USAGE",
     "TOOL_COMMANDS",
     "USAGE",
     "qa_case_run",
     "qa_mission_host_command",
     "qa_mission_scratch_teardown",
+    "qa_mission_browser_flow",
     "qa_plan_abort",
     "qa_plan_review_submit",
     "qa_plan_run",
