@@ -93,15 +93,14 @@ and denies the second call; it does not execute the denied command. Codex trusts
 only the two known recorder handlers for that invocation using the existing
 hook hash implementation. No sandbox/permission bypass flags are used.
 
-On macOS, add `--gui-session` when the SSH security session cannot access the
-test account's unlocked login keychain. This runs the same recorder through
-Terminal.app in the normal GUI login session. It does not unlock a keychain,
-copy credentials, or change authentication settings.
+Authentication and GUI-session prerequisites come from the
+[Machine QA Pack macOS procedure](../../../../packs/machine-qa).
+The recorder's `--gui-session` option selects that already prepared context.
 
 Review the redacted recordings before committing: session/conversation/tool ids,
 machine/account ids, paths, and account-bound data must not remain. The replay
 substitutes fresh session identities, disposable workspace/transcript paths,
 and probe commands while preserving native wire structure and other fields.
 Absent transcript paths stay absent; present transcript filenames match the fresh session.
-If a harness is signed out or its keychain is locked, ask the test-account
-operator to restore access; capture must not enter or extract credentials.
+If authentication is unavailable, follow that procedure's human gate;
+recording never enters or extracts credentials.

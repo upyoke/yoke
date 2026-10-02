@@ -402,96 +402,9 @@ physical Mac lane is intentionally part of the campaign run.
 
 ## Prepare Hosts
 
-EC2 is the broad Linux lane. Use tiny hosts by default:
-
-- Amazon Linux 2023 x86_64: `t3.micro` or `t3.small`.
-- Amazon Linux 2023 arm64: `t4g.micro` or `t4g.small`.
-- Ubuntu 24.04 x86_64: `t3.micro` or `t3.small`.
-- Ubuntu 24.04 arm64: `t4g.micro` or `t4g.small`.
-
-Use `small` rather than `micro` for scenarios that compile or install browser
-runtime or run large Apply flows. A normal broad campaign leases about 20 hosts
-in waves, runs five scenario waves, and produces about 100 assignment slots. A
-stress campaign can use 60 hosts and 120 assignment slots after the collector is
-stable.
-
-Each EC2 host gets exactly one starting profile:
-
-| Profile | Purpose | Prep |
-| --- | --- | --- |
-| `bare-linux` | Public installer from nothing | Shell and curl only |
-| `bare-no-curl` | Missing prerequisite failure | Remove or hide curl from PATH |
-| `bare-no-uv` | Missing uv consent/install path | Curl present, uv absent |
-| `prepared-yoke` | Start directly at wizard | Install Yoke with onboarding disabled |
-| `prepared-no-git` | Git prerequisite branch | Yoke installed, Git absent |
-| `prepared-no-git-no-sudo` | Manual Git prerequisite branch | Yoke installed, Git and sudo absent |
-| `prepared-git` | Project checkout branches | Yoke and Git installed |
-| `prepared-path-broken` | PATH repair | Yoke installed but fresh login PATH does not resolve it |
-| `prepared-stored-state` | Stored token/project reuse | Preloaded machine config and token files |
-| `prepared-screen-term` | Plain glyphs | Run under `TERM=screen-256color`, GNU screen, or tmux screen mode |
-| `fault-injection` | Expected failures | Local proxy, fake endpoint, or constrained token |
-
-Provisioning rules:
-
-- All AWS calls go through the project `aws-admin` capability resolver, not
-  ambient AWS shell credentials.
-- Restrict SSH ingress to the coordinator/operator IP or a private network route.
-- Tag every resource with `Purpose=yoke-installer-tui-test`,
-  `Campaign=<campaign-id>`, and `ExpiresAt=<timestamp>`.
-- Terminate instances and delete temporary security groups/key pairs after the
-  campaign.
-- Never log raw AWS credential values.
-
-For EC2 host work, preview first:
-
-```bash
-uv run --frozen python3 -m yoke_core.tools.installer_live_tui_fleet fleet-plan \
-  --campaign-id "$CAMPAIGN_ID" \
-  --campaign-root "$CAMPAIGN_ROOT" \
-  --count 1 \
-  --profile prepared-git \
-  --endpoint "$ENDPOINT" \
-  --json
-```
-
-Create hosts only after operator approval:
-
-```bash
-uv run --frozen python3 -m yoke_core.tools.installer_live_tui_fleet fleet-prepare \
-  --campaign-id "$CAMPAIGN_ID" \
-  --campaign-root "$CAMPAIGN_ROOT" \
-  --count 1 \
-  --profile prepared-git \
-  --endpoint "$ENDPOINT" \
-  --yoke-token-file <local-yoke-token-file> \
-  --github-repo <owner/repo> \
-  --execute \
-  --json
-```
-
-`fleet-prepare` writes `host-ledger.json` under `CAMPAIGN_ROOT`. If a campaign
-needs multiple independently prepared fleets, preserve each returned ledger path
-before running another prepare command that could replace the root ledger.
-
-Prepared hosts should record:
-
-```bash
-/home/ec2-user/.local/bin/yoke --version
-/home/ec2-user/.local/bin/yoke status --json
-```
-
-Fresh status may exit nonzero before onboarding; only unexpected status error
-codes should fail bootstrap.
-
-Reset a ledgered host before reusing it:
-
-```bash
-uv run --frozen python3 -m yoke_core.tools.installer_live_tui_fleet fleet-reset \
-  --ledger "$LEDGER" \
-  --target-profile bare-no-uv \
-  --execute \
-  --json
-```
+Host provisioning, sign-in, desktop access, and saved-state capture/restore
+are maintained in the [Machine QA Pack](../../packs/machine-qa). Use its
+per-OS guides; this archived campaign is not a host setup procedure.
 
 ## Compile And Run Specs
 
@@ -696,86 +609,13 @@ Apple Command Line Tools prompts, `.zprofile`/`.zshenv` PATH repair,
 Terminal.app rendering, Screen Recording permissions, and SSH TTY edge cases.
 
 Use prod only for explicit release smoke. Keep trials inside the dedicated test
-user's home; the reset recipe deletes Yoke, uv, token files, PATH blocks, and
-`~/code` children.
+user's home; the Pack owns its saved-state boundary.
 
 ### Mac Host
 
-Current physical host:
-
-```bash
-MAC_SSH_HOST=testy@100.117.161.86
-MAC_HOME=/Users/testy
-```
-
-The host is reachable by Tailscale private address, has host name `Mac`, uses
-`/bin/zsh`, and is Apple Silicon `arm64`.
-
-Use Tailscale for private reachability and macOS Remote Login for SSH. Do not
-expose SSH with router port forwarding. Ordinary macOS SSH over Tailscale is
-enough; Tailscale SSH is not required. Drive acceptance through a real SSH TTY or
-a visible Terminal.app session, not a scripted pseudo-run.
-
-One-time setup:
-
-1. Install Tailscale, sign into the operator tailnet, and allow the VPN prompt.
-2. Create a dedicated macOS user, for example `yoke-tester`.
-3. Enable Remote Login for that user.
-4. Add the operator public key to `~/.ssh/authorized_keys`.
-5. Disable sleep while testing.
-6. Install/unlock Claude Code for remote agent smokes; use Screen Sharing or
-   Remote Management for visual observation and GUI permission prompts.
-
-Homebrew is optional. If `brew` is on `PATH`, installer `uv` setup and project
-Git recovery can use it; otherwise Yoke uses Astral `uv` and Apple Tools Git.
-
-Preferred Remote Login path: System Settings -> General -> Sharing -> Remote
-Login, then allow either all users or the dedicated test user. CLI path:
-
-```bash
-sudo systemsetup -setremotelogin on
-```
-
-Current macOS may require Full Disk Access for that CLI command. If prompted, use
-the GUI path or enable Terminal under System Settings -> Privacy & Security ->
-Full Disk Access and rerun it.
-
-Run this in Terminal.app as the test user, replacing the placeholder key:
-
-```bash
-/bin/zsh <<'YOKE_SSH_SETUP'
-set -eu
-PUBKEY='PASTE_OPERATOR_PUBLIC_KEY_HERE'
-mkdir -p "$HOME/.ssh"
-chmod 700 "$HOME/.ssh"
-touch "$HOME/.ssh/authorized_keys"
-chmod 600 "$HOME/.ssh/authorized_keys"
-if ! /usr/bin/grep -qxF "$PUBKEY" "$HOME/.ssh/authorized_keys"; then
-  printf '%s\n' "$PUBKEY" >> "$HOME/.ssh/authorized_keys"
-fi
-/usr/sbin/chown -R "$USER":staff "$HOME/.ssh"
-sudo /usr/sbin/systemsetup -setremotelogin on || echo "Enable Remote Login in System Settings or grant Terminal Full Disk Access."
-sudo /bin/launchctl enable system/com.openssh.sshd 2>/dev/null || true
-sudo /bin/launchctl kickstart -k system/com.openssh.sshd 2>/dev/null || true
-echo "DONE: SSH key installed for $USER"
-YOKE_SSH_SETUP
-```
-
-Verify from the operator machine:
-
-```bash
-ssh -tt -e none -o BatchMode=yes -o ConnectTimeout=10 \
-  -o StrictHostKeyChecking=accept-new "$MAC_SSH_HOST" \
-  'printf "YOKE_SSH_OK user=%s host=%s shell=%s\n" "$USER" "$(hostname)" "$SHELL"; uname -a; id'
-```
-
-Use `-tt` for a real TTY. Use `-e none` so a leading `~` typed into the wizard is
-delivered to the remote terminal instead of swallowed by the local SSH client.
-Keep the host awake:
-
-```bash
-ssh "$MAC_SSH_HOST" 'sudo pmset -a sleep 0 disksleep 0 displaysleep 0 powernap 0'
-```
+Use the [Machine QA Pack macOS procedure](../../packs/machine-qa) for
+account, network, tools, permissions, authentication, and saved state. Resolve
+the host from its registered capability rather than this archived campaign.
 
 ### Mac Tokens
 
@@ -791,41 +631,10 @@ In the wizard, choose token-from-file and use `/tmp/yoke-stage.token` for
 stage auth. GitHub uses the Yoke GitHub App connection flow or disabled
 skip.
 
-### Claude Code SSH Smoke
+### Claude Code authentication
 
-Install Claude Code while logged into the Mac as the test user:
-
-```bash
-curl -fsSL https://claude.ai/install.sh | bash
-```
-
-Complete Claude login in the Mac's GUI Terminal. Claude stores the login in the
-macOS keychain; plain SSH may not read that item. Export it to Claude's
-SSH-readable file:
-
-```bash
-mkdir -p ~/.claude
-security find-generic-password -a "$USER" -s "Claude Code-credentials" -w \
-  > ~/.claude/.credentials.json
-chmod 600 ~/.claude/.credentials.json
-```
-
-If SSH gets keychain status `36`, ask the logged-in Terminal.app to run it:
-
-```bash
-ssh "$MAC_SSH_HOST" \
-  'osascript -e '\''tell application "Terminal" to do script "mkdir -p ~/.claude; security find-generic-password -a \"$USER\" -s \"Claude Code-credentials\" -w > ~/.claude/.credentials.json; chmod 600 ~/.claude/.credentials.json"'\'''
-```
-
-Smoke from the operator machine:
-
-```bash
-ssh "$MAC_SSH_HOST" \
-  '/bin/zsh -lc '\''export PATH="$HOME/.local/bin:$PATH"; claude -p "Reply exactly: CLAUDE_SSH_OK"'\'''
-```
-
-Operator-side hooks require `lint_db_cmd_remote_claude_cli=warn` in
-`.yoke/lint-config`; local `claude` CLI invocations remain blocked.
+Follow the [Machine QA Pack macOS procedure](../../packs/machine-qa).
+Keychain-backed requests require the supported GUI Terminal context.
 
 ### Stage Installer Smoke
 
@@ -1334,91 +1143,14 @@ stop inside `less`.
 
 ### Git And Xcode
 
-macOS Git may be an Apple developer-tools shim. Do not use `git --version` or
-`xcode-select -p` as no-Command-Line-Tools preflight checks; either can open
-Apple's installer prompt before Yoke shows its recovery screen. Also avoid
-`/usr/bin/python3` during no-Command-Line-Tools preflight because it can route
-through the same shim. Use noninvasive checks first:
-
-```bash
-printf 'git shim: '; command -v git || true
-printf 'clt git: '; test -x /Library/Developer/CommandLineTools/usr/bin/git && echo present || echo missing
-printf 'brew: '; command -v brew || echo missing
-printf 'sudo -n: '; sudo -n true >/dev/null 2>&1; printf '%s\n' "$?"
-```
-
-Cases to prove:
-
-- Already installed: `clt git: present`; project setup should not show Git
-  recovery.
-- No Command Line Tools, no Homebrew, no noninteractive sudo: project setup shows
-  `Git is required for project setup`; `Install Apple Tools` opens
-  `/usr/bin/xcode-select --install`; Yoke waits on `Finish Apple's installer`;
-  `Check again` verifies.
-- No Command Line Tools, no Homebrew, noninteractive sudo: after `sudo -v` in the
-  same visible Terminal process tree, Yoke installs `Command Line Tools for
-  Xcode-*` with `softwareupdate -i`, switches to
-  `/Library/Developer/CommandLineTools`, and verifies Git.
-- Homebrew present: Yoke uses `brew install git`.
-
-Evidence after a real install:
-
-```bash
-xcode-select -p
-git --version
-find "$HOME/.yoke/onboarding-runs" -maxdepth 3 -type f -name '*.json' -print
-```
-
-Returning to no-Command-Line-Tools is system-level destructive setup and needs
-explicit operator approval:
-
-```bash
-sudo rm -rf /Library/Developer/CommandLineTools
-sudo xcode-select --reset || true
-```
+The [Machine QA Pack macOS procedure](../../packs/machine-qa) owns the
+Command Line Tools prerequisite. Deliberate installer failure fixtures are
+case-specific starting state, not the persistent machine baseline.
 
 ### Mac Reset
 
-Run as the dedicated test user:
-
-```bash
-set -eu
-rm -rf "$HOME/.yoke" "$HOME/.yoke-e2e-logs" "$HOME/.local/share/uv" \
-  "$HOME/.local/state/uv" "$HOME/.cache/uv" "$HOME/.config/uv" \
-  "$HOME/Library/Caches/uv" "$HOME/Library/Application Support/uv" \
-  "$HOME/Library/Application Support/yoke"
-rm -f "$HOME/.local/bin/yoke" "$HOME/.local/bin/uv" "$HOME/.local/bin/uvx" \
-  "$HOME/.local/bin/env" /tmp/yoke-install /tmp/yoke-token \
-  /tmp/yoke-stage.token /tmp/yoke-prod.token
-[ ! -d "$HOME/code" ] || /usr/bin/find "$HOME/code" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-if [ -x /opt/homebrew/bin/brew ] && /opt/homebrew/bin/brew list --versions uv >/dev/null 2>&1; then
-  /opt/homebrew/bin/brew uninstall uv
-fi
-for file in "$HOME/.zprofile" "$HOME/.zshenv" "$HOME/.zshrc" "$HOME/.zlogin" \
-            "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.profile"; do
-  [ -e "$file" ] || continue
-  tmp="${file}.tmp.$$"
-  /usr/bin/awk '/BEGIN YOKE MANAGED PATH/ {skip=1; next} /END YOKE MANAGED PATH/ {skip=0; next} /uv was installed/ {next} /\. "\$HOME\/\.local\/bin\/env"/ {next} /source "\$HOME\/\.local\/bin\/env"/ {next} skip {next} /\.local\/bin/ && /PATH/ {next} {print}' "$file" > "$tmp"
-  mv "$tmp" "$file"
-done
-echo "YOKE_MAC_WIPE_OK"
-```
-
-The last two filter rules matter. A hand-written `export PATH=".../.local/bin:..."` left behind by an earlier campaign is not inside a managed block, so a managed-block-only filter preserves it and every login shell keeps resolving the tool bin dir. `.zshrc` is the usual home for that line, and `.zlogin` was missing from the file list entirely.
-
-Verify the wipe. Check the *directory*, not just the binaries — the binaries are gone either way, so a `command -v` sweep passes on a host whose PATH still carries the tool bin dir, and installer behavior that branches on that (the post-onboard hand-off) then silently tests the wrong case:
-
-```bash
-/bin/zsh -lic 'command -v yoke || echo yoke-not-found; command -v uv || echo uv-not-found; command -v uvx || echo uvx-not-found'
-/bin/zsh -c 'command -v yoke || echo ssh-yoke-not-found'
-/bin/zsh -lic 'printf "%s\n" "$PATH"' | tr ':' '\n' \
-  | grep -x "$HOME/.local/bin" && echo "DIRTY: tool bin dir still on PATH" \
-  || echo "clean: tool bin dir absent"
-```
-
-Mac evidence belongs in the operator-approved campaign root and should be
-validated by the same `secret-scan`, `validate-report`, and `collect-reports`
-commands where practical.
+Use the registered saved-state procedure in the
+[Machine QA Pack macOS guide](../../packs/machine-qa).
 
 ## Cleanup
 
