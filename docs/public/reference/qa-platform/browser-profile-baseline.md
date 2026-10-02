@@ -1,36 +1,9 @@
 # Browser-authenticated host missions
 
-A clean test-machine home golden contains no Yoke state. A Linux browser
-profile can be sealed separately using `yoke test-machine golden-capture
---project P --machine NAME --component browser-profile --json` after desktop
-logout and browser-daemon shutdown, before any reset. Read the command's
-`--help` and the installed Machine QA Pack's
-`docs/packs/machine-qa/browser-profile-baseline.md` for the complete recipe.
+Test-machine browser authorization, profile capture, restoration, and proof
+belong to the [Machine QA Pack Linux provisioning procedure](../../../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/linux-host-provisioning.md).
+After installation, read `docs/packs/machine-qa/linux-host-provisioning.md`.
+That guide identifies the supported OS and both mission execution routes.
 
-The capture uses existing host lease and receipt authority. It records the
-private sibling snapshot as `browser_profile_baseline_path`, leaving
-`golden_baseline_path` unchanged. Ordinary resets never restore the profile.
-Capture and restoration inspect every same-user process for profile writers.
-Protected systemd, PAM and SSH descriptors require a read-only root inventory
-through noninteractive `sudo`; archive reads and writes still run as the test
-user. Unavailable inventory refuses: configure the test machine's noninteractive
-sudo, keep the live profile intact, and retry before any reset. Only the verdict
-leaves the inventory; it does not open profile files or terminate processes.
-For an exploratory mission needing browser authentication, install the
-candidate Yoke and stop its browser daemon, then run
-`yoke qa browser setup --project P --profile-baseline /absolute/sealed/snapshot --json`
-through the mission's lease-routed host-command surface. Read its `--help`:
-explicit provisioning restores before daemon startup; default setup and
-`--dry-run` never restore a profile. Use the canonical project and recorded path.
-
-Terminal or machine-state host-control cases instead declare the closed setup
-operation `machine.browser-profile-restore`, with exactly `project` (the
-canonical slug) and `baseline_path` (the recorded absolute snapshot path).
-Install the candidate Yoke before that fixture and stop its browser daemon.
-
-Both routes verify owner, home, project and archive digest, refuse unsafe
-entries or an existing profile, and run through the installed interpreter.
-The snapshot stays on the host; neither its contents nor credentials belong
-in QA artifacts or control-plane records. After restoration, use the actual
-candidate daemon to open the application and prove its signed-in UI. A cookie
-count or a sealed-capture receipt does not prove browser authentication.
+For the mission contract, see [Exploratory QA](../exploratory-qa.md).
+For browser implementation details, see the project's browser-substrate docs.

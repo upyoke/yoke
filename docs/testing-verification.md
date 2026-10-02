@@ -129,97 +129,35 @@ Capability availability is: not configured, configured (verified_at unset), read
 `configured_unverified` is bookkeeping (`verified_at` is NULL), not a health claim; browser profile authorization is `yoke qa browser status`.
 Serial resources queue while in use; that does not prevent plan attachment.
 
-A project may register several `test-machine:<resource_name>` rows, one per physical host.
-Resource names are global: one project may register each, and the matching
-`QA_HOST:<resource_name>` lease admits one execution at a time. Machine-backed
-plans prefer a free verified machine, then stable name, and report why. Pin a
-run with `yoke qa plan run --machine NAME`; durable `method_config.machine`
-case constraints take precedence. Explicit reads, settings updates, and
-verification also select one machine by name:
+A project may register several `test-machine:<resource_name>` rows, one per
+physical host. Resource names are global; `QA_HOST:<resource_name>` admits
+one execution at a time. Machine-backed plans prefer a free verified machine,
+then stable name, and report why. A run's machine pin is subordinate to durable
+case `method_config.machine` constraints.
 
-```text
-yoke test-machine list --project <project> --json
-yoke test-machine get --project <project> --machine <resource-name> --json
-yoke test-machine settings-replace \
-  --project <project> --machine <resource-name> --settings-file <settings.json> \
-  (--new | --base '<as-read-json>')
-yoke test-machine verify --project <project> --machine <resource-name>
-yoke test-machine reset --project <project> --machine <resource-name> \
-  [--baseline fresh-host|shell-preconfigured]
-yoke test-machine golden-capture --project <project> --machine <resource-name> \
-  [--destination <abs-path>] [--probes-file <file>]
-yoke test-machine bridge-diagnose --project <project> --machine <resource-name>
-```
+Settings and operation receipts are live capability facts. Read them with
+`yoke test-machine list --project P` or `yoke test-machine get --project P
+--machine NAME`; read each command's `--help` for its projection. Hostnames,
+users, golden paths, desktop routes and cloud instance ids belong in those
+project records. Capacity-machine registration grants launch capacity and
+relay identity separately; it does not grant Test Machine readiness.
 
-The last three are the operations verification is not: **reset** reaches one
-baseline and stops, **golden capture** produces a new restorable baseline, and
-**bridge diagnose** names the host condition behind a bridge failure, and `yoke test-machine exec` runs one ad hoc command on the host. What each does, refuses, and records: [`test-machine-operations.md`](testing-verification/test-machine-operations.md).
+All host setup, sign-in, permissions, desktop access, baseline saving/restoration
+and recovery live in the Machine QA Pack's complete ordered per-OS procedures:
 
-Provision the host once before saving the capability. The general procedure —
-disk encryption, automatic login, sleep, remote access and its separate full
-disk access grant, developer tools, privacy grants, and authenticated harness
-CLIs, each with an observable check — ships in the
-[`machine-qa` Pack](../packs/machine-qa) and installs as
-`docs/packs/machine-qa/host-provisioning.md`. Follow it there; a second copy
-here is how this checklist went stale before.
+- [macOS](../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/macos-host-provisioning.md)
+- [Linux](../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/linux-host-provisioning.md)
+- [Windows/WSL2](../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/windows-host-provisioning.md)
 
-This project's Test Machine fleet adds only host-specific facts:
+The [provisioning index](../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/host-provisioning.md) also installs
+as `docs/packs/machine-qa/host-provisioning.md`. Use that installed copy for a
+customized project. [Operation contracts](testing-verification/test-machine-operations.md)
+explain leases and receipts; [baseline semantics](testing-verification/test-machine-golden-baseline.md)
+explain what the evidence establishes.
 
-| Resource | Host/user | Golden baseline and fixture notes |
-| --- | --- | --- |
-| `test-mac` | `testys-mac-mini.taile868e2.ts.net` / `testy` | `/Users/Shared/yoke-golden/testy-home-20260826`; Apple Silicon |
-| `test-mac-pro` | `bens-mac-pro.taile868e2.ts.net` / `oxpecker` | `/Users/Shared/yoke-golden/oxpecker-home-20260831`; Intel MacPro6,1, macOS 12.7.6, APFS, no T2, FileVault off; Ethernet `00:3e:e1:c8:4e:a5`; every other login and home excluded; Codex.app intentionally absent while its CLI is signed in |
-Both use existing GNU `screen`, stable private-network names, and no preprovisioned Yoke or `tmux`.
-
-The `machine_browser_approval` gate self-approves in the host's visible Safari
-session (`self_approving: true` on `machine_qa.operator_gate`). No operator
-browser action is needed; redeeming the one-time code in another browser
-consumes it and breaks the gate (`machine_browser_tab_missing`).
-
-Settings contain `resource_name`, `host`, `user`, `os`, `operating_notes`,
-optional baseline paths, a desktop route and cloud instance id; no credentials.
-Desktop routes and password import use [`desktop-access`](testing-verification/test-machine-operations.md#desktop-access--connect-to-a-registered-desktop).
-Declare `os=macos|linux|windows` to select restore behavior on the SSH host.
-`ssh_private_key` is shared; desktop passwords are per-machine. Store the SSH key on the `host_control` workstation:
-
-```text
-printf '%s' "$SSH_PRIVATE_KEY" | yoke projects capability secret set \
-  --project <project> --cap-type test-machine \
-  --key ssh_private_key --value-stdin
-```
-
-The private key value is the key material, not a path. Yoke writes it to a
-capability-owned machine-local file with restricted permissions. Do not copy
-it to the remote host, the project checkout, or control-plane settings. Host
-baselines run as the dedicated test user and do not invoke `sudo`; no sudo
-credential is required. After provisioning or changing any setting, SSH key,
-or required macOS permission, run `yoke test-machine verify --project <project>
---machine <resource-name>`; that machine is not ready until connectivity and
-terminal-control checks pass. That command
-is **destructive** — it performs the full host reset before installing the
-current release. It is a readiness gate, not a reachability probe; answer "can
-I see the machine?" with a plain SSH command.
-
-Only the connection check is a precondition for the rest of the run. A failing
-terminal-bridge check is recorded, names the verdict, and the sequence
-continues into the host baselines, so a screenshot problem never leaves the
-machine unrestored while it is being diagnosed; the recorded status is still
-`error`. Every bridge failure names one host condition rather than one umbrella
-code, and the stored check carries the evidence behind it — the same vocabulary
-`yoke test-machine bridge-diagnose` reports per capability, in that companion.
-
-Secret values never belong in settings JSON, workflow definitions, item
-bodies, prompts, logs, captures, or artifacts. The runner receives resolved
-secrets only for its subprocess and must redact them from evidence.
-
-The registered `fresh-host` baseline restores the host's declared golden
-baseline. Its target state is USER-EQUIVALENT, not bare: a real user arrives
-with harness apps installed and signed in, so a machine stripped to nothing is
-not a fresh host. What the golden must carry, which programs it must have
-signed in as declared by its adjacent `.probes` sidecar, the illustrative
-current three-probe snapshot, what `yoke test-machine golden-capture` writes
-and refuses, and how to read a probe that fails:
-[`testing-verification/test-machine-golden-baseline.md`](testing-verification/test-machine-golden-baseline.md).
+Secret values never belong in settings, workflow definitions, item bodies,
+prompts, logs, captures or artifacts. Capability-owned machine-local secrets
+are resolved only for the subprocess that needs them and redacted from evidence.
 
 ## Evidence
 

@@ -241,20 +241,10 @@ and a lease-routed `yoke qa browser step --base-url URL --step-json JSON`
 template. The walker chooses and submits one step at a time; no scenario is
 authored in advance.
 
-A walker never signs in. The operator authorizes the project's persistent
-browser profile once, headed, with `yoke browser authorize`, so the contexts
-the walker receives already carry those sessions. An expired session lands the
-walker on a sign-in page, which it raises as a human gate naming the site — it
-never finds, types, or reuses a credential.
-
-On Linux, a [separately sealed profile](qa-platform/browser-profile-baseline.md)
-can survive clean-home resets. After installing the candidate, explicitly run
-`yoke qa browser setup --project P --profile-baseline /absolute/sealed/snapshot --json`
-through the lease-routed host-command surface; read its `--help` first. This
-restores the verified profile before daemon startup. Default setup and dry-run
-never restore it. Host-control `setup_operations` do not run for exploratory
-missions. Open the actual app with the candidate daemon to prove sign-in; a
-sealed receipt or cookie count cannot establish that proof.
+A walker never signs in. An expired session is a human gate naming the site.
+For test-machine browser authorization, saving, and explicit restoration,
+follow the [Machine QA Pack Linux procedure](../../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/linux-host-provisioning.md).
+The mission execution contract above still governs every host command.
 
 ## Evidence Discipline
 
