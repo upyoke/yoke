@@ -84,8 +84,9 @@ def report(*entries):
     [
         ("unheld", "", "awaiting deployment run"),
         (HELD, str(uuid4()), "delivering in"),
+        (REMERGED, str(uuid4()), "awaiting deployment run"),
     ],
-    ids=["awaiting-enrollment", "delivering"],
+    ids=["awaiting-enrollment", "delivering", "awaiting-later-candidate"],
 )
 def test_parked_release_is_compact_even_after_hours_of_tool_silence(
     custody, run, expected
@@ -108,7 +109,6 @@ def test_parked_release_is_compact_even_after_hours_of_tool_silence(
         ({"holder_session_id": ""}, "finish close-out"),
         ({"holder_parked": False}, "holder is not driving this"),
         ({"status": "implementing"}, "holder is not driving this"),
-        ({"custody_state": REMERGED}, "merged again since"),
         ({"custody_state": UNDETERMINED}, "release custody unreadable"),
         ({"completion_flow_available": False}, "no active completion flow"),
         ({"holder_native_process_gone": True}, "process gone, claims held"),

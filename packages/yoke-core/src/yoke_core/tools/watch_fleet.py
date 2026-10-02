@@ -163,6 +163,9 @@ finding needs no delta to be noticed.
 Healthy item transitions, claim churn, registrations, clean ends, and alarm
 clears stay silent at delta time and surface through the next report. Pull the
 full body with `yoke steering report get`.
+Quiet-heartbeat and progress-stall diagnostics stay in the raw capture;
+silence is expected while the fleet is unchanged. Complete reports are
+drained immediately and forwarded by the tail as one write.
 
 examples:
   yoke watch fleet -- --project yoke

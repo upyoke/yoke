@@ -9,9 +9,9 @@ checks due reports during quiet periods, when timer-only findings can appear.
 
 Two gates keep that ride cheap and quiet. Composition is real work — it ranks
 the project's schedule — so it happens at most once per interval per steering
-session. And a composed report is only attached when it is *worth* a read:
-something needs the steerer's decision, or the picture changed since the last
-one they saw. The failure mode being avoided is specific: a report that keeps
+session. A composed report is only attached when the picture changed since
+the last one they saw, including changes to outstanding decisions.
+The failure mode being avoided is specific: a report that keeps
 arriving with nothing in it becomes a report the steerer learns to skim, and
 then the one that mattered is skimmed too.
 """
@@ -137,7 +137,7 @@ def steering_report_candidate(
 
     Returns ``None`` for every session that is not steering, for a steering
     session still inside its report interval, and for a report whose content
-    neither needs a decision nor differs from the one that session last saw
+    does not differ from the one that session last saw
     (that quiet case still takes the interval immediately, exactly as
     before — there is no reply for a sibling denial to drop, since nothing
     is being attached). A genuine report defers its claim to the caller
@@ -167,8 +167,8 @@ def steering_report_candidate(
         now=_stamp(current),
     )
     fingerprint = combined.fingerprint()
-    if not combined.actionable and fingerprint == last_fingerprint:
-        # Nothing to act on and nothing new to see. Still take the interval so
+    if fingerprint == last_fingerprint:
+        # Nothing new to see. Still take the interval so
         # the next delivery does not pay for the same composition again.
         _claim_interval(
             conn,

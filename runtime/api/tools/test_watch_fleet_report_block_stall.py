@@ -44,10 +44,10 @@ def test_a_stall_falling_due_mid_report_neither_tears_nor_reports(
     assert REPORT_END in report_writes[0]
 
 
-def test_a_stall_is_still_reported_when_no_report_block_is_open(
+def test_a_quiet_fleet_keeps_heartbeat_and_stall_diagnostics_raw(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """Suppressing the stall is scoped to an open block, not to quiet."""
+    """A fleet that deliberately emits no changes must not wake for silence."""
     monkeypatch.setenv("YOKE_WATCH_PROGRESS_STALL_SECONDS", "0.2")
     stdout = RecordingStream()
     rc = run_probe_script(
@@ -58,4 +58,8 @@ def test_a_stall_is_still_reported_when_no_report_block_is_open(
         stdout,
     )
     assert rc == 0
-    assert "no progress for" in stdout.getvalue()
+    assert "no progress for" not in stdout.getvalue()
+    assert "still running" not in stdout.getvalue()
+    raw = (tmp_path / "raw.log").read_text()
+    assert "no progress for" in raw
+    assert "still running" in raw
