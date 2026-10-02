@@ -265,3 +265,46 @@ def test_screenshot_reports_held_session_and_named_start_failure(setup, monkeypa
     result = control.capture_screenshot()
     assert not result.ok and result.error_code == "windows_rdp_client_missing"
     assert "install FreeRDP" in result.evidence["recovery"]
+
+
+def test_public_and_qa_controls_keep_registered_desktop_context(setup, monkeypatch):
+    from yoke_core.domain.host_control_runner import TestMachineMaterial
+    from yoke_core.domain.machine_qa_host_control import host_control_for
+
+    monkeypatch.setattr(
+        SshWindowsHostOperations,
+        "_host_facts",
+        lambda self: {"home": "/home/tester", "shell": "/bin/bash"},
+    )
+    public = SshWindowsHostOperations.from_contract(
+        SimpleNamespace(project="project", settings=SETTINGS)
+    )
+    qa = host_control_for(
+        TestMachineMaterial(
+            project_id=1,
+            project="project",
+            settings=SETTINGS,
+            secrets={"ssh_private_key": "ssh-key"},
+            secret_paths={"ssh_private_key": "/private/key"},
+        )
+    )
+    for control in (public, qa):
+        monkeypatch.setattr(
+            desktop,
+            "active_windows_sessions",
+            lambda observed: (
+                [LOGIN]
+                if observed._desktop_project == "project"
+                and observed._desktop_settings == SETTINGS
+                else []
+            ),
+        )
+        monkeypatch.setattr(
+            SshLinuxHostOperations,
+            "capture_screenshot",
+            lambda self: HostActionResult(
+                True, {"capture_artifact": {"token": "desktop"}}
+            ),
+        )
+        result = control.capture_screenshot()
+        assert result.ok and result.evidence["desktop_session"] == "reused"
