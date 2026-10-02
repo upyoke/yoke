@@ -106,3 +106,23 @@ test("health renders above the declared map from one read", async (t) => {
   );
   assert.equal(healthCalls.length, 1);
 });
+
+test("zero assessed files cannot claim healthy coverage", async (t) => {
+  const root = await mountAt(t, "#/architecture/demo", architectureClient({
+    declared: true, python_paths: 0, coverage_pct: 100,
+    forbidden_edge_count: 0, cross_cutting_count: 0,
+    layers: [{ id: "domain", may_depend_on: [] }],
+  }, []));
+  const text = pageText(root);
+  assert.match(text, /Not assessed: no Python files/);
+  assert.match(text, /domain/);
+  assert.doesNotMatch(text, /100%|no current violations|No recorded violations/);
+});
+
+test("missing examples do not hide a nonzero violation count", async (t) => {
+  const root = await mountAt(t, "#/architecture/demo", architectureClient({
+    declared: true, python_paths: 2, coverage_pct: 100,
+    forbidden_edge_count: 3, cross_cutting_count: 1,
+  }, []));
+  assert.match(pageText(root), /4 recorded violations; examples are unavailable/);
+});

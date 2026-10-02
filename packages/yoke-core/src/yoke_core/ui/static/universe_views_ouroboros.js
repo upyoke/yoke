@@ -180,6 +180,7 @@ function createOuroborosLoader({ context, scope, onChange }) {
 function ouroborosFilters(documentNode, loader) {
   const host = el(documentNode, "div", "item-filters");
   const review = el(documentNode, "select", "item-filter-control");
+  review.setAttribute("aria-label", "Review state");
   for (const [value, label] of [
     ["all", "All observations"],
     ["unreviewed", "Unreviewed"],
@@ -194,6 +195,7 @@ function ouroborosFilters(documentNode, loader) {
   const prefix = el(documentNode, "input", "item-filter-control");
   prefix.type = "text";
   prefix.placeholder = "Category prefix";
+  prefix.setAttribute("aria-label", "Category prefix");
   prefix.addEventListener("change", () => {
     loader.setCategoryPrefix(prefix.value.trim());
   });
@@ -231,6 +233,7 @@ export function renderOuroborosView(context, main, scope) {
         return;
       }
       renderTable(body, state.rows, withProjectColumn([
+        { label: "observation", value: (row) => row.preview || row.context || `Field note #${row.id}` },
         { label: "when", value: (row) => row.timestamp },
         { label: "category", value: (row) => row.category, pill: true },
         { label: "agent", value: (row) => row.agent },

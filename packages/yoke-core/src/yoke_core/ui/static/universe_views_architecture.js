@@ -54,6 +54,13 @@ function renderUndeclared(body) {
 
 function renderHealthFacts(body, health) {
   const documentNode = body.ownerDocument;
+  if (!Number(health.python_paths)) {
+    body.appendChild(el(documentNode, "p", "empty",
+      "Not assessed: no Python files in the current inventory. " +
+      "Sync the project's file inventory to assess applicable files. " +
+      "Projects without Python files have no applicable coverage results."));
+    return;
+  }
   body.appendChild(factsTable(documentNode, [
     {
       label: "coverage",
@@ -76,8 +83,12 @@ function renderHealthFacts(body, health) {
     )),
   ];
   if (!examples.length) {
+    const violations = Number(health.forbidden_edge_count || 0) +
+      Number(health.cross_cutting_count || 0);
     body.appendChild(el(
-      documentNode, "p", "empty", "no current violations",
+      documentNode, "p", "empty", violations
+        ? `${violations} recorded violations; examples are unavailable.`
+        : "No recorded violations in this inventory.",
     ));
     return;
   }

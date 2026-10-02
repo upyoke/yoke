@@ -28,6 +28,25 @@ function capabilityOrder(row) {
   return Number(row.display_order ?? 1000);
 }
 
+function capabilitySetup(documentNode) {
+  const details = el(documentNode, "details", "strategy-callout");
+  details.appendChild(el(documentNode, "summary", null, "Set up a capability"));
+  details.appendChild(el(documentNode, "p", null,
+    "Capabilities are configured for a project through Yoke setup or a Pack. " +
+    "This page shows their settings and readiness; it does not create them."));
+  for (const [label, view] of [["Browse Packs", "packs"], ["Connect GitHub", "github"]]) {
+    const link = el(documentNode, "a", "item-button", label);
+    link.href = buildUniverseRoute(view, null);
+    details.appendChild(link);
+  }
+  details.appendChild(el(documentNode, "p", null,
+    "For custom capabilities, run this in your project checkout for the " +
+    "required settings and creation options:"));
+  details.appendChild(el(documentNode, "code", null,
+    "yoke projects capability-settings set --help"));
+  return details;
+}
+
 function wireCapabilityRouteRow(documentNode, record, href) {
   const navigate = () => {
     documentNode.defaultView.location.hash = href;
@@ -169,7 +188,7 @@ export function renderCapabilitiesView(context, main, scope) {
     "panel-hint",
     scope === "all" ? "across all projects" : "selected projects",
   ));
-  main.replaceChildren(callout, panel);
+  main.replaceChildren(capabilitySetup(documentNode), callout, panel);
   const buckets = scopeBuckets(scope, projects, false);
   loadScopedSection(
     context, panel,

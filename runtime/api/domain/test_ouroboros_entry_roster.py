@@ -6,6 +6,7 @@ from yoke_core.domain.handlers import ouroboros_reads
 from yoke_core.domain.ouroboros_entries import cmd_insert_entry, cmd_mark_reviewed
 from yoke_core.domain.ouroboros_entry_roster import (
     COMPACT_ENTRY_FIELDS,
+    ROSTER_PREVIEW_LENGTH,
     list_roster_page,
 )
 from yoke_contracts.api.function_call import (
@@ -47,6 +48,19 @@ class TestOuroborosEntryRosterList:
             assert name in entry
         assert outcome.result_payload["matching_count"] == 1
         assert outcome.result_payload["next_cursor"] is None
+
+    def test_preview_is_bounded_without_returning_full_evidence(self, test_db):
+        prefix = "Evidence 🔎 " + "x" * ROSTER_PREVIEW_LENGTH
+        _seed(test_db, timestamp="2026-01-01T00:00:00Z", body=prefix + "hidden-tail")
+        entry = list_roster_page(test_db, project="yoke")["entries"][0]
+        assert entry["preview"] == prefix[:ROSTER_PREVIEW_LENGTH] + "…"
+        assert "body" not in entry
+        assert "hidden-tail" not in str(entry)
+
+    def test_short_preview_normalizes_whitespace_without_ellipsis(self, test_db):
+        _seed(test_db, timestamp="2026-01-01T00:00:00Z", body="Line one\n\nLine two")
+        entry = list_roster_page(test_db, project="yoke")["entries"][0]
+        assert entry["preview"] == "Line one Line two"
 
     def test_legacy_list_still_returns_body(self, test_db):
         _seed(test_db, timestamp="2026-01-01T00:00:00Z", body="secret")

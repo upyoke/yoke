@@ -2,7 +2,7 @@
 
 The operator ``ouroboros.entry.list`` surface still returns full rows with
 offset paging. The browser roster opts into ``shape=roster`` so it can page
-by id without transferring evidence bodies the table never renders.
+by id with a bounded evidence preview instead of full evidence bodies.
 """
 from __future__ import annotations
 
@@ -26,9 +26,10 @@ from yoke_core.domain.project_identity import resolve_project_id
 
 REVIEW_STATES = ("all", "unreviewed", "reviewed")
 ROSTER_SHAPE = "roster"
+ROSTER_PREVIEW_LENGTH = 240
 COMPACT_ENTRY_FIELDS = (
     "id", "timestamp", "agent", "context", "category",
-    "reviewed_at", "project",
+    "reviewed_at", "project", "preview",
 )
 RELOAD_FIRST_PAGE = (
     "Reload the Ouroboros page to restart paging from the newest match."
@@ -170,6 +171,10 @@ def _compact_rows(conn: Any, rows: list) -> list[dict[str, Any]]:
         conn, (entry["id"] for entry in entries),
     )
     for entry in entries:
+        preview = entry["preview"]
+        entry["preview"] = " ".join(preview[:ROSTER_PREVIEW_LENGTH].split())
+        if len(preview) > ROSTER_PREVIEW_LENGTH:
+            entry["preview"] += "…"
         promo = promotions.get(entry["id"])
         entry["promoted_dash"] = None if promo is None else {
             "item_id": promo["item_id"],
@@ -237,11 +242,12 @@ def list_roster_page(
     rows = query_rows(
         conn,
         "SELECT o.id, o.timestamp, o.agent, COALESCE(o.context,''), "
-        "o.category, COALESCE(o.reviewed_at,''), COALESCE(p.slug,'') "
+        "o.category, COALESCE(o.reviewed_at,''), COALESCE(p.slug,''), "
+        f"SUBSTR(COALESCE(o.body,''),1,{p}) "
         "FROM ouroboros_entries o "
         "LEFT JOIN projects p ON p.id = o.project_id "
         f"{page_where} ORDER BY o.id DESC LIMIT {p}",
-        tuple(page_params),
+        (ROSTER_PREVIEW_LENGTH + 1, *page_params),
     )
     entries = _compact_rows(conn, rows)
     next_cursor = (

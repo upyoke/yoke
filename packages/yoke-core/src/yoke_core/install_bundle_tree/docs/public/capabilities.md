@@ -15,6 +15,9 @@ binding, browser/machine QA, runner fleets.
 - Pack install settings specialize generic Pack source for the project; they
   are not the runtime secret store
 
-Add or edit from the Capabilities page action / Project settings. Prefer
-Yoke resolvers that materialize credentials into subprocess env without
-printing secret values.
+The Capabilities page is a readiness inventory. Its **Set up a capability**
+disclosure links to Packs and GitHub setup and names the custom-settings CLI.
+Use `yoke projects capability-settings set --help` for required settings and
+creation options; `--new` creates a capability and `--base` protects an update
+against concurrent changes. Prefer Yoke resolvers that materialize credentials
+into subprocess env without printing secret values.

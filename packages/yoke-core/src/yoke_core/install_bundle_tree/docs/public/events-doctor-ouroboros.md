@@ -39,6 +39,9 @@ yoke watch doctor -- --only hook-resident
 
 Self-improvement loop: field-notes and observations → curate → doctor →
 simulate. Workbench **Ouroboros** surfaces entries and field-notes.
+Each row links a bounded evidence preview to the complete note. The roster
+reads only the preview, keeps newest-first paging, and labels review/category
+filters; opening a note retrieves the full evidence.
 
 ```bash
 yoke ouroboros field-note append --kind observation --evidence '...'
