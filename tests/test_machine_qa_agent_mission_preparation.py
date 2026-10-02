@@ -80,9 +80,20 @@ def test_package_failure_keeps_output_and_completed_baseline(mission, monkeypatc
     execution.control.golden_baseline_path = "/var/lib/golden"
     execution.control.run_command = lambda *args, **kwargs: subprocess.CompletedProcess(
         args=[],
-        returncode=1,
-        stdout="package output private-token",
-        stderr="PermissionError: journal is read-only private-token",
+        returncode=100,
+        stdout=json.dumps(
+            {
+                "ok": False,
+                "apt_failure": {
+                    "operation": "purge",
+                    "packages": ["xdotool"],
+                    "exit_code": 100,
+                    "stdout": "package output private-token",
+                    "stderr": "E: package removal refused private-token",
+                },
+            }
+        ),
+        stderr="SSH transport notice",
     )
     monkeypatch.setattr(
         qa_host_package_fixture, "restore_host_packages", restore_host_packages
@@ -92,9 +103,10 @@ def test_package_failure_keeps_output_and_completed_baseline(mission, monkeypatc
     failure = preparation["evidence"]["preparation_failure"]
     assert preparation["error_code"] == "os_package_fixture_failed"
     assert failure["phase"] == "os_packages"
-    assert failure["exit_code"] == 1
+    assert failure["exit_code"] == 100
+    assert 'operation=purge packages=["xdotool"]' in failure["diagnostic"]
     assert failure["stdout"] == "package output [REDACTED]"
-    assert "journal is read-only [REDACTED]" in failure["stderr"]
+    assert "package removal refused [REDACTED]" in failure["stderr"]
     assert "private-token" not in json.dumps(payload)
     outcome = preparation["evidence"]["baseline_outcome"]
     assert outcome["state"] == "completed"
@@ -195,18 +207,32 @@ def test_delivery_evidence_accepts_the_holders_new_deployed_preparation(
 
         monkeypatch.setattr(local, "create_mission_scratch", refuse)
     preparation = local.prepare_agent_mission_contract({})["preparation"]
-    entered = "2026-10-02T15:00:00Z"
     captured = "2026-10-02T15:01:00Z"
+    proof_run_id = "current-delivery"
+    binding = {
+        "deployment_run_id": "current-delivery",
+        "deployment_stage": "item-qa",
+        "execution_candidate_revision": "deployed-candidate",
+        "plan_id": 17,
+        "plan_case_key": "holder-case",
+    }
     monkeypatch.setenv("DEPLOYMENT_RUN_ID", "current-delivery")
     monkeypatch.setenv("DEPLOYMENT_MEMBER_REF", "member")
     monkeypatch.setenv("BASE_URL", "https://deployed.example")
 
     def read(*args):
         if args[:2] == ("deployment-runs", "get"):
-            return {"value": "item-qa" if args[-1] == "current_stage" else entered}
+            assert args == ("deployment-runs", "get", "current-delivery")
+            return {
+                "run": {
+                    "current_stage": "item-qa",
+                    "release_lineage": "deployed-candidate",
+                }
+            }
         if args[:3] == ("qa", "plan", "get"):
             return {
                 "plan": {
+                    "id": 17,
                     "execution_target": {
                         "endpoints": {"api_url": "https://deployed.example"}
                     },
@@ -215,7 +241,7 @@ def test_delivery_evidence_accepts_the_holders_new_deployed_preparation(
                             "case_key": "holder-case",
                             "proofs": [
                                 {
-                                    "deployment_run_id": "holder-delivery",
+                                    "deployment_run_id": proof_run_id,
                                     "happened_at": captured,
                                     "run_id": 91,
                                 }
@@ -224,7 +250,14 @@ def test_delivery_evidence_accepts_the_holders_new_deployed_preparation(
                     ],
                 }
             }
-        return {"run": {"raw_result": json.dumps({"preparation": preparation})}}
+        if args[:3] == ("qa", "requirement", "get"):
+            return {"requirement": binding}
+        return {
+            "run": {
+                "qa_requirement_id": 29,
+                "raw_result": json.dumps({"preparation": preparation}),
+            }
+        }
 
     monkeypatch.setattr(reader, "_read", read)
     args = SimpleNamespace(
@@ -245,6 +278,16 @@ def test_delivery_evidence_accepts_the_holders_new_deployed_preparation(
         reader.verify(args)
     preparation["evidence"]["os_packages"] = {"ok": True}
     assert reader.verify(args)["preparation"]["evidence"]["os_packages"]["ok"]
-    captured = "2026-10-02T14:59:00Z"
+    for field in (
+        "deployment_run_id",
+        "deployment_stage",
+        "execution_candidate_revision",
+    ):
+        saved = binding[field]
+        binding[field] = "another-subject"
+        with pytest.raises(ValueError, match="this deployment stage and candidate"):
+            reader.verify(args)
+        binding[field] = saved
+    proof_run_id = "older-delivery"
     with pytest.raises(ValueError, match="Ask the holder to execute"):
         reader.verify(args)
