@@ -45,7 +45,8 @@ def retract_plan_from_item(
 
     The row stays. Requirements it materialized retire as retracted — not
     waived, not superseded — and a passing verdict refuses, because that
-    would rewrite settled delivery evidence.
+    would rewrite settled delivery evidence. Repeating a withdrawal also
+    retires copies an older serving build admitted after the first call.
     """
     reason = str(reason or "").strip()
     if not reason:
@@ -67,16 +68,7 @@ def retract_plan_from_item(
     )
     if attachment is None:
         raise QaPlanError("no such item plan attachment")
-    if attachment.get("retracted_at"):
-        return {
-            "retracted": True,
-            "already_retracted": True,
-            "item_id": int(item_id),
-            "plan_id": int(plan_id),
-            "transition_id": str(transition_id),
-            "reason": str(reason),
-            "retired_requirement_ids": [],
-        }
+    already_retracted = bool(attachment.get("retracted_at"))
     if str(attachment["qa_phase"] or "") != "post_deploy":
         raise QaPlanError(
             "retraction retires a mis-specified post-deploy attachment, not "
@@ -87,7 +79,7 @@ def retract_plan_from_item(
 
     requirements = query_rows(
         conn,
-        "SELECT id FROM qa_requirements WHERE plan_id=%s AND ("
+        "SELECT id FROM qa_requirements WHERE plan_id=%s AND retracted_at IS NULL AND ("
         "(item_id=%s AND (workflow_transition_id=%s "
         "OR workflow_transition_id IS NULL)) "
         "OR deployment_member_item_id=%s)",
@@ -100,14 +92,23 @@ def retract_plan_from_item(
                 "verdict, so retracting it would rewrite settled delivery "
                 "evidence"
             )
-    now = iso8601_now()
-    conn.execute(
-        "UPDATE qa_plan_item_attachments SET retracted_at=%s, "
-        "retraction_rationale=%s, retraction_source=%s, "
-        "retracted_by_actor_id=%s WHERE item_id=%s AND transition_id=%s "
-        "AND plan_id=%s",
-        (now, reason, source, actor_id, int(item_id), str(transition_id), int(plan_id)),
-    )
+    if not already_retracted:
+        now = iso8601_now()
+        conn.execute(
+            "UPDATE qa_plan_item_attachments SET retracted_at=%s, "
+            "retraction_rationale=%s, retraction_source=%s, "
+            "retracted_by_actor_id=%s WHERE item_id=%s AND transition_id=%s "
+            "AND plan_id=%s",
+            (
+                now,
+                reason,
+                source,
+                actor_id,
+                int(item_id),
+                str(transition_id),
+                int(plan_id),
+            ),
+        )
     retired = [int(row["id"]) for row in requirements]
     retract_requirements(conn, retired, reason=reason, source=source)
     if commit:
@@ -127,7 +128,7 @@ def retract_plan_from_item(
         )
     return {
         "retracted": True,
-        "already_retracted": False,
+        "already_retracted": already_retracted,
         "item_id": int(item_id),
         "plan_id": int(plan_id),
         "transition_id": str(transition_id),

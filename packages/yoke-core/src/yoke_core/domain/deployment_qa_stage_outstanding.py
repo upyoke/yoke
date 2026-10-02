@@ -19,7 +19,8 @@ from typing import Any, Optional
 from yoke_core.domain.deployment_run_membership_removals import removed_item_ids
 
 from yoke_core.domain.deployment_flow_policy import QA_STEP_RUNNER, STAGE_KIND_QA
-from yoke_core.domain.deployment_qa_admission_materialization import (
+from yoke_core.domain.deployment_qa_frozen_plan_selection import (
+    frozen_stage_plans,
     member_requirements,
 )
 from yoke_core.domain.deployment_qa_execution_target import (
@@ -35,11 +36,6 @@ from yoke_core.domain.deployment_qa_stage_named_cases import stage_names_cases
 from yoke_core.domain.post_deploy_verification_answer import (
     cases_not_selected_refusal,
     member_post_deploy_answer,
-)
-from yoke_core.domain.qa_deployment_member_attached_plans import (
-    attached_member_plans,
-    plan_matches_stage_environment,
-    stage_environment_id_for_plan_selection,
 )
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.steering_fleet_report_detectors import marker
@@ -139,42 +135,11 @@ def _has_method_id(
     return row is not None
 
 
-def _frozen_plans(
-    conn: Any, subject: Mapping[str, Any], *, target: Mapping[str, Any]
-) -> list[dict[str, Any]]:
-    stage = str(subject["stage"]["name"])
-    frozen = [
-        dict(selection)
-        for selection in subject["flow_snapshot"].get("selections") or []
-        if isinstance(selection, Mapping) and str(selection.get("stage") or "") == stage
-    ]
-    snapshot = subject.get("member_snapshot")
-    stage_environment_id = stage_environment_id_for_plan_selection(conn, target)
-    if isinstance(snapshot, Mapping):
-        for value in snapshot.get("plans") or []:
-            if not isinstance(value, Mapping):
-                continue
-            attachment = value.get("attachment")
-            plan = value.get("plan")
-            if not isinstance(attachment, Mapping) or not isinstance(plan, Mapping):
-                continue
-            if str(attachment.get("qa_phase") or "") != "post_deploy":
-                continue
-            if not plan_matches_stage_environment(
-                plan.get("target_environment_id"), stage_environment_id
-            ):
-                continue
-            frozen.append(dict(value))
-    if not frozen:
-        frozen = attached_member_plans(conn, subject, target=target)
-    return frozen
-
-
 def _unselected_reason(
     conn: Any, subject: Mapping[str, Any], *, target: Mapping[str, Any]
 ) -> str | None:
-    admitted = member_requirements(subject, target=target)
-    frozen = _frozen_plans(conn, subject, target=target)
+    admitted = member_requirements(conn, subject, target=target)
+    frozen = frozen_stage_plans(conn, subject, target=target, admitted=admitted)
     if stage_names_cases(conn, subject, frozen_plans=frozen, admitted=admitted):
         return None
     if member_post_deploy_answer(conn, subject).discharges_without_cases:

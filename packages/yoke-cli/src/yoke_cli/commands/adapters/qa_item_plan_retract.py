@@ -35,6 +35,13 @@ retracted — not waived, not superseded. After retraction the item is
 unanswered again: attach a corrected plan, or record that no post-deploy
 obligation exists. Silence still blocks.
 
+Release admission and frozen stage selection skip the withdrawn plan and
+its requirements. Repeat this command to retire copies an older serving
+build materialized after the first withdrawal. It keeps the original
+attachment withdrawal unchanged and reports the newly retired requirement
+ids. Re-drive the run or run its member-scoped QA stage afterward; a
+replacement plan still needs its own evidence.
+
 This path is for a mis-specified attachment, not an unwelcome verdict.
 A verification-phase attachment cannot be retracted here. A post-deploy
 case that already passed refuses, because that would rewrite settled

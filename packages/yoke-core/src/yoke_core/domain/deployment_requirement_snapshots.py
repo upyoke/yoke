@@ -14,7 +14,11 @@ from yoke_core.domain.deployment_requirement_snapshot_format import (
     semantic_row,
 )
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
+from yoke_core.domain.qa_plan_attachment_reads import (
+    live_item_attachment_sql,
+    retracted_item_plan_ids,
+)
+from yoke_core.domain.qa_obligation_settlement import requirement_retracted_at_select
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
@@ -175,11 +179,12 @@ def _requirement_snapshot(
     run_id: str,
     item_id: int,
     requirement_id: int,
-) -> dict[str, Any]:
+) -> dict[str, Any] | None:
     marker = _p(conn)
     lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
     cursor = conn.execute(
-        f"SELECT {','.join(REQUIREMENT_FIELDS)},waived_at "
+        f"SELECT {','.join(REQUIREMENT_FIELDS)},waived_at,"
+        f"{requirement_retracted_at_select(conn)} "
         f"FROM qa_requirements WHERE id={marker}{lock}",
         (int(requirement_id),),
     )
@@ -200,6 +205,8 @@ def _requirement_snapshot(
         )
     if raw_requirement.get("waived_at") is not None:
         raise ValueError(f"QA requirement {requirement_id} is waived")
+    if raw_requirement.get("retracted_at") is not None:
+        return None
     return requirement
 
 
@@ -212,17 +219,22 @@ def snapshot_member_requirements(
 ) -> str:
     """Freeze explicitly selected member requirements and attached plans."""
     selected = _selection(selection_json)
+    withdrawn_plans = retracted_item_plan_ids(conn, item_id)
     if not _table_exists(conn, "qa_requirements") and selected["requirement_ids"]:
         raise LookupError("QA requirement catalog is not installed")
-    requirements = [
-        _requirement_snapshot(
+    requirements = []
+    for requirement_id in selected["requirement_ids"]:
+        requirement = _requirement_snapshot(
             conn,
             run_id=run_id,
             item_id=item_id,
             requirement_id=requirement_id,
         )
-        for requirement_id in selected["requirement_ids"]
-    ]
+        if (
+            requirement is not None
+            and requirement.get("plan_id") not in withdrawn_plans
+        ):
+            requirements.append(requirement)
     item_row = conn.execute(
         f"SELECT project_id FROM items WHERE id={_p(conn)}", (int(item_id),)
     ).fetchone()
@@ -233,6 +245,8 @@ def snapshot_member_requirements(
     )
     plans: list[dict[str, Any]] = []
     for plan_id in selected["plan_ids"]:
+        if plan_id in withdrawn_plans:
+            continue
         attached = conn.execute(
             f"SELECT transition_id,qa_phase FROM qa_plan_item_attachments "
             f"WHERE item_id={_p(conn)} AND plan_id={_p(conn)} "

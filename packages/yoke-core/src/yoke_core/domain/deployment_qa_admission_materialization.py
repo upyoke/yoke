@@ -54,36 +54,6 @@ def admitted_requirement_identity_clause(
     )
 
 
-def _target_environment(target: Mapping[str, Any]) -> str:
-    environment = target.get("environment")
-    if not isinstance(environment, Mapping):
-        return ""
-    return str(environment.get("name") or "").strip()
-
-
-def requirement_applies(
-    requirement: Mapping[str, Any], target: Mapping[str, Any]
-) -> bool:
-    """Select only post-deploy obligations declared for this destination."""
-    if str(requirement.get("qa_phase") or "") != "post_deploy":
-        return False
-    declared = str(requirement.get("target_env") or "").strip()
-    return not declared or declared == _target_environment(target)
-
-
-def member_requirements(
-    subject: Mapping[str, Any], *, target: Mapping[str, Any]
-) -> list[dict[str, Any]]:
-    snapshot = subject.get("member_snapshot")
-    if not isinstance(snapshot, Mapping):
-        return []
-    return [
-        dict(requirement)
-        for requirement in snapshot.get("requirements") or []
-        if isinstance(requirement, Mapping) and requirement_applies(requirement, target)
-    ]
-
-
 def _stored_json(value: Any, *, default: Any = None) -> str | None:
     if value in (None, ""):
         value = default
@@ -345,6 +315,4 @@ __all__ = [
     "admitted_source_requirement_id",
     "fulfill_admitted_obligations",
     "materialize_admitted_requirement",
-    "member_requirements",
-    "requirement_applies",
 ]

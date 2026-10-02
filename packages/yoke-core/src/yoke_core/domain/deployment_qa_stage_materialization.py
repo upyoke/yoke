@@ -6,7 +6,10 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from yoke_core.domain.deployment_qa_frozen_plan_selection import frozen_stage_plans
+from yoke_core.domain.deployment_qa_frozen_plan_selection import (
+    frozen_stage_plans,
+    member_requirements,
+)
 from yoke_core.domain.qa_deployment_case_content_refresh import (
     declare_refreshed_replacements,
     refreshed_case_keys,
@@ -23,7 +26,6 @@ from yoke_core.domain.deployment_qa_stage_named_cases import (
 )
 from yoke_core.domain.deployment_qa_admission_materialization import (
     materialize_admitted_requirement,
-    member_requirements,
 )
 from yoke_core.domain.deployment_qa_direct_case_target import (
     bind_existing_direct_deployment_cases,
@@ -150,7 +152,7 @@ def materialize_deployment_qa_stage(
         member_item_id=deployment_member_item_id,
     )
     target = deployment_qa_execution_target(conn, subject)
-    admitted = member_requirements(subject, target=target)
+    admitted = member_requirements(conn, subject, target=target)
     snapshots = _selected_plans(
         conn,
         subject,

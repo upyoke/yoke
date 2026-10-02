@@ -7,7 +7,7 @@ its QA stage finds no member obligation to materialize, and the item's
 ``done`` transition then blocks forever on rows no run will ever admit.
 
 Admission therefore derives the selection rather than waiting to be told.
-An item's outstanding obligations are the unwaived, unsuperseded,
+An item's outstanding obligations are the unwaived, unsuperseded, unretracted,
 run-unbound ``post_deploy`` rows it still owes -- plan-backed and ad-hoc
 method rows alike -- and the ones this run can discharge are those whose
 ``target_env`` a QA stage on its pinned flow actually targets. An explicit
@@ -15,7 +15,7 @@ operator selection is still honoured verbatim; derivation fills the silence
 that used to mean "nothing".
 
 The filter here is deliberately the permissive half of the pair.
-:func:`yoke_core.domain.deployment_qa_admission_materialization.requirement_applies`
+:func:`yoke_core.domain.deployment_qa_frozen_plan_selection.requirement_applies`
 re-filters the frozen snapshot against the target the stage actually
 observed, so selecting a row a run-preview stage *might* answer costs
 nothing, while dropping it would lose the obligation silently.
@@ -38,6 +38,8 @@ from yoke_core.domain.deployment_run_composition_freeze import (
     requires_release_admission,
 )
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
+from yoke_core.domain.qa_plan_attachment_reads import retracted_item_plan_ids
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 POST_DEPLOY_PHASE = "post_deploy"
@@ -125,17 +127,19 @@ def outstanding_post_deploy_requirements(
         else ""
     )
     rows = conn.execute(
-        "SELECT id,target_env FROM qa_requirements WHERE item_id=%s "
+        "SELECT id,target_env,plan_id FROM qa_requirements WHERE item_id=%s "
         "AND qa_phase=%s AND deployment_run_id IS NULL AND waived_at IS NULL"
-        f"{supersession} ORDER BY id",
+        f"{supersession} AND {unretracted_requirement_sql(conn)} ORDER BY id",
         (int(item_id), POST_DEPLOY_PHASE),
     ).fetchall()
+    withdrawn_plans = retracted_item_plan_ids(conn, item_id)
     return tuple(
         {
             "id": int(_cell(row, "id", 0)),
             "target_env": str(_cell(row, "target_env", 1) or ""),
         }
         for row in rows
+        if _cell(row, "plan_id", 2) not in withdrawn_plans
     )
 
 
@@ -167,9 +171,7 @@ def admissible_post_deploy_requirement_ids(
     conn: Any, *, run_id: str, item_id: int
 ) -> tuple[int, ...]:
     """The requirement ids a silent membership selection should carry."""
-    admitted, _ = post_deploy_admission_split(
-        conn, run_id=run_id, item_id=int(item_id)
-    )
+    admitted, _ = post_deploy_admission_split(conn, run_id=run_id, item_id=int(item_id))
     return admitted
 
 
@@ -180,7 +182,9 @@ def unadmitted_post_deploy_notice(
     if not requires_release_admission(conn, run_id):
         return ""
     subjects: Iterable[int] = (
-        member_ids(conn, run_id) if item_ids is None else tuple(int(v) for v in item_ids)
+        member_ids(conn, run_id)
+        if item_ids is None
+        else tuple(int(v) for v in item_ids)
     )
     labels: list[str] = []
     for item_id in subjects:
