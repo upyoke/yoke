@@ -61,8 +61,14 @@ ITEMS_PUBLIC_REF_LOOKUP_USAGE = (
 #: and the read already answers an invalid combination with a named
 #: refusal and the recovery step.
 _OVERVIEW_STRING_FIELDS = (
-    "project", "relevance", "search", "workflow", "status", "cursor",
-    "sort_column", "sort_direction",
+    "project",
+    "relevance",
+    "search",
+    "workflow",
+    "status",
+    "cursor",
+    "sort_column",
+    "sort_direction",
 )
 _OVERVIEW_INT_FIELDS = ("limit", "page_size")
 
@@ -73,7 +79,8 @@ def items_overview_list(args: List[str]) -> int:
         description=ITEMS_OVERVIEW_LIST_DESCRIPTION,
     )
     parser.add_argument(
-        "--project", help="Single project slug or ref to scope the read to.",
+        "--project",
+        help="Single project slug or ref to scope the read to.",
     )
     parser.add_argument(
         "--projects",
@@ -83,7 +90,9 @@ def items_overview_list(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "--limit", type=int, help="Cap on rows for the unpaged read.",
+        "--limit",
+        type=int,
+        help="Cap on rows for the unpaged read.",
     )
     parser.add_argument(
         "--relevance",
@@ -93,7 +102,8 @@ def items_overview_list(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "--search", help="Free-text roster search (paged read).",
+        "--search",
+        help="Free-text roster search (paged read).",
     )
     parser.add_argument(
         "--workflow",
