@@ -157,11 +157,16 @@ def access_token_from_config(
                 "to authorize again"
             )
         usable = access_cache.usable_token_state(
-            current, now=selected_now, error_type=GitHubCredentialStoreError,
+            current,
+            now=selected_now,
+            error_type=GitHubCredentialStoreError,
         )
         if usable is not None:
             return access_cache.result(
-                usable, path=path, cached=True, rotated=False,
+                usable,
+                path=path,
+                cached=True,
+                rotated=False,
             )
         refreshed = refresh_credential_document(
             client_id=client_id,
@@ -186,7 +191,10 @@ def access_token_from_config(
                 "run `yoke github connect` to recover"
             ) from exc
         return access_cache.result(
-            refreshed, path=path, cached=False, rotated=rotated,
+            refreshed,
+            path=path,
+            cached=False,
+            rotated=rotated,
         )
 
 
@@ -275,9 +283,7 @@ def machine_operation_lock(config_path: str | Path | None) -> Iterator[None]:
         with credential_file.exclusive_lock(target):
             yield
     except (credential_file.CredentialFileError, _MachineOperationError) as exc:
-        raise GitHubCredentialStoreError(
-            "machine GitHub App operation lock is unavailable"
-        ) from exc
+        raise GitHubCredentialStoreError(str(exc)) from exc
 
 
 def load_config(config_path: str | Path | None) -> dict[str, Any]:
@@ -312,7 +318,8 @@ _token_state_from_response = partial(
 )
 _persisted_document = partial(
     access_cache.persisted_document,
-    schema_version=CREDENTIAL_SCHEMA_VERSION, error_type=GitHubCredentialStoreError,
+    schema_version=CREDENTIAL_SCHEMA_VERSION,
+    error_type=GitHubCredentialStoreError,
 )
 _required_string = partial(
     credential_document.required_string,

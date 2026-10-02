@@ -11,6 +11,7 @@ from yoke_contracts.machine_config.capability_secrets import (
     browser_profile_relative_path,
 )
 from yoke_contracts.machine_config.schema import SECRETS_DIR_NAME
+from yoke_contracts.machine_config import directories
 from yoke_contracts.machine_qa_execution import HostControlExecutionContract
 from yoke_harness import browser_profile_archive, browser_profile_writer_inventory
 from yoke_harness.test_machine_types import HostActionResult
@@ -33,6 +34,12 @@ def capture_browser_profile(
             .replace(
                 "from yoke_harness.browser_profile_writer_inventory import WRITER_INVENTORY_PROGRAM",
                 Path(browser_profile_writer_inventory.__file__).read_text(),
+            )
+            .replace(
+                "from yoke_contracts.machine_config.directories import create_private_directory",
+                Path(directories.__file__)
+                .read_text()
+                .replace("from __future__ import annotations", ""),
             ),
             "capture",
             control.home,

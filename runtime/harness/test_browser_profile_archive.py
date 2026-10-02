@@ -56,6 +56,46 @@ def test_restore_refuses_overwriting_live_profile(snapshot):
     assert (profile / "Default" / "Cookies").read_bytes() == b"opaque-test-profile"
 
 
+def test_restore_creates_every_missing_ancestor_privately(snapshot):
+    home, profile, baseline, _ = snapshot
+    shutil.rmtree(home / ".yoke")
+    (home / ".yoke").mkdir(mode=0o700)
+    previous = os.umask(0o002)
+    try:
+        snapshots.restore(home, baseline, "project", RELATIVE)
+    finally:
+        os.umask(previous)
+    current = profile
+    while current != home:
+        assert current.stat().st_mode & 0o777 == 0o700
+        current = current.parent
+
+
+def test_capture_creates_private_ancestors_without_changing_existing_modes(snapshot):
+    home, _, baseline, _ = snapshot
+    existing = baseline.parent / "existing"
+    existing.mkdir(mode=0o755)
+    existing.chmod(0o755)
+    destination = existing / "new" / "nested" / "profile"
+    previous = os.umask(0o002)
+    try:
+        snapshots.capture(home, destination, "project", RELATIVE)
+    finally:
+        os.umask(previous)
+    assert existing.stat().st_mode & 0o777 == 0o755
+    for path in (destination, destination.parent, destination.parent.parent):
+        assert path.stat().st_mode & 0o777 == 0o700
+
+
+def test_restore_preserves_preexisting_ancestor_modes(snapshot):
+    home, profile, baseline, _ = snapshot
+    shutil.rmtree(profile)
+    ancestor = home / ".yoke" / "secrets"
+    ancestor.chmod(0o755)
+    snapshots.restore(home, baseline, "project", RELATIVE)
+    assert ancestor.stat().st_mode & 0o777 == 0o755
+
+
 @pytest.mark.parametrize("mismatch", ["project", "digest", "owner", "mode"])
 def test_restore_rejects_mismatched_or_unsealed_snapshot_before_mutation(
     snapshot, mismatch

@@ -19,6 +19,7 @@ import tarfile
 import tempfile
 
 from yoke_harness.browser_profile_writer_inventory import WRITER_INVENTORY_PROGRAM
+from yoke_contracts.machine_config.directories import create_private_directory
 
 
 ARCHIVE_NAME = "profile.tar.gz"
@@ -197,7 +198,7 @@ def capture(home: Path, baseline: Path, project: str, relative: str) -> dict:
         "browser_profile_baseline_inside_home",
     )
     require(not baseline.exists(), "browser_profile_destination_occupied")
-    baseline.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(baseline.parent)
     private_owned(baseline.parent, directory=True)
     profile_writers_absent(profile)
     before = profile_inventory(profile)
@@ -264,7 +265,7 @@ def restore(home: Path, baseline: Path, project: str, relative: str) -> dict:
     profile_writers_absent(profile)
     with tarfile.open(baseline / ARCHIVE_NAME, "r:gz") as archive:
         archive_members(archive)
-    profile.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(profile.parent)
     private_owned(profile.parent, directory=True)
     temporary = Path(tempfile.mkdtemp(prefix=".browser-profile-", dir=profile.parent))
     try:
@@ -275,9 +276,9 @@ def restore(home: Path, baseline: Path, project: str, relative: str) -> dict:
                 key=lambda entry: (len(PurePosixPath(entry.name).parts), entry.name),
             ):
                 target = temporary / member.name
-                target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                create_private_directory(target.parent)
                 if member.isdir():
-                    target.mkdir(mode=0o700, exist_ok=True)
+                    create_private_directory(target)
                 else:
                     with (
                         archive.extractfile(member) as source,
