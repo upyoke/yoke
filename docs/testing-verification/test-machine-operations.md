@@ -19,11 +19,13 @@ yoke test-machine desktop-access --project P --machine NAME
 ```
 
 Run this on the workstation holding the capability secrets. It authorizes the
-registered route, refuses another session's machine lease, checks the RDP/VNC
-handshake, and prints only `address`, `user`, and `password_file`. Open that
-address in your RDP or Screen Sharing client, and use the desktop user and
-password from the private mode-600 file under `/tmp`. No password goes through
-the control plane, events, operation receipts, or command output.
+registered route and refuses another session's machine lease. On Windows it
+proves the registered login using FreeRDP auth-only, prints `user`,
+`credential_proof` and `desktop_session=not_started`, then closes its forward.
+The password travels directly from the capability secret store to client stdin.
+Other operating systems check the RDP/VNC handshake and print `address`, `user`
+and `password_file` for the human client, using a private mode-600 copy under
+`/tmp`. No password goes through the control plane, receipts or command output.
 
 Settings declare `desktop_route` (`direct` or `ssh-forward`),
 `desktop_protocol` (`rdp` or `vnc`), `desktop_port` (1–65535), and
@@ -47,8 +49,9 @@ store, keyed by machine, beside the shared `test-machine.ssh_private_key`.
 the route, never a secret value. Missing passwords refuse with
 `desktop_password_missing` and the import command.
 
-SSH forwarding chooses a free loopback port, uses the capability SSH key and
-Yoke's pinned host keys, and keeps its listener open after the command exits.
+SSH forwarding chooses a free loopback port and uses the capability SSH key and
+Yoke's pinned host keys. Windows closes the listener after credential proof;
+other operating systems keep it open for the human client.
 The control socket is `PASSWORD_FILE.ssh`. Close the forward after use with
 `ssh -F /dev/null -S PASSWORD_FILE.ssh -O exit SSH_USER@SSH_HOST`, using the
 registered SSH host/user, then remove the temporary password copy. A failed
@@ -125,9 +128,10 @@ Recording grant and the dedicated test user's unlocked graphical login. Linux
 finds exactly one XFCE session owned by the SSH user and uses its actual DISPLAY
 and XAUTHORITY; it never assumes display :0. Install the Pack's Linux desktop
 provisioner and open its tunnel-only RDP session before retrying a missing desktop.
-Windows enters WSL2, then invokes Windows PowerShell and a temporary scheduled task
-using the SSH account's existing interactive token. Log into that same Windows
-account via RDP and keep the desktop open/unlocked. No password is passed to the
+Windows reuses the registered account's active desktop or starts and holds
+FreeRDP through capture, reporting `desktop_session=started|reused`. Its password
+goes from the capability store to client stdin. Windows PowerShell runs a
+temporary task using that SSH account's interactive token. No password enters the
 capture task; task and temporary files are removed after capture or failure.
 A Session 0 service or a disconnected desktop cannot substitute for that proof.
 Close credentials and private windows before capturing when the case requires it.
