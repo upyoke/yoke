@@ -19,7 +19,7 @@ from runtime.api.domain.session_launch_test_support import (
     NOW,
     add_relay,
     assigned_launch,
-    launch_connection,
+    relay_connection,
 )
 
 
@@ -30,25 +30,6 @@ RELAY_ID = f"machine:{MACHINE_ID}"
 LEASE_EXPIRED_AT = "2026-08-22T12:05:01Z"
 # Past the relay connection horizon too: the machine has gone quiet.
 RELAY_SILENT_AT = "2026-08-22T12:25:00Z"
-
-
-def _connection():
-    conn = launch_connection()
-    conn.execute("ALTER TABLE projects ADD COLUMN org_id INTEGER DEFAULT 1")
-    conn.execute("CREATE TABLE organizations (id INTEGER PRIMARY KEY, settings TEXT)")
-    conn.execute("INSERT INTO organizations VALUES (1, '{}')")
-    for column in (
-        "executor TEXT DEFAULT 'codex'",
-        "execution_lane TEXT",
-        "last_heartbeat TEXT",
-        "offered_at TEXT",
-        "last_tool_call_at TEXT",
-        "turn_posture TEXT NOT NULL DEFAULT 'unknown'",
-        "turn_posture_at TEXT",
-    ):
-        conn.execute(f"ALTER TABLE harness_sessions ADD COLUMN {column}")
-    conn.commit()
-    return conn
 
 
 def _heartbeat() -> RelayHeartbeat:
@@ -104,7 +85,7 @@ def _open_lease(conn, launch_id: str) -> str:
 
 
 def test_lease_expiry_records_phase_and_diagnostics_on_the_open_attempt() -> None:
-    conn = _connection()
+    conn = relay_connection()
     launch = _claimed_launch(conn, key="lease-expiry-evidence")
     _relay_connected_through(conn, "2026-08-22T12:10:00Z")
 
@@ -124,7 +105,7 @@ def test_lease_expiry_records_phase_and_diagnostics_on_the_open_attempt() -> Non
 
 
 def test_lease_expiry_surfaces_the_terminal_result_code_on_the_launch_row() -> None:
-    conn = _connection()
+    conn = relay_connection()
     launch = _claimed_launch(conn, key="lease-expiry-launch-row")
 
     settle_launch_deadlines(conn, now=LEASE_EXPIRED_AT)
@@ -140,7 +121,7 @@ def test_lease_expiry_surfaces_the_terminal_result_code_on_the_launch_row() -> N
 
 
 def test_a_connected_relay_at_expiry_reads_as_an_adapter_stall() -> None:
-    conn = _connection()
+    conn = relay_connection()
     launch = _claimed_launch(conn, key="connected-relay-expiry")
     _relay_connected_through(conn, "2026-08-22T12:10:00Z")
 
@@ -151,7 +132,7 @@ def test_a_connected_relay_at_expiry_reads_as_an_adapter_stall() -> None:
 
 
 def test_a_silent_relay_at_expiry_reads_as_transport_degradation() -> None:
-    conn = _connection()
+    conn = relay_connection()
     launch = _claimed_launch(conn, key="silent-relay-expiry")
 
     settle_launch_deadlines(conn, now=RELAY_SILENT_AT)
@@ -163,7 +144,7 @@ def test_a_silent_relay_at_expiry_reads_as_transport_degradation() -> None:
 def test_a_late_native_report_lands_on_top_of_the_expiry_document() -> None:
     from yoke_core.domain.session_launch_execution import report_launch_attempt
 
-    conn = _connection()
+    conn = relay_connection()
     add_relay(conn, relay_id=RELAY_ID, machine_id=MACHINE_ID)
     launch = assigned_launch(conn, key="late-report", machine_id=MACHINE_ID)
     outcome = claim_relay_job(
@@ -194,7 +175,7 @@ def test_a_late_native_report_lands_on_top_of_the_expiry_document() -> None:
 
 
 def test_phase_reached_names_the_furthest_observed_launch_state() -> None:
-    conn = _connection()
+    conn = relay_connection()
     launch = _claimed_launch(conn, key="phase-ladder")
 
     # Reading the row back after the relay leased it shows the ladder has
@@ -204,7 +185,7 @@ def test_phase_reached_names_the_furthest_observed_launch_state() -> None:
 
 
 def test_transport_state_is_unknown_without_a_relay_row() -> None:
-    conn = _connection()
+    conn = relay_connection()
 
     assert (
         relay_transport_state(conn, relay_id=None, now=NOW) == TRANSPORT_RELAY_UNKNOWN
@@ -227,7 +208,7 @@ def test_a_cancelled_launch_still_closes_with_phase_and_transport() -> None:
     from yoke_core.domain.session_relay_expiry import settle_expired_relay_leases
     from runtime.api.domain.session_launch_test_support import authorization
 
-    conn = _connection()
+    conn = relay_connection()
     launch = _claimed_launch(conn, key="cancelled-then-expired")
     _relay_connected_through(conn, "2026-08-22T12:10:00Z")
     cancel_launch(
@@ -259,7 +240,7 @@ def test_lease_expiry_keeps_what_the_relay_already_reported() -> None:
     """
     from yoke_core.domain.session_relay import report_relay_job
 
-    conn = _connection()
+    conn = relay_connection()
     launch = _claimed_launch(conn, key="expiry-keeps-relay-report")
     _relay_connected_through(conn, "2026-08-22T12:10:00Z")
     report_relay_job(
