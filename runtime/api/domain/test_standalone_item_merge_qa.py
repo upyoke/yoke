@@ -115,7 +115,8 @@ def test_exact_commit_pass_reaches_the_merge_boundary(tmp_path: Path, monkeypatc
         "_resolve_checkout",
         lambda *a: (tmp_path, "main"),
     )
-    outcome = mock.Mock(
+    outcome = merge_domain.StandaloneMergeOutcome(
+        exit_code=0,
         ok=True,
         already_merged=False,
         commit_sha=MERGING_SHA,
@@ -156,7 +157,8 @@ def test_skip_status_defers_only_done_phase_qa(tmp_path: Path, monkeypatch):
         "_resolve_checkout",
         lambda *a: (tmp_path, "main"),
     )
-    outcome = mock.Mock(
+    outcome = merge_domain.StandaloneMergeOutcome(
+        exit_code=0,
         ok=True,
         already_merged=False,
         commit_sha=MERGING_SHA,
@@ -264,7 +266,8 @@ def test_skip_status_recovery_ignores_deferred_done_failure(
         requirement["recorded_head_sha"] = commit_sha
 
     monkeypatch.setattr(verify.commit_bound, "rerecord_hand_run", rerecord)
-    outcome = mock.Mock(
+    outcome = merge_domain.StandaloneMergeOutcome(
+        exit_code=0,
         ok=True,
         already_merged=False,
         commit_sha=MERGING_SHA,

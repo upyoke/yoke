@@ -39,13 +39,20 @@ def _run_merge(tmp_path: Path, monkeypatch, item, *, rerecord, run_case=None):
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(merge_cli, "_resolve_checkout", lambda *a: (tmp_path, "main"))
     monkeypatch.setattr(
-        commit_bound, "rerecord_hand_run", rerecord,
+        commit_bound,
+        "rerecord_hand_run",
+        rerecord,
     )
     if run_case is not None:
         monkeypatch.setattr(commit_bound, "rerun_command_case", run_case)
-    outcome = mock.Mock(
-        ok=True, already_merged=False, commit_sha=MERGING_SHA,
-        merge_sha="c" * 40, touched_files=("file.py",), pushed=True,
+    outcome = merge_domain.StandaloneMergeOutcome(
+        exit_code=0,
+        ok=True,
+        already_merged=False,
+        commit_sha=MERGING_SHA,
+        merge_sha="c" * 40,
+        touched_files=("file.py",),
+        pushed=True,
         warnings=(),
     )
     merger = mock.Mock(return_value=outcome)
@@ -106,7 +113,11 @@ def test_command_case_is_re_run_then_lands(tmp_path: Path, monkeypatch):
         raise AssertionError("hand re-record is not the command-case path")
 
     code, merger = _run_merge(
-        tmp_path, monkeypatch, item, rerecord=rerecord, run_case=run_case,
+        tmp_path,
+        monkeypatch,
+        item,
+        rerecord=rerecord,
+        run_case=run_case,
     )
     assert code == 0
     assert ran == [77]
