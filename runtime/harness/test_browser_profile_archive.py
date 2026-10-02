@@ -135,6 +135,7 @@ def test_capture_never_overwrites_snapshot(snapshot):
 def test_privileged_inventory_checks_same_user_commands_and_descriptors(
     tmp_path, monkeypatch, capsys, writer
 ):
+    monkeypatch.setattr(sys, "platform", "linux")
     proc = tmp_path / "proc"
     process = proc / "101"
     descriptors = process / "fd"
@@ -165,6 +166,7 @@ def test_privileged_inventory_checks_same_user_commands_and_descriptors(
 
 
 def test_archive_uses_noninteractive_read_only_privileged_inventory(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "linux")
     profile = snapshots.Path("/home/testuser/private-profile")
 
     def inventory(argv, **options):
@@ -199,6 +201,7 @@ def test_archive_uses_noninteractive_read_only_privileged_inventory(monkeypatch)
 def test_inventory_failure_refuses_without_masking_writer_reason(
     monkeypatch, stdout, code, reason
 ):
+    monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setattr(
         subprocess,
         "run",
@@ -213,6 +216,8 @@ def test_inventory_failure_refuses_without_masking_writer_reason(
 
 
 def test_inventory_timeout_refuses_without_mutating_profile(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "linux")
+
     def timeout(*_, **__):
         raise subprocess.TimeoutExpired("metadata-inventory", 30)
 
@@ -223,3 +228,21 @@ def test_inventory_timeout_refuses_without_mutating_profile(monkeypatch):
         snapshots.profile_writers_absent(
             snapshots.Path("/home/testuser/private-profile")
         )
+
+
+@pytest.mark.parametrize("runtime_os", ["linux", "darwin"])
+def test_profile_capture_and_restore_bind_runtime_os(tmp_path, monkeypatch, runtime_os):
+    monkeypatch.setattr(sys, "platform", runtime_os)
+    monkeypatch.setattr(snapshots, "profile_writers_absent", lambda _: None)
+    home = tmp_path / "home"
+    profile = home / RELATIVE
+    profile.mkdir(mode=0o700, parents=True)
+    profile.parent.chmod(0o700)
+    (profile / "proof").write_bytes(b"opaque")
+    baseline = tmp_path / "goldens" / "profile"
+    snapshots.capture(home, baseline, "project", RELATIVE)
+    manifest = json.loads((baseline / snapshots.MANIFEST_NAME).read_text())
+    assert manifest["os"] == ("macos" if runtime_os == "darwin" else "linux")
+    shutil.rmtree(profile)
+    assert snapshots.restore(home, baseline, "project", RELATIVE)["restored"]
+    assert (profile / "proof").read_bytes() == b"opaque"

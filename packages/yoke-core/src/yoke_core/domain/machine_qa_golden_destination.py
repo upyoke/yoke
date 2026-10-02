@@ -91,8 +91,6 @@ def resolve_browser_profile_capture_destination(
     row: TestMachineCapabilityRow, *, requested: str | None = None
 ) -> str:
     """Keep a private profile snapshot beside, never inside, the home golden."""
-    if row.settings["os"] != "linux":
-        raise TestMachineCapabilityError("browser_profile_os_unsupported: Linux only")
     declared = row.settings.get(GOLDEN_BASELINE_PATH_KEY)
     if not declared:
         raise TestMachineCapabilityError(
