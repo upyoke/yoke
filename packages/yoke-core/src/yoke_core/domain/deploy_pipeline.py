@@ -40,9 +40,6 @@ from yoke_core.domain.deploy_product_source import (
     validate_itemless_product_source,
 )
 from yoke_core.domain.deploy_pipeline_cli import _build_parser  # noqa: F401
-from yoke_core.domain.deployment_run_completion_preconditions import (
-    held_stage_report_lines,
-)
 
 
 EXIT_SUCCESS = 0
@@ -292,11 +289,12 @@ def run_pipeline(
             continue
         if exec_rc == -4:
             try:
-                unresolved = control_plane.unresolved_qa(run_id)
+                lines = control_plane.held_qa_report_lines(run_id, s_name)
             except control_plane.DeploymentControlPlaneError as exc:
                 print(f"Error: {exc}", file=sys.stderr)
+                print(exec_diag, file=sys.stderr)
                 return EXIT_USAGE
-            for line in held_stage_report_lines(run_id, s_name, unresolved):
+            for line in lines:
                 print(line, file=sys.stderr)
             print(exec_diag, file=sys.stderr)
             return EXIT_AWAITING_QA

@@ -35,6 +35,11 @@ class TestRunCompletingStageHold:
 
         def _install(details):
             monkeypatch.setattr(cp, "unresolved_qa", lambda run_id: list(details))
+            monkeypatch.setattr(
+                cp,
+                "held_qa_report_lines",
+                lambda r, s: precond.held_stage_report_lines(r, s, list(details)),
+            )
 
         return _install
 

@@ -177,15 +177,20 @@ def awaiting_qa_report_lines(run_id: str, unresolved: List[str]) -> List[str]:
 
 
 def held_stage_report_lines(
-    run_id: str, stage_name: str, unresolved: List[str]
+    run_id: str,
+    stage_name: str,
+    unresolved: List[str],
+    *,
+    obligation_count: Optional[int] = None,
 ) -> List[str]:
     """Render the report for a run-completing stage held before it ran."""
+    count = len(unresolved) if obligation_count is None else obligation_count
     return [
         f"{HELD_STAGE_PREFIX} — stage {stage_name!r} stays pending while "
-        f"{len(unresolved)} blocking QA obligation(s) are unresolved for "
+        f"{count} blocking QA obligation(s) are unresolved for "
         f"run {run_id}",
         *(f"  - {detail}" for detail in unresolved),
-        f"  {redrive_recovery(run_id, unresolved=len(unresolved))}",
+        f"  {redrive_recovery(run_id, unresolved=count)}",
     ]
 
 

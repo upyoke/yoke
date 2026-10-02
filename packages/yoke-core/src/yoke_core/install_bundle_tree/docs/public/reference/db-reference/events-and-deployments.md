@@ -296,7 +296,7 @@ pending on the card exactly while work remains, `status` stays
 `executing`, and earlier stages keep their results. Settling the last
 obligation advances accepted QA, approval, and auto stages under the
 project deploy lock, then closes the run and eligible members. An attached
-driver continues its own run; a failed close names recovery to its seat.
+driver continues its own run; a failed close names recovery to its seat. A scoped-QA wait report also reads the stage's outstanding subjects through `deployment_qa_stage_outstanding`, the same reader as the fleet report: each waiting member counts once and its blockers are listed even without requirement rows or a completed scoped execution. The report includes unresolved run obligations too; only an empty combined report says nothing is outstanding. `deployment_runs.execution.qa_pending` accepts `stage_name` to return this `held_report` without changing its completion-only `unresolved` list. An older serving build missing that report refuses as `scoped_qa_report_unavailable`, prints the dispatch diagnostic, and names the control-plane upgrade recovery.
 
 A blocking obligation bound to a run but naming no stage is refused at
 admission wherever the flow pins QA stages: acceptance credits only rows

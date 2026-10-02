@@ -100,6 +100,9 @@ def test_pipeline_scoped_qa_park_is_a_designed_watcher_wait(
     monkeypatch, capsys, tmp_path
 ):
     from yoke_core.domain import deploy_pipeline as pipeline
+    from yoke_core.domain.deployment_run_completion_preconditions import (
+        held_stage_report_lines,
+    )
     from yoke_core.tools._watch_designed_waits import designed_wait
 
     run_id = "run-scoped-qa"
@@ -118,8 +121,10 @@ def test_pipeline_scoped_qa_park_is_a_designed_watcher_wait(
     monkeypatch.setattr(pipeline.control_plane, "seed_qa", lambda _r: None)
     monkeypatch.setattr(
         pipeline.control_plane,
-        "unresolved_qa",
-        lambda _r: ["requirement 1 pending", "requirement 2 pending"],
+        "held_qa_report_lines",
+        lambda r, s: held_stage_report_lines(
+            r, s, ["requirement 1 pending", "requirement 2 pending"]
+        ),
     )
     monkeypatch.setattr(pipeline, "resolve_project_checkout_path", lambda _p: "/repo")
     monkeypatch.setattr(pipeline, "resolve_flow_gate_branch", lambda *a: "main")
