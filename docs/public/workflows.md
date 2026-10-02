@@ -3,6 +3,9 @@
 Workbench **Workflows** shows versioned definitions: stages, gates, posture,
 testing and delivery defaults.
 
+Saving workflow settings keeps the workflow currently selected. The view
+does not jump back to the definition originally named by the route.
+
 ## Built-ins
 
 | Workflow | Use | Typical path |

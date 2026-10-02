@@ -6,6 +6,11 @@ Workbench **Events** is the audit stream: lifecycle, claims, deploy, doctor
 findings, function calls. Filter by name and time when debugging "what
 happened."
 
+**Search loaded events** searches the entries already loaded and offers
+observed names as suggestions. Advanced filters keep the precise server-side
+event name, source, severity and time constraints. The loaded scope remains
+explicit; text search does not promise matches outside it.
+
 ## Doctor
 
 Workbench **Doctor** runs health checks: backlog consistency, GitHub sync,

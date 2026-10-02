@@ -22,6 +22,11 @@ including machine keys. Enabling restores role access but does not restore
 those keys: the person must sign in again and reconnect affected machines.
 A local universe with one human actor explains that it has no access to grant yet.
 
+Disable opens a confirmation naming the actor and the key-revocation
+consequences. Cancel changes nothing; a failed confirmation remains retryable.
+On narrow screens the roster becomes labeled cards, retaining the first actor
+and every access fact.
+
 A machine waiting to be admitted is answered on the **Machines** page,
 not here: approving needs the machine beside the decision — which one,
 who asked for it, and the one-time code the person at that machine is

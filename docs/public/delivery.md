@@ -30,6 +30,15 @@ with **‹ All flows** to return. The page has no controls that change a
 definition: flows are created, versioned and disabled only through
 `yoke deployment-flows create | version | set-status`.
 
+Selecting a flow updates its shareable URL, survives reload, and supports
+Back. **All flows** returns focus to the list. Action dialogs keep keyboard
+focus inside, return it on dismissal, and prevent duplicate pending actions.
+
+Packs distinguish a newer available version from an expired repository
+report. Opening an update preview names the selected Pack and project and
+moves focus to that preview. Environments and Databases keep unavailable
+facts explicit and put detailed technical limitations behind disclosure.
+
 **Runs** titles each row with its flow name and puts the run ID beneath it as
 the link to the run. The QA evidence column holds a few small thumbnails with
 "and N more" beneath; the run page has the rest. The table stacks each row

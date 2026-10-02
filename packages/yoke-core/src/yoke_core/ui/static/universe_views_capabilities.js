@@ -34,7 +34,7 @@ function capabilitySetup(documentNode) {
   details.appendChild(el(documentNode, "p", null,
     "Capabilities are configured for a project through Yoke setup or a Pack. " +
     "This page shows their settings and readiness; it does not create them."));
-  for (const [label, view] of [["Browse Packs", "packs"], ["Connect GitHub", "github"]]) {
+  for (const [label, view] of [["Browse Packs", "packs"], ["GitHub connections", "github"]]) {
     const link = el(documentNode, "a", "item-button", label);
     link.href = buildUniverseRoute(view, null);
     details.appendChild(link);
