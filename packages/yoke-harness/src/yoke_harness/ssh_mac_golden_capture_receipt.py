@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
+
 from yoke_harness.ssh_mac_golden_capture_contract import (
+    CAPTURE_COPY_STDERR_LIMIT,
+    CAPTURE_COPY_STDERR_PREFIX,
     CAPTURE_ENTRIES_PREFIX,
     CAPTURE_FAILURE_PREFIX,
     CAPTURE_KILOBYTES_PREFIX,
@@ -63,6 +68,23 @@ def capture_failure_outcome(stdout: str) -> tuple[str, dict[str, str] | None] | 
     if len(lines) == 1:
         return phase_names[phase], None
     detail = lines[1]
+    if phase_names[phase] == "copy_home" and detail.startswith(
+        CAPTURE_COPY_STDERR_PREFIX
+    ):
+        encoded = detail.removeprefix(CAPTURE_COPY_STDERR_PREFIX)
+        if len(encoded) > 4 * ((CAPTURE_COPY_STDERR_LIMIT + 2) // 3):
+            return None
+        try:
+            stderr = base64.b64decode(encoded, validate=True)
+        except (ValueError, binascii.Error):
+            return None
+        if not stderr or len(stderr) > CAPTURE_COPY_STDERR_LIMIT:
+            return None
+        return "copy_home", {
+            "reason": "copy_home_failed",
+            "copy_stderr": stderr.decode("utf-8", errors="replace"),
+            "recovery": "Repair the path named by the copy error, then capture to a new destination.",
+        }
     if not detail.startswith(CAPTURE_REFUSAL_PREFIX):
         return None
     kind, separator, path = detail.removeprefix(CAPTURE_REFUSAL_PREFIX).partition(" ")
