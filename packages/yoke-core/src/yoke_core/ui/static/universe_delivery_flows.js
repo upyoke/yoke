@@ -50,8 +50,7 @@ function flowRowMeta(row) {
 }
 
 function flowRowButton(documentNode, row, selected) {
-  const button = el(documentNode, "button", "delivery-flow-row");
-  button.type = "button";
+  const button = el(documentNode, "a", "delivery-flow-row row-link");
   button.setAttribute("data-flow-id", String(row.id));
   button.setAttribute("aria-current", String(selected));
   button.classList.toggle("is-selected", selected);
@@ -113,6 +112,7 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
   const groups = el(documentNode, "div", "delivery-flow-groups");
   for (const part of [tools, count, groups]) list.appendChild(part);
   const detail = el(documentNode, "article", "delivery-flow-detail");
+  detail.tabIndex = -1;
   detail.setAttribute("id", "delivery-flow-detail");
   page.appendChild(list);
   page.appendChild(detail);
@@ -123,6 +123,13 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
     && (!state.query || searchableText(row).includes(state.query))
   ));
 
+  const rowLinks = new Map();
+  const updateRoute = (href) => {
+    if (!href) return;
+    const view = documentNode.defaultView;
+    if (view?.history?.pushState) view.history.pushState(null, "", href);
+    else if (view?.location) view.location.hash = href;
+  };
   const select = (row) => {
     state.selected = row;
     state.open = true;
@@ -131,6 +138,8 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
       box.checked = true;
     }
     paint();
+    updateRoute(options.flowHref?.(row.id));
+    detail.focus();
     page.scrollIntoView?.({ block: "start" });
   };
 
@@ -138,6 +147,7 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
     panel.setCount(visible.length);
     count.textContent = `${visible.length} flow${visible.length === 1 ? "" : "s"}`;
     groups.replaceChildren();
+    rowLinks.clear();
     if (!visible.length) {
       groups.appendChild(el(documentNode, "p", "delivery-flow-empty", "No flows match."));
       return;
@@ -154,7 +164,13 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
       const items = el(documentNode, "ul");
       for (const row of projectRows) {
         const button = flowRowButton(documentNode, row, row === state.selected);
-        button.addEventListener("click", () => select(row));
+        button.href = options.flowHref?.(row.id) || "#";
+        rowLinks.set(String(row.id), button);
+        button.addEventListener("click", (event) => {
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button > 0) return;
+          event.preventDefault();
+          select(row);
+        });
         const item = el(documentNode, "li");
         item.appendChild(button);
         items.appendChild(item);
@@ -166,7 +182,7 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
 
   const paint = () => {
     const visible = visibleRows();
-    if (!visible.includes(state.selected)) state.selected = visible[0] || null;
+    if (!state.open && !visible.includes(state.selected)) state.selected = visible[0] || null;
     page.classList.toggle("is-detail-open", state.open && Boolean(state.selected));
     paintList(visible);
     renderDeliveryFlowDetail(documentNode, detail, state.selected, {
@@ -179,6 +195,8 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
       onBack: () => {
         state.open = false;
         page.classList.remove("is-detail-open");
+        updateRoute(options.listHref);
+        (rowLinks.get(String(state.selected?.id)) || search).focus();
       },
     });
   };

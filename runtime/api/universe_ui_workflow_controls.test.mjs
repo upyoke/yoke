@@ -84,6 +84,31 @@ test("a workflow detail route selects the linked definition", async (t) => {
   mounted.unmount();
 });
 
+test("saving a workflow after switching tabs preserves the selected workflow", async (t) => {
+  const client = workflowsClient([
+    workflowFixture({ id: "dash", name: "Dash" }),
+    workflowFixture({ id: "issue", name: "Issue" }),
+  ]);
+  const { documentNode, root, mounted } = await mountWorkflows(t, client, "#/workflows/dash");
+  // Native history updates do not emit hashchange, so this remains the same mounted view.
+  documentNode.defaultView.history = { replaceState(_state, _title, route) {
+    documentNode.defaultView.location.hash = route;
+  } };
+  byClass(root, "tab-link").find((node) => node.textContent === "Issue")
+    .dispatchEvent(new Event("click"));
+  allNodes(root).find((node) => node.tagName === "BUTTON" && node.textContent === "Inspect")
+    .dispatchEvent(new Event("click"));
+  await settle();
+  allNodes(root).find((node) => node.tagName === "BUTTON" && node.textContent === "Make current")
+    .dispatchEvent(new Event("click"));
+  byClass(root, "primary")[0].dispatchEvent(new Event("click"));
+  await settle();
+  const selected = byClass(root, "tab-link").find((node) => node.attributes.get("aria-selected") === "true");
+  assert.equal(selected.textContent, "Issue");
+  assert.match(documentNode.defaultView.location.hash, /workflows\/issue/);
+  mounted.unmount();
+});
+
 test("version inspection reads the immutable definition and can select it", async (t) => {
   const rally = workflowFixture();
   const historicalDefinition = structuredClone(rally.definition);

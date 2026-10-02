@@ -3,6 +3,7 @@
 
 import {
   el,
+  labelCellsByColumn,
   loadScopedSection,
   loadScopedPanels,
   renderTable,
@@ -19,8 +20,10 @@ function displayFileMode(mode) {
 
 function renderPackPreview(context, panel, row) {
   const operation = row.status === "available" ? "get" : "update";
+  const request = Symbol("pack preview");
+  panel.previewRequest = request;
   loadScopedSection(
-    context,
+    { ...context, isMounted: () => context.isMounted() && panel.previewRequest === request },
     panel,
     [{
       functionId: "packs.bundle.get",
@@ -65,6 +68,7 @@ function catalogRows(callResults) {
       ...row,
       project_id: result.project_id,
       project_slug: result.project_slug,
+      report_fresh: result.repository_report?.fresh,
     }));
   });
 }
@@ -110,6 +114,13 @@ function previewButton(documentNode, label, onClick) {
 function openPreview(context, previewPanel, row) {
   previewPanel.hidden = false;
   previewPanel.setCount(null);
+  const title = `${row.slug} · ${row.project_slug || row.project_id}`;
+  previewPanel.children[0].children[0].textContent = title;
+  previewPanel.setAttribute("aria-label", `Pack preview: ${title}`);
+  previewPanel.tabIndex = -1;
+  previewPanel.renderEnvelopes([], (body) => { body.textContent = "Loading Pack contents…"; });
+  previewPanel.scrollIntoView?.({ block: "start" });
+  previewPanel.focus();
   renderPackPreview(context, previewPanel, row);
 }
 
@@ -134,12 +145,13 @@ function renderInstalledPacks(
   if (!rows.length) body.appendChild(el(
     documentNode, "p", "empty", "No Packs installed.",
   ));
-  const table = el(documentNode, "table", "items");
+  const table = el(documentNode, "table", "items table-stacks-narrow");
   const head = el(documentNode, "tr");
-  for (const label of [
+  const columns = [
     "Pack", "Project", "Installed", "Latest", "State",
     "Update — preview first",
-  ]) {
+  ];
+  for (const label of columns) {
     head.appendChild(el(documentNode, "th", null, label));
   }
   table.appendChild(head);
@@ -154,12 +166,13 @@ function renderInstalledPacks(
     ));
     tr.appendChild(el(documentNode, "td", "mono", row.latest_version || "—"));
     const statusCell = el(documentNode, "td");
-    const updateAvailable = row.status === "stale" ||
-      row.installed_version !== row.latest_version;
+    const updateAvailable = Boolean(row.latest_version && row.installed_version !== row.latest_version);
+    const reportStale = row.report_fresh === false ||
+      (row.stale_reasons || []).includes("repository_report_expired");
     const pill = statePill(
       documentNode,
-      updateAvailable ? "stale" : "ready",
-      updateAvailable ? "update available" : "current",
+      updateAvailable || reportStale ? "stale" : "ready",
+      updateAvailable ? "update available" : reportStale ? "report out of date" : "current",
     );
     if (pill) statusCell.appendChild(pill);
     tr.appendChild(statusCell);
@@ -174,6 +187,7 @@ function renderInstalledPacks(
       actionCell.appendChild(el(documentNode, "span", "secondary-muted", "—"));
     }
     tr.appendChild(actionCell);
+    labelCellsByColumn(tr, columns);
     table.appendChild(tr);
   }
   if (rows.length) body.appendChild(table);

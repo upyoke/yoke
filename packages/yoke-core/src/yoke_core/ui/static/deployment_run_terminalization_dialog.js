@@ -2,6 +2,7 @@ import {
   callFunction,
   el,
 } from "./universe_view_support.js";
+import { mountWorkflowDialog, releaseWorkflowDialog } from "./workflow_accessibility.js";
 
 const TERMINAL_STATUSES = new Set(["succeeded", "failed", "cancelled"]);
 
@@ -22,7 +23,10 @@ export function terminalizationDialog(context, row, onSuccess) {
   const dialog = el(
     documentNode, "section", "deployment-terminalization-dialog",
   );
+  let busy = false;
   const close = () => {
+    if (busy) return;
+    releaseWorkflowDialog(overlay);
     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
   };
   dialog.setAttribute("role", "dialog");
@@ -69,6 +73,7 @@ export function terminalizationDialog(context, row, onSuccess) {
   const error = el(
     documentNode, "p", "deployment-terminalization-error",
   );
+  error.setAttribute("role", "alert");
   dialog.appendChild(error);
 
   const actions = el(
@@ -86,12 +91,19 @@ export function terminalizationDialog(context, row, onSuccess) {
     const cleanReason = String(reason.value || "").trim();
     if (!cleanReason) {
       error.textContent = "Enter a reason before confirming.";
+      reason.focus();
       return;
     }
     confirm.disabled = true;
+    cancel.disabled = true;
+    busy = true;
+    dialog.setAttribute("aria-busy", "true");
     confirm.textContent = "Terminalizing…";
     const fail = (message) => {
       confirm.disabled = false;
+      cancel.disabled = false;
+      busy = false;
+      dialog.setAttribute("aria-busy", "false");
       confirm.textContent = "Confirm terminalization";
       error.textContent = message;
     };
@@ -111,11 +123,16 @@ export function terminalizationDialog(context, row, onSuccess) {
       fail(result.envelope?.error?.message || "Terminalization refused.");
       return;
     }
+    busy = false;
     close();
     onSuccess(result.envelope.result);
   });
   actions.appendChild(confirm);
   dialog.appendChild(actions);
   overlay.appendChild(dialog);
+  queueMicrotask(() => {
+    if (overlay.parentNode) mountWorkflowDialog({ documentNode, host: overlay, dialog,
+      dismiss: close, initialFocus: reason });
+  });
   return overlay;
 }

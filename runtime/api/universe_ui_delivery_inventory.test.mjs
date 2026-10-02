@@ -139,11 +139,11 @@ test("Environments joins branch and latest-run reads without inventing policy", 
   );
   const cells = allNodes(root).filter((node) => node.tagName === "TD");
   assert.deepEqual(cells.slice(0, 4).map(cellText), [
-    "prod", "main", "not exposed", "succeeded",
+    "prod", "main", "unavailable", "succeeded",
   ]);
   assert.notEqual(cellText(cells[4]), "never");
   assert.ok(byClass(root, "delivery-read-note")[0].children[1].textContent
-    .includes("Auto-deploy policy has no published browser read"));
+    .includes("Auto-deploy settings are unavailable here"));
   assert.equal(byClass(root, "raw-toggle").length, 0);
   assert.equal(byClass(root, "raw-json").length, 0);
   mounted.unmount();
@@ -277,11 +277,11 @@ test("Databases renders declared models and labels every unserved steering fact"
     allNodes(root).filter((node) => node.tagName === "TD").map(cellText),
     [
       "primary (governed_module)", "project capability",
-      "not exposed", "not exposed", "ready",
+      "unavailable", "unavailable", "ready",
     ],
   );
   assert.equal(byClass(root, "pill")[0].attributes.get("data-state"), "ready");
   assert.ok(byClass(root, "delivery-read-note")[0].children[1].textContent
-    .includes("claims, and leases have no browser read"));
+    .includes("Migration history and current apply status are unavailable here"));
   mounted.unmount();
 });

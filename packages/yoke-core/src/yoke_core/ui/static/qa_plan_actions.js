@@ -2,6 +2,7 @@ import {
   callFunction,
   el,
 } from "./universe_view_support.js";
+import { mountWorkflowDialog, releaseWorkflowDialog } from "./workflow_accessibility.js";
 
 function rejectedCallMessage(error, fallback) {
   if (error instanceof Error && error.message) return error.message;
@@ -13,7 +14,10 @@ export function waiverDialog(context, row, reload) {
   const documentNode = context.document;
   const overlay = el(documentNode, "div", "qa-action-overlay");
   const dialog = el(documentNode, "section", "qa-action-dialog");
+  let busy = false;
   const close = () => {
+    if (busy) return;
+    releaseWorkflowDialog(overlay);
     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
   };
   dialog.setAttribute("role", "dialog");
@@ -32,8 +36,11 @@ export function waiverDialog(context, row, reload) {
   ));
   const rationale = el(documentNode, "textarea", "qa-waiver-rationale");
   rationale.placeholder = "Why is proceeding without this proof acceptable?";
-  dialog.appendChild(rationale);
+  const label = el(documentNode, "label", null, "Waiver rationale");
+  label.appendChild(rationale);
+  dialog.appendChild(label);
   const error = el(documentNode, "p", "qa-action-error");
+  error.setAttribute("role", "alert");
   dialog.appendChild(error);
   const actions = el(documentNode, "div", "qa-action-dialog-buttons");
   const cancel = el(documentNode, "button", "btn", "Cancel");
@@ -46,12 +53,19 @@ export function waiverDialog(context, row, reload) {
     const reason = String(rationale.value || "").trim();
     if (!reason) {
       error.textContent = "Enter a waiver rationale.";
+      rationale.focus();
       return;
     }
     confirm.disabled = true;
+    cancel.disabled = true;
+    busy = true;
+    dialog.setAttribute("aria-busy", "true");
     confirm.textContent = "Waiving…";
     const fail = (message) => {
       confirm.disabled = false;
+      cancel.disabled = false;
+      busy = false;
+      dialog.setAttribute("aria-busy", "false");
       confirm.textContent = "Waive case";
       error.textContent = message;
     };
@@ -74,11 +88,16 @@ export function waiverDialog(context, row, reload) {
       fail(result.envelope?.error?.message || "Waiver failed.");
       return;
     }
+    busy = false;
     close();
     reload();
   });
   actions.appendChild(confirm);
   dialog.appendChild(actions);
   overlay.appendChild(dialog);
+  queueMicrotask(() => {
+    if (overlay.parentNode) mountWorkflowDialog({ documentNode, host: overlay, dialog,
+      dismiss: close, initialFocus: rationale });
+  });
   return overlay;
 }

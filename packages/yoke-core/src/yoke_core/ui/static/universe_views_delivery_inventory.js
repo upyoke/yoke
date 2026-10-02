@@ -189,9 +189,9 @@ export function renderDeliveryEnvironmentsView(context, main, scope) {
               label: "branch",
               value: (row) => branches.get(
                 `${projectIdentity(directory, row)}:${String(row.name)}`,
-              ) || "not exposed",
+              ) || "unavailable",
             },
-            { label: "auto-deploy", value: () => "not exposed" },
+            { label: "auto-deploy", value: () => "unavailable" },
             {
               label: "status",
               value: (row) => latestFor(row)?.status || "no run record",
@@ -209,8 +209,8 @@ export function renderDeliveryEnvironmentsView(context, main, scope) {
         );
         body.appendChild(deliveryNote(
           documentNode,
-          "Registered targets, grounded by their latest run. ",
-          "Environment identity comes from projects.infrastructure.list, branch from the git.branch environment-settings projection, and status from deployment_runs.list. Auto-deploy policy has no published browser read, so that cell stays explicitly unavailable.",
+          "Registered environments. ",
+          "Status reflects the latest recorded run, not a live health check. Auto-deploy settings are unavailable here.",
         ));
       },
     );
@@ -242,16 +242,16 @@ export function renderDeliveryDatabasesView(context, main, scope) {
             mono: true,
           },
           { label: "authority", value: () => "project capability" },
-          { label: "posture", value: () => "not exposed" },
-          { label: "last apply", value: () => "not exposed" },
+          { label: "posture", value: () => "unavailable" },
+          { label: "last apply", value: () => "unavailable" },
           { label: "state", value: (row) => row.state, pill: true },
         ], scope, (row) => projectLabel(directory, row)),
         "No governed database model declared in this scope.",
       );
       body.appendChild(deliveryNote(
         documentNode,
-        "Database steering is only partially readable today. ",
-        "Declared models and their readiness come from projects.capabilities.list. Per-model authority, migration posture, apply receipts, claims, and leases have no browser read yet, so this view names the gap instead of implying a safe release.",
+        "Registered database models. ",
+        "Readiness is shown for each configured model. Migration history and current apply status are unavailable here.",
       ));
     },
   );
