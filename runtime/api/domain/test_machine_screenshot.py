@@ -197,6 +197,15 @@ def test_failing_screenshot_records_error_without_artifact(tmp_path, monkeypatch
             "terminal_console_user_mismatch",
         ),
         ({"console_user": "test", "display_locked": True}, "terminal_display_locked"),
+        ({"console_user": "test", "display_locked": None}, "terminal_display_locked"),
+        (
+            {
+                "console_user": "test",
+                "display_locked": True,
+                "screen_sharing_active": True,
+            },
+            "terminal_display_locked",
+        ),
     ],
 )
 def test_mac_private_or_locked_session_is_not_captured(monkeypatch, context, code):
@@ -213,6 +222,20 @@ def test_mac_private_or_locked_session_is_not_captured(monkeypatch, context, cod
     result = capture_desktop(SimpleNamespace(os="macos", _run=run, _user="test"))
     assert not result.ok and result.error_code == code
     assert all(command.startswith("rm -f") for command in commands)
+    assert "capture_artifact" not in result.evidence
+    if context.get("screen_sharing_active"):
+        assert (
+            "display is curtained by an active Screen Sharing connection"
+            in result.evidence["recovery"]
+        )
+        assert (
+            "disconnect Screen Sharing (or reconnect without curtain) and retry"
+            in result.evidence["recovery"]
+        )
+    elif code == "terminal_display_locked":
+        from yoke_contracts.machine_qa_terminal_bridge import terminal_bridge_recovery
+
+        assert result.evidence["recovery"] == terminal_bridge_recovery(code)
 
 
 @pytest.mark.parametrize("session_id", [0, 2])

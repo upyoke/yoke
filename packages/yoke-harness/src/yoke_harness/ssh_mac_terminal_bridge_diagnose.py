@@ -25,8 +25,8 @@ from yoke_contracts.machine_qa_terminal_bridge import (
 )
 from yoke_harness.ssh_mac_display_frame import RunRemote
 from yoke_harness.ssh_mac_host_session_state import (
-    read_console_user,
-    read_display_locked,
+    display_lock_recovery,
+    probe_host_display_context,
     read_load_average,
     read_secure_keyboard_entry,
     system_events_reachable,
@@ -58,12 +58,12 @@ def _probe_control_surfaces(
     ):
         return False
 
-    console_user = read_console_user(run)
-    display_locked = read_display_locked(run)
+    context = probe_host_display_context(run)
+    console_user = context["console_user"]
+    display_locked = context["display_locked"]
     report.host = {
-        "console_user": console_user,
+        **context,
         "expected_console_user": report.expected_console_user,
-        "display_locked": display_locked,
         "load_average": read_load_average(run),
     }
     session_ok = bool(console_user) and (
@@ -73,7 +73,8 @@ def _probe_control_surfaces(
     if not report.record(
         CONSOLE_SESSION_CHECK,
         ok=session_ok and display_locked is False,
-        observed={"console_user": console_user, "display_locked": display_locked},
+        observed=context,
+        recovery=display_lock_recovery(context) if session_ok else None,
         error_code=(
             TERMINAL_CONSOLE_USER_MISMATCH_ERROR_CODE
             if not session_ok

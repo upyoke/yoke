@@ -234,14 +234,19 @@ problem. Every failing row carries the condition's name and the sentence
 describing what to change on the host. The console check reads the lock flag
 inside macOS's `IOConsoleUsers` root property, including compact `=Yes` output.
 A locked console reports `terminal_display_locked`: unlock the Mac before
-retrying. The `window_launch` row retains the osascript exit code, stdout, and
+retrying. Screenshot and bridge diagnosis also check for `screensharingd` or
+`ScreensharingAgent` when the lock flag is set. An active Screen Sharing
+connection can curtain the physical display while its remote viewer sees an
+unlocked desktop; the refusal names the curtain and asks you to disconnect
+Screen Sharing (or reconnect without curtain) and retry. The lock guard still
+refuses that capture. The `window_launch` row retains the osascript exit code, stdout, and
 stderr, so a Terminal AppleScript failure carries its cause:
 
 | Condition | What to change |
 | --- | --- |
 | `terminal_ssh_unavailable` | Remote Login for the automation user, and this machine's `ssh_private_key` capability secret |
 | `terminal_console_user_mismatch` | Log the graphical session in as the automation user |
-| `terminal_display_locked` | Unlock the screen; disable screen saver and display sleep |
+| `terminal_display_locked` | Disconnect Screen Sharing (or reconnect without curtain) if the refusal names its curtain; otherwise unlock the screen and disable screen saver and display sleep |
 | `terminal_system_events_unavailable` | Accessibility, and Automation for System Events, for `/usr/libexec/sshd-keygen-wrapper` (-25211 names the first, -1743 the second) |
 | `terminal_automation_unavailable` | Automation for Terminal, for the same Remote Login helper |
 | `terminal_secure_keyboard_entry_on` | Turn Secure Keyboard Entry off in Terminal's menu; while it is on macOS discards every synthetic keystroke |
