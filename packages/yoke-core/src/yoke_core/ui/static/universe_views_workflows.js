@@ -295,7 +295,7 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
       catalogById = new Map(
         (result.gate_catalog || []).map((gate) => [gate.id, gate]),
       );
-      const linkedWorkflowId = String(routeWorkflowId || "").toLowerCase();
+      const linkedWorkflowId = String(selectedWorkflowId || routeWorkflowId || "").toLowerCase();
       selectedWorkflowId = workflows.some(
         (workflow) => workflow.id === linkedWorkflowId,
       )

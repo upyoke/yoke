@@ -82,12 +82,13 @@ function createSearch(documentNode, client) {
   const windowNode = documentNode.defaultView;
   const controlId = ++shellControlSequence;
   const history = createSearchHistory(client);
-  const search = createUniverseSearch(client);
+  let search = null;
   let dialog = null;
   let activeIndex = -1;
   let resultLinks = [];
   let renderToken = 0;
   let debounceTimer = null;
+  const resultNodes = new Map();
 
   const cancelPending = () => {
     if (debounceTimer !== null) {
@@ -102,6 +103,7 @@ function createSearch(documentNode, client) {
   const showEmptyState = () => {
     resultLinks = [];
     activeIndex = -1;
+    dialog.input.removeAttribute("aria-activedescendant");
     setExpanded(false);
     dialog.body.replaceChildren(...emptyState(
       documentNode, history.queries(), (query) => {
@@ -115,6 +117,7 @@ function createSearch(documentNode, client) {
     activeIndex = (next + resultLinks.length) % resultLinks.length;
     for (const [index, link] of resultLinks.entries()) {
       link.classList.toggle("active", index === activeIndex);
+      link.setAttribute("aria-selected", String(index === activeIndex));
       if (index === activeIndex) {
         link.scrollIntoView?.({ block: "nearest" });
         dialog.input.setAttribute("aria-activedescendant", link.id);
@@ -124,6 +127,9 @@ function createSearch(documentNode, client) {
   // Domains answer one at a time, so the panel is rebuilt from what is known
   // so far rather than held blank until the slowest read lands.
   const renderProgress = (query, answers) => {
+    const selectedLink = resultLinks[activeIndex];
+    const focusedLink = resultLinks.includes(documentNode.activeElement)
+      ? documentNode.activeElement : null;
     resultLinks = [];
     activeIndex = -1;
     const nodes = [];
@@ -142,9 +148,15 @@ function createSearch(documentNode, client) {
       if (!entries.length) continue;
       const wrap = section(documentNode, domain.label);
       for (const entry of entries) {
-        const link = resultLink(documentNode, entry);
-        link.id = `universe-search-option-${controlId}-${resultLinks.length}`;
-        link.addEventListener("click", () => dialog.close());
+        const key = JSON.stringify([domain.key, entry.href, entry.label]);
+        let link = resultNodes.get(key);
+        if (!link) {
+          link = resultLink(documentNode, entry);
+          link.id = `universe-search-option-${controlId}-${resultNodes.size}`;
+          link.setAttribute("aria-selected", "false");
+          link.addEventListener("click", () => dialog.close());
+          resultNodes.set(key, link);
+        }
         resultLinks.push(link);
         wrap.appendChild(link);
       }
@@ -163,19 +175,35 @@ function createSearch(documentNode, client) {
         `Could not search ${unavailable.join(", ")}. `
         + "Those results are missing, not absent.",
       ));
+      const retry = el(documentNode, "button", "header-search-row", "Retry search");
+      retry.type = "button";
+      retry.addEventListener("click", () => {
+        search = createUniverseSearch(client);
+        dialog.input.focus?.();
+        runQuery();
+      });
+      nodes.push(retry);
     }
     dialog.body.replaceChildren(...nodes);
     setExpanded(resultLinks.length > 0);
+    activeIndex = resultLinks.indexOf(selectedLink);
+    if (activeIndex >= 0) selectResult(activeIndex);
+    else dialog.input.removeAttribute("aria-activedescendant");
+    if (focusedLink && resultLinks.includes(focusedLink)) focusedLink.focus?.();
   };
   const runQuery = async () => {
+    if (!dialog.isOpen()) return;
     const query = dialog.input.value.trim();
     const token = ++renderToken;
+    resultNodes.clear();
     if (!query) {
       showEmptyState();
       return;
     }
     if (query.length < MIN_QUERY_LENGTH) {
       resultLinks = [];
+      activeIndex = -1;
+      dialog.input.removeAttribute("aria-activedescendant");
       dialog.body.replaceChildren(status(
         documentNode, `Type at least ${MIN_QUERY_LENGTH} characters.`,
       ));
@@ -185,11 +213,11 @@ function createSearch(documentNode, client) {
     const answers = new Map();
     renderProgress(query, answers);
     await search(query, (domain, entries) => {
-      if (token !== renderToken) return;
+      if (token !== renderToken || !dialog.isOpen()) return;
       answers.set(domain.key, entries);
       renderProgress(query, answers);
     });
-    if (token !== renderToken) return;
+    if (token !== renderToken || !dialog.isOpen()) return;
     // Remembering a query that found nothing would offer it back as though
     // it had worked.
     if (resultLinks.length) history.record(query);
@@ -204,7 +232,11 @@ function createSearch(documentNode, client) {
 
   dialog = createSearchDialog(documentNode, controlId, () => {
     cancelPending();
+    // Catalogue memoization lasts only while this dialog is open. A second
+    // visit must see new records and recover from a previous failed read.
+    search = createUniverseSearch(client);
     dialog.input.value = "";
+    resultNodes.clear();
     showEmptyState();
     // Reading the catalogues starts when the dialog opens rather than on the
     // first keystroke: the operator spends a second typing either way, and
@@ -221,7 +253,9 @@ function createSearch(documentNode, client) {
   dialog.input.addEventListener("keydown", (event) => {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
-      selectResult(activeIndex + (event.key === "ArrowDown" ? 1 : -1));
+      selectResult(event.key === "ArrowUp" && activeIndex < 0
+        ? resultLinks.length - 1
+        : activeIndex + (event.key === "ArrowDown" ? 1 : -1));
       return;
     }
     if (event.key === "Enter" && activeIndex >= 0) {

@@ -209,6 +209,8 @@ export function createScopePicker(options) {
   } = options;
   const multi = entry.scope === SCOPE_MULTI;
   const bar = el(documentNode, "div", "scope-bar");
+  bar.setAttribute("role", "group");
+  bar.setAttribute("aria-label", multi ? "Filter projects" : "Focus project");
   bar.appendChild(el(
     documentNode, "span", "scope-label", multi ? "Projects" : "Project",
   ));
@@ -226,7 +228,9 @@ export function createScopePicker(options) {
   };
   const syncChips = (scopeValue) => {
     for (const { projectId, button } of chips) {
-      button.classList.toggle("on", selectedFor(scopeValue, projectId));
+      const selected = selectedFor(scopeValue, projectId);
+      button.classList.toggle("on", selected);
+      button.setAttribute("aria-pressed", String(selected));
     }
   };
   const apply = (next) => {

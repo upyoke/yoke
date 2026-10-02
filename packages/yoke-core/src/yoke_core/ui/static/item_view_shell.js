@@ -191,12 +191,12 @@ export function progressIfPresent(documentNode, item) {
 
 export function detailColumns(documentNode, left, right) {
   const grid = el(documentNode, "div", "item-detail-grid");
-  const leftColumn = el(documentNode, "div", "item-stack");
+  const leftColumn = el(documentNode, "div", "item-stack item-detail-narrative");
   for (const child of left) leftColumn.appendChild(child);
-  const rightColumn = el(documentNode, "div", "item-stack");
+  const rightColumn = el(documentNode, "div", "item-stack item-detail-operations");
   for (const child of right) rightColumn.appendChild(child);
-  grid.appendChild(leftColumn);
   grid.appendChild(rightColumn);
+  grid.appendChild(leftColumn);
   return grid;
 }
 

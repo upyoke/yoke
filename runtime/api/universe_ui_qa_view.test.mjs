@@ -189,8 +189,9 @@ test("Plans renders the durable objects and the full case-detail composition", a
       .join(""),
     "2·⌥◎",
   );
-  assert.equal(byClass(root, "qa-result-age").length, 0);
-  assert.equal(byClass(root, "qa-relative-time").length, 0);
+  assert.equal(byClass(root, "qa-result-age").length, 1);
+  assert.equal(byClass(root, "qa-relative-time").length, 1);
+  assert.equal(byClass(root, "qa-result-reason")[0].tagName, "DETAILS");
   assert.match(
     listText,
     /yoke qa plan create --project yoke release-readiness/,

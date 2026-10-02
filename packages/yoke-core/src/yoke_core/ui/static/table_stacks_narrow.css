@@ -27,7 +27,8 @@
   }
 
   /* The header row's labels move onto the cells themselves. */
-  .universe-app-root .table-stacks-narrow tr:first-child {
+  .universe-app-root .table-stacks-narrow thead,
+  .universe-app-root .table-stacks-narrow tr:has(> th) {
     display: none;
   }
 

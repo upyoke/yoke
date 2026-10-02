@@ -133,6 +133,9 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   ]);
 
   const input = byClass(root, "header-search-input")[0];
+  byClass(root, "header-search")[0].dispatchEvent(new Event("click"));
+  assert.equal(byClass(root, "header-search-overlay")[0].hidden, false);
+  assert.equal(documentNode.activeElement, input);
   input.value = "shell";
   input.dispatchEvent(new Event("input"));
   await settleSearch();

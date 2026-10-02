@@ -164,6 +164,8 @@ test("Packs separates Installed and Available with row-owned previews", async (t
   byClass(root, "pack-preview-action")[0].dispatchEvent(new Event("click"));
   await settle();
   assert.equal(preview.hidden, false);
+  assert.equal(documentNode.activeElement, preview);
+  assert.match(preview.attributes.get("aria-label"), /production-deploy · demo/);
   const previewText = allNodes(root).map((node) => node.textContent || "").join(" ");
   assert.ok(previewText.includes(".github/workflows/demo-deploy.yml"));
   assert.ok(previewText.includes("0644"));

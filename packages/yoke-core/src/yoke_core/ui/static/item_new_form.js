@@ -69,9 +69,19 @@ export function renderNewItemForm(context, main, projectId, options) {
     instruction.rows = 3;
     instruction.value = draft.instruction || "";
     draft.instructionControl = instruction;
+    for (const control of [title, instruction]) control.addEventListener("input", () => draft.save?.());
     const render = () => {
       const directWorkflow = ["dash", "blitz"].includes(selected.id);
       const pathSurveyPolicy = pathSurveyPolicyFor(selected);
+      const allow = new Set(
+        selected.definition?.policies?.item_posture_allowlist || [],
+      );
+      for (const key of ["verification", "file_budget", "path_claims", "deployment", "approval_on_done"]) {
+        const allowed = allow.has(key) || (key === "approval_on_done" && allow.has("approval"));
+        state[key] = allowed && state[key] === true;
+      }
+      if (!verificationAvailable) state.verification = false;
+      const stored = draft.save?.();
       const host = el(documentNode, "div", "item-new");
       const head = el(
         documentNode, "div", "page-head item-new-heading",
@@ -87,7 +97,8 @@ export function renderNewItemForm(context, main, projectId, options) {
         documentNode, "p", "subtitle", steer.copy,
       ));
       head.appendChild(copy);
-      const cancel = el(documentNode, "a", "item-button", "Cancel");
+      const cancel = el(documentNode, "a", "item-button", "Discard draft");
+      cancel.addEventListener("click", () => draft.discard?.());
       cancel.href = buildUniverseRoute("items", context.screenPreferences ? selectionParam(context.screenPreferences.selectionFor("items")) : String(projectId));
       const actions = el(documentNode, "div", "head-actions");
       actions.appendChild(cancel);
@@ -95,6 +106,8 @@ export function renderNewItemForm(context, main, projectId, options) {
       host.appendChild(head);
 
       const form = el(documentNode, "form", "item-form");
+      draft.form = form;
+      form.addEventListener("change", () => draft.save?.());
       if (steer.web.length > 1) {
         const choices = workflowPanel(documentNode, "Choose a workflow");
         choices.body.className += " item-workflow-options";
@@ -132,6 +145,7 @@ export function renderNewItemForm(context, main, projectId, options) {
         documentNode, "Instruction", instruction, instructionHelp,
       ));
       form.appendChild(itemIntakeField(documentNode, "Project", projectControl));
+      if (stored) form.appendChild(el(documentNode, "p", "item-form-help", "Draft saved in this browser tab. You can leave and return."));
       if (options.notice) form.appendChild(el(documentNode, "p", "item-form-help", options.notice));
       if (instructions.length) {
         const details = el(documentNode, "details", "item-execution-instructions");
@@ -143,9 +157,6 @@ export function renderNewItemForm(context, main, projectId, options) {
       }
       const settings = workflowPanel(documentNode, "Settings");
       settings.body.className += " item-stack";
-      const allow = new Set(
-        selected.definition?.policies?.item_posture_allowlist || [],
-      );
       const rows = [
         [
           "verification", "✓", "Verification",
@@ -214,6 +225,8 @@ export function renderNewItemForm(context, main, projectId, options) {
       footer.appendChild(submit);
       form.appendChild(footer);
       const outcome = el(documentNode, "p", "item-form-outcome");
+      draft.submitControl = submit;
+      draft.outcomeControl = outcome;
       form.appendChild(outcome);
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -255,6 +268,11 @@ export function renderNewItemForm(context, main, projectId, options) {
           posture[allow.has("approval_on_done")
             ? "approval_on_done" : "approval"] = true;
         }
+        const submittedRevision = draft.save?.();
+        const content = () => JSON.stringify([
+          draft.titleControl.value, draft.instructionControl.value, draft.workflowId, draft.posture,
+        ]);
+        const submittedContent = content();
         draft.creating = true;
         submit.disabled = true;
         projectControl.disabled = true;
@@ -279,23 +297,28 @@ export function renderNewItemForm(context, main, projectId, options) {
             },
           };
         }
-        if (result.status === 200 && result.envelope.success) {
+        const created = result.status === 200 && result.envelope.success;
+        const cleared = created && submittedRevision && draft.discard?.(submittedRevision);
+        draft.creating = false;
+        if (!context.isMounted() || !main.contains(draft.form)) return;
+        draft.submitControl.disabled = false;
+        projectControl.disabled = false;
+        const currentOutcome = draft.outcomeControl;
+        if (created) {
           const itemRef = result.envelope.result?.public_ref;
-          outcome.textContent = `Created ${itemRef}.`;
+          const changed = content() !== submittedContent || draft.form !== form || (submittedRevision && !cleared);
+          currentOutcome.textContent = `Created ${itemRef}.` + (changed ? " Your newer draft is kept." : "");
           const href = itemDrillInHref({
             projectId,
             publicRef: itemRef,
           });
-          if (context.navigate && href) {
+          if (!changed && context.navigate && href) {
             context.navigate(href);
           }
           return;
         }
-        draft.creating = false;
-        submit.disabled = false;
-        projectControl.disabled = false;
-        outcome.className = "item-form-outcome error";
-        outcome.textContent =
+        currentOutcome.className = "item-form-outcome error";
+        currentOutcome.textContent =
           result.envelope?.error?.message || "Item creation failed.";
       });
       host.appendChild(form);

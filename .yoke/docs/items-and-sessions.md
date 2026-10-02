@@ -5,6 +5,18 @@
 Workbench **Items** lists backlog work. Open an item for status, fields,
 progress, claims, and QA attachments.
 
+New Item keeps a draft through refresh in the same browser tab when session
+storage is available. Drafts belong to the signed-in actor and universe;
+restoration rechecks the project's creation permissions and workflow settings.
+Retry preserves typed fields. Creation clears only the submitted draft; edits
+made while creation is pending remain available. A response from a form you
+have left cannot navigate you away or erase a newer draft. **Discard draft**
+explicitly abandons it. Closing the browser session can remove it.
+
+Narrow layouts show labeled item cards with every sort choice available
+above them. Item details place status, ownership, blockers and delivery facts
+ahead of long narrative on a phone; the desktop keeps its two-column layout.
+
 The table starts with **Last updated, descending** when the signed-in actor
 has no saved sort. Column headers change the sort for the full filtered
 dataset before pages load; equal values have a stable item-ID tie break.

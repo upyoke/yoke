@@ -49,12 +49,21 @@ See [Workflows](workflows.md) and [reference/lifecycle.md](reference/lifecycle.m
 ## Workbench destinations
 
 The universe workbench sidenav is the operator map, in three groups. Focus is
-the working day: Strategy, Frontier, Shipping, Machines, Sessions, Inbox.
+the working day: Strategy, Frontier, Items, Shipping, Machines, Sessions, Inbox.
 Settings is what persists: Universe, Workflows, Projects, GitHub, Actors,
-Members, Billing. Diagnostics is the drawer, closed until you open it: Items,
+Members, Billing. Diagnostics is the drawer, closed until you open it:
 Deployments, Environments, Databases, QA methods, QA plans, QA activity,
 Capabilities, Packs, Architecture, Messages, Launches, Events, Doctor,
 Ouroboros. This docs set follows that map.
+
+Search refreshes its catalogs when reopened and offers Retry after a failed
+read. Incoming result groups preserve the selected result and keyboard focus.
+On narrow screens, the navigation drawer moves focus inside while open and
+returns it on dismissal; crossing back to desktop restores the main content.
+
+Architecture shows **Not assessed** when its current inventory contains no
+Python files. A declared map remains visible; empty coverage cannot establish
+health. Sync the project's file inventory to assess applicable files.
 
 Shipping and Deployments select whole runs by the projects of their carried
 items. A selected run always shows its full membership and decisions across

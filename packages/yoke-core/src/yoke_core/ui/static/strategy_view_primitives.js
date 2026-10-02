@@ -167,10 +167,13 @@ export function historyReviewView(
   const controls = el(documentNode, "div", "strategy-compare-controls");
   const from = revisionSelect(documentNode, doc.revisions, oldest);
   const to = revisionSelect(documentNode, doc.revisions, newest);
-  controls.appendChild(el(documentNode, "label", null, "From"));
-  controls.appendChild(from);
-  controls.appendChild(el(documentNode, "label", null, "To"));
-  controls.appendChild(to);
+  for (const [text, select] of [["From", from], ["To", to]]) {
+    select.id = `strategy-revision-${text.toLowerCase()}`;
+    const label = el(documentNode, "label", null, text);
+    label.setAttribute("for", select.id);
+    controls.appendChild(label);
+    controls.appendChild(select);
+  }
   controls.appendChild(el(documentNode, "label", null, "Change"));
   const change = el(documentNode, "span", "strategy-change-summary");
   controls.appendChild(change);

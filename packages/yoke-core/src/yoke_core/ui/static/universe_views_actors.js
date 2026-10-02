@@ -1,7 +1,7 @@
 // Actor authority and nonsecret credential inventory for this universe.
 
 import {
-  callFunction, el, portabilityMode, renderError,
+  callFunction, el, labelCellsByColumn, portabilityMode, renderError,
 } from "./universe_view_support.js";
 
 function pill(documentNode, label, tone) {
@@ -43,7 +43,7 @@ function renderRoster(body, result, hosted, context, main, feedback) {
   const documentNode = body.ownerDocument;
   const rows = Array.isArray(result.rows) ? result.rows : [];
   const tableWrap = el(documentNode, "div", "table-wrap");
-  const table = el(documentNode, "table", "items actors-table");
+  const table = el(documentNode, "table", "items actors-table table-stacks-narrow");
   const head = el(documentNode, "thead");
   const headings = el(documentNode, "tr");
   for (const label of [
@@ -97,8 +97,10 @@ function renderRoster(body, result, hosted, context, main, feedback) {
       const enabling = actor.status === "disabled";
       const button = el(documentNode, "button", "button", enabling ? "Enable" : "Disable");
       button.type = "button";
-      button.addEventListener("click", async () => {
-        button.disabled = true;
+      const change = async (confirm, cancel) => {
+        if (confirm.disabled) return;
+        confirm.disabled = true;
+        if (cancel) cancel.disabled = true;
         feedback.textContent = enabling ? "Enabling actor…" : "Disabling actor…";
         try {
           const changed = await callFunction(context.client, "actors.state.set", {
@@ -106,20 +108,32 @@ function renderRoster(body, result, hosted, context, main, feedback) {
           });
           if (changed.status !== 200 || !changed.envelope?.success) {
             feedback.textContent = changed.envelope?.error?.message || "Actor update failed; retry.";
-            button.disabled = false;
+          } else if (context.isMounted() && main.contains(body)) {
+            await renderActorsView(context, main);
             return;
           }
-          if (context.isMounted() && main.contains(body)) {
-            await renderActorsView(context, main);
-          }
         } catch (error) {
-          feedback.textContent = `${error}; retry the action or refresh Actors.`;
-          button.disabled = false;
+          feedback.textContent = `${error}; retry the action.`;
         }
+        confirm.disabled = false;
+        if (cancel) cancel.disabled = false;
+      };
+      button.addEventListener("click", () => {
+        if (enabling) { change(button); return; }
+        const warning = el(documentNode, "p", "actors-confirm-copy",
+          `Disable ${actor.name}? Their access will stop and API keys will be revoked. Enabling again will not restore those keys.`);
+        const confirm = el(documentNode, "button", "item-button danger", `Disable ${actor.name}`);
+        const cancel = el(documentNode, "button", "item-button", "Cancel");
+        confirm.type = cancel.type = "button";
+        confirm.addEventListener("click", () => change(confirm, cancel));
+        cancel.addEventListener("click", () => { action.replaceChildren(button); button.focus(); });
+        action.replaceChildren(warning, confirm, cancel);
+        confirm.focus();
       });
       action.appendChild(button);
     } else action.appendChild(el(documentNode, "span", "actors-muted", "—"));
     tr.appendChild(action);
+    labelCellsByColumn(tr, [...headings.children].map((heading) => heading.textContent));
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);
@@ -143,6 +157,7 @@ export async function renderActorsView(context, main) {
   const panel = el(documentNode, "section", "panel actors-panel");
   const body = el(documentNode, "div", "panel-body actors-body", "Loading actors…");
   const feedback = el(documentNode, "p", "actors-muted");
+  feedback.setAttribute("role", "status");
   body.setAttribute("role", "status");
   panel.appendChild(body);
   main.replaceChildren(lead, localNotice, panel, feedback);

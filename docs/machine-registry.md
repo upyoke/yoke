@@ -91,6 +91,37 @@ yoke machine settings set [MACHINE-ID] --path use.mode --value universe
 
 Only the machine's owner or an administrator may set it.
 
+## Dashboard access controls
+
+Open a machine from **Machines** and use **Machine access** to choose who may
+use its capacity. **Selected people and actors** offers named checkboxes;
+**People with a project role** offers a named project selector and a required
+role field. The other choices are **Only the owner** and **Everyone in this
+universe**. Only fields relevant to the selected mode appear.
+
+**Save access** requires at least one selected actor, or an available project
+and a nonempty role, as appropriate. It submits the complete `use` policy in
+one `machine.settings.set` call with `path: "use"`, preserving the policy's
+other existing fields. A project-and-role change therefore has no intermediate
+grant using the old role on the new project. Server validation remains the
+authority for the complete policy.
+
+Controls stay disabled while saving. A failure keeps the choices visible and
+shows retry guidance. If the actor directory cannot load, use **Try again**;
+saving selected-actor access stays unavailable until the directory loads.
+Retired machines show access as read-only.
+
+## Retirement and recovery
+
+**Retire** is available from the machine roster and machine detail. Its
+confirmation names the machine. Retirement revokes that machine's bearer;
+account access, sessions, and launch history remain available.
+
+While the request is pending, the button reads **Retiring…** and repeated
+clicks cannot submit another retirement. A failed request displays an error
+and restores **Retire** for another attempt. If the initial machine roster
+cannot load, use its **Try again** button to retry without reloading the page.
+
 ## Where access is enforced
 
 The `use` half is enforced at the one place launch capacity is consumed:

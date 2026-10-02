@@ -6,6 +6,11 @@ Workbench **Events** is the audit stream: lifecycle, claims, deploy, doctor
 findings, function calls. Filter by name and time when debugging "what
 happened."
 
+**Search loaded events** searches the entries already loaded and offers
+observed names as suggestions. Advanced filters keep the precise server-side
+event name, source, severity and time constraints. The loaded scope remains
+explicit; text search does not promise matches outside it.
+
 ## Doctor
 
 Workbench **Doctor** runs health checks: backlog consistency, GitHub sync,
@@ -39,6 +44,9 @@ yoke watch doctor -- --only hook-resident
 
 Self-improvement loop: field-notes and observations → curate → doctor →
 simulate. Workbench **Ouroboros** surfaces entries and field-notes.
+Each row links a bounded evidence preview to the complete note. The roster
+reads only the preview, keeps newest-first paging, and labels review/category
+filters; opening a note retrieves the full evidence.
 
 ```bash
 yoke ouroboros field-note append --kind observation --evidence '...'

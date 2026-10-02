@@ -217,16 +217,22 @@ test("the selected flow shows its facts, the flow it replaces and recent runs", 
 });
 
 test("choosing a flow opens it alone and All flows returns to the list", async (t) => {
-  const { root, mounted } = await mountFlows(t, flowClient());
+  const { documentNode, root, mounted } = await mountFlows(t, flowClient());
   const page = byClass(root, "delivery-flow-page")[0];
   assert.equal(page.classList.contains("is-detail-open"), false);
+  assert.equal(rowFor(root, "Beta Promote").tagName, "A");
+  assert.match(rowFor(root, "Beta Promote").href, /flows\/beta-promote/);
   rowFor(root, "Beta Promote").dispatchEvent(new Event("click"));
   assert.equal(page.classList.contains("is-detail-open"), true);
   assert.equal(detailHeading(root), "Beta Promote");
+  assert.match(documentNode.defaultView.location.hash, /flows\/beta-promote/);
+  assert.equal(documentNode.activeElement, byClass(root, "delivery-flow-detail")[0]);
   const back = byClass(root, "delivery-flow-back")[0];
   assert.equal(back.textContent, "‹ All flows");
   back.dispatchEvent(new Event("click"));
   assert.equal(page.classList.contains("is-detail-open"), false);
+  assert.equal(documentNode.activeElement, rowFor(root, "Beta Promote"));
+  assert.doesNotMatch(documentNode.defaultView.location.hash, /beta-promote/);
   mounted.unmount();
 });
 

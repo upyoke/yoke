@@ -51,8 +51,10 @@ export function releaseWorkflowDialog(host, { restoreFocus = true } = {}) {
   const state = dialogStates.get(host);
   if (!state) return;
   state.eventTarget?.removeEventListener("keydown", state.keydown);
+  state.observer?.disconnect();
   dialogStates.delete(host);
-  if (restoreFocus) focus(state.opener);
+  if (restoreFocus && state.opener?.isConnected !== false &&
+    state.root.contains(state.opener)) focus(state.opener);
 }
 
 export function clearWorkflowDialog(host) {
@@ -67,12 +69,26 @@ export function mountWorkflowDialog({
   dismiss,
   initialFocus = null,
 }) {
+  if (dialog.isConnected === false) return () => {};
   const existing = dialogStates.get(host);
   const opener = existing?.opener || documentNode.activeElement || null;
   if (existing) releaseWorkflowDialog(host, { restoreFocus: false });
 
   const eventTarget = documentNode.defaultView || documentNode;
+  // A route can remove the entire dialog without taking its explicit close
+  // path. Release global listeners then, without moving focus off the new page.
+  let root = host;
+  while (root.parentNode) root = root.parentNode;
+  const isMounted = () => dialog.isConnected !== false &&
+    root.contains(dialog) && host.contains(dialog);
+  const releaseDetached = () => {
+    if (isMounted()) return false;
+    releaseWorkflowDialog(host, { restoreFocus: false });
+    return true;
+  };
   const keydown = (event) => {
+    // Mutation observers run after DOM changes; a key may arrive first.
+    if (releaseDetached()) return;
     if (event.key === "Escape") {
       if (dialogIsBusy(dialog)) return;
       event.preventDefault();
@@ -90,7 +106,11 @@ export function mountWorkflowDialog({
     event.preventDefault();
     focus(controls[next]);
   };
+  const Observer = documentNode.defaultView?.MutationObserver;
+  const observer = Observer ? new Observer(releaseDetached) : null;
   eventTarget?.addEventListener("keydown", keydown);
-  dialogStates.set(host, { eventTarget, keydown, opener });
+  dialogStates.set(host, { eventTarget, keydown, opener, root, observer });
+  observer?.observe(root, { childList: true, subtree: true });
   focus(initialFocus || focusableControls(dialog)[0]);
+  return () => releaseWorkflowDialog(host, { restoreFocus: false });
 }

@@ -55,7 +55,7 @@ test("the first read asks for a compact roster page and reports matching vs load
   renderOuroborosView(ouroborosContext(documentNode, async (request) => {
     requests.push(request);
     return page(
-      [{ id: 9, timestamp: "now", category: "observation", agent: "t", context: "c" }],
+      [{ id: 9, timestamp: "now", category: "observation", agent: "t", context: "c", preview: "A useful observation" }],
       { matchingCount: 120, cursor: "c1" },
     );
   }), root, ["1"]);
@@ -72,6 +72,9 @@ test("the first read asks for a compact roster page and reports matching vs load
     /1 loaded of 120 matching/,
   );
   assert.ok(loadMoreButton(root), "a remaining cursor offers Load more");
+  const link = byClass(root, "row-link")[0];
+  assert.equal(link.textContent, "A useful observation");
+  assert.equal(link.href, "#/ouroboros/9?project=1");
 });
 
 test("Load more appends the next page without duplicating ids", async () => {
@@ -242,7 +245,9 @@ test("all-project scope fans out and merges newest id first", async () => {
   const when = byClass(root, "row-link")
     .filter((node) => node.href && node.href.includes("/ouroboros/"))
     .map((node) => node.textContent);
-  assert.deepEqual(when, ["newer-beta", "older-alpha"]);
+  assert.deepEqual(when, ["c", "c"]);
+  assert.match(visibleText(root, " "), /newer-beta/);
+  assert.match(visibleText(root, " "), /older-alpha/);
   assert.equal(byClass(root, "panel-count")[0].textContent, "· 2");
 });
 

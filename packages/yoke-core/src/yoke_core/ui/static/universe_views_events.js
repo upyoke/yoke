@@ -1,8 +1,7 @@
+import { eventsControls } from "./universe_events_controls.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import {
   createEventsHistoryLoader,
-  SEVERITY_CHOICES,
-  SINCE_CHOICES,
 } from "./universe_events_history_loader.js";
 import {
   el,
@@ -97,64 +96,6 @@ function eventEntry(documentNode, row) {
   return entry;
 }
 
-function selectControl(documentNode, label, choices, onPick) {
-  const wrap = el(documentNode, "label", "event-criterion");
-  wrap.appendChild(el(documentNode, "span", "event-criterion-label", label));
-  const select = documentNode.createElement("select");
-  for (const [value, text] of choices) {
-    const option = el(documentNode, "option", null, text);
-    option.value = value;
-    select.appendChild(option);
-  }
-  select.addEventListener("change", () => onPick(select.value));
-  wrap.appendChild(select);
-  return wrap;
-}
-
-function textControl(documentNode, label, placeholder, onType) {
-  const wrap = el(documentNode, "label", "event-criterion");
-  wrap.appendChild(el(documentNode, "span", "event-criterion-label", label));
-  const input = documentNode.createElement("input");
-  input.type = "search";
-  input.placeholder = placeholder;
-  input.addEventListener("input", () => onType(input.value));
-  wrap.appendChild(input);
-  return wrap;
-}
-
-// The criteria the server pages behind. These narrow the retained history
-// itself, unlike the category buttons below, which refine what has loaded.
-function criteriaBar(documentNode, loader) {
-  const bar = el(documentNode, "div", "event-criteria-bar");
-  bar.appendChild(selectControl(
-    documentNode,
-    "Severity",
-    [["", "Any severity"], ...SEVERITY_CHOICES.map(
-      (severity) => [severity, `${severity} and above`],
-    )],
-    (value) => loader.setCriterion("min_severity", value),
-  ));
-  bar.appendChild(selectControl(
-    documentNode,
-    "Since",
-    SINCE_CHOICES,
-    (value) => loader.setCriterion("since", value),
-  ));
-  bar.appendChild(textControl(
-    documentNode,
-    "Event",
-    "exact event name",
-    (value) => loader.setTypedCriterion("event_name", value),
-  ));
-  bar.appendChild(textControl(
-    documentNode,
-    "Source",
-    "source type",
-    (value) => loader.setTypedCriterion("source_type", value),
-  ));
-  return bar;
-}
-
 // Categories count and filter the entries already loaded — never the whole
 // retained history, which would cost a query per category per page. The
 // labels say so, so a reader never mistakes a loaded count for a total.
@@ -208,7 +149,8 @@ export function renderEventsView(context, main, scope) {
   // The criteria controls live outside the panel body, which is replaced on
   // every render: a control that is re-attached mid-render loses the focus
   // and caret of whoever is typing into it.
-  main.replaceChildren(criteriaBar(documentNode, loader), panel);
+  const controls = eventsControls(documentNode, loader, paintSelection);
+  main.replaceChildren(controls.host, panel);
 
   // Picking a category changes what is shown, not what is loaded, so the
   // chips and the timeline are updated where they stand: replacing them
@@ -220,9 +162,9 @@ export function renderEventsView(context, main, scope) {
       button.setAttribute("aria-pressed", String(active));
     }
     if (!timeline) return;
-    const visible = selected === "all"
-      ? loadedRows
-      : loadedRows.filter((row) => (row.category || "system") === selected);
+    const visible = loadedRows.filter((row) =>
+      (selected === "all" || (row.category || "system") === selected) && controls.matches(row));
+    controls.report(visible.length, loadedRows.length);
     timeline.replaceChildren();
     if (!visible.length) {
       timeline.appendChild(el(
@@ -230,7 +172,7 @@ export function renderEventsView(context, main, scope) {
         "p",
         "empty",
         selected === "all"
-          ? "no events match these filters"
+          ? "No loaded events match. Clear search or load more entries."
           : `no ${selected} events among the loaded entries`,
       ));
       return;
@@ -255,10 +197,15 @@ export function renderEventsView(context, main, scope) {
           "event-recovery",
           "Reload the first page of events, or adjust the filters above.",
         ));
+        const retry = el(documentNode, "button", "item-button", "Try again");
+        retry.type = "button";
+        retry.addEventListener("click", () => loader.retry());
+        body.appendChild(retry);
       });
       return;
     }
     loadedRows = state.rows;
+    controls.setRows(loadedRows);
     panel.renderEnvelopes([], (body) => {
       if (state.loading && !state.rows.length) {
         chips = [];

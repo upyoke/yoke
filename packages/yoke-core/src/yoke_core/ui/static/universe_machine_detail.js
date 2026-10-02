@@ -1,3 +1,4 @@
+import { machineAccessCard } from "./universe_machine_access.js";
 // One machine's identity, access, credentials, harness health, and history.
 
 import {
@@ -211,64 +212,6 @@ function appendHistory(documentNode, host, title, rows, label) {
   host.appendChild(card);
 }
 
-function appendAccess(documentNode, host, context, result, reload, status) {
-  const card = detailCard(documentNode, "Machine access");
-  const select = el(documentNode, "select", "machine-access-select");
-  const currentMode = result.machine.access?.use?.mode;
-  for (const mode of ["owner_only", "actors", "project_role", "universe"]) {
-    const option = el(documentNode, "option", null, mode.replaceAll("_", " "));
-    option.value = mode;
-    option.selected = currentMode === mode;
-    select.appendChild(option);
-  }
-  const actors = el(documentNode, "input", "machine-access-input");
-  actors.placeholder = "Actor IDs, comma-separated";
-  actors.value = (result.machine.access?.use?.actor_ids || []).join(", ");
-  const project = el(documentNode, "input", "machine-access-input");
-  project.placeholder = "Project ID";
-  project.value = result.machine.access?.use?.project_id || "";
-  const role = el(documentNode, "input", "machine-access-input");
-  role.placeholder = "Project role";
-  role.value = result.machine.access?.use?.role || "";
-  const retired = Boolean(result.machine.retired_at);
-  for (const input of [select, actors, project, role]) input.disabled = retired;
-  const save = el(documentNode, "button", "item-button", "Save access");
-  save.type = "button";
-  save.disabled = retired;
-  save.addEventListener("click", async () => {
-    const settings = [];
-    if (select.value === "actors") settings.push([
-      "use.actor_ids",
-      actors.value.split(",").map((value) => Number(value.trim())).filter(
-        (value) => Number.isInteger(value) && value > 0,
-      ),
-    ]);
-    if (select.value === "project_role") settings.push(
-      ["use.project_id", Number(project.value)],
-      ["use.role", role.value.trim()],
-    );
-    settings.push(["use.mode", select.value]);
-    for (const [path, value] of settings) {
-      const response = await callFunction(context.client, "machine.settings.set", {
-        machine_id: result.machine.machine_id, path, value,
-      });
-      if (!response.envelope.success) {
-        status.textContent = presentSessionControlFailure(
-          response, "Machine access could not be changed.",
-        );
-        return;
-      }
-    }
-    reload();
-  });
-  card.appendChild(select);
-  card.appendChild(actors);
-  card.appendChild(project);
-  card.appendChild(role);
-  card.appendChild(save);
-  host.appendChild(card);
-}
-
 function appendRetirement(documentNode, grid, context, result, reload, status) {
   if (result.machine.retired_at) return;
   const retire = detailCard(documentNode, "Retire machine");
@@ -283,17 +226,21 @@ function appendRetirement(documentNode, grid, context, result, reload, status) {
   );
   button.type = "button";
   button.addEventListener("click", async () => {
-    if (!documentNode.defaultView.confirm("Retire this machine?")) return;
-    const response = await callFunction(context.client, "machine.retire", {
-      machine_id: result.machine.machine_id,
-    });
-    if (!response.envelope.success) {
-      status.textContent = presentSessionControlFailure(
-        response, "The machine could not be retired.",
-      );
-      return;
-    }
-    reload();
+    if (button.disabled) return;
+    if (!documentNode.defaultView.confirm(`Retire ${result.machine.name || "this machine"}?`)) return;
+    button.disabled = true;
+    button.textContent = "Retiring…";
+    status.textContent = "Retiring machine…";
+    try {
+      const response = await callFunction(context.client, "machine.retire", {
+        machine_id: result.machine.machine_id,
+      });
+      if (response.status !== 200 || !response.envelope?.success) throw response;
+      await reload();
+    } catch (error) {
+      status.textContent = presentSessionControlFailure(error, "The machine could not be retired.")
+        + " Try Retire again.";
+    } finally { button.disabled = false; button.textContent = "Retire"; }
   });
   retire.appendChild(button);
   grid.appendChild(retire);
@@ -302,6 +249,7 @@ function appendRetirement(documentNode, grid, context, result, reload, status) {
 export function renderMachineDetail(context, main, _project, detail, navigation = {}) {
   const documentNode = context.document;
   const status = el(documentNode, "p", "sessions-action-status");
+  status.setAttribute("role", "status");
   const panel = section(documentNode, "Machine");
   main.replaceChildren(status, panel);
   const load = () => loadScopedSection(
@@ -332,7 +280,7 @@ export function renderMachineDetail(context, main, _project, detail, navigation 
         documentNode, grid, "Recent starts", result.recent_launches || [],
         (row) => row.selected_surface || row.requested_surface,
       );
-      appendAccess(documentNode, grid, context, result, load, status);
+      grid.appendChild(machineAccessCard(context, result, load));
       appendRetirement(documentNode, grid, context, result, load, status);
       body.appendChild(grid);
     },

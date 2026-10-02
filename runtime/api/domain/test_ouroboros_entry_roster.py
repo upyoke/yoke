@@ -6,6 +6,7 @@ from yoke_core.domain.handlers import ouroboros_reads
 from yoke_core.domain.ouroboros_entries import cmd_insert_entry, cmd_mark_reviewed
 from yoke_core.domain.ouroboros_entry_roster import (
     COMPACT_ENTRY_FIELDS,
+    ROSTER_PREVIEW_LENGTH,
     list_roster_page,
 )
 from yoke_contracts.api.function_call import (
@@ -26,7 +27,13 @@ def _request(payload) -> FunctionCallRequest:
 
 def _seed(conn, *, timestamp: str, body: str, project="yoke") -> int:
     entry_id = cmd_insert_entry(
-        conn, timestamp, "tester", "ctx", "observation", body, project,
+        conn,
+        timestamp,
+        "tester",
+        "ctx",
+        "observation",
+        body,
+        project,
     )
     conn.commit()
     return int(entry_id)
@@ -48,6 +55,19 @@ class TestOuroborosEntryRosterList:
         assert outcome.result_payload["matching_count"] == 1
         assert outcome.result_payload["next_cursor"] is None
 
+    def test_preview_is_bounded_without_returning_full_evidence(self, test_db):
+        prefix = "Evidence 🔎 " + "x" * ROSTER_PREVIEW_LENGTH
+        _seed(test_db, timestamp="2026-01-01T00:00:00Z", body=prefix + "hidden-tail")
+        entry = list_roster_page(test_db, project="yoke")["entries"][0]
+        assert entry["preview"] == prefix[:ROSTER_PREVIEW_LENGTH] + "…"
+        assert "body" not in entry
+        assert "hidden-tail" not in str(entry)
+
+    def test_short_preview_normalizes_whitespace_without_ellipsis(self, test_db):
+        _seed(test_db, timestamp="2026-01-01T00:00:00Z", body="Line one\n\nLine two")
+        entry = list_roster_page(test_db, project="yoke")["entries"][0]
+        assert entry["preview"] == "Line one Line two"
+
     def test_legacy_list_still_returns_body(self, test_db):
         _seed(test_db, timestamp="2026-01-01T00:00:00Z", body="secret")
         outcome = ouroboros_reads.handle_ouroboros_entry_list(
@@ -68,52 +88,74 @@ class TestOuroborosEntryRosterList:
         cursor = first.result_payload["next_cursor"]
         _seed(test_db, timestamp="2026-01-09T00:00:00Z", body="newer")
         second = ouroboros_reads.handle_ouroboros_entry_list(
-            _request({
-                "project": "yoke", "shape": "roster", "limit": 2,
-                "cursor": cursor,
-            })
+            _request(
+                {
+                    "project": "yoke",
+                    "shape": "roster",
+                    "limit": 2,
+                    "cursor": cursor,
+                }
+            )
         )
         first_ids = {row["id"] for row in first.result_payload["entries"]}
         second_ids = {row["id"] for row in second.result_payload["entries"]}
         assert not first_ids & second_ids
         newest = list_roster_page(
-            test_db, project="yoke", limit=1,
+            test_db,
+            project="yoke",
+            limit=1,
         )["entries"][0]["id"]
         assert newest not in second_ids
         assert newest not in first_ids
 
     def test_reviewed_filter_applies_before_the_page(self, test_db):
         older = _seed(
-            test_db, timestamp="2026-01-01T00:00:00Z", body="old-open",
+            test_db,
+            timestamp="2026-01-01T00:00:00Z",
+            body="old-open",
         )
         reviewed = _seed(
-            test_db, timestamp="2026-01-02T00:00:00Z", body="reviewed",
+            test_db,
+            timestamp="2026-01-02T00:00:00Z",
+            body="reviewed",
         )
         cmd_mark_reviewed(test_db, reviewed)
         test_db.commit()
         _seed(test_db, timestamp="2026-01-03T00:00:00Z", body="new-open")
         first = ouroboros_reads.handle_ouroboros_entry_list(
-            _request({
-                "project": "yoke", "shape": "roster",
-                "review_state": "unreviewed", "limit": 1,
-            })
+            _request(
+                {
+                    "project": "yoke",
+                    "shape": "roster",
+                    "review_state": "unreviewed",
+                    "limit": 1,
+                }
+            )
         )
         assert first.result_payload["entries"][0]["id"] != reviewed
         assert first.result_payload["matching_count"] == 2
         page = ouroboros_reads.handle_ouroboros_entry_list(
-            _request({
-                "project": "yoke", "shape": "roster",
-                "review_state": "unreviewed", "limit": 1,
-                "cursor": first.result_payload["next_cursor"],
-            })
+            _request(
+                {
+                    "project": "yoke",
+                    "shape": "roster",
+                    "review_state": "unreviewed",
+                    "limit": 1,
+                    "cursor": first.result_payload["next_cursor"],
+                }
+            )
         )
         assert page.result_payload["entries"][0]["id"] == older
 
     def test_malformed_cursor_names_reload_recovery(self, test_db):
         outcome = ouroboros_reads.handle_ouroboros_entry_list(
-            _request({
-                "project": "yoke", "shape": "roster", "cursor": "not-a-cursor",
-            })
+            _request(
+                {
+                    "project": "yoke",
+                    "shape": "roster",
+                    "cursor": "not-a-cursor",
+                }
+            )
         )
         assert not outcome.primary_success
         assert outcome.error.code == "payload_invalid"
@@ -121,9 +163,13 @@ class TestOuroborosEntryRosterList:
 
     def test_invalid_review_state_names_reload_recovery(self, test_db):
         outcome = ouroboros_reads.handle_ouroboros_entry_list(
-            _request({
-                "project": "yoke", "shape": "roster", "review_state": "pending",
-            })
+            _request(
+                {
+                    "project": "yoke",
+                    "shape": "roster",
+                    "review_state": "pending",
+                }
+            )
         )
         assert not outcome.primary_success
         assert outcome.error.code == "payload_invalid"

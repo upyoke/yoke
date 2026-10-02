@@ -82,6 +82,8 @@
   text-align: left;
   font: inherit;
   cursor: pointer;
+  box-sizing: border-box;
+  text-decoration: none;
 }
 
 .universe-app-root .delivery-flow-row:hover { background: var(--yoke-surface-2); }

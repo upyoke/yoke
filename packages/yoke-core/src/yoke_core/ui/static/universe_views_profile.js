@@ -73,20 +73,27 @@ function revokeControl(context, token, redraw) {
     confirm.type = "button";
     const keep = el(documentNode, "button", "item-button", "Keep");
     keep.type = "button";
-    keep.addEventListener("click", () => host.replaceChildren(arm));
+    keep.addEventListener("click", () => { host.replaceChildren(arm); arm.focus(); });
+    const error = el(documentNode, "span", "error");
+    error.setAttribute("role", "alert");
     confirm.addEventListener("click", async () => {
+      if (confirm.disabled) return;
       confirm.disabled = true;
+      keep.disabled = true;
+      error.textContent = "";
       const result = await callFunction(
         context.client, "profile.token.revoke", { token_id: token.token_id },
       ).catch(() => READ_FAILED);
       if (!context.isMounted()) return;
       if (result.status === 200 && result.envelope.success) redraw();
-      else host.replaceChildren(el(
-        documentNode, "span", "error",
-        (result.envelope.error || {}).message || "revoke failed",
-      ));
+      else {
+        confirm.disabled = false;
+        keep.disabled = false;
+        error.textContent = (result.envelope.error || {}).message || "Could not revoke. Try again.";
+      }
     });
-    host.replaceChildren(confirm, keep);
+    host.replaceChildren(confirm, keep, error);
+    confirm.focus();
   });
   host.appendChild(arm);
   return host;
@@ -117,11 +124,15 @@ function newTokenForm(context, body, redraw) {
   const name = el(documentNode, "input");
   name.type = "text";
   name.placeholder = "Token name";
+  name.setAttribute("aria-label", "Token name");
   name.required = true;
   name.maxLength = 80;
   const create = el(documentNode, "button", "item-button primary", "New token");
   create.type = "submit";
-  form.appendChild(name);
+  const nameField = el(documentNode, "label", "profile-token-name");
+  nameField.appendChild(el(documentNode, "span", null, "Token name"));
+  nameField.appendChild(name);
+  form.appendChild(nameField);
   form.appendChild(create);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -180,6 +191,7 @@ function preferencesCard(context, profile) {
   const documentNode = context.document;
   const current = profile.preferences.time_zone || "";
   const select = el(documentNode, "select", "profile-time-zone");
+  select.setAttribute("aria-label", "Time zone");
   const automatic = el(documentNode, "option", null, "Automatic");
   automatic.value = "";
   select.appendChild(automatic);
@@ -190,6 +202,7 @@ function preferencesCard(context, profile) {
     select.appendChild(option);
   }
   const status = el(documentNode, "small", "profile-save-status");
+  status.setAttribute("role", "status");
   select.addEventListener("change", async () => {
     const value = select.value;
     status.textContent = "saving…";
@@ -207,9 +220,12 @@ function preferencesCard(context, profile) {
     }
   });
   const wrap = el(documentNode, "div", "profile-time-zone-row");
-  wrap.appendChild(select);
+  const zoneField = el(documentNode, "label", "profile-time-zone-field");
+  zoneField.appendChild(el(documentNode, "span", null, "Time zone"));
+  zoneField.appendChild(select);
+  wrap.appendChild(zoneField);
   wrap.appendChild(status);
-  return keyValueRows(documentNode, [["Time zone", wrap]]);
+  return wrap;
 }
 
 function resetCard(context, body, profile) {
@@ -233,7 +249,7 @@ function resetCard(context, body, profile) {
       ).catch(() => READ_FAILED);
       if (!context.isMounted()) return;
       if (result.status === 200 && result.envelope.success) draw(0);
-      else renderError(body, result);
+      else { reset.disabled = false; renderError(body, result); }
     });
     body.appendChild(reset);
   };

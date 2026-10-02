@@ -1,6 +1,7 @@
 import { attachTooltip } from "./universe_tooltip.js";
 import {
   el,
+  labelCellsByColumn,
 } from "./universe_view_support.js";
 import { executionTargetLabel } from "./qa_execution_target_view.js";
 import {
@@ -16,11 +17,11 @@ import {
 
 const PLAN_OUTCOME_ORDER = new Map([
   ["needs_review", 0],
-  ["passed", 1],
+  ["failed", 1],
   ["running", 2],
   ["waiting", 3],
   ["queued", 4],
-  ["failed", 5],
+  ["passed", 5],
 ]);
 function attachmentTransition(row) {
   const transitionId = String(row.transition_id || "");
@@ -106,11 +107,12 @@ function renderPlanTable(context, body, rows) {
     ));
     return;
   }
-  const table = el(documentNode, "table", "items qa-plans-table");
+  const table = el(documentNode, "table", "items qa-plans-table table-stacks-narrow");
   const head = el(documentNode, "tr");
-  for (const label of [
+  const columns = [
     "Plan", "Project", "Target", "Cases", "Attached", "Last result",
-  ]) {
+  ];
+  for (const label of columns) {
     head.appendChild(el(documentNode, "th", null, label));
   }
   table.appendChild(head);
@@ -146,17 +148,17 @@ function renderPlanTable(context, body, rows) {
       documentNode, row.last_outcome || "not run", null, displayLabel,
     ));
     if (row.last_verdict_reason) {
-      attachTooltip(documentNode, result, row.last_verdict_reason);
-      result.appendChild(el(
-        documentNode, "span", "qa-result-reason",
-        ` · ${row.last_verdict_reason}`,
-      ));
+      const reason = el(documentNode, "details", "qa-result-reason");
+      reason.appendChild(el(documentNode, "summary", null, "Verdict details"));
+      reason.appendChild(el(documentNode, "p", null, row.last_verdict_reason));
+      result.appendChild(reason);
     }
-    if (row.last_at && row.last_outcome === "passed") {
+    if (row.last_at) {
       result.appendChild(el(documentNode, "span", "qa-result-age", " "));
       result.appendChild(planResultAge(documentNode, row.last_at));
     }
     tr.appendChild(result);
+    labelCellsByColumn(tr, columns);
     table.appendChild(tr);
   }
   body.appendChild(tableWrap(documentNode, table));

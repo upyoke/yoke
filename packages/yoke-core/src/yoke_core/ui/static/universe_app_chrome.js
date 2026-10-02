@@ -5,6 +5,7 @@ import { createActorMenu } from "./universe_actor_menu.js";
 import { createOnboardingControl } from "./universe_onboarding_control.js";
 import { armRevealPanelDismissal } from "./universe_reveal_panel.js";
 import { buildSidebarNavigation } from "./universe_nav_sidebar.js";
+import { attachNavigationDrawer } from "./universe_navigation_drawer.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { createShellControls } from "./universe_shell_controls.js";
 import { section } from "./universe_views.js";
@@ -260,54 +261,16 @@ export function createWorkbenchChrome({
   loadNavGroupPreferences(client, sidebar);
   appendSlot(navEl, resolvedSlots.navigationEnd, mountedSlotNodes);
 
-  // At narrow widths the sidebar is a drawer over the page. Open, it owns
-  // the screen: the content behind it is inert so a tap or a Tab cannot
-  // reach it, and closing returns focus to the control that opened it
-  // rather than dropping it at the top of the document.
-  // `returnFocus` is what dismissing the drawer means as against navigating
-  // out of it: a Close, a scrim press or Escape leaves the reader where they
-  // were, so focus goes back to the control that opened it. Following a
-  // destination does not, because focus belongs to the page that opened.
-  const setNavigationOpen = (open, { returnFocus = false } = {}) => {
-    const shown = Boolean(open);
-    shell.classList.toggle("side-open", shown);
-    documentNode.body?.classList.toggle("side-open", shown);
-    navigationScrim.hidden = !shown;
-    navigationClose.hidden = !shown;
-    body.inert = shown;
-    navigationToggle.setAttribute("aria-expanded", String(shown));
-    navigationToggle.setAttribute(
-      "aria-label", shown ? "Close navigation" : "Open navigation",
-    );
-    if (!shown && returnFocus) navigationToggle.focus?.();
-  };
-  navigationToggle.addEventListener("click", () => {
-    setNavigationOpen(
-      navigationToggle.getAttribute("aria-expanded") !== "true",
-    );
+  const disposeNavigation = attachNavigationDrawer({
+    documentNode, header, shell, navigation: navEl, toggle: navigationToggle,
+    close: navigationClose, scrim: navigationScrim, body,
+    footer: controls.footer, main, links: navLinks,
   });
-  // Only a drawer that was open has focus to hand back. Escape is a
-  // document-wide gesture that other surfaces answer too, so taking focus to
-  // the hamburger on every press would steal it from whichever surface the
-  // reader actually closed.
-  const dismiss = () => {
-    if (navigationToggle.getAttribute("aria-expanded") !== "true") return;
-    setNavigationOpen(false, { returnFocus: true });
-  };
-  navigationScrim.addEventListener("click", dismiss);
-  navigationClose.addEventListener("click", dismiss);
-  for (const link of navLinks.values()) {
-    link.addEventListener("click", () => setNavigationOpen(false));
-  }
   // Revealed panels — a claiming session, a status reason, a deploy-lock
   // holder — float above whichever view drew them, so the press-outside
   // and Escape dismissal is armed once for the mount rather than once per
   // route render.
   const disposeRevealPanels = armRevealPanelDismissal(documentNode);
-  const onEscape = (event) => {
-    if (event.key === "Escape") dismiss();
-  };
-  documentNode.defaultView.addEventListener("keydown", onEscape);
 
   return {
     brand,
@@ -315,8 +278,7 @@ export function createWorkbenchChrome({
       disposeRevealPanels();
       actorMenu?.dispose();
       controls.dispose();
-      documentNode.defaultView.removeEventListener("keydown", onEscape);
-      documentNode.body?.classList.remove("side-open");
+      disposeNavigation();
     },
     header,
     main,

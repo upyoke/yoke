@@ -18,7 +18,8 @@ import { deploymentRunHref } from "./universe_navigation.js";
 import { reviewRequestCard } from "./review_request_card.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
 import { relativeAgePhrase } from "./universe_time.js";
-import { callFunction, el } from "./universe_view_support.js";
+import { el } from "./universe_view_support.js";
+import { readCase, readOptionalCase, retryCaseButton } from "./qa_case_reads.js";
 import {
   detailHead,
   keyValuePanel,
@@ -27,25 +28,13 @@ import {
   showFailure,
 } from "./qa_view_primitives.js";
 
-async function read(context, functionId, payload, target) {
-  try {
-    const result = await callFunction(context.client, functionId, payload, target);
-    if (result.status === 200 && result.envelope.success) {
-      return result.envelope.result || {};
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 // Every execution this case recorded, newest first. The activity table joins
 // each requirement to its LATEST run alone, so it can say what happened most
 // recently and never what happened before that; the case's own run list is
 // the complete record, and a repeated execution belongs on the page rather
 // than being replaced by the one that followed it.
 async function loadExecutions(context, requirementId) {
-  const result = await read(
+  const result = await readCase(
     context, "qa.run.list", { requirement_id: Number(requirementId) },
     { kind: "qa_requirement", qa_requirement_id: Number(requirementId) },
   );
@@ -74,7 +63,7 @@ async function loadEvidenceRow(context, projects, requirement, requirementId) {
     }
   }
   for (const payload of payloads) {
-    const result = await read(context, "qa.activity.list", payload);
+    const result = await readOptionalCase(context, "qa.activity.list", payload);
     const row = (result?.rows || []).find(
       (candidate) => String(candidate.requirement_id) === String(requirementId),
     );
@@ -108,7 +97,7 @@ function subjectItemId(requirement, row) {
 
 async function loadSubjectItem(context, project, itemId) {
   if (!itemId) return null;
-  const result = await read(
+  const result = await readOptionalCase(
     context, "items.detail.get", {},
     { kind: "item", item_id: itemId, project_id: String(project) },
   );
@@ -162,12 +151,13 @@ function stageNode(documentNode, project, requirement, stage) {
   return wrap;
 }
 
-export async function renderQaCaseDetail(
+async function loadQaCaseDetail(
   context, main, project, requirementId, navigation = {},
 ) {
+  context = { ...context, caseReadFailures: [] };
   const documentNode = context.document;
   main.replaceChildren(el(documentNode, "p", "empty", "loading QA case…"));
-  const definition = await read(
+  const definition = await readCase(
     context, "qa.requirement.get", {},
     { kind: "qa_requirement", qa_requirement_id: Number(requirementId) },
   );
@@ -196,7 +186,7 @@ export async function renderQaCaseDetail(
     loadExecutions(context, requirementId),
     loadEvidenceRow(context, evidenceProjects, requirement, requirementId),
     requirement.deployment_run_id
-      ? read(context, "deployment_runs.stages", {}, {
+      ? readOptionalCase(context, "deployment_runs.stages", {}, {
         kind: "workflow_run",
         workflow_run_id: String(requirement.deployment_run_id),
       })
@@ -280,6 +270,12 @@ export async function renderQaCaseDetail(
   ]));
 
   host.appendChild(caseEvidencePanel(context, { row, latest, requirementId }));
+  if (context.caseReadFailures.length) {
+    const notice = el(documentNode, "p", "qa-action-error", "Some case details are unavailable. Retry to load them.");
+    notice.setAttribute("role", "status");
+    host.appendChild(notice);
+    host.appendChild(retryCaseButton(context, () => renderQaCaseDetail(context, main, project, requirementId, navigation)));
+  }
 
   const request = pending.get(String(requirementId));
   if (request) {
@@ -303,4 +299,17 @@ export async function renderQaCaseDetail(
   back.href = qaRoute(context, "activity", null, project);
   host.appendChild(back);
   main.replaceChildren(host);
+}
+
+export async function renderQaCaseDetail(context, main, project, requirementId, navigation = {}) {
+  try {
+    await loadQaCaseDetail(context, main, project, requirementId, navigation);
+  } catch (error) {
+    if (!context.isMounted()) return;
+    showFailure(context.document, main, error.callResult || {
+      status: 0,
+      envelope: { success: false, error: { message: `QA details unavailable: ${error.message || error}` } },
+    });
+    main.appendChild(retryCaseButton(context, () => renderQaCaseDetail(context, main, project, requirementId, navigation)));
+  }
 }

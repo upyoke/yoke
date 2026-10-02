@@ -64,7 +64,10 @@ function meta(parts) {
 function memoize(load) {
   let pending = null;
   return () => {
-    if (!pending) pending = load();
+    if (!pending) pending = Promise.resolve().then(load).then((result) => {
+      if (result === null) pending = null;
+      return result;
+    }, (error) => { pending = null; throw error; });
     return pending;
   };
 }
@@ -80,6 +83,7 @@ function projectFanOut(client, projects, request) {
 // `null` from a per-project read means every project refused; a project that
 // answered contributes its rows tagged with the project they belong to.
 function taggedRows(results, projects, key) {
+  if (!results.length) return [];
   if (results.every((result) => rowsOf(result, key) === null)) return null;
   return results.flatMap((result, index) => (rowsOf(result, key) || []).map(
     (row) => ({ project: projects[index], row }),
@@ -240,9 +244,10 @@ async function searchPacks(needle, catalogue) {
 export function createUniverseSearch(client) {
   const projects = memoize(async () => rowsOf(
     await call(client, { function: "projects.list", payload: {} }), "rows",
-  ) || []);
+  ));
   const perProject = (key, request) => memoize(async () => {
     const roster = await projects();
+    if (roster === null) return null;
     return taggedRows(
       await projectFanOut(client, roster, request), roster, key,
     );
