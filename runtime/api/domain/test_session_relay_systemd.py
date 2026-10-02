@@ -39,7 +39,6 @@ def pid1(tmp_path):
 def runner(calls, *, linger="no", active=True, enabled=True, fail=None):
     def run(argv, **kwargs):
         calls.append(argv)
-        assert kwargs["timeout"] == 30
         if fail and fail in argv:
             return subprocess.CompletedProcess(argv, 1, "", "test refusal")
         if argv[0] == "loginctl":
@@ -191,6 +190,58 @@ def test_start_failure_is_not_install_success(tmp_path, instance, pid1, monkeypa
             runner=runner([], active=False),
             pid1_path=pid1,
         )
+
+
+@pytest.mark.parametrize("operation", ["install", "uninstall"])
+def test_service_operation_waits_for_graceful_stop_beyond_probe_deadline(
+    tmp_path, instance, pid1, monkeypatch, operation
+):
+    monkeypatch.setattr(
+        service.relay_install, "converge_relay_launcher", lambda *a, **kw: None
+    )
+    path = service.relay_unit_path(instance, home=tmp_path)
+    path.parent.mkdir(parents=True)
+    path.write_text("existing unit")
+    fallback = runner([], active=operation == "install", enabled=operation == "install")
+    waited = []
+    graceful_stop_seconds = 31
+
+    def graceful_stop(argv, **kwargs):
+        if "restart" in argv or "--now" in argv:
+            if kwargs["timeout"] < graceful_stop_seconds:
+                raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+            waited.append(graceful_stop_seconds)
+        return fallback(argv, **kwargs)
+
+    action = getattr(service, f"{operation}_relay_systemd")
+    status = action(
+        instance=instance, home=tmp_path, runner=graceful_stop, pid1_path=pid1
+    )
+    assert waited == [graceful_stop_seconds]
+    assert status.loaded == (operation == "install")
+
+
+def test_service_timeout_teaches_unsettled_job_without_claiming_manager_missing(
+    tmp_path, instance, pid1, monkeypatch
+):
+    monkeypatch.setattr(
+        service.relay_install, "converge_relay_launcher", lambda *a, **kw: None
+    )
+    fallback = runner([])
+
+    def timeout(argv, **kwargs):
+        if "restart" in argv:
+            raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+        return fallback(argv, **kwargs)
+
+    with pytest.raises(RelayInstallError) as raised:
+        service.install_relay_systemd(
+            instance=instance, home=tmp_path, runner=timeout, pid1_path=pid1
+        )
+    assert raised.value.code == "relay_systemd_command_timeout"
+    assert "job may still be running" in str(raised.value)
+    assert "list-jobs" in str(raised.value) and "before retrying" in str(raised.value)
+    assert "Log in" not in str(raised.value)
 
 
 def test_uninstall_disables_owned_unit_and_retains_relay_state(
