@@ -19,6 +19,7 @@ from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config import onboard_project
+from yoke_cli.config import onboard_publication
 from yoke_cli.config import onboard_reuse_feedback
 from yoke_cli.config.project_onboard_installed_layer import REMOVE_LAYER_ACTION
 from yoke_cli.config.onboard_plan_labels import friendly_line as _friendly_line
@@ -71,6 +72,7 @@ _MACHINE_ACTIONS = {
     hosting_posture.HOSTING_POSTURE_ACTION,
 }
 _REPO_ACTIONS = {
+    onboard_publication.PLAN_ACTION,
     REMOVE_LAYER_ACTION,
     "project-create-checkout",
     "project-clone-remote",
