@@ -10,9 +10,10 @@ from yoke_core.domain.lint_session_cwd_gh_repo_selector import (
     extract_gh_repo_selector_targets,
 )
 from yoke_core.domain.lint_session_cwd_host_command import (
-    aws_log_group_indexes,
-    remote_argv_indexes,
     yoke_subcommand_positionals,
+)
+from yoke_core.domain.lint_session_cwd_remote_resources import (
+    remote_resource_indexes as _remote_resource_indexes,
 )
 from yoke_core.domain.lint_shell_target_tokens import (
     command_operand_tokens,
@@ -25,8 +26,11 @@ from yoke_core.domain.lint_shell_target_tokens import (
 
 FLAG_BINARY = frozenset({"-C", "--rootdir", "--target-root", "--worktree-path", "-w"})
 FLAG_EQUALS_PREFIXES = (
-    "--rootdir=", "--target-root=", "--worktree-path=",
-    "--log-group-name=", "--log-group=",
+    "--rootdir=",
+    "--target-root=",
+    "--worktree-path=",
+    "--log-group-name=",
+    "--log-group=",
 )
 
 
@@ -49,11 +53,8 @@ def resolve_command_targets(
     so an operator written without surrounding whitespace still
     ends the statement instead of gluing onto the path before it.
 
-    Heredoc bodies (``<<TAG`` / ``<<'TAG'`` / ``<<"TAG"`` / ``<<-TAG``)
-    are stripped at the **line** level first: only body lines and the
-    closing-tag line are removed. Anything on the opener's own line —
-    including a redirect target that comes after the opener (``cat
-    <<EOF > /tmp/out``) — survives and reaches the positional walk below.
+    Heredoc body and closing-tag lines are stripped first. The opener's
+    own line survives, including local redirects (``cat <<EOF > /tmp/out``).
 
     A token naming a shell variable — positional or path-valued flag —
     resolves through its assignment (:mod:`lint_shell_target_tokens`); pass
@@ -83,9 +84,17 @@ def extract_command_targets(
     return resolve_command_targets(command, bindings=bindings)[0]
 
 
-_SEARCH_COMMANDS = frozenset({
-    "grep", "egrep", "fgrep", "rg", "ripgrep", "ag", "ack",
-})
+_SEARCH_COMMANDS = frozenset(
+    {
+        "grep",
+        "egrep",
+        "fgrep",
+        "rg",
+        "ripgrep",
+        "ag",
+        "ack",
+    }
+)
 # Stdout reporters: operands are printed text, not filesystem write
 # targets. Redirects on the same segment still extract as writes.
 STDOUT_REPORTERS = frozenset({"print", "printf"})
@@ -111,17 +120,6 @@ def _is_yoke_payload_path_segment(command_base: str, tokens: List[str]) -> bool:
         for shape in _YOKE_PAYLOAD_PATH_SUBCOMMANDS
     )
 
-
-def _remote_resource_indexes(command_base: str, tokens: List[str]) -> set[int]:
-    """Indexes naming a remote resource, not a local filesystem path.
-
-    CloudWatch log-group operands on ``aws logs`` and host-command argv
-    after ``--`` run off this machine. Redirects stay local and are
-    classified before this skip.
-    """
-    return remote_argv_indexes(command_base, tokens) | aws_log_group_indexes(
-        command_base, tokens,
-    )
 
 _SED_SCRIPT_FLAGS = ("-e", "-f", "--expression", "--file")
 REDIRECT_OPERATORS = frozenset({">", ">>", "1>", "1>>", "2>", "2>>", "&>", "&>>"})
@@ -225,7 +223,7 @@ def _extract_segment_targets(
             matched_equals = False
             for prefix in FLAG_EQUALS_PREFIXES:
                 if tok.startswith(prefix):
-                    value = tok[len(prefix):]
+                    value = tok[len(prefix) :]
                     if value:
                         values, eq_unresolved = resolve_path_operands([value], bindings)
                         out.extend(values)
@@ -338,8 +336,14 @@ def strip_env_prefixes(tokens: List[str]) -> List[str]:
 
 
 __all__ = [
-    "FLAG_BINARY", "FLAG_EQUALS_PREFIXES", "REDIRECT_OPERATORS",
-    "STDOUT_REPORTERS", "extract_command_targets", "extract_heredoc_sections",
-    "resolve_command_targets", "strip_heredoc_body_lines", "strip_env_prefixes",
+    "FLAG_BINARY",
+    "FLAG_EQUALS_PREFIXES",
+    "REDIRECT_OPERATORS",
+    "STDOUT_REPORTERS",
+    "extract_command_targets",
+    "extract_heredoc_sections",
+    "resolve_command_targets",
+    "strip_heredoc_body_lines",
+    "strip_env_prefixes",
     "strip_heredoc_syntax",
 ]
