@@ -5,6 +5,10 @@
 // screen's choice survives reload, a new tab, or a different browser for
 // the same actor — `saveView` (bound by the caller to the live
 // function-call client) is the only way values leave this module.
+import { normalizeItemSort } from "./item_roster_sort.js";
+
+const SORT_UNAVAILABLE = "Sort persistence unavailable. Update the server and reload to save sorting.";
+
 export function knownProjectId(projects, candidate) {
   return projects.some((row) => String(row.id) === String(candidate))
     ? String(candidate) : null;
@@ -45,14 +49,15 @@ export function createProjectSelection(saveView, onNotice, saveSort) {
   const views = new Map();
   const sorts = new Map();
   let sortWrites = Promise.resolve();
-  // `ready` gates every write: until the initial server read has genuinely
+  let sortRevision = 0;
+  // `ready` gates project-selection writes: until the initial server read has genuinely
   // succeeded (seeding what the actor actually has on record, even an
   // empty map), this module knows nothing about the true stored state, so
   // a normalization default must never be persisted over it. An
   // unsuccessful initial read leaves `ready` false for the life of this
   // mount — every subsequent selection still renders correctly from
   // in-memory defaults, it just is not written through.
-  const state = { notice: "", ready: false };
+  const state = { notice: "", ready: false, sortReady: null };
   // A save can settle long after the render that started it, with nothing
   // else about to re-render — `onNotice` (the caller's re-render hook) is
   // what makes its notice visible without another navigation.
@@ -71,12 +76,33 @@ export function createProjectSelection(saveView, onNotice, saveSort) {
     if (!entry) { entry = { selection: "all", focus: null }; views.set(viewId, entry); }
     return entry;
   };
-  state.sortFor = (viewId) => sorts.get(viewId) || { column: "updated_at", direction: "desc" };
-  state.seedSort = (viewId, sort) => { sorts.set(viewId, sort); };
+  state.sortFor = (viewId) => normalizeItemSort(sorts.get(viewId));
+  state.seedSort = (viewId, sort) => { sortRevision += 1; sorts.set(viewId, sort); };
+  // A returning tab reads the actor's current choice, but a local click
+  // while that read is in flight wins. Flush this mount's writes first.
+  state.refreshSortFor = async (viewId, readPreferences) => {
+    const revision = ++sortRevision;
+    await sortWrites.catch(() => {});
+    if (revision !== sortRevision) return "";
+    try {
+      const result = await readPreferences();
+      if (revision !== sortRevision) return "";
+      state.sortReady = Object.hasOwn(result, "sorts");
+      if (!state.sortReady) return SORT_UNAVAILABLE;
+      if (result.sorts[viewId]) sorts.set(viewId, result.sorts[viewId]);
+      else sorts.delete(viewId);
+      return "";
+    } catch {
+      if (revision !== sortRevision) return "";
+      return "Saved sorting could not be loaded. Showing the last known order; return to Items or reload to retry.";
+    }
+  };
   state.saveSortFor = (viewId, sort) => {
+    sortRevision += 1;
     sorts.set(viewId, sort);
-    if (!state.ready || !saveSort) return Promise.resolve("Saved preferences unavailable. Reload to retry saving the sort.");
-    if (!state.sortReady) return Promise.resolve("Sort persistence unavailable. Update the server and reload to save sorting.");
+    if (!saveSort) return Promise.resolve("Saved preferences unavailable. Reload to retry saving the sort.");
+    if (state.sortReady === null) return Promise.resolve("Saved sorting unavailable. Reload to retry loading preferences before saving the sort.");
+    if (!state.sortReady) return Promise.resolve(SORT_UNAVAILABLE);
     sortWrites = sortWrites.catch(() => {}).then(() => saveSort(viewId, sort));
     return sortWrites.then(() => "").catch(() => "Sort could not be saved. Click a column header to retry.");
   };

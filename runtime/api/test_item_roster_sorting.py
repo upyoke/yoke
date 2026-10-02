@@ -69,3 +69,36 @@ def test_sort_input_is_allowlisted(test_db, payload):
     outcome = read_roster(page_size=1, **payload)
     assert not outcome.primary_success
     assert "sort" in outcome.error.message
+
+
+@pytest.mark.parametrize("direction", ["asc", "desc"])
+def test_timestamp_ties_remain_ordered_across_filtered_pages(test_db, direction):
+    for index in range(5):
+        insert_item(
+            test_db,
+            id=8700 + index,
+            title="timestamp-tie" if index % 2 == 0 else "excluded-row",
+            status="implementing",
+            updated_at="2026-09-15T12:00:00Z",
+        )
+    test_db.commit()
+    rows, cursor = [], None
+    while True:
+        outcome = read_roster(
+            page_size=1,
+            search="timestamp-tie",
+            sort_direction=direction,
+            **({"cursor": cursor} if cursor else {}),
+        )
+        assert outcome.primary_success, outcome.error
+        rows.extend(outcome.result_payload["rows"])
+        cursor = outcome.result_payload["next_cursor"]
+        if cursor is None:
+            break
+    expected = test_db.execute(
+        "SELECT p.public_item_prefix || '-' || i.project_sequence AS public_ref "
+        "FROM items i JOIN projects p ON p.id = i.project_id "
+        "WHERE i.title = %s ORDER BY i.id " + direction.upper(),
+        ("timestamp-tie",),
+    ).fetchall()
+    assert [row["public_ref"] for row in rows] == [row[0] for row in expected]

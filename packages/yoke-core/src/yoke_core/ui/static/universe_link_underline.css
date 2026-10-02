@@ -7,7 +7,7 @@
    A disclosure whose summary is a line of text ("Earlier checks",
    "3 earlier or superseded checks") behaves like a link and is underlined
    too: a plain <summary>, or any summary marked .disclosure-link. */
-.universe-app-root main.content a[href]:not(.btn):not(.nav-link):not(.tab-link):not(.row-link):not(.breadcrumb-parent):not(.review-shot-open):not(.review-lightbox-open):not(.review-pill):not(.item-button):not(.qa-plan-button):not(.header-search-result):not(.actor-menu-link):not(.profile-row-action):not([class*="card"]):not([class*="chip"]):not([class*="pill"]):not([class*="tab"]):not([class*="button"]) {
+.universe-app-root main.content a[href]:not(.btn):not(.nav-link):not(.tab-link):not(.row-link):not(.breadcrumb-parent):not(.review-shot-open):not(.review-lightbox-open):not(.review-pill):not(.item-button):not(.item-action):not(.qa-plan-button):not(.header-search-result):not(.actor-menu-link):not(.profile-row-action):not([class*="card"]):not([class*="chip"]):not([class*="pill"]):not([class*="tab"]):not([class*="button"]) {
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;

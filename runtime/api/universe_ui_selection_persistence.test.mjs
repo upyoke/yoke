@@ -314,7 +314,7 @@ test("an unsuccessful initial read never lets a default clobber the server's rea
   // The route names a project that differs from what the server actually
   // holds for Items — normally this would persist as the new value.
   const { root } = await mountAt(t, "#/items?project=2", client);
-  assert.equal(listCalls, 1);
+  assert.equal(listCalls, 2);
   // The failed read never marked this mount ready, so the mismatch was
   // never written back over the actor's real saved selection.
   assert.deepEqual(client.state.views.items, { selection: ["1"], focus: null });

@@ -133,3 +133,15 @@
     flex-direction: column;
   }
 }
+.universe-app-root .item-filter-toggle {
+  gap: 10px;
+  min-height: 44px;
+}
+.universe-app-root .item-filter-toggle > .band-chevron {
+  width: 9px;
+  height: 9px;
+  transform: rotate(45deg) translate(-2px, -2px);
+}
+.universe-app-root .item-filter-toggle[aria-expanded="true"] > .band-chevron {
+  transform: rotate(225deg) translate(-1px, -1px);
+}
