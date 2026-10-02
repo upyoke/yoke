@@ -29,6 +29,14 @@ attributes can exceed the tar reader's 1 MiB special-header limit. Any copy
 error still fails capture and reports its path and message in the receipt;
 partial destinations cannot be registered as a baseline.
 
+The probes seal reports upload and chmod failures separately in the existing
+`golden_probes_seal_failed` refusal. It retains the sidecar path, sub-step,
+exit code and bounded remote stderr; transport exceptions name their type
+when no exit status exists. Recovery preserves the failed capture and calls
+for repairing the named access or SSH failure before using a new destination.
+macOS chmod receives its option delimiter before the mode, so it cannot mistake
+the delimiter for another file and report failure after sealing the sidecar.
+
 Restore cannot govern objects outside the home merely by copying files.
 Product-owned Compose resources, running home writers, service-manager jobs
 and declared temporary residue have independent ownership/absence checks.
