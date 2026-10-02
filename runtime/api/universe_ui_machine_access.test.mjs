@@ -46,8 +46,7 @@ test("machine access shows only relevant labeled fields and resolves names to ac
   find(card, "BUTTON", "Save access").dispatchEvent(new Event("click"));
   await settle();
   assert.deepEqual(requests.filter((request) => request.function === "machine.settings.set").map((request) => request.payload), [
-    { machine_id: "machine-a", path: "use.actor_ids", value: [8] },
-    { machine_id: "machine-a", path: "use.mode", value: "actors" },
+    { machine_id: "machine-a", path: "use", value: { mode: "actors", actor_ids: [8] } },
   ]);
   assert.equal(reloads(), 1);
 });
@@ -66,7 +65,7 @@ test("machine access validates the complete project-role choice before writing",
   save.dispatchEvent(new Event("click"));
   await settle();
   assert.deepEqual(requests.map((request) => [request.payload.path, request.payload.value]), [
-    ["use.project_id", 4], ["use.role", "admin"], ["use.mode", "project_role"],
+    ["use", { mode: "project_role", actor_ids: [], project_id: 4, role: "admin" }],
   ]);
 });
 
@@ -82,18 +81,48 @@ test("directory failures retry without resetting mode or current actor selection
   assert.equal(requests.length, 2);
 });
 
-test("partial save failure retains selections and exposes the partial result", async () => {
-  const { card, reloads } = fixture({ mode: "actors", actorIds: [7], failWrite: 2 });
+test("a refused complete access-policy write retains selections and can retry", async () => {
+  const { card, reloads } = fixture({ mode: "actors", actorIds: [7], failWrite: 1 });
   await settle();
   const save = find(card, "BUTTON", "Save access");
   save.dispatchEvent(new Event("click"));
   assert.equal(save.disabled, true);
   await settle();
   assert.equal(save.disabled, false);
-  assert.match(card.textContent, /Some settings were saved/);
+  assert.match(card.textContent, /Your choices are kept/);
   assert.equal(reloads(), 0);
   assert.equal(allNodes(card).find((node) => node.tagName === "INPUT" && node.value === "7").checked, true);
   save.dispatchEvent(new Event("click"));
   await settle();
   assert.equal(reloads(), 1);
+});
+
+test("project and role changes are one atomic policy request", async () => {
+  const document = new FakeDocument();
+  const initial = { mode: "project_role", project_id: 3, role: "reader", actor_ids: [7] };
+  let stored = { ...initial };
+  let requests = 0;
+  const card = machineAccessCard({
+    document, isMounted: () => true,
+    projects: () => [{ id: 3, name: "Current" }, { id: 4, name: "New project" }],
+    client: { async call(request) {
+      requests += 1;
+      assert.equal(request.payload.path, "use");
+      assert.deepEqual(request.payload.value, { ...initial, project_id: 4, role: "admin" });
+      if (requests === 1) return denied;
+      stored = request.payload.value;
+      return ok();
+    } },
+  }, { machine: { machine_id: "machine-a", access: { use: initial } } }, () => {});
+  const project = allNodes(card).find((node) => node.tagName === "SELECT" && node.className === "machine-access-input");
+  project.value = "4";
+  find(card, "INPUT").value = "admin";
+  find(card, "BUTTON", "Save access").dispatchEvent(new Event("click"));
+  await settle();
+  assert.equal(requests, 1);
+  assert.deepEqual(stored, initial);
+  find(card, "BUTTON", "Save access").dispatchEvent(new Event("click"));
+  await settle();
+  assert.equal(requests, 2);
+  assert.deepEqual(stored, { ...initial, project_id: 4, role: "admin" });
 });

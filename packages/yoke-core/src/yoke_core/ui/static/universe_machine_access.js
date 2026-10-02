@@ -103,38 +103,34 @@ export function machineAccessCard(context, result, reload) {
   });
   save.addEventListener("click", async () => {
     if (save.disabled) return;
-    const settings = [];
+    const policy = { ...current, mode: mode.value };
     if (mode.value === "actors") {
       if (!selectedActors.size || [...selectedActors].some((id) => !Number.isInteger(id) || id <= 0)) {
         status.textContent = "Select at least one person or actor.";
         return;
       }
-      settings.push(["use.actor_ids", [...selectedActors]]);
+      policy.actor_ids = [...selectedActors];
     }
     if (mode.value === "project_role") {
       if (!projects.some((entry) => String(entry.id) === project.value) || !role.value.trim()) {
         status.textContent = "Choose an available project and enter its required role.";
         return;
       }
-      settings.push(["use.project_id", Number(project.value)], ["use.role", role.value.trim()]);
+      policy.project_id = Number(project.value);
+      policy.role = role.value.trim();
     }
-    settings.push(["use.mode", mode.value]);
     busy = true;
     update();
     status.textContent = "Saving access…";
-    let written = 0;
     try {
-      for (const [path, value] of settings) {
-        const response = await callFunction(context.client, "machine.settings.set", {
-          machine_id: result.machine.machine_id, path, value,
-        });
-        if (response.status !== 200 || !response.envelope?.success) throw response;
-        written += 1;
-      }
+      const response = await callFunction(context.client, "machine.settings.set", {
+        machine_id: result.machine.machine_id, path: "use", value: policy,
+      });
+      if (response.status !== 200 || !response.envelope?.success) throw response;
       if (context.isMounted()) reload();
     } catch (error) {
       status.textContent = presentSessionControlFailure(error, "Machine access could not be saved.")
-        + (written ? " Some settings were saved. Review your choices and retry." : " Your choices are kept. Try again.");
+        + " Your choices are kept. Try again.";
     } finally { busy = false; update(); }
   });
   update();
