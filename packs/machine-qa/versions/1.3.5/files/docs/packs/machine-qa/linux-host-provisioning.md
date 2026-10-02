@@ -117,7 +117,9 @@ checks or put the password in a script, a message or evidence.
 Registered Linux screenshot, GUI host-command and desktop-access operations start
 the dedicated test user's real XFCE/Xorg session when none exists. They reuse
 exactly one existing XFCE desktop and report `desktop_session=started` or
-`desktop_session=reused`. The launcher is:
+`desktop_session=reused`. The first screenshot waits for a valid, nonblank frame
+from the newly started desktop; that wait retains `started` evidence. An already
+running desktop with a blank capture still refuses. The launcher is:
 
 ```text
 xrdp-sesrun -s ::1 -t Xorg -F 0 <test-user>

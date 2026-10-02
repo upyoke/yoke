@@ -13,6 +13,8 @@ import time
 
 RECOVERY = "Log in over RDP as the registered desktop user and leave one XFCE session unlocked."
 RDP_PORT = 3389
+DESKTOP_READY_TIMEOUT_SECONDS = 15
+DESKTOP_POLL_INTERVAL_SECONDS = 0.2
 
 
 def desktop_sessions():
@@ -229,7 +231,7 @@ def ensure_desktop(password, port=RDP_PORT):
             raise RuntimeError(
                 "linux_desktop_start_failed: " + diagnostic + "; " + RECOVERY
             )
-        deadline = time.monotonic() + 15
+        deadline = time.monotonic() + DESKTOP_READY_TIMEOUT_SECONDS
         while True:
             sessions = desktop_sessions()
             if (
@@ -248,7 +250,7 @@ def ensure_desktop(password, port=RDP_PORT):
                 raise RuntimeError(
                     "linux_desktop_start_not_ready: " + diagnostic + "; " + RECOVERY
                 )
-            time.sleep(0.2)
+            time.sleep(DESKTOP_POLL_INTERVAL_SECONDS)
 
 
 def stop_owned_desktop():
@@ -265,7 +267,7 @@ def stop_owned_desktop():
     ):
         return
     os.kill(session["pid"], signal.SIGTERM)
-    deadline = time.monotonic() + 15
+    deadline = time.monotonic() + DESKTOP_READY_TIMEOUT_SECONDS
     while any(
         row["pid"] == session["pid"] and row["start"] == session["start"]
         for row in desktop_sessions()
@@ -274,7 +276,7 @@ def stop_owned_desktop():
             raise RuntimeError(
                 "linux_desktop_stop_not_proved: log out the Yoke-started desktop, then retry reset"
             )
-        time.sleep(0.2)
+        time.sleep(DESKTOP_POLL_INTERVAL_SECONDS)
     with ownership_file() as stream:
         stream.seek(0)
         stream.truncate()
