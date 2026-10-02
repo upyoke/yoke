@@ -9,6 +9,8 @@ import subprocess
 import threading
 from urllib.parse import urlsplit
 
+FIXTURE_CREDENTIAL = "fixture:own-credential"
+
 
 def git(root, *args):
     return subprocess.run(
@@ -23,7 +25,7 @@ def authenticated_remote(tmp_path):
         ["git", "init", "--bare", str(remote)], check=True, capture_output=True
     )
     git(remote, "config", "http.receivepack", "true")
-    expected = "Basic " + base64.b64encode(b"fixture:own-credential").decode()
+    expected = "Basic " + base64.b64encode(FIXTURE_CREDENTIAL.encode()).decode()
     requests = []
 
     class Handler(BaseHTTPRequestHandler):
@@ -89,7 +91,7 @@ def authenticated_remote(tmp_path):
 def own_credential_config(root: Path, url: str):
     credential = root / "git-credentials"
     endpoint = urlsplit(url)
-    credential.write_text(f"http://fixture:own-credential@{endpoint.netloc}\n")
+    credential.write_text(f"http://{FIXTURE_CREDENTIAL}@{endpoint.netloc}\n")
     config = root / "gitconfig"
     config.write_text(f"[credential]\n\thelper = store --file={credential}\n")
     return config
