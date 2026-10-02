@@ -1,8 +1,6 @@
 """Post-push proof for a queue-less standalone landing.
 
-Local merge is already durable here. Push plus observed checks decide
-whether close-out is safe; red or pending checks keep claim and lane.
-Proof uses the merge's own authority.
+Disconnected projects close locally; connected projects prove published checks.
 """
 
 from __future__ import annotations
@@ -17,6 +15,12 @@ from yoke_contracts.github_app_installation_permissions import (
 from yoke_contracts.machine_config.settings_keys import machine_setting_default
 from yoke_core.domain import gh_rest_transport, runtime_settings
 from yoke_core.domain import standalone_item_merge_git as git
+from yoke_core.domain.merge_github_authority import github_merge_enabled
+from yoke_core.domain.standalone_item_merge_publication_message import (
+    refusal_message,
+    missing_merge_identity_message,
+    publication_narration,
+)
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.gh_rest_transport import (
     RestRequest,
@@ -31,14 +35,11 @@ from yoke_core.engines.merge_worktree_pr_rest import (
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 from yoke_core.engines.main_checkout_sync import fast_forward_main_checkout
 
-
 DISCOVERY_TIMEOUT_KEY = "standalone_post_push_ci_discovery_timeout"
 CONCLUSION_TIMEOUT_KEY = "standalone_post_push_ci_timeout"
 _GREEN_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
 CHECK_RUNS_PER_PAGE = 100
-_MALFORMED_PAGINATION = (
-    "post-push check-runs pagination is incomplete or malformed"
-)
+_MALFORMED_PAGINATION = "post-push check-runs pagination is incomplete or malformed"
 
 
 @dataclass(frozen=True)
@@ -99,22 +100,25 @@ def _decode_check_runs_page(
     runs: list[CheckRun] = []
     for raw in raw_runs:
         if not isinstance(raw, dict):
-            return None, None, (
-                "post-push check-runs response contained a malformed run"
+            error = "post-push check-runs response contained a malformed run"
+            return None, None, error
+        runs.append(
+            CheckRun(
+                name=str(raw.get("name") or "unnamed check").strip(),
+                status=str(raw.get("status") or "").strip().lower(),
+                conclusion=str(raw.get("conclusion") or "").strip().lower(),
+                url=str(raw.get("html_url") or raw.get("details_url") or "").strip(),
             )
-        runs.append(CheckRun(
-            name=str(raw.get("name") or "unnamed check").strip(),
-            status=str(raw.get("status") or "").strip().lower(),
-            conclusion=str(raw.get("conclusion") or "").strip().lower(),
-            url=str(raw.get("html_url") or raw.get("details_url") or "").strip(),
-        ))
+        )
     if len(runs) > raw_count:
         return None, None, _MALFORMED_PAGINATION
     return runs, raw_count, ""
 
 
 def read_check_runs(
-    project: str, merge_sha: str, authority: str,
+    project: str,
+    merge_sha: str,
+    authority: str,
 ) -> tuple[Optional[tuple[CheckRun, ...]], str]:
     """Read every check run for ``merge_sha`` under the merge's authority."""
     ctx = MergeContext(args=MergeArgs(branch=""), project=project)
@@ -173,10 +177,6 @@ def _terminal_kind(runs: tuple[CheckRun, ...]) -> str:
     return "pending"
 
 
-def _descriptions(runs: Sequence[CheckRun]) -> str:
-    return "; ".join(run.describe() for run in runs)
-
-
 def await_post_push_checks(
     project: str,
     merge_sha: str,
@@ -219,37 +219,6 @@ def await_post_push_checks(
         runs = refreshed
 
 
-def _refusal_message(
-    verdict: PostPushVerdict, *, merge_sha: str, resume_command: str,
-) -> str:
-    observed = _descriptions(verdict.runs)
-    if verdict.kind == "failed":
-        reason = f"post-push CI failed for {merge_sha}: {observed}"
-    elif verdict.kind == "timed_out":
-        reason = f"post-push CI remained pending for {merge_sha}: {observed}"
-    else:
-        reason = verdict.detail or f"post-push CI was unreadable for {merge_sha}"
-    return (
-        f"{reason}. The merge is landed; the work claim and lane are retained. "
-        f"Commit the fix in the same lane, then resume with `{resume_command}`."
-    )
-
-
-def _publication_narration(
-    *, pushed: bool, push_warning: str, verdict: Optional[PostPushVerdict],
-) -> str:
-    if push_warning:
-        return push_warning
-    if not pushed:
-        return "Publication: no remote; merge remains local-only."
-    kind = None if verdict is None else verdict.kind
-    return {
-        None: "Publication: target pushed; post-push checks were not run.",
-        "passed": "Publication: target pushed; post-push checks passed.",
-        "no_checks": "Publication: target pushed; no post-push checks discovered.",
-    }.get(kind, "")
-
-
 def complete(
     *,
     item_id: int,
@@ -279,8 +248,26 @@ def complete(
         commit_sha=commit_sha,
     )
     notes = list(warnings)
-    pushed, push_warning = git.publish(repo_root, target)
-    if push_warning:
+    try:
+        disconnected = git.has_remote(repo_root) and not github_merge_enabled(project)
+    except RuntimeError as exc:
+        return StandaloneMergeOutcome(
+            ok=False,
+            exit_code=1,
+            already_merged=already,
+            commit_sha=commit_sha,
+            merge_sha=merge_sha,
+            touched_files=touched,
+            output=output,
+            error=f"github_merge_mode_unreadable: {exc}. The merge is landed; retry {resume_command or f'yoke merge item {branch}'} after repairing the project GitHub binding status read.",
+            warnings=tuple(notes),
+        )
+    pushed, push_warning = (
+        (False, "Merged locally; not pushed because GitHub is not connected.")
+        if disconnected
+        else git.publish(repo_root, target)
+    )
+    if push_warning and not disconnected:
         notes.append(push_warning)
     stamp_error = stamp_merged_at(item_id, repo_root=repo_root, merge_sha=merge_sha)
     if stamp_error:
@@ -290,8 +277,11 @@ def complete(
         note = receipts.record(
             item_id,
             receipts.MergeReceipt(
-                branch=branch, target=target, commit_sha=commit_sha,
-                merge_sha=merge_sha, touched_files=touched,
+                branch=branch,
+                target=target,
+                commit_sha=commit_sha,
+                merge_sha=merge_sha,
+                touched_files=touched,
                 check_runs=check_runs,
             ),
         )
@@ -301,12 +291,7 @@ def complete(
     record()
     observed: Optional[PostPushVerdict] = None
     if pushed and not merge_sha:
-        notes.append(
-            f"post-push checks skipped: no merge commit records {branch!r} "
-            f"landing on {target!r}, so there is nothing to prove. Re-run "
-            "the merge once the branch has a commit the target does not "
-            "already contain."
-        )
+        notes.append(missing_merge_identity_message(branch, target))
     if pushed and merge_sha:
         observed = await_post_push_checks(project, merge_sha, authority)
         if observed.runs:
@@ -314,28 +299,43 @@ def complete(
         if not observed.ok:
             command = resume_command or f"yoke merge item {branch}"
             return StandaloneMergeOutcome(
-                ok=False, exit_code=1, already_merged=already,
-                commit_sha=commit_sha, merge_sha=merge_sha,
-                touched_files=touched, pushed=True, output=output,
-                error=_refusal_message(
-                    observed, merge_sha=merge_sha, resume_command=command,
+                ok=False,
+                exit_code=1,
+                already_merged=already,
+                commit_sha=commit_sha,
+                merge_sha=merge_sha,
+                touched_files=touched,
+                pushed=True,
+                output=output,
+                error=refusal_message(
+                    observed,
+                    merge_sha=merge_sha,
+                    resume_command=command,
                 ),
                 warnings=tuple(notes),
             )
 
-    narration = _publication_narration(
-        pushed=pushed, push_warning=push_warning, verdict=observed,
+    narration = publication_narration(
+        pushed=pushed,
+        push_warning=push_warning,
+        verdict=observed,
     )
     if narration:
         output = f"{output}\n{narration}".strip() if output else narration
-    if git.has_remote(repo_root):
+    if not disconnected and git.has_remote(repo_root):
         sync_warning = fast_forward_main_checkout(repo_root, target)
         if sync_warning:
             notes.append(sync_warning)
     return StandaloneMergeOutcome(
-        ok=True, exit_code=0, already_merged=already,
-        commit_sha=commit_sha, merge_sha=merge_sha, touched_files=touched,
-        pushed=pushed, output=output, warnings=tuple(notes),
+        ok=True,
+        exit_code=0,
+        already_merged=already,
+        commit_sha=commit_sha,
+        merge_sha=merge_sha,
+        touched_files=touched,
+        pushed=pushed,
+        output=output,
+        warnings=tuple(notes),
     )
 
 

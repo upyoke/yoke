@@ -19,19 +19,23 @@ yoke test-machine desktop-access --project P --machine NAME
 ```
 
 Run this on the workstation holding the capability secrets. It authorizes the
-registered route, refuses another session's machine lease, checks the RDP/VNC
-handshake, and prints only `address`, `user`, and `password_file`. Open that
-address in your RDP or Screen Sharing client, and use the desktop user and
-password from the private mode-600 file under `/tmp`. No password goes through
-the control plane, events, operation receipts, or command output.
+registered route and refuses another session's machine lease. On Windows it
+proves the registered login using FreeRDP auth-only, prints `user`,
+`credential_proof` and `desktop_session=not_started`, then closes its forward.
+The password travels directly from the capability secret store to client stdin.
+Other operating systems check the RDP/VNC handshake and print `address`, `user`
+and `password_file` for the human client, using a private mode-600 copy under
+`/tmp`. Linux also reuses or starts provisioned XFCE and reports `desktop_session`.
+No password goes through the control plane, receipts or command output.
 
 Settings declare `desktop_route` (`direct` or `ssh-forward`),
 `desktop_protocol` (`rdp` or `vnc`), `desktop_port` (1–65535), and
 `desktop_user` together. Optional `desktop_host` names the desktop endpoint:
 it defaults to the registered host for direct access, or `127.0.0.1` on the
 SSH host for forwarding. `cloud_instance_id` records the provider's instance id when present.
-Desktop credentials stay separate from the SSH login, including Windows RDP
-as Administrator when SSH enters WSL2. Save routes with
+Desktop credentials stay separate from the SSH key. Windows RDP and SSH use
+the same Windows account; its default WSL2 distro uses a non-root Linux user.
+Save routes with
 `yoke test-machine settings-replace`; read its `--help` for the CAS token.
 
 Import each password from a private file, never from a literal argument:
@@ -47,8 +51,9 @@ store, keyed by machine, beside the shared `test-machine.ssh_private_key`.
 the route, never a secret value. Missing passwords refuse with
 `desktop_password_missing` and the import command.
 
-SSH forwarding chooses a free loopback port, uses the capability SSH key and
-Yoke's pinned host keys, and keeps its listener open after the command exits.
+SSH forwarding chooses a free loopback port and uses the capability SSH key and
+Yoke's pinned host keys. Windows closes the listener after credential proof;
+other operating systems keep it open for the human client.
 The control socket is `PASSWORD_FILE.ssh`. Close the forward after use with
 `ssh -F /dev/null -S PASSWORD_FILE.ssh -O exit SSH_USER@SSH_HOST`, using the
 registered SSH host/user, then remove the temporary password copy. A failed
@@ -102,8 +107,8 @@ Surviving or respawning home programs refuse before clearing with
 `linux_golden_home_clear_failed` and `refused_entry`: stop the writer and retry
 the sealed archive; never capture the mixed home. OS packages are not restored.
 Linux terminal evidence combines tmux transcripts with PNG checkpoints from the
-test user's active XFCE display. Provision the machine-qa Pack desktop when no
-session exists, then connect through tunnel-only RDP and keep that desktop unlocked.
+test user's XFCE display. GUI operations reuse it or start provisioned XFCE
+with the registered login; a human tunnel-only RDP login is the fallback.
 Browser-approval recipes still name `headless_linux_browser_approval_unavailable`.
 
 ## screenshot — the actual desktop as a QA artifact
@@ -122,12 +127,13 @@ record an error without an artifact.
 
 macOS captures the primary display through Terminal.app, requiring its Screen
 Recording grant and the dedicated test user's unlocked graphical login. Linux
-finds exactly one XFCE session owned by the SSH user and uses its actual DISPLAY
-and XAUTHORITY; it never assumes display :0. Install the Pack's Linux desktop
-provisioner and open its tunnel-only RDP session before retrying a missing desktop.
-Windows enters WSL2, then invokes Windows PowerShell and a temporary scheduled task
-using the SSH account's existing interactive token. Log into that same Windows
-account via RDP and keep the desktop open/unlocked. No password is passed to the
+reuses one XFCE session or starts it with the registered login, then uses its
+actual DISPLAY and XAUTHORITY; it never assumes display :0. Install the Pack's
+Linux desktop provisioner first; a human RDP login is the fallback.
+Windows reuses the registered account's active desktop or starts and holds
+FreeRDP through capture, reporting `desktop_session=started|reused`. Its password
+goes from the capability store to client stdin. Windows PowerShell runs a
+temporary task using that SSH account's interactive token. No password enters the
 capture task; task and temporary files are removed after capture or failure.
 A Session 0 service or a disconnected desktop cannot substitute for that proof.
 Close credentials and private windows before capturing when the case requires it.
@@ -179,8 +185,10 @@ current golden and records that path on the machine once it succeeds, so a
 failed capture never destroys the baseline it was taken beside and a successful
 one never silently retires a directory another host may still restore from.
 Pass `--destination` for a machine's first golden, or to place one
-deliberately. Pass `--probes-file` to seal a new probe document; without it the
-capture carries forward the document sealed beside the current golden.
+deliberately. Without `--probes-file`, capture runs and seals the standard OS
+checks. A supplied file must name every standard check; canonical programs
+always run, plus its extra checks. Follow the Machine QA Pack's per-OS
+provisioning guide for preparation and the standard check names.
 
 It refuses rather than producing a baseline nothing can restore:
 
@@ -189,8 +197,8 @@ It refuses rather than producing a baseline nothing can restore:
 | `golden_capture_yoke_residue` | Yoke state at a named path inside the home | Reset the host first. Capturing it bakes Yoke into the baseline every later reset restores, and the reset then verifies that same state absent — so the machine could never pass again |
 | `golden_capture_foreign_owner` | An entry inside the test home owned by another account | Repair its owner; the test user cannot clear or restore what it does not own |
 | `golden_capture_destination_occupied` | Something already at the destination | Choose a new destination |
-| `baseline_probes_not_declared` | No probe document to seal | Pass `--probes-file`; a golden with no probes is one no reset accepts |
-| `baseline_probe_failed` | A declared program reported itself signed out | Sign it in, or correct the probe's argv or expectation |
+| `baseline_standard_probes_missing` | A supplied file omits standard checks | Include the named checks or omit `--probes-file` |
+| `baseline_probe_failed` | A standard or additional check failed | Follow the named checklist recovery; repair additional argv/expectations |
 
 What it writes beside the golden directory: a `.manifest` recording when it was
 captured, from which home and user, how many top-level entries and kilobytes,

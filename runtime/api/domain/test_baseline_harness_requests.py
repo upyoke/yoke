@@ -227,11 +227,9 @@ def test_capture_does_not_archive_or_seal_an_expired_session(platform):
     control = _Control("claude", returncode=1)
     # No archive or upload method: a failed request must return before either.
     result = (
-        capture_linux_golden(control, "/srv/new-golden", control.document)
+        capture_linux_golden(control, "/srv/new-golden", None)
         if platform == "linux"
-        else capture_golden_baseline(
-            control, destination="/srv/new-golden", probes_document=control.document
-        )
+        else capture_golden_baseline(control, destination="/srv/new-golden")
     )
     assert not result.ok
     assert len(control.calls) == 1

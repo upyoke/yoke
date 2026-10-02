@@ -46,8 +46,10 @@ def run_host_operation(
             "Capture the actual desktop as a validated PNG under the machine lease. "
             "The receipt stores a durable QA artifact handle; artifact_path names a private local PNG. "
             "macOS needs the test user's unlocked Terminal.app session and Screen Recording grant; "
-            "Linux needs one active XFCE display (provision with ops/machine-qa/provision_linux_desktop.py); "
-            "Windows needs the SSH account logged into an unlocked RDP desktop. "
+            "Linux reuses one XFCE display or starts it with the registered desktop_password; reports started/reused. "
+            "Provision XFCE with ops/machine-qa/provision_linux_desktop.py; human RDP login is the fallback. "
+            "Windows reuses an active registered desktop or holds FreeRDP's sdl-freerdp "
+            "through the operation, feeding the capability-owned password on stdin. "
             "Close credentials/private windows when the case requires it. Failed or blank capture exits nonzero."
         )
     parser.add_argument("--project", required=True)
@@ -61,7 +63,10 @@ def run_host_operation(
             choices=("browser-profile",),
             help="Seal only the stopped Linux browser profile beside the clean home golden; no probes file required.",
         )
-        parser.add_argument("--probes-file")
+        parser.add_argument(
+            "--probes-file",
+            help="Optional additional probe document; it must name every standard OS check. Omit to seal the standard checks. See .yoke/docs/reference/qa-platform/prepare-test-machine.md.",
+        )
     from yoke_cli.commands._helpers import add_json_arg, add_session_arg
 
     add_session_arg(parser)

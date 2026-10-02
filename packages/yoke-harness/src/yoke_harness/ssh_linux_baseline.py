@@ -147,6 +147,11 @@ else:
         terminal_selection = [line for line in terminal_preference_lines() if selects_terminal(line)]
         stash = stash_claude() if preserve_claude else None
         try:
+            desktop_precondition()
+            try:
+                stop_owned_desktop()
+            except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
+                refuse("linux_desktop_stop_not_proved", recovery=str(exc))
             # STOP_YOKE_WRITERS
             for entry in home.iterdir():
                 if entry.name == ".ssh": continue
@@ -284,14 +289,14 @@ def archive_operation(
 def capture_linux_golden(
     control: Any, destination: str, probes_document: str | None
 ) -> HostActionResult:
-    if probes_document is None:
-        return HostActionResult(
-            False,
-            {
-                "recovery": "Pass --probes-file with CLI, credential and relevant user-service checks."
-            },
-            "baseline_probes_not_declared",
-        )
+    from yoke_harness.standard_baseline_probes import capture_probes_document
+
+    probes_document, refusal = capture_probes_document(
+        getattr(control, "os", "linux"), probes_document
+    )
+    if refusal:
+        return refusal
+    assert probes_document is not None
     proven = prove_linux_probes(control, probes_document)
     if not proven.ok:
         return proven

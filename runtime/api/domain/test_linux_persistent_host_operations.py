@@ -152,7 +152,7 @@ def test_capture_probes_must_pass_before_archive_or_writes():
         run_command=lambda *a, **kw: subprocess.CompletedProcess(a, 1, "", ""),
         _run=lambda *a, **kw: calls.append(a),
     )
-    result = capture_linux_golden(control, "/var/lib/goldens/tester", PROBES)
+    result = capture_linux_golden(control, "/var/lib/goldens/tester", None)
     assert not result.ok and result.error_code == "baseline_probe_failed"
     assert not calls
 

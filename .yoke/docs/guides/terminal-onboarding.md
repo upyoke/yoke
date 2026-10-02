@@ -1,5 +1,14 @@
 # Copy links and codes during onboarding
 
+Review names the setup commit's remote and branch before Apply. With stored
+GitHub authorization, Apply commits Yoke setup and attempts to push it; branch
+protection can require a review proposal instead. Without that authorization,
+a GitHub remote leaves the setup committed locally and Review shows the exact
+command to push later. A checkout without a remote stays local-only. Skipping
+GitHub shows no GitHub App binding in Review; it disables GitHub automation,
+and does not change the existing setup-publication behavior. Cancel at Review
+to leave Apply's writes undone.
+
 On a wizard screen containing a link or one-time code, press **Ctrl-Y** to
 copy the exact value. A screen with both offers them in sequence; the footer
 names what the next press will take. **Ctrl-O** opens the screen's link in your

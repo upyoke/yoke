@@ -12,7 +12,10 @@ $ProgressPreference = 'SilentlyContinue'
 $directory = 'OUTPUT_DIRECTORY'
 try {
     if ([Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0) {
-        throw 'windows_desktop_session_required: log into the dedicated Windows test account and keep its RDP desktop open'
+        throw 'windows_desktop_session_required: repair the registered FreeRDP login and retry the screenshot; a human RDP login is the fallback'
+    }
+    if (Get-Process LogonUI -ErrorAction SilentlyContinue | Where-Object SessionId -eq ([Diagnostics.Process]::GetCurrentProcess().SessionId)) {
+        throw 'windows_desktop_locked: unlock the active dedicated desktop and retry'
     }
     Add-Type -AssemblyName System.Windows.Forms,System.Drawing
     $bounds = [Windows.Forms.Screen]::PrimaryScreen.Bounds
@@ -51,7 +54,7 @@ try {
     $deadline = [DateTime]::UtcNow.AddSeconds(30)
     while (!(Test-Path -LiteralPath $resultPath)) {
         if ([DateTime]::UtcNow -ge $deadline) {
-            throw 'windows_desktop_session_required: log into the Windows SSH account interactively and keep its unlocked RDP desktop open, then retry'
+            throw 'windows_desktop_session_required: register the same Windows user for SSH and desktop access, verify FreeRDP can open its unlocked desktop, then retry'
         }
         Start-Sleep -Milliseconds 200
     }
@@ -71,7 +74,7 @@ try {
 
 
 def windows_desktop_png(control) -> tuple[str, int]:
-    """Use only the already logged-in account's token; no password is accepted."""
+    """Capture with the interactive token held by the Windows session owner."""
     script = TASK_SCRIPT.replace(
         "CAPTURE_BASE64", base64.b64encode(CAPTURE_SCRIPT.encode()).decode("ascii")
     )
@@ -83,7 +86,7 @@ def windows_desktop_png(control) -> tuple[str, int]:
     )
     if result.returncode:
         raise RuntimeError(
-            "windows_desktop_capture_failed: unlock the dedicated SSH account's RDP desktop and retry; "
+            "windows_desktop_capture_failed: verify the registered SSH account's held RDP desktop and retry; "
             + result.stderr[-1000:]
         )
     try:

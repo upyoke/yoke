@@ -24,9 +24,10 @@ def test_non_conflict_merge_failure_restores_and_fails(tmp_path):
     with mock.patch.object(merge_worktree, "_run_git") as run_git:
         run_git.side_effect = [
             mock.Mock(returncode=0, stdout="", stderr=""),  # detach
+            mock.Mock(returncode=0, stdout="", stderr=""),  # remote target exists
             mock.Mock(returncode=2, stdout="", stderr="object missing"),
             mock.Mock(returncode=0, stdout="", stderr=""),  # no conflicts
-            mock.Mock(returncode=1, stdout="", stderr=""),  # no merge to abort
+            mock.Mock(returncode=1, stdout="", stderr=""),  # no MERGE_HEAD
             mock.Mock(returncode=0, stdout="", stderr=""),  # restore branch
         ]
         result = merge_worktree.trial_merge(ctx)
@@ -57,8 +58,10 @@ def test_failed_trial_reports_restore_failure_as_error(tmp_path):
     with mock.patch.object(merge_worktree, "_run_git") as run_git:
         run_git.side_effect = [
             mock.Mock(returncode=0, stdout="", stderr=""),  # detach
+            mock.Mock(returncode=0, stdout="", stderr=""),  # remote target exists
             mock.Mock(returncode=2, stdout="", stderr="hook failed"),
             mock.Mock(returncode=0, stdout="", stderr=""),  # no conflicts
+            mock.Mock(returncode=0, stdout="", stderr=""),  # MERGE_HEAD
             mock.Mock(returncode=0, stdout="", stderr=""),  # abort
             mock.Mock(returncode=1, stdout="", stderr="busy"),  # restore
         ]
@@ -72,6 +75,7 @@ def test_successful_trial_aborts_uncommitted_merge_before_restore(tmp_path):
     with mock.patch.object(merge_worktree, "_run_git") as run_git:
         run_git.side_effect = [
             mock.Mock(returncode=0, stdout="", stderr=""),  # detach
+            mock.Mock(returncode=0, stdout="", stderr=""),  # remote target exists
             mock.Mock(returncode=0, stdout="", stderr=""),  # merge staged
             mock.Mock(returncode=0, stdout="abc\n", stderr=""),  # MERGE_HEAD
             mock.Mock(returncode=0, stdout="", stderr=""),  # abort
@@ -89,6 +93,7 @@ def test_already_current_trial_restores_without_abort(tmp_path):
     with mock.patch.object(merge_worktree, "_run_git") as run_git:
         run_git.side_effect = [
             mock.Mock(returncode=0, stdout="", stderr=""),  # detach
+            mock.Mock(returncode=0, stdout="", stderr=""),  # remote target exists
             mock.Mock(returncode=0, stdout="Already up-to-date.\n", stderr=""),
             mock.Mock(returncode=1, stdout="", stderr=""),  # no MERGE_HEAD
             mock.Mock(returncode=0, stdout="", stderr=""),  # restore
