@@ -226,17 +226,21 @@ function appendRetirement(documentNode, grid, context, result, reload, status) {
   );
   button.type = "button";
   button.addEventListener("click", async () => {
-    if (!documentNode.defaultView.confirm("Retire this machine?")) return;
-    const response = await callFunction(context.client, "machine.retire", {
-      machine_id: result.machine.machine_id,
-    });
-    if (!response.envelope.success) {
-      status.textContent = presentSessionControlFailure(
-        response, "The machine could not be retired.",
-      );
-      return;
-    }
-    reload();
+    if (button.disabled) return;
+    if (!documentNode.defaultView.confirm(`Retire ${result.machine.name || "this machine"}?`)) return;
+    button.disabled = true;
+    button.textContent = "Retiring…";
+    status.textContent = "Retiring machine…";
+    try {
+      const response = await callFunction(context.client, "machine.retire", {
+        machine_id: result.machine.machine_id,
+      });
+      if (response.status !== 200 || !response.envelope?.success) throw response;
+      await reload();
+    } catch (error) {
+      status.textContent = presentSessionControlFailure(error, "The machine could not be retired.")
+        + " Try Retire again.";
+    } finally { button.disabled = false; button.textContent = "Retire"; }
   });
   retire.appendChild(button);
   grid.appendChild(retire);
@@ -245,6 +249,7 @@ function appendRetirement(documentNode, grid, context, result, reload, status) {
 export function renderMachineDetail(context, main, _project, detail, navigation = {}) {
   const documentNode = context.document;
   const status = el(documentNode, "p", "sessions-action-status");
+  status.setAttribute("role", "status");
   const panel = section(documentNode, "Machine");
   main.replaceChildren(status, panel);
   const load = () => loadScopedSection(

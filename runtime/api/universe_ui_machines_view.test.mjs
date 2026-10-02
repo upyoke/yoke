@@ -220,3 +220,34 @@ test("initial machine roster failure offers an in-place retry", async () => {
   assert.equal(attempts, 2);
   assert.equal(byClass(main, "machine-card").length, 1);
 });
+
+test("retirement blocks duplicates across roster repaint and retries a network rejection", async () => {
+  const open = deferred();
+  let rejectRetire;
+  const pending = new Promise((resolve, reject) => { rejectRetire = reject; });
+  let retireCalls = 0;
+  const handlers = fastMachines(() => open.promise);
+  handlers["machine.retire"] = () => ++retireCalls === 1 ? pending : ok({});
+  const { main } = await renderView(handlers);
+  main.ownerDocument.defaultView.confirm = () => true;
+  await settle();
+  const first = byClass(main, "machine-retire")[0];
+  first.dispatchEvent(new Event("click"));
+  first.dispatchEvent(new Event("click"));
+  assert.equal(first.disabled, true);
+  assert.equal(retireCalls, 1);
+  open.resolve(ok({ rows: [] }));
+  await settle();
+  const replacement = byClass(main, "machine-retire")[0];
+  replacement.dispatchEvent(new Event("click"));
+  await settle();
+  assert.equal(retireCalls, 1);
+  rejectRetire(new Error("Network unavailable"));
+  await settle();
+  assert.match(main.textContent, /temporarily unavailable.*Try Retire again/);
+  assert.equal(replacement.disabled, false);
+  replacement.dispatchEvent(new Event("click"));
+  await settle();
+  assert.equal(retireCalls, 2);
+  assert.match(main.textContent, /studio retired/);
+});

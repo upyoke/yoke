@@ -139,7 +139,17 @@ function managementBar(documentNode, relay, options) {
       documentNode, "button", "item-button machine-retire", "Retire",
     );
     retire.type = "button";
-    retire.addEventListener("click", () => options.onRetire(relay.machine_id));
+    retire.addEventListener("click", async () => {
+      if (retire.disabled) return;
+      retire.disabled = true;
+      retire.textContent = "Retiring…";
+      try { await options.onRetire(relay.machine_id); }
+      catch (error) {
+        const notice = el(documentNode, "p", "error", String(error?.message || "Retirement failed. Try again."));
+        notice.setAttribute("role", "alert");
+        footer.appendChild(notice);
+      } finally { retire.disabled = false; retire.textContent = "Retire"; }
+    });
     footer.appendChild(retire);
   }
   return footer;

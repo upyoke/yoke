@@ -74,6 +74,9 @@ export function renderMachinesView(context, main, _scope, chromeArg) {
     status.appendChild(button);
   };
 
+  const retiring = new Set();
+  let retirementNotice = "";
+  const retirementStatus = (message) => { retirementNotice = message; showStatus(message); };
   const load = async () => {
     showStatus("Loading machines…");
     let machines;
@@ -122,23 +125,30 @@ export function renderMachinesView(context, main, _scope, chromeArg) {
         openSessions,
         projectRows: context.projects(),
         onRetire: async (machineId) => {
+          if (retiring.has(machineId)) return;
+          const name = machineById.get(String(machineId))?.name || "this machine";
           if (!documentNode.defaultView.confirm(
-            "Retire this machine? Its bearer will be revoked; history stays available.",
+            `Retire ${name}? Its bearer will be revoked; history stays available.`,
           )) return;
-          const result = await callFunction(
-            context.client, "machine.retire", { machine_id: machineId },
-          );
-          if (!result.envelope.success) {
-            showStatus(presentSessionControlFailure(
-              result, "The machine could not be retired.",
-            ));
-            return;
-          }
-          await load();
+          retiring.add(machineId);
+          retirementStatus(`Retiring ${name}…`);
+          try {
+            const result = await callFunction(
+              context.client, "machine.retire", { machine_id: machineId },
+            );
+            if (result.status !== 200 || !result.envelope?.success) throw result;
+            await load();
+            retirementStatus(`${name} retired.`);
+          } catch (error) {
+            retirementStatus(presentSessionControlFailure(
+              error, "The machine could not be retired.",
+            ) + " Try Retire again.");
+          } finally { retiring.delete(machineId); }
         },
       });
     };
     const showReadyStatus = () => {
+      if (retirementNotice) { showStatus(retirementNotice); return; }
       if (active.length) {
         status.hidden = true;
         status.replaceChildren();
