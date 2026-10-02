@@ -17,7 +17,12 @@ class SshLinuxHostControl(SshLinuxHostOperations):
     """Use the existing fixture/receipt protocol with SSH and tmux evidence."""
 
     def __init__(self, material: TestMachineMaterial) -> None:
+        from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
+        from yoke_harness.linux_desktop_state import RDP_PORT
+
         self.material = material
+        self.desktop_password = material.secrets.get(DESKTOP_PASSWORD_KEY)
+        self.desktop_port = int(material.settings.get("desktop_port", RDP_PORT))
         self._pending_terminal_size = (120, 40)
         super().__init__(
             settings=material.settings,
