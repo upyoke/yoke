@@ -11,6 +11,7 @@ from yoke_contracts.machine_config.capability_secrets import (
 )
 from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
+    test_machine_capability_type,
     validate_test_machine_settings,
 )
 from yoke_contracts.machine_qa_failures import HostControlLocalError
@@ -246,6 +247,16 @@ def materialize_test_machine_contract(
                 "--cap-type test-machine --key KEY --value-stdin`, then retry."
             ),
         )
+    if normalized.settings.get("os") == "linux":
+        from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
+
+        password = read_machine_capability_secret(
+            normalized.project,
+            test_machine_capability_type(normalized.settings["resource_name"]),
+            DESKTOP_PASSWORD_KEY,
+        )
+        if password is not None:
+            secrets[DESKTOP_PASSWORD_KEY] = password
     return TestMachineMaterial(
         project_id=normalized.project_id,
         project=normalized.project,

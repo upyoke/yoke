@@ -116,6 +116,39 @@ def open_desktop_access(
     tunnel = False
     opened = False
     try:
+        session_evidence = {}
+        if settings.get("os") == "linux":
+            from types import SimpleNamespace
+            from yoke_harness.linux_desktop_session import ensure_desktop
+            from yoke_harness.linux_desktop_state import RDP_PORT
+
+            if not key_path.is_file():
+                raise DesktopAccessError(
+                    "desktop_ssh_key_missing: store test-machine.ssh_private_key on this executing machine"
+                )
+
+            def run(command, *, input_text=None, timeout=60):
+                return subprocess.run(
+                    [*_ssh_args(settings, key_path, control_path), target, command],
+                    input=input_text,
+                    text=True,
+                    capture_output=True,
+                    timeout=timeout,
+                    check=False,
+                )
+
+            try:
+                receipt = ensure_desktop(
+                    SimpleNamespace(
+                        _run=run,
+                        desktop_password=password,
+                        secret_values=(password,),
+                        desktop_port=int(settings.get("desktop_port", RDP_PORT)),
+                    )
+                )
+            except RuntimeError as exc:
+                raise DesktopAccessError(str(exc)) from None
+            session_evidence = {"desktop_session": receipt["desktop_session"]}
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
             stream.write(password + "\n")
         host = route.get("desktop_host") or settings["host"]
@@ -156,6 +189,7 @@ def open_desktop_access(
             "address": f"{route['desktop_protocol']}://{authority}:{port}",
             "user": route["desktop_user"],
             "password_file": name,
+            **session_evidence,
         }
     except (OSError, subprocess.TimeoutExpired):
         raise DesktopAccessError(

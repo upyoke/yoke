@@ -286,6 +286,11 @@ def execute_agent_mission_host_command(
         "stdout": completed.stdout or "",
         "stderr": completed.stderr or "",
         "execution_context": "gui" if gui_session else "ssh",
+        **(
+            {"desktop_session": completed.desktop_session}
+            if hasattr(completed, "desktop_session")
+            else {}
+        ),
         "session_context_degraded_reason": (
             context_failure.reason if context_failure is not None else None
         ),

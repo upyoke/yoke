@@ -147,6 +147,11 @@ else:
         terminal_selection = [line for line in terminal_preference_lines() if selects_terminal(line)]
         stash = stash_claude() if preserve_claude else None
         try:
+            desktop_precondition()
+            try:
+                stop_owned_desktop()
+            except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
+                refuse("linux_desktop_stop_not_proved", recovery=str(exc))
             # STOP_YOKE_WRITERS
             for entry in home.iterdir():
                 if entry.name == ".ssh": continue

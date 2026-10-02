@@ -58,6 +58,7 @@ def capture_desktop(control) -> HostActionResult:
             captured = desktop_command(
                 control, ["scrot", "--overwrite", remote], timeout=30
             )
+            session_evidence = {"desktop_session": captured.desktop_session}
         else:
             raise ValueError(
                 "test_machine_os_unsupported: choose macos, linux or windows"
