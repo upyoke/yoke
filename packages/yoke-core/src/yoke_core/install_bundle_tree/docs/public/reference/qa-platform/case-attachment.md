@@ -208,6 +208,16 @@ here declares that the case reads nothing from the checkout, as a probe
 against the deployed endpoint does. The tree the command ran in is recorded on
 the verdict either way.
 
+For a candidate-bound Yoke checkout, the Command runner binds bare `python3`
+and `yoke` to that checkout’s package roots with the shared source resolver.
+A temporary Python CLI launcher preserves the binding for nested shell and
+subprocess invocations. Import origins before and after execution are retained
+in `candidate_source` evidence and the output capture. Missing or outside-tree
+packages record `QA-CANDIDATE-IMPORT-ORIGIN` refusal evidence instead of a pass;
+repair the candidate checkout and rerun the same stage/member QA command.
+Lane cases, other projects, and endpoint-only `--allow-tree-mismatch` cases
+keep their product imports; the pytest watcher retains its own source binding.
+
 `command-ci` verifies and publishes an item lane. Deployment-bound cases
 refuse as `deployment_ci_candidate_unverified` before checkout, rebase, push,
 or verdict; an empty diff against main proves nothing about the deployed

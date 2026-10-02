@@ -139,4 +139,4 @@ Emit a structured critique:
 2. ...
 ```
 
-- **Command case source:** Direct pre-merge Yoke lane checks use `yoke dev run -- <command>`. Post-deploy Command source tests use `yoke watch pytest -- <test paths>` directly because the runner supplies candidate cwd and the watcher binds it to source. Source wrappers refuse another root; bare commands keep product imports.
+- **Command case source:** Direct pre-merge Yoke lane checks use `yoke dev run -- <command>`. Post-deploy Command source tests use `yoke watch pytest -- <test paths>` directly because the runner supplies candidate cwd and the watcher binds it to source. Source wrappers refuse another root. Candidate-bound Yoke cases bind bare `python3` and `yoke` to candidate packages and record import origins; missing or outside-candidate origins record a named refusal instead of a pass. Lane, external-project, and endpoint-only `--allow-tree-mismatch` cases keep product imports.

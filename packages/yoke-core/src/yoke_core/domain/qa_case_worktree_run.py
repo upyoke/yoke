@@ -169,6 +169,13 @@ def execute_worktree_case(
             cwd=str(checkout),
             env=command_env,
             timeout_seconds=process_timeout,
+            candidate_root=(
+                checkout
+                if not qa_case_tree_binding_scope.session_lane_binds_case(case)
+                and tree
+                and not allow_tree_mismatch
+                else None
+            ),
         )
         exit_code = streamed.exit_code
         duration_ms = int((time.monotonic() - started) * 1000)
@@ -202,6 +209,7 @@ def execute_worktree_case(
             "timed_out": streamed.timed_out,
             "output_tail": output[-16000:],
             "verification_tree": tree.as_payload() if tree else None,
+            "candidate_source": streamed.candidate_source,
             **budget.as_record(),
         }
         if timeout_summary:
@@ -236,6 +244,7 @@ def execute_worktree_case(
             "timeout_summary": timeout_summary,
             **budget.as_record(),
             "verification_tree": tree.as_payload() if tree else None,
+            "candidate_source": streamed.candidate_source,
         }
 
 

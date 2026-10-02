@@ -35,7 +35,10 @@ Inside a post-deploy Command case, run `yoke watch pytest -- <test paths>`
 directly: the QA runner supplies the candidate cwd and the watcher binds that
 cwd to source. The candidate root and SHA travel to subprocesses in
 `YOKE_QA_CANDIDATE_TREE`; source wrappers refuse a switch to a different root.
-Other commands use the product interpreter; cwd alone does not bind imports.
+Candidate-bound Yoke cases also bind bare `python3` and `yoke` to candidate
+packages and record their import origins; missing or outside-candidate origins
+record a named refusal instead of a pass. Lane, external-project, and endpoint-only
+`--allow-tree-mismatch` cases keep product imports.
 
 **Commit before every SHA-bound QA case.** Resolve the exact touched set from
 the worktree diff, then replace the survey with every actual file before

@@ -59,6 +59,7 @@ class StreamedCommand:
     timed_out: bool
     output: str
     capture_path: Path
+    candidate_source: dict | None = None
 
 
 def stream_command(
@@ -68,6 +69,7 @@ def stream_command(
     env: Mapping[str, str],
     timeout_seconds: Optional[float],
     stream: Optional[TextIO] = None,
+    candidate_root: Path | None = None,
 ) -> StreamedCommand:
     """Run *command* through a shell, relaying its output as it arrives.
 
@@ -96,18 +98,40 @@ def stream_command(
         """Pass the command's own stream through without re-filtering it."""
         return relay
 
+    from yoke_core.domain.qa_case_candidate_source import candidate_source
+
     raw_capture, progress_capture = mint_capture_paths(CAPTURE_KIND)
-    exit_code = run_watcher(
-        argv=["/bin/sh", "-c", command],
-        classifier=relay_every_line,
-        raw_capture=raw_capture,
-        progress_capture=progress_capture,
-        kind=CAPTURE_KIND,
-        cwd=cwd,
-        env=product_command_environment(env),
-        stdout_stream=sys.stderr if stream is None else stream,
-        timeout_seconds=timeout_seconds,
-    )
+    destination = sys.stderr if stream is None else stream
+    product_env = product_command_environment(env)
+    evidence = None
+    with candidate_source(candidate_root, product_env) as binding:
+        if binding and binding.refusal:
+            exit_code = 1
+            raw_capture.write_text(binding.refusal + "\n", encoding="utf-8")
+            print(binding.refusal, file=destination, flush=True)
+        else:
+            exit_code = run_watcher(
+                argv=["/bin/sh", "-c", command],
+                classifier=relay_every_line,
+                raw_capture=raw_capture,
+                progress_capture=progress_capture,
+                kind=CAPTURE_KIND,
+                cwd=cwd,
+                env=binding.env if binding else product_env,
+                stdout_stream=destination,
+                timeout_seconds=timeout_seconds,
+            )
+            if binding:
+                binding.inspect("after")
+                if binding.refusal:
+                    exit_code = exit_code or 1
+                    print(binding.refusal, file=destination, flush=True)
+        if binding:
+            evidence = binding.evidence
+            report = binding.report()
+            with raw_capture.open("a", encoding="utf-8") as capture:
+                capture.write("\n" + report + "\n")
+            print(report, file=destination, flush=True)
     output = raw_capture.read_text(encoding="utf-8", errors="replace")
     # 124 is the shell's own "deadline expired" code, so a command that
     # exits 124 itself reads as a timeout — which is exactly right when
@@ -121,6 +145,7 @@ def stream_command(
         timed_out=timed_out,
         output=output,
         capture_path=raw_capture,
+        candidate_source=evidence,
     )
 
 
