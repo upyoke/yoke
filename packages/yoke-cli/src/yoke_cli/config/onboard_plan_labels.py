@@ -8,6 +8,7 @@ from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config import onboard_project
+from yoke_cli.config import onboard_publication
 from yoke_cli.config.project_onboard_installed_layer import REMOVE_LAYER_ACTION
 from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
@@ -155,6 +156,8 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
         return "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)"
     if action == "project-write-board-art":
         return "Write your board art, rebuild BOARD.md, and commit the art"
+    if action == onboard_publication.PLAN_ACTION:
+        return target
     if action == "activate-yoke-source":
         return f"Set up the Yoke source checkout at {target}"
     if action == "project-github-auth-choice":
@@ -169,7 +172,7 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
             return 'Use Yoke\'s GitHub "origin" remote from the clone'
         return (
             onboard_github_copy.PROJECT_GITHUB_SKIP_REVIEW
-            if target in ("skip", "")
+            if target in ("skip", "disabled", "")
             else onboard_github_copy.PROJECT_GITHUB_REVIEW
         )
     humanized = action.replace("-", " ").replace("_", " ").strip().capitalize()
