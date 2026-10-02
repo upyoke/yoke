@@ -21,7 +21,9 @@ def test_machine_desktop_access(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke test-machine desktop-access",
         description=(
-            "Open the registered RDP or VNC route and write the desktop password "
+            "Prove a Windows registered RDP login with FreeRDP auth-only, using the password on stdin; "
+            "prints user, credential_proof and desktop_session without a password file. "
+            "For other operating systems, open the registered RDP or VNC route and write the desktop password "
             "to a new mode-600 file under /tmp. Prints only address, user and password_file. "
             "For SSH forwarding the control socket is PASSWORD_FILE.ssh; close it with "
             "ssh -S PASSWORD_FILE.ssh -O exit SSH_USER@SSH_HOST after connecting. "

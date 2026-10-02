@@ -27,7 +27,7 @@ SETTINGS = {
     "resource_name": "lab",
     "host": "lab.example",
     "user": "sshuser",
-    "os": "windows",
+    "os": "macos",
     "operating_notes": "",
     "desktop_route": "ssh-forward",
     "desktop_protocol": "rdp",
