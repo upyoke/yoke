@@ -242,6 +242,13 @@ def run_baseline_probes(
             rows[-1].update(
                 request.failure_evidence(result.stdout or "", result.stderr or "")
             )
+        from yoke_harness.standard_baseline_probes import standard_probe_recovery
+
+        recovery = standard_probe_recovery(probe.name)
+        if recovery and classified is None:
+            rows[-1].update(
+                reason=f"{probe.name} failed. {recovery}", recovery=recovery
+            )
         message = rows[-1]["reason"]
         return HostActionResult(
             False,

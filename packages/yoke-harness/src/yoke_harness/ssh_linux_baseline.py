@@ -254,14 +254,14 @@ def archive_operation(
 def capture_linux_golden(
     control: Any, destination: str, probes_document: str | None
 ) -> HostActionResult:
-    if probes_document is None:
-        return HostActionResult(
-            False,
-            {
-                "recovery": "Pass --probes-file with CLI, credential and relevant user-service checks."
-            },
-            "baseline_probes_not_declared",
-        )
+    from yoke_harness.standard_baseline_probes import capture_probes_document
+
+    probes_document, refusal = capture_probes_document(
+        getattr(control, "os", "linux"), probes_document
+    )
+    if refusal:
+        return refusal
+    assert probes_document is not None
     proven = prove_linux_probes(control, probes_document)
     if not proven.ok:
         return proven

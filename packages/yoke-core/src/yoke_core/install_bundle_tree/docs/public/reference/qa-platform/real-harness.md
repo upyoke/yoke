@@ -4,6 +4,8 @@
 cases. It needs persistent Test Machines with signed-in Claude, Codex and Cursor
 captured in their sealed golden baselines. No harness or product credentials
 enter CI or move from the operator's machine. Windows awaits a supported host.
+Follow [Prepare a test machine](prepare-test-machine.md) before capturing or
+refreshing a golden, and prove its capture/reset/verify roundtrip.
 
 Build the candidate's five wheels in its claimed checkout and declare the exact
 CLI version for each harness and operating system in a JSON document:
