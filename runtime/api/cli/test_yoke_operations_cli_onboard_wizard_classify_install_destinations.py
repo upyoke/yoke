@@ -137,6 +137,7 @@ def test_build_plan_reused_existing_project_lists_missing_art_write(
         "project-install-git-hooks",
         "install-cursor-user-lifecycle-hooks",
         "project-write-board-art",
+        "project-setup-publication",
     ]
     # The posture step is a machine-level write, so it groups beside the
     # Cursor lifecycle hooks rather than with the project's own writes.
