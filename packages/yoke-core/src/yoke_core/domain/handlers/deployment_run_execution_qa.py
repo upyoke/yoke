@@ -37,12 +37,13 @@ class DeploymentExecutionQaRecordResponse(BaseModel):
 
 
 class DeploymentExecutionQaPendingRequest(BaseModel):
-    pass
+    stage_name: Optional[str] = None
 
 
 class DeploymentExecutionQaPendingResponse(BaseModel):
     run_id: str
     unresolved: List[str]
+    held_report: Optional[List[str]] = None
 
 
 class DeploymentExecutionEphemeralQaReadyRequest(BaseModel):
@@ -120,13 +121,24 @@ def handle_deployment_execution_qa_pending(
         return resolved
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.deployment_run_completion_preconditions import (
+        held_stage_report_lines,
         unresolved_blocking_qa,
     )
+    from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
 
     with connect() as conn:
         unresolved = unresolved_blocking_qa(conn, resolved)
+        result = {"run_id": resolved, "unresolved": unresolved}
+        stage_name = str((request.payload or {}).get("stage_name") or "")
+        if stage_name:
+            scoped = qa_stage_outstanding(conn, run_id=resolved, stage_name=stage_name)
+            details = [*unresolved, *(scoped.lines if scoped else ())]
+            count = len(unresolved) + (scoped.waiting if scoped else 0)
+            result["held_report"] = held_stage_report_lines(
+                resolved, stage_name, details, obligation_count=count
+            )
     return HandlerOutcome(
-        result_payload={"run_id": resolved, "unresolved": unresolved},
+        result_payload=result,
         primary_success=True,
     )
 

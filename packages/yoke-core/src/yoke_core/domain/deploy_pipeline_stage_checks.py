@@ -86,9 +86,7 @@ def check_unresolved_qa(
     return None
 
 
-def stage_completes_run(
-    stage: dict[str, Any], stages: list[dict[str, Any]]
-) -> bool:
+def stage_completes_run(stage: dict[str, Any], stages: list[dict[str, Any]]) -> bool:
     """Is *stage* the one whose completion leaves the run nothing to do?
 
     A flow's stages execute in declared order, so only the last one carries
@@ -120,18 +118,20 @@ def check_completion_stage_qa(
     if not stage_completes_run(stage, stages):
         return None
     from yoke_core.domain import deploy_pipeline_control_plane as control_plane
-    from yoke_core.domain.deployment_run_completion_preconditions import (
-        held_stage_report_lines,
-    )
 
     try:
         unresolved_qa = control_plane.unresolved_qa(run_id)
+        lines = (
+            control_plane.held_qa_report_lines(run_id, stage["name"])
+            if unresolved_qa
+            else []
+        )
     except control_plane.DeploymentControlPlaneError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return usage_exit
     if not unresolved_qa:
         return None
-    for line in held_stage_report_lines(run_id, stage["name"], unresolved_qa):
+    for line in lines:
         print(line, file=sys.stderr)
     return awaiting_qa_exit
 

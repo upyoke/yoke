@@ -137,6 +137,21 @@ def unresolved_qa(run_id: str) -> List[str]:
     return [str(value) for value in values] if isinstance(values, list) else []
 
 
+def held_qa_report_lines(run_id: str, stage_name: str) -> List[str]:
+    """Read the held report, including scoped subjects without requirement rows."""
+    result = _call(
+        "deployment_runs.execution.qa_pending", run_id, {"stage_name": stage_name}
+    )
+    lines = result.get("held_report")
+    if not isinstance(lines, list):
+        raise DeploymentControlPlaneError(
+            "scoped_qa_report_unavailable: the serving build does not provide "
+            "the held-stage report; read this run's scoped QA stage diagnostic "
+            "and upgrade the control plane before re-driving for a counted report."
+        )
+    return [str(line) for line in lines]
+
+
 def ephemeral_qa_ready(run_id: str) -> bool:
     """Return whether every run member already has passing browser QA."""
     return bool(
@@ -305,6 +320,7 @@ __all__ = [
     "attach_driver",
     "complete_stage_receipt",
     "execution_context",
+    "held_qa_report_lines",
     "ephemeral_qa_ready",
     "latest_stage_receipt",
     "project_field",
