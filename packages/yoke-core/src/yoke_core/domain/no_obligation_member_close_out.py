@@ -1,10 +1,10 @@
 """Close a delivery-cleared member whose post-deploy work is satisfied.
 
 The merge close-out is the one path to done. This module runs that same
-close-out without a session when either the member recorded
-``post_deploy_no_obligation`` or its completion-flow QA requirements all
-passed or were discharged. An empty case set is still a member nobody asked
-and stays held.
+close-out without a session when the member recorded no obligation or a
+waiver-backed declaration, or its completion-flow QA requirements all passed
+or were discharged. Outstanding run-bound obligations still hold it. An
+unanswered member with an empty case set also stays held.
 """
 
 from __future__ import annotations
@@ -40,10 +40,11 @@ def recorded_no_obligation(conn: Any, item_id: int) -> bool:
 
 def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
     """Whether this run settled every scoped QA obligation for the member."""
-    if recorded_no_obligation(conn, int(item_id)):
-        return True
+    discharges_without_cases = answer_for_item(
+        conn, int(item_id)
+    ).discharges_without_cases
     if not (_table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")):
-        return False
+        return discharges_without_cases
     total = query_scalar(
         conn,
         "SELECT COUNT(*) FROM qa_requirements r "
@@ -52,7 +53,7 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
         (str(run_id), int(item_id)),
     )
     if not int(total or 0):
-        return False
+        return discharges_without_cases
     unresolved = query_scalar(
         conn,
         "SELECT COUNT(*) FROM qa_requirements r "

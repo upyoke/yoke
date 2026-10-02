@@ -154,7 +154,8 @@ addressed to the driver, so a member whose own item-scoped QA was
 accepted sat at its release wait until the whole run finished.
 
 When an item-scoped stage subject becomes accepted or is discharged by an
-explicit `post_deploy_no_obligation`, and
+explicit `post_deploy_no_obligation` or a waiver-backed item declaration,
+with no outstanding run-bound blocking obligation, and
 `deployment_qa_run_acceptance.item_qa_acceptance_blockers` is empty for
 that member, a final production member on a selected flow without run QA or run approval
 closes independently even while sibling item QA holds the run open. The
