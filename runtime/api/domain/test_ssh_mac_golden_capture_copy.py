@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import ctypes
 import os
 from pathlib import Path
 import shlex
@@ -145,6 +146,84 @@ def test_unreadable_file_fails_with_its_path_and_error_without_its_contents(tmp_
     outcome = _capture(transport)
     assert outcome.error_code == "golden_capture_copy_home_failed"
     assert outcome.evidence["refusal"] == refusal
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="uses macOS AppleDouble metadata")
+def test_container_attribute_larger_than_tar_header_limit_captures_and_restores(
+    tmp_path,
+):
+    home = tmp_path / "home"
+    container = home / "Library/Containers/weather.widget"
+    container.mkdir(parents=True)
+    (container / "state").write_text("sandbox container state")
+    attribute = "com.apple.data-container-personality"
+    metadata = b"sandbox metadata" * 100_000
+    # macOS Python has no os.setxattr; this fixture also exceeds argv limits.
+    setxattr = ctypes.CDLL("/usr/lib/libSystem.B.dylib", use_errno=True).setxattr
+    setxattr.argtypes = [
+        ctypes.c_char_p,
+        ctypes.c_char_p,
+        ctypes.c_void_p,
+        ctypes.c_size_t,
+        ctypes.c_uint32,
+        ctypes.c_int,
+    ]
+    setxattr.restype = ctypes.c_int
+    assert (
+        setxattr(
+            os.fsencode(container), attribute.encode(), metadata, len(metadata), 0, 0
+        )
+        == 0
+    ), ctypes.get_errno()
+    subprocess.run(
+        [
+            "/bin/chmod",
+            "+a",
+            "everyone allow readattr,readextattr,readsecurity",
+            str(container),
+        ],
+        check=True,
+    )
+    expected_acl = subprocess.check_output(
+        ["/bin/ls", "-lde", str(container)]
+    ).splitlines()[1:]
+    destination = tmp_path / "golden"
+
+    result = _run_capture(home, destination, tmp_path)
+
+    assert result.returncode == 0, (result.stdout, result.stderr)
+    assert closed_capture_outcomes(result.stdout) is not None
+    captured = destination / container.relative_to(home)
+    assert (
+        subprocess.check_output(
+            ["/usr/bin/xattr", "-p", attribute, str(captured)]
+        ).rstrip(b"\n")
+        == metadata
+    )
+    assert not list(destination.rglob("._*"))
+    restored = tmp_path / "restored"
+    restored.mkdir()
+    result = subprocess.run(
+        ["/bin/cp", "-Rpf", str(destination / "Library"), str(restored)],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0 and not result.stderr
+    restored_container = restored / container.relative_to(home)
+    assert (
+        subprocess.check_output(
+            ["/usr/bin/xattr", "-p", attribute, str(restored_container)]
+        ).rstrip(b"\n")
+        == metadata
+    )
+    assert (restored_container / "state").read_text() == "sandbox container state"
+    assert (
+        subprocess.check_output(
+            ["/bin/ls", "-lde", str(restored_container)]
+        ).splitlines()[1:]
+        == expected_acl
+    )
 
 
 @pytest.mark.parametrize(
