@@ -43,6 +43,25 @@ the preceding harness's local universe. Baseline-group lookup also recognizes a
 standalone execution as its unique subject and never mixes evidence from two runs.
 Host restoration, desktop prerequisites and failure recovery are specified
 only in the corresponding Pack procedure linked above.
+
+Exploratory mission preparation records failures before any walker dispatch.
+The QA run's `raw_result.preparation.evidence` and the plan capture retain a
+bounded, credential-redacted `preparation_failure` with its phase, diagnostic,
+stdout, stderr, exit code and recovery. `baseline_outcome` names `not_started`,
+`started` (restore attempted but not proved), or `completed` (restore proved),
+and retains the returned baseline receipt when available. A later package or
+scratch failure does not erase a completed baseline. Inspect this evidence and
+reconcile the host state before retrying; a planned `scratch_path` is created
+only when `scratch_created` is true. Local preparation uses the caller's source
+checkout; the authority serving the control plane records its QA outcome.
+
+For a delivery case reusing another mission owner's preparation, run
+`yoke dev run -- python3 ops/qa/mission_preparation_evidence.py --project P --holder-plan PLAN --case-key CASE --stage STAGE`
+through item-scoped deployment QA. It reads recorded evidence only and requires
+a holder execution after that deployed stage began, against the same target;
+a pre-release reproduction cannot pass it. Coordinate that execution with its
+holder before running the evidence case.
+
 The case installs the candidate wheels in a separate
 environment, onboards a throwaway Git project into a disposable local universe
 with GitHub disabled, and invokes the signed-in native CLI. Linux uses tmux

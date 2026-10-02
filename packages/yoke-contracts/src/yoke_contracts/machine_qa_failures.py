@@ -44,16 +44,21 @@ class HostControlLocalError(RuntimeError):
         recovery_hint: str,
         exit_code: int | None = None,
         stderr: str = "",
+        stdout: str = "",
+        secrets: Sequence[str] = (),
     ) -> None:
         self.code = code
         self.phase = phase
         self.exit_code = exit_code
-        self.stderr = bounded_machine_qa_diagnostic(stderr)
-        self.recovery_hint = recovery_hint
-        safe_detail = bounded_machine_qa_diagnostic(detail)
+        self.stderr = bounded_machine_qa_diagnostic(stderr, secrets)
+        self.stdout = bounded_machine_qa_diagnostic(stdout, secrets)
+        self.recovery_hint = bounded_machine_qa_diagnostic(recovery_hint, secrets)
+        safe_detail = bounded_machine_qa_diagnostic(detail, secrets)
         fields = [f"phase={phase}", f"exit_code={exit_code}"]
         if self.stderr:
             fields.append(f"stderr={self.stderr}")
+        if self.stdout:
+            fields.append(f"stdout={self.stdout}")
         super().__init__(f"{safe_detail} ({'; '.join(fields)})")
 
 

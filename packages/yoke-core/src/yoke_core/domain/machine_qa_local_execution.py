@@ -16,6 +16,10 @@ from yoke_harness.ssh_mac_gui_session import (
 )
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
 
+from yoke_core.domain.agent_mission_preparation import (
+    mission_manages_packages as _mission_manages_packages,
+    prepare_mission,
+)
 from yoke_core.domain.coordination_claim_record import CoordinationClaim
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.host_control_runner import (
@@ -194,61 +198,18 @@ def _mission_contract(
     return contract
 
 
-def _mission_manages_packages(contract: HostControlExecutionContract) -> bool:
-    case = contract.cases[0]
-    return bool(case.host_baseline or case.method_config.get("host_starting_state"))
-
-
 def prepare_agent_mission_contract(
     raw_contract: dict[str, Any],
     *,
     progress_callback: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
     """Reach the mission baseline and stage its owner-only scratch."""
-    contract = _mission_contract(raw_contract)
-    execution = _execution(contract, progress_callback=progress_callback)
-    if progress_callback is not None:
-        progress_callback()
-    baseline_name = contract.baselines[0] if contract.baselines else None
-    baseline = execution.reach_baseline(baseline_name) if baseline_name else None
-    if progress_callback is not None:
-        progress_callback()
-    from yoke_harness.qa_host_package_fixture import restore_host_packages
-
-    packages = {}
-    if (
-        _mission_manages_packages(contract)
-        and not contract.continues_execution_id
-        and (baseline is None or baseline.ok)
-    ):
-        packages = restore_host_packages(
-            execution.control,
-            contract.cases[0].method_config.get("host_starting_state"),
-        )
-    scratch_path = create_mission_scratch(
-        execution.control,
-        execution_id=str(contract.plan_execution_id),
+    return prepare_mission(
+        _mission_contract(raw_contract),
+        execution_factory=_execution,
+        scratch_factory=create_mission_scratch,
+        progress_callback=progress_callback,
     )
-    preparation = {
-        "baseline": baseline.name if baseline else None,
-        "ok": baseline.ok if baseline else True,
-        "error_code": baseline.error_code if baseline else None,
-        "evidence": {
-            **(baseline.evidence if baseline else {}),
-            "os_packages": packages,
-        },
-        "scratch_path": scratch_path,
-    }
-    payload = {
-        "lease_id": contract.lease_id,
-        "contract_digest": contract.contract_digest,
-        "preparation": redact_machine_qa_value(
-            preparation,
-            tuple(execution.material.secrets.values()),
-        ),
-    }
-    ensure_secret_free_result(payload)
-    return payload
 
 
 def execute_agent_mission_host_command(
