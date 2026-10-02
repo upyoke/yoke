@@ -81,7 +81,7 @@ class LandedItem:
     #: The parked holder's own words for what it waits on, when it left any.
     holder_quiet_reason: str = ""
     #: Seconds since that holder's last tool call. Quiet past the report's
-    #: idle threshold means a working holder is not driving the close-out;
+    #: idle threshold after landing means a holder is not driving close-out;
     #: a declared release wait expects tool silence.
     holder_idle_seconds: int = 0
     #: The workflow the item pins, because close-out is composed from it: an
@@ -123,17 +123,19 @@ class LandedItem:
 
 
 def _holder_is_quiet(entry: LandedItem, idle_after_seconds: int | None) -> bool:
-    """True when a live holder has been quiet past the report's idle threshold."""
+    """True when both holder silence and landing age reach the idle threshold."""
     if entry.delivery_wait or not entry.holder_session_id or idle_after_seconds is None:
         return False
-    return entry.holder_idle_seconds >= int(idle_after_seconds)
+    threshold = int(idle_after_seconds)
+    return entry.holder_idle_seconds >= threshold and entry.landed_seconds >= threshold
 
 
 def holder_phrase(entry: LandedItem, *, idle_after_seconds: int | None = None) -> str:
     """Who holds the item, and whether they are waiting, working, or quiet.
 
     A parked release holder waits by design, so tool silence during that
-    wait is expected. Working holders still use the report's idle threshold.
+    wait is expected. Working holders must be quiet and landed for the full
+    idle threshold.
     """
     if not entry.holder_session_id:
         return "no live holder"
@@ -162,9 +164,9 @@ def landed_recovery(entry: LandedItem, *, idle_after_seconds: int | None = None)
     correct command offered for a situation that needs no command is still
     noise, and it costs every reader the time it takes to try.
 
-    Outside a declared release wait, a holder quiet past the idle threshold
-    is not that live owner. The claim
-    still blocks close-out until the sweep releases it, so the row names a
+    Outside a declared release wait, a holder quiet for the idle threshold
+    after landing is not that live owner. The claim still blocks close-out
+    until the sweep releases it, so the row names a
     wake (the holder may yet return) and the close-out that runs once the
     claim is free.
 

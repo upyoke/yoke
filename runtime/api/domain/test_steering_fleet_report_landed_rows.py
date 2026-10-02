@@ -9,6 +9,7 @@ whether or not anybody needed one.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -268,3 +269,28 @@ def test_an_unheld_landing_on_an_ungated_workflow_gets_the_bare_command(fleet):
 
     assert "yoke merge item YOK-1" in recovery
     assert "--result" not in recovery
+
+
+def test_a_quiet_holder_gets_a_wake_only_after_the_landing_idle_threshold(fleet):
+    fleet.execute("UPDATE items SET merged_at = %s WHERE id = 1", (LONG_AGO,))
+    _claim_item(fleet, ASKER)
+    fleet.commit()
+    entry = _landed(fleet)[0]
+    assert entry.holder_idle_seconds > IDLE_SECONDS
+
+    recent = replace(entry, landed_seconds=IDLE_SECONDS - 1)
+    assert holder_phrase(recent, idle_after_seconds=IDLE_SECONDS) == (
+        f"held by {ASKER}, working"
+    )
+    assert landed_recovery(recent, idle_after_seconds=IDLE_SECONDS) == ""
+    assert recent.landed_seconds == IDLE_SECONDS - 1
+
+    for age in (IDLE_SECONDS, IDLE_SECONDS + 1):
+        old = replace(entry, landed_seconds=age)
+        phrase = holder_phrase(old, idle_after_seconds=IDLE_SECONDS)
+        assert "holder is not driving this" in phrase
+        assert f"quiet {entry.holder_idle_seconds // 60}m" in phrase
+        assert f"wake `yoke say --item {entry.public_ref} --stdin`" in (
+            landed_recovery(old, idle_after_seconds=IDLE_SECONDS)
+        )
+        assert old.landed_seconds == age
