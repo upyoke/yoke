@@ -86,6 +86,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "qa.artifact.read",
         "inbox.list",
         "workflow.execution_instruction.list",
+        "workflow.execution_instruction.resolve",
         "workflows.definition.get",
         "workflows.mechanics.get",
         "workflows.version.get",
