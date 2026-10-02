@@ -13,6 +13,7 @@ from typing import Any, List, Optional, Union
 from yoke_contracts.coordination_claim_keys import (
     COORDINATION_SCOPE_KEY,
     key_prefix_for_kind,
+    TARGET_KIND_QA_ADMISSION,
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.coordination_claim_keys import (
@@ -46,14 +47,16 @@ def list_claims(
 ) -> List[CoordinationClaim]:
     """Read helper for inspecting shared-operation claims without raw SQL.
 
-    Filters compose with AND. ``active_only`` restricts to non-released
+    A QA_HOST key addresses a machine, so project_id does not filter it.
+    Other filters compose with AND. ``active_only`` restricts to non-released
     rows — the same predicate doctor and the board's claims column use
     when rendering live ownership.
     """
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     where: List[str] = [_kind_filter()]
     params: List[Any] = []
-    if project_id is not None:
+    machine_scoped = key is not None and kind_for_key(key) == TARGET_KIND_QA_ADMISSION
+    if project_id is not None and not machine_scoped:
         where.append(f"{scope_text_sql(conn, 'wc.scope', 'project_id')} = {p}")
         params.append(str(resolve_project_id(conn, project_id)))
     if key is not None:
@@ -64,7 +67,7 @@ def list_claims(
         params.append(kind)
         suffix = _key_suffix_column(kind)
         where.append(f"{scope_text_sql(conn, 'wc.scope', suffix[0])} = {p}")
-        params.append(str(key)[suffix[1]:])
+        params.append(str(key)[suffix[1] :])
     if session_id is not None:
         where.append(f"wc.session_id = {p}")
         params.append(session_id)

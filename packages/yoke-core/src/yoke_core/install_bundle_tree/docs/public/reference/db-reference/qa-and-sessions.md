@@ -295,7 +295,7 @@ lives — so the sweep reclaims it normally.
 
 Each claim is addressed by one operator key: `LIVE_DB_MIGRATION:<model>`,
 `QA_HOST:<machine>`, `DEPLOY:<project-slug>`, and the qualification grant
-token. The key is the only handle an operator needs. QA host holders can release by claim id with `yoke claims work release --claim-id N --reason TEXT` after run completion; requirement reads and artifact uploads retain the stored member's project authority after membership ends.
+token. QA_HOST keys are machine-scoped: list with `yoke coordination-claim list --key QA_HOST:<machine> --active-only --json`, ignoring any project filter. Signed-in humans outside harness sessions recover a reviewed row with `yoke coordination-claim release --key QA_HOST:<machine> --claim-id N --holder-session-id S --reason R`; permission remains the holder's project `claims.release`. Other key kinds still require `--project P` for operator release. QA host holders can release by claim id with `yoke claims work release --claim-id N --reason TEXT` after run completion; requirement reads and artifact uploads retain the stored member's project authority after membership ends.
 
 `deploy_serialization` is the one kind an ordinary workflow takes and
 releases by hand: creating and executing a deployment run both refuse

@@ -19,7 +19,7 @@ class HumanOperatorRequired(ValueError):
 
 
 class OperatorReleaseRequest(BaseModel):
-    project_id: str
+    project_id: str | None = None
     key: str
     claim_id: int
     holder_session_id: str = Field(..., min_length=1)
@@ -29,7 +29,7 @@ class OperatorReleaseRequest(BaseModel):
 class OperatorReleaseResponse(BaseModel):
     released: bool
     claim_id: int
-    project_id: int
+    project_id: int | None
     key: str
     prior_session_id: str
     operator_actor_id: int

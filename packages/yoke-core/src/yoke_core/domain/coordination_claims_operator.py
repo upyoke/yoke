@@ -19,7 +19,11 @@ import os
 from typing import Any, Dict, Optional
 
 from yoke_core.domain.auth_context import StandardAuthContext
-from yoke_core.domain.coordination_claim_keys import target_for_key
+from yoke_core.domain.coordination_claim_keys import (
+    TARGET_KIND_QA_ADMISSION,
+    kind_for_key,
+    target_for_key,
+)
 from yoke_core.domain.coordination_claims import (
     OPERATOR_LEASE_RELEASE_EVENT,
     CoordinationClaimError,
@@ -37,7 +41,7 @@ class CoordinationClaimChangedError(CoordinationClaimError):
 
 def operator_release(
     conn: Any,
-    project_id: str | int,
+    project_id: str | int | None,
     key: str,
     operator_reason: str,
     *,
@@ -65,26 +69,30 @@ def operator_release(
     if not operator_reason or not operator_reason.strip():
         raise CoordinationClaimError("operator_reason must be a non-empty string")
 
-    identity = resolve_project(conn, project_id)
-    assert identity is not None
-    numeric_project_id = identity.id
+    machine_scoped = kind_for_key(key) == TARGET_KIND_QA_ADMISSION
+    if not machine_scoped and not project_id:
+        raise CoordinationClaimError("the following arguments are required: --project")
+    identity = None if machine_scoped else resolve_project(conn, project_id)
+    numeric_project_id = identity.id if identity is not None else None
     target = target_for_key(
         key,
         project_id=numeric_project_id,
-        project_slug=identity.slug,
+        project_slug=identity.slug if identity is not None else None,
     )
+    label = key if machine_scoped else f"{project_id}:{key}"
+    list_scope = "" if machine_scoped else "--project P "
     claim = active_claim(conn, target, for_update=True)
     if claim is None:
         raise CoordinationClaimNotFoundError(
-            f"No active coordination claim for {project_id}:{key}"
+            f"No active coordination claim for {label}"
         )
     expected_holder = str(expected_holder_session_id or "").strip()
     if claim.id != int(expected_claim_id) or claim.session_id != expected_holder:
         raise CoordinationClaimChangedError(
-            f"Coordination claim {project_id}:{key} changed after review: "
+            f"Coordination claim {label} changed after review: "
             f"current claim id={claim.id}, holder={claim.session_id!r}; "
             f"expected id={int(expected_claim_id)}, holder={expected_holder!r}. "
-            "Run `yoke coordination-claim list --project P --key K "
+            f"Run `yoke coordination-claim list {list_scope}--key K "
             "--active-only --json`, review the current holder, and retry with "
             "its exact --claim-id and --holder-session-id."
         )
@@ -135,7 +143,7 @@ def operator_release(
 def _emit_operator_release(
     *,
     actor_id: int,
-    project_id: int,
+    project_id: int | None,
     context: Dict[str, Any],
 ) -> None:
     """Fire a WARN ``OperatorLeaseRelease`` event via the shared emitter."""

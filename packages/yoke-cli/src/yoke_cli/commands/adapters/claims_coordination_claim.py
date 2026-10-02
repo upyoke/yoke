@@ -9,9 +9,11 @@ from yoke_cli.commands._helpers import (
     add_json_arg,
     dispatch_and_emit,
     parse_or_usage_error,
+    usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.coordination_claim_recovery import OPERATOR_RELEASE_USAGE
+from yoke_contracts.coordination_claim_keys import QA_HOST_KEY_PREFIX
 
 
 CLAIMS_COORDINATION_CLAIM_LIST_USAGE = (
@@ -169,14 +171,19 @@ def claims_coordination_claim_operator_release(args: List[str]) -> int:
             "Invoke it as a signed-in human action outside a harness session; "
             "manual and launched agent sessions are refused. Read the "
             "active row with `yoke "
-            "coordination-claim list --project P --key K --active-only "
+            "coordination-claim list [--project P] --key K --active-only "
             "--json`, then pass its exact claim id and holder session. The "
             "command works through HTTPS or local authority, requires "
-            "claims.release permission on the project, records the reason, "
+            "claims.release permission on the claim holder's project. "
+            "QA_HOST:<machine> is machine-scoped: omit --project for list "
+            "and operator release; other key kinds require it for release. "
+            "The command records the reason, "
             "and refuses if the holder changed after review."
         ),
     )
-    parser.add_argument("--project", required=True, help="Project slug or id.")
+    parser.add_argument(
+        "--project", default=None, help="Project slug or id; omit for QA_HOST keys."
+    )
     parser.add_argument("--key", required=True, help="Coordination key.")
     parser.add_argument(
         "--claim-id",
@@ -194,6 +201,8 @@ def claims_coordination_claim_operator_release(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, OPERATOR_RELEASE_USAGE)
     if parsed is None:
         return 2
+    if not parsed.project and not parsed.key.startswith(QA_HOST_KEY_PREFIX):
+        return usage_error("the following arguments are required: --project")
     return dispatch_and_emit(
         function_id="claims.coordination_claim.operator_release",
         target=TargetRef(kind="global"),
@@ -213,6 +222,7 @@ def claims_coordination_claim_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke coordination-claim list",
         description=CLAIMS_COORDINATION_CLAIM_LIST_USAGE,
+        epilog="QA_HOST:<machine> keys are machine-scoped; --project does not filter them.",
     )
     parser.add_argument("--project", default=None, help="Project slug or id.")
     parser.add_argument("--key", default=None, help="Filter to one coordination key.")

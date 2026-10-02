@@ -250,9 +250,7 @@ def test_qa_admission_release_by_claim_id_resolves_holding_session_project(
     yoke = resolve_project_id(conn, "yoke")
     actor_id = _project_owner(conn, yoke)
     _session(conn, "holder-session", yoke)
-    claim_id = _qa_host_claim(
-        conn, machine="mac-mini-lab", session_id="holder-session"
-    )
+    claim_id = _qa_host_claim(conn, machine="mac-mini-lab", session_id="holder-session")
     entry = _entry("claims.coordination_claim.release")
 
     request = _release_request(actor_id, {"claim_id": claim_id, "reason": "done"})
@@ -270,12 +268,40 @@ def test_qa_admission_release_refuses_an_actor_without_the_session_project(
     external = resolve_project_id(conn, "externalwebapp")
     outsider = _project_owner(conn, external)
     _session(conn, "holder-session", yoke)
-    claim_id = _qa_host_claim(
-        conn, machine="mac-mini-lab", session_id="holder-session"
-    )
+    claim_id = _qa_host_claim(conn, machine="mac-mini-lab", session_id="holder-session")
     entry = _entry("claims.coordination_claim.release")
 
     request = _release_request(outsider, {"claim_id": claim_id, "reason": "done"})
 
     assert resolve_project_context(conn, entry, request) == (yoke, "yoke")
     assert check_dispatch_permission(conn, entry, request).error is not None
+
+
+@pytest.mark.parametrize("function", ("list", "operator_release"))
+@pytest.mark.parametrize("project_hint", (None, "externalwebapp"))
+@pytest.mark.parametrize("authorized", (True, False))
+def test_machine_recovery_and_list_retain_holder_project_authority(
+    conn, function, project_hint, authorized
+):
+    yoke = resolve_project_id(conn, "yoke")
+    external = resolve_project_id(conn, "externalwebapp")
+    actor_id = _project_owner(conn, yoke if authorized else external)
+    _session(conn, "holder-session", yoke)
+    claim_id = _qa_host_claim(conn, machine="test-mac", session_id="holder-session")
+    function_id = f"claims.coordination_claim.{function}"
+    payload = {"key": "QA_HOST:test-mac", "active_only": True}
+    if function == "operator_release":
+        payload.update(
+            claim_id=claim_id, holder_session_id="holder-session", reason="reviewed"
+        )
+    if project_hint is not None:
+        payload["project_id"] = project_hint
+    request = FunctionCallRequest(
+        function=function_id,
+        actor=ActorContext(actor_id=str(actor_id), session_id=""),
+        target=TargetRef(kind="global"),
+        payload=payload,
+    )
+    permission = check_dispatch_permission(conn, _entry(function_id), request)
+    assert permission.project_id == yoke
+    assert (permission.error is None) is authorized

@@ -17,7 +17,10 @@ from yoke_core.domain.function_target_row_project import (
     resolve_work_claim_project,
     slug_for_project_id,
 )
+from yoke_contracts.coordination_claim_keys import QA_HOST_KEY_PREFIX
+from yoke_core.domain.work_claim_target_sql import scope_text_sql
 from yoke_core.domain.work_claim_targets import (
+    TARGET_KIND_QA_ADMISSION,
     from_row as work_claim_target_from_row,
 )
 
@@ -35,6 +38,21 @@ def resolve_coordination_claim_project_context(
         return _project_of_claim(
             conn, raw_claim_id, visible_project_ids=visible_project_ids
         )
+    key = str(payload.get("key") or "")
+    if request.function == "claims.coordination_claim.list" and key.startswith(
+        QA_HOST_KEY_PREFIX
+    ):
+        active_filter = " AND released_at IS NULL" if payload.get("active_only") else ""
+        row = conn.execute(
+            "SELECT id FROM work_claims WHERE target_kind=%s AND "
+            f"{scope_text_sql(conn, 'scope', 'machine_id')}=%s{active_filter} "
+            "ORDER BY claimed_at DESC, id DESC LIMIT 1",
+            (TARGET_KIND_QA_ADMISSION, key[len(QA_HOST_KEY_PREFIX) :]),
+        ).fetchone()
+        if row is not None:
+            return _project_of_claim(
+                conn, int(row[0]), visible_project_ids=visible_project_ids
+            )
     session_id = str(payload.get("session_id") or "").strip()
     if not session_id:
         return None
