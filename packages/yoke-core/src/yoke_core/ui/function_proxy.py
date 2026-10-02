@@ -149,6 +149,7 @@ UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset(
 UI_OPERATOR_OPTIONAL_READ_FUNCTIONS = frozenset(
     {
         "deployment_runs.list",
+        "projects.list",
         "ui_preferences.screen_selection.list",
         "ui_preferences.nav_group.list",
         "ui_preferences.search_history.list",
