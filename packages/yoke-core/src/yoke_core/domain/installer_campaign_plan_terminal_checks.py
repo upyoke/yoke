@@ -12,13 +12,13 @@ from yoke_core.domain.installer_campaign_plan_common import (
     CHOOSE_MACHINE_ONLY_KEYS,
     DUAL_HOST_BASELINES,
     FRESH_HOST,
-    HOSTED_STAGE_ONBOARD,
+    HOSTED_ONBOARD,
     MACHINE_GITHUB_TEXT,
     PARENT_HANDOFF_TEXT,
     PATH_READY_TEXT,
     PATH_REPAIR_COMMAND,
-    PUBLIC_STAGE_INSTALL,
-    PUBLIC_STAGE_INSTALL_LOCAL,
+    PUBLIC_INSTALL,
+    PUBLIC_INSTALL_LOCAL,
     REVIEW_TEXT,
     SECRET_SAFE_POST_CHECKS,
     SHELL_PRECONFIGURED,
@@ -117,7 +117,7 @@ def _cold_start_config(
             "complete-onboarding",
         ),
         notes=(
-            "Run the public Stage installer through browser-approved hosted "
+            "Run the public {{environment_display_name}} installer through browser-approved hosted "
             f"onboarding and the parent installer handoff from {baseline}."
         ),
         post_checks=(
@@ -134,13 +134,13 @@ COLD_START_HOSTED = terminal_case(
     "cold-start-hosted",
     "terminal-check",
     instructions=(
-        "Run the public Stage installer; choose stage.upyoke.com. Let the Test Machine's "
+        "Run the public {{environment_display_name}} installer; connect to {{app_url}}. Let the Test Machine's "
         "visible Safari approve the one-time code automatically; no operator browser "
         "action is needed or wanted. Finish onboarding and the parent handoff for both "
         "PATH states. Parallel manual approval consumes the code and breaks the gate."
     ),
     expected_outcome=(
-        "Both host baselines complete browser-approved Stage onboarding with "
+        "Both host baselines complete browser-approved {{environment_display_name}} onboarding with "
         "exit code 0, an Apply report, and the installer parent handoff; the "
         "fresh host includes PATH repair while the preconfigured shell does not."
     ),
@@ -159,7 +159,7 @@ COLD_START_HOSTED = terminal_case(
         }
     },
     host_baselines=DUAL_HOST_BASELINES,
-    entry_surface=PUBLIC_STAGE_INSTALL,
+    entry_surface=PUBLIC_INSTALL,
     required_completion="complete-onboarding",
 )
 
@@ -169,13 +169,13 @@ HOSTED_CONNECT = terminal_case(
     "hosted-connect",
     "terminal-check",
     instructions=(
-        "Launch the current installed release against the Stage hosted "
+        "Launch the current installed release against the {{environment_display_name}} hosted "
         "platform, use the browser approval path, and continue only after the "
         "automated Safari approval has granted the one-time machine "
         "authorization. No operator browser action is needed."
     ),
     expected_outcome=(
-        "The browser approval screen opens the Stage platform and advances "
+        "The browser approval screen opens the {{environment_display_name}} platform and advances "
         "directly to GitHub setup with compact verified-connection status, "
         "without asking for a pasted token."
     ),
@@ -192,7 +192,7 @@ HOSTED_CONNECT = terminal_case(
         ),
         capture_checkpoints=("browser-approval", "machine-github"),
         notes=(
-            "Use the live Stage browser-approval protocol; the setup clears "
+            "Use the live {{environment_display_name}} browser-approval protocol; the setup clears "
             "stored auth temporarily so credential reuse cannot bypass it."
         ),
         setup_operations=current_release_setup(
@@ -202,7 +202,7 @@ HOSTED_CONNECT = terminal_case(
         ),
         post_checks=BROWSER_PRIMARY_POST_CHECKS,
     ),
-    entry_surface=HOSTED_STAGE_ONBOARD,
+    entry_surface=HOSTED_ONBOARD,
     required_completion="machine-github",
 )
 
@@ -212,7 +212,7 @@ PATH_REPAIR = terminal_case(
     "path-repair",
     "terminal-check",
     instructions=(
-        "Install the current public Stage release, run the uv-delegated PATH "
+        "Install the current public {{environment_display_name}} release, run the uv-delegated PATH "
         "repair command, and verify fresh-login shell resolution."
     ),
     expected_outcome=(
@@ -244,7 +244,7 @@ APPLY_HANDOFF = terminal_case(
     "apply-handoff",
     "terminal-check",
     instructions=(
-        "Run the public Stage installer with the local-machine destination, "
+        "Run the public {{environment_display_name}} installer with the local-machine destination, "
         "create or verify the local universe, stay disabled for GitHub, "
         "choose machine-only setup, Apply, exit successfully, and capture the "
         "installer parent's execution-ready handoff."
@@ -304,7 +304,7 @@ APPLY_HANDOFF = terminal_case(
         start_delay=5,
         step_delay=4,
     ),
-    entry_surface=PUBLIC_STAGE_INSTALL_LOCAL,
+    entry_surface=PUBLIC_INSTALL_LOCAL,
     required_completion="complete-onboarding",
 )
 

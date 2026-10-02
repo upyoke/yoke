@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -195,3 +196,87 @@ def test_self_hosted_distribution_binding_accepts_local_http_target() -> None:
         target,
     )
     validate_setup_operations([operation])
+
+
+def test_campaign_environments_differ_only_in_bound_template_values() -> None:
+    from yoke_core.domain.installer_campaign_current_text_cases import (
+        CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
+    )
+
+    template = json.dumps(list(CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES))
+    for environment, display_name in (("prod", "Production"), ("stage", "Stage")):
+        target = _target(environment)
+        endpoints = target["endpoints"]
+        expected = template
+        values = {
+            "app_url": endpoints["app_url"],
+            "installer_base_url": endpoints["installer_base_url"],
+            "release_channel": endpoints["release_channel"],
+            "environment_display_name": display_name,
+        }
+        for key, value in values.items():
+            expected = expected.replace("{{" + key + "}}", str(value))
+        assert installer_campaign_cases_for_target(target) == json.loads(expected)
+        assert "{{" not in expected
+
+
+def test_campaign_template_sources_have_no_environment_literals() -> None:
+    import yoke_core.domain.installer_campaign_cases as campaign
+
+    domain = Path(campaign.__file__).parent
+    for path in domain.glob("installer_campaign_*.py"):
+        if path.name == "installer_campaign_execution_target.py":
+            continue
+        source = path.read_text()
+        for literal in (
+            "Stage",
+            "Production",
+            "stage.upyoke.com",
+            "upyoke.com",
+            "DISTRIBUTION_STAGE",
+            "HOSTED_STAGE",
+            '"latest"',
+            '"stable"',
+        ):
+            assert literal not in source, (path.name, literal)
+
+
+def test_campaign_binding_preserves_shell_and_runner_placeholders() -> None:
+    cases = installer_campaign_cases_for_target(_target("prod"))
+    rendered = json.dumps(cases)
+    assert "{yoke_bin}" in rendered
+    assert "${#files[@]}" in rendered
+    assert "${files[@]}" in rendered
+    assert "$HOME" in rendered
+
+
+def test_campaign_binding_uses_declared_custom_environment_values() -> None:
+    target = _target("stage")
+    target["environment"]["name"] = "preview"
+    target["endpoints"].update(
+        app_url="https://preview.example.net:8443",
+        installer_base_url="https://downloads.example.net/yoke",
+        release_channel="candidate.7",
+    )
+    cases = installer_campaign_cases_for_target(target)
+    rendered = json.dumps(cases)
+    assert "Preview" in rendered
+    assert "preview.example.net:8443" in rendered
+    assert "YOKE_CHANNEL=candidate.7" in rendered
+    assert '"channel": "candidate.7"' in rendered
+    assert "stage.upyoke.com" not in rendered
+
+
+def test_campaign_unknown_template_field_names_the_recovery(monkeypatch) -> None:
+    import yoke_core.domain.installer_campaign_execution_target as binding
+
+    monkeypatch.setattr(
+        binding,
+        "CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES",
+        ({"instructions": "{{misspelled_address}}"},),
+    )
+    with pytest.raises(
+        ValueError,
+        match="installer_campaign_template_field_unknown.*correct the template",
+    ):
+        binding.installer_campaign_cases_for_target(_target("prod"))

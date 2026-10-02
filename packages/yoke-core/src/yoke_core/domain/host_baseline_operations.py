@@ -12,6 +12,7 @@ from yoke_harness.ssh_mac_baseline_probes import (
 )
 
 from yoke_core.domain.host_control_runner import HostControl
+from yoke_core.domain.machine_qa_fixture_constants import DISTRIBUTION_URL
 from yoke_core.domain.installer_campaign_recipe_operations import (
     installed_yoke,
     prepared_path,
@@ -78,7 +79,9 @@ def reach_shell_preconfigured(control: HostControl) -> HostBaselineResult:
         fixture = control.create_fixture_operation_runner()
         setup = fixture.execute_setup_operations(
             [
-                installed_yoke(evidence_name=name),
+                installed_yoke(
+                    evidence_name=name, base_url=DISTRIBUTION_URL, channel="latest"
+                ),
                 prepared_path(evidence_name=name),
             ]
         )

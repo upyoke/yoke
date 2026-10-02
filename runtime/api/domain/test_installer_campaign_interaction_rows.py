@@ -15,12 +15,22 @@ from yoke_contracts.api_urls import (
     DISTRIBUTION_STAGE_URL,
     HOSTED_STAGE_PLATFORM_URL,
 )
-from yoke_core.domain.installer_campaign_current_text_cases import (
-    CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
+from yoke_core.domain.installer_campaign_execution_target import (
+    installer_campaign_cases_for_target,
 )
 
 
-INSTALLER_CAMPAIGN_CASES = CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES
+INSTALLER_CAMPAIGN_CASES = installer_campaign_cases_for_target(
+    {
+        "environment": {"name": "stage"},
+        "endpoints": {
+            "app_url": HOSTED_STAGE_PLATFORM_URL,
+            "installer_base_url": DISTRIBUTION_STAGE_URL,
+            "release_channel": "latest",
+        },
+        "role": {"production": False},
+    }
+)
 
 
 def test_user_facing_terminal_cases_use_the_native_terminal_app_mode() -> None:

@@ -93,7 +93,7 @@ ITEMS_TABLE: dict[str, dict] = {
             "spec_updated_at, spec_updated_by, merged_at, deployed_to. "
             "Merge evidence: read `yoke items get PREFIX-N merged_at` for landing "
             "and the merge command receipt for its commit identity. Wrong guess: "
-            "`merge_commit`, `merge_sha`, or `merge_receipt` is an items.get field; all are refused. "
+            "`commit_hash`, `merge_commit`, `merge_sha`, or `merge_receipt` is an items.get field; all are refused. "
             "`pr_url` is also refused; read the merge command receipt for the pull request. "
             "Wrong guess: `merge_queue` is an items.get field. Read its composed "
             "document via items.detail.get, or name merge_queue_status, "
