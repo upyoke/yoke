@@ -15,6 +15,9 @@ from runtime.api.steering_fleet_test_helpers import (
     plan_limit_row,
     seed_steering_scope,
 )
+from yoke_contracts.session_control.plan_limit_unreadable_guidance import (
+    READ_FAILED_GUIDANCE,
+)
 from yoke_core.domain.steering_fleet_plan_capacity import (
     ALL_MODELS_LABEL,
     EMPTY,
@@ -132,7 +135,7 @@ def test_plan_limit_lines_match_worked_target_table() -> None:
     assert (
         f"| {_HOST} | codex-cli | no live selection | {EMPTY} | "
         f"planUsage.totalPercentUsed | unknown | {EMPTY} | {EMPTY} | "
-        f"usage_unreadable | {EMPTY} |"
+        f"usage_unreadable — {READ_FAILED_GUIDANCE} | {EMPTY} |"
     ) in lines
     assert HEADROOM_LEGEND in lines
 

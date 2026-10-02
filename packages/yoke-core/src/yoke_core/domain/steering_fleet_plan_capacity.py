@@ -16,6 +16,10 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 
+from yoke_contracts.session_control.plan_limit_unreadable_guidance import (
+    unreadable_guidance,
+    unreadable_note,
+)
 from yoke_contracts.session_control.plan_limits import ALL_MODELS_SCOPE
 from yoke_core.domain.steering_fleet_report_balance import (
     plan_meter_selection_cell,
@@ -216,7 +220,7 @@ def _markdown_row(
             f"| {computed.machine_name} | {computed.surface} | {selection} | "
             f"{EMPTY} | {_dash(computed.meter)} | "
             f"{window_label(computed.window_kind, computed.scope)} | "
-            f"{EMPTY} | {EMPTY} | {computed.reason or 'unreadable'} | "
+            f"{EMPTY} | {EMPTY} | {unreadable_note(computed.reason)} | "
             f"{EMPTY} |"
         )
     resets_in = (
@@ -291,6 +295,9 @@ def plan_limit_dicts(
             "resets_at": row.resets_at,
             "status": row.status,
             "reason": row.reason,
+            "guidance": (
+                unreadable_guidance(row.reason) if row.status != "ok" else None
+            ),
             "live_model_selections": list(
                 plan_meter_selection_labels(row, session_counts)
             ),
