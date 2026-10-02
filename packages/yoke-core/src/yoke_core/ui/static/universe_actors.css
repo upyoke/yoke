@@ -62,3 +62,6 @@
 .universe-app-root .actors-empty {
   margin: 13px 15px;
 }
+
+.universe-app-root .actors-confirm-copy { max-width: 30ch; margin: 0 0 8px; }
+.universe-app-root .actors-table .item-button + .item-button { margin-left: 6px; }

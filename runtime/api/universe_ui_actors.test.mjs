@@ -69,3 +69,32 @@ test("Actors renders an empty roster without stale controls", async () => {
   assert.match(main.textContent, /No actors are registered/);
   assert.equal(allNodes(main).filter((node) => node.tagName === "BUTTON").length, 0);
 });
+
+test("disabling names the actor and requires confirmation, with cancel and retry", async () => {
+  const roster = { current_actor_id: 1, can_manage_actors: true, rows: [actor("active")] };
+  const { context, main, calls } = fixture([roster, roster]);
+  const original = context.client.call;
+  let attempts = 0;
+  context.client.call = async (request) => {
+    if (request.function === "actors.state.set" && ++attempts === 1) {
+      return { status: 503, envelope: { success: false, error: { message: "Unavailable" } } };
+    }
+    return original(request);
+  };
+  await renderActorsView(context, main);
+  const button = (text) => allNodes(main).find((node) => node.tagName === "BUTTON" && node.textContent === text);
+  button("Disable").dispatchEvent(new Event("click"));
+  assert.match(main.textContent, /Disable Member\?/);
+  assert.equal(attempts, 0);
+  button("Cancel").dispatchEvent(new Event("click"));
+  assert.equal(attempts, 0);
+  button("Disable").dispatchEvent(new Event("click"));
+  button("Disable Member").dispatchEvent(new Event("click"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(button("Disable Member").disabled, false);
+  assert.match(main.textContent, /Unavailable/);
+  button("Disable Member").dispatchEvent(new Event("click"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(attempts, 2);
+  assert.deepEqual(calls.find((call) => call.function === "actors.state.set").payload, { actor_id: 2, enabled: false });
+});

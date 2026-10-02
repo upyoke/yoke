@@ -206,3 +206,17 @@ test("a large open roster keeps every session in the machine totals", async () =
   assert.equal(byClass(main, "machine-work-row").length, 5);
   assert.equal(byClass(main, "machine-work-rest")[0].children.length, 3);
 });
+
+test("initial machine roster failure offers an in-place retry", async () => {
+  let attempts = 0;
+  const handlers = fastMachines(() => ok({ rows: [] }));
+  const original = handlers["machine.list"];
+  handlers["machine.list"] = () => ++attempts === 1 ? fail("roster unavailable") : original();
+  const { main } = await renderView(handlers);
+  await settle();
+  assert.match(main.textContent, /roster unavailable/);
+  byClass(main, "machines-retry")[0].dispatchEvent(new Event("click"));
+  await settle();
+  assert.equal(attempts, 2);
+  assert.equal(byClass(main, "machine-card").length, 1);
+});

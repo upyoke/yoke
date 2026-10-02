@@ -228,3 +228,37 @@ test("the actor menu names the person and links to Profile; the sidebar does not
   assert.equal(sidebarLabels.includes("Profile"), false);
   mounted.unmount();
 });
+
+for (const [operation, label, armLabel] of [
+  ["profile.token.revoke", "Revoke", "Revoke…"],
+  ["profile.onboarding.reset", "Reset", null],
+]) test(`${operation} keeps its action retryable after a refusal`, async () => {
+  const client = profileClient();
+  const original = client.call.bind(client);
+  let attempts = 0;
+  client.call = async (request) => {
+    if (request.function === operation && ++attempts === 1) {
+      return { status: 503, envelope: { success: false, error: { message: "Try later" } } };
+    }
+    return original(request);
+  };
+  const { root, mounted } = await mountProfile(client);
+  const button = (text) => allNodes(root).find((node) => node.tagName === "BUTTON" && node.textContent === text);
+  if (armLabel) button(armLabel).dispatchEvent(new Event("click"));
+  button(label).dispatchEvent(new Event("click"));
+  await settle();
+  assert.match(root.textContent, /Try later/);
+  assert.equal(button(label).disabled, false);
+  button(label).dispatchEvent(new Event("click"));
+  await settle();
+  assert.equal(attempts, 2);
+  mounted.unmount();
+});
+
+test("profile inputs have persistent accessible names", async () => {
+  const { root, mounted } = await mountProfile(profileClient());
+  const names = allNodes(root).map((node) => node.getAttribute("aria-label"));
+  assert.ok(names.includes("Token name"));
+  assert.ok(names.includes("Time zone"));
+  mounted.unmount();
+});

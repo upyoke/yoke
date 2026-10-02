@@ -56,6 +56,7 @@ export function renderMachinesView(context, main, _scope, chromeArg) {
   const documentNode = context.document;
   const status = el(documentNode, "p", "sessions-action-status");
   status.hidden = true;
+  status.setAttribute("role", "status");
   const stats = el(documentNode, "section", "machine-roster-stats-host");
   const roster = el(documentNode, "section", "machines-section");
   const retired = el(documentNode, "section", "machines-section");
@@ -95,7 +96,7 @@ export function renderMachinesView(context, main, _scope, chromeArg) {
       if (!context.isMounted()) return;
       showStatus(presentSessionControlFailure(
         error, "The machine roster could not be read.",
-      ));
+      ), load);
       return;
     }
     if (!context.isMounted()) return;
