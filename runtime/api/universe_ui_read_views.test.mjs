@@ -175,6 +175,7 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
                   category: "field-note-observation",
                   agent: "tester",
                   context: "open",
+                  preview: "Retries preserve typed input",
                   reviewed_at: null,
                   promoted_dash: {
                     public_ref: "YOK-90",
@@ -211,9 +212,13 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "now", "field-note-observation", "tester", "open", "", "YOK-90",
-    "then", "failed", "doctor", "closed", "later", "",
+    "Retries preserve typed input", "now", "field-note-observation", "tester", "open", "", "YOK-90",
+    "closed", "then", "failed", "doctor", "closed", "later", "",
   ]);
+  assert.equal(
+    byClass(root, "row-link").find((node) => node.textContent === "Retries preserve typed input").href,
+    "#/ouroboros/22?project=1",
+  );
   assert.equal(
     byClass(root, "row-link").find((node) => node.textContent === "YOK-90").href,
     "#/items/90?project=1",
