@@ -123,11 +123,12 @@ permission to bypass unrelated product safeguards.
 
 ## 4. Durable desktop and unattended sessions
 
-For desktop/screenshot coverage, run the installed Pack helper as the user:
+Install the candidate first. For desktop coverage, the executing product
+operation runs this Pack helper with that candidate's Python as the test user:
 
 ```text
-python3 ops/machine-qa/provision_linux_desktop.py
-python3 ops/machine-qa/provision_linux_desktop.py --verify
+CANDIDATE_PYTHON ops/machine-qa/provision_linux_desktop.py --desktop-password-stdin
+CANDIDATE_PYTHON ops/machine-qa/provision_linux_desktop.py --verify
 ```
 
 It requires Ubuntu24.04 and passwordless sudo, installs XFCE, xfce4-terminal,
@@ -139,10 +140,13 @@ Tools/services are system baseline; session selection is captured home state.
 Do not install scrot/xdotool as a mission-journaled package delta: another reset
 can reverse that journal. Current terminal selection is retained by reset.
 
-RDP and unattended Xorg need the test user's local password even though SSH
-remains key-only. The operator sets it interactively with `sudo passwd TESTUSER`
-and imports it privately as `desktop_password`; no password is logged or put
-in a remote file/argv. Never disable PAM to obtain a desktop.
+Provisioning requires the operation to stream the capability-owned
+`desktop_password` on private stdin. It sets the dedicated fixture user's
+local password with `sudo -n chpasswd` and reuses the candidate's existing
+owned-session startup. The operator never types a sudo password, sets a machine
+password or logs into the desktop. No secret enters a file, argv or output;
+SSH stays key-only and PAM stays enabled. `--verify` checks readiness only and
+refuses the password flag; its receipt does not prove a started desktop.
 
 The serving build's registered Linux screenshot, GUI-session execution and
 desktop-access operations start or reuse the dedicated XFCE session. Their
@@ -153,9 +157,9 @@ an already running desktop with a blank capture still refuses.
 The unattended route uses `xrdp-sesrun -s ::1 -t Xorg -F 0 TESTUSER`, feeding
 the registered password on stdin. On the audited xrdp0.9.24 host, sesman is on
 `[::1]:3350`; omitting `-s ::1` can report a connect error. Do not run a
-password-bearing workaround. If the operation refuses sesrun/startup, use its
-named recovery; a human RDP login is the fallback and is required only by
-cases testing human login. Older serving builds may still require that login.
+password-bearing workaround. If the operation refuses sesrun/startup, repair
+its named prerequisite and rerun. Human RDP login is used only by cases that
+explicitly test human login.
 
 For XTEST input on the actual leased display, use xdotool without `--window`;
 delivery through the focused window needs several seconds before being judged

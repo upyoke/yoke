@@ -9,6 +9,7 @@ from pathlib import Path
 import platform
 import re
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -22,14 +23,60 @@ class ProvisionFailure(RuntimeError):
     """A named provisioning refusal with an operator recovery."""
 
 
-def command(argv: list[str]) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(argv, text=True, capture_output=True, timeout=1200)
+def command(
+    argv: list[str], *, input_text: str | None = None
+) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(
+        argv, input=input_text, text=True, capture_output=True, timeout=1200
+    )
     if result.returncode:
         raise ProvisionFailure(
             f"linux_desktop_command_failed: {argv[0]} exited {result.returncode}; "
             "repair the host dependency or sudo access, then rerun provisioning"
         )
     return result
+
+
+def desktop_password_input() -> str:
+    """Accept only private capability input, never a personal terminal prompt."""
+    if sys.stdin.isatty():
+        raise ProvisionFailure(
+            "desktop_password_input_required: the executing product operation must "
+            "feed the capability-owned desktop password on stdin; never type it"
+        )
+    password = sys.stdin.read(1026).removesuffix("\n")
+    if not password or len(password) > 1024 or "\n" in password or "\r" in password:
+        raise ProvisionFailure(
+            "desktop_password_input_invalid: supply one bounded capability-owned password"
+        )
+    return password
+
+
+def desktop_runtime():
+    try:
+        from yoke_harness import linux_desktop_state
+    except ImportError:
+        raise ProvisionFailure(
+            "candidate_desktop_runtime_required: install the candidate first and "
+            "run this Pack helper with its Python interpreter"
+        ) from None
+    return linux_desktop_state
+
+
+def start_desktop(password: str, port: int, runtime) -> dict:
+    """Set the fixture login privately and reuse the product's owned-session path."""
+    import pwd
+
+    user = pwd.getpwuid(os.getuid()).pw_name
+    command(["sudo", "-n", "chpasswd"], input_text=f"{user}:{password}\n")
+    try:
+        return runtime.ensure_desktop(password, port)
+    except (RuntimeError, OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        raise ProvisionFailure(
+            "linux_desktop_session_not_ready: "
+            + str(exc).replace(password, "[REDACTED]")
+            + "; repair the registered fixture secret or xrdp/XFCE startup and rerun"
+        ) from None
 
 
 def localhost_config(content: str, port: int = DEFAULT_RDP_PORT) -> str:
@@ -190,8 +237,8 @@ def verify(home: Path, port: int = DEFAULT_RDP_PORT) -> dict:
         "rdp_listener": f"127.0.0.1:{port}",
         "login_password_set": len(status) > 1 and status[1] == "P",
         "operator_next_step": (
-            "Set a local password with sudo passwd if needed; connect through an SSH "
-            "tunnel and sign into the browser yourself. SSH remains key-only."
+            "The product opens the dedicated desktop with its capability-owned secret. "
+            "Prove candidate Chromium renders there, then request only personal application sign-in."
         ),
     }
 
@@ -211,14 +258,30 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verify", action="store_true", help="Readiness check only")
     parser.add_argument("--rdp-port", type=int, default=DEFAULT_RDP_PORT)
+    parser.add_argument("--desktop-password-stdin", action="store_true")
     args = parser.parse_args()
     if not 1 <= args.rdp_port <= 65535:
         parser.error("--rdp-port must be between 1 and 65535")
+    if args.verify and args.desktop_password_stdin:
+        parser.error("--verify does not accept a password or start a desktop")
+    if not args.verify and not args.desktop_password_stdin:
+        parser.error(
+            "provisioning requires --desktop-password-stdin from the capability store"
+        )
     try:
+        password = desktop_password_input() if args.desktop_password_stdin else None
+        runtime = desktop_runtime() if password is not None else None
         home = prerequisites()
         if not args.verify:
             provision(home, args.rdp_port)
-        print(json.dumps(verify(home, args.rdp_port)), flush=True)
+        result = verify(home, args.rdp_port)
+        if password is not None:
+            result.update(start_desktop(password, args.rdp_port, runtime))
+            result["login_password_set"] = True
+        else:
+            result["desktop_session"] = "not_started"
+        result["headed_application_proved"] = False
+        print(json.dumps(result), flush=True)
         return 0
     except (ProvisionFailure, OSError, subprocess.TimeoutExpired, ValueError) as exc:
         print(f"linux_desktop_not_ready: {exc}; inspect the host and rerun", flush=True)

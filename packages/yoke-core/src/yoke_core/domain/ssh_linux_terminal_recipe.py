@@ -38,7 +38,6 @@ def _interactive(
     secrets,
     size,
     progress_callback,
-    allowed_operator_urls,
 ):
     terminal = LinuxTerminal(control)
     deadline = time.monotonic() + float(config["max_wall_seconds"])
@@ -68,13 +67,20 @@ def _interactive(
             )
         time.sleep(initial_wait)
         for action in config["actions"]:
-            if action.get("operator_gate") not in (None, "machine_browser_approval"):
+            if action.get("operator_gate"):
                 return HostActionResult(
                     False,
                     {
-                        "recovery": "Declare the registered machine_browser_approval gate in the recipe."
+                        "steps": rows,
+                        "designed_deferrals": [
+                            {
+                                "code": "headless_linux_browser_approval_unavailable",
+                                "outcome": "deferred",
+                            }
+                        ],
+                        "recovery": "Use headless device-auth sign-in before golden capture; use a macOS Test Machine for browser approval recipes.",
                     },
-                    "machine_browser_approval_kind_invalid",
+                    "headless_linux_browser_approval_unavailable",
                 )
             if time.monotonic() >= deadline:
                 return HostActionResult(
@@ -104,87 +110,43 @@ def _interactive(
                     },
                     "terminal_action_not_ready",
                 )
-            if action.get("operator_gate") == "machine_browser_approval":
-                from yoke_core.domain.machine_qa_operator_gate import (
-                    run_machine_browser_approval_with_io,
+            if not send_recipe_keys(
+                control._run,
+                backend="tmux",
+                session=terminal.session,
+                keys=action["keys"],
+            ):
+                return HostActionResult(
+                    False,
+                    {
+                        "steps": rows,
+                        "recovery": "Repair the tmux input bridge and rerun.",
+                    },
+                    "terminal_input_failed",
                 )
-                from yoke_core.domain.machine_qa_saved_profile_approval import (
-                    approve_machine_from_profile,
+            delay = float(action.get("wait_seconds", config["step_delay"]))
+            if delay > max(0, deadline - time.monotonic()):
+                return HostActionResult(
+                    False,
+                    {
+                        "steps": rows,
+                        "recovery": "Keep action delays inside max_wall_seconds.",
+                    },
+                    "terminal_recipe_timed_out",
                 )
-
-                flow = action.get("browser_approval")
-                approval_budget = min(
-                    float(action["gate_timeout_seconds"]),
-                    max(0, deadline - time.monotonic()),
+            time.sleep(delay)
+            transcript = _wait(
+                terminal, action.get("completion_text", ()), deadline, progress_callback
+            )
+            if transcript is None:
+                return HostActionResult(
+                    False,
+                    {
+                        "steps": rows,
+                        "recovery": "Repair the declared completion expectation and rerun.",
+                    },
+                    "terminal_completion_not_proved",
                 )
-                gate = run_machine_browser_approval_with_io(
-                    read_transcript=terminal.transcript,
-                    send_keys=lambda keys: send_recipe_keys(
-                        control._run,
-                        backend="tmux",
-                        session=terminal.session,
-                        keys=keys,
-                    ),
-                    action={**action, "gate_timeout_seconds": approval_budget},
-                    progress_callback=progress_callback,
-                    allowed_base_urls=allowed_operator_urls,
-                    flow=flow,
-                    approve_browser=lambda url, code: approve_machine_from_profile(
-                        control,
-                        verification_url=url,
-                        user_code=code,
-                        flow=flow,
-                        timeout_seconds=approval_budget,
-                    ),
-                )
-                if not gate.ok:
-                    return HostActionResult(
-                        False,
-                        {"steps": rows, "browser_approval": gate.browser_evidence},
-                        gate.error_code,
-                    )
-                transcript = gate.transcript
-            else:
-                if not send_recipe_keys(
-                    control._run,
-                    backend="tmux",
-                    session=terminal.session,
-                    keys=action["keys"],
-                ):
-                    return HostActionResult(
-                        False,
-                        {
-                            "steps": rows,
-                            "recovery": "Repair the tmux input bridge and rerun.",
-                        },
-                        "terminal_input_failed",
-                    )
-                delay = float(action.get("wait_seconds", config["step_delay"]))
-                if delay > max(0, deadline - time.monotonic()):
-                    return HostActionResult(
-                        False,
-                        {
-                            "steps": rows,
-                            "recovery": "Keep action delays inside max_wall_seconds.",
-                        },
-                        "terminal_recipe_timed_out",
-                    )
-                time.sleep(delay)
-                transcript = _wait(
-                    terminal,
-                    action.get("completion_text", ()),
-                    deadline,
-                    progress_callback,
-                )
-                if transcript is None:
-                    return HostActionResult(
-                        False,
-                        {
-                            "steps": rows,
-                            "recovery": "Repair the declared completion expectation and rerun.",
-                        },
-                        "terminal_completion_not_proved",
-                    )
             rows.append(
                 {
                     "key": str(action["step"]),
@@ -192,8 +154,6 @@ def _interactive(
                     "transcript": transcript,
                 }
             )
-            if action.get("operator_gate"):
-                rows[-1]["browser_approval"] = gate.browser_evidence
             if str(action["step"]) in config["capture_checkpoints"]:
                 try:
                     rows[-1].update(control.capture_terminal_checkpoint())
@@ -261,7 +221,6 @@ def execute_linux_recipe(
     config,
     size,
     progress_callback=None,
-    allowed_operator_urls=(),
 ):
     ok, staged, staged_secrets = stage_recipe_files(
         config["stage_files"], upload_bytes=control._upload_bytes
@@ -298,7 +257,6 @@ def execute_linux_recipe(
                 secrets=secrets,
                 size=size,
                 progress_callback=progress_callback,
-                allowed_operator_urls=allowed_operator_urls,
             )
         safe = HostActionResult(
             result.ok,

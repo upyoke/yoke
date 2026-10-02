@@ -20,7 +20,7 @@ from yoke_harness.windows_desktop_state import active_windows_sessions
 START_TIMEOUT = 45
 AUTH_TIMEOUT = 30
 CLEANUP_TIMEOUT = 5
-CLIENT_RECOVERY = "install FreeRDP's sdl-freerdp on the executing workstation (macOS: brew install freerdp; Linux: install the freerdp-sdl package), or log in with a human RDP client and keep the dedicated desktop open"
+CLIENT_RECOVERY = "install FreeRDP's sdl-freerdp on the executing workstation (macOS: brew install freerdp; Linux: install the freerdp-sdl package), then rerun the product GUI operation"
 
 
 def _client():

@@ -1,6 +1,7 @@
 """Pack desktop routes retain loopback safety and distinguish setup from UI proof."""
 
 import importlib.util
+import io
 import json
 from pathlib import Path
 import sys
@@ -57,19 +58,112 @@ def test_wsl_route_reuses_linux_provisioner_and_keeps_ui_unproved(
         linux, "provision", lambda *args: calls.append(("provision", *args))
     )
     monkeypatch.setattr(linux, "verify", lambda *args: {"ok": True})
+    runtime = object()
+    monkeypatch.setattr(linux, "desktop_password_input", lambda: "fixture-secret")
+    monkeypatch.setattr(linux, "desktop_runtime", lambda: runtime)
+    monkeypatch.setattr(
+        linux,
+        "start_desktop",
+        lambda password, port, actual_runtime: (
+            calls.append(("start", password, port, actual_runtime))
+            or {"desktop_session": "started"}
+        ),
+    )
     monkeypatch.setattr(
         windows,
         "prove_windows_localhost",
         lambda port: calls.append(("localhost", port)),
     )
-    monkeypatch.setattr(sys, "argv", ["provisioner", *(["--verify"] if verify else [])])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["provisioner", "--verify" if verify else "--desktop-password-stdin"],
+    )
     assert windows.main() == 0
     result = json.loads(capsys.readouterr().out)
     assert result["headed_application_proved"] is False
+    assert result["desktop_session"] == ("not_started" if verify else "started")
+    assert "fixture-secret" not in json.dumps(result)
     assert calls == [
         *([] if verify else [("provision", home, windows.DEFAULT_WSL_RDP_PORT)]),
         ("localhost", windows.DEFAULT_WSL_RDP_PORT),
+        *(
+            []
+            if verify
+            else [("start", "fixture-secret", windows.DEFAULT_WSL_RDP_PORT, runtime)]
+        ),
     ]
+
+
+@pytest.mark.parametrize("input_text", ["", "line\nline", "line\r", "x" * 1025])
+def test_desktop_password_input_refuses_invalid_private_input(
+    provisioners, monkeypatch, input_text
+):
+    linux, _ = provisioners
+    monkeypatch.setattr(sys, "stdin", io.StringIO(input_text))
+    with pytest.raises(linux.ProvisionFailure, match="desktop_password_input_invalid"):
+        linux.desktop_password_input()
+
+
+def test_desktop_password_input_refuses_personal_terminal_prompt(
+    provisioners, monkeypatch
+):
+    linux, _ = provisioners
+    monkeypatch.setattr(
+        sys, "stdin", type("Terminal", (), {"isatty": lambda self: True})()
+    )
+    with pytest.raises(linux.ProvisionFailure, match="desktop_password_input_required"):
+        linux.desktop_password_input()
+
+
+def test_desktop_fixture_password_stays_on_stdin_and_reuses_product_startup(
+    provisioners, monkeypatch
+):
+    import pwd
+
+    linux, _ = provisioners
+    password = "private-fixture-secret"
+    calls = []
+    monkeypatch.setattr(
+        pwd, "getpwuid", lambda uid: type("User", (), {"pw_name": "tester"})()
+    )
+    monkeypatch.setattr(
+        linux,
+        "command",
+        lambda argv, **kwargs: calls.append((argv, kwargs)),
+    )
+
+    def ensure(actual_password, port):
+        assert actual_password == password
+        assert port == linux.DEFAULT_RDP_PORT
+        return {"desktop_session": "started", "environment": {"DISPLAY": ":10"}}
+
+    runtime = type("Runtime", (), {"ensure_desktop": staticmethod(ensure)})()
+    assert (
+        linux.start_desktop(password, linux.DEFAULT_RDP_PORT, runtime)[
+            "desktop_session"
+        ]
+        == "started"
+    )
+    assert calls == [
+        (["sudo", "-n", "chpasswd"], {"input_text": f"tester:{password}\n"})
+    ]
+
+
+@pytest.mark.parametrize("index", [0, 1])
+def test_verify_refuses_secret_flag_before_any_host_action(
+    provisioners, monkeypatch, index
+):
+    module = provisioners[index]
+    monkeypatch.setattr(
+        sys, "argv", ["provisioner", "--verify", "--desktop-password-stdin"]
+    )
+    monkeypatch.setattr(
+        provisioners[0], "desktop_password_input", lambda: pytest.fail("read secret")
+    )
+    with pytest.raises(SystemExit) as exc:
+        module.main()
+    assert exc.value.code == 2
 
 
 def test_wsl_forwarding_failure_has_no_public_listener_fallback(

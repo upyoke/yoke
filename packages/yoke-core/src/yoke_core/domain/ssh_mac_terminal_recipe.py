@@ -53,8 +53,6 @@ def _run_interactive_recipe(
     terminal_size: tuple[int, int] | None,
     progress_callback: Callable[[], None] | None,
     allowed_operator_urls: tuple[str, ...],
-    approve_browser=None,
-    browser_flow=None,
 ) -> HostActionResult:
     """Run one interactive recipe after its files are staged."""
     backend = detect_terminal_backend(run)
@@ -139,8 +137,6 @@ def _run_interactive_recipe(
                     action=action,
                     progress_callback=progress_callback,
                     allowed_base_urls=allowed_operator_urls,
-                    approve_browser=approve_browser,
-                    flow=action.get("browser_approval", browser_flow),
                 )
                 ready_transcript = gate_result.transcript
                 browser_evidence = gate_result.browser_evidence

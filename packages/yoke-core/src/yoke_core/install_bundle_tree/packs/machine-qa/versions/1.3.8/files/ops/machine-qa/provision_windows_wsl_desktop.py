@@ -62,24 +62,38 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verify", action="store_true", help="Readiness check only")
     parser.add_argument("--rdp-port", type=int, default=DEFAULT_WSL_RDP_PORT)
+    parser.add_argument("--desktop-password-stdin", action="store_true")
     args = parser.parse_args()
     if not 1 <= args.rdp_port <= 65535 or args.rdp_port == desktop.DEFAULT_RDP_PORT:
         parser.error("--rdp-port needs a valid port separate from native Windows RDP")
+    if args.verify and args.desktop_password_stdin:
+        parser.error("--verify does not accept a password or start a desktop")
+    if not args.verify and not args.desktop_password_stdin:
+        parser.error(
+            "provisioning requires --desktop-password-stdin from the capability store"
+        )
     try:
+        password = (
+            desktop.desktop_password_input() if args.desktop_password_stdin else None
+        )
+        runtime = desktop.desktop_runtime() if password is not None else None
         facts = windows_facts()
         home = desktop.prerequisites()
         if not args.verify:
             desktop.provision(home, args.rdp_port)
         result = desktop.verify(home, args.rdp_port)
         prove_windows_localhost(args.rdp_port)
+        if password is not None:
+            result.update(desktop.start_desktop(password, args.rdp_port, runtime))
+            result["login_password_set"] = True
+        else:
+            result["desktop_session"] = "not_started"
         result.update(
             facts,
             display_route="WSL XFCE through Windows localhost RDP",
             operator_next_step=(
-                "Keep the registered Windows RDP desktop open, run "
-                f"mstsc.exe /v:127.0.0.1:{args.rdp_port}, and personally log into "
-                "the dedicated Linux test user. Prove candidate Chromium renders "
-                "in its XFCE terminal before personal application sign-in."
+                "The product opens WSL XFCE with its capability-owned secret. "
+                "Prove candidate Chromium renders there, then request only personal application sign-in."
             ),
             headed_application_proved=False,
         )

@@ -32,8 +32,6 @@ def execute_terminal_recipe(
     terminal_size: tuple[int, int] | None = None,
     progress_callback: Callable[[], None] | None = None,
     allowed_operator_urls: tuple[str, ...] = (),
-    approve_browser=None,
-    browser_flow=None,
 ) -> HostActionResult:
     """Execute one already-validated campaign recipe and return raw evidence."""
     staged_ok, staged, staged_secrets = stage_recipe_files(
@@ -74,8 +72,6 @@ def execute_terminal_recipe(
                 terminal_size=terminal_size,
                 progress_callback=progress_callback,
                 allowed_operator_urls=allowed_operator_urls,
-                approve_browser=approve_browser,
-                browser_flow=browser_flow,
             )
         else:
             from yoke_core.domain.ssh_mac_terminal_recipe import (
@@ -93,8 +89,6 @@ def execute_terminal_recipe(
                 terminal_size=terminal_size,
                 progress_callback=progress_callback,
                 allowed_operator_urls=allowed_operator_urls,
-                approve_browser=approve_browser,
-                browser_flow=browser_flow,
             )
     except Exception:
         remove_staged_files(run, staged)

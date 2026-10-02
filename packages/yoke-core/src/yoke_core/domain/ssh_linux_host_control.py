@@ -88,5 +88,4 @@ class SshLinuxHostControl(SshLinuxHostOperations):
             config=config,
             size=self._pending_terminal_size,
             progress_callback=progress_callback,
-            allowed_operator_urls=tuple(allowed_operator_urls),
         )

@@ -13,6 +13,7 @@ from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_operator_gate import (
     run_machine_browser_approval_with_io,
 )
+from yoke_core.domain.ssh_mac_browser_approval import approve_machine_in_safari
 from yoke_core.domain.qa_artifact_handle import local_handle
 from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_DISPLAY_FRAME_UNAVAILABLE_ERROR_CODE,
@@ -72,8 +73,6 @@ def run_terminal_app_recipe(
     terminal_size: tuple[int, int] | None,
     progress_callback: Callable[[], None] | None,
     allowed_operator_urls: tuple[str, ...],
-    approve_browser=None,
-    browser_flow=None,
 ) -> HostActionResult:
     """Run one recipe in the same Terminal.app surface a person operates."""
     session = "yoke-qa-" + uuid4().hex[:12]
@@ -155,8 +154,11 @@ def run_terminal_app_recipe(
                     action=action,
                     progress_callback=progress_callback,
                     allowed_base_urls=allowed_operator_urls,
-                    approve_browser=approve_browser,
-                    flow=action.get("browser_approval", browser_flow),
+                    approve_browser=lambda url, code: approve_machine_in_safari(
+                        run,
+                        verification_url=url,
+                        user_code=code,
+                    ),
                 )
                 ready_transcript = gate_result.transcript
                 browser_evidence = gate_result.browser_evidence

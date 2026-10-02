@@ -85,11 +85,16 @@ No installed machine case requires a Stage application sign-in. Installing
 wheels and reaching a browser wait screen alone do not need an application
 sign-in. These are Yoke test facts, not Machine QA Pack prerequisites.
 
-Yoke's fresh-host and installer cases restore the separate saved profile after
-candidate installation and use it for their own fresh machine approval. Their
-existing case step settings own pages, paths, labels, controls and refusal text.
+Yoke's agent-driven walker case restores the separate saved profile after
+candidate installation and uses it for its own fresh machine approval. The case
+instructions own pages, paths, labels, controls, refusal text and completion
+checks. Its existing retained host-command keeps the candidate terminal alive;
+`yoke qa browser setup` and `yoke qa browser step` drive candidate Chromium one
+observed step at a time. Read those commands' `--help` before execution. Do not
+add an approval command or extend the scripted terminal recipe contract.
 Agents complete setup and password-free application steps from a saved identity
 provider session; the user handles credential entry and personal permission
 prompts. Actual candidate application UI and terminal completion are separate
-proofs from the snapshot seal. The proven Mac Safari route remains in place until
-the candidate route has completed a real test-mac approval.
+proofs from the snapshot seal. Scripted terminal cases keep their current route.
+The proven Mac Safari route remains in place until the walker has completed a
+real test-mac approval.

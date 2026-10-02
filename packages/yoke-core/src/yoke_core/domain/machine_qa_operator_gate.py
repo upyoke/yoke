@@ -10,8 +10,9 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from yoke_core.domain.ssh_mac_terminal_capture import RunRemote
-from yoke_core.domain.machine_qa_saved_profile_approval import (
+from yoke_core.domain.ssh_mac_browser_approval import (
     BrowserApprovalResult,
+    approve_machine_in_safari,
 )
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     capture_recipe_transcript,
@@ -20,6 +21,13 @@ from yoke_core.domain.ssh_mac_terminal_recipe_support import (
 
 
 _HEARTBEAT_SECONDS = 15.0
+_DENIAL_MARKERS = (
+    "authorization denied in the browser",
+    "authorization expired",
+    "hosted authorization expired",
+    "this machine was denied in the browser",
+)
+_APPROVAL_PATHS = frozenset({"/connect", "/machine"})
 
 
 @dataclass(frozen=True)
@@ -34,7 +42,7 @@ class OperatorGateResult:
 
 
 def _labeled_value(transcript: str, label: str) -> str | None:
-    for line in reversed(transcript.splitlines()):
+    for line in transcript.splitlines():
         stripped = line.strip().lstrip("-•*").lstrip()
         if stripped.startswith(label):
             value = stripped.removeprefix(label).strip()
@@ -43,17 +51,17 @@ def _labeled_value(transcript: str, label: str) -> str | None:
     return None
 
 
-def _approved_origin(url: str, allowed_base_urls: tuple[str, ...], flow: dict) -> bool:
+def _approved_origin(url: str, allowed_base_urls: tuple[str, ...]) -> bool:
     parsed = urlsplit(url)
     if (
         parsed.scheme != "https"
         or not parsed.netloc
-        or parsed.path not in flow["paths"]
+        or parsed.path not in _APPROVAL_PATHS
         or parsed.query
         or parsed.fragment
     ):
         return False
-    return f"{parsed.scheme}://{parsed.netloc}" in flow["origins"] and any(
+    return any(
         (parsed.scheme, parsed.netloc) == (allowed.scheme, allowed.netloc)
         for allowed in (urlsplit(value) for value in allowed_base_urls)
     )
@@ -70,7 +78,7 @@ def _emit_browser_approval(url: str, code: str) -> None:
     print(
         json.dumps(
             {
-                "approval_automation": "self_approving_saved_profile",
+                "approval_automation": "self_approving_visible_safari",
                 "event": "machine_qa.operator_gate",
                 "kind": "machine_browser_approval",
                 "self_approving": True,
@@ -91,8 +99,6 @@ def run_machine_browser_approval(
     action: Mapping[str, Any],
     progress_callback: Callable[[], None] | None,
     allowed_base_urls: tuple[str, ...],
-    approve_browser: Callable[[str, str], BrowserApprovalResult],
-    flow: dict,
 ) -> OperatorGateResult:
     """Emit the live approval coordinates, start polling, and retain authority."""
     return run_machine_browser_approval_with_io(
@@ -110,8 +116,11 @@ def run_machine_browser_approval(
         action=action,
         progress_callback=progress_callback,
         allowed_base_urls=allowed_base_urls,
-        approve_browser=approve_browser,
-        flow=flow,
+        approve_browser=lambda url, code: approve_machine_in_safari(
+            run,
+            verification_url=url,
+            user_code=code,
+        ),
     )
 
 
@@ -123,41 +132,17 @@ def run_machine_browser_approval_with_io(
     progress_callback: Callable[[], None] | None,
     allowed_base_urls: tuple[str, ...],
     approve_browser: Callable[[str, str], BrowserApprovalResult],
-    flow: dict,
 ) -> OperatorGateResult:
     """Run one browser handoff through an already-authorized terminal surface."""
     transcript = read_transcript()
-    if flow is None:
-        return OperatorGateResult(
-            False,
-            transcript,
-            "machine_browser_approval_step_settings_missing",
-            {
-                "recovery": "Set browser_approval details in this Yoke case's existing step settings, then rerun."
-            },
-        )
-    url = _labeled_value(transcript, flow["url_label"])
-    code = _labeled_value(transcript, flow["code_label"])
-    if (
-        url is None
-        or code is None
-        or not _approved_origin(url, allowed_base_urls, flow)
-    ):
+    url = _labeled_value(transcript, "Open:")
+    code = _labeled_value(transcript, "One-time code:")
+    if url is None or code is None or not _approved_origin(url, allowed_base_urls):
         return OperatorGateResult(
             False,
             transcript,
             "machine_browser_approval_context_missing",
         )
-    if not callable(approve_browser):
-        return OperatorGateResult(
-            False,
-            transcript,
-            "machine_browser_approval_adapter_missing",
-            {
-                "recovery": "Run the recipe through the registered Test Machine host adapter."
-            },
-        )
-    deadline = time.monotonic() + float(action["gate_timeout_seconds"])
     _emit_browser_approval(url, code)
     if not send_keys(action["keys"]):
         return OperatorGateResult(
@@ -166,29 +151,18 @@ def run_machine_browser_approval_with_io(
             "machine_browser_approval_input_failed",
         )
     approval = approve_browser(url, code)
-    if not approval.ok:
-        return OperatorGateResult(
-            False,
-            transcript,
-            approval.error_code or "machine_browser_approval_failed",
-            approval.evidence,
-            approval.error_code,
-        )
-    browser_automation_error_code = None
+    browser_automation_error_code = (
+        None
+        if approval.ok
+        else approval.error_code or "machine_browser_approval_failed"
+    )
+    timeout_seconds = float(action["gate_timeout_seconds"])
     completion_text = tuple(action["completion_text"])
-    gate_code = _labeled_value(transcript, flow["code_label"])
+    gate_code = _labeled_value(transcript, "One-time code:")
     assert gate_code is not None
+    deadline = time.monotonic() + timeout_seconds
     next_heartbeat = 0.0
     while True:
-        now = time.monotonic()
-        if now >= deadline:
-            return OperatorGateResult(
-                False,
-                transcript,
-                "machine_browser_approval_timed_out",
-                approval.evidence,
-                browser_automation_error_code,
-            )
         transcript = read_transcript()
         gate_transcript = _current_gate_transcript(transcript, gate_code)
         lowered = gate_transcript.casefold()
@@ -199,11 +173,20 @@ def run_machine_browser_approval_with_io(
                 browser_evidence=approval.evidence,
                 browser_automation_error_code=browser_automation_error_code,
             )
-        if any(marker.casefold() in lowered for marker in flow["denial_text"]):
+        if any(marker in lowered for marker in _DENIAL_MARKERS):
             return OperatorGateResult(
                 False,
                 transcript,
                 "machine_browser_approval_rejected",
+                approval.evidence,
+                browser_automation_error_code,
+            )
+        now = time.monotonic()
+        if now >= deadline:
+            return OperatorGateResult(
+                False,
+                transcript,
+                "machine_browser_approval_timed_out",
                 approval.evidence,
                 browser_automation_error_code,
             )

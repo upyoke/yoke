@@ -186,8 +186,8 @@ configuration change is made. The product feeds the password on stdin via
 `yoke test-machine desktop-access --project P --machine NAME` proves the
 registered credential with FreeRDP `+auth-only`, reports authenticated proof,
 and closes its forward without creating a desktop session. Missing FreeRDP
-refuses as `windows_rdp_client_missing`, naming installation and a human RDP
-login kept open as the fallback; it never waits indefinitely for a client.
+refuses as `windows_rdp_client_missing`: install its named client and rerun the
+product GUI operation. The operator does no desktop login.
 
 WSL2 invokes Windows PowerShell and a temporary task using the SSH account's
 held interactive token. The task captures the primary Windows display,
@@ -196,23 +196,24 @@ No password enters that task. Session 0, locked desktops and blank images
 refuse with a named recovery rather than earning screenshot credit.
 
 For the selected Server route, reuse this Pack's Linux XFCE/xrdp provisioner
-inside WSL with a separate loopback port. From the dedicated Linux user's home:
+inside WSL with a separate loopback port. Install the candidate first; the
+executing operation uses its Python in the dedicated Linux user's home:
 
 ```text
-python3 ops/machine-qa/provision_windows_wsl_desktop.py
-python3 ops/machine-qa/provision_windows_wsl_desktop.py --verify
+CANDIDATE_PYTHON ops/machine-qa/provision_windows_wsl_desktop.py --desktop-password-stdin
+CANDIDATE_PYTHON ops/machine-qa/provision_windows_wsl_desktop.py --verify
 ```
 
 The wrapper requires Ubuntu24.04, non-root passwordless sudo, WSL2/systemd and
 Windows interop. It records actual Windows edition/build and WSL version,
-installs the existing Linux desktop packages, proves a loopback listener and
-Windows localhost connectivity, and prints the exact native RDP command.
-Keep the registered Windows desktop open and personally run that command
-there; sign into the dedicated Linux user, then open its XFCE terminal.
-If its local password is absent, the operator runs `sudo passwd` personally.
-Never enter that password in an agent command or bypass RDP authentication.
-Prove candidate Chromium visibly renders there before requesting app sign-in.
-Provisioner success deliberately leaves `headed_application_proved=false`.
+installs the existing Linux desktop packages and proves loopback/localhost access.
+The product streams its capability-owned desktop secret on private stdin, sets
+the dedicated WSL fixture password with `sudo -n chpasswd`, and uses the existing
+candidate `xrdp-sesrun` startup. No secret enters a file, argv or output. The
+operator never types sudo, sets a machine password or logs into either desktop.
+Agents prove candidate Chromium renders there before requesting only personal
+application sign-in. Success leaves `headed_application_proved=false` until that
+independent check; `--verify` starts no session and refuses the password flag.
 No Windows firewall, auto-logon or public listener change is made.
 [Microsoft documents localhost access to WSL services](https://learn.microsoft.com/en-us/windows/wsl/networking)
 and [systemd prerequisites](https://learn.microsoft.com/en-us/windows/wsl/systemd).
