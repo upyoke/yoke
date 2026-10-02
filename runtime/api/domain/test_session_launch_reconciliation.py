@@ -7,7 +7,10 @@ import json
 import pytest
 
 from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
-from yoke_core.domain.session_launch_execution import reconcile_launch, report_launch_attempt
+from yoke_core.domain.session_launch_execution import (
+    reconcile_launch,
+    report_launch_attempt,
+)
 from yoke_core.domain.session_launch_requests import cancel_launch, retry_launch
 from yoke_core.domain.session_launch_store import get_launch
 from yoke_core.domain.session_launch_types import SessionLaunchError
@@ -18,31 +21,12 @@ from runtime.api.domain.session_launch_test_support import (
     add_relay,
     assigned_launch,
     authorization,
-    launch_connection,
+    relay_connection,
 )
 
 
 MACHINE_ID = "11111111-1111-4111-8111-111111111111"
 RELAY_ID = f"machine:{MACHINE_ID}"
-
-
-def _connection():
-    conn = launch_connection()
-    conn.execute("ALTER TABLE projects ADD COLUMN org_id INTEGER DEFAULT 1")
-    conn.execute("CREATE TABLE organizations (id INTEGER PRIMARY KEY, settings TEXT)")
-    conn.execute("INSERT INTO organizations VALUES (1, '{}')")
-    for column in (
-        "executor TEXT DEFAULT 'codex'",
-        "execution_lane TEXT",
-        "last_heartbeat TEXT",
-        "offered_at TEXT",
-        "last_tool_call_at TEXT",
-        "turn_posture TEXT NOT NULL DEFAULT 'unknown'",
-        "turn_posture_at TEXT",
-    ):
-        conn.execute(f"ALTER TABLE harness_sessions ADD COLUMN {column}")
-    conn.commit()
-    return conn
 
 
 def _heartbeat() -> RelayHeartbeat:
@@ -71,7 +55,7 @@ def _claimed_launch(conn, *, key: str):
 
 
 def test_reconciliation_refuses_an_unexpired_relay_lease() -> None:
-    conn = _connection()
+    conn = relay_connection()
     launch, job = _claimed_launch(conn, key="live-reconcile-lease")
     cancel_launch(
         conn,
@@ -108,7 +92,7 @@ def test_reconciliation_refuses_an_unexpired_relay_lease() -> None:
 
 
 def test_expired_reconciliation_releases_relay_for_the_next_launch() -> None:
-    conn = _connection()
+    conn = relay_connection()
     launch, _job = _claimed_launch(conn, key="expired-reconcile-lease")
     settle_launch_deadlines(conn, now="2026-08-22T12:05:01Z")
 
@@ -160,7 +144,7 @@ def test_expired_reconciliation_releases_relay_for_the_next_launch() -> None:
 
 
 def test_native_reconciliation_refuses_multiple_open_attempts() -> None:
-    conn = _connection()
+    conn = relay_connection()
     launch, _job = _claimed_launch(conn, key="ambiguous-native-reconciliation")
     cancel_launch(
         conn,
@@ -195,7 +179,7 @@ def test_native_reconciliation_refuses_multiple_open_attempts() -> None:
 
 
 def test_repeat_reconciliation_repairs_a_legacy_attempt_once() -> None:
-    conn = _connection()
+    conn = relay_connection()
     launch, _job = _claimed_launch(conn, key="legacy-reconcile-lease")
     settle_launch_deadlines(conn, now="2026-08-22T12:05:01Z")
     conn.execute(
@@ -241,7 +225,7 @@ def test_repeat_reconciliation_repairs_a_legacy_attempt_once() -> None:
 
 
 def test_cancelled_native_creation_can_be_reconciled_then_retried() -> None:
-    conn = _connection()
+    conn = relay_connection()
     launch, job = _claimed_launch(conn, key="cancelled-native-reconcile")
     pending = report_launch_attempt(
         conn,
