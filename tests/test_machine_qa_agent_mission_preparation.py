@@ -232,10 +232,19 @@ def test_delivery_evidence_accepts_the_holders_new_deployed_preparation(
         holder_plan="holder-plan",
         project="project",
         case_key="holder-case",
+        require_package_restore=False,
     )
     result = reader.verify(args)
     assert result["holder_qa_run_id"] == 91
     assert result["preparation"]["ok"] is not failed
+    args.require_package_restore = True
+    with pytest.raises(ValueError, match="os_package_restore_unproved"):
+        reader.verify(args)
+    preparation["evidence"]["os_packages"] = {"ok": False}
+    with pytest.raises(ValueError, match="os_package_restore_unproved"):
+        reader.verify(args)
+    preparation["evidence"]["os_packages"] = {"ok": True}
+    assert reader.verify(args)["preparation"]["evidence"]["os_packages"]["ok"]
     captured = "2026-10-02T14:59:00Z"
     with pytest.raises(ValueError, match="Ask the holder to execute"):
         reader.verify(args)

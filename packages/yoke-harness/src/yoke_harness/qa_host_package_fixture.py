@@ -44,15 +44,33 @@ def delta(base, current):
             'removed': {name: version for name, version in base.items() if name not in current},
             'changed': {name: version for name, version in base.items()
                         if name in current and current[name] != version}}
+def owned_packages(previous):
+    changes = previous.get('changes')
+    declaration = previous.get('declared')
+    declared = declaration.get('os_packages', {}) if isinstance(declaration, dict) else None
+    if (not isinstance(changes, dict) or set(changes) != {'installed', 'removed', 'changed'} or
+        any(not isinstance(changes.get(kind), dict) for kind in ('installed', 'removed', 'changed')) or
+        not isinstance(declared, dict) or
+        any(not isinstance(declared.get(state, []), list) or
+            any(not isinstance(name, str) for name in declared.get(state, []))
+            for state in ('present', 'absent'))):
+        raise RuntimeError('os_package_attribution_unproved: reconcile the package journal before retrying QA')
+    return set().union(*changes.values(), declared.get('present', []), declared.get('absent', []))
 current = inventory()
 previous = json.loads(journal.read_text()) if journal.exists() else None
 if mode == 'restore':
-    restored = delta(previous['base_packages'], current) if previous else delta(current, current)
+    restored = delta(current, current)
     if previous:
+        owned = owned_packages(previous)
+        base = previous['base_packages']
+        restored = delta({name: version for name, version in base.items() if name in owned},
+                         {name: version for name, version in current.items() if name in owned})
+        expected = {name: version for name, version in current.items() if name not in owned}
+        expected.update({name: version for name, version in base.items() if name in owned})
         apt('purge', sorted(restored['installed']))
         apt('install', [name+'='+version for name, version in
                        {**restored['removed'], **restored['changed']}.items()])
-        if inventory() != previous['base_packages']:
+        if inventory() != expected:
             raise RuntimeError('os_package_restore_unproved: reconcile package versions before retrying QA')
     base = inventory()
     write({'base_packages': base, 'declared': config, 'changes': delta(base, base)})
@@ -125,7 +143,7 @@ def _run(control: Any, mode: str, declared: dict | None, *, secrets=()) -> dict:
 
 
 def restore_host_packages(control: Any, declared: dict | None, *, secrets=()) -> dict:
-    """Undo the preceding mission's complete package delta, then apply this fixture."""
+    """Undo journal-attributed changes, preserving ambient updates, then apply the fixture."""
     config = validate_host_starting_state(declared) if declared is not None else None
     return _run(control, "restore", config, secrets=secrets)
 
