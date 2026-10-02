@@ -23,7 +23,7 @@ export async function itemDraftStorage(context) {
         try {
           const saved = JSON.parse(storage.getItem(key) || "null");
           if (!saved || !projects.some((row) => String(row.id) === saved.projectId)) return null;
-          if (initialProjectId && String(initialProjectId) !== saved.projectId) return null;
+          if (initialProjectId && initialProjectId !== "all" && String(initialProjectId) !== saved.projectId) return null;
           if (typeof saved.title !== "string" || typeof saved.instruction !== "string") return null;
           return {
             projectId: saved.projectId,

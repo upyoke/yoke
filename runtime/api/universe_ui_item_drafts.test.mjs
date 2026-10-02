@@ -7,7 +7,7 @@ import { itemContext } from "./universe_ui_items_test_support.mjs";
 
 const ok = (result) => ({ status: 200, envelope: { success: true, result } });
 const failure = { status: 503, envelope: { success: false, error: { message: "Unavailable" } } };
-function fixture() {
+function fixture({ projects = [{ id: 7, slug: "acme", name: "Acme" }] } = {}) {
   const document = new FakeDocument();
   const entries = new Map();
   document.defaultView.sessionStorage = {
@@ -27,8 +27,12 @@ function fixture() {
     if (request.function === "items.create") return ok({ public_ref: "ACM-23" });
     return ok({ rows: [] });
   });
+  const call = context.client.call;
+  context.client.call = (request) => request.function === "projects.list" && request.payload.for_item_creation
+    ? Promise.resolve(ok({ creation_scoped: true, rows: projects })) : call(request);
+  context.projects = () => projects;
   const main = document.createElement("main");
-  const mount = async () => { renderNewItemView(context, main, "7"); await settle(); await settle(); };
+  const mount = async (initialProjectId = "7") => { renderNewItemView(context, main, initialProjectId); await settle(); await settle(); };
   return { context, document, main, entries, state, mount };
 }
 const input = (main, tag) => allNodes(main).find((node) => node.tagName === tag);
@@ -86,4 +90,22 @@ test("draft restore checks current project permission and tolerates unavailable 
   assert.equal(await itemDraftStorage(context), null);
   await mount();
   assert.ok(input(main, "TEXTAREA"));
+});
+
+test("All-project creation restores its chosen project and draft after remount", async () => {
+  const { mount, main } = fixture({ projects: [
+    { id: 7, slug: "harbour", name: "Harbour" },
+    { id: 8, slug: "garden", name: "Garden" },
+  ] });
+  await mount("all");
+  assert.equal(input(main, "TEXTAREA"), undefined);
+  const selector = byClass(main, "item-project-select")[0];
+  selector.value = "7";
+  selector.dispatchEvent(new Event("change"));
+  await settle();
+  fill(main);
+  await mount("all");
+  assert.equal(byClass(main, "item-project-select")[0].value, "7");
+  assert.equal(input(main, "INPUT").value, "Fix layout");
+  assert.equal(input(main, "TEXTAREA").value, "Preserve the useful draft.");
 });
