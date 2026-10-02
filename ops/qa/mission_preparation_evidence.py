@@ -37,11 +37,8 @@ def verify(args: argparse.Namespace) -> dict:
     base_url = os.environ.get("BASE_URL", "").rstrip("/")
     if not run_id or not base_url:
         raise ValueError("Run this case through its item-scoped deployment QA stage.")
-    stage = _read("deployment-runs", "get", run_id, "current_stage")["value"]
-    entered = _read("deployment-runs", "get", run_id, "current_stage_entered_at")[
-        "value"
-    ]
-    if stage != args.stage or not entered:
+    deployment = _read("deployment-runs", "get", run_id)["run"]
+    if deployment["current_stage"] != args.stage:
         raise ValueError(f"Run {run_id} must be at its deployed {args.stage} stage.")
     plan = _read("qa", "plan", "get", args.holder_plan, "--project", args.project)[
         "plan"
@@ -62,9 +59,9 @@ def verify(args: argparse.Namespace) -> dict:
         else [
             proof
             for proof in case["proofs"]
-            if proof.get("deployment_run_id")
+            if proof.get("deployment_run_id") == run_id
             and proof.get("happened_at")
-            and _timestamp(proof["happened_at"]) >= _timestamp(entered)
+            and proof.get("run_id")
         ]
     )
     if not proofs:
@@ -75,6 +72,20 @@ def verify(args: argparse.Namespace) -> dict:
     run = _read(
         "qa", "run", "get", "--run-id", str(proof["run_id"]), "--project", args.project
     )["run"]
+    requirement = _read(
+        "qa", "requirement", "get", "--requirement-id", str(run["qa_requirement_id"])
+    )["requirement"]
+    # The stage-scoped requirement owns the deployed candidate provenance.
+    if (
+        requirement["deployment_run_id"] != run_id
+        or requirement["deployment_stage"] != args.stage
+        or requirement["execution_candidate_revision"] != deployment["release_lineage"]
+        or requirement["plan_id"] != plan["id"]
+        or requirement["plan_case_key"] != args.case_key
+    ):
+        raise ValueError(
+            "Holder proof must belong to this deployment stage and candidate."
+        )
     raw = run["raw_result"]
     raw = json.loads(raw) if isinstance(raw, str) else raw
     preparation = raw["preparation"]

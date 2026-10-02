@@ -62,8 +62,10 @@ the credential-owning client.
 For a delivery case reusing another mission owner's preparation, run
 `python3 ops/qa/mission_preparation_evidence.py --project P --holder-plan PLAN --case-key CASE --stage STAGE`
 through item-scoped deployment QA. It reads recorded evidence only and requires
-a holder execution after that deployed stage began, against the same target;
-a pre-release reproduction cannot pass it. Coordinate that execution with its
+a holder proof bound to the current deployment run, named stage and candidate,
+against the same target; a pre-release reproduction cannot pass it. The QA
+requirement binding proves the deployed subject without reading unprojected
+run columns. Coordinate that execution with its
 holder before running the evidence case. The Command runner supplies the
 deployed candidate checkout; a lane-source wrapper would switch that subject
 and is refused.
