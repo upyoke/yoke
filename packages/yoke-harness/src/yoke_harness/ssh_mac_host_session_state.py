@@ -9,6 +9,7 @@ recoveries differ: one sends a person to the screen, the other to the probe.
 from __future__ import annotations
 
 import re
+import shlex
 from typing import Any
 
 from yoke_contracts.machine_qa_terminal_bridge import (
@@ -27,6 +28,13 @@ SCREEN_SHARING_CURTAIN_RECOVERY = (
     "display is curtained by an active Screen Sharing connection; "
     "disconnect Screen Sharing (or reconnect without curtain) and retry"
 )
+SCREEN_SAVER_DEFAULT_IDLE_SECONDS = 20 * 60
+SCREEN_SAVER_READ_COMMAND = "defaults -currentHost read com.apple.screensaver idleTime"
+SCREEN_SAVER_DISABLE_COMMAND = (
+    "defaults -currentHost write com.apple.screensaver idleTime -int 0"
+)
+SCREEN_SAVER_ENABLED_ERROR = "macos_screen_saver_enabled"
+SCREEN_SAVER_PROBE_ERROR = "macos_screen_saver_probe_unavailable"
 
 
 def read_console_user(run: RunRemote) -> str | None:
@@ -73,9 +81,56 @@ def read_screen_sharing_active(run: RunRemote) -> bool | None:
 
 def display_lock_recovery(context: dict[str, Any]) -> str:
     """Explain a confirmed curtain, otherwise retain the ordinary lock remedy."""
-    if context.get("screen_sharing_active") is True:
-        return SCREEN_SHARING_CURTAIN_RECOVERY
-    return terminal_bridge_recovery(TERMINAL_DISPLAY_LOCKED_ERROR_CODE)
+    recovery = (
+        SCREEN_SHARING_CURTAIN_RECOVERY
+        if context.get("screen_sharing_active") is True
+        else terminal_bridge_recovery(TERMINAL_DISPLAY_LOCKED_ERROR_CODE)
+    )
+    idle = context.get("screen_saver_idle_seconds")
+    if idle is not None and idle > 0:
+        recovery += "; " + screen_saver_recovery(idle)
+    elif "screen_saver_idle_seconds" in context and idle is None:
+        recovery += "; " + screen_saver_recovery(None)
+    return recovery
+
+
+def read_screen_saver_idle_seconds(
+    run: RunRemote, console_user: str | None
+) -> int | None:
+    """Read the console user's current-host preference without changing it."""
+    if not console_user or console_user in {"root", "loginwindow", "_mbsetupuser"}:
+        return None
+    result = run(
+        "/usr/bin/sudo -n -H -u "
+        + shlex.quote(console_user)
+        + " /usr/bin/"
+        + SCREEN_SAVER_READ_COMMAND,
+        timeout=10,
+    )
+    if result.returncode:
+        detail = (result.stderr or "") + (result.stdout or "")
+        if "idleTime" in detail and "does not exist" in detail:
+            return SCREEN_SAVER_DEFAULT_IDLE_SECONDS
+        return None
+    try:
+        idle = int(result.stdout.strip())
+    except ValueError:
+        return None
+    return idle if idle >= 0 else None
+
+
+def screen_saver_recovery(idle_seconds: int | None) -> str:
+    """Teach the explicit operator action for an enabled or unreadable saver."""
+    if idle_seconds is None:
+        return (
+            "screen saver idle time could not be read; run "
+            + SCREEN_SAVER_READ_COMMAND
+            + " as the console user, repair read access, and retry verification"
+        )
+    return (
+        f"screen saver will lock this Mac after {idle_seconds / 60:g} minutes; "
+        "run " + SCREEN_SAVER_DISABLE_COMMAND + " as the console user and retry"
+    )
 
 
 def read_secure_keyboard_entry(run: RunRemote) -> bool:
@@ -119,7 +174,9 @@ def terminal_app_reachable(run: RunRemote) -> tuple[bool, str]:
     )
 
 
-def probe_host_display_context(run: RunRemote) -> dict[str, Any]:
+def probe_host_display_context(
+    run: RunRemote, *, expected_console_user: str | None = None
+) -> dict[str, Any]:
     """Read the host facts that decide whether any capture could have worked."""
     context = {
         "console_user": read_console_user(run),
@@ -127,6 +184,13 @@ def probe_host_display_context(run: RunRemote) -> dict[str, Any]:
     }
     if context["display_locked"] is True:
         context["screen_sharing_active"] = read_screen_sharing_active(run)
+        if (
+            expected_console_user is None
+            or context["console_user"] == expected_console_user
+        ):
+            context["screen_saver_idle_seconds"] = read_screen_saver_idle_seconds(
+                run, context["console_user"]
+            )
     return context
 
 
@@ -140,6 +204,8 @@ __all__ = [
     "read_load_average",
     "read_secure_keyboard_entry",
     "read_screen_sharing_active",
+    "read_screen_saver_idle_seconds",
+    "screen_saver_recovery",
     "system_events_reachable",
     "terminal_app_reachable",
 ]

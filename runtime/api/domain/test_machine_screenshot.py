@@ -73,7 +73,7 @@ def test_capture_uses_os_display_and_removes_remote_file(monkeypatch, os):
     commands = []
     monkeypatch.setattr(
         "yoke_harness.ssh_mac_host_session_state.probe_host_display_context",
-        lambda run: {"console_user": "test", "display_locked": False},
+        lambda run, **kwargs: {"console_user": "test", "display_locked": False},
     )
 
     def run(command, **kwargs):
@@ -110,7 +110,7 @@ def test_capture_failure_is_named_and_cleanup_still_runs(monkeypatch):
     commands = []
     monkeypatch.setattr(
         "yoke_harness.ssh_mac_host_session_state.probe_host_display_context",
-        lambda run: {"console_user": "test", "display_locked": False},
+        lambda run, **kwargs: {"console_user": "test", "display_locked": False},
     )
 
     def run(command, **kwargs):
@@ -212,7 +212,7 @@ def test_mac_private_or_locked_session_is_not_captured(monkeypatch, context, cod
     commands = []
     monkeypatch.setattr(
         "yoke_harness.ssh_mac_host_session_state.probe_host_display_context",
-        lambda run: context,
+        lambda run, **kwargs: context,
     )
 
     def run(command, **kwargs):

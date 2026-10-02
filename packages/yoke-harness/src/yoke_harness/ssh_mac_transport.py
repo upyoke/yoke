@@ -12,6 +12,17 @@ from yoke_contracts.machine_qa_execution import (
     REQUIRED_SESSION_CONTEXT_FIELD,
 )
 from yoke_contracts.machine_qa_failures import HostControlLocalError
+from yoke_contracts.machine_qa_terminal_bridge import (
+    TERMINAL_CONSOLE_USER_MISMATCH_ERROR_CODE,
+    terminal_bridge_recovery,
+)
+from yoke_harness.ssh_mac_host_session_state import (
+    SCREEN_SAVER_ENABLED_ERROR,
+    SCREEN_SAVER_PROBE_ERROR,
+    read_console_user,
+    read_screen_saver_idle_seconds,
+    screen_saver_recovery,
+)
 from yoke_harness.ssh_mac_baseline_probes import prove_declared_probes
 from yoke_harness.ssh_mac_full_reset import execute_full_test_machine_reset
 from yoke_harness.ssh_mac_golden_capture import capture_golden_baseline
@@ -23,6 +34,7 @@ from yoke_harness.ssh_mac_gui_session import (
     run_terminal_app_command,
 )
 from yoke_harness.ssh_mac_terminal_bridge_check import (
+    named_failure,
     verify_terminal_app_control,
 )
 from yoke_harness.test_machine_types import HostActionResult
@@ -92,6 +104,39 @@ class SshMacTransport(SshTestMachineTransport):
         )
 
     def check_terminal_bridge(self) -> HostActionResult:
+        console_user = read_console_user(self._run)
+        if console_user != self._user:
+            code = TERMINAL_CONSOLE_USER_MISMATCH_ERROR_CODE
+            return HostActionResult(
+                False,
+                {
+                    "terminal_backend": "Terminal.app",
+                    "console_user": console_user,
+                    "expected_console_user": self._user,
+                    "recovery": terminal_bridge_recovery(code),
+                    "capture_diagnostics": named_failure(
+                        code, {"console_user": console_user}
+                    ),
+                },
+                code,
+            )
+        idle = read_screen_saver_idle_seconds(self._run, console_user)
+        saver_evidence = {
+            "console_user": console_user,
+            "screen_saver_idle_seconds": idle,
+        }
+        if idle != 0:
+            return HostActionResult(
+                False,
+                {
+                    "terminal_backend": "Terminal.app",
+                    **saver_evidence,
+                    "recovery": screen_saver_recovery(idle),
+                },
+                SCREEN_SAVER_PROBE_ERROR
+                if idle is None
+                else SCREEN_SAVER_ENABLED_ERROR,
+            )
         ok, evidence, error_code = verify_terminal_app_control(
             self._run,
             expected_console_user=self._user,
@@ -99,7 +144,7 @@ class SshMacTransport(SshTestMachineTransport):
         return HostActionResult(
             ok=ok,
             error_code=error_code,
-            evidence={"terminal_backend": "Terminal.app", **evidence},
+            evidence={"terminal_backend": "Terminal.app", **saver_evidence, **evidence},
         )
 
     def diagnose_terminal_bridge(self) -> HostActionResult:

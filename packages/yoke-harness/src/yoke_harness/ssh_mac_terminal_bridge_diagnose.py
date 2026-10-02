@@ -58,7 +58,9 @@ def _probe_control_surfaces(
     ):
         return False
 
-    context = probe_host_display_context(run)
+    context = probe_host_display_context(
+        run, expected_console_user=report.expected_console_user
+    )
     console_user = context["console_user"]
     display_locked = context["display_locked"]
     report.host = {

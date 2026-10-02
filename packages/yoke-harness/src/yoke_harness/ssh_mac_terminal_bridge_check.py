@@ -25,6 +25,7 @@ from yoke_harness.ssh_mac_display_frame import (
     window_layout,
 )
 from yoke_harness.ssh_mac_host_session_state import (
+    display_lock_recovery,
     probe_host_display_context,
     read_load_average,
 )
@@ -56,7 +57,11 @@ def named_failure(
     return {
         **diagnostics,
         "error_reason": error_code,
-        "recovery": TERMINAL_BRIDGE_RECOVERY[error_code],
+        "recovery": (
+            display_lock_recovery(diagnostics)
+            if error_code == TERMINAL_DISPLAY_LOCKED_ERROR_CODE
+            else TERMINAL_BRIDGE_RECOVERY[error_code]
+        ),
     }
 
 
@@ -68,7 +73,9 @@ def classify_capture_failure(
     expected_console_user: str | None,
 ) -> tuple[str, dict[str, Any]]:
     """Name the condition an operator has to change, host session first."""
-    context = probe_host_display_context(run)
+    context = probe_host_display_context(
+        run, expected_console_user=expected_console_user
+    )
     console_user = context["console_user"]
     if console_user and expected_console_user and console_user != expected_console_user:
         return TERMINAL_CONSOLE_USER_MISMATCH_ERROR_CODE, context
