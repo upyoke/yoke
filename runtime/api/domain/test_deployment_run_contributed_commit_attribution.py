@@ -9,12 +9,13 @@ Every commit the item contributed is the item's in whichever release first
 carries it — once per environment, so a commit stage already shipped is not
 stage's again while production still sees it as new. The pin stays release
 output. The hotfix stays unattributed despite naming the item, and the
-refusal names it by sha and subject beside both repairs.
+refusal names it by sha and subject beside the executable receipt repair.
 """
 
 from __future__ import annotations
 
 import subprocess
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,7 @@ from runtime.api.fixtures.release_output_source import (
     insert_flow,
     project_slug,
 )
+from yoke_cli.commands.adapters import merge_receipt_commits as adapter
 from yoke_core.domain.deployment_run_carried_work import derive_carried_work
 from yoke_core.domain.deployment_run_release_output_record import (
     record_release_output,
@@ -45,7 +47,9 @@ FLOW = "contributed-commit-flow"
 def _git(repo: Path, *args: str) -> str:
     return subprocess.run(
         ["git", "-C", str(repo), *args],
-        check=True, capture_output=True, text=True,
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout.strip()
 
 
@@ -70,8 +74,13 @@ def _environment(conn: Any, name: str) -> int:
 
 
 def _run(
-    conn: Any, run_id: str, lineage: str, environment_id: int, *,
-    status: str = "succeeded", completed_at: str | None = None,
+    conn: Any,
+    run_id: str,
+    lineage: str,
+    environment_id: int,
+    *,
+    status: str = "succeeded",
+    completed_at: str | None = None,
 ) -> None:
     conn.execute(
         "INSERT INTO deployment_runs(id,project_id,flow,release_lineage,status,"
@@ -79,8 +88,14 @@ def _run(
         "target_environment_id) VALUES "
         "(%s,1,%s,%s,%s,'complete',%s,%s,%s,'persistent',%s)",
         (
-            run_id, FLOW, lineage, status, completed_at or "2026-09-20T00:00:00Z",
-            completed_at, EMPTY_SOURCES, environment_id,
+            run_id,
+            FLOW,
+            lineage,
+            status,
+            completed_at or "2026-09-20T00:00:00Z",
+            completed_at,
+            EMPTY_SOURCES,
+            environment_id,
         ),
     )
     conn.commit()
@@ -105,7 +120,11 @@ def release(test_db: Any, tmp_path: Path, monkeypatch) -> dict[str, Any]:
     sync = _git(repo, "rev-parse", "HEAD")
     _git(repo, "checkout", "-q", "main")
     record_entry(
-        test_db, item_id=ITEM_ID, branch=ref, target="main", commit_sha=sync,
+        test_db,
+        item_id=ITEM_ID,
+        branch=ref,
+        target="main",
+        commit_sha=sync,
         contributed_commits=before_landing(str(repo), target="main", commit_sha=sync),
     )
     _git(repo, "merge", "-q", "--ff-only", ref)
@@ -118,15 +137,21 @@ def release(test_db: Any, tmp_path: Path, monkeypatch) -> dict[str, Any]:
     _run(test_db, "run-prod-1", baseline, prod, completed_at="2026-09-20T01:00:00Z")
     _run(test_db, "run-stage-1", baseline, stage, completed_at="2026-09-20T01:00:00Z")
     record_release_output(
-        test_db, run_id="run-stage-1", project=project_slug(test_db), commit_sha=pin,
+        test_db,
+        run_id="run-stage-1",
+        project=project_slug(test_db),
+        commit_sha=pin,
     )
     _run(test_db, "run-stage-2", sync, stage, completed_at="2026-09-20T02:00:00Z")
     _run(test_db, "run-stage-3", hotfix, stage, status="created")
     _run(test_db, "run-prod-2", hotfix, prod, status="created")
     test_db.commit()
     return {
-        "ref": ref, "item": [first, second, sync], "neighbour": neighbour,
-        "pin": pin, "hotfix": hotfix,
+        "ref": ref,
+        "item": [first, second, sync],
+        "neighbour": neighbour,
+        "pin": pin,
+        "hotfix": hotfix,
     }
 
 
@@ -136,7 +161,8 @@ def _credited(carried: dict[str, Any]) -> list[str]:
 
 
 def test_production_credits_every_commit_the_item_contributed(
-    test_db: Any, release: dict[str, Any],
+    test_db: Any,
+    release: dict[str, Any],
 ) -> None:
     carried = derive_carried_work(test_db, "run-prod-2")
 
@@ -150,7 +176,8 @@ def test_production_credits_every_commit_the_item_contributed(
 
 
 def test_a_repeated_stage_release_does_not_count_shipped_commits_again(
-    test_db: Any, release: dict[str, Any],
+    test_db: Any,
+    release: dict[str, Any],
 ) -> None:
     shipped = derive_carried_work(test_db, "run-stage-2")
     carried = derive_carried_work(test_db, "run-stage-3")
@@ -161,7 +188,8 @@ def test_a_repeated_stage_release_does_not_count_shipped_commits_again(
 
 
 def test_a_commit_naming_an_item_is_refused_by_sha_and_subject(
-    test_db: Any, release: dict[str, Any],
+    test_db: Any,
+    release: dict[str, Any],
 ) -> None:
     carried = derive_carried_work(test_db, "run-prod-2")
 
@@ -169,20 +197,61 @@ def test_a_commit_naming_an_item_is_refused_by_sha_and_subject(
 
     assert f"{release['hotfix']} Hotfix pushed straight to main for" in refusal
     assert "yoke merge-receipt commits attest PREFIX-N" in refusal
-    assert "yoke deployment-runs update run-prod-2 composition_resolution" in refusal
+    assert f"--commit {release['hotfix']}" in refusal
+    assert "composition_resolution" not in refusal
 
 
-def test_an_attested_commit_is_credited_on_the_next_derivation(
-    test_db: Any, release: dict[str, Any],
+def test_printed_recovery_clears_attribution_without_a_persisted_run(
+    test_db: Any,
+    release: dict[str, Any],
+    monkeypatch,
 ) -> None:
-    attest_commits(
-        test_db, item_id=ITEM_ID, commits=[release["hotfix"]],
-        reason="the item's follow-up, pushed without a lane",
+    carried = derive_carried_work(test_db, "run-prod-2")
+    refused_run = "run-not-created"
+    carried["project"] = project_slug(test_db)
+    refusal = unattributed_commits_refusal(refused_run, carried)
+    assert (
+        test_db.execute(
+            "SELECT id FROM deployment_runs WHERE id=%s",
+            (refused_run,),
+        ).fetchone()
+        is None
     )
-    test_db.commit()
+    command = refusal.split("Recovery:\n", 1)[1].splitlines()[0]
+    words = shlex.split(command)
+    assert words[:4] == ["yoke", "merge-receipt", "commits", "attest"]
+    assert words[4] == "PREFIX-N"
+    words[4] = release["ref"]
+    words[-1] = "the item's follow-up, pushed without a lane"
+
+    def dispatch_repair(**kwargs):
+        assert kwargs["function_id"] == "merge_receipt.commits.attest"
+        assert kwargs["target"].public_ref == release["ref"]
+        assert kwargs["target"].project_id == carried["project"]
+        attest_commits(test_db, item_id=ITEM_ID, **kwargs["payload"])
+        test_db.commit()
+        return 0
+
+    monkeypatch.setattr(adapter, "dispatch_and_emit", dispatch_repair)
+    assert adapter.merge_receipt_commits_attest(words[4:]) == 0
 
     carried = derive_carried_work(test_db, "run-prod-2")
 
     assert _credited(carried) == [*release["item"], release["hotfix"]]
     assert carried["commits"] == []
     assert unattributed_commits_refusal("run-prod-2", carried) == ""
+
+
+def test_recovery_fills_every_offending_sha_and_quotes_project() -> None:
+    shas = ["a" * 40, "b" * 40]
+    project = "project with spaces"
+    refusal = unattributed_commits_refusal(
+        "missing-run",
+        {
+            "commits": shas,
+            "project": project,
+        },
+    )
+    words = shlex.split(refusal.split("Recovery:\n", 1)[1].splitlines()[0])
+    assert [words[i + 1] for i, word in enumerate(words) if word == "--commit"] == shas
+    assert words[words.index("--project") + 1] == project

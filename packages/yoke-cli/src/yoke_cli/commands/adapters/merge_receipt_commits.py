@@ -34,9 +34,9 @@ obligations follow. The attestation is stored on the item's newest landed
 receipt entry beside, not inside, the commits the merge derived, with the
 reason given. Full SHAs only, exactly as the refusal printed them.
 
-A commit no backlog item owns is not attested to one. Record the run's
-composition_resolution explaining its treatment instead:
-  yoke deployment-runs update RUN-ID composition_resolution "<why>"
+Refused creation rolls back the run: repair the owning item's receipt, then
+retry creation or start. If no backlog item owns a commit, resolve ownership
+before retrying; do not attest unrelated work to an item.
 """
 
 
