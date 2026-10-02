@@ -3,7 +3,7 @@
 A steering session needs to notice change: an item moved status, a
 session appeared or ended, an envelope is sitting unread. None of that
 has a streaming surface, so the probe polls and compares. This module
-owns the *observation* — the three registered reads and the normalized
+owns the *observation* — registered reads and the normalized
 rows they produce. Comparison lives in
 :mod:`yoke_core.domain.fleet_delta_lines`.
 
@@ -25,6 +25,7 @@ from yoke_core.domain.session_mode import session_is_parked
 SESSIONS_FUNCTION = "sessions.list"
 FRONTIER_FUNCTION = "charge.schedule"
 ENVELOPES_FUNCTION = "session_control.message.list"
+STEERING_REPORT_FUNCTION = "steering.report.get"
 
 #: Envelope rows fetched per pass. Starvation lives at the recent end of
 #: the list, so a bounded page is the whole working set.
@@ -124,6 +125,8 @@ class FleetSnapshot:
     sessions: Mapping[str, SessionRow] = field(default_factory=dict)
     items: Mapping[str, ItemRow] = field(default_factory=dict)
     envelopes: Mapping[tuple[str, str], EnvelopeRow] = field(default_factory=dict)
+    landing_waits: frozenset[str] = frozenset()
+    landing_report: Mapping[str, Any] | None = None
 
 
 def _result(response: Any, function_id: str) -> dict[str, Any]:
@@ -232,7 +235,7 @@ def read_snapshot(
     self_session_id: str,
     workspace: str | None = None,
 ) -> FleetSnapshot:
-    """Compose one observation from the three registered reads.
+    """Compose roster, frontier, inbox and silent holders' landing readbacks.
 
     ``call`` is a ``(function_id, payload) -> response`` callable so the
     transport stays injectable for tests and the loop stays free of
@@ -267,12 +270,22 @@ def read_snapshot(
             ENVELOPES_FUNCTION,
         )
     )
-    return FleetSnapshot(
+    snapshot = FleetSnapshot(
         taken_at=now,
         self_session_id=self_session_id,
         sessions=sessions,
         items=items,
         envelopes=envelopes,
+    )
+    from dataclasses import replace
+    from yoke_core.domain.fleet_delta_alarms import idle_holder_candidates
+    from yoke_core.domain.steering_fleet_report_landings import report_landing_waits
+
+    if not idle_holder_candidates(snapshot):
+        return snapshot
+    report = _result(call(STEERING_REPORT_FUNCTION, {}), STEERING_REPORT_FUNCTION)
+    return replace(
+        snapshot, landing_waits=report_landing_waits(report), landing_report=report
     )
 
 

@@ -24,19 +24,14 @@ Quiet is not the same as stuck
 A worker inside one long foreground call records no new tool call while that
 call runs, so the quiet threshold alone reads a working merge wait as stuck.
 :mod:`steering_fleet_report_in_flight` partitions the quiet holders so the
-idle alarm keeps meaning "nobody is driving this".
+idle alarm keeps meaning "nobody is driving this". Healthy queue landings
+also exclude idle holders until their completion wake is delivered.
 
-The stale-claim window is already covered
------------------------------------------
-A stale claim is deliberately not a candidate for available work: the item
-still has a holder until the stale-session sweep releases it, and reporting
-it as available invites a second worker onto an item it cannot claim. That
-window is not silent. ``claim_holders`` excludes only ended and terminated
-sessions, and idleness is measured from ``last_tool_call_at`` rather than
-from any liveness label, so a holder quiet past ``idle_after_seconds`` is in
-the idle list even when parked. Linked items, including landings, appear
-under the document seat that covers them. A linked item with no live document
-seat appears in the combined report's unattended finding.
+Stale claims remain held until the stale-session sweep releases them, so
+they are never available work. Holders exclude ended and terminated sessions;
+idle uses ``last_tool_call_at``, excluding declared parks and landing waits.
+Linked landings appear under their document seat. A linked item with no live
+document seat appears in the combined report's unattended finding.
 
 A deliberately held item is the operator's flag to set
 ------------------------------------------------------
@@ -78,7 +73,8 @@ from yoke_core.domain.steering_fleet_report_in_flight import (
 )
 from yoke_core.domain.steering_fleet_report_landings import (
     FleetLandingReadback,
-    landing_readbacks,
+    landing_wait_pending,
+    seat_landing_readbacks,
 )
 from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
 from yoke_core.domain.steering_fleet_report_members import read_seat_items
@@ -276,11 +272,23 @@ def compose_report(
     split = partition_quiet(conn, quiet=quiet, now=now)
     stranded = item_facts.stranded if seat_scope.get("document") else facts.stranded
     stranded_ids = {entry.session_id for entry in stranded}
+    landings = seat_landing_readbacks(
+        conn,
+        project_ids=item_facts.project_ids,
+        members=members,
+        in_flight=split.in_flight,
+        reads=request,
+    )
+    waiting = {row.item_id for row in landings if landing_wait_pending(row.to_dict())}
     idle = tuple(
-        holder for holder in split.idle if holder.session_id not in stranded_ids
+        holder
+        for holder in split.idle
+        if holder.session_id not in stranded_ids and holder.item_id not in waiting
     )
     alive_idle = tuple(
-        holder for holder in split.alive_idle if holder.session_id not in stranded_ids
+        holder
+        for holder in split.alive_idle
+        if holder.session_id not in stranded_ids and holder.item_id not in waiting
     )
     return FleetReport(
         project_id=int(project_id),
@@ -314,19 +322,7 @@ def compose_report(
         plan_limits=facts.plan_limits,
         native_models=facts.native_models,
         machine_capacity=facts.machine_capacity,
-        landings=tuple(
-            landing
-            for item_project in item_facts.project_ids
-            for landing in landing_readbacks(
-                conn,
-                project_id=item_project,
-                members=members,
-                in_flight_item_ids=frozenset(
-                    call.item_id for call in split.in_flight if "merge" in call.command
-                ),
-                reads=request,
-            )
-        ),
+        landings=landings,
         machine_names=tuple(sorted(facts.machine_names.items())),
         test_machines=facts.test_machines,
         relay_health=facts.relay_health,

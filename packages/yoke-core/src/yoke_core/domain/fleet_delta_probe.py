@@ -1,8 +1,4 @@
-"""Poll fleet state and classify each observed change.
-
-The wrapper routes this module's urgent tier to wakes while retaining every
-line raw. Ambient identity survives handoff; bounded runs leave a sentinel.
-"""
+"""Poll fleet state; retain raw changes and wake on urgent ones."""
 
 from __future__ import annotations
 
@@ -26,12 +22,12 @@ from yoke_core.domain.fleet_delta_snapshot import (
     FleetReadError,
     FleetSnapshot,
     read_snapshot,
+    STEERING_REPORT_FUNCTION,
 )
 
 DEFAULT_INTERVAL_SECONDS = 60
 DEFAULT_DURATION_SECONDS = 8 * 60 * 60
 PROJECT_POLICY_FUNCTION = "projects.capability_settings.get"
-STEERING_REPORT_FUNCTION = "steering.report.get"
 STEERING_REPORT_INTERVAL_KEY = "steering_report_interval_minutes"
 #: Consecutive failed passes before the probe stops instead of looping
 #: silently against a control plane it cannot reach.
@@ -60,11 +56,10 @@ DELTA_WAKE_RULES = (
 )
 
 HELP_EPILOG = """\
-Each pass reads the session roster, charge schedule, and durable inbox. Every
-change stays in the raw capture. Failures, messages, alarms, abnormal ends,
-and available or blocked items wake now; routine lifecycle and claim churn
-wait for the next changed steering report. Due reports are checked even on
-quiet passes. Identifiers are always printed whole.
+Each pass reads roster, schedule and inbox, plus silent holders' landing facts.
+Failures, messages, alarms, abnormal ends and runnable or blocked items wake
+now; routine churn waits for the next changed report. All lines stay raw.
+Due reports are checked on quiet passes. Identifiers are printed whole.
 
 Raw line shapes:
   fleet item YOK-N status <old> -> <new>
@@ -177,6 +172,7 @@ def _append_steering_reports(
     stream: TextIO,
     call: Callable[[str, dict[str, Any]], Any],
     state: _ReportState,
+    report: Mapping[str, Any] | None = None,
 ) -> None:
     """Check all held scopes when due, including quiet and timer-only passes."""
     try:
@@ -187,9 +183,13 @@ def _append_steering_reports(
             minutes=interval
         ):
             return
-        # The unfiltered report retains every document seat in a project.
-        result = _response_result(
-            call(STEERING_REPORT_FUNCTION, {}), STEERING_REPORT_FUNCTION
+        # Retain every held document seat; reuse this pass's landing read.
+        result = (
+            report
+            if report is not None
+            else _response_result(
+                call(STEERING_REPORT_FUNCTION, {}), STEERING_REPORT_FUNCTION
+            )
         )
         fingerprint = str(result.get("fingerprint") or "").strip()
         payload = (
@@ -235,7 +235,6 @@ def run(
     started = clock()
 
     while True:
-        # One clock reading keeps observation ages and the deadline consistent.
         pass_at = clock()
         try:
             current = read_snapshot(
@@ -277,6 +276,7 @@ def run(
                 stream=stream,
                 call=call,
                 state=report_state,
+                report=current.landing_report,
             )
             previous = current
 
