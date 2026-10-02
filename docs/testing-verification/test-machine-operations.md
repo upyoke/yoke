@@ -25,15 +25,17 @@ proves the registered login using FreeRDP auth-only, prints `user`,
 The password travels directly from the capability secret store to client stdin.
 Other operating systems check the RDP/VNC handshake and print `address`, `user`
 and `password_file` for the human client, using a private mode-600 copy under
-`/tmp`. No password goes through the control plane, receipts or command output.
+`/tmp`. Linux also reuses or starts provisioned XFCE and reports `desktop_session`.
+No password goes through the control plane, receipts or command output.
 
 Settings declare `desktop_route` (`direct` or `ssh-forward`),
 `desktop_protocol` (`rdp` or `vnc`), `desktop_port` (1–65535), and
 `desktop_user` together. Optional `desktop_host` names the desktop endpoint:
 it defaults to the registered host for direct access, or `127.0.0.1` on the
 SSH host for forwarding. `cloud_instance_id` records the provider's instance id when present.
-Desktop credentials stay separate from the SSH login, including Windows RDP
-as Administrator when SSH enters WSL2. Save routes with
+Desktop credentials stay separate from the SSH key. Windows RDP and SSH use
+the same Windows account; its default WSL2 distro uses a non-root Linux user.
+Save routes with
 `yoke test-machine settings-replace`; read its `--help` for the CAS token.
 
 Import each password from a private file, never from a literal argument:
@@ -105,8 +107,8 @@ Surviving or respawning home programs refuse before clearing with
 `linux_golden_home_clear_failed` and `refused_entry`: stop the writer and retry
 the sealed archive; never capture the mixed home. OS packages are not restored.
 Linux terminal evidence combines tmux transcripts with PNG checkpoints from the
-test user's active XFCE display. Provision the machine-qa Pack desktop when no
-session exists, then connect through tunnel-only RDP and keep that desktop unlocked.
+test user's XFCE display. GUI operations reuse it or start provisioned XFCE
+with the registered login; a human tunnel-only RDP login is the fallback.
 Browser-approval recipes still name `headless_linux_browser_approval_unavailable`.
 
 ## screenshot — the actual desktop as a QA artifact
@@ -125,9 +127,9 @@ record an error without an artifact.
 
 macOS captures the primary display through Terminal.app, requiring its Screen
 Recording grant and the dedicated test user's unlocked graphical login. Linux
-finds exactly one XFCE session owned by the SSH user and uses its actual DISPLAY
-and XAUTHORITY; it never assumes display :0. Install the Pack's Linux desktop
-provisioner and open its tunnel-only RDP session before retrying a missing desktop.
+reuses one XFCE session or starts it with the registered login, then uses its
+actual DISPLAY and XAUTHORITY; it never assumes display :0. Install the Pack's
+Linux desktop provisioner first; a human RDP login is the fallback.
 Windows reuses the registered account's active desktop or starts and holds
 FreeRDP through capture, reporting `desktop_session=started|reused`. Its password
 goes from the capability store to client stdin. Windows PowerShell runs a

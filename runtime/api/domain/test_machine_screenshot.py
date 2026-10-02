@@ -81,9 +81,9 @@ def test_capture_uses_os_display_and_removes_remote_file(monkeypatch, os):
         output = (
             base64.b64encode(png()).decode() if command.startswith("base64") else ""
         )
-        if "desktop_environment()" in command:
+        if "ensure_desktop(sys.stdin" in command:
             output = json.dumps(
-                {"DISPLAY": ":12", "XAUTHORITY": "/home/test/.Xauthority"}
+                {"environment": {"DISPLAY": ":12"}, "desktop_session": "reused"}
             )
         return subprocess.CompletedProcess(command, 0, output, "")
 

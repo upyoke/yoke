@@ -114,24 +114,38 @@ The desktop uses normal local-account authentication. If verification reports
 SSH with `sudo passwd <test-user>`. Keep SSH key-only. Do not disable PAM
 checks or put the password in a script, a message or evidence.
 
-For unattended desktop QA, start the test user's real XFCE/Xorg session without
-an RDP client using the installed xrdp session launcher:
+Registered Linux screenshot, GUI host-command and desktop-access operations start
+the dedicated test user's real XFCE/Xorg session when none exists. They reuse
+exactly one existing XFCE desktop and report `desktop_session=started` or
+`desktop_session=reused`. The first screenshot waits for a valid, nonblank frame
+from the newly started desktop; that wait retains `started` evidence. An already
+running desktop with a blank capture still refuses. The launcher is:
 
 ```text
 xrdp-sesrun -s ::1 -t Xorg -F 0 <test-user>
 ```
 
-This is verified on Ubuntu with xrdp 0.9.24 and sesman listening on `[::1]:3350`.
-Omitting `-s ::1` uses IPv4 and failed there with
-`connect error - Operation now in progress`. Supply the registered desktop
-password on stdin through the capability-owned credential route; never put it
-in argv, log it or write it remotely. No root session is needed. Reuse an
-existing desktop rather than starting a second one. Confirm one XFCE session,
-Xorg and xfdesktop are active and that a registered screenshot succeeds.
-Automatic session startup by registered operations is separate work; this
-recipe does not claim they already start one. A human RDP login is needed for
-cases specifically testing a person's login, or as fallback when sesrun is
-missing or refuses. Personal browser authorization still requires the operator.
+Yoke supplies the existing registered desktop password on stdin through the
+capability-owned credential route; it never puts it in argv, logs or a remote
+credential file. This needs no root desktop, new setting or PAM change. The
+loopback address is verified with Ubuntu xrdp 0.9.24 and sesman on `[::1]:3350`;
+the IPv4 default failed with `connect error - Operation now in progress`.
+Read `yoke test-machine screenshot --help` and
+`yoke test-machine desktop-access --help` for the registered operations.
+
+A human desktop or connected RDP client prevents a second session from starting;
+multiple desktops refuse as ambiguous. An existing human XFCE desktop may be
+reused. A fresh-host reset ends only the exact session Yoke started, identified
+by its owner, process start time and session identity. A human adopting that
+session over RDP makes reset refuse until the client disconnects. Unowned human
+desktops remain protected. Run the existing reset, then screenshot, to prove a
+fresh unattended start; a second capture proves reuse of the same display.
+
+If `xrdp-sesrun` is missing, refuses or never produces a ready XFCE desktop, the
+operation returns its sanitized diagnostic and teaches the human RDP fallback
+below. Preserve that refusal and repair the named host prerequisite; do not
+change authentication policy to bypass it. Human login remains necessary for
+cases specifically testing a person's login and for personal browser authorization.
 
 On the operator's Mac, keep this tunnel running (substitute the registered host
 and user; this is an example, not Pack configuration):
@@ -200,9 +214,10 @@ The Linux bridge uses tmux for input/transcripts and XFCE for visible terminal
 checkpoints. Run `yoke test-machine screenshot --project P --machine NAME --json`
 to capture the actual desktop as a validated PNG artifact. The capture discovers
 exactly one XFCE session owned by the SSH user and uses that session's DISPLAY,
-XAUTHORITY and D-Bus address. A missing or ambiguous session requires provisioning
-and one unlocked desktop session, started with sesrun or the RDP fallback above;
-no dummy display or transcript earns screenshot credit.
+XAUTHORITY and D-Bus address. When none exists, it starts the provisioned desktop
+through sesrun as described above. Ambiguous or unavailable desktops refuse with
+the named recovery and human RDP fallback. No dummy display or transcript earns
+screenshot credit.
 The provisioner installs `scrot` and `xdotool` alongside XFCE. Provision these
 before capturing a new golden so they belong to the package baseline. QA
 package restoration purges additions to its journal's baseline inventory;

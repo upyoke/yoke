@@ -111,10 +111,15 @@ owner-only golden home archive outside its home, and tmux transcripts. Both
 select `fresh-host` and `shell-preconfigured` through their OS adapter and run
 declared credential/CLI/service probes after restore. Use
 `yoke test-machine screenshot --project P --machine NAME --json` on every OS:
-macOS captures through Terminal.app, Linux captures the SSH user's active XFCE
-display, and Windows uses a temporary same-account interactive PowerShell task
-from WSL2. The receipt carries a validated PNG artifact handle. Missing or locked
-desktops refuse with recovery to provision/unlock that OS's dedicated test session.
+macOS captures through Terminal.app, Linux starts or reuses the SSH user's real
+XFCE display, and Windows uses a temporary same-account interactive PowerShell
+task from WSL2. The receipt carries a validated PNG artifact handle. Linux
+screenshot, GUI host-command and desktop-access operations report
+`desktop_session=started` or `reused`; they pass the registered desktop password
+to sesrun only on stdin. Reset ends Yoke-started desktops while protecting human
+sessions. Missing launcher or refused startup retains a sanitized diagnostic and
+human RDP recovery. Missing or locked macOS/Windows desktops refuse with recovery
+to provision/unlock that OS's dedicated test session.
 Browser approval recipes retain `headless_linux_browser_approval_unavailable`;
 the operator provisions browser authorization separately.
 

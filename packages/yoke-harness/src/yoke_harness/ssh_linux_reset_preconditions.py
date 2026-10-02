@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 import shlex
 import subprocess
 from typing import Any
@@ -18,38 +18,22 @@ from yoke_harness.ssh_mac_baseline_probes import (
 from yoke_harness.test_machine_types import HostActionResult
 
 # Shared by the read-only admission call and the final check before teardown.
-DESKTOP_PROGRAM = r"""
-import subprocess
+from yoke_harness import linux_desktop_state
+
+DESKTOP_PROGRAM = (
+    Path(linux_desktop_state.__file__)
+    .read_text()
+    .replace("from __future__ import annotations", "")
+    + r"""
 def desktop_precondition():
-    def logged_in():
-        refuse("linux_reset_desktop_logged_in", recovery="operator is logged in to the desktop; log out first")
-    redirected = str(home / "thinclient_drives")
     try:
-        if os.path.ismount(redirected): logged_in()
-        proc = pathlib.Path("/proc")
-        if proc.exists():
-            for line in (proc / "self/mountinfo").read_text().splitlines():
-                target = line.split()[4].replace("\\040", " ").replace("\\134", "\\")
-                if target == redirected or target.startswith(redirected + "/"): logged_in()
-            for directory in proc.iterdir():
-                if not directory.name.isdigit(): continue
-                try:
-                    if directory.stat().st_uid == os.getuid() and (directory / "comm").read_text().strip() == "xfce4-session":
-                        logged_in()
-                except (FileNotFoundError, ProcessLookupError): pass
-        if shutil.which("loginctl") and pathlib.Path("/run/systemd/system").is_dir():
-            sessions = subprocess.run(["loginctl", "list-sessions", "--no-legend", "--no-pager"], capture_output=True, text=True, timeout=10)
-            if sessions.returncode: raise OSError()
-            for line in sessions.stdout.splitlines():
-                fields = line.split()
-                if len(fields) < 2 or fields[1] != str(os.getuid()): continue
-                result = subprocess.run(["loginctl", "show-session", fields[0], "--no-pager", "-p", "Type", "-p", "Active"], capture_output=True, text=True, timeout=10)
-                if result.returncode: raise OSError()
-                properties = dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
-                if properties.get("Type") in {"x11", "wayland"} and properties.get("Active") == "yes": logged_in()
-    except (OSError, subprocess.TimeoutExpired):
+        if human_desktop_exists(home, owned_desktop()):
+            refuse("linux_reset_desktop_logged_in", recovery="operator is logged in to the desktop; log out first")
+    except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired):
         refuse("linux_reset_desktop_state_unknown", recovery="Repair /proc or loginctl access, then retry; desktop logout was not proved.")
 """
+)
+
 
 CREDENTIAL_PROGRAM = r"""
 credential_relative = pathlib.Path(".claude/.credentials.json")

@@ -30,6 +30,26 @@ from yoke_harness.test_machine_types import HostActionResult
 class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
     """Home restore, user probes and tmux on one credential-bound SSH host."""
 
+    @classmethod
+    def from_contract(cls, contract):
+        from yoke_cli.config.capability_secrets import read_machine_capability_secret
+        from yoke_contracts.machine_config.test_machine import (
+            test_machine_capability_type,
+        )
+        from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
+        from yoke_harness.linux_desktop_state import RDP_PORT
+
+        control = super().from_contract(contract)
+        control.desktop_password = read_machine_capability_secret(
+            contract.project,
+            test_machine_capability_type(contract.settings["resource_name"]),
+            DESKTOP_PASSWORD_KEY,
+        )
+        control.desktop_port = int(contract.settings.get("desktop_port", RDP_PORT))
+        if control.desktop_password:
+            control.secret_values = (*control.secret_values, control.desktop_password)
+        return control
+
     def capture_screenshot(self):
         from yoke_harness.ssh_machine_screenshot import capture_desktop
 
@@ -219,6 +239,11 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
                     "stdout": result.stdout,
                     "stderr": result.stderr,
                     "execution_context": context or "ssh",
+                    **(
+                        {"desktop_session": result.desktop_session}
+                        if hasattr(result, "desktop_session")
+                        else {}
+                    ),
                 }
             )
             if result.returncode != expected:
