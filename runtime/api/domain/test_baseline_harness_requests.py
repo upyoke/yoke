@@ -73,7 +73,7 @@ class _Control:
         return self.document
 
 
-@pytest.mark.parametrize("program", ["claude", "codex", "cursor-agent"])
+@pytest.mark.parametrize("program", ["claude", "codex", "cursor-agent", "agent"])
 @pytest.mark.parametrize("platform", ["macos", "linux"])
 def test_status_sidecars_execute_a_real_request_without_recording_identity(
     program, platform
@@ -155,6 +155,7 @@ def test_host_command_still_refuses_an_empty_executable(transport, argv):
         ("claude", "claude auth login"),
         ("codex", "codex login"),
         ("cursor-agent", "cursor-agent login"),
+        ("agent", "agent login"),
     ],
 )
 @pytest.mark.parametrize("platform", ["macos", "linux"])
@@ -174,7 +175,7 @@ def test_expired_session_refuses_with_the_exact_harness_sign_in_command(
     assert "private-account" not in repr(result.evidence)
 
 
-@pytest.mark.parametrize("program", ["claude", "codex", "cursor-agent"])
+@pytest.mark.parametrize("program", ["claude", "codex", "cursor-agent", "agent"])
 def test_zero_exit_login_status_is_not_a_native_request_response(program):
     control = _Control(program, stdout="Logged in")
     result = prove_linux_probes(control, control.document)

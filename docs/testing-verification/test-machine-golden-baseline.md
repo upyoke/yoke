@@ -149,8 +149,8 @@ taken while any declared program is signed out restores a host that Yoke
 itself rejects as not user-equivalent, and the missions that depend on it park
 on a machine no user has.
 
-For an absolute executable named `claude`, `codex`, or `cursor-agent`, the
-runner replaces the declared argv and output expectation with a tiny native
+For an absolute executable named `claude`, `codex`, `cursor-agent`, or Cursor's
+`agent`, the runner replaces the declared argv and output expectation with a tiny native
 request: “Reply exactly OK. Do not use any tools.” This applies to already
 sealed sidecars too: login-status output never proves that a credential can
 refresh or that a request succeeds. Other CLI and service probes keep their
@@ -161,9 +161,10 @@ allows it, and requires a successful completion containing `OK` with no
 tool-call events. Claude uses safe mode to preserve OAuth/keychain authentication
 while suppressing customization; its built-in tools and MCP configuration are disabled;
 Codex ignores user configuration, disables its shell tool, and runs read-only;
-Cursor runs in Ask mode. Codex and Cursor use `/tmp` as their workspace so
-project instructions cannot turn the probe into project work. No permission
-bypass or harness account data is recorded. The native CLI flag contracts are
+Cursor runs in Ask mode and explicitly passes `--trust` for its `/tmp` scratch
+workspace, independently of trust persisted in the home. Codex and Cursor use
+`/tmp` as their workspace so project instructions cannot turn the probe into
+project work. No permission bypass or harness account data is recorded. The native CLI flag contracts are
 documented in the [Claude reference](https://code.claude.com/docs/en/cli-reference),
 [Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference),
 and [Cursor output format](https://cursor.com/docs/cli/reference/output-format).
@@ -185,7 +186,7 @@ their recoveries differ:
 | Outcome | What happened | Recovery |
 | --- | --- | --- |
 | passed | the harness answered the real request, or another declared probe passed | none |
-| `baseline_probe_failed` | a harness request or another declared probe failed | for a harness, re-sign-in with the exact absolute command in `reason`, then retry; for another probe, correct its argv or expectation |
+| `baseline_probe_failed` | a harness request or another declared probe failed | read `cause`: `cursor_workspace_trust_required` names Workspace Trust Required and the scratch-workspace repair; other harness failures name the exact sign-in command; other probes need their argv or expectation corrected |
 | `baseline_probe_bridge_unavailable` | the bridge never delivered the probe, so the program said nothing | run `yoke test-machine bridge-diagnose --project <project> --machine <resource-name>`; it names which bridge capability broke and what to change |
 
 The third row is the one worth knowing about. The bridge reports its own
