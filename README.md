@@ -149,11 +149,11 @@ yoke dev setup ~/yoke \
 ```
 
 ```bash
-# Direct item flow (most common)
+/yoke dash "fix login bug"           # Common path: execute end to end
+# Alternative: plan an item before executing it
 /yoke idea "fix login bug"
 /yoke shepherd YOK-N                # Optional
 /yoke advance YOK-N implementing     # Creates worktree
-# (work in worktree)
 /yoke conduct YOK-N                 # Only if needed to finish pre-merge work
 /yoke usher YOK-N
 ```

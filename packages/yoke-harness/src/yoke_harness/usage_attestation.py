@@ -132,7 +132,8 @@ def _claude_usage(
             return _persisted_reading(session_id, path, source)
         mark = prepare_claude_watermark(load_watermark(session_id, path))
         totals = _totals_by_model(stored_totals(mark))
-        state: dict[str, Any] = {"last_key": mark.last_key, "gap": mark.oversized}
+        seen = set(stored_totals(mark).get("message_ids", []))
+        state: dict[str, Any] = {"gap": mark.oversized}
 
         def mark_gap() -> None:
             state["gap"] = True
@@ -144,13 +145,13 @@ def _claude_usage(
             if not isinstance(message, dict):
                 return
             key = _text(message.get("id")) or _text(row.get("requestId"))
-            if not key or key == state["last_key"]:
+            if not key or key in seen:
                 return
             model = _text(message.get("model"))
             usage = message.get("usage")
             if not model or not isinstance(usage, dict):
                 return
-            state["last_key"] = key
+            seen.add(key)
             _accumulate(totals, model, _claude_buckets(usage))
 
         scan = scan_rows(
@@ -162,8 +163,11 @@ def _claude_usage(
         )
         mark = ArtifactWatermark(
             offset=scan.offset,
-            last_key=state["last_key"],
-            totals=stamp_claude_reader(_totals_document(totals)),
+            # One id per logical message, no rows or content. Evicting ids
+            # would count compacted history again on a later incremental fold.
+            totals=stamp_claude_reader(
+                {**_totals_document(totals), "message_ids": sorted(seen)}
+            ),
             truncated=mark.truncated,
             oversized=bool(state["gap"]),
             caught_up=scan.caught_up,

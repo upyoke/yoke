@@ -26,11 +26,8 @@ from yoke_harness.artifact_reader_version import replayed_for_reader, stamp_read
 from yoke_harness.artifact_watermark import ArtifactWatermark
 
 
-#: Bumped when this reader recovers something the previous one lost, so
-#: every record the previous one wrote is folded once more. The previous
-#: reader held no projection at all: it skipped every row past the record
-#: bound, whatever that row was.
-_READER_VERSION = "projected-v1"
+#: All older totals replay once, including complete but overcounted readings.
+_READER_VERSION = "message-dedup-v2"
 _READER_KEY = "claude_reader"
 
 ASSISTANT_ROW_TYPE = "assistant"
@@ -93,6 +90,7 @@ def prepare_claude_watermark(mark: ArtifactWatermark) -> ArtifactWatermark:
         reader_key=_READER_KEY,
         reader_version=_READER_VERSION,
         additive=True,
+        replay_without_loss=True,
     )
 
 

@@ -37,6 +37,7 @@ from yoke_harness.session_relay_native_diagnostics import (
     read_native_capture,
 )
 from yoke_harness.session_relay_report_delivery import deliver_terminal_report
+from yoke_harness.session_relay_report_retry import is_permanent_report_rejection
 from yoke_harness.session_relay_runtime import RelayAdapterResult
 
 
@@ -200,8 +201,10 @@ def settle_finished_native_resumes(
             state_dir=state_dir,
             timeout_s=timeout_s,
         )
-        if not getattr(report, "success", False):
-            # The record stays, so the next poll reports this outcome again.
+        if not getattr(report, "success", False) and not is_permanent_report_rejection(
+            report, job_kind="wake"
+        ):
+            # Only failures another poll can resolve retain machine custody.
             continue
         release_supervised_native(finished.attempt_id, state_dir=custody_state_dir)
         settled.append(finished.attempt_id)

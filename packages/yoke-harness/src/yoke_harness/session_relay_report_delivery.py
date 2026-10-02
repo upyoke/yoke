@@ -1,4 +1,4 @@
-"""Durable, body-free delivery for relay launch reports."""
+"""Durable, body-free delivery and rejection evidence for relay reports."""
 
 from __future__ import annotations
 
@@ -114,21 +114,21 @@ def deliver_terminal_report(
     state_dir: Path | None,
     timeout_s: int,
 ) -> Any:
-    """Persist a sanitized report first, unless nobody would retry it."""
+    """Preserve permanent rejections; custody retries wakes and evidence."""
     safe = _safe_payload(payload)
     if safe is None:
         raise ValueError("relay report payload is invalid")
-    if safe["job_kind"] in {"wake", "evidence"}:
-        return _dispatch(dispatcher, function_id, safe, timeout_s=timeout_s)
-    pending = _write_pending(safe, state_dir)
+    custody_retries = safe["job_kind"] in {"wake", "evidence"}
+    pending = None if custody_retries else _write_pending(safe, state_dir)
     try:
         response = _dispatch(dispatcher, function_id, safe, timeout_s=timeout_s)
     except Exception as exc:
         record_report_failure(state_dir, error_code="transport_error")
         return exc
     if getattr(response, "success", False):
-        pending.unlink(missing_ok=True)
-        clear_report_attempt(pending, state_dir)
+        if pending is not None:
+            pending.unlink(missing_ok=True)
+            clear_report_attempt(pending, state_dir)
         clear_report_failure_if_drained(state_dir)
         return response
     from yoke_harness.session_relay_report_retry import (
@@ -137,7 +137,12 @@ def deliver_terminal_report(
     )
 
     code = response_error_code(response)
-    if is_permanent_report_rejection(response):
+    if is_permanent_report_rejection(response, job_kind=str(safe["job_kind"])):
+        if custody_retries:
+            pending = _write_pending(safe, state_dir)
+            quarantine_report(pending, safe, state_dir, error_code=code, attempts=1)
+            return response
+        assert pending is not None
         attempts = record_rejected_attempt(pending, state_dir, error_code=code)
         if attempts >= REPORT_QUARANTINE_ATTEMPTS:
             quarantine_report(

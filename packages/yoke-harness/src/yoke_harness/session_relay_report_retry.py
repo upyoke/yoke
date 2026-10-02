@@ -46,8 +46,11 @@ def response_error_code(response: Any) -> str:
     return str(getattr(error, "code", None) or "relay_report_rejected")
 
 
-def is_permanent_report_rejection(response: Any) -> bool:
-    return response_error_code(response) in PERMANENT_REPORT_REJECTION_CODES
+def is_permanent_report_rejection(response: Any, *, job_kind: str = "") -> bool:
+    code = response_error_code(response)
+    return code in PERMANENT_REPORT_REJECTION_CODES or (
+        job_kind == "wake" and code == "attempt_missing"
+    )
 
 
 def quarantine_pending_report(

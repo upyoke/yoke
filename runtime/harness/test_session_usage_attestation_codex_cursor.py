@@ -96,6 +96,22 @@ def test_codex_totals_are_cumulative_so_the_newest_one_replaces(
     assert usage.models[0].output == 50
 
 
+def test_repeated_codex_statements_do_not_accumulate(
+    tmp_path: Path, monkeypatch
+) -> None:
+    total = codex_token_count(input_tokens=500, output=50)
+    rollout = write_rows(
+        tmp_path / "rollout.jsonl", [codex_turn_context("gpt-5"), total]
+    )
+    _read_codex(rollout, monkeypatch)
+    append_rows(rollout, [codex_turn_context("gpt-5"), total, total])
+
+    usage = _read_codex(rollout, monkeypatch)
+
+    assert usage.models[0].input == 500
+    assert usage.models[0].output == 50
+
+
 def test_a_resumed_codex_read_keeps_the_last_cumulative_total(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
