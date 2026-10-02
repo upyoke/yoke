@@ -27,11 +27,11 @@ from yoke_contracts.item_content_sections import (
 ITEMS_OVERVIEW_LIST_USAGE = (
     "yoke items overview list [--project P] [--projects P,Q] [--limit N] "
     "[--relevance overview] [--search TEXT] [--workflow W] [--status S] "
-    "[--page-size N] [--cursor C] [--json]"
+    "[--page-size N] [--cursor C] [--sort-column C] [--sort-direction D] [--json]"
 )
 ITEMS_OVERVIEW_LIST_DESCRIPTION = (
     "List workflow-aware item rows for the unified roster. Naming any of "
-    "--projects, --search, --workflow, --status, --page-size, or --cursor "
+    "--projects, --search, --workflow, --status, --page-size, --sort-column, --sort-direction, or --cursor "
     "selects the paged roster read, which requires --page-size and returns "
     "match_count plus next_cursor; naming none of them keeps the unpaged "
     "shape. --relevance overview reads the Overview relevance window and "
@@ -62,6 +62,7 @@ ITEMS_PUBLIC_REF_LOOKUP_USAGE = (
 #: refusal and the recovery step.
 _OVERVIEW_STRING_FIELDS = (
     "project", "relevance", "search", "workflow", "status", "cursor",
+    "sort_column", "sort_direction",
 )
 _OVERVIEW_INT_FIELDS = ("limit", "page_size")
 
@@ -118,6 +119,8 @@ def items_overview_list(args: List[str]) -> int:
             "the following page."
         ),
     )
+    parser.add_argument("--sort-column", help="Roster column to sort (paged read).")
+    parser.add_argument("--sort-direction", help="asc or desc (paged read).")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_OVERVIEW_LIST_USAGE)
