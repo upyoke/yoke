@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
     HOLDER_A,
     HOLDER_B,
@@ -17,6 +19,9 @@ from runtime.api.domain.test_independent_member_delivery_close_out import (
     _status,
 )
 from runtime.api.domain.test_no_obligation_member_close_out import _no_obligation
+from runtime.api.domain.test_satisfied_delivery_member_close_out import (
+    _waived_item_requirement,
+)
 from runtime.api.domain.test_status_transition_preflight import _isolate_status_effects
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
 from yoke_core.domain.deployment_qa_member_acceptance_notice import (
@@ -32,13 +37,25 @@ from yoke_core.domain.deployment_member_independent_close_out import (
 from yoke_core.domain.item_json_sections import upsert_json_section
 
 
-def test_no_obligation_member_closes_while_sibling_qa_holds_run(
-    test_db: Any, monkeypatch
+@pytest.mark.parametrize("answer", ["no_obligation", "waived"])
+def test_discharged_member_closes_while_sibling_qa_holds_run(
+    test_db: Any, monkeypatch, answer: str
 ) -> None:
     _isolate_status_effects(monkeypatch)
-    run_id = "run-independent-no-obligation"
+    run_id = f"run-independent-{answer.replace('_', '-')}"
     _seed_final_run(test_db, run_id, shared_qa=False)
-    _no_obligation(test_db, MEMBER_A, reason="nothing observable after delivery")
+    if answer == "waived":
+        _waived_item_requirement(test_db, MEMBER_A)
+    else:
+        _no_obligation(test_db, MEMBER_A, reason="nothing observable after delivery")
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) AS count FROM qa_requirements "
+            "WHERE deployment_run_id=%s AND deployment_member_item_id=%s",
+            (run_id, MEMBER_A),
+        ).fetchone()["count"]
+        == 0
+    )
     materialize_deployment_qa_stage(
         test_db,
         deployment_run_id=run_id,

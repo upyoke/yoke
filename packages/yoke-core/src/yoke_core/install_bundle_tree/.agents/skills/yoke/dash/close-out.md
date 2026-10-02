@@ -43,8 +43,9 @@ wait is over — that last one fires only for the run that actually discharges
 this item's delivery, so a stage run in a stage-and-production pair will not
 call you. Re-run the same `yoke merge item` command with `--result` and
 `--verification` then, and it finishes the close-out. Never poll the run.
-A member that recorded `post_deploy_no_obligation` before it landed does
-not get that wake: the same close-out runs without a session after its final
+A member that recorded `post_deploy_no_obligation` or a waiver-backed
+declaration before it landed, with no outstanding run-bound blocking
+obligation, does not get that wake: the same close-out runs after its final
 delivery on a flow with no shared gate, or when the completion run succeeds.
 For a final member on a selected flow without run QA or run approval, accepted
 or explicitly discharged final production item QA closes that member while the

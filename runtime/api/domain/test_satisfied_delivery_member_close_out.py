@@ -18,7 +18,11 @@ from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
     _bodies,
     _recipients,
 )
-from runtime.api.domain.test_no_obligation_member_close_out import _ready_member
+from runtime.api.domain.test_no_obligation_member_close_out import (
+    _no_obligation,
+    _ready_member,
+)
+from runtime.api.domain.test_run_success_member_settlement import _executing_run
 from runtime.api.domain.test_status_transition_preflight import (
     _isolate_status_effects,
 )
@@ -28,9 +32,84 @@ from yoke_core.domain.deployment_delivery_close_out_notice import (
     delivery_cleared_idempotency_key,
     notify_delivery_cleared,
 )
+from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
+from yoke_core.domain.no_obligation_member_close_out import satisfied_delivery_member
 
 
 SATISFIED_QA_ITEM = 9827
+
+
+def _waived_item_requirement(conn: Any, item_id: int) -> None:
+    """An ordinary item check waived before release admission copies cases."""
+    insert_qa_requirement(
+        conn,
+        item_id=item_id,
+        qa_kind="plan_case",
+        qa_phase="post_deploy",
+        blocking_mode="blocking",
+        waived_at=iso8601_now(),
+        waiver_rationale="operator accepted the waiver before release",
+        waiver_source="owner",
+    )
+
+
+def test_waived_item_check_does_not_hold_collective_finalization(
+    test_db: Any, monkeypatch
+) -> None:
+    _isolate_status_effects(monkeypatch)
+    _project(test_db)
+    _ready_member(test_db, SATISFIED_QA_ITEM, HOLDER_A)
+    _waived_item_requirement(test_db, SATISFIED_QA_ITEM)
+    run_id = "run-waived-intake-settlement"
+    _executing_run(test_db, run_id, (SATISFIED_QA_ITEM,))
+    assert (
+        test_db.execute(
+            "SELECT COUNT(*) AS count FROM qa_requirements WHERE deployment_run_id=%s",
+            (run_id,),
+        ).fetchone()["count"]
+        == 0
+    )
+
+    assert cmd_update(run_id, "status", "succeeded") is None
+
+    assert (
+        test_db.execute(
+            "SELECT status FROM items WHERE id=%s", (SATISFIED_QA_ITEM,)
+        ).fetchone()["status"]
+        == "done"
+    )
+    assert (
+        test_db.execute(
+            "SELECT status FROM deployment_runs WHERE id=%s", (run_id,)
+        ).fetchone()["status"]
+        == "succeeded"
+    )
+
+
+@pytest.mark.parametrize("answer", ["unanswered", "no_obligation", "waived"])
+def test_unsettled_run_requirement_holds_every_item_answer(test_db: Any, answer: str):
+    _project(test_db)
+    _member_at_release_wait(test_db, SATISFIED_QA_ITEM)
+    if answer == "waived":
+        _waived_item_requirement(test_db, SATISFIED_QA_ITEM)
+    elif answer == "no_obligation":
+        _no_obligation(test_db, SATISFIED_QA_ITEM, reason="no observable change")
+    run_id = f"run-unsettled-{answer}"
+    _run(test_db, run_id, flow=COMPLETION_FLOW, members=(SATISFIED_QA_ITEM,))
+    insert_qa_requirement(
+        test_db,
+        item_id=None,
+        deployment_run_id=run_id,
+        deployment_member_item_id=SATISFIED_QA_ITEM,
+        deployment_stage="item-qa",
+        qa_kind="plan_case",
+        qa_phase="post_deploy",
+        blocking_mode="blocking",
+    )
+
+    assert not satisfied_delivery_member(
+        test_db, item_id=SATISFIED_QA_ITEM, run_id=run_id
+    )
 
 
 def _settled_member_requirement(

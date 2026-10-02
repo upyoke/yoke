@@ -1,8 +1,8 @@
 """A recorded no-obligation member closes without a wake.
 
-Auto-close keys on the authored ``post_deploy_no_obligation`` fact. An
-empty case set stays held. The waiver-backed ``declared_none`` still
-wakes, because a waiver is not that fact.
+Auto-close recognizes both the authored ``post_deploy_no_obligation`` fact
+and a waiver-backed ``declared_none`` answer. An unanswered member with an
+empty case set stays held.
 """
 
 from __future__ import annotations
@@ -184,7 +184,7 @@ def test_a_sibling_that_owes_a_check_is_still_woken(test_db: Any, monkeypatch) -
     assert statuses[SIBLING_ITEM] != "done"
 
 
-def test_declared_none_still_wakes(test_db: Any, monkeypatch) -> None:
+def test_declared_none_closes_without_waking(test_db: Any, monkeypatch) -> None:
     _isolate_status_effects(monkeypatch)
     _project(test_db)
     _ready_member(test_db, DECLARED_NONE_ITEM, HOLDER_A)
@@ -198,15 +198,18 @@ def test_declared_none_still_wakes(test_db: Any, monkeypatch) -> None:
 
     [report] = notify_delivery_cleared(test_db, run_id="run-declared-none")
 
-    assert report["delivery"] in ("delivered", "undelivered")
-    assert _recipients(
-        test_db,
-        delivery_cleared_idempotency_key(DECLARED_NONE_ITEM, "run-declared-none"),
-    ) == [HOLDER_A]
+    assert report["delivery"] == "closed"
+    assert (
+        _recipients(
+            test_db,
+            delivery_cleared_idempotency_key(DECLARED_NONE_ITEM, "run-declared-none"),
+        )
+        == []
+    )
     status = test_db.execute(
         "SELECT status FROM items WHERE id=%s", (DECLARED_NONE_ITEM,)
     ).fetchone()["status"]
-    assert status != "done"
+    assert status == "done"
 
 
 def test_an_unanswered_member_still_wakes(test_db: Any, monkeypatch) -> None:
@@ -334,7 +337,10 @@ def test_run_success_stamps_the_delivery_rung_landing_could_not(
     assert _delivery_rung(test_db, UNSTAMPED_DELIVERY_ITEM) == (
         "deployment_run_succeeded"
     )
-    assert _recipients(
-        test_db,
-        delivery_cleared_idempotency_key(UNSTAMPED_DELIVERY_ITEM, "run-unstamped"),
-    ) == []
+    assert (
+        _recipients(
+            test_db,
+            delivery_cleared_idempotency_key(UNSTAMPED_DELIVERY_ITEM, "run-unstamped"),
+        )
+        == []
+    )

@@ -135,7 +135,8 @@ learns the other's part from its own skill. The split is the whole rule:
   release wait holding its work claim; the deployment wake re-enters it for its
   QA stage and when its own item-scoped QA clears. A final member on a
   selected flow without run QA or run approval closes after its own final production QA is
-  accepted or explicitly discharged by `post_deploy_no_obligation`, even
+  accepted or discharged by `post_deploy_no_obligation` or a waiver-backed
+  item declaration, provided no run-bound blocking obligation remains, even
   while sibling QA holds the run open. Run QA or run approval holds
   every final member through all item QA, shared gates, and run success. This
   automatic close-out needs no delivery wake and ends an otherwise empty
