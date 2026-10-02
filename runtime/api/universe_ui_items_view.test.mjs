@@ -166,7 +166,7 @@ test("Items projects its scope copy and actions into the shared page head", asyn
   assert.equal(pageHead.summary, undefined);
   assert.deepEqual(
     pageHead.actions.map((node) => node.textContent),
-    ["Filter ▾", "New item"],
+    ["Filter", "New item"],
   );
   assert.equal(pageHead.actions[1].href, "#/items/new?project=7");
   assert.equal(byClass(root, "item-roster-toolbar").length, 0);
@@ -226,7 +226,7 @@ test("Items keeps the filter control mounted while its rows update", async () =>
   await settle();
 
   allNodes(root).find(
-    (node) => node.tagName === "BUTTON" && node.textContent === "Filter ▾",
+    (node) => node.tagName === "BUTTON" && node.textContent === "Filter",
   ).dispatchEvent(new Event("click"));
   const search = allNodes(root).find(
     (node) => node.tagName === "INPUT" && node.type === "search",

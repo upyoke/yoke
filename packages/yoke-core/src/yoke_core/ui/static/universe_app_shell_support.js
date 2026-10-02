@@ -26,27 +26,37 @@ export function saveScreenSelection(client, viewId, selection, focus, sort) {
 // server actually still holds. The person still needs to know their choices
 // are not being saved this session, so a failure surfaces the same scope
 // notice a failed save does.
-export function loadScreenSelections(client, scopeSelections) {
+function readScreenSelections(client) {
   return Promise.resolve().then(() => callFunction(
     client, "ui_preferences.screen_selection.list", {},
   )).then((callResult) => {
     if (!callResult.envelope?.success) {
       throw new Error(callResult.envelope?.error?.message || "screen selection list failed");
     }
-    const views = callResult.envelope.result?.views || {};
-    scopeSelections.lastLocation = callResult.envelope.result?.last_location || null;
+    return callResult.envelope.result || {};
+  });
+}
+
+export function refreshScreenSort(client, scopeSelections, viewId) {
+  return scopeSelections.refreshSortFor(viewId, () => readScreenSelections(client));
+}
+
+export function loadScreenSelections(client, scopeSelections) {
+  return readScreenSelections(client).then((result) => {
+    const views = result.views || {};
+    scopeSelections.lastLocation = result.last_location || null;
     for (const [viewId, view] of Object.entries(views)) {
       scopeSelections.seed(viewId, view.selection, view.focus);
     }
-    for (const [viewId, sort] of Object.entries(callResult.envelope.result?.sorts || {})) {
+    for (const [viewId, sort] of Object.entries(result.sorts || {})) {
       scopeSelections.seedSort(viewId, sort);
     }
-    scopeSelections.markReady(Object.hasOwn(callResult.envelope.result || {}, "sorts"));
+    scopeSelections.markReady(Object.hasOwn(result, "sorts"));
   }).catch(() => {
     // The mount bootstrap's own pending first render already reads
     // `notice` fresh once this settles — no re-render trigger needed here,
     // and firing one would race that render with a premature, incomplete one.
-    scopeSelections.seedNotice("Couldn't load saved projects. Reload to retry.");
+    scopeSelections.seedNotice("Couldn't load saved projects and sorting. Reload to retry; saved choices are unchanged.");
   });
 }
 

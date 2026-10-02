@@ -1,4 +1,5 @@
 import { normalizeItemSort } from "./item_roster_sort.js";
+import { refreshScreenSort } from "./universe_app_shell_support.js";
 import { callFunction } from "./universe_view_support.js";
 import { SEARCH_DEBOUNCE_MS } from "./universe_shell_controls.js";
 
@@ -54,6 +55,8 @@ function failureFrom(callResult) {
  */
 export function createRosterLoader({ context, scope, onChange }) {
   const preferences = context.screenPreferences;
+  const signal = context.signal;
+  const active = () => !signal?.aborted && context.isMounted();
   const criteria = { query: "", workflow: "", status: "", sort: normalizeItemSort(preferences?.sortFor("items")) };
   let sortNotice = "";
   let sequence = 0;
@@ -109,7 +112,7 @@ export function createRosterLoader({ context, scope, onChange }) {
     // A newer sequence already owns the view. This reply answers criteria the
     // reader has moved past, so it is dropped rather than rendered.
     if (token !== sequence) return;
-    if (!context.isMounted()) return;
+    if (!active()) return;
     loading = false;
     const failed = failureFrom(callResult);
     if (failed) {
@@ -130,10 +133,46 @@ export function createRosterLoader({ context, scope, onChange }) {
   };
 
   const reload = () => request({ append: false });
+  let refresh = null;
+  let started = false;
+  const refreshSort = () => {
+    if (!preferences || !active()) return Promise.resolve();
+    if (refresh) return refresh;
+    refresh = refreshScreenSort(context.client, preferences, "items").then((notice) => {
+      if (!active()) return;
+      sortNotice = notice;
+      const sort = normalizeItemSort(preferences.sortFor("items"));
+      const changed = sort.column !== criteria.sort.column || sort.direction !== criteria.sort.direction;
+      if (changed) {
+        criteria.sort = sort;
+        if (started) return reload();
+      }
+      if (started) publish();
+    }).finally(() => { refresh = null; });
+    return refresh;
+  };
+  const windowNode = context.document.defaultView;
+  const onVisible = () => {
+    if (context.document.visibilityState === "visible") refreshSort();
+  };
+  windowNode?.addEventListener?.("focus", refreshSort);
+  context.document.addEventListener?.("visibilitychange", onVisible);
+  signal?.addEventListener("abort", () => {
+    sequence += 1;
+    clearTimeout(debounceTimer);
+    windowNode?.removeEventListener?.("focus", refreshSort);
+    context.document.removeEventListener?.("visibilitychange", onVisible);
+  }, { once: true });
 
   return {
     state,
-    start: reload,
+    start: async () => {
+      await refreshSort();
+      if (!active()) return;
+      criteria.sort = normalizeItemSort(preferences?.sortFor("items"));
+      started = true;
+      return reload();
+    },
     loadMore: () => (cursor === null ? Promise.resolve() : request({
       append: true,
     })),
@@ -145,7 +184,7 @@ export function createRosterLoader({ context, scope, onChange }) {
       const chosen = criteria.sort;
       sortNotice = "";
       preferences?.saveSortFor("items", chosen).then((notice) => {
-        if (chosen !== criteria.sort || !context.isMounted()) return;
+        if (chosen !== criteria.sort || !active()) return;
         sortNotice = notice;
         publish();
       });

@@ -5,6 +5,15 @@
 Workbench **Items** lists backlog work. Open an item for status, fields,
 progress, claims, and QA attachments.
 
+The table starts with **Last updated, descending** when the signed-in actor
+has no saved sort. Column headers change the sort for the full filtered
+dataset before pages load; equal values have a stable item-ID tie break.
+The actor's column and direction are saved on the server independently of
+project selections and restored across browsers, devices, and reloads.
+Returning to Items or bringing its tab back into focus refreshes that choice.
+Load or save failures show recovery guidance beside the table; a failed read
+keeps the last known order and never saves a default over the stored choice.
+
 ```bash
 yoke items get PREFIX-N
 yoke items get PREFIX-N body

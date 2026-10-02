@@ -63,7 +63,7 @@ function loadMoreButton(root) {
 
 function openFilters(root) {
   allNodes(root).find(
-    (node) => node.tagName === "BUTTON" && node.textContent === "Filter ▾",
+    (node) => node.tagName === "BUTTON" && node.textContent === "Filter",
   ).dispatchEvent(new Event("click"));
 }
 

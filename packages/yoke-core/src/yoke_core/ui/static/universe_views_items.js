@@ -90,7 +90,10 @@ export function renderItemsView(context, main, scope, chrome = {}) {
   const documentNode = context.document;
   const projects = context.projects();
   const panel = section(documentNode, "Items");
-  const filterButton = el(documentNode, "button", "item-button", "Filter ▾");
+  const filterButton = el(documentNode, "button", "item-button item-filter-toggle", "Filter");
+  const chevron = el(documentNode, "span", "band-chevron");
+  chevron.setAttribute("aria-hidden", "true");
+  filterButton.appendChild(chevron);
   filterButton.type = "button";
   filterButton.setAttribute("aria-expanded", "false");
   filterButton.setAttribute("aria-controls", "item-roster-filters");
@@ -149,7 +152,10 @@ export function renderItemsView(context, main, scope, chrome = {}) {
     // rows because the NEXT page failed is worse than never having asked.
     if (state.failure && !state.rows.length) {
       panel.renderEnvelope(
-        state.failure, (body) => renderError(body, state.failure),
+        state.failure, (body) => {
+          renderError(body, state.failure);
+          if (state.sortNotice) body.appendChild(el(documentNode, "p", "error-banner", state.sortNotice));
+        },
       );
       return;
     }
