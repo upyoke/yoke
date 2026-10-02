@@ -2,8 +2,8 @@
 
 A promotion that rewrites a version pin pushes a commit no backlog item
 authored. Left unexplained it is unattributed carried work, and the next
-release refuses to compose until somebody records a resolution by hand — so
-the run that produced it records it, and attribution reads that record.
+release refuses to compose. The run that produced it records its output,
+and attribution reads that record.
 
 What these tests hold down is the ordering: the record is consulted only for
 a commit attribution had already given up on, and explaining one commit
@@ -52,9 +52,10 @@ def test_a_recorded_pin_commit_composes_without_a_hand_written_resolution(
         created_at="2026-09-19T00:03:00Z",
     )
 
-    assert deployment_runs.cmd_update(
-        "run-release-output-002", "status", "succeeded"
-    ) is None
+    assert (
+        deployment_runs.cmd_update("run-release-output-002", "status", "succeeded")
+        is None
+    )
 
     carried = carried_work_of(test_db, "run-release-output-002")
     assert carried["commits"] == []
@@ -85,15 +86,16 @@ def test_an_unexplained_commit_beside_a_recorded_one_still_refuses(
         created_at="2026-09-19T00:04:00Z",
     )
 
-    assert deployment_runs.cmd_update(
-        "run-release-output-003", "status", "succeeded"
-    ) is None
+    assert (
+        deployment_runs.cmd_update("run-release-output-003", "status", "succeeded")
+        is None
+    )
 
     carried = carried_work_of(test_db, "run-release-output-003")
     assert carried["commits"] == [release_source["maintenance"]]
     refusal = carried_membership_refusal(test_db, "run-release-output-003")
     assert refusal is not None
     assert "carries 1 commit(s)" in refusal
-    assert release_source["maintenance"] in refusal
     assert "yoke merge-receipt commits attest" in refusal
-    assert "composition_resolution" in refusal
+    assert f"--commit {release_source['maintenance']}" in refusal
+    assert "composition_resolution" not in refusal
