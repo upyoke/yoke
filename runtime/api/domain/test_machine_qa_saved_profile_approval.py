@@ -7,6 +7,8 @@ import subprocess
 
 import pytest
 
+from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
+
 from yoke_core.domain.machine_qa_saved_profile_approval import (
     approve_machine_from_profile as _approve_machine_from_profile,
 )
@@ -22,11 +24,14 @@ URL = ORIGIN + "/connect?user_code=AB12-CD34"
 
 
 class Control:
-    def __init__(self, *, expired=False, missing=False, hostile=False, failed=False):
+    def __init__(
+        self, *, expired=False, missing=False, hostile=False, failed=False, os="linux"
+    ):
         self.material = SimpleNamespace(
             project="project",
             settings={
                 "resource_name": "rig",
+                "os": os,
                 **(
                     {}
                     if missing
@@ -37,11 +42,13 @@ class Control:
         self.path_state = SimpleNamespace(yoke_bin="/test/.local/bin/yoke")
         self.commands = []
         self.timeouts = []
+        self.contexts = []
         self.expired, self.hostile, self.failed = expired, hostile, failed
 
     def run_command(self, argv, **options):
         self.commands.append(argv)
         self.timeouts.append(options["timeout"])
+        self.contexts.append(options.get("required_session_context"))
         assert argv[0] == self.path_state.yoke_bin
         if argv[3] == "status":
             data = {"profile": {"status": "not authorized"}}
@@ -73,6 +80,17 @@ def test_approval_restores_after_install_and_proves_exact_control():
     assert actions[0]["route"] == URL
     assert result.evidence["result_url"] == ORIGIN + "/connect"
     assert result.evidence["profile_restored"]
+
+
+@pytest.mark.parametrize("os", ["linux", "windows", "macos"])
+def test_browser_operations_use_the_host_session_gateway(os):
+    control = Control(os=os)
+    result = approve_machine_from_profile(
+        control, verification_url=ORIGIN + "/connect", user_code="AB12-CD34"
+    )
+    assert result.ok
+    expected = GUI_SESSION_CONTEXT if os == "macos" else None
+    assert control.contexts == [expected] * 5
 
 
 @pytest.mark.parametrize(

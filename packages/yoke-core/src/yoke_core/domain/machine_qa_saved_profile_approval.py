@@ -10,6 +10,8 @@ import time
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
+from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
+
 
 @dataclass(frozen=True)
 class BrowserApprovalResult:
@@ -54,9 +56,12 @@ def _cli(control: Any, *argv: str, deadline: float) -> tuple[bool, dict[str, Any
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         return False, {}
+    options = {"timeout": remaining}
+    if control.material.settings.get("os") == "macos":
+        options["required_session_context"] = GUI_SESSION_CONTEXT
     try:
         result = control.run_command(
-            [control.path_state.yoke_bin, "qa", "browser", *argv], timeout=remaining
+            [control.path_state.yoke_bin, "qa", "browser", *argv], **options
         )
     except (OSError, RuntimeError, subprocess.SubprocessError):
         return False, {}
