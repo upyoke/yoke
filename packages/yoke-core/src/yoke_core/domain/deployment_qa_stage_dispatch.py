@@ -273,6 +273,9 @@ def materialize_and_gate_deployment_qa_stage(
                 revision=revision,
                 target_digest=str(status.get("target_digest") or ""),
             )
+        if status["accepted"]:
+            for reason in status["reasons"]:
+                print(f"Run {run_id!r} stage {stage['name']!r} {label}: {reason}")
         if not status["accepted"]:
             waiting.extend(f"{label}: {reason}" for reason in status["reasons"])
             if project_id is not None:

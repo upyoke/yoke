@@ -85,7 +85,7 @@ QA_TABLES: dict[str, dict] = {
             "cycles through `handlers.machine_qa_baseline_group` and prevents "
             "`baseline_group_cases` from importing. "
             "Plan bindings live in qa_plan_item_attachments; its timestamp is "
-            "attached_at, not created_at. Attachment fixture inserts use attached_at. "
+            "attached_at, not created_at. Attachment fixture inserts use attached_at and transition_id; wrong guesses created_at and workflow_transition are not its columns. "
             "A retracted row (`retracted_at`) is withdrawn history from "
             "`yoke qa item-plan retract`, not a waiver and not a "
             "supersession. "

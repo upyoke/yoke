@@ -35,6 +35,7 @@ from yoke_core.domain.deployment_qa_stage_gate import ACCEPTANCE_QA_KIND
 from yoke_core.domain.deployment_qa_stage_named_cases import stage_names_cases
 from yoke_core.domain.post_deploy_verification_answer import (
     cases_not_selected_refusal,
+    NOT_REQUIRED,
     member_post_deploy_answer,
 )
 from yoke_core.domain.schema_common import _table_exists
@@ -53,6 +54,7 @@ class QaStageOutstanding:
     subjects: int
     waiting: int
     waiting_members: tuple[int | None, ...] = ()
+    no_obligation_lines: tuple[str, ...] = ()
 
 
 def qa_stage_outstanding(
@@ -149,8 +151,8 @@ def _unselected_reason(
 
 def _member_lines(
     conn: Any, *, run_id: str, stage: Mapping[str, Any], member: int | None
-) -> list[str]:
-    """Driver-shaped wait lines for one subject, without writes."""
+) -> tuple[list[str], list[str]]:
+    """Driver-shaped wait lines and exemption notes, without writes."""
     label = f"member {member}" if member is not None else "run"
     subject = deployment_qa_stage_subject(
         conn,
@@ -160,12 +162,15 @@ def _member_lines(
         require_active=False,
     )
     target = deployment_qa_execution_target(conn, subject)
+    member_answer = member_post_deploy_answer(conn, subject)
+    if member_answer.verdict == NOT_REQUIRED:
+        return [], [f"{label}: {reason}" for reason in member_answer.reasons]
     if not _has_method_id(
         conn, run_id=run_id, stage_name=str(stage["name"]), member=member
     ):
         unselected = _unselected_reason(conn, subject, target=target)
         if unselected:
-            return [f"{label}: {unselected}"]
+            return [f"{label}: {unselected}"], []
     acceptance = stage_acceptance(
         conn,
         subject=subject,
@@ -173,13 +178,10 @@ def _member_lines(
         acceptance_qa_kind=ACCEPTANCE_QA_KIND,
     )
     if acceptance.accepted:
-        return []
-    if (
-        acceptance.state == STAGE_NOT_RUN
-        and member_post_deploy_answer(conn, subject).discharges_without_cases
-    ):
-        return []
-    return [f"{label}: {reason}" for reason in acceptance.blockers]
+        return [], []
+    if acceptance.state == STAGE_NOT_RUN and member_answer.discharges_without_cases:
+        return [], []
+    return [f"{label}: {reason}" for reason in acceptance.blockers], []
 
 
 def _evaluate(
@@ -198,8 +200,12 @@ def _evaluate(
         )
     lines: list[str] = []
     waiting_members: list[int | None] = []
+    no_obligation_lines: list[str] = []
     for member in members:
-        member_lines = _member_lines(conn, run_id=run_id, stage=stage, member=member)
+        member_lines, notes = _member_lines(
+            conn, run_id=run_id, stage=stage, member=member
+        )
+        no_obligation_lines.extend(notes)
         if member_lines:
             waiting_members.append(member)
             lines.extend(member_lines)
@@ -208,6 +214,7 @@ def _evaluate(
         subjects=len(members),
         waiting=len(waiting_members),
         waiting_members=tuple(waiting_members),
+        no_obligation_lines=tuple(no_obligation_lines),
     )
 
 

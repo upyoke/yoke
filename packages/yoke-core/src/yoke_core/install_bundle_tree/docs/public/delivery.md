@@ -76,7 +76,12 @@ is kept. The refusal names each member — the
 blocked ones with their own reason, the rest as held with the run so nobody
 repairs a member that has nothing wrong. A final member the run could not
 even try to close, such as one whose post-deploy obligations are unanswered,
-holds the run the same way. Second, after that commit, the closed members'
+holds the run the same way. A carried cross-project member whose own
+completion flow declares no item QA and which has no explicit plan or
+post-deploy requirement owes no answer: stage and fleet reports name its
+own flow as the reason, and it closes with the release. Same-project members
+and carried members whose own flow declares item QA still need an answer;
+explicit obligations always run. Second, after that commit, the closed members'
 effects run: GitHub sync, lane cleanup, and ending the holders' now-empty
 sessions. They are idempotent, and a failure among them never reopens a
 closed member. It keeps the run settling, naming the member and the failure,

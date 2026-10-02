@@ -44,6 +44,7 @@ from yoke_core.domain.deployment_qa_admission_materialization import (
     fulfill_admitted_obligations,
 )
 from yoke_core.domain.post_deploy_verification_answer import (
+    NOT_REQUIRED,
     member_post_deploy_answer,
 )
 from yoke_core.domain import qa_execution_environment_target as target_authority
@@ -205,12 +206,13 @@ def _settle_stage_status(
             # is waived or superseded has nothing left to run, so the missing
             # execution is the expected end state rather than a blocker.
             return discharged()
-        if member_post_deploy_answer(conn, subject).discharges_without_cases:
-            # The other way a subject can have nothing left to run: the member
-            # recorded, before its deploy, that it owes no post-deploy check.
-            # An empty case set alone is never enough -- that is a member
-            # nobody asked, which stays held.
-            return discharged()
+        member_answer = member_post_deploy_answer(conn, subject)
+        if member_answer.discharges_without_cases:
+            # Recorded emptiness or a carried member's own-flow exemption.
+            result = discharged()
+            if member_answer.verdict == NOT_REQUIRED:
+                result["reasons"] = list(member_answer.reasons)
+            return result
         _state, missing = missing_execution_blocker(
             conn, run_id, stage_name, member_item_id, current_target_digest
         )

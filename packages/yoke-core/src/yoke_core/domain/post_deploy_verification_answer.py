@@ -16,7 +16,10 @@ Four answers. ``answered`` named what to verify. ``no_obligation`` recorded
 that nothing about the item is observable once deployed — a considered
 fact, not a waiver. ``declared_none`` is the waiver-backed sibling: an
 obligation existed (or was treated as one) and the owner declined it.
-``unanswered`` is silence, and silence still blocks.
+``unanswered`` is silence, and silence still blocks when the item owes QA.
+At an item-scoped stage, a carried cross-project member whose own completion
+flow declares no item QA and which has no explicit cases is ``not_required``.
+That stage disposition records no item answer and is never a waiver.
 
 A waiver means an obligation existed and we chose not to satisfy it.
 ``waived_at``, ``waiver_rationale`` and ``waiver_source`` carry that
@@ -44,6 +47,8 @@ NO_OBLIGATION = "no_obligation"
 DECLARED_NONE = "declared_none"
 #: Nobody has asked, so nobody has answered.
 UNANSWERED = "unanswered"
+#: The carried member's own completion flow asks no item QA. Stage-only fact.
+NOT_REQUIRED = "not_required"
 
 #: ``qa_kind`` a waiver-backed "needs none" declaration carries.
 DECLARATION_QA_KIND = "post_deploy_not_required"
@@ -76,8 +81,8 @@ class PostDeployAnswer:
 
     @property
     def discharges_without_cases(self) -> bool:
-        """Recorded answers that mean the stage has nothing to run."""
-        return self.verdict in {NO_OBLIGATION, DECLARED_NONE}
+        """Recorded empty answers or an own-flow exemption leave nothing to run."""
+        return self.verdict in {NO_OBLIGATION, DECLARED_NONE, NOT_REQUIRED}
 
 
 def _post_deploy(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -89,9 +94,8 @@ def _post_deploy(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _is_no_obligation(row: Mapping[str, Any]) -> bool:
-    return (
-        str(row.get("qa_kind") or "") == NO_OBLIGATION_QA_KIND
-        and not row.get("waived_at")
+    return str(row.get("qa_kind") or "") == NO_OBLIGATION_QA_KIND and not row.get(
+        "waived_at"
     )
 
 
@@ -122,15 +126,11 @@ def classify(
     attached = [row for row in _post_deploy(attachments) if not _is_retracted(row)]
     rows = [row for row in _post_deploy(requirements) if not _is_retracted(row)]
     live = [
-        row
-        for row in rows
-        if not _is_no_obligation(row) and not row.get("waived_at")
+        row for row in rows if not _is_no_obligation(row) and not row.get("waived_at")
     ]
     no_obligation = [row for row in rows if _is_no_obligation(row)]
     waived = [
-        row
-        for row in rows
-        if not _is_no_obligation(row) and row.get("waived_at")
+        row for row in rows if not _is_no_obligation(row) and row.get("waived_at")
     ]
     if attached or live:
         return PostDeployAnswer(ANSWERED)
@@ -189,7 +189,16 @@ def member_post_deploy_answer(
     member_item_id = subject.get("member_item_id")
     if member_item_id is None:
         return PostDeployAnswer(UNANSWERED)
-    return answer_for_item(conn, int(member_item_id))
+    answer = answer_for_item(conn, int(member_item_id))
+    if answer.unanswered:
+        from yoke_core.domain.carried_member_qa_obligation import (
+            stage_no_item_qa_reason,
+        )
+
+        reason = stage_no_item_qa_reason(conn, subject)
+        if reason:
+            return PostDeployAnswer(NOT_REQUIRED, (reason,))
+    return answer
 
 
 def declare_none_recipe(public_ref: str) -> str:
@@ -208,9 +217,7 @@ def record_no_obligation_recipe(public_ref: str) -> str:
     )
 
 
-def attach_standing_recipe(
-    public_ref: str, *, project: str, transition: str
-) -> str:
+def attach_standing_recipe(public_ref: str, *, project: str, transition: str) -> str:
     """The command that attaches a durable per-item post-deploy plan."""
     return (
         f"yoke qa item-plan attach --item {public_ref} --project {project} "
@@ -260,6 +267,7 @@ __all__ = [
     "DECLARED_NONE",
     "NO_OBLIGATION",
     "NO_OBLIGATION_QA_KIND",
+    "NOT_REQUIRED",
     "PostDeployAnswer",
     "RUN_SCOPED_NOTE",
     "UNANSWERED",
