@@ -20,7 +20,7 @@ yoke qa plan run \
 
 The member flag is required for item scope and forbidden for run scope. Named
 flow cases and selected member requirements come from the run's immutable
-admission snapshots. If no concrete method case was admitted or configured,
+admission snapshots, excluding retracted requirements and withdrawn member plan attachments. A replacement active attachment supplies its own cases. If an older build populated a frozen run from a withdrawn plan, repeat `yoke qa item-plan retract --item ITEM --project PROJECT --plan-id PLAN --transition release --reason "withdraw the mis-scoped plan"` to retire its remaining copies, then re-drive the run or execute the member stage. This preserves withdrawal history and refuses passing copies. If no concrete method case was admitted or configured,
 the executor supplies `--plan`; its frozen cases are materialized separately
 from admitted aggregate obligations, so evidence retains both identities.
 

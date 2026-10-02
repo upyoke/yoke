@@ -19,6 +19,21 @@ def live_item_attachment_sql(conn: Any, alias: str = "") -> str:
     return f"{prefix}retracted_at IS NULL"
 
 
+def retracted_item_plan_ids(conn: Any, item_id: int) -> set[int]:
+    """Post-deploy plans withdrawn by this member, including frozen selections."""
+    if not _column_exists(conn, "qa_plan_item_attachments", "retracted_at"):
+        return set()
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    rows = query_rows(
+        conn,
+        "SELECT plan_id FROM qa_plan_item_attachments "
+        f"WHERE item_id={marker} AND qa_phase='post_deploy' "
+        "AND retracted_at IS NOT NULL",
+        (int(item_id),),
+    )
+    return {int(row["plan_id"]) for row in rows}
+
+
 def plan_attachment_rows(conn: Any, plan_id: int) -> list[dict]:
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     project_defaults = query_rows(
@@ -65,10 +80,13 @@ def plan_attachment_rows(conn: Any, plan_id: int) -> list[dict]:
         if row["kind"] == "item":
             prefix = row.pop("public_item_prefix")
             sequence = row.pop("project_sequence")
-            row["public_ref"] = format_item_ref(
-                row["project"], prefix, sequence)
+            row["public_ref"] = format_item_ref(row["project"], prefix, sequence)
         result.append(row)
     return result
 
 
-__all__ = ["live_item_attachment_sql", "plan_attachment_rows"]
+__all__ = [
+    "live_item_attachment_sql",
+    "plan_attachment_rows",
+    "retracted_item_plan_ids",
+]
