@@ -13,6 +13,9 @@ show recency for every outcome, and keep complete review reasons expandable.
 Activity shows the latest 500 cases per project, including earlier days,
 with text, outcome and local-date filters and page controls. The loaded
 boundary stays visible; filtering does not search older cases outside it.
+Rows appear without waiting for optional item-name lookups. Visible cases
+initially use the item identity available, then show its public reference when
+resolved; slow or failed name lookups leave the history usable.
 Failed reads have Retry and stay distinct from a successful empty result.
 
 ## How gates work

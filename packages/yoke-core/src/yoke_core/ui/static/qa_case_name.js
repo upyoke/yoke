@@ -64,3 +64,18 @@ export async function loadQaCaseItemRefs(context, rows) {
   }));
   return refs;
 }
+
+// One activity mount owns this cache. Paging reuses pending and completed
+// lookups without retaining another actor's or universe's item identities.
+export function qaCaseItemRefLoader(context) {
+  const requests = new Map();
+  return (row) => {
+    const itemId = qaCaseItemId(row);
+    if (row.item_ref || itemId == null) return Promise.resolve(row.item_ref || null);
+    if (!requests.has(itemId)) {
+      requests.set(itemId, loadQaCaseItemRefs(context, [row])
+        .then((refs) => refs.get(itemId)));
+    }
+    return requests.get(itemId);
+  };
+}
