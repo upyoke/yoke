@@ -6,7 +6,7 @@ the page is selected — and the caller receives one page plus the total number
 of matches standing behind it.
 
 Ordering, cursor comparison and tie-breaking all read ONE expression,
-:data:`ROSTER_SORT_EXPRESSION`. ``items.updated_at`` is TEXT: it is empty on
+the allowlisted sort expression. ``items.updated_at`` is TEXT: it is empty on
 some rows and on at least one row omits the trailing ``Z``, so a coalesced
 expression is the only stable sort key. The cursor carries that stored string
 verbatim — parsing it into a timestamp and re-serializing would rewrite a
@@ -28,60 +28,27 @@ from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
-#: The one expression that orders the roster, keys its cursor, and breaks its
-#: ties. Never inline a bare ``i.updated_at`` beside this — see the module
-#: docstring for the mixed-format storage this compensates for.
-ROSTER_SORT_EXPRESSION = "COALESCE(NULLIF(i.updated_at, ''), i.created_at)"
+from yoke_core.domain.item_roster_order import (
+    ROSTER_SORT_EXPRESSION,
+    RosterCursorError,
+    decode_cursor,
+    encode_cursor,
+    sort_expression,
+)
 
-#: Separator between a cursor's sort value and its item id. The sort value is
-#: an ISO timestamp, and the id is an integer, so splitting on the LAST
-#: separator round-trips a sort value that itself contains one.
-_CURSOR_SEPARATOR = "|"
-
-#: Columns the roster query reads. Enrichment adds the rendered facts; this
-#: is the minimum needed to identify a row and label its stage.
 _ROSTER_COLUMNS = (
     "i.id AS internal_id",
     "i.title",
     "i.workflow_id",
     "i.workflow_version_id",
     "i.status",
+    "i.updated_at",
+    "i.created_at",
 )
-
-
-class RosterCursorError(ValueError):
-    """A paging cursor could not be read. The message names the recovery."""
 
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def encode_cursor(sort_value: str, item_id: int) -> str:
-    """Build the cursor for the row a page ended on.
-
-    ``sort_value`` is stored verbatim: it is the string the database holds,
-    not a normalized rendering of it.
-    """
-    return f"{sort_value}{_CURSOR_SEPARATOR}{int(item_id)}"
-
-
-def decode_cursor(cursor: str) -> tuple[str, int]:
-    """Read a cursor back into its ``(sort value, item id)`` pair."""
-    sort_value, separator, raw_id = str(cursor).rpartition(_CURSOR_SEPARATOR)
-    if not separator or not raw_id:
-        raise RosterCursorError(
-            f"cursor {cursor!r} is malformed (expected "
-            f"'<sort value>{_CURSOR_SEPARATOR}<item id>'). Reload the Items "
-            "page to restart paging from the newest match."
-        )
-    try:
-        return sort_value, int(raw_id)
-    except ValueError as exc:
-        raise RosterCursorError(
-            f"cursor {cursor!r} does not end in an item id. Reload the Items "
-            "page to restart paging from the newest match."
-        ) from exc
 
 
 def _search_clause(conn: Any, search: str) -> tuple[str, list[Any]]:
@@ -175,23 +142,27 @@ def _filter_choices(
     """
     from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
 
-    rows = _dict_rows(conn.execute(
-        "SELECT DISTINCT i.workflow_id, i.status, i.workflow_version_id "
-        f"FROM items i JOIN projects p ON p.id = i.project_id{where}",
-        tuple(params),
-    ))
+    rows = _dict_rows(
+        conn.execute(
+            "SELECT DISTINCT i.workflow_id, i.status, i.workflow_version_id "
+            f"FROM items i JOIN projects p ON p.id = i.project_id{where}",
+            tuple(params),
+        )
+    )
     if not rows:
         return {"workflow_ids": [], "statuses": []}
     version_ids = sorted({int(row["workflow_version_id"]) for row in rows})
     markers = ", ".join(_p(conn) for _ in version_ids)
     runtimes = {
         int(version["workflow_version_id"]): workflow_runtime_from_row(version)
-        for version in _dict_rows(conn.execute(
-            "SELECT v.id AS workflow_version_id, v.workflow_id, v.version, "
-            "v.definition_json, v.definition_digest FROM workflow_versions v "
-            f"WHERE v.id IN ({markers})",
-            tuple(version_ids),
-        ))
+        for version in _dict_rows(
+            conn.execute(
+                "SELECT v.id AS workflow_version_id, v.workflow_id, v.version, "
+                "v.definition_json, v.definition_digest FROM workflow_versions v "
+                f"WHERE v.id IN ({markers})",
+                tuple(version_ids),
+            )
+        )
     }
     labels: dict[str, str] = {}
     for row in rows:
@@ -217,6 +188,8 @@ def read_item_roster(
     status: Optional[str] = None,
     page_size: int,
     cursor: Optional[str] = None,
+    sort_column: str = "updated_at",
+    sort_direction: str = "desc",
 ) -> dict[str, Any]:
     """Read one roster page plus the full match count behind it.
 
@@ -229,6 +202,9 @@ def read_item_roster(
     scope the cursor did not change — recomputing a scope-wide DISTINCT on
     every ``Load more`` would buy the same answer again.
     """
+    expression = sort_expression(conn, sort_column, sort_direction)
+    order = sort_direction.upper()
+    comparison = ">" if sort_direction == "asc" else "<"
     scope = None if project_ids is None else list(project_ids)
     if scope is not None and not scope:
         return {
@@ -251,37 +227,53 @@ def read_item_roster(
     filters = None
     if not cursor:
         scope_where, scope_params = _filter_sql(
-            conn, project_ids=scope, search=None, workflow=None, status=None,
+            conn,
+            project_ids=scope,
+            search=None,
+            workflow=None,
+            status=None,
         )
         filters = _filter_choices(conn, scope_where, scope_params)
     source = f"FROM items i JOIN projects p ON p.id = i.project_id{where}"
-    match_count = int(conn.execute(
-        f"SELECT COUNT(*) {source}", tuple(params),
-    ).fetchone()[0])
+    match_count = int(
+        conn.execute(
+            f"SELECT COUNT(*) {source}",
+            tuple(params),
+        ).fetchone()[0]
+    )
 
     page_where, page_params = where, list(params)
     if cursor:
-        sort_value, cursor_id = decode_cursor(cursor)
+        sort_value, cursor_id = decode_cursor(cursor, sort_column, sort_direction)
         joiner = " AND " if page_where else " WHERE "
-        page_where = page_where + joiner + (
-            f"({ROSTER_SORT_EXPRESSION} < {p} OR "
-            f"({ROSTER_SORT_EXPRESSION} = {p} AND i.id < {p}))"
+        page_where = (
+            page_where
+            + joiner
+            + (
+                f"({expression} {comparison} {p} OR "
+                f"({expression} = {p} AND i.id {comparison} {p}))"
+            )
         )
         page_params.extend([sort_value, sort_value, cursor_id])
     # One row beyond the page proves whether another page exists without a
     # second count against the cursor predicate.
-    rows = _dict_rows(conn.execute(
-        f"SELECT {', '.join(_ROSTER_COLUMNS)}, "
-        f"{ROSTER_SORT_EXPRESSION} AS roster_sort_value "
-        f"FROM items i JOIN projects p ON p.id = i.project_id{page_where} "
-        f"ORDER BY {ROSTER_SORT_EXPRESSION} DESC, i.id DESC LIMIT {p}",
-        (*page_params, page_size + 1),
-    ))
+    rows = _dict_rows(
+        conn.execute(
+            f"SELECT {', '.join(_ROSTER_COLUMNS)}, "
+            f"{expression} AS roster_sort_value "
+            f"FROM items i JOIN projects p ON p.id = i.project_id{page_where} "
+            f"ORDER BY {expression} {order}, i.id {order} LIMIT {p}",
+            (*page_params, page_size + 1),
+        )
+    )
     has_more = len(rows) > page_size
     page = rows[:page_size]
     next_cursor = (
         encode_cursor(
-            str(page[-1]["roster_sort_value"]), int(page[-1]["internal_id"]),
+            str(page[-1]["roster_sort_value"]),
+            int(page[-1]["internal_id"]),
+            sort_column,
+            sort_direction,
         )
         if has_more and page
         else None

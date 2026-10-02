@@ -112,14 +112,14 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "YOK-11", "alpha", "alpha item", "issue", "Idea", "unassigned", "—",
-    "YOK-21", "beta", "beta item", "issue", "Idea", "unassigned", "—",
+    "YOK-11", "alpha", "alpha item", "issue", "Idea", "unassigned", "—", "—",
+    "YOK-21", "beta", "beta item", "issue", "Idea", "unassigned", "—", "—",
   ]);
   assert.deepEqual(
     allNodes(root)
       .filter((node) => node.tagName === "TH")
-      .map((node) => node.textContent),
-    ["ID", "project", "Title", "Workflow", "Status", "Owner", "Claimed by"],
+      .map(cellText),
+    ["ID", "project", "Title", "Workflow", "Status", "Owner", "Claimed by", "Last updated ↓"],
   );
   // Each row's drill-in carries that row's own project.
   assert.deepEqual(

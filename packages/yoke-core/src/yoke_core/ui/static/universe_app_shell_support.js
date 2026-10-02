@@ -6,10 +6,10 @@ import { scopeForRoute } from "./universe_destinations.js";
 // A denied or failed write resolves normally with `success=false`; it must
 // still reach `createProjectSelection`'s `saveFor` as a rejection, or a save
 // that never landed would silently look saved.
-export function saveScreenSelection(client, viewId, selection, focus) {
+export function saveScreenSelection(client, viewId, selection, focus, sort) {
   return Promise.resolve(callFunction(
     client, "ui_preferences.screen_selection.set", {
-      view_id: viewId, selection, focus,
+      view_id: viewId, ...(sort ? { sort } : { selection, focus }),
     },
   )).then((callResult) => {
     if (!callResult.envelope?.success) {
@@ -38,7 +38,10 @@ export function loadScreenSelections(client, scopeSelections) {
     for (const [viewId, view] of Object.entries(views)) {
       scopeSelections.seed(viewId, view.selection, view.focus);
     }
-    scopeSelections.markReady();
+    for (const [viewId, sort] of Object.entries(callResult.envelope.result?.sorts || {})) {
+      scopeSelections.seedSort(viewId, sort);
+    }
+    scopeSelections.markReady(Object.hasOwn(callResult.envelope.result || {}, "sorts"));
   }).catch(() => {
     // The mount bootstrap's own pending first render already reads
     // `notice` fresh once this settles — no re-render trigger needed here,

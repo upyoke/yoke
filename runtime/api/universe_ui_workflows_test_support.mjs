@@ -123,7 +123,7 @@ export function workflowsClient(workflows) {
         return okEnvelope({ name: "Yoke" });
       }
       if (request.function === "projects.list") {
-        return okEnvelope({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }] });
+        return okEnvelope({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }], creation_scoped: true });
       }
       if (request.function === "workflows.definition.get") {
         return okEnvelope(definitionFixture(structuredClone(rows)));
@@ -137,6 +137,9 @@ export function workflowsClient(workflows) {
       }
       if (request.function === "qa.plan.list") {
         return okEnvelope({ rows: [] });
+      }
+      if (request.function === "workflow.execution_instruction.resolve") {
+        return okEnvelope({ execution_instructions: [] });
       }
       if (request.function === "workflow.execution_instruction.list") {
         return okEnvelope({ instructions: [] });

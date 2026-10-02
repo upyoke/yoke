@@ -41,10 +41,12 @@ class ProjectsGetResponse(BaseModel):
 class ProjectsListRequest(BaseModel):
     fields: Optional[List[str]] = None
     include_summary: bool = False
+    for_item_creation: bool = False
 
 
 class ProjectsListResponse(BaseModel):
     fields: List[str]
+    creation_scoped: bool = False
     rows: List[Dict[str, Any]]
 
 
@@ -201,12 +203,37 @@ def handle_projects_list(request: FunctionCallRequest) -> HandlerOutcome:
                 jsonpath="$.payload.fields",
             ),
         )
+    if parsed.for_item_creation and "id" not in fields:
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="payload_invalid",
+                message="Item creation projects require the id field; include id and retry",
+            ),
+        )
     visible_project_ids = None
     rows: List[Dict[str, Any]] = []
     if actor_id is not None:
         conn = connect()
         try:
             visible_project_ids = actor_visible_project_ids(conn, actor_id)
+            if parsed.for_item_creation:
+                from yoke_core.domain.actor_permissions import (
+                    PERM_ITEMS_WRITE,
+                    permission_decision,
+                )
+
+                candidates = query_rows(conn, "SELECT id FROM projects")
+                visible_project_ids = {
+                    int(row["id"])
+                    for row in candidates
+                    if permission_decision(
+                        conn,
+                        project_id=int(row["id"]),
+                        actor_id=actor_id,
+                        permission_key=PERM_ITEMS_WRITE,
+                    ).allowed
+                }
         finally:
             conn.close()
     if parsed.fields is None and not parsed.include_summary:
@@ -241,6 +268,8 @@ def handle_projects_list(request: FunctionCallRequest) -> HandlerOutcome:
                 raw_rows = enrich_project_summaries(conn, raw_rows)
         finally:
             conn.close()
+    if parsed.for_item_creation and actor_id is None:
+        visible_project_ids = set()
     for row in raw_rows:
         if visible_project_ids is not None:
             try:
@@ -257,6 +286,7 @@ def handle_projects_list(request: FunctionCallRequest) -> HandlerOutcome:
                 *(PROJECT_SUMMARY_FIELDS if parsed.include_summary else ()),
             ],
             "rows": rows,
+            **({"creation_scoped": True} if parsed.for_item_creation else {}),
         },
         primary_success=True,
     )

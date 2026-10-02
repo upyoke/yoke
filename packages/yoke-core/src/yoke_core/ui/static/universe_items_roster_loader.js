@@ -1,3 +1,4 @@
+import { normalizeItemSort } from "./item_roster_sort.js";
 import { callFunction } from "./universe_view_support.js";
 import { SEARCH_DEBOUNCE_MS } from "./universe_shell_controls.js";
 
@@ -22,6 +23,7 @@ function requestPayload(scope, criteria, cursor) {
   const query = criteria.query.trim();
   return {
     page_size: ROSTER_PAGE_SIZE,
+    sort_column: criteria.sort.column, sort_direction: criteria.sort.direction,
     ...(projects ? { projects } : {}),
     ...(query ? { search: query } : {}),
     ...(criteria.workflow ? { workflow: criteria.workflow } : {}),
@@ -51,7 +53,9 @@ function failureFrom(callResult) {
  * than never having asked.
  */
 export function createRosterLoader({ context, scope, onChange }) {
-  const criteria = { query: "", workflow: "", status: "" };
+  const preferences = context.screenPreferences;
+  const criteria = { query: "", workflow: "", status: "", sort: normalizeItemSort(preferences?.sortFor("items")) };
+  let sortNotice = "";
   let sequence = 0;
   let rows = [];
   let cursor = null;
@@ -69,7 +73,7 @@ export function createRosterLoader({ context, scope, onChange }) {
     filters,
     failure,
     loading,
-    hasMore: cursor !== null,
+    hasMore: cursor !== null, sortNotice,
   });
 
   const publish = () => {
@@ -135,6 +139,18 @@ export function createRosterLoader({ context, scope, onChange }) {
     })),
     // Selecting a criterion resets the sequence immediately: a filter is a
     // deliberate act and should not wait out a text debounce.
+    setSort: (column) => {
+      const direction = criteria.sort.column === column && criteria.sort.direction === "asc" ? "desc" : "asc";
+      criteria.sort = normalizeItemSort({ column, direction });
+      const chosen = criteria.sort;
+      sortNotice = "";
+      preferences?.saveSortFor("items", chosen).then((notice) => {
+        if (chosen !== criteria.sort || !context.isMounted()) return;
+        sortNotice = notice;
+        publish();
+      });
+      return reload();
+    },
     setFilter: (key, value) => {
       criteria[key] = value;
       return reload();

@@ -81,8 +81,8 @@ test("New item derives web-fileability and settings from the definition", async 
   assert.match(rendered, /Approval on done/);
   assert.match(rendered, /Deploy after merge/);
   assert.deepEqual(
-    byClass(root, "item-project-value").map((node) => node.textContent),
-    ["🐜 acme"],
+    byClass(root, "item-project-select").map((node) => node.value),
+    ["7"],
   );
   assert.equal(byClass(root, "item-setting-row").length, 6);
   assert.deepEqual(

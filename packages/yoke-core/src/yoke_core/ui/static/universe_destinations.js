@@ -26,6 +26,7 @@ export const SCOPE_NONE = "none";
 // A detail may be one complete cross-project subject even when its parent
 // listing uses the project picker to choose which subjects appear.
 export function scopeForRoute(entry, route) {
+  if (entry.id === "items" && route?.detail === "new") return SCOPE_NONE;
   return route?.detail && entry.detailScopes?.[route.tab || "default"]
     ? entry.detailScopes[route.tab || "default"] : entry.scope;
 }

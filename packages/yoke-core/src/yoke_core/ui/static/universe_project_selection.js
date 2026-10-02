@@ -41,8 +41,10 @@ export function selectionParam(selection) {
   return Array.isArray(selection) ? selection.join(",") : "all";
 }
 
-export function createProjectSelection(saveView, onNotice) {
+export function createProjectSelection(saveView, onNotice, saveSort) {
   const views = new Map();
+  const sorts = new Map();
+  let sortWrites = Promise.resolve();
   // `ready` gates every write: until the initial server read has genuinely
   // succeeded (seeding what the actor actually has on record, even an
   // empty map), this module knows nothing about the true stored state, so
@@ -69,6 +71,15 @@ export function createProjectSelection(saveView, onNotice) {
     if (!entry) { entry = { selection: "all", focus: null }; views.set(viewId, entry); }
     return entry;
   };
+  state.sortFor = (viewId) => sorts.get(viewId) || { column: "updated_at", direction: "desc" };
+  state.seedSort = (viewId, sort) => { sorts.set(viewId, sort); };
+  state.saveSortFor = (viewId, sort) => {
+    sorts.set(viewId, sort);
+    if (!state.ready || !saveSort) return Promise.resolve("Saved preferences unavailable. Reload to retry saving the sort.");
+    if (!state.sortReady) return Promise.resolve("Sort persistence unavailable. Update the server and reload to save sorting.");
+    sortWrites = sortWrites.catch(() => {}).then(() => saveSort(viewId, sort));
+    return sortWrites.then(() => "").catch(() => "Sort could not be saved. Click a column header to retry.");
+  };
   state.selectionFor = (viewId) => entryFor(viewId).selection;
   state.focusFor = (viewId) => entryFor(viewId).focus;
   state.setSelectionFor = (viewId, selection) => { entryFor(viewId).selection = selection; };
@@ -80,7 +91,7 @@ export function createProjectSelection(saveView, onNotice) {
   };
   // Marks the initial server read as genuinely settled — called only after
   // that read succeeds, whether or not it had anything to seed.
-  state.markReady = () => { state.ready = true; };
+  state.markReady = (sortsAvailable = false) => { state.ready = true; state.sortReady = sortsAvailable; };
   state.saveFor = (viewId) => {
     if (!saveView || !state.ready) return;
     const entry = entryFor(viewId);

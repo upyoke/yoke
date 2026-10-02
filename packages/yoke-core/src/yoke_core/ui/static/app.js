@@ -92,6 +92,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     // A save can fail well after the render that started it; re-render so
     // its notice shows up without the person having to navigate again.
     () => renderRoute(),
+    (viewId, sort) => saveScreenSelection(client, viewId, null, null, sort),
   );
   const navigation = createSelectionNavigation(rootNode, windowNode, scopeSelections);
   const locationPreference = createLocationPreference({
@@ -103,8 +104,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     document: documentNode,
     isMounted: () => mounted,
     navigate: navigation.navigate,
-    // The roster the scope pickers already hold, so a view that only lists
-    // projects costs no second call.
+    // Share the accessible roster already held by the scope pickers.
     projects: () => projects,
     // Ranked from the app-wide group set below, never each page's own rows.
     steeringGroupColors: () => steeringColors.colors(),
@@ -114,7 +114,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     // Host capability data, read by views that need an explicit deployment
     // mode or host-owned control surface. The Organization view interprets
     // portability capabilities; the topbar carries no capability controls.
-    capabilities,
+    capabilities, screenPreferences: scopeSelections,
   };
 
   const {
@@ -270,7 +270,7 @@ export function mountUniverseApp(rootNode, options = {}) {
       main.replaceChildren(createPageHead(documentNode, entry), emptyHost);
       return;
     }
-    const detailProject = detailRenderer ? (route.project !== null
+    const detailProject = route.detail === "new" && entry.id === "items" ? (knownProjectId(projects, route.project) || "all") : detailRenderer ? (route.project !== null
       ? knownProjectId(projects, route.project) : drillInProject(scope, projects)) : null;
     if (detailRenderer && route.project !== null && detailProject === null) {
       main.replaceChildren(el(documentNode, "p", "error-banner",

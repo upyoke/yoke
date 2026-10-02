@@ -55,8 +55,7 @@ def append_overview_window(
 
 
 #: The fields the Items roster actually renders. A compact enrichment emits
-#: exactly these: the paged roster carries no lane rows and no lifecycle
-#: fields the table never puts on screen.
+#: exactly these, with no lane rows or unrendered lifecycle fields.
 COMPACT_ROSTER_FIELDS = (
     "public_ref",
     "project_id",
@@ -68,6 +67,7 @@ COMPACT_ROSTER_FIELDS = (
     "owner",
     "claimed_by",
     "qa_attention",
+    "updated_at",
 )
 
 

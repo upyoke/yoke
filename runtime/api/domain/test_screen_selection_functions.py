@@ -184,3 +184,34 @@ def test_location_refuses_invalid_payload_before_writing(test_db, location):
     refused = _set({"view_id": "items", "location": location}, "1")
     assert refused.error.code == "payload_invalid"
     assert _list("1") == {}
+
+
+def test_items_sort_is_actor_scoped_and_leaves_selection_and_location(test_db):
+    from yoke_core.domain.actors import seed_human_actor
+
+    first = str(seed_human_actor(test_db, name="First sorter"))
+    second = str(seed_human_actor(test_db, name="Second sorter"))
+    assert _set(
+        {"view_id": "items", "selection": ["1"], "focus": "1"}, actor_id=first
+    ).primary_success
+    assert _set(
+        {"view_id": "items", "location": "#/items?project=1"}, actor_id=first
+    ).primary_success
+    chosen = {"column": "title", "direction": "asc"}
+    assert _set({"view_id": "items", "sort": chosen}, actor_id=first).primary_success
+    response = handle_screen_selection_list(
+        _request("ui_preferences.screen_selection.list", actor_id=first)
+    ).result_payload
+    assert response["sorts"] == {"items": chosen}
+    assert response["views"]["items"] == {"selection": ["1"], "focus": "1"}
+    assert response["last_location"] == "#/items?project=1"
+    assert (
+        handle_screen_selection_list(
+            _request("ui_preferences.screen_selection.list", actor_id=second)
+        ).result_payload["sorts"]
+        == {}
+    )
+    assert not _set(
+        {"view_id": "items", "sort": {"column": "unknown", "direction": "asc"}},
+        actor_id=first,
+    ).primary_success

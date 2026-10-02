@@ -105,3 +105,22 @@
     width: 100%;
   }
 }
+
+.universe-app-root .item-sort-button {
+  border: 0;
+  padding: 5px 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.universe-app-root .item-sort-button:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: 3px;
+}
+.universe-app-root .item-execution-instructions pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
