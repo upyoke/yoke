@@ -4,6 +4,11 @@ import base64
 import json
 import shlex
 
+from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
+
+# Native PowerShell module initialization can exceed 15 seconds after boot.
+SESSION_QUERY_TIMEOUT = 45
+
 
 SESSION_SCRIPT = r"""$ErrorActionPreference = 'Stop'
 Add-Type @'
@@ -50,7 +55,7 @@ def active_windows_sessions(control):
     result = control._run(
         "powershell.exe -NoProfile -NonInteractive -EncodedCommand "
         + shlex.quote(encoded),
-        timeout=15,
+        timeout=SESSION_QUERY_TIMEOUT,
     )
     try:
         sessions = json.loads(result.stdout.lstrip("\ufeff"))
@@ -61,6 +66,11 @@ def active_windows_sessions(control):
                 raise ValueError("invalid login")
         return sessions
     except (KeyError, TypeError, ValueError):
+        secrets = getattr(control, "secret_values", ())
+        stdout = bounded_machine_qa_diagnostic(result.stdout, secrets)
+        stderr = bounded_machine_qa_diagnostic(getattr(result, "stderr", ""), secrets)
         raise DesktopAccessError(
-            "windows_desktop_state_unknown: repair the SSH account's Windows WTS session query, then retry; no RDP login was started"
+            f"windows_desktop_state_unknown: query exit={result.returncode}; "
+            f"stdout={stdout!r}; stderr={stderr!r}; "
+            "repair the SSH account's Windows WTS session query, then retry; no RDP login was started"
         ) from None

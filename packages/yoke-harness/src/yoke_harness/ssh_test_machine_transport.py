@@ -15,6 +15,7 @@ from yoke_contracts.machine_config.capability_secrets import (
 )
 from yoke_contracts.machine_qa_execution import HostControlExecutionContract
 from yoke_cli.config.path_doctor import PathStateContract, resolve_path_state_contract
+from yoke_contracts.machine_qa_failures import bounded_machine_qa_diagnostic
 
 SSH_OPTIONS = (
     "StrictHostKeyChecking=accept-new",
@@ -23,6 +24,13 @@ SSH_OPTIONS = (
     "BatchMode=yes",
 )
 SSH_TIMEOUT_DIAGNOSTIC = "host_control subprocess timed out"
+
+
+def _partial_output(value, secrets):
+    # TimeoutExpired carries bytes even when run() requested text output.
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", errors="backslashreplace")
+    return bounded_machine_qa_diagnostic(value, secrets)
 
 
 class SshTestMachineTransport:
@@ -80,9 +88,13 @@ class SshTestMachineTransport:
                 timeout=timeout,
                 check=False,
             )
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as exc:
+            stderr = _partial_output(exc.stderr, self.secret_values)
             return subprocess.CompletedProcess(
-                argv, returncode=124, stdout="", stderr=SSH_TIMEOUT_DIAGNOSTIC
+                argv,
+                returncode=124,
+                stdout=_partial_output(exc.stdout, self.secret_values),
+                stderr=SSH_TIMEOUT_DIAGNOSTIC + (f": {stderr}" if stderr else ""),
             )
         except OSError:
             return subprocess.CompletedProcess(
