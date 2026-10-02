@@ -159,7 +159,6 @@ Observe → `ouroboros_entries` → `/yoke curate` → `/yoke doctor` → `/yoke
 
 ## Documentation Discipline
 - When a feature or rule changes, update ALL docs referencing it. Undocumented features are invisible.
-- **Sync install-bundle edits — this file included — in the same commit:** edit docs in `docs/public/`, never `.yoke/docs`; run `yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync sync --target-root <checkout>`, then stage every path `git status` shows. Byte drift fails CI.
 
 ## Bug Discipline
 - Capture bugs via `/yoke idea`; DO NOT FIX without knowing root cause. Minor observations go to a field-note.
