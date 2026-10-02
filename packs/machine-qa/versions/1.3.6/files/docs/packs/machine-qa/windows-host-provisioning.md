@@ -96,8 +96,9 @@ FreeRDP's SDL command-line client on the credential-owning execution workstation
 macOS uses `brew install freerdp` and `sdl-freerdp`; Linux uses its distribution's
 SDL FreeRDP package providing `sdl-freerdp` or `sdl-freerdp3`. No X server is
 required by the SDL client. FreeRDP 3.32.1 and these flags were checked on the
-macOS execution workstation on 2026-10-02; the Linux package and live Windows
-startup remain unverified until a registered machine proof is recorded.
+macOS execution workstation on 2026-10-02. A registered Windows Server machine
+proved auth-only, reuse and automatic startup with an unlocked 1280×800 PNG on
+that workstation. The Linux execution package remains unverified.
 
 Register the Windows SSH account as `desktop_user` too, an RDP `desktop_protocol`,
 and the existing `desktop_route`/`desktop_port`; prefer `ssh-forward`, with RDP
