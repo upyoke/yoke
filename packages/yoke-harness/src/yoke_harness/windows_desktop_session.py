@@ -2,6 +2,7 @@
 
 from contextlib import contextmanager
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -60,17 +61,37 @@ def _argv(executable, host, port, user):
 def _authenticate(argv, password):
     try:
         result = subprocess.run(
-            [*argv, "+auth-only"],
+            [
+                *(
+                    "/log-level:ERROR" if arg == "/log-level:OFF" else arg
+                    for arg in argv
+                ),
+                "+auth-only",
+            ],
             input=password + "\n",
             text=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             timeout=AUTH_TIMEOUT,
             check=False,
         )
-        if result.returncode:
+        # SDL2 returns its normal disconnect code after auth-only succeeds.
+        # Accept that only with the protocol's explicit success, never by exit alone.
+        diagnostic = ((result.stdout or "") + (result.stderr or "")).replace(
+            password, "<redacted>"
+        )
+        confirmed = re.search(
+            r"\[sdl_client_thread_connect\]: Authentication only, (?:ERRBASE|ERRCONNECT)_SUCCESS \[0x00000000\]",
+            diagnostic,
+        )
+        status = re.search(
+            r"Authentication only, ((?:ERRBASE|ERRCONNECT)_[A-Z_]+) \[0x([0-9a-fA-F]{8})\]",
+            diagnostic,
+        )
+        status_code = ":".join(status.groups()) if status else "unreported"
+        if result.returncode and not (result.returncode == 1 and confirmed):
             raise DesktopAccessError(
-                "windows_desktop_authentication_failed: re-import the registered desktop login, verify RDP access, and retry; "
+                f"windows_desktop_authentication_failed: FreeRDP exited {result.returncode} ({status_code}); re-import the registered desktop login, verify RDP access, and retry; "
                 + CLIENT_RECOVERY
             )
     except (OSError, subprocess.TimeoutExpired):

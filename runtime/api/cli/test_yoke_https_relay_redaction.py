@@ -299,3 +299,35 @@ def test_engine_version_header_never_reaches_stderr(monkeypatch, capsys) -> None
     assert captured.err == ""
     assert USER_TOKEN not in captured.out
     assert TRANSPORT_TOKEN not in captured.out
+
+
+def test_machine_artifact_correlation_tokens_do_not_scrub_desktop_receipts():
+    request = FunctionCallRequest(
+        function="test_machine.operation.submit",
+        actor=ActorContext(session_id="proof-client"),
+        target=TargetRef(kind="global"),
+        request_id="proof-request",
+        payload={
+            "artifacts": [{"token": "desktop", "password": NESTED_PASSWORD}],
+            "checks": [{"artifact_token": "desktop", "token": USER_TOKEN}],
+        },
+    )
+    secrets = collect_request_secrets(request, transport_token=TRANSPORT_TOKEN)
+    assert "desktop" not in secrets
+    assert {NESTED_PASSWORD, USER_TOKEN, TRANSPORT_TOKEN} <= set(secrets)
+    from yoke_cli.transport.https_response_policy import parse_typed_response
+
+    response = parse_typed_response(
+        envelope(
+            function=request.function,
+            result={
+                "desktop_session": "started",
+                "artifact_key": "proof/desktop.png",
+                "hostile_echo": NESTED_PASSWORD,
+            },
+        ),
+        sensitive_values=secrets,
+    )
+    assert response.result["desktop_session"] == "started"
+    assert response.result["artifact_key"] == "proof/desktop.png"
+    assert response.result["hostile_echo"] == REDACTED

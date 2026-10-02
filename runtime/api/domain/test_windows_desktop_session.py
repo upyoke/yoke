@@ -51,7 +51,11 @@ def test_windows_desktop_access_authenticates_stdin_and_closes_forward(
     def run(argv, **kw):
         calls.append((argv, kw))
         assert PASSWORD not in repr(argv)
-        assert kw["stdout"] == kw["stderr"] == subprocess.DEVNULL
+        assert (
+            kw["stdout"]
+            == kw["stderr"]
+            == (subprocess.PIPE if "+auth-only" in argv else subprocess.DEVNULL)
+        )
         return subprocess.CompletedProcess(argv, 0)
 
     monkeypatch.setattr(subprocess, "run", run)
@@ -158,7 +162,11 @@ def test_new_session_keeps_client_and_tunnel_until_operation_finishes(
     def popen(argv, **kw):
         calls.append((argv, kw))
         assert kw["stdin"] == subprocess.PIPE
-        assert kw["stdout"] == kw["stderr"] == subprocess.DEVNULL
+        assert (
+            kw["stdout"]
+            == kw["stderr"]
+            == (subprocess.PIPE if "+auth-only" in argv else subprocess.DEVNULL)
+        )
         assert PASSWORD not in repr(argv) + repr(kw)
         return client
 
