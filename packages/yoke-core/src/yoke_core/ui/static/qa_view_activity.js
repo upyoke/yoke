@@ -5,6 +5,7 @@ import {
   withProjectColumn,
 } from "./universe_view_support.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
+import { activityHistory } from "./qa_activity_history.js";
 import { loadQaCaseItemRefs, qaCaseItemId, qaCaseName } from "./qa_case_name.js";
 import { evidenceSummaryNode } from "./qa_run_conclusion.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
@@ -23,8 +24,6 @@ import {
 // summary counts, so "30 case runs today" sits above thirty rows; a fixed
 // short page cut the list off and hid whichever cases ran first.
 const ACTIVITY_PAGE_LIMIT = 500;
-// A day with no case runs yet still shows what ran most recently.
-const QUIET_DAY_ROWS = 20;
 // Three pictures fit a table row; the rest fold behind "+N more".
 const ACTIVITY_EVIDENCE_SHOWN = 3;
 
@@ -260,11 +259,7 @@ export async function renderQaActivity(context, main, scope) {
     String(right.happened_at || "").localeCompare(
       String(left.happened_at || ""),
     ));
-  const summaryDay = callResults
-    .map((result) => result.envelope.result?.summary?.day)
-    .find(Boolean);
-  const dayRows = todayRows(recent, summaryDay);
-  const rows = dayRows.length ? dayRows : recent.slice(0, QUIET_DAY_ROWS);
+  const rows = recent;
   const itemRefs = await loadQaCaseItemRefs(context, rows);
   if (!context.isMounted()) return;
   const summary = aggregateSummaries(callResults);
@@ -286,6 +281,7 @@ export async function renderQaActivity(context, main, scope) {
     counts.running || 0,
     "running",
   ));
+  stats.appendChild(stat(documentNode, counts.failed || 0, "failed"));
   const panel = el(documentNode, "section", "panel");
   const header = el(documentNode, "div", "panel-header");
   header.appendChild(el(documentNode, "h2", null, "Recent case runs"));
@@ -297,7 +293,9 @@ export async function renderQaActivity(context, main, scope) {
   ));
   panel.appendChild(header);
   const body = el(documentNode, "div", "panel-body");
-  renderActivityTable(context, body, rows, scope, pending, itemRefs);
+  body.appendChild(activityHistory(context, rows, (host, page) => {
+    renderActivityTable(context, host, page, scope, pending, itemRefs);
+  }));
   panel.appendChild(body);
   const note = el(documentNode, "div", "qa-panel-note");
   note.textContent =

@@ -138,8 +138,8 @@ test("activity lists every case run the day's count covers, run checks included"
 
   assert.equal(byClass(root, "qa-stat")[0].children[0].textContent, "8");
   const names = byClass(root, "qa-activity-link").map((link) => link.textContent);
-  assert.equal(names.length, 8);
-  assert.equal(names.filter((name) => name.startsWith("Browser inspection · run-")).length, 4);
+  assert.equal(names.length, 9);
+  assert.equal(names.filter((name) => name.startsWith("Browser inspection · run-")).length, 5);
   assert.equal(
     context.requests.find((r) => r.function === "qa.activity.list").payload.limit, 500,
   );

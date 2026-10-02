@@ -107,6 +107,13 @@
   gap: 7px;
 }
 
+.qa-result-reason { margin: 6px 0; max-width: 40rem; }
+.qa-result-reason summary { cursor: pointer; color: var(--yoke-link); }
+.qa-result-reason p { white-space: normal; overflow-wrap: anywhere; }
+.qa-history-field { display: grid; gap: 5px; font-size: 12px; }
+.qa-history-filters { margin-bottom: 14px; align-items: end; }
+.qa-history-pager { margin-top: 18px; }
+
 .qa-method-glyph {
   color: var(--yoke-accent);
   font-size: 15px;

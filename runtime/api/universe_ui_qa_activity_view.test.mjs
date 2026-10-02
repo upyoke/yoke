@@ -88,7 +88,7 @@ test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
     t, "#/qa-activity?project=1",
   );
 
-  assert.equal(byClass(root, "qa-stat").length, 4);
+  assert.equal(byClass(root, "qa-stat").length, 5);
   assert.deepEqual(
     byClass(root, "qa-stat").map(
       (card) => card.children.map((node) => node.textContent),
@@ -98,6 +98,7 @@ test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
       ["8", "passed"],
       ["1", "needs review"],
       ["1", "running"],
+      ["0", "failed"],
     ],
   );
   assert.equal(byClass(root, "qa-activity-row").length, 6);

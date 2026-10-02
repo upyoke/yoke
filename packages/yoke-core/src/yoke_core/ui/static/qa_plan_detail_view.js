@@ -1,5 +1,6 @@
 import {
   el,
+  labelCellsByColumn,
   statePill,
 } from "./universe_view_support.js";
 import {
@@ -107,11 +108,12 @@ function renderCases(context, plan, proofs, reload, overlayHost) {
       "No cases declared in this test plan yet.",
     ));
   } else {
-    const table = el(documentNode, "table", "items qa-case-table");
+    const table = el(documentNode, "table", "items qa-case-table table-stacks-narrow");
     const head = el(documentNode, "tr");
-    for (const label of [
+    const columns = [
       "#", "Case", "Method", "Capability", "Last result", "Actions",
-    ]) {
+    ];
+    for (const label of columns) {
       head.appendChild(el(documentNode, "th", null, label));
     }
     table.appendChild(head);
@@ -167,6 +169,7 @@ function renderCases(context, plan, proofs, reload, overlayHost) {
         actions.textContent = "—";
       }
       tr.appendChild(actions);
+      labelCellsByColumn(tr, columns);
       table.appendChild(tr);
     }
     result.body.appendChild(tableWrap(documentNode, table));
