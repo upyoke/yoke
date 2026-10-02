@@ -77,11 +77,11 @@ and integrity; signed-in application UI remains an independent proof.
 ## Yoke application sign-ins
 
 Yoke's hosted machine-connection tests use an account able to approve a test
-machine in the application paired with their case target. Production cases use
-`https://app.upyoke.com`; Stage cases use `https://app.stage.upyoke.com`.
-The current saved installer-campaign plan targets Production. The source plan's
-`cold-start-hosted`, `hosted-connect` and `review-frame` cases target Stage and
-need its application session when that updated plan is installed. Installing
+machine in the application paired with their plan's bound environment.
+The installed `installer-campaign` plan is bound to Production and uses
+`https://app.upyoke.com`. Its source template is projected onto that one plan
+target; source labels are not separate environment branches in a test.
+No installed machine case requires a Stage application sign-in. Installing
 wheels and reaching a browser wait screen alone do not need an application
 sign-in. These are Yoke test facts, not Machine QA Pack prerequisites.
 

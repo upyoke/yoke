@@ -323,5 +323,10 @@ profile as a separate component; it never makes a partial home a valid golden.
 Use the logged-in, unlocked test-user desktop through Screen Sharing and the
 GUI Terminal context; the login keychain remains that user's. Capture checks
 same-user processes and `lsof` open files without sudo. Saved-profile
-capture and restore on test-mac are pending real-host proof; retain the saved
-profile and sealed clean-home baseline until verification is complete.
+capture was verified after authorization windows and the desktop connection
+closed. On 2026-10-02, test-mac restored its sealed clean home, installed
+candidate `0.1.1+launch.541`, then explicitly restored the separate profile.
+The candidate daemon opened the actual application from that restored profile;
+artifact `25907` records the reviewed UI. It then stopped normally and confirmed
+`not_running`; product scratch teardown confirmed removal. Keep the profile
+snapshot separate from the sealed clean-home baseline.
