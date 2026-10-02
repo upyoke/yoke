@@ -86,6 +86,12 @@ def open_desktop_access(
     *, project: str, machine: str, settings: Mapping[str, str]
 ) -> dict[str, str]:
     """Return only the connectable address, desktop user and private file path."""
+    if settings.get("os") == "windows":
+        from yoke_harness.windows_desktop_session import prove_windows_credentials
+
+        return prove_windows_credentials(
+            project=project, machine=machine, settings=settings
+        )
     route = validate_desktop_settings(settings)
     if not route:
         raise DesktopAccessError(

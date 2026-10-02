@@ -48,7 +48,8 @@ def run_host_operation(
             "macOS needs the test user's unlocked Terminal.app session and Screen Recording grant; "
             "Linux reuses one XFCE display or starts it with the registered desktop_password; reports started/reused. "
             "Provision XFCE with ops/machine-qa/provision_linux_desktop.py; human RDP login is the fallback. "
-            "Windows needs the SSH account logged into an unlocked RDP desktop. "
+            "Windows reuses an active registered desktop or holds FreeRDP's sdl-freerdp "
+            "through the operation, feeding the capability-owned password on stdin. "
             "Close credentials/private windows when the case requires it. Failed or blank capture exits nonzero."
         )
     parser.add_argument("--project", required=True)

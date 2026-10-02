@@ -3,10 +3,19 @@
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Mapping, Sequence
 from typing import Any, Iterable
 
+from yoke_cli.transport.https_request_fields import (
+    _SENSITIVE_KEY_WORDS,
+    _CONTEXT_VALUE_KEYS,
+    _CONTEXT_NAME_KEYS,
+    _CAMEL_BOUNDARY,
+    _NON_WORD,
+    _SENSITIVE_PAYLOAD_PATHS_BY_FUNCTION,
+    _PUBLIC_PAYLOAD_FIELDS_BY_FUNCTION,
+    _PUBLIC_PAYLOAD_PATHS_BY_FUNCTION,
+)
 from yoke_cli.transport.response_deadline_read import (
     ResponseReadDeadlineError,
     ResponseReadError,
@@ -22,44 +31,6 @@ from yoke_contracts.api.function_call import (
 
 FUNCTION_RESPONSE_LIMIT_BYTES = DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 REDACTED = "<redacted>"
-
-_SENSITIVE_KEY_WORDS = frozenset(
-    {
-        "authorization",
-        "cookie",
-        "credential",
-        "credentials",
-        "password",
-        "passphrase",
-        "secret",
-        "secrets",
-        "token",
-        "tokens",
-    }
-)
-_CONTEXT_VALUE_KEYS = frozenset({"content", "data", "plaintext", "value"})
-_CONTEXT_NAME_KEYS = frozenset({"field", "key", "name"})
-_CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
-_NON_WORD = re.compile(r"[^a-z0-9]+")
-
-# Some registered request schemas deliberately use a generic field name for
-# sensitive material.  Key-name heuristics cannot classify these values: an
-# Actions secret called ``DATABASE_URL`` still travels in ``payload.value``.
-# Keep those exceptions bound to the exact function id and payload path so a
-# similarly shaped non-secret operation (for example, an Actions variable)
-# remains visible in ordinary responses.
-_SENSITIVE_PAYLOAD_PATHS_BY_FUNCTION: Mapping[str, tuple[tuple[str, ...], ...]] = {
-    "github_actions.secret.set": (("value",),),
-}
-
-# These exact request fields are public by contract even when one nested key
-# contains a word such as ``credentials``. Pack render values are non-secret
-# project settings and are echoed into the checksum-protected source bundle;
-# treating an action pin as a secret would rewrite the response content after
-# the server calculated its digest.
-_PUBLIC_PAYLOAD_FIELDS_BY_FUNCTION: Mapping[str, frozenset[str]] = {
-    "packs.bundle.get": frozenset({"render_values"}),
-}
 
 
 class HttpsResponsePolicyError(ValueError):
@@ -119,6 +90,7 @@ def collect_request_secrets(
         document,
         found,
         inherited_sensitive=False,
+        public_paths=_PUBLIC_PAYLOAD_PATHS_BY_FUNCTION.get(request.function, ()),
     )
     _collect_declared_payload_secrets(request.function, request.payload, found)
     if transport_token:
@@ -269,6 +241,8 @@ def _collect_nested(
     found: set[str],
     *,
     inherited_sensitive: bool,
+    path: tuple[str, ...] = (),
+    public_paths: tuple[tuple[str, ...], ...] = (),
 ) -> None:
     if isinstance(value, str):
         if inherited_sensitive and value:
@@ -277,11 +251,20 @@ def _collect_nested(
     if isinstance(value, Mapping):
         context_secret = _mapping_names_sensitive_value(value)
         for key, item in value.items():
+            child_path = (*path, str(key))
+            if child_path in public_paths:
+                continue
             normalized_key = _normalize_key(str(key))
             sensitive = inherited_sensitive or _is_sensitive_key(normalized_key)
             if context_secret and normalized_key in _CONTEXT_VALUE_KEYS:
                 sensitive = True
-            _collect_nested(item, found, inherited_sensitive=sensitive)
+            _collect_nested(
+                item,
+                found,
+                inherited_sensitive=sensitive,
+                path=child_path,
+                public_paths=public_paths,
+            )
         return
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         for item in value:
@@ -289,6 +272,8 @@ def _collect_nested(
                 item,
                 found,
                 inherited_sensitive=inherited_sensitive,
+                path=(*path, "*"),
+                public_paths=public_paths,
             )
 
 
