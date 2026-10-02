@@ -57,7 +57,10 @@ def run_host_operation(
     if with_baseline:
         parser.add_argument("--baseline")
     if with_destination:
-        parser.add_argument("--destination")
+        parser.add_argument(
+            "--destination",
+            help="Golden capture path on the remote Test Machine; local path claims do not apply to this destination.",
+        )
         parser.add_argument(
             "--component",
             choices=("browser-profile",),
