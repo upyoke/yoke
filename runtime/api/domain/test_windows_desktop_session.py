@@ -191,6 +191,37 @@ def test_existing_registered_session_reused_without_rdp_client(setup, monkeypatc
         assert evidence["desktop_session"] == "reused"
 
 
+def test_start_timeout_closes_client_without_credential_diagnostic(setup, monkeypatch):
+    client = Client()
+
+    @contextmanager
+    def forward(*args):
+        yield "localhost", 1234, "Administrator"
+
+    monkeypatch.setattr(desktop, "desktop_forward", forward)
+    monkeypatch.setattr(desktop, "active_windows_sessions", lambda control: [])
+    monkeypatch.setattr(desktop, "START_TIMEOUT", 0)
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **kw: client)
+    with pytest.raises(
+        desktop_access.DesktopAccessError, match="windows_desktop_start_timeout"
+    ) as raised:
+        with desktop.windows_desktop_session(setup):
+            pytest.fail("unexpected ready session")
+    assert client.terminated and PASSWORD not in str(raised.value)
+
+
+def test_wrong_ssh_user_refuses_before_desktop_probe(setup, monkeypatch):
+    setup._desktop_settings = {**SETTINGS, "user": "Other"}
+    monkeypatch.setattr(
+        desktop, "active_windows_sessions", lambda *a: pytest.fail("probe starts")
+    )
+    with pytest.raises(
+        desktop_access.DesktopAccessError, match="windows_desktop_user_mismatch"
+    ):
+        with desktop.windows_desktop_session(setup):
+            pytest.fail("unexpected session")
+
+
 def test_foreign_active_login_refuses_before_connecting(setup, monkeypatch):
     monkeypatch.setattr(
         desktop,

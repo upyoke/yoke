@@ -47,7 +47,8 @@ def run_host_operation(
             "The receipt stores a durable QA artifact handle; artifact_path names a private local PNG. "
             "macOS needs the test user's unlocked Terminal.app session and Screen Recording grant; "
             "Linux needs one active XFCE display (provision with ops/machine-qa/provision_linux_desktop.py); "
-            "Windows needs the SSH account logged into an unlocked RDP desktop. "
+            "Windows reuses an active registered desktop or holds FreeRDP's sdl-freerdp "
+            "through the operation, feeding the capability-owned password on stdin. "
             "Close credentials/private windows when the case requires it. Failed or blank capture exits nonzero."
         )
     parser.add_argument("--project", required=True)

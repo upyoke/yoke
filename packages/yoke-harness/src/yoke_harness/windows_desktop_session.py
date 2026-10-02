@@ -7,7 +7,10 @@ import subprocess
 import time
 
 from yoke_cli.config.capability_secrets import read_machine_capability_secret
-from yoke_contracts.machine_config.desktop_access import DESKTOP_PASSWORD_KEY
+from yoke_contracts.machine_config.desktop_access import (
+    DESKTOP_PASSWORD_KEY,
+    validate_desktop_settings,
+)
 from yoke_contracts.machine_config.test_machine import test_machine_capability_type
 from yoke_harness.desktop_access import DesktopAccessError
 from yoke_harness.desktop_forward import desktop_forward
@@ -95,7 +98,12 @@ def _stop(process):
             process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             process.kill()
-            process.wait(timeout=5)
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                raise DesktopAccessError(
+                    "windows_desktop_cleanup_failed: terminate the held FreeRDP client on this workstation before retrying"
+                ) from None
 
 
 @contextmanager
@@ -103,7 +111,19 @@ def windows_desktop_session(control):
     """Reuse an active login or connect until the GUI operation has finished."""
     settings = control._desktop_settings
     project = control._desktop_project
-    user = settings.get("desktop_user", "")
+    route = validate_desktop_settings(settings)
+    if not route or route["desktop_protocol"] != "rdp":
+        raise DesktopAccessError(
+            "windows_rdp_route_required: register the Windows RDP desktop route with yoke test-machine settings-replace"
+        )
+    user = route["desktop_user"]
+    if (
+        user.rsplit("\\", 1)[-1].casefold()
+        != settings["user"].rsplit("\\", 1)[-1].casefold()
+    ):
+        raise DesktopAccessError(
+            "windows_desktop_user_mismatch: register the same Windows account for SSH and RDP so its interactive capture task can run"
+        )
     sessions = active_windows_sessions(control)
     matching = [
         s
