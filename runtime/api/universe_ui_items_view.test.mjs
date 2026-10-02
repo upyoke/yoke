@@ -114,7 +114,7 @@ test("Items is one workflow roster with distinct owner and claim facts", async (
   // "all" scope names no project, and relevance stays Overview's alone.
   assert.deepEqual(requests, [{
     function: "items.overview.list",
-    payload: { page_size: ROSTER_PAGE_SIZE },
+    payload: { page_size: ROSTER_PAGE_SIZE, sort_column: "updated_at", sort_direction: "desc" },
   }]);
   assert.equal("relevance" in requests[0].payload, false);
   assert.equal(byClass(root, "item-workflow").length, 3);
@@ -122,8 +122,8 @@ test("Items is one workflow roster with distinct owner and claim facts", async (
   assert.deepEqual(
     allNodes(byClass(root, "item-roster")[0])
       .filter((node) => node.tagName === "TH")
-      .map((node) => node.textContent),
-    ["ID", "project", "Title", "Workflow", "Status", "Owner", "Claimed by"],
+      .map((node) => itemText(node)),
+    ["ID", "project", "Title", "Workflow", "Status", "Owner", "Claimed by", "Last updated ↓"],
   );
   assert.deepEqual(
     byClass(root, "item-project").map((node) => node.textContent),

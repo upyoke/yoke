@@ -3,8 +3,8 @@
 The top navigation remembers All, one project, or a set of projects
 **independently for each destination** — Strategy, Frontier, Shipping,
 Sessions, Inbox, and every other screen each keep their own selection across
-navigation, reload, and a second tab. Changing one screen's selection never rewrites another's. Global
-screens keep the selection visible and label their content as universe-wide.
+navigation, reload, and a second tab. Changing one screen's selection never rewrites another's. Universe-wide
+screens hide the selector because it does not filter their content.
 A screen needing one project has a separate **Focus project** control;
 changing it does not replace the remembered selection.
 
@@ -76,3 +76,35 @@ redirects must carry both query fields, including an explicit All; remounting
 on a default route must not manufacture a new project scope. Contract
 consumers import the matching declarations and assets from the same product
 revision.
+
+
+## Creating items
+
+New Item hides the top-navigation project filter. Its labeled Project dropdown
+in the form selects the creation target independently of the Items list scope.
+All or a multi-project scope opens an explicit choice when several projects
+are available. `projects.list` with `for_item_creation: true` returns only
+projects authorized for `items.write`, with `creation_scoped: true` attesting
+that filtering. A server without that projection is named as unavailable;
+creation requires updating it. Project changes preserve title and instruction,
+refresh workflows, the title limit, QA choices and execution instructions, and
+reset optional settings for review. Cancel returns to the remembered Items scope.
+
+## Items ordering
+
+Items defaults to Last updated descending. Each column header toggles ascending
+and descending ordering, and announces its direction through `aria-sort`.
+`items.overview.list` takes `sort_column` and `sort_direction` alongside
+`page_size`; ordering applies to the full filtered set before keyset paging.
+Cursors bind their stored sort value and item id to the chosen column and
+direction. A mismatched cursor refuses with a reload instruction. IDs order
+by project prefix and numeric sequence. Last updated uses the shared relative
+time control, with the exact time accessible by hover, click or keyboard.
+
+The existing `ui_preferences.screen_selection.list` returns `sorts` alongside
+project selections and location. A set request with `view_id: "items"` and
+`sort: {column, direction}` writes only `screen.sort.items` in the same
+actor-scoped store; it never rewrites project selection, focus or location.
+Sort writes are serialized so rapid changes settle in the chosen order.
+Initial preference-read failures disable persistence until reload, and a
+failed sort save reports how to retry on the Items page.

@@ -100,9 +100,9 @@ test("web entry links select supported workflows and retain item scope", async (
   assert.deepEqual(byClass(root, "title").map((node) => node.textContent), [
     "New Issue",
   ]);
-  assert.deepEqual(byClass(root, "item-project-value").map(
-    (node) => node.textContent,
-  ), ["yoke"]);
+  assert.deepEqual(byClass(root, "item-project-select").map(
+    (node) => node.value,
+  ), ["1"]);
   mounted.unmount();
 });
 

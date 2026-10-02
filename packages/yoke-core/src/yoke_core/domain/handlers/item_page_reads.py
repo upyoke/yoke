@@ -23,6 +23,8 @@ ROSTER_PAGING_FIELDS = (
     "status",
     "page_size",
     "cursor",
+    "sort_column",
+    "sort_direction",
 )
 
 #: Upper bound on one roster page. The page the product asks for is 50; the
@@ -45,6 +47,8 @@ class ItemsOverviewListRequest(BaseModel):
         le=MAX_ROSTER_PAGE_SIZE,
     )
     cursor: str | None = None
+    sort_column: str | None = None
+    sort_direction: str | None = None
 
 
 class ItemsOverviewListResponse(BaseModel):
@@ -221,6 +225,8 @@ def _handle_paged_roster(
                 status=payload.status,
                 page_size=payload.page_size,
                 cursor=payload.cursor,
+                sort_column=payload.sort_column or "updated_at",
+                sort_direction=payload.sort_direction or "desc",
             )
         except RosterCursorError as exc:
             return _error("payload_invalid", str(exc), "$.payload.cursor")

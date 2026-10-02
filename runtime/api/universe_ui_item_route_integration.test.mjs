@@ -181,8 +181,8 @@ test("Items roster names projects but keeps blocking details out", async (t) => 
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "YOK-1", "yoke", "runs", "issue", "Idea", "unassigned", "—",
-    "YOK-2", "yoke", "waits", "epic", "Idea", "unassigned", "—",
+    "YOK-1", "yoke", "runs", "issue", "Idea", "unassigned", "—", "—",
+    "YOK-2", "yoke", "waits", "epic", "Idea", "unassigned", "—", "—",
   ]);
   assert.ok(!allNodes(root).some(
     (node) => node.textContent === "upstream schema",
@@ -191,9 +191,8 @@ test("Items roster names projects but keeps blocking details out", async (t) => 
     byClass(root, "row-link").map((node) => node.href),
     ["#/items/1?project=1", "#/items/2?project=1"],
   );
-  // The roster pages, so the read names its page size and nothing else at
-  // an unfiltered scope.
-  assert.deepEqual(itemsRequest.payload, { page_size: ROSTER_PAGE_SIZE });
+  // The roster requests its page size and default ordering at an unfiltered scope.
+  assert.deepEqual(itemsRequest.payload, { page_size: ROSTER_PAGE_SIZE, sort_column: "updated_at", sort_direction: "desc" });
   assert.equal(byClass(root, "panel-count").length, 0);
   mounted.unmount();
 });

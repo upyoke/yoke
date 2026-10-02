@@ -1,20 +1,18 @@
-import { attachTooltip } from "./universe_tooltip.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import {
   el,
   renderError,
   section,
-  statePill,
-  withProjectColumn,
 } from "./universe_view_support.js";
 import { actionLink } from "./item_view_primitives.js";
 import { createRosterLoader } from "./universe_items_roster_loader.js";
+import { itemTable } from "./item_roster_table.js";
 export { renderItemDetailView } from "./item_detail_loader.js";
 
 function detailProject(scope, projects) {
-  if (Array.isArray(scope)) return scope[0] || null;
-  if (scope === "all") return projects[0] ? String(projects[0].id) : null;
+  if (Array.isArray(scope)) return scope.length === 1 ? scope[0] : null;
+  if (scope === "all") return projects.length === 1 ? String(projects[0].id) : null;
   return scope;
 }
 
@@ -32,151 +30,6 @@ function itemsScopeSummary(scope, projects) {
   return `scoped to ${labels.join(" + ")} · every durable piece of project work`;
 }
 
-function claimLabel(row) {
-  const claim = row.claimed_by;
-  return claim ? (claim.actor_label || claim.session_id || "") : "";
-}
-
-function projectLabel(projects, row) {
-  const rowLabel = row.project_slug || row.project;
-  const rowKey = row.project_id ?? rowLabel;
-  const project = projects.find((candidate) => (
-    [candidate.id, candidate.slug, candidate.name].some(
-      (value) => String(value) === String(rowKey),
-    )
-  ));
-  return String(
-    rowLabel || project?.slug || project?.name || row.project_id || "—",
-  );
-}
-
-function eventCameFromControl(event, row) {
-  let target = event.target;
-  while (target && target !== row) {
-    if (["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA", "TIME"].includes(
-      String(target.tagName || "").toUpperCase(),
-    )) return true;
-    target = target.parentNode;
-  }
-  return false;
-}
-
-function makeRowNavigable(documentNode, row, href) {
-  row.tabIndex = 0;
-  row.setAttribute("role", "link");
-  row.setAttribute("aria-label", `Open ${row.children[0]?.textContent || "item"}`);
-  row.addEventListener("click", (event) => {
-    if (eventCameFromControl(event, row)) return;
-    documentNode.defaultView.location.hash = href;
-  });
-  row.addEventListener("keydown", (event) => {
-    if (eventCameFromControl(event, row)) return;
-    if (!["Enter", " "].includes(event.key)) return;
-    if (typeof event.preventDefault === "function") event.preventDefault();
-    documentNode.defaultView.location.hash = href;
-  });
-}
-
-function itemTable(documentNode, rows, rowHref, scope, projects) {
-  if (!rows.length) {
-    return el(documentNode, "p", "empty", "No items match this view.");
-  }
-  const table = el(documentNode, "table", "items item-roster");
-  const columns = withProjectColumn([
-    { label: "ID" },
-    { label: "Title" },
-    { label: "Workflow" },
-    { label: "Status" },
-    { label: "Owner" },
-    { label: "Claimed by" },
-  ], scope, (row) => projectLabel(projects, row));
-  const projectColumn = columns.find((column) => column.label === "project");
-  const head = el(documentNode, "tr");
-  for (const column of columns) {
-    head.appendChild(el(documentNode, "th", null, column.label));
-  }
-  table.appendChild(head);
-  for (const row of rows) {
-    const href = rowHref(row);
-    const tr = el(documentNode, "tr", "item-roster-row");
-    const refCell = el(documentNode, "td", "mono");
-    const link = el(documentNode, "a", "row-link", row.public_ref);
-    link.href = href;
-    refCell.appendChild(link);
-    tr.appendChild(refCell);
-    if (projectColumn) {
-      tr.appendChild(el(
-        documentNode,
-        "td",
-        "item-project",
-        projectColumn.value(row),
-      ));
-    }
-    const titleCell = el(documentNode, "td", "item-roster-title");
-    const titleLink = el(
-      documentNode, "a", "item-title-link", row.title,
-    );
-    titleLink.href = href;
-    titleCell.appendChild(titleLink);
-    if (row.workflow_id !== "task" && row.qa_attention?.verdict === "undetermined") {
-      const reason = String(row.qa_attention.verdict_reason || "").trim();
-      const attention = el(
-        documentNode, "span", "item-workflow",
-        reason ? `QA undetermined — ${reason}` : "QA undetermined",
-      );
-      attachTooltip(documentNode, attention, reason);
-      titleCell.appendChild(attention);
-    }
-    tr.appendChild(titleCell);
-    const workflowCell = el(documentNode, "td");
-    const workflow = el(
-      documentNode,
-      "span",
-      `item-workflow ${String(row.workflow_id || "").toLowerCase()}`,
-      row.workflow_id,
-    );
-    workflow.setAttribute("data-workflow", row.workflow_id);
-    attachTooltip(documentNode, workflow, `workflow · ${row.workflow_id}`);
-    workflowCell.appendChild(workflow);
-    tr.appendChild(workflowCell);
-    const statusCell = el(documentNode, "td");
-    const status = statePill(
-      documentNode,
-      row.status,
-      row.stage_label || row.status,
-    );
-    if (status) statusCell.appendChild(status);
-    tr.appendChild(statusCell);
-    tr.appendChild(el(
-      documentNode,
-      "td",
-      "item-muted",
-      row.owner || "unassigned",
-    ));
-    const claimCell = el(documentNode, "td", "item-muted");
-    const claimedBy = claimLabel(row);
-    if (claimedBy) {
-      claimCell.appendChild(el(
-        documentNode,
-        "span",
-        "item-claim-avatar",
-        claimedBy.slice(0, 1).toUpperCase(),
-      ));
-      claimCell.appendChild(el(
-        documentNode, "span", null, claimedBy,
-      ));
-    } else {
-      claimCell.textContent = "—";
-    }
-    tr.appendChild(claimCell);
-    if (href) makeRowNavigable(documentNode, tr, href);
-    table.appendChild(tr);
-  }
-  const wrap = el(documentNode, "div", "table-wrap item-roster-wrap");
-  wrap.appendChild(table);
-  return wrap;
-}
-
 // Built once and updated in place. Rebuilding the controls on every response
 // would take the focus and caret out of the search box on the very keystroke
 // that triggered the reload.
@@ -184,6 +37,7 @@ function filterControls(documentNode, loader) {
   const controls = el(documentNode, "div", "item-filters");
   const query = el(documentNode, "input", "item-filter-control");
   query.type = "search";
+  query.setAttribute("aria-label", "Search items by ID, title, owner, or claim");
   query.placeholder = "ID, title, owner, or claim";
   query.addEventListener("input", () => loader.setQuery(query.value));
   controls.appendChild(query);
@@ -193,6 +47,7 @@ function filterControls(documentNode, loader) {
     ["status", "All statuses"],
   ]) {
     const select = el(documentNode, "select", "item-filter-control");
+    select.setAttribute("aria-label", emptyLabel);
     select.addEventListener(
       "change", () => loader.setFilter(key, select.value),
     );
@@ -271,6 +126,7 @@ export function renderItemsView(context, main, scope, chrome = {}) {
     main.replaceChildren(toolbar, filterHost, panel);
   }
   let filtersOpen = false;
+  let sortFocus = null;
   filterButton.addEventListener("click", () => {
     filtersOpen = !filtersOpen;
     filterHost.hidden = !filtersOpen;
@@ -314,8 +170,14 @@ export function renderItemsView(context, main, scope, chrome = {}) {
           publicRef: row.public_ref,
         }),
         scope,
-        projects,
+        projects, state.criteria.sort,
+        (column) => { sortFocus = column; loader.setSort(column); },
       ));
+      if (!state.loading && sortFocus) {
+        body.querySelector?.(`[data-sort-column="${sortFocus}"]`)?.focus?.();
+        sortFocus = null;
+      }
+      if (state.sortNotice) body.appendChild(el(documentNode, "p", "error-banner", state.sortNotice));
       if (!state.hasMore && !state.failure) return;
       const more = el(documentNode, "div", "item-roster-more");
       if (state.failure) renderError(more, state.failure);

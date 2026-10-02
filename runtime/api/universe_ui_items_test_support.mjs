@@ -4,7 +4,11 @@ import {
 
 export function itemContext(documentNode, call) {
   return {
-    client: { call },
+    client: { call(request) {
+      if (request.function === "projects.list" && request.payload.for_item_creation) return Promise.resolve({ status: 200, envelope: { success: true, result: { creation_scoped: true, rows: [{ id: 7, slug: "acme", name: "Acme", emoji: "🐜" }] } } });
+      if (request.function === "workflow.execution_instruction.resolve") return Promise.resolve({ status: 200, envelope: { success: true, result: { execution_instructions: [] } } });
+      return call(request);
+    } },
     document: documentNode,
     isMounted: () => true,
     projects: () => [{

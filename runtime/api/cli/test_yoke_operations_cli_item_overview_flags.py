@@ -47,9 +47,13 @@ def _run(*argv: str) -> tuple[int, FunctionCallRequest]:
 
 def test_overview_list_forwards_the_website_overview_read_and_next_page() -> None:
     result, overview = _run(
-        "items", "overview", "list",
-        "--project", "yoke",
-        "--relevance", "overview",
+        "items",
+        "overview",
+        "list",
+        "--project",
+        "yoke",
+        "--relevance",
+        "overview",
     )
     assert result == 0
     assert overview.function == "items.overview.list"
@@ -57,12 +61,19 @@ def test_overview_list_forwards_the_website_overview_read_and_next_page() -> Non
     assert overview.payload == {"project": "yoke", "relevance": "overview"}
 
     result, first_page = _run(
-        "items", "overview", "list",
-        "--projects", "yoke, platform",
-        "--search", "roster",
-        "--workflow", "dash",
-        "--status", "implementing",
-        "--page-size", "50",
+        "items",
+        "overview",
+        "list",
+        "--projects",
+        "yoke, platform",
+        "--search",
+        "roster",
+        "--workflow",
+        "dash",
+        "--status",
+        "implementing",
+        "--page-size",
+        "50",
     )
     assert result == 0
     assert first_page.payload == {
@@ -74,9 +85,13 @@ def test_overview_list_forwards_the_website_overview_read_and_next_page() -> Non
     }
 
     result, second_page = _run(
-        "items", "overview", "list",
-        "--page-size", "50",
-        "--cursor", "opaque-next-cursor",
+        "items",
+        "overview",
+        "list",
+        "--page-size",
+        "50",
+        "--cursor",
+        "opaque-next-cursor",
     )
     assert result == 0
     assert second_page.payload == {
@@ -87,16 +102,31 @@ def test_overview_list_forwards_the_website_overview_read_and_next_page() -> Non
 
 def test_overview_list_flags_cover_every_request_field() -> None:
     result, every_field = _run(
-        "items", "overview", "list",
-        "--project", "yoke",
-        "--projects", "yoke",
-        "--limit", "25",
-        "--relevance", "overview",
-        "--search", "roster",
-        "--workflow", "dash",
-        "--status", "implementing",
-        "--page-size", "50",
-        "--cursor", "opaque-next-cursor",
+        "items",
+        "overview",
+        "list",
+        "--project",
+        "yoke",
+        "--projects",
+        "yoke",
+        "--limit",
+        "25",
+        "--relevance",
+        "overview",
+        "--search",
+        "roster",
+        "--workflow",
+        "dash",
+        "--status",
+        "implementing",
+        "--page-size",
+        "50",
+        "--cursor",
+        "opaque-next-cursor",
+        "--sort-column",
+        "title",
+        "--sort-direction",
+        "asc",
     )
     assert result == 0
     assert set(every_field.payload) == set(ItemsOverviewListRequest.model_fields)
@@ -108,7 +138,13 @@ def test_overview_list_omits_every_option_the_operator_did_not_name() -> None:
     assert bare.payload == {}
 
     result, unpaged = _run(
-        "items", "overview", "list", "--project", "yoke", "--limit", "25",
+        "items",
+        "overview",
+        "list",
+        "--project",
+        "yoke",
+        "--limit",
+        "25",
     )
     assert result == 0
     assert unpaged.payload == {"project": "yoke", "limit": 25}
@@ -117,9 +153,13 @@ def test_overview_list_omits_every_option_the_operator_did_not_name() -> None:
 def test_overview_list_leaves_invalid_combinations_to_the_request_model() -> None:
     """The CLI forwards; the read owns the named refusal and its recovery."""
     result, forwarded = _run(
-        "items", "overview", "list",
-        "--relevance", "overview",
-        "--page-size", "50",
+        "items",
+        "overview",
+        "list",
+        "--relevance",
+        "overview",
+        "--page-size",
+        "50",
     )
     assert result == 0
     assert forwarded.payload == {"relevance": "overview", "page_size": 50}
@@ -132,7 +172,11 @@ def test_overview_list_leaves_invalid_combinations_to_the_request_model() -> Non
 
 def test_overview_list_out_of_range_page_size_is_refused_by_the_read() -> None:
     result, forwarded = _run(
-        "items", "overview", "list", "--page-size", "10000",
+        "items",
+        "overview",
+        "list",
+        "--page-size",
+        "10000",
     )
     assert result == 0
     assert forwarded.payload == {"page_size": 10000}

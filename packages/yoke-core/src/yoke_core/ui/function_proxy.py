@@ -86,6 +86,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "qa.artifact.read",
         "inbox.list",
         "workflow.execution_instruction.list",
+        "workflow.execution_instruction.resolve",
         "workflows.definition.get",
         "workflows.mechanics.get",
         "workflows.version.get",
@@ -248,6 +249,10 @@ def proxy_function_call(
     operator_actor_id: Optional[str] = None
     if not relayed and (
         is_mutation
+        or (
+            function_id == "projects.list"
+            and (envelope.get("payload") or {}).get("for_item_creation")
+        )
         or function_id in UI_ACTIVATION_LATCH_FUNCTIONS
         or function_id in UI_ACTOR_BOUND_READ_FUNCTIONS
         or function_id in UI_OPERATOR_OPTIONAL_READ_FUNCTIONS

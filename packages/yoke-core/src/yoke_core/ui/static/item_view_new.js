@@ -1,329 +1,105 @@
-import { buildUniverseRoute } from "./universe_navigation.js";
-import { itemDrillInHref } from "./universe_item_routes.js";
-import {
-  itemIntakeField,
-  itemPostureToggle,
-  loadVerificationCatalog,
-  verificationChoiceSelect,
-  webWorkflowSteer,
-} from "./item_intake_controls.js";
 import { callFunction, el, renderError } from "./universe_view_support.js";
-import {
-  button, sortedWorkflows, workflowPanel,
-} from "./workflow_view_primitives.js";
+import { itemIntakeField, loadVerificationCatalog, webWorkflowSteer } from "./item_intake_controls.js";
+import { renderNewItemForm } from "./item_new_form.js";
 
-export function renderNewItemView(context, main, projectId) {
+export function renderNewItemView(context, main, initialProjectId) {
   const documentNode = context.document;
-  const routeQuery = String(
-    documentNode.defaultView?.location?.hash || "",
-  ).split("?", 2)[1] || "";
-  const requestedWorkflowId = new URLSearchParams(
-    routeQuery,
-  ).get("workflow");
-  const project = context.projects().find(
-    (row) => String(row.id) === String(projectId),
-  );
-  const loading = workflowPanel(documentNode, "New item");
-  loading.body.textContent = "loading…";
-  main.replaceChildren(loading.panel);
-
-  Promise.all([
-    callFunction(
-      context.client,
-      "workflows.definition.get",
-      project ? { project: String(project.id) } : {},
-    ),
-    loadVerificationCatalog(context.client, project),
-  ]).then(([callResult, catalog]) => {
-    if (!context.isMounted()) return;
-    if (callResult.status !== 200 || !callResult.envelope.success) {
-      loading.body.replaceChildren();
-      renderError(loading.body, callResult);
-      return;
-    }
-    if (catalog.failed) {
-      loading.body.replaceChildren();
-      renderError(loading.body, catalog.failed);
-      return;
-    }
-    const workflows = sortedWorkflows(
-      callResult.envelope.result?.workflows || [],
-    );
-    const steer = webWorkflowSteer(workflows);
-    let selected = steer.web.find(
-      (workflow) => workflow.id === requestedWorkflowId,
-    ) || steer.web[0];
-    if (!selected) {
-      loading.body.textContent =
-        "No current workflow version allows the web form entry surface.";
-      return;
-    }
-    const verificationStageId = "reviewing-implementation";
-    const state = {
-      verification: false,
-      file_budget: false,
-      path_claims: false,
-      path_survey: false,
-      approval_on_done: false,
-      deployment: false,
-      verification_target: "",
-    };
-    const pathSurveyPolicyFor = (workflow) => (
-      workflow.definition?.policies?.path_survey ||
-      (["dash", "blitz"].includes(workflow.id) ? "required" : null)
-    );
-    state.path_survey = pathSurveyPolicyFor(selected) === "required";
-    const verificationAvailable = Boolean(
-      catalog.plans.length || catalog.methods.length,
-    );
-    const titleLimit = callResult.envelope.result?.title_max_length;
-    if (!titleLimit) {
-      loading.body.textContent =
-        "workflows.definition.get served no title_max_length, so this form " +
-        "cannot cap the title. Update the server to a build that serves it.";
-      return;
-    }
-    const title = el(documentNode, "input", "item-form-control");
-    title.type = "text";
-    // The server decides the limit for the selected project and stays
-    // authoritative; this only stops the field accepting what it will refuse.
-    title.maxLength = titleLimit;
-    title.required = true;
-    const instruction = el(documentNode, "textarea", "item-form-control");
-    instruction.required = true;
-    instruction.rows = 3;
-    const render = () => {
-      const directWorkflow = ["dash", "blitz"].includes(selected.id);
-      const pathSurveyPolicy = pathSurveyPolicyFor(selected);
-      const host = el(documentNode, "div", "item-new");
-      const head = el(
-        documentNode, "div", "page-head item-new-heading",
-      );
-      const copy = el(documentNode, "div", "h");
-      copy.appendChild(el(
-        documentNode,
-        "h1",
-        "title",
-        `New ${selected.name || selected.id}`,
-      ));
-      copy.appendChild(el(
-        documentNode, "p", "subtitle", steer.copy,
-      ));
-      head.appendChild(copy);
-      const cancel = el(documentNode, "a", "item-button", "Cancel");
-      cancel.href = buildUniverseRoute("items", String(projectId));
-      const actions = el(documentNode, "div", "head-actions");
-      actions.appendChild(cancel);
-      head.appendChild(actions);
-      host.appendChild(head);
-
-      const form = el(documentNode, "form", "item-form");
-      if (steer.web.length > 1) {
-        const choices = workflowPanel(documentNode, "Choose a workflow");
-        choices.body.className += " item-workflow-options";
-        for (const workflow of steer.web) {
-          const choice = button(
-            documentNode,
-            workflow.name || workflow.id,
-            `item-button${workflow.id === selected.id ? " primary" : ""}`,
-          );
-          choice.setAttribute("aria-pressed", String(workflow.id === selected.id));
-          choice.addEventListener("click", () => {
-            selected = workflow;
-            state.path_survey = pathSurveyPolicyFor(selected) === "required";
-            render();
-          });
-          choices.body.appendChild(choice);
-        }
-        form.appendChild(choices.panel);
-      }
-      form.appendChild(itemIntakeField(documentNode, "Title", title));
-      const instructionHelp = el(
-        documentNode,
-        "span",
-        "item-form-help",
-        selected.id === "task"
-          ? "This is the complete laneless, merge-free instruction. Choose " +
-            "Dash when work needs a git lane, verification, or approval."
-          : `This is the whole spec. If the work turns out bigger than it ` +
-            `looks, the agent stops, records findings, files an Issue, and ` +
-            `cancels this ${selected.name || selected.id} with a link.`,
-      );
-      form.appendChild(itemIntakeField(
-        documentNode, "Instruction", instruction, instructionHelp,
-      ));
-      const projectField = el(documentNode, "div", "item-form-field");
-      projectField.appendChild(el(
-        documentNode, "span", "item-form-label", "Project",
-      ));
-      projectField.appendChild(el(
-        documentNode,
-        "div",
-        "item-project-value",
-        `${project?.emoji ? `${project.emoji} ` : ""}` +
-        `${project?.slug || project?.name || String(projectId)}`,
-      ));
-      form.appendChild(projectField);
-
-      const settings = workflowPanel(documentNode, "Settings");
-      settings.body.className += " item-stack";
-      const allow = new Set(
-        selected.definition?.policies?.item_posture_allowlist || [],
-      );
-      const rows = [
-        [
-          "verification", "✓", "Verification",
-          state.verification
-            ? `choose a plan or ad hoc case — runs at ${verificationStageId}`
-            : verificationAvailable
-              ? `when off, we rely on agent self-check at ${verificationStageId}`
-              : "no plans or ad hoc methods are available for this project",
-        ],
-        [
-          "file_budget", "▤", "File Budget",
-          `plans the files this ${selected.name || selected.id} touches ` +
-          "for sizing and conflict evidence before implementation",
-        ],
-        [
-          "path_claims", "⛉", "Path claims",
-          `reserves the files this ${selected.name || selected.id} touches, ` +
-          "so overlapping work serializes instead of colliding at merge",
-        ],
-        [
-          "path_survey", "⌁", "Path survey",
-          `checks the files this ${selected.name || selected.id} expects to ` +
-          "touch and re-checks the declared set immediately before merge",
-        ],
-        [
-          "approval_on_done", "☑", "Approval on done",
-          "someone has to approve before it can finish — a project owner, " +
-          "or a named person",
-        ],
-        [
-          "deployment", "⬈", "Deploy after merge",
-          "once the work merges, ship it through the project's delivery flow",
-        ],
-      ];
-      let settingCount = 0;
-      for (const [key, icon, label, note] of rows) {
-        const directSurvey = key === "path_survey" && directWorkflow;
-        if (!allow.has(key) && !(key === "approval_on_done" && allow.has("approval")) && !directSurvey) {
-          continue;
-        }
-        settings.body.appendChild(itemPostureToggle(
-          documentNode,
-          icon,
-          label,
-          note,
-          state,
-          key,
-          render,
-          key === "verification" && state.verification
-            ? verificationChoiceSelect(documentNode, catalog, state)
-            : null,
-          key !== "verification" || verificationAvailable,
-          key === "path_survey" && pathSurveyPolicy === "required",
-        ));
-        settingCount += 1;
-      }
-      if (settingCount) form.appendChild(settings.panel);
-      const footer = el(documentNode, "div", "item-form-actions");
-      const submit = button(
-        documentNode,
-        `Create ${selected.name || selected.id}`,
-        "item-button primary",
-      );
-      submit.type = "submit";
-      footer.appendChild(submit);
-      form.appendChild(footer);
-      const outcome = el(documentNode, "p", "item-form-outcome");
-      form.appendChild(outcome);
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const cleanTitle = title.value.trim();
-        const cleanInstruction = instruction.value.trim();
-        if (!cleanTitle || !cleanInstruction) {
-          outcome.className = "item-form-outcome error";
-          outcome.textContent = "Title and instruction are required.";
-          return;
-        }
-        if (state.verification && !state.verification_target) {
-          outcome.className = "item-form-outcome error";
-          outcome.textContent =
-            "Choose a verification plan or ad hoc method.";
-          return;
-        }
-        const posture = {};
-        if (state.verification) {
-          const [kind, id] = state.verification_target.split(":", 2);
-          posture.verification = kind === "plan"
-            ? { kind: "plan", plan_id: Number(id) }
-            : { kind: "ad_hoc", method_id: id };
-        }
-        for (const key of [
-          "file_budget", "path_claims", "path_survey", "deployment",
-        ]) {
-          if (key === "path_survey" && pathSurveyPolicy === "required") {
-            continue;
-          }
-          if (state[key]) posture[key] = true;
-        }
-        if (state.approval_on_done) {
-          posture[allow.has("approval_on_done")
-            ? "approval_on_done" : "approval"] = true;
-        }
-        submit.disabled = true;
-        outcome.className = "item-form-outcome";
-        outcome.textContent = "Creating…";
-        let result;
-        try {
-          result = await callFunction(context.client, "items.create", {
-            title: cleanTitle,
-            instruction: cleanInstruction,
-            project: String(project?.slug || project?.id || projectId),
-            workflow: selected.id,
-            entry_surface: "web_form",
-            workflow_posture: posture,
-          });
-        } catch (error) {
-          result = {
-            status: 0,
-            envelope: {
-              success: false,
-              error: { message: String(error) },
-            },
-          };
-        }
-        if (result.status === 200 && result.envelope.success) {
-          const itemRef = result.envelope.result?.public_ref;
-          outcome.textContent = `Created ${itemRef}.`;
-          const href = itemDrillInHref({
-            projectId,
-            publicRef: itemRef,
-          });
-          if (context.navigate && href) {
-            context.navigate(href);
-          }
-          return;
-        }
-        submit.disabled = false;
-        outcome.className = "item-form-outcome error";
-        outcome.textContent =
-          result.envelope?.error?.message || "Item creation failed.";
-      });
-      host.appendChild(form);
-      main.replaceChildren(host);
-    };
-    render();
-  }).catch((error) => {
-    if (!context.isMounted()) return;
-    loading.body.replaceChildren();
-    renderError(loading.body, {
-      status: 0,
-      envelope: {
-        success: false,
-        error: { message: String(error) },
-      },
+  const query = String(documentNode.defaultView?.location?.hash || "").split("?", 2)[1] || "";
+  const draft = { workflowId: new URLSearchParams(query).get("workflow") };
+  const selector = el(documentNode, "select", "item-form-control item-project-select");
+  selector.required = true;
+  let projectId = "";
+  let sequence = 0;
+  let instructionSequence = 0;
+  let instructions = [];
+  let renderForm = null;
+  const valid = (result) => result.status === 200 && result.envelope.success;
+  const showFailure = (result) => {
+    main.replaceChildren(itemIntakeField(documentNode, "Project", selector));
+    renderError(main, result);
+    main.appendChild(el(documentNode, "p", "item-form-help", "Choose another project or reload to retry. Your draft is preserved."));
+  };
+  const loadInstructions = async (workflowId) => {
+    const token = ++instructionSequence;
+    const result = await callFunction(context.client, "workflow.execution_instruction.resolve", {
+      workflow: workflowId, project: projectId, detail: "full",
     });
-  });
+    if (token !== instructionSequence || !context.isMounted()) return;
+    if (!valid(result)) { showFailure(result); return; }
+    instructions = result.envelope.result?.execution_instructions || [];
+    draft.instructionsLoading = false;
+    renderForm?.();
+  };
+  const loadProject = async () => {
+    const token = ++sequence;
+    ++instructionSequence;
+    draft.title = draft.titleControl?.value ?? draft.title;
+    draft.instruction = draft.instructionControl?.value ?? draft.instruction;
+    selector.value = projectId;
+    main.replaceChildren(itemIntakeField(documentNode, "Project", selector), el(documentNode, "p", "empty", "Loading project settings…"));
+    const project = context.projects().find((row) => String(row.id) === projectId);
+    try {
+      const [result, catalog] = await Promise.all([
+        callFunction(context.client, "workflows.definition.get", { project: projectId }),
+        loadVerificationCatalog(context.client, project),
+      ]);
+      if (token !== sequence || !context.isMounted()) return;
+      if (!valid(result) || catalog.failed) { showFailure(catalog.failed || result); return; }
+      const definition = result.envelope.result || {};
+      const workflow = webWorkflowSteer(definition.workflows || []).web.find((row) => row.id === draft.workflowId)
+        || webWorkflowSteer(definition.workflows || []).web[0];
+      if (!workflow) {
+        main.appendChild(el(documentNode, "p", "empty", "No current workflow version allows the web form entry surface."));
+        return;
+      }
+      const priorWorkflow = draft.workflowId;
+      draft.workflowId = workflow.id;
+      const notice = draft.title !== undefined
+        ? "Project settings refreshed. Review this project's settings before creating." + (priorWorkflow && priorWorkflow !== workflow.id ? ` ${priorWorkflow} is unavailable; ${workflow.name || workflow.id} is selected.` : "")
+        : "";
+      draft.posture = null;
+      renderForm = () => renderNewItemForm(context, main, projectId, {
+        definition, catalog, draft, projectControl: selector, instructions, notice,
+        onWorkflowChange: (id) => {
+          draft.instructionsLoading = true;
+          draft.title = draft.titleControl.value;
+          draft.instruction = draft.instructionControl.value;
+          loadInstructions(id).catch((error) => showFailure({ status: 0, envelope: { error: { message: String(error) } } }));
+        },
+      });
+      await loadInstructions(workflow.id);
+    } catch (error) {
+      if (token === sequence && context.isMounted()) showFailure({ status: 0, envelope: { error: { message: String(error) } } });
+    }
+  };
+  selector.addEventListener("change", () => { projectId = selector.value; loadProject(); });
+  main.replaceChildren(el(documentNode, "p", "empty", "Loading projects…"));
+  callFunction(context.client, "projects.list", { fields: ["id", "slug", "name", "emoji"], for_item_creation: true })
+    .then((result) => {
+      if (!context.isMounted()) return;
+      if (!valid(result)) { showFailure(result); return; }
+      if (!result.envelope.result?.creation_scoped) {
+        main.textContent = "Item creation project permissions are unavailable. Update the server and reload to retry.";
+        return;
+      }
+      const projects = result.envelope.result.rows || [];
+      const placeholder = el(documentNode, "option", null, "Choose a project");
+      placeholder.value = "";
+      placeholder.disabled = true;
+      selector.appendChild(placeholder);
+      for (const project of projects) {
+        const option = el(documentNode, "option", null, `${project.emoji || ""} ${project.name || project.slug}`.trim());
+        option.value = String(project.id);
+        selector.appendChild(option);
+      }
+      if (!projects.length) {
+        main.textContent = "You cannot create items in any project. Ask a project owner for access.";
+        return;
+      }
+      projectId = projects.some((row) => String(row.id) === String(initialProjectId)) ? String(initialProjectId)
+        : projects.length === 1 ? String(projects[0].id) : "";
+      selector.value = projectId;
+      if (projectId) loadProject();
+      else main.replaceChildren(itemIntakeField(documentNode, "Project", selector), el(documentNode, "p", "item-form-help", "Choose the project this item belongs to."));
+    }).catch((error) => { if (context.isMounted()) showFailure({ status: 0, envelope: { error: { message: String(error) } } }); });
 }

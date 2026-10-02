@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 
@@ -29,6 +29,7 @@ from yoke_core.domain.handlers import actor_ui_preference_store as _store
 #: ``actor_ui_preferences.pref_key`` prefix for per-view selections.
 SCREEN_SELECTION_PREF_PREFIX = "screen.selection."
 SCREEN_LOCATION_PREF_PREFIX = "screen.location."
+SCREEN_SORT_PREF_PREFIX = "screen.sort."
 
 _LIST_ID = "ui_preferences.screen_selection.list"
 _SET_ID = "ui_preferences.screen_selection.set"
@@ -43,6 +44,7 @@ class ScreenSelectionListRequest(BaseModel):
 class ScreenSelectionListResponse(BaseModel):
     views: Dict[str, Dict[str, Any]]
     last_location: Optional[str] = None
+    sorts: Dict[str, Dict[str, str]] = Field(default_factory=dict)
 
 
 class ScreenSelectionSetRequest(BaseModel):
@@ -50,6 +52,7 @@ class ScreenSelectionSetRequest(BaseModel):
     selection: Selection = "all"
     focus: Optional[str] = None
     location: Optional[str] = None
+    sort: Optional[Dict[str, str]] = None
 
 
 class ScreenSelectionSetResponse(BaseModel):
@@ -57,12 +60,23 @@ class ScreenSelectionSetResponse(BaseModel):
     selection: Optional[Selection] = None
     focus: Optional[str] = None
     location: Optional[str] = None
+    sort: Optional[Dict[str, str]] = None
 
 
 def _valid_selection(selection: Any) -> bool:
     if selection == "all":
         return True
     return isinstance(selection, list) and all(isinstance(v, str) for v in selection)
+
+
+def _valid_sort(value: Any) -> bool:
+    from yoke_core.domain.item_roster_order import SORT_COLUMNS, SORT_DIRECTIONS
+
+    return (
+        isinstance(value, dict)
+        and value.get("column") in SORT_COLUMNS
+        and value.get("direction") in SORT_DIRECTIONS
+    )
 
 
 def _valid_location(location: Any) -> bool:
@@ -83,7 +97,8 @@ def handle_screen_selection_list(
     actor_id = _store.actor_id(request)
     if actor_id is None:
         return HandlerOutcome(
-            result_payload={"views": {}, "last_location": None}, primary_success=True
+            result_payload={"views": {}, "last_location": None, "sorts": {}},
+            primary_success=True,
         )
     stored = _store.read_prefixed(actor_id, SCREEN_SELECTION_PREF_PREFIX)
     views: Dict[str, Dict[str, Any]] = {}
@@ -101,6 +116,13 @@ def handle_screen_selection_list(
     return HandlerOutcome(
         result_payload={
             "views": views,
+            "sorts": {
+                key: value
+                for key, value in _store.read_prefixed(
+                    actor_id, SCREEN_SORT_PREF_PREFIX
+                ).items()
+                if _valid_sort(value)
+            },
             "last_location": location if _valid_location(location) else None,
         },
         primary_success=True,
@@ -138,6 +160,18 @@ def handle_screen_selection_set(
     actor_id = _store.actor_id(request)
     if actor_id is None:
         return _store.actor_required(_SET_ID)
+    sort = payload.get("sort")
+    if sort is not None:
+        if view_id != "items" or not _valid_sort(sort):
+            return _store.error(
+                "payload_invalid",
+                "Unknown Items sort column or direction; select a column header and retry",
+                jsonpath="$.payload.sort",
+            )
+        _store.upsert(actor_id, SCREEN_SORT_PREF_PREFIX + view_id, sort)
+        return HandlerOutcome(
+            result_payload={"view_id": view_id, "sort": sort}, primary_success=True
+        )
     location = payload.get("location")
     if location is not None and not _valid_location(location):
         return _store.error(

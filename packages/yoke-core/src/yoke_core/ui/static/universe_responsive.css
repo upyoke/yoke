@@ -57,6 +57,7 @@
   border-radius: 9px;
   background: var(--yoke-bg);
 }
+.universe-app-root .header-context-control[hidden] { display: none; }
 .universe-app-root .header-context-label {
   flex: 0 0 auto;
   color: var(--yoke-muted);
