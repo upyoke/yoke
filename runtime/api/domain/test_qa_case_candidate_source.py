@@ -1,15 +1,19 @@
 """A deployment Command case executes and records its candidate's imports."""
 
 import json
+import os
 import shlex
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from yoke_core.domain.qa_case_worktree_run import execute_worktree_case
+from yoke_core.domain.qa_case_command_stream import product_command_environment
 from yoke_core.domain.verification_tree_binding import TreeBindingVerdict, TreeIdentity
-from yoke_core.tools._source_pythonpath import PACKAGE_SRC_RELS
+from yoke_core.tools._source_pythonpath import PACKAGE_SRC_RELS, source_entries
 
 
 def _candidate(root):
@@ -120,20 +124,40 @@ def test_zero_exit_cannot_pass_when_candidate_origins_change_during_command(
 
 
 @pytest.mark.parametrize("scope", ["lane", "endpoint", "external"])
-def test_other_command_scopes_keep_product_imports(tmp_path, monkeypatch, scope):
+@pytest.mark.parametrize("relative_path", [False, True], ids=["absolute", "relative"])
+def test_other_command_scopes_preserve_inherited_import_resolution(
+    tmp_path, monkeypatch, scope, relative_path
+):
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
     root = tmp_path / "checkout"
     root.mkdir()
     if scope != "external":
         _candidate(root)
+    # CI supplies relative PYTHONPATH entries; a preserved product environment
+    # can therefore already import cwd source. Compare to the actual incoming
+    # resolution rather than assuming it always lives outside the checkout.
+    installed_root = Path(__file__).resolve().parents[3]
+    entries = source_entries(installed_root)
+    if relative_path:
+        entries.insert(0, "packages/yoke-core/src")
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join(entries))
+    probe = "import yoke_core; print(yoke_core.__file__)"
+    baseline = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=root,
+        env=product_command_environment(os.environ),
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
     result, record = _execute(
         root,
-        "python3 -c 'import yoke_core; print(yoke_core.__file__)'",
+        "python3 -c " + shlex.quote(probe),
         lane=scope == "lane",
         endpoint_only=scope == "endpoint",
     )
     assert result["verdict"] == "pass"
     assert result["candidate_source"] is None
     output = Path(result["output_capture"]).read_text()
-    assert str(root / "packages") not in output
+    assert output == baseline
     assert json.loads(record["raw_result"])["candidate_source"] is None
