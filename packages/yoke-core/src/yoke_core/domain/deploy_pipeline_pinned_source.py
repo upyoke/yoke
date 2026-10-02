@@ -18,6 +18,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from yoke_cli.config import repo_upstream_git
 from yoke_contracts.deployment_itemless_teaching import INTERRUPTED_RUN_RECOVERY
 from yoke_core.domain import deploy_pipeline_control_plane as control_plane
 from yoke_core.domain.project_checkout_locations import checkout_for_project_slug
@@ -73,9 +74,13 @@ def _ensure_commit(repo: str, revision: str) -> str:
     resolved = _resolve_commit(repo, revision)
     if resolved:
         return resolved
-    fetched = _run(
-        ["git", "-C", repo, "fetch", "--quiet", "origin", revision],
-        timeout=120,
+    fetched = repo_upstream_git.git(
+        repo,
+        "fetch",
+        "--quiet",
+        "origin",
+        revision,
+        timeout=repo_upstream_git.network_timeout_seconds(),
     )
     resolved = _resolve_commit(repo, revision)
     if resolved:
@@ -200,9 +205,7 @@ def driver_source_drift_refusal(release_lineage: str) -> str | None:
         )
     pinned_root = Path(root).resolve()
     executing = _resolve_commit(root, "HEAD")
-    expected = _resolve_commit(root, release_lineage) or _resolve_commit(
-        root, pinned
-    )
+    expected = _resolve_commit(root, release_lineage) or _resolve_commit(root, pinned)
     loaded = Path(__file__).resolve()
     pin_module = (
         pinned_root
