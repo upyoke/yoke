@@ -261,7 +261,9 @@ def execute_plan_agent_mission_case(
         raise MachinePlanCaseDispatchError(
             "test_machine.mission.ready returned an invalid case result"
         )
-    return result
+    from yoke_core.domain.agent_mission_preparation import preparation_failure_result
+
+    return preparation_failure_result(result, prepared["preparation"])
 
 
 __all__ = [

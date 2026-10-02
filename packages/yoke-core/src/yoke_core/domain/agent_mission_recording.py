@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
+from yoke_core.domain.agent_mission_docket import insert_mission_docket
 from yoke_core.domain.handlers.machine_qa import _failure
 from yoke_core.domain.handlers.machine_qa_plan_case import (
     _assert_current_snapshot,
@@ -37,67 +38,6 @@ def _recorded_result(
             value = row["result"]
             return dict(value) if isinstance(value, dict) else None
     return None
-
-
-def _insert_docket(
-    conn: Any,
-    *,
-    execution: dict[str, Any],
-    case: dict[str, Any],
-    preparation: dict[str, Any],
-    lease_id: int,
-    contract_digest: str,
-) -> tuple[int, dict[str, Any]]:
-    from yoke_core.domain.db_helpers import iso8601_now
-    from yoke_core.domain.machine_qa_execution_protocol import (
-        host_control_submission_receipt,
-    )
-    from yoke_core.domain.qa_capture_agreement import AGENT_MISSION_DOCKET_REASON
-    from yoke_core.domain.qa_plan_execution_store import canonical
-    from yoke_core.domain.qa_requirement_pass_currency import (
-        stamp_executed_method_config,
-    )
-
-    now = iso8601_now()
-    executor = str(case["method_config"]["executor"])
-    transcript = {
-        "executor": executor,
-        "preparation": preparation,
-        "plan_execution_id": str(execution["id"]),
-        "host_control_submission": host_control_submission_receipt(
-            lease_id,
-            contract_digest,
-        ),
-    }
-    from yoke_core.domain.qa_run_verdict_record import insert_qa_run
-
-    run_id = insert_qa_run(
-        conn,
-        qa_requirement_id=int(case["requirement_id"]),
-        performed_by="agent_mission",
-        qa_kind=str(case["qa_kind"]),
-        execution_status="captured",
-        case_outcome="needs_review",
-        capture_degraded_reason=AGENT_MISSION_DOCKET_REASON,
-        raw_result=stamp_executed_method_config(
-            canonical(transcript),
-            case.get("method_config"),
-            execution_target_digest=case.get("execution_target_digest"),
-        ),
-        started_at=now,
-        completed_at=now,
-        created_at=now,
-    ).run_id
-    result = {
-        "requirement_id": int(case["requirement_id"]),
-        "runner_id": "agent_mission",
-        "run_id": run_id,
-        "verdict": None,
-        "case_outcome": "needs_review",
-        "executor": executor,
-        "preparation": preparation,
-    }
-    return run_id, result
 
 
 def handle_agent_mission_ready(request: FunctionCallRequest) -> HandlerOutcome:
@@ -165,7 +105,7 @@ def handle_agent_mission_ready(request: FunctionCallRequest) -> HandlerOutcome:
         else:
             preparation = parsed.preparation.model_dump(mode="json")
             ensure_secret_free_result(preparation)
-            run_id, result = _insert_docket(
+            run_id, result = insert_mission_docket(
                 conn,
                 execution=execution,
                 case=case,
@@ -186,13 +126,16 @@ def handle_agent_mission_ready(request: FunctionCallRequest) -> HandlerOutcome:
                 record_test_machine_baseline_reset,
             )
 
-            record_test_machine_baseline_reset(
-                conn,
-                contract,
-                preparation,
-                lease_id=lease.id,
-                contract_digest=parsed.contract_digest,
-            )
+            outcome = preparation["evidence"].get("baseline_outcome")
+            baseline_receipt = outcome.get("receipt") if outcome else preparation
+            if baseline_receipt is not None:
+                record_test_machine_baseline_reset(
+                    conn,
+                    contract,
+                    baseline_receipt,
+                    lease_id=lease.id,
+                    contract_digest=parsed.contract_digest,
+                )
             conn.commit()
             from yoke_core.domain import qa_events
 

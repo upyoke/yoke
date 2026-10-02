@@ -44,7 +44,7 @@ def mission(monkeypatch):
     monkeypatch.setattr(
         qa_host_package_fixture,
         "restore_host_packages",
-        lambda control, declared: (
+        lambda control, declared, **kwargs: (
             packages.append(("restore", declared)) or {"ok": True}
         ),
     )

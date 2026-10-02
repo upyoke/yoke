@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_contracts.qa_host_starting_state import validate_host_starting_state
 
 PACKAGE_JOURNAL_SUFFIX = ".qa-packages.json"
@@ -78,7 +79,7 @@ else:
 """
 
 
-def _run(control: Any, mode: str, declared: dict | None) -> dict:
+def _run(control: Any, mode: str, declared: dict | None, *, secrets=()) -> dict:
     if getattr(control, "os", None) not in {"linux", "windows"}:
         if declared:
             raise ValueError(
@@ -110,17 +111,23 @@ def _run(control: Any, mode: str, declared: dict | None) -> dict:
     except (ValueError, TypeError):
         evidence = {}
     if result.returncode or evidence.get("ok") is not True:
-        raise RuntimeError(
-            "os_package_fixture_failed: restore could not prove the declared package state; "
-            "check apt access, passwordless sudo and the journal beside the golden before retrying QA"
+        raise HostControlLocalError(
+            code="os_package_fixture_failed",
+            phase="os_packages",
+            detail="Package fixture could not prove the declared package state",
+            exit_code=int(result.returncode),
+            stdout=result.stdout or "",
+            stderr=result.stderr or "",
+            secrets=secrets,
+            recovery_hint="Check apt access, passwordless sudo and the journal beside the golden before retrying QA.",
         )
     return evidence
 
 
-def restore_host_packages(control: Any, declared: dict | None) -> dict:
+def restore_host_packages(control: Any, declared: dict | None, *, secrets=()) -> dict:
     """Undo the preceding mission's complete package delta, then apply this fixture."""
     config = validate_host_starting_state(declared) if declared is not None else None
-    return _run(control, "restore", config)
+    return _run(control, "restore", config, secrets=secrets)
 
 
 def record_host_packages(control: Any) -> dict:
