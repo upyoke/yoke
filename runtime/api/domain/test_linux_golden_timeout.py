@@ -19,6 +19,7 @@ DESTINATION = "/var/lib/goldens/tester"
 def _control():
     control = SimpleNamespace(
         home="/home/tester",
+        secret_values=(),
         _ssh_argv=lambda command: ["ssh", command],
         read_remote_text=lambda path: json.dumps(
             {"probes": [{"name": "CLI available", "argv": ["/bin/true"]}]}

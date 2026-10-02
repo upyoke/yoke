@@ -36,6 +36,12 @@ captures have no passing artifact. A transcript cannot substitute for a frame
 of the real interactive display. Started/reused desktop identity is operational
 evidence, not permission to displace a human session.
 
+Windows session-state reads allow a bounded 45 seconds for native PowerShell
+initialization after boot. An unreadable WTS result refuses desktop startup
+and records the query exit status and bounded, redacted stdout/stderr. SSH
+timeouts retain partial diagnostics so cold initialization can be distinguished
+from a broken session query.
+
 Ad hoc `exec` uses the workstation SSH agent, records no QA verdict or operation
 receipt, and refuses another session's host lease. It streams stdout/stderr and
 keeps bounded failure diagnostics. Mission host commands instead run through
