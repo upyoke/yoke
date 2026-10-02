@@ -82,6 +82,14 @@ Linux golden directories contain a private home archive and a manifest binding
 its SHA-256 digest to the test user/home. They stay outside the home. Capture
 omits Unix sockets and symlinks that resolve to sockets or outside the captured
 home, regardless of filename; regular files and safe links named `.sock` stay.
+Reset first refuses a live desktop or mounted `thinclient_drives`, with logout
+as recovery; an empty unmounted directory is safe. A declared Claude probe
+must pass a tiny request with the live login before teardown. Auth, network
+and timeout failures have distinct recoveries. Its post-request credential
+file survives success or midway failure with the same owner and mode 0600;
+settings and history remain golden-owned. This Linux/WSL path does not change
+macOS Keychain or preserve Codex/Cursor credentials. See the
+[golden baseline guide](test-machine-golden-baseline.md) for refusal details.
 Restore validates identity, digest and every archive entry before clearing the home,
 stops that user's home-resident programs and descendants (including deleted
 harness executables), preserves `.ssh`, compares restored file digests, and proves Yoke state and
