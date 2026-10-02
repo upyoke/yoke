@@ -7,6 +7,11 @@ import shlex
 from typing import Any
 
 from yoke_harness.ssh_linux_reset_cleanup import RESET_WRITERS_PROGRAM
+from yoke_harness.ssh_linux_reset_preconditions import (
+    DESKTOP_PROGRAM,
+    CREDENTIAL_PROGRAM,
+    reset_preflight,
+)
 from yoke_harness.ssh_linux_reset_services import YOKE_SERVICE_PATTERNS
 from yoke_harness.ssh_mac_baseline_probes import (
     parse_baseline_probes,
@@ -31,7 +36,8 @@ ABSENT_HOME_PATHS = (
 
 _ARCHIVE_PROGRAM = r"""
 import fnmatch, hashlib, json, os, pathlib, shutil, stat, sys, tarfile, tempfile
-operation, expected_home, golden = sys.argv[1:]
+operation, expected_home, golden = sys.argv[1:4]
+preserve_claude = len(sys.argv) > 4 and sys.argv[4] == "preserve-claude"
 home = pathlib.Path(os.environ["HOME"])
 baseline = pathlib.Path(golden)
 absent = json.loads(sys.stdin.read())
@@ -43,8 +49,9 @@ def stream_sha256(stream):
 def file_sha256(path):
     with path.open("rb") as stream:
         return stream_sha256(stream)
-def refuse(reason, entry=None):
-    print(json.dumps({"ok": False, "reason": reason, "refused_entry": entry})); sys.exit(64)
+def refuse(reason, entry=None, recovery=None):
+    print(json.dumps({"ok": False, "reason": reason, "refused_entry": entry, **({"recovery": recovery} if recovery else {})})); sys.exit(64)
+# RESET_PRECONDITION_FUNCTIONS
 terminal_preferences_path = pathlib.Path(".config/xfce4/helpers.rc")
 def terminal_preference_lines():
     path = home
@@ -122,6 +129,7 @@ if operation == "capture":
     finally:
         if temporary.exists(): shutil.rmtree(temporary)
 else:
+    desktop_precondition()
     if not baseline.is_dir(): refuse("golden_baseline_unavailable")
     manifest = json.loads((baseline / "manifest.json").read_text())
     digest = file_sha256(baseline / "home.tar.gz")
@@ -132,23 +140,29 @@ else:
         # Desktop provisioning can follow the clean golden's capture. Keep its
         # terminal selection, not other live desktop or browser preferences.
         terminal_selection = [line for line in terminal_preference_lines() if selects_terminal(line)]
-        # STOP_YOKE_WRITERS
-        for entry in home.iterdir():
-            if entry.name == ".ssh": continue
-            try:
-                if entry.is_dir() and not entry.is_symlink(): shutil.rmtree(entry)
-                else: entry.unlink()
-            except OSError:
-                refuse("linux_golden_home_clear_failed", entry.name)
-        archive.extractall(home, filter="fully_trusted")
-        for member in members:
-            restored = home / member.name
-            if member.isfile():
-                with archive.extractfile(member) as original, restored.open("rb") as actual:
-                    if stream_sha256(original) != stream_sha256(actual):
-                        refuse("linux_golden_restore_not_proved")
-            elif member.issym() and os.readlink(restored) != member.linkname:
-                refuse("linux_golden_restore_not_proved")
+        stash = stash_claude() if preserve_claude else None
+        try:
+            # STOP_YOKE_WRITERS
+            for entry in home.iterdir():
+                if entry.name == ".ssh": continue
+                try:
+                    if entry.is_dir() and not entry.is_symlink(): shutil.rmtree(entry)
+                    else: entry.unlink()
+                except OSError:
+                    refuse("linux_golden_home_clear_failed", entry.name)
+            archive.extractall(home, filter="fully_trusted")
+            for member in members:
+                restored = home / member.name
+                if member.isfile():
+                    with archive.extractfile(member) as original, restored.open("rb") as actual:
+                        if stream_sha256(original) != stream_sha256(actual):
+                            refuse("linux_golden_restore_not_proved")
+                elif member.issym() and os.readlink(restored) != member.linkname:
+                    refuse("linux_golden_restore_not_proved")
+        except (OSError, tarfile.TarError):
+            refuse("linux_golden_restore_failed", recovery="Repair the sealed archive or destination permissions, then retry; never capture the mixed home.")
+        finally:
+            if stash is not None: restore_claude(stash)
     if terminal_selection:
         lines = [line for line in terminal_preference_lines() if not selects_terminal(line)]
         preferences = home / terminal_preferences_path
@@ -160,10 +174,12 @@ else:
     for value in absent:
         if (home / value).exists() or (home / value).is_symlink(): refuse("reset_absence_not_proved")
 print(json.dumps({"ok":True, "operation":operation, "golden_baseline_path":str(baseline),
-                  "preserved_entries":[".ssh"], "absent_paths":absent if operation == "reset" else [],
+                  "preserved_entries":[".ssh"] + ([".claude/.credentials.json"] if preserve_claude else []), "absent_paths":absent if operation == "reset" else [],
                   "desktop_terminal_preference_preserved":bool(locals().get("terminal_selection")),
                   "service_cleanup": locals().get("service_cleanup")}))
-""".replace("__YOKE_SERVICE_PATTERNS__", repr(YOKE_SERVICE_PATTERNS))
+""".replace("__YOKE_SERVICE_PATTERNS__", repr(YOKE_SERVICE_PATTERNS)).replace(
+    "# RESET_PRECONDITION_FUNCTIONS", DESKTOP_PROGRAM + CREDENTIAL_PROGRAM
+)
 
 
 def prove_linux_probes(control: Any, document: str) -> HostActionResult:
@@ -184,39 +200,49 @@ def prove_linux_probes(control: Any, document: str) -> HostActionResult:
 def archive_operation(
     control: Any, operation: str, destination: str
 ) -> HostActionResult:
+    preserve_claude = False
+    if operation == "reset":
+        preflight = reset_preflight(control, destination)
+        if not preflight.ok:
+            return preflight
+        preserve_claude = preflight.evidence["preserve_claude"]
     command = shlex.join(
         [
             "/usr/bin/python3",
             "-c",
             _ARCHIVE_PROGRAM.replace(
-                "        # STOP_YOKE_WRITERS",
+                "            # STOP_YOKE_WRITERS",
                 "\n".join(
-                    "        " + line for line in RESET_WRITERS_PROGRAM.splitlines()
+                    "            " + line for line in RESET_WRITERS_PROGRAM.splitlines()
                 ),
             ),
             operation,
             control.home,
             destination,
+            "preserve-claude" if preserve_claude else "golden-credentials",
         ]
     )
     result = control._run(
         command, input_text=json.dumps(ABSENT_HOME_PATHS), timeout=300
     )
     try:
-        evidence = json.loads(result.stdout)
-    except (ValueError, TypeError):
+        evidence = json.loads(result.stdout.splitlines()[-1])
+    except (ValueError, TypeError, IndexError):
         evidence = {"reason": "linux_golden_operation_failed"}
     if not isinstance(evidence, dict):
         evidence = {"reason": "linux_golden_receipt_invalid"}
     ok = result.returncode == 0 and evidence.get("ok") is True
     if not ok:
-        evidence["recovery"] = (
-            "Inspect systemctl --user and systemd-analyze --user unit-paths; repair the named unit or user manager, have an administrator remove a foreign-owned Yoke definition, then retry the sealed baseline."
-            if str(evidence.get("reason", "")).startswith("linux_yoke_service")
-            or evidence.get("reason") == "linux_yoke_linger_unknown"
-            else "Repair the named reset failure and inspect refused_entry; stop surviving home-resident processes if clearing failed, then retry the sealed baseline. Never capture a mixed home."
-            if operation == "reset"
-            else "Use a non-root test user and a new literal golden directory outside its home; repair the baseline archive before retrying."
+        evidence.setdefault(
+            "recovery",
+            (
+                "Inspect systemctl --user and systemd-analyze --user unit-paths; repair the named unit or user manager, have an administrator remove a foreign-owned Yoke definition, then retry the sealed baseline."
+                if str(evidence.get("reason", "")).startswith("linux_yoke_service")
+                or evidence.get("reason") == "linux_yoke_linger_unknown"
+                else "Repair the named reset failure and inspect refused_entry; stop surviving home-resident processes if clearing failed, then retry the sealed baseline. Never capture a mixed home."
+                if operation == "reset"
+                else "Use a non-root test user and a new literal golden directory outside its home; repair the baseline archive before retrying."
+            ),
         )
     return HostActionResult(
         ok,

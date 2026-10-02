@@ -55,8 +55,8 @@ def test_remote_reset_program_is_compilable_and_proves_only_yoke_service_removal
 
     # Compile the exact remote program, including its indented cleanup insertion.
     remote = _ARCHIVE_PROGRAM.replace(
-        "        # STOP_YOKE_WRITERS",
-        "\n".join("        " + line for line in RESET_WRITERS_PROGRAM.splitlines()),
+        "            # STOP_YOKE_WRITERS",
+        "\n".join("            " + line for line in RESET_WRITERS_PROGRAM.splitlines()),
     )
     compile(remote, "<remote-linux-home-restore>", "exec")
     monkeypatch.setattr(subprocess, "run", run)

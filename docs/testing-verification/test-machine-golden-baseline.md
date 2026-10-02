@@ -118,10 +118,32 @@ where it stopped — which is what one operator did before the report existed.
 
 ## The probes live beside the golden
 
-Structure is not liveness. A credential file comes back byte-identical and
-still holds a token that expired while it sat in the snapshot, so the restore
-proves the home is the captured one and the probes prove that home still
-works.
+Structure is not liveness. A captured credential can expire or lose its
+refresh token while it sits in the snapshot. The restore proves captured
+settings and history, and the probes prove that the home still works.
+
+Linux reset first refuses a live XFCE session, an active graphical login, or
+a mounted `thinclient_drives`: `linux_reset_desktop_logged_in` says
+“operator is logged in to the desktop; log out first”. An empty, unmounted
+`thinclient_drives` directory left after logout is safe to clear. These checks
+precede service cleanup, process signals and home changes.
+
+When the sealed probes declare Claude, reset makes one tiny real request
+with the current login before teardown. Authentication failure names
+`linux_reset_claude_auth_failed` and tells the operator to sign in again;
+network, timeout and other request failures name their distinct causes and
+require repair and retry. The receipt includes the diagnosed CLI error line,
+with token-shaped material redacted. No failed request falls back to archived
+credentials.
+
+After a passing request, reset copies `~/.claude/.credentials.json` as opaque
+bytes into an owner-only stash outside the home. It restores those post-request
+bytes with the same owner and mode 0600, even after a midway failure, then
+removes the stash. A failed credential restore names the private stash and
+recovery step; retain it until restoration succeeds. Claude settings and
+history remain golden-owned. Machines without a declared Claude probe keep
+golden credential behavior. This applies to Linux homes (including WSL);
+macOS Keychain and Codex/Cursor credential preservation are outside this path.
 
 The probes are declared in a sidecar document next to the golden itself —
 `<golden_baseline_path>.probes` — because which programs must be
@@ -138,7 +160,9 @@ files are perfectly intact. Linux and WSL run them in the SSH user's Linux sessi
 Probe output is summarized rather than recorded. A signed-in report names the
 account it is signed in as, and that identity has no business in QA evidence,
 so a failure is explained by a classified cause, reason, and recovery drawn
-from fixed text — never by the output itself.
+from fixed text. Linux reset admission additionally records only the diagnosed
+Claude error line, with token-shaped material redacted; successful account
+output and credential contents are never recorded.
 
 ## The sidecar decides what must be signed in
 
