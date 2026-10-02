@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import json
+import shlex
 from pathlib import Path
 
 from yoke_harness import baseline_harness_requests
+from yoke_harness.ssh_mac_host_session_state import (
+    SCREEN_SAVER_DISABLE_COMMAND,
+    SCREEN_SAVER_READ_COMMAND,
+)
 from yoke_harness.test_machine_types import HostActionResult
 
 CHECKLIST = "docs/packs/machine-qa/host-provisioning.md"
@@ -15,6 +20,7 @@ RECOVERIES = {
     "Cursor real request": "Sign in Cursor with agent login in the test user's session.",
     "Claude bypass accepted": "Have the operator accept Claude's one-time bypass prompt in the test user's session.",
     "macOS login keychain readable": "Use GUI Terminal to unlock/re-key the login keychain after a password change, sign in Claude again, and re-save.",
+    "macOS screen saver disabled": f"As the GUI test user run {SCREEN_SAVER_DISABLE_COMMAND} before capture; save a new golden and prove the reset roundtrip.",
     "Linux desktop input available": "Provision xdotool as a baseline package before capture, not as a QA package; capture a new golden and prove the fresh-host reset roundtrip.",
 }
 
@@ -76,6 +82,21 @@ sys.exit(0 if ok else 1)
         )
     )
     if os_name == "macos":
+        saver_argv = shlex.split("/usr/bin/" + SCREEN_SAVER_READ_COMMAND)
+        probes.append(
+            _probe(
+                "macOS screen saver disabled",
+                f"""
+import subprocess, sys
+try:
+    result = subprocess.run({saver_argv!r}, capture_output=True, text=True, timeout=10)
+    ok = result.returncode == 0 and result.stdout.strip() == '0'
+except (OSError, subprocess.TimeoutExpired):
+    ok = False
+sys.exit(0 if ok else 1)
+""",
+            )
+        )
         probes.append(
             _probe(
                 "macOS login keychain readable",

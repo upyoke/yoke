@@ -17,7 +17,7 @@ from yoke_harness.ssh_linux_baseline import capture_linux_golden
 from yoke_harness.ssh_mac_golden_capture import capture_golden_baseline
 
 
-@pytest.mark.parametrize("os_name,count", [("macos", 5), ("linux", 5), ("windows", 4)])
+@pytest.mark.parametrize("os_name,count", [("macos", 6), ("linux", 5), ("windows", 4)])
 def test_defaults_and_supplied_names_cannot_weaken_the_standard_set(os_name, count):
     document, refusal = capture_probes_document(os_name, None)
     assert refusal is None
@@ -162,7 +162,7 @@ def test_linux_input_check_distinguishes_headless_and_desktop(
 
 
 @pytest.mark.parametrize("os_name", ["macos", "linux", "windows"])
-@pytest.mark.parametrize("failure_index", range(5))
+@pytest.mark.parametrize("failure_index", range(6))
 def test_default_capture_stops_before_archive_on_each_failed_standard_check(
     os_name, failure_index
 ):

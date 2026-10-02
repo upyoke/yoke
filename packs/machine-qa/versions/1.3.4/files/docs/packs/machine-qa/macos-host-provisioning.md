@@ -316,7 +316,7 @@ harnesses and remote access. Then reset with `--baseline fresh-host` and verify;
 retain all three receipts and require the sealed checks to pass after restore.
 
 Standard checks: `Claude real request`, `Codex real request`, `Cursor real request`,
-`Claude bypass accepted`, and `macOS login keychain readable` (GUI Terminal).
+`Claude bypass accepted`, `macOS login keychain readable`, `macOS screen saver disabled` (GUI Terminal).
 Start from the current `.probes` sidecar for extras; all standard names are
 required (`baseline_standard_probes_missing` names omissions). Capture seals
 canonical standard programs plus extras, never implicitly carrying an older
