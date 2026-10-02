@@ -239,14 +239,10 @@ def run_baseline_probes(
             )
         )
         if request and classified is None:
-            message = f"{request.name} real request failed. {request.recovery}"
             rows[-1].update(
-                cause="harness_request_failed",
-                reason=message,
-                recovery=request.recovery,
+                request.failure_evidence(result.stdout or "", result.stderr or "")
             )
-        else:
-            message = rows[-1]["reason"]
+        message = rows[-1]["reason"]
         return HostActionResult(
             False,
             {"probes": rows, "reason": message, "recovery": rows[-1]["recovery"]},

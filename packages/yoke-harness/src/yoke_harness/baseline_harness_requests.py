@@ -23,6 +23,27 @@ class HarnessRequest:
     def recovery(self) -> str:
         return f"Re-sign-in to {self.name} with `{shlex.join(self.login_argv)}`, then retry."
 
+    def failure_evidence(self, stdout: str, stderr: str) -> dict[str, str]:
+        """Classify fixed native refusals without recording account output."""
+        if (
+            self.name == "Cursor"
+            and "workspace trust required" in (stdout + "\n" + stderr).casefold()
+        ):
+            recovery = (
+                f"Retry the Cursor probe with `--trust --workspace {REQUEST_WORKSPACE}`; "
+                "if refused again, repair Cursor's scratch-workspace trust."
+            )
+            return {
+                "cause": "cursor_workspace_trust_required",
+                "reason": f"Cursor refused: Workspace Trust Required. {recovery}",
+                "recovery": recovery,
+            }
+        return {
+            "cause": "harness_request_failed",
+            "reason": f"{self.name} real request failed. {self.recovery}",
+            "recovery": self.recovery,
+        }
+
     def answered(self, stdout: str) -> bool:
         """Require a successful native response with no tool calls; discard output."""
         try:
@@ -107,7 +128,7 @@ def harness_request(argv: Sequence[str]) -> HarnessRequest | None:
             ),
             (program, "login"),
         )
-    if executable == "cursor-agent":
+    if executable in {"cursor-agent", "agent"}:
         return HarnessRequest(
             "Cursor",
             (
@@ -115,6 +136,7 @@ def harness_request(argv: Sequence[str]) -> HarnessRequest | None:
                 "--print",
                 "--mode",
                 "ask",
+                "--trust",
                 "--workspace",
                 REQUEST_WORKSPACE,
                 "--output-format",
