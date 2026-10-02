@@ -194,7 +194,9 @@ def test_desktop_refusal_leaves_home_bytes_and_running_process_untouched(
     if desktop == "xfce":
         (proc / "42").mkdir()
         (proc / "42/comm").write_text("xfce4-session\n")
-    real_path = Path
+    # Python 3.11 Path.__new__ consults the module global being patched below.
+    # The concrete platform class constructs paths without that global dispatch.
+    real_path = type(tmp_path)
 
     def path(value):
         if str(value) == "/proc":
