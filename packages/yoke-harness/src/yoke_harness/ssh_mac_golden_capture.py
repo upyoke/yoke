@@ -13,7 +13,6 @@ from yoke_cli.config.path_doctor import (
 
 from yoke_harness.ssh_mac_baseline_probes import (
     prove_probes_document,
-    read_declared_probes_document,
 )
 from yoke_harness.ssh_mac_full_reset import is_safe_test_mac_home
 from yoke_harness.ssh_mac_full_reset_contract import (
@@ -256,15 +255,12 @@ def capture_golden_baseline(
     and then rejects as not user-equivalent, so the machine could never pass
     again.
     """
-    document = probes_document
-    if document is None:
-        document = read_declared_probes_document(control)
-    if document is None:
-        return HostActionResult(
-            False,
-            {"destination": destination, "probes": [], "declared": False},
-            "baseline_probes_not_declared",
-        )
+    from yoke_harness.standard_baseline_probes import capture_probes_document
+
+    document, refusal = capture_probes_document("macos", probes_document)
+    if refusal:
+        return refusal
+    assert document is not None
     proven = prove_probes_document(control, document)
     if not proven.ok:
         return HostActionResult(

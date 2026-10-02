@@ -9,6 +9,7 @@ import pytest
 
 from yoke_harness import ssh_linux_baseline as baseline
 from yoke_harness.ssh_test_machine_transport import SshTestMachineTransport
+from yoke_harness.standard_baseline_probes import standard_probes
 from yoke_harness.test_machine_types import HostActionResult
 
 
@@ -55,10 +56,11 @@ def test_archive_exceeding_old_bound_succeeds_and_capture_seals_probes(
     control = _control()
     control.upload_remote_text = lambda *args: uploads.append(args)
     if operation == "capture":
-        result = baseline.capture_linux_golden(control, DESTINATION, "declared probes")
-        assert uploads == [
-            (DESTINATION + baseline.GOLDEN_PROBES_SUFFIX, "declared probes")
-        ]
+        result = baseline.capture_linux_golden(control, DESTINATION, None)
+        assert len(uploads) == 1
+        path, document = uploads[0]
+        assert path == DESTINATION + baseline.GOLDEN_PROBES_SUFFIX
+        assert json.loads(document) == {"probes": standard_probes("linux")}
     else:
         result = baseline.archive_operation(control, operation, DESTINATION)
     assert result.ok and result.evidence["golden_baseline_path"] == DESTINATION
@@ -85,7 +87,7 @@ def test_timeout_names_elapsed_time_destination_and_safe_recovery(
     control = _control()
     control.upload_remote_text = lambda *args: uploads.append(args)
     result = (
-        baseline.capture_linux_golden(control, DESTINATION, "probes")
+        baseline.capture_linux_golden(control, DESTINATION, None)
         if operation == "capture"
         else baseline.archive_operation(control, operation, DESTINATION)
     )
