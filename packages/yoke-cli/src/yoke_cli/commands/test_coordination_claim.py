@@ -190,3 +190,30 @@ def test_list_dispatches_item_filter_on_the_function_call_surface() -> None:
 
     assert result == 0
     assert captured[-1]["payload"] == {"owner_item_id": 42}
+
+
+def test_project_scoped_recovery_without_project_keeps_required_message(capsys):
+    result = cli_main(
+        [
+            "coordination-claim",
+            "release",
+            "--key",
+            "DEPLOY:yoke",
+            "--claim-id",
+            "42",
+            "--holder-session-id",
+            "holder",
+            "--reason",
+            "confirmed settled",
+        ]
+    )
+    assert result == 2
+    assert "the following arguments are required: --project" in capsys.readouterr().err
+
+
+def test_help_teaches_machine_scope_for_release_and_list(capsys):
+    for verb in ("release", "list"):
+        assert cli_main(["coordination-claim", verb, "--help"]) == 0
+        output = capsys.readouterr().out
+        assert "QA_HOST:<machine>" in output
+        assert "machine-scoped" in output

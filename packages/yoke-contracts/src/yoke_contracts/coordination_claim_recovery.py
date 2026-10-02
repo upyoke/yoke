@@ -4,16 +4,18 @@ from __future__ import annotations
 
 import shlex
 
+from yoke_contracts.coordination_claim_keys import QA_HOST_KEY_PREFIX
+
 
 OPERATOR_RELEASE_USAGE = (
-    "yoke coordination-claim release --project P --key K --claim-id N "
+    "yoke coordination-claim release [--project P] --key K --claim-id N "
     "--holder-session-id S --reason R [--json]"
 )
 OPERATOR_RELEASE_REASON_EXAMPLE = "stale holder confirmed"
 
 
 def operator_release_command(
-    project: str | int,
+    project: str | int | None,
     key: str,
     *,
     claim_id: int,
@@ -21,10 +23,18 @@ def operator_release_command(
     reason: str = OPERATOR_RELEASE_REASON_EXAMPLE,
 ) -> str:
     """Render the runnable human-only recovery command for one claim."""
+    project_args = (
+        ()
+        if key.startswith(QA_HOST_KEY_PREFIX)
+        else (
+            "--project",
+            shlex.quote(str(project)),
+        )
+    )
     return " ".join(
         (
-            "yoke coordination-claim release --project",
-            shlex.quote(str(project)),
+            "yoke coordination-claim release",
+            *project_args,
             "--key",
             shlex.quote(str(key)),
             "--claim-id",

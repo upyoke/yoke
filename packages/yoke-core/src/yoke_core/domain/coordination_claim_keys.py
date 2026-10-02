@@ -49,13 +49,14 @@ def kind_for_key(key: str) -> Optional[str]:
 def target_for_key(
     key: str,
     *,
-    project_id: int,
+    project_id: int | None,
     item_id: Optional[int] = None,
     project_slug: Optional[str] = None,
 ) -> WorkClaimTarget:
     """Resolve one operator key to its typed target.
 
-    ``project_id`` scopes the kinds that are per-project. ``item_id`` is
+    ``project_id`` may be None for machine-scoped QA_HOST keys; it scopes
+    the kinds that are per-project. ``item_id`` is
     required only for migration territory, whose scope records the item
     that owns the hold; a lookup that does not know the owner passes the
     placeholder and matches on the exclusivity unit instead.
@@ -68,18 +69,18 @@ def target_for_key(
     kind = kind_for_key(key)
     if kind == TARGET_KIND_ROUTE_QUALIFICATION:
         return make_route_qualification_target(
-            project_id, str(key)[len(QUALIFICATION_KEY_PREFIX):]
+            project_id, str(key)[len(QUALIFICATION_KEY_PREFIX) :]
         )
     if kind == TARGET_KIND_MIGRATION_SERIALIZATION:
         return make_migration_serialization_target(
             project_id,
-            str(key)[len(MIGRATION_KEY_PREFIX):],
+            str(key)[len(MIGRATION_KEY_PREFIX) :],
             item_id if item_id is not None else 1,
         )
     if kind == TARGET_KIND_QA_ADMISSION:
-        return make_qa_admission_target(str(key)[len(QA_HOST_KEY_PREFIX):])
+        return make_qa_admission_target(str(key)[len(QA_HOST_KEY_PREFIX) :])
     if kind == TARGET_KIND_DEPLOY_SERIALIZATION:
-        slug = str(key)[len(DEPLOY_KEY_PREFIX):]
+        slug = str(key)[len(DEPLOY_KEY_PREFIX) :]
         if project_slug is not None and slug != project_slug:
             raise CoordinationKeyError(
                 f"{key!r} names project {slug!r} but the call resolved "
@@ -104,9 +105,7 @@ def key_for_target(target: WorkClaimTarget) -> str:
         return f"{QUALIFICATION_KEY_PREFIX}{target.grant_key}"
     if target.kind == TARGET_KIND_DEPLOY_SERIALIZATION:
         return f"{DEPLOY_KEY_PREFIX}{target.project_slug}"
-    raise CoordinationKeyError(
-        f"{target.kind!r} is not a shared-operation claim kind"
-    )
+    raise CoordinationKeyError(f"{target.kind!r} is not a shared-operation claim kind")
 
 
 def key_for_row(row: Any) -> str:
