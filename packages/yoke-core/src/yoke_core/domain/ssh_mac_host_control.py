@@ -107,6 +107,31 @@ class SshMacHostControl(SshMacTransport):
             approve_machine_in_safari,
         )
 
+        approval_step = next(
+            (action for action in config["actions"] if action.get("browser_approval")),
+            None,
+        )
+
+        def approve_browser(url: str, code: str):
+            if approval_step is None:
+                return approve_machine_in_safari(
+                    self._run, verification_url=url, user_code=code
+                )
+            from yoke_core.domain.machine_qa_saved_profile_approval import (
+                approve_machine_from_profile,
+            )
+
+            return approve_machine_from_profile(
+                self,
+                verification_url=url,
+                user_code=code,
+                flow=approval_step["browser_approval"],
+                timeout_seconds=min(
+                    float(approval_step["gate_timeout_seconds"]),
+                    float(config["max_wall_seconds"]),
+                ),
+            )
+
         terminal_size = self._pending_terminal_size
         self._pending_terminal_size = None
         return execute_terminal_recipe(
@@ -120,9 +145,7 @@ class SshMacHostControl(SshMacTransport):
             terminal_size=terminal_size,
             progress_callback=progress_callback,
             allowed_operator_urls=tuple(allowed_operator_urls),
-            approve_browser=lambda url, code: approve_machine_in_safari(
-                self._run, verification_url=url, user_code=code
-            ),
+            approve_browser=approve_browser,
         )
 
 

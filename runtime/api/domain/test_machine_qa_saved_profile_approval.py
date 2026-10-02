@@ -164,3 +164,53 @@ def test_browser_phases_share_one_total_budget(monkeypatch):
     assert result.error_code == "machine_browser_approval_timed_out"
     assert control.timeouts == [9, 5, 1]
     assert len(control.commands) == 3
+
+
+@pytest.mark.parametrize("saved_profile_step", [True, False])
+def test_mac_host_selects_candidate_profile_and_retains_legacy_route(
+    monkeypatch, saved_profile_step
+):
+    from yoke_core.domain.ssh_mac_host_control import SshMacHostControl
+    from yoke_core.domain.machine_qa_saved_profile_approval import BrowserApprovalResult
+
+    control = object.__new__(SshMacHostControl)
+    control.material = SimpleNamespace(secrets={})
+    control._pending_terminal_size = None
+    control._run = lambda *args, **kwargs: None
+    control._upload_bytes = lambda *args, **kwargs: True
+    calls = []
+
+    def candidate(selected, **kwargs):
+        assert selected is control
+        assert kwargs["flow"] == EXAMPLE_FLOW
+        assert kwargs["timeout_seconds"] == 20
+        calls.append("candidate-daemon")
+        return BrowserApprovalResult(True, {})
+
+    def safari(*args, **kwargs):
+        calls.append("safari")
+        return BrowserApprovalResult(True, {})
+
+    monkeypatch.setattr(
+        "yoke_core.domain.machine_qa_saved_profile_approval.approve_machine_from_profile",
+        candidate,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.ssh_mac_browser_approval.approve_machine_in_safari", safari
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.ssh_mac_terminal_recipe.execute_terminal_recipe",
+        lambda *args, **kwargs: kwargs["approve_browser"](
+            ORIGIN + "/connect", "AB12-CD34"
+        ),
+    )
+    step = {"gate_timeout_seconds": 20}
+    if saved_profile_step:
+        step["browser_approval"] = EXAMPLE_FLOW
+    result = control.run_terminal_recipe(
+        entry_surface="candidate onboard",
+        required_completion="done",
+        config={"actions": [step], "max_wall_seconds": 100},
+    )
+    assert result.ok
+    assert calls == ["candidate-daemon" if saved_profile_step else "safari"]
