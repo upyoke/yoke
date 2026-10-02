@@ -308,3 +308,30 @@ def test_public_and_qa_controls_keep_registered_desktop_context(setup, monkeypat
         )
         result = control.capture_screenshot()
         assert result.ok and result.evidence["desktop_session"] == "reused"
+
+
+@pytest.mark.parametrize("failure", ["returncode", "timeout"])
+def test_failed_forward_cleanup_preserves_its_recovery_socket(
+    setup, monkeypatch, tmp_path, failure
+):
+    from yoke_harness import desktop_forward as forward
+
+    directory = tmp_path / "forward-control"
+    directory.mkdir()
+    monkeypatch.setattr(forward.tempfile, "mkdtemp", lambda **kw: str(directory))
+
+    def run(argv, **kw):
+        if "-M" in argv:
+            (directory / "ssh").write_text("control-socket-placeholder")
+            return subprocess.CompletedProcess(argv, 0)
+        if failure == "timeout":
+            raise subprocess.TimeoutExpired(argv, 10)
+        return subprocess.CompletedProcess(argv, 1)
+
+    monkeypatch.setattr(forward.subprocess, "run", run)
+    with pytest.raises(desktop_access.DesktopAccessError) as error:
+        with forward.desktop_forward("project", SETTINGS):
+            pass
+    assert "desktop_forward_cleanup_failed" in str(error.value)
+    assert str(directory / "ssh") in str(error.value)
+    assert (directory / "ssh").exists()

@@ -3,6 +3,7 @@
 from contextlib import contextmanager
 from pathlib import Path
 import socket
+import shutil
 import subprocess
 import tempfile
 
@@ -26,7 +27,9 @@ def desktop_forward(project, settings):
         )
     host = route.get("desktop_host") or settings["host"]
     port = int(route["desktop_port"])
-    with tempfile.TemporaryDirectory(prefix="yoke-rdp-", dir="/tmp") as directory:
+    directory = tempfile.mkdtemp(prefix="yoke-rdp-", dir="/tmp")
+    preserve_socket = False
+    try:
         control_path = str(Path(directory) / "ssh")
         args = []
         target = f"{settings['user']}@{settings['host']}"
@@ -87,6 +90,10 @@ def desktop_forward(project, settings):
                     if result.returncode and Path(control_path).exists():
                         raise OSError("forward still present")
                 except (OSError, subprocess.TimeoutExpired):
+                    preserve_socket = True
                     raise DesktopAccessError(
                         f"desktop_forward_cleanup_failed: close the forward with ssh -F /dev/null -S {control_path} -O exit {target}"
                     ) from None
+    finally:
+        if not preserve_socket:
+            shutil.rmtree(directory)
