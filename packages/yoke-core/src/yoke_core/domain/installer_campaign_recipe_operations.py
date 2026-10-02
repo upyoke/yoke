@@ -6,14 +6,9 @@ from typing import Any
 
 from yoke_core.domain.machine_qa_fixture_constants import (
     CAMPAIGN_WORKSPACE_PATHS,
-    DISTRIBUTION_URL,
     FAKE_TOKEN_PATH,
-    HOSTED_PROD_API_URL,
-    HOSTED_STAGE_API_URL,
     ONBOARD,
     POST_INSTALL_ONBOARD,
-    PROD_TOKEN_PATH,
-    STAGE_TOKEN_PATH,
     YOKE_BIN,
 )
 
@@ -83,7 +78,7 @@ def machine_connection(
     *,
     api_url: str,
     token_path: str = FAKE_TOKEN_PATH,
-    active_env: str = "stage",
+    active_env: str,
 ) -> dict[str, Any]:
     return operation(
         "machine.yoke-connection-prepare",
@@ -127,11 +122,13 @@ def remote_fixture(
     )
 
 
-def installed_yoke(*, evidence_name: str) -> dict[str, Any]:
+def installed_yoke(
+    *, evidence_name: str, base_url: str, channel: str
+) -> dict[str, Any]:
     return operation(
         "installer.current-release-prepare",
-        base_url=DISTRIBUTION_URL,
-        channel="latest",
+        base_url=base_url,
+        channel=channel,
         no_onboard=True,
         remove_existing_launcher=True,
         evidence_name=evidence_name,
@@ -140,14 +137,9 @@ def installed_yoke(*, evidence_name: str) -> dict[str, Any]:
 
 __all__ = [
     "CAMPAIGN_WORKSPACE_PATHS",
-    "DISTRIBUTION_URL",
     "FAKE_TOKEN_PATH",
-    "HOSTED_PROD_API_URL",
-    "HOSTED_STAGE_API_URL",
     "ONBOARD",
     "POST_INSTALL_ONBOARD",
-    "PROD_TOKEN_PATH",
-    "STAGE_TOKEN_PATH",
     "YOKE_BIN",
     "checkout_fixture",
     "installed_yoke",

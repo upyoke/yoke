@@ -6,10 +6,10 @@ from yoke_core.domain.installer_campaign_plan_common import (
     BROWSER_APPROVAL_TEXT,
     BROWSER_PRIMARY_POST_CHECKS,
     CHOOSE_BACKLOG_KEYS,
-    HOSTED_STAGE_ONBOARD,
+    HOSTED_ONBOARD,
     MACHINE_GITHUB_TEXT,
     PATH_READY_TEXT,
-    PUBLIC_STAGE_WELCOME,
+    PUBLIC_WELCOME,
     REVIEW_TEXT,
     action,
     current_release_setup,
@@ -24,7 +24,7 @@ WELCOME_FRAME = terminal_case(
     "welcome-frame",
     "terminal-inspection",
     instructions=(
-        "Open the public Stage installer in Terminal and inspect the authored "
+        "Open the public {{environment_display_name}} installer in Terminal and inspect the authored "
         "welcome frame with a process-local minimal macOS system PATH that "
         "intentionally excludes user-installed uv/uvx, capturing the automatic "
         "uv install status line (no confirmation prompt to accept)."
@@ -50,7 +50,7 @@ WELCOME_FRAME = terminal_case(
         ),
         start_delay=0.5,
     ),
-    entry_surface=PUBLIC_STAGE_WELCOME,
+    entry_surface=PUBLIC_WELCOME,
     required_completion="welcome-frame",
 )
 
@@ -60,7 +60,7 @@ CONNECT_WAIT = terminal_case(
     "connect-wait",
     "terminal-inspection",
     instructions=(
-        "Open a fresh Stage browser authorization from the current installed "
+        "Open a fresh {{environment_display_name}} browser authorization from the current installed "
         "release and inspect the Terminal frame while approval is pending."
     ),
     expected_outcome=(
@@ -89,7 +89,7 @@ CONNECT_WAIT = terminal_case(
         ),
         post_checks=BROWSER_PRIMARY_POST_CHECKS,
     ),
-    entry_surface=HOSTED_STAGE_ONBOARD,
+    entry_surface=HOSTED_ONBOARD,
     required_completion="connect-wait",
 )
 
@@ -100,7 +100,7 @@ REVIEW_FRAME = terminal_case(
     "terminal-inspection",
     instructions=(
         "Let the Test Machine's visible Safari session automatically approve the "
-        "live Stage machine authorization; no operator browser action is "
+        "live {{environment_display_name}} machine authorization; no operator browser action is "
         "needed or wanted. Stay disabled for GitHub and inspect the machine-only "
         "Review frame without choosing Apply. A parallel manual approval "
         "consumes the one-time code and breaks the automated gate."
@@ -147,7 +147,7 @@ REVIEW_FRAME = terminal_case(
         post_checks=BROWSER_PRIMARY_POST_CHECKS,
         step_delay=4,
     ),
-    entry_surface=HOSTED_STAGE_ONBOARD,
+    entry_surface=HOSTED_ONBOARD,
     required_completion="review-frame",
 )
 

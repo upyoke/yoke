@@ -9,7 +9,6 @@ from yoke_cli.config.onboard_destinations import (
     DESTINATION_LOCAL,
     DESTINATION_OVERRIDE,
 )
-from yoke_contracts.api_urls import HOSTED_STAGE_PLATFORM_URL
 
 from yoke_core.domain.installer_campaign_recipe_operations import (
     installed_yoke,
@@ -17,7 +16,6 @@ from yoke_core.domain.installer_campaign_recipe_operations import (
     prepared_path,
 )
 from yoke_core.domain.machine_qa_fixture_constants import (
-    DISTRIBUTION_URL,
     YOKE_BIN,
 )
 
@@ -26,27 +24,26 @@ FRESH_HOST = "fresh-host"
 SHELL_PRECONFIGURED = "shell-preconfigured"
 DUAL_HOST_BASELINES = [FRESH_HOST, SHELL_PRECONFIGURED]
 
-PUBLIC_STAGE_INSTALL = (
-    f"/usr/bin/curl -fsSL {DISTRIBUTION_URL}/install | "
-    f"/usr/bin/env YOKE_INSTALL_BASE_URL={DISTRIBUTION_URL} "
-    f"YOKE_CHANNEL=latest {DESTINATION_OVERRIDE}={HOSTED_STAGE_PLATFORM_URL} "
+PUBLIC_INSTALL = (
+    "/usr/bin/curl -fsSL {{installer_base_url}}/install | "
+    "/usr/bin/env YOKE_INSTALL_BASE_URL={{installer_base_url}} "
+    f"YOKE_CHANNEL={{{{release_channel}}}} {DESTINATION_OVERRIDE}={{{{app_url}}}} "
     "/bin/sh"
 )
-PUBLIC_STAGE_WELCOME = (
-    f"/usr/bin/curl -fsSL {DISTRIBUTION_URL}/install | "
+PUBLIC_WELCOME = (
+    "/usr/bin/curl -fsSL {{installer_base_url}}/install | "
     "/usr/bin/env HOME=/var/empty XDG_BIN_HOME=/var/empty/.local/bin "
     "PATH=/usr/bin:/bin:/usr/sbin:/sbin "
-    f"YOKE_INSTALL_BASE_URL={DISTRIBUTION_URL} "
-    "YOKE_CHANNEL=latest /bin/sh"
+    "YOKE_INSTALL_BASE_URL={{installer_base_url}} "
+    "YOKE_CHANNEL={{release_channel}} /bin/sh"
 )
-PUBLIC_STAGE_INSTALL_LOCAL = (
-    f"/usr/bin/curl -fsSL {DISTRIBUTION_URL}/install | "
-    f"/usr/bin/env YOKE_INSTALL_BASE_URL={DISTRIBUTION_URL} "
-    f"YOKE_CHANNEL=latest {DESTINATION_OVERRIDE}={DESTINATION_LOCAL} /bin/sh"
+PUBLIC_INSTALL_LOCAL = (
+    "/usr/bin/curl -fsSL {{installer_base_url}}/install | "
+    "/usr/bin/env YOKE_INSTALL_BASE_URL={{installer_base_url}} "
+    f"YOKE_CHANNEL={{{{release_channel}}}} {DESTINATION_OVERRIDE}={DESTINATION_LOCAL} /bin/sh"
 )
-HOSTED_STAGE_ONBOARD = (
-    f"{YOKE_BIN} onboard --connect {HOSTED_STAGE_PLATFORM_URL} "
-    "--project-mode machine-only"
+HOSTED_ONBOARD = (
+    f"{YOKE_BIN} onboard --connect {{{{app_url}}}} --project-mode machine-only"
 )
 PATH_REPAIR_COMMAND = f"{YOKE_BIN} path fix --yes --json"
 
@@ -232,11 +229,17 @@ def current_release_setup(
     clear_auth: bool = False,
     path_ready: bool = False,
 ) -> list[dict[str, Any]]:
-    """Install the public Stage release with optional honest machine prep."""
+    """Install the public bound release with optional honest machine prep."""
     operations: list[dict[str, Any]] = []
     if clear_auth:
         operations.append(operation("machine.yoke-auth-clear"))
-    operations.append(installed_yoke(evidence_name=evidence_name))
+    operations.append(
+        installed_yoke(
+            evidence_name=evidence_name,
+            base_url="{{installer_base_url}}",
+            channel="{{release_channel}}",
+        )
+    )
     if path_ready:
         operations.append(prepared_path(evidence_name=evidence_name))
     return operations
@@ -250,13 +253,13 @@ __all__ = [
     "CHOOSE_MACHINE_ONLY_KEYS",
     "DUAL_HOST_BASELINES",
     "FRESH_HOST",
-    "HOSTED_STAGE_ONBOARD",
+    "HOSTED_ONBOARD",
     "MACHINE_GITHUB_TEXT",
     "PARENT_HANDOFF_TEXT",
     "PATH_REPAIR_COMMAND",
-    "PUBLIC_STAGE_INSTALL",
-    "PUBLIC_STAGE_INSTALL_LOCAL",
-    "PUBLIC_STAGE_WELCOME",
+    "PUBLIC_INSTALL",
+    "PUBLIC_INSTALL_LOCAL",
+    "PUBLIC_WELCOME",
     "REVIEW_TEXT",
     "SECRET_SAFE_POST_CHECKS",
     "SHELL_PRECONFIGURED",

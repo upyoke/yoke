@@ -75,6 +75,12 @@ Do not turn likely landmarks into steps. The worked Machine QA Pack case
 `installer-exploration` deliberately replaces the territory of the ten-case
 scripted installer campaign with one agent-chosen mission.
 
+The scripted campaign uses one environment-neutral source template. Generation
+fills its application and installer addresses, release channel, and display name
+from the plan's bound environment through `{{app_url}}`, `{{installer_base_url}}`,
+`{{release_channel}}`, and `{{environment_display_name}}`. Each plan tests one environment;
+testing another requires a separate plan bound to it, using the same template.
+
 Choose the executor per case:
 
 - `informed_subagent` isolates the walk while supplying the relevant project
