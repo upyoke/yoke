@@ -40,18 +40,20 @@ def host(tmp_path, monkeypatch):
     return marker
 
 
-def test_start_and_reuse_keep_password_only_on_stdin(host, monkeypatch):
+@pytest.mark.parametrize("display", [":10", ":10.0"])
+def test_start_and_reuse_keep_password_only_on_stdin(host, monkeypatch, display):
     calls = []
+    session = {**SESSION, "environment": {**SESSION["environment"], "DISPLAY": display}}
 
     def run(argv, **kw):
         calls.append((argv, kw))
-        monkeypatch.setattr(state, "desktop_sessions", lambda: [SESSION])
+        monkeypatch.setattr(state, "desktop_sessions", lambda: [session])
         return subprocess.CompletedProcess(argv, 0, "ok data=1 display=:10\n", "")
 
     monkeypatch.setattr(state.subprocess, "run", run)
     started = state.ensure_desktop(PASSWORD)
     assert started == {
-        "environment": SESSION["environment"],
+        "environment": session["environment"],
         "desktop_session": "started",
     }
     assert state.ensure_desktop(None)["desktop_session"] == "reused"
@@ -60,7 +62,7 @@ def test_start_and_reuse_keep_password_only_on_stdin(host, monkeypatch):
     assert argv[:7] == ["xrdp-sesrun", "-s", "::1", "-t", "Xorg", "-F", "0"]
     assert kwargs["input"] == PASSWORD + "\n"
     assert PASSWORD not in str(argv) + str(started) + host.read_text()
-    assert json.loads(host.read_text())["session"] == SESSION
+    assert json.loads(host.read_text())["session"] == session
     assert host.stat().st_mode & 0o777 == 0o600
 
 

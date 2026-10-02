@@ -234,7 +234,7 @@ def ensure_desktop(password, port=RDP_PORT):
             sessions = desktop_sessions()
             if (
                 len(sessions) == 1
-                and sessions[0]["environment"]["DISPLAY"] == display[1]
+                and sessions[0]["environment"]["DISPLAY"].split(".", 1)[0] == display[1]
             ):
                 stream.seek(0)
                 json.dump({"session": sessions[0], "rdp_port": port}, stream)
