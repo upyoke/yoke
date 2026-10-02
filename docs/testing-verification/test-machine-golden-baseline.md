@@ -39,6 +39,14 @@ Windows OpenSSH. Their golden path is a Linux path outside that home. Windows
 SSH state and the WSL distro registration survive the restore; Linux probes
 and absence checks run in the Linux home through `wsl.exe --cd ~ -e`.
 
+macOS home capture excludes sockets and FIFOs by file type, including nested
+entries; regular files named `.sock` remain. The golden directory and its
+manifest describe only captured state. A genuine copy failure reports
+`golden_capture_copy_home_failed` with `refusal.copy_stderr`: up to 8192 bytes
+of path/error diagnostics, never file contents. Repair the named path and
+capture to a new destination. The scratch log is removed after its evidence
+has been returned, so a failed capture retains its explanation.
+
 ## What the restore cannot reach, the reset stops first
 
 Restoring one home replaces everything that lives inside it, and a self-hosting

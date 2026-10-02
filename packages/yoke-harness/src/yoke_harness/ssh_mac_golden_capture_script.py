@@ -14,6 +14,8 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     YOKE_ABSENT_TEMP_FILES,
 )
 from yoke_harness.ssh_mac_golden_capture_contract import (
+    CAPTURE_COPY_STDERR_LIMIT,
+    CAPTURE_COPY_STDERR_PREFIX,
     CAPTURE_ENTRIES_PREFIX,
     CAPTURE_FAILURE_PREFIX,
     CAPTURE_KILOBYTES_PREFIX,
@@ -49,6 +51,8 @@ def render_golden_capture_script(contract: FullResetPathContract) -> str:
             "umask 077",
             f"capture_marker={shlex.quote(GOLDEN_CAPTURE_MARKER)}",
             f"capture_failure_prefix={shlex.quote(CAPTURE_FAILURE_PREFIX)}",
+            f"copy_stderr_prefix={shlex.quote(CAPTURE_COPY_STDERR_PREFIX)}",
+            f"copy_stderr_limit={CAPTURE_COPY_STDERR_LIMIT}",
             f"full_disk_access_probe={shlex.quote(FULL_DISK_ACCESS_PROBE_PATH)}",
             f"manifest_suffix={shlex.quote(GOLDEN_MANIFEST_SUFFIX)}",
             f"probes_suffix={shlex.quote(GOLDEN_PROBES_SUFFIX)}",
