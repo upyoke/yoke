@@ -119,8 +119,8 @@ learns the other's part from its own skill. The split is the whole rule:
   refuses with each commit's SHA and subject. An item's own commit its receipt
   did not record is attested to that item —
   `yoke merge-receipt commits attest PREFIX-N --commit SHA --reason R` — and
-  the start retried; only code no backlog item owns takes a run
-  `composition_resolution`. Never resolve an item's own commits that way.
+  creation or start retried. Refused creation leaves no run to update;
+  resolve ownership first if no item owns a commit. Read `attest --help`.
 - **The attach says what the run can do for the member.** Two independent
   capabilities: a run **checks** a member only through an item-scoped QA
   stage, and **closes** one only as that item's completion flow or as another

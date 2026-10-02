@@ -4,9 +4,8 @@ A release does not only ship commits — it writes some. When a run's promotion
 materializes a version pin onto a project's trunk, that push is release
 output: a real commit that no backlog item authored, landing in the very
 range the next release's composition validation reads. Attribution has
-nothing to find there, so every following release refuses the same commit
-until somebody records a ``composition_resolution`` by hand, and a waiver
-that routine stops meaning anything.
+nothing to find there unless the producing run records its release output,
+so every following release otherwise refuses the same commit.
 
 So the run that produced the commit says so, and attribution reads that
 record instead of guessing from an author name or a file path, either of
