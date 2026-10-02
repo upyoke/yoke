@@ -31,14 +31,17 @@ def replayed_for_reader(
     reader_version: str,
     additive: bool,
     cleared_keys: tuple[str, ...] = (),
+    replay_without_loss: bool = False,
 ) -> ArtifactWatermark:
     """Return the watermark this reader should resume from.
 
-    Only a record carrying a loss is replayed: one that folded everything
-    has nothing to recover, so its offset stays exactly where it is.
+    Readers correcting counts replay even records with no flagged loss;
+    readers recovering skipped records replay only a flagged loss.
     """
     totals = dict(stored_totals(mark))
-    if not mark.oversized or totals.get(reader_key) == reader_version:
+    if totals.get(reader_key) == reader_version or (
+        not mark.oversized and not replay_without_loss
+    ):
         return mark
     if additive:
         return ArtifactWatermark(truncated=mark.truncated, caught_up=False)

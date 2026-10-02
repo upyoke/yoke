@@ -134,3 +134,48 @@ def test_transport_failure_stays_in_the_retry_queue(tmp_path: Path) -> None:
     assert len(list((tmp_path / PENDING_REPORT_DIR_NAME).glob("*.json"))) == 1
     assert not (tmp_path / QUARANTINED_REPORT_DIR_NAME).exists()
     assert observe_relay_health(tmp_path)["state"] == "retrying"
+
+
+def test_missing_launch_lease_keeps_existing_retry_policy(tmp_path: Path) -> None:
+    from yoke_harness.session_relay_report_retry import retry_pending_reports
+
+    calls = []
+
+    def rejected(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(
+            success=False, error=SimpleNamespace(code="attempt_missing")
+        )
+
+    deliver_terminal_report(
+        rejected,
+        session_relay.RELAY_REPORT_FUNCTION_ID,
+        _payload(),
+        state_dir=tmp_path,
+        timeout_s=10,
+    )
+    for _ in range(3):
+        assert not retry_pending_reports(
+            rejected,
+            session_relay.RELAY_REPORT_FUNCTION_ID,
+            state_dir=tmp_path,
+            timeout_s=10,
+        )
+    assert len(calls) == 4
+    assert observe_relay_health(tmp_path)["pending_reports"] == 1
+    assert observe_relay_health(tmp_path)["quarantine_count"] == 0
+
+
+def test_permanently_rejected_evidence_is_visible_in_health(tmp_path: Path) -> None:
+    payload = {**_payload(), "job_kind": "evidence"}
+    deliver_terminal_report(
+        lambda **kwargs: _rejected(),
+        session_relay.RELAY_REPORT_FUNCTION_ID,
+        payload,
+        state_dir=tmp_path,
+        timeout_s=10,
+    )
+    health = observe_relay_health(tmp_path)
+    assert health["state"] == "quarantined"
+    assert health["quarantined_reports"][0]["job_kind"] == "evidence"
+    assert health["quarantined_reports"][0]["error_code"] == "report_conflict"

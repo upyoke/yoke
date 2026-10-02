@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from yoke_contracts.harness_family_identity import CLAUDE_FAMILY
 from yoke_contracts.session_usage_facts import (
     USAGE_COMPLETE,
@@ -13,7 +15,12 @@ from yoke_contracts.session_usage_facts import (
 )
 from yoke_contracts.session_usage_sources import usage_source
 from yoke_harness.usage_attestation import attest_session_usage
-from yoke_harness.artifact_watermark import TRUNCATED_ARTIFACT_REASON
+from yoke_harness.artifact_watermark import (
+    TRUNCATED_ARTIFACT_REASON,
+    ArtifactWatermark,
+    load_watermark,
+    save_watermark,
+)
 from runtime.harness.session_usage_test_support import (  # noqa: F401
     append_rows,
     claude_row,
@@ -69,6 +76,91 @@ def test_content_blocks_sharing_a_message_id_are_counted_once(
     usage = _read(transcript)
 
     assert usage.models[0].output == 100
+
+
+@pytest.mark.parametrize("incremental", [False, True])
+def test_nonconsecutive_repeated_messages_are_counted_once(
+    tmp_path: Path, incremental: bool
+) -> None:
+    rows = [claude_row("msg_a"), claude_row("msg_b")]
+    transcript = write_rows(tmp_path / "s.jsonl", rows)
+    if incremental:
+        _read(transcript)
+    # Compaction/resume copies earlier history after newer messages.
+    append_rows(transcript, rows + [claude_row("msg_c"), rows[0]])
+
+    usage = _read(transcript)
+
+    assert usage.models[0].output == 300
+    assert load_watermark("session-1", transcript).totals["message_ids"] == [
+        "msg_a",
+        "msg_b",
+        "msg_c",
+    ]
+
+
+def test_complete_older_reader_totals_replay_once(tmp_path: Path, monkeypatch) -> None:
+    from yoke_harness import usage_attestation
+
+    transcript = write_rows(
+        tmp_path / "s.jsonl",
+        [claude_row("msg_a"), claude_row("msg_b"), claude_row("msg_a")],
+    )
+    save_watermark(
+        "session-1",
+        transcript,
+        ArtifactWatermark(
+            offset=transcript.stat().st_size,
+            last_key="msg_a",
+            totals={
+                "claude_reader": "projected-v1",
+                "models": {"claude-opus-5": {"output": 300}},
+            },
+        ),
+    )
+    corrected = _read(transcript)
+    assert corrected.models[0].output == 200
+    mark = load_watermark("session-1", transcript)
+    assert mark.caught_up
+
+    original_scan = usage_attestation.scan_rows
+    offsets = []
+
+    def scan(path, offset, *args, **kwargs):
+        offsets.append(offset)
+        return original_scan(path, offset, *args, **kwargs)
+
+    monkeypatch.setattr(usage_attestation, "scan_rows", scan)
+    assert _read(transcript).models[0].output == 200
+    assert offsets == [transcript.stat().st_size]
+
+
+def test_interrupted_reader_replay_does_not_double_apply(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from yoke_harness import usage_attestation
+
+    transcript = write_rows(
+        tmp_path / "s.jsonl", [claude_row("msg_a"), claude_row("msg_b")]
+    )
+    stale = ArtifactWatermark(
+        offset=transcript.stat().st_size,
+        totals={
+            "claude_reader": "projected-v1",
+            "models": {"claude-opus-5": {"output": 400}},
+        },
+    )
+    save_watermark("session-1", transcript, stale)
+    with monkeypatch.context() as interrupted:
+
+        def crash(*args, **kwargs):
+            raise OSError("interrupted before atomic save")
+
+        interrupted.setattr(usage_attestation, "save_watermark", crash)
+        assert _read(transcript).status == USAGE_UNAVAILABLE
+    assert load_watermark("session-1", transcript) == stale
+    assert _read(transcript).models[0].output == 200
+    assert _read(transcript).models[0].output == 200
 
 
 def test_a_split_cache_creation_block_is_not_counted_twice(
