@@ -6,6 +6,10 @@ import hashlib
 import shlex
 from typing import Any, Protocol
 
+from yoke_contracts.machine_qa_failures import (
+    HostControlLocalError,
+    bounded_machine_qa_diagnostic,
+)
 from yoke_cli.config.path_doctor import (
     PathStateContract,
     resolve_path_state_contract,
@@ -36,6 +40,7 @@ from yoke_harness.test_machine_types import HostActionResult
 class CaptureCommandResult(Protocol):
     returncode: int
     stdout: str
+    stderr: str
 
 
 class CaptureRunner(Protocol):
@@ -168,17 +173,18 @@ def execute_golden_capture(
             error_code if cleanup else "golden_capture_script_cleanup_failed",
         )
 
-    sealed = _seal_probes_document(
+    seal_refusal = _seal_probes_document(
         run_remote,
         upload_text,
         destination=destination,
         document=probes_document,
     )
-    if not sealed:
+    if seal_refusal is not None:
         return HostActionResult(
             False,
             {
                 "destination": destination,
+                "refusal": seal_refusal,
                 "paths": [
                     {"path": destination, "outcome": "captured"},
                     {
@@ -230,16 +236,39 @@ def _seal_probes_document(
     *,
     destination: str,
     document: str,
-) -> bool:
+) -> dict[str, object] | None:
     sidecar = destination + GOLDEN_PROBES_SUFFIX
+    step = "upload"
+    error_type = None
     try:
         upload_text(sidecar, document)
+        step = "chmod"
+        # BSD chmod parses options before the mode; a later -- is a filename.
         sealed = run_remote(
-            shlex.join(["/bin/chmod", GOLDEN_SIDECAR_MODE, "--", sidecar]),
+            shlex.join(["/bin/chmod", "--", GOLDEN_SIDECAR_MODE, sidecar]),
         )
-    except Exception:
-        return False
-    return int(sealed.returncode) == 0
+        if int(sealed.returncode) == 0:
+            return None
+        exit_code, stderr = int(sealed.returncode), sealed.stderr
+    except Exception as error:
+        error_type = type(error).__name__
+        exit_code = (
+            error.exit_code if isinstance(error, HostControlLocalError) else None
+        )
+        stderr = error.stderr if isinstance(error, HostControlLocalError) else ""
+    return {
+        "reason": f"golden_probes_{step}_failed",
+        "step": step,
+        "path": sidecar,
+        "exit_code": exit_code,
+        "stderr": bounded_machine_qa_diagnostic(stderr),
+        "error_type": error_type,
+        "recovery": (
+            f"Inspect the {step} diagnostic for {sidecar}; repair the named "
+            "file-access or SSH failure, then capture to a new destination. "
+            "Preserve this capture as evidence; do not register or overwrite it."
+        ),
+    }
 
 
 def capture_golden_baseline(

@@ -11,7 +11,10 @@ from yoke_contracts.machine_qa_execution import (
     GUI_SESSION_CONTEXT,
     REQUIRED_SESSION_CONTEXT_FIELD,
 )
-from yoke_contracts.machine_qa_failures import HostControlLocalError
+from yoke_contracts.machine_qa_failures import (
+    HostControlLocalError,
+    bounded_machine_qa_diagnostic,
+)
 from yoke_contracts.machine_qa_terminal_bridge import (
     TERMINAL_CONSOLE_USER_MISMATCH_ERROR_CODE,
     terminal_bridge_recovery,
@@ -174,7 +177,14 @@ class SshMacTransport(SshTestMachineTransport):
             input_text=content,
         )
         if result.returncode:
-            raise RuntimeError("host_control file write failed")
+            raise HostControlLocalError(
+                code="host_control_file_write_failed",
+                phase="upload",
+                detail="Host-control text upload failed",
+                exit_code=int(result.returncode),
+                stderr=bounded_machine_qa_diagnostic(result.stderr, self.secret_values),
+                recovery_hint="Repair the destination permissions or SSH access, then retry.",
+            )
 
     def reset_installer_test_host(self) -> HostActionResult:
         """Restore the declared golden baseline over the dedicated host's home."""

@@ -65,8 +65,10 @@ class FakeCaptureTransport:
             )
         if argv[:3] == ["/bin/rm", "-f", "--"]:
             return SimpleNamespace(returncode=self.cleanup_returncode, stdout="")
-        if argv[:2] == ["/bin/chmod", GOLDEN_SIDECAR_MODE]:
-            return SimpleNamespace(returncode=self.seal_returncode, stdout="")
+        if argv[:3] == ["/bin/chmod", "--", GOLDEN_SIDECAR_MODE]:
+            return SimpleNamespace(
+                returncode=self.seal_returncode, stdout="", stderr="seal denied"
+            )
         return SimpleNamespace(returncode=0, stdout="")
 
 
@@ -157,7 +159,7 @@ def test_a_successful_capture_seals_both_sidecars_and_reports_what_it_wrote() ->
     # The probes travel with the baseline they describe.
     assert transport.uploads[DESTINATION + GOLDEN_PROBES_SUFFIX] == PROBES
     assert any(
-        argv[:2] == ["/bin/chmod", GOLDEN_SIDECAR_MODE]
+        argv[:3] == ["/bin/chmod", "--", GOLDEN_SIDECAR_MODE]
         for argv in (shlex.split(command) for command, _timeout in transport.commands)
     )
 
