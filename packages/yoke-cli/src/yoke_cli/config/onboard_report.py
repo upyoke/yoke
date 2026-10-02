@@ -12,6 +12,7 @@ from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config import onboard_path_plan
 from yoke_cli.config import onboard_post_checkout_plan
+from yoke_cli.config import onboard_publication
 from yoke_cli.config import onboard_project_modes
 from yoke_cli.config import onboard_session_relay
 from yoke_cli.config.onboard_report_render import render_human
@@ -146,6 +147,7 @@ def build_plan(
                 reuse=reuse,
             )
         )
+        steps.append(onboard_publication.plan_step(project_inputs, cfg_path))
         if not reuse.get("project_github_auth"):
             steps.append(
                 {

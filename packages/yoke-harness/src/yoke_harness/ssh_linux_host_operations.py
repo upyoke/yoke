@@ -163,7 +163,7 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
             return HostActionResult(
                 False,
                 {
-                    "recovery": "Capture a golden with --probes-file before verification."
+                    "recovery": "Capture a golden with the standard OS checks before verification."
                 },
                 "baseline_probes_not_declared",
             )
