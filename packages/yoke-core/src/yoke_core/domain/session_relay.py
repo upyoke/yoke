@@ -181,12 +181,6 @@ def claim_relay_job(
             evidence = claim_evidence_fetch(conn, heartbeat, now=current)
             jobs = (evidence,) if evidence is not None else ()
         if not jobs:
-            jobs = (
-                ()
-                if broker_only
-                else tuple(claim_next_launch(conn, heartbeat, now=current))
-            )
-        if not jobs:
             wake = claim_wake_job(
                 conn,
                 heartbeat,
@@ -196,6 +190,9 @@ def claim_relay_job(
                 broker_session_id=broker_session_id,
             )
             jobs = (wake,) if wake is not None else ()
+        if not jobs and not broker_only:
+            # Deliver existing workers' mail before staffing new work.
+            jobs = tuple(claim_next_launch(conn, heartbeat, now=current))
         if jobs:
             # Handing out one job does not mean the machine is done.
             next_poll = (
