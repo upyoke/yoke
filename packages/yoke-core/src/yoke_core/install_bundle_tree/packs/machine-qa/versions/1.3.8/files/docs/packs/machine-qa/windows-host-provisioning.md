@@ -5,24 +5,14 @@ Linux home. Yoke runs inside WSL2 Ubuntu, not native Windows. The registered
 SSH account is a Windows user; its default Ubuntu user is dedicated/non-root.
 Infrastructure, account names, endpoints, passwords and paths are project-owned.
 
-Every instruction in a numbered step inherits its audit row below.
-Audit: `windows-lab`, **2026-10-02 UTC**. This session's initial registered
-SSH attempt timed out while the host was intentionally stopped. The Windows
-desktop prerequisite's owner later supplied candidate operation evidence;
-this audit did not execute those operations or change host configuration.
-The host was stopped immediately after that authorized proof window.
-
-| Step | Audit against windows-lab on 2026-10-02 |
-| --- | --- |
-| 1–5 | Unverified: infrastructure/security, WSL default user/systemd, tools, sudo, sign-in and real harness requests |
-| 6 | Correct for candidate desktop proof: credential auth-only authenticated/not_started; reused unlocked screenshot operation 27393/session 2 at 800×600; automatic held-session operation 27427/session 4 at 1280×800 after authorized console logoff; prerequisite owner visually inspected both PNGs |
-| 6 browser | Unverified: Server WSLg rendering, localhost opener/forwarding and saved browser-profile equivalent; Linux execution workstation FreeRDP package unverified |
-| 7–8 | Unverified: new full capture/reset roundtrip and cost/IaC assertions; owner reports stopped state after desktop proof; older capture receipts are historical fixture evidence |
-
-Desktop evidence was produced on candidate
-`7c7af2bc01986a58a6c3eeab8a4e3d6bc96c0fff`; it establishes the two session
-routes and credential proof, not complete provisioning or released-build QA.
-FreeRDP 3.32.1 and its flags were checked on the macOS execution workstation.
+Audit: `windows-lab`, **2026-10-02 UTC**. Native desktop prerequisite proof
+covered authenticated/not_started credential access and reused/started RDP
+screenshots (operations 27393 and 27427); the prerequisite owner reviewed both.
+That proof used candidate `7c7af2bc01986a58a6c3eeab8a4e3d6bc96c0fff` and FreeRDP
+3.32.1 on macOS. It proves neither WSL Chromium nor full provisioning.
+The host is stopped. The operator authorized a bounded WSL display provisioning
+window; real display, profile capture/restore and own-approval proof remain pending.
+Steps 1–5 and 7–8 require new checks; historical golden receipts do not pass them.
 
 ## 1. Infrastructure and Windows account
 
@@ -202,14 +192,29 @@ returns a PNG to the QA artifact store, and removes itself and its files.
 No password enters that task. Session 0, locked desktops and blank images
 refuse with a named recovery rather than earning screenshot credit.
 
-Windows Server WSLg is unverified. For WSLg-specific coverage require the
-actual `/mnt/wslg`/Wayland socket, Linux desktop rendering and an interactive
-Windows desktop; [Microsoft's GUI prerequisites](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps)
-name Windows10/11. Do not claim Server support from a WSLg version alone.
-Serve the candidate UI inside WSL, open its actual localhost URL in the
-Windows browser, and prove forwarding/opener behavior on that host. If the
-opener fails, Yoke tries `wslview`, then `explorer.exe`; repair wslu/interop
-only after the named failure. Mirrored networking is not an inferred prerequisite.
+For the selected Server route, reuse this Pack's Linux XFCE/xrdp provisioner
+inside WSL with a separate loopback port. From the dedicated Linux user's home:
+
+```text
+python3 ops/machine-qa/provision_windows_wsl_desktop.py
+python3 ops/machine-qa/provision_windows_wsl_desktop.py --verify
+```
+
+The wrapper requires Ubuntu24.04, non-root passwordless sudo, WSL2/systemd and
+Windows interop. It records actual Windows edition/build and WSL version,
+installs the existing Linux desktop packages, proves a loopback listener and
+Windows localhost connectivity, and prints the exact native RDP command.
+Keep the registered Windows desktop open and personally run that command
+there; sign into the dedicated Linux user, then open its XFCE terminal.
+If its local password is absent, the operator runs `sudo passwd` personally.
+Never enter that password in an agent command or bypass RDP authentication.
+Prove candidate Chromium visibly renders there before requesting app sign-in.
+Provisioner success deliberately leaves `headed_application_proved=false`.
+No Windows firewall, auto-logon or public listener change is made.
+[Microsoft documents localhost access to WSL services](https://learn.microsoft.com/en-us/windows/wsl/networking)
+and [systemd prerequisites](https://learn.microsoft.com/en-us/windows/wsl/systemd).
+WSLg is a separate route: its [documented GUI prerequisites](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps)
+name Windows10/11. A version string alone proves no Server GUI support.
 
 ### Separate signed-in browser profile inside WSL
 
@@ -281,9 +286,9 @@ The candidate Chromium and profile both live under the non-root WSL test user.
 The operator needs an actually working headed WSL display; a native Windows
 Edge/Chrome sign-in cannot populate this Linux candidate profile. Prove the
 Linux application visibly renders before requesting a personal sign-in. If
-Server WSLg is unavailable, an operator must select/provision an approved
-WSL display route; do not change system settings or invent native-profile
-exports. Linux writer inventory and private archive work run inside WSL.
+the provisioned WSL display is unavailable, return its named failure; do not
+change system settings or invent native-profile exports. Linux writer inventory
+and private archive work run inside WSL.
 This route on windows-lab is pending real capture/restore/own-approval proof.
 
 ## 7. Save and prove the Linux home

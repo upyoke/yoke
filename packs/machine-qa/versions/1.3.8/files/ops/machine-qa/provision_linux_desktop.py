@@ -13,8 +13,7 @@ import tempfile
 import time
 
 
-LISTEN_ADDRESS = "127.0.0.1:3389"
-XRDP_PORT = "tcp://" + LISTEN_ADDRESS
+DEFAULT_RDP_PORT = 3389
 SESSION_CONTENT = "exec startxfce4\n"
 TERMINAL_SELECTION = "TerminalEmulator=xfce4-terminal"
 
@@ -33,7 +32,7 @@ def command(argv: list[str]) -> subprocess.CompletedProcess[str]:
     return result
 
 
-def localhost_config(content: str) -> str:
+def localhost_config(content: str, port: int = DEFAULT_RDP_PORT) -> str:
     """Change only the listener in Globals, retaining module ports and comments."""
     section = ""
     replaced = 0
@@ -43,7 +42,7 @@ def localhost_config(content: str) -> str:
         if match:
             section = match[1].lower()
         if section == "globals" and re.match(r"\s*port\s*=", line):
-            line = f"port={XRDP_PORT}\n"
+            line = f"port=tcp://127.0.0.1:{port}\n"
             replaced += 1
         lines.append(line)
     if replaced != 1:
@@ -54,12 +53,13 @@ def localhost_config(content: str) -> str:
     return "".join(lines)
 
 
-def prove_listener(output: str) -> None:
+def prove_listener(output: str, port: int = DEFAULT_RDP_PORT) -> None:
     rows = [line.split() for line in output.splitlines() if line.strip()]
     listeners = [row[3] if len(row) >= 5 else "invalid" for row in rows]
-    if not listeners or any(value != LISTEN_ADDRESS for value in listeners):
+    address = f"127.0.0.1:{port}"
+    if not listeners or any(value != address for value in listeners):
         raise ProvisionFailure(
-            "linux_desktop_loopback_not_proved: RDP must listen only on 127.0.0.1:3389; "
+            f"linux_desktop_loopback_not_proved: RDP must listen only on {address}; "
             "repair xrdp's Globals port and restart xrdp before connecting"
         )
 
@@ -95,7 +95,7 @@ def prerequisites() -> Path:
     return home
 
 
-def provision(home: Path) -> None:
+def provision(home: Path, port: int = DEFAULT_RDP_PORT) -> None:
     print("linux-desktop: installing XFCE and xrdp", flush=True)
     command(["sudo", "-n", "apt-get", "update"])
     command(
@@ -120,7 +120,7 @@ def provision(home: Path) -> None:
     )
     config_path = Path("/etc/xrdp/xrdp.ini")
     original = config_path.read_text()
-    configured = localhost_config(original)
+    configured = localhost_config(original, port)
     if configured != original:
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as candidate:
             candidate.write(configured)
@@ -152,9 +152,9 @@ def provision(home: Path) -> None:
     command(["sudo", "-n", "systemctl", "restart", "xrdp"])
 
 
-def verify(home: Path) -> dict:
+def verify(home: Path, port: int = DEFAULT_RDP_PORT) -> dict:
     command(["systemctl", "is-active", "xrdp", "xrdp-sesman"])
-    wait_for_listener()
+    wait_for_listener(port)
     if (home / ".xsession").read_text() != SESSION_CONTENT:
         raise ProvisionFailure(
             "linux_desktop_session_not_proved: rerun provisioning to select XFCE"
@@ -187,7 +187,7 @@ def verify(home: Path) -> dict:
     return {
         "ok": True,
         "desktop": "XFCE",
-        "rdp_listener": LISTEN_ADDRESS,
+        "rdp_listener": f"127.0.0.1:{port}",
         "login_password_set": len(status) > 1 and status[1] == "P",
         "operator_next_step": (
             "Set a local password with sudo passwd if needed; connect through an SSH "
@@ -196,13 +196,13 @@ def verify(home: Path) -> dict:
     }
 
 
-def wait_for_listener() -> None:
+def wait_for_listener(port: int = DEFAULT_RDP_PORT) -> None:
     # systemctl restart returns before xrdp has opened its listening socket.
     deadline = time.monotonic() + 10
     while True:
-        output = command(["ss", "-H", "-ltn", "sport = :3389"]).stdout
+        output = command(["ss", "-H", "-ltn", f"sport = :{port}"]).stdout
         if output.strip() or time.monotonic() >= deadline:
-            prove_listener(output)
+            prove_listener(output, port)
             return
         time.sleep(0.2)
 
@@ -210,12 +210,15 @@ def wait_for_listener() -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verify", action="store_true", help="Readiness check only")
+    parser.add_argument("--rdp-port", type=int, default=DEFAULT_RDP_PORT)
     args = parser.parse_args()
+    if not 1 <= args.rdp_port <= 65535:
+        parser.error("--rdp-port must be between 1 and 65535")
     try:
         home = prerequisites()
         if not args.verify:
-            provision(home)
-        print(json.dumps(verify(home)), flush=True)
+            provision(home, args.rdp_port)
+        print(json.dumps(verify(home, args.rdp_port)), flush=True)
         return 0
     except (ProvisionFailure, OSError, subprocess.TimeoutExpired, ValueError) as exc:
         print(f"linux_desktop_not_ready: {exc}; inspect the host and rerun", flush=True)
