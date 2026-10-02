@@ -1,6 +1,7 @@
 """Dirty-state and setup helpers for merge-worktree preparation."""
 
 from __future__ import annotations
+from yoke_core.engines.merge_worktree_base import target_ref
 
 from typing import Optional, Tuple
 
@@ -15,7 +16,9 @@ from yoke_core.engines.merge_worktree_context import MergeContext, _matches_glob
 
 def _parent():
     from yoke_core.engines import merge_worktree as _mw
+
     return _mw
+
 
 def check_and_clean_root_dirty_state(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     """Classify and handle dirty files in repo root. Returns (4, msg) if user files block."""
@@ -42,8 +45,13 @@ def check_and_clean_root_dirty_state(ctx: MergeContext) -> Optional[Tuple[int, s
         for sf in yoke_files:
             _run_git(["add", sf], cwd=ctx.repo_root)
         result = _run_git(
-            ["commit", "-m", f"chore: auto-commit Yoke bookkeeping before merge [{ctx.args.branch}]"],
-            cwd=ctx.repo_root, capture=True,
+            [
+                "commit",
+                "-m",
+                f"chore: auto-commit Yoke bookkeeping before merge [{ctx.args.branch}]",
+            ],
+            cwd=ctx.repo_root,
+            capture=True,
         )
         if result.returncode != 0:
             _print("Error: Auto-commit of Yoke-managed files failed.", err=True)
@@ -121,29 +129,35 @@ def _pre_merge_integration(ctx: MergeContext) -> None:
     _run_git = mw._run_git
 
     cwd = ctx.worktree_path
-    mb = _run_git(
-        ["merge-base", "HEAD", f"origin/{ctx.args.target}"], cwd=cwd, capture=True
-    )
+    base = target_ref(ctx)
+    mb = _run_git(["merge-base", "HEAD", base], cwd=cwd, capture=True)
     if mb.returncode != 0 or not mb.stdout.strip():
         return
 
     behind = _run_git(
-        ["rev-list", "--count", f"{mb.stdout.strip()}..origin/{ctx.args.target}"],
-        cwd=cwd, capture=True,
+        ["rev-list", "--count", f"{mb.stdout.strip()}..{base}"],
+        cwd=cwd,
+        capture=True,
     )
-    behind_count = int(behind.stdout.strip()) if behind.returncode == 0 and behind.stdout.strip() else 0
+    behind_count = (
+        int(behind.stdout.strip())
+        if behind.returncode == 0 and behind.stdout.strip()
+        else 0
+    )
 
     if behind_count <= 0:
         return
 
-    _print(f"Integrating origin/{ctx.args.target} into worktree branch ({behind_count} commit(s) behind)...")
-    merge_result = _run_git(
-        ["merge", f"origin/{ctx.args.target}", "--no-edit"], cwd=cwd, capture=True
+    _print(
+        f"Integrating {base} into worktree branch ({behind_count} commit(s) behind)..."
     )
+    merge_result = _run_git(["merge", base, "--no-edit"], cwd=cwd, capture=True)
 
     if merge_result.returncode != 0:
         # Try auto-resolving generated files only
-        conflicts = _run_git(["diff", "--name-only", "--diff-filter=U"], cwd=cwd, capture=True)
+        conflicts = _run_git(
+            ["diff", "--name-only", "--diff-filter=U"], cwd=cwd, capture=True
+        )
         if conflicts.stdout.strip():
             all_auto = True
             for cf in conflicts.stdout.strip().splitlines():
@@ -158,7 +172,9 @@ def _pre_merge_integration(ctx: MergeContext) -> None:
                 _print("Pre-merge integration: auto-resolved generated file conflicts.")
             else:
                 _run_git(["merge", "--abort"], cwd=cwd, capture=True)
-                _print("Pre-merge integration: non-trivial conflicts, deferring to main merge flow.")
+                _print(
+                    "Pre-merge integration: non-trivial conflicts, deferring to main merge flow."
+                )
     else:
         _print("Pre-merge integration: success.")
 
@@ -175,25 +191,48 @@ def _stash_classify_gate(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         return None
 
     _print(f"Creating safety stash: yoke-pre-rebase-{ctx.args.branch}")
-    _run_git(["stash", "push", "--include-untracked", "-m", f"yoke-pre-rebase-{ctx.args.branch}"],
-             cwd=cwd, capture=True)
+    _run_git(
+        [
+            "stash",
+            "push",
+            "--include-untracked",
+            "-m",
+            f"yoke-pre-rebase-{ctx.args.branch}",
+        ],
+        cwd=cwd,
+        capture=True,
+    )
     _run_git(["stash", "apply"], cwd=cwd, capture=True)
 
     # Classify
     dirty_tracked = _run_git(["diff", "--name-only"], cwd=cwd, capture=True)
-    dirty_untracked = _run_git(["ls-files", "--others", "--exclude-standard"], cwd=cwd, capture=True)
+    dirty_untracked = _run_git(
+        ["ls-files", "--others", "--exclude-standard"], cwd=cwd, capture=True
+    )
 
-    all_tracked = dirty_tracked.stdout.strip().splitlines() if dirty_tracked.stdout.strip() else []
-    all_untracked = dirty_untracked.stdout.strip().splitlines() if dirty_untracked.stdout.strip() else []
+    all_tracked = (
+        dirty_tracked.stdout.strip().splitlines()
+        if dirty_tracked.stdout.strip()
+        else []
+    )
+    all_untracked = (
+        dirty_untracked.stdout.strip().splitlines()
+        if dirty_untracked.stdout.strip()
+        else []
+    )
 
-    user_files = [f for f in all_tracked + all_untracked if not is_yoke_managed_pattern(f)]
+    user_files = [
+        f for f in all_tracked + all_untracked if not is_yoke_managed_pattern(f)
+    ]
 
     if user_files:
         _print("", err=True)
         _print("Error: Worktree has dirty files that are NOT Yoke-managed.", err=True)
         for uf in user_files:
             _print(f"  - {uf}", err=True)
-        _print(f"Your work is safe in stash: yoke-pre-rebase-{ctx.args.branch}", err=True)
+        _print(
+            f"Your work is safe in stash: yoke-pre-rebase-{ctx.args.branch}", err=True
+        )
         return (4, "user-authored files at risk")
 
     # Discard yoke-managed tracked modifications

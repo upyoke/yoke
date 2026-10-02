@@ -201,14 +201,13 @@ documented in the [Claude reference](https://code.claude.com/docs/en/cli-referen
 [Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference),
 and [Cursor output format](https://cursor.com/docs/cli/reference/output-format).
 
-Recapturing a baseline with a new tool updates its probes in the same motion.
-Adding a harness to the host without adding its probe leaves a signed-out
-program the baseline never checks; adding a probe without recapturing leaves a
-baseline that cannot pass. Do both, together — which is what
-`yoke test-machine golden-capture --probes-file <file>` does in one operation:
-it runs the document's probes, refuses unless every one passes, captures the
-home, and seals that same document beside the new golden with its digest
-recorded in the manifest.
+Capture without `--probes-file` runs the standard per-OS checks named in the
+Machine QA Pack's provisioning guides. A supplied file must name
+all standard checks; capture always runs and seals their canonical programs,
+plus the supplied additional checks. It refuses before saving unless every
+check passes. Follow the corresponding per-OS guide, then capture and prove
+the reset/verify roundtrip. Old sidecars are never
+carried forward implicitly.
 
 ## Reading a failed probe
 

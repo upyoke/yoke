@@ -183,8 +183,10 @@ current golden and records that path on the machine once it succeeds, so a
 failed capture never destroys the baseline it was taken beside and a successful
 one never silently retires a directory another host may still restore from.
 Pass `--destination` for a machine's first golden, or to place one
-deliberately. Pass `--probes-file` to seal a new probe document; without it the
-capture carries forward the document sealed beside the current golden.
+deliberately. Without `--probes-file`, capture runs and seals the standard OS
+checks. A supplied file must name every standard check; canonical programs
+always run, plus its extra checks. Follow the Machine QA Pack's per-OS
+provisioning guide for preparation and the standard check names.
 
 It refuses rather than producing a baseline nothing can restore:
 
@@ -193,8 +195,8 @@ It refuses rather than producing a baseline nothing can restore:
 | `golden_capture_yoke_residue` | Yoke state at a named path inside the home | Reset the host first. Capturing it bakes Yoke into the baseline every later reset restores, and the reset then verifies that same state absent — so the machine could never pass again |
 | `golden_capture_foreign_owner` | An entry inside the test home owned by another account | Repair its owner; the test user cannot clear or restore what it does not own |
 | `golden_capture_destination_occupied` | Something already at the destination | Choose a new destination |
-| `baseline_probes_not_declared` | No probe document to seal | Pass `--probes-file`; a golden with no probes is one no reset accepts |
-| `baseline_probe_failed` | A declared program reported itself signed out | Sign it in, or correct the probe's argv or expectation |
+| `baseline_standard_probes_missing` | A supplied file omits standard checks | Include the named checks or omit `--probes-file` |
+| `baseline_probe_failed` | A standard or additional check failed | Follow the named checklist recovery; repair additional argv/expectations |
 
 What it writes beside the golden directory: a `.manifest` recording when it was
 captured, from which home and user, how many top-level entries and kilobytes,
