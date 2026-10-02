@@ -242,6 +242,18 @@ Screen Sharing (or reconnect without curtain) and retry. The lock guard still
 refuses that capture. The `window_launch` row retains the osascript exit code, stdout, and
 stderr, so a Terminal AppleScript failure carries its cause:
 
+Mac verification also reads the console user's current-host screen saver idle
+time with `defaults -currentHost read com.apple.screensaver idleTime`. Unset
+means the 20-minute macOS default. A nonzero value refuses verification with
+`macos_screen_saver_enabled`, reports “screen saver will lock this Mac after
+N minutes”, and teaches `defaults -currentHost write com.apple.screensaver
+idleTime -int 0` in that user's session. Locked screenshot and bridge refusals
+include the same explanation. Zero passes this setting check; an unreadable
+preference reports `macos_screen_saver_probe_unavailable` and asks you to repair
+read access. An SSH/console-user mismatch refuses before reading preferences.
+`sysadminctl -screenLock status` reporting off does not prove the saver will
+leave the display unlocked. This applies to every Mac test machine. Yoke only reads the setting.
+
 | Condition | What to change |
 | --- | --- |
 | `terminal_ssh_unavailable` | Remote Login for the automation user, and this machine's `ssh_private_key` capability secret |

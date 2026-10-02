@@ -31,7 +31,9 @@ def capture_desktop(control) -> HostActionResult:
                 terminal_bridge_recovery,
             )
 
-            context = probe_host_display_context(control._run)
+            context = probe_host_display_context(
+                control._run, expected_console_user=control._user
+            )
             code = None
             if context["console_user"] != control._user:
                 code = "terminal_console_user_mismatch"

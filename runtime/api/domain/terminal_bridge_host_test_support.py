@@ -42,6 +42,10 @@ class FakeMac(ScriptedMacHost):
         return self._placement(requested, attempt)
 
     def reply(self, command: str) -> str | None:
+        if command.endswith(
+            "/usr/bin/defaults -currentHost read com.apple.screensaver idleTime"
+        ):
+            return "0\n"
         if "return contents of selected tab" in command:
             self._transcript_reads += 1
             if self._transcript_reads == 1 or not self.input_ok:

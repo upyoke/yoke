@@ -86,7 +86,9 @@ def test_only_a_confirmed_lock_checks_for_screen_sharing(monkeypatch, locked):
 
     def run(command, **kwargs):
         commands.append(command)
-        return subprocess.CompletedProcess(command, 0, "234\n", "")
+        return subprocess.CompletedProcess(
+            command, 0, "234\n" if "pgrep" in command else "0\n", ""
+        )
 
     context = probe_host_display_context(run)
     assert context["display_locked"] is locked
