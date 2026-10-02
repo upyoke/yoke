@@ -6,7 +6,7 @@ import {
 } from "./universe_view_support.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
 import { activityHistory } from "./qa_activity_history.js";
-import { loadQaCaseItemRefs, qaCaseItemId, qaCaseName } from "./qa_case_name.js";
+import { qaCaseItemRefLoader, qaCaseName } from "./qa_case_name.js";
 import { evidenceSummaryNode } from "./qa_run_conclusion.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
@@ -156,7 +156,7 @@ function activityProjectLabel(context, row) {
   );
 }
 
-function renderActivityTable(context, body, rows, scope, pending, itemRefs) {
+function renderActivityTable(context, body, rows, scope, pending, labelCase) {
   const documentNode = context.document;
   if (!rows.length) {
     body.appendChild(el(
@@ -202,9 +202,10 @@ function renderActivityTable(context, body, rows, scope, pending, itemRefs) {
     const caseCell = el(documentNode, "td", "qa-activity-case");
     const caseLink = el(
       documentNode, "a", "qa-activity-link",
-      qaCaseName(row, itemRefs.get(qaCaseItemId(row))),
+      qaCaseName(row),
     );
     caseLink.href = href;
+    labelCase(caseLink, row);
     caseCell.appendChild(caseLink);
     tr.appendChild(caseCell);
     tr.appendChild(el(
@@ -237,9 +238,12 @@ function renderActivityTable(context, body, rows, scope, pending, itemRefs) {
 
 export async function renderQaActivity(context, main, scope) {
   const documentNode = context.document;
-  main.replaceChildren(el(
+  const signal = context.signal;
+  const active = () => context.isMounted() && !signal?.aborted;
+  const loading = el(
     documentNode, "p", "empty", "loading QA activity…",
-  ));
+  );
+  main.replaceChildren(loading);
   const [{ callResults, failed }, pending] = await Promise.all([
     loadProjectCalls(
       context, scope, "qa.activity.list", { limit: ACTIVITY_PAGE_LIMIT },
@@ -248,7 +252,7 @@ export async function renderQaActivity(context, main, scope) {
       context, scope === "all" ? context.projects().map((row) => row.id) : scope,
     ),
   ]);
-  if (!context.isMounted()) return;
+  if (!active() || !main.contains(loading)) return;
   if (failed) {
     showFailure(documentNode, main, failed);
     return;
@@ -258,10 +262,16 @@ export async function renderQaActivity(context, main, scope) {
   ).sort((left, right) =>
     String(right.happened_at || "").localeCompare(
       String(left.happened_at || ""),
-    ));
+  ));
   const rows = recent;
-  const itemRefs = await loadQaCaseItemRefs(context, rows);
-  if (!context.isMounted()) return;
+  const loadItemRef = qaCaseItemRefLoader(context);
+  const labelCase = (link, row) => queueMicrotask(async () => {
+    // Only visible links need names. Keep the usable table and focused link
+    // in place while optional reads finish; navigation/filtering may remove it.
+    if (!active() || !main.contains(link)) return;
+    const ref = await loadItemRef(row);
+    if (ref && active() && main.contains(link)) link.textContent = qaCaseName(row, ref);
+  });
   const summary = aggregateSummaries(callResults);
   const counts = summary.counts;
   const stats = el(documentNode, "div", "qa-stats");
@@ -294,7 +304,7 @@ export async function renderQaActivity(context, main, scope) {
   panel.appendChild(header);
   const body = el(documentNode, "div", "panel-body");
   body.appendChild(activityHistory(context, rows, (host, page) => {
-    renderActivityTable(context, host, page, scope, pending, itemRefs);
+    renderActivityTable(context, host, page, scope, pending, labelCase);
   }));
   panel.appendChild(body);
   const note = el(documentNode, "div", "qa-panel-note");
