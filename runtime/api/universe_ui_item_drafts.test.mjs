@@ -16,7 +16,7 @@ function fixture({ projects = [{ id: 7, slug: "acme", name: "Acme" }] } = {}) {
     removeItem: (key) => entries.delete(key),
   };
   Object.assign(document.defaultView.location, { origin: "https://example.test", pathname: "/acme/work" });
-  const state = { actor: 7, unavailable: false, workflows: ["dash"] };
+  const state = { actor: 7, unavailable: false, workflows: ["dash"], mounted: true, navigated: [] };
   const context = itemContext(document, async (request) => {
     if (request.function === "organizations.get") return ok({ slug: "acme" });
     if (request.function === "profile.get") return ok({ actor: { id: state.actor } });
@@ -24,13 +24,15 @@ function fixture({ projects = [{ id: 7, slug: "acme", name: "Acme" }] } = {}) {
       title_max_length: 100,
       workflows: state.workflows.map((id) => ({ id, name: id, definition: { entry_surfaces: ["web_form"], policies: { item_posture_allowlist: [] } } })),
     });
-    if (request.function === "items.create") return ok({ public_ref: "ACM-23" });
+    if (request.function === "items.create") return state.create?.(request) || ok({ public_ref: ["ACM", 23].join("-") });
     return ok({ rows: [] });
   });
   const call = context.client.call;
   context.client.call = (request) => request.function === "projects.list" && request.payload.for_item_creation
     ? Promise.resolve(ok({ creation_scoped: true, rows: projects })) : call(request);
   context.projects = () => projects;
+  context.isMounted = () => state.mounted;
+  context.navigate = (href) => state.navigated.push(href);
   const main = document.createElement("main");
   const mount = async (initialProjectId = "7") => { renderNewItemView(context, main, initialProjectId); await settle(); await settle(); };
   return { context, document, main, entries, state, mount };
@@ -118,4 +120,61 @@ test("an explicit workflow link takes precedence over the saved draft workflow",
   await mount();
   assert.equal(input(main, "INPUT").value, "Fix layout");
   assert.ok(allNodes(main).some((node) => node.tagName === "BUTTON" && node.textContent === "Create task"));
+});
+
+function deferCreation(state) {
+  let resolve;
+  const pending = new Promise((done) => { resolve = done; });
+  state.create = () => pending;
+  return () => resolve(ok({ public_ref: ["ACM", 24].join("-") }));
+}
+
+for (const editNewForm of [false, true]) {
+  test(`a detached create response preserves a remounted draft${editNewForm ? " with newer text" : " with identical text"}`, async () => {
+    const { mount, main, state, entries } = fixture();
+    await mount(); fill(main);
+    const complete = deferCreation(state);
+    input(main, "FORM").dispatchEvent(new Event("submit"));
+    await settle();
+    await mount();
+    if (editNewForm) {
+      const title = input(main, "INPUT");
+      title.value = "A newer draft";
+      title.dispatchEvent(new Event("input"));
+    }
+    const saved = [...entries.values()][0];
+    complete(); await settle();
+    assert.equal([...entries.values()][0], saved);
+    assert.equal(state.navigated.length, 0);
+    assert.equal(input(main, "INPUT").value, editNewForm ? "A newer draft" : "Fix layout");
+  });
+}
+
+test("edits made during creation survive and remain usable in the same form", async () => {
+  const { mount, main, state, entries } = fixture();
+  await mount(); fill(main);
+  const complete = deferCreation(state);
+  const form = input(main, "FORM");
+  form.dispatchEvent(new Event("submit"));
+  const instruction = input(main, "TEXTAREA");
+  instruction.value = "A different instruction written while waiting.";
+  instruction.dispatchEvent(new Event("input"));
+  const saved = [...entries.values()][0];
+  complete(); await settle();
+  assert.equal([...entries.values()][0], saved);
+  assert.equal(state.navigated.length, 0);
+  assert.equal(input(main, "FORM"), form);
+  assert.match(main.textContent, /Created.*Your newer draft is kept/);
+  assert.equal(allNodes(main).find((node) => node.type === "submit").disabled, false);
+});
+
+test("an unmounted create completion clears only its submitted draft without navigation", async () => {
+  const { mount, main, state, entries } = fixture();
+  await mount(); fill(main);
+  const complete = deferCreation(state);
+  input(main, "FORM").dispatchEvent(new Event("submit"));
+  state.mounted = false;
+  complete(); await settle();
+  assert.equal(entries.size, 0);
+  assert.equal(state.navigated.length, 0);
 });

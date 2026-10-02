@@ -19,7 +19,7 @@ export function renderNewItemView(context, main, initialProjectId) {
   let restored = false;
   let retryLoad = () => loadProjects();
   draft.save = () => storage?.save(projectId, draft);
-  draft.discard = () => storage?.clear();
+  draft.discard = (revision) => storage?.clear(revision);
   const valid = (result) => result.status === 200 && result.envelope.success;
   const showFailure = (result) => {
     main.replaceChildren(itemIntakeField(documentNode, "Project", selector));

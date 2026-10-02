@@ -1,5 +1,7 @@
 import { callFunction } from "./universe_view_support.js";
 
+let nextDraftRevision = 0;
+
 // A tab-local draft belongs to the signed-in actor and the mounted universe.
 // Storage may be unavailable in embedded/private browsers; the form still works.
 export async function itemDraftStorage(context) {
@@ -36,17 +38,27 @@ export async function itemDraftStorage(context) {
       },
       save(projectId, draft) {
         try {
-          storage.setItem(key, JSON.stringify({
+          const revision = JSON.stringify({
+            revision: ++nextDraftRevision,
             projectId: String(projectId),
             title: draft.titleControl?.value ?? draft.title ?? "",
             instruction: draft.instructionControl?.value ?? draft.instruction ?? "",
             workflowId: draft.workflowId,
             posture: draft.posture,
-          }));
+          });
+          storage.setItem(key, revision);
+          return revision;
+        } catch { return false; }
+      },
+      // A create response may arrive after another form or edit saved a draft.
+      // Explicit discard has no expected revision and still clears immediately.
+      clear(expectedRevision) {
+        try {
+          if (expectedRevision !== undefined && storage.getItem(key) !== expectedRevision) return false;
+          storage.removeItem(key);
           return true;
         } catch { return false; }
       },
-      clear() { try { storage.removeItem(key); } catch { /* Keep the form usable. */ } },
     };
   } catch { return null; }
 }
