@@ -142,9 +142,11 @@ def test_unrestorable_owned_change_preserves_journal_and_refuses(monkeypatch, tm
     inventory["changed"] = "2"
     _execute(monkeypatch, journal, inventory, "record")
     before = journal.read_text()
-    with pytest.raises(RuntimeError, match="os_package_fixture_failed"):
+    with pytest.raises(SystemExit) as refused:
         _execute(monkeypatch, journal, inventory, "restore", apt_failure=True)
+    assert refused.value.code == 100
     assert journal.read_text() == before
+    assert inventory == {"changed": "2"}
 
 
 def test_missing_attribution_refuses_before_mutation(monkeypatch, tmp_path):
