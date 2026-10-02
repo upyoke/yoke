@@ -23,6 +23,7 @@ from typing import Optional
 from yoke_contracts.api.function_call import ActorContext
 from yoke_contracts.qa_case_environment import (
     COMMAND_CASE_BASE_URL_ENV,
+    COMMAND_CASE_CANDIDATE_TREE_ENV,
     COMMAND_CASE_DEPLOYMENT_MEMBER_ENV,
     COMMAND_CASE_DEPLOYMENT_RUN_ENV,
 )
@@ -120,6 +121,11 @@ def execute_worktree_case(
         command_env = verification_tree_binding_pytest_startup.with_binding_evaluated(
             os.environ
         )
+        if not qa_case_tree_binding_scope.session_lane_binds_case(case) and tree:
+            command_env[COMMAND_CASE_CANDIDATE_TREE_ENV] = json.dumps(
+                {"root": str(checkout.resolve()), "head_sha": tree.head_sha},
+                sort_keys=True,
+            )
         if config.get("requires_base_url") and not base_url:
             raise QaCaseExecutionError(
                 "this Command case requires --base-url. Pass "

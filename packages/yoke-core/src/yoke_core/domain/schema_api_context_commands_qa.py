@@ -3,24 +3,17 @@
 Holds QA reads, verdicts, gates, case execution, and events recipes for
 the canonical ``WRAPPER_COMMANDS`` packet.
 
-Recipe shape doctrine:
-    The qa family teaches registered ``yoke`` forms — requirement
-    list/get/add/add-batch, run add/list, gate-summary — with the
-    db_router/domain multi-module forms surviving only as labelled
-    operator-debug fallbacks (and as the sole surface for shapes the
-    typed adapters deliberately omit: file-backed
-    ``--raw-result-file``/``--artifact-path`` evidence, score /
-    confidence fields, epic-task requirement creation, ``qa_gates``
-    previews). Epic task list/body
-    reads are wrapped (``yoke epic-tasks list`` / ``yoke
-    workflow-item epic-task body-get``); the ``dispatch-chain-*`` CLIs
-    have no ``yoke`` CLI adapter yet and stay multi-module.
+The qa family teaches registered ``yoke`` forms. Module forms remain labelled
+operator-debug fallbacks for evidence-file flags, scores, confidence,
+epic-task requirement creation and gate previews omitted by typed adapters.
+Epic task list/body reads are wrapped; dispatch-chain CLIs remain multi-module.
 
-Pure data only — no I/O, no DB connections, no imports beyond stdlib.
+Pure data only — no I/O or DB connections; environment names use contracts.
 """
 
 from __future__ import annotations
 
+from yoke_contracts.qa_case_environment import COMMAND_CASE_CANDIDATE_TREE_ENV
 
 QA_COMMANDS: list[dict] = [
     {
@@ -278,7 +271,12 @@ QA_COMMANDS: list[dict] = [
             "`python3 -c '...'` or a checkout file (a leading `import` is "
             "ImageMagick import(1)). `python3`/`python`/"
             "`yoke` resolve to the product interpreter running the case "
-            "runner (`YOKE_PYTHON`); do not use `yoke dev run`. A leftover "
+            "runner (`YOKE_PYTHON`); cwd alone does not bind their imports "
+            "to candidate source. Post-deploy source tests run "
+            "`yoke watch pytest -- <test paths>` directly because it binds "
+            "its own cwd. Candidate-bound Command cases export "
+            f"`{COMMAND_CASE_CANDIDATE_TREE_ENV}` as JSON with root and head_sha; source "
+            "wrappers refuse switching to a different root. A leftover "
             "QA_HOST claim is released by its holder with `yoke claims "
             "coordination-claim release --claim-id N --reason TEXT`."
         ),

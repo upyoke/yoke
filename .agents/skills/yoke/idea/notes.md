@@ -16,3 +16,5 @@
 - This is a write command — it creates a file and inserts a DB row.
 - **Maximum questions rule:** This flow asks at most 3 binary questions total per invocation. Most items should require zero questions (all fields inferred from context). Count your questions — if you have already asked 3, stop asking and use best-guess defaults for remaining ambiguities.
 - **Done-means must be guard-permitted.** Verification commands written into the spec (definition of done, AC verify steps, "run this to prove it") must be a shape PreToolUse allows: `yoke <subcommand>`, `yoke watch pytest -- ...`, or `yoke dev run -- python3 -m ...`. Never prescribe `python3 -c` importing `yoke_core` / `yoke_cli` / `yoke_harness`. Readiness `BLOCKED_AGENT_COMMAND_SHAPE` blocks fenced or backticked prescriptions of that shape.
+
+- **Command case source:** Use `yoke dev run -- <command>` for direct pre-merge Yoke lane checks. Post-deploy Command source tests run `yoke watch pytest -- <test paths>` directly: the runner supplies candidate cwd and the watcher binds it to source. Bare commands keep the product interpreter; cwd alone does not bind imports.

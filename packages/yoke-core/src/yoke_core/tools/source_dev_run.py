@@ -1,11 +1,7 @@
 """Run source commands from a claimed lane or a read-only main surface.
 
-The reported import origins are a promise about the child, so the child
-has to be a process that can keep it. An ambient ``python3`` and the
-installed ``yoke`` launcher each resolve a checkout of their own, so
-either would run other code than this command printed. Both are rewritten
-onto the interpreter whose origins were just verified, which binds
-``yoke dev run -- yoke <subcommand>`` exactly as the python shape is.
+The child uses the interpreter whose import origins were verified.
+Candidate-bound QA refuses a switch to another source checkout.
 """
 
 from __future__ import annotations
@@ -19,8 +15,7 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_core.domain import verification_tree_binding
-from yoke_core.tools import _source_pythonpath
-
+from yoke_core.tools import _source_pythonpath, source_dev_candidate_binding
 
 MAIN_CHECKOUT_FALLBACK_EVENT = "SourceDevRunMainCheckoutFallback"
 MAIN_CHECKOUT_READ_ONLY_SCRIPTS = frozenset(
@@ -267,6 +262,7 @@ def run(
     root, error, fallback_project_id = (
         _claimed_root() if lane is None else _claimed_root(lane)
     )
+    error = error or (source_dev_candidate_binding.refusal(root) if root else None)
     if error or root is None:
         print(f"error: {error}", file=sys.stderr)
         return 1
@@ -327,7 +323,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             "operation from its mapped main checkout when no Yoke lane "
             "exists, and report every checkout-owned import origin. A "
             "nested `yoke` command runs on the interpreter those origins "
-            "describe, as an ambient `python3` does."
+            "describe, as an ambient `python3` does. Candidate-bound Command "
+            "QA runs `yoke watch pytest -- <test paths>` directly: it binds "
+            "its own cwd to source; a different claimed root refuses."
         ),
     )
     parser.add_argument(
