@@ -14,7 +14,7 @@ function localDay(value) {
 export function activityHistory(context, rows, renderRows) {
   const documentNode = context.document;
   const host = el(documentNode, "div", "qa-activity-history");
-  const controls = el(documentNode, "div", "item-filters qa-history-filters");
+  const controls = el(documentNode, "div", "qa-history-filters");
   const field = (name, tag, type) => {
     const label = el(documentNode, "label", "qa-history-field");
     label.appendChild(el(documentNode, "span", null, name));
@@ -42,7 +42,7 @@ export function activityHistory(context, rows, renderRows) {
   const count = el(documentNode, "p", "item-roster-note qa-history-count");
   count.setAttribute("aria-live", "polite");
   const body = el(documentNode, "div", "qa-history-results");
-  const pager = el(documentNode, "div", "item-filters qa-history-pager");
+  const pager = el(documentNode, "div", "qa-history-pager");
   const previous = el(documentNode, "button", "item-button", "Previous");
   const next = el(documentNode, "button", "item-button", "Next");
   for (const button of [previous, next]) {

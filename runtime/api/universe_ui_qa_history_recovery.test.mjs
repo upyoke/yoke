@@ -45,7 +45,10 @@ test("activity exposes older history with outcome/date filters and bounded pagin
   }));
   let shown = [];
   const host = activityHistory({ document }, rows, (_body, page) => { shown = page; });
+  const pager = byClass(host, "qa-history-pager")[0];
   assert.equal(shown.length, 25);
+  assert.equal(pager.hidden, false);
+  assert.equal(byClass(host, "item-filters").length, 0);
   assert.match(host.textContent, /Latest 500 cases per project/);
   const button = (label) => allNodes(host).find((node) => node.tagName === "BUTTON" && node.textContent === label);
   button("Next").dispatchEvent(new Event("click"));
@@ -59,7 +62,9 @@ test("activity exposes older history with outcome/date filters and bounded pagin
   controls[3].value = "2026-08-09";
   controls[3].dispatchEvent(new Event("change"));
   assert.equal(shown.length, 15);
+  assert.equal(pager.hidden, true);
   assert.ok(shown.every((row) => row.happened_at.includes("08-09")));
   button("Clear filters").dispatchEvent(new Event("click"));
   assert.equal(shown[0].case_key, "case 0");
+  assert.equal(pager.hidden, false);
 });

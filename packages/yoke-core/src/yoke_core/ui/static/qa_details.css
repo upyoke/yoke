@@ -110,9 +110,24 @@
 .qa-result-reason { margin: 6px 0; max-width: 40rem; }
 .qa-result-reason summary { cursor: pointer; color: var(--yoke-link); }
 .qa-result-reason p { white-space: normal; overflow-wrap: anywhere; }
-.qa-history-field { display: grid; gap: 5px; font-size: 12px; }
-.qa-history-filters { margin-bottom: 14px; align-items: end; }
-.qa-history-pager { margin-top: 18px; }
+.qa-history-field { display: grid; gap: 5px; font-size: 12px; min-width: 0; }
+.qa-history-filters {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) repeat(3, minmax(125px, 160px)) auto;
+  gap: 10px;
+  margin-bottom: 14px;
+  align-items: end;
+}
+.qa-history-field .item-filter-control { min-width: 0; width: 100%; box-sizing: border-box; }
+.qa-history-pager { display: flex; gap: 8px; margin-top: 18px; }
+.qa-history-pager[hidden] { display: none; }
+@media (max-width: 1000px) {
+  .qa-history-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .qa-history-filters > .item-button { justify-self: start; }
+}
+@media (max-width: 360px) {
+  .qa-history-filters { grid-template-columns: minmax(0, 1fr); }
+}
 
 .qa-method-glyph {
   color: var(--yoke-accent);
