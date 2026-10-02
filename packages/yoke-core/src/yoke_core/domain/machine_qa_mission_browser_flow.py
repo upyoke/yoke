@@ -8,7 +8,9 @@ from pathlib import PurePosixPath
 from typing import Any
 
 from yoke_contracts.qa_mission_scratch import mission_scratch_path
-from yoke_core.domain.machine_qa_browser_flow_policy import load_browser_flow
+from yoke_core.domain.machine_qa_operator_gate_contract import (
+    validate_browser_approval_steps,
+)
 from yoke_core.domain.machine_qa_local_execution import _execution, _mission_contract
 from yoke_core.domain.machine_qa_operator_gate import (
     run_machine_browser_approval_with_io,
@@ -101,7 +103,9 @@ def execute_agent_mission_browser_flow(
     """Reuse the typed recipe gate, retaining its origin and completion checks."""
     contract = _mission_contract(raw_contract)
     execution = _execution(contract)
-    flow = load_browser_flow(contract.project_id, "machine_browser_approval")
+    flow = validate_browser_approval_steps(
+        contract.cases[0].method_config.get("browser_approval")
+    )
     read = _transcript_reader(
         execution.control, mission_scratch_path(execution_id), transcript_path
     )

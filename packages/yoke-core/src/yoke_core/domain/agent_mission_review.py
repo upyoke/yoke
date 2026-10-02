@@ -107,6 +107,15 @@ def _walker_dispatch(
         f"--requirement-id {int(case['requirement_id'])} "
         f"--transcript-path {scratch_path}/installer.log --completion-text TEXT"
     )
+    approval_steps = case.get("method_config", {}).get("browser_approval")
+    approval_instruction = (
+        "Complete this Yoke case's own machine approval with "
+        f"`{browser_flow_command}`. Its existing step settings own the approval "
+        "details. Capture live terminal output in that owner-only scratch file "
+        "and prove this request's browser control and terminal completion. "
+        if approval_steps
+        else ""
+    )
     scratch_teardown_command = (
         f"yoke qa mission scratch-teardown {subject_flag} "
         f"--execution-id {execution_id} "
@@ -131,11 +140,7 @@ def _walker_dispatch(
         f"materialize the target browser with `{browser_setup_command}` using "
         "a bounded timeout long enough for first setup, then "
         f"drive it one chosen step at a time with `{browser_step_command}`. "
-        "Complete the browser approval your own installed candidate emits with "
-        f"`{browser_flow_command}`. Capture its live output in that owner-only "
-        "scratch file, reach its browser-wait state, and name its actual completion "
-        "text; never paste a link or substitute another request. Read that command's "
-        "--help for the project declaration and saved-profile recovery. "
+        f"{approval_instruction}"
         "Add `--gui-session` to the outer host command for macOS "
         "window-server or login-keychain work. This lease owns one "
         f"owner-only staging directory on the target, `{scratch_path}`: pipe "
@@ -144,10 +149,10 @@ def _walker_dispatch(
         "never a loose path under /tmp. Before you return, run "
         f"`{scratch_teardown_command}` and state the scratch path and its "
         "confirmed removal in your report; returning while it still exists "
-        "is a finding against your own walk. Use the saved profile for your own "
-        "declared approval; a needed sign-in that is missing or expired is a "
-        "human gate, never an agent login. If a permission dialog or personal "
-        "sign-in needs a person, return immediately "
+        "is a finding against your own walk. Agents complete setup and "
+        "password-free application steps from a saved identity-provider session. "
+        "Credential entry, MFA, passkey and personal permission prompts need "
+        "the user. At such a prompt, return immediately "
         "with WALK_STATUS: HUMAN_GATE, the exact needed action, and resume "
         "state. Never wait for the operator inside this turn. On a resumed "
         "walk, read the Progress Log excerpt and resume state supplied by the "
@@ -179,7 +184,7 @@ def _walker_dispatch(
         "scratch_teardown_command": scratch_teardown_command,
         "browser_setup_command": browser_setup_command,
         "browser_step_command": browser_step_command,
-        "browser_flow_command": browser_flow_command,
+        **({"browser_flow_command": browser_flow_command} if approval_steps else {}),
         "artifact_add_command": artifact_add_command,
         "artifact_limit": AGENT_MISSION_ARTIFACT_LIMIT,
         "prompt": prompt,

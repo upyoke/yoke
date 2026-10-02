@@ -112,20 +112,7 @@ def _interactive(
                     approve_machine_from_profile,
                 )
 
-                from yoke_core.domain.machine_qa_browser_flow_policy import (
-                    load_browser_flow,
-                )
-
-                try:
-                    flow = load_browser_flow(
-                        control.material.project_id, action["operator_gate"]
-                    )
-                except ValueError as exc:
-                    return HostActionResult(
-                        False,
-                        {"recovery": str(exc)},
-                        "browser_flow_declaration_unavailable",
-                    )
+                flow = action.get("browser_approval")
                 approval_budget = min(
                     float(action["gate_timeout_seconds"]),
                     max(0, deadline - time.monotonic()),

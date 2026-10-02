@@ -131,9 +131,9 @@ def run_machine_browser_approval_with_io(
         return OperatorGateResult(
             False,
             transcript,
-            "browser_flow_declaration_unavailable",
+            "machine_browser_approval_step_settings_missing",
             {
-                "recovery": "Run this flow through the registered project-owned host adapter."
+                "recovery": "Set browser_approval details in this Yoke case's existing step settings, then rerun."
             },
         )
     url = _labeled_value(transcript, flow["url_label"])

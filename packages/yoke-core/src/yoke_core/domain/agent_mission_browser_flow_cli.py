@@ -17,22 +17,24 @@ PROG = "yoke qa mission browser-flow"
 def run(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog=PROG,
-        description="Complete this mission's own emitted browser approval from its machine's saved signed-in profile.",
+        description="Complete this Yoke mission's own machine approval using its case step settings and saved browser profile.",
         epilog=(
             "First install the candidate and start its own flow on the registered "
             "Test Machine. Capture the actual installer output in an owner-only "
             "file under the mission scratch directory, and reach the browser-wait "
             "state using the mission's host-command. Pass that file and the "
             "installer's completion text here. The shared typed recipe gate "
-            "validates the exact printed URL/code against .yoke/browser-flows.json "
-            "and the immutable case target, restores the saved profile if needed, "
+            "validates the exact printed URL/code against this Yoke case's "
+            "existing browser_approval step settings and immutable target, "
+            "restores the saved profile if needed, "
             "proves the visible approval control, and waits for terminal completion. "
-            "Missing or expired sign-in returns a precise human_gate; the operator "
-            "signs in personally and captures a separate fresh baseline before "
-            "rerunning the same case. Never log in, paste a link, use another "
-            "request, or change machine security settings. This command records "
+            "Credential prompts return a precise human_gate. Agents complete "
+            "setup and password-free application steps from a saved IdP session; "
+            "the user enters credentials. Preserve the profile at a handoff. "
+            "Never paste a link, use another request, or change security settings. "
+            "This command records "
             "bounded browser evidence, not a QA verdict. Exit 0 completed, "
-            "2 invalid mission/declaration/transcript, 3 refused or human_gate."
+            "2 invalid mission/step settings/transcript, 3 refused or human_gate."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

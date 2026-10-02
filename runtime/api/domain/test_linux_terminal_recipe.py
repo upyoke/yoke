@@ -133,10 +133,6 @@ def test_linux_browser_gate_uses_registered_candidate_and_terminal_completion(
         "yoke_core.domain.ssh_linux_terminal_recipe.time.sleep", lambda seconds: None
     )
     monkeypatch.setattr(
-        "yoke_core.domain.machine_qa_browser_flow_policy.load_browser_flow",
-        lambda project_id, name: EXAMPLE_FLOW,
-    )
-    monkeypatch.setattr(
         "yoke_core.domain.machine_qa_saved_profile_approval.approve_machine_from_profile",
         approve,
     )
@@ -144,6 +140,7 @@ def test_linux_browser_gate_uses_registered_candidate_and_terminal_completion(
     config["post_checks"] = []
     config["actions"][0].update(
         operator_gate="machine_browser_approval",
+        browser_approval=EXAMPLE_FLOW,
         gate_timeout_seconds=20,
         completion_text=["connected"],
     )

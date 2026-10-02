@@ -47,6 +47,31 @@ HOSTED_ONBOARD = (
 )
 PATH_REPAIR_COMMAND = f"{YOKE_BIN} path fix --yes --json"
 
+# These are Yoke's hosted approval steps, carried in each case action.
+MACHINE_BROWSER_APPROVAL = {
+    "origins": [HOSTED_STAGE_PLATFORM_URL],
+    "paths": ["/connect", "/machine"],
+    "url_label": "Open:",
+    "code_label": "One-time code:",
+    "code_pattern": "[A-Z0-9]{4}-[A-Z0-9]{4}",
+    "query_parameter": "user_code",
+    "approval_target": 'role=button[name="Approve machine"]',
+    "rejected_statuses": [
+        "denied",
+        "expired",
+        "missing",
+        "not_admin",
+        "not_member",
+        "used",
+    ],
+    "denial_text": [
+        "authorization denied in the browser",
+        "authorization expired",
+        "hosted authorization expired",
+        "this machine was denied in the browser",
+    ],
+}
+
 BROWSER_APPROVAL_TEXT = (
     "Sign in and choose an organization.",
     "Approve this machine in your browser, then continue here.",
@@ -102,6 +127,10 @@ def action(
         row["capture"] = False
     if operator_gate is not None:
         row["operator_gate"] = operator_gate
+        if operator_gate == "machine_browser_approval":
+            from copy import deepcopy
+
+            row["browser_approval"] = deepcopy(MACHINE_BROWSER_APPROVAL)
     if completion_text:
         row["completion_text"] = list(completion_text)
     if gate_timeout_seconds is not None:

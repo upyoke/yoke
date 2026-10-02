@@ -3,11 +3,11 @@
 Preparing, signing in, saving, restoring and repairing a Test Machine has one
 complete ordered procedure per OS in the Machine QA Pack:
 
-- [macOS](../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/macos-host-provisioning.md)
-- [Linux](../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/linux-host-provisioning.md)
-- [Windows/WSL2](../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/windows-host-provisioning.md)
+- [macOS](../../packs/machine-qa/versions/1.3.8/files/docs/packs/machine-qa/macos-host-provisioning.md)
+- [Linux](../../packs/machine-qa/versions/1.3.8/files/docs/packs/machine-qa/linux-host-provisioning.md)
+- [Windows/WSL2](../../packs/machine-qa/versions/1.3.8/files/docs/packs/machine-qa/windows-host-provisioning.md)
 
-The [provisioning index](../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/host-provisioning.md) installs
+The [provisioning index](../../packs/machine-qa/versions/1.3.8/files/docs/packs/machine-qa/host-provisioning.md) installs
 as `docs/packs/machine-qa/host-provisioning.md`. This page explains the model
 behind its evidence, without providing a second preparation procedure.
 
@@ -66,10 +66,30 @@ An undelivered bridge probe is distinct from a program that ran and refused.
 Older sealed sidecars remain historical state, not implicit inputs to a new
 capture's required check set.
 
-The separate Linux browser-profile seal belongs to a different component from
+The separate browser-profile seal belongs to a different component from
 the clean home. It binds the private profile to its project/user/home and is
 outside ordinary home restoration. Its archive receipt establishes identity
 and integrity; signed-in application UI remains an independent proof.
 
 [Operation contracts](test-machine-operations.md) cover leases and receipts;
 [testing and verification](../testing-verification.md) covers QA verdicts.
+
+## Yoke application sign-ins
+
+Yoke's hosted machine-connection tests use an account able to approve a test
+machine in the application paired with their case target. Production cases use
+`https://app.upyoke.com`; Stage cases use `https://app.stage.upyoke.com`.
+The current saved installer-campaign plan targets Production. The source plan's
+`cold-start-hosted`, `hosted-connect` and `review-frame` cases target Stage and
+need its application session when that updated plan is installed. Installing
+wheels and reaching a browser wait screen alone do not need an application
+sign-in. These are Yoke test facts, not Machine QA Pack prerequisites.
+
+Yoke's fresh-host and installer cases restore the separate saved profile after
+candidate installation and use it for their own fresh machine approval. Their
+existing case step settings own pages, paths, labels, controls and refusal text.
+Agents complete setup and password-free application steps from a saved identity
+provider session; the user handles credential entry and personal permission
+prompts. Actual candidate application UI and terminal completion are separate
+proofs from the snapshot seal. The proven Mac Safari route remains in place until
+the candidate route has completed a real test-mac approval.

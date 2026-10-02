@@ -1,4 +1,4 @@
-"""A project-owned browser approval declaration for host-control tests."""
+"""Yoke machine approval step settings for host-control tests."""
 
 EXAMPLE_ORIGIN = "https://app.example.test"
 EXAMPLE_FLOW = {

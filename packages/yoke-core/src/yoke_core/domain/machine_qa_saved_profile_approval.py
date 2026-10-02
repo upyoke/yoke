@@ -36,7 +36,7 @@ def _approval_url(verification_url: str, user_code: str, flow: dict) -> tuple[st
         raise ValueError("browser approval URL is not a supported HTTPS entry")
     origin = f"{parsed.scheme}://{parsed.netloc}"
     if origin not in flow["origins"]:
-        raise ValueError("browser approval origin is not project-declared")
+        raise ValueError("browser approval origin is outside this Yoke case step")
     code = user_code.strip()
     if len(code) > 256 or re.fullmatch(flow["code_pattern"], code) is None:
         raise ValueError("browser approval code has an invalid shape")
@@ -84,9 +84,9 @@ def _failure(
         "machine": machine,
     }
     evidence["recovery"] = (
-        "The operator must open this project's browser authorization window on the named test machine, sign in personally, prove the actual application signed in, and capture a new separate browser-profile baseline. Resume this case to generate a fresh approval link."
+        "On the named test machine, agents complete setup and password-free application steps from a saved IdP session. The user handles credential prompts. Preserve the profile and resume this Yoke case with a fresh request after the personal step."
         if human
-        else "Repair the named candidate browser phase, then rerun the same case; never log in or substitute an approval outside this flow."
+        else "Repair the named candidate browser phase, then rerun this Yoke case without substituting another request or entering credentials."
     )
     if human:
         evidence["human_gate"] = {
@@ -245,7 +245,5 @@ def approve_machine_from_profile(
             "profile_restored": prepared.get("profile_restore", {}).get(
                 "restored", False
             ),
-            "declaration_sha256": flow.get("declaration_sha256"),
-            "required_sign_ins": flow.get("required_sign_ins", []),
         },
     )

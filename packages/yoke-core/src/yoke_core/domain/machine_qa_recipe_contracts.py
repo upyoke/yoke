@@ -148,6 +148,7 @@ def _actions(raw: Any) -> list[dict[str, Any]]:
         if not isinstance(action, Mapping):
             raise MachineQaRecipeError("actions must be objects")
         allowed = {
+            "browser_approval",
             "step",
             "keys",
             "capture",

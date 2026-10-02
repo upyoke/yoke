@@ -36,12 +36,10 @@ recovery live only in the [per-OS procedures](host-provisioning.md).
 Use the procedure for the declared OS before scheduling a machine-backed run.
 
 The main agent owns the item, operator channel, report, and final verdict.
-Walkers are atomic. Browser steps produced by their own flow use the saved
-profile and candidate daemon on the project-declared application; they are not
-human gates by default. Only a missing/expired needed personal sign-in requires
-an operator sign-in. At a human gate a walker returns the exact action and resume
-state; the main agent records it in the item's Progress Log, asks the operator,
-then dispatches a fresh walker. Routine perception is discarded. A mission may
+Walkers are atomic. Agents complete setup and application steps that do not
+need the user; the user completes personal credential steps. At a human gate a
+walker returns the exact action and resume state; the main agent records it in
+the item's Progress Log, asks the operator, then dispatches a fresh walker. Routine perception is discarded. A mission may
 not exceed the runtime-supplied artifact limit across its run.
 
 Agent verdicts are `pass`, `fail`, or `undetermined`. An `undetermined` verdict

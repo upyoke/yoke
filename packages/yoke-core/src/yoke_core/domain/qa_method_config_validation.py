@@ -185,7 +185,14 @@ def validate_method_config(
         executor = config.get("executor")
         if (
             "executor" not in config
-            or set(config) - {"executor", "machine", "machines", "host_starting_state"}
+            or set(config)
+            - {
+                "executor",
+                "machine",
+                "machines",
+                "host_starting_state",
+                "browser_approval",
+            }
             or executor
             not in {
                 "informed_subagent",
@@ -197,6 +204,17 @@ def validate_method_config(
                 "informed_subagent or naive_target_session"
             )
         config["executor"] = str(executor)
+        if "browser_approval" in config:
+            from yoke_core.domain.machine_qa_operator_gate_contract import (
+                validate_browser_approval_steps,
+            )
+
+            try:
+                config["browser_approval"] = validate_browser_approval_steps(
+                    config["browser_approval"]
+                )
+            except ValueError as exc:
+                raise QaMethodConfigError(str(exc)) from exc
         if "host_starting_state" in config:
             from yoke_contracts.qa_host_starting_state import (
                 validate_host_starting_state,

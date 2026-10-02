@@ -265,18 +265,16 @@ proof; an old receipt or a successful capture alone cannot replace it.
 A clean-home golden excludes the project's Yoke browser profile. Save that
 profile as a separate component; it never makes a partial home a valid golden.
 
-1. The project lists every needed application sign-in in
-   `.yoke/browser-flows.json` (`required_sign_ins`) and declares its own browser
-   approval origins, entry paths and control in the QA authoring contract.
-   Use the registered test user and leased product operations to install the
-   candidate. Prepare its Chromium runtime before asking the operator to act.
-2. In the real headed desktop, the operator runs
-   `yoke browser authorize --project P --url APPLICATION_URL` as the test user.
-   Read `--help`. The operator signs in personally at each declared site and
-   proves the actual signed-in application and approval screen. Record that
-   site-specific UI proof with the QA evidence before capture. A cookie count,
-   profile-directory status or harness CLI login does not prove application
-   sign-in. Agents never log in, type a password or change security settings.
+1. Agents use the registered test user and leased product operations to install
+   the candidate and prepare its Chromium runtime and real headed desktop.
+   This gives the user space for whatever sign-ins their project needs.
+2. Agents open `yoke browser authorize --project P --url APPLICATION_URL`
+   as the test user in the real headed desktop; read `--help`. The user chooses
+   whatever sign-ins their project needs and supplies personal credentials.
+   Agents complete routine setup and password-free application steps from an
+   existing saved identity-provider session. Password, MFA, passkey and personal
+   permission prompts require the user; agents never enter those credentials or
+   change security settings.
 3. The operator closes every authorization Chromium window and waits for the
    command to finish. Authorization stops the daemon before opening its plain
    Chromium and shuts that process down after its windows close. Do not start
@@ -313,21 +311,17 @@ profile as a separate component; it never makes a partial home a valid golden.
 
    Both routes check identity/digest and refuse an existing profile or active
    writers. Default setup and dry-run never restore a profile.
-5. Use the candidate daemon to open the actual declared application and prove
-   signed-in UI again. The typed `machine_browser_approval` recipe gate or
-   `yoke qa mission browser-flow` completes the exact fresh link/code emitted
-   by this case, within its immutable target and the project declaration.
-   It proves the visible approval control and the terminal's own completion;
-   another case's approval, a pasted link or a token is not that proof.
-6. If a needed personal sign-in is missing or expired, return a precise
-   `HUMAN_GATE`: machine, site, current screen, one personal sign-in action,
-   and resume by rerunning this case for a fresh approval link. Approval from
-   a valid saved sign-in is completed by the test; do not default it to a
-   human gate. Runtime, inventory and denied/expired approval-flow failures
-   remain named failures, not permission to log in or change system settings.
+5. Start the installed candidate browser from the restored profile. Verify
+   that its runtime opens on the real display and retains the separate profile.
+   Archive integrity and browser liveness are separate evidence; saved sessions
+   can expire even when the archive remains intact.
+6. Agents perform application steps that do not need the user. Credential entry
+   is a precise `HUMAN_GATE` naming the machine, current screen, needed personal
+   action and resume state. Preserve the profile at a handoff. Runtime and
+   inventory failures retain their named diagnostics.
 
 Use the logged-in, unlocked test-user desktop through Screen Sharing and the
 GUI Terminal context; the login keychain remains that user's. Capture checks
 same-user processes and `lsof` open files without sudo. Saved-profile
-capture/restore and fresh own-flow approval on test-mac are pending real-host
-proof; retain an already-proven approval route until that proof exists.
+capture and restore on test-mac are pending real-host proof; retain the saved
+profile and sealed clean-home baseline until verification is complete.

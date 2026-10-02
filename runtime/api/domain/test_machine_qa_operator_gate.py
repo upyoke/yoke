@@ -21,6 +21,9 @@ from yoke_core.domain.machine_qa_recipe_contracts import (
 
 
 from runtime.api.domain.machine_qa_browser_flow_test_support import EXAMPLE_FLOW
+from yoke_core.domain.machine_qa_operator_gate_contract import (
+    validate_browser_approval_steps,
+)
 
 run_machine_browser_approval = partial(_run_machine_browser_approval, flow=EXAMPLE_FLOW)
 run_machine_browser_approval_with_io = partial(
@@ -242,3 +245,56 @@ def test_browser_gate_reads_the_latest_link_and_counts_automation_time(monkeypat
     )
     assert seen == [("https://app.example.test/machine", "EF56-GH78")]
     assert result.error_code == "machine_browser_approval_timed_out"
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"origins": ["http://app.example.test"]},
+        {"paths": ["/connect?old=request"]},
+        {"code_pattern": "["},
+        {"query_parameter": "bad=name"},
+        {"approval_target": ""},
+        {"rejected_statuses": []},
+        {"extra": "not a step field"},
+    ],
+)
+def test_approval_step_settings_refuse_unsafe_or_incomplete_details(changes):
+    with pytest.raises(ValueError):
+        validate_browser_approval_steps({**EXAMPLE_FLOW, **changes})
+
+
+def test_recipe_preserves_approval_details_in_its_own_action():
+    from runtime.api.domain.machine_qa_terminal_recipe_test_support import recipe
+
+    config = recipe(mode="terminal-multiplexer")
+    config["actions"] = [{**_gate_action(), "browser_approval": EXAMPLE_FLOW}]
+    normalized = validate_terminal_recipe(
+        config, required_completion="operator-browser-approval"
+    )
+    assert normalized["actions"][0]["browser_approval"] == EXAMPLE_FLOW
+
+
+def test_mission_dispatch_teaches_approval_only_when_case_settings_request_it():
+    from yoke_core.domain.agent_mission_review import _walker_dispatch
+
+    case = {
+        "executor": "informed_subagent",
+        "requirement_id": 1,
+        "capture_run_id": 2,
+        "instructions": "Explore the application.",
+        "expected_outcome": "Report observed findings.",
+        "method_config": {},
+    }
+    ordinary = _walker_dispatch(
+        case, execution_id="mission", subject_flag="--project example"
+    )
+    assert "browser_flow_command" not in ordinary
+    assert "machine approval" not in ordinary["prompt"]
+    requested = _walker_dispatch(
+        {**case, "method_config": {"browser_approval": EXAMPLE_FLOW}},
+        execution_id="mission",
+        subject_flag="--project yoke",
+    )
+    assert "browser-flow" in requested["browser_flow_command"]
+    assert "this Yoke case's own machine approval" in requested["prompt"]

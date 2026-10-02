@@ -156,7 +156,7 @@ def run_terminal_app_recipe(
                     progress_callback=progress_callback,
                     allowed_base_urls=allowed_operator_urls,
                     approve_browser=approve_browser,
-                    flow=browser_flow,
+                    flow=action.get("browser_approval", browser_flow),
                 )
                 ready_transcript = gate_result.transcript
                 browser_evidence = gate_result.browser_evidence

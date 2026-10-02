@@ -247,15 +247,12 @@ and a lease-routed `yoke qa browser step --base-url URL --step-json JSON`
 template. The walker chooses and submits one step at a time; no scenario is
 authored in advance.
 
-A walker never signs in. Missing/expired personal sign-in is a human gate
-naming the machine, site and resume state. With a valid saved sign-in, complete
-the browser approval this case emitted using the dispatch's
-`yoke qa mission browser-flow` command and its live owner-only transcript.
-Read `--help`; it uses the candidate daemon, project-declared origin and the
-immutable case target, proves the control, then the terminal's own completion.
-Follow the [Machine QA Pack per-OS procedures](../../../packs/machine-qa/versions/1.3.8/files/docs/packs/machine-qa/browser-profile-baseline.md)
-and the [project declaration contract](qa-platform/browser-profile-baseline.md).
-The mission execution contract above still governs every host command.
+Agents complete setup and application steps that do not need the user.
+The user supplies personal credentials. Password, MFA, passkey and personal
+permission prompts return a human gate naming the machine and resume state.
+Prepare and restore saved browser profiles through the
+[Machine QA Pack per-OS procedures](../../../packs/machine-qa/versions/1.3.8/files/docs/packs/machine-qa/browser-profile-baseline.md).
+The mission execution contract above governs every host command.
 
 ## Evidence Discipline
 

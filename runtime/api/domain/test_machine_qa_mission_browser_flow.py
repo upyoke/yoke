@@ -57,7 +57,10 @@ def test_live_transcript_is_read_without_returning_other_files(tmp_path):
 
 def test_mission_uses_the_same_gate_and_requires_terminal_completion(monkeypatch):
     raw = {"server_issued": True}
-    contract = SimpleNamespace(project_id=1)
+    contract = SimpleNamespace(
+        project_id=1,
+        cases=[SimpleNamespace(method_config={"browser_approval": EXAMPLE_FLOW})],
+    )
     control = object()
     execution = SimpleNamespace(
         control=control, allowed_operator_urls=(EXAMPLE_ORIGIN,)
@@ -68,7 +71,6 @@ def test_mission_uses_the_same_gate_and_requires_terminal_completion(monkeypatch
     monkeypatch.setattr(
         mission, "_execution", lambda value: execution if value is contract else None
     )
-    monkeypatch.setattr(mission, "load_browser_flow", lambda *_: EXAMPLE_FLOW)
     printed = f"Open: {EXAMPLE_ORIGIN}/connect\nOne-time code: AB12-CD34\n"
     transcripts = iter((printed, printed + "Device connected."))
     monkeypatch.setattr(
@@ -91,6 +93,6 @@ def test_mission_uses_the_same_gate_and_requires_terminal_completion(monkeypatch
     )
     assert result["ok"] and result["completion_proved"]
     assert calls[0]["verification_url"] == EXAMPLE_ORIGIN + "/connect"
-    assert calls[0]["flow"] is EXAMPLE_FLOW
+    assert calls[0]["flow"] == EXAMPLE_FLOW
     assert "transcript" not in result
     assert "AB12-CD34" not in json.dumps(result)
