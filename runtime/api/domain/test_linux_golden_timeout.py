@@ -1,6 +1,7 @@
 """Linux golden archive bounds and explicit recovery from client timeouts."""
 
 import json
+import shlex
 import subprocess
 from types import SimpleNamespace
 
@@ -16,7 +17,11 @@ DESTINATION = "/var/lib/goldens/tester"
 
 def _control():
     control = SimpleNamespace(
-        home="/home/tester", _ssh_argv=lambda command: ["ssh", command]
+        home="/home/tester",
+        _ssh_argv=lambda command: ["ssh", command],
+        read_remote_text=lambda path: json.dumps(
+            {"probes": [{"name": "CLI available", "argv": ["/bin/true"]}]}
+        ),
     )
     control._run = lambda *args, **kwargs: SshTestMachineTransport._run(
         control, *args, **kwargs
@@ -32,6 +37,8 @@ def test_archive_exceeding_old_bound_succeeds_and_capture_seals_probes(
     monkeypatch.setattr(baseline.time, "monotonic", lambda: clock[0])
 
     def run(argv, **kwargs):
+        if DESTINATION not in shlex.split(argv[-1]):
+            return subprocess.CompletedProcess(argv, 0, '{"ok": true}', "")
         assert kwargs["timeout"] == baseline.GOLDEN_ARCHIVE_TIMEOUT_SECONDS == 1200
         duration = 312
         assert duration < kwargs["timeout"]
@@ -65,6 +72,8 @@ def test_timeout_names_elapsed_time_destination_and_safe_recovery(
     monkeypatch.setattr(baseline.time, "monotonic", lambda: clock[0])
 
     def run(argv, **kwargs):
+        if DESTINATION not in shlex.split(argv[-1]):
+            return subprocess.CompletedProcess(argv, 0, '{"ok": true}', "")
         clock[0] += kwargs["timeout"] + 0.25
         raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
 
