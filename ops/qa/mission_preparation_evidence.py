@@ -80,6 +80,14 @@ def verify(args: argparse.Namespace) -> dict:
     preparation = raw["preparation"]
     ensure_secret_free_result(preparation)
     evidence = preparation["evidence"]
+    if (
+        args.require_package_restore
+        and evidence.get("os_packages", {}).get("ok") is not True
+    ):
+        raise ValueError(
+            "os_package_restore_unproved: ask the holder to rerun its fresh-host case "
+            "after delivery and retain successful os_packages evidence; do not reset or hand-edit its host."
+        )
     outcome = evidence["baseline_outcome"]
     if outcome["state"] not in {"not_started", "started", "completed"}:
         raise ValueError("Preparation must name the baseline outcome reached.")
@@ -122,6 +130,11 @@ def main() -> int:
     parser.add_argument("--holder-plan", required=True)
     parser.add_argument("--case-key", required=True)
     parser.add_argument("--stage", required=True)
+    parser.add_argument(
+        "--require-package-restore",
+        action="store_true",
+        help="Require the holder's os_packages preparation to have succeeded.",
+    )
     args = parser.parse_args()
     try:
         print(json.dumps(verify(args), sort_keys=True))

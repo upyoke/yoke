@@ -279,12 +279,15 @@ conflicting run pin is refused before a lease is acquired.
 Only an explicitly declared host baseline restores the golden home. An empty
 baseline list preserves the live home and, absent `host_starting_state`, leaves
 packages and their journal untouched. A named baseline or explicit fixture
-undoes the preceding mission's package delta, applies the declaration and
+undoes only the preceding mission's journal-attributed package delta, applies the declaration and
 records proof before walking. Linux and WSL fixtures use apt; a declaration on another OS
 refuses with the supported host named. Package changes made through
 `yoke qa mission host-command` are journaled, including transitive installs and
 failed commands. The owner-only journal lives beside the golden archive,
 outside the reset home. No arbitrary package cleanup command is accepted.
+Independent host changes outside the journal's changed and declared packages,
+including unattended security upgrades, are preserved and become the new base
+inventory after restore. Missing attribution refuses before package mutation.
 Restoring missing or changed packages requires the recorded versions to remain
 available; a failed restore names apt access and journal reconciliation and
 blocks execution. Continuations preserve the existing walk and journal.

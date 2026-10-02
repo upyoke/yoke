@@ -15,7 +15,9 @@ from yoke_harness.qa_host_package_fixture import (
 )
 
 
-def _execute(monkeypatch, journal, inventory, mode, declaration=None):
+def _execute(
+    monkeypatch, journal, inventory, mode, declaration=None, *, apt_failure=False
+):
     def command(argv, **kwargs):
         if argv[0] == "dpkg-query":
             output = "".join(
@@ -32,6 +34,8 @@ def _execute(monkeypatch, journal, inventory, mode, declaration=None):
             argv[6],
         ]
         operation = argv[6]
+        if apt_failure:
+            return subprocess.CompletedProcess(argv, 100, "", "Version unavailable")
         for value in argv[argv.index("--") + 1 :]:
             name, _, version = value.partition("=")
             if operation == "purge":
@@ -92,7 +96,112 @@ def test_declared_present_package_does_not_leak_to_next_mission(monkeypatch, tmp
         "restore",
         {"os_packages": {"absent": ["python3.12-venv"]}},
     )
-    assert inventory == {"tmux": "3.4"}
+    assert inventory == {"tmux": "3.5"}
+    assert json.loads(journal.read_text())["base_packages"] == {"tmux": "3.5"}
+
+
+def test_ambient_security_upgrade_is_rebased_without_package_mutation(
+    monkeypatch, tmp_path
+):
+    journal = tmp_path / "golden.qa-packages.json"
+    inventory = {"libxpm4:arm64": "1:3.5.17-1ubuntu0.24.04.1"}
+    _execute(monkeypatch, journal, inventory, "restore")
+    inventory["libxpm4:arm64"] = "1:3.5.17-1ubuntu0.24.04.2"
+    restored = _execute(monkeypatch, journal, inventory, "restore", apt_failure=True)
+    assert restored["restored_previous_changes"] == {
+        "installed": {},
+        "removed": {},
+        "changed": {},
+    }
+    assert json.loads(journal.read_text())["base_packages"] == inventory
+
+
+def test_fixture_removed_and_changed_packages_are_reinstated(monkeypatch, tmp_path):
+    journal = tmp_path / "golden.qa-packages.json"
+    inventory = {"removed": "1", "changed": "1", "ambient": "1"}
+    _execute(monkeypatch, journal, inventory, "restore")
+    inventory.pop("removed")
+    inventory["changed"] = "2"
+    _execute(monkeypatch, journal, inventory, "record")
+    inventory["ambient"] = "2"
+    restored = _execute(monkeypatch, journal, inventory, "restore")
+    assert inventory == {"removed": "1", "changed": "1", "ambient": "2"}
+    assert restored["restored_previous_changes"]["removed"] == {"removed": "1"}
+    assert restored["restored_previous_changes"]["changed"] == {"changed": "1"}
+    assert json.loads(journal.read_text())["base_packages"] == inventory
+
+
+def test_unrestorable_owned_change_preserves_journal_and_refuses(monkeypatch, tmp_path):
+    journal = tmp_path / "golden.qa-packages.json"
+    inventory = {"changed": "1"}
+    _execute(monkeypatch, journal, inventory, "restore")
+    inventory["changed"] = "2"
+    _execute(monkeypatch, journal, inventory, "record")
+    before = journal.read_text()
+    with pytest.raises(RuntimeError, match="os_package_fixture_failed"):
+        _execute(monkeypatch, journal, inventory, "restore", apt_failure=True)
+    assert journal.read_text() == before
+
+
+def test_missing_attribution_refuses_before_mutation(monkeypatch, tmp_path):
+    journal = tmp_path / "golden.qa-packages.json"
+    journal.write_text(json.dumps({"base_packages": {"changed": "1"}}))
+    inventory = {"changed": "2"}
+    with pytest.raises(RuntimeError, match="os_package_attribution_unproved"):
+        _execute(monkeypatch, journal, inventory, "restore", apt_failure=True)
+    assert inventory == {"changed": "2"}
+
+
+@pytest.mark.parametrize(
+    "declaration", [None, {"os_packages": None}, {"os_packages": {"present": "tmux"}}]
+)
+def test_malformed_attribution_refuses_before_mutation(
+    monkeypatch, tmp_path, declaration
+):
+    journal = tmp_path / "golden.qa-packages.json"
+    journal.write_text(
+        json.dumps(
+            {
+                "base_packages": {},
+                "declared": declaration,
+                "changes": {"installed": {}, "removed": {}, "changed": {}},
+            }
+        )
+    )
+    with pytest.raises(RuntimeError, match="os_package_attribution_unproved"):
+        _execute(monkeypatch, journal, {}, "restore", apt_failure=True)
+
+
+def test_declared_package_is_restored_after_interrupted_fixture(monkeypatch, tmp_path):
+    journal = tmp_path / "golden.qa-packages.json"
+    journal.write_text(
+        json.dumps(
+            {
+                "base_packages": {"tmux": "1"},
+                "declared": {"os_packages": {"absent": ["tmux"]}},
+                "changes": {"installed": {}, "removed": {}, "changed": {}},
+            }
+        )
+    )
+    inventory = {"ambient": "2"}
+    _execute(monkeypatch, journal, inventory, "restore")
+    assert inventory == {"tmux": "1", "ambient": "2"}
+
+
+@pytest.mark.parametrize("host_os", ["linux", "windows"])
+def test_supported_hosts_share_restore_attribution_script(host_os):
+    commands = []
+
+    def run_command(argv, **kwargs):
+        commands.append(argv)
+        return subprocess.CompletedProcess(argv, 0, '{"ok": true}', "")
+
+    control = SimpleNamespace(
+        os=host_os, golden_baseline_path="/tmp/golden", run_command=run_command
+    )
+    assert restore_host_packages(control, {"os_packages": {}})["ok"]
+    assert commands[0][2] == _PACKAGE_SCRIPT
+    assert commands[0][3] == "restore"
 
 
 def test_declaration_on_unsupported_host_refuses_before_any_command():
