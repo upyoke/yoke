@@ -39,6 +39,12 @@ logout behavior, and relay health. `yoke relay install` repairs the unit using
 the existing launcher and release installer; `yoke relay uninstall` disables
 and removes it. Logs stay in the selected relay's state directory.
 
+Service operations wait for graceful shutdown and startup, including an
+in-flight relay poll. A `relay_systemd_command_timeout` means the command did
+not settle within its bounded wait; the systemd job may still be running.
+Inspect `systemctl --user list-jobs` and the unit's `systemctl --user status`
+before retrying the relay operation.
+
 Doctor checks the current unit, whether it is enabled and active, the connected
 heartbeat, and authorization. Without systemd as PID 1 (including containers
 or WSL configured without systemd), it reports that the relay is not supervised

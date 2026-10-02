@@ -185,7 +185,7 @@ def _scope_work_lines(report: FleetReport) -> list[str]:
         "",
         *_section(
             f"idle holders — claim held, no tool call in over {idle}; process-gone "
-            "holders included even when parked",
+            "holders included even when parked; live landing waits excluded",
             _holder_lines(tuple(h for h in report.idle if h.item_id not in landed_ids)),
         ),
         *_in_flight.in_flight_section(report.in_flight),

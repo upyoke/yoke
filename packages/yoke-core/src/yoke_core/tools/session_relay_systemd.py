@@ -18,6 +18,10 @@ from yoke_core.tools.session_relay_release import RelayReleaseError
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 
+# A service operation includes graceful shutdown and startup. A relay can still
+# be finishing an in-flight poll when systemd requests its shutdown.
+SERVICE_OPERATION_TIMEOUT_SECONDS = 180
+
 
 @dataclass(frozen=True)
 class RelaySystemdStatus:
@@ -34,9 +38,21 @@ class RelaySystemdStatus:
     reason: str = ""
 
 
-def _run(argv: list[str], runner: Runner) -> subprocess.CompletedProcess[str]:
+def _run(
+    argv: list[str], runner: Runner, *, timeout_seconds: float = 30
+) -> subprocess.CompletedProcess[str]:
     try:
-        return runner(argv, check=False, capture_output=True, text=True, timeout=30)
+        return runner(
+            argv, check=False, capture_output=True, text=True, timeout=timeout_seconds
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RelayInstallError(
+            f"relay_systemd_command_timeout: {' '.join(argv)} did not settle within "
+            f"{timeout_seconds:g}s. The systemd job may still be running. Inspect "
+            "`systemctl --user list-jobs` and `systemctl --user status` before "
+            "retrying the relay operation.",
+            code="relay_systemd_command_timeout",
+        ) from exc
     except (OSError, subprocess.SubprocessError) as exc:
         raise RelayInstallError(
             f"relay_systemd_unavailable: {exc}. Log in to a systemd Linux host "
@@ -191,7 +207,7 @@ def relay_systemd_status(
 
 
 def _checked(argv: list[str], runner: Runner) -> None:
-    result = _run(argv, runner)
+    result = _run(argv, runner, timeout_seconds=SERVICE_OPERATION_TIMEOUT_SECONDS)
     if result.returncode:
         raise RelayInstallError(
             f"relay_systemd_command_failed: {' '.join(argv)}: "

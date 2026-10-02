@@ -27,6 +27,7 @@ def _no_session(monkeypatch):
 
 def _seed_sources(root: Path) -> None:
     """Create the canonical source dirs (one file each) and root source files."""
+    (root / "pyproject.toml").write_text('[project]\nname = "yoke"\n')
     for rel in sync_mod.INSTALL_BUNDLE_SOURCE_DIRS:
         d = root / rel
         d.mkdir(parents=True, exist_ok=True)
@@ -165,6 +166,46 @@ def test_missing_source_dir_raises(tmp_path) -> None:
 
     with pytest.raises(InstallBundleTreeError, match="source dir is missing"):
         sync(target_root=tmp_path)
+    assert not (tmp_path / sync_mod.PACKAGED_TREE_REL).exists()
+    assert not (tmp_path / ".yoke").exists()
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+@pytest.mark.parametrize("layout", ["empty", "installed", "other_source"])
+def test_non_yoke_target_is_refused_without_mutation(tmp_path, layout, dry_run):
+    if layout != "empty":
+        _seed_sources(tmp_path)
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "customer"\n')
+        if layout == "installed":
+            import shutil
+
+            shutil.rmtree(tmp_path / "runtime")
+        marker = tmp_path / ".yoke" / "install-manifest.json"
+        marker.parent.mkdir()
+        marker.write_text("{}\n")
+    before = {
+        str(path.relative_to(tmp_path)): path.read_bytes() if path.is_file() else None
+        for path in tmp_path.rglob("*")
+    }
+
+    with pytest.raises(
+        InstallBundleTreeError, match="install_bundle_target_not_yoke_source"
+    ):
+        sync(target_root=tmp_path, dry_run=dry_run)
+
+    assert {
+        str(path.relative_to(tmp_path)): path.read_bytes() if path.is_file() else None
+        for path in tmp_path.rglob("*")
+    } == before
+
+
+def test_cli_refuses_non_yoke_target_with_recovery(tmp_path, capsys):
+    assert sync_mod.run_cli(["sync", "--target-root", str(tmp_path)]) == 1
+    output = capsys.readouterr().out
+    assert "install_bundle_target_not_yoke_source" in output
+    assert "--target-root pointing to a Yoke source checkout" in output
+    assert "yoke project install" in output
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_root_source_files_are_snapshotted_and_guarded(tmp_path) -> None:

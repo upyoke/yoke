@@ -82,6 +82,8 @@ Linux golden directories contain a private home archive and a manifest binding
 its SHA-256 digest to the test user/home. They stay outside the home. Capture
 omits Unix sockets and symlinks that resolve to sockets or outside the captured
 home, regardless of filename; regular files and safe links named `.sock` stay.
+macOS capture excludes sockets and FIFOs at every depth and returns bounded
+copy diagnostics on failure; see the [golden baseline guide](test-machine-golden-baseline.md).
 Reset first refuses a live desktop or mounted `thinclient_drives`, with logout
 as recovery; an empty unmounted directory is safe. A declared Claude probe
 must pass a tiny request with the live login before teardown. Auth, network

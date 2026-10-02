@@ -19,6 +19,8 @@ from __future__ import annotations
 GOLDEN_CAPTURE_REMOTE_PATH = "/tmp/yoke-machine-qa-golden-capture.zsh"
 GOLDEN_CAPTURE_MARKER = "YOKE_MAC_CAPTURE_OK"
 CAPTURE_FAILURE_PREFIX = "YOKE_CAPTURE_FAILED_"
+CAPTURE_COPY_STDERR_PREFIX = "YOKE_CAPTURE_COPY_STDERR_"
+CAPTURE_COPY_STDERR_LIMIT = 8192
 CAPTURE_PHASES = {
     "validate_home": "VALIDATE_HOME",
     "assert_full_disk_access": "ASSERT_FULL_DISK_ACCESS",
@@ -92,6 +94,8 @@ def capture_refusal_recovery(kind: str, path: str) -> str:
 
 
 __all__ = [
+    "CAPTURE_COPY_STDERR_LIMIT",
+    "CAPTURE_COPY_STDERR_PREFIX",
     "CAPTURE_ENTRIES_PREFIX",
     "CAPTURE_FAILURE_PREFIX",
     "CAPTURE_KILOBYTES_PREFIX",

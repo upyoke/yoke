@@ -24,6 +24,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
+from yoke_cli.config import repo_upstream_git
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.domain.qa_case_tree_binding_scope import (
     candidate_revision,
@@ -34,7 +35,6 @@ from yoke_core.domain.worktree_provision import GIT_WORKTREE_ADD_TIMEOUT_SECONDS
 
 #: Name prefix of every candidate checkout, so a leftover is recognizable.
 CANDIDATE_CHECKOUT_PREFIX = "yoke-qa-candidate-"
-_FETCH_TIMEOUT_SECONDS = 120
 
 
 def _commit(repo: Path, revision: str) -> str:
@@ -48,9 +48,13 @@ def _candidate_commit(source: Path, revision: str, subject: str) -> str:
     sha = _commit(source, revision)
     if sha:
         return sha
-    fetched = _run(
-        ["git", "-C", str(source), "fetch", "--quiet", "origin", revision],
-        timeout=_FETCH_TIMEOUT_SECONDS,
+    fetched = repo_upstream_git.git(
+        str(source),
+        "fetch",
+        "--quiet",
+        "origin",
+        revision,
+        timeout=repo_upstream_git.network_timeout_seconds(),
     )
     sha = _commit(source, revision)
     if sha:

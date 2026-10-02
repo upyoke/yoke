@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import shlex
+import time
 from typing import Any
 
 from yoke_harness.ssh_linux_reset_cleanup import RESET_WRITERS_PROGRAM
@@ -13,12 +14,16 @@ from yoke_harness.ssh_linux_reset_preconditions import (
     reset_preflight,
 )
 from yoke_harness.ssh_linux_reset_services import YOKE_SERVICE_PATTERNS
+from yoke_harness.ssh_test_machine_transport import SSH_TIMEOUT_DIAGNOSTIC
 from yoke_harness.ssh_mac_baseline_probes import (
     parse_baseline_probes,
     run_baseline_probes,
 )
 from yoke_harness.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_harness.test_machine_types import HostActionResult
+
+# A 2.3 GB home took over five minutes on a two-vCPU host; allow clear headroom.
+GOLDEN_ARCHIVE_TIMEOUT_SECONDS = 20 * 60
 
 ABSENT_HOME_PATHS = (
     ".yoke",
@@ -222,9 +227,34 @@ def archive_operation(
             "preserve-claude" if preserve_claude else "golden-credentials",
         ]
     )
+    started = time.monotonic()
     result = control._run(
-        command, input_text=json.dumps(ABSENT_HOME_PATHS), timeout=300
+        command,
+        input_text=json.dumps(ABSENT_HOME_PATHS),
+        timeout=GOLDEN_ARCHIVE_TIMEOUT_SECONDS,
     )
+    if result.returncode == 124 and result.stderr == SSH_TIMEOUT_DIAGNOSTIC:
+        elapsed = round(time.monotonic() - started, 3)
+        return HostActionResult(
+            False,
+            {
+                "reason": "linux_golden_operation_timeout",
+                "operation": operation,
+                "elapsed_seconds": elapsed,
+                "timeout_seconds": GOLDEN_ARCHIVE_TIMEOUT_SECONDS,
+                "golden_baseline_path": destination,
+                "detail": f"Linux golden {operation} timed out after {elapsed} seconds.",
+                "recovery": (
+                    f"The remote archive process may still be running. Stop or wait for the {operation} targeting {destination} before retrying. "
+                    + (
+                        f"Capture was not registered or sealed with probes; inspect {destination}/home.tar.gz and {destination}/manifest.json, and sibling .yoke-golden-* temporary directories. Remove only this capture's unregistered output after the process stops, or choose a new literal destination outside the home."
+                        if operation == "capture"
+                        else "The home may be partly restored; retry the existing sealed baseline after the process stops. Never capture a mixed home."
+                    )
+                ),
+            },
+            "linux_golden_operation_timeout",
+        )
     try:
         evidence = json.loads(result.stdout.splitlines()[-1])
     except (ValueError, TypeError, IndexError):

@@ -22,6 +22,7 @@ SSH_OPTIONS = (
     "ConnectTimeout=10",
     "BatchMode=yes",
 )
+SSH_TIMEOUT_DIAGNOSTIC = "host_control subprocess timed out"
 
 
 class SshTestMachineTransport:
@@ -79,7 +80,11 @@ class SshTestMachineTransport:
                 timeout=timeout,
                 check=False,
             )
-        except (OSError, subprocess.TimeoutExpired):
+        except subprocess.TimeoutExpired:
+            return subprocess.CompletedProcess(
+                argv, returncode=124, stdout="", stderr=SSH_TIMEOUT_DIAGNOSTIC
+            )
+        except OSError:
             return subprocess.CompletedProcess(
                 argv,
                 returncode=124,

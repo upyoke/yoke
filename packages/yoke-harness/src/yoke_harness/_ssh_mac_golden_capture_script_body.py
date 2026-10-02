@@ -81,19 +81,23 @@ assert_no_yoke_residue() {
 }
 
 copy_home() {
-  /bin/mkdir -p -- "$destination" || return 1
   : > "$copy_error_log"
-  while IFS= read -r -d '' entry; do
-    /bin/cp -Rp "$entry" "$destination/" 2>>"$copy_error_log" || return 1
-  done < <(/usr/bin/find "$home" -mindepth 1 -maxdepth 1 -print0)
+  /bin/mkdir -p -- "$destination" 2>>"$copy_error_log" || return 1
+  # Recursion belongs to find, not the copier: a socket or FIFO can occur
+  # inside any directory. NUL-delimited relative paths preserve unusual names.
+  # macOS tar retains resource forks, extended attributes, ACLs and file flags.
+  (
+    builtin cd -q -- "$home" || exit 1
+    /usr/bin/find . -mindepth 1 ! -type s ! -type p -print0 |
+      /usr/bin/tar -cpf - --no-recursion --null -T - |
+      /usr/bin/tar -xpf - --mac-metadata --xattrs --acls -C "$destination"
+  ) 2>>"$copy_error_log" || return 1
   # The reset treats any restore stderr as failure and this is its mirror: a
   # capture that could not read part of the home produces a baseline missing
   # exactly that part, and nothing downstream can tell.
   [[ ! -s "$copy_error_log" ]] || return 1
-  captured_entry_count=$(
-    /usr/bin/find "$destination" -mindepth 1 -maxdepth 1 -print | /usr/bin/wc -l
-  )
-  captured_entry_count="${captured_entry_count// /}"
+  local -a captured_entries=("$destination"/*(DN))
+  captured_entry_count="${#captured_entries}"
   [[ "$captured_entry_count" == <-> ]] || return 1
   (( captured_entry_count > 0 )) || return 1
 }
@@ -102,7 +106,7 @@ copy_home() {
 # modes and ACLs they had, because the restore restores modes from the golden
 # and rewriting them here would make every restored home wrong.
 seal_permissions() {
-  /bin/chmod "$golden_directory_mode" -- "$destination"
+  /bin/chmod -- "$golden_directory_mode" "$destination"
 }
 
 write_manifest() {
@@ -120,7 +124,7 @@ write_manifest() {
     print -r -- "kilobyte_count $captured_kilobyte_count"
     print -r -- "probes_digest $probes_digest"
   } > "$destination$manifest_suffix" || return 1
-  /bin/chmod "$golden_sidecar_mode" -- "$destination$manifest_suffix" || return 1
+  /bin/chmod -- "$golden_sidecar_mode" "$destination$manifest_suffix" || return 1
   manifest_digest=$(
     /usr/bin/shasum -a 256 "$destination$manifest_suffix" | /usr/bin/cut -d' ' -f1
   )
@@ -143,13 +147,19 @@ finish() {
   failure_step="$capture_step"
   set +e
   trap - EXIT HUP INT TERM
-  cleanup_scratch
   if (( finish_rc != 0 )); then
     print -r -- "$capture_failure_prefix$failure_step"
     if [[ -n "${failure_detail:-}" ]]; then
       print -r -- "$failure_detail"
     fi
+    if [[ "$failure_step" == "$capture_phase_copy_home" && -s "$copy_error_log" ]]; then
+      print -rn -- "$copy_stderr_prefix"
+      /usr/bin/head -c "$copy_stderr_limit" "$copy_error_log" |
+        /usr/bin/base64 | /usr/bin/tr -d '\n'
+      print
+    fi
   fi
+  cleanup_scratch
   exit "$finish_rc"
 }
 

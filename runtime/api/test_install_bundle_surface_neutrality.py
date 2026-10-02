@@ -16,6 +16,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 from yoke_core.domain.agents_render_project_install import write_project_install
 
 REPO = Path(__file__).resolve().parents[2]
@@ -76,8 +78,7 @@ def _repo_layout_offenders() -> list[str]:
             if SOURCE_REPO_ONLY_LABEL in line.casefold():
                 continue
             matched = [
-                name for name, pattern in REPO_LAYOUT_PATTERNS
-                if pattern.search(line)
+                name for name, pattern in REPO_LAYOUT_PATTERNS if pattern.search(line)
             ]
             if matched:
                 offenders.append(
@@ -180,15 +181,29 @@ def test_managed_blocks_use_the_generic_item_prefix() -> None:
         for allowed in MANAGED_BLOCK_ALLOWED:
             block = block.replace(allowed, "")
         if REPO_ITEM_PREFIX in block:
-            offenders.append(
-                f"{path.name} ({block.count(REPO_ITEM_PREFIX)})"
-            )
+            offenders.append(f"{path.name} ({block.count(REPO_ITEM_PREFIX)})")
     assert offenders == [], (
         f"repo item prefix {REPO_ITEM_PREFIX!r} inside a managed block: "
         f"{offenders}. The block is copied verbatim into every installed "
         "project; move repo-specific examples below the END marker or use "
         f"{GENERIC_ITEM_PLACEHOLDER!r}."
     )
+
+
+@pytest.mark.parametrize("packaged", [False, True])
+def test_installed_project_rules_exclude_source_bundle_sync(tmp_path, packaged):
+    from yoke_cli.project_install.managed_markdown import apply_managed_markdown
+    from yoke_core.domain.install_bundle_managed import managed_bundle_keys
+    from yoke_core.domain.install_bundle_tree_sync import PACKAGED_TREE_REL
+
+    root = REPO / PACKAGED_TREE_REL if packaged else REPO
+    managed = managed_bundle_keys(root)["managed_markdown"]
+    apply_managed_markdown(tmp_path, managed, None)
+
+    for name in ("AGENTS.md", "CLAUDE.md"):
+        assert "install_bundle_tree_sync" not in (tmp_path / name).read_text()
+    source_rules = (REPO / "AGENTS.md").read_text()
+    assert "install_bundle_tree_sync sync" in source_rules.split(BLOCK_END, 1)[1]
 
 
 def test_the_generic_placeholder_is_actually_in_use() -> None:
