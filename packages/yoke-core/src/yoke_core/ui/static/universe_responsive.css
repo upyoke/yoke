@@ -334,12 +334,10 @@
   .universe-app-root button,
   .universe-app-root .nav-link,
   .universe-app-root .scope-chip,
-  .universe-app-root .item-button { min-height: 40px; }
-  .universe-app-root .header-context-control button,
-  .universe-app-root .header-scope-host .scope-chip { min-height: 0; }
+  .universe-app-root .item-button { min-height: 40px; min-width: 40px; }
+  .universe-app-root .header-context-control { height: auto; min-height: 40px; }
   .universe-app-root .activation-dismiss { opacity: 1; }
-  /* Only the card that IS a link still lifts, so only it needs the touch
-     answer; the others stopped promising a click at every pointer. */
+  /* Touch has no persistent hover state. */
   .universe-app-root .strategy-doc-card:hover {
     border-color: var(--yoke-border);
     box-shadow: none;

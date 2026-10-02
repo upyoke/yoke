@@ -34,6 +34,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "contract-version.js": "text/javascript; charset=utf-8",
     "mount-options.js": "text/javascript; charset=utf-8",
     "universe_app_chrome.js": "text/javascript; charset=utf-8",
+    "universe_navigation_drawer.js": "text/javascript; charset=utf-8",
     "universe_shell_controls.js": "text/javascript; charset=utf-8",
     "universe_search_overlay.js": "text/javascript; charset=utf-8",
     "universe_search_domains.js": "text/javascript; charset=utf-8",

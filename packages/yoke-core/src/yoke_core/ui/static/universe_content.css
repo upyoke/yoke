@@ -73,12 +73,8 @@
 .universe-app-root table.items tr:last-child :is(th, td) {
   border-bottom: 0;
 }
-.universe-app-root table.items:not(.kv) tr:has(a.row-link):hover {
-  background: var(--yoke-hover);
-}
-.universe-app-root table.items:not(.kv) tr:has(a.row-link) {
-  cursor: pointer;
-}
+/* Cell links own navigation. A whole-row pointer would promise an action
+   that the row's other cells do not perform. */
 
 .universe-app-root .mono {
   font-family: var(--yoke-font-mono);

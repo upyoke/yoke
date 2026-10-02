@@ -13,16 +13,24 @@ import {
   settle,
 } from "./universe_ui_dom_test_support.mjs";
 
-async function mountDrawer(t) {
+async function mountDrawer(t, initiallyNarrow = true) {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
+  let narrow = initiallyNarrow;
+  documentNode.defaultView.getComputedStyle = (node) => ({
+    display: node.classList.contains("navigation-toggle") && !narrow ? "none" : "block",
+  });
   documentNode.defaultView.location.hash = "#/strategy";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client: injectedClient("drawer") });
   await settle();
-  return { documentNode, root, mounted };
+  const resize = (next) => {
+    narrow = next;
+    documentNode.defaultView.dispatchEvent(new Event("resize"));
+  };
+  return { documentNode, root, mounted, resize };
 }
 
 test("an open drawer makes the page behind it inert", async (t) => {
@@ -80,16 +88,72 @@ test("a closed drawer is left alone, so Escape never steals focus", async (t) =>
   mounted.unmount();
 });
 
-test("following a destination closes the drawer without taking focus back", async (t) => {
+test("following a destination closes the drawer and focuses the new page", async (t) => {
   const { documentNode, root, mounted } = await mountDrawer(t);
   const toggle = byClass(root, "navigation-toggle")[0];
   toggle.dispatchEvent(new Event("click"));
   const link = byClass(root, "nav-link")[1];
   documentNode.activeElement = link;
   link.dispatchEvent(new Event("click"));
-  // The drawer is gone, and focus stays with the navigation that happened.
+  // The selected link becomes inert with the closed drawer. Focus belongs
+  // to the page, not to an invisible destination or the old toggle.
   assert.equal(toggle.getAttribute("aria-expanded"), "false");
   assert.equal(byClass(root, "workbench-body")[0].inert, false);
-  assert.equal(documentNode.activeElement, link);
+  assert.equal(documentNode.activeElement, byClass(root, "content")[0]);
+  mounted.unmount();
+});
+
+test("a closed narrow drawer is inert but wide navigation remains available", async (t) => {
+  const { root, mounted, resize } = await mountDrawer(t);
+  const navigation = byClass(root, "sidenav")[0];
+  assert.equal(navigation.inert, true);
+  resize(false);
+  assert.equal(navigation.inert, false);
+  resize(true);
+  assert.equal(navigation.inert, true);
+  mounted.unmount();
+});
+
+test("widening an open drawer clears every background restriction", async (t) => {
+  const { documentNode, root, mounted, resize } = await mountDrawer(t);
+  const toggle = byClass(root, "navigation-toggle")[0];
+  const background = ["topbar", "workbench-body", "app-footer"]
+    .map((name) => byClass(root, name)[0]);
+  toggle.dispatchEvent(new Event("click"));
+  assert.ok(background.every((node) => node.inert));
+  assert.equal(documentNode.activeElement, byClass(root, "navigation-close")[0]);
+  resize(false);
+  assert.ok(background.every((node) => !node.inert));
+  assert.equal(toggle.getAttribute("aria-expanded"), "false");
+  assert.equal(byClass(root, "navigation-scrim")[0].hidden, true);
+  assert.equal(byClass(root, "sidenav")[0].inert, false);
+  assert.notEqual(documentNode.activeElement, byClass(root, "navigation-close")[0]);
+  resize(true);
+  assert.equal(byClass(root, "sidenav")[0].inert, true);
+  mounted.unmount();
+  assert.equal(documentNode.defaultView.listenerCounts.get("resize"), 0);
+});
+
+test("drawer tab order stays visible and skips collapsed destinations", async (t) => {
+  const { documentNode, root, mounted } = await mountDrawer(t);
+  byClass(root, "navigation-toggle")[0].dispatchEvent(new Event("click"));
+  const close = byClass(root, "navigation-close")[0];
+  const diagnostics = byClass(root, "nav-group").find((node) => node.textContent === "Diagnostics");
+  const tab = (shiftKey = false) => {
+    const event = new Event("keydown");
+    event.key = "Tab";
+    event.shiftKey = shiftKey;
+    documentNode.defaultView.dispatchEvent(event);
+  };
+  assert.equal(documentNode.activeElement, close);
+  tab(true);
+  assert.equal(documentNode.activeElement, diagnostics);
+  tab();
+  assert.equal(documentNode.activeElement, close);
+  diagnostics.dispatchEvent(new Event("click"));
+  const lastLink = byClass(root, "nav-link").at(-1);
+  documentNode.activeElement = lastLink;
+  tab();
+  assert.equal(documentNode.activeElement, close);
   mounted.unmount();
 });

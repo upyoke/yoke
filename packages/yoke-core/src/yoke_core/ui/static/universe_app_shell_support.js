@@ -184,6 +184,8 @@ export function createHeldScopeController(deps) {
         rememberedScopeParam(navItem, projectsRef(), scopeSelections),
         );
       link.classList.toggle("active", navItem.id === activeId);
+      if (navItem.id === activeId) link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
     }
     revealActiveCompactDestination(windowNode, navLinks.get(activeId));
     refreshLinks?.();
