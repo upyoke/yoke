@@ -41,6 +41,14 @@ checks and the target environment still belong to the run's owning project.
 
 ## Item-bound delivery
 
+Frontier item cards show the newest run that named the item in each
+environment, including recorded removals. A removed member reads
+"removed · QA cancelled · rides a later release", or links the newer run
+holding it. The removal reason is available on the outcome's tooltip;
+removal changes QA custody, and does not remove the code from the build.
+A failed or cancelled deployment keeps that outcome even when its member
+QA cannot be read, with the QA reason available on the same tooltip.
+
 `/yoke usher` and `yoke deployment-runs start-for-item` bind implemented work
 to a run, execute the pipeline, and move members toward done. Flow id ≠ run
 id (`run-YYYYMMDD-NNN`).
