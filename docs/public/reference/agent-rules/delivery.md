@@ -49,7 +49,10 @@ the run's own candidate, so the run delivers two projects, not one.
   project the run ships — its own plus every bound one — against that
   project's recorded commit, so a bound project's delivery-ready items become
   ordinary members. They get a membership row, a requirement snapshot, and the
-  item-scoped QA wake, exactly like own-project members. An item whose project
+  item-scoped QA wake when they owe cases. A carried cross-project member
+  whose own completion flow declares no item-scoped QA owes no answer when it
+  has no explicit plan or post-deploy requirement, and closes with the release;
+  reports name its own flow as the reason. Explicit obligations still run. An item whose project
   the run ships no source for is still refused.
   Creation pins bound sources and validates composition in its insertion
   transaction. A refusal rolls back before a run ID is committed; start

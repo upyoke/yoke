@@ -54,9 +54,7 @@ def stage_environment_id_for_plan_selection(
         return None
     deployment = target.get("deployment")
     run_id = (
-        str(deployment.get("run_id") or "")
-        if isinstance(deployment, Mapping)
-        else ""
+        str(deployment.get("run_id") or "") if isinstance(deployment, Mapping) else ""
     )
     if not run_id:
         return None
@@ -215,7 +213,11 @@ def attached_member_plans(
         {
             "attachment": {"qa_phase": DEPLOYMENT_ATTACHMENT_PHASE},
             **_plan_snapshot(
-                conn, int(plan_id), project_id=int(subject["project_id"])
+                conn,
+                int(plan_id),
+                project_id=int(
+                    subject.get("member_project_id") or subject["project_id"]
+                ),
             ),
         }
         for plan_id in plan_ids

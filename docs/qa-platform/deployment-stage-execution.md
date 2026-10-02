@@ -286,9 +286,9 @@ left to execute, so it is **discharged**: it gates exactly like `accepted`,
 and reads as `discharged` wherever a state is rendered — including the stage
 result notice sent to the member's owner. Keeping the two words apart is
 deliberate; an authorized discharge is not a result that passed. A subject
-with no materialized cases at all is unanswered unless the member recorded
+with no materialized cases at all is unanswered unless it is a carried cross-project member whose own completion flow declares no item QA and it has no explicit plan or post-deploy requirement, or the member recorded
 that it has no post-deploy obligation (not a waiver) or a waiver-backed
-declaration before the deploy.
+declaration before the deploy. The own-flow exemption records no item answer or waiver; stage and fleet reports name why it owes nothing, and it closes with the release. Same-project members and carried members whose own flow has item QA still need an answer. Explicit attached, admitted, and run-bound cases still execute.
 
 ## Failed member QA handoff
 

@@ -175,4 +175,13 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "No `operator_preferences` field."
         ),
     },
+    "yoke_core.domain.steering_fleet_report_deployment_runs": {
+        "columns": [("run_progress", "callable")],
+        "notes": (
+            "Read live deployment run progress with run_progress(conn, "
+            "project_id=..., now=...). Wrong guess: read_deployment_runs "
+            "does not exist. Scoped QA reports include no_obligation_lines "
+            "for carried members exempt under their own completion flow."
+        ),
+    },
 }

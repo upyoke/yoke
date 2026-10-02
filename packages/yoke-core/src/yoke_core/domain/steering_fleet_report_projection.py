@@ -145,6 +145,7 @@ def _run_dict(entry: DeploymentRunProgress) -> dict[str, Any]:
         "outstanding": entry.outstanding,
         "total_blocking": entry.total_blocking,
         "unresolved": list(entry.unresolved),
+        "no_obligation_lines": list(entry.no_obligation_lines),
         "red": [
             {
                 "requirement_id": red.requirement_id,

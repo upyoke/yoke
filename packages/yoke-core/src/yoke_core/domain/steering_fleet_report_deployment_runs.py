@@ -120,6 +120,7 @@ class DeploymentRunProgress:
     #: Live driver phase when one is attached, else empty. Distinguishes
     #: "nobody started this" from "started, inside a long silent phase".
     driver_phase: str = ""
+    no_obligation_lines: tuple[str, ...] = ()
 
     @property
     def needs_action(self) -> bool:
@@ -224,6 +225,7 @@ def run_progress(
                 outstanding=outstanding,
                 total_blocking=total_blocking,
                 unresolved=unresolved,
+                no_obligation_lines=qa.no_obligation_lines if qa is not None else (),
                 red=red,
                 answered_decision=_answered(facts.decisions.get(run_id), now=now),
                 pin_qa=(

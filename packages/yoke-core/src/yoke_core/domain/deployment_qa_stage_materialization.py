@@ -33,6 +33,7 @@ from yoke_core.domain.deployment_qa_direct_case_target import (
 from yoke_core.domain.deployment_requirement_snapshots import _plan_snapshot
 from yoke_core.domain.post_deploy_verification_answer import (
     cases_not_selected_refusal,
+    NOT_REQUIRED,
     member_post_deploy_answer,
 )
 from yoke_core.domain.qa_plan_management import QaPlanError
@@ -165,6 +166,7 @@ def materialize_deployment_qa_stage(
     created: list[int] = []
     existing: list[int] = []
     declared_none: tuple[str, ...] = ()
+    not_required: tuple[str, ...] = ()
     now = iso8601_now()
     try:
         # Serializes first materialization without adding another ledger/index.
@@ -180,12 +182,15 @@ def materialize_deployment_qa_stage(
             or bound_direct
             or any(requirement.get("method_id") for requirement in admitted)
         ):
-            # A member that recorded no obligation, or waived the check,
-            # answered before deploy; silence is still a wait.
+            # Recorded emptiness or the own-flow exemption settles no cases;
+            # other unanswered members still wait.
             answer = member_post_deploy_answer(conn, subject)
             if not answer.discharges_without_cases:
                 raise QaCasesNotSelectedError(cases_not_selected_refusal())
-            declared_none = answer.reasons
+            if answer.verdict == NOT_REQUIRED:
+                not_required = answer.reasons
+            else:
+                declared_none = answer.reasons
         existing.extend(bound_direct)
         for requirement in admitted:
             if requirement.get("plan_id") is not None:
@@ -303,6 +308,7 @@ def materialize_deployment_qa_stage(
         # verification, so a reader can tell a stage that credited nothing
         # deliberately from one that found work to do.
         "declared_no_post_deploy_verification": list(declared_none),
+        "no_item_qa_obligation": list(not_required),
     }
 
 

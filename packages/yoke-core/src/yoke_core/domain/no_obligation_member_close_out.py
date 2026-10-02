@@ -4,7 +4,9 @@ The merge close-out is the one path to done. This module runs that same
 close-out without a session when the member recorded no obligation or a
 waiver-backed declaration, or its completion-flow QA requirements all passed
 or were discharged. Outstanding run-bound obligations still hold it. An
-unanswered member with an empty case set also stays held.
+unanswered member with an empty case set also stays held, except a carried
+cross-project member whose own flow declares no item QA and has no explicit
+obligation. That member closes with the run without authoring an answer.
 """
 
 from __future__ import annotations
@@ -53,7 +55,13 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
         (str(run_id), int(item_id)),
     )
     if not int(total or 0):
-        return discharges_without_cases
+        from yoke_core.domain.carried_member_qa_obligation import (
+            carried_member_no_item_qa_reason,
+        )
+
+        return discharges_without_cases or bool(
+            carried_member_no_item_qa_reason(conn, run_id=run_id, item_id=item_id)
+        )
     unresolved = query_scalar(
         conn,
         "SELECT COUNT(*) FROM qa_requirements r "
