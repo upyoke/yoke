@@ -10,9 +10,12 @@ covered authenticated/not_started credential access and reused/started RDP
 screenshots (operations 27393 and 27427); the prerequisite owner reviewed both.
 That proof used candidate `7c7af2bc01986a58a6c3eeab8a4e3d6bc96c0fff` and FreeRDP
 3.32.1 on macOS. It proves neither WSL Chromium nor full provisioning.
-The host is stopped. The operator authorized a bounded WSL display provisioning
-window; real display and profile capture/restore proof remain pending.
-Steps 1–5 and 7–8 require new checks; historical golden receipts do not pass them.
+The Pack provisioner passed on Server2025 build26100 with WSL3.0.1: non-root
+user, systemd/sudo, XFCE/xrdp and Windows localhost access to 127.0.0.1:3390.
+The 21:34–21:41 UTC window ended with a stopped waiter and a second idle check.
+The local Linux password is unset: product-owned desktop login, actual headed
+Chromium and profile capture/restore remain pending. Historical golden receipts
+do not pass these checks or steps 1–5 and 7–8.
 
 ## 1. Infrastructure and Windows account
 
