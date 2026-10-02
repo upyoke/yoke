@@ -37,7 +37,8 @@ def plan_step(inputs: dict[str, Any], config_path: Path) -> dict[str, str]:
     ):
         command = shlex.join(("git", "push", remote, branch))
         text = (
-            "Commit locally; not pushed because GitHub is not connected "
+            "Commit Yoke setup and try to push with your own git credentials; "
+            "otherwise commit locally, not pushed because GitHub is not connected "
             f"(push later with: {command})"
         )
     else:

@@ -91,14 +91,15 @@ def test_pending_post_deploy_does_not_block_a_closing_merge(
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *a: "")
     monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
-    monkeypatch.setattr(
-        merge_cli, "_resolve_checkout", lambda *a: (tmp_path, "main")
-    )
+    monkeypatch.setattr(merge_cli, "_resolve_checkout", lambda *a: (tmp_path, "main"))
     monkeypatch.setattr(
         merge_cli.close_out, "transition_to_done", lambda **_k: ("release", "")
     )
-    monkeypatch.setattr(merge_cli.close_out, "record_execution_evidence", lambda **_k: ("", ""))
-    outcome = mock.Mock(
+    monkeypatch.setattr(
+        merge_cli.close_out, "record_execution_evidence", lambda **_k: ("", "")
+    )
+    outcome = merge_domain.StandaloneMergeOutcome(
+        exit_code=0,
         ok=True,
         already_merged=False,
         commit_sha=MERGING_SHA,
@@ -112,10 +113,7 @@ def test_pending_post_deploy_does_not_block_a_closing_merge(
     monkeypatch.setattr(merge_domain, "sync_item_to_github", lambda _item_id: None)
 
     assert (
-        merge_cli.run(
-            ["YOK-10", "--result", "landed", "--verification", "green"]
-        )
-        == 0
+        merge_cli.run(["YOK-10", "--result", "landed", "--verification", "green"]) == 0
     )
     merger.assert_called_once()
     assert "concluded 'failed'" not in capsys.readouterr().err

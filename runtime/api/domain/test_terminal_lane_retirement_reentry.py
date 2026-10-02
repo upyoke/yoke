@@ -145,16 +145,12 @@ def _no_write(**_kwargs) -> tuple[str, str]:
 
 
 def _landed_outcome():
-    class _Outcome:
-        ok = True
-        error = ""
-        exit_code = 0
-        already_merged = False
-        commit_sha = "1" * 40
-        merge_sha = "2" * 40
-        touched_files = ("feature.txt",)
-        pushed = True
-        warnings = ()
-        landing_pending = False
-
-    return _Outcome()
+    return merge_cli.merge_domain.StandaloneMergeOutcome(
+        ok=True,
+        exit_code=0,
+        already_merged=False,
+        commit_sha="1" * 40,
+        merge_sha="2" * 40,
+        touched_files=("feature.txt",),
+        pushed=True,
+    )

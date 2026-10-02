@@ -100,7 +100,8 @@ def test_review_disconnected_github_names_later_push(checkout, tmp_path, github)
         tmp_path / "config.json",
     )
     assert (
-        "Commit locally; not pushed because GitHub is not connected "
+        "Commit Yoke setup and try to push with your own git credentials; "
+        "otherwise commit locally, not pushed because GitHub is not connected "
         "(push later with: git push origin trunk)"
     ) in lines["repo"]
     assert all("Bind this project" not in line for line in lines["core"])

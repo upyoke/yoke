@@ -16,6 +16,7 @@ from yoke_core.domain import standalone_item_merge as boundary
 from yoke_core.domain import standalone_item_merge_post_push as post_push
 from yoke_core.engines import merge_worktree as engine
 from yoke_core.engines import merge_worktree_post_local as local
+from yoke_cli.config import credentialed_git
 
 
 def make_local_checkout(monkeypatch, tmp_path: Path, layout: str):
@@ -103,15 +104,20 @@ def make_local_checkout(monkeypatch, tmp_path: Path, layout: str):
         boundary.receipts, "record_before_landing", lambda *_a, **_k: ""
     )
     monkeypatch.setattr(boundary, "stamp_merged_at", lambda *_a, **_k: None)
-    publish = post_push.git.publish
+
+    # The real runner still selects the credential-empty, prompt-free path;
+    # this fixture keeps the external network from answering for local tests.
+    def unavailable(argv, _cwd, env, _timeout):
+        assert env["GIT_TERMINAL_PROMPT"] == "0"
+        assert env["GCM_INTERACTIVE"] == "Never"
+        assert "BatchMode=yes" in env["GIT_SSH_COMMAND"]
+        assert not (home / ".ssh").exists()
+        return subprocess.CompletedProcess(argv, 128, "", "No fixture credentials")
+
     monkeypatch.setattr(
-        post_push.git,
-        "publish",
-        lambda root, target: (
-            _unexpected("push")
-            if post_push.git.has_remote(root)
-            else publish(root, target)
-        ),
+        credentialed_git,
+        "_run_own_credentials",
+        unavailable,
     )
     monkeypatch.setattr(
         post_push, "await_post_push_checks", lambda *_a: _unexpected("App checks")

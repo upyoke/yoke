@@ -93,11 +93,18 @@ def _wire_cli(monkeypatch, item: dict, tmp_path: Path) -> mock.Mock:
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
     monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
-        merge_cli, "_resolve_checkout", lambda *_a: (tmp_path, "main"),
+        merge_cli,
+        "_resolve_checkout",
+        lambda *_a: (tmp_path, "main"),
     )
-    outcome = mock.Mock(
-        ok=True, already_merged=False, commit_sha=ACTIVE_SHA,
-        merge_sha=OTHER_SHA, touched_files=("file.py",), pushed=True,
+    outcome = merge_domain.StandaloneMergeOutcome(
+        exit_code=0,
+        ok=True,
+        already_merged=False,
+        commit_sha=ACTIVE_SHA,
+        merge_sha=OTHER_SHA,
+        touched_files=("file.py",),
+        pushed=True,
         warnings=(),
     )
     merger = mock.Mock(return_value=outcome)
@@ -127,7 +134,8 @@ def test_preflight_uses_the_active_head_not_a_released_record(
 
 
 def test_merge_item_lands_the_active_lane_when_a_released_record_is_stale(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ) -> None:
     merger = _wire_cli(monkeypatch, _item(_stale_and_live()), tmp_path)
     assert merge_cli.run(["YOK-10", "--skip-status"]) == 0
@@ -139,11 +147,15 @@ def test_already_merged_cannot_be_derived_from_a_released_record(
     tmp_path: Path,
 ) -> None:
     commit_sha, error = merge_qa.preflight(
-        _item([{
-            "branch": "YOK-10",
-            "state": "released",
-            "commit_sha": RELEASED_SHA,
-        }]),
+        _item(
+            [
+                {
+                    "branch": "YOK-10",
+                    "state": "released",
+                    "commit_sha": RELEASED_SHA,
+                }
+            ]
+        ),
         public_ref="YOK-10",
         repo_root=tmp_path,
         branch="YOK-10",
@@ -159,7 +171,9 @@ def test_zero_active_lanes_are_a_named_error() -> None:
 
 
 def test_merge_item_refuses_zero_active_lanes(
-    tmp_path: Path, monkeypatch, capsys,
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
 ) -> None:
     merger = _wire_cli(monkeypatch, _item([]), tmp_path)
     monkeypatch.setattr(recovery, "branch_needs_receipt", lambda *_a: False)
@@ -226,11 +240,15 @@ def test_multiple_workers_without_integration_are_a_named_error(
 
 def test_receipt_recovery_presents_one_active_lane() -> None:
     item = with_recorded_head(
-        _item([{
-            "branch": "YOK-10",
-            "state": "released",
-            "commit_sha": RELEASED_SHA,
-        }]),
+        _item(
+            [
+                {
+                    "branch": "YOK-10",
+                    "state": "released",
+                    "commit_sha": RELEASED_SHA,
+                }
+            ]
+        ),
         MergeReceipt(
             branch="YOK-10",
             target="main",

@@ -25,9 +25,7 @@ ELIGIBLE = "eligible"
 
 LOCAL_ONLY_REASON = "local-only checkout: no git remote to publish to"
 DISABLED_REASON = "--no-publish"
-SOURCE_DEV_REASON = (
-    "source-dev/admin local-source apply publishes nothing by design"
-)
+SOURCE_DEV_REASON = "source-dev/admin local-source apply publishes nothing by design"
 
 PROTECTED = "protected"
 STALE = "stale"
@@ -94,7 +92,11 @@ def pending(
 
 
 def already_published(
-    *, remote: str, branch: str, commit: str, detail: str = "",
+    *,
+    remote: str,
+    branch: str,
+    commit: str,
+    detail: str = "",
 ) -> dict[str, Any]:
     return {
         "status": ALREADY_PUBLISHED,
@@ -106,7 +108,8 @@ def already_published(
 
 
 def with_reconcile(
-    outcome: dict[str, Any], reconciled: dict[str, Any] | None,
+    outcome: dict[str, Any],
+    reconciled: dict[str, Any] | None,
 ) -> dict[str, Any]:
     """Keep the reconcile record beside the outcome it produced."""
     if reconciled is None:
@@ -134,7 +137,9 @@ def announce(report: dict[str, Any] | None) -> None:
     status = str(publication.get("status") or "")
     target = f"{publication.get('remote')}/{publication.get('branch')}"
     if status in (PUBLISHED, ALREADY_PUBLISHED):
-        print(f"yoke project publish: {status} to {target}", file=sys.stderr)
+        detail = publication.get("detail")
+        suffix = f" ({detail})" if detail else ""
+        print(f"yoke project publish: {status} to {target}{suffix}", file=sys.stderr)
         return
     if status == SKIPPED:
         print(

@@ -1,7 +1,8 @@
 # The credentialed git environment
 
-Every git command Yoke runs that reaches a remote carries the machine's stored
-GitHub credential. There is one place that decides this —
+Git commands against GitHub prefer the machine's stored authorization. When
+none is stored, they may try the user's own git credentials non-interactively.
+There is one place that decides this —
 `yoke_cli.config.credentialed_git` — and every engine remote operation goes
 through it: merge pushes and fetches, the branch publish that ends a merge,
 the QA lane push that CI checks out, the doctor's branch and stale-remote
@@ -40,16 +41,24 @@ than what a later re-derivation would guess.
 - *No* — another host, a file remote, no remote at all: the command runs
   non-interactively with no credential. A missing GitHub credential is not
   what is wrong with a GitLab remote.
-- *Yes* — the command runs in the hermetic environment the clone path uses:
+- *Yes, with stored authorization* — the command runs in the hermetic environment
+  the clone path uses:
   the stored token as a URL-scoped `http.extraheader`, injected through
   `GIT_CONFIG_*` so it reaches neither argv, `.git/config`, nor the stored
   remote; ambient credential helpers, system and global config, and `~/.netrc`
-  reset out of the way.
+  reset out of the way. Broken or revoked stored authorization refuses and never
+  consults ambient credentials.
+- *Yes, without stored authorization* — Git keeps the user's configuration and
+  may use an existing helper or SSH key. Prompts remain disabled, including
+  `GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=Never`, and SSH `BatchMode=yes`.
+  `run` bounds the child and its helpers by the existing network deadline.
 
 ## SSH origins
 
 A checkout cloned over SSH has no HTTPS remote to attach a header to, so the
-configured origin's SSH forms are rewritten onto its HTTPS form:
+configured origin's SSH forms are rewritten onto its HTTPS form when using
+stored authorization. The optional own-credential path preserves SSH:
+
 
 ```
 url.https://github.com/.insteadOf = git@github.com:
@@ -118,18 +127,21 @@ has already switched to the admin connection by then.
 
 ## When no credential resolves
 
-A read that loses the machine operation lock, or cannot reach GitHub, is
-replayed within the shared authorization retry budget
-(`yoke_contracts.github_auth_transience`). Only a failure that survives the
-budget refuses, and the refusal names the recovery that matches what failed:
+When no authorization is stored, a failed optional Git attempt says that no
+Yoke GitHub authorization is stored, that your own git credentials did not work,
+and names `yoke github status` and `yoke github connect` as recovery. It returns
+a failed command, including when the deadline expires; it never opens a prompt.
+Onboarding retains its setup commit and named pending-publication outcome.
+Disconnected standalone completion retains a successful local merge and the
+named “not pushed because GitHub is not connected” outcome. Neither flow needs
+ambient credentials to complete. Successful publication names which credential
+path was used; a successful own-credential push does not enable App checks or
+GitHub sync.
 
-```
-cannot authenticate a git operation against https://github.com/acme/widgets.git:
-machine GitHub App authorization is not configured. Yoke reaches GitHub with
-this machine's GitHub App user authorization and nothing else stands in for it.
-Run `yoke github status` to see what is stored, then `yoke github connect` to
-authorize this machine.
-```
+With stored authorization, a read that loses the machine operation lock or
+cannot reach GitHub is replayed within the shared authorization retry budget
+(`yoke_contracts.github_auth_transience`). Only a failure that survives the
+budget refuses, naming the recovery that matches what failed.
 
 A retry-shaped failure gets the opposite advice, deliberately: the stored
 authorization still stands, so the recovery is to retry. **No failure path
@@ -150,9 +162,10 @@ machine's credential.
 `yoke onboard` still installs a URL-scoped credential helper into checkouts it
 onboards (see [github-connections.md](github-connections.md)), and
 `yoke github disconnect` still removes it. That helper serves git commands run
-by *people* in their own shells. It is no longer what carries Yoke's own
-remote operations, so a checkout without it — an SSH origin, a manual clone —
-now behaves the same as one with it.
+by *people* in their own shells. Stored Yoke authorization ignores ambient
+helpers. Without stored authorization, the optional path may use the user's
+existing helper, without installing a new credential or substituting it for
+GitHub API authorization.
 
 ## Adding a remote operation
 
@@ -160,5 +173,6 @@ Call `credentialed_git.run(args, cwd=..., timeout=...)` with git's arguments
 (no leading `"git"`). When a call site needs its own execution — a runner that
 reaps process groups, an injected command runner — take the environment
 instead with `credentialed_git.git_environment(args, cwd=...)` and run the
-command yourself. Do not build a git environment by hand: an environment that
-is only prompt-proof is exactly the state this replaced.
+command yourself, retaining that runner's network deadline and process cleanup.
+Do not build a git environment by hand: credential selection and prompt
+suppression belong to this shared runner.

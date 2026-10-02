@@ -202,6 +202,8 @@ def outcome_lines(
         )
     if kind == AWAITING_DELIVERY:
         lines.extend(_awaiting_delivery_lines(record, ref))
+    if record.get("publication_message"):
+        lines.append(str(record["publication_message"]))
     recorded = record.get("evidence_recorded")
     if recorded is not None:
         lines.append(_evidence_line(bool(recorded), from_record=evidence_from_record))

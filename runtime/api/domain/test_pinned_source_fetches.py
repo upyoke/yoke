@@ -87,8 +87,14 @@ def test_fetch_uses_only_stored_authorization(fetch_source, monkeypatch):
     assert len(calls) == 1
 
 
-def test_missing_authorization_refuses_before_subprocess(fetch_source, monkeypatch):
+def test_unavailable_stored_authorization_refuses_before_subprocess(
+    fetch_source, monkeypatch
+):
     fetch, error, _ = fetch_source
+    monkeypatch.setattr(
+        "yoke_cli.config.machine_config.github_config",
+        lambda _path: {"authorization": {"status": "authorized"}},
+    )
 
     def missing(_):
         raise cg.CredentialedGitError(
