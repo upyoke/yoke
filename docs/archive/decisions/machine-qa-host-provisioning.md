@@ -1,7 +1,7 @@
 # Why Machine QA owns restorable user state
 
 The authoritative provisioning, authentication, permission, desktop, save,
-and restore procedures live in the [Machine QA Pack](../../../packs/machine-qa).
+and restore procedures live in the [Machine QA Pack](../../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/host-provisioning.md).
 This decision record preserves architectural reasoning only.
 
 ## A whole home is the unit of restore

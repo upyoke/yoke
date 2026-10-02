@@ -243,7 +243,7 @@ authored in advance.
 
 A walker never signs in. An expired session is a human gate naming the site.
 For test-machine browser authorization, saving, and explicit restoration,
-follow the [Machine QA Pack Linux procedure](../../../packs/machine-qa).
+follow the [Machine QA Pack Linux procedure](../../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/linux-host-provisioning.md).
 The mission execution contract above still governs every host command.
 
 ## Evidence Discipline

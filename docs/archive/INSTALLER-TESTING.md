@@ -403,7 +403,7 @@ physical Mac lane is intentionally part of the campaign run.
 ## Prepare Hosts
 
 Host provisioning, sign-in, desktop access, and saved-state capture/restore
-are maintained in the [Machine QA Pack](../../packs/machine-qa). Use its
+are maintained in the [Machine QA Pack](../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/host-provisioning.md). Use its
 per-OS guides; this archived campaign is not a host setup procedure.
 
 ## Compile And Run Specs
@@ -613,7 +613,7 @@ user's home; the Pack owns its saved-state boundary.
 
 ### Mac Host
 
-Use the [Machine QA Pack macOS procedure](../../packs/machine-qa) for
+Use the [Machine QA Pack macOS procedure](../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/macos-host-provisioning.md) for
 account, network, tools, permissions, authentication, and saved state. Resolve
 the host from its registered capability rather than this archived campaign.
 
@@ -633,7 +633,7 @@ skip.
 
 ### Claude Code authentication
 
-Follow the [Machine QA Pack macOS procedure](../../packs/machine-qa).
+Follow the [Machine QA Pack macOS procedure](../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/macos-host-provisioning.md).
 Keychain-backed requests require the supported GUI Terminal context.
 
 ### Stage Installer Smoke
@@ -1143,14 +1143,14 @@ stop inside `less`.
 
 ### Git And Xcode
 
-The [Machine QA Pack macOS procedure](../../packs/machine-qa) owns the
+The [Machine QA Pack macOS procedure](../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/macos-host-provisioning.md) owns the
 Command Line Tools prerequisite. Deliberate installer failure fixtures are
 case-specific starting state, not the persistent machine baseline.
 
 ### Mac Reset
 
 Use the registered saved-state procedure in the
-[Machine QA Pack macOS guide](../../packs/machine-qa).
+[Machine QA Pack macOS guide](../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/macos-host-provisioning.md).
 
 ## Cleanup
 

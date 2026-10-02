@@ -94,7 +94,7 @@ only the two known recorder handlers for that invocation using the existing
 hook hash implementation. No sandbox/permission bypass flags are used.
 
 Authentication and GUI-session prerequisites come from the
-[Machine QA Pack macOS procedure](../../../../packs/machine-qa).
+[Machine QA Pack macOS procedure](../../../../packs/machine-qa/versions/1.3.7/files/docs/packs/machine-qa/macos-host-provisioning.md).
 The recorder's `--gui-session` option selects that already prepared context.
 
 Review the redacted recordings before committing: session/conversation/tool ids,
