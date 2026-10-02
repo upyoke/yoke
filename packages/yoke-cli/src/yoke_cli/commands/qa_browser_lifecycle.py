@@ -103,7 +103,7 @@ def qa_browser_setup(args: List[str]) -> int:
     parser.add_argument("--headed", action="store_true")
     parser.add_argument(
         "--profile-baseline",
-        help="Explicitly restore a sealed Linux profile for --project before starting the daemon; ordinary setup never restores it.",
+        help="Explicitly restore a sealed test-machine profile for --project before starting the daemon; ordinary setup never restores it.",
     )
     parser.add_argument("--idle-timeout", type=int, default=None)
     parser.add_argument("--json", dest="json_mode", action="store_true")

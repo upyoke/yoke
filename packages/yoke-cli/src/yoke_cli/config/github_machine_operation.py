@@ -57,7 +57,7 @@ def operation_lock(config_path: str | Path | None = None):
         ) from exc
     except github_git_credential_file.CredentialFileError as exc:
         raise GitHubMachineOperationError(
-            "machine GitHub App operation lock is unavailable"
+            f"machine GitHub App operation lock is unavailable: {exc}"
         ) from exc
 
 

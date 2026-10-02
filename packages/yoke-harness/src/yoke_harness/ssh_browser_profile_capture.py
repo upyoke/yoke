@@ -11,16 +11,15 @@ from yoke_contracts.machine_config.capability_secrets import (
     browser_profile_relative_path,
 )
 from yoke_contracts.machine_config.schema import SECRETS_DIR_NAME
+from yoke_contracts.machine_config import directories
 from yoke_contracts.machine_qa_execution import HostControlExecutionContract
-from yoke_harness import browser_profile_archive
+from yoke_harness import browser_profile_archive, browser_profile_writer_inventory
 from yoke_harness.test_machine_types import HostActionResult
 
 
 def capture_browser_profile(
     contract: HostControlExecutionContract, control: Any
 ) -> HostActionResult:
-    if contract.settings["os"] != "linux":
-        return HostActionResult(False, {}, "browser_profile_os_unsupported")
     relative = str(
         Path(".yoke")
         / SECRETS_DIR_NAME
@@ -28,9 +27,20 @@ def capture_browser_profile(
     )
     command = shlex.join(
         [
-            "/usr/bin/python3",
+            "python3",
             "-c",
-            Path(browser_profile_archive.__file__).read_text(),
+            Path(browser_profile_archive.__file__)
+            .read_text()
+            .replace(
+                "from yoke_harness.browser_profile_writer_inventory import WRITER_INVENTORY_PROGRAM",
+                Path(browser_profile_writer_inventory.__file__).read_text(),
+            )
+            .replace(
+                "from yoke_contracts.machine_config.directories import create_private_directory",
+                Path(directories.__file__)
+                .read_text()
+                .replace("from __future__ import annotations", ""),
+            ),
             "capture",
             control.home,
             contract.golden_destination,

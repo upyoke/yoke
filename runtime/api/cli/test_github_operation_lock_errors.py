@@ -10,10 +10,25 @@ import pytest
 from yoke_cli.config import github_binding_auth, github_machine
 from yoke_cli.config import github_git_credential_file as credential_file
 from yoke_cli.config import github_git_credential_helper
+from yoke_cli.config import github_machine_operation
+
+
+def test_unsafe_operation_lock_parent_names_the_path(tmp_path, monkeypatch):
+    parent = tmp_path / "secrets"
+    parent.mkdir(mode=0o775)
+    parent.chmod(0o775)
+    monkeypatch.setattr(
+        github_machine_operation, "operation_lock_target", lambda: parent / ".operation"
+    )
+    with pytest.raises(github_machine.GitHubMachineError) as caught:
+        github_machine.connect(config_path=tmp_path / "config.json")
+    assert f"directory permissions are unsafe: {parent}" in str(caught.value)
+    assert parent.stat().st_mode & 0o777 == 0o775
 
 
 def test_connect_wraps_operation_lock_parent_creation_failure(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     original_mkdir = credential_file.Path.mkdir
 
@@ -31,14 +46,13 @@ def test_connect_wraps_operation_lock_parent_creation_failure(
 
 
 def test_status_wraps_operation_lock_open_failure(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         credential_file.os,
         "open",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            OSError("raw open detail")
-        ),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("raw open detail")),
     )
     with pytest.raises(github_machine.GitHubMachineError) as caught:
         github_machine.status(config_path=tmp_path / "config.json")
@@ -48,14 +62,13 @@ def test_status_wraps_operation_lock_open_failure(
 
 
 def test_binding_wraps_operation_lock_flock_failure(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         credential_file.fcntl,
         "flock",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            OSError("raw flock detail")
-        ),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("raw flock detail")),
     )
     with pytest.raises(github_binding_auth.GitHubBindingAuthError) as caught:
         github_binding_auth.profile_bound_access_for_binding(
@@ -74,9 +87,7 @@ def test_git_helper_turns_operation_lock_fchmod_failure_into_safe_exit(
     monkeypatch.setattr(
         credential_file.os,
         "fchmod",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            OSError("raw chmod detail")
-        ),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("raw chmod detail")),
     )
     result = github_git_credential_helper.main(
         ["--config", str(tmp_path / "config.json"), "get"],

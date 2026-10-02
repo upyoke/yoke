@@ -13,9 +13,13 @@ import os
 from pathlib import Path, PurePosixPath
 import shutil
 import stat
+import sys
 import subprocess
 import tarfile
 import tempfile
+
+from yoke_harness.browser_profile_writer_inventory import WRITER_INVENTORY_PROGRAM
+from yoke_contracts.machine_config.directories import create_private_directory
 
 
 ARCHIVE_NAME = "profile.tar.gz"
@@ -61,47 +65,16 @@ def no_symlink_parents(path: Path) -> None:
         require(not parent.is_symlink(), "browser_profile_symlink_path")
 
 
-WRITER_INVENTORY_PROGRAM = r"""
-import json, os, sys
-from pathlib import Path
-uid, profile, caller = int(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
-def refuse(code):
-    print(json.dumps({"ok": False, "reason": code})); sys.exit(64)
-if os.geteuid() != 0: refuse("browser_profile_writer_inventory_unavailable")
-proc = Path("/proc")
-if not proc.is_dir(): refuse("browser_profile_os_unsupported")
-try:
-    for process in proc.iterdir():
-        if not process.name.isdigit() or process.name == caller:
-            continue
-        try:
-            if process.stat().st_uid != uid:
-                continue
-            command = (process / "cmdline").read_bytes()
-            if os.fsencode(profile) in command: refuse("browser_profile_writer_active")
-            for fd in (process / "fd").iterdir():
-                try:
-                    target = Path(os.readlink(fd).removesuffix(" (deleted)"))
-                except FileNotFoundError:
-                    continue
-                if target == profile or profile in target.parents:
-                    refuse("browser_profile_writer_active")
-        except FileNotFoundError:
-            continue
-except OSError:
-    refuse("browser_profile_writer_inventory_unavailable")
-print(json.dumps({"ok": True}))
-"""
-
-
 def profile_writers_absent(profile: Path) -> None:
     """Read protected same-user descriptors; never elevate archive writes."""
     try:
         result = subprocess.run(
-            [
-                "sudo",
-                "-n",
-                "/usr/bin/python3",
+            (
+                [sys.executable]
+                if sys.platform == "darwin"
+                else ["sudo", "-n", "/usr/bin/python3"]
+            )
+            + [
                 "-c",
                 WRITER_INVENTORY_PROGRAM,
                 str(os.getuid()),
@@ -128,7 +101,10 @@ def profile_writers_absent(profile: Path) -> None:
 
 def digest(path: Path) -> str:
     with path.open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
+        checksum = hashlib.sha256()
+        for chunk in iter(lambda: stream.read(1024**2), b""):
+            checksum.update(chunk)
+        return checksum.hexdigest()
 
 
 def identity(home: Path, project: str, relative: str) -> dict:
@@ -151,7 +127,7 @@ def identity(home: Path, project: str, relative: str) -> dict:
         "uid": os.getuid(),
         "project": project,
         "profile_relative_path": relative,
-        "os": "linux",
+        "os": "macos" if sys.platform == "darwin" else "linux",
     }
 
 
@@ -222,7 +198,7 @@ def capture(home: Path, baseline: Path, project: str, relative: str) -> dict:
         "browser_profile_baseline_inside_home",
     )
     require(not baseline.exists(), "browser_profile_destination_occupied")
-    baseline.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(baseline.parent)
     private_owned(baseline.parent, directory=True)
     profile_writers_absent(profile)
     before = profile_inventory(profile)
@@ -289,7 +265,7 @@ def restore(home: Path, baseline: Path, project: str, relative: str) -> dict:
     profile_writers_absent(profile)
     with tarfile.open(baseline / ARCHIVE_NAME, "r:gz") as archive:
         archive_members(archive)
-    profile.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    create_private_directory(profile.parent)
     private_owned(profile.parent, directory=True)
     temporary = Path(tempfile.mkdtemp(prefix=".browser-profile-", dir=profile.parent))
     try:
@@ -300,9 +276,9 @@ def restore(home: Path, baseline: Path, project: str, relative: str) -> dict:
                 key=lambda entry: (len(PurePosixPath(entry.name).parts), entry.name),
             ):
                 target = temporary / member.name
-                target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                create_private_directory(target.parent)
                 if member.isdir():
-                    target.mkdir(mode=0o700, exist_ok=True)
+                    create_private_directory(target)
                 else:
                     with (
                         archive.extractfile(member) as source,

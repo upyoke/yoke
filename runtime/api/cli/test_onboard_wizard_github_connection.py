@@ -36,6 +36,21 @@ def _body_text(app) -> str:
     )
 
 
+def test_machine_github_error_view_preserves_unsafe_directory_reason():
+    app, _spy = make_app()
+    reason = (
+        "GitHub App credential directory permissions are unsafe: /test/.yoke/secrets"
+    )
+
+    async def scenario():
+        async with app.run_test() as pilot:
+            app._goto_machine_github_error(RuntimeError(reason))
+            await pilot.pause()
+            assert reason in _body_text(app)
+
+    asyncio.run(scenario())
+
+
 def test_machine_github_connect_uses_browser_app_flow() -> None:
     app, _spy = make_app()
 

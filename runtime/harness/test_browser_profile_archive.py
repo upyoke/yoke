@@ -56,6 +56,46 @@ def test_restore_refuses_overwriting_live_profile(snapshot):
     assert (profile / "Default" / "Cookies").read_bytes() == b"opaque-test-profile"
 
 
+def test_restore_creates_every_missing_ancestor_privately(snapshot):
+    home, profile, baseline, _ = snapshot
+    shutil.rmtree(home / ".yoke")
+    (home / ".yoke").mkdir(mode=0o700)
+    previous = os.umask(0o002)
+    try:
+        snapshots.restore(home, baseline, "project", RELATIVE)
+    finally:
+        os.umask(previous)
+    current = profile
+    while current != home:
+        assert current.stat().st_mode & 0o777 == 0o700
+        current = current.parent
+
+
+def test_capture_creates_private_ancestors_without_changing_existing_modes(snapshot):
+    home, _, baseline, _ = snapshot
+    existing = baseline.parent / "existing"
+    existing.mkdir(mode=0o755)
+    existing.chmod(0o755)
+    destination = existing / "new" / "nested" / "profile"
+    previous = os.umask(0o002)
+    try:
+        snapshots.capture(home, destination, "project", RELATIVE)
+    finally:
+        os.umask(previous)
+    assert existing.stat().st_mode & 0o777 == 0o755
+    for path in (destination, destination.parent, destination.parent.parent):
+        assert path.stat().st_mode & 0o777 == 0o700
+
+
+def test_restore_preserves_preexisting_ancestor_modes(snapshot):
+    home, profile, baseline, _ = snapshot
+    shutil.rmtree(profile)
+    ancestor = home / ".yoke" / "secrets"
+    ancestor.chmod(0o755)
+    snapshots.restore(home, baseline, "project", RELATIVE)
+    assert ancestor.stat().st_mode & 0o777 == 0o755
+
+
 @pytest.mark.parametrize("mismatch", ["project", "digest", "owner", "mode"])
 def test_restore_rejects_mismatched_or_unsealed_snapshot_before_mutation(
     snapshot, mismatch
@@ -135,6 +175,7 @@ def test_capture_never_overwrites_snapshot(snapshot):
 def test_privileged_inventory_checks_same_user_commands_and_descriptors(
     tmp_path, monkeypatch, capsys, writer
 ):
+    monkeypatch.setattr(sys, "platform", "linux")
     proc = tmp_path / "proc"
     process = proc / "101"
     descriptors = process / "fd"
@@ -165,6 +206,7 @@ def test_privileged_inventory_checks_same_user_commands_and_descriptors(
 
 
 def test_archive_uses_noninteractive_read_only_privileged_inventory(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "linux")
     profile = snapshots.Path("/home/testuser/private-profile")
 
     def inventory(argv, **options):
@@ -199,6 +241,7 @@ def test_archive_uses_noninteractive_read_only_privileged_inventory(monkeypatch)
 def test_inventory_failure_refuses_without_masking_writer_reason(
     monkeypatch, stdout, code, reason
 ):
+    monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setattr(
         subprocess,
         "run",
@@ -213,6 +256,8 @@ def test_inventory_failure_refuses_without_masking_writer_reason(
 
 
 def test_inventory_timeout_refuses_without_mutating_profile(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "linux")
+
     def timeout(*_, **__):
         raise subprocess.TimeoutExpired("metadata-inventory", 30)
 
@@ -223,3 +268,21 @@ def test_inventory_timeout_refuses_without_mutating_profile(monkeypatch):
         snapshots.profile_writers_absent(
             snapshots.Path("/home/testuser/private-profile")
         )
+
+
+@pytest.mark.parametrize("runtime_os", ["linux", "darwin"])
+def test_profile_capture_and_restore_bind_runtime_os(tmp_path, monkeypatch, runtime_os):
+    monkeypatch.setattr(sys, "platform", runtime_os)
+    monkeypatch.setattr(snapshots, "profile_writers_absent", lambda _: None)
+    home = tmp_path / "home"
+    profile = home / RELATIVE
+    profile.mkdir(mode=0o700, parents=True)
+    profile.parent.chmod(0o700)
+    (profile / "proof").write_bytes(b"opaque")
+    baseline = tmp_path / "goldens" / "profile"
+    snapshots.capture(home, baseline, "project", RELATIVE)
+    manifest = json.loads((baseline / snapshots.MANIFEST_NAME).read_text())
+    assert manifest["os"] == ("macos" if runtime_os == "darwin" else "linux")
+    shutil.rmtree(profile)
+    assert snapshots.restore(home, baseline, "project", RELATIVE)["restored"]
+    assert (profile / "proof").read_bytes() == b"opaque"
