@@ -24,6 +24,18 @@ authorization `yoke github connect` stores. You do not need an SSH key or a
 no authorization is stored, those operations refuse by name and tell you to
 run `yoke github connect` rather than stalling on a prompt.
 
+## Merging with GitHub skipped
+
+A project with `github_sync_mode=disabled` merges finished work locally through
+both the engine and `yoke merge item`. It needs no GitHub App authorization,
+SSH key, or git credential, even when the checkout has a remote. The outcome
+says the merge was not pushed because GitHub is not connected; item evidence
+and lifecycle close-out still run. No push or post-push App checks run.
+
+The trial and real integration use `origin/<default-branch>` when that ref
+exists, otherwise the local default branch. A checkout with no remote does
+not fetch. Connected projects retain their publication and verification gates.
+
 ## Typical first connect
 
 ```bash

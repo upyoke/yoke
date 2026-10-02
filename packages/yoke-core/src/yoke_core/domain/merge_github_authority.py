@@ -1,6 +1,7 @@
 """Which GitHub authority a merge needs, settled before the merge starts.
 
-A merge reaches GitHub two ways, and they do not need the same authority. A
+A connected merge reaches GitHub two ways, with different authority. Projects
+with GitHub disabled land direct merges locally, without publication or checks. A
 direct merge lands the branch in the checkout, publishes the base branch with
 the machine's stored GitHub credential (:mod:`yoke_cli.config.credentialed_git`
 carries it, so the publish authenticates the same way the clone that created
@@ -26,6 +27,8 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS,
 )
 from yoke_core.domain import standalone_item_merge_git as git
+from yoke_core.domain import control_plane_transport
+from yoke_contracts.project_contract.github_sync_mode import GITHUB_SYNC_DISABLED
 from yoke_core.domain.project_github_auth_models import (
     GITHUB_AUTHORITY_INSTALLATION,
     GITHUB_AUTHORITY_USER,
@@ -40,12 +43,8 @@ _ROUTE_LABELS = {
     PULL_REQUEST_MERGE_ROUTE: "pull-request merge",
 }
 _AUTHORITY_LABELS = {
-    GITHUB_AUTHORITY_INSTALLATION: (
-        "the project's GitHub App installation"
-    ),
-    GITHUB_AUTHORITY_USER: (
-        "this machine's GitHub App user authorization"
-    ),
+    GITHUB_AUTHORITY_INSTALLATION: ("the project's GitHub App installation"),
+    GITHUB_AUTHORITY_USER: ("this machine's GitHub App user authorization"),
 }
 
 
@@ -83,22 +82,35 @@ def classify_merge_authority(*, local_merge: bool) -> MergeAuthority:
     )
 
 
+def github_merge_enabled(project: str) -> bool:
+    """Read the existing project skip switch through its registered projection."""
+    status = control_plane_transport.relay(
+        "projects.github_binding.status",
+        {"project": project},
+    )
+    return status.get("github_sync_mode") != GITHUB_SYNC_DISABLED
+
+
 def merge_reaches_github(
-    *, local_merge: bool, standalone: bool, repo_root: str,
+    *,
+    local_merge: bool,
+    standalone: bool,
+    repo_root: str,
+    project: str,
 ) -> bool:
     """Whether this merge needs GitHub at all, and so needs admitting.
 
     A pull-request merge always does. A direct merge does once it is a
     standalone landing in a checkout that has a remote, because that boundary
     publishes the base branch and then proves the pushed commit's checks; with
-    no remote the merge never leaves the machine, and a project with no GitHub
-    binding must still be able to merge locally.
+    no remote or with GitHub disabled the merge never leaves the machine.
+    Merely attaching a remote does not connect a skipped project to GitHub.
     """
     if not local_merge:
         return True
     if not standalone:
         return False
-    return git.has_remote(repo_root)
+    return git.has_remote(repo_root) and github_merge_enabled(project)
 
 
 __all__ = [
@@ -107,4 +119,5 @@ __all__ = [
     "MergeAuthority",
     "classify_merge_authority",
     "merge_reaches_github",
+    "github_merge_enabled",
 ]

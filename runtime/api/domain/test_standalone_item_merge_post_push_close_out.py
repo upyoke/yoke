@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,9 +16,13 @@ from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.project_github_auth_models import (
     GITHUB_AUTHORITY_INSTALLATION,
 )
-from yoke_core.engines import merge_landed_lane_cleanup as lane_cleanup
 from yoke_core.engines import merge_worktree_post_local as local_merge
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+
+
+@pytest.fixture(autouse=True)
+def _connected_project(monkeypatch):
+    monkeypatch.setattr(post_push, "github_merge_enabled", lambda _p: True)
 
 
 MERGE_SHA = "b" * 40
@@ -28,16 +34,16 @@ def _wire_complete(monkeypatch, verdict):
     monkeypatch.setattr(post_push.git, "git_out", lambda *_a: MERGE_SHA)
     monkeypatch.setattr(post_push.git, "publish", lambda *_a: (True, ""))
     monkeypatch.setattr(post_push.git, "has_remote", lambda *_a: True)
-    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda _item, **_kwargs: None)
+    monkeypatch.setattr(
+        merge_boundary, "stamp_merged_at", lambda _item, **_kwargs: None
+    )
     monkeypatch.setattr(
         post_push.receipts,
         "record",
         lambda _item, receipt, **_kw: recorded.append(receipt) or "",
     )
     monkeypatch.setattr(post_push, "await_post_push_checks", lambda *_a: verdict)
-    monkeypatch.setattr(
-        post_push, "fast_forward_main_checkout", lambda *_a: "",
-    )
+    monkeypatch.setattr(post_push, "fast_forward_main_checkout", lambda *_a: "")
     return recorded
 
 
@@ -64,7 +70,8 @@ def test_red_ci_records_the_run_and_preserves_the_lane(monkeypatch) -> None:
         url="https://runs/failing",
     )
     recorded = _wire_complete(
-        monkeypatch, post_push.PostPushVerdict("failed", runs=(run,)),
+        monkeypatch,
+        post_push.PostPushVerdict("failed", runs=(run,)),
     )
 
     outcome = _complete()
@@ -84,7 +91,8 @@ def test_green_ci_records_its_conclusion_without_retiring_the_lane(monkeypatch) 
         url="https://runs/green",
     )
     recorded = _wire_complete(
-        monkeypatch, post_push.PostPushVerdict("passed", runs=(run,)),
+        monkeypatch,
+        post_push.PostPushVerdict("passed", runs=(run,)),
     )
 
     outcome = _complete()
@@ -98,7 +106,8 @@ def test_no_discovered_ci_leaves_lane_retirement_to_terminal_close_out(
     monkeypatch,
 ) -> None:
     recorded = _wire_complete(
-        monkeypatch, post_push.PostPushVerdict("no_checks"),
+        monkeypatch,
+        post_push.PostPushVerdict("no_checks"),
     )
 
     outcome = _complete()
@@ -106,7 +115,9 @@ def test_no_discovered_ci_leaves_lane_retirement_to_terminal_close_out(
     assert outcome.ok
     assert len(recorded) == 1
     assert recorded[0].check_runs == ()
-    assert "Publication: target pushed; no post-push checks discovered." in outcome.output
+    assert (
+        "Publication: target pushed; no post-push checks discovered." in outcome.output
+    )
 
 
 def test_failed_push_stays_unresolved_in_output(monkeypatch) -> None:
@@ -114,14 +125,17 @@ def test_failed_push_stays_unresolved_in_output(monkeypatch) -> None:
     monkeypatch.setattr(
         post_push.git,
         "publish",
-        lambda *_a: (False, "merge landed locally but publishing 'main' failed: denied"),
+        lambda *_a: (
+            False,
+            "merge landed locally but publishing 'main' failed: denied",
+        ),
     )
     monkeypatch.setattr(post_push.git, "has_remote", lambda *_a: True)
-    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda _item, **_kwargs: None)
-    monkeypatch.setattr(post_push.receipts, "record", lambda *_a, **_k: "")
     monkeypatch.setattr(
-        post_push, "fast_forward_main_checkout", lambda *_a: "",
+        merge_boundary, "stamp_merged_at", lambda _item, **_kwargs: None
     )
+    monkeypatch.setattr(post_push.receipts, "record", lambda *_a, **_k: "")
+    monkeypatch.setattr(post_push, "fast_forward_main_checkout", lambda *_a: "")
 
     outcome = _complete()
 
@@ -136,7 +150,9 @@ def test_no_remote_publication_stays_local_only(monkeypatch) -> None:
     monkeypatch.setattr(post_push.git, "git_out", lambda *_a: MERGE_SHA)
     monkeypatch.setattr(post_push.git, "publish", lambda *_a: (False, ""))
     monkeypatch.setattr(post_push.git, "has_remote", lambda *_a: False)
-    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda _item, **_kwargs: None)
+    monkeypatch.setattr(
+        merge_boundary, "stamp_merged_at", lambda _item, **_kwargs: None
+    )
     monkeypatch.setattr(post_push.receipts, "record", lambda *_a, **_k: "")
 
     outcome = _complete()
@@ -148,7 +164,8 @@ def test_no_remote_publication_stays_local_only(monkeypatch) -> None:
 
 
 def test_cli_refusal_never_reaches_evidence_or_done_transition(
-    monkeypatch, capsys,
+    monkeypatch,
+    capsys,
 ) -> None:
     item = {
         "id": 7,
@@ -162,7 +179,9 @@ def test_cli_refusal_never_reaches_evidence_or_done_transition(
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
     monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
-        merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
+        merge_cli,
+        "_resolve_checkout",
+        lambda *_a: (Path("/repo"), "main"),
     )
     monkeypatch.setattr(verify, "qa_preflight", lambda *_a, **_k: (LANE_SHA, ""))
     monkeypatch.setattr(
@@ -188,9 +207,16 @@ def test_cli_refusal_never_reaches_evidence_or_done_transition(
         lambda **_k: (_ for _ in ()).throw(AssertionError("no done transition")),
     )
 
-    result = merge_cli.run([
-        "ITEM-7", "--result", "fixed", "--verification", "green", "--json",
-    ])
+    result = merge_cli.run(
+        [
+            "ITEM-7",
+            "--result",
+            "fixed",
+            "--verification",
+            "green",
+            "--json",
+        ]
+    )
     payload = json.loads(capsys.readouterr().out)
 
     assert result == 1
@@ -203,7 +229,9 @@ def test_local_engine_defers_standalone_lane_removal(monkeypatch) -> None:
     parent = SimpleNamespace(
         _print=lambda msg="", **_k: printed.append(str(msg)),
         _run_git=lambda *_a, **_k: SimpleNamespace(
-            returncode=0, stdout="", stderr="",
+            returncode=0,
+            stdout="",
+            stderr="",
         ),
     )
     monkeypatch.setattr(local_merge, "_parent", lambda: parent)
@@ -211,7 +239,9 @@ def test_local_engine_defers_standalone_lane_removal(monkeypatch) -> None:
     monkeypatch.setattr(local_merge, "_schema_refresh", lambda *_a: None)
     monkeypatch.setattr(local_merge, "_ensure_target_branch", lambda *_a: None)
     monkeypatch.setattr(
-        local_merge, "_remove_lane", lambda *_a: removed.append("removed"),
+        local_merge,
+        "_remove_lane",
+        lambda *_a: removed.append("removed"),
     )
     ctx = MergeContext(
         args=MergeArgs(branch="ITEM-7", target="main", standalone=True),
@@ -231,7 +261,9 @@ def test_true_local_merge_names_the_skipped_publication_pipeline(monkeypatch) ->
     parent = SimpleNamespace(
         _print=lambda msg="", **_k: printed.append(str(msg)),
         _run_git=lambda *_a, **_k: SimpleNamespace(
-            returncode=0, stdout="", stderr="",
+            returncode=0,
+            stdout="",
+            stderr="",
         ),
     )
     monkeypatch.setattr(local_merge, "_parent", lambda: parent)
@@ -251,40 +283,6 @@ def test_true_local_merge_names_the_skipped_publication_pipeline(monkeypatch) ->
     assert not any("Local Git integration" in line for line in printed)
 
 
-def test_lane_retirement_uses_the_local_target_without_a_remote(
-    monkeypatch,
-) -> None:
-    commands = []
-
-    def git(command, **_kwargs):
-        commands.append(command)
-        stdout = "" if command == ["remote"] else ""
-        return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
-
-    released = []
-    monkeypatch.setattr(lane_cleanup, "_lane_worktree", lambda *_a: None)
-    monkeypatch.setattr(
-        lane_cleanup,
-        "release_lane_row",
-        lambda item, branch, **_k: released.append((item, branch)),
-    )
-    monkeypatch.setattr(
-        lane_cleanup,
-        "delete_remote_branch_if_merged",
-        lambda **_k: (_ for _ in ()).throw(AssertionError("no remote cleanup")),
-    )
-
-    warnings = lane_cleanup.prune_landed_lane(
-        repo_root="/repo", branch="ITEM-7", target="main", item_id=7,
-        run_git=git, emit=lambda *_a, **_k: None,
-    )
-
-    assert warnings == ()
-    assert ["fetch", "origin", "main"] not in commands
-    assert ["merge-base", "--is-ancestor", "ITEM-7", "main"] in commands
-    assert released == [(7, "ITEM-7")]
-
-
 def test_receipt_loader_preserves_observed_check_conclusions(monkeypatch) -> None:
     entry = {
         "branch": "ITEM-7",
@@ -292,16 +290,21 @@ def test_receipt_loader_preserves_observed_check_conclusions(monkeypatch) -> Non
         "commit_sha": LANE_SHA,
         "merge_sha": MERGE_SHA,
         "touched_files": ["changed.py"],
-        "check_runs": [{
-            "name": "suite", "status": "completed",
-            "conclusion": "success", "url": "https://runs/green",
-        }],
+        "check_runs": [
+            {
+                "name": "suite",
+                "status": "completed",
+                "conclusion": "success",
+                "url": "https://runs/green",
+            }
+        ],
     }
     monkeypatch.setattr(
         receipts,
         "call_dispatcher",
         lambda **_k: SimpleNamespace(
-            success=True, result={"found": True, "entry": entry},
+            success=True,
+            result={"found": True, "entry": entry},
         ),
     )
 

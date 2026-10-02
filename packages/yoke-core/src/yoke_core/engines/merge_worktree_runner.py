@@ -10,6 +10,8 @@ from yoke_core.domain.merge_github_authority import (
     merge_reaches_github,
 )
 from yoke_core.engines.merge_worktree_prepare import MergeArgs
+from yoke_core.engines.merge_worktree_base import target_ref
+from yoke_core.domain.standalone_item_merge_git import has_remote
 from yoke_core.engines.merge_worktree_pr_rest import validate_github_auth_for_merge
 
 
@@ -86,7 +88,6 @@ def run(args: MergeArgs) -> int:
     do_local_merge = mw.do_local_merge
     do_pr_merge = mw.do_pr_merge
 
-    # Validate
     err = validate_args(args)
     if err:
         _print(err, err=True)
@@ -99,21 +100,27 @@ def run(args: MergeArgs) -> int:
         _print(str(e), err=True)
         return 1
 
-    # Settle which GitHub authority this route needs before any merge work,
-    # so a route that cannot be authorized is refused here rather than after
-    # the branch has landed. A merge that never reaches GitHub needs none.
+    # Admit the route before any landing work.
     authority = classify_merge_authority(local_merge=args.local_merge)
-    if merge_reaches_github(
-        local_merge=args.local_merge,
-        standalone=args.standalone,
-        repo_root=str(ctx.repo_root),
-    ):
+    try:
+        reaches_github = merge_reaches_github(
+            local_merge=args.local_merge,
+            standalone=args.standalone,
+            repo_root=str(ctx.repo_root),
+            project=ctx.project or "",
+        )
+    except RuntimeError as exc:
+        _print(
+            f"github_merge_mode_unreadable: {exc}. Retry the project GitHub binding status read before merging.",
+            err=True,
+        )
+        return 1
+    if reaches_github:
         ok, message = validate_github_auth_for_merge(ctx, authority)
         if not ok:
             _print(message or "Error: GitHub auth validation failed.", err=True)
             return 1
 
-    # Verify branch exists
     verify = _run_git(
         ["rev-parse", "--verify", f"refs/heads/{args.branch}"],
         cwd=ctx.repo_root,
@@ -138,8 +145,9 @@ def run(args: MergeArgs) -> int:
         _print(f"YOKE_REPO_ROOT={ctx.yoke_repo_root}")
         return 0
 
-    # Also check origin
-    _run_git(["fetch", "origin", args.target], cwd=ctx.repo_root, capture=True)
+    # A local-only checkout has nothing to fetch.
+    if has_remote(ctx.repo_root):
+        _run_git(["fetch", "origin", args.target], cwd=ctx.repo_root, capture=True)
     already_origin = _run_git(
         ["merge-base", "--is-ancestor", source_ref, f"origin/{args.target}"],
         cwd=ctx.repo_root,
@@ -177,10 +185,6 @@ def run(args: MergeArgs) -> int:
     try:
         if args.force_lock:
             merge_lock.force_clear()
-        # Bounded retry: orphan-PID rows often get pruned by a subsequent
-        # ``check()`` call seconds later. Retry around the pre-acquire check
-        # so transient stale-lock conditions don't surface as halt-class merge
-        # failures.
         # A merge contends only with merges landing on the same branch of the
         # same project. ctx.project is None for the Yoke control repo itself,
         # which is that project's own slug.
@@ -229,22 +233,21 @@ def run(args: MergeArgs) -> int:
             exit_code = dirty_result[0]
             return exit_code
 
-        # Prune agent worktrees
         prune_agent_worktrees(ctx.repo_root, ctx.args.target)
 
         # Extract generated files
         ctx.generated_files = extract_generated_files(ctx)
 
         # Fetch target
-        _run_git(["fetch", "origin", args.target], cwd=ctx.worktree_path, capture=True)
+        if has_remote(ctx.repo_root):
+            _run_git(
+                ["fetch", "origin", args.target], cwd=ctx.worktree_path, capture=True
+            )
 
         # Pre-merge main integration
         _pre_merge_integration(ctx)
 
-        # Push local {target} to origin BEFORE trial merge so trial validation
-        # runs against the same origin state GitHub will merge into later
-        # .  This also populates ``ctx.target_sha_at_validation``
-        # which do_pr_merge re-checks right before the REST merge call.
+        # PR validation and landing must agree on the pushed target.
         if not args.local_merge:
             push_target_exit = _ensure_target_pushed(ctx)
             if push_target_exit is not None:
@@ -259,7 +262,7 @@ def run(args: MergeArgs) -> int:
 
         # Compute branch-changed files (for doc conflict resolution)
         mb = _run_git(
-            ["merge-base", "HEAD", f"origin/{args.target}"],
+            ["merge-base", "HEAD", target_ref(ctx)],
             cwd=ctx.worktree_path,
             capture=True,
         )
@@ -329,11 +332,7 @@ def run(args: MergeArgs) -> int:
                 },
             )
         elif exit_code == 5:
-            # the precise MergeEngineFailed event with
-            # ``phase=post_merge_cleanup`` / ``merge_committed=true`` has
-            # already been emitted by the committed-merge cleanup path.
-            # Suppress the generic emission here so the events ledger
-            # only carries the truthful post-merge-cleanup record.
+            # Committed-merge cleanup already emitted its precise failure.
             pass
         else:
             _emit_merge_event(
