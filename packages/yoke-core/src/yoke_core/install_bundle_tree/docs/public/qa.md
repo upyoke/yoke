@@ -8,6 +8,13 @@ Workbench **QA** tabs:
 | **Plans** | Project-scoped ordered cases and attachments |
 | **Activity** | Readable outcomes from requirements, runs, evidence |
 
+Plans put cases needing review and failed outcomes ahead of successful ones,
+show recency for every outcome, and keep complete review reasons expandable.
+Activity shows the latest 500 cases per project, including earlier days,
+with text, outcome and local-date filters and page controls. The loaded
+boundary stays visible; filtering does not search older cases outside it.
+Failed reads have Retry and stay distinct from a successful empty result.
+
 ## How gates work
 
 Workflows attach plans to transitions (for example reviewing-implementation).
