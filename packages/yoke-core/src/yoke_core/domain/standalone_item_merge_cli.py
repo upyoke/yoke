@@ -77,7 +77,8 @@ def run(argv: List[str]) -> int:
     item, error = _resolve_item(str(args.item), args.project)
     if error:
         return report.fail_json(
-            f"could not resolve item {args.item!r}: {error}", as_json=as_json,
+            f"could not resolve item {args.item!r}: {error}",
+            as_json=as_json,
         )
 
     item_id = int(item["id"])
@@ -257,6 +258,7 @@ def run(argv: List[str]) -> int:
         "merge_sha": outcome.merge_sha,
         "touched_files": list(outcome.touched_files),
         "published": outcome.pushed,
+        "publication_message": outcome.publication_message,
         "evidence_recorded": False,
         "status": status,
         "warnings": list(outcome.warnings),
@@ -287,7 +289,9 @@ def run(argv: List[str]) -> int:
 
     report.announce_phase("prepared release")
     release_fragment, release_warning = release_flow.continue_prepared_release(
-        item_id=item_id, session_id=str(args.session_id), public_ref=public_ref,
+        item_id=item_id,
+        session_id=str(args.session_id),
+        public_ref=public_ref,
     )
     if release_fragment is not None:
         envelope["prepared_release"] = release_fragment

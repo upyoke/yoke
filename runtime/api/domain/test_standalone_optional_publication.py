@@ -46,6 +46,7 @@ def test_disconnected_merge_publishes_with_own_credentials_without_app_checks(
         assert outcome.pushed
         assert outcome.error == ""
         assert "pushed with your own git credentials" in outcome.output
+        assert "pushed with your own git credentials" in outcome.publication_message
         assert git(remote, "rev-parse", "main") == git(repo, "rev-parse", "main")
         assert any(requests)
         assert_landed_clean(repo, lane, source)

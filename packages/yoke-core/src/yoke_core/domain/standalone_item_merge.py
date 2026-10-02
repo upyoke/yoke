@@ -54,6 +54,7 @@ class StandaloneMergeOutcome:
     enqueued_at: str = ""
     error: str = ""
     output: str = ""
+    publication_message: str = ""
     warnings: tuple[str, ...] = field(default=())
 
 
@@ -251,8 +252,12 @@ def merge_standalone_branch(
     already = git.is_ancestor(repo_root, commit_sha, target)
     if not already:
         receipt_note = receipts.record_before_landing(
-            item_id, repo_root=repo_root, branch=branch, target=target,
-            commit_sha=commit_sha, touched_files=observed,
+            item_id,
+            repo_root=repo_root,
+            branch=branch,
+            target=target,
+            commit_sha=commit_sha,
+            touched_files=observed,
         )
         if receipt_note:
             warnings.append(receipt_note)

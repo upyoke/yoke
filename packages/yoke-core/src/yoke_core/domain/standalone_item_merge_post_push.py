@@ -334,6 +334,7 @@ def complete(
         touched_files=touched,
         pushed=pushed,
         output=output,
+        publication_message=narration,
         warnings=tuple(notes),
     )
 
