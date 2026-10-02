@@ -14,15 +14,19 @@ function memberItemId(member) {
 }
 
 function runItems(run) {
-  const members = (run.member_items || []).map((item) => ({ item, relation: "member" }));
+  const removed = (run.removed_member_items || []).map((item) => ({ item, relation: "removed" }));
+  const removedIds = new Set(removed.map(({ item }) => memberItemId(item)));
+  const members = (run.member_items || [])
+    .filter((item) => !removedIds.has(memberItemId(item)))
+    .map((item) => ({ item, relation: "member" }));
   const candidates = Object.hasOwn(run, "delivery_candidate_items")
     ? run.delivery_candidate_items
     : !TERMINAL_RUN_STATES.has(String(run.status || ""))
       ? run.contained_items || []
       : run.carried_work?.items || [];
   const memberIds = new Set(members.map(({ item }) => memberItemId(item)));
-  return members.concat((candidates || [])
-    .filter((item) => !memberIds.has(memberItemId(item)))
+  return removed.concat(members, (candidates || [])
+    .filter((item) => !memberIds.has(memberItemId(item)) && !removedIds.has(memberItemId(item)))
     .map((item) => ({ item, relation: "carried" })));
 }
 
@@ -73,6 +77,14 @@ function runStage(run) {
 }
 
 function itemOutcome(run) {
+  if (run.delivery_relation === "removed") {
+    const item = run.delivery_item;
+    return {
+      symbol: "○", text: "removed · QA cancelled · rides ",
+      reason: item.reason, laterRunId: item.later_run_id,
+      removed: true,
+    };
+  }
   const qa = run.delivery_item?.item_qa;
   if (qa?.failed_requirement_ids?.length) {
     return { symbol: "✗", text: `QA failed · ${qa.failed_requirement_ids.map((id) => `#${id}`).join(", ")}` };
@@ -81,15 +93,15 @@ function itemOutcome(run) {
   if (run.delivery_relation === "member" && ACCEPTED_QA.has(qa?.state)) {
     return { symbol: "✓", text: `deployed · QA ${qa.state === "accepted" ? "passed" : "discharged"}`, finished: true };
   }
+  const status = String(run.status || "");
+  if (status === "failed" || status === "cancelled") {
+    return { symbol: "✗", text: `${status === "failed" ? "deployment failed" : "deployment cancelled"}${runStage(run) ? ` · at ${runStage(run)}` : ""}`, reason: qa?.reason };
+  }
   if (qa?.state === "unreadable") {
     return { symbol: "○", text: "QA unavailable", reason: qa.reason };
   }
-  const status = String(run.status || "");
   if (status === "succeeded") {
     return { symbol: "✓", text: run.delivery_relation === "member" ? "deployed" : "in build", finished: true };
-  }
-  if (status === "failed" || status === "cancelled") {
-    return { symbol: "✗", text: `${status === "failed" ? "deployment failed" : "deployment cancelled"}${runStage(run) ? ` · at ${runStage(run)}` : ""}` };
   }
   const stage = runStage(run);
   const started = run.started_at || run.created_at;
@@ -116,6 +128,15 @@ function environmentRow(documentNode, environment, outcome, run, row) {
   card.appendChild(el(documentNode, "strong", "item-deployment-environment", environment || NO_ENVIRONMENT_LABEL));
   const summary = el(documentNode, "span", "item-deployment-outcome", `${outcome.symbol} ${outcome.text}`);
   if (outcome.reason) summary.title = outcome.reason;
+  if (outcome.removed) {
+    if (outcome.laterRunId) {
+      const later = el(documentNode, "a", "overview-card-link", outcome.laterRunId);
+      later.href = deploymentRunHref(run.project_id ?? row.project_id ?? null, outcome.laterRunId);
+      summary.appendChild(later);
+    } else {
+      summary.appendChild(documentNode.createTextNode("a later release"));
+    }
+  }
   card.appendChild(summary);
   if (run) {
     const link = el(documentNode, "a", "item-deployment-run", String(run.id || run.run_id || ""));
