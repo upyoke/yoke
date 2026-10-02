@@ -197,11 +197,61 @@ def qa_subject_claim_verdict(
         item_id=int(target_id),
     ):
         return True, None, None
+    if (
+        request.function == "qa.requirement.waive"
+        and payload.get("source") == "operator"
+    ):
+        if _operator_waiver_allowed(request, int(target_id)):
+            return True, None, None
+        return (
+            False,
+            "claim_required",
+            "Operator waiver recording requires this item's work claim, a live "
+            "steering seat covering the item, or the deploy lock for the run "
+            "holding the requirement; ask that holder to record the operator's "
+            "decision with --source operator and its rationale",
+        )
     return (
         False,
         "claim_required",
         f"no active claim by session {actor_session!r} on {item_ref_for_id(target_id)}",
     )
+
+
+def _operator_waiver_allowed(request: Any, item_id: int) -> bool:
+    """An operator's decision may be recorded by its steering or run driver."""
+    from yoke_core.domain.coordination_claims import active_claim
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.function_target_row_project import (
+        resolve_deployment_run_project,
+        resolve_item_project,
+    )
+    from yoke_core.domain.steering_scope_coverage import covering_claims
+    from yoke_core.domain.steering_scope_membership import item_coverage_target
+    from yoke_core.domain.work_claim_targets import make_deploy_serialization_target
+
+    session_id = request.actor.session_id
+    with connect() as conn:
+        project = resolve_item_project(conn, item_id)
+        if project is None:
+            return False
+        target = item_coverage_target(conn, project_id=project[0], item_id=item_id)
+        if any(
+            str(claim["session_id"]) == session_id
+            for claim in covering_claims(conn, target)
+        ):
+            return True
+        row = conn.execute(
+            f"SELECT deployment_run_id FROM qa_requirements WHERE id={_placeholder(conn)}",
+            (request.target.qa_requirement_id,),
+        ).fetchone()
+        if row is None or not row[0]:
+            return False
+        run_project = resolve_deployment_run_project(conn, str(row[0]))
+        if run_project is None:
+            return False
+        claim = active_claim(conn, make_deploy_serialization_target(*run_project))
+        return claim is not None and claim.session_id == session_id
 
 
 def resolve_deployment_member_item_id(

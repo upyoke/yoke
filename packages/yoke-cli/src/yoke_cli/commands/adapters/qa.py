@@ -13,7 +13,11 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
-from yoke_cli.commands.text_file import add_stdin_flag, add_text_file_pair, resolve_one_text_source
+from yoke_cli.commands.text_file import (
+    add_stdin_flag,
+    add_text_file_pair,
+    resolve_one_text_source,
+)
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_cli.commands.adapters.qa_browser import AGENT_UNDETERMINED_HELP
@@ -129,6 +133,12 @@ def qa_requirement_waive(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement waive",
         description=QA_REQUIREMENT_WAIVE_USAGE,
+        epilog=(
+            "Record the operator's decision with --source operator and its rationale. "
+            "The recorder must hold the item work claim, a live steering seat covering "
+            "the item, or the deploy lock for its requirement's run. Agent-sourced "
+            "waivers retain the normal QA subject claim rule."
+        ),
     )
     parser.add_argument(
         "--requirement-id",
@@ -146,9 +156,7 @@ def qa_requirement_waive(args: List[str]) -> int:
         help_text="Reason this requirement is waived.",
         file_help="Read the waiver rationale from a path.",
     )
-    add_stdin_flag(
-        rationale_group, help_text="Read the waiver rationale from stdin."
-    )
+    add_stdin_flag(rationale_group, help_text="Read the waiver rationale from stdin.")
     parser.add_argument(
         "--source",
         choices=("operator", "agent"),
@@ -200,6 +208,7 @@ QA_RUN_RECORD_VERDICT_USAGE = (
 
 def qa_run_record_verdict(args: List[str]) -> int:
     from yoke_contracts.qa_verdicts import VALID_VERDICTS
+
     parser = argparse.ArgumentParser(
         prog="yoke qa run record-verdict",
         description=QA_RUN_RECORD_VERDICT_USAGE,
@@ -222,8 +231,10 @@ def qa_run_record_verdict(args: List[str]) -> int:
         help="Who or what ran the QA check.",
     )
     parser.add_argument(
-        "--verdict", required=True, choices=VALID_VERDICTS,
-        help="One of the registered QA verdicts."
+        "--verdict",
+        required=True,
+        choices=VALID_VERDICTS,
+        help="One of the registered QA verdicts.",
     )
     parser.add_argument(
         "--verdict-reason",
