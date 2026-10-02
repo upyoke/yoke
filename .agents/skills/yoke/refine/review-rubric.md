@@ -138,3 +138,5 @@ Emit a structured critique:
 1. {change}: {what to write and where}
 2. ...
 ```
+
+- **Command case source:** Direct pre-merge Yoke lane checks use `yoke dev run -- <command>`. Post-deploy Command source tests use `yoke watch pytest -- <test paths>` directly because the runner supplies candidate cwd and the watcher binds it to source. Source wrappers refuse another root; bare commands keep product imports.

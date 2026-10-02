@@ -181,8 +181,11 @@ never went through a plan execution target. `method_config.command` is a
 `python3 -c '...'` or invoke a file in the checkout (a leading `import` is
 ImageMagick `import(1)`, not Python). `python3`, `python`, and
 `yoke` in the command resolve to the product interpreter that is
-running the case runner (`YOKE_PYTHON`); do not use `yoke dev run`
-(source-dev only, and unavailable on an installed machine). A leftover
+running the case runner (`YOKE_PYTHON`); cwd alone does not bind their imports
+to candidate source. For post-deploy source tests, run
+`yoke watch pytest -- <test paths>` directly: it binds its own cwd to source.
+Candidate-bound cases export `YOKE_QA_CANDIDATE_TREE` as JSON with `root` and
+`head_sha`; source wrappers refuse switching to a different root. A leftover
 `QA_HOST:<machine>` claim is released by its holder with
 `yoke claims coordination-claim release --claim-id N --reason TEXT`.
 The holder may also use `yoke claims work release --claim-id N --reason TEXT`,

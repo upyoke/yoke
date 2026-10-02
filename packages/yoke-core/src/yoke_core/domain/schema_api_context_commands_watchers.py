@@ -15,8 +15,11 @@ Recipe shape doctrine (current):
     taught form. The module invocation
     (``python3 -m yoke_core.tools.watch_pytest``) is refused by
     ``lint-watcher-module-form`` wherever an adapter exists; a run that
-    must bind one checkout's code wraps the same CLI form in
-    ``yoke dev run -- yoke watch <kind> -- <args>``. ``tail`` / ``grep``
+    must bind pre-merge lane code wraps the same CLI form in
+    ``yoke dev run -- yoke watch <kind> -- <args>``. Post-deploy Command
+    source tests run ``yoke watch pytest -- <test paths>`` directly: the
+    runner supplies candidate cwd and pytest binds it to source.
+    ``tail`` / ``grep``
     / ``git -C`` shapes inside watcher recipes stay command-shaped by
     design.
 

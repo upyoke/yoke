@@ -30,6 +30,13 @@ defect: fix the selection model in the same response, not just the code.
 
 ## Bind each case to a committed tree
 
+Before merge, direct Yoke lane-source commands use `yoke dev run -- <command>`.
+Inside a post-deploy Command case, run `yoke watch pytest -- <test paths>`
+directly: the QA runner supplies the candidate cwd and the watcher binds that
+cwd to source. The candidate root and SHA travel to subprocesses in
+`YOKE_QA_CANDIDATE_TREE`; source wrappers refuse a switch to a different root.
+Other commands use the product interpreter; cwd alone does not bind imports.
+
 **Commit before every SHA-bound QA case.** Resolve the exact touched set from
 the worktree diff, then replace the survey with every actual file before
 executing a case:

@@ -26,10 +26,12 @@ silently running stale code: a worker that closed its merge out from
 inside its lane got a refusal worded by the release *before* the fix its
 lane carried, with nothing at the call site naming the skew. The
 installed ``yoke`` runs the main checkout's install whatever the cwd, as
-the CLI contract promises; ``yoke dev run -- yoke watch <kind> ...`` is
-the one way to bind a claimed lane's source, and it already arrives on
+the CLI contract promises; ``yoke dev run -- yoke watch <kind> ...`` binds
+pre-merge lane source, and it already arrives on
 the lane-bound interpreter — so running in-process is what preserves
-either binding rather than discarding it.
+either binding rather than discarding it. Post-deploy Command source tests
+run ``yoke watch pytest -- <test paths>`` directly: the runner supplies
+candidate cwd and pytest binds that cwd to source.
 
 The import probe is what keeps the re-exec from recreating the very
 failure this command exists to fix. A project that installed Yoke as an
@@ -210,8 +212,10 @@ def _run(wrapper_module: str, cli_form: str, args: List[str]) -> int:
             f"in this project ({exc}); repair this project's environment "
             f"with `{UV_EXECUTABLE} sync --frozen` and re-run "
             f"`{cli_form}`. To bind a claimed Yoke source lane instead, "
-            f"run `yoke dev run -- {cli_form} -- <args>`, which executes "
-            f"the CLI on the lane-bound interpreter.\n"
+            f"run `yoke dev run -- {cli_form} -- <args>` before merge, which "
+            f"executes the CLI on the lane-bound interpreter. Post-deploy "
+            f"Command source tests run `yoke watch pytest -- <test paths>` "
+            f"directly: the runner supplies candidate cwd and pytest binds it.\n"
         )
         return 1
 

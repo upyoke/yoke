@@ -33,23 +33,28 @@ def verify_done_means_agent_shape(spec_text: str) -> list:
 
     for span in _command_spans(spec_text):
         if _PYTHON_C_RE.search(span) and _FORBIDDEN_IMPORT_RE.search(span):
-            return [Issue(
-                code=CODE,
-                message=(
-                    "Spec prescribes a python3 -c import of a Yoke "
-                    "implementation symbol as a command to run. "
-                    "lint-no-agent-runtime-api-import-from-c refuses "
-                    "that shape, so the item cannot be verified by its "
-                    "own done-means."
-                ),
-                remediation=(
-                    "Name a guard-permitted command: `yoke <subcommand>`, "
-                    "`yoke watch pytest -- ...`, or `yoke dev run --` "
-                    "with a module form (`python3 -m ...`) — never "
-                    "`python3 -c` importing yoke_core / yoke_cli / "
-                    "yoke_harness / runtime.api."
-                ),
-            )]
+            return [
+                Issue(
+                    code=CODE,
+                    message=(
+                        "Spec prescribes a python3 -c import of a Yoke "
+                        "implementation symbol as a command to run. "
+                        "lint-no-agent-runtime-api-import-from-c refuses "
+                        "that shape, so the item cannot be verified by its "
+                        "own done-means."
+                    ),
+                    remediation=(
+                        "Name a guard-permitted command: `yoke <subcommand>`, "
+                        "`yoke watch pytest -- ...`, or `yoke dev run --` "
+                        "with a module form (`python3 -m ...`) for pre-merge lane "
+                        "checks. Post-deploy Command source tests use "
+                        "`yoke watch pytest -- <test paths>` directly: the runner "
+                        "supplies candidate cwd and pytest binds it — never "
+                        "`python3 -c` importing yoke_core / yoke_cli / "
+                        "yoke_harness / runtime.api."
+                    ),
+                )
+            ]
     return []
 
 

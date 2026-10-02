@@ -130,7 +130,9 @@ def import_origin_refusal(
         detail = (completed.stderr or completed.stdout).strip()
         return (
             f"could not import {module} from source PYTHONPATH: {detail}. "
-            f"Run direct source commands through `{SOURCE_RUN_RECIPE}`."
+            f"Run pre-merge lane commands through `{SOURCE_RUN_RECIPE}`. "
+            f"Post-deploy Command source tests use `{PYTEST_RUN_RECIPE}` "
+            "directly; repair the named checkout's source environment and re-run."
         )
     origin = Path(completed.stdout.strip()).resolve()
     try:
@@ -138,8 +140,10 @@ def import_origin_refusal(
     except ValueError:
         return (
             f"{module} import origin is outside this checkout: {origin}. "
-            f"Expected it under {root.resolve()}. Run direct source commands "
-            f"through `{SOURCE_RUN_RECIPE}`."
+            f"Expected it under {root.resolve()}. Run pre-merge lane commands "
+            f"through `{SOURCE_RUN_RECIPE}`. Post-deploy Command source tests "
+            f"use `{PYTEST_RUN_RECIPE}` directly; repair the named checkout's "
+            "source environment and re-run."
         )
     return None
 
