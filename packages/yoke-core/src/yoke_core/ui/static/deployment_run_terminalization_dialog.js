@@ -116,9 +116,11 @@ export function terminalizationDialog(context, row, onSuccess) {
         { kind: "workflow_run", workflow_run_id: row.id },
       );
     } catch (callError) {
+      if (overlay.isConnected === false || !overlay.parentNode) return;
       fail(rejectedCallMessage(callError));
       return;
     }
+    if (overlay.isConnected === false || !overlay.parentNode) return;
     if (!result.envelope.success) {
       fail(result.envelope?.error?.message || "Terminalization refused.");
       return;
@@ -131,7 +133,8 @@ export function terminalizationDialog(context, row, onSuccess) {
   dialog.appendChild(actions);
   overlay.appendChild(dialog);
   queueMicrotask(() => {
-    if (overlay.parentNode) mountWorkflowDialog({ documentNode, host: overlay, dialog,
+    if (!overlay.parentNode || overlay.isConnected === false) return;
+    mountWorkflowDialog({ documentNode, host: overlay, dialog,
       dismiss: close, initialFocus: reason });
   });
   return overlay;

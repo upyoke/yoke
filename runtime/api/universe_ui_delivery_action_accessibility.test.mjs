@@ -9,6 +9,7 @@ function key(document, value, shiftKey = false) {
   const event = new Event("keydown", { cancelable: true });
   Object.defineProperties(event, { key: { value }, shiftKey: { value: shiftKey } });
   document.defaultView.dispatchEvent(event);
+  return event;
 }
 
 test("waiver and terminalization dialogs focus, contain, restore, and guard pending actions", async () => {
@@ -48,6 +49,60 @@ test("waiver and terminalization dialogs focus, contain, restore, and guard pend
     key(document, "Escape");
     assert.equal(main.children.length, 1);
     assert.equal(document.activeElement, opener);
+  }
+});
+
+test("route removal disposes dialog listeners and pending completions leave the new page alone", async () => {
+  for (const create of [
+    (context, done) => waiverDialog(context, { case_key: "case", last_result: { requirement_id: 8 } }, done),
+    (context, done) => terminalizationDialog(context, { id: "run-example", status: "executing" }, done),
+  ]) {
+    for (const notifyObserverFirst of [true, false]) {
+      const document = new FakeDocument();
+      const observers = new Set();
+      document.defaultView.MutationObserver = class {
+        constructor(callback) { this.callback = callback; }
+        observe() { observers.add(this); }
+        disconnect() { observers.delete(this); }
+      };
+      const main = document.createElement("main");
+      document.body.appendChild(main);
+      const opener = document.createElement("button");
+      main.appendChild(opener);
+      opener.focus();
+      let finish;
+      let completed = 0;
+      const context = { document, client: { call: () => new Promise((resolve) => { finish = resolve; }) } };
+      const overlay = create(context, () => { completed += 1; });
+      Object.defineProperty(overlay, "isConnected", { get: () => document.body.contains(overlay) });
+      main.appendChild(overlay);
+      await settle();
+      assert.equal(document.defaultView.listenerCounts.get("keydown"), 1);
+      assert.equal(observers.size, 1);
+      allNodes(overlay).find((node) => node.tagName === "TEXTAREA").value = "Reviewed";
+      byClass(overlay, "primary")[0].dispatchEvent(new Event("click"));
+      const nextPage = document.createElement("button");
+      document.body.replaceChildren(nextPage);
+      nextPage.focus();
+      if (notifyObserverFirst) for (const observer of observers) observer.callback();
+      assert.equal(key(document, "Tab").defaultPrevented, false);
+      assert.equal(key(document, "Escape").defaultPrevented, false);
+      assert.equal(document.defaultView.listenerCounts.get("keydown"), 0);
+      assert.equal(observers.size, 0);
+      finish({ status: 200, envelope: { success: true, result: {} } });
+      await settle();
+      assert.equal(completed, 0);
+      assert.equal(document.activeElement, nextPage);
+
+      // A route can also disappear before the dialog's queued mount runs.
+      const removedOverlay = create(context, () => {});
+      Object.defineProperty(removedOverlay, "isConnected", { get: () => document.body.contains(removedOverlay) });
+      main.appendChild(removedOverlay);
+      await settle();
+      assert.equal(document.defaultView.listenerCounts.get("keydown"), 0);
+      assert.equal(observers.size, 0);
+      assert.equal(document.activeElement, nextPage);
+    }
   }
 });
 

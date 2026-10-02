@@ -81,9 +81,11 @@ export function waiverDialog(context, row, reload) {
         },
       );
     } catch (callError) {
+      if (overlay.isConnected === false || !overlay.parentNode) return;
       fail(rejectedCallMessage(callError, "Waiver failed."));
       return;
     }
+    if (overlay.isConnected === false || !overlay.parentNode) return;
     if (!result.envelope.success) {
       fail(result.envelope?.error?.message || "Waiver failed.");
       return;
@@ -96,7 +98,8 @@ export function waiverDialog(context, row, reload) {
   dialog.appendChild(actions);
   overlay.appendChild(dialog);
   queueMicrotask(() => {
-    if (overlay.parentNode) mountWorkflowDialog({ documentNode, host: overlay, dialog,
+    if (!overlay.parentNode || overlay.isConnected === false) return;
+    mountWorkflowDialog({ documentNode, host: overlay, dialog,
       dismiss: close, initialFocus: rationale });
   });
   return overlay;
