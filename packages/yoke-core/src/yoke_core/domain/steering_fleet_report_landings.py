@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Mapping, Optional, Sequence
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
@@ -26,6 +26,7 @@ class FleetLandingReadback:
     public_ref: str
     status: str
     readiness: MergeQueueReadiness
+    wake_delivered: bool = False
 
     @property
     def needs_action(self) -> bool:
@@ -36,6 +37,7 @@ class FleetLandingReadback:
             "item_id": self.item_id,
             "public_ref": self.public_ref,
             "status": self.status,
+            "wake_delivered": self.wake_delivered,
             **self.readiness.to_dict(),
             "needs_action": self.needs_action,
         }
@@ -53,12 +55,12 @@ def _candidates(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
     terminal_slots = ",".join(marker for _ in terminal)
     rows = conn.execute(
         "SELECT i.id, i.project_sequence, i.status, "
-        "i.merge_queue_pr_number, i.merge_queue_enqueued_at, "
+        "i.merge_queue_pr_number, i.merge_queue_enqueued_at, i.merge_queue_notified_at, "
         "p.slug, p.public_item_prefix, "
         "p.default_branch FROM items i JOIN projects p ON p.id=i.project_id "
         f"WHERE i.project_id={marker} "
         "AND i.merge_queue_pr_number IS NOT NULL "
-        "AND i.merge_queue_landed_at IS NULL "
+        "AND (i.merge_queue_landed_at IS NULL OR i.merge_queue_notified_at IS NULL) "
         f"AND i.status NOT IN ({terminal_slots}) ORDER BY i.id",
         (int(project_id), *terminal),
     ).fetchall()
@@ -110,14 +112,64 @@ def landing_readbacks(
             FleetLandingReadback(
                 item_id=item_id,
                 public_ref=format_item_ref(
-                    row["slug"],
-                    row["public_item_prefix"],
-                    row["project_sequence"]),
+                    row["slug"], row["public_item_prefix"], row["project_sequence"]
+                ),
                 status=str(row["status"]),
                 readiness=readiness,
+                wake_delivered=bool(row.get("merge_queue_notified_at")),
             )
         )
     return tuple(result)
+
+
+def landing_wait_pending(row: Mapping[str, Any]) -> bool:
+    """A healthy landing excuses silence until its completion wake arrives.
+
+    A merged landing awaiting notice delivery is still a legitimate wait.
+    Missing fields from an older serving build retain the prior idle alarm.
+    """
+    return row.get("wake_delivered") is False and (
+        row.get("merged") is True
+        or (
+            row.get("in_flight") is True
+            and row.get("closed") is False
+            and row.get("merged") is False
+            and not row.get("failed_checks")
+        )
+    )
+
+
+def report_landing_waits(report: Mapping[str, Any]) -> frozenset[str]:
+    """Reuse the held-scope report's readbacks for the fleet delta alarm."""
+    return frozenset(
+        str(row["public_ref"])
+        for scope in report.get("scopes", (report,))
+        for row in scope.get("landings", ())
+        if row.get("public_ref") and landing_wait_pending(row)
+    )
+
+
+def seat_landing_readbacks(
+    conn: Any,
+    *,
+    project_ids: Sequence[int],
+    members: Optional[set[int]],
+    in_flight: Sequence[Any],
+    reads: FleetReportReads,
+) -> tuple[FleetLandingReadback, ...]:
+    """One scoped readback set for the idle filter and rendered report."""
+    merging = frozenset(call.item_id for call in in_flight if "merge" in call.command)
+    return tuple(
+        row
+        for project_id in project_ids
+        for row in landing_readbacks(
+            conn,
+            project_id=project_id,
+            members=members,
+            in_flight_item_ids=merging,
+            reads=reads,
+        )
+    )
 
 
 def landing_lines(rows: tuple[FleetLandingReadback, ...]) -> list[str]:

@@ -115,19 +115,29 @@ def _holding_sessions(current: FleetSnapshot) -> Iterable[SessionRow]:
     ]
 
 
+def idle_holder_candidates(current: FleetSnapshot) -> list[SessionRow]:
+    """Silent live holders whose landing readbacks must be checked first."""
+    return [
+        row
+        for row in _holding_sessions(current)
+        if (minutes_since(row.activity_at, current.taken_at) or 0)
+        >= IDLE_HOLDER_MINUTES
+    ]
+
+
 def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
     """Live claim holders silent past the idle threshold.
 
     A session that stamped ``parked`` declared its wait and is excluded;
-    every other silent holder is burning down its own stale clock while
-    the item it owns still reads as staffed.
+    a healthy in-flight landing also declares work the queue is driving.
+    Dead and failed landings, or a delivered completion wake, retain alarms.
     """
     lines: list[str] = []
     live: set[str] = set()
-    for row in _holding_sessions(current):
-        idle = minutes_since(row.activity_at, current.taken_at)
-        if idle is None or idle < IDLE_HOLDER_MINUTES:
+    for row in idle_holder_candidates(current):
+        if any(ref in current.landing_waits for ref in row.claimed_items):
             continue
+        idle = minutes_since(row.activity_at, current.taken_at)
         key = f"idle-holder:session={identifier(row.session_id)}"
         live.add(key)
         lines.extend(
