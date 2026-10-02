@@ -35,6 +35,10 @@ from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
 from yoke_core.domain.deployment_qa_stage_outstanding import qa_stage_outstanding
+from yoke_core.domain.deployment_qa_stage_prerequisites import (
+    prior_stage_refusals,
+    require_prior_stage_acceptance,
+)
 from yoke_core.domain.deployment_requirement_snapshots import (
     requirement_selection,
     snapshot_member_requirements,
@@ -50,7 +54,7 @@ OTHER = 995
 OWN_FLOW = "carried-completion"
 
 
-def _ready(conn, *, own_qa=False, same_project=False, cases=False):
+def _ready(conn, *, own_qa=False, same_project=False, cases=False, follow_stage=False):
     seed_project(conn, OTHER, "carried")
     site = conn.execute(
         "INSERT INTO sites(project_id,name,created_at) VALUES (%s,'app','2026-10-01T00:00:00Z') RETURNING id",
@@ -64,6 +68,8 @@ def _ready(conn, *, own_qa=False, same_project=False, cases=False):
     stages = _stages(plan)
     if not cases:
         stages[1].pop("cases")
+    if follow_stage:
+        stages.append({**stages[1], "name": "later-item-qa"})
     own_stages = [stages[1]] if own_qa else []
     conn.execute(
         "INSERT INTO deployment_flows(id,project_id,name,stages,created_at) "
@@ -151,6 +157,21 @@ def test_carried_member_without_own_item_qa_is_settled_and_closes(test_db, monke
         == "done"
     )
     assert answer_for_item(test_db, MEMBER).unanswered
+
+
+def test_exempt_carried_member_does_not_block_a_later_item_qa_stage(test_db):
+    stage = _ready(test_db, follow_stage=True)
+    stages = [stage, {**stage, "name": "later-item-qa"}]
+    assert answer_for_item(test_db, MEMBER).unanswered
+    assert (
+        prior_stage_refusals(
+            test_db, run_id=RUN, stages=stages, start_stage="later-item-qa"
+        )
+        == []
+    )
+    require_prior_stage_acceptance(
+        test_db, run_id=RUN, stages=stages, start_stage="later-item-qa"
+    )
 
 
 @pytest.mark.parametrize("own_qa,same_project", [(True, False), (False, True)])

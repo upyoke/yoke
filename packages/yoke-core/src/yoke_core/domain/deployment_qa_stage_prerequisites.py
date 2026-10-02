@@ -12,6 +12,7 @@ from yoke_core.domain.deployment_stage_receipts import (
     deployment_stage_receipt_for_qa,
 )
 from yoke_core.domain.post_deploy_verification_answer import (
+    answer_for_item,
     member_post_deploy_answer,
 )
 
@@ -145,16 +146,11 @@ def _stage_subject_discharged(
 ) -> bool:
     """True when this prior-stage subject was settled without an acceptance row.
 
-    Discharge is a recorded fact: no-obligation / declared-none on the
-    member, or every case at this stage waived or superseded. Absence of
-    an acceptance row for an unasked member is not discharge.
+    Recorded no-obligation / declared-none, a carried member's own-flow
+    exemption, or every case waived or superseded settles the subject.
+    An unanswered member without an exemption still needs acceptance.
     """
-    if (
-        member is not None
-        and member_post_deploy_answer(
-            conn, {"member_item_id": member}
-        ).discharges_without_cases
-    ):
+    if member is not None and answer_for_item(conn, member).discharges_without_cases:
         return True
     from yoke_core.domain.deployment_qa_execution_target import (
         deployment_qa_execution_target,
@@ -175,6 +171,8 @@ def _stage_subject_discharged(
             member_item_id=member,
             require_active=False,
         )
+        if member_post_deploy_answer(conn, subject).discharges_without_cases:
+            return True
         target = deployment_qa_execution_target(conn, subject)
     except (LookupError, TypeError, ValueError):
         return False
