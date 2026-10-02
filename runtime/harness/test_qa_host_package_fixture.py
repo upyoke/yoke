@@ -9,6 +9,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.machine_qa_failures import (
+    MACHINE_QA_DIAGNOSTIC_LIMIT,
+    HostControlLocalError,
+)
 from yoke_harness.qa_host_package_fixture import (
     _PACKAGE_SCRIPT,
     restore_host_packages,
@@ -208,3 +212,68 @@ def test_declaration_on_unsupported_host_refuses_before_any_command():
     control = SimpleNamespace(os="macos")
     with pytest.raises(ValueError, match="os_package_fixture_unsupported"):
         restore_host_packages(control, {"os_packages": {"absent": ["python3-venv"]}})
+
+
+@pytest.mark.parametrize(
+    "operation,packages", [("purge", ["tmux"]), ("install", ["xdotool"])]
+)
+def test_remote_apt_failure_keeps_operation_and_safe_output(
+    monkeypatch, tmp_path, operation, packages
+):
+    stdout = "download private-token " + "x" * 900
+    stderr = "E: held packages private-token " + "y" * 900
+    calls = []
+
+    def command(argv, **kwargs):
+        if argv[0] == "dpkg-query":
+            return subprocess.CompletedProcess(argv, 0, "tmux\t3.4\tinstalled\n", "")
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 100, stdout, stderr)
+
+    monkeypatch.setattr(subprocess, "run", command)
+    declaration = {
+        "os_packages": {"absent" if operation == "purge" else "present": packages}
+    }
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "fixture",
+            "restore",
+            str(tmp_path / "golden.qa-packages.json"),
+            json.dumps(declaration),
+        ],
+    )
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output), pytest.raises(SystemExit) as stopped:
+        exec(compile(_PACKAGE_SCRIPT, "<host-package-fixture>", "exec"), {})
+    assert stopped.value.code == 100
+    assert len(calls) == 1
+    assert calls[0][6] == operation
+    assert calls[0][calls[0].index("--") + 1 :] == packages
+    remote = json.loads(output.getvalue())["apt_failure"]
+    assert remote == {
+        "operation": operation,
+        "packages": packages,
+        "exit_code": 100,
+        "stdout": stdout,
+        "stderr": stderr,
+    }
+    control = SimpleNamespace(
+        os="linux",
+        golden_baseline_path="/var/lib/golden",
+        run_command=lambda *args, **kwargs: subprocess.CompletedProcess(
+            [], 100, output.getvalue(), "SSH transport notice"
+        ),
+    )
+    with pytest.raises(HostControlLocalError) as failure:
+        restore_host_packages(control, declaration, secrets=("private-token",))
+    error = failure.value
+    assert error.exit_code == 100
+    assert f"operation={operation}" in str(error)
+    assert json.dumps(packages) in str(error)
+    assert "E: held packages [REDACTED]" in error.stderr
+    assert "download [REDACTED]" in error.stdout
+    assert "private-token" not in str(error)
+    assert len(error.stdout) <= MACHINE_QA_DIAGNOSTIC_LIMIT
+    assert len(error.stderr) <= MACHINE_QA_DIAGNOSTIC_LIMIT

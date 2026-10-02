@@ -80,9 +80,20 @@ def test_package_failure_keeps_output_and_completed_baseline(mission, monkeypatc
     execution.control.golden_baseline_path = "/var/lib/golden"
     execution.control.run_command = lambda *args, **kwargs: subprocess.CompletedProcess(
         args=[],
-        returncode=1,
-        stdout="package output private-token",
-        stderr="PermissionError: journal is read-only private-token",
+        returncode=100,
+        stdout=json.dumps(
+            {
+                "ok": False,
+                "apt_failure": {
+                    "operation": "purge",
+                    "packages": ["xdotool"],
+                    "exit_code": 100,
+                    "stdout": "package output private-token",
+                    "stderr": "E: package removal refused private-token",
+                },
+            }
+        ),
+        stderr="SSH transport notice",
     )
     monkeypatch.setattr(
         qa_host_package_fixture, "restore_host_packages", restore_host_packages
@@ -92,9 +103,10 @@ def test_package_failure_keeps_output_and_completed_baseline(mission, monkeypatc
     failure = preparation["evidence"]["preparation_failure"]
     assert preparation["error_code"] == "os_package_fixture_failed"
     assert failure["phase"] == "os_packages"
-    assert failure["exit_code"] == 1
+    assert failure["exit_code"] == 100
+    assert 'operation=purge packages=["xdotool"]' in failure["diagnostic"]
     assert failure["stdout"] == "package output [REDACTED]"
-    assert "journal is read-only [REDACTED]" in failure["stderr"]
+    assert "package removal refused [REDACTED]" in failure["stderr"]
     assert "private-token" not in json.dumps(payload)
     outcome = preparation["evidence"]["baseline_outcome"]
     assert outcome["state"] == "completed"

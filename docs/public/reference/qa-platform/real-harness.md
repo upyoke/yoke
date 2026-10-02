@@ -54,13 +54,19 @@ scratch failure does not erase a completed baseline. Inspect this evidence and
 reconcile the host state before retrying; a planned `scratch_path` is created
 only when `scratch_created` is true. Local preparation uses the caller's source
 checkout; the authority serving the control plane records its QA outcome.
+Package-fixture apt failures retain the operation and package arguments in the
+diagnostic, apt's own exit code, and its captured stdout/stderr rather than only
+the remote Python process's error. Output is redacted before it is bounded at
+the credential-owning client.
 
 For a delivery case reusing another mission owner's preparation, run
-`yoke dev run -- python3 ops/qa/mission_preparation_evidence.py --project P --holder-plan PLAN --case-key CASE --stage STAGE`
+`python3 ops/qa/mission_preparation_evidence.py --project P --holder-plan PLAN --case-key CASE --stage STAGE`
 through item-scoped deployment QA. It reads recorded evidence only and requires
 a holder execution after that deployed stage began, against the same target;
 a pre-release reproduction cannot pass it. Coordinate that execution with its
-holder before running the evidence case.
+holder before running the evidence case. The Command runner supplies the
+deployed candidate checkout; a lane-source wrapper would switch that subject
+and is refused.
 
 The case installs the candidate wheels in a separate
 environment, onboards a throwaway Git project into a disposable local universe

@@ -38,7 +38,10 @@ def apt(operation, packages):
                                  'apt-get', '-y', operation, *(['--allow-downgrades'] if operation == 'install' else []), '--', *packages],
                                 capture_output=True, text=True)
         if result.returncode:
-            raise RuntimeError('os_package_fixture_failed: verify passwordless package-fixture authority and apt repository access')
+            print(json.dumps({'ok': False, 'apt_failure': {
+                'operation': operation, 'packages': packages, 'exit_code': result.returncode,
+                'stdout': result.stdout, 'stderr': result.stderr}}))
+            sys.exit(result.returncode)
 def delta(base, current):
     return {'installed': {name: version for name, version in current.items() if name not in base},
             'removed': {name: version for name, version in base.items() if name not in current},
@@ -129,13 +132,20 @@ def _run(control: Any, mode: str, declared: dict | None, *, secrets=()) -> dict:
     except (ValueError, TypeError):
         evidence = {}
     if result.returncode or evidence.get("ok") is not True:
+        failure = evidence.get("apt_failure", {})
+        detail = "Package fixture could not prove the declared package state"
+        if failure:
+            detail = (
+                f"apt-get operation={failure['operation']} "
+                f"packages={json.dumps(failure['packages'])} failed"
+            )
         raise HostControlLocalError(
             code="os_package_fixture_failed",
             phase="os_packages",
-            detail="Package fixture could not prove the declared package state",
-            exit_code=int(result.returncode),
-            stdout=result.stdout or "",
-            stderr=result.stderr or "",
+            detail=detail,
+            exit_code=int(failure.get("exit_code", result.returncode)),
+            stdout=failure.get("stdout", result.stdout) or "",
+            stderr=failure.get("stderr", result.stderr) or "",
             secrets=secrets,
             recovery_hint="Check apt access, passwordless sudo and the journal beside the golden before retrying QA.",
         )
