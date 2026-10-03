@@ -15,7 +15,7 @@ def run_cleanup(monkeypatch, tmp_path, *, inventory, ghost=True, survives=False)
     reloaded = False
     relay = "com.upyoke.relay.deleted.service"
 
-    def bounded(argv):
+    def bounded(argv, **kwargs):
         nonlocal reloaded
         commands.append(argv)
         if "list-unit-files" in argv:
