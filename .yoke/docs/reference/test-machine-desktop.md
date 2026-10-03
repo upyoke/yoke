@@ -1,0 +1,34 @@
+# Viewing a Test Machine desktop
+
+Run `yoke test-machine desktop-access --project P --machine NAME --view` on the
+workstation holding the registered fixture credentials. Read the command's
+`--help` for route prerequisites, refusals, and cleanup.
+
+The viewer uses the registered Linux or Windows WSL user's XFCE display over
+RDP. It measures that display's geometry, supplies the fixture password through
+stdin, and owns the SSH forward until the viewer closes. It does not write a
+password file or put the password in the client arguments. Personal sign-in is
+performed by the operator in the visible desktop.
+
+On macOS, the FreeRDP SDL client uses OpenGL rendering. Continuous remote updates
+can keep its default Metal renderer waiting for drawables inside the update loop,
+starving Cocoa input processing. The selection applies only to this child
+process; it changes no workstation settings. Linux retains its renderer
+selection. FreeRDP remains the viewer on both platforms.
+
+The helper announces `desktop_view_log: PATH` before launching the client. That
+private mode-600 file retains FreeRDP INFO output, redacting the fixture password
+before writing. Keep it for diagnosis; it remains after success or failure and
+is returned as `log_path`. The receipt also preserves `client_exit_code`.
+
+FreeRDP SDL can return 131 after an ordinary window close. The helper treats
+131 or 145 as a successful close only when the log proves framebuffer
+initialization and local cancellation, with no SDL exception. Other nonzero
+exits remain `desktop_view_failed` and name the retained log. A client requiring
+a forced kill during cleanup reports `desktop_view_unresponsive`, also with
+the log path. Inspect that log, repair the named client or registered desktop
+route, and rerun the command. Capture-storage failures refuse explicitly.
+
+Renderer selection uses SDL's documented [render-driver hint](https://wiki.libsdl.org/SDL3/SDL_HINT_RENDER_DRIVER).
+The [FreeRDP SDL update loop](https://github.com/FreeRDP/FreeRDP/blob/3.32.1/client/SDL/SDL3/sdl_freerdp.cpp)
+drains pending drawing updates before returning to event processing.
