@@ -15,6 +15,8 @@ def _row_value(row: Any, key: str) -> Any:
 
 def qa_run_outcome(row: Any) -> str:
     """Return the canonical QA outcome without changing activity vocabulary."""
+    if _row_value(row, "retracted_at"):
+        return "cancelled"
     if _row_value(row, "qa_kind") == "post_deploy_no_obligation":
         return "no_obligation"
     if _row_value(row, "waived_at"):

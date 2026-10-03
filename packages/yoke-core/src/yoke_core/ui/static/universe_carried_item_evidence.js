@@ -2,13 +2,8 @@
 // approvals those items awaited or received, shown as each item's "Item QA"
 // inside its own entry in a deployment card's Carries box.
 //
-// A deployment run's own checks record the run they ran in. An item's checks
-// do not have to: an item-attached requirement records no deployment run at
-// all, so grouping QA activity by run drops it and the release carrying that
-// item shows nothing for it. This reads evidence for the items a card is
-// actually about, keyed by the item, and keeps each row's own association, so
-// a picture that proves nothing about this run is never presented as if it
-// did.
+// Evidence is read for the carried items, then scoped to the exact run
+// on each card. Run-less source requirements and other runs stay on the item.
 
 import { QA_STATE, classifyMemberQa, classifyQaRow } from "./qa_state.js";
 import { itemQaChecks } from "./universe_carried_item_qa.js";
@@ -88,8 +83,7 @@ export async function loadCarriedItemEvidence(context, items) {
         payload: {
           project,
           item_ids: subjects.slice(at, at + SUBJECTS_PER_CALL),
-          // History across releases is what the card summarises. The
-          // per-item bound still trims old checks inside one run group.
+          // Each card filters these per-item, per-run groups to its own run.
           limit: CHECKS_PER_ITEM,
         },
       });
@@ -133,19 +127,14 @@ export async function loadCarriedItemEvidence(context, items) {
   };
 }
 
-// What this card may honestly show beside this item: the checks recorded
-// against this very run, plus the item's own checks that record no run at
-// all — which are labelled rather than counted as proof of the run. A check
-// recorded against a different run belongs to that run and stays there.
+// Only checks recorded against this card's run belong beside this item.
 export function carriedItemEvidence(facts, itemId, runId) {
   const rows = facts?.byItem?.get(String(itemId)) || [];
   const wanted = String(runId || "");
   const checks = [];
-  let unlinked = 0;
   for (const row of rows) {
     const recorded = String(row.deployment_run_id || "");
-    if (recorded && recorded !== wanted) continue;
-    if (!recorded) unlinked += 1;
+    if (!recorded || recorded !== wanted) continue;
     checks.push(row);
   }
   const seen = new Set();
@@ -159,7 +148,7 @@ export function carriedItemEvidence(facts, itemId, runId) {
         requirement_id: artifact.requirement_id ?? check.requirement_id });
     }
   }
-  return { checks, artifacts, unlinked };
+  return { checks, artifacts };
 }
 
 // A waiting review names the item it is about, so the reviews for an item
@@ -228,7 +217,7 @@ function asGate(request) {
 // A busy item's history is bounded per release; the entry says so rather
 // than letting a cut-short list pass for the whole record.
 function appendTruncationNote(documentNode, wrap, facts, itemId, runId) {
-  const cutShort = [groupKey(itemId, runId), groupKey(itemId, null)].some(
+  const cutShort = [groupKey(itemId, runId)].some(
     (key) => facts?.truncatedGroups?.has(key),
   );
   if (!cutShort) return;
@@ -251,10 +240,10 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   const itemId = carriedItemId(item);
   if (itemId === null) return null;
   const { checks } = carriedItemEvidence(facts, itemId, runId);
-  const history = facts?.byItem?.get(String(itemId)) || checks;
+  const history = checks;
   const gates = carriedItemReviews(facts, itemId, runId, checks).map(asGate);
   const memberState = classifyMemberQa(history, { runId });
-  const hasQa = memberState.id !== QA_STATE.NO_OBLIGATION && history.some((row) => {
+  const hasQa = history.some((row) => {
     const state = classifyQaRow(row, history)?.id;
     return state !== QA_STATE.NO_OBLIGATION && state !== QA_STATE.RUN_MACHINERY;
   });
@@ -267,7 +256,7 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
     "div",
     `carried-item-evidence is-${String(memberState.id).replaceAll("_", "-")}`,
   );
-  const scoped = hasQa ? itemQaChecks(history, { runId, deployedSha: options.deployedSha })
+  const scoped = hasQa ? itemQaChecks(history, { runId })
     : { current: [], history: [] };
   const section = qaScopeSection(context, {
     heading: "Item QA",

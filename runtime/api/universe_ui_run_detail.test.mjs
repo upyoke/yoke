@@ -312,35 +312,12 @@ test("an inaccessible or missing run says so rather than drawing an empty page",
   mounted.unmount();
 });
 
-test("a carried item's own QA is shown beside that item, labelled as its own", async (t) => {
-  // The item's requirement records no deployment run, which is exactly the
-  // shape a run-keyed read drops. The page carries it under the item.
+test("a run page leaves run-less item QA on the item", async (t) => {
   const client = runClient(runRow(), [], [{
-    requirement_id: 26134, run_id: 28095, deployment_run_id: null,
-    deployment_stage: null, item_id: 2262, deployment_member_item_id: null,
-    plan_id: 7, plan: "release-readiness", project: "yoke",
-    case_key: "marketing-pages-visual", method_name: "Browser inspection",
-    outcome: "undetermined", evidence_count: 1,
-    happened_at: "2026-07-26T10:05:00Z",
-    artifacts: [{ id: 17882, artifact_type: "screenshot", content_type: "image/png" }],
+    requirement_id: 26134, deployment_run_id: null, item_id: 2262,
+    method_name: "Browser inspection", outcome: "undetermined", artifacts: [],
   }]);
   const { root } = await mountAt(t, "#/deployments/runs/run-20260726-001?project=1", client);
   await settle();
-
-  const evidence = byClass(byClass(root, "run-items")[0], "carried-item-evidence")[0];
-  assert.ok(evidence, "the carried item carries its own evidence");
-  // Nothing ran against the deployed revision, so the item's check sits in
-  // its Item QA's earlier checks, named for when it ran and linked to its case.
-  const section = byClass(evidence, "item-qa-section")[0];
-  assert.equal(byClass(section, "run-qa-head")[0].children[0].textContent, "Item QA");
-  assert.equal(section.children.filter(
-    (node) => node.classList.contains("run-qa-check")).length, 0);
-  const earlier = byClass(evidence, "run-qa-history")[0];
-  assert.equal(earlier.children[0].textContent, "Earlier checks (1)");
-  const row = byClass(earlier, "run-qa-check")[0];
-  assert.equal(byClass(row, "run-qa-check-name")[0].children[0].href,
-    "#/qa-activity/26134?project=1");
-  assert.equal(byClass(row, "run-qa-check-run")[0].textContent, "Before merge");
-  assert.equal(byClass(evidence, "review-shot").length, 1);
-  assert.equal(byClass(evidence, "carried-item-evidence-note").length, 0);
+  assert.equal(byClass(byClass(root, "run-items")[0], "carried-item-evidence").length, 0);
 });

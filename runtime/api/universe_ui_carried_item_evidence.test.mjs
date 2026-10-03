@@ -1,15 +1,4 @@
-// What a release's carried items prove, seen from the deployment card that
-// carries them.
-//
-// A run's own checks record the run they ran in; an item-attached
-// requirement records no deployment run at all. Grouping QA activity by run
-// therefore dropped an item's own evidence entirely, and a release card
-// listing that item showed nothing beside it — the live case was three
-// uploaded screenshots that no deployment surface would draw. These cases
-// hold the shape that replaced it: evidence read for the items on screen,
-// shown in each item's own Carries entry, labelled honestly when it says
-// nothing about this run, and a waiting review answered right there through
-// the request the Inbox would have answered.
+// A delivery card draws only its run-bound member evidence.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -17,7 +6,7 @@ import test from "node:test";
 import { byClass, FakeDocument, settle } from "./universe_ui_dom_test_support.mjs";
 import { qaRequestRow } from "./universe_ui_inbox_test_support.mjs";
 import {
-  activityRow,
+  activityRow as unboundActivityRow,
   artifact,
   cardFor,
   deployedTarget,
@@ -32,6 +21,10 @@ import {
   carriedItemEvidence,
   loadCarriedItemEvidence,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.js";
+
+const activityRow = (overrides = {}) => unboundActivityRow({
+  deployment_run_id: RUN_ID, ...overrides,
+});
 
 test("evidence is read for the carried items, not for whatever is recent", async () => {
   const client = readingClient({ rows: [activityRow()] });
@@ -56,18 +49,12 @@ test("an item's own QA shows in its Carries entry", async () => {
   assert.match(entry.textContent, /BUZ-1896/);
   const evidence = byClass(entry, "carried-item-evidence")[0];
   assert.ok(evidence, "the item's entry carries its own evidence");
-  // The item's QA is its own "Item QA" section, drawn like "Run QA". A
-  // check from before merge is an earlier check: one line, linked to its QA
-  // case, naming the merge it verified rather than a phase code.
   const section = byClass(evidence, "item-qa-section")[0];
   assert.equal(byClass(section, "run-qa-head")[0].children[0].textContent, "Item QA");
-  const earlier = byClass(evidence, "run-qa-history")[0];
-  assert.equal(earlier.children[0].textContent, "Earlier checks (1)");
-  const row = byClass(earlier, "run-qa-check")[0];
-  assert.match(row.textContent, /^○Browser inspection·\S.*·Before merge/);
+  const row = byClass(section, "run-qa-check")[0];
   assert.equal(byClass(row, "run-qa-check-name")[0].children[0].href,
     "#/qa-activity/26134?project=1");
-  assert.doesNotMatch(evidence.textContent, /verified before merge|QA for the deployed revision/);
+  assert.equal(byClass(evidence, "run-qa-history").length, 0);
   // Each screenshot is its own control inside that entry.
   assert.equal(byClass(evidence, "review-shot").length, 2);
   // The distinction between an item's own record and this run's proof is
@@ -111,7 +98,7 @@ test("each carried item shows its own evidence and no one else's", async () => {
   assert.equal(byClass(lead, "run-qa-check-mark")[0].textContent, "✓");
   assert.doesNotMatch(second.textContent, /this release/);
   assert.equal(byClass(first, "item-qa-section")[0].children
-    .filter((node) => node.classList.contains("run-qa-check")).length, 0);
+    .filter((node) => node.classList.contains("run-qa-check")).length, 1);
   assert.equal(byClass(second, "carried-item-evidence-note").length, 0);
 });
 
@@ -127,7 +114,6 @@ test("evidence recorded against another run stays with that run", () => {
 
   const shown = carriedItemEvidence(facts, 1896, RUN_ID);
   assert.deepEqual(shown.checks.map((check) => check.requirement_id), [26141]);
-  assert.equal(shown.unlinked, 0);
 });
 
 test("a run carrying nothing draws no carries box and no item evidence", async () => {

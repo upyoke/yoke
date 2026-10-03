@@ -1,8 +1,4 @@
-// A carried item's QA inside its run entry is an "Item QA" section drawn
-// exactly like "Run QA": the checks this run recorded (or, failing those,
-// the one that ran against the deployed revision) lead with their own
-// screenshots, and every other check is one line behind a single "Earlier
-// checks" disclosure, each linking its own QA case and its run or CI run.
+// A carried item shows only checks bound to the card's run.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -10,6 +6,11 @@ import test from "node:test";
 import { byClass, FakeDocument } from "./universe_ui_dom_test_support.mjs";
 import {
   artifact,
+  activityRow,
+  cardFor,
+  member,
+  memberEntry,
+  readingClient,
   DEPLOYED_SHA,
   deployedTarget,
   RUN_ID,
@@ -63,10 +64,10 @@ function paint(rows = history) {
 const checkLines = (host) => host.children.filter(
   (node) => node.classList.contains("run-qa-check"));
 
-test("the check this run recorded leads, then earlier checks", () => {
+test("the check this run recorded leads without other runs or pre-merge checks", () => {
   const section = paint();
   const classes = section.children.map((node) => node.className.split(" ")[0]);
-  assert.deepEqual(classes, ["run-qa-head", "run-qa-check", "run-qa-history"]);
+  assert.deepEqual(classes, ["run-qa-head", "run-qa-check"]);
   assert.equal(section.children[0].children[0].textContent, "Item QA");
   assert.equal(section.children[0].children[1].textContent, "1 of 1 passed");
   const current = section.children[1];
@@ -87,38 +88,38 @@ test("a check's screenshots open and close the rest in place", () => {
   assert.equal(byClass(strip, "review-shot").length, 7);
 });
 
-test("every other check is one line behind one Earlier checks disclosure", () => {
-  const earlier = byClass(paint(), "run-qa-history")[0];
-  assert.equal(earlier.tagName, "DETAILS");
-  assert.equal(earlier.children[0].textContent, "Earlier checks (3)");
-  const rows = checkLines(earlier);
-  assert.equal(rows.length, 3);
-  // Newest first: an older release's pass, its failure, then before merge.
-  assert.equal(byClass(rows[0], "run-qa-check-outcome")[0].textContent, "Passed");
-  const runLink = byClass(rows[0], "run-qa-check-run")[0];
-  assert.equal(runLink.textContent, "Run 20260910-002");
-  assert.equal(runLink.href, `#/deployments/runs/${OLDER_RUN}?project=1`);
-  assert.equal(byClass(rows[0], "run-qa-check-name")[0].children[0].href,
-    "#/qa-activity/12?project=1");
-  // Each earlier check keeps the screenshots it captured under itself.
-  assert.deepEqual(byClass(rows[0], "review-shot").map(
-    (shot) => Number(shot.getAttribute("data-artifact-id"))), [40]);
-  assert.equal(byClass(rows[1], "run-qa-check-mark")[0].textContent, "✕");
-  assert.equal(byClass(rows[1], "run-qa-check-outcome")[0].textContent, "Failed");
-  assert.equal(byClass(rows[2], "run-qa-check-run")[0].textContent, "Before merge");
-  assert.equal(byClass(rows[2], "run-check-conclusion")[0].href, CI_URL);
+test("other runs stay off the card even when they tested the same revision", () => {
+  const scoped = itemQaChecks([
+    ...history.slice(0, 3),
+    check({ deployment_run_id: OLDER_RUN,
+      execution_target_json: deployedTarget(DEPLOYED_SHA) }),
+  ], { runId: RUN_ID, deployedSha: DEPLOYED_SHA });
+  assert.deepEqual(scoped, { current: [], history: [] });
+  assert.equal(byClass(paint(history.slice(0, 3)), "run-verdict").length, 0);
+});
+
+test("a removed requirement stays cancelled in this run's history", () => {
+  const section = paint([check({ deployment_run_id: RUN_ID, outcome: "passed",
+    retracted_at: "2026-09-10T12:00:00Z",
+    retraction_rationale: "Member removed for rework" })]);
+  assert.equal(byClass(section, "run-verdict").length, 0);
+  const earlier = byClass(section, "run-qa-history")[0];
+  assert.equal(byClass(earlier, "run-qa-check-outcome")[0].textContent, "Cancelled");
+  assert.match(earlier.textContent, /Member removed for rework/);
+  assert.doesNotMatch(earlier.textContent, /Queued|Passed/);
+});
+
+test("a no-obligation record contributes no unpassed test", () => {
+  const section = paint([history[3], check({ requirement_id: 99,
+    deployment_run_id: RUN_ID, qa_kind: "post_deploy_no_obligation",
+    outcome: "no_obligation", blocking: false })]);
+  assert.equal(byClass(section, "run-verdict")[0].textContent, "1 of 1 passed");
 });
 
 test("no line repeats a phase code, the card's own run ID, or a release label", () => {
   const text = paint().textContent;
   assert.doesNotMatch(text, /post-deploy|verification|this release|deployed revision/);
   assert.doesNotMatch(text, new RegExp(RUN_ID));
-});
-
-test("with nothing run against the deployed revision, all checks are earlier checks", () => {
-  const section = paint(history.slice(0, 3));
-  assert.equal(checkLines(section).length, 0);
-  assert.equal(checkLines(byClass(section, "run-qa-history")[0]).length, 3);
 });
 
 test("a carried title the run payload omits is read from the item", async () => {
@@ -161,4 +162,29 @@ test("a repaint reuses a ready artifact read and retries a failed one", async ()
   await new Promise((resolve) => setTimeout(resolve, 0));
   await readArtifact(context, { id: 2, requirement_id: 9 });
   assert.equal(calls, 3);
+});
+
+
+test("a card without run-bound QA draws no Item QA despite other-run history", async () => {
+  const client = readingClient({ rows: [
+    activityRow({ deployment_run_id: OLDER_RUN, outcome: "queued" }),
+    activityRow({ requirement_id: 99, deployment_run_id: null }),
+  ] });
+  const prefix = "SAMPLE";
+  const { card } = await cardFor(new FakeDocument(), [member(1896, `${prefix}-1`)], client);
+  assert.equal(byClass(memberEntry(card), "item-qa-section").length, 0);
+});
+
+test("a nonblocking no-obligation fact does not hide or count beside a live check", async () => {
+  const client = readingClient({ rows: [
+    activityRow({ deployment_run_id: RUN_ID, outcome: "passed", artifacts: [] }),
+    activityRow({ requirement_id: 99, deployment_run_id: RUN_ID,
+      qa_kind: "post_deploy_no_obligation", outcome: "no_obligation",
+      blocking_mode: "non_blocking", artifacts: [] }),
+  ] });
+  const prefix = "SAMPLE";
+  const { card } = await cardFor(new FakeDocument(), [member(1896, `${prefix}-1`)], client);
+  const section = byClass(memberEntry(card), "item-qa-section")[0];
+  assert.match(section.textContent, /1 of 1 passed/);
+  assert.doesNotMatch(section.textContent, /1 of 2|0 of 1/);
 });
