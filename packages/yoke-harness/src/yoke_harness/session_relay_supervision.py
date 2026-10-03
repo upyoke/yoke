@@ -128,14 +128,19 @@ def refreshing_inventory(refresher):
     pool = SettlementPool(1) if refresher else None
     refresh = pool.submit(refresher) if pool else None
     try:
-        yield
-        if refresh:
-            try:
-                refresh.result()
-            except Exception:
-                logging.getLogger(__name__).warning(
-                    "relay surface probe refresh failed", exc_info=True
-                )
+        try:
+            yield
+        except RelayStopRequested:
+            refresh = None
+            raise
+        finally:
+            if refresh:
+                try:
+                    refresh.result()
+                except Exception:
+                    logging.getLogger(__name__).warning(
+                        "relay surface probe refresh failed", exc_info=True
+                    )
     finally:
         if pool:
             pool.shutdown(wait=False, cancel_futures=True)

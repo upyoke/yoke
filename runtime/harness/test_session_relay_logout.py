@@ -107,3 +107,21 @@ def test_stop_closes_admission_and_cancels_queued_jobs(tmp_path):
     release.set()
     supervisor.drain(timeout=1)
     assert calls == []
+
+
+def test_ordinary_poll_failure_settles_refresh_before_another_cycle():
+    import threading
+    from yoke_harness.session_relay_supervision import refreshing_inventory
+
+    entered, finished = threading.Event(), threading.Event()
+
+    def refresh():
+        entered.set()
+        time.sleep(0.05)
+        finished.set()
+
+    with pytest.raises(RuntimeError, match="poll failed"):
+        with refreshing_inventory(refresh):
+            assert entered.wait(1)
+            raise RuntimeError("poll failed")
+    assert finished.is_set()
