@@ -81,6 +81,30 @@ def test_shell_errors_and_transport_timeout_never_prove_absence(exit_code):
     assert "private-value" not in str(evidence)
 
 
+def test_transport_partial_stdout_is_failed_probe_not_installed(monkeypatch):
+    control = SshLinuxHostOperations.__new__(SshLinuxHostOperations)
+    control.shell = "/bin/bash"
+    control.secret_values = ("private-value",)
+    control._ssh_argv = lambda command: ["ssh", "test-host", command]
+
+    def timeout(argv, **kwargs):
+        raise subprocess.TimeoutExpired(
+            argv,
+            kwargs["timeout"],
+            output=b"WSL startup private-value\n",
+            stderr=b"connection stalled private-value",
+        )
+
+    monkeypatch.setattr(subprocess, "run", timeout)
+    evidence = probe_tool_resolution(control, "login", "yoke")
+    assert evidence["exit_code"] == 124
+    assert evidence["state"] == "probe-failed"
+    assert evidence["resolved_path"] is None
+    assert "WSL startup" in evidence["stdout"]
+    assert "timed out" in evidence["stderr"]
+    assert "private-value" not in str(evidence)
+
+
 @pytest.mark.parametrize(
     "stdout", ["startup noise only", "duplicate", "invalid-exit", "function"]
 )
