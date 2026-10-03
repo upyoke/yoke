@@ -174,9 +174,12 @@
   }
 }
 
+.universe-app-root .item-roster-action {
+  box-sizing: border-box;
+  min-height: 44px;
+}
 .universe-app-root .item-filter-toggle {
   gap: 10px;
-  min-height: 44px;
 }
 .universe-app-root .item-filter-toggle > .band-chevron {
   width: 9px;

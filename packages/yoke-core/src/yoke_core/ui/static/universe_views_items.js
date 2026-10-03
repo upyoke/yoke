@@ -90,7 +90,7 @@ export function renderItemsView(context, main, scope, chrome = {}) {
   const documentNode = context.document;
   const projects = context.projects();
   const panel = section(documentNode, "Items");
-  const filterButton = el(documentNode, "button", "item-button item-filter-toggle", "Filter");
+  const filterButton = el(documentNode, "button", "item-button item-roster-action item-filter-toggle", "Filter");
   const chevron = el(documentNode, "span", "band-chevron");
   chevron.setAttribute("aria-hidden", "true");
   filterButton.appendChild(chevron);
@@ -104,6 +104,7 @@ export function renderItemsView(context, main, scope, chrome = {}) {
     buildUniverseRoute("items", projectId, "new"),
     true,
   );
+  newItem.classList.add("item-roster-action");
   if (typeof chrome.setPageHead === "function") {
     chrome.setPageHead({
       title: "Items",
