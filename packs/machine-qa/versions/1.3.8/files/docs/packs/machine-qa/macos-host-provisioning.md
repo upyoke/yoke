@@ -221,12 +221,21 @@ Terminal context. A failed capture does not replace the registered baseline.
 The captured directory, `.manifest` and `.probes` stay private on the host.
 Their seal records identity, size and probe digest; captured files retain modes
 and ACLs. Sockets/FIFOs are omitted by type, regular `.sock` files are retained.
+The exact OS-managed audiovisual preference at
+`Library/Group Containers/group.com.apple.secure-control-center-preferences/Library/Preferences/group.com.apple.secure-control-center-preferences.av.plist`
+is excluded from capture and preserved live on reset alongside `.ssh` and user
+TCC. When present it must be a root:wheel regular file with no symlink ancestors.
+Its declaration is sealed in the manifest; every other foreign entry refuses.
+Do not change its owner or ask the operator to repair it. Older manifests remain
+readable; a present declaration must match and the excluded file must be absent
+from the golden.
 Only the dedicated test home is captured; system settings/other homes are not.
 
 | Named refusal | Recovery |
 | --- | --- |
 | `golden_capture_yoke_residue` | Return to the existing baseline, then prepare and save again |
-| `golden_capture_foreign_owner` | Operator repairs the named entry's ownership in the test home |
+| `golden_capture_foreign_owner` | Diagnose the unexpected owner's writer; prove a product-owned restoration path before capture |
+| `golden_capture_preserved_state_invalid` | Inspect the named OS entry's owner/type or symlink ancestor; preserve content and do not change its owner |
 | `golden_capture_destination_occupied` | Choose a new destination |
 | `baseline_probe_failed` | Read cause/reason/recovery; prove the request in the GUI context before diagnosing auth |
 | `baseline_probe_bridge_unavailable` | Repair the named bridge condition, then retry |

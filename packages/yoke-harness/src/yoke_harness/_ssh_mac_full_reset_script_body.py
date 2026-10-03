@@ -21,6 +21,7 @@ validate_home() {
   local physical_home
   physical_home=$(builtin cd -q -- "$home" 2>/dev/null && /bin/pwd -P)
   [[ "$physical_home" == "$home" ]] || return 1
+  assert_os_managed_preserved_state
 }
 
 # The one probe that tests the Full Disk Access grant itself rather than the
@@ -46,6 +47,7 @@ validate_golden() {
   golden_entry_count="${golden_entry_count// /}"
   [[ "$golden_entry_count" == <-> ]] || return 1
   (( golden_entry_count > 0 )) || return 1
+  validate_preserved_manifest
 }
 
 # rm reports "Permission denied" for Desktop, Music, Pictures, Public and
@@ -146,8 +148,10 @@ shell_surface_is_clean() {
 verify_restored_home() {
   local suffix target flag
   for suffix in "${preserved_entries[@]}"; do
+    is_os_managed_entry "$suffix" && continue
     lexists "$home/$suffix" || return 1
   done
+  assert_os_managed_preserved_state || return 1
   for suffix in "${yoke_absent_directories[@]}" "${yoke_absent_files[@]}"; do
     if lexists "$home/$suffix"; then
       return 1

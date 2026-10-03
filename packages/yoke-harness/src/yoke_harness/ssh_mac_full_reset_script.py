@@ -11,6 +11,10 @@ from yoke_harness._ssh_mac_full_reset_reap_body import REAP_FUNCTIONS
 from yoke_harness._ssh_mac_full_reset_relay_body import RELAY_SERVICE_FUNCTIONS
 from yoke_harness._ssh_mac_full_reset_script_body import SCRIPT_BODY
 from yoke_harness._ssh_mac_full_reset_self_host_body import SELF_HOST_FUNCTIONS
+from yoke_harness.ssh_mac_preserved_state import (
+    OS_MANAGED_INVALID_PREFIX,
+    render_preserved_state_contract,
+)
 from yoke_harness.ssh_mac_full_reset_contract import (
     COMPOSE_PROJECT_LABEL,
     CONTAINER_RUNTIME_PATHS,
@@ -161,12 +165,15 @@ def render_level_functions(
         )
         restore_lines.extend(
             (
+                f"  if [[ -d {golden_level} ]]; then",
+                f'    /bin/mkdir -p -- {home_level} 2>>"$restore_error_log" || return 1',
                 "  while IFS= read -r -d '' captured; do",
                 f'    restore_captured_entry "$captured" {target}',
                 "  done < <(",
                 f"    /usr/bin/find {golden_level} -mindepth 1 -maxdepth 1 "
                 f"{keep} -print0",
                 "  )",
+                "  fi",
             )
         )
     clear_lines.extend(("  return 0", "}"))
@@ -223,6 +230,8 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             ),
             f"tools={_array(contract.tools)}",
             f"preserved_entries={_array(PRESERVED_HOME_ENTRIES)}",
+            "os_managed_invalid_prefix=" + shlex.quote(OS_MANAGED_INVALID_PREFIX),
+            render_preserved_state_contract(),
             f"yoke_absent_directories={_array(YOKE_ABSENT_RELATIVE_DIRECTORIES)}",
             f"yoke_absent_files={_array(contract.tool_file_suffixes)}",
             f"yoke_absent_temp_files={_array(YOKE_ABSENT_TEMP_FILES)}",

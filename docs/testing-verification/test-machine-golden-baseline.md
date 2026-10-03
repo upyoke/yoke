@@ -18,6 +18,13 @@ therefore matters independently of the operation's success flag.
 
 The sealed home lives outside the restored home. Its manifest binds identity,
 size/digest and probe document; modes and ACLs remain part of captured state.
+macOS capture excludes the exact root:wheel regular audiovisual preference
+`Library/Group Containers/group.com.apple.secure-control-center-preferences/Library/Preferences/group.com.apple.secure-control-center-preferences.av.plist`.
+The shared preservation contract validates its owner/type and rejects symlink
+ancestors, records the exclusion in the sealed manifest, and keeps the live
+entry during reset alongside SSH access and user TCC. Every other foreign
+entry still refuses. Older manifests remain readable; a present preservation
+declaration must match the contract and the excluded entry must not be captured.
 The archive is private fixture material, not a QA artifact. Whole-home content,
 CLI liveness, persistent OS grants and the actual visible desktop are separate
 proofs: a passing one cannot establish the others.

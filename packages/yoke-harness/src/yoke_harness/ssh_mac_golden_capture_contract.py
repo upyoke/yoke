@@ -15,6 +15,8 @@ restore, so ownership is asserted too. Both refusals name the exact path.
 
 from __future__ import annotations
 
+from yoke_harness.ssh_mac_preserved_state import OS_MANAGED_MANIFEST_KEY
+
 
 GOLDEN_CAPTURE_REMOTE_PATH = "/tmp/yoke-machine-qa-golden-capture.zsh"
 GOLDEN_CAPTURE_MARKER = "YOKE_MAC_CAPTURE_OK"
@@ -45,12 +47,19 @@ CAPTURE_REFUSAL_PREFIX = "YOKE_CAPTURE_REFUSED_"
 CAPTURE_REFUSAL_KIND_RESIDUE = "yoke_residue"
 CAPTURE_REFUSAL_KIND_FOREIGN_OWNER = "foreign_owner"
 CAPTURE_REFUSAL_KIND_DESTINATION_OCCUPIED = "destination_occupied"
+CAPTURE_REFUSAL_KIND_PRESERVED_STATE = "preserved_state_invalid"
 CAPTURE_REFUSAL_KINDS = (
     CAPTURE_REFUSAL_KIND_RESIDUE,
     CAPTURE_REFUSAL_KIND_FOREIGN_OWNER,
     CAPTURE_REFUSAL_KIND_DESTINATION_OCCUPIED,
+    CAPTURE_REFUSAL_KIND_PRESERVED_STATE,
 )
 CAPTURE_REFUSAL_RECOVERY = {
+    CAPTURE_REFUSAL_KIND_PRESERVED_STATE: (
+        "The declared OS-managed entry at {path} must be a root:wheel regular "
+        "file with no symlink ancestors, or absent. Preserve its content and "
+        "inspect the named state; do not change its owner or skip other entries."
+    ),
     CAPTURE_REFUSAL_KIND_RESIDUE: (
         "Yoke state is present at {path}; reset the host to its current "
         "golden baseline before capturing a new one, so the capture does not "
@@ -58,8 +67,8 @@ CAPTURE_REFUSAL_RECOVERY = {
     ),
     CAPTURE_REFUSAL_KIND_FOREIGN_OWNER: (
         "{path} inside the test home belongs to another account; the test "
-        "user cannot clear or restore it. Repair its owner, then capture "
-        "again."
+        "user cannot clear or restore it. Diagnose its writer and prove a "
+        "product-owned restoration path before capturing again."
     ),
     CAPTURE_REFUSAL_KIND_DESTINATION_OCCUPIED: (
         "Something already exists at {path}. Choose a new destination; a "
@@ -78,6 +87,7 @@ MANIFEST_FIELDS = (
     "top_level_entry_count",
     "kilobyte_count",
     "probes_digest",
+    OS_MANAGED_MANIFEST_KEY,
 )
 # The golden directory and its sidecars are read-only once sealed, so a later
 # restore cannot be corrupted by something writing into the baseline.
@@ -105,6 +115,7 @@ __all__ = [
     "CAPTURE_REFUSAL_KIND_DESTINATION_OCCUPIED",
     "CAPTURE_REFUSAL_KIND_FOREIGN_OWNER",
     "CAPTURE_REFUSAL_KIND_RESIDUE",
+    "CAPTURE_REFUSAL_KIND_PRESERVED_STATE",
     "CAPTURE_REFUSAL_PREFIX",
     "CAPTURE_REFUSAL_RECOVERY",
     "GOLDEN_CAPTURE_MARKER",
