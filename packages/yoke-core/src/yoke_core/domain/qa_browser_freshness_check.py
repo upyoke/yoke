@@ -19,6 +19,7 @@ import json
 from typing import Any, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.deployment_run_candidate_containment import (
     UNDETERMINED,
@@ -32,7 +33,10 @@ from yoke_core.domain.qa_gate_definitions import LatestCodeRef
 #: recorded, and any reason its build could not be placed.
 StaleBrowserRow = Tuple[int, str, Optional[str], Optional[str], str]
 
-def _extract_code_identity(raw_result: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+
+def _extract_code_identity(
+    raw_result: Optional[str],
+) -> Tuple[Optional[str], Optional[str]]:
     """Extract browser QA code identity from raw_result JSON when present."""
     if not raw_result:
         return None, None
@@ -208,7 +212,7 @@ def _collect_stale_browser_requirements(
         WHERE {where}
           {phase_sql}
           AND r.blocking_mode = 'blocking'
-          AND r.waived_at IS NULL
+          AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")}
           AND {browser_requirement_predicate("r")}
           AND EXISTS (
             SELECT 1 FROM qa_runs qr

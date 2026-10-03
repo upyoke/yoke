@@ -99,7 +99,7 @@ def requirement_set_result(
     transition_name: str,
     qa_phase: Optional[str],
 ) -> Optional[GateResult]:
-    """Refuse a QA gate whose applicable requirement set is empty."""
+    """Require registration history; retired rows owe no evidence but stay registered."""
     phase_sql = " AND qa_phase = 'verification'" if qa_phase else ""
     count = query_scalar(
         conn,
@@ -118,9 +118,7 @@ def requirement_set_result(
     from yoke_core.domain import db_backend
     from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
 
-    item_id = (
-        int(target.item_id) if target.item_id is not None else int(target.epic_id)
-    )
+    item_id = int(target.item_id) if target.item_id is not None else int(target.epic_id)
     if optional_unattached_qa_permits_empty(conn, item_id):
         attached = 0
         if _table_exists(conn, "qa_plan_item_attachments"):

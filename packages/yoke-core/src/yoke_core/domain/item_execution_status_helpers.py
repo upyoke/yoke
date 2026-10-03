@@ -285,7 +285,9 @@ def collect_qa(conn: Any, db_path: str, item_id: int) -> Dict[str, Any]:
     blocking_total = sum(
         1
         for r in requirements
-        if r.get("blocking_mode") == "blocking" and not r.get("waived_at")
+        if r.get("blocking_mode") == "blocking"
+        and not r.get("waived_at")
+        and not r.get("retracted_at")
     )
     state = "configured" if requirements else "no_requirements"
     return {

@@ -16,7 +16,10 @@ from typing import Any
 
 from yoke_core.domain.db_helpers import query_scalar
 from yoke_core.domain.post_deploy_verification_answer import answer_for_item
-from yoke_core.domain.qa_obligation_settlement import settled_obligation_sql
+from yoke_core.domain.qa_obligation_settlement import (
+    settled_obligation_sql,
+    unretracted_requirement_sql,
+)
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -51,7 +54,8 @@ def satisfied_delivery_member(conn: Any, *, item_id: int, run_id: str) -> bool:
         conn,
         "SELECT COUNT(*) FROM qa_requirements r "
         "WHERE r.deployment_run_id=%s AND r.deployment_member_item_id=%s "
-        "AND r.qa_phase='post_deploy' AND r.blocking_mode='blocking'",
+        "AND r.qa_phase='post_deploy' AND r.blocking_mode='blocking' "
+        f"AND {unretracted_requirement_sql(conn, 'r')}",
         (str(run_id), int(item_id)),
     )
     if not int(total or 0):
