@@ -8,7 +8,6 @@ import {
   renderError,
   renderTable,
   section,
-  withProjectColumn,
 } from "./universe_view_support.js";
 import { actionLink } from "./item_view_primitives.js";
 
@@ -77,7 +76,7 @@ export function renderOuroborosView(context, main, scope) {
         body.appendChild(el(documentNode, "p", "empty", "loading…"));
         return;
       }
-      renderTable(body, state.rows, withProjectColumn([
+      renderTable(body, state.rows, [
         { label: "Observation", value: (row) => row.preview || row.context || `Field note #${row.id}` },
         { label: "Filed at", value: (row) => row.timestamp },
         { label: "Category", value: (row) => row.category, pill: true },
@@ -96,7 +95,7 @@ export function renderOuroborosView(context, main, scope) {
             })
             : null,
         },
-      ], scope, (row) => row.project).map(column => ({
+      ].map(column => ({
         ...column,
         ...(OUROBOROS_SORT_COLUMNS[column.label] ? {
           header: () => sortHeader(documentNode, column.label, state.criteria.sort, key => loader.setSort(key), OUROBOROS_SORT_COLUMNS[column.label]),

@@ -46,7 +46,7 @@ test("navigation is three groups, and every entry declares one", () => {
       ["launches", "Launches", "multi", "diagnostics"],
       ["events", "Events", "multi", "diagnostics"],
       ["doctor", "Doctor", "multi", "diagnostics"],
-      ["ouroboros", "Ouroboros", "multi", "diagnostics"],
+      ["ouroboros", "Ouroboros", "single", "diagnostics"],
     ],
   );
 });

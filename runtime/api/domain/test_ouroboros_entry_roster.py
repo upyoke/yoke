@@ -254,3 +254,28 @@ def test_multi_project_roster_respects_explicit_actor_visibility(test_db, monkey
     )
     assert outcome.primary_success
     assert outcome.result_payload["entries"] == []
+
+
+def test_focused_roster_authorizes_before_reading_only_its_project(test_db):
+    from runtime.api.domain.test_ouroboros_https_permissions import _project_owner
+    from runtime.api.domain.test_yoke_function_permissions import _entry
+    from yoke_core.domain.yoke_function_permissions import check_dispatch_permission
+
+    actor = _project_owner(test_db, "yoke")
+    _seed(test_db, timestamp="2026-01-01T00:00:00Z", body="allowed")
+    _seed(
+        test_db,
+        timestamp="2026-01-02T00:00:00Z",
+        body="other",
+        project="externalwebapp",
+    )
+    request = _request({"project": "yoke", "shape": "roster"})
+    request.actor.actor_id = str(actor)
+    permission = check_dispatch_permission(test_db, _entry(request.function), request)
+    assert permission.error is None
+    outcome = ouroboros_reads.handle_ouroboros_entry_list(request)
+    assert outcome.primary_success
+    assert outcome.result_payload["matching_count"] == 1
+    assert outcome.result_payload["entries"][0]["preview"] == "allowed"
+    request.payload["project"] = "externalwebapp"
+    assert check_dispatch_permission(test_db, _entry(request.function), request).error
