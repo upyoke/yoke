@@ -44,11 +44,13 @@ NATIVE_DIAGNOSTIC_TTL_SECONDS = 7 * 24 * 60 * 60
 _FILE_SUFFIX = ".capture"
 PERMISSION_BYPASS_UNACCEPTED = "permission_bypass_unaccepted"
 MODEL_COMBO_UNSUPPORTED = "model_combo_unsupported"
+BACKGROUND_SESSION_IN_USE = "background_session_in_use"
 _BACKGROUND_IN_USE_MARKERS = (
     b"session is already in use",
     b"conversation is already in use",
     b"already in use by another process",
     b"session is currently in use",
+    b"already has an active writer",
 )
 _MODEL_COMBO_MARKERS = (
     "invalid value for '--model'",
@@ -94,7 +96,7 @@ def classify_native_failure(stderr: bytes) -> str:
     if b"no conversation found with session id" in lowered:
         return "no_conversation_found"
     if any(marker in lowered for marker in _BACKGROUND_IN_USE_MARKERS):
-        return "background_session_in_use"
+        return BACKGROUND_SESSION_IN_USE
     if model_combo_rejection_detail(stderr):
         return MODEL_COMBO_UNSUPPORTED
     return "process_exit"

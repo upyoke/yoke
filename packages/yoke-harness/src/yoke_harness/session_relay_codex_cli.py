@@ -26,8 +26,10 @@ from yoke_harness.session_relay_inventory import (
     resolve_native_cli_source,
 )
 from yoke_harness.session_relay_native_diagnostics import (
+    BACKGROUND_SESSION_IN_USE,
     MODEL_COMBO_UNSUPPORTED,
     NativeDiagnosticError,
+    classify_native_failure,
     diagnostic_reference,
     model_combo_rejection_detail,
     store_native_diagnostic,
@@ -260,17 +262,28 @@ class CodexCliTransport:
         if not found:
             exit_code = process.poll()
             _stop(process)
-            detail = model_combo_rejection_detail(_stderr_bytes(process, streams))
+            stderr = _stderr_bytes(process, streams)
+            detail = model_combo_rejection_detail(stderr)
+            busy = (
+                request.job_kind == "wake"
+                and classify_native_failure(stderr) == BACKGROUND_SESSION_IN_USE
+            )
             _retain(streams, request.job_id, exit_code)
             return CodexNativeOutcome(
-                "not_created"
+                "failed"
+                if busy
+                else "not_created"
                 if detail and request.job_kind == "launch"
                 else "outcome_unknown",
                 exit_code=exit_code,
                 phase="thread_identity",
                 binary_source=binary_source,
                 pid=process.pid,
-                failure_code=MODEL_COMBO_UNSUPPORTED if detail else None,
+                failure_code=BACKGROUND_SESSION_IN_USE
+                if busy
+                else MODEL_COMBO_UNSUPPORTED
+                if detail
+                else None,
                 failure_detail=detail,
             )
         if request.job_kind == "wake" and found != request.target_thread_id:

@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Literal, Protocol
 
+from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
+from yoke_harness.session_relay_native_diagnostics import BACKGROUND_SESSION_IN_USE
 from yoke_harness.session_relay_runtime import (
     RelayAdapter,
     RelayAdapterResult,
@@ -34,9 +36,7 @@ NativeState = Literal[
     "outcome_unknown",
     "unsupported_surface",
 ]
-# A launch that stalls reports nothing on its own, so each transport names
-# the last phase it reached. The phase is what turns an empty outcome into
-# an answer about where the native stopped.
+# Each transport names the last phase a stalled launch reached.
 NativePhase = Literal[
     "binary_resolve",
     "spawn",
@@ -77,13 +77,7 @@ class CodexNativeRequest:
 
 
 class ThreadIdUnknownError(ValueError):
-    """A wake target resolved no native thread id — refuse before any native call.
-
-    Distinguishable from a generic malformed-context ``ValueError`` so the
-    adapter can report a specific ``thread_id_unknown`` result instead of
-    spending a real Codex subprocess/app-server round trip on a target that
-    was never going to be found.
-    """
+    """Report ``thread_id_unknown`` before spending a native call."""
 
 
 @dataclass(frozen=True)
@@ -253,6 +247,9 @@ def _translate(
             code, adapter_revision=ADAPTER_REVISION, evidence=evidence
         )
     code = {
+        "failed": NATIVE_TURN_RUNNING_RESULT
+        if outcome.failure_code == BACKGROUND_SESSION_IN_USE
+        else "failed",
         "accepted": "accepted",
         "not_found": "not_found",
         "unsupported_surface": "unsupported_surface",
