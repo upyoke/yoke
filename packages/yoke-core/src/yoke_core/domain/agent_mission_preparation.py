@@ -85,7 +85,9 @@ def prepare_mission(
                     code=baseline.error_code or "baseline_operation_failed",
                     phase=phase,
                     detail="Baseline restore did not prove the requested host state",
-                    stderr=str(baseline.evidence),
+                    exit_code=baseline.evidence.get("exit_code"),
+                    stdout=baseline.evidence.get("stdout", ""),
+                    stderr=baseline.evidence.get("stderr") or str(baseline.evidence),
                     secrets=secrets,
                     recovery_hint="Inspect the baseline receipt and reconcile the host state before retrying QA.",
                 )

@@ -11,16 +11,16 @@ from typing import Callable, Mapping
 from yoke_cli.config import machine_config
 from yoke_cli.config.session_relay_instance import RelayInstance, resolve_relay_instance
 from yoke_contracts.machine_config.directories import create_private_directory
+from yoke_contracts.systemd_service import (
+    SERVICE_OPERATION_TIMEOUT_SECONDS,
+    SERVICE_QUERY_TIMEOUT_SECONDS,
+)
 from yoke_core.tools.session_relay_executable import relay_executable_search_path
 from yoke_core.tools.session_relay_plist import RelayInstallError
 from yoke_core.tools import session_relay_release_install as relay_install
 from yoke_core.tools.session_relay_release import RelayReleaseError
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
-
-# A service operation includes graceful shutdown and startup. A relay can still
-# be finishing an in-flight poll when systemd requests its shutdown.
-SERVICE_OPERATION_TIMEOUT_SECONDS = 180
 
 
 @dataclass(frozen=True)
@@ -39,7 +39,10 @@ class RelaySystemdStatus:
 
 
 def _run(
-    argv: list[str], runner: Runner, *, timeout_seconds: float = 30
+    argv: list[str],
+    runner: Runner,
+    *,
+    timeout_seconds: float = SERVICE_QUERY_TIMEOUT_SECONDS,
 ) -> subprocess.CompletedProcess[str]:
     try:
         return runner(

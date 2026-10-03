@@ -29,6 +29,10 @@ failed or not_run. A failed bridge leaves overall status error while a passing
 transport remains visible. Baseline operations retain their own resulting-state
 and absence evidence instead of silently rewriting the verification result.
 
+Linux archive failure receipts retain bounded, redacted native exit/stdout/stderr
+through mission preparation. Service mutation timeouts name the command and
+budget and warn that its systemd job may still be running.
+
 A screenshot receipt carries a typed QA artifact handle, SHA-256, dimensions
 and OS. The CLI exposes its accepted PNG in a private temporary directory for
 review. Submission retries adopt the same handle. Failed, malformed or blank
