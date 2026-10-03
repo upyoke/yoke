@@ -91,9 +91,9 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
   const mounted = mountUniverseApp(root, { client });
   await settle();
 
-  assert.match(
+  assert.doesNotMatch(
     allNodes(root).map((node) => node.textContent || "").join(" "),
-    /A baseline is a registered operation on the capability's executor — reached and verified by code, never instructions a reader is trusted to follow\./,
+    /Capability setup|A baseline is a registered operation/,
   );
   assert.deepEqual(
     requests.find((request) => request.function === "projects.capabilities.list"),

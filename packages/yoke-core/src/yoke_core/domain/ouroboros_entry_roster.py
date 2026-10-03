@@ -2,7 +2,7 @@
 
 The operator ``ouroboros.entry.list`` surface still returns full rows with
 offset paging. The browser roster opts into ``shape=roster`` so it can page
-by id with a bounded evidence preview instead of full evidence bodies.
+by the selected field with a bounded evidence preview instead of full evidence bodies.
 """
 
 from __future__ import annotations
@@ -25,9 +25,16 @@ from yoke_core.domain.ouroboros_entry_corrections import (
 )
 from yoke_core.domain.project_identity import resolve_project_id
 
+from yoke_core.domain.ouroboros_roster_order import (
+    ROSTER_PREVIEW_LENGTH,
+    SORT_COLUMNS,
+    normalize_sort,
+    continuation,
+    encode_continuation,
+)
+
 REVIEW_STATES = ("all", "unreviewed", "reviewed")
 ROSTER_SHAPE = "roster"
-ROSTER_PREVIEW_LENGTH = 240
 COMPACT_ENTRY_FIELDS = (
     "id",
     "timestamp",
@@ -90,13 +97,17 @@ def _roster_filters(
     conn: Any,
     *,
     project: str,
+    project_ids: Optional[list[int]],
     review_state: str,
     category_prefix: Optional[str],
     after_id: Optional[int],
 ) -> tuple[str, list[object]]:
     p = _p(conn)
-    conditions = [f"o.project_id={p}"]
-    params: list[object] = [resolve_project_id(conn, project)]
+    ids = (
+        project_ids if project_ids is not None else [resolve_project_id(conn, project)]
+    )
+    conditions = [f"o.project_id IN ({','.join([p] * len(ids))})" if ids else "1=0"]
+    params: list[object] = list(ids)
     review_sql = _review_clause(review_state)
     if review_sql:
         conditions.append(review_sql)
@@ -200,7 +211,9 @@ def _compact_rows(conn: Any, rows: list) -> list[dict[str, Any]]:
 def list_roster_page(
     conn: Any,
     *,
-    project: str,
+    project: str = "",
+    project_ids: Optional[list[int]] = None,
+    sort: Optional[dict] = None,
     review_state: str = "all",
     category_prefix: Optional[str] = None,
     limit: Optional[int] = None,
@@ -208,11 +221,11 @@ def list_roster_page(
 ) -> dict[str, Any]:
     """Newest-first keyset page plus the matching count behind it.
 
-    ``project`` is required: an omitted or unknown project never falls
+    A project or explicit project-id set is required: missing scope never falls
     back to an unscoped query. The count ignores the cursor so it names
     every row the criteria match, not the page already loaded.
     """
-    if not project:
+    if not project and project_ids is None:
         raise RosterFilterError(
             "project is required for the roster list; unknown or "
             f"omitted projects never fall back to an unscoped query. "
@@ -224,12 +237,23 @@ def list_roster_page(
             "review_state must be all, unreviewed, or reviewed. " + RELOAD_FIRST_PAGE,
             "$.payload.review_state",
         )
-    after_id = decode_cursor(cursor) if cursor else None
+    try:
+        ordering = normalize_sort(sort)
+    except ValueError as exc:
+        raise RosterFilterError(str(exc), "$.payload.sort") from exc
+    ids = (
+        project_ids if project_ids is not None else [resolve_project_id(conn, project)]
+    )
+    try:
+        cursor_where, cursor_params = continuation(cursor, ordering, ids)
+    except ValueError as exc:
+        raise RosterCursorError(str(exc)) from exc
     bound = _bounded_limit(limit)
     p = _p(conn)
     where, params = _roster_filters(
         conn,
         project=project,
+        project_ids=ids,
         review_state=review_state,
         category_prefix=category_prefix,
         after_id=None,
@@ -245,23 +269,32 @@ def list_roster_page(
     page_where, page_params = _roster_filters(
         conn,
         project=project,
+        project_ids=ids,
         review_state=review_state,
         category_prefix=category_prefix,
-        after_id=after_id,
+        after_id=None,
     )
+    if cursor_where:
+        page_where += " AND " + cursor_where.format(p=p)
+        page_params.extend(cursor_params)
     page_params.append(bound)
+    expression = SORT_COLUMNS[ordering["column"]]
+    direction = ordering["direction"].upper()
     rows = query_rows(
         conn,
         "SELECT o.id, o.timestamp, o.agent, COALESCE(o.context,''), "
         "o.category, COALESCE(o.reviewed_at,''), COALESCE(p.slug,''), "
-        f"SUBSTR(COALESCE(o.body,''),1,{p}) "
+        f"SUBSTR(COALESCE(o.body,''),1,{p}), {expression} "
         "FROM ouroboros_entries o "
         "LEFT JOIN projects p ON p.id = o.project_id "
-        f"{page_where} ORDER BY o.id DESC LIMIT {p}",
+        f"{page_where} ORDER BY {expression} {direction}, o.id {direction} LIMIT {p}",
         (ROSTER_PREVIEW_LENGTH + 1, *page_params),
     )
     entries = _compact_rows(conn, rows)
-    next_cursor = encode_cursor(entries[-1]["id"]) if len(entries) == bound else None
+    next_cursor = None
+    if len(entries) == bound:
+        last = {**entries[-1], "_sort_value": str(tuple(rows[-1])[-1])}
+        next_cursor = encode_continuation(last, ordering, ids)
     return {
         "entries": entries,
         "matching_count": matching_count,

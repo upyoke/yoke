@@ -62,14 +62,13 @@ test("the actor chip renders avatar, name, and authoritative actor id", async (t
   assert.deepEqual(mountWith(null), ["l", "local actor"]);
 });
 
-// The events and ouroboros reads are project-scoped in the engine and refuse
-// a call that names no project — an unfiltered one comes back denied, not
-// empty. So "all" must ask per roster project rather than once with nothing.
+// Events names each roster project; Ouroboros submits one explicit roster
+// scope so the server can sort and paginate across the authorized projects.
 for (const [view, functionId] of [
   ["events", "events.query.run"],
   ["ouroboros", "ouroboros.entry.list"],
 ]) {
-  test(`${view} at "all" asks per project, never a projectless read`, async (t) => {
+  test(`${view} at "all" names the explicit project scope`, async (t) => {
     const originalFetch = globalThis.fetch;
     t.after(() => { globalThis.fetch = originalFetch; });
     globalThis.fetch = () => response(200, {});
@@ -100,7 +99,7 @@ for (const [view, functionId] of [
         if (request.function === functionId) {
           // The engine denies a project-scoped read that names no project;
           // answering rows here would hide the very shape under test.
-          if (!request.payload.project) {
+          if (!request.payload.project && !request.payload.projects?.length) {
             return {
               status: 403,
               envelope: {
@@ -132,11 +131,14 @@ for (const [view, functionId] of [
     const mounted = mountUniverseApp(root, { client });
     await settle();
 
-    assert.deepEqual(
-      requests.filter((request) => request.function === functionId)
-        .map((request) => request.payload.project),
-      ["1", "2"],
-    );
+    const reads = requests.filter((request) => request.function === functionId);
+    if (view === "ouroboros") {
+      assert.equal(reads.length, 1);
+      assert.deepEqual(reads[0].payload.projects, ["1", "2"]);
+      assert.deepEqual(reads[0].payload.sort, { column: "timestamp", direction: "desc" });
+    } else {
+      assert.deepEqual(reads.map((request) => request.payload.project), ["1", "2"]);
+    }
     // The denial never reaches the panel, because no projectless call is made.
     assert.equal(byClass(root, "error").length, 0);
     mounted.unmount();
@@ -201,10 +203,11 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
     {
       function: "ouroboros.entry.list",
       payload: {
-        project: "1",
+        projects: ["1"],
         shape: "roster",
         review_state: "all",
         limit: 50,
+        sort: { column: "timestamp", direction: "desc" },
       },
     },
   );
@@ -212,8 +215,8 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "Retries preserve typed input", "now", "field-note-observation", "tester", "open", "", "YOK-90",
-    "closed", "then", "failed", "doctor", "closed", "later", "",
+    "Retries preserve typed input", "now", "field-note-observation", "open", "", "YOK-90",
+    "closed", "then", "failed", "closed", "later", "",
   ]);
   assert.equal(
     byClass(root, "row-link").find((node) => node.textContent === "Retries preserve typed input").href,

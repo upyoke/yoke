@@ -17,7 +17,6 @@ test("navigation is three groups, and every entry declares one", () => {
       // what is waiting on you.
       ["strategy", "Strategy", "multi", "focus"],
       ["frontier", "Frontier", "multi", "focus"],
-      ["items", "Items", "multi", "focus"],
       ["shipping", "Shipping", "multi", "focus"],
       ["machines", "Machines", "none", "focus"],
       ["sessions", "Sessions", "multi", "focus"],
@@ -33,6 +32,7 @@ test("navigation is three groups, and every entry declares one", () => {
       ["members", "Members", "none", "settings"],
       ["billing", "Billing", "none", "settings"],
 
+      ["items", "Items", "multi", "diagnostics"],
       ["deployments", "Deployments", "multi", "diagnostics"],
       ["environments", "Environments", "multi", "diagnostics"],
       ["databases", "Databases", "multi", "diagnostics"],

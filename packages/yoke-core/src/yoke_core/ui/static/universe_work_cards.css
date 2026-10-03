@@ -138,10 +138,27 @@
 }
 .universe-app-root .strategy-doc-card-head {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
+/* Status and recency have their own row so their unbroken labels cannot
+   consume the space a long document name needs. */
+.universe-app-root .strategy-doc-identity,
+.universe-app-root .strategy-doc-metadata {
+  display: flex;
+  align-items: baseline;
+  gap: 6px 8px;
+  min-width: 0;
+}
+.universe-app-root .strategy-doc-metadata {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.universe-app-root .strategy-doc-identity > .strategy-doc-prefix {
+  flex: 0 0 auto;
+}
 .universe-app-root .strategy-doc-slug {
+  flex: 1;
   min-width: 0;
   color: var(--yoke-ink);
   font-size: 16px;

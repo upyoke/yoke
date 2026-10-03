@@ -39,6 +39,7 @@ from yoke_contracts.hook_runner.chain_registry import (
     session_orientation_event,
     session_orientation_redelivery_event,
 )
+from yoke_contracts.hook_inline_context import INLINE_CONTEXT_BYTES
 from yoke_core.domain.session_orientation_delivery import (
     confirm_orientation_delivery,
     orientation_delivered,
@@ -171,18 +172,25 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
         ]
     )
     branch = _git_line(root, ["branch", "--show-current"])
-    if branch:
-        lines.append(f"Current branch: {branch}")
+    branch_lines = [f"Current branch: {branch}"] if branch else []
     # One commit, not three: this block rides the inline hook channel, which
     # Codex caps at 2,500 bytes, and the required authority and trust teaching
     # comes first. `git log` is one command away for the rest.
     commits = _git_line(root, ["log", "--oneline", "-1"])
-    if commits:
-        lines.extend(["", "Recent commit:", commits])
+    commit_lines = ["", "Recent commit:", commits] if commits else []
+    tail: list[str] = []
     if (root / ".yoke" / "BOARD.md").is_file():
-        lines.extend(["", "Board available at .yoke/BOARD.md"])
-    lines.extend(_startup_block_lines())
-    return "\n".join(lines).rstrip() + "\n"
+        tail.extend(["", "Board available at .yoke/BOARD.md"])
+    tail.extend(_startup_block_lines())
+    # Queue branches and commit subjects are unbounded. Drop optional Git
+    # context before it can crowd the authority/trust instructions out of
+    # the smallest harness channel; the checkout identity remains intact.
+    budget = min(INLINE_CONTEXT_BYTES.values())
+    for metadata in (branch_lines + commit_lines, branch_lines, []):
+        rendered = "\n".join(lines + metadata + tail).rstrip() + "\n"
+        if len(rendered.encode("utf-8")) <= budget:
+            return rendered
+    return rendered
 
 
 def orientation_for_hook(

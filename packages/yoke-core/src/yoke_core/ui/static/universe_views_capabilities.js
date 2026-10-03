@@ -28,25 +28,6 @@ function capabilityOrder(row) {
   return Number(row.display_order ?? 1000);
 }
 
-function capabilitySetup(documentNode) {
-  const details = el(documentNode, "details", "strategy-callout");
-  details.appendChild(el(documentNode, "summary", null, "Set up a capability"));
-  details.appendChild(el(documentNode, "p", null,
-    "Capabilities are configured for a project through Yoke setup or a Pack. " +
-    "This page shows their settings and readiness; it does not create them."));
-  for (const [label, view] of [["Browse Packs", "packs"], ["GitHub connections", "github"]]) {
-    const link = el(documentNode, "a", "item-button", label);
-    link.href = buildUniverseRoute(view, null);
-    details.appendChild(link);
-  }
-  details.appendChild(el(documentNode, "p", null,
-    "For custom capabilities, run this in your project checkout for the " +
-    "required settings and creation options:"));
-  details.appendChild(el(documentNode, "code", null,
-    "yoke projects capability-settings set --help"));
-  return details;
-}
-
 function wireCapabilityRouteRow(documentNode, record, href) {
   const navigate = () => {
     documentNode.defaultView.location.hash = href;
@@ -73,7 +54,7 @@ function wireCapabilityRouteRow(documentNode, record, href) {
 
 function renderCapabilityTable(body, rows, columns) {
   const documentNode = body.ownerDocument;
-  const table = el(documentNode, "table", "items");
+  const table = el(documentNode, "table", "items table-stacks-narrow");
   const head = el(documentNode, "tr");
   for (const column of columns) {
     head.appendChild(el(documentNode, "th", null, column.label));
@@ -114,6 +95,7 @@ function renderCapabilityTable(body, rows, columns) {
       );
       const text = isNode ? value.textContent : String(value ?? "");
       const cell = el(documentNode, "td", column.mono ? "mono" : null);
+      cell.setAttribute("data-label", column.label);
       if (index === 0 && detailHref) {
         const link = el(documentNode, "a", "row-link", text);
         link.href = detailHref;
@@ -166,21 +148,6 @@ export function renderCapabilitiesView(context, main, scope) {
     const label = row.project || project?.slug || project?.name || "—";
     return project?.emoji ? `${project.emoji} ${label}` : label;
   };
-  const callout = el(documentNode, "div", "strategy-callout");
-  callout.appendChild(el(
-    documentNode, "span", "strategy-callout-icon", "⌘",
-  ));
-  const calloutCopy = el(documentNode, "span");
-  calloutCopy.appendChild(el(
-    documentNode, "strong", null, "Each Test Machine is one composite capability. ",
-  ));
-  calloutCopy.appendChild(el(
-    documentNode,
-    "span",
-    null,
-    "Connection, Terminal control, screenshot capture, named host baselines, supported features, and secret references stay together in one row per machine. Machines keep independent settings, verification receipts, and serial leases. A baseline is a registered operation on the capability's executor — reached and verified by code, never instructions a reader is trusted to follow.",
-  ));
-  callout.appendChild(calloutCopy);
   const panel = section(documentNode, "Capabilities");
   panel.children[0].appendChild(el(
     documentNode,
@@ -188,7 +155,7 @@ export function renderCapabilitiesView(context, main, scope) {
     "panel-hint",
     scope === "all" ? "across all projects" : "selected projects",
   ));
-  main.replaceChildren(capabilitySetup(documentNode), callout, panel);
+  main.replaceChildren(panel);
   const buckets = scopeBuckets(scope, projects, false);
   loadScopedSection(
     context, panel,

@@ -45,6 +45,8 @@
     align-items: baseline;
     justify-items: start;
     padding: 4px 0;
+    overflow-wrap: anywhere;
+    white-space: normal;
     border: 0;
   }
 
@@ -63,6 +65,15 @@
   .universe-app-root .table-stacks-narrow td > * {
     grid-column: 2;
     max-width: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .universe-app-root .table-stacks-narrow .pill {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   /* An evidence strip already wraps; it has to be told the width to wrap

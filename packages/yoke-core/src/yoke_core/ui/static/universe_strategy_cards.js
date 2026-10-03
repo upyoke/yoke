@@ -108,18 +108,21 @@ export function strategyDocumentCard(
   const projectId = String(doc.project_id || project.id);
   card.href = buildUniverseRoute("strategy", projectId, doc.slug);
   const head = el(documentNode, "div", "strategy-doc-card-head");
-  head.appendChild(el(
+  const identity = el(documentNode, "div", "strategy-doc-identity");
+  identity.appendChild(el(
     documentNode,
     "span",
     "strategy-doc-prefix",
     project.public_item_prefix || String(project.id),
   ));
-  head.appendChild(el(
+  identity.appendChild(el(
     documentNode, "span", "strategy-doc-slug", doc.slug || "Strategy",
   ));
+  head.appendChild(identity);
+  const metadata = el(documentNode, "div", "strategy-doc-metadata");
   const state = String(doc.state || "");
   if (state) {
-    head.appendChild(el(documentNode, "span", "strategy-doc-state", state));
+    metadata.appendChild(el(documentNode, "span", "strategy-doc-state", state));
   }
   const age = el(
     documentNode,
@@ -134,7 +137,8 @@ export function strategyDocumentCard(
   age.appendChild(el(
     documentNode, "span", null, relativeAgePhrase(doc.updated_at),
   ));
-  head.appendChild(age);
+  metadata.appendChild(age);
+  head.appendChild(metadata);
   card.appendChild(head);
   const claim = liveDocumentClaim(doc);
   applyStrategySteeringColor(card, doc, groupColors);

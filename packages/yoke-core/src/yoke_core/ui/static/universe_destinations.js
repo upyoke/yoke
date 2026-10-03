@@ -57,10 +57,6 @@ export const NAV = [
     id: "frontier", label: "Frontier", scope: SCOPE_MULTI,
     group: GROUP_FOCUS,
   },
-  {
-    id: "items", label: "Items", scope: SCOPE_MULTI,
-    group: GROUP_FOCUS,
-  },
   // Deployment runs as they execute, with what each release carries.
   {
     id: "shipping", label: "Shipping", scope: SCOPE_MULTI,
@@ -127,6 +123,10 @@ export const NAV = [
   // the record of what happened. Alphabetical would have been an order too,
   // and a worse one — it puts Architecture beside Capabilities because both
   // start with a letter.
+  {
+    id: "items", label: "Items", scope: SCOPE_MULTI,
+    group: GROUP_DIAGNOSTICS,
+  },
   // Flows and Runs are two views of one subject: a definition says what a
   // deployment does, a run is one execution of it. They are tabs rather than
   // two destinations because reading a run almost always means reading the

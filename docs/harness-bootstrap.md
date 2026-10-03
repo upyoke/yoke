@@ -4,7 +4,7 @@
 
 ## 1. Startup Reads
 
-Every harness must load the startup reads defined in the neutral bootstrap spec at `runtime/harness/bootstrap-spec.json`, regardless of whether the harness uses hooks to inject them or loads them via an explicit wrapper command.
+Every harness must load the startup reads defined in the neutral bootstrap spec at `runtime/harness/bootstrap-spec.json`, regardless of whether the harness uses hooks to inject them or loads them via an explicit wrapper command. Startup orientation omits the optional recent commit, then the branch name, when long Git metadata would exceed the smallest harness inline UTF-8 budget; identity, advisories, and authority/trust instructions remain intact.
 
 That JSON file is the executable source of truth for bootstrap content. This document is the human contract that explains how harnesses must consume it.
 
