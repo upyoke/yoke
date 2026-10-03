@@ -99,9 +99,16 @@ checks. Its existing retained host-command keeps the candidate terminal alive;
 `yoke qa browser setup` and `yoke qa browser step` drive candidate Chromium one
 observed step at a time. Read those commands' `--help` before execution. Do not
 add an approval command or extend the scripted terminal recipe contract.
-Agents complete setup and password-free application steps from a saved identity
-provider session; the user handles credential entry and personal permission
-prompts. Actual candidate application UI and terminal completion are separate
-proofs from the snapshot seal. Scripted terminal cases keep their current route.
+Agents complete setup and password-free authorization from the test account's
+already signed-in saved identity-provider session, only for their own fresh
+link. This includes the test account's consent/Authorize click for a native
+harness login, such as Claude Code in Safari on test-mac. Verify the fresh link
+belongs to this execution and the visible signed-in identity is the intended
+test account before clicking; an unproved identity or unrelated link is a
+handoff. The user enters passwords, MFA or passkeys, chooses or switches
+accounts, and handles personal permission prompts and system/security settings,
+including OS privacy/TCC dialogs. Agents never enter or extract credentials.
+Actual candidate application UI and terminal completion are separate proofs
+from the snapshot seal. Scripted terminal cases keep their current route.
 The proven Mac Safari route remains in place until the walker has completed a
 real test-mac approval.
