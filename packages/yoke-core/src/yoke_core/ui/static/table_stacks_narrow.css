@@ -70,6 +70,12 @@
     overflow-wrap: anywhere;
   }
 
+  .universe-app-root .table-stacks-narrow .pill {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   /* An evidence strip already wraps; it has to be told the width to wrap
      against, or it sizes itself to its thumbnails and overflows. */
   .universe-app-root .table-stacks-narrow .review-evidence {
