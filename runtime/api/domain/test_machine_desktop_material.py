@@ -1,13 +1,15 @@
-"""Both Linux execution adapters redact desktop credentials in receipts."""
+"""Linux and Windows WSL execution redact desktop credentials in receipts."""
 
 import json
 import subprocess
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_core.domain import host_control_runner as runner
 from yoke_core.domain import machine_qa_local_execution as local
 from yoke_core.domain.ssh_linux_host_control import SshLinuxHostControl
-from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
+from yoke_core.domain.ssh_windows_host_control import SshWindowsHostControl
 from yoke_harness.test_machine_operations import execute_host_operation_contract
 from yoke_harness.test_machine_types import HostActionResult
 
@@ -21,8 +23,12 @@ SETTINGS = {
 }
 
 
+@pytest.mark.parametrize(
+    "os_name,control_class",
+    [("linux", SshLinuxHostControl), ("windows", SshWindowsHostControl)],
+)
 def test_core_material_contains_exact_machine_password_without_printing_it(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, os_name, control_class
 ):
     calls = []
 
@@ -35,17 +41,17 @@ def test_core_material_contains_exact_machine_password_without_printing_it(
         runner, "machine_capability_secret_path", lambda *a: tmp_path / "key"
     )
     material = runner.materialize_test_machine_contract(
-        {"project_id": 1, "project": "project", "settings": SETTINGS}
+        {"project_id": 1, "project": "project", "settings": {**SETTINGS, "os": os_name}}
     )
     assert calls[-1] == ("project", "test-machine:lab", "desktop_password")
     assert material.secrets["desktop_password"] == PASSWORD
     assert PASSWORD not in repr(material)
     monkeypatch.setattr(
-        SshLinuxHostOperations,
+        control_class,
         "_host_facts",
         lambda self: {"home": "/home/tester", "shell": "/bin/bash"},
     )
-    control = SshLinuxHostControl(material)
+    control = control_class(material)
     assert control.desktop_password == PASSWORD and PASSWORD in control.secret_values
 
 
