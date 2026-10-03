@@ -11,8 +11,8 @@ export function normalizeItemSort(sort) {
     : { column: "updated_at", direction: "desc" };
 }
 
-export function sortHeader(documentNode, label, sort, onSort) {
-  const column = KEYS[label];
+export function sortHeader(documentNode, label, sort, onSort, explicitColumn) {
+  const column = explicitColumn || KEYS[label];
   const active = column === sort.column;
   const th = el(documentNode, "th");
   th.setAttribute("aria-sort", active ? sort.direction === "asc" ? "ascending" : "descending" : "none");

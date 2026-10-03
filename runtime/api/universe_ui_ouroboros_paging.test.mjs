@@ -211,44 +211,50 @@ test("a failed Load more keeps rendered rows and stays retryable", async () => {
   assert.doesNotMatch(visibleText(root, " "), /roster unavailable/);
 });
 
-test("all-project scope fans out and merges newest id first", async () => {
+test("all-project scope asks for one globally ordered page", async () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");
   const requests = [];
-  const projects = [
-    { id: 1, slug: "alpha", name: "Alpha" },
-    { id: 2, slug: "beta", name: "Beta" },
-  ];
-  renderOuroborosView(ouroborosContext(documentNode, async (request) => {
+  const projects = [{ id: 1, slug: "alpha" }, { id: 2, slug: "beta" }];
+  renderOuroborosView(ouroborosContext(documentNode, async request => {
     requests.push(request);
-    if (request.payload.project === "1") {
-      return page(
-        [{ id: 4, timestamp: "older-alpha", category: "a", agent: "t", context: "c", project: "alpha" }],
-        { matchingCount: 1 },
-      );
-    }
-    return page(
-      [{ id: 10, timestamp: "newer-beta", category: "a", agent: "t", context: "c", project: "beta" }],
-      { matchingCount: 1 },
-    );
+    return page([
+      { id: 4, timestamp: "newer-alpha", context: "first", project: "alpha" },
+      { id: 10, timestamp: "older-beta", context: "second", project: "beta" },
+    ], { matchingCount: 2 });
   }, projects), root, "all");
   await settle();
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].payload.projects, ["1", "2"]);
+  assert.deepEqual(requests[0].payload.sort, { column: "timestamp", direction: "desc" });
+  const links = byClass(root, "row-link").filter(node => node.href?.includes("/ouroboros/"));
+  assert.deepEqual(links.map(node => node.textContent), ["first", "second"]);
+  assert.deepEqual(links.map(node => node.href), ["#/ouroboros/4?project=alpha", "#/ouroboros/10?project=beta"]);
+  assert.match(visibleText(root, " "), /Filed at/);
+  assert.ok(byClass(root, "table-stacks-narrow").length);
+});
 
-  assert.deepEqual(
-    requests.map((request) => request.payload.project).sort(),
-    ["1", "2"],
-  );
-  assert.equal(
-    requests.some((request) => !request.payload.project),
-    false,
-  );
-  const when = byClass(root, "row-link")
-    .filter((node) => node.href && node.href.includes("/ouroboros/"))
-    .map((node) => node.textContent);
-  assert.deepEqual(when, ["c", "c"]);
-  assert.match(visibleText(root, " "), /newer-beta/);
-  assert.match(visibleText(root, " "), /older-alpha/);
-  assert.equal(byClass(root, "panel-count")[0].textContent, "· 2");
+test("changing a sort header starts a new server sequence and saves the choice", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const requests = [], writes = [];
+  const context = ouroborosContext(documentNode, async request => {
+    requests.push(request);
+    return page([{ id: 1, preview: "Evidence", timestamp: "2026-01-01", context: "ctx" }], { matchingCount: 2, cursor: "old" });
+  });
+  context.screenPreferences = {
+    sortFor: () => ({ column: "timestamp", direction: "desc" }),
+    refreshSortFor: async () => "",
+    saveSortFor: async (view, sort) => { writes.push({ view, sort }); return ""; },
+  };
+  renderOuroborosView(context, root, ["1"]);
+  await settle();
+  const header = byClass(root, "item-sort-button").find(node => node.getAttribute("data-sort-column") === "category");
+  header.dispatchEvent(new Event("click"));
+  await settle();
+  assert.deepEqual(requests.at(-1).payload.sort, { column: "category", direction: "asc" });
+  assert.equal("cursor" in requests.at(-1).payload, false);
+  assert.deepEqual(writes, [{ view: "ouroboros", sort: { column: "category", direction: "asc" } }]);
 });
 
 test("the mounted roster performs no polling", async () => {

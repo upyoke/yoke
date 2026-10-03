@@ -54,7 +54,7 @@ function wireCapabilityRouteRow(documentNode, record, href) {
 
 function renderCapabilityTable(body, rows, columns) {
   const documentNode = body.ownerDocument;
-  const table = el(documentNode, "table", "items");
+  const table = el(documentNode, "table", "items table-stacks-narrow");
   const head = el(documentNode, "tr");
   for (const column of columns) {
     head.appendChild(el(documentNode, "th", null, column.label));
@@ -95,6 +95,7 @@ function renderCapabilityTable(body, rows, columns) {
       );
       const text = isNode ? value.textContent : String(value ?? "");
       const cell = el(documentNode, "td", column.mono ? "mono" : null);
+      cell.setAttribute("data-label", column.label);
       if (index === 0 && detailHref) {
         const link = el(documentNode, "a", "row-link", text);
         link.href = detailHref;

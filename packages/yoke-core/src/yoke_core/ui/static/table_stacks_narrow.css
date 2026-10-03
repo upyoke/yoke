@@ -45,6 +45,8 @@
     align-items: baseline;
     justify-items: start;
     padding: 4px 0;
+    overflow-wrap: anywhere;
+    white-space: normal;
     border: 0;
   }
 

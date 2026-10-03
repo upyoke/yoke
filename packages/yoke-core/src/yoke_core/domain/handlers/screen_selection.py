@@ -69,9 +69,13 @@ def _valid_selection(selection: Any) -> bool:
     return isinstance(selection, list) and all(isinstance(v, str) for v in selection)
 
 
-def _valid_sort(value: Any) -> bool:
+def _valid_sort(value: Any, view_id: str = "items") -> bool:
     from yoke_core.domain.item_roster_order import SORT_COLUMNS, SORT_DIRECTIONS
 
+    if view_id == "ouroboros":
+        from yoke_core.domain.ouroboros_roster_order import SORT_COLUMNS
+    elif view_id != "items":
+        return False
     return (
         isinstance(value, dict)
         and value.get("column") in SORT_COLUMNS
@@ -121,7 +125,7 @@ def handle_screen_selection_list(
                 for key, value in _store.read_prefixed(
                     actor_id, SCREEN_SORT_PREF_PREFIX
                 ).items()
-                if _valid_sort(value)
+                if _valid_sort(value, key)
             },
             "last_location": location if _valid_location(location) else None,
         },
@@ -162,10 +166,10 @@ def handle_screen_selection_set(
         return _store.actor_required(_SET_ID)
     sort = payload.get("sort")
     if sort is not None:
-        if view_id != "items" or not _valid_sort(sort):
+        if not _valid_sort(sort, view_id):
             return _store.error(
                 "payload_invalid",
-                "Unknown Items sort column or direction; select a column header and retry",
+                "Unknown screen sort column or direction; select a column header and retry",
                 jsonpath="$.payload.sort",
             )
         _store.upsert(actor_id, SCREEN_SORT_PREF_PREFIX + view_id, sort)

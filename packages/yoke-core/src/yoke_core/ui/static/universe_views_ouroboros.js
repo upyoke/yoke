@@ -7,174 +7,18 @@ import {
   loadSection,
   renderError,
   renderTable,
-  scopeBuckets,
   section,
   withProjectColumn,
 } from "./universe_view_support.js";
 import { actionLink } from "./item_view_primitives.js";
 
-export const OUROBOROS_PAGE_SIZE = 50;
+import { createOuroborosLoader } from "./ouroboros_roster_loader.js";
+import { sortHeader } from "./item_roster_sort.js";
+import { OUROBOROS_SORT_COLUMNS } from "./ouroboros_roster_sort.js";
+export { OUROBOROS_PAGE_SIZE } from "./ouroboros_roster_loader.js";
 
 function promotedRef(row) {
   return row.promoted_dash?.public_ref || row.promoted_dash?.item_ref || "";
-}
-
-function rosterPayload(bucket, criteria, cursor) {
-  return {
-    project: bucket,
-    shape: "roster",
-    review_state: criteria.reviewState,
-    limit: OUROBOROS_PAGE_SIZE,
-    ...(criteria.categoryPrefix
-      ? { category_prefix: criteria.categoryPrefix } : {}),
-    ...(cursor ? { cursor } : {}),
-  };
-}
-
-function failureFrom(callResult) {
-  if (callResult.status !== 200 || !callResult.envelope.success) {
-    return callResult;
-  }
-  return null;
-}
-
-function mergeBucketPages(pages) {
-  const seen = new Set();
-  const rows = [];
-  for (const page of pages) {
-    for (const entry of page.entries || []) {
-      if (seen.has(entry.id)) continue;
-      seen.add(entry.id);
-      rows.push({ ...entry, _bucket: entry._bucket || page.bucket });
-    }
-  }
-  rows.sort((left, right) => right.id - left.id);
-  return rows;
-}
-
-/**
- * Ouroboros-specific paging: one authorized project bucket per request,
- * keyset continuation per bucket, and a deterministic id-desc merge.
- * Criteria changes start a new sequence; a stale reply is dropped.
- * A failed Load more leaves already-rendered rows in place.
- */
-function createOuroborosLoader({ context, scope, onChange }) {
-  const criteria = { reviewState: "all", categoryPrefix: "" };
-  let sequence = 0;
-  let rows = [];
-  let cursors = {};
-  let matchingCount = null;
-  let failure = null;
-  let loading = false;
-
-  const state = () => ({
-    criteria: { ...criteria },
-    rows,
-    matchingCount,
-    loadedCount: rows.length,
-    failure,
-    loading,
-    hasMore: Object.values(cursors).some(Boolean),
-  });
-  const publish = () => {
-    if (typeof onChange === "function") onChange(state());
-  };
-
-  const request = async ({ append }) => {
-    sequence += 1;
-    const token = sequence;
-    const buckets = (() => {
-      const raw = scopeBuckets(scope, context.projects(), true);
-      if (Array.isArray(raw)) {
-        return raw.filter((bucket) => bucket != null).map(String);
-      }
-      return raw == null ? [] : [String(raw)];
-    })();
-    const targets = append
-      ? buckets.filter((bucket) => cursors[bucket])
-      : buckets;
-    if (!append) {
-      rows = [];
-      cursors = {};
-      matchingCount = null;
-    }
-    if (!targets.length) {
-      loading = false;
-      failure = null;
-      publish();
-      return;
-    }
-    loading = true;
-    failure = null;
-    publish();
-    const callResults = await Promise.all(targets.map(async (bucket) => {
-      try {
-        const callResult = await callFunction(
-          context.client,
-          "ouroboros.entry.list",
-          rosterPayload(bucket, criteria, append ? cursors[bucket] : null),
-        );
-        return { bucket, callResult };
-      } catch (fetchError) {
-        return {
-          bucket,
-          callResult: {
-            status: 0,
-            envelope: {
-              success: false,
-              error: { message: String(fetchError) },
-            },
-          },
-        };
-      }
-    }));
-    if (token !== sequence || !context.isMounted()) return;
-    loading = false;
-    const failed = callResults.find(
-      (item) => failureFrom(item.callResult),
-    );
-    if (failed) {
-      failure = failed.callResult;
-      publish();
-      return;
-    }
-    const pages = callResults.map((item) => {
-      const result = item.callResult.envelope.result || {};
-      cursors[item.bucket] = result.next_cursor || null;
-      return {
-        bucket: item.bucket,
-        entries: result.entries || [],
-        matching_count: result.matching_count,
-      };
-    });
-    rows = append
-      ? mergeBucketPages([{ bucket: null, entries: rows }, ...pages])
-      : mergeBucketPages(pages);
-    if (!append) {
-      matchingCount = pages.reduce(
-        (total, page) => total + (
-          typeof page.matching_count === "number" ? page.matching_count : 0
-        ),
-        0,
-      );
-    }
-    publish();
-  };
-
-  return {
-    state,
-    start: () => request({ append: false }),
-    loadMore: () => (state().hasMore ? request({ append: true })
-      : Promise.resolve()),
-    setReviewState: (value) => {
-      criteria.reviewState = value;
-      return request({ append: false });
-    },
-    setCategoryPrefix: (value) => {
-      criteria.categoryPrefix = value;
-      return request({ append: false });
-    },
-  };
 }
 
 function ouroborosFilters(documentNode, loader) {
@@ -227,19 +71,19 @@ export function renderOuroborosView(context, main, scope) {
     loaded.textContent = typeof state.matchingCount === "number"
       ? `${state.loadedCount} loaded of ${state.matchingCount} matching`
       : `${state.loadedCount} loaded`;
+    if (state.sortNotice) loaded.textContent += `. ${state.sortNotice}`;
     panel.renderEnvelopes([], (body) => {
       if (state.loading && !state.rows.length) {
         body.appendChild(el(documentNode, "p", "empty", "loading…"));
         return;
       }
       renderTable(body, state.rows, withProjectColumn([
-        { label: "observation", value: (row) => row.preview || row.context || `Field note #${row.id}` },
-        { label: "when", value: (row) => row.timestamp },
-        { label: "category", value: (row) => row.category, pill: true },
-        { label: "agent", value: (row) => row.agent },
-        { label: "context", value: (row) => row.context },
+        { label: "Observation", value: (row) => row.preview || row.context || `Field note #${row.id}` },
+        { label: "Filed at", value: (row) => row.timestamp },
+        { label: "Category", value: (row) => row.category, pill: true },
+        { label: "Context", value: (row) => row.context },
         {
-          label: "reviewed",
+          label: "Reviewed",
           value: (row) => (row.reviewed_at ? row.reviewed_at : ""),
         },
         {
@@ -252,13 +96,18 @@ export function renderOuroborosView(context, main, scope) {
             })
             : null,
         },
-      ], scope, (row) => row.project), "nothing noticed yet", (row) => (
+      ], scope, (row) => row.project).map(column => ({
+        ...column,
+        ...(OUROBOROS_SORT_COLUMNS[column.label] ? {
+          header: () => sortHeader(documentNode, column.label, state.criteria.sort, key => loader.setSort(key), OUROBOROS_SORT_COLUMNS[column.label]),
+        } : {}),
+      })), "nothing noticed yet", (row) => (
         buildUniverseRoute(
           "ouroboros",
-          row._bucket || (Array.isArray(scope) ? scope[0] : scope),
+          row.project || (Array.isArray(scope) ? scope[0] : scope),
           String(row.id),
         )
-      ));
+      ), { stack: true, sortable: true });
       const more = el(documentNode, "div", "item-roster-more");
       if (state.failure) renderError(more, state.failure);
       if (state.hasMore || state.failure) {

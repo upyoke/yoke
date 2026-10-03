@@ -184,3 +184,73 @@ class TestOuroborosEntryRosterList:
         )
         assert unknown.error.code == "payload_invalid"
         assert omitted.error.code == "payload_invalid"
+
+
+def test_filed_timestamp_orders_before_paging_and_not_by_insert_id(test_db):
+    latest = _seed(test_db, timestamp="2026-04-03T00:00:00Z", body="latest")
+    oldest = _seed(test_db, timestamp="2026-04-01T00:00:00Z", body="oldest")
+    middle = _seed(test_db, timestamp="2026-04-02T00:00:00Z", body="middle")
+    first = list_roster_page(test_db, project="yoke", limit=1)
+    assert [row["id"] for row in first["entries"]] == [latest]
+    second = list_roster_page(
+        test_db, project="yoke", limit=1, cursor=first["next_cursor"]
+    )
+    assert [row["id"] for row in second["entries"]] == [middle]
+    ascending = list_roster_page(
+        test_db, project="yoke", sort={"column": "timestamp", "direction": "asc"}
+    )
+    assert [row["id"] for row in ascending["entries"]] == [oldest, middle, latest]
+
+
+def test_roster_cursor_cannot_cross_sort_or_project_boundaries(test_db):
+    import pytest
+    from yoke_core.domain.ouroboros_entry_roster import RosterCursorError
+
+    _seed(test_db, timestamp="2026-01-01T00:00:00Z", body="one")
+    first = list_roster_page(test_db, project="yoke", limit=1)
+    with pytest.raises(RosterCursorError):
+        list_roster_page(
+            test_db,
+            project="yoke",
+            sort={"column": "category", "direction": "asc"},
+            cursor=first["next_cursor"],
+        )
+    with pytest.raises(RosterCursorError):
+        list_roster_page(test_db, project_ids=[], cursor=first["next_cursor"])
+
+
+def test_explicit_empty_project_scope_never_becomes_unscoped(test_db):
+    _seed(test_db, timestamp="2026-01-01T00:00:00Z", body="private")
+    page = list_roster_page(test_db, project_ids=[])
+    assert page["entries"] == []
+    assert page["matching_count"] == 0
+
+
+def test_multi_project_roster_never_widens_unknown_project_scope(test_db):
+    from runtime.api.domain.test_ouroboros_https_permissions import _project_owner
+
+    actor = _project_owner(test_db, "yoke")
+    _seed(test_db, timestamp="2026-01-01T00:00:00Z", body="allowed")
+    request = _request({"projects": ["yoke", "unknown"], "shape": "roster"})
+    request.actor.actor_id = str(actor)
+    outcome = ouroboros_reads.handle_ouroboros_entry_list(request)
+    assert outcome.primary_success
+    assert outcome.result_payload["matching_count"] == 1
+    request.payload["projects"] = ["unknown"]
+    outcome = ouroboros_reads.handle_ouroboros_entry_list(request)
+    assert outcome.primary_success
+    assert outcome.result_payload["entries"] == []
+
+
+def test_multi_project_roster_respects_explicit_actor_visibility(test_db, monkeypatch):
+    from yoke_core.domain.handlers import ouroboros_roster_scope
+
+    _seed(test_db, timestamp="2026-01-01T00:00:00Z", body="restricted")
+    monkeypatch.setattr(
+        ouroboros_roster_scope, "actor_visible_scope", lambda conn, request: set()
+    )
+    outcome = ouroboros_reads.handle_ouroboros_entry_list(
+        _request({"projects": ["yoke"], "shape": "roster"})
+    )
+    assert outcome.primary_success
+    assert outcome.result_payload["entries"] == []

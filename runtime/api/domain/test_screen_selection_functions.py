@@ -215,3 +215,20 @@ def test_items_sort_is_actor_scoped_and_leaves_selection_and_location(test_db):
         {"view_id": "items", "sort": {"column": "unknown", "direction": "asc"}},
         actor_id=first,
     ).primary_success
+
+
+def test_ouroboros_sort_uses_shared_actor_store_and_view_specific_columns(test_db):
+    from yoke_core.domain.actors import seed_human_actor
+
+    actor = str(seed_human_actor(test_db, name="Observation sorter"))
+    chosen = {"column": "timestamp", "direction": "desc"}
+    assert _set(
+        {"view_id": "ouroboros", "sort": chosen}, actor_id=actor
+    ).primary_success
+    response = handle_screen_selection_list(
+        _request("ui_preferences.screen_selection.list", actor_id=actor)
+    ).result_payload
+    assert response["sorts"]["ouroboros"] == chosen
+    assert not _set(
+        {"view_id": "items", "sort": chosen}, actor_id=actor
+    ).primary_success

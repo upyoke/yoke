@@ -115,7 +115,7 @@ export function renderError(body, callResult) {
 // face (stored identifiers, not prose); `code: true` renders it as a `code`
 // element — deliberately copyable text, never a button. `sub` is a second
 // accessor for muted detail under the value, omitted when empty.
-export function renderTable(body, rows, columns, emptyText, rowHref) {
+export function renderTable(body, rows, columns, emptyText, rowHref, options = { stack: true }) {
   const documentNode = body.ownerDocument;
   if (rows.length === 0) {
     body.appendChild(el(documentNode, "p", "empty", emptyText));
@@ -123,9 +123,9 @@ export function renderTable(body, rows, columns, emptyText, rowHref) {
   }
   const table = el(documentNode, "table", "items");
   const tableWrap = el(documentNode, "div", "table-wrap");
-  const head = el(documentNode, "tr");
+  const head = el(documentNode, "tr", options.sortable ? "item-roster-sort" : null);
   for (const column of columns) {
-    head.appendChild(el(documentNode, "th", null, column.label));
+    head.appendChild(column.header ? column.header() : el(documentNode, "th", null, column.label));
   }
   table.appendChild(head);
   for (const row of rows) {
@@ -133,6 +133,7 @@ export function renderTable(body, rows, columns, emptyText, rowHref) {
     for (const [index, column] of columns.entries()) {
       const text = String(column.value(row) ?? "");
       const cell = el(documentNode, "td", column.mono ? "mono" : null);
+      if (options.stack) cell.setAttribute("data-label", column.label);
       if (rowHref && index === 0) {
         const link = el(documentNode, "a", "row-link", text);
         link.href = rowHref(row);
@@ -163,6 +164,13 @@ export function renderTable(body, rows, columns, emptyText, rowHref) {
       tr.appendChild(cell);
     }
     table.appendChild(tr);
+  }
+  if (options.stack) {
+    table.classList.add("table-stacks-narrow");
+    if (options.sortable) {
+      table.classList.add("item-roster");
+      tableWrap.classList.add("item-roster-wrap");
+    }
   }
   tableWrap.appendChild(table);
   body.appendChild(tableWrap);
