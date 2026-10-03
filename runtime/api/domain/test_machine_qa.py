@@ -27,6 +27,7 @@ from yoke_core.domain.machine_qa_capability import (
     test_machine_detail as read_test_machine_detail,
 )
 from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_conn
+from yoke_harness.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
 
 
 def test_pack_owns_serial_machine_and_exploratory_method_definitions() -> None:
@@ -208,10 +209,9 @@ def test_baselines_keep_full_reset_distinct_from_shell_preconfiguration() -> Non
     assert "old" not in control.files["/Users/tester/.zprofile"]
     assert ".local/bin" in control.files["/Users/tester/.zprofile"]
     assert "YOKE MANAGED PATH" not in control.files["/Users/tester/.zprofile"]
-    assert fresh.evidence["baseline_state"]["preserved_entries"] == [
-        ".ssh",
-        "Library/Application Support/com.apple.TCC",
-    ]
+    assert fresh.evidence["baseline_state"]["preserved_entries"] == list(
+        PRESERVED_HOME_ENTRIES
+    )
     preconfigured = run_host_baseline(control, "shell-preconfigured")
     assert preconfigured.ok
     assert preconfigured.evidence["observed_present"] == {
