@@ -6,6 +6,7 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.item_worktree_resolution import ACTIVE_LANE_ORDER_SQL
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_behavior import (
     LANE_IMPLEMENTATION,
@@ -291,11 +292,21 @@ def primary_item_worktree(
     *,
     lane_role: Optional[str] = None,
 ) -> Optional[dict[str, Any]]:
-    """Return one active lane, optionally constrained to a lane role."""
-    rows = list_item_worktrees(conn, int(item_id), active_only=True)
+    """Return the integration-first active lane, optionally scoped by role."""
+    marker = _placeholder(conn)
+    role_clause = f" AND lane_role = {marker}" if lane_role is not None else ""
+    params: tuple[Any, ...] = (int(item_id),)
     if lane_role is not None:
-        rows = [row for row in rows if row["lane_role"] == lane_role]
-    return rows[0] if rows else None
+        params += (lane_role,)
+    return _dict_row(
+        conn.execute(
+            "SELECT id, item_id, branch, path, commit_sha, lane_role, state, "
+            "created_at, updated_at, released_at FROM item_worktrees "
+            f"WHERE item_id = {marker} AND state = 'active'{role_clause} "
+            f"ORDER BY {ACTIVE_LANE_ORDER_SQL}, id LIMIT 1",
+            params,
+        )
+    )
 
 
 def validate_item_worktree_roles(conn: Any, item_id: int) -> None:

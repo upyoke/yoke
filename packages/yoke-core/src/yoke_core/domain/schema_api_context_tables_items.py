@@ -63,7 +63,7 @@ ITEMS_TABLE: dict[str, dict] = {
             "before a diagnostic read and name schema convergence if absent. "
             "`workflow_posture` is the item's selected posture JSON; read it via "
             "workflows.item.get or items.detail.get. Wrong guess: passing "
-            "posture or workflow_posture as an items.get field; that projection refuses both. Written "
+            "posture, item_posture, or workflow_posture as an items.get field; that projection refuses them. Written "
             "at create and amended afterwards through "
             "`workflows.item_posture.amend` (`yoke workflows item-posture "
             "amend PREFIX-N ...`); wrong guesses: that the create-time "
