@@ -13,7 +13,7 @@ from typing import Any, Optional
 from yoke_core.domain import db_backend
 from yoke_core.domain.worktree_paths import _run, is_git_worktree
 
-_ACTIVE_LANE_ORDER = (
+ACTIVE_LANE_ORDER_SQL = (
     "CASE lane_role WHEN 'integration' THEN 0 "
     "WHEN 'implementation' THEN 1 WHEN 'worker' THEN 2 ELSE 3 END"
 )
@@ -28,12 +28,13 @@ def primary_item_worktree_branch_sql(item_id_expression: str) -> str:
     return (
         "(SELECT iw.branch FROM item_worktrees iw "
         f"WHERE iw.item_id = {item_id_expression} AND iw.state = 'active' "
-        f"ORDER BY {_ACTIVE_LANE_ORDER}, iw.id LIMIT 1)"
+        f"ORDER BY {ACTIVE_LANE_ORDER_SQL}, iw.id LIMIT 1)"
     )
 
 
 def recorded_item_worktree_value_sql(
-    item_id_expression: str, column: str,
+    item_id_expression: str,
+    column: str,
 ) -> str:
     """Return an active-first lane value, retaining released audit history."""
     if column not in {"branch", "commit_sha"}:
@@ -70,23 +71,27 @@ def recorded_item_worktree_records(
         "lane_role, state, created_at, updated_at, released_at "
         "FROM item_worktrees WHERE "
         + " AND ".join(clauses)
-        + f" ORDER BY {_ACTIVE_LANE_ORDER}, id",
+        + f" ORDER BY {ACTIVE_LANE_ORDER_SQL}, id",
         tuple(params),
     ).fetchall()
     records: list[dict[str, Any]] = []
     seen_paths: set[str] = set()
     for row in rows:
-        values = dict(row) if hasattr(row, "keys") else {
-            "id": row[0],
-            "item_id": row[1],
-            "branch": row[2],
-            "path": row[3],
-            "lane_role": row[4],
-            "state": row[5],
-            "created_at": row[6],
-            "updated_at": row[7],
-            "released_at": row[8],
-        }
+        values = (
+            dict(row)
+            if hasattr(row, "keys")
+            else {
+                "id": row[0],
+                "item_id": row[1],
+                "branch": row[2],
+                "path": row[3],
+                "lane_role": row[4],
+                "state": row[5],
+                "created_at": row[6],
+                "updated_at": row[7],
+                "released_at": row[8],
+            }
+        )
         branch, path = _complete_lane(
             str(values.get("branch") or ""),
             str(values.get("path") or ""),
@@ -118,9 +123,7 @@ def recorded_item_worktree_lanes(
         worktrees_dir,
         active_only=active_only,
     )
-    return [
-        (str(row["branch"]), str(row["path"])) for row in records
-    ], "item-lanes"
+    return [(str(row["branch"]), str(row["path"])) for row in records], "item-lanes"
 
 
 def resolve_item_id_by_worktree_name(conn: Any, name: str) -> Optional[int]:
@@ -187,6 +190,7 @@ def _complete_lane(
 
 
 __all__ = [
+    "ACTIVE_LANE_ORDER_SQL",
     "primary_item_worktree_branch_sql",
     "recorded_item_worktree_value_sql",
     "recorded_item_worktree_lanes",
