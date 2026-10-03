@@ -18,6 +18,15 @@ The lines are silent unless a caller installed a sink.
 from __future__ import annotations
 
 from typing import Any
+import sys
+import threading
+
+from yoke_contracts.doctor_budget import (
+    CHECK_BUDGET_S,
+    DoctorBudgetExhausted,
+    check_budget,
+    remaining_seconds,
+)
 
 from yoke_contracts.control_plane_locality import RemoteControlPlaneConnectionError
 from yoke_core.engines import doctor_progress
@@ -73,8 +82,27 @@ def _run_isolated(
         )
         return
 
+    recorded_before = len(rec.results)
     try:
-        health_check.fn(conn, args, rec)
+        with check_budget():
+            _run_bounded(conn, args, rec, health_check)
+    except DoctorBudgetExhausted:
+        _rollback_if_supported(conn)
+        for row in rec.results[recorded_before:]:
+            if row.result == "PASS":
+                row.result = "FAIL"
+                row.detail = "Incomplete check: " + row.detail
+        rec.record(
+            "HC-check-incomplete",
+            health_check.name,
+            "FAIL",
+            f"doctor_check_budget_exhausted: {health_check.slug} exceeded "
+            f"its {CHECK_BUDGET_S:g}s check budget; evidence is incomplete. "
+            f"Recovery: retry `yoke watch doctor -- --only {health_check.slug}` "
+            "after the named database or provider recovers; narrow or optimize "
+            "the check if the budget is exhausted again.",
+        )
+        return
     except RemoteControlPlaneConnectionError as exc:
         detail = (
             f"Control-plane locality refusal in {health_check.slug} "
@@ -108,6 +136,51 @@ def _run_isolated(
             "FAIL",
             f"Internal error closing {health_check.slug}: {exc}",
         )
+
+
+def _run_bounded(conn, args, rec, health_check):
+    """Interrupt Python work and cancel a blocked database query at the bound.
+
+    No abandoned check thread can keep running a --fix after we answer. The
+    trace belongs to this executing thread; HTTP and subprocess transports
+    consume the same context deadline for blocking work.
+    """
+    previous_trace = sys.gettrace()
+    ticks = 0
+
+    def trace(frame, event, arg):
+        nonlocal ticks
+        ticks += 1
+        if ticks % 256 == 0:
+            remaining_seconds(CHECK_BUDGET_S)
+        if previous_trace:
+            previous_trace(frame, event, arg)
+        return trace
+
+    cancel = getattr(conn, "cancel_safe", None)
+    postgres_cancel = callable(cancel)
+    if not callable(cancel):
+        cancel = getattr(conn, "interrupt", None)
+    timer = None
+    if callable(cancel):
+
+        def cancel_query():
+            try:
+                cancel(timeout=1) if postgres_cancel else cancel()
+            except Exception:
+                pass  # The executing thread still reports its budget failure.
+
+        timer = threading.Timer(remaining_seconds(CHECK_BUDGET_S), cancel_query)
+        timer.daemon = True
+        timer.start()
+    try:
+        sys.settrace(trace)
+        health_check.fn(conn, args, rec)
+    finally:
+        sys.settrace(previous_trace)
+        if timer:
+            timer.cancel()
+            timer.join()
 
 
 __all__ = ["INTERNAL_ERROR_CHECK_ID", "execute_check_isolated"]

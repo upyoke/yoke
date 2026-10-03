@@ -7,6 +7,7 @@ small helper functions used across multiple HC sub-modules.
 from __future__ import annotations
 
 import subprocess
+
 # Kept as a module attribute, not just an import: HC modules and their tests
 # patch ``doctor_report.time.time`` to pin the clock for staleness checks.
 import time  # noqa: F401
@@ -21,6 +22,7 @@ from yoke_core.domain.schema_common import (
     _table_exists as _schema_table_exists,
 )
 from yoke_contracts.project_defaults import DEFAULT_PROJECT_SLUG
+from yoke_contracts.doctor_budget import remaining_seconds
 from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 from yoke_core.engines.doctor_source_root import bound_source_root_or_none
 
@@ -37,8 +39,6 @@ class CheckResult:
 
 @dataclass
 class DoctorArgs:
-    """Parsed CLI arguments."""
-
     file: Optional[str] = None
     fix: bool = False
     only: Optional[str] = None
@@ -49,7 +49,6 @@ class DoctorArgs:
     #: :func:`yoke_core.engines.doctor_context.resolve_runtime` derive it
     #: from the runner's own evidence.
     runtime: Optional[str] = None
-
 
 
 class RecordCollector:
@@ -149,23 +148,44 @@ class RecordCollector:
 
 
 # GitHub-dependent HC slugs (skipped in --quick mode)
-_GH_HCS = frozenset({
-    "orphaned-gh-issues", "gh-orphan-detection", "missing-gh-issues",
-    "title-drift", "body-drift", "reverse-completeness", "comment-sync",
-    "label-drift", "state-drift", "frozen-label-drift", "blocked-label-drift", "stale-remote-branches",
-    "wrong-repo-issues", "task-label-drift", "delegated-sync",
-    "project-health", "project-gh-secrets", "project-vps-reachable",
-    "branch-protection-required-check",
-})
+_GH_HCS = frozenset(
+    {
+        "orphaned-gh-issues",
+        "gh-orphan-detection",
+        "missing-gh-issues",
+        "title-drift",
+        "body-drift",
+        "reverse-completeness",
+        "comment-sync",
+        "label-drift",
+        "state-drift",
+        "frozen-label-drift",
+        "blocked-label-drift",
+        "stale-remote-branches",
+        "wrong-repo-issues",
+        "task-label-drift",
+        "delegated-sync",
+        "project-health",
+        "project-gh-secrets",
+        "project-vps-reachable",
+        "branch-protection-required-check",
+    }
+)
 
 # Slugs for delegated sync HCs (dispatched to resync engine)
 _DELEGATED_SYNC_HCS = [
-    "missing-gh-issues", "orphan-epic-tasks", "title-drift", "body-drift",
-    "reverse-completeness", "comment-sync", "label-drift", "state-drift",
-    "frozen-label-drift", "blocked-label-drift", "task-label-drift",
+    "missing-gh-issues",
+    "orphan-epic-tasks",
+    "title-drift",
+    "body-drift",
+    "reverse-completeness",
+    "comment-sync",
+    "label-drift",
+    "state-drift",
+    "frozen-label-drift",
+    "blocked-label-drift",
+    "task-label-drift",
 ]
-
-
 
 
 def _should_run_hc(slug: str, args: DoctorArgs) -> bool:
@@ -210,16 +230,13 @@ def _table_exists(conn, table_name: str) -> bool:
     return _schema_table_exists(conn, table_name)
 
 
-
 def _column_exists(conn, table_name: str, column_name: str) -> bool:
     """Return True if *column_name* exists on *table_name*."""
     return _schema_column_exists(conn, table_name, column_name)
 
 
-
 def _now_epoch() -> int:
     return int(datetime.now(timezone.utc).timestamp())
-
 
 
 def _iso_to_epoch(ts: str) -> int:
@@ -236,7 +253,6 @@ def _iso_to_epoch(ts: str) -> int:
     return 0
 
 
-
 def _run(
     cmd: List[str],
     cwd: Optional[str] = None,
@@ -245,8 +261,14 @@ def _run(
 ) -> subprocess.CompletedProcess:
     """Run a subprocess, returning CompletedProcess. Never raises on non-zero exit."""
     try:
+        timeout = remaining_seconds(timeout)
         return subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd, env=env,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=cwd,
+            env=env,
         )
     except subprocess.TimeoutExpired as exc:
         stdout = exc.stdout if isinstance(exc.stdout, str) else ""
@@ -254,10 +276,13 @@ def _run(
         detail = f"timeout after {timeout}s"
         if stderr:
             detail = f"{detail}: {stderr.strip()}"
-        return subprocess.CompletedProcess(cmd, returncode=124, stdout=stdout, stderr=detail)
+        return subprocess.CompletedProcess(
+            cmd, returncode=124, stdout=stdout, stderr=detail
+        )
     except (FileNotFoundError, OSError) as exc:
-        return subprocess.CompletedProcess(cmd, returncode=1, stdout="", stderr=str(exc))
-
+        return subprocess.CompletedProcess(
+            cmd, returncode=1, stdout="", stderr=str(exc)
+        )
 
 
 def _resolve_repo_root() -> Optional[str]:
@@ -301,7 +326,6 @@ def _read_str_cutoff(key: str) -> Optional[str]:
     return raw.strip()
 
 
-
 def _resolve_main_root() -> Optional[str]:
     """Resolve the main repo root, handling worktrees."""
     repo_root = _resolve_repo_root()
@@ -319,7 +343,7 @@ def _resolve_main_root() -> Optional[str]:
             main_git = Path(git_path)
             if "worktrees" in main_git.parts:
                 idx = main_git.parts.index("worktrees")
-                main_root = Path(*main_git.parts[:idx - 1]) if idx >= 2 else None
+                main_root = Path(*main_git.parts[: idx - 1]) if idx >= 2 else None
                 if main_root and main_root.exists():
                     return str(main_root)
     return repo_root

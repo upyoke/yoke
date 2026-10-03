@@ -17,7 +17,6 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from runtime.api.engines._doctor_hc_git_test_helpers import (
-    _completed,
     _make_conn,
     _result,
     _run_hc,
@@ -64,7 +63,7 @@ class TestWrongRepoIssuesSyncMode:
             "upyoke/yoke" if project == "yoke" else f"example-org/{project}"
         ),
     )
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.repository_issue_states")
     def test_disabled_project_rows_skipped_with_note(
         self,
         mock_gh_run,
@@ -96,7 +95,7 @@ class TestWrongRepoIssuesSyncMode:
             "upyoke/yoke" if project == "yoke" else f"example-org/{project}"
         ),
     )
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.repository_issue_states")
     def test_enabled_projects_still_scanned_alongside_disabled(
         self,
         mock_gh_run,
@@ -117,7 +116,7 @@ class TestWrongRepoIssuesSyncMode:
             "INSERT INTO items (id, title, project_id, workflow_id, workflow_version_id, status, github_issue) "
             "VALUES (700, 'Live ref', 5, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '#7')"
         )
-        mock_gh_run.return_value = _completed(stdout="OPEN\n")
+        mock_gh_run.return_value = {"7": "OPEN"}
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert _result(rec).result == "PASS"
         assert MODE_NOTE in _result(rec).detail

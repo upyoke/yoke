@@ -44,6 +44,7 @@ from yoke_cli.commands.adapters.doctor_output import (
 from yoke_cli.transport.dispatcher import call_dispatcher
 from yoke_cli.transport.https import resolve_https_connection, TransportError
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.doctor_budget import CHUNK_BUDGET_S
 
 
 __all__ = [
@@ -53,8 +54,7 @@ __all__ = [
     "DOCTOR_LAST_RUN_GET_USAGE",
 ]
 
-
-DOCTOR_RUN_READ_TIMEOUT_S = 300.0
+DOCTOR_RUN_READ_TIMEOUT_S = CHUNK_BUDGET_S
 DOCTOR_CHUNK_MAX_CHECKS = 1
 
 DOCTOR_RUN_USAGE = (
@@ -189,9 +189,7 @@ def _dispatch_in_process(
         actor=build_actor(session_id=session_id),
         timeout_s=DOCTOR_RUN_READ_TIMEOUT_S,
     )
-    return emit_doctor_response(
-        response, json_mode=json_mode, report_file=report_file
-    )
+    return emit_doctor_response(response, json_mode=json_mode, report_file=report_file)
 
 
 def _active_transport_is_https() -> bool:

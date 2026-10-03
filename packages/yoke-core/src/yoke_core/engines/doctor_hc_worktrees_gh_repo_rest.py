@@ -2,7 +2,7 @@
 
 Carved out of :mod:`yoke_core.engines.doctor_hc_worktrees_gh_repo` to
 keep the parent module under the authored-file cap. Provides typed
-``issue_view_state`` / ``issue_view_full`` / ``issue_create`` /
+``repository_issue_states`` / ``issue_view_full`` / ``issue_create`` /
 ``issue_comment`` / ``issue_close`` / ``issue_delete`` helpers that
 issue bearer-token REST calls and return ``subprocess.CompletedProcess``
 shape-compatible objects (the parent module's existing parsers expect
@@ -38,21 +38,41 @@ def _split(repo: str) -> tuple[str, str] | None:
     return parts[0], parts[1]
 
 
-def issue_view_state(*, repo: str, num: str, token: str) -> subprocess.CompletedProcess:
-    """REST equivalent of ``issue-view --jq .state``."""
+def repository_issue_states(*, repo: str, token: str) -> dict[str, str]:
+    """Read all issue states once, including closed issues, excluding PRs.
+
+    A failed or malformed page is incomplete evidence, never an empty repo.
+    The caller caches completed inventories; pagination shares its check budget.
+    """
     owner_name = _split(repo)
     if owner_name is None:
-        return _fail()
+        raise RestTransportError("repository_issue_inventory_invalid_repo")
     owner, name = owner_name
-    try:
+    states: dict[str, str] = {}
+    page = 1
+    while True:
         resp = request_with_retry(
-            RestRequest(method="GET", path=f"/repos/{owner}/{name}/issues/{num}"),
+            RestRequest(
+                method="GET",
+                path=f"/repos/{owner}/{name}/issues",
+                query={"state": "all", "per_page": "100", "page": str(page)},
+            ),
             token=token,
         )
-    except (RestNotFoundError, RestTransportError):
-        return _fail()
-    body = resp.body if isinstance(resp.body, dict) else {}
-    return _ok(str(body.get("state") or "").upper())
+        if not isinstance(resp.body, list):
+            raise RestTransportError("repository_issue_inventory_invalid_page")
+        for issue in resp.body:
+            if (
+                not isinstance(issue, dict)
+                or not issue.get("number")
+                or not issue.get("state")
+            ):
+                raise RestTransportError("repository_issue_inventory_invalid_issue")
+            if "pull_request" not in issue:
+                states[str(issue["number"])] = str(issue["state"]).upper()
+        if len(resp.body) < 100:
+            return states
+        page += 1
 
 
 def issue_view_full(*, repo: str, num: str, token: str) -> subprocess.CompletedProcess:
@@ -83,24 +103,38 @@ def issue_view_full(*, repo: str, num: str, token: str) -> subprocess.CompletedP
         if isinstance(body, list):
             for entry in body:
                 if isinstance(entry, dict):
-                    comments.append({
-                        "body": entry.get("body") or "",
-                        "createdAt": entry.get("created_at") or "",
-                        "author": {"login": (entry.get("user") or {}).get("login") or "unknown"},
-                    })
+                    comments.append(
+                        {
+                            "body": entry.get("body") or "",
+                            "createdAt": entry.get("created_at") or "",
+                            "author": {
+                                "login": (entry.get("user") or {}).get("login")
+                                or "unknown"
+                            },
+                        }
+                    )
     except RestTransportError:
         pass
-    return _ok(json.dumps({
-        "title": issue.get("title") or "",
-        "body": issue.get("body") or "",
-        "state": str(issue.get("state") or "").upper(),
-        "labels": issue.get("labels") or [],
-        "comments": comments,
-    }))
+    return _ok(
+        json.dumps(
+            {
+                "title": issue.get("title") or "",
+                "body": issue.get("body") or "",
+                "state": str(issue.get("state") or "").upper(),
+                "labels": issue.get("labels") or [],
+                "comments": comments,
+            }
+        )
+    )
 
 
 def issue_create(
-    *, repo: str, title: str, body: str, labels: List[str], token: str,
+    *,
+    repo: str,
+    title: str,
+    body: str,
+    labels: List[str],
+    token: str,
 ) -> subprocess.CompletedProcess:
     owner_name = _split(repo)
     if owner_name is None:
@@ -111,7 +145,9 @@ def issue_create(
         payload["labels"] = labels
     try:
         resp = request_with_retry(
-            RestRequest(method="POST", path=f"/repos/{owner}/{name}/issues", body=payload),
+            RestRequest(
+                method="POST", path=f"/repos/{owner}/{name}/issues", body=payload
+            ),
             token=token,
         )
     except RestTransportError:
@@ -120,7 +156,9 @@ def issue_create(
     return _ok(str(body_obj.get("html_url") or ""))
 
 
-def issue_comment(*, repo: str, num: str, body: str, token: str) -> subprocess.CompletedProcess:
+def issue_comment(
+    *, repo: str, num: str, body: str, token: str
+) -> subprocess.CompletedProcess:
     owner_name = _split(repo)
     if owner_name is None:
         return _fail()
@@ -137,6 +175,7 @@ def issue_comment(*, repo: str, num: str, body: str, token: str) -> subprocess.C
     except RestTransportError:
         return _fail()
     return _ok()
+
 
 def issue_close(*, repo: str, num: str, token: str) -> subprocess.CompletedProcess:
     owner_name = _split(repo)
@@ -177,7 +216,7 @@ def issue_delete(*, repo: str, num: str, token: str) -> subprocess.CompletedProc
         return _fail()
     mutation = (
         'mutation { deleteIssue(input: { issueId: "' + node_id + '" }) '
-        '{ clientMutationId } }'
+        "{ clientMutationId } }"
     )
     try:
         request_with_retry(
