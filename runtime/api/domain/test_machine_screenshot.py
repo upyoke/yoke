@@ -68,7 +68,7 @@ def test_blank_desktop_is_not_evidence():
         screenshot_png(base64.b64encode(stream.getvalue()).decode())
 
 
-@pytest.mark.parametrize("os", ["macos", "linux"])
+@pytest.mark.parametrize("os", ["macos", "linux", "windows"])
 def test_capture_uses_os_display_and_removes_remote_file(monkeypatch, os):
     commands = []
     monkeypatch.setattr(
@@ -98,7 +98,7 @@ def test_capture_uses_os_display_and_removes_remote_file(monkeypatch, os):
     )
     assert content == png() and size == (80, 60)
     assert commands[-1].startswith("rm -f /tmp/yoke-desktop-")
-    if os == "linux":
+    if os in {"linux", "windows"}:
         assert any(
             "DISPLAY=:12" in command and "scrot" in command for command in commands
         )
@@ -236,61 +236,6 @@ def test_mac_private_or_locked_session_is_not_captured(monkeypatch, context, cod
         from yoke_contracts.machine_qa_terminal_bridge import terminal_bridge_recovery
 
         assert result.evidence["recovery"] == terminal_bridge_recovery(code)
-
-
-@pytest.mark.parametrize("session_id", [0, 2])
-def test_windows_capture_requires_interactive_token_and_valid_png(session_id):
-    from yoke_harness.windows_desktop_screenshot import TASK_SCRIPT
-
-    commands = []
-
-    def run(command, **kwargs):
-        commands.append(command)
-        encoded = command.split()[-1]
-        script = base64.b64decode(encoded).decode("utf-16-le")
-        assert (
-            "-LogonType Interactive" in script and "Unregister-ScheduledTask" in script
-        )
-        assert "Remove-Item -LiteralPath $directory" in script
-        return subprocess.CompletedProcess(
-            command,
-            0,
-            json.dumps(
-                {
-                    "session_id": session_id,
-                    "content_base64": base64.b64encode(png()).decode(),
-                }
-            ),
-            "",
-        )
-
-    result = capture_desktop(SimpleNamespace(os="windows", _run=run))
-    assert result.ok is (session_id > 0)
-    assert len(commands) == 1
-    if result.ok:
-        assert result.evidence["windows_session_id"] == 2
-    else:
-        assert result.error_code == "windows_desktop_capture_invalid"
-    assert "Password" not in TASK_SCRIPT
-
-
-def test_windows_missing_desktop_returns_named_recovery():
-    def run(command, **kwargs):
-        return subprocess.CompletedProcess(
-            command,
-            0,
-            json.dumps(
-                {
-                    "ok": False,
-                    "recovery": "windows_desktop_session_required: reconnect same account",
-                }
-            ),
-            "",
-        )
-
-    result = capture_desktop(SimpleNamespace(os="windows", _run=run))
-    assert not result.ok and result.error_code == "windows_desktop_session_required"
-    assert "reconnect" in result.evidence["recovery"]
 
 
 @pytest.mark.parametrize("tamper", ["digest", "dimensions", "bytes", "handle", "os"])

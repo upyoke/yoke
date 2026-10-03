@@ -23,7 +23,7 @@ def desktop_forward(project, settings):
     route = validate_desktop_settings(settings)
     if not route or route["desktop_protocol"] != "rdp":
         raise DesktopAccessError(
-            "windows_rdp_route_required: register the Windows RDP desktop route with yoke test-machine settings-replace"
+            "desktop_rdp_route_required: register the RDP desktop route with yoke test-machine settings-replace"
         )
     host = route.get("desktop_host") or settings["host"]
     port = int(route["desktop_port"])

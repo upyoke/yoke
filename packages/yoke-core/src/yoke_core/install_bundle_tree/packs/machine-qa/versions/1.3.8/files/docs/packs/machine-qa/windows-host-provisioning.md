@@ -6,12 +6,12 @@ SSH account is a Windows user; its default Ubuntu user is dedicated/non-root.
 Infrastructure, account names, endpoints, passwords and paths are project-owned.
 
 Audit: `windows-lab`, **2026-10-03 UTC**. On Server2025 build26100/WSL3.0.1,
-the Pack provisioner proved XFCE/xrdp and Windows localhost access to3390.
-Capability-owned login started XFCE; a diagnostic foreground hold allowed
-desktop reuse and a neutral headed Chromium window. Persistence without that
-hold, operator viewing, personal sign-in and profile capture/restore remain
-pending. The window ended with two stopped checks. Native Windows RDP proof
-and historical golden receipts do not prove the WSL browser route.
+the Pack proved XFCE/xrdp and Windows localhost access to3390. After lifetime
+configuration and a controlled restart, XFCE and headed Chromium retained
+identical boot/display/process/window identities over125seconds with no
+target call or foreground keeper; the browser step still worked. Operator
+viewing, personal sign-in and profile capture/restore remain pending. The VM
+was stopped and rechecked. Persistence proof does not establish own approval.
 
 ## 1. Infrastructure and Windows account
 
@@ -51,8 +51,8 @@ Register `test-machine:<name>` through `yoke test-machine settings-replace
 updates with the as-read settings token. Declare `resource_name`, `os=windows`,
 Windows `host` and `user`, and an absolute **Linux** `golden_baseline_path`
 outside the WSL home. Desktop fields declare `desktop_protocol=rdp`,
-`desktop_route=ssh-forward` (or an approved direct route), `desktop_port=3389`
-and the Windows `desktop_user`. Optional `cloud_instance_id` and operating
+`desktop_route=ssh-forward` (or an approved direct route), the provisioned
+WSL xrdp port (default3390), and the dedicated WSL `desktop_user`. Optional `cloud_instance_id` and operating
 notes record local infrastructure facts. Capacity registration is independent.
 
 On every QA execution workstation, store capability-owned credentials:
@@ -162,34 +162,30 @@ macOS Keychain checks do not apply to WSL.
 
 ## 6. Windows desktop and browser coverage
 
-Registered terminal QA uses tmux transcripts. Desktop screenshot proof uses
-`yoke test-machine screenshot --project P --machine NAME --json`. Provision
-FreeRDP's SDL command-line client on the credential-owning execution workstation:
-macOS uses `brew install freerdp` and `sdl-freerdp`; Linux uses its distribution's
-SDL FreeRDP package providing `sdl-freerdp` or `sdl-freerdp3`. No X server is
-required by the SDL client. Register the Windows SSH account as `desktop_user` too, an RDP `desktop_protocol`,
-and the existing `desktop_route`/`desktop_port`; prefer `ssh-forward`, with RDP
-reachable only through SSH. Import `test-machine:NAME.desktop_password` through
-`yoke projects capability secret set --value-file FILE` or `--value-stdin`,
-with its required project, capability type and key flags. The password stays in
-that capability secret store. A GUI operation reuses an active registered login
-or starts and holds FreeRDP through its SSH forward until capture finishes.
-The receipt reports `desktop_session=started|reused`. Another user's active
-login refuses instead of being displaced. No Windows auto-logon or host-side
-configuration change is made. The product feeds the password on stdin via
-`/from-stdin:force`, never in argv, output, events or a temporary password file.
+Registered terminal QA uses tmux transcripts. GUI commands and
+`yoke test-machine screenshot --project P --machine NAME --json` start or
+reuse the same WSL XFCE display through the existing Linux desktop helper;
+the screenshot captures that display, including its actual headed browser.
+Declare the dedicated WSL user as `desktop_user` and its loopback xrdp port
+as `desktop_port`; the Windows SSH user remains the account owning the distro.
+The capability-owned fixture password is streamed on private stdin. Another
+user's ambiguous desktop refuses; no native Windows RDP login is needed.
 
-`yoke test-machine desktop-access --project P --machine NAME` proves the
-registered credential with FreeRDP `+auth-only`, reports authenticated proof,
-and closes its forward without creating a desktop session. Missing FreeRDP
-refuses as `windows_rdp_client_missing`: install its named client and rerun the
-product GUI operation. The operator does no desktop login.
+For operator viewing, run:
 
-WSL2 invokes Windows PowerShell and a temporary task using the SSH account's
-held interactive token. The task captures the primary Windows display,
-returns a PNG to the QA artifact store, and removes itself and its files.
-No password enters that task. Session 0, locked desktops and blank images
-refuse with a named recovery rather than earning screenshot credit.
+```text
+yoke test-machine desktop-access --project P --machine NAME --view
+```
+
+Read `--help`. Install FreeRDP's visible SDL client on the executing workstation
+(macOS: `brew install freerdp`; Linux: the distribution's `freerdp-sdl` package).
+The product opens the SSH forward and supplies the fixture credential on stdin,
+with the existing XFCE dimensions and color depth so xrdp reconnects that display.
+It creates no password file. Close the viewer or interrupt the retained command
+to close its forward. Operator work begins at a personal application's sign-in,
+not a desktop login. Native Windows display evidence does not prove this route.
+A connected viewer counts as human adoption: baseline reset/capture must wait
+until it closes, even when automation originally started XFCE.
 
 For the selected Server route, reuse this Pack's Linux XFCE/xrdp provisioner
 inside WSL with a separate loopback port. The executing operation runs its

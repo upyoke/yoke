@@ -16,27 +16,6 @@ class SshWindowsHostOperations(SshLinuxHostOperations):
     and the WSL registration survive each Linux home restore.
     """
 
-    @classmethod
-    def from_contract(cls, contract):
-        control = super().from_contract(contract)
-        control._desktop_project = contract.project
-        control._desktop_settings = contract.settings
-        return control
-
-    def capture_screenshot(self) -> HostActionResult:
-        from yoke_harness.desktop_access import DesktopAccessError
-        from yoke_harness.windows_desktop_session import windows_desktop_session
-
-        try:
-            with windows_desktop_session(self) as session:
-                result = super().capture_screenshot()
-                return HostActionResult(
-                    result.ok, {**result.evidence, **session}, result.error_code
-                )
-        except DesktopAccessError as exc:
-            code = str(exc).split(":", 1)[0]
-            return HostActionResult(False, {"recovery": str(exc)}, code)
-
     def _ssh_argv(self, command: str) -> list[str]:
         return super()._ssh_argv(windows_wsl_command(command))
 

@@ -49,8 +49,7 @@ def run_host_operation(
             "Linux reuses one XFCE display or starts it with the registered desktop_password; reports started/reused. "
             "Provision XFCE with ops/machine-qa/provision_linux_desktop.py; "
             "repair the registered fixture secret or xrdp/XFCE and rerun if startup refuses. "
-            "Windows reuses an active registered desktop or holds FreeRDP's sdl-freerdp "
-            "through the operation, feeding the capability-owned password on stdin. "
+            "Windows captures that same XFCE browser display inside the SSH user's default WSL2 distro. "
             "Close credentials/private windows when the case requires it. Failed or blank capture exits nonzero."
         )
     parser.add_argument("--project", required=True)

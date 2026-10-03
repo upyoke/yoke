@@ -86,7 +86,10 @@ is remote loopback. Operator access uses `yoke test-machine desktop-access
 in an RDP client, no gateway, Xorg session, with the registered test user and
 password from the private `password_file`. Close its tunnel after use with
 `ssh -F /dev/null -S PASSWORD_FILE.ssh -O exit SSH_USER@SSH_HOST`; remove only
-its temporary password copy. No public RDP ingress is needed.
+its temporary password copy. No public RDP ingress is needed. For automatic
+fixture login and a bounded visible FreeRDP SDL viewer, add `--view`; the
+product supplies the password on stdin and closes its forward with the viewer.
+Read `--help` for the required workstation client.
 
 ## 3. Harness installation and operator sign-in
 
