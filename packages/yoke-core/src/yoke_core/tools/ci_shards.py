@@ -252,6 +252,7 @@ def pytest_command(group: int) -> list[str]:
         "least_duration",
         "--durations-path",
         DURATIONS_PATH,
+        "-v",
         "--tb=short",
         "--durations=25",
         f"--junitxml={JUNIT_REPORT}",
