@@ -5,6 +5,7 @@ import io
 import json
 from pathlib import Path
 import sys
+import subprocess
 
 import pytest
 
@@ -55,6 +56,11 @@ def test_wsl_route_reuses_linux_provisioner_and_keeps_ui_unproved(
     )
     monkeypatch.setattr(linux, "prerequisites", lambda: home)
     monkeypatch.setattr(
+        windows,
+        "configure_instance_lifetime",
+        lambda **kwargs: {"persistence_proved": False, "restart_required": not verify},
+    )
+    monkeypatch.setattr(
         linux, "provision", lambda *args: calls.append(("provision", *args))
     )
     monkeypatch.setattr(linux, "verify", lambda *args: {"ok": True})
@@ -78,6 +84,8 @@ def test_wsl_route_reuses_linux_provisioner_and_keeps_ui_unproved(
     result = json.loads(capsys.readouterr().out)
     assert result["headed_application_proved"] is False
     assert result["desktop_session"] == "not_started"
+    assert result["wsl_lifetime"]["persistence_proved"] is False
+    assert result["wsl_lifetime"]["restart_required"] is not verify
     assert "fixture-secret" not in json.dumps(result)
     assert calls == [
         *([] if verify else [("provision", home, windows.DEFAULT_WSL_RDP_PORT)]),
@@ -166,3 +174,90 @@ def test_wsl_provisioning_refuses_non_wsl_before_host_mutation(
     monkeypatch.setattr(windows.platform, "release", lambda: "native-linux")
     with pytest.raises(linux.ProvisionFailure, match="windows_wsl_required"):
         windows.windows_facts()
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_wsl_lifetime_changes_only_the_general_idle_setting(provisioners, newline):
+    _, windows = provisioners
+    content = newline.join(
+        [
+            "\ufeff; keep comment",
+            "[wsl2]",
+            "vmIdleTimeout=60000",
+            "[general]",
+            "instanceIdleTimeout=15000 ; explain lifetime",
+            "distributionInstallPath=C:\\WSL",
+            "[experimental]",
+            "sparseVhd=true",
+            "",
+        ]
+    )
+    expected = content.replace("instanceIdleTimeout=15000", "instanceIdleTimeout=-1")
+    assert windows.persistent_instance_config(content) == expected
+    assert windows.persistent_instance_config(expected) == expected
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "",
+        "[wsl2]\nvmIdleTimeout=120000",
+        "[general]\ndistributionInstallPath=C:\\WSL\n",
+    ],
+)
+def test_wsl_lifetime_adds_a_missing_setting_without_erasing_config(
+    provisioners, content
+):
+    _, windows = provisioners
+    result = windows.persistent_instance_config(content)
+    assert "instanceIdleTimeout=-1\n" in result
+    assert result.startswith(content)
+    assert windows.persistent_instance_config(result) == result
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "[general]\ninstanceIdleTimeout=1\ninstanceIdleTimeout=2\n",
+        "[general]\n[general]\n",
+    ],
+)
+def test_wsl_lifetime_refuses_ambiguous_configuration(provisioners, content):
+    linux, windows = provisioners
+    with pytest.raises(linux.ProvisionFailure, match="lifetime_config_ambiguous"):
+        windows.persistent_instance_config(content)
+
+
+def test_wsl_lifetime_verify_does_not_write_and_provision_requires_restart(
+    provisioners, monkeypatch, tmp_path
+):
+    linux, windows = provisioners
+    config = tmp_path / ".wslconfig"
+    original = "[wsl2]\nvmIdleTimeout=120000\n"
+    config.write_text(original)
+
+    def command(argv):
+        output = (
+            str(tmp_path) if argv[0] == "wslpath" else json.dumps("C:\\Users\\tester")
+        )
+        return subprocess.CompletedProcess(argv, 0, stdout=output)
+
+    monkeypatch.setattr(linux, "command", command)
+    with pytest.raises(linux.ProvisionFailure, match="lifetime_not_configured"):
+        windows.configure_instance_lifetime(verify_only=True)
+    assert config.read_text() == original
+    result = windows.configure_instance_lifetime(verify_only=False)
+    assert result["restart_required"] is True
+    assert result["persistence_proved"] is False
+    configured = config.read_text()
+    assert (
+        windows.configure_instance_lifetime(verify_only=True)["configuration_changed"]
+        is False
+    )
+    assert config.read_text() == configured
+
+
+def test_wsl_lifetime_does_not_normalize_an_already_effective_setting(provisioners):
+    _, windows = provisioners
+    content = "[General]\n  instanceIdleTimeout = -1  # preserve comment\n"
+    assert windows.persistent_instance_config(content) == content

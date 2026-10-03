@@ -5,17 +5,13 @@ Linux home. Yoke runs inside WSL2 Ubuntu, not native Windows. The registered
 SSH account is a Windows user; its default Ubuntu user is dedicated/non-root.
 Infrastructure, account names, endpoints, passwords and paths are project-owned.
 
-Audit: `windows-lab`, **2026-10-02 UTC**. Native desktop prerequisite proof
-covered authenticated/not_started credential access and reused/started RDP
-screenshots (operations 27393 and 27427); the prerequisite owner reviewed both.
-That proof used candidate `7c7af2bc01986a58a6c3eeab8a4e3d6bc96c0fff` and FreeRDP
-3.32.1 on macOS. It proves neither WSL Chromium nor full provisioning.
-The Pack provisioner passed on Server2025 build26100 with WSL3.0.1: non-root
-user, systemd/sudo, XFCE/xrdp and Windows localhost access to 127.0.0.1:3390.
-The 21:34–21:41 UTC window ended with a stopped waiter and a second idle check.
-The local Linux password is unset: product-owned desktop login, actual headed
-Chromium and profile capture/restore remain pending. Historical golden receipts
-do not pass these checks or steps 1–5 and 7–8.
+Audit: `windows-lab`, **2026-10-03 UTC**. On Server2025 build26100/WSL3.0.1,
+the Pack provisioner proved XFCE/xrdp and Windows localhost access to3390.
+Capability-owned login started XFCE; a diagnostic foreground hold allowed
+desktop reuse and a neutral headed Chromium window. Persistence without that
+hold, operator viewing, personal sign-in and profile capture/restore remain
+pending. The window ended with two stopped checks. Native Windows RDP proof
+and historical golden receipts do not prove the WSL browser route.
 
 ## 1. Infrastructure and Windows account
 
@@ -205,7 +201,8 @@ python3 ops/machine-qa/provision_windows_wsl_desktop.py --verify
 ```
 
 The wrapper requires Ubuntu24.04, non-root passwordless sudo, WSL2/systemd and
-Windows interop. It records actual Windows edition/build and WSL version,
+Windows interop, with WSL3.0.1 or newer (the verified configuration support floor).
+It records actual Windows edition/build and WSL version,
 installs the existing Linux desktop packages and proves loopback/localhost access.
 The product streams its capability-owned desktop secret on private stdin, sets
 the dedicated WSL fixture password with `sudo -n chpasswd`. The next retained
@@ -216,6 +213,16 @@ Agents prove candidate Chromium renders there before requesting only personal
 application sign-in. Success leaves `headed_application_proved=false` until that
 independent check. Provisioning starts no session; `--verify` refuses the secret flag.
 No Windows firewall, auto-logon or public listener change is made.
+The provisioner also owns persistent distro setup: it sets only
+`[general] instanceIdleTimeout=-1` in the registered Windows user's `.wslconfig`,
+preserving other keys and comments. This applies to that Windows user's WSL2
+distros. A changed configuration reports `restart_required=true`; save work and
+restart WSL before claiming it is applied. `--verify` checks the stored setting,
+not its activation or desktop persistence. Prove XFCE and candidate Chromium
+survive a gap longer than both default timers without a foreground keeper.
+[Microsoft's settings reference](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)
+distinguishes distro idle shutdown (15000ms) from VM idle shutdown (60000ms).
+Systemd services alone do not keep WSL alive; no per-execution sleep is required.
 [Microsoft documents localhost access to WSL services](https://learn.microsoft.com/en-us/windows/wsl/networking)
 and [systemd prerequisites](https://learn.microsoft.com/en-us/windows/wsl/systemd).
 WSLg is a separate route: its [documented GUI prerequisites](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps)
@@ -336,8 +343,6 @@ archive/edited manifest cannot earn proof. Never export auth material to repair
 a check. When a restored sign-in expires, the operator signs in, proves real
 requests, and saves a new clean golden.
 
-WSL can stop background daemons when its last Windows client exits. Keep a
-WSL terminal while testing; after restart, the local universe's documented
-startup path restarts its authority. Record the exact saved-state proof and
-stop cloud compute at the end of the authorized test window. Do not report a
-stopped host's old receipt as today's readiness.
+After restart, the local universe's documented startup path restarts its authority.
+Record the exact saved-state proof and stop cloud compute outside the authorized
+test window. A stopped host's old receipt cannot establish today's readiness.
