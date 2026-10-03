@@ -1,4 +1,4 @@
-"""Require remote termination evidence before reporting an SSH GUI command settled."""
+"""Verify normal command exit or interrupted-tree termination over SSH."""
 
 import json
 from pathlib import Path
@@ -72,14 +72,15 @@ def run_command(control, argv, environment, *, timeout):
     if (
         not isinstance(receipt, dict)
         or receipt.get("command_id") != command_id
-        or receipt.get("termination_verified") is not True
+        or not remote.receipt_settled(receipt)
     ):
         return subprocess.CompletedProcess(
             argv,
             69,
             result.stdout,
             result.stderr + f"\nlinux_command_custody_unsettled: {directory}; "
-            "remote termination could not be verified; retain this recovery handle",
+            "remote completion or termination could not be verified; "
+            "retain this recovery handle",
         )
     result.returncode = int(receipt["returncode"])
     result.command_custody = receipt

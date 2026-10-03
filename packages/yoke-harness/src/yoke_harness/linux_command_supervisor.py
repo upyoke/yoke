@@ -1,7 +1,8 @@
 """Standalone Linux command custody, embedded over SSH before Yoke is installed.
 
-The detached supervisor owns descendants (including new process sessions),
-survives loss of SSH, and publishes a receipt only after verified settlement.
+The detached supervisor owns descendants through the command's deadline and
+SSH lifetime. Successful command completion releases intentionally persistent
+children; interrupted commands publish verified tree-termination evidence.
 """
 
 import ctypes
@@ -127,15 +128,25 @@ def _supervise(directory, connection, argv, environment, timeout):
             if ready and not os.read(connection, 1):
                 reason, code = "ssh_disconnected", 124
                 break
-        unsettled = _terminate(owned)
+        completed = reason == "completed"
+        release_children = completed and code == 0
+        # Product daemons deliberately survive their successful starter. A new
+        # process session alone cannot exempt children while a command is still
+        # running: deadline/disconnect settlement must retain the whole tree.
+        remaining = (
+            sorted(_alive(owned, _remember(owned)))
+            if release_children
+            else _terminate(owned)
+        )
         _write_receipt(
             directory,
             {
                 "command_id": directory.name,
                 "reason": reason,
                 "returncode": code,
-                "termination_verified": not unsettled,
-                "unsettled_pids": unsettled,
+                "completion_verified": completed,
+                "termination_verified": not remaining,
+                "released_pids" if release_children else "unsettled_pids": remaining,
             },
         )
 
@@ -215,10 +226,19 @@ def read_receipt(directory_name, wait_seconds):
     return json.loads((directory / "receipt.json").read_text())
 
 
+def receipt_settled(receipt):
+    """Successful root exit settles custody; otherwise require tree termination."""
+    return receipt.get("termination_verified") is True or (
+        receipt.get("reason") == "completed"
+        and receipt.get("completion_verified") is True
+        and receipt.get("returncode") == 0
+    )
+
+
 def remove_settled(directory_name):
     directory = Path(directory_name)
     receipt = read_receipt(directory_name, 0)
-    if receipt.get("termination_verified") is not True:
+    if not receipt_settled(receipt):
         raise RuntimeError("command custody unsettled")
     for name in ("stdout", "stderr", "receipt.json"):
         (directory / name).unlink(missing_ok=True)
