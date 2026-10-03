@@ -31,3 +31,14 @@ capture the stopped signed-in profile into a new sibling through
 Never hand-edit the sealed capture or weaken its identity, digest, ownership or
 archive checks. For filesystem failures, inspect the selected path as the test
 user and repair access before retrying.
+
+Capture reads the written manifest and archive back before publishing the snapshot
+and again from the final destination before reporting `sealed: true`. It refuses
+empty or unreadable files, invalid JSON/tar data, identity or digest mismatch,
+and an archive whose file/directory entries and sizes differ from the stopped
+source profile. Closed files and directories are flushed before success; a
+flush failure is a closed refusal. An invalid capture is never reported sealed.
+Preserve a refused final snapshot and retry a new sibling through the supported
+capture path. A missing or empty live source profile is a refusal, not a new
+signed-in profile; a person must prepare the declared browser context when no
+valid source survives.

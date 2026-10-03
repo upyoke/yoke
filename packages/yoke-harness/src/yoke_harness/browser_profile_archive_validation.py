@@ -5,10 +5,19 @@ This module is also embedded in the standard-library-only SSH capture program.
 
 from contextlib import contextmanager
 import json
+import hashlib
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import stat
+import sys
 import tarfile
+
+
+CAPTURE_RECOVERY = (
+    "Preserve the rejected capture; re-capture the stopped signed-in profile through "
+    "yoke test-machine golden-capture --component browser-profile into a new sibling snapshot. "
+    "Never hand-edit the sealed manifest or archive."
+)
 
 
 class ProfileArchiveError(ValueError):
@@ -20,9 +29,11 @@ class ProfileArchiveError(ValueError):
         self.details = details or {}
 
 
-def require(condition: bool, code: str) -> None:
+def require(condition: bool, code: str, *, recovery: str | None = None) -> None:
     if not condition:
-        raise ProfileArchiveError(code)
+        raise ProfileArchiveError(
+            code, details={"recovery": recovery} if recovery else None
+        )
 
 
 def private_owned(path: Path, *, directory: bool = False) -> None:
@@ -75,9 +86,7 @@ def failure_details(step: str, exc: Exception) -> dict:
             "Inspect the selected path's ownership and read/write permissions as the test user; "
             "preserve the sealed capture and retry."
             if isinstance(exc, OSError)
-            else "Preserve the rejected capture; re-capture the stopped signed-in profile through "
-            "yoke test-machine golden-capture --component browser-profile into a new sibling snapshot. "
-            "Never hand-edit the sealed manifest or archive."
+            else CAPTURE_RECOVERY
         )
     return {
         "step": step,
@@ -97,3 +106,47 @@ def archive_step(step: str):
         raise ProfileArchiveError(
             f"browser_profile_{step}_failed", details=failure_details(step, exc)
         ) from None
+
+
+def digest(path: Path) -> str:
+    with path.open("rb") as stream:
+        checksum = hashlib.sha256()
+        for chunk in iter(lambda: stream.read(1024**2), b""):
+            checksum.update(chunk)
+        return checksum.hexdigest()
+
+
+def identity(home: Path, project: str, relative: str) -> dict:
+    selected = PurePosixPath(relative)
+    require(
+        not selected.is_absolute()
+        and ".." not in selected.parts
+        and str(selected) == relative
+        and len(selected.parts) >= 3,
+        "browser_profile_unsafe_path",
+    )
+    require(
+        project
+        and all(c.isascii() and (c.isalnum() or c in "._-") for c in project)
+        and project not in {".", ".."},
+        "browser_profile_project_invalid",
+    )
+    return {
+        "home": str(home),
+        "uid": os.getuid(),
+        "project": project,
+        "profile_relative_path": relative,
+        "os": "macos" if sys.platform == "darwin" else "linux",
+    }
+
+
+def sync_snapshot(directory: Path, names: tuple[str, ...]) -> None:
+    """Flush closed files and their directory before publishing a durable seal."""
+    for name in names:
+        with (directory / name).open("rb") as stream:
+            os.fsync(stream.fileno())
+    descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
