@@ -41,6 +41,12 @@ def run_host_operation(
 ) -> int:
     """Parse the operator's arguments and run one operation end to end."""
     parser = argparse.ArgumentParser(prog=prog)
+    parser.epilog = (
+        "An awaiting Machine QA mission's holder automatically uses its retained "
+        "host lease. Submit and abort keep that lease for mission close-out. "
+        "Foreign holders refuse; ask the mission holder or wait for it to finish. "
+        "Calls outside a mission acquire and release their own exclusive lease."
+    )
     if operation == "screenshot":
         parser.description = (
             "Capture the actual desktop as a validated PNG under the machine lease. "
@@ -165,11 +171,16 @@ def _execute(
                 + (
                     "the server lease was released"
                     if released
-                    else "automatic server-lease release also failed"
+                    else (
+                        "the mission host lease was retained"
+                        if released is False
+                        else "automatic server-lease abort also failed"
+                    )
                 ),
                 error_code=error_code,
                 recovery_hint=recovery_hint,
-                lease_released=released,
+                lease_released=released is True,
+                lease_retained=released is False,
             ),
             json_mode=json_mode,
         )
@@ -252,12 +263,12 @@ def abort_operation(
     baseline: str | None,
     execution: dict[str, Any],
     reason: str,
-) -> bool:
-    """Release the lease of an execution that stopped on this machine."""
+) -> bool | None:
+    """Return released/retained for an accepted abort, or None if it failed."""
     lease_id = execution.get("lease_id")
     contract_digest = execution.get("contract_digest")
     if not isinstance(lease_id, int) or not isinstance(contract_digest, str):
-        return False
+        return None
     response = call_dispatcher(
         function_id="test_machine.operation.abort",
         target=TargetRef(kind="global"),
@@ -277,7 +288,7 @@ def abort_operation(
         },
         actor=actor,
     )
-    return bool(response.success)
+    return bool((response.result or {}).get("released")) if response.success else None
 
 
 def _as_public(
@@ -294,6 +305,7 @@ def _local_execution_error(
     error_code: str = "host_control_local_execution_failed",
     recovery_hint: str | None = None,
     lease_released: bool = False,
+    lease_retained: bool = False,
 ) -> FunctionCallResponse:
     return FunctionCallResponse(
         success=False,
@@ -309,7 +321,7 @@ def _local_execution_error(
                 )
                 + (
                     ""
-                    if lease_released
+                    if lease_released or lease_retained
                     else " Inspect and release the named coordination lease "
                     "before retrying."
                 )

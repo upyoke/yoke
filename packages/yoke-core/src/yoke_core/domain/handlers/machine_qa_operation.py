@@ -48,6 +48,12 @@ from yoke_core.domain.machine_qa_operation_shape import (
     TestMachineOperationShapeError,
     operation_contract_shape,
 )
+from yoke_core.domain.machine_qa_operation_lease import (
+    begin_operation_execution,
+    finish_operation_execution,
+    operation_mission,
+    repeated_mission_receipt,
+)
 
 
 OperatorOperation = Literal[
@@ -116,7 +122,6 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
         return _invalid(exc)
     from yoke_core.domain.machine_qa_execution_protocol import (
         MachineQaProtocolError,
-        begin_host_control_execution,
     )
 
     conn = db_helpers.connect()
@@ -134,12 +139,11 @@ def handle_operation_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 ),
                 requested=parsed.destination,
             )
-        contract = begin_host_control_execution(
+        contract = begin_operation_execution(
             conn,
             project=parsed.project,
-            session_id=request.actor.session_id,
+            actor=request.actor,
             machine=parsed.machine,
-            select_any=False,
             operation=_operation(parsed.operation),
             **operation_contract_shape(
                 parsed.operation,
@@ -174,12 +178,14 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.machine_qa_execution_protocol import (
         MachineQaProtocolError,
         commit_deferred_connection,
-        complete_host_control_execution,
         validate_host_control_submission,
     )
 
     conn = db_helpers.connect()
     try:
+        mission = operation_mission(
+            conn, lease_id=parsed.lease_id, project=parsed.project, actor=request.actor
+        )
         lease, contract = validate_host_control_submission(
             conn,
             project=parsed.project,
@@ -205,6 +211,7 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
             lease_id=lease.id,
             machine=machine,
         )
+        recorded = repeated_mission_receipt(parsed, recorded, mission)
         if recorded is not None:
             if parsed.operation == "screenshot":
                 from yoke_core.domain.handlers.machine_qa_screenshot_artifact import (
@@ -262,9 +269,10 @@ def handle_operation_submit(request: FunctionCallRequest) -> HandlerOutcome:
             )
         )
         if lease.is_active:
-            complete_host_control_execution(
+            finish_operation_execution(
                 conn,
                 lease,
+                mission=mission,
                 reason=f"test-machine-{parsed.operation.replace('_', '-')}-complete",
             )
         else:

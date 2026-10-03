@@ -64,10 +64,18 @@ def _release(
     capture_component: Literal["browser-profile"] | None = None,
 ) -> dict[str, Any]:
     from yoke_core.domain.machine_qa_execution_protocol import (
-        complete_host_control_execution,
         validate_host_control_submission,
     )
+    from yoke_core.domain.machine_qa_operation_lease import (
+        operation_mission,
+        finish_operation_execution,
+    )
 
+    mission = (
+        operation_mission(conn, lease_id=lease_id, project=project, actor=request.actor)
+        if operation not in {"case", "baseline_group"}
+        else None
+    )
     lease, _contract = validate_host_control_submission(
         conn,
         project=project,
@@ -82,14 +90,15 @@ def _release(
         golden_destination=golden_destination,
         capture_component=capture_component,
     )
-    complete_host_control_execution(
+    released = finish_operation_execution(
         conn,
         lease,
+        mission=mission,
         reason=f"host-control-{reason.replace('_', '-')}",
     )
     return {
         "lease_id": lease.id,
-        "released": True,
+        "released": released,
         "reason": reason,
     }
 
