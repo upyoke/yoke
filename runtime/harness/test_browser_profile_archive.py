@@ -96,6 +96,33 @@ def test_restore_preserves_preexisting_ancestor_modes(snapshot):
     assert ancestor.stat().st_mode & 0o777 == 0o755
 
 
+@pytest.mark.parametrize("mode", [0o755, 0o750])
+def test_capture_keeps_readable_golden_parent_and_private_snapshot(snapshot, mode):
+    home, _, baseline, _ = snapshot
+    baseline.parent.chmod(mode)
+    destination = baseline.parent / "separate-profile"
+    snapshots.capture(home, destination, "project", RELATIVE)
+    assert baseline.parent.stat().st_mode & 0o777 == mode
+    assert destination.stat().st_mode & 0o777 == 0o700
+    for name in (snapshots.ARCHIVE_NAME, snapshots.MANIFEST_NAME):
+        assert (destination / name).stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.parametrize("mode", [0o775, 0o777])
+def test_capture_refuses_writable_golden_parent_without_changing_it(snapshot, mode):
+    home, profile, baseline, _ = snapshot
+    baseline.parent.chmod(mode)
+    destination = baseline.parent / "separate-profile"
+    with pytest.raises(
+        snapshots.ProfileArchiveError, match="browser_profile_parent_writable"
+    ) as caught:
+        snapshots.capture(home, destination, "project", RELATIVE)
+    assert caught.value.path == baseline.parent
+    assert baseline.parent.stat().st_mode & 0o777 == mode
+    assert not destination.exists()
+    assert profile.exists()
+
+
 @pytest.mark.parametrize("mismatch", ["project", "digest", "owner", "mode"])
 def test_restore_rejects_mismatched_or_unsealed_snapshot_before_mutation(
     snapshot, mismatch

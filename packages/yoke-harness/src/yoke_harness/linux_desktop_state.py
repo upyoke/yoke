@@ -11,7 +11,7 @@ import stat
 import subprocess
 import time
 
-RECOVERY = "Log in over RDP as the registered desktop user and leave one XFCE session unlocked."
+RECOVERY = "Repair the registered fixture secret or xrdp/XFCE prerequisites, then rerun the product GUI operation."
 RDP_PORT = 3389
 DESKTOP_READY_TIMEOUT_SECONDS = 15
 DESKTOP_POLL_INTERVAL_SECONDS = 0.2

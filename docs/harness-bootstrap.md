@@ -251,8 +251,8 @@ The keys live in `yoke_contracts.harness_unattended_posture`:
 | `cursor` | `~/.cursor/cli-config.json` | `approvalMode`, `sandbox.mode` |
 
 `yoke onboard` plans it as a named step, **Unattended harness posture** —
-previewed in Review, declinable with `--skip-harness-permissions`, naming
-each harness, file, key, and the undo.
+previewed in Review, naming each harness, file, key, and the undo.
+`--skip-harness-permissions` excludes it from interactive and noninteractive preview/apply.
 
 Approval posture is machine-wide; **folder trust is per path**, and a machine
 with one still stops on the other — a Codex session with `approval_policy =

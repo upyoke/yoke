@@ -28,6 +28,7 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     RESET_RESTORE_UNRESTORED_PREFIX,
     SELF_HOST_COMPOSE_PROJECT,
 )
+from yoke_harness.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
 
 
 HOME = "/Users/tester"
@@ -110,7 +111,7 @@ def test_reset_uploads_mode_0700_and_accepts_only_closed_outcomes() -> None:
     assert result.evidence["baseline_state"] == {
         "golden_baseline_path": GOLDEN_BASELINE_PATH,
         "restored_entries": 22,
-        "preserved_entries": [".ssh", "Library/Application Support/com.apple.TCC"],
+        "preserved_entries": list(PRESERVED_HOME_ENTRIES),
     }
     rows = {row["path"]: row["outcome"] for row in result.evidence["paths"]}
     assert rows[GOLDEN_BASELINE_PATH] == "restored"

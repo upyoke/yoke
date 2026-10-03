@@ -14,18 +14,22 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
 
-DESKTOP_ACCESS_USAGE = "yoke test-machine desktop-access --project P --machine NAME"
+DESKTOP_ACCESS_USAGE = (
+    "yoke test-machine desktop-access --project P --machine NAME [--view]"
+)
 
 
 def test_machine_desktop_access(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke test-machine desktop-access",
         description=(
-            "Prove a Windows registered RDP login with FreeRDP auth-only, using the password on stdin; "
-            "prints user, credential_proof and desktop_session without a password file. "
-            "For other operating systems, open the registered RDP or VNC route and write the desktop password "
+            "Open the registered RDP or VNC route and write the desktop password "
             "to a new mode-600 file under /tmp. Prints address, user and password_file. "
-            "Linux reuses or starts XFCE and reports desktop_session=started/reused; human RDP login is the fallback. "
+            "Linux and Windows WSL reuse or start XFCE and report desktop_session=started/reused. "
+            "Windows desktop_user and desktop_port name the WSL user and loopback xrdp service. "
+            "--view opens that same XFCE display in FreeRDP's visible SDL client, feeds the fixture "
+            "password on stdin, and closes the SSH forward when the viewer closes; no password file. "
+            "if startup refuses, repair the registered fixture secret or xrdp/XFCE and rerun. "
             "For SSH forwarding the control socket is PASSWORD_FILE.ssh; close it with "
             "ssh -S PASSWORD_FILE.ssh -O exit SSH_USER@SSH_HOST after connecting. "
             "Remove the private password copy after use."
@@ -33,6 +37,7 @@ def test_machine_desktop_access(args: list[str]) -> int:
     )
     parser.add_argument("--project", required=True)
     parser.add_argument("--machine", required=True)
+    parser.add_argument("--view", action="store_true")
     add_session_arg(parser)
     parsed = parse_or_usage_error(parser, args, DESKTOP_ACCESS_USAGE)
     if parsed is None:
@@ -54,7 +59,7 @@ def test_machine_desktop_access(args: list[str]) -> int:
     from yoke_harness.desktop_access import DesktopAccessError, open_desktop_access
 
     try:
-        print(json.dumps(open_desktop_access(**response.result)))
+        print(json.dumps(open_desktop_access(**response.result, view=parsed.view)))
     except (DesktopAccessError, MachineCapabilitySecretError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

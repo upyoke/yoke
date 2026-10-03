@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_harness.ssh_mac_preserved_state import OS_MANAGED_HOME_ENTRIES
+
 from pathlib import Path
 
 from runtime.api.domain.ssh_mac_full_reset_test_support import (
@@ -59,7 +61,7 @@ def test_rendered_program_restores_a_baseline_rather_than_enumerating_residue() 
 
 
 def test_preserved_levels_descend_exactly_as_far_as_a_protected_ancestor() -> None:
-    assert preserved_levels() == (
+    assert preserved_levels((".ssh", "Library/Application Support/com.apple.TCC")) == (
         ("", (".ssh", "Library")),
         ("Library", ("Application Support",)),
         ("Library/Application Support", ("com.apple.TCC",)),
@@ -109,6 +111,7 @@ def test_preserved_and_absent_surfaces_are_reachable_from_the_program() -> None:
     assert PRESERVED_HOME_ENTRIES == (
         ".ssh",
         "Library/Application Support/com.apple.TCC",
+        *OS_MANAGED_HOME_ENTRIES,
     )
     assert ".yoke" in YOKE_ABSENT_RELATIVE_DIRECTORIES
     assert YOKE_ABSENT_TEMP_FILES == ("/tmp/yoke-install",)

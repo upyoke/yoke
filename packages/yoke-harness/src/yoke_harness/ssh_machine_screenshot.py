@@ -56,12 +56,7 @@ def capture_desktop(control) -> HostActionResult:
     session_evidence = {}
     linux_png = None
     try:
-        if control.os == "windows":
-            from yoke_harness.windows_desktop_screenshot import windows_desktop_png
-
-            encoded, session_id = windows_desktop_png(control)
-            session_evidence = {"windows_session_id": session_id}
-        elif control.os == "macos":
+        if control.os == "macos":
             from yoke_harness.ssh_mac_gui_session import run_terminal_app_command
             from yoke_harness.ssh_mac_host_session_state import (
                 display_lock_recovery,
@@ -92,14 +87,14 @@ def capture_desktop(control) -> HostActionResult:
                 argv=["/usr/sbin/screencapture", "-x", "-D", "1", remote],
                 timeout=30,
             )
-        elif control.os == "linux":
+        elif control.os in {"linux", "windows"}:
             captured, linux_png = _linux_capture(control, remote)
             session_evidence = {"desktop_session": captured.desktop_session}
         else:
             raise ValueError(
                 "test_machine_os_unsupported: choose macos, linux or windows"
             )
-        if control.os != "windows" and captured.returncode:
+        if captured.returncode:
             return HostActionResult(
                 False,
                 {
@@ -109,10 +104,7 @@ def capture_desktop(control) -> HostActionResult:
                 },
                 "desktop_screenshot_failed",
             )
-        if control.os == "windows":
-            content, (width, height) = screenshot_png(encoded)
-        else:
-            content, (width, height) = linux_png or _remote_png(control, remote)
+        content, (width, height) = linux_png or _remote_png(control, remote)
         return HostActionResult(
             True,
             {
@@ -136,5 +128,4 @@ def capture_desktop(control) -> HostActionResult:
             detail += "; capture validation: " + str(exc.__cause__)
         return HostActionResult(False, {"recovery": detail}, str(exc).split(":", 1)[0])
     finally:
-        if control.os != "windows":
-            control._run("rm -f " + shlex.quote(remote), timeout=10)
+        control._run("rm -f " + shlex.quote(remote), timeout=10)

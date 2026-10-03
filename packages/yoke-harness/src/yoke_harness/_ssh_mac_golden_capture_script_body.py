@@ -43,13 +43,13 @@ validate_destination() {
   return 0
 }
 
-# Read-only files are valid user state. Files another account owns are not:
-# the test user cannot clear them on reset or restore them afterwards, so a
-# capture holding them produces a baseline that can never be reached again.
+# Validate the exact live OS-managed exception before excluding it. Every
+# other foreign-owned entry remains unrestorable and refuses the capture.
 assert_home_ownership() {
+  assert_os_managed_preserved_state || return 1
   local foreign
   foreign=$(
-    /usr/bin/find "$home" -xdev ! -user "$capture_user" -print 2>/dev/null |
+    list_foreign_home_entries 2>/dev/null |
       /usr/bin/head -1
   )
   if [[ -n "$foreign" ]]; then
@@ -90,7 +90,7 @@ copy_home() {
   # limit. Keep mac metadata explicit and disable only the PAX xattr encoding.
   (
     builtin cd -q -- "$home" || exit 1
-    /usr/bin/find . -mindepth 1 ! -type s ! -type p -print0 |
+    list_capture_entries |
       /usr/bin/tar -cpf - --mac-metadata --no-xattrs --no-recursion --null -T - |
       /usr/bin/tar -xpf - --mac-metadata --xattrs --acls -C "$destination"
   ) 2>>"$copy_error_log" || return 1
@@ -125,6 +125,7 @@ write_manifest() {
     print -r -- "top_level_entry_count $captured_entry_count"
     print -r -- "kilobyte_count $captured_kilobyte_count"
     print -r -- "probes_digest $probes_digest"
+    print -r -- "$os_managed_manifest_line"
   } > "$destination$manifest_suffix" || return 1
   /bin/chmod -- "$golden_sidecar_mode" "$destination$manifest_suffix" || return 1
   manifest_digest=$(

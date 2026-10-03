@@ -10,6 +10,8 @@ destroyer, which is the whole reason the direction was reversed.
 
 from __future__ import annotations
 
+from yoke_harness.ssh_mac_preserved_state import PRESERVED_HOME_ENTRIES
+
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 
@@ -53,22 +55,6 @@ RESET_PHASES = {
 # the grant an identical restore skipped 8,389 entries across privacy-protected
 # Library subtrees and reported success.
 FULL_DISK_ACCESS_PROBE_PATH = "/Library/Application Support/com.apple.TCC/TCC.db"
-
-# Kept verbatim through the clear, each at the depth it lives:
-#   .ssh                                   the restore is driven over the very
-#                                          channel a naive clear destroys, and
-#                                          between clear and restore the host
-#                                          would otherwise have no way back in;
-#   Library/Application Support/com.apple.TCC
-#                                          System Integrity Protection owns the
-#                                          user privacy database and its grants
-#                                          can only be re-established by a
-#                                          person clicking in the GUI, so the
-#                                          live copy outranks any captured one.
-PRESERVED_HOME_ENTRIES = (
-    ".ssh",
-    "Library/Application Support/com.apple.TCC",
-)
 
 # Sibling artifacts named from the golden directory itself, so a second golden
 # never collides with the first and neither one contaminates the home it holds.

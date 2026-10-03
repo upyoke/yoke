@@ -13,7 +13,7 @@ from yoke_contracts.machine_screenshot import screenshot_png
 from yoke_harness.ssh_machine_screenshot import capture_desktop
 
 
-@pytest.mark.parametrize("os", ["macos", "linux"])
+@pytest.mark.parametrize("os", ["macos", "linux", "windows"])
 def test_capture_uses_os_display_and_removes_remote_file(monkeypatch, os):
     commands = []
     monkeypatch.setattr(
@@ -56,7 +56,7 @@ def test_capture_uses_os_display_and_removes_remote_file(monkeypatch, os):
     )
     assert content == png() and size == (80, 60)
     assert commands[-1].startswith("rm -f /tmp/yoke-desktop-")
-    if os == "linux":
+    if os in {"linux", "windows"}:
         assert any(
             "run_supervised(*[" in command and "scrot" in command
             for command in commands

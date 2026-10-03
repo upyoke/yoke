@@ -47,9 +47,9 @@ def run_host_operation(
             "The receipt stores a durable QA artifact handle; artifact_path names a private local PNG. "
             "macOS needs the test user's unlocked Terminal.app session and Screen Recording grant; "
             "Linux reuses one XFCE display or starts it with the registered desktop_password; reports started/reused. "
-            "Provision XFCE with ops/machine-qa/provision_linux_desktop.py; human RDP login is the fallback. "
-            "Windows reuses an active registered desktop or holds FreeRDP's sdl-freerdp "
-            "through the operation, feeding the capability-owned password on stdin. "
+            "Provision XFCE with ops/machine-qa/provision_linux_desktop.py; "
+            "repair the registered fixture secret or xrdp/XFCE and rerun if startup refuses. "
+            "Windows captures that same XFCE browser display inside the SSH user's default WSL2 distro. "
             "Close credentials/private windows when the case requires it. Failed or blank capture exits nonzero."
         )
     parser.add_argument("--project", required=True)
@@ -64,7 +64,7 @@ def run_host_operation(
         parser.add_argument(
             "--component",
             choices=("browser-profile",),
-            help="Seal only the stopped Linux browser profile beside the clean home golden; no probes file required.",
+            help="Seal only the stopped browser profile beside the clean home golden on Linux, macOS, or Windows/WSL; no probes file required.",
         )
         parser.add_argument(
             "--probes-file",

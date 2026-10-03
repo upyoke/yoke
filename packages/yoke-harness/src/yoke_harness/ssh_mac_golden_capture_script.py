@@ -24,11 +24,13 @@ from yoke_harness.ssh_mac_golden_capture_contract import (
     CAPTURE_REFUSAL_KIND_DESTINATION_OCCUPIED,
     CAPTURE_REFUSAL_KIND_FOREIGN_OWNER,
     CAPTURE_REFUSAL_KIND_RESIDUE,
+    CAPTURE_REFUSAL_KIND_PRESERVED_STATE,
     CAPTURE_REFUSAL_PREFIX,
     GOLDEN_CAPTURE_MARKER,
     GOLDEN_DIRECTORY_MODE,
     GOLDEN_SIDECAR_MODE,
 )
+from yoke_harness.ssh_mac_preserved_state import render_preserved_state_contract
 
 
 def _array(values: tuple[str, ...]) -> str:
@@ -63,6 +65,10 @@ def render_golden_capture_script(contract: FullResetPathContract) -> str:
             "capture_manifest_digest_prefix="
             + shlex.quote(CAPTURE_MANIFEST_DIGEST_PREFIX),
             f"refusal_prefix={shlex.quote(CAPTURE_REFUSAL_PREFIX)}",
+            "os_managed_invalid_prefix="
+            + shlex.quote(
+                CAPTURE_REFUSAL_PREFIX + CAPTURE_REFUSAL_KIND_PRESERVED_STATE + " "
+            ),
             "refusal_kind_residue=" + shlex.quote(CAPTURE_REFUSAL_KIND_RESIDUE),
             "refusal_kind_foreign_owner="
             + shlex.quote(CAPTURE_REFUSAL_KIND_FOREIGN_OWNER),
@@ -75,6 +81,7 @@ def render_golden_capture_script(contract: FullResetPathContract) -> str:
             f"yoke_absent_directories={_array(YOKE_ABSENT_RELATIVE_DIRECTORIES)}",
             f"yoke_absent_files={_array(contract.tool_file_suffixes)}",
             f"yoke_absent_temp_files={_array(YOKE_ABSENT_TEMP_FILES)}",
+            render_preserved_state_contract(),
             CAPTURE_SCRIPT_BODY.lstrip(),
         )
     )
