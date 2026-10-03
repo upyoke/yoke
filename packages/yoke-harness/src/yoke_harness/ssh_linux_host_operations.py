@@ -24,6 +24,7 @@ from yoke_harness.ssh_linux_terminal import (
     diagnose_linux_terminal,
 )
 from yoke_harness.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
+from yoke_harness.ssh_tool_resolution import probe_reset_tools, tools_present
 from yoke_harness.test_machine_types import HostActionResult
 
 
@@ -122,33 +123,40 @@ class SshLinuxHostOperations(SshHostBaselines, SshTestMachineTransport):
         restored = archive_operation(self, "reset", self.golden_baseline_path)
         if not restored.ok:
             return restored
-        observed = {
-            surface: self._run(
-                shlex.join(
-                    [
-                        self.shell,
-                        "-lic" if surface == "login" else "-c",
-                        "command -v yoke; command -v uv; command -v uvx",
-                    ]
-                ),
-                timeout=20,
-            )
-            for surface in ("login", "ssh")
-        }
-        absent = all(
-            result.returncode != 0 and not result.stdout.strip()
-            for result in observed.values()
+        observed = probe_reset_tools(self)
+        failed = any(
+            probe["state"] == "probe-failed"
+            for surface in observed.values()
+            for probe in surface.values()
         )
+        present = tools_present(observed)
+        absent = present is False and not failed
         return HostActionResult(
             absent,
             {
                 **restored.evidence,
                 "path_state": {
-                    "launcher_present": not absent,
-                    "yoke_tools_resolve": not absent,
+                    "launcher_present": tools_present(observed, ("yoke",)),
+                    "yoke_tools_resolve": present,
                 },
+                "tool_resolution": observed,
+                **(
+                    {
+                        "recovery": "Inspect tool_resolution for the failed surface/tool and repair its shell or SSH probe before retrying reset."
+                    }
+                    if failed
+                    else {
+                        "recovery": "Inspect tool_resolution for surviving executable paths before retrying the sealed baseline."
+                    }
+                    if not absent
+                    else {}
+                ),
             },
-            None if absent else "reset_absence_not_proved",
+            "reset_tool_probe_failed"
+            if failed
+            else None
+            if absent
+            else "reset_absence_not_proved",
         )
 
     def prove_user_equivalent(self) -> HostActionResult:
