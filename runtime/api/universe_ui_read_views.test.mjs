@@ -99,7 +99,7 @@ for (const [view, functionId] of [
         if (request.function === functionId) {
           // The engine denies a project-scoped read that names no project;
           // answering rows here would hide the very shape under test.
-          if (!request.payload.project && !request.payload.projects?.length) {
+          if (!request.payload.project) {
             return {
               status: 403,
               envelope: {
@@ -134,7 +134,8 @@ for (const [view, functionId] of [
     const reads = requests.filter((request) => request.function === functionId);
     if (view === "ouroboros") {
       assert.equal(reads.length, 1);
-      assert.deepEqual(reads[0].payload.projects, ["1", "2"]);
+      assert.equal(reads[0].payload.project, "1");
+      assert.equal("projects" in reads[0].payload, false);
       assert.deepEqual(reads[0].payload.sort, { column: "timestamp", direction: "desc" });
     } else {
       assert.deepEqual(reads.map((request) => request.payload.project), ["1", "2"]);
@@ -203,7 +204,7 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
     {
       function: "ouroboros.entry.list",
       payload: {
-        projects: ["1"],
+        project: "1",
         shape: "roster",
         review_state: "all",
         limit: 50,
