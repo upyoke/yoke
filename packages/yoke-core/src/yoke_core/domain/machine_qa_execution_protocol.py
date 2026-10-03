@@ -118,13 +118,24 @@ def _issue(
     case_position: int | None = None,
     baseline_position: int | None = None,
 ) -> HostControlExecutionContract:
+    settings = dict(machine.settings)
+    if operation == "golden_capture":
+        # Capture's output updates these pointers while a mission still owns
+        # the lease. They are not inputs to capture and must not spoil retries.
+        from yoke_core.domain.machine_qa_golden_destination import (
+            GOLDEN_BASELINE_PATH_KEY,
+            BROWSER_PROFILE_BASELINE_PATH_KEY,
+        )
+
+        settings.pop(GOLDEN_BASELINE_PATH_KEY, None)
+        settings.pop(BROWSER_PROFILE_BASELINE_PATH_KEY, None)
     return issue_execution_contract(
         operation=operation,
         lease_id=lease.id,
         lease_key=lease.key,
         project_id=machine.project_id,
         project=machine.project,
-        settings=machine.settings,
+        settings=settings,
         selection_reason=selection_reason,
         checks=list(checks),
         baselines=list(baselines),

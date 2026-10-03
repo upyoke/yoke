@@ -41,6 +41,12 @@ def run_host_operation(
 ) -> int:
     """Parse the operator's arguments and run one operation end to end."""
     parser = argparse.ArgumentParser(prog=prog)
+    parser.epilog = (
+        "An awaiting Machine QA mission's holder automatically uses its retained "
+        "host lease. Submit and abort keep that lease for mission close-out. "
+        "Foreign holders refuse; ask the mission holder or wait for it to finish. "
+        "Calls outside a mission acquire and release their own exclusive lease."
+    )
     if operation == "screenshot":
         parser.description = (
             "Capture the actual desktop as a validated PNG under the machine lease. "

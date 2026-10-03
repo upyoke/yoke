@@ -24,6 +24,17 @@ one lease and record a receipt. Desktop access also respects the serial host
 lease. The machine page shows the last receipt per operation. A successful
 reachability read does not establish baseline readiness.
 
+During an awaiting Machine QA mission, these commands automatically reuse its
+host lease when the calling session and actor own the mission. Submission and
+operation abort retain the lease; the mission's close-out releases it. A foreign
+holder refuses with `mission_operation_foreign_holder`: ask the mission holder
+to run the operation or wait for it to finish. A plan outside its mission walk
+refuses with `mission_operation_unavailable`; resume its mission first.
+Calls without a mission retain exclusive acquire/release behavior. Repeated
+mission operations update the last receipt; identical retries reuse evidence.
+Golden-capture contracts bind their destination and omit the baseline pointers
+they update, so recording a capture does not invalidate its submission retry.
+
 Verification distinguishes `ssh` and `terminal_bridge` surfaces as passed,
 failed or not_run. A failed bridge leaves overall status error while a passing
 transport remains visible. Baseline operations retain their own resulting-state
