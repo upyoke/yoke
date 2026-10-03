@@ -16,8 +16,9 @@ instead:
 * because the loop is never blocked, its own claim keeps the machine's
   ``session_relays`` row and surface inventory continuously published —
   the state gap that appears while a long job holds a one-shot process;
-* a termination signal and a served-build change both stop *starting* work
-  and wait for what is in flight, so neither drops a job on the floor.
+* termination interrupts main-thread IO and bounds settlement below the host
+  logout budget; release repinning retains its longer settlement window.
+  Durable leases, native custody and pending reports survive interrupted jobs.
 
 Failure bursts log immediately, periodically, and on recovery. Transient
 cycle exceptions stay visible without ending the relay or flooding its log.
@@ -29,8 +30,7 @@ working, and the next successful poll handshake retries the pin.
 
 from __future__ import annotations
 
-from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import logging
 from pathlib import Path
 import signal
@@ -42,6 +42,7 @@ from yoke_contracts.session_control.relay_health import RELAY_NEWER_THAN_SERVER
 from yoke_cli.transport import control_plane_payload
 from yoke_harness.session_relay import ServeOnceOutcome, run_serve_cycle
 from yoke_harness.session_relay_failure_log import FailureReporter
+from yoke_harness.session_relay_supervision import RelayStopRequested, Supervisor
 from yoke_harness.session_relay_poll_health import reset_poll_outcome
 from yoke_harness.session_relay_schedule import relay_run_lock, relay_state_dir
 from yoke_harness.session_relay_process_restart import exec_relay_release
@@ -55,6 +56,7 @@ IDLE_TICK_SECONDS = 0.5
 # work. A native launch that has not settled by then is already supervised
 # by its own attempt record, so waiting past this only delays the restart.
 DRAIN_TIMEOUT_SECONDS = 120
+LOGOUT_SETTLEMENT_SECONDS = 2.0
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -80,64 +82,18 @@ class DaemonOutcome:
     last_state: str = ""
 
 
-@dataclass
-class _Supervisor:
-    """Owns the worker pool and the futures still settling on it."""
-
-    pool: ThreadPoolExecutor
-    failures: FailureReporter
-    pending: list[Future] = field(default_factory=list)
-    lock: threading.Lock = field(default_factory=threading.Lock)
-    settled: int = 0
-
-    def dispatch(self, settle: Callable[[], object]) -> None:
-        future = self.pool.submit(self._guarded, settle)
-        with self.lock:
-            self.pending = [f for f in self.pending if not f.done()]
-            self.pending.append(future)
-
-    def _guarded(self, settle: Callable[[], object]) -> object:
-        try:
-            try:
-                outcome = settle()
-            except Exception as exc:  # noqa: BLE001 — isolate one failed job
-                self.failures.failed("job settlement", f"{type(exc).__name__}: {exc}")
-                return None
-            state = str(getattr(outcome, "state", ""))
-            if state == "report_failed":
-                self.failures.failed(
-                    "report", getattr(outcome, "error_code", None) or state
-                )
-            else:
-                self.failures.recovered("job settlement")
-                if state == "reported":
-                    self.failures.recovered("report")
-            return outcome
-        finally:
-            with self.lock:
-                self.settled += 1
-
-    def drain(self, *, timeout: float) -> None:
-        deadline = time.monotonic() + timeout
-        while True:
-            with self.lock:
-                outstanding = [f for f in self.pending if not f.done()]
-                self.pending = outstanding
-            if not outstanding or time.monotonic() >= deadline:
-                return
-            time.sleep(IDLE_TICK_SECONDS)
-
-
 class _StopRequest:
     """Records why the loop should stop starting new work."""
 
     def __init__(self) -> None:
         self._reason = ""
         self._event = threading.Event()
+        self.requested_at = 0.0
 
-    def set(self, reason: str) -> None:
-        if not self._reason:
+    def set(self, reason: str, *, replace: bool = False) -> None:
+        if not self._reason or replace:
             self._reason = reason
+            self.requested_at = time.monotonic()
         self._event.set()
 
     @property
@@ -155,7 +111,9 @@ def _install_signal_handlers(stop: _StopRequest) -> dict[int, object]:
     """Route termination signals into the stop request; return what they replaced."""
 
     def handle(signum: int, _frame: object) -> None:
-        stop.set(f"signal:{signal.Signals(signum).name}")
+        if not stop.reason.startswith("signal:"):
+            stop.set(f"signal:{signal.Signals(signum).name}", replace=True)
+            raise RelayStopRequested()
 
     previous: dict[int, object] = {}
     for signum in (signal.SIGTERM, signal.SIGINT):
@@ -248,9 +206,7 @@ def _serve_under_lock(
             return DaemonOutcome("locked")
         failures = FailureReporter(state_dir=resolved)
         reset_poll_outcome(resolved)
-        supervisor = _Supervisor(
-            ThreadPoolExecutor(max_workers=max_job_workers), failures
-        )
+        supervisor = Supervisor(max_job_workers, failures, stop)
         cycles = 0
         last_state = ""
         replacement: Path | None = None
@@ -319,8 +275,12 @@ def _serve_under_lock(
                     break
                 stop.wait(idle_tick_seconds)
             supervisor.drain(timeout=drain_timeout_seconds)
+        except RelayStopRequested:
+            supervisor.pool.shutdown(wait=False, cancel_futures=True)
+            remaining = stop.requested_at + LOGOUT_SETTLEMENT_SECONDS - time.monotonic()
+            supervisor.drain(timeout=remaining)
         finally:
-            supervisor.pool.shutdown(wait=False)
+            supervisor.pool.shutdown(wait=False, cancel_futures=True)
         result = DaemonOutcome(
             stop.reason or "stopped",
             cycles=cycles,
