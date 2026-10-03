@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from functools import partial
-import logging
 from pathlib import Path
 import time
 from typing import Any, Callable, Mapping
@@ -48,6 +46,7 @@ from yoke_harness.session_relay_report_delivery import (
 from yoke_harness.session_relay_report_retry import retry_pending_reports
 from yoke_harness.session_relay_resume_settlement import settle_finished_native_resumes
 from yoke_harness.session_relay_runtime import RelayAdapterResult, run_registered_job
+from yoke_harness.session_relay_supervision import refreshing_inventory
 from yoke_harness.session_relay_schedule import (
     poll_is_due,
     record_next_poll,
@@ -59,7 +58,6 @@ _POLL_POLICY = FLEET_KEY_SPECS["fleet.relay_poll_seconds"]
 RELAY_DISPATCH_TIMEOUT_SECONDS = int(_POLL_POLICY.default) + int(
     _POLL_POLICY.minimum or 0
 )
-_LOGGER = logging.getLogger(__name__)
 
 
 Dispatcher = Callable[..., Any]
@@ -279,9 +277,7 @@ def run_serve_cycle(
             timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
         )
     inventory = inventory_provider()
-    pool = ThreadPoolExecutor(max_workers=1) if inventory_refresher else None
-    refresh = pool.submit(inventory_refresher) if pool else None
-    try:
+    with refreshing_inventory(inventory_refresher):
         outcome = _poll(
             inventory,
             dispatcher=dispatcher,
@@ -291,14 +287,6 @@ def run_serve_cycle(
             broker_lease_id=broker_lease_id,
             dispatch_job=dispatch_job,
         )
-    finally:
-        if refresh:
-            try:
-                refresh.result()
-            except Exception:
-                _LOGGER.warning("relay surface probe refresh failed", exc_info=True)
-        if pool:
-            pool.shutdown()
     if outcome.next_poll_seconds and not broker_only:
         record_next_poll(
             outcome.next_poll_seconds,

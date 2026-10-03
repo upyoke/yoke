@@ -38,6 +38,10 @@ from yoke_harness.session_relay_native_spawn import SupervisedNative
             "no_conversation_found",
         ),
         (b"Session is already in use by another process", "background_session_in_use"),
+        (
+            b"thread/resume failed: thread private-id already has an active writer",
+            "background_session_in_use",
+        ),
         (b"unknown private native failure", "process_exit"),
     ],
 )

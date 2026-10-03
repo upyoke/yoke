@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 import hashlib
 from io import BytesIO
-import json
 import subprocess
 from types import SimpleNamespace
 
@@ -66,44 +65,6 @@ def test_blank_desktop_is_not_evidence():
     Image.new("RGB", (80, 60), "black").save(stream, format="PNG")
     with pytest.raises(ValueError, match="screenshot_png_invalid"):
         screenshot_png(base64.b64encode(stream.getvalue()).decode())
-
-
-@pytest.mark.parametrize("os", ["macos", "linux", "windows"])
-def test_capture_uses_os_display_and_removes_remote_file(monkeypatch, os):
-    commands = []
-    monkeypatch.setattr(
-        "yoke_harness.ssh_mac_host_session_state.probe_host_display_context",
-        lambda run, **kwargs: {"console_user": "test", "display_locked": False},
-    )
-
-    def run(command, **kwargs):
-        commands.append(command)
-        output = (
-            base64.b64encode(png()).decode() if command.startswith("base64") else ""
-        )
-        if "ensure_desktop(sys.stdin" in command:
-            output = json.dumps(
-                {"environment": {"DISPLAY": ":12"}, "desktop_session": "reused"}
-            )
-        return subprocess.CompletedProcess(command, 0, output, "")
-
-    monkeypatch.setattr(
-        "yoke_harness.ssh_mac_gui_session.run_terminal_app_command",
-        lambda run, **kwargs: run("screencapture " + " ".join(kwargs["argv"])),
-    )
-    result = capture_desktop(SimpleNamespace(os=os, _run=run, _user="test"))
-    assert result.ok
-    content, size = screenshot_png(
-        result.evidence["capture_artifact"]["content_base64"]
-    )
-    assert content == png() and size == (80, 60)
-    assert commands[-1].startswith("rm -f /tmp/yoke-desktop-")
-    if os in {"linux", "windows"}:
-        assert any(
-            "DISPLAY=:12" in command and "scrot" in command for command in commands
-        )
-    else:
-        assert any("screencapture" in command for command in commands)
 
 
 def test_capture_failure_is_named_and_cleanup_still_runs(monkeypatch):

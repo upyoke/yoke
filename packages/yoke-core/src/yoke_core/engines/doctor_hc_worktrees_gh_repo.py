@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import json
 import re
-from typing import List
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_READ_PERMISSION_LEVELS,
@@ -29,6 +28,9 @@ from yoke_core.domain.project_github_auth import (
     resolve_project_github_auth,
 )
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.item_ref_render import render_item_ref_lookup
+from yoke_contracts.doctor_budget import CHECK_BUDGET_S, remaining_seconds
+from yoke_core.domain.gh_rest_transport import RestTransportError
 from yoke_core.domain.projects_github_sync_mode import (
     github_sync_disabled_notice,
     github_sync_enabled,
@@ -42,7 +44,7 @@ from yoke_core.engines.doctor_hc_worktrees_gh_repo_rest import (
     issue_create,
     issue_delete,
     issue_view_full,
-    issue_view_state,
+    repository_issue_states,
 )
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
@@ -55,13 +57,7 @@ def _p(conn) -> str:
 
 
 def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-wrong-repo-issues: Wrong-repo GitHub issues.
-
-    Resolves the Yoke source repo dynamically through the canonical
-    resolver. SKIPs with the canonical reason when no GitHub App auth is configured
-    for Yoke; FAIL only fires on other auth misconfigurations after a
-    capability row exists.
-    """
+    """Check verified repository bindings using one inventory per repository."""
     if not _wt._github_auth_configured("yoke", db_path=args.db_path):
         rec.record(
             "HC-wrong-repo-issues",
@@ -70,23 +66,20 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project="yoke"),
         )
         return
-
     if not _base._table_exists(conn, "projects"):
         rec.record("HC-wrong-repo-issues", "Wrong-repo GitHub issues", "PASS", "")
         return
-
-    required_permissions = (
+    permissions = (
         GITHUB_ISSUES_WRITE_PERMISSION_LEVELS
         if args.fix
         else GITHUB_ISSUES_READ_PERMISSION_LEVELS
     )
-
-    # Resolve Yoke repo + auth dynamically.  Failure is a doctor FAIL.
     try:
-        yoke_auth = resolve_project_github_auth(
+        source_auth = resolve_project_github_auth(
             "yoke",
             db_path=args.db_path,
-            required_permissions=required_permissions,
+            conn=conn,
+            required_permissions=permissions,
         )
     except ProjectGithubAuthError as err:
         rec.record(
@@ -97,150 +90,126 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             f"Repair: {repair_command_hint(err, 'yoke')}",
         )
         return
-    yoke_repo = yoke_auth.repo
-    yoke_token = yoke_auth.token
 
-    # Resolve each linked item's project binding before selecting a network
-    # target. The projects-table repo projection is deliberately not read.
     rows = query_rows(
         conn,
-        "SELECT i.id, i.github_issue, p.slug AS project "
-        "FROM items i "
+        "SELECT i.id, i.github_issue, p.slug AS project FROM items i "
         "JOIN projects p ON i.project_id = p.id "
         "WHERE i.github_issue IS NOT NULL AND i.github_issue <> ''",
     )
-
-    issues: List[str] = []
-    count = 0
-    fixed_count = 0
-    # Memoize per-project auth so each distinct project resolves once,
-    # not once per item — the live DB at investigation time carried
-    # ~1.8k linked Yoke rows where this collapses to a single resolve.
-    project_auth_cache: dict[str, object] = {"yoke": yoke_auth}
-    # Disabled projects are out of scope: their linked issue refs are
-    # historical records, not wrong-repo violations.
-    sync_enabled_cache: dict[str, bool] = {}
-    sync_disabled_notes: List[str] = []
-    yoke_repo_norm = (yoke_repo or "").lower()
-
+    grouped: dict[str, list] = {}
     for row in rows:
-        item_id = row["id"]
-        public_ref = render_item_ref(conn, int(item_id))
-        gh = row["github_issue"]
-        project = row["project"]
-        num = gh.replace("#", "")
+        grouped.setdefault(row["project"], []).append(row)
+    findings: list[tuple[int, str]] = []
+    notes: list[str] = []
+    inventories: dict[str, dict[str, str]] = {}
+    fixed_count = 0
+    incomplete = False
 
-        enabled = sync_enabled_cache.get(project)
-        if enabled is None:
-            enabled = github_sync_enabled(project, conn=conn)
-            sync_enabled_cache[project] = enabled
-            if not enabled:
-                sync_disabled_notes.append(
-                    "- "
-                    + github_sync_disabled_notice(
-                        project,
-                        "wrong-repo issue validation",
-                    )
-                )
-        if not enabled:
-            continue
-
-        # Check if issue exists in the verified project binding.
-        cached = project_auth_cache.get(project)
-        if cached is None:
+    def inventory(auth):
+        key = auth.repo.lower()
+        if key not in inventories:
             try:
-                cached = resolve_project_github_auth(
+                inventories[key] = repository_issue_states(
+                    repo=auth.repo, token=auth.token
+                )
+            except RestTransportError as err:
+                raise RestTransportError(f"{auth.repo}: {err}") from None
+        return inventories[key]
+
+    for project, project_rows in grouped.items():
+        remaining_seconds(CHECK_BUDGET_S)
+        if not github_sync_enabled(project, conn=conn):
+            notes.append(
+                "- "
+                + github_sync_disabled_notice(project, "wrong-repo issue validation")
+            )
+            continue
+        try:
+            auth = (
+                source_auth
+                if project == "yoke"
+                else resolve_project_github_auth(
                     project,
                     db_path=args.db_path,
-                    required_permissions=required_permissions,
+                    conn=conn,
+                    required_permissions=permissions,
                 )
-            except ProjectGithubAuthError as err:
-                # Cache the failure too so we do not retry per row.
-                project_auth_cache[project] = err
-                cached = err
-            else:
-                project_auth_cache[project] = cached
-        if isinstance(cached, ProjectGithubAuthError):
-            issues.append(
-                f"- {public_ref} (project={project}): "
-                f"cannot resolve auth: {cached}\n"
-                f"  Repair: {repair_command_hint(cached, project)}"
             )
-            count += 1
+        except ProjectGithubAuthError as err:
+            findings.extend(
+                (
+                    int(row["id"]),
+                    f"(project={project}): cannot resolve auth: {err}\n"
+                    f"  Repair: {repair_command_hint(err, project)}",
+                )
+                for row in project_rows
+            )
+            incomplete = True
             continue
-        project_auth = cached
-        target_repo = project_auth.repo
-        if target_repo.lower() == yoke_repo_norm:
+        # Same-repository rows never enter reference rendering or HTTP inventory.
+        if auth.repo.lower() == source_auth.repo.lower():
             continue
-        r = issue_view_state(repo=target_repo, num=num, token=project_auth.token)
-        state = r.stdout.strip() if r.returncode == 0 else ""
-
-        if not state:
-            # Not found in target repo: check Yoke repo (resolved dynamically)
-            r2 = issue_view_state(repo=yoke_repo, num=num, token=yoke_token)
-            default_state = r2.stdout.strip() if r2.returncode == 0 else ""
-
-            count += 1
-            if default_state:
+        try:
+            target_states = inventory(auth)
+            missing = [
+                row
+                for row in project_rows
+                if row["github_issue"].replace("#", "") not in target_states
+            ]
+            if not missing:
+                continue
+            source_states = inventory(source_auth)
+        except RestTransportError as err:
+            incomplete = True
+            notes.append(
+                f"repository_issue_inventory_failed: {auth.repo}: {err}. "
+                "Evidence incomplete. Recovery: retry --only wrong-repo-issues "
+                "after GitHub access recovers."
+            )
+            continue
+        for row in missing:
+            remaining_seconds(CHECK_BUDGET_S)
+            item_id = int(row["id"])
+            num = row["github_issue"].replace("#", "")
+            if num not in source_states:
+                message = f"issue #{num} not found in {auth.repo} or {source_auth.repo}"
+            elif args.fix and _migrate_issue(
+                conn,
+                item_id,
+                num,
+                source_auth.repo,
+                auth.repo,
+                project_token=auth.token,
+                yoke_token=source_auth.token,
+            ):
+                fixed_count += 1
+                message = f"migrated #{num} from {source_auth.repo} to {auth.repo}"
+            else:
+                message = f"issue #{num} exists in {source_auth.repo} but should be in {auth.repo}"
                 if args.fix:
-                    if _migrate_issue(
-                        conn,
-                        item_id,
-                        num,
-                        yoke_repo,
-                        target_repo,
-                        project_token=project_auth.token,
-                        yoke_token=yoke_token,
-                    ):
-                        fixed_count += 1
-                        issues.append(
-                            f"- {public_ref} (project={project}): "
-                            f"migrated #{num} from {yoke_repo} to {target_repo}"
-                        )
-                    else:
-                        issues.append(
-                            f"- {public_ref} (project={project}): "
-                            f"issue #{num} exists in {yoke_repo} but should be "
-                            f"in {target_repo} (migration failed)"
-                        )
-                else:
-                    issues.append(
-                        f"- {public_ref} (project={project}): "
-                        f"issue #{num} exists in {yoke_repo} but should be in {target_repo}"
-                    )
-            else:
-                issues.append(
-                    f"- {public_ref} (project={project}): "
-                    f"issue #{num} not found in {target_repo} or {yoke_repo}"
-                )
+                    message += " (migration failed)"
+            findings.append((item_id, f"(project={project}): {message}"))
 
-    notes_suffix = "\n" + "\n".join(sync_disabled_notes) if sync_disabled_notes else ""
-    if issues:
-        if args.fix and fixed_count > 0 and fixed_count == count:
-            rec.record(
-                "HC-wrong-repo-issues",
-                "Wrong-repo GitHub issues",
-                "PASS",
-                f"Fixed: migrated {fixed_count} issue(s) to correct repo:\n"
-                + "\n".join(issues)
-                + notes_suffix,
-            )
-        else:
-            rec.record(
-                "HC-wrong-repo-issues",
-                "Wrong-repo GitHub issues",
-                "WARN",
-                f"{count} item(s) with GitHub issues in the wrong repo:\n"
-                + "\n".join(issues)
-                + notes_suffix,
-            )
+    refs = render_item_ref_lookup(conn, (item_id for item_id, _ in findings))
+    details = [f"- {refs(item_id)} {message}" for item_id, message in findings]
+    if incomplete:
+        verdict = "FAIL"
+        heading = "Wrong-repo issue validation incomplete."
+    elif findings and args.fix and fixed_count == len(findings):
+        verdict = "PASS"
+        heading = f"Fixed: migrated {fixed_count} issue(s) to correct repo:"
+    elif findings:
+        verdict = "WARN"
+        heading = f"{len(findings)} item(s) with GitHub issues in the wrong repo:"
     else:
-        rec.record(
-            "HC-wrong-repo-issues",
-            "Wrong-repo GitHub issues",
-            "PASS",
-            notes_suffix.lstrip("\n"),
-        )
+        verdict, heading = "PASS", ""
+    rec.record(
+        "HC-wrong-repo-issues",
+        "Wrong-repo GitHub issues",
+        verdict,
+        "\n".join(part for part in [heading, *details, *notes] if part),
+    )
 
 
 def _migrate_issue(

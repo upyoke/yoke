@@ -10,6 +10,7 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+from yoke_contracts.doctor_budget import CHUNK_ATTEMPTS, CHUNK_BUDGET_S
 
 from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, join_api_url
 from yoke_cli.config.machine_config import active_connection
@@ -43,6 +44,7 @@ from yoke_cli.transport.https_response_policy import (
     read_bounded_response,
 )
 from yoke_cli.transport.https_urlopen import open_no_redirect
+from yoke_cli.transport.https_credentials import TransportError, resolve_token
 from yoke_cli.transport.response_deadline_open import (
     ResponseOpenDeadlineError,
 )
@@ -52,7 +54,6 @@ from yoke_contracts.api.function_call import (
     FunctionCallResponse,
 )
 from yoke_contracts.machine_config.schema import (
-    CREDENTIAL_KIND_TOKEN_FILE,
     MachineConfigContractError,
     TRANSPORT_HTTPS,
 )
@@ -68,13 +69,9 @@ _NETWORK_ERRORS = (
 _DEFAULT_OPEN_NO_REDIRECT = open_no_redirect
 
 
-class TransportError(RuntimeError):
-    """The active connection cannot relay this request; message names the fix."""
-
-
 @dataclass(frozen=True)
 class HttpsConnection:
-    """Resolved HTTPS relay target: endpoint + bearer token."""
+    """Resolved HTTPS relay target: endpoint and bearer token."""
 
     api_url: str
     token: str
@@ -90,8 +87,7 @@ def resolve_https_connection(
     *,
     explicit_env: str | None = None,
 ) -> Optional[HttpsConnection]:
-    """Return the HTTPS relay target, or ``None`` for local transport."""
-
+    """Return the HTTPS relay target, or None for local transport."""
     try:
         connection = active_connection(path, explicit_env=explicit_env)
     except MachineConfigContractError:
@@ -108,32 +104,8 @@ def resolve_https_connection(
         )
     return HttpsConnection(
         api_url=api_url,
-        token=_resolve_token(connection),
+        token=resolve_token(connection),
         env=env_name,
-    )
-
-
-def _resolve_token(connection) -> str:
-    source = connection.get("credential_source")
-    source = source if isinstance(source, dict) else {}
-    kind = str(source.get("kind") or "")
-    if kind == CREDENTIAL_KIND_TOKEN_FILE:
-        token_path = Path(str(source.get("path") or "")).expanduser()
-        try:
-            token = token_path.read_text(encoding="utf-8").strip()
-        except OSError as exc:
-            raise TransportError(
-                f"https credential token_file is unreadable: {exc}; "
-                "repair it with `yoke auth set <env> TOKEN` "
-                "(yoke status diagnoses the active config)"
-            ) from exc
-        if not token:
-            raise TransportError(f"https credential token_file {token_path} is empty")
-        return token
-    raise TransportError(
-        "https transport requires credential_source.kind 'token_file' "
-        f"(got {kind or 'nothing'}); store the actor token with "
-        "`yoke auth set <env> TOKEN`"
     )
 
 
@@ -146,11 +118,7 @@ def relay_https(
     max_attempts: Optional[int] = None,
     sleep=time.sleep,
 ) -> FunctionCallResponse:
-    """POST the envelope to the active env; parse the typed response.
-
-    Counts what it took, so a relay that only answered on the third try is
-    visible later instead of being inferred from operator reports.
-    """
+    """Relay one envelope and record its attempts and outcome."""
     response, attempts = _relay_attempts(
         request,
         connection,
@@ -185,13 +153,25 @@ def _relay_attempts(
             "HTTPS function relay timeout must be positive and finite",
             sensitive_values=sensitive_values,
         ), 1
-    # Serialized once: every attempt carries the same request_id, which is
-    # what makes a repeat safe against a call that already landed.
+    # Every attempt carries the same request_id.
     body = json.dumps(payload).encode("utf-8")
     budget = attempt_budget(max_attempts)
+    doctor_call = request.function == "doctor.run.run"
+    if doctor_call:
+        timeout_s = min(timeout_s, CHUNK_BUDGET_S)
+        deadline = deadline_after(timeout_s)
+        budget = min(budget, CHUNK_ATTEMPTS)
     attempt = 0
     for attempt in range(budget):
-        if attempt:
+        if doctor_call and time.monotonic() >= deadline:
+            return _refuse(
+                request,
+                connection,
+                "doctor_chunk_budget_exhausted: retry the focused check; "
+                "completed Doctor rows remain in the partial report",
+                sensitive_values=sensitive_values,
+            ), attempt
+        if attempt and not doctor_call:
             deadline = deadline_after(timeout_s)
         http_request = urllib.request.Request(
             connection.functions_url,
@@ -206,7 +186,9 @@ def _relay_attempts(
             opened = _open_function_relay(
                 http_request,
                 deadline=deadline,
-                timeout_s=timeout_s,
+                timeout_s=min(timeout_s, deadline - time.monotonic())
+                if doctor_call
+                else timeout_s,
             )
             with opened as resp:
                 observe_server_version(getattr(resp, "headers", None), handshake)
@@ -235,7 +217,11 @@ def _relay_attempts(
                 and should_retry_connection(attempt, budget=budget)
             ):
                 backoff = connection_backoff_seconds(attempt)
-                write_retry_notice(f"server returned {exc.code}", attempt, backoff)
+                if doctor_call and backoff >= deadline - time.monotonic():
+                    return response, attempt + 1
+                write_retry_notice(
+                    f"server returned {exc.code}", attempt, backoff, budget=budget
+                )
                 sleep(backoff)
                 continue
             return response, attempt + 1
@@ -262,7 +248,14 @@ def _relay_attempts(
         except _NETWORK_ERRORS as exc:
             if should_retry_connection(attempt, connection.api_url, exc, budget):
                 backoff = connection_backoff_seconds(attempt)
-                write_retry_notice("relay unreachable", attempt, backoff)
+                if doctor_call and backoff >= deadline - time.monotonic():
+                    return _refuse(
+                        request,
+                        connection,
+                        "doctor_chunk_budget_exhausted",
+                        sensitive_values=sensitive_values,
+                    ), attempt + 1
+                write_retry_notice("relay unreachable", attempt, backoff, budget=budget)
                 sleep(backoff)
                 continue
             return _refuse(

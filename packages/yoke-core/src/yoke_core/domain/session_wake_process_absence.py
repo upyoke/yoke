@@ -37,6 +37,8 @@ from typing import Any, Mapping
 from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
 )
+from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
+from yoke_core.domain.session_mode import session_is_parked
 from yoke_core.domain.session_message_starvation import (
     awaiting_injection,
     escalated_wake_available,
@@ -91,4 +93,18 @@ def native_process_gone(
     )
 
 
-__all__ = ["NATIVE_PROCESS_GONE", "native_process_gone"]
+def native_hold_retry_available(row: Mapping[str, Any]) -> bool:
+    """Keep a busy receipt recoverable after parking or an observed exit.
+
+    This only lifts the retry bound; the ordinary wake eligibility and the
+    machine's live-process custody check still decide whether it may resume.
+    Silence alone cannot reopen an exhausted, unparked recipient.
+    """
+    return str(row.get("wake_escalation") or "") == NATIVE_TURN_RUNNING_RESULT and (
+        session_is_parked(row.get("mode"))
+        or current_native_process_observation(row, include_expected_exit=True)
+        is not None
+    )
+
+
+__all__ = ["NATIVE_PROCESS_GONE", "native_process_gone", "native_hold_retry_available"]

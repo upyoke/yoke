@@ -9,6 +9,20 @@ TRANSPORT_FAILURE_CODE = "https_transport_failed"
 _PARTIAL_FAILURE_CODE = "doctor_control_plane_partial"
 
 
+def run_budget_exhausted() -> FunctionCallResponse:
+    return FunctionCallResponse(
+        success=False,
+        function="doctor.run.run",
+        version="v1",
+        request_id="",
+        error=FunctionError(
+            code=TRANSPORT_FAILURE_CODE,
+            message="doctor_run_budget_exhausted: the overall Doctor deadline expired",
+            recovery_hint="Retry the focused --only check; retain the partial report.",
+        ),
+    )
+
+
 def control_plane_failure_row(response: FunctionCallResponse) -> dict[str, str]:
     error = response.error
     code = error.code if error else TRANSPORT_FAILURE_CODE

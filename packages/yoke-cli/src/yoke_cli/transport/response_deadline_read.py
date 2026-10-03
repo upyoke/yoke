@@ -7,6 +7,7 @@ import math
 import time
 from collections.abc import Callable
 from typing import Any, BinaryIO
+from yoke_contracts.doctor_budget import bound_deadline
 
 
 monotonic = time.monotonic
@@ -32,7 +33,7 @@ def deadline_after(
         raise ValueError("response timeout must be positive and finite") from exc
     if not math.isfinite(timeout) or timeout <= 0:
         raise ValueError("response timeout must be positive and finite")
-    return (clock or monotonic)() + timeout
+    return bound_deadline((clock or monotonic)() + timeout)
 
 
 def read_response_body(
