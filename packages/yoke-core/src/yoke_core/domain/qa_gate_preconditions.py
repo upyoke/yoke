@@ -6,6 +6,7 @@ import os
 import sys
 from typing import Optional
 
+from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
 from yoke_core.domain.db_helpers import connect, query_scalar
 from yoke_core.domain.qa_gate_definitions import GateResult, GateTarget
 from yoke_core.domain.schema_common import _table_exists
@@ -103,7 +104,8 @@ def requirement_set_result(
     phase_sql = " AND qa_phase = 'verification'" if qa_phase else ""
     count = query_scalar(
         conn,
-        f"SELECT COUNT(*) FROM qa_requirements WHERE {where}{phase_sql}",
+        f"SELECT COUNT(*) FROM qa_requirements WHERE {where}{phase_sql} "
+        f"AND {unretracted_requirement_sql(conn)}",
         params,
     )
     if count:
@@ -118,9 +120,7 @@ def requirement_set_result(
     from yoke_core.domain import db_backend
     from yoke_core.domain.qa_plan_attachment_reads import live_item_attachment_sql
 
-    item_id = (
-        int(target.item_id) if target.item_id is not None else int(target.epic_id)
-    )
+    item_id = int(target.item_id) if target.item_id is not None else int(target.epic_id)
     if optional_unattached_qa_permits_empty(conn, item_id):
         attached = 0
         if _table_exists(conn, "qa_plan_item_attachments"):

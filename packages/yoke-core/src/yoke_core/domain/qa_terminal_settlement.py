@@ -7,8 +7,19 @@ from dataclasses import dataclass
 from typing import Any, Sequence
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.qa_merging_identity import accepted_merging_shas, recorded_head_sha
-from yoke_core.domain.qa_obligation_settlement import item_supersession_settled
+from yoke_core.domain.qa_merging_identity import (
+    accepted_merging_shas,
+    recorded_head_sha,
+)
+from yoke_core.domain.qa_obligation_settlement import (
+    item_supersession_settled,
+    requirement_retracted_at_select,
+    unretracted_requirement_sql,
+)
+from yoke_core.domain.qa_terminal_requirement_errors import (
+    _recovery_instruction,
+    requirement_issue_errors,
+)
 from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_SQL
 from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 from yoke_core.domain.schema_common import _table_exists
@@ -61,55 +72,28 @@ def _render_shas(shas: Sequence[str]) -> str:
     return ", ".join(sha[:12] for sha in shas) if shas else "<missing>"
 
 
-def _recovery_instruction(requirement: dict[str, Any]) -> str:
-    requirement_id = str(requirement.get("id") or "<unknown>")
-    case_command = f"yoke qa case run --requirement-id {requirement_id}"
-    method_id = str(requirement.get("method_id") or "")
-    source = str(requirement.get("requirement_source") or "")
-    evidence_instruction = (
-        "Record the existing exact-head CI result for this requirement through "
-        "`yoke qa run record-verdict --help`, passing --raw-result as JSON "
-        'carrying the CI run id/URL and {"verification_tree": {"head_sha": '
-        '"<the commit that run verified>"}} -- prose is stored verbatim, '
-        "leaves the head SHA unreadable, and this gate refuses again"
-    )
-    if source == "flow_derived":
-        return evidence_instruction
-    if method_id != "command-ci":
-        return f"Run `{case_command}`"
-    from yoke_core.domain.qa_method_config_validation import (
-        QaMethodConfigError,
-        validate_method_config,
-    )
-
-    raw_config = requirement.get("method_config")
-    try:
-        method_config = raw_config if isinstance(raw_config, dict) else json.loads(
-            str(raw_config or "{}")
-        )
-    except (TypeError, ValueError):
-        method_config = {}
-    try:
-        validate_method_config("command-ci", method_config)
-    except QaMethodConfigError:
-        return "The stored CI case is not executable; " + evidence_instruction
-    return f"Run `{case_command}`"
-
-
 def _issue_for_requirement(
-    requirement: dict[str, Any], *, accepted_shas: Sequence[str],
+    requirement: dict[str, Any],
+    *,
+    accepted_shas: Sequence[str],
 ) -> BlockingRequirementIssue | None:
     requirement_id = str(requirement.get("id") or "<unknown>")
     review = requirement.get("human_review")
     if review:
         return BlockingRequirementIssue(
-            requirement_id, "human-review", review["detail"], review["recovery"],
+            requirement_id,
+            "human-review",
+            review["detail"],
+            review["recovery"],
         )
     recovery = _recovery_instruction(requirement)
     run_id = requirement.get("run_id")
     if run_id is None:
         return BlockingRequirementIssue(
-            requirement_id, "missing", "no materialized run exists", recovery,
+            requirement_id,
+            "missing",
+            "no materialized run exists",
+            recovery,
         )
     verdict = str(requirement.get("verdict") or "").strip().lower()
     completed_at = str(requirement.get("completed_at") or "").strip()
@@ -152,60 +136,48 @@ def blocking_requirement_issues(
         requirement
         for requirement in requirements
         if str(requirement.get("blocking_mode") or "") == "blocking"
+        and not requirement.get("retracted_at")
     ]
-    blocking = [row for row in declared if not row.get("waived_at") and not item_supersession_settled(row)]
+    blocking = [
+        row
+        for row in declared
+        if not row.get("waived_at") and not item_supersession_settled(row)
+    ]
     if not declared and require_any:
-        return [BlockingRequirementIssue(
-            "materialization",
-            "missing",
-            "no blocking QA requirement was materialized",
-            f"yoke qa plan run --item {public_ref} "
-            "--transition reviewing-implementation",
-        )]
+        return [
+            BlockingRequirementIssue(
+                "materialization",
+                "missing",
+                "no blocking QA requirement was materialized",
+                f"yoke qa plan run --item {public_ref} "
+                "--transition reviewing-implementation",
+            )
+        ]
     return [
         issue
         for requirement in blocking
-        if (issue := _issue_for_requirement(
-            requirement, accepted_shas=accepted_shas,
-        )) is not None
+        if (
+            issue := _issue_for_requirement(
+                requirement,
+                accepted_shas=accepted_shas,
+            )
+        )
+        is not None
     ]
-
-
-def requirement_issue_errors(
-    issues: list[BlockingRequirementIssue],
-    *,
-    public_ref: str,
-    target_status: str,
-) -> list[str]:
-    """Render actionable missing, incomplete, and stale-SHA refusals."""
-    if not issues:
-        return []
-    errors = [
-        f"Error: Cannot transition {public_ref} to {target_status!r} -- "
-        f"{len(issues)} blocking QA requirement(s) lack a completed verdict "
-        "for the merging commit.",
-        "  A waiver is an explicit, recorded, requirement-scoped operator "
-        "override; it is not part of the normal merge recipe.",
-    ]
-    errors.extend(
-        f"  - Requirement #{issue.requirement_id} [{issue.state}]: "
-        f"{issue.detail}. {issue.recovery}."
-        for issue in issues
-    )
-    return errors
 
 
 def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
     placeholder = _placeholder(conn)
     cursor = conn.execute(
         "SELECT q.id, q.blocking_mode, q.waived_at, q.requirement_source, q.deployment_run_id, q.superseded_by_requirement_id, "
+        f"{requirement_retracted_at_select(conn, 'q')}, "
         "q.method_id, q.method_config, r.id AS run_id, "
         "r.verdict, r.verdict_reason, r.execution_status, r.case_outcome, r.completed_at, "
         "r.raw_result FROM qa_requirements q LEFT JOIN qa_runs r ON r.id = ("
         "SELECT latest.id FROM qa_runs latest "
         "WHERE latest.qa_requirement_id = q.id "
         "ORDER BY latest.id DESC LIMIT 1) "
-        f"WHERE q.item_id = {placeholder} ORDER BY q.id",
+        f"WHERE q.item_id = {placeholder} AND {unretracted_requirement_sql(conn, 'q')} ORDER BY q.id",
         (int(item_id),),
     )
     columns = [str(column[0]) for column in cursor.description]
@@ -236,6 +208,7 @@ def find_unsettled_records(conn: Any, *, item_id: int) -> list[UnsettledQaRecord
         "SELECT r.id, r.qa_requirement_id, r.execution_status, r.raw_result "
         "FROM qa_runs r JOIN qa_requirements q ON q.id = r.qa_requirement_id "
         f"WHERE q.item_id = {placeholder} AND q.waived_at IS NULL "
+        f"AND {unretracted_requirement_sql(conn, 'q')} "
         "AND r.verdict IS NULL ORDER BY r.id",
         (int(item_id),),
     ).fetchall()
@@ -328,12 +301,18 @@ def terminal_transition_result(
         public_ref=public_ref,
         require_any=True,
     )
-    errors = requirement_issue_errors(issues, public_ref=public_ref, target_status=target_status)
-    return {
-        "success": False,
-        "error_code": "GATE_QA_TERMINAL_VERDICT",
-        "error": "\n".join(errors),
-    } if errors else None
+    errors = requirement_issue_errors(
+        issues, public_ref=public_ref, target_status=target_status
+    )
+    return (
+        {
+            "success": False,
+            "error_code": "GATE_QA_TERMINAL_VERDICT",
+            "error": "\n".join(errors),
+        }
+        if errors
+        else None
+    )
 
 
 __all__ = [

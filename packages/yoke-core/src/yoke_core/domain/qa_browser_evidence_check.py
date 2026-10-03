@@ -25,6 +25,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
 from yoke_core.domain.db_helpers import query_rows, query_scalar
 from yoke_core.domain.qa_artifact_handle import (
     ArtifactHandleError,
@@ -137,7 +138,7 @@ def check_browser_evidence_present(
         WHERE {where}
           AND r.qa_phase = 'verification'
           AND r.blocking_mode = 'blocking'
-          AND r.waived_at IS NULL
+          AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")}
           AND {browser_where}
           AND NOT {proof_exists}
         """,
@@ -165,7 +166,7 @@ def check_browser_evidence_present(
         WHERE {where}
           AND r.qa_phase = 'verification'
           AND r.blocking_mode = 'blocking'
-          AND r.waived_at IS NULL
+          AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")}
           AND {browser_where}
           AND NOT {proof_exists}
         """,
@@ -211,7 +212,7 @@ def check_browser_artifact_disk(
             SELECT DISTINCT r.id, r.method_id FROM qa_requirements r
             WHERE {where}{phase_and}
               AND r.blocking_mode = 'blocking'
-              AND r.waived_at IS NULL
+              AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")}
               AND {browser_where}
               AND EXISTS (
                 SELECT 1 FROM qa_runs qr
@@ -250,7 +251,7 @@ def check_browser_artifact_disk(
         JOIN qa_runs qr ON qa.qa_run_id = qr.id
         JOIN qa_requirements r ON qr.qa_requirement_id = r.id
         WHERE r.blocking_mode = 'blocking'{phase_and}
-          AND r.waived_at IS NULL
+          AND r.waived_at IS NULL AND {unretracted_requirement_sql(conn, "r")}
           AND {browser_where}
           AND {qualifying}
           AND qa.artifact_handle IS NOT NULL

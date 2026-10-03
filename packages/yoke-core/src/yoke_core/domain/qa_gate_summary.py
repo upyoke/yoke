@@ -15,6 +15,11 @@ from yoke_core.domain.db_helpers import connect, query_one, query_rows
 from yoke_core.domain.qa_constants import is_browser_method_requirement
 from yoke_core.domain.qa_gate_definitions import GateTarget
 from yoke_core.domain.qa_gate_helpers import _qa_tables_exist
+from yoke_core.domain.qa_gate_summary_text import _format_text
+from yoke_core.domain.qa_obligation_settlement import (
+    requirement_retracted_at_select,
+    unretracted_requirement_sql,
+)
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 
@@ -68,7 +73,8 @@ def render_gate_summary(
 
     The returned dict shape is stable: callers (skill prose, dashboards,
     tests) read fields directly. ``satisfied`` is True iff every blocking
-    non-waived requirement has the evidence its kind requires.
+    live non-waived requirement has the evidence its kind requires. Retired
+    requirements remain visible but owe no evidence.
     """
     if transition_name not in VALID_TARGETS:
         raise ValueError(
@@ -104,17 +110,19 @@ def render_gate_summary(
     where, params = target.where_clause()
     phase = _phase_filter(transition_name)
 
-    sql = (
-        "SELECT id, qa_kind, method_id, qa_phase, blocking_mode, waived_at "
-        f"FROM qa_requirements WHERE {where}"
-    )
-    if phase:
-        sql += " AND qa_phase = %s"
-        params = (*params, phase)
-    sql += " ORDER BY id ASC"
-
     conn = connect(db_path)
     try:
+        sql = (
+            "SELECT id, qa_kind, method_id, qa_phase, blocking_mode, waived_at, "
+            f"{requirement_retracted_at_select(conn)}, "
+            f"({unretracted_requirement_sql(conn)}) AS active "
+            f"FROM qa_requirements WHERE {where}"
+        )
+        if phase:
+            sql += " AND qa_phase = %s"
+            params = (*params, phase)
+        sql += " ORDER BY id ASC"
+
         req_rows = query_rows(conn, sql, params)
         if not req_rows:
             summary["no_requirements"] = True
@@ -164,9 +172,11 @@ def render_gate_summary(
                 """,
                 (req_id,),
             )
-            waiting = requirement_awaits_human_review(conn, req_id)
+            waiting = (
+                requirement_awaits_human_review(conn, req_id) if r["active"] else None
+            )
 
-            satisfied = _is_satisfied(
+            satisfied = not r["active"] or _is_satisfied(
                 method_id=method_id,
                 waived_at=waived_at,
                 has_substrate_run=substrate_row is not None,
@@ -186,6 +196,9 @@ def render_gate_summary(
                     "qa_phase": str(r["qa_phase"]),
                     "blocking_mode": blocking_mode,
                     "waived_at": str(waived_at) if waived_at else None,
+                    "retracted_at": str(r["retracted_at"])
+                    if r["retracted_at"]
+                    else None,
                     "satisfied": satisfied,
                     "latest_run": _format_run(evidence),
                     "human_review": waiting.as_dict() if waiting else None,
@@ -203,44 +216,6 @@ def render_gate_summary(
 
     summary["satisfied"] = summary["blocking_unsatisfied_count"] == 0
     return summary
-
-
-def _format_text(summary: Dict[str, Any]) -> str:
-    lines = [f"QA Gate Summary - {summary['target']} -> {summary['transition']}"]
-    if not summary["qa_tables_present"]:
-        lines.append("  GATE_QA_SCHEMA_MISSING: qa_requirements table not present.")
-        return "\n".join(lines)
-    if summary["no_requirements"]:
-        lines.append("  GATE_QA_REQUIREMENTS_EMPTY: No QA requirements registered.")
-        return "\n".join(lines)
-    status = "SATISFIED" if summary["satisfied"] else "UNSATISFIED"
-    lines.append(f"  Status: {status}")
-    lines.append(
-        "  Tree freshness: not evaluated here. The terminal gate also requires "
-        "each passing run to name the merged tree."
-    )
-    lines.append(f"  Blocking unsatisfied: {summary['blocking_unsatisfied_count']}")
-    lines.append(f"  Browser unsatisfied:  {summary['browser_unsatisfied_count']}")
-    lines.append(f"  E2E unsatisfied:      {summary['e2e_unsatisfied_count']}")
-    lines.append("  Requirements:")
-    for req in summary["requirements"]:
-        marker = "OK" if req["satisfied"] else "NO"
-        waived = " (waived)" if req["waived_at"] else ""
-        lines.append(
-            f"    {marker} #{req['id']} "
-            f"{req['method_id'] or req['qa_kind']} "
-            f"phase={req['qa_phase']} blocking_mode={req['blocking_mode']}{waived}"
-        )
-        latest = req["latest_run"]
-        if latest:
-            lines.append(
-                f"        latest run #{latest['id']}: verdict={latest['verdict']} "
-                f"runner={latest['performed_by']} at {latest['created_at']}"
-            )
-        if req["human_review"]:
-            lines.append(f"        {req['human_review']['detail']}")
-            lines.append(f"        {req['human_review']['recovery']}")
-    return "\n".join(lines)
 
 
 def cmd_gate_summary(
