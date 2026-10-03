@@ -39,11 +39,28 @@ logout behavior, and relay health. `yoke relay install` repairs the unit using
 the existing launcher and release installer; `yoke relay uninstall` disables
 and removes it. Logs stay in the selected relay's state directory.
 
-Service operations wait for graceful shutdown and startup, including an
-in-flight relay poll. A `relay_systemd_command_timeout` means the command did
+TERM interrupts the current poll or maintenance call and closes job admission.
+The relay gives active settlements at most two seconds from the signal, below
+Ubuntu's five-second user-manager logout stop budget. Blocked network workers do
+not hold Python open at exit. Existing server leases, native process custody,
+and pending report files remain available for reconciliation on the next login.
+Release repinning uses its longer settlement window. Yoke changes neither
+linger nor the host's systemd timeouts or logout policy.
+
+Service operations wait for shutdown and startup.
+A `relay_systemd_command_timeout` means the command did
 not settle within its bounded wait; the systemd job may still be running.
 Inspect `systemctl --user list-jobs` and the unit's `systemctl --user status`
 before retrying the relay operation.
+
+SSH commands on the graphical desktop have a command-scoped supervisor with
+an inner deadline. It survives SSH loss and terminates only that command's
+descendants, including nested process sessions and children that ignore TERM.
+A timeout is reported as settled only after remote termination is verified.
+If the receipt cannot be recovered or descendants remain alive, the operation
+returns `linux_command_custody_unsettled` with its private remote custody path.
+Keep that recovery handle and inspect it before retrying; a local SSH timeout
+alone does not prove that remote work stopped.
 
 Doctor checks the current unit, whether it is enabled and active, the connected
 heartbeat, and authorization. Without systemd as PID 1 (including containers

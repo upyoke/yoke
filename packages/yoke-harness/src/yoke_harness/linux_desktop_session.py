@@ -7,6 +7,7 @@ import shlex
 from pathlib import Path
 
 from yoke_harness import linux_desktop_state
+from yoke_harness.linux_command_custody import run_command
 
 
 def ensure_desktop(control):
@@ -55,15 +56,6 @@ def ensure_desktop(control):
 def desktop_command(control, argv: list[str], *, timeout: int = 60):
     """Run on the same display screenshots capture, carrying startup evidence."""
     receipt = ensure_desktop(control)
-    result = control._run(
-        shlex.join(
-            [
-                "env",
-                *[f"{key}={value}" for key, value in receipt["environment"].items()],
-                *argv,
-            ]
-        ),
-        timeout=timeout,
-    )
+    result = run_command(control, argv, receipt["environment"], timeout=timeout)
     result.desktop_session = receipt["desktop_session"]
     return result

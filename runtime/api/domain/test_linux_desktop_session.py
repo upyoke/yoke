@@ -118,14 +118,21 @@ def test_gui_command_reports_startup_and_transmits_secret_only_as_input():
     def run(command, **kw):
         calls.append((command, kw))
         receipt = {"environment": SESSION["environment"], "desktop_session": "started"}
-        return subprocess.CompletedProcess(
-            command,
-            0,
-            json.dumps(receipt)
-            if command.startswith("/usr/bin/python3")
-            else "GUI output",
-            "",
-        )
+        tokens = shlex.split(command)
+        if len(tokens) == 7:
+            directory = json.loads(tokens[-4])
+            settled = {
+                "command_id": directory.rsplit("/", 1)[-1],
+                "termination_verified": True,
+                "returncode": 0,
+            }
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                "GUI output",
+                "YOKE_COMMAND_RECEIPT:" + json.dumps(settled) + "\n",
+            )
+        return subprocess.CompletedProcess(command, 0, json.dumps(receipt), "")
 
     control = SimpleNamespace(
         _run=run, desktop_password=PASSWORD, secret_values=(PASSWORD,)
@@ -134,7 +141,7 @@ def test_gui_command_reports_startup_and_transmits_secret_only_as_input():
     assert result.desktop_session == "started" and result.stdout == "GUI output"
     assert calls[0][1]["input_text"] == PASSWORD + "\n"
     assert all(PASSWORD not in command for command, _ in calls)
-    assert shlex.split(calls[1][0])[-3:] == ["xdotool", "key", "Return"]
+    assert json.loads(shlex.split(calls[1][0])[-3]) == ["xdotool", "key", "Return"]
     assert PASSWORD not in str(result)
 
 
