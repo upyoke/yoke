@@ -32,6 +32,7 @@ def run_wizard(
         project_mode=parsed.project_mode,
         project_checkout=parsed.project_checkout,
         apply=parsed.apply,
+        harness_posture=parsed.harness_posture,
         post_install=parsed.post_install,
     )
 

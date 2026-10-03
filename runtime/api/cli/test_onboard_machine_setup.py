@@ -3,6 +3,8 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_cli.commands.adapters import onboard_interactive
 from yoke_cli.config import (
     machine_config,
@@ -79,6 +81,7 @@ def test_wizard_runs_after_preparation_even_when_browser_setup_fails(
         project_mode=None,
         project_checkout=None,
         apply=False,
+        harness_posture=True,
         post_install=False,
     )
     assert (
@@ -93,6 +96,63 @@ def test_wizard_runs_after_preparation_even_when_browser_setup_fails(
         == 0
     )
     assert events == ["directories", "browser", "wizard"]
+
+
+@pytest.mark.parametrize("decline", [False, True])
+def test_interactive_permission_choice_reaches_preview_and_apply(
+    tmp_path, monkeypatch, decline
+):
+    from yoke_cli.commands.adapters import onboard as adapter
+    from yoke_cli.config.onboard_wizard_app import OnboardWizardApp
+
+    monkeypatch.setattr(setup, "prepare", lambda *_: None)
+    monkeypatch.setattr(adapter, "_should_prompt", lambda *_: True)
+    monkeypatch.setattr(
+        onboard_interactive, "finish_pending_source_install", lambda _: None
+    )
+    monkeypatch.setattr(
+        OnboardWizardApp, "_hydrate_stored_credentials", lambda *_: None
+    )
+    plans = []
+
+    def assemble(kwargs, **_):
+        plan = onboard_report.build_plan(
+            Path(kwargs["config_path"]),
+            kwargs["env_name"],
+            kwargs["api_url"],
+            {},
+            {},
+            kwargs["mode"],
+            project_mode="machine-only",
+            project_inputs={},
+            machine_github={"choice": kwargs["machine_github_choice"]},
+            harness_posture=kwargs["harness_posture"],
+        )
+        plans.append((kwargs["apply"], [step["action"] for step in plan["steps"]]))
+        return {"plan": plan}
+
+    def wizard(defaults, *, apply_report):
+        app = OnboardWizardApp(defaults=defaults, apply_report=apply_report)
+        assemble(app.result.build_report_kwargs(apply=False, check_identity=False))
+        apply_report(app.result.build_report_kwargs(apply=True, check_identity=False))
+        return SimpleNamespace(error=None, cancelled=False, exit_code=0)
+
+    monkeypatch.setattr(onboard_interactive.onboard_wizard, "run_wizard", wizard)
+    monkeypatch.setattr(adapter, "_apply_with_durable_report", assemble)
+    arguments = [
+        "--connect",
+        "https://app.upyoke.com",
+        "--config",
+        str(tmp_path / "cfg.json"),
+    ]
+    if decline:
+        arguments.append("--skip-harness-permissions")
+
+    assert adapter.onboard(arguments) == 0
+    assert [applied for applied, _ in plans] == [False, True]
+    assert all(
+        ("harness-unattended-posture" in actions) is not decline for _, actions in plans
+    )
 
 
 def test_review_excludes_deterministic_setup_and_keeps_choice_dependent_steps(tmp_path):
