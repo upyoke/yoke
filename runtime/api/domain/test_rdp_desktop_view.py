@@ -4,6 +4,8 @@ import base64
 from contextlib import contextmanager
 import io
 import json
+from pathlib import Path
+import stat
 import subprocess
 
 import pytest
@@ -26,21 +28,27 @@ RECEIPT = {"desktop_session": "reused", "environment": {"DISPLAY": ":10.0"}}
 
 
 class Client:
-    def __init__(self, *, interrupted=False):
+    def __init__(self, *, interrupted=False, code=0, output=None):
         self.stdin = io.StringIO()
+        self.stdout = io.StringIO(
+            output or "client started\npassword=" + PASSWORD + "\n"
+        )
+        self.code = code
+        self.returncode = None
         self.password = None
         self.running = True
         self.interrupted = interrupted
         self.terminated = False
 
     def poll(self):
-        return None if self.running else 0
+        return None if self.running else self.code
 
     def wait(self, timeout=None):
         if self.interrupted and timeout is None:
             raise KeyboardInterrupt()
         self.running = False
-        return 0
+        self.returncode = self.code
+        return self.code
 
     def terminate(self):
         self.terminated = True
@@ -80,7 +88,9 @@ def test_view_uses_actual_geometry_stdin_and_always_closes_forward(
         assert "/size:1280x1024" in argv and "/bpp:24" in argv
         assert "/u:fixture" in argv and "/v:127.0.0.1:5555" in argv
         assert "SDL_VIDEODRIVER" not in kw["env"]
-        assert kw["stdout"] == kw["stderr"] == subprocess.DEVNULL
+        assert kw["stdout"] == subprocess.PIPE
+        assert kw["stderr"] == subprocess.STDOUT
+        assert "/log-level:INFO" in argv
         return process
 
     monkeypatch.setattr(viewer, "desktop_forward", forward)
@@ -88,16 +98,109 @@ def test_view_uses_actual_geometry_stdin_and_always_closes_forward(
     result = viewer.view_desktop(
         "project", "lab", SETTINGS, PASSWORD, RECEIPT, geometry
     )
+    log_path = Path(result.pop("log_path"))
+    assert stat.S_IMODE(log_path.stat().st_mode) == 0o600
+    assert log_path.read_text() == "client started\npassword=[redacted]\n"
     assert result == {
         "user": "fixture",
         "desktop_session": "reused",
         "display": ":10.0",
         "viewer": "closed",
+        "client_exit_code": 0,
     }
     assert ("password", PASSWORD + "\n") in events
     assert events[-1] == "forward-close"
     assert process.terminated is interrupted
     assert PASSWORD not in json.dumps(result)
+
+
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+@pytest.mark.parametrize(
+    "code,cancelled,exception",
+    [
+        (0, False, False),
+        (131, True, False),
+        (131, False, False),
+        (132, True, False),
+        (131, True, True),
+    ],
+)
+def test_mac_renderer_and_evidence_bound_local_quit(
+    monkeypatch, platform, code, cancelled, exception
+):
+    monkeypatch.setattr(viewer.sys, "platform", platform)
+    monkeypatch.setenv("SDL_RENDER_DRIVER", "metal")
+    monkeypatch.setenv("SDL_FRAMEBUFFER_ACCELERATION", "1")
+    output = "[gdi_init_ex]: Local framebuffer format PIXEL_FORMAT_BGRA32\n"
+    if cancelled:
+        output += "[freerdp_abort_connect_context]: ERRCONNECT_CONNECT_CANCELLED [0x0002000B]\n"
+    if exception:
+        output += "[sdl_run]: [exception] rendering failed\n"
+    process = Client(code=code, output=output)
+    process.stdin.close = lambda: None
+    monkeypatch.setattr(viewer.shutil, "which", lambda name: "/tools/sdl-freerdp")
+
+    @contextmanager
+    def forward(*args):
+        yield "127.0.0.1", 5555, "fixture"
+
+    def popen(argv, **kw):
+        assert kw["env"]["SDL_RENDER_DRIVER"] == (
+            "opengl" if platform == "darwin" else "metal"
+        )
+
+        assert kw["env"]["SDL_FRAMEBUFFER_ACCELERATION"] == "1"
+        return process
+
+    monkeypatch.setattr(viewer, "desktop_forward", forward)
+    monkeypatch.setattr(viewer.subprocess, "Popen", popen)
+    if code and not (code == 131 and cancelled and not exception):
+        with pytest.raises(
+            desktop_access.DesktopAccessError,
+            match="desktop_view_failed:.*retained log:",
+        ):
+            viewer.view_desktop("project", "lab", SETTINGS, PASSWORD, RECEIPT, geometry)
+    else:
+        result = viewer.view_desktop(
+            "project", "lab", SETTINGS, PASSWORD, RECEIPT, geometry
+        )
+        assert result["client_exit_code"] == code
+
+
+def test_forced_stop_reports_unresponsive_with_log():
+    process = Client()
+    process.wait = lambda **kw: (_ for _ in ()).throw(
+        subprocess.TimeoutExpired("client", 5)
+    )
+    process.kill = lambda: setattr(process, "wait", lambda **kw: -9)
+    with pytest.raises(
+        desktop_access.DesktopAccessError,
+        match="desktop_view_unresponsive:.*retained log: /tmp/client.log",
+    ):
+        viewer._stop(process, "/tmp/client.log")
+
+
+def test_log_creation_failure_refuses_before_client(monkeypatch):
+    monkeypatch.setattr(viewer.shutil, "which", lambda name: "/tools/sdl-freerdp")
+
+    @contextmanager
+    def forward(*args):
+        yield "127.0.0.1", 5555, "fixture"
+
+    def unavailable(**kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(viewer, "desktop_forward", forward)
+    monkeypatch.setattr(viewer.tempfile, "mkstemp", unavailable)
+    monkeypatch.setattr(
+        viewer.subprocess,
+        "Popen",
+        lambda *a, **kw: pytest.fail("client started without capture"),
+    )
+    with pytest.raises(
+        desktop_access.DesktopAccessError, match="desktop_view_log_unavailable:"
+    ):
+        viewer.view_desktop("project", "lab", SETTINGS, PASSWORD, RECEIPT, geometry)
 
 
 @pytest.mark.parametrize(
