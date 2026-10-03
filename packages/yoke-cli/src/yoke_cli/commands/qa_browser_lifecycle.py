@@ -171,14 +171,20 @@ def qa_browser_setup(args: List[str]) -> int:
                 ),
             }
     except RuntimeError as exc:
+        from yoke_cli.commands.qa_browser_profile_baseline import (
+            ProfileBaselineRestoreError,
+        )
+
         failure: dict[str, object] = {"ok": False, "error": str(exc)}
         if isinstance(exc, browser_node_toolchain.NodeToolchainError):
             failure["error_code"] = exc.code
             failure["recovery"] = exc.recovery
+        if isinstance(exc, ProfileBaselineRestoreError):
+            failure.update(exc.details)
         if parsed.json_mode:
             print(json.dumps(failure))
         else:
-            print(f"yoke qa browser setup: {exc}", file=sys.stderr)
+            print(f"yoke qa browser setup: {json.dumps(failure)}", file=sys.stderr)
         return 2
 
     if profile_restoration is not None:

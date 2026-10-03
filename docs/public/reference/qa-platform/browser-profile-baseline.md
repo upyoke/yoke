@@ -17,3 +17,17 @@ directory is refused with its path so the operator can inspect it before retryin
 A snapshot can sit beside a clean golden under a test-user-owned readable
 parent, while the snapshot and its files remain owner-only. A parent writable
 by other users is refused with its path; capture never chmods that parent.
+
+Restore failures remain closed and prevent browser startup. Unexpected failures
+name the operation (`manifest_read`, `manifest_parse`, `archive_open`,
+`archive_read`, `extraction`, `permission`, or `profile_resolution`), error class,
+content-free message and recovery in both JSON and terminal output. File names,
+manifest contents and archive member names are never copied from exceptions.
+Existing security refusals keep their named reason.
+
+For a malformed manifest or damaged archive, preserve the rejected snapshot and
+capture the stopped signed-in profile into a new sibling through
+`yoke test-machine golden-capture --project P --machine NAME --component browser-profile`.
+Never hand-edit the sealed capture or weaken its identity, digest, ownership or
+archive checks. For filesystem failures, inspect the selected path as the test
+user and repair access before retrying.

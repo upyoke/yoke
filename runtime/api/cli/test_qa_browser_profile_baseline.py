@@ -11,7 +11,7 @@ from yoke_harness import browser_client, browser_runtime_home
 
 def test_invalid_project_is_a_closed_restore_refusal():
     with pytest.raises(
-        RuntimeError, match="^browser_profile_baseline_restore_refused$"
+        RuntimeError, match="^browser_profile_profile_resolution_failed$"
     ):
         profiles.restore_profile_baseline("../other", "/var/lib/goldens/profile")
 
@@ -114,3 +114,38 @@ def test_restore_refusal_prevents_daemon_start(provisioning, monkeypatch, capsys
         json.loads(capsys.readouterr().out)["error"]
         == "browser_profile_baseline_identity_mismatch"
     )
+
+
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_setup_surfaces_safe_restore_details_without_starting(
+    provisioning, monkeypatch, capsys, json_mode
+):
+    from yoke_harness.browser_profile_archive_validation import ProfileArchiveError
+
+    details = {
+        "step": "manifest_parse",
+        "error_class": "JSONDecodeError",
+        "message": "Invalid manifest JSON at line 1, column 1",
+        "recovery": "Re-capture through the supported path.",
+    }
+
+    def refuse(*_):
+        raise profiles.ProfileBaselineRestoreError(
+            ProfileArchiveError(
+                "browser_profile_manifest_parse_failed", details=details
+            )
+        )
+
+    monkeypatch.setattr(profiles, "restore_profile_baseline", refuse)
+    args = ["--project", "yoke", "--profile-baseline", "/var/lib/goldens/profile"]
+    if json_mode:
+        args.append("--json")
+    assert lifecycle.qa_browser_setup(args) == 2
+    assert provisioning == []
+    output = capsys.readouterr()
+    text = output.out if json_mode else output.err.split(": ", 1)[1]
+    assert json.loads(text) == {
+        "ok": False,
+        "error": "browser_profile_manifest_parse_failed",
+        **details,
+    }
