@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 import shlex
 from typing import Any
@@ -13,7 +14,11 @@ from yoke_contracts.machine_config.capability_secrets import (
 from yoke_contracts.machine_config.schema import SECRETS_DIR_NAME
 from yoke_contracts.machine_config import directories
 from yoke_contracts.machine_qa_execution import HostControlExecutionContract
-from yoke_harness import browser_profile_archive, browser_profile_writer_inventory
+from yoke_harness import (
+    browser_profile_archive,
+    browser_profile_archive_validation,
+    browser_profile_writer_inventory,
+)
 from yoke_harness.test_machine_types import HostActionResult
 
 
@@ -29,8 +34,13 @@ def capture_browser_profile(
         [
             "python3",
             "-c",
-            Path(browser_profile_archive.__file__)
-            .read_text()
+            re.sub(
+                r"from yoke_harness.browser_profile_archive_validation import \([\s\S]*?\)\n",
+                lambda _: (
+                    Path(browser_profile_archive_validation.__file__).read_text() + "\n"
+                ),
+                Path(browser_profile_archive.__file__).read_text(),
+            )
             .replace(
                 "from yoke_harness.browser_profile_writer_inventory import WRITER_INVENTORY_PROGRAM",
                 Path(browser_profile_writer_inventory.__file__).read_text(),

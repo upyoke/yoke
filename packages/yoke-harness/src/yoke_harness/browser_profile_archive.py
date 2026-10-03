@@ -18,6 +18,18 @@ import subprocess
 import tarfile
 import tempfile
 
+from yoke_harness.browser_profile_archive_validation import (
+    CAPTURE_RECOVERY,
+    ProfileArchiveError,
+    archive_step,
+    digest,
+    identity,
+    sync_snapshot,
+    literal_path,
+    no_symlink_parents,
+    private_owned,
+    require,
+)
 from yoke_harness.browser_profile_writer_inventory import WRITER_INVENTORY_PROGRAM
 from yoke_contracts.machine_config.directories import create_private_directory
 
@@ -29,29 +41,6 @@ MAX_ARCHIVE_BYTES = 2 * 1024**3
 MAX_ARCHIVE_MEMBERS = 100_000
 
 
-class ProfileArchiveError(ValueError):
-    """A snapshot cannot be safely captured or restored."""
-
-    def __init__(self, code: str, *, path=None):
-        super().__init__(code)
-        self.path = path
-
-
-def require(condition: bool, code: str) -> None:
-    if not condition:
-        raise ProfileArchiveError(code)
-
-
-def private_owned(path: Path, *, directory: bool = False) -> None:
-    info = path.lstat()
-    require(info.st_uid == os.getuid(), "browser_profile_foreign_owner")
-    require(not info.st_mode & 0o077, "browser_profile_not_private")
-    require(
-        stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode),
-        "browser_profile_unsafe_entry",
-    )
-
-
 def capture_parent_owned(path: Path) -> None:
     """A readable golden parent is safe; other users must not replace snapshots."""
     info = path.lstat()
@@ -59,23 +48,6 @@ def capture_parent_owned(path: Path) -> None:
         raise ProfileArchiveError("browser_profile_parent_unsafe", path=path)
     if info.st_mode & 0o022:
         raise ProfileArchiveError("browser_profile_parent_writable", path=path)
-
-
-def literal_path(value: str) -> Path:
-    selected = Path(value)
-    require(
-        selected.is_absolute()
-        and str(selected) == value
-        and ".." not in selected.parts
-        and len(selected.parts) >= 3,
-        "browser_profile_unsafe_path",
-    )
-    return selected
-
-
-def no_symlink_parents(path: Path) -> None:
-    for parent in (path, *path.parents):
-        require(not parent.is_symlink(), "browser_profile_symlink_path")
 
 
 def profile_writers_absent(profile: Path) -> None:
@@ -110,38 +82,6 @@ def profile_writers_absent(profile: Path) -> None:
         result.returncode == 0 and evidence.get("ok") is True,
         evidence.get("reason", "browser_profile_writer_inventory_unavailable"),
     )
-
-
-def digest(path: Path) -> str:
-    with path.open("rb") as stream:
-        checksum = hashlib.sha256()
-        for chunk in iter(lambda: stream.read(1024**2), b""):
-            checksum.update(chunk)
-        return checksum.hexdigest()
-
-
-def identity(home: Path, project: str, relative: str) -> dict:
-    selected = PurePosixPath(relative)
-    require(
-        not selected.is_absolute()
-        and ".." not in selected.parts
-        and str(selected) == relative
-        and len(selected.parts) >= 3,
-        "browser_profile_unsafe_path",
-    )
-    require(
-        project
-        and all(c.isascii() and (c.isalnum() or c in "._-") for c in project)
-        and project not in {".", ".."},
-        "browser_profile_project_invalid",
-    )
-    return {
-        "home": str(home),
-        "uid": os.getuid(),
-        "project": project,
-        "profile_relative_path": relative,
-        "os": "macos" if sys.platform == "darwin" else "linux",
-    }
 
 
 def profile_inventory(profile: Path) -> dict[str, tuple]:
@@ -201,6 +141,46 @@ def archive_members(archive: tarfile.TarFile) -> list[tarfile.TarInfo]:
     return members
 
 
+def validate_snapshot_pair(baseline: Path, subject: dict) -> tuple[dict, dict]:
+    """Read back the sealed pair without trusting the write-side receipt."""
+    with archive_step("permission"):
+        private_owned(baseline, directory=True)
+        for name in (ARCHIVE_NAME, MANIFEST_NAME):
+            private_owned(baseline / name)
+    with archive_step("manifest_read"):
+        require(
+            (baseline / MANIFEST_NAME).stat().st_size > 0,
+            "browser_profile_manifest_empty",
+            recovery=CAPTURE_RECOVERY,
+        )
+        manifest_text = (baseline / MANIFEST_NAME).read_text(encoding="utf-8")
+    with archive_step("manifest_parse"):
+        manifest = json.loads(manifest_text)
+    with archive_step("archive_read"):
+        require(
+            (baseline / ARCHIVE_NAME).stat().st_size > 0,
+            "browser_profile_archive_empty",
+            recovery=CAPTURE_RECOVERY,
+        )
+        archive_digest = digest(baseline / ARCHIVE_NAME)
+    require(
+        manifest == {**subject, "sha256": archive_digest},
+        "browser_profile_baseline_identity_mismatch",
+    )
+    with archive_step("archive_open"):
+        archive = tarfile.open(baseline / ARCHIVE_NAME, "r:gz")
+    with archive_step("archive_read"), archive:
+        members = archive_members(archive)
+        require(
+            any(member.isfile() for member in members),
+            "browser_profile_archive_no_files",
+            recovery=CAPTURE_RECOVERY,
+        )
+        return manifest, {
+            member.name: (member.size, member.isdir()) for member in members
+        }
+
+
 def capture(home: Path, baseline: Path, project: str, relative: str) -> dict:
     subject = identity(home, project, relative)
     profile = home / relative
@@ -214,7 +194,8 @@ def capture(home: Path, baseline: Path, project: str, relative: str) -> dict:
     create_private_directory(baseline.parent)
     capture_parent_owned(baseline.parent)
     profile_writers_absent(profile)
-    before = profile_inventory(profile)
+    with archive_step("capture_source"):
+        before = profile_inventory(profile)
     temporary = Path(tempfile.mkdtemp(prefix=".browser-profile-", dir=baseline.parent))
     try:
         private_owned(temporary, directory=True)
@@ -235,12 +216,33 @@ def capture(home: Path, baseline: Path, project: str, relative: str) -> dict:
             before == profile_inventory(profile),
             "browser_profile_changed_during_capture",
         )
-        with tarfile.open(temporary / ARCHIVE_NAME, "r:gz") as archive:
-            archive_members(archive)
-        manifest = {**subject, "sha256": digest(temporary / ARCHIVE_NAME)}
-        (temporary / MANIFEST_NAME).write_text(json.dumps(manifest))
-        os.chmod(temporary / MANIFEST_NAME, 0o600)
-        temporary.rename(baseline)
+        with archive_step("archive_read"):
+            manifest = {**subject, "sha256": digest(temporary / ARCHIVE_NAME)}
+        with archive_step("manifest_write"):
+            (temporary / MANIFEST_NAME).write_text(
+                json.dumps(manifest), encoding="utf-8"
+            )
+            os.chmod(temporary / MANIFEST_NAME, 0o600)
+        with archive_step("capture_seal"):
+            sync_snapshot(temporary, (ARCHIVE_NAME, MANIFEST_NAME))
+            _, members = validate_snapshot_pair(temporary, subject)
+            expected = {
+                name: (0 if entry[-1] else entry[1], entry[-1])
+                for name, entry in before.items()
+            }
+            require(
+                members == expected,
+                "browser_profile_archive_profile_mismatch",
+                recovery=CAPTURE_RECOVERY,
+            )
+            temporary.rename(baseline)
+            sync_snapshot(baseline.parent, ())
+            manifest, members = validate_snapshot_pair(baseline, subject)
+            require(
+                members == expected,
+                "browser_profile_archive_profile_mismatch",
+                recovery=CAPTURE_RECOVERY,
+            )
     finally:
         if temporary.exists():
             shutil.rmtree(temporary)
@@ -264,47 +266,46 @@ def restore(home: Path, baseline: Path, project: str, relative: str) -> dict:
         baseline != home and home not in baseline.parents,
         "browser_profile_baseline_inside_home",
     )
-    private_owned(baseline, directory=True)
-    for name in (ARCHIVE_NAME, MANIFEST_NAME):
-        private_owned(baseline / name)
-    manifest = json.loads((baseline / MANIFEST_NAME).read_text())
-    require(
-        manifest == {**subject, "sha256": digest(baseline / ARCHIVE_NAME)},
-        "browser_profile_baseline_identity_mismatch",
-    )
+    validate_snapshot_pair(baseline, subject)
     # Restoring a profile is explicitly an installed-product fixture, never a
     # fresh-home baseline operation. The fixture invokes the launcher's Python.
     require((home / ".yoke").is_dir(), "browser_profile_requires_installed_yoke")
     require(not profile.exists(), "browser_profile_destination_occupied")
     profile_writers_absent(profile)
-    with tarfile.open(baseline / ARCHIVE_NAME, "r:gz") as archive:
-        archive_members(archive)
-    create_private_directory(profile.parent)
-    private_owned(profile.parent, directory=True)
-    temporary = Path(tempfile.mkdtemp(prefix=".browser-profile-", dir=profile.parent))
-    try:
-        with tarfile.open(baseline / ARCHIVE_NAME, "r:gz") as archive:
-            members = archive_members(archive)
-            for member in sorted(
-                members,
-                key=lambda entry: (len(PurePosixPath(entry.name).parts), entry.name),
-            ):
-                target = temporary / member.name
-                create_private_directory(target.parent)
-                if member.isdir():
-                    create_private_directory(target)
-                else:
-                    with (
-                        archive.extractfile(member) as source,
-                        target.open("xb") as output,
-                    ):
-                        shutil.copyfileobj(source, output)
-                    os.chmod(target, 0o600)
-        profile_writers_absent(profile)
-        temporary.rename(profile)
-    finally:
-        if temporary.exists():
-            shutil.rmtree(temporary)
+    with archive_step("extraction"):
+        create_private_directory(profile.parent)
+        private_owned(profile.parent, directory=True)
+        temporary = Path(
+            tempfile.mkdtemp(prefix=".browser-profile-", dir=profile.parent)
+        )
+        try:
+            with archive_step("archive_open"):
+                archive = tarfile.open(baseline / ARCHIVE_NAME, "r:gz")
+            with archive, archive_step("extraction"):
+                members = archive_members(archive)
+                for member in sorted(
+                    members,
+                    key=lambda entry: (
+                        len(PurePosixPath(entry.name).parts),
+                        entry.name,
+                    ),
+                ):
+                    target = temporary / member.name
+                    create_private_directory(target.parent)
+                    if member.isdir():
+                        create_private_directory(target)
+                    else:
+                        with (
+                            archive.extractfile(member) as source,
+                            target.open("xb") as output,
+                        ):
+                            shutil.copyfileobj(source, output)
+                        os.chmod(target, 0o600)
+            profile_writers_absent(profile)
+            temporary.rename(profile)
+        finally:
+            if temporary.exists():
+                shutil.rmtree(temporary)
     return {"ok": True, "restored": True, "project": project}
 
 
@@ -329,6 +330,7 @@ def main() -> int:
                 {
                     "ok": False,
                     "reason": str(exc),
+                    **exc.details,
                     **({"unsafe_path": str(exc.path)} if exc.path is not None else {}),
                 }
             )
