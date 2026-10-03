@@ -14,8 +14,10 @@ def wsl_setup(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog=WSL_SETUP_USAGE,
         description=(
-            "Enable systemd inside WSL using available OS authority, then print the "
-            "Windows shutdown and Ubuntu restart step. No yes/no prompt."
+            "Enable systemd and keep WSL2 alive after terminals close. Requires WSL "
+            "2.5.4 or newer; sets [general] instanceIdleTimeout=-1 in the Windows "
+            "user profile .wslconfig, preserving other settings. Prints when "
+            "wsl --shutdown and an Ubuntu restart are required. No yes/no prompt."
         ),
     )
     if parse_or_usage_error(parser, args, WSL_SETUP_USAGE) is None:

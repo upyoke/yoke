@@ -41,6 +41,11 @@ def test_invalid_config_teaches_repair(text):
         wsl.enabled_config(text)
 
 
+@pytest.fixture(autouse=True)
+def lifetime(monkeypatch):
+    monkeypatch.setattr(wsl.wsl_lifetime, "setup", lambda **kw: False)
+
+
 @pytest.fixture
 def setup(monkeypatch, tmp_path):
     config = tmp_path / "wsl.conf"
@@ -209,3 +214,11 @@ def test_cli_reports_named_setup_failure(monkeypatch, capsys):
     monkeypatch.setattr(wsl, "setup", failure)
     assert adapter.wsl_setup([]) == 1
     assert "wsl_config_write_failed" in capsys.readouterr().err
+
+
+def test_running_systemd_still_converges_windows_lifetime(setup, monkeypatch):
+    monkeypatch.setattr(wsl, "systemd_running", lambda: True)
+    monkeypatch.setattr(wsl.wsl_lifetime, "setup", lambda **kw: True)
+    logs = []
+    assert wsl.setup(emit=logs.append) == "restart_required"
+    assert "wsl --shutdown" in logs[-1]

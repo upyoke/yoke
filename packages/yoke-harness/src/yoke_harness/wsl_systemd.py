@@ -13,6 +13,7 @@ from pathlib import Path
 
 from yoke_harness.system_privileges import command_authority
 from yoke_harness.wsl import is_wsl, systemd_running
+from yoke_harness import wsl_lifetime
 
 CONFIG_PATH = Path("/etc/wsl.conf")
 RESTART = "Save your work, run wsl --shutdown from Windows, then reopen Ubuntu."
@@ -100,7 +101,7 @@ def _enable(path: Path = CONFIG_PATH) -> None:
             temporary.unlink()
 
 
-def setup(*, emit=print) -> str:
+def _setup_systemd(*, emit=print) -> str:
     if not is_wsl():
         return "not_wsl"
     try:
@@ -148,6 +149,17 @@ def setup(*, emit=print) -> str:
     emit("WSL systemd is enabled in /etc/wsl.conf; a distribution restart is required.")
     emit(RESTART)
     return "restart_required"
+
+
+def setup(*, emit=print) -> str:
+    if not is_wsl():
+        return "not_wsl"
+    result = _setup_systemd(emit=emit)
+    changed = wsl_lifetime.setup(emit=emit)
+    if changed and result == "already_running":
+        emit(RESTART)
+        return "restart_required"
+    return result
 
 
 def main() -> int:
