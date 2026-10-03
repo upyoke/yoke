@@ -212,11 +212,12 @@ def format_retry_notice(
     backoff_seconds: float,
     *,
     clock: Callable[[], datetime] | None = None,
+    budget: int = CONNECTION_ATTEMPTS,
 ) -> str:
     """One stderr line: UTC stamp, class, attempt, and that recovery is retry."""
     return (
         f"{utc_stamp(clock)} note: relay attempt "
-        f"{attempt + 1}/{CONNECTION_ATTEMPTS} failed ({reason}) "
+        f"{attempt + 1}/{budget} failed ({reason}) "
         f"class={_classify_retry_reason(reason)} outcome=retrying; "
         f"retrying in {backoff_seconds:.0f}s"
     )
@@ -229,6 +230,7 @@ def write_retry_notice(
     stream: TextIO | None = None,
     *,
     clock: Callable[[], datetime] | None = None,
+    budget: int = CONNECTION_ATTEMPTS,
 ) -> None:
     """Say that the relay is waiting, so a long retry is never silent.
 
@@ -244,7 +246,9 @@ def write_retry_notice(
     helper does not change retry timing or budgets.
     """
     print(
-        format_retry_notice(reason, attempt, backoff_seconds, clock=clock),
+        format_retry_notice(
+            reason, attempt, backoff_seconds, clock=clock, budget=budget
+        ),
         file=sys.stderr if stream is None else stream,
         flush=True,
     )

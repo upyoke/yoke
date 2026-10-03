@@ -9,6 +9,8 @@ follow a relayed run instead of waiting out the whole roster in silence.
 from __future__ import annotations
 
 from typing import Any, Dict
+import time
+from yoke_contracts.doctor_budget import CHUNK_BUDGET_S, RUN_BUDGET_S
 
 from yoke_contracts.deployment_destination import DESTINATION_LOCAL
 from yoke_contracts.api.function_call import (
@@ -28,6 +30,7 @@ from yoke_cli.commands.adapters.doctor_https_errors import (
     TRANSPORT_FAILURE_CODE,
     control_plane_failure_row,
     partial_error,
+    run_budget_exhausted,
 )
 from yoke_cli.commands.adapters.doctor_output import (
     emit_doctor_response,
@@ -245,6 +248,7 @@ def collect_chunked(
     final_project = payload.get("project") or "yoke"
     last_response: FunctionCallResponse | None = None
     completed_batches = 0
+    deadline = time.monotonic() + RUN_BUDGET_S
 
     while True:
         chunk_payload = dict(payload)
@@ -255,12 +259,17 @@ def collect_chunked(
             chunk_payload["project_safe_quick"] = True
         if cursor:
             chunk_payload["cursor_after"] = cursor
-        response = call_dispatcher(
-            function_id="doctor.run.run",
-            target=target,
-            payload=chunk_payload,
-            actor=actor,
-            timeout_s=timeout_s,
+        remaining = deadline - time.monotonic()
+        response = (
+            run_budget_exhausted()
+            if remaining <= 0
+            else call_dispatcher(
+                function_id="doctor.run.run",
+                target=target,
+                payload=chunk_payload,
+                actor=actor,
+                timeout_s=min(timeout_s, CHUNK_BUDGET_S, remaining),
+            )
         )
         last_response = response
         event_ids.extend(response.event_ids)

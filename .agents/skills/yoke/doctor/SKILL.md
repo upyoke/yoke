@@ -53,6 +53,12 @@ for carries none of them.
 
 ## Phase map — read one file, at the phase it governs
 
+Checks have a 45-second budget; timeout is incomplete FAIL evidence.
+HTTPS chunks spend at most 60 seconds and two attempts, with a 15-minute
+remote-roster deadline. Keep the partial report and its error identity;
+retry the named check with `yoke watch doctor -- --only <slug>` after the
+provider recovers. Project checks use bounded I/O helpers for blocking work.
+
 | Phase | You are here when | Read before acting |
 |---|---|---|
 | Run | `/yoke doctor` was just invoked | [`run.md`](run.md) |

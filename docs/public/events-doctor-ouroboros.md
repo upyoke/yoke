@@ -29,6 +29,21 @@ WSL it also warns when systemd is not PID 1. See
 [Yoke on Windows (WSL)](windows-wsl.md) for the recovery steps. These machine
 checks report N/A on other operating systems.
 
+Each check has a 45-second budget. Python work, database cancellation,
+and the shared HTTP and subprocess helpers enforce that budget without
+leaving a check running after it reports failure. A timeout reports
+`doctor_check_budget_exhausted` and incomplete evidence; it never counts
+as a pass. Project checks must use bounded I/O helpers for blocking work.
+
+HTTPS chunks carry one check and spend at most 60 seconds across at most
+two attempts, including retry delays. The remote roster has a 15-minute
+overall deadline. Failed chunks retain completed rows, the last cursor,
+and the original error and request identity in a failing partial report.
+Retry a named check with `yoke watch doctor -- --only <slug>` after the
+provider or control plane recovers. The `wrong-repo-issues` check filters
+same-repository rows before rendering references and caches paginated
+repository inventories, including closed issues, for the whole check.
+
 The CLI runs machine-local checks on the client even when the control plane
 is hosted. A machine-only `--only` selection stays local; a mixed selection
 relays the control-plane checks and combines their results. New client checks

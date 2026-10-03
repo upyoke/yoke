@@ -16,7 +16,6 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
 )
 from runtime.api.engines._doctor_hc_git_test_helpers import (
-    _completed,
     _insert_item,
     _make_conn,
     _result,
@@ -51,7 +50,7 @@ class TestWrongRepoIssues:
             "upyoke/yoke" if project == "yoke" else f"example-org/{project}"
         ),
     )
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.repository_issue_states")
     def test_issue_in_correct_repo(self, mock_gh_run, mock_resolve, mock_avail):
         """T4: PASS when issue is in correct repo."""
         conn = _make_conn()
@@ -65,7 +64,7 @@ class TestWrongRepoIssues:
             status="implementing",
             github_issue="#100",
         )
-        mock_gh_run.return_value = _completed(stdout="OPEN\n")
+        mock_gh_run.return_value = {str(n): "OPEN" for n in range(1, 1600)}
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert _result(rec).result == "PASS"
 
@@ -79,7 +78,7 @@ class TestWrongRepoIssues:
             "upyoke/yoke" if project == "yoke" else f"example-org/{project}"
         ),
     )
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.repository_issue_states")
     def test_issue_in_wrong_repo(self, mock_gh_run, mock_resolve, mock_avail):
         """T3: Detects wrong-repo (externalwebapp item in yoke repo)."""
         conn = _make_conn()
@@ -95,8 +94,8 @@ class TestWrongRepoIssues:
         )
         # Not found in target repo, found in yoke repo
         mock_gh_run.side_effect = [
-            _completed(returncode=1, stdout=""),
-            _completed(stdout="OPEN\n"),
+            {},
+            {"1520": "OPEN"},
         ]
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert _result(rec).result == "WARN"
@@ -113,13 +112,13 @@ class TestWrongRepoIssues:
         "yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
         side_effect=lambda project, db_path=None, **_kwargs: _auth("upyoke/yoke"),
     )
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.repository_issue_states")
     def test_yoke_only_items_skipped(self, mock_gh_run, mock_resolve, mock_avail):
         """T5: Same-repo Yoke rows are filtered before any REST call.
 
         Includes a real ``projects`` row for ``yoke`` so the row passes
         the JOIN; the same-repo filter (target_repo == resolved Yoke
-        repo) keeps ``issue_view_state`` from firing.
+        repo) keeps the repository inventory from firing.
         """
         conn = _make_conn()
         _seed_project(conn, "yoke", github_repo="upyoke/yoke")
@@ -146,7 +145,7 @@ class TestWrongRepoIssues:
             "upyoke/yoke" if project == "yoke" else f"example-org/{project}"
         ),
     )
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.repository_issue_states")
     def test_auth_resolved_once_per_distinct_project(
         self, mock_gh_run, mock_resolve, mock_avail
     ):
@@ -178,7 +177,7 @@ class TestWrongRepoIssues:
                 status="implementing",
                 github_issue=f"#{500 + i}",
             )
-        mock_gh_run.return_value = _completed(stdout="OPEN\n")
+        mock_gh_run.return_value = {str(n): "OPEN" for n in range(1, 1600)}
         rec = _run_hc(hc_wrong_repo_issues, conn)
 
         assert _result(rec).result == "PASS"
@@ -192,8 +191,8 @@ class TestWrongRepoIssues:
             call.kwargs["required_permissions"] is GITHUB_ISSUES_READ_PERMISSION_LEVELS
             for call in mock_resolve.call_args_list
         )
-        # Only the 4 externalwebapp rows reach the REST call — yoke rows skip.
-        assert mock_gh_run.call_count == 4
+        # The externalwebapp rows share one repository inventory — yoke rows skip.
+        assert mock_gh_run.call_count == 1
 
     @patch(
         "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
@@ -205,7 +204,7 @@ class TestWrongRepoIssues:
             "upyoke/yoke" if project == "yoke" else f"example-org/{project}"
         ),
     )
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.repository_issue_states")
     def test_per_project_iteration(self, mock_gh_run, mock_resolve, mock_avail):
         """T1/T2: HC fetches issues from multiple project repos."""
         conn = _make_conn()
@@ -228,7 +227,7 @@ class TestWrongRepoIssues:
             github_issue="#50",
         )
         # Issue found in target repo for externalwebapp
-        mock_gh_run.return_value = _completed(stdout="OPEN\n")
+        mock_gh_run.return_value = {str(n): "OPEN" for n in range(1, 1600)}
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert _result(rec).result == "PASS"
 
@@ -242,7 +241,7 @@ class TestWrongRepoIssues:
             "upyoke/yoke" if project == "yoke" else "verified-org/externalwebapp"
         ),
     )
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.repository_issue_states")
     def test_verified_binding_overrides_stale_project_projection(
         self,
         mock_issue,
@@ -260,7 +259,7 @@ class TestWrongRepoIssues:
             status="implementing",
             github_issue="#91",
         )
-        mock_issue.return_value = _completed(stdout="OPEN\n")
+        mock_issue.return_value = {str(n): "OPEN" for n in range(1, 1600)}
 
         rec = _run_hc(hc_wrong_repo_issues, conn)
 
