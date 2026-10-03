@@ -7,7 +7,6 @@ from typing import Any, Mapping
 
 from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
-from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
 from yoke_core.domain.session_mode import session_is_parked
 from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
 from yoke_core.domain.session_message_ended_recipient import skip_ended_recipient
@@ -41,6 +40,7 @@ from yoke_core.domain.session_message_starvation import (
 )
 from yoke_core.domain.session_wake_process_absence import (
     NATIVE_PROCESS_GONE,
+    native_hold_retry_available,
     native_process_gone,
 )
 from yoke_core.domain.session_message_types import (
@@ -206,11 +206,10 @@ def wake_eligible_recipients(
                 ignore_attempt_id and attempt_count == policy.max_wake_attempts
             )
             first_manual_attempt = explicit_wake and attempt_count == 0
-            parked_native_hold = session_is_parked(row.get("mode")) and (
-                str(row.get("wake_escalation") or "") == NATIVE_TURN_RUNNING_RESULT
-            )
             if at_limit and not (
-                adopting_final_attempt or first_manual_attempt or parked_native_hold
+                adopting_final_attempt
+                or first_manual_attempt
+                or native_hold_retry_available(row)
             ):
                 continue
             if explicit_wake and attempt_count > 0:

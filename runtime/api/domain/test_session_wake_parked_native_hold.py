@@ -1,4 +1,4 @@
-"""A park outranks a lingering native pid for wake delivery."""
+"""Busy wake receipts remain recoverable while machine custody guards resumes."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from runtime.api.domain.test_session_message_support import (
     NOW_TEXT,
     message_connection,
     park_session,
+    record_process_gone,
     selector,
     stamp_activity,
 )
@@ -115,3 +116,24 @@ def test_an_unparked_session_spent_by_native_hold_stays_at_the_limit() -> None:
     conn.commit()
     stamp_activity(conn, when=NOW + timedelta(minutes=11))
     assert wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11)) == []
+
+
+def test_an_observed_exit_reopens_an_unparked_busy_receipt_at_the_limit() -> None:
+    conn = message_connection()
+    message_id = _send(conn)
+    limit = project_policy(conn, 1).max_wake_attempts
+    conn.execute(
+        "UPDATE session_message_recipients SET wake_attempt_count=?,"
+        "wake_escalation=? WHERE message_id=?",
+        (limit, NATIVE_TURN_RUNNING_RESULT, message_id),
+    )
+    conn.commit()
+    stamp_activity(conn, when=NOW + timedelta(minutes=11))
+    exited = NOW + timedelta(minutes=12)
+    record_process_gone(conn, when=exited)
+    eligible = wake_eligible_recipients(conn, now=exited)
+    assert [row["session_id"] for row in eligible] == [NATIVE_WAKE_SESSION_ID]
+    assert eligible[0]["wake_escalation"] == "native_process_gone"
+
+    stamp_activity(conn, when=exited + timedelta(seconds=1))
+    assert wake_eligible_recipients(conn, now=exited + timedelta(seconds=1)) == []

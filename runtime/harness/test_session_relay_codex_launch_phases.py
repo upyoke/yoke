@@ -157,7 +157,13 @@ def test_active_writer_refusal_survives_worker_translation_as_busy(
         desktop_transport=None,
         version_gate=lambda *_args: True,
     )
-    result = adapter(type("Context", (), {**request.__dict__, "lease_id": "lease-1"})())
+    result = adapter(
+        type(
+            "Context",
+            (),
+            {**request.__dict__, "lease_id": "lease-1", "message_id": "message-1"},
+        )()
+    )
     assert result.result_code == "native_turn_running"
     assert result.evidence["result_code"] == "background_session_in_use"
     assert result.evidence["native_launch_phase"] == "thread_identity"
