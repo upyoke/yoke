@@ -118,13 +118,13 @@ def test_termination_finishes_in_flight_work_before_returning(tmp_path) -> None:
     started = threading.Event()
 
     def job() -> None:
-        started.wait(5)
+        started.set()
         time.sleep(0.05)
         finished.append("wake")
 
     def cycle(*, state_dir=None, dispatch_job=None, **_kwargs) -> ServeOnceOutcome:
         dispatch_job(job)
-        started.set()
+        assert started.wait(1)
         signal.raise_signal(signal.SIGTERM)
         return ServeOnceOutcome("dispatched", 1)
 
