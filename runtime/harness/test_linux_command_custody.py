@@ -90,3 +90,41 @@ def test_uncertain_remote_custody_is_explicit_and_keeps_recovery_handle(receipt)
     assert result.returncode == 69
     assert "linux_command_custody_unsettled: /tmp/yoke-command-" in result.stderr
     assert len(calls) == 2  # No cleanup of unverified custody.
+
+
+@pytest.mark.parametrize(
+    "reason,code,accepted",
+    [
+        ("completed", 0, True),
+        ("completed", 3, False),
+        ("deadline", 0, False),
+        ("ssh_disconnected", 0, False),
+    ],
+)
+def test_persistent_children_are_released_only_after_verified_normal_exit(
+    reason, code, accepted
+):
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        if len(calls) == 1:
+            directory = json.loads(shlex.split(command)[-4])
+            receipt = {
+                "command_id": directory.rsplit("/", 1)[-1],
+                "reason": reason,
+                "returncode": code,
+                "completion_verified": True,
+                "termination_verified": False,
+                "released_pids": [123],
+            }
+            return subprocess.CompletedProcess(
+                [], 0, "", custody.remote.RECEIPT_MARKER + json.dumps(receipt) + "\n"
+            )
+        return subprocess.CompletedProcess([], 0, "", "")
+
+    result = custody.run_command(
+        SimpleNamespace(_run=run), ["browser", "start"], {}, timeout=1
+    )
+    assert result.returncode == (0 if accepted else 69)
+    assert len(calls) == (2 if accepted else 1)

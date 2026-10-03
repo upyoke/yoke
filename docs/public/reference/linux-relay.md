@@ -54,10 +54,13 @@ Inspect `systemctl --user list-jobs` and the unit's `systemctl --user status`
 before retrying the relay operation.
 
 SSH commands on the graphical desktop have a command-scoped supervisor with
-an inner deadline. It survives SSH loss and terminates only that command's
-descendants, including nested process sessions and children that ignore TERM.
+an inner deadline. Successful command exit preserves intentionally persistent
+product daemons, such as the browser daemon, after their starter completes.
+On timeout or SSH loss, the supervisor terminates that command's descendants,
+including nested process sessions and children that ignore TERM.
+An unsuccessful command also settles its remaining descendants.
 A timeout is reported as settled only after remote termination is verified.
-If the receipt cannot be recovered or descendants remain alive, the operation
+If completion cannot be verified or interrupted descendants remain alive, the operation
 returns `linux_command_custody_unsettled` with its private remote custody path.
 Keep that recovery handle and inspect it before retrying; a local SSH timeout
 alone does not prove that remote work stopped.
