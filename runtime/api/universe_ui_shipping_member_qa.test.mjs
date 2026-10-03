@@ -175,7 +175,7 @@ test("carried items show required QA and recorded no-obligation reasons", async 
     activityFor(3457, {
       requirement_id: 28927,
       run_id: null,
-      deployment_run_id: null,
+      deployment_run_id: RUN_ID,
       item_id: 3457,
       deployment_member_item_id: null,
       qa_kind: QA_KIND.NOT_REQUIRED,
@@ -187,7 +187,7 @@ test("carried items show required QA and recorded no-obligation reasons", async 
     activityFor(3460, {
       requirement_id: 28921,
       run_id: null,
-      deployment_run_id: null,
+      deployment_run_id: RUN_ID,
       item_id: 3460,
       deployment_member_item_id: null,
       qa_kind: QA_KIND.NO_OBLIGATION,

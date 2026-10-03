@@ -168,6 +168,9 @@ def _list_activity(
                 "execution_target_json": _json_value(
                     row["execution_target_json"], None
                 ),
+                "retracted_at": row["retracted_at"],
+                "retraction_rationale": row["retraction_rationale"],
+                "retraction_source": row["retraction_source"],
                 "waived_at": row["waived_at"],
                 "waiver_rationale": row["waiver_rationale"],
                 "instructions": row["instructions"],
@@ -239,7 +242,7 @@ def _activity_summary(
         conn,
         # The same source the row read uses, so a day's counts cover exactly
         # the checks the rows show rather than a narrower set of their own.
-        f"SELECT q.qa_kind, q.waived_at, r.verdict, r.case_outcome, "
+        f"SELECT q.qa_kind, q.retracted_at, q.waived_at, r.verdict, r.case_outcome, "
         f"r.execution_status {ACTIVITY_SOURCE} {where}",
         tuple(params),
     )

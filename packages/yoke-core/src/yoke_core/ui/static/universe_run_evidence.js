@@ -17,7 +17,7 @@ const ACTIVITY_LIMIT = 100;
 export function effectiveChecks(rows) {
   const latest = new Map();
   for (const row of rows || []) {
-    if (row.superseded_at || row.superseded_by_requirement_id
+    if (row.retracted_at || row.superseded_at || row.superseded_by_requirement_id
       || row.replacement_requirement_id) continue;
     const key = String(row.requirement_id ?? row.case_key ?? row.id);
     const previous = latest.get(key);

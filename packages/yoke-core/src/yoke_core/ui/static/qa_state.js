@@ -1,7 +1,4 @@
-// Closed vocabulary for QA facts a release actually records. Every screen
-// that draws QA state reads this, so waived / no-obligation / never-asked
-// / standing-source / admitted-copy cannot collapse into "nothing" or into
-// each other. Not a general QA framework: these states, then stop.
+// Shared vocabulary for recorded QA facts, including withdrawn history.
 
 import { el, statePill } from "./universe_view_support.js";
 
@@ -16,6 +13,7 @@ export const QA_STATE = Object.freeze({
   VERIFIED_ITEM: "verified_item",
   STANDING_SOURCE: "standing_source",
   ADMITTED_COPY: "admitted_copy",
+  CANCELLED: "cancelled",
   SUPERSEDED: "superseded",
   REPLACING: "replacing",
   WAIVED: "waived",
@@ -51,6 +49,7 @@ const LABELS = Object.freeze({
   [QA_STATE.VERIFIED_ITEM]: "verified before merge",
   [QA_STATE.STANDING_SOURCE]: "source requirement",
   [QA_STATE.ADMITTED_COPY]: "this release",
+  [QA_STATE.CANCELLED]: "cancelled",
   [QA_STATE.SUPERSEDED]: "superseded",
   [QA_STATE.REPLACING]: "earlier attempt",
   [QA_STATE.WAIVED]: "waived",
@@ -123,6 +122,8 @@ function state(id, detail = "") {
 
 export function classifyQaRow(row, rows = []) {
   if (!row) return null;
+  if (row.retracted_at) return state(QA_STATE.CANCELLED,
+    row.retraction_rationale || "This requirement was removed and will not run.");
   if (isStageAcceptance(row)) {
     return state(
       QA_STATE.RUN_MACHINERY,
@@ -262,6 +263,7 @@ export function classifyMemberQa(rows, { runId } = {}) {
 const SATISFIED_RAW = new Set(["pass", "passed", "waived", "succeeded"]);
 
 const DISCHARGED = new Set([
+  QA_STATE.CANCELLED,
   QA_STATE.SUPERSEDED,
   QA_STATE.WAIVED,
   QA_STATE.NO_OBLIGATION,
@@ -315,9 +317,7 @@ function tally(entries, pick) {
   return [...counts.entries()].map(([label, n]) => `${n} ${label}`).join(" · ");
 }
 
-// The line an operator reads first on item Verification. A superseded case
-// is discharged by its replacement; an open standing source beside its
-// admitted copy is expected. Outstanding means the union still blocks.
+// Item Verification separates blocking checks from discharged history.
 export function summarizeQaUnion(rows) {
   const entries = (rows || []).map((row) => unionEntry(row, rows));
   const outstanding = entries.filter((entry) => entry.outstanding);

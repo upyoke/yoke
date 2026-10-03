@@ -166,3 +166,24 @@ def test_recorded_verdict_takes_precedence_over_capture_bookkeeping() -> None:
         qa_run_outcome({"verdict": "pass", "execution_status": "captured"}) == "passed"
     )
     assert qa_run_outcome({"execution_status": "capture_failed"}) == "capture_failed"
+
+
+def test_activity_preserves_removed_requirement_state_and_reason() -> None:
+    with test_database() as conn:
+        insert_item(conn, id=4840, title="Removed member")
+        insert_qa_requirement(
+            conn,
+            item_id=4840,
+            method_id="command",
+            qa_phase="post_deploy",
+            retracted_at="2026-09-20T17:00:00Z",
+            retraction_rationale="Member removed for rework",
+            retraction_source="run_member_removed",
+        )
+        conn.commit()
+        result = read_activity(conn, project="yoke", item_ids=[4840])
+        row = result["rows"][0]
+        assert row["retracted_at"] == "2026-09-20T17:00:00Z"
+        assert row["retraction_rationale"] == "Member removed for rework"
+        assert row["retraction_source"] == "run_member_removed"
+        assert row["outcome"] == "cancelled"

@@ -169,33 +169,12 @@ test("activity evidence summary is the Actions run when a CI row has no artifact
   assert.match(summary.textContent, /verified f81d1ad1a61c/);
 });
 
-test("a carried before-merge CI check links its own Actions run", async () => {
+test("a before-merge CI check stays off a delivery card", async () => {
   const documentNode = new FakeDocument();
-  const client = readingClient({
-    rows: [activityRow({
-      artifacts: [],
-      evidence_count: 0,
-      outcome: "passed",
-      case_key: "backend-suite",
-      method_name: "Command",
-      run_url: RUN_URL,
-      recorded_head_sha: SHA,
-      ci_conclusion: "success",
-      proof_summary: `verified ${SHA.slice(0, 12)} · GitHub Actions run`,
-    })],
-  });
+  const client = readingClient({ rows: [activityRow({
+    artifacts: [], outcome: "passed", run_url: RUN_URL, recorded_head_sha: SHA,
+  })] });
   const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
   await settle();
-
-  const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
-  assert.equal(byClass(evidence, "review-shot").length, 0);
-  // Before merge is an earlier check, not a current check of this release.
-  assert.equal(byClass(evidence, "item-qa-section")[0].children.filter(
-    (node) => node.classList.contains("run-qa-check")).length, 0);
-  const row = byClass(byClass(evidence, "run-qa-history")[0], "run-qa-check")[0];
-  assert.equal(byClass(row, "run-qa-check-run")[0].textContent, "Before merge");
-  const link = byClass(row, "run-check-conclusion")[0];
-  assert.equal(link.href, RUN_URL);
-  // The row's own link replaces the separate link that used to close the entry.
-  assert.equal(byClass(evidence, "carried-item-run-conclusion").length, 0);
+  assert.equal(byClass(memberEntry(card), "carried-item-evidence").length, 0);
 });

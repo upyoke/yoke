@@ -10,7 +10,7 @@
 // A check's result is the check's own verdict. A person's decision is a
 // separate record drawn after the evidence, never a word on the check.
 
-import { QA_KIND, isPostDeployFact } from "./qa_state.js";
+import { QA_KIND, QA_STATE, classifyQaRow, isPostDeployFact } from "./qa_state.js";
 import { appendRunConclusion } from "./qa_run_conclusion.js";
 import { drawnArtifacts, evidenceStrip } from "./review_evidence_strip.js";
 import { buildUniverseRoute, deploymentRunHref } from "./universe_navigation.js";
@@ -74,6 +74,7 @@ export function checkName(check) {
 }
 
 function outcomeState(check) {
+  if (check?.retracted_at) return "other";
   const outcome = String(check?.outcome || "");
   if (outcome === "passed") return "passed";
   if (outcome === "failed") return "failed";
@@ -82,6 +83,7 @@ function outcomeState(check) {
 
 // The check's own result: "Passed", "Failed", or the state it stands in.
 export function checkOutcome(check) {
+  if (check?.retracted_at) return "Cancelled";
   const state = outcomeState(check);
   if (state === "passed") return "Passed";
   if (state === "failed") return "Failed";
@@ -113,6 +115,9 @@ export function runQaVerdict(checks, decision) {
   if (decision === "undetermined") {
     return { text: "Decided · outcome not recorded", tone: "is-undetermined" };
   }
+  checks = checks.filter((check) => ![QA_STATE.CANCELLED, QA_STATE.NO_OBLIGATION,
+    QA_STATE.WAIVED, QA_STATE.SUPERSEDED].includes(classifyQaRow(check)?.id));
+  if (!checks.length) return { text: "", tone: "" };
   const passed = checks.filter((check) => outcomeState(check) === "passed").length;
   return {
     text: `${passed} of ${checks.length} passed`,
@@ -163,9 +168,11 @@ export function runCheckLine(context, check, options = {}) {
   }
   // A passing check already states its result. Keep diagnostic context for
   // failures and unresolved checks, where the reason helps the reader act.
-  if (check.verdict_reason && state !== "passed") {
+  const reason = check.retracted_at
+    ? classifyQaRow(check)?.detail : check.verdict_reason;
+  if (reason && state !== "passed") {
     line.appendChild(el(
-      documentNode, "p", "run-qa-check-reason", String(check.verdict_reason),
+      documentNode, "p", "run-qa-check-reason", String(reason),
     ));
   }
   const strip = evidenceStrip(context, ownArtifacts(check), CHECK_STRIP);
@@ -211,7 +218,8 @@ export function qaScopeSection(context, { heading, headingTag, current, history,
   // refused heads it, and an approval is its own record below.
   if (current.length || (decision && decision !== "approved")) {
     const verdict = runQaVerdict(current, decision);
-    head.appendChild(el(documentNode, "span", `run-verdict ${verdict.tone}`, verdict.text));
+    if (verdict.text) head.appendChild(el(
+      documentNode, "span", `run-verdict ${verdict.tone}`, verdict.text));
   }
   section.appendChild(head);
   appendRunChecks(context, section, current, history, { runId, project });

@@ -43,10 +43,10 @@ test("the read is asked to bound each subject, not the page", async () => {
 test("an item whose evidence was cut short says so in its own entry", async () => {
   const documentNode = new FakeDocument();
   const client = readingClient({
-    rows: [activityRow()],
+    rows: [activityRow({ deployment_run_id: RUN_ID })],
     selection: {
       per_group_limit: 20,
-      truncated_groups: [{ item_id: 1896, deployment_run_id: null }],
+      truncated_groups: [{ item_id: 1896, deployment_run_id: RUN_ID }],
     },
   });
   const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);

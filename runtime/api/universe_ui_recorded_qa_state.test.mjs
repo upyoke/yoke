@@ -8,7 +8,7 @@ import { runIdentityCard } from "../../packages/yoke-core/src/yoke_core/ui/stati
 import { classifyQaRow } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_state.js";
 import { byClass, FakeDocument, visibleText } from "./universe_ui_dom_test_support.mjs";
 import { detailItem, itemContext } from "./universe_ui_items_test_support.mjs";
-import { activityRow, cardFor, member, memberEntry, readingClient } from "./universe_ui_carried_item_test_support.mjs";
+import { activityRow, cardFor, member, memberEntry, readingClient, RUN_ID } from "./universe_ui_carried_item_test_support.mjs";
 
 const ok = (result) => ({ status: 200, envelope: { success: true, result } });
 
@@ -62,7 +62,7 @@ test("QA activity case route reads its newest recorded run without a plan", asyn
 test("a no-obligation member has settled Item QA and its recorded reason", async () => {
   const reason = "Only command teaching changed; there is no deployed behavior to inspect.";
   const client = readingClient({ rows: [activityRow({ qa_kind: "post_deploy_no_obligation",
-    qa_phase: "post_deploy", instructions: reason, method_id: null, method_name: null,
+    deployment_run_id: RUN_ID, qa_phase: "post_deploy", instructions: reason, method_id: null, method_name: null,
     outcome: "no_obligation", artifacts: [], run_id: null })] });
   const prefix = "SAMPLE";
   const { card } = await cardFor(new FakeDocument(), [member(1896, `${prefix}-1`)], client);
