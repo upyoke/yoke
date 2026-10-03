@@ -196,24 +196,25 @@ No password enters that task. Session 0, locked desktops and blank images
 refuse with a named recovery rather than earning screenshot credit.
 
 For the selected Server route, reuse this Pack's Linux XFCE/xrdp provisioner
-inside WSL with a separate loopback port. Install the candidate first; the
-executing operation uses its Python in the dedicated Linux user's home:
+inside WSL with a separate loopback port. The executing operation runs its
+stdlib-only helper in the dedicated Linux user's home:
 
 ```text
-CANDIDATE_PYTHON ops/machine-qa/provision_windows_wsl_desktop.py --desktop-password-stdin
-CANDIDATE_PYTHON ops/machine-qa/provision_windows_wsl_desktop.py --verify
+python3 ops/machine-qa/provision_windows_wsl_desktop.py --desktop-password-stdin
+python3 ops/machine-qa/provision_windows_wsl_desktop.py --verify
 ```
 
 The wrapper requires Ubuntu24.04, non-root passwordless sudo, WSL2/systemd and
 Windows interop. It records actual Windows edition/build and WSL version,
 installs the existing Linux desktop packages and proves loopback/localhost access.
 The product streams its capability-owned desktop secret on private stdin, sets
-the dedicated WSL fixture password with `sudo -n chpasswd`, and uses the existing
-candidate `xrdp-sesrun` startup. No secret enters a file, argv or output. The
+the dedicated WSL fixture password with `sudo -n chpasswd`. The next retained
+GUI-session operation uses the existing uploaded `xrdp-sesrun` helper; no host
+harness-package import is needed. No secret enters a file, argv or output. The
 operator never types sudo, sets a machine password or logs into either desktop.
 Agents prove candidate Chromium renders there before requesting only personal
 application sign-in. Success leaves `headed_application_proved=false` until that
-independent check; `--verify` starts no session and refuses the password flag.
+independent check. Provisioning starts no session; `--verify` refuses the secret flag.
 No Windows firewall, auto-logon or public listener change is made.
 [Microsoft documents localhost access to WSL services](https://learn.microsoft.com/en-us/windows/wsl/networking)
 and [systemd prerequisites](https://learn.microsoft.com/en-us/windows/wsl/systemd).

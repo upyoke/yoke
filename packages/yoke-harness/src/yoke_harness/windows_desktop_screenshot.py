@@ -12,10 +12,10 @@ $ProgressPreference = 'SilentlyContinue'
 $directory = 'OUTPUT_DIRECTORY'
 try {
     if ([Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0) {
-        throw 'windows_desktop_session_required: repair the registered FreeRDP login and retry the screenshot; a human RDP login is the fallback'
+        throw 'windows_desktop_session_required: repair the registered FreeRDP client and fixture credential, then rerun the product GUI operation'
     }
     if (Get-Process LogonUI -ErrorAction SilentlyContinue | Where-Object SessionId -eq ([Diagnostics.Process]::GetCurrentProcess().SessionId)) {
-        throw 'windows_desktop_locked: unlock the active dedicated desktop and retry'
+        throw 'windows_desktop_locked: have the active user finish and disconnect, then rerun the product GUI operation'
     }
     Add-Type -AssemblyName System.Windows.Forms,System.Drawing
     $bounds = [Windows.Forms.Screen]::PrimaryScreen.Bounds

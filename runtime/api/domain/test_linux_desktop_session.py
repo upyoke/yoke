@@ -91,7 +91,7 @@ def test_existing_human_xfce_is_reused_without_password(host, monkeypatch):
 
 
 @pytest.mark.parametrize("failure", ["missing", "refused", "unavailable", "timeout"])
-def test_start_refusals_preserve_output_redact_password_and_teach_rdp(
+def test_start_refusals_preserve_output_redact_password_and_teach_product_recovery(
     host, monkeypatch, failure
 ):
     def run(argv, **kwargs):
@@ -106,7 +106,10 @@ def test_start_refusals_preserve_output_redact_password_and_teach_rdp(
     monkeypatch.setattr(state.subprocess, "run", run)
     with pytest.raises(RuntimeError) as refused:
         state.ensure_desktop(None if failure == "missing" else PASSWORD)
-    assert "RDP" in str(refused.value) and PASSWORD not in str(refused.value)
+    message = str(refused.value)
+    assert "Repair the registered fixture secret" in message
+    assert "rerun the product GUI operation" in message
+    assert PASSWORD not in message
     assert host.read_text() == ""
     if failure == "refused":
         assert "connect error - Operation now in progress\n" in str(refused.value)

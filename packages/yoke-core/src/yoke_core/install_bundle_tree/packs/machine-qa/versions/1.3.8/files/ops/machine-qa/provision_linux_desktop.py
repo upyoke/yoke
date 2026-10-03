@@ -52,31 +52,12 @@ def desktop_password_input() -> str:
     return password
 
 
-def desktop_runtime():
-    try:
-        from yoke_harness import linux_desktop_state
-    except ImportError:
-        raise ProvisionFailure(
-            "candidate_desktop_runtime_required: install the candidate first and "
-            "run this Pack helper with its Python interpreter"
-        ) from None
-    return linux_desktop_state
-
-
-def start_desktop(password: str, port: int, runtime) -> dict:
-    """Set the fixture login privately and reuse the product's owned-session path."""
+def set_desktop_password(password: str) -> None:
+    """Set only the dedicated fixture login through private product input."""
     import pwd
 
     user = pwd.getpwuid(os.getuid()).pw_name
     command(["sudo", "-n", "chpasswd"], input_text=f"{user}:{password}\n")
-    try:
-        return runtime.ensure_desktop(password, port)
-    except (RuntimeError, OSError, ValueError, subprocess.TimeoutExpired) as exc:
-        raise ProvisionFailure(
-            "linux_desktop_session_not_ready: "
-            + str(exc).replace(password, "[REDACTED]")
-            + "; repair the registered fixture secret or xrdp/XFCE startup and rerun"
-        ) from None
 
 
 def localhost_config(content: str, port: int = DEFAULT_RDP_PORT) -> str:
@@ -270,16 +251,14 @@ def main() -> int:
         )
     try:
         password = desktop_password_input() if args.desktop_password_stdin else None
-        runtime = desktop_runtime() if password is not None else None
         home = prerequisites()
         if not args.verify:
             provision(home, args.rdp_port)
         result = verify(home, args.rdp_port)
         if password is not None:
-            result.update(start_desktop(password, args.rdp_port, runtime))
+            set_desktop_password(password)
             result["login_password_set"] = True
-        else:
-            result["desktop_session"] = "not_started"
+        result["desktop_session"] = "not_started"
         result["headed_application_proved"] = False
         print(json.dumps(result), flush=True)
         return 0

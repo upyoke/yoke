@@ -123,12 +123,12 @@ permission to bypass unrelated product safeguards.
 
 ## 4. Durable desktop and unattended sessions
 
-Install the candidate first. For desktop coverage, the executing product
-operation runs this Pack helper with that candidate's Python as the test user:
+For desktop coverage, the executing product operation runs this stdlib-only
+Pack helper as the dedicated test user, with private capability input:
 
 ```text
-CANDIDATE_PYTHON ops/machine-qa/provision_linux_desktop.py --desktop-password-stdin
-CANDIDATE_PYTHON ops/machine-qa/provision_linux_desktop.py --verify
+python3 ops/machine-qa/provision_linux_desktop.py --desktop-password-stdin
+python3 ops/machine-qa/provision_linux_desktop.py --verify
 ```
 
 It requires Ubuntu24.04 and passwordless sudo, installs XFCE, xfce4-terminal,
@@ -142,11 +142,12 @@ can reverse that journal. Current terminal selection is retained by reset.
 
 Provisioning requires the operation to stream the capability-owned
 `desktop_password` on private stdin. It sets the dedicated fixture user's
-local password with `sudo -n chpasswd` and reuses the candidate's existing
-owned-session startup. The operator never types a sudo password, sets a machine
+local password with `sudo -n chpasswd`. The next registered GUI operation reuses
+the product's existing uploaded desktop helper and owned-session startup; the
+host needs no harness-package import. The operator never types sudo, sets a machine
 password or logs into the desktop. No secret enters a file, argv or output;
 SSH stays key-only and PAM stays enabled. `--verify` checks readiness only and
-refuses the password flag; its receipt does not prove a started desktop.
+refuses the password flag. Provisioning itself reports `desktop_session=not_started`.
 
 The serving build's registered Linux screenshot, GUI-session execution and
 desktop-access operations start or reuse the dedicated XFCE session. Their

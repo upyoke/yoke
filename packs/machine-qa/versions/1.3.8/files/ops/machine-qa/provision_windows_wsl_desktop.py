@@ -76,7 +76,6 @@ def main() -> int:
         password = (
             desktop.desktop_password_input() if args.desktop_password_stdin else None
         )
-        runtime = desktop.desktop_runtime() if password is not None else None
         facts = windows_facts()
         home = desktop.prerequisites()
         if not args.verify:
@@ -84,10 +83,9 @@ def main() -> int:
         result = desktop.verify(home, args.rdp_port)
         prove_windows_localhost(args.rdp_port)
         if password is not None:
-            result.update(desktop.start_desktop(password, args.rdp_port, runtime))
+            desktop.set_desktop_password(password)
             result["login_password_set"] = True
-        else:
-            result["desktop_session"] = "not_started"
+        result["desktop_session"] = "not_started"
         result.update(
             facts,
             display_route="WSL XFCE through Windows localhost RDP",

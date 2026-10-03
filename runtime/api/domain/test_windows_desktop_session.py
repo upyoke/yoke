@@ -111,7 +111,8 @@ def test_missing_client_refuses_before_tunnel_or_password_read(setup, monkeypatc
         desktop, "desktop_forward", lambda *a: pytest.fail("tunnel opened")
     )
     with pytest.raises(
-        desktop_access.DesktopAccessError, match="windows_rdp_client_missing.*human RDP"
+        desktop_access.DesktopAccessError,
+        match="windows_rdp_client_missing.*install FreeRDP.*rerun the product GUI operation",
     ):
         desktop.prove_windows_credentials(
             project="project", machine="windows-lab", settings=SETTINGS

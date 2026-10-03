@@ -58,16 +58,11 @@ def test_wsl_route_reuses_linux_provisioner_and_keeps_ui_unproved(
         linux, "provision", lambda *args: calls.append(("provision", *args))
     )
     monkeypatch.setattr(linux, "verify", lambda *args: {"ok": True})
-    runtime = object()
     monkeypatch.setattr(linux, "desktop_password_input", lambda: "fixture-secret")
-    monkeypatch.setattr(linux, "desktop_runtime", lambda: runtime)
     monkeypatch.setattr(
         linux,
-        "start_desktop",
-        lambda password, port, actual_runtime: (
-            calls.append(("start", password, port, actual_runtime))
-            or {"desktop_session": "started"}
-        ),
+        "set_desktop_password",
+        lambda password: calls.append(("password", password)),
     )
     monkeypatch.setattr(
         windows,
@@ -82,16 +77,12 @@ def test_wsl_route_reuses_linux_provisioner_and_keeps_ui_unproved(
     assert windows.main() == 0
     result = json.loads(capsys.readouterr().out)
     assert result["headed_application_proved"] is False
-    assert result["desktop_session"] == ("not_started" if verify else "started")
+    assert result["desktop_session"] == "not_started"
     assert "fixture-secret" not in json.dumps(result)
     assert calls == [
         *([] if verify else [("provision", home, windows.DEFAULT_WSL_RDP_PORT)]),
         ("localhost", windows.DEFAULT_WSL_RDP_PORT),
-        *(
-            []
-            if verify
-            else [("start", "fixture-secret", windows.DEFAULT_WSL_RDP_PORT, runtime)]
-        ),
+        *([] if verify else [("password", "fixture-secret")]),
     ]
 
 
@@ -116,9 +107,7 @@ def test_desktop_password_input_refuses_personal_terminal_prompt(
         linux.desktop_password_input()
 
 
-def test_desktop_fixture_password_stays_on_stdin_and_reuses_product_startup(
-    provisioners, monkeypatch
-):
+def test_desktop_fixture_password_stays_on_stdin(provisioners, monkeypatch):
     import pwd
 
     linux, _ = provisioners
@@ -133,18 +122,7 @@ def test_desktop_fixture_password_stays_on_stdin_and_reuses_product_startup(
         lambda argv, **kwargs: calls.append((argv, kwargs)),
     )
 
-    def ensure(actual_password, port):
-        assert actual_password == password
-        assert port == linux.DEFAULT_RDP_PORT
-        return {"desktop_session": "started", "environment": {"DISPLAY": ":10"}}
-
-    runtime = type("Runtime", (), {"ensure_desktop": staticmethod(ensure)})()
-    assert (
-        linux.start_desktop(password, linux.DEFAULT_RDP_PORT, runtime)[
-            "desktop_session"
-        ]
-        == "started"
-    )
+    linux.set_desktop_password(password)
     assert calls == [
         (["sudo", "-n", "chpasswd"], {"input_text": f"tester:{password}\n"})
     ]
