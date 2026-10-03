@@ -25,6 +25,7 @@ def apply(
     error_cls=RuntimeError,
 ) -> None:
     onboard_machine_setup.setup_directories(config_path, reuse=reuse, progress=progress)
+    onboard_machine_setup.setup_wsl(report, error_cls=error_cls)
     onboard_machine_setup.setup_browser(progress, report, error_cls=error_cls)
     if harness_posture:
         step = (harness_unattended_posture.POSTURE_PLAN_ACTION, "detected")

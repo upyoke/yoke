@@ -69,13 +69,32 @@ def setup_browser(progress, report, *, error_cls=RuntimeError):
         )
 
 
+def setup_wsl(report, *, error_cls=RuntimeError):
+    from yoke_harness.wsl import is_wsl
+
+    if not is_wsl():
+        return
+    try:
+        from yoke_harness.wsl_systemd import setup
+
+        status = setup(emit=lambda line: print(line, file=sys.stderr))
+    except (OSError, RuntimeError) as exc:
+        raise error_cls(str(exc)) from exc
+    report["wsl_setup"] = {"status": status}
+
+
 def prepare(config_path: Path) -> dict:
     """Failures are advisory here; Apply rechecks and repairs the same steps."""
+    from yoke_harness.wsl import is_wsl
+
     report = {}
-    for name, work in (
+    steps = (
         ("runtime directories", lambda: setup_directories(config_path)),
         ("browser and Python runtime", lambda: setup_browser(None, report)),
-    ):
+    )
+    if is_wsl():
+        steps += (("WSL systemd and lifetime", lambda: setup_wsl(report)),)
+    for name, work in steps:
         print(f"Preparing {name}…", file=sys.stderr)
         try:
             work()
