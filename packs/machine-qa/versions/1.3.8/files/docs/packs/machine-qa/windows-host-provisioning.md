@@ -9,8 +9,8 @@ Audit: `windows-lab`, **2026-10-03 UTC**. On Server2025 build26100/WSL3.0.1,
 the Pack proved XFCE/xrdp and Windows localhost access to3390. After lifetime
 configuration and a controlled restart, XFCE and headed Chromium retained
 identical boot/display/process/window identities over125seconds with no
-target call or foreground keeper; the browser step still worked. Operator
-viewing, personal sign-in and profile capture/restore remain pending. The VM
+target call or foreground keeper; the browser step still worked. Agent captures
+prove rendering. Personal sign-in and profile capture/restore remain pending. The VM
 was stopped and rechecked. Persistence proof does not establish own approval.
 
 ## 1. Infrastructure and Windows account
@@ -171,7 +171,7 @@ as `desktop_port`; the Windows SSH user remains the account owning the distro.
 The capability-owned fixture password is streamed on private stdin. Another
 user's ambiguous desktop refuses; no native Windows RDP login is needed.
 
-For operator viewing, run:
+For a requested, announced personal application sign-in handoff, run:
 
 ```text
 yoke test-machine desktop-access --project P --machine NAME --view
@@ -182,8 +182,8 @@ Read `--help`. Install FreeRDP's visible SDL client on the executing workstation
 The product opens the SSH forward and supplies the fixture credential on stdin,
 with the existing XFCE dimensions and color depth so xrdp reconnects that display.
 It creates no password file. Close the viewer or interrupt the retained command
-to close its forward. Operator work begins at a personal application's sign-in,
-not a desktop login. Native Windows display evidence does not prove this route.
+to close its forward. The user supplies only personal application sign-in.
+Tests use agent captures; human viewing is never a test acceptance check.
 A connected viewer counts as human adoption: baseline reset/capture must wait
 until it closes, even when automation originally started XFCE.
 

@@ -12,3 +12,5 @@ complete per-OS procedures:
 Setup gives the user space to perform whatever sign-ins their project needs,
 then saves the profile. Agents do every step that does not need the user;
 personal credentials are entered by the user. Profile data stays on the host.
+Tests use agent captures; human viewing serves only a requested, announced
+one-time personal application sign-in handoff, never a test acceptance check.
