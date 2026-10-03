@@ -188,11 +188,13 @@ def test_only_a_wake_job_is_ever_deferred(tmp_path: Path) -> None:
     )
 
 
-def test_the_runner_spawns_when_the_session_has_parked(
+@pytest.mark.parametrize("surface", ["codex-cli", "claude-cli", "cursor-cli"])
+def test_the_runner_defers_when_a_parked_session_is_still_running(
+    surface: str,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A leftover pid must not prevent the adapter from starting a parked wake."""
+    """Parking can precede process exit; no surface may start a second native."""
     spawned: list[str] = []
 
     def adapter(context):
@@ -200,7 +202,7 @@ def test_the_runner_spawns_when_the_session_has_parked(
         return session_relay_runtime.RelayAdapterResult("resumed_running")
 
     session_relay_runtime.reset_relay_adapters_for_tests()
-    session_relay_runtime.register_relay_adapter("claude-cli", adapter)
+    session_relay_runtime.register_relay_adapter(surface, adapter)
     monkeypatch.setattr(
         "yoke_harness.session_relay_native_turn_custody.process_start_time",
         _start_time_of({4001: RECORDED_START}),
@@ -208,11 +210,11 @@ def test_the_runner_spawns_when_the_session_has_parked(
     _resume_record()
 
     result = session_relay_runtime.run_registered_job(
-        {**_wake_job(workspace=tmp_path), "target_parked": True}
+        {**_wake_job(workspace=tmp_path), "target_parked": True, "surface": surface}
     )
 
-    assert result.result_code == "resumed_running"
-    assert spawned == [SESSION]
+    assert result.result_code == NATIVE_TURN_RUNNING_RESULT
+    assert spawned == []
     session_relay_runtime.reset_relay_adapters_for_tests()
 
 
@@ -278,7 +280,9 @@ def test_a_second_request_sees_the_first_native(
     session_relay_runtime.reset_relay_adapters_for_tests()
 
 
+@pytest.mark.parametrize("parked", [False, True])
 def test_a_wake_after_the_native_exits_is_allowed(
+    parked: bool,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -296,7 +300,9 @@ def test_a_wake_after_the_native_exits_is_allowed(
         _start_time_of({}),
     )
 
-    result = session_relay_runtime.run_registered_job(_wake_job(workspace=tmp_path))
+    result = session_relay_runtime.run_registered_job(
+        {**_wake_job(workspace=tmp_path), "target_parked": parked}
+    )
 
     assert result.result_code == "resumed_running"
     assert resumed == [SESSION]
@@ -307,22 +313,21 @@ def test_a_deferral_is_not_reported_as_a_failure() -> None:
     assert delivery_attempt_failed(NATIVE_TURN_RUNNING_RESULT) is False
 
 
-def test_a_parked_session_is_not_held_by_a_lingering_native(
+def test_a_parked_session_is_held_by_a_live_native(
     tmp_path: Path,
 ) -> None:
-    """Park is a self-declared turn-over, so a leftover pid is not a live turn."""
+    """A wait declaration is not evidence that the native process exited."""
     _resume_record(tmp_path)
     context = session_relay_runtime.execution_context(
         {**_wake_job(workspace=tmp_path), "target_parked": True}
     )
-    assert (
-        deferral_for_running_native(
-            context,
-            custody_state_dir=tmp_path,
-            start_time_of=_start_time_of({4001: RECORDED_START}),
-        )
-        is None
+    result = deferral_for_running_native(
+        context,
+        custody_state_dir=tmp_path,
+        start_time_of=_start_time_of({4001: RECORDED_START}),
     )
+    assert result is not None
+    assert result.result_code == NATIVE_TURN_RUNNING_RESULT
 
 
 def test_an_unparked_session_is_still_held_by_a_live_native(tmp_path: Path) -> None:

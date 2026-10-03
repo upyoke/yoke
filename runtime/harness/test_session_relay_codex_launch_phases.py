@@ -130,6 +130,39 @@ def test_a_native_that_announces_no_thread_names_the_identity_phase(
     assert native.terminated is True
 
 
+def test_active_writer_refusal_survives_worker_translation_as_busy(
+    monkeypatch, tmp_path: Path
+) -> None:
+    native = _FakeNative(b"")
+    native.returncode = 1
+    transport = CodexCliTransport(worker=True)
+
+    def spawn(request, *, resume, streams):
+        assert resume is True
+        streams.append(
+            "stderr",
+            b"thread/resume failed: thread private-id already has an active writer",
+        )
+        return native, "path"
+
+    monkeypatch.setattr(transport, "_spawn", spawn)
+    request = _request(tmp_path, job_kind="wake", target_session_id=THREAD_ID)
+    outcome = transport.wake(request)
+    assert outcome.state == "failed"
+    assert outcome.failure_code == "background_session_in_use"
+    assert outcome_from_payload(outcome_payload(outcome)) == outcome
+
+    adapter = build_codex_relay_adapter(
+        cli_transport=type("Port", (), {"wake": lambda _self, _r: outcome})(),
+        desktop_transport=None,
+        version_gate=lambda *_args: True,
+    )
+    result = adapter(type("Context", (), {**request.__dict__, "lease_id": "lease-1"})())
+    assert result.result_code == "native_turn_running"
+    assert result.evidence["result_code"] == "background_session_in_use"
+    assert result.evidence["native_launch_phase"] == "thread_identity"
+
+
 def test_an_unresolvable_binary_names_the_resolve_phase(
     monkeypatch, tmp_path: Path
 ) -> None:

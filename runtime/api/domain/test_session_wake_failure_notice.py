@@ -12,6 +12,7 @@ from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_message_receipts import acknowledge_message
 from yoke_core.domain.session_wake_failure_notice import notify_failed_wake
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
+from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
 from yoke_core.domain.steering_message_recipients import drainable_rows
 from runtime.api.domain.test_session_message_support import (
     ACK_GRACE,
@@ -26,6 +27,35 @@ from runtime.api.domain.test_session_message_support import (
 
 
 SWEEP = NOW + timedelta(seconds=120)
+
+
+def test_active_writer_busy_result_never_sends_a_steering_failure_notice() -> None:
+    conn = message_connection()
+    message_id = _parked_recipient(conn)
+    candidate = wake_eligible_recipients(conn, now=SWEEP)[0]
+    _fail(
+        conn,
+        candidate,
+        result=NATIVE_TURN_RUNNING_RESULT,
+        reason="background_session_in_use",
+    )
+    candidate["wake_attempt_count"] = project_limit = 3
+    candidate["last_tool_call_at"] = (SWEEP + timedelta(seconds=1)).isoformat()
+    assert (
+        notify_failed_wake(
+            conn,
+            candidate,
+            now=SWEEP + timedelta(seconds=2),
+            max_attempts=project_limit,
+        )
+        is None
+    )
+    assert (
+        conn.execute(
+            "SELECT count(*) FROM session_messages WHERE message_id<>?", (message_id,)
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def _parked_recipient(conn):
