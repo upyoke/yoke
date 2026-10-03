@@ -119,6 +119,17 @@ def dispatch_chunked(
         chunk_max_checks=chunk_max_checks,
         timeout_s=timeout_s,
     )
+    # A rejected request has no execution to compose into a partial report.
+    if (
+        not response.success
+        and response.error
+        and response.error.code
+        in {"invalid_check", "scope_required", "payload_invalid"}
+        and not (response.result or {}).get("completed_control_plane_batches")
+    ):
+        return emit_doctor_response(
+            response, json_mode=json_mode, report_file=report_file
+        )
     relay_failed = not response.success
 
     result = dict(response.result or {})

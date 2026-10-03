@@ -49,6 +49,7 @@ overall deadline. Failed chunks retain completed rows, the last cursor,
 and the original error and request identity in a failing partial report.
 Transport errors and handler failures both continue native runtime and
 source checks; a failed hosted batch never suppresses local relay evidence.
+Request validation refusals retain their original error without a partial report.
 Retry a named check with `yoke watch doctor -- --only <slug>` after the
 provider or control plane recovers. The `wrong-repo-issues` check filters
 same-repository rows before rendering references and caches paginated
