@@ -33,12 +33,22 @@ Each check has a 45-second budget. Python work, database cancellation,
 and the shared HTTP and subprocess helpers enforce that budget without
 leaving a check running after it reports failure. A timeout reports
 `doctor_check_budget_exhausted` and incomplete evidence; it never counts
-as a pass. Project checks must use bounded I/O helpers for blocking work.
+as a pass. PostgreSQL cancellation drains its protocol before Python
+interruption; recovery failures remain visible as incomplete results.
+Project checks must use bounded I/O helpers for blocking work.
+
+The claim-boundary audit inspects the last 24 hours and names that window
+in its verdict; its configured event-id cutoff still applies. Historical
+event-outcome drift reads at most 1,001 candidates and reports
+`doctor_ledger_scan_limit_exceeded` when more than 1,000 require inspection.
+That report fails with incomplete evidence instead of passing a sample.
 
 HTTPS chunks carry one check and spend at most 60 seconds across at most
 two attempts, including retry delays. The remote roster has a 15-minute
 overall deadline. Failed chunks retain completed rows, the last cursor,
 and the original error and request identity in a failing partial report.
+Transport errors and handler failures both continue native runtime and
+source checks; a failed hosted batch never suppresses local relay evidence.
 Retry a named check with `yoke watch doctor -- --only <slug>` after the
 provider or control plane recovers. The `wrong-repo-issues` check filters
 same-repository rows before rendering references and caches paginated

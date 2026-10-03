@@ -15,7 +15,7 @@ from runtime.api.engines.test_doctor_hc_claim_boundary_audit import (
     _p,
     _run,
     _sid,
-    env,
+    env as env,
 )
 
 
@@ -67,7 +67,10 @@ def test_path_claim_amendment_pass_for_item_owned_provenance_event(env):
         owner_item_id=913,
     )
     _add_event(
-        conn, "PathClaimAmended", registrar, 913,
+        conn,
+        "PathClaimAmended",
+        registrar,
+        913,
         {"claim_id": 52, "amendment_kind": "widen"},
     )
     rec = _run(conn)
@@ -88,10 +91,46 @@ def test_path_claim_amendment_fail_when_item_owner_mismatches(env):
         owner_item_id=999,
     )
     _add_event(
-        conn, "PathClaimAmended", registrar, 914,
+        conn,
+        "PathClaimAmended",
+        registrar,
+        914,
         {"claim_id": 53, "amendment_kind": "widen"},
     )
     rec = _run(conn)
     result = rec.results[0]
     assert result.result == "FAIL"
     assert "path_claim_mutation_without_owning_claim" in result.detail
+
+
+def test_path_claim_amendment_fail_when_caller_not_holder(env):
+    conn = env["conn"]
+    holder, other = _sid("4"), _sid("5")
+    _add_session(conn, holder)
+    _add_session(conn, other)
+    _add_claim(conn, holder, 907, claimed_at="2026-05-17T11:00:00Z")
+    _add_event(
+        conn,
+        "PathClaimAmended",
+        other,
+        907,
+        {"claim_id": 50, "amendment_kind": "widen"},
+    )
+    rec = _run(conn)
+    result = rec.results[0]
+    assert result.result == "FAIL"
+    assert "path_claim_mutation_without_owning_claim" in result.detail
+    assert "YOK-907" in result.detail
+
+
+def test_path_claim_amendment_warn_no_live_claim(env):
+    conn = env["conn"]
+    sid = _sid("6")
+    _add_session(conn, sid)
+    _add_event(
+        conn, "PathClaimAmended", sid, 908, {"claim_id": 51, "amendment_kind": "widen"}
+    )
+    rec = _run(conn)
+    result = rec.results[0]
+    assert result.result == "WARN"
+    assert "path-claim amendment recorded without" in result.detail

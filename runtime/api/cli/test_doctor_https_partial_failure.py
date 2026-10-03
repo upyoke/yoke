@@ -7,6 +7,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
+import pytest
 
 from yoke_cli.commands.adapters.doctor_https_run import dispatch_chunked
 from yoke_contracts.api.function_call import (
@@ -78,8 +79,7 @@ def test_failed_relay_local_scope_respects_applicability() -> None:
             {
                 "project": "external",
                 "only": (
-                    "HC-local-fix,HC-local-database,HC-source-check,"
-                    "HC-capability-check"
+                    "HC-local-fix,HC-local-database,HC-source-check,HC-capability-check"
                 ),
                 "fix": True,
             }
@@ -89,7 +89,8 @@ def test_failed_relay_local_scope_respects_applicability() -> None:
     assert source_tree == ["source-check"]
 
 
-def test_transport_failure_runs_local_fixes_and_reports_partial() -> None:
+@pytest.mark.parametrize("error_code", ["https_transport_failed", "handler_exception"])
+def test_failed_chunk_runs_local_fixes_and_reports_partial(error_code) -> None:
     payload = {
         "project": "yoke",
         "quick": True,
@@ -133,7 +134,7 @@ def test_transport_failure_runs_local_fixes_and_reports_partial() -> None:
             version="v1",
             request_id="failed",
             error=FunctionError(
-                code="https_transport_failed",
+                code=error_code,
                 message="HTTP 503 returned a non-envelope body",
             ),
         )
@@ -157,7 +158,7 @@ def test_transport_failure_runs_local_fixes_and_reports_partial() -> None:
         ),
         patch(
             "yoke_cli.commands.adapters.doctor_https_compose.requested_local_machine_slugs",
-            return_value=(["session-relay-orphans"], []),
+            return_value=(["session-relay-orphans"], ["source-check"]),
         ),
         patch(
             "yoke_cli.commands.adapters.doctor_https_compose.run_local_runtime_checks",
@@ -165,8 +166,19 @@ def test_transport_failure_runs_local_fixes_and_reports_partial() -> None:
         ) as local_run,
         patch(
             "yoke_cli.commands.adapters.doctor_https_compose.machine_has_checkout_for",
-            return_value=False,
+            return_value=True,
         ),
+        patch(
+            "yoke_cli.commands.adapters.doctor_https_compose.run_local_source_checks",
+            return_value=[
+                {
+                    "hc": "HC-source-check",
+                    "name": "Source",
+                    "severity": "PASS",
+                    "detail": "",
+                }
+            ],
+        ) as source_run,
         patch(
             "yoke_cli.commands.adapters.doctor_https_run.call_dispatcher",
             side_effect=_relay,
@@ -191,6 +203,7 @@ def test_transport_failure_runs_local_fixes_and_reports_partial() -> None:
         slugs=["session-relay-orphans"],
     )
     persist.assert_not_called()
+    source_run.assert_called_once()
     envelope = json.loads(stdout.getvalue())
     assert rc == 1
     assert envelope["success"] is False
@@ -198,12 +211,13 @@ def test_transport_failure_runs_local_fixes_and_reports_partial() -> None:
     result = envelope["result"]
     assert result["partial"] is True
     assert result["completed_control_plane_batches"] == 1
-    assert result["control_plane_error"]["code"] == "https_transport_failed"
-    assert result["pass_count"] == 2
+    assert result["control_plane_error"]["code"] == error_code
+    assert result["pass_count"] == 3
     assert result["fail_count"] == 1
     assert [row["hc"] for row in result["results"]] == [
         "HC-first",
         "HC-session-relay-orphans",
+        "HC-source-check",
         "HC-doctor-control-plane-batch",
     ]
 

@@ -87,7 +87,14 @@ def _run_isolated(
         with check_budget():
             _run_bounded(conn, args, rec, health_check)
     except DoctorBudgetExhausted:
-        _rollback_if_supported(conn)
+        recovery_detail = ""
+        try:
+            _rollback_if_supported(conn)
+        except Exception as exc:
+            recovery_detail = (
+                f" Transaction recovery failed: {exc}. "
+                "Recovery: restore the database connection and rerun Doctor."
+            )
         for row in rec.results[recorded_before:]:
             if row.result == "PASS":
                 row.result = "FAIL"
@@ -100,7 +107,7 @@ def _run_isolated(
             f"its {CHECK_BUDGET_S:g}s check budget; evidence is incomplete. "
             f"Recovery: retry `yoke watch doctor -- --only {health_check.slug}` "
             "after the named database or provider recovers; narrow or optimize "
-            "the check if the budget is exhausted again.",
+            "the check if the budget is exhausted again." + recovery_detail,
         )
         return
     except RemoteControlPlaneConnectionError as exc:
@@ -152,7 +159,15 @@ def _run_bounded(conn, args, rec, health_check):
         nonlocal ticks
         ticks += 1
         if ticks % 256 == 0:
-            remaining_seconds(CHECK_BUDGET_S)
+            # Unwinding psycopg leaves libpq ACTIVE: even rollback then fails.
+            # Let cancellation drain the protocol before interrupting Python.
+            ancestor = frame
+            while ancestor and not str(
+                ancestor.f_globals.get("__name__", "")
+            ).startswith("psycopg"):
+                ancestor = ancestor.f_back
+            if ancestor is None:
+                remaining_seconds(CHECK_BUDGET_S)
         if previous_trace:
             previous_trace(frame, event, arg)
         return trace

@@ -29,7 +29,7 @@ from __future__ import annotations
 from yoke_core.domain import db_backend
 import json
 import re
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 from yoke_core.domain.runtime_settings import get_int, get_str
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -41,6 +41,7 @@ _TARGET_EVENT_OUTCOME = "completed"
 _CUTOVER_CONFIG_KEY = "event_outcome_drift_cutover_at"
 _TOLERANCE_CONFIG_KEY = "event_outcome_drift_pre_cutover_warn_max"
 _DEFAULT_TOLERANCE = 10000
+_SCAN_ROW_LIMIT = 1000
 _EXIT_RE = re.compile(r"Exit code (\d+)")
 
 
@@ -107,12 +108,21 @@ def _partition_drift_rows(
     p = _p(conn)
     cursor = conn.execute(
         "SELECT event_id, created_at, envelope, exit_code FROM events "
-        f"WHERE event_name = {p} AND event_outcome = {p}",
-        (_TARGET_EVENT_NAME, _TARGET_EVENT_OUTCOME),
+        f"WHERE event_name = {p} AND event_outcome = {p} ORDER BY id DESC LIMIT {p}",
+        (_TARGET_EVENT_NAME, _TARGET_EVENT_OUTCOME, _SCAN_ROW_LIMIT + 1),
     )
+    rows = cursor.fetchall()
+    if len(rows) > _SCAN_ROW_LIMIT:
+        raise ValueError(
+            "doctor_ledger_scan_limit_exceeded: event-outcome-drift has more "
+            f"than {_SCAN_ROW_LIMIT} candidate rows; evidence is incomplete. "
+            "Recovery: optimize the historical drift audit before rerunning "
+            "`yoke watch doctor -- --only event-outcome-drift`; do not treat "
+            "a bounded sample as a clean ledger."
+        )
     post: List[Tuple[str, str]] = []
     pre_residual = 0
-    for event_id, created_at, envelope_text, exit_code in cursor.fetchall():
+    for event_id, created_at, envelope_text, exit_code in rows:
         if not _has_drift_shape(envelope_text, exit_code):
             continue
         if created_at and created_at > cutover_at:
@@ -122,9 +132,7 @@ def _partition_drift_rows(
     return post, pre_residual
 
 
-def hc_event_outcome_drift(
-    conn: Any, args: DoctorArgs, rec: RecordCollector
-) -> None:
+def hc_event_outcome_drift(conn: Any, args: DoctorArgs, rec: RecordCollector) -> None:
     cutover_at = _resolve_cutover_marker()
     if not cutover_at:
         if _has_completed_backfill_audit(conn):
@@ -152,6 +160,9 @@ def hc_event_outcome_drift(
 
     try:
         post_failures, pre_residual = _partition_drift_rows(conn, cutover_at)
+    except ValueError as exc:
+        rec.record(f"HC-{HC_ID}", HC_NAME, "FAIL", str(exc))
+        return
     except db_backend.database_error_types(conn) as exc:
         rec.record(
             f"HC-{HC_ID}",

@@ -138,3 +138,85 @@ def test_http_and_subprocess_timeouts_share_check_deadline(monkeypatch):
         assert deadline_after(30) - time.monotonic() < 0.2
         doctor_report._run(["probe"], timeout=30)
     assert 0 < observed[0] <= 0.2
+
+
+def test_postgres_budget_exhaustion_preserves_protocol_and_next_check(monkeypatch):
+    from yoke_core.domain import db_backend
+
+    monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.02)
+    rec = RecordCollector()
+    args = DoctorArgs()
+
+    def blocked(conn, args, rec):
+        conn.execute("SELECT pg_sleep(0.2)")
+
+    def following(conn, args, rec):
+        assert conn.execute("SELECT 1").fetchone()[0] == 1
+        rec.record("HC-after-budget", "After budget", "PASS", "")
+
+    with db_backend.connect() as conn:
+        execute_check_isolated(
+            conn, args, rec, HealthCheck("blocked", "Blocked", blocked)
+        )
+        execute_check_isolated(
+            conn, args, rec, HealthCheck("following", "Following", following)
+        )
+    assert [row.check_id for row in rec.results] == [
+        "HC-check-incomplete",
+        "HC-after-budget",
+    ]
+    assert [row.result for row in rec.results] == ["FAIL", "PASS"]
+
+
+def test_trace_deadline_during_active_postgres_protocol(monkeypatch):
+    from yoke_core.domain import db_backend
+
+    monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.02)
+    rec = RecordCollector()
+    with db_backend.connect() as conn:
+        native_wait = conn.wait
+
+        def delayed_wait(gen, *args, **kwargs):
+            def delay_protocol():
+                ready = yield next(gen)
+                time.sleep(0.03)
+                for _ in range(1000):
+                    pass
+                while True:
+                    try:
+                        ready = yield gen.send(ready)
+                    except StopIteration as stop:
+                        return stop.value
+
+            return native_wait(delay_protocol(), *args, **kwargs)
+
+        def query(conn, args, rec):
+            with monkeypatch.context() as patch:
+                patch.setattr(conn, "wait", delayed_wait)
+                conn.execute("SELECT pg_sleep(0.01)")
+
+        execute_check_isolated(
+            conn, DoctorArgs(), rec, HealthCheck("query", "Query", query)
+        )
+        assert conn.execute("SELECT 1").fetchone()[0] == 1
+    assert rec.results[-1].check_id == "HC-check-incomplete"
+
+
+def test_budget_recovery_failure_still_records_incomplete(monkeypatch):
+    class Connection:
+        calls = 0
+
+        def rollback(self):
+            self.calls += 1
+            if self.calls > 1:
+                raise RuntimeError("connection lost")
+
+    def exhausted(conn, args, rec):
+        raise doctor_budget.DoctorBudgetExhausted()
+
+    rec = RecordCollector()
+    execute_check_isolated(
+        Connection(), DoctorArgs(), rec, HealthCheck("lost", "Lost", exhausted)
+    )
+    assert rec.results[-1].check_id == "HC-check-incomplete"
+    assert "Transaction recovery failed: connection lost" in rec.results[-1].detail

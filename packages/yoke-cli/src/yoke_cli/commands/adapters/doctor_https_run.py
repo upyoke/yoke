@@ -27,7 +27,6 @@ from yoke_cli.commands.adapters.doctor_https_receipt import (
     persist_composed_receipt,
 )
 from yoke_cli.commands.adapters.doctor_https_errors import (
-    TRANSPORT_FAILURE_CODE,
     control_plane_failure_row,
     partial_error,
     run_budget_exhausted,
@@ -120,11 +119,7 @@ def dispatch_chunked(
         chunk_max_checks=chunk_max_checks,
         timeout_s=timeout_s,
     )
-    relay_failed = _is_transport_failure(response)
-    if not response.success and not relay_failed:
-        return emit_doctor_response(
-            response, json_mode=json_mode, report_file=report_file
-        )
+    relay_failed = not response.success
 
     result = dict(response.result or {})
     results = list(result.get("results") or [])
@@ -209,14 +204,6 @@ def dispatch_chunked(
         final,
         json_mode=json_mode,
         report_file=report_file,
-    )
-
-
-def _is_transport_failure(response: FunctionCallResponse) -> bool:
-    return bool(
-        not response.success
-        and response.error
-        and response.error.code == TRANSPORT_FAILURE_CODE
     )
 
 
