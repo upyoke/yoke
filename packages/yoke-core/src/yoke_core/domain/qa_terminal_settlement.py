@@ -136,12 +136,13 @@ def blocking_requirement_issues(
         requirement
         for requirement in requirements
         if str(requirement.get("blocking_mode") or "") == "blocking"
-        and not requirement.get("retracted_at")
     ]
     blocking = [
         row
         for row in declared
-        if not row.get("waived_at") and not item_supersession_settled(row)
+        if not row.get("waived_at")
+        and not row.get("retracted_at")
+        and not item_supersession_settled(row)
     ]
     if not declared and require_any:
         return [
@@ -177,7 +178,7 @@ def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         "SELECT latest.id FROM qa_runs latest "
         "WHERE latest.qa_requirement_id = q.id "
         "ORDER BY latest.id DESC LIMIT 1) "
-        f"WHERE q.item_id = {placeholder} AND {unretracted_requirement_sql(conn, 'q')} ORDER BY q.id",
+        f"WHERE q.item_id = {placeholder} ORDER BY q.id",
         (int(item_id),),
     )
     columns = [str(column[0]) for column in cursor.description]

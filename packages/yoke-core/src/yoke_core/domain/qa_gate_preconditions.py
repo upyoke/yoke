@@ -6,7 +6,6 @@ import os
 import sys
 from typing import Optional
 
-from yoke_core.domain.qa_obligation_settlement import unretracted_requirement_sql
 from yoke_core.domain.db_helpers import connect, query_scalar
 from yoke_core.domain.qa_gate_definitions import GateResult, GateTarget
 from yoke_core.domain.schema_common import _table_exists
@@ -100,12 +99,11 @@ def requirement_set_result(
     transition_name: str,
     qa_phase: Optional[str],
 ) -> Optional[GateResult]:
-    """Refuse a QA gate whose applicable requirement set is empty."""
+    """Require registration history; retired rows owe no evidence but stay registered."""
     phase_sql = " AND qa_phase = 'verification'" if qa_phase else ""
     count = query_scalar(
         conn,
-        f"SELECT COUNT(*) FROM qa_requirements WHERE {where}{phase_sql} "
-        f"AND {unretracted_requirement_sql(conn)}",
+        f"SELECT COUNT(*) FROM qa_requirements WHERE {where}{phase_sql}",
         params,
     )
     if count:

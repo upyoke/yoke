@@ -72,7 +72,9 @@ def test_summary_retains_retracted_history_without_unsatisfied_counts(test_db, p
     assert summary["satisfied"]
     from yoke_core.domain.item_execution_status_helpers import collect_qa
 
-    assert collect_qa(test_db, str(test_db.info.dsn), item_id)["blocking_total"] == 1
+    assert collect_qa(test_db, str(test_db.info.dsn), item_id)["blocking_total"] == (
+        1 if phase == "verification" else 0
+    )
     assert summary["blocking_unsatisfied_count"] == 0
     assert summary["browser_unsatisfied_count"] == 0
     retired = next(row for row in summary["requirements"] if row["id"] == retired_id)
@@ -257,7 +259,8 @@ def test_terminal_readers_ignore_retired_pending_runs(test_db):
     retired_id = insert_qa_requirement(test_db, item_id=item_id)["id"]
     insert_qa_run(test_db, qa_requirement_id=retired_id, verdict=None)
     _retire(test_db, retired_id)
-    assert _blocking_requirement_rows(test_db, item_id) == []
+    [history] = _blocking_requirement_rows(test_db, item_id)
+    assert history["retracted_at"] == RETRACTED_AT
     assert find_unsettled_records(test_db, item_id=item_id) == []
     assert (
         blocking_requirement_issues(
@@ -270,7 +273,7 @@ def test_terminal_readers_ignore_retired_pending_runs(test_db):
             ],
             accepted_shas=(),
             public_ref="member",
-            require_any=False,
+            require_any=True,
         )
         == []
     )
