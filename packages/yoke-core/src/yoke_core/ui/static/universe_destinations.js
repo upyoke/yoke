@@ -190,7 +190,7 @@ export const NAV = [
     group: GROUP_DIAGNOSTICS,
   },
   {
-    id: "ouroboros", label: "Ouroboros", scope: SCOPE_MULTI,
+    id: "ouroboros", label: "Ouroboros", scope: SCOPE_SINGLE,
     group: GROUP_DIAGNOSTICS,
   },
 ];

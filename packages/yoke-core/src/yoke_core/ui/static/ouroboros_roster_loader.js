@@ -1,4 +1,4 @@
-import { callFunction, scopeBuckets } from "./universe_view_support.js";
+import { callFunction } from "./universe_view_support.js";
 import { refreshScreenSort } from "./universe_app_shell_support.js";
 import { normalizeOuroborosSort } from "./ouroboros_roster_sort.js";
 
@@ -14,14 +14,14 @@ export function createOuroborosLoader({ context, scope, onChange }) {
   const publish = () => { if (active()) onChange(state()); };
   const request = async ({ append = false } = {}) => {
     const token = ++sequence;
-    const raw = scopeBuckets(scope, context.projects(), true);
-    const projects = (Array.isArray(raw) ? raw : raw == null ? [] : [raw]).filter(value => value != null).map(String);
+    // The shared shell resolves a single project, including old All URLs.
+    const project = scope == null ? null : String(scope);
     if (!append) { rows = []; cursor = null; matchingCount = null; }
     loading = true; failure = null; publish();
     let reply;
     try {
       reply = await callFunction(context.client, "ouroboros.entry.list", {
-        projects, shape: "roster", review_state: criteria.reviewState,
+        project, shape: "roster", review_state: criteria.reviewState,
         limit: OUROBOROS_PAGE_SIZE, sort: criteria.sort,
         ...(criteria.categoryPrefix ? { category_prefix: criteria.categoryPrefix } : {}),
         ...(append && cursor ? { cursor } : {}),

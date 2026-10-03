@@ -13,6 +13,22 @@ import {
   visibleText,
 } from "./universe_ui_dom_test_support.mjs";
 
+import { navEntry, scopeForEntry, createScopePicker } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_navigation.js";
+import { createProjectSelection } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_project_selection.js";
+
+test("Ouroboros restores a single focus from old All URLs and offers no All focus", () => {
+  const projects = [{ id: 1 }, { id: 2 }];
+  const selections = createProjectSelection(async () => {});
+  const entry = navEntry("ouroboros");
+  assert.equal(scopeForEntry(entry, "all", projects, selections), "1");
+  selections.setFocusFor("ouroboros", "2");
+  assert.equal(scopeForEntry(entry, "all", projects, selections), "2");
+  assert.equal(scopeForEntry(entry, "1,2", projects, selections), "2");
+  const bar = createScopePicker({ documentNode: new FakeDocument(), entry,
+    scope: "2", projects, onSelect() {} });
+  assert.deepEqual(byClass(bar, "scope-chip").map(node => node.textContent), ["1", "2"]);
+});
+
 function ouroborosContext(documentNode, call, projects) {
   return {
     client: { call },
@@ -58,7 +74,7 @@ test("the first read asks for a compact roster page and reports matching vs load
       [{ id: 9, timestamp: "now", category: "observation", agent: "t", context: "c", preview: "A useful observation" }],
       { matchingCount: 120, cursor: "c1" },
     );
-  }), root, ["1"]);
+  }), root, "1");
   await settle();
 
   assert.equal(requests.length, 1);
@@ -94,7 +110,7 @@ test("Load more appends the next page without duplicating ids", async () => {
   renderOuroborosView(ouroborosContext(documentNode, async (request) => {
     requests.push(request);
     return pages[requests.length - 1];
-  }), root, ["1"]);
+  }), root, "1");
   await settle();
   loadMoreButton(root).dispatchEvent(new Event("click"));
   await settle();
@@ -123,7 +139,7 @@ test("changing review state resets loaded rows and the cursor", async () => {
       [{ id: 9, timestamp: "all", category: "a", agent: "t", context: "c" }],
       { matchingCount: 9, cursor: "c1" },
     );
-  }), root, ["1"]);
+  }), root, "1");
   await settle();
   loadMoreButton(root).dispatchEvent(new Event("click"));
   await settle();
@@ -146,7 +162,7 @@ test("a stale response cannot overwrite newer criteria", async () => {
   const pending = [];
   renderOuroborosView(ouroborosContext(documentNode, (request) => new Promise(
     (resolve) => pending.push({ request, resolve }),
-  )), root, ["1"]);
+  )), root, "1");
   await settle();
   pending.shift().resolve(page(
     [{ id: 1, timestamp: "first", category: "a", agent: "t", context: "c" }],
@@ -196,7 +212,7 @@ test("a failed Load more keeps rendered rows and stays retryable", async () => {
       [{ id: calls, timestamp: `t${calls}`, category: "a", agent: "t", context: "c" }],
       { matchingCount: 9, cursor: "c1" },
     );
-  }), root, ["1"]);
+  }), root, "1");
   await settle();
   loadMoreButton(root).dispatchEvent(new Event("click"));
   await settle();
@@ -211,7 +227,7 @@ test("a failed Load more keeps rendered rows and stays retryable", async () => {
   assert.doesNotMatch(visibleText(root, " "), /roster unavailable/);
 });
 
-test("all-project scope asks for one globally ordered page", async () => {
+test("focused project asks for one ordered page with an explicit authorization target", async () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");
   const requests = [];
@@ -220,16 +236,17 @@ test("all-project scope asks for one globally ordered page", async () => {
     requests.push(request);
     return page([
       { id: 4, timestamp: "newer-alpha", context: "first", project: "alpha" },
-      { id: 10, timestamp: "older-beta", context: "second", project: "beta" },
+      { id: 10, timestamp: "older-alpha", context: "second", project: "alpha" },
     ], { matchingCount: 2 });
-  }, projects), root, "all");
+  }, projects), root, "1");
   await settle();
   assert.equal(requests.length, 1);
-  assert.deepEqual(requests[0].payload.projects, ["1", "2"]);
+  assert.equal(requests[0].payload.project, "1");
+  assert.equal("projects" in requests[0].payload, false);
   assert.deepEqual(requests[0].payload.sort, { column: "timestamp", direction: "desc" });
   const links = byClass(root, "row-link").filter(node => node.href?.includes("/ouroboros/"));
   assert.deepEqual(links.map(node => node.textContent), ["first", "second"]);
-  assert.deepEqual(links.map(node => node.href), ["#/ouroboros/4?project=alpha", "#/ouroboros/10?project=beta"]);
+  assert.deepEqual(links.map(node => node.href), ["#/ouroboros/4?project=alpha", "#/ouroboros/10?project=alpha"]);
   assert.match(visibleText(root, " "), /Filed at/);
   assert.ok(byClass(root, "table-stacks-narrow").length);
 });
@@ -247,7 +264,7 @@ test("changing a sort header starts a new server sequence and saves the choice",
     refreshSortFor: async () => "",
     saveSortFor: async (view, sort) => { writes.push({ view, sort }); return ""; },
   };
-  renderOuroborosView(context, root, ["1"]);
+  renderOuroborosView(context, root, "1");
   await settle();
   const header = byClass(root, "item-sort-button").find(node => node.getAttribute("data-sort-column") === "category");
   header.dispatchEvent(new Event("click"));
@@ -267,7 +284,7 @@ test("the mounted roster performs no polling", async () => {
       [{ id: 1, timestamp: "now", category: "a", agent: "t", context: "c" }],
       { matchingCount: 1 },
     );
-  }), root, ["1"]);
+  }), root, "1");
   await settle();
   const afterMount = requests.length;
   await new Promise((resolve) => setTimeout(resolve, 80));

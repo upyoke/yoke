@@ -6,7 +6,10 @@ Sessions, Inbox, and every other screen each keep their own selection across
 navigation, reload, and a second tab. Changing one screen's selection never rewrites another's. Universe-wide
 screens hide the selector because it does not filter their content.
 A screen needing one project has a separate **Focus project** control;
-changing it does not replace the remembered selection.
+changing it does not replace the remembered selection. Architecture and Ouroboros
+use this single-project pattern: their content picker offers one project at a
+time, and Ouroboros requests name that project explicitly. Old All or multiple-
+project URLs resolve to the remembered focus, or the first accessible project.
 
 Selections are actor- and universe-scoped server state, not browser storage:
 the shell fetches every remembered per-screen value in one
