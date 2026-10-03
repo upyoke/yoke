@@ -11,3 +11,12 @@ operation budget; inventory queries retain their 30-second limit. A
 still be running: inspect the reported job before retrying the sealed baseline.
 Failed archive operations retain bounded, redacted native exit/stdout/stderr in
 the receipt and exploratory-mission preparation, even without a JSON receipt.
+
+Linux and Windows/WSL2 reset probe `yoke`, `uv` and `uvx` separately on login
+and SSH shells. Only a framed absolute resolved path counts as present;
+unrelated shell startup output does not. `tool_resolution` retains each tool's
+state (`absent`, `present`, `probe-failed`), shell and resolution exit codes,
+resolved path, and bounded redacted stdout/stderr. `reset_tool_probe_failed`
+requires repairing the named shell or SSH probe before retrying; surviving
+paths refuse as `reset_absence_not_proved`. Presence summaries are unknown
+(`null`) when probes failed without observing a path.
