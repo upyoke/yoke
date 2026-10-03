@@ -107,7 +107,7 @@ export function renderOuroborosView(context, main, scope) {
           row.project || (Array.isArray(scope) ? scope[0] : scope),
           String(row.id),
         )
-      ), { stack: true, sortable: true });
+      ), { stack: true, sortable: true, className: "ouroboros-roster" });
       const more = el(documentNode, "div", "item-roster-more");
       if (state.failure) renderError(more, state.failure);
       if (state.hasMore || state.failure) {

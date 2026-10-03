@@ -171,6 +171,7 @@ export function renderTable(body, rows, columns, emptyText, rowHref, options = {
       table.classList.add("item-roster");
       tableWrap.classList.add("item-roster-wrap");
     }
+    if (options.className) table.classList.add(options.className);
   }
   tableWrap.appendChild(table);
   body.appendChild(tableWrap);

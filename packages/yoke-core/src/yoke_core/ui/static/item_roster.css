@@ -178,6 +178,15 @@
   box-sizing: border-box;
   min-height: 44px;
 }
+/* Observation text needs narrative space rather than an item ID column. */
+@container dashboard-content (min-width: 841px) {
+  .universe-app-root table.item-roster.ouroboros-roster th {
+    width: auto;
+  }
+  .universe-app-root table.item-roster.ouroboros-roster th:first-child {
+    width: 36%;
+  }
+}
 .universe-app-root .item-filter-toggle {
   gap: 10px;
 }
