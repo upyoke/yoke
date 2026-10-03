@@ -7,6 +7,8 @@ from io import StringIO
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
+import pytest
+
 from yoke_cli.commands.adapters.doctor_https_run import dispatch_chunked
 from yoke_contracts.api.function_call import (
     FunctionCallResponse,
@@ -91,14 +93,17 @@ def test_https_only_checkout_declared_slug_skips_relayed_validation() -> None:
     ]
 
 
-def test_https_only_still_relays_unknown_slug() -> None:
+@pytest.mark.parametrize(
+    "error_code", ["invalid_check", "scope_required", "payload_invalid"]
+)
+def test_https_only_still_relays_unknown_slug(error_code: str) -> None:
     relay_error = FunctionCallResponse(
         success=False,
         function="doctor.run.run",
         version="v1",
         request_id="r1",
         error=FunctionError(
-            code="invalid_check",
+            code=error_code,
             message="unknown HC slug(s): HC-not-a-real-check",
         ),
     )
@@ -147,7 +152,8 @@ def test_https_only_still_relays_unknown_slug() -> None:
 
     assert rc == 1
     assert envelope["success"] is False
-    assert envelope["error"]["code"] == "invalid_check"
+    assert envelope["error"]["code"] == error_code
+    assert not (envelope.get("result") or {}).get("partial")
 
 
 def test_https_only_composes_local_runtime_verdict() -> None:

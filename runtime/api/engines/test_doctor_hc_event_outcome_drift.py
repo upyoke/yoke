@@ -1,4 +1,4 @@
-"""Tests for ``HC-event-outcome-drift`` (YOK-1761 task 4)."""
+"""Tests for historical event-outcome drift evidence."""
 
 from __future__ import annotations
 
@@ -274,3 +274,18 @@ def test_hc_id_matches_registered_string(db_conn, isolated_config) -> None:
     _seed_event(db_conn, created_at="2026-04-01T00:00:00Z", exit_code=0)
     rec = _run(db_conn)
     assert rec.results[-1].check_id == f"HC-{HC_ID}"
+
+
+def test_oversized_ledger_reports_incomplete_instead_of_sample_pass(
+    db_conn, isolated_config, monkeypatch
+):
+    monkeypatch.setattr(
+        "yoke_core.engines.doctor_hc_event_outcome_drift._SCAN_ROW_LIMIT", 2
+    )
+    _set_cutover_marker(isolated_config, "2026-03-01T00:00:00Z")
+    for _ in range(3):
+        _seed_event(db_conn, created_at="2026-04-01T00:00:00Z")
+    rec = _run(db_conn)
+    assert rec.results[-1].result == "FAIL"
+    assert "doctor_ledger_scan_limit_exceeded" in rec.results[-1].detail
+    assert "evidence is incomplete" in rec.results[-1].detail

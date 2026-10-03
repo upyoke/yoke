@@ -15,6 +15,7 @@ absent.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any, List
 
 import yoke_core.engines.doctor_report as _base
@@ -33,6 +34,12 @@ _HC_DESC = (
     "mutation evidence in the ledger"
 )
 _LIST_PREVIEW = 10
+
+
+def _audit_since() -> str:
+    return (datetime.now(timezone.utc) - timedelta(hours=24)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
 
 
 def _render_finding(conn: Any, finding: Finding) -> str:
@@ -57,27 +64,34 @@ def _is_done_item_no_live_claim(conn: Any, finding: Finding) -> bool:
         return False
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
-        f"SELECT status FROM items WHERE id = {p}", (finding.item_id,),
+        f"SELECT status FROM items WHERE id = {p}",
+        (finding.item_id,),
     ).fetchone()
     return bool(row and str(row[0]).lower() == "done")
 
 
 def hc_claim_boundary_audit(
-    conn: Any, args: DoctorArgs, rec: RecordCollector,
+    conn: Any,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     """Run the claim-boundary scanners and record one Doctor result."""
     if not _base._table_exists(conn, "events"):
-        rec.record(_HC_NAME, _HC_DESC, "PASS",
-                   "events table missing — skipping")
+        rec.record(_HC_NAME, _HC_DESC, "PASS", "events table missing — skipping")
         return
     if not _base._table_exists(conn, "work_claims"):
-        rec.record(_HC_NAME, _HC_DESC, "PASS",
-                   "work_claims table missing — skipping")
+        rec.record(_HC_NAME, _HC_DESC, "PASS", "work_claims table missing — skipping")
         return
 
-    findings = scan_all(conn)
+    since = _audit_since()
+    findings = scan_all(conn, since=since)
     if not findings:
-        rec.record(_HC_NAME, _HC_DESC, "PASS", "")
+        rec.record(
+            _HC_NAME,
+            _HC_DESC,
+            "PASS",
+            f"No findings since {since} (24-hour audit window).",
+        )
         return
 
     fails = [f for f in findings if f.severity == "FAIL"]
@@ -91,7 +105,7 @@ def hc_claim_boundary_audit(
         summary_parts.append(f"{len(warns)} WARN")
 
     lines: List[str] = [
-        f"- {' + '.join(summary_parts)} claim-boundary finding(s). "
+        f"- {' + '.join(summary_parts)} claim-boundary finding(s) since {since} (24-hour audit window). "
         "Read-only audit — Doctor never mutates rows. Investigate via: "
         "`python3 -m yoke_core.cli.db_router events list "
         "--event-name YokeFunctionCalled`."
@@ -99,7 +113,9 @@ def hc_claim_boundary_audit(
 
     historical = [f for f in warns if _is_done_item_no_live_claim(conn, f)]
     historical_ids = {f.event_id for f in historical}
-    ordered = fails + [f for f in warns if f.event_id not in historical_ids] + historical
+    ordered = (
+        fails + [f for f in warns if f.event_id not in historical_ids] + historical
+    )
     for finding in ordered[:_LIST_PREVIEW]:
         rendered = _render_finding(conn, finding)
         if finding.event_id in historical_ids:
