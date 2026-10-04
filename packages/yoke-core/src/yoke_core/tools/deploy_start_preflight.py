@@ -18,5 +18,5 @@ def launch_watched_child(kind, raw_stream, launch, *args, **kwargs):
 
     argv = args[0] if args else []
     run_id = next((str(value) for value in argv if str(value).startswith("run-")), "")
-    with timing_scope(run_id, capture=raw_stream.name), start_step("child_start"):
+    with timing_scope(run_id, capture=raw_stream), start_step("child_start"):
         return launch(*args, **kwargs)

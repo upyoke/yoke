@@ -20,6 +20,7 @@ FRESH_BASIS = {**BASIS, "basis_digest": "after-merge"}
 def _refusal(code):
     return SimpleNamespace(
         success=False,
+        result=None,
         error=SimpleNamespace(
             code=code, message=f"{code}: refused; Recovery: re-drive"
         ),

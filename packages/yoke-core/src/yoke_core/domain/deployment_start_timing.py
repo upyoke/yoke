@@ -67,7 +67,9 @@ def _emit(step, phase, elapsed_ms=None, outcome=None):
     state["records"].append(record)
     if not state["collect"]:
         line = PREFIX + json.dumps(record, sort_keys=True)
-        if state["capture"] is not None:
+        if hasattr(state["capture"], "write"):
+            print(line, file=state["capture"], flush=True)
+        elif state["capture"] is not None:
             with Path(state["capture"]).open("a", encoding="utf-8") as stream:
                 print(line, file=stream, flush=True)
         else:

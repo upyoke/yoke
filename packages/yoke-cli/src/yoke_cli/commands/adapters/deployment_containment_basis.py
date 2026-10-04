@@ -10,8 +10,12 @@ from yoke_cli.commands._helpers import (
 from yoke_contracts.api.function_call import TargetRef
 
 
+CONTAINMENT_BASIS_USAGE = (
+    "yoke deployment-runs execution containment-basis RUN-ID [--json]"
+)
+
+
 def containment_basis(args):
-    usage = "yoke deployment-runs execution containment-basis RUN-ID [--json]"
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs execution containment-basis",
         description="Read a fresh containment basis without recomposing membership. Hold the project deploy lock; re-drive after repairing a named source refusal.",
@@ -19,7 +23,7 @@ def containment_basis(args):
     parser.add_argument("run_id")
     add_json_arg(parser)
     add_session_arg(parser)
-    parsed = parse_or_usage_error(parser, args, usage)
+    parsed = parse_or_usage_error(parser, args, CONTAINMENT_BASIS_USAGE)
     if parsed is None:
         return 2
     return dispatch_and_emit(

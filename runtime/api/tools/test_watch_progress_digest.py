@@ -222,9 +222,7 @@ class TestRunnerDigest:
             assert line.strip() in digests[1]
         assert digests[1].count(DIGEST_SEPARATOR) == len(STAGE_LINES) - 2
 
-    def test_an_urgent_line_carries_the_progress_buffered_before_it(
-        self, tmp_path
-    ):
+    def test_an_urgent_line_carries_the_progress_buffered_before_it(self, tmp_path):
         lines = [
             *STAGE_LINES[:3],
             "Error: promote stage failed (exit 1)",
@@ -245,9 +243,7 @@ class TestRunnerDigest:
         assert emitted[2] == "Error: promote stage failed (exit 1)"
         assert emitted[3].startswith("# watch_deploy digest")
 
-    def test_the_window_releases_mid_run_without_waiting_for_the_end(
-        self, tmp_path
-    ):
+    def test_the_window_releases_mid_run_without_waiting_for_the_end(self, tmp_path):
         progress = _run(
             tmp_path=tmp_path,
             lines=STAGE_LINES,
@@ -271,8 +267,19 @@ class TestRunnerDigest:
             assert line.strip() in progress
 
     def test_the_raw_capture_keeps_every_line_unchanged(self, tmp_path):
-        _run(
-            tmp_path=tmp_path, lines=STAGE_LINES, flush_seconds=DEFAULT_FLUSH_SECONDS
-        )
+        _run(tmp_path=tmp_path, lines=STAGE_LINES, flush_seconds=DEFAULT_FLUSH_SECONDS)
         raw = (tmp_path / "raw.log").read_text(encoding="utf-8")
-        assert raw.splitlines() == STAGE_LINES
+        import json
+        from yoke_core.domain.deployment_start_timing import PREFIX
+
+        lines = raw.splitlines()
+        assert [line for line in lines if not line.startswith(PREFIX)] == STAGE_LINES
+        records = [
+            json.loads(line.removeprefix(PREFIX))
+            for line in lines
+            if line.startswith(PREFIX)
+        ]
+        assert [(record["step"], record["phase"]) for record in records] == [
+            ("child_start", "start"),
+            ("child_start", "end"),
+        ]

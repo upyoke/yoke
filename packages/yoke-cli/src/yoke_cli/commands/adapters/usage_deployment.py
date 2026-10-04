@@ -50,7 +50,13 @@ from yoke_cli.commands.adapters.deployment_inspection import (
 )
 
 
+from yoke_cli.commands.adapters.deployment_containment_basis import (
+    CONTAINMENT_BASIS_USAGE,
+)
+
+
 DEPLOYMENT_USAGE = {
+    "deployment_runs.execution.containment_basis": CONTAINMENT_BASIS_USAGE,
     "deployment_flows.describe": DEPLOYMENT_FLOWS_DESCRIBE_USAGE,
     "deployment_flows.get": DEPLOYMENT_FLOWS_GET_USAGE,
     "deployment_flows.list": DEPLOYMENT_FLOWS_LIST_USAGE,
