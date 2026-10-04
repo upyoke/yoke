@@ -61,10 +61,14 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
     },
     "yoke_contracts.api.function_call": {
         "columns": [
+            ("ActorContext", "pydantic.BaseModel"),
+            ("TargetRef", "pydantic.BaseModel"),
             ("FunctionCallRequest", "pydantic.BaseModel"),
             ("FunctionCallResponse", "pydantic.BaseModel"),
         ],
         "notes": (
+            "The exported actor model is `ActorContext`, not `ActorRef` "
+            "(that guessed import does not exist). `TargetRef` names the target. "
             "`FunctionCallRequest.actor` requires `session_id`; `actor_id` "
             "is optional and resolves server-side from `harness_sessions` "
             "keyed on session_id. A supplied `actor_id` that disagrees "

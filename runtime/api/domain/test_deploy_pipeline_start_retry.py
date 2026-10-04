@@ -36,7 +36,7 @@ def test_start_refreshes_and_reattests_after_concurrent_basis_change(capsys):
 
     def dispatch(*, function_id, target, payload):
         assert target.workflow_run_id == RUN_ID
-        if function_id == "deployment_runs.execution.context":
+        if function_id == "deployment_runs.execution.containment_basis":
             return SimpleNamespace(
                 success=True, result={"candidate_containment_basis": FRESH_BASIS}
             )
@@ -77,8 +77,8 @@ def test_start_failure_keeps_bound_and_recovery(code, attempts, capsys):
         ) as update,
         mock.patch.object(
             control_plane,
-            "execution_context",
-            return_value={"candidate_containment_basis": FRESH_BASIS},
+            "containment_basis",
+            return_value=FRESH_BASIS,
         ) as refresh,
         mock.patch.object(
             containment, "attest_candidate_containment", side_effect=_attest
@@ -101,7 +101,7 @@ def test_refresh_failure_keeps_start_recovery():
         ),
         mock.patch.object(
             control_plane,
-            "execution_context",
+            "containment_basis",
             side_effect=control_plane.DeploymentControlPlaneError(
                 "connection unavailable"
             ),

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, List, Optional, Tuple
 
+from yoke_core.domain.schema_read_scope import reads_active, shared_read
+
 
 def _row_value(row: Any, key: str, index: int) -> Any:
     """Read either a sequence row or a mapping row."""
@@ -13,6 +15,12 @@ def _row_value(row: Any, key: str, index: int) -> Any:
 
 
 def _postgres_table_exists(conn: Any, table: str) -> bool:
+    return shared_read(
+        conn, ("table_exists", table), lambda: _read_table_exists(conn, table)
+    )
+
+
+def _read_table_exists(conn: Any, table: str) -> bool:
     row = conn.execute(
         """
         SELECT EXISTS (
@@ -62,6 +70,8 @@ def _postgres_column_row(conn: Any, table: str, column: str) -> Optional[Any]:
 
 
 def _postgres_column_exists(conn: Any, table: str, column: str) -> bool:
+    if reads_active():
+        return column in _postgres_get_columns(conn, table)
     return _postgres_column_row(conn, table, column) is not None
 
 
@@ -71,6 +81,12 @@ def _postgres_column_is_not_null(conn: Any, table: str, column: str) -> bool:
 
 
 def _postgres_get_columns(conn: Any, table: str) -> List[str]:
+    return list(
+        shared_read(conn, ("columns", table), lambda: _read_columns(conn, table))
+    )
+
+
+def _read_columns(conn: Any, table: str) -> List[str]:
     cur = conn.execute(
         """
         SELECT att.attname AS name
@@ -105,9 +121,7 @@ def _postgres_get_columns_with_types(conn: Any, table: str) -> List[Tuple[str, s
     ]
 
 
-def _postgres_get_column_default(
-    conn: Any, table: str, column: str
-) -> Optional[str]:
+def _postgres_get_column_default(conn: Any, table: str, column: str) -> Optional[str]:
     row = _postgres_column_row(conn, table, column)
     return None if row is None else _row_value(row, "column_default", 3)
 

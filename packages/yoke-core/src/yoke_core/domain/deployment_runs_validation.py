@@ -9,6 +9,8 @@ authority: a final-delivery release refuses a member it could not close.
 
 from __future__ import annotations
 
+from yoke_core.domain.schema_read_scope import composition_operation
+
 from typing import Any, List, Optional, Sequence, Tuple
 
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
@@ -103,12 +105,14 @@ def _not_delivery_ready(conn, rows, *, allow_completed: bool = False) -> list[st
     return refused
 
 
+@composition_operation
 def cmd_validate_composition(
     run_id: str,
     db_path: Optional[str] = None,
     *,
     allow_pending_pair_merges: bool = False,
     connection: Any = None,
+    composition_result: dict[str, Any] | None = None,
 ) -> Tuple[bool, str]:
     """Validate run composition. Returns (ok, message).
 
@@ -227,29 +231,20 @@ def cmd_validate_composition(
             )
             errors.append(f"Unsatisfied hard-block dependencies: {items_str}")
 
+        if composition_result is not None:
+            composition_result["enrolled"] = enrolled
         carried_refusal = carried_membership_refusal(conn, run_id, custody=custody)
         if carried_refusal:
             errors.append(carried_refusal)
 
-        # A release that would turn green over a final member it cannot
-        # close strands that member at its release wait, so it never starts.
+        # A final release must have authority to close every final member.
         if unclosable := unclosable_final_member_refusal(conn, run_id, custody=custody):
             errors.append(unclosable)
 
-        # An obligation no stage on this run targets is not a composition
-        # error -- a stage run legitimately carries an item whose prod
-        # acceptance belongs to the production run -- but it is never
-        # silent either, because it is exactly what will block that item's
-        # done transition once this run succeeds.
         unadmitted = unadmitted_post_deploy_notice(conn, run_id)
 
-        # Only the members this run can neither check nor close: one it can
-        # close is the ordinary case, and restating that per member would
-        # bury the membership that will receive nothing.
         inert = inert_membership_notice(conn, run_id)
 
-        # Carried items left out -- held elsewhere, back in rework, or
-        # removed -- are omissions an operator cannot reconstruct from here.
         held = skipped_candidate_notice(
             conn, run_id, custody=custody, carried_work=carried
         )
@@ -291,14 +286,10 @@ def cmd_check_batch_compatibility(
     try:
         ident = resolve_project(conn, project)
         assert ident is not None
-        # ``flow`` identifies the proposed run. Whether that run may close each
-        # final member is judged on its composition, before it executes.
         _ = flow
-        # Build placeholders for IN clause
         placeholders = ",".join("%s" for _ in item_ids)
         errors: List[str] = []
 
-        # Check 1: All items share the target project
         wrong_project = query_rows(
             conn,
             f"SELECT i.id, p.slug "
@@ -313,7 +304,6 @@ def cmd_check_batch_compatibility(
             )
             errors.append(f"Project mismatch (batch expects {ident.slug}): {items_str}")
 
-        # Check 2: Every item is delivery-ready for its pinned workflow.
         delivery_candidates = query_rows(
             conn,
             f"SELECT i.id, i.status FROM items i WHERE i.id IN ({placeholders})",
@@ -326,7 +316,6 @@ def cmd_check_batch_compatibility(
                 + ", ".join(not_passed)
             )
 
-        # Check 3: Unsatisfied hard-block deps outside batch
         blocked = unsatisfied_dependency_pairs(
             conn,
             item_ids,

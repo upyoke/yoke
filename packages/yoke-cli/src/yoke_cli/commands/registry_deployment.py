@@ -31,10 +31,16 @@ from yoke_cli.commands.adapters.deployment_stage_approval import (
 )
 
 
+from yoke_cli.commands.adapters.deployment_containment_basis import containment_basis
+
 AdapterFn = Callable[[List[str]], int]
 
 
 DEPLOYMENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
+    ("deployment-runs", "execution", "containment-basis"): (
+        "deployment_runs.execution.containment_basis",
+        containment_basis,
+    ),
     ("deployment-flows", "list"): (
         "deployment_flows.list",
         _inspection.deployment_flows_list,

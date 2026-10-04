@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.deployment_start_timing import timed_call
+
 from collections.abc import Iterable
 from typing import Any, Mapping, Optional
 
@@ -164,7 +166,9 @@ def cmd_update(
                 )
 
                 try:
-                    freeze_run_composition(conn, run_id)
+                    timed_call(
+                        "composition_freeze", freeze_run_composition, conn, run_id
+                    )
                 except ValueError as exc:
                     # A composition the freeze refuses names its own repair;
                     # it reaches the caller as that refusal, not a traceback.
@@ -177,11 +181,15 @@ def cmd_update(
                 except CandidateContainmentRefusal as exc:
                     conn.rollback()
                     return f"Error: {exc}"
-                conn.execute(
-                    "UPDATE deployment_runs SET status=%s, started_at=%s WHERE id=%s",
-                    (value, iso8601_now(), run_id),
-                )
-                conn.commit()
+
+                def stamp():
+                    conn.execute(
+                        "UPDATE deployment_runs SET status=%s, started_at=%s WHERE id=%s",
+                        (value, iso8601_now(), run_id),
+                    )
+                    conn.commit()
+
+                timed_call("executing_stamp", stamp)
                 return None
 
             if value in ("succeeded", "failed", "cancelled"):

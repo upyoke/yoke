@@ -41,26 +41,14 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.deployment_item_flow_resolution import (
-    item_completion_flow,
-    membership_closes_item,
-)
 from yoke_core.domain.deployment_run_composition_freeze import (
-    DELIVERY_INTENT_PROGRESS,
     member_ids,
     requires_release_admission,
 )
-from yoke_core.domain.deployment_run_project_sources import run_source_sha
 from yoke_core.domain.deployment_run_unheld_candidates import (
     CustodyResolution,
     held_candidate_ids,
 )
-from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.qa_item_stage_plan_gate import item_scoped_qa_stage_names
-from yoke_core.domain.workflow_delivery_binding_validation import (
-    COMPLETED_ITEM_STAGE_ID,
-)
-from yoke_core.domain.workflow_runtime import ENGINE_TERMINAL_STAGE_IDS
 
 #: Where a run with delivery custody is a final delivery rather than a preview.
 FINAL_DELIVERY_TIER = "persistent"
@@ -104,43 +92,10 @@ class MemberRunCoverage:
 
 
 def member_run_coverage(conn: Any, *, run_id: str, item_id: int) -> MemberRunCoverage:
-    """Resolve what ``run_id`` can do for ``item_id``.
+    """The one-member form of the set-based coverage reader."""
+    from yoke_core.domain.deployment_member_coverage_batch import member_run_coverages
 
-    Every fact comes from what the attach already resolved: the run's flow
-    and pinned sources, and the item's project and completion flow.
-    """
-    row = conn.execute(
-        "SELECT dr.flow AS flow, dr.project_id AS run_project_id, "
-        "df.stages AS stages FROM deployment_runs dr "
-        "LEFT JOIN deployment_flows df ON df.id = dr.flow "
-        f"WHERE dr.id = {_p(conn)}",
-        (str(run_id),),
-    ).fetchone()
-    if row is None:
-        raise LookupError(f"deployment run {run_id!r} not found")
-    item = conn.execute(
-        f"SELECT project_id FROM items WHERE id = {_p(conn)}",
-        (int(item_id),),
-    ).fetchone()
-    if item is None:
-        raise LookupError(f"item {item_id!r} not found")
-    item_project = int(_cell(item, "project_id", 0))
-    run_flow = str(_cell(row, "flow", 0) or "")
-    completion_flow = item_completion_flow(conn, int(item_id))
-    return MemberRunCoverage(
-        item_ref=render_item_ref(conn, int(item_id)),
-        run_id=str(run_id),
-        run_flow=run_flow,
-        completion_flow=completion_flow,
-        item_scoped_stages=item_scoped_qa_stage_names(_cell(row, "stages", 2)),
-        closes=membership_closes_item(
-            run_flow=run_flow,
-            completion_flow=completion_flow,
-            run_project_id=int(_cell(row, "run_project_id", 1)),
-            item_project_id=item_project,
-            source_sha=run_source_sha(conn, str(run_id), item_project),
-        ),
-    )
+    return member_run_coverages(conn, run_id=run_id, item_ids=(item_id,))[int(item_id)]
 
 
 def _check_clause(coverage: MemberRunCoverage) -> str:
@@ -223,12 +178,13 @@ def inert_membership_notice(
         if item_ids is None
         else tuple(int(v) for v in item_ids)
     )
+    from yoke_core.domain.deployment_member_coverage_batch import member_run_coverages
+
     notices = [
         describe_member_run_coverage(coverage)
-        for coverage in (
-            member_run_coverage(conn, run_id=str(run_id), item_id=int(item_id))
-            for item_id in subjects
-        )
+        for coverage in member_run_coverages(
+            conn, run_id=run_id, item_ids=subjects
+        ).values()
         if coverage.inert
     ]
     return " ".join(notices)
@@ -252,23 +208,6 @@ def _final_delivery_run(conn: Any, run_id: str) -> bool:
     return row is not None and str(row[0] or "") == FINAL_DELIVERY_TIER
 
 
-def _final_open_member(conn: Any, run_id: str, item_id: int) -> bool:
-    """A member this run is its final delivery for, still short of terminal."""
-    marker = _p(conn)
-    row = conn.execute(
-        "SELECT COALESCE(dri.delivery_intent, ''), i.status "
-        "FROM deployment_run_items dri JOIN items i ON i.id = dri.item_id "
-        f"WHERE dri.run_id = {marker} AND dri.item_id = {marker}",
-        (str(run_id), int(item_id)),
-    ).fetchone()
-    if row is None:
-        return False
-    intent, status = str(row[0] or ""), str(row[1] or "")
-    return intent != DELIVERY_INTENT_PROGRESS and status not in (
-        ENGINE_TERMINAL_STAGE_IDS | {COMPLETED_ITEM_STAGE_ID}
-    )
-
-
 def unclosable_final_member_refusal(
     conn: Any, run_id: str, *, custody: CustodyResolution | None = None
 ) -> str | None:
@@ -290,14 +229,22 @@ def unclosable_final_member_refusal(
     if not _final_delivery_run(conn, run_id):
         return None
     held = held_candidate_ids(conn, run_id, custody=custody)
+    from yoke_core.domain.deployment_member_coverage_batch import (
+        final_open_member_ids,
+        member_run_coverages,
+    )
+
+    subjects = tuple(
+        item_id
+        for item_id in final_open_member_ids(conn, run_id)
+        if item_id not in held
+    )
     unclosable = [
         coverage
-        for coverage in (
-            member_run_coverage(conn, run_id=str(run_id), item_id=int(item_id))
-            for item_id in member_ids(conn, run_id)
-            if int(item_id) not in held
-            and _final_open_member(conn, run_id, int(item_id))
-        )
+        for item_id, coverage in member_run_coverages(
+            conn, run_id=run_id, item_ids=member_ids(conn, run_id)
+        ).items()
+        if item_id in subjects
         # No completion flow at all is completion_flow_refusal's to name.
         if coverage.completion_flow and not coverage.closes
     ]

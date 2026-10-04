@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from yoke_core.domain import deploy_pipeline_control_plane
+from yoke_core.domain.deployment_start_timing import timed_call
 
 _MAX_START_RETRIES = 3
 _STALE_ATTESTATION = "candidate_containment_attestation_stale"
@@ -52,9 +53,16 @@ def start_run(
                     found = checkout_for_project_slug(project)
                     return str(found) if found is not None else ""
 
-                attestation = attest_candidate_containment(basis, _checkout)
+                attestation = timed_call(
+                    "containment_attestation",
+                    attest_candidate_containment,
+                    basis,
+                    _checkout,
+                )
             try:
-                deploy_pipeline_control_plane.update_run_field(
+                timed_call(
+                    "executing_transition",
+                    deploy_pipeline_control_plane.update_run_field,
                     run_id,
                     "status",
                     "executing",
@@ -68,8 +76,10 @@ def start_run(
                     f"Run {run_id}: {_STALE_ATTESTATION}; retry "
                     f"{attempt + 1}/{_MAX_START_RETRIES} with a fresh containment basis"
                 )
-                basis = deploy_pipeline_control_plane.execution_context(run_id).get(
-                    "candidate_containment_basis"
+                basis = timed_call(
+                    "containment_basis_refresh",
+                    deploy_pipeline_control_plane.containment_basis,
+                    run_id,
                 )
     except Exception as exc:
         detail = str(exc).strip() or type(exc).__name__

@@ -51,39 +51,52 @@ def recorded_source_sha(run: Mapping[str, Any], project_id: int) -> str:
     return bound_project_shas(payload).get(int(project_id), "")
 
 
+_RUN_SOURCE_FACTS_KEY = "deployment_run_source"
+
+
+def invalidate_run_source_facts(conn: Any, run_id: str) -> None:
+    from yoke_core.domain.schema_read_scope import discard_read
+
+    discard_read(conn, (_RUN_SOURCE_FACTS_KEY, str(run_id)))
+
+
+def run_source_facts(conn: Any, run_id: str) -> dict[str, Any] | None:
+    """Share recorded lineage/bindings and immutable flow inside one operation."""
+    from yoke_core.domain.schema_read_scope import shared_read
+
+    def read():
+        row = conn.execute(
+            "SELECT dr.project_id,COALESCE(dr.release_lineage,'') AS release_lineage,"
+            f"{_stored_column(conn, 'dr')} AS {BOUND_SOURCES_FIELD},dr.flow,df.stages "
+            "FROM deployment_runs dr LEFT JOIN deployment_flows df ON df.id=dr.flow "
+            f"WHERE dr.id={_p(conn)}",
+            (run_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            key: _cell(row, key, index)
+            for index, key in enumerate(
+                ("project_id", "release_lineage", BOUND_SOURCES_FIELD, "flow", "stages")
+            )
+        }
+
+    return shared_read(conn, (_RUN_SOURCE_FACTS_KEY, str(run_id)), read)
+
+
 def run_source_sha(conn: Any, run_id: str, project_id: int) -> str:
-    """The commit ``run_id`` pinned for ``project_id``, read from the run."""
-    marker = _p(conn)
-    row = conn.execute(
-        f"SELECT project_id,COALESCE(release_lineage,'') AS release_lineage,"
-        f"{_stored_column(conn)} AS {BOUND_SOURCES_FIELD} "
-        f"FROM deployment_runs WHERE id={marker}",
-        (run_id,),
-    ).fetchone()
-    if row is None:
-        return ""
-    return recorded_source_sha(
-        {
-            "project_id": _cell(row, "project_id", 0),
-            "release_lineage": _cell(row, "release_lineage", 1),
-            BOUND_SOURCES_FIELD: _cell(row, BOUND_SOURCES_FIELD, 2),
-        },
-        int(project_id),
-    )
+    """The commit this run pinned for a project, with operation-local sharing."""
+    run = run_source_facts(conn, run_id)
+    return recorded_source_sha(run, int(project_id)) if run is not None else ""
 
 
 def carried_project_ids(conn: Any, run_id: str) -> tuple[int, ...]:
     """Every project this run ships code for: its own, then each bound one."""
-    marker = _p(conn)
-    row = conn.execute(
-        f"SELECT project_id,{_stored_column(conn)} AS "
-        f"{BOUND_SOURCES_FIELD} FROM deployment_runs WHERE id={marker}",
-        (run_id,),
-    ).fetchone()
-    if row is None:
+    run = run_source_facts(conn, run_id)
+    if run is None:
         raise LookupError(f"deployment run {run_id!r} not found")
-    own = int(_cell(row, "project_id", 0))
-    payload = parse_bound_sources(_cell(row, BOUND_SOURCES_FIELD, 1))
+    own = int(run["project_id"])
+    payload = parse_bound_sources(run[BOUND_SOURCES_FIELD])
     bound = [pid for pid in bound_project_shas(payload) if pid != own]
     return (own, *sorted(bound))
 
