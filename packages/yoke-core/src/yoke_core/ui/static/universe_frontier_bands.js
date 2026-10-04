@@ -97,7 +97,7 @@ const UNAVAILABLE_OWNER = {
     label: "Owner unavailable",
     text: "Held by a work claim whose session is no longer answering. "
       + "Release the claim or terminate the session to free this item.",
-    tone: "dependency",
+    tone: "owner-unavailable",
   },
 };
 
