@@ -24,12 +24,15 @@ def _assert_refs(conn):
 
 
 def test_refs_match_python_across_projects_and_prefix_updates(test_db):
+    sequence = 158
     test_db.execute(
         "INSERT INTO projects (id, slug, name, public_item_prefix, created_at, updated_at) "
         "VALUES (77, 'other', 'Other', 'OTH', '2026-10-04', '2026-10-04')"
     )
     for project_id, item_id in [(1, 7800), (77, 7801)]:
-        insert_item(test_db, id=item_id, project_id=project_id, project_sequence=158)
+        insert_item(
+            test_db, id=item_id, project_id=project_id, project_sequence=sequence
+        )
     _assert_refs(test_db)
     test_db.execute("UPDATE projects SET public_item_prefix = 'NEW' WHERE id = 77")
     _assert_refs(test_db)
@@ -37,7 +40,7 @@ def test_refs_match_python_across_projects_and_prefix_updates(test_db):
         test_db.execute(
             "SELECT public_ref FROM item_refs WHERE item_id = 7801"
         ).fetchone()[0]
-        == "NEW-158"
+        == f"NEW-{sequence}"
     )
 
 
@@ -56,26 +59,27 @@ def test_additive_core_schema_creates_missing_view_and_is_idempotent(test_db):
 
 
 def test_sqlite_validation_projection_is_read_only_and_current():
+    sequence = 158
     conn = sqlite3.connect(":memory:")
     try:
         conn.executescript(
             "CREATE TABLE projects (id INTEGER, public_item_prefix TEXT);"
             "CREATE TABLE items (id INTEGER, project_id INTEGER, project_sequence INTEGER);"
             "INSERT INTO projects VALUES (1, 'ONE'), (2, 'TWO');"
-            "INSERT INTO items VALUES (10, 1, 158), (20, 2, 158);"
+            f"INSERT INTO items VALUES (10, 1, {sequence}), (20, 2, {sequence});"
         )
         ensure_item_refs_view(conn)
         ensure_item_refs_view(conn)
         assert conn.execute("SELECT * FROM item_refs ORDER BY item_id").fetchall() == [
-            (10, 1, "ONE-158"),
-            (20, 2, "TWO-158"),
+            (10, 1, f"ONE-{sequence}"),
+            (20, 2, f"TWO-{sequence}"),
         ]
         conn.execute("UPDATE projects SET public_item_prefix = 'NEW' WHERE id = 2")
         assert (
             conn.execute(
                 "SELECT public_ref FROM item_refs WHERE item_id = 20"
             ).fetchone()[0]
-            == "NEW-158"
+            == f"NEW-{sequence}"
         )
         with pytest.raises(sqlite3.OperationalError, match="view"):
             conn.execute("UPDATE item_refs SET public_ref = 'changed'")

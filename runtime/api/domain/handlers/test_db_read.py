@@ -175,8 +175,8 @@ def test_deployment_runs_missing_item_id_teaches_junction_table() -> None:
         ("SELECT 158 AS project_sequence", True),
         ("SELECT 158 AS project_sequence WHERE false", True),
         ("SELECT 158 AS project_sequence, 'OTH' AS public_item_prefix", False),
-        ("SELECT 158 AS project_sequence, 'OTH-158' AS public_ref", False),
-        ("SELECT 'OTH-158' AS public_ref", False),
+        ("SELECT 158 AS project_sequence, 'sample' AS public_ref", False),
+        ("SELECT 'sample' AS public_ref", False),
     ],
 )
 def test_unqualified_sequence_warns_without_refusing(sql, warned):
