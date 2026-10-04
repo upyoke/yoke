@@ -32,7 +32,9 @@ PROJECT_TABLES: dict[str, dict] = {
             ("created_at", "TEXT"),
         ],
         "notes": (
-            "Project registry. Nullable retired_at hides a project from default lists "
+            "Project registry. Creation time is created_at; there is NO updated_at "
+            "column. Wrong guess: inserting or selecting projects.updated_at. "
+            "Nullable retired_at hides a project from default lists "
             "without deleting history. yoke projects retire --project P --reason TEXT; "
             "yoke projects unretire --project P; yoke projects list --include-retired. "
             "Direct identity reads retain retired projects. "

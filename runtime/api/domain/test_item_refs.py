@@ -26,8 +26,8 @@ def _assert_refs(conn):
 def test_refs_match_python_across_projects_and_prefix_updates(test_db):
     sequence = 158
     test_db.execute(
-        "INSERT INTO projects (id, slug, name, public_item_prefix, created_at, updated_at) "
-        "VALUES (77, 'other', 'Other', 'OTH', '2026-10-04', '2026-10-04')"
+        "INSERT INTO projects (id, slug, name, public_item_prefix, created_at) "
+        "VALUES (77, 'other', 'Other', 'OTH', '2026-10-04')"
     )
     for project_id, item_id in [(1, 7800), (77, 7801)]:
         insert_item(
