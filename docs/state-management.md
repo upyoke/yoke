@@ -124,7 +124,11 @@ Item-bound runs operate on one or more items through
 `deployment_run_items`; environment-level runs may intentionally operate on
 zero items. A succeeded run's `carried_work` JSON records the trunk items and
 bare commits shipped between release lineages without adding run members or
-touching item lifecycle. Run execution may move the item through the definition's delivery
+touching item lifecycle. Shipping and Runs reads derive missing carried work
+without persisting it, cache it per authority/run for 30 seconds, and prefer
+the recorded value as soon as it exists. The Carries list and count include
+bound projects; a truly empty run remains an environment run.
+Run execution may move the item through the definition's delivery
 stages, while `needs-capability` and `awaiting-approval` remain run halt states.
 Stage authority for the run itself lives on `deployment_runs.current_stage`.
 See `.yoke/docs/reference/db-reference.md` for the `deployment_runs`,

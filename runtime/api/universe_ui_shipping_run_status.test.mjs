@@ -135,3 +135,26 @@ test("terminal success stays succeeded and has no finalization warning", () => {
   assert.equal(byClass(card, "run-finalization-note").length, 0);
   assert.equal(byClass(card, "run-decision-record").length, 1);
 });
+
+
+for (const status of ["executing", "succeeded"]) {
+  test(`${status} stage run shows carried items from every pinned project`, () => {
+    const card = render(run({ status, target_environment: "stage", carried_work: {
+      items: [{ ref: "YOK-1", item_id: 10, project_id: 1, project_sequence: 1,
+        title: "Engine change" }],
+      bound_projects: [{ project_id: 2, items: [{ ref: "PLAT-2", item_id: 20,
+        project_sequence: 2, title: "Consumer change" }] }],
+    } }));
+    assert.match(byClass(card, "shipping-run-card-meta")[0].textContent, /2 items/);
+    assert.match(card.textContent, /YOK-1/);
+    assert.match(card.textContent, /PLAT-2/);
+    assert.ok(!card.textContent.includes("environment run"));
+    assert.ok(!card.textContent.includes("expected"));
+  });
+}
+
+test("a stage run carrying nothing remains an environment run", () => {
+  const card = render(run({ target_environment: "stage",
+    carried_work: { items: [], bound_projects: [] } }));
+  assert.match(byClass(card, "shipping-run-card-meta")[0].textContent, /environment run/);
+});

@@ -193,3 +193,35 @@ def test_overview_members_keep_their_own_qa_even_in_compact_presentation():
         ("run-batch", 51, "item-qa"),
         ("run-batch", 52, "item-qa"),
     ]
+
+
+def test_executing_memberless_run_exposes_current_carried_work_in_both_views():
+    from yoke_core.domain.deployment_run_list_read import present_deployment_runs
+
+    conn = _RunRows()
+    base = [
+        {
+            "id": "run-stage",
+            "status": "executing",
+            "target_environment": "stage",
+            "carried_work": None,
+            "stages": "[]",
+        }
+    ]
+    carried = {"items": [{"ref": "ITEM-1", "item_id": 10, "project_sequence": 1}]}
+    with patch(
+        "yoke_core.domain.deployment_run_carried_work_read.derive_carried_work_safely",
+        return_value=carried,
+    ):
+        for compact in (False, True):
+            rows = present_deployment_runs(
+                conn,
+                base,
+                actor_id=None,
+                visible_project_ids=None,
+                include_carried_work=True,
+                compact=compact,
+            )
+            assert rows[0]["carried_work"]["items"] == carried["items"]
+            assert rows[0]["member_items"] == []
+    assert base[0]["carried_work"] is None
