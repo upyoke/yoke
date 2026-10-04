@@ -7,7 +7,13 @@ import { el } from "./universe_view_support.js";
 export function carriedRunItems(row) {
   const removed = new Set((row.removed_member_items || []).map((item) => String(item.id)));
   const items = (row.member_items || []).length
-    ? row.member_items : row.carried_work?.items || [];
+    ? row.member_items : [
+      ...(row.carried_work?.items || []),
+      ...(row.carried_work?.bound_projects || []).flatMap((project) =>
+        (project.items || []).map((item) => ({
+          ...item, project_id: item.project_id ?? project.project_id,
+        }))),
+    ];
   return items.filter((item) => !removed.has(String(item.id ?? item.item_id)));
 }
 

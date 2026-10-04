@@ -11,7 +11,10 @@ from yoke_core.domain.deployment_run_member_presentation import (
     removed_member_items,
 )
 from yoke_core.domain.deployment_run_bound_sources import parse_bound_sources
-from yoke_core.domain.deployment_run_carried_work import parse_carried_work
+from yoke_core.domain.deployment_run_carried_work_read import (
+    compact_carried_work,
+    read_carried_work,
+)
 from yoke_core.domain.deployment_run_contained_items import (
     parse_candidate_containment,
 )
@@ -133,33 +136,8 @@ def present_deployment_runs(
         run_id = str(row["id"])
         row.pop("membership_removals", None)
         if include_carried_work:
-            carried = parse_carried_work(row.get("carried_work"))
-            if compact and carried:
-                # Preserve the derivation: absent proof is not an empty release.
-                derivation = carried.get("derivation") or {}
-                carried = {
-                    "derivation": {
-                        key: derivation[key]
-                        for key in ("status", "contents_known", "reason", "source")
-                        if key in derivation
-                    },
-                    "items": [
-                        {
-                            key: item[key]
-                            for key in (
-                                "ref",
-                                "title",
-                                "project_id",
-                                "project_sequence",
-                                "item_id",
-                            )
-                            if item.get(key) not in (None, "")
-                        }
-                        for item in carried.get("items") or []
-                        if isinstance(item, dict)
-                    ],
-                }
-            row["carried_work"] = carried
+            carried = read_carried_work(conn, row)
+            row["carried_work"] = compact_carried_work(carried) if compact else carried
         if "bound_sources" in row:
             # Pinned sources are the same record delivery is judged on.
             row["bound_sources"] = parse_bound_sources(row.get("bound_sources"))
