@@ -55,22 +55,22 @@ function createProjectNote(documentNode, capabilities) {
 export function renderProjectsView(context, main, includeRetired = false) {
   const documentNode = context.document;
   const panel = section(documentNode, "Projects");
-  main.replaceChildren(panel, createProjectNote(
-    documentNode,
-    context.capabilities,
-  ));
   const label = el(documentNode, "label", "project-inventory-filter");
   const checkbox = el(documentNode, "input");
   checkbox.type = "checkbox";
   checkbox.checked = includeRetired;
   checkbox.addEventListener("change", () => renderProjectsView(context, main, checkbox.checked));
-  label.append(checkbox, documentNode.createTextNode(" Include retired projects"));
-  main.prepend(label);
+  label.appendChild(checkbox);
+  label.appendChild(documentNode.createTextNode(" Include retired projects"));
+  main.replaceChildren(label, panel, createProjectNote(
+    documentNode,
+    context.capabilities,
+  ));
   loadSection(
     context,
     panel,
     "projects.list",
-    { include_summary: true, include_retired: includeRetired },
+    { include_summary: true, ...(includeRetired ? { include_retired: true } : {}) },
     (body, callResult) => {
       const rows = (callResult.envelope.result || {}).rows || [];
       panel.setCount(rows.length);

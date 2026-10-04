@@ -12,10 +12,15 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_contracts.api.function_call import TargetRef
 
+USAGE_BY_FUNCTION_ID = {
+    "projects.retire": "yoke projects retire --project P --reason TEXT [--json]",
+    "projects.unretire": "yoke projects unretire --project P [--json]",
+}
+
 
 def _run(args, *, retired):
     verb = "retire" if retired else "unretire"
-    usage = f"yoke projects {verb} --project P" + (" --reason TEXT" if retired else "")
+    usage = USAGE_BY_FUNCTION_ID[f"projects.{verb}"]
     parser = argparse.ArgumentParser(
         prog=f"yoke projects {verb}",
         description="Hide or restore a project without deleting history. Retirement "

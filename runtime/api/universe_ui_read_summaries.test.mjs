@@ -59,7 +59,10 @@ test("Projects is an aggregate roster and each project opens its settings", asyn
       }
       if (request.function === "projects.list") {
         const rows = request.payload?.include_summary
-          ? roster
+          ? [...roster, ...(request.payload?.include_retired ? [{
+            ...roster[1], id: 3, slug: "fixture", name: "Fixture",
+            retired_at: "2026-01-01T00:00:00Z",
+          }] : [])]
           : roster.map(({ id, slug, name }) => ({ id, slug, name }));
         return {
           status: 200,
@@ -120,6 +123,13 @@ test("Projects is an aggregate roster and each project opens its settings", asyn
     "yoke projects create --slug <slug> --name <name> " +
       "--public-item-prefix <PREFIX>",
   );
+
+  const filter = byClass(root, "project-inventory-filter")[0].children[0];
+  filter.checked = true;
+  filter.dispatchEvent(new Event("change"));
+  await settle();
+  assert.ok(requests.some((request) => request.payload?.include_retired === true));
+  assert.ok(root.textContent.includes("Fixture"));
 
   documentNode.defaultView.location.hash = "#/projects/1";
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));

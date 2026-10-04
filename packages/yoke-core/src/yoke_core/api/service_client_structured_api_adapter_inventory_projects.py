@@ -10,6 +10,16 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 
 PROJECT_ADAPTERS = [
     AdapterEntry(
+        function_id="projects.retire",
+        cli_invocation="yoke projects retire --project P --reason TEXT",
+        notes="hides an obligation-free project while preserving history",
+    ),
+    AdapterEntry(
+        function_id="projects.unretire",
+        cli_invocation="yoke projects unretire --project P",
+        notes="restores a retired project to active inventories",
+    ),
+    AdapterEntry(
         function_id="projects.github_binding.bind",
         cli_invocation=(
             "yoke projects github-binding bind --project NAME "
@@ -59,12 +69,9 @@ PROJECT_ADAPTERS = [
     AdapterEntry(
         function_id="projects.site.create",
         cli_invocation=(
-            "yoke projects site create --project P --site NAME "
-            "[--settings-json JSON]"
+            "yoke projects site create --project P --site NAME [--settings-json JSON]"
         ),
-        notes=(
-            "idempotent site registration by the project's readable name"
-        ),
+        notes=("idempotent site registration by the project's readable name"),
     ),
     AdapterEntry(
         function_id="projects.environment.create",

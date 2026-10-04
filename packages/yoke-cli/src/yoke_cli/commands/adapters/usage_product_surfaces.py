@@ -14,6 +14,7 @@ from yoke_cli.commands.adapters import (
     item_worktree_create,
     item_worktrees,
     projects_capabilities_read,
+    projects_retirement,
     qa_catalog,
     qa_plan_edit,
     strategy_surfaces,
@@ -26,6 +27,7 @@ from yoke_cli.commands.adapters import (
 
 
 USAGE_BY_FUNCTION_ID = {
+    **projects_retirement.USAGE_BY_FUNCTION_ID,
     "items.progress_log.get": "yoke items progress-log get PREFIX-N [--json]",
     "item_landings.list": item_landings.ITEM_LANDINGS_LIST_USAGE,
     "workflows.current.set": workflows_read.WORKFLOWS_CURRENT_SET_USAGE,
