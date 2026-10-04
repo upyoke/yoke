@@ -31,6 +31,10 @@ OPS_ADAPTERS: List[AdapterEntry] = [
     ),
     # Deployment flow/run reads + the run-row update writer.
     _read_entry(
+        function_id="deployment_runs.execution.containment_basis",
+        cli_invocation="yoke deployment-runs execution containment-basis RUN-ID [--json]",
+    ),
+    _read_entry(
         function_id="deployment_flows.list",
         cli_invocation="yoke deployment-flows list [--project P]",
     ),
