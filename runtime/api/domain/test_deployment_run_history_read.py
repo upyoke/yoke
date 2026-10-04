@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 
 from yoke_core.domain.deployment_run_history_read import (
@@ -267,7 +268,47 @@ def test_history_query_presents_flow_stages_and_derived_carried_items(
     assert row["carried_work"] == {
         "derivation": {"status": "derived", "reason": "complete"},
         "items": [{"ref": "YOK-3080", "item_id": 3207}],
+        "bound_projects": [],
     }
+
+
+def test_history_query_keeps_bound_project_carried_item_routes(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_run_list_read._member_items",
+        lambda *_args, **_kwargs: {},
+    )
+    conn = _database()
+    item = {"ref": "CON-9", "item_id": 30, "project_sequence": 9}
+    conn.execute(
+        "UPDATE deployment_runs SET carried_work = ? WHERE id = ?",
+        (
+            json.dumps(
+                {
+                    "items": [],
+                    "bound_projects": [
+                        {
+                            "project_id": 2,
+                            "project": "consumer",
+                            "items": [item],
+                            "commits": ["a" * 40],
+                            "derivation": {"status": "derived"},
+                        }
+                    ],
+                }
+            ),
+            "run-20260908-051",
+        ),
+    )
+    row = _read(conn, search="run-20260908-051")["rows"][0]
+    assert row["carried_work"]["bound_projects"] == [
+        {
+            "project_id": 2,
+            "project": "consumer",
+            "items": [item],
+            "derivation": {"status": "derived"},
+            "bound_projects": [],
+        }
+    ]
 
 
 def test_cursor_refuses_malformed_values_with_reload_recovery():
