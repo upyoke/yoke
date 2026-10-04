@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from runtime.api.fixtures import pg_testdb
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -31,7 +33,9 @@ def test_sql_guard_refuses_writes_ddl_and_multiple_statements() -> None:
     assert _refusal_code("SELECT * INTO scratch FROM items") == "sql_ddl_refused"
     assert _refusal_code("EXPLAIN UPDATE items SET title = 'x'") == "sql_write_refused"
     assert (
-        _refusal_code("WITH moved AS (DELETE FROM items RETURNING *) SELECT * FROM moved")
+        _refusal_code(
+            "WITH moved AS (DELETE FROM items RETURNING *) SELECT * FROM moved"
+        )
         == "sql_write_refused"
     )
     assert _refusal_code("CREATE TABLE scratch (id int)") == "sql_ddl_refused"
@@ -41,8 +45,7 @@ def test_sql_guard_allows_label_as_a_column_but_refuses_security_label() -> None
     assert _refusal_code("SELECT a.name FROM actors a LIMIT 1") is None
     assert _refusal_code("SELECT name FROM actors") is None
     assert (
-        _refusal_code("SECURITY LABEL ON TABLE actors IS 'text'")
-        == "sql_ddl_refused"
+        _refusal_code("SECURITY LABEL ON TABLE actors IS 'text'") == "sql_ddl_refused"
     )
 
 
@@ -55,7 +58,8 @@ def test_runner_returns_columns_rows_and_truncation() -> None:
 
         result = db_read.run_db_read(
             DbReadRunRequest(
-                sql="SELECT id, title FROM sample ORDER BY id", row_cap=2,
+                sql="SELECT id, title FROM sample ORDER BY id",
+                row_cap=2,
             )
         )
 
@@ -66,16 +70,18 @@ def test_runner_returns_columns_rows_and_truncation() -> None:
 
 
 def test_runner_redacts_sensitive_settings_even_when_column_is_aliased() -> None:
-    settings = json_helper.dumps_compact({
-        "database": {"name": "example_prod"},
-        "pulumi": {
-            "encrypted_key": "opaque-ciphertext",
-            "secrets_provider": "provider-reference",
-        },
-        "github_app": {
-            "private_key_secret_arn": "secret-resource-reference",
-        },
-    })
+    settings = json_helper.dumps_compact(
+        {
+            "database": {"name": "example_prod"},
+            "pulumi": {
+                "encrypted_key": "opaque-ciphertext",
+                "secrets_provider": "provider-reference",
+            },
+            "github_app": {
+                "private_key_secret_arn": "secret-resource-reference",
+            },
+        }
+    )
     with pg_testdb.test_database() as conn:
         conn.execute(
             "CREATE TABLE diagnostic_settings "
@@ -88,10 +94,14 @@ def test_runner_redacts_sensitive_settings_even_when_column_is_aliased() -> None
         )
         conn.commit()
 
-        result = db_read.run_db_read(DbReadRunRequest(sql=(
-            "SELECT settings AS config, encrypted_key, branch "
-            "FROM diagnostic_settings"
-        )))
+        result = db_read.run_db_read(
+            DbReadRunRequest(
+                sql=(
+                    "SELECT settings AS config, encrypted_key, branch "
+                    "FROM diagnostic_settings"
+                )
+            )
+        )
 
     redacted = json_helper.loads_text(result.rows[0][0])
     assert redacted["database"]["name"] == "example_prod"
@@ -157,3 +167,30 @@ def test_deployment_runs_missing_item_id_teaches_junction_table() -> None:
     assert "deployment_runs.id" in outcome.error.message
     assert "There is no `item_id` column on this table" in outcome.error.message
     assert "deployment_run_items" in outcome.error.message
+
+
+@pytest.mark.parametrize(
+    "sql, warned",
+    [
+        ("SELECT 158 AS project_sequence", True),
+        ("SELECT 158 AS project_sequence WHERE false", True),
+        ("SELECT 158 AS project_sequence, 'OTH' AS public_item_prefix", False),
+        ("SELECT 158 AS project_sequence, 'OTH-158' AS public_ref", False),
+        ("SELECT 'OTH-158' AS public_ref", False),
+    ],
+)
+def test_unqualified_sequence_warns_without_refusing(sql, warned):
+    with pg_testdb.test_database():
+        outcome = db_read.handle_db_read(
+            FunctionCallRequest(
+                function=db_read.DB_READ_FUNCTION_ID,
+                actor=ActorContext(actor_id="1", session_id=""),
+                target=TargetRef(kind="global"),
+                payload={"sql": sql},
+            )
+        )
+    assert outcome.primary_success
+    assert bool(outcome.warnings) is warned
+    if warned:
+        assert outcome.warnings[0].code == "project_sequence_unqualified"
+        assert "JOIN item_refs" in outcome.warnings[0].detail

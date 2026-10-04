@@ -41,7 +41,11 @@ def sort_expression(conn: Any, column: str, direction: str) -> str:
             if db_backend.connection_is_postgres(conn)
             else f"printf('%0{width}d', i.project_sequence)"
         )
-        return f"LOWER(p.public_item_prefix) || '-' || {sequence}"
+        return (
+            "LOWER(SUBSTR(r.public_ref, 1, "
+            "LENGTH(r.public_ref) - LENGTH(CAST(i.project_sequence AS TEXT))))"
+            f" || {sequence}"
+        )
     if column == "project":
         return "LOWER(p.slug)"
     if column in ("title", "workflow", "status"):

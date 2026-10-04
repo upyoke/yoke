@@ -96,8 +96,8 @@ def test_timestamp_ties_remain_ordered_across_filtered_pages(test_db, direction)
         if cursor is None:
             break
     expected = test_db.execute(
-        "SELECT p.public_item_prefix || '-' || i.project_sequence AS public_ref "
-        "FROM items i JOIN projects p ON p.id = i.project_id "
+        "SELECT r.public_ref "
+        "FROM items i JOIN item_refs r ON r.item_id = i.id "
         "WHERE i.title = %s ORDER BY i.id " + direction.upper(),
         ("timestamp-tie",),
     ).fetchall()

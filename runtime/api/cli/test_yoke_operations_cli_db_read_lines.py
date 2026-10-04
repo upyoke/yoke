@@ -12,6 +12,7 @@ from runtime.api.cli.test_yoke_operations_cli_dispatch import (
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
+    FunctionWarning,
 )
 
 
@@ -65,3 +66,28 @@ def test_db_read_json_envelope_rejects_lines_format() -> None:
     assert rc == 2
     assert "cannot be combined" in err
     assert not _CAPTURED_REQUESTS
+
+
+@pytest.mark.parametrize("output_flags", [[], ["--format", "lines"], ["--json"]])
+def test_db_read_warning_is_visible_in_every_output_format(output_flags):
+    def stub(request):
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version=request.version,
+            result={"columns": ["project_sequence"], "rows": [[158]]},
+            warnings=[
+                FunctionWarning(
+                    code="project_sequence_unqualified",
+                    step="db.read.run",
+                    detail="JOIN item_refs",
+                )
+            ],
+        )
+
+    rc, out, err = _run_capture(
+        stub, "db", "read", "SELECT project_sequence FROM items", *output_flags
+    )
+    assert rc == 0
+    assert "project_sequence_unqualified" in out + err
+    assert "JOIN item_refs" in out + err

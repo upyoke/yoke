@@ -25,7 +25,9 @@ _DB_READ_HELP = (
     "function dispatcher. Default output is the handler result payload "
     "as JSON; ``--format lines`` emits one pipe-delimited row per line "
     "for shell consumption. ``--json`` emits the full typed "
-    "FunctionCallResponse envelope.\n\n" + DB_GROUP_TEACHING
+    "FunctionCallResponse envelope. Bare project_sequence results warn: "
+    "join item_refs on item_id and select public_ref to name the project.\n\n"
+    + DB_GROUP_TEACHING
 )
 
 
@@ -34,6 +36,8 @@ def _write_lines(response: Any, stdout: TextIO, stderr: TextIO) -> None:
         message = response.error.message if response.error else "db read failed"
         print(message, file=stderr)
         return
+    for warning in response.warnings:
+        print(f"warning: {warning.code}: {warning.detail}", file=stderr)
     result = response.result or {}
     columns = [str(column) for column in result.get("columns", [])]
     for row in result.get("rows", []):

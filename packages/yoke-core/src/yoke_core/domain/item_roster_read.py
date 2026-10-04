@@ -61,9 +61,7 @@ def _search_clause(conn: Any, search: str) -> tuple[str, list[Any]]:
     """
     p = _p(conn)
     pattern = f"%{search.strip().lower()}%"
-    ref_expression = (
-        "LOWER(p.public_item_prefix || '-' || CAST(i.project_sequence AS TEXT))"
-    )
+    ref_expression = "LOWER(r.public_ref)"
     arms = [f"{ref_expression} LIKE {p}", f"LOWER(i.title) LIKE {p}"]
     params: list[Any] = [pattern, pattern]
     if _table_exists(conn, "actors"):
@@ -145,7 +143,7 @@ def _filter_choices(
     rows = _dict_rows(
         conn.execute(
             "SELECT DISTINCT i.workflow_id, i.status, i.workflow_version_id "
-            f"FROM items i JOIN projects p ON p.id = i.project_id{where}",
+            f"FROM items i JOIN projects p ON p.id = i.project_id JOIN item_refs r ON r.item_id = i.id{where}",
             tuple(params),
         )
     )
@@ -234,7 +232,7 @@ def read_item_roster(
             status=None,
         )
         filters = _filter_choices(conn, scope_where, scope_params)
-    source = f"FROM items i JOIN projects p ON p.id = i.project_id{where}"
+    source = f"FROM items i JOIN projects p ON p.id = i.project_id JOIN item_refs r ON r.item_id = i.id{where}"
     match_count = int(
         conn.execute(
             f"SELECT COUNT(*) {source}",
@@ -261,7 +259,7 @@ def read_item_roster(
         conn.execute(
             f"SELECT {', '.join(_ROSTER_COLUMNS)}, "
             f"{expression} AS roster_sort_value "
-            f"FROM items i JOIN projects p ON p.id = i.project_id{page_where} "
+            f"FROM items i JOIN projects p ON p.id = i.project_id JOIN item_refs r ON r.item_id = i.id{page_where} "
             f"ORDER BY {expression} {order}, i.id {order} LIMIT {p}",
             (*page_params, page_size + 1),
         )
