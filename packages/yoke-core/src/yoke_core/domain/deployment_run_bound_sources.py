@@ -76,9 +76,7 @@ def declared_bindings(stages: Iterable[Mapping[str, Any]]) -> dict[str, dict[str
                 "branch": str(binding.get("branch") or ""),
             }
             if not entry["project"] or not entry["branch"]:
-                raise ValueError(
-                    f"input binding {key!r} is missing project/branch"
-                )
+                raise ValueError(f"input binding {key!r} is missing project/branch")
             existing = declared.get(key)
             if existing is not None and existing != entry:
                 raise ValueError(
@@ -133,7 +131,9 @@ def bound_project_shas(payload: Mapping[str, Any]) -> dict[int, str]:
     return shas
 
 
-def _resolve_branch_head(conn: Any, *, project: str, project_id: int, branch: str) -> str:
+def _resolve_branch_head(
+    conn: Any, *, project: str, project_id: int, branch: str
+) -> str:
     """The exact commit ``branch`` names now, from whichever host can say.
 
     A machine holding the project's checkout asks its remote directly. A
@@ -216,11 +216,14 @@ def record_bound_sources(conn: Any, run_id: str) -> dict[str, Any]:
     """
     from yoke_core.domain.project_identity import resolve_project_id
 
+    from yoke_core.domain.deployment_run_project_sources import (
+        invalidate_run_source_facts,
+    )
+
+    invalidate_run_source_facts(conn, run_id)
     recorded = bound_sources_recorded(conn)
     marker = _p(conn)
-    stored_column = (
-        f"COALESCE(dr.{BOUND_SOURCES_FIELD},'')" if recorded else "''"
-    )
+    stored_column = f"COALESCE(dr.{BOUND_SOURCES_FIELD},'')" if recorded else "''"
     row = conn.execute(
         f"SELECT {stored_column} AS {BOUND_SOURCES_FIELD},"
         f"df.stages FROM deployment_runs dr "

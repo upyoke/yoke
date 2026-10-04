@@ -5,6 +5,12 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
+from yoke_core.domain.deployment_start_timing import (
+    timed_call,
+    timed_handler,
+    timing_facts,
+)
+from yoke_core.domain.schema_read_scope import composition_operation
 from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
@@ -29,6 +35,7 @@ class DeploymentExecutionContextResponse(BaseModel):
     # machine would prove nothing about the environment.
     target_identity: Dict[str, Any] = {}
     candidate_containment_basis: Dict[str, Any] = {}
+    start_timings: List[Dict[str, Any]] = []
 
 
 class DeploymentExecutionUpdateRequest(BaseModel):
@@ -42,6 +49,7 @@ class DeploymentExecutionUpdateResponse(BaseModel):
     field: str
     value: str
     updated: bool
+    start_timings: List[Dict[str, Any]] = []
 
 
 def _require_execution_lock(
@@ -100,52 +108,6 @@ def _record_bound_sources(
         return recorded
 
 
-def _enroll_carried_items(run_id_value: str) -> List[str] | HandlerOutcome:
-    """Complete membership from the candidate before the driver reads it.
-
-    A start reads its members once and then drives the whole pipeline from
-    that list, so enrollment has to happen before the read rather than at the
-    freeze it will reach later — otherwise the run would execute, stamp, and
-    seed QA for a membership it never saw. The deploy lock this call already
-    holds keeps other deployment writers out; enrollment itself takes the
-    run and item-binding row locks, and answers with nothing for a run that
-    is no longer composable. A later context read consumes the recorded
-    composition rather than deriving it again.
-    """
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.deployment_run_carried_membership import (
-        enroll_carried_members,
-    )
-    from yoke_core.domain.deployment_run_carried_work import (
-        parse_carried_work,
-        require_bound_project_coverage,
-    )
-    from yoke_core.domain.deployment_runs_crud_query import cmd_get
-    from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
-
-    raw = cmd_get(run_id_value)
-    if raw is None:
-        return error("not_found", f"deployment run {run_id_value!r} not found")
-    record = pipe_to_dict(raw, RUN_FIELDS)
-    if carried := parse_carried_work(record.get("carried_work")):
-        try:
-            require_bound_project_coverage(
-                run_id_value, carried, record.get("bound_sources")
-            )
-        except ValueError as exc:
-            return error("carried_membership_unresolved", str(exc))
-        return []
-
-    with connect() as conn:
-        try:
-            enrolled = list(enroll_carried_members(conn, run_id_value))
-        except (LookupError, ValueError) as exc:
-            conn.rollback()
-            return error("carried_membership_unresolved", str(exc))
-        conn.commit()
-        return enrolled
-
-
 def _member_rows(run_id_value: str) -> List[Dict[str, Any]]:
     from yoke_core.domain.db_helpers import connect, query_rows
     from yoke_core.domain.item_worktrees import primary_item_worktree
@@ -181,6 +143,8 @@ def _member_rows(run_id_value: str) -> List[Dict[str, Any]]:
         return members
 
 
+@timed_handler
+@composition_operation
 def handle_deployment_execution_context(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
@@ -189,15 +153,20 @@ def handle_deployment_execution_context(
         return resolved_run_id
     if refusal := _require_execution_lock(request, resolved_run_id):
         return refusal
-    bound_sources = _record_bound_sources(resolved_run_id)
+    bound_sources = timed_call(
+        "context_bound_sources", _record_bound_sources, resolved_run_id
+    )
     if isinstance(bound_sources, HandlerOutcome):
         return bound_sources
-    enrolled_carried_items = _enroll_carried_items(resolved_run_id)
-    if isinstance(enrolled_carried_items, HandlerOutcome):
-        return enrolled_carried_items
+    composition_result = {}
     from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
 
-    valid, composition_message = cmd_validate_composition(resolved_run_id)
+    valid, composition_message = timed_call(
+        "context_composition",
+        cmd_validate_composition,
+        resolved_run_id,
+        composition_result=composition_result,
+    )
     if not valid:
         return error("composition_invalid", composition_message)
     from yoke_core.domain.deployment_run_carried_work import parse_carried_work
@@ -212,19 +181,29 @@ def handle_deployment_execution_context(
     from yoke_core.domain.flow import cmd_stages
     from yoke_core.domain.project_identity import resolve_project_id
 
-    raw = cmd_get(resolved_run_id)
+    raw = timed_call("context_run_read", cmd_get, resolved_run_id)
     if raw is None:
         return error("not_found", f"deployment run {resolved_run_id!r} not found")
     run = pipe_to_dict(raw, RUN_FIELDS)
     run["carried_work"] = parse_carried_work(run.get("carried_work"))
+    timing_facts(source_sha=str(run.get("release_lineage") or ""))
     # The resolution above is authoritative for this execution, converged
     # column or not; the row read would project an empty string before it.
     run["bound_sources"] = bound_sources
     try:
         with connect() as conn:
-            stages = json.loads(cmd_stages(conn, str(run["flow"])))
-            containment_basis = candidate_containment_basis(conn, resolved_run_id)
-            target_identity = run_target_identity(
+            stages = json.loads(
+                timed_call("context_stages", cmd_stages, conn, str(run["flow"]))
+            )
+            containment_basis = timed_call(
+                "context_containment_basis",
+                candidate_containment_basis,
+                conn,
+                resolved_run_id,
+            )
+            target_identity = timed_call(
+                "context_target_identity",
+                run_target_identity,
                 conn,
                 project_id=resolve_project_id(conn, str(run["project"])),
                 stages=stages,
@@ -237,19 +216,23 @@ def handle_deployment_execution_context(
         json.JSONDecodeError,
     ) as exc:
         return error("execution_context_invalid", str(exc))
+    members = timed_call("context_members", _member_rows, resolved_run_id)
+    timing_facts(member_count=len(members))
     return HandlerOutcome(
         result_payload={
             "run": run,
-            "members": _member_rows(resolved_run_id),
+            "members": members,
             "stages": stages,
             "target_identity": target_identity,
             "candidate_containment_basis": containment_basis,
-            "enrolled_carried_items": enrolled_carried_items,
+            "enrolled_carried_items": list(composition_result.get("enrolled", ())),
         },
         primary_success=True,
     )
 
 
+@timed_handler
+@composition_operation
 def handle_deployment_execution_update(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:

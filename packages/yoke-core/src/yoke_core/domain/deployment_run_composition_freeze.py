@@ -17,6 +17,8 @@ to preserve.
 
 from __future__ import annotations
 
+from yoke_core.domain.schema_read_scope import composition_operation
+
 import json
 from typing import Any
 
@@ -220,6 +222,7 @@ def _require_schema(conn: Any) -> None:
         )
 
 
+@composition_operation
 def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
     """Freeze member intent/requirements and candidate evidence once."""
     if not requires_release_admission(conn, run_id):
@@ -256,23 +259,24 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
         project_id=int(_cell(row, "project_id", 3)),
         stages=stages,
     )
-    # Bound source commits before carried work: the comparison that decides
-    # what this release carried asks one commit per project, and a project
-    # whose commit is not recorded yet would answer for nobody.
+    # Attribution must see the recorded source commits.
     record_bound_sources(conn, run_id)
     carried_work = record_carried_work(conn, run_id)
-    # Freeze verifies membership; it never completes it. The driver read its
-    # members before reaching here and seeds QA and stamps release against
-    # that list, so a member appearing at this point would execute unseeded
-    # and unstamped. Enrollment therefore belongs to the start, and drift
-    # discovered here stops the run by name instead of widening it silently.
-    if refusal := carried_membership_refusal(conn, run_id, carried_work=carried_work):
+    from yoke_core.domain.deployment_run_unheld_candidates import (
+        resolve_candidate_custody,
+    )
+
+    # Drift refuses: the driver already seeded its fixed member list.
+    custody = resolve_candidate_custody(conn, run_id)
+    if refusal := carried_membership_refusal(
+        conn, run_id, carried_work=carried_work, custody=custody
+    ):
         raise ValueError(refusal)
     from yoke_core.domain.deployment_member_run_coverage import (
         unclosable_final_member_refusal,
     )
 
-    if refusal := unclosable_final_member_refusal(conn, run_id):
+    if refusal := unclosable_final_member_refusal(conn, run_id, custody=custody):
         raise ValueError(refusal)
     from yoke_core.domain.deployment_qa_admission_materialization import (
         ADMITTED_REQUIREMENT_CASE_PREFIX,
@@ -308,19 +312,12 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
             f"WHERE run_id={marker} AND item_id={marker}",
             (run_id, item_id),
         ).fetchone()
-        # Admission already validated an explicit intent.  Preserve that
-        # established choice even when the attached item has since completed;
-        # freeze is not a second admission against mutable item status.
+        # Preserve admission intent even if the item completed since admission.
         intent = normalize_delivery_intent(_cell(member, "delivery_intent", 0))
         intent = intent or _default_delivery_intent(conn, item_id)
         selection = _cell(member, "requirement_selection", 1)
         if not str(selection or "").strip():
-            # No stored list means admission derived one and deliberately
-            # did not keep it, because an obligation can be minted between
-            # that admission and this freeze. Deriving again is what stops
-            # the window losing one. A stored list is either an operator's
-            # choice or a previous freeze's concrete answer, and neither is
-            # widened underneath its owner.
+            # New obligations may arrive after admission; stored selections stay frozen.
             selection = requirement_selection(
                 requirement_ids=admissible_post_deploy_requirement_ids(
                     conn, run_id=run_id, item_id=item_id

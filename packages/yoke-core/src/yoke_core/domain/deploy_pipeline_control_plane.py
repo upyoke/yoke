@@ -6,6 +6,7 @@ import os
 import sys
 from typing import Any, Dict, List, Optional
 
+from yoke_core.domain.deployment_start_timing import emit_records
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.control_plane_function_degradation import REGISTRY_SKEW_CODES
@@ -34,18 +35,27 @@ def _call(function_id: str, run_id: str, payload: Dict[str, Any]) -> Dict[str, A
         target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
         payload=payload,
     )
+    emit_records((response.result or {}).get("start_timings"))
     if not response.success:
         message = response.error.message if response.error else "request failed"
         raise DeploymentControlPlaneError(
             f"{function_id} failed: {message}",
             code=response.error.code if response.error else "",
         )
-    return dict(response.result or {})
+    result = dict(response.result or {})
+    return result
 
 
 def execution_context(run_id: str) -> Dict[str, Any]:
     """Return the locked run, member, and immutable stage projection."""
     return _call("deployment_runs.execution.context", run_id, {})
+
+
+def containment_basis(run_id: str) -> Dict[str, Any]:
+    """Refresh containment only; never recompose or reseed the run."""
+    return _call("deployment_runs.execution.containment_basis", run_id, {})[
+        "candidate_containment_basis"
+    ]
 
 
 def run_pin(run_id: str) -> Dict[str, str]:
@@ -262,7 +272,8 @@ def attach_driver(
         },
     )
     if response.success:
-        return dict(response.result or {})
+        result = dict(response.result or {})
+    return result
     code = response.error.code if response.error else ""
     if code in REGISTRY_SKEW_CODES:
         return {}

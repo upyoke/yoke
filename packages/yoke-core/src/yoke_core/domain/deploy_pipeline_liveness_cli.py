@@ -4,6 +4,13 @@ from __future__ import annotations
 
 import os
 import sys
+
+from yoke_core.domain.deployment_start_timing import (
+    timing_scope,
+    timing_facts,
+    begin_reexec,
+    finish_reexec,
+)
 from typing import List, Optional
 
 from yoke_core.domain import deploy_pipeline
@@ -49,7 +56,8 @@ def _reexec_into_pinned_source(argv: List[str]) -> Optional[int]:
     )
 
     try:
-        pinned = child_environment(argv[0])
+        with timing_scope(argv[0]):
+            pinned = child_environment(argv[0])
     except DeployPinnedSourceError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -58,7 +66,14 @@ def _reexec_into_pinned_source(argv: List[str]) -> Optional[int]:
     print(frozen_driver_notice(pinned))
     env = dict(pinned)
     env[PINNED_REEXEC_ENV] = "1"
-    os.execve(sys.executable, [sys.executable, "-m", _ENGINE, *argv], env)
+    with timing_scope(argv[0]):
+        timing_facts(source_sha=env.get(PINNED_RELEASE_ENV, ""))
+        begin_reexec(env)
+        try:
+            os.execve(sys.executable, [sys.executable, "-m", _ENGINE, *argv], env)
+        except OSError:
+            finish_reexec(argv[0], outcome="failed", environment=env)
+            raise
     return None
 
 
@@ -74,6 +89,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     """Execute the deployment pipeline inside a bounded liveness scope."""
     argv = list(sys.argv[1:] if argv is None else argv)
     run_id = argv[0] if argv and str(argv[0]).startswith("run-") else ""
+    finish_reexec(run_id)
     held = False
     try:
         if run_id:

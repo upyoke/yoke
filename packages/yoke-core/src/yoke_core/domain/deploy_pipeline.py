@@ -4,6 +4,12 @@ from __future__ import annotations
 
 import json
 import sys
+
+from yoke_core.domain.deployment_start_timing import (
+    timed_call,
+    timed_pipeline,
+    timing_facts,
+)
 from typing import List, Optional
 
 from yoke_core.domain import deploy_pipeline_control_plane as control_plane
@@ -55,6 +61,7 @@ def _finalize(*args, sd):
     return finalize_after_stages(*args, sd=sd, **_QA_EXITS)
 
 
+@timed_pipeline
 def run_pipeline(
     primary_arg: str,
     *,
@@ -78,12 +85,17 @@ def run_pipeline(
         return EXIT_USAGE
     run_id = primary_arg
     try:
-        context = control_plane.execution_context(run_id)
+        context = timed_call(
+            "execution_context", control_plane.execution_context, run_id
+        )
     except control_plane.DeploymentControlPlaneError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_USAGE
     run = context.get("run") or {}
     members = context.get("members") or []
+    timing_facts(
+        source_sha=str(run.get("release_lineage") or ""), member_count=len(members)
+    )
     project = str(run.get("project") or "")
     flow_id = str(run.get("flow") or "")
     release_lineage = str(run.get("release_lineage") or "")
@@ -155,7 +167,9 @@ def run_pipeline(
         project_repo_path,
     )
 
-    ok, first_item, branch = _resolve_and_verify_branch(
+    ok, first_item, branch = timed_call(
+        "branch_verification",
+        _resolve_and_verify_branch,
         member_items,
         project_repo_path,
         target_branch=gate_branch,
@@ -167,7 +181,7 @@ def run_pipeline(
         return EXIT_USAGE
 
     try:
-        control_plane.seed_qa(run_id)
+        timed_call("qa_seed", control_plane.seed_qa, run_id)
     except control_plane.DeploymentControlPlaneError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_USAGE
@@ -194,9 +208,7 @@ def run_pipeline(
         if resume_exit is not None:
             return resume_exit
 
-    found_start = not start_stage  # True if no resume point
-    # Same-run --from-stage of a failed/cancelled run must re-enter executing
-    # before stage_receipt_allocate; skipped completed stages are not replayed.
+    found_start = not start_stage
     run_started = run_status not in {"created", "failed", "cancelled"}
 
     for stage in stages:
@@ -217,9 +229,7 @@ def run_pipeline(
         print(f"--- Stage: {s_name} (step_runner: {stage['step_runner']}) ---")
 
         if not run_started:
-            containment_basis = control_plane.execution_context(run_id).get(
-                "candidate_containment_basis"
-            )
+            containment_basis = context.get("candidate_containment_basis")
             run_updates.start_run(run_id, containment_basis, project_repo_path)
             _emit_run_event(
                 "DeploymentRunExecuting",
@@ -234,10 +244,8 @@ def run_pipeline(
                     transition_member_to_release(int(sri_item), run_id)
             run_started = True
 
-        # Update deploy_stage
         _set_deploy_stage(s_name, run_id, member_items, sd=sd)
 
-        # Emit stage started
         _emit_run_event(
             "DeploymentRunStageStarted",
             "started",
@@ -279,11 +287,8 @@ def run_pipeline(
         )
 
         if exec_rc == -2:
-            # Awaiting human approval
             return EXIT_AWAITING_APPROVAL
         if exec_rc == -3:
-            # Step runner pre-emitted the stage completion event (e.g.
-            # ephemeral-verify preview URL, github-actions reconcile-from-truth).
             print(f"  Stage '{s_name}' completed successfully")
             control_plane.record_qa_pass(run_id, s_name, qa_result)
             continue
@@ -302,7 +307,6 @@ def run_pipeline(
             print(exec_diag, file=sys.stderr)
             return EXIT_STAGE_FAILED
 
-        # Handle result
         if exec_rc == 0:
             _emit_run_event(
                 "DeploymentRunStageCompleted",
@@ -327,12 +331,10 @@ def run_pipeline(
                 emit_event=_emit_run_event,
             )
 
-    # Guard: start_stage never matched
     if not found_start:
         stage_checks.report_missing_start_stage(flow_id, start_stage, stages)
         return EXIT_USAGE
 
-    # --- Pipeline complete ---
     _set_deploy_stage("complete", run_id, member_items, sd=sd)
 
     return _finalize(*finish, sd=sd)

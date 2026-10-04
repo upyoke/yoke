@@ -23,6 +23,10 @@ progress until the child exits.
 
 from __future__ import annotations
 
+from yoke_core.tools.deploy_start_preflight import (
+    launch_watched_child as _launch_watched_child,
+)
+
 import subprocess
 import sys
 import time
@@ -110,6 +114,7 @@ def run_watcher(
     flush_seconds: float = DEFAULT_FLUSH_SECONDS,
     digest_label: str | None = None,
     outcome_only: bool = False,
+    append_raw_capture: bool = False,
 ) -> int:
     """Run *argv* under the shared capture and user-facing output contract.
 
@@ -163,11 +168,12 @@ def run_watcher(
     )
     deadline = clock() + timeout_seconds if timeout_seconds is not None else None
 
-    raw_f = raw_capture.open("w", encoding="utf-8", buffering=1)
+    raw_f = raw_capture.open(
+        "a" if append_raw_capture else "w", encoding="utf-8", buffering=1
+    )
     # Appended, not truncated: ``bind_capture_paths`` has already stamped
     # this process's ownership marker as the file's first line, and a
-    # follower may already be reading past it. Truncating here would both
-    # drop the marker and strand that reader beyond a shortened file.
+    # Truncating would strand followers and discard the ownership marker.
     progress_f = progress_capture.open("a", encoding="utf-8", buffering=1)
 
     def emit_immediate(line: str) -> None:
@@ -199,7 +205,10 @@ def run_watcher(
             # A watched run is the one most likely to be interrupted, and its
             # children (xdist workers) hold the databases. Own the whole group
             # so an interruption can reap every descendant, not just pytest.
-            proc = process_group_reaping.popen_in_process_group(
+            proc = _launch_watched_child(
+                kind,
+                raw_f,
+                process_group_reaping.popen_in_process_group,
                 list(argv),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,

@@ -14,7 +14,6 @@ from yoke_core.domain import (
 SHA = "b" * 40
 RECOVERY = "Refresh origin, then re-drive the run."
 BASIS = {"schema": 1, "primary_project": "yoke", "projects": []}
-FRESH_BASIS = {**BASIS, "basis_digest": "refreshed-after-preparation"}
 
 
 def _drive(capsys, monkeypatch, carried_work):
@@ -63,7 +62,7 @@ def _drive(capsys, monkeypatch, carried_work):
         mock.patch.object(
             deploy_pipeline.control_plane,
             "execution_context",
-            side_effect=[context, {"candidate_containment_basis": FRESH_BASIS}],
+            return_value=context,
         ) as execution_context,
         mock.patch.object(deploy_pipeline_run_updates, "start_run") as start_run,
         mock.patch.object(deploy_pipeline_run_updates, "update_run_field"),
@@ -103,6 +102,7 @@ def _drive(capsys, monkeypatch, carried_work):
             image_tag="abc",
             sd="/tmp/sd",
         )
+    assert execution_context.call_count == 1
     return rc, capsys.readouterr().out, start_run.call_args
 
 
@@ -119,7 +119,7 @@ def test_pipeline_prints_attestation_warning_cost_and_recovery(
     }
     rc, out, start_call = _drive(capsys, monkeypatch, carried)
     assert rc == deploy_pipeline.EXIT_SUCCESS
-    assert start_call == mock.call("run-attest-001", FRESH_BASIS, "/repo")
+    assert start_call == mock.call("run-attest-001", BASIS, "/repo")
     assert "carried-work attestation: checkout_not_refreshed" in out
     assert SHA in out
     assert "ancestry residual" in out

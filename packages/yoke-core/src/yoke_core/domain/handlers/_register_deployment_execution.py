@@ -154,6 +154,11 @@ def handle_driver_for_capture(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def register(registry) -> None:
+    from yoke_core.domain.handlers.deployment_containment_basis import (
+        register as register_basis,
+    )
+
+    register_basis(registry)
     registry.register(
         "deployment_runs.execution.context",
         execution.handle_deployment_execution_context,
@@ -275,10 +280,6 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.deployment_qa_stage_relay",
         target_kinds=["workflow_run"],
-        # Deriving on the serving build, not the driver: a release driver
-        # runs the candidate revision while the control plane it reads
-        # still runs the deployed one, so this evaluates on whichever
-        # process actually serves the database.
         side_effects=["qa_requirements_insert"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["deploy_lock_required"],

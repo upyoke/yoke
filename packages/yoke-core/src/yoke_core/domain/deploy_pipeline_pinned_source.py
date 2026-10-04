@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import os
 import sys
+
+from yoke_core.domain.deployment_start_timing import timed_call, timing_facts
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -161,9 +163,10 @@ def prepare_self_deploy_driver(run_id: str) -> PinnedDriverSource | None:
     """Freeze driver source for a local self-deploy; None on the relayed path."""
     if _https_transport():
         return None
-    context = control_plane.run_pin(run_id)
+    context = timed_call("pin_read", control_plane.run_pin, run_id)
     lineage = str(context.get("release_lineage") or "").strip()
     project = str(context.get("project") or "")
+    timing_facts(source_sha=lineage)
     if not lineage:
         raise DeployPinnedSourceError(
             f"deployment run {run_id} has no release_lineage to pin the "
@@ -181,8 +184,12 @@ def prepare_self_deploy_driver(run_id: str) -> PinnedDriverSource | None:
     # Before taking a slot, give back the ones finished runs are still holding.
     # A deploy is the one moment this checkout is certain to be asked for a
     # worktree, which makes it the right place to notice the leftovers.
-    retire_finished_driver_worktrees(checkout, run_id)
-    root = ensure_pinned_worktree(str(checkout), run_id, lineage)
+    timed_call(
+        "worktree_retirement", retire_finished_driver_worktrees, checkout, run_id
+    )
+    root = timed_call(
+        "worktree_ensure", ensure_pinned_worktree, str(checkout), run_id, lineage
+    )
     return PinnedDriverSource(root=root, lineage=_ensure_commit(str(checkout), lineage))
 
 
