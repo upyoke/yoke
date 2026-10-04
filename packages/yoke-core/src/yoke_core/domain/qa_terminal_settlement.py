@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Sequence
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.deployment_qa_source_obligation import source_obligation_consumed
 from yoke_core.domain.qa_merging_identity import (
     accepted_merging_shas,
     recorded_head_sha,
@@ -87,6 +88,15 @@ def _issue_for_requirement(
             review["recovery"],
         )
     recovery = _recovery_instruction(requirement)
+    if "post_deploy_consumed" in requirement:
+        if requirement["post_deploy_consumed"]:
+            return None
+        return BlockingRequirementIssue(
+            requirement_id,
+            "post-deploy-unaccepted",
+            "the admitted source copies are not accepted on the completion run",
+            recovery,
+        )
     run_id = requirement.get("run_id")
     if run_id is None:
         return BlockingRequirementIssue(
@@ -172,7 +182,7 @@ def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
     cursor = conn.execute(
         "SELECT q.id, q.blocking_mode, q.waived_at, q.requirement_source, q.deployment_run_id, q.superseded_by_requirement_id, "
         f"{requirement_retracted_at_select(conn, 'q')}, "
-        "q.method_id, q.method_config, r.id AS run_id, "
+        "q.qa_phase, q.method_id, q.method_config, r.id AS run_id, "
         "r.verdict, r.verdict_reason, r.execution_status, r.case_outcome, r.completed_at, "
         "r.raw_result FROM qa_requirements q LEFT JOIN qa_runs r ON r.id = ("
         "SELECT latest.id FROM qa_runs latest "
@@ -187,6 +197,10 @@ def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         for row in cursor.fetchall()
     ]
     for row in rows:
+        if row["qa_phase"] == "post_deploy" and not row["deployment_run_id"]:
+            row["post_deploy_consumed"] = source_obligation_consumed(
+                conn, item_id=item_id, source_requirement_id=int(row["id"])
+            )
         row["recorded_head_sha"] = recorded_head_sha(row.pop("raw_result", None))
         waiting = requirement_awaits_human_review(conn, int(row["id"]))
         row["human_review"] = waiting.as_dict() if waiting else None

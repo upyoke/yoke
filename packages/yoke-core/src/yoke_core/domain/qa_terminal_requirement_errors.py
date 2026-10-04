@@ -38,6 +38,13 @@ def _recovery_instruction(requirement: dict[str, Any]) -> str:
     case_command = f"yoke qa case run --requirement-id {requirement_id}"
     method_id = str(requirement.get("method_id") or "")
     source = str(requirement.get("requirement_source") or "")
+    if requirement.get("qa_phase") == "post_deploy":
+        return (
+            "Finish the admitted post-deploy QA through `yoke watch qa-plan -- "
+            "--deployment-run-id RUN --stage STAGE --member ITEM --project P`; "
+            "the selected completion run must accept this source's copies "
+            "at its recorded candidate and target before done can settle"
+        )
     evidence_instruction = (
         "Record the existing exact-head CI result for this requirement through "
         "`yoke qa run record-verdict --help`, passing --raw-result as JSON "
@@ -45,7 +52,7 @@ def _recovery_instruction(requirement: dict[str, Any]) -> str:
         '"<the commit that run verified>"}} -- prose is stored verbatim, '
         "leaves the head SHA unreadable, and this gate refuses again"
     )
-    if source == "flow_derived":
+    if source == "flow_derived" and method_id == "command-ci":
         return evidence_instruction
     if method_id != "command-ci":
         return f"Run `{case_command}`"

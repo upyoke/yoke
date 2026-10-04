@@ -157,7 +157,7 @@ The `success_policy` column on `qa_requirements` stores a JSON object defining w
 | Phase | When Due | Gating Effect |
 |-------|----------|---------------|
 | `verification` | During conduct/tester verification, before `reviewed-implementation` | Blocks the `reviewed-implementation` transition |
-| `post_deploy` | After a deployment run completes to target env | Blocks `done` transition |
+| `post_deploy` | Accepted admitted copies on the selected completion run, including while settling | Blocks `done` until every copy and its stage pass for the recorded candidate and target; the source needs no separate CI verdict |
 | `manual_acceptance` | After automated QA, requires human sign-off | Blocks `done` transition |
 
 ## Target Environments
