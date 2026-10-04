@@ -56,7 +56,8 @@
   background: var(--yoke-crit-bg);
   color: var(--yoke-crit);
 }
-.universe-app-root .item-status-pill.is-dependency {
+.universe-app-root .item-status-pill.is-dependency,
+.universe-app-root .item-status-pill.is-owner-unavailable {
   background: var(--yoke-warn-bg);
   color: var(--yoke-warn);
 }
