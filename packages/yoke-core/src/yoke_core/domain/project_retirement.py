@@ -122,6 +122,7 @@ def set_retirement(
             project=identity.slug,
             session_id=session_id,
             conn=conn,
+            transactional=True,
             context={"retired_at": value, "reason": reason},
         )
     return {

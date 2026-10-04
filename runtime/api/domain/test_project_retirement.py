@@ -82,6 +82,15 @@ def test_active_inventory_hides_retired_but_direct_read_remains(conn):
     assert resolve_session_project_scope(conn, override=["fixture"]) == [30]
 
 
+def test_retirement_leaves_transaction_commit_with_the_caller(conn):
+    retire(conn)
+    conn.rollback()
+    assert (
+        conn.execute("SELECT retired_at FROM projects WHERE id=30").fetchone()[0]
+        is None
+    )
+
+
 def test_open_item_refusal_uses_pinned_terminal_membership(conn):
     insert_item(
         conn, id=300, workflow_id="dash", project="fixture", status="implementing"
