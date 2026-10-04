@@ -1,5 +1,12 @@
 # Project selection in the shared app
 
+Project pickers and project inventories show active projects by default.
+Retire a disposable project with `yoke projects retire --project P --reason TEXT`;
+complete open items and deployment runs and release held claims before retrying
+a refusal. Retirement preserves all history. `yoke projects unretire --project P`
+restores visibility, and `yoke projects list --include-retired` includes historical
+projects. Direct reads by slug or id continue to resolve retired projects.
+
 The top navigation remembers All, one project, or a set of projects
 **independently for each destination** — Strategy, Frontier, Shipping,
 Sessions, Inbox, and every other screen each keep their own selection across

@@ -52,10 +52,17 @@ function createProjectNote(documentNode, capabilities) {
   return panel;
 }
 
-export function renderProjectsView(context, main) {
+export function renderProjectsView(context, main, includeRetired = false) {
   const documentNode = context.document;
   const panel = section(documentNode, "Projects");
-  main.replaceChildren(panel, createProjectNote(
+  const label = el(documentNode, "label", "project-inventory-filter");
+  const checkbox = el(documentNode, "input");
+  checkbox.type = "checkbox";
+  checkbox.checked = includeRetired;
+  checkbox.addEventListener("change", () => renderProjectsView(context, main, checkbox.checked));
+  label.appendChild(checkbox);
+  label.appendChild(documentNode.createTextNode(" Include retired projects"));
+  main.replaceChildren(label, panel, createProjectNote(
     documentNode,
     context.capabilities,
   ));
@@ -63,7 +70,7 @@ export function renderProjectsView(context, main) {
     context,
     panel,
     "projects.list",
-    { include_summary: true },
+    { include_summary: true, ...(includeRetired ? { include_retired: true } : {}) },
     (body, callResult) => {
       const rows = (callResult.envelope.result || {}).rows || [];
       panel.setCount(rows.length);
@@ -85,6 +92,7 @@ export function renderProjectsView(context, main) {
           href: (row) => buildUniverseRoute("projects", null, String(row.id)),
         },
         { label: "slug", value: (row) => row.slug, mono: true },
+        { label: "state", value: (row) => row.retired_at ? "retired" : "active" },
         {
           label: "repository",
           value: (row) => row.github_repo || "—",

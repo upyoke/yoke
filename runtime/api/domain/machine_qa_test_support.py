@@ -1,4 +1,7 @@
 from __future__ import annotations
+from runtime.api.domain.machine_qa_project_cleanup_test_support import (
+    fake_project_cleanup_stdout,
+)
 
 import json
 import sqlite3
@@ -24,8 +27,6 @@ from yoke_core.domain.ssh_mac_full_reset_contract import (
 )
 
 GOLDEN_BASELINE_PATH = "/Users/Shared/yoke-golden/tester-home"
-# What the captured baseline puts back: a real user's shell, their own tools on
-# their own PATH, and no Yoke anywhere.
 BASELINE_STARTUP_FILES = {
     "/Users/tester/.zprofile": 'export PATH="$HOME/.local/bin:$PATH"\n',
     "/Users/tester/.zshenv": "",
@@ -203,7 +204,7 @@ class FakeHostControl(FakeOperatorOperations):
         return subprocess.CompletedProcess(
             args=command,
             returncode=returncode,
-            stdout="",
+            stdout=fake_project_cleanup_stdout(command),
             stderr="",
         )
 

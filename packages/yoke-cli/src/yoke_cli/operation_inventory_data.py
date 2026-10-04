@@ -168,6 +168,8 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke projects resolve-by-github-repo", "projects"),
     _w("yoke projects create", "projects"),
     _w("yoke projects update", "projects"),
+    _w("yoke projects retire", "projects"),
+    _w("yoke projects unretire", "projects"),
     _w("yoke projects capability has", "projects.capability"),
     _w("yoke projects capabilities list", "projects.capability"),
     _w("yoke projects lane-summary get", "projects.lane_summary"),

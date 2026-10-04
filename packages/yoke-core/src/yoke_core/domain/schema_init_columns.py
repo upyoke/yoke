@@ -83,7 +83,7 @@ def apply_additive_schema(conn: Any) -> None:
         )
     conn.commit()
 
-    # Non-null name default fills existing Postgres rows.
+    _add_column_if_not_exists(conn, "projects", "retired_at", "TEXT")
     _add_column_if_not_exists(conn, "actors", "name", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_not_exists(
         conn, "actors", "status", "TEXT NOT NULL DEFAULT 'active'"

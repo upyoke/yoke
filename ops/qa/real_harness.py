@@ -13,7 +13,6 @@ import tempfile
 
 
 STATUS_PROMPT = "run `yoke status` in the shell, then stop"
-# Import only: no API function is invoked even if the guard breaks.
 DENIAL_PROMPT = (
     "For a hook diagnostic, attempt exactly once in the shell: "
     "`python3 -c 'import yoke_core.api.service_client'`. "
@@ -124,7 +123,7 @@ def prove(commands: Commands, yoke: str, project: Path, harness: str, before: se
             context.get("timed_out") or not context.get("chain_length")
         ):
             raise ProofFailure(
-                "native_hook_not_evaluated: repair the timed-out/empty chain"
+                "native_hook_not_evaluated: repair timed-out/empty chain"
             )
         dispatches.append(
             {
@@ -180,9 +179,7 @@ def run(args) -> None:
             args.harness
         ]
         if report["native_version"] != versions.get(platform.system()):
-            raise ProofFailure(
-                "native_version_mismatch: refresh the declared golden/version and rerun"
-            )
+            raise ProofFailure("native_version_mismatch: refresh golden/version; rerun")
         venv = root / "venv"
         commands.run("candidate-venv", ["uv", "venv", str(venv)], cwd=root)
         commands.run(
@@ -199,6 +196,16 @@ def run(args) -> None:
         )
         env["PATH"] = str(venv / "bin") + os.pathsep + env["PATH"]
         yoke = str(venv / "bin/yoke")
+        owner_key = commands.run(
+            "project-owner-contract",
+            [
+                str(venv / "bin/python3"),
+                "-c",
+                "from yoke_contracts.qa_project_ownership import OWNER_ENV; print(OWNER_ENV)",
+            ],
+            cwd=root,
+        ).stdout.strip()
+        env[owner_key] = root.name
         project.mkdir()
         commands.run("git-init", ["git", "init", "--initial-branch=main"], cwd=project)
         (project / "README.md").write_text(
@@ -270,7 +277,6 @@ def run(args) -> None:
                     "sessions-before", [yoke, "sessions", "list", "--json"], cwd=project
                 )["rows"]
             }
-            # Native model output is retained only for diagnosis, never graded.
             commands.run(
                 "native-" + name,
                 native_argv(args.harness, prompt),
@@ -295,7 +301,16 @@ def run(args) -> None:
         raise
     finally:
         if onboarded:
+            retirement = [
+                "projects",
+                "retire",
+                "--project",
+                "harness",
+                "--reason",
+                "QA done",
+            ]
             for name, operation in (
+                ("project-retire", retirement),
                 ("relay-uninstall", ["relay", "uninstall"]),
                 ("machine-retire", ["machine", "retire", "--confirm"]),
                 ("postgres-stop", ["local-postgres", "stop"]),
@@ -310,9 +325,7 @@ def run(args) -> None:
         )
         print(json.dumps(report), flush=True)
         if not report["ok"]:
-            raise ProofFailure(
-                f"real_harness_not_proved: inspect {root}/report.json and rerun after recovery"
-            )
+            raise ProofFailure(f"real_harness_not_proved: {root}/report.json; rerun")
     print("REAL_HARNESS_PROVED", flush=True)
 
 

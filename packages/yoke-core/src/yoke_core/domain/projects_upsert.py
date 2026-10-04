@@ -34,6 +34,7 @@ def cmd_upsert(
     allow_public_github_sync: bool = False,
     db_path: Optional[str] = None,
     mode: str = "create",
+    test_owner: Optional[str] = None,
 ) -> dict[str, Any]:
     """Create or update a project row and return the canonical row.
 
@@ -86,6 +87,10 @@ def cmd_upsert(
 
         existing = by_id or by_slug
         created = existing is None
+        if test_owner is not None:
+            from yoke_core.domain.machine_qa_project_ownership import assert_owner
+
+            assert_owner(conn, existing, test_owner)
         if existing is not None and target_org_id is not None:
             existing_org_id = existing["org_id"]
             if existing_org_id is not None and int(existing_org_id) != target_org_id:
@@ -156,12 +161,17 @@ def cmd_upsert(
             numeric_id,
             base_branch=_clean_optional(default_branch),
         )
+        if test_owner is not None and created:
+            from yoke_core.domain.machine_qa_project_ownership import mark_owner
+
+            mark_owner(conn, numeric_id, test_owner)
         conn.commit()
         row = _row_by_id(conn, numeric_id)
         return {
             "created": created,
             "project": _row_dict(row),
             "project_policy_capabilities": capability_report,
+            **({"test_owner": test_owner} if test_owner is not None else {}),
         }
     finally:
         conn.close()

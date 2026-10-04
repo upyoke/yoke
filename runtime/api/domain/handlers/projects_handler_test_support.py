@@ -31,6 +31,7 @@ def project_row(**overrides):
         "github_repo": "owner/demo",
         "public_item_prefix": "DMO",
         "github_sync_mode": None,
+        "retired_at": None,
         "created_at": "2026-01-01",
     }
     row.update(overrides)

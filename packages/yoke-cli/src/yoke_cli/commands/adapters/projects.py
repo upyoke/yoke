@@ -96,7 +96,7 @@ def projects_get(args: List[str]) -> int:
     )
 
 
-PROJECTS_LIST_USAGE = "yoke projects list [--session-id S] [--json]"
+PROJECTS_LIST_USAGE = "yoke projects list [--include-retired] [--session-id S] [--json]"
 
 
 def projects_list(args: List[str]) -> int:
@@ -104,6 +104,7 @@ def projects_list(args: List[str]) -> int:
         prog="yoke projects list",
         description=PROJECTS_LIST_USAGE,
     )
+    parser.add_argument("--include-retired", action="store_true")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PROJECTS_LIST_USAGE)
@@ -133,7 +134,7 @@ def projects_list(args: List[str]) -> int:
     return dispatch_and_emit(
         function_id="projects.list",
         target=TargetRef(kind="global"),
-        payload={},
+        payload={"include_retired": True} if parsed.include_retired else {},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,

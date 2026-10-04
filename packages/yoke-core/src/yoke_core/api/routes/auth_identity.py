@@ -91,6 +91,8 @@ def _visible_projects(
     org_roles_by_id: dict[int, tuple[str, ...]],
 ) -> list[dict[str, Any]]:
     visible_ids = actor_visible_project_ids(conn, actor_id) or set()
+    from yoke_core.domain.project_retirement import active_projects_where
+
     if not visible_ids:
         return []
     p = _p(conn)
@@ -100,7 +102,9 @@ def _visible_projects(
         "FROM projects pr "
         "LEFT JOIN organizations o ON o.id = pr.org_id "
         f"WHERE pr.id IN ({placeholders}) "
-        "ORDER BY pr.slug",
+        + active_projects_where(conn, alias="pr").replace(" WHERE ", " AND ")
+        + " "
+        + "ORDER BY pr.slug",
         tuple(sorted(visible_ids)),
     ).fetchall()
     direct_roles = _project_roles(conn, actor_id)

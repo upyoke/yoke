@@ -56,6 +56,7 @@ class TestProjectStructureCoexistence:
         # Project Structure family (yoke_core.domain.projects_github_sync_mode).
         "github_sync_mode",
         "created_at",
+        "retired_at",
     }
 
     def _projects_columns(self, db_path: str) -> set:
@@ -72,6 +73,7 @@ class TestProjectStructureCoexistence:
         column set untouched, and none of the Phase 0 retired columns
         re-appear."""
         from yoke_core.domain import project_structure as ps
+
         before = self._projects_columns(initialized_db)
         ps.cmd_init(db_path=initialized_db)
         after = self._projects_columns(initialized_db)
@@ -88,9 +90,13 @@ class TestProjectStructureCoexistence:
         against reintroduction without naming the retired columns directly."""
         after = self._projects_columns(initialized_db)
         from yoke_core.domain.qa_command_plans import REGISTERED_SCOPES
-        revived = [c for c in after
-                   if c.startswith("test_command_")
-                   and c.split("_", 2)[-1] in REGISTERED_SCOPES]
+
+        revived = [
+            c
+            for c in after
+            if c.startswith("test_command_")
+            and c.split("_", 2)[-1] in REGISTERED_SCOPES
+        ]
         assert not revived, (
             f"Coarse project-level test-command column(s) were reintroduced: "
             f"{revived}. The canonical source is project QA plans."
@@ -101,6 +107,7 @@ class TestProjectStructureCoexistence:
     ):
         """No replacement-family table lands in path registry identity layer (path registry envelope contract envelope-only)."""
         from yoke_core.domain import project_structure as ps
+
         ps.cmd_init(db_path=initialized_db)
         conn = connect(initialized_db)
         try:
@@ -120,6 +127,7 @@ class TestProjectStructureCoexistence:
         """Seeding the Project Structure aggregate must not disturb
         coarse-project reads."""
         from yoke_core.domain import project_structure as ps
+
         ps.cmd_init(db_path=initialized_db)
         ps.cmd_seed("yoke", db_path=initialized_db)
         # Coarse-project reads still work.

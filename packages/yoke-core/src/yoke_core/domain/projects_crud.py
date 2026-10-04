@@ -121,7 +121,9 @@ def _read_resolved_project(
     opened one re-resolving the same project — closing the window where two
     connections could observe the row differently.
     """
-    project_fields, project_select, _ = _parent_constants()
+    from yoke_core.domain.project_retirement import project_fields_sql
+
+    project_fields, _, _ = _parent_constants()
     if field:
         if field not in project_fields:
             # hint messages now point at the Python CLI entrypoint.
@@ -160,13 +162,15 @@ def _read_resolved_project(
             return None
 
         val = query_scalar(
-            conn, f"SELECT {field} FROM projects WHERE id=%s", (numeric_project_id,)
+            conn,
+            f"SELECT {project_fields_sql(conn, [field])} FROM projects WHERE id=%s",
+            (numeric_project_id,),
         )
         return str(val) if val is not None else ""
     else:
         row = query_one(
             conn,
-            f"SELECT {project_select} FROM projects WHERE id=%s",
+            f"SELECT {project_fields_sql(conn, project_fields)} FROM projects WHERE id=%s",
             (numeric_project_id,),
         )
         if row is None:
@@ -200,14 +204,18 @@ def cmd_get(
 # ---------------------------------------------------------------------------
 
 
-def cmd_list(db_path: Optional[str] = None) -> str:
-    """List all projects (pipe-delimited rows)."""
+def cmd_list(db_path: Optional[str] = None, *, include_retired: bool = False) -> str:
+    """List active projects; explicitly opt into historical inventory."""
+    from yoke_core.domain.project_retirement import active_projects_where
+
     _, _, project_list_select = _parent_constants()
     conn = connect(db_path)
     try:
         rows = query_rows(
             conn,
-            f"SELECT {project_list_select} FROM projects ORDER BY id ASC",
+            f"SELECT {project_list_select} FROM projects"
+            + active_projects_where(conn, include_retired=include_retired)
+            + " ORDER BY id ASC",
         )
         return _pipe_rows(rows)
     finally:

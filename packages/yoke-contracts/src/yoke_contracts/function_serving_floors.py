@@ -28,6 +28,8 @@ FUNCTION_MINIMUM_SERVING_VERSIONS: dict[str, str] = {
     "models.restore.run": "next-release",
     "models.revisions.run": "next-release",
     "projects.environment.list": "next-release",
+    "projects.retire": "next-release",
+    "projects.unretire": "next-release",
     "qa.artifact.get": "next-release",
     "qa.artifact.rehome": "next-release",
     "qa.item_plan.retract": "next-release",

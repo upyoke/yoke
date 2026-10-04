@@ -18,6 +18,7 @@ PROJECT_SUMMARY_BASE_FIELDS = (
     "github_repo",
     "default_branch",
     "public_item_prefix",
+    "retired_at",
 )
 
 PROJECT_SUMMARY_FIELDS = (

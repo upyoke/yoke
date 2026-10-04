@@ -28,10 +28,15 @@ PROJECT_TABLES: dict[str, dict] = {
             ("public_item_prefix", "TEXT"),
             ("breakage_policy", "TEXT"),
             ("github_sync_mode", "TEXT"),
+            ("retired_at", "TEXT"),
             ("created_at", "TEXT"),
         ],
         "notes": (
-            "Project registry. The human-readable label column is `name` "
+            "Project registry. Nullable retired_at hides a project from default lists "
+            "without deleting history. yoke projects retire --project P --reason TEXT; "
+            "yoke projects unretire --project P; yoke projects list --include-retired. "
+            "Direct identity reads retain retired projects. "
+            "The human-readable label column is `name` "
             "— there is NO `display_name` column (stale guess). `id` is "
             "the project authority; `slug` is unique inside one `org_id` "
             "and resolves through the actor-visible project set or an org "

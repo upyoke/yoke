@@ -118,7 +118,7 @@ _EXPECTED_SCHEMA_STR = (
     "|project_pack_report_entries:project_id/INTEGER,pack_slug/TEXT,installed_version/TEXT,file_count/INTEGER"
     "|project_pack_reports:project_id/INTEGER,receipt_digest/TEXT,pack_count/INTEGER,reported_at/TEXT"
     "|project_structure:id/INTEGER,project_id/INTEGER,family/TEXT,attachment_value/TEXT,attachment_kind/TEXT,entry_key/TEXT,payload/TEXT,created_at/TEXT,updated_at/TEXT"
-    "|projects:id/INTEGER,slug/TEXT,name/TEXT,emoji/TEXT,default_branch/TEXT,github_repo/TEXT,public_item_prefix/TEXT,github_sync_mode/TEXT,created_at/TEXT,org_id/INTEGER,breakage_policy/TEXT"
+    "|projects:id/INTEGER,slug/TEXT,name/TEXT,emoji/TEXT,default_branch/TEXT,github_repo/TEXT,public_item_prefix/TEXT,github_sync_mode/TEXT,retired_at/TEXT,created_at/TEXT,org_id/INTEGER,breakage_policy/TEXT"
     "|qa_artifacts:id/INTEGER,qa_run_id/INTEGER,artifact_type/TEXT,content_type/TEXT,artifact_handle/TEXT,metadata/TEXT,created_at/TEXT"
     "|qa_methods:id/TEXT,name/TEXT,description/TEXT,source_kind/TEXT,source_ref/TEXT,project_id/INTEGER,runner_id/TEXT,required_capability_kinds/TEXT,verdict_path/TEXT,verdict_contract/TEXT,evidence_contract/TEXT,success_policy_id/TEXT,success_policy_params/TEXT,concurrency_mode/TEXT,created_at/TEXT,updated_at/TEXT,display_icon/TEXT,display_order/INTEGER,display_group/TEXT,config_contract_id/TEXT,proof_kind/TEXT,runner_gloss/TEXT"
     "|qa_plan_cases:id/INTEGER,plan_id/INTEGER,case_key/TEXT,position/INTEGER,method_id/TEXT,instructions/TEXT,expected_outcome/TEXT,method_config/TEXT,success_policy_id/TEXT,success_policy_params/TEXT,host_baselines/TEXT,entry_surface/TEXT,required_completion/TEXT,created_at/TEXT,updated_at/TEXT"

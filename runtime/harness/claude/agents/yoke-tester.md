@@ -429,7 +429,7 @@ _Compact depth. Per-table and per-command notes for this topic — the caveats a
 
 **Schema cheat sheet:**
 
-- **`projects`** — `id, org_id, slug, name, emoji, default_branch, github_repo, public_item_prefix, breakage_policy, github_sync_mode, created_at`
+- **`projects`** — `id, org_id, slug, name, emoji, default_branch, github_repo, public_item_prefix, breakage_policy, github_sync_mode, retired_at, created_at`
 - **`project_structure`** — `id, project_id, family, attachment_value, attachment_kind, entry_key, payload`
 - **`deployment_flows`** — `id, project_id, name, description, stages, on_failure, created_at, target_tier, target_environment_id, done_description, status, definition_schema_version, takes_delivery_custody, supersedes_flow_id`
 - **`deployment_runs`** — `id, project_id, flow, target_tier, target_environment_id, release_lineage, status, current_stage, current_stage_entered_at, created_at, started_at, completed_at, created_by, carried_work, bound_sources, candidate_containment, artifact_identity, composition_resolution, composition_frozen_at, requirement_snapshot, driver_attachment, settling_at, create_idempotency_key, create_request, membership_removals`

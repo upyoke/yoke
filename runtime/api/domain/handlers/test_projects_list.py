@@ -17,6 +17,13 @@ from yoke_core.domain.handlers import projects_get
 
 
 class TestProjectsList(unittest.TestCase):
+    def setUp(self):
+        column = patch(
+            "yoke_core.domain.project_retirement._column_exists", return_value=True
+        )
+        column.start()
+        self.addCleanup(column.stop)
+
     def test_returns_structured_project_rows(self):
         with patch(
             "yoke_core.domain.projects_crud.cmd_list",
@@ -120,6 +127,7 @@ class TestProjectsList(unittest.TestCase):
                 "github_repo": "example-org/externalwebapp",
                 "default_branch": "main",
                 "public_item_prefix": "EXT",
+                "retired_at": None,
             }
         ]
         enriched = [
