@@ -144,18 +144,8 @@
   color: var(--yoke-link);
   font-size: 12px;
 }
-/* Inside the Inbox, a run check's tiles keep the run QA shape rather than
-   the Inbox's tall 200px capture frame, which a 4:3 box turned 266px wide. */
+/* Inbox run checks keep the same three-column tile widths as other run checks. */
 .universe-app-root .inbox-sections .run-qa-check > .review-evidence .review-shot {
   flex: 0 0 auto;
   width: min(144px, calc((100% - 24px) / 3));
-}
-.universe-app-root .inbox-sections .run-qa-check > .review-evidence .review-shot-open {
-  height: auto;
-  min-height: 84px;
-  aspect-ratio: 4 / 3;
-}
-.universe-app-root .inbox-sections .run-qa-check > .review-evidence .review-shot-image {
-  object-fit: cover;
-  object-position: top;
 }

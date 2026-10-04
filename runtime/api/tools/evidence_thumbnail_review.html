@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Evidence thumbnail review</title>
+  <link rel="stylesheet" href="/assets/theme.css">
+  <link rel="stylesheet" href="/assets/shell.css">
+  <link rel="stylesheet" href="/assets/app.css">
+  <link rel="stylesheet" href="/assets/inbox.css">
+  <link rel="stylesheet" href="/assets/qa.css">
+  <style>
+    body { margin: 0; padding: 16px; font: 14px sans-serif; background: white; }
+    main { max-width: 760px; margin: auto; }
+    section { padding: 12px; margin-bottom: 12px; border: 1px solid #ccc; }
+    h1 { font-size: 20px; } h2 { margin: 0 0 10px; font-size: 15px; }
+    #provenance { overflow-wrap: anywhere; font-size: 11px; }
+    #geometry { white-space: pre-wrap; overflow-wrap: anywhere; }
+  </style>
+</head>
+<body class="universe-app-root">
+<main>
+  <h1>Evidence thumbnail review</h1>
+  <p id="provenance">Universe: {{environment}}. Synthetic screenshot bytes;
+    production evidence component and styles. Source: {{commit}}</p>
+  <section id="run-card" class="shipping-run-card"><h2>Shipping run card</h2>
+    <div class="run-qa-section"><div class="run-qa-check"></div></div></section>
+  <section id="run-page" class="run-page"><h2>Run page</h2>
+    <div class="run-qa-section"><div class="run-qa-check"></div></div></section>
+  <section id="inbox" class="inbox-sections"><h2>Inbox</h2>
+    <div class="review-card"></div><div class="run-qa-check"></div></section>
+  <section id="runs"><h2>Runs table evidence cell</h2>
+    <table class="items delivery-runs-table"><tbody><tr>
+      <td class="delivery-run-evidence-cell"></td></tr></tbody></table></section>
+  <section id="activity"><h2>QA activity evidence cell</h2>
+    <table class="items"><tbody><tr><td class="qa-activity-evidence"></td>
+    </tr></tbody></table></section>
+  <p id="result">Loading fixture images…</p><pre id="geometry"></pre>
+</main>
+<script type="module">
+  import { evidenceStrip } from "/assets/review_evidence_strip.js";
+  const images = [[4000, 200], [200, 4000]].map(([width, height], i) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = width; canvas.height = height;
+    const paint = canvas.getContext("2d");
+    paint.fillStyle = i ? "#d6eaff" : "#d8f4df"; paint.fillRect(0, 0, width, height);
+    paint.fillStyle = "#be3445"; paint.fillRect(0, 0, width, 40);
+    paint.fillStyle = "#222"; paint.font = "28px sans-serif";
+    paint.fillText(i ? "Tall capture" : "Wide capture", 8, 80);
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  const artifacts = images.map((_, i) => ({ id: i + 1, requirement_id: 1,
+    artifact_type: "screenshot", content_type: "image/png",
+    metadata: { step_index: i + 1,
+      label: i ? "Very tall screenshot" : "Very wide screenshot" } }));
+  const context = { document, client: { call: async (request) => ({ status: 200,
+    envelope: { success: true, result: { disposition: "ready", content_type: "image/png",
+      content_base64: images[request.payload.artifact_id - 1] } } }) } };
+  for (const host of document.querySelectorAll(".run-qa-check, .review-card, td")) {
+    host.append(evidenceStrip(context, artifacts, { compact: host.tagName === "TD" }));
+  }
+  function measure() {
+    const failures = []; const rows = [];
+    for (const shot of document.querySelectorAll(".review-shot")) {
+      const picture = shot.querySelector(".review-shot-open");
+      const image = shot.querySelector("img");
+      const frame = picture.getBoundingClientRect(); const bounds = image.getBoundingClientRect();
+      const tile = shot.getBoundingClientRect();
+      const caption = shot.querySelector("figcaption");
+      const label = shot.closest("section").id + "/" + image.alt;
+      const style = getComputedStyle(image);
+      const contained = bounds.left >= frame.left - 1 && bounds.right <= frame.right + 1
+        && bounds.top >= frame.top - 1 && bounds.bottom <= frame.bottom + 1
+        && frame.left >= tile.left - 1 && frame.right <= tile.right + 1;
+      const captionBelow = !caption || getComputedStyle(caption).display === "none"
+        || caption.getBoundingClientRect().top >= frame.bottom - 1;
+      const fixed = Math.abs(frame.width / frame.height - 1.6) < .02;
+      const clipped = getComputedStyle(picture).overflow === "hidden";
+      if (!contained || !captionBelow || !fixed || !clipped || style.objectFit !== "cover"
+        || style.objectPosition !== "50% 0%") failures.push(label);
+      rows.push(label + ": tile " + tile.width.toFixed(1) + ", frame "
+        + frame.width.toFixed(1) + "×" + frame.height.toFixed(1)
+        + ", image " + bounds.width.toFixed(1) + "×" + bounds.height.toFixed(1));
+    }
+    if (document.documentElement.scrollWidth > innerWidth) failures.push("horizontal page scroll");
+    document.querySelector("#result").textContent = failures.length
+      ? "FAIL: " + failures.join("; ") : "PASS: all 12 wide/tall tiles contained; captions below; no horizontal scroll";
+    document.querySelector("#geometry").textContent = rows.join("\n");
+  }
+  await Promise.all([...document.images].map(image => new Promise((resolve, reject) => {
+    image.onload = resolve; image.onerror = reject;
+    if (image.complete && image.naturalWidth) resolve();
+  })));
+  measure(); window.addEventListener("resize", measure);
+</script>
+</body>
+</html>

@@ -158,6 +158,8 @@
 }
 .universe-app-root .review-shot-open {
   display: block;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
   border-radius: 8px;
 }
 .universe-app-root .review-shot.is-ready .review-shot-open {
@@ -166,7 +168,7 @@
 .universe-app-root .review-shot-image {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 10;
+  height: 100%;
   border: 1px solid var(--yoke-border);
   border-radius: 8px;
   background: var(--yoke-surface-2);
@@ -179,15 +181,12 @@
 .universe-app-root .review-shot:not(.is-ready) .review-shot-image {
   display: none;
 }
-/* The frame, whenever there is no picture to be one. It fills a slot that
-   states its own height — the Inbox sizes its anchors — and otherwise takes
-   the thumbnail's shape, so it is never taller than the tile it stands in
-   for. */
+/* Pictures and loading/unavailable states fill the same clipped frame.
+   Surfaces choose tile widths; only this shared rule owns the shape. */
 .universe-app-root .review-shot-state {
   display: grid;
   width: 100%;
   height: 100%;
-  aspect-ratio: 16 / 10;
   place-items: center;
   border: 1px dashed var(--yoke-border);
   border-radius: 8px;
