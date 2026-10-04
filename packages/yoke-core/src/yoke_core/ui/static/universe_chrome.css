@@ -25,6 +25,9 @@
      the search field and the three labelled contexts total more than the
      viewport, and the actor control was cut off the right edge at 1024. */
   grid-template-rows: auto minmax(0, 1fr);
+  /* Scope pickers must shrink inside the frame, never size its grid track. */
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   width: 100%;
   /* The frame owns its height rather than inheriting it. `height: 100%`
      hands that decision to whatever the host wraps the mount root in, and a

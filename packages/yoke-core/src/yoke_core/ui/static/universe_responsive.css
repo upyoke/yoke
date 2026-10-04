@@ -18,6 +18,11 @@
   flex-wrap: wrap;
   row-gap: 7px;
 }
+.universe-app-root .context-side {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
 
 .universe-app-root .shell-search {
   display: flex;
