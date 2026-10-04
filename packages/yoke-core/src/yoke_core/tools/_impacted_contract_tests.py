@@ -230,6 +230,7 @@ PATH_CONTRACT_TESTS = (
                 "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_schema.py",
                 "packages/yoke-core/src/yoke_core/domain/qa_schema.py",
                 "packages/yoke-core/src/yoke_core/domain/schema_init_tables.py",
+                "packages/yoke-core/src/yoke_core/domain/item_refs_schema.py",
                 "packages/yoke-core/src/yoke_core/domain/schema_expected_catalog.py",
                 "packages/yoke-core/src/yoke_core/domain/deployment_runs_schema_init.py",
                 "packages/yoke-core/src/yoke_core/domain/flow_init.py",
@@ -303,7 +304,6 @@ def contract_selection_for(changed: Sequence[str]) -> ContractSelection:
             continue
         tests.update(contract_tests)
         widening_triggers.extend(f"{rule}:{path}" for path in hits)
-
     for rule, prefixes, contract_tests in PREFIX_CONTRACT_TESTS:
         hits = tuple(path for path in changed_paths if path.startswith(prefixes))
         if not hits:

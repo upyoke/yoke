@@ -48,7 +48,8 @@ def test_items_note_calls_out_id_pk_public_ref_and_github_issue() -> None:
     """Items has one integer PK; public refs are rendered, not stored."""
     body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL)
     assert "NO `item_id` or `public_id` column" in body
-    assert "{projects.public_item_prefix}-{items.project_sequence}" in body
+    assert "select `item_refs.public_ref`" in body
+    assert "join `item_refs.item_id` to `items.id`" in body
     assert "`github_issue` column" in body
     assert "no `github_issue_number`" in body
     assert "WHERE project_id = <p> AND project_sequence = <n>" in body

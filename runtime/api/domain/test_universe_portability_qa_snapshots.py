@@ -138,6 +138,8 @@ def test_restore_acceptance_rejects_invalid_requirement_snapshot() -> None:
         )
         conn.commit()
         expected_fingerprint = fingerprint_portable_postgres_schema(conn)
+        # Release catalog/source-table locks before convergence on another connection.
+        conn.commit()
 
         with pytest.raises(
             portability.ArchiveCompatibilityError,

@@ -83,6 +83,8 @@ AGENT_SKILL_SOURCE_PREFIXES = (
 MIGRATION_HISTORY_CONTRACT_TESTS = (
     "runtime/api/domain/test_boot_schema_column_convergence.py",
     "runtime/api/domain/test_universe_portability_migration_content_bridge.py",
+    "runtime/api/domain/test_universe_portability_schema_validation.py",
+    "runtime/api/domain/test_universe_portability_qa_snapshots.py",
     "runtime/api/engines/test_doctor_schema_drift_expected.py",
 )
 
@@ -244,6 +246,7 @@ PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] 
         ("packages/yoke-core/src/yoke_core/domain/schema_api_context",),
         (
             "runtime/api/domain/test_schema_api_context_qa_examples.py",
+            "runtime/api/domain/test_schema_api_context_column_disambiguation.py",
             "runtime/api/tools/test_impacted_qa_packet_contract.py",
         ),
     ),
