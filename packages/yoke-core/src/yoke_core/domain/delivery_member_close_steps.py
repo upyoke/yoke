@@ -1,7 +1,7 @@
 """The three steps that close one delivery-cleared member.
 
 **Prepare** commits what a close depends on and closes nothing: the
-delivery rung the release proved, and the status write's own preflight —
+workflow-owned delivery evidence, and the status write's own preflight —
 its materialized QA and any approval request it has to open. Each is
 idempotent, and the done gates read them on their own connections, so they
 are committed before any member is written.
@@ -25,9 +25,11 @@ from typing import Any, Optional, TextIO
 from yoke_core.domain import db_backend
 from yoke_core.domain.dash_execution import evaluate_dash_evidence
 from yoke_core.domain.delivery_evidence_ladder import item_merge_identity
+from yoke_core.domain.floor_attestation import DIRECT_EVIDENCE_WORKFLOWS
 from yoke_core.domain.gate_satisfier_resolution import record_delivery_evidence_rung
 from yoke_core.domain.standalone_item_merge_evidence import CLOSED_OUT_STATUS
 from yoke_core.domain.status_claim_bypass_context import status_bypass_override
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 CLAIM_BYPASS_PREFIX = "merge-close-out:"
 STATUS_SOURCE = "merge-close-out"
@@ -69,9 +71,9 @@ def _bypass(public_ref: str) -> Any:
 def prepare_member_close(conn: Any, *, item_id: int, public_ref: str) -> str:
     """Commit this member's close prerequisites; return why it cannot close.
 
-    Landing could not stamp the delivery rung — the release was still
-    pending — so it is stamped here, before the evidence read that requires
-    it, rather than waking the holder to re-run a merge just to record it.
+    Direct-evidence workflows stamp the delivery rung landing could not
+    record while the release was pending. Every member then runs its own
+    pinned workflow's status preflight; other workflows own other evidence.
     Returns ``""`` when the member is ready to stage, or already closed.
     """
     from yoke_core.domain.workflow_status_transition_preflight import (
@@ -81,24 +83,26 @@ def prepare_member_close(conn: Any, *, item_id: int, public_ref: str) -> str:
     status = _item_status(conn, int(item_id))
     if status == CLOSED_OUT_STATUS:
         return ""
-    try:
-        record_delivery_evidence_rung(
-            conn,
-            item_id=int(item_id),
-            merge_recorded=bool(item_merge_identity(conn, int(item_id))),
-        )
-    except ValueError as exc:
-        conn.rollback()
-        return f"its delivery evidence could not be stamped: {exc}"
-    conn.commit()
-    evidence = evaluate_dash_evidence(conn, int(item_id))
-    if not evidence.satisfied:
-        missing = ", ".join(evidence.missing) or "execution_evidence"
-        return (
-            f"landing evidence is missing {missing}. Record it with "
-            "`yoke merge item` `--result` and `--verification`, then "
-            "re-drive the run"
-        )
+    runtime = load_item_workflow_runtime(conn, int(item_id))
+    if runtime.workflow_id in DIRECT_EVIDENCE_WORKFLOWS:
+        try:
+            record_delivery_evidence_rung(
+                conn,
+                item_id=int(item_id),
+                merge_recorded=bool(item_merge_identity(conn, int(item_id))),
+            )
+        except ValueError as exc:
+            conn.rollback()
+            return f"its delivery evidence could not be stamped: {exc}"
+        conn.commit()
+        evidence = evaluate_dash_evidence(conn, int(item_id))
+        if not evidence.satisfied:
+            missing = ", ".join(evidence.missing) or "execution_evidence"
+            return (
+                f"landing evidence is missing {missing}. Record it with "
+                "`yoke merge item` `--result` and `--verification`, then "
+                "re-drive the run"
+            )
     with _bypass(public_ref):
         preflight = prepare_status_transition(
             conn,

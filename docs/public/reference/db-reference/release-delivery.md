@@ -167,7 +167,11 @@ member per run on the acceptance transition. A re-read of an
 already-accepted subject sends nothing.
 
 Run-scoped QA and human-approval stages keep every member at release until all
-item and shared gates pass and the run succeeds. The pipeline's advance and
+item and shared gates pass. Settlement then closes all members atomically
+through their pinned workflow's done gates; only Dash and Task prepare direct
+execution evidence. A settling run supplies delivery and accepted source QA
+credit before its succeeded stamp, while failed or unsettled QA still refuses.
+The pipeline's advance and
 `on_failure` are unchanged; a run whose other members are outstanding still
 halts and still belongs to its driver.
 
