@@ -52,6 +52,7 @@ def run():
         "id": "run-original",
         "created_at": "2026-10-01",
         "status": "succeeded",
+        "carried_work": json.dumps({"items": []}),
         "membership_removals": json.dumps(
             [{"item_id": 7, "reason": "needs correction"}]
         ),
