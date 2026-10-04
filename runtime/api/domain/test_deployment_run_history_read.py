@@ -12,6 +12,7 @@ from yoke_core.domain.deployment_run_history_read import (
     read_deployment_run_history,
 )
 from yoke_core.domain.deployment_run_list_read import present_deployment_runs
+from yoke_core.domain.item_refs_schema import ensure_item_refs_view
 
 
 def _database() -> sqlite3.Connection:
@@ -96,6 +97,7 @@ def _database() -> sqlite3.Connection:
             "run-20260908-051",
         ),
     )
+    ensure_item_refs_view(conn)
     conn.commit()
     return conn
 

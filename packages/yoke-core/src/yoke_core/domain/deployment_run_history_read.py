@@ -172,11 +172,10 @@ def _criteria(
             "(LOWER(dr.id) LIKE " + marker + " OR EXISTS ("
             "SELECT 1 FROM deployment_run_items dri "
             "JOIN items i ON i.id = dri.item_id "
-            "JOIN projects ip ON ip.id = i.project_id "
+            "JOIN item_refs ir ON ir.item_id = i.id "
             "WHERE dri.run_id = dr.id AND ("
             "LOWER(i.title) LIKE " + marker + " OR "
-            "LOWER(ip.public_item_prefix || '-' || "
-            "CAST(i.project_sequence AS TEXT)) LIKE " + marker + ")))"
+            "LOWER(ir.public_ref) LIKE " + marker + ")))"
         )
         params.extend([pattern, pattern, pattern])
     return clauses, params

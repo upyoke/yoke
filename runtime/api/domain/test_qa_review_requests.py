@@ -38,8 +38,8 @@ def test_undetermined_review_request_resolves_to_human_verdict(test_db):
     assert created is True
     assert request is not None
     item_ref = test_db.execute(
-        "SELECT p.public_item_prefix || '-' || i.project_sequence "
-        "FROM items i JOIN projects p ON p.id = i.project_id WHERE i.id = %s",
+        "SELECT r.public_ref "
+        "FROM items i JOIN item_refs r ON r.item_id = i.id WHERE i.id = %s",
         (9501,),
     ).fetchone()[0]
     assert request["subject_context"] == {

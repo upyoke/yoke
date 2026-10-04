@@ -6,6 +6,7 @@ from typing import Any
 
 from yoke_core.domain.schema_checks import _VALID_TASK_STATUSES_SQL
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.item_refs_schema import ensure_item_refs_view
 from yoke_core.domain.schema_init_path_integrity_tables import (
     create_path_integrity_tables,  # noqa: F401 - compatibility re-export
 )
@@ -314,6 +315,7 @@ def create_core_tables(conn: Any) -> None:
         );
     """,
     )
+    ensure_item_refs_view(conn)
     ensure_item_worktree_schema(conn)
     ensure_item_landings_schema(conn)
     ensure_epic_item_worktree_references(conn)

@@ -1,5 +1,7 @@
 # DB Reference — Items and Epic Tables
 
+Raw item reads join `item_refs r ON r.item_id = items.id` and select `r.public_ref`. The read-only view follows prefix updates; `project_sequence` alone is ambiguous across projects. `yoke db read` warns when the result omits both `public_ref` and `public_item_prefix`.
+
 Schemas for backlog items, epic tasks, and the supporting shepherd / caveat / dependency tables. Cross-link back from [db-reference.md](../db-reference.md) for entry points, the domain catalog, timestamp discipline, JSON-payload conventions, qa CLI, body write path, common pitfalls, and the status lifecycle reference.
 
 ## Backlog ontology

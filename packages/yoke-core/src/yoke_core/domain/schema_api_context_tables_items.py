@@ -10,6 +10,14 @@ from __future__ import annotations
 from yoke_core.domain.epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
 
 ITEMS_TABLE: dict[str, dict] = {
+    "item_refs": {
+        "columns": [
+            ("item_id", "INTEGER"),
+            ("project_id", "INTEGER"),
+            ("public_ref", "TEXT"),
+        ],
+        "notes": "Read-only view of current project prefixes. Join item_refs.item_id to items.id for unambiguous public refs; prefix updates are reflected immediately.",
+    },
     "items": {
         "columns": [
             ("id", "INTEGER"),
@@ -45,12 +53,13 @@ ITEMS_TABLE: dict[str, dict] = {
             "`item_id` is a foreign-key column on OTHER tables. "
             "To resolve a public `PREFIX-N` ref in raw SQL use "
             "`WHERE project_id = <p> AND project_sequence = <n>` "
-            "(join `projects` for the prefix); never treat the N from a "
+            "(join `item_refs` on item_id for public_ref); never treat the N from a "
             "public ref as `WHERE id = N` — `id` and `project_sequence` "
             "drift. `WHERE id = <n>` is correct only when the caller "
             "already holds the internal id. Public item refs are "
-            "project-scoped: join `items.project_id` to `projects.id` and "
-            "render `{projects.public_item_prefix}-{items.project_sequence}` "
+            "project-scoped: join `item_refs.item_id` to `items.id` and "
+            "select `item_refs.public_ref`; db.read warns when project_sequence "
+            "is returned without public_item_prefix or public_ref. Read refs "
             "inside project context; the old item-level project slug field "
             "has been deleted. The GitHub linkage is the single `github_issue` "
             "column — there is no "

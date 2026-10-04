@@ -96,6 +96,8 @@ def _schema_ddl() -> str:
             "",
             QA_CATALOG_TABLES_SQL,
         )
+        from yoke_core.domain.item_refs_schema import ITEM_REFS_CREATE_SQL
+
         composed = (
             workflow_tables_without_fk
             + ";"
@@ -127,6 +129,7 @@ def _schema_ddl() -> str:
             + OVERVIEW_MACHINE_ACTIVATION_FACTS_CREATE_SQL
             + ";"
             + _MERGE_LOCKS_DDL
+            + ITEM_REFS_CREATE_SQL.replace("CREATE VIEW", "CREATE OR REPLACE VIEW", 1)
         )
         globals()["SCHEMA_DDL"] = composed
     return composed

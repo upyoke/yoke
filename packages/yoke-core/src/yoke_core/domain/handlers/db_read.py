@@ -24,7 +24,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain import db_backend, db_helpers, json_helper
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
-from yoke_core.domain.db_read_column_hints import column_hint
+from yoke_core.domain.db_read_column_hints import column_hint, item_reference_warnings
 from yoke_core.domain.handlers.db_read_sql import (
     DbReadRefusal,
     validate_read_only_sql,
@@ -81,11 +81,14 @@ def handle_db_read(request: FunctionCallRequest) -> HandlerOutcome:
         )
     return HandlerOutcome(
         result_payload=result.model_dump(),
+        warnings=item_reference_warnings(result.columns),
         primary_success=True,
     )
 
 
-def _coerce_payload(payload: Dict[str, Any]) -> tuple[
+def _coerce_payload(
+    payload: Dict[str, Any],
+) -> tuple[
     Optional[DbReadRunRequest],
     Optional[DbReadRefusal],
 ]:
@@ -207,9 +210,7 @@ _SENSITIVE_KEY_TOKENS = (
 
 
 def _is_sensitive_key(key: str) -> bool:
-    normalized = "".join(
-        character for character in key.lower() if character.isalnum()
-    )
+    normalized = "".join(character for character in key.lower() if character.isalnum())
     return any(token in normalized for token in _SENSITIVE_KEY_TOKENS)
 
 
