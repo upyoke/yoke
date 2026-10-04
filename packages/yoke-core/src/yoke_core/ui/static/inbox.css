@@ -83,9 +83,8 @@
   margin: 0;
   font-size: 14px;
 }
-/* Thumbnails stay small and whole: contained rather than cropped, because a
-   cropped screenshot of a page is a picture of its top-left corner. The
-   full-size viewer is one press away. */
+/* Compact tiles use the shared cropped frame; the full-size viewer is one
+   press away. */
 .universe-app-root .inbox-sections .review-evidence {
   display: flex;
   align-items: flex-start;
@@ -94,32 +93,10 @@
   gap: 8px;
   margin: 0;
 }
-/* Tall enough to read. These are whole-page captures — most are several
-   times taller than they are wide — so a wide-short box under `contain`
-   shrank them to a few pixels of width. Two still sit across the 260px
-   column, and `contain` still shows the whole image rather than a crop. */
+/* Two tiles sit across the 260px column. */
 .universe-app-root .inbox-sections .review-shot {
   width: 122px;
   flex: 0 1 122px;
-}
-.universe-app-root .inbox-sections .review-shot-open {
-  height: 200px;
-  min-height: 0;
-  overflow: hidden;
-}
-/* An artifact that cannot be fetched has no picture to give that height to,
-   so it keeps the compact box: three of them side by side were otherwise a
-   tall band of blank with a step label at the bottom. */
-.universe-app-root .inbox-sections .review-shot.is-unavailable
-  .review-shot-open {
-  height: 65px;
-}
-.universe-app-root .inbox-sections .review-shot-image {
-  width: 100%;
-  height: 100%;
-  aspect-ratio: auto;
-  object-fit: contain;
-  object-position: center;
 }
 .universe-app-root .inbox-sections .review-shot-caption {
   padding: 6px 0;

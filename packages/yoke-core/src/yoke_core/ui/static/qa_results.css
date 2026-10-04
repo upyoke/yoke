@@ -96,16 +96,6 @@
   width: 48px;
   margin: 0;
 }
-.universe-app-root td.qa-activity-evidence .review-shot-open {
-  height: 32px;
-  min-height: 0;
-  aspect-ratio: auto;
-  overflow: hidden;
-}
-.universe-app-root td.qa-activity-evidence .review-shot-image {
-  height: 100%;
-  aspect-ratio: auto;
-}
 .universe-app-root td.qa-activity-evidence .review-shot-caption {
   display: none;
 }

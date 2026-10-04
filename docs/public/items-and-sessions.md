@@ -160,8 +160,10 @@ evaluator/client-wall coverage, are labelled incomparable.
 - Every decision is one card, the same card a run draws on Shipping and on
   the run page: what kind of ask it is, what it is
   about, what a yes does in one sentence, who settles it, and the answer.
-  A run draws its screenshots once in its QA section. Screenshots load as thumbnails and open in
-  place; stored command output opens as text; evidence held on another
+  A run draws its screenshots once in its QA section. Across Shipping, run
+  pages, Inbox, the Runs table, and QA activity, thumbnails use one clipped
+  16:10 frame with top-anchored cropping and open at full size in place.
+  Stored command output opens as text; evidence held on another
   machine says so. The long form — why you were asked, exactly what
   approving does, the release contents or branch diff — stays one
   disclosure away
