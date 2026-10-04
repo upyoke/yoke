@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS projects (
     public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
     org_id INTEGER DEFAULT 1,
     github_sync_mode TEXT,
-    created_at TEXT NOT NULL
+    retired_at TEXT, created_at TEXT NOT NULL
 );
 INSERT INTO projects (id, slug, name, github_repo, public_item_prefix, org_id, created_at)
 VALUES (1, 'yoke', 'Yoke', 'upyoke/yoke', 'YOK', 1, '2026-01-01T00:00:00Z')

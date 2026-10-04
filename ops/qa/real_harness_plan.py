@@ -41,7 +41,9 @@ def cases(
                 "expected_outcome": (
                     "Each native probe registers exactly one session with the declared "
                     "executor/workspace; evaluated native hooks record allow and deny "
-                    "decisions. Native model text and CLI exit alone cannot pass."
+                    "decisions. Native model text and CLI exit alone cannot pass. "
+                    "The case-owned fixture project is retired on pass or failure; "
+                    "its local control plane preserves the evidence."
                 ),
                 "host_baselines": ["shell-preconfigured"],
                 "entry_surface": command,

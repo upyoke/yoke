@@ -42,6 +42,7 @@ class ProjectsListRequest(BaseModel):
     fields: Optional[List[str]] = None
     include_summary: bool = False
     for_item_creation: bool = False
+    include_retired: bool = False
 
 
 class ProjectsListResponse(BaseModel):
@@ -169,6 +170,10 @@ def handle_projects_list(request: FunctionCallRequest) -> HandlerOutcome:
         enrich_project_summaries,
     )
     from yoke_core.domain.projects_crud import cmd_list
+    from yoke_core.domain.project_retirement import (
+        active_projects_where,
+        project_fields_sql,
+    )
 
     actor_id = numeric_actor_id(request.actor.actor_id if request.actor else None)
     try:
@@ -237,7 +242,7 @@ def handle_projects_list(request: FunctionCallRequest) -> HandlerOutcome:
         finally:
             conn.close()
     if parsed.fields is None and not parsed.include_summary:
-        raw = cmd_list()
+        raw = cmd_list(include_retired=True) if parsed.include_retired else cmd_list()
         raw_rows: list[Dict[str, Any]] = []
         for line in raw.splitlines():
             if not line:
@@ -255,7 +260,11 @@ def handle_projects_list(request: FunctionCallRequest) -> HandlerOutcome:
                 {field: typed_project_field(field, row[field]) for field in fields}
                 for row in query_rows(
                     conn,
-                    f"SELECT {', '.join(fields)} FROM projects ORDER BY id ASC",
+                    f"SELECT {project_fields_sql(conn, fields)} FROM projects"
+                    + active_projects_where(
+                        conn, include_retired=parsed.include_retired
+                    )
+                    + " ORDER BY id ASC",
                 )
             ]
             if parsed.include_summary:

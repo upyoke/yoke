@@ -58,6 +58,7 @@ QA_RUN_CAPTURED_DESCRIPTION = (
 # fmt: off
 # Authoritative metadata layer — see module docstring for ordering and apply contract.
 AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
+    ("ProjectRetirementChanged", "lifecycle", "project", "yoke_core.domain.project_retirement", "INFO", "Project retired or restored without deleting history; context records the operator reason and retired_at."),
     ("AdapterDispatchChosen", "workflow", "adapter_dispatch", "cli", "INFO", "Emitted when a downstream adapter path is chosen for charge/resume"),
     ("AdvancePhaseCompleted", "workflow", "advance_phase", "yoke_core.engines.advance_implementation_entry", "INFO", "Emitted per phase by the /yoke advance implementation-entry orchestrator. Carries phase (preflight|worktree|environment|finalize), outcome (completed|skipped:<reason>|blocked:<reason>), duration_ms, and phase-specific context. The full phase trail proves the implementation-entry composition committed end-to-end inside one Python process."),
     ("BrowserDaemonStartupFailed", "system", "browser_daemon", "browser_qa", "ERROR", "Browser daemon failed to start after bounded recovery attempts during browser QA"),

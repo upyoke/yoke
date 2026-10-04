@@ -88,6 +88,7 @@ PROJECT_FIELDS = (
     "github_repo",
     "public_item_prefix",
     "github_sync_mode",
+    "retired_at",
     "created_at",
 )
 

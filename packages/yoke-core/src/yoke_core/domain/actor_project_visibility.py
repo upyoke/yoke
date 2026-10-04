@@ -59,7 +59,11 @@ def actor_project_ids_with_permission(
     from yoke_core.domain.actor_permissions import permission_decision
     from yoke_core.domain.project_identity import row_value
 
-    rows = conn.execute("SELECT id FROM projects ORDER BY id").fetchall()
+    from yoke_core.domain.project_retirement import active_projects_where
+
+    rows = conn.execute(
+        "SELECT id FROM projects" + active_projects_where(conn) + " ORDER BY id"
+    ).fetchall()
     visible: Set[int] = set()
     for row in rows:
         project_id = int(row_value(row, "id", 0))

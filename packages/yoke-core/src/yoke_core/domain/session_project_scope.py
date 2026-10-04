@@ -9,6 +9,7 @@ filtered to the session workspace project in
 """
 
 from __future__ import annotations
+from yoke_core.domain.project_retirement import active_projects_where
 
 from typing import Any, List, Optional, Union
 
@@ -96,7 +97,7 @@ def _list_registered_project_ids(conn: Any) -> List[int]:
     """
     try:
         rows = conn.execute(
-            "SELECT id FROM projects ORDER BY id"
+            "SELECT id FROM projects" + active_projects_where(conn) + " ORDER BY id"
         ).fetchall()
     except db_backend.operational_error_types(conn):
         # On Postgres the missing-table error aborts the transaction; roll back
@@ -114,7 +115,11 @@ def _list_registered_project_ids(conn: Any) -> List[int]:
 
 def _list_registered_project_refs(conn: Any) -> List[str]:
     try:
-        rows = conn.execute("SELECT id, slug FROM projects ORDER BY id").fetchall()
+        rows = conn.execute(
+            "SELECT id, slug FROM projects"
+            + active_projects_where(conn)
+            + " ORDER BY id"
+        ).fetchall()
     except db_backend.operational_error_types(conn):
         if db_backend.connection_is_postgres(conn):
             try:
@@ -122,10 +127,7 @@ def _list_registered_project_refs(conn: Any) -> List[str]:
             except Exception:
                 pass
         return ["1/yoke"]
-    return [
-        f"{row_value(row, 'id', 0)}/{row_value(row, 'slug', 1)}"
-        for row in rows
-    ]
+    return [f"{row_value(row, 'id', 0)}/{row_value(row, 'slug', 1)}" for row in rows]
 
 
 def _fallback_project_id(project: str | int) -> Optional[int]:

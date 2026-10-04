@@ -69,6 +69,12 @@ def run(args: list[str]) -> int:
             sort_keys=True,
         )
     )
+    if not result.get("project_cleanup_ok", True):
+        print(
+            f"{PROG}: qa_project_cleanup_incomplete: {result['project_cleanup']}",
+            file=sys.stderr,
+        )
+        return 3
     if result["removed"]:
         return 0
     print(

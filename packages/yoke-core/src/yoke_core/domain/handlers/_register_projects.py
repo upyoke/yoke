@@ -38,13 +38,41 @@ _PROJECT_WRITE_SURFACES = (
 
 def register(registry) -> None:
     """Register project registry writes via the given registry module."""
+    from yoke_core.domain.handlers import projects_retirement as retirement
+
+    for verb, handler, model in (
+        ("retire", retirement.handle_retire, retirement.RetireRequest),
+        ("unretire", retirement.handle_unretire, retirement.UnretireRequest),
+    ):
+        registry.register(
+            f"projects.{verb}",
+            handler,
+            model,
+            retirement.RetirementResponse,
+            stability="stable",
+            owner_module=retirement.__name__,
+            target_kinds=["global"],
+            side_effects=["project_retirement_write"],
+            emitted_event_names=["YokeFunctionCalled", "ProjectRetirementChanged"],
+            guardrails=["active_obligation_refusal"],
+            adapter_status="live",
+            claim_required_kind=None,
+            ambient_session_required=False,
+            minimum_serving_version="next-release",
+        )
     registry.register(
-        "projects.environment.list", _infrastructure.handle_projects_environment_list,
+        "projects.environment.list",
+        _infrastructure.handle_projects_environment_list,
         _infrastructure.ProjectsInfrastructureListRequest,
         _infrastructure.ProjectsEnvironmentListResponse,
-        stability="stable", owner_module="yoke_core.domain.handlers.projects_infrastructure",
-        target_kinds=["global"], side_effects=[], emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["metadata_only"], adapter_status="live", claim_required_kind=None,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.projects_infrastructure",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["metadata_only"],
+        adapter_status="live",
+        claim_required_kind=None,
         minimum_serving_version="next-release",
     )
     registry.register(

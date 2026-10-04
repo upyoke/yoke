@@ -99,6 +99,8 @@ _BY_ID: dict[str, AuthzSpec] = {
     # Editing an EXISTING project is scoped to that project's admin (the target
     # project resolves from the payload slug/id).
     "projects.update": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "projects.retire": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "projects.unretire": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     # Per-project settings / secrets / metadata — checked against the TARGET
     # project (resolved from the payload), gated by that project's admin.
     "projects.capability_secret.set": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),

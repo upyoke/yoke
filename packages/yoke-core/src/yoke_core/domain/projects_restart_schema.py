@@ -29,6 +29,7 @@ def _projects_table_sql(*, if_not_exists: bool) -> str:
             github_repo TEXT,
             public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
             github_sync_mode {github_sync_mode_column_sql()},
+            retired_at TEXT,
             created_at TEXT NOT NULL
         );
     """

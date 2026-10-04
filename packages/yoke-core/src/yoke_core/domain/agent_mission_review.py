@@ -108,7 +108,11 @@ def _walker_dispatch(
         f"--requirement-id {int(case['requirement_id'])}"
     )
     prompt = (
-        "Walk this mission atomically. Choose the sequence and use every "
+        "Walk this mission atomically. Any newly onboarded project is case-owned. "
+        "Before returning a pass or failure, run the scratch-teardown command; "
+        "it retires only this case's projects through the registered surface "
+        "and preserves their evidence. Report a retirement blocker as a finding. "
+        "Choose the sequence and use every "
         "available declared substrate that helps. Do not issue the verdict; "
         "return a ranked findings report as the primary deliverable to the "
         "main mission owner. If another item holds a required host, do nothing "

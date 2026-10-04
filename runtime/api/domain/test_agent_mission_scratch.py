@@ -77,10 +77,11 @@ def test_creation_makes_the_directory_owner_only() -> None:
     control = FakeHostControl()
     path = create_mission_scratch(control, execution_id=EXECUTION_ID)
     assert path == mission_scratch_path(EXECUTION_ID)
-    assert control.commands == [
+    assert control.commands[:2] == [
         ["/bin/mkdir", "-p", "-m", "700", path],
         ["/bin/chmod", "700", path],
     ]
+    assert control.commands[2][:2] == ["python3", "-c"]
     assert path in control.existing_paths
 
 
@@ -107,6 +108,8 @@ def test_teardown_removes_the_scratch_and_everything_staged_inside() -> None:
         "removed": True,
         "removal_exit_code": 0,
         "removal_stderr": "",
+        "project_cleanup_ok": True,
+        "project_cleanup": {"retired_projects": [], "owner_marker_removed": True},
     }
     assert not any(
         existing == path or existing.startswith(f"{path}/")
