@@ -62,7 +62,14 @@ the destination picker.
 ## After onboard
 
 The installer runs `uv tool update-shell`; uv chooses the shell configuration to
-update, including bash and fish. Open a new terminal, then open Claude
+update, including bash and fish. If uv cannot determine the current shell (for
+example, in a noninteractive shell without `SHELL`), the installer completes
+its checks using the installed executable's absolute path and prints
+`Add Yoke to PATH: export PATH=...` with the exact bin directory. Run that
+command in your shell; add the same directory to your shell's startup PATH to
+keep it available in future terminals. Other shell-update failures stop the
+installer with `uv_shell_update_failed`.
+Open a new terminal, then open Claude
 Code, Codex, or Cursor in your project folder and run `/yoke onboard`.
 
 ```bash
@@ -156,6 +163,7 @@ told the remote has a layer it never received.
 - [Projects](projects.md)
 
 If a fresh login shell cannot find `yoke`, run `uv tool update-shell`, check any
-shell configuration that overrides PATH, and open a new terminal.
+shell configuration that overrides PATH, and open a new terminal. If uv cannot
+determine your shell, use the installer's printed `export PATH=...` command.
 `yoke path verify` probes your actual login shell; `yoke path fix` delegates
 configuration to uv. Yoke does not write its own shell startup blocks.
