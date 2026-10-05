@@ -20,6 +20,9 @@ import sys, time
 from pathlib import Path
 from types import SimpleNamespace
 from yoke_harness.session_relay_daemon import serve_forever
+import yoke_harness.session_relay_daemon as daemon
+# Simulate a manager allowing six seconds. Settlements get five seconds.
+daemon.read_stop_settlement_seconds = lambda: 5.0
 from yoke_harness.session_relay_supervision import refreshing_inventory
 root, blocked = Path(sys.argv[1]), sys.argv[2]
 def hold():
@@ -62,10 +65,13 @@ print('stopped', flush=True)
         assert ready.exists(), process.communicate(timeout=1)
         started = time.monotonic()
         os.kill(process.pid, signal.SIGTERM)
-        out, err = process.communicate(timeout=4)
+        out, err = process.communicate(timeout=7)
         assert process.returncode == 0, err
         assert "stopped" in out
-        assert time.monotonic() - started < 4
+        elapsed = time.monotonic() - started
+        assert elapsed < 6
+        if blocked in {"settlement", "report"}:
+            assert elapsed >= 4.8
         if blocked != "idle":
             assert custody.read_text() == "durable-attempt"
         if blocked == "report":

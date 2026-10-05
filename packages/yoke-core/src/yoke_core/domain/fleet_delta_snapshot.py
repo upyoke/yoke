@@ -68,6 +68,7 @@ class SessionRow:
     activity_at: datetime | None
     last_tool_call_at: datetime | None = None
     claimed_items: tuple[str, ...] = ()
+    landing_waits: tuple[str, ...] = ()
 
     @property
     def lifecycle(self) -> str:
@@ -126,7 +127,6 @@ class FleetSnapshot:
     items: Mapping[str, ItemRow] = field(default_factory=dict)
     envelopes: Mapping[tuple[str, str], EnvelopeRow] = field(default_factory=dict)
     landing_waits: frozenset[str] = frozenset()
-    landing_report: Mapping[str, Any] | None = None
 
 
 def _result(response: Any, function_id: str) -> dict[str, Any]:
@@ -168,6 +168,14 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
             activity_at=parse_timestamp(raw.get("activity_at")),
             last_tool_call_at=parse_timestamp(raw.get("last_tool_call_at")),
             claimed_items=tuple(ref for ref in claims if ref),
+            landing_waits=tuple(
+                str(claim.get("target") or claim.get("public_ref") or "")
+                for claim in raw.get("claims") or []
+                if isinstance(claim, Mapping)
+                and claim.get("target_kind") == "item"
+                and claim.get("item_awaiting_landing") is True
+                and (claim.get("target") or claim.get("public_ref"))
+            ),
         )
     return rows
 
@@ -235,7 +243,7 @@ def read_snapshot(
     self_session_id: str,
     workspace: str | None = None,
 ) -> FleetSnapshot:
-    """Compose roster, frontier, inbox and silent holders' landing readbacks.
+    """Compose the light roster, frontier and inbox reads for one probe.
 
     ``call`` is a ``(function_id, payload) -> response`` callable so the
     transport stays injectable for tests and the loop stays free of
@@ -270,22 +278,15 @@ def read_snapshot(
             ENVELOPES_FUNCTION,
         )
     )
-    snapshot = FleetSnapshot(
+    return FleetSnapshot(
         taken_at=now,
         self_session_id=self_session_id,
         sessions=sessions,
         items=items,
         envelopes=envelopes,
-    )
-    from dataclasses import replace
-    from yoke_core.domain.fleet_delta_alarms import idle_holder_candidates
-    from yoke_core.domain.steering_fleet_report_landings import report_landing_waits
-
-    if not idle_holder_candidates(snapshot):
-        return snapshot
-    report = _result(call(STEERING_REPORT_FUNCTION, {}), STEERING_REPORT_FUNCTION)
-    return replace(
-        snapshot, landing_waits=report_landing_waits(report), landing_report=report
+        landing_waits=frozenset(
+            ref for row in sessions.values() for ref in row.landing_waits
+        ),
     )
 
 

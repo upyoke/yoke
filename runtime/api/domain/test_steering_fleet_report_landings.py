@@ -138,7 +138,9 @@ def test_dead_landing_retains_idle_holder(fleet, monkeypatch):
     assert report.landings_needing_action()
 
 
-def test_merged_landing_waits_for_wake_then_retains_idle_holder(fleet, monkeypatch):
+def test_merged_landing_retains_idle_holder_even_before_completion_wake(
+    fleet, monkeypatch
+):
     claim_work(fleet, session_id=WORKER_SESSION, target=make_item_target(1))
     _wire(monkeypatch, state=PrLandingState(True, True, False), members=())
     fleet.execute(
@@ -147,7 +149,7 @@ def test_merged_landing_waits_for_wake_then_retains_idle_holder(fleet, monkeypat
     )
     fleet.commit()
 
-    assert compose(fleet).idle == ()
+    assert len(compose(fleet).idle) == 1
 
     fleet.execute(
         "UPDATE items SET merge_queue_notified_at=%s WHERE id=1",
