@@ -139,7 +139,7 @@ def deliver_terminal_report(
     )
 
     code = response_error_code(response)
-    if is_permanent_report_rejection(response, job_kind=str(safe["job_kind"])):
+    if is_permanent_report_rejection(response):
         if safe["job_kind"] == "evidence":
             _LOGGER.warning(
                 "relay_evidence_report_dropped: job=%s server_reason=%s; "
