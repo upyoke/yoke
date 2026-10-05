@@ -59,7 +59,7 @@ class TestConnectionModeGate:
 
         assert commands.ui_up(["--no-browser"]) == 1
         err = capsys.readouterr().err
-        assert "hosted/self-host" in err
+        assert "open https://api.example/ in a browser" in err
         assert "machine-local universe" in err
 
     def test_https_refusal_names_the_per_invocation_env_not_a_global_switch(
@@ -175,7 +175,7 @@ class TestConnectionModeGate:
         writer.set_active_env("stage")
 
         assert serve.ui_serve_process([]) == 1
-        assert "hosted/self-host" in capsys.readouterr().err
+        assert "open https://api.example/" in capsys.readouterr().err
 
     def test_status_and_down_carry_no_connection_gate(
         self,

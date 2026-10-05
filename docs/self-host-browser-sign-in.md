@@ -3,13 +3,31 @@
 An optional door on the server described in [Self-Host Yoke](self-host.md).
 Leaving it unconfigured changes nothing for tokened clients.
 
-Optionally, the server can offer a browser sign-in door backed by your
-identity provider — anything that speaks OpenID Connect with discovery
-(Okta, Keycloak, Microsoft Entra ID, Google Workspace, ...). Browser
-sessions are deliberately **read-only**: a signed-in browser sees the
-landing page; every write still requires an API token over
-`Authorization: Bearer`. Leaving the door unconfigured changes nothing
-for tokened clients — the OIDC routes simply answer 409.
+The server serves the universe workbench at its own URL — the same
+workbench Local (`yoke ui up`) and Cloud serve. Browser sign-in, backed by
+your identity provider (anything that speaks OpenID Connect with discovery:
+Okta, Keycloak, Microsoft Entra ID, Google Workspace, ...), is how people
+open it. A signed-in browser works with **full read and write** as its own
+actor: the workbench calls `POST /v1/functions/call` with the session
+cookie, and the engine's per-actor permission model decides what that
+actor may do, exactly as for an API token. With the door unconfigured,
+the OIDC routes answer 409 and the server's URL shows a page saying
+browser sign-in is not configured.
+
+**What protects the cookie.** The session cookie is `HttpOnly` and
+`SameSite=Lax`, so browsers do not attach it to cross-site writes. Every
+cookie-authorized call must also be same-origin: a present `Origin` must
+name the server's own host (`X-Forwarded-Host` first, then `Host`, so set
+it in your reverse proxy), and a present `Sec-Fetch-Site` must be
+`same-origin` or `none`. Anything else is refused as
+`cross_origin_refused`. A request carrying `Authorization: Bearer` is
+authenticated by its token, never by a cookie riding along. The browser
+identity also counts as "a person at a browser" for decisions only a
+person may take, such as clearing a merge-candidate review from the Inbox.
+
+The workbench, its `/assets/` roster, and `/served-build` (the commit the
+server serves, read by browser QA) are served at the server's site root,
+so expose the server at a host root rather than under a path prefix.
 
 **1. Register a client at your provider.** Create a confidential "web
 application" client with the authorization-code flow, scopes
@@ -44,9 +62,10 @@ enables `no-new-privileges`. Bootstrap and healthchecks prove the runtime has
 no effective Linux capabilities after the drop. Restart through the same host
 command so it can reopen the inputs; automatic restart is disabled.
 
-**3. Decide who gets in.** Visiting `https://yoke.internal/` offers
-"Sign in"; after the provider round-trip the server admits the verified
-identity by the first matching rule:
+**3. Decide who gets in.** Visiting `https://yoke.internal/` (or any
+workbench page) signed out offers "Sign in"; after the provider round-trip
+the server admits the verified identity by the first matching rule and
+opens the workbench for that actor:
 
 1. **Already linked** — the identity (issuer + subject) was linked to an
    actor by a previous sign-in or an admin pre-link.

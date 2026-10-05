@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from shlex import quote
+from urllib.parse import urlsplit
 
 from textual.widgets import Static
 
@@ -58,8 +59,12 @@ def machine_finish_lines(result) -> list[str]:
     else:
         lines.append("Your account has no projects yet.")
     hosted_env = onboard_destinations.hosted_environment_for_url(result.api_url)
+    server = urlsplit(str(result.api_url or ""))
     if hosted_env:
         lines.append(f"Or open the dashboard: {platform_url_for_env(hosted_env)}")
+    elif server.netloc:
+        # A team server serves its own workbench at its site root.
+        lines.append(f"Or open the workbench: {server.scheme}://{server.netloc}/")
     else:
         lines.append("Or open the workbench: yoke ui up")
     lines.extend(

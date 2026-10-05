@@ -88,7 +88,11 @@ def _call(client, function: str, payload: dict, **headers):
 class TestWorkbenchPages:
     @pytest.mark.parametrize("path", ["/", "/sessions", "/deployments/runs"])
     def test_signed_in_browser_gets_the_shell_for_its_actor(
-        self, browser, actor_id, monkeypatch, path,
+        self,
+        browser,
+        actor_id,
+        monkeypatch,
+        path,
     ):
         monkeypatch.setenv("YOKE_BUILD_SHA", "0123456789abcdef")
         resp = browser.get(path)
@@ -133,7 +137,8 @@ class TestWorkbenchPages:
 class TestBrowserFunctionCalls:
     def test_write_lands_as_the_session_actor(self, browser):
         written = _call(
-            browser, "ui_preferences.nav_group.set",
+            browser,
+            "ui_preferences.nav_group.set",
             {"group_id": "diagnostics", "open": True},
         )
         assert written.status_code == 200, written.text
@@ -142,7 +147,10 @@ class TestBrowserFunctionCalls:
         assert listed.json()["result"]["groups"] == {"diagnostics": True}
 
     def test_dispatch_binds_actor_and_browser_origin(
-        self, browser, actor_id, monkeypatch,
+        self,
+        browser,
+        actor_id,
+        monkeypatch,
     ):
         seen = {}
         real_dispatch = browser_function_call.dispatch
@@ -156,7 +164,8 @@ class TestBrowserFunctionCalls:
         monkeypatch.setattr(browser_function_call, "dispatch", recording_dispatch)
         _call(browser, "ui_preferences.nav_group.list", {})
         assert seen["envelope"]["actor"] == {
-            "actor_id": str(actor_id), "session_id": "",
+            "actor_id": str(actor_id),
+            "session_id": "",
         }
         assert seen["ambient"] == ""
         assert seen["browser_origin"] is True
@@ -178,7 +187,9 @@ class TestBrowserFunctionCalls:
 
     def test_forwarded_host_is_the_server_origin(self, browser):
         resp = _call(
-            browser, "ui_preferences.nav_group.list", {},
+            browser,
+            "ui_preferences.nav_group.list",
+            {},
             Origin="https://yoke.example.com",
             **{"X-Forwarded-Host": "yoke.example.com"},
         )
@@ -195,7 +206,9 @@ class TestBrowserFunctionCalls:
 
     def test_bearer_header_takes_the_bearer_path(self, browser):
         resp = _call(
-            browser, "ui_preferences.nav_group.list", {},
+            browser,
+            "ui_preferences.nav_group.list",
+            {},
             Authorization="Bearer not-a-real-token",
         )
         assert resp.status_code == 401

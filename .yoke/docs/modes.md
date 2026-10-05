@@ -46,8 +46,10 @@ Run Yoke core and Postgres on your own server.
   bundle through the private host secret handoff. Restart with
   `yoke self-host init --dir PATH --protect-existing --start`; [`docs/self-host.md`](https://github.com/upyoke/yoke/blob/main/docs/self-host.md)
   remains the full reference.
-- Same product surfaces as Cloud for Yoke-owned tabs; platform Member/Billing
-  sections depend on how you host the shell
+- The server serves the workbench at its own URL. People sign in with company
+  sign-in (OIDC) and work with full read and write as their own actor; see
+  [Browser Sign-In](https://github.com/upyoke/yoke/blob/main/docs/self-host-browser-sign-in.md)
+- Members and Billing tabs do not apply (Cloud-only platform features)
 
 `yoke self-host init` warns when `YOKE_API_PUBLISH` in the bundle's `.env`
 publishes beyond loopback. Docker bypasses ufw/firewalld for published ports;

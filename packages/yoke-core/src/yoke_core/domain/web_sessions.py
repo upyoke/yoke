@@ -6,8 +6,9 @@ returned once at mint time (it becomes the session cookie value) and is
 never persisted or logged. Unlike API tokens, web sessions always carry
 an expiry, and verification touches ``last_used_at``.
 
-Web sessions authorize READ-ONLY browser surfaces only; every write
-still requires a bearer API token. That policy lives at the HTTP layer —
+A web session stands for its actor in the workbench the server serves:
+its pages and same-origin function calls, reads and writes alike. That
+policy lives at the HTTP layer (:mod:`yoke_core.api.web_session_auth`) —
 this module only answers "which actor does this cookie belong to, and is
 it still live?".
 """
