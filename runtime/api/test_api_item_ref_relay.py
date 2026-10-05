@@ -95,6 +95,11 @@ class TestItemRefOverHttpBoundary(unittest.TestCase):
                 conn = connect_test_db(db_path)
                 try:
                     auth = mint_api_auth_context(conn)
+                    from yoke_core.domain.workflow_execution_instructions_schema import (
+                        ensure_workflow_execution_instructions_schema,
+                    )
+
+                    ensure_workflow_execution_instructions_schema(conn)
                     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
                     from yoke_core.domain.workflow_registry import (
                         resolve_current_workflow_pin,
