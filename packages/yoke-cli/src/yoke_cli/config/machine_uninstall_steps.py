@@ -185,6 +185,7 @@ def remove(
             if counts["failed"]:
                 skipped("machine home", "external config removal failed")
                 finish.cancel()
+                skipped("CLI", "external config removal failed")
             else:
                 attempt("machine home", lambda: _remove_home(inventory.home))
                 if counts["failed"]:

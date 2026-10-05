@@ -13,6 +13,8 @@ import time
 
 from yoke_contracts.process_ancestry import process_start_time
 
+DETACHED_TEMP_ROOT = Path("/tmp")
+
 
 @dataclass
 class Handoff:
@@ -40,7 +42,8 @@ def prepare() -> Handoff:
         raise RuntimeError(
             "uninstall_parent_identity_missing: cannot safely detach; repair process inspection and retry."
         )
-    directory = Path(tempfile.mkdtemp(prefix="yoke-uninstall-"))
+    # The caller's TMPDIR may be inside ~/.yoke, which this command removes.
+    directory = Path(tempfile.mkdtemp(prefix="yoke-uninstall-", dir=DETACHED_TEMP_ROOT))
     script = directory / "finish.py"
     script.write_text(Path(__file__).read_text(encoding="utf-8"), encoding="utf-8")
     log = directory / "result.log"

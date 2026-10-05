@@ -79,6 +79,10 @@ def test_real_detached_handoff_survives_main_exit(tmp_path, monkeypatch):
     uv.chmod(0o700)
     monkeypatch.setenv("PATH", str(bin_dir) + os.pathsep + os.environ["PATH"])
     monkeypatch.setenv("UNINSTALL_UV_MARKER", str(marker))
+    # A session's temporary root may be Yoke-owned; the final handoff must not be.
+    doomed_temp = tmp_path / "machine-temp"
+    doomed_temp.mkdir()
+    monkeypatch.setenv("TMPDIR", str(doomed_temp))
     code = (
         "import json, time\n"
         "from yoke_cli.config.machine_uninstall_detached import prepare\n"
@@ -95,6 +99,7 @@ def test_real_detached_handoff_survives_main_exit(tmp_path, monkeypatch):
     )
     try:
         report = json.loads(parent.stdout.readline())
+        assert doomed_temp not in Path(report["log"]).parents
         assert not marker.exists(), "detached worker raced the main process"
         assert parent.wait(timeout=10) == 0
         deadline = time.monotonic() + 10

@@ -10,6 +10,7 @@ import subprocess
 from pathlib import Path
 
 from yoke_cli.config import install_binding, local_universe_setup, machine_config
+from yoke_cli.config.machine_uninstall_detached import DETACHED_TEMP_ROOT
 from yoke_cli.project_install.files import MANIFEST_REL
 from yoke_cli.self_host import bundle, teardown
 from yoke_contracts.machine_config import schema
@@ -104,7 +105,12 @@ def inspect() -> Inventory:
 
 def _assert_safe_home(home: Path, checkouts: list[Path]) -> None:
     resolved = home.resolve()
-    forbidden = (Path("/"), Path.home().resolve(), *checkouts)
+    forbidden = (
+        Path("/"),
+        Path.home().resolve(),
+        DETACHED_TEMP_ROOT.resolve(),
+        *checkouts,
+    )
     if any(resolved == p or resolved in p.parents for p in forbidden):
         raise UninstallError(
             f"uninstall_unsafe_home: {home} contains a home or registered checkout. "
