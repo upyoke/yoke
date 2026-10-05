@@ -45,9 +45,12 @@ def _make_conn() -> Any:
 
     name = pg_testdb.create_test_database()
     conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name,
+        pg_testdb.connect_test_database(name),
+        name,
     )
-    apply_fixture_ddl(conn, textwrap.dedent("""\
+    apply_fixture_ddl(
+        conn,
+        textwrap.dedent("""\
         CREATE TABLE items (id INTEGER PRIMARY KEY, title TEXT,
             status TEXT, project_id INTEGER DEFAULT 1, github_issue TEXT);
         CREATE TABLE epic_tasks (epic_id TEXT, task_num INTEGER, title TEXT,
@@ -61,7 +64,8 @@ def _make_conn() -> Any:
             project_id INTEGER, type TEXT, settings TEXT,
             PRIMARY KEY(project_id, type)
         );
-    """))
+    """),
+    )
     install_workflow_registry_and_pin_items(conn)
     return conn
 
@@ -71,7 +75,9 @@ def _project_id(project: str) -> int:
 
 
 def _seed_project(
-    conn: Any, project: str, github_repo: str,
+    conn: Any,
+    project: str,
+    github_repo: str,
 ) -> None:
     conn.execute(
         "INSERT INTO projects "
@@ -91,7 +97,9 @@ def _run_hc(fn, conn=None, **kw):
 
 def _auth(project: str = "yoke", repo: str = "upyoke/yoke") -> ProjectGithubAuth:
     return ProjectGithubAuth(
-        project=project, repo=repo, token="t",
+        project=project,
+        repo=repo,
+        token="t",
     )
 
 
@@ -103,33 +111,33 @@ class TestOrphanedGhIssuesNoPat:
     def test_skips_with_canonical_reason(self):
         with patch(
             "yoke_core.engines.doctor_hc_worktrees.resolve_project_github_auth",
-            side_effect=MissingCapability("yoke", "no capability"),
+            side_effect=MissingCapability("externalwebapp", "no capability"),
         ):
-            rec = _run_hc(hc_orphaned_gh_issues)
+            rec = _run_hc(hc_orphaned_gh_issues, project="externalwebapp")
         assert rec.results[0].result == "SKIP"
-        assert rec.results[0].detail == _canonical_skip("yoke")
+        assert rec.results[0].detail == _canonical_skip("externalwebapp")
 
 
 class TestGhOrphanDetectionNoPat:
     def test_skips_with_canonical_reason(self):
         with patch(
             "yoke_core.engines.doctor_hc_worktrees.resolve_project_github_auth",
-            side_effect=MissingCapability("yoke", "no capability"),
+            side_effect=MissingCapability("externalwebapp", "no capability"),
         ):
-            rec = _run_hc(hc_gh_orphan_detection)
+            rec = _run_hc(hc_gh_orphan_detection, project="externalwebapp")
         assert rec.results[0].result == "SKIP"
-        assert rec.results[0].detail == _canonical_skip("yoke")
+        assert rec.results[0].detail == _canonical_skip("externalwebapp")
 
 
 class TestWrongRepoIssuesNoGitHubAuth:
     def test_skips_with_canonical_reason(self):
         with patch(
             "yoke_core.engines.doctor_hc_worktrees.resolve_project_github_auth",
-            side_effect=MissingCapability("yoke", "no capability"),
+            side_effect=MissingCapability("externalwebapp", "no capability"),
         ):
-            rec = _run_hc(hc_wrong_repo_issues)
+            rec = _run_hc(hc_wrong_repo_issues, project="externalwebapp")
         assert rec.results[0].result == "SKIP"
-        assert rec.results[0].detail == _canonical_skip("yoke")
+        assert rec.results[0].detail == _canonical_skip("externalwebapp")
 
 
 class TestProjectGhSecretsNoGitHubAuth:
@@ -148,12 +156,15 @@ class TestProjectGhSecretsNoGitHubAuth:
         """403 (GitHub App auth lacks secrets:read scope) -> SKIP, not FAIL."""
         conn = _make_conn()
         _seed_project(conn, "externalwebapp", "org/externalwebapp")
-        with patch(
-            "yoke_core.engines.doctor_hc_worktrees_gh_project.resolve_project_github_auth",
-            return_value=_auth("externalwebapp", "org/externalwebapp"),
-        ), patch(
-            "yoke_core.engines.doctor_hc_worktrees_gh_project.request_with_retry",
-            side_effect=RestAuthError("HTTP 403: insufficient scope", status=403),
+        with (
+            patch(
+                "yoke_core.engines.doctor_hc_worktrees_gh_project.resolve_project_github_auth",
+                return_value=_auth("externalwebapp", "org/externalwebapp"),
+            ),
+            patch(
+                "yoke_core.engines.doctor_hc_worktrees_gh_project.request_with_retry",
+                side_effect=RestAuthError("HTTP 403: insufficient scope", status=403),
+            ),
         ):
             rec = _run_hc(hc_project_gh_secrets, conn, project="externalwebapp")
         assert rec.results[0].result == "SKIP"
@@ -170,34 +181,42 @@ class TestRestPassWithGitHubAuth:
             "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, github_issue) "
             "VALUES (1, 'Test', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '#100')"
         )
-        with patch(
-            "yoke_core.engines.doctor_hc_worktrees.resolve_project_github_auth",
-            return_value=_auth(),
-        ), patch(
-            "yoke_core.engines.doctor_hc_worktrees_gh_labels.resolve_project_github_auth",
-            return_value=_auth(),
-        ), patch(
-            "yoke_core.engines.doctor_hc_worktrees_gh_rest.request_with_retry",
-            return_value=RestResponse(
-                status=200, headers={},
-                body=[{"number": 100, "title": "linked",
-                       "pull_request": None}],
+        with (
+            patch(
+                "yoke_core.engines.doctor_hc_worktrees.resolve_project_github_auth",
+                return_value=_auth(),
+            ),
+            patch(
+                "yoke_core.engines.doctor_hc_worktrees_gh_labels.resolve_project_github_auth",
+                return_value=_auth(),
+            ),
+            patch(
+                "yoke_core.engines.doctor_hc_worktrees_gh_rest.request_with_retry",
+                return_value=RestResponse(
+                    status=200,
+                    headers={},
+                    body=[{"number": 100, "title": "linked", "pull_request": None}],
+                ),
             ),
         ):
-            rec = _run_hc(hc_orphaned_gh_issues, conn)
+            rec = _run_hc(hc_orphaned_gh_issues, conn, project="yoke")
         assert rec.results[0].result == "PASS"
 
     def test_project_gh_secrets_passes_when_secrets_present(self):
         conn = _make_conn()
         _seed_project(conn, "externalwebapp", "org/externalwebapp")
-        with patch(
-            "yoke_core.engines.doctor_hc_worktrees_gh_project.resolve_project_github_auth",
-            return_value=_auth("externalwebapp", "org/externalwebapp"),
-        ), patch(
-            "yoke_core.engines.doctor_hc_worktrees_gh_project.request_with_retry",
-            return_value=RestResponse(
-                status=200, headers={},
-                body={"total_count": 2, "secrets": [{"name": "A"}, {"name": "B"}]},
+        with (
+            patch(
+                "yoke_core.engines.doctor_hc_worktrees_gh_project.resolve_project_github_auth",
+                return_value=_auth("externalwebapp", "org/externalwebapp"),
+            ),
+            patch(
+                "yoke_core.engines.doctor_hc_worktrees_gh_project.request_with_retry",
+                return_value=RestResponse(
+                    status=200,
+                    headers={},
+                    body={"total_count": 2, "secrets": [{"name": "A"}, {"name": "B"}]},
+                ),
             ),
         ):
             rec = _run_hc(hc_project_gh_secrets, conn, project="externalwebapp")

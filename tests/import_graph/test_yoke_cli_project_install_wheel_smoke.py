@@ -46,7 +46,7 @@ def test_project_install_product_wheel_uses_https_bundle_with_inert_engine(
 
     checkout = tmp_path / "external-project"
     checkout.mkdir()
-    _run(["git", "init"], cwd=checkout)
+    _run(["git", "init", "-b", "trunk"], cwd=checkout)
 
     machine_home = tmp_path / "home" / ".yoke"
     machine_home.mkdir(parents=True)
@@ -177,6 +177,10 @@ def test_project_install_product_wheel_uses_https_bundle_with_inert_engine(
             timeout=90,
         )
         payload = json.loads(uninstall.stdout)
+        assert len(server.function_requests) == 1
+        request = server.function_requests[0]
+        assert request["function"] == "projects.get"
+        assert request["payload"] == {"project": "7", "field": "default_branch"}
         assert payload["commit"]
         assert not _run(["git", "status", "--porcelain"], cwd=checkout).stdout.strip()
         assert payload["files_removed"] == [".codex/skills/yoke/idea/SKILL.md"]
