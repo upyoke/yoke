@@ -29,9 +29,7 @@ PACKAGE_SOURCE_ROOTS = (
     "packages/yoke-harness/src",
 )
 HOOK_REGISTRY_ROOT = "packages/yoke-contracts/src/yoke_contracts/hook_runner"
-THIN_HOOK_ADAPTER = (
-    "packages/yoke-cli/src/yoke_cli/commands/adapters/hooks.py"
-)
+THIN_HOOK_ADAPTER = "packages/yoke-cli/src/yoke_cli/commands/adapters/hooks.py"
 LOCAL_HOOK_IMPLEMENTATION = (
     "packages/yoke-cli/src/yoke_cli/commands/adapters/hook_inprocess.py"
 )
@@ -66,6 +64,15 @@ def _parse(path: Path) -> ast.Module:
     return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
 
+def _parsed_python_files(repo_root, roots):
+    from yoke_core.engines.doctor_parallel_reads import bounded_read_map
+
+    def parse(path):
+        return path, _parse(path)
+
+    yield from bounded_read_map(parse, _python_files(repo_root, roots))
+
+
 def _imports(tree: ast.AST) -> Iterable[tuple[str, int]]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -83,29 +90,35 @@ def scan_source_namespace_edges(
 ) -> List[HookBoundaryFinding]:
     """Find direct and registry-mediated edges to source-only hook modules."""
     findings: List[HookBoundaryFinding] = []
-    for path in _python_files(repo_root, package_roots):
+    for path, tree in _parsed_python_files(repo_root, package_roots):
         relpath = path.relative_to(repo_root).as_posix()
-        for imported, line in _imports(_parse(path)):
+        for imported, line in _imports(tree):
             if imported == SOURCE_HOOK_PREFIX or imported.startswith(
                 SOURCE_HOOK_PREFIX + "."
             ):
-                findings.append(HookBoundaryFinding(
-                    relpath, line, f"imports source-only module {imported}",
-                ))
+                findings.append(
+                    HookBoundaryFinding(
+                        relpath,
+                        line,
+                        f"imports source-only module {imported}",
+                    )
+                )
 
-    for path in _python_files(repo_root, (registry_root,)):
+    for path, tree in _parsed_python_files(repo_root, (registry_root,)):
         relpath = path.relative_to(repo_root).as_posix()
-        for node in ast.walk(_parse(path)):
+        for node in ast.walk(tree):
             if (
                 isinstance(node, ast.Constant)
                 and isinstance(node.value, str)
                 and node.value.startswith("runtime.")
             ):
-                findings.append(HookBoundaryFinding(
-                    relpath,
-                    node.lineno,
-                    f"registry names source-only module {node.value}",
-                ))
+                findings.append(
+                    HookBoundaryFinding(
+                        relpath,
+                        node.lineno,
+                        f"registry names source-only module {node.value}",
+                    )
+                )
     return findings
 
 
@@ -116,7 +129,9 @@ def _dynamic_import_target(node: ast.Call) -> str:
     name = (
         function.attr
         if isinstance(function, ast.Attribute)
-        else function.id if isinstance(function, ast.Name) else ""
+        else function.id
+        if isinstance(function, ast.Name)
+        else ""
     )
     target = node.args[0]
     if (
@@ -229,24 +244,34 @@ def scan_local_engine_fail_loud(
         if LOCAL_ENGINE_MODULE in targets:
             matching.append(node)
     if len(matching) != 1:
-        return [HookBoundaryFinding(
-            adapter,
-            1,
-            f"expected one guarded import of {LOCAL_ENGINE_MODULE}; "
-            f"found {len(matching)}",
-        )]
+        return [
+            HookBoundaryFinding(
+                adapter,
+                1,
+                f"expected one guarded import of {LOCAL_ENGINE_MODULE}; "
+                f"found {len(matching)}",
+            )
+        ]
 
     findings: List[HookBoundaryFinding] = []
     guarded_import = matching[0]
     if not guarded_import.handlers:
-        findings.append(HookBoundaryFinding(
-            adapter, guarded_import.lineno, "local engine import is unguarded",
-        ))
+        findings.append(
+            HookBoundaryFinding(
+                adapter,
+                guarded_import.lineno,
+                "local engine import is unguarded",
+            )
+        )
     for handler in guarded_import.handlers:
         for failure in _handler_failures(handler):
-            findings.append(HookBoundaryFinding(
-                adapter, handler.lineno, failure,
-            ))
+            findings.append(
+                HookBoundaryFinding(
+                    adapter,
+                    handler.lineno,
+                    failure,
+                )
+            )
     return findings
 
 
@@ -277,8 +302,7 @@ def hc_packaged_hook_boundaries(
         )
         return
     detail = "\n".join(
-        f"- `{finding.relpath}:{finding.line}` {finding.detail}"
-        for finding in findings
+        f"- `{finding.relpath}:{finding.line}` {finding.detail}" for finding in findings
     )
     rec.record(f"HC-{HC_SLUG}", HC_NAME, "FAIL", detail)
 

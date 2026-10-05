@@ -31,3 +31,25 @@ def bounded_read_map(method, values):
         raise DoctorBudgetExhausted("doctor_check_budget_exhausted") from exc
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
+
+
+def prefetched_text_reader(paths):
+    """Read each UTF-8 source once; retain failures for the caller's skip policy."""
+
+    def read(path):
+        try:
+            return path, path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            return path, exc
+
+    texts = dict(bounded_read_map(read, dict.fromkeys(paths)))
+
+    def read_text(path, *, encoding="utf-8"):
+        if path not in texts:
+            return path.read_text(encoding=encoding)
+        text = texts[path]
+        if isinstance(text, Exception):
+            raise text
+        return text
+
+    return read_text

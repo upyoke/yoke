@@ -33,12 +33,15 @@ from yoke_core.domain.lint_item_ref_message_text import (
     scan_message_text_item_ids,
 )
 from yoke_core.domain.lint_item_ref_construction import (
+    SCAN_ROOTS,
+    is_exempt_relpath,
     counts_by_relpath,
     resolve_project_prefixes,
     scan,
     scan_parser_policy,
     stale_parser_policy_allowances,
 )
+from yoke_core.engines.doctor_parallel_reads import prefetched_text_reader
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
@@ -59,14 +62,26 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
     if not prefixes:
         prefixes = [DEFAULT_PUBLIC_ITEM_PREFIX]
 
-    repo_root = Path(repo_root_str)
-    hits = scan(repo_root, prefixes)
+    repo_root = Path(repo_root_str).resolve()
+
+    def source_paths():
+        for name in SCAN_ROOTS:
+            for path in (repo_root / name).rglob("*.py"):
+                try:
+                    rel = path.resolve().relative_to(repo_root).as_posix()
+                except ValueError:
+                    continue
+                if not is_exempt_relpath(rel):
+                    yield path
+
+    read_text = prefetched_text_reader(source_paths())
+    hits = scan(repo_root, prefixes, read_text=read_text)
     counts = counts_by_relpath(repo_root, hits)
-    policy_hits = scan_parser_policy(repo_root)
-    stale_policy = stale_parser_policy_allowances(repo_root)
-    cli_hits = scan_bare_internal_cli_token(repo_root)
-    message_hits = scan_message_text_item_ids(repo_root)
-    search_key_hits = scan_display_ref_search_keys(repo_root)
+    policy_hits = scan_parser_policy(repo_root, read_text=read_text)
+    stale_policy = stale_parser_policy_allowances(repo_root, read_text=read_text)
+    cli_hits = scan_bare_internal_cli_token(repo_root, read_text=read_text)
+    message_hits = scan_message_text_item_ids(repo_root, read_text=read_text)
+    search_key_hits = scan_display_ref_search_keys(repo_root, read_text=read_text)
 
     offenders: list[str] = []
     allowed_counts = baseline_counts()
@@ -115,9 +130,7 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
         offender_lines.append(f"- {rel}:{hit.line}: {hit.snippet}")
     for hit in cli_hits:
         rel = hit.path.relative_to(repo_root.resolve()).as_posix()
-        offender_lines.append(
-            f"- {rel}:{hit.line}: bare-id CLI token: {hit.snippet}"
-        )
+        offender_lines.append(f"- {rel}:{hit.line}: bare-id CLI token: {hit.snippet}")
     for hit in message_hits:
         rel = hit.path.relative_to(repo_root.resolve()).as_posix()
         offender_lines.append(
@@ -142,11 +155,16 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
         + "\n".join(offender_lines),
     )
 
+
 # Slug and display name are the ones this check has always reported under.
 from yoke_project_checks._declare import (  # noqa: E402
     self_project_checks,
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('item-ref-construction', 'Item-ref prefix literals confined to the canonical formatter', hc_item_ref_construction),
+    (
+        "item-ref-construction",
+        "Item-ref prefix literals confined to the canonical formatter",
+        hc_item_ref_construction,
+    ),
 )

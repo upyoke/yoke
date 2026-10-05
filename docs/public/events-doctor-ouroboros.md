@@ -42,10 +42,14 @@ partial pass/fail verdicts are discarded. Transaction recovery completes before
 the next check runs, and recovery failures remain visible in the incomplete result.
 Project checks must use bounded I/O helpers for blocking operations.
 The obsoleted-term scan overlaps independent file reads while preserving
-path and finding order. A conservative literal-prefix test avoids per-line regex
-work only when a required prefix is absent; patterns without a provable prefix
-retain the entire line scan. The original per-pattern tests, path exemptions, slash
+path and finding order. A conservative required-literal test avoids per-line regex
+work only when a leading literal or every complete literal choice is absent;
+patterns without a provable candidate retain the entire line scan. The original per-pattern tests, path exemptions, slash
 normalization, line matching and full-tree coverage remain the same.
+Provenance, hook-boundary and file-line checks overlap their complete inventories'
+independent reads. The item-reference check reads each source once for its six
+scans; historical-reference scanning avoids AST work only when no reference
+matches anywhere in the file. Exemptions and finding order remain unchanged.
 Worktree-health likewise overlaps every lane's independent status read under
 that deadline. Delegated sync avoids fetching comparison fields when linkage
 has already found no paired subjects; its orphan classifications still run.
@@ -55,6 +59,8 @@ Source checks retain the runner's scoped checkout binding without local SQL.
 When the imported engine runs from a linked lane of the mapped project repo,
 that lane supplies candidate source; another project's checkout keeps its own
 binding. Missing control-plane reads remain visible as N/A rather than a pass.
+Composition preserves every named incomplete or internal error; distinct check
+failures never replace one another merely because they share a reserved HC id.
 
 The claim-boundary audit inspects the full audit history, retaining its explicit
 configured event-id cutoff. Historical event-outcome drift also inspects every
