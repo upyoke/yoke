@@ -11,6 +11,7 @@ from yoke_core.domain import project_selection
 @pytest.fixture
 def lookup(monkeypatch):
     calls = []
+    monkeypatch.setattr(identity, "_control_plane_selected", lambda: True)
     monkeypatch.setattr(identity, "local_connection_or_none", lambda connect: None)
 
     def relay(function, payload):
@@ -55,13 +56,13 @@ def test_context_binding_preserves_explicit_override_and_restores(lookup, monkey
 
 
 def test_numeric_namespace_needs_no_control_plane(lookup):
-    assert identity.canonical_project_id("007") == "7"
+    assert identity.resolve_project_namespace("007") == "7"
     assert lookup == []
 
 
 def test_local_lookup_uses_database_identity(monkeypatch, test_db):
     monkeypatch.setattr(identity, "local_connection_or_none", lambda connect: test_db)
-    assert identity.canonical_project_id("yoke") == "1"
+    assert identity.resolve_project_namespace("yoke") == "1"
 
 
 def test_unmapped_directory_keeps_project_refusal(lookup, monkeypatch):
@@ -76,3 +77,31 @@ def test_unresolved_slug_never_becomes_a_path(lookup, monkeypatch):
     monkeypatch.setattr(identity, "relay", lambda *args: {"value": None})
     with pytest.raises(LookupError, match="accessible numeric project id"):
         scratch.resolve_active_project("unknown")
+
+
+@pytest.mark.parametrize("connected", [True, False])
+def test_artifact_writer_and_reader_share_namespace(
+    lookup, monkeypatch, tmp_path, connected
+):
+    from yoke_core.domain import qa_artifacts
+
+    monkeypatch.setattr(identity, "_control_plane_selected", lambda: connected)
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
+    artifact = qa_artifacts.artifact_file_path("renamed", 12, 34, "output.log")
+    artifact.write_text("evidence")
+    assert artifact.relative_to(tmp_path).parts[0] == ("7" if connected else "renamed")
+    assert qa_artifacts.is_sanctioned_artifact_path(artifact, "renamed", 12, 34)
+    assert not qa_artifacts.is_sanctioned_artifact_path(artifact, "renamed", 12, 35)
+    if connected:
+        assert qa_artifacts.is_sanctioned_artifact_path(artifact, "7", 12, 34)
+    else:
+        assert lookup == []
+
+
+def test_selected_but_unreachable_plane_keeps_namespace_refusal(lookup, monkeypatch):
+    def unavailable(*args):
+        raise RuntimeError("control plane unavailable")
+
+    monkeypatch.setattr(identity, "relay", unavailable)
+    with pytest.raises(RuntimeError, match="control plane unavailable"):
+        scratch.resolve_active_project("renamed")
