@@ -59,7 +59,7 @@ class TestMainCLI:
         """Detect mode returns 1 when local orphans found."""
         db_dir = os.path.dirname(populated_db)
 
-        def fake_linkage(db_path, yoke_root):
+        def fake_linkage(db_path, yoke_root, *, project=""):
             return (
                 [],
                 [LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", item_id=99)],

@@ -96,7 +96,7 @@ class TestMainCLI:
         db_dir = os.path.dirname(test_db)
         observed: dict[str, str] = {}
 
-        def fake_linkage(db_path, yoke_root):
+        def fake_linkage(db_path, yoke_root, *, project=""):
             observed["db_path"] = db_path
             observed["yoke_root"] = yoke_root
             return ([], [], [], {})
@@ -121,7 +121,7 @@ class TestMainCLI:
         """An installed server wheel does not need a source repo to resync."""
         observed: dict[str, str] = {}
 
-        def fake_linkage(db_path, yoke_root):
+        def fake_linkage(db_path, yoke_root, *, project=""):
             observed["db_path"] = db_path
             observed["yoke_root"] = yoke_root
             return ([], [], [], {})
@@ -148,7 +148,7 @@ class TestMainCLI:
         db_dir = os.path.dirname(test_db)
         observed: dict[str, str] = {}
 
-        def fake_linkage(db_path, yoke_root):
+        def fake_linkage(db_path, yoke_root, *, project=""):
             observed["db_path"] = db_path
             observed["yoke_root"] = yoke_root
             return ([], [], [], {})
@@ -247,7 +247,7 @@ class TestMainCLI:
             mock.patch("sys.stdout", StringIO()),
             mock.patch("sys.stderr", StringIO()),
         ):
-            rc = main(["--detect-only", "--doctor-format"])
+            rc = main(["--detect-only", "--doctor-format", "--project", "yoke"])
 
         assert rc == 2
 
@@ -255,7 +255,7 @@ class TestMainCLI:
         """Detect mode returns 1 when drifts are found."""
         db_dir = os.path.dirname(populated_db)
 
-        def fake_linkage(db_path, yoke_root):
+        def fake_linkage(db_path, yoke_root, *, project=""):
             return (
                 [],  # paired
                 [
