@@ -197,6 +197,10 @@ machines by that pool's meter rather than by whichever window reads lowest.
 `create --idempotency-key K` replays the launch already named by K. If its
 session ended or was terminated, `launch_replay_finished` names that launch
 and says no new worker started. Repeat create with a new key to relaunch.
+A fresh item-bound create refuses `item_has_live_worker` while a live session
+holds its claim or an earlier launch is pending or has a live session. The
+refusal names the session and launch: wake or message that worker, or terminate
+it first when a fresh worker is required. Same-key replay still deduplicates.
 `--context-window` accepts a token count or compact form such as `1m`.
 `--list-models --surface SURFACE` prints this machine's configured defaults
 beside its observed native availability (below), plus accepted effort and

@@ -56,6 +56,12 @@ def create_launch(
     current = now or utc_now()
     begin_mutation(conn)
     try:
+        if request.item:
+            from yoke_core.domain.session_launch_assignment import lock_assigned_item
+
+            lock_assigned_item(
+                conn, public_ref=request.item, project_id=request.project_id
+            )
         existing = get_launch_by_dedupe(conn, auth.actor_id, request.idempotency_key)
         preview = preview_launch(
             conn,
@@ -78,6 +84,14 @@ def create_launch(
             )
             conn.commit()
             return outcome
+        if request.item:
+            from yoke_core.domain.session_launch_assignment import (
+                refuse_held_assigned_item,
+            )
+
+            refuse_held_assigned_item(
+                conn, public_ref=request.item, project_id=request.project_id
+            )
         if not preview.launchable:
             from yoke_core.domain.session_surface_policy import launch_refusal_message
 

@@ -35,8 +35,8 @@ def test_held_item_create_refuses_before_any_write(monkeypatch):
 
     assert outcome.primary_success is False
     assert outcome.error is not None
-    assert outcome.error.code == "assignment_item_claimed"
+    assert outcome.error.code == "item_has_live_worker"
     assert "holder-session" in outcome.error.message
     assert "yoke sessions terminate holder-session" in outcome.error.message
-    assert "held work claims" in outcome.error.message
+    assert "Wake or message" in outcome.error.message
     assert _write_counts(conn) == before
