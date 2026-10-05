@@ -144,7 +144,10 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
                 target = resolve_process_target(
                     conn,
                     target_spec.process_key,
-                    target_spec.project,
+                    str(
+                        request.options.get("authorized_project_id")
+                        or target_spec.project
+                    ),
                     visible_project_ids=request.options.get("visible_project_ids"),
                 )
         except LookupError as exc:

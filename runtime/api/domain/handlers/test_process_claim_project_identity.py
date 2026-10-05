@@ -117,11 +117,14 @@ def test_unknown_project_refuses_without_acquiring(claim_db):
     assert "--project" in refused.error.message
 
 
-def test_ambiguous_slug_uses_authorized_project_visibility(claim_db):
+@pytest.mark.parametrize(
+    "options", [{"visible_project_ids": [1]}, {"authorized_project_id": 1}]
+)
+def test_ambiguous_slug_uses_authorized_project_context(claim_db, options):
     with connect_test_db(claim_db) as conn:
         conn.execute("UPDATE projects SET slug = 'yoke' WHERE id = 2")
         conn.commit()
-    acquired = _acquire("yoke", options={"visible_project_ids": [1]})
+    acquired = _acquire("yoke", options=options)
     assert acquired.primary_success, acquired.error
     assert (
         acquired.result_payload["scope"]["conflict_group"]
