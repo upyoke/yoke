@@ -157,7 +157,7 @@ if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" 
  done
 
  # 4. If no ACs found, seed at least one implementation review requirement
- _qa_existing_count=$(yoke db read --format lines "SELECT COUNT(*) FROM qa_requirements WHERE item_id=$_item_id" 2>/dev/null) || true
+ _qa_existing_count=$(yoke db read --format lines "SELECT COUNT(*) FROM qa_requirements WHERE item_id=$_num" 2>/dev/null) || true
  if [ -z "$_qa_existing_count" ] || [ "$_qa_existing_count" = "0" ]; then
  yoke qa requirement add \
  --item "PREFIX-$_num" \

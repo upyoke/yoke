@@ -2,8 +2,7 @@
 
 ## 1. Parse Arguments
 
-Extract the public sequence from `PREFIX-N` and detect standalone vs subagent mode.
-Keep that sequence in `_num` for public references; it is not the database item ID.
+Extract the numeric ID from `PREFIX-N` and detect standalone vs subagent mode.
 
 ## 2. Read Item
 
@@ -15,8 +14,6 @@ _item_pin_json=$(yoke workflows item get "PREFIX-$_num" --json) || {
  echo "Item PREFIX-{N} not found."
  exit 1
 }
-_item_id=$(printf '%s' "$_item_pin_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["item_id"])')
 _workflow_id=$(printf '%s' "$_item_pin_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["workflow_id"])')
 _workflow_version=$(printf '%s' "$_item_pin_json" | python3 -c \
@@ -32,10 +29,6 @@ _pinned_definition_json=$(yoke workflows version get \
 ```
 
 If any query returns empty, stop with `Item PREFIX-{N} not found.`
-
-Use `_item_id` for database item IDs and generated-task ownership. Use
-`PREFIX-$_num` for public item references; never substitute the public sequence
-for `items.id`.
 
 Interpret the ordered stages, the unique Shepherd binding, and its policy
 contract from that response:

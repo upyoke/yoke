@@ -15,7 +15,7 @@ Before writing, verify `_log` is non-empty and contains at least one `### ` subh
 If valid, write it through the
 `items.structured_field.replace` function call (envelope in
 [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):
-`target = {kind: "item", item_id: $_item_id}`, `payload = {field:
+`target = {kind: "item", item_id: $_num}`, `payload = {field:
 "shepherd_log", content: "$_log", source: "shepherd"}`.
 
 ## 7. Transition Continuity

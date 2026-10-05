@@ -2,7 +2,7 @@
 
 Covers steps 5a and 5b: PM spec-writing gate (conditional) and design gate (conditional), plus Designer invocation when the design gate fires. Both gates apply during `refined_idea_to_planning`.
 
-**Inherited from router:** `MAX_ATTEMPTS`, `_num`, `_item_id`, `_workflow_id`, `_title`, `_item_status`, `_epic`, `_scholar_context`, `_prior_caveats`, `_transition`, `_attempt`, `_session_id`, `_worker_name`.
+**Inherited from router:** `MAX_ATTEMPTS`, `_num`, `_workflow_id`, `_title`, `_item_status`, `_epic`, `_scholar_context`, `_prior_caveats`, `_transition`, `_attempt`, `_session_id`, `_worker_name`.
 
 ---
 
@@ -165,7 +165,7 @@ Skip the write when `_pm_destructive_rewrite=1` and treat the PM step as NOT_REA
 `items.structured_field.replace` function call (envelope in
 [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):
 when `_pm_destructive_rewrite` is not set, dispatch
-`target = {kind: "item", item_id: $_item_id}`, `payload = {field: "spec",
+`target = {kind: "item", item_id: $_num}`, `payload = {field: "spec",
 content: "$_worker_output", source: "shepherd"}`.
 
 ```bash
@@ -306,7 +306,7 @@ Write the Designer's output to the `items.design_spec` structured field.
 Use the `items.structured_field.replace` function call
 (envelope in
 [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):
-`target = {kind: "item", item_id: $_item_id}`, `payload = {field:
+`target = {kind: "item", item_id: $_num}`, `payload = {field:
 "design_spec", content: "$_worker_output", source: "shepherd"}`.
 The rendered-body re-sync is part of the handler's side-effect chain.
 

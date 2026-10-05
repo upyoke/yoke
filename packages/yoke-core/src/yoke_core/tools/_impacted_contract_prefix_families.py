@@ -62,7 +62,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_skill_doc_regressions_onboard_delivery.py",
     "runtime/api/test_skill_doc_regressions_onboard_no_tests.py",
     "runtime/api/test_skill_doc_regressions_path_claim_coordination.py",
-    "runtime/api/test_skill_doc_regressions_shepherd_merge.py",
+    "runtime/api/test_skill_doc_regressions_merge.py",
     "runtime/api/test_skill_doc_regressions_refine_obvious_file_budget.py",
     "runtime/api/test_skill_doc_regressions_refine_polish.py",
     "runtime/api/test_skill_doc_regressions_refine_release_sequencing.py",
