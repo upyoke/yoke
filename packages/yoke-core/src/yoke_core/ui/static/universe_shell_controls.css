@@ -132,7 +132,6 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-left: auto;
 }
 .universe-app-root .app-footer-link {
   padding: 0;
@@ -161,7 +160,6 @@
 .universe-app-root .runtime-identity-help-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
   padding: 5px 0;
   color: var(--yoke-ink-2);
@@ -173,5 +171,4 @@
 .universe-app-root .runtime-identity-help-value {
   font-family: var(--yoke-font-mono);
   font-size: 11px;
-  text-align: right;
 }

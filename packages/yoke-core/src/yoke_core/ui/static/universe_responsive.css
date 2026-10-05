@@ -206,7 +206,6 @@
     background: var(--yoke-surface);
     color: var(--yoke-ink);
     font: 600 13px var(--yoke-font-sans);
-    text-align: right;
     cursor: pointer;
   }
   .universe-app-root .navigation-close[hidden] { display: none; }
@@ -328,7 +327,6 @@
   .universe-app-root .actor-name { display: none; }
   .universe-app-root .app-footer-links {
     width: 100%;
-    justify-content: space-between;
     margin-left: 0;
   }
 }

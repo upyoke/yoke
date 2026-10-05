@@ -182,7 +182,6 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin-left: auto;
   color: var(--yoke-muted);
   font-size: 12px;
   white-space: nowrap;

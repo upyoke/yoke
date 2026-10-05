@@ -19,7 +19,6 @@
 .universe-app-root .event-header {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
   gap: 12px;
 }
 
@@ -45,7 +44,6 @@
 .universe-app-root .secondary-action-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   margin-top: 14px;
   flex-wrap: wrap;
@@ -134,7 +132,6 @@
   padding-top: 2px;
   color: var(--yoke-muted);
   font: 11px/1.35 var(--yoke-font-mono);
-  text-align: right;
 }
 
 .universe-app-root .event-rail {

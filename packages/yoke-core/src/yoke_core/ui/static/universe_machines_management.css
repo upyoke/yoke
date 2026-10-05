@@ -90,10 +90,9 @@
 .machine-project-row:last-child { border-bottom: 0; }
 
 .machine-detail-fact span { color: var(--yoke-muted); }
-.machine-detail-fact strong { margin-left: auto; text-align: right; }
 
 .machine-harness-row { align-items: center; }
-.machine-harness-row > div { display: grid; margin-right: auto; }
+.machine-harness-row > div { display: grid; }
 
 .machine-project-row { display: grid; }
 .machine-detail-muted { color: var(--yoke-muted); }

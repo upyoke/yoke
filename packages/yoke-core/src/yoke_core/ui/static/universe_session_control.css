@@ -181,10 +181,6 @@
   gap: 7px 12px;
 }
 
-.universe-app-root .session-message-header {
-  justify-content: space-between;
-}
-
 .universe-app-root .session-message-copy {
   margin: 10px 0 8px;
   color: var(--yoke-ink);
@@ -230,7 +226,6 @@
 }
 
 .universe-app-root .session-message-recipient-status {
-  margin-left: auto;
   color: var(--yoke-muted);
   font-size: 11px;
 }
@@ -288,7 +283,6 @@
 .universe-app-root .session-launch-row .panel-header,
 .universe-app-root .session-relay-card .panel-header {
   display: flex;
-  justify-content: space-between;
   gap: 10px;
 }
 
@@ -322,7 +316,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
 }
 
 .universe-app-root .session-result-link {

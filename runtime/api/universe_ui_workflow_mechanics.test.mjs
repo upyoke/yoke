@@ -309,12 +309,10 @@ test("mechanics dialogs preserve the prototype desktop control treatment", () =>
   );
   assert.doesNotMatch(mechanicsCss, /accent-color:/);
   assert.match(
-    cssRule(
-      controlsCss,
-      ".universe-app-root .workflow-dialog-footer.actions-only",
-    ),
-    /justify-content: flex-end;/,
+    cssRule(controlsCss, ".universe-app-root .workflow-dialog-footer"),
+    /display: flex;[^}]*flex-wrap: wrap;/s,
   );
+  assert.doesNotMatch(controlsCss, /\.workflow-dialog-footer[^{}]*\{[^}]*justify-content: flex-end;/s);
 });
 
 test("registry policy controls do not depend on the mechanics read", async (t) => {

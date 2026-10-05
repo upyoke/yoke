@@ -57,7 +57,6 @@
   font-size: 13px;
 }
 .universe-app-root .activation-dismiss {
-  margin-left: auto;
   border: 1px solid var(--yoke-border);
   border-radius: 7px;
   background: var(--yoke-surface);

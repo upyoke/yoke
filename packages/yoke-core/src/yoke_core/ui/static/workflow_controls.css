@@ -224,10 +224,6 @@
   flex-wrap: wrap;
 }
 
-.universe-app-root .workflow-dialog-footer.actions-only {
-  justify-content: flex-end;
-}
-
 .universe-app-root .workflow-dialog-impact {
   min-width: 180px;
   flex: 1;

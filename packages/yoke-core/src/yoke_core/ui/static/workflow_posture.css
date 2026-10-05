@@ -199,7 +199,6 @@
 
 .universe-app-root .workflow-version-actions {
   display: flex;
-  align-items: flex-end;
   gap: 6px;
   flex-direction: column;
 }

@@ -1,7 +1,6 @@
 /* Unified work-item roster and workflow identity markers. */
 
 .universe-app-root .item-roster-toolbar {
-  justify-content: space-between;
   gap: 18px;
   margin-bottom: 14px;
 }

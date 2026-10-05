@@ -104,12 +104,10 @@
 }
 .universe-app-root .inbox-sections .review-foot {
   display: flex;
-  justify-content: flex-end;
   gap: 8px;
   margin: 0;
   padding: 0;
   border: 0;
-  text-align: right;
 }
 .universe-app-root .inbox-sections .review-who {
   width: 100%;
@@ -166,9 +164,7 @@
 .universe-app-root .inbox-message-sender {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
   gap: 8px;
-  text-align: right;
 }
 .universe-app-root .inbox-message + .inbox-message {
   margin-top: 10px;
@@ -186,7 +182,6 @@
 .universe-app-root .inbox-message-meta {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
   gap: 2px;
   margin: 0;
   color: var(--yoke-muted);
@@ -194,8 +189,8 @@
   font-weight: 500;
 }
 
-/* At phone width the two columns stack, and the sender stays right: it is
-   the same fact in the same place, on one line instead of beside one. */
+/* At phone width the two columns stack; attribution starts at the left
+   edge like every other wrapped fact. */
 @media (max-width: 440px) {
   .universe-app-root .inbox-message {
     grid-template-columns: minmax(0, 1fr);

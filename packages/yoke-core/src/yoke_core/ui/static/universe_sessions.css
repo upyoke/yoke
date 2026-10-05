@@ -53,7 +53,7 @@
 .universe-app-root .session-top {
   margin-bottom: 8px;
   /* The identity row sets the height both header rows keep, so the harness
-     mark, the pill below it, and the operator on the far end share one
+     mark, the pill below it, and the operator alongside them share one
      baseline instead of each row sizing to its own tallest chip. */
   min-height: 22px;
 }
@@ -214,14 +214,6 @@
   color: var(--yoke-ink-2);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* Identity reads left to right, wrapping when it must: who is running, then
-   the lane the fleet gave them, then who owns the session, held to the far end
-   of whichever row it lands on. State and model follow on the next row, and
-   reachability gets its own row below the work so a glance separates them. */
-.universe-app-root .session-top .session-operator {
-  margin-left: auto;
 }
 
 .universe-app-root .session-model {
