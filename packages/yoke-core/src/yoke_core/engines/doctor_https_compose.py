@@ -26,6 +26,7 @@ from yoke_core.engines.doctor_applicability_declarations import (
 from yoke_core.engines import doctor_progress
 from yoke_core.engines.doctor_check_execution import execute_check_isolated
 from yoke_core.engines.doctor_registry import HEALTH_CHECKS
+from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_core.engines.doctor_report import (
     CheckResult,
     DoctorArgs,
@@ -110,20 +111,15 @@ def false_na_local_runtime_slugs(
 def note_missing_control_plane(
     records: Sequence[CheckResult],
     project: str,
-) -> None:
-    """Rewrite DB-dependent FAILs as N/A when no local control plane exists.
-
-    A checkout-holding https client can read the tree but has no
-    local-postgres authority, so the DB half of a mixed check fails for a
-    reason that says nothing about the project. Reporting that as a
-    failure would be a lie; reporting it as not-applicable, with the
-    reason, is the honest answer.
-    """
+    check: HealthCheck,
+) -> List[CheckResult]:
+    """Replace incomplete mixed-check evidence with its named surface N/A."""
     for record in records:
         if record.result != "FAIL":
             continue
         if "no local control-plane" not in (record.detail or ""):
             continue
+        record.check_id, record.check_name = f"HC-{check.slug}", check.name
         record.result = "N/A"
         record.detail = (
             f"reads the {project} source tree and needs "
@@ -131,6 +127,8 @@ def note_missing_control_plane(
             "checkout but no local-postgres authority for "
             "the DB half of the check"
         )
+        return [record]
+    return list(records)
 
 
 def run_local_runtime_checks(
@@ -222,7 +220,9 @@ def run_local_source_checks(
                 with doctor_progress.verdicts_withheld():
                     execute_check_isolated(conn, args, rec, hc)
                     if not owned:
-                        note_missing_control_plane(rec.results[pre:], project)
+                        rec.results[pre:] = note_missing_control_plane(
+                            rec.results[pre:], project, hc
+                        )
                 for record in rec.results[pre:]:
                     doctor_progress.check_finished(record.check_id, record.result)
     finally:

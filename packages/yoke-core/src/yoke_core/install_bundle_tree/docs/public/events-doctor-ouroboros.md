@@ -63,6 +63,8 @@ that deadline. Delegated sync avoids fetching comparison fields when linkage
 has already found no paired subjects; its orphan classifications still run.
 
 A full HTTPS report includes the caller's complete project-local check roster.
+Mixed source/backlog checks retain their own named N/A when direct database
+authority is unavailable; that surface limit is never an internal-error verdict.
 Source checks retain the runner's scoped checkout binding without local SQL.
 When the imported engine runs from a linked lane of the mapped project repo,
 that lane supplies candidate source; another project's checkout keeps its own

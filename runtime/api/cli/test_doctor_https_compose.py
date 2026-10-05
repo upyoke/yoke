@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_cli.commands.adapters.doctor_https_compose import (
     false_na_local_runtime_slugs,
     false_na_source_slugs,
@@ -112,3 +114,60 @@ def test_composition_preserves_each_named_incomplete_and_internal_error():
     assert merged == relayed + local
     assert recount(merged)["fail_count"] == 5
     assert merge_relayed_with_local(merged, []) == merged
+
+
+@pytest.mark.parametrize("scope", ["project", "source"])
+def test_missing_database_is_named_na_without_partial_pass(
+    scope, tmp_path, monkeypatch
+):
+    from yoke_core.engines import doctor_https_compose as source
+    from yoke_core.engines import doctor_https_only as project
+    from yoke_core.engines.doctor_project_checks import Discovery
+    from yoke_core.engines.doctor_registry_types import HealthCheck
+
+    marker = tmp_path / "source.py"
+    marker.write_text("source evidence", encoding="utf-8")
+
+    def mixed_check(conn, args, rec):
+        assert marker.read_text(encoding="utf-8") == "source evidence"
+        rec.record("HC-mixed-source-backlog", "Mixed source/backlog", "PASS", "partial")
+        conn.execute("SELECT id FROM items")
+
+    check = HealthCheck("mixed-source-backlog", "Mixed source/backlog", mixed_check)
+    module = project if scope == "project" else source
+    monkeypatch.setattr(module, "checkout_root_for_project", lambda _: tmp_path)
+    monkeypatch.setattr(module, "local_connection_or_none", lambda _: None)
+    if scope == "project":
+        monkeypatch.setattr(
+            project, "discover_project_checks", lambda _: Discovery([check], [])
+        )
+        rows = project.run_local_project_checks(project="example", slugs=[check.slug])
+    else:
+        monkeypatch.setattr(source, "HEALTH_CHECKS", [check])
+        rows = source.run_local_source_checks(
+            project="example",
+            quick=False,
+            full=False,
+            fix=False,
+            only=check.slug,
+            slugs=[check.slug],
+        )
+    assert len(rows) == 1
+    assert rows[0]["hc"] == "HC-mixed-source-backlog"
+    assert rows[0]["name"] == "Mixed source/backlog"
+    assert rows[0]["severity"] == "N/A"
+    assert "no local-postgres authority" in rows[0]["detail"]
+
+
+def test_unrelated_internal_error_remains_a_failure():
+    from yoke_core.engines.doctor_https_compose import note_missing_control_plane
+    from yoke_core.engines.doctor_registry_types import HealthCheck
+    from yoke_core.engines.doctor_report import CheckResult
+
+    record = CheckResult(
+        "HC-internal-error", "Broken check", "FAIL", "ValueError: malformed evidence"
+    )
+    check = HealthCheck("broken-check", "Broken check", lambda *_: None)
+    note_missing_control_plane([record], "example", check)
+    assert record.check_id == "HC-internal-error"
+    assert record.result == "FAIL"

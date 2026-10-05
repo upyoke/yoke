@@ -152,7 +152,9 @@ def run_local_project_checks(
                 with doctor_progress.verdicts_withheld():
                     execute_check_isolated(conn, args, rec, hc)
                     if not owned:
-                        note_missing_control_plane(rec.results[pre:], project)
+                        rec.results[pre:] = note_missing_control_plane(
+                            rec.results[pre:], project, hc
+                        )
                 for record in rec.results[pre:]:
                     doctor_progress.check_finished(record.check_id, record.result)
     finally:
