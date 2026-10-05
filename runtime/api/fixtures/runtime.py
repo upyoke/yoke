@@ -210,6 +210,7 @@ def isolate_test_machine_and_session_identity(
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(machine_home))
     monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
     monkeypatch.delenv("YOKE_ENV", raising=False)
+    monkeypatch.delenv("YOKE_PROJECT", raising=False)
     for name in (*AMBIENT_ENV_VARS, CURSOR_CONVERSATION_ENV_VAR):
         monkeypatch.delenv(name, raising=False)
     if session_id is not None:
