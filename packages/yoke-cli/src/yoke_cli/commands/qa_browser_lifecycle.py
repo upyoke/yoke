@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 from typing import Callable, List
@@ -266,21 +265,12 @@ def _read_text(path: Path) -> str | None:
 
 
 def _chromium_status(runtime_dir: Path) -> str:
-    from yoke_harness import browser_runtime_home
+    from yoke_harness import browser_setup
 
     toolchain = browser_node_toolchain.resolve_node_toolchain()
     if toolchain is None:
         return "unknown"
-    result = subprocess.run(
-        [str(toolchain.node), "-e", browser_runtime_home.CHROMIUM_PRESENT_PROBE_JS],
-        cwd=runtime_dir,
-        capture_output=True,
-        text=True,
-        check=False,
-        env=toolchain.command_env(),
-    )
-    probe = result.stdout.strip() if result.returncode == 0 else "missing"
-    return "ready" if probe == "ok" else "missing"
+    return browser_setup.chromium_status(runtime_dir, toolchain)
 
 
 def _ensure_node_toolchain(*, emit: Callable[[str], None]) -> list[dict[str, str]]:

@@ -159,7 +159,7 @@ def browser_authorize(args: List[str]) -> int:
 
     try:
         toolchain = browser_node_toolchain.ensure_node_toolchain()
-        browser_setup.ensure_browser_runtime(
+        browser_env = browser_setup.ensure_browser_runtime(
             runtime_dir, toolchain, emit=lambda message: print(message, file=sys.stderr)
         )
     except RuntimeError as exc:
@@ -197,7 +197,7 @@ def browser_authorize(args: List[str]) -> int:
         command,
         cwd=str(runtime_dir),
         check=False,
-        env=toolchain.command_env(),
+        env=browser_env,
         stdout=subprocess.DEVNULL if parsed.json_mode else None,
         stderr=subprocess.PIPE,
         text=True,

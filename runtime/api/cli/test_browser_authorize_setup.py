@@ -37,6 +37,7 @@ def setup(tmp_path, monkeypatch):
         assert browser == tmp_path and selected is toolchain
         events.append("setup")
         emit("sandbox verified")
+        return selected.command_env()
 
     def launch(argv, **kwargs):
         events.append("window")

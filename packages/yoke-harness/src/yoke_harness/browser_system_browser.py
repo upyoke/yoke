@@ -69,18 +69,23 @@ def candidates(saved: str | None = None) -> list[str]:
     )
 
 
+def probe_installed(browser, toolchain, env, executable):
+    """Prove the selected executable can open a sandboxed test page."""
+    return subprocess.run(
+        [str(toolchain.node), "-e", LAUNCH_PROBE_JS, executable],
+        cwd=str(browser),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=40,
+    )
+
+
 def use_installed(browser, toolchain, env, *, emit, saved=None) -> bool:
     failures = []
     for executable in candidates(saved):
         try:
-            result = subprocess.run(
-                [str(toolchain.node), "-e", LAUNCH_PROBE_JS, executable],
-                cwd=str(browser),
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=40,
-            )
+            result = probe_installed(browser, toolchain, env, executable)
         except (OSError, subprocess.TimeoutExpired) as exc:
             failures.append(f"{executable}: {type(exc).__name__}")
             continue
@@ -112,11 +117,12 @@ def download_failure(result, tail: str) -> RuntimeError:
             "<!doctype html",
             "site unavailable",
             "openresty",
+            "end of central directory record signature not found",
         )
     )
     reason = (
         f"browser_download_blocked: exit {result.returncode}; "
-        "the network returned an HTML block page instead of a browser zip"
+        "the browser download was blocked or corrupt (HTML block page or invalid ZIP)"
         if blocked
         else f"browser_install_failed: exit {result.returncode}"
     )
