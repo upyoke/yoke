@@ -14,14 +14,14 @@ from yoke_core.domain import fleet_delta_probe
 from yoke_core.domain.fleet_delta_probe import (
     DEFER_TO_REPORT,
     MAX_CONSECUTIVE_READ_FAILURES,
-    PROJECT_POLICY_FUNCTION,
     READ_FAILURE_EXIT,
-    STEERING_REPORT_FUNCTION,
     WAKE_NOW,
     delta_wake_tier,
     run,
 )
+from yoke_core.domain.fleet_delta_reports import PROJECT_POLICY_FUNCTION
 from yoke_core.domain.fleet_delta_snapshot import (
+    STEERING_REPORT_FUNCTION,
     ENVELOPES_FUNCTION,
     FRONTIER_FUNCTION,
     SESSIONS_FUNCTION,
@@ -190,7 +190,9 @@ def test_a_status_change_during_cooldown_keeps_the_raw_delta() -> None:
         duration=90,
     )
     assert code == 0
-    assert output == (f"{REPORT_DIGEST}\nfleet item YOK-1 status idea -> implementing\n")
+    assert output == (
+        f"{REPORT_DIGEST}\nfleet item YOK-1 status idea -> implementing\n"
+    )
 
 
 @pytest.mark.parametrize("changed", [False, True])

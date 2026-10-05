@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_core.domain.fleet_delta_alarms import DeltaState, idle_holder_alarms
-from yoke_core.domain.fleet_delta_probe import _ReportState, _append_steering_reports
+from yoke_core.domain.fleet_delta_reports import ReportState, append_steering_reports
 from yoke_core.domain.fleet_delta_snapshot import (
     ENVELOPES_FUNCTION,
     FRONTIER_FUNCTION,
@@ -76,12 +76,12 @@ def test_healthy_landing_excludes_idle_alarm_and_due_report_reuses_its_read():
         return SimpleNamespace(success=True, result={"settings_json": "{}"})
 
     output = io.StringIO()
-    _append_steering_reports(
+    append_steering_reports(
         ["project"],
         observed_at=NOW,
         stream=output,
         call=policy_only,
-        state=_ReportState(),
+        state=ReportState(),
         report=snapshot.landing_report,
     )
     assert output.getvalue() == "report\n"

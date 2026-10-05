@@ -3,32 +3,23 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 import time
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Mapping, Sequence, TextIO
-
-from yoke_contracts.project_contract.project_keys import (
-    DEFAULT_STEERING_REPORT_INTERVAL_MINUTES,
-    PROJECT_POLICY_CAPABILITY,
-)
+from datetime import datetime, timezone
+from typing import Any, Callable, Sequence, TextIO
 
 from yoke_core.domain.fleet_delta_alarms import DeltaState
+from yoke_core.domain.fleet_delta_reports import ReportState, append_steering_reports
 from yoke_core.domain.fleet_delta_lines import compare, error_line, fatal_line
 from yoke_core.domain.fleet_delta_snapshot import (
     FleetReadError,
     FleetSnapshot,
     read_snapshot,
-    STEERING_REPORT_FUNCTION,
 )
 
 DEFAULT_INTERVAL_SECONDS = 60
 DEFAULT_DURATION_SECONDS = 8 * 60 * 60
-PROJECT_POLICY_FUNCTION = "projects.capability_settings.get"
-STEERING_REPORT_INTERVAL_KEY = "steering_report_interval_minutes"
 #: Consecutive failed passes before the probe stops instead of looping
 #: silently against a control plane it cannot reach.
 MAX_CONSECUTIVE_READ_FAILURES = 3
@@ -60,6 +51,7 @@ Each pass reads roster, schedule and inbox, plus silent holders' landing facts.
 Failures, messages, alarms, abnormal ends and runnable or blocked items wake
 now; routine churn waits for the next changed report. All lines stay raw.
 Due reports are checked on quiet passes. Identifiers are printed whole.
+Removed holder, landing and run rows get one reason in the next due report.
 
 Raw line shapes:
   fleet item YOK-N status <old> -> <new>
@@ -112,108 +104,6 @@ def ambient_session_id() -> str:
     return build_actor().session_id or ""
 
 
-def _response_result(response: Any, function_id: str) -> dict[str, Any]:
-    """Unwrap a registered read or raise a named fleet-read failure."""
-    if not getattr(response, "success", False):
-        error = getattr(response, "error", None)
-        detail = (
-            f"{error.code}: {error.message}" if error is not None else "unknown error"
-        )
-        raise FleetReadError(function_id, detail)
-    return dict(getattr(response, "result", None) or {})
-
-
-def _report_interval_minutes(
-    project: str,
-    *,
-    call: Callable[[str, dict[str, Any]], Any],
-) -> int:
-    result = _response_result(
-        call(
-            PROJECT_POLICY_FUNCTION,
-            {"project": project, "cap_type": PROJECT_POLICY_CAPABILITY},
-        ),
-        PROJECT_POLICY_FUNCTION,
-    )
-    try:
-        settings = json.loads(str(result.get("settings_json") or "{}"))
-    except (TypeError, ValueError) as exc:
-        raise FleetReadError(
-            PROJECT_POLICY_FUNCTION,
-            f"project {project} returned invalid project-policy JSON",
-        ) from exc
-    if not isinstance(settings, Mapping):
-        raise FleetReadError(
-            PROJECT_POLICY_FUNCTION,
-            f"project {project} project-policy must be a JSON object",
-        )
-    try:
-        minutes = int(
-            settings.get(
-                STEERING_REPORT_INTERVAL_KEY,
-                DEFAULT_STEERING_REPORT_INTERVAL_MINUTES,
-            )
-        )
-    except (TypeError, ValueError):
-        minutes = DEFAULT_STEERING_REPORT_INTERVAL_MINUTES
-    return max(1, minutes)
-
-
-@dataclass
-class _ReportState:
-    checked_at: datetime | None = None
-    fingerprint: str = ""
-
-
-def _append_steering_reports(
-    projects: Sequence[str],
-    *,
-    observed_at: datetime,
-    stream: TextIO,
-    call: Callable[[str, dict[str, Any]], Any],
-    state: _ReportState,
-    report: Mapping[str, Any] | None = None,
-) -> None:
-    """Check all held scopes when due, including quiet and timer-only passes."""
-    try:
-        interval = min(
-            _report_interval_minutes(project, call=call) for project in projects
-        )
-        if state.checked_at is not None and observed_at - state.checked_at < timedelta(
-            minutes=interval
-        ):
-            return
-        # Retain every held document seat; reuse this pass's landing read.
-        result = (
-            report
-            if report is not None
-            else _response_result(
-                call(STEERING_REPORT_FUNCTION, {}), STEERING_REPORT_FUNCTION
-            )
-        )
-        fingerprint = str(result.get("fingerprint") or "").strip()
-        payload = (
-            str(result.get("digest") or "").strip()
-            or str(result.get("body") or "").strip()
-        )
-        if not fingerprint or not payload:
-            raise FleetReadError(
-                STEERING_REPORT_FUNCTION,
-                "held-scope response omitted fingerprint or body",
-            )
-        state.checked_at = observed_at
-        if state.fingerprint != fingerprint:
-            state.fingerprint = fingerprint
-            _write(stream, payload)
-    except FleetReadError as failure:
-        _write(
-            stream,
-            f"fleet ERROR steering report unavailable via {failure.function_id}: "
-            f"{failure.detail}; check `yoke steering report get`, then keep "
-            "the fleet watch armed for the next probe pass",
-        )
-
-
 def run(
     projects: Sequence[str],
     *,
@@ -231,7 +121,7 @@ def run(
     state = DeltaState()
     previous: FleetSnapshot | None = None
     consecutive_failures = 0
-    report_state = _ReportState()
+    report_state = ReportState()
     started = clock()
 
     while True:
@@ -270,13 +160,14 @@ def run(
             for line in delta_lines:
                 delta_wake_tier(line)
                 _write(stream, line)
-            _append_steering_reports(
+            append_steering_reports(
                 projects,
                 observed_at=pass_at,
                 stream=stream,
                 call=call,
                 state=report_state,
                 report=current.landing_report,
+                snapshot=current,
             )
             previous = current
 
