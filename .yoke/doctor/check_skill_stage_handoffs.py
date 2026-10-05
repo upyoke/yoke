@@ -26,7 +26,9 @@ SKILL_ROOT = Path(".agents/skills/yoke")
 _COMMAND = re.compile(r"/yoke\s+([a-z][a-z-]*)\b")
 _DIRECTIVE = re.compile(
     r"(?<![-\w])(?:run(?:ning)?|re-run|rerun|use(?:s)?|invoke|start|continue|resume|"
-    r"next\s+(?:step|skill)|hand\s*off|handoff|route(?:s|d)?\b[^.!?]*\bto)\b",
+    r"next(?=\s*[:`])|next\s+(?:step|skill|bound\s+skill)|"
+    r"hand(?:ing|s)?\s*off|handoff|"
+    r"route(?:s|d)?\b[^.!?]*\bto)\b",
     re.IGNORECASE,
 )
 _NEGATIVE = re.compile(
