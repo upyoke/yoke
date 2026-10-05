@@ -34,7 +34,9 @@ class TestAdvanceFinalizeSkill:
         assert doc.is_file()
         return doc
 
-    def test_implementation_entry_requires_pinned_advance_source(self, finalize_doc: Path):
+    def test_implementation_entry_requires_pinned_advance_source(
+        self, finalize_doc: Path
+    ):
         text = _read(finalize_doc)
         section = re.search(
             r"## Implementation-entry requires the pinned advance source.*?(?=^## Update Status)",
@@ -55,14 +57,18 @@ class TestAdvanceFinalizeSkill:
         # Raw intermediate status writes stay claim-protected.
         assert "ClaimVerificationDenied" in section_text
 
-    def test_implementation_entry_drops_raw_intermediate_examples(self, finalize_doc: Path):
+    def test_implementation_entry_drops_raw_intermediate_examples(
+        self, finalize_doc: Path
+    ):
         text = _read(finalize_doc)
         section = re.search(
             r"## Implementation-entry requires the pinned advance source.*?(?=^## Update Status)",
             text,
             re.MULTILINE | re.DOTALL,
         )
-        assert section is not None, "advance/finalize.md missing implementation-entry section"
+        assert section is not None, (
+            "advance/finalize.md missing implementation-entry section"
+        )
         section_text = section.group(0)
         assert "items update {N} status refining-idea" not in section_text
         assert "items update {N} status refined-idea" not in section_text
@@ -102,7 +108,8 @@ class TestAdvanceBrowserQaSkill:
         return doc
 
     def test_materializes_and_executes_browser_method_cases(
-        self, browser_qa_doc: Path,
+        self,
+        browser_qa_doc: Path,
     ):
         text = _read(browser_qa_doc)
         assert "yoke qa plan materialize" in text
@@ -119,30 +126,13 @@ class TestAdvanceBrowserQaSkill:
 class TestSkillDiscovery:
     """Canonical Yoke skills must be discoverable in the skill tree."""
 
-    OPERATOR_COMMANDS = (
-        "idea",
-        "shepherd",
-        "conduct",
-        "usher",
-        "doctor",
-        "resync",
-        "curate",
-        "wrapup",
-        "refine",
-        "polish",
-        "help",
-        "do",
-        "charge",
-        "feed",
-        "strategize",
-        "steer",
-        "onboard",
-    )
-
     def test_all_operator_commands_have_skill_md(self):
+        from yoke_core.domain.harness_capability_registry import safe_operator_surface
+
         missing = [
-            cmd for cmd in self.OPERATOR_COMMANDS
-            if not (SKILLS / cmd / "SKILL.md").is_file()
+            command.entrypoint
+            for command in safe_operator_surface()
+            if not (SKILLS / command.entrypoint.split()[-1] / "SKILL.md").is_file()
         ]
         assert not missing, f"operator commands missing SKILL.md: {missing}"
 
@@ -218,9 +208,7 @@ class TestAdvanceTeachesFunctionCallAdapters:
 
     def test_implementation_entry_probes_identity_before_claim(self):
         text = _read_skill_corpus(SKILLS / "advance")
-        assert (
-            "defer the first work-claim acquisition to the orchestrator" in text
-        )
+        assert "defer the first work-claim acquisition to the orchestrator" in text
         assert "write-guard-identity-unresolved" in text
         assert "--session-id` must match the ambient result" in text
         assert "worktree_preflight.run_preflight` acquires the claim" in text
