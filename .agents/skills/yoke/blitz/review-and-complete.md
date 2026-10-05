@@ -44,10 +44,23 @@ Append a final Slice Log entry naming the document revision and the final
 verification result. Re-read `yoke strategy execution get ITEM --json` and
 confirm the document claim still belongs to this item.
 
-Transition through the `doc_completion` gate:
+Advance one declared stage at a time. The definition's next stage after
+review is `release` (blitz.10); do not jump to `done`.
 
 ```text
-yoke lifecycle transition ITEM --from reviewing-implementation --to done --reason "Execution document reconciled with passing evidence"
+yoke lifecycle transition ITEM --from reviewing-implementation --to release --reason "Execution document reconciled; entering the release stage"
+```
+
+If the item remains at `release` because its selected deployment flow still
+owes delivery, keep the work claim and park this session on that wait. Do
+not release the claim and do not transition to `done` yet. A delivery wake
+re-enters this skill; continue here.
+
+When the release stage is clear, close through the `doc_completion` gate on
+the terminal transition:
+
+```text
+yoke lifecycle transition ITEM --from release --to done --reason "Execution document reconciled with passing evidence"
 ```
 
 The terminal transition atomically archives the linked execution document
@@ -55,14 +68,14 @@ when no other non-terminal Blitz still links it, then releases the item-owned
 document claim and every registered Blitz worktree lane. An already-archived
 document is a no-op; a shared live document stays active; and the parent
 document is never archived by this path. If the archive write fails,
-`GATE_BLITZ_DOCUMENT_ARCHIVE_FAILED` keeps the item at
-`reviewing-implementation` and names the retry recovery. Do not archive the
-document by hand after completion. Release the remaining session work claim:
+`GATE_BLITZ_DOCUMENT_ARCHIVE_FAILED` keeps the item at `release` and names
+the retry recovery. Do not archive the document by hand after completion.
+Release the remaining session work claim:
 
 ```text
 yoke claims work release --item ITEM --reason "Blitz completed"
 ```
 
-If completion is blocked, keep the item at
+If document completion is blocked, keep the item at
 `reviewing-implementation`, record the missing fact in `Live Status`, and
 repair the document or evidence. Never weaken the completion gate.
