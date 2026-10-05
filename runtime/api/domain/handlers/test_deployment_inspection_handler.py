@@ -88,11 +88,19 @@ def test_deployment_inspection_reads_existing_run(test_db) -> None:
     assert found.result_payload["rows"][0]["flow"] == "flow-inspect"
     assert found.result_payload["rows"][0]["target_environment"] == "prod"
     assert found.result_payload["rows"][0]["target_tier"] == "persistent"
-    assert found.result_payload["fields"][-2:] == [
+    assert found.result_payload["fields"] == [
+        "id",
+        "status",
+        "current_stage",
+        "created_at",
+        "flow",
         "target_environment",
         "target_tier",
+        "started_at",
+        "completed_at",
     ]
-    assert found.result_payload["fields"][-3] == "flow"
+    assert found.result_payload["rows"][0]["started_at"] is None
+    assert found.result_payload["rows"][0]["completed_at"] is None
     assert [stage["state"] for stage in run_stages.result_payload["stages"]] == [
         "completed",
         "current",
