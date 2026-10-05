@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_cli.project_install import checkout_gate
 from yoke_core.domain import project_install
 from yoke_core.domain.project_install import ProjectInstallError, apply_bundle
 from yoke_core.domain.project_install_test_helpers import DEFAULT_FILES, make_bundle
@@ -86,7 +87,8 @@ def test_copy_install_skips_git_hooks_without_git_dir(repo) -> None:
 
 def test_copy_uninstall_removes_yoke_hooks_preserves_foreign(repo) -> None:
     _git_init(repo)
-    apply_bundle(repo, make_bundle(), source="test")
+    installed = apply_bundle(repo, make_bundle(), source="test")
+    checkout_gate.commit_touched_paths(repo, installed)
     foreign = repo / ".git" / "hooks" / "post-commit"
     foreign.write_text("#!/bin/sh\nexec /custom/notify\n", encoding="utf-8")
 
@@ -113,6 +115,7 @@ def test_git_hook_marker_mention_is_never_treated_as_ownership(repo) -> None:
     assert any("not Yoke-managed" in warning for warning in report["warnings"])
     assert ".git/hooks/pre-commit" not in _manifest(repo)["git_hook_hashes"]
 
+    checkout_gate.commit_touched_paths(repo, report)
     uninstall_report = project_install.uninstall(repo)
     assert ambiguous.read_text(encoding="utf-8") == content
     assert uninstall_report["git_hooks_removed"] == ["post-commit", "pre-merge-commit"]

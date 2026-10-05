@@ -11,6 +11,7 @@ Common operators:
 ```bash
 yoke status
 yoke setup
+yoke uninstall                 # full machine removal; choices and recovery: --help
 yoke ui up
 yoke items get PREFIX-N
 yoke items get PREFIX-N body

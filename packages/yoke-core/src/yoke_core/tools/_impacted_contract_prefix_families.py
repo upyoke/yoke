@@ -91,6 +91,9 @@ MIGRATION_HISTORY_CONTRACT_TESTS = (
 MACHINE_QA_PACK_CONTRACT_TESTS = ("runtime/api/domain/test_machine_qa.py",)
 
 PRODUCT_CLI_BOUNDARY_TESTS = (
+    # Wheel subprocesses reach project install/refresh/uninstall by CLI words,
+    # with no import edge to the client behavior they must exercise.
+    "tests/import_graph/test_yoke_cli_project_install_wheel_smoke.py",
     # Registry rows and usage entries agree through dict keys, not imports,
     # so reachability cannot see a route added without its usage string.
     "runtime/api/cli/test_fleet_message_cli_user_journey.py",

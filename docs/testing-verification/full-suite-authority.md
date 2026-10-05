@@ -75,10 +75,10 @@ Local verification stays change-scoped:
   star re-exports too); and an always-run floor of contract tests runs on
   every selection (CLI registry, operation inventory, adapter parity, Atlas
   integrity, generated-artifact parity/drift, plus a fresh-universe birth from
-  the published engine wheel). A changed or added test file is selected
-  unconditionally before reachability runs — including when a bounded run
-  defers a near-total remainder — so the branch's own tests cannot be dropped
-  for the floor alone. Every member but the last is fast; that one builds an
+  the published engine wheel). CLI changes also select the product-wheel project
+  install/refresh/uninstall subprocess smoke. Changed tests are always selected,
+  including when a bounded run defers a near-total remainder, so the branch's
+  own tests cannot be dropped for the floor alone. Every floor member but the last is fast; that one builds an
   artifact and boots a database, and is on the floor because a deferred test
   is how the engine last shipped unable to make one. The conservative
   full-sweep fallback (non-Python changes, conftest or shared-fixture edits,

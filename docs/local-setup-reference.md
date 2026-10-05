@@ -17,11 +17,15 @@ project-local operating layer:
 - DB-rendered strategy views under `.yoke/strategy/`.
 
 Refresh and uninstall are manifest-tracked:
+For full machine removal, use [`yoke uninstall`](public/install.md#uninstall).
 
 ```bash
 yoke project refresh ~/work/my-app --config ~/.yoke/config.json
 yoke project uninstall ~/work/my-app --config ~/.yoke/config.json
 ```
+
+Project uninstall refuses a dirty checkout, commits the removed layer locally,
+and preserves project edits and strategy documents. Push that removal commit.
 
 On a git checkout, install and refresh refuse a dirty working tree and refuse
 when HEAD is not the project's `default_branch`. Pass `--force` to proceed

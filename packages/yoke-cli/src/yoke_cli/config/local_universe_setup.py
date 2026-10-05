@@ -189,6 +189,12 @@ def inspect_local_state(config_path: Optional[str] = None) -> Dict[str, Any]:
     }
 
 
+def local_cluster_initialized() -> bool:
+    """Whether this machine holds embedded Postgres data, without starting it."""
+    engine = _engine()
+    return (engine.cluster_spec().data_dir / "PG_VERSION").is_file()
+
+
 def postgres_start(emit: Callable[[str], None] = lambda _line: None) -> Dict[str, Any]:
     engine = _engine()
     try:
