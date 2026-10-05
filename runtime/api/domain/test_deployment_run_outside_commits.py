@@ -5,7 +5,6 @@ from pathlib import Path
 
 from runtime.api.fixtures.bound_source_release import two_project_release
 from runtime.api.fixtures.release_output_source import carried_work_of
-from yoke_core.domain.deployment_run_bound_sources import record_bound_sources
 from yoke_core.domain.deployment_run_carried_work import derive_carried_work
 from yoke_core.domain.deployment_run_create_write import cmd_create_run
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_update
@@ -51,7 +50,6 @@ def test_outside_work_is_recorded_under_the_bound_project_that_carries_it(
     release = two_project_release(
         test_db, tmp_path, monkeypatch, consumer_receipt=False
     )
-    record_bound_sources(test_db, "run-candidate")
     valid, message = cmd_validate_composition("run-candidate")
     assert valid, message
     carried = derive_carried_work(test_db, "run-candidate")
