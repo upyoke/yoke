@@ -28,6 +28,10 @@ from yoke_core.tools._watch_throttle import (
     ThrottlePolicy,
 )
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 # A simple line-oriented filter that matches lines starting with "MATCH".
 SIMPLE_FILTER = re.compile(r"^MATCH")

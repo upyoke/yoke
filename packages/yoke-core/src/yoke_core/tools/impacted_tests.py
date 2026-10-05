@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_core.tools._impacted_changed_paths import DEFAULT_BASE_REF, changed_paths
+from yoke_core.tools._impacted_conftest_dependencies import conftest_collection_probes
 from yoke_core.tools._impacted_contract_tests import (
     AGENT_SKILL_CONTRACT_TESTS,
     ALWAYS_RUN_TESTS,
@@ -118,7 +119,9 @@ def select(
         tests=frozenset(applicable_contracts),
         widening_triggers=(contracts.widening_triggers if applicable_contracts else ()),
     )
-    direct = direct_changed_tests(changed, index)
+    direct = direct_changed_tests(changed, index) | conftest_collection_probes(
+        changed, index
+    )
     selection = replace(_widened(changed, index), total_files=total_files)
     if not selection.full_sweep:
         selection = replace(

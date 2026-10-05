@@ -11,6 +11,10 @@ from yoke_contracts.session_model_facts import SessionModelFacts
 from yoke_core.hooks.remote_entry import evaluate_remote
 from yoke_core.hooks.types import HookDecision, Next, Outcome
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def test_remote_merges_wire_identity_into_payload(monkeypatch) -> None:
     seen: list[dict] = []

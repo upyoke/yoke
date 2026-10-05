@@ -56,6 +56,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ inputs.yoke_dispatch_id || github.run_id }}
   cancel-in-progress: false
 
+env:
+  # This repository explicitly selects its project; runners have no machine binding.
+  YOKE_PROJECT: yoke
+
 permissions:
   contents: read
 

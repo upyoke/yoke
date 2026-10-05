@@ -10,7 +10,13 @@ import sys
 from typing import Any, Dict, List, Optional
 
 from yoke_cli.commands._helpers import ensure_handlers_loaded, parse_or_usage_error
-from yoke_cli.commands.adapters.dev import DEFAULT_PROJECT_ID, PROJECT_ID_ENV
+from yoke_cli.config.project_selection import required_project_context
+from yoke_contracts.project_defaults import MissingProjectError
+from yoke_cli.commands.adapters.aws_admin_status import (
+    aws_admin_status_report,
+    _verify_aws_admin_identity,
+    _write_aws_admin_status,
+)
 from yoke_cli.config import aws_cli_prerequisite
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
@@ -67,7 +73,7 @@ def aws_admin_status(args: List[str]) -> int:
     parser.add_argument(
         "--project",
         default=None,
-        help="Project slug or id (default: $YOKE_PROJECT_ID or yoke).",
+        help="Project slug or id (explicit value, YOKE_PROJECT, or the checkout binding).",
     )
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parse_or_usage_error(parser, args, AWS_ADMIN_STATUS_USAGE)
@@ -82,7 +88,7 @@ def aws_admin_status(args: List[str]) -> int:
     try:
         slug = resolve_project_slug(parsed.project or _default_project())
         settings = _aws_admin_settings_or_none(slug)
-    except (ProjectSlugLookupError, AwsExecAdapterError) as exc:
+    except (ProjectSlugLookupError, AwsExecAdapterError, MissingProjectError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
@@ -98,115 +104,6 @@ def aws_admin_status(args: List[str]) -> int:
     else:
         _write_aws_admin_status(report)
     return 0
-
-
-def aws_admin_status_report(
-    slug: str, settings: Optional[Dict[str, Any]]
-) -> Dict[str, Any]:
-    """Compose both halves and the command that fills each missing one."""
-    from yoke_cli.config import aws_admin_capability as capability
-
-    present = list(capability.present_credential_keys(slug))
-    missing_keys = list(capability.missing_credential_keys(slug))
-    region = str((settings or {}).get("region") or "").strip()
-    missing: list[str] = []
-    remedy: list[str] = []
-    if settings is None or not region:
-        missing.append("capability_row")
-        remedy.append(
-            "yoke projects capability-settings merge "
-            f"--project {slug} --cap-type {_AWS_ADMIN_CAPABILITY} "
-            f"--set region={capability.default_region()}"
-        )
-    for key in missing_keys:
-        remedy.append(
-            f"yoke projects capability secret set --project {slug} "
-            f"--cap-type {_AWS_ADMIN_CAPABILITY} --key {key} --value-stdin"
-        )
-    if missing_keys:
-        missing.append("machine_secrets")
-    return {
-        "project": slug,
-        "capability_row": {
-            "present": settings is not None,
-            "region": region or None,
-            "account_id": str((settings or {}).get("account_id") or "") or None,
-        },
-        "machine_secrets": {
-            "present": present,
-            "missing": missing_keys,
-            "directory": capability.credential_dir_display(slug),
-        },
-        "missing": missing,
-        "ready": not missing,
-        "remedy": remedy,
-    }
-
-
-def _verify_aws_admin_identity(
-    report: Dict[str, Any],
-    slug: str,
-    region: str,
-) -> None:
-    from yoke_cli.config import aws_admin_capability as capability
-
-    try:
-        identity = capability.verify_caller_identity(slug, region)
-    except capability.HostingVerificationError as exc:
-        report["ready"] = False
-        report["verification"] = {
-            "checked": True,
-            "ok": False,
-            "reason": str(exc),
-        }
-        report["remedy"] = [
-            f"yoke projects capability secret set --project {slug} "
-            f"--cap-type {_AWS_ADMIN_CAPABILITY} --key {key} --value-stdin"
-            for key in capability.REQUIRED_CREDENTIAL_KEYS
-        ] + [f"yoke aws admin-status --project {slug} --json"]
-        return
-    report["verification"] = {
-        "checked": True,
-        "ok": True,
-        "account": identity.account,
-        "identity": identity.identity,
-    }
-
-
-def _write_aws_admin_status(report: Dict[str, Any]) -> None:
-    row = report["capability_row"]
-    secrets = report["machine_secrets"]
-    if not row["present"]:
-        row_line = "missing"
-    elif not row["region"]:
-        row_line = "present, no region declared"
-    else:
-        account = f", account {row['account_id']}" if row["account_id"] else ""
-        row_line = f"present (region {row['region']}{account})"
-    held = ", ".join(secrets["present"]) + " present" if secrets["present"] else "none"
-    absent = f" · missing {', '.join(secrets['missing'])}" if secrets["missing"] else ""
-    print(f"{_AWS_ADMIN_CAPABILITY} · project {report['project']}")
-    print(f"  capability row     {row_line}")
-    print(f"  machine secrets    {held}{absent} ({secrets['directory']})")
-    verification = report.get("verification")
-    if verification and verification["ok"]:
-        print(
-            "  identity check     verified · account "
-            f"{verification['account']} · {verification['identity']}"
-        )
-    if report["ready"]:
-        print("  ready              yes")
-        return
-    detail = (
-        f"missing {', '.join(report['missing'])}"
-        if report["missing"]
-        else f"identity check failed · {verification['reason']}"
-    )
-    print(f"  ready              no · {detail}")
-    print("")
-    print("Recovery:")
-    for command in report["remedy"]:
-        print(f"  {command}")
 
 
 def _aws_admin_settings_or_none(
@@ -244,7 +141,7 @@ def aws_exec(args: List[str]) -> int:
     parser.add_argument(
         "--project",
         default=None,
-        help="Project slug or id (default: $YOKE_PROJECT_ID or yoke).",
+        help="Project slug or id (explicit value, YOKE_PROJECT, or the checkout binding).",
     )
     parser.add_argument(
         "--region",
@@ -264,7 +161,11 @@ def aws_exec(args: List[str]) -> int:
         print(f"Usage: {AWS_EXEC_USAGE}", file=sys.stderr)
         return 2
 
-    project = parsed.project or _default_project()
+    try:
+        project = required_project_context(parsed.project)
+    except MissingProjectError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     try:
         region = parsed.region or _aws_admin_region(project)
         if not region:
@@ -340,9 +241,7 @@ def _aws_admin_region(
 
 
 def _default_project() -> str:
-    import os
-
-    return os.environ.get(PROJECT_ID_ENV) or DEFAULT_PROJECT_ID
+    return required_project_context()
 
 
 class AwsExecAdapterError(RuntimeError):

@@ -10,6 +10,10 @@ from unittest import mock
 from yoke_core.domain import browser_qa
 from yoke_harness.browser_client_readiness import DAEMON_LOG_NAME
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 # ---------------------------------------------------------------------------
 # Daemon auto-retry and diagnostics

@@ -37,7 +37,7 @@ created_at TEXT NOT NULL
 updated_at TEXT NOT NULL
 source TEXT NOT NULL DEFAULT '2' -- stringified actors.id for who/what originated the item
 owner TEXT -- stringified actors.id for who owns intent, tradeoffs, and acceptance
-project TEXT NOT NULL DEFAULT 'yoke' -- FK → projects(id); which project this item targets
+project_id INTEGER NOT NULL REFERENCES projects(id) -- explicit attribution; no default
 deployment_flow TEXT -- FK → deployment_flows(id); assigned deployment flow
 deploy_stage TEXT -- current stage in the deployment flow (NULL = not started)
 spec TEXT -- PM spec content

@@ -17,7 +17,7 @@ checks.
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
+import sys
 from typing import Any, Dict, List
 
 from yoke_contracts.deployment_destination import (
@@ -25,7 +25,8 @@ from yoke_contracts.deployment_destination import (
     DESTINATION_LOCAL,
     DESTINATION_SERVER,
 )
-from yoke_contracts.project_defaults import default_project_for_directory
+from yoke_contracts.project_defaults import MissingProjectError
+from yoke_cli.config.project_selection import required_project_context
 
 from yoke_cli.config.onboard_destinations import is_hosted_url
 
@@ -133,8 +134,13 @@ def doctor_run(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, DOCTOR_RUN_USAGE)
     if parsed is None:
         return 2
+    try:
+        project = required_project_context(parsed.project)
+    except MissingProjectError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     payload: Dict[str, Any] = {
-        "project": parsed.project or default_project_for_directory(Path.cwd()),
+        "project": project,
         "quick": bool(parsed.quick),
         "full": bool(parsed.full),
         "fix": bool(parsed.fix),

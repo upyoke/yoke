@@ -25,7 +25,10 @@ MAIN_ROOT=$(python3 -m yoke_core.domain.worktree paths main)
 **Resolve project from the item** — read the public project slug via the item getter:
 ```bash
 PROJECT=$(yoke items get PREFIX-${N} project)
-PROJECT=${PROJECT:-yoke}
+if [ -z "$PROJECT" ]; then
+  echo "project_required: item PREFIX-${N} has no project attribution."
+  exit 1
+fi
 ```
 
 ### S2a. Workflow Binding, Status, and Acceptance Criteria Gates

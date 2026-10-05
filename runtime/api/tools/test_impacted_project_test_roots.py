@@ -18,14 +18,10 @@ def test_live_entries_are_normalized(monkeypatch, tmp_path: Path) -> None:
         _relay,
     )
     roots.resolve_test_roots.cache_clear()
-    assert roots.resolve_test_roots(str(tmp_path)) == (
-        "services/platform-svc/tests/",
-    )
+    assert roots.resolve_test_roots(str(tmp_path)) == ("services/platform-svc/tests/",)
 
 
-def test_live_empty_falls_back_only_on_a_yoke_tree(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_live_empty_falls_back_only_on_a_yoke_tree(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(roots, "_try_read", lambda _project: ())
     monkeypatch.setattr(roots, "default_project_for_directory", lambda _p: "yoke")
     roots.resolve_test_roots.cache_clear()
@@ -47,3 +43,18 @@ def test_failed_read_falls_back_only_on_a_yoke_tree(
     marker.mkdir(parents=True)
     roots.resolve_test_roots.cache_clear()
     assert roots.resolve_test_roots(str(tmp_path)) == roots.YOKE_SEEDED_TEST_ROOTS
+
+
+def test_explicit_environment_project_without_checkout_binding(monkeypatch, tmp_path):
+    monkeypatch.setenv("YOKE_PROJECT", "selected")
+    monkeypatch.setattr(roots, "default_project_for_directory", lambda _p: None)
+    seen = []
+
+    def read(project):
+        seen.append(project)
+        return ("selected-tests/",)
+
+    monkeypatch.setattr(roots, "_try_read", read)
+    roots.resolve_test_roots.cache_clear()
+    assert roots.resolve_test_roots(str(tmp_path)) == ("selected-tests/",)
+    assert seen == ["selected"]

@@ -27,6 +27,10 @@ from yoke_contracts.field_note_text import FOOTER as FIELD_NOTE_FOOTER
 from yoke_core.engines import doctor as doctor_engine
 from yoke_core.engines.doctor_registry_types import HealthCheck
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 # These tests assert what a patched engine registry contributes, so they
 # pin the runtime: a local run also collects the calling checkout's own
 # .yoke/doctor/ checks.
@@ -74,16 +78,19 @@ class _StreamingProgressTests(unittest.TestCase):
             ],
         ):
             with patch(
-                "yoke_core.engines.doctor._should_run_hc", return_value=True,
+                "yoke_core.engines.doctor._should_run_hc",
+                return_value=True,
             ):
                 with patch(
-                    "yoke_core.engines.doctor.connect", return_value=_StubConn(),
+                    "yoke_core.engines.doctor.connect",
+                    return_value=_StubConn(),
                 ):
                     buf = io.StringIO()
                     with redirect_stdout(buf):
                         rc = doctor_engine.run_checks(
                             doctor_engine.DoctorArgs(
-                                quick=True, project="yoke",
+                                quick=True,
+                                project="yoke",
                                 runtime=_ENGINE_ONLY_RUNTIME,
                             )
                         )
@@ -119,7 +126,8 @@ class _StreamingProgressTests(unittest.TestCase):
                 [HealthCheck(slug="foo", name="Foo HC", fn=_fake_foo_pass_hc)],
             ):
                 with patch(
-                    "yoke_core.engines.doctor._should_run_hc", return_value=True,
+                    "yoke_core.engines.doctor._should_run_hc",
+                    return_value=True,
                 ):
                     with patch(
                         "yoke_core.engines.doctor.connect",
@@ -174,7 +182,8 @@ class _JsonAdapterTests(unittest.TestCase):
             [HealthCheck(slug="fake", name="Fake HC", fn=_fake_pass_hc)],
         ):
             with patch(
-                "yoke_core.domain.db_helpers.connect", return_value=_StubConn(),
+                "yoke_core.domain.db_helpers.connect",
+                return_value=_StubConn(),
             ):
                 buf = io.StringIO()
                 with redirect_stdout(buf):
@@ -196,15 +205,18 @@ class _JsonAdapterTests(unittest.TestCase):
             [HealthCheck(slug="fake", name="Fake HC", fn=_fake_pass_hc)],
         ):
             with patch(
-                "yoke_core.domain.db_helpers.connect", return_value=_StubConn(),
+                "yoke_core.domain.db_helpers.connect",
+                return_value=_StubConn(),
             ):
                 buf = io.StringIO()
                 with redirect_stdout(buf):
-                    rc = doctor_engine.main([
-                        "--json",
-                        "--only",
-                        "HC-this-check-does-not-exist",
-                    ])
+                    rc = doctor_engine.main(
+                        [
+                            "--json",
+                            "--only",
+                            "HC-this-check-does-not-exist",
+                        ]
+                    )
         payload = json.loads(buf.getvalue())
         self.assertFalse(payload["success"])
         self.assertEqual(payload["error"]["code"], "invalid_check")
@@ -218,12 +230,15 @@ class _JsonAdapterTests(unittest.TestCase):
             [
                 HealthCheck(slug="fake", name="Fake HC", fn=_fake_pass_hc),
                 HealthCheck(
-                    slug="fail-hc", name="Failing HC", fn=_fake_fail_hc,
+                    slug="fail-hc",
+                    name="Failing HC",
+                    fn=_fake_fail_hc,
                 ),
             ],
         ):
             with patch(
-                "yoke_core.domain.db_helpers.connect", return_value=_StubConn(),
+                "yoke_core.domain.db_helpers.connect",
+                return_value=_StubConn(),
             ):
                 buf = io.StringIO()
                 with redirect_stdout(buf):
@@ -245,16 +260,19 @@ class _ReportCarriesNoFieldNoteDirectiveTests(unittest.TestCase):
     def _render(self, health_check):
         with patch("yoke_core.engines.doctor.HEALTH_CHECKS", [health_check]):
             with patch(
-                "yoke_core.engines.doctor._should_run_hc", return_value=True,
+                "yoke_core.engines.doctor._should_run_hc",
+                return_value=True,
             ):
                 with patch(
-                    "yoke_core.engines.doctor.connect", return_value=_StubConn(),
+                    "yoke_core.engines.doctor.connect",
+                    return_value=_StubConn(),
                 ):
                     buf = io.StringIO()
                     with redirect_stdout(buf):
                         rc = doctor_engine.run_checks(
                             doctor_engine.DoctorArgs(
-                                quick=True, project="yoke",
+                                quick=True,
+                                project="yoke",
                                 runtime=_ENGINE_ONLY_RUNTIME,
                             )
                         )

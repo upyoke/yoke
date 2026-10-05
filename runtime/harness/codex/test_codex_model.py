@@ -21,6 +21,8 @@ from yoke_core.hooks.codex_model import (
 )
 from runtime.api.test_constants import TEST_MODEL_ID
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def _helper_cache_path(thread_id: str):
     """Helper-resolved Codex model-cache path used by the resolver.

@@ -5,6 +5,10 @@ from __future__ import annotations
 from yoke_core.tools import _watch_pytest_args, watch_pytest
 from yoke_core.tools._impacted_selection import Selection
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def _stub_binding(monkeypatch) -> None:
     monkeypatch.setenv("YOKE_SESSION_ID", "test-session-autouse")
@@ -84,9 +88,7 @@ def test_would_widen_advisory_names_rule_and_triggers(monkeypatch, capsys) -> No
         reason="selection unbounded (test_tooling_module: watch_pytest.py)",
         files=("runtime/api/tools/test_watch_pytest.py",),
         fallback_rule="test_tooling_module",
-        trigger_paths=(
-            "packages/yoke-core/src/yoke_core/tools/watch_pytest.py",
-        ),
+        trigger_paths=("packages/yoke-core/src/yoke_core/tools/watch_pytest.py",),
         bounded_deferral=True,
     )
     monkeypatch.setattr(watch_pytest, "_impacted_selection", lambda *a, **k: selection)
@@ -105,9 +107,7 @@ def test_widen_does_not_print_the_advisory(monkeypatch, capsys) -> None:
         full_sweep=True,
         reason="changed test tooling",
         fallback_rule="test_tooling_module",
-        trigger_paths=(
-            "packages/yoke-core/src/yoke_core/tools/watch_pytest.py",
-        ),
+        trigger_paths=("packages/yoke-core/src/yoke_core/tools/watch_pytest.py",),
     )
     monkeypatch.setattr(watch_pytest, "_impacted_selection", lambda *a, **k: selection)
     assert watch_pytest.main(["--impacted", "main", "--widen"]) == 0

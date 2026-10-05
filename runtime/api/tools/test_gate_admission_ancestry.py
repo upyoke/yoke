@@ -19,6 +19,8 @@ from yoke_core.tools import gate_admission
 
 from runtime.api.tools.test_gate_admission import _scratch_lock_base
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 class _FakeSlotConnection:
     def close(self) -> None:
@@ -55,8 +57,7 @@ def test_admitted_gate_publishes_what_it_actually_holds(monkeypatch):
     monkeypatch.setattr(gate_admission, "_acquire", lambda _stream: None)
     with gate_admission.admitted_gate([]):
         assert (
-            os.environ.get(gate_admission.ADMITTED_ENV)
-            == gate_admission.MARKER_NO_SLOT
+            os.environ.get(gate_admission.ADMITTED_ENV) == gate_admission.MARKER_NO_SLOT
         )
     assert os.environ.get(gate_admission.ADMITTED_ENV) is None
 
@@ -83,8 +84,7 @@ def test_narrow_invocation_publishes_that_it_holds_nothing(tmp_path, monkeypatch
     monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
     with gate_admission.admitted_gate([str(test_file)]):
         assert (
-            os.environ.get(gate_admission.ADMITTED_ENV)
-            == gate_admission.MARKER_NO_SLOT
+            os.environ.get(gate_admission.ADMITTED_ENV) == gate_admission.MARKER_NO_SLOT
         )
     assert os.environ.get(gate_admission.ADMITTED_ENV) is None
 
@@ -128,9 +128,7 @@ def test_watch_pytest_mirrors_marker_into_child_env(tmp_path, monkeypatch):
         captured["env"] = kwargs["env"]
         return 0
 
-    monkeypatch.setattr(
-        watch_pytest._watch_runner, "run_watcher", fake_run_watcher
-    )
+    monkeypatch.setattr(watch_pytest._watch_runner, "run_watcher", fake_run_watcher)
     rc = watch_pytest.main(
         [
             "--raw-capture",
@@ -144,14 +142,11 @@ def test_watch_pytest_mirrors_marker_into_child_env(tmp_path, monkeypatch):
     )
     assert rc == 0
     assert (
-        captured["env"][gate_admission.ADMITTED_ENV]
-        == gate_admission.MARKER_SLOT_HELD
+        captured["env"][gate_admission.ADMITTED_ENV] == gate_admission.MARKER_SLOT_HELD
     )
 
 
-def test_heavy_descendant_of_a_bypassed_ancestor_does_not_queue(
-    monkeypatch, capsys
-):
+def test_heavy_descendant_of_a_bypassed_ancestor_does_not_queue(monkeypatch, capsys):
     # The wedge shape, driven through the real admission surface: an
     # unrelated holder owns the only slot, and this run's ancestor bypassed
     # admission and holds nothing, so waiting could never be satisfied by
@@ -233,9 +228,7 @@ def test_descendant_without_marker_queues_behind_parent_slot_shape(
     assert published == gate_admission.MARKER_NO_SLOT
 
 
-def test_nested_runner_rides_parent_slot_without_cap_opt_out(
-    monkeypatch, tmp_path
-):
+def test_nested_runner_rides_parent_slot_without_cap_opt_out(monkeypatch, tmp_path):
     """Concurrency regression: parent holds the only slot; nested heavy
     ``run_tests`` inherits the marker and returns without CAP_ENV=0.
     """
@@ -261,8 +254,7 @@ def test_nested_runner_rides_parent_slot_without_cap_opt_out(
 
     env = os.environ.copy()
     env["PYTHONPATH"] = (
-        f"{SOURCE_PYTHONPATH}{os.pathsep}{mini}"
-        f"{os.pathsep}{env.get('PYTHONPATH', '')}"
+        f"{SOURCE_PYTHONPATH}{os.pathsep}{mini}{os.pathsep}{env.get('PYTHONPATH', '')}"
     )
     env[gate_admission.CAP_ENV] = "1"
     env[gate_admission.LOCK_BASE_ENV] = str(base)
@@ -284,9 +276,7 @@ def test_nested_runner_rides_parent_slot_without_cap_opt_out(
     finally:
         parent.close()
 
-    assert result.returncode == 0, (
-        f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
-    )
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     assert elapsed < 60.0
     # Riding never prints an admission-wait announcement. Match the gate's
     # own prefix rather than the bare "waiting (" suffix, which the pytest
@@ -304,6 +294,5 @@ def test_wait_bound_refuses_a_non_positive_override(monkeypatch):
         qa_gate_timeout.wait_timeout_seconds()
     monkeypatch.delenv(qa_gate_timeout.WAIT_TIMEOUT_ENV)
     assert (
-        qa_gate_timeout.wait_timeout_seconds()
-        == qa_gate_timeout.DEFAULT_WAIT_TIMEOUT_S
+        qa_gate_timeout.wait_timeout_seconds() == qa_gate_timeout.DEFAULT_WAIT_TIMEOUT_S
     )

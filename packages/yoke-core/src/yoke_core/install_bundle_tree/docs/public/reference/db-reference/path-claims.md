@@ -64,7 +64,11 @@ target/source relationship via
 Idempotent across re-runs (the unique key on `path_context_values`
 overwrites in place). Triggered by `python3 -m
 yoke_core.domain.agents_render render` and the `agents.render.run`
-function-call surface.
+function-call surface. The client resolves an explicit project, `YOKE_PROJECT`,
+or its registered checkout and sends that project with the relationship refresh.
+The server refuses a missing project as `project_required` before writing; it
+never attributes relationships using its own checkout. An unattributed client
+skips this advisory registration while still rendering the requested files.
 
 Scope (v0): the 16 rendered packet outputs for the eight canonical
 agents (8 Claude `.md` + 8 Codex `.toml`). Non-packet generated

@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 from typing import Callable, List
 
+from yoke_contracts.project_defaults import MissingProjectError
+from yoke_cli.config.project_selection import required_project_context
 from yoke_cli import browser_node_toolchain
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 
@@ -31,6 +33,10 @@ def qa_browser_status(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_STATUS_USAGE)
     if parsed is None:
         return 2
+    try:
+        parsed.project = required_project_context(parsed.project)
+    except MissingProjectError as exc:
+        return usage_error(str(exc))
 
     try:
         from yoke_harness import browser_client, browser_runtime_home
@@ -55,12 +61,7 @@ def qa_browser_status(args: List[str]) -> int:
 
 
 def _format_status_human(payload: dict[str, object]) -> str:
-    """Render the readiness facts as a human-readable status report.
-
-    Surfaces the same facts as ``--json`` (runtime dir, node toolchain, npm
-    dependencies, chromium, daemon) plus repair guidance, so an operator does
-    not need ``--json`` to see why browser QA is not ready.
-    """
+    """Render the same readiness facts and repair hints as ``--json``."""
     node = payload.get("node", {})
     deps = payload.get("npm_dependencies", {})
     chromium = payload.get("chromium", {})
@@ -125,6 +126,7 @@ def qa_browser_setup(args: List[str]) -> int:
         return 2
 
     try:
+        parsed.project = required_project_context(parsed.project)
         profile_restoration = None
         if parsed.profile_baseline and not parsed.dry_run:
             from yoke_cli.commands.qa_browser_profile_baseline import (
@@ -170,7 +172,7 @@ def qa_browser_setup(args: List[str]) -> int:
                     ),
                 ),
             }
-    except RuntimeError as exc:
+    except (RuntimeError, MissingProjectError) as exc:
         from yoke_cli.commands.qa_browser_profile_baseline import (
             ProfileBaselineRestoreError,
         )

@@ -49,12 +49,26 @@ def _classify_drift(
     - Neither -> ``neither``.
     """
     sml_keywords = {
-        "strategy", "sml", "mission", "vision", "landscape",
-        "master-plan", "strategize", "strategic",
+        "strategy",
+        "sml",
+        "mission",
+        "vision",
+        "landscape",
+        "master-plan",
+        "strategize",
+        "strategic",
     }
     frontier_keywords = {
-        "frontier", "scheduler", "priority", "feed", "dependency",
-        "ranking", "backlog", "payoff", "rank", "wip",
+        "frontier",
+        "scheduler",
+        "priority",
+        "feed",
+        "dependency",
+        "ranking",
+        "backlog",
+        "payoff",
+        "rank",
+        "wip",
     }
 
     has_sml_impact = False
@@ -86,19 +100,14 @@ def _classify_drift(
     if has_sml_impact and has_frontier_impact:
         classification = "both"
         summary = (
-            f"{len(delivered_items)} delivered item(s) impact both SML "
-            f"and frontier."
+            f"{len(delivered_items)} delivered item(s) impact both SML and frontier."
         )
     elif has_sml_impact:
         classification = "sml_only"
-        summary = (
-            f"{len(delivered_items)} delivered item(s) impact the SML."
-        )
+        summary = f"{len(delivered_items)} delivered item(s) impact the SML."
     elif has_frontier_impact:
         classification = "frontier_only"
-        summary = (
-            f"{len(delivered_items)} delivered item(s) impact the frontier."
-        )
+        summary = f"{len(delivered_items)} delivered item(s) impact the frontier."
     else:
         classification = "neither"
         summary = (
@@ -123,9 +132,8 @@ def _classify_drift(
 def _normalize_project_scope(project_scope) -> List[str]:
     """Coerce legacy and current drift-review scope shapes to a list."""
     if isinstance(project_scope, str):
-        return [project_scope]
-    scope = [str(project) for project in project_scope] if project_scope else []
-    return scope or ["yoke"]
+        return [project_scope.strip()] if project_scope.strip() else []
+    return [str(project) for project in project_scope] if project_scope else []
 
 
 def _combined_checkpoint_start(checkpoints: List[Optional[str]]) -> Optional[str]:
@@ -150,6 +158,7 @@ def assess_post_delivery_drift(
     collected from every scoped project while preserving each project's own
     checkpoint anchor.
 
+    An empty scope has no projects to review and makes no project queries.
     Returns ``None`` if the trigger does not fire (no review needed).
     Returns a ``DriftReviewResult`` if the trigger fires and classification
     succeeds.

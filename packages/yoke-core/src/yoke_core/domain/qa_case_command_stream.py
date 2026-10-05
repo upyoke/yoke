@@ -87,10 +87,11 @@ def stream_command(
     # reaping, so binding it lazily keeps that a call-time edge.
     from yoke_core.tools._watch_runner import (
         TIMEOUT_EXIT,
-        mint_capture_paths,
         run_watcher,
     )
     from yoke_core.tools._watch_throttle import Classification, LineClass
+
+    from yoke_core.tools._watch_capture_binding import mint_capture_paths
 
     relay = Classification(LineClass.URGENT)
 
@@ -100,7 +101,9 @@ def stream_command(
 
     from yoke_core.domain.qa_case_candidate_source import candidate_source
 
-    raw_capture, progress_capture = mint_capture_paths(CAPTURE_KIND)
+    raw_capture, progress_capture = mint_capture_paths(
+        CAPTURE_KIND, project=env.get("YOKE_PROJECT")
+    )
     destination = sys.stderr if stream is None else stream
     product_env = product_command_environment(env)
     evidence = None

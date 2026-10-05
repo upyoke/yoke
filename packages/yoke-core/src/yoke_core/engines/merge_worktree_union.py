@@ -19,7 +19,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from yoke_core.domain.project_scratch_dir import scratch_subdir
+from tempfile import TemporaryDirectory
+
+from yoke_core.domain.project_scratch_dir import global_scratch_root
 from yoke_core.domain.structured_file_validation import structured_document_error
 
 CONFLICT_MARKERS = ("<<<<<<< ", "=======", ">>>>>>> ")
@@ -44,7 +46,9 @@ def compute_union_merge(filepath: str, cwd: str, run_git) -> Optional[UnionMerge
     if any(r.returncode != 0 for r in (base, ours, theirs)):
         return None
 
-    with scratch_subdir(prefix="merge-additive") as tmpdir:
+    with TemporaryDirectory(
+        prefix="merge-additive-", dir=global_scratch_root()
+    ) as tmpdir:
         base_path = os.path.join(tmpdir, "base")
         ours_path = os.path.join(tmpdir, "ours")
         theirs_path = os.path.join(tmpdir, "theirs")

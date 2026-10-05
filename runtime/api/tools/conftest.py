@@ -36,3 +36,18 @@ def _wakeable_watcher_test_caller(monkeypatch: pytest.MonkeyPatch) -> None:
             wake_mechanism="Monitor",
         ),
     )
+
+
+@pytest.fixture(autouse=True)
+def _synthetic_selector_roots(request, monkeypatch):
+    """Import-graph fixtures declare their own test universe explicitly."""
+    if request.module.__name__.rsplit(".", 1)[-1].startswith("test_impacted"):
+        from yoke_core.tools import _impacted_import_index, _impacted_selection
+        from yoke_core.tools.impacted_project_test_roots import YOKE_SEEDED_TEST_ROOTS
+
+        monkeypatch.setattr(
+            _impacted_import_index, "current_test_roots", lambda: YOKE_SEEDED_TEST_ROOTS
+        )
+        monkeypatch.setattr(
+            _impacted_selection, "current_test_roots", lambda: YOKE_SEEDED_TEST_ROOTS
+        )

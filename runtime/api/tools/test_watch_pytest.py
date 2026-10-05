@@ -23,6 +23,8 @@ from runtime.api.source_pythonpath_test_helpers import SOURCE_PYTHONPATH
 from yoke_core.tools import _watch_pytest_args, watch_pytest
 from yoke_core.tools._watch_runner import filter_match
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 # Representative non-TTY pytest output captured by hand. Includes:
 # - File-progress lines with [ N%] markers
@@ -180,9 +182,8 @@ class TestPrintStreamingPair:
             lambda *args, **kwargs: None,
         )
         from yoke_core.tools import _pytest_parallel
-        monkeypatch.setattr(
-            _pytest_parallel, "_read_free_ram_mb", lambda: 1_000_000
-        )
+
+        monkeypatch.setattr(_pytest_parallel, "_read_free_ram_mb", lambda: 1_000_000)
         rc = watch_pytest.main(
             ["--print-streaming-pair", "--", "runtime/api/", "-k", "smoke"]
         )
@@ -223,9 +224,7 @@ class TestNestedPytestRejection:
             ("sys.executable", "-m", "pytest"),
         ],
     )
-    def test_helper_detects_nested_invocation(
-        self, leading: tuple[str, ...]
-    ) -> None:
+    def test_helper_detects_nested_invocation(self, leading: tuple[str, ...]) -> None:
         args = [*leading, "runtime/api/tools/test_watch_pytest.py", "-q"]
         assert _watch_pytest_args.is_nested_pytest_invocation(args) is True
 
@@ -246,8 +245,14 @@ class TestNestedPytestRejection:
 
     def test_main_rejects_nested_invocation(self, capsys) -> None:
         rc = watch_pytest.main(
-            ["--", "python3", "-m", "pytest",
-             "runtime/api/tools/test_watch_pytest.py", "-q"]
+            [
+                "--",
+                "python3",
+                "-m",
+                "pytest",
+                "runtime/api/tools/test_watch_pytest.py",
+                "-q",
+            ]
         )
         assert rc != 0
         captured = capsys.readouterr()
@@ -262,8 +267,15 @@ class TestNestedPytestRejection:
     ) -> None:
         monkeypatch.setenv("TMPDIR", str(tmp_path))
         rc = watch_pytest.main(
-            ["--print-streaming-pair", "--", "python", "-m", "pytest",
-             "runtime/api/tools/test_watch_pytest.py", "-q"]
+            [
+                "--print-streaming-pair",
+                "--",
+                "python",
+                "-m",
+                "pytest",
+                "runtime/api/tools/test_watch_pytest.py",
+                "-q",
+            ]
         )
         assert rc != 0
         captured = capsys.readouterr()
@@ -276,9 +288,7 @@ class TestNestedPytestRejection:
 
 
 class TestLiveWrapperSmoke:
-    def test_runs_against_passing_test_and_splits_capture(
-        self, tmp_path: Path
-    ) -> None:
+    def test_runs_against_passing_test_and_splits_capture(self, tmp_path: Path) -> None:
         # Build a tiny self-contained repo with one passing pytest test.
         mini = tmp_path / "mini"
         pkg = mini / "pkgx"

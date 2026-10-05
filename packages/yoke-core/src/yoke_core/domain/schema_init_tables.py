@@ -70,7 +70,7 @@ def create_core_tables(conn: Any) -> None:
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL,
           source TEXT NOT NULL DEFAULT '{DEFAULT_ITEM_ACTOR_ID}',
-          project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
+          project_id INTEGER NOT NULL REFERENCES projects(id),
           project_sequence INTEGER NOT NULL,
           spec_updated_at TEXT,
           spec_updated_by TEXT,
@@ -181,7 +181,7 @@ def create_core_tables(conn: Any) -> None:
           category TEXT NOT NULL DEFAULT 'improvements' CHECK(category IN ('features','improvements','bug_fixes','internal')),
           title TEXT NOT NULL,
           version TEXT NOT NULL,
-          project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
+          project_id INTEGER NOT NULL REFERENCES projects(id),
           created_at TEXT NOT NULL,
           UNIQUE(item_id, version, project_id)
         );

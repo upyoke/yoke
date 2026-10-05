@@ -24,6 +24,7 @@ Public surface:
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 from typing import Any, List, Mapping, Optional, Sequence
 
 from yoke_core.domain.event_registry_seed_render_relationship import (
@@ -128,7 +129,9 @@ def set_render_relationship(
 
 
 def read_render_source_for(
-    conn: Any, *, target_id: int,
+    conn: Any,
+    *,
+    target_id: int,
 ) -> Optional[List[str]]:
     """Return the seed-source path strings registered for a render target.
 
@@ -189,9 +192,7 @@ def record_render_relationships(
     """
     relationships = render_relationship_map(_tracked_file_paths(conn, project_id))
     needed_paths = {
-        path
-        for target, sources in relationships.items()
-        for path in (target, *sources)
+        path for target, sources in relationships.items() for path in (target, *sources)
     }
     target_id_by_path = _latest_target_ids(conn, project_id, sorted(needed_paths))
     operation_id = f"render-relationship-batch:{uuid.uuid4()}"
@@ -245,6 +246,9 @@ def record_render_relationships_to_canonical_db(
     invalidating files that were rendered successfully.
     """
     try:
+        from yoke_core.domain.project_selection import required_local_project
+
+        project_id = required_local_project(Path.cwd(), project_id)
         from yoke_core.domain.db_helpers import connect
         from yoke_core.domain import control_plane_transport
     except Exception:
@@ -262,7 +266,7 @@ def record_render_relationships_to_canonical_db(
         try:
             result = control_plane_transport.relay(
                 "agents.render_relationships.record",
-                {"session_id": session_id},
+                {"project": project_id, "session_id": session_id},
             )
             return int(result.get("written") or 0)
         except Exception:

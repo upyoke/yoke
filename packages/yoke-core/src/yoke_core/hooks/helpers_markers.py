@@ -16,11 +16,10 @@ from __future__ import annotations
 
 import time
 
+from yoke_contracts.project_defaults import MissingProjectError
 from yoke_core.domain.project_scratch_dir import hook_marker_path
 
 
-CURRENT_ITEM_MARKER = str(hook_marker_path("current-item"))
-DONE_ITEM_MARKER = str(hook_marker_path("done-item"))
 DEFAULT_DONE_MARKER_MAX_AGE = 1800  # 30 minutes
 
 
@@ -29,7 +28,7 @@ def write_current_item_marker(item_id: int | str) -> None:
     if not item_id:
         return
     try:
-        with open(CURRENT_ITEM_MARKER, "w") as f:
+        with open(hook_marker_path("current-item"), "w") as f:
             f.write(f"{item_id}\n")
     except OSError:
         pass
@@ -38,9 +37,9 @@ def write_current_item_marker(item_id: int | str) -> None:
 def read_current_item_marker() -> str:
     """Read the current-item marker. Returns empty string if missing."""
     try:
-        with open(CURRENT_ITEM_MARKER) as f:
+        with open(hook_marker_path("current-item")) as f:
             return f.read().strip()
-    except OSError:
+    except (OSError, MissingProjectError):
         return ""
 
 
@@ -50,7 +49,7 @@ def write_done_item_marker(item_id: int | str) -> None:
         return
     try:
         epoch = int(time.time())
-        with open(DONE_ITEM_MARKER, "w") as f:
+        with open(hook_marker_path("done-item"), "w") as f:
             f.write(f"{item_id}|{epoch}\n")
     except OSError:
         pass
@@ -61,7 +60,7 @@ def read_done_item_marker(
 ) -> str:
     """Read the done-item marker if recent. Returns empty string if expired/missing."""
     try:
-        with open(DONE_ITEM_MARKER) as f:
+        with open(hook_marker_path("done-item")) as f:
             line = f.read().strip()
         if "|" not in line:
             return ""
@@ -73,5 +72,5 @@ def read_done_item_marker(
         if 0 <= age <= max_age:
             return item_id
         return ""
-    except (OSError, ValueError):
+    except (OSError, ValueError, MissingProjectError):
         return ""

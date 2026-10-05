@@ -44,7 +44,11 @@ def test_product_wheel_runs_browser_qa_setup_and_status(
     env = _product_env(machine_home=machine_home, venv_dir=venv_dir)
 
     status = _assert_command(
-        yoke, project, env, ["qa", "browser", "status", "--json"], 0,
+        yoke,
+        project,
+        env,
+        ["qa", "browser", "status", "--project", "fixture", "--json"],
+        0,
     )
     status_payload = json.loads(status.stdout)
     assert status_payload["daemon"]["status"] == "not_running"
@@ -53,7 +57,7 @@ def test_product_wheel_runs_browser_qa_setup_and_status(
         yoke,
         project,
         env,
-        ["qa", "browser", "setup", "--dry-run", "--json"],
+        ["qa", "browser", "setup", "--project", "fixture", "--dry-run", "--json"],
         0,
     )
     setup_payload = json.loads(setup.stdout)

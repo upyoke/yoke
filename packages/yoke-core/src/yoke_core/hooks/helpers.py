@@ -30,9 +30,7 @@ from yoke_core.hooks.helpers_identity import (  # noqa: F401
     is_codex,
 )
 from yoke_core.hooks.helpers_markers import (  # noqa: F401
-    CURRENT_ITEM_MARKER,
     DEFAULT_DONE_MARKER_MAX_AGE,
-    DONE_ITEM_MARKER,
     read_current_item_marker,
     read_done_item_marker,
     write_current_item_marker,
@@ -57,9 +55,7 @@ from yoke_core.hooks.helpers_session_id import (  # noqa: F401
 
 __all__ = [
     "BUSY_TIMEOUT_MS",
-    "CURRENT_ITEM_MARKER",
     "DEFAULT_DONE_MARKER_MAX_AGE",
-    "DONE_ITEM_MARKER",
     "canonical_harness_id",
     "compose_executor_from_entrypoint",
     "detect_entrypoint",

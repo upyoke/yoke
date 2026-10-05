@@ -25,7 +25,7 @@ from pathlib import Path
 
 from yoke_contracts.machine_config import capability_secrets as contract
 from yoke_contracts.machine_config import schema as machine_contract
-from yoke_contracts.project_defaults import default_project_for_directory
+from yoke_cli.config.project_selection import required_project_context
 
 from yoke_cli.config import machine_config
 from yoke_cli.config.capability_secrets import ensure_private_capability_dir
@@ -54,9 +54,7 @@ def profile_project_key(
     context. A slug is already canonical; an id-shaped reference resolves
     through the control plane.
     """
-    ref = str(project or "").strip()
-    if not ref:
-        ref = default_project_for_directory(directory or Path.cwd())
+    ref = required_project_context(project, directory=directory)
     if ref.isdigit():
         ref = resolve_project_slug(ref)
     return contract.safe_secret_component(ref, "project")

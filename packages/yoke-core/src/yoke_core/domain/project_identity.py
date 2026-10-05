@@ -8,10 +8,8 @@ context. Item public references are project-scoped
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Collection, Optional, Union
 
-from yoke_core.domain import machine_config
 from yoke_core.domain.db_backend import connection_is_postgres
 
 # Pure item-ref formatting and parsing moved to the shipped
@@ -23,7 +21,6 @@ from yoke_contracts.public_ref import (  # noqa: F401
     parse_public_item_ref,
     unresolved_item_ref,
 )
-from yoke_contracts.project_defaults import DEFAULT_PROJECT_SLUG  # noqa: F401
 
 
 @dataclass(frozen=True)
@@ -49,23 +46,14 @@ def row_value(row: Any, key: str, index: int) -> Any:
         return row[index]
 
 
-def fallback_project_slug() -> str:
-    return DEFAULT_PROJECT_SLUG
-
-
-def checkout_project_context() -> Union[str, int]:
-    project_id = machine_config.project_id(Path.cwd())
-    if project_id is not None:
-        return project_id
-    return fallback_project_slug()
-
-
 def _row_to_identity(row: Any) -> ProjectIdentity:
     return ProjectIdentity(
         id=int(row_value(row, "id", 0)),
         slug=str(row_value(row, "slug", 1)),
         name=str(row_value(row, "name", 2)),
-        public_item_prefix=str(row_value(row, "public_item_prefix", 3) or DEFAULT_PUBLIC_ITEM_PREFIX),
+        public_item_prefix=str(
+            row_value(row, "public_item_prefix", 3) or DEFAULT_PUBLIC_ITEM_PREFIX
+        ),
     )
 
 
@@ -101,8 +89,7 @@ def _query_project_rows(
         params = [int(raw)]
     else:
         sql = (
-            "SELECT id, slug, name, public_item_prefix FROM projects "
-            f"WHERE slug = {p}"
+            f"SELECT id, slug, name, public_item_prefix FROM projects WHERE slug = {p}"
         )
         params = [str(raw)]
     org_id = _org_id_for_filter(conn, org)
@@ -127,7 +114,19 @@ def resolve_project(
     historical single-match local context. If the scoped slug still matches more
     than one project, callers must pass a numeric id or narrow by org.
     """
-    raw = checkout_project_context() if project is None else project
+    raw = str(project if project is not None else "").strip()
+    if not raw:
+        if not required:
+            return None
+        from yoke_contracts.project_defaults import MissingProjectError
+        from yoke_core.domain.project_selection import missing_project_on_connection
+
+        raise MissingProjectError(
+            missing_project_on_connection(
+                conn,
+                visible_project_ids=visible_project_ids,
+            )
+        )
     rows = _query_project_rows(conn, raw, org=org)
     visible = _visible_set(visible_project_ids)
     if visible is not None:
@@ -153,7 +152,9 @@ def resolve_project_id(
     org: Optional[Union[str, int]] = None,
 ) -> int:
     ident = resolve_project(
-        conn, project, required=True,
+        conn,
+        project,
+        required=True,
         visible_project_ids=visible_project_ids,
         org=org,
     )
@@ -163,7 +164,9 @@ def resolve_project_id(
 
 def resolve_project_slug(conn: Any, project_id: int) -> str:
     p = placeholder(conn)
-    row = conn.execute(f"SELECT slug FROM projects WHERE id = {p}", (project_id,)).fetchone()
+    row = conn.execute(
+        f"SELECT slug FROM projects WHERE id = {p}", (project_id,)
+    ).fetchone()
     if row is None:
         raise LookupError(f"project id {project_id} not found")
     return str(row_value(row, "slug", 0))
@@ -304,7 +307,9 @@ def item_project_join_select(
     needs_project = "project" in fields
     parts: list[str] = []
     for field in fields:
-        column = f"{item_alias}.id" if field == "internal_id" else f"{item_alias}.{field}"
+        column = (
+            f"{item_alias}.id" if field == "internal_id" else f"{item_alias}.{field}"
+        )
         if field == "project":
             parts.append("COALESCE(CAST(p.slug AS TEXT), '') AS project")
         else:
@@ -314,12 +319,9 @@ def item_project_join_select(
 
 __all__ = [
     "AmbiguousProjectRefError",
-    "DEFAULT_PROJECT_SLUG",
     "DEFAULT_PUBLIC_ITEM_PREFIX",
     "ProjectIdentity",
     "allocate_project_sequence",
-    "checkout_project_context",
-    "fallback_project_slug",
     "format_item_ref",
     "item_project_join_select",
     "placeholder",

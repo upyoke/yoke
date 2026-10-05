@@ -24,7 +24,9 @@ def test_qa_browser_group_help_lists_setup_and_status_without_source_import(
 
 
 def test_qa_browser_status_runs_from_clean_client(tmp_path: Path) -> None:
-    run = _run_product_cli(tmp_path, ["qa", "browser", "status", "--json"])
+    run = _run_product_cli(
+        tmp_path, ["qa", "browser", "status", "--project", "fixture", "--json"]
+    )
 
     assert run.returncode == 0
     payload = json.loads(run.stdout)
@@ -38,7 +40,8 @@ def test_qa_browser_setup_dry_run_runs_from_clean_client(
     tmp_path: Path,
 ) -> None:
     run = _run_product_cli(
-        tmp_path, ["qa", "browser", "setup", "--dry-run", "--json"],
+        tmp_path,
+        ["qa", "browser", "setup", "--project", "fixture", "--dry-run", "--json"],
     )
 
     assert run.returncode == 0

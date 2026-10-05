@@ -9,6 +9,8 @@ import pytest
 from yoke_core.domain import project_scratch_dir as scratch
 from yoke_core.hooks import session_dispatch_first_prompt as fp
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 @pytest.fixture
 def scoped_scratch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:

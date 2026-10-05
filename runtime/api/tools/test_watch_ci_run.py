@@ -15,6 +15,8 @@ from yoke_core.tools import watch_ci_run
 from yoke_core.tools._watch_throttle import LineClass
 from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def _line_class(line: str) -> LineClass:
     return watch_ci_run.classify_ci_run_line(line).cls

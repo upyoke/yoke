@@ -31,6 +31,10 @@ from runtime.api.engines._doctor_db_test_helpers import (
     conn,
 )
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 class TestRecordCollector:
     def test_empty_collector(self):

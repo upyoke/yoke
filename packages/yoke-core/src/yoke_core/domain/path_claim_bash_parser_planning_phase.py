@@ -31,6 +31,7 @@ import os
 from pathlib import Path
 from typing import Any, List, Optional
 
+from yoke_contracts.project_defaults import MissingProjectError
 from yoke_core.domain import db_backend, project_scratch_dir
 from yoke_core.domain.path_claim_bash_parser import Mutation
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
@@ -39,9 +40,7 @@ from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 # Retained for callers that import the public marker. Runtime roots are
 # helper-resolved by :func:`planning_scratch_roots` so environment and
 # project changes are reflected per call.
-PLANNING_SCRATCH_ROOTS = (
-    "project_scratch_dir.dispatch_inputs_dir",
-)
+PLANNING_SCRATCH_ROOTS = ("project_scratch_dir.dispatch_inputs_dir",)
 
 
 # Sentinels emitted by the parser that must never be filtered — the
@@ -86,7 +85,7 @@ def planning_scratch_roots() -> tuple[str, ...]:
     """
     try:
         root = project_scratch_dir.dispatch_inputs_dir(create=False)
-    except project_scratch_dir.ScratchRootResolutionError:
+    except (project_scratch_dir.ScratchRootResolutionError, MissingProjectError):
         return ()
     return (_absolute_for_match(str(root)),)
 
@@ -163,7 +162,7 @@ def _query_item_stage(
         ).fetchone()
     except db_backend.database_error_types(conn):
         return None
-    except (db_backend.database_error_types(conn) + (AttributeError,)):
+    except db_backend.database_error_types(conn) + (AttributeError,):
         return None
     if row is None:
         return None
@@ -245,7 +244,8 @@ def drop_planning_scratch_mutations(
     if not mutations:
         return mutations
     scratch_indices = [
-        i for i, mut in enumerate(mutations)
+        i
+        for i, mut in enumerate(mutations)
         if mut.verb not in _PROTECTED_VERBS
         and is_planning_scratch_path(mut.target_path)
     ]

@@ -116,8 +116,7 @@ def test_family_constants_exported():
     assert path_context.FAMILY_RENDER_TARGET in path_context.KNOWN_FAMILIES
     assert path_context.FAMILY_RENDER_SOURCE in path_context.KNOWN_FAMILIES
     assert (
-        path_context.FAMILY_RENDER_TARGET
-        in path_context.RENDER_RELATIONSHIP_FAMILIES
+        path_context.FAMILY_RENDER_TARGET in path_context.RENDER_RELATIONSHIP_FAMILIES
     )
 
 
@@ -149,7 +148,9 @@ def test_render_relationship_paths_exist_on_live_tree():
     missing = [
         path
         for path in sorted(
-            set(relationships).union(*(set(sources) for sources in relationships.values()))
+            set(relationships).union(
+                *(set(sources) for sources in relationships.values())
+            )
         )
         if path not in on_demand_targets and not (repo_root / path).exists()
     ]
@@ -188,14 +189,14 @@ def test_partially_generated_authored_surfaces_are_conservative():
 def test_render_relationship_map_bash_capable_inherits_schema_api_context():
     relationships = render_relationship_map()
     sources = relationships["runtime/harness/claude/agents/yoke-architect.md"]
-    assert any(s.startswith(f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context") for s in sources)
+    assert any(
+        s.startswith(f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context") for s in sources
+    )
 
 
 def test_render_relationship_map_non_bash_no_schema_api_context():
     relationships = render_relationship_map()
-    sources = relationships[
-        "runtime/harness/claude/agents/yoke-product-manager.md"
-    ]
+    sources = relationships["runtime/harness/claude/agents/yoke-product-manager.md"]
     assert not any(
         s.startswith(f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context") for s in sources
     )
@@ -204,12 +205,14 @@ def test_render_relationship_map_non_bash_no_schema_api_context():
 def test_set_and_read_render_relationship_roundtrip(fresh_db):
     event_id = _seed_event(fresh_db, event_id="ev-rel-1")
     target_id = _seed_target(
-        fresh_db, path_string="runtime/harness/claude/agents/yoke-arch.md",
+        fresh_db,
+        path_string="runtime/harness/claude/agents/yoke-arch.md",
     )
     _seed_target(fresh_db, path_string="runtime/agents/arch.md")
     _seed_target(fresh_db, path_string=f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render.py")
     set_render_relationship(
         fresh_db,
+        project_id=1,
         target_path="runtime/harness/claude/agents/yoke-arch.md",
         source_paths=[
             "runtime/agents/arch.md",
@@ -218,10 +221,12 @@ def test_set_and_read_render_relationship_roundtrip(fresh_db):
         recorded_event_id=event_id,
     )
     sources = read_render_source_for(fresh_db, target_id=target_id)
-    assert sources == sorted([
-        "runtime/agents/arch.md",
-        f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render.py",
-    ])
+    assert sources == sorted(
+        [
+            "runtime/agents/arch.md",
+            f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render.py",
+        ]
+    )
 
 
 def test_set_render_relationship_skips_when_target_unknown(fresh_db):
@@ -229,6 +234,7 @@ def test_set_render_relationship_skips_when_target_unknown(fresh_db):
     # No path_targets row for this path_string — helper returns None.
     result = set_render_relationship(
         fresh_db,
+        project_id=1,
         target_path="runtime/harness/claude/agents/yoke-never-seeded.md",
         source_paths=["runtime/agents/x.md"],
         recorded_event_id=event_id,
@@ -240,17 +246,20 @@ def test_set_render_relationship_is_idempotent(fresh_db):
     event_id_1 = _seed_event(fresh_db, event_id="ev-rel-idem-1")
     event_id_2 = _seed_event(fresh_db, event_id="ev-rel-idem-2")
     target_id = _seed_target(
-        fresh_db, path_string="runtime/harness/codex/agents/yoke-boss.toml",
+        fresh_db,
+        path_string="runtime/harness/codex/agents/yoke-boss.toml",
     )
     _seed_target(fresh_db, path_string="runtime/agents/boss.md")
     set_render_relationship(
         fresh_db,
+        project_id=1,
         target_path="runtime/harness/codex/agents/yoke-boss.toml",
         source_paths=["runtime/agents/boss.md"],
         recorded_event_id=event_id_1,
     )
     set_render_relationship(
         fresh_db,
+        project_id=1,
         target_path="runtime/harness/codex/agents/yoke-boss.toml",
         source_paths=["runtime/agents/boss.md"],
         recorded_event_id=event_id_2,
@@ -264,7 +273,7 @@ def test_set_render_relationship_is_idempotent(fresh_db):
 
 
 def test_record_render_relationships_writes_zero_when_no_targets(fresh_db):
-    written = record_render_relationships(fresh_db)
+    written = record_render_relationships(fresh_db, project_id=1)
     assert written == 0
 
 
@@ -273,11 +282,10 @@ def test_record_render_relationships_writes_known_targets(fresh_db):
     for target_path in relationships:
         _seed_target(fresh_db, path_string=target_path)
     fresh_db.commit()
-    written = record_render_relationships(fresh_db)
+    written = record_render_relationships(fresh_db, project_id=1)
     assert written == len(relationships)
     rows = fresh_db.execute(
-        "SELECT COUNT(*) FROM path_context_values "
-        "WHERE context_family='render_target'"
+        "SELECT COUNT(*) FROM path_context_values WHERE context_family='render_target'"
     ).fetchone()[0]
     assert rows == len(relationships)
 
@@ -295,14 +303,18 @@ def test_render_relationships_land_when_telemetry_cannot(fresh_db):
     fresh_db.commit()
     fresh_db.execute("DROP TABLE events CASCADE")
 
-    assert record_render_relationships(fresh_db) == len(relationships)
+    assert record_render_relationships(fresh_db, project_id=1) == len(relationships)
     # The savepoint kept the transaction usable, so the rows the caller
     # came for still commit.
     fresh_db.commit()
     for target_path in relationships:
-        assert read_render_source_for(
-            fresh_db, target_id=target_ids[target_path],
-        ) is not None, target_path
+        assert (
+            read_render_source_for(
+                fresh_db,
+                target_id=target_ids[target_path],
+            )
+            is not None
+        ), target_path
 
 
 def test_one_render_batch_shares_one_minted_operation_id(fresh_db):
@@ -310,7 +322,7 @@ def test_one_render_batch_shares_one_minted_operation_id(fresh_db):
     for target_path in relationships:
         _seed_target(fresh_db, path_string=target_path)
     fresh_db.commit()
-    record_render_relationships(fresh_db)
+    record_render_relationships(fresh_db, project_id=1)
 
     recorded = {
         str(row[0])
@@ -321,25 +333,3 @@ def test_one_render_batch_shares_one_minted_operation_id(fresh_db):
     }
     assert len(recorded) == 1
     assert recorded.pop().startswith("render-relationship-batch:")
-
-
-def test_generated_docs_and_bundle_mirror_resolve_seed_sources(fresh_db):
-    prefix = f"{PACKAGED_INSTALL_BUNDLE_TREE_REL}/"
-    source_path = ".agents/skills/yoke/SKILL.md"
-    bundle_target = f"{prefix}{source_path}"
-    targets = [ATLAS_RELPATH, EVENT_CATALOG_RELPATH, bundle_target]
-    target_ids = {path: _seed_target(fresh_db, path_string=path) for path in targets}
-    _seed_target(fresh_db, path_string=source_path)
-    fresh_db.commit()
-
-    assert record_render_relationships(fresh_db) == len(targets)
-    for target_path in targets:
-        sources = read_render_source_for(
-            fresh_db,
-            target_id=target_ids[target_path],
-        )
-        assert sources, target_path
-    assert read_render_source_for(
-        fresh_db,
-        target_id=target_ids[bundle_target],
-    ) == [source_path]

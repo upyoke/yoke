@@ -45,6 +45,7 @@ if _tree_binding.refusal is not None:
 from runtime.harness.launch_supervision_isolation import (  # noqa: E402,F401
     _isolate_launch_supervision_custody,
 )
+from runtime.project_context_fixture import bound_project_context  # noqa: E402,F401
 from yoke_core.tools import build_release  # noqa: E402
 from yoke_core.tools import launchctl_boundary  # noqa: E402
 

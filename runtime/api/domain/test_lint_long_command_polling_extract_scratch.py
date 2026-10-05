@@ -13,12 +13,13 @@ import unittest
 
 from yoke_core.domain import lint_long_command_polling_extract_scratch as ext_scratch
 from yoke_core.domain import project_scratch_dir
+from yoke_contracts.machine_config.scratch_roots import scratch_root_candidates
 
 
 class TestScratchPathRoots(unittest.TestCase):
-    def test_helper_root_appears_first(self) -> None:
+    def test_configured_root_appears_first(self) -> None:
         roots = ext_scratch.scratch_path_roots()
-        helper_root = str(project_scratch_dir.scratch_root()).rstrip("/")
+        helper_root = str(scratch_root_candidates()[0]).rstrip("/")
         self.assertIn(helper_root, roots)
         self.assertEqual(roots[0], helper_root)
 
@@ -33,13 +34,13 @@ class TestScratchPathRoots(unittest.TestCase):
 
 
 class TestIsHelperResolvedScratchPath(unittest.TestCase):
-    def test_helper_resolved_path_recognized(self) -> None:
-        helper_root = str(project_scratch_dir.scratch_root())
+    def test_configured_root_child_recognized(self) -> None:
+        helper_root = str(scratch_root_candidates()[0])
         capture = f"{helper_root}/watcher-captures/yoke-pytest.raw.abc.log"
         self.assertTrue(ext_scratch.is_helper_resolved_scratch_path(capture))
 
-    def test_helper_root_itself_recognized(self) -> None:
-        helper_root = str(project_scratch_dir.scratch_root()).rstrip("/")
+    def test_configured_root_itself_recognized(self) -> None:
+        helper_root = str(scratch_root_candidates()[0]).rstrip("/")
         self.assertTrue(ext_scratch.is_helper_resolved_scratch_path(helper_root))
 
     def test_bare_tmp_yoke_literal_recognized(self) -> None:
@@ -67,7 +68,9 @@ class TestIsHelperResolvedScratchPath(unittest.TestCase):
 
 
 class TestOverrideEnv(unittest.TestCase):
-    def test_explicit_override_root_recognized(self, *, env_key=project_scratch_dir.ENV_KEY) -> None:
+    def test_explicit_override_root_recognized(
+        self, *, env_key=project_scratch_dir.ENV_KEY
+    ) -> None:
         # Setting YOKE_SCRATCH_ROOT redirects scratch_root() AND
         # surfaces the override in the recognised root list, so paths
         # under the override land True even when they don't match the

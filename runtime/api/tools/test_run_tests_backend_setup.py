@@ -14,6 +14,8 @@ import pytest
 
 from yoke_core.tools import _source_pythonpath, run_tests
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 class _LaunchedPytest:
     """Stand-in for the launched pytest process group.
@@ -95,9 +97,7 @@ class TestCanonicalYokeDbSetup:
     ):
         root = tmp_path / "yoke"
         (root / "runtime" / "api").mkdir(parents=True)
-        (root / "packages" / "yoke-core" / "src" / "yoke_core").mkdir(
-            parents=True
-        )
+        (root / "packages" / "yoke-core" / "src" / "yoke_core").mkdir(parents=True)
         captured = {}
 
         monkeypatch.setenv("PYTHONPATH", "/already/there")
@@ -120,8 +120,7 @@ class TestCanonicalYokeDbSetup:
         assert run_tests.run(["runtime/api/tools"], extra=["-n", "auto"]) == 0
         env_entries = captured["kwargs"]["env"]["PYTHONPATH"].split(os.pathsep)
         assert env_entries[: len(_source_pythonpath.PACKAGE_SRC_RELS)] == [
-            str((root / rel).resolve())
-            for rel in _source_pythonpath.PACKAGE_SRC_RELS
+            str((root / rel).resolve()) for rel in _source_pythonpath.PACKAGE_SRC_RELS
         ]
         assert str(root.resolve()) in env_entries
         assert "/already/there" in env_entries
@@ -131,9 +130,7 @@ class TestCanonicalYokeDbSetup:
     ):
         root = tmp_path / "yoke"
         (root / "runtime" / "api").mkdir(parents=True)
-        (root / "packages" / "yoke-core" / "src" / "yoke_core").mkdir(
-            parents=True
-        )
+        (root / "packages" / "yoke-core" / "src" / "yoke_core").mkdir(parents=True)
 
         monkeypatch.setenv("YOKE_PYTEST_WORKERS", "auto")
         monkeypatch.setattr(run_tests, "_repo_root", lambda: root)
@@ -224,9 +221,7 @@ class TestCanonicalYokeDbSetup:
                 if self._interrupted:
                     return 0
                 self._interrupted = True
-                raise process_group_reaping.ProcessGroupInterrupted(
-                    signal.SIGTERM
-                )
+                raise process_group_reaping.ProcessGroupInterrupted(signal.SIGTERM)
 
         monkeypatch.setattr(
             run_tests.process_group_reaping,
@@ -274,4 +269,3 @@ class TestCanonicalYokeDbSetup:
         assert str(tmp_path) in message
         assert "YOKE_PG_DSN" in message
         assert "connected-env" in message
-

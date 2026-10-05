@@ -22,6 +22,8 @@ from yoke_core.domain.db_error_hook import (
     detect_stray_db,
 )
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 # ---------------------------------------------------------------------------
 # detect_stray_db

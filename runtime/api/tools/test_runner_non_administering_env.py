@@ -20,6 +20,10 @@ from yoke_core.domain.verification_tree_binding import TreeBindingVerdict
 from yoke_core.tools import gate_admission, run_tests, watch_pytest
 from yoke_core.tools._impacted_selection import Selection
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 ADMIN_ENV = "prod-db-admin"
 SERVED_ENV = "prod"
 PAIRED_UNIVERSE = {

@@ -14,6 +14,8 @@ from runtime.api.cli.browser_toolchain_test_support import (
 from yoke_harness import browser_client, browser_setup
 from yoke_harness.browser_qa_daemon import ensure_daemon_running
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def _prepare_daemon_launch(tmp_path, monkeypatch):
     browser = tmp_path / "browser-runtime"

@@ -20,6 +20,8 @@ from yoke_core.tools import _watch_runner, watch_lifecycle
 from yoke_core.tools._watch_runner import filter_match
 from yoke_core.tools._watch_throttle import LineClass
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 class TestLifecycleClassifier:
     @pytest.mark.parametrize(
@@ -160,13 +162,19 @@ class TestSubcommandResolution:
 class TestEngineArgv:
     def test_db_router_argv_includes_prefix(self) -> None:
         argv = watch_lifecycle._engine_argv(
-            "yoke_core.cli.db_router", ("items", "update"),
+            "yoke_core.cli.db_router",
+            ("items", "update"),
             ["YOK-1", "status", "implementing"],
         )
         assert argv[0] == sys.executable
         assert argv[1:] == [
-            "-m", "yoke_core.cli.db_router",
-            "items", "update", "YOK-1", "status", "implementing",
+            "-m",
+            "yoke_core.cli.db_router",
+            "items",
+            "update",
+            "YOK-1",
+            "status",
+            "implementing",
         ]
 
     def test_repair_status_argv_uses_registered_cli(self) -> None:
@@ -176,9 +184,16 @@ class TestEngineArgv:
             ["YOK-1", "--to", "done", "--reason", "reconcile"],
         )
         assert argv == [
-            sys.executable, "-m", "yoke_cli.main",
-            "lifecycle", "repair-status", "YOK-1",
-            "--to", "done", "--reason", "reconcile",
+            sys.executable,
+            "-m",
+            "yoke_cli.main",
+            "lifecycle",
+            "repair-status",
+            "YOK-1",
+            "--to",
+            "done",
+            "--reason",
+            "reconcile",
         ]
 
 
@@ -187,8 +202,14 @@ class TestPrintStreamingPair:
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
         rc = watch_lifecycle.main(
-            ["--print-streaming-pair", "items-update-status",
-             "--", "YOK-1", "status", "implementing"]
+            [
+                "--print-streaming-pair",
+                "items-update-status",
+                "--",
+                "YOK-1",
+                "status",
+                "implementing",
+            ]
         )
         assert rc == 0
         out = capsys.readouterr().out
@@ -228,9 +249,7 @@ class TestPrintStreamingPair:
 
 class TestPassthroughSeparator:
     def test_leading_separator_is_stripped(self) -> None:
-        ns = watch_lifecycle._parse_args(
-            ["--", "items-update-status", "YOK-1"]
-        )
+        ns = watch_lifecycle._parse_args(["--", "items-update-status", "YOK-1"])
         stripped = watch_lifecycle._strip_separator(list(ns.passthrough))
         assert stripped == ["items-update-status", "YOK-1"]
 
@@ -240,7 +259,10 @@ class TestPassthroughSeparator:
         )
         stripped = watch_lifecycle._strip_separator(list(ns.passthrough))
         assert stripped == [
-            "items-update-status", "YOK-1", "status", "implementing",
+            "items-update-status",
+            "YOK-1",
+            "status",
+            "implementing",
         ]
 
     def test_no_separator_is_a_noop(self) -> None:
@@ -249,7 +271,10 @@ class TestPassthroughSeparator:
         )
         stripped = watch_lifecycle._strip_separator(list(ns.passthrough))
         assert stripped == [
-            "items-update-status", "YOK-1", "status", "implementing",
+            "items-update-status",
+            "YOK-1",
+            "status",
+            "implementing",
         ]
 
 
@@ -295,7 +320,5 @@ class TestSentinelAutoExit:
         )
         assert rc == 0
         progress_text = progress.read_text(encoding="utf-8")
-        progress_lines = [
-            line for line in progress_text.splitlines() if line.strip()
-        ]
+        progress_lines = [line for line in progress_text.splitlines() if line.strip()]
         assert progress_lines[-1].startswith("# watch_lifecycle exit=0")

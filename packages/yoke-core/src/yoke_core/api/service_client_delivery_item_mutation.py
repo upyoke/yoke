@@ -16,7 +16,7 @@ import sys
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.item_entry_surface import enforce_item_entry_allowed
-from yoke_core.domain.project_identity import checkout_project_context
+from yoke_core.domain.project_selection import missing_project_on_connection
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.api.service_client_shared import (
     _get_db_path,
@@ -81,10 +81,12 @@ def cmd_create_item(args: list[str]) -> int:
             return 2
 
     if title is None or workflow_id is None:
-        print("Usage: create-item --title TITLE --workflow WORKFLOW [--priority PRIORITY] "
-              "[--project PROJECT] [--deployment-flow FLOW] "
-              "[--status STATUS] [--entry-surface SURFACE]",
-              file=sys.stderr)
+        print(
+            "Usage: create-item --title TITLE --workflow WORKFLOW [--priority PRIORITY] "
+            "[--project PROJECT] [--deployment-flow FLOW] "
+            "[--status STATUS] [--entry-surface SURFACE]",
+            file=sys.stderr,
+        )
         return 2
 
     from yoke_core.domain.deployment_flow_validator import (
@@ -92,20 +94,38 @@ def cmd_create_item(args: list[str]) -> int:
         validate_and_lookup_flow_project,
     )
 
+    from yoke_core.domain.workflow_registry import (
+        WorkflowRegistryError,
+        resolve_current_workflow_pin,
+    )
+
     deployment_flow = normalize_deployment_flow_value(deployment_flow)
     conn = _get_db_readonly()
     try:
+        if not str(project or "").strip():
+            from yoke_core.domain.item_source_actor import resolve_item_source_actor
+
+            print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "error_code": "project_required",
+                        "error": missing_project_on_connection(
+                            conn,
+                            actor_id=resolve_item_source_actor(conn, None),
+                        ),
+                    }
+                )
+            )
+            return 1
         flow_project, flow_err = validate_and_lookup_flow_project(
             conn, deployment_flow, project
-        )
-        from yoke_core.domain.workflow_registry import (
-            WorkflowRegistryError,
-            resolve_current_workflow_pin,
         )
         from yoke_core.domain.workflow_runtime import load_workflow_runtime
 
         resolved_workflow_id, workflow_version_id = resolve_current_workflow_pin(
-            conn, workflow_id,
+            conn,
+            workflow_id,
         )
         workflow = load_workflow_runtime(
             conn,
@@ -113,21 +133,29 @@ def cmd_create_item(args: list[str]) -> int:
             workflow_version_id=workflow_version_id,
         )
     except WorkflowRegistryError as exc:
-        print(json.dumps({
-            "success": False,
-            "error": str(exc),
-            "error_code": "VALIDATION_ERROR",
-        }))
+        print(
+            json.dumps(
+                {
+                    "success": False,
+                    "error": str(exc),
+                    "error_code": "VALIDATION_ERROR",
+                }
+            )
+        )
         return 1
     finally:
         conn.close()
 
     if flow_err:
-        print(json.dumps({
-            "success": False,
-            "error": flow_err,
-            "error_code": "VALIDATION_ERROR",
-        }))
+        print(
+            json.dumps(
+                {
+                    "success": False,
+                    "error": flow_err,
+                    "error_code": "VALIDATION_ERROR",
+                }
+            )
+        )
         return 1
 
     try:
@@ -140,18 +168,22 @@ def cmd_create_item(args: list[str]) -> int:
         db_path=intake_db,
     )
     if intake_block:
-        print(json.dumps({
-            "success": False,
-            "error": intake_block,
-            "error_code": "ENTRY_SURFACE_DENIED",
-        }))
+        print(
+            json.dumps(
+                {
+                    "success": False,
+                    "error": intake_block,
+                    "error_code": "ENTRY_SURFACE_DENIED",
+                }
+            )
+        )
         return 1
 
     result = mutations.prepare_create(
         title=title,
         workflow=workflow,
         priority=priority,
-        project=project or checkout_project_context(),
+        project=project,
         deployment_flow=deployment_flow,
         flow_project=flow_project,
         status=status,
@@ -175,19 +207,25 @@ def cmd_update_item(args: list[str]) -> int:
     Exit 1: validation/gate error, JSON error on stdout
     """
     if len(args) < 1:
-        print("Usage: validate-update <item-id> --field FIELD --value VALUE "
-              "[--done-nonce-verified] [--force] [--qa-bypass]",
-              file=sys.stderr)
+        print(
+            "Usage: validate-update <item-id> --field FIELD --value VALUE "
+            "[--done-nonce-verified] [--force] [--qa-bypass]",
+            file=sys.stderr,
+        )
         return 2
 
     try:
         item_id = int(args[0])
     except ValueError:
-        print(json.dumps({
-            "success": False,
-            "error": f"Item ID must be an integer, got '{args[0]}'",
-            "error_code": "VALIDATION_ERROR",
-        }))
+        print(
+            json.dumps(
+                {
+                    "success": False,
+                    "error": f"Item ID must be an integer, got '{args[0]}'",
+                    "error_code": "VALIDATION_ERROR",
+                }
+            )
+        )
         return 1
 
     field_name = None
@@ -218,9 +256,11 @@ def cmd_update_item(args: list[str]) -> int:
             return 2
 
     if field_name is None or value is None:
-        print("Usage: validate-update <item-id> --field FIELD --value VALUE "
-              "[--done-nonce-verified] [--force] [--qa-bypass]",
-              file=sys.stderr)
+        print(
+            "Usage: validate-update <item-id> --field FIELD --value VALUE "
+            "[--done-nonce-verified] [--force] [--qa-bypass]",
+            file=sys.stderr,
+        )
         return 2
 
     conn = _get_db_readonly()
@@ -233,21 +273,29 @@ def cmd_update_item(args: list[str]) -> int:
             (item_id,),
         ).fetchone()
         if row is None:
-            print(json.dumps({
-                "success": False,
-                "error": f"Item {item_ref_for_id(item_id)} not found",
-                "error_code": "NOT_FOUND",
-            }))
+            print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "error": f"Item {item_ref_for_id(item_id)} not found",
+                        "error_code": "NOT_FOUND",
+                    }
+                )
+            )
             return 1
 
         item_dict = dict(row)
         item_state = _load_item_state(conn, item_id)
         if item_state is None:
-            print(json.dumps({
-                "success": False,
-                "error": f"Item {item_ref_for_id(item_id)} not found",
-                "error_code": "NOT_FOUND",
-            }))
+            print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "error": f"Item {item_ref_for_id(item_id)} not found",
+                        "error_code": "NOT_FOUND",
+                    }
+                )
+            )
             return 1
 
         if field_name == "deployment_flow" and value:
@@ -259,12 +307,16 @@ def cmd_update_item(args: list[str]) -> int:
                 conn, value, item_dict.get("project")
             )
             if flow_err:
-                print(json.dumps({
-                    "success": False,
-                    "error": flow_err,
-                    "error_code": "VALIDATION_ERROR",
-                    "preflight_only": True,
-                }))
+                print(
+                    json.dumps(
+                        {
+                            "success": False,
+                            "error": flow_err,
+                            "error_code": "VALIDATION_ERROR",
+                            "preflight_only": True,
+                        }
+                    )
+                )
                 return 1
 
         target_status = value if field_name == "status" else None

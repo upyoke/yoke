@@ -12,6 +12,8 @@ from yoke_core.hooks.decision_render import render_claude_decision
 from yoke_core.hooks.remote_policy import RunControls
 from yoke_core.hooks.types import HookDecision, Next, Outcome
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 @pytest.mark.parametrize("event_name", ["SessionStart", "UserPromptSubmit"])
 def test_remote_registration_precedes_attestation_with_sidecar(event_name, monkeypatch):

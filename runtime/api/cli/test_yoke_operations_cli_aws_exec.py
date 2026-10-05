@@ -7,6 +7,8 @@ import pytest
 from yoke_cli.commands.adapters import aws as aws_adapter
 from yoke_contracts.api.function_call import FunctionCallResponse, FunctionError
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 @pytest.fixture(autouse=True)
 def _aws_cli_present(monkeypatch):
@@ -21,7 +23,8 @@ def _aws_cli_present(monkeypatch):
         aws_adapter.aws_cli_prerequisite,
         "check_aws_cli",
         lambda: aws_adapter.aws_cli_prerequisite.AwsCli(
-            executable="aws", version="aws-cli/2.0.0",
+            executable="aws",
+            version="aws-cli/2.0.0",
         ),
     )
 
@@ -78,23 +81,29 @@ def test_aws_exec_relays_settings_and_uses_machine_capability_env(monkeypatch):
 
     monkeypatch.setattr(aws_adapter.subprocess, "run", fake_run)
 
-    rc = aws_adapter.aws_exec([
-        "--project", "yoke",
-        "--",
-        "sts", "get-caller-identity",
-    ])
+    rc = aws_adapter.aws_exec(
+        [
+            "--project",
+            "yoke",
+            "--",
+            "sts",
+            "get-caller-identity",
+        ]
+    )
 
     assert rc == 0
-    assert calls == [{
-        "argv": ["aws", "sts", "get-caller-identity"],
-        "env": {
-            "AWS_ACCESS_KEY_ID": "AKIATEST",
-            "AWS_SECRET_ACCESS_KEY": "secret",
-            "AWS_DEFAULT_REGION": "us-east-1",
-            "AWS_REGION": "us-east-1",
-            "AWS_PAGER": "",
-        },
-    }]
+    assert calls == [
+        {
+            "argv": ["aws", "sts", "get-caller-identity"],
+            "env": {
+                "AWS_ACCESS_KEY_ID": "AKIATEST",
+                "AWS_SECRET_ACCESS_KEY": "secret",
+                "AWS_DEFAULT_REGION": "us-east-1",
+                "AWS_REGION": "us-east-1",
+                "AWS_PAGER": "",
+            },
+        }
+    ]
     assert len(dispatcher_calls) == 1
     assert dispatcher_calls[0]["function_id"] == "projects.capability_settings.get"
     assert dispatcher_calls[0]["payload"] == {
@@ -126,12 +135,17 @@ def test_aws_exec_explicit_region_skips_settings_relay(monkeypatch):
         lambda argv, *, env: Completed(7),
     )
 
-    rc = aws_adapter.aws_exec([
-        "--project", "externalwebapp",
-        "--region", "us-west-2",
-        "--",
-        "ec2", "describe-instances",
-    ])
+    rc = aws_adapter.aws_exec(
+        [
+            "--project",
+            "externalwebapp",
+            "--region",
+            "us-west-2",
+            "--",
+            "ec2",
+            "describe-instances",
+        ]
+    )
 
     assert rc == 7
 
@@ -210,7 +224,8 @@ def test_aws_exec_reports_an_install_that_vanished_mid_call(monkeypatch, capsys)
         aws_adapter.aws_cli_prerequisite,
         "check_aws_cli",
         lambda: aws_adapter.aws_cli_prerequisite.AwsCli(
-            executable="/usr/local/bin/aws", version="aws-cli/2.0.0",
+            executable="/usr/local/bin/aws",
+            version="aws-cli/2.0.0",
         ),
     )
 

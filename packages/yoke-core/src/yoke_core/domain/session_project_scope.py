@@ -47,20 +47,7 @@ def resolve_session_project_scope(
                 f"Registered projects: {known or '(none)'}."
             ) from exc
         except db_backend.operational_error_types(conn) as exc:
-            if db_backend.connection_is_postgres(conn):
-                try:
-                    conn.rollback()
-                except Exception:
-                    pass
-            fallback_id = _fallback_project_id(project)
-            if fallback_id is None:
-                known = ", ".join(str(pid) for pid in registered)
-                raise ValueError(
-                    f"Unknown project {project!r} in --project override. "
-                    f"Registered projects: {known or '(none)'}."
-                ) from exc
-            resolved.append(fallback_id)
-            continue
+            _refuse_unavailable_roster(conn, exc)
         assert ident is not None
         resolved.append(int(ident.id))
     return resolved
@@ -84,32 +71,13 @@ def parse_project_cli_arg(arg: Optional[str]) -> Optional[List[str]]:
 
 
 def _list_registered_project_ids(conn: Any) -> List[int]:
-    """Return registered project ids. Defensive against missing
-    ``projects`` table: returns ``[1]`` as the default-project fallback when
-    the table is absent (test DBs that exercise the session/claim surface
-    without a full project registry stay functional).
-
-    The missing-table swallow fires on both backends: SQLite and the Postgres
-    facade raise different operational error classes, and Postgres aborts the
-    transaction. The except uses
-    ``operational_error_types(conn)`` and rolls back so the caller can keep
-    using the same connection after the fallback.
-    """
+    """Return the actual registry; missing authority never invents a project."""
     try:
         rows = conn.execute(
             "SELECT id FROM projects" + active_projects_where(conn) + " ORDER BY id"
         ).fetchall()
-    except db_backend.operational_error_types(conn):
-        # On Postgres the missing-table error aborts the transaction; roll back
-        # so the caller can keep using the same connection. SQLite does not
-        # poison the transaction on a failed read, and a rollback there would
-        # discard the caller's uncommitted writes — so this is Postgres-only.
-        if db_backend.connection_is_postgres(conn):
-            try:
-                conn.rollback()
-            except Exception:
-                pass
-        return [1]
+    except db_backend.operational_error_types(conn) as exc:
+        _refuse_unavailable_roster(conn, exc)
     return [int(row_value(row, "id", 0)) for row in rows]
 
 
@@ -120,21 +88,18 @@ def _list_registered_project_refs(conn: Any) -> List[str]:
             + active_projects_where(conn)
             + " ORDER BY id"
         ).fetchall()
-    except db_backend.operational_error_types(conn):
-        if db_backend.connection_is_postgres(conn):
-            try:
-                conn.rollback()
-            except Exception:
-                pass
-        return ["1/yoke"]
+    except db_backend.operational_error_types(conn) as exc:
+        _refuse_unavailable_roster(conn, exc)
     return [f"{row_value(row, 'id', 0)}/{row_value(row, 'slug', 1)}" for row in rows]
 
 
-def _fallback_project_id(project: str | int) -> Optional[int]:
-    text = str(project).strip()
-    if text == "1" or text == "yoke":
-        return 1
-    return int(text) if text.isdigit() and int(text) == 1 else None
+def _refuse_unavailable_roster(conn: Any, exc: Exception) -> None:
+    if db_backend.connection_is_postgres(conn):
+        conn.rollback()
+    raise ValueError(
+        "project_roster_unavailable: registered projects could not be read. "
+        "Restore the selected authority and run `yoke projects list`; no project was inferred."
+    ) from exc
 
 
 __all__ = ["resolve_session_project_scope", "parse_project_cli_arg"]

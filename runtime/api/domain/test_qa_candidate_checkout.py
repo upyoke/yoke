@@ -20,6 +20,8 @@ from yoke_core.domain.qa_candidate_checkout import CANDIDATE_CHECKOUT_PREFIX
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.domain.qa_case_worktree_run import execute_worktree_case
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def _git(root: Path, *args: str) -> str:
     return subprocess.run(

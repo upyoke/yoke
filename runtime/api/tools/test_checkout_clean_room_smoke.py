@@ -86,3 +86,34 @@ def test_clean_clone_shape_refuses_retired_authority_dirs(tmp_path: Path) -> Non
         assert "data" in str(exc)
     else:
         raise AssertionError("expected clean clone check to reject data/")
+
+
+def test_missing_project_refuses_with_caller_roster(tmp_path, monkeypatch, capsys):
+    from yoke_contracts.project_defaults import MissingProjectError
+
+    def missing(root):
+        raise MissingProjectError(
+            "project_required: no project given — pass --project P. Accessible projects: alpha, beta"
+        )
+
+    monkeypatch.setattr(smoke, "required_local_project", missing)
+    assert (
+        smoke.main(
+            [
+                "--dsn-file",
+                str(tmp_path / "authority.dsn"),
+                "--source-root",
+                str(tmp_path),
+            ]
+        )
+        == 1
+    )
+    assert "project_required" in capsys.readouterr().err
+
+
+def test_explicit_project_id_does_not_consult_ambient_binding(tmp_path, monkeypatch):
+    def forbidden(root):
+        raise AssertionError("explicit project consulted caller checkout")
+
+    monkeypatch.setattr(smoke, "required_local_project", forbidden)
+    assert smoke._selected_project_id(7, tmp_path) == 7

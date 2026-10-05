@@ -18,7 +18,8 @@ import sys
 from typing import Any, List, Mapping
 
 from yoke_cli.commands._helpers import parse_or_usage_error
-from yoke_cli.commands.adapters.dev import PROJECT_ID_ENV
+from yoke_cli.config.project_selection import required_project_context
+from yoke_contracts.project_defaults import MissingProjectError
 
 VPS_POWER_USAGE = (
     "yoke vps <status|stop|start> --stack STACK [--project P] [--region R]"
@@ -115,8 +116,8 @@ def _run(verb: str, args: List[str]) -> int:
     parsed = parse_or_usage_error(_parser(verb), args, VPS_POWER_USAGE)
     if parsed is None:
         return 2
-    project = parsed.project or _default_project()
     try:
+        project = required_project_context(parsed.project)
         sdk = _aws_sdk()
         client = _ec2_client(project, parsed.region, sdk)
         instance_id, state = _resolve(parsed.stack, client)
@@ -129,7 +130,7 @@ def _run(verb: str, args: List[str]) -> int:
             return 0
         operation = getattr(client, f"{verb}_instances")
         operation(InstanceIds=[instance_id])
-    except VpsPowerError as exc:
+    except (VpsPowerError, MissingProjectError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     except Exception as exc:  # noqa: BLE001 - raw SDK state may contain secrets
@@ -158,13 +159,4 @@ def vps_start(args: List[str]) -> int:
 
 
 def _default_project() -> str:
-    import os
-
-    return os.environ.get(PROJECT_ID_ENV) or _DEFAULT_VPS_PROJECT
-
-
-#: VPS hosts in this installation belong to the platform project, not the
-#: default project a bare ``yoke`` command assumes.
-_DEFAULT_VPS_PROJECT = "platform"
-
-__all__ = ["vps_start", "vps_status", "vps_stop"]
+    return required_project_context()

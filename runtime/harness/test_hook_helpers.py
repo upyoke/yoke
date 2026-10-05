@@ -22,7 +22,7 @@ import os
 import time
 from unittest import mock
 
-from yoke_core.hooks import helpers as hook_helpers
+from yoke_core.hooks import helpers_markers as hook_helpers_markers
 from yoke_core.hooks.helpers import (
     find_project_root,
     get_session_id,
@@ -272,14 +272,14 @@ class TestDoneItemMarker:
     def test_read_expired_returns_empty(self):
         write_done_item_marker(99)
         # Manually write an old timestamp
-        with open(hook_helpers.DONE_ITEM_MARKER, "w") as f:
+        with open(hook_helpers_markers.hook_marker_path("done-item"), "w") as f:
             old_ts = int(time.time()) - 7200  # 2 hours ago
             f.write(f"99|{old_ts}\n")
         assert read_done_item_marker() == ""
 
     def test_read_with_custom_max_age(self):
         write_done_item_marker(99)
-        with open(hook_helpers.DONE_ITEM_MARKER, "w") as f:
+        with open(hook_helpers_markers.hook_marker_path("done-item"), "w") as f:
             old_ts = int(time.time()) - 3000
             f.write(f"99|{old_ts}\n")
         # Default 1800s would expire, but 3600s should still be valid
@@ -289,7 +289,7 @@ class TestDoneItemMarker:
         assert read_done_item_marker() == ""
 
     def test_malformed_returns_empty(self):
-        with open(hook_helpers.DONE_ITEM_MARKER, "w") as f:
+        with open(hook_helpers_markers.hook_marker_path("done-item"), "w") as f:
             f.write("garbage\n")
         assert read_done_item_marker() == ""
 

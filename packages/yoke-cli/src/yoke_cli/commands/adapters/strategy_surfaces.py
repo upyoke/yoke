@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_cli.config.project_selection import required_project_context
+from yoke_contracts.project_defaults import MissingProjectError
+
 from yoke_cli.commands.adapters.strategy_surfaces_args import (
     _diff_args,
     _restore_args,
@@ -17,7 +20,7 @@ from yoke_cli.commands._helpers import (
     add_json_arg,
     add_project_arg,
     add_session_arg,
-    client_project_context,
+    usage_error,
     dispatch_and_emit,
     item_target,
     parse_or_usage_error,
@@ -221,7 +224,10 @@ def strategy_claim_release(args: List[str]) -> int:
     raw = str(parsed.item).strip()
     key = raw.upper()
     if is_known_process(key):
-        project = parsed.project or client_project_context(None) or "yoke"
+        try:
+            project = required_project_context(parsed.project)
+        except MissingProjectError as exc:
+            return usage_error(str(exc))
         return dispatch_and_emit(
             function_id="claims.work.release",
             target=TargetRef(kind="global", project_id=project),

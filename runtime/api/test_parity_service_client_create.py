@@ -40,22 +40,32 @@ class TestCreateParity:
         db_path = write_parity_env["db_path"]
 
         # API create
-        api_resp = client.post("/v1/items", json={
-            "title": "Parity create test",
-            "workflow": "dash",
-            "priority": "high",
-            "project": "yoke",
-        })
+        api_resp = client.post(
+            "/v1/items",
+            json={
+                "title": "Parity create test",
+                "workflow": "dash",
+                "priority": "high",
+                "project": "yoke",
+            },
+        )
         assert api_resp.status_code == 201
         api_item = api_resp.json()
 
         # CLI create (returns mutation result, not the item itself)
         cli_result = _run_service_client(
-            db_path, "create-item",
-            "--title", "Parity create CLI",
-            "--workflow", "dash",
-            "--entry-surface", "cli",
-            "--priority", "high",
+            db_path,
+            "create-item",
+            "--project",
+            "yoke",
+            "--title",
+            "Parity create CLI",
+            "--workflow",
+            "dash",
+            "--entry-surface",
+            "cli",
+            "--priority",
+            "high",
         )
         assert cli_result.returncode == 0
         cli_data = json.loads(cli_result.stdout)
@@ -76,19 +86,28 @@ class TestCreateParity:
         long_title = "X" * (title_max_length() + 1)
 
         # API
-        api_resp = client.post("/v1/items", json={
-            "title": long_title,
-            "workflow": "dash",
-            "project": "yoke",
-        })
+        api_resp = client.post(
+            "/v1/items",
+            json={
+                "title": long_title,
+                "workflow": "dash",
+                "project": "yoke",
+            },
+        )
         assert api_resp.status_code == 422
 
         # CLI
         cli_result = _run_service_client(
-            db_path, "create-item",
-            "--title", long_title,
-            "--workflow", "dash",
-            "--entry-surface", "cli",
+            db_path,
+            "create-item",
+            "--project",
+            "yoke",
+            "--title",
+            long_title,
+            "--workflow",
+            "dash",
+            "--entry-surface",
+            "cli",
         )
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)
@@ -101,19 +120,28 @@ class TestCreateParity:
         db_path = write_parity_env["db_path"]
 
         # API
-        api_resp = client.post("/v1/items", json={
-            "title": "Bad workflow",
-            "workflow": "not-a-workflow",
-            "project": "yoke",
-        })
+        api_resp = client.post(
+            "/v1/items",
+            json={
+                "title": "Bad workflow",
+                "workflow": "not-a-workflow",
+                "project": "yoke",
+            },
+        )
         assert api_resp.status_code == 422
 
         # CLI
         cli_result = _run_service_client(
-            db_path, "create-item",
-            "--title", "Bad workflow",
-            "--workflow", "not-a-workflow",
-            "--entry-surface", "cli",
+            db_path,
+            "create-item",
+            "--project",
+            "yoke",
+            "--title",
+            "Bad workflow",
+            "--workflow",
+            "not-a-workflow",
+            "--entry-surface",
+            "cli",
         )
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)
@@ -123,9 +151,16 @@ class TestCreateParity:
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
 
-        assert client.post("/v1/items", json={"title": "Unclassified"}).status_code == 422
+        assert (
+            client.post("/v1/items", json={"title": "Unclassified"}).status_code == 422
+        )
         cli_result = _run_service_client(
-            db_path, "create-item", "--title", "Unclassified",
+            db_path,
+            "create-item",
+            "--project",
+            "yoke",
+            "--title",
+            "Unclassified",
         )
         assert cli_result.returncode == 2
         assert "--workflow WORKFLOW" in cli_result.stderr
@@ -136,21 +171,31 @@ class TestCreateParity:
         db_path = write_parity_env["db_path"]
 
         # API
-        api_resp = client.post("/v1/items", json={
-            "title": "Bad priority",
-            "workflow": "dash",
-            "priority": "critical",
-            "project": "yoke",
-        })
+        api_resp = client.post(
+            "/v1/items",
+            json={
+                "title": "Bad priority",
+                "workflow": "dash",
+                "priority": "critical",
+                "project": "yoke",
+            },
+        )
         assert api_resp.status_code == 422
 
         # CLI
         cli_result = _run_service_client(
-            db_path, "create-item",
-            "--title", "Bad priority",
-            "--workflow", "dash",
-            "--entry-surface", "cli",
-            "--priority", "critical",
+            db_path,
+            "create-item",
+            "--project",
+            "yoke",
+            "--title",
+            "Bad priority",
+            "--workflow",
+            "dash",
+            "--entry-surface",
+            "cli",
+            "--priority",
+            "critical",
         )
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)
@@ -163,22 +208,33 @@ class TestCreateParity:
         db_path = write_parity_env["db_path"]
 
         # API — parity-flow belongs to 'yoke', item says 'externalwebapp'
-        api_resp = client.post("/v1/items", json={
-            "title": "Cross project flow",
-            "workflow": "dash",
-            "project": "externalwebapp",
-            "deployment_flow": "parity-flow",
-        })
+        api_resp = client.post(
+            "/v1/items",
+            json={
+                "title": "Cross project flow",
+                "workflow": "dash",
+                "project": "externalwebapp",
+                "deployment_flow": "parity-flow",
+            },
+        )
         assert api_resp.status_code == 422
 
         # CLI
         cli_result = _run_service_client(
-            db_path, "create-item",
-            "--title", "Cross project flow",
-            "--workflow", "dash",
-            "--entry-surface", "cli",
-            "--project", "externalwebapp",
-            "--deployment-flow", "parity-flow",
+            db_path,
+            "create-item",
+            "--project",
+            "yoke",
+            "--title",
+            "Cross project flow",
+            "--workflow",
+            "dash",
+            "--entry-surface",
+            "cli",
+            "--project",
+            "externalwebapp",
+            "--deployment-flow",
+            "parity-flow",
         )
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)
@@ -189,17 +245,29 @@ class TestCreateParity:
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
 
-        api_resp = client.post("/v1/items", json={
-            "title": "Retired parent ref",
-            "workflow": "dash",
-            "epic": 11,
-            "project": "yoke",
-        })
+        api_resp = client.post(
+            "/v1/items",
+            json={
+                "title": "Retired parent ref",
+                "workflow": "dash",
+                "epic": 11,
+                "project": "yoke",
+            },
+        )
         assert api_resp.status_code == 422
 
         cli_result = _run_service_client(
-            db_path, "create-item", "--title", "Retired parent ref",
-            "--workflow", "dash", "--entry-surface", "cli",
-            "--epic", "11",
+            db_path,
+            "create-item",
+            "--project",
+            "yoke",
+            "--title",
+            "Retired parent ref",
+            "--workflow",
+            "dash",
+            "--entry-surface",
+            "cli",
+            "--epic",
+            "11",
         )
         assert cli_result.returncode == 2

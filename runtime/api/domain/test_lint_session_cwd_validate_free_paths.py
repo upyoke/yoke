@@ -36,6 +36,8 @@ from yoke_core.domain.project_scratch_dir import (
     mint_watcher_capture_pair,
 )
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 @pytest.fixture
 def conn():

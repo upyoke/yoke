@@ -14,7 +14,9 @@ import json
 import sys
 from typing import List
 
-from yoke_cli.commands._helpers import parse_or_usage_error
+from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
+from yoke_cli.config.project_selection import required_project_context
+from yoke_contracts.project_defaults import MissingProjectError
 
 
 QA_BROWSER_SCREENSHOT_USAGE = (
@@ -28,8 +30,8 @@ QA_BROWSER_STEP_USAGE = (
 
 _PROJECT_FLAG_HELP = (
     "Project whose authorized browser profile the daemon opens "
-    "(default: this checkout's, the same default as "
-    "`yoke browser authorize`)."
+    "(explicit flag, YOKE_PROJECT, or caller checkout binding; "
+    "missing context refuses with project_required and accessible projects)."
 )
 
 _QA_BROWSER_SCREENSHOT_HELP_DEEP = """\
@@ -91,6 +93,10 @@ def qa_browser_screenshot(args: List[str]) -> int:
         )
         return 2
 
+    try:
+        parsed.project = required_project_context(parsed.project)
+    except MissingProjectError as exc:
+        return usage_error(str(exc))
     daemon_error = ensure_daemon_running(parsed.project)
     if daemon_error:
         print(
@@ -148,6 +154,10 @@ def qa_browser_step(args: List[str]) -> int:
             file=sys.stderr,
         )
         return 2
+    try:
+        parsed.project = required_project_context(parsed.project)
+    except MissingProjectError as exc:
+        return usage_error(str(exc))
     daemon_error = ensure_daemon_running(parsed.project)
     if daemon_error:
         print(

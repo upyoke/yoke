@@ -121,6 +121,12 @@ def execute_worktree_case(
         command_env = verification_tree_binding_pytest_startup.with_binding_evaluated(
             os.environ
         )
+        project = str(case.get("project_id") or case.get("project") or "").strip()
+        if not project:
+            raise QaCaseExecutionError(
+                "project_required: Command case has no project attribution"
+            )
+        command_env["YOKE_PROJECT"] = project
         if not qa_case_tree_binding_scope.session_lane_binds_case(case) and tree:
             command_env[COMMAND_CASE_CANDIDATE_TREE_ENV] = json.dumps(
                 {"root": str(checkout.resolve()), "head_sha": tree.head_sha},

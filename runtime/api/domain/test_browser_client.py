@@ -32,6 +32,7 @@ from yoke_core.domain.browser_client import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def state_file(tmp_path):
     """Create a daemon state file for testing."""
@@ -70,6 +71,7 @@ def dead_state_file(tmp_path):
 # DaemonState
 # ---------------------------------------------------------------------------
 
+
 class TestDaemonState:
     def test_load_valid(self, state_file):
         st = DaemonState.load(state_file)
@@ -101,6 +103,7 @@ class TestDaemonState:
 # daemon_running
 # ---------------------------------------------------------------------------
 
+
 class TestDaemonRunning:
     def test_running_with_live_pid(self, state_file):
         st = DaemonState.load(state_file)
@@ -111,7 +114,10 @@ class TestDaemonRunning:
         assert daemon_running(st) is False
 
     def test_not_running_no_state(self, tmp_path):
-        with mock.patch("yoke_core.domain.browser_client._state_file_path", return_value=tmp_path / "nope.json"):
+        with mock.patch(
+            "yoke_core.domain.browser_client._state_file_path",
+            return_value=tmp_path / "nope.json",
+        ):
             assert daemon_running(None) is False
 
     def test_not_running_zero_pid(self):
@@ -123,20 +129,29 @@ class TestDaemonRunning:
 # daemon_status
 # ---------------------------------------------------------------------------
 
+
 class TestDaemonStatus:
     def test_running(self, state_file):
-        with mock.patch("yoke_core.domain.browser_client._state_file_path", return_value=state_file):
+        with mock.patch(
+            "yoke_core.domain.browser_client._state_file_path", return_value=state_file
+        ):
             result = daemon_status()
             assert result["status"] == "running"
             assert result["health"] == "healthy"
 
     def test_crashed(self, dead_state_file):
-        with mock.patch("yoke_core.domain.browser_client._state_file_path", return_value=dead_state_file):
+        with mock.patch(
+            "yoke_core.domain.browser_client._state_file_path",
+            return_value=dead_state_file,
+        ):
             result = daemon_status()
             assert result["status"] == "crashed"
 
     def test_not_running(self, tmp_path):
-        with mock.patch("yoke_core.domain.browser_client._state_file_path", return_value=tmp_path / "nope.json"):
+        with mock.patch(
+            "yoke_core.domain.browser_client._state_file_path",
+            return_value=tmp_path / "nope.json",
+        ):
             result = daemon_status()
             assert result["status"] == "not_running"
 
@@ -145,9 +160,13 @@ class TestDaemonStatus:
 # daemon_request
 # ---------------------------------------------------------------------------
 
+
 class TestDaemonRequest:
     def test_raises_without_state(self, tmp_path):
-        with mock.patch("yoke_core.domain.browser_client._state_file_path", return_value=tmp_path / "nope.json"):
+        with mock.patch(
+            "yoke_core.domain.browser_client._state_file_path",
+            return_value=tmp_path / "nope.json",
+        ):
             with pytest.raises(RuntimeError, match="daemon not running"):
                 daemon_request("/api/health", state=None)
 
@@ -179,6 +198,7 @@ class TestDaemonRequest:
 # Viewport parsing
 # ---------------------------------------------------------------------------
 
+
 class TestParseViewport:
     def test_standard(self):
         assert _parse_viewport("1280x720") == (1280, 720)
@@ -194,6 +214,7 @@ class TestParseViewport:
 # ---------------------------------------------------------------------------
 # Step execution
 # ---------------------------------------------------------------------------
+
 
 class TestExecuteStep:
     def test_calls_daemon(self):
@@ -218,7 +239,9 @@ class TestExecuteStep:
         with mock.patch("yoke_core.domain.browser_client.daemon_request") as mock_req:
             mock_req.return_value = {}
             execute_step(
-                {"action": "click"}, "http://x", output_dir="/tmp/out",
+                {"action": "click"},
+                "http://x",
+                output_dir="/tmp/out",
                 page_id="page-1",
             )
             body = mock_req.call_args[0][1]
@@ -229,13 +252,16 @@ class TestExecuteStep:
 # Snapshot primitives
 # ---------------------------------------------------------------------------
 
+
 class TestSnapshots:
     def test_accessibility(self):
         with mock.patch("yoke_core.domain.browser_client.daemon_request") as mock_req:
             mock_req.return_value = {"tree": []}
             result = snapshot_accessibility("http://localhost:3000")
             assert result == {"tree": []}
-            mock_req.assert_called_once_with("/api/snapshot/accessibility", {"url": "http://localhost:3000"})
+            mock_req.assert_called_once_with(
+                "/api/snapshot/accessibility", {"url": "http://localhost:3000"}
+            )
 
     def test_screenshot_basic(self):
         with mock.patch("yoke_core.domain.browser_client.daemon_request") as mock_req:
@@ -263,7 +289,9 @@ class TestSnapshots:
     def test_diff_with_threshold(self):
         with mock.patch("yoke_core.domain.browser_client.daemon_request") as mock_req:
             mock_req.return_value = {}
-            snapshot_diff("http://x", baseline="/b.png", viewport="800x600", threshold=0.1)
+            snapshot_diff(
+                "http://x", baseline="/b.png", viewport="800x600", threshold=0.1
+            )
             body = mock_req.call_args[0][1]
             assert body["threshold"] == 0.1
 
@@ -272,10 +300,16 @@ class TestSnapshots:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 class TestCLI:
     def test_daemon_status(self, state_file):
-        with mock.patch("yoke_core.domain.browser_client._state_file_path", return_value=state_file):
-            with mock.patch("sys.argv", ["browser_client", "daemon", "status"]):
+        with mock.patch(
+            "yoke_core.domain.browser_client._state_file_path", return_value=state_file
+        ):
+            with mock.patch(
+                "sys.argv",
+                ["browser_client", "daemon", "status", "--project", "fixture"],
+            ):
                 rc = main()
                 assert rc == 0
 

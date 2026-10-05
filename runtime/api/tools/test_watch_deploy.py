@@ -16,6 +16,8 @@ from yoke_core.tools import watch_deploy, watch_tail
 from yoke_core.tools._watch_throttle import LineClass
 from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 @pytest.fixture(autouse=True)
 def _quiet_driver(monkeypatch):

@@ -243,7 +243,7 @@ def collect_chunked(
     na_count = 0
     final_runtime = payload.get("runtime") or DESTINATION_LOCAL
     final_scope = None
-    final_project = payload.get("project") or "yoke"
+    final_project = payload.get("project") or ""
     last_response: FunctionCallResponse | None = None
     completed_batches = 0
     deadline = time.monotonic() + RUN_BUDGET_S

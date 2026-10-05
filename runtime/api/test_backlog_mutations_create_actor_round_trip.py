@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """End-to-end ``execute_create`` coverage for the actor-id write path.
 
 Slice 5b split these cases out of
@@ -29,9 +30,9 @@ from yoke_core.domain import backlog
 class TestExecuteCreateActorRoundTrip:
     def test_create_writes_actor_id_for_source_and_owner(self, tmp_db):
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_create(
+                project="yoke",
                 title="Actor-id round trip",
                 workflow="issue",
                 entry_surface="harness_skill",
@@ -47,9 +48,9 @@ class TestExecuteCreateActorRoundTrip:
 
     def test_create_rejects_mechanism_label_source(self, tmp_db):
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_create(
+                project="yoke",
                 title="Mechanism label",
                 workflow="issue",
                 entry_surface="harness_skill",

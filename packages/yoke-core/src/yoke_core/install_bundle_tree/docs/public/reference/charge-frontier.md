@@ -154,7 +154,7 @@ GET /v1/charge/frontier?project=yoke&wip_cap=30
 ```
 
 **Parameters:**
-- `project` (string, default: `"yoke"`) -- project to scope the frontier to.
+- `project` (string, required) -- project to scope the frontier to. Missing context refuses as `project_required` and lists caller-accessible projects.
 - `wip_cap` (integer, optional) -- maximum number of conduct-eligible items; omit to use the project's `project-policy.wip_cap` (source default `30`).
 
 **Response:** JSON object matching the `FrontierResult` structure.

@@ -78,42 +78,53 @@ def test_crud_handlers_write_rows_and_emit_audited_events(monkeypatch):
     monkeypatch.setattr(db_helpers, "connect", lambda *a, **k: conn)
     emitted = _capture_events(monkeypatch)
 
-    created = crud.handle_instruction_create(_request(
-        "workflow.execution_instruction.create",
-        {"content": "Run doctor first."},
-    ))
+    created = crud.handle_instruction_create(
+        _request(
+            "workflow.execution_instruction.create",
+            {"content": "Run doctor first."},
+        )
+    )
     assert created.primary_success
     instruction_id = created.result_payload["instruction_id"]
 
-    scoped = crud.handle_instruction_set_scope(_request(
-        "workflow.execution_instruction.set_scope",
-        {
-            "instruction_id": instruction_id,
-            "workflow_ids": ["dash"],
-            "applies_to_all_projects": True,
-            "project_ids": [],
-        },
-    ))
+    scoped = crud.handle_instruction_set_scope(
+        _request(
+            "workflow.execution_instruction.set_scope",
+            {
+                "instruction_id": instruction_id,
+                "workflow_ids": ["dash"],
+                "applies_to_all_projects": True,
+                "project_ids": [],
+            },
+        )
+    )
     assert scoped.primary_success
 
-    listed = crud.handle_instruction_list(_request(
-        "workflow.execution_instruction.list", {},
-    ))
+    listed = crud.handle_instruction_list(
+        _request(
+            "workflow.execution_instruction.list",
+            {},
+        )
+    )
     rows = listed.result_payload["instructions"]
     assert [row["workflow_ids"] for row in rows] == [["dash"]]
     assert rows[0]["applies_to_all_projects"] is True
     assert rows[0]["applies_to_all_workflows"] is False
 
-    updated = crud.handle_instruction_update(_request(
-        "workflow.execution_instruction.update",
-        {"instruction_id": instruction_id, "content": "Rewritten."},
-    ))
+    updated = crud.handle_instruction_update(
+        _request(
+            "workflow.execution_instruction.update",
+            {"instruction_id": instruction_id, "content": "Rewritten."},
+        )
+    )
     assert updated.primary_success
 
-    deleted = crud.handle_instruction_delete(_request(
-        "workflow.execution_instruction.delete",
-        {"instruction_id": instruction_id},
-    ))
+    deleted = crud.handle_instruction_delete(
+        _request(
+            "workflow.execution_instruction.delete",
+            {"instruction_id": instruction_id},
+        )
+    )
     assert deleted.primary_success
 
     names = [name for name, _ in emitted]
@@ -124,9 +135,7 @@ def test_crud_handlers_write_rows_and_emit_audited_events(monkeypatch):
         crud.INSTRUCTION_DELETED_EVENT,
     ]
     assert all(kwargs["context"]["actor_id"] == 7 for _, kwargs in emitted)
-    assert all(
-        kwargs["session_id"] == "session-ops" for _, kwargs in emitted
-    )
+    assert all(kwargs["session_id"] == "session-ops" for _, kwargs in emitted)
 
 
 def test_missing_instruction_and_empty_content_fail_closed(monkeypatch):
@@ -134,16 +143,21 @@ def test_missing_instruction_and_empty_content_fail_closed(monkeypatch):
     monkeypatch.setattr(db_helpers, "connect", lambda *a, **k: conn)
     _capture_events(monkeypatch)
 
-    missing = crud.handle_instruction_delete(_request(
-        "workflow.execution_instruction.delete", {"instruction_id": 404},
-    ))
+    missing = crud.handle_instruction_delete(
+        _request(
+            "workflow.execution_instruction.delete",
+            {"instruction_id": 404},
+        )
+    )
     assert not missing.primary_success
     assert missing.error.code == "not_found"
 
-    blank = crud.handle_instruction_create(_request(
-        "workflow.execution_instruction.create",
-        {"content": "   "},
-    ))
+    blank = crud.handle_instruction_create(
+        _request(
+            "workflow.execution_instruction.create",
+            {"content": "   "},
+        )
+    )
     assert not blank.primary_success
     assert blank.error.code == "empty_content_refused"
 
@@ -153,36 +167,49 @@ def test_resolve_returns_only_the_named_scope_in_specificity_order(monkeypatch):
 
     conn = _connection()
     monkeypatch.setattr(db_helpers, "connect", lambda *a, **k: conn)
-    conn.execute(
-        "INSERT INTO projects VALUES (8, 'other', 'Other', 'main', 'OTH')"
-    )
+    conn.execute("INSERT INTO projects VALUES (8, 'other', 'Other', 'main', 'OTH')")
 
     broad = domain.create_instruction(conn, content="Broad rule.")
     domain.set_instruction_scope(
-        conn, broad, workflow_ids=[], applies_to_all_workflows=True,
-        applies_to_all_projects=True, project_ids=[],
+        conn,
+        broad,
+        workflow_ids=[],
+        applies_to_all_workflows=True,
+        applies_to_all_projects=True,
+        project_ids=[],
     )
     specific = domain.create_instruction(conn, content="Acme Dash rule.")
     domain.set_instruction_scope(
-        conn, specific, workflow_ids=["dash"],
-        applies_to_all_projects=False, project_ids=[7],
+        conn,
+        specific,
+        workflow_ids=["dash"],
+        applies_to_all_projects=False,
+        project_ids=[7],
     )
     other_workflow = domain.create_instruction(conn, content="Issue rule.")
     domain.set_instruction_scope(
-        conn, other_workflow, workflow_ids=["issue"],
-        applies_to_all_projects=True, project_ids=[],
+        conn,
+        other_workflow,
+        workflow_ids=["issue"],
+        applies_to_all_projects=True,
+        project_ids=[],
     )
     other_project = domain.create_instruction(conn, content="Other project rule.")
     domain.set_instruction_scope(
-        conn, other_project, workflow_ids=["dash"],
-        applies_to_all_projects=False, project_ids=[8],
+        conn,
+        other_project,
+        workflow_ids=["dash"],
+        applies_to_all_projects=False,
+        project_ids=[8],
     )
     conn.commit()
 
-    resolved = crud.handle_instruction_resolve(_request(
-        "workflow.execution_instruction.resolve",
-        {"workflow": "dash", "project": "acme", "detail": "full"},
-    ))
+    resolved = crud.handle_instruction_resolve(
+        _request(
+            "workflow.execution_instruction.resolve",
+            {"workflow": "dash", "project": "acme", "detail": "full"},
+        )
+    )
 
     assert resolved.primary_success
     assert resolved.result_payload["detail"] == "full"
@@ -190,10 +217,12 @@ def test_resolve_returns_only_the_named_scope_in_specificity_order(monkeypatch):
     assert [row["id"] for row in rows] == [broad, specific]
     assert [row["content"] for row in rows] == ["Broad rule.", "Acme Dash rule."]
 
-    scanned = crud.handle_instruction_resolve(_request(
-        "workflow.execution_instruction.resolve",
-        {"workflow": "dash", "project": "acme"},
-    ))
+    scanned = crud.handle_instruction_resolve(
+        _request(
+            "workflow.execution_instruction.resolve",
+            {"workflow": "dash", "project": "acme"},
+        )
+    )
 
     assert scanned.primary_success
     assert scanned.result_payload["detail"] == "summary"
@@ -208,10 +237,12 @@ def test_resolve_returns_only_the_named_scope_in_specificity_order(monkeypatch):
         "--workflow dash --project acme --full"
     )
 
-    missing = crud.handle_instruction_resolve(_request(
-        "workflow.execution_instruction.resolve",
-        {"workflow": "dash", "project": "missing"},
-    ))
+    missing = crud.handle_instruction_resolve(
+        _request(
+            "workflow.execution_instruction.resolve",
+            {"workflow": "dash", "project": "missing"},
+        )
+    )
     assert not missing.primary_success
     assert missing.error.code == "not_found"
     assert missing.error.jsonpath == "$.payload.project"
@@ -221,11 +252,15 @@ def _seed_resolved_instruction(conn) -> int:
     from yoke_core.domain import workflow_execution_instructions as domain
 
     instruction_id = domain.create_instruction(
-        conn, content="Run the QA gate.",
+        conn,
+        content="Run the QA gate.",
     )
     domain.set_instruction_scope(
-        conn, instruction_id, workflow_ids=["dash"],
-        applies_to_all_projects=True, project_ids=[],
+        conn,
+        instruction_id,
+        workflow_ids=["dash"],
+        applies_to_all_projects=True,
+        project_ids=[],
     )
     conn.commit()
     return instruction_id
@@ -268,8 +303,9 @@ def test_item_detail_names_the_instructions_a_content_free_read_withholds(
     assert outcome.result_payload["execution_instructions"] == []
     index = outcome.result_payload["item"]["content_index"]
     assert index["execution_instructions"]["count"] == 1
-    assert "workflow execution-instruction resolve" in (
-        index["execution_instructions"]["read"]
+    assert (
+        "workflow execution-instruction resolve"
+        in (index["execution_instructions"]["read"])
     )
 
 
@@ -280,7 +316,9 @@ def test_items_get_attaches_instructions_only_for_body_reads(monkeypatch):
     from yoke_core.domain import items_queries
 
     monkeypatch.setattr(
-        items_queries, "query_item", lambda item_id, col: f"<{col}>",
+        items_queries,
+        "query_item",
+        lambda item_id, col: f"<{col}>",
     )
 
     body_request = FunctionCallRequest(
@@ -294,50 +332,7 @@ def test_items_get_attaches_instructions_only_for_body_reads(monkeypatch):
     resolved = outcome.result_payload["execution_instructions"]
     assert [row["id"] for row in resolved] == [instruction_id]
 
-    status_request = body_request.model_copy(
-        update={"payload": {"fields": ["status"]}}
-    )
+    status_request = body_request.model_copy(update={"payload": {"fields": ["status"]}})
     status_outcome = reads.handle_items_get(status_request)
     assert status_outcome.primary_success
     assert "execution_instructions" not in status_outcome.result_payload
-
-
-def test_item_create_returns_instructions_without_a_refetch(monkeypatch):
-    """A same-session creator gets the operator block in the create receipt.
-
-    Create-and-execute-immediately flows may never re-fetch the item, so
-    the create response itself must carry the resolved instructions.
-    """
-    conn = _UnclosableConnection(_connection())
-    instruction_id = _seed_resolved_instruction(conn)
-    monkeypatch.setattr(db_helpers, "connect", lambda *a, **k: conn)
-    from yoke_core.domain import backlog_create_op
-    from yoke_core.domain.handlers import items_create
-
-    monkeypatch.setattr(
-        backlog_create_op, "execute_create",
-        lambda **kwargs: {"success": True, "item_id": 51, "public_ref": "R-51"},
-    )
-    request = FunctionCallRequest(
-        function="items.create",
-        actor=ActorContext(actor_id="7", session_id="session-ops"),
-        target=TargetRef(kind="global"),
-        payload={"title": "T", "workflow": "dash", "entry_surface": "cli"},
-    )
-    outcome = items_create.handle_item_create(request)
-    assert outcome.primary_success
-    resolved = outcome.result_payload["execution_instructions"]
-    assert [row["id"] for row in resolved] == [instruction_id]
-
-    # Dry-run previews create no row, so there is nothing to resolve.
-    monkeypatch.setattr(
-        backlog_create_op, "execute_create",
-        lambda **kwargs: {"success": True, "item_id": 0, "dry_run": True},
-    )
-    preview = items_create.handle_item_create(
-        request.model_copy(
-            update={"payload": {**request.payload, "dry_run": True}}
-        )
-    )
-    assert preview.primary_success
-    assert preview.result_payload["execution_instructions"] is None

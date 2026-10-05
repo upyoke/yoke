@@ -88,11 +88,11 @@ def handle_linkage_roster(request: FunctionCallRequest) -> HandlerOutcome:
 
     try:
         with _connect_rw() as conn:
-            roster: set[str] = {project} if project else {"yoke"}
+            roster: set[str] = {project} if project else set()
             if not project:
                 try:
                     rows = conn.execute(
-                        "SELECT DISTINCT COALESCE(p.slug, 'yoke') "
+                        "SELECT DISTINCT COALESCE(p.slug, '') "
                         "FROM items i LEFT JOIN projects p ON i.project_id = p.id"
                     ).fetchall()
                     for row in rows:
@@ -145,21 +145,21 @@ def _read_backlog_rows(conn: Any, project: str) -> List[List[Any]]:
             ).fetchall()
         elif projects_table_exists:
             rows = conn.execute(
-                "SELECT i.id, COALESCE(i.github_issue, ''), COALESCE(p.slug, 'yoke'), "
+                "SELECT i.id, COALESCE(i.github_issue, ''), COALESCE(p.slug, ''), "
                 "p.public_item_prefix, i.project_sequence "
                 "FROM items i LEFT JOIN projects p ON i.project_id = p.id"
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT id, COALESCE(github_issue, ''), 'yoke', NULL, NULL FROM items"
+                "SELECT id, COALESCE(github_issue, ''), '', NULL, NULL FROM items"
             ).fetchall()
     except db_backend.operational_error_types(conn):
         conn.rollback()
         rows = (
             conn.execute(
-                "SELECT id, COALESCE(github_issue, ''), 'yoke', NULL, NULL FROM items"
+                "SELECT id, COALESCE(github_issue, ''), '', NULL, NULL FROM items"
             ).fetchall()
-            if not project or project == "yoke"
+            if not project
             else []
         )
     return [[r[0], r[1], r[2], r[3], r[4]] for r in rows]
@@ -183,7 +183,7 @@ def _read_task_rows(conn: Any, project: str) -> List[List[Any]]:
         elif projects_table_exists:
             rows = conn.execute(
                 "SELECT et.epic_id, et.task_num, et.title, et.github_issue, "
-                "COALESCE(p.slug, 'yoke') "
+                "COALESCE(p.slug, '') "
                 "FROM epic_tasks et "
                 "LEFT JOIN items i ON CAST(et.epic_id AS TEXT) = CAST(i.id AS TEXT) "
                 "LEFT JOIN projects p ON i.project_id = p.id "

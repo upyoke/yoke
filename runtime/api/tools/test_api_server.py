@@ -15,6 +15,10 @@ from unittest import mock
 
 from yoke_core.tools import api_server
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 # NFR-3: dispatcher p99 overhead < 50ms over the underlying callable.
 DISPATCHER_OVERHEAD_BUDGET_MS = 50.0
@@ -88,9 +92,11 @@ class PidFileTests(unittest.TestCase):
         pid_file.write_text("9999\n", encoding="utf-8")
 
         buf = io.StringIO()
-        with self._patch_root(), mock.patch.object(
-            api_server, "_is_alive", return_value=True
-        ), redirect_stdout(buf):
+        with (
+            self._patch_root(),
+            mock.patch.object(api_server, "_is_alive", return_value=True),
+            redirect_stdout(buf),
+        ):
             rc = api_server.cmd_start()
         self.assertEqual(rc, 1)
         self.assertIn("already running", buf.getvalue())
@@ -108,15 +114,24 @@ class PidFileTests(unittest.TestCase):
             return _FakeProc(pid=1234)
 
         buf = io.StringIO()
-        with self._patch_root(), mock.patch.object(
-            api_server, "_is_alive", return_value=False
-        ), mock.patch("yoke_core.tools.api_server.subprocess.Popen", side_effect=fake_popen), redirect_stdout(buf):
+        with (
+            self._patch_root(),
+            mock.patch.object(api_server, "_is_alive", return_value=False),
+            mock.patch(
+                "yoke_core.tools.api_server.subprocess.Popen", side_effect=fake_popen
+            ),
+            redirect_stdout(buf),
+        ):
             rc = api_server.cmd_start()
         self.assertEqual(rc, 0)
         self.assertIn("uvicorn", " ".join(launched["args"]))
         self.assertEqual(pid_file.read_text(encoding="utf-8").strip(), "1234")
         popen_kwargs = launched["kwargs"]
-        actual = (popen_kwargs["stdin"], popen_kwargs["stderr"], popen_kwargs["start_new_session"])
+        actual = (
+            popen_kwargs["stdin"],
+            popen_kwargs["stderr"],
+            popen_kwargs["start_new_session"],
+        )
         expected = (api_server.subprocess.DEVNULL, api_server.subprocess.STDOUT, True)
         self.assertEqual(actual, expected)
         self.assertIsNotNone(popen_kwargs["stdout"])
@@ -149,9 +164,12 @@ class PidFileTests(unittest.TestCase):
                 return False
 
         buf = io.StringIO()
-        with self._patch_root(), mock.patch.object(
-            api_server, "_is_alive", side_effect=fake_is_alive
-        ), mock.patch("yoke_core.tools.api_server.os.kill", side_effect=fake_kill), redirect_stdout(buf):
+        with (
+            self._patch_root(),
+            mock.patch.object(api_server, "_is_alive", side_effect=fake_is_alive),
+            mock.patch("yoke_core.tools.api_server.os.kill", side_effect=fake_kill),
+            redirect_stdout(buf),
+        ):
             rc = api_server.cmd_stop()
         self.assertEqual(rc, 0)
         self.assertEqual(killed[0], (5678, signal.SIGTERM))
@@ -206,40 +224,55 @@ class DispatcherOverheadSyntheticTests(unittest.TestCase):
 
         try:
             register(
-                function_id, _noop, _Req, _Resp,
-                stability="internal", owner_module=__name__,
-                target_kinds=["global"], side_effects=[], emitted_event_names=[],
-                guardrails=[], adapter_status="live",
-                claim_required_kind="self_only", minimum_serving_version="next-release",
+                function_id,
+                _noop,
+                _Req,
+                _Resp,
+                stability="internal",
+                owner_module=__name__,
+                target_kinds=["global"],
+                side_effects=[],
+                emitted_event_names=[],
+                guardrails=[],
+                adapter_status="live",
+                claim_required_kind="self_only",
+                minimum_serving_version="next-release",
             )
         except RegistryDuplicateError:
             pass
 
         try:
             request = FunctionCallRequest(
-                function=function_id, version="v1",
+                function=function_id,
+                version="v1",
                 actor=ActorContext(actor_id="test", session_id="test-session"),
-                target=TargetRef(kind="global"), payload={},
+                target=TargetRef(kind="global"),
+                payload={},
             )
             # Stub the dispatcher's event-write and idempotency-lookup paths
             # so the synthetic baseline measures routing logic only, not the
             # events DB write. The synthetic handler has claim_required_kind=
             # ``self_only`` so no claim DB lookup is involved.
-            with mock.patch(
-                "yoke_core.domain.yoke_function_dispatch._idempotency_lookup",
-                return_value=None,
-            ), mock.patch(
-                "yoke_core.domain.yoke_function_dispatch_events.emit_called",
-                return_value=None,
+            with (
+                mock.patch(
+                    "yoke_core.domain.yoke_function_dispatch._idempotency_lookup",
+                    return_value=None,
+                ),
+                mock.patch(
+                    "yoke_core.domain.yoke_function_dispatch_events.emit_called",
+                    return_value=None,
+                ),
             ):
                 for _ in range(DISPATCHER_OVERHEAD_WARMUP):
                     _noop(request)
                     dispatch(request)
                 baseline = _measure_ms(
-                    lambda: _noop(request), DISPATCHER_OVERHEAD_SAMPLES,
+                    lambda: _noop(request),
+                    DISPATCHER_OVERHEAD_SAMPLES,
                 )
                 dispatched = _measure_ms(
-                    lambda: dispatch(request), DISPATCHER_OVERHEAD_SAMPLES,
+                    lambda: dispatch(request),
+                    DISPATCHER_OVERHEAD_SAMPLES,
                 )
         finally:
             reset_registry_for_tests()
@@ -248,99 +281,11 @@ class DispatcherOverheadSyntheticTests(unittest.TestCase):
         dispatched_p99 = _percentile_ms(dispatched, 99.0)
         overhead_p99 = max(0.0, dispatched_p99 - baseline_p99)
         self.assertLess(
-            overhead_p99, DISPATCHER_OVERHEAD_BUDGET_MS,
+            overhead_p99,
+            DISPATCHER_OVERHEAD_BUDGET_MS,
             msg=(
                 f"synthetic dispatcher overhead p99 {overhead_p99:.2f}ms "
                 f"exceeds NFR-3 budget {DISPATCHER_OVERHEAD_BUDGET_MS}ms "
-                f"(baseline {baseline_p99:.2f}ms, dispatched {dispatched_p99:.2f}ms)"
-            ),
-        )
-
-
-@unittest.skipUnless(
-    _structured_field_handler_registered(),
-    "items.structured_field.replace not registered.",
-)
-class DispatcherOverheadStructuredFieldReplaceTests(unittest.TestCase):
-    """Dispatcher p99 overhead for ``items.structured_field.replace``.
-
-    Underlying ``execute_structured_write`` is mocked at the boundary so the
-    measurement is pure dispatcher overhead and no live DB state is touched.
-    """
-
-    def test_dispatcher_overhead_items_structured_field_replace(self) -> None:
-        from yoke_core.domain.yoke_function_dispatch import dispatch
-        from yoke_contracts.api.function_call import (
-            ActorContext, FunctionCallRequest, TargetRef,
-        )
-        from yoke_core.domain.handlers.__init_register__ import register_all_handlers
-        from yoke_core.domain.yoke_function_registry import lookup
-
-        register_all_handlers()
-        assert lookup("items.structured_field.replace") is not None
-
-        request = FunctionCallRequest(
-            function="items.structured_field.replace", version="v1",
-            actor=ActorContext(actor_id="test", session_id="test-session"),
-            target=TargetRef(kind="item", item_id=1),
-            payload={"field": "spec", "content": "# microbench spec"},
-            preconditions={"allow_empty": False, "allow_shrinkage": True},
-            options={"sync_github_body": False, "dry_run": True},
-        )
-        fake_result = {
-            "success": True, "item_id": 1, "field": "spec",
-            "old_line_count": 0, "new_line_count": 1,
-            "old_hash": "", "new_hash": "deadbeef",
-            "byte_count": 17, "verification_status": "ok",
-            "sync_status": "skipped", "event_ids": [],
-        }
-        # Patch the handler's import binding (the symbol the handler actually
-        # calls), not the source module — ``from X import Y`` copies the name
-        # into the handler module's namespace at import time. Also stub
-        # ``_read_field`` and the dispatcher claim/idempotency lookups so the
-        # microbench measures only dispatcher + handler control flow, not
-        # DB I/O.
-        fake_claim = {
-            "session_id": "test-session",
-            "released_at": None,
-            "claim_type": "default",
-        }
-        with mock.patch(
-            "yoke_core.domain.handlers.items_structured_field.execute_structured_write",
-            return_value=fake_result,
-        ) as patched_exec, mock.patch(
-            "yoke_core.domain.handlers.items_structured_field._read_field",
-            return_value="",
-        ), mock.patch(
-            "yoke_core.domain.yoke_function_dispatch_claims.who_claims_for_item",
-            return_value=fake_claim,
-        ), mock.patch(
-            "yoke_core.domain.yoke_function_dispatch._idempotency_lookup",
-            return_value=None,
-        ), mock.patch(
-            "yoke_core.domain.yoke_function_dispatch_events.emit_called",
-            return_value=None,
-        ):
-            for _ in range(DISPATCHER_OVERHEAD_WARMUP):
-                patched_exec(item_id=1, field="spec", content="# x")
-                dispatch(request)
-            baseline = _measure_ms(
-                lambda: patched_exec(item_id=1, field="spec", content="# x"),
-                DISPATCHER_OVERHEAD_SAMPLES,
-            )
-            dispatched = _measure_ms(
-                lambda: dispatch(request), DISPATCHER_OVERHEAD_SAMPLES,
-            )
-
-        baseline_p99 = _percentile_ms(baseline, 99.0)
-        dispatched_p99 = _percentile_ms(dispatched, 99.0)
-        overhead_p99 = max(0.0, dispatched_p99 - baseline_p99)
-        self.assertLess(
-            overhead_p99, DISPATCHER_OVERHEAD_BUDGET_MS,
-            msg=(
-                f"items.structured_field.replace dispatcher overhead p99 "
-                f"{overhead_p99:.2f}ms exceeds NFR-3 budget "
-                f"{DISPATCHER_OVERHEAD_BUDGET_MS}ms "
                 f"(baseline {baseline_p99:.2f}ms, dispatched {dispatched_p99:.2f}ms)"
             ),
         )

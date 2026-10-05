@@ -79,12 +79,14 @@ class TestDoctorRunDispatch(unittest.TestCase):
         # These assert what the engine registry under test contributes, so
         # the runtime is pinned: a local run also collects whatever the
         # calling checkout declares in its own .yoke/doctor/ folder.
-        payload = {"runtime": "hosted", **payload}
+        payload = {"runtime": "hosted", "project": "yoke", **payload}
         with patch(
-            "yoke_core.engines.doctor_registry.HEALTH_CHECKS", hcs,
+            "yoke_core.engines.doctor_registry.HEALTH_CHECKS",
+            hcs,
         ):
             with patch(
-                "yoke_core.domain.db_helpers.connect", return_value=_Conn(),
+                "yoke_core.domain.db_helpers.connect",
+                return_value=_Conn(),
             ):
                 return dispatch(_doctor_envelope(**payload))
 
@@ -158,7 +160,9 @@ class TestDoctorRunDispatch(unittest.TestCase):
             [
                 HealthCheck(slug="fake", name="Fake HC", fn=_fake_hc_fn),
                 HealthCheck(
-                    slug="fail-hc", name="Failing HC", fn=_fake_failing_hc,
+                    slug="fail-hc",
+                    name="Failing HC",
+                    fn=_fake_failing_hc,
                 ),
             ],
             payload={"full": True},
@@ -183,7 +187,9 @@ def _run_cli(envelope_bytes, *, use_stdin=False, extra_args=()):
         path_to_clean = None
     else:
         with tempfile.NamedTemporaryFile(
-            mode="wb", suffix=".json", delete=False,
+            mode="wb",
+            suffix=".json",
+            delete=False,
         ) as fh:
             fh.write(envelope_bytes)
             envelope_path = fh.name

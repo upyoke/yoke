@@ -20,7 +20,6 @@ from yoke_core.domain.backlog_queries import (
 )
 from yoke_core.domain.project_identity import (
     allocate_project_sequence,
-    checkout_project_context,
     render_item_ref,
     resolve_project,
 )
@@ -55,26 +54,15 @@ def execute_create(
     strategy_doc: Optional[str] = None,
     out: TextIO = sys.stdout,
 ) -> dict:
-    """Full item creation: validate → INSERT → md gen → GitHub sync.
+    """Validate and file into the caller's explicitly selected project.
 
-    Returns a result dict with 'success', 'item_id', 'error', etc.
-
-    ``workflow`` is required because the registry has no implicit selection.
-    Persistent production creates require a typed entry surface allowed by
-    the selected workflow version.
-
-    ``strategy_doc`` names the strategy document the new item belongs to.
-    It is written in the same transaction as the item, so work filed under
-    a plan is a member of that plan's steering scope from its first moment
-    rather than from a second call that may never happen.
+    ``strategy_doc`` links the item to its steering scope in the creation
+    transaction. Persistent creates require a permitted typed entry surface.
     """
     from yoke_core.domain import mutations
 
     if not workflow or not workflow.strip():
         return {"success": False, "error": "workflow is required"}
-
-    if project is None:
-        project = checkout_project_context()
 
     # Validate via mutation layer
     db_path = _resolve_write_db_path()
@@ -93,6 +81,18 @@ def execute_create(
                 owner_actor_id = coerce_explicit_item_source(conn, owner)
         except ItemSourceActorResolutionError as exc:
             return {"success": False, "error": str(exc)}
+
+        if not str(project or "").strip():
+            from yoke_core.domain.project_selection import missing_project_on_connection
+
+            return {
+                "success": False,
+                "error": missing_project_on_connection(
+                    conn,
+                    actor_id=source_actor_id,
+                ),
+                "error_code": "project_required",
+            }
 
         source_token = str(source_actor_id)
         owner_token = str(owner_actor_id)

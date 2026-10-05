@@ -12,6 +12,8 @@ import pytest
 from yoke_core.domain.project_scratch_roots import ENV_KEY
 from yoke_core.hooks.dispatch_dedup import duplicate_lifecycle_dispatch
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 PAYLOAD = '{"session_id":"s-1","hook_event_name":"SessionStart"}'
 

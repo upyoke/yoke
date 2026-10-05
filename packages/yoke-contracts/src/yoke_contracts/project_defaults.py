@@ -3,8 +3,8 @@
 A command standing in a checkout should target that checkout's project, not
 a name compiled into the code. The machine config maps checkouts to project
 ids — including worktrees, which resolve to their parent checkout — so the
-directory answers the question whenever the machine knows it. The seeded
-slug is the last resort for a runner standing nowhere in particular.
+directory answers the question whenever the machine knows it. An unmapped
+directory has no project; callers must refuse or report not applicable.
 """
 
 from __future__ import annotations
@@ -13,14 +13,9 @@ from pathlib import Path
 
 from yoke_contracts.machine_config.runtime import project_id
 
-#: Slug the installer seeds for the project that owns a Yoke installation.
-#: A compatibility fact, not an authority: code that must know *which*
-#: project is the self project reads the checkout binding instead.
-DEFAULT_PROJECT_SLUG = "yoke"
 
-
-def default_project_for_directory(directory: str | Path) -> str:
-    """The project *directory* belongs to, or the seeded slug.
+def default_project_for_directory(directory: str | Path) -> str | None:
+    """The project *directory* belongs to, or ``None``.
 
     Returns the project id as a string when the machine config binds the
     directory (or one of its ancestors) to a project — every
@@ -30,7 +25,23 @@ def default_project_for_directory(directory: str | Path) -> str:
         resolved = project_id(Path(directory))
     except Exception:  # noqa: BLE001 - an unreadable config is not fatal
         resolved = None
-    return DEFAULT_PROJECT_SLUG if resolved is None else str(resolved)
+    return None if resolved is None else str(resolved)
 
 
-__all__ = ["DEFAULT_PROJECT_SLUG", "default_project_for_directory"]
+class MissingProjectError(ValueError):
+    """A project-scoped operation has no caller-selected project."""
+
+
+def missing_project_message(projects: list[str], *, unavailable: str = "") -> str:
+    """Explain the refusal using only the caller's accessible roster."""
+    roster = ", ".join(projects) if projects else "none"
+    if unavailable:
+        roster = f"unavailable ({unavailable}); check `yoke env list` and retry"
+    return f"project_required: no project given — pass --project P. Accessible projects: {roster}."
+
+
+__all__ = [
+    "MissingProjectError",
+    "default_project_for_directory",
+    "missing_project_message",
+]

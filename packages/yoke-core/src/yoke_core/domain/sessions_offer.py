@@ -20,7 +20,11 @@ from .sessions_offer_lane import (
     emit_session_offered_event,
 )
 from .sessions_offer_revalidation import emit_chain_budget_unused_if_remaining
-from .sessions_queries import _filter_schedule_for_offer, list_claims_for_session, resolve_harness_capabilities
+from .sessions_queries import (
+    _filter_schedule_for_offer,
+    list_claims_for_session,
+    resolve_harness_capabilities,
+)
 from .sessions_queries_chain import read_chain_skip_memory
 from .project_settings import resolve_default_wip_cap
 
@@ -128,8 +132,8 @@ def session_offer_with_ownership(
     if project_scope is None:
         # Callers that do not pass an explicit scope (typically tests
         # constructing the ownership flow directly) get the resolver's
-        # all-projects default, which falls back to ``["yoke"]`` when no
-        # ``projects`` table exists.
+        # actual registered project roster. A missing registry refuses as
+        # project_roster_unavailable rather than inventing a project.
         scope = resolve_session_project_scope(conn, override=None)
     else:
         scope = list(project_scope)
@@ -252,10 +256,14 @@ def session_offer_with_ownership(
     )
     if apply_workspace_home_filter:
         home_project_id = resolve_offer_home_project(
-            conn, workspace=workspace, session_id=session_id,
+            conn,
+            workspace=workspace,
+            session_id=session_id,
         )
         schedule = filter_workspace_home(
-            schedule, home_project_id=home_project_id, conn=conn,
+            schedule,
+            home_project_id=home_project_id,
+            conn=conn,
         )
 
     # 4. Walk the candidate set: revalidate pre/post-claim, skip live

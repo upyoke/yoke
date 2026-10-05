@@ -24,6 +24,8 @@ from yoke_contracts.api.function_call import (
     FunctionError,
 )
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 def _response(
     rows: List[Dict[str, Any]],
@@ -68,9 +70,7 @@ def _run_local(response, *argv: str):
             return_value=False,
         ),
         patch("yoke_cli.commands._helpers.ensure_handlers_loaded"),
-        patch(
-            "yoke_cli.commands.adapters.doctor.ensure_handlers_loaded"
-        ),
+        patch("yoke_cli.commands.adapters.doctor.ensure_handlers_loaded"),
         patch(
             "yoke_cli.commands.adapters.doctor.call_dispatcher",
             side_effect=response,
@@ -107,7 +107,9 @@ class TestHumanReport:
     def test_human_mode_renders_the_health_report(self) -> None:
         rc, stdout, _ = _run_local(
             lambda **_: _response([_PASS_ROW], pass_count=1),
-            "doctor", "run", "--quick",
+            "doctor",
+            "run",
+            "--quick",
         )
         assert rc == 0
         assert stdout.startswith("# Ouroboros Health Report")
@@ -116,7 +118,10 @@ class TestHumanReport:
     def test_json_mode_still_emits_the_envelope(self) -> None:
         rc, stdout, _ = _run_local(
             lambda **_: _response([_PASS_ROW], pass_count=1),
-            "doctor", "run", "--quick", "--json",
+            "doctor",
+            "run",
+            "--quick",
+            "--json",
         )
         assert rc == 0
         envelope = json.loads(stdout)
@@ -126,7 +131,11 @@ class TestHumanReport:
         target = tmp_path / "nested" / "health.md"
         rc, stdout, _ = _run_local(
             lambda **_: _response([_PASS_ROW], pass_count=1),
-            "doctor", "run", "--quick", "--file", str(target),
+            "doctor",
+            "run",
+            "--quick",
+            "--file",
+            str(target),
         )
         assert rc == 0
         assert target.read_text().startswith("# Ouroboros Health Report")
@@ -137,7 +146,9 @@ class TestExitStatus:
     def test_clean_run_exits_zero(self) -> None:
         rc, _, _ = _run_local(
             lambda **_: _response([_PASS_ROW], pass_count=1),
-            "doctor", "run", "--quick",
+            "doctor",
+            "run",
+            "--quick",
         )
         assert rc == 0
 
@@ -145,7 +156,9 @@ class TestExitStatus:
         # Callers branch on this status to decide "is this install healthy?".
         rc, stdout, _ = _run_local(
             lambda **_: _response([_FAIL_ROW], fail_count=1),
-            "doctor", "run", "--quick",
+            "doctor",
+            "run",
+            "--quick",
         )
         assert rc == 1
         assert "## Failures" in stdout
@@ -161,7 +174,11 @@ class TestExitStatus:
             ),
         )
         rc, _, stderr = _run_local(
-            lambda **_: failed, "doctor", "run", "--only", "HC-nope",
+            lambda **_: failed,
+            "doctor",
+            "run",
+            "--only",
+            "HC-nope",
         )
         assert rc == 1
         assert "error (invalid_check)" in stderr
@@ -219,7 +236,9 @@ class TestRelayedRunStreams:
         assert "## Passed" in stdout
 
 
-@pytest.mark.parametrize("argv", [["doctor", "run"], ["doctor", "run", "--quick", "--full"]])
+@pytest.mark.parametrize(
+    "argv", [["doctor", "run"], ["doctor", "run", "--quick", "--full"]]
+)
 def test_scope_is_still_required(argv: list[str]) -> None:
     rc, _, _ = _run_local(lambda **_: _response([]), *argv)
     assert rc == 2

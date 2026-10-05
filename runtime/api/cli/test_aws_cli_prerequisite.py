@@ -16,6 +16,8 @@ import pytest
 from yoke_cli.commands.adapters import aws as aws_adapter
 from yoke_cli.config import aws_cli_prerequisite as prerequisite
 
+pytestmark = pytest.mark.usefixtures("bound_project_context")
+
 
 class _Result:
     def __init__(self, returncode: int, stdout: str = "") -> None:

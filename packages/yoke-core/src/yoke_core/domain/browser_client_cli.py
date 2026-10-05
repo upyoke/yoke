@@ -91,20 +91,28 @@ def _cli_snapshot(args: argparse.Namespace) -> int:
         if args.snap_cmd == "accessibility":
             print(json.dumps(_bc.snapshot_accessibility(args.url)))
         elif args.snap_cmd == "screenshot":
-            print(json.dumps(_bc.snapshot_screenshot(
-                args.url,
-                annotate=getattr(args, "annotate", False),
-                output_path=getattr(args, "output", None),
-                viewport=getattr(args, "viewport", None),
-            )))
+            print(
+                json.dumps(
+                    _bc.snapshot_screenshot(
+                        args.url,
+                        annotate=getattr(args, "annotate", False),
+                        output_path=getattr(args, "output", None),
+                        viewport=getattr(args, "viewport", None),
+                    )
+                )
+            )
         elif args.snap_cmd == "diff":
-            print(json.dumps(_bc.snapshot_diff(
-                args.url,
-                baseline=args.baseline,
-                viewport=args.viewport,
-                output_dir=getattr(args, "output_dir", None),
-                threshold=getattr(args, "threshold", None),
-            )))
+            print(
+                json.dumps(
+                    _bc.snapshot_diff(
+                        args.url,
+                        baseline=args.baseline,
+                        viewport=args.viewport,
+                        output_dir=getattr(args, "output_dir", None),
+                        threshold=getattr(args, "threshold", None),
+                    )
+                )
+            )
         else:
             return 3
         return 0
@@ -130,7 +138,8 @@ def _cli_exec(args: argparse.Namespace) -> int:
             getattr(args, "page_id", None) or DIAGNOSTIC_PAGE_ID,
         )
         result = _bc.execute_step(
-            step, args.base_url,
+            step,
+            args.base_url,
             output_dir=getattr(args, "output_dir", None),
             page_id=page_id,
         )
@@ -142,3 +151,22 @@ def _cli_exec(args: argparse.Namespace) -> int:
     except RuntimeError as e:
         _bc._log(str(e))
         return 1
+
+
+def run_cli(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    """Resolve caller context only for an executable browser command."""
+    from yoke_core.domain import browser_client as client
+    from yoke_contracts.project_defaults import MissingProjectError
+    from yoke_harness.browser_daemon_profile import project_scope
+
+    handlers = {"daemon": _cli_daemon, "snapshot": _cli_snapshot, "exec": _cli_exec}
+    handler = handlers.get(args.cmd)
+    if handler is None:
+        parser.print_help()
+        return 3
+    try:
+        with project_scope(getattr(args, "project", None)):
+            return handler(args)
+    except MissingProjectError as exc:
+        client._log(str(exc))
+        return 2

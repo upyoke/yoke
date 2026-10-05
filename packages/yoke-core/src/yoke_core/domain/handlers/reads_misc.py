@@ -1,9 +1,4 @@
-"""Companion read handlers: path_claims conflicts, doctor.run.run, capability.has.
-
-Split from ``handlers/reads`` so each file stays under the file-line cap.
-Function ids registered from this module carry ``claim_required_kind=None``;
-none requires an active claim.
-"""
+"""Claim-conflict, machine-health, and project-capability read handlers."""
 
 from __future__ import annotations
 
@@ -94,6 +89,7 @@ class DoctorRunResponse(BaseModel):
 
 def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.project_selection import missing_project_on_connection
     from yoke_core.domain.handlers.doctor_run_scope import (
         doctor_scope_label,
         project_safe_quick_checks,
@@ -103,7 +99,7 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
         persist_completed_run,
         record_receipt_from_payload,
     )
-    from yoke_core.engines.doctor_context import FALLBACK_PROJECT, resolve_context
+    from yoke_core.engines.doctor_context import resolve_context
     from yoke_core.engines.doctor_check_execution import execute_check_isolated
     from yoke_core.engines.doctor_registry import HEALTH_CHECKS
     from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -179,13 +175,29 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
     args = DoctorArgs(
         only=only_raw,
         quick=quick,
-        project=str(payload.get("project") or FALLBACK_PROJECT),
+        project=payload.get("project"),
         fix=bool(payload.get("fix", False)),
         db_path=str(db_path) if db_path else None,
         runtime=payload.get("runtime"),
     )
     rec = RecordCollector()
     conn = connect(path=args.db_path)
+    if not str(args.project or "").strip():
+        from yoke_core.domain.project_selection import missing_project_on_connection
+
+        try:
+            message = missing_project_on_connection(
+                conn, actor_id=request.actor.actor_id
+            )
+        finally:
+            conn.close()
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="project_required",
+                message=message,
+            ),
+        )
     context = resolve_context(conn, args)
     roster = build_roster(HEALTH_CHECKS, args, context)
     if only_raw:

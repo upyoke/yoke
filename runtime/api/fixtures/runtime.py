@@ -53,8 +53,7 @@ def _snapshot_worktree_dirs(repo_root: Path) -> set[str]:
     if not worktrees_dir.is_dir():
         return set()
     return {
-        entry.name for entry in worktrees_dir.iterdir()
-        if entry.name.startswith("YOK-")
+        entry.name for entry in worktrees_dir.iterdir() if entry.name.startswith("YOK-")
     }
 
 
@@ -67,7 +66,8 @@ def _capture_pollution_baseline(repo_root: Path) -> dict:
         "pre_dirs": {d.name for d in repo_root.iterdir() if d.is_dir()},
         "pre_runtime_db_files": (
             {
-                f.name for f in runtime_dir.iterdir()
+                f.name
+                for f in runtime_dir.iterdir()
                 if f.is_file() and f.name in _DB_RESIDUE_FILES
             }
             if runtime_dir.is_dir()
@@ -91,7 +91,8 @@ def _check_pollution_against_baseline(baseline: dict) -> None:
 
         if runtime_dir.is_dir():
             post_runtime_db_files = {
-                f.name for f in runtime_dir.iterdir()
+                f.name
+                for f in runtime_dir.iterdir()
                 if f.is_file() and f.name in _DB_RESIDUE_FILES
             }
             for f in post_runtime_db_files - baseline["pre_runtime_db_files"]:
@@ -210,6 +211,7 @@ def isolate_test_machine_and_session_identity(
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(machine_home))
     monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
     monkeypatch.delenv("YOKE_ENV", raising=False)
+    monkeypatch.delenv("YOKE_PROJECT", raising=False)
     for name in (*AMBIENT_ENV_VARS, CURSOR_CONVERSATION_ENV_VAR):
         monkeypatch.delenv(name, raising=False)
     if session_id is not None:
