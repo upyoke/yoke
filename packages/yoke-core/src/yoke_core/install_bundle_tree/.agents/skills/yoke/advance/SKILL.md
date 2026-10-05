@@ -74,4 +74,11 @@ recovered worktree. Do not surface the worktree path and stop, and never ask
 
 ## Start
 
+Stamp the session mode on entry so a claimed item at the binding's handoff
+stage paints its first working stage active:
+
+```text
+yoke sessions touch --mode advance
+```
+
 Read [`parse-and-target.md`](parse-and-target.md) and follow it.

@@ -52,4 +52,11 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Start
 
+Stamp the session mode on entry so a claimed item at the binding's handoff
+stage paints its first working stage active:
+
+```text
+yoke sessions touch --mode blitz
+```
+
 Read [`read-and-survey.md`](read-and-survey.md) and follow it.
