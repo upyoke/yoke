@@ -142,3 +142,54 @@ def test_hook_evaluate_https_placeholder_model_is_sent_as_neither_fact(
     assert cli_main(["hook", "evaluate", "SessionStart"]) == 0
     assert "model" not in captured["body"]
     assert "requested_model" not in captured["body"]
+
+
+@pytest.mark.parametrize(
+    "executor", ["codex-cli", "claude-cli", "claude-desktop", "cursor"]
+)
+@pytest.mark.parametrize(
+    "event_name", ["SessionStart", "UserPromptSubmit", "Stop", "SessionEnd"]
+)
+def test_every_lifecycle_surface_sends_checkout_project(
+    monkeypatch,
+    https_connection,
+    executor,
+    event_name,
+) -> None:
+    from yoke_harness.hooks import identity_relay, relay
+
+    monkeypatch.setenv("YOKE_SESSION_ID", "wire-project-session")
+    monkeypatch.setattr(relay, "detect_executor", lambda: executor)
+    monkeypatch.setattr(relay, "_record_client_anchor", lambda *a, **k: None)
+    monkeypatch.setattr(relay, "_codex_capture", lambda *a, **k: None)
+    monkeypatch.setattr(identity_relay, "client_model_facts", lambda *a: {})
+    monkeypatch.setattr(identity_relay, "client_usage_facts", lambda *a: {})
+    monkeypatch.setattr(identity_relay, "client_executor_version", lambda *a: None)
+    monkeypatch.setattr(
+        identity_relay.machine_config,
+        "project_id",
+        lambda path: 7 if str(path) == "/client/repo" else None,
+    )
+    captured = {}
+
+    def opener(request, timeout=None):
+        captured.update(json.loads(request.data.decode("utf-8")))
+        return _completed_response()
+
+    workspace = (
+        {"workspace_roots": ["/client/repo"]}
+        if executor == "cursor"
+        else {"cwd": "/client/repo"}
+    )
+    assert (
+        relay.relay_hook_event(
+            event_name,
+            https_connection,
+            stdin_data=json.dumps({"session_id": "wire-project-session", **workspace}),
+            opener=opener,
+        )
+        == 0
+    )
+    assert captured["project_id"] == 7
+    assert captured["event_name"] == event_name
+    assert captured["executor"] == executor

@@ -23,6 +23,7 @@ def test_public_export_surface_is_complete() -> None:
         "hook_marker_path",
         "mint_watcher_capture_pair",
         "resolve_active_project",
+        "scratch_project",
         "scratch_root",
         "scratch_subdir",
         "storage_dir",
