@@ -21,9 +21,16 @@ from yoke_harness.session_relay_health import (
 
 
 Dispatcher = Callable[..., Any]
+# Codes the server returns when it will never accept this exact report: the
+# attempt was settled, closed, or never leased to this relay, or its batch
+# expired before the report arrived.
 PERMANENT_REPORT_REJECTION_CODES = frozenset(
     {
+        "attempt_missing",
+        "invalid_state",
+        "lease_mismatch",
         "payload_invalid",
+        "relay_lease_expired",
         "relay_report_payload_invalid",
         "report_conflict",
         "request_validation_failed",
@@ -46,11 +53,8 @@ def response_error_code(response: Any) -> str:
     return str(getattr(error, "code", None) or "relay_report_rejected")
 
 
-def is_permanent_report_rejection(response: Any, *, job_kind: str = "") -> bool:
-    code = response_error_code(response)
-    return code in PERMANENT_REPORT_REJECTION_CODES or (
-        job_kind == "wake" and code == "attempt_missing"
-    )
+def is_permanent_report_rejection(response: Any) -> bool:
+    return response_error_code(response) in PERMANENT_REPORT_REJECTION_CODES
 
 
 def quarantine_pending_report(
@@ -107,9 +111,14 @@ def retry_pending_reports(
     state_dir: Path | None,
     timeout_s: int,
 ) -> bool:
-    """Drain retryable reports; quarantine bounded contract rejections."""
+    """Drain retryable reports; quarantine bounded permanent rejections.
+
+    Returns False only while a report awaits a transient retry. A permanently
+    rejected report never holds the relay's claims: it retries up to the
+    quarantine bound beside new work, then is preserved in quarantine.
+    """
     directory = delivery._directory(state_dir)
-    all_drained = True
+    none_retrying = True
     for path in sorted(directory.glob("*.json")):
         try:
             safe = delivery._safe_payload(json.loads(path.read_text(encoding="utf-8")))
@@ -133,7 +142,7 @@ def retry_pending_reports(
             )
         except Exception:
             record_report_failure(state_dir, error_code="transport_error")
-            all_drained = False
+            none_retrying = False
             continue
         if getattr(response, "success", False):
             path.unlink(missing_ok=True)
@@ -142,7 +151,7 @@ def retry_pending_reports(
         code = response_error_code(response)
         if not is_permanent_report_rejection(response):
             record_report_failure(state_dir, error_code=code)
-            all_drained = False
+            none_retrying = False
             continue
         attempts = record_rejected_attempt(
             path,
@@ -150,7 +159,6 @@ def retry_pending_reports(
             error_code=code,
         )
         if attempts < REPORT_QUARANTINE_ATTEMPTS:
-            all_drained = False
             continue
         quarantine_report(
             path,
@@ -159,9 +167,9 @@ def retry_pending_reports(
             error_code=code,
             attempts=attempts,
         )
-    if all_drained:
+    if none_retrying:
         clear_report_failure_if_drained(state_dir)
-    return all_drained
+    return none_retrying
 
 
 __all__ = [

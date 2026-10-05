@@ -23,7 +23,14 @@ from runtime.harness.test_session_relay_resume_settlement import (
 
 
 @pytest.mark.parametrize(
-    "code", ["report_conflict", "attempt_missing", "transport_error", "server_error"]
+    "code",
+    [
+        "report_conflict",
+        "attempt_missing",
+        "relay_lease_expired",
+        "transport_error",
+        "server_error",
+    ],
 )
 def test_rejected_finished_resume_retries_only_recoverable_failures(
     tmp_path: Path, code: str
@@ -60,7 +67,7 @@ def test_rejected_finished_resume_retries_only_recoverable_failures(
             timeout_s=5,
         )
 
-    permanent = code in {"report_conflict", "attempt_missing"}
+    permanent = code in {"report_conflict", "attempt_missing", "relay_lease_expired"}
     assert settle() == ((ATTEMPT_ID,) if permanent else ())
     assert supervision_record_path(ATTEMPT_ID, custody).exists() is not permanent
     assert settle() == ()
