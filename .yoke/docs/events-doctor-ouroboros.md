@@ -30,13 +30,23 @@ WSL it also warns when systemd is not PID 1. See
 checks report N/A on other operating systems.
 
 Each check has a 45-second budget. PostgreSQL statements use the remaining
-budget as a statement timeout; long checks check the clock between steps.
-Doctor installs no Python tracer and never interrupts driver frames. The shared
+budget as a statement timeout. A thread-local Python trace enforces the
+wall-clock deadline even for checks with no SQL or explicit clock probes;
+the caller's trace is restored afterwards. Database operations defer Python
+deadline exceptions until the driver returns, so protocol frames are never
+interrupted. PostgreSQL connections lacking `autocommit` refuse with
+`doctor_postgres_autocommit_unavailable` and teach the required connection.
+The shared
 HTTP and subprocess helpers consume the same deadline. A timeout reports
 `HC-check-incomplete` with `doctor_check_budget_exhausted` and a recovery step;
 partial pass/fail verdicts are discarded. Transaction recovery completes before
 the next check runs, and recovery failures remain visible in the incomplete result.
-Project checks must use bounded I/O helpers and clock checks between long steps.
+Project checks must use bounded I/O helpers for blocking operations.
+The obsoleted-term scan overlaps independent file reads while preserving
+path and finding order. A conservative literal-prefix test avoids per-line regex
+work only when a required prefix is absent; patterns without a provable prefix
+retain the entire line scan. The original per-pattern tests, path exemptions, slash
+normalization, line matching and full-tree coverage remain the same.
 
 The claim-boundary audit inspects the full audit history, retaining its explicit
 configured event-id cutoff. Historical event-outcome drift also inspects every

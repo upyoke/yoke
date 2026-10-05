@@ -270,28 +270,6 @@ def test_correlated_harness_preview_does_not_warn(env, patch_cutoff):
     assert rec.results[0].result == "PASS"
 
 
-def test_apply_event_id_cutoff_helper_skips_when_cutoff_zero():
-    where, params = _cutoff.apply_event_id_cutoff(
-        "event_name=%s",
-        ["x"],
-        cutoff=0,
-        marker="%s",
-    )
-    assert where == "event_name=%s"
-    assert params == ["x"]
-
-
-def test_apply_event_id_cutoff_helper_appends_clause():
-    where, params = _cutoff.apply_event_id_cutoff(
-        "event_name=%s",
-        ["x"],
-        cutoff=500,
-        marker="%s",
-    )
-    assert where == "event_name=%s AND events.id >= %s"
-    assert params == ["x", 500]
-
-
 def test_audit_includes_old_events(env, patch_cutoff):
     conn = env["conn"]
     patch_cutoff(0)

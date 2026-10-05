@@ -94,22 +94,19 @@ def test_safe_point_exhaustion_discards_partial_verdicts(monkeypatch):
     assert "--only slow" in rec.results[-1].detail
 
 
-def test_check_never_installs_a_trace(monkeypatch):
-    def forbidden(*args):
-        raise AssertionError("Doctor installed a Python tracer")
-
+def test_check_restores_the_callers_trace():
     previous = sys.gettrace()
-    monkeypatch.setattr(sys, "settrace", forbidden)
 
     def check(conn, args, rec):
-        assert sys.gettrace() is previous
-        rec.record("HC-trace-free", "Trace free", "PASS", "")
+        assert sys.gettrace() is not previous
+        rec.record("HC-trace", "Trace", "PASS", "")
 
     rec = RecordCollector()
     execute_check_isolated(
-        object(), DoctorArgs(), rec, HealthCheck("trace-free", "Trace free", check)
+        object(), DoctorArgs(), rec, HealthCheck("trace", "Trace", check)
     )
     assert rec.results[0].result == "PASS"
+    assert sys.gettrace() is previous
 
 
 def test_non_database_connections_reach_the_check_unchanged():

@@ -81,13 +81,13 @@ class TestScanEventsReads(unittest.TestCase):
         self.assertEqual(violations, [])
         self.assertNotIn(allowlisted_rel, stale)
 
-    def test_claim_boundary_audit_selector_is_allowlisted_audit_reader(self):
+    def test_claim_boundary_audit_summary_is_allowlisted_audit_reader(self):
         with TemporaryDirectory() as td:
             root = Path(td)
             allowlisted_rel = next(
                 p
                 for p in ALLOWED_EVENTS_READERS
-                if p.endswith("/check_claim_boundary_audit_select.py")
+                if p.endswith("/check_claim_boundary_audit_summary.py")
             )
             _write(
                 root,

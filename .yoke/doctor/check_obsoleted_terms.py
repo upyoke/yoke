@@ -33,6 +33,13 @@ terminal statuses are excluded as intentional historical provenance, per
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor
+
+from yoke_contracts.doctor_budget import (
+    CHECK_BUDGET_S,
+    DoctorBudgetExhausted,
+    remaining_seconds,
+)
 from pathlib import Path
 
 from yoke_core.engines.doctor_hc_obsoleted_terms_allowlists import (
@@ -71,12 +78,12 @@ _SELF_NAMES = frozenset({_SELF_PATH.name, _CATALOG_PATH.name})
 
 
 def _is_exempt(path: Path) -> bool:
-    if path.resolve() in {_SELF_PATH, _CATALOG_PATH}:
-        return True
     # Synthetic copies of the registry file (used by HC self-exemption tests)
     # carry the same filename but live under a tmp_path tree. The exemption
     # tracks the registry's identity, not its absolute location.
     if path.name in _SELF_NAMES:
+        return True
+    if path.is_symlink() and path.resolve() in {_SELF_PATH, _CATALOG_PATH}:
         return True
     for part in path.parts:
         if part in EXEMPT_PATH_SEGMENTS:
@@ -90,7 +97,7 @@ def _path_in_allowlist(rel_str: str, allow: tuple[str, ...]) -> bool:
     Matching is prefix-based, so one entry can cover a file family while a
     fully-qualified entry can target one exact path.
     """
-    return any(rel_str.startswith(entry) for entry in allow)
+    return rel_str.startswith(allow)
 
 
 def _iter_scan_paths(repo_root: Path):
@@ -112,6 +119,82 @@ def _iter_scan_paths(repo_root: Path):
                 yield f
 
 
+def _read_scan_file(path: Path):
+    try:
+        return path, path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return path, None
+
+
+def _read_scan_files(repo_root: Path):
+    """Overlap filesystem latency without changing path or finding order."""
+    pool = ThreadPoolExecutor(max_workers=8)
+    try:
+        yield from pool.map(
+            _read_scan_file,
+            _iter_scan_paths(repo_root),
+            timeout=remaining_seconds(CHECK_BUDGET_S),
+        )
+    except TimeoutError as exc:
+        raise DoctorBudgetExhausted("doctor_check_budget_exhausted") from exc
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+
+
+def _required_literal_prefix(pattern: re.Pattern) -> str:
+    """Conservatively recognize a mandatory literal at the pattern's start.
+
+    Unknown syntax yields no filter. Top-level alternatives and verbose mode
+    cannot establish one common prefix here. Optional repetition drops its
+    preceding literal so the filter cannot discard a valid shorter match.
+    """
+    source = pattern.pattern
+    if (
+        pattern.flags & re.VERBOSE
+        or "(?#" in source
+        or re.search(r"\(\?[aiLmsu-]*x", source)
+        or re.search(r"\[\^?\]", source)
+    ):
+        return ""
+    depth = 0
+    in_class = escaped = False
+    for char in source:
+        if escaped:
+            escaped = False
+        elif char == "\\":
+            escaped = True
+        elif in_class:
+            in_class = char != "]"
+        elif char == "[":
+            in_class = True
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif char == "|" and depth == 0:
+            return ""
+    source = re.sub(r"^\(\?[aiLmsux]+\)", "", source)
+    source = source.removeprefix(r"\b").removeprefix("^")
+    literal = []
+    index = 0
+    while index < len(source):
+        char = source[index]
+        if char in "*?{":
+            if literal:
+                literal.pop()
+            break
+        if char in ".+[]()^$|":
+            break
+        if char == "\\":
+            index += 1
+            if index == len(source) or source[index] not in r".\-_/(){}[]+*?^$|":
+                break
+            char = source[index]
+        literal.append(char)
+        index += 1
+    return "".join(literal)
+
+
 def scan_repo(repo_root: Path) -> list[str]:
     """Return ``path:line: text`` strings where an obsoleted term matched.
 
@@ -125,26 +208,56 @@ def scan_repo(repo_root: Path) -> list[str]:
     slash-to-dot translation. The reported text is always the original line.
     """
     hits: list[str] = []
-    compiled = [(pat, re.compile(pat)) for pat in OBSOLETED_TERM_PATTERNS]
-    for f in _iter_scan_paths(repo_root):
-        try:
-            text = f.read_text(encoding="utf-8", errors="replace")
-        except OSError:
+    compiled = []
+    for source in OBSOLETED_TERM_PATTERNS:
+        pattern = re.compile(source)
+        prefix = _required_literal_prefix(pattern)
+        required = re.compile(re.escape(prefix), pattern.flags) if prefix else None
+        compiled.append(
+            (
+                source,
+                pattern,
+                required,
+                needs_slash_normalization(source),
+                OBSOLETED_TERM_LABELS.get(source, source),
+                _PER_PATTERN_PATH_ALLOWLIST.get(source, ()),
+            )
+        )
+    resolved_root = repo_root.resolve()
+    resolved_parents = {}
+    for f, text in _read_scan_files(repo_root):
+        if text is None:
             continue
         lines = text.splitlines()
         try:
-            rel = f.resolve().relative_to(repo_root.resolve())
+            parent = resolved_parents.get(f.parent)
+            if parent is None:
+                parent = resolved_parents[f.parent] = f.parent.resolve()
+            canonical = f.resolve() if f.is_symlink() else parent / f.name
+            rel = canonical.relative_to(resolved_root)
         except ValueError:
             rel = f
         rel_str = str(rel)
         if _path_in_allowlist(rel_str, PATH_ALLOWLIST_ALL_PATTERNS):
             continue
-        for pattern_src, compiled_pattern in compiled:
-            allow = _PER_PATTERN_PATH_ALLOWLIST.get(pattern_src, ())
+        normalized_text = None
+        for (
+            pattern_src,
+            compiled_pattern,
+            required,
+            normalize,
+            label,
+            allow,
+        ) in compiled:
             if _path_in_allowlist(rel_str, allow):
                 continue
-            normalize = needs_slash_normalization(pattern_src)
-            label = OBSOLETED_TERM_LABELS.get(pattern_src, pattern_src)
+            if required is not None and not required.search(text):
+                if not normalize:
+                    continue
+                if normalized_text is None:
+                    normalized_text = text.replace("/", ".")
+                if not required.search(normalized_text):
+                    continue
             for i, line in enumerate(lines, start=1):
                 if compiled_pattern.search(line):
                     hits.append(f"{rel}:{i}: [{label}] {line.rstrip()[:160]}")
@@ -184,11 +297,12 @@ def hc_obsoleted_terms(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             "",
         )
 
+
 # Slug and display name are the ones this check has always reported under.
 from yoke_project_checks._declare import (  # noqa: E402
     self_project_checks,
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('obsoleted-terms', 'Obsoleted terms in live files', hc_obsoleted_terms),
+    ("obsoleted-terms", "Obsoleted terms in live files", hc_obsoleted_terms),
 )
