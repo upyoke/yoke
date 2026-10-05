@@ -12,7 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_harness.ssh_linux_baseline import _ARCHIVE_PROGRAM, archive_operation
-from yoke_harness.ssh_linux_reset_preconditions import DESKTOP_PROGRAM, reset_preflight
+from yoke_harness.ssh_linux_reset_preconditions import reset_preflight
 
 
 def probes(program="claude"):
@@ -177,81 +177,6 @@ def test_live_credential_survives_success_and_midway_failure(
     assert stashes and all(not path.exists() for path in stashes)
 
 
-@pytest.mark.parametrize("desktop", ["mounted", "xfce", "graphical"])
-def test_desktop_refusal_leaves_home_bytes_and_running_process_untouched(
-    archive_home, tmp_path, monkeypatch, capsys, desktop
-):
-    home, golden, credential = archive_home
-    sentinel = home / "sentinel"
-    sentinel.write_bytes(b"untouched")
-    child = subprocess.Popen(
-        [sys.executable, "-c", "import time; time.sleep(30)", str(home)]
-    )
-    signals = []
-    proc = tmp_path / "proc"
-    (proc / "self").mkdir(parents=True)
-    (proc / "self/mountinfo").write_text("")
-    if desktop == "xfce":
-        (proc / "42").mkdir()
-        (proc / "42/comm").write_text("xfce4-session\n")
-    # Python 3.11 Path.__new__ consults the module global being patched below.
-    # The concrete platform class constructs paths without that global dispatch.
-    real_path = type(tmp_path)
-
-    def path(value):
-        if str(value) == "/proc":
-            return proc
-        if str(value) == "/run/systemd/system" and desktop == "graphical":
-            return proc
-        return real_path(value)
-
-    real_run = subprocess.run
-
-    def run(argv, **kwargs):
-        if argv[0] == "loginctl":
-            output = (
-                f"c1 {os.getuid()} tester seat0 tty1\n"
-                if "list-sessions" in argv
-                else "Type=wayland\nActive=yes\n"
-            )
-            return subprocess.CompletedProcess(argv, 0, output, "")
-        return real_run(argv, **kwargs)
-
-    try:
-        with monkeypatch.context() as patch:
-            patch.setattr(
-                shutil,
-                "which",
-                lambda _: "loginctl" if desktop == "graphical" else None,
-            )
-            patch.setattr(subprocess, "run", run)
-            patch.setattr(os.path, "ismount", lambda _: desktop == "mounted")
-            patch.setattr(os, "kill", lambda *a: signals.append(a))
-            patch.setattr(sys.modules["pathlib"], "Path", path)
-            with pytest.raises(SystemExit) as stopped:
-                execute_reset(
-                    patch,
-                    home,
-                    golden,
-                    program=_ARCHIVE_PROGRAM.replace(
-                        "            # STOP_YOKE_WRITERS",
-                        "            os.kill(123, 15)",
-                    ),
-                )
-            assert stopped.value.code == 64
-        receipt = json.loads(capsys.readouterr().out)
-        assert receipt["reason"] == "linux_reset_desktop_logged_in"
-        assert (
-            receipt["recovery"] == "operator is logged in to the desktop; log out first"
-        )
-        assert credential.read_bytes() == b"opaque-live-new-after-refresh"
-        assert sentinel.read_bytes() == b"untouched"
-        assert not signals and child.poll() is None
-    finally:
-        child.terminate()
-        child.wait()
-
-
 def test_dead_login_admission_does_not_clear_home_or_stop_processes(
     archive_home, monkeypatch
 ):
@@ -275,14 +200,46 @@ def test_dead_login_admission_does_not_clear_home_or_stop_processes(
     signals = []
     monkeypatch.setattr(os, "kill", lambda *a: signals.append(a))
     result = archive_operation(host, "reset", str(golden))
-    assert not result.ok and len(commands) == 1
-    assert DESKTOP_PROGRAM in commands[0] and "archive.extractall" not in commands[0]
+    assert not result.ok and commands == []
     assert not signals
     assert before == {
         str(path.relative_to(home)): path.read_bytes()
         for path in home.rglob("*")
         if path.is_file()
     }
+
+
+@pytest.mark.parametrize("stop_fails", [False, True])
+def test_reset_ends_open_desktop_before_clearing_home(
+    archive_home, monkeypatch, capsys, stop_fails
+):
+    from yoke_harness.ssh_linux_reset_preconditions import DESKTOP_PROGRAM
+
+    home, golden, credential = archive_home
+    sentinel = home / "sentinel"
+    sentinel.write_text("live")
+    replacement = """
+import subprocess
+def stop_desktop():
+    assert (home / "sentinel").read_text() == "live"
+    (home.parent / "desktop-stopped").write_text("proved")
+"""
+    if stop_fails:
+        replacement += '    raise RuntimeError("termination unavailable")\n'
+    program = _ARCHIVE_PROGRAM.replace(DESKTOP_PROGRAM, replacement)
+    if stop_fails:
+        with pytest.raises(SystemExit):
+            execute_reset(monkeypatch, home, golden, program=program)
+        receipt = json.loads(capsys.readouterr().out)
+        assert receipt["reason"] == "linux_desktop_stop_not_proved"
+        assert "termination unavailable" in receipt["recovery"]
+        assert sentinel.read_text() == "live"
+    else:
+        execute_reset(monkeypatch, home, golden, program=program)
+        assert json.loads(capsys.readouterr().out)["ok"]
+        assert not sentinel.exists()
+    assert (home.parent / "desktop-stopped").read_text() == "proved"
+    assert credential.read_bytes() == b"opaque-live-new-after-refresh"
 
 
 @pytest.mark.parametrize("unsafe", ["symlink", "permissions"])

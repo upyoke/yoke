@@ -146,7 +146,8 @@ def handle_agent_mission_ready(request: FunctionCallRequest) -> HandlerOutcome:
                 run_id=run_id,
                 requirement_id=int(case["requirement_id"]),
                 qa_kind=str(case["qa_kind"]),
-                verdict=None,
+                verdict=result["verdict"],
+                verdict_reason=result.get("error"),
             )
     except (MachineQaProtocolError, TestMachineCapabilityError, ValueError) as exc:
         conn.rollback()

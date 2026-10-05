@@ -7,6 +7,11 @@ import edge from everyday lane edits. Packet budgets are the sharpest case: a
 packet is rendered from live ``--help`` probes and live schema, so editing one
 command's usage string can push a role over its line budget from a module the
 budget test never imports.
+The selector wrapper member proves bounded selection's admission and telemetry
+without inheriting machine configuration from a CI checkout. That wrapper is
+the entrypoint every lane relies on, including lanes whose changed modules
+have no import edge to it.
+
 The token-scope member is the same shape read from the other end: it walks
 every source module looking for a call that resolves an installation token
 without declaring the permissions it needs, so the file that breaks it is
@@ -25,6 +30,7 @@ CI_ONLY_CONTRACT_FLOOR_TESTS = (
     "runtime/api/domain/test_lint_item_ref_construction.py",
     "runtime/api/domain/test_schema_api_context_packet_budget.py",
     "runtime/api/tools/test_atlas_integrity_contract.py",
+    "runtime/api/tools/test_impacted_tests_bounded.py",
 )
 
 __all__ = ["CI_ONLY_CONTRACT_FLOOR_TESTS"]

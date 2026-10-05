@@ -33,7 +33,6 @@ from yoke_harness.ssh_machine_screenshot import capture_desktop
             "The domain/default pair of (com.apple.screensaver, idleTime) does not exist",
             SCREEN_SAVER_DEFAULT_IDLE_SECONDS,
         ),
-        (1, "", "sudo: a password is required", None),
         (1, "", "defaults: permission denied", None),
         (0, "-1", "", None),
         (0, "invalid", "", None),
@@ -43,11 +42,6 @@ from yoke_harness.ssh_machine_screenshot import capture_desktop
 def test_console_user_idle_preference(code, stdout, stderr, expected):
     def run(command, **kwargs):
         assert shlex.split(command) == [
-            "/usr/bin/sudo",
-            "-n",
-            "-H",
-            "-u",
-            "console user's name",
             "/usr/bin/defaults",
             "-currentHost",
             "read",

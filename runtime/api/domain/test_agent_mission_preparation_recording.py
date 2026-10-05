@@ -22,6 +22,12 @@ from yoke_core.domain.qa_plan_review import begin_plan_review
 def test_failed_preparation_persists_qa_error_and_successful_baseline_receipt(
     test_db, tmp_path, monkeypatch
 ):
+    from yoke_core.domain import qa_events
+
+    emitted = []
+    monkeypatch.setattr(
+        qa_events, "emit_qa_run_event", lambda *a, **kw: emitted.append(kw)
+    )
     item_id = 4821
     configure_test_machine(test_db, tmp_path, monkeypatch)
     requirement_id = _materialize_mission(test_db, item_id=item_id)
@@ -86,6 +92,9 @@ def test_failed_preparation_persists_qa_error_and_successful_baseline_receipt(
     assert ready.primary_success, ready.error
     result = ready.result_payload["result"]
     assert result["verdict"] == "error"
+    assert emitted[-1]["event_name"] == "QARunCaptured"
+    assert emitted[-1]["verdict"] == "error"
+    assert emitted[-1]["verdict_reason"] == result["error"]
     assert result["case_outcome"] == "blocked_on_precondition"
     assert result["preparation"] == preparation
     row = test_db.execute(

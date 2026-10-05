@@ -17,22 +17,28 @@ DESKTOP_READY_TIMEOUT_SECONDS = 15
 DESKTOP_POLL_INTERVAL_SECONDS = 0.2
 
 
-def desktop_sessions():
+def desktop_sessions(*, active_only=True):
+    active = {row["id"] for row in graphical_sessions()} if active_only else None
     sessions = []
-    for process in Path("/proc").iterdir():
+    proc = Path("/proc")
+    if not proc.exists():
+        return sessions
+    for process in proc.iterdir():
         if not process.name.isdigit():
             continue
         try:
             if (process / "comm").read_text().strip() != "xfce4-session":
                 continue
             if process.stat().st_uid != os.getuid():
-                raise RuntimeError("linux_desktop_other_user: " + RECOVERY)
+                continue
             environment = dict(
                 field.split("=", 1)
                 for field in (process / "environ").read_bytes().decode().split("\0")
                 if "=" in field
             )
-            if environment.get("DISPLAY"):
+            if environment.get("DISPLAY") and (
+                active is None or environment.get("XDG_SESSION_ID") in active
+            ):
                 sessions.append(
                     {
                         "pid": int(process.name),
@@ -85,6 +91,8 @@ def graphical_sessions():
                 "User",
                 "-p",
                 "State",
+                "-p",
+                "Class",
             ],
             capture_output=True,
             text=True,
@@ -97,7 +105,12 @@ def graphical_sessions():
         properties = dict(
             line.split("=", 1) for line in result.stdout.splitlines() if "=" in line
         )
-        if properties.get("Type") in {"x11", "wayland"}:
+        if (
+            properties.get("Type") in {"x11", "wayland"}
+            and properties.get("State") == "active"
+            and properties.get("Class") == "user"
+            and properties.get("User") == str(os.getuid())
+        ):
             sessions.append({"id": fields[0], **properties})
     return sessions
 
@@ -166,15 +179,9 @@ def human_desktop_exists(home, owned=None):
             target = line.split()[4].replace("\\040", " ").replace("\\134", "\\")
             if target == redirected or target.startswith(redirected + "/"):
                 return True
-        for directory in proc.iterdir():
-            if not directory.name.isdigit():
-                continue
-            try:
-                if (directory / "comm").read_text().strip() == "xfce4-session":
-                    if owned is None or int(directory.name) != owned["pid"]:
-                        return True
-            except (FileNotFoundError, ProcessLookupError):
-                pass
+    for session in desktop_sessions():
+        if owned is None or session["pid"] != owned["pid"]:
+            return True
     for session in graphical_sessions():
         if owned is None or session["id"] != owned["session_id"]:
             return True
@@ -253,28 +260,30 @@ def ensure_desktop(password, port=RDP_PORT):
             time.sleep(DESKTOP_POLL_INTERVAL_SECONDS)
 
 
-def stop_owned_desktop():
-    session = owned_desktop()
-    if session is None:
-        return
-    if human_desktop_exists(Path.home(), session):
-        raise RuntimeError(
-            "linux_reset_desktop_logged_in: disconnect the human RDP client before resetting"
+def stop_desktop():
+    """End the registered user's desktop before restoring its home."""
+    sessions = desktop_sessions(active_only=False)
+    for session in sessions:
+        if session not in desktop_sessions(active_only=False):
+            continue
+        try:
+            os.kill(session["pid"], signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    for row in graphical_sessions():
+        result = subprocess.run(
+            ["loginctl", "terminate-session", row["id"]],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
-    if not any(
-        row["pid"] == session["pid"] and row["start"] == session["start"]
-        for row in desktop_sessions()
-    ):
-        return
-    os.kill(session["pid"], signal.SIGTERM)
+        if result.returncode:
+            raise RuntimeError("linux_desktop_stop_failed: " + result.stderr + RECOVERY)
     deadline = time.monotonic() + DESKTOP_READY_TIMEOUT_SECONDS
-    while any(
-        row["pid"] == session["pid"] and row["start"] == session["start"]
-        for row in desktop_sessions()
-    ) or any(row["id"] == session["session_id"] for row in graphical_sessions()):
+    while desktop_sessions(active_only=False) or graphical_sessions():
         if time.monotonic() >= deadline:
             raise RuntimeError(
-                "linux_desktop_stop_not_proved: log out the Yoke-started desktop, then retry reset"
+                "linux_desktop_stop_not_proved: repair desktop termination, then retry reset"
             )
         time.sleep(DESKTOP_POLL_INTERVAL_SECONDS)
     with ownership_file() as stream:

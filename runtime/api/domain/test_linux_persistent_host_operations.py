@@ -157,7 +157,16 @@ def test_capture_probes_must_pass_before_archive_or_writes():
     assert not calls
 
 
-def test_archive_operation_records_malformed_transport_receipt_as_named_failure():
+def test_archive_operation_records_malformed_transport_receipt_as_named_failure(
+    monkeypatch,
+):
+    from yoke_harness import ssh_linux_baseline
+
+    monkeypatch.setattr(
+        ssh_linux_baseline,
+        "reset_preflight",
+        lambda *a: HostActionResult(True, {"preserve_claude": False}),
+    )
     control = SimpleNamespace(
         home="/home/tester",
         _run=lambda *a, **kw: subprocess.CompletedProcess(a, 1, "unexpected", ""),

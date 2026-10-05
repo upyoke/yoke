@@ -135,7 +135,6 @@ if operation == "capture":
     finally:
         if temporary.exists(): shutil.rmtree(temporary)
 else:
-    desktop_precondition()
     if not baseline.is_dir(): refuse("golden_baseline_unavailable")
     manifest = json.loads((baseline / "manifest.json").read_text())
     digest = file_sha256(baseline / "home.tar.gz")
@@ -148,9 +147,8 @@ else:
         terminal_selection = [line for line in terminal_preference_lines() if selects_terminal(line)]
         stash = stash_claude() if preserve_claude else None
         try:
-            desktop_precondition()
             try:
-                stop_owned_desktop()
+                stop_desktop()
             except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
                 refuse("linux_desktop_stop_not_proved", recovery=str(exc))
             # STOP_YOKE_WRITERS
@@ -328,6 +326,10 @@ def capture_linux_golden(
             },
             "golden_probes_write_failed",
         )
+    if getattr(control, "os", "linux") == "linux":
+        from yoke_harness.ssh_linux_baseline_desktop import prove_capture_roundtrip
+
+        return prove_capture_roundtrip(control, destination, probes_document, captured)
     return HostActionResult(
         True, {**captured.evidence, "user_equivalence": proven.evidence}
     )

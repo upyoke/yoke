@@ -212,6 +212,10 @@ def test_success_seals_exactly_the_proven_default_document(monkeypatch, os_name)
         upload_remote_text=lambda path, content: sealed.update(
             path=path, content=content
         ),
+        capture_screenshot=lambda: HostActionResult(
+            True, {"width": 1280, "height": 720}
+        ),
+        _run=lambda *a, **kw: SimpleNamespace(returncode=0, stdout='{"ok": true}'),
     )
 
     def mac_archive(**kwargs):
@@ -229,9 +233,12 @@ def test_success_seals_exactly_the_proven_default_document(monkeypatch, os_name)
     )
     assert result.ok
     assert json.loads(sealed["content"])["probes"] == standard_probes(os_name)
-    assert len(result.evidence["user_equivalence"]["probes"]) == len(
-        standard_probes(os_name)
+    proof = (
+        result.evidence["roundtrip_checks"][1]
+        if os_name == "linux"
+        else result.evidence["user_equivalence"]
     )
+    assert len(proof["probes"]) == len(standard_probes(os_name))
 
 
 @pytest.mark.parametrize("survives_reset", [True, False])
@@ -241,8 +248,6 @@ def test_linux_input_probe_is_replayed_after_the_captured_home_is_reset(
     import pathlib
     import shutil
     from yoke_harness import ssh_linux_baseline
-    from yoke_harness.ssh_host_baselines import SshHostBaselines
-    from yoke_harness.ssh_linux_host_operations import SshLinuxHostOperations
     from yoke_harness.test_machine_types import HostActionResult
 
     state = {"input_present": True, "document": None, "reset": False}
@@ -255,26 +260,32 @@ def test_linux_input_probe_is_replayed_after_the_captured_home_is_reset(
             "/usr/bin/xdotool" if name == "xdotool" and state["input_present"] else None
         ),
     )
-    monkeypatch.setattr(
-        ssh_linux_baseline, "archive_operation", lambda *a: HostActionResult(True, {})
-    )
+
+    def archive(control, operation, destination):
+        if operation == "reset":
+            state.update(reset=True, input_present=survives_reset)
+        return HostActionResult(True, {})
+
+    monkeypatch.setattr(ssh_linux_baseline, "archive_operation", archive)
     program = next(
         p["argv"][2]
         for p in standard_probes("linux")
         if p["name"] == "Linux desktop input available"
     )
 
-    class Control(SshHostBaselines):
+    class Control:
         os = "linux"
         golden_baseline_path = "/srv/golden"
+
+        def capture_screenshot(self):
+            return HostActionResult(True, {"width": 1280, "height": 720})
+
+        def _run(self, *args, **kwargs):
+            return SimpleNamespace(returncode=0, stdout='{"ok": true}')
 
         def upload_remote_text(self, path, content):
             assert path == self.golden_baseline_path + ".probes"
             state["document"] = content
-
-        def read_remote_text(self, path):
-            assert path == self.golden_baseline_path + ".probes"
-            return state["document"]
 
         def run_command(self, argv, **kwargs):
             code = 0
@@ -285,22 +296,12 @@ def test_linux_input_probe_is_replayed_after_the_captured_home_is_reset(
                 code = exit_info.value.code
             return SimpleNamespace(returncode=code, stdout="", stderr="")
 
-        def reset_installer_test_host(self):
-            state.update(reset=True, input_present=survives_reset)
-            return HostActionResult(True, {"home_restored": True})
-
-        def prove_user_equivalent(self):
-            return SshLinuxHostOperations.prove_user_equivalent(self)
-
     control = Control()
     captured = capture_linux_golden(control, control.golden_baseline_path, None)
-    assert captured.ok
-    restored = control.reach_baseline("fresh-host")
-    assert restored.ok is survives_reset
+    assert captured.ok is survives_reset
     assert input_calls == [False, True]
-    proof = restored.evidence["user_equivalence"]
+    proof = captured.evidence["roundtrip_checks"][1]
     assert proof["probes"][-1]["name"] == "Linux desktop input available"
     if not survives_reset:
-        assert restored.error_code == "baseline_probe_failed"
-        assert "baseline package" in proof["recovery"]
-        assert "reset roundtrip" in proof["recovery"]
+        assert captured.error_code == "linux_golden_restored_probes_failed"
+        assert captured.evidence["step_error_code"] == "baseline_probe_failed"
