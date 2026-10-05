@@ -179,6 +179,22 @@ def _required_literal_prefix(pattern: re.Pattern) -> str:
     return "".join(literal)
 
 
+def _required_candidate(pattern):
+    """A leading literal or a complete choice of literal words is mandatory."""
+    prefix = _required_literal_prefix(pattern)
+    if prefix:
+        return re.compile(re.escape(prefix), pattern.flags)
+    source = re.sub(r"^\(\?[aiLmsux]+\)", "", pattern.pattern)
+    choice = re.fullmatch(r"\\b\(([A-Za-z0-9_|]+)\)\\b", source)
+    if choice:
+        words = choice.group(1).split("|")
+        if all(words):
+            return re.compile(
+                "(?:" + "|".join(map(re.escape, words)) + ")", pattern.flags
+            )
+    return None
+
+
 def scan_repo(repo_root: Path) -> list[str]:
     """Return ``path:line: text`` strings where an obsoleted term matched.
 
@@ -195,8 +211,7 @@ def scan_repo(repo_root: Path) -> list[str]:
     compiled = []
     for source in OBSOLETED_TERM_PATTERNS:
         pattern = re.compile(source)
-        prefix = _required_literal_prefix(pattern)
-        required = re.compile(re.escape(prefix), pattern.flags) if prefix else None
+        required = _required_candidate(pattern)
         compiled.append(
             (
                 source,

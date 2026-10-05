@@ -33,19 +33,17 @@ class TestWorktreeHealth:
     """Tests for hc_worktree_health."""
 
     @patch("yoke_cli.config.credentialed_git.run")
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
+    @patch(
+        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
+    )
     @patch("yoke_core.engines.doctor_report._run")
     def test_clean_done_item_passes(self, mock_run, mock_root, mock_remote):
         """T1: PASS state -- clean done item produces PASS."""
         mock_run.side_effect = [
             # git worktree list --porcelain
-            _completed(stdout=(
-                "worktree /fake/repo\n"
-                "branch refs/heads/main\n"
-                "\n"
-            )),
-            # git rev-parse --verify <branch> (branch does not exist)
-            _completed(returncode=1, stdout=""),
+            _completed(stdout=("worktree /fake/repo\nbranch refs/heads/main\n\n")),
+            _completed(stdout=""),  # deploy-run driver worktree list
+            _completed(stdout="main\n"),  # local branch inventory
         ]
         conn = _make_conn()
         conn.execute(
@@ -57,21 +55,19 @@ class TestWorktreeHealth:
         assert _result(rec).result == "PASS"
 
     @patch("yoke_cli.config.credentialed_git.run")
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
+    @patch(
+        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
+    )
     @patch("yoke_core.engines.doctor_report._run")
     def test_stale_local_branch(self, mock_run, mock_root, mock_remote):
         """T2: Stale local branch for done item."""
         mock_run.side_effect = [
             # git worktree list --porcelain
-            _completed(stdout=(
-                "worktree /fake/repo\n"
-                "branch refs/heads/main\n"
-                "\n"
-            )),
+            _completed(stdout=("worktree /fake/repo\nbranch refs/heads/main\n\n")),
             # git worktree list for the deploy-run driver pass (none here)
             _completed(stdout=""),
-            # git rev-parse --verify <branch> (branch exists)
-            _completed(returncode=0, stdout="abc123\n"),
+            # One local branch inventory includes the stale branch.
+            _completed(stdout="main\nYOK-20\n"),
             _completed(stdout=""),  # git remote
             _completed(stdout=""),  # git worktree list for assessment
         ]
@@ -100,15 +96,18 @@ class TestWorktreeHealth:
     def test_dirty_worktree_warns(self, mock_run, mock_root, mock_remote):
         """T9: Dirty worktree detected via git worktree list."""
         mock_run.side_effect = [
-            _completed(stdout=(
-                "worktree /fake/repo\n"
-                "branch refs/heads/main\n"
-                "\n"
-                "worktree /fake/wt/YOK-9999\n"
-                "branch refs/heads/YOK-9999\n"
-                "\n"
-            )),
+            _completed(
+                stdout=(
+                    "worktree /fake/repo\n"
+                    "branch refs/heads/main\n"
+                    "\n"
+                    "worktree /fake/wt/YOK-9999\n"
+                    "branch refs/heads/YOK-9999\n"
+                    "\n"
+                )
+            ),
             _completed(stdout=" M file.py\n"),  # dirty
+            _completed(stdout="main\nYOK-9999\n"),
         ]
         conn = _make_conn()
         conn.execute(
@@ -124,15 +123,15 @@ class TestWorktreeHealth:
         )
 
     @patch("yoke_cli.config.credentialed_git.run")
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
+    @patch(
+        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
+    )
     @patch("yoke_core.engines.doctor_report._run")
     def test_non_done_items_excluded(self, mock_run, mock_root, mock_remote):
         """T7: Non-done items excluded -- active item with branch not flagged as stale."""
-        mock_run.return_value = _completed(stdout=(
-            "worktree /fake/repo\n"
-            "branch refs/heads/main\n"
-            "\n"
-        ))
+        mock_run.return_value = _completed(
+            stdout=("worktree /fake/repo\nbranch refs/heads/main\n\n")
+        )
         conn = _make_conn()
         conn.execute(
             "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
@@ -147,7 +146,9 @@ class TestStaleRemoteBranches:
     """Tests for hc_stale_remote_branches."""
 
     @patch("yoke_cli.config.credentialed_git.run")
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
+    @patch(
+        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
+    )
     @patch("yoke_core.engines.doctor_report._run")
     def test_no_stale_branches_passes(self, mock_run, mock_root, mock_remote):
         """T1: PASS when no remote branches for done items."""
@@ -162,7 +163,9 @@ class TestStaleRemoteBranches:
         assert _result(rec).result == "PASS"
 
     @patch("yoke_cli.config.credentialed_git.run")
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
+    @patch(
+        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
+    )
     @patch("yoke_core.engines.doctor_report._run")
     def test_stale_branch_warns(self, mock_run, mock_root, mock_remote):
         """T2: Stale remote branch YOK-N detected for done item."""
@@ -178,13 +181,17 @@ class TestStaleRemoteBranches:
         assert "YOK-20" in _result(rec).detail
 
     @patch("yoke_cli.config.credentialed_git.run")
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
+    @patch(
+        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
+    )
     @patch("yoke_core.engines.doctor_report._run")
     def test_active_item_not_flagged(self, mock_run, mock_root, mock_remote):
         """T3: Active item with remote branch NOT flagged."""
         conn = _make_conn()
         _seed_project(conn, "yoke")
-        _insert_item(conn, 50, "Active item", workflow_id="issue", status="implementing")
+        _insert_item(
+            conn, 50, "Active item", workflow_id="issue", status="implementing"
+        )
         mock_remote.side_effect = [
             _completed(stdout="abc123\trefs/heads/YOK-50\n"),
             _completed(stdout="abc123\trefs/heads/YOK-50\n"),
@@ -194,7 +201,9 @@ class TestStaleRemoteBranches:
         assert "YOK-50" not in detail
 
     @patch("yoke_cli.config.credentialed_git.run")
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
+    @patch(
+        "yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo"
+    )
     @patch("yoke_core.engines.doctor_report._run")
     def test_cancelled_item_flagged(self, mock_run, mock_root, mock_remote):
         """T6: Cancelled item with remote branch IS flagged."""

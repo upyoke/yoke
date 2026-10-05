@@ -150,12 +150,13 @@ def test_http_and_subprocess_timeouts_share_check_deadline(monkeypatch):
 def test_postgres_budget_exhaustion_preserves_protocol_and_next_check(monkeypatch):
     from yoke_core.domain import db_backend
 
-    monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.02)
+    # A real protocol round trip needs room on shared CI workers.
+    monkeypatch.setattr(doctor_budget, "CHECK_BUDGET_S", 0.5)
     rec = RecordCollector()
     args = DoctorArgs()
 
     def blocked(conn, args, rec):
-        conn.execute("SELECT pg_sleep(0.2)")
+        conn.execute("SELECT pg_sleep(2)")
 
     def following(conn, args, rec):
         assert conn.execute("SELECT 1").fetchone()[0] == 1

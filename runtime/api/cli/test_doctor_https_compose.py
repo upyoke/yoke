@@ -92,3 +92,23 @@ def test_merge_replaces_false_na_with_local_verdict() -> None:
     assert by_hc["HC-status-consistency"]["severity"] == "PASS"
     assert recount(merged)["pass_count"] == 2
     assert recount(merged)["na_count"] == 0
+
+
+def test_composition_preserves_each_named_incomplete_and_internal_error():
+    relayed = [
+        {
+            "hc": "HC-check-incomplete",
+            "name": "Hosted audit",
+            "severity": "FAIL",
+            "detail": "deadline",
+        }
+    ]
+    local = [
+        {"hc": hc, "name": name, "severity": "FAIL", "detail": "deadline"}
+        for hc in ("HC-check-incomplete", "HC-internal-error")
+        for name in ("First source check", "Second source check")
+    ]
+    merged = merge_relayed_with_local(relayed, local)
+    assert merged == relayed + local
+    assert recount(merged)["fail_count"] == 5
+    assert merge_relayed_with_local(merged, []) == merged

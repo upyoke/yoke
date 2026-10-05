@@ -156,3 +156,20 @@ def test_complete_candidate_tree_finishes_within_doctor_budget():
         ("HC-obsoleted-terms", "PASS")
     ], rec.results
     assert elapsed < CHECK_BUDGET_S
+
+
+@pytest.mark.parametrize(
+    "pattern,text",
+    [
+        (r"\b(first_word|second_word)\b", "second_word"),
+        (r"(?i)\b(indigo|green)\b", "\u0131ndigo"),
+        (r"\b(first_word|)\b", ""),
+        (r"\b(first_word|second.+)\b", "secondXYZ"),
+    ],
+)
+def test_literal_choices_cannot_discard_a_valid_match(pattern, text):
+    compiled = re.compile(pattern)
+    if text:
+        assert compiled.search(text)
+    candidate = scan._required_candidate(compiled)
+    assert candidate is None or candidate.search(text)

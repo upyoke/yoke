@@ -204,7 +204,6 @@ def run_local_source_checks(
         fix=fix,
         runtime=RUNTIME_LOCAL,
     )
-    # Scope flags for roster filtering when only= is set; still pass through.
     del full
     rec = RecordCollector()
     conn = local_connection_or_none(connect)
@@ -219,9 +218,7 @@ def run_local_source_checks(
                 if hc.slug not in wanted:
                     continue
                 pre = len(rec.results)
-                # Withheld, then emitted below: without a control plane
-                # this check's failure is the runner's, and the rewrite
-                # that says so happens after the call returns.
+                # Emit after converting missing control-plane authority to N/A.
                 with doctor_progress.verdicts_withheld():
                     execute_check_isolated(conn, args, rec, hc)
                     if not owned:
@@ -255,11 +252,21 @@ def merge_relayed_with_local(
     local_results: Sequence[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     """Replace relayed N/A rows with locally executed verdicts."""
-    by_slug = {_hc_key(row.get("hc")): row for row in local_results if row.get("hc")}
-    merged: List[Dict[str, Any]] = []
-    replaced: set[str] = set()
-    for row in relayed_results:
+
+    def identity(row):
         slug = _hc_key(row.get("hc"))
+        # Reserved errors describe individual checks, not one shared slot.
+        return (
+            (slug, row.get("name"))
+            if slug in {"check-incomplete", "internal-error"}
+            else (slug, None)
+        )
+
+    by_slug = {identity(row): row for row in local_results if row.get("hc")}
+    merged: List[Dict[str, Any]] = []
+    replaced = set()
+    for row in relayed_results:
+        slug = identity(row)
         local = by_slug.get(slug)
         if local is not None and str(row.get("severity") or "").upper() == "N/A":
             merged.append(dict(local))
