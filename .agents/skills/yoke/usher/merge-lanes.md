@@ -105,5 +105,4 @@ Covers merge Step 6: the per-branch sequential merge loop. For each branch, reso
  **If merge fails (test failure after rebase):**
  - Pause the merge sequence
  - Report which tests failed and why
- - Create a backlog item: `/yoke idea "Integration fix: {branch} after merge"`
- - Tell the user to dispatch the integration-fix item, then re-run `/yoke merge`
+ - Fix the failed verification in the current item and lane, commit, and resume this internal merge step. Report a live ownership conflict or decision boundary before proceeding.

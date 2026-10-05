@@ -156,11 +156,11 @@ the PASS verdict auto-advances the task to `reviewed-implementation`, so no
 manual status update is needed. The parent item stays at `implementing`;
 individual task completions do not change it.
 
-When all generated tasks are complete, Conduct reports this and the operator
-runs `/yoke merge` to transition the parent item. Conduct does not run
-done-transition or merge engines itself; `/yoke merge {epic-id}` owns PR
-creation, merge-to-main, status update, GitHub issue close, and worktree
-cleanup for this task-graph skill contract.
+When all generated tasks are complete, Conduct reports the live stage and
+the next bound skill from the parent’s pin. It does not run done-transition
+or merge engines itself. The bound delivery skill owns landing through its
+internal generated-task merge procedure, then follows the declared delivery
+stages and terminal gates before closing the parent issue.
 
 This separation ensures dispatch never closes GitHub issues or removes worktrees for unmerged items.
 
@@ -198,7 +198,7 @@ After a PASS verdict on a generated task, find the next dispatchable task in the
  f. **If dependencies are met (or task has none):** This task is dispatchable. **Break out of loop** — go to step 3.
 
 2. **End-of-queue reached (no dispatchable task found):** Check whether all tasks are complete or some are still blocked:
- - If all tasks are `done` or `reviewed-implementation`: the chain is complete. Do NOT run done-transition or merge engines directly. Do NOT update backlog item status. Do NOT close the GitHub issue. Do NOT remove the worktree. Note: "All tasks in this worktree complete. Run `/yoke merge {_epic_id}` to create PRs and merge to main." Mark `[x]`.
+ - If all tasks are `done` or `reviewed-implementation`: the chain is complete. Do NOT run done-transition or merge engines directly. Do NOT update backlog item status. Do NOT close the GitHub issue. Do NOT remove the worktree. Note: "All tasks in this worktree complete. The parent’s bound delivery skill owns PR creation and merging to its registered target." Mark `[x]`.
  - If some tasks are still `blocked` or `planned`: note which tasks remain and what blocks them. Treat the parent item as partially complete for this invocation. Print the list of blocked tasks and their unmet dependencies so the operator knows what to unblock or reorder.
 
 3. **Dispatchable task found:** The task becomes eligible for processing. Each chained task gets fresh context preparation.

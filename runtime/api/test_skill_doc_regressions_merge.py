@@ -4,7 +4,7 @@ from runtime.api.skill_doc_regressions_test_helpers import SKILLS, _read
 
 
 def test_merge_argument_validation_resolves_before_epic_task_reads() -> None:
-    text = _read(SKILLS / "merge" / "argument-validation.md")
+    text = _read(SKILLS / "usher" / "merge-arguments.md")
 
     resolve = text.index('_epic_id=$(yoke items get "$_epic_ref" id')
     task_read = text.index('yoke epic-tasks list --epic "$_epic_id"')
@@ -14,7 +14,7 @@ def test_merge_argument_validation_resolves_before_epic_task_reads() -> None:
 
 
 def test_merge_preflight_reuses_registered_epic_task_rows() -> None:
-    text = _read(SKILLS / "merge" / "preflight.md")
+    text = _read(SKILLS / "usher" / "merge-preflight.md")
 
     assert 'simulation-get --epic "$_epic_id"' in text
     assert 'yoke epic-tasks list --epic "$_epic_id"' in text

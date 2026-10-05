@@ -37,7 +37,7 @@ def test_lifecycle_verification_surfaces_reference_global_policy():
         _read(".agents/skills/yoke/advance/implementing/test-and-record.md"),
         _read(".agents/skills/yoke/conduct/dispatch-context-verify.md"),
         _read(".agents/skills/yoke/polish/verify-and-commit.md"),
-        _read(".agents/skills/yoke/merge/conflict-handling.md"),
+        _read(".agents/skills/yoke/usher/merge-conflicts.md"),
         _read(".agents/skills/yoke/usher/merge.md"),
     ]
 
