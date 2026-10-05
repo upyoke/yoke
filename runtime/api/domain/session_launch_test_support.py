@@ -52,7 +52,8 @@ def launch_connection() -> sqlite3.Connection:
             requested_context_window_tokens INTEGER DEFAULT NULL,
             keepalive_until TEXT,
             keepalive_reason TEXT,
-            ended_at TEXT
+            ended_at TEXT,
+            terminated_at TEXT
         );
         """
         # The recovery facts every session-state reader consults, rendered
@@ -123,7 +124,6 @@ def relay_connection(
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN execution_lane TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_heartbeat TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN offered_at TEXT")
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN terminated_at TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_tool_call_at TEXT")
     conn.execute(
         "ALTER TABLE harness_sessions ADD COLUMN turn_posture TEXT "

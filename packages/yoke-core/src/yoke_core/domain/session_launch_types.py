@@ -129,6 +129,7 @@ class LaunchRequest:
     session_name: str | None = None
     allow_surface_fallback: bool = False
     deadline_seconds: int = DEFAULT_LAUNCH_DEADLINE_SECONDS
+    item: str | None = None
 
 
 @dataclass(frozen=True)
