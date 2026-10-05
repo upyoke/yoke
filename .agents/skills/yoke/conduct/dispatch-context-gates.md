@@ -62,7 +62,7 @@ _synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_task
  _synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id' AND github_issue IS NOT NULL AND github_issue <> ''")
  ```
  If `_chains` is still empty OR `_synced_task_count` is still 0: sync failed. HALT with:
- > Auto-sync failed for PREFIX-{_id}. Run `/yoke resync PREFIX-{_id}` manually.
+ > Auto-sync failed for PREFIX-{_id}. Investigate the sync failure, then retry with `yoke items github-sync PREFIX-{_id}`. Re-run the post-sync verification before proceeding.
 
 6. **Print sync summary** (the retained sync bridge output already includes created/skipped counts). Print `Auto-sync complete for PREFIX-{_id}. Proceeding with dispatch.`
 
