@@ -179,6 +179,7 @@ export function renderItemsView(context, main, scope, chrome = {}) {
         scope,
         projects, state.criteria.sort,
         (column) => { sortFocus = column; loader.setSort(column); },
+        context.navigate,
       ));
       if (!state.loading && sortFocus) {
         body.querySelector?.(`[data-sort-column="${sortFocus}"]`)?.focus?.();

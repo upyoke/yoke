@@ -137,22 +137,61 @@ test("mounted project chips and browser history use the same scoped route", asyn
   assert.ok(byClass(root, "scope-bar").length);
 });
 
-test("hosted workflow tab keeps its base and returns through native history", async (t) => {
+test("hosted workflow picks replace the current entry so Back skips selections", async (t) => {
   const previousFetch = globalThis.fetch;
   globalThis.fetch = () => response(200, {});
   t.after(() => { globalThis.fetch = previousFetch; });
   const document = new FakeDocument(), window = document.defaultView;
-  window.location.href = `${BASE}/workflows/dash`;
+  window.location.href = `${BASE}/items`;
+  createPathNavigation(window, BASE).navigate("/workflows/dash");
+  const entries = new Map([["yoke:item-draft:obsolete", "discard"], ["yoke:item-draft-base:current", "keep"]]);
+  window.sessionStorage = {
+    get length() { return entries.size; }, key: index => [...entries.keys()][index],
+    removeItem: key => entries.delete(key),
+  };
   const root = document.createElement("div");
   const client = workflowsClient([workflowFixture({ id: "dash", name: "Dash" }), workflowFixture({ id: "blitz", name: "Blitz" })]);
   const mounted = mountUniverseApp(root, { client, basePath: BASE });
+  assert.deepEqual([...entries], [["yoke:item-draft-base:current", "keep"]]);
   t.after(() => mounted.unmount());
   await settle();
   byClass(root, "tab-link").find(node => node.textContent === "Blitz").dispatchEvent(new Event("click"));
   assert.equal(window.location.href, `${BASE}/workflows/blitz?selection=all`);
-  assert.deepEqual(window.scrollCalls, [[0, 0]]);
+  assert.equal(byClass(root, "tab-link").find(node => node.getAttribute("aria-selected") === "true").textContent, "Blitz");
+  assert.equal(window.scrollCalls.length, 2);
   window.history.back();
-  assert.equal(window.location.href, `${BASE}/workflows/dash?selection=all`);
-  assert.equal(byClass(root, "tab-link").find(node => node.getAttribute("aria-selected") === "true").textContent, "Dash");
-  assert.deepEqual(window.scrollCalls, [[0, 0]]);
+  assert.equal(window.location.pathname, `${BASE}/items`);
+  window.history.forward();
+  assert.equal(window.location.href, `${BASE}/workflows/blitz?selection=all`);
+  assert.equal(window.scrollCalls.length, 2); // Entering workflows and selecting it.
 });
+
+for (const basePath of ["", BASE]) for (const eventType of ["click", "keydown"]) {
+  test(`row activation uses shared history at ${basePath || "root"} via ${eventType}`, async (t) => {
+    const prior = globalThis.fetch;
+    globalThis.fetch = () => response(200, {});
+    t.after(() => { globalThis.fetch = prior; });
+    for (const view of ["items", "capabilities"]) {
+      const document = new FakeDocument(), window = document.defaultView;
+      window.location.href = `${basePath}/${view}?project=1`;
+      const baseClient = threeProjectClient();
+      const client = { call: (request) => request.function === "projects.capabilities.list"
+        ? Promise.resolve({ status: 200, envelope: { success: true, result: { rows: [{
+          project_id: 1, type: "test-machine", display_label: "Test machine",
+          detail_view: "test-machine", state: "configured_unverified",
+        }] } } }) : baseClient.call(request) };
+      const root = document.createElement("div");
+      const mounted = mountUniverseApp(root, { client, basePath });
+      t.after(() => mounted.unmount());
+      await settle();
+      const row = byClass(root, view === "items" ? "item-roster-row" : "capability-route-row")[0];
+      const event = new Event(eventType, { cancelable: true });
+      if (eventType === "keydown") Object.defineProperty(event, "key", { value: "Enter" });
+      row.dispatchEvent(event);
+      assert.ok(window.location.pathname.startsWith(`${basePath}/${view}/`));
+      assert.equal(window.history.state.yokeDashboard.position, 1);
+      window.history.back();
+      assert.equal(window.location.pathname, `${basePath}/${view}`);
+    }
+  });
+}

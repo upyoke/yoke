@@ -218,7 +218,7 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
       selectedWorkflowId,
       (workflowId) => {
         selectedWorkflowId = workflowId;
-        context.navigate(buildUniverseRoute("workflows", null, selectedWorkflowId));
+        context.navigate(buildUniverseRoute("workflows", null, selectedWorkflowId), { replace: true });
       },
     );
     renderSelectedWorkflow(

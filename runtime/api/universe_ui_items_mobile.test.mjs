@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { itemTable } from "../../packages/yoke-core/src/yoke_core/ui/static/item_roster_table.js";
+import { createPathNavigation } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_path_navigation.js";
 import { FakeDocument, allNodes, byClass } from "./universe_ui_dom_test_support.mjs";
 
 const fixture = {
@@ -15,7 +16,7 @@ for (const scope of [["1"], ["1", "2"]]) {
   test(`narrow item cards keep correct value labels for ${scope.length} projects`, () => {
     const document = new FakeDocument();
     const root = itemTable(document, [fixture], () => "/items/example", scope,
-      [{ id: 1, slug: "demo" }], { column: "updated_at", direction: "desc" }, () => {});
+      [{ id: 1, slug: "demo" }], { column: "updated_at", direction: "desc" }, () => {}, () => {});
     assert.equal(byClass(root, "table-stacks-narrow").length, 1);
     const row = byClass(root, "item-roster-row")[0];
     const cells = Object.fromEntries(row.children.map((cell) => [cell.getAttribute("data-label"), cell]));
@@ -33,7 +34,8 @@ for (const scope of [["1"], ["1", "2"]]) {
 test("card headers preserve all existing sort actions and row navigation", () => {
   const document = new FakeDocument(), sorted = [];
   const root = itemTable(document, [fixture], () => "/items/example", ["1"], [],
-    { column: "updated_at", direction: "desc" }, (key) => sorted.push(key));
+    { column: "updated_at", direction: "desc" }, (key) => sorted.push(key),
+    createPathNavigation(document.defaultView).navigate);
   const header = byClass(root, "item-roster-sort")[0];
   assert.equal(byClass(header, "item-sort-button").length, 7);
   for (const button of byClass(header, "item-sort-button")) button.dispatchEvent(new Event("click"));

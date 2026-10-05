@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createPathNavigation } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_path_navigation.js";
 
 import {
   renderItemsView,
@@ -277,7 +278,7 @@ test("Items keeps the filter control mounted while its rows update", async () =>
 test("Items rows retain native links and open from the row surface", async () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");
-  renderItemsView(itemContext(documentNode, async () => ({
+  const context = itemContext(documentNode, async () => ({
     status: 200,
     envelope: {
       success: true,
@@ -289,7 +290,9 @@ test("Items rows retain native links and open from the row surface", async () =>
         }],
       },
     },
-  })), root, "all");
+  }));
+  context.navigate = createPathNavigation(documentNode.defaultView).navigate;
+  renderItemsView(context, root, "all");
   await settle();
 
   const row = byClass(root, "item-roster-row")[0];

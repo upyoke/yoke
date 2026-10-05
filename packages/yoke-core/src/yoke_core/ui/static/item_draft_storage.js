@@ -1,6 +1,21 @@
 import { callFunction } from "./universe_view_support.js";
 
 let nextDraftRevision = 0;
+const OBSOLETE_DRAFT_PREFIX = "yoke:item-draft:";
+const DRAFT_PREFIX = "yoke:item-draft-base:";
+
+// Purge the retired namespace on dashboard load, for every actor and mount.
+// Current drafts use a distinct namespace; obsolete drafts are never migrated.
+export function purgeObsoleteItemDrafts(windowNode) {
+  try {
+    const storage = windowNode?.sessionStorage;
+    if (!storage) return;
+    for (let index = storage.length - 1; index >= 0; index--) {
+      const key = storage.key(index);
+      if (key?.startsWith(OBSOLETE_DRAFT_PREFIX)) storage.removeItem(key);
+    }
+  } catch { /* Storage denial must not prevent the dashboard from loading. */ }
+}
 
 // A tab-local draft belongs to the signed-in actor and the mounted universe.
 // Storage may be unavailable in embedded/private browsers; the form still works.
@@ -19,7 +34,7 @@ export async function itemDraftStorage(context) {
     if (profile.status !== 200 || !profile.envelope.success || actor == null) return null;
     const universe = organization.envelope?.result?.slug;
     if (organization.status !== 200 || !organization.envelope.success || !universe) return null;
-    const key = `yoke:item-draft:${JSON.stringify([location.origin, context.basePath || "", universe, actor])}`;
+    const key = `${DRAFT_PREFIX}${JSON.stringify([location.origin, context.basePath || "", universe, actor])}`;
     return {
       read(projects, initialProjectId) {
         try {
