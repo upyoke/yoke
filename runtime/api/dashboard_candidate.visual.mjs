@@ -35,6 +35,11 @@ try {
       const data = await page.locator(ready).evaluateAll((nodes) => nodes.map((n) => {
         const value = { text: n.textContent.trim(), width: n.getBoundingClientRect().width,
           grow: getComputedStyle(n).flexGrow };
+        // Harness initials occupy a square icon frame; text pills size to copy.
+        if (n.classList.contains("session-harness")) {
+          value.naturalWidth = n.getBoundingClientRect().height;
+          return value;
+        }
         const clone = n.cloneNode(true);
         Object.assign(clone.style, { position: "absolute", width: "max-content", maxWidth: "none" });
         n.parentElement.append(clone);
