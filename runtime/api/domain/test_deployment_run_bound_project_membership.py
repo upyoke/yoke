@@ -180,8 +180,8 @@ def test_a_bound_projects_single_commit_landing_attributes_by_its_receipt(
     and records that same sha as both the work and the landing. Nothing in
     the range then names the item — no merge commit, and a message that
     attributes nothing — so the merge receipt is the only evidence, and a
-    release that could not read it would refuse the item's own landing as an
-    unattributed carried commit.
+    release that could not read it would list the landing as a commit made
+    outside Yoke instead of crediting its item.
     """
     release = two_project_release(
         test_db, tmp_path, monkeypatch, consumer_receipt=False

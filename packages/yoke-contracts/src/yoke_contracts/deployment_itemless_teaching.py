@@ -95,7 +95,7 @@ CREATE_DESCRIPTION = (
     "Create a deployment run from a flow and candidate. Creation pins bound "
     "source commits and provisionally composes membership from the candidate. "
     "It reports all detectable blockers, including selected member flow "
-    "mismatches and unattributed commits, before committing a run ID. An "
+    "mismatches, before committing a run ID. Commits made outside Yoke are carried without blocking release. An "
     "item a live or succeeded release already holds is not composed and not "
     "judged: it is reported as skipped, naming the run that holds it, "
     "because that run owes its delivery. "

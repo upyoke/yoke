@@ -60,6 +60,7 @@ def test_a_well_formed_entry_reads_into_one_graph_node():
             "commit": {
                 "message": "Land it",
                 "committer": {"date": "2026-09-15T00:00:00Z"},
+                "author": {"name": "A contributor"},
             },
             "parents": [{"sha": BASE}],
         }
@@ -69,6 +70,7 @@ def test_a_well_formed_entry_reads_into_one_graph_node():
         TIP: {
             "message": "Land it",
             "committed_at": "2026-09-15T00:00:00Z",
+            "author": "A contributor",
             "parents": (BASE,),
         }
     }

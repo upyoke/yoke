@@ -2,6 +2,7 @@
 // sessions (rendered by the Sessions module), and deployment runs.
 
 import { appendRemovedMembers, carriedRunItems } from "./universe_run_removed_members.js";
+import { appendOutsideCommits, outsideCommitCount } from "./universe_outside_commits.js";
 import { appendCarriedItemHeading } from "./universe_carried_item_titles.js";
 import {
   buildUniverseRoute,
@@ -158,6 +159,7 @@ export function appendCarried(context, host, row, options = {}) {
   // drawing the release's gates beside them does not draw one of them twice.
   const drawnRequests = new Set();
   if (!items.length) {
+    appendOutsideCommits(documentNode, host, row);
     return { requestIds: drawnRequests };
   }
   const batch = el(documentNode, "div", "release-batch");
@@ -204,6 +206,7 @@ export function appendCarried(context, host, row, options = {}) {
     });
   }
   host.appendChild(batch);
+  appendOutsideCommits(documentNode, host, row);
   return { requestIds: drawnRequests };
 }
 
@@ -284,7 +287,8 @@ export function shippingRunCard(context, row, scope, options = {}) {
   card.appendChild(el(documentNode, "span", "shipping-run-card-meta", [
     items.length
       ? `${items.length} ${items.length === 1 ? "item" : "items"}`
-      : (row.removed_member_items || []).length ? "0 items" : "environment run",
+      : outsideCommitCount(row) || (row.removed_member_items || []).length
+        ? "0 items" : "environment run",
     row.release_lineage ? `release ${String(row.release_lineage).slice(0, 12)}` : null,
     timing ? relativeAgePhrase(timing) : null,
   ].filter(Boolean).join(" · ")));
@@ -295,7 +299,7 @@ export function shippingRunCard(context, row, scope, options = {}) {
   });
   appendRemovedMembers(context, card, row, runProjectId(context, row, scope));
   const derivation = row.carried_work?.derivation;
-  if (derivation && !items.length) {
+  if (derivation && !items.length && !outsideCommitCount(row)) {
     card.appendChild(el(
       documentNode,
       "div",

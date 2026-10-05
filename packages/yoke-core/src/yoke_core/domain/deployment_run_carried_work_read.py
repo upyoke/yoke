@@ -78,6 +78,9 @@ def compact_carried_work(payload: Mapping[str, Any]) -> dict[str, Any]:
             for item in payload.get("items") or []
             if isinstance(item, dict)
         ],
+        "commits": list(payload.get("commits") or []),
+        "commit_subjects": dict(payload.get("commit_subjects") or {}),
+        "commit_authors": dict(payload.get("commit_authors") or {}),
         "bound_projects": [
             compact_carried_work(project)
             for project in payload.get("bound_projects") or []

@@ -37,9 +37,6 @@ from yoke_core.domain.deployment_run_membership_removals import (
 from yoke_core.domain.deployment_run_dependency_readiness import (
     unshipped_dependency_pairs,
 )
-from yoke_core.domain.deployment_run_unattributed_commits import (
-    unattributed_commits_refusal,
-)
 from yoke_core.domain.deployment_run_unheld_candidates import (
     CustodyResolution,
     held_candidate_ids,
@@ -97,9 +94,6 @@ def carried_membership_refusal(
                     f"{project} carried-code membership is {reason}. "
                     + (recovery or "Repair source access, then revalidate composition.")
                 )
-                continue
-            if refusal := unattributed_commits_refusal(run_id, project_set):
-                problems.append(refusal)
         if problems:
             return f"deployment run {run_id!r} carried-work blockers:\n" + "\n".join(
                 problems

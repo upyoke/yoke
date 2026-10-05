@@ -16,7 +16,13 @@ WORKFLOW = ROOT / ".github" / "workflows" / "platform-release-bridge.yml"
 
 def _platform_workflow() -> Path:
     projects_root = ROOT.parents[2] if ROOT.parent.name == ".worktrees" else ROOT.parent
-    return projects_root / "platform" / ".github" / "workflows" / "yoke-release-promote.yml"
+    return (
+        projects_root
+        / "platform"
+        / ".github"
+        / "workflows"
+        / "yoke-release-promote.yml"
+    )
 
 
 def _text() -> str:
@@ -76,9 +82,11 @@ def test_bridge_creates_or_recovers_one_annotated_release_tag() -> None:
 
 
 def test_bridge_restarts_one_already_failed_factory_attempt() -> None:
-    await_step = _text().split(
-        "- name: Await the wheel and server-image release factories", 1
-    )[1].split("      - name: ", 1)[0]
+    await_step = (
+        _text()
+        .split("- name: Await the wheel and server-image release factories", 1)[1]
+        .split("      - name: ", 1)[0]
+    )
 
     assert "GH_TOKEN: ${{ github.token }}" in await_step
     assert 'gh run rerun "$run_id"' in await_step
@@ -115,15 +123,19 @@ def test_bridge_forwards_environment_release_mode_and_annotated_tag() -> None:
 
 
 def test_bridge_carries_the_registered_environment_name_not_a_promotion_label() -> None:
-    declared = _text().split("      target_environment:", 1)[1].split(
-        "      release_mode:", 1
-    )[0]
+    declared = (
+        _text()
+        .split("      target_environment:", 1)[1]
+        .split("      release_mode:", 1)[0]
+    )
 
     assert "          - stage\n          - prod\n" in declared
     assert "platform_target" not in declared
 
 
-def test_bridge_passes_the_registered_environment_name_to_the_platform_dispatch() -> None:
+def test_bridge_passes_the_registered_environment_name_to_the_platform_dispatch() -> (
+    None
+):
     text = _text()
     dispatch = text.split(
         "- name: Dispatch and await Platform pin promotion and release", 1
@@ -144,9 +156,9 @@ def test_bridge_passes_the_registered_environment_name_to_the_platform_dispatch(
 
 def test_bridge_hands_yoke_surfaces_the_registered_environment_name() -> None:
     text = _text()
-    preflight = text.split(
-        "- name: Verify release migration history before tag", 1
-    )[1].split("      - name: ", 1)[0]
+    preflight = text.split("- name: Verify release migration history before tag", 1)[
+        1
+    ].split("      - name: ", 1)[0]
     record = _step("- name: Record desired pin after successful Platform release")
 
     for step in (preflight, record):
@@ -191,7 +203,7 @@ def test_bridge_records_the_pin_commit_its_own_promotion_produced() -> None:
 
     Promotion pushes the pin materialization onto the consumer's bound
     branch, and nothing else ever will: skip the record and the next release
-    reads an unattributed commit and refuses to compose. The commit itself is
+    identifies the commit as recorded release output instead of outside work. The commit itself is
     resolved server-side from the branch the run already bound, so the bridge
     names a project and never a repository ref.
     """

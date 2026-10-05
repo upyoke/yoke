@@ -291,12 +291,8 @@ def derive_project_carried_work(
             "status": STATUS_DERIVED,
             "contents_known": True,
             "source": source.origin,
-            "reason": "partial_item_resolution" if bare_commits else "complete",
-            "recovery": (
-                "Inspect bare commits and restore missing merge metadata if needed."
-                if bare_commits
-                else "No action is required."
-            ),
+            "reason": "complete",
+            "recovery": "No action is required.",
             "run_id": run_id,
             "previous_run_id": previous_run_id,
             "previous_release_lineage": previous_lineage,
@@ -311,11 +307,13 @@ def derive_project_carried_work(
             for item_id, shas in item_commits.items()
         ],
         "commits": bare_commits,
-        # Each unattributed commit's subject, so a refusal can show an
-        # operator what the commit is without a checkout of its project.
+        # Outside commits are carried work without item delivery obligations.
         "commit_subjects": {
             commit: source.commit_message(commit).strip().split("\n", 1)[0]
             for commit in bare_commits
+        },
+        "commit_authors": {
+            commit: source.commit_author(commit) for commit in bare_commits
         },
         "release_output": release_output,
         "warnings": warnings,

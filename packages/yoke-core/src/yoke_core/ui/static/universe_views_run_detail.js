@@ -7,6 +7,7 @@
 // history read serves plus the QA activity recorded against the run.
 
 import { appendCarriedItemHeading } from "./universe_carried_item_titles.js";
+import { appendOutsideCommits } from "./universe_outside_commits.js";
 import { createDecisionResolver } from "./inbox_rows.js";
 import { deploymentRunsHref } from "./universe_navigation.js";
 import { appendSteps } from "./universe_run_verification.js";
@@ -129,6 +130,7 @@ function decisionCard(context, row, project, checks, onAct, itemFacts, onItemDec
   const qa = runQaSection(context, row, checks, onAct, {
     drawnRequestIds: drawnRequests,
   });
+  appendOutsideCommits(documentNode, card, row);
   if (qa) card.appendChild(qa);
   return card;
 }

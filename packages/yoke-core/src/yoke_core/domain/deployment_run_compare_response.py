@@ -109,30 +109,31 @@ def recorded_commit(entry: Any) -> dict[str, dict[str, Any]]:
         raise incomplete("the comparison listed a commit that is not an object")
     sha = str(entry.get("sha") or "").strip().lower()
     if len(sha) != FULL_SHA_LENGTH or not is_hex(sha):
-        raise incomplete(
-            f"the comparison listed a commit with an unusable sha {sha!r}"
-        )
+        raise incomplete(f"the comparison listed a commit with an unusable sha {sha!r}")
     commit = entry.get("commit")
     commit = commit if isinstance(commit, Mapping) else {}
     committer = commit.get("committer")
     committer = committer if isinstance(committer, Mapping) else {}
+    author = commit.get("author")
+    author = author if isinstance(author, Mapping) else {}
     parents = entry.get("parents")
     if not isinstance(parents, list):
         raise incomplete(f"the comparison listed commit {sha} without parents")
     if not parents:
-        raise incomplete(
-            f"the comparison listed commit {sha} with no usable parent"
-        )
+        raise incomplete(f"the comparison listed commit {sha} with no usable parent")
     # Parent ORDER is the whole meaning of a first-parent walk, so a parent
     # that cannot be read is never dropped: skipping an unreadable first
     # parent promotes the second one into its place and the walk follows a
     # merged side branch as though it were the trunk, reporting a different
     # release rather than an unread one.
-    parent_shas = tuple(_parent_sha(parent, sha, index) for index, parent in enumerate(parents))
+    parent_shas = tuple(
+        _parent_sha(parent, sha, index) for index, parent in enumerate(parents)
+    )
     return {
         sha: {
             "message": str(commit.get("message") or ""),
             "committed_at": str(committer.get("date") or ""),
+            "author": str(author.get("name") or ""),
             "parents": parent_shas,
         }
     }

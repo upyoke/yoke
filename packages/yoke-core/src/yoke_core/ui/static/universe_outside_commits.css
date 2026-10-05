@@ -1,0 +1,32 @@
+.outside-commits {
+  margin-top: 10px;
+  font-size: 12px;
+  min-width: 0;
+}
+.outside-commits-summary {
+  cursor: pointer;
+  color: var(--yoke-muted);
+}
+.outside-commits-summary:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: 3px;
+}
+.outside-commits-project { margin-top: 10px; }
+.outside-commits-project-name { font-size: 11px; }
+.outside-commits-list {
+  list-style: none;
+  padding: 0;
+  margin: 5px 0 0;
+}
+.outside-commit {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 3px 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--yoke-border);
+}
+.outside-commit-subject { overflow-wrap: anywhere; }
+.outside-commit-author {
+  grid-column: 2;
+  color: var(--yoke-muted);
+}

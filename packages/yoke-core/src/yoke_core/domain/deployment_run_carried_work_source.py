@@ -13,9 +13,7 @@ resolve a lineage to a commit, list the first-parent range between two
 commits, read one commit's message and time, say which range commit carries a
 given lane commit, and answer the two containment questions — is this commit
 in that revision's history, and would merging it change that revision at all.
-A source that cannot answer raises :class:`CarriedWorkSourceUnavailable` with
-the reason and the recovery, or answers ``None`` where the caller has another
-rung, rather than returning a confident empty.
+A source that cannot answer names the reason and recovery.
 """
 
 from __future__ import annotations
@@ -77,6 +75,9 @@ class CarriedWorkSource(Protocol):
     def commit_time(self, sha: str) -> str:
         """Return one commit's committer time as an ISO-8601 string."""
 
+    def commit_author(self, sha: str) -> str:
+        """Return the author name recorded on the commit."""
+
     def carrying_commit(
         self,
         lane_commit: str,
@@ -120,7 +121,7 @@ class LocalCheckoutSource:
         self._fetched = False
         self._warnings: list[dict[str, str]] = []
         self._graphs: dict[str, dict[str, tuple[str, ...]]] = {}
-        self._facts: dict[str, tuple[str, str]] = {}
+        self._facts: dict[str, tuple[str, str, str]] = {}
 
     def resolve_commit(self, ref: str) -> str:
         resolved = self._rev_parse(ref)
@@ -159,9 +160,7 @@ class LocalCheckoutSource:
         from yoke_cli.config import repo_upstream_git
 
         branch = git.git_out(self._repo_root, "branch", "--show-current")
-        remote, configured = repo_upstream_git.resolve_remote(
-            self._repo_root, branch
-        )
+        remote, configured = repo_upstream_git.resolve_remote(self._repo_root, branch)
         if not remote:
             self._note_unfetched(
                 "no remote is configured for this checkout"
@@ -181,8 +180,7 @@ class LocalCheckoutSource:
         )
         if fetched.returncode != 0:
             self._note_unfetched(
-                f"fetching {remote} failed: "
-                f"{repo_upstream_git.reason(fetched)}"
+                f"fetching {remote} failed: {repo_upstream_git.reason(fetched)}"
             )
             return False
         return True
@@ -230,6 +228,9 @@ class LocalCheckoutSource:
     def commit_time(self, sha: str) -> str:
         return self._fact(sha)[0]
 
+    def commit_author(self, sha: str) -> str:
+        return self._fact(sha)[2]
+
     def contains_commit(self, candidate: str, commit: str) -> Optional[bool]:
         return checkout_ancestry.commit_is_ancestor(
             self._graph(candidate), candidate, commit
@@ -262,10 +263,10 @@ class LocalCheckoutSource:
             self._graphs[tip] = checkout_ancestry.parent_graph(self._repo_root, tip)
         return self._graphs[tip]
 
-    def _fact(self, sha: str) -> tuple[str, str]:
+    def _fact(self, sha: str) -> tuple[str, str, str]:
         if sha and sha not in self._facts:
             self._facts.update(checkout_ancestry.commit_facts(self._repo_root, (sha,)))
-        return self._facts.get(sha, ("", ""))
+        return self._facts.get(sha, ("", "", ""))
 
 
 def carried_work_sources(

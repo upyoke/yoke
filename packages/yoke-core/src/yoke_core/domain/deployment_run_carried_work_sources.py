@@ -6,7 +6,7 @@ landing put on the target's first-parent line, then QA and execution evidence
 and lane metadata. A commit message naming an item is not such a record: it
 says what someone wrote about a commit, not who landed it, and crediting it
 can hand an unrelated commit to whichever item it mentions. A commit nothing
-binds stays unattributed, and the release names it for an operator to resolve.
+binds is carried as a commit made outside Yoke, without blocking the release.
 """
 
 from __future__ import annotations
@@ -244,7 +244,11 @@ def _resolve_item_metadata(
         resolution_ref = str(_cell(row, "resolution_ref", 3) or "").strip()
         if _HEX_REF.fullmatch(resolution_ref):
             _add_resolution(
-                resolved, commits, resolution_ref, item_id, known_items,
+                resolved,
+                commits,
+                resolution_ref,
+                item_id,
+                known_items,
             )
         landed_at = _cell(row, "merge_queue_landed_at", 2) or _cell(row, "merged_at", 1)
         lane_commit = ""

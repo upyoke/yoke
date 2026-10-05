@@ -20,23 +20,17 @@ MERGE_RECEIPT_COMMITS_ATTEST_USAGE = (
 )
 
 _DESCRIPTION = """\
-Attest commits to an item whose merge receipt landed without them.
+Optionally tie commits made outside Yoke to an item's landed merge receipt.
 
-A landing records every commit it contributed to its target branch, and a
-release credits exactly those commits to the item. A receipt recorded before
-that — or by a landing that left nothing to derive the set from — names only
-its implementation and merge commits, so a release carrying the rest refuses
-them as unattributed and prints each one with its subject.
+Releases carry commits without an item owner and list their SHA, subject and
+author as commits made outside Yoke. Attestation is never required to release.
+When a commit is this item's work, attest its full SHA here: attribution then
+credits it to the item, and the item's delivery obligations follow. Do not
+attest unrelated work to an item.
 
-When those commits are this item's work, attest them here and retry the
-release: attribution credits them to the item, and the item's delivery
-obligations follow. The attestation is stored on the item's newest landed
-receipt entry beside, not inside, the commits the merge derived, with the
-reason given. Full SHAs only, exactly as the refusal printed them.
-
-Refused creation rolls back the run: repair the owning item's receipt, then
-retry creation or start. If no backlog item owns a commit, resolve ownership
-before retrying; do not attest unrelated work to an item.
+The attestation is stored on the item's newest landed receipt entry beside the
+commits the merge derived, with the reason given. It changes no lifecycle state
+and does not rewrite carried-work records already frozen on historical runs.
 """
 
 

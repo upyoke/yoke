@@ -66,7 +66,7 @@ def test_mixed_project_candidate_uses_the_bound_source_completion_authority(
     assert release["consumer_ref"] in message
 
 
-def test_flow_mismatch_and_unattributed_commit_are_reported_together(
+def test_flow_mismatch_refuses_without_blocking_outside_commits(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     unexplained = _blocked_candidate(test_db, tmp_path, monkeypatch)
@@ -75,11 +75,11 @@ def test_flow_mismatch_and_unattributed_commit_are_reported_together(
 
     assert not valid
     assert "selects completion flow 'different-release-flow'" in message
-    assert unexplained in message
-    assert "no item merge receipt or recorded release output claims" in message
+    assert unexplained not in message
+    assert "made outside Yoke" not in message
 
 
-def test_admission_refusal_does_not_hide_attribution_blockers(
+def test_missing_completion_flow_still_refuses_with_outside_commits(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     unexplained = _blocked_candidate(test_db, tmp_path, monkeypatch)
@@ -92,7 +92,7 @@ def test_admission_refusal_does_not_hide_attribution_blockers(
 
     assert not valid
     assert "no resolvable completion flow" in message
-    assert unexplained in message
+    assert unexplained not in message
 
 
 def test_create_refuses_invalid_composition_without_reserving_a_run_id(
@@ -114,7 +114,7 @@ def test_create_refuses_invalid_composition_without_reserving_a_run_id(
         cmd_create_run("yoke", CARRIER_FLOW, release_lineage=unexplained)
 
     assert "selects completion flow 'different-release-flow'" in str(refusal.value)
-    assert unexplained in str(refusal.value)
+    assert unexplained not in str(refusal.value)
     assert (
         test_db.execute("SELECT count(*) FROM deployment_runs").fetchone()[0] == before
     )
@@ -139,7 +139,7 @@ def test_start_context_refuses_before_returning_dispatchable_stages(
     assert outcome.error is not None
     assert outcome.error.code == "composition_invalid"
     assert "selects completion flow 'different-release-flow'" in outcome.error.message
-    assert unexplained in outcome.error.message
+    assert unexplained not in outcome.error.message
 
 
 def test_first_release_through_a_custody_flow_is_not_a_composition_blocker(
@@ -153,7 +153,9 @@ def test_first_release_through_a_custody_flow_is_not_a_composition_blocker(
     could otherwise never create its first release through such a flow.
     """
     two_project_release(test_db, tmp_path, monkeypatch)
-    test_db.execute("UPDATE deployment_runs SET status='failed' WHERE id='run-previous'")
+    test_db.execute(
+        "UPDATE deployment_runs SET status='failed' WHERE id='run-previous'"
+    )
     test_db.commit()
 
     valid, message = cmd_validate_composition("run-candidate")

@@ -162,7 +162,7 @@ def test_itemless_success_records_items_and_bare_commits(
 
     assert error is None
     carried = _stored(test_db, "run-carried-002")
-    assert carried["derivation"]["reason"] == "partial_item_resolution"
+    assert carried["derivation"]["reason"] == "complete"
     assert carried["items"] == [
         {
             "item_id": 9101,
@@ -286,4 +286,3 @@ def test_commit_is_ancestor_deep_ancestry_traversal_does_not_recurse() -> None:
     assert checkout_ancestry.commit_is_ancestor(graph, tip, outside) is False
     assert checkout_ancestry.commit_is_ancestor(graph, "", base) is False
     assert checkout_ancestry.commit_is_ancestor(graph, tip, "") is False
-
