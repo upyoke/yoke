@@ -10,7 +10,10 @@ same flow executes both built-in methods:
 - `exploratory-mission`: the main agent owns the report and verdict while a
   case-selected informed or target-naive walker chooses the sequence.
 
-The gate is re-entrant. Materialization is idempotent and rerunning a case
+The lifecycle transition materializes these cases itself and refuses while a
+blocking one bound to the transition has no current pass (see
+[`preflight.md`](preflight.md)); this procedure runs them so the transition can
+pass. It is re-entrant: materialization is idempotent and rerunning a case
 records a new run.
 
 ## 1. Materialize and select Browser cases

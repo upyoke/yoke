@@ -156,8 +156,8 @@ def check_browser_evidence_present(
         "--performed-by agent --verdict pass --verdict-reason TEXT` after the",
         "  capture; it resolves that capture in place and needs no --raw-result.",
         "  Do not begin a plan against hosts.app to attach a local-preview review.",
-        f"  Remediation (harness skill): `/yoke advance {name} {transition_name}` runs browser QA automatically before the status change.",
-        "  Remediation (terminal CLI): `yoke qa case run --requirement-id <id>` records the case; `/yoke advance` is not a CLI command.",
+        f"  Remediation: `yoke qa plan run --item {name} --transition {transition_name}` runs the attached cases in plan order,",
+        "  or `yoke qa case run --requirement-id <id>` re-runs one; then retry the lifecycle transition.",
     ]
     rows = query_rows(
         conn,

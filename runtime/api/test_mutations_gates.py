@@ -40,7 +40,7 @@ class TestEpicTaskGate:
         """Epic items reject 'ready' (legacy shared-only status)
         before the epic task gate is even reached."""
         item = _make_item(workflow="epic")
-        gate = _make_gate(epic_task_count=0, done_nonce_verified=True)
+        gate = _make_gate(done_nonce_verified=True)
         result = prepare_update(
             item=item, field_name="status", value="ready", gate=gate
         )
@@ -51,7 +51,7 @@ class TestEpicTaskGate:
         """Epic items reject 'active' (legacy shared-only status)
         before the epic task gate is even reached."""
         item = _make_item(workflow="epic")
-        gate = _make_gate(epic_task_count=0, done_nonce_verified=True)
+        gate = _make_gate(done_nonce_verified=True)
         result = prepare_update(
             item=item, field_name="status", value="active", gate=gate
         )

@@ -38,7 +38,10 @@ from yoke_core.domain.deployment_qa_source_obligation import (
 )
 from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.qa_done_gate_refusal import done_gate_refusal_errors
-from yoke_core.domain.qa_obligation_settlement import item_supersession_open_sql, unretracted_requirement_sql
+from yoke_core.domain.qa_obligation_settlement import (
+    item_supersession_open_sql,
+    unretracted_requirement_sql,
+)
 from yoke_core.domain.qa_gate_helpers import (  # noqa: F401
     _browser_freshness_errors,
     _browser_run_is_fresh,
@@ -51,10 +54,6 @@ from yoke_core.domain.qa_gate_helpers import (  # noqa: F401
     _resolve_target_branch_project,
 )
 
-
-# ---------------------------------------------------------------------------
-# Gate checks
-# ---------------------------------------------------------------------------
 
 def check_verification_entry(target: GateTarget, db_path: str) -> GateResult:
     """Verify at least one qa_requirements row exists for the target."""
@@ -103,16 +102,14 @@ def check_verification_gate(
             params,
         )
         rows = [
-            row
-            for row in rows
-            if not has_current_passing_run(conn, int(row["id"]))
+            row for row in rows if not has_current_passing_run(conn, int(row["id"]))
         ]
         if rows:
             errors = [
                 f"Error: Cannot transition {name} to '{transition_name}' -- {len(rows)} blocking verification requirement(s) unsatisfied.",
                 "  All blocking verification-phase requirements must have a passing run or be waived.",
-                f"  Remediation (harness skill): `/yoke advance {name} {transition_name}` runs browser QA and project E2E before the status change.",
-                "  Remediation (terminal CLI): `yoke qa case run --requirement-id <id>` records the case; `/yoke advance` is not a CLI command.",
+                f"  Remediation: `yoke qa plan run --item {name} --transition {transition_name}` runs the attached cases in plan order,",
+                "  or `yoke qa case run --requirement-id <id>` re-runs one; then retry the lifecycle transition.",
             ]
             for row in rows:
                 waiting = requirement_awaits_human_review(conn, int(row["id"]))
@@ -154,7 +151,9 @@ def check_verification_gate(
 
         # (4) Browser-freshness — prefer explicit SHA, fall back to timestamp.
         latest_code = _resolve_latest_code_ref(
-            target, db_path, repo_root=repo_root,
+            target,
+            db_path,
+            repo_root=repo_root,
         )
         if latest_code.sha or latest_code.timestamp:
             stale_rows = _collect_stale_browser_requirements(
@@ -250,7 +249,8 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
             ]
         if rows:
             return GateResult(
-                passed=False, errors=done_gate_refusal_errors(conn, rows, name=name),
+                passed=False,
+                errors=done_gate_refusal_errors(conn, rows, name=name),
             )
 
         # (2) Evidence accessibility — durable handles need no checkout.
@@ -269,7 +269,9 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
 
         # (3) Browser-freshness
         latest_code = _resolve_latest_code_ref(
-            target, db_path, repo_root=repo_root,
+            target,
+            db_path,
+            repo_root=repo_root,
         )
         if latest_code.sha or latest_code.timestamp:
             stale_rows = _collect_stale_browser_requirements(
@@ -297,10 +299,6 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
 
     return GateResult(passed=True)
 
-
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
 
 _TARGET_GATES = {
     "check-verification-entry": check_verification_entry,

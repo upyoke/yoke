@@ -50,7 +50,7 @@ def test_shepherd_task_generation_comes_from_pinned_policy() -> None:
 def test_advance_branches_on_skill_and_lane_policy() -> None:
     skill = _read("advance", "SKILL.md")
     context = _read("advance", "workflow-context.md")
-    preflight = _read("advance", "preflight-checks.md")
+    preflight = _read("advance", "preflight.md")
     finalize = _read("advance", "finalize.md")
     combined = skill + context + preflight + finalize
     for required in (

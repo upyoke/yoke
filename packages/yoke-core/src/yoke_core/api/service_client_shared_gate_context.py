@@ -125,16 +125,6 @@ def _load_gate_context(
     )
 
     if target_status is not None:
-        from yoke_core.domain.workflow_behavior import generates_task_graph
-        from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
-
-        if generates_task_graph(load_item_workflow_runtime(conn, int(item_dict["id"]))):
-            task_count_row = conn.execute(
-                "SELECT COUNT(*) as cnt FROM epic_tasks WHERE epic_id = %s",
-                (item_dict["id"],),
-            ).fetchone()
-            gate.epic_task_count = task_count_row["cnt"] if task_count_row else 0
-
         gate.has_merged_at = bool(item_dict.get("merged_at"))
 
         # The requirement count keeps the blocking scan off databases with no

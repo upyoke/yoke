@@ -133,24 +133,6 @@ def prepare_update(
 
         # --- Status transition gates ---
 
-        # Epic task existence gate: block implementing for taskless epics
-        # Updated from legacy ready/active to epic-family implementing
-        if (
-            value == "implementing"
-            and workflow.policies["generated_children"] == "epic_tasks"
-        ):
-            if gate.epic_task_count is not None:
-                if gate.epic_task_count == 0:
-                    return MutationResult(
-                        success=False,
-                        error=(
-                            f"Cannot set epic {item.ref} to '{value}' "
-                            f"-- no epic_tasks found. Run '/yoke shepherd {item.ref}' first."
-                        ),
-                        error_code="GATE_EPIC_TASKS",
-                        item_id=item.id,
-                    )
-
         # Done-ceremony nonce gate: mutation layer trusts caller assertion
         if (
             value == "done"

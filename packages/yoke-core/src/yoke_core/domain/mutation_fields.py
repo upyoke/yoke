@@ -235,8 +235,6 @@ class GateContext:
     can make gate decisions without DB access.
 
     Attributes:
-        epic_task_count: Number of epic_tasks rows for this item's epic.
-            None if not applicable (non-epic items).
         unsatisfied_all_blocking: Count of all blocking requirements
             (any phase) without a passing run or waiver.
         unsatisfied_includes_post_deploy: Whether any of those is a
@@ -261,7 +259,6 @@ class GateContext:
             not loaded (falls back to the shipped default).
     """
 
-    epic_task_count: Optional[int] = None
     unsatisfied_all_blocking: int = 0
     unsatisfied_includes_post_deploy: bool = False
     has_merged_at: bool = False

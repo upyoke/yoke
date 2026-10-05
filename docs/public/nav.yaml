@@ -26,6 +26,7 @@ sections:
     pages:
       - reference/commands.md
       - reference/lifecycle.md
+      - reference/lifecycle-gates.md
       - reference/session-offer.md
       - reference/charge-frontier.md
       - reference/qa-platform.md

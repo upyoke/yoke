@@ -86,12 +86,10 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="lifecycle.transition.execute",
         cli_invocation="yoke lifecycle transition YOK-N --to <next>",
-        notes="Lifecycle status transitions ride on items.scalar.update",
-        agent_path="skill-orchestrated",
-        canonical_skill_invocation="/yoke advance YOK-N <next>",
-        direct_use_caveat=(
-            "skips finalize re-anchor, claim lifecycle, source=advance "
-            "attribution, and finalize_evidence_bundle."
+        notes=(
+            "Lifecycle status transitions ride on items.scalar.update; the "
+            "engine evaluates every listed and structural gate of the pinned "
+            "definition on the write."
         ),
     ),
     AdapterEntry(

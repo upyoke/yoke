@@ -8,8 +8,8 @@ classification used by:
   hands a title-only work item to ``/yoke refine``.
 - :mod:`yoke_core.engines.doctor_hc_meta_backlog` — surfaces tail-case
   incomplete items, including those whose claim was explicitly released.
-- ``.agents/skills/yoke/advance/preflight-recovery.md`` — the
-  reconciliation gate's advisory shares this heuristic.
+- ``.agents/skills/yoke/advance/preflight.md`` — the pre-implementation
+  body-completeness advisory names this heuristic.
 
 The slack constant lives here so the three consumers cannot drift out of
 agreement.
@@ -23,8 +23,6 @@ from typing import Mapping, Optional
 IDEA_BODY_SLACK = 4
 """Bytes of allowed wiggle room past the rendered title-header line.
 
-Mirrors the shell heuristic in
-``.agents/skills/yoke/advance/preflight-recovery.md`` step 3:
 ``body_len <= title_header_len + 4`` flags the body as title-only.
 """
 

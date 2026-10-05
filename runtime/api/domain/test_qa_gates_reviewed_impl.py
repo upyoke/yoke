@@ -25,6 +25,7 @@ from yoke_core.domain.qa_gates import (
 
 pytest_plugins = ("runtime.api.domain.qa_gates_reviewed_impl_fixture",)
 
+
 class TestCheckReviewedImplementationGate:
     def test_tc_empty_requirement_set_refuses(self, qa_db):
         result = check_reviewed_implementation_gate(GateTarget(item_id=42), qa_db)
@@ -45,17 +46,19 @@ class TestCheckReviewedImplementationGate:
         assert not result.passed
         assert any("unsatisfied" in e for e in result.errors)
 
-    def test_tc_unsatisfied_remediation_points_to_advance(self, qa_db):
-        """generic gate failures tell the operator which advance command to run."""
+    def test_tc_unsatisfied_remediation_names_the_case_runners(self, qa_db):
+        """generic gate failures name the registered case runners to use."""
         _add_requirement(qa_db)
         target = GateTarget(item_id=42)
         result = check_reviewed_implementation_gate(target, qa_db)
         assert not result.passed
         joined = "\n".join(result.errors)
-        assert f"/yoke advance {TEST_ITEM_REF} reviewed-implementation" in joined
-        assert "runs browser QA and project E2E before the status change" in joined
+        assert (
+            f"yoke qa plan run --item {TEST_ITEM_REF} "
+            "--transition reviewed-implementation" in joined
+        )
         assert "`yoke qa case run --requirement-id <id>`" in joined
-        assert "/yoke advance` is not a CLI command" in joined
+        assert "retry the lifecycle transition" in joined
 
     def test_tc_passes_when_waived(self, qa_db):
         conn = connect_test_db(qa_db)
@@ -102,10 +105,12 @@ class TestCheckReviewedImplementationGate:
         assert "parallel QA verdict" in joined
         assert "yoke qa run add" not in joined
         assert "yoke qa artifact add" not in joined
-        assert f"/yoke advance {TEST_ITEM_REF} reviewed-implementation" in joined
-        assert "runs browser QA automatically before the status change" in joined
+        assert (
+            f"yoke qa plan run --item {TEST_ITEM_REF} "
+            "--transition reviewed-implementation" in joined
+        )
         assert "`yoke qa case run --requirement-id <id>`" in joined
-        assert "/yoke advance` is not a CLI command" in joined
+        assert "retry the lifecycle transition" in joined
 
     def test_tc_browser_evidence_passes_with_substrate(self, qa_db, tmp_path):
         """Browser requirement passes with substrate run + artifact on disk."""

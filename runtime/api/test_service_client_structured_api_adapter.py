@@ -71,9 +71,7 @@ def _live_function_ids() -> set[str]:
 
     register_all_handlers()
     return {
-        entry.function_id
-        for entry in list_entries()
-        if entry.adapter_status == "live"
+        entry.function_id for entry in list_entries() if entry.adapter_status == "live"
     }
 
 
@@ -112,12 +110,13 @@ class TestRegistryInventoryParity:
 
     def test_service_client_invocations_name_real_subcommands(self) -> None:
         from yoke_core.api.service_client import COMMANDS
+
         prefix = "python3 -m yoke_core.api.service_client "
         bad = []
         for entry in CLI_ADAPTERS:
             if not entry.cli_invocation.startswith(prefix):
                 continue
-            sub = entry.cli_invocation[len(prefix):].split()[0]
+            sub = entry.cli_invocation[len(prefix) :].split()[0]
             if sub not in COMMANDS:
                 bad.append((entry.function_id, sub))
         assert not bad, (
@@ -132,9 +131,8 @@ class TestRegistryInventoryParity:
             assert entry.direct_use_caveat
         lifecycle = adapter_for("lifecycle.transition.execute")
         assert lifecycle is not None
-        assert lifecycle.agent_path == "skill-orchestrated"
-        assert "advance YOK-N <next>" in lifecycle.canonical_skill_invocation
-        assert "finalize_evidence_bundle" in lifecycle.direct_use_caveat
+        assert lifecycle.agent_path == "direct"
+        assert "structural gate" in lifecycle.notes
         for function_id in ("claims.work.acquire", "claims.work.release"):
             claim_entry = adapter_for(function_id)
             assert claim_entry is not None
@@ -202,9 +200,7 @@ def synthetic_handler(monkeypatch):
 class TestDispatchParity:
     """CLI invocation and direct dispatch produce identical results."""
 
-    def test_call_dispatcher_returns_typed_envelope(
-        self, synthetic_handler
-    ) -> None:
+    def test_call_dispatcher_returns_typed_envelope(self, synthetic_handler) -> None:
         response = call_dispatcher(
             function_id="cli_parity.test.echo",
             target=TargetRef(kind="global"),
@@ -237,9 +233,7 @@ class TestDispatchParity:
         assert first.function == second.function
         assert first.version == second.version
 
-    def test_build_request_round_trips_envelope(
-        self, synthetic_handler
-    ) -> None:
+    def test_build_request_round_trips_envelope(self, synthetic_handler) -> None:
         """The CLI request builder produces a valid envelope dispatch accepts."""
         request = build_request(
             function_id="cli_parity.test.echo",

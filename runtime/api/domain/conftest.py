@@ -1,8 +1,8 @@
 """Fixtures shared by the tests in this directory.
 
-``deploy_seams`` lives here rather than in a helper module because pytest
-resolves fixtures by name from a conftest; importing one into each test
-module instead shadows the parameter it is requested by.
+``deploy_seams`` and ``gate_conn`` live here rather than in a helper module
+because pytest resolves fixtures by name from a conftest; importing one into
+each test module instead shadows the parameter it is requested by.
 """
 
 from __future__ import annotations
@@ -61,3 +61,19 @@ def deploy_seams(monkeypatch):
     )
     monkeypatch.setattr(deploy_ephemeral, "emit_ephemeral_event", lambda *a, **k: None)
     return tracker
+
+
+@pytest.fixture
+def gate_conn(tmp_path, monkeypatch):
+    """A full-schema test universe for the lifecycle gate tests."""
+    from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+    from yoke_core.domain import shepherd_init
+
+    with init_test_db(tmp_path) as path:
+        monkeypatch.setenv("YOKE_DB", path)
+        conn = connect_test_db(path)
+        try:
+            shepherd_init.cmd_init(conn)  # verdicts and dependency edges
+            yield conn
+        finally:
+            conn.close()

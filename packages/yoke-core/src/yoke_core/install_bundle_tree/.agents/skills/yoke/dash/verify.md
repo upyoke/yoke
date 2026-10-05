@@ -116,7 +116,8 @@ source flags, abort, and continuation before executing.
 
 The `implementing` → `reviewing-implementation` preflight materializes every
 effective plan attached at that stage into blocking case rows and only then
-evaluates that stage's gates. Project defaults are effective only for workflow
+evaluates that stage's gates, which refuse while a blocking case attached to
+that transition has no current pass (`GATE_QA_ATTACHED_TRANSITION`). Project defaults are effective only for workflow
 QA policies that declare project defaults. Dash's `optional_item_attachment`
 policy ignores them and has no definition-owned `qa_verification` done gate;
 an item-specific verification posture still adds and enforces its own plan.

@@ -50,8 +50,9 @@ pin and is read once, from step 1.
 **Lifecycle authority.** The item's `workflow_id` and `workflow_version_id`
 select the immutable definition. Never reconstruct a progression in this skill.
 Read the served definition for navigation and let
-`lifecycle.transition.execute` enforce the pinned version, stage order, gates,
-and registered skill binding.
+`lifecycle.transition.execute` enforce the pinned version, stage order, and
+every listed and structural gate ([`preflight.md`](preflight.md)); its
+response names the bound-skill handoff a transition crosses.
 
 **Operator execution instructions.** Obey the
 `# Workflow Execution Instructions` operator block at the top of fetched item
