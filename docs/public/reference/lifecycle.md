@@ -281,9 +281,9 @@ segments. For a live item:
    definition.
 3. In ordered `stages`, find the one `skill_bindings` row whose interval
    satisfies `from_stage_id <= current_stage < through_stage_id`.
-4. Invoke `/yoke <skill_id>` and let the transition's gates govern each
-   move ([Lifecycle Gates](lifecycle-gates.md)); a crossed segment comes back
-   as `skill_handoff`, naming the next skill's fresh command and claim.
+4. Invoke `/yoke <skill_id>` and let the target-stage gate references and
+   [structural gates](lifecycle-gates.md) govern each move; a crossed segment
+   comes back as `skill_handoff`, naming the next skill's command and claim.
 
 The registered skills have these behavioral contracts; their source and
 target stages always come from the binding:
