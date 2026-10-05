@@ -116,10 +116,12 @@ def test_setup_install_and_runtime_find_the_same_cache(
     env = browser_setup.ensure_browser_runtime(browser, toolchain, emit=lambda _: None)
     assert env["PLAYWRIGHT_BROWSERS_PATH"] == str(cache)
     assert installed.is_file()
-    monkeypatch.setattr(browser_client.DaemonState, "load", lambda: None)
+    monkeypatch.setattr(browser_client.DaemonState, "load", lambda path=None: None)
     monkeypatch.setattr(browser_client, "_browser_dir", lambda: browser)
     monkeypatch.setattr(
-        browser_client, "_state_file_path", lambda: tmp_path / "state.json"
+        browser_client,
+        "_state_file_path",
+        lambda profile_dir=None: tmp_path / "state.json",
     )
     monkeypatch.setattr(
         browser_node_toolchain, "ensure_node_toolchain", lambda **k: toolchain
