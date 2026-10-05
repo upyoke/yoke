@@ -133,6 +133,7 @@ class TestMachineSetupRouting:
         assert ("onboard",) not in TOOL_SHAPED_SUBCOMMANDS
         assert cli_main(["onboard"]) == 0
         output = capsys.readouterr().out
+        assert output.splitlines()[0] == "For machine setup, run `yoke setup`."
         assert "subcommand group" in output
         assert "yoke onboard project" in output
         assert "yoke onboard checklist" in output

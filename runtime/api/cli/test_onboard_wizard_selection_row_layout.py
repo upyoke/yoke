@@ -22,7 +22,9 @@ from yoke_cli.config.onboard_wizard_widgets import (
     _option_row_text,
 )
 
-SELF_HOST_ROW = next(row for row in DESTINATION_ROWS if row.value == SELF_HOST_SERVER_ROW)
+SELF_HOST_ROW = next(
+    row for row in DESTINATION_ROWS if row.value == SELF_HOST_SERVER_ROW
+)
 
 
 def test_a_hint_with_no_room_is_cut_to_an_ellipsis_on_the_same_line() -> None:
@@ -56,7 +58,7 @@ def test_a_hint_with_almost_no_room_is_dropped_rather_than_stubbed() -> None:
     assert cell_len(rendered.plain) == 36
 
 
-@pytest.mark.parametrize("columns", [100, 120, 143])
+@pytest.mark.parametrize("columns", [40, 60, 80, 100, 120, 143])
 def test_every_destination_row_is_one_line_at_common_widths(monkeypatch, columns):
     pytest.importorskip("textual")
     from runtime.api.cli.onboard_wizard_test_helpers import (
@@ -67,14 +69,18 @@ def test_every_destination_row_is_one_line_at_common_widths(monkeypatch, columns
     from yoke_cli.config.onboard_wizard import WizardDefaults
 
     stub_path_doctor(monkeypatch)
-    app, _spy = make_app(WizardDefaults(config_path="/tmp/cfg.json", env_name=None, api_url=None, token=None))
+    app, _spy = make_app(
+        WizardDefaults(
+            config_path="/tmp/cfg.json", env_name=None, api_url=None, token=None
+        )
+    )
 
     async def scenario() -> list[tuple[str, int, int]]:
         async with app.run_test(size=(columns, 32)) as pilot:
             await advance_past_path(pilot)
             await pilot.pause()
             return [
-                (str(row.render()), row.size.width, row.size.height)
+                (str(row.render()), row.content_size.width, row.size.height)
                 for row in app.query(_OptionRow)
             ]
 
@@ -85,4 +91,11 @@ def test_every_destination_row_is_one_line_at_common_widths(monkeypatch, columns
         assert "\n" not in line
         assert cell_len(line) == width, (columns, row.label, line)
         # Every hint fits intact beside its label from 100 columns up.
-        assert line.endswith(row.hint), (columns, row.label, line)
+        if columns >= 100:
+            assert line.endswith(row.hint), (columns, row.label, line)
+
+
+@pytest.mark.parametrize("width", [0, 1, 3, 12, 30, 70])
+def test_long_label_never_overruns_available_content(width):
+    rendered = _option_row_text(SELF_HOST_ROW, selected=True, width=width)
+    assert cell_len(rendered.plain) <= width

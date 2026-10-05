@@ -146,7 +146,14 @@ def test_cache_writability_refuses_before_install(setup_host, monkeypatch, failu
         raise PermissionError("write denied")
 
     if failure_at == "mkdir":
-        monkeypatch.setattr(Path, "mkdir", refuse)
+        mkdir = Path.mkdir
+
+        def refuse_cache(path, *args, **kwargs):
+            if str(path) == cache:
+                refuse()
+            return mkdir(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "mkdir", refuse_cache)
     elif failure_at == "open":
         monkeypatch.setattr(browser_setup.tempfile, "TemporaryFile", refuse)
     else:

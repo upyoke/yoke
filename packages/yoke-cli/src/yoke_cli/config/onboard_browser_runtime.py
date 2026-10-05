@@ -28,8 +28,9 @@ DESKTOP_LAUNCHERS = {
 # the browser until its window closes; no QA daemon or QA profile is involved.
 OPEN_CHROMIUM_JS = r"""
 const { chromium } = require('playwright');
+const { launchOptions } = require('./src/browser-executable');
 (async () => {
-  const browser = await chromium.launch({ headless: false, chromiumSandbox: true });
+  const browser = await chromium.launch({ ...launchOptions(), headless: false, chromiumSandbox: true });
   browser.on('disconnected', () => process.exit(0));
   try {
     const page = await browser.newPage();

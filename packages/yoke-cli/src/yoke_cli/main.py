@@ -41,6 +41,7 @@ from yoke_cli.commands.tool_shaped import (
 from yoke_cli.conceptual_cli_names import conceptual_cli_hint
 from yoke_cli.config import install_binding, machine_config
 from yoke_cli import sandbox_denial
+from yoke_cli.cli_output import quiet_closed_stdout
 from yoke_cli.session_id_propagation import propagated_session_identity
 from yoke_contracts.control_plane_locality import (
     local_authority_is_pinned,
@@ -270,6 +271,7 @@ def _control_plane_locality(explicit_env: Optional[str]):
     return contextlib.nullcontext()
 
 
+@quiet_closed_stdout
 def main(argv: Optional[List[str]] = None) -> int:
     """Run the ``yoke`` CLI for one invocation. Returns the exit code."""
     if argv is None:

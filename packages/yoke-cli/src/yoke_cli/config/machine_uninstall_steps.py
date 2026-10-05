@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from yoke_cli.config import machine_uninstall_detached, machine_uninstall_workers
+from yoke_cli.config import machine_config
 from yoke_cli.config.machine_uninstall_inventory import Inventory, UninstallError
 from yoke_cli.config.machine_config_file import remove_file
 from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
@@ -127,7 +128,8 @@ def remove(
             skipped(f"project {checkout}", "operator retained the project layer")
     if not inventory.projects:
         skipped("projects", "no installed registered checkouts")
-    if inventory.config.is_file():
+    github_skip = _github_skip_reason(inventory.config)
+    if github_skip is None:
         attempt(
             "GitHub",
             lambda: command(
@@ -135,7 +137,7 @@ def remove(
             ),
         )
     else:
-        skipped("GitHub", "no machine config")
+        skipped("GitHub", github_skip)
     attempt("local UI", lambda: command(["ui", "down"]))
     if inventory.local_universe:
         attempt("local Postgres", lambda: command(["local-postgres", "stop"]))
@@ -208,6 +210,18 @@ def remove(
 
 def _fail(message: str) -> None:
     raise UninstallError(message)
+
+
+def _github_skip_reason(config: Path) -> str | None:
+    if not config.is_file():
+        return "no machine config"
+    if not machine_config.github_config(config):
+        return "no GitHub connection"
+    payload = machine_config.load_config(config)
+    connections = payload.get("connections") or {}
+    if not connections or payload.get("active_env") not in connections:
+        return "machine setup has no active connection"
+    return None
 
 
 def _remove_home(home: Path) -> None:

@@ -81,7 +81,7 @@ GROUP_TEACHING: dict[tuple[str, ...], str] = {
 
 
 def _extends(tokens: tuple[str, ...], route: tuple[str, ...]) -> bool:
-    return len(tokens) > len(route) and tokens[:len(route)] == route
+    return len(tokens) > len(route) and tokens[: len(route)] == route
 
 
 def _belongs_to_group(
@@ -102,14 +102,14 @@ def _belongs_to_group(
     if spaced in SPACE_EXPANDED_ROUTE_REGISTRY:
         spelled.append(spaced)
     return any(
-        _extends(tokens, route)
-        for tokens in spelled
-        for route in routed_prefixes
+        _extends(tokens, route) for tokens in spelled for route in routed_prefixes
     )
 
 
 def emit_group_help_if_available(
-    argv: Sequence[str], *, stream: Optional[TextIO] = None,
+    argv: Sequence[str],
+    *,
+    stream: Optional[TextIO] = None,
 ) -> Optional[int]:
     out = stream if stream is not None else sys.stdout
     help_requested = bool(argv) and argv[-1] in ("-h", "--help", "help")
@@ -145,6 +145,8 @@ def emit_group_help_if_available(
         return None
 
     group = " ".join(prefix)
+    if prefix == ("onboard",):
+        print("For machine setup, run `yoke setup`.", file=out)
     print(f"yoke {group} - subcommand group.", file=out)
     print(file=out)
     print("Usage:", file=out)
@@ -173,7 +175,9 @@ def emit_group_help_if_available(
 
 
 def emit_nearest_group_help(
-    argv: Sequence[str], *, stream: Optional[TextIO] = None,
+    argv: Sequence[str],
+    *,
+    stream: Optional[TextIO] = None,
 ) -> bool:
     """Print help for the longest prefix of ``argv`` that names a group.
 
@@ -210,7 +214,7 @@ def can_route_group(argv: Sequence[str]) -> bool:
         + tuple(TOOL_SHAPED_SUBCOMMANDS)
     )
     return any(
-        len(tokens) > len(prefix) and tokens[:len(prefix)] == prefix
+        len(tokens) > len(prefix) and tokens[: len(prefix)] == prefix
         for tokens in all_tokens
     )
 
@@ -235,13 +239,15 @@ def nearest_subcommand_hint(argv: Sequence[str]) -> str | None:
     # Hyphenated families whose last segment is the typed token —
     # `runs` next to `deployment-runs`.
     hyphen_families = {
-        token for token in first_tokens
+        token
+        for token in first_tokens
         if "-" in token and token.rsplit("-", 1)[-1] == group
     }
     candidates = [
         " ".join(tokens)
         for tokens in all_tokens
-        if tokens and (
+        if tokens
+        and (
             tokens[0] == group
             or tokens[0].split("-")[0] == group
             or tokens[0] in siblings

@@ -235,6 +235,19 @@ daemon in a process group independent of the caller's shell. It succeeds only
 after the authenticated health endpoint responds; otherwise it names a repair.
 Short-lived callers can exit without stopping it; `yoke qa browser status` checks it.
 
+When the bundled Chromium download fails, setup discovers installed Chromium,
+or Chrome and proves a sandboxed launch and test-page navigation before
+saving the absolute executable in `settings.browser_executable_path` in machine
+config. Every runtime process receives a projection of this one setting;
+Playwright launches use `executablePath`, and authorization spawns that same
+binary. A saved system selection is re-proven without repeating the failed
+download; an available bundled browser takes precedence and clears it. The
+successful launch proves the system browser's own libraries and sandbox;
+bundled-browser dependency provisioning still checks the bundled builds.
+If neither path works, an HTML block response is reported as
+`browser_download_blocked`, naming `cdn.playwright.dev`,
+`playwright.download.prss.microsoft.com`, and `playwright.azureedge.net` to allow.
+
 The toolchain resolves cheapest-first: a Node 18+ with npm already on `PATH`,
 else the pinned release already unpacked under `~/.yoke/node/<version>/`, else
 a checksum-verified download of that release from `nodejs.org/dist`. Every

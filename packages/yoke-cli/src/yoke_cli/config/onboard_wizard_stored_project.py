@@ -46,7 +46,9 @@ class StoredProjectFlow:
                 SelectionRow(
                     f"stored:{index}",
                     checkout,
-                    f"project id {project.project_id}",
+                    # The selected hint wraps below the list, preserving the
+                    # full checkout even when the one-line label is clipped.
+                    f"project id {project.project_id}: {checkout}",
                 )
             )
             if _is_yoke_source_checkout(project.checkout):
