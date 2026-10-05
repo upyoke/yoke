@@ -86,6 +86,16 @@ def _ready(conn, *, own_qa=False, same_project=False, cases=False, follow_stage=
     )
     _seed_run(conn, run_id=RUN, stages=stages, members=(), existing_members=(MEMBER,))
     conn.execute(
+        "INSERT INTO environments(site,project_id,name,url,created_at) "
+        "VALUES (%s,%s,'stage','https://carried.example.test','2026-10-01T00:00:00Z')",
+        (site, OTHER),
+    )
+    # This command-only producer does not observe a browser endpoint.
+    conn.execute(
+        "UPDATE deployment_stage_receipts SET observed_url=NULL WHERE run_id=%s",
+        (RUN,),
+    )
+    conn.execute(
         "UPDATE deployment_runs SET bound_sources=%s WHERE id=%s",
         (
             json.dumps(

@@ -16,7 +16,7 @@ needs no plan choice at all.
 Resolution is live rather than frozen on purpose, and sits at exactly the
 authority the ``--plan`` flag already had: it selects *which* plan runs,
 while the plan's content is snapshotted onto the requirement rows as it is
-materialized, against the run's own pinned target. A member snapshot that
+materialized, against the member project's pinned deployed target. A member snapshot that
 already froze plans at admission still wins -- this only answers when
 nothing else selected cases.
 """

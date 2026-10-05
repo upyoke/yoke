@@ -50,7 +50,8 @@ project-owned selection -- and only then. A stage already naming its own cases
 --plan unless --replaces names every case in a correction-only plan. This
 atomic correction binds each case to the same run, stage, member and target;
 it does not add an unrelated second set of obligations.
-Materialization stamps the run's own deployed target
+Materialization stamps the member project's deployed target for member QA,
+or the run project's target for run QA,
 onto the cases, so a plan authored before this release still verifies it. A
 deployment case is bound to the candidate the run deployed, not to your lane
 or the project checkout: each case runs in a disposable checkout the runner

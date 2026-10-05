@@ -98,8 +98,8 @@ item-scoped one to the member too — so the run-wide form is refused rather
 than recording a pass the stage ignores, and `yoke qa case run
 --requirement-id N` credits that requirement's binding rather than the stage.
 Depth: `yoke qa plan run --help` for the subject/scope matrix, `yoke merge
-item --help` for the close-out routes. Materialization stamps the run's own
-deployed target onto the cases, so a plan authored before this release still
+item --help` for the close-out routes. Materialization stamps the member project's
+deployed target (or the run project's for run QA) onto cases, so a plan authored before this release still
 verifies it. A `command` deployment case is bound to the candidate the run deployed, not
 to your lane: the runner checks that revision out into a disposable tree for
 each case and removes it afterwards, so no `--checkout-path` or flag is needed
