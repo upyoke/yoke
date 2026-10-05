@@ -170,7 +170,6 @@ export function mountUniverseApp(rootNode, options = {}) {
   function renderRoute() {
     if (!mounted || !projectsLoaded) return;
     replaceViewAbort(context);
-    main.scrollTop = 0;
     detachMountedSlots(rootNode, sectionNodes);
     heldScope.reset(); // a full render drops any held scoped view
     setScopeVisible(false);

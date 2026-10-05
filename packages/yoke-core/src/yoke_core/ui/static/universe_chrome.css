@@ -9,8 +9,7 @@
 
 .local-universe-page {
   margin: 0;
-  height: 100dvh;
-  overflow: hidden;
+  min-height: 100dvh;
   background: var(--yoke-bg);
 }
 
@@ -29,18 +28,8 @@
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   width: 100%;
-  /* The frame owns its height rather than inheriting it. `height: 100%`
-     hands that decision to whatever the host wraps the mount root in, and a
-     wrapper that declares only min-height leaves the percentage indefinite:
-     the grid then sizes to its content, so the footer row rides up under the
-     fold on a short page and a long one scrolls the host document instead of
-     the content pane. A host that stacks its own chrome above the frame, or
-     seats it in a shorter pane, insets it by setting --yoke-app-frame-height
-     on the mount root or any ancestor — never by sizing an ancestor and
-     hoping the percentage resolves. */
-  height: var(--yoke-app-frame-height, 100dvh);
-  min-height: 0;
-  overflow: hidden;
+  /* The document owns scrolling; the minimum keeps short-page footers low. */
+  min-height: 100dvh;
   font-family: var(--yoke-font-sans);
   font-size: 14px;
   line-height: 1.45;
@@ -64,6 +53,11 @@
    marketing site carries the same one; restating the height here is how the
    two drifted 32px apart in the first place. Only what is specific to the
    workbench stays below. */
+.universe-app-root .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
 .universe-app-root .brand svg { height: 1.625rem; width: auto; display: block; }
 .universe-app-root .yoke-header-brand {
   flex: 0 0 auto;
@@ -160,18 +154,14 @@
   overflow-x: auto;
 }
 
-/* The route body and nav scroll independently inside the fixed frame. The
-   footer is a shell row rather than a child of the content column, so the
-   nav runs the full height beside it instead of stopping above it. */
+/* The body grows with its route. The footer occupies the last shell row. */
 .universe-app-root .shell {
   display: grid;
   grid-template-columns: 204px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) 34px;
   gap: 0;
   padding: 0;
-  height: 100%;
   min-height: 0;
-  overflow: hidden;
 }
 .universe-app-root .workbench-body {
   grid-column: 2;
@@ -180,11 +170,15 @@
   min-height: 0;
   min-width: 0;
   flex-direction: column;
-  overflow: hidden;
 }
 .universe-app-root .shell > .sidenav {
   grid-column: 1;
   grid-row: 1 / 3;
+  position: sticky;
+  top: var(--yoke-app-header-height, var(--yoke-header-height));
+  align-self: start;
+  min-height: calc(100dvh - var(--yoke-app-header-height, var(--yoke-header-height)));
+  max-height: calc(100dvh - var(--yoke-app-header-height, var(--yoke-header-height)));
 }
 
 .universe-app-root .sidenav {
@@ -255,9 +249,7 @@
   min-width: 0;
   min-height: 0;
   padding: 24px 30px 40px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
+
 }
 
 /* Every routed view opens with its name and one orienting sentence. A

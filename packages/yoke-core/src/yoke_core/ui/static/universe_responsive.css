@@ -155,14 +155,11 @@
 }
 
 @media (max-width: 1180px) {
-  .universe-app-root .shell {
-    grid-template-columns: 204px minmax(0, 1fr);
-  }
+  .universe-app-root .shell { grid-template-columns: 204px minmax(0, 1fr); }
 }
 
 @media (max-width: 980px) {
   .universe-app-root .shell {
-    position: relative;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) 34px;
   }
@@ -175,11 +172,13 @@
     grid-row: 2;
   }
   .universe-app-root .shell > .sidenav {
-    position: absolute;
+    position: fixed;
     z-index: 50;
     inset: 0 auto 0 0;
     display: flex;
     width: min(292px, calc(100% - 44px));
+    min-height: 0;
+    max-height: 100dvh;
     flex-direction: column;
     padding: 12px 10px;
     overflow-x: hidden;
@@ -212,7 +211,7 @@
   }
   .universe-app-root .navigation-close[hidden] { display: none; }
   .universe-app-root .navigation-scrim {
-    position: absolute;
+    position: fixed;
     z-index: 40;
     inset: 0;
     display: block;
@@ -262,7 +261,6 @@
   .universe-app-root .actor-kind { display: none; }
   .universe-app-root .content {
     padding: 20px 20px 32px;
-    scrollbar-gutter: auto;
   }
   .universe-app-root .stat-row,
   .universe-app-root .sessions-stats,

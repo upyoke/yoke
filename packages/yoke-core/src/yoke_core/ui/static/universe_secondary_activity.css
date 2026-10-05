@@ -42,8 +42,7 @@
   margin-top: 15px;
 }
 
-.universe-app-root .secondary-action-row,
-.universe-app-root .project-create-line {
+.universe-app-root .secondary-action-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
