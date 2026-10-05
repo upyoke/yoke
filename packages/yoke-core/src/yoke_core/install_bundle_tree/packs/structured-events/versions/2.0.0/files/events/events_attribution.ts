@@ -24,7 +24,9 @@ export function inferChannel(source: string | null, medium: string | null,
   const s = (source || referrer || '').toLowerCase();
   const m = (medium || '').toLowerCase();
   const matches = (domains: string[]) => domains.some(d => domainMatches(s, d));
-  const search = matches(rules.search_domains) || ['google', 'bing', 'yahoo'].includes(s);
+  const ai = matches(rules.ai_domains);
+  // Provider subdomains such as Gemini are AI sources, not Google Search.
+  const search = !ai && (matches(rules.search_domains) || ['google', 'bing', 'yahoo'].includes(s));
   const social = matches(rules.social_domains);
   const video = matches(rules.video_domains);
   const shopping = matches(rules.shopping_domains) || /(^|[^a-z])(shop|shopping)/i.test(campaign);
@@ -43,7 +45,7 @@ export function inferChannel(source: string | null, medium: string | null,
   if (social || rules.social_mediums.includes(m)) return 'organic_social';
   if (video || rules.video_mediums.includes(m)) return 'organic_video';
   if (search || m === 'organic') return 'organic_search';
-  if (matches(rules.ai_domains) || m === 'ai-assistant') return 'ai_assistant';
+  if (ai || m === 'ai-assistant') return 'ai_assistant';
   if (['referral', 'app', 'link'].includes(m)) return 'referral';
   if (rules.email_mediums.includes(s) || s === 'newsletter' || rules.email_mediums.includes(m)) return 'email';
   if (m === 'affiliate') return 'affiliates';

@@ -27,7 +27,9 @@ def infer_channel(source=None, medium=None, referrer=None, campaign="") -> str:
     def matches(key):
         return any(domain_matches(s, d) for d in RULES[key])
 
-    search = matches("search_domains") or s in ("google", "bing", "yahoo")
+    ai = matches("ai_domains")
+    # Provider subdomains such as Gemini are AI sources, not Google Search.
+    search = not ai and (matches("search_domains") or s in ("google", "bing", "yahoo"))
     social, video = matches("social_domains"), matches("video_domains")
     shopping = matches("shopping_domains") or re.search(
         r"(^|[^a-z])(shop|shopping)", campaign, re.I
@@ -57,7 +59,7 @@ def infer_channel(source=None, medium=None, referrer=None, campaign="") -> str:
         return "organic_video"
     if search or m == "organic":
         return "organic_search"
-    if matches("ai_domains") or m == "ai-assistant":
+    if ai or m == "ai-assistant":
         return "ai_assistant"
     if m in ("referral", "app", "link"):
         return "referral"

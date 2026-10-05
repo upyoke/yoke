@@ -32,8 +32,8 @@ export function startPageViews(): () => void {
   };
   const originalPush = history.pushState;
   const originalReplace = history.replaceState;
-  const push: History['pushState'] = function (...args) { originalPush.apply(this, args); navigate(); };
-  const replace: History['replaceState'] = function (...args) { originalReplace.apply(this, args); navigate(); };
+  const push: History['pushState'] = function (this: History, ...args) { originalPush.apply(this, args); navigate(); };
+  const replace: History['replaceState'] = function (this: History, ...args) { originalReplace.apply(this, args); navigate(); };
   history.pushState = push;
   history.replaceState = replace;
   window.addEventListener('popstate', navigate);
