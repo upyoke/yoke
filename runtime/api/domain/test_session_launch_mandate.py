@@ -19,6 +19,7 @@ from yoke_core.domain.session_launch_mandate_teaching import (
     CANDIDATE_REVIEW_TEACHING,
     COMMITTED_GATE_TEACHING,
     HEADLESS_TOOL_CONTINUATION_TEACHING,
+    PROGRESS_CHECKPOINT_TEACHING,
 )
 from yoke_core.domain.session_launch_types import SessionLaunchError
 
@@ -49,6 +50,26 @@ def test_composed_mandate_names_item_entrypoint_and_the_routed_legs() -> None:
     assert "the Dash leg to its merge/evidence close" in body
     assert "do not chain into other items" in body
     assert "NEVER send progress: no percentages" in body
+
+
+def test_composed_mandate_keeps_the_item_resumable_by_a_restaffed_successor() -> None:
+    body = _mandate()
+    assert PROGRESS_CHECKPOINT_TEACHING in body
+    teaching = PROGRESS_CHECKPOINT_TEACHING
+    assert "restaff it onto a different model" in teaching
+    assert "leaves the lane, its branch, and any uncommitted work" in teaching
+    assert "before any stop short of done" in teaching
+    assert "yoke items progress-log append PREFIX-N" in teaching
+    assert "yoke items section get PREFIX-N --section 'Progress Log'" in teaching
+    assert "keep the uncommitted work you find" in teaching
+    assert "rather than repeating transitions" in teaching
+
+
+def test_a_successor_reads_the_checkpoint_before_any_gate_or_merge() -> None:
+    body = _mandate()
+    assert body.index(PROGRESS_CHECKPOINT_TEACHING) < body.index(
+        COMMITTED_GATE_TEACHING
+    )
 
 
 def test_composed_mandate_tells_workers_to_leave_the_only_push_to_the_gate() -> None:

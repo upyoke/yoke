@@ -136,7 +136,8 @@ out to mandate in a second project needs its own companion item filed there and
 linked by an `item_dependencies` edge — a scope judgment the operator owns, so
 follow [`escalate.md`](escalate.md) rather than writing into that repo from here.
 
-Activate through the shared lifecycle interpreter:
+Activate through the shared lifecycle interpreter (skip this when resuming an
+item already past `idea`):
 
 ```text
 yoke lifecycle transition ITEM --from idea --to implementing --reason "Dash execution started"

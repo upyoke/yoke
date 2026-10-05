@@ -91,4 +91,35 @@ on at item scope, `required_per_task` is on at generated-task scope, and
 allowed posture tightening. The 350-line authored-file limit remains on in all
 combinations.
 
+## Resuming an item already in flight
+
+A Dash past `idea` was started by an earlier session — usually one steering
+terminated to restaff the item onto a different model. Termination released
+that session's claim and left the registered lane, its branch, and any
+uncommitted work in place. Before acting, read where it stopped:
+
+```text
+yoke items section get ITEM --section 'Progress Log'
+git -C <worktree_path> status --short
+git -C <worktree_path> log --oneline <default-branch>..HEAD
+```
+
+The last checkpoint names the live stage, what is committed, and the next
+step; the lane is the truth where they differ. Keep the uncommitted work.
+Still record the survey and run preparation below — preparation reuses the
+registered lane — but skip the `idea → implementing` transition when the item
+is already past `idea`, then re-enter at the phase the live stage names in the
+phase map in [`SKILL.md`](SKILL.md).
+
+## Checkpoint before any stop
+
+Before any stop short of `done` — a park, an escalation, a landing or release
+wait, the end of a turn — append a Progress Log checkpoint naming the live
+stage, what is committed, what is still uncommitted, and the next step, so a
+restaffed successor can resume from it:
+
+```text
+yoke items progress-log append ITEM --headline "<checkpoint>" --stdin
+```
+
 Next: [`survey-and-isolate.md`](survey-and-isolate.md).
