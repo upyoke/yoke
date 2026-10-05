@@ -18,6 +18,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.session_explicit_wake import mark_explicit_stopped_wake
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_store import message_details
+from yoke_core.domain.session_message_types import SessionMessageError
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
@@ -110,12 +111,23 @@ def landing_message(
     )
 
 
-def _receipt_delivered(conn: Any, message_id: str, session_id: str) -> bool:
+def _receipt_delivered(
+    conn: Any, message_id: str, session_id: str, *, reject_acknowledged: bool = False
+) -> bool:
     """True when the recipient actually received the envelope, not merely queued."""
     details = message_details(conn, message_id)
     for recipient in details.get("recipients") or ():
         if str(recipient.get("session_id") or "") != session_id:
             continue
+        if reject_acknowledged and (
+            recipient.get("acknowledged_at") or recipient.get("state") == "acknowledged"
+        ):
+            raise SessionMessageError(
+                "notice_already_acknowledged",
+                f"notice_already_acknowledged: Notice {message_id} was already "
+                "acknowledged; retain the landing "
+                "marker and re-enter yoke merge item to record a fresh arming episode.",
+            )
         if recipient.get("last_injected_at") or recipient.get("acknowledged_at"):
             return True
         if int(recipient.get("injection_count") or 0) > 0:
@@ -127,16 +139,17 @@ def _receipt_delivered(conn: Any, message_id: str, session_id: str) -> bool:
 def notice_already_sent(conn: Any, *, idempotency_key: str) -> bool:
     """Whether this exact notice has already been accepted.
 
-    The key names what the notice is about — for an ejection, the head the
-    observation read — so this answers "has the owner already been told
+    The key names what the notice is about — for an ejection, the head and
+    its arming episodes — so this answers "has the owner already been told
     about this?" without composing or sending anything. The observer needs
     it because a stop it cannot clear a marker for would otherwise be
     re-counted as newly reported on every sweep.
     """
     marker = _p(conn)
     row = conn.execute(
-        f"SELECT 1 FROM session_messages WHERE idempotency_key={marker} LIMIT 1",
-        (idempotency_key,),
+        f"SELECT 1 FROM session_messages WHERE idempotency_key={marker} "
+        f"OR idempotency_key LIKE {marker} LIMIT 1",
+        (idempotency_key, f"{idempotency_key}:armed:%"),
     ).fetchone()
     return row is not None
 
@@ -150,11 +163,15 @@ def push_notice(
     idempotency_key: str,
     now: datetime,
     owner_session_id: str | None = None,
+    require_new_delivery: bool = False,
 ) -> str:
     """Send one notice to whoever owns the lane; report what delivery did.
 
     ``""`` means nobody was addressable and ``"undelivered"`` means the
-    envelope was accepted but has not reached the recipient yet. The body is
+    envelope was accepted but has not reached the recipient yet.
+    An ejection requires new delivery: an acknowledged dedupe refuses by
+    name so the observer retains its landing marker. Completion notices may
+    settle from their existing acknowledgement. The body is
     composed from the resolved route, because a notice to a lane whose holder
     is gone has to say something different from one the holder will read.
     """
@@ -178,8 +195,14 @@ def push_notice(
         commit=False,
     )
     message_id = str(created["message_id"])
+    delivered = _receipt_delivered(
+        conn,
+        message_id,
+        session_id,
+        reject_acknowledged=require_new_delivery and bool(created.get("deduplicated")),
+    )
     mark_explicit_stopped_wake(conn, message_id=message_id, session_id=session_id)
-    if not _receipt_delivered(conn, message_id, session_id):
+    if not delivered:
         return "undelivered"
     return "delivered"
 

@@ -239,6 +239,7 @@ def land_item_through_merge_queue(
             item_id,
             pr_num,
             dispatch=dispatch,
+            preserve_existing=already_armed,
         )
         if marker_error:
             return QueueLandingOutcome(

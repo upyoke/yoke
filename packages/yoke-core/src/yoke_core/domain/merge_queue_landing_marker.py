@@ -56,18 +56,18 @@ def point_item_at_pull_request(
     supersedes the recorded one drops its predecessor's queue admission and
     landing stamps instead of carrying them onto the replacement, and the
     observation row goes with them. Re-writing the same number is
-    idempotent: an admission already recorded survives a later caller that
-    has none to declare. ``None`` when the item does not exist.
+    idempotent when it declares the same arming timestamp. A fresh timestamp
+    replaces the stopped episode; a caller declaring none preserves it. ``None`` when the item does not exist.
     """
     marker = read_landing_marker(conn, item_id)
     if marker is None:
         return None
     same_pr = marker["pr_number"] == pr_number
-    recorded_enqueued_at = marker["enqueued_at"] if same_pr and marker["enqueued_at"] else enqueued_at
+    recorded_enqueued_at = enqueued_at or (marker["enqueued_at"] if same_pr else "")
     landed_at = marker["landed_at"] if same_pr else ""
     notified_at = marker["notified_at"] if same_pr else ""
     reset_observation = not same_pr or bool(
-        enqueued_at and not marker["enqueued_at"]
+        enqueued_at and enqueued_at != marker["enqueued_at"]
     )
     p = _placeholder(conn)
     conn.execute(

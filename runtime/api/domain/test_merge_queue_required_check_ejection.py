@@ -126,6 +126,7 @@ def test_a_repeated_ejection_accepts_a_changed_notice_body(monkeypatch):
     )
     assert first["ejected"] == 1
     original_body = message_body(conn, ejected_message_id(conn))
+    inject(conn, ejected_message_id(conn))
     assert "repo-contracts=failure" in original_body
 
     # Recreate the stale admission a serving build from before this fix could
