@@ -296,7 +296,7 @@ work that still has implementation or verification left to do.
    resume from the last checkpoint. A launch refused `item_has_live_worker`
    means the predecessor still holds the item; finish step 2 first.
 
-4. **Confirm the handoff.** By `deadline_at`, the launch reads
+4. **Confirm the handoff.** By its live `deadline_at`, the launch reads
    `state=succeeded` and `yoke claims work holder-get PREFIX-N` names the
    successor's session. The successor reports DONE for the item as its own
    leg; the predecessor sends nothing further.
@@ -351,8 +351,13 @@ composed launch's display name is derived from `{ITEM}` plus its
 authoritative backlog title; the instruction body never becomes a title or
 command-line argument. Itemless launches omit that name.
 
-Retain the returned `launch_id` and `deadline_at`. By that deadline, require
-`state=succeeded` and a non-empty `registered_session_id`:
+Retain the returned `launch_id`. The launch's `deadline_at` window starts when
+its machine's relay picks it up, not at create: a launch still `assigned` is
+queued behind that machine's earlier native creates, and pickup moves
+`deadline_at` to the pickup time plus the full window. A queued launch closes
+early only when its relay disconnects past the create-time deadline or when it
+outlasts the queue bound (`LAUNCH_QUEUE_WAIT_SECONDS`, one hour). Read the live `deadline_at` from `launch get`; by that
+deadline, require `state=succeeded` and a non-empty `registered_session_id`:
 
 ```text
 yoke session-control launch get {LAUNCH_ID} --json

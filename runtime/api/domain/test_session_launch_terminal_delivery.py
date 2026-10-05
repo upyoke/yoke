@@ -215,7 +215,7 @@ def test_cancelled_native_create_reconciliation_binds_the_registered_session() -
 
 def test_deadline_expiry_closes_launch_instruction() -> None:
     conn = launch_connection()
-    add_relay(conn)
+    add_relay(conn, connected_until="2026-08-22T12:05:00Z")
     launch = assigned_launch(conn, key="expire-assigned")
 
     changed = settle_launch_deadlines(conn, now="2026-08-22T12:11:00Z")
@@ -284,7 +284,7 @@ def test_retry_reopens_message_without_reactivating_an_old_recipient() -> None:
     assert tuple(reset[:4]) == (0, None, 0, None)
     assert reset[4] == "2026-08-22T12:11:03Z"
     assert reset[4] != retried.deadline_at
-    assert rebound.deadline_at == retried.deadline_at
+    assert rebound.deadline_at == "2026-08-22T12:21:02Z"
 
 
 @pytest.mark.parametrize("terminal_state", ["failed", "expired", "outcome_unknown"])

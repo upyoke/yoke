@@ -19,7 +19,10 @@ from typing import Any, Mapping, Sequence
 
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_core.domain import db_backend
-from yoke_core.domain.session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
+from yoke_core.domain.session_launch_delivery_state import (
+    IN_FLIGHT_LAUNCH_STATES,
+    QUEUED_LAUNCH_STATES,
+)
 from yoke_core.domain.steering_fleet_report_evidence import (
     evidence_document,
     evidence_int,
@@ -139,7 +142,8 @@ def unregistered_launches(
     """Launches whose instruction is stranded by missing session binding.
 
     Correlation failures and exact registered-but-unbound sessions are visible
-    immediately. Other in-flight launches appear only after their deadline.
+    immediately. Other in-flight launches appear only after their deadline;
+    a launch still queued for pickup has not started its deadline window.
     Closed unrelated history remains excluded.
     """
     p = marker(conn)
@@ -174,7 +178,10 @@ def unregistered_launches(
     gaps = []
     for row in rows:
         record = dict(row)
-        elapsed = age_seconds(str(record.get("deadline_at") or ""), now) or 0
+        queued = record.get("state") in QUEUED_LAUNCH_STATES
+        elapsed = (
+            0 if queued else age_seconds(str(record.get("deadline_at") or ""), now) or 0
+        )
         result_code = str(record.get("result_code") or "")
         evidence = redacted_evidence_document(
             evidence_document(record.get("result_evidence"))
