@@ -165,7 +165,7 @@ it.
 
 | Target | Required verdict |
 |---|---|
-| `implementing` or later | `planning_to_plan_drafted` = `READY`, `SKIPPED`, or `CAVEATS` (legacy `planned_to_ready` accepted as pre-2026-04-07 compat) |
+| `implementing` or later | `planning_to_plan_drafted` = `READY`, `SKIPPED`, or `CAVEATS` (supported alias: `planned_to_ready`) |
 
 **Check:**
 ```bash
@@ -175,8 +175,7 @@ _gate_exit=$?
 
 `planning_to_plan_drafted` is the terminal verdict the `shepherd` skill
 writes before its pinned handoff. The helper also accepts the legacy
-`planned_to_ready` transition for items that passed the pre-2026-04-07
-pipeline; no modern producer writes that name.
+`planned_to_ready` transition when reading an existing qualifying verdict.
 
 If `_gate_exit` is non-zero (no qualifying verdict), **block** with `$_gate_reason` followed by this remediation:
 > **Blocked:** PREFIX-{N} has no qualifying shepherd verdict for the Shepherd Lifecycle Gate.
