@@ -95,17 +95,16 @@ test("an ended card is composed from the same sections as a live one", () => {
     assert.ok(byClass(active, section).length, `live card lacks ${section}`);
     assert.ok(byClass(ended, section).length, `ended card lacks ${section}`);
   }
-  assert.equal(
+  assert.ok(
     allNodes(ended).find(
       (node) => node.tagName === "BUTTON" && node.textContent === "Message",
     ),
-    undefined,
   );
   assert.equal(
-    byClass(ended, "session-messaging-blocked").length, 0,
+    byClass(ended, "session-message-delivery-note").length, 0,
   );
   assert.equal(byClass(ended, "session-history-prior").length, 0);
-  assert.equal(byClass(ended, "session-latest-message").length, 0);
+  assert.equal(byClass(ended, "session-latest-message").length, 1);
   assert.deepEqual(
     byClass(ended, "session-holdings-label").map((node) => node.textContent),
     ["Previously held"],

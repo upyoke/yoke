@@ -259,7 +259,7 @@
 }
 
 .universe-app-root .session-relay-warning,
-.universe-app-root .session-messaging-blocked {
+.universe-app-root .session-message-delivery-note {
   min-width: 0;
   color: var(--yoke-muted);
   font-size: 11px;
