@@ -73,7 +73,13 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("last_chain_step", "INTEGER"),
             ("last_checkpoint_at", "TEXT"),
         ],
-        "notes": HARNESS_SESSION_NOTES,
+        "notes": HARNESS_SESSION_NOTES
+        + (
+            " Minimal API test fixtures may omit turn_posture and turn_posture_at; "
+            "do not assume the fixture carries the live session schema. Tests "
+            "asserting native posture initialize it with "
+            "schema_harness_session_columns.apply_harness_session_columns(conn)."
+        ),
     },
     "session_tool_calls": {
         "columns": [

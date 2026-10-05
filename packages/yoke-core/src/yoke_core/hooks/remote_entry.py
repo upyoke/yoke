@@ -18,11 +18,13 @@ computed before expiry is preserved in the rendered output.
 from __future__ import annotations
 
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Optional
 
 from yoke_contracts.session_model_facts import MODEL_FACT_FIELDS, SessionModelFacts
 from yoke_core.domain.session_usage_observation import USAGE_COLUMN
+from yoke_core.domain.project_scratch_dir import scratch_project
 
 from yoke_core.hooks.capability_resolve import resolve_capability
 from yoke_core.domain.hook_runner_deadline import resolve_total_timeout_ms
@@ -108,12 +110,24 @@ def evaluate_remote(
     capability = resolve_capability(executor)
 
     started = time.monotonic()
-    stdout, exit_code = run_event(
-        event_name,
-        capability=capability,
-        stdin_data=stdin_data,
-        controls=controls,
-    )
+    # The authorized wire project owns every project-scoped path during this
+    # run, including dedup before dispatch and lifecycle work in the tail.
+    # Never mutate process-wide YOKE_PROJECT in a concurrent server.
+    scope = nullcontext()
+    if project_id is not None:
+        from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.project_identity import resolve_project_slug
+
+        with connect() as conn:
+            project = resolve_project_slug(conn, project_id)
+        scope = scratch_project(project)
+    with scope:
+        stdout, exit_code = run_event(
+            event_name,
+            capability=capability,
+            stdin_data=stdin_data,
+            controls=controls,
+        )
     wait_ms = int((time.monotonic() - started) * 1000)
 
     degraded = list(controls.degraded)
