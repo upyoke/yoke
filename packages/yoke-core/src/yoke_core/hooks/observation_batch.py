@@ -14,6 +14,7 @@ from yoke_contracts.hook_evaluator_protocol import (
 )
 from yoke_contracts.hook_runner.chain_registry import chain_for
 from yoke_core.domain import db_backend
+from yoke_core.domain.events_project_identity import working_project_for_event
 from yoke_core.domain.events import build_envelope as build_event_envelope
 from yoke_core.domain.events_emit_write import _write_event
 from yoke_core.domain.events_retired_name_guard import assert_event_name_not_retired
@@ -210,7 +211,7 @@ def _dispatch_event(
         session_id=context.session_id or "unknown",
         severity="INFO",
         outcome="completed",
-        project="yoke",
+        project=working_project_for_event(conn=conn, session_id=context.session_id),
         item_id=str(context.item_id) if context.item_id is not None else None,
         tool_name=tool_name or None,
         duration_ms=hook_wait_ms,

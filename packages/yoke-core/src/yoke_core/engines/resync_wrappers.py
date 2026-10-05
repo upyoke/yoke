@@ -14,17 +14,21 @@ from __future__ import annotations
 
 def _parent():
     from yoke_core.engines import resync as _resync
+
     return _resync
+
 
 def _fetch_gh_issues_per_project(projects):
     """Wrapper: fetch GitHub issues via REST."""
     from yoke_core.engines.resync_detect import _fetch_gh_issues_per_project as _fn
+
     return _fn(projects)
 
 
 def _graphql_batch_fetch(nums, project="", batch_size=50, *, auth=None):
     """Wrapper: GraphQL batch fetch via REST."""
     from yoke_core.engines.resync_detect import _graphql_batch_fetch as _fn
+
     return _fn(nums, project=project, batch_size=batch_size, auth=auth)
 
 
@@ -60,31 +64,40 @@ def stage1_5_heavy_fetch(paired, gh_by_project):
 
 def _repair_local_orphan_backlog(item_id, project):
     from yoke_core.engines.resync_apply import _repair_local_orphan_backlog as _fn
+
     return _fn(item_id, project, call_domain_sync_fn=_parent()._call_domain_sync)
 
 
 def _repair_local_orphan_epic_task(epic_id, task_num, project, db_path):
     from yoke_core.engines.resync_apply import _repair_local_orphan_epic_task as _fn
+
     return _fn(
-        epic_id, task_num, project, db_path,
+        epic_id,
+        task_num,
+        project,
+        db_path,
         is_dry_run_fn=_parent()._is_dry_run,
     )
 
 
 def _repair_drift(drift, paired, db_path):
     from yoke_core.engines.resync_apply import _repair_drift as _fn
+
     return _fn(
-        drift, paired, db_path,
+        drift,
+        paired,
+        db_path,
         call_domain_sync_fn=_parent()._call_domain_sync,
         is_dry_run_fn=_parent()._is_dry_run,
         query_item_status_fn=_parent()._query_item_status,
     )
 
 
-def _emit_gh_unavailable_doctor():
+def _emit_gh_unavailable_doctor(project: str):
     """Retired hook: prior callers emitted WARN HCs when the GitHub App auth was absent.
     bearer-token transports surface the missing-auth condition through their
     own typed errors, so callers SKIP via the canonical reason string.
     """
     from yoke_core.engines.resync_apply import _emit_gh_unavailable_doctor as _fn
-    return _fn()
+
+    return _fn(project)

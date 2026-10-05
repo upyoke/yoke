@@ -111,7 +111,8 @@ def refuse_held_assigned_item(
         f"terminate it first with `yoke sessions terminate {session_id} --reason R`"
         if session_id != "no live registered session"
         else f"Wait for launch {launch_id} to register; cancel an unstarted launch "
-        "or reconcile possible native creation before launching a fresh worker"
+        f"or run `yoke session-control launch reconcile {launch_id}` "
+        "before launching a fresh worker"
     )
     raise SessionLaunchError(
         "item_has_live_worker",

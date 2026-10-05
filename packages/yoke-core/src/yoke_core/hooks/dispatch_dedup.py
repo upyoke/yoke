@@ -22,6 +22,8 @@ marker.
 """
 
 from __future__ import annotations
+from pathlib import Path
+from yoke_contracts.project_defaults import default_project_for_directory
 
 import hashlib
 import os
@@ -135,7 +137,9 @@ def emit_hook_dispatch_deduplicated(
             session_id=session_id,
             severity="INFO",
             outcome="skipped",
-            project="yoke",
+            project=default_project_for_directory(Path.cwd())
+            if run_half != "server"
+            else None,
             hook_event_name=event_name,
             context={
                 "hook_event": event_name,

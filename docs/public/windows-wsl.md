@@ -29,14 +29,17 @@ and no need to type a privilege command yourself. If the machine cannot grant
 access, setup names the reason and asks you to rerun `yoke wsl setup` in an
 Ubuntu terminal with administrator access.
 
-Install and `yoke setup` also converge the Windows user's
+Install and `yoke setup` Apply also converge the Windows user's
 `%UserProfile%\.wslconfig` to `[general] instanceIdleTimeout=-1`, preserving
 other settings and comments. This disables distro idle shutdown so the relay
 and background work keep running after every WSL terminal closes. The setting
 applies to all WSL2 distributions owned by that Windows user. It requires WSL
-2.5.4 or newer; an older or unreadable version produces a named refusal with
-instructions to run `wsl --update` from Windows and retry `yoke wsl setup`.
-Windows interop and access to the Windows user profile must be available.
+2.5.4 or newer. An older WSL version or unreachable Windows interop produces
+a clear warning, skips the lifetime change, and allows installation and setup
+to finish. Run `wsl --update` from Windows, restore interop if needed, and
+retry `yoke wsl setup`. Invalid configuration still refuses with its recovery.
+Onboarding preparation and preview never write `/etc/wsl.conf` or `.wslconfig`;
+the WSL configuration changes happen only on Apply.
 See [Microsoft's WSL configuration reference](https://learn.microsoft.com/windows/wsl/wsl-config)
 and [the WSL 2.5.4 release notes](https://github.com/microsoft/WSL/releases/tag/2.5.4).
 

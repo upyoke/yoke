@@ -28,15 +28,19 @@ your own git credentials” or “pushed with Yoke GitHub access”. A broken st
 authorization never falls back to your own credentials; GitHub API features
 still require the App connection.
 
-## Merging with GitHub skipped
+## Merge connectivity and issue mirroring
 
-A project with `github_sync_mode=disabled` merges finished work locally through
-both the engine and `yoke merge item`. It needs no GitHub App authorization,
-SSH key, or git credential, even when the checkout has a remote. The outcome
+A project's active GitHub App repository binding determines whether a
+standalone merge needs App admission, publication, and post-push checks.
+`github_sync_mode=disabled` only disables issue mirroring; it does not disable
+these merge gates for a connected repository.
+
+A project without an active App binding can merge locally. The outcome
 says the merge was not pushed because GitHub is not connected when publication
 is unavailable; item evidence and lifecycle close-out still run. Standalone
 completion attempts an optional push, while engine-local completion stays local.
-Post-push App checks and GitHub sync stay off, even if your credentials push it.
+Post-push App checks stay off for disconnected repositories, even if your
+credentials push the commit. Issue mirroring follows its own sync mode.
 
 The trial and real integration use `origin/<default-branch>` when that ref
 exists, otherwise the local default branch. A checkout with no remote does

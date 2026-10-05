@@ -7,6 +7,8 @@ functions are subprocess/path plumbing.
 """
 
 from __future__ import annotations
+from pathlib import Path
+from yoke_contracts.project_defaults import default_project_for_directory
 
 from typing import Any
 
@@ -138,7 +140,7 @@ def attest_served_model_facts(
             severity="INFO",
             outcome="completed",
             session_id=session_id,
-            project="yoke",
+            project=default_project_for_directory(Path.cwd()),
             context={
                 "previous_model": previous_model,
                 "refreshed_model": served.model or "",

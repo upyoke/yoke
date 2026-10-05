@@ -37,7 +37,10 @@ from yoke_core.domain.projects_github_sync_mode import (
 )
 import yoke_core.engines.doctor_hc_worktrees as _wt
 import yoke_core.engines.doctor_report as _base
-from yoke_core.engines.doctor_hc_gh_skip import GH_APP_AUTH_UNAVAILABLE_SKIP_REASON
+from yoke_core.engines.doctor_hc_gh_skip import (
+    GH_APP_AUTH_UNAVAILABLE_SKIP_REASON,
+    GH_PROJECT_NOT_SELECTED_REASON,
+)
 from yoke_core.engines.doctor_hc_worktrees_gh_repo_rest import (
     issue_close,
     issue_comment,
@@ -58,12 +61,20 @@ def _p(conn) -> str:
 
 def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """Check verified repository bindings using one inventory per repository."""
-    if not _wt._github_auth_configured("yoke", db_path=args.db_path):
+    if not args.project:
+        rec.record(
+            "HC-wrong-repo-issues",
+            "Wrong-repo GitHub issues",
+            "N/A",
+            GH_PROJECT_NOT_SELECTED_REASON,
+        )
+        return
+    if not _wt._github_auth_configured(args.project, db_path=args.db_path):
         rec.record(
             "HC-wrong-repo-issues",
             "Wrong-repo GitHub issues",
             "SKIP",
-            GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project="yoke"),
+            GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project=args.project),
         )
         return
     if not _base._table_exists(conn, "projects"):

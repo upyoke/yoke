@@ -143,6 +143,7 @@ class _BundleServer:
     def __init__(self, bundle: dict[str, Any]) -> None:
         self.bundle = bundle
         self.requests: list[tuple[str, str]] = []
+        self.function_requests: list[dict[str, Any]] = []
         self.url = ""
         self._server: http.server.ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
@@ -152,7 +153,37 @@ class _BundleServer:
 
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_POST(self) -> None:  # noqa: N802
-                self.send_error(404)
+                if self.path != "/v1/functions/call":
+                    self.send_error(404)
+                    return
+                if self.headers.get("Authorization") != "Bearer product-token":
+                    self.send_error(403)
+                    return
+                length = int(self.headers.get("Content-Length", "0"))
+                request = json.loads(self.rfile.read(length).decode("utf-8"))
+                owner.function_requests.append(request)
+                if request["function"] != "projects.get" or request["payload"] != {
+                    "project": "7",
+                    "field": "default_branch",
+                }:
+                    self.send_error(404)
+                    return
+                body = json.dumps(
+                    {
+                        "success": True,
+                        "function": request["function"],
+                        "version": request.get("version", "v1"),
+                        "request_id": request.get("request_id", ""),
+                        "result": {"value": "trunk"},
+                        "warnings": [],
+                        "event_ids": [],
+                    }
+                ).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
 
             def do_GET(self) -> None:  # noqa: N802
                 owner.requests.append(

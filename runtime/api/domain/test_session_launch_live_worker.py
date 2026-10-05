@@ -66,7 +66,7 @@ def test_pending_launch_refuses_different_key(monkeypatch, state, composed):
     conn.commit()
     message = _refused(conn, item, launch_id, composed=composed)
     assert "no live registered session" in message
-    assert "reconcile possible native creation" in message
+    assert f"yoke session-control launch reconcile {launch_id}" in message
 
 
 @pytest.mark.parametrize("claim", [True, False])

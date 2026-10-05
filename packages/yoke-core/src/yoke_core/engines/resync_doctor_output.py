@@ -92,13 +92,18 @@ def _emit_doctor_format(
     hc39_status = "PASS"
     for d in drifts:
         if d.field not in (
-            "label-status", "label-priority", "label-workflow",
-            "label-source", "label-owner",
+            "label-status",
+            "label-priority",
+            "label-workflow",
+            "label-source",
+            "label-owner",
         ):
             continue
         hc39_status = "WARN"
         if mode == "fix":
-            hc39_detail += f"- {d.ref}: {d.field} drift ({d.local} vs {d.github}) -- FIXED\\n"
+            hc39_detail += (
+                f"- {d.ref}: {d.field} drift ({d.local} vs {d.github}) -- FIXED\\n"
+            )
         else:
             hc39_detail += f"- {d.ref}: {d.field} drift ({d.local} vs {d.github})\\n"
     print(f"HC-label-drift|Label drift|{hc39_status}|{hc39_detail}")
@@ -111,7 +116,9 @@ def _emit_doctor_format(
             continue
         hc40_status = "WARN"
         if mode == "fix":
-            hc40_detail += f"- {d.ref}: expected {d.local}, GitHub is {d.github} -- FIXED\\n"
+            hc40_detail += (
+                f"- {d.ref}: expected {d.local}, GitHub is {d.github} -- FIXED\\n"
+            )
         else:
             hc40_detail += f"- {d.ref}: expected {d.local}, GitHub is {d.github}\\n"
     print(f"HC-state-drift|State drift|{hc40_status}|{hc40_detail}")
@@ -138,7 +145,7 @@ def _emit_doctor_format(
     print("HC-task-label-drift|Epic task label drift|PASS|")
 
 
-def _emit_gh_unavailable_doctor() -> None:
+def _emit_gh_unavailable_doctor(project: str) -> None:
     """Emit SKIP for all GitHub-dependent HCs when the project GitHub App auth is not
     configured.
 
@@ -146,7 +153,7 @@ def _emit_gh_unavailable_doctor() -> None:
     :data:`yoke_core.engines.doctor_hc_gh_skip.GH_APP_AUTH_UNAVAILABLE_SKIP_REASON`
     so the operator sees one consistent message across the doctor report.
     """
-    skip_msg = GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project="yoke")
+    skip_msg = GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project=project)
     for hc in [
         "HC-missing-gh-issues|Missing GitHub issues",
         "HC-title-drift|Title drift",

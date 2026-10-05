@@ -16,8 +16,11 @@ with systemd enabled. To open a URL in the Windows browser, Yoke tries
 `wslview`, then `explorer.exe` if Python's browser opener fails. Install `wslu`
 or enable Windows interop/PATH when both are unavailable. Verify the local UI
 through Windows localhost forwarding before changing WSL networking modes.
-Install and onboard disable WSL2 idle shutdown through the Windows user
-profile `.wslconfig` (WSL 2.5.4 or newer). Follow the printed `wsl --shutdown`
+Install and onboard Apply disable WSL2 idle shutdown through the Windows user
+profile `.wslconfig` (WSL 2.5.4 or newer). Older WSL or unavailable Windows
+interop warns without blocking completion; run `wsl --update` from Windows
+and retry `yoke wsl setup`. Preview does not write WSL configuration.
+Follow the printed `wsl --shutdown`
 restart step when setup changes it; afterward terminals can close while the
 relay and background work continue. After a deliberate distro shutdown, run
 `yoke init --local` to restart its Postgres authority.
@@ -174,6 +177,8 @@ stops removal and names the recovery. Hosted-only clients see no data warning.
 
 Next, the command lists registered checkouts with a Yoke install manifest.
 Choose all, none, or a selection to also run `yoke project uninstall` on.
+A Git checkout must be on the project's configured default branch before its
+layer is removed. An unset default branch refuses until it is configured.
 It then removes the relay and stops its workers, removes the selected project
 layers, disconnects Yoke's GitHub credentials and checkout helpers, stops the
 local UI and embedded Postgres, tears down local self-host stacks including
