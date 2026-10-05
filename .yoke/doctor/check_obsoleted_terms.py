@@ -302,9 +302,19 @@ def hc_obsoleted_terms(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         return
     repo_root = Path(repo_root_str)
     hits = scan_repo(repo_root)
-    hits.extend(
-        scan_backlog_fields(conn, OBSOLETED_TERM_PATTERNS, OBSOLETED_TERM_LABELS)
-    )
+    try:
+        hits.extend(
+            scan_backlog_fields(conn, OBSOLETED_TERM_PATTERNS, OBSOLETED_TERM_LABELS)
+        )
+    except Exception:
+        if hits:
+            rec.record(
+                "HC-obsoleted-terms",
+                "Obsoleted terms in live files",
+                "WARN",
+                "\n".join(hits[:40]),
+            )
+        raise
     if hits:
         rec.record(
             "HC-obsoleted-terms",

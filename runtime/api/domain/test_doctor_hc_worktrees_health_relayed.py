@@ -131,6 +131,31 @@ def test_check_runs_against_an_https_client_with_a_checkout(
     ]
 
 
+def test_missing_repo_root_uses_each_lanes_disposable_declarations(
+    monkeypatch, relayed_client
+):
+    from pathlib import PurePosixPath
+
+    _install_relay(monkeypatch, relayed_client, inventory={"lanes": []}, verdict={})
+    monkeypatch.setattr(hc._base, "_resolve_repo_root", lambda: None)
+    roots = frozenset({PurePosixPath(".generated")})
+    observed = []
+
+    def declared(root):
+        observed.append(root)
+        return roots
+
+    def residue(run_git, path, actual_roots):
+        assert actual_roots == roots
+        return _Residue()
+
+    monkeypatch.setattr(hc, "declared_disposable_roots", declared)
+    monkeypatch.setattr(hc, "assess_lane_residue", residue)
+    rec = _run_check(DoctorArgs(project="platform"))
+    assert observed == ["/repo"]
+    assert [row.result for row in rec.results] == ["PASS"]
+
+
 def test_fix_retires_a_disposable_terminal_lane_over_https(
     monkeypatch, relayed_client
 ) -> None:
