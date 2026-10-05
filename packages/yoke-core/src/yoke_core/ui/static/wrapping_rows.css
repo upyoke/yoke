@@ -1,6 +1,6 @@
-/* Heading copy consumes spare space on its own flex line. Fitting action
-   groups follow it at the right; groups on a new line start at the left.
-   Badges and facts keep their natural width without trailing auto margins. */
+/* Text copy consumes spare space on its own flex line; badges keep their
+   natural width. Fitting action-only groups reach the right edge, while
+   wrapped groups and values start at the left edge of their own line. */
 .universe-app-root :is(
   .wrapping-row,
   .activation-head,
@@ -122,26 +122,28 @@
   align-items: flex-start;
 }
 
-/* Only heading copy consumes spare space; badges, pills and facts retain
-   their intrinsic width. A heading grows on its own line, so actions that
-   wrap still start at the left edge. */
+/* Only text copy consumes spare space; badges and pills retain intrinsic
+   width. Copy grows on its own line, leaving wrapped actions and values
+   at the left edge without a blanket first-child rule. */
 .universe-app-root :is(.page-head, .test-machine-head) > .h,
 .universe-app-root .panel-header > :is(h2, h3),
 .universe-app-root .activation-head > .activation-title,
 .universe-app-root .machine-head > .machine-names,
 .universe-app-root .review-head > .review-head-copy,
 .universe-app-root :is(.secondary-card-header, .event-header) > div:has(> :is(h3, .event-name)),
-.universe-app-root .workflow-dialog-footer > .workflow-dialog-impact {
+.universe-app-root .workflow-dialog-footer > .workflow-dialog-impact,
+.universe-app-root .runtime-identity-help-label,
+.universe-app-root .strategy-spark-label > span:not([class]),
+.universe-app-root .qa-method-foot > span:not([class]) {
   flex-grow: 1;
 }
 
-.universe-app-root .session-roster-filters > .session-filter-search { max-width: none; }
 .universe-app-root .review-foot > .review-who,
 .universe-app-root .item-roster-toolbar > .item-roster-note { flex-grow: 1; }
 
-/* Headings and form fields consume spare space on their own flex line.
-   Action groups have no auto margin: when they take a new line they begin
-   at the left, including when their buttons still fit on that new line. */
+/* A fitting action-only group reaches the right edge. At its maximum
+   width, wrapped buttons start left inside the group. Groups paired with
+   growing copy follow that copy and start left when taking their own line. */
 .universe-app-root :is(
   .app-footer-links, .deployment-terminalization-actions, .head-actions,
   .instruction-editor-actions, .item-form-actions,
@@ -154,12 +156,13 @@
   box-sizing: border-box;
   width: fit-content;
   max-width: 100%;
-  margin-inline-start: 0;
+  margin-inline-start: auto;
   flex-wrap: wrap;
   justify-content: flex-start;
 }
 
 /* Header action groups follow the growing heading, including on a new line. */
+.universe-app-root .session-roster-filters > .session-filter-actions,
 .universe-app-root :is(.page-head, .review-foot, .workflow-dialog-footer:not(.actions-only)) > :is(
   .head-actions, .review-actions, .workflow-dialog-actions
 ) {

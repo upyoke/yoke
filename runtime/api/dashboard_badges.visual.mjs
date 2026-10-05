@@ -6,6 +6,7 @@ import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { alignmentFixture, captureAlignmentProof } from "./dashboard_alignment.visual.mjs";
 const [modulePath, output, sourceRoot] = process.argv.slice(2);
 assert(modulePath && output, "Name PLAYWRIGHT_MODULE and OUTPUT_DIR.");
 const { chromium } = createRequire(import.meta.url)(modulePath);
@@ -89,12 +90,13 @@ for(const text of ["Review", "Review the production deployment candidate and its
 }
 const contents=document.querySelector(".content");
 const chrome=createWorkbenchChrome({client:context.client,context,documentNode:document,
- mountedSlotNodes:[],options:{currentActor:{kind:"human",label:"Ben Bauman"},capabilities:context.capabilities},
+ mountedSlotNodes:[],options:{runtimeIdentity:{version:"2.3.4",build:"verified-candidate",environmentLabel:"hosted",installKind:"source",portabilityMode:"hosted"},currentActor:{kind:"human",label:"Ben Bauman"},capabilities:context.capabilities},
  resolvedSections:{},resolvedSlots:{},slots:{}});
 chrome.main.replaceChildren(...contents.childNodes);
 document.querySelector(".universe-app-root").replaceChildren(chrome.header,chrome.shell);
 chrome.orgContext.textContent="upyoke";
 chrome.setScopeVisible(true);chrome.scopeHost.innerHTML='<div class="scope-bar"><button class="scope-chip on">Demo</button></div>';
+${alignmentFixture}
 window.proofReady=true;
 </script></body></html>`;
 const server=createServer(async(req,res)=>{try{
@@ -190,4 +192,5 @@ try{
   }
   console.log(`${sourceRoot?"before":"after"} ${width}px: populated cards, Actors, Workflows, ${rows.length} row classes, both Delivery surfaces`);
  }
+ await captureAlignmentProof({freshPage,output,baseline:Boolean(sourceRoot)});
 }finally{await browser.close();await new Promise((resolve)=>server.close(resolve));}

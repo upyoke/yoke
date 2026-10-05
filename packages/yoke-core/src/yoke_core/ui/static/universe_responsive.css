@@ -270,7 +270,7 @@
   .universe-app-root .header-universe-context { order: 10; }
   .universe-app-root .header-actor-context { order: 11; }
   .universe-app-root .header-project-context { flex: 0 1 auto; order: 12; }
-  .universe-app-root button.actor-chip { font-size: 12.5px; gap: 4px; padding: 0; min-height: 22px; min-width: 0; }
+  .universe-app-root button.actor-chip { font-size: 12.5px; min-height: 22px; }
   /* A phone has no room for a panel floating over a page: the dialog IS the
      screen here, so it fills it rather than centring inside a viewport it
      already covers. */
@@ -299,17 +299,13 @@
   }
   .universe-app-root .app-footer-mark,
   .universe-app-root .app-footer-environment { display: none; }
-  .universe-app-root .app-footer-links {
-    width: 100%;
-    margin-left: 0;
-  }
 }
 
 @media (hover: none) {
   .universe-app-root button,
   .universe-app-root .nav-link,
   .universe-app-root .item-button { min-height: 40px; min-width: 40px; }
-  .universe-app-root .header-context-control { height: 40px; }
+  .universe-app-root .header-context-control { min-height: 40px; }
   /* Context chips fit the same 22px circle as the actor avatar. */
   .universe-app-root .header-scope-host .scope-chip {
     height: 22px;

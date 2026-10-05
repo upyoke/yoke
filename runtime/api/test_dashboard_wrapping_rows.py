@@ -125,11 +125,11 @@ def test_actor_inventory_wraps_unbroken_credential_identifiers():
     assert "overflow-wrap: anywhere" in key
 
 
-def test_action_groups_have_no_auto_margin_after_wrapping():
+def test_action_only_groups_reach_the_right_edge_without_stretching_badges():
     source = files("yoke_core.ui").joinpath("static", "wrapping_rows.css").read_text()
-    assert "margin-inline-start: auto" not in source
+    assert "margin-inline-start: auto" in source
     assert ".session-filter-actions" in source
-    assert ".session-filter-search { max-width: none; }" in source
+    assert ".session-filter-search { max-width: none; }" not in source
 
 
 def test_mobile_header_keeps_intrinsic_widths_and_visible_actor_name():

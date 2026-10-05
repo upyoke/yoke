@@ -14,8 +14,9 @@ const staticRoot = fileURLToPath(new URL(
   "../../packages/yoke-core/src/yoke_core/ui/static/", import.meta.url,
 ));
 const entry = await readFile(path.join(staticRoot, "index.html"), "utf8");
-const styles = [...entry.matchAll(/href="\.\/assets\/([^\"]+\.css)"/g)]
+const styles = [...entry.matchAll(/href="(?:\.\/|\/)assets\/([^\"]+\.css)"/g)]
   .map((match) => match[1]);
+assert(styles.length, "Source index must declare its stylesheet roster.");
 const flowName = "yoke-hosted-production-release-qa";
 const rows = [
   ["Session identity", "session-top", "session-operator"],
@@ -64,6 +65,7 @@ const html = (assets) => `<!doctype html><html><head>
       row.className = rowClass + " proof-row";
       const first = document.createElement("span");
       first.textContent = "Current execution context";
+      if (label === "Runtime identity") first.className = "runtime-identity-help-label";
       const trailing = document.createElement("span");
       trailing.className = trailingClass;
       trailing.textContent = "Production deployment owner";
@@ -162,8 +164,9 @@ try {
         assert(Math.abs(row.offset) < 1, `${row.label} second line is indented`);
         assert(Math.abs(row.rowLeftGap) < 1, `${row.label} wrapped row is indented`);
       }
-      else {
-        assert(Math.abs(row.rowLeftGap) < 1, `${row.label} standalone row must start left`);
+      else if (["Runtime identity", "Editor actions", "Form actions", "Dialog actions", "Test machine dialog", "Review buttons"].includes(row.label)) {
+        assert(Math.abs(row.rightGap) < 1, `${row.label} fitting content must reach the right edge`);
+        assert(Math.abs(row.rowRightGap) < 1, `${row.label} fitting row must reach the right edge`);
       }
     }
   }
