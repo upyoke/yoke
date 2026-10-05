@@ -15,6 +15,15 @@ yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evide
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
+## Entry mode
+
+Stamp the session mode on entry so a claimed item at the binding's handoff
+stage paints its first working stage active:
+
+```text
+yoke sessions touch --mode conduct
+```
+
 ## Workflow binding gate
 
 **The live skill binding authorizes Conduct.** Read the item's pinned

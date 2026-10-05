@@ -19,8 +19,11 @@ SESSION_MODES: FrozenSet[str] = frozenset(
     (
         SESSION_MODE_DEFAULT,
         SESSION_MODE_PARKED,
+        "advance",
+        "blitz",
         "busy",
         "charge",
+        "conduct",
         "curate",
         "dash",
         "doctor",
