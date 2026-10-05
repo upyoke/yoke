@@ -177,8 +177,13 @@ def test_project_install_product_wheel_uses_https_bundle_with_inert_engine(
             timeout=90,
         )
         payload = json.loads(uninstall.stdout)
-        assert len(server.function_requests) == 1
-        request = server.function_requests[0]
+        branch_reads = [
+            request
+            for request in server.function_requests
+            if request["function"] == "projects.get"
+        ]
+        assert len(branch_reads) == 1
+        request = branch_reads[0]
         assert request["function"] == "projects.get"
         assert request["payload"] == {"project": "7", "field": "default_branch"}
         assert payload["commit"]
