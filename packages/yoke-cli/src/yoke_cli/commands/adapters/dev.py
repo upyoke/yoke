@@ -5,9 +5,8 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
-import os
 import sys
-from typing import Any, List
+from typing import List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
@@ -18,6 +17,17 @@ from yoke_cli.config import db_admin_setup as db_admin_setup_config
 from yoke_cli.config import dev_setup as dev_setup_config
 from yoke_cli.config.writer import MachineConfigWriteError
 from yoke_cli.project_install.files import ProjectInstallError
+
+from yoke_cli.config.project_selection import required_project_context
+from yoke_cli.commands.adapters.dev_setup_flags import (
+    DevSetupAdapterError,
+    _checkout_and_positional_dsn,
+    _add_secret_args,
+    _add_tunnel_args,
+    _add_authority_args,
+    _postgres,
+    _authority,
+)
 
 DEV_SETUP_USAGE = (
     "yoke dev setup [CHECKOUT] [DSN] [--config PATH] [--env ENV] "
@@ -30,9 +40,7 @@ DEV_SETUP_USAGE = (
     "--authority-region REGION --authority-database-name NAME] "
     "[--yes | --dry-run] [--json]"
 )
-DEV_PATH_SNAPSHOT_PREWARM_USAGE = (
-    "yoke dev path-snapshot-prewarm [PROJECT_ID] [--json]"
-)
+DEV_PATH_SNAPSHOT_PREWARM_USAGE = "yoke dev path-snapshot-prewarm [PROJECT_ID] [--json]"
 DEV_DB_ADMIN_SETUP_USAGE = (
     "yoke dev db-admin setup ENV [--project PROJECT] [--admin-env ENV] "
     "[--control-plane-env CONNECTION_ENV] "
@@ -41,7 +49,6 @@ DEV_DB_ADMIN_SETUP_USAGE = (
     "[--yes | --dry-run] [--json]"
 )
 PROJECT_ID_ENV = "YOKE_PROJECT_ID"
-DEFAULT_PROJECT_ID = "yoke"
 
 
 def dev_setup(args: List[str]) -> int:
@@ -56,8 +63,9 @@ def dev_setup(args: List[str]) -> int:
     parser.add_argument("checkout_or_dsn", nargs="?", default=None)
     parser.add_argument("dsn_value", nargs="?", default=None)
     parser.add_argument("--config", dest="config_path", default=None)
-    parser.add_argument("--env", dest="env_name",
-                        default=dev_setup_config.DEFAULT_ADMIN_ENV)
+    parser.add_argument(
+        "--env", dest="env_name", default=dev_setup_config.DEFAULT_ADMIN_ENV
+    )
     _add_secret_args(parser)
     parser.add_argument("--set-active-env", action="store_true")
     parser.add_argument("--editable-install", action="store_true")
@@ -78,9 +86,13 @@ def dev_setup(args: List[str]) -> int:
 
     try:
         checkout, positional_dsn = _checkout_and_positional_dsn(parsed)
-        if positional_dsn and any((
-            parsed.dsn, parsed.dsn_file, parsed.dsn_stdin,
-        )):
+        if positional_dsn and any(
+            (
+                parsed.dsn,
+                parsed.dsn_file,
+                parsed.dsn_stdin,
+            )
+        ):
             raise DevSetupAdapterError(
                 "positional DSN is mutually exclusive with --dsn, "
                 "--dsn-file, and --dsn-stdin"
@@ -99,8 +111,12 @@ def dev_setup(args: List[str]) -> int:
             postgres=_postgres(parsed),
             authority=_authority(parsed),
         )
-    except (DevSetupAdapterError, ProjectInstallError, MachineConfigWriteError,
-            dev_setup_config.DevSetupError) as exc:
+    except (
+        DevSetupAdapterError,
+        ProjectInstallError,
+        MachineConfigWriteError,
+        dev_setup_config.DevSetupError,
+    ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     if parsed.json_mode:
@@ -124,25 +140,26 @@ def dev_path_snapshot_prewarm(args: List[str]) -> int:
         "project_id",
         nargs="?",
         default=None,
-        help="Project id from the projects table (default: $YOKE_PROJECT_ID or yoke).",
+        help="Project id (explicit value, YOKE_PROJECT, or the checkout binding).",
     )
     add_json_arg(parser)
     attach_help_trailer(parser)
     parsed = parse_or_usage_error(
-        parser, args, DEV_PATH_SNAPSHOT_PREWARM_USAGE,
+        parser,
+        args,
+        DEV_PATH_SNAPSHOT_PREWARM_USAGE,
     )
     if parsed is None:
         return 2
 
-    project_id = parsed.project_id or os.environ.get(PROJECT_ID_ENV) or DEFAULT_PROJECT_ID
     try:
+        project_id = required_project_context(parsed.project_id)
         head_snapshot_id, integration_snapshot_id = _run_path_snapshot_prewarm(
             project_id,
         )
     except Exception as exc:
         print(
-            "error: source-dev/admin path-snapshot prewarm failed: "
-            f"{exc}",
+            f"error: source-dev/admin path-snapshot prewarm failed: {exc}",
             file=sys.stderr,
         )
         return 1
@@ -175,7 +192,7 @@ def dev_db_admin_setup(args: List[str]) -> int:
         ),
     )
     parser.add_argument("env_name")
-    parser.add_argument("--project", default=db_admin_setup_config.DEFAULT_PROJECT)
+    parser.add_argument("--project", default=None)
     parser.add_argument("--config", dest="config_path", default=None)
     parser.add_argument("--admin-env", default=None)
     parser.add_argument("--local-port", type=int, default=None)
@@ -229,14 +246,13 @@ def dev_db_admin_setup(args: List[str]) -> int:
 def _run_path_snapshot_prewarm(project_id: str) -> tuple[int, int | None]:
     db_helpers = importlib.import_module("yoke_core.domain.db_helpers")
     path_snapshots = importlib.import_module("yoke_core.domain.path_snapshots")
-    warm = importlib.import_module(
-        "yoke_core.domain.path_snapshots_integration_warm"
-    )
+    warm = importlib.import_module("yoke_core.domain.path_snapshots_integration_warm")
     conn = db_helpers.connect()
     try:
         head_snapshot_id = path_snapshots.build_head_snapshot(conn, project_id)
         integration_snapshot_id = warm.ensure_integration_target_snapshot(
-            conn, project_id,
+            conn,
+            project_id,
         )
     finally:
         conn.close()
@@ -245,112 +261,7 @@ def _run_path_snapshot_prewarm(project_id: str) -> tuple[int, int | None]:
     )
 
 
-class DevSetupAdapterError(RuntimeError):
-    """Adapter argument combinations are incomplete."""
-
-
-def _checkout_and_positional_dsn(
-    parsed: argparse.Namespace,
-) -> tuple[str | None, str | None]:
-    first = parsed.checkout_or_dsn
-    second = parsed.dsn_value
-    if second is not None:
-        return first, second
-    if first is not None and _looks_like_postgres_dsn(first):
-        return None, first
-    return first, None
-
-
-def _looks_like_postgres_dsn(value: str) -> bool:
-    lowered = value.lower()
-    return (
-        lowered.startswith(("postgres://", "postgresql://"))
-        or any(token in lowered for token in ("host=", "dbname=", "sslmode="))
-    )
-
-
-def _add_secret_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--dsn", dest="dsn", default=None)
-    parser.add_argument("--dsn-file", dest="dsn_file", default=None)
-    parser.add_argument("--dsn-stdin", dest="dsn_stdin", action="store_true")
-
-
-def _add_tunnel_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--tunnel-bastion", default=None)
-    parser.add_argument("--tunnel-identity-file", default=None)
-    parser.add_argument("--tunnel-remote-host", default=None)
-    parser.add_argument("--tunnel-remote-port", type=int, default=None)
-
-
-def _add_authority_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--authority-kind", default=None)
-    parser.add_argument("--authority-infra-dir", default=None)
-    parser.add_argument("--authority-stack", default=None)
-    parser.add_argument("--authority-region", default=None)
-    parser.add_argument("--authority-database-name", default=None)
-
-
-def _postgres(parsed: argparse.Namespace) -> dict[str, Any]:
-    postgres = {
-        key: value for key, value in (
-            ("host", parsed.postgres_host),
-            ("port", parsed.postgres_port),
-        ) if value is not None
-    }
-    tunnel = _tunnel(parsed)
-    if tunnel:
-        postgres["tunnel"] = tunnel
-    return postgres
-
-
-def _tunnel(parsed: argparse.Namespace) -> dict[str, Any]:
-    values = {
-        "bastion": parsed.tunnel_bastion,
-        "identity_file": parsed.tunnel_identity_file,
-        "remote_host": parsed.tunnel_remote_host,
-        "remote_port": parsed.tunnel_remote_port,
-    }
-    if not any(value is not None for value in values.values()):
-        return {}
-    missing = [key for key, value in values.items() if value is None]
-    if missing:
-        raise DevSetupAdapterError(
-            "--tunnel-* options must be supplied together; missing "
-            + ", ".join(missing)
-        )
-    values["kind"] = "ssh"
-    return values
-
-
-def _authority(parsed: argparse.Namespace) -> dict[str, Any]:
-    values = {
-        "kind": parsed.authority_kind,
-        "infra_dir": parsed.authority_infra_dir,
-        "stack": parsed.authority_stack,
-        "region": parsed.authority_region,
-        "database_name": parsed.authority_database_name,
-    }
-    if not any(value for value in values.values()):
-        return {}
-    missing = [key for key, value in values.items() if not value]
-    if missing:
-        raise DevSetupAdapterError(
-            "--authority-* options must be supplied together; missing "
-            + ", ".join(missing)
-        )
-    return {
-        "kind": values["kind"],
-        "infra_dir": values["infra_dir"],
-        "location": {
-            "stack": values["stack"],
-            "region": values["region"],
-            "database_name": values["database_name"],
-        },
-    }
-
-
 __all__ = [
-    "DEFAULT_PROJECT_ID",
     "DEV_DB_ADMIN_SETUP_USAGE",
     "DEV_PATH_SNAPSHOT_PREWARM_USAGE",
     "DEV_SETUP_USAGE",

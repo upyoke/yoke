@@ -52,7 +52,7 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
    you're certain the gh-dependent drift doesn't matter for this run.
  - **`--only <slug[,slug...]>`** to narrow to specific HCs.
  - If a project was specified (first positional arg), pass `--project {project}`
- - If no project was specified, default to `--project yoke`
+ - If no project was specified, use `YOKE_PROJECT` or the caller checkout binding. With neither, refuse as `project_required`, teach `--project P`, and list accessible projects over the caller connection.
  - If `--file {path}` was specified, pass `--file {path}`
  - If `--fix` was specified, pass `--fix`
  - Otherwise, the engine uses its default path (`ouroboros/health/health-{YYYYMMDD}.md`)

@@ -66,7 +66,7 @@ class ItemCreateRequest(BaseModel):
     )
     project: Optional[str] = Field(
         None,
-        description="Project slug or id; defaults to the caller's checkout project.",
+        description="Project slug or id supplied by the caller; required on the server.",
     )
     deployment_flow: Optional[str] = Field(None, description="Deployment flow id.")
     status: Optional[str] = Field(
@@ -148,6 +148,20 @@ def handle_item_create(request: FunctionCallRequest) -> HandlerOutcome:
         payload = ItemCreateRequest.model_validate(request.payload or {})
     except Exception as exc:
         return _error("invalid_payload", f"payload invalid: {exc}")
+
+    if not str(payload.project or "").strip():
+        from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.project_selection import missing_project_on_connection
+
+        with connect() as conn:
+            return _error(
+                "project_required",
+                missing_project_on_connection(
+                    conn,
+                    actor_id=request.actor.actor_id,
+                    visible_project_ids=request.options.get("visible_project_ids"),
+                ),
+            )
 
     # Source actor: an explicit payload source wins; otherwise the
     # token-verified actor (https) so the created row's source is the

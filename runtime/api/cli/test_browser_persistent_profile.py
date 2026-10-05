@@ -97,8 +97,8 @@ def test_the_checkout_default_finds_the_slug_authorized_profile(
     created = browser_profile.ensure_profile_dir("acme")
     monkeypatch.setattr(
         browser_profile,
-        "default_project_for_directory",
-        lambda _directory: "7",
+        "required_project_context",
+        lambda _project=None, **_kwargs: "7",
     )
     monkeypatch.setattr(
         browser_profile,

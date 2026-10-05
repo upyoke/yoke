@@ -21,7 +21,6 @@ from yoke_core.domain.schema_common import (
     _column_exists as _schema_column_exists,
     _table_exists as _schema_table_exists,
 )
-from yoke_contracts.project_defaults import DEFAULT_PROJECT_SLUG
 from yoke_contracts.doctor_budget import remaining_seconds
 from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 from yoke_core.engines.doctor_source_root import bound_source_root_or_none
@@ -43,7 +42,7 @@ class DoctorArgs:
     fix: bool = False
     only: Optional[str] = None
     quick: bool = False
-    project: str = DEFAULT_PROJECT_SLUG
+    project: Optional[str] = None
     db_path: Optional[str] = None  # for testing
     #: Deployment destination executing this run. ``None`` lets
     #: :func:`yoke_core.engines.doctor_context.resolve_runtime` derive it

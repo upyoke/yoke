@@ -20,10 +20,7 @@ from yoke_contracts.install_binding import (
     source_checkout_root,
 )
 from yoke_contracts.machine_config.schema import mapped_checkouts
-from yoke_contracts.project_defaults import (
-    DEFAULT_PROJECT_SLUG,
-    default_project_for_directory,
-)
+from yoke_core.domain.project_selection import required_local_project
 from yoke_contracts.server_mode import SERVER_MODE_ENV, SERVER_MODE_SELF_HOST
 
 from yoke_core.domain import db_backend, machine_config
@@ -38,10 +35,6 @@ from yoke_core.engines.doctor_applicability import (
     RUNTIME_LOCAL,
     RUNTIME_SERVER,
 )
-
-#: Project a run falls back to when nothing names one and the runner is
-#: standing nowhere the machine config recognises.
-FALLBACK_PROJECT = DEFAULT_PROJECT_SLUG
 
 
 def resolve_runtime(declared: Optional[str] = None) -> str:
@@ -81,18 +74,13 @@ def self_project_names(conn) -> frozenset:
 
     The checkout binding is the evidence, and it yields a project id without
     touching the database. The slug is the friendlier name but needs a
-    readable ``projects`` table; when that read cannot answer — a fresh or
-    minimal database — the seeded slug stands in, because the checkout is
-    demonstrably the Yoke source tree even if this database cannot name it.
+    readable ``projects`` table; when that read cannot answer, only the
+    mapped numeric identity is available.
     Returning the whole set lets a run match on whichever identifier the
     caller happened to use.
 
-    The checkout map is env-scoped, so it can come back empty on a machine
-    that holds the source anyway. The running import is the fallback
-    evidence: code loaded from inside a checkout's ``packages/`` tree *is*
-    the Yoke source, whatever the config says. A wheel install resolves from
-    site-packages and yields nothing, which is the honest answer for a
-    control-plane server.
+    An unmapped source checkout does not identify a project. Its self-scoped
+    checks report not applicable until the checkout is registered.
     """
     for checkout, project_id in _mapped_checkouts():
         try:
@@ -103,9 +91,10 @@ def self_project_names(conn) -> frozenset:
             continue
         names = {str(project_id)}
         slug = _project_slug(conn, project_id)
-        names.add(slug if slug else DEFAULT_PROJECT_SLUG)
+        if slug:
+            names.add(slug)
         return frozenset(names)
-    return frozenset({DEFAULT_PROJECT_SLUG}) if running_source_root() else frozenset()
+    return frozenset()
 
 
 def running_source_root() -> Optional[Path]:
@@ -180,7 +169,7 @@ def resolve_https_control_plane() -> bool:
 
 def default_project(directory: Path) -> str:
     """The project a doctor run targets when the caller named none."""
-    return default_project_for_directory(directory)
+    return required_local_project(directory)
 
 
 def _mapped_checkouts() -> list:
@@ -204,7 +193,6 @@ def _project_slug(conn, project_id) -> Optional[str]:
 
 
 __all__ = [
-    "FALLBACK_PROJECT",
     "default_project",
     "project_capabilities",
     "resolve_context",

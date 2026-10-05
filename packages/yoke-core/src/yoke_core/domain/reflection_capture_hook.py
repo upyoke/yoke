@@ -27,6 +27,7 @@ contract. Any parse error or persistence failure is recorded in the
 hook event payload and the corresponding ``ouroboros_entries`` rows are
 skipped without aborting the tool call.
 """
+
 from __future__ import annotations
 
 import json
@@ -38,7 +39,6 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 TARGET_TOOL = "Agent"
-DEFAULT_PROJECT = "yoke"
 EVENT_FIRED = "ReflectionCaptureHookFired"
 EVENT_UNHANDLED = "ReflectionCaptureHookUnhandled"
 
@@ -78,10 +78,11 @@ def _resolve_role(subagent_type: Optional[str]) -> str:
 
 def _resolve_project(item_id: Optional[int]) -> str:
     if not item_id:
-        return DEFAULT_PROJECT
+        return ""
     try:
         from yoke_core.domain import db_backend
         from yoke_core.domain.db_helpers import connect
+
         conn = connect()
         try:
             p = "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -97,10 +98,12 @@ def _resolve_project(item_id: Optional[int]) -> str:
             return row[0]
     except Exception:
         pass
-    return DEFAULT_PROJECT
+    return ""
 
 
-def _emit_event(event_name: str, payload: dict[str, Any], session_id: Optional[str]) -> None:
+def _emit_event(
+    event_name: str, payload: dict[str, Any], session_id: Optional[str]
+) -> None:
     """Best-effort event emission. Hook never blocks on emission failure.
 
     Emission failures log to stderr instead of silently swallowing the
@@ -112,6 +115,7 @@ def _emit_event(event_name: str, payload: dict[str, Any], session_id: Optional[s
     """
     try:
         from yoke_core.domain.events import emit_event
+
         emit_event(
             event_name,
             event_kind="hook",
@@ -132,11 +136,15 @@ def _capture_result_payload(result: Any) -> dict[str, Any]:
         "blocks_seen": getattr(result, "blocks_seen", 0),
         "blocks_parsed_successfully": getattr(result, "blocks_parsed_successfully", 0),
         "blocks_skipped_known_falsepositive": getattr(
-            result, "blocks_skipped_known_falsepositive", 0,
+            result,
+            "blocks_skipped_known_falsepositive",
+            0,
         ),
         "blocks_unrecognized": getattr(result, "blocks_unrecognized", 0),
         "blocks_partial_no_end_marker": getattr(
-            result, "blocks_partial_no_end_marker", 0,
+            result,
+            "blocks_partial_no_end_marker",
+            0,
         ),
         "entries_persisted": getattr(result, "entries_persisted", 0),
         "entries_duplicate_skipped": getattr(result, "entries_duplicate_skipped", 0),
@@ -162,7 +170,10 @@ def evaluate(record: HookContext) -> HookDecision:
     tool_response = payload.get("tool_response")
 
     response_text = _extract_full_response_text(tool_response)
-    if "REFLECTION-START" not in response_text and "REFLECTION-END" not in response_text:
+    if (
+        "REFLECTION-START" not in response_text
+        and "REFLECTION-END" not in response_text
+    ):
         return HookDecision(outcome=Outcome.AUDIT_ONLY, next=Next.CONTINUE)
 
     role = _resolve_role(tool_input.get("subagent_type"))
@@ -170,42 +181,54 @@ def evaluate(record: HookContext) -> HookDecision:
 
     try:
         from yoke_core.domain.reflection_capture import capture_reflections
+
         result = capture_reflections(
-            response_text, default_agent=role, project=project,
+            response_text,
+            default_agent=role,
+            project=project,
         )
     except Exception as exc:
         # Capture failures are non-blocking; record on the event.
-        _emit_event(EVENT_FIRED, {
-            "tool_use_id": tool_input.get("tool_use_id")
-            or payload.get("tool_use_id"),
-            "subagent_type": tool_input.get("subagent_type"),
-            "role": role,
-            "project": project,
-            "error": f"capture_reflections raised: {type(exc).__name__}: {exc}",
-        }, session_id=record.session_id)
+        _emit_event(
+            EVENT_FIRED,
+            {
+                "tool_use_id": tool_input.get("tool_use_id")
+                or payload.get("tool_use_id"),
+                "subagent_type": tool_input.get("subagent_type"),
+                "role": role,
+                "project": project,
+                "error": f"capture_reflections raised: {type(exc).__name__}: {exc}",
+            },
+            session_id=record.session_id,
+        )
         return HookDecision(outcome=Outcome.AUDIT_ONLY, next=Next.CONTINUE)
 
     fired_payload = _capture_result_payload(result)
-    fired_payload.update({
-        "tool_use_id": tool_input.get("tool_use_id")
-        or payload.get("tool_use_id"),
-        "subagent_type": tool_input.get("subagent_type"),
-        "role": role,
-        "project": project,
-    })
+    fired_payload.update(
+        {
+            "tool_use_id": tool_input.get("tool_use_id") or payload.get("tool_use_id"),
+            "subagent_type": tool_input.get("subagent_type"),
+            "role": role,
+            "project": project,
+        }
+    )
     _emit_event(EVENT_FIRED, fired_payload, session_id=record.session_id)
 
     if getattr(result, "blocks_unrecognized", 0) > 0:
         examples = getattr(result, "unrecognized_block_examples", []) or []
-        _emit_event(EVENT_UNHANDLED, {
-            "tool_use_id": tool_input.get("tool_use_id")
-            or payload.get("tool_use_id"),
-            "subagent_type": tool_input.get("subagent_type"),
-            "role": role,
-            "project": project,
-            "blocks_unrecognized": result.blocks_unrecognized,
-            "raw_examples": examples,
-        }, session_id=record.session_id)
+        _emit_event(
+            EVENT_UNHANDLED,
+            {
+                "tool_use_id": tool_input.get("tool_use_id")
+                or payload.get("tool_use_id"),
+                "subagent_type": tool_input.get("subagent_type"),
+                "role": role,
+                "project": project,
+                "blocks_unrecognized": result.blocks_unrecognized,
+                "raw_examples": examples,
+            },
+            session_id=record.session_id,
+        )
 
     return HookDecision(outcome=Outcome.AUDIT_ONLY, next=Next.CONTINUE)
 
@@ -236,10 +259,14 @@ def main() -> None:
     decision = evaluate(context)
     # The shared hook runner consumes the typed HookDecision; the CLI
     # path emits a tiny JSON line so direct invocations stay diagnosable.
-    print(json.dumps({
-        "outcome": decision.outcome.value,
-        "block": decision.block,
-    }))
+    print(
+        json.dumps(
+            {
+                "outcome": decision.outcome.value,
+                "block": decision.block,
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

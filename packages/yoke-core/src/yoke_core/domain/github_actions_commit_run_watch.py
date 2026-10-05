@@ -38,7 +38,8 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
-from yoke_contracts.project_defaults import default_project_for_directory
+from yoke_contracts.project_defaults import MissingProjectError
+from yoke_core.domain.project_selection import required_local_project
 from yoke_core.domain.gh_rest_transport import RestTransportError
 from yoke_core.domain.github_actions_commit_runs_read import (
     CommitRunAuthorityError,
@@ -269,7 +270,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_USAGE
 
-    project = ns.project or default_project_for_directory(cwd)
+    try:
+        project = required_local_project(cwd, ns.project)
+    except MissingProjectError as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_USAGE
 
     def fetch_runs() -> List[Dict[str, Any]]:
         return matching_runs(project, head_sha, ns.workflow)

@@ -25,6 +25,8 @@ def resolve_test_roots(checkout: str) -> tuple[str, ...]:
     """Declared test-root attachments for *checkout*, or ``()``."""
     root = Path(checkout)
     project = default_project_for_directory(root)
+    if project is None:
+        return ()
     live = _try_read(project)
     if live:
         return live

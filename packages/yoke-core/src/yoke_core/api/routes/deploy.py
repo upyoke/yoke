@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import List, Optional, Union
 
-from fastapi import Query
+from fastapi import Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 from pydantic import BaseModel, Field
@@ -29,8 +29,7 @@ from yoke_core.domain.dependency_planning import (
 )
 from yoke_core.domain.project_identity import resolve_project_slug
 
-# Module-level import for patchable names.
-import yoke_core.api.main as _main
+from yoke_core.api import main_models as _models
 
 
 router = APIRouter()
@@ -41,7 +40,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 
 
-def _frontier_item_to_model(fi: FrontierItem, conn=None) -> _main.FrontierItemModel:
+def _frontier_item_to_model(fi: FrontierItem, conn=None) -> _models.FrontierItemModel:
     """Convert a domain FrontierItem dataclass to its Pydantic model.
 
     ``item_id`` is presentation-facing: the internal scheduler id renders
@@ -49,7 +48,7 @@ def _frontier_item_to_model(fi: FrontierItem, conn=None) -> _main.FrontierItemMo
     """
     from yoke_core.domain.sessions_queries_base import display_claim_item_id
 
-    return _main.FrontierItemModel(
+    return _models.FrontierItemModel(
         item_id=display_claim_item_id(str(fi.item_id), conn),
         title=fi.title,
         status=fi.status,
@@ -59,7 +58,9 @@ def _frontier_item_to_model(fi: FrontierItem, conn=None) -> _main.FrontierItemMo
         workflow_version_id=fi.workflow_version_id,
         workflow_version=fi.workflow_version,
         stage_index=fi.stage_index,
-        adapter=fi.adapter.value if isinstance(fi.adapter, AdapterCategory) else fi.adapter,
+        adapter=fi.adapter.value
+        if isinstance(fi.adapter, AdapterCategory)
+        else fi.adapter,
         blocked_by=fi.blocked_by,
         blocked_reasons=fi.blocked_reasons,
         unblocks_count=fi.unblocks_count,
@@ -68,19 +69,23 @@ def _frontier_item_to_model(fi: FrontierItem, conn=None) -> _main.FrontierItemMo
     )
 
 
-def _frontier_result_to_model(fr: FrontierResult, conn=None) -> _main.FrontierResultModel:
+def _frontier_result_to_model(
+    fr: FrontierResult, conn=None
+) -> _models.FrontierResultModel:
     """Convert a domain FrontierResult dataclass to its Pydantic model."""
-    return _main.FrontierResultModel(
+    return _models.FrontierResultModel(
         runnable=[_frontier_item_to_model(i, conn) for i in fr.runnable],
         blocked=[_frontier_item_to_model(i, conn) for i in fr.blocked],
         frozen=[_frontier_item_to_model(i, conn) for i in fr.frozen],
         wip_cap=fr.wip_cap,
         wip_active=fr.wip_active,
-        conduct_eligible=[_frontier_item_to_model(i, conn) for i in fr.conduct_eligible],
+        conduct_eligible=[
+            _frontier_item_to_model(i, conn) for i in fr.conduct_eligible
+        ],
     )
 
 
-def _scheduled_step_to_model(step, conn=None) -> _main.ScheduledStepModel:
+def _scheduled_step_to_model(step, conn=None) -> _models.ScheduledStepModel:
     """Convert a domain ScheduledStep to its Pydantic model.
 
     ``item_id`` is presentation-facing: the internal scheduler id renders
@@ -90,15 +95,17 @@ def _scheduled_step_to_model(step, conn=None) -> _main.ScheduledStepModel:
 
     gate_models = []
     for ge in step.gate_evaluations:
-        gate_models.append(_main.GateEvaluationModel(
-            blocking_item=ge.blocking_item,
-            relation=ge.relation,
-            gate_point=ge.gate_point,
-            satisfaction=ge.satisfaction,
-            satisfied=ge.satisfied,
-            reason=ge.reason,
-        ))
-    return _main.ScheduledStepModel(
+        gate_models.append(
+            _models.GateEvaluationModel(
+                blocking_item=ge.blocking_item,
+                relation=ge.relation,
+                gate_point=ge.gate_point,
+                satisfaction=ge.satisfaction,
+                satisfied=ge.satisfied,
+                reason=ge.reason,
+            )
+        )
+    return _models.ScheduledStepModel(
         item_id=display_claim_item_id(str(step.item_id), conn),
         workflow_id=step.workflow_id,
         workflow_version_id=step.workflow_version_id,
@@ -106,9 +113,13 @@ def _scheduled_step_to_model(step, conn=None) -> _main.ScheduledStepModel:
         status=step.status,
         title=step.title,
         priority=step.priority,
-        next_step=step.next_step.value if hasattr(step.next_step, "value") else str(step.next_step),
+        next_step=step.next_step.value
+        if hasattr(step.next_step, "value")
+        else str(step.next_step),
         rank=step.rank,
-        claim_state=step.claim_state.value if hasattr(step.claim_state, "value") else str(step.claim_state),
+        claim_state=step.claim_state.value
+        if hasattr(step.claim_state, "value")
+        else str(step.claim_state),
         gate_evaluations=gate_models,
         explanation=step.explanation,
         adapter=step.adapter,
@@ -120,23 +131,33 @@ def _scheduled_step_to_model(step, conn=None) -> _main.ScheduledStepModel:
     )
 
 
-def _scheduler_result_to_model(sr) -> _main.SchedulerResultModel:
+def _scheduler_result_to_model(sr) -> _models.SchedulerResultModel:
     """Convert a domain SchedulerResult to its Pydantic model."""
+    import yoke_core.api.main as _main
+
     conn = _main.get_db_readonly()
     try:
-        project_scope = [resolve_project_slug(conn, int(pid)) for pid in sr.project_scope]
-        return _main.SchedulerResultModel(
+        project_scope = [
+            resolve_project_slug(conn, int(pid)) for pid in sr.project_scope
+        ]
+        return _models.SchedulerResultModel(
             project_scope=project_scope,
-            sml_state=_main.SMLStateModel(
+            sml_state=_models.SMLStateModel(
                 coherent=sr.sml_state.coherent,
             ),
-            selected_step=_scheduled_step_to_model(sr.selected_step, conn) if sr.selected_step else None,
+            selected_step=_scheduled_step_to_model(sr.selected_step, conn)
+            if sr.selected_step
+            else None,
             ranked_steps=[_scheduled_step_to_model(s, conn) for s in sr.ranked_steps],
             blocked_steps=[_scheduled_step_to_model(s, conn) for s in sr.blocked_steps],
-            exceptional_steps=[_scheduled_step_to_model(s, conn) for s in sr.exceptional_steps],
+            exceptional_steps=[
+                _scheduled_step_to_model(s, conn) for s in sr.exceptional_steps
+            ],
             wip_cap=sr.wip_cap,
             wip_active=sr.wip_active,
-            conduct_eligible=[_scheduled_step_to_model(s, conn) for s in sr.conduct_eligible],
+            conduct_eligible=[
+                _scheduled_step_to_model(s, conn) for s in sr.conduct_eligible
+            ],
             frozen_steps=[_scheduled_step_to_model(s, conn) for s in sr.frozen_steps],
         )
     finally:
@@ -148,19 +169,26 @@ def _scheduler_result_to_model(sr) -> _main.SchedulerResultModel:
 # ---------------------------------------------------------------------------
 
 
-@router.get("/charge/frontier", response_model=_main.FrontierResultModel)
+@router.get("/charge/frontier", response_model=_models.FrontierResultModel)
 def api_charge_frontier(
-    project: str = Query(default="yoke", description="Project to scope the frontier to."),
+    http_request: Request,
+    project: Optional[str] = Query(
+        default=None, description="Project to scope the frontier to."
+    ),
     wip_cap: Optional[int] = Query(
         default=None,
         ge=1,
         le=100,
         description="WIP cap for conduct-eligible items; omit to use project policy.",
     ),
-) -> Union[_main.FrontierResultModel, JSONResponse]:
+) -> Union[_models.FrontierResultModel, JSONResponse]:
     """Compute and return the runnable frontier for a project."""
+    import yoke_core.api.main as _main
+
     conn = _main.get_db_readonly()
     try:
+        if not project:
+            return _missing_project_response(conn, http_request)
         result = compute_domain_frontier(conn, project_scope=[project], wip_cap=wip_cap)
         return _frontier_result_to_model(result, conn)
     except db_backend.operational_error_types(conn) as exc:
@@ -171,19 +199,26 @@ def api_charge_frontier(
         conn.close()
 
 
-@router.get("/charge/schedule", response_model=_main.SchedulerResultModel)
+@router.get("/charge/schedule", response_model=_models.SchedulerResultModel)
 def api_charge_schedule(
-    project: str = Query(default="yoke", description="Project to scope the schedule to."),
+    http_request: Request,
+    project: Optional[str] = Query(
+        default=None, description="Project to scope the schedule to."
+    ),
     wip_cap: Optional[int] = Query(
         default=None,
         ge=1,
         le=100,
         description="WIP cap for conduct-eligible items; omit to use project policy.",
     ),
-) -> Union[_main.SchedulerResultModel, JSONResponse]:
+) -> Union[_models.SchedulerResultModel, JSONResponse]:
     """Compute the shared scheduler result for a project."""
+    import yoke_core.api.main as _main
+
     conn = _main.get_db_readonly()
     try:
+        if not project:
+            return _missing_project_response(conn, http_request)
         result = compute_schedule(conn, project_scope=[project], wip_cap=wip_cap)
         return _scheduler_result_to_model(result)
     except db_backend.operational_error_types(conn) as exc:
@@ -246,6 +281,8 @@ class PlanResultModel(BaseModel):
 @router.get("/dependencies/{item_id}/gate/{gate_point}")
 async def evaluate_gate(item_id: str, gate_point: str):
     """Evaluate all dependencies for one item at a specific gate point."""
+    import yoke_core.api.main as _main
+
     conn = _main.get_db_readonly()
     try:
         result = evaluate_item_gate(conn, item_id, gate_point)
@@ -254,8 +291,7 @@ async def evaluate_gate(item_id: str, gate_point: str):
             gate_point=result.gate_point,
             is_blocked=result.is_blocked,
             unsatisfied_blockers=[
-                BlockerDetailModel(**b.to_dict())
-                for b in result.unsatisfied_blockers
+                BlockerDetailModel(**b.to_dict()) for b in result.unsatisfied_blockers
             ],
         )
     except ValueError as exc:
@@ -267,6 +303,8 @@ async def evaluate_gate(item_id: str, gate_point: str):
 @router.post("/dependencies/plan")
 async def plan_candidates(body: PlanCandidateRequest):
     """Plan a candidate set at a specific gate point."""
+    import yoke_core.api.main as _main
+
     conn = _main.get_db_readonly()
     try:
         result = plan_candidate_set(conn, body.candidate_ids, body.gate_point)
@@ -287,3 +325,15 @@ async def plan_candidates(body: PlanCandidateRequest):
         return _main._error_response(400, "INVALID_GATE_POINT", str(exc))
     finally:
         conn.close()
+
+
+def _missing_project_response(conn, request: Request) -> JSONResponse:
+    import yoke_core.api.main as _main
+    from yoke_core.api.http_auth import require_auth_context
+    from yoke_core.domain.project_selection import missing_project_on_connection
+
+    message = missing_project_on_connection(
+        conn,
+        actor_id=require_auth_context(request).actor_id,
+    )
+    return _main._error_response(422, "project_required", message)

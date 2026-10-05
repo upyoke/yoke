@@ -10,7 +10,6 @@ one harness session resolve the same files.
 
 from __future__ import annotations
 
-import os
 import shutil
 import tempfile
 import uuid
@@ -18,7 +17,6 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
-from yoke_core.domain import machine_config
 from yoke_core.domain import project_scratch_roots
 from yoke_core.domain.project_scratch_roots import (
     ENV_KEY,
@@ -51,26 +49,17 @@ __all__ = [
 ]
 
 
-DEFAULT_PROJECT = "yoke"
-
-
 def resolve_active_project(project: str | None = None) -> str:
-    """Return explicit project, ``$YOKE_PROJECT``, checkout config, or yoke."""
+    """Return the caller's selected project, or refuse a project-scoped path."""
+    from yoke_core.domain.project_selection import required_local_project
 
-    for value in (
-        project,
-        os.environ.get("YOKE_PROJECT"),
-    ):
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    configured_id = machine_config.project_id(Path.cwd())
-    if configured_id is not None:
-        return str(configured_id)
-    return DEFAULT_PROJECT
+    return required_local_project(Path.cwd(), project)
 
 
 def scratch_root(
-    project: str | None = None, *, session_segment: str | None = None,
+    project: str | None = None,
+    *,
+    session_segment: str | None = None,
 ) -> Path:
     """Return the writable project/session/run scratch root.
 
@@ -121,8 +110,11 @@ def dispatch_inputs_dir(
             "item_id, session_id, attempt — or none"
         )
     if supplied == 3:
-        path = path / f"YOK-{int(item_id)}" / _safe_segment(str(session_id)) / (
-            f"attempt-{int(str(attempt))}"
+        path = (
+            path
+            / f"YOK-{int(item_id)}"
+            / _safe_segment(str(session_id))
+            / (f"attempt-{int(str(attempt))}")
         )
     if create:
         path.mkdir(parents=True, exist_ok=True)
@@ -141,7 +133,9 @@ def hook_marker_path(
     """
 
     return _stable_rooted_path(
-        project, "hook-markers", _safe_segment(name),
+        project,
+        "hook-markers",
+        _safe_segment(name),
         create_parent=create_parent,
     )
 
@@ -157,7 +151,9 @@ def harness_runtime_cache_path(
     """
 
     return _stable_rooted_path(
-        project, "harness-runtime-cache", _safe_segment(name),
+        project,
+        "harness-runtime-cache",
+        _safe_segment(name),
         create_parent=create_parent,
     )
 
@@ -256,8 +252,7 @@ def storage_path(
     """Return a durable scratch-storage path under ``storage/<kind>``."""
 
     path_parts = [_safe_segment(kind), *[_safe_segment(p) for p in parts]]
-    return _rooted_path(project, "storage", *path_parts,
-                        create_parent=create_parent)
+    return _rooted_path(project, "storage", *path_parts, create_parent=create_parent)
 
 
 def storage_dir(

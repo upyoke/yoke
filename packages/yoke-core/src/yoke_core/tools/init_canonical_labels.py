@@ -36,25 +36,95 @@ from yoke_core.domain.project_github_auth import (
 
 # (name, description, policy-key, default-color)
 _CANONICAL_LABELS = (
-    ("status:idea",                       "Backlog item — raw capture",                       "label_color_status_idea",                       "D4C5F9"),
-    ("status:refining-idea",              "Backlog item — idea under refinement",             "label_color_status_refining_idea",              "C5DEF5"),
-    ("status:refined-idea",               "Backlog item — refined and ready for next routing","label_color_status_refined_idea",               "BFD4F2"),
-    ("status:planning",                   "Epic — planning in progress",                       "label_color_status_planning",                   "A2EEEF"),
-    ("status:refining-plan",              "Epic — technical plan under refinement",            "label_color_status_refining_plan",              "7FDBCA"),
-    ("status:planned",                    "Epic — planned and ready for implementation",       "label_color_status_planned",                    "7FDBCA"),
-    ("status:implementing",               "Backlog item — implementation in progress",         "label_color_status_implementing",               "0E8A16"),
-    ("status:reviewing-implementation",   "Backlog item — implementation under review",        "label_color_status_reviewing_implementation",   "FBCA04"),
-    ("status:reviewed-implementation",    "Backlog item — review complete",                    "label_color_status_reviewed_implementation",    "FEF2C0"),
-    ("status:polishing-implementation",   "Backlog item — finishing pass in progress",         "label_color_status_polishing_implementation",   "5319E7"),
-    ("status:implemented",                "Backlog item — implementation complete",            "label_color_status_implemented",                "0E8A16"),
-    ("status:release",                    "Backlog item — in release/deploy flow",             "label_color_status_release",                    "6F42C1"),
-    ("status:done",                       "Backlog item — finished",                           "label_color_status_done",                       "0E8A16"),
-    ("status:failed",                     "Backlog item — failed",                             "label_color_status_failed",                     "D93F0B"),
-    ("status:blocked",                    "Backlog item — blocked",                            "label_color_blocked",                           "B60205"),
-    ("status:stopped",                    "Backlog item — stopped",                            "label_color_status_stopped",                    "E4E669"),
-    ("status:cancelled",                  "Backlog item — cancelled",                          "label_color_status_cancelled",                  "BFD4F2"),
-    ("type:task",                         "Backlog item — task",                               "label_color_type_task",                         "0E8A16"),
-    ("type:integration-fix",              "Backlog item — integration fix",                    "label_color_type_integration_fix",              "D93F0B"),
+    ("status:idea", "Backlog item — raw capture", "label_color_status_idea", "D4C5F9"),
+    (
+        "status:refining-idea",
+        "Backlog item — idea under refinement",
+        "label_color_status_refining_idea",
+        "C5DEF5",
+    ),
+    (
+        "status:refined-idea",
+        "Backlog item — refined and ready for next routing",
+        "label_color_status_refined_idea",
+        "BFD4F2",
+    ),
+    (
+        "status:planning",
+        "Epic — planning in progress",
+        "label_color_status_planning",
+        "A2EEEF",
+    ),
+    (
+        "status:refining-plan",
+        "Epic — technical plan under refinement",
+        "label_color_status_refining_plan",
+        "7FDBCA",
+    ),
+    (
+        "status:planned",
+        "Epic — planned and ready for implementation",
+        "label_color_status_planned",
+        "7FDBCA",
+    ),
+    (
+        "status:implementing",
+        "Backlog item — implementation in progress",
+        "label_color_status_implementing",
+        "0E8A16",
+    ),
+    (
+        "status:reviewing-implementation",
+        "Backlog item — implementation under review",
+        "label_color_status_reviewing_implementation",
+        "FBCA04",
+    ),
+    (
+        "status:reviewed-implementation",
+        "Backlog item — review complete",
+        "label_color_status_reviewed_implementation",
+        "FEF2C0",
+    ),
+    (
+        "status:polishing-implementation",
+        "Backlog item — finishing pass in progress",
+        "label_color_status_polishing_implementation",
+        "5319E7",
+    ),
+    (
+        "status:implemented",
+        "Backlog item — implementation complete",
+        "label_color_status_implemented",
+        "0E8A16",
+    ),
+    (
+        "status:release",
+        "Backlog item — in release/deploy flow",
+        "label_color_status_release",
+        "6F42C1",
+    ),
+    ("status:done", "Backlog item — finished", "label_color_status_done", "0E8A16"),
+    ("status:failed", "Backlog item — failed", "label_color_status_failed", "D93F0B"),
+    ("status:blocked", "Backlog item — blocked", "label_color_blocked", "B60205"),
+    (
+        "status:stopped",
+        "Backlog item — stopped",
+        "label_color_status_stopped",
+        "E4E669",
+    ),
+    (
+        "status:cancelled",
+        "Backlog item — cancelled",
+        "label_color_status_cancelled",
+        "BFD4F2",
+    ),
+    ("type:task", "Backlog item — task", "label_color_type_task", "0E8A16"),
+    (
+        "type:integration-fix",
+        "Backlog item — integration fix",
+        "label_color_type_integration_fix",
+        "D93F0B",
+    ),
 )
 
 
@@ -81,7 +151,10 @@ def run(project: str) -> int:
             required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
         )
     except ProjectGithubAuthError as exc:
-        print(f"Error: cannot resolve GitHub auth for project '{project}': {exc}", file=sys.stderr)
+        print(
+            f"Error: cannot resolve GitHub auth for project '{project}': {exc}",
+            file=sys.stderr,
+        )
         return 2
 
     overrides = _project_label_overrides()
@@ -92,8 +165,11 @@ def run(project: str) -> int:
         )
         try:
             ensure_label(
-                name, color, auth.repo,
-                token=auth.token, description=description,
+                name,
+                color,
+                auth.repo,
+                token=auth.token,
+                description=description,
             )
             print(f"  ensured: {name}")
         except RestTransportError as exc:
@@ -112,9 +188,15 @@ def main(argv=None) -> None:
         prog="init-canonical-labels",
         description="Create / update Yoke canonical lifecycle labels via REST",
     )
-    parser.add_argument("--project", default="yoke")
+    parser.add_argument("--project", default=None)
     args = parser.parse_args(argv)
-    sys.exit(run(args.project))
+    from yoke_core.domain.project_selection import required_local_project
+
+    try:
+        project = required_local_project(Path.cwd(), args.project)
+    except ValueError as exc:
+        parser.error(str(exc))
+    sys.exit(run(project))
 
 
 if __name__ == "__main__":

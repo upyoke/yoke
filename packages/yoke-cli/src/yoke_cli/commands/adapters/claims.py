@@ -10,6 +10,9 @@ Covers four function ids:
 
 from __future__ import annotations
 
+from yoke_cli.config.project_selection import required_project_context
+from yoke_contracts.project_defaults import MissingProjectError
+
 import argparse
 import sys
 from typing import Any, Dict, List
@@ -106,10 +109,14 @@ def claims_work_acquire(args: List[str]) -> int:
         # conflict_group is registry-computed server-side
         # (work_processes.conflict_group_for); callers never supply it.
         target_ref = TargetRef(kind="global")
+        try:
+            project = required_project_context(parsed.project)
+        except MissingProjectError as exc:
+            return usage_error(str(exc))
         target_spec = {
             "kind": "process",
             "process_key": parsed.process,
-            "project": parsed.project or "yoke",
+            "project": project,
         }
     else:
         return usage_error(
@@ -248,7 +255,10 @@ def claims_work_release(args: List[str]) -> int:
             parsed.project,
         )
     elif parsed.process is not None:
-        project = parsed.project or "yoke"
+        try:
+            project = required_project_context(parsed.project)
+        except MissingProjectError as exc:
+            return usage_error(str(exc))
         target_ref = TargetRef(kind="global", project_id=project)
         payload["process_key"] = parsed.process
         payload["project"] = project

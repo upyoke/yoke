@@ -184,6 +184,23 @@ def check_dispatch_permission(
                 None,
                 error=_error_response(request, entry, code, str(exc)),
             )
+        if project_context is None and entry.function_id == "items.create":
+            from yoke_core.domain.project_selection import missing_project_on_connection
+
+            return DispatchPermission(
+                spec.permission_key,
+                None,
+                None,
+                error=_error_response(
+                    request,
+                    entry,
+                    "project_required",
+                    missing_project_on_connection(
+                        conn,
+                        visible_project_ids=visible_ids,
+                    ),
+                ),
+            )
         if project_context is None:
             return DispatchPermission(
                 spec.permission_key,

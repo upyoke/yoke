@@ -150,27 +150,33 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Yoke health check engine (DB-only checks)",
     )
     parser.add_argument("--file", help="Write report to PATH")
-    parser.add_argument("--fix", action="store_true", help="Attempt auto-fix where supported")
+    parser.add_argument(
+        "--fix", action="store_true", help="Attempt auto-fix where supported"
+    )
     parser.add_argument("--only", help="Comma-separated HC slug IDs to run")
     parser.add_argument("--check", dest="check_alias", help=argparse.SUPPRESS)
     scope = parser.add_mutually_exclusive_group()
     scope.add_argument(
-        "--quick", action="store_true",
+        "--quick",
+        action="store_true",
         help="Skip GitHub-dependent HCs (no gh subprocess calls)",
     )
     scope.add_argument(
-        "--full", action="store_true",
+        "--full",
+        action="store_true",
         help="Run every HC including GitHub-dependent ones (uses gh quota)",
     )
     parser.add_argument(
-        "--project", default=None,
+        "--project",
+        default=None,
         help=(
             "Project scope. Defaults to the project bound to the checkout "
             "you are standing in."
         ),
     )
     parser.add_argument(
-        "--runtime", default=None,
+        "--runtime",
+        default=None,
         help=argparse.SUPPRESS,  # override the derived deployment destination
     )
     parser.add_argument("--db-path", help="Override DB path (testing)")
@@ -220,12 +226,16 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> Optional[DoctorArgs]:
             "(burns gh quota; for operator-invoked /yoke doctor)\n"
             "  --only <slugs> run only the named HC(s)"
         )
+    try:
+        project = default_project(Path.cwd()) if not parsed.project else parsed.project
+    except ValueError as exc:
+        parser.error(str(exc))
     return DoctorArgs(
         file=parsed.file,
         fix=parsed.fix,
         only=only_value,
         quick=parsed.quick,
-        project=parsed.project or default_project(Path.cwd()),
+        project=project,
         db_path=parsed.db_path,
         runtime=parsed.runtime,
     )
@@ -259,9 +269,13 @@ def run_json(argv: Optional[Sequence[str]] = None) -> int:
             "  --only <slugs> run only the named HC(s)"
         )
 
+    try:
+        project = parsed.project or default_project(Path.cwd())
+    except ValueError as exc:
+        parser.error(str(exc))
     register_all_handlers()
     payload = {
-        "project": parsed.project or default_project(Path.cwd()),
+        "project": project,
         "fix": parsed.fix,
         "quick": parsed.quick,
         "full": parsed.full,
@@ -272,13 +286,15 @@ def run_json(argv: Optional[Sequence[str]] = None) -> int:
         payload["only"] = only_value
     if parsed.db_path:
         payload["db_path"] = parsed.db_path
-    result = dispatch({
-        "function": "doctor.run.run",
-        "actor": {"session_id": "doctor-cli"},
-        "target": {"kind": "global"},
-        "intent": "doctor_cli_json",
-        "payload": payload,
-    })
+    result = dispatch(
+        {
+            "function": "doctor.run.run",
+            "actor": {"session_id": "doctor-cli"},
+            "target": {"kind": "global"},
+            "intent": "doctor_cli_json",
+            "payload": payload,
+        }
+    )
     envelope = result.model_dump() if hasattr(result, "model_dump") else result
     print(json.dumps(envelope, default=str, indent=2))
     if envelope.get("success"):

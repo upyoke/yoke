@@ -57,7 +57,8 @@ def _is_dry_run() -> bool:
 
 
 def _github_budget_kwargs(
-    timeout_seconds: Optional[float], max_attempts: Optional[int],
+    timeout_seconds: Optional[float],
+    max_attempts: Optional[int],
 ) -> dict[str, object]:
     pairs = (("timeout_seconds", timeout_seconds), ("max_attempts", max_attempts))
     return {name: value for name, value in pairs if value is not None}
@@ -98,7 +99,10 @@ def _ensure_label(
         return
     try:
         _label_rest.ensure_label(
-            label, color, auth.repo, token=auth.token,
+            label,
+            color,
+            auth.repo,
+            token=auth.token,
             description=description,
         )
     except github_rest.RestTransportError:
@@ -169,39 +173,8 @@ def _validate_issue_in_repo(
     if issue is not None:
         return True
 
-    # 404 in the named repo. Probe the default Yoke repo to distinguish
-    # "issue absent everywhere" from "repo mismatch with the default."
-    if (project or "yoke") != "yoke":
-        try:
-            default_issue = github_rest.get_issue(
-                project="yoke",
-                number=int(issue_num),
-                **_github_budget_kwargs(timeout_seconds, max_attempts),
-            )
-        except github_rest.RestTransportError:
-            default_issue = None
-        if default_issue is not None:
-            print(
-                f"Error: Repo mismatch for {public_ref} — issue #{issue_num} exists in the "
-                f"default repo but NOT in {repo}",
-                file=stderr,
-            )
-            print(
-                "  The github_issue field was likely set before cross-project routing "
-                "was configured.",
-                file=stderr,
-            )
-            print(
-                "  Run '/yoke doctor' to detect all mismatches, or manually migrate with:",
-                file=stderr,
-            )
-            print(f"    1. Create a new issue in {repo}", file=stderr)
-            print("    2. Update the github_issue field in the DB", file=stderr)
-            print("    3. Close the orphaned issue in the default repo", file=stderr)
-            return False
-
     print(
-        f"Error: Issue #{issue_num} for {public_ref} not found in {repo} or the default repo",
+        f"Error: Issue #{issue_num} for {public_ref} not found in {repo}; verify the project GitHub binding and its github_issue field",
         file=stderr,
     )
     return False

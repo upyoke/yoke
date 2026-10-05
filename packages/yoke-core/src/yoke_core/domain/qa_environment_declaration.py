@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from yoke_contracts.project_defaults import default_project_for_directory
+from yoke_core.domain.project_selection import required_local_project
 from yoke_contracts.uv_project import UV_EXECUTABLE, is_uv_project, uv_run_argv
 
 CAPABILITY_TYPE = "test_environment"
@@ -95,7 +95,7 @@ def load_declaration(
     A missing capability (or a relay failure) is the default: empty
     extras/groups and nested uv-project discovery.
     """
-    slug = project or default_project_for_directory(checkout or Path.cwd())
+    slug = required_local_project(checkout or Path.cwd(), project)
     return parse_declaration(slug, _read_settings(slug))
 
 

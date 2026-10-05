@@ -41,12 +41,11 @@ def _patch_repo_root(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
 
 
 def _patch_checkout_project(
-    monkeypatch: pytest.MonkeyPatch, project_id: int | None = None
+    monkeypatch: pytest.MonkeyPatch, project_id: int | None = 1
 ) -> None:
     monkeypatch.setattr(
-        scratch.machine_config,
-        "project_id",
-        lambda repo_root, path=None: project_id,
+        "yoke_core.domain.project_selection.default_project_for_directory",
+        lambda _root: str(project_id) if project_id is not None else None,
     )
 
 
@@ -87,7 +86,7 @@ def test_accessors_return_expected_absolute_shapes(
     assert scratch.dispatch_inputs_dir() == (
         tmp_path
         / "root"
-        / "yoke"
+        / "1"
         / "sessions"
         / "test-session"
         / "runs"
@@ -97,18 +96,18 @@ def test_accessors_return_expected_absolute_shapes(
     # Hook markers and the harness runtime cache are cross-process
     # coordination surfaces: no session/run segments.
     assert scratch.hook_marker_path("done") == (
-        tmp_path / "root" / "yoke" / "hook-markers" / "done"
+        tmp_path / "root" / "1" / "hook-markers" / "done"
     )
     assert scratch.harness_runtime_cache_path("model.json") == (
-        tmp_path / "root" / "yoke" / "harness-runtime-cache" / "model.json"
+        tmp_path / "root" / "1" / "harness-runtime-cache" / "model.json"
     )
     assert scratch.watcher_capture_path("pytest", "raw", "abc").name == (
-        "yoke-pytest.raw.abc.log"
+        "1-pytest.raw.abc.log"
     )
     assert scratch.storage_path("codex", "model-cache.json") == (
         tmp_path
         / "root"
-        / "yoke"
+        / "1"
         / "sessions"
         / "test-session"
         / "runs"
@@ -120,7 +119,7 @@ def test_accessors_return_expected_absolute_shapes(
     assert scratch.storage_dir("qa-artifacts", "42", "7") == (
         tmp_path
         / "root"
-        / "yoke"
+        / "1"
         / "sessions"
         / "test-session"
         / "runs"
@@ -174,8 +173,8 @@ def test_mint_watcher_capture_pair_shares_nonce(
     raw, progress = scratch.mint_watcher_capture_pair("pytest")
 
     assert raw.parent == progress.parent
-    assert raw.name.startswith("yoke-pytest.raw.")
-    assert progress.name.startswith("yoke-pytest.progress.")
+    assert raw.name.startswith("1-pytest.raw.")
+    assert progress.name.startswith("1-pytest.progress.")
     assert raw.name.rsplit(".", 2)[1] == progress.name.rsplit(".", 2)[1]
 
 
@@ -247,7 +246,7 @@ def test_default_dispatch_inputs_uses_os_tmpdir_scratch(
     assert scratch.dispatch_inputs_dir() == (
         tmp_path
         / "machine-tmp"
-        / "yoke"
+        / "1"
         / "sessions"
         / "test-session"
         / "runs"
@@ -274,7 +273,7 @@ def test_bad_env_override_degrades_to_tmpdir_fallback(
         assert scratch.scratch_root("yoke") == (
             tmp_path
             / "yoke-scratch"
-            / "yoke"
+            / "1"
             / "sessions"
             / "test-session"
             / "runs"
@@ -291,7 +290,7 @@ def test_resolution_error_only_when_tmpdir_fallback_unwritable(
     # No configured override (env + machine temp_root both absent) isolates the
     # pure tmpdir-fallback path this test asserts, without the override-root
     # "falling back" warning a configured machine temp_root would otherwise emit.
-    monkeypatch.setattr(scratch.machine_config, "temp_root", lambda path=None: None)
+    monkeypatch.setattr(machine_runtime, "temp_root", lambda path=None: None)
     monkeypatch.setattr(scratch.tempfile, "gettempdir", lambda: str(tmp_path))
     monkeypatch.setattr(roots, "ensure_writable_dir", lambda path: False)
 

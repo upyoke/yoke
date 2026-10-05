@@ -32,7 +32,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
 
-from yoke_contracts.project_defaults import default_project_for_directory
+from yoke_contracts.project_defaults import MissingProjectError
+from yoke_core.domain.project_selection import required_local_project
 from yoke_core.tools._impacted_changed_paths import DEFAULT_BASE_REF
 
 LOCAL_FLAG = "--local"
@@ -118,17 +119,29 @@ class RemoteRoute:
 
     def engine_argv(self) -> list[str]:
         return [
-            sys.executable, "-m", ENGINE_MODULE,
-            "--root", str(self.root),
-            "--project", self.project,
-            "--workflow", self.workflow,
-            "--repo", self.repo,
-            "--branch", self.branch,
-            "--head-sha", self.head_sha,
-            "--base-sha", self.base_sha,
-            "--dispatch-id", self.dispatch_id,
-            "--continue-command", self.continue_command,
-            "--", *self.pytest_args,
+            sys.executable,
+            "-m",
+            ENGINE_MODULE,
+            "--root",
+            str(self.root),
+            "--project",
+            self.project,
+            "--workflow",
+            self.workflow,
+            "--repo",
+            self.repo,
+            "--branch",
+            self.branch,
+            "--head-sha",
+            self.head_sha,
+            "--base-sha",
+            self.base_sha,
+            "--dispatch-id",
+            self.dispatch_id,
+            "--continue-command",
+            self.continue_command,
+            "--",
+            *self.pytest_args,
         ]
 
 
@@ -218,7 +231,10 @@ def resolve_route(
         return LocalRoute(f"{LOCAL_ENV} is set")
     if environ.get("CI"):
         return LocalRoute("already running on CI")
-    project = default_project_for_directory(root)
+    try:
+        project = required_local_project(root, env=environ)
+    except MissingProjectError as exc:
+        return Refusal(str(exc), EXIT_REFUSED)
     from yoke_core.domain.yoke_connected_env import load_active
 
     if load_active() is None:
@@ -228,8 +244,7 @@ def resolve_route(
         # administering authority). With no declaration reachable, the
         # honest answer is the same one an undeclared project gets.
         return LocalRoute(
-            "this process has no control-plane connection to read a CI "
-            "declaration from"
+            "this process has no control-plane connection to read a CI declaration from"
         )
     try:
         from yoke_core.domain.project_ci_workflow import project_ci_workflow_settings

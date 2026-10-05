@@ -11,11 +11,20 @@ from yoke_cli.config import machine_config
 from yoke_cli.config import machine_config_file
 from yoke_cli.config import github_machine_operation
 from yoke_cli.config import secrets as machine_secrets
-from yoke_cli.transport import dispatcher as function_dispatcher
-from yoke_cli.transport import https as https_transport
-from yoke_contracts.api.function_call import TargetRef
+from yoke_cli.transport import dispatcher as function_dispatcher  # noqa: F401 - public test injection surface
+from yoke_cli.transport import https as https_transport  # noqa: F401 - public test injection surface
 from yoke_contracts.machine_config import schema as contract
-from yoke_contracts.project_defaults import DEFAULT_PROJECT_SLUG as DEFAULT_PROJECT
+from yoke_cli.config.project_selection import required_project_context
+from yoke_contracts.project_defaults import MissingProjectError
+from yoke_cli.config.db_admin_setup_errors import DbAdminSetupError, _safe_label
+
+from yoke_cli.config.db_admin_control_plane import (
+    CONTROL_PLANE_DATABASE_SQL,
+    _select_control_plane_env,
+    _resolve_control_plane_database,
+)
+
+from yoke_cli.config.db_admin_setup_report import dumps_json, render_human, _path_ref
 
 DEFAULT_LOCAL_HOST = "127.0.0.1"
 DEFAULT_ADMIN_ENV_SUFFIX = contract.DB_ADMIN_ENV_SUFFIX
@@ -24,11 +33,6 @@ DEFAULT_LOCAL_PORTS = {
     "stage": 6548,
 }
 AUTHORITY_KIND = "aws_aurora_postgres"
-CONTROL_PLANE_DATABASE_SQL = "SELECT current_database()"
-
-
-class DbAdminSetupError(RuntimeError):
-    """The db-admin profile setup plan cannot be applied."""
 
 
 def admin_env_name(env_name: str) -> str:
@@ -64,7 +68,10 @@ def build_report(
     emit: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     """Plan or apply one machine-local db-admin profile."""
-    project = _safe_label(project or DEFAULT_PROJECT, what="project")
+    try:
+        project = _safe_label(required_project_context(project), what="project")
+    except MissingProjectError as exc:
+        raise DbAdminSetupError(str(exc)) from exc
     env_name = _safe_label(env_name, what="environment")
     selected_admin_env = admin_env or admin_env_name(env_name)
     selected_port = int(local_port or default_local_port(env_name))
@@ -154,28 +161,6 @@ def build_report(
     return report
 
 
-def dumps_json(report: Mapping[str, Any]) -> str:
-    return json.dumps(report, indent=2, sort_keys=True) + "\n"
-
-
-def render_human(report: Mapping[str, Any]) -> str:
-    env = report["environment"]
-    lines = [
-        "Yoke db-admin setup",
-        f"  target: {report['project']}/{env['name']}",
-        f"  admin env: {report['plan']['admin_env']}",
-        f"  applied: {str(report['applied']).lower()}",
-        "",
-        "Write plan:",
-    ]
-    for step in report["plan"]["steps"]:
-        lines.append(f"  - {step['action']}: {step['target']}")
-    if not report["applied"]:
-        lines.extend(["", "Rerun with --yes to apply this plan."])
-    lines.append("")
-    return "\n".join(lines)
-
-
 def _resolve_environment(project: str, env_name: str) -> Any:
     try:
         module = importlib.import_module("yoke_core.domain.deploy_environment_settings")
@@ -218,112 +203,6 @@ def _resolve_environment_database_binding(
         raise DbAdminSetupError(
             f"could not resolve {env.project}/{env.env_name} database binding: {exc}"
         ) from exc
-
-
-def _select_control_plane_env(
-    env_name: str,
-    *,
-    control_plane_env: str | None,
-    config_path: str | Path | None,
-) -> str:
-    """Select an explicit HTTPS control plane without ambient fallbacks."""
-    selected = _safe_label(
-        control_plane_env or env_name,
-        what="control-plane environment",
-    )
-    try:
-        connection = machine_config.active_connection(
-            config_path,
-            explicit_env=selected,
-        )
-    except (machine_config.MachineConfigError, contract.MachineConfigContractError) as exc:
-        qualifier = "--control-plane-env " if control_plane_env else ""
-        raise DbAdminSetupError(
-            f"{qualifier}connection {selected!r} is not configured as an HTTPS "
-            "control plane; pass --control-plane-env CONNECTION_ENV naming "
-            "an HTTPS connection"
-        ) from exc
-    if str(connection.get("transport") or "") != contract.TRANSPORT_HTTPS:
-        raise DbAdminSetupError(
-            f"connection {selected!r} is not HTTPS; pass --control-plane-env "
-            "CONNECTION_ENV naming an HTTPS control plane"
-        )
-    return selected
-
-
-def _resolve_control_plane_database(
-    control_plane_env: str,
-    *,
-    config_path: str | Path | None,
-) -> str:
-    """Read the tenant-routed database identity through one named HTTPS env."""
-    try:
-        connection = https_transport.resolve_https_connection(
-            config_path,
-            explicit_env=control_plane_env,
-        )
-    except Exception as exc:  # noqa: BLE001
-        raise DbAdminSetupError(
-            f"could not resolve HTTPS control plane {control_plane_env!r}: {exc}"
-        ) from exc
-    if connection is None:
-        raise DbAdminSetupError(
-            f"connection {control_plane_env!r} is not an HTTPS control plane"
-        )
-    request = function_dispatcher.build_request(
-        function_id="db.read.run",
-        target=TargetRef(kind="global"),
-        payload={"sql": CONTROL_PLANE_DATABASE_SQL},
-    )
-    try:
-        response = https_transport.relay_https(request, connection)
-    except Exception as exc:  # noqa: BLE001
-        raise DbAdminSetupError(
-            f"control-plane database identity read failed for "
-            f"{control_plane_env!r}: "
-            f"{_redact_sensitive(str(exc), connection.token)}"
-        ) from exc
-    if not response.success:
-        detail = response.error.message if response.error is not None else "request refused"
-        raise DbAdminSetupError(
-            f"control-plane database identity read failed for "
-            f"{control_plane_env!r}: "
-            f"{_redact_sensitive(detail, connection.token)}"
-        )
-    result = response.result
-    expected_keys = {
-        "columns",
-        "rows",
-        "row_count",
-        "row_cap",
-        "truncated",
-        "statement_timeout_ms",
-    }
-    if set(result) != expected_keys:
-        raise DbAdminSetupError(
-            "control-plane database identity response has an unexpected shape"
-        )
-    rows = result.get("rows")
-    if (
-        result.get("columns") != ["current_database"]
-        or result.get("truncated") is not False
-        or result.get("row_count") != 1
-        or not isinstance(rows, list)
-        or len(rows) != 1
-        or not isinstance(rows[0], list)
-        or len(rows[0]) != 1
-        or not isinstance(rows[0][0], str)
-        or not rows[0][0].strip()
-    ):
-        raise DbAdminSetupError(
-            "control-plane database identity response must contain exactly "
-            "one non-empty current_database value"
-        )
-    return rows[0][0].strip()
-
-
-def _redact_sensitive(message: str, secret: str) -> str:
-    return message.replace(secret, "<redacted>") if secret else message
 
 
 def _postgres_metadata(env: Any, local_port: int) -> dict[str, Any]:
@@ -453,31 +332,11 @@ def _write_payload(payload: Mapping[str, Any], cfg_path: Path) -> None:
     )
 
 
-def _path_ref(path: Path) -> str:
-    resolved = path.expanduser()
-    default_home = Path.home() / ".yoke"
-    try:
-        rel = resolved.relative_to(default_home)
-    except ValueError:
-        return str(resolved)
-    return "~/.yoke/" + rel.as_posix()
-
-
-def _safe_label(value: str, *, what: str) -> str:
-    text = str(value or "").strip()
-    if not text:
-        raise DbAdminSetupError(f"{what} must be non-empty")
-    if any(char.isspace() for char in text):
-        raise DbAdminSetupError(f"{what} must not contain whitespace")
-    return text
-
-
 __all__ = [
     "AUTHORITY_KIND",
     "DEFAULT_ADMIN_ENV_SUFFIX",
     "DEFAULT_LOCAL_HOST",
     "DEFAULT_LOCAL_PORTS",
-    "DEFAULT_PROJECT",
     "DbAdminSetupError",
     "CONTROL_PLANE_DATABASE_SQL",
     "admin_env_name",
