@@ -44,7 +44,7 @@ COMMANDS
  /yoke simulate PREFIX-N | --system Trace integration paths or audit system consistency (harness slash skill; no terminal `yoke simulate` adapter)
 
 LOCAL TERMINAL HELPERS
- yoke onboard
+ yoke setup
   Machine setup wizard; picks where the Yoke lives (local / team server / upyoke.com).
  yoke project create
   Create a new project/repo and bind it to Yoke.

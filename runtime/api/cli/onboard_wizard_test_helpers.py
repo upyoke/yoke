@@ -1,4 +1,4 @@
-"""Shared offline pilot scaffolding for the ``yoke onboard`` wizard suites."""
+"""Shared offline pilot scaffolding for the ``yoke setup`` wizard suites."""
 
 from __future__ import annotations
 

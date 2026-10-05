@@ -13,7 +13,7 @@ def test_installer_runs_wsl_setup_before_ready(monkeypatch):
     runner = RecordingRunner()
     output = io.StringIO()
     installer = module.Installer(
-        module.parse_args(["--version", "1.2.3", "--no-onboard"]),
+        module.parse_args(["--version", "1.2.3", "--no-setup"]),
         runner=runner,
         stdout=output,
     )

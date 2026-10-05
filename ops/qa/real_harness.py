@@ -230,7 +230,7 @@ def run(args) -> None:
             "onboard",
             [
                 yoke,
-                "onboard",
+                "setup",
                 "--local",
                 "--non-interactive",
                 "--yes",

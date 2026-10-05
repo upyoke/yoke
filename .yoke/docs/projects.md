@@ -67,7 +67,7 @@ is unchanged. Setup proceeds automatically without an identity prompt.
 
 The `/yoke onboard` harness skill makes a wired project execution-ready:
 strategy docs, execution profile, Packs, hosting, environments, gated first
-deploy, seeded work. Distinct from machine `yoke onboard`.
+deploy, seeded work. Distinct from machine `yoke setup`.
 
 ## Packs
 

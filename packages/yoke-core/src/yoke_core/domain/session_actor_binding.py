@@ -183,7 +183,7 @@ def resolve_operating_actor(
             detail=(
                 "this control plane carries no human actor, so a registering "
                 "session has no identity to bind (and could not register a "
-                "path claim later). Recovery: run `yoke onboard` on this "
+                "path claim later). Recovery: run `yoke setup` on this "
                 "machine — its universe step seeds the operating human "
                 "actor — then retry."
             ),

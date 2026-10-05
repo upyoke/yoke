@@ -1,4 +1,4 @@
-"""Product-wheel smoke for the ``yoke onboard`` checklist contract.
+"""Product-wheel smoke for the ``yoke onboard checklist`` contract.
 
 The engine wheel (yoke-core) installs alongside the client; the checklist
 render stays a pure product-client flow with the engine present but inert.
@@ -27,10 +27,21 @@ def test_onboard_checklist_product_wheel_renders_with_inert_engine(
     create_seeded_pip_venv(venv_dir)
     venv_python = venv_dir / "bin" / "python"
     yoke = venv_dir / "bin" / "yoke"
-    _run([
-        str(venv_python), "-m", "pip", "install", "--no-index",
-        "--find-links", str(product_wheelhouse), "yoke-cli", "yoke-core",
-    ], cwd=tmp_path, timeout=180)
+    _run(
+        [
+            str(venv_python),
+            "-m",
+            "pip",
+            "install",
+            "--no-index",
+            "--find-links",
+            str(product_wheelhouse),
+            "yoke-cli",
+            "yoke-core",
+        ],
+        cwd=tmp_path,
+        timeout=180,
+    )
     assert yoke.is_file()
 
     checkout = tmp_path / "external-project"
@@ -49,43 +60,55 @@ def test_onboard_checklist_product_wheel_renders_with_inert_engine(
         _write_https_config(machine_home, token_file, api_url)
 
         # Engine present: the wheel channel ships yoke-core to every machine.
-        script = "\n".join([
-            "import importlib.util, json",
-            "assert importlib.util.find_spec('yoke_core') is not None",
-            "from yoke_cli.config import onboard_checklist as checklist",
-            "row = checklist.ChecklistRow(",
-            "    id='machine-config',",
-            "    layer='machine',",
-            "    title='Machine config',",
-            "    status='needed',",
-            ")",
-            "run = checklist.ChecklistRun(",
-            f"    machine_config_path={str(config)!r},",
-            f"    checkout_path={str(checkout)!r},",
-            "    project_id=7,",
-            "    rows=[row],",
-            ")",
-            "payload = json.loads(checklist.dumps_handoff_json(run))",
-            "assert payload['handoff_to'] == 'yoke onboard'",
-            "assert payload['machine_config_path'].endswith('config.json')",
-            "assert payload['rows'] == [",
-            "    {",
-            "        'id': 'machine-config',",
-            "        'layer': 'machine',",
-            "        'title': 'Machine config',",
-            "        'status': 'needed',",
-            "    }",
-            "]",
-        ])
+        script = "\n".join(
+            [
+                "import importlib.util, json",
+                "assert importlib.util.find_spec('yoke_core') is not None",
+                "from yoke_cli.config import onboard_checklist as checklist",
+                "row = checklist.ChecklistRow(",
+                "    id='machine-config',",
+                "    layer='machine',",
+                "    title='Machine config',",
+                "    status='needed',",
+                ")",
+                "run = checklist.ChecklistRun(",
+                f"    machine_config_path={str(config)!r},",
+                f"    checkout_path={str(checkout)!r},",
+                "    project_id=7,",
+                "    rows=[row],",
+                ")",
+                "payload = json.loads(checklist.dumps_handoff_json(run))",
+                "assert payload['handoff_to'] == 'yoke onboard'",
+                "assert payload['machine_config_path'].endswith('config.json')",
+                "assert payload['rows'] == [",
+                "    {",
+                "        'id': 'machine-config',",
+                "        'layer': 'machine',",
+                "        'title': 'Machine config',",
+                "        'status': 'needed',",
+                "    }",
+                "]",
+            ]
+        )
         _run([str(venv_python), "-c", script], cwd=checkout, env=env)
 
-        checklist_init = _run([
-            str(yoke), "onboard", "checklist", "init",
-            "--config", str(config),
-            "--checkout", str(checkout),
-            "--project-id", "7",
-            "--json",
-        ], cwd=checkout, env=env)
+        checklist_init = _run(
+            [
+                str(yoke),
+                "onboard",
+                "checklist",
+                "init",
+                "--config",
+                str(config),
+                "--checkout",
+                str(checkout),
+                "--project-id",
+                "7",
+                "--json",
+            ],
+            cwd=checkout,
+            env=env,
+        )
         envelope = json.loads(checklist_init.stdout)
         assert envelope["success"] is True
         assert envelope["function"] == "onboard.checklist.init"
@@ -110,20 +133,27 @@ def test_onboard_checklist_product_wheel_renders_with_inert_engine(
 
 
 def _write_https_config(machine_home: Path, token_file: Path, api_url: str) -> None:
-    (machine_home / "config.json").write_text(json.dumps({
-        "schema_version": 1,
-        "active_env": "smoke",
-        "connections": {
-            "smoke": {
-                "transport": "https",
-                "api_url": api_url,
-                "credential_source": {
-                    "kind": "token_file",
-                    "path": str(token_file),
+    (machine_home / "config.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "active_env": "smoke",
+                "connections": {
+                    "smoke": {
+                        "transport": "https",
+                        "api_url": api_url,
+                        "credential_source": {
+                            "kind": "token_file",
+                            "path": str(token_file),
+                        },
+                    },
                 },
             },
-        },
-    }, indent=2) + "\n", encoding="utf-8")
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 class _FunctionCallServer:
@@ -157,33 +187,37 @@ class _FunctionCallServer:
                     "checkout_path": request["payload"]["checkout_path"],
                     "project_id": request["payload"]["project_id"],
                     "status": "open",
-                    "rows": [{
-                        "row_id": "machine-config",
-                        "step": "1",
-                        "title": "Machine config",
-                        "layer": "machine",
-                        "owner": "yoke onboard",
-                        "status": "needed",
-                        "hint": "Configure the Yoke machine profile.",
-                        "evidence": {},
-                        "blocker": "",
-                        "note": "",
-                    }],
+                    "rows": [
+                        {
+                            "row_id": "machine-config",
+                            "step": "1",
+                            "title": "Machine config",
+                            "layer": "machine",
+                            "owner": "yoke setup",
+                            "status": "needed",
+                            "hint": "Configure the Yoke machine profile.",
+                            "evidence": {},
+                            "blocker": "",
+                            "note": "",
+                        }
+                    ],
                     "summary": {
                         "status": "open",
                         "open_rows": ["machine-config"],
                         "blocked_rows": [],
                     },
                 }
-                body = json.dumps({
-                    "success": True,
-                    "function": request["function"],
-                    "version": request.get("version", "v1"),
-                    "request_id": request.get("request_id", ""),
-                    "result": result,
-                    "warnings": [],
-                    "event_ids": [],
-                }).encode("utf-8")
+                body = json.dumps(
+                    {
+                        "success": True,
+                        "function": request["function"],
+                        "version": request.get("version", "v1"),
+                        "request_id": request.get("request_id", ""),
+                        "result": result,
+                        "warnings": [],
+                        "event_ids": [],
+                    }
+                ).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(body)))
@@ -195,7 +229,8 @@ class _FunctionCallServer:
 
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self._thread = threading.Thread(
-            target=self._server.serve_forever, daemon=True,
+            target=self._server.serve_forever,
+            daemon=True,
         )
         self._thread.start()
         host, port = self._server.server_address

@@ -102,7 +102,7 @@ def _cold_start_config(
             uv_needs_install=uv_needs_install,
         ),
         expected_text=(
-            "Starting Yoke onboard",
+            "Starting Yoke setup",
             *path_text,
             *BROWSER_APPROVAL_TEXT,
             *MACHINE_GITHUB_TEXT,
@@ -274,7 +274,7 @@ APPLY_HANDOFF = terminal_case(
             action("complete-onboarding"),
         ),
         expected_text=(
-            "Starting Yoke onboard",
+            "Starting Yoke setup",
             "Yoke is already on your PATH.",
             "Your Yoke lives on this machine.",
             *REVIEW_TEXT,

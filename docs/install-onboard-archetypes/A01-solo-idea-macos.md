@@ -36,12 +36,12 @@ confirmation prompt. The shim then runs
 ```
 ☀ Setting up Yoke…
 ☀ Yoke v{channel version} is ready
-☀ Starting Yoke onboard…
+☀ Starting Yoke setup…
 ```
 
-The shim launches `yoke onboard --post-install` with no extra consent.
+The shim launches `yoke setup --post-install` with no extra consent.
 
-## Transcript — `yoke onboard` wizard
+## Transcript — `yoke setup` wizard
 
 ### Install / PATH (`onboard_wizard_path.py`)
 

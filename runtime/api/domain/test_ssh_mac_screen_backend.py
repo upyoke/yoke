@@ -84,7 +84,7 @@ def test_terminal_case_uses_screen_input_hardcopy_and_cleanup(
     control._run = run
 
     result = control.run_terminal_case(
-        entry_surface="/usr/local/bin/yoke onboard --project yoke",
+        entry_surface="/usr/local/bin/yoke setup --project yoke",
         required_completion="review",
         steps=[
             {
@@ -116,7 +116,7 @@ def test_terminal_case_uses_screen_input_hardcopy_and_cleanup(
         session,
         "/bin/sh",
         "-lc",
-        "/usr/local/bin/yoke onboard --project yoke",
+        "/usr/local/bin/yoke setup --project yoke",
     ]
     input_command = next(command for command in commands if " -X stuff " in command)
     assert shlex.split(input_command) == [

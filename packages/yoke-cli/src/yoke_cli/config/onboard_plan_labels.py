@@ -1,4 +1,4 @@
-"""Friendly labels for ``yoke onboard`` write-plan steps."""
+"""Friendly labels for ``yoke setup`` write-plan steps."""
 
 from __future__ import annotations
 from yoke_cli.config import onboard_relay_supervisor

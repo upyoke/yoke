@@ -53,7 +53,7 @@ def _local_machine_id() -> str:
     if not resolved:
         raise SystemExit(
             "this machine has no canonical machine id in ~/.yoke/config.json. "
-            "Recovery: run `yoke onboard` (or `yoke status`) to complete machine "
+            "Recovery: run `yoke setup` (or `yoke status`) to complete machine "
             "setup, which assigns it."
         )
     return resolved

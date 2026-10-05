@@ -1,4 +1,4 @@
-"""Palette constants shared by the ``yoke onboard`` wizard's Rich markup.
+"""Palette constants shared by the ``yoke setup`` wizard's Rich markup.
 
 The full palette lives in ``onboard_wizard.tcss`` as ``$onboard-*`` variables for
 the CSS-styled widgets. Rich console markup (used for per-word coloring like the

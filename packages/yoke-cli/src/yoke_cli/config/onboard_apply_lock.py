@@ -1,4 +1,4 @@
-"""Active-run lock for ``yoke onboard`` apply."""
+"""Active-run lock for ``yoke setup`` apply."""
 
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 """Assemble the onboarding kwargs and hand them to the durable apply.
 
-Carved out of the ``yoke onboard`` adapter, which stays a command surface:
+Carved out of the ``yoke setup`` adapter, which stays a command surface:
 this is the pass-through naming every input the wizard and the flag route
 share, so the adapter does not carry a hundred-line parameter list beside
 its argument parsing.

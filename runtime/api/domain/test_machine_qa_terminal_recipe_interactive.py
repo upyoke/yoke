@@ -94,7 +94,7 @@ def test_interactive_recipe_rejects_a_known_unexpected_exit_code(
     result = execute_terminal_recipe(
         run,
         upload_bytes=lambda _path, _content: True,
-        entry_surface="yoke onboard",
+        entry_surface="yoke setup",
         required_completion="done",
         config=recipe(mode="terminal-multiplexer"),
         evidence_parent=tmp_path / "evidence",
@@ -200,7 +200,7 @@ def test_interactive_recipe_uses_action_wait_then_global_fallback(
     result = execute_terminal_recipe(
         run,
         upload_bytes=lambda _path, _content: True,
-        entry_surface="yoke onboard",
+        entry_surface="yoke setup",
         required_completion="done",
         config=config,
         evidence_parent=tmp_path / "evidence",
@@ -258,7 +258,7 @@ def test_interactive_recipe_resizes_the_created_native_session(
     result = execute_terminal_recipe(
         run,
         upload_bytes=lambda _path, _content: True,
-        entry_surface="yoke onboard",
+        entry_surface="yoke setup",
         required_completion="done",
         config=recipe(mode="terminal-multiplexer"),
         evidence_parent=tmp_path / "evidence",
@@ -308,7 +308,7 @@ def test_machine_lease_redacts_typed_recipe_evidence_before_submission() -> None
     result = execution.execute(
         method_id="terminal-check",
         method_config=recipe(),
-        entry_surface="yoke onboard",
+        entry_surface="yoke setup",
         required_completion="done",
     )
 

@@ -102,7 +102,7 @@ def test_ready_text_times_out_without_sending_input(
     result = execute_terminal_recipe(
         run,
         upload_bytes=lambda _path, _content: True,
-        entry_surface="yoke onboard",
+        entry_surface="yoke setup",
         required_completion="apply",
         config=config,
         evidence_parent=tmp_path / "evidence",

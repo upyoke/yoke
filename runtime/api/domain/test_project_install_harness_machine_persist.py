@@ -197,7 +197,7 @@ def test_install_persist_fail_softs_when_machine_config_is_missing(
     assert dispatched == []
     assert report["warnings"]
     assert "not persisted" in report["warnings"][0]
-    assert "yoke onboard" in report["warnings"][0]
+    assert "yoke setup" in report["warnings"][0]
     assert "upgrade" not in report["warnings"][0].lower()
     assert not (home / "config.json").exists()
 

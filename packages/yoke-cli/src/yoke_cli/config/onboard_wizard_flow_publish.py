@@ -1,4 +1,4 @@
-"""Publish-to-GitHub step transitions for the ``yoke onboard`` wizard.
+"""Publish-to-GitHub step transitions for the ``yoke setup`` wizard.
 
 A mixin composed alongside :class:`onboard_wizard_flow.WizardFlow` into
 :class:`onboard_wizard_app.OnboardWizardApp`. It owns the "Also publish to

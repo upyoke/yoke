@@ -49,7 +49,7 @@ yoke github connect
 yoke github status
 ```
 
-Optional during `yoke onboard` Account/GitHub steps. The onboard GitHub
+Optional during `yoke setup` Account/GitHub steps. The onboard GitHub
 rail stays incomplete until that same `ready` contract is true — skipping
 or moving to Project does not mark GitHub done. A private clone after
 connect uses the App authorization; if status is not ready, the clone

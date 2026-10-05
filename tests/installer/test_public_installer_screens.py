@@ -29,7 +29,7 @@ def _options(installer_mod, **overrides):
         yes=False,
         dry_run=False,
         base_url="https://api.upyoke.com",
-        no_onboard=False,
+        no_setup=False,
     )
     base.update(overrides)
     return installer_mod.InstallOptions(**base)
@@ -136,7 +136,7 @@ def test_already_installed_screen_when_uv_reports_no_op(
     assert "--config-file" in runner.commands[0]
     assert "☀ Yoke v2.0.0 already installed" in rendered
     assert "☀ Yoke v2.0.0 is ready" not in rendered
-    assert "☀ Starting Yoke onboard…" not in rendered
+    assert "☀ Starting Yoke setup…" not in rendered
 
 
 def test_failure_screen_prints_reason_and_rerun(tmp_path: Path) -> None:
@@ -168,7 +168,7 @@ def test_failure_screen_prints_reason_and_rerun(tmp_path: Path) -> None:
     assert f"curl -fsSL {release['base_url']}/install | sh" in rendered
     assert "curl -fsSL https://upyoke.com/install | sh" not in rendered
     # The success screen never renders on a failed install.
-    assert "☀ Starting Yoke onboard…" not in rendered
+    assert "☀ Starting Yoke setup…" not in rendered
 
 
 def test_channel_resolution_failure_prints_reason_and_rerun() -> None:

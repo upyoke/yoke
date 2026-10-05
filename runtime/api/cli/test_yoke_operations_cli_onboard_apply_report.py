@@ -249,7 +249,7 @@ def test_noninteractive_machine_config_write_failure_prints_report_summary(
     payload = json.loads(report_path.read_text(encoding="utf-8"))
     assert payload["final_status"] == "failed"
     assert payload["failed_step"]
-    assert payload["resume_command"].startswith("yoke onboard --resume ")
+    assert payload["resume_command"].startswith("yoke setup --resume ")
     assert "yoke-secret" not in json.dumps(payload)
 
 
@@ -315,7 +315,7 @@ def test_report_resume_hints_reference_real_run_id(
         },
     )
     payload = json.loads(Path(writer.summary()["path"]).read_text(encoding="utf-8"))
-    assert payload["resume_command"] == f"yoke onboard --resume {payload['run_id']}"
+    assert payload["resume_command"] == f"yoke setup --resume {payload['run_id']}"
     assert "--start-over" not in json.dumps(payload)
     assert "/home/u/code/widget" in payload["new_target_hint"]
     assert "different folder" in payload["new_target_hint"]

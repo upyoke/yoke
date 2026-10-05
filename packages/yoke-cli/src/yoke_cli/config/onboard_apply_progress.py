@@ -1,4 +1,4 @@
-"""Progress callback helpers for ``yoke onboard`` apply."""
+"""Progress callback helpers for ``yoke setup`` apply."""
 
 from __future__ import annotations
 

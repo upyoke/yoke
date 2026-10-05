@@ -216,7 +216,7 @@ def test_present_uv_exports_authoritative_tool_bin_and_isolates_helper(
 
     result = run_shim(
         bin_dir,
-        args=("--yes", "--no-onboard"),
+        args=("--yes", "--no-setup"),
         env_extra={"XDG_DATA_HOME": str(tmp_path / "xdg-data")},
     )
 
@@ -323,5 +323,5 @@ def test_interactive_success_auto_launches_onboard_without_gate(tmp_path: Path) 
     # directly, no extra prompt.
     assert "Start Yoke onboarding now" not in prompt_out.read_text(encoding="utf-8")
     assert "Start Yoke onboarding now" not in result.stdout
-    assert "☀ Starting Yoke onboard…" in result.stdout
-    assert "yoke onboard --post-install" in onboard_log.read_text(encoding="utf-8")
+    assert "☀ Starting Yoke setup…" in result.stdout
+    assert "yoke setup --post-install" in onboard_log.read_text(encoding="utf-8")

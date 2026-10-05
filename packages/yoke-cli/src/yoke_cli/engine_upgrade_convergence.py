@@ -83,7 +83,7 @@ def converge_for_serving(
             raise LocalUniverseConvergenceError(
                 "the machine-local universe could not be brought up to the "
                 f"running engine ({identity or 'unidentified build'}): {exc}. "
-                "Start or repair the universe with `yoke onboard --local`, "
+                "Start or repair the universe with `yoke setup --local`, "
                 "then retry. Yoke will not serve a database it could not "
                 "converge."
             ) from exc

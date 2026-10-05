@@ -29,7 +29,7 @@ def test_local_dry_run_plans_universe_init_without_sign_in_steps(
 ) -> None:
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "--local",
             "--non-interactive",
             "--json",
@@ -58,7 +58,7 @@ def test_local_rerun_verifies_universe_and_keeps_active_env(
         assert (
             yoke_operations_cli.main(
                 [
-                    "onboard",
+                    "setup",
                     "--local",
                     "--non-interactive",
                     "--yes",

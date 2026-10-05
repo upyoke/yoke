@@ -1,4 +1,4 @@
-"""Pure inline validators for the ``yoke onboard`` wizard's free-text steps.
+"""Pure inline validators for the ``yoke setup`` wizard's free-text steps.
 
 Each validator returns ``None`` when the value is acceptable, or a short,
 user-facing error string when it is not. They are deliberately free of Textual

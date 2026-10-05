@@ -50,11 +50,11 @@ class MachineQaFixtureMachineOperations:
                 f"YOKE_INSTALL_BASE_URL={parameters['base_url']}",
                 f"YOKE_CHANNEL={parameters['channel']}",
                 "YOKE_INSTALL_YES=1",
-                "YOKE_NO_ONBOARD=1",
+                "YOKE_NO_SETUP=1",
                 "/bin/sh",
                 installer,
                 "--yes",
-                "--no-onboard",
+                "--no-setup",
             ),
             timeout=1200,
         )

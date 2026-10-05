@@ -33,7 +33,7 @@ One row per machine in the control plane:
 ## Registering
 
 Both connect-time paths register this machine, so an operator does not have to
-know it is a step. `yoke onboard` registers at the end of Apply — after the
+know it is a step. `yoke setup` registers at the end of Apply — after the
 connection is verified and the machine relay is installed, when the plane is
 demonstrably answering — and reports a refusal on the Apply summary with its
 recovery rather than failing the apply. `yoke status` registers whenever it

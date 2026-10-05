@@ -22,7 +22,7 @@ def _options(installer_mod, **overrides):
         yes=False,
         dry_run=False,
         base_url="https://api.upyoke.com",
-        no_onboard=False,
+        no_setup=False,
     )
     base.update(overrides)
     return installer_mod.InstallOptions(**base)
@@ -57,14 +57,14 @@ def _installed_yoke_path(tmp_path: Path, monkeypatch) -> str:
     return str(yoke_bin)
 
 
-def test_parse_args_accepts_no_onboard_flag(monkeypatch) -> None:
+def test_parse_args_accepts_no_setup_flag(monkeypatch) -> None:
     installer_mod = load_installer()
-    monkeypatch.delenv("YOKE_NO_ONBOARD", raising=False)
+    monkeypatch.delenv("YOKE_NO_SETUP", raising=False)
 
-    options = installer_mod.parse_args(["--yes", "--no-onboard"])
+    options = installer_mod.parse_args(["--yes", "--no-setup"])
 
     assert options.yes is True
-    assert options.no_onboard is True
+    assert options.no_setup is True
 
 
 def test_install_command_honors_base_url_for_index_host() -> None:
@@ -145,7 +145,7 @@ def test_full_install_pins_channel_version_and_smokes(
     # the wrapper suppressed onboarding.
     assert "☀ Setting up Yoke…" in rendered
     assert "☀ Yoke v2.0.0 is ready" in rendered
-    assert "☀ Starting Yoke onboard…" not in rendered
+    assert "☀ Starting Yoke setup…" not in rendered
     assert "Installed Yoke with uv." not in rendered
     assert "Product-boundary audit passed." not in rendered
     assert "yoke is available to this installer process." not in rendered
@@ -232,7 +232,7 @@ def test_explicit_version_skips_channel_fetch(tmp_path: Path, monkeypatch) -> No
         responses={(yoke_bin, "status", "--json"): _status_ok("9.9.9")},
     )
     installer = installer_mod.Installer(
-        _options(installer_mod, version="9.9.9", no_onboard=True),
+        _options(installer_mod, version="9.9.9", no_setup=True),
         fetcher=lambda url: fetched.append(url) or b"{}",
         runner=runner,
         which=lambda name: f"/usr/bin/{name}",
@@ -246,7 +246,7 @@ def test_explicit_version_skips_channel_fetch(tmp_path: Path, monkeypatch) -> No
     assert "yoke-contracts==9.9.9" in runner.commands[0]
     assert "yoke-harness==9.9.9" in runner.commands[0]
     assert "yoke-core==9.9.9" in runner.commands[0]
-    assert "Starting Yoke onboard" not in output.getvalue()
+    assert "Starting Yoke setup" not in output.getvalue()
 
 
 def test_product_boundary_audit_rejects_mixed_product_versions() -> None:

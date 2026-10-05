@@ -6,7 +6,7 @@ argument-hint: "[--project P] [--run-id RUN]"
 
 # /yoke onboard
 
-Make an already-wired project **execution-ready** from a supported harness. The terminal wizard (`yoke onboard`) owns wire-up — machine profile, account, GitHub, project binding, review. This skill starts from strategy and derives everything else: the strategy-doc corpus, one confirmed execution profile, scaffold and infra Packs, hosting verification, hosted environment/site/flow registration or an explicit no-host route, the domain record, a gated infrastructure apply plus first deploy, and the first seeded work items.
+Make an already-wired project **execution-ready** from a supported harness. The terminal wizard (`yoke setup`) owns wire-up — machine profile, account, GitHub, project binding, review. This skill starts from strategy and derives everything else: the strategy-doc corpus, one confirmed execution profile, scaffold and infra Packs, hosting verification, hosted environment/site/flow registration or an explicit no-host route, the domain record, a gated infrastructure apply plus first deploy, and the first seeded work items.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -21,7 +21,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Boundaries
 
-- **Assume the wizard's output; never re-create it.** If the machine, account, GitHub connection, or project binding is missing, stop and point the operator at the `yoke onboard` terminal wizard. This skill never reimplements wire-up.
+- **Assume the wizard's output; never re-create it.** If the machine, account, GitHub connection, or project binding is missing, stop and point the operator at the `yoke setup` terminal wizard. This skill never reimplements wire-up.
 - **Harness connection is upstream and detect-only.** The skill runs inside an already-connected harness. Detect and link harnesses; never install one for the user.
 - **The web views and steers; it never invokes.** The workbench's navigation Setup control renders this checklist's rows and offers this command as text for the operator to run. No web button runs this skill.
 - **Checklist authority** is `yoke onboard checklist --run-id {run_id} --json`. The rendered project-local checklist view is read-only display; never treat it as authority and never edit it.

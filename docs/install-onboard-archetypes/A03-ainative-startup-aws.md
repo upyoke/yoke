@@ -18,7 +18,7 @@ it maps onto the existing account.
 ## Transcript — installer
 
 `curl -fsSL https://upyoke.com/install | sh` on Darwin. uv present.
-`Starting Yoke onboard…` → `yoke onboard --post-install`.
+`Starting Yoke setup…` → `yoke setup --post-install`.
 
 ## Transcript — wizard
 

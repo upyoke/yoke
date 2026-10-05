@@ -204,7 +204,7 @@ def smoke(root: Path, output: Path) -> None:
                     "onboard",
                     [
                         yoke,
-                        "onboard",
+                        "setup",
                         "--local",
                         "--non-interactive",
                         "--yes",

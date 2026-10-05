@@ -46,11 +46,11 @@ automatically; `yoke update` does the same. Your system Python is unchanged.
 
 ```bash
 curl -fsSL https://upyoke.com/install | sh
-yoke onboard
+yoke setup
 yoke status
 ```
 
-The installer auto-launches `yoke onboard` when interactive. To upgrade later,
+The installer auto-launches `yoke setup` when interactive. To upgrade later,
 rerun the same curl installer. It resolves one channel version for every Yoke
 product package, selects the Yoke index ahead of an explicit public PyPI
 default, and ignores ambient uv index settings for that resolver run. Direct
@@ -75,7 +75,7 @@ yoke github connect
 yoke github status
 ```
 
-`yoke onboard` is a full-screen wizard: a fixed header and stepper stay on
+`yoke setup` is a full-screen wizard: a fixed header and stepper stay on
 screen — Install/PATH, Account, GitHub, Project, Review — while you move
 through the steps with the arrow keys. The Account step opens on a
 deployment-destination picker (this machine / a team server / upyoke.com);

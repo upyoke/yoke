@@ -1,4 +1,4 @@
-"""Hosting-provider step for the ``yoke onboard`` wizard.
+"""Hosting-provider step for the ``yoke setup`` wizard.
 
 Sits between the Project step and Review because the credential belongs to a
 project: it is stored under that project's slug on this machine. Runs that

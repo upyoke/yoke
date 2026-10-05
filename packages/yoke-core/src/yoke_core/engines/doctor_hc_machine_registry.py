@@ -51,7 +51,7 @@ def hc_machine_registry(
             SLUG,
             TITLE,
             NOT_APPLICABLE,
-            "this machine has no canonical machine id yet; `yoke onboard` "
+            "this machine has no canonical machine id yet; `yoke setup` "
             "assigns one before registration applies",
         )
         return

@@ -134,7 +134,7 @@ def test_current_release_accepts_environment_bound_distribution_values() -> None
                 base_url="https://downloads.example.net/yoke",
                 channel="customer-canary.7",
                 evidence_name="external-release",
-                no_onboard=True,
+                no_setup=True,
                 remove_existing_launcher=True,
             )
         ]
@@ -166,7 +166,7 @@ def test_current_release_rejects_unsafe_distribution_values(
                     base_url=base_url,
                     channel=channel,
                     evidence_name="invalid-release",
-                    no_onboard=True,
+                    no_setup=True,
                     remove_existing_launcher=True,
                 )
             ]

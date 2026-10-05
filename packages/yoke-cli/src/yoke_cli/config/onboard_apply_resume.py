@@ -1,4 +1,4 @@
-"""Run-id resume helpers for ``yoke onboard``."""
+"""Run-id resume helpers for ``yoke setup``."""
 
 from __future__ import annotations
 
@@ -69,10 +69,13 @@ def apply_defaults(parsed: Any, snapshot: Mapping[str, Any]) -> None:
     )
     _set_missing(parsed, "project_default_branch", project.get("default_branch"))
     _set_missing(
-        parsed, "project_default_branch_source",
+        parsed,
+        "project_default_branch_source",
         project.get("default_branch_source"),
     )
-    _set_missing(parsed, "project_public_item_prefix", project.get("public_item_prefix"))
+    _set_missing(
+        parsed, "project_public_item_prefix", project.get("public_item_prefix")
+    )
     _set_missing(parsed, "existing_project_id", project.get("existing_project_id"))
     _set_missing(
         parsed,
@@ -91,13 +94,17 @@ def apply_defaults(parsed: Any, snapshot: Mapping[str, Any]) -> None:
         project.get("github_adoption_preserve"),
     )
     _set_bool_missing(
-        parsed, "project_keep_existing_remote", project.get("keep_existing_remote"),
+        parsed,
+        "project_keep_existing_remote",
+        project.get("keep_existing_remote"),
     )
     _restore_publish_defaults(parsed, project.get("publish"))
     clone = _mapping(project.get("clone"))
     _set_missing(parsed, "project_clone_outcome", clone.get("outcome"))
     _set_bool_missing(
-        parsed, "project_clone_keep_upstream", clone.get("keep_upstream"),
+        parsed,
+        "project_clone_keep_upstream",
+        clone.get("keep_upstream"),
     )
     _set_missing(parsed, "project_clone_fork_api_url", clone.get("fork_api_url"))
     _set_missing(parsed, "project_clone_fork_web_url", clone.get("fork_web_url"))
@@ -132,7 +139,8 @@ def preserve_checkout_for_new_target(
     snapshot = snapshot if isinstance(snapshot, Mapping) else {}
     provenance = _mapping(snapshot.get("checkout_provenance"))
     preserved = _preserve_checkout(
-        checkout, _mapping(provenance.get("ownership")),
+        checkout,
+        _mapping(provenance.get("ownership")),
     )
     payload["final_status"] = "checkout-preserved"
     payload["new_target"] = {
@@ -191,7 +199,8 @@ def _restore_token_file(parsed: Any, snapshot: Mapping[str, Any]) -> None:
 
 
 def _preserve_checkout(
-    value: str, ownership: Mapping[str, Any],
+    value: str,
+    ownership: Mapping[str, Any],
 ) -> str | None:
     """Validate the run-created checkout and leave its contents untouched."""
 
@@ -251,7 +260,9 @@ def _restore_publish_defaults(parsed: Any, value: Any) -> None:
         publish.get("create_repository"),
     )
     _set_missing(
-        parsed, "project_publish_repository_id", publish.get("repository_id"),
+        parsed,
+        "project_publish_repository_id",
+        publish.get("repository_id"),
     )
     _set_missing(
         parsed,

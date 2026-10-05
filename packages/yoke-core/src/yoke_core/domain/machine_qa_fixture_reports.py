@@ -116,8 +116,8 @@ def build_apply_resume_report(
         "final_status": "failed",
         "failed_step": failed_step,
         "error": "transient failure",
-        "resume_command": f"yoke onboard --resume {parameters['run_id']}",
-        "new_target_hint": "Re-run to redo setup: yoke onboard",
+        "resume_command": f"yoke setup --resume {parameters['run_id']}",
+        "new_target_hint": "Re-run to redo setup: yoke setup",
         "secret_free": True,
     }
 

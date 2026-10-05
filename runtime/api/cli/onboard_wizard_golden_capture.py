@@ -1,4 +1,4 @@
-"""Take the one frame the ``yoke onboard`` golden gates compare against.
+"""Take the one frame the ``yoke setup`` golden gates compare against.
 
 Everything here exists so the exported frame is a function of the wizard's
 state and nothing else. Three inputs would otherwise let the speed of the

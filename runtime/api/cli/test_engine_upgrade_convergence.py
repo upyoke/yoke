@@ -127,7 +127,7 @@ def test_a_failed_converge_refuses_with_the_recovery(machine_home, wiring):
 
     message = str(raised.value)
     assert "cluster is not running" in message
-    assert "yoke onboard --local" in message
+    assert "yoke setup --local" in message
 
 
 def test_a_refusal_outside_the_exception_hierarchy_is_still_diagnosed(

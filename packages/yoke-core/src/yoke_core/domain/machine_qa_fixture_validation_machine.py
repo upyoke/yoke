@@ -94,7 +94,7 @@ def _current_release(parameters: Mapping[str, Any]) -> dict[str, Any]:
             "base_url",
             "channel",
             "evidence_name",
-            "no_onboard",
+            "no_setup",
             "remove_existing_launcher",
         },
     )
@@ -113,10 +113,10 @@ def _current_release(parameters: Mapping[str, Any]) -> dict[str, Any]:
         "base_url": _distribution_base_url(operation_id, parameters),
         "channel": _release_channel(operation_id, parameters),
         "evidence_name": evidence_name,
-        "no_onboard": exact_value(
+        "no_setup": exact_value(
             operation_id,
             parameters,
-            "no_onboard",
+            "no_setup",
             True,
         ),
         "remove_existing_launcher": exact_value(

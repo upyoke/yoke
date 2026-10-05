@@ -81,11 +81,13 @@ def _stub_source_branch(monkeypatch):
         project_git_transport,
         "remote_probe",
         lambda url, token=None, github_web_url=None: project_git_probe.GitRemoteProbe(
-            True, default_branch="main",
+            True,
+            default_branch="main",
         ),
     )
     monkeypatch.setattr(
-        project_git_transport, "remote_default_branch",
+        project_git_transport,
+        "remote_default_branch",
         lambda url, token=None, github_web_url=None: "main",
     )
 
@@ -97,7 +99,7 @@ def test_export_survives_a_scroll_resting_between_cells(_stub_source_branch) -> 
     scrollbar, so it is the one where a mid-cell scroll can reach the export.
     """
     app = make_app(apply_report=lambda _kw: FINISH_PLAN_FULL)
-    title = "yoke onboard · Review"
+    title = "yoke setup · Review"
 
     async def scenario() -> tuple[str, str, float]:
         async with app.run_test(size=TERMINAL_SIZE) as pilot:

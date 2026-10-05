@@ -17,7 +17,7 @@ The only prerequisites are a shell, `curl`, and `uv`. The public installer
 ensures `uv` is present (installing it on consent when missing), then installs
 `yoke` on Python 3.11–3.14 and links it onto PATH. If none is available, uv
 downloads a managed interpreter automatically; `yoke update` does the same.
-Your system Python is unchanged. The installer launches `yoke onboard` when interactive.
+Your system Python is unchanged. The installer launches `yoke setup` when interactive.
 
 ```bash
 curl -fsSL https://upyoke.com/install | sh
@@ -35,7 +35,7 @@ import, or local-checkout modes.
 
 ## 2. Onboard the Machine
 
-`yoke onboard` is a full-screen wizard — Install, Account, GitHub, Project,
+`yoke setup` is a full-screen wizard — Install, Account, GitHub, Project,
 Hosting, Review — driven by the arrow keys, redrawing in place. The Account
 step opens on a deployment-destination picker: where should this Yoke live —
 this machine (the free local universe, no account), an existing team server
@@ -52,7 +52,7 @@ connection for another destination stays in place, and `active_env` follows
 the flow that just completed.
 
 ```bash
-yoke onboard
+yoke setup
 yoke status
 ```
 
@@ -66,9 +66,9 @@ its own `--api-url` (or `--connect URL`) instead — the machine-config
 connection entry it writes is the API authority either way:
 
 ```bash
-yoke onboard --local --non-interactive --yes   # machine-local universe
+yoke setup --local --non-interactive --yes   # machine-local universe
 
-yoke onboard --yes \
+yoke setup --yes \
   --config ~/.yoke/config.json \
   --env prod \
   --api-url https://app.upyoke.com/api/orgs/upyoke \
@@ -76,7 +76,7 @@ yoke onboard --yes \
 yoke status
 ```
 
-`yoke onboard` writes the machine config, stores the env credential in
+`yoke setup` writes the machine config, stores the env credential in
 `~/.yoke/secrets/`, validates the env, and applies without leaking secret
 values.
 
@@ -95,7 +95,7 @@ installation id are verified again by the server before the binding is saved.
 
 ## 3. Choose the Project Entry Path
 
-The `yoke onboard` wizard's Project step covers every entry mode
+The `yoke setup` wizard's Project step covers every entry mode
 interactively. The standalone commands below run a single mode
 non-interactively when you want to script one path.
 

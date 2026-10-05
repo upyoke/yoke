@@ -1,4 +1,4 @@
-/* Single stylesheet for the full-screen `yoke onboard` wizard.
+/* Single stylesheet for the full-screen `yoke setup` wizard.
    Palette is defined once here; widgets reference these variables and toggle
    classes rather than hardcoding colors. */
 

@@ -100,13 +100,13 @@ def test_product_wheels_exercise_installer_plan_surfaces(
         env,
         [],
         1,
-        "yoke onboard --non-interactive",
+        "yoke setup --non-interactive",
     )
     assert "yoke --help" in f"{bare.stdout}\n{bare.stderr}"
     top_help = _assert_command(yoke, project, env, ["--help"], 0)
     for surface in (
         "yoke status",
-        "yoke onboard",
+        "yoke setup",
         "yoke github connect",
         "yoke github status",
         "yoke project create",
@@ -142,7 +142,7 @@ def test_product_wheels_exercise_installer_plan_surfaces(
     }
 
     for args, expected in (
-        (["onboard", "--help"], "usage: yoke onboard"),
+        (["setup", "--help"], "usage: yoke setup"),
         (["github", "connect", "--help"], "usage: yoke github connect"),
         (["github", "status", "--help"], "usage: yoke github status"),
         (["project", "create", "--help"], "usage: yoke project create"),

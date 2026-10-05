@@ -1,4 +1,4 @@
-"""Per-destination connection apply lanes for ``yoke onboard``.
+"""Per-destination connection apply lanes for ``yoke setup``.
 
 ``build_report`` (:mod:`yoke_cli.config.onboard`) delegates its connection
 writes here once the plan is confirmed: the local destination births (or

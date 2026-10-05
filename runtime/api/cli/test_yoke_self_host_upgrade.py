@@ -115,7 +115,7 @@ def test_run_installer_writes_pinned_args_and_cleans_up_temp_file(
         "--version",
         selected_release.version,
         "--yes",
-        "--no-onboard",
+        "--no-setup",
         "--base-url",
         selected_release.base_url,
         "--channel",

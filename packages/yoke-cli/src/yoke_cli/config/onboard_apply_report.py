@@ -1,4 +1,4 @@
-"""Durable apply reports for ``yoke onboard`` runs."""
+"""Durable apply reports for ``yoke setup`` runs."""
 
 from __future__ import annotations
 

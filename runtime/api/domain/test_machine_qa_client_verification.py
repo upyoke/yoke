@@ -182,11 +182,11 @@ def test_client_shell_baseline_uses_the_published_installer_recipe() -> None:
         f"{DISTRIBUTION_BASE_URL_ENV}={DISTRIBUTION_STAGE_URL}",
         "YOKE_CHANNEL=latest",
         "YOKE_INSTALL_YES=1",
-        "YOKE_NO_ONBOARD=1",
+        "YOKE_NO_SETUP=1",
         "/bin/sh",
         INSTALLER_TEMP_PATH,
         "--yes",
-        "--no-onboard",
+        "--no-setup",
     ]
     assert argv[2] == [
         "/Users/tester/.local/bin/yoke",

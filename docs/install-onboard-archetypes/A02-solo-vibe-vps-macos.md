@@ -18,8 +18,8 @@ replace the droplet tomorrow.
 
 Same command: `curl -fsSL https://upyoke.com/install | sh`. Darwin passes.
 uv already present (she has Homebrew tooling) → no consent screen; helper
-prints `Setting up Yoke…` / `Yoke v… is ready` / `Starting Yoke onboard…`.
-Launches `yoke onboard --post-install`.
+prints `Setting up Yoke…` / `Yoke v… is ready` / `Starting Yoke setup…`.
+Launches `yoke setup --post-install`.
 
 ## Transcript — wizard
 

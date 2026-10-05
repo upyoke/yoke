@@ -23,7 +23,7 @@ _REUSE_GROUP_LABELS = (
 def render_human(report: Dict[str, Any]) -> str:
     """Render an onboarding report for terminal display."""
     lines = [
-        "Yoke onboard",
+        "Yoke setup",
         f"  mode: {report['mode']}",
         f"  project mode: {report.get('project_mode', onboard_project.PROJECT_MODE_MACHINE_ONLY)}",
         f"  config: {report['config_path']}",
@@ -66,7 +66,9 @@ def render_human(report: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _reuse_group_labels_for_report(report: Dict[str, Any]) -> tuple[tuple[str, str], ...]:
+def _reuse_group_labels_for_report(
+    report: Dict[str, Any],
+) -> tuple[tuple[str, str], ...]:
     plan = report.get("plan") if isinstance(report, dict) else None
     connection = plan.get("connection") if isinstance(plan, dict) else None
     if not isinstance(connection, dict):
@@ -116,8 +118,7 @@ def _append_clone_resume(lines: list[str], project_report: dict[str, Any]) -> No
         lines.append(f"  - Repo {project.get('github_repo')} already existed — reused")
     if resume.get("origin_rehomed"):
         lines.append(
-            f"  - Re-pushed {project.get('default_branch')} "
-            "(resuming a prior run)"
+            f"  - Re-pushed {project.get('default_branch')} (resuming a prior run)"
         )
 
 

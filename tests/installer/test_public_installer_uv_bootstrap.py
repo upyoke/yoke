@@ -119,7 +119,7 @@ def test_uv_bootstrap_without_ps(tmp_path: Path, times_out: bool) -> None:
     started = time.monotonic()
     result = run_shim(
         bin_dir,
-        args=("--yes", "--no-onboard"),
+        args=("--yes", "--no-setup"),
         env_extra={"PATH": str(bin_dir), "YOKE_UV_BOOTSTRAP_TIMEOUT_SECONDS": "1"},
     )
 

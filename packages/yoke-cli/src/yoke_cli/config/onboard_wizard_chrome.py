@@ -1,4 +1,4 @@
-"""Header and footer chrome for the ``yoke onboard`` wizard shell."""
+"""Header and footer chrome for the ``yoke setup`` wizard shell."""
 
 from __future__ import annotations
 

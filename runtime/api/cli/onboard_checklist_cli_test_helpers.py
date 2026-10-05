@@ -34,7 +34,7 @@ def checklist_row(
         "step": "2",
         "title": "Machine profile",
         "layer": "machine",
-        "owner": "yoke onboard",
+        "owner": "yoke setup",
         "status": status,
         "hint": "Create ~/.yoke and secret storage.",
         "evidence": evidence,

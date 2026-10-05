@@ -1,4 +1,4 @@
-"""Pilot-driven coverage for the full-screen ``yoke onboard`` wizard.
+"""Pilot-driven coverage for the full-screen ``yoke setup`` wizard.
 
 Tests drive the arrow-key flow and assert the field set the wizard hands to
 ``build_report``. ``build_report`` is spied at the wizard boundary so no real

@@ -41,7 +41,8 @@ def _all_clear_diagnosis() -> path_doctor.PathDiagnosis:
 def _stub_path_doctor(monkeypatch):
     monkeypatch.setattr(path_doctor, "diagnose", lambda **_: _all_clear_diagnosis())
     monkeypatch.setattr(
-        path_doctor, "verify_fresh_login",
+        path_doctor,
+        "verify_fresh_login",
         lambda shell=None, **_: _all_clear_diagnosis().future_resolved,
     )
 
@@ -53,8 +54,10 @@ def test_project_step_renders() -> None:
     with golden_color_env():
         app = OnboardWizardApp(
             defaults=WizardDefaults(
-                config_path="/tmp/cfg.json", env_name="prod",
-                api_url="https://yoke.example.test", token="actor-token",
+                config_path="/tmp/cfg.json",
+                env_name="prod",
+                api_url="https://yoke.example.test",
+                token="actor-token",
             ),
             apply_report=_noop_report,
         )
@@ -73,16 +76,16 @@ def test_project_step_renders() -> None:
             # select "Create a new project".
             await pilot.press("enter")  # path: continue
             await pilot.pause()
-            await pilot.press("down")   # machine github: Skip for now
+            await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
             await pilot.pause()
-            await pilot.press("down")   # project: move to "Create a new project"
+            await pilot.press("down")  # project: move to "Create a new project"
             await pilot.press("down")
             await pilot.pause()
             assert app.query_one(Stepper).active == STEP_PROJECT
             selection = app.query_one("#onboard-body SelectionList", SelectionList)
             assert selection.selected_value == "create-repo"
-            return app.export_screenshot(title="yoke onboard · Project")
+            return app.export_screenshot(title="yoke setup · Project")
 
     with golden_color_env():
         svg = asyncio.run(scenario())

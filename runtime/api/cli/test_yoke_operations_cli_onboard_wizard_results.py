@@ -1,4 +1,4 @@
-"""Review result-state coverage for the ``yoke onboard`` wizard."""
+"""Review result-state coverage for the ``yoke setup`` wizard."""
 
 from __future__ import annotations
 
@@ -95,7 +95,7 @@ def test_apply_failure_stays_in_tui_until_exit() -> None:
                 "repo already has content that does not match this checkout",
                 failed_step="03-project-create",
                 report_path="/tmp/onboard-report.json",
-                resume_command="yoke onboard",
+                resume_command="yoke setup",
             )
         return _plan(kwargs, applied=False)
 
@@ -122,7 +122,7 @@ def test_apply_failure_offers_retry_when_retryable() -> None:
                 "network error reaching GitHub",
                 failed_step="03-project-create",
                 report_path="/tmp/onboard-report.json",
-                resume_command="yoke onboard",
+                resume_command="yoke setup",
             )
         return _plan(kwargs, applied=False)
 
@@ -149,7 +149,7 @@ def test_apply_retry_success_clears_prior_failure() -> None:
                     "network error reaching install bundle",
                     failed_step="09-project-install-scaffold",
                     report_path="/tmp/failed-onboard-report.json",
-                    resume_command="yoke onboard --resume run-failed",
+                    resume_command="yoke setup --resume run-failed",
                 )
         report = _plan(kwargs, applied=bool(kwargs["apply"]))
         report["apply_report"] = {"path": "/tmp/success-onboard-report.json"}

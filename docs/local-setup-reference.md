@@ -294,7 +294,7 @@ Source-dev/admin-only work includes:
 - Recovering stale sessions or other server-side state.
 
 Do not teach these as normal project setup. Normal operators use
-`yoke onboard`, `yoke status`, project create/import/onboard/install, and
+`yoke setup`, `yoke status`, project create/import/onboard/install, and
 the durable checklist handoff.
 
 ## Parking a Development VPS

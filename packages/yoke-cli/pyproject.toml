@@ -15,7 +15,7 @@ license-files = ["LICENSE.md"]
 requires-python = ">=3.11"
 dependencies = [
     "yoke-contracts",
-    # Full-screen `yoke onboard` wizard. Imported lazily so non-interactive
+    # Full-screen `yoke setup` wizard. Imported lazily so non-interactive
     # and import-graph paths never require it; resolved from PyPI by uv.
     "textual>=0.60",
     # Checkout Docker builds resolve the same SCM version as the wheel backend.

@@ -1,4 +1,4 @@
-"""Token-verification pilot coverage for the ``yoke onboard`` wizard."""
+"""Token-verification pilot coverage for the ``yoke setup`` wizard."""
 
 from __future__ import annotations
 

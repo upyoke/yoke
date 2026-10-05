@@ -159,7 +159,7 @@ machine's credential.
 
 ## Relationship to the repo-local credential helper
 
-`yoke onboard` still installs a URL-scoped credential helper into checkouts it
+`yoke setup` still installs a URL-scoped credential helper into checkouts it
 onboards (see [github-connections.md](github-connections.md)), and
 `yoke github disconnect` still removes it. That helper serves git commands run
 by *people* in their own shells. Stored Yoke authorization ignores ambient

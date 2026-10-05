@@ -56,7 +56,7 @@ def post_create_push_failure_message(
         )
     return (
         f"GitHub created {full_name}, but the push did not finish: {error}. "
-        "Fix the connection or GitHub availability, then re-run yoke onboard "
+        "Fix the connection or GitHub availability, then re-run yoke setup "
         f"to resume the push. To start over instead, delete {full_name} on "
         "GitHub first."
     )

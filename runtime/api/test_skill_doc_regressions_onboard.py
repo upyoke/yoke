@@ -102,7 +102,7 @@ def test_no_retired_skill_names_anywhere_in_skills():
 def test_active_setup_docs_teach_replacement_terminal_surfaces():
     text = "\n\n".join(_read(path) for path in _ACTIVE_SETUP_DOCS)
     for surface in (
-        "yoke onboard",
+        "yoke setup",
         "yoke project install",
         "yoke project create",
         "yoke project import",
@@ -117,7 +117,7 @@ def test_active_setup_docs_teach_replacement_terminal_surfaces():
 def test_yoke_skill_refs_teach_setup_replacements_and_agentic_handoff():
     text = "\n\n".join(_read(path) for path in _SETUP_SKILL_REFS)
     for surface in (
-        "yoke onboard",
+        "yoke setup",
         "yoke project install",
         "yoke project create",
         "yoke project import",

@@ -137,7 +137,7 @@ test("the wizard checklist renders ✓/○ rows with tail allowances", async (t)
   ));
   const cta = byClass(wizard, "activation-cta")[0];
   assert.equal(
-    textOf(cta), "Return to that machine's terminal and finish yoke onboard",
+    textOf(cta), "Return to that machine's terminal and finish yoke setup",
   );
   assert.equal(byClass(root, "web-first").length, 0);
   mounted.unmount();

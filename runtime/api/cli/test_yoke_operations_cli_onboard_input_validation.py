@@ -1,4 +1,4 @@
-"""Inline input validators for the ``yoke onboard`` wizard's free-text steps.
+"""Inline input validators for the ``yoke setup`` wizard's free-text steps.
 
 Each validator returns None for an acceptable value and a short user-facing error
 string otherwise, so the wizard can reject bad input inline (stay on the step)
@@ -145,10 +145,10 @@ def test_prefix_accepts_typical_shapes() -> None:
 
 
 def test_prefix_rejects_bad_shapes() -> None:
-    assert v.validate_prefix("A") is not None            # too short
-    assert v.validate_prefix("TOOLONG") is not None      # >6
-    assert v.validate_prefix("1ABC") is not None          # leading digit
-    assert v.validate_prefix("PR-OJ") is not None         # hyphen
+    assert v.validate_prefix("A") is not None  # too short
+    assert v.validate_prefix("TOOLONG") is not None  # >6
+    assert v.validate_prefix("1ABC") is not None  # leading digit
+    assert v.validate_prefix("PR-OJ") is not None  # hyphen
     assert v.validate_prefix("") is not None
 
 

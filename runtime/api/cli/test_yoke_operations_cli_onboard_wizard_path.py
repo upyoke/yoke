@@ -311,7 +311,7 @@ def test_onboard_post_install_flag_parses(monkeypatch, capsys) -> None:
 
     rc = yoke_operations_cli.main(
         [
-            "onboard",
+            "setup",
             "--post-install",
             "--env",
             "prod",

@@ -32,53 +32,55 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Optional, Tuple
 
-#: What ``yoke onboard``'s Apply stages and the project install they drive
+#: What ``yoke setup``'s Apply stages and the project install they drive
 #: write. Every one of these runs in the wizard's own process, which is a
 #: terminal process: the machine has no registered session until the first
 #: harness starts, and on a brand-new machine that has not happened yet.
-ONBOARDING_APPLY: frozenset[str] = frozenset({
-    "harness.machine_report.upsert",
-    "onboard.checklist.init",
-    "project.git.bootstrap",
-    "project.install.run",
-    "project.refresh.run",
-    "project.snapshot.sync",
-    "project.uninstall.run",
-    "project_structure.patch.apply",
-    "projects.capability_settings.merge",
-    "projects.capability_settings.remove",
-    "projects.capability_settings.set",
-    "projects.create",
-    "projects.environment_settings.merge",
-    "projects.github_binding.bind",
-    "projects.github_binding.unbind",
-    "projects.update",
-})
+ONBOARDING_APPLY: frozenset[str] = frozenset(
+    {
+        "harness.machine_report.upsert",
+        "onboard.checklist.init",
+        "project.git.bootstrap",
+        "project.install.run",
+        "project.refresh.run",
+        "project.snapshot.sync",
+        "project.uninstall.run",
+        "project_structure.patch.apply",
+        "projects.capability_settings.merge",
+        "projects.capability_settings.remove",
+        "projects.capability_settings.set",
+        "projects.create",
+        "projects.environment_settings.merge",
+        "projects.github_binding.bind",
+        "projects.github_binding.unbind",
+        "projects.update",
+    }
+)
 
 #: The ``yoke`` recipes a new user is taught to run directly in a shell —
 #: the Local Terminal Helpers table in the Yoke command router, the
 #: field-note directive every skill and denial repeats, and the identity
 #: and org setup a self-hosted or hosted operator performs before their
 #: first session exists.
-TERMINAL_RECIPES: frozenset[str] = frozenset({
-    "board.rebuild.run",
-    "claims.coordination_claim.operator_release",
-    "deployment_flows.create",
-    "hook.evaluate.run",
-    "identity.invite.create",
-    "identity.invite.revoke",
-    "identity.link.set",
-    "items.create",
-    "organizations.domain.set",
-    "organizations.settings.merge",
-    "ouroboros.field_note.append",
-    "projects.capability_secret.set",
-    "sessions.begin",
-})
-
-TERMINAL_REACHABLE_FUNCTION_IDS: frozenset[str] = (
-    ONBOARDING_APPLY | TERMINAL_RECIPES
+TERMINAL_RECIPES: frozenset[str] = frozenset(
+    {
+        "board.rebuild.run",
+        "claims.coordination_claim.operator_release",
+        "deployment_flows.create",
+        "hook.evaluate.run",
+        "identity.invite.create",
+        "identity.invite.revoke",
+        "identity.link.set",
+        "items.create",
+        "organizations.domain.set",
+        "organizations.settings.merge",
+        "ouroboros.field_note.append",
+        "projects.capability_secret.set",
+        "sessions.begin",
+    }
 )
+
+TERMINAL_REACHABLE_FUNCTION_IDS: frozenset[str] = ONBOARDING_APPLY | TERMINAL_RECIPES
 
 _SURFACES: Tuple[Tuple[str, frozenset[str]], ...] = (
     ("onboarding Apply", ONBOARDING_APPLY),
@@ -93,7 +95,8 @@ def surface_for(function_id: str) -> str:
 
 
 def undeclared_terminal_reachable(
-    lookup: Any, ids: Optional[Iterable[str]] = None,
+    lookup: Any,
+    ids: Optional[Iterable[str]] = None,
 ) -> Tuple[Tuple[str, str], ...]:
     """Return ``(function_id, why)`` for every id that fails the contract.
 
@@ -102,23 +105,25 @@ def undeclared_terminal_reachable(
     contract nobody enforces.
     """
     findings: list[Tuple[str, str]] = []
-    for function_id in sorted(
-        TERMINAL_REACHABLE_FUNCTION_IDS if ids is None else ids
-    ):
+    for function_id in sorted(TERMINAL_REACHABLE_FUNCTION_IDS if ids is None else ids):
         entry = lookup(function_id)
         if entry is None:
-            findings.append((
-                function_id,
-                f"reachable from {surface_for(function_id)} but not registered",
-            ))
+            findings.append(
+                (
+                    function_id,
+                    f"reachable from {surface_for(function_id)} but not registered",
+                )
+            )
             continue
         if entry.ambient_session_required:
-            findings.append((
-                function_id,
-                f"reachable from {surface_for(function_id)} with no harness "
-                "session, so its registry entry must declare "
-                "ambient_session_required=False",
-            ))
+            findings.append(
+                (
+                    function_id,
+                    f"reachable from {surface_for(function_id)} with no harness "
+                    "session, so its registry entry must declare "
+                    "ambient_session_required=False",
+                )
+            )
     return tuple(findings)
 
 

@@ -34,8 +34,7 @@ def test_file_invocation_installs_uv_automatically(tmp_path: Path) -> None:
     # no `yoke` on PATH yet, the shim prints the resume command (no gate).
     assert "Installing uv" in result.stdout
     assert (
-        "Run yoke onboard to finish setting up your machine & projects."
-        in result.stdout
+        "Run yoke setup to finish setting up your machine & projects." in result.stdout
     )
     assert "Start Yoke onboarding" not in result.stdout
     assert "/dev/tty" not in result.stderr
@@ -82,7 +81,7 @@ def test_python_helper_honors_plain_glyph_env(monkeypatch) -> None:
             yes=True,
             dry_run=False,
             base_url="https://api.example.test",
-            no_onboard=True,
+            no_setup=True,
         ),
         runner=runner,
         which=lambda name: "/tmp/yoke" if name == "yoke" else None,
@@ -117,7 +116,7 @@ def test_python_helper_prefers_uv_tool_bin_dir_for_installed_yoke(
             yes=True,
             dry_run=False,
             base_url="https://api.example.test",
-            no_onboard=True,
+            no_setup=True,
         ),
         which=lambda name: "/ambient/yoke" if name == "yoke" else None,
         stdout=io.StringIO(),

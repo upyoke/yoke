@@ -1,4 +1,4 @@
-"""Step transitions for the ``yoke onboard`` wizard.
+"""Step transitions for the ``yoke setup`` wizard.
 
 A mixin consumed by :class:`onboard_wizard_app.OnboardWizardApp`. It owns the
 GitHub -> Project -> Finish progression (the Connect step lives in

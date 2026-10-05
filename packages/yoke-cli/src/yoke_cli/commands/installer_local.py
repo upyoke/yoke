@@ -75,7 +75,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("dev", "import-check"): import_check,
     ("dev", "db-admin", "setup"): dev_db_admin_setup,
     ("dev", "path-snapshot-prewarm"): dev_path_snapshot_prewarm,
-    ("onboard",): onboard,
+    ("setup",): onboard,
     ("onboard", "project"): onboard_project,
     ("path",): path_group,
     ("path", "check"): path_check,
@@ -121,7 +121,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
         "yoke dev db-admin setup <env> [--control-plane-env CONNECTION_ENV] [--yes]"
     ),
     "yoke dev path-snapshot-prewarm": "yoke dev path-snapshot-prewarm",
-    "yoke onboard": "yoke onboard [--project-mode machine-only|local-checkout] [--yes]",
+    "yoke setup": "yoke setup [--project-mode machine-only|local-checkout] [--yes]",
     "yoke onboard project": "yoke onboard project CHECKOUT --slug SLUG --name NAME [--org ORG] [--yes|--dry-run]",
     "yoke path check": "yoke path check [--json]",
     "yoke path fix": "yoke path fix [--yes] [--json]",

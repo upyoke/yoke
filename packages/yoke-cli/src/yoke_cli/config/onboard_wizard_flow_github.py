@@ -1,4 +1,4 @@
-"""Machine GitHub App step for the ``yoke onboard`` wizard."""
+"""Machine GitHub App step for the ``yoke setup`` wizard."""
 
 from __future__ import annotations
 

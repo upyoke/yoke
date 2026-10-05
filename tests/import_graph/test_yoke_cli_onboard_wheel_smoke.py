@@ -1,4 +1,4 @@
-"""Product-wheel smoke for minimal ``yoke onboard`` machine setup.
+"""Product-wheel smoke for minimal ``yoke setup`` machine setup.
 
 The engine wheel (yoke-core) installs alongside the client; onboarding stays
 a pure product-client flow with the engine present but inert.
@@ -100,8 +100,8 @@ def _run_onboard_flow(
     before_checkout: list[tuple[str, str, str]],
     gh_marker: Path,
 ) -> None:
-    help_result = _run([str(yoke), "onboard", "--help"], cwd=checkout, env=env)
-    assert "yoke onboard" in help_result.stdout
+    help_result = _run([str(yoke), "setup", "--help"], cwd=checkout, env=env)
+    assert "yoke setup" in help_result.stdout
     assert "source-link" not in help_result.stdout
     assert "source-dev" not in help_result.stdout
     for flag in (
@@ -113,7 +113,7 @@ def _run_onboard_flow(
     plan = _run(
         [
             str(yoke),
-            "onboard",
+            "setup",
             "--non-interactive",
             "--quick",
             "--config",
@@ -157,7 +157,7 @@ def _run_onboard_flow(
     advanced_plan = _run(
         [
             str(yoke),
-            "onboard",
+            "setup",
             "--non-interactive",
             "--advanced",
             "--config",
@@ -181,7 +181,7 @@ def _run_onboard_flow(
     applied = _run(
         [
             str(yoke),
-            "onboard",
+            "setup",
             "product-token",
             "--non-interactive",
             "--advanced",

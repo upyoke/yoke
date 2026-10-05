@@ -1,4 +1,4 @@
-"""Project-mode arguments for ``yoke onboard``."""
+"""Project-mode arguments for ``yoke setup``."""
 
 from __future__ import annotations
 

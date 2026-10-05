@@ -1,4 +1,4 @@
-"""Append-only diagnostic log for the ``yoke onboard`` wizard.
+"""Append-only diagnostic log for the ``yoke setup`` wizard.
 
 The wizard runs full-screen, so a failure it recovers from (a browser that
 would not open, a cancelled approval wait) has nowhere to print a traceback.

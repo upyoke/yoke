@@ -107,4 +107,4 @@ def test_a_machine_with_no_local_id_names_the_setup_recovery(monkeypatch):
     )
     with pytest.raises(SystemExit) as excinfo:
         machine.machine_show([])
-    assert "yoke onboard" in str(excinfo.value)
+    assert "yoke setup" in str(excinfo.value)

@@ -1,6 +1,6 @@
 """Register this machine at connect time and store its rotated credential.
 
-Both connect-time paths call this: ``yoke onboard`` registers at the end of
+Both connect-time paths call this: ``yoke setup`` registers at the end of
 Apply, once the connection is verified and the relay is installed and the plane
 is demonstrably answering. Status only reads registration; registration is an
 explicit connect or reconnect action.

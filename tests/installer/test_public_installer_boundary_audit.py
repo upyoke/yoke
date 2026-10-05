@@ -15,7 +15,7 @@ def _options(installer_mod, **overrides):
         yes=False,
         dry_run=False,
         base_url="https://api.upyoke.com",
-        no_onboard=False,
+        no_setup=False,
     )
     base.update(overrides)
     return installer_mod.InstallOptions(**base)

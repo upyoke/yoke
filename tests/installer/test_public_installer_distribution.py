@@ -22,7 +22,7 @@ def _installer(*, runner, dry_run=False):
         yes=True,
         dry_run=dry_run,
         base_url="https://fork.example",
-        no_onboard=True,
+        no_setup=True,
     )
     instance = module.Installer(
         options,

@@ -125,7 +125,7 @@ function wizardBody(documentNode, module, mode, body) {
     const cta = el(
       documentNode, "p", "activation-cta", WIZARD_MACHINE_CONNECTED_CTA,
     );
-    cta.appendChild(el(documentNode, "code", null, "yoke onboard"));
+    cta.appendChild(el(documentNode, "code", null, "yoke setup"));
     body.appendChild(cta);
   } else if (module.state === "in_progress" && mode === "hosted") {
     const webFirst = el(documentNode, "p", "activation-copy web-first");

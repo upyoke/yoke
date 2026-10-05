@@ -48,7 +48,7 @@ def aws_admin_link(args: List[str]) -> int:
         print(
             "error: this build or distribution channel has no supported "
             "CloudFormation bootstrap link. Reinstall from a hosted Yoke "
-            "release, or choose existing AWS credentials in `yoke onboard`.",
+            "release, or choose existing AWS credentials in `yoke setup`.",
             file=sys.stderr,
         )
         return 1

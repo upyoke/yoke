@@ -1,4 +1,4 @@
-"""Full-screen Textual wizard for ``yoke onboard``.
+"""Full-screen Textual wizard for ``yoke setup``.
 
 Most steps present the existing pure assembly function
 :func:`yoke_cli.config.onboard.build_report`: they collect its fields, preview

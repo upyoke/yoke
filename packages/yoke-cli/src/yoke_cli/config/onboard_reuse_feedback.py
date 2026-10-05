@@ -1,4 +1,4 @@
-"""Human-facing reuse notes for ``yoke onboard`` plans."""
+"""Human-facing reuse notes for ``yoke setup`` plans."""
 
 from __future__ import annotations
 
@@ -22,11 +22,7 @@ API_TOKEN_REUSE_LINE = (
 def lines_for_plan(plan: Mapping[str, Any]) -> list[str]:
     """Return short notes for already-detected onboard state."""
     grouped = grouped_lines_for_plan(plan)
-    return [
-        line
-        for key in _GROUP_ORDER
-        for line in grouped.get(key, [])
-    ]
+    return [line for key in _GROUP_ORDER for line in grouped.get(key, [])]
 
 
 def grouped_lines_for_plan(plan: Mapping[str, Any]) -> dict[str, list[str]]:
@@ -140,7 +136,9 @@ def grouped_lines_for_plan(plan: Mapping[str, Any]) -> dict[str, list[str]]:
         elif not reuse.get("project_existing_remote"):
             core.append("Project GitHub settings are already available.")
     if reuse.get("project_scaffold"):
-        repo_lines.append("Project scaffold is already installed; Apply will refresh it.")
+        repo_lines.append(
+            "Project scaffold is already installed; Apply will refresh it."
+        )
     return grouped
 
 

@@ -94,14 +94,14 @@ def test_cli_resume_loads_snapshot_defaults(
 
     assert rc == 0
     out = capsys.readouterr().out
-    assert "Yoke onboard" in out
+    assert "Yoke setup" in out
     assert str(config) in out
     assert config.is_file()
     payload = json.loads(
         onboard_apply_report.run_report_path(run_id).read_text(encoding="utf-8")
     )
     assert payload["final_status"] == "done"
-    assert payload["resume_command"] == f"yoke onboard --resume {run_id}"
+    assert payload["resume_command"] == f"yoke setup --resume {run_id}"
 
 
 def test_resume_restores_exact_repository_identity_as_integers(

@@ -43,7 +43,7 @@ PUBLIC_INSTALL_LOCAL = (
     f"YOKE_CHANNEL={{{{release_channel}}}} {DESTINATION_OVERRIDE}={DESTINATION_LOCAL} /bin/sh"
 )
 HOSTED_ONBOARD = (
-    f"{YOKE_BIN} onboard --connect {{{{app_url}}}} --project-mode machine-only"
+    f"{YOKE_BIN} setup --connect {{{{app_url}}}} --project-mode machine-only"
 )
 PATH_REPAIR_COMMAND = f"{YOKE_BIN} path fix --yes --json"
 

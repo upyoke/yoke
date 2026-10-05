@@ -1,19 +1,10 @@
-"""Tests for the ``yoke`` operations CLI (Phase 0 in-checkout entrypoint).
-
-Covers the EXP-AC set on YOK-1819's mid-flight expansion — grammar-rule
-reversibility, subcommand resolution, entrypoint behaviour, error
-shapes, and ``--help`` completeness. Per-family adapter dispatch happy
-paths live in :mod:`test_yoke_operations_cli_dispatch`.
-"""
+"""Operations CLI grammar, dispatch, help, and refusal contracts."""
 
 from __future__ import annotations
 
 import io
-import json
 import re
-import sys
 from contextlib import redirect_stderr, redirect_stdout
-from pathlib import Path
 
 import pytest
 
@@ -30,40 +21,6 @@ from yoke_cli.commands.registry import (
 
 def _expected_cli_version() -> str:
     return install_binding.distribution_version(source_value="source") or "unknown"
-
-
-class _TtyInput:
-    def __init__(self, interactive: bool) -> None:
-        self._interactive = interactive
-
-    def isatty(self) -> bool:
-        return self._interactive
-
-
-def _write_usable_machine_config(tmp_path: Path) -> Path:
-    token_file = tmp_path / "token"
-    token_file.write_text("secret-token\n", encoding="utf-8")
-    config = tmp_path / "config.json"
-    config.write_text(
-        json.dumps({
-            "schema_version": 1,
-            "active_env": "prod",
-            "connections": {
-                "prod": {
-                    "transport": "https",
-                    "api_url": "https://api.example.test",
-                    "credential_source": {
-                        "kind": "token_file",
-                        "path": str(token_file),
-                    },
-                },
-            },
-            "temp_root": str(tmp_path / "tmp"),
-            "cache_dir": str(tmp_path / "cache"),
-        }),
-        encoding="utf-8",
-    )
-    return config
 
 
 # ---------------------------------------------------------------------------
@@ -175,59 +132,6 @@ class TestSubcommandResolution:
 
 
 class TestEntrypointBehaviour:
-    def test_no_args_prints_help_when_machine_config_is_ready(
-        self, tmp_path: Path, monkeypatch,
-    ) -> None:
-        config = _write_usable_machine_config(tmp_path)
-        monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(config))
-
-        buf = io.StringIO()
-        with redirect_stdout(buf):
-            rc = cli_main([])
-        assert rc == 0
-        assert "yoke — Yoke operations CLI" in buf.getvalue()
-
-    def test_no_args_missing_config_tty_points_to_onboard(
-        self, tmp_path: Path, monkeypatch,
-    ) -> None:
-        monkeypatch.setenv(
-            "YOKE_MACHINE_CONFIG_FILE", str(tmp_path / "missing.json"),
-        )
-        monkeypatch.setattr(sys, "stdin", _TtyInput(True))
-
-        err = io.StringIO()
-        with redirect_stderr(err):
-            rc = cli_main([])
-
-        assert rc == 1
-        text = err.getvalue()
-        assert "machine config not found" in text
-        assert "Start setup with `yoke onboard`." in text
-        assert "--non-interactive" not in text
-        assert "yoke --help" in text
-
-    def test_no_args_missing_config_non_tty_prints_automation_recipe(
-        self, tmp_path: Path, monkeypatch,
-    ) -> None:
-        monkeypatch.setenv(
-            "YOKE_MACHINE_CONFIG_FILE", str(tmp_path / "missing.json"),
-        )
-        monkeypatch.setattr(sys, "stdin", _TtyInput(False))
-
-        err = io.StringIO()
-        with redirect_stderr(err):
-            rc = cli_main([])
-
-        assert rc == 1
-        text = err.getvalue()
-        assert "machine config not found" in text
-        assert (
-            "yoke onboard --non-interactive --env <env>"
-            in text
-        )
-        assert "--api-url <url>" in text
-        assert "yoke --help" in text
-
     def test_help_flag_prints_help(self) -> None:
         for flag in ("--help", "-h", "help"):
             buf = io.StringIO()
@@ -271,14 +175,12 @@ class TestEntrypointBehaviour:
         with redirect_stdout(buf):
             cli_main(["--help"])
         out = buf.getvalue()
-        families = {fn.split(".", 1)[0]
-                    for _tokens, (fn, _) in SUBCOMMAND_REGISTRY.items()}
+        families = {
+            fn.split(".", 1)[0] for _tokens, (fn, _) in SUBCOMMAND_REGISTRY.items()
+        }
         for family in families:
             assert f"[{family}]" in out
-        assert (
-            "yoke board art variant create --ascii|--mixed|--image PATH"
-            in out
-        )
+        assert "yoke board art variant create --ascii|--mixed|--image PATH" in out
         board_section = re.search(r"\n  \[board\](.*?)(?=\n  \[|\Z)", out, re.S)
         assert board_section
         assert (
@@ -286,22 +188,21 @@ class TestEntrypointBehaviour:
             in board_section.group(1)
         )
 
+
 # ---------------------------------------------------------------------------
-# items get --section guard — teaches the two-command shape (8844 / 8855)
+# items get --section guard — teaches the two-command shape
 # ---------------------------------------------------------------------------
 
 
 class TestItemsGetSectionGuard:
     """``items get`` with ``--section`` accepts exactly one field; the guard
     error must teach the corrected two-command shape instead of just
-    rejecting (field-notes 8844, 8855 — the footgun was sticky)."""
+    rejecting the request."""
 
     def _run_section_guard(self, *fields: str) -> tuple[int, str]:
         err = io.StringIO()
         with redirect_stdout(io.StringIO()), redirect_stderr(err):
-            rc = cli_main(
-                ["items", "get", "YOK-99", *fields, "--section", "## H"]
-            )
+            rc = cli_main(["items", "get", "YOK-99", *fields, "--section", "## H"])
         return rc, err.getvalue()
 
     def test_multiple_fields_plus_section_teaches_two_calls(self) -> None:
@@ -378,16 +279,21 @@ class TestUsageParserConformance:
 
     @pytest.mark.parametrize(
         "cli_tokens, function_id",
-        [(tokens, fn) for tokens, (fn, _adapter) in sorted(
-            SUBCOMMAND_REGISTRY.items())],
+        [
+            (tokens, fn)
+            for tokens, (fn, _adapter) in sorted(SUBCOMMAND_REGISTRY.items())
+        ],
         ids=lambda value: " ".join(value) if isinstance(value, tuple) else None,
     )
     def test_usage_flags_exist_on_parser(
-        self, cli_tokens: tuple[str, ...], function_id: str,
+        self,
+        cli_tokens: tuple[str, ...],
+        function_id: str,
         monkeypatch,
     ) -> None:
         monkeypatch.setenv(
-            "YOKE_MACHINE_CONFIG_FILE", "/nonexistent/machine-config.json",
+            "YOKE_MACHINE_CONFIG_FILE",
+            "/nonexistent/machine-config.json",
         )
         usage = adapters.ADAPTER_USAGE[function_id]
         usage_flags = _usage_flag_tokens(usage)

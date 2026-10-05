@@ -10,7 +10,7 @@ Common operators:
 
 ```bash
 yoke status
-yoke onboard
+yoke setup
 yoke ui up
 yoke items get PREFIX-N
 yoke items get PREFIX-N body

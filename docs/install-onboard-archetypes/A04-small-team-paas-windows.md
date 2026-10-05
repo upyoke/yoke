@@ -33,7 +33,7 @@ command is absent. Result:
 ☀ native {os_name} is not supported by this installer. WSL follows the Linux path.
 ```
 
-Exit 1. **No** uv install attempt, **no** `yoke onboard`, **no** PATH doctor.
+Exit 1. **No** uv install attempt, **no** `yoke setup`, **no** PATH doctor.
 
 Contrast: a failed uv install has its own branded retry recipe (manual
 install command + exact rerun). The OS refusal is a one-line `fail` with no
