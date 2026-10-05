@@ -52,3 +52,14 @@ def test_unattributed_planning_scratch_has_no_allowed_roots(monkeypatch):
 
     monkeypatch.setattr(project_scratch_dir, "dispatch_inputs_dir", refuse)
     assert planning.planning_scratch_roots() == ()
+
+
+def test_unattributed_model_and_entrypoint_cache_reads_are_empty(monkeypatch):
+    from yoke_core.hooks import codex_model
+
+    def refuse(*args, **kwargs):
+        raise MissingProjectError("project_required: caller project missing")
+
+    monkeypatch.setattr(codex_model, "_runtime_cache_path", refuse)
+    assert codex_model.resolve_from_cache("thread") is None
+    assert codex_model.resolve_entrypoint_from_cache("thread") is None

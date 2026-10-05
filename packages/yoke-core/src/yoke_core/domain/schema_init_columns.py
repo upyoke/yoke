@@ -147,13 +147,14 @@ def apply_additive_schema(conn: Any) -> None:
     )
     conn.commit()
 
-    # Numeric project authority for items. project_id is self-sufficient
-    # (NOT NULL DEFAULT populates existing rows at ADD time). project_sequence
+    # Numeric project authority must be explicitly attributed. Adding this
+    # column to populated unattributed data refuses instead of guessing.
+    # project_sequence
     # has no DB default and needs an id-based backfill to be valid, so it, its
     # backfill, and its unique index live together in
     # apply_legacy_data_migrations (the birth/full-init path), never on this
     # additive converge path.
-    _add_column_if_not_exists(conn, "items", "project_id", "INTEGER NOT NULL DEFAULT 1")
+    _add_column_if_not_exists(conn, "items", "project_id", "INTEGER NOT NULL")
     conn.commit()
 
     # Add deployment_flow and deploy_stage columns
@@ -176,9 +177,7 @@ def apply_additive_schema(conn: Any) -> None:
     conn.commit()
 
     # Add project column to release_entries
-    _add_column_if_not_exists(
-        conn, "release_entries", "project_id", "INTEGER NOT NULL DEFAULT 1"
-    )
+    _add_column_if_not_exists(conn, "release_entries", "project_id", "INTEGER NOT NULL")
     conn.commit()
 
     # owner — actor FK companion to items.source. Nullable here because

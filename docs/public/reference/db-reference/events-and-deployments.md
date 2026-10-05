@@ -22,7 +22,7 @@ org_id TEXT -- organization identifier
 actor_id INTEGER -- nullable Yoke control-plane subject; references actors(id)
 environment TEXT -- runtime environment (e.g., 'dev', 'prod')
 service TEXT NOT NULL DEFAULT 'cli' -- emitting service
-project_id INTEGER NOT NULL DEFAULT 1 -- project context; references projects(id)
+project_id INTEGER -- nullable project context; references projects(id); no implicit attribution
 item_id TEXT -- backlog item (e.g., 'PREFIX-N')
 task_num INTEGER -- epic task number
 agent TEXT -- agent role (e.g., 'engineer', 'tester')

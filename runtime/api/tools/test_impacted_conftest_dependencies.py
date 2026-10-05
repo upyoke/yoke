@@ -36,7 +36,7 @@ def test_changed_conftest_retains_probe_when_full_coverage_is_deferred(tmp_path)
 
 
 def test_repository_root_conftest_selects_a_descendant_probe(tmp_path):
-    root = _tiny_repo(tmp_path)
+    root = tmp_path
     _write(root, "conftest.py", "")
     _write(root, "runtime/api/test_collection.py", "def test_it(): pass\n")
     selection = select(["conftest.py"], build_import_index(root), bounded=True)

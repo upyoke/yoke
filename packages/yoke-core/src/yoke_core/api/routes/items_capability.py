@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
+from fastapi import Request
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 
@@ -30,33 +31,48 @@ def _p(conn) -> str:
 
 @router.post("/items/{item_id}/capability", response_model=_main.CapabilityResponse)
 def configure_capability(
-    item_id: int, req: _main.CapabilityRequest,
+    http_request: Request,
+    item_id: int,
+    req: _main.CapabilityRequest,
 ) -> _main.CapabilityResponse | JSONResponse:
     """Configure a capability for the project associated with an item."""
     if not req.type or not req.type.strip():
         return _main._error_response(
-            422, "VALIDATION_ERROR",
+            422,
+            "VALIDATION_ERROR",
             "Field 'type' is required",
         )
     if not req.config:
         return _main._error_response(
-            422, "VALIDATION_ERROR",
+            422,
+            "VALIDATION_ERROR",
             "Field 'config' must be a non-empty JSON object",
         )
 
     conn = _main.get_db_readwrite()
     try:
         p = _p(conn)
-        row = conn.execute(
-            f"SELECT * FROM items WHERE id = {p}", (item_id,)
-        ).fetchone()
+        row = conn.execute(f"SELECT * FROM items WHERE id = {p}", (item_id,)).fetchone()
         if row is None:
             return _main._error_response(
-                404, "NOT_FOUND",
+                404,
+                "NOT_FOUND",
                 f"Item with id {item_id} not found",
             )
 
-        project_id = dict(row).get("project_id") or 1
+        project_id = dict(row).get("project_id")
+        if not project_id:
+            from yoke_core.api.http_auth import require_auth_context
+            from yoke_core.domain.project_selection import missing_project_on_connection
+
+            return _main._error_response(
+                422,
+                "project_required",
+                missing_project_on_connection(
+                    conn,
+                    actor_id=require_auth_context(http_request).actor_id,
+                ),
+            )
         config_json = json.dumps(req.config)
         now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -78,14 +94,14 @@ def configure_capability(
                 require_prerequisites(
                     conn,
                     project_id=project_id,
-                    project=(
-                        str(slug_row[0]) if slug_row else str(project_id)
-                    ),
+                    project=(str(slug_row[0]) if slug_row else str(project_id)),
                     cap_type=req.type,
                 )
             except CapabilityPrerequisiteError as exc:
                 return _main._error_response(
-                    422, "VALIDATION_ERROR", str(exc),
+                    422,
+                    "VALIDATION_ERROR",
+                    str(exc),
                 )
             cursor = conn.execute(
                 f"""INSERT INTO project_capabilities (project_id, type, settings, created_at)
@@ -129,7 +145,8 @@ def configure_capability(
     except db_backend.operational_error_types(conn) as exc:
         if "database is locked" in str(exc).lower():
             return _main._error_response(
-                503, "DB_BUSY",
+                503,
+                "DB_BUSY",
                 "Database is locked. Retry after a short delay.",
             )
         raise

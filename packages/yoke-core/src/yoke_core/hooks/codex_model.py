@@ -100,10 +100,10 @@ def _runtime_cache_path(thread_id: str) -> Path:
 
 def resolve_from_cache(thread_id: str) -> Optional[str]:
     """Read the SessionStart hook cache file for a cached model."""
-    cache_path = _runtime_cache_path(thread_id)
-    if not cache_path.is_file():
-        return None
     try:
+        cache_path = _runtime_cache_path(thread_id)
+        if not cache_path.is_file():
+            return None
         with cache_path.open("r", encoding="utf-8") as handle:
             payload = json.load(handle)
         model = payload.get("model", "")
@@ -114,10 +114,10 @@ def resolve_from_cache(thread_id: str) -> Optional[str]:
 
 def resolve_entrypoint_from_cache(thread_id: str) -> Optional[str]:
     """Read the SessionStart hook cache file for a cached entrypoint."""
-    cache_path = _runtime_cache_path(thread_id)
-    if not cache_path.is_file():
-        return None
     try:
+        cache_path = _runtime_cache_path(thread_id)
+        if not cache_path.is_file():
+            return None
         with cache_path.open("r", encoding="utf-8") as handle:
             payload = json.load(handle)
         if not isinstance(payload, dict):

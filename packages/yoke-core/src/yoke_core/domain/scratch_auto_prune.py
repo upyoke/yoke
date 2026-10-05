@@ -116,10 +116,7 @@ def _remove_empty_scaffold(run_dir: Path, result: ScratchPruneResult) -> None:
     session_dir = run_dir.parent.parent
     candidates = [
         *(run_dir / kind for kind in ORPHAN_AGE_THRESHOLDS_S),
-        *(
-            run_dir / "storage" / kind
-            for kind in ORPHAN_STORAGE_AGE_THRESHOLDS_S
-        ),
+        *(run_dir / "storage" / kind for kind in ORPHAN_STORAGE_AGE_THRESHOLDS_S),
         run_dir / "storage",
         run_dir,
         run_dir.parent,
@@ -180,7 +177,6 @@ def prune_stale_scratch(
     result = ScratchPruneResult()
     try:
         global_root = project_scratch_dir.global_scratch_root()
-        current_run = project_scratch_dir.scratch_root()
     except project_scratch_dir.ScratchRootResolutionError:
         return result
 
@@ -195,9 +191,9 @@ def prune_stale_scratch(
         result.issues.append(f"- cleanup refused: {registry_error}")
         return result
 
-    current_session = current_run.parent.parent
-    if current_session.name != project_scratch_segments.DEFAULT_SESSION_SEGMENT:
-        active.add(current_session.name)
+    current_session = project_scratch_segments.session_segment()
+    if current_session != project_scratch_segments.DEFAULT_SESSION_SEGMENT:
+        active.add(current_session)
     now = int(time.time()) if now_epoch is None else now_epoch
 
     for run_dir in _plain_run_dirs(global_root):
@@ -243,9 +239,7 @@ def prune_stale_scratch(
                 if age <= threshold:
                     continue
                 result.stale_count += 1
-                result.issues.append(
-                    f"- {entry} ({age // 60}m old, kind={kind})"
-                )
+                result.issues.append(f"- {entry} ({age // 60}m old, kind={kind})")
                 if not fix:
                     continue
                 if pid is not None and _pid_is_alive(pid):
@@ -253,13 +247,13 @@ def prune_stale_scratch(
                     result.issues.append("  -> retained: owning pid became live")
                     break
                 conflict = worktree_deletion_guard.active_worktree_conflict(
-                    worktree_paths, str(entry),
+                    worktree_paths,
+                    str(entry),
                 )
                 if conflict is not None:
                     result.protected_run_count += 1
                     result.issues.append(
-                        "  -> retained: is or contains the active worktree "
-                        f"{conflict}"
+                        f"  -> retained: is or contains the active worktree {conflict}"
                     )
                     continue
                 try:
