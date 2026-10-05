@@ -15,6 +15,25 @@ from __future__ import annotations
 from yoke_core.domain.release_wait_ownership import RELEASE_WAIT_RETENTION_TEACHING
 
 
+PROGRESS_CHECKPOINT_TEACHING = (
+    "Keep the item resumable by another worker. Steering may restaff it onto "
+    "a different model at any point by terminating this session, which "
+    "releases your claim and leaves the lane, its branch, and any "
+    "uncommitted work in place for the successor. So before any stop short "
+    "of done — a park, a blocker or decision report, a landing or release "
+    "wait, or the end of a turn — append a Progress Log checkpoint naming the "
+    "live stage, what is committed, what is still uncommitted in the lane, "
+    "and the next concrete step: "
+    '`yoke items progress-log append PREFIX-N --headline "<checkpoint>" '
+    "--stdin`. When the item you claim is already past its first stage, you "
+    "are that successor: before acting, read "
+    "`yoke items section get PREFIX-N --section 'Progress Log'` and the "
+    "lane's `git status` and `git log`, keep the uncommitted work you find, "
+    "and resume at the live stage from the last checkpoint rather than "
+    "repeating transitions or steps it records as done."
+)
+
+
 COMMITTED_GATE_TEACHING = (
     "Commit; the verification gate rebases onto the base branch, pushes "
     "once, and runs CI. Workers do not push the lane by hand."
@@ -116,7 +135,7 @@ STEERING_REWORK_TEACHING = (
     "item back to implementing — that transition is yours, because "
     "lifecycle.transition requires the calling session to hold the item's "
     "work claim and you are the holder: "
-    '`yoke lifecycle transition PREFIX-N --to implementing --reason '
+    "`yoke lifecycle transition PREFIX-N --to implementing --reason "
     '"steering rework: <what to correct>"`. '
     "That is a rework leg on the SAME item, not a new one "
     "and not a refusal to argue with: correct it, re-verify, re-land through "
@@ -129,6 +148,9 @@ STEERING_REWORK_TEACHING = (
 
 #: Appended to every composed mandate, in the order a worker meets them.
 STANDING_TEACHINGS = (
+    # First: a successor launched onto an in-flight item must resume from
+    # the predecessor's checkpoint before it commits or merges anything.
+    PROGRESS_CHECKPOINT_TEACHING,
     COMMITTED_GATE_TEACHING,
     # Before the waits: a refusal here means nothing was armed, enqueued, or
     # merged, so the worker needs it before it learns how to wait on any of
@@ -150,6 +172,7 @@ __all__ = [
     "HEADLESS_CI_VERIFICATION_WAIT_TEACHING",
     "HEADLESS_LANDING_WAIT_TEACHING",
     "HEADLESS_TOOL_CONTINUATION_TEACHING",
+    "PROGRESS_CHECKPOINT_TEACHING",
     "RELEASE_WAIT_RETENTION_TEACHING",
     "STANDING_TEACHINGS",
     "STEERING_REWORK_TEACHING",

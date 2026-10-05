@@ -194,5 +194,7 @@ selection on resume. Either way, do not re-derive a model for a session that
 is already running, and prefer a pinned version over a mutable alias so a
 resumed session cannot be re-resolved onto something else mid-item.
 
-To move a running worker onto a different model, launch a new session for the
-next item. Do not change a live one.
+Do not change a live session's model. To move an in-flight item onto a
+different model, restaff it: terminate the worker and launch a successor on
+the same item with the new selection, which resumes from the Progress Log —
+the recipe is rule 9 in [`worker-lifecycle.md`](worker-lifecycle.md).

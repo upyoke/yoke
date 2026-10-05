@@ -186,7 +186,8 @@ When those authorities show the steering-scoped item is complete:
 2. The worker should already have followed
    [`worker-lifecycle.md`](worker-lifecycle.md) rule 5 and self-ended after
    reporting. Routine completion never calls `yoke sessions terminate`;
-   reserve termination for an unresponsive worker or cleanup.
+   reserve termination for an unresponsive worker, a restaff (rule 9), or
+   cleanup.
 3. Write the close-out into the doc.
 
 #### Revive starved workers
