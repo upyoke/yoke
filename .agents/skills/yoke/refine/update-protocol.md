@@ -167,7 +167,10 @@ After all refinement work is verified, dispatch
 REFINE_ACTIVE_STATUS}`. These stage ids came from the active pinned `refine`
 binding; do not reconstruct them from a workflow name.
 
-Final output should include:
+After the transition succeeds, read `yoke items detail get ITEM --json` and
+set `ITEM_NEXT_SKILL` from `result.item.workflow.next_skill_id` using
+[the shared handoff recipe](../shared/stage-handoff.md). Do not retain the
+entry context's next-skill value. Final output should include:
 
 > **PREFIX-{N}** refined: `REFINE_ACTIVE_STATUS` -> `REFINE_TARGET_STATUS`
 > Next skill: `/yoke {ITEM_NEXT_SKILL}`
