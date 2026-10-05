@@ -41,7 +41,7 @@ def stub_profile_daemon_start(monkeypatch, tmp_path, state_loads):
     monkeypatch.setattr(
         browser_client,
         "_state_file_path",
-        lambda: tmp_path / "state.json",
+        lambda profile_dir=None: tmp_path / "state.json",
     )
     monkeypatch.setattr(browser_client.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(

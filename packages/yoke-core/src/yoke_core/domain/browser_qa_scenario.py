@@ -267,6 +267,8 @@ def execute_scenario(
         print(result.to_json())
         return result
 
+    from yoke_harness.browser_daemon_profile import project_scope
+
     # Step 5: Ensure browser daemon is running
     _bqa._log("Checking browser daemon status...")
     daemon_error = _bqa._ensure_daemon_running(subject=subject, project=project)
@@ -277,50 +279,51 @@ def execute_scenario(
         print(result.to_json())
         return result
 
-    sign_in = describe_sign_in(project)
+    with project_scope(project):
+        sign_in = describe_sign_in(project)
 
-    # Step 6: Process each requirement
-    for req_row in req_rows:
-        outcome = _process_requirement(
-            req_row=req_row,
-            subject=subject,
-            project=project,
-            base_url=base_url,
-            code_identity=code_identity,
-            freshness_validated=freshness_validated,
-            sign_in=sign_in,
-            actor=actor,
-        )
-        result.runs.append(outcome.run_result)
+        # Step 6: Process each requirement
+        for req_row in req_rows:
+            outcome = _process_requirement(
+                req_row=req_row,
+                subject=subject,
+                project=project,
+                base_url=base_url,
+                code_identity=code_identity,
+                freshness_validated=freshness_validated,
+                sign_in=sign_in,
+                actor=actor,
+            )
+            result.runs.append(outcome.run_result)
 
-        if outcome.skipped:
-            result.skipped += 1
-            continue
+            if outcome.skipped:
+                result.skipped += 1
+                continue
 
-        if outcome.executed:
-            result.executed += 1
+            if outcome.executed:
+                result.executed += 1
 
-        if outcome.run_result.verdict == "error":
-            if result.verdict == "pass":
-                result.verdict = "error"
-            errors = outcome.run_result.errors or ""
-            if EXECUTION_TARGET_UNAUTHORIZED in errors:
-                result.note = EXECUTION_TARGET_UNAUTHORIZED
-        elif outcome.capture_failed or outcome.run_result.verdict == "fail":
-            result.verdict = "fail"
-        elif outcome.run_result.verdict == "pending" and result.verdict == "pass":
-            result.verdict = "pending"
+            if outcome.run_result.verdict == "error":
+                if result.verdict == "pass":
+                    result.verdict = "error"
+                errors = outcome.run_result.errors or ""
+                if EXECUTION_TARGET_UNAUTHORIZED in errors:
+                    result.note = EXECUTION_TARGET_UNAUTHORIZED
+            elif outcome.capture_failed or outcome.run_result.verdict == "fail":
+                result.verdict = "fail"
+            elif outcome.run_result.verdict == "pending" and result.verdict == "pass":
+                result.verdict = "pending"
 
-        if outcome.env_failure:
-            _bqa._log("Aborting remaining requirements due to env setup failure")
-            break
+            if outcome.env_failure:
+                _bqa._log("Aborting remaining requirements due to env setup failure")
+                break
 
-    # Step 7: Vacuous pass detection
-    if result.executed == 0 and result.skipped > 0:
-        result.verdict = "error"
-        result.note = "vacuous_pass_prevented"
-        _bqa._log(
-            f"ERROR: {result.skipped} browser requirement(s) found but 0 executed"
-        )
+        # Step 7: Vacuous pass detection
+        if result.executed == 0 and result.skipped > 0:
+            result.verdict = "error"
+            result.note = "vacuous_pass_prevented"
+            _bqa._log(
+                f"ERROR: {result.skipped} browser requirement(s) found but 0 executed"
+            )
 
-    return result
+        return result

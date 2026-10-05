@@ -23,7 +23,9 @@ def _prepare_browser_start(tmp_path, monkeypatch):
 
     monkeypatch.setattr(browser_client, "_browser_dir", lambda: browser)
     monkeypatch.setattr(
-        browser_client, "_state_file_path", lambda: tmp_path / "state.json"
+        browser_client,
+        "_state_file_path",
+        lambda profile_dir=None: tmp_path / "state.json",
     )
     monkeypatch.setattr(browser_client.sys, "platform", "linux")
     monkeypatch.setattr(browser_client.time, "sleep", lambda _seconds: None)
@@ -120,7 +122,7 @@ def test_daemon_start_surfaces_the_toolchain_refusal(tmp_path, monkeypatch) -> N
     monkeypatch.setattr(
         browser_client,
         "_state_file_path",
-        lambda: tmp_path / "state.json",
+        lambda profile_dir=None: tmp_path / "state.json",
     )
     monkeypatch.setattr(
         browser_client.DaemonState,

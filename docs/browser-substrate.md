@@ -34,7 +34,7 @@ modules below for source-development diagnostics.
  | |
  v v
 +-------------------+ +------------------+
-| qa_artifacts | | .daemon-state.json|
+| qa_artifacts | | profile state     |
 | (yoke_core.domain.qa) | | (runtime state) |
 +-------------------+ +------------------+
 ```
@@ -63,7 +63,10 @@ All JS paths below are the packaged sources; the daemon runs from their material
 
 ### State File
 
-On startup, the daemon writes `~/.yoke/browser-runtime/.daemon-state.json` (permissions 0600) containing:
+Each profile has its own daemon. On startup it writes
+`~/.yoke/browser-runtime/daemons/<profile-key>/.daemon-state.json` (permissions
+0600). The key is the SHA-256 of the canonical profile path, or `throwaway`
+for a clean context. The OS assigns the port; the state publishes its endpoint:
 
 ```json
 {
@@ -79,8 +82,10 @@ On startup, the daemon writes `~/.yoke/browser-runtime/.daemon-state.json` (perm
 ```
 
 `profileDir` is the project's persistent browser profile, empty when the
-daemon runs on a throwaway context. A daemon live on a different profile is
-restarted rather than reused; see
+daemon runs on a throwaway context. Same-profile workers reuse the healthy
+daemon and own separate pages; different profiles run independent daemons.
+Stop, status, health, retry cleanup and idle exit apply only to the selected
+profile. Its startup log is beside its state file. See
 [Persistent Browser Profile](browser-substrate/persistent-profile.md).
 
 The Python client (`yoke_core.domain.browser_client`) reads this file to discover the daemon endpoint and bearer token.
@@ -89,16 +94,16 @@ The Python client (`yoke_core.domain.browser_client`) reads this file to discove
 
 ```sh
 # Start daemon (headless by default)
-python3 -m yoke_core.domain.browser_client daemon start [--port 9222] [--headed] [--idle-timeout 600000]
+python3 -m yoke_core.domain.browser_client daemon start [--project P] [--port PORT] [--headed] [--idle-timeout 600000]
 
 # Stop daemon (sends /api/stop, then SIGTERM, then SIGKILL)
-python3 -m yoke_core.domain.browser_client daemon stop
+python3 -m yoke_core.domain.browser_client daemon stop [--project P]
 
 # Check daemon status (running/crashed/not_running)
-python3 -m yoke_core.domain.browser_client daemon status
+python3 -m yoke_core.domain.browser_client daemon status [--project P]
 
 # Get daemon health JSON from the running process
-python3 -m yoke_core.domain.browser_client daemon health
+python3 -m yoke_core.domain.browser_client daemon health [--project P]
 ```
 
 ### Idle Shutdown
@@ -176,7 +181,7 @@ python3 -m yoke_core.domain.browser_worker start <host> [--port 9222] [--local-p
 # Stop tunnel and remote daemon
 python3 -m yoke_core.domain.browser_worker stop <host>
 
-# Check tunnel and remote daemon status
+# Check tunnel and remote daemon status [--project P]
 python3 -m yoke_core.domain.browser_worker status <host>
 ```
 

@@ -25,9 +25,12 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import shlex
 import signal
 import time
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+
+from yoke_harness.browser_daemon_profile import state_file_path
 from typing import Optional
 
 from yoke_core.domain.browser_worker_constants import (
@@ -88,9 +91,10 @@ def cmd_start(
         return EXIT_FAIL
 
     # Step 2: Start the daemon on the remote host (backgrounded)
+    remote_state = state_file_path(PurePosixPath(cfg.browser_path), "")
     daemon_cmd = (
-        f"cd {cfg.browser_path} && node src/daemon.js "
-        f"--port {port_to_use} --state-file /tmp/.daemon-state.json"
+        f"cd {shlex.quote(cfg.browser_path)} && node src/daemon.js "
+        f"--port {port_to_use} --state-file {shlex.quote(str(remote_state))}"
     )
     daemon_argv = _bw._ssh_exec(cfg, daemon_cmd)
     try:
@@ -110,9 +114,7 @@ def cmd_start(
         return EXIT_FAIL
 
     # Step 3: Open SSH tunnel
-    tunnel_argv = _bw._ssh_tunnel_argv(
-        cfg, local_port=lport, remote_port=port_to_use
-    )
+    tunnel_argv = _bw._ssh_tunnel_argv(cfg, local_port=lport, remote_port=port_to_use)
     try:
         t = _bw.subprocess.run(tunnel_argv, capture_output=True, timeout=15)
     except (OSError, _bw.subprocess.TimeoutExpired):
@@ -182,15 +184,33 @@ def cmd_stop(host: str, *, root: Optional[Path] = None) -> int:
 
     cfg = _bw.lookup_remote_config(host, root=root)
     if cfg is not None:
-        kill_cmd = (
-            "pkill -f 'node.*daemon.js' 2>/dev/null; "
-            "rm -f /tmp/.daemon-state.json"
+        remote_state = state_file_path(PurePosixPath(cfg.browser_path), "")
+        stop_script = (
+            "const fs = require('fs'); "
+            "if (!fs.existsSync(process.argv[1])) process.exit(0); "
+            "const s = JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); "
+            "fetch(s.endpoint + '/api/stop', {method:'POST', "
+            "headers:{Authorization:'Bearer ' + s.token}, "
+            "signal:AbortSignal.timeout(5000)})"
+            ".then(r => {if (!r.ok) process.exit(1);})"
+            ".catch(() => process.exit(1));"
         )
-        argv = _bw._ssh_exec(cfg, kill_cmd, connect_timeout=5)
+        stop_cmd = (
+            f"node -e {shlex.quote(stop_script)} {shlex.quote(str(remote_state))}"
+        )
+        argv = _bw._ssh_exec(cfg, stop_cmd, connect_timeout=5)
         try:
-            _bw.subprocess.run(argv, capture_output=True, timeout=10)
+            result = _bw.subprocess.run(argv, capture_output=True, timeout=10)
         except (OSError, _bw.subprocess.TimeoutExpired):
-            pass
+            _bw._err(
+                "browser_worker_stop_failed: remote profile daemon did not answer; inspect its host and retry stop"
+            )
+            return EXIT_FAIL
+        if result.returncode != 0:
+            _bw._err(
+                "browser_worker_stop_failed: remote profile daemon refused stop; inspect its host and retry stop"
+            )
+            return EXIT_FAIL
 
     _bw._remove_state(root)
     _bw._emit("stopped")

@@ -285,7 +285,7 @@ def _stub_daemon_launch(monkeypatch, tmp_path, order: list[str]) -> None:
     monkeypatch.setattr(
         browser_client,
         "_state_file_path",
-        lambda: tmp_path / "state.json",
+        lambda profile_dir=None: tmp_path / "state.json",
     )
     monkeypatch.setattr(browser_client.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(

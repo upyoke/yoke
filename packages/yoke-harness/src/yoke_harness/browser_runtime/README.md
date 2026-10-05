@@ -63,10 +63,14 @@ changes, including pull-request and merge-queue trees.
 - `src/routes/*.js`: snapshot routes, and the exec routes that open, close,
   and run steps on the page a caller owns
 
-The daemon writes `~/.yoke/browser-runtime/.daemon-state.json` with the local
+Each profile has an independent daemon at an OS-assigned port. It writes
+`~/.yoke/browser-runtime/daemons/<profile-key>/.daemon-state.json` with the local
 endpoint, PID, bearer token, browser type, health state, and the persistent
 profile directory it launched on. The product Python client reads that state
-file before sending authenticated daemon requests.
+file before sending authenticated daemon requests. The key is the SHA-256
+of the canonical profile path, or `throwaway` for a clean context. Each
+profile also has its own `.daemon.log` in that directory. Start, stop, health,
+readiness and idle shutdown never affect another profile's daemon.
 
 ## Persistent Profile
 

@@ -54,22 +54,24 @@ def qa_browser_screenshot(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa browser screenshot",
         description=(
-            f"{QA_BROWSER_SCREENSHOT_USAGE}\n\n"
-            f"{_QA_BROWSER_SCREENSHOT_HELP_DEEP}"
+            f"{QA_BROWSER_SCREENSHOT_USAGE}\n\n{_QA_BROWSER_SCREENSHOT_HELP_DEEP}"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("url", help="Absolute URL to capture.")
     parser.add_argument(
-        "--output", required=True,
+        "--output",
+        required=True,
         help="Local file path the PNG is written to.",
     )
     parser.add_argument(
-        "--viewport", default=None,
+        "--viewport",
+        default=None,
         help="Viewport WxH (e.g. 1280x720; default: daemon default).",
     )
     parser.add_argument(
-        "--annotate", action="store_true",
+        "--annotate",
+        action="store_true",
         help="Annotate interactive elements in the capture.",
     )
     parser.add_argument("--project", default=None, help=_PROJECT_FLAG_HELP)
@@ -80,6 +82,7 @@ def qa_browser_screenshot(args: List[str]) -> int:
     try:
         from yoke_harness import browser_client
         from yoke_harness.browser_qa_daemon import ensure_daemon_running
+        from yoke_harness.browser_daemon_profile import project_scope
     except ImportError as exc:
         print(
             "yoke qa browser screenshot requires yoke-harness in the "
@@ -91,22 +94,22 @@ def qa_browser_screenshot(args: List[str]) -> int:
     daemon_error = ensure_daemon_running(parsed.project)
     if daemon_error:
         print(
-            f"yoke qa browser screenshot: browser daemon unavailable: "
-            f"{daemon_error}",
+            f"yoke qa browser screenshot: browser daemon unavailable: {daemon_error}",
             file=sys.stderr,
         )
         return 2
 
-    try:
-        result = browser_client.snapshot_screenshot(
-            parsed.url,
-            annotate=parsed.annotate,
-            output_path=parsed.output,
-            viewport=parsed.viewport,
-        )
-    except RuntimeError as exc:
-        print(f"yoke qa browser screenshot: {exc}", file=sys.stderr)
-        return 1
+    with project_scope(parsed.project):
+        try:
+            result = browser_client.snapshot_screenshot(
+                parsed.url,
+                annotate=parsed.annotate,
+                output_path=parsed.output,
+                viewport=parsed.viewport,
+            )
+        except RuntimeError as exc:
+            print(f"yoke qa browser screenshot: {exc}", file=sys.stderr)
+            return 1
     print(json.dumps(result))
     return 0
 
@@ -138,10 +141,10 @@ def qa_browser_step(args: List[str]) -> int:
     try:
         from yoke_harness import browser_client
         from yoke_harness.browser_qa_daemon import ensure_daemon_running
+        from yoke_harness.browser_daemon_profile import project_scope
     except ImportError as exc:
         print(
-            "yoke qa browser step requires yoke-harness in the "
-            f"product install: {exc}",
+            f"yoke qa browser step requires yoke-harness in the product install: {exc}",
             file=sys.stderr,
         )
         return 2
@@ -152,20 +155,21 @@ def qa_browser_step(args: List[str]) -> int:
             file=sys.stderr,
         )
         return 2
-    try:
-        # One exploratory agent, one page: the steps it submits across
-        # separate commands land on the same screen, and an authored QA case
-        # running beside it never sees that screen.
-        page_id = browser_client.ensure_page()
-        result = browser_client.execute_step(
-            step,
-            parsed.base_url,
-            output_dir=parsed.output_dir,
-            page_id=page_id,
-        )
-    except RuntimeError as exc:
-        print(f"yoke qa browser step: {exc}", file=sys.stderr)
-        return 1
+    with project_scope(parsed.project):
+        try:
+            # One exploratory agent, one page: the steps it submits across
+            # separate commands land on the same screen, and an authored QA case
+            # running beside it never sees that screen.
+            page_id = browser_client.ensure_page()
+            result = browser_client.execute_step(
+                step,
+                parsed.base_url,
+                output_dir=parsed.output_dir,
+                page_id=page_id,
+            )
+        except RuntimeError as exc:
+            print(f"yoke qa browser step: {exc}", file=sys.stderr)
+            return 1
     print(json.dumps(result))
     return 0
 

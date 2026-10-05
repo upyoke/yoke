@@ -13,12 +13,13 @@ import time
 from typing import Any, Dict, Optional
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_harness.browser_client_readiness import DAEMON_LOG_NAME
+from yoke_harness.browser_daemon_profile import recover_unhealthy_daemon
 
 
 _DAEMON_MAX_RETRIES = 2  # additional attempts after the first failure
 
 
-def _collect_daemon_diagnostics() -> Dict[str, Any]:
+def _collect_daemon_diagnostics(*, profile_dir: str | None = None) -> Dict[str, Any]:
     """Collect diagnostics from the browser daemon for failure reporting.
 
     Gathers the daemon log tail, daemon state, and health check results when
@@ -27,13 +28,14 @@ def _collect_daemon_diagnostics() -> Dict[str, Any]:
     from yoke_core.domain.browser_client import (
         daemon_status as _daemon_status,
         daemon_health as _daemon_health,
-        _browser_dir,
+        _state_file_path,
+        DaemonState,
     )
 
     diag: Dict[str, Any] = {}
 
     # Daemon log tail
-    daemon_log = _browser_dir() / DAEMON_LOG_NAME
+    daemon_log = _state_file_path(profile_dir).parent / DAEMON_LOG_NAME
     try:
         if daemon_log.exists():
             text = daemon_log.read_text()
@@ -45,13 +47,15 @@ def _collect_daemon_diagnostics() -> Dict[str, Any]:
 
     # Daemon status (always safe to call)
     try:
-        diag["daemon_status"] = _daemon_status()
+        diag["daemon_status"] = _daemon_status(profile_dir=profile_dir)
     except Exception:
         pass
 
     # Health (only if daemon process might be alive)
     try:
-        diag["daemon_health"] = _daemon_health()
+        diag["daemon_health"] = _daemon_health(
+            state=DaemonState.load(_state_file_path(profile_dir))
+        )
     except Exception:
         pass
 
@@ -65,26 +69,16 @@ def _ensure_daemon_running(
 ) -> Optional[str]:
     """Ensure browser daemon is running. Returns error message or None.
 
-    The daemon is started on ``project``'s persistent browser profile when the
-    operator has authorized one, so every context it hands out is signed into
-    whatever they signed into. Without a profile the daemon keeps its previous
-    throwaway-context behavior. ``daemon_start`` itself answers
-    ``already_running`` only when the live daemon is already on this profile,
-    so a project switch restarts rather than silently reusing another
-    project's session.
-
-    Performs bounded auto-recovery — on startup failure, stops stale
-    state, waits briefly, and retries up to ``_DAEMON_MAX_RETRIES`` additional
-    times before giving up.
+    Each profile owns a separate daemon, state file, log and endpoint. A retry
+    stops only this profile's verifiably unhealthy process; a healthy process
+    and every other profile's captures survive startup failures.
     """
     # Import lazily so tests patching browser_qa._log /
     # browser_qa._collect_daemon_diagnostics / browser_qa._emit_daemon_startup_failed_event
     # via mock.patch.object(browser_qa, ...) take effect on this caller.
     from yoke_core.domain import browser_qa as _bqa
-    from yoke_core.domain.browser_client import (
-        daemon_start,
-        daemon_stop,
-    )
+    from yoke_core.domain import browser_client
+    from yoke_core.domain.browser_client import daemon_start
 
     from yoke_cli.config.browser_profile import resolve_authorized_profile
     from yoke_cli.config.project_slug_lookup import ProjectSlugLookupError
@@ -116,9 +110,11 @@ def _ensure_daemon_running(
             f"Retry {attempt}/{_DAEMON_MAX_RETRIES + 1}: cleaning up stale state..."
         )
         try:
-            daemon_stop()
-        except Exception:
-            pass  # stop may fail if daemon is already dead — that's fine
+            recover_unhealthy_daemon(browser_client, profile)
+        except RuntimeError as cleanup_error:
+            last_err = str(cleanup_error)
+            _bqa._log(last_err)
+            continue
 
         time.sleep(1)
 
@@ -134,7 +130,7 @@ def _ensure_daemon_running(
             _bqa._log(f"Retry {attempt}/{_DAEMON_MAX_RETRIES + 1} failed: {retry_err}")
 
     # All retries exhausted — collect diagnostics and emit event.
-    diagnostics = _bqa._collect_daemon_diagnostics()
+    diagnostics = _bqa._collect_daemon_diagnostics(profile_dir=profile or "")
     _bqa._log(f"Browser daemon failed after {_DAEMON_MAX_RETRIES + 1} attempts")
     if diagnostics.get("log_tail"):
         _bqa._log(f"Daemon log tail:\n{diagnostics['log_tail']}")

@@ -33,18 +33,6 @@ It also re-exports the sibling-owned symbols so existing import paths
 (``from yoke_core.domain.browser_client import daemon_start``, etc.)
 keep working.
 
-**Test patch contract.** ``test_browser_client.py`` patches a number of
-parent-module attributes — ``urlopen``, ``daemon_request``,
-``_state_file_path``, ``_browser_dir`` — and expects the patches to
-take effect inside sibling-owned code paths (``daemon_start``,
-``snapshot_*``, the CLI handlers).  The siblings preserve that contract
-by resolving every parent-bound symbol through
-``_bc = yoke_core.domain.browser_client`` at call time rather than
-direct ``from ...`` imports.  The module-level ``urlopen`` import below is
-load-bearing for ``mock.patch("yoke_core.domain.browser_client.urlopen")``
-even though the only in-module caller is ``daemon_request`` itself — removing
-it silently breaks the patch seam.
-
 CLI usage::
 
     python3 -m yoke_core.domain.browser_client daemon status
@@ -78,6 +66,7 @@ from yoke_cli.transport.bounded_json_http import (
 from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.browser_daemon_api import EXEC_STEP_PATH
 from yoke_harness import browser_runtime_home
+from yoke_harness.browser_daemon_profile import state_file_path
 from yoke_core.domain.browser_client_cli import _cli_daemon, _cli_exec, _cli_snapshot
 from yoke_core.domain.browser_client_lifecycle import (  # noqa: F401
     daemon_start,
@@ -104,8 +93,8 @@ def _browser_dir() -> Path:
     return browser_runtime_home.ensure_materialized()
 
 
-def _state_file_path() -> Path:
-    return _browser_dir() / ".daemon-state.json"
+def _state_file_path(profile_dir: str | None = None) -> Path:
+    return state_file_path(_browser_dir(), profile_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -223,9 +212,9 @@ def daemon_request(
 # ---------------------------------------------------------------------------
 
 
-def daemon_status() -> Dict[str, Any]:
+def daemon_status(*, profile_dir: str | None = None) -> Dict[str, Any]:
     """Return daemon status JSON."""
-    state = DaemonState.load()
+    state = DaemonState.load(_state_file_path(profile_dir))
     if state is None:
         return {"status": "not_running"}
 
@@ -245,11 +234,24 @@ def daemon_status() -> Dict[str, Any]:
         }
 
 
-def daemon_health() -> Dict[str, Any]:
-    """Get health from the running daemon."""
-    if not daemon_running():
+def daemon_health(
+    state: Optional[DaemonState] = None, *, timeout: int = 10
+) -> Dict[str, Any]:
+    """Get authenticated health from the selected profile's running daemon."""
+    selected = state or DaemonState.load()
+    if selected is None or not daemon_running(selected):
         raise RuntimeError("daemon not running")
-    return daemon_request("/api/health", timeout=10)
+    payload = daemon_request("/api/health", timeout=timeout, state=selected)
+    data = payload.get("data")
+    if (
+        payload.get("success") is not True
+        or not isinstance(data, dict)
+        or data.get("health") != "healthy"
+    ):
+        raise RuntimeError(
+            "browser_daemon_unhealthy: health endpoint is unready; rerun `yoke qa browser setup`"
+        )
+    return payload
 
 
 # ---------------------------------------------------------------------------
@@ -329,15 +331,18 @@ def main() -> int:
 
     parser = build_parser()
     args = parser.parse_args()
-    if args.cmd == "daemon":
-        return _cli_daemon(args)
-    elif args.cmd == "snapshot":
-        return _cli_snapshot(args)
-    elif args.cmd == "exec":
-        return _cli_exec(args)
-    else:
-        parser.print_help()
-        return 3
+    from yoke_harness.browser_daemon_profile import project_scope
+
+    with project_scope(getattr(args, "project", None)):
+        if args.cmd == "daemon":
+            return _cli_daemon(args)
+        elif args.cmd == "snapshot":
+            return _cli_snapshot(args)
+        elif args.cmd == "exec":
+            return _cli_exec(args)
+        else:
+            parser.print_help()
+            return 3
 
 
 if __name__ == "__main__":

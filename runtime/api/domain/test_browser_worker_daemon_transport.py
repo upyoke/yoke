@@ -103,8 +103,35 @@ def test_worker_state_endpoint_is_accepted_by_bounded_daemon_client(
 
     monkeypatch.setattr(browser_client, "urlopen", open_daemon)
 
-    assert browser_client.daemon_request("/api/health", state=state) == {
-        "status": "ok"
-    }
+    assert browser_client.daemon_request("/api/health", state=state) == {"status": "ok"}
     assert seen["request"].full_url == "http://127.0.0.1:19222/api/health"
     assert seen["request"].get_method() == "POST"
+
+
+def test_remote_stop_addresses_only_the_throwaway_daemon(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(browser_worker, "_read_pid_file", lambda path: None)
+    monkeypatch.setattr(browser_worker, "_remove_tunnel_pid", lambda root: None)
+    monkeypatch.setattr(browser_worker, "_remove_state", lambda root: None)
+    monkeypatch.setattr(browser_worker, "_emit", lambda message: None)
+    monkeypatch.setattr(
+        browser_worker,
+        "lookup_remote_config",
+        lambda host, root=None: SimpleNamespace(browser_path="/srv/browser profile"),
+    )
+    monkeypatch.setattr(
+        browser_worker,
+        "_ssh_exec",
+        lambda cfg, command, **kw: calls.append(command) or ["ssh"],
+    )
+    monkeypatch.setattr(
+        browser_worker.subprocess,
+        "run",
+        lambda *args, **kw: SimpleNamespace(returncode=0),
+    )
+
+    assert browser_worker.cmd_stop("test-host", root=tmp_path) == 0
+    assert "daemons/throwaway/.daemon-state.json" in calls[0]
+    assert "s.token" in calls[0]
+    assert "/api/stop" in calls[0]
+    assert "pkill" not in calls[0]
