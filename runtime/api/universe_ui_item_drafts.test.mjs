@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { renderNewItemView } from "../../packages/yoke-core/src/yoke_core/ui/static/item_view_new.js";
-import { itemDraftStorage } from "../../packages/yoke-core/src/yoke_core/ui/static/item_draft_storage.js";
+import { itemDraftStorage, purgeObsoleteItemDrafts } from "../../packages/yoke-core/src/yoke_core/ui/static/item_draft_storage.js";
 import { FakeDocument, allNodes, byClass, settle } from "./universe_ui_dom_test_support.mjs";
 import { itemContext } from "./universe_ui_items_test_support.mjs";
 
@@ -11,6 +11,8 @@ function fixture({ projects = [{ id: 7, slug: "acme", name: "Acme" }] } = {}) {
   const document = new FakeDocument();
   const entries = new Map();
   document.defaultView.sessionStorage = {
+    get length() { return entries.size; },
+    key: (index) => [...entries.keys()][index] ?? null,
     getItem: (key) => entries.get(key),
     setItem: (key, value) => entries.set(key, value),
     removeItem: (key) => entries.delete(key),
@@ -39,6 +41,31 @@ function fixture({ projects = [{ id: 7, slug: "acme", name: "Acme" }] } = {}) {
   return { context, document, main, entries, state, mount };
 }
 const input = (main, tag) => allNodes(main).find((node) => node.tagName === tag);
+
+test("obsolete drafts for every actor and mount are deleted without migration", async () => {
+  const { document, entries, mount, main } = fixture();
+  for (const [path, actor] of [["/items/new", 7], ["/workbench", 8], ["/orgs/other/items/new", 9]]) {
+    entries.set(`yoke:item-draft:${JSON.stringify(["https://example.test", path, "acme", actor])}`,
+      JSON.stringify({ projectId: "7", title: "Obsolete", instruction: "Delete me" }));
+  }
+  entries.set("unrelated", "keep");
+  purgeObsoleteItemDrafts(document.defaultView);
+  assert.deepEqual([...entries], [["unrelated", "keep"]]);
+  await mount();
+  assert.equal(input(main, "INPUT").value, "");
+  fill(main);
+  const current = [...entries];
+  purgeObsoleteItemDrafts(document.defaultView);
+  assert.deepEqual([...entries], current);
+  await mount();
+  assert.equal(input(main, "INPUT").value, "Fix layout");
+});
+
+test("draft cleanup tolerates unavailable storage on dashboard load", () => {
+  const { document } = fixture();
+  Object.defineProperty(document.defaultView, "sessionStorage", { get() { throw new Error("Blocked"); } });
+  assert.doesNotThrow(() => purgeObsoleteItemDrafts(document.defaultView));
+});
 function fill(main) {
   for (const [tag, value] of [["INPUT", "Fix layout"], ["TEXTAREA", "Preserve the useful draft."]]) {
     const control = input(main, tag);
