@@ -86,23 +86,36 @@ project="${YOKE_PROJECT:-}"
 
 ## Template 2: standalone Python emitter
 
-The executable [Structured Events Pack 2.0.0](../../packs/structured-events/versions/2.0.0/files/events/README.md)
+The executable [Structured Events Pack 2.0.1](../../packs/structured-events/versions/2.0.1/files/events/README.md)
 is the standalone Python template. Install events.py, events_props.py,
 events_attribution.py, events_cookie.py, events_delivery.py and their shared
 attribution_rules.json together. Use build_event/emit_event for backend envelopes;
-use EventBatch with an explicit transport and schedule flush for HTTP delivery.
-Failures name their recovery and batches requeue; they never gate product work.
+HTTP emission requires publishable_key, passed to the X-Events-Key header:
+
+```python
+emit_event("OrderCreated", "audit", "order", destination="https://example.com/api/events",
+           publishable_key="project-public-routing-key")
+# For explicit batching: EventBatch(endpoint, publishable_key, transport=transport).
+# The process schedules flush after retry_at.
+```
+
+A missing key reports publishable_key_required. Failures never gate product work.
 
 ## Consented attribution and delivery in the standalone Pack
 
-[Structured Events Pack 2.0.0](../../packs/structured-events/versions/2.0.0/files/events/README.md)
+[Structured Events Pack 2.0.1](../../packs/structured-events/versions/2.0.1/files/events/README.md)
 provides events_attribution.py and AttributionCookie in events_cookie.py with
 shared rules and the same signed server-cookie shape as TypeScript. Routes check
 consent before capture and return Set-Cookie; DELETE uses AttributionCookie.clear.
 get_attribution_props(record, consent=True) attaches visitor_id and both touches;
 with consent=False it returns an empty group. Required signup facts belong to
 the account owner. sanitize_url and is_bot share the browser's privacy/bot rules.
-EventBatch retains failed HTTP batches and honors 429 Retry-After with a named
-batch_requeued warning. The consuming process schedules flush after retry_at.
+EventBatch retries only network failures, 429 and 5xx with batch_requeued;
+429 honors Retry-After. Other HTTP refusals discard the batch and report
+batch_refused with the collector's error and recovery. The queue holds at most
+500 pending events: append discards the oldest; requeue retains retry ids and
+discards the newest overflow. The process schedules flush after retry_at.
+Invalid or rotated cookie signatures report attribution_cookie_reminted and
+consented capture replaces the old identity using the current signing secret.
 The canonical engine emitter above is project-owned; Pack adoption is a separate
 integration. Disposable telemetry never gates product work.
