@@ -53,19 +53,33 @@ git diff --cached --quiet || git commit -m "shepherd: PREFIX-{N} {_transition} â
 
 ## 9. Final Report
 
-After all transitions complete successfully, report:
+After all transitions complete successfully, refresh the item through
+`items.detail.get` (`yoke items detail get PREFIX-{N} --json`). Use the
+Shepherd binding's `_shepherd_through_stage` from the pinned definition as
+the completed stage, and `result.item.workflow.next_skill_id` from this fresh
+read as `_next_skill_id`. Do not reuse the entry read's next skill: it named
+the skill that owned the stage before the handoff.
+
+Verify `result.item.status` equals `_shepherd_through_stage` before reporting
+completion. If it differs, stop with `shepherd_handoff_incomplete`, name the
+actual and expected stages, and resume the unfinished transition before
+issuing a completion report. Render the next-skill line only when
+`_next_skill_id` is non-empty; otherwise report that no next skill is bound.
+
+Report:
 
 ```text
 Shepherd complete: PREFIX-{N} ({_title})
 
-Status: `{_original_status}` -> `planned`
+Status: `{_original_status}` -> `{_shepherd_through_stage}`
 
 ## Transitions
 {list each transition with its verdict}
 
 {For epics: include the plan simulation result from planning}
 
-The item is now `planned` and ready for `/yoke conduct`.
+The item is now `{_shepherd_through_stage}`.
+Next bound skill: `/yoke {_next_skill_id}`.
 ```
 
 In subagent mode, return the report as structured output without interactive prompts.
