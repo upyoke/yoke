@@ -92,15 +92,18 @@ def _query(path_owner: str, historical: str, event_name: str) -> str:
         + ")"
     )
     claim_scope = "translate(jsonb_build_object('item_id', subject)::text, ' ', '')"
-    # Audited function ids are ASCII. Encoded ASCII remains a candidate even
-    # when its literal family text is absent from the envelope.
+    # Decode the function id before filtering so large unrelated payloads need
+    # no regular-expression scan. Preview candidates are decoded separately.
     sql = f"""
     WITH metadata AS MATERIALIZED (
         SELECT key AS function, value #>> '{{kind}}' AS kind
         FROM jsonb_each(%(metadata)s::jsonb)
     ), ledger AS NOT MATERIALIZED (
         SELECT id, session_id AS caller, item_id, created_at, event_name,
-               anomaly_flags,
+               anomaly_flags, fields.function AS function_id, fields.side_effects AS side_effects,
+               fields.claim_required_kind AS declared_kind,
+               ({json_text_expr("envelope")} #> '{{context,claim_required_kind}}') IS NOT NULL AS has_declared_kind,
+               fields.target AS target, fields.claim_verification AS verification_snapshot,
                jsonb_build_object('function', fields.function, 'side_effects', fields.side_effects,
                    'target', fields.target, 'claim_verification', fields.claim_verification,
                    'detail', jsonb_build_object('tool_response_preview', fields.detail ->> 'tool_response_preview'),
@@ -117,23 +120,23 @@ def _query(path_owner: str, historical: str, event_name: str) -> str:
                  detail json, prior_owner_session_id text, operator_rationale text,
                  claim_id text, claim_required_kind json)
         WHERE id >= %(cutoff)s AND event_name = %(event_name)s
-          AND (event_name <> 'YokeFunctionCalled' OR envelope ~ %(function_pattern)s)
+          AND (event_name <> 'YokeFunctionCalled' OR {json_text_expr("envelope")} #>> '{{context,function}}' ~ %(function_pattern)s)
           AND (event_name <> 'HarnessToolCallCompleted'
                OR (anomaly_flags LIKE %(unattributed)s AND envelope ~ %(candidate_pattern)s))
     ), function_metadata AS MATERIALIZED (
         SELECT e.id, e.caller, e.item_id, e.created_at,
-               jsonb_build_object('target', ctx -> 'target',
-                                  'claim_verification', ctx -> 'claim_verification') AS ctx,
-               ctx ->> 'function' AS surface,
-               CASE WHEN ctx ? 'claim_required_kind' THEN ctx ->> 'claim_required_kind'
+               jsonb_build_object('target', e.target,
+                                  'claim_verification', e.verification_snapshot) AS ctx,
+               e.function_id AS surface,
+               CASE WHEN e.has_declared_kind THEN e.declared_kind::jsonb #>> '{{}}'
                     ELSE m.kind END AS kind,
-               CASE WHEN jsonb_typeof(ctx -> 'side_effects')='array'
-                    THEN EXISTS (SELECT 1 FROM jsonb_array_elements(ctx -> 'side_effects') effect
+               CASE WHEN jsonb_typeof(e.side_effects)='array'
+                    THEN EXISTS (SELECT 1 FROM jsonb_array_elements(e.side_effects) effect
                                  WHERE effect NOT IN ('null'::jsonb, '\"\"'::jsonb, 'false'::jsonb, '0'::jsonb, '[]'::jsonb, '{{}}'::jsonb))
                     ELSE m.function IS NOT NULL END AS mutates
-        FROM ledger e LEFT JOIN metadata m ON m.function=ctx ->> 'function'
+        FROM ledger e LEFT JOIN metadata m ON m.function=e.function_id
         WHERE event_name='YokeFunctionCalled'
-          AND (ctx ->> 'function'=ANY(%(families)s) OR ctx ->> 'function' LIKE ANY(%(prefixes)s))
+          AND (e.function_id=ANY(%(families)s) OR e.function_id LIKE ANY(%(prefixes)s))
     ), function_targets AS MATERIALIZED (
         SELECT *, {item} AS subject,
                ctx #> '{{claim_verification}}' AS verification
@@ -298,10 +301,7 @@ def audit_summary(conn, *, preview_limit: int = 10) -> tuple[int, int, list]:
                 "metadata": json.dumps(metadata),
                 "cutoff": cutoff.read_min_event_id_cutoff(),
                 "event_name": event_name,
-                "function_pattern": '"function"[[:space:]]*:[[:space:]]*"'
-                + family_pattern
-                + "|"
-                + encoded_ascii,
+                "function_pattern": "^" + family_pattern + "([.]|$)",
                 "unattributed": "%unattributed%",
                 "candidate_pattern": candidate_pattern,
                 "families": list(_AUDITED_FUNCTION_FAMILIES),
