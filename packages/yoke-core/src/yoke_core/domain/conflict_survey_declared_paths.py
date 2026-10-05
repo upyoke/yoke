@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import PurePosixPath
 from typing import Any, Iterable, Optional, Sequence, Tuple
 
@@ -59,15 +60,18 @@ def clean_path(value: Any) -> str:
     return path.lstrip("/")
 
 
+@lru_cache(maxsize=4096)
+def _scope_parts(path: str) -> tuple[str, ...]:
+    """Reuse lexical path parsing across the survey's pairwise comparisons."""
+    scope = PurePosixPath(path)
+    return (scope.anchor, *scope.parts)
+
+
 def path_scopes_overlap(left: str, right: str) -> bool:
     """Treat equal files and ancestor directory scopes as overlap."""
-    left_path = PurePosixPath(left)
-    right_path = PurePosixPath(right)
-    return (
-        left_path == right_path
-        or left_path in right_path.parents
-        or right_path in left_path.parents
-    )
+    left_parts, right_parts = _scope_parts(left), _scope_parts(right)
+    shared_depth = min(len(left_parts), len(right_parts))
+    return left_parts[:shared_depth] == right_parts[:shared_depth]
 
 
 def matching_scopes(
@@ -108,9 +112,11 @@ def classify_survey_payload(
     no_changes = parsed.get("no_changes") is True
     valid_paths = isinstance(paths, list) and (
         (not paths and no_changes)
-        or (bool(paths) and not no_changes and all(
-            isinstance(path, str) and clean_path(path) for path in paths
-        ))
+        or (
+            bool(paths)
+            and not no_changes
+            and all(isinstance(path, str) and clean_path(path) for path in paths)
+        )
     )
     if (
         parsed.get("schema") != 1

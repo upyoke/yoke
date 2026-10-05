@@ -63,7 +63,8 @@ def _item_id(
 ) -> tuple[Optional[int], Optional[HandlerOutcome]]:
     if request.target.kind != "item" or request.target.item_id is None:
         return None, _error(
-            "invalid_target", "target must carry kind='item' and item_id",
+            "invalid_target",
+            "target must carry kind='item' and item_id",
         )
     return int(request.target.item_id), None
 
@@ -76,12 +77,12 @@ def handle_conflict_survey_status(request: FunctionCallRequest) -> HandlerOutcom
 
     ALL-MODES note: ``survey_conflicts`` supplements its authoritative
     signals with a git-diff over OTHER in-flight items' worktree paths
-    (``conflict_survey._git_touched_paths``). Those worktrees only exist
+    (``conflict_survey_worktree_paths.git_touched_paths``). Those worktrees only exist
     on the machine that created them, so on an https control-plane server
-    the git subprocess finds no path, fails, and is caught -- yielding an
-    empty supplement (confirmed: ``_git_touched_paths`` returns ``[]`` for
-    a missing path and swallows ``OSError``/``SubprocessError`` and any
-    non-zero git exit; it never raises). The AUTHORITATIVE conflict
+    git supplement skips a directory absent on this host before starting
+    subprocesses. Existing directories still receive all three reads;
+    ``OSError``/``SubprocessError`` and non-zero git exits yield an empty
+    best-effort read. The AUTHORITATIVE conflict
     signals -- registered ``path_claims`` and File-Budget-declared paths
     from non-terminal items -- are pure DB reads and are identical in
     every connection mode, so the block decision this status feeds is
@@ -93,9 +94,11 @@ def handle_conflict_survey_status(request: FunctionCallRequest) -> HandlerOutcom
     if invalid:
         return invalid
     from yoke_core.domain.db_helpers import connect
+
     with connect() as conn:
         row = conn.execute(
-            "SELECT workflow_id FROM items WHERE id = %s", (item_id,),
+            "SELECT workflow_id FROM items WHERE id = %s",
+            (item_id,),
         ).fetchone()
         if row is None:
             return _error("unknown_item", ITEM_NOT_FOUND)
