@@ -30,6 +30,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "organizations.settings.get",
         "projects.list",
         "projects.get",
+        "projects.lane_summary.get",
         "projects.capabilities.list",
         "projects.environment_settings.get",
         "projects.infrastructure.list",
@@ -38,9 +39,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "items.list.run",
         "items.overview.list",
         "items.search.run",
-        # Called by pages this server serves. Each was reachable in the
-        # navigation while its read was refused, so the page rendered a
-        # 403 where its content belongs.
+        # Reads used by served pages must pass the static UI caller contract.
         "profile.get",
         "actors.roster",
         "packs.list",
@@ -52,10 +51,12 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "strategy.doc.list",
         "strategy.doc_claim.list",
         "strategy.doc.get",
+        "strategy.execution.get",
         "strategy.surface.list",
         "strategy.surface.get",
         "strategy.revision.diff",
         "ouroboros.entry.list",
+        "ouroboros.entry.get",
         "board.data.get",
         "deployment_runs.list",
         "deployment_runs.find_by_item",
