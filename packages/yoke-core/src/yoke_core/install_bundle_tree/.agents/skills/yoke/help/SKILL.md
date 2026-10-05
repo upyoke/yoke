@@ -29,7 +29,7 @@ COMMANDS
  /yoke idea [--workflow issue|epic|blitz|task] {title} Capture a new backlog item
  /yoke dash "instruction" | PREFIX-N File and execute instruction-led work directly, or resume a Dash
  /yoke blitz PREFIX-N Execute a refined Blitz from its single linked strategy document
- /yoke shepherd PREFIX-N Drive an epic through quality-gated planning to planned
+ /yoke shepherd PREFIX-N Execute the pinned planning skill interval through its quality gates
  /yoke conduct PREFIX-N Engineer/Tester loop for a single epic
  /yoke usher [PREFIX-N] Merge and deploy implemented/release items
  /yoke doctor [project] Health checks and diagnostics (--fix for auto-repair)
@@ -80,22 +80,14 @@ AUTONOMOUS MODE
  /yoke strategize -> refresh + research + propose + approve SML changes
  /yoke steer [SLUG] -> itemless steering loop over a strategy doc, default CURRENT-PLAN
 
-TYPICAL FLOW
- 1. /yoke idea "my feature" -> PREFIX-N in backlog
- 2. /yoke refine PREFIX-N -> issue idea/refinement -> refined-idea
- 3. /yoke advance PREFIX-N implementation -> issue worktree -> reviewed-implementation
- 4. /yoke polish PREFIX-N -> reviewed-implementation -> implemented
- 5. /yoke usher PREFIX-N -> merge -> deploy -> done
-
- Epics use /yoke shepherd and /yoke conduct for their planning and implementation loop.
-
- DASH FLOW
- /yoke dash "fix the focused behavior" -> file, execute, verify, merge, record evidence
-
- BLITZ FLOW
- 1. /yoke idea --workflow blitz "my document-led plan" -> Blitz at idea
- 2. /yoke refine PREFIX-N -> link exactly one execution strategy document -> refined-idea
- 3. /yoke blitz PREFIX-N -> execute slices -> reconcile document -> release -> done + archive linked document
+WORKFLOW ROUTING
+ yoke workflows item get PREFIX-N --json
+  Read the item's pinned workflow version, live stage, and next bound skill.
+ yoke workflows version get WORKFLOW VERSION --json
+  Read that immutable definition's stages, transitions, gates, and skill bindings.
+  The binding's half-open interval owns the live stage; its through_stage_id
+  is the next command and claim handoff. Use the returned next_skill_id.
+  Lifecycle flows come from this definition, including the release wait.
 
 DEPENDENCY INSPECTION
  Authoritative dependency data lives in the item_dependencies table.

@@ -524,18 +524,11 @@ A tool call that outlives its yield is still running. When your harness moves a 
 Ending a turn sends no Fleet message. Send the DONE report deliberately, as `printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --steering` — the body rides stdin, so the command refuses without `--stdin`. Lead with the `DONE PREFIX-N` heading naming work this session holds or released, then what landed, what is blocked, and what you need — before ending the session.
 ```
 
-The server parameterizes that shape from the pinned `workflow_id` and
-`charge.schedule.next_step`. Workers still re-read the live binding:
-
-- Dash: `/yoke dash PREFIX-N`; one Dash leg through its merge/evidence close.
-- Task: `/yoke advance PREFIX-N implementation`, then the bound Dash close-out
-  records merge-free floor evidence; no worktree, QA, merge, or deployment leg.
-- Issue: `/yoke refine PREFIX-N` to `refined-idea`, then
-  `/yoke advance PREFIX-N implementation`, implementation and `/yoke polish`
-  per the live bindings, then that binding's merge boundary.
-- Blitz: `/yoke blitz PREFIX-N` after the strategy-document handoff.
-- Epic: the `/yoke shepherd`, `/yoke conduct`, and `/yoke usher` chain named
-  by the live bindings.
+The server parameterizes that shape from the item's pinned skill binding.
+`charge.schedule` returns its `next_step` and the rendered `entrypoint`; the
+launch mandate uses the same entrypoint mapping. Read
+`yoke workflows version get WORKFLOW VERSION --json` for the ordered stages,
+transitions, and half-open skill intervals instead of copying a workflow chain.
 
 At every live stage, re-read `yoke workflows item get PREFIX-N` and follow its
 binding. If the next bound leg would create a deployment run, stop at the

@@ -209,19 +209,19 @@ result = compute_frontier(conn, project="yoke", wip_cap=30)
 
 The `/yoke charge` SKILL.md uses the frontier computation to drive the full charge loop:
 
-1. **Compute** -- call `python3 -m yoke_core.api.service_client charge-frontier` to get the ranked frontier.
+1. **Compute** -- call `yoke charge schedule --json` to get the claim-aware ranked frontier.
 2. **Present** -- display a formatted table of runnable items with adapter classifications.
 3. **Select** -- use the highest-ranked item (or `--item PREFIX-N` override).
 4. **Confirm** -- ask the operator to confirm the dispatch target.
-5. **Dispatch** -- invoke the registered skill in the item's `next_step`
-   (not the raw `adapter`):
- - `refine` routes to `/yoke refine PREFIX-N`
- - `shepherd` routes to `/yoke shepherd PREFIX-N`
- - `conduct` routes to `/yoke conduct PREFIX-N`
- - `advance` routes to `/yoke advance PREFIX-N implementation`
- - `polish` routes to `/yoke polish PREFIX-N`
- - `usher` routes to `/yoke usher PREFIX-N`
- - `wait` reports blockers and stops
+5. **Dispatch** -- invoke the item's returned `entrypoint` from
+   `charge.schedule`. The server renders it from the binding-derived `next_step`
+   and the true public item ref using the launch mandate's own mapping. The
+   raw `adapter` remains a ranking diagnostic. A `wait` step has no entrypoint
+   and reports blockers. A missing entrypoint on a runnable step refuses as
+   `entrypoint_unavailable`: inspect the item's pin with
+   `yoke workflows item get PREFIX-N --json`, read its definition with
+   `yoke workflows version get WORKFLOW VERSION --json`, and refresh the
+   schedule against a serving build that exposes the entrypoint.
 
 ### Arguments
 
