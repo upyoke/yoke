@@ -14,6 +14,7 @@ from typing import Any, Dict, List
 
 from yoke_cli.config import project_worktrees_ignore
 from yoke_cli.project_install import files as files_layer
+from yoke_cli.project_install import uninstall_commit
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import hooks as hooks_layer
 from yoke_cli.project_install import managed_markdown as managed_markdown_layer
@@ -76,10 +77,7 @@ def uninstall(
     )
     hooks_layer.preflight_hooks_settings(
         root,
-        {
-            key: {}
-            for key in hooks_layer.SETTINGS_FILE_BY_HOOKS_KEY
-        },
+        {key: {} for key in hooks_layer.SETTINGS_FILE_BY_HOOKS_KEY},
         {
             rel: list(records)
             for rel, records in dict(manifest.get("hook_entries", {})).items()
@@ -87,6 +85,7 @@ def uninstall(
         set(manifest.get("created_settings_files", [])),
     )
     project_worktrees_ignore.report(root, apply=False)
+    commit_paths = uninstall_commit.prepare(root, manifest)
     removed, skipped, absent, warnings = files_layer.remove_manifest_files(
         root, dict(manifest.get("files") or {})
     )
@@ -110,23 +109,26 @@ def uninstall(
     )
     settings_permissions_removed = (
         settings_permissions_layer.remove_settings_permissions(
-            root, manifest.get("settings_permissions"),
+            root,
+            manifest.get("settings_permissions"),
         )
     )
     managed_markdown_removed = managed_markdown_layer.remove_managed_markdown(
-        root, manifest.get("managed_markdown"),
+        root,
+        manifest.get("managed_markdown"),
     )
     cursor_permissions_removed = cursor_permissions_layer.remove_cursor_permissions(
-        root, manifest.get(cursor_permissions_layer.MANIFEST_KEY),
+        root,
+        manifest.get(cursor_permissions_layer.MANIFEST_KEY),
     )
     created = set(manifest.get("created_settings_files") or [])
     hooks_removed: Dict[str, List[Dict[str, Any]]] = {}
     settings_deleted: List[str] = []
-    for settings_rel, records in sorted(
-        (manifest.get("hook_entries") or {}).items()
-    ):
+    for settings_rel, records in sorted((manifest.get("hook_entries") or {}).items()):
         result = hooks_layer.demerge_hooks_file(
-            root, settings_rel, list(records or []),
+            root,
+            settings_rel,
+            list(records or []),
             created_by_install=settings_rel in created,
         )
         if result["removed"]:
@@ -137,12 +139,11 @@ def uninstall(
     # uninstall never removes them, tracked or not.
     strategy_preserved = sorted(dict(manifest.get("strategy_files") or {}))
     owned_git_hooks = (
-        dict(manifest["git_hook_hashes"])
-        if "git_hook_hashes" in manifest
-        else None
+        dict(manifest["git_hook_hashes"]) if "git_hook_hashes" in manifest else None
     )
     git_hooks_removed = git_hooks_layer.remove_yoke_git_hooks(
-        root, owned_git_hooks,
+        root,
+        owned_git_hooks,
     )
     worktrees_ignore = (
         project_worktrees_ignore.remove_owned_entry(
@@ -154,7 +155,7 @@ def uninstall(
     )
     files_layer.manifest_path(root).unlink()
     files_layer.remove_empty_parents(root, files_layer.MANIFEST_REL)
-    return {
+    report = {
         "operation": "uninstall",
         MODE_KEY: MODE_COPY,
         "repo_root": str(root),
@@ -185,6 +186,8 @@ def uninstall(
         "manifest_removed": True,
         "warnings": warnings,
     }
+    report["commit"] = uninstall_commit.commit(root, commit_paths)
+    return report
 
 
 __all__ = ["uninstall"]

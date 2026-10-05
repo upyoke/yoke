@@ -155,6 +155,49 @@ gets the thing it asked for. The run records why it could not read the
 remote and publication then reports `publication_pending` — you are never
 told the remote has a layer it never received.
 
+## Uninstall
+
+```bash
+yoke uninstall
+```
+
+On a machine holding a local universe or a self-host server, the first output
+warns that uninstall deletes its only copy of the universe data. Choose **back
+up first** to run `yoke universe export` for each owned universe, or **uninstall
+without backing up**. There is no automatic backup. Exports land in your
+current directory; run the command outside the machine home. A failed export
+stops removal and names the recovery. Hosted-only clients see no data warning.
+
+Next, the command lists registered checkouts with a Yoke install manifest.
+Choose all, none, or a selection to also run `yoke project uninstall` on.
+It then removes the relay and stops its workers, removes the selected project
+layers, disconnects Yoke's GitHub credentials and checkout helpers, stops the
+local UI and embedded Postgres, tears down local self-host stacks including
+their universe volumes, and deletes the machine home (`~/.yoke` or
+`YOKE_MACHINE_HOME`). No further confirmation is required. Finally a detached
+worker removes the CLI with `uv tool uninstall yoke-cli` after the uninstall
+process exits. Its result log is printed by the command.
+
+Each step reports done, skipped with a reason, or failed with a named recovery.
+Independent cleanup continues after a failure; the machine home and CLI stay
+available when cleanup needs recovery. Fix the reported problem and retry.
+Source-checkout CLI installs refuse; retire those through your source-dev workflow.
+
+For unattended removal, make the same choices explicitly:
+
+```bash
+yoke uninstall --projects all --yes                 # hosted-only client
+yoke uninstall --backup --projects none --yes       # machine holding data
+yoke uninstall --no-backup --projects ~/work/app --yes
+```
+
+`--projects` accepts all, none, or comma-separated registered checkout paths.
+`--yes` never selects data loss or a project choice for you. The command leaves
+uv, the PATH line in your shell profile, and the GitHub App installed; remove
+the App in GitHub settings if desired. Push the removal commits made in the
+chosen checkouts. Project-owned edits and strategy documents are preserved by
+the existing project uninstall.
+
 ## Related
 
 - [Maintaining a private fork](private-forks.md)

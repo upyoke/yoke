@@ -26,6 +26,7 @@ from yoke_cli.commands.adapters.github_credential_helper import (
     github_credential_helper_refresh,
 )
 from yoke_cli.commands.adapters.self_update import UPDATE_USAGE, update
+from yoke_cli.commands.adapters.machine_uninstall import UNINSTALL_USAGE, uninstall
 from yoke_cli.commands.adapters.distribution import (
     DISTRIBUTION_SET_USAGE,
     distribution_set,
@@ -86,6 +87,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("runner-fleet", "exec"): runner_fleet_exec,
     ("pulumi", "exec"): pulumi_exec,
     ("update",): update,
+    ("uninstall",): uninstall,
     ("vps", "status"): vps_status,
     ("vps", "stop"): vps_stop,
     ("vps", "start"): vps_start,
@@ -133,6 +135,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
         "--settings-file STACK_CONFIG_JSON -- <command...>"
     ),
     "yoke update": UPDATE_USAGE,
+    "yoke uninstall": UNINSTALL_USAGE,
     "yoke pulumi exec": (
         "yoke pulumi exec --project NAME --stack STACK -- "
         "<init|preview|refresh|import|up|stack output args>"
