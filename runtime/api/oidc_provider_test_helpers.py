@@ -14,6 +14,10 @@ Test driver surface:
   iat/exp) that individual tests override to produce skew.
 * ``token_requests`` records every parsed token-endpoint form body so
   tests can assert on redirect_uri / client authentication.
+* ``auto_approve_claims`` turns on an ``/authorize`` endpoint that signs
+  in a real browser without a login screen: it issues a code for those
+  claims (plus the request's nonce) and redirects straight back. Review
+  servers use it to put a signed-in workbench in front of browser QA.
 
 The module name carries the ``_test_helpers`` suffix so pytest collects
 nothing from it.
@@ -42,11 +46,13 @@ class StubOidcProvider:
         client_id: str = "door-client",
         client_secret: str = "door-client-secret-value-0123456789abcdef",
         declared_issuer_override: Optional[str] = None,
+        auto_approve_claims: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.client_id = client_id
         self.client_secret = client_secret
         self.kid = "stub-signing-key-1"
         self.declared_issuer_override = declared_issuer_override
+        self.auto_approve_claims = auto_approve_claims
         self._private_key = rsa.generate_private_key(
             public_exponent=65537,
             key_size=2048,
@@ -69,10 +75,15 @@ class StubOidcProvider:
                 self.wfile.write(body)
 
             def do_GET(self) -> None:
-                if self.path == "/.well-known/openid-configuration":
+                path, _, query = self.path.partition("?")
+                if path == "/.well-known/openid-configuration":
                     self._send_json(provider.discovery_document())
-                elif self.path == "/jwks":
+                elif path == "/jwks":
                     self._send_json(provider.jwks_document())
+                elif path == "/authorize" and provider.auto_approve_claims:
+                    self.send_response(302)
+                    self.send_header("Location", provider.approve(query))
+                    self.end_headers()
                 else:
                     self._send_json({"error": "not_found"}, 404)
 
@@ -165,6 +176,17 @@ class StubOidcProvider:
             claims["nonce"] = nonce
         claims.update(overrides)
         return claims
+
+    def approve(self, query: str) -> str:
+        """The redirect an auto-approving ``/authorize`` answers with."""
+        params = dict(urllib.parse.parse_qsl(query))
+        claims = self.standard_claims(
+            nonce=params.get("nonce", ""), **dict(self.auto_approve_claims or {})
+        )
+        answer = urllib.parse.urlencode(
+            {"code": self.issue_code(claims), "state": params.get("state", "")}
+        )
+        return f"{params.get('redirect_uri', '')}?{answer}"
 
     def issue_code(self, claims: Dict[str, Any]) -> str:
         code = secrets.token_urlsafe(12)
