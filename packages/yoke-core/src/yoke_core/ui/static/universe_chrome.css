@@ -257,7 +257,6 @@
 .universe-app-root .page-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 24px;
@@ -277,7 +276,6 @@
   align-items: center;
   flex: 0 0 auto;
   gap: 8px;
-  margin-left: auto;
 }
 /* One heading per page, and it does not collapse, count, or compete: the
    bands beneath it carry their own counts, and a number in the title only

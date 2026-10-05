@@ -40,7 +40,6 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: auto;
   color: var(--yoke-muted);
   font-size: 10px;
   white-space: nowrap;

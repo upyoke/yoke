@@ -28,7 +28,6 @@
 }
 .universe-app-root .instruction-editor-actions {
   display: flex;
-  justify-content: flex-end;
   gap: 8px;
   margin-top: 14px;
 }
@@ -77,6 +76,5 @@
 .universe-app-root .workflow-instruction-actions {
   display: flex;
   gap: 8px;
-  margin-left: auto;
   flex: 0 0 auto;
 }

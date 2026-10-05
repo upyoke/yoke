@@ -199,7 +199,6 @@ a.qa-activity-evidence-summary {
 
 .qa-action-dialog-buttons {
   display: flex;
-  justify-content: flex-end;
   gap: 8px;
   margin-top: 14px;
 }

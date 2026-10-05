@@ -74,10 +74,6 @@
   flex: 0 0 auto;
 }
 
-.universe-app-root .item-form-actions {
-  justify-content: flex-end;
-}
-
 .universe-app-root .item-form-actions .item-button {
   min-width: 150px;
 }

@@ -230,6 +230,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "strategy_view_primitives.js": "text/javascript; charset=utf-8",
     "strategy_view_summary.js": "text/javascript; charset=utf-8",
     "app.css": "text/css; charset=utf-8",
+    "wrapping_rows.css": "text/css; charset=utf-8",
     "universe_chrome.css": "text/css; charset=utf-8",
     "universe_nav_groups.css": "text/css; charset=utf-8",
     "universe_machines_panel.css": "text/css; charset=utf-8",

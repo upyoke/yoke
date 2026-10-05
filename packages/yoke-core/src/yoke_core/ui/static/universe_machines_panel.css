@@ -62,7 +62,6 @@
 .machine-owner::after { content: ")"; }
 .machine-meta {
   flex: 0 0 auto;
-  margin-left: auto;
   color: var(--yoke-muted);
   font-size: 10.5px;
   white-space: nowrap;
@@ -256,6 +255,7 @@
   font-family: var(--yoke-font-mono);
   font-variant-numeric: tabular-nums;
   text-align: right;
+  white-space: nowrap;
 }
 .machine-limit-headroom {
   flex: 0 0 42px;
@@ -331,7 +331,6 @@
 .machines-failure .error { margin: 0; font-size: 12px; }
 .machines-retry {
   min-height: 34px;
-  margin-left: auto;
   padding: 4px 10px;
   border: 1px solid var(--yoke-border);
   border-radius: 6px;

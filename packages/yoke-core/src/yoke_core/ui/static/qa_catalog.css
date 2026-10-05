@@ -174,10 +174,6 @@
   white-space: nowrap;
 }
 
-.qa-method-foot .pill {
-  margin-left: auto;
-}
-
 @media (max-width: 560px) {
   .qa-method-catalog {
     grid-template-columns: 1fr;

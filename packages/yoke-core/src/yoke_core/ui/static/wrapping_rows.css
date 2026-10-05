@@ -1,0 +1,128 @@
+/* Shared flow for dashboard headings, facts, metadata, and actions. Keep
+   every line left-aligned, at card widths as well as narrow viewports.
+   A trailing auto margin or space-between would indent a new flex line;
+   text-align:right would indent prose wrapping inside a flex item.
+   Existing semantic classes share this primitive rather than page overrides. */
+.universe-app-root :is(
+  .wrapping-row,
+  .activation-head,
+  .app-footer-links,
+  .deployment-terminalization-actions,
+  .head-actions,
+  .instruction-editor-actions,
+  .item-form-actions,
+  .item-roster-toolbar,
+  .machine-detail-fact,
+  .machine-harness-row,
+  .machine-head,
+  .machines-failure,
+  .page-head,
+  .panel-header,
+  .qa-action-dialog-buttons,
+  .qa-method-foot,
+  .qa-plan-outcome,
+  .review-actions,
+  .review-foot,
+  .review-head,
+  .run-card h2,
+  .run-decision-ask,
+  .runtime-identity-help-row,
+  .secondary-action-row,
+  .secondary-card-header,
+  .event-header,
+  .session-filter-actions,
+  .session-holding-history,
+  .session-message-header,
+  .session-top,
+  .strategy-doc-metadata,
+  .strategy-spark-label,
+  .test-machine-actions,
+  .test-machine-dialog-actions,
+  .test-machine-head,
+  .workflow-dialog-footer,
+  .workflow-instruction-actions,
+  .workflow-panel-meta
+) {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.universe-app-root .wrapping-row { display: flex; gap: 10px; }
+
+/* Bound the item as well as the row: an unbroken flow id or long button
+   label must fit its own line instead of spilling past the card. */
+.universe-app-root :is(
+  .wrapping-row,
+  .activation-head,
+  .app-footer-links,
+  .deployment-terminalization-actions,
+  .head-actions,
+  .instruction-editor-actions,
+  .item-form-actions,
+  .item-roster-toolbar,
+  .machine-detail-fact,
+  .machine-harness-row,
+  .machine-head,
+  .machines-failure,
+  .page-head,
+  .panel-header,
+  .qa-action-dialog-buttons,
+  .qa-method-foot,
+  .qa-plan-outcome,
+  .review-actions,
+  .review-foot,
+  .review-head,
+  .run-card h2,
+  .run-decision-ask,
+  .runtime-identity-help-row,
+  .secondary-action-row,
+  .secondary-card-header,
+  .event-header,
+  .session-filter-actions,
+  .session-holding-history,
+  .session-message-header,
+  .session-top,
+  .strategy-doc-metadata,
+  .strategy-spark-label,
+  .test-machine-actions,
+  .test-machine-dialog-actions,
+  .test-machine-head,
+  .workflow-dialog-footer,
+  .workflow-instruction-actions,
+  .workflow-panel-meta
+) > * {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.universe-app-root :is(
+  .event-time,
+  .frontier-panel-detail,
+  .inbox-message-meta,
+  .inbox-message-sender,
+  .navigation-close,
+  .panel-hint,
+  .qa-panel-context,
+  .runtime-identity-help-value,
+  .session-launch-state,
+  .session-message-recipient-status,
+  .workflow-panel-meta,
+  .workflow-version-actions
+) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+/* In a column, align-items controls horizontal placement. */
+.universe-app-root :is(
+  .inbox-message-meta,
+  .inbox-message-sender,
+  .workflow-version-actions
+) {
+  align-items: flex-start;
+}

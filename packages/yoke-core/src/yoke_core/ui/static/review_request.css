@@ -35,7 +35,6 @@
 .universe-app-root .review-head {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
   gap: 12px;
 }
 .universe-app-root .review-head-copy {
@@ -276,7 +275,6 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--yoke-border);
@@ -302,7 +300,6 @@
 .universe-app-root .review-actions {
   display: flex;
   gap: 8px;
-  margin-left: auto;
 }
 .universe-app-root .review-action {
   min-height: 27px;
